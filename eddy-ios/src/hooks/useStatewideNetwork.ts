@@ -24,10 +24,14 @@
 // the window where the mount fetch is still in flight, and an unguarded retry
 // would double every cold start.
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useFocusEffect } from 'expo-router';
 import { ApiError, fetchStatewideNetwork, fetchStatewideReadings } from '@/api/client';
+import { onForeground } from '@/lib/foreground';
 import { readNetwork } from '@/lib/riverCache';
+
+/** The readings route's own s-maxage — the app must not hold colours longer. */
+const READINGS_TTL_MS = 300_000;
 import {
   buildNetwork,
   networkBounds,
@@ -107,10 +111,17 @@ export function useStatewideNetwork(): StatewideNetwork {
   // coloured line must never be drawn from stale or partial data — no readings
   // still means no colours. What the map says is which of the two greys it is
   // showing: a river nobody can grade, or a request that did not come back.
+  /**
+   * When the readings last SUCCEEDED, for the foreground check below. A ref:
+   * nothing renders from the timestamp, only from the readings it dates.
+   */
+  const readingsAt = useRef<number | null>(null);
+
   const loadReadings = useCallback(
     (signal: AbortSignal) =>
       fetchStatewideReadings(signal)
         .then(({ readings: next, available }) => {
+          readingsAt.current = Date.now();
           setReadings(next);
           // An empty list from a server that says it could not ask is a failure;
           // an empty list from one that could is a genuinely unread network.
@@ -122,6 +133,41 @@ export function useStatewideNetwork(): StatewideNetwork {
         }),
     [],
   );
+
+  /**
+   * Re-ask for the readings when the app comes back to the foreground with
+   * readings older than the route's own freshness window.
+   *
+   * The focus retries below fire only on FAILURE. Success then held for the
+   * life of the process — and the tabs live that long — so a phone resumed
+   * from an overnight suspension painted yesterday's condition colours as
+   * current, on the one surface whose whole job is which rivers are worth
+   * driving to today. Stale-while-revalidate: the old colours stand until the
+   * new readings land.
+   *
+   * ONE AT A TIME, NEWEST WINS. Foreground can fire again before a slow
+   * request answers (a quick app switch and back), and two untracked loads
+   * would race — the older response finishing last would overwrite the newer
+   * readings. Aborting the previous request first closes that; loadReadings
+   * already treats 'Request cancelled' as not-a-failure.
+   */
+  const foregroundReload = useRef<AbortController | null>(null);
+  useEffect(() => {
+    const off = onForeground(() => {
+      if (readingsAt.current === null) return;
+      if (Date.now() - readingsAt.current < READINGS_TTL_MS) return;
+      foregroundReload.current?.abort();
+      const controller = new AbortController();
+      foregroundReload.current = controller;
+      void loadReadings(controller.signal).finally(() => {
+        if (foregroundReload.current === controller) foregroundReload.current = null;
+      });
+    });
+    return () => {
+      off();
+      foregroundReload.current?.abort();
+    };
+  }, [loadReadings]);
 
   useEffect(() => {
     const controller = new AbortController();

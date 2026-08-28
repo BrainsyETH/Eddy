@@ -683,8 +683,21 @@ type BundleSeededPayload = {
 }[];
 const bundleListeners = new Set<(payload: BundleSeededPayload) => void>();
 
+/**
+ * The last payload, kept for subscribers that mount AFTER the seed fires.
+ *
+ * The seed is a one-shot per process, and on a first launch it can finish
+ * before the Map tab has ever mounted — the event then played to an empty
+ * listener set, and the tab's own disk read could land mid-seed and hold a
+ * partial layer for the whole session, because nothing else would ever fire.
+ * Replaying the held payload on subscribe closes both: a late subscriber
+ * hears the seed, and its disk read is superseded the moment it does.
+ */
+let lastSeededPayload: BundleSeededPayload | null = null;
+
 function notifyBundleSeeded(payload: BundleSeededPayload): void {
   if (payload.length === 0) return;
+  lastSeededPayload = payload;
   for (const listener of bundleListeners) {
     // One bad listener must not stop the rest, and must never take down a
     // background seed that has already done its real work.
@@ -701,6 +714,15 @@ export function onOfflineBundleSeeded(
   listener: (payload: BundleSeededPayload) => void,
 ): () => void {
   bundleListeners.add(listener);
+  // Replay a seed that already happened — see lastSeededPayload. Synchronous,
+  // so a subscriber's own async disk read cannot slip in between.
+  if (lastSeededPayload) {
+    try {
+      listener(lastSeededPayload);
+    } catch (err) {
+      warn('cache', 'a bundle listener threw', err);
+    }
+  }
   return () => bundleListeners.delete(listener);
 }
 
@@ -1772,13 +1794,19 @@ export async function registerDeviceToken(
   }
 }
 
-/** Stop this device receiving push. */
+/**
+ * Stop this device receiving push.
+ *
+ * The token rides in the BODY, like registration's does. It used to be a query
+ * parameter, which put a push token — enough to address push at this install —
+ * into CDN and proxy access logs that no app-side redaction can reach. The
+ * server still accepts the query form from installed clients.
+ */
 export async function unregisterDeviceToken(token: string, expoPushToken: string): Promise<void> {
-  await authed(
-    `/api/me/device-tokens?expoPushToken=${encodeURIComponent(expoPushToken)}`,
-    token,
-    { method: 'DELETE' },
-  );
+  await authed('/api/me/device-tokens', token, {
+    method: 'DELETE',
+    body: { expoPushToken },
+  });
 }
 
 // ── Dams ─────────────────────────────────────────────────────────────────────

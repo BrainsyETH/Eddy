@@ -149,3 +149,24 @@ export function accuracyNote(
   }
   return null;
 }
+
+/**
+ * "Dam-controlled" where a list row would otherwise say "Unknown" — or null.
+ *
+ * On a dam tailwater, `unknown` is permanent and deliberate: Eddy refuses to
+ * rate a reach whose meaning inverts with the turbines (see the 2026-08-26
+ * unrated-gauge migration). Correct on the river screen, where the tailwater
+ * row explains it — but on a Today row, a favorites card, or the plan list,
+ * grey "Unknown" reads as a data outage. This substitutes RiverReaches' own
+ * label for the type, in the one case where the ladder has nothing to say.
+ * Any rated condition passes through untouched: a rating, once one exists, is
+ * always the more specific fact.
+ */
+export function damControlledLabel(
+  riverType: string | null | undefined,
+  code: string | null | undefined,
+): string | null {
+  return riverType === 'dam_tailwater' && (code == null || code === 'unknown')
+    ? 'Dam-controlled'
+    : null;
+}

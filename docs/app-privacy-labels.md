@@ -119,10 +119,13 @@ Sentry. What makes "not linked" true rather than aspirational:
   tokens, JWTs, hex blobs, key=value secrets, and coordinate pairs
   (`src/lib/redact.ts`, applied by `src/lib/scrub-event.ts`).
 
-Note: the app does log a Supabase user id in one diagnostic breadcrumb when an
-Apple sign-in changes the account id. If Apple's reviewer or a future audit
-treats that as linkage, the honest fix is to drop that field rather than to
-re-answer this question.
+Note: the one diagnostic breadcrumb that mentioned account ids — fired when an
+Apple sign-in changes the user id — now carries only the first eight characters
+of each id (`src/hooks/useSession.tsx`). The full UUIDs used to slip past the
+redaction (its hex rule wants 32+ contiguous characters, which a dashed UUID
+never is), which contradicted the "not linked to identity" answer above. A
+truncated prefix still answers "did the id change" and gives the backend
+something to search on without being an account identifier.
 
 ## Location — **not collected**
 

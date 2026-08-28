@@ -216,6 +216,19 @@ test('offering failures stay customer-safe and reach diagnostics lazily', () => 
   assert.match(purchases, /warn\([\s\S]*'purchase'[\s\S]*no packages/);
 });
 
+test('a purchase failure never shows the SDK its own words, either', () => {
+  // The rule the file states for offerings and restore held everywhere but
+  // the one surface mid-checkout: purchasePackage returned `e?.message`
+  // verbatim, so a StoreKit configuration sentence could land in an alert
+  // titled "Purchase failed". The error goes to diagnostics; the customer
+  // gets a sentence written for them, with Restore as the way out for anyone
+  // whose charge did land.
+  const purchases = readFileSync('../eddy-ios/src/lib/purchases.ts', 'utf8');
+  assert.match(purchases, /report\(err, \{ operation: 'revenuecat\.purchasePackage' \}\)/);
+  assert.match(purchases, /Restore purchases will find it/);
+  assert.doesNotMatch(purchases, /message: e\?\.message/);
+});
+
 test('the paywall states forecast uncertainty explicitly', () => {
   // The sentence moved from the component into premiumCopy.ts when the pitch
   // was centralised, so this now checks the copy module AND that the paywall

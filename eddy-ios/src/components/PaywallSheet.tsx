@@ -94,13 +94,20 @@ interface Props {
   /** The river that triggered it, so the offer can name what they just asked for. */
   riverName?: string;
   /**
-   * Fired once the entitlement is live on the SERVER, not merely bought.
+   * Fired when the sheet closes over a real purchase, restore, or redemption.
    *
    * The caller's job is to finish what the user originally asked for — they
    * tapped "notify me", hit the wall, and paid; the subscription they wanted
    * still has to be created.
+   *
+   * `serverConfirmed` says whether the SERVER agreed before the sheet closed.
+   * False means Apple has the receipt and the account is still catching up —
+   * the state where a caller that re-reads the profile will read the OLD
+   * answer and render a buy button seconds after an alert said "subscribed".
+   * Profile uses it to show a pending state instead; callers that only
+   * refresh can ignore the argument.
    */
-  onPurchased?: () => void;
+  onPurchased?: (outcome: { serverConfirmed: boolean }) => void;
 }
 
 // App Store review requires a subscription screen to link to both the terms
@@ -209,14 +216,16 @@ export function PaywallSheet({ visible, onClose, riverName, onPurchased }: Props
         if (!live) {
           // Their money moved and Apple has the receipt. The only true
           // statement is that it has not reached us yet, so say that and let
-          // them go — never imply the purchase did not happen.
+          // them go — never imply the purchase did not happen. "Pull down on
+          // your Profile", not "pull to refresh": this sheet opens over river
+          // and gauge screens, where there is nothing to pull.
           Alert.alert(
             'Thanks — you are subscribed',
-            'It can take a moment to show up. If anything still looks locked in a minute, pull to refresh.',
+            'It can take a moment to show up. If anything still looks locked in a minute, pull down on your Profile.',
           );
         }
 
-        onPurchased?.();
+        onPurchased?.({ serverConfirmed: live });
         onClose();
       } finally {
         setBusy(null);
@@ -296,8 +305,8 @@ export function PaywallSheet({ visible, onClose, riverName, onPurchased }: Props
           // through RevenueCat's webhook, so wait for the backend before the
           // caller re-runs whatever hit the paywall.
           const token = await getAccessToken();
-          if (token) await waitForEntitlement(token);
-          onPurchased?.();
+          const live = token ? await waitForEntitlement(token) : false;
+          onPurchased?.({ serverConfirmed: live });
           onClose();
         } finally {
           setBusy(null);
@@ -335,7 +344,7 @@ export function PaywallSheet({ visible, onClose, riverName, onPurchased }: Props
           const alert = restoreAlert(result, false);
           Alert.alert(alert.title, alert.message);
         }
-        onPurchased?.();
+        onPurchased?.({ serverConfirmed });
         onClose();
         return;
       }
@@ -432,12 +441,24 @@ export function PaywallSheet({ visible, onClose, riverName, onPurchased }: Props
             before the period ends. Manage or cancel in your Apple ID settings.
           </Text>
 
+          {/* `link`, not `button`: these leave for the browser — the same
+              distinction PlanResult states as the house rule. Without a role,
+              VoiceOver read the pair as plain text on a screen App Review
+              requires them to be reachable from. */}
           <View style={styles.legalLinks}>
-            <Pressable onPress={() => Linking.openURL(TERMS_URL)} hitSlop={8}>
+            <Pressable
+              onPress={() => Linking.openURL(TERMS_URL)}
+              hitSlop={8}
+              accessibilityRole="link"
+            >
               <Text style={[styles.legalLink, { color: colors.textMuted }]}>Terms of Use</Text>
             </Pressable>
             <Text style={[styles.legalLink, { color: colors.textSubtle }]}>·</Text>
-            <Pressable onPress={() => Linking.openURL(PRIVACY_URL)} hitSlop={8}>
+            <Pressable
+              onPress={() => Linking.openURL(PRIVACY_URL)}
+              hitSlop={8}
+              accessibilityRole="link"
+            >
               <Text style={[styles.legalLink, { color: colors.textMuted }]}>Privacy Policy</Text>
             </Pressable>
           </View>

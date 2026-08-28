@@ -1661,6 +1661,17 @@ export interface FloatPlan {
     basis?: 'trip' | 'moving';
     timeRange?: { min: number; max: number };
   } | null;
+  /**
+   * WHY floatTime is null, when it is — two different silences that clients
+   * must not word the same (see floatTimeWithholding in the web app):
+   * 'dangerous' is a time we decline to quote because the water should not be
+   * floated; 'regulated' is a dam tailwater where no single time exists,
+   * because the release can change mid-float. Rendering the second under
+   * "wait for it to drop" told a reader on ordinary generation that the river
+   * was in flood. Optional: an older server omits it, and clients fall back
+   * to the dangerous wording — the only case that existed before the field.
+   */
+  floatTimeWithheldReason?: 'dangerous' | 'regulated' | null;
   /** Take-out → put-in, which is the direction the shuttle actually drives. */
   driveBack: {
     minutes: number;

@@ -516,9 +516,37 @@ export async function purchasePackage(pkg: PurchasePackage): Promise<PurchaseOut
   } catch (err) {
     const e = err as { userCancelled?: boolean; message?: string };
     if (e?.userCancelled) return { status: 'cancelled' };
-    return { status: 'error', message: e?.message ?? 'The purchase could not be completed.' };
+    // Never the SDK's own string — the same rule fetchOfferings and the
+    // restore path already hold. RevenueCat's error text describes dashboard
+    // and StoreKit configuration ("There is an issue with your configuration…"),
+    // which is diagnostics for us and gibberish mid-checkout for a customer.
+    // This was the one surface still passing it through verbatim.
+    purchaseDiagnostics()?.report(err, { operation: 'revenuecat.purchasePackage' });
+    // No claim about money in either direction: an Ask to Buy request lands
+    // here as an error too, and "nothing was charged" would be a guess. The
+    // Restore pointer is the honest way out for anyone whose charge did land.
+    return {
+      status: 'error',
+      message:
+        'The purchase could not be completed. Try again in a moment — if you were charged, Restore purchases will find it.',
+    };
   }
 }
+
+/**
+ * Where a stuck subscription gets un-stuck by a person.
+ *
+ * Named in the copy below rather than as "contact support", because the
+ * alerts that need it appear over the paywall and the Profile card — screens
+ * with no support control — and an instruction with no door is a dead end.
+ * Profile's own Email support button imports this same constant, so the
+ * address cannot drift between the sentence and the door.
+ *
+ * The same address as eddy.guide/support and the privacy policy, deliberately:
+ * support arriving at two inboxes is how a request goes unanswered while
+ * everyone assumes someone else has it.
+ */
+export const SUPPORT_EMAIL = 'eddy@eddy.guide';
 
 export interface RestoreResult {
   /** False means the restore did not RUN — distinct from running and finding nothing. */
@@ -613,8 +641,11 @@ export async function restorePurchases(): Promise<RestoreResult> {
       return {
         ok: false,
         entitled: false,
-        message:
-          'This subscription is attached to a different Eddy account. Sign in to that account to use it, or contact support to have it moved.',
+        // The address, not "contact support": this alert appears over the
+        // paywall and the Profile card, and neither offers a support control —
+        // an instruction with no door is a dead end for the one person who
+        // most needs the way out.
+        message: `This subscription is attached to a different Eddy account. Sign in to that account to use it, or email ${SUPPORT_EMAIL} to have it moved.`,
       };
     }
 
@@ -653,10 +684,13 @@ export function restoreAlert(
   if (!result.entitled) return { title: 'Nothing to restore', message: result.message };
   if (serverConfirmed) return { title: 'Subscription restored', message: result.message };
 
+  // "Pull down on your Profile", not "pull to refresh": this alert can appear
+  // over the paywall on a river or gauge screen, where there is nothing to
+  // pull. The Profile tab is the one place that shows entitlement state AND
+  // has the gesture — an instruction is only worth giving where it works.
   return {
     title: 'Purchase found',
-    message:
-      'The App Store confirms a subscription on this Apple ID, but this Eddy account has not picked it up yet. Pull to refresh in a moment — if Premium is still locked, contact support.',
+    message: `The App Store confirms a subscription on this Apple ID, but this Eddy account has not picked it up yet. Pull down on your Profile in a moment to check again — if Premium is still locked, email ${SUPPORT_EMAIL} for support.`,
   };
 }
 
@@ -895,15 +929,17 @@ export function redemptionAlert(
     return {
       title: 'Subscription updated',
       message:
-        'Something changed on this Apple ID, but Eddy still sees no active subscription. If you just redeemed a code, pull to refresh in a moment.',
+        'Something changed on this Apple ID, but Eddy still sees no active subscription. If you just redeemed a code, pull down on your Profile in a moment.',
     };
   }
 
+  // "Pull down on your Profile", same reasoning as restoreAlert: the redeem
+  // control lives on the paywall too, and only Profile has the gesture.
   return {
     title: 'Subscription updated',
     message: serverConfirmed
       ? 'Eddy Premium is active on your account.'
-      : 'It can take a moment to show up. If this card still looks wrong in a minute, pull to refresh.',
+      : 'It can take a moment to show up. If this still looks wrong in a minute, pull down on your Profile.',
   };
 }
 
@@ -917,7 +953,11 @@ export function subscriptionSummary(entitlement: MeEntitlement | null): string {
   if (!entitlement || !entitlement.isActive) return 'No active subscription';
 
   if (entitlement.billingIssue) {
-    return 'There is a problem with your payment method — update it in Settings to keep Eddy Premium.';
+    // The full path, because the card's only button opens the App Store's
+    // SUBSCRIPTION list — where a plan is cancelled, not where a failing card
+    // is fixed. Sending the one user who can still save their subscription to
+    // the wrong screen with a vague "Settings" was worse than a longer line.
+    return 'There is a problem with your payment method — update it in Settings → your name → Payment & Shipping to keep Eddy Premium.';
   }
 
   if (!entitlement.expiresAt) return 'Active';

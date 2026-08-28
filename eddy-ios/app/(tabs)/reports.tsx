@@ -71,7 +71,7 @@
 // says so: "≈" and "to its gauge", never a drive time. A river with no gauge
 // sorts last rather than pretending to a distance of zero.
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
@@ -95,7 +95,6 @@ import { FLOW_BAND_ORDER, flowBand, type FlowBand } from '@eddy/conditions/flow-
 import { floatableHeadline } from '@eddy/conditions/floatable-headline';
 import {
   ApiError,
-  fetchDams,
   fetchGaugeCount,
   fetchGauges,
   fetchRivers,
@@ -116,6 +115,9 @@ import { FilterChips, type FilterChip } from '@/components/FilterChips';
 import { FeedbackSheet } from '@/components/FeedbackSheet';
 import { gaugeToSearchResult, useEddySearch } from '@/hooks/useEddySearch';
 import { useEddyUpdates } from '@/hooks/useEddyUpdates';
+import { getSharedDams } from '@/hooks/useDams';
+import { onForeground } from '@/lib/foreground';
+import { agedIndex, readIndex } from '@/lib/riverCache';
 import { useStarredRivers } from '@/hooks/useStarredRivers';
 import { useLocation, type Coords } from '@/hooks/useLocation';
 import { riverMilesByGauge } from '@/lib/riverDistance';
@@ -284,6 +286,151 @@ type SearchRow =
   | { kind: 'access'; key: string; result: SearchResult }
   | { kind: 'dam'; key: string; dam: DamSnapshot };
 
+/**
+ * One data row of the Today list, memoised — and the memo actually holds.
+ *
+ * RiverRow, GaugeRow, ReferenceGaugeRow and DamRow are all memo()'d, but the
+ * renderItem below used to build their onPress/onToggleStar closures inline,
+ * so every parent render handed every visible row a fresh function and the
+ * shallow compare failed on the one screen with a list long enough to feel
+ * it. Every mounted row re-rendered on any state flip that touched no row —
+ * a chip toggle, the gauge count landing, `refreshing` flipping, the sort
+ * sheet opening.
+ *
+ * The closures now live HERE, inside a component whose own props are data —
+ * the item, a number, a flag — so the inner rows re-render only when this
+ * wrapper does, and this wrapper only when its row's data changes. Router
+ * and the star store are read via their hooks rather than threaded through
+ * props; both are stable, and a star toggle re-rendering the rows is the one
+ * case where re-rendering is the point.
+ *
+ * Section headings and access rows stay inline in renderItem: one is two
+ * Texts, the other a plain Pressable, and neither wraps a memo()'d component
+ * whose memo was being defeated.
+ */
+const TodayDataRow = memo(function TodayDataRow({
+  item,
+  distanceMiles,
+  starsReady,
+}: {
+  item: Extract<SearchRow, { kind: 'river' | 'gauge' | 'refgauge' | 'dam' }>;
+  distanceMiles: number | null;
+  starsReady: boolean;
+}) {
+  const router = useRouter();
+  const { isStarred, toggleStar } = useStarredRivers();
+
+  if (item.kind === 'gauge') {
+    const gauge = item.gauge;
+    // The gauge's own primary association names the river. It no longer
+    // decides whether the row goes anywhere: every gauge has a screen now, so
+    // a station that rates nothing is still a destination rather than the
+    // dead row this used to render.
+    const link = gaugeLink(gauge);
+    return (
+      <GaugeRow
+        name={gauge.name}
+        riverName={link?.riverName ?? null}
+        gauge={gauge}
+        starred={isStarred('gauge', gauge.id)}
+        onPress={
+          gauge.usgsSiteId
+            ? () => {
+                // The local rated record carries the authoritative provider
+                // and ladder even when an older search backend does not yet
+                // return provider provenance.
+                rememberGauge(seedFromMapGauge(gauge));
+                router.push(`/gauge/${encodeURIComponent(gauge.usgsSiteId!)}`);
+              }
+            : null
+        }
+        onToggleStar={() =>
+          toggleStar({
+            kind: 'gauge',
+            entityId: gauge.id,
+            name: gauge.name,
+            slug: link?.riverSlug ?? '',
+            usgsSiteId: gauge.usgsSiteId,
+            provider: gauge.provider,
+          })
+        }
+      />
+    );
+  }
+
+  if (item.kind === 'refgauge') {
+    const result = item.result;
+    return (
+      <ReferenceGaugeRow
+        name={result.name}
+        siteId={result.siteId ?? null}
+        provider={result.provider}
+        reading={result.gauge ?? null}
+        starred={isStarred('gauge', result.id)}
+        onPress={
+          result.siteId
+            ? () => {
+                rememberGauge(seedFromSearchResult(result));
+                router.push(`/gauge/${encodeURIComponent(result.siteId!)}`);
+              }
+            : null
+        }
+        // A reference gauge is starrable like any other — the store keys on
+        // the station id, which this row has. It then appears in Favorites
+        // with a live reading, which is the point.
+        onToggleStar={() =>
+          toggleStar({
+            kind: 'gauge',
+            entityId: result.id,
+            name: result.name,
+            // It rates no river, so there is no slug. Empty rather than a
+            // guess — the store treats it as "nowhere to tap through".
+            slug: result.riverSlug ?? '',
+            usgsSiteId: result.siteId ?? null,
+            provider: result.provider ?? null,
+          })
+        }
+      />
+    );
+  }
+
+  if (item.kind === 'dam') {
+    return (
+      <DamRow
+        dam={item.dam}
+        onPress={() => router.push(`/dam/${item.dam.id}`)}
+        starred={isStarred('dam', item.dam.id)}
+        onToggleStar={() =>
+          toggleStar({
+            kind: 'dam',
+            entityId: item.dam.id,
+            name: item.dam.name,
+            slug: item.dam.tailwater?.riverSlug ?? '',
+          })
+        }
+      />
+    );
+  }
+
+  const river = item.river;
+  return (
+    <RiverRow
+      river={river}
+      starred={isStarred('river', river.id)}
+      starDisabled={!starsReady}
+      distanceMiles={distanceMiles}
+      // This is the tab people come to to read gauges, so the row shows every
+      // number the station published rather than only the rated one.
+      // Favorites keeps the single-number row.
+      showGauge
+      onPress={() => router.push(`/river/${river.slug}`)}
+      onToggleStar={() =>
+        toggleStar({ kind: 'river', entityId: river.id, name: river.name, slug: river.slug })
+      }
+    />
+  );
+});
+
 export default function ReportsScreen() {
   const [rivers, setRivers] = useState<RiverListItem[] | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -333,21 +480,17 @@ export default function ReportsScreen() {
   useEffect(() => {
     if ((scope !== 'dams' && scope !== 'all') || damsLoaded.current) return;
     let cancelled = false;
-    void fetchDams()
+    void getSharedDams()
       .then((live) => {
         if (cancelled) return;
         damsLoaded.current = true;
         setDams(live);
       })
-      .catch((err) => {
+      .catch(() => {
         // Non-fatal: the scope renders empty this time and asks again on the
-        // next visit. Logged with WHICH failure — a deadline and a status code
-        // want different fixes.
-        // Tagged `map`: it is the same dams feed the map layer reads, and the
-        // message names the surface so the two are still tellable apart.
-        warn('map', 'dams fetch failed on reports', {
-          reason: err instanceof ApiError ? (err.status ?? err.message) : 'unknown',
-        });
+        // next visit. Not logged here — the shared dams store already warns
+        // once per failed request, with which failure, however many surfaces
+        // were awaiting it.
       });
     return () => {
       cancelled = true;
@@ -390,6 +533,11 @@ export default function ReportsScreen() {
     chosenFilter ??
     (starsReady && starred.some((entry) => entry.kind === 'river') ? 'starred' : 'all');
 
+  /** When the rivers last loaded — a ref, read only by the foreground check. */
+  const riversAt = useRef<number | null>(null);
+  /** The foreground reload in flight, so a second foreground supersedes it. */
+  const foregroundReload = useRef<AbortController | null>(null);
+
   const load = useCallback(async (signal?: AbortSignal) => {
     // The statewide paragraph is NOT fetched here any more. It arrives through
     // useEddyUpdates, which holds the batched response for the whole app — this
@@ -401,13 +549,62 @@ export default function ReportsScreen() {
     try {
       setError(null);
       setRivers(await fetchRivers(signal));
+      riversAt.current = Date.now();
     } catch (err) {
       if (err instanceof ApiError && err.message === 'Request cancelled') return;
+
+      // Disk before defeat. The index is written through on every successful
+      // fetch and was never read back here — so an offline cold start showed
+      // an error over an empty list while every river's name and last
+      // condition sat on the phone. agedIndex recomputes ages on this clock
+      // and withholds any verdict past the trusted window, so nothing cached
+      // can present as live; the error slot still says why the list is what
+      // it is. Never over a live list: a failed refresh keeps what is on
+      // screen, exactly as before.
+      const cached = await readIndex();
+      if (signal?.aborted) return;
+      if (cached && cached.payload.length > 0) {
+        setRivers((current) => current ?? agedIndex(cached, Date.now()));
+        setError('Offline — showing the last conditions Eddy saw. Pull down to retry.');
+        return;
+      }
+
       setError(
         err instanceof ApiError ? err.message : 'Couldn’t load rivers. Pull down to refresh.',
       );
     }
   }, []);
+
+  /**
+   * Reload when the app comes back to the foreground with conditions older
+   * than /api/rivers' own s-maxage (300s).
+   *
+   * This tab mounts once and lives as long as the process, and `load` ran on
+   * mount and manual pull only — so an app resumed from an overnight
+   * suspension opened on yesterday's condition colours presented as today's,
+   * on the landing screen. Silent, stale-while-revalidate: the list stands
+   * until the fresh answer replaces it.
+   */
+  useEffect(() => {
+    // One at a time, newest wins: foreground can fire again before a slow
+    // request answers, and two untracked loads would let the older response
+    // finish last and overwrite the newer list. load() already treats
+    // 'Request cancelled' as not-a-failure.
+    const off = onForeground(() => {
+      if (riversAt.current === null) return;
+      if (Date.now() - riversAt.current < 300_000) return;
+      foregroundReload.current?.abort();
+      const controller = new AbortController();
+      foregroundReload.current = controller;
+      void load(controller.signal).finally(() => {
+        if (foregroundReload.current === controller) foregroundReload.current = null;
+      });
+    });
+    return () => {
+      off();
+      foregroundReload.current?.abort();
+    };
+  }, [load]);
 
   /**
    * The statewide gauge list, fetched at most once per visit to this screen.
@@ -1390,98 +1587,6 @@ export default function ReportsScreen() {
             );
           }
 
-          if (item.kind === 'gauge') {
-            const gauge = item.gauge;
-            // The gauge's own primary association names the river. It no longer
-            // decides whether the row goes anywhere: every gauge has a screen
-            // now, so a station that rates nothing is still a destination
-            // rather than the dead row this used to render.
-            const link = gaugeLink(gauge);
-            return (
-              <GaugeRow
-                name={gauge.name}
-                riverName={link?.riverName ?? null}
-                gauge={gauge}
-                starred={isStarred('gauge', gauge.id)}
-                onPress={
-                  gauge.usgsSiteId
-                    ? () => {
-                        // The local rated record carries the authoritative
-                        // provider and ladder even when an older search backend
-                        // does not yet return provider provenance.
-                        rememberGauge(seedFromMapGauge(gauge));
-                        router.push(`/gauge/${encodeURIComponent(gauge.usgsSiteId!)}`);
-                      }
-                    : null
-                }
-                onToggleStar={() =>
-                  toggleStar({
-                    kind: 'gauge',
-                    entityId: gauge.id,
-                    name: gauge.name,
-                    slug: link?.riverSlug ?? '',
-                    usgsSiteId: gauge.usgsSiteId,
-                    provider: gauge.provider,
-                  })
-                }
-              />
-            );
-          }
-
-          if (item.kind === 'refgauge') {
-            const result = item.result;
-            return (
-              <ReferenceGaugeRow
-                name={result.name}
-                siteId={result.siteId ?? null}
-                provider={result.provider}
-                reading={result.gauge ?? null}
-                starred={isStarred('gauge', result.id)}
-                onPress={
-                  result.siteId
-                    ? () => {
-                        rememberGauge(seedFromSearchResult(result));
-                        router.push(`/gauge/${encodeURIComponent(result.siteId!)}`);
-                      }
-                    : null
-                }
-                // A reference gauge is starrable like any other — the store
-                // keys on the station id, which this row has. It then appears
-                // in Favorites with a live reading, which is the point.
-                onToggleStar={() =>
-                  toggleStar({
-                    kind: 'gauge',
-                    entityId: result.id,
-                    name: result.name,
-                    // It rates no river, so there is no slug. Empty rather than
-                    // a guess — the store treats it as "nowhere to tap through".
-                    slug: result.riverSlug ?? '',
-                    usgsSiteId: result.siteId ?? null,
-                    provider: result.provider ?? null,
-                  })
-                }
-              />
-            );
-          }
-
-          if (item.kind === 'dam') {
-            return (
-              <DamRow
-                dam={item.dam}
-                onPress={() => router.push(`/dam/${item.dam.id}`)}
-                starred={isStarred('dam', item.dam.id)}
-                onToggleStar={() =>
-                  toggleStar({
-                    kind: 'dam',
-                    entityId: item.dam.id,
-                    name: item.dam.name,
-                    slug: item.dam.tailwater?.riverSlug ?? '',
-                  })
-                }
-              />
-            );
-          }
-
           if (item.kind === 'access') {
             const result = item.result;
             const target =
@@ -1525,21 +1630,15 @@ export default function ReportsScreen() {
             );
           }
 
-          const river = item.river;
+          // Every remaining kind wraps a memo()'d row whose memo the old inline
+          // closures defeated — see TodayDataRow above.
           return (
-            <RiverRow
-              river={river}
-              starred={isStarred('river', river.id)}
-              starDisabled={!starsReady}
-              distanceMiles={distanceByRiver?.get(river.id) ?? null}
-              // This is the tab people come to to read gauges, so the row shows
-              // every number the station published rather than only the rated
-              // one. Favorites keeps the single-number row.
-              showGauge
-              onPress={() => router.push(`/river/${river.slug}`)}
-              onToggleStar={() =>
-                toggleStar({ kind: 'river', entityId: river.id, name: river.name, slug: river.slug })
+            <TodayDataRow
+              item={item}
+              distanceMiles={
+                item.kind === 'river' ? (distanceByRiver?.get(item.river.id) ?? null) : null
               }
+              starsReady={starsReady}
             />
           );
         }}

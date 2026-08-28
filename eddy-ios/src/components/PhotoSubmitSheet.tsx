@@ -181,14 +181,50 @@ function exifDate(exif: Record<string, unknown> | undefined | null): string | nu
   return parsed.toISOString();
 }
 
-/** Re-encode when the file is near the body limit; pass it through otherwise. */
+/**
+ * Every photo is re-drawn before upload; the only question is whether it must
+ * also shrink.
+ *
+ * ── Why there is no pass-through any more ─────────────────────────────────
+ * The original bytes of a camera-roll photo carry the camera's own EXIF —
+ * including a GPS tag, on most phones. The location permission copy promises
+ * "It is never sent to our servers", and the server does strip metadata
+ * before storage — but a pass-through sent the tag across the wire anyway,
+ * which is not what "never sent" means. A no-resize re-draw at the original
+ * dimensions drops every metadata block (capturedAt is read out first, above)
+ * for the price of one encode; only a file that is over the limit — or grows
+ * past it at this quality — takes the shrinking ladder below.
+ */
 async function prepareUpload(asset: ImagePicker.ImagePickerAsset): Promise<Prepared> {
   const decision = uploadPreparation(asset);
   const capturedAt = exifDate(asset.exif as Record<string, unknown> | undefined);
-  if (!decision.reencode) return { uri: asset.uri, capturedAt, ...decision };
 
   const manipulator = loadImageManipulator();
   if (!manipulator) throw new Error('Image preparation is unavailable');
+
+  if (!decision.reencode) {
+    // Small and already a supported format: strip at full size. PNG stays
+    // PNG (screenshots, and lossless); everything else lands on JPEG — the
+    // server re-encodes to webp regardless, so the format here only has to
+    // be one the route accepts.
+    const png = decision.type === 'image/png';
+    const stripped = await manipulator.manipulateAsync(asset.uri, [], {
+      compress: 0.9,
+      format: png ? manipulator.SaveFormat.PNG : manipulator.SaveFormat.JPEG,
+    });
+    const size = localFileSize(stripped.uri);
+    // Unmeasurable is not oversize — the ladder's own rule.
+    if (size === null || size <= UPLOAD_SAFE_BYTES) {
+      return {
+        uri: stripped.uri,
+        capturedAt,
+        name: png ? 'river-photo.png' : 'river-photo.jpg',
+        type: png ? 'image/png' : 'image/jpeg',
+      };
+    }
+    // Grew past the limit at this quality — fall through and let the ladder
+    // shrink it like any other oversize photo.
+  }
 
   for (const [width, compress] of [
     [UPLOAD_MAX_DIMENSION, 0.82],
@@ -212,11 +248,13 @@ async function prepareUpload(asset: ImagePicker.ImagePickerAsset): Promise<Prepa
     // "That photo is too large."
     if (size === null) {
       warn('photo', 'could not measure the encoded file; uploading anyway', { width });
-      return { uri: result.uri, capturedAt, ...decision };
+      // Explicit, not `...decision`: the ladder always writes JPEG, and on a
+      // fall-through from the strip above the decision could still name png.
+      return { uri: result.uri, capturedAt, name: 'river-photo.jpg', type: 'image/jpeg' };
     }
 
     if (size <= UPLOAD_SAFE_BYTES) {
-      return { uri: result.uri, capturedAt, ...decision };
+      return { uri: result.uri, capturedAt, name: 'river-photo.jpg', type: 'image/jpeg' };
     }
   }
 

@@ -31,6 +31,7 @@ import {
   AppState,
   Linking,
   Pressable,
+  RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
@@ -55,6 +56,7 @@ import {
   restoreAlert,
   restorePurchases,
   subscriptionSummary,
+  SUPPORT_EMAIL,
   syncRedeemedPurchases,
   type EntitlementSnapshot,
 } from '@/lib/purchases';
@@ -66,17 +68,6 @@ import { SafetyDisclaimer } from '@/components/SafetyDisclaimer';
 import { PRIVACY_URL, TERMS_URL } from '@/lib/legal';
 import { report, resolveEnvironment } from '@/lib/monitoring';
 import { resetFirstRun } from '@/lib/onboarding';
-
-/**
- * Not the same thing as the Feedback sheet below it. Feedback is one-way and
- * lands in our own store; support is a reply channel, and App Review expects a
- * way to reach a human from inside the app.
- *
- * The same address as eddy.guide/support and the privacy policy, deliberately.
- * Support arriving at two inboxes is how a request goes unanswered while
- * everyone assumes someone else has it.
- */
-const SUPPORT_EMAIL = 'eddy@eddy.guide';
 
 /**
  * Apple's own subscription-management screen. Eddy cannot cancel a subscription
@@ -104,6 +95,24 @@ export default function ProfileScreen() {
   const [busy, setBusy] = useState<null | 'apple' | 'restore' | 'redeem' | 'delete'>(null);
   const [feedbackOpen, setFeedbackOpen] = useState(false);
   const [paywallOpen, setPaywallOpen] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+
+  /**
+   * The App Store has confirmed a purchase the server has not caught up with.
+   *
+   * The gap this covers: a purchase or restore whose webhook had not landed by
+   * the time waitForEntitlement gave up. The alert says "you are subscribed" —
+   * truthfully — and refresh() then re-reads the OLD server state, so without
+   * this flag the card renders "Get Eddy Premium" seconds after that alert.
+   * A buy button under a subscription confirmation reads as the app calling
+   * its own alert a lie.
+   *
+   * While set, the card says the account is catching up instead of offering a
+   * second purchase. Cleared the moment the server agrees (the effect below),
+   * so it can never mask a real unsubscribed state for longer than the gap it
+   * names.
+   */
+  const [confirmPending, setConfirmPending] = useState(false);
   /**
    * Whether the first-run keys have been cleared this session.
    *
@@ -114,6 +123,43 @@ export default function ProfileScreen() {
   const [firstRunCleared, setFirstRunCleared] = useState(false);
 
   const signedIn = Boolean(session) && !isAnonymous;
+
+  /**
+   * The other half of confirmPending: one more server poll, then the truth.
+   *
+   * waitForEntitlement already gave up once by the time this runs, so this is
+   * deliberately the LAST automatic attempt — after it, the card's catch-up
+   * note and the pull-to-refresh gesture carry the recovery rather than a
+   * silent retry loop. If the poll succeeds, refresh() flips the card and the
+   * effect below clears the flag.
+   */
+  const settleConfirmPending = useCallback(async () => {
+    try {
+      const token = await getAccessToken();
+      if (token) {
+        // Reconcile BEFORE polling, same as the restore path itself: the case
+        // this pending state exists for — a transfer onto an account with no
+        // entitlement row — is exactly the one polling alone can wait out
+        // forever. See refreshEntitlement in src/api/client.ts.
+        await refreshEntitlement(token);
+        await waitForEntitlement(token);
+      }
+    } catch {
+      // Every callee above swallows its own failures today — this catch makes
+      // that contract LOCAL rather than a property of four other functions'
+      // internals. Callers fire-and-forget this promise, so a rejection here
+      // would be unhandled, skip the refresh below, and strand confirmPending
+      // over a card that then hides the buy button indefinitely.
+    } finally {
+      // The card catches up whatever the poll did. refresh() itself never
+      // rejects — useAccount.load absorbs failures into its own error state.
+      await refresh();
+    }
+  }, [getAccessToken, refresh]);
+
+  useEffect(() => {
+    if (entitlement?.isActive) setConfirmPending(false);
+  }, [entitlement?.isActive]);
 
   /**
    * Will a push actually arrive on this phone?
@@ -167,12 +213,20 @@ export default function ProfileScreen() {
         await refresh();
       }
 
+      // Apple said yes and the server has not — the card would otherwise
+      // offer a second purchase under the "Purchase found" alert. See
+      // confirmPending.
+      if (result.entitled && !serverConfirmed) {
+        setConfirmPending(true);
+        void settleConfirmPending();
+      }
+
       const alert = restoreAlert(result, serverConfirmed);
       Alert.alert(alert.title, alert.message);
     } finally {
       setBusy(null);
     }
-  }, [getAccessToken, refresh]);
+  }, [getAccessToken, refresh, settleConfirmPending]);
 
   /**
    * Same ref-not-state reasoning as the paywall's copy of this flag: nothing
@@ -371,7 +425,23 @@ export default function ProfileScreen() {
 
   return (
     <SafeAreaView style={[styles.screen, { backgroundColor: colors.bg }]} edges={['top']}>
-      <ScrollView contentContainerStyle={styles.content}>
+      <ScrollView
+        contentContainerStyle={styles.content}
+        // The gesture the restore and redemption alerts point at ("pull down
+        // on your Profile"). This screen is where entitlement state renders,
+        // and useAccount re-reads only on mount — so without this, "check
+        // again in a moment" had no mechanism short of leaving the tab.
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={() => {
+              setRefreshing(true);
+              void refresh().finally(() => setRefreshing(false));
+            }}
+            tintColor={colors.interactive}
+          />
+        }
+      >
         <Text style={[styles.title, { color: colors.text }]}>Profile</Text>
 
         {/* ── Account ─────────────────────────────────────────────── */}
@@ -457,7 +527,11 @@ export default function ProfileScreen() {
                     { color: entitlement?.billingIssue ? colors.error : colors.textMuted },
                   ]}
                 >
-                  {loaded ? subscriptionSummary(entitlement) : 'Checking…'}
+                  {!loaded
+                    ? 'Checking…'
+                    : confirmPending && !entitlement?.isActive
+                      ? 'Purchase found — your account is catching up. Pull down to check again.'
+                      : subscriptionSummary(entitlement)}
                 </Text>
               </View>
             </View>
@@ -468,8 +542,10 @@ export default function ProfileScreen() {
                 to subscribe, or who dismissed an offer earlier and came back for
                 it, arrived at a card that could only restore a purchase they had
                 never made. `loaded` gates it so the button does not flash up
-                under someone who is already subscribed. */}
-            {loaded && !entitlement?.isActive && (
+                under someone who is already subscribed — and `confirmPending`
+                gates it so it cannot appear under a "you are subscribed" alert
+                while the server is still catching up to a confirmed purchase. */}
+            {loaded && !entitlement?.isActive && !confirmPending && (
               <Pressable
                 onPress={() => setPaywallOpen(true)}
                 disabled={busy !== null}
@@ -542,12 +618,20 @@ export default function ProfileScreen() {
               cancel it in your Apple ID settings — deleting the app does not cancel it.
             </Text>
 
+            {/* `link` so VoiceOver reads them as more than plain text — same
+                treatment as the paywall's pair. */}
             <View style={styles.legalLinks}>
-              <Pressable onPress={() => void Linking.openURL(TERMS_URL)}>
+              <Pressable
+                onPress={() => void Linking.openURL(TERMS_URL)}
+                accessibilityRole="link"
+              >
                 <Text style={[styles.legalLink, { color: colors.interactive }]}>Terms</Text>
               </Pressable>
               <Text style={[styles.legal, { color: colors.textSubtle }]}>·</Text>
-              <Pressable onPress={() => void Linking.openURL(PRIVACY_URL)}>
+              <Pressable
+                onPress={() => void Linking.openURL(PRIVACY_URL)}
+                accessibilityRole="link"
+              >
                 <Text style={[styles.legalLink, { color: colors.interactive }]}>Privacy</Text>
               </Pressable>
             </View>
@@ -781,14 +865,22 @@ export default function ProfileScreen() {
 
       {/* onPurchased re-reads the profile so the card above flips to active
           without a relaunch. The sheet waits for the SERVER to confirm the
-          entitlement, not merely for StoreKit, so by the time this fires
-          /api/me/profile has the row. */}
+          entitlement — but only for as long as waitForEntitlement is willing
+          to poll, so serverConfirmed can arrive false with the purchase real.
+          That is the confirmPending path: the card says the account is
+          catching up rather than re-offering the buy button under an alert
+          that just said "you are subscribed". */}
       <PaywallSheet
         visible={paywallOpen}
         onClose={() => setPaywallOpen(false)}
-        onPurchased={() => {
+        onPurchased={({ serverConfirmed }) => {
           setPaywallOpen(false);
-          void refresh();
+          if (serverConfirmed) {
+            void refresh();
+          } else {
+            setConfirmPending(true);
+            void settleConfirmPending();
+          }
         }}
       />
     </SafeAreaView>

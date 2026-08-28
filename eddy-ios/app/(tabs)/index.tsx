@@ -200,6 +200,20 @@ const CONTROLS_ROOM_MIN = MAP_CHROME_BOTTOM + 44 + 12;
 const CONTROLS_ROOM_FADE = 60;
 
 /**
+ * The one array `services ?? …` may fall back to.
+ *
+ * Module-scope so its identity never changes: a fresh `[]` at the call site is
+ * a new array every render, and `services` is null from cold open until the
+ * statewide fetch succeeds — for the whole session when it fails. That one
+ * unstable prop invalidated RiverMap's `accessFamily` memo and everything
+ * downstream of it (every pin memo, every shape memo, the resolver over ~300
+ * points), re-uploading structurally identical FeatureCollections on every
+ * keystroke of a search — precisely the per-render churn RiverMap's own
+ * comments document having engineered away.
+ */
+const NO_SERVICES: RiverService[] = [];
+
+/**
  * A per-river layer's data, tagged with the river it was fetched for.
  *
  * Necessary because river geometry and layer data arrive independently, and the
@@ -490,6 +504,15 @@ export default function MapScreen() {
     setCameraCommand(command);
     return command.id;
   }, []);
+
+  // Stable, for the same reason NO_SERVICES is module-scope: an inline arrow
+  // on the RiverMap element is a fresh prop identity per render of a screen
+  // that renders per keystroke.
+  const onZoomToCluster = useCallback(
+    (point: { lng: number; lat: number }) =>
+      void issueCameraCommand({ type: 'clusterSelected', lng: point.lng, lat: point.lat }),
+    [issueCameraCommand],
+  );
   // The camera, as of the last time it stopped moving. Only the national gauge
   // layer reads it — everything else on this screen loads a bounded set up front.
   const [viewport, setViewport] = useState<Viewport | null>(null);
@@ -1087,7 +1110,24 @@ export default function MapScreen() {
    */
   const wantsServices =
     SERVICE_LAYER_KEYS.some((key) => layers.includes(key)) || selectedSlug != null;
-  const services = useRiverServices(wantsServices);
+  const { services, ensureServices } = useRiverServices(wantsServices);
+
+  /**
+   * Retry the silent enrichments on focus.
+   *
+   * The rivers list above retries on focus gated on its error, because it has
+   * one to gate on. Gauges and services fail silently by design — so the gate
+   * lives in the hooks instead: after a success the ref never releases and
+   * these calls are free; after a failure the ref has released and coming back
+   * to the tab is the retry the released ref was always waiting for. Without
+   * this, "release on failure" promised a retry that no code path ever made.
+   */
+  useFocusEffect(
+    useCallback(() => {
+      if (layers.includes('gauges')) ensureGauges();
+      if (wantsServices) ensureServices();
+    }, [layers, wantsServices, ensureGauges, ensureServices]),
+  );
 
   /**
    * The dam pins.
@@ -1387,6 +1427,14 @@ export default function MapScreen() {
   // full-resolution geometry. RiverListItem already carries that ID, so the
   // planner becomes usable as soon as cached access points arrive.
   const planner = useFloatPlan(selected?.id ?? null, plannerAccessPoints);
+
+  // Memoised for identity: built inline it was a fresh object per render,
+  // re-rendering the endpoint markers' shape sources with unchanged contents.
+  const planEndpoints = useMemo(
+    () =>
+      planner.plan ? { putIn: planner.plan.putIn, takeOut: planner.plan.takeOut } : null,
+    [planner.plan],
+  );
 
   const plannerDistances = useMemo(() => {
     if (!location.coords) return null;
@@ -2412,9 +2460,16 @@ export default function MapScreen() {
           value={search.query}
           onChangeText={search.setQuery}
           placeholder="Search rivers, gauges, dams and more"
-          // Gauges are matched locally, so the list has to exist before the
-          // first keystroke rather than after the first gauge query.
-          onFocus={ensureGauges}
+          // Gauges and services are matched locally, so both lists have to
+          // exist before the first keystroke rather than after the first
+          // query. Services especially: the placeholder and the empty state
+          // both promise outfitters, and with all three service layers off
+          // nothing else would ever have fetched them — "Akers Ferry" answered
+          // "Nothing matched" while the directory sat unrequested.
+          onFocus={() => {
+            ensureGauges();
+            ensureServices();
+          }}
         />
       </View>
 
@@ -2474,11 +2529,9 @@ export default function MapScreen() {
             publicLands={publicLands.features}
             dams={damPins}
             onViewportChange={onViewportChange}
-            onZoomToCluster={(point) =>
-              issueCameraCommand({ type: 'clusterSelected', lng: point.lng, lat: point.lat })
-            }
+            onZoomToCluster={onZoomToCluster}
             hazards={drawnHazards}
-            services={services ?? []}
+            services={services ?? NO_SERVICES}
             layers={layers}
             initialCamera={initialCamera}
             cameraCommand={cameraCommand}
@@ -2489,9 +2542,7 @@ export default function MapScreen() {
             // that can arrive on its own. See the state's declaration.
             showUserLocation={locateAsked && location.status === 'ready' && isFocused}
             planRoute={planner.plan?.route?.geometry ?? null}
-            planEndpoints={
-              planner.plan ? { putIn: planner.plan.putIn, takeOut: planner.plan.takeOut } : null
-            }
+            planEndpoints={planEndpoints}
             selectedPinId={selectedPin?.id ?? null}
             onSelectPin={onSelectPin}
           />

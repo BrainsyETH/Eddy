@@ -47,7 +47,9 @@ import { FlatList, Pressable, RefreshControl, StyleSheet, Text, View } from 'rea
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import type { DamSnapshot, MapGauge, RiverListItem } from '@eddy/types';
-import { fetchDams, fetchGauges, fetchRivers } from '@/api/client';
+import { fetchGauges, fetchRivers } from '@/api/client';
+import { getSharedDams } from '@/hooks/useDams';
+import { agedIndex, readIndex } from '@/lib/riverCache';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
 import { EddyScene } from '@/components/EddyScene';
@@ -151,14 +153,26 @@ export default function FavoritesScreen() {
     await Promise.all([
       fetchRivers(signal)
         .then(setRivers)
-        .catch(() => {}),
+        .catch(async () => {
+          // Disk before nothing, on the screen whose whole promise is that it
+          // works offline: the index is written through on every successful
+          // fetch, and until now a dead connection left every starred river
+          // reading "Conditions unavailable" while its last condition sat on
+          // the phone. agedIndex recomputes ages on this clock and withholds
+          // any verdict past the trusted window; a live list already shown is
+          // never replaced.
+          const cached = await readIndex();
+          if (cached && cached.payload.length > 0) {
+            setRivers((current) => current ?? agedIndex(cached, Date.now()));
+          }
+        }),
       fetchGauges(signal)
         .then(setGauges)
         .catch(() => {}),
       // A third enrichment, on the same terms as the other two: the store holds
       // a dam's slug and name, and this supplies what it is doing right now.
       // Failing is fine — the row still renders from the store.
-      fetchDams(signal)
+      getSharedDams()
         .then(setDams)
         .catch(() => {}),
     ]);

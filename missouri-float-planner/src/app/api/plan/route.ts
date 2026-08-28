@@ -795,6 +795,12 @@ async function _GET(request: NextRequest) {
             timeRange: floatTimeResult.timeRange,
           }
         : null,
+      // The reason travels with the absence. Withholding was computed above
+      // but never said, so the iOS plan card had one null for two silences and
+      // worded both as flood water — "Wait for it to drop", on a tailwater at
+      // ordinary generation, where dropping is not the problem and waiting
+      // will not help.
+      floatTimeWithheldReason: withholdReason,
       driveBack,
       condition: {
         label: condition?.condition_label || 'Unknown Conditions',

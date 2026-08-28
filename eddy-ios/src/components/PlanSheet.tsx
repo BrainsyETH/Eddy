@@ -33,7 +33,7 @@ import {
   View,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import type { MapAccessPoint, RiverListItem } from '@eddy/types';
+import type { FloatPlan, MapAccessPoint, RiverListItem } from '@eddy/types';
 import { accessTypeLabel } from '@eddy/types';
 import { saveFloatPlan } from '@/api/client';
 import { useTheme } from '@/theme/ThemeProvider';
@@ -46,6 +46,7 @@ import { PlanResult } from '@/components/PlanResult';
 import type { FloatPlanState } from '@/hooks/useFloatPlan';
 import { useSavedFloats } from '@/hooks/useSavedFloats';
 import { milesBetween, type Coords } from '@/hooks/useLocation';
+import { damControlledLabel } from '@/lib/readingCopy';
 import { conditionColor } from '@/theme/conditions';
 
 interface Props {
@@ -65,6 +66,21 @@ interface Props {
    * different reason.
    */
   userCoords?: Coords | null;
+}
+
+/**
+ * The share line's version of the two withheld-time silences. "No estimate in
+ * this water" reads as a warning about the water; on a tailwater the truth is
+ * about the schedule, and the recipient of a shared float is exactly the
+ * person who has not seen the dam panel that explains it.
+ */
+function floatTimeShareLabel(plan: FloatPlan): string {
+  return (
+    plan.floatTime?.formatted ??
+    (plan.floatTimeWithheldReason === 'regulated'
+      ? 'time depends on dam releases'
+      : 'no estimate in this water')
+  );
 }
 
 export function PlanSheet({
@@ -97,7 +113,7 @@ export function PlanSheet({
       // wants to keep it, and filing every share under Favorites made that list
       // a log of things sent rather than a list of things chosen. The star
       // beside this button is where keeping happens now.
-      const time = plan.floatTime?.formatted ?? 'no estimate in this water';
+      const time = floatTimeShareLabel(plan);
       await Share.share({
         message: `${plan.putIn.name} → ${plan.takeOut.name} on the ${plan.river.name} · ${plan.distance.formatted} · ${time}\n${saved.url}`,
       });
@@ -105,7 +121,7 @@ export function PlanSheet({
       // A share that cannot be saved falls back to the numbers themselves.
       // Losing the short link is worth far less than losing the share.
       await Share.share({
-        message: `${plan.putIn.name} → ${plan.takeOut.name} on the ${plan.river.name} · ${plan.distance.formatted} · ${plan.floatTime?.formatted ?? 'no estimate in this water'}`,
+        message: `${plan.putIn.name} → ${plan.takeOut.name} on the ${plan.river.name} · ${plan.distance.formatted} · ${floatTimeShareLabel(plan)}`,
       });
     } finally {
       setSharing(false);
@@ -466,7 +482,7 @@ function RiverList({
                 <View style={[styles.conditionDot, { backgroundColor: conditionColor(code) }]} />
                 <Text style={[styles.optionMeta, { color: colors.textMuted }]} numberOfLines={1}>
                   {[
-                    river.currentCondition?.label ?? 'Condition unknown',
+                    damControlledLabel(river.riverType, code) ?? river.currentCondition?.label ?? 'Condition unknown',
                     river.region,
                     distance != null
                       ? `${distance < 10 ? distance.toFixed(1) : distance.toFixed(0)} mi away`

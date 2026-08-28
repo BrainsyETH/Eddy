@@ -154,8 +154,16 @@ export function writeViewportGaugeCache(entry: StoredViewportGauges): void {
     const kept = next.slice(-VIEWPORT_GAUGE_CACHE_SIZE);
 
     await AsyncStorage.setItem(VIEWPORT_GAUGES_INDEX_KEY, JSON.stringify(kept));
+    // NEVER the key just written. Re-fetch a cell whose previous entry has
+    // expired and `expired` contains this very key — removing it here deleted
+    // the payload written at the top of this closure while the fresh index
+    // still listed it, so the disk tier silently served nulls for every
+    // revisited cell (the hook self-heals by pruning and refetching, so it
+    // cost a request per revisit, not a wrong screen).
     const discarded = [...expired, ...evicted].filter(
-      (item, index, all) => all.findIndex((candidate) => candidate.key === item.key) === index,
+      (item, index, all) =>
+        item.key !== entry.key &&
+        all.findIndex((candidate) => candidate.key === item.key) === index,
     );
     if (discarded.length > 0) {
       await AsyncStorage.multiRemove(discarded.map((item) => viewportGaugeKey(item.key)));

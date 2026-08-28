@@ -67,7 +67,6 @@ import {
   ApiError,
   fetchCondition,
   fetchGauges,
-  fetchDams,
   fetchRiverOutlook,
   fetchRiverVisuals,
   fetchRivers,
@@ -97,6 +96,7 @@ import { EddySymbol } from '@/components/EddySymbol';
 import { SafetyDisclaimer } from '@/components/SafetyDisclaimer';
 import { EddyTake } from '@/components/EddyTake';
 import { damForRiver } from '@/components/dam/RiverDamPanel';
+import { getSharedDams } from '@/hooks/useDams';
 import { TailwaterStatusRow } from '@/components/dam/TailwaterStatusRow';
 import { RiverReaches } from '@/components/river/RiverReaches';
 import { GaugeChart } from '@/components/GaugeChart';
@@ -391,7 +391,12 @@ export default function RiverDetailScreen() {
   // Eddy's take is the one gated card on this screen, and it fails OPEN — see
   // the `entitled` computation below and the prop comment in EddyTake. Every
   // measured fact about the water stays free.
-  const { entitlement, loaded: accountLoaded, error: accountError } = useAccount();
+  const {
+    entitlement,
+    loaded: accountLoaded,
+    error: accountError,
+    refresh: refreshAccount,
+  } = useAccount();
 
   const [river, setRiver] = useState<RiverListItem | null>(null);
   const [condition, setCondition] = useState<RiverConditionDetail | null>(null);
@@ -487,7 +492,13 @@ export default function RiverDetailScreen() {
   const loadDam = useCallback(
     async (signal: AbortSignal) => {
       try {
-        const dams = await fetchDams(signal);
+        // The shared store, not a private fetch: this ran on EVERY focus of
+        // every river screen against a route measured at five to fifty
+        // seconds cold, and the river↔dam ping-pong refired it per hop. The
+        // store answers from its 15-minute cache — the route's own s-maxage —
+        // and no signal is passed because the request is shared; the aborted
+        // check below still keeps a late answer off an unfocused screen.
+        const dams = await getSharedDams();
         if (!signal.aborted) setDamFor({ slug, dam: damForRiver(dams, slug) });
       } catch {
         // Deliberately empty. See above: keep what is on screen and let the
@@ -848,8 +859,20 @@ export default function RiverDetailScreen() {
    * sign-in sheet; presenting an offer to sell something to someone whose token
    * refresh just failed was never honest.
    */
+  /**
+   * Which bell action the sign-in sheet interrupted, so onSignedIn can finish
+   * THAT one. The gate's contract is that the sheet re-runs "the very same
+   * function that just failed" — but this screen has two functions behind one
+   * bell, and the sheet used to hard-code subscribe(): a signed-out reader who
+   * tapped "alerts are on — tap to turn off" was signed in and silently
+   * re-subscribed to the thing they were switching off. A ref, not state:
+   * nothing renders from it.
+   */
+  const bellAction = useRef<'subscribe' | 'unsubscribe'>('subscribe');
+
   const subscribe = useCallback(async () => {
     if (!river) return;
+    bellAction.current = 'subscribe';
     try {
       await gate.run(async (token) => {
         await subscribeToRiver(token, river.id, BELL_KIND);
@@ -892,6 +915,7 @@ export default function RiverDetailScreen() {
   /** Turn alerts off. Deliberately reachable — see Stage 3 of the alert plan. */
   const unsubscribe = useCallback(async () => {
     if (!river) return;
+    bellAction.current = 'unsubscribe';
     try {
       await gate.run(
         async (token) => {
@@ -941,18 +965,37 @@ export default function RiverDetailScreen() {
   }, [subscribed, subscribe, unsubscribe, cascadingAlerts, river?.name]);
 
   if (loading) {
+    // The chevron renders DURING the load — configure.tsx's rule: with the
+    // header globally hidden, a bare spinner is a wait with no visible way
+    // off the screen.
     return (
-      <SafeAreaView style={[styles.screen, styles.centered, { backgroundColor: colors.bg }]}>
-        <ActivityIndicator color={colors.interactive} />
+      <SafeAreaView style={[styles.screen, { backgroundColor: colors.bg }]} edges={['top']}>
+        <View style={styles.navRow}>
+          <Pressable onPress={() => goBack(router)} hitSlop={12} accessibilityLabel="Back">
+            <Ionicons name="chevron-back" size={26} color={colors.text} />
+          </Pressable>
+        </View>
+        <View style={[styles.screen, styles.centered]}>
+          <ActivityIndicator color={colors.interactive} />
+        </View>
       </SafeAreaView>
     );
   }
 
   if (error || !river) {
+    // "River not found" is an answer and gets no retry; anything else is an
+    // outage, and `retry` is the reload the screen already had for its
+    // sections — the whole-screen failure just never offered it.
+    const notFound = !error || error === 'River not found';
     return (
       <SafeAreaView style={[styles.screen, styles.centered, { backgroundColor: colors.bg }]}>
         <Otter mood="flag" size={110} />
         <Text style={[styles.errorTitle, { color: colors.text }]}>{error ?? 'River not found'}</Text>
+        {!notFound ? (
+          <Pressable onPress={retry} hitSlop={10}>
+            <Text style={[styles.backLink, { color: colors.interactive }]}>Try again</Text>
+          </Pressable>
+        ) : null}
         <Pressable onPress={() => goBack(router)} hitSlop={10}>
           <Text style={[styles.backLink, { color: colors.interactive }]}>Go back</Text>
         </Pressable>
@@ -1772,11 +1815,19 @@ export default function RiverDetailScreen() {
       />
 
       {/* Only Eddy's written read opens this now. The bell used to, and does
-          not: nothing about being alerted is for sale. */}
+          not: nothing about being alerted is for sale.
+
+          onPurchased re-reads the account, exactly as the gauge screen and
+          profile do. Without it this screen — the one that raises the paywall
+          most — closed the sheet onto an EddyTake still holding the
+          pre-purchase entitlement: blurred prose and a lock row over a
+          purchase the server had already confirmed, with nothing on the
+          screen able to notice until the reader left and came back. */}
       <PaywallSheet
         visible={paywallOpen}
         onClose={() => setPaywallOpen(false)}
         riverName={river.name}
+        onPurchased={() => void refreshAccount()}
       />
 
       <AlertSignInSheet
@@ -1784,9 +1835,10 @@ export default function RiverDetailScreen() {
         riverName={river.name}
         onSignedIn={() => {
           gate.setSignInOpen(false);
-          // Finish what they tapped. The session is live now, so this is the
-          // same call that failed a moment ago.
-          void subscribe();
+          // Finish what they tapped — WHICHEVER it was. The session is live
+          // now, so this is the same call that failed a moment ago; the ref is
+          // what stops "turn alerts off" from resuming as a re-subscribe.
+          void (bellAction.current === 'unsubscribe' ? unsubscribe() : subscribe());
         }}
         onDismiss={() => gate.setSignInOpen(false)}
       />

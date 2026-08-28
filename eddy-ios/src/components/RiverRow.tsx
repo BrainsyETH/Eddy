@@ -32,7 +32,7 @@ import type { RiverListItem } from '@eddy/types';
 import { conditionColor, conditionLabel, conditionText } from '@/theme/conditions';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
-import { allReadings, formatReading, primaryReading } from '@/lib/readingCopy';
+import { allReadings, damControlledLabel, formatReading, primaryReading } from '@/lib/readingCopy';
 import { KindMark } from '@/components/KindMark';
 import { TREND_ICON } from '@/components/TrendPill';
 
@@ -111,7 +111,7 @@ function RiverRowComponent({
         accessibilityRole="button"
         accessibilityLabel={[
           river.name,
-          condition?.label ?? conditionLabel(code),
+          damControlledLabel(river.riverType, code) ?? condition?.label ?? conditionLabel(code),
           reading ? readingText : 'no gauge reading',
           trend?.label,
           age ? `updated ${age}` : null,
@@ -127,7 +127,7 @@ function RiverRowComponent({
             {river.name}
           </Text>
           <Text style={[styles.conditionWord, { color: conditionText(code, isDark) }]}>
-            {condition?.label ?? conditionLabel(code)}
+            {damControlledLabel(river.riverType, code) ?? condition?.label ?? conditionLabel(code)}
           </Text>
         </View>
 
