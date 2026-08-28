@@ -300,7 +300,13 @@ export function MapLayersSheet({
                     {layer.info ? (
                       <Pressable
                         onPress={() => Alert.alert(layer.label, layer.info)}
-                        hitSlop={10}
+                        // 15pt glyph + this slop ≥ the 44pt floor PinCallout
+                        // calls non-negotiable. At hitSlop 10 the target was
+                        // ~35pt inside a row whose own tap flips the switch, so
+                        // a near-miss on the small print silently toggled the
+                        // layer — the wrong-action pattern this file documents
+                        // twice elsewhere.
+                        hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
                         // No accessibility props: the row above subsumes this
                         // element whatever it declares, so a role and label
                         // here only describe a stop that does not exist. The

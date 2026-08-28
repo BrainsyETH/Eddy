@@ -2547,19 +2547,15 @@ export function RiverMap({
           labels collide-suppress against the pin labels (no textAllowOverlap)
           so a put-in's name always beats the number beside it. Mounted
           unconditionally and empty when no river is selected — the teardown
-          rule every source here follows. */}
+          rule every source here follows.
+
+          THE NUMBER IS THE MARKER. There used to be a tick CircleLayer under
+          each label, and circles do not collision-check: next to a labelled
+          put-in the number lost and the tick stayed — an anonymous dark dot
+          that looked tappable and, tapped, fell through to the river line and
+          opened the river sheet. One SymbolLayer per tier means the mile
+          either appears whole, centred on its point, or not at all. */}
       <Mapbox.ShapeSource id="mile-posts" shape={milePostShape}>
-        <Mapbox.CircleLayer
-          id="mile-posts-major-tick"
-          filter={['get', 'major']}
-          minZoomLevel={ZOOM.names}
-          style={{
-            circleRadius: 3,
-            circleColor: LABEL_INK,
-            circleStrokeColor: LABEL_HALO,
-            circleStrokeWidth: 1.5,
-          }}
-        />
         <Mapbox.SymbolLayer
           id="mile-posts-major-label"
           filter={['get', 'major']}
@@ -2567,8 +2563,7 @@ export function RiverMap({
           style={{
             textField: ['get', 'label'],
             textSize: 10,
-            textOffset: [0, 0.8],
-            textAnchor: 'top',
+            textAnchor: 'center',
             textColor: LABEL_INK,
             textHaloColor: LABEL_HALO,
             textHaloWidth: 1.5,
@@ -2577,17 +2572,6 @@ export function RiverMap({
         {/* Every-mile posts wait for z12: a reader there is pacing a stretch
             rather than choosing a river, and 130 numbers at river zoom would
             be noise beside the ten that already say where you are. */}
-        <Mapbox.CircleLayer
-          id="mile-posts-minor-tick"
-          filter={['!', ['get', 'major']]}
-          minZoomLevel={12}
-          style={{
-            circleRadius: 2.5,
-            circleColor: LABEL_INK,
-            circleStrokeColor: LABEL_HALO,
-            circleStrokeWidth: 1,
-          }}
-        />
         <Mapbox.SymbolLayer
           id="mile-posts-minor-label"
           filter={['!', ['get', 'major']]}
@@ -2595,8 +2579,7 @@ export function RiverMap({
           style={{
             textField: ['get', 'label'],
             textSize: 10,
-            textOffset: [0, 0.7],
-            textAnchor: 'top',
+            textAnchor: 'center',
             textColor: LABEL_INK,
             textHaloColor: LABEL_HALO,
             textHaloWidth: 1.5,

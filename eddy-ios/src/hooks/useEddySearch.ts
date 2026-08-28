@@ -131,6 +131,12 @@ interface SearchState {
   searching: boolean;
   /** True once the query is long enough to have produced an answer. */
   active: boolean;
+  /**
+   * True when the last server ask did not come back — the empty state's
+   * honesty flag, so "nothing matched" cannot stand in for "could not
+   * search". Local matches keep working regardless.
+   */
+  serverUnavailable: boolean;
   clear: () => void;
   /** True when another page exists. False while one is already loading. */
   hasMore: boolean;
@@ -352,6 +358,14 @@ export function useEddySearch({
   const [searching, setSearching] = useState(false);
   /** True only for a NEXT-page request, so the list spins its footer, not itself. */
   const [paging, setPaging] = useState(false);
+  /**
+   * True when the LAST server ask did not come back. The backoff below keeps
+   * a dead route from costing one slow retry per keystroke, but it used to be
+   * silent: the empty state then read "Nothing matched" — a claim about the
+   * data — when the truth was "could not search". State, not the failures
+   * ref: the empty message renders from it.
+   */
+  const [serverUnavailable, setServerUnavailable] = useState(false);
 
   /**
    * How many times in a row the server has failed to answer.
@@ -413,9 +427,11 @@ export function useEddySearch({
       if (controller.signal.aborted) return;
       if (!available) {
         failures.current += 1;
+        setServerUnavailable(true);
         setAnswer({ query: '', results: [], hasMore: false });
       } else {
         failures.current = 0;
+        setServerUnavailable(false);
         setAnswer({ query: trimmed, results, hasMore });
       }
       setSearching(false);
@@ -504,6 +520,8 @@ export function useEddySearch({
     results,
     searching: (searching && !answered) || paging,
     active,
+    /** The empty state's honesty flag — see its declaration. */
+    serverUnavailable,
     clear,
     hasMore: answered && answer.hasMore && !paging,
     loadMore,
