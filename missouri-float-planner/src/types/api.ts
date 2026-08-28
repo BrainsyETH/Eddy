@@ -535,6 +535,15 @@ export interface FloatPlan {
       max: number;
     };
   } | null;  // null when conditions are dangerous — we do not estimate a time
+  /**
+   * WHY floatTime is null, when it is — two silences that clients must not
+   * word the same (see floatTimeWithholding): 'dangerous' is a time we
+   * decline to quote; 'regulated' is a dam tailwater where no single time
+   * exists, because the release can change mid-float. Mirrored in
+   * @eddy/types' FloatPlan, which is the copy the iOS app reads — keep the
+   * two in step.
+   */
+  floatTimeWithheldReason?: 'dangerous' | 'regulated' | null;
   driveBack: {
     minutes: number;
     miles: number;
