@@ -1,0 +1,96 @@
+[
+  {
+    "name": "Dam-Quarry Boat Ramp",
+    "kind": "boat_ramp",
+    "expected_mile": 0.4,
+    "lat": 36.246079,
+    "lon": -92.244147,
+    "is_public": true,
+    "ownership": "COE",
+    "managing_agency": "COE",
+    "official_site_url": "https://www.swl.usace.army.mil/Portals/50/docs/norforklake/nfparkmaps/Dam-Quarry.pdf",
+    "facilities": "Concrete boat ramp at Quarry Park below Norfork Dam; paved parking, fishing jetty and pier, picnic tables; adjacent Dam-Quarry Campground, across from the fish hatchery",
+    "confidence": "high",
+    "source_urls": [
+      "https://gisec2.agfc.com/arcgis/rest/services/GIS/AGFC_DATA/MapServer/1",
+      "https://www.openstreetmap.org/node/13042217186",
+      "https://www.swl.usace.army.mil/Portals/50/docs/norforklake/nfparkmaps/Dam-Quarry.pdf",
+      "https://www.agfc.com/wp-content/uploads/2023/05/tp_norforktailwater2010.pdf"
+    ]
+  },
+  {
+    "name": "Dam-Quarry Campground",
+    "kind": "campground",
+    "expected_mile": 0.4,
+    "lat": 36.246824,
+    "lon": -92.244981,
+    "is_public": true,
+    "ownership": "COE",
+    "managing_agency": "COE",
+    "official_site_url": "https://www.recreation.gov/camping/campsites/70628",
+    "facilities": "68 reservable riverfront sites with electric/water, dump station, restrooms; direct bank access to the tailwater; fee site on recreation.gov",
+    "confidence": "high",
+    "source_urls": [
+      "https://gisec2.agfc.com/arcgis/rest/services/GIS/AGFC_DATA/MapServer/1",
+      "https://www.openstreetmap.org/node/4345184689",
+      "https://www.recreation.gov/camping/campsites/70628",
+      "https://www.swl.usace.army.mil/Portals/50/docs/norforklake/nfparkmaps/Dam-Quarry.pdf"
+    ]
+  },
+  {
+    "name": "Dry Run Creek Access (Norfork National Fish Hatchery)",
+    "kind": "access",
+    "expected_mile": 0.2,
+    "lat": 36.248738,
+    "lon": -92.241985,
+    "is_public": true,
+    "ownership": "USFWS",
+    "managing_agency": null,
+    "official_site_url": "https://www.fws.gov/fish-hatchery/norfork",
+    "facilities": "Walk-in bank fishing at the hatchery near the mouth of Dry Run Creek; catch-and-release, RESTRICTED to youth under 16 and mobility-impaired anglers; ADA piers and walkways, paved parking. Not a float put-in",
+    "confidence": "high",
+    "source_urls": [
+      "https://gisec2.agfc.com/arcgis/rest/services/GIS/AGFC_DATA/MapServer/1",
+      "https://www.fws.gov/fish-hatchery/norfork",
+      "https://www.openstreetmap.org/node/367131298",
+      "https://www.agfc.com/wp-content/uploads/2023/05/tp_norforktailwater2010.pdf"
+    ]
+  },
+  {
+    "name": "Bill Ackerman River Ridge Access",
+    "kind": "access",
+    "expected_mile": 3.5,
+    "lat": 36.224466,
+    "lon": -92.276732,
+    "is_public": true,
+    "ownership": "AGFC",
+    "managing_agency": null,
+    "official_site_url": "https://www.agfc.com/en/zone-map/fishing-map/694/",
+    "facilities": "Walk-in fishing access off River Ridge Road; ADA T-shaped fishing pier, paved parking, year-round restroom; the only public access between the dam area and the confluence. No boat ramp",
+    "confidence": "high",
+    "source_urls": [
+      "https://gisec2.agfc.com/arcgis/rest/services/GIS/AGFC_DATA/MapServer/1",
+      "https://www.agfc.com/wp-content/uploads/2023/05/tp_norforktailwater2010.pdf",
+      "https://www.openstreetmap.org/way/12710917"
+    ]
+  },
+  {
+    "name": "Norfork Access",
+    "kind": "boat_ramp",
+    "expected_mile": 4.8,
+    "lat": 36.209414,
+    "lon": -92.289676,
+    "is_public": true,
+    "ownership": "AGFC",
+    "managing_agency": null,
+    "official_site_url": "https://www.agfc.com/en/zone-map/fishing-map/694/",
+    "facilities": "Two concrete ramps, paved parking, ADA boater transfer lift; the standard tailwater take-out, at the North Fork-White confluence in the town of Norfork",
+    "confidence": "high",
+    "source_urls": [
+      "https://gisec2.agfc.com/arcgis/rest/services/GIS/AGFC_DATA/MapServer/1",
+      "https://www.openstreetmap.org/node/6905109442",
+      "https://www.openstreetmap.org/node/6905109441",
+      "https://www.agfc.com/wp-content/uploads/2023/05/tp_norforktailwater2010.pdf"
+    ]
+  }
+]

@@ -1,0 +1,467 @@
+[
+  {
+    "name": "Jim Griffin Access",
+    "kind": "boat_ramp",
+    "expected_mile": 0.5,
+    "lat": 36.36256,
+    "lon": -92.58293,
+    "is_public": true,
+    "ownership": "AGFC",
+    "managing_agency": null,
+    "official_site_url": "https://www.agfc.com/fishing/where-to-fish/trout-waters/bull-shoals-tailwater/",
+    "facilities": "Concrete ramp, restroom, USACE fishing pier and parking just below Bull Shoals Dam (Baxter County side); catch-and-release water",
+    "confidence": "high",
+    "source_urls": [
+      "https://gisec2.agfc.com/arcgis/rest/services/GIS/AGFC_DATA/MapServer/1",
+      "https://www.agfc.com/wp-content/uploads/2023/05/bull_shoals_lake_tailwater.pdf",
+      "https://ozarkchronicles.com/resources/ozarkwaters/arkansas-trout-waters/white-river-bull-shoals-dam",
+      "https://lostintheozarks.com/jim-griffin-access"
+    ]
+  },
+  {
+    "name": "Forrest and Nina Wood Rivercliff Access",
+    "kind": "boat_ramp",
+    "expected_mile": 0.7,
+    "lat": 36.36234,
+    "lon": -92.58667,
+    "is_public": true,
+    "ownership": "AGFC",
+    "managing_agency": null,
+    "official_site_url": "https://www.agfc.com/fishing/where-to-fish/trout-waters/bull-shoals-tailwater/",
+    "facilities": "Concrete ramp, paved parking and USACE fishing pier below the Bull Shoals powerhouse",
+    "confidence": "high",
+    "source_urls": [
+      "https://gisec2.agfc.com/arcgis/rest/services/GIS/AGFC_DATA/MapServer/1",
+      "https://www.agfc.com/wp-content/uploads/2023/05/bull_shoals_lake_tailwater.pdf",
+      "https://ozarkchronicles.com/resources/ozarkwaters/arkansas-trout-waters/white-river-bull-shoals-dam"
+    ]
+  },
+  {
+    "name": "Bull Shoals-White River State Park Ramp",
+    "kind": "boat_ramp",
+    "expected_mile": 1.4,
+    "lat": 36.35465,
+    "lon": -92.5946,
+    "is_public": true,
+    "ownership": "state_park",
+    "managing_agency": "State Park",
+    "official_site_url": "https://www.arkansasstateparks.com/parks/bull-shoals-white-river-state-park",
+    "facilities": "Concrete-plank ramp with paved parking in the state park at Lakeview; campground and trout dock nearby",
+    "confidence": "high",
+    "source_urls": [
+      "https://gisec2.agfc.com/arcgis/rest/services/GIS/AGFC_DATA/MapServer/1",
+      "https://www.agfc.com/wp-content/uploads/2023/05/bull_shoals_lake_tailwater.pdf",
+      "https://ozarkchronicles.com/resources/ozarkwaters/arkansas-trout-waters/white-river-bull-shoals-dam",
+      "https://www.arkansasstateparks.com/parks/bull-shoals-white-river-state-park"
+    ]
+  },
+  {
+    "name": "Gaston's Access",
+    "kind": "boat_ramp",
+    "expected_mile": 4.2,
+    "lat": 36.34838,
+    "lon": -92.55436,
+    "is_public": true,
+    "ownership": "AGFC",
+    "managing_agency": null,
+    "official_site_url": "https://www.agfc.com/fishing/where-to-fish/trout-waters/bull-shoals-tailwater/",
+    "facilities": "AGFC-owned concrete-plank ramp adjacent to the private Gaston's White River Resort; listed as a public access by the agency layer and river guides",
+    "confidence": "medium",
+    "source_urls": [
+      "https://gisec2.agfc.com/arcgis/rest/services/GIS/AGFC_DATA/MapServer/1",
+      "https://www.agfc.com/wp-content/uploads/2023/05/bull_shoals_lake_tailwater.pdf",
+      "https://ozarkchronicles.com/resources/ozarkwaters/arkansas-trout-waters/white-river-bull-shoals-dam"
+    ]
+  },
+  {
+    "name": "White Hole Access",
+    "kind": "boat_ramp",
+    "expected_mile": 7.1,
+    "lat": 36.32983,
+    "lon": -92.53466,
+    "is_public": true,
+    "ownership": "AGFC",
+    "managing_agency": null,
+    "official_site_url": "https://www.agfc.com/fishing/where-to-fish/trout-waters/bull-shoals-tailwater/",
+    "facilities": "Concrete ramp with gravel parking at White Hole, popular wade and drift water",
+    "confidence": "high",
+    "source_urls": [
+      "https://gisec2.agfc.com/arcgis/rest/services/GIS/AGFC_DATA/MapServer/1",
+      "https://www.agfc.com/wp-content/uploads/2023/05/bull_shoals_lake_tailwater.pdf",
+      "https://ozarkchronicles.com/resources/ozarkwaters/arkansas-trout-waters/white-river-bull-shoals-dam"
+    ]
+  },
+  {
+    "name": "Bronie Yurkonis Walk-In Access (The Narrows)",
+    "kind": "access",
+    "expected_mile": 9.1,
+    "lat": 36.32925,
+    "lon": -92.56444,
+    "is_public": true,
+    "ownership": "county",
+    "managing_agency": "County",
+    "official_site_url": null,
+    "facilities": "County-owned walk-in wade access with gravel parking at The Narrows; no boat ramp",
+    "confidence": "medium",
+    "source_urls": [
+      "https://gisec2.agfc.com/arcgis/rest/services/GIS/AGFC_DATA/MapServer/1",
+      "https://www.agfc.com/wp-content/uploads/2023/05/bull_shoals_lake_tailwater.pdf",
+      "https://ozarkchronicles.com/resources/ozarkwaters/arkansas-trout-waters/white-river-bull-shoals-dam"
+    ]
+  },
+  {
+    "name": "Wildcat Shoals Access",
+    "kind": "boat_ramp",
+    "expected_mile": 10.8,
+    "lat": 36.30807,
+    "lon": -92.57447,
+    "is_public": true,
+    "ownership": "AGFC",
+    "managing_agency": null,
+    "official_site_url": "https://www.agfc.com/fishing/where-to-fish/trout-waters/bull-shoals-tailwater/",
+    "facilities": "Concrete ramp, paved upper and lower parking, restroom at Wildcat Shoals",
+    "confidence": "high",
+    "source_urls": [
+      "https://gisec2.agfc.com/arcgis/rest/services/GIS/AGFC_DATA/MapServer/1",
+      "https://www.agfc.com/wp-content/uploads/2023/05/bull_shoals_lake_tailwater.pdf",
+      "https://ozarkchronicles.com/resources/ozarkwaters/arkansas-trout-waters/white-river-bull-shoals-dam",
+      "https://www.openstreetmap.org/way/1476215080"
+    ]
+  },
+  {
+    "name": "Cotter Access (Big Spring Park)",
+    "kind": "boat_ramp",
+    "expected_mile": 16.9,
+    "lat": 36.26635,
+    "lon": -92.54409,
+    "is_public": true,
+    "ownership": "AGFC",
+    "managing_agency": null,
+    "official_site_url": "https://www.agfc.com/fishing/where-to-fish/trout-waters/bull-shoals-tailwater/",
+    "facilities": "Concrete ramp at Cotter's Big Spring city park below the rainbow bridge; paved parking, seasonal restroom",
+    "confidence": "high",
+    "source_urls": [
+      "https://gisec2.agfc.com/arcgis/rest/services/GIS/AGFC_DATA/MapServer/1",
+      "https://www.agfc.com/wp-content/uploads/2023/05/bull_shoals_lake_tailwater.pdf",
+      "https://ozarkchronicles.com/resources/ozarkwaters/arkansas-trout-waters/white-river-bull-shoals-dam",
+      "https://www.openstreetmap.org/node/1673841618"
+    ]
+  },
+  {
+    "name": "Roundhouse Shoals Walk-In Access",
+    "kind": "access",
+    "expected_mile": 17.6,
+    "lat": 36.2647,
+    "lon": -92.53446,
+    "is_public": true,
+    "ownership": "AGFC",
+    "managing_agency": null,
+    "official_site_url": "https://www.agfc.com/fishing/where-to-fish/trout-waters/bull-shoals-tailwater/",
+    "facilities": "AGFC walk-in at Roundhouse Shoals below Cotter; gravel parking, wade fishing, no ramp",
+    "confidence": "medium",
+    "source_urls": [
+      "https://gisec2.agfc.com/arcgis/rest/services/GIS/AGFC_DATA/MapServer/1",
+      "https://www.agfc.com/wp-content/uploads/2023/05/bull_shoals_lake_tailwater.pdf",
+      "https://ozarkchronicles.com/resources/ozarkwaters/arkansas-trout-waters/white-river-bull-shoals-dam"
+    ]
+  },
+  {
+    "name": "Rim Shoals Access",
+    "kind": "boat_ramp",
+    "expected_mile": 21.3,
+    "lat": 36.25801,
+    "lon": -92.47456,
+    "is_public": true,
+    "ownership": "AGFC",
+    "managing_agency": null,
+    "official_site_url": "https://www.agfc.com/things-to-do/nature-trails/rim-shoals-trail/",
+    "facilities": "Concrete ramp, paved parking, restrooms, T-shaped fishing pier and separate walk-in at the Rim Shoals catch-and-release area",
+    "confidence": "high",
+    "source_urls": [
+      "https://gisec2.agfc.com/arcgis/rest/services/GIS/AGFC_DATA/MapServer/1",
+      "https://www.agfc.com/wp-content/uploads/2023/05/bull_shoals_lake_tailwater.pdf",
+      "https://ozarkchronicles.com/resources/ozarkwaters/arkansas-trout-waters/white-river-bull-shoals-dam"
+    ]
+  },
+  {
+    "name": "Ranchette Access",
+    "kind": "boat_ramp",
+    "expected_mile": 26.4,
+    "lat": 36.2038,
+    "lon": -92.47807,
+    "is_public": true,
+    "ownership": "AGFC",
+    "managing_agency": null,
+    "official_site_url": "https://www.agfc.com/fishing/where-to-fish/trout-waters/bull-shoals-tailwater/",
+    "facilities": "Concrete ramp with two paved parking areas on the Jenkins Creek loop below Rim Shoals",
+    "confidence": "high",
+    "source_urls": [
+      "https://gisec2.agfc.com/arcgis/rest/services/GIS/AGFC_DATA/MapServer/1",
+      "https://www.agfc.com/wp-content/uploads/2023/05/bull_shoals_lake_tailwater.pdf",
+      "https://ozarkchronicles.com/resources/ozarkwaters/arkansas-trout-waters/white-river-bull-shoals-dam"
+    ]
+  },
+  {
+    "name": "Buffalo City Access",
+    "kind": "boat_ramp",
+    "expected_mile": 30.2,
+    "lat": 36.16458,
+    "lon": -92.44027,
+    "is_public": true,
+    "ownership": "AGFC",
+    "managing_agency": null,
+    "official_site_url": "https://www.agfc.com/fishing/where-to-fish/trout-waters/bull-shoals-tailwater/",
+    "facilities": "Two concrete ramps and paved parking at Buffalo City, just upstream of the Buffalo River confluence",
+    "confidence": "high",
+    "source_urls": [
+      "https://gisec2.agfc.com/arcgis/rest/services/GIS/AGFC_DATA/MapServer/1",
+      "https://www.agfc.com/wp-content/uploads/2023/05/bull_shoals_lake_tailwater.pdf",
+      "https://ozarkchronicles.com/resources/ozarkwaters/arkansas-trout-waters/white-river-bull-shoals-dam",
+      "https://www.openstreetmap.org/node/12544893837",
+      "https://www.openstreetmap.org/node/12544343667"
+    ]
+  },
+  {
+    "name": "Cartney Access",
+    "kind": "boat_ramp",
+    "expected_mile": 34.4,
+    "lat": 36.19202,
+    "lon": -92.38073,
+    "is_public": true,
+    "ownership": "AGFC",
+    "managing_agency": null,
+    "official_site_url": "https://www.agfc.com/fishing/where-to-fish/trout-waters/bull-shoals-tailwater/",
+    "facilities": "Concrete ramp with gravel parking at Cartney; a separate Cartney walk-in sits upstream",
+    "confidence": "high",
+    "source_urls": [
+      "https://gisec2.agfc.com/arcgis/rest/services/GIS/AGFC_DATA/MapServer/1",
+      "https://www.agfc.com/wp-content/uploads/2023/05/bull_shoals_lake_tailwater.pdf",
+      "https://ozarkchronicles.com/resources/ozarkwaters/arkansas-trout-waters/white-river-bull-shoals-dam"
+    ]
+  },
+  {
+    "name": "Shipp's Ferry Access",
+    "kind": "boat_ramp",
+    "expected_mile": 36.4,
+    "lat": 36.21324,
+    "lon": -92.35695,
+    "is_public": true,
+    "ownership": "AGFC",
+    "managing_agency": null,
+    "official_site_url": "https://www.agfc.com/fishing/where-to-fish/trout-waters/bull-shoals-tailwater/",
+    "facilities": "Concrete ramp with gravel parking at the old Shipp's Ferry crossing",
+    "confidence": "high",
+    "source_urls": [
+      "https://gisec2.agfc.com/arcgis/rest/services/GIS/AGFC_DATA/MapServer/1",
+      "https://www.agfc.com/wp-content/uploads/2023/05/bull_shoals_lake_tailwater.pdf",
+      "https://ozarkchronicles.com/resources/ozarkwaters/arkansas-trout-waters/white-river-bull-shoals-dam",
+      "https://www.openstreetmap.org/node/3640934416"
+    ]
+  },
+  {
+    "name": "Norfork Access",
+    "kind": "boat_ramp",
+    "expected_mile": 42.5,
+    "lat": 36.20941,
+    "lon": -92.28968,
+    "is_public": true,
+    "ownership": "AGFC",
+    "managing_agency": null,
+    "official_site_url": "https://www.agfc.com/fishing/where-to-fish/trout-waters/bull-shoals-tailwater/",
+    "facilities": "Two concrete ramps, paved parking and ADA boater transfer lift at the North Fork confluence in Norfork",
+    "confidence": "high",
+    "source_urls": [
+      "https://gisec2.agfc.com/arcgis/rest/services/GIS/AGFC_DATA/MapServer/1",
+      "https://www.agfc.com/wp-content/uploads/2023/05/bull_shoals_lake_tailwater.pdf",
+      "https://ozarkchronicles.com/resources/ozarkwaters/arkansas-trout-waters/white-river-bull-shoals-dam",
+      "https://www.openstreetmap.org/node/6905109442",
+      "https://www.openstreetmap.org/node/6905109441"
+    ]
+  },
+  {
+    "name": "Red's Landing Access",
+    "kind": "boat_ramp",
+    "expected_mile": 50,
+    "lat": 36.1607,
+    "lon": -92.25509,
+    "is_public": true,
+    "ownership": "AGFC",
+    "managing_agency": null,
+    "official_site_url": "https://www.agfc.com/fishing/where-to-fish/trout-waters/bull-shoals-tailwater/",
+    "facilities": "Concrete ramp with two paved parking areas below Norfork",
+    "confidence": "high",
+    "source_urls": [
+      "https://gisec2.agfc.com/arcgis/rest/services/GIS/AGFC_DATA/MapServer/1",
+      "https://www.agfc.com/wp-content/uploads/2023/05/bull_shoals_lake_tailwater.pdf",
+      "https://ozarkchronicles.com/resources/ozarkwaters/arkansas-trout-waters/white-river-bull-shoals-dam",
+      "https://www.openstreetmap.org/way/12709315"
+    ]
+  },
+  {
+    "name": "Sneed Creek Access",
+    "kind": "boat_ramp",
+    "expected_mile": 51.6,
+    "lat": 36.15757,
+    "lon": -92.23101,
+    "is_public": true,
+    "ownership": "AGFC",
+    "managing_agency": null,
+    "official_site_url": "https://www.agfc.com/fishing/where-to-fish/trout-waters/bull-shoals-tailwater/",
+    "facilities": "Concrete ramp with gravel parking at the Sneed Creek mouth",
+    "confidence": "high",
+    "source_urls": [
+      "https://gisec2.agfc.com/arcgis/rest/services/GIS/AGFC_DATA/MapServer/1",
+      "https://www.agfc.com/wp-content/uploads/2023/05/bull_shoals_lake_tailwater.pdf",
+      "https://ozarkchronicles.com/resources/ozarkwaters/arkansas-trout-waters/white-river-bull-shoals-dam",
+      "https://www.openstreetmap.org/node/4482712834"
+    ]
+  },
+  {
+    "name": "Chesmond Ferry Access",
+    "kind": "boat_ramp",
+    "expected_mile": 56.6,
+    "lat": 36.10744,
+    "lon": -92.18995,
+    "is_public": true,
+    "ownership": "AGFC",
+    "managing_agency": null,
+    "official_site_url": "https://www.agfc.com/fishing/where-to-fish/trout-waters/bull-shoals-tailwater/",
+    "facilities": "Concrete ramp, chip-sealed road and parking (2022 AGFC/ArDOT upgrade) at the old ferry crossing above Calico Rock",
+    "confidence": "high",
+    "source_urls": [
+      "https://gisec2.agfc.com/arcgis/rest/services/GIS/AGFC_DATA/MapServer/1",
+      "https://www.agfc.com/wp-content/uploads/2023/05/bull_shoals_lake_tailwater.pdf",
+      "https://ozarkchronicles.com/resources/ozarkwaters/arkansas-trout-waters/white-river-bull-shoals-dam",
+      "https://www.agfc.com/news/agfc-ardot-increase-boating-access/"
+    ]
+  },
+  {
+    "name": "Calico Rock City Park Access",
+    "kind": "boat_ramp",
+    "expected_mile": 59.8,
+    "lat": 36.11612,
+    "lon": -92.14335,
+    "is_public": true,
+    "ownership": "AGFC",
+    "managing_agency": null,
+    "official_site_url": "https://www.agfc.com/fishing/where-to-fish/trout-waters/bull-shoals-tailwater/",
+    "facilities": "Concrete ramp and paved parking at the Calico Rock city park below the Highway 5 bridge",
+    "confidence": "high",
+    "source_urls": [
+      "https://gisec2.agfc.com/arcgis/rest/services/GIS/AGFC_DATA/MapServer/1",
+      "https://www.agfc.com/wp-content/uploads/2023/05/bull_shoals_lake_tailwater.pdf",
+      "https://ozarkchronicles.com/resources/ozarkwaters/arkansas-trout-waters/white-river-bull-shoals-dam",
+      "https://www.openstreetmap.org/way/624227423"
+    ]
+  },
+  {
+    "name": "Boswell Shoals Access",
+    "kind": "access",
+    "expected_mile": 67.6,
+    "lat": 36.03595,
+    "lon": -92.05886,
+    "is_public": true,
+    "ownership": "USFS",
+    "managing_agency": "USFS",
+    "official_site_url": "https://www.fs.usda.gov/r08/ozark-stfrancis/offices/sylamore-ranger-district",
+    "facilities": "Primitive dirt launch and parking in Ozark NF near Optimus; likely the \"Optimus Access\" of river guides",
+    "confidence": "medium",
+    "source_urls": [
+      "https://gisec2.agfc.com/arcgis/rest/services/GIS/AGFC_DATA/MapServer/1",
+      "https://www.agfc.com/wp-content/uploads/2023/05/bull_shoals_lake_tailwater.pdf",
+      "https://ozarkchronicles.com/resources/ozarkwaters/arkansas-trout-waters/white-river-bull-shoals-dam"
+    ]
+  },
+  {
+    "name": "Mount Olive Access",
+    "kind": "boat_ramp",
+    "expected_mile": 72.2,
+    "lat": 35.99681,
+    "lon": -92.09232,
+    "is_public": true,
+    "ownership": "AGFC",
+    "managing_agency": null,
+    "official_site_url": "https://www.agfc.com/fishing/where-to-fish/trout-waters/bull-shoals-tailwater/",
+    "facilities": "Concrete ramp with gravel parking at Mount Olive (Izard County)",
+    "confidence": "medium",
+    "source_urls": [
+      "https://gisec2.agfc.com/arcgis/rest/services/GIS/AGFC_DATA/MapServer/1",
+      "https://www.agfc.com/wp-content/uploads/2023/05/bull_shoals_lake_tailwater.pdf",
+      "https://ozarkchronicles.com/resources/ozarkwaters/arkansas-trout-waters/white-river-bull-shoals-dam"
+    ]
+  },
+  {
+    "name": "Sylamore Ferry Access",
+    "kind": "boat_ramp",
+    "expected_mile": 76.9,
+    "lat": 35.94124,
+    "lon": -92.11444,
+    "is_public": true,
+    "ownership": "AGFC",
+    "managing_agency": null,
+    "official_site_url": "https://www.agfc.com/fishing/where-to-fish/trout-waters/bull-shoals-tailwater/",
+    "facilities": "Concrete ramp plus dirt launch, fishing pier and parking on both banks at the old Sylamore Ferry crossing",
+    "confidence": "high",
+    "source_urls": [
+      "https://gisec2.agfc.com/arcgis/rest/services/GIS/AGFC_DATA/MapServer/1",
+      "https://www.agfc.com/wp-content/uploads/2023/05/bull_shoals_lake_tailwater.pdf",
+      "https://ozarkchronicles.com/resources/ozarkwaters/arkansas-trout-waters/white-river-bull-shoals-dam",
+      "https://www.openstreetmap.org/node/7171420836",
+      "https://www.openstreetmap.org/node/2028356738"
+    ]
+  },
+  {
+    "name": "Round Bottom Access",
+    "kind": "boat_ramp",
+    "expected_mile": 81.3,
+    "lat": 35.94092,
+    "lon": -92.04932,
+    "is_public": true,
+    "ownership": "AGFC",
+    "managing_agency": null,
+    "official_site_url": "https://www.agfc.com/fishing/where-to-fish/trout-waters/bull-shoals-tailwater/",
+    "facilities": "Concrete ramp with gravel parking at Round Bottom (Stone County)",
+    "confidence": "medium",
+    "source_urls": [
+      "https://gisec2.agfc.com/arcgis/rest/services/GIS/AGFC_DATA/MapServer/1",
+      "https://www.agfc.com/wp-content/uploads/2023/05/bull_shoals_lake_tailwater.pdf",
+      "https://ozarkchronicles.com/resources/ozarkwaters/arkansas-trout-waters/white-river-bull-shoals-dam",
+      "https://www.openstreetmap.org/way/12942412"
+    ]
+  },
+  {
+    "name": "Guion Access",
+    "kind": "boat_ramp",
+    "expected_mile": 89.5,
+    "lat": 35.92446,
+    "lon": -91.94942,
+    "is_public": true,
+    "ownership": "AGFC",
+    "managing_agency": null,
+    "official_site_url": "https://www.agfc.com/fishing/where-to-fish/trout-waters/bull-shoals-tailwater/",
+    "facilities": "Concrete ramp on the Stone County bank at the Highway 58 bridge — the downstream end of the trout water",
+    "confidence": "high",
+    "source_urls": [
+      "https://gisec2.agfc.com/arcgis/rest/services/GIS/AGFC_DATA/MapServer/1",
+      "https://www.agfc.com/wp-content/uploads/2023/05/bull_shoals_lake_tailwater.pdf",
+      "https://ozarkchronicles.com/resources/ozarkwaters/arkansas-trout-waters/white-river-bull-shoals-dam"
+    ]
+  },
+  {
+    "name": "Oliver Smith Picnic Area Walk-In Access",
+    "kind": "access",
+    "expected_mile": null,
+    "lat": null,
+    "lon": null,
+    "is_public": true,
+    "ownership": "AGFC",
+    "managing_agency": null,
+    "official_site_url": "https://www.agfc.com/fishing/where-to-fish/trout-waters/bull-shoals-tailwater/",
+    "facilities": "Walk-in picnic access between Buffalo City and Cartney shown on the AGFC tailwater map; no ramp. Coordinates not in the AGFC facilities layer — held until a source supplies one",
+    "confidence": "unverified",
+    "source_urls": [
+      "https://www.agfc.com/wp-content/uploads/2023/05/bull_shoals_lake_tailwater.pdf",
+      "https://ozarkchronicles.com/resources/ozarkwaters/arkansas-trout-waters/white-river-bull-shoals-dam"
+    ]
+  }
+]

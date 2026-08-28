@@ -155,7 +155,21 @@ size handling.
 - The UX review's own fixes are recorded in
   `IOS_UX_FLOW_REVIEW_2026-08-27.md` under "Fixed on this branch".
 
-Still open after this branch: the UX review's map polish items (2.7–2.9,
-2.11, 3.1–3.5), the push→rule path (2.14), and the river↔dam stack/ticker
-growth (2.15) — that last one now cheaper than found, since the dam data the
-buried screens re-render for comes from the shared store.
+A second round on this branch closed the rest: the map polish items
+(2.7–2.9, 2.11, 3.1–3.5), the push→rule path (2.14, both delivery passes
+carrying `(alertId, alertSource)` and `AlertOriginRow` on the landing
+screens), and the river↔dam stack/ticker growth (2.15, `navigate` plus
+focus-gated tickers).
+
+The tailwater access points — the activation blocker the thresholds review
+flagged — now have their import manifests:
+`scripts/ingestion/access-points/{white,norfork-tailwater,taneycomo}.json`,
+36 points sourced from the AGFC Public Use Facilities ArcGIS layer, the MDC
+Conservation Atlas layers, USACE and municipal pages, each corroborated by a
+second source and verified within 300 m of the stored flowline with miles
+recomputed along it. The import itself stays behind the repo's own
+human-verified gate: run `import-dossier-access-points.ts <slug> --write`
+(then `--approve`) with `EXPECTED_SUPABASE_REF` pinned — nothing here wrote
+to the database. The thresholds review's two guard gaps (provenance keyed on
+`role`, `validate_river_data()` blind to inactive rivers) remain open: both
+need SQL that should be built against a live scratch cluster, not blind.

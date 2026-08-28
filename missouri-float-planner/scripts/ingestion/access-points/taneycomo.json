@@ -1,0 +1,127 @@
+[
+  {
+    "name": "Shepherd of the Hills Hatchery Bank Access",
+    "kind": "access",
+    "expected_mile": 0.4,
+    "lat": 36.59724,
+    "lon": -93.30453,
+    "is_public": true,
+    "ownership": "MDC",
+    "managing_agency": "MDC",
+    "official_site_url": "https://mdc.mo.gov/discover-nature/places/shepherd-hills-fish-hatchery",
+    "facilities": "Bank and wade fishing along the trophy-area tailwater immediately below Table Rock Dam; parking along Hatchery Road, picnic areas, conservation center",
+    "confidence": "medium",
+    "source_urls": [
+      "https://gisblue.mdc.mo.gov/arcgis/rest/services/Discover_Nature/Area_Feature_Layers/FeatureServer/9",
+      "https://mdc.mo.gov/discover-nature/places/shepherd-hills-fish-hatchery",
+      "https://mdc.mo.gov/sites/default/files/2024-04/5601map_0.pdf"
+    ]
+  },
+  {
+    "name": "Shepherd of the Hills Hatchery Boat Ramp",
+    "kind": "boat_ramp",
+    "expected_mile": 0.9,
+    "lat": 36.597302,
+    "lon": -93.293845,
+    "is_public": true,
+    "ownership": "MDC",
+    "managing_agency": "MDC",
+    "official_site_url": "https://mdc.mo.gov/discover-nature/places/shepherd-hills-fish-hatchery",
+    "facilities": "One-lane concrete ramp, the uppermost launch on Taneycomo; parking ~20 rigs, restrooms, picnic areas",
+    "confidence": "high",
+    "source_urls": [
+      "https://gisblue.mdc.mo.gov/arcgis/rest/services/Discover_Nature/Area_Feature_Layers/FeatureServer/17",
+      "https://services2.arcgis.com/kNS2ppBA4rwAQQZy/arcgis/rest/services/MO_Missouri_Department_of_Conservation_Boat_Ramps/FeatureServer",
+      "https://www.openstreetmap.org/way/1430767771"
+    ]
+  },
+  {
+    "name": "Cooper Creek Access",
+    "kind": "boat_ramp",
+    "expected_mile": 5.8,
+    "lat": 36.620448,
+    "lon": -93.244694,
+    "is_public": true,
+    "ownership": "MDC",
+    "managing_agency": "MDC",
+    "official_site_url": "https://mdc.mo.gov/discover-nature/places/cooper-creek-access",
+    "facilities": "Concrete ramp, large parking (~40 rigs), two ADA covered fishing docks, privy; MDC places it 5 miles below the hatchery ramp, which the flowline confirms",
+    "confidence": "high",
+    "source_urls": [
+      "https://gisblue.mdc.mo.gov/arcgis/rest/services/Discover_Nature/Area_Feature_Layers/FeatureServer/17",
+      "https://mdc.mo.gov/discover-nature/places/cooper-creek-access",
+      "https://services2.arcgis.com/kNS2ppBA4rwAQQZy/arcgis/rest/services/MO_Missouri_Department_of_Conservation_Boat_Ramps/FeatureServer"
+    ]
+  },
+  {
+    "name": "Branson City Ramp (Branson Lakeside RV Park)",
+    "kind": "boat_ramp",
+    "expected_mile": 8.4,
+    "lat": 36.634522,
+    "lon": -93.219053,
+    "is_public": true,
+    "ownership": "city",
+    "managing_agency": "Municipal",
+    "official_site_url": "https://www.bransonlakesidervpark.com/",
+    "facilities": "Public one-lane concrete ramp beside the city-owned Branson Lakeside RV Park, downtown Branson lakefront; public fishing docks nearby; parking ~20 rigs",
+    "confidence": "medium",
+    "source_urls": [
+      "https://www.openstreetmap.org/node/5159790003",
+      "https://www.branson.com/outdoor-activities/boat-ramps-fishing/",
+      "https://www.campgroundviews.com/campground/branson-lakeside-rv-park"
+    ]
+  },
+  {
+    "name": "North Beach Park",
+    "kind": "park",
+    "expected_mile": 9.7,
+    "lat": 36.64999,
+    "lon": -93.21502,
+    "is_public": true,
+    "ownership": "city",
+    "managing_agency": "Municipal",
+    "official_site_url": "https://bransonmo.gov/686/North-Beach-Park",
+    "facilities": "City of Branson shore-fishing park at the north end of Branson Landing: two public fishing docks, paved lakeside path, picnic tables; no boat ramp, no restrooms",
+    "confidence": "medium",
+    "source_urls": [
+      "https://bransonmo.gov/686/North-Beach-Park",
+      "https://maps.mail.ru/osm/tools/overpass/api/interpreter"
+    ]
+  },
+  {
+    "name": "Rockaway Beach Access",
+    "kind": "boat_ramp",
+    "expected_mile": 15.2,
+    "lat": 36.698835,
+    "lon": -93.159385,
+    "is_public": true,
+    "ownership": "MDC",
+    "managing_agency": "MDC",
+    "official_site_url": "https://mdc.mo.gov/discover-nature/places/rockaway-beach-access",
+    "facilities": "One-lane concrete ramp on Hwy 176, maintained by the City of Rockaway Beach; ADA covered fishing dock, parking ~20 rigs, restrooms; open 4 AM-10 PM",
+    "confidence": "high",
+    "source_urls": [
+      "https://gisblue.mdc.mo.gov/arcgis/rest/services/Discover_Nature/Area_Feature_Layers/FeatureServer/17",
+      "https://mdc.mo.gov/discover-nature/places/rockaway-beach-access",
+      "https://mdc.mo.gov/sites/default/files/mo_nature/downloads/conservation-areas/9913map.pdf"
+    ]
+  },
+  {
+    "name": "Empire Park Ramp (Forsyth)",
+    "kind": "boat_ramp",
+    "expected_mile": 22.1,
+    "lat": 36.6573,
+    "lon": -93.1331,
+    "is_public": true,
+    "ownership": "city",
+    "managing_agency": "Municipal",
+    "official_site_url": "https://forsythmo.gov/parks-and-recreation-1",
+    "facilities": "One-lane concrete ramp just upstream of Powersite Dam — the last take-out on Taneycomo; parking ~40 rigs, covered fishing dock, restrooms, picnic area, playground",
+    "confidence": "medium",
+    "source_urls": [
+      "https://forsythmo.gov/parks-and-recreation-1",
+      "https://lostintheozarks.com/empire-park",
+      "https://www.branson.com/outdoor-activities/boat-ramps-fishing/"
+    ]
+  }
+]
