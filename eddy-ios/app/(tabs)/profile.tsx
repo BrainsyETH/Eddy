@@ -134,16 +134,27 @@ export default function ProfileScreen() {
    * effect below clears the flag.
    */
   const settleConfirmPending = useCallback(async () => {
-    const token = await getAccessToken();
-    if (token) {
-      // Reconcile BEFORE polling, same as the restore path itself: the case
-      // this pending state exists for — a transfer onto an account with no
-      // entitlement row — is exactly the one polling alone can wait out
-      // forever. See refreshEntitlement in src/api/client.ts.
-      await refreshEntitlement(token);
-      await waitForEntitlement(token);
+    try {
+      const token = await getAccessToken();
+      if (token) {
+        // Reconcile BEFORE polling, same as the restore path itself: the case
+        // this pending state exists for — a transfer onto an account with no
+        // entitlement row — is exactly the one polling alone can wait out
+        // forever. See refreshEntitlement in src/api/client.ts.
+        await refreshEntitlement(token);
+        await waitForEntitlement(token);
+      }
+    } catch {
+      // Every callee above swallows its own failures today — this catch makes
+      // that contract LOCAL rather than a property of four other functions'
+      // internals. Callers fire-and-forget this promise, so a rejection here
+      // would be unhandled, skip the refresh below, and strand confirmPending
+      // over a card that then hides the buy button indefinitely.
+    } finally {
+      // The card catches up whatever the poll did. refresh() itself never
+      // rejects — useAccount.load absorbs failures into its own error state.
+      await refresh();
     }
-    await refresh();
   }, [getAccessToken, refresh]);
 
   useEffect(() => {

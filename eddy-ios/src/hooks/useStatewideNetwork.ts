@@ -144,14 +144,29 @@ export function useStatewideNetwork(): StatewideNetwork {
    * current, on the one surface whose whole job is which rivers are worth
    * driving to today. Stale-while-revalidate: the old colours stand until the
    * new readings land.
+   *
+   * ONE AT A TIME, NEWEST WINS. Foreground can fire again before a slow
+   * request answers (a quick app switch and back), and two untracked loads
+   * would race — the older response finishing last would overwrite the newer
+   * readings. Aborting the previous request first closes that; loadReadings
+   * already treats 'Request cancelled' as not-a-failure.
    */
+  const foregroundReload = useRef<AbortController | null>(null);
   useEffect(() => {
-    return onForeground(() => {
+    const off = onForeground(() => {
       if (readingsAt.current === null) return;
       if (Date.now() - readingsAt.current < READINGS_TTL_MS) return;
+      foregroundReload.current?.abort();
       const controller = new AbortController();
-      void loadReadings(controller.signal);
+      foregroundReload.current = controller;
+      void loadReadings(controller.signal).finally(() => {
+        if (foregroundReload.current === controller) foregroundReload.current = null;
+      });
     });
+    return () => {
+      off();
+      foregroundReload.current?.abort();
+    };
   }, [loadReadings]);
 
   useEffect(() => {

@@ -25,6 +25,12 @@ export function useCuratedGauges(wanted: boolean): {
   const [gauges, setGauges] = useState<MapGauge[] | null>(null);
   const requested = useRef(false);
   const fetchedAt = useRef<number | null>(null);
+  // True only while a request is on the wire. `requested` cannot carry this:
+  // it stays true forever after a success, so the foreground check below
+  // needs its own answer to "is one already running" before it releases the
+  // latch — releasing mid-flight started a second fetch, and the older
+  // response finishing last would overwrite the newer.
+  const inFlight = useRef(false);
 
   const ensureGauges = useCallback(() => {
     if (requested.current) return;
@@ -42,6 +48,7 @@ export function useCuratedGauges(wanted: boolean): {
     // built from this list. Same rule as useRiverServices: null until success,
     // release on failure, and the next ensureGauges call genuinely retries.
     const startedAt = Date.now();
+    inFlight.current = true;
     fetchGauges()
       .then((loaded) => {
         const durationMs = Date.now() - startedAt;
@@ -62,6 +69,9 @@ export function useCuratedGauges(wanted: boolean): {
       })
       .catch(() => {
         requested.current = false;
+      })
+      .finally(() => {
+        inFlight.current = false;
       });
   }, []);
 
@@ -76,6 +86,7 @@ export function useCuratedGauges(wanted: boolean): {
   useEffect(() => {
     if (!wanted) return;
     return onForeground(() => {
+      if (inFlight.current) return;
       if (fetchedAt.current === null) return;
       if (Date.now() - fetchedAt.current < GAUGES_TTL_MS) return;
       requested.current = false;

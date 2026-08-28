@@ -535,6 +535,8 @@ export default function ReportsScreen() {
 
   /** When the rivers last loaded — a ref, read only by the foreground check. */
   const riversAt = useRef<number | null>(null);
+  /** The foreground reload in flight, so a second foreground supersedes it. */
+  const foregroundReload = useRef<AbortController | null>(null);
 
   const load = useCallback(async (signal?: AbortSignal) => {
     // The statewide paragraph is NOT fetched here any more. It arrives through
@@ -584,11 +586,24 @@ export default function ReportsScreen() {
    * until the fresh answer replaces it.
    */
   useEffect(() => {
-    return onForeground(() => {
+    // One at a time, newest wins: foreground can fire again before a slow
+    // request answers, and two untracked loads would let the older response
+    // finish last and overwrite the newer list. load() already treats
+    // 'Request cancelled' as not-a-failure.
+    const off = onForeground(() => {
       if (riversAt.current === null) return;
       if (Date.now() - riversAt.current < 300_000) return;
-      void load();
+      foregroundReload.current?.abort();
+      const controller = new AbortController();
+      foregroundReload.current = controller;
+      void load(controller.signal).finally(() => {
+        if (foregroundReload.current === controller) foregroundReload.current = null;
+      });
     });
+    return () => {
+      off();
+      foregroundReload.current?.abort();
+    };
   }, [load]);
 
   /**
