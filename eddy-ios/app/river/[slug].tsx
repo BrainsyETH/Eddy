@@ -97,6 +97,7 @@ import { SafetyDisclaimer } from '@/components/SafetyDisclaimer';
 import { EddyTake } from '@/components/EddyTake';
 import { damForRiver } from '@/components/dam/RiverDamPanel';
 import { getSharedDams } from '@/hooks/useDams';
+import { AlertOriginRow } from '@/components/AlertOriginRow';
 import { TailwaterStatusRow } from '@/components/dam/TailwaterStatusRow';
 import { RiverReaches } from '@/components/river/RiverReaches';
 import { GaugeChart } from '@/components/GaugeChart';
@@ -363,10 +364,13 @@ export default function RiverDetailScreen() {
   // came for — today the dam screen. `section` names the reach to mark in the
   // reaches panel; `gauge` is the provider-native site id that reads it. Both
   // are optional, and an unknown value for either does nothing.
-  const { slug, section, gauge: gaugeParam } = useLocalSearchParams<{
+  const { slug, section, gauge: gaugeParam, alertId, alertSource } = useLocalSearchParams<{
     slug: string;
     section?: string;
     gauge?: string;
+    /** Set only by a push-notification tap — see routeTo in usePush. */
+    alertId?: string;
+    alertSource?: string;
   }>();
   const router = useRouter();
   const { colors, elevation } = useTheme();
@@ -529,11 +533,17 @@ export default function RiverDetailScreen() {
    */
   const [, setDamClock] = useState(0);
   const damId = dam?.id ?? null;
-  useEffect(() => {
-    if (!damId) return;
-    const id = setInterval(() => setDamClock((n) => n + 1), 60_000);
-    return () => clearInterval(id);
-  }, [damId]);
+  // Focus-gated, same as the dam screen's own clock: a river screen buried
+  // under the dam it links to has nobody reading its row, and the pair used
+  // to bury copies that all kept ticking. The focus reload above re-fetches
+  // on return, so the row is fresh again without waiting for a tick.
+  useFocusEffect(
+    useCallback(() => {
+      if (!damId) return;
+      const id = setInterval(() => setDamClock((n) => n + 1), 60_000);
+      return () => clearInterval(id);
+    }, [damId]),
+  );
 
   /**
    * Which gauge the reading card is showing. Null means the river's own
@@ -1204,6 +1214,12 @@ export default function RiverDetailScreen() {
       </View>
 
       <ScrollView contentContainerStyle={styles.body}>
+        {/* The way back to the rule that fired the push this screen answered.
+            Renders nothing on ordinary navigation — only a notification tap
+            carries the params. First in the scroll: the person it serves just
+            arrived from the notification, before any reading. */}
+        <AlertOriginRow alertId={alertId} alertSource={alertSource} />
+
         <Text style={[styles.riverName, { color: colors.text }]}>{river.name}</Text>
         <Text style={[styles.riverMeta, { color: colors.textMuted }]}>
           {river.region ?? river.state}

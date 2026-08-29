@@ -43,6 +43,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
+  Linking,
   Pressable,
   StyleSheet,
   Text,
@@ -110,7 +112,7 @@ import {
   SERVICE_OWNER_LAYER,
 } from '@/map/accessLayers';
 import { SERVICE_LAYER_KEYS, serviceOnLayer } from '@/map/serviceLayers';
-import { type LayerKey } from '@/map/layers';
+import { ZOOM, type LayerKey } from '@/map/layers';
 import { mergeRestoredLayers } from '@/map/layerRows';
 import { useViewportGauges, type Viewport } from '@/hooks/useViewportGauges';
 import { useNetworkPlaces } from '@/hooks/useNetworkPlaces';
@@ -212,6 +214,25 @@ const CONTROLS_ROOM_FADE = 60;
  * comments document having engineered away.
  */
 const NO_SERVICES: RiverService[] = [];
+
+/**
+ * The layer rows whose pins vanish below ZOOM.min, the ladder's floor.
+ *
+ * The other three rows explain their own emptiness differently: allGauges
+ * through the GaugeFilterBar's belowMinZoom hint, publicLand through its own
+ * z7 note, and weatherRadar draws down to MIN_RADAR_ZOOM (4) so it has no
+ * floor problem to explain.
+ */
+const FLOOR_GATED_PIN_ROWS = new Set<LayerKey>([
+  'access',
+  'boatRamps',
+  'gauges',
+  'hazards',
+  'dams',
+  'campgrounds',
+  'outfitters',
+  'lodging',
+]);
 
 /**
  * A per-river layer's data, tagged with the river it was fetched for.
@@ -497,7 +518,24 @@ export default function MapScreen() {
    */
   const gestureCount = useRef(0);
   /** Issues a navigation request, and returns its id so a caller can cancel it. */
+  /**
+   * Whether the motion that is settling was the USER's.
+   *
+   * Set by onUserGesture, cleared by issueCameraCommand — so at any idle it
+   * answers "did a person put the camera here, or did the app fly it". Only
+   * the person's answer is worth remembering: every idle used to write, so a
+   * zoom-13 flight to a search result two states away became the stored
+   * camera, outranked both the user's location and the network fit on the
+   * next cold open (see initialCamera's ordering), and suppressed the
+   * open-near-me command — the app opening on last session's throwaway
+   * glance, with no explanation. A ref: nothing renders from it.
+   */
+  const lastMoveWasGesture = useRef(false);
+
   const issueCameraCommand = useCallback((action: MapCameraAction): number | null => {
+    // The app is about to move the camera; wherever it settles is not the
+    // reader's choice. See lastMoveWasGesture.
+    lastMoveWasGesture.current = false;
     cameraCommandId.current += 1;
     const command = cameraCommandFor(action, cameraCommandId.current);
     if (!command) return null;
@@ -535,16 +573,17 @@ export default function MapScreen() {
     };
   }, []);
   /**
-   * The camera settled: publish the viewport, and remember where.
+   * The camera settled: publish the viewport, and remember where — when the
+   * reader chose it.
    *
-   * The write is fire-and-forget on every idle — idle fires once per settled
-   * motion, so this is a handful of tiny writes per session, and a map that
-   * draws correctly and forgets is the smaller failure (see mapCamera.ts).
+   * The write is fire-and-forget — idle fires once per settled motion, so
+   * this is a handful of tiny writes per session, and a map that draws
+   * correctly and forgets is the smaller failure (see mapCamera.ts).
    */
   const onViewportChange = useCallback(
     (next: { bounds: Viewport['bounds']; zoom: number; center?: [number, number] }) => {
       setViewport({ bounds: next.bounds, zoom: next.zoom });
-      if (next.center) {
+      if (next.center && lastMoveWasGesture.current) {
         void writeMapCamera({ lng: next.center[0], lat: next.center[1], zoom: next.zoom });
       }
     },
@@ -1173,6 +1212,24 @@ export default function MapScreen() {
     }));
   }, [dams]);
 
+  /**
+   * Keep an OPEN dam callout in step with the live answer.
+   *
+   * `selectedPin` is a snapshot taken at the tap, and dam pins draw from the
+   * shipped catalog before /api/dams has answered — the design that lets the
+   * layer exist during the route's five-to-fifty-second cold path. But the
+   * promise that a searched or tapped dam "gets its live release figures
+   * whenever they land" was only true for pins tapped AFTER the answer:
+   * nothing re-derived the open one, so a callout opened during the cold
+   * window showed no reading and never would, until closed and reopened.
+   */
+  useEffect(() => {
+    setSelectedPin((current) => {
+      if (!current || current.layer !== 'dams') return current;
+      return damPins.find((pin) => pin.damId === current.damId) ?? current;
+    });
+  }, [damPins]);
+
   // ── Search ──────────────────────────────────────────────────────
   // No `kinds`: this field is unscoped and wants everything. Naming the server
   // kinds would be identical — parseKinds() treats an absent list as every
@@ -1293,14 +1350,21 @@ export default function MapScreen() {
       enableLayer('dams');
       const pin = damPins.find((p) => p.damId === result.id);
       if (pin) {
-        setRevealsRiverSheet(false);
+        // This kind never calls selectRiver, so a river already on screen was
+        // CHOSEN, not revealed by this search — and the stated invariant is
+        // that dismissing a pin never destroys a chosen river. `false` here
+        // sent × down clearRiver's branch: tap the Current, search "Clearwater
+        // Dam", close the callout, and the Current was deselected.
+        setRevealsRiverSheet(Boolean(selectedSlug));
         setSelectedPin(pin);
       }
     } else if (result.kind === 'hazard') {
       enableLayer('hazards');
       const hazard = drawnHazards.find((h) => h.id === result.id);
       if (hazard && hasCoordinates(hazard)) {
-        setRevealsRiverSheet(false);
+        // Same as the dam branch: no river selected by this kind, so a chosen
+        // one survives the dismissal.
+        setRevealsRiverSheet(Boolean(selectedSlug));
         setSelectedPin(mapHazardPin(hazard));
       }
     } else if (result.kind === 'service') {
@@ -1308,7 +1372,8 @@ export default function MapScreen() {
       const opened = service ? serviceResultPin(service) : null;
       if (opened) {
         enableLayer(opened.layer);
-        setRevealsRiverSheet(false);
+        // Same as the dam branch above.
+        setRevealsRiverSheet(Boolean(selectedSlug));
         setSelectedPin(opened.pin);
       }
     }
@@ -1321,6 +1386,7 @@ export default function MapScreen() {
     gauges,
     services,
     damPins,
+    selectedSlug,
     clearSearch,
     selectRiver,
     issueCameraCommand,
@@ -2072,6 +2138,9 @@ export default function MapScreen() {
     hasGestured.current = true;
     // Also counted, for the deferred fit above — see `gestureCount`.
     gestureCount.current += 1;
+    // And remembered: a camera the reader placed is the one worth restoring
+    // next session. See lastMoveWasGesture.
+    lastMoveWasGesture.current = true;
   }, []);
 
   useEffect(() => {
@@ -2199,11 +2268,18 @@ export default function MapScreen() {
   // river picker name a river without pointing at any part of it.
   const onSelectNetworkRiver = useCallback(
     (slug: string, at?: { lng: number; lat: number }) => {
+      // A map tap is a search dismissal. The results overlay suppresses the
+      // sheets but not the map's own handlers, so a tap through it used to
+      // half-work: the river selected invisibly, and the queued camera flight
+      // fired seconds later when the search was cleared — a jump nobody asked
+      // for at a moment nobody expected. Same three steps as onSelectResult;
+      // clear() is stable and a no-op when the field is already empty.
+      clearSearch();
       selectRiver(slug, at ? { camera: 'pin', lng: at.lng, lat: at.lat } : { camera: 'fitRiver' });
       setSelectedPin(null);
       pendingAccessSelection.current = null;
     },
-    [selectRiver],
+    [clearSearch, selectRiver],
   );
 
   /**
@@ -2290,6 +2366,23 @@ export default function MapScreen() {
         lat: coords.lat,
         zoom: 10.5,
       });
+      return;
+    }
+
+    // Denied, with nothing remembered to fall back on: the one case where the
+    // tap used to produce a brief spinner and nothing else. iOS will not
+    // re-show the dialog, so the honest answer names the door — the same
+    // Linking.openSettings escape the Today tab's distance sort and Profile's
+    // push denial already offer.
+    if (location.status === 'denied') {
+      Alert.alert(
+        'Location is off for Eddy',
+        'Turn it on in Settings to see yourself on the map.',
+        [
+          { text: 'Not now', style: 'cancel' },
+          { text: 'Open Settings', onPress: () => void Linking.openSettings() },
+        ],
+      );
     }
   }, [location, issueCameraCommand]);
 
@@ -2352,6 +2445,10 @@ export default function MapScreen() {
    */
   const onSelectPin = useCallback(
     (pin: MapPin) => {
+      // A map tap is a search dismissal — see onSelectNetworkRiver. Without
+      // this, tapping a pin under the results overlay opened no callout and
+      // left a camera command queued for whenever the search cleared.
+      clearSearch();
       const entry = accessPointForPin(pin);
       // The river this tap would newly select, or null when it selects none —
       // either because the pin has no river or because that river is already
@@ -2384,7 +2481,7 @@ export default function MapScreen() {
       }
       setSelectedPin(pin);
     },
-    [accessPointForPin, selectedSlug, selectRiver, issueCameraCommand],
+    [accessPointForPin, clearSearch, selectedSlug, selectRiver, issueCameraCommand],
   );
 
   // The gauge behind a tapped gauge pin. Looked up rather than carried on
@@ -2562,7 +2659,16 @@ export default function MapScreen() {
               results={search.results}
               onSelect={onSelectResult}
               loading={search.searching}
-              emptyMessage="Nothing matched. Try a river, gauge, access point, dam or outfitter."
+              // "Couldn't search" and "nothing matched" are different claims,
+              // and the second used to stand in for the first: with the server
+              // half backed off, a put-in name found nothing and the message
+              // blamed the data. Access points live server-side only, so the
+              // honest message names what is still being searched.
+              emptyMessage={
+                search.serverUnavailable
+                  ? 'Search is unreachable right now — only what the map already holds can match. Check your connection.'
+                  : 'Nothing matched. Try a river, gauge, access point, dam or outfitter.'
+              }
             />
           </View>
         ) : null}
@@ -2965,6 +3071,21 @@ export default function MapScreen() {
           // opening statewide view sits below the layer's z7 floor.
           if (key === 'publicLand' && on && publicLands.belowMinZoom) {
             return <LayerZoomHint text="Zoom in to see public land boundaries." />;
+          }
+          // The same honesty for every pin row: below the ladder's floor no
+          // statewide pin layer draws, yet the rows kept printing statewide
+          // counts — "Access points 313" over a camera showing none of them.
+          // Only allGauges and publicLand explained themselves; this extends
+          // their treatment to the rest. `viewport` is null until the first
+          // idle, which is treated as above the floor — a hint that flashes at
+          // launch before the camera has said anything would be a false alarm.
+          if (
+            on &&
+            viewport !== null &&
+            viewport.zoom < ZOOM.min &&
+            FLOOR_GATED_PIN_ROWS.has(key)
+          ) {
+            return <LayerZoomHint text="Zoom in to see these — nothing draws this far out." />;
           }
           return key === 'allGauges' && on ? (
             <GaugeFilterBar

@@ -108,10 +108,17 @@ export default function DamDetailScreen() {
    * re-rendering to move nothing.
    */
   const [, setTick] = useState(0);
-  useEffect(() => {
-    const id = setInterval(() => setTick((n) => n + 1), 60_000);
-    return () => clearInterval(id);
-  }, []);
+  // Focus-gated: a screen buried under another in the stack has nobody
+  // reading its tenses, and the river↔dam pair used to bury copies that all
+  // kept ticking. Blur tears the interval down; return restarts it, and the
+  // silent focus reload below re-renders with fresh data anyway, so the
+  // tenses are right again before the next tick is due.
+  useFocusEffect(
+    useCallback(() => {
+      const id = setInterval(() => setTick((n) => n + 1), 60_000);
+      return () => clearInterval(id);
+    }, []),
+  );
 
   const load = useCallback(
     (signal: AbortSignal, showSpinner: boolean) => {
@@ -359,8 +366,11 @@ export default function DamDetailScreen() {
               // river carries more than one. Without it the Black opens on the
               // spring-fed Lesterville float — rain-driven water Clearwater has
               // no bearing on — and nothing marks which half you came for.
+              //
+              // navigate, not push: the river's TailwaterStatusRow links back
+              // here, and push let the pair stack copies indefinitely.
               onPress={() =>
-                router.push({
+                router.navigate({
                   pathname: '/river/[slug]',
                   params: {
                     slug: dam.tailwater!.riverSlug,
