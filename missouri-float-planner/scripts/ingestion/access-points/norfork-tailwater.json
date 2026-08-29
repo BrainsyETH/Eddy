@@ -39,7 +39,7 @@
   },
   {
     "name": "Dry Run Creek Access (Norfork National Fish Hatchery)",
-    "kind": "access",
+    "kind": "park",
     "expected_mile": 0.2,
     "lat": 36.248738,
     "lon": -92.241985,
@@ -47,7 +47,7 @@
     "ownership": "USFWS",
     "managing_agency": null,
     "official_site_url": "https://www.fws.gov/fish-hatchery/norfork",
-    "facilities": "Walk-in bank fishing at the hatchery near the mouth of Dry Run Creek; catch-and-release, RESTRICTED to youth under 16 and mobility-impaired anglers; ADA piers and walkways, paved parking. Not a float put-in",
+    "facilities": "NOT a float put-in and not a launch (kind park, so the importer never marks it a float endpoint): walk-in bank fishing at the hatchery near the mouth of Dry Run Creek, catch-and-release, RESTRICTED to youth under 16 and mobility-impaired anglers; ADA piers and walkways, paved parking",
     "confidence": "high",
     "source_urls": [
       "https://gisec2.agfc.com/arcgis/rest/services/GIS/AGFC_DATA/MapServer/1",
