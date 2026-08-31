@@ -106,7 +106,17 @@ import {
 // this adds no new runtime fingerprint. See SwipeRow.tsx for the situation
 // where reaching for it would be wrong.
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
-import Svg, { Circle, G, Line, Path, Rect, Text as SvgText } from 'react-native-svg';
+import Svg, {
+  Circle,
+  Defs,
+  G,
+  Line,
+  LinearGradient,
+  Path,
+  Rect,
+  Stop,
+  Text as SvgText,
+} from 'react-native-svg';
 import type { GaugeFloodStages } from '@eddy/types';
 import {
   chartDomain,
@@ -142,7 +152,16 @@ const RANGES = [
   { days: 30, label: '30d' },
 ] as const;
 
-const CHART_HEIGHT = 168;
+/**
+ * 200, up from 168. The plot carries up to six condition bands, a typical
+ * range, NWS stage rules and a forecast; at 140px of usable height those
+ * layers sat close enough to read as texture. Every consumer scrolls (the
+ * gauge screen, the river screen, the map sheet's tabbed body — the peek row
+ * never mounts the chart), so the extra 32px costs scroll distance, not
+ * layout. Sized WITH the axis: four labels down a 172px edge is a rung of the
+ * tick budget below, and neither number should move without the other.
+ */
+const CHART_HEIGHT = 200;
 /** Room for the value labels down the right edge. */
 const PAD_RIGHT = 46;
 /** Room for the time labels under the plot. */
@@ -510,6 +529,7 @@ function GaugeChartInner({
   const series = useMemo(() => {
     const empty = {
       paths: [] as string[],
+      areas: [] as string[],
       dots: [] as ChartPoint[],
       forecastPaths: [] as string[],
       forecastDots: [] as ChartPoint[],
@@ -522,10 +542,26 @@ function GaugeChartInner({
         .map((p, i) => `${i ? 'L' : 'M'} ${scale.x(p.t).toFixed(2)} ${scale.y(p.v).toFixed(2)}`)
         .join(' ');
 
+    /**
+     * The same segment, closed down to the foot of the plot.
+     *
+     * PER SEGMENT, not one area under the whole series — an area closed across a
+     * gap would fill the outage in, which is the thing splitAtGaps() exists to
+     * stop the line from doing. A hole in the telemetry has to stay a hole in
+     * every layer that draws it.
+     */
+    const toArea = (segment: ChartPoint[]) => {
+      const base = (PAD_TOP + plotHeight).toFixed(2);
+      const first = scale.x(segment[0].t).toFixed(2);
+      const last = scale.x(segment[segment.length - 1].t).toFixed(2);
+      return `${toPath(segment)} L ${last} ${base} L ${first} ${base} Z`;
+    };
+
     const { lines, isolated } = chartSegments(points, GAP_BREAK_MULTIPLE);
     const forecastSplit = chartSegments(forecastPoints, GAP_BREAK_MULTIPLE);
     return {
       paths: lines.map(toPath),
+      areas: lines.map(toArea),
       dots: isolated,
       forecastPaths: forecastSplit.lines.map(toPath),
       // A short-range issuance can be a single point. Dropping it would repeat,
@@ -555,7 +591,7 @@ function GaugeChartInner({
               .join(' ')
           : '',
     };
-  }, [points, forecastPoints, typical, scale]);
+  }, [points, forecastPoints, typical, scale, plotHeight]);
 
   /**
    * Round numbers down the right edge, from the same tick function the web axis
@@ -566,7 +602,9 @@ function GaugeChartInner({
    * same gauge in the same week. Nobody reads a hydrograph to learn the 8% pad.
    */
   const valueTicks = useMemo(
-    () => (domain ? niceValueTicks(domain.min, domain.max, 3) : []),
+    // Four with headroom for five, matched to the 200px chart — the 168px
+    // chart asked for three. See CHART_HEIGHT: the two numbers move together.
+    () => (domain ? niceValueTicks(domain.min, domain.max, 4) : []),
     [domain],
   );
 
@@ -665,6 +703,14 @@ function GaugeChartInner({
   if (!siteId) return null;
 
   const lineColor = colors.interactive;
+
+  /**
+   * Gradient ids share one namespace across every mounted Svg, and this chart is
+   * mounted more than once at a time — the map sheet pages between stations. A
+   * bare "flowFill" would have the second chart's gradient resolve to the first
+   * one's, which is invisible until the two disagree about the theme.
+   */
+  const fillId = `flowFill-${siteId ?? 'none'}-${drawnUnit}`;
   /**
    * ONE OBSERVED READING IS ENOUGH — and so is a forecast with none.
    *
@@ -683,6 +729,24 @@ function GaugeChartInner({
 
   const scrubQualifiers =
     scrubbed?.kind === 'observed' ? qualifierText(scrubbed.point.qualifiers) : null;
+
+  /**
+   * Which band a reading sits in, off the same contiguous ladder the rects
+   * draw. The web tooltip has always named the zone beside the number
+   * ("340 cfs — Flowing"); this readout said "340 cfs" and left the verdict to
+   * a colour behind the line. Observed readings only, like the web: a forecast
+   * gets its NWS attribution instead, never a floatability verdict.
+   *
+   * Bands are contiguous by construction (each min is the previous max), so
+   * the first band whose max clears the value owns it; a value past every
+   * closed band still belongs to the last band, which is how the web's
+   * `getZoneLabel` reads a spike above a ladder with no flood level.
+   */
+  const scrubZone =
+    scrubbed?.kind === 'observed' && zones.length > 0
+      ? (zones.find((zone) => scrubbed.point.v <= zone.max || zone.openEnded) ??
+        zones[zones.length - 1])
+      : null;
 
   const newest = points.length ? points[points.length - 1] : null;
 
@@ -803,6 +867,11 @@ function GaugeChartInner({
               <Text style={[styles.scrubValue, { color: colors.text }]}>
                 {formatReading(scrubbed.point.v, drawnUnit)}
               </Text>
+              {/* The verdict beside the number, in the band's own colour —
+                  parity with the web tooltip's "340 cfs — Flowing". */}
+              {scrubZone ? (
+                <Text style={{ color: conditionColor(scrubZone.key) }}>{` ${scrubZone.label}`}</Text>
+              ) : null}
               {'  '}
               {scrubTime(scrubbed.point.t)}
               {/* Two labels that must survive being read in a hurry: a forecast is
@@ -817,7 +886,25 @@ function GaugeChartInner({
             </Text>
           ) : (
             <Text style={[styles.subtitle, { color: colors.textSubtle }]} numberOfLines={1}>
-              {drawnUnit === 'cfs' ? 'Discharge' : 'Gauge height'} · last{' '}
+              {/* The newest reading rides in the idle subtitle — the exact
+                  "what is it now" number, in the row the scrub readout will
+                  reuse, instead of a callout crowding the plot's right edge
+                  where the axis and the current dot already live. The unit
+                  names the series, so "Discharge"/"Gauge height" only earns
+                  its space when there is no reading to show. */}
+              {newest ? (
+                <>
+                  <Text style={[styles.scrubValue, { color: colors.text }]}>
+                    {formatReading(newest.v, drawnUnit)}
+                  </Text>
+                  {' now · last '}
+                </>
+              ) : (
+                <>
+                  {drawnUnit === 'cfs' ? 'Discharge' : 'Gauge height'}
+                  {' · last '}
+                </>
+              )}
               {drawnDays === 1 ? '24 hours' : `${drawnDays} days`}
             </Text>
           )}
@@ -917,6 +1004,49 @@ function GaugeChartInner({
               onAccessibilityAction={onAccessibilityAction}
             >
               <Svg width={width} height={CHART_HEIGHT}>
+                {/* ── The gradient the fill draws with ──
+                    The website's hydrograph has carried a fill since it was
+                    built and the app's never did, so the same river drew as a
+                    weighted body of water on one screen and a bare 2px stroke
+                    on the other. It is the cheapest thing on the chart that
+                    says "this is water and this is how much of it".
+
+                    Fades to nearly nothing at the foot so it stays a fill and
+                    does not read as one more condition band — those carry
+                    meaning this must not borrow. */}
+                <Defs>
+                  <LinearGradient id={fillId} x1="0" y1="0" x2="0" y2="1">
+                    {/* Deliberately fainter than the web chart's ramp
+                        (0.30 → 0.05): this plot already stacks condition
+                        bands, a typical range and a forecast in 168px, and at
+                        a quarter alpha the fill competed with all of them. The
+                        line stays the data mark; the fill is something a
+                        reader should feel more than notice. Dark sits a step
+                        above light because the same alpha over near-black
+                        stone all but disappears — the band rects make the
+                        identical adjustment. */}
+                    <Stop offset="0" stopColor={lineColor} stopOpacity={isDark ? 0.18 : 0.12} />
+                    <Stop offset="1" stopColor={lineColor} stopOpacity={0.01} />
+                  </LinearGradient>
+                </Defs>
+
+                {/* ── The fill under the line ──
+                    FIRST out of the paint can, under even the condition bands,
+                    because paint order is meaning order: the fill is decoration
+                    and every layer after it carries a number.
+
+                    Drawn last (its first home, next to the line it belongs to)
+                    it painted over the typical range, the band boundaries, the
+                    NWS stage rules AND their labels, and the value axis — at up
+                    to 0.34 alpha, which is a teal wash across every threshold on
+                    the chart. A fill that tints a flood line is worse than no
+                    fill at all. Under the bands too, so the condition colours —
+                    which carry a verdict — stay their own hue rather than
+                    arriving pre-tinted teal. */}
+                {series.areas.map((d, i) => (
+                  <Path key={`a-${i}`} d={d} fill={`url(#${fillId})`} />
+                ))}
+
                 {/* ── The bands, at their true numeric height ── */}
                 {zones.map((zone) => {
                   const top = scale.y(Math.min(zone.max, domain.max));
@@ -942,6 +1072,26 @@ function GaugeChartInner({
                   );
                 })}
 
+                {/* ── What this river normally does on this date ──
+                    Above the fills and below every rule: both it and the
+                    observed fill are areas, and the question this band exists
+                    to answer is where the line sits INSIDE it. Labelled in the
+                    legend below — a shaded band with nothing naming it is a
+                    claim the reader cannot check. Discharge only; see the memo. */}
+                {series.typicalArea ? (
+                  <Path d={series.typicalArea} fill={TYPICAL_COLOR} fillOpacity={isDark ? 0.16 : 0.1} />
+                ) : null}
+                {series.typicalPath ? (
+                  <Path
+                    d={series.typicalPath}
+                    stroke={TYPICAL_COLOR}
+                    strokeWidth={1}
+                    strokeDasharray="4,3"
+                    opacity={0.55}
+                    fill="none"
+                  />
+                ) : null}
+
                 {/* Band boundaries, labelled down the right edge. These are the
                     numbers people actually want off a chart like this — "High
                     starts at 1,400" — and a shaded region alone does not say it. */}
@@ -963,40 +1113,6 @@ function GaugeChartInner({
                     />
                   );
                 })}
-
-                {/* ── Value axis, right edge ──
-                    Round numbers from niceValueTicks(), not the padded domain's own
-                    min/mid/max. See the memo for what that printed. */}
-                {valueTicks.map((tick) => (
-                  <SvgText
-                    key={`v-${tick.value}`}
-                    x={plotWidth + 6}
-                    y={scale.y(tick.value) + 4}
-                    fill={colors.textSubtle}
-                    fontSize={10}
-                    fontFamily={fonts.mono}
-                  >
-                    {formatReading(tick.value, drawnUnit).replace(` ${drawnUnit}`, '')}
-                  </SvgText>
-                ))}
-
-                {/* ── What this river normally does on this date ──
-                    Behind everything the gauge measured, and labelled in the legend
-                    below: a shaded band with nothing naming it is a claim the reader
-                    cannot check. Discharge only — see the memo. */}
-                {series.typicalArea ? (
-                  <Path d={series.typicalArea} fill={TYPICAL_COLOR} fillOpacity={isDark ? 0.16 : 0.1} />
-                ) : null}
-                {series.typicalPath ? (
-                  <Path
-                    d={series.typicalPath}
-                    stroke={TYPICAL_COLOR}
-                    strokeWidth={1}
-                    strokeDasharray="4,3"
-                    opacity={0.55}
-                    fill="none"
-                  />
-                ) : null}
 
                 {/* ── The NWS stages ──
                     Drawn OVER the bands and UNDER the line: they are somebody
@@ -1035,7 +1151,12 @@ function GaugeChartInner({
                         fontFamily={fonts.medium}
                         opacity={Math.max(def.opacity, 0.75)}
                       >
-                        {def.label}
+                        {/* The number rides with the name: "NWS flood stage"
+                            alone tells a reader a line matters without saying
+                            where it is, and the axis ticks rarely land on it.
+                            Stage lines are feet by construction (never drawn
+                            on a cfs axis), so the unit is literal. */}
+                        {`${def.label} · ${line.value} ft`}
                       </SvgText>
                     </G>
                   );
@@ -1074,16 +1195,38 @@ function GaugeChartInner({
                     drawn line put the boundary and the legend out of step with the
                     thing they describe. */}
                 {points.length > 0 && forecastPoints.length > 0 ? (
-                  <Line
-                    x1={scale.x(points[points.length - 1].t)}
-                    y1={PAD_TOP}
-                    x2={scale.x(points[points.length - 1].t)}
-                    y2={PAD_TOP + plotHeight}
-                    stroke={colors.textSubtle}
-                    strokeWidth={1}
-                    strokeDasharray="2,3"
-                    opacity={0.7}
-                  />
+                  <G>
+                    <Line
+                      x1={scale.x(points[points.length - 1].t)}
+                      y1={PAD_TOP}
+                      x2={scale.x(points[points.length - 1].t)}
+                      y2={PAD_TOP + plotHeight}
+                      stroke={colors.textSubtle}
+                      strokeWidth={1}
+                      strokeDasharray="2,3"
+                      opacity={0.7}
+                    />
+                    {/* The rule, named. Unlabelled it was a dashed line a reader
+                        had to infer; "Now" is what makes the dashed series past
+                        it unmistakably a prediction. On the observed side of
+                        its own line, flipped when the boundary sits so far left
+                        that an end-anchored label would clip out of the plot. */}
+                    <SvgText
+                      x={
+                        scale.x(points[points.length - 1].t) < 36
+                          ? scale.x(points[points.length - 1].t) + 4
+                          : scale.x(points[points.length - 1].t) - 4
+                      }
+                      y={PAD_TOP + 10}
+                      fill={colors.textSubtle}
+                      fontSize={9}
+                      fontFamily={fonts.medium}
+                      textAnchor={scale.x(points[points.length - 1].t) < 36 ? 'start' : 'end'}
+                      opacity={0.8}
+                    >
+                      Now
+                    </SvgText>
+                  </G>
                 ) : null}
 
                 {/* ── The official forecast ──
@@ -1113,12 +1256,14 @@ function GaugeChartInner({
                   />
                 ))}
 
-                {/* ── Where it is now ── the newest OBSERVED reading, never a forecast */}
+                {/* ── Where it is now ── the newest OBSERVED reading, never a
+                    forecast. 8px across: decisively bigger than the 4px isolated-
+                    reading dots, still under the scrub marker that lands on it. */}
                 {points.length > 0 ? (
                   <Circle
                     cx={scale.x(points[points.length - 1].t)}
                     cy={scale.y(points[points.length - 1].v)}
-                    r={3.5}
+                    r={4}
                     fill={lineColor}
                   />
                 ) : null}
@@ -1145,6 +1290,24 @@ function GaugeChartInner({
                     />
                   </>
                 ) : null}
+
+                {/* ── Value axis, right edge ──
+                    Round numbers from niceValueTicks(), not the padded domain's own
+                    min/mid/max. See the memo for what that printed. Drawn on top of
+                    the stack with the time axis: axis text is how every other layer
+                    gets read, so nothing may paint over it. */}
+                {valueTicks.map((tick) => (
+                  <SvgText
+                    key={`v-${tick.value}`}
+                    x={plotWidth + 6}
+                    y={scale.y(tick.value) + 4}
+                    fill={colors.textSubtle}
+                    fontSize={10}
+                    fontFamily={fonts.mono}
+                  >
+                    {formatReading(tick.value, drawnUnit).replace(` ${drawnUnit}`, '')}
+                  </SvgText>
+                ))}
 
                 {/* ── Time axis ──
                     Three instants from timeTicks() rather than the two ends, so the
@@ -1175,13 +1338,41 @@ function GaugeChartInner({
                   predate the afternoon's rain. */}
               {series.typicalPath || forecastPoints.length > 0 ? (
                 <View style={styles.legend}>
-                  {series.typicalPath ? (
-                    <Text style={[styles.legendText, { color: TYPICAL_COLOR }]}>Typical 25–75%</Text>
-                  ) : null}
+                  {/* Each entry carries a sample of its own mark — coloured text
+                      alone asks the reader to hold a colour table in their head.
+                      The forecast leads: it is the entry that most needs
+                      attributing. Its dash sample is two segments rather than a
+                      dashed border, which RN only renders reliably on a view
+                      bordered on all four sides. */}
                   {forecastPoints.length > 0 ? (
-                    <Text style={[styles.legendText, { color: floodStageColor() }]} numberOfLines={1}>
-                      NWS forecast{forecastIssued ? ` · issued ${forecastIssued}` : ''}
-                    </Text>
+                    <View style={styles.legendItem}>
+                      <View style={styles.legendDashes} aria-hidden>
+                        <View style={[styles.legendDash, { backgroundColor: floodStageColor() }]} />
+                        <View style={[styles.legendDash, { backgroundColor: floodStageColor() }]} />
+                      </View>
+                      <Text style={[styles.legendText, { color: floodStageColor() }]} numberOfLines={1}>
+                        NWS forecast{forecastIssued ? ` · issued ${forecastIssued}` : ''}
+                      </Text>
+                    </View>
+                  ) : null}
+                  {series.typicalPath ? (
+                    <View style={styles.legendItem}>
+                      {/* The band's own recipe at legend scale: translucent teal
+                          under the median's solid top edge. */}
+                      <View
+                        aria-hidden
+                        style={[
+                          styles.legendBand,
+                          {
+                            // Alpha in the fill, not view opacity, which would
+                            // fade the solid median edge with it.
+                            backgroundColor: `${TYPICAL_COLOR}${isDark ? '59' : '40'}`,
+                            borderTopColor: TYPICAL_COLOR,
+                          },
+                        ]}
+                      />
+                      <Text style={[styles.legendText, { color: TYPICAL_COLOR }]}>Typical 25–75%</Text>
+                    </View>
                   ) : null}
                 </View>
               ) : null}
@@ -1333,6 +1524,10 @@ const styles = StyleSheet.create({
   rangeText: { ...t.xs, fontFamily: fonts.medium },
   plotWrap: { marginTop: 2 },
   legend: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginTop: 4 },
+  legendItem: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  legendDashes: { flexDirection: 'row', gap: 2 },
+  legendDash: { width: 6, height: 2, borderRadius: 1 },
+  legendBand: { width: 14, height: 8, borderRadius: 2, borderTopWidth: 1 },
   legendText: { ...t.xs, fontFamily: fonts.medium },
   placeholder: { alignItems: 'center', justifyContent: 'center', paddingHorizontal: 20 },
   placeholderText: { ...t.sm, fontFamily: fonts.body, textAlign: 'center' },

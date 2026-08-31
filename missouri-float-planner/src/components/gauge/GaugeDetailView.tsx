@@ -387,11 +387,17 @@ export default function GaugeDetailView({ siteId }: GaugeDetailViewProps) {
         <div className="grid grid-cols-1 lg:grid-cols-[1fr_300px] gap-6 mb-8">
           {/* Chart */}
           <div className="bg-white border border-neutral-200 rounded-xl overflow-hidden">
-            <div className="flex items-center justify-between px-5 pt-4 pb-0">
-              <h2 className="text-base font-bold text-neutral-900">
+            {/* Stacks below `sm`, and the control row wraps rather than
+                overflowing. As one unbreakable row it did neither: at 390px the
+                heading was squeezed into three lines ("7-Day" / "Stage" /
+                "Trend") and the controls ran past the card, which clips them —
+                the Expand button rendered as "Expa" against the right edge, on
+                the width most of this page's readers are on. */}
+            <div className="flex flex-col gap-3 px-5 pt-4 pb-0 sm:flex-row sm:items-center sm:justify-between">
+              <h2 className="text-base font-bold text-neutral-900 whitespace-nowrap">
                 {dateRange === 1 ? '24-Hour' : `${dateRange}-Day`} {effectiveUnit === 'ft' ? 'Stage' : 'Flow'} Trend
               </h2>
-              <div className="flex gap-2">
+              <div className="flex flex-wrap items-center gap-2">
                 {/* Unit toggle — show when gauge reports both ft and cfs */}
                 {canToggleUnit && (
                   <div className="flex rounded-lg border border-neutral-300 overflow-hidden">
@@ -399,7 +405,7 @@ export default function GaugeDetailView({ siteId }: GaugeDetailViewProps) {
                       onClick={() => handleUnitToggle('ft')}
                       aria-pressed={effectiveUnit === 'ft'}
                       title="Gauge height in feet"
-                      className={`px-3 py-1 text-xs font-semibold transition-colors ${
+                      className={`px-2.5 py-1 text-xs font-semibold transition-colors sm:px-3 ${
                         effectiveUnit === 'ft'
                           ? 'bg-primary-500 text-white'
                           : 'bg-white text-neutral-600 hover:bg-neutral-50'
@@ -411,7 +417,7 @@ export default function GaugeDetailView({ siteId }: GaugeDetailViewProps) {
                       onClick={() => handleUnitToggle('cfs')}
                       aria-pressed={effectiveUnit === 'cfs'}
                       title="Flow in cubic feet per second"
-                      className={`px-3 py-1 text-xs font-semibold transition-colors ${
+                      className={`px-2.5 py-1 text-xs font-semibold transition-colors sm:px-3 ${
                         effectiveUnit === 'cfs'
                           ? 'bg-primary-500 text-white'
                           : 'bg-white text-neutral-600 hover:bg-neutral-50'
@@ -432,7 +438,7 @@ export default function GaugeDetailView({ siteId }: GaugeDetailViewProps) {
                         trackGaugeRangeChanged({ provider: gaugeDetail?.provider ?? 'usgs', tier }, rangeLabelForDays(opt.days));
                       }}
                       aria-pressed={dateRange === opt.days}
-                      className={`px-3 py-1 text-xs font-semibold transition-colors ${
+                      className={`px-2.5 py-1 text-xs font-semibold transition-colors sm:px-3 ${
                         dateRange === opt.days
                           ? 'bg-primary-500 text-white'
                           : 'bg-white text-neutral-600 hover:bg-neutral-50'
@@ -447,7 +453,7 @@ export default function GaugeDetailView({ siteId }: GaugeDetailViewProps) {
                     setExpandedOpen(true);
                     trackGaugeExpandedOpened({ provider: gaugeDetail?.provider ?? 'usgs', tier });
                   }}
-                  className="rounded-lg border border-neutral-300 px-3 py-1 text-xs font-semibold text-neutral-600 hover:bg-neutral-50"
+                  className="rounded-lg border border-neutral-300 px-2.5 py-1 text-xs font-semibold text-neutral-600 whitespace-nowrap hover:bg-neutral-50 sm:px-3"
                 >
                   Expand
                 </button>

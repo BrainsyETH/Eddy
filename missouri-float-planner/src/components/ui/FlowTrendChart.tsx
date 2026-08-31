@@ -93,6 +93,50 @@ const THRESHOLD_LINE_CONFIG: { key: ThresholdLevelKey; label: string; color: str
   { key: 'levelDangerous', label: 'Flood', color: '#ef4444', dash: '4,2' },
 ];
 
+/**
+ * A round mark at a point in the plot's percentage space.
+ *
+ * Round because it is a DOM element and not an SVG <circle>: see the block that
+ * renders these for why a circle in this chart's viewBox is never circular. The
+ * ring is a box-shadow rather than a border so it grows outward and leaves the
+ * dot's own diameter — and therefore its centre — untouched.
+ */
+function PlotDot({
+  xPercent,
+  yPercent,
+  size,
+  color,
+  ring,
+  z = 2,
+}: {
+  xPercent: number;
+  yPercent: number;
+  size: number;
+  color: string;
+  ring?: string;
+  /** Above the brush (1) and below the tooltip (10). The hovered dot takes 3 so
+   *  it stays whole where it lands on top of an ordinary one. */
+  z?: number;
+}) {
+  return (
+    <span
+      aria-hidden
+      className="absolute rounded-full pointer-events-none"
+      style={{
+        left: `${xPercent}%`,
+        top: `${yPercent}%`,
+        width: size,
+        height: size,
+        marginLeft: -size / 2,
+        marginTop: -size / 2,
+        zIndex: z,
+        backgroundColor: color,
+        boxShadow: ring ? `0 0 0 2px ${ring}` : undefined,
+      }}
+    />
+  );
+}
+
 const SERIES_COLOR = 'rgb(45, 120, 137)';
 /** Violet sits in neither the condition ladder nor the flow ramp, so a forecast
  *  line cannot be misread as a verdict about floatability. Matches the hue the
@@ -370,12 +414,20 @@ export default function FlowTrendChart({
       .filter((line) => line.y >= 0 && line.y <= 100);
 
     // Collapse the optimal pair to one centred label, then drop any label that
-    // would collide with one already placed.
-    const MIN_LABEL_GAP = 8;
-    const labelCandidates: typeof thresholdLineData = [];
+    // would collide with one already placed. The gap grew with the labels: they
+    // carry their numeric value on a second line now, so clearance is two lines
+    // of text, not one.
+    const MIN_LABEL_GAP = 12;
+    type ThresholdLabel = (typeof thresholdLineData)[number] & {
+      /** A band's name centred between its two rules, not a rule's own label —
+       *  it gets no number, because its `value` is one edge and its `y` is
+       *  neither. */
+      banded?: boolean;
+    };
+    const labelCandidates: ThresholdLabel[] = [];
     const optMin = thresholdLineData.find((t) => t.key === 'levelOptimalMin');
     const optMax = thresholdLineData.find((t) => t.key === 'levelOptimalMax');
-    if (optMin && optMax) labelCandidates.push({ ...optMin, y: (optMin.y + optMax.y) / 2 });
+    if (optMin && optMax) labelCandidates.push({ ...optMin, y: (optMin.y + optMax.y) / 2, banded: true });
     else if (optMin) labelCandidates.push(optMin);
     else if (optMax) labelCandidates.push(optMax);
     for (const line of thresholdLineData) {
@@ -418,13 +470,19 @@ export default function FlowTrendChart({
       typicalArea,
       typicalPath:
         typical.length > 1 ? pathFor(typical.map((row) => ({ t: row.t, v: row.median }))) : '',
-      yTicks: niceValueTicks(domain.min, domain.max, 3),
+      // Label budget by surface: the expanded chart is the one with the pixel
+      // height to seat five labels; the inline card gets three with headroom
+      // for a fourth, same as the phone. (`showGridlines` is the expanded
+      // mode's flag — see the prop's note.)
+      yTicks: showGridlines
+        ? niceValueTicks(domain.min, domain.max, 4, 5)
+        : niceValueTicks(domain.min, domain.max, 3, 4),
       xTicks: timeTicks(domain.t0, domain.t1, days <= 2 ? 4 : 5),
       thresholdLineData,
       thresholdLabels,
       stageLineData,
     };
-  }, [history, activeThresholds, floodStages, displayUnit, isFt, showTypical, days, zoomWindow]);
+  }, [history, activeThresholds, floodStages, displayUnit, isFt, showTypical, days, zoomWindow, showGridlines]);
 
   const hovered = useMemo<HoverPoint | null>(() => {
     if (hoverFraction === null || !chartData) return null;
@@ -721,17 +779,38 @@ export default function FlowTrendChart({
     <div className="p-4">
       <div className="flex items-center justify-between mb-3 gap-2">
         <span className="text-sm font-semibold text-neutral-700">{chartLabel}</span>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center justify-end gap-x-2 gap-y-0.5">
           {/* A shaded band with nothing naming it is a claim the reader cannot
-              check. Both overlays say what they are, or they do not draw. */}
-          {chartData.typicalPath && (
-            <span className="text-[10px] font-semibold uppercase tracking-wide" style={{ color: TYPICAL_COLOR }}>
-              Typical 25–75%
+              check. Both overlays say what they are, or they do not draw — and
+              each carries a sample of its own mark, because coloured text alone
+              asks the reader to hold a colour table in their head. The forecast
+              leads: it is the entry a reader most needs attributed. */}
+          {hasForecast && (
+            <span
+              className="flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wide"
+              style={{ color: FORECAST_COLOR }}
+            >
+              <span
+                aria-hidden
+                className="inline-block w-3.5"
+                style={{ borderTop: `2px dashed ${FORECAST_COLOR}` }}
+              />
+              NWS forecast
             </span>
           )}
-          {hasForecast && (
-            <span className="text-[10px] font-semibold uppercase tracking-wide" style={{ color: FORECAST_COLOR }}>
-              NWS forecast
+          {chartData.typicalPath && (
+            <span
+              className="flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wide"
+              style={{ color: TYPICAL_COLOR }}
+            >
+              <span
+                aria-hidden
+                className="inline-block w-3.5 h-2 rounded-[2px]"
+                // The band's own recipe at legend scale: the area's translucent
+                // teal under the median's solid edge.
+                style={{ backgroundColor: `${TYPICAL_COLOR}2e`, borderTop: `1px solid ${TYPICAL_COLOR}` }}
+              />
+              Typical 25–75%
             </span>
           )}
           {currentDisplay != null && (
@@ -793,22 +872,20 @@ export default function FlowTrendChart({
               </linearGradient>
             </defs>
 
-            {/* Neutral gridlines, behind everything — a reading aid, never a
-                threshold; they take no colour that could be read as one. */}
-            {showGridlines &&
-              chartData.yTicks.map((tick) => (
-                <line
-                  key={`grid-${tick.value}`}
-                  x1="0"
-                  x2="100"
-                  y1={(1 - tick.position) * 100}
-                  y2={(1 - tick.position) * 100}
-                  stroke="#a3a3a3"
-                  strokeWidth="1"
-                  vectorEffect="non-scaling-stroke"
-                  opacity="0.25"
-                />
-              ))}
+            {/* ── The fill under the line ──
+                First out of the paint can, under even the condition-zone
+                fills: it is decoration, and every layer after it carries a
+                number. It used to be drawn immediately before the line, which
+                put a series-coloured wash over the typical range, the
+                threshold rules and the NWS stage lines. Paint order is meaning
+                order; the app chart is ordered the same way, for the same
+                reason.
+
+                Below the typical range in particular: both are areas, and that
+                band exists to answer where the line sits INSIDE it. */}
+            {chartData.observedAreas.map((d, i) => (
+              <path key={`area-${i}`} d={d} fill={`url(#flowGradient-${gaugeSiteId})`} />
+            ))}
 
             {/* High/Warning zone fill — anything above optimal_max is "high" */}
             {(() => {
@@ -861,6 +938,25 @@ export default function FlowTrendChart({
               />
             )}
 
+            {/* Neutral gridlines — a reading aid, never a threshold; they take
+                no colour that could be read as one. Above the fills so a faint
+                rule stays legible across shaded zones, below every line that
+                carries a number. */}
+            {showGridlines &&
+              chartData.yTicks.map((tick) => (
+                <line
+                  key={`grid-${tick.value}`}
+                  x1="0"
+                  x2="100"
+                  y1={(1 - tick.position) * 100}
+                  y2={(1 - tick.position) * 100}
+                  stroke="#a3a3a3"
+                  strokeWidth="1"
+                  vectorEffect="non-scaling-stroke"
+                  opacity="0.25"
+                />
+              ))}
+
             {/* Threshold reference lines */}
             {chartData.thresholdLineData.map((t) => (
               <line
@@ -901,9 +997,6 @@ export default function FlowTrendChart({
               );
             })}
 
-            {chartData.observedAreas.map((d, i) => (
-              <path key={`area-${i}`} d={d} fill={`url(#flowGradient-${gaugeSiteId})`} />
-            ))}
             {chartData.observedPaths.map((d, i) => (
               <path
                 key={`line-${i}`}
@@ -917,19 +1010,6 @@ export default function FlowTrendChart({
               />
             ))}
 
-            {/* A reading with no neighbour to join it to. It used to be dropped
-                with the segment it sat in, so a lone reading between two outages
-                rendered as blank space. */}
-            {chartData.observedDots.map((point) => (
-              <circle
-                key={`dot-${point.t}`}
-                cx={chartData.x(point.t)}
-                cy={chartData.y(point.v)}
-                r="2"
-                fill={SERIES_COLOR}
-                vectorEffect="non-scaling-stroke"
-              />
-            ))}
 
             {/* The boundary between what happened and what is predicted —
                 drawable only when something HAS happened on this plot. */}
@@ -959,65 +1039,92 @@ export default function FlowTrendChart({
               />
             ))}
 
-            {/* A forecast point with no neighbour — a short-range issuance can be
-                one point. Drawn for the same reason its observed counterpart is:
-                the legend names this series, so the series has to be visible. */}
-            {chartData.forecastDots.map((point) => (
-              <circle
-                key={`forecast-dot-${point.t}`}
-                cx={chartData.x(point.t)}
-                cy={chartData.y(point.v)}
-                r="2"
-                fill={FORECAST_COLOR}
-                vectorEffect="non-scaling-stroke"
-              />
-            ))}
-
-            {/* Current value dot — the newest OBSERVED reading, never a forecast */}
-            {chartData.current && nowX !== null && (
-              <circle
-                cx={nowX}
-                cy={chartData.y(chartData.current.v)}
-                r="4"
-                fill={SERIES_COLOR}
-                stroke="#f5f5f5"
-                strokeWidth="2"
-                vectorEffect="non-scaling-stroke"
-              />
-            )}
 
             {hovered && (
-              <>
-                <line
-                  x1={chartData.x(hovered.point.t)}
-                  x2={chartData.x(hovered.point.t)}
-                  y1="0"
-                  y2="100"
-                  stroke={hovered.kind === 'forecast' ? FORECAST_COLOR : SERIES_COLOR}
-                  strokeWidth="1"
-                  strokeDasharray="2,2"
-                  vectorEffect="non-scaling-stroke"
-                  opacity="0.6"
-                />
-                <circle
-                  cx={chartData.x(hovered.point.t)}
-                  cy={chartData.y(hovered.point.v)}
-                  r="5"
-                  fill={hovered.kind === 'forecast' ? FORECAST_COLOR : SERIES_COLOR}
-                  stroke="white"
-                  strokeWidth="2"
-                  vectorEffect="non-scaling-stroke"
-                />
-              </>
+              <line
+                x1={chartData.x(hovered.point.t)}
+                x2={chartData.x(hovered.point.t)}
+                y1="0"
+                y2="100"
+                stroke={hovered.kind === 'forecast' ? FORECAST_COLOR : SERIES_COLOR}
+                strokeWidth="1"
+                strokeDasharray="2,2"
+                vectorEffect="non-scaling-stroke"
+                opacity="0.6"
+              />
             )}
           </svg>
+
+          {/* ── The dots, in the DOM rather than in the SVG ──
+              Every one of these used to be an SVG <circle>, and not one of them
+              drew as a circle. The plot's viewBox is 0 0 100 100 under
+              preserveAspectRatio="none", so it scales by width/100 across and
+              height/100 down INDEPENDENTLY — on a 600×130 card that is 6× against
+              2.6×, and r="4" comes out a 48×10px lozenge. The current reading, the
+              most important mark on the chart, was the most distorted one.
+
+              `vectorEffect="non-scaling-stroke"` was already here and cannot help:
+              it exempts the STROKE from the transform, never the geometry.
+
+              So they move out, into the same percentage space the tooltip and the
+              axis labels already use — which is the reason those live in the DOM
+              too (see the note at the top of this file). `left`/`top` in percent
+              take the identical coordinates the SVG did, so nothing about their
+              placement changes; only their shape does. */}
+          {chartData.observedDots.map((point) => (
+            <PlotDot
+              key={`dot-${point.t}`}
+              xPercent={chartData.x(point.t)}
+              yPercent={chartData.y(point.v)}
+              size={5}
+              color={SERIES_COLOR}
+            />
+          ))}
+          {chartData.forecastDots.map((point) => (
+            <PlotDot
+              key={`forecast-dot-${point.t}`}
+              xPercent={chartData.x(point.t)}
+              yPercent={chartData.y(point.v)}
+              size={5}
+              color={FORECAST_COLOR}
+            />
+          ))}
+          {chartData.current && nowX !== null && (
+            <PlotDot
+              xPercent={nowX}
+              yPercent={chartData.y(chartData.current.v)}
+              size={9}
+              color={SERIES_COLOR}
+              // The ring that lifts a dot off the line is the card's own
+              // surface token, so it disappears into whatever the card is
+              // painted — it was #f5f5f5 here and #ffffff on the hovered dot,
+              // two hard-coded rings for one background, which shows as a grey
+              // halo on whichever you notice first and breaks again the day
+              // the card stops being white.
+              ring="var(--color-surface, #ffffff)"
+            />
+          )}
+          {hovered && (
+            <PlotDot
+              xPercent={chartData.x(hovered.point.t)}
+              yPercent={chartData.y(hovered.point.v)}
+              size={11}
+              color={hovered.kind === 'forecast' ? FORECAST_COLOR : SERIES_COLOR}
+              ring="var(--color-surface, #ffffff)"
+              z={3}
+            />
+          )}
 
           {/* Brush selection, while dragging — same percentage space as the
               SVG, like every overlay here. */}
           {brush && (
             <div
               aria-hidden="true"
-              className="absolute inset-y-0 pointer-events-none bg-primary-500/15 border-x border-primary-500/60"
+              // z-[1] puts the brush under the dots, which follow it in the DOM
+              // and would otherwise be tinted by its wash for as long as a drag
+              // lasts — the current and hovered readings are the two marks that
+              // most need to stay crisp while somebody is selecting a range.
+              className="absolute inset-y-0 z-[1] pointer-events-none bg-primary-500/15 border-x border-primary-500/60"
               style={{
                 left: `${Math.min(brush.start, brush.end) * 100}%`,
                 width: `${Math.abs(brush.end - brush.start) * 100}%`,
@@ -1044,10 +1151,32 @@ export default function FlowTrendChart({
                   transform: nearTop ? 'translateY(3px)' : 'translateY(calc(-100% - 3px))',
                 }}
               >
-                {def.label}
+                {/* The number rides with the name — a stage line without its
+                    stage tells the reader a rule matters without saying where
+                    it is. Feet is literal: stage lines never draw on a cfs
+                    axis (stageLineData is empty there by construction). */}
+                {`${def.label} · ${line.value} ft`}
               </div>
             );
           })}
+
+          {/* The observed/forecast boundary, named. The dashed rule alone made
+              the reader infer which side is prediction; "Now" says it. On the
+              observed side of its own line, flipped when the boundary sits so
+              far left that a right-anchored label would clip out of the plot. */}
+          {hasForecast && nowX !== null && (
+            <div
+              aria-hidden
+              className="absolute pointer-events-none text-[9px] font-medium leading-none text-slate-500"
+              style={{
+                left: `${nowX}%`,
+                top: 2,
+                transform: nowX < 12 ? 'translateX(4px)' : 'translateX(calc(-100% - 4px))',
+              }}
+            >
+              Now
+            </div>
+          )}
 
           {/* Tooltip popup. `left` is the same 0–100 number the SVG used, which
               is only true because the viewBox spans the container exactly. */}
@@ -1083,10 +1212,16 @@ export default function FlowTrendChart({
             {chartData.thresholdLabels.map((t) => (
               <div
                 key={`label-${t.key}`}
-                className="absolute text-[9px] font-semibold leading-none whitespace-nowrap"
+                className="absolute text-[9px] font-semibold leading-tight whitespace-nowrap"
                 style={{ top: `${t.y}%`, color: t.color, transform: 'translateY(-50%)' }}
               >
-                {t.label}
+                <div>{t.label}</div>
+                {/* "High starts at 1,400" is the number people open this chart
+                    for, and the axis ticks rarely land on a threshold. The
+                    collapsed band label is the exception — see `banded`. */}
+                {!t.banded && (
+                  <div className="font-normal opacity-70 tabular-nums">{formatVal(t.value)}</div>
+                )}
               </div>
             ))}
           </div>
