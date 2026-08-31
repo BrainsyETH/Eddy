@@ -5,10 +5,22 @@
 // damId is an Eddy slug ('swl-table-rock-dam'), not a CWMS location name —
 // those contain spaces and percent signs and cannot be a URL segment. See
 // src/lib/flow-providers/usace-registry.ts.
+//
+// ── Assembled ahead of the reader ──────────────────────────────────────────
+// This is the eight-second route. Seven CWMS series, up to three SWPA files,
+// the pattern table and a forecast series, per project, with twenty projects on
+// twenty CDN keys that go cold about seventy-five minutes after the last
+// request — so most first visits to a dam page paid the whole assembly, and the
+// iOS screen showed a full-screen spinner for the duration.
+//
+// A cron now assembles each dam hourly and this serves what it assembled. The
+// live read is kept as the fallback for a row that is missing, stale, or a
+// table not yet migrated. See src/lib/data/dam-snapshot-store.ts.
 
 import { NextRequest, NextResponse } from 'next/server';
 import { cdnCacheHeaders } from '@/lib/api-utils';
-import { fetchDamDetail } from '@/lib/data/dams';
+import { fetchDamDetail, refreshStaleness } from '@/lib/data/dams';
+import { readStoredSnapshot } from '@/lib/data/dam-snapshot-store';
 import { withX402Route } from '@/lib/x402-config';
 
 export const dynamic = 'force-dynamic';
@@ -19,7 +31,13 @@ async function _GET(
 ) {
   try {
     const { damId } = await params;
-    const dam = await fetchDamDetail(damId);
+    const now = Date.now();
+
+    // Re-banded against THIS clock, never served with the staleness it was
+    // stamped with an hour ago — see refreshStaleness. Everything else in the
+    // payload dates itself.
+    const stored = await readStoredSnapshot(damId, { now });
+    const dam = stored ? refreshStaleness(stored, now) : await fetchDamDetail(damId);
 
     if (!dam) {
       return NextResponse.json({ error: 'Dam not found' }, { status: 404 });

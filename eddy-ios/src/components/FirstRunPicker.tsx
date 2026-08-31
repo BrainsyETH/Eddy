@@ -45,7 +45,7 @@ import { Otter } from '@/components/Otter';
 import { useLocation } from '@/hooks/useLocation';
 import { useStarredRivers } from '@/hooks/useStarredRivers';
 import { fetchGauges, fetchRivers } from '@/api/client';
-import { readIndex } from '@/lib/riverCache';
+import { readBestIndex } from '@/lib/riverCache';
 import { pickFirstRunRivers } from '@/lib/firstRunRivers';
 import { riverDistanceLabel, riverMilesByGauge } from '@/lib/riverDistance';
 import { primaryReading } from '@/lib/readingCopy';
@@ -89,11 +89,17 @@ export function FirstRunPicker({ onDone, onUnavailable }: Props) {
 
   // Cache first, network second. Someone reinstalling in a canyon still gets a
   // grid, and the request is the same CDN-cached one Today makes.
+  //
+  // readBestIndex rather than readIndex, because the sentence above was only
+  // true on a REINSTALL that had run online once before. A genuinely fresh
+  // install has no stored /api/rivers list, so the one screen that cannot be
+  // skipped had nothing to draw and called onUnavailable. The launch bundle's
+  // seeded index answers "which rivers exist", which is all this grid asks.
   useEffect(() => {
     let active = true;
 
     void (async () => {
-      const cached = (await readIndex())?.payload ?? null;
+      const cached = (await readBestIndex())?.payload ?? null;
       const haveCache = cached != null && cached.length > 0;
       if (active && haveCache) setRivers(cached);
 

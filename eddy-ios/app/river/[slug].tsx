@@ -125,7 +125,7 @@ import { useAlertGate } from '@/hooks/useAlertGate';
 import { useAlertRules } from '@/hooks/useAlertRules';
 import { useSession } from '@/hooks/useSession';
 import { useStarredRivers } from '@/hooks/useStarredRivers';
-import { readConditions, readIndex } from '@/lib/riverCache';
+import { readBestIndex, readConditions } from '@/lib/riverCache';
 import { useRiverData } from '@/hooks/useRiverData';
 import { selectEddySays } from '@/lib/eddySays';
 import { effectiveReadingAgeHours, readingBand } from '@/lib/offline-cache';
@@ -664,7 +664,15 @@ export default function RiverDetailScreen() {
             return null;
           },
         );
-        const cached = await readIndex();
+        //
+        // readBestIndex, not readIndex: on a FIRST launch there is no stored
+        // /api/rivers list at all, and this await was the whole cold-start
+        // spinner — a screen whose put-ins and hazards were already on the
+        // phone, waiting on the slowest endpoint in the app for three strings.
+        // The launch bundle now seeds those three (see readSeedIndex), and a
+        // seeded row carries no condition, which costs this screen nothing:
+        // it does not trust the index's condition anyway.
+        const cached = await readBestIndex();
         let rivers: RiverListItem[] | null = cached?.payload ?? null;
         if (!rivers) rivers = await networkIndex;
         if (!rivers) throw new ApiError('Could not load rivers');
@@ -789,8 +797,45 @@ export default function RiverDetailScreen() {
   // cleared panel for a card we were already looking at.
   const primaryGaugeId = gauges.find((g) => gaugeLink(g, slug)?.isPrimary)?.id ?? null;
 
+  /**
+   * The outlook requests currently running, by the same key the cache uses.
+   *
+   * ── The effect used to abort and restart its own request ──────────────────
+   *
+   * This is the panel's whole cold-start cost, and it was being paid twice.
+   * `primaryGaugeId` is derived from `gauges`, which arrives with /api/gauges —
+   * a statewide, CDN-cached list that lands seconds AFTER this effect first
+   * runs, and long before the outlook does, because the outlook reads three
+   * third-party services live and takes one to six seconds.
+   *
+   * That transition, null to a station id, re-ran this effect. And on the
+   * ordinary arrival — nothing picked, no gauge in the deep link — it re-ran
+   * with THE SAME KEY: `shownGaugeId` is null, so `askedFor` is null before and
+   * after. There was no cache entry yet, because the first request had not
+   * come back, so it read as a miss; the cleanup aborted the in-flight request
+   * and an identical one started from zero. The reader waited out the slower of
+   * two serial copies of one request, and nothing on the screen could show it.
+   *
+   * ── Why a map and not a "did the key change" guard ────────────────────────
+   *
+   * Because the guard would be a statement about the deps and this is a
+   * statement about the WORK. Two runs asking the same question share one
+   * request whatever caused them — a re-render, a fast switch back to a gauge
+   * whose answer is still coming, StrictMode's double invocation in dev.
+   *
+   * Requests are NOT aborted on cleanup any more, for the same reason the
+   * shared dam store passes no caller signal: the answer belongs to the cache
+   * as much as to the run that asked for it, and abandoning it costs the next
+   * asker the whole one to six seconds again. Every state write is still
+   * guarded, so a late answer cannot reach a screen that has moved on.
+   */
+  const outlookInFlight = useRef(new Map<string, Promise<RiverOutlookResponse | null>>());
+
   useEffect(() => {
     outlookCache.current.clear();
+    // Not cleared: an in-flight request for the previous river settles into
+    // ITS OWN entry of a map that has just been emptied, which is harmless, and
+    // dropping it here would let a second copy start if the reader came back.
   }, [slug]);
 
   useEffect(() => {
@@ -805,9 +850,13 @@ export default function RiverDetailScreen() {
       return;
     }
 
-    const controller = new AbortController();
+    // `current` rather than an abort signal: this run may be reading an answer
+    // another run started, so what has to be checked is whether THIS run is
+    // still the one on screen, not whether some request was cancelled.
+    let current = true;
     setOutlook(null);
     setOutlookLoading(true);
+
     // Any failure is "no outlook", never an error on the screen: the reading,
     // the hazards and the access points below it are the parts that decide
     // whether to get on the water, and none of them depend on this.
@@ -819,19 +868,32 @@ export default function RiverDetailScreen() {
     // outlook" on that gauge for the life of the screen, and re-picking it
     // could never retry. Staying silent about a failure is the right product
     // call; remembering it is not.
-    fetchRiverOutlook(slug, controller.signal, askedFor)
-      .then((data) => {
-        outlookCache.current.set(key, data);
-        return data;
-      })
-      .catch(() => null)
-      .then((data) => {
-        if (controller.signal.aborted) return;
-        setOutlook(data);
-        setOutlookLoading(false);
-      });
+    let request = outlookInFlight.current.get(key);
+    if (!request) {
+      request = fetchRiverOutlook(slug, undefined, askedFor)
+        .then((data) => {
+          outlookCache.current.set(key, data);
+          return data;
+        })
+        .catch(() => null)
+        .finally(() => {
+          // Cleared before any handler below runs, so a later run that finds
+          // the cache empty — a failure, which is deliberately not cached —
+          // starts a fresh attempt rather than joining a settled promise.
+          outlookInFlight.current.delete(key);
+        });
+      outlookInFlight.current.set(key, request);
+    }
 
-    return () => controller.abort();
+    void request.then((data) => {
+      if (!current) return;
+      setOutlook(data);
+      setOutlookLoading(false);
+    });
+
+    return () => {
+      current = false;
+    };
   }, [slug, shownGaugeId, primaryGaugeId]);
 
   /**

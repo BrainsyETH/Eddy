@@ -51,6 +51,7 @@ import type { StatewideRiver } from '@/lib/statewideNetwork';
 import { warn } from '@/lib/monitoring';
 import {
   INDEX_KEY,
+  SEED_INDEX_KEY,
   CONDITIONS_KEY,
   META_KEY,
   NETWORK_KEY,
@@ -83,6 +84,54 @@ export async function readIndex(): Promise<CacheEnvelope<RiverListItem[]> | null
   } catch {
     return null;
   }
+}
+
+/**
+ * The rivers index as the launch bundle seeded it: identity, no conditions.
+ *
+ * ── What this is for ──────────────────────────────────────────────────────
+ *
+ * A fresh install had every river's put-ins and hazards on disk within a
+ * second of first launch, and could not open one of them without a network
+ * round trip — because the river screen needs an id before it can ask for a
+ * condition, and the only place carrying id, slug and name together was
+ * /api/rivers. So the screen that works in a canyon held a full-screen spinner
+ * on the endpoint with the most work to do.
+ *
+ * ── Read it AFTER readIndex, never instead ────────────────────────────────
+ *
+ * This is strictly poorer: same rivers, no verdicts. It is the answer to
+ * "which rivers exist", not to "what is the water doing", and a caller that
+ * wants the second must ask readIndex first and take silence for an answer.
+ *
+ * See SEED_INDEX_KEY for why the two are not one key.
+ */
+export async function readSeedIndex(): Promise<CacheEnvelope<RiverListItem[]> | null> {
+  try {
+    return parseEnvelope<RiverListItem[]>(await AsyncStorage.getItem(SEED_INDEX_KEY), 'array');
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * The index a caller can have RIGHT NOW, richest first.
+ *
+ * Both surfaces that open on a river list want the same thing in the same
+ * order — the real list if one is stored, the seed if not — and expressing
+ * that as two awaits at each call site is how one of them ends up with only
+ * half of it. `seeded` is carried out because the two are not interchangeable
+ * to a caller that renders conditions: a seeded row has none, and saying so is
+ * different from saying the water is unknown.
+ */
+export async function readBestIndex(): Promise<
+  (CacheEnvelope<RiverListItem[]> & { seeded: boolean }) | null
+> {
+  const live = await readIndex();
+  if (live && live.payload.length > 0) return { ...live, seeded: false };
+  const seed = await readSeedIndex();
+  if (seed && seed.payload.length > 0) return { ...seed, seeded: true };
+  return null;
 }
 
 /**
@@ -138,6 +187,23 @@ export function writeIndex(rivers: RiverListItem[]): void {
   if (rivers.length === 0) return; // An empty list is not worth replacing a good one with.
   void AsyncStorage.setItem(
     INDEX_KEY,
+    JSON.stringify(envelope(rivers, new Date().toISOString())),
+  ).catch(() => {});
+}
+
+/**
+ * Persist the bundle's condition-less index. Called only from
+ * seedOfflineBundle, and only on a 200 — a 304 means the copy on disk is
+ * already this exact payload.
+ *
+ * Rewritten wholesale rather than merged, because it is a projection of one
+ * response: a river dropped from the bundle has been deactivated upstream and
+ * must not survive on the phone as a row that opens onto nothing.
+ */
+export function writeSeedIndex(rivers: RiverListItem[]): void {
+  if (rivers.length === 0) return;
+  void AsyncStorage.setItem(
+    SEED_INDEX_KEY,
     JSON.stringify(envelope(rivers, new Date().toISOString())),
   ).catch(() => {});
 }

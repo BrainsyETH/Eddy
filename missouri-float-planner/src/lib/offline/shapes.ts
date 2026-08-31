@@ -22,6 +22,7 @@
 import { calculateBounds, type GeoBounds } from '@/lib/utils/geo';
 import { inBounds } from '@/lib/geo/region-bounds';
 import { bookingUrlFor } from '@/lib/camping/booking';
+import { riverPath } from '@/lib/navigation/river-path';
 import type {
   AccessPointType,
   HazardSeverity,
@@ -54,6 +55,16 @@ export interface RiverRow {
   description: string | null;
   difficulty_rating: string | null;
   region: string | null;
+  /**
+   * Read by toRiverIndexEntry only, which is why both are optional here.
+   *
+   * toRiverDetail — the older and more widely called mapper — never wanted
+   * either, and several per-river routes select exactly the columns it reads.
+   * Making these required would break those call sites for a field they have
+   * no use for.
+   */
+  state?: string | null;
+  river_type?: string | null;
 }
 
 export interface HazardRow {
@@ -106,6 +117,46 @@ export interface AccessPointRow {
  * The river's own row plus its geometry, which arrives by a different route
  * (an RPC per river, or the bulk `geom` column) and so is passed separately.
  */
+/**
+ * One row of the rivers INDEX — identity, and deliberately no water.
+ *
+ * ── What this is for ───────────────────────────────────────────────────────
+ *
+ * Every screen that opens a river needs its id before it can ask anything
+ * else, and the only place carrying id, slug and name together was
+ * /api/rivers. So a fresh install put a full-screen spinner in front of the
+ * river screen while a 25-river list endpoint assembled — for three strings
+ * that change about as often as the put-ins in the same payload.
+ *
+ * ── Why currentCondition is null and not omitted ───────────────────────────
+ *
+ * The field is declared so that a consumer holding a seeded index is holding a
+ * RiverListItem, not a lookalike needing its own branch everywhere. Null is
+ * the type's existing "no verdict" value and every surface already renders it.
+ *
+ * It must STAY null. A condition in this payload would be a reading served
+ * from an hour-cached, day-stale-served CDN entry and then kept on disk until
+ * the next launch — the "cached moment read three days later" the bundle's
+ * header rules out, on the one field where being wrong is dangerous.
+ */
+export function toRiverIndexEntry(row: RiverRow, accessPointCount: number) {
+  const state = row.state || 'MO';
+  return {
+    id: row.id,
+    name: row.name,
+    slug: row.slug,
+    state,
+    riverType: row.river_type ?? null,
+    path: riverPath(state, row.slug),
+    lengthMiles: row.length_miles != null ? parseFloat(String(row.length_miles)) : 0,
+    description: row.description,
+    difficultyRating: row.difficulty_rating,
+    region: row.region,
+    accessPointCount,
+    currentCondition: null,
+  };
+}
+
 export function toRiverDetail(row: RiverRow, geometry: GeoJSON.LineString) {
   return {
     id: row.id,

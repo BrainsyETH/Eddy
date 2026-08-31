@@ -47,6 +47,24 @@ export const META_KEY = `${VERSIONED}.meta`;
 /** The /api/rivers list — the first thing every screen needs. */
 export const INDEX_KEY = `${VERSIONED}.index`;
 /**
+ * The same list as INDEX_KEY, from the launch bundle, carrying NO conditions.
+ *
+ * ── Why a second key rather than writing INDEX_KEY ─────────────────────────
+ *
+ * Because the two are written on different clocks and only one of them knows
+ * what the water is doing. The bundle seeds on every launch and its rows have
+ * `currentCondition: null` by construction; /api/rivers lands whenever a list
+ * screen asks and its rows carry live readings. Sharing a key means the launch
+ * seed can land after a good list and blank every condition on disk — turning
+ * an offline cold start from "here is what Eddy last saw" into a grid of
+ * unknowns, which is the failure the index cache exists to prevent.
+ *
+ * Two keys make that unrepresentable rather than merely avoided: a reader that
+ * wants conditions reads INDEX_KEY and gets silence when there are none, and a
+ * reader that only wants to know which rivers exist falls through to this.
+ */
+export const SEED_INDEX_KEY = `${VERSIONED}.index-seed`;
+/**
  * The statewide network: every river's line and gauge ladder in one value.
  *
  * Its own key rather than a slice of each river's entry, because the Map tab

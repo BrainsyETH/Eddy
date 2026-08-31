@@ -19,6 +19,9 @@
     "src/app/api/cron/sync-dam-history/route.ts": {
       "maxDuration": 300
     },
+    "src/app/api/cron/sync-dam-snapshots/route.ts": {
+      "maxDuration": 300
+    },
     "src/app/api/cron/deliver-push/route.ts": {
       "maxDuration": 300
     },
@@ -63,6 +66,10 @@
     {
       "path": "/api/cron/sync-dam-history",
       "schedule": "25 * * * *"
+    },
+    {
+      "path": "/api/cron/sync-dam-snapshots",
+      "schedule": "35 * * * *"
     },
     {
       "path": "/api/cron/sync-nps",
