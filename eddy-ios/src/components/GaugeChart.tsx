@@ -106,7 +106,17 @@ import {
 // this adds no new runtime fingerprint. See SwipeRow.tsx for the situation
 // where reaching for it would be wrong.
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
-import Svg, { Circle, G, Line, Path, Rect, Text as SvgText } from 'react-native-svg';
+import Svg, {
+  Circle,
+  Defs,
+  G,
+  Line,
+  LinearGradient,
+  Path,
+  Rect,
+  Stop,
+  Text as SvgText,
+} from 'react-native-svg';
 import type { GaugeFloodStages } from '@eddy/types';
 import {
   chartDomain,
@@ -510,6 +520,7 @@ function GaugeChartInner({
   const series = useMemo(() => {
     const empty = {
       paths: [] as string[],
+      areas: [] as string[],
       dots: [] as ChartPoint[],
       forecastPaths: [] as string[],
       forecastDots: [] as ChartPoint[],
@@ -522,10 +533,26 @@ function GaugeChartInner({
         .map((p, i) => `${i ? 'L' : 'M'} ${scale.x(p.t).toFixed(2)} ${scale.y(p.v).toFixed(2)}`)
         .join(' ');
 
+    /**
+     * The same segment, closed down to the foot of the plot.
+     *
+     * PER SEGMENT, not one area under the whole series — an area closed across a
+     * gap would fill the outage in, which is the thing splitAtGaps() exists to
+     * stop the line from doing. A hole in the telemetry has to stay a hole in
+     * every layer that draws it.
+     */
+    const toArea = (segment: ChartPoint[]) => {
+      const base = (PAD_TOP + plotHeight).toFixed(2);
+      const first = scale.x(segment[0].t).toFixed(2);
+      const last = scale.x(segment[segment.length - 1].t).toFixed(2);
+      return `${toPath(segment)} L ${last} ${base} L ${first} ${base} Z`;
+    };
+
     const { lines, isolated } = chartSegments(points, GAP_BREAK_MULTIPLE);
     const forecastSplit = chartSegments(forecastPoints, GAP_BREAK_MULTIPLE);
     return {
       paths: lines.map(toPath),
+      areas: lines.map(toArea),
       dots: isolated,
       forecastPaths: forecastSplit.lines.map(toPath),
       // A short-range issuance can be a single point. Dropping it would repeat,
@@ -555,7 +582,7 @@ function GaugeChartInner({
               .join(' ')
           : '',
     };
-  }, [points, forecastPoints, typical, scale]);
+  }, [points, forecastPoints, typical, scale, plotHeight]);
 
   /**
    * Round numbers down the right edge, from the same tick function the web axis
@@ -665,6 +692,14 @@ function GaugeChartInner({
   if (!siteId) return null;
 
   const lineColor = colors.interactive;
+
+  /**
+   * Gradient ids share one namespace across every mounted Svg, and this chart is
+   * mounted more than once at a time — the map sheet pages between stations. A
+   * bare "flowFill" would have the second chart's gradient resolve to the first
+   * one's, which is invisible until the two disagree about the theme.
+   */
+  const fillId = `flowFill-${siteId ?? 'none'}-${drawnUnit}`;
   /**
    * ONE OBSERVED READING IS ENOUGH — and so is a forecast with none.
    *
@@ -917,6 +952,22 @@ function GaugeChartInner({
               onAccessibilityAction={onAccessibilityAction}
             >
               <Svg width={width} height={CHART_HEIGHT}>
+                {/* ── The fill under the line ──
+                    The website's hydrograph has carried this since it was built
+                    and the app's never did, so the same river drew as a weighted
+                    body of water on one screen and a bare 2px stroke on the
+                    other. It is the cheapest thing on the chart that says
+                    "this is water and this is how much of it".
+
+                    Fades to nearly nothing at the foot so it stays a fill and
+                    does not read as one more condition band — those are already
+                    behind it, carrying meaning this must not borrow. */}
+                <Defs>
+                  <LinearGradient id={fillId} x1="0" y1="0" x2="0" y2="1">
+                    <Stop offset="0" stopColor={lineColor} stopOpacity={isDark ? 0.34 : 0.24} />
+                    <Stop offset="1" stopColor={lineColor} stopOpacity={0.02} />
+                  </LinearGradient>
+                </Defs>
                 {/* ── The bands, at their true numeric height ── */}
                 {zones.map((zone) => {
                   const top = scale.y(Math.min(zone.max, domain.max));
@@ -1040,6 +1091,12 @@ function GaugeChartInner({
                     </G>
                   );
                 })}
+
+                {/* Under the line and over the bands: the fill belongs to the
+                    series, so it must not sit beneath context it would tint. */}
+                {series.areas.map((d, i) => (
+                  <Path key={`a-${i}`} d={d} fill={`url(#${fillId})`} />
+                ))}
 
                 {/* ── The line ── */}
                 {series.paths.map((d, i) => (

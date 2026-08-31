@@ -315,15 +315,67 @@ export function niceValueTicks(min: number, max: number, targetCount = 4): Chart
 
   // Indexed rather than accumulated (`value += step`), which drifts into
   // labels like 0.30000000000000004 after a few iterations.
-  const first = Math.ceil(min / step) * step;
-  const ticks: ChartTick[] = [];
-  const limit = max + step * 0.001;
-  for (let index = 0; index < 64; index += 1) {
-    const value = first + index * step;
-    if (value > limit) break;
-    ticks.push({ value, position: (value - min) / span });
+  const ticksForStep = (size: number): ChartTick[] => {
+    // `Math.ceil(min / size) * size` is exact in decimal and not in binary:
+    // ceil(1.2 / 0.05) * 0.05 is 1.2000000000000002, and every tick after it
+    // inherits the error. Snapping to the step's own decimal place is what makes
+    // a "round number" round — the steps are always 1/2/5 × 10ⁿ, so the place is
+    // known rather than guessed.
+    const decimals = Math.min(10, Math.max(0, -Math.floor(Math.log10(size))));
+    const snap = (value: number) => Number(value.toFixed(decimals));
+    const first = Math.ceil(min / size) * size;
+    const out: ChartTick[] = [];
+    const limit = max + size * 0.001;
+    for (let index = 0; index < 64; index += 1) {
+      const value = snap(first + index * size);
+      if (value > limit) break;
+      out.push({ value, position: (value - min) / span });
+    }
+    return out;
+  };
+
+  /**
+   * The step above is rounded UP to the next 1/2/5, which overshoots whenever the
+   * span sits just past a boundary — and an overshooting step can fit only one
+   * round number inside the domain, at which point this used to hand back the
+   * fallback: the PADDED DOMAIN's own edges.
+   *
+   * That is how a stage plot came to be labelled "3.47" and "2.43". Those are the
+   * 8% pad from chartDomain(), not readings, not round, and not a scale anybody
+   * can measure the line against — the one job the axis has.
+   *
+   * So walk DOWN the 1/2/5 ladder instead of giving up on the first miss. Finer
+   * steps only ever ADD labels, so the counts rise monotonically and the first
+   * candidate to reach `targetCount` is also the coarsest one that does; take it,
+   * and keep the finest seen as the floor for a span too narrow to get there.
+   *
+   * Aim at the target from below rather than bracketing it, because too few is
+   * the failure and too many is not: a 0–940 cfs plot labelled "0, 500" leaves
+   * the whole top half of the frame with nothing to measure a spike against,
+   * which is most of what somebody opens a hydrograph to do. Aiming from below is
+   * what turns that axis into 0, 200, 400, 600, 800.
+   *
+   * The fallback survives for spans that are genuinely unlabellable (a degenerate
+   * range), where it is the honest answer rather than a rounding failure.
+   */
+  const LADDER = [10, 5, 2, 1];
+  let size = step;
+  let best: ChartTick[] | null = null;
+  for (let attempt = 0; attempt < 4; attempt += 1) {
+    const found = ticksForStep(size);
+    // Two labels is the minimum that defines a scale at all.
+    if (found.length >= 2) {
+      best = found;
+      if (found.length >= targetCount) break;
+    }
+    // Next finer step on the 1/2/5 ladder: 10 → 5 → 2 → 1 → 5 of the decade below.
+    const decade = 10 ** Math.floor(Math.log10(size));
+    const rung = Math.round(size / decade);
+    const nextIndex = LADDER.indexOf(rung) + 1;
+    size = nextIndex < LADDER.length ? LADDER[nextIndex] * decade : 5 * (decade / 10);
+    if (!Number.isFinite(size) || size <= 0) break;
   }
-  return ticks.length >= 2 ? ticks : fallback;
+  return best ?? fallback;
 }
 
 /** Evenly spaced instants across the window, for the x axis. */

@@ -93,6 +93,45 @@ const THRESHOLD_LINE_CONFIG: { key: ThresholdLevelKey; label: string; color: str
   { key: 'levelDangerous', label: 'Flood', color: '#ef4444', dash: '4,2' },
 ];
 
+/**
+ * A round mark at a point in the plot's percentage space.
+ *
+ * Round because it is a DOM element and not an SVG <circle>: see the block that
+ * renders these for why a circle in this chart's viewBox is never circular. The
+ * ring is a box-shadow rather than a border so it grows outward and leaves the
+ * dot's own diameter — and therefore its centre — untouched.
+ */
+function PlotDot({
+  xPercent,
+  yPercent,
+  size,
+  color,
+  ring,
+}: {
+  xPercent: number;
+  yPercent: number;
+  size: number;
+  color: string;
+  ring?: string;
+}) {
+  return (
+    <span
+      aria-hidden
+      className="absolute rounded-full pointer-events-none"
+      style={{
+        left: `${xPercent}%`,
+        top: `${yPercent}%`,
+        width: size,
+        height: size,
+        marginLeft: -size / 2,
+        marginTop: -size / 2,
+        backgroundColor: color,
+        boxShadow: ring ? `0 0 0 2px ${ring}` : undefined,
+      }}
+    />
+  );
+}
+
 const SERIES_COLOR = 'rgb(45, 120, 137)';
 /** Violet sits in neither the condition ladder nor the flow ramp, so a forecast
  *  line cannot be misread as a verdict about floatability. Matches the hue the
@@ -917,19 +956,6 @@ export default function FlowTrendChart({
               />
             ))}
 
-            {/* A reading with no neighbour to join it to. It used to be dropped
-                with the segment it sat in, so a lone reading between two outages
-                rendered as blank space. */}
-            {chartData.observedDots.map((point) => (
-              <circle
-                key={`dot-${point.t}`}
-                cx={chartData.x(point.t)}
-                cy={chartData.y(point.v)}
-                r="2"
-                fill={SERIES_COLOR}
-                vectorEffect="non-scaling-stroke"
-              />
-            ))}
 
             {/* The boundary between what happened and what is predicted —
                 drawable only when something HAS happened on this plot. */}
@@ -959,58 +985,74 @@ export default function FlowTrendChart({
               />
             ))}
 
-            {/* A forecast point with no neighbour — a short-range issuance can be
-                one point. Drawn for the same reason its observed counterpart is:
-                the legend names this series, so the series has to be visible. */}
-            {chartData.forecastDots.map((point) => (
-              <circle
-                key={`forecast-dot-${point.t}`}
-                cx={chartData.x(point.t)}
-                cy={chartData.y(point.v)}
-                r="2"
-                fill={FORECAST_COLOR}
-                vectorEffect="non-scaling-stroke"
-              />
-            ))}
-
-            {/* Current value dot — the newest OBSERVED reading, never a forecast */}
-            {chartData.current && nowX !== null && (
-              <circle
-                cx={nowX}
-                cy={chartData.y(chartData.current.v)}
-                r="4"
-                fill={SERIES_COLOR}
-                stroke="#f5f5f5"
-                strokeWidth="2"
-                vectorEffect="non-scaling-stroke"
-              />
-            )}
 
             {hovered && (
-              <>
-                <line
-                  x1={chartData.x(hovered.point.t)}
-                  x2={chartData.x(hovered.point.t)}
-                  y1="0"
-                  y2="100"
-                  stroke={hovered.kind === 'forecast' ? FORECAST_COLOR : SERIES_COLOR}
-                  strokeWidth="1"
-                  strokeDasharray="2,2"
-                  vectorEffect="non-scaling-stroke"
-                  opacity="0.6"
-                />
-                <circle
-                  cx={chartData.x(hovered.point.t)}
-                  cy={chartData.y(hovered.point.v)}
-                  r="5"
-                  fill={hovered.kind === 'forecast' ? FORECAST_COLOR : SERIES_COLOR}
-                  stroke="white"
-                  strokeWidth="2"
-                  vectorEffect="non-scaling-stroke"
-                />
-              </>
+              <line
+                x1={chartData.x(hovered.point.t)}
+                x2={chartData.x(hovered.point.t)}
+                y1="0"
+                y2="100"
+                stroke={hovered.kind === 'forecast' ? FORECAST_COLOR : SERIES_COLOR}
+                strokeWidth="1"
+                strokeDasharray="2,2"
+                vectorEffect="non-scaling-stroke"
+                opacity="0.6"
+              />
             )}
           </svg>
+
+          {/* ── The dots, in the DOM rather than in the SVG ──
+              Every one of these used to be an SVG <circle>, and not one of them
+              drew as a circle. The plot's viewBox is 0 0 100 100 under
+              preserveAspectRatio="none", so it scales by width/100 across and
+              height/100 down INDEPENDENTLY — on a 600×130 card that is 6× against
+              2.6×, and r="4" comes out a 48×10px lozenge. The current reading, the
+              most important mark on the chart, was the most distorted one.
+
+              `vectorEffect="non-scaling-stroke"` was already here and cannot help:
+              it exempts the STROKE from the transform, never the geometry.
+
+              So they move out, into the same percentage space the tooltip and the
+              axis labels already use — which is the reason those live in the DOM
+              too (see the note at the top of this file). `left`/`top` in percent
+              take the identical coordinates the SVG did, so nothing about their
+              placement changes; only their shape does. */}
+          {chartData.observedDots.map((point) => (
+            <PlotDot
+              key={`dot-${point.t}`}
+              xPercent={chartData.x(point.t)}
+              yPercent={chartData.y(point.v)}
+              size={5}
+              color={SERIES_COLOR}
+            />
+          ))}
+          {chartData.forecastDots.map((point) => (
+            <PlotDot
+              key={`forecast-dot-${point.t}`}
+              xPercent={chartData.x(point.t)}
+              yPercent={chartData.y(point.v)}
+              size={5}
+              color={FORECAST_COLOR}
+            />
+          ))}
+          {chartData.current && nowX !== null && (
+            <PlotDot
+              xPercent={nowX}
+              yPercent={chartData.y(chartData.current.v)}
+              size={9}
+              color={SERIES_COLOR}
+              ring="#f5f5f5"
+            />
+          )}
+          {hovered && (
+            <PlotDot
+              xPercent={chartData.x(hovered.point.t)}
+              yPercent={chartData.y(hovered.point.v)}
+              size={11}
+              color={hovered.kind === 'forecast' ? FORECAST_COLOR : SERIES_COLOR}
+              ring="#ffffff"
+            />
+          )}
 
           {/* Brush selection, while dragging — same percentage space as the
               SVG, like every overlay here. */}
