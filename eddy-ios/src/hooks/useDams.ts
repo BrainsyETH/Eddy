@@ -29,7 +29,7 @@
 
 import { useEffect, useSyncExternalStore } from 'react';
 import type { DamSnapshot } from '@eddy/types';
-import { ApiError, fetchDams } from '@/api/client';
+import { ApiError, fetchDam, fetchDams } from '@/api/client';
 import { onForeground } from '@/lib/foreground';
 import { warn } from '@/lib/monitoring';
 
@@ -121,6 +121,66 @@ export function getSharedDams(): Promise<DamSnapshot[]> {
   return revalidate();
 }
 
+/**
+ * What the store ALREADY HOLDS, and never a request.
+ *
+ * ── Why a second reader, next to getSharedDams ────────────────────────────
+ *
+ * Because "answer if you can" and "answer or go and find out" are different
+ * questions, and one of this app's surfaces only ever wanted the first. The dam
+ * screen seeds its first paint from whatever the map, Today or Favourites have
+ * already fetched — and calling getSharedDams for that turned a cold deep link
+ * into a request for TWENTY dams, running alongside the request for the one
+ * dam the reader actually opened. The twenty-dam route is the slower of the
+ * two, so the seed could not win; it could only compete.
+ *
+ * Null means "nothing worth having" — not fetched, or fetched long enough ago
+ * that the TTL has passed. A caller that wants it fetched asks for it.
+ */
+export function peekSharedDams(): DamSnapshot[] | null {
+  return isFresh() && cached ? cached.dams : null;
+}
+
+/**
+ * In-flight ONE DAM's detail requests, so concurrent callers share one.
+ *
+ * ── Why no cache beside it, unlike the dams index above ───────────────────
+ *
+ * Because the detail screen's focus refetch is not an optimisation, it is the
+ * screen's cache policy: a payload that arrives once and never again is stale
+ * data with ages computed on this device still ticking up beside it. A TTL here
+ * would answer that refetch from memory and quietly turn the refresh off.
+ *
+ * So this collapses only what is happening AT THE SAME MOMENT. On arrival the
+ * screen's focus effect and a retry can both ask within a frame of each other;
+ * they get one request. A minute later, on the next focus, nothing is in flight
+ * and a real refresh runs.
+ */
+const inFlightDetail = new Map<string, Promise<DamSnapshot>>();
+
+/**
+ * One dam's full detail. Rejects like fetchDam does — the caller decides what
+ * an outage means on its screen.
+ *
+ * NO CALLER SIGNAL, deliberately, which is clause 1 of this module's contract:
+ * a screen unmounting must not kill the request another caller is awaiting. The
+ * request is still bounded by the client's own deadline, and callers check
+ * their own `aborted` before applying a late answer.
+ */
+export function getSharedDam(damId: string): Promise<DamSnapshot> {
+  const existing = inFlightDetail.get(damId);
+  if (existing) return existing;
+
+  const request = fetchDam(damId).finally(() => {
+    // Cleared before any downstream handler runs, so a caller that reacts to a
+    // rejection by retrying starts a NEW request rather than being handed the
+    // failed one again.
+    inFlightDetail.delete(damId);
+  });
+  inFlightDetail.set(damId, request);
+  return request;
+}
+
 export function useDams(wanted: boolean): DamSnapshot[] | null {
   // Null until the first answer lands, so the layers sheet can tell "not
   // fetched" from "none".
@@ -165,6 +225,7 @@ export function useDams(wanted: boolean): DamSnapshot[] | null {
 export function __resetDamsCacheForTests(): void {
   cached = null;
   inFlight = null;
+  inFlightDetail.clear();
   attempts = 0;
   listeners.clear();
 }

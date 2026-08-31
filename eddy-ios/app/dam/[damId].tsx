@@ -22,7 +22,7 @@
 // transmission constraints, outages and inflow, and this screen sits next to a
 // number somebody may wade into.
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Linking,
@@ -36,8 +36,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Stack, useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import type { DamSnapshot } from '@eddy/types';
-import { fetchDam, fetchRivers } from '@/api/client';
-import { getSharedDams } from '@/hooks/useDams';
+import { fetchRivers } from '@/api/client';
+import { getSharedDam, peekSharedDams } from '@/hooks/useDams';
 import { DAM_CATALOG } from '@/lib/damCatalog';
 import { readBestIndex } from '@/lib/riverCache';
 import { DamStateCard } from '@/components/dam/DamStateCard';
@@ -92,7 +92,42 @@ export default function DamDetailScreen() {
     dam: DamSnapshot;
     detailed: boolean;
   } | null>(null);
-  const dam = held?.damId === damId ? held.dam : null;
+
+  /**
+   * What is on screen: the fetched detail, or the summary every list surface
+   * already holds, or nothing.
+   *
+   * ── It PEEKS. It never fetches ────────────────────────────────────────────
+   *
+   * peekSharedDams answers from the module cache the map layer, the Today tab's
+   * Dams scope and the Favourites list all fill, and returns null when there is
+   * nothing in it. So arriving from any of those surfaces paints on the first
+   * frame from data that is already correct, and arriving by deep link paints
+   * the catalog's name and waits for the detail — which is the right trade,
+   * because the alternative is what this used to do: call getSharedDams, and
+   * issue a request for TWENTY dams alongside the request for the one dam the
+   * reader actually opened. The twenty-dam route is the slower of the two. The
+   * seed could not win that race; it could only compete in it.
+   *
+   * ── The seed is DERIVED, not stored ───────────────────────────────────────
+   *
+   * peekSharedDams is synchronous, so there is nothing here to wait for, and an
+   * effect that set it into state would be a second render to display data the
+   * first render already had. This is the case React's own guidance names for
+   * adjusting during render, and it is what the river screen's `damFor` does
+   * for the same value.
+   *
+   * It also means the seed can APPEAR while the screen is open, if another
+   * surface fills the store in the meantime — which is strictly better than a
+   * one-shot read at mount, and is free.
+   *
+   * `held` wins whenever it names this dam, so a three-metric summary can never
+   * be shown over a seven-metric detail that has already arrived.
+   */
+  const dam =
+    held?.damId === damId
+      ? held.dam
+      : (peekSharedDams()?.find((entry) => entry.id === damId) ?? null);
 
   /**
    * The damId whose detail request has settled — succeeded or failed.
@@ -104,45 +139,6 @@ export default function DamDetailScreen() {
   const [detailSettledFor, setDetailSettledFor] = useState<string | null>(null);
   const detailPending = detailSettledFor !== damId;
   const [failed, setFailed] = useState(false);
-
-  /**
-   * The summary every list surface already holds, as this screen's first paint.
-   *
-   * ── Why this is not a second request ──────────────────────────────────────
-   * getSharedDams answers from the module cache the map layer, the Today tab's
-   * Dams scope and the Favorites list all fill — so arriving here from any of
-   * them is a synchronous-in-practice hit on data that is already correct,
-   * against a detail endpoint whose own comments measure the cold path in tens
-   * of seconds. Arriving from a deep link pays for one shared /api/dams that
-   * every other surface then reuses.
-   *
-   * ── Why it can never overwrite ────────────────────────────────────────────
-   * It only ever fills an empty slot. This promise can settle AFTER fetchDam
-   * has already answered — the shared store may have to make the request the
-   * detail did not — and writing a three-metric summary over a seven-metric
-   * detail would delete the pool level off a screen that was showing it.
-   */
-  useEffect(() => {
-    if (!damId) return;
-    let live = true;
-    void getSharedDams().then(
-      (dams) => {
-        if (!live) return;
-        const summary = dams.find((entry) => entry.id === damId);
-        if (!summary) return;
-        setHeld((current) =>
-          current?.damId === damId ? current : { damId, dam: summary, detailed: false },
-        );
-      },
-      // Silent. The detail fetch below is this screen's own request and owns
-      // the failure copy; a shared store that could not answer just means the
-      // first paint is the catalog's name alone.
-      () => {},
-    );
-    return () => {
-      live = false;
-    };
-  }, [damId]);
 
   /**
    * The rivers the app can actually OPEN, for gating the tailwater button.
@@ -221,7 +217,13 @@ export default function DamDetailScreen() {
 
       void (async () => {
         try {
-          const snapshot = await fetchDam(damId, signal);
+          // The SHARED request, not a private one. Two callers can arrive
+          // within a frame — a focus and a retry — and each paying for its own
+          // read of a route that reads through to CWMS and SWPA is how this
+          // screen came to make three concurrent dam requests on one
+          // navigation. No signal is passed because the request is shared; the
+          // aborted check below still keeps a late answer off a dead screen.
+          const snapshot = await getSharedDam(damId);
           if (signal.aborted) return;
           // Unconditional, unlike the summary seed above: this IS the richer
           // answer, and a refetch of it is the newest one.
@@ -229,7 +231,8 @@ export default function DamDetailScreen() {
           setFailed(false);
         } catch {
           if (signal.aborted) return;
-          // fetchDam throws by design: this screen is opened from a row or a pin
+          // getSharedDam rejects by design, as fetchDam does: this screen is
+          // opened from a row or a pin
           // that named the dam, so a failure here is a real one and gets said
           // out loud rather than absorbed into an empty screen.
           //
@@ -249,36 +252,52 @@ export default function DamDetailScreen() {
   );
 
   /**
-   * Bumped by the failure body's "Try again". The error copy always said try
-   * again; the load living in effects meant there was no control to do it
-   * with, short of leaving the screen and coming back.
+   * Bumped by "Try again". The error copy always said try again; the load
+   * living in effects meant there was no control to do it with, short of
+   * leaving the screen and coming back.
    */
   const [reloadNonce, setReloadNonce] = useState(0);
+  /** The dam whose FIRST load has run, so a focus is not an arrival. */
+  const loadedFor = useRef<string | null>(null);
 
-  useEffect(() => {
-    const controller = new AbortController();
-    load(controller.signal, true);
-    return () => controller.abort();
-  }, [load, reloadNonce]);
+  const retry = useCallback(() => {
+    // A retry IS an arrival again: it must show the spinner and own the failure
+    // copy, which is what `primary` decides below.
+    loadedFor.current = null;
+    setReloadNonce((n) => n + 1);
+  }, []);
 
   /**
-   * Refetch whenever the screen comes back into view.
+   * The ONLY loader on this screen.
    *
-   * This fetched exactly once, in a mount effect, with no refetch on focus and
-   * no AppState listener — so a screen backgrounded and resumed hours later
-   * re-rendered the same payload while the ages beside it, computed on this
-   * device, correctly read "9 hours ago". Live data that only arrives once is
-   * cached data with no cache policy.
+   * ── Why there is no mount effect beside it ────────────────────────────────
+   * Because useFocusEffect already fires on mount — expo-router runs the
+   * callback immediately when the screen is focused, which it is. Keeping a
+   * mount effect too meant TWO fetchDam calls on every arrival, on a route that
+   * reads through to CWMS and SWPA live. With the summary seed calling
+   * getSharedDams as well, a cold deep link made three concurrent requests for
+   * one dam.
    *
-   * The mount fetch above still runs first; this one is silent, so returning to
-   * the screen never flashes a spinner over data already on it.
+   * This is the arrangement the river screen's loadDam settled on for the same
+   * pair of effects and the same reason; its header records what the duplicate
+   * cost there, including a race where the slower call carried a flag that
+   * blanked a row which had been correct on screen for ten seconds.
+   *
+   * ── Why it still refetches ────────────────────────────────────────────────
+   * A payload that arrives once and never again is cached data with no cache
+   * policy: a screen backgrounded and resumed hours later would re-render the
+   * same numbers while the ages beside it, computed on this device, correctly
+   * read "9 hours ago". Every focus after the first is a SILENT refresh, so
+   * coming back never flashes a spinner over data already on screen.
    */
   useFocusEffect(
     useCallback(() => {
       const controller = new AbortController();
-      load(controller.signal, false);
+      const arriving = loadedFor.current !== damId;
+      loadedFor.current = damId;
+      load(controller.signal, arriving);
       return () => controller.abort();
-    }, [load])
+    }, [load, damId, reloadNonce])
   );
 
   // NOTHING AT ALL, and still asking: a dam this build does not carry, opened
@@ -335,7 +354,7 @@ export default function DamDetailScreen() {
               an answer, not an outage. */}
           {failed ? (
             <Pressable
-              onPress={() => setReloadNonce((n) => n + 1)}
+              onPress={retry}
               style={({ pressed }) => [
                 styles.sourceButton,
                 { borderColor: colors.border, opacity: pressed ? 0.6 : 1 },
@@ -507,7 +526,7 @@ export default function DamDetailScreen() {
                   Couldn’t load the lake, the temperature or the full schedule.
                 </Text>
                 <Pressable
-                  onPress={() => setReloadNonce((n) => n + 1)}
+                  onPress={retry}
                   hitSlop={8}
                   accessibilityRole="button"
                 >

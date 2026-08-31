@@ -136,3 +136,54 @@ test('every request path in the client is timed', () => {
     'recordTiming must name the route, never the path',
   );
 });
+
+// ── the two restart races these timings would otherwise have measured ─────
+//
+// Both are iOS screen wiring, so both are pinned textually — the alternative is
+// running an Expo screen under node:test. An ordering and a de-duplication are
+// exactly the kind of property a later rewrite drops without noticing, and both
+// of these cost a full copy of the app's slowest request when they regress.
+
+test('the outlook effect joins an in-flight request instead of restarting it', () => {
+  // primaryGaugeId is derived from /api/gauges, which lands seconds after this
+  // effect first runs and long before the outlook does. That transition re-ran
+  // the effect with THE SAME KEY on an ordinary arrival, found no cache entry
+  // because the first request had not come back, aborted it, and started an
+  // identical one — so the reader waited out two serial copies of a one-to-six
+  // second request.
+  const source = readFileSync('../eddy-ios/app/river/[slug].tsx', 'utf8');
+
+  assert.match(source, /outlookInFlight/, 'the effect must track its in-flight requests');
+  assert.match(
+    source,
+    /let request = outlookInFlight\.current\.get\(key\);/,
+    'a run must look for an existing request before starting one',
+  );
+  // And the cleanup must not abort: the answer belongs to the cache as much as
+  // to the run that asked for it.
+  assert.ok(
+    !/return \(\) => controller\.abort\(\);\s*\}, \[slug, shownGaugeId, primaryGaugeId\]\)/.test(source),
+    'the outlook cleanup must not abort a request other runs may be joining',
+  );
+});
+
+test('the dam screen has exactly one loader', () => {
+  // useFocusEffect already fires on mount, so a mount effect beside it meant two
+  // fetchDam calls per arrival on a route that reads through to CWMS and SWPA —
+  // and with a summary seed calling getSharedDams as well, three concurrent
+  // requests for one dam. The river screen's loadDam records what the same
+  // duplicate cost there.
+  const source = readFileSync('../eddy-ios/app/dam/[damId].tsx', 'utf8');
+
+  const loads = source.match(/load\(controller\.signal,/g) ?? [];
+  assert.equal(loads.length, 1, `the dam screen must have one loader, found ${loads.length}`);
+
+  // The detail goes through the shared request, and the summary seed never
+  // fetches at all.
+  assert.match(source, /getSharedDam\(damId\)/, 'the detail must share one in-flight request');
+  assert.match(source, /peekSharedDams\(\)/, 'the seed must read the store, not fill it');
+  assert.ok(
+    !source.includes('getSharedDams()'),
+    'the seed must not start a twenty-dam request beside the one-dam one',
+  );
+});

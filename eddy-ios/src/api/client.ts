@@ -246,6 +246,20 @@ async function fetchOnce(
   // The full URL is fine to hand to recordTiming: routeOf strips the origin
   // before it does anything else, so these callers need not each remember to
   // pass a path alongside the url they already built.
+  //
+  // ── This one stops at the RESPONSE, unlike get() and authed() ────────────
+  //
+  // Not an oversight and not a preference: this function hands the Response
+  // back and the caller reads the body, so there is no moment here at which the
+  // read is over. Timing it anyway would mean either double-parsing or
+  // monkey-patching the Response, and the honest alternative is to record what
+  // this function can actually observe and say so.
+  //
+  // The five callers are the write paths and the launch seed — a plan save, a
+  // feedback POST, a photo report, /api/me, and the offline bundle. Four carry
+  // responses measured in hundreds of bytes, where headers and body arrive
+  // together; the fifth is a background seed with nobody waiting on it. The
+  // routes where the body IS the wait all go through get().
   const startedAt = Date.now();
   try {
     const response = await fetch(url, { ...init, signal: deadline.signal });
@@ -290,16 +304,22 @@ async function get<T>(path: string, signal?: AbortSignal): Promise<T> {
     deadline.done();
   }
 
-  // Timed at the RESPONSE, not after the body is parsed. What is being measured
-  // is how long the backend took; JSON parsing is this device's own cost and
-  // attributing it to a route would misplace it.
-  recordTiming(path, response.ok ? 'ok' : 'failed', startedAt);
-
   if (!response.ok) {
+    recordTiming(path, 'failed', startedAt);
     throw new ApiError(`Request failed (${response.status})`, response.status);
   }
 
-  return (await response.json()) as T;
+  // Timed THROUGH THE BODY, not at the response.
+  //
+  // `fetch` resolves when the headers arrive and the body may still be coming
+  // down — and the biggest thing this app asks for is ~260 KB
+  // (/api/usgs/mo-dataset?slim=1), on one bar of LTE at a put-in. Stopping the
+  // clock at the headers would report the fastest part of the wait as the whole
+  // of it, and would do so most misleadingly on exactly the connection this app
+  // exists for. What is wanted is how long the reader waited.
+  const parsed = (await response.json()) as T;
+  recordTiming(path, 'ok', startedAt);
+  return parsed;
 }
 
 /**
@@ -342,13 +362,22 @@ async function authed<T>(
     deadline.done();
   }
 
-  recordTiming(path, response.ok ? 'ok' : 'failed', startedAt);
-
-  if (response.status === 401 || response.status === 403) return null;
+  // A 401 or a 403 is an ORDINARY answer on this path — an expired session,
+  // which the caller handles by falling back to local data — so it is recorded
+  // as one. Calling it 'failed' would put every signed-out launch in the same
+  // bucket as a route that is actually broken.
+  if (response.status === 401 || response.status === 403) {
+    recordTiming(path, 'ok', startedAt);
+    return null;
+  }
   if (!response.ok) {
+    recordTiming(path, 'failed', startedAt);
     throw new ApiError(`Request failed (${response.status})`, response.status);
   }
-  return (await response.json()) as T;
+  // Through the body, for the reason get() states.
+  const parsed = (await response.json()) as T;
+  recordTiming(path, 'ok', startedAt);
+  return parsed;
 }
 
 /**
@@ -1494,16 +1523,23 @@ async function writeJson<T>(
       body: JSON.stringify(body),
       signal: deadline.signal,
     });
-  } catch {
-    // No caller signal to distinguish here — every abort on this path is our
-    // own deadline, and these are taps with a spinner attached.
-    recordTiming(path, 'timeout', startedAt);
+  } catch (err) {
+    // No caller signal to distinguish here — every abort on this path IS our
+    // own deadline, and these are taps with a spinner attached. So an abort is
+    // a timeout with no third case to consider.
+    //
+    // But an abort is not the only way to get here. A DNS failure or a radio
+    // with nothing behind it rejects immediately and is not an AbortError at
+    // all, and recording that as a timeout would put an instant failure in the
+    // bucket reserved for fifteen seconds of somebody's afternoon — the one
+    // number this telemetry exists to find. Told apart, as get() and fetchOnce
+    // already tell them apart.
+    const aborted = err instanceof Error && err.name === 'AbortError';
+    recordTiming(path, aborted ? 'timeout' : 'offline', startedAt);
     throw new ApiError('No connection');
   } finally {
     deadline.done();
   }
-
-  recordTiming(path, response.ok ? 'ok' : 'failed', startedAt);
 
   if (!response.ok) {
     // The route answers 409 and 422 with a `code` and a sentence written for a
@@ -1511,9 +1547,12 @@ async function writeJson<T>(
     // discharge". Carried through so the screen can show that instead of
     // inventing its own wording for a rule it cannot see.
     const detail = (await response.json().catch(() => null)) as { error?: string } | null;
+    recordTiming(path, 'failed', startedAt);
     throw new ApiError(detail?.error ?? `Request failed (${response.status})`, response.status);
   }
-  return (await response.json()) as T;
+  const parsed = (await response.json()) as T;
+  recordTiming(path, 'ok', startedAt);
+  return parsed;
 }
 
 export async function createGaugeAlert(

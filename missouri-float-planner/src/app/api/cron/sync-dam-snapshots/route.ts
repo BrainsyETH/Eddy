@@ -32,7 +32,6 @@ import { fetchDamDetail, listDamIds } from '@/lib/data/dams';
 import {
   decideWrites,
   pruneStoredSnapshots,
-  readStoredSnapshots,
   writeStoredSnapshots,
 } from '@/lib/data/dam-snapshot-store';
 
@@ -92,11 +91,6 @@ async function runSync(request: NextRequest) {
   try {
     const ids = listDamIds();
 
-    // What is on the table already, WITHOUT the freshness filter the routes
-    // apply: an hours-old row is not worth serving and is still the evidence
-    // that this project has published something before. See decideWrites.
-    const previous = await readStoredSnapshots({ includeStale: true });
-
     const snapshots = await mapWithConcurrency(ids, DAM_CONCURRENCY, async (id) => {
       try {
         return await fetchDamDetail(id);
@@ -112,7 +106,7 @@ async function runSync(request: NextRequest) {
       }
     });
 
-    const decided = decideWrites(snapshots, previous);
+    const decided = decideWrites(snapshots);
     keptOnOutage = decided.keptOnOutage;
 
     stored = await writeStoredSnapshots(supabase, decided.writable, startedAt);
@@ -128,7 +122,8 @@ async function runSync(request: NextRequest) {
     // Counted and returned rather than logged only: a rising keptOnOutage is
     // how a district quietly changing its series ids shows up, and it is
     // invisible from the routes — they keep serving the last good row until it
-    // ages out, then read through, and answer correctly the whole time.
+    // ages out, then read through, and answer correctly the whole time. A
+    // number equal to the dam count is an upstream outage, not a code problem.
     keptOnOutage,
   });
 }

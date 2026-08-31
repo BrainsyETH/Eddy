@@ -271,10 +271,21 @@ async function _GET(
     // takes its own coordinates and whatever town OpenWeather resolves them to
     // — see weatherLocation below, which is fed from the same branch and can
     // therefore never name a place we did not query.
-    const weatherPoint = usingPrimary ? await getWeatherPointForRiver(slug) : null;
-    const coords = weatherPoint
-      ? { lat: weatherPoint.lat, lng: weatherPoint.lon }
-      : gaugeCoords;
+    //
+    // STARTED, NOT AWAITED, and that is a latency fix rather than a style
+    // preference. This is a database round trip, and awaiting it here put it in
+    // FRONT of the seven-way fan-out below — every one of which could have been
+    // in flight the whole time it took. Only the weather call genuinely depends
+    // on the answer, so only the weather call waits for it.
+    //
+    // The catch is belt-and-braces rather than a behaviour change:
+    // getWeatherPointForRiver already swallows its own failures and answers
+    // null. It is here because an un-awaited promise that rejected between this
+    // line and the await further down would be an unhandled rejection, and the
+    // gap did not exist while this was awaited on the spot.
+    const weatherPointPromise = usingPrimary
+      ? getWeatherPointForRiver(slug).catch(() => null)
+      : Promise.resolve(null);
 
     const primaryUnit = gauge.threshold_unit === 'cfs' ? 'cfs' : 'ft';
 
@@ -332,8 +343,13 @@ async function _GET(
         .eq('gauge_station_id', gauge.gauge_station_id)
         .gte('reading_timestamp', since)
         .order('reading_timestamp', { ascending: true }),
-      coords && weatherKey
-        ? fetchForecast(coords.lat, coords.lng, weatherKey)
+      // The one call that genuinely waits for the weather point, and it waits
+      // INSIDE the fan-out rather than in front of it.
+      weatherKey
+        ? weatherPointPromise.then((point) => {
+            const coords = point ? { lat: point.lat, lng: point.lon } : gaugeCoords;
+            return coords ? fetchForecast(coords.lat, coords.lng, weatherKey) : null;
+          })
         : Promise.resolve(null),
       station?.nws_lid ? fetchAhpsForecast(station.nws_lid) : Promise.resolve([]),
       supabase
@@ -438,6 +454,10 @@ async function _GET(
     // On a picked gauge there is no curated town — `weatherPoint` is null by
     // construction — so this is always OpenWeather's own name for the place the
     // forecast was sampled at, which is the honest label for it.
+    //
+    // Awaited HERE, where it costs nothing: the promise settled long ago
+    // alongside the fan-out that has already finished above.
+    const weatherPoint = await weatherPointPromise;
     const weatherLocation =
       weatherPoint?.city ?? (weatherOk ? weatherResult.value!.city || null : null);
 

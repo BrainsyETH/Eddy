@@ -45,6 +45,8 @@
 
 import { createAdminClient } from '@/lib/supabase/admin';
 import { logger } from '@/lib/logger';
+import { declaresNoSources } from '@/lib/data/dams';
+import { getUsaceDam } from '@/lib/flow-providers/usace-registry';
 import type { DamSnapshot } from '@shared/dam-types';
 
 const TABLE = 'dam_snapshots';
@@ -104,13 +106,14 @@ export function isFresh(builtAt: string, now = Date.now()): boolean {
  * stored detail to save that would put two copies of one snapshot in one row,
  * with a rule that they must never disagree.
  *
- * `includeStale` is for the CRON, which needs to know whether a project has
- * ever published anything — a question a freshness filter would answer wrong.
- * No route may pass it: serving a snapshot past MAX_AGE_MS is the thing the
- * bound exists to prevent.
+ * There is no way to ask for a STALE row. An escape hatch existed here briefly,
+ * for a version of decideWrites that decided what to store by looking at what
+ * was already stored; that rule turned out to be wrong on a first deploy and is
+ * gone, and with it the only caller that would ever have wanted one. Reading
+ * past MAX_AGE_MS is the thing the bound exists to prevent.
  */
 export async function readStoredSnapshots(
-  options?: { now?: number; includeStale?: boolean },
+  options?: { now?: number },
 ): Promise<Map<string, DamSnapshot>> {
   const now = options?.now ?? Date.now();
   const out = new Map<string, DamSnapshot>();
@@ -124,7 +127,7 @@ export async function readStoredSnapshots(
     }
     for (const row of (data ?? []) as unknown as Row[]) {
       if (!row.dam_id || !row.payload) continue;
-      if (!options?.includeStale && !isFresh(row.built_at, now)) continue;
+      if (!isFresh(row.built_at, now)) continue;
       out.set(row.dam_id, row.payload);
     }
   } catch (err) {
@@ -188,36 +191,41 @@ export function saysAnything(snapshot: DamSnapshot): boolean {
 /**
  * Which of a pass's snapshots to write, and how many were held back.
  *
- * ── An empty snapshot is sometimes the answer and sometimes an outage ──────
+ * ── An empty snapshot is an OUTAGE unless the registry says otherwise ──────
  *
- * They are the same shape, so the only thing separating them is what was there
- * before:
+ * An empty read and a project with nothing to say produce the same payload, so
+ * the payload cannot tell them apart. The registry can, before any request is
+ * made — see declaresNoSources — and that is the only admissible evidence:
  *
- *   nothing stored, nothing read   → written. An outage costs nothing to
- *                                    record, and a project that genuinely
- *                                    publishes nothing finally gets its row and
- *                                    stops being read live on every request.
- *   something stored, nothing read → skipped. CWMS or SWPA is down, and the old
- *                                    row is strictly better than an empty one:
- *                                    it ages honestly, and it ages OUT on its
- *                                    own past MAX_AGE_MS, at which point the
- *                                    routes go back to reading through.
+ *   nothing read, sources declared → SKIPPED. CWMS or SWPA is down, or a series
+ *                                    id moved. Whatever is stored stands; it
+ *                                    ages honestly and ages OUT on its own past
+ *                                    MAX_AGE_MS, at which point the routes go
+ *                                    back to reading through. With nothing
+ *                                    stored, nothing is written, and the routes
+ *                                    read through — which is exactly what the
+ *                                    product did before this table existed.
+ *   nothing read, no sources       → written. Nobody could have read anything,
+ *                                    so empty is the answer and worth keeping.
  *   something read                 → written. The newest answer.
  *
- * The first case is what a plain "never write an empty snapshot" rule gets
- * wrong, and it gets it wrong permanently: a dam with nothing to publish would
- * never acquire a row, so /api/dams would read it live forever to learn the
- * same nothing.
+ * ── Why "was a row there before" is NOT the test ──────────────────────────
  *
- * The second is the rule useDams states for its module cache on the client
+ * It was, in the first draft of this file, and it is wrong in the worst
+ * direction. On a first deploy — an empty table by definition — a cron pass
+ * during a CWMS outage would write twenty empty rows, and the routes would
+ * serve them as authoritative for three hours: every dam screen saying the
+ * Corps publishes no readings for a project that was generating the whole time.
+ * A cache is allowed to be out of date. It is not allowed to invent an absence.
+ *
+ * The skip is the rule useDams states for its module cache on the client
  * ("a rejected request is evicted immediately; `cached` is written only on
  * success"), applied to the server's copy.
  *
- * Pure over its inputs, so both halves can be held without a database.
+ * Pure over its inputs, so the whole rule can be held without a database.
  */
 export function decideWrites(
   snapshots: (DamSnapshot | null)[],
-  alreadyStored: Map<string, DamSnapshot>,
 ): { writable: DamSnapshot[]; keptOnOutage: number } {
   const writable: DamSnapshot[] = [];
   let keptOnOutage = 0;
@@ -228,9 +236,9 @@ export function decideWrites(
       writable.push(snapshot);
       continue;
     }
-    const previous = alreadyStored.get(snapshot.id);
-    if (previous && saysAnything(previous)) keptOnOutage += 1;
-    else writable.push(snapshot);
+    const dam = getUsaceDam(snapshot.id);
+    if (dam && declaresNoSources(dam)) writable.push(snapshot);
+    else keptOnOutage += 1;
   }
 
   return { writable, keptOnOutage };

@@ -399,6 +399,34 @@ export function wantsHistory(dam: UsaceDam): boolean {
   return Boolean(dam.office && (dam.series.generationFlow || (dam.swpaCode && hasLocation)));
 }
 
+/**
+ * Whether this dam is expected to publish ANYTHING at all.
+ *
+ * ── What this is for ───────────────────────────────────────────────────────
+ *
+ * Telling an outage apart from an answer. fetchDamDetail never throws — every
+ * source it reads is caught and contributes nothing on failure — so a project
+ * whose upstreams are all down produces a well-formed snapshot with no metrics,
+ * no schedule and no forecast in it, byte-identical in shape to one that
+ * genuinely has nothing to say.
+ *
+ * The registry is the only thing that can separate them, and it can do it
+ * before a single request is made: a dam with no CWMS path, no SWPA column and
+ * no Ameren feed has nothing anybody could have read, so an empty snapshot is
+ * the true answer for it and worth storing. For every other dam, empty means we
+ * failed to ask — and storing THAT is how a first cron pass during a CWMS
+ * outage would tell every reader for the next three hours that the Corps
+ * publishes nothing about Table Rock.
+ *
+ * No dam in the registry qualifies today (all 24 declare at least one source),
+ * which is the point: the honest rule is currently "never store an empty
+ * snapshot", and this states the reason rather than leaving a bare `false` for
+ * someone to relax later without knowing what it was protecting.
+ */
+export function declaresNoSources(dam: UsaceDam): boolean {
+  return !hasCwmsMetricsPath(dam) && !dam.swpaCode && !dam.amerenMetrics;
+}
+
 async function readMetrics(
   dam: UsaceDam,
   requested: UsaceMetric[]

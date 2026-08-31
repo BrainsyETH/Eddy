@@ -19,7 +19,7 @@ credentials Supabase will accept.
  ┌─────────────┐ ┌─────────────┐ ┌────────────┐ ┌────────────┐ ┌──────────────┐
  │ Next.js web │ │  Expo iOS   │ │   Embeds   │ │ MCP + chat │ │   Machine    │
  │  48 pages   │ │ 19 screens  │ │  badge     │ │  /api/mcp  │ │  triggers    │
- │ eddy.guide  │ │ Expo SDK 57 │ │  planner   │ │  /api/chat │ │  26 crons    │
+ │ eddy.guide  │ │ Expo SDK 57 │ │  planner   │ │  /api/chat │ │  27 crons    │
  │             │ │             │ │  card      │ │            │ │  + webhooks  │
  └──────┬──────┘ └──────┬──────┘ └─────┬──────┘ └─────┬──────┘ └──────┬───────┘
         └───────────────┴──────────────┴──────────────┴───────────────┘
@@ -105,18 +105,43 @@ thresholds — that mismatch is how a dead stage sensor once manufactured a
 ## The clock
 
 Nothing is fetched live from a government API on a page request. Vercel Cron
-fills the database on a schedule (26 entries over 20 handlers, in
+fills the database on a schedule (27 entries over 21 handlers, in
 `missouri-float-planner/vercel.json`); every read serves what the clock already
 collected.
 
 | Group | Jobs | Cadence | What it does |
 | --- | --- | --- | --- |
-| Water & dams | 5 | 15 min → monthly | Gauge readings hourly plus a `*/15` high-frequency pass, latest-value sync, dam generation history, monthly percentile snapshots |
+| Water & dams | 6 | 15 min → monthly | Gauge readings hourly plus a `*/15` high-frequency pass, latest-value sync, dam generation history, **assembled dam snapshots**, monthly percentile snapshots |
 | Land & availability | 5 | daily / weekly | Campsite availability from Recreation.gov and Missouri State Parks; NPS and USFS public-lands sync |
 | Alerts & push | 3 | 5–15 min | Evaluate gauge thresholds against subscriber rules, drain the delivery queue to Expo push, reconcile receipts 4×/hour |
 | Eddy updates | 3 | daily | Anthropic writes the river and gauge prose, gated by a knowledge base and a prose gate before it can publish |
 | Social & media | 9 | 30 min → weekly | Post scheduler, preflight, clip brand-check by vision, clip posting, weekly blog, insight fetch, weekly review |
 | Integrity | 1 | hourly | The trust tick — registered data checks, severity scoring, decay and remediation against a ledger |
+
+### Two read paths are assembled ahead of the reader
+
+The rule above has one shape of exception, and it is worth naming because both
+instances degrade silently rather than breaking:
+
+| Route | Assembled by | If it is not there |
+| --- | --- | --- |
+| `/api/dams`, `/api/dams/[damId]` | `/api/cron/sync-dam-snapshots` into `dam_snapshots`, hourly at `:35` | Falls back to reading CWMS and SWPA live — correct, and the 8s cold path it replaced |
+| `/api/rivers` | `get_river_conditions()`, one call instead of one per river | Falls back to `get_river_condition` per river — correct, and the N+1 it replaced |
+
+**Both must be live before the deploy that depends on them is judged.** Neither
+failure is visible from the outside: the routes answer correctly either way and
+only the latency moves, so a missing migration or a cron that never got
+scheduled looks exactly like a successful deploy. Concretely, after shipping:
+
+1. apply the migrations (`make check-db` reports drift; the `20260831*` pair is
+   the one to look for),
+2. confirm `/api/cron/sync-dam-snapshots` appears in the Vercel project's cron
+   list and has run once — its response carries `stored`, which should equal the
+   registry's dam count, and `keptOnOutage`, which should be 0.
+
+`keptOnOutage` equal to the dam count is an upstream outage, not a bad deploy:
+nothing is written from a failed read, on purpose. See
+`src/lib/data/dam-snapshot-store.ts`.
 
 ## What lives where
 

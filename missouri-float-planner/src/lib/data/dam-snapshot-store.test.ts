@@ -7,7 +7,7 @@ import {
   saysAnything,
   MAX_AGE_MS,
 } from './dam-snapshot-store';
-import { buildSnapshot } from './dams';
+import { buildSnapshot, declaresNoSources } from './dams';
 import { USACE_DAMS } from '@/lib/flow-providers/usace-registry';
 import type { DamSnapshot } from '@shared/dam-types';
 
@@ -59,75 +59,104 @@ test('a row this code cannot date is not served', () => {
 
 // ── is a payload worth writing ────────────────────────────────────────────
 
-test('an empty snapshot is written when nothing was stored before', () => {
-  // The case a plain "never write an empty snapshot" rule gets wrong, and gets
-  // wrong permanently: a district that publishes nothing would never acquire a
-  // row, so /api/dams would read it live forever to learn the same nothing.
-  const empty = snapshot('swl-clearwater-dam');
-  assert.equal(saysAnything(empty), false);
-
-  const { writable, keptOnOutage } = decideWrites([empty], new Map());
-  assert.deepEqual(writable, [empty]);
-  assert.equal(keptOnOutage, 0);
-});
-
-test('an empty snapshot does not overwrite a row that had readings', () => {
-  // CWMS being down must not turn every dam page into "nothing is published".
-  // The old row ages honestly and ages out on its own; see isFresh.
-  const good = withReading('swl-table-rock-dam');
+test('an empty read of a dam with declared sources is NEVER stored', () => {
+  // THE load-bearing one, and the one an earlier draft of decideWrites got
+  // wrong. It stored an empty snapshot whenever no row existed yet — which on a
+  // FIRST DEPLOY, an empty table by definition, means a cron pass during a CWMS
+  // outage writes twenty empty rows and the routes serve them as authoritative
+  // for three hours: every dam screen saying the Corps publishes no readings
+  // for a project that was generating the whole time.
+  //
+  // A cache may be out of date. It may not invent an absence.
   const outage = snapshot('swl-table-rock-dam');
+  assert.equal(saysAnything(outage), false);
 
-  const { writable, keptOnOutage } = decideWrites(
-    [outage],
-    new Map([['swl-table-rock-dam', good]]),
-  );
-  assert.deepEqual(writable, [], 'the good row must be left standing');
+  const { writable, keptOnOutage } = decideWrites([outage]);
+  assert.deepEqual(writable, [], 'nothing may be written from a failed read');
   assert.equal(keptOnOutage, 1);
 });
 
-test('a snapshot with readings always wins', () => {
+test('what was stored before has no bearing on it', () => {
+  // The previous rule's test. Storing nothing is correct whether or not a good
+  // row is already there: with one, that row stands and ages out on its own;
+  // with none, the routes read through, which is what the product did before
+  // this table existed.
+  const outage = snapshot('swl-table-rock-dam');
+  assert.deepEqual(decideWrites([outage]).writable, []);
+});
+
+test('a snapshot with readings is always written', () => {
   const good = withReading('swl-table-rock-dam');
-  const { writable, keptOnOutage } = decideWrites(
-    [good],
-    new Map([['swl-table-rock-dam', snapshot('swl-table-rock-dam')]]),
-  );
+  const { writable, keptOnOutage } = decideWrites([good]);
   assert.deepEqual(writable, [good]);
   assert.equal(keptOnOutage, 0);
 });
 
 test('a dam that could not be read at all contributes nothing either way', () => {
-  const { writable, keptOnOutage } = decideWrites([null], new Map());
+  const { writable, keptOnOutage } = decideWrites([null]);
   assert.deepEqual(writable, []);
   assert.equal(keptOnOutage, 0);
 });
 
+test('every dam in the registry declares a source, so no empty is storable', () => {
+  // The premise the rule above rests on, asserted rather than assumed. If a
+  // project is ever added with no CWMS path, no SWPA column and no Ameren feed,
+  // this fails and whoever added it has to decide deliberately whether an empty
+  // snapshot is the true answer for it — which, for such a dam, it would be.
+  const sourceless = Object.values(USACE_DAMS).filter(declaresNoSources).map((d) => d.id);
+  assert.deepEqual(
+    sourceless,
+    [],
+    'a sourceless dam is storable-when-empty; decideWrites handles it, but say so on purpose',
+  );
+});
+
 test('a schedule alone is worth storing, with no readings at all', () => {
-  // Stockton and Truman publish to SWPA and nothing to CWMS. A rule that wanted
-  // metrics would refuse to store either of them.
-  const scheduleOnly = snapshot('swl-table-rock-dam', {
+  // Stockton publishes to SWPA and nothing to CWMS. A rule that wanted metrics
+  // would refuse to store it on every pass.
+  const scheduleOnly = snapshot('nwk-stockton-dam', {
     schedule: [{ scheduleDate: '2026-08-31', hours: [], idle: [], retrievedAt: null }],
   });
   assert.equal(saysAnything(scheduleOnly), true);
+  assert.deepEqual(decideWrites([scheduleOnly]).writable, [scheduleOnly]);
+});
+
+test('a SWPA-only dam with an empty schedule is an outage, not an answer', () => {
+  // The tempting mistake for Stockton and Truman: they publish nothing to CWMS,
+  // so an empty read LOOKS like their normal state. It is not — SWPA is between
+  // publications, or the file moved — and storing it would have the dam screen
+  // announce that no schedule exists for a project that runs on one.
+  const empty = snapshot('nwk-stockton-dam');
+  assert.deepEqual(decideWrites([empty]).writable, []);
+  assert.equal(decideWrites([empty]).keptOnOutage, 1);
 });
 
 // ── the routes' side of the bargain ───────────────────────────────────────
 
-test('neither dam route serves a snapshot past the freshness bound', () => {
-  // includeStale exists for the cron, which asks a different question ("has
-  // this project ever published"). A route passing it would serve a row the
-  // bound exists to withhold — the one way this table can make the product
-  // worse rather than faster.
+test('the freshness bound has no way around it', () => {
+  // There is no option, on either reader, that returns a row past MAX_AGE_MS.
+  // One existed briefly for a version of decideWrites that decided what to
+  // store by looking at what was stored; that rule was wrong on a first deploy
+  // and both it and the escape hatch are gone. Serving a stale snapshot is the
+  // one way this table can make the product worse rather than faster.
+  const store = readFileSync('src/lib/data/dam-snapshot-store.ts', 'utf8');
+  assert.ok(!store.includes('includeStale'), 'no caller may opt out of the bound');
+  assert.match(
+    store,
+    /if \(!isFresh\(row\.built_at, now\)\) continue;/,
+    'the index read must filter unconditionally',
+  );
+});
+
+test('both dam routes re-band what they serve on the serving clock', () => {
+  // A stored payload carries the staleness it was stamped with when the cron
+  // assembled it, which can be an hour ago — the one field where storing a
+  // snapshot makes it say something untrue rather than merely old.
   for (const path of [
     'src/app/api/dams/route.ts',
     'src/app/api/dams/[damId]/route.ts',
   ]) {
     const source = readFileSync(path, 'utf8');
-    assert.ok(
-      !source.includes('includeStale'),
-      `${path} must not read past MAX_AGE_MS`,
-    );
-    // And a stored payload is re-banded on the serving clock rather than
-    // carrying the staleness it was stamped with an hour ago.
     assert.match(source, /refreshStaleness\(/, `${path} must re-band what it serves`);
   }
 });
