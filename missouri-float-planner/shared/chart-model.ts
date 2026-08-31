@@ -321,7 +321,12 @@ export function niceValueTicks(min: number, max: number, targetCount = 4): Chart
     // inherits the error. Snapping to the step's own decimal place is what makes
     // a "round number" round — the steps are always 1/2/5 × 10ⁿ, so the place is
     // known rather than guessed.
-    const decimals = Math.min(10, Math.max(0, -Math.floor(Math.log10(size))));
+    // A 2.5 rung needs one more decimal place than its magnitude implies —
+    // a 0.25 step lands on 2.75, and rounding that to the magnitude's single
+    // place gives 2.8, a "tick" that is not a multiple of its own step.
+    const rung = size / 10 ** Math.floor(Math.log10(size));
+    const extra = Math.abs(rung - 2.5) < 1e-9 ? 1 : 0;
+    const decimals = Math.min(10, Math.max(0, -Math.floor(Math.log10(size))) + extra);
     const snap = (value: number) => Number(value.toFixed(decimals));
     const first = Math.ceil(min / size) * size;
     const out: ChartTick[] = [];
@@ -358,20 +363,34 @@ export function niceValueTicks(min: number, max: number, targetCount = 4): Chart
    * The fallback survives for spans that are genuinely unlabellable (a degenerate
    * range), where it is the honest answer rather than a rounding failure.
    */
-  const LADDER = [10, 5, 2, 1];
+  /**
+   * 2.5 earns its place on this ladder. Without it the rungs jump 5 → 2, which
+   * more than doubles the label count in one move: a 2.43–3.47 ft window gets 2
+   * labels at 0.5 and 5 at 0.2, with nothing in between, so a chart asking for 3
+   * has to take one of those. At 0.25 it gets 2.5 / 2.75 / 3.00 / 3.25 — four
+   * labels, and quarter-feet is how stage is read anyway.
+   *
+   * Capping the count instead would push the same case back to 2 labels, which is
+   * the sparse axis this function was just fixed to stop producing. The problem
+   * was never that a step could be too fine; it was that the ladder was too
+   * coarse to land near the target.
+   */
+  const LADDER = [10, 5, 2.5, 2, 1];
   let size = step;
   let best: ChartTick[] | null = null;
-  for (let attempt = 0; attempt < 4; attempt += 1) {
+  for (let attempt = 0; attempt < 5; attempt += 1) {
     const found = ticksForStep(size);
     // Two labels is the minimum that defines a scale at all.
     if (found.length >= 2) {
       best = found;
       if (found.length >= targetCount) break;
     }
-    // Next finer step on the 1/2/5 ladder: 10 → 5 → 2 → 1 → 5 of the decade below.
+    // Next finer rung: 10 → 5 → 2.5 → 2 → 1 → 5 of the decade below. Matched by
+    // value rather than by index arithmetic, since 2.5 is not an integer.
     const decade = 10 ** Math.floor(Math.log10(size));
-    const rung = Math.round(size / decade);
-    const nextIndex = LADDER.indexOf(rung) + 1;
+    const rung = size / decade;
+    const index = LADDER.findIndex((value) => Math.abs(value - rung) < 1e-9);
+    const nextIndex = (index === -1 ? 0 : index) + 1;
     size = nextIndex < LADDER.length ? LADDER[nextIndex] * decade : 5 * (decade / 10);
     if (!Number.isFinite(size) || size <= 0) break;
   }

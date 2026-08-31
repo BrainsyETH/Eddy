@@ -211,6 +211,46 @@ test('ticks degrade to the endpoints rather than hanging on a degenerate span', 
   assert.equal(niceValueTicks(Number.NaN, 10, 4).length, 2);
 });
 
+/**
+ * The axis must never fall back to the PADDED DOMAIN's own edges.
+ *
+ * chartDomain() pads by 8%, so those edges are arithmetic rather than readings:
+ * a Van Buren stage week rendered as "2.43" and "3.47", which is not a scale
+ * anybody can measure a line against. The step was rounded up past every value
+ * that would have fitted, and the fallback caught what was left.
+ */
+test('a narrow stage window is labelled in round steps, not padded endpoints', () => {
+  const ticks = niceValueTicks(2.43, 3.47, 3);
+  assert.ok(ticks.length >= 3, 'a stage window this wide has room for three labels');
+  assert.ok(!ticks.some((tick) => tick.value === 2.43 || tick.value === 3.47));
+  // Every label is a true multiple of one step — the 2.5 rung is why 2.75 is
+  // available here at all, and rounding it to 2.8 would put a label off its grid.
+  const step = ticks[1].value - ticks[0].value;
+  for (const tick of ticks) {
+    assert.equal(Number((tick.value / step).toFixed(6)) % 1, 0);
+  }
+});
+
+test('a discharge window is labelled across the frame, not just the bottom', () => {
+  const ticks = niceValueTicks(0, 940, 3);
+  assert.ok(ticks.length >= 3);
+  // The complaint this encodes: "0, 500" left the top half of a 0–940 plot with
+  // nothing to measure a spike against.
+  assert.ok(ticks.at(-1)!.value > 500);
+});
+
+test('stage below its datum keeps a labelled axis', () => {
+  // validHeight() accepts down to -100 ft and several Ozark gauges sit below
+  // their datum at low water; the axis has to survive a negative domain.
+  const ticks = niceValueTicks(-2.5, 1.5, 3);
+  assert.ok(ticks.length >= 3);
+  assert.ok(ticks.some((tick) => tick.value < 0));
+  for (const tick of ticks) {
+    assert.ok(tick.value >= -2.5 && tick.value <= 1.5 + 1e-9);
+    assert.ok(tick.position >= 0 && tick.position <= 1);
+  }
+});
+
 test('time ticks span the window inclusively', () => {
   const ticks = timeTicks(BASE, BASE + 24 * HOUR, 5);
   assert.equal(ticks.length, 5);

@@ -405,7 +405,7 @@ export default function GaugeDetailView({ siteId }: GaugeDetailViewProps) {
                       onClick={() => handleUnitToggle('ft')}
                       aria-pressed={effectiveUnit === 'ft'}
                       title="Gauge height in feet"
-                      className={`px-3 py-1 text-xs font-semibold transition-colors ${
+                      className={`px-2.5 py-1 text-xs font-semibold transition-colors sm:px-3 ${
                         effectiveUnit === 'ft'
                           ? 'bg-primary-500 text-white'
                           : 'bg-white text-neutral-600 hover:bg-neutral-50'
@@ -417,7 +417,7 @@ export default function GaugeDetailView({ siteId }: GaugeDetailViewProps) {
                       onClick={() => handleUnitToggle('cfs')}
                       aria-pressed={effectiveUnit === 'cfs'}
                       title="Flow in cubic feet per second"
-                      className={`px-3 py-1 text-xs font-semibold transition-colors ${
+                      className={`px-2.5 py-1 text-xs font-semibold transition-colors sm:px-3 ${
                         effectiveUnit === 'cfs'
                           ? 'bg-primary-500 text-white'
                           : 'bg-white text-neutral-600 hover:bg-neutral-50'
@@ -438,7 +438,7 @@ export default function GaugeDetailView({ siteId }: GaugeDetailViewProps) {
                         trackGaugeRangeChanged({ provider: gaugeDetail?.provider ?? 'usgs', tier }, rangeLabelForDays(opt.days));
                       }}
                       aria-pressed={dateRange === opt.days}
-                      className={`px-3 py-1 text-xs font-semibold transition-colors ${
+                      className={`px-2.5 py-1 text-xs font-semibold transition-colors sm:px-3 ${
                         dateRange === opt.days
                           ? 'bg-primary-500 text-white'
                           : 'bg-white text-neutral-600 hover:bg-neutral-50'
@@ -453,7 +453,7 @@ export default function GaugeDetailView({ siteId }: GaugeDetailViewProps) {
                     setExpandedOpen(true);
                     trackGaugeExpandedOpened({ provider: gaugeDetail?.provider ?? 'usgs', tier });
                   }}
-                  className="rounded-lg border border-neutral-300 px-3 py-1 text-xs font-semibold text-neutral-600 hover:bg-neutral-50"
+                  className="rounded-lg border border-neutral-300 px-2.5 py-1 text-xs font-semibold text-neutral-600 whitespace-nowrap hover:bg-neutral-50 sm:px-3"
                 >
                   Expand
                 </button>

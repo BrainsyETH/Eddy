@@ -964,7 +964,13 @@ function GaugeChartInner({
                     behind it, carrying meaning this must not borrow. */}
                 <Defs>
                   <LinearGradient id={fillId} x1="0" y1="0" x2="0" y2="1">
-                    <Stop offset="0" stopColor={lineColor} stopOpacity={isDark ? 0.34 : 0.24} />
+                    {/* Near the web chart's own ramp (0.30 → 0.05) rather than a
+                        separately-tuned pair, so the two hydrographs read as one
+                        system. Dark is no longer lifted ABOVE light: that made
+                        sense while this sat on top of the stack and had to stay
+                        visible through everything, and now that it is underneath,
+                        a heavier dark value only muddies the bands over it. */}
+                    <Stop offset="0" stopColor={lineColor} stopOpacity={isDark ? 0.26 : 0.24} />
                     <Stop offset="1" stopColor={lineColor} stopOpacity={0.02} />
                   </LinearGradient>
                 </Defs>
@@ -992,6 +998,25 @@ function GaugeChartInner({
                     />
                   );
                 })}
+
+                {/* ── The fill under the line ──
+                    HERE, directly above the band rects and below everything
+                    else, because paint order is meaning order: the fill is
+                    decoration and every layer after it carries a number.
+
+                    Drawn last (its first home, next to the line it belongs to)
+                    it painted over the typical range, the band boundaries, the
+                    NWS stage rules AND their labels, and the value axis — at up
+                    to 0.34 alpha, which is a teal wash across every threshold on
+                    the chart. A fill that tints a flood line is worse than no
+                    fill at all.
+
+                    Below the typical range specifically: both are areas, and the
+                    question that band exists to answer is where the line sits
+                    INSIDE it. An observed fill on top hides exactly that. */}
+                {series.areas.map((d, i) => (
+                  <Path key={`a-${i}`} d={d} fill={`url(#${fillId})`} />
+                ))}
 
                 {/* Band boundaries, labelled down the right edge. These are the
                     numbers people actually want off a chart like this — "High
@@ -1091,12 +1116,6 @@ function GaugeChartInner({
                     </G>
                   );
                 })}
-
-                {/* Under the line and over the bands: the fill belongs to the
-                    series, so it must not sit beneath context it would tint. */}
-                {series.areas.map((d, i) => (
-                  <Path key={`a-${i}`} d={d} fill={`url(#${fillId})`} />
-                ))}
 
                 {/* ── The line ── */}
                 {series.paths.map((d, i) => (

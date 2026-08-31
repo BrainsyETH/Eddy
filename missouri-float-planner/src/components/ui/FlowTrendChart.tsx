@@ -107,12 +107,16 @@ function PlotDot({
   size,
   color,
   ring,
+  z = 2,
 }: {
   xPercent: number;
   yPercent: number;
   size: number;
   color: string;
   ring?: string;
+  /** Above the brush (1) and below the tooltip (10). The hovered dot takes 3 so
+   *  it stays whole where it lands on top of an ordinary one. */
+  z?: number;
 }) {
   return (
     <span
@@ -125,6 +129,7 @@ function PlotDot({
         height: size,
         marginLeft: -size / 2,
         marginTop: -size / 2,
+        zIndex: z,
         backgroundColor: color,
         boxShadow: ring ? `0 0 0 2px ${ring}` : undefined,
       }}
@@ -886,6 +891,20 @@ export default function FlowTrendChart({
               ) : null;
             })()}
 
+            {/* ── The fill under the line ──
+                Above the condition bands and below every rule, label and
+                overlay that follows. It used to be drawn immediately before the
+                line, which put a series-coloured wash over the typical range,
+                the threshold rules and the NWS stage lines — decoration on top
+                of the numbers. Paint order is meaning order; the app chart is
+                ordered the same way, for the same reason.
+
+                Below the typical range in particular: both are areas, and that
+                band exists to answer where the line sits INSIDE it. */}
+            {chartData.observedAreas.map((d, i) => (
+              <path key={`area-${i}`} d={d} fill={`url(#flowGradient-${gaugeSiteId})`} />
+            ))}
+
             {/* Day-of-year typical range, behind everything the gauge measured */}
             {chartData.typicalArea && <path d={chartData.typicalArea} fill={TYPICAL_COLOR} fillOpacity="0.1" />}
             {chartData.typicalPath && (
@@ -940,9 +959,6 @@ export default function FlowTrendChart({
               );
             })}
 
-            {chartData.observedAreas.map((d, i) => (
-              <path key={`area-${i}`} d={d} fill={`url(#flowGradient-${gaugeSiteId})`} />
-            ))}
             {chartData.observedPaths.map((d, i) => (
               <path
                 key={`line-${i}`}
@@ -1041,7 +1057,11 @@ export default function FlowTrendChart({
               yPercent={chartData.y(chartData.current.v)}
               size={9}
               color={SERIES_COLOR}
-              ring="#f5f5f5"
+              // The card behind this chart is bg-white, so the ring that lifts a
+              // dot off the line is white too. It was #f5f5f5 here and #ffffff on
+              // the hovered dot — two rings for one background, which shows as a
+              // grey halo on whichever of them you notice first.
+              ring="#ffffff"
             />
           )}
           {hovered && (
@@ -1051,6 +1071,7 @@ export default function FlowTrendChart({
               size={11}
               color={hovered.kind === 'forecast' ? FORECAST_COLOR : SERIES_COLOR}
               ring="#ffffff"
+              z={3}
             />
           )}
 
@@ -1059,7 +1080,11 @@ export default function FlowTrendChart({
           {brush && (
             <div
               aria-hidden="true"
-              className="absolute inset-y-0 pointer-events-none bg-primary-500/15 border-x border-primary-500/60"
+              // z-[1] puts the brush under the dots, which follow it in the DOM
+              // and would otherwise be tinted by its wash for as long as a drag
+              // lasts — the current and hovered readings are the two marks that
+              // most need to stay crisp while somebody is selecting a range.
+              className="absolute inset-y-0 z-[1] pointer-events-none bg-primary-500/15 border-x border-primary-500/60"
               style={{
                 left: `${Math.min(brush.start, brush.end) * 100}%`,
                 width: `${Math.abs(brush.end - brush.start) * 100}%`,
