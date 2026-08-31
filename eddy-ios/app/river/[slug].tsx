@@ -125,7 +125,7 @@ import { useAlertGate } from '@/hooks/useAlertGate';
 import { useAlertRules } from '@/hooks/useAlertRules';
 import { useSession } from '@/hooks/useSession';
 import { useStarredRivers } from '@/hooks/useStarredRivers';
-import { readConditions, readIndex } from '@/lib/riverCache';
+import { readBestIndex, readConditions } from '@/lib/riverCache';
 import { useRiverData } from '@/hooks/useRiverData';
 import { selectEddySays } from '@/lib/eddySays';
 import { effectiveReadingAgeHours, readingBand } from '@/lib/offline-cache';
@@ -664,7 +664,15 @@ export default function RiverDetailScreen() {
             return null;
           },
         );
-        const cached = await readIndex();
+        //
+        // readBestIndex, not readIndex: on a FIRST launch there is no stored
+        // /api/rivers list at all, and this await was the whole cold-start
+        // spinner — a screen whose put-ins and hazards were already on the
+        // phone, waiting on the slowest endpoint in the app for three strings.
+        // The launch bundle now seeds those three (see readSeedIndex), and a
+        // seeded row carries no condition, which costs this screen nothing:
+        // it does not trust the index's condition anyway.
+        const cached = await readBestIndex();
         let rivers: RiverListItem[] | null = cached?.payload ?? null;
         if (!rivers) rivers = await networkIndex;
         if (!rivers) throw new ApiError('Could not load rivers');

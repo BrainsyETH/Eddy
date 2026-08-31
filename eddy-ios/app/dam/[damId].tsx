@@ -22,7 +22,7 @@
 // transmission constraints, outages and inflow, and this screen sits next to a
 // number somebody may wade into.
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Linking,
@@ -37,7 +37,9 @@ import { Stack, useFocusEffect, useLocalSearchParams, useRouter } from 'expo-rou
 import { Ionicons } from '@expo/vector-icons';
 import type { DamSnapshot } from '@eddy/types';
 import { fetchDam, fetchRivers } from '@/api/client';
-import { readIndex } from '@/lib/riverCache';
+import { getSharedDams } from '@/hooks/useDams';
+import { DAM_CATALOG } from '@/lib/damCatalog';
+import { readBestIndex } from '@/lib/riverCache';
 import { DamStateCard } from '@/components/dam/DamStateCard';
 import { GenerationCard } from '@/components/dam/GenerationCard';
 import { DamPatternStrip } from '@/components/dam/DamPatternStrip';
@@ -53,9 +55,94 @@ export default function DamDetailScreen() {
   const { colors, elevation } = useTheme();
   const { isStarred, toggleStar } = useStarredRivers();
 
-  const [dam, setDam] = useState<DamSnapshot | null>(null);
-  const [loading, setLoading] = useState(true);
+  /**
+   * Who this dam is, out of the binary.
+   *
+   * The Corps does not move Bull Shoals, so a name and a lake need no network
+   * — and this screen used to hold a full-screen spinner over both for the
+   * five to fifty seconds /api/dams/[damId] takes cold. See damCatalog.ts,
+   * which shipped this half of a dam as source for exactly this argument on
+   * the map layer.
+   *
+   * Null for a dam this build does not carry, which is possible: the registry
+   * can gain a project while a binary is in the field. That case keeps the old
+   * behaviour of waiting, because there is genuinely nothing to draw.
+   */
+  const catalogEntry = useMemo(
+    () => DAM_CATALOG.find((entry) => entry.id === damId) ?? null,
+    [damId],
+  );
+
+  /**
+   * The snapshot on screen, HELD WITH THE DAM IT DESCRIBES.
+   *
+   * Keyed by damId for the reason the river screen's `damFor` is: three
+   * asynchronous writers land here — the shared summary store, the detail
+   * fetch, and the silent focus refetch — and a screen re-pointed at another
+   * project must not show the previous one's release for even one frame.
+   *
+   * `detailed` records WHICH KIND of snapshot it is. A summary carries three
+   * metrics and two days of schedule; the detail carries seven and three, plus
+   * the observed week and the forecast. They are the same shape and not the
+   * same answer, and the difference decides whether a missing section means
+   * "this dam has none" or "we have not asked yet".
+   */
+  const [held, setHeld] = useState<{
+    damId: string;
+    dam: DamSnapshot;
+    detailed: boolean;
+  } | null>(null);
+  const dam = held?.damId === damId ? held.dam : null;
+
+  /**
+   * The damId whose detail request has settled — succeeded or failed.
+   *
+   * Not a boolean, so that a change of dam re-arms it without an effect having
+   * to remember to clear it, and so a late answer for the previous project
+   * cannot mark this one as settled.
+   */
+  const [detailSettledFor, setDetailSettledFor] = useState<string | null>(null);
+  const detailPending = detailSettledFor !== damId;
   const [failed, setFailed] = useState(false);
+
+  /**
+   * The summary every list surface already holds, as this screen's first paint.
+   *
+   * ── Why this is not a second request ──────────────────────────────────────
+   * getSharedDams answers from the module cache the map layer, the Today tab's
+   * Dams scope and the Favorites list all fill — so arriving here from any of
+   * them is a synchronous-in-practice hit on data that is already correct,
+   * against a detail endpoint whose own comments measure the cold path in tens
+   * of seconds. Arriving from a deep link pays for one shared /api/dams that
+   * every other surface then reuses.
+   *
+   * ── Why it can never overwrite ────────────────────────────────────────────
+   * It only ever fills an empty slot. This promise can settle AFTER fetchDam
+   * has already answered — the shared store may have to make the request the
+   * detail did not — and writing a three-metric summary over a seven-metric
+   * detail would delete the pool level off a screen that was showing it.
+   */
+  useEffect(() => {
+    if (!damId) return;
+    let live = true;
+    void getSharedDams().then(
+      (dams) => {
+        if (!live) return;
+        const summary = dams.find((entry) => entry.id === damId);
+        if (!summary) return;
+        setHeld((current) =>
+          current?.damId === damId ? current : { damId, dam: summary, detailed: false },
+        );
+      },
+      // Silent. The detail fetch below is this screen's own request and owns
+      // the failure copy; a shared store that could not answer just means the
+      // first paint is the catalog's name alone.
+      () => {},
+    );
+    return () => {
+      live = false;
+    };
+  }, [damId]);
 
   /**
    * The rivers the app can actually OPEN, for gating the tailwater button.
@@ -84,7 +171,11 @@ export default function DamDetailScreen() {
           setKnownRiverSlugs(new Set(rivers.map((r) => r.slug)));
         }
       } catch {
-        const cached = await readIndex();
+        // readBestIndex, so a first launch answers too: the bundle seeds which
+        // rivers exist, and "which rivers exist" is the entire question here.
+        // With readIndex this fell through to null on a fresh install and hid
+        // the tailwater button on the one screen that most wants to offer it.
+        const cached = await readBestIndex();
         if (!controller.signal.aborted && cached) {
           setKnownRiverSlugs(new Set(cached.payload.map((r) => r.slug)));
         }
@@ -121,15 +212,20 @@ export default function DamDetailScreen() {
   );
 
   const load = useCallback(
-    (signal: AbortSignal, showSpinner: boolean) => {
+    (signal: AbortSignal, primary: boolean) => {
       if (!damId) return;
-      if (showSpinner) setLoading(true);
+      // `primary` used to mean "blank the screen"; it now means "this is the
+      // arrival, not the focus refresh" — which is still the only load allowed
+      // to declare a failure or to mark the detail settled.
+      if (primary) setDetailSettledFor(null);
 
       void (async () => {
         try {
           const snapshot = await fetchDam(damId, signal);
           if (signal.aborted) return;
-          setDam(snapshot);
+          // Unconditional, unlike the summary seed above: this IS the richer
+          // answer, and a refetch of it is the newest one.
+          setHeld({ damId, dam: snapshot, detailed: true });
           setFailed(false);
         } catch {
           if (signal.aborted) return;
@@ -140,9 +236,12 @@ export default function DamDetailScreen() {
           // A REFRESH failure is different and must not blank a screen that is
           // already showing good data — the reading keeps its honest age
           // instead.
-          if (showSpinner) setFailed(true);
+          if (primary) setFailed(true);
         } finally {
-          if (!signal.aborted && showSpinner) setLoading(false);
+          // Marked settled on BOTH paths. This is what turns "no schedule yet"
+          // into "this dam publishes no schedule", so leaving it unset after a
+          // failure would hold a loading row on screen forever.
+          if (!signal.aborted && primary) setDetailSettledFor(damId);
         }
       })();
     },
@@ -182,11 +281,15 @@ export default function DamDetailScreen() {
     }, [load])
   );
 
-  if (loading) {
-    // The chevron renders DURING the load, same rule configure.tsx states for
-    // itself: this fetch reads through to CWMS and SWPA and can run five to
-    // fifty seconds cold, and a spinner with no chevron is that long with no
-    // visible way off the screen.
+  // NOTHING AT ALL, and still asking: a dam this build does not carry, opened
+  // before either request answered. The only case left where this screen is a
+  // spinner — a catalogued dam paints its name and lake on the first frame.
+  //
+  // The chevron renders DURING the load, same rule configure.tsx states for
+  // itself: this fetch reads through to CWMS and SWPA and can run five to
+  // fifty seconds cold, and a spinner with no chevron is that long with no
+  // visible way off the screen.
+  if (!dam && !catalogEntry && detailPending) {
     return (
       <SafeAreaView style={[styles.screen, { backgroundColor: colors.bg }]} edges={['top']}>
         <Stack.Screen options={{ headerShown: false }} />
@@ -202,7 +305,7 @@ export default function DamDetailScreen() {
     );
   }
 
-  if (!dam) {
+  if (!dam && !detailPending) {
     return (
       <SafeAreaView style={[styles.screen, { backgroundColor: colors.bg }]} edges={['top']}>
         <Stack.Screen options={{ headerShown: false }} />
@@ -220,6 +323,14 @@ export default function DamDetailScreen() {
               ? 'Could not reach the Corps’ feed. Check your connection and try again.'
               : `No project is published under ${damId}.`}
           </Text>
+          {/* The name, when the binary carries one. A failed request does not
+              make Bull Shoals anonymous, and "Dam unavailable" over a bare
+              slug reads like the app lost the dam rather than the reading. */}
+          {failed && catalogEntry ? (
+            <Text style={[styles.emptyBodyText, { color: colors.textMuted }]}>
+              {catalogEntry.name}
+            </Text>
+          ) : null}
           {/* The control the copy promises. Failure only — a "not found" is
               an answer, not an outage. */}
           {failed ? (
@@ -235,6 +346,44 @@ export default function DamDetailScreen() {
             </Pressable>
           ) : null}
         </View>
+      </SafeAreaView>
+    );
+  }
+
+  /**
+   * The name is up; the water is not here yet.
+   *
+   * Reached only on a deep link or a first launch — arriving from the map, the
+   * Today tab or Favourites means the shared summary store is already warm and
+   * the branch below renders on the first frame. So this is the narrow case of
+   * a catalogued dam with no snapshot from either source YET, and what it
+   * shows is the half of a dam that ships in the binary.
+   *
+   * ── Why no star here ──────────────────────────────────────────────────────
+   * A star record carries the tailwater river as context, and the tailwater is
+   * a property of the snapshot rather than of the catalog. Starring now would
+   * write a row that names the dam and not the reach it controls, and quietly
+   * keep it. The control appears with the data that makes it correct, which is
+   * a moment later.
+   */
+  if (!dam) {
+    return (
+      <SafeAreaView style={[styles.screen, { backgroundColor: colors.bg }]} edges={['top']}>
+        <Stack.Screen options={{ headerShown: false }} />
+        <View style={styles.navRow}>
+          <Pressable onPress={() => goBack(router)} hitSlop={12} accessibilityLabel="Back">
+            <Ionicons name="chevron-back" size={26} color={colors.text} />
+          </Pressable>
+        </View>
+        <ScrollView contentContainerStyle={styles.body}>
+          <Text style={[styles.name, { color: colors.text }]}>{catalogEntry!.name}</Text>
+          <Text style={[styles.meta, { color: colors.textMuted }]}>
+            {[catalogEntry!.lakeName, catalogEntry!.state].filter(Boolean).join(' · ')}
+          </Text>
+          <View style={styles.section}>
+            <ActivityIndicator color={colors.interactive} />
+          </View>
+        </ScrollView>
       </SafeAreaView>
     );
   }
@@ -309,6 +458,14 @@ export default function DamDetailScreen() {
               <GenerationCard dam={dam} />
             </View>
           </>
+        ) : detailPending || failed ? (
+          // STILL ASKING, or ASKED AND FAILED — neither of which is the claim
+          // below, and neither may be dressed as it. A summary snapshot can
+          // arrive with nothing in it (the shared store's own request may have
+          // failed for this project), so "no readings are published" over a
+          // request that has not answered, or that errored, is a fact this
+          // screen does not have. The row underneath says which state it is in.
+          <View style={styles.section} />
         ) : (
           // Not an error. Kansas City district publishes nothing to CWMS and
           // SWPA may not have refreshed yet, which is a real and temporary
@@ -321,6 +478,45 @@ export default function DamDetailScreen() {
             </View>
           </View>
         )}
+
+        {/* WHAT IS STILL COMING, OR WHAT DID NOT ARRIVE.
+            A summary carries three metrics and two days of schedule; the pool
+            level, the tailwater temperature, the observed week and the forecast
+            are all in the detail request. While that request is in flight their
+            absence means "not yet"; once it has FAILED their absence means "we
+            could not ask" — and neither is the "this project does not publish
+            it" that an unexplained gap reads as. That distinction is what the
+            rest of this screen is careful about, and a partial page that did
+            not say which state it was in would quietly give it up.
+
+            Drawn until the DETAIL itself lands, so it covers both the empty
+            case above and a summary that is showing real readings with the
+            lake and the temperature still missing from it. */}
+        {!held?.detailed && (detailPending || failed) ? (
+          <View style={[styles.section, styles.pendingRow]}>
+            {detailPending ? (
+              <>
+                <ActivityIndicator size="small" color={colors.textMuted} />
+                <Text style={[styles.emptyBodyText, { color: colors.textMuted }]}>
+                  Loading the lake, the temperature and the full schedule…
+                </Text>
+              </>
+            ) : (
+              <>
+                <Text style={[styles.emptyBodyText, { color: colors.textMuted }]}>
+                  Couldn’t load the lake, the temperature or the full schedule.
+                </Text>
+                <Pressable
+                  onPress={() => setReloadNonce((n) => n + 1)}
+                  hitSlop={8}
+                  accessibilityRole="button"
+                >
+                  <Text style={[styles.sourceText, { color: colors.interactive }]}>Try again</Text>
+                </Pressable>
+              </>
+            )}
+          </View>
+        ) : null}
 
         {/* The schedule is no longer its own section: it is the lower half of
             the Generation card above. A dam with a schedule but NO powerhouse
@@ -494,6 +690,8 @@ const styles = StyleSheet.create({
   name: { ...t['2xl'], fontFamily: fonts.heading, paddingHorizontal: 20, marginTop: 4 },
   meta: { ...t.sm, fontFamily: fonts.body, paddingHorizontal: 20, marginTop: 2, marginBottom: 14 },
   section: { paddingHorizontal: 16, marginBottom: 14 },
+  /** The "still loading the rest" line: a spinner and its sentence, centred. */
+  pendingRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 },
   card: { borderRadius: 14, padding: 16 },
   actions: { paddingHorizontal: 16, gap: 10 },
   action: { paddingVertical: 13, borderRadius: 14, alignItems: 'center' },

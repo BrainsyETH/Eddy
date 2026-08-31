@@ -50,6 +50,7 @@ import {
   toHazard,
   toNpsCampground,
   toRiverDetail,
+  toRiverIndexEntry,
   type AccessPointRow,
   type HazardRow,
   type RiverRow,
@@ -71,9 +72,35 @@ export interface OfflineBundle {
    * migrating it, on the reasoning that the whole dataset is one request away
    * — repair is cheaper than migration. So bumping this is a deliberate act of
    * invalidating every phone's copy, not a routine version stamp.
+   *
+   * NOT bumped for `index` below. A field a shipped binary does not read is
+   * invisible to it, and bumping would have blanked the offline cache of every
+   * install in the field to deliver an optimisation.
    */
   v: 1;
   rivers: OfflineBundleRiver[];
+  /**
+   * The rivers list, without any river's condition.
+   *
+   * ── Why this rides along ───────────────────────────────────────────────
+   *
+   * The app's river screen needs an id, a slug and a name before it can ask
+   * for anything else, and /api/rivers was the only place carrying all three.
+   * A fresh install therefore held a full-screen spinner in front of the river
+   * screen while a 25-river condition endpoint assembled — for three strings
+   * that change no more often than the put-ins already in this payload.
+   *
+   * ── Why it is not folded into rivers[].river ───────────────────────────
+   *
+   * That field is a RiverDetail and carries geometry and bounds; the index is
+   * a RiverListItem and carries state, path and a count. They are two shapes
+   * for two consumers, and widening one into the other would put a LineString
+   * behind every row of a list screen.
+   *
+   * The duplication of id/name/slug between them is ~150 bytes a river against
+   * a payload whose geometry is measured in hundreds of kilobytes.
+   */
+  index: ReturnType<typeof toRiverIndexEntry>[];
 }
 
 /** Geometry for every river, keyed by slug, from the statewide dataset RPC. */
@@ -100,7 +127,13 @@ export async function buildOfflineBundle(): Promise<OfflineBundle> {
 
   const { data: rivers, error: riversError } = await supabase
     .from('rivers')
-    .select('id, name, slug, length_miles, description, difficulty_rating, region, river_type')
+    // `state` is read only by toRiverIndexEntry, and only to build the
+    // canonical /rivers/[state]/[slug] path — which the app carries so that a
+    // share sheet on a seeded river produces the same URL as one on a loaded
+    // river.
+    .select(
+      'id, name, slug, state, length_miles, description, difficulty_rating, region, river_type',
+    )
     // Sorted by slug, not by name. The ETag is a hash of this body, so row
     // order has to be a function of the data and nothing else — `name` is
     // editable and would reshuffle the payload on a copy edit.
@@ -170,6 +203,16 @@ export async function buildOfflineBundle(): Promise<OfflineBundle> {
 
   return {
     v: 1,
+    index: rivers.map((river) =>
+      toRiverIndexEntry(
+        river as unknown as RiverRow,
+        // The APPROVED row count, not the length of the mapped array below:
+        // toAccessPoint drops a point it cannot place, and a seeded count that
+        // disagreed with /api/rivers would visibly tick up on the row the
+        // moment the live list landed.
+        byRiver(accessPoints, river.id).length,
+      ),
+    ),
     rivers: rivers.map((river) => ({
       slug: river.slug,
       river: toRiverDetail(

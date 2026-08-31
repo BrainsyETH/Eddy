@@ -72,6 +72,10 @@ export type LogTag =
   | 'photo'
   | 'purchase'
   | 'launch'
+  // How long the backend took, from the phone's side. Carries ROUTES and never
+  // paths — see routeOf in src/lib/requestTiming.ts, which strips the slug, the
+  // site id and the query before anything reaches here.
+  | 'net'
   // First run resolves once per launch and then cannot be observed again on
   // that device. Without a tag naming which pane it chose, "I was not prompted"
   // is a report with nothing behind it — see resetFirstRun in onboarding.ts.

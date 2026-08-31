@@ -87,9 +87,16 @@ import {
   writeNetwork,
   writePart,
   writeRiver,
+  writeSeedIndex,
 } from '@/lib/riverCache';
 import { CACHE_VERSION } from '@/lib/offline-cache';
 import { report, warn } from '@/lib/monitoring';
+import {
+  durationBucket,
+  routeOf,
+  worthReporting,
+  type RequestOutcome,
+} from '@/lib/requestTiming';
 
 const BASE_URL =
   (Constants.expoConfig?.extra?.apiBaseUrl as string | undefined) ?? 'https://eddy.guide';
@@ -134,6 +141,49 @@ const REQUEST_TIMEOUT_MS = 15_000;
  * install that most needs it to land.
  */
 const BACKGROUND_TIMEOUT_MS = 60_000;
+
+/**
+ * Record what a request cost, once it is over.
+ *
+ * ── Why every request goes through one of these ───────────────────────────
+ *
+ * Because the alternative is what this file had: a deadline that bounds the
+ * wait and nothing that records it. Every latency question about this app has
+ * so far been answered by holding a phone and a stopwatch against whatever the
+ * CDN happened to be caching — which is how a dam route ran between five and
+ * fifty seconds in production for months while the code that called it carried
+ * a comment saying so, and nothing counted it.
+ *
+ * ── What it is allowed to send ────────────────────────────────────────────
+ *
+ * A route, a bucket and an outcome. Never the path: routeOf strips the slug,
+ * the site id, the plan code and the whole query string first, because those
+ * are the things a person looked at and this app does not put those in an error
+ * tracker. See routeOf's header, and redact.ts for the rule it follows.
+ *
+ * ── What it is allowed to say ─────────────────────────────────────────────
+ *
+ * Only what the reader would have felt: a deadline expiring, or a success slow
+ * enough that they wondered whether the tap worked. Cancellations are silent at
+ * any duration — a screen going away is the app working. See worthReporting.
+ */
+function recordTiming(path: string, outcome: RequestOutcome, startedAt: number): void {
+  const durationMs = Date.now() - startedAt;
+  const route = routeOf(path);
+
+  if (__DEV__) console.info('[net]', route, outcome, `${durationMs}ms`);
+  if (!worthReporting(outcome, durationMs)) return;
+
+  // The bucket is in the MESSAGE and the exact figure is in the detail, which
+  // is deliberate: warn() throttles on a hash of the message, so an exact
+  // millisecond count would mint a new fingerprint every time and never be
+  // throttled at all. See durationBucket.
+  warn('net', `${outcome} in ${durationBucket(durationMs)}: ${route}`, {
+    route,
+    outcome,
+    durationMs,
+  });
+}
 
 /**
  * A caller's signal and our deadline, as one signal.
@@ -193,11 +243,19 @@ async function fetchOnce(
   deadline: ReturnType<typeof withDeadline>,
   init: RequestInit,
 ): Promise<Response> {
+  // The full URL is fine to hand to recordTiming: routeOf strips the origin
+  // before it does anything else, so these callers need not each remember to
+  // pass a path alongside the url they already built.
+  const startedAt = Date.now();
   try {
-    return await fetch(url, { ...init, signal: deadline.signal });
+    const response = await fetch(url, { ...init, signal: deadline.signal });
+    recordTiming(url, response.ok ? 'ok' : 'failed', startedAt);
+    return response;
   } catch (err) {
     const aborted = err instanceof Error && err.name === 'AbortError';
-    throw new ApiError(aborted && !deadline.timedOut ? 'Request cancelled' : 'No connection');
+    const cancelled = aborted && !deadline.timedOut;
+    recordTiming(url, cancelled ? 'cancelled' : aborted ? 'timeout' : 'offline', startedAt);
+    throw new ApiError(cancelled ? 'Request cancelled' : 'No connection');
   } finally {
     deadline.done();
   }
@@ -205,6 +263,7 @@ async function fetchOnce(
 
 async function get<T>(path: string, signal?: AbortSignal): Promise<T> {
   const deadline = withDeadline(signal);
+  const startedAt = Date.now();
   let response: Response;
   try {
     response = await fetch(`${BASE_URL}${path}`, {
@@ -220,10 +279,21 @@ async function get<T>(path: string, signal?: AbortSignal): Promise<T> {
     // stalled request that way would replace a minute-long spinner with a
     // silent one that never resolves.
     const aborted = err instanceof Error && err.name === 'AbortError';
-    throw new ApiError(aborted && !deadline.timedOut ? 'Request cancelled' : 'No connection');
+    const cancelled = aborted && !deadline.timedOut;
+    // Recorded on the failure path too, and told apart there. A timeout is the
+    // measurement that matters most on this route — it is fifteen seconds of
+    // somebody's afternoon — and it is the one a success-only timer would
+    // never see.
+    recordTiming(path, cancelled ? 'cancelled' : aborted ? 'timeout' : 'offline', startedAt);
+    throw new ApiError(cancelled ? 'Request cancelled' : 'No connection');
   } finally {
     deadline.done();
   }
+
+  // Timed at the RESPONSE, not after the body is parsed. What is being measured
+  // is how long the backend took; JSON parsing is this device's own cost and
+  // attributing it to a route would misplace it.
+  recordTiming(path, response.ok ? 'ok' : 'failed', startedAt);
 
   if (!response.ok) {
     throw new ApiError(`Request failed (${response.status})`, response.status);
@@ -245,6 +315,7 @@ async function authed<T>(
   init?: { method?: string; body?: unknown; signal?: AbortSignal },
 ): Promise<T | null> {
   const deadline = withDeadline(init?.signal);
+  const startedAt = Date.now();
   let response: Response;
   try {
     response = await fetch(`${BASE_URL}${path}`, {
@@ -264,10 +335,14 @@ async function authed<T>(
     // ApiError — which several do, to tell 'Request cancelled' from a real
     // failure — saw a network drop as something unrecognised.
     const aborted = err instanceof Error && err.name === 'AbortError';
-    throw new ApiError(aborted && !deadline.timedOut ? 'Request cancelled' : 'No connection');
+    const cancelled = aborted && !deadline.timedOut;
+    recordTiming(path, cancelled ? 'cancelled' : aborted ? 'timeout' : 'offline', startedAt);
+    throw new ApiError(cancelled ? 'Request cancelled' : 'No connection');
   } finally {
     deadline.done();
   }
+
+  recordTiming(path, response.ok ? 'ok' : 'failed', startedAt);
 
   if (response.status === 401 || response.status === 403) return null;
   if (!response.ok) {
@@ -584,13 +659,15 @@ export async function seedOfflineBundle(): Promise<void> {
   try {
     const { bundleEtag } = await readMeta();
 
-    const response = await fetch(`${BASE_URL}/api/offline/bundle`, {
+    // fetchOnce, so the deadline and the timing are both applied by the one
+    // helper that cannot forget either. It returns the Response rather than a
+    // parsed body, which is what this needs — see the note above on the 304.
+    const response = await fetchOnce(`${BASE_URL}/api/offline/bundle`, deadline, {
       headers: {
         Accept: 'application/json',
         'User-Agent': USER_AGENT,
         ...(bundleEtag ? { 'If-None-Match': bundleEtag } : {}),
       },
-      signal: deadline.signal,
     });
 
     // Nothing changed since the copy on disk. The overwhelmingly common case.
@@ -606,6 +683,13 @@ export async function seedOfflineBundle(): Promise<void> {
         hazards?: Hazard[];
         reaches?: RiverReach[];
       }[];
+      /**
+       * Optional because a build of this app can meet a deploy that predates
+       * the field — the same asymmetry fetchStarredGauges documents. Absent
+       * means the seeded index simply is not refreshed this launch; whatever
+       * is on disk stands.
+       */
+      index?: RiverListItem[];
     };
 
     // A version we do not know how to read is treated as absent rather than
@@ -618,6 +702,13 @@ export async function seedOfflineBundle(): Promise<void> {
 
     const etag = response.headers.get('etag');
     const fetchedAt = new Date().toISOString();
+
+    // WHICH RIVERS EXIST, before anything is known about the water in them.
+    // Written first because it is the cheapest thing here and the one every
+    // screen is blocked on: the river screen cannot ask for a condition
+    // without an id, and until this landed the only source of one was
+    // /api/rivers. See readSeedIndex.
+    if (body.index?.length) writeSeedIndex(body.index);
 
     for (const entry of rivers) {
       if (!entry.slug) continue;
@@ -1389,6 +1480,7 @@ async function writeJson<T>(
   body: unknown,
 ): Promise<T> {
   const deadline = withDeadline();
+  const startedAt = Date.now();
   let response: Response;
   try {
     response = await fetch(`${BASE_URL}${path}`, {
@@ -1405,10 +1497,13 @@ async function writeJson<T>(
   } catch {
     // No caller signal to distinguish here — every abort on this path is our
     // own deadline, and these are taps with a spinner attached.
+    recordTiming(path, 'timeout', startedAt);
     throw new ApiError('No connection');
   } finally {
     deadline.done();
   }
+
+  recordTiming(path, response.ok ? 'ok' : 'failed', startedAt);
 
   if (!response.ok) {
     // The route answers 409 and 422 with a `code` and a sentence written for a
@@ -1870,9 +1965,15 @@ export async function fetchDam(damId: string, signal?: AbortSignal): Promise<Dam
  * one thing the user can act on.
  */
 export async function submitFeedback(input: CreateFeedbackRequest): Promise<FeedbackResponse> {
+  // Through fetchOnce, which is to say: under a deadline. This was one of two
+  // POSTs in this file with none at all, so a stalled submit sat on
+  // NSURLSession's 60-second default with a spinner over it — the exact minute
+  // REQUEST_TIMEOUT_MS was introduced to end, on a screen where the person has
+  // just typed something and is waiting to hear it landed.
+  const deadline = withDeadline();
   let response: Response;
   try {
-    response = await fetch(`${BASE_URL}/api/feedback`, {
+    response = await fetchOnce(`${BASE_URL}/api/feedback`, deadline, {
       method: 'POST',
       headers: {
         Accept: 'application/json',
@@ -2078,9 +2179,14 @@ export async function submitRiverVisual(
   input: RiverVisualSubmission,
   signal?: AbortSignal,
 ): Promise<void> {
+  // The caller's signal AND a deadline, as one — the other POST in this file
+  // that had no ceiling on it. fetchOnce keeps the two reasons for aborting
+  // distinguishable, which matters here: the sheet drops 'Request cancelled'
+  // and must show 'No connection'.
+  const deadline = withDeadline(signal);
   let response: Response;
   try {
-    response = await fetch(`${BASE_URL}/api/reports`, {
+    response = await fetchOnce(`${BASE_URL}/api/reports`, deadline, {
       method: 'POST',
       headers: {
         Accept: 'application/json',
@@ -2088,12 +2194,12 @@ export async function submitRiverVisual(
         'User-Agent': USER_AGENT,
       },
       body: JSON.stringify({ ...input, type: 'river_visual' }),
-      signal,
     });
   } catch (err) {
-    throw new ApiError(
-      err instanceof Error && err.name === 'AbortError' ? 'Request cancelled' : 'No connection',
-    );
+    // fetchOnce already narrowed this to an ApiError carrying the right one of
+    // the two sentences; rethrown as-is rather than re-derived from err.name,
+    // which cannot tell a cancellation from a timeout.
+    throw err instanceof ApiError ? err : new ApiError('No connection');
   }
 
   if (!response.ok) {

@@ -696,6 +696,16 @@ export function buildSnapshot(
   };
 }
 
+/**
+ * How many days of SWPA schedule each surface carries.
+ *
+ * Named because the stored-snapshot path derives a summary from a detail by
+ * slicing to the smaller of the two (see summaryOf), and a bare 2 and 3 in
+ * three files is how those would come to disagree.
+ */
+export const DETAIL_SCHEDULE_DAYS = 3;
+export const SUMMARY_SCHEDULE_DAYS = 2;
+
 /** A dam's own page: every metric, three days of schedule, the observed week. */
 export async function fetchDamDetail(
   damId: string,
@@ -703,7 +713,7 @@ export async function fetchDamDetail(
 ): Promise<DamSnapshot | null> {
   return fetchSnapshot(damId, {
     metrics: DETAIL_METRICS,
-    scheduleDays: options?.scheduleDays ?? 3,
+    scheduleDays: options?.scheduleDays ?? DETAIL_SCHEDULE_DAYS,
     // Detail only. A twenty-dam index has no room to draw a week per row and no
     // reason to pay twenty database reads for one that is never seen.
     pattern: true,
@@ -729,8 +739,83 @@ export async function fetchDamSummary(
 ): Promise<DamSnapshot | null> {
   return fetchSnapshot(damId, {
     metrics: SUMMARY_METRICS,
-    scheduleDays: options?.scheduleDays ?? 2,
+    scheduleDays: options?.scheduleDays ?? SUMMARY_SCHEDULE_DAYS,
   });
+}
+
+/**
+ * A stored DETAIL snapshot, narrowed to what a list surface shows.
+ *
+ * ── Why a projection rather than a second stored payload ──────────────────
+ *
+ * Because the detail is a strict superset of the summary — SUMMARY_METRICS is
+ * declared as a subset of DETAIL_METRICS, and DETAIL_SCHEDULE_DAYS is the
+ * larger of the two windows — so storing both would mean asking CWMS and SWPA
+ * for the same project twice an hour to write two rows that cannot legally
+ * disagree.
+ *
+ * ── Why it goes back through buildSnapshot ────────────────────────────────
+ *
+ * So no field can drift. `sources` is derived from which metrics and how much
+ * schedule actually survive the narrowing — a project whose only reading is a
+ * detail-only metric must stop claiming CWMS on the list — and re-deriving it
+ * here by hand is the second implementation this file's comments keep warning
+ * about. buildSnapshot is pure and is the same function the live path uses, so
+ * a stored summary is byte-identical to a freshly-read one given the same
+ * inputs.
+ *
+ * Null for a dam the registry no longer carries: buildSnapshot needs the
+ * registry entry for identity, and a stored row for a removed project is
+ * exactly the row that must not be served.
+ */
+export function summaryOf(snapshot: DamSnapshot): DamSnapshot | null {
+  const dam = getUsaceDam(snapshot.id);
+  if (!dam) return null;
+
+  const metrics: Partial<Record<UsaceMetric, DamMetricValue>> = {};
+  for (const metric of SUMMARY_METRICS) {
+    const value = snapshot.metrics[metric];
+    if (value) metrics[metric] = value;
+  }
+
+  // A stored detail carries DETAIL_SCHEDULE_DAYS; the list wants the first
+  // SUMMARY_SCHEDULE_DAYS of them. readSchedule returns days in order, so this
+  // is the same window fetchDamSummary would have asked for.
+  return buildSnapshot(dam, metrics, snapshot.schedule.slice(0, SUMMARY_SCHEDULE_DAYS));
+}
+
+/**
+ * Re-band every metric's staleness against the clock the response is served on.
+ *
+ * ── Why a stored snapshot needs this and a live one does not ──────────────
+ *
+ * `staleness` is stamped when a snapshot is assembled, and cda.ts says plainly
+ * what that means: "a point-in-time stamp, not a live fact". On the live path
+ * the stamp and the response are microseconds apart. On the stored path they
+ * can be an hour apart, which would let a reading that has aged out of 'fresh'
+ * be served still calling itself fresh — the one field where storing a snapshot
+ * would make it say something untrue rather than merely old.
+ *
+ * Recomputed from each metric's own `at`, which is the observation time and
+ * does not move. Everything else in the payload is already self-dating: a
+ * schedule names its hours, a pattern names its days, and the display surfaces
+ * band all of them on the reader's own clock.
+ */
+export function refreshStaleness(snapshot: DamSnapshot, now = Date.now()): DamSnapshot {
+  const metrics: Partial<Record<UsaceMetric, DamMetricValue>> = {};
+  for (const [metric, value] of Object.entries(snapshot.metrics) as [
+    UsaceMetric,
+    DamMetricValue,
+  ][]) {
+    const at = Date.parse(value.at);
+    metrics[metric] = Number.isFinite(at)
+      ? { ...value, staleness: stalenessOf(at, now) }
+      : // An unparseable timestamp is left exactly as stored. stalenessOf would
+        // answer 'stale' for it, which is the right guess, but rewriting a
+        // field we cannot evaluate is how a bad value becomes an asserted one.
+        value;
+  }
+  return { ...snapshot, metrics };
 }
 
 /**
@@ -742,7 +827,21 @@ export async function fetchDamSummary(
  * the same series now share a URL (see bucketedNow in cda.ts).
  */
 export async function fetchAllDamSummaries(): Promise<DamSnapshot[]> {
-  const ids = Object.keys(USACE_DAMS);
+  return fetchDamSummaries(Object.keys(USACE_DAMS));
+}
+
+/**
+ * Summaries for a NAMED subset of dams, read live.
+ *
+ * Exists for the stored-snapshot path in /api/dams: when the cron has rows for
+ * eighteen of twenty projects, the route serves those eighteen from the table
+ * and reads only the two it is missing. The alternative — all stored or all
+ * live — has a cliff in it, because one project that never stores (a district
+ * publishing nothing, a series id that moved) would silently put every dam
+ * back on the live path forever, with nothing anywhere saying so.
+ */
+export async function fetchDamSummaries(ids: string[]): Promise<DamSnapshot[]> {
+  if (ids.length === 0) return [];
   const results = await mapWithConcurrency(ids, 4, (id) => fetchDamSummary(id));
   return results.filter((d): d is DamSnapshot => d !== null);
 }

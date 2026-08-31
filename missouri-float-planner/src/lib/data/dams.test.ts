@@ -152,3 +152,172 @@ test('a turbine dam is kept whichever location shape it declares', () => {
     'cdaLocations (plural) must satisfy the location half, exactly as cdaLocation does'
   );
 });
+
+// ── the stored snapshot ──────────────────────────────────────────────────────
+// A dam page is assembled by a cron now rather than by the reader's request —
+// seven CWMS series, up to three SWPA files, a pattern read and a forecast,
+// measured at 8.16s cold. See src/lib/data/dam-snapshot-store.ts.
+//
+// Storing an assembled payload creates exactly two ways for it to become
+// dishonest: a field that goes out of date in the row (staleness), and a
+// projection that drifts from what the live path would have produced
+// (summaryOf). Both are pure and both are pinned here.
+
+import {
+  buildSnapshot,
+  refreshStaleness,
+  summaryOf,
+  DETAIL_METRICS,
+  SUMMARY_METRICS,
+  SUMMARY_SCHEDULE_DAYS,
+} from './dams';
+import type {
+  DamMetricValue,
+  DamScheduleDay,
+  DamSnapshot,
+  UsaceMetric,
+} from '@shared/dam-types';
+
+const HOUR = 3_600_000;
+
+function scheduleDay(scheduleDate: string): DamScheduleDay {
+  return { scheduleDate, hours: [], idle: [], retrievedAt: null };
+}
+
+function reading(now: number, value: number, unit: string): DamMetricValue {
+  return { value, unit, at: new Date(now).toISOString(), staleness: 'fresh' };
+}
+
+/** A stored DETAIL snapshot for a real registry dam, built the way the cron would. */
+function storedDetail(now: number, overrides?: Partial<DamSnapshot>): DamSnapshot {
+  const dam = USACE_DAMS['swl-table-rock-dam'];
+  return {
+    ...buildSnapshot(
+      dam,
+      {
+        release: reading(now, 4_200, 'cfs'),
+        generationFlow: reading(now, 3_100, 'cfs'),
+        tailwaterElevation: reading(now, 704.2, 'ft'),
+        // Detail-only: must not survive into a summary.
+        poolElevation: reading(now, 917.3, 'ft'),
+      } satisfies Partial<Record<UsaceMetric, DamMetricValue>>,
+      [scheduleDay('2026-08-31'), scheduleDay('2026-09-01'), scheduleDay('2026-09-02')],
+    ),
+    ...overrides,
+  };
+}
+
+test('a summary carries only what a list shows', () => {
+  const now = Date.parse('2026-08-31T12:00:00Z');
+  const summary = summaryOf(storedDetail(now));
+  assert.ok(summary, 'a registry dam must project');
+
+  // SUMMARY_METRICS, and nothing beyond them. Pool elevation is the detail
+  // page's number and would be ~20 extra readings on a twenty-row list.
+  for (const metric of SUMMARY_METRICS) {
+    assert.ok(summary.metrics[metric], `${metric} must survive the narrowing`);
+  }
+  for (const metric of DETAIL_METRICS.filter((m) => !SUMMARY_METRICS.includes(m))) {
+    assert.ok(!summary.metrics[metric], `${metric} is a detail metric and must be dropped`);
+  }
+
+  // The schedule window narrows to what fetchDamSummary would have asked for.
+  assert.equal(summary.schedule.length, SUMMARY_SCHEDULE_DAYS);
+  assert.equal(summary.schedule[0].scheduleDate, '2026-08-31');
+});
+
+test('a summary is what the live summary path would have built', () => {
+  // The whole argument for storing one payload instead of two: the projection
+  // has to be indistinguishable from a fresh read, or the list and the page
+  // start disagreeing about a dam. Both go through buildSnapshot, so this
+  // compares the projection against buildSnapshot called directly with the
+  // narrowed inputs.
+  const now = Date.parse('2026-08-31T12:00:00Z');
+  const detail = storedDetail(now);
+  const dam = USACE_DAMS['swl-table-rock-dam'];
+
+  const narrowed: Partial<Record<UsaceMetric, DamMetricValue>> = {};
+  for (const metric of SUMMARY_METRICS) {
+    const value = detail.metrics[metric];
+    if (value) narrowed[metric] = value;
+  }
+  const expected = buildSnapshot(dam, narrowed, detail.schedule.slice(0, SUMMARY_SCHEDULE_DAYS));
+
+  assert.deepEqual(summaryOf(detail), expected);
+});
+
+test('a summary drops the sections only a detail page draws', () => {
+  const now = Date.parse('2026-08-31T12:00:00Z');
+  const detail = storedDetail(now, {
+    pattern: [
+      {
+        scheduleDate: '2026-08-30',
+        startUtc: new Date(now - 24 * HOUR).toISOString(),
+        turbineCfs: [1_000],
+        totalReleaseCfs: [1_200],
+      },
+    ],
+    generationForecast: {
+      windows: [
+        {
+          startUtc: new Date(now).toISOString(),
+          endUtc: new Date(now + HOUR).toISOString(),
+          generating: true,
+          peakCfs: 3_100,
+        },
+      ],
+      timeZone: 'America/Chicago',
+      retrievedAt: new Date(now).toISOString(),
+      source: 'U.S. Army Corps of Engineers',
+    },
+  });
+
+  const summary = summaryOf(detail);
+  assert.ok(summary);
+  assert.ok(!summary.pattern, 'a week of hourly pattern has no place on a list row');
+  assert.ok(!summary.generationForecast, 'nor nine days of forecast');
+});
+
+test('a dam the registry no longer carries does not project', () => {
+  // The stored row outlives the registry entry — the table has no foreign key,
+  // because dams are read-through and have no rows to point at. A row nothing
+  // can render must not be served.
+  const now = Date.parse('2026-08-31T12:00:00Z');
+  const orphan = { ...storedDetail(now), id: 'swl-a-dam-that-was-removed' };
+  assert.equal(summaryOf(orphan), null);
+});
+
+test('a stored reading ages instead of insisting it is fresh', () => {
+  // `staleness` is stamped at assembly. On the live path that is microseconds
+  // before the response; on the stored path it can be an hour, and serving a
+  // stamp from an hour ago is the one way storing a snapshot makes it say
+  // something untrue rather than merely old.
+  const observedAt = Date.parse('2026-08-31T12:00:00Z');
+  const stored = storedDetail(observedAt);
+  assert.equal(stored.metrics.release?.staleness, 'fresh');
+
+  const served = refreshStaleness(stored, observedAt + 8 * HOUR);
+  assert.notEqual(
+    served.metrics.release?.staleness,
+    'fresh',
+    'an eight-hour-old reading must not still call itself fresh',
+  );
+  // The observation time itself never moves — it is a fact about the river.
+  assert.equal(served.metrics.release?.at, stored.metrics.release?.at);
+});
+
+test('an unparseable observation time is left exactly as stored', () => {
+  // Rewriting a field we cannot evaluate is how a bad value becomes an
+  // asserted one.
+  const now = Date.parse('2026-08-31T12:00:00Z');
+  const stored = storedDetail(now);
+  const broken: DamSnapshot = {
+    ...stored,
+    metrics: {
+      ...stored.metrics,
+      release: { ...stored.metrics.release!, at: 'not a timestamp', staleness: 'lagging' },
+    },
+  };
+
+  assert.equal(refreshStaleness(broken, now).metrics.release?.staleness, 'lagging');
+});

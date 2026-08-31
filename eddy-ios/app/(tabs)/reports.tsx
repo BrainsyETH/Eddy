@@ -117,7 +117,7 @@ import { gaugeToSearchResult, useEddySearch } from '@/hooks/useEddySearch';
 import { useEddyUpdates } from '@/hooks/useEddyUpdates';
 import { getSharedDams } from '@/hooks/useDams';
 import { onForeground } from '@/lib/foreground';
-import { agedIndex, readIndex } from '@/lib/riverCache';
+import { agedIndex, readBestIndex } from '@/lib/riverCache';
 import { useStarredRivers } from '@/hooks/useStarredRivers';
 import { useLocation, type Coords } from '@/hooks/useLocation';
 import { riverMilesByGauge } from '@/lib/riverDistance';
@@ -546,33 +546,68 @@ export default function ReportsScreen() {
     // The signal below is still this screen's own, and still aborts on unmount.
     // That is exactly why the shared fetch does not take one: see clause 1 of
     // the contract in src/hooks/useEddyUpdates.ts.
-    try {
-      setError(null);
-      setRivers(await fetchRivers(signal));
-      riversAt.current = Date.now();
-    } catch (err) {
-      if (err instanceof ApiError && err.message === 'Request cancelled') return;
+    // ── Disk BEFORE defeat, not after it ────────────────────────────────────
+    //
+    // The cache read used to live in the catch, which made it a consolation
+    // prize for being offline. On a connection that merely works, the phone
+    // held every river's name and last condition on disk and this tab showed
+    // a full-screen spinner over them until /api/rivers — the slowest read
+    // route in the app, a condition RPC per river — came back.
+    //
+    // So the request is STARTED first and AWAITED last, with the stored index
+    // painted in between. Settled rather than caught, because the disk read
+    // sits between the two halves of what a try/catch would join, and folding
+    // the rejection here is what lets it.
+    const network = fetchRivers(signal).then(
+      (rivers) => ({ rivers, error: null as unknown }),
+      (error) => ({ rivers: null, error }),
+    );
 
-      // Disk before defeat. The index is written through on every successful
-      // fetch and was never read back here — so an offline cold start showed
-      // an error over an empty list while every river's name and last
-      // condition sat on the phone. agedIndex recomputes ages on this clock
-      // and withholds any verdict past the trusted window, so nothing cached
-      // can present as live; the error slot still says why the list is what
-      // it is. Never over a live list: a failed refresh keeps what is on
-      // screen, exactly as before.
-      const cached = await readIndex();
-      if (signal?.aborted) return;
-      if (cached && cached.payload.length > 0) {
-        setRivers((current) => current ?? agedIndex(cached, Date.now()));
-        setError('Offline — showing the last conditions Eddy saw. Pull down to retry.');
-        return;
-      }
-
-      setError(
-        err instanceof ApiError ? err.message : 'Couldn’t load rivers. Pull down to refresh.',
-      );
+    // Painted only into an EMPTY screen. A pull-to-refresh and the foreground
+    // reload both call this with a good list already up, and neither may show
+    // it yesterday's readings on the way to today's.
+    //
+    // agedIndex recomputes ages on this clock and withholds any verdict past
+    // the trusted window, so nothing cached can present as live.
+    const cached = await readBestIndex();
+    if (signal?.aborted) return;
+    if (cached && cached.payload.length > 0) {
+      // A SEEDED index carries no conditions at all — it is the launch
+      // bundle's list of which rivers exist. Ageing it would be arithmetic on
+      // nothing.
+      const rows = cached.seeded ? cached.payload : agedIndex(cached, Date.now());
+      setRivers((current) => current ?? rows);
     }
+
+    const settled = await network;
+    if (signal?.aborted) return;
+
+    if (settled.rivers) {
+      setRivers(settled.rivers);
+      setError(null);
+      riversAt.current = Date.now();
+      return;
+    }
+
+    const err = settled.error;
+    if (err instanceof ApiError && err.message === 'Request cancelled') return;
+
+    // The error slot says why the list is what it is. Never over a live list:
+    // a failed refresh keeps what is on screen, exactly as before.
+    if (cached && cached.payload.length > 0) {
+      setError(
+        // "The last conditions Eddy saw" is a promise a seeded index cannot
+        // keep — it has never seen a condition.
+        cached.seeded
+          ? 'Offline — Eddy has the rivers but not today’s water. Pull down to retry.'
+          : 'Offline — showing the last conditions Eddy saw. Pull down to retry.',
+      );
+      return;
+    }
+
+    setError(
+      err instanceof ApiError ? err.message : 'Couldn’t load rivers. Pull down to refresh.',
+    );
   }, []);
 
   /**

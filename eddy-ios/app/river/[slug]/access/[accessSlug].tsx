@@ -21,6 +21,21 @@
 // A gravel bar's coordinate is on the water. The parking area can be a quarter
 // mile up a track, and routing a car to the waterline is how people end up
 // driving down something they cannot reverse out of. See driveTarget below.
+//
+// ── It opens on what the phone already knew ────────────────────────────────
+// This screen is reached by tapping a row that was already drawing this place's
+// photograph, name and river mile — every one of them out of the on-disk cache
+// the launch bundle seeds for all 25 rivers. It nonetheless held a full-screen
+// spinner over them until /api/rivers/[slug]/access/[accessSlug] answered,
+// which is a blank screen in place of data that had already been rendered once,
+// a tap ago.
+//
+// So the cached point paints first and the request fills in underneath. What
+// the seed may NOT carry is anything the cached shape cannot vouch for: the
+// road, the parking, the agency and the amenities are absent from
+// MapAccessPoint, and drawing their sections empty would state as fact the very
+// "unknown" this file's third paragraph refuses to print. Directions is held
+// back for a sharper reason — see the seeded body below.
 
 import { useEffect, useState } from 'react';
 import {
@@ -40,10 +55,11 @@ import type {
   AccessPointDetail,
   AccessPointDetailResponse,
   AccessPointGaugeStatus,
+  MapAccessPoint,
   NearbyAccessPoint,
   NearbyService,
 } from '@eddy/types';
-import { accessTypeLabel } from '@eddy/types';
+import { accessPointTypes, accessTypeLabel } from '@eddy/types';
 import { ApiError, fetchAccessPointDetail } from '@/api/client';
 import {
   conditionBg,
@@ -62,6 +78,7 @@ import { ShareButton } from '@/components/ShareButton';
 import { PhotoSubmitSheetLazy } from '@/components/PhotoSubmitSheetLazy';
 import { FeedbackSheet } from '@/components/FeedbackSheet';
 import { goBack } from '@/lib/nav';
+import { readRiver } from '@/lib/riverCache';
 import {
   driveToUrl,
   installedNavLinks,
@@ -103,6 +120,139 @@ function driveTarget(point: AccessPointDetail) {
   const lat = point.drivingLat ?? point.coordinates.lat;
   const lng = point.drivingLng ?? point.coordinates.lng;
   return { name: point.name, coordinates: { lng, lat } };
+}
+
+/**
+ * The place, drawn from what the phone already had.
+ *
+ * Serves two states that are the same page: the request is still in flight, and
+ * the request failed with a cached point in hand. Both used to be a screen with
+ * nothing on it — the first a spinner, the second "Access point unavailable" —
+ * over a photograph, a name and a river mile that were on the disk and had been
+ * on the previous screen a tap earlier.
+ *
+ * ── What is deliberately NOT offered here ─────────────────────────────────
+ *
+ * Directions. A cached MapAccessPoint has no `drivingLat/Lng`, so a button here
+ * would route to the point's own coordinate — for a gravel bar, the waterline.
+ * That is exactly the mistake driveTarget exists to prevent, and offering it
+ * half a second sooner is not worth sending somebody down a track they cannot
+ * reverse out of. It appears with the coordinate that makes it correct.
+ *
+ * Also absent: the fee chip and the managing agency, which the cached shape
+ * does not carry. Absent reads as "not recorded", which is what this screen
+ * does with every field it cannot vouch for — so the seed is honest rather than
+ * merely shorter.
+ *
+ * View on map IS offered: it needs an id and a river slug, both of which the
+ * seed has, and it cannot send a car anywhere.
+ */
+function SeededAccessPoint({
+  point,
+  riverName,
+  riverSlug,
+  /** Null while the request is still running; the reason once it has failed. */
+  failure,
+}: {
+  point: MapAccessPoint;
+  riverName: string | null;
+  riverSlug: string;
+  failure: string | null;
+}) {
+  const router = useRouter();
+  const { colors } = useTheme();
+
+  return (
+    <SafeAreaView style={[styles.screen, { backgroundColor: colors.bg }]} edges={['top']}>
+      <Stack.Screen options={{ headerShown: false }} />
+      <View style={styles.navRow}>
+        <Pressable onPress={() => goBack(router)} hitSlop={12} accessibilityLabel="Back">
+          <Ionicons name="chevron-back" size={26} color={colors.text} />
+        </Pressable>
+        {riverName ? (
+          <View style={styles.navActions}>
+            <Pressable
+              onPress={() => router.push(`/river/${riverSlug}`)}
+              hitSlop={12}
+              accessibilityRole="button"
+              accessibilityLabel={`Open ${riverName}`}
+            >
+              <Text style={[styles.navRiver, { color: colors.interactive }]} numberOfLines={1}>
+                {riverName}
+              </Text>
+            </Pressable>
+          </View>
+        ) : null}
+      </View>
+
+      <ScrollView contentContainerStyle={styles.body}>
+        {point.imageUrls && point.imageUrls.length > 0 ? (
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.gallery}
+          >
+            {point.imageUrls.map((url) => (
+              <Image
+                key={url}
+                source={{ uri: url }}
+                style={[styles.galleryImage, { backgroundColor: colors.cardRaised }]}
+                // Required by RN's a11y lint: a photograph must not be
+                // colour-inverted by Smart Invert, unlike UI chrome.
+                accessibilityIgnoresInvertColors
+              />
+            ))}
+          </ScrollView>
+        ) : null}
+
+        <Text style={[styles.name, { color: colors.text }]}>{point.name}</Text>
+
+        <View style={styles.stats}>
+          {[
+            `Mile ${point.riverMile}`,
+            ...accessPointTypes(point).map(accessTypeLabel),
+            point.isPublic ? 'Public' : 'Private',
+          ]
+            .filter(Boolean)
+            .map((label) => (
+              <View key={label} style={[styles.stat, { backgroundColor: colors.cardRaised }]}>
+                <Text style={[styles.statText, { color: colors.textMuted }]}>{label}</Text>
+              </View>
+            ))}
+        </View>
+
+        <View style={styles.actions}>
+          <Pressable
+            onPress={() =>
+              // navigate, not push — see the loaded screen's copy of this
+              // control for why the Map tab must not be minted twice.
+              router.navigate({
+                pathname: '/',
+                params: { focusAccess: point.id, focusRiver: riverSlug },
+              })
+            }
+            style={({ pressed }) => [
+              styles.secondaryAction,
+              { borderColor: colors.border, opacity: pressed ? 0.6 : 1 },
+            ]}
+            accessibilityRole="button"
+            accessibilityLabel={`Show ${point.name} on the map`}
+          >
+            <Ionicons name="map-outline" size={15} color={colors.text} />
+            <Text style={[styles.secondaryActionText, { color: colors.text }]}>View on map</Text>
+          </Pressable>
+        </View>
+
+        <View style={styles.seedPending}>
+          {failure ? (
+            <Text style={[styles.emptyText, { color: colors.textMuted }]}>{failure}</Text>
+          ) : (
+            <ActivityIndicator color={colors.interactive} />
+          )}
+        </View>
+      </ScrollView>
+    </SafeAreaView>
+  );
 }
 
 /**
@@ -286,6 +436,49 @@ export default function AccessPointDetailScreen() {
   const [data, setData] = useState<AccessPointDetailResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  /**
+   * The point as the tapped row already knew it, off the disk cache.
+   *
+   * Held with the route it answers, for the reason useAccessPointDetail states
+   * about its own payload: an AsyncStorage read for the put-in somebody just
+   * dismissed must not land under the one they tapped next.
+   *
+   * Never merged into `data`. A MapAccessPoint is a structural SUBSET of an
+   * AccessPointDetail, and the fields it lacks — the road, the parking, the
+   * agency, the driving coordinate — are exactly the ones this screen refuses
+   * to render as blanks. Kept apart, the seed can only ever say things it
+   * actually knows.
+   */
+  const [seedFor, setSeedFor] = useState<{
+    route: string;
+    point: MapAccessPoint;
+    /** The river's name for the nav row, when the same entry happens to hold it. */
+    riverName: string | null;
+  } | null>(null);
+  const route = `${slug}/${accessSlug}`;
+  const seed = seedFor?.route === route ? seedFor : null;
+
+  useEffect(() => {
+    if (!slug || !accessSlug) return;
+    let live = true;
+    // ONE read for both the point and the river's name: they are two fields of
+    // the same stored entry, and two readRiver calls would be two AsyncStorage
+    // round trips on the path whose whole purpose is not to wait.
+    void readRiver(slug).then((stored) => {
+      if (!live) return;
+      const point = stored?.payload?.accessPoints?.find((entry) => entry.slug === accessSlug);
+      if (!point) return;
+      setSeedFor({
+        route: `${slug}/${accessSlug}`,
+        point,
+        riverName: stored?.payload?.river?.name ?? null,
+      });
+    });
+    return () => {
+      live = false;
+    };
+  }, [slug, accessSlug]);
   /**
    * Which offroad map apps this phone actually has.
    *
@@ -337,6 +530,21 @@ export default function AccessPointDetailScreen() {
       live = false;
     };
   }, [loadedPoint]);
+
+  if (seed && (loading || error || !data)) {
+    return (
+      <SeededAccessPoint
+        point={seed.point}
+        riverName={seed.riverName}
+        riverSlug={slug}
+        // Waiting and having failed are told apart here as they are in
+        // useAccessPointDetail's DetailStatus, and for the same reason: both
+        // render the same page, and a reader with no way to tell which cannot
+        // know whether to wait or to stop waiting.
+        failure={loading ? null : (error ?? 'Could not load the rest of this access point.')}
+      />
+    );
+  }
 
   if (loading) {
     return (
@@ -875,6 +1083,8 @@ const styles = StyleSheet.create({
   stat: { paddingHorizontal: 9, paddingVertical: 4, borderRadius: 8 },
   statText: { ...t.xs, fontFamily: fonts.medium },
   actions: { flexDirection: 'row', gap: 10, paddingHorizontal: 16, marginTop: 16 },
+  /** Under the seeded body, where the sections the request is still fetching go. */
+  seedPending: { alignItems: 'center', marginTop: 28 },
   primaryAction: {
     flex: 1,
     flexDirection: 'row',

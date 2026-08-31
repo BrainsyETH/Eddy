@@ -185,3 +185,76 @@ test('an access point with no types list falls back to its single type', () => {
   // point predating the multi-type column.
   assert.deepEqual(toAccessPoint(accessRow(), new Map(), BOUNDS, NO_LIVE_AVAILABILITY)?.types, ['boat_ramp']);
 });
+
+// ── the seeded index ──────────────────────────────────────────────────────
+//
+// The bundle carries which rivers EXIST alongside what each one looks like,
+// because the river screen needs an id before it can ask for anything else and
+// /api/rivers was the only place carrying one. A fresh install therefore held a
+// full-screen spinner in front of the river screen — for three strings that
+// change no more often than the put-ins in the same payload.
+//
+// The rule that makes it safe is that it carries no water. These pin it.
+
+import { toRiverIndexEntry, type RiverRow } from './shapes';
+
+const riverRow = (over: Partial<RiverRow> = {}): RiverRow => ({
+  id: 'river-1',
+  name: 'Current River',
+  slug: 'current',
+  state: 'MO',
+  river_type: 'spring_fed_float',
+  length_miles: '184.0',
+  description: null,
+  difficulty_rating: 'I-II',
+  region: 'Ozarks',
+  ...over,
+});
+
+test('a seeded river carries no condition, ever', () => {
+  // THE load-bearing one. A condition here would be a reading served from an
+  // hour-cached, day-stale-served CDN entry and then held on disk until the
+  // next launch — the "cached moment read three days later" the bundle's own
+  // header rules out, on the one field where being wrong is dangerous.
+  const entry = toRiverIndexEntry(riverRow(), 12);
+  assert.equal(entry.currentCondition, null);
+
+  // Declared rather than omitted, so a consumer holding a seeded index is
+  // holding a RiverListItem and needs no branch of its own.
+  assert.ok('currentCondition' in entry);
+});
+
+test('a seeded river carries the identity every screen is blocked on', () => {
+  const entry = toRiverIndexEntry(riverRow(), 12);
+  assert.equal(entry.id, 'river-1');
+  assert.equal(entry.slug, 'current');
+  assert.equal(entry.name, 'Current River');
+  assert.equal(entry.accessPointCount, 12);
+  // The canonical WEBSITE path, so a share sheet on a seeded river produces
+  // the same URL as one on a loaded river.
+  assert.equal(entry.path, '/rivers/missouri/current');
+});
+
+test('a river with no state still gets a usable path', () => {
+  // Same fallback getRivers has used since it was written. A row with a null
+  // state must not produce '/rivers/undefined/…'.
+  assert.equal(toRiverIndexEntry(riverRow({ state: null }), 0).path, '/rivers/missouri/current');
+});
+
+test('the bundle emits an index and the app writes it to its own key', () => {
+  // Two halves of one change, and either alone is inert. The key is separate
+  // from INDEX_KEY on purpose: sharing one would let the launch seed land
+  // after a good /api/rivers list and blank every condition on disk.
+  assert.match(read(BUNDLE_LIB), /index: rivers\.map\(/, 'the bundle must emit an index');
+
+  const client = read('../eddy-ios/src/api/client.ts');
+  assert.match(client, /writeSeedIndex\(body\.index\)/, 'the app must store what it is sent');
+
+  const cache = read('../eddy-ios/src/lib/riverCache.ts');
+  assert.match(cache, /SEED_INDEX_KEY/, 'the seed must not share INDEX_KEY');
+  assert.match(
+    cache,
+    /export async function readBestIndex/,
+    'callers need one reader that prefers the live index over the seed',
+  );
+});

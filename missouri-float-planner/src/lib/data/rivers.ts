@@ -65,6 +65,64 @@ async function fetchTrendInputs(supabase: ReturnType<typeof createAdminClient>) 
 }
 
 /**
+ * One row of get_river_condition, whichever function produced it.
+ *
+ * Structural rather than the generated Database type: `get_river_conditions`
+ * postdates the last `npm run db:gen-types` run, and the six existing call
+ * sites for the single-river RPC already cast for exactly that reason.
+ */
+interface ConditionRow {
+  condition_label: string | null;
+  condition_code: string | null;
+  gauge_height_ft: number | string | null;
+  discharge_cfs: number | string | null;
+  reading_age_hours: number | string | null;
+  threshold_unit: string | null;
+}
+
+/**
+ * Every river's condition in ONE call — or null when the database has not been
+ * given the function yet.
+ *
+ * ── Why null and not a throw ──────────────────────────────────────────────
+ *
+ * A deploy and a migration are two separate acts here: `make check-db` is
+ * outside `make check` on purpose, because it needs credentials CI does not
+ * have. So a build carrying this code can meet a database that has not run
+ * 20260831120000 yet, and the honest behaviour then is to fall back to the
+ * per-river RPC below — twenty-four calls, as before, rather than a rivers
+ * list with no conditions on it at all. Same posture as fetchStarredGauges in
+ * the iOS client, and for the same reason.
+ *
+ * ANY failure returns null, not just a missing-function error. The fallback is
+ * correct for every one of them and cheap enough to be worth not having to
+ * classify PostgREST's error strings.
+ */
+async function fetchConditionsByRiver(
+  supabase: ReturnType<typeof createAdminClient>,
+): Promise<Map<string, ConditionRow> | null> {
+  try {
+    // The same cast the six single-river call sites carry, for the same
+    // reason: the function postdates the last `npm run db:gen-types` run.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data, error } = await (supabase.rpc as any)('get_river_conditions');
+    if (error || !Array.isArray(data)) return null;
+
+    const byRiver = new Map<string, ConditionRow>();
+    for (const row of data as (ConditionRow & { river_id: string | null })[]) {
+      if (row.river_id) byRiver.set(row.river_id, row);
+    }
+    // An empty result is treated as "the function is not there", not as "no
+    // river has a condition". The second is a state this database has never
+    // been in — every active river has a rated primary gauge — and reading it
+    // as an answer would blank every card on the list in silence.
+    return byRiver.size > 0 ? byRiver : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Approved access points per river, as ONE query rather than one per river.
  *
  * This was a `head: true` count inside the per-river map — 24 round trips to
@@ -116,10 +174,12 @@ async function fetchApprovedAccessPointCounts(
 
 export async function getRivers(): Promise<RiverListItem[]> {
   const supabase = createAdminClient();
-  const [{ stationByRiver, readingsByStation }, accessPointCounts] = await Promise.all([
-    fetchTrendInputs(supabase),
-    fetchApprovedAccessPointCounts(supabase),
-  ]);
+  const [{ stationByRiver, readingsByStation }, accessPointCounts, conditionsByRiver] =
+    await Promise.all([
+      fetchTrendInputs(supabase),
+      fetchApprovedAccessPointCounts(supabase),
+      fetchConditionsByRiver(supabase),
+    ]);
 
   // Try with active filter first, fall back to all rivers if column doesn't exist.
   //
@@ -176,14 +236,19 @@ export async function getRivers(): Promise<RiverListItem[]> {
     return [];
   }
 
-  // Get current conditions for each river
+  // Get current conditions for each river — from the ONE batched call above
+  // when the database has it, and from a call per river when it does not.
+  //
+  // The fan-out below is what this endpoint used to do unconditionally, and it
+  // is why the rivers list was the slowest read route in the app: twenty-four
+  // statements, each taking a pooled connection while the rest queued for one.
+  // See fetchConditionsByRiver, and migration 20260831120000 for the function
+  // that replaced it.
   const riversWithConditions = await Promise.all(
     (rivers || []).map(async (river) => {
-      const { data: conditionData } = await supabase.rpc('get_river_condition', {
-        p_river_id: river.id,
-      });
-
-      const condition = conditionData?.[0];
+      const condition = conditionsByRiver
+        ? conditionsByRiver.get(river.id)
+        : (await supabase.rpc('get_river_condition', { p_river_id: river.id })).data?.[0];
 
       // The unit is not cosmetic: it decides WHICH reading a client is allowed to
       // show. A null unit means we could not establish one, and a consumer must
