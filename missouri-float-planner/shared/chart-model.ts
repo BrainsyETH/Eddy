@@ -295,7 +295,20 @@ export function chartDomain(
  * look half its height. A scale the reader cannot see is a scale that lies;
  * if a series needs compressing, that is a decision to surface, not to infer.
  */
-export function niceValueTicks(min: number, max: number, targetCount = 4): ChartTick[] {
+export function niceValueTicks(
+  min: number,
+  max: number,
+  targetCount = 4,
+  /**
+   * The most labels the calling surface can seat. The ladder below aims at
+   * `targetCount` from below, but its rungs move in 2×–2.5× jumps, so the first
+   * step to reach the target can overshoot it — five labels on the 168px phone
+   * plot that asked for three crowd into each other and read worse than the
+   * sparse axis they replaced. One over target is the default headroom; a
+   * surface with more room says so explicitly.
+   */
+  maxCount = targetCount + 1
+): ChartTick[] {
   const fallback: ChartTick[] = [
     { value: min, position: 0 },
     { value: max, position: 1 },
@@ -355,10 +368,11 @@ export function niceValueTicks(min: number, max: number, targetCount = 4): Chart
    * and keep the finest seen as the floor for a span too narrow to get there.
    *
    * Aim at the target from below rather than bracketing it, because too few is
-   * the failure and too many is not: a 0–940 cfs plot labelled "0, 500" leaves
-   * the whole top half of the frame with nothing to measure a spike against,
-   * which is most of what somebody opens a hydrograph to do. Aiming from below is
-   * what turns that axis into 0, 200, 400, 600, 800.
+   * the worse failure: a 0–940 cfs plot labelled "0, 500" leaves the whole top
+   * half of the frame with nothing to measure a spike against, which is most of
+   * what somebody opens a hydrograph to do. Aiming from below is what turns that
+   * axis into 0, 200, 400, 600, 800. Too many is still a failure — just a
+   * smaller one — which is what `maxCount` bounds.
    *
    * The fallback survives for spans that are genuinely unlabellable (a degenerate
    * range), where it is the honest answer rather than a rounding failure.
@@ -370,20 +384,27 @@ export function niceValueTicks(min: number, max: number, targetCount = 4): Chart
    * has to take one of those. At 0.25 it gets 2.5 / 2.75 / 3.00 / 3.25 — four
    * labels, and quarter-feet is how stage is read anyway.
    *
-   * Capping the count instead would push the same case back to 2 labels, which is
-   * the sparse axis this function was just fixed to stop producing. The problem
-   * was never that a step could be too fine; it was that the ladder was too
-   * coarse to land near the target.
+   * The cap and the 2.5 rung work together, not against each other: the rung
+   * keeps the jumps small enough that a count inside [target, max] is usually
+   * reachable, and the cap ends the walk when a span's geometry makes every
+   * finer rung blow the budget — at which point the last accepted rung stands,
+   * because a slightly sparse axis beats a crowded one on a plot with a fixed
+   * height in pixels.
    */
   const LADDER = [10, 5, 2.5, 2, 1];
+  const cap = Math.max(2, maxCount);
+  const target = Math.min(Math.max(2, targetCount), cap);
   let size = step;
   let best: ChartTick[] | null = null;
   for (let attempt = 0; attempt < 5; attempt += 1) {
     const found = ticksForStep(size);
+    // Finer rungs only ever add labels, so the first count past the cap ends
+    // the walk; whatever was accepted before it stands.
+    if (found.length > cap) break;
     // Two labels is the minimum that defines a scale at all.
     if (found.length >= 2) {
       best = found;
-      if (found.length >= targetCount) break;
+      if (found.length >= target) break;
     }
     // Next finer rung: 10 → 5 → 2.5 → 2 → 1 → 5 of the decade below. Matched by
     // value rather than by index arithmetic, since 2.5 is not an integer.

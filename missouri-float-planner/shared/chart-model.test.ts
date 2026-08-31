@@ -251,6 +251,22 @@ test('stage below its datum keeps a labelled axis', () => {
   }
 });
 
+test('the phone axis stays inside its label budget', () => {
+  // The iOS chart asks for 3 with room for 4 down a 168px edge. On this span
+  // the ladder's rungs jump straight from two labels (step 1) to five
+  // (step 0.5), so honoring the target would blow the budget — the cap keeps
+  // the last count that fit instead of crowding the axis.
+  const ticks = niceValueTicks(0.4, 2.6, 3, 4);
+  assert.ok(ticks.length >= 2 && ticks.length <= 4);
+});
+
+test('a wider budget may seat more labels than the target', () => {
+  // The expanded web chart asks for 4 with room for 5 and gets all five here;
+  // the same span under the phone budget must stop at 4 or fewer.
+  assert.ok(niceValueTicks(3.1, 8.9, 4, 5).length <= 5);
+  assert.ok(niceValueTicks(3.1, 8.9, 3, 4).length <= 4);
+});
+
 test('time ticks span the window inclusively', () => {
   const ticks = timeTicks(BASE, BASE + 24 * HOUR, 5);
   assert.equal(ticks.length, 5);

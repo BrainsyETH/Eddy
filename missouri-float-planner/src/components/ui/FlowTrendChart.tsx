@@ -462,13 +462,19 @@ export default function FlowTrendChart({
       typicalArea,
       typicalPath:
         typical.length > 1 ? pathFor(typical.map((row) => ({ t: row.t, v: row.median }))) : '',
-      yTicks: niceValueTicks(domain.min, domain.max, 3),
+      // Label budget by surface: the expanded chart is the one with the pixel
+      // height to seat five labels; the inline card gets three with headroom
+      // for a fourth, same as the phone. (`showGridlines` is the expanded
+      // mode's flag — see the prop's note.)
+      yTicks: showGridlines
+        ? niceValueTicks(domain.min, domain.max, 4, 5)
+        : niceValueTicks(domain.min, domain.max, 3, 4),
       xTicks: timeTicks(domain.t0, domain.t1, days <= 2 ? 4 : 5),
       thresholdLineData,
       thresholdLabels,
       stageLineData,
     };
-  }, [history, activeThresholds, floodStages, displayUnit, isFt, showTypical, days, zoomWindow]);
+  }, [history, activeThresholds, floodStages, displayUnit, isFt, showTypical, days, zoomWindow, showGridlines]);
 
   const hovered = useMemo<HoverPoint | null>(() => {
     if (hoverFraction === null || !chartData) return null;
@@ -765,17 +771,38 @@ export default function FlowTrendChart({
     <div className="p-4">
       <div className="flex items-center justify-between mb-3 gap-2">
         <span className="text-sm font-semibold text-neutral-700">{chartLabel}</span>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center justify-end gap-x-2 gap-y-0.5">
           {/* A shaded band with nothing naming it is a claim the reader cannot
-              check. Both overlays say what they are, or they do not draw. */}
-          {chartData.typicalPath && (
-            <span className="text-[10px] font-semibold uppercase tracking-wide" style={{ color: TYPICAL_COLOR }}>
-              Typical 25–75%
+              check. Both overlays say what they are, or they do not draw — and
+              each carries a sample of its own mark, because coloured text alone
+              asks the reader to hold a colour table in their head. The forecast
+              leads: it is the entry a reader most needs attributed. */}
+          {hasForecast && (
+            <span
+              className="flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wide"
+              style={{ color: FORECAST_COLOR }}
+            >
+              <span
+                aria-hidden
+                className="inline-block w-3.5"
+                style={{ borderTop: `2px dashed ${FORECAST_COLOR}` }}
+              />
+              NWS forecast
             </span>
           )}
-          {hasForecast && (
-            <span className="text-[10px] font-semibold uppercase tracking-wide" style={{ color: FORECAST_COLOR }}>
-              NWS forecast
+          {chartData.typicalPath && (
+            <span
+              className="flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wide"
+              style={{ color: TYPICAL_COLOR }}
+            >
+              <span
+                aria-hidden
+                className="inline-block w-3.5 h-2 rounded-[2px]"
+                // The band's own recipe at legend scale: the area's translucent
+                // teal under the median's solid edge.
+                style={{ backgroundColor: `${TYPICAL_COLOR}2e`, borderTop: `1px solid ${TYPICAL_COLOR}` }}
+              />
+              Typical 25–75%
             </span>
           )}
           {currentDisplay != null && (
@@ -837,22 +864,20 @@ export default function FlowTrendChart({
               </linearGradient>
             </defs>
 
-            {/* Neutral gridlines, behind everything — a reading aid, never a
-                threshold; they take no colour that could be read as one. */}
-            {showGridlines &&
-              chartData.yTicks.map((tick) => (
-                <line
-                  key={`grid-${tick.value}`}
-                  x1="0"
-                  x2="100"
-                  y1={(1 - tick.position) * 100}
-                  y2={(1 - tick.position) * 100}
-                  stroke="#a3a3a3"
-                  strokeWidth="1"
-                  vectorEffect="non-scaling-stroke"
-                  opacity="0.25"
-                />
-              ))}
+            {/* ── The fill under the line ──
+                First out of the paint can, under even the condition-zone
+                fills: it is decoration, and every layer after it carries a
+                number. It used to be drawn immediately before the line, which
+                put a series-coloured wash over the typical range, the
+                threshold rules and the NWS stage lines. Paint order is meaning
+                order; the app chart is ordered the same way, for the same
+                reason.
+
+                Below the typical range in particular: both are areas, and that
+                band exists to answer where the line sits INSIDE it. */}
+            {chartData.observedAreas.map((d, i) => (
+              <path key={`area-${i}`} d={d} fill={`url(#flowGradient-${gaugeSiteId})`} />
+            ))}
 
             {/* High/Warning zone fill — anything above optimal_max is "high" */}
             {(() => {
@@ -891,20 +916,6 @@ export default function FlowTrendChart({
               ) : null;
             })()}
 
-            {/* ── The fill under the line ──
-                Above the condition bands and below every rule, label and
-                overlay that follows. It used to be drawn immediately before the
-                line, which put a series-coloured wash over the typical range,
-                the threshold rules and the NWS stage lines — decoration on top
-                of the numbers. Paint order is meaning order; the app chart is
-                ordered the same way, for the same reason.
-
-                Below the typical range in particular: both are areas, and that
-                band exists to answer where the line sits INSIDE it. */}
-            {chartData.observedAreas.map((d, i) => (
-              <path key={`area-${i}`} d={d} fill={`url(#flowGradient-${gaugeSiteId})`} />
-            ))}
-
             {/* Day-of-year typical range, behind everything the gauge measured */}
             {chartData.typicalArea && <path d={chartData.typicalArea} fill={TYPICAL_COLOR} fillOpacity="0.1" />}
             {chartData.typicalPath && (
@@ -918,6 +929,25 @@ export default function FlowTrendChart({
                 vectorEffect="non-scaling-stroke"
               />
             )}
+
+            {/* Neutral gridlines — a reading aid, never a threshold; they take
+                no colour that could be read as one. Above the fills so a faint
+                rule stays legible across shaded zones, below every line that
+                carries a number. */}
+            {showGridlines &&
+              chartData.yTicks.map((tick) => (
+                <line
+                  key={`grid-${tick.value}`}
+                  x1="0"
+                  x2="100"
+                  y1={(1 - tick.position) * 100}
+                  y2={(1 - tick.position) * 100}
+                  stroke="#a3a3a3"
+                  strokeWidth="1"
+                  vectorEffect="non-scaling-stroke"
+                  opacity="0.25"
+                />
+              ))}
 
             {/* Threshold reference lines */}
             {chartData.thresholdLineData.map((t) => (
@@ -1057,11 +1087,13 @@ export default function FlowTrendChart({
               yPercent={chartData.y(chartData.current.v)}
               size={9}
               color={SERIES_COLOR}
-              // The card behind this chart is bg-white, so the ring that lifts a
-              // dot off the line is white too. It was #f5f5f5 here and #ffffff on
-              // the hovered dot — two rings for one background, which shows as a
-              // grey halo on whichever of them you notice first.
-              ring="#ffffff"
+              // The ring that lifts a dot off the line is the card's own
+              // surface token, so it disappears into whatever the card is
+              // painted — it was #f5f5f5 here and #ffffff on the hovered dot,
+              // two hard-coded rings for one background, which shows as a grey
+              // halo on whichever you notice first and breaks again the day
+              // the card stops being white.
+              ring="var(--color-surface, #ffffff)"
             />
           )}
           {hovered && (
@@ -1070,7 +1102,7 @@ export default function FlowTrendChart({
               yPercent={chartData.y(hovered.point.v)}
               size={11}
               color={hovered.kind === 'forecast' ? FORECAST_COLOR : SERIES_COLOR}
-              ring="#ffffff"
+              ring="var(--color-surface, #ffffff)"
               z={3}
             />
           )}
