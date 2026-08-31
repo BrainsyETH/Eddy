@@ -414,12 +414,20 @@ export default function FlowTrendChart({
       .filter((line) => line.y >= 0 && line.y <= 100);
 
     // Collapse the optimal pair to one centred label, then drop any label that
-    // would collide with one already placed.
-    const MIN_LABEL_GAP = 8;
-    const labelCandidates: typeof thresholdLineData = [];
+    // would collide with one already placed. The gap grew with the labels: they
+    // carry their numeric value on a second line now, so clearance is two lines
+    // of text, not one.
+    const MIN_LABEL_GAP = 12;
+    type ThresholdLabel = (typeof thresholdLineData)[number] & {
+      /** A band's name centred between its two rules, not a rule's own label —
+       *  it gets no number, because its `value` is one edge and its `y` is
+       *  neither. */
+      banded?: boolean;
+    };
+    const labelCandidates: ThresholdLabel[] = [];
     const optMin = thresholdLineData.find((t) => t.key === 'levelOptimalMin');
     const optMax = thresholdLineData.find((t) => t.key === 'levelOptimalMax');
-    if (optMin && optMax) labelCandidates.push({ ...optMin, y: (optMin.y + optMax.y) / 2 });
+    if (optMin && optMax) labelCandidates.push({ ...optMin, y: (optMin.y + optMax.y) / 2, banded: true });
     else if (optMin) labelCandidates.push(optMin);
     else if (optMax) labelCandidates.push(optMax);
     for (const line of thresholdLineData) {
@@ -1143,10 +1151,32 @@ export default function FlowTrendChart({
                   transform: nearTop ? 'translateY(3px)' : 'translateY(calc(-100% - 3px))',
                 }}
               >
-                {def.label}
+                {/* The number rides with the name — a stage line without its
+                    stage tells the reader a rule matters without saying where
+                    it is. Feet is literal: stage lines never draw on a cfs
+                    axis (stageLineData is empty there by construction). */}
+                {`${def.label} · ${line.value} ft`}
               </div>
             );
           })}
+
+          {/* The observed/forecast boundary, named. The dashed rule alone made
+              the reader infer which side is prediction; "Now" says it. On the
+              observed side of its own line, flipped when the boundary sits so
+              far left that a right-anchored label would clip out of the plot. */}
+          {hasForecast && nowX !== null && (
+            <div
+              aria-hidden
+              className="absolute pointer-events-none text-[9px] font-medium leading-none text-slate-500"
+              style={{
+                left: `${nowX}%`,
+                top: 2,
+                transform: nowX < 12 ? 'translateX(4px)' : 'translateX(calc(-100% - 4px))',
+              }}
+            >
+              Now
+            </div>
+          )}
 
           {/* Tooltip popup. `left` is the same 0–100 number the SVG used, which
               is only true because the viewBox spans the container exactly. */}
@@ -1182,10 +1212,16 @@ export default function FlowTrendChart({
             {chartData.thresholdLabels.map((t) => (
               <div
                 key={`label-${t.key}`}
-                className="absolute text-[9px] font-semibold leading-none whitespace-nowrap"
+                className="absolute text-[9px] font-semibold leading-tight whitespace-nowrap"
                 style={{ top: `${t.y}%`, color: t.color, transform: 'translateY(-50%)' }}
               >
-                {t.label}
+                <div>{t.label}</div>
+                {/* "High starts at 1,400" is the number people open this chart
+                    for, and the axis ticks rarely land on a threshold. The
+                    collapsed band label is the exception — see `banded`. */}
+                {!t.banded && (
+                  <div className="font-normal opacity-70 tabular-nums">{formatVal(t.value)}</div>
+                )}
               </div>
             ))}
           </div>

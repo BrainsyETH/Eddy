@@ -152,7 +152,16 @@ const RANGES = [
   { days: 30, label: '30d' },
 ] as const;
 
-const CHART_HEIGHT = 168;
+/**
+ * 200, up from 168. The plot carries up to six condition bands, a typical
+ * range, NWS stage rules and a forecast; at 140px of usable height those
+ * layers sat close enough to read as texture. Every consumer scrolls (the
+ * gauge screen, the river screen, the map sheet's tabbed body — the peek row
+ * never mounts the chart), so the extra 32px costs scroll distance, not
+ * layout. Sized WITH the axis: four labels down a 172px edge is a rung of the
+ * tick budget below, and neither number should move without the other.
+ */
+const CHART_HEIGHT = 200;
 /** Room for the value labels down the right edge. */
 const PAD_RIGHT = 46;
 /** Room for the time labels under the plot. */
@@ -593,7 +602,9 @@ function GaugeChartInner({
    * same gauge in the same week. Nobody reads a hydrograph to learn the 8% pad.
    */
   const valueTicks = useMemo(
-    () => (domain ? niceValueTicks(domain.min, domain.max, 3) : []),
+    // Four with headroom for five, matched to the 200px chart — the 168px
+    // chart asked for three. See CHART_HEIGHT: the two numbers move together.
+    () => (domain ? niceValueTicks(domain.min, domain.max, 4) : []),
     [domain],
   );
 
@@ -719,6 +730,24 @@ function GaugeChartInner({
   const scrubQualifiers =
     scrubbed?.kind === 'observed' ? qualifierText(scrubbed.point.qualifiers) : null;
 
+  /**
+   * Which band a reading sits in, off the same contiguous ladder the rects
+   * draw. The web tooltip has always named the zone beside the number
+   * ("340 cfs — Flowing"); this readout said "340 cfs" and left the verdict to
+   * a colour behind the line. Observed readings only, like the web: a forecast
+   * gets its NWS attribution instead, never a floatability verdict.
+   *
+   * Bands are contiguous by construction (each min is the previous max), so
+   * the first band whose max clears the value owns it; a value past every
+   * closed band still belongs to the last band, which is how the web's
+   * `getZoneLabel` reads a spike above a ladder with no flood level.
+   */
+  const scrubZone =
+    scrubbed?.kind === 'observed' && zones.length > 0
+      ? (zones.find((zone) => scrubbed.point.v <= zone.max || zone.openEnded) ??
+        zones[zones.length - 1])
+      : null;
+
   const newest = points.length ? points[points.length - 1] : null;
 
   /**
@@ -838,6 +867,11 @@ function GaugeChartInner({
               <Text style={[styles.scrubValue, { color: colors.text }]}>
                 {formatReading(scrubbed.point.v, drawnUnit)}
               </Text>
+              {/* The verdict beside the number, in the band's own colour —
+                  parity with the web tooltip's "340 cfs — Flowing". */}
+              {scrubZone ? (
+                <Text style={{ color: conditionColor(scrubZone.key) }}>{` ${scrubZone.label}`}</Text>
+              ) : null}
               {'  '}
               {scrubTime(scrubbed.point.t)}
               {/* Two labels that must survive being read in a hurry: a forecast is
@@ -852,7 +886,25 @@ function GaugeChartInner({
             </Text>
           ) : (
             <Text style={[styles.subtitle, { color: colors.textSubtle }]} numberOfLines={1}>
-              {drawnUnit === 'cfs' ? 'Discharge' : 'Gauge height'} · last{' '}
+              {/* The newest reading rides in the idle subtitle — the exact
+                  "what is it now" number, in the row the scrub readout will
+                  reuse, instead of a callout crowding the plot's right edge
+                  where the axis and the current dot already live. The unit
+                  names the series, so "Discharge"/"Gauge height" only earns
+                  its space when there is no reading to show. */}
+              {newest ? (
+                <>
+                  <Text style={[styles.scrubValue, { color: colors.text }]}>
+                    {formatReading(newest.v, drawnUnit)}
+                  </Text>
+                  {' now · last '}
+                </>
+              ) : (
+                <>
+                  {drawnUnit === 'cfs' ? 'Discharge' : 'Gauge height'}
+                  {' · last '}
+                </>
+              )}
               {drawnDays === 1 ? '24 hours' : `${drawnDays} days`}
             </Text>
           )}
@@ -1099,7 +1151,12 @@ function GaugeChartInner({
                         fontFamily={fonts.medium}
                         opacity={Math.max(def.opacity, 0.75)}
                       >
-                        {def.label}
+                        {/* The number rides with the name: "NWS flood stage"
+                            alone tells a reader a line matters without saying
+                            where it is, and the axis ticks rarely land on it.
+                            Stage lines are feet by construction (never drawn
+                            on a cfs axis), so the unit is literal. */}
+                        {`${def.label} · ${line.value} ft`}
                       </SvgText>
                     </G>
                   );
@@ -1138,16 +1195,38 @@ function GaugeChartInner({
                     drawn line put the boundary and the legend out of step with the
                     thing they describe. */}
                 {points.length > 0 && forecastPoints.length > 0 ? (
-                  <Line
-                    x1={scale.x(points[points.length - 1].t)}
-                    y1={PAD_TOP}
-                    x2={scale.x(points[points.length - 1].t)}
-                    y2={PAD_TOP + plotHeight}
-                    stroke={colors.textSubtle}
-                    strokeWidth={1}
-                    strokeDasharray="2,3"
-                    opacity={0.7}
-                  />
+                  <G>
+                    <Line
+                      x1={scale.x(points[points.length - 1].t)}
+                      y1={PAD_TOP}
+                      x2={scale.x(points[points.length - 1].t)}
+                      y2={PAD_TOP + plotHeight}
+                      stroke={colors.textSubtle}
+                      strokeWidth={1}
+                      strokeDasharray="2,3"
+                      opacity={0.7}
+                    />
+                    {/* The rule, named. Unlabelled it was a dashed line a reader
+                        had to infer; "Now" is what makes the dashed series past
+                        it unmistakably a prediction. On the observed side of
+                        its own line, flipped when the boundary sits so far left
+                        that an end-anchored label would clip out of the plot. */}
+                    <SvgText
+                      x={
+                        scale.x(points[points.length - 1].t) < 36
+                          ? scale.x(points[points.length - 1].t) + 4
+                          : scale.x(points[points.length - 1].t) - 4
+                      }
+                      y={PAD_TOP + 10}
+                      fill={colors.textSubtle}
+                      fontSize={9}
+                      fontFamily={fonts.medium}
+                      textAnchor={scale.x(points[points.length - 1].t) < 36 ? 'start' : 'end'}
+                      opacity={0.8}
+                    >
+                      Now
+                    </SvgText>
+                  </G>
                 ) : null}
 
                 {/* ── The official forecast ──
