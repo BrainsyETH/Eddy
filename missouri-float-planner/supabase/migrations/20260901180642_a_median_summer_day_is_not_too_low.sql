@@ -1,9 +1,20 @@
--- 20260901143000_a_median_summer_day_is_not_too_low.sql
+-- 20260901180642_a_median_summer_day_is_not_too_low.sql
 --
--- NOT YET APPLIED. Written for review; apply by hand against
--- EXPECTED_SUPABASE_REF=ilefwfpvphadsbptiaur and then record it, per
--- scripts/ingestion/README.md guardrail #5. Nothing in this repo applies
--- migrations automatically.
+-- APPLIED to production (ilefwfpvphadsbptiaur) 2026-09-01 18:06:42 UTC on owner
+-- authorization, and RECORDED in the same transaction. All nine assertions
+-- below passed against the live rows; threshold_updated_at on both gauges reads
+-- 2026-09-01 18:06:42.946003+00.
+--
+-- The file was authored as 20260901143000 and RENAMED to the version the
+-- recording actually assigned. Migrations here are applied through the Supabase
+-- API, which stamps its own timestamp rather than honouring the filename, so
+-- the two disagree unless the file is renamed afterwards. Three earlier
+-- migrations were not renamed and are drifted today: 20260826130000 ->
+-- 20260826174017, 20260826190000 -> 20260826210200, 20260826200000 ->
+-- 20260826223527. Rename after applying; the filename is the only place the
+-- version is checkable from the repo.
+--
+-- Nothing in this repo applies migrations automatically.
 --
 -- Pull one FLOOR line on each of two reaches that float later into the season
 -- than their ladders allow: Jacks Fork @ Eminence and Meramec @ Steelville.
