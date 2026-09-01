@@ -102,7 +102,8 @@ largest springs in the US). It holds water better than almost any river in the s
 - **Baptist Camp to Cedar Grove** (~8 miles): Opens up a bit. A few fun riffles. Good for canoes.
 - **Cedar Grove to Akers** (~8 miles): Classic stretch. Bluffs start getting dramatic. The most popular day float on the upper section.
 - Montauk State Park at the headwaters has trout fishing (catch and release / tags) and a lodge.
-- The upper sections go scrapy first and walk-it first — they need more water than anything below Akers. Note the units before quoting a level: Eddy reads **Current above Akers in cfs**, while Montauk and Powder Mill are gauge height in feet, and the staff-gauge numbers outfitters quote at Akers Ferry are a third reading again. Don't mix them.
+- **Cedar Grove is the year-round line on the Current.** From Cedar Grove down the river floats every month of the year — Welch Spring and the springs below it hold the base flow up even in a drought September. It is the upper river ABOVE Cedar Grove, the Montauk and Baptist Camp stretches, that goes scrapy and walk-it first. If the upper gauge is thin, move the put-in down to Cedar Grove rather than calling the Current off.
+- Note the units before quoting a level: Eddy reads **Current above Akers in cfs**, while Montauk and Powder Mill are gauge height in feet, and the staff-gauge numbers outfitters quote at Akers Ferry are a third reading again. Don't mix them.
 
 ### Lower Current {#lower-current}
 
@@ -135,6 +136,7 @@ floating; below the park it widens and slows.
 - St. James to Meramec State Park is the classic upper float.
 - Needs a bit more water to float cleanly than the lower section.
 - More experienced paddlers preferred — some Class II sections when water is up.
+- **The Steelville outfitters run rafts well into the thin part of the season.** A typical late-summer reading here usually means shallow riffles and a lighter boat rather than a cancelled trip — the numbers on this gauge read worse than the water generally is. That is a correction to the numbers, not a promise about any given day: in a genuinely dry spell this stretch does drop too low, and the live condition is what decides.
 
 ### Lower Meramec {#lower-meramec}
 
@@ -172,6 +174,8 @@ stunning when conditions are right. It joins the Current River at Two Rivers.
 - When it's running right it's arguably the most beautiful float in Missouri. All three Jacks Fork gauges — Mountain View, **Alley Spring (07065495, Eddy's primary)**, and Eminence — read in cfs and sit on very different amounts of drainage, so quote the one nearest the put-in.
 - The upper Jacks Fork above Alley Spring is narrow, twisty, and technical. Not for beginners.
 - Below Alley Spring is more manageable. Eminence to Two Rivers is the classic stretch.
+- **Alley Spring is the line between two different rivers.** Above it the Jacks Fork is rain-dependent and can be unfloatable for weeks. Below it, Alley Spring's roughly 81 million gallons a day carry the river, and Alley Spring → Eminence → Two Rivers is usually good to go even when the upper river is done for the season. Treat "the Jacks Fork is too low" as a statement about the upper river unless the gauge being quoted is Eminence.
+- The outfitters' rule of thumb at Eminence is a gauge-height average, and below that average you may drag in spots with a loaded boat — that is a lighter-boat day, not a cancelled trip.
 - Check conditions the day of — the Jacks Fork can go from floatable to unfloatable in 24 hours during dry spells.
 
 ---
@@ -419,6 +423,7 @@ The North Fork of the White is a cold, clear, spring-fed float and one of Missou
 
 - **Two named hazards define the main reach.** The Falls, a roughly three-foot ledge in front of River of Life Farm (~river mile 37), flips canoes that drift into it unscouted. Dawt Mill Dam, near the lower end above the Tecumseh take-out, is a known canoe-buster that backs water up about a quarter mile — portage, or slide down the shallow chute at the right end. A good rapid runs out below the dam.
 - The **Tecumseh gauge (07057500)** sits at the downstream end of the SH 14–to–Tecumseh reach and over-reads the thinner water upstream. It is the right reference for the popular float, not for the headwaters.
+- **Rainbow Spring is the year-round line on the North Fork.** Below the spring the river floats every month of the year — Rainbow is one of the largest springs in Missouri and its output barely moves with the weather, so the reach from there down to Tecumseh holds boatable water through the driest end of summer. Above it the North Fork is a small rain-fed creek and behaves like one. When the gauge reads thin, that is a reason to put in below Rainbow Spring, not a reason to skip the river.
 - Spring inputs keep it cold year-round. Even in July, a swim is a cold swim, and long immersion is a real risk on an early-season trip.
 - The high end matters here: at high flows the Hwy H / Patrick low-water bridge floods and the canoe accesses are affected. Rises arrive from upstream rain rather than local weather, so the sky overhead is not the tell.
 - Hammond Camp, River of Life Farm, Blair Bridge, Patrick Bridge, and Sunburst Ranch are the access and lodging hubs; the lowest couple of miles below The Forks are Norfork Lake backwater.
