@@ -5,8 +5,11 @@
 -- scripts/ingestion/README.md guardrail #5. Nothing in this repo applies
 -- migrations automatically.
 --
--- Pull the FLOOR lines on two spring-stabilised reaches down onto the water
--- they are supposed to describe: Jacks Fork @ Eminence and Meramec @ Steelville.
+-- Pull one FLOOR line on each of two reaches that float later into the season
+-- than their ladders allow: Jacks Fork @ Eminence and Meramec @ Steelville.
+-- (They get there differently -- Alley Spring carries the Jacks Fork reach,
+-- while the Meramec is rain-fed and among the flashiest rivers in the Ozarks.
+-- Only the symptom is shared.)
 --
 -- REPORTED (owner, 2026-09-01):
 --   * "Floats past Alley Spring are usually good to go" -- the Eminence gauge
@@ -41,11 +44,20 @@
 -- "moherp OBSERVED = trusted (accuracy-approved). moherp ESTIMATED + USGS
 -- percentiles = REJECTED as thresholds." Flow frequency is not channel
 -- navigability, and this repo has been burned in both directions by pretending
--- otherwise. So percentiles appear below in exactly ONE role -- as the
--- REDUCTIO that proves an existing line is wrong ("a gauge whose ordinary day
--- reads wading-only is broken, whatever the right number turns out to be") --
--- and never as the derivation of a replacement. Every replacement value is
--- observed, outfitter-published, or owner-approved:
+-- otherwise. So percentiles appear below in exactly ONE role -- as evidence
+-- that an existing line CONTRADICTS the reach -- and never as the derivation of
+-- a replacement.
+--
+-- That reductio is conditional, not general. "A gauge whose median day reads
+-- wading-only is broken" holds only where independent evidence already
+-- establishes the reach as ordinarily floatable in that season; on a reach that
+-- genuinely dries up, a median summer day SHOULD read too_low. The upper Jacks
+-- Fork at Mountain View (07065200) is the counterexample sitting in this same
+-- river, and nothing here licenses touching it. Both gauges below clear that
+-- bar independently of any percentile: Eminence on the outfitter average and
+-- MOHERP's observed onset, Steelville on the owner's report of routine rafting.
+--
+-- Every value that MOVES is observed, outfitter-published, or owner-approved:
 --
 --   07066000 too_low  = 100  OWNER-APPROVED (2026-09-01), asked and answered
 --                            directly. Corroborated only in the weak sense that
@@ -61,30 +73,36 @@
 --                            scraping. Lighter boats recommended." -- which is
 --                            both honest and what the outfitter guidance
 --                            literally says.
---   07066000 optimal_min = 250  EDITORIAL, and labelled as such. What is not
---                            editorial is that the OLD value had to move:
---                            313 came from MOHERP's ESTIMATED "Low" onset,
---                            which sits ABOVE this gauge's own OBSERVED "Good"
---                            onset of 200, so "Flowing" could not begin until
---                            the river was already past good. 20260803 named
---                            that inversion and could not fix it. 250 is the
---                            nearest round number above the observed onset; no
---                            source establishes it and none is claimed.
 --   07013000 low      = 145  OWNER-APPROVED (2026-09-01). The owner reported
 --                            this section as routinely rafted while the gauge
 --                            read 204 cfs, and on being asked how far below 204
 --                            that holds, set the good floor here.
---   07013000 optimal_min = 300  UNCHANGED. The one observed report available
---                            for this gauge puts "very little scraping" at
---                            330 cfs, so 300 is already the right place for
---                            "Flowing" to begin.
+-- This migration therefore moves exactly ONE line per gauge. Everything else on
+-- both rows is held, including two lines that are arguably wrong:
 --
--- DELIBERATELY NOT MOVED: 07013000 level_too_low stays at 130. An earlier draft
--- lowered it to 105 off the Jul-Oct p5. Nobody reported it, no observed or
--- owner anchor exists for it, and guardrail #2 forbids the percentile. The cost
--- is visible and is accepted knowingly: `low` is only 15 cfs wide on this gauge
--- (130-145), so the Meramec steps from "Good" to "wading only" across a narrow
--- band. That wants an observed anchor, not a guess. Flagged, not fixed.
+-- HELD, 07013000 level_too_low = 130. An earlier draft lowered it to 105 off
+-- the Jul-Oct p5. Nobody reported it, no observed or owner anchor exists, and
+-- guardrail #2 forbids the percentile. The cost is accepted knowingly: `low` is
+-- only 15 cfs wide here (130-145), so the Meramec steps from "Good" to "wading
+-- only" across a narrow band. That wants an observed anchor, not a guess.
+--
+-- HELD, 07066000 level_optimal_min = 313. Its PROVENANCE is bad -- it is
+-- MOHERP's ESTIMATED "Low" onset, which guardrail #2 rejects as a threshold
+-- source. An earlier draft replaced it with 250 and argued the old value was
+-- structurally wrong because "Flowing could not begin until the river was
+-- already past Good". That argument is void: every correctly ordered ladder
+-- goes Good then Flowing -- level_low < level_optimal_min is exactly what
+-- validate_river_data() requires -- so position above the 200 observed onset is
+-- not evidence of anything. 20260803 used the same framing and it was loose
+-- there too.
+--
+-- Stripped of that, 250 was an unsourced number replacing an unsourced number,
+-- on a line nobody reported, changing what paddlers see (272 cfs would have
+-- flipped Good -> Flowing) on no evidence at all. So 313 stays until an
+-- observed, outfitter, or owner anchor exists for this rung. Flagged, not
+-- fixed -- the same treatment as the Steelville floor above and the North Fork
+-- below. Being sourced from a rejected source makes a line unsourced; it does
+-- not make any particular replacement correct.
 --
 -- ── Why the Jacks Fork is no longer deferred ────────────────────────────────
 --
@@ -169,27 +187,27 @@
 -- The fix
 -- ─────────────────────────────────────────────────────────────────────────────
 --
---   Jacks Fork @ Eminence   too_low 176 -> 100   low 200 (held)   optimal_min 313 -> 250
---   Meramec  @ Steelville   too_low 130 (held)   low 250 -> 145   optimal_min 300 (held)
+--   Jacks Fork @ Eminence   too_low 176 -> 100   low 200 (held)
+--   Meramec  @ Steelville   too_low 130 (held)   low 250 -> 145
 --
--- Held columns are restated at their current values so both gauges go through
--- one statement; they are no-ops on those columns.
+-- level_optimal_min and its alt are NOT in the SET list at all, so the held
+-- values cannot be disturbed by a typo in a VALUES row. The two rungs that are
+-- held within the SET list are restated at their current values so both gauges
+-- go through one statement; they are no-ops on those columns.
 --
 UPDATE river_gauges rg SET
   level_too_low     = v.tl,
   level_low         = v.lo,
-  level_optimal_min = v.omin,
-  alt_level_too_low     = v.atl,
-  alt_level_low         = v.alo,
-  alt_level_optimal_min = v.aomin,
+  alt_level_too_low = v.atl,
+  alt_level_low     = v.alo,
   threshold_source = 'editorial',
   last_condition_code = NULL,
   threshold_updated_at = now()
 FROM (VALUES
-  -- site      river          cfs: tl  lo  omin | ft: atl  alo  aomin
-  ('07066000', 'jacks-fork', 100, 200, 250, 1.69, 1.98, 2.19),
-  ('07013000', 'meramec',    130, 145, 300, 1.20, 1.32, 1.63)
-) AS v(site_id, river_slug, tl, lo, omin, atl, alo, aomin)
+  -- site      river          cfs: tl  lo | ft: atl  alo
+  ('07066000', 'jacks-fork', 100, 200, 1.69, 1.98),
+  ('07013000', 'meramec',    130, 145, 1.20, 1.32)
+) AS v(site_id, river_slug, tl, lo, atl, alo)
 JOIN gauge_stations gs ON gs.usgs_site_id = v.site_id
 JOIN rivers r ON r.slug = v.river_slug
 WHERE rg.gauge_station_id = gs.id
@@ -212,7 +230,10 @@ BEGIN
     FROM river_gauges rg
     JOIN gauge_stations gs ON gs.id = rg.gauge_station_id
     JOIN rivers r ON r.id = rg.river_id
-    JOIN (VALUES ('07066000', 'jacks-fork', 100, 200, 250),
+    -- optimal_min is included at its HELD value: the row's whole lower ladder
+    -- is pinned, so a future edit that moves the rung this migration argued
+    -- itself out of moving has to come here and say so.
+    JOIN (VALUES ('07066000', 'jacks-fork', 100, 200, 313),
                  ('07013000', 'meramec',    130, 145, 300)) AS e(site_id, river_slug, tl, lo, omin)
       ON e.site_id = gs.usgs_site_id AND e.river_slug = r.slug
     WHERE rg.threshold_unit = 'cfs'
