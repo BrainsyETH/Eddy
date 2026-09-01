@@ -136,7 +136,7 @@ floating; below the park it widens and slows.
 - St. James to Meramec State Park is the classic upper float.
 - Needs a bit more water to float cleanly than the lower section.
 - More experienced paddlers preferred — some Class II sections when water is up.
-- **The Steelville stretch runs all summer.** The outfitter cluster around Steelville puts rafts and tubes on this water through the whole season, including at the thin late-August and September levels that look alarming on a chart. A normal low-summer reading here is a lighter-boat, expect-a-few-shallow-riffles day, not a stay-home day. Rain is the thing to watch on the Meramec, not the summer baseline.
+- **The Steelville outfitters run rafts well into the thin part of the season.** A typical late-summer reading here usually means shallow riffles and a lighter boat rather than a cancelled trip — the numbers on this gauge read worse than the water generally is. That is a correction to the numbers, not a promise about any given day: in a genuinely dry spell this stretch does drop too low, and the live condition is what decides.
 
 ### Lower Meramec {#lower-meramec}
 
