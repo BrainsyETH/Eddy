@@ -37,7 +37,7 @@ Phases are ordered by what unblocks what. Phase 0 is one sitting. Phases 2,
 | 3 | Done except 3.2 (the refund race), which needs a schema change and so joins the Phase 0 pile; see the item. |
 | 4 | Done, one commit. |
 | 5 | Not started — needs the device pass. |
-| 6 | Not started — needs read-only production queries. |
+| 6 | 6.1 and 6.2 queried read-only on 2026-09-02; findings below. No migration written: the answer is an owner call, not a correction. 6.3 to 6.5 untouched. |
 
 ---
 
@@ -506,6 +506,51 @@ they are non-null, but nothing checked they are on the new line's scale.
 for the four points against their stored mile. Correct in a migration if any
 differ by more than the snap tolerance; then fix the two comments.
 
+**Queried 2026-09-02, read-only.** The four points are not the finding. The
+scale is.
+
+| River | Approved points | Median (geometry − stored) | Range |
+|---|---|---|---|
+| Bourbeuse | 18 | +29.5 mi | +26.0 to +34.2 |
+| Niangua | 18 | +25.2 mi | +23.6 to +33.4 |
+| St. Francis | 9 | +23.5 mi | +22.4 to +23.8 |
+| Meramec | 29 | +22.8 mi | +21.8 to +26.6 |
+| Buffalo | 21 | +15.7 mi | +15.0 to +17.3 |
+| Black | 8 | −7.8 mi | −10.6 to −5.8 |
+| Courtois | 6 | +7.0 mi | +6.4 to +7.2 |
+| Eleven Point | 17 | +4.7 mi | +3.0 to +6.4 |
+| Gasconade | 19 | +3.9 mi | −0.3 to +8.2 |
+| Current | 33 | +0.6 mi | −0.7 to +3.1 |
+
+Points within 500 m of the line only. A uniform offset per river means the
+stored miles are a published guide's scale — mile 0 at a conventional put-in
+or a county line — and the geometry's scale starts at the NHD headwaters.
+Neither is wrong; they are different rulers. Differences between two access
+points on the same river agree to within a mile, so float time, which
+subtracts, is unaffected. Anything that derives a mile FROM geometry and
+compares it to a stored one — POI placement (`00040`), a gauge's mile, a
+future "where am I" — is off by the river's offset. Whistle Bridge, Mother
+Nature's and Ha Ha Tonka sit on the Niangua's guide scale like their
+neighbours (+26.0, +25.6, +27.4): no per-point bug. This is older than the
+ten branches and larger than this plan; it wants its own review.
+
+**The Current is the one live regression.** Its stored miles are guide
+miles too, but the guide's mile 0 was near the old line's start, so the
+offsets are small. Montauk's `0.10` is hand-maintained and predates the
+extension (`20260823192151:45`). Freeing Montauk as a put-in against a Tan
+Vat still at guide mile `0.90` makes the Montauk → Tan Vat reach 0.8 stored
+miles; the geometry says 2.38. A float plan for the first reach on the
+river computes at a third of its length. Downstream the stored miles drift
+0.4 to 3.1 below geometry (Big Tree +3.1, Clubhouse +2.9, Powder Mill +2.0),
+and the geometry values sit closer to NPS's published mileposts than the
+stored ones do (Akers 17.2 vs 16.7; Cedargrove 9.6 vs 9.0).
+
+**Owner call, two options:** recompute every Current access-point mile from
+geometry (one migration, the War Eagle pattern, with an assertion on the
+Montauk → Tan Vat delta), or keep the guide scale and set Montauk to a
+value that makes the first reach 2.4 miles (which is negative on that scale,
+so in practice the first option). Not done here.
+
 ### 6.2 Geometry-derived miles outside `access_points` on the Current
 
 `points_of_interest`/campground miles were assigned from the old Tan-Vat line
@@ -516,6 +561,13 @@ migration enumerated tables; the Current one did not.
 **Do:** count rows in each mile-carrying table for the Current. If any, one
 migration that recomputes them from geometry, with an assertion on the
 Montauk-to-Tan-Vat delta.
+
+**Queried 2026-09-02, read-only.** Five tables carry a river mile besides
+`access_points`: `points_of_interest.river_mile`, `river_gauges.river_mile`,
+`river_hazards.river_mile_downstream`, `community_reports.river_mile`,
+`river_sections.river_mile_start/end`. On the Current: 8 of 16 POIs and 4 of
+5 gauges carry one; hazards, reports and sections carry none. Twelve rows.
+Fold them into the 6.1 migration if the geometry option is taken.
 
 ### 6.3 Migrations that abort a from-scratch `supabase db reset`
 
