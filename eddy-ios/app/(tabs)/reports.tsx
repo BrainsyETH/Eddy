@@ -435,6 +435,24 @@ export default function ReportsScreen() {
   const [rivers, setRivers] = useState<RiverListItem[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
+  /**
+   * True while the list on screen is the launch bundle's SEED and /api/rivers
+   * has not yet answered.
+   *
+   * ── The gap this names ──────────────────────────────────────────────────
+   * On a fresh install the seed is what load() paints first, and painting it
+   * is what skips the full-screen spinner — rightly, since the rivers exist.
+   * But a seeded row has no condition, so for the several seconds the slowest
+   * read route in the app takes, every row said "unknown", the headline was
+   * null, `refreshing` was false, and nothing anywhere said "loading". A
+   * screen full of "unknown" with no spinner reads as the answer, not as the
+   * wait for one.
+   *
+   * State rather than derived from `riversAt`, because render reads it and
+   * `riversAt` is a ref. Cleared when the list lands OR when the offline line
+   * goes up, so it can never sit beside an error claiming both at once.
+   */
+  const [awaitingConditions, setAwaitingConditions] = useState(false);
   const [scope, setScope] = useState<ScopeKey>('all');
   const [searchFocused, setSearchFocused] = useState(false);
   /**
@@ -577,6 +595,11 @@ export default function ReportsScreen() {
       // nothing.
       const rows = cached.seeded ? cached.payload : agedIndex(cached, Date.now());
       setRivers((current) => current ?? rows);
+      // Only while the list has NEVER landed. A pull or a foreground reload
+      // over a live list has the refresh control to say it is working, and
+      // a stored index with conditions has something to show meanwhile; the
+      // seed is the one case with rows on screen and nothing in them.
+      if (cached.seeded && riversAt.current === null) setAwaitingConditions(true);
     }
 
     const settled = await network;
@@ -585,12 +608,17 @@ export default function ReportsScreen() {
     if (settled.rivers) {
       setRivers(settled.rivers);
       setError(null);
+      setAwaitingConditions(false);
       riversAt.current = Date.now();
       return;
     }
 
     const err = settled.error;
     if (err instanceof ApiError && err.message === 'Request cancelled') return;
+
+    // Whatever is said next is an error line, and the loading strip must not
+    // stand beside it.
+    setAwaitingConditions(false);
 
     // The error slot says why the list is what it is. Never over a live list:
     // a failed refresh keeps what is on screen, exactly as before.
@@ -1302,6 +1330,18 @@ export default function ReportsScreen() {
             do. Collapses to nothing when there is neither. */}
         {error ? (
           <Text style={[styles.subtitle, { color: colors.error }]}>{error}</Text>
+        ) : awaitingConditions ? (
+          // The seed is on screen and the conditions are not. Takes the
+          // summary's slot rather than adding a band, because the summary
+          // cannot render yet anyway — its headline is a count of conditions —
+          // and the strip goes the moment the list lands. Quiet on purpose: a
+          // small spinner and four words, in the muted role, not a banner.
+          <View style={styles.loadingRow}>
+            <ActivityIndicator size="small" color={colors.textSubtle} />
+            <Text style={[styles.loadingText, { color: colors.textMuted }]}>
+              Loading conditions…
+            </Text>
+          </View>
         ) : (
           <TodaySummary
             headline={headline}
@@ -1705,6 +1745,10 @@ const styles = StyleSheet.create({
   // screen a user actually spends time on.
   title: { ...t['3xl'], fontFamily: fonts.display },
   subtitle: { ...t.sm, fontFamily: fonts.body, marginTop: 4 },
+  // The seed's "Loading conditions…" strip: the subtitle's type and offset,
+  // with a small spinner ahead of it on the same baseline.
+  loadingRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 4 },
+  loadingText: { ...t.sm, fontFamily: fonts.body },
   searchRow: { paddingHorizontal: 16, paddingTop: 12 },
   sortRow: { paddingHorizontal: 16, paddingTop: 10 },
   sortTrigger: {

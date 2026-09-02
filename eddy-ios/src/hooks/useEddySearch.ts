@@ -36,7 +36,7 @@ import type {
 } from '@eddy/types';
 import { hasCoordinates, serviceEligible } from '@eddy/types';
 import { hazardTypeLabel } from '@eddy/hazards';
-import { searchEddy } from '@/api/client';
+import { searchEddy, type SearchFailure } from '@/api/client';
 import { stationCaption } from '@/lib/gaugeProvider';
 import { DAM_CATALOG, damSubtitle } from '@/lib/damCatalog';
 import { mappableService } from '@/map/mappable';
@@ -137,6 +137,16 @@ interface SearchState {
    * search". Local matches keep working regardless.
    */
   serverUnavailable: boolean;
+  /**
+   * WHY it did not come back, when `serverUnavailable`; null otherwise.
+   *
+   * 'offline' is the phone's problem and 'server' is the website's — a 500,
+   * or the 404 a deployment older than the route returns — and the empty
+   * state has to say which, because "check your connection" over a working
+   * connection sends somebody to airplane-mode toggles for a fault that is
+   * not on their end. See SearchFailure in src/api/client.ts.
+   */
+  serverFailure: SearchFailure | null;
   clear: () => void;
   /** True when another page exists. False while one is already loading. */
   hasMore: boolean;
@@ -359,13 +369,16 @@ export function useEddySearch({
   /** True only for a NEXT-page request, so the list spins its footer, not itself. */
   const [paging, setPaging] = useState(false);
   /**
-   * True when the LAST server ask did not come back. The backoff below keeps
-   * a dead route from costing one slow retry per keystroke, but it used to be
-   * silent: the empty state then read "Nothing matched" — a claim about the
-   * data — when the truth was "could not search". State, not the failures
-   * ref: the empty message renders from it.
+   * How the LAST server ask failed, or null when it answered. The backoff
+   * below keeps a dead route from costing one slow retry per keystroke, but
+   * it used to be silent: the empty state then read "Nothing matched" — a
+   * claim about the data — when the truth was "could not search". State, not
+   * the failures ref: the empty message renders from it.
+   *
+   * The kind of failure rather than a boolean, because the two kinds want
+   * different sentences — see `serverFailure` on SearchState.
    */
-  const [serverUnavailable, setServerUnavailable] = useState(false);
+  const [serverFailure, setServerFailure] = useState<SearchFailure | null>(null);
 
   /**
    * How many times in a row the server has failed to answer.
@@ -419,20 +432,20 @@ export function useEddySearch({
     // server that recovers is noticed on the very next query.
     const delay = DEBOUNCE_MS * Math.min(2 ** failures.current, MAX_BACKOFF_MULTIPLE);
     const timer = setTimeout(async () => {
-      const { results, available, hasMore } = await searchEddy(
+      const outcome = await searchEddy(
         trimmed,
         controller.signal,
         kindKey ? (kindKey.split(',') as SearchResultKind[]) : undefined,
       );
       if (controller.signal.aborted) return;
-      if (!available) {
+      if (!outcome.available) {
         failures.current += 1;
-        setServerUnavailable(true);
+        setServerFailure(outcome.reason);
         setAnswer({ query: '', results: [], hasMore: false });
       } else {
         failures.current = 0;
-        setServerUnavailable(false);
-        setAnswer({ query: trimmed, results, hasMore });
+        setServerFailure(null);
+        setAnswer({ query: trimmed, results: outcome.results, hasMore: outcome.hasMore });
       }
       setSearching(false);
     }, delay);
@@ -521,7 +534,8 @@ export function useEddySearch({
     searching: (searching && !answered) || paging,
     active,
     /** The empty state's honesty flag — see its declaration. */
-    serverUnavailable,
+    serverUnavailable: serverFailure !== null,
+    serverFailure,
     clear,
     hasMore: answered && answer.hasMore && !paging,
     loadMore,

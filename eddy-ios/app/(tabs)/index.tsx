@@ -137,6 +137,10 @@ import { useStatewideNetwork } from '@/hooks/useStatewideNetwork';
 import { gradeGauge, readingIndex, riverBounds } from '@/lib/statewideNetwork';
 import { damPins as damPinFacts } from '@/lib/damCatalog';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
+// The GETTER only, for onLocate's no-fix alert. Never the asker: useLocation
+// owns every prompt, and this import exists because the hook's status after a
+// request is not in the closure that awaited it. See onLocate.
+import * as Location from 'expo-location';
 import { asHref } from '@/lib/href';
 import { Otter } from '@/components/Otter';
 import { SearchBar } from '@/components/SearchBar';
@@ -2383,6 +2387,24 @@ export default function MapScreen() {
           { text: 'Open Settings', onPress: () => void Linking.openSettings() },
         ],
       );
+      return;
+    }
+
+    // Permission held, and still no fix — airplane mode, indoors, a cold GPS.
+    // The other case where the tap spun and then did nothing, and unlike a
+    // denial it is worth trying again, so the alert says how rather than
+    // where.
+    //
+    // Asked of the OS rather than read off `location.status`: the status the
+    // hook set during the request above is not in this closure, which holds
+    // the render's value from BEFORE the tap. Reading it here would show this
+    // alert on the second failed tap and stay silent on the first — the one
+    // the person is looking at. getForegroundPermissionsAsync reports the
+    // grant and never prompts, so with a grant in hand and no coordinates, no
+    // fix is the only thing that can be true.
+    const { status: permission } = await Location.getForegroundPermissionsAsync();
+    if (permission === Location.PermissionStatus.GRANTED) {
+      Alert.alert('No location fix yet', 'Try again outside or with Wi-Fi on.');
     }
   }, [location, issueCameraCommand]);
 
@@ -2664,10 +2686,19 @@ export default function MapScreen() {
               // half backed off, a put-in name found nothing and the message
               // blamed the data. Access points live server-side only, so the
               // honest message names what is still being searched.
+              //
+              // And "couldn't search" is itself two claims. A phone with no
+              // signal should be told to check its connection; a phone on a
+              // good connection whose request came back a 500 — or the 404 an
+              // older deploy answers — should not, because the fault is not
+              // on its end and the advice sends somebody to the wrong place.
+              // The hook says which it was.
               emptyMessage={
-                search.serverUnavailable
+                search.serverFailure === 'offline'
                   ? 'Search is unreachable right now — only what the map already holds can match. Check your connection.'
-                  : 'Nothing matched. Try a river, gauge, access point, dam or outfitter.'
+                  : search.serverFailure === 'server'
+                    ? 'Search isn’t answering right now — only what the map already holds can match. Try again in a moment.'
+                    : 'Nothing matched. Try a river, gauge, access point, dam or outfitter.'
               }
             />
           </View>

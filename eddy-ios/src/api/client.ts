@@ -1220,13 +1220,33 @@ export async function saveFloatPlan(plan: FloatPlan): Promise<SavePlanResponse> 
 }
 
 /**
+ * Why the server half of a search did not answer.
+ *
+ *   offline  the request never got an answer — no connection, or the deadline
+ *            ran out. The phone's problem, and "check your connection" is the
+ *            right thing to say about it.
+ *   server   the website answered, and the answer was a failure: a 500, or the
+ *            404 a deployment older than /api/search returns. The connection
+ *            is fine, and telling somebody to check it sends them looking in
+ *            the wrong place for a fault that is not theirs.
+ *
+ * The two used to be one `available: false`, and the map's empty state said
+ * "check your connection" for both — on a working connection, about a route
+ * the server had simply failed on.
+ */
+export type SearchFailure = 'offline' | 'server';
+
+/**
  * Search across rivers, gauges and access points.
  *
  * Returns an empty list rather than throwing on ANY failure, including a 404.
  * The endpoint is newer than some deployed builds of the website this app talks
  * to, and a search field that reports an error because the backend has not
  * caught up is worse than one that quietly finds nothing — callers fall back to
- * matching the rivers they already hold. See useSearch in src/hooks.
+ * matching the rivers they already hold. See useEddySearch in src/hooks.
+ *
+ * A failure still says WHICH KIND it was, as `reason`, so the caller can word
+ * its empty state honestly without ever having to catch anything.
  */
 export async function searchEddy(
   query: string,
@@ -1260,7 +1280,10 @@ export async function searchEddy(
    * curated ones, and the Access scope open with rows at all.
    */
   page?: { limit?: number; offset?: number; offsets?: Partial<Record<SearchResultKind, number>> },
-): Promise<{ results: SearchResult[]; available: boolean; hasMore: boolean }> {
+): Promise<
+  | { results: SearchResult[]; available: true; hasMore: boolean }
+  | { results: SearchResult[]; available: false; hasMore: false; reason: SearchFailure }
+> {
   try {
     const scope = kinds?.length ? `&kinds=${kinds.join(',')}` : '';
     const limit = page?.limit ?? SEARCH_PAGE_SIZE;
@@ -1299,7 +1322,14 @@ export async function searchEddy(
     if (err instanceof ApiError && err.message === 'Request cancelled') {
       return { results: [], available: true, hasMore: false };
     }
-    return { results: [], available: false, hasMore: false };
+    // get() throws an ApiError WITHOUT a status for the two cases where no
+    // answer arrived — 'No connection' and the deadline — and one WITH the
+    // status for anything the server actually said. That split is the whole
+    // distinction: a status means the connection worked. Anything else that
+    // escapes (a body that would not parse) also came back over a working
+    // connection, so it is the server's to answer for too.
+    const offline = err instanceof ApiError && err.status === undefined;
+    return { results: [], available: false, hasMore: false, reason: offline ? 'offline' : 'server' };
   }
 }
 

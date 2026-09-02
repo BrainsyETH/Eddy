@@ -402,9 +402,13 @@ server for **access points**. The split is not arbitrary:
 
 Local hits render on the keystroke, with no spinner; the server's fuller list
 replaces them when it lands. **`/api/search` is allowed to be missing.** It is
-newer than some deployed builds of the website this app talks to, so a 404 marks
-it unavailable for the session and search continues as rivers-and-gauges only —
-`searchEddy()` in `src/api/client.ts` never throws for this reason.
+newer than some deployed builds of the website this app talks to, so a 404 —
+like any other failure — backs the server half off and search continues as
+rivers-and-gauges only. `searchEddy()` in `src/api/client.ts` never throws for
+this reason: it answers `available: false` with a `reason` — `'offline'` when
+no answer arrived (no connection, or the deadline ran out) and `'server'` for
+any HTTP status, that 404 included — so the map's empty state can tell someone
+to check their connection only when the connection is actually the problem.
 
 ### The map opens on the network, not on a river
 
