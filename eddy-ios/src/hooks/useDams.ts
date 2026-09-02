@@ -32,6 +32,7 @@ import type { DamSnapshot } from '@eddy/types';
 import { ApiError, fetchDam, fetchDams } from '@/api/client';
 import { onForeground } from '@/lib/foreground';
 import { warn } from '@/lib/monitoring';
+import { shareInFlight } from '@/lib/shareInFlight';
 
 /** Clause 3: the route's own s-maxage, in milliseconds. */
 const DAMS_TTL_MS = 900_000;
@@ -168,17 +169,9 @@ const inFlightDetail = new Map<string, Promise<DamSnapshot>>();
  * their own `aborted` before applying a late answer.
  */
 export function getSharedDam(damId: string): Promise<DamSnapshot> {
-  const existing = inFlightDetail.get(damId);
-  if (existing) return existing;
-
-  const request = fetchDam(damId).finally(() => {
-    // Cleared before any downstream handler runs, so a caller that reacts to a
-    // rejection by retrying starts a NEW request rather than being handed the
-    // failed one again.
-    inFlightDetail.delete(damId);
-  });
-  inFlightDetail.set(damId, request);
-  return request;
+  // The join, the eviction-before-handlers, and the no-caller-signal rule all
+  // live in shareInFlight, with the tests that hold them.
+  return shareInFlight(inFlightDetail, damId, () => fetchDam(damId));
 }
 
 export function useDams(wanted: boolean): DamSnapshot[] | null {

@@ -129,6 +129,7 @@ import { readBestIndex, readConditions } from '@/lib/riverCache';
 import { useRiverData } from '@/hooks/useRiverData';
 import { selectEddySays } from '@/lib/eddySays';
 import { effectiveReadingAgeHours, readingBand } from '@/lib/offline-cache';
+import { shareInFlight } from '@/lib/shareInFlight';
 import { goBack } from '@/lib/nav';
 import { TrendPill } from '@/components/TrendPill';
 
@@ -873,22 +874,18 @@ export default function RiverDetailScreen() {
     // outlook" on that gauge for the life of the screen, and re-picking it
     // could never retry. Staying silent about a failure is the right product
     // call; remembering it is not.
-    let request = outlookInFlight.current.get(key);
-    if (!request) {
-      request = fetchRiverOutlook(slug, undefined, askedFor)
+    // shareInFlight joins a request already in flight for this key and clears
+    // the entry before any handler below runs, so a later run that finds the
+    // cache empty — a failure, which is deliberately not cached — starts a
+    // fresh attempt rather than joining a settled promise.
+    const request = shareInFlight(outlookInFlight.current, key, () =>
+      fetchRiverOutlook(slug, undefined, askedFor)
         .then((data) => {
           outlookCache.current.set(key, data);
           return data;
         })
-        .catch(() => null)
-        .finally(() => {
-          // Cleared before any handler below runs, so a later run that finds
-          // the cache empty — a failure, which is deliberately not cached —
-          // starts a fresh attempt rather than joining a settled promise.
-          outlookInFlight.current.delete(key);
-        });
-      outlookInFlight.current.set(key, request);
-    }
+        .catch(() => null),
+    );
 
     void request.then((data) => {
       if (!current) return;

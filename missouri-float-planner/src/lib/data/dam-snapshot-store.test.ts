@@ -4,7 +4,11 @@ import { readFileSync } from 'node:fs';
 import {
   decideWrites,
   isFresh,
+  pruneStoredSnapshots,
+  readStoredSnapshot,
+  readStoredSnapshots,
   saysAnything,
+  writeStoredSnapshots,
   MAX_AGE_MS,
 } from './dam-snapshot-store';
 import { buildSnapshot, declaresNoSources } from './dams';
@@ -172,4 +176,89 @@ test('the dam index falls back per dam, not all or nothing', () => {
     /fetchDamSummaries\(ids\.filter\(\(id\) => !fromStore\.has\(id\)\)\)/,
     'the index must read live only the dams it has no stored row for',
   );
+});
+
+// ── the readers and writers, executed against a fake client ──────────────
+//
+// The rules above are pure; these are the functions that carry them to the
+// table. They used to be pinned by regex over this file's source, which a
+// rename keeps green and a behaviour change can too. A fake client that
+// records what it was asked is enough to run them.
+
+type Call = { method: string; args: unknown[] };
+
+function fakeClient(result: { data?: unknown; error?: { message: string } | null } = {}) {
+  const calls: Call[] = [];
+  const chain: Record<string, unknown> = {};
+  const record = (method: string) => (...args: unknown[]) => {
+    calls.push({ method, args });
+    return chain;
+  };
+  for (const method of ['from', 'select', 'eq', 'delete', 'not', 'upsert']) chain[method] = record(method);
+  chain.maybeSingle = async () => ({ data: result.data ?? null, error: result.error ?? null });
+  // Awaiting the chain resolves the query, as PostgREST's builder does.
+  chain.then = (resolve: (value: unknown) => unknown) =>
+    Promise.resolve({ data: result.data ?? null, error: result.error ?? null }).then(resolve);
+  return { client: chain as unknown as Parameters<typeof writeStoredSnapshots>[0], calls };
+}
+
+function withoutAdminEnv<T>(run: () => Promise<T>): Promise<T> {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  delete process.env.NEXT_PUBLIC_SUPABASE_URL;
+  delete process.env.SUPABASE_SERVICE_ROLE_KEY;
+  return run().finally(() => {
+    if (url !== undefined) process.env.NEXT_PUBLIC_SUPABASE_URL = url;
+    if (key !== undefined) process.env.SUPABASE_SERVICE_ROLE_KEY = key;
+  });
+}
+
+test('a reader that cannot build a client answers empty, and the routes read through', async () => {
+  // createAdminClient throws without credentials, which is the same shape as a
+  // table that is not there: the reader must catch it and answer nothing, so
+  // the routes fall back to the live read rather than failing the dam layer.
+  await withoutAdminEnv(async () => {
+    const all = await readStoredSnapshots({ now: NOW });
+    assert.equal(all.size, 0);
+    assert.equal(await readStoredSnapshot('swl-table-rock-dam', { now: NOW }), null);
+  });
+});
+
+test('writing sends one upsert with one row per snapshot, keyed on dam_id', async () => {
+  const { client, calls } = fakeClient();
+  const a = withReading('swl-table-rock-dam');
+  const b = withReading('swl-bull-shoals-dam');
+  const wrote = await writeStoredSnapshots(client, [a, b], NOW);
+  assert.equal(wrote, 2);
+  const upsert = calls.find((call) => call.method === 'upsert');
+  assert.ok(upsert, 'one upsert');
+  const [rows, options] = upsert!.args as [Array<Record<string, unknown>>, { onConflict: string }];
+  assert.equal(options.onConflict, 'dam_id');
+  assert.deepEqual(rows.map((row) => row.dam_id), ['swl-table-rock-dam', 'swl-bull-shoals-dam']);
+  assert.equal(rows[0].built_at, new Date(NOW).toISOString(), 'built_at is when it was assembled');
+  assert.equal(rows[0].payload, a, 'the payload is the snapshot, whole');
+});
+
+test('writing nothing sends nothing, and a failed write reports zero rows', async () => {
+  const empty = fakeClient();
+  assert.equal(await writeStoredSnapshots(empty.client, [], NOW), 0);
+  assert.equal(empty.calls.length, 0);
+
+  const failing = fakeClient({ error: { message: 'relation does not exist' } });
+  assert.equal(await writeStoredSnapshots(failing.client, [withReading('swl-table-rock-dam')], NOW), 0);
+});
+
+test('pruning deletes every row the registry no longer names, and never everything', async () => {
+  const { client, calls } = fakeClient();
+  await pruneStoredSnapshots(client, ['swl-table-rock-dam', 'swl-bull-shoals-dam']);
+  assert.deepEqual(
+    calls.map((call) => call.method),
+    ['from', 'delete', 'not'],
+  );
+  assert.deepEqual(calls[2].args, ['dam_id', 'in', '("swl-table-rock-dam","swl-bull-shoals-dam")']);
+
+  // "No registry" must never read as "delete every row".
+  const none = fakeClient();
+  await pruneStoredSnapshots(none.client, []);
+  assert.equal(none.calls.length, 0);
 });

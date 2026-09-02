@@ -32,7 +32,7 @@ Phases are ordered by what unblocks what. Phase 0 is one sitting. Phases 2,
 | Phase | State |
 |---|---|
 | 0 | **Done.** The three migrations were applied to production on 2026-09-02 (recorded as `20260902125655`, `20260902131041`, `20260902131340`), the files renamed to match, the ledger's pending section is empty, and the rivers function's own invariants passed against the live rows. |
-| 1 | Done: ledger + test, drift workflow (needs two Actions secrets), CLAUDE.md rule, the comment sweep except the two migration comments (6.1 corrects them with the data). 1.4's executing tests are **not** done. |
+| 1 | **Done**, including 1.4: ledger + test, drift workflow (needs two Actions secrets), CLAUDE.md rule, the comment sweep, and executing tests for the in-flight join, the snapshot store's readers and writers, and the reconcile's observation time. |
 | 2 | Done, one commit. 2.6 took the comment fix; the keychain re-add migration is filed, not done. |
 | 3 | **Done.** 3.2 needed no schema change after all: the row already carries `last_event_at`, so the function now refuses a forward move from a snapshot older than the row's newest event. Applied as `20260902132840`. |
 | 4 | Done, one commit. |
@@ -185,6 +185,19 @@ that runs the code:
 
 The outlook-keying defect in 2.1 sits inside the first suite's coverage and
 was not caught, which is the argument.
+
+**Done 2026-09-02.** The join rules the dam detail and the river outlook both
+wrote out by hand now live in one pure helper, `eddy-ios/src/lib/shareInFlight.ts`,
+and `src/lib/share-in-flight.test.ts` executes them: joining, per-key
+isolation, eviction before handlers on success and failure, a fresh request
+after settle, rejection reaching every joiner, and a late settle not
+evicting a newer entry. `request-timing.test.ts` keeps its textual pins on
+the call sites and now also pins that the outlook key carries the slug.
+`dam-snapshot-store.test.ts` executes the readers against a missing client
+(empty, so the routes read through) and the writer and pruner against a
+recording fake. `revenuecat/api.test.ts` executes the reconcile and holds
+`p_observed_at` to before the REST read; the SQL clause is still pinned by
+text, since there is no Postgres in the suite.
 
 ### 1.5 Comment truth sweep
 
