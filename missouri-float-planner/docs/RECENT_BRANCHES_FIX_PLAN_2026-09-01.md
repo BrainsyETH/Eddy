@@ -31,13 +31,13 @@ Phases are ordered by what unblocks what. Phase 0 is one sitting. Phases 2,
 
 | Phase | State |
 |---|---|
-| 0 | Repo side done: three renames, references, stale headers, README, ledger. **The production apply (0.1) is not done** — it needs explicit authorization and a session with the Supabase credentials. The three files sit under `[pending]` in the ledger. |
+| 0 | **Done.** The three migrations were applied to production on 2026-09-02 (recorded as `20260902125655`, `20260902131041`, `20260902131340`), the files renamed to match, the ledger's pending section is empty, and the rivers function's own invariants passed against the live rows. |
 | 1 | Done: ledger + test, drift workflow (needs two Actions secrets), CLAUDE.md rule, the comment sweep except the two migration comments (6.1 corrects them with the data). 1.4's executing tests are **not** done. |
 | 2 | Done, one commit. 2.6 took the comment fix; the keychain re-add migration is filed, not done. |
-| 3 | Done except 3.2 (the refund race), which needs a schema change and so joins the Phase 0 pile; see the item. |
+| 3 | **Done.** 3.2 needed no schema change after all: the row already carries `last_event_at`, so the function now refuses a forward move from a snapshot older than the row's newest event. Applied as `20260902132840`. |
 | 4 | Done, one commit. |
 | 5 | Not started — needs the device pass. |
-| 6 | 6.1 and 6.2 queried read-only on 2026-09-02; findings below. No migration written: the answer is an owner call, not a correction. 6.3 to 6.5 untouched. |
+| 6 | 6.1 and 6.2 done: the Current's miles recomputed from the line (`20260902132921`, plus `20260902134206` for two outfitters the first predicate missed). The six guide-scale rivers are untouched and filed for their own review. 6.3 to 6.5 untouched. |
 
 ---
 
@@ -340,10 +340,13 @@ signal that this is the intended semantics.
 
 ### 3.2 Forward-only reconcile can re-grant a refund in a race
 
-**Not done.** Both fixes need a column (a per-user `last_event_at`, or a
-writer stamp on the entitlement row), so this is a migration, and a
-migration written now lands in the same unapplied pile as 0.1. Do it in the
-same production session, after 0.1.
+**Done 2026-09-02, applied as `20260902132840`.** No new column: the webhook
+already stamps `last_event_at` with each event's own time, refunds
+included. The reconcile now passes the moment its REST read started as
+`p_observed_at`, and the write is refused when the row has learned something
+since. Adding a parameter meant DROP then CREATE (a new signature under
+CREATE OR REPLACE is a second overload); the argument defaults to null so the
+deployed client kept working until this branch ships.
 
 **File:** `20260826112559_…sql:110`, `src/app/api/me/entitlement/refresh/route.ts`
 
@@ -545,11 +548,14 @@ river computes at a third of its length. Downstream the stored miles drift
 and the geometry values sit closer to NPS's published mileposts than the
 stored ones do (Akers 17.2 vs 16.7; Cedargrove 9.6 vs 9.0).
 
-**Owner call, two options:** recompute every Current access-point mile from
-geometry (one migration, the War Eagle pattern, with an assertion on the
-Montauk → Tan Vat delta), or keep the guide scale and set Montauk to a
-value that makes the first reach 2.4 miles (which is negative on that scale,
-so in practice the first option). Not done here.
+**Done 2026-09-02, applied as `20260902132921`.** Every access point, gauge
+and POI on the Current within 500 m of the line is measured from Montauk on
+the line's ruler; rows farther off are untouched. Montauk → Tan Vat reads
+2.38. The gauges were worse than the access points (Van Buren 100 → 86.63,
+Doniphan 134 → 125.13) and three POIs were 13–21 miles off (Big Spring
+69.2 → 90.89, which is the four miles below Van Buren the NPS quotes). Two
+outfitter POIs with only a snapped location were missed by the first
+predicate and fixed by `20260902134206`.
 
 ### 6.2 Geometry-derived miles outside `access_points` on the Current
 
@@ -568,6 +574,8 @@ Montauk-to-Tan-Vat delta.
 `river_sections.river_mile_start/end`. On the Current: 8 of 16 POIs and 4 of
 5 gauges carry one; hazards, reports and sections carry none. Twelve rows.
 Fold them into the 6.1 migration if the geometry option is taken.
+
+**Done, in the 6.1 migration.**
 
 ### 6.3 Migrations that abort a from-scratch `supabase db reset`
 

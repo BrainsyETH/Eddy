@@ -287,6 +287,14 @@ export async function reconcileEntitlement(
 ): Promise<ReconcileOutcome> {
   const { userId, entitlementId, stamp } = params;
 
+  // Taken BEFORE the REST read, and handed to the function as p_observed_at:
+  // a row that learned something after this moment — a refund whose webhook
+  // landed while the read was in flight — refuses to be moved forward by a
+  // snapshot older than what it knows. See the migration that added the
+  // argument. Before the read, not after, so the window it closes is the
+  // whole round trip and not just the tail of it.
+  const observedAt = new Date().toISOString();
+
   const fetched = await fetchSubscriber(userId, params);
   if (fetched.status === 'not_configured') return { status: 'not_configured', expiresAt: null };
   if (fetched.status === 'not_found') return { status: 'none', expiresAt: null };
@@ -309,6 +317,7 @@ export async function reconcileEntitlement(
     p_last_event_id: stamp?.id ?? null,
     p_last_event_type: stamp?.type ?? null,
     p_last_event_at: stamp?.at ?? null,
+    p_observed_at: observedAt,
   });
 
   if (error) {
