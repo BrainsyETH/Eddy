@@ -1,6 +1,7 @@
 -- 20260805190000_length_miles_from_geometry_jacks_fork_current.sql
 --
--- NOT YET APPLIED. Run in the SQL editor, then record the version.
+-- APPLIED to production as version 20260805190000 (the filename matches the
+-- recording). Ledger: supabase/production-migrations.txt.
 --
 -- Correct rivers.length_miles on jacks-fork and current, where the column has
 -- drifted from the line it is supposed to describe.

@@ -1,8 +1,12 @@
+-- APPLIED to production (ilefwfpvphadsbptiaur) as version 20260826223527, the
+-- version the recording assigned, not the 20260826200000 this file was authored as.
+-- Renamed 2026-09-02 to match. The ledger is supabase/production-migrations.txt.
+--
 -- Echo Bluff's coordinates, from OSM this time instead of from memory.
 --
 -- ── WHAT WAS WRONG, AND IT WAS MINE ──────────────────────────────────────
 --
--- 20260826130000 moved Echo Bluff off the Jacks Fork, which was right, and
+-- 20260826174017 moved Echo Bluff off the Jacks Fork, which was right, and
 -- put it at 37.2903, -91.4056, which was not. That coordinate was ESTIMATED
 -- and then cross-checked, rather than sourced: it sat 0.34 mi from the Current
 -- and 0.49 mi from the Round Spring access, both plausible, so it passed every
@@ -25,7 +29,7 @@
 -- the address_line1 already on the nearby_services row, which is what ties
 -- that record to that building rather than to the park in general.
 --
--- Timbuktu is now SOURCED. 20260826130000 wrote it as
+-- Timbuktu is now SOURCED. 20260826174017 wrote it as
 -- 'derived_from_parent:echo-bluff-state-park' with an invented offset, and
 -- said so; it is replaced here by the real campground node. That offset also
 -- had the direction wrong — Timbuktu is 520 m EAST-NORTHEAST of the lodge, and
@@ -101,7 +105,7 @@ UPDATE public.access_points ap
 -- 3. Assertions — the ones that would have caught the first attempt
 -- ─────────────────────────────────────────────────────────────
 --
--- The distance checks in 20260826130000 all PASSED on the wrong coordinate,
+-- The distance checks in 20260826174017 all PASSED on the wrong coordinate,
 -- because a point 1.5 miles south of the park is still near the Current and
 -- still far from the Jacks Fork. So the check that matters here is a different
 -- kind: the point must fall inside the park's own OSM boundary

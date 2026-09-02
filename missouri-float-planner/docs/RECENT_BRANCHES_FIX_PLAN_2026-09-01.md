@@ -60,6 +60,13 @@ this plan does not grant it.
 
 ### 0.2 Rename six files to the versions production recorded
 
+**Three of six done 2026-09-02, on this branch:** the Echo Bluff, Van Buren
+and Echo Bluff coordinates files now carry their recorded versions, every
+reference to the old versions is updated (the OSM migration's prose, the
+seed, the September header), the README citation is fixed, and the four
+headers production contradicted now say APPLIED. The remaining three wait on
+0.1.
+
 Migrations are applied through the Supabase API, which stamps its own
 timestamp. The filename is the only place the version is checkable from the
 repo, so a file that is not renamed after applying is drift forever.
@@ -103,17 +110,31 @@ migrations merge unapplied, or apply unrenamed, and the repo's only record is
 a comment in an unrelated file. Nothing hermetic catches it, and `make
 check-db` is outside `make check` on purpose (it needs credentials).
 
-### 1.1 A hermetic ordering test
+### 1.1 A hermetic ledger, and a test that holds it to the files
 
-Add to the registered test list a test over `supabase/migrations/`:
+The first draft of this item was a test over header comments. A survey of
+the headers killed it: four files still said `NOT YET APPLIED` over
+migrations production had held for weeks, most files carry no marker at
+all, and the markers that exist use four spellings. A comment is not a
+record.
 
-> No file whose header says `NOT YET APPLIED` may have a version older than
-> the newest file whose header says `APPLIED`.
+**Done 2026-09-02, on this branch:** `supabase/production-migrations.txt`
+lists every version production recorded after the legacy baseline, under
+`[applied]`, plus a `[pending]` section for merged-but-unapplied files.
+`scripts/migration-ledger.test.ts` enforces three rules without credentials:
 
-That is exactly the state that forces `--include-all`, and it is checkable
-without credentials. On a feature branch the new migration is the newest file,
-so the test passes; it fails only when a newer migration lands on `main` over
-an unapplied older one — which is the 0.1 situation.
+1. every `[applied]` version has a local file with that exact version
+   (otherwise the file was applied under another version — rename it);
+2. every local file older than the newest `[applied]` version is listed
+   under `[applied]` or `[pending]` (otherwise it is in the `--include-all`
+   trap and nothing else says so);
+3. every `[pending]` line names a file that exists and is not applied (a
+   stale line fails).
+
+`make check-db` now also cross-checks the ledger against the live project in
+both directions, so the ledger cannot quietly disagree with production
+either. The three 0.1 files sit under `[pending]` today; applying them means
+moving each line to `[applied]` under the recorded version.
 
 ### 1.2 A scheduled, non-blocking drift report
 
@@ -123,12 +144,20 @@ secrets and, on drift, opens or updates a single pinned issue naming the
 rows. Non-blocking: it reports, it does not gate. This would have surfaced all
 six rows the day they drifted.
 
+**Done 2026-09-02, on this branch:** `.github/workflows/migration-drift.yml`,
+daily at 12:17 UTC and on pushes to `main` that touch migrations or the
+ledger. It needs `SUPABASE_ACCESS_TOKEN` and `SUPABASE_DB_PASSWORD` in Actions
+secrets; without them it warns and exits green rather than crying drift.
+
 ### 1.3 Definition of done for a migration PR
 
 Add one line to the Database row of `CLAUDE.md`'s task-routing table: a PR
 carrying a migration is done when the file header records the applied
 version and the filename matches it. Both `0627a9f0` and `9cff8da9` already
 follow this; write it down so it is the rule and not the habit.
+
+**Done 2026-09-02, on this branch**, worded for the ledger: named for the
+recorded version, and that version in `production-migrations.txt`.
 
 ### 1.4 Tests that execute behaviour instead of grepping source
 

@@ -1,4 +1,5 @@
--- NOT YET APPLIED. Apply by hand, then confirm the recorded version with
+-- APPLIED to production as version 20260810200000 (the filename matches the recording;
+-- ledger: supabase/production-migrations.txt). Originally: apply by hand, then confirm with
 -- `npm run db:check-migrations` and rename this file if Supabase records a
 -- different one — the repo's rule is that the filename matches the version
 -- actually recorded, not the version we hoped for.
