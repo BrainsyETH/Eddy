@@ -14,6 +14,7 @@ import {
   chartSegments,
   nearestChartPoint,
   niceValueTicks,
+  nowLabel,
   qualifierText,
   samplePreservingExtrema,
   splitAtGaps,
@@ -309,6 +310,22 @@ test('an instant between two readings resolves to the nearer of them', () => {
   assert.equal(stepScrubTime([0, 100], 49, 0), 0);
   assert.equal(stepScrubTime([0, 100], 51, 0), 100);
   assert.equal(stepScrubTime([0, 100], 50, 0), 0);
+});
+
+test('the now-line is called "Now" only while the newest reading is still current', () => {
+  // Both renderers place the observed/forecast rule at the last observation
+  // and used to caption it "Now" unconditionally, so a gauge two days silent
+  // said "now" about Tuesday. The line does not move; the word follows the
+  // same six-hour staleness line every other surface uses.
+  const now = BASE + 48 * HOUR;
+  assert.equal(nowLabel(now - 1 * HOUR, now), 'Now');
+  assert.equal(nowLabel(now - 6 * HOUR, now), 'Now', 'the boundary is exclusive, like isReadingStale');
+  assert.equal(nowLabel(now - 6.1 * HOUR, now), 'Last reading');
+  assert.equal(nowLabel(now - 48 * HOUR, now), 'Last reading');
+  // An unreadable timestamp is not a fresh one.
+  assert.equal(nowLabel(Number.NaN, now), 'Last reading');
+  // The default clock is the real one: a reading taken a moment ago is now.
+  assert.equal(nowLabel(Date.now() - 1_000), 'Now');
 });
 
 test('nearest lookup picks the closer neighbour and clamps at both ends', () => {

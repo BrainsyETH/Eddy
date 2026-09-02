@@ -124,6 +124,7 @@ import {
   chartSegments,
   nearestChartPoint,
   niceValueTicks,
+  nowLabel,
   qualifierText,
   stepScrubTime,
   timeTicks,
@@ -167,6 +168,15 @@ const PAD_RIGHT = 46;
 /** Room for the time labels under the plot. */
 const PAD_BOTTOM = 18;
 const PAD_TOP = 10;
+
+/**
+ * Whether an NWS stage label goes BELOW its line rather than above it: the
+ * line sits within a label's height of the top edge, and a label above it
+ * would clip out of the viewport. Named because two things ask — the stage
+ * label itself, and the now-label, which shares that top line of the plot
+ * and has to know when it is already taken.
+ */
+const stageLabelBelowLine = (y: number): boolean => y - 3 < PAD_TOP + 8;
 
 /**
  * How far past the data a threshold may sit and still be pulled into view, as a
@@ -277,6 +287,28 @@ function axisTime(ms: number, days: number): string {
     return d.toLocaleTimeString(undefined, { hour: 'numeric' });
   }
   return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+}
+
+/**
+ * A value-axis tick, without its unit.
+ *
+ * The column right of the plot is PAD_RIGHT wide, ~40px of it usable, and a
+ * six-digit discharge in 10px mono ("120,000" — the Arkansas gets there) runs
+ * off the edge of the Svg. Widening the column would shrink the plot on every
+ * chart to fit a number most never show, so instead the formatter gives way
+ * only at six digits: "12,000" still reads as "12,000", which the review asked
+ * to keep, and "120,000" becomes "120k". The web axis abbreviates from 1,000
+ * up; this deliberately does not, because the phone axis has the width for
+ * five digits and a real number beats a rounded one where it fits.
+ */
+function axisValue(value: number, unit: 'ft' | 'cfs'): string {
+  if (unit === 'cfs' && Math.abs(value) >= 100_000) {
+    const k = value / 1000;
+    // Whole thousands print whole; a 2.5-rung tick (102,500) keeps its half
+    // rather than rounding onto a number that is not the tick.
+    return `${Number.isInteger(k) ? k : k.toFixed(1)}k`;
+  }
+  return formatReading(value, unit).replace(` ${unit}`, '');
 }
 
 /** The scrub readout wants the full moment, not an axis tick. */
@@ -719,20 +751,29 @@ function GaugeChartInner({
    */
   const fillId = `flowFill-${siteId ?? 'none'}-${drawnUnit}`;
   /**
-   * ONE OBSERVED READING IS ENOUGH — and so is a forecast with none.
+   * ONE OBSERVED READING PLUS A FORECAST IS A CHART — and so is a forecast
+   * with none. One reading ALONE is not, and that is the web chart's rule too.
    *
-   * A single reading used to fall through to the placeholder because a line
-   * needs two points; it draws as a dot at a real instant on a real axis,
-   * which is what the reading is. A forecast with no observations behind it
-   * now draws too, in the same release the web chart made its "current"
-   * nullable and the endpoint stopped 404ing forecast-only stations — the
-   * three moved together, which is what kept the two charts in step. The
-   * now-line and the current dot stay observed-only below: a forecast-only
-   * plot has no "now" boundary to draw, and inventing one at the forecast's
-   * start would claim an observation nobody took.
+   * A single reading used to draw as a dot at a real instant, on the argument
+   * that a dot is what the reading is. The axis under it was not real: with
+   * nothing else to span, chartDomain() returns t0 === t1, every x maps to
+   * the left edge, and timeTicks() prints three copies of the same hour under
+   * a plot that is one dot at x = 0. The website refuses exactly this case
+   * (FlowTrendChart's "fewer than two observed and no forecast" guard), so the
+   * phone now does as well, and the placeholder says why.
+   *
+   * A forecast with no observations behind it still draws, in the same
+   * release the web chart made its "current" nullable and the endpoint
+   * stopped 404ing forecast-only stations — the three moved together, which
+   * is what kept the two charts in step. The now-line and the current dot
+   * stay observed-only below: a forecast-only plot has no "now" boundary to
+   * draw, and inventing one at the forecast's start would claim an
+   * observation nobody took.
    */
   const hasPlot =
-    scale !== null && domain !== null && (points.length > 0 || forecastPoints.length > 0);
+    scale !== null &&
+    domain !== null &&
+    (forecastPoints.length > 0 || points.length >= 2);
 
   const scrubQualifiers =
     scrubbed?.kind === 'observed' ? qualifierText(scrubbed.point.qualifiers) : null;
@@ -756,6 +797,14 @@ function GaugeChartInner({
       : null;
 
   const newest = points.length ? points[points.length - 1] : null;
+
+  /**
+   * "Now" while the newest reading is still current, "Last reading" once it
+   * is not. The shared model decides, on the same six-hour line the reading
+   * card above this chart uses, so the two cannot disagree about whether
+   * this gauge is keeping up. The rule itself does not move; see nowLabel().
+   */
+  const nowLabelText = newest ? nowLabel(newest.t) : null;
 
   /**
    * When the Weather Service computed the dashed line.
@@ -1152,7 +1201,7 @@ function GaugeChartInner({
                         // Above its own line, and pushed below it for a stage
                         // sitting within a label's height of the top edge —
                         // otherwise the topmost one clips out of the viewport.
-                        y={y - 3 < PAD_TOP + 8 ? y + 11 : y - 3}
+                        y={stageLabelBelowLine(y) ? y + 11 : y - 3}
                         fill={floodStageColor()}
                         fontSize={9}
                         fontFamily={fonts.medium}
@@ -1201,40 +1250,60 @@ function GaugeChartInner({
                     one-point forecast is still a forecast, and gating the rule on a
                     drawn line put the boundary and the legend out of step with the
                     thing they describe. */}
-                {points.length > 0 && forecastPoints.length > 0 ? (
-                  <G>
-                    <Line
-                      x1={scale.x(points[points.length - 1].t)}
-                      y1={PAD_TOP}
-                      x2={scale.x(points[points.length - 1].t)}
-                      y2={PAD_TOP + plotHeight}
-                      stroke={colors.textSubtle}
-                      strokeWidth={1}
-                      strokeDasharray="2,3"
-                      opacity={0.7}
-                    />
-                    {/* The rule, named. Unlabelled it was a dashed line a reader
-                        had to infer; "Now" is what makes the dashed series past
-                        it unmistakably a prediction. On the observed side of
-                        its own line, flipped when the boundary sits so far left
-                        that an end-anchored label would clip out of the plot. */}
-                    <SvgText
-                      x={
-                        scale.x(points[points.length - 1].t) < 36
-                          ? scale.x(points[points.length - 1].t) + 4
-                          : scale.x(points[points.length - 1].t) - 4
-                      }
-                      y={PAD_TOP + 10}
-                      fill={colors.textSubtle}
-                      fontSize={9}
-                      fontFamily={fonts.medium}
-                      textAnchor={scale.x(points[points.length - 1].t) < 36 ? 'start' : 'end'}
-                      opacity={0.8}
-                    >
-                      Now
-                    </SvgText>
-                  </G>
-                ) : null}
+                {newest && nowLabelText && forecastPoints.length > 0
+                  ? (() => {
+                      const nowX = scale.x(newest.t);
+                      // Roughly the caption's width at 9px plus the gap:
+                      // "Last reading" needs about three times the room "Now"
+                      // did, so it flips to the forecast side sooner.
+                      const flipped = nowX < (nowLabelText === 'Now' ? 36 : 64);
+                      // The caption and a top-band stage label share the top
+                      // line of the plot. When the now-line also sits in the
+                      // leftmost quarter — a 24h range under a multi-day
+                      // forecast — they would overprint, so the caption drops
+                      // one line height. The simplest rule that clears the
+                      // case seen; the web chart applies the same one.
+                      const stageLabelAtTop = stageLines.some((line) => {
+                        const y = scale.y(line.value);
+                        return y >= PAD_TOP && stageLabelBelowLine(y);
+                      });
+                      const captionY =
+                        stageLabelAtTop && nowX < plotWidth * 0.25 ? PAD_TOP + 22 : PAD_TOP + 10;
+                      return (
+                        <G>
+                          <Line
+                            x1={nowX}
+                            y1={PAD_TOP}
+                            x2={nowX}
+                            y2={PAD_TOP + plotHeight}
+                            stroke={colors.textSubtle}
+                            strokeWidth={1}
+                            strokeDasharray="2,3"
+                            opacity={0.7}
+                          />
+                          {/* The rule, named. Unlabelled it was a dashed line a
+                              reader had to infer; "Now" is what makes the dashed
+                              series past it unmistakably a prediction — and
+                              "Last reading" is what keeps that honest when the
+                              gauge has been quiet for days. On the observed
+                              side of its own line, flipped when the boundary
+                              sits so far left that an end-anchored label would
+                              clip out of the plot. */}
+                          <SvgText
+                            x={flipped ? nowX + 4 : nowX - 4}
+                            y={captionY}
+                            fill={colors.textSubtle}
+                            fontSize={9}
+                            fontFamily={fonts.medium}
+                            textAnchor={flipped ? 'start' : 'end'}
+                            opacity={0.8}
+                          >
+                            {nowLabelText}
+                          </SvgText>
+                        </G>
+                      );
+                    })()
+                  : null}
 
                 {/* ── The official forecast ──
                     Violet and dashed, the same hue the stage lines use and for the
@@ -1312,7 +1381,7 @@ function GaugeChartInner({
                     fontSize={10}
                     fontFamily={fonts.mono}
                   >
-                    {formatReading(tick.value, drawnUnit).replace(` ${drawnUnit}`, '')}
+                    {axisValue(tick.value, drawnUnit)}
                   </SvgText>
                 ))}
 
@@ -1409,18 +1478,21 @@ function GaugeChartInner({
               </>
             ) : (
               <Text style={[styles.placeholderText, { color: colors.textSubtle }]}>
-                {/* Two distinct states, because either would be a lie as the
-                    other. Only `unavailable` may be phrased as a fact about the
+                {/* Three distinct states, because each would be a lie as the
+                    others. Only `unavailable` may be phrased as a fact about the
                     gauge — a failed request either leaves the previous line up or
                     takes the branch above; see useGaugeHistory.
 
-                    THE SINGLE-READING SENTENCE IS GONE, because it is no longer
-                    true. One reading used to fall through to here ("not enough to
-                    chart") since a line needs two points; it now draws as a dot at
-                    a real instant on a real axis, which is what the reading is. */}
+                    THE SINGLE-READING SENTENCE IS BACK. It left when one reading
+                    started drawing as a dot; it returns because the axis under
+                    that dot was not real (see hasPlot), so the reading falls
+                    through to here again — and "no discharge reported" would be
+                    false about a window that holds one. */}
                 {unavailable
                   ? 'No recent history published for this gauge.'
-                  : `No ${drawnUnit === 'cfs' ? 'discharge' : 'gauge height'} reported in this window.`}
+                  : points.length === 1
+                    ? `Only one ${drawnUnit === 'cfs' ? 'discharge' : 'gauge height'} reading in this window — not enough to chart.`
+                    : `No ${drawnUnit === 'cfs' ? 'discharge' : 'gauge height'} reported in this window.`}
               </Text>
             )}
           </View>

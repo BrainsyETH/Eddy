@@ -17,9 +17,11 @@
 //
 // LIVES IN shared/ so eddy-ios can reach it through the `@eddy/conditions`
 // file: dependency, as `@eddy/conditions/chart-model`. Keep the imports here
-// relative and type-only for that reason.
+// relative for that reason — sibling files in this package resolve on both
+// sides; anything outside it does not.
 
 import type { ReadingUnit } from './reading-unit';
+import { isReadingStale } from './reading-staleness';
 
 export interface ChartReadingLike {
   timestamp: string;
@@ -532,4 +534,34 @@ export function latestObservedPoint(observed: ChartPoint[]): ChartPoint | null {
  *  series alone — observed, forecast, or both. */
 export function forecastStartPoint(forecast: ChartPoint[]): ChartPoint | null {
   return forecast.length ? forecast[0] : null;
+}
+
+/**
+ * What to call the rule between the observed series and the forecast.
+ *
+ * BOTH RENDERERS DRAW THAT RULE AT THE NEWEST OBSERVATION and both captioned it
+ * "Now", which is only true while the gauge is keeping up. A station that
+ * stopped reporting two days ago still had the line and the word at its last
+ * reading, so the chart said "now" about Tuesday — and the forecast to the
+ * right of it, which the reader had just been told began now, in fact began
+ * two days back.
+ *
+ * The line stays where it is: the boundary between measured and predicted is
+ * a fact about the data, and it does sit at the last observation. Only the
+ * word changes. "Now" while the reading is still presentable as current on
+ * the six-hour line shared/reading-staleness.ts draws for every surface —
+ * the same line the reading card and the offline cache use, so a chart cannot
+ * say "now" about a value the card above it has already captioned as stale —
+ * and "Last reading" past it.
+ *
+ * `now` defaults inside the function rather than being read by the caller,
+ * because the app's lint forbids Date.now() during render and the helper
+ * defaulting to it is the pattern its other screens already use. A test
+ * passes an explicit clock.
+ */
+export function nowLabel(latestAt: number, now: number = Date.now()): 'Now' | 'Last reading' {
+  const ageHours = (now - latestAt) / 3_600_000;
+  // An unreadable age counts as stale — the same absence-is-not-freshness rule
+  // isReadingStale() applies to a null age.
+  return isReadingStale(Number.isFinite(ageHours) ? ageHours : null) ? 'Last reading' : 'Now';
 }

@@ -50,6 +50,7 @@ import {
   latestObservedPoint,
   nearestChartPoint,
   niceValueTicks,
+  nowLabel,
   qualifierText,
   stepScrubTime,
   timeTicks,
@@ -143,6 +144,16 @@ const SERIES_COLOR = 'rgb(45, 120, 137)';
  *  app's chart uses for NWS stages. */
 const FORECAST_COLOR = '#7c3aed';
 const TYPICAL_COLOR = '#0f766e';
+
+/**
+ * How close to the top edge (in the plot's 0–100 percentage space) an NWS
+ * stage line has to sit before its label is pushed BELOW the line instead of
+ * above it, so the topmost label cannot clip out of the plot.
+ *
+ * Named because two things read it: the stage label itself, and the now-label,
+ * which shares that top line of the plot and has to know when it is occupied.
+ */
+const STAGE_LABEL_TOP_BAND = 10;
 
 /**
  * Who published the observed series, read off the URL the endpoint gave us.
@@ -644,6 +655,16 @@ export default function FlowTrendChart({
   // a forecast-only chart has no "now" boundary to draw, and inventing one
   // at the forecast's start would claim an observation nobody took.
   const nowX = chartData.current ? chartData.x(chartData.current.t) : null;
+  // "Now" while the newest reading is still current, "Last reading" once it
+  // is not — the shared model decides, on the same staleness line as every
+  // other surface. The line itself does not move; see nowLabel().
+  const nowLabelText = chartData.current ? nowLabel(chartData.current.t) : null;
+  // The now-label and a top-band stage label share the plot's top line. When
+  // the now-line also sits in the leftmost quarter — a 24h range under a
+  // multi-day forecast — the two would overprint, so the now-label drops one
+  // line height instead. The simplest rule that clears the case seen.
+  const nowLabelDropped =
+    nowX !== null && nowX < 25 && chartData.stageLineData.some((line) => line.y < STAGE_LABEL_TOP_BAND);
   const hoveredQualifiers = hovered?.kind === 'observed' ? qualifierText(hovered.point.qualifiers) : null;
 
   /**
@@ -1165,7 +1186,7 @@ export default function FlowTrendChart({
               cannot clip out of the plot. */}
           {chartData.stageLineData.map((line) => {
             const def = FLOOD_STAGE_SYSTEM[line.key];
-            const nearTop = line.y < 10;
+            const nearTop = line.y < STAGE_LABEL_TOP_BAND;
             return (
               <div
                 key={`stage-label-${line.key}`}
@@ -1187,20 +1208,27 @@ export default function FlowTrendChart({
           })}
 
           {/* The observed/forecast boundary, named. The dashed rule alone made
-              the reader infer which side is prediction; "Now" says it. On the
-              observed side of its own line, flipped when the boundary sits so
-              far left that a right-anchored label would clip out of the plot. */}
-          {hasForecast && nowX !== null && (
+              the reader infer which side is prediction; "Now" says it — or
+              "Last reading", when the gauge has been quiet long enough that
+              "now" would be a claim about the wrong day. On the observed side
+              of its own line, flipped when the boundary sits so far left that
+              a right-anchored label would clip out of the plot; the longer
+              caption needs more room, so it flips sooner. Dropped a line when
+              a stage label already owns the top-left corner. */}
+          {hasForecast && nowX !== null && nowLabelText && (
             <div
               aria-hidden
               className="absolute pointer-events-none text-[9px] font-medium leading-none text-slate-500"
               style={{
                 left: `${nowX}%`,
-                top: 2,
-                transform: nowX < 12 ? 'translateX(4px)' : 'translateX(calc(-100% - 4px))',
+                top: nowLabelDropped ? 14 : 2,
+                transform:
+                  nowX < (nowLabelText === 'Now' ? 12 : 25)
+                    ? 'translateX(4px)'
+                    : 'translateX(calc(-100% - 4px))',
               }}
             >
-              Now
+              {nowLabelText}
             </div>
           )}
 
