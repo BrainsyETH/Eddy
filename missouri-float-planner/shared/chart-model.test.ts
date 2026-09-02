@@ -252,10 +252,11 @@ test('stage below its datum keeps a labelled axis', () => {
 });
 
 test('the phone axis stays inside its label budget', () => {
-  // The iOS chart asks for 3 with room for 4 down a 168px edge. On this span
-  // the ladder's rungs jump straight from two labels (step 1) to five
-  // (step 0.5), so honoring the target would blow the budget — the cap keeps
-  // the last count that fit instead of crowding the axis.
+  // The 168px phone chart of the time asked for 3 with room for 4; the plot
+  // is 200px now and asks for 4, but this span still pins the cap. Its rungs
+  // jump straight from two labels (step 1) to five (step 0.5), so honoring
+  // the target would blow the budget — the cap keeps the last count that fit
+  // instead of crowding the axis.
   const ticks = niceValueTicks(0.4, 2.6, 3, 4);
   assert.ok(ticks.length >= 2 && ticks.length <= 4);
 });
@@ -317,4 +318,52 @@ test('nearest lookup picks the closer neighbour and clamps at both ends', () => 
   assert.equal(nearestChartPoint(points, BASE - 99 * HOUR)?.t, BASE);
   assert.equal(nearestChartPoint(points, BASE + 99 * HOUR)?.t, BASE + 2 * HOUR);
   assert.equal(nearestChartPoint([], 0), null);
+});
+
+// ── Discharge prints as whole cfs, so its ticks must be whole cfs ─────────
+//
+// A flat low-water week at 5 cfs used to get a 4.2–5.8 window (8% of a
+// synthetic 10-cfs range), whose round numbers are halves; both renderers
+// round cfs to an integer, so the axis read "5, 5, 6". Two things fix it: a
+// flat series takes its synthetic range as the domain, and a caller may floor
+// the step at what the unit can print.
+
+test('a flat discharge week gets a whole-number domain and distinct integer ticks', () => {
+  const domain = chartDomain(pointsAt([0, 1, 2, 3], [5, 5, 5, 5]), 'cfs')!;
+  assert.equal(domain.min, 0);
+  assert.equal(domain.max, 10);
+  const ticks = niceValueTicks(domain.min, domain.max, 3, 4, { minStep: 1 });
+  const labels = ticks.map((tick) => Math.round(tick.value));
+  assert.equal(new Set(labels).size, labels.length, `duplicate labels: ${labels.join(', ')}`);
+  for (const tick of ticks) assert.equal(tick.value, Math.round(tick.value));
+});
+
+test('a step floor rejects the rungs the unit cannot print', () => {
+  // 0–10 with a target of 4 would take the 2.5 rung (0, 2.5, 5, 7.5, 10);
+  // on a floor of 1 it must not.
+  const ticks = niceValueTicks(0, 10, 4, 5, { minStep: 1 });
+  for (const tick of ticks) assert.equal(tick.value, Math.round(tick.value));
+  assert.ok(ticks.length >= 2);
+  // And the floor is a floor, not a preference: no tick sits between integers.
+  const fine = niceValueTicks(4.2, 5.8, 3, 4, { minStep: 1 });
+  for (const tick of fine) assert.equal(tick.value, Math.round(tick.value));
+});
+
+test('a window holding one whole number labels that number, not two padded edges', () => {
+  const ticks = niceValueTicks(4.8, 5.2, 3, 4, { minStep: 1 });
+  assert.deepEqual(ticks.map((tick) => tick.value), [5]);
+});
+
+test('without a floor the ladder is unchanged', () => {
+  assert.deepEqual(
+    niceValueTicks(0, 10, 4, 5).map((tick) => tick.value),
+    niceValueTicks(0, 10, 4, 5, {}).map((tick) => tick.value),
+  );
+});
+
+test('a flat stage series still pads by its synthetic range', () => {
+  const domain = chartDomain(pointsAt([0, 1], [7, 7]), 'ft')!;
+  // 10% of 7 is 0.7, so the window is 6.65–7.35 — room for hundredth ticks.
+  assert.ok(domain.min < 7 && domain.max > 7);
+  assert.ok(domain.max - domain.min > 0.5);
 });

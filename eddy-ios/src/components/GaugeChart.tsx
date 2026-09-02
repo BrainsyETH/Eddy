@@ -604,8 +604,15 @@ function GaugeChartInner({
   const valueTicks = useMemo(
     // Four with headroom for five, matched to the 200px chart — the 168px
     // chart asked for three. See CHART_HEIGHT: the two numbers move together.
-    () => (domain ? niceValueTicks(domain.min, domain.max, 4) : []),
-    [domain],
+    //
+    // Discharge is printed as whole cfs (formatReading rounds), so its ticks
+    // are floored at whole cfs; a half-cfs rung on a low-water week printed
+    // "5, 5, 6". Stage reads to the hundredth and takes the full ladder.
+    () =>
+      domain
+        ? niceValueTicks(domain.min, domain.max, 4, 5, drawnUnit === 'cfs' ? { minStep: 1 } : {})
+        : [],
+    [domain, drawnUnit],
   );
 
   /** Three instants across the window, so the middle of the plot is placeable. */
@@ -1018,7 +1025,7 @@ function GaugeChartInner({
                   <LinearGradient id={fillId} x1="0" y1="0" x2="0" y2="1">
                     {/* Deliberately fainter than the web chart's ramp
                         (0.30 → 0.05): this plot already stacks condition
-                        bands, a typical range and a forecast in 168px, and at
+                        bands, a typical range and a forecast in 200px, and at
                         a quarter alpha the fill competed with all of them. The
                         line stays the data mark; the fill is something a
                         reader should feel more than notice. Dark sits a step

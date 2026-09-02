@@ -19,11 +19,17 @@
 // computed name and drop the lines below the headline, which is exactly what
 // went wrong on the iOS side.
 //
-// ── Why a divider and not a card ────────────────────────────────────────────
+// ── Why a divider and not a card, and then why not even a divider ──────────
 // It shipped as a rounded bordered box directly beneath GaugeSummary, which is
 // itself a rounded bordered box — a second outline stacked on the first, which
 // reads as another object competing with the reading rather than as a line
-// qualifying it. A hairline rule and no fill is the quiet version.
+// qualifying it. A hairline rule and no fill was the quiet version.
+//
+// Then the hairline went too. The row sits FLUSH under the summary card by
+// design (see RiverGaugeDetail), and the card already ends in a border, so a
+// border-top here stacked into a 2px rule that ran the full width past the
+// card's rounded corners. The card's own bottom edge is the rule now; this row
+// brings only its padding.
 //
 // Server component, fed by the riverDam the page already fetched inside its
 // existing Promise.all, so it costs no request and no client-side flash.
@@ -44,7 +50,7 @@ export default function TailwaterStatusRow({ dam }: { dam: DamSnapshot }) {
   return (
     <Link
       href={`/dams/${status.damId}`}
-      className="group flex w-full items-start gap-3 border-t border-neutral-200 pt-3 no-underline"
+      className="group flex w-full items-start gap-3 pt-3 no-underline"
     >
       <Icon className="mt-0.5 h-4 w-4 shrink-0 text-primary-700" aria-hidden />
 

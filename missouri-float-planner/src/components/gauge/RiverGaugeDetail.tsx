@@ -382,17 +382,21 @@ export default function RiverGaugeDetail({ riverSlug, damSlot }: RiverGaugeDetai
   // Loading state
   if (isLoading) {
     return (
-      <section className="animate-pulse space-y-6">
-        <div className="h-7 w-48 bg-neutral-200 rounded" />
+      <section className="space-y-6">
+        {/* The pulse is on the skeletons, not the section. It was on the
+            section, which animates OPACITY, and `animate-none` on a child
+            cannot opt out of an inherited opacity animation — so the tailwater
+            row below, real data already on the page, faded in and out with the
+            placeholders until the gauge query settled. */}
+        <div className="h-7 w-48 animate-pulse bg-neutral-200 rounded" />
         <div className="grid grid-cols-1 lg:grid-cols-[1fr_300px] gap-6">
-          <div className="h-64 bg-neutral-200 rounded-xl" />
+          <div className="h-64 animate-pulse bg-neutral-200 rounded-xl" />
           <div className="space-y-4">
-            <div className="h-36 bg-neutral-200 rounded-xl" />
-            <div className="h-24 bg-neutral-200 rounded-xl" />
+            <div className="h-36 animate-pulse bg-neutral-200 rounded-xl" />
+            <div className="h-24 animate-pulse bg-neutral-200 rounded-xl" />
           </div>
         </div>
-        {/* Not pulsing: it is real, and it is already here. */}
-        <div className="animate-none">{damSlot}</div>
+        {damSlot}
       </section>
     );
   }

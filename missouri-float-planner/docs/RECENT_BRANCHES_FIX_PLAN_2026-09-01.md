@@ -27,6 +27,18 @@ failure. Everything below is behaviour or deployment.
 Phases are ordered by what unblocks what. Phase 0 is one sitting. Phases 2,
 3 and 4 are each one PR and are independent of each other once Phase 0 lands.
 
+**Status, 2026-09-02** (all on `claude/review-recent-branches-6v7r29`):
+
+| Phase | State |
+|---|---|
+| 0 | Repo side done: three renames, references, stale headers, README, ledger. **The production apply (0.1) is not done** — it needs explicit authorization and a session with the Supabase credentials. The three files sit under `[pending]` in the ledger. |
+| 1 | Done: ledger + test, drift workflow (needs two Actions secrets), CLAUDE.md rule, the comment sweep except the two migration comments (6.1 corrects them with the data). 1.4's executing tests are **not** done. |
+| 2 | Done, one commit. 2.6 took the comment fix; the keychain re-add migration is filed, not done. |
+| 3 | Done except 3.2 (the refund race), which needs a schema change and so joins the Phase 0 pile; see the item. |
+| 4 | Done, one commit. |
+| 5 | Not started — needs the device pass. |
+| 6 | Not started — needs read-only production queries. |
+
 ---
 
 ## Phase 0 — production alignment (do this first, one sitting)
@@ -201,6 +213,8 @@ web suite covers the pure parts.
 
 ### 2.1 Outlook in-flight map is keyed without the river
 
+**Done 2026-09-02.** Items 2.1 through 2.6 landed in one commit; 2.7 was left.
+
 **File:** `eddy-ios/app/river/[slug].tsx:844`
 
 ```ts
@@ -302,6 +316,14 @@ This plan does the first and files the second.
 
 ### 3.1 Confirm the refresh endpoint's limiter is global
 
+**Done 2026-09-02, with a decision to know about.** Rather than change what
+`failClosed` means for every route, a new `requireGlobalLimiter` option
+answers 503 in production when Upstash is not configured, and only the
+refresh route asks for it. If the Vercel project has no Upstash variables,
+that route is dead until they are set — loudly, in the logs — and Restore
+falls back to the profile poll and the webhook path, as before #1256. Check
+the Vercel environment before the next deploy.
+
 **File:** `src/app/api/me/entitlement/refresh/route.ts:48-55`,
 `src/lib/rate-limit.ts:141-171`
 
@@ -318,6 +340,11 @@ signal that this is the intended semantics.
 
 ### 3.2 Forward-only reconcile can re-grant a refund in a race
 
+**Not done.** Both fixes need a column (a per-user `last_event_at`, or a
+writer stamp on the entitlement row), so this is a migration, and a
+migration written now lands in the same unapplied pile as 0.1. Do it in the
+same production session, after 0.1.
+
 **File:** `20260826112559_…sql:110`, `src/app/api/me/entitlement/refresh/route.ts`
 
 "Later expiry wins" is correct against a stale reconcile but not against a
@@ -332,6 +359,8 @@ was written by a webhook in the last N seconds. Pick one; add the test 1.4
 describes.
 
 ### 3.3 Flood-stage stamp clearing uses the ungated reading
+
+**Done 2026-09-02.** 3.4 and 3.5 as well, in the same commit.
 
 **File:** `src/app/api/cron/update-gauges/route.ts:503-538` vs the
 `gateReading` at `:544`
@@ -375,6 +404,13 @@ Validate with `make check-web` (chart-model, chart-parity and tailwater-status
 suites) plus a look at one river page and one river card.
 
 ### 4.1 The tailwater row pulses while the gauge loads
+
+**Done 2026-09-02.** 4.1 through 4.6 in one commit. 4.2 measures the plot
+with a ResizeObserver and falls back to the old percentage where there is
+none (SSR, the OG renderer). 4.4 adds a `minStep` floor to the shared tick
+ladder, passed as 1 for cfs by both renderers, and widens a flat series'
+domain to its synthetic range. 4.5 dropped the row's own border: the card
+above already ends in one.
 
 **File:** `src/components/gauge/RiverGaugeDetail.tsx:385-395`
 

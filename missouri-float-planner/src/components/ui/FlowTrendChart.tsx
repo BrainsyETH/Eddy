@@ -41,7 +41,7 @@
 // means the tooltip's `left: x%` and the SVG's x coordinate are the same
 // number, so the readout and the crosshair cannot drift apart.
 
-import { useMemo, useState, useRef, useCallback, type ReactNode } from 'react';
+import { useEffect, useMemo, useState, useRef, useCallback, type ReactNode } from 'react';
 import { useGaugeHistory, type HistoryWindowRequest } from '@/hooks/useGaugeHistory';
 import {
   chartDomain,
@@ -274,6 +274,25 @@ export default function FlowTrendChart({
   const [brush, setBrush] = useState<{ start: number; end: number } | null>(null);
   const chartContainerRef = useRef<HTMLDivElement>(null);
 
+  // The plot's height in pixels, for the threshold-label collision check.
+  // Labels are two lines of 9px text (~22px) and the gap between them was a
+  // percentage of plot height, which is fine at the detail chart's 192px and
+  // not at the card's 128px, where 12% is 15px and High and Flood two hundred
+  // cfs apart overprinted. Null until measured, and null in any environment
+  // without ResizeObserver (SSR, the OG renderer), where the old percentage
+  // stands.
+  const [plotHeightPx, setPlotHeightPx] = useState<number | null>(null);
+  useEffect(() => {
+    const element = chartContainerRef.current;
+    if (!element || typeof ResizeObserver === 'undefined') return;
+    const observer = new ResizeObserver((entries) => {
+      const height = entries[0]?.contentRect.height;
+      setPlotHeightPx(height && height > 0 ? height : null);
+    });
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, []);
+
   // The declared-unit guard, applied once so every consumer below — the lines,
   // the zone fills, the tooltip's zone label — inherits the same refusal.
   const activeThresholds = useMemo(
@@ -416,8 +435,11 @@ export default function FlowTrendChart({
     // Collapse the optimal pair to one centred label, then drop any label that
     // would collide with one already placed. The gap grew with the labels: they
     // carry their numeric value on a second line now, so clearance is two lines
-    // of text, not one.
-    const MIN_LABEL_GAP = 12;
+    // of text, not one — and it is measured in pixels where the plot's height
+    // is known, because the same 12% is 23px on the detail chart and 15px on
+    // the card, which is less than the label.
+    const LABEL_HEIGHT_PX = 24;
+    const MIN_LABEL_GAP = plotHeightPx ? Math.max(12, (LABEL_HEIGHT_PX / plotHeightPx) * 100) : 12;
     type ThresholdLabel = (typeof thresholdLineData)[number] & {
       /** A band's name centred between its two rules, not a rule's own label —
        *  it gets no number, because its `value` is one edge and its `y` is
@@ -474,15 +496,19 @@ export default function FlowTrendChart({
       // height to seat five labels; the inline card gets three with headroom
       // for a fourth, same as the phone. (`showGridlines` is the expanded
       // mode's flag — see the prop's note.)
+      //
+      // Discharge is printed as whole cfs (formatVal), so its ticks are floored
+      // at whole cfs; a half-cfs rung on a low-water week printed "5, 5, 6".
+      // Stage reads to the hundredth and takes the full ladder.
       yTicks: showGridlines
-        ? niceValueTicks(domain.min, domain.max, 4, 5)
-        : niceValueTicks(domain.min, domain.max, 3, 4),
+        ? niceValueTicks(domain.min, domain.max, 4, 5, isFt ? {} : { minStep: 1 })
+        : niceValueTicks(domain.min, domain.max, 3, 4, isFt ? {} : { minStep: 1 }),
       xTicks: timeTicks(domain.t0, domain.t1, days <= 2 ? 4 : 5),
       thresholdLineData,
       thresholdLabels,
       stageLineData,
     };
-  }, [history, activeThresholds, floodStages, displayUnit, isFt, showTypical, days, zoomWindow, showGridlines]);
+  }, [history, activeThresholds, floodStages, displayUnit, isFt, showTypical, days, zoomWindow, showGridlines, plotHeightPx]);
 
   const hovered = useMemo<HoverPoint | null>(() => {
     if (hoverFraction === null || !chartData) return null;
@@ -1218,9 +1244,12 @@ export default function FlowTrendChart({
                 <div>{t.label}</div>
                 {/* "High starts at 1,400" is the number people open this chart
                     for, and the axis ticks rarely land on a threshold. The
-                    collapsed band label is the exception — see `banded`. */}
+                    collapsed band label is the exception — see `banded`.
+                    The tooltip's formatter, not the axis's: "1.4k" here beside
+                    "1,400" in the tooltip two lines away was two spellings of
+                    one number, and the column is wide enough for the real one. */}
                 {!t.banded && (
-                  <div className="font-normal opacity-70 tabular-nums">{formatVal(t.value)}</div>
+                  <div className="font-normal opacity-70 tabular-nums">{formatTooltipVal(t.value)}</div>
                 )}
               </div>
             ))}

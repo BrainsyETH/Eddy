@@ -276,7 +276,13 @@ export function chartDomain(
     if (value > max && value <= max + reach) max = value;
   }
 
-  const pad = (max - min || dataRange) * 0.08;
+  // A FLAT series takes the synthetic range as its domain, not 8% of it. With
+  // the 8% pad a week at 5 cfs got a 4.2–5.8 window, whose only round numbers
+  // are halves — and both renderers print cfs as whole numbers, so the axis
+  // read "5, 5, 6". Ten cfs of headroom around a flat line is the honest
+  // picture anyway: nothing moved, and here is the scale it did not move on.
+  const flat = max === min;
+  const pad = flat ? dataRange * 0.5 : (max - min) * 0.08;
   const floor = unit === 'cfs' ? 0 : -Infinity;
   return {
     min: Math.max(floor, min - pad),
@@ -303,12 +309,30 @@ export function niceValueTicks(
    * The most labels the calling surface can seat. The ladder below aims at
    * `targetCount` from below, but its rungs move in 2×–2.5× jumps, so the first
    * step to reach the target can overshoot it — five labels on the 168px phone
-   * plot that asked for three crowd into each other and read worse than the
-   * sparse axis they replaced. One over target is the default headroom; a
+   * plot of the time, which asked for three, crowded into each other and read
+   * worse than the sparse axis they replaced. One over target is the default headroom; a
    * surface with more room says so explicitly.
    */
-  maxCount = targetCount + 1
+  maxCount = targetCount + 1,
+  options: {
+    /**
+     * The finest step the unit can honestly show. Discharge is printed as a
+     * whole number of cfs on both renderers, so a step of 0.5 or 2.5 puts two
+     * labels on one number ("5, 5, 6" on a low-water week). Pass 1 for cfs;
+     * stage reads to the hundredth and needs no floor.
+     */
+    minStep?: number;
+  } = {}
 ): ChartTick[] {
+  const minStep = options.minStep;
+  // A step the unit cannot print is not a step: below the floor, or not a
+  // whole multiple of it (2.5 on a floor of 1).
+  const printable = (size: number): boolean => {
+    if (!minStep) return true;
+    if (size < minStep - 1e-9) return false;
+    const ratio = size / minStep;
+    return Math.abs(ratio - Math.round(ratio)) < 1e-9;
+  };
   const fallback: ChartTick[] = [
     { value: min, position: 0 },
     { value: max, position: 1 },
@@ -394,17 +418,31 @@ export function niceValueTicks(
   const LADDER = [10, 5, 2.5, 2, 1];
   const cap = Math.max(2, maxCount);
   const target = Math.min(Math.max(2, targetCount), cap);
-  let size = step;
+  // A first step already finer than the floor is raised to it, so a narrow
+  // discharge window walks the integer rungs instead of stopping before it
+  // starts.
+  let size = minStep && step < minStep ? minStep : step;
   let best: ChartTick[] | null = null;
-  for (let attempt = 0; attempt < 5; attempt += 1) {
-    const found = ticksForStep(size);
-    // Finer rungs only ever add labels, so the first count past the cap ends
-    // the walk; whatever was accepted before it stands.
-    if (found.length > cap) break;
-    // Two labels is the minimum that defines a scale at all.
-    if (found.length >= 2) {
-      best = found;
-      if (found.length >= target) break;
+  // One label is not a scale, but on a floor it can be the only honest one: a
+  // 4.8–5.2 cfs window holds exactly one whole number. Kept as the last resort
+  // ahead of the fallback, whose padded edges would both print as "5".
+  let lone: ChartTick[] | null = null;
+  // One more attempt than the ladder has rungs, because a floor skips some.
+  for (let attempt = 0; attempt < 6; attempt += 1) {
+    // Finer rungs only get finer; once below the floor the walk is over.
+    if (minStep && size < minStep - 1e-9) break;
+    if (printable(size)) {
+      const found = ticksForStep(size);
+      // Finer rungs only ever add labels, so the first count past the cap ends
+      // the walk; whatever was accepted before it stands.
+      if (found.length > cap) break;
+      // Two labels is the minimum that defines a scale at all.
+      if (found.length >= 2) {
+        best = found;
+        if (found.length >= target) break;
+      } else if (found.length === 1 && !lone) {
+        lone = found;
+      }
     }
     // Next finer rung: 10 → 5 → 2.5 → 2 → 1 → 5 of the decade below. Matched by
     // value rather than by index arithmetic, since 2.5 is not an integer.
@@ -415,7 +453,7 @@ export function niceValueTicks(
     size = nextIndex < LADDER.length ? LADDER[nextIndex] * decade : 5 * (decade / 10);
     if (!Number.isFinite(size) || size <= 0) break;
   }
-  return best ?? fallback;
+  return best ?? lone ?? fallback;
 }
 
 /** Evenly spaced instants across the window, for the x axis. */
