@@ -76,3 +76,47 @@ test('in-memory fallback enforces the window when Upstash is not configured', as
   assert.ok(limited, 'fourth request in the window must be limited');
   assert.equal(limited.status, 429);
 });
+
+// ── requireGlobalLimiter: absent is not the same as erroring ──────────────
+//
+// failClosed governs a CONFIGURED limiter that is failing. With no Upstash at
+// all it only warns, and per-instance limiting stands in — right for login and
+// uploads, wrong for a route that spends a paid third-party call per request.
+// Such a route asks for the global limiter by name and gets a 503 without it,
+// in production only; dev and test keep the in-memory map.
+
+test('requireGlobalLimiter rejects in production when Upstash is not configured', async () => {
+  delete process.env.UPSTASH_REDIS_REST_URL;
+  delete process.env.UPSTASH_REDIS_REST_TOKEN;
+  const env = process.env.NODE_ENV;
+  process.env.NODE_ENV = 'production';
+  try {
+    const res = await rateLimit('require-global:prod', 10, 60_000, {
+      failClosed: true,
+      requireGlobalLimiter: true,
+    });
+    assert.ok(res, 'expected a rejection');
+    assert.equal(res.status, 503);
+  } finally {
+    process.env.NODE_ENV = env;
+  }
+});
+
+test('requireGlobalLimiter falls back to the in-memory map outside production', async () => {
+  delete process.env.UPSTASH_REDIS_REST_URL;
+  delete process.env.UPSTASH_REDIS_REST_TOKEN;
+  const res = await rateLimit('require-global:dev', 10, 60_000, {
+    failClosed: true,
+    requireGlobalLimiter: true,
+  });
+  assert.equal(res, null);
+});
+
+test('requireGlobalLimiter is satisfied by a configured, working Upstash', async () => {
+  redisOk(1);
+  const res = await rateLimit('require-global:redis', 10, 60_000, {
+    failClosed: true,
+    requireGlobalLimiter: true,
+  });
+  assert.equal(res, null);
+});

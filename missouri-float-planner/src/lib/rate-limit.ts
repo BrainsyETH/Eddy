@@ -110,6 +110,18 @@ export interface RateLimitOptions {
    * this unset and fail open.
    */
   failClosed?: boolean;
+  /**
+   * When true, a production process with NO global limiter configured rejects
+   * with 503 rather than falling back to the per-instance map. failClosed
+   * alone does not do this: it governs a configured limiter that is erroring,
+   * and a missing one only logs a warning once per instance. That is the
+   * right default for login and uploads, where "per-instance only" is still a
+   * limit. It is the wrong one for a route that spends a paid third-party call
+   * per request, where per-instance means "times however many instances the
+   * caller can fan out to". Such a route says so here and is loud when the
+   * limiter is absent, instead of quietly unbounded.
+   */
+  requireGlobalLimiter?: boolean;
 }
 
 // Warn (not throw) once per process when a fail-closed route runs in
@@ -146,6 +158,13 @@ export async function rateLimit(
       return tooManyRequests(Math.ceil(result.ttlMs / 1000));
     }
     return null;
+  }
+
+  if (options?.requireGlobalLimiter && process.env.NODE_ENV === 'production') {
+    logger.error('[RateLimit] route requires a global limiter and none is configured; failing closed', undefined, {
+      key,
+    });
+    return limiterUnavailable();
   }
 
   if (options?.failClosed && process.env.NODE_ENV === 'production' && !warnedNoGlobalLimiter) {

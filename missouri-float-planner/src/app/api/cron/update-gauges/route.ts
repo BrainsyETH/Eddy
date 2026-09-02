@@ -499,6 +499,33 @@ async function runUpdate(request: NextRequest) {
             // applyFloodStageOverride is the single source of truth for that
             // escalation; comparing the numbers here by hand is how the two
             // halves drift apart again.
+            // Refuse to act on untrustworthy data. A stuck or equipment-flagged
+            // sensor used to classify exactly like a clean one — and because
+            // this path posts publicly, that could put a false DANGEROUS on
+            // Facebook.
+            //
+            // The gate runs BEFORE the unrated branch below, not after it as it
+            // first did. The flood-stage comparison and the stamp clear both
+            // read the height, and an unrated gauge stamped 'dangerous' from a
+            // real flood, then handed one null or equipment-flagged height,
+            // read "below flood stage", cleared its stamp, and re-emitted
+            // unknown → dangerous as a duplicate push on the next clean pass.
+            // A reading the gate refuses is evidence of nothing, so it clears
+            // nothing.
+            const gate = gateReading({
+              gaugeHeightFt: reading.gaugeHeightFt,
+              dischargeCfs: reading.dischargeCfs,
+              thresholdUnit,
+              floodStageFt: rg.flood_stage_ft,
+              qualifiers: reading.qualifiers,
+              readingAt: reading.readingTimestamp,
+              provider: station.provider,
+            });
+            if (!gate.ok) {
+              gatedReadings[gate.reason] = (gatedReadings[gate.reason] ?? 0) + 1;
+              continue;
+            }
+
             const unrated = !hasLadder(thresholds);
             const aboveFloodStage =
               applyFloodStageOverride('unknown', reading.gaugeHeightFt, rg.flood_stage_ft) ===
@@ -534,24 +561,6 @@ async function runUpdate(request: NextRequest) {
                   unratedStampsCleared++;
                 }
               }
-              continue;
-            }
-
-            // Refuse to act on untrustworthy data. A stuck or equipment-flagged
-            // sensor used to classify exactly like a clean one — and because
-            // this path posts publicly, that could put a false DANGEROUS on
-            // Facebook.
-            const gate = gateReading({
-              gaugeHeightFt: reading.gaugeHeightFt,
-              dischargeCfs: reading.dischargeCfs,
-              thresholdUnit,
-              floodStageFt: rg.flood_stage_ft,
-              qualifiers: reading.qualifiers,
-              readingAt: reading.readingTimestamp,
-              provider: station.provider,
-            });
-            if (!gate.ok) {
-              gatedReadings[gate.reason] = (gatedReadings[gate.reason] ?? 0) + 1;
               continue;
             }
 

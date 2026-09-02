@@ -202,6 +202,12 @@ export async function fetchSubscriber(
       }
     );
 
+    // Defensive, and in practice unreached: RevenueCat's v1 GET creates an
+    // empty subscriber for an unknown app_user_id and answers 201, so a user
+    // who never bought comes back as `ok` with no entitlements, not as 404.
+    // (It also means every never-purchased Restore leaves a subscriber record
+    // in RevenueCat; harmless to entitlement.) Kept for the day the API's
+    // behaviour changes, because the alternative is treating 404 as an error.
     if (response.status === 404) return { status: 'not_found' };
     if (!response.ok) return { status: 'error', detail: `HTTP ${response.status}` };
 

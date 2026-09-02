@@ -49,8 +49,17 @@ export async function POST(request: NextRequest) {
     // API on every call, so an unbounded retry loop is somebody else's bill.
     // Ten in fifteen minutes is far more than a restore needs and far less than
     // a loop would make.
+    //
+    // And it REQUIRES the global limiter: failClosed alone still falls back to
+    // a per-instance map when Upstash is not configured, which for this route
+    // means ten per fifteen minutes per lambda, times the fan-out. Without
+    // Upstash in production this answers 503 — loudly, in the logs — and the
+    // Restore button goes on to poll /api/me/profile as it always did, so the
+    // webhook path still resolves the entitlement. Configure
+    // UPSTASH_REDIS_REST_URL/TOKEN in the Vercel project to turn it on.
     const limited = await rateLimit(`entitlement-refresh:${user.id}`, 10, 15 * 60 * 1000, {
       failClosed: true,
+      requireGlobalLimiter: true,
     });
     if (limited) return limited;
 

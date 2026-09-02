@@ -245,7 +245,13 @@ async function applyTransfer(
           'and this user has no access. See src/lib/revenuecat/api.ts.'
       );
     } else {
-      console.log(
+      // Zero source rows and nothing granted is the one outcome here that is
+      // both correct to acknowledge — RevenueCat says the target owns nothing,
+      // and no redelivery changes that — and worth a second look, because it
+      // is what a lost purchase looks like from this side. warn, not log, so
+      // it is not the one silent line in a path built to be loud.
+      const quiet = sourceRows === 0 && reconciled.status !== 'granted';
+      (quiet ? console.warn : console.log)(
         `${LOG_PREFIX} TRANSFER ${event.id} → ${targetId}: ${sourceRows} source row(s), ` +
           `RevenueCat reconcile ${reconciled.status}${reconciled.detail ? ` (${reconciled.detail})` : ''}`
       );
