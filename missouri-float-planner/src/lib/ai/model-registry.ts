@@ -100,9 +100,8 @@ export interface WorkloadSpec {
   /** Output cap per model id. Every approved model needs an entry. */
   maxTokens: Record<string, number>;
   /**
-   * Whether this workload attaches a cache_control breakpoint to its system
-   * prompt. A property of the prompt, not of the model — only the river update
-   * has a system prompt long and stable enough to be worth caching.
+   * Whether this workload may attach a cache_control breakpoint to its system
+   * prompt. The selected model must also support caching a prefix this short.
    */
   cacheSystemPrompt: boolean;
   /** Rough system-prompt size, in tokens. Only meaningful when cacheSystemPrompt. */
@@ -125,13 +124,14 @@ export const WORKLOAD_SPECS: Record<Workload, WorkloadSpec> = {
     label: 'River and section updates',
     description: 'The per-river condition report, generated daily and on condition changes.',
     default: 'claude-sonnet-4-6',
-    // Haiku is deliberately absent. This is the longest-form output of the four,
-    // and its 4096-token cache floor would make the system-prompt breakpoint
-    // below a silent no-op at the ~1.9k prompt this workload sends.
-    approved: ['claude-sonnet-4-6', 'claude-sonnet-5'],
+    // Haiku cannot cache this workload's ~1.9k-token system prompt because its
+    // cache floor is 4096 tokens. resolve-models disables the breakpoint for
+    // that pairing while preserving prompt caching for Sonnet.
+    approved: ['claude-sonnet-4-6', 'claude-sonnet-5', 'claude-haiku-4-5-20251001'],
     maxTokens: {
       'claude-sonnet-4-6': 800,
       'claude-sonnet-5': 1040, // provisional
+      'claude-haiku-4-5-20251001': 800,
     },
     cacheSystemPrompt: true,
     systemPromptTokens: 1900,
@@ -187,4 +187,16 @@ export function isApproved(workload: Workload, modelId: string): boolean {
 /** Approved profiles for a workload, in registry order, for the admin dropdown. */
 export function approvedProfiles(workload: Workload): ModelProfile[] {
   return WORKLOAD_SPECS[workload].approved.map((id) => MODELS[id]).filter(Boolean);
+}
+
+/** Whether this workload/model pairing can use its system-prompt cache marker. */
+export function shouldCacheSystemPrompt(workload: Workload, modelId: string): boolean {
+  const spec = WORKLOAD_SPECS[workload];
+  const profile = MODELS[modelId];
+  return Boolean(
+    spec.cacheSystemPrompt &&
+      spec.systemPromptTokens &&
+      profile &&
+      profile.minCacheablePrefixTokens <= spec.systemPromptTokens,
+  );
 }

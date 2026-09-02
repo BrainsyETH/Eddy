@@ -1,5 +1,5 @@
 // src/lib/eddy/generate-update.ts
-// Orchestrates data gathering and calls Claude Sonnet to generate Eddy updates.
+// Orchestrates data gathering and calls the configured Claude model to generate Eddy updates.
 // Used by the cron job to produce per-river (or per-section) condition quotes.
 
 import Anthropic from '@anthropic-ai/sdk';
@@ -216,18 +216,13 @@ export async function generateEddyUpdate(
       // and would spend max_tokens doing it; Sonnet 4.6 does not.
       ...(model.thinking ? { thinking: model.thinking } : {}),
       messages: [{ role: 'user', content: prompt }],
-      // Static system prompt with a cache breakpoint: every river/section call
-      // in a cron run shares this exact prefix, so only the first pays full
-      // input price. River-specific semantics live in the user prompt.
-      //
-      // This prompt is ~1.9k tokens and every model approved for this workload
-      // has a cacheable-prefix floor of 1024, an invariant model-registry.test.ts
-      // enforces — so the breakpoint is live, not decorative. If
-      // eddy_updates.cache_read_tokens sits at 0 across a run, the cause is a
-      // varying prefix, not the floor.
-      system: [
-        { type: 'text', text: EDDY_SYSTEM_PROMPT, cache_control: { type: 'ephemeral' } },
-      ],
+      // Every river/section call shares this static system prompt. Sonnet can
+      // cache its ~1.9k tokens; Haiku's 4096-token minimum is too high, so the
+      // resolver omits the otherwise ineffective breakpoint for that pairing.
+      // River-specific semantics live in the user prompt.
+      system: model.cacheSystemPrompt
+        ? [{ type: 'text', text: EDDY_SYSTEM_PROMPT, cache_control: { type: 'ephemeral' } }]
+        : EDDY_SYSTEM_PROMPT,
     });
 
     const textBlock = message.content.find((block) => block.type === 'text');
@@ -273,7 +268,8 @@ export { RIVER_TYPE_GUIDANCE, buildConditionSemantics };
 // ---------------------------------------------------------------------------
 
 // Static Eddy system prompt. Deliberately free of any river-specific value so
-// it forms an identical, cacheable prefix across every Sonnet call. River
+// it forms an identical prefix across every call and is cacheable when the
+// selected model supports a prefix this short. River
 // region and low/rising-water framing are injected into the user prompt's
 // [CONDITION SEMANTICS] block by buildConditionSemantics().
 const EDDY_SYSTEM_PROMPT = `You are Eddy, an AI otter mascot for a float trip planning app. You provide condition updates for float rivers. The user message names the river, its region, and its hydrology semantics.

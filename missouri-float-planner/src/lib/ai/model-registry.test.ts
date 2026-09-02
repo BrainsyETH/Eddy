@@ -7,6 +7,7 @@ import {
   WORKLOAD_SPECS,
   approvedProfiles,
   isApproved,
+  shouldCacheSystemPrompt,
   type Workload,
 } from './model-registry';
 
@@ -78,39 +79,34 @@ test('Sonnet 5 always disables thinking', () => {
   }
 });
 
-test('every model approved for a prompt-cached workload clears its cache floor', () => {
-  // generate-update.ts attaches a cache_control breakpoint unconditionally. That
-  // is only correct while every model it can run has a cacheable-prefix floor at
-  // or under the prompt size — otherwise the breakpoint is a silent no-op and
-  // the cost model quietly changes. Approving Haiku 4.5 (floor 4096) for the
-  // river update is exactly what this catches.
+test('system-prompt caching is enabled only when the model clears the cache floor', () => {
   for (const workload of WORKLOADS) {
     const spec = WORKLOAD_SPECS[workload];
-    if (!spec.cacheSystemPrompt) continue;
-
-    const promptTokens = spec.systemPromptTokens;
-    assert.equal(
-      typeof promptTokens,
-      'number',
-      `${workload} caches its system prompt but declares no systemPromptTokens`,
-    );
-
-    for (const modelId of spec.approved) {
-      assert.ok(
-        MODELS[modelId].minCacheablePrefixTokens <= (promptTokens as number),
-        `${modelId} cannot cache ${workload}'s ~${promptTokens}-token prompt ` +
-          `(floor ${MODELS[modelId].minCacheablePrefixTokens})`,
+    if (spec.cacheSystemPrompt) {
+      assert.equal(
+        typeof spec.systemPromptTokens,
+        'number',
+        `${workload} may cache its system prompt but declares no systemPromptTokens`,
       );
     }
+
+    for (const modelId of spec.approved) {
+      const expected = Boolean(
+        spec.cacheSystemPrompt &&
+          spec.systemPromptTokens &&
+          MODELS[modelId].minCacheablePrefixTokens <= spec.systemPromptTokens,
+      );
+      assert.equal(shouldCacheSystemPrompt(workload, modelId), expected);
+    }
   }
+
+  assert.equal(shouldCacheSystemPrompt('river_update', 'claude-sonnet-4-6'), true);
+  assert.equal(shouldCacheSystemPrompt('river_update', 'claude-haiku-4-5-20251001'), false);
 });
 
-test('Haiku is not approved where nobody has read its output', () => {
-  // Approved is narrower than API-compatible. The statewide summary leads with
-  // flood and safety framing, and the river update is the longest-form output of
-  // the four; both are Sonnet-tier until someone has actually looked.
+test('Haiku is approved for river reports but not the statewide safety summary', () => {
+  assert.equal(isApproved('river_update', 'claude-haiku-4-5-20251001'), true);
   assert.equal(isApproved('global_summary', 'claude-haiku-4-5-20251001'), false);
-  assert.equal(isApproved('river_update', 'claude-haiku-4-5-20251001'), false);
 });
 
 test('approvedProfiles returns real profiles in registry order', () => {

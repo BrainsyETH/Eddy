@@ -48,6 +48,18 @@ test('a valid override applies, and carries that pairing’s parameters', () => 
   assert.equal(resolved.river_update.source, 'default');
 });
 
+test('Haiku river updates are allowed with prompt caching disabled', () => {
+  const resolved = resolveConfiguredModels({
+    ...emptyRow(),
+    river_update: 'claude-haiku-4-5-20251001',
+  });
+
+  assert.equal(resolved.river_update.id, 'claude-haiku-4-5-20251001');
+  assert.equal(resolved.river_update.source, 'override');
+  assert.equal(resolved.river_update.maxTokens, 800);
+  assert.equal(resolved.river_update.cacheSystemPrompt, false);
+});
+
 test('a model with no thinking requirement omits the parameter entirely', () => {
   // Sending `thinking` where it is not needed is not free — it is a request-shape
   // difference on a model that does not think by default.

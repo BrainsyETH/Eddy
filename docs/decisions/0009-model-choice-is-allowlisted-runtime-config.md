@@ -46,6 +46,13 @@ a `CHECK` constraint cannot express what actually has to be true:
 3. **Approving a model should not require a migration.** It requires reading its
    output for that workload and adding a line here.
 
+The river-and-section workload can use Haiku 4.5, but that pairing deliberately
+runs without a prompt-cache breakpoint. Its roughly 1,900-token static system
+prompt is shorter than Haiku's 4,096-token cache minimum. Cache eligibility is
+therefore resolved per workload/model pairing: Sonnet keeps the existing cache,
+while Haiku receives the same prompt without an ineffective cache marker. Haiku
+remains unavailable for the statewide safety summary.
+
 So the column is nullable free text with no constraint, `NULL` means "use the
 code default", and every value is checked against the registry on write *and*
 again on read. A row that somehow holds an unapproved value falls back to the

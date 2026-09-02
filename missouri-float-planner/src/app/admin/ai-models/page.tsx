@@ -24,6 +24,7 @@ interface ModelOption {
   label: string;
   maxTokens: number;
   thinkingDisabled: boolean;
+  promptCacheEnabled: boolean;
 }
 
 interface WorkloadRow {
@@ -145,10 +146,10 @@ export default function AiModelsPage() {
             <ul className="list-disc space-y-1 pl-5">
               <li>Applies to the <strong>next</strong> generation, not to copy already written.</li>
               <li>
-                Switching <strong>river and section updates</strong> resets that workload&apos;s
-                prompt cache — caches are per-model, so its first run after a switch pays a cache
-                write. A one-off cost, not a regression. The other three attach no cache
-                breakpoint, so switching them costs nothing.
+                River and section updates use prompt caching when the selected model supports
+                this prompt&apos;s length. Switching between Sonnet models resets that cache, so the
+                first run pays a one-off cache write. Haiku runs this workload without a cache
+                breakpoint because its minimum cacheable prefix is longer than this prompt.
               </li>
               <li>
                 A manual statewide re-run within 12 hours of the last summary is skipped by the
@@ -197,6 +198,9 @@ export default function AiModelsPage() {
                   <option key={option.id} value={option.id}>
                     {option.label} — {option.maxTokens} max tokens
                     {option.thinkingDisabled ? ', thinking off' : ''}
+                    {row.workload === 'river_update' && !option.promptCacheEnabled
+                      ? ', prompt cache off'
+                      : ''}
                   </option>
                 ))}
               </select>
