@@ -26,6 +26,7 @@ import {
   WORKLOAD_SPECS,
   approvedProfiles,
   isApproved,
+  shouldCacheSystemPrompt,
   type Workload,
 } from '@/lib/ai/model-registry';
 import { resolveConfiguredModels, type LlmConfigRow } from '@/lib/ai/resolve-models';
@@ -89,6 +90,7 @@ function buildPayload(row: (LlmConfigRow & { id: string }) | null) {
           label: profile.label,
           maxTokens: spec.maxTokens[profile.id],
           thinkingDisabled: Boolean(profile.thinking),
+          promptCacheEnabled: shouldCacheSystemPrompt(workload, profile.id),
         })),
       };
     }),

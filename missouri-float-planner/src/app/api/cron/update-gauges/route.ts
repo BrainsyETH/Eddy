@@ -32,7 +32,7 @@ export const maxDuration = 60;
 const RAPID_CHANGE_THRESHOLD = 0.5;
 
 // Cap on awaited event-driven Eddy regenerations per cron pass. Each river can
-// mean several sequential Sonnet calls (one per section), so this keeps the
+// mean several sequential model calls (one per section), so this keeps the
 // pass inside maxDuration even on a storm morning when many rivers flip.
 const MAX_AWAITED_REGENS = 3;
 

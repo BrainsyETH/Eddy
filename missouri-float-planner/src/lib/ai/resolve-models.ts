@@ -11,7 +11,7 @@
 //
 // Callers resolve ONCE at the entry point of a run and thread the result down.
 // Not for the saved reads — 24 indexed single-row reads are noise beside 24
-// Sonnet calls — but so that a switch landing mid-pass cannot split one run
+// model calls — but so that a switch landing mid-pass cannot split one run
 // across two models, leaving half the rows recording one model_used and half
 // another with nothing marking the boundary.
 
@@ -21,6 +21,7 @@ import {
   WORKLOADS,
   WORKLOAD_SPECS,
   isApproved,
+  shouldCacheSystemPrompt,
   type ThinkingConfig,
   type Workload,
 } from '@/lib/ai/model-registry';
@@ -47,6 +48,8 @@ export interface ResolvedModel {
   maxTokens: number;
   /** Passed through as `thinking`; undefined means omit the parameter. */
   thinking?: ThinkingConfig;
+  /** Whether this pairing can attach a live cache marker to its system prompt. */
+  cacheSystemPrompt: boolean;
   /** Whether the id came from llm_config or from the registry default. */
   source: 'override' | 'default';
   /**
@@ -69,6 +72,7 @@ function resolveOne(workload: Workload, override: string | null | undefined): Re
       id,
       maxTokens: spec.maxTokens[id],
       thinking: profile?.thinking,
+      cacheSystemPrompt: shouldCacheSystemPrompt(workload, id),
       source,
     };
   };
