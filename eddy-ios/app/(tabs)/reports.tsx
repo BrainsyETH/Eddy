@@ -626,8 +626,11 @@ export default function ReportsScreen() {
     // finish last and overwrite the newer list. load() already treats
     // 'Request cancelled' as not-a-failure.
     const off = onForeground(() => {
-      if (riversAt.current === null) return;
-      if (Date.now() - riversAt.current < 300_000) return;
+      // A null stamp means the list has never arrived — Today was opened
+      // offline and shows the cached or seeded rows with the offline line. That
+      // is the case most worth a foreground retry, not the one to skip: the
+      // only other ways back are a manual pull or a process restart.
+      if (riversAt.current !== null && Date.now() - riversAt.current < 300_000) return;
       foregroundReload.current?.abort();
       const controller = new AbortController();
       foregroundReload.current = controller;

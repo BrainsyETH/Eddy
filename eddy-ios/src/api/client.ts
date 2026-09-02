@@ -263,7 +263,12 @@ async function fetchOnce(
   const startedAt = Date.now();
   try {
     const response = await fetch(url, { ...init, signal: deadline.signal });
-    recordTiming(url, response.ok ? 'ok' : 'failed', startedAt);
+    // 304 is not `ok` to the Fetch spec, but it is the offline bundle's
+    // overwhelmingly common answer — "what you hold is current" — and the seed
+    // treats it as success. Recording it as a failure made every launch look
+    // like one.
+    const succeeded = response.ok || response.status === 304;
+    recordTiming(url, succeeded ? 'ok' : 'failed', startedAt);
     return response;
   } catch (err) {
     const aborted = err instanceof Error && err.name === 'AbortError';

@@ -834,14 +834,19 @@ export default function RiverDetailScreen() {
   useEffect(() => {
     outlookCache.current.clear();
     // Not cleared: an in-flight request for the previous river settles into
-    // ITS OWN entry of a map that has just been emptied, which is harmless, and
-    // dropping it here would let a second copy start if the reader came back.
+    // its own entry — the key below carries the slug, so no two rivers share
+    // one — which is harmless, and dropping it here would let a second copy
+    // start if the reader came back.
   }, [slug]);
 
   useEffect(() => {
     if (!slug) return;
     const askedFor = shownGaugeId && shownGaugeId !== primaryGaugeId ? shownGaugeId : null;
-    const key = askedFor ?? '';
+    // The slug is part of the key. It used to be the gauge alone, which made
+    // every river's primary-gauge request share the key '' — so a screen
+    // re-pointed at another river mid-request joined the first river's
+    // promise and cached its outlook under the second river's name.
+    const key = `${slug}|${askedFor ?? ''}`;
 
     const cached = outlookCache.current.get(key);
     if (cached !== undefined) {

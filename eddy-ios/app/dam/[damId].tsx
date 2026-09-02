@@ -207,6 +207,19 @@ export default function DamDetailScreen() {
     }, []),
   );
 
+  /**
+   * The dam whose first load has SETTLED, so a focus is not an arrival.
+   *
+   * Settled, not started. It used to be stamped when the arrival load was
+   * dispatched, so a blur during that load — tap the tailwater river link
+   * while the summary-seeded body is up, come back — aborted it (the finally
+   * below skips the settle on an aborted signal) and left the stamp in place.
+   * The next focus then counted as a silent refresh: not allowed to declare a
+   * failure, not allowed to mark the detail settled. On a failure the pending
+   * row spun for good and "Try again" had no branch to render in.
+   */
+  const loadedFor = useRef<string | null>(null);
+
   const load = useCallback(
     (signal: AbortSignal, primary: boolean) => {
       if (!damId) return;
@@ -244,7 +257,13 @@ export default function DamDetailScreen() {
           // Marked settled on BOTH paths. This is what turns "no schedule yet"
           // into "this dam publishes no schedule", so leaving it unset after a
           // failure would hold a loading row on screen forever.
-          if (!signal.aborted && primary) setDetailSettledFor(damId);
+          //
+          // And only NOW is the arrival over: an aborted arrival leaves the
+          // stamp clear so the next focus arrives again, spinner and all.
+          if (!signal.aborted && primary) {
+            setDetailSettledFor(damId);
+            loadedFor.current = damId;
+          }
         }
       })();
     },
@@ -257,8 +276,6 @@ export default function DamDetailScreen() {
    * leaving the screen and coming back.
    */
   const [reloadNonce, setReloadNonce] = useState(0);
-  /** The dam whose FIRST load has run, so a focus is not an arrival. */
-  const loadedFor = useRef<string | null>(null);
 
   const retry = useCallback(() => {
     // A retry IS an arrival again: it must show the spinner and own the failure
@@ -293,8 +310,8 @@ export default function DamDetailScreen() {
   useFocusEffect(
     useCallback(() => {
       const controller = new AbortController();
+      // Stamped by load() when the arrival settles, not here when it starts.
       const arriving = loadedFor.current !== damId;
-      loadedFor.current = damId;
       load(controller.signal, arriving);
       return () => controller.abort();
     }, [load, damId, reloadNonce])
