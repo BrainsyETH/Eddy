@@ -85,11 +85,26 @@ test('in-memory fallback enforces the window when Upstash is not configured', as
 // Such a route asks for the global limiter by name and gets a 503 without it,
 // in production only; dev and test keep the in-memory map.
 
+/**
+ * NODE_ENV is typed readonly by @types/node, and this is the one thing a test
+ * of a production-only branch has to move. defineProperty rather than a cast,
+ * so the restore below puts the property back the way it was found instead of
+ * leaving a plain value where the runtime expects its own descriptor.
+ */
+function setNodeEnv(value: string | undefined): void {
+  Object.defineProperty(process.env, 'NODE_ENV', {
+    value,
+    configurable: true,
+    enumerable: true,
+    writable: true,
+  });
+}
+
 test('requireGlobalLimiter rejects in production when Upstash is not configured', async () => {
   delete process.env.UPSTASH_REDIS_REST_URL;
   delete process.env.UPSTASH_REDIS_REST_TOKEN;
   const env = process.env.NODE_ENV;
-  process.env.NODE_ENV = 'production';
+  setNodeEnv('production');
   try {
     const res = await rateLimit('require-global:prod', 10, 60_000, {
       failClosed: true,
@@ -98,7 +113,7 @@ test('requireGlobalLimiter rejects in production when Upstash is not configured'
     assert.ok(res, 'expected a rejection');
     assert.equal(res.status, 503);
   } finally {
-    process.env.NODE_ENV = env;
+    setNodeEnv(env);
   }
 });
 
