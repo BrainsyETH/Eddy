@@ -335,6 +335,12 @@ available from here. Measured today, CWMS serves Wolf Creek's turbine flow
 back to 08-10 — 354 hourly points, ~15 days — so the whole gap is still
 recoverable, but only until it isn't.
 
+**Resolved — read against production 2026-09-02.** `dam_metric_readings`
+holds hourly rows for all three LRN dams back to 2026-08-08 01:00Z, and 112
+rows each across the 08-22 16:00 → 08-25 00:00 window (two series × 56
+hours), so the backfill ran and the gap is closed. Nothing in the repo
+recorded the run; this line is the record.
+
 ## Tier 2 — two of three were never bugs
 
 **Item 4, the Jacks Fork threshold tie: not a bug. Do not change it.**

@@ -36,8 +36,8 @@ Phases are ordered by what unblocks what. Phase 0 is one sitting. Phases 2,
 | 2 | Done, one commit. 2.6 took the comment fix; the keychain re-add migration is filed, not done. |
 | 3 | **Done.** 3.2 needed no schema change after all: the row already carries `last_event_at`, so the function now refuses a forward move from a snapshot older than the row's newest event. Applied as `20260902132840`. |
 | 4 | Done, one commit. |
-| 5 | Not started — needs the device pass. |
-| 6 | 6.1 and 6.2 done: the Current's miles recomputed from the line (`20260902132921`, plus `20260902134206` for two outfitters the first predicate missed). The six guide-scale rivers are untouched and filed for their own review. 6.3 to 6.5 untouched. |
+| 5 | **Done in code, not yet seen on a device.** All nine items landed 2026-09-02; two product choices are flagged in the table below. Look at them on a simulator before release. |
+| 6 | 6.1 and 6.2 done: the Current's miles recomputed from the line (`20260902132921`, plus `20260902134206` for two outfitters the first predicate missed). 6.4 done: the backfill ran; recorded in the older plan. The six guide-scale rivers have their own review now, `docs/RIVER_MILE_SCALES_REVIEW_2026-09-02.md`. 6.3 and 6.5 untouched by choice. |
 
 ---
 
@@ -492,6 +492,32 @@ Each is a real observation, but the right fix is a product call. Spend ten
 minutes on a simulator with a stale gauge, a fresh install, and airplane mode
 before writing any of these.
 
+**Done 2026-09-02, in code; the simulator pass is still owed.** What landed,
+and the two choices to look at first:
+
+- 5.1: a shared `nowLabel()` in `chart-model.ts` on the six-hour staleness
+  line, "Now" or "Last reading", both renderers; tested.
+- 5.2: a "Loading conditions…" strip in the Today header's summary slot while
+  the seed is on screen and the list has not landed.
+- 5.3: **one offline line under the Favourites header, not a glyph per card**
+  (every card draws from the same index, and each already prints its age),
+  wording identical to the Today tab's.
+- 5.4: the no-fix alert asks the OS for the permission grant rather than
+  reading the hook's status, because the status set during the tap is not in
+  the closure that awaited it; wording "No location fix yet / Try again
+  outside or with Wi-Fi on."
+- 5.5: `searchEddy` reports `reason: 'offline' | 'server'`; the server case
+  says search is not answering rather than blaming the connection.
+- 5.6: `confirmPending` is a stamp with a three-minute ceiling; past it the
+  buy button returns with the catching-up note beside it.
+- 5.7: iOS k-abbreviates the axis only at 100,000 cfs and up, and refuses a
+  one-point plot the way web does.
+- 5.8: the now-label drops one line when a stage label sits in the top band
+  and the line is in the leftmost quarter. A mid-band stage label can still
+  brush it; a per-pixel rule was judged not worth it yet.
+- 5.9: `ownership` casing fixed in the White and Taneycomo files. Norfork
+  Access stays in both files; a confluence ramp is on both rivers.
+
 | # | Where | Observation | Suggested direction |
 |---|---|---|---|
 | 5.1 | `FlowTrendChart.tsx:1167-1179`, `GaugeChart.tsx:1197-1230` | The "Now" label marks the last observation; a gauge that stopped two days ago labels a point two days old "Now", with a hole before the forecast | Gate the word on reading staleness both renderers already have: "Now" fresh, "Last reading" past a few hours |
@@ -603,6 +629,9 @@ the two ladder migrations so a reset succeeds. Only matters for local resets.
 backfill was still owed. Nothing in the repo records it running. If it was not
 run inside CWMS's ~15-day window the 53 hours are gone; either way, record
 the outcome in that doc.
+
+**Done 2026-09-02.** It ran: all three dams hold hourly rows back to
+2026-08-08 and 112 rows each across the gap window. Recorded in that doc.
 
 ### 6.5 Seeds after Echo Bluff
 
