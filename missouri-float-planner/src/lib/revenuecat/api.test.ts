@@ -232,7 +232,7 @@ test('the compare-and-write is one statement, not a read then an upsert', () => 
   assert.doesNotMatch(source, /\.upsert\(/);
 
   const migration = readFileSync(
-    'supabase/migrations/20260826112559_reconcile_entitlement_can_only_move_forward.sql',
+    'supabase/migrations/20260902125655_reconcile_entitlement_can_only_move_forward.sql',
     'utf8',
   );
   assert.match(migration, /on conflict \(user_id, entitlement_id\) do update/);

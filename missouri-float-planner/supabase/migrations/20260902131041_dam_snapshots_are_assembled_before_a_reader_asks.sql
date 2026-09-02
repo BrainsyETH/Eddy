@@ -1,4 +1,9 @@
--- 20260831130000_dam_snapshots_are_assembled_before_a_reader_asks.sql
+-- 20260902131041_dam_snapshots_are_assembled_before_a_reader_asks.sql
+--
+-- APPLIED to production (ilefwfpvphadsbptiaur) 2026-09-02 13:10:41 UTC and
+-- RECORDED as 20260902131041; authored as 20260831130000 and renamed to the
+-- recorded version. Ledger: supabase/production-migrations.txt. The DDL
+-- applied is this file's DDL verbatim; the prose was abridged in transit.
 --
 -- One assembled dam snapshot per project, rebuilt hourly by a cron.
 --

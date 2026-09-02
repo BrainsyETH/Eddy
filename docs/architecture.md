@@ -133,8 +133,9 @@ failure is visible from the outside: the routes answer correctly either way and
 only the latency moves, so a missing migration or a cron that never got
 scheduled looks exactly like a successful deploy. Concretely, after shipping:
 
-1. apply the migrations (`make check-db` reports drift; the `20260831*` pair is
-   the one to look for),
+1. apply the migrations (`make check-db` reports drift). Both were applied on
+   2026-09-02 as `20260902131041` and `20260902131340`; the ledger in
+   `supabase/production-migrations.txt` is the record,
 2. confirm `/api/cron/sync-dam-snapshots` appears in the Vercel project's cron
    list and has run once — its response carries `stored`, which should equal the
    registry's dam count, and `keptOnOutage`, which should be 0.
