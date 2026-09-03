@@ -2,6 +2,8 @@
 
 import { spawnSync } from 'node:child_process';
 
+import { LEDGER_PATH, checkLedger, findLedgerDrift, readRepoLedger } from './lib/migration-ledger';
+
 export interface MigrationStatus {
   local: string | null;
   remote: string | null;
@@ -129,7 +131,31 @@ function main() {
     process.exit(1);
   }
 
-  console.log(`Migration histories match (${rows.length} migrations).`);
+  // The files match production. Now the ledger — the credential-free record
+  // CI checks — must say the same thing, or the next feature branch inherits
+  // a lie. Both directions: a version production holds that the ledger does
+  // not list, and a version the ledger claims that production never recorded.
+  const { ledger, local } = readRepoLedger();
+  const ledgerProblems = checkLedger(ledger, local);
+  const ledgerDrift = findLedgerDrift(
+    rows.map((row) => row.remote).filter((version): version is string => Boolean(version)),
+    ledger
+  );
+  if (ledgerProblems.length > 0 || ledgerDrift.missingFromLedger.length > 0 || ledgerDrift.missingFromRemote.length > 0) {
+    console.error(`${LEDGER_PATH} disagrees with production:`);
+    console.error('');
+    for (const problem of ledgerProblems) console.error(`  ${problem}`);
+    for (const version of ledgerDrift.missingFromLedger) {
+      console.error(`  production recorded ${version}; add it under [applied]`);
+    }
+    for (const version of ledgerDrift.missingFromRemote) {
+      console.error(`  the ledger lists ${version} as applied; production has not recorded it`);
+    }
+    console.error('\nThe ledger header has the rules.');
+    process.exit(1);
+  }
+
+  console.log(`Migration histories match (${rows.length} migrations), and the ledger agrees.`);
 }
 
 if (process.argv[1]?.endsWith('check-migration-drift.ts')) {

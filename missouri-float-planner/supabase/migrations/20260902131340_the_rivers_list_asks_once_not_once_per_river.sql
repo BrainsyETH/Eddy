@@ -1,4 +1,13 @@
--- 20260831120000_the_rivers_list_asks_once_not_once_per_river.sql
+-- 20260902131340_the_rivers_list_asks_once_not_once_per_river.sql
+--
+-- APPLIED to production (ilefwfpvphadsbptiaur) 2026-09-02 13:13:40 UTC and
+-- RECORDED as 20260902131340; authored as 20260831120000 and renamed to the
+-- recorded version. Both invariants in the DO block at the foot passed against
+-- the live rows: the batched function agreed with get_river_condition on every
+-- compared column for every river, and answered for all 27 rivers with an
+-- active primary gauge. Ledger: supabase/production-migrations.txt. The DDL
+-- applied is this file's DDL verbatim; the header prose was abridged in
+-- transit.
 --
 -- One call for every river's condition, instead of one call per river.
 --

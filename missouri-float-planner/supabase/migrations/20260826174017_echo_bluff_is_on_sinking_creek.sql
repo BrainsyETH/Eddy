@@ -1,3 +1,7 @@
+-- APPLIED to production (ilefwfpvphadsbptiaur) as version 20260826174017, the
+-- version the recording assigned, not the 20260826130000 this file was authored as.
+-- Renamed 2026-09-02 to match. The ledger is supabase/production-migrations.txt.
+--
 -- Echo Bluff State Park is on Sinking Creek, off the Current. Not on the Jacks Fork.
 --
 -- ── WHAT WAS WRONG ────────────────────────────────────────────────────────

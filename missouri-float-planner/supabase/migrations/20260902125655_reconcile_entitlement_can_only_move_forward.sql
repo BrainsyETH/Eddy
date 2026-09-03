@@ -1,8 +1,9 @@
--- NOT YET APPLIED to production. Apply before or with the deploy that ships
--- src/lib/revenuecat/api.ts — until this function exists, reconciling a
--- transfer returns an error and the webhook 5xxes so RevenueCat retries. That
--- is the safe direction (no lost entitlement), but it is noisy, so land this
--- first.
+-- APPLIED to production (ilefwfpvphadsbptiaur) 2026-09-02 12:56:55 UTC and
+-- RECORDED as 20260902125655; authored as 20260826112559 and renamed to the
+-- recorded version. Ledger: supabase/production-migrations.txt. It had sat
+-- merged and unapplied for a week, during which every /api/me/entitlement/
+-- refresh returned an error the client swallowed and a TRANSFER with no
+-- source row 5xxed until RevenueCat gave up.
 --
 -- ── Why the reconcile is one statement in the database ────────────────────
 --

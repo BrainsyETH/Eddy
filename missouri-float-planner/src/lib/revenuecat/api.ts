@@ -202,6 +202,12 @@ export async function fetchSubscriber(
       }
     );
 
+    // Defensive, and in practice unreached: RevenueCat's v1 GET creates an
+    // empty subscriber for an unknown app_user_id and answers 201, so a user
+    // who never bought comes back as `ok` with no entitlements, not as 404.
+    // (It also means every never-purchased Restore leaves a subscriber record
+    // in RevenueCat; harmless to entitlement.) Kept for the day the API's
+    // behaviour changes, because the alternative is treating 404 as an error.
     if (response.status === 404) return { status: 'not_found' };
     if (!response.ok) return { status: 'error', detail: `HTTP ${response.status}` };
 
@@ -281,6 +287,14 @@ export async function reconcileEntitlement(
 ): Promise<ReconcileOutcome> {
   const { userId, entitlementId, stamp } = params;
 
+  // Taken BEFORE the REST read, and handed to the function as p_observed_at:
+  // a row that learned something after this moment — a refund whose webhook
+  // landed while the read was in flight — refuses to be moved forward by a
+  // snapshot older than what it knows. See the migration that added the
+  // argument. Before the read, not after, so the window it closes is the
+  // whole round trip and not just the tail of it.
+  const observedAt = new Date().toISOString();
+
   const fetched = await fetchSubscriber(userId, params);
   if (fetched.status === 'not_configured') return { status: 'not_configured', expiresAt: null };
   if (fetched.status === 'not_found') return { status: 'none', expiresAt: null };
@@ -303,6 +317,7 @@ export async function reconcileEntitlement(
     p_last_event_id: stamp?.id ?? null,
     p_last_event_type: stamp?.type ?? null,
     p_last_event_at: stamp?.at ?? null,
+    p_observed_at: observedAt,
   });
 
   if (error) {

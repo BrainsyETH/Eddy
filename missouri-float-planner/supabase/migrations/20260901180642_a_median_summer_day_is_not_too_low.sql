@@ -9,9 +9,10 @@
 -- recording actually assigned. Migrations here are applied through the Supabase
 -- API, which stamps its own timestamp rather than honouring the filename, so
 -- the two disagree unless the file is renamed afterwards. Three earlier
--- migrations were not renamed and are drifted today: 20260826130000 ->
--- 20260826174017, 20260826190000 -> 20260826210200, 20260826200000 ->
--- 20260826223527. Rename after applying; the filename is the only place the
+-- migrations were not renamed and were drifted when this was written; they
+-- were renamed on 2026-09-02, and the record of applied versions now lives in
+-- supabase/production-migrations.txt, checked by scripts/migration-ledger.test.ts.
+-- Rename after applying; the filename and the ledger are the only places the
 -- version is checkable from the repo.
 --
 -- Nothing in this repo applies migrations automatically.

@@ -34,7 +34,7 @@ and `eddy-ios/package.json`. CI pins Node 20 (`.github/workflows/app-ci.yml`).
 | River-condition behavior | `missouri-float-planner/shared/` | comments in `.github/workflows/app-ci.yml` | `make check-web` + `make bundle-mobile` |
 | Shared types / geo / hazards / sync | `packages/` | the package's source headers | `make check-web` + `make bundle-mobile` |
 | Data ingestion or correction | `missouri-float-planner/scripts/` | `docs/data-pipeline.md` (catalog + guard levels), then `scripts/ingestion/README.md` | script dry run, then `make check-web` |
-| Database schema / seeds | `missouri-float-planner/supabase/` | existing migrations | never against production by default; `make check-db` after any hand-applied change |
+| Database schema / seeds | `missouri-float-planner/supabase/` | existing migrations, then `supabase/production-migrations.txt` | never against production by default; `make check-db` after any hand-applied change. A migration PR is done only when the file is named for the version production recorded and that version is in the ledger |
 | ClipEngine / social automation | `scripts/clipengine/`, `clipengine-local/` | `docs/clipengine-ops.md` | tool-specific dry run |
 | CI / deployment | `.github/workflows/`, `.easignore` | `.easignore` header, `app-ci.yml` comments | `make check` |
 | iOS build, TestFlight, App Store submission | EAS + Apple/RevenueCat dashboards | `docs/ios-release-runbook.md` | the checklists in that runbook |

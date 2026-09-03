@@ -103,11 +103,16 @@ UPDATE public.rivers
 
 -- Re-snap only what the extension made snappable. Touching location_orig is
 -- what fires access_points_auto_snap (BEFORE UPDATE OF location_orig,
--- river_id), which is the canonical path — it recomputes location_snap,
--- snap_distance_m and the mile columns through snap_to_river() rather than
--- duplicating that logic here. Scoped to rows that are currently UNSNAPPED and
--- are now within the trigger's own 1500 m ceiling, so no correctly-snapped row
--- is disturbed and no editorial mile is overwritten wholesale.
+-- river_id), which is the canonical path — it recomputes location_snap and
+-- snap_distance_m. It does NOT recompute the mile columns: the trigger
+-- (00121_resnap_access_points.sql) writes only the two snap columns and
+-- preserves river_mile_downstream/upstream, which are hand-maintained guide
+-- miles. (This comment first claimed the miles were recomputed here; a
+-- 2026-09-02 read of production showed the stored miles unchanged, and the
+-- Montauk → Tan Vat reach at 0.8 stored miles against 2.4 by geometry. See
+-- docs/RECENT_BRANCHES_FIX_PLAN_2026-09-01.md §6.1.) Scoped to rows that are
+-- currently UNSNAPPED and are now within the trigger's own 1500 m ceiling, so
+-- no correctly-snapped row is disturbed and no editorial mile is overwritten.
 UPDATE public.access_points ap
    SET location_orig = ap.location_orig
   FROM public.rivers r

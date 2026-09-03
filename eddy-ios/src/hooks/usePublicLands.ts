@@ -163,6 +163,12 @@ export function usePublicLands(enabled: boolean, viewport: Viewport | null): Pub
       // repaint it with somewhere else.
       inFlight.current?.abort();
       inFlight.current = null;
+      // The aborted request had set `loading` and will never clear it (its
+      // handlers return on `aborted`). Nothing is on the wire now, and what is
+      // held is right for this camera, so say so — the map reads `loading` as
+      // "count not answered yet" and would keep saying that until the camera
+      // left this box.
+      setState((prev) => (prev.loading ? { ...prev, loading: false } : prev));
       return;
     }
 

@@ -21,6 +21,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { cdnCacheHeaders } from '@/lib/api-utils';
 import { fetchDamDetail, refreshStaleness } from '@/lib/data/dams';
 import { readStoredSnapshot } from '@/lib/data/dam-snapshot-store';
+import { getUsaceDam } from '@/lib/flow-providers/usace-registry';
 import { withX402Route } from '@/lib/x402-config';
 
 export const dynamic = 'force-dynamic';
@@ -32,6 +33,14 @@ async function _GET(
   try {
     const { damId } = await params;
     const now = Date.now();
+
+    // The registry decides what a dam is, not the table. The index route asks
+    // summaryOf, which refuses an id the registry no longer carries; this route
+    // read the stored row first and would have served a decommissioned or
+    // renamed dam for up to an hour, until the cron pruned it.
+    if (!getUsaceDam(damId)) {
+      return NextResponse.json({ error: 'Dam not found' }, { status: 404 });
+    }
 
     // Re-banded against THIS clock, never served with the staleness it was
     // stamped with an hour ago — see refreshStaleness. Everything else in the

@@ -75,10 +75,15 @@ UPDATE public.rivers
  WHERE slug = 'niangua' AND geom IS NOT NULL;
 
 -- Fires access_points_auto_snap (BEFORE UPDATE OF location_orig, river_id),
--- the canonical path: it recomputes location_snap, snap_distance_m and the
--- mile columns via snap_to_river() rather than duplicating that logic. Scoped
--- to currently-unsnapped rows now inside the trigger's own 1500 m ceiling, so
--- nothing correctly snapped is disturbed.
+-- the canonical path: it recomputes location_snap and snap_distance_m. It does
+-- NOT touch the mile columns — the trigger (00121_resnap_access_points.sql)
+-- preserves river_mile_downstream/upstream, which are hand-maintained guide
+-- miles. (This comment first said the miles were recomputed; a 2026-09-02
+-- read of production found every approved Niangua point, these three
+-- included, sitting a uniform ~25 miles below the geometry's scale — a guide
+-- ruler, not a per-point error. See docs/RECENT_BRANCHES_FIX_PLAN_2026-09-01.md
+-- §6.1.) Scoped to currently-unsnapped rows now inside the trigger's own
+-- 1500 m ceiling, so nothing correctly snapped is disturbed.
 UPDATE public.access_points ap
    SET location_orig = ap.location_orig
   FROM public.rivers r

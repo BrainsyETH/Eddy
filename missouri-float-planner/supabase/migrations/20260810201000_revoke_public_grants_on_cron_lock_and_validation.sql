@@ -1,4 +1,5 @@
--- NOT YET APPLIED. Apply by hand, then confirm the recorded version with
+-- APPLIED to production as version 20260810201000 (the filename matches the recording;
+-- ledger: supabase/production-migrations.txt). Originally: apply by hand, then confirm with
 -- `npm run db:check-migrations` and rename this file to match.
 --
 -- Closes the grant shape TRUST_LEDGER_V1_PLAN.md flagged while checking

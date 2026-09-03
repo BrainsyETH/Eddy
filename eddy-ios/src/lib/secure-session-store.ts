@@ -32,8 +32,18 @@ import { createChunkedStore } from '@/lib/chunked-store';
  * token in every backup, for nothing: the durability this store exists for
  * ("reinstalls keep identity", above) is the Keychain surviving reinstall on
  * THIS device, which the device-only class provides. A restored phone signs
- * in with Apple once, exactly as a new phone does. Existing items migrate on
- * the next write — every setSession rewrite carries the new class.
+ * in with Apple once, exactly as a new phone does.
+ *
+ * Existing items do NOT migrate on the next write. expo-secure-store's set()
+ * hits errSecDuplicateItem for a key that exists and falls through to
+ * SecItemUpdate with a dictionary of kSecValueData only, so the accessibility
+ * class an item was created with is the class it keeps; chunked-store
+ * overwrites chunk keys in place rather than deleting first. Sessions that
+ * existed before this class was chosen keep AFTER_FIRST_UNLOCK (backup-
+ * included) until sign-out or account deletion recreates the items. Reads are
+ * unaffected — the query does not filter on accessibility — so nobody is
+ * logged out by this. A real migration is remove-then-add behind a one-time
+ * flag, with the crash-between-the-two case handled; not done here.
  */
 const OPTIONS: SecureStore.SecureStoreOptions = {
   keychainAccessible: SecureStore.AFTER_FIRST_UNLOCK_THIS_DEVICE_ONLY,

@@ -1,3 +1,7 @@
+-- APPLIED to production (ilefwfpvphadsbptiaur) as version 20260826210200, the
+-- version the recording assigned, not the 20260826190000 this file was authored as.
+-- Renamed 2026-09-02 to match. The ledger is supabase/production-migrations.txt.
+--
 -- Van Buren City Access is at mile 85.9, not mile 0.
 --
 -- ── WHAT WAS WRONG ────────────────────────────────────────────────────────

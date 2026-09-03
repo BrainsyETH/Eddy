@@ -154,10 +154,21 @@ test('the outlook effect joins an in-flight request instead of restarting it', (
   const source = readFileSync('../eddy-ios/app/river/[slug].tsx', 'utf8');
 
   assert.match(source, /outlookInFlight/, 'the effect must track its in-flight requests');
+  // The join itself is shareInFlight's, and share-in-flight.test.ts executes
+  // its rules; this pins that the effect goes through it rather than a copy.
   assert.match(
     source,
-    /let request = outlookInFlight\.current\.get\(key\);/,
-    'a run must look for an existing request before starting one',
+    /shareInFlight\(outlookInFlight\.current, key,/,
+    'a run must join an existing request through shareInFlight',
+  );
+  // And the key names the river. It was the gauge alone, which is '' for
+  // every river's primary case, so a screen re-pointed at another river
+  // mid-request joined the first river's promise and cached its outlook under
+  // the second river's name.
+  assert.match(
+    source,
+    /const key = `\$\{slug\}\|\$\{askedFor \?\? ''\}`;/,
+    'the outlook key must carry the slug',
   );
   // And the cleanup must not abort: the answer belongs to the cache as much as
   // to the run that asked for it.

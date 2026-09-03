@@ -76,6 +76,20 @@ import { resetFirstRun } from '@/lib/onboarding';
  */
 const MANAGE_SUBSCRIPTIONS_URL = 'https://apps.apple.com/account/subscriptions';
 
+/**
+ * How long a confirmed purchase may hide the buy button while the server
+ * catches up.
+ *
+ * Three minutes. A webhook that has not landed in that time is usually not
+ * coming this session — a lost delivery, or a sandbox account the server has
+ * never heard of — and past it the "catching up" note is still true while
+ * hiding "Get Eddy Premium" no longer is: it has stopped covering a gap and
+ * started masking an unsubscribed account for the rest of the session, which
+ * is exactly what confirmPending's own comment promises it never does. Long
+ * enough that an ordinary slow webhook never sees the button flash back.
+ */
+const CONFIRM_PENDING_MAX_MS = 3 * 60_000;
+
 export default function ProfileScreen() {
   const { colors, elevation } = useTheme();
   const router = useRouter();
@@ -111,8 +125,29 @@ export default function ProfileScreen() {
    * second purchase. Cleared the moment the server agrees (the effect below),
    * so it can never mask a real unsubscribed state for longer than the gap it
    * names.
+   *
+   * ── And the gap has a ceiling ───────────────────────────────────────────
+   * "The moment the server agrees" is a moment that can fail to arrive — a
+   * lost webhook, a sandbox purchase the server will never see — and then
+   * the button stayed hidden for the whole session, which broke the promise
+   * above. So the flag is the moment it was raised rather than a boolean, and
+   * the timer effect below reopens the button after CONFIRM_PENDING_MAX_MS.
+   * The catching-up note stays beside it — that part is still true — and
+   * Restore is available throughout, as it always was. A stamp rather than a
+   * boolean so that raising it AGAIN (a restore after the window closed) is a
+   * new value and restarts the window rather than being ignored as no change.
    */
-  const [confirmPending, setConfirmPending] = useState(false);
+  const [confirmPendingSince, setConfirmPendingSince] = useState<number | null>(null);
+  const confirmPending = confirmPendingSince !== null;
+  /**
+   * True once CONFIRM_PENDING_MAX_MS has passed with no agreement from the
+   * server. Reset whenever the pending state is raised, cleared with it.
+   */
+  const [confirmWindowClosed, setConfirmWindowClosed] = useState(false);
+  const beginConfirmPending = useCallback(() => {
+    setConfirmWindowClosed(false);
+    setConfirmPendingSince(Date.now());
+  }, []);
   /**
    * Whether the first-run keys have been cleared this session.
    *
@@ -158,8 +193,22 @@ export default function ProfileScreen() {
   }, [getAccessToken, refresh]);
 
   useEffect(() => {
-    if (entitlement?.isActive) setConfirmPending(false);
+    if (entitlement?.isActive) setConfirmPendingSince(null);
   }, [entitlement?.isActive]);
+
+  /**
+   * The ceiling on confirmPending. One timer per raising of the flag, and its
+   * cleanup is what cancels it: the effect above nulls the stamp when the
+   * server agrees, which re-runs this with nothing to do and clears the timer
+   * on the way — and an unmount clears it the same way, so a screen that was
+   * closed mid-window never sets state on a component that is gone.
+   */
+  useEffect(() => {
+    if (confirmPendingSince === null) return;
+    const remaining = Math.max(0, CONFIRM_PENDING_MAX_MS - (Date.now() - confirmPendingSince));
+    const timer = setTimeout(() => setConfirmWindowClosed(true), remaining);
+    return () => clearTimeout(timer);
+  }, [confirmPendingSince]);
 
   /**
    * Will a push actually arrive on this phone?
@@ -217,7 +266,7 @@ export default function ProfileScreen() {
       // offer a second purchase under the "Purchase found" alert. See
       // confirmPending.
       if (result.entitled && !serverConfirmed) {
-        setConfirmPending(true);
+        beginConfirmPending();
         void settleConfirmPending();
       }
 
@@ -226,7 +275,7 @@ export default function ProfileScreen() {
     } finally {
       setBusy(null);
     }
-  }, [getAccessToken, refresh, settleConfirmPending]);
+  }, [getAccessToken, refresh, settleConfirmPending, beginConfirmPending]);
 
   /**
    * Same ref-not-state reasoning as the paywall's copy of this flag: nothing
@@ -544,8 +593,11 @@ export default function ProfileScreen() {
                 never made. `loaded` gates it so the button does not flash up
                 under someone who is already subscribed — and `confirmPending`
                 gates it so it cannot appear under a "you are subscribed" alert
-                while the server is still catching up to a confirmed purchase. */}
-            {loaded && !entitlement?.isActive && !confirmPending && (
+                while the server is still catching up to a confirmed purchase.
+                That gate lifts when the window closes: past it, hiding the
+                button is no longer covering a gap, and the note above still
+                says the purchase was found. */}
+            {loaded && !entitlement?.isActive && (!confirmPending || confirmWindowClosed) && (
               <Pressable
                 onPress={() => setPaywallOpen(true)}
                 disabled={busy !== null}
@@ -878,7 +930,7 @@ export default function ProfileScreen() {
           if (serverConfirmed) {
             void refresh();
           } else {
-            setConfirmPending(true);
+            beginConfirmPending();
             void settleConfirmPending();
           }
         }}

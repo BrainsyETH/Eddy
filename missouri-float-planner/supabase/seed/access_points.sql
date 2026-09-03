@@ -336,7 +336,7 @@ ON CONFLICT (river_id, slug) DO UPDATE SET approved = EXCLUDED.approved;
 -- A missing mile is not read as missing: toAccessPoint maps NULL to 0
 -- (src/lib/offline/shapes.ts), 0 is the headwaters, and the point then sorts
 -- ahead of its whole river. See migration
--- 20260826190000_van_buren_has_a_river_mile.sql, which repaired the databases
+-- 20260826210200_van_buren_has_a_river_mile.sql, which repaired the databases
 -- that already exist; this line is what stops a fresh `db reset` from
 -- recreating the row without one.
 INSERT INTO access_points (

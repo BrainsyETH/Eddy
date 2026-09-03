@@ -124,6 +124,19 @@ test('update-gauges refuses to classify a gauge nobody has rated', () => {
     /\.update\(\{ last_condition_code: null \}\)/,
     'the skip path must clear a stale stamp rather than leave it as a baseline',
   );
+
+  // And the clear must never run on a reading the gate refuses. The gate used
+  // to sit AFTER the unrated branch, so a gauge stamped 'dangerous' from a real
+  // flood, handed one null or equipment-flagged height, read "below flood
+  // stage", cleared its stamp, and re-emitted unknown → dangerous as a
+  // duplicate push on the next clean pass. A refused reading is evidence of
+  // nothing, so it must reach neither the comparison nor the clear.
+  const gateAt = source.indexOf('const gate = gateReading({');
+  assert.ok(gateAt > 0, 'update-gauges must gate the reading');
+  assert.ok(
+    gateAt < guardAt,
+    'gateReading must run BEFORE the unrated branch, or a bad reading can clear a real stamp',
+  );
 });
 
 test('both condition RPCs return unknown for a gauge with no ladder', () => {

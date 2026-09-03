@@ -42,7 +42,7 @@
 // still on the river screen, one tap away, where there is room for it — and
 // after this it is one tap away for everybody rather than for subscribers.
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { FlatList, Pressable, RefreshControl, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -144,6 +144,27 @@ export default function FavoritesScreen() {
   const [dams, setDams] = useState<DamSnapshot[]>([]);
   const [refreshing, setRefreshing] = useState(false);
   const [filter, setFilter] = useState<FavoriteFilter>('all');
+  /**
+   * True while the conditions on the cards are the STORED index and no
+   * /api/rivers answer has landed this session.
+   *
+   * agedIndex already greys anything past the trusted window and labels it
+   * "Last known", but inside that window a cached reading paints in its full
+   * condition colour — and nothing on this screen said it was cached. A green
+   * card three hours after the signal dropped is honest only if it says so
+   * (offline-cache.ts describes the fresh band as "the ordinary colour, plus
+   * an offline glyph"; this is the glyph). Drops the moment the network
+   * answers, which is also the only thing that ever replaces the list.
+   */
+  const [riversFromCache, setRiversFromCache] = useState(false);
+  /**
+   * Whether a LIVE list has landed this session — a ref, because it is only
+   * ever read inside load(). It is what keeps a failed pull over a live list
+   * from raising the marker: the cache read below never replaces what is on
+   * screen, so the rows in that case are still today's and must not be
+   * described as yesterday's.
+   */
+  const riversLive = useRef(false);
 
   // Errors are swallowed on purpose. A failed enrichment must not produce an
   // error state on a screen whose whole promise is that it works offline.
@@ -152,7 +173,11 @@ export default function FavoritesScreen() {
     // live reading when the river list fails, and vice versa.
     await Promise.all([
       fetchRivers(signal)
-        .then(setRivers)
+        .then((live) => {
+          setRivers(live);
+          riversLive.current = true;
+          setRiversFromCache(false);
+        })
         .catch(async () => {
           // Disk before nothing, on the screen whose whole promise is that it
           // works offline: the index is written through on every successful
@@ -164,6 +189,7 @@ export default function FavoritesScreen() {
           const cached = await readIndex();
           if (cached && cached.payload.length > 0) {
             setRivers((current) => current ?? agedIndex(cached, Date.now()));
+            if (!riversLive.current) setRiversFromCache(true);
           }
         }),
       fetchGauges(signal)
@@ -269,6 +295,22 @@ export default function FavoritesScreen() {
                 ? 'Favorites are saved on this device'
                 : favoritesSummary}
             </Text>
+
+            {/* The offline marker for cached conditions — see riversFromCache.
+                One line under the summary rather than a badge per card: every
+                river card below draws from the same stored index, so they are
+                all offline together or none are, and each card already prints
+                its own "Updated N hours ago" from the aged reading. The same
+                sentence the Today tab uses for the same state, so the two tabs
+                do not describe one condition of the phone two ways. */}
+            {riversFromCache ? (
+              <View style={styles.offlineRow}>
+                <Ionicons name="cloud-offline-outline" size={14} color={colors.textMuted} />
+                <Text style={[styles.offlineText, { color: colors.textMuted }]}>
+                  Offline — showing the last conditions Eddy saw. Pull down to retry.
+                </Text>
+              </View>
+            ) : null}
 
             {/* Saved floats live here rather than in a sixth tab: this is
                 already the screen for "things I kept", and both of them are
@@ -496,6 +538,11 @@ const styles = StyleSheet.create({
   header: { paddingHorizontal: 20, paddingTop: 12, paddingBottom: 16 },
   title: { ...t['3xl'], fontFamily: fonts.display },
   subtitle: { ...t.sm, fontFamily: fonts.body, marginTop: 4 },
+  // The glyph and its sentence on one line, in the caption size: a marker,
+  // not a banner. `flex: 1` on the text so a wrap happens under itself rather
+  // than pushing the icon to a second line.
+  offlineRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 6 },
+  offlineText: { ...t.xs, fontFamily: fonts.body, flex: 1 },
   floatsRow: {
     flexDirection: 'row',
     alignItems: 'center',

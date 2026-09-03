@@ -232,7 +232,7 @@ test('the compare-and-write is one statement, not a read then an upsert', () => 
   assert.doesNotMatch(source, /\.upsert\(/);
 
   const migration = readFileSync(
-    'supabase/migrations/20260826112559_reconcile_entitlement_can_only_move_forward.sql',
+    'supabase/migrations/20260902125655_reconcile_entitlement_can_only_move_forward.sql',
     'utf8',
   );
   assert.match(migration, /on conflict \(user_id, entitlement_id\) do update/);
@@ -241,6 +241,45 @@ test('the compare-and-write is one statement, not a read then an upsert', () => 
   // access control on a SECURITY DEFINER writer of a table with no write policy.
   assert.match(migration, /revoke all on function public\.reconcile_entitlement/);
   assert.match(migration, /from public, anon, authenticated/);
+
+  // The function that is LIVE is the one 20260902132840 defines: the same
+  // forward-only clause, plus a refusal to move a row forward from a snapshot
+  // older than the row's newest event — which closes the refund race the
+  // first version left open. It replaces by DROP, because a new signature
+  // under CREATE OR REPLACE is a second overload, not a replacement.
+  const live = readFileSync(
+    'supabase/migrations/20260902132840_a_reconcile_defers_to_a_newer_event.sql',
+    'utf8',
+  );
+  assert.match(live, /drop function if exists public\.reconcile_entitlement\(/);
+  assert.match(live, /where \(e\.expires_at is null or e\.expires_at < excluded\.expires_at\)/);
+  assert.match(
+    live,
+    /and \(p_observed_at is null or e\.last_event_at is null or e\.last_event_at <= p_observed_at\)/,
+  );
+  assert.match(live, /revoke all on function public\.reconcile_entitlement/);
+  assert.match(live, /to service_role/);
+});
+
+test('the reconcile tells the function when its snapshot was taken', async () => {
+  // Taken BEFORE the REST read, so the refusal covers the whole round trip: a
+  // refund whose webhook lands while the read is in flight stamps the row
+  // with an event later than this, and the function keeps the row.
+  const { client, calls } = fakeAdmin('granted');
+  const before = Date.now();
+  let readAt = 0;
+  await reconcileEntitlement(client, {
+    userId: USER,
+    entitlementId: ENTITLEMENT,
+    apiKey: 'sk_test',
+    fetchImpl: async (...args: Parameters<typeof fetch>) => {
+      readAt = Date.now();
+      return okFetch()(...args);
+    },
+  });
+  const observed = Date.parse(String(calls[0].p_observed_at));
+  assert.ok(Number.isFinite(observed), 'p_observed_at must be an ISO timestamp');
+  assert.ok(observed >= before && observed <= readAt, 'p_observed_at must predate the REST read');
 });
 
 test('already-current is reported as a no-op, not as a write', async () => {
