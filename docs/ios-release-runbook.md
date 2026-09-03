@@ -2,16 +2,75 @@
 
 ## Current release
 
-- **Live App Store version:** 1.0
-- **Release in progress:** 1.1 (`eddy-ios/app.json` is `1.1.0`)
-- **Status confirmed:** 2026-08-11
+- **Live App Store version:** 1.1
+- **Release in progress:** 1.2 (`eddy-ios/app.json` is `1.2.0`)
+- **Status confirmed:** 2026-09-03
 
-The checkboxes below are the evidence checklist for **1.1**. They are deliberately
-not inferred from the fact that 1.0 shipped: enrolment, signing and the App Store
-record necessarily existed, but credentials, environment values, migrations,
-device behavior and store metadata can drift between releases.
+The delta report for this release is **`docs/release-readiness-1.2.md`**. Read
+it before working this file: it carries the 1.2 gates, what shipped, and — the
+part that is easy to skip — an explicit list of what was *not* verified.
+
+The checkboxes below are the evidence checklist, and they are deliberately not
+inferred from the fact that the previous release shipped: enrolment, signing
+and the App Store record necessarily existed, but credentials, environment
+values, migrations, device behavior and store metadata can drift between
+releases.
+
+### 1.2 delta gates
+
+The full reasoning for each is in `docs/release-readiness-1.2.md`; this is the
+checklist.
+
+- [ ] **Deploy the web app before the build is distributed.** The 1.2 binary
+      calls `/api/me/entitlement/refresh`, which did not exist in 1.1, plus
+      several additive response fields (`floodStages` on
+      `/api/conditions/[riverId]`, `historyCapabilities` on gauge detail, the
+      server-derived visual gauge). Restore breaks loudly; the fields degrade
+      quietly, which is worse.
+- [ ] **Do not publish an EAS Update during this release.** No native
+      dependency or config plugin changed since 1.1, so the fingerprint
+      runtime version is unchanged — an update on the `production` channel
+      would be offered to 1.1 binaries in the store, putting 1.2's JavaScript
+      behind 1.1's version string. Cut the build; do not patch 1.1.
+- [ ] **Trust Ledger critical — Jacks Fork, still open, no longer snoozed.**
+      07065200 (near Mountain View) has `level_low = level_optimal_min = 100`
+      cfs, untouched since 2026-07-21. The September 1 recalibration fixed
+      *Eminence* (07066000), a different gauge. Second release carrying this;
+      it needs the data judgement, not a third snooze.
+- [ ] **Trust Ledger high — Courtois gauge proximity, still open.** Encode the
+      governed Huzzah proxy (five miles) or accept it.
+- [ ] **The Phase 5 device pass** from
+      `missouri-float-planner/docs/RECENT_BRANCHES_FIX_PLAN_2026-09-01.md`.
+      Nine UI judgement calls landed in code 2026-09-02 and none has been seen
+      on a device. Ten minutes on a simulator with a stale gauge, a fresh
+      install, and airplane mode. Two are product choices, not fixes: 5.3 and
+      5.8.
+- [ ] **Set `SUPABASE_ACCESS_TOKEN` and `SUPABASE_DB_PASSWORD` in Actions
+      secrets.** Without both, `.github/workflows/migration-drift.yml` warns
+      and skips — the drift guard added this cycle is inert, and not failing
+      reads identically to passing.
+- [ ] `make check` green on Node 20, including `make bundle-mobile`. Not run
+      as of 2026-09-03; see the readiness report's *What was not verified*.
+- [ ] `make check-db` from a linked checkout. The ledger's `[pending]` section
+      is empty as of 2026-09-02, but that is a file-and-query comparison, not
+      the CLI's view.
+- [ ] Correct `app_config.latest_version`, which reads a stale `0.1.0`. It
+      drives no gate. (`min_supported_version` is `0.0.0` — verified
+      read-only 2026-09-03, no lockout risk.)
+- [ ] **The chart-scrub device gate below carries into 1.2 unclosed** — see
+      *Delta gate added by the August 18 chart-scrub rework*. Gesture
+      arbitration is exactly the class of change the repo's rule says wants a
+      device, and the 1.2 chart work sits on top of it.
+
+Expect and do not chase: the three Cumberland dams (Wolf Creek, Center Hill,
+Dale Hollow) read 4.7–9.7 hours stale against 1.7–2.7 for the other fifteen.
+That is an upstream LRN feed lag, the strip renders those hours as honest
+nulls by design, and a tester will report it as a bug.
 
 ### 1.1 delta gates found in the August 11 repository audit
+
+**Historical.** 1.1 shipped. These are kept because the ones still unticked
+are unticked for a reason, and two of them recur above.
 
 - [x] Apply `20260811130000_search_gauges_provider_provenance.sql` and verify
       both `search_gauges` overloads. The four-argument form keeps 1.0 working;
