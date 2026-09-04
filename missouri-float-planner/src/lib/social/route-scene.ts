@@ -131,7 +131,7 @@ export async function buildSocialRouteScene(
       kind: accessKind(row),
       riverMile: mile,
       progress: locatedProgress(rawCoordinates, location, mile, section),
-      detail: accessKind(row) === 'campground' ? 'Campground & river access' : 'River access',
+      detail: accessKind(row) === 'campground' ? 'Campground & access' : 'River access',
     });
   }
 
@@ -152,17 +152,13 @@ export async function buildSocialRouteScene(
     });
   }
 
-  // Mile-marker springs fill gaps where the POI table has no mapped feature.
-  for (const spring of section.springs) {
-    points.push({
-      id: `spring-${section.riverSlug}-${spring.mile}`,
-      name: spring.name,
-      kind: 'spring',
-      riverMile: spring.mile,
-      progress: fallbackProgress(spring.mile, section),
-      detail: spring.side ? `Spring · river ${spring.side}` : 'Spring',
-    });
-  }
+  // Guidebook springs (section.springs, from floatmissouri_mile_markers.json)
+  // are deliberately NOT drawn. They carry a river mile only, on the
+  // guidebook's own mile scale, which disagrees with access_points' by more
+  // than a mile in places (Powder Mill: 58.7 vs 60.73). Placing them by
+  // mile-fraction puts a named spring in the wrong bend of a line that is
+  // otherwise exact. Springs with real coordinates still arrive via the POI
+  // query above. They remain in the caption, where a mile is just a mile.
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   for (const row of (hazardResult.data || []) as any[]) {

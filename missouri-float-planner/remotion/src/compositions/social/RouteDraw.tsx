@@ -10,24 +10,64 @@ import {
   useVideoConfig,
 } from "remotion";
 import {
+  DEFAULT_TIMING,
   buildJourneyRoute,
+  journeyCamera,
   journeyState,
   pointAtRouteProgress,
+  type JourneyCamera,
   type JourneyPoint,
+  type JourneyStage,
   type RoutePointKind,
   type SocialRoutePoint,
 } from "../../../../shared/social-route-journey";
 import { EddyMascot } from "../../components/EddyMascot";
 import { colors } from "../../design-tokens/colors";
 import { fontFamilies } from "../../design-tokens/fonts";
+import { REEL_SAFE } from "../../lib/reel-safe";
 import { CONDITION_COLORS, type RouteDrawProps } from "../../lib/social-props";
 import { SectionGuide } from "./SectionGuide";
 
 const FPS = 30;
-const STAGE_TOP = 300;
-const STAGE_HEIGHT = 1110;
-const BOAT_X = 540;
-const BOAT_Y = 565;
+
+// ─── Layout ─────────────────────────────────────────────────────────────────
+// Everything readable sits inside REEL_SAFE (Instagram's top/bottom chrome).
+// The stage is the only thing that may run under the masthead / dock, and it
+// fades out at both edges so nothing is ever clipped by chrome mid-word.
+const STAGE_TOP = 440;
+const STAGE_HEIGHT = 800;
+const STAGE: JourneyStage = {
+  width: 1080,
+  height: STAGE_HEIGHT,
+  boatX: 540,
+  boatY: 400,
+  padding: 100,
+};
+const DOCK_BOTTOM = REEL_SAFE.bottom + 52;
+const CALLOUT_W = 390;
+const CALLOUT_H = 160;
+
+// ─── Organic Brutalist tokens (mirrors src/app/globals.css) ─────────────────
+// Cards: white surface, 2px primary-700 border, 8px radius, 3px neutral-400
+// offset shadow. Buttons: accent-500, 2px neutral-900 border, 6px radius.
+// Scaled ~2.5× for a 1080px canvas viewed at phone width.
+const BRUTAL = {
+  ground: colors.neutral[50],
+  surface: "#FFFFFF",
+  ink: colors.neutral[900],
+  inkSecondary: colors.neutral[600],
+  inkMuted: colors.neutral[500],
+  cardBorder: `5px solid ${colors.primary[700]}`,
+  cardRadius: 22,
+  cardShadow: `8px 8px 0 ${colors.neutral[400]}`,
+  tileBg: colors.secondary[50],
+  tileBorder: `4px solid ${colors.primary[600]}`,
+  tileRadius: 16,
+  tileShadow: `5px 5px 0 ${colors.neutral[300]}`,
+  buttonBorder: `4px solid ${colors.neutral[900]}`,
+  buttonRadius: 14,
+  buttonShadow: `6px 6px 0 ${colors.neutral[400]}`,
+} as const;
 
 const EVERGREEN_STYLE = {
   solid: colors.secondary[600],
@@ -46,9 +86,16 @@ const KIND_STYLE: Record<RoutePointKind, { fill: string; short: string }> = {
   hazard: { fill: "#E5A000", short: "!" },
 };
 
+const toScreen = (point: JourneyPoint, camera: JourneyCamera) => ({
+  x: point.x * camera.scale + camera.translateX,
+  y: point.y * camera.scale + camera.translateY,
+});
+
 /**
- * A truthful scrolling river journey. The selected PostGIS LineString moves
- * beneath a fixed Eddy canoe; intermediate points pause in the reading zone.
+ * A truthful river journey. Frame 0 is the whole float — every bend, every
+ * stop, the put-in named — so the grid thumbnail is a complete card; the
+ * camera then pushes in and the selected PostGIS LineString scrolls beneath a
+ * fixed Eddy canoe, pausing at each intermediate feature in the reading zone.
  * Missing geometry falls back to the factual, non-geographic section card.
  */
 export const RouteDraw: React.FC<RouteDrawProps> = (props) => {
@@ -101,21 +148,52 @@ export const RouteDraw: React.FC<RouteDrawProps> = (props) => {
   const intermediate = routePoints.filter((point) => point.progress > 0.015 && point.progress < 0.985);
   const state = journeyState(frame, intermediate);
   const current = pointAtRouteProgress(route, state.progress);
-  const cameraX = BOAT_X - current.x;
-  const cameraY = BOAT_Y - current.y;
+  const camera = journeyCamera(frame, route, current, STAGE);
+  const boatScreen = toScreen(current, camera);
   const travelledMiles = Math.min(distanceMi, distanceMi * state.progress);
   const activeIntermediate = state.activeStop === null ? null : intermediate[state.activeStop];
   const putIn = routePoints.find((point) => point.kind === "put_in");
   const takeOut = routePoints.find((point) => point.kind === "take_out");
-  const launchProgress = interpolate(frame, [3, 18, 28], [0, 1, 0], {
-    extrapolateLeft: "clamp",
-    extrapolateRight: "clamp",
-  });
+
+  // The put-in callout is up from frame 0 (thumbnail) and holds through the
+  // overview; it lets go as the camera finishes pushing in on the boat.
+  const launchProgress = interpolate(
+    frame,
+    [0, DEFAULT_TIMING.introFrames + 10, DEFAULT_TIMING.introFrames + 24],
+    [1, 1, 0],
+    { extrapolateLeft: "clamp", extrapolateRight: "clamp" },
+  );
   const finishProgress = state.complete
     ? spring({ frame: frame - (durationInFrames - 88), fps, config: { damping: 14, stiffness: 120 } })
     : 0;
   const activeCallout = activeIntermediate ?? (launchProgress > 0 ? putIn : finishProgress > 0 ? takeOut : null);
   const calloutProgress = activeIntermediate ? state.calloutProgress : Math.max(launchProgress, finishProgress);
+
+  // Callout placement: attach to the active point on screen and open on the
+  // side the channel is NOT heading toward, so the card never covers the
+  // next bend. Clamped into the stage and the horizontal safe zone.
+  let calloutStyle: React.CSSProperties | null = null;
+  if (activeCallout) {
+    const p = activeCallout.progress;
+    const here = pointAtRouteProgress(route, p);
+    const probe = p >= 0.99 ? pointAtRouteProgress(route, p - 0.06) : pointAtRouteProgress(route, Math.min(1, p + 0.06));
+    const headingX = p >= 0.99 ? here.x - probe.x : probe.x - here.x;
+    const anchor = toScreen(here, camera);
+    const openLeft = headingX > 0;
+    // Eddy paddles on the left of the boat dot (see the mascot offset below),
+    // so a card opening left needs a wider gap or it lands on the otter.
+    const left = clamp(
+      openLeft ? anchor.x - 200 - CALLOUT_W : anchor.x + 70,
+      REEL_SAFE.left,
+      1080 - REEL_SAFE.right - CALLOUT_W,
+    );
+    const top = clamp(STAGE_TOP + anchor.y - CALLOUT_H / 2, STAGE_TOP + 12, STAGE_TOP + STAGE_HEIGHT - CALLOUT_H - 12);
+    calloutStyle = {
+      left,
+      top,
+      transform: `translateX(${interpolate(calloutProgress, [0, 1], [openLeft ? -22 : 22, 0])}px) scale(${interpolate(calloutProgress, [0, 1], [0.96, 1])})`,
+    };
+  }
 
   const delta = hoursTypical - hoursToday;
   const deltaCopy = evergreen
@@ -129,11 +207,15 @@ export const RouteDraw: React.FC<RouteDrawProps> = (props) => {
     config: { damping: 14, stiffness: 120, mass: 0.6 },
   });
 
+  // Strokes are authored at travel scale; counter-scale so the overview still
+  // reads as a channel rather than a hairline, without ballooning mid-zoom.
+  const strokeK = 1 / Math.max(camera.scale, 0.45);
+
   return (
     <AbsoluteFill
       style={{
-        backgroundColor: colors.neutral[50],
-        color: colors.neutral[900],
+        backgroundColor: BRUTAL.ground,
+        color: BRUTAL.ink,
         fontFamily: fontFamilies.body,
         overflow: "hidden",
       }}
@@ -154,16 +236,6 @@ export const RouteDraw: React.FC<RouteDrawProps> = (props) => {
         </AbsoluteFill>
       ) : null}
 
-      {/* Quiet paper/topographic texture—structure, not a faux basemap. */}
-      <AbsoluteFill
-        style={{
-          opacity: 0.55,
-          backgroundImage:
-            "radial-gradient(circle at 20% 18%, rgba(45,120,137,.11) 0 2px, transparent 2px), radial-gradient(circle at 76% 65%, rgba(184,157,114,.13) 0 2px, transparent 2px)",
-          backgroundSize: "54px 54px, 71px 71px",
-        }}
-      />
-
       <Header
         label={label}
         riverName={riverName}
@@ -178,8 +250,8 @@ export const RouteDraw: React.FC<RouteDrawProps> = (props) => {
           width: "100%",
           height: STAGE_HEIGHT,
           overflow: "hidden",
-          WebkitMaskImage: "linear-gradient(to bottom, transparent 0%, #000 12%, #000 88%, transparent 100%)",
-          maskImage: "linear-gradient(to bottom, transparent 0%, #000 12%, #000 88%, transparent 100%)",
+          WebkitMaskImage: "linear-gradient(to bottom, transparent 0%, #000 10%, #000 90%, transparent 100%)",
+          maskImage: "linear-gradient(to bottom, transparent 0%, #000 10%, #000 90%, transparent 100%)",
         }}
       >
         <svg width={1080} height={STAGE_HEIGHT} viewBox={`0 0 1080 ${STAGE_HEIGHT}`}>
@@ -189,14 +261,14 @@ export const RouteDraw: React.FC<RouteDrawProps> = (props) => {
               <feMerge><feMergeNode in="blur" /><feMergeNode in="SourceGraphic" /></feMerge>
             </filter>
           </defs>
-          <g transform={`translate(${cameraX} ${cameraY})`}>
-            <path d={toPath(route)} fill="none" stroke={colors.primary[900]} strokeWidth={44} strokeLinecap="round" strokeLinejoin="round" />
-            <path d={toPath(route)} fill="none" stroke={colors.primary[300]} strokeWidth={32} strokeLinecap="round" strokeLinejoin="round" />
+          <g transform={`translate(${camera.translateX} ${camera.translateY}) scale(${camera.scale})`}>
+            <path d={toPath(route)} fill="none" stroke={colors.primary[700]} strokeWidth={44 * strokeK} strokeLinecap="round" strokeLinejoin="round" />
+            <path d={toPath(route)} fill="none" stroke={colors.primary[200]} strokeWidth={32 * strokeK} strokeLinecap="round" strokeLinejoin="round" />
             <path
               d={toPath(route)}
               fill="none"
               stroke={condition.solid}
-              strokeWidth={11}
+              strokeWidth={11 * strokeK}
               strokeLinecap="round"
               strokeLinejoin="round"
               pathLength={1}
@@ -209,6 +281,7 @@ export const RouteDraw: React.FC<RouteDrawProps> = (props) => {
                 key={point.id}
                 point={point}
                 position={pointAtRouteProgress(route, point.progress)}
+                counterScale={1 / camera.scale}
                 visited={point.progress <= state.progress + 0.001}
                 active={activeCallout?.id === point.id}
               />
@@ -217,31 +290,29 @@ export const RouteDraw: React.FC<RouteDrawProps> = (props) => {
         </svg>
       </div>
 
-      {/* Eddy stays in the reading zone while the geographic world moves. */}
-      <div style={{ position: "absolute", top: STAGE_TOP + BOAT_Y - 68, left: BOAT_X - 120, zIndex: 5 }}>
-        <EddyMascot variant="canoe" size={112} delay={10} float={false} />
+      {/* Eddy rides the boat position — fixed once the camera is following. */}
+      <div style={{ position: "absolute", top: STAGE_TOP + boatScreen.y - 68, left: boatScreen.x - 120, zIndex: 5 }}>
+        {/* Negative delay: the entrance spring is already settled at frame 0,
+            so the thumbnail has Eddy in the boat rather than an empty put-in. */}
+        <EddyMascot variant="canoe" size={112} delay={-30} float={false} />
       </div>
       <div
         style={{
           position: "absolute",
-          top: STAGE_TOP + BOAT_Y - 10,
-          left: BOAT_X - 10,
+          top: STAGE_TOP + boatScreen.y - 10,
+          left: boatScreen.x - 10,
           width: 20,
           height: 20,
           borderRadius: "50%",
           background: condition.solid,
-          border: `4px solid ${colors.neutral[900]}`,
+          border: `4px solid ${BRUTAL.ink}`,
           boxShadow: `3px 3px 0 ${colors.neutral[300]}`,
           zIndex: 6,
         }}
       />
 
-      {activeCallout ? (
-        <RouteCallout
-          point={activeCallout}
-          putInMile={putInMile}
-          opacity={calloutProgress}
-        />
+      {activeCallout && calloutStyle ? (
+        <RouteCallout point={activeCallout} putInMile={putInMile} opacity={calloutProgress} style={calloutStyle} />
       ) : null}
 
       <ProgressTicket current={travelledMiles} total={distanceMi} conditionColor={condition.solid} />
@@ -259,84 +330,229 @@ export const RouteDraw: React.FC<RouteDrawProps> = (props) => {
 };
 
 const Header: React.FC<{ label: string; riverName: string; subtitle: string }> = ({ label, riverName, subtitle }) => (
-  <div style={{ position: "absolute", top: 58, left: 64, right: 64, zIndex: 10 }}>
+  <div style={{ position: "absolute", top: REEL_SAFE.top, left: REEL_SAFE.left, right: REEL_SAFE.right, zIndex: 10 }}>
     <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-      <span style={{ background: colors.accent[500], border: `2px solid ${colors.neutral[900]}`, borderRadius: 999, padding: "7px 15px", fontFamily: fontFamilies.display, fontSize: 22, fontWeight: 650, color: "white", letterSpacing: 1, textTransform: "uppercase", boxShadow: `3px 3px 0 ${colors.neutral[900]}` }}>
+      <span
+        style={{
+          background: colors.accent[500],
+          border: BRUTAL.buttonBorder,
+          borderRadius: 999,
+          padding: "7px 16px",
+          fontFamily: fontFamilies.display,
+          fontSize: 22,
+          fontWeight: 650,
+          color: "white",
+          letterSpacing: 1,
+          textTransform: "uppercase",
+          boxShadow: `4px 4px 0 ${colors.neutral[400]}`,
+        }}
+      >
         {label}
       </span>
       <span style={{ fontFamily: fontFamilies.display, fontSize: 24, fontWeight: 650, color: colors.primary[900] }}>eddy.guide</span>
     </div>
-    <div style={{ marginTop: 22, fontFamily: fontFamilies.display, fontSize: 70, lineHeight: 0.98, fontWeight: 680, color: colors.neutral[900], letterSpacing: -1.5 }}>
+    <div style={{ marginTop: 20, fontFamily: fontFamilies.display, fontSize: 70, lineHeight: 0.98, fontWeight: 680, color: BRUTAL.ink, letterSpacing: -1.5 }}>
       {riverName}
     </div>
-    <div style={{ marginTop: 10, fontSize: 25, color: colors.neutral[600], fontWeight: 560 }}>{subtitle}</div>
+    <div style={{ marginTop: 8, fontSize: 25, color: BRUTAL.inkSecondary, fontWeight: 560 }}>{subtitle}</div>
   </div>
 );
 
 const ProgressTicket: React.FC<{ current: number; total: number; conditionColor: string }> = ({ current, total, conditionColor }) => (
-  <div style={{ position: "absolute", top: STAGE_TOP + 72, right: 52, zIndex: 8, background: "white", border: `2px solid ${colors.neutral[900]}`, borderRadius: 12, padding: "10px 15px", boxShadow: `4px 4px 0 ${colors.primary[800]}`, display: "flex", alignItems: "baseline", gap: 7 }}>
+  <div
+    style={{
+      position: "absolute",
+      top: STAGE_TOP + 16,
+      right: REEL_SAFE.right,
+      zIndex: 8,
+      background: BRUTAL.surface,
+      border: `4px solid ${colors.primary[700]}`,
+      borderRadius: 14,
+      padding: "10px 15px",
+      boxShadow: `5px 5px 0 ${colors.neutral[400]}`,
+      display: "flex",
+      alignItems: "baseline",
+      gap: 7,
+    }}
+  >
     <span style={{ fontFamily: fontFamilies.mono, fontSize: 25, fontWeight: 750, color: conditionColor }}>{current.toFixed(1)}</span>
-    <span style={{ fontFamily: fontFamilies.mono, fontSize: 16, color: colors.neutral[500] }}>/ {total.toFixed(1)} MI</span>
+    <span style={{ fontFamily: fontFamilies.mono, fontSize: 16, color: BRUTAL.inkMuted }}>/ {total.toFixed(1)} MI</span>
   </div>
 );
 
-const RouteMarker: React.FC<{ point: SocialRoutePoint; position: JourneyPoint; visited: boolean; active: boolean }> = ({ point, position, visited, active }) => {
+const RouteMarker: React.FC<{
+  point: SocialRoutePoint;
+  position: JourneyPoint;
+  counterScale: number;
+  visited: boolean;
+  active: boolean;
+}> = ({ point, position, counterScale, visited, active }) => {
   const style = KIND_STYLE[point.kind];
-  const scale = active ? 1.25 : 1;
+  const endpoint = point.kind === "put_in" || point.kind === "take_out";
+  const scale = (active ? 1.25 : 1) * counterScale;
   return (
     <g transform={`translate(${position.x} ${position.y}) scale(${scale})`} opacity={visited ? 1 : 0.58}>
-      {active ? <circle r={29} fill="none" stroke={style.fill} strokeWidth={5} opacity={0.5} /> : null}
-      <circle r={18} fill={visited ? style.fill : colors.neutral[100]} stroke={colors.neutral[900]} strokeWidth={4} />
-      <text y={5} textAnchor="middle" fontFamily={fontFamilies.mono} fontSize={point.kind === "put_in" || point.kind === "take_out" ? 8 : 13} fontWeight={850} fill={visited ? colors.neutral[900] : colors.neutral[500]}>
-        {style.short}
-      </text>
+      {active ? <circle r={endpoint ? 36 : 29} fill="none" stroke={style.fill} strokeWidth={5} opacity={0.5} /> : null}
+      {endpoint ? (
+        // Endpoints get a bigger, wordless mark — "OUT" in an 18px circle was
+        // unreadable, and the callout already names the place.
+        <>
+          <circle r={24} fill={style.fill} stroke={colors.neutral[900]} strokeWidth={4} />
+          <circle r={8} fill={colors.neutral[50]} stroke={colors.neutral[900]} strokeWidth={3} />
+        </>
+      ) : (
+        <>
+          <circle r={18} fill={visited ? style.fill : colors.neutral[100]} stroke={colors.neutral[900]} strokeWidth={4} />
+          <text y={5} textAnchor="middle" fontFamily={fontFamilies.mono} fontSize={13} fontWeight={850} fill={visited ? colors.neutral[900] : colors.neutral[500]}>
+            {style.short}
+          </text>
+        </>
+      )}
     </g>
   );
 };
 
-const RouteCallout: React.FC<{ point: SocialRoutePoint; putInMile: number; opacity: number }> = ({ point, putInMile, opacity }) => {
+const RouteCallout: React.FC<{ point: SocialRoutePoint; putInMile: number; opacity: number; style: React.CSSProperties }> = ({ point, putInMile, opacity, style }) => {
   const isHazard = point.kind === "hazard";
   const accent = isHazard ? (point.severity === "danger" ? "#DC2626" : "#E5A000") : KIND_STYLE[point.kind].fill;
   const milesIn = Math.max(0, point.riverMile - putInMile);
   return (
-    <div style={{ position: "absolute", zIndex: 12, left: 610, top: STAGE_TOP + BOAT_Y - 82, width: 390, opacity, transform: `translateX(${interpolate(opacity, [0, 1], [22, 0])}px) scale(${interpolate(opacity, [0, 1], [0.96, 1])})`, background: "white", border: `3px solid ${colors.neutral[900]}`, borderRadius: 16, boxShadow: `7px 7px 0 ${accent}`, overflow: "hidden" }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 15px", background: accent, borderBottom: `3px solid ${colors.neutral[900]}` }}>
-        <span style={{ width: 30, height: 30, display: "grid", placeItems: "center", borderRadius: "50%", border: `2px solid ${colors.neutral[900]}`, background: colors.neutral[50], fontFamily: fontFamilies.mono, fontWeight: 850 }}>{KIND_STYLE[point.kind].short}</span>
-        <span style={{ fontFamily: fontFamilies.display, fontSize: 21, fontWeight: 700, color: isHazard ? colors.neutral[900] : "white", textTransform: "uppercase", letterSpacing: 0.8 }}>{point.detail || point.kind.replace(/_/g, " ")}</span>
+    <div
+      style={{
+        position: "absolute",
+        zIndex: 12,
+        width: CALLOUT_W,
+        opacity,
+        background: BRUTAL.surface,
+        border: BRUTAL.cardBorder,
+        borderRadius: 20,
+        boxShadow: BRUTAL.cardShadow,
+        overflow: "hidden",
+        ...style,
+      }}
+    >
+      <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "9px 14px", background: accent, borderBottom: `4px solid ${colors.primary[700]}` }}>
+        <span
+          style={{
+            minWidth: 30,
+            height: 30,
+            padding: "0 9px",
+            display: "grid",
+            placeItems: "center",
+            borderRadius: 999,
+            border: `2px solid ${colors.neutral[900]}`,
+            background: colors.neutral[50],
+            fontFamily: fontFamilies.mono,
+            fontSize: 13,
+            fontWeight: 850,
+          }}
+        >
+          {KIND_STYLE[point.kind].short}
+        </span>
+        <span
+          style={{
+            fontFamily: fontFamilies.display,
+            fontSize: 19,
+            fontWeight: 700,
+            color: isHazard ? colors.neutral[900] : "white",
+            textTransform: "uppercase",
+            letterSpacing: 0.8,
+            whiteSpace: "nowrap",
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+          }}
+        >
+          {point.detail || point.kind.replace(/_/g, " ")}
+        </span>
       </div>
-      <div style={{ padding: "15px 17px 16px" }}>
-        <div style={{ fontFamily: fontFamilies.display, fontSize: 34, lineHeight: 1.05, fontWeight: 680, color: colors.neutral[900] }}>{cleanName(point.name, 35)}</div>
-        <div style={{ marginTop: 8, fontFamily: fontFamilies.mono, fontSize: 18, fontWeight: 650, color: colors.neutral[500] }}>{milesIn.toFixed(1)} MI INTO FLOAT · MM {point.riverMile.toFixed(1)}</div>
+      <div style={{ padding: "14px 17px 15px" }}>
+        <div style={{ fontFamily: fontFamilies.display, fontSize: 34, lineHeight: 1.05, fontWeight: 680, color: BRUTAL.ink }}>{cleanName(point.name, 35)}</div>
+        <div style={{ marginTop: 8, fontFamily: fontFamilies.mono, fontSize: 18, fontWeight: 650, color: BRUTAL.inkMuted }}>{milesIn.toFixed(1)} MI INTO FLOAT · MM {point.riverMile.toFixed(1)}</div>
       </div>
     </div>
   );
 };
 
 const StatsDock: React.FC<{ hours: number; distance: number; conditionLabel: string; conditionColor: string; detail: string; cta: number; followCta?: string }> = ({ hours, distance, conditionLabel, conditionColor, detail, cta, followCta }) => (
-  <div style={{ position: "absolute", left: 58, right: 58, bottom: 58, zIndex: 15 }}>
-    <div style={{ background: "white", border: `3px solid ${colors.neutral[900]}`, borderRadius: 20, boxShadow: `8px 8px 0 ${colors.primary[900]}`, padding: 18 }}>
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 13 }}>
-        <StatTile value={`~${hours.toFixed(1)}`} unit="HRS" label="Float time" />
-        <StatTile value={distance.toFixed(1)} unit="MI" label="Distance" />
-        <StatTile value={conditionLabel} label="Conditions" color={conditionColor} compact />
-      </div>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 18, marginTop: 16, padding: "0 5px" }}>
-        <span style={{ fontSize: 20, fontWeight: 620, color: colors.neutral[600] }}>{detail}</span>
-        <span style={{ opacity: cta, transform: `translateY(${interpolate(cta, [0, 1], [8, 0])}px)`, background: colors.accent[500], color: "white", border: `2px solid ${colors.neutral[900]}`, borderRadius: 12, boxShadow: `4px 4px 0 ${colors.neutral[900]}`, padding: "10px 16px", fontFamily: fontFamilies.display, fontSize: 23, fontWeight: 680, whiteSpace: "nowrap" }}>Plan this float →</span>
+  <>
+    <div style={{ position: "absolute", left: REEL_SAFE.left, right: REEL_SAFE.right, bottom: DOCK_BOTTOM, zIndex: 15 }}>
+      <div style={{ background: BRUTAL.surface, border: BRUTAL.cardBorder, borderRadius: BRUTAL.cardRadius, boxShadow: BRUTAL.cardShadow, padding: 18 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 13 }}>
+          <StatTile value={`~${hours.toFixed(1)}`} unit="HRS" label="Float time" />
+          <StatTile value={distance.toFixed(1)} unit="MI" label="Distance" />
+          <StatTile value={conditionLabel} label="Conditions" color={conditionColor} compact />
+        </div>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 18, marginTop: 16, padding: "0 5px" }}>
+          <span style={{ fontSize: 20, fontWeight: 620, color: BRUTAL.inkSecondary }}>{detail}</span>
+          <span
+            style={{
+              opacity: cta,
+              transform: `translateY(${interpolate(cta, [0, 1], [8, 0])}px)`,
+              background: colors.accent[500],
+              color: "white",
+              border: BRUTAL.buttonBorder,
+              borderRadius: BRUTAL.buttonRadius,
+              boxShadow: BRUTAL.buttonShadow,
+              padding: "10px 16px",
+              fontFamily: fontFamilies.display,
+              fontSize: 23,
+              fontWeight: 680,
+              whiteSpace: "nowrap",
+            }}
+          >
+            Plan this float →
+          </span>
+        </div>
       </div>
     </div>
-    {followCta ? <div style={{ opacity: cta, marginTop: 17, textAlign: "center", fontFamily: fontFamilies.display, fontSize: 20, fontWeight: 600, color: colors.primary[700] }}>{followCta}</div> : null}
-  </div>
+    {followCta ? (
+      <div
+        style={{
+          position: "absolute",
+          left: REEL_SAFE.left,
+          right: REEL_SAFE.right,
+          bottom: REEL_SAFE.bottom,
+          zIndex: 15,
+          opacity: cta,
+          textAlign: "center",
+          fontFamily: fontFamilies.display,
+          fontSize: 20,
+          fontWeight: 600,
+          color: colors.primary[700],
+        }}
+      >
+        {followCta}
+      </div>
+    ) : null}
+  </>
 );
 
 const StatTile: React.FC<{ value: string; unit?: string; label: string; color?: string; compact?: boolean }> = ({ value, unit, label, color = colors.neutral[900], compact = false }) => (
-  <div style={{ minHeight: 112, display: "flex", flexDirection: "column", justifyContent: "center", alignItems: "center", background: colors.neutral[50], border: `2px solid ${colors.neutral[900]}`, borderRadius: 12, boxShadow: `3px 3px 0 ${colors.neutral[300]}`, padding: "10px 8px", textAlign: "center" }}>
+  <div
+    style={{
+      minHeight: 112,
+      display: "flex",
+      flexDirection: "column",
+      justifyContent: "center",
+      alignItems: "center",
+      background: BRUTAL.tileBg,
+      border: BRUTAL.tileBorder,
+      borderRadius: BRUTAL.tileRadius,
+      boxShadow: BRUTAL.tileShadow,
+      padding: "10px 8px",
+      textAlign: "center",
+    }}
+  >
     <div style={{ fontFamily: fontFamilies.display, fontSize: compact ? 30 : 43, lineHeight: 1, fontWeight: 720, color }}>
-      {value}{unit ? <span style={{ marginLeft: 5, fontFamily: fontFamilies.mono, fontSize: 16, color: colors.neutral[500] }}>{unit}</span> : null}
+      {value}{unit ? <span style={{ marginLeft: 5, fontFamily: fontFamilies.mono, fontSize: 16, color: BRUTAL.inkMuted }}>{unit}</span> : null}
     </div>
-    <div style={{ marginTop: 8, fontSize: 14, fontWeight: 750, letterSpacing: 1.2, textTransform: "uppercase", color: colors.neutral[500] }}>{label}</div>
+    <div style={{ marginTop: 8, fontSize: 14, fontWeight: 750, letterSpacing: 1.2, textTransform: "uppercase", color: BRUTAL.inkMuted }}>{label}</div>
   </div>
 );
+
+function clamp(value: number, min: number, max: number): number {
+  return Math.max(min, Math.min(max, value));
+}
 
 function toPath(points: ReadonlyArray<JourneyPoint>): string {
   return points.map((point, index) => `${index === 0 ? "M" : "L"}${point.x.toFixed(2)} ${point.y.toFixed(2)}`).join(" ");

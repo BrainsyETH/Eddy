@@ -49,12 +49,49 @@ export type JourneyState = {
   complete: boolean;
 };
 
-const DEFAULT_TIMING: JourneyTiming = {
-  introFrames: 30,
+export type JourneyBounds = {
+  minX: number;
+  minY: number;
+  maxX: number;
+  maxY: number;
+  width: number;
+  height: number;
+  centerX: number;
+  centerY: number;
+};
+
+/** The on-screen stage the camera composes into (all in canvas pixels). */
+export type JourneyStage = {
+  width: number;
+  height: number;
+  /** Where the boat sits once the camera is following it. */
+  boatX: number;
+  boatY: number;
+  /** Inset kept clear around the whole-route overview. */
+  padding: number;
+};
+
+/** screen = world * scale + translate. */
+export type JourneyCamera = {
+  scale: number;
+  translateX: number;
+  translateY: number;
+};
+
+export const DEFAULT_TIMING: JourneyTiming = {
+  // The overview (whole float, every stop, the put-in callout) holds through
+  // the intro, so frame 0 — the grid thumbnail — is a complete, branded card.
+  introFrames: 45,
   travelFrames: 210,
   pauseFrames: 38,
   outroFrames: 90,
 };
+
+/** Frames over which the camera pushes in from the overview to the boat. It
+ *  starts a beat before travel does so the first paddle strokes land mid-zoom
+ *  rather than after a hard cut. */
+const PUSH_IN_LEAD = 15;
+const PUSH_IN_FRAMES = 48;
 
 export function validRouteCoordinates(
   coordinates: ReadonlyArray<LngLat> | null | undefined,
@@ -87,7 +124,8 @@ export function sampleRouteCoordinates(
 export function buildJourneyRoute(
   coordinates: ReadonlyArray<LngLat> | null | undefined,
   travelPixels = 2550,
-  maxPoints = 180,
+  maxPoints = 400,
+  smooth = true,
 ): JourneyPoint[] | null {
   const clean = validRouteCoordinates(coordinates);
   if (clean.length < 2 || !(travelPixels > 0)) return null;
@@ -113,12 +151,108 @@ export function buildJourneyRoute(
     x: point.x * cos - point.y * sin,
     y: point.x * sin + point.y * cos,
   }));
-  const total = routeLength(rotated);
+  // The stored channel is Douglas-Peucker'd to ~50 m at import (see migration
+  // 00116), so a 9-mile section is ~35 vertices and draws as visible facets at
+  // reel scale. A Catmull-Rom pass through those vertices reads as a river
+  // again without inventing geometry: every stored vertex is still on the line.
+  const smoothed = smooth ? smoothRoute(rotated) : rotated;
+  const total = routeLength(smoothed);
   if (!(total > 0)) return null;
 
   const scale = travelPixels / total;
-  const scaled = rotated.map((point) => ({ x: point.x * scale, y: point.y * scale }));
+  const scaled = smoothed.map((point) => ({ x: point.x * scale, y: point.y * scale }));
   return sampleByDistance(scaled, maxPoints);
+}
+
+/**
+ * Centripetal-ish Catmull-Rom through every vertex, `samplesPerSegment` points
+ * per original segment. Endpoints are preserved exactly; interior vertices lie
+ * on the curve. Two points (or fewer) come back unchanged — there is nothing
+ * to smooth.
+ */
+export function smoothRoute(
+  points: ReadonlyArray<JourneyPoint>,
+  samplesPerSegment = 8,
+): JourneyPoint[] {
+  if (points.length < 3 || samplesPerSegment < 2) return [...points];
+  const at = (index: number) => points[Math.max(0, Math.min(points.length - 1, index))];
+  const out: JourneyPoint[] = [];
+  for (let i = 0; i < points.length - 1; i += 1) {
+    const p0 = at(i - 1);
+    const p1 = at(i);
+    const p2 = at(i + 1);
+    const p3 = at(i + 2);
+    for (let j = 0; j < samplesPerSegment; j += 1) {
+      const t = j / samplesPerSegment;
+      const t2 = t * t;
+      const t3 = t2 * t;
+      out.push({
+        x: 0.5 * (2 * p1.x + (-p0.x + p2.x) * t + (2 * p0.x - 5 * p1.x + 4 * p2.x - p3.x) * t2 + (-p0.x + 3 * p1.x - 3 * p2.x + p3.x) * t3),
+        y: 0.5 * (2 * p1.y + (-p0.y + p2.y) * t + (2 * p0.y - 5 * p1.y + 4 * p2.y - p3.y) * t2 + (-p0.y + 3 * p1.y - 3 * p2.y + p3.y) * t3),
+      });
+    }
+  }
+  out.push(points[points.length - 1]);
+  return out;
+}
+
+export function routeBounds(points: ReadonlyArray<JourneyPoint>): JourneyBounds {
+  let minX = Infinity;
+  let minY = Infinity;
+  let maxX = -Infinity;
+  let maxY = -Infinity;
+  for (const point of points) {
+    if (point.x < minX) minX = point.x;
+    if (point.y < minY) minY = point.y;
+    if (point.x > maxX) maxX = point.x;
+    if (point.y > maxY) maxY = point.y;
+  }
+  if (!Number.isFinite(minX)) {
+    return { minX: 0, minY: 0, maxX: 0, maxY: 0, width: 0, height: 0, centerX: 0, centerY: 0 };
+  }
+  return {
+    minX, minY, maxX, maxY,
+    width: maxX - minX,
+    height: maxY - minY,
+    centerX: (minX + maxX) / 2,
+    centerY: (minY + maxY) / 2,
+  };
+}
+
+/**
+ * Overview → follow camera. Through the intro the whole float is fitted inside
+ * the stage (never magnified past the travel scale, so a short float doesn't
+ * balloon); it then pushes in on the boat and stays anchored to it. Pure, so
+ * the thumbnail frame is a testable fact rather than a hope.
+ */
+export function journeyCamera(
+  frame: number,
+  route: ReadonlyArray<JourneyPoint>,
+  current: JourneyPoint,
+  stage: JourneyStage,
+  timing: JourneyTiming = DEFAULT_TIMING,
+): JourneyCamera {
+  const bounds = routeBounds(route);
+  const usableW = Math.max(1, stage.width - stage.padding * 2);
+  const usableH = Math.max(1, stage.height - stage.padding * 2);
+  const fit = Math.min(
+    1,
+    bounds.width > 0 ? usableW / bounds.width : 1,
+    bounds.height > 0 ? usableH / bounds.height : 1,
+  );
+  const start = timing.introFrames - PUSH_IN_LEAD;
+  const k = smoothstep(clamp01((frame - start) / PUSH_IN_FRAMES));
+
+  const scale = Math.exp(Math.log(fit) * (1 - k)); // log-lerp fit → 1
+  const anchorWorldX = bounds.centerX + (current.x - bounds.centerX) * k;
+  const anchorWorldY = bounds.centerY + (current.y - bounds.centerY) * k;
+  const anchorScreenX = stage.width / 2 + (stage.boatX - stage.width / 2) * k;
+  const anchorScreenY = stage.height / 2 + (stage.boatY - stage.height / 2) * k;
+  return {
+    scale,
+    translateX: anchorScreenX - anchorWorldX * scale,
+    translateY: anchorScreenY - anchorWorldY * scale,
+  };
 }
 
 export function routeLength(points: ReadonlyArray<JourneyPoint>): number {

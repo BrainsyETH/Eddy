@@ -70,3 +70,22 @@ test('route scene returns null when PostGIS has no drawable geometry', async () 
   assert.equal(await buildSocialRouteScene(supabase, section), null);
 });
 
+test('guidebook mile-only springs are not placed on the line', async () => {
+  const supabase = {
+    rpc: async () => ({
+      data: [{ segment_geom: { type: 'LineString', coordinates: [[-91.5, 37], [-91.45, 36.95], [-91.4, 36.9]] } }],
+      error: null,
+    }),
+    from: () => resultQuery([]),
+  };
+  const withSprings: Section = {
+    ...section,
+    springs: [{ name: 'Welch Spring', mile: 23.2, side: 'left' }],
+  };
+  const scene = await buildSocialRouteScene(supabase, withSprings);
+  assert.ok(scene);
+  // The guidebook mile scale disagrees with the DB's; a mile-interpolated
+  // marker would land in the wrong bend, so only endpoints remain.
+  assert.deepEqual(scene.routePoints.map((point) => point.kind), ['put_in', 'take_out']);
+});
+
