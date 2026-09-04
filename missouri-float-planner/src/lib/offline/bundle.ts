@@ -43,7 +43,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { getServiceAreaBounds } from '@/lib/geo/region-bounds';
 import { fetchRiverReaches, type RiverReach } from '@/lib/data/river-reaches';
 import type { RiverType } from '@/lib/rivers/context';
-import type { NPSCampgroundInfo } from '@/types/api';
+import type { MapSpring, NPSCampgroundInfo } from '@/types/api';
 import { loadLiveAvailabilityIndex } from '@/lib/camping/live-index';
 import {
   toAccessPoint,
@@ -51,9 +51,11 @@ import {
   toNpsCampground,
   toRiverDetail,
   toRiverIndexEntry,
+  toSpring,
   type AccessPointRow,
   type HazardRow,
   type RiverRow,
+  type SpringRow,
 } from '@/lib/offline/shapes';
 
 export interface OfflineBundleRiver {
@@ -62,6 +64,24 @@ export interface OfflineBundleRiver {
   accessPoints: NonNullable<ReturnType<typeof toAccessPoint>>[];
   hazards: ReturnType<typeof toHazard>[];
   reaches: RiverReach[];
+  /**
+   * Named springs on this river.
+   *
+   * ── Why springs are in the bundle when services are not ────────────────
+   *
+   * The header's rule for what belongs here is "the SHAPE of the river, never
+   * the STATE of the water", and the exclusion of services is that they are a
+   * commercial listing rather than something you navigate or avoid. A spring
+   * is neither: it is a fixed feature of the channel that changes on the same
+   * geological schedule as the put-ins already in this payload, and on these
+   * rivers it is frequently the REASON for the trip. Big Spring, Alley Spring
+   * and Greer are destinations, and a phone with no signal at the put-in
+   * should still know they are downstream.
+   *
+   * Empty for most rivers, and empty is the honest answer: only a handful are
+   * curated or derived so far.
+   */
+  springs: MapSpring[];
 }
 
 export interface OfflineBundle {
@@ -144,7 +164,8 @@ export async function buildOfflineBundle(): Promise<OfflineBundle> {
     throw new Error(`Could not load rivers: ${riversError?.message ?? 'no rows'}`);
   }
 
-  const [{ data: accessPoints }, { data: hazards }, geometry, serviceBounds] = await Promise.all([
+  const [{ data: accessPoints }, { data: hazards }, { data: springs }, geometry, serviceBounds] =
+    await Promise.all([
     supabase
       .from('access_points')
       .select('*')
@@ -155,6 +176,21 @@ export async function buildOfflineBundle(): Promise<OfflineBundle> {
       .select('*')
       .eq('active', true)
       .order('river_mile_downstream', { ascending: false }),
+    // Springs only. `points_of_interest` also holds caves, float camps,
+    // outfitters and historical sites; each would need its own layer and its
+    // own answer about what a pin there promises, and shipping them under a
+    // springs field to save a query is how a payload starts lying about itself.
+    supabase
+      .from('points_of_interest')
+      // `select('*')`, like the two queries above, rather than naming columns:
+      // `position_source` arrives with migration 20260904120000 and
+      // src/types/database.ts is regenerated separately, so a named select
+      // fails to compile in the window between the two. `toSpring` reads the
+      // column structurally and treats it as absent when it is.
+      .select('*')
+      .eq('type', 'spring')
+      .eq('active', true)
+      .order('river_mile', { ascending: true, nullsFirst: false }),
     geometryBySlug(),
     getServiceAreaBounds(),
   ]);
@@ -229,6 +265,9 @@ export async function buildOfflineBundle(): Promise<OfflineBundle> {
         .filter((ap): ap is NonNullable<typeof ap> => ap !== null),
       hazards: byRiver(hazards, river.id).map((h) => toHazard(h as unknown as HazardRow)),
       reaches: reachesBySlug.get(river.slug) ?? [],
+      springs: byRiver(springs, river.id)
+        .map((s) => toSpring(s as unknown as SpringRow))
+        .filter((s): s is MapSpring => s !== null),
     })),
   };
 }

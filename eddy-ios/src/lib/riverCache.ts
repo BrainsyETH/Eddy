@@ -42,6 +42,7 @@ import type {
   Hazard,
   RiverConditionDetail,
   MapAccessPoint,
+  MapSpring,
   RiverDetail,
   RiverListItem,
   RiverReach,
@@ -225,6 +226,7 @@ export interface CachedRiver {
   hazards?: Hazard[];
   reaches?: RiverReach[];
   services?: RiverService[];
+  springs?: MapSpring[];
 }
 
 export async function readRiver(slug: string): Promise<CacheEnvelope<CachedRiver> | null> {
@@ -313,6 +315,11 @@ export interface CachedPlaces {
    * on one.
    */
   hazards: Hazard[];
+  /**
+   * Untagged for the same reason as hazards: a spring's callout is the spring,
+   * and there is no per-spring route for a slug to build.
+   */
+  springs: MapSpring[];
 }
 
 /**
@@ -344,11 +351,12 @@ export interface CachedPlaces {
 export async function readAllPlaces(): Promise<CachedPlaces> {
   try {
     const keys = (await AsyncStorage.getAllKeys()).filter(isRiverKey);
-    if (keys.length === 0) return { accessPoints: [], hazards: [] };
+    if (keys.length === 0) return { accessPoints: [], hazards: [], springs: [] };
 
     const entries = await AsyncStorage.multiGet(keys);
     const accessPoints: CachedAccessPoint[] = [];
     const hazards: Hazard[] = [];
+    const springs: MapSpring[] = [];
     for (const [key, raw] of entries) {
       const riverSlug = slugFromRiverKey(key);
       if (!riverSlug) continue;
@@ -357,12 +365,16 @@ export async function readAllPlaces(): Promise<CachedPlaces> {
         accessPoints.push({ point, riverSlug });
       }
       hazards.push(...(stored?.payload?.hazards ?? []));
+      // `?? []` is load-bearing rather than defensive: every river cached by a
+      // build older than the springs field has no `springs` key at all, and the
+      // cache is read before it is ever rewritten.
+      springs.push(...(stored?.payload?.springs ?? []));
     }
-    return { accessPoints, hazards };
+    return { accessPoints, hazards, springs };
   } catch {
     // Empty map layers, never a failed screen. Same posture as every other
     // read in this file.
-    return { accessPoints: [], hazards: [] };
+    return { accessPoints: [], hazards: [], springs: [] };
   }
 }
 

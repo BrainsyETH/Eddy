@@ -59,6 +59,13 @@ const SYMBOLS = {
   river: require('../../assets/eddy/eddy-river.png'),
   alertWatch: require('../../assets/eddy/eddy-alert-watch.png'),
   water: require('../../assets/eddy/eddy-water-droplet.png'),
+  // The springs layer's mark. The same droplet as `water`, under its own name
+  // rather than by reusing that one: the layers sheet is a LEGEND, so the name
+  // a row asks for has to be the name of the thing the row draws — and when
+  // Eddy gets a spring drawing of its own, this entry changes and `water` does
+  // not. See build-map-icons.py, where the map variant is generated from the
+  // same source for the same reason.
+  spring: require('../../assets/eddy/eddy-water-droplet.png'),
   heart: require('../../assets/eddy/eddy-heart.png'),
 
   // The access-point section marks, matching the website's own headings on that

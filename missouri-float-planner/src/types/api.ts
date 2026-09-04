@@ -1405,6 +1405,36 @@ export interface EddyUpdatesResponse {
   updates: Record<string, EddyUpdateEntry>;
 }
 
+// ── Springs (offline bundle) ────────────────────────────────────────────────
+//
+// Mirrored in packages/eddy-types/index.ts, by hand — @eddy/types is not
+// resolvable from this app's tsconfig, because Vercel installs only
+// missouri-float-planner/. It is a wire format, so a change to either is a
+// change to both, and spring-shape-parity.test.ts fails when they drift.
+
+/** How a spring's coordinates were obtained. See MapSpring.positionSource. */
+export type SpringPositionSource = 'surveyed' | 'derived';
+
+/**
+ * The spring fields the map needs, and only those.
+ *
+ * A structural subset of the full points_of_interest row, on the same reasoning
+ * as MapAccessPoint in @eddy/types: that row carries images, amenities, NPS
+ * ids and body text for a river page, none of which a pin and a callout use.
+ */
+export interface MapSpring {
+  id: string;
+  name: string;
+  riverMile: number | null;
+  coordinates: { lng: number; lat: number };
+  description: string | null;
+  positionSource: SpringPositionSource;
+  /** Uncertainty on a derived position, in miles of river. Null when surveyed. */
+  positionBracketMiles: number | null;
+  /** The source says this spring is on private ground. */
+  isPrivate: boolean;
+}
+
 // ── /api/gauges/[siteId]/history ────────────────────────────────────────────
 //
 // Mirrored in packages/eddy-types/index.ts, by hand — @eddy/types is not

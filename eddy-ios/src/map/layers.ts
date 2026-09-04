@@ -31,6 +31,7 @@ export type LayerKey =
   | 'outfitters'
   | 'lodging'
   | 'dams'
+  | 'springs'
   | 'weatherRadar'
   | 'publicLand';
 
@@ -227,6 +228,14 @@ const LAYER_DEFAULTS: Record<LayerKey, boolean> = {
   allGauges: true,
   hazards: true,
   dams: true,
+  // On, with the rest of the place layers. A spring is the DESTINATION on these
+  // rivers as often as the put-in is — Big Spring, Alley Spring, Greer and Blue
+  // Spring are why a stretch gets chosen — so it belongs to the "a pin layer
+  // adds to the map" side of the line DEFAULT_LAYERS draws, not the overlays
+  // that cover it. There are a few dozen statewide and they climb the same zoom
+  // ladder as everything else, so the cost to the opening view is a handful of
+  // dots inside the COUNTS band.
+  springs: true,
   weatherRadar: false,
   publicLand: false,
   campgrounds: true,
@@ -645,6 +654,49 @@ export const MAP_LAYERS: LayerDef[] = [
     // explicitly NOT the hazard red — for the reason in the label note above. A
     // step darker than `gauges` so the two are siblings rather than twins.
     color: (c) => (c.scheme === 'dark' ? primary[200] : primary[800]),
+  },
+  {
+    key: 'springs',
+    label: 'Springs',
+    // Says what the layer draws AND, in three words, what it does not: the
+    // guide names dozens of springs that are up a branch or on private ground,
+    // and this row draws the ones on the water.
+    description: 'Named springs on the river',
+    // ── The caveat that has to reach a reader BEFORE they paddle ──────────
+    //
+    // Two facts, and both belong here rather than under the switch, for the
+    // reason `publicLand` states: they are three lines of prose and they
+    // qualify the layer rather than describing it.
+    //
+    // POSITION. Some of these springs were placed by interpolating a printed
+    // river mile between two access points (see MapSpring.positionSource) and
+    // are accurate to a few hundred metres, not to a bank. A pin that looks
+    // exactly like a surveyed put-in is making a promise this data cannot
+    // keep, so the callout marks the derived ones individually and this says
+    // it once for the layer.
+    //
+    // PERMISSION. A good number are on private ground. Eddy draws them because
+    // a spring you can see from the water is a landmark you navigate BY, and
+    // hiding it would make the map worse at the thing maps are for — but the
+    // same "ownership, not permission" line the public-land layer is required
+    // to carry applies here, and for a sharper reason: nobody trespasses by
+    // looking at a boundary, and somebody could by tying up at a spring.
+    info:
+      'Springs named in the mile-by-mile river guides. Some positions are ' +
+      'interpolated from a printed river mile and are approximate to a few ' +
+      'hundred yards — the callout says which. A spring on private ground is ' +
+      'shown because it is a landmark on the water, not because you may land at it.',
+    accessibilityHint: 'Named springs on the river. Some positions are approximate.',
+    icon: 'water-outline',
+    symbol: 'spring',
+    // ── NOT the gauge teal, and not the condition ladder ─────────────────
+    // A spring is a place you go, which is the access family's question — but
+    // it is not somewhere you get on the river, and wearing access teal would
+    // make the two rows illegible as a legend. The brand's mid primary sits
+    // between the two instrument teals and reads as water without claiming to
+    // be a measurement of it. Per scheme for the reason every colour in this
+    // file is: a hue that reads on the light map disappears on the dark one.
+    color: (c) => (c.scheme === 'dark' ? primary[400] : primary[500]),
   },
   {
     key: 'weatherRadar',
