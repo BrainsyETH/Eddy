@@ -15,6 +15,7 @@ import type { ConditionCode } from '@/types/api';
 import { calculateFloatTime, DEFAULT_CANOE_SPEEDS } from '@/lib/calculations/floatTime';
 import type { WeatherChip } from '@/lib/weather/openweather';
 import { FOLLOW_CTA } from '@shared/condition-copy';
+import type { LngLat, SocialRoutePoint, UnanchoredRoutePoint } from '@shared/social-route-journey';
 
 export type PostKind =
   | 'daily_digest'
@@ -65,6 +66,12 @@ export interface RenderData {
   takeOutMile?: number;
   distanceMi?: number;
   hoursCanoe?: number;
+  /** Exact selected PostGIS channel geometry, simplified for workflow payload size. */
+  routeCoordinates?: LngLat[];
+  /** Ordered endpoints, accesses, POIs, springs, and hazards on the float. */
+  routePoints?: SocialRoutePoint[];
+  /** Guidebook mile-only springs: named once in the reel, never pinned. */
+  unanchoredPoints?: UnanchoredRoutePoint[];
   // Float Pick evergreen-fallback extras (sourced from the river-guide blogs)
   /** True when the Float Pick fell back to an evergreen favorite (no floatable
    *  river today) — switches the route reel to editorial mode. */
@@ -182,6 +189,9 @@ function sectionRouteProps(data: RenderData): Record<string, unknown> {
     // Favorite + Float-of-the-Day pass the river's cached AI background here so
     // the reel matches its cover; absent → RouteDraw's solid bg.
     photoUrl: data.photoUrl,
+    routeCoordinates: data.routeCoordinates,
+    routePoints: data.routePoints,
+    unanchoredPoints: data.unanchoredPoints,
     format: FORMAT,
   };
 }

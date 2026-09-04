@@ -54,24 +54,12 @@ jobs:
         run: npx tsc --noEmit -p tsconfig.json
 
       - name: Render smoke test
-        # One still per data-driven composition catches runtime crashes with the
-        # registered defaultProps. clip-reel is skipped — it needs an external
-        # source video — so its frame is exercised by the others' shared chrome.
-        run: |
-          set -e
-          mkdir -p /tmp/stills
-          for comp in \
-            social-route-portrait \
-            social-section-portrait \
-            social-gauge \
-            social-gauge-alert \
-            social-trend-portrait \
-            social-digest; do
-            echo "→ rendering still: $comp"
-            npx remotion still --entry-point=src/index.ts --public-dir=./public \
-              "$comp" "/tmp/stills/${comp}.png" --frame=120
-          done
-          ls -la /tmp/stills
+        # Stills of each data-driven composition with its registered defaultProps
+        # catch runtime crashes; the frame list lives in test/check-stills.sh so
+        # this gate and `npm run render:check-stills` can't drift. clip-reel is
+        # skipped — it needs an external source video — so its frame is
+        # exercised by the others' shared chrome.
+        run: npm run render:check-stills
 
       # update_baselines mode: adopt the freshly rendered stills as the canonical
       # baselines (generated in THIS runner so anti-aliasing matches the gate) and

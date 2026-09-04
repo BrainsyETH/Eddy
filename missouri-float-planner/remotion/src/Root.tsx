@@ -29,6 +29,7 @@ import type {
   TrendReelProps,
   ClipReelProps,
 } from "./lib/social-props";
+import { DEFAULT_TIMING, journeyDuration } from "../../shared/social-route-journey";
 
 import "./style.css";
 
@@ -552,22 +553,49 @@ export const RemotionRoot: React.FC = () => {
         fps={FPS}
         width={1080}
         height={1920}
-        calculateMetadata={({ props: _props }: { props: RouteDrawProps }) => ({
-          // ~12s default. The route draws over frames 45-205 and the CTA scales
-          // off durationInFrames, so this is the single place to retune pacing.
-          durationInFrames: 360,
+        calculateMetadata={({ props }: { props: RouteDrawProps }) => ({
+          // Base journey plus one readable pause per intermediate feature, plus
+          // one hold for the "also along this float" card when there is one.
+          durationInFrames: journeyDuration(
+            (props.routePoints ?? []).filter((point) => point.progress > 0.015 && point.progress < 0.985).length,
+            DEFAULT_TIMING,
+            (props.unanchoredPoints?.length ?? 0) > 0,
+          ),
         })}
         defaultProps={{
+          // A REAL section, so the visual baseline guards the composition on
+          // the geometry it will actually draw: Current River, Pulltite Spring →
+          // Round Spring, the ST_LineSubstring slice from rivers.geom with the
+          // three intermediate features get_float_segment + route-scene return.
           riverName: "Current River",
-          conditionCode: "high",
-          putInName: "Akers",
-          putInMile: 20.0,
-          takeOutName: "Pulltite",
-          takeOutMile: 30.5,
-          distanceMi: 10.5,
-          hoursToday: 3.5,
-          hoursTypical: 4.5,
+          conditionCode: "flowing",
+          putInName: "Pulltite Spring",
+          putInMile: 26.23,
+          takeOutName: "Round Spring",
+          takeOutMile: 35.44,
+          distanceMi: 9.21,
+          hoursToday: 4.2,
+          hoursTypical: 4.6,
           dateLabel: "April 18, 2026",
+          followCta: "Follow for a new float every day",
+          routeCoordinates: [
+            [-91.47628, 37.3347], [-91.47864, 37.33617], [-91.48124, 37.3365], [-91.48899, 37.33341],
+            [-91.48824, 37.32989], [-91.48866, 37.326], [-91.48378, 37.32126], [-91.47812, 37.31981],
+            [-91.47132, 37.31929], [-91.4691, 37.31534], [-91.46696, 37.31434], [-91.46521, 37.31199],
+            [-91.45994, 37.31298], [-91.45675, 37.31504], [-91.45253, 37.31453], [-91.45168, 37.31657],
+            [-91.45256, 37.31802], [-91.45242, 37.32015], [-91.44823, 37.32296], [-91.44287, 37.32022],
+            [-91.4377, 37.31985], [-91.43331, 37.32063], [-91.43061, 37.31375], [-91.42921, 37.31276],
+            [-91.42236, 37.31635], [-91.41921, 37.31514], [-91.41688, 37.31289], [-91.41672, 37.30916],
+            [-91.41509, 37.30657], [-91.41666, 37.29916], [-91.41447, 37.29564], [-91.4144, 37.29096],
+            [-91.41359, 37.28933], [-91.40558, 37.28392], [-91.4054, 37.28335],
+          ],
+          routePoints: [
+            { id: "pulltite", name: "Pulltite Spring", kind: "put_in", riverMile: 26.23, progress: 0, detail: "Put-in" },
+            { id: "echo-bluff", name: "Echo Bluff State Park", kind: "campground", riverMile: 33.7, progress: 0.8093, detail: "Campground & access" },
+            { id: "sinking-creek", name: "Sinking Creek Campground", kind: "campground", riverMile: 33.84, progress: 0.8269, detail: "Campground & access" },
+            { id: "carrs", name: "Carr's Canoe Rentals", kind: "poi", riverMile: 35.09, progress: 0.9626, detail: "Outfitter" },
+            { id: "round-spring", name: "Round Spring", kind: "take_out", riverMile: 35.44, progress: 1, detail: "Take-out" },
+          ],
           format: "portrait",
         } satisfies RouteDrawProps}
       />
