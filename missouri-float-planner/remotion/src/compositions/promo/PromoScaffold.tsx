@@ -64,6 +64,13 @@ const L: Geom = {
 
 type EddyVariant = React.ComponentProps<typeof EddyMascot>["variant"];
 
+// The promo keeps its plain accent-coloured CTA line (a product promo, not a
+// social reel — the social system's coral button belongs to the reels).
+const PROMO_CTA_STYLE = {
+  portrait: { fontSize: 28, fontWeight: 400, letterSpacing: 0.5, textAlign: "center" as const },
+  landscape: { fontSize: 22, fontWeight: 400, letterSpacing: 0.5, textAlign: "center" as const },
+};
+
 interface PromoScaffoldProps {
   eyebrow: string;
   title: string;
@@ -184,7 +191,7 @@ export const PromoScaffold: React.FC<PromoScaffoldProps> = ({
             <AutoCaptions phrases={phrases} />
           </div>
           <div style={{ position: "absolute", top: g.footerTop, left: 0, right: 0, display: "flex", justifyContent: "center" }}>
-            <BrandCTA color={accent} text={cta} />
+            <BrandCTA variant="text" color={accent} text={cta} style={PROMO_CTA_STYLE.portrait} />
           </div>
         </>
       ) : (
@@ -195,7 +202,7 @@ export const PromoScaffold: React.FC<PromoScaffoldProps> = ({
             <AutoCaptions phrases={phrases} />
           </div>
           <div style={{ position: "absolute", top: g.footerTop, left: g.colLeft, width: g.colWidth, display: "flex", justifyContent: "flex-start" }}>
-            <BrandCTA color={accent} text={cta} isPortrait={false} />
+            <BrandCTA variant="text" color={accent} text={cta} style={PROMO_CTA_STYLE.landscape} />
           </div>
         </>
       )}

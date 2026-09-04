@@ -172,7 +172,8 @@ export type DigestReelProps = {
   format: "square" | "portrait";
 }
 
-export type SectionGuideProps = {
+/** The facts of one float section — the base every route reel is built on. */
+export type FloatSectionProps = {
   riverName: string;
   conditionCode: ConditionCode;
   putInName: string;
@@ -193,19 +194,20 @@ export type SectionGuideProps = {
 }
 
 /**
- * Self-drawing route reel. Same data as the Section Guide — a route is just a
- * section visualized as an animated put-in → take-out line with the current
- * float time stamped on it. Motion reads as a live instrument.
+ * The Float Pick reel: a section visualized as the real river scrolling under
+ * Eddy's canoe, with the current float time stamped on it — or, when the
+ * database has no drawable line, the same stops as a schematic itinerary.
  *
- * The optional fields let the SAME composition serve "Eddy's Favorite Floats":
- * a relabeled eyebrow, an editorial tagline under the river name, and an
- * evergreen mode (neutral accent, no live faster/slower delta, difficulty shown
- * instead of the live condition).
+ * The optional fields let the SAME composition serve the evergreen favourite:
+ * an editorial tagline under the river name, and an evergreen mode (neutral
+ * accent, no live faster/slower delta, difficulty shown instead of the live
+ * condition).
  */
-export type RouteDrawProps = SectionGuideProps & {
-  /** Exact selected river segment. Missing geometry falls back to SectionGuide. */
+export type RouteDrawProps = FloatSectionProps & {
+  /** Exact selected river segment. Absent → the itinerary stage renders. */
   routeCoordinates?: LngLat[];
-  /** Ordered route features. Endpoints are included at progress 0 and 1. */
+  /** Ordered route features. Endpoints are included at progress 0 and 1;
+   *  without geometry, progress is the mile fraction (ordering only). */
   routePoints?: SocialRoutePoint[];
   /** Mile-only features (guidebook springs): named once as "also along this
    *  float", never pinned — their mile scale can be a mile off the DB's. */

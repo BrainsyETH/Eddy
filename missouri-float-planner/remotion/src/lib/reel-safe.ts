@@ -8,16 +8,10 @@ import { interpolate } from "remotion";
  *   - Top ~230 px: handle, sound indicator, follow button
  *   - Bottom ~380 px: caption, like/comment/share, "original audio",
  *     progress bar
- * Meta's published "safe zone" guidance is conservative but accurate.
- * Symmetric horizontal padding keeps `alignItems: "center"` flex
- * containers on the true video centerline (x=540).
+ * The inset is owned by shared/social-brand.ts (the covers use the same
+ * numbers for their grid-crop band); re-exported here for the reels.
  */
-export const REEL_SAFE = {
-  top: 250,
-  bottom: 420,
-  left: 60,
-  right: 60,
-} as const;
+export { REEL_SAFE } from "../../../shared/social-brand";
 
 /**
  * Global opacity envelope for a looping reel. Opens at FULL brightness from
