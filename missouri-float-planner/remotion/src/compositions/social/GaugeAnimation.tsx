@@ -1,6 +1,5 @@
 import React from "react";
 import {
-  AbsoluteFill,
   Audio,
   Img,
   useCurrentFrame,
@@ -11,9 +10,13 @@ import {
 } from "remotion";
 import { EddyMascot, eddyVariantFile } from "../../components/EddyMascot";
 import { GaugeBar, gaugeFillModel } from "../../components/GaugeBar";
-import { Watermark } from "../../components/Watermark";
+import { ReelPage } from "../../components/ReelPage";
+import { ReelMasthead } from "../../components/ReelMasthead";
+import { ReelDock } from "../../components/ReelDock";
+import { BrandCard, BrandPill, StatTile } from "../../components/BrandCard";
 import { ENTRANCE, SNAPPY } from "../../lib/spring-presets";
 import { REEL_SAFE, reelLoopOpacity } from "../../lib/reel-safe";
+import { fontFamilies } from "../../design-tokens/fonts";
 import {
   CONDITION_COLORS,
   getOtterVariant,
@@ -21,27 +24,36 @@ import {
   recoveryCopy,
   type GaugeAnimationProps,
 } from "../../lib/social-props";
-import { colors } from "../../design-tokens/colors";
+import {
+  CTA,
+  LABELS,
+  MEDIA_SCRIM,
+  SURFACES,
+  TYPE,
+  colors,
+  conditionInk,
+  type SocialTone,
+} from "../../../../shared/social-brand";
 
 const FPS = 30;
 
-// Legibility scrims used when a full-bleed backgroundUrl is supplied.
-const WARNING_SCRIM =
-  "linear-gradient(160deg, rgba(42,13,13,0.82), rgba(13,42,44,0.8) 60%, rgba(13,42,44,0.92))";
-const NEUTRAL_SCRIM =
-  "linear-gradient(160deg, rgba(13,42,44,0.86), rgba(26,61,64,0.78), rgba(13,42,44,0.94))";
-
 /**
- * Single-river gauge highlight animation.
+ * Single-river gauge reel — the "Eddy Says" report, and the high-water /
+ * all-clear alert family.
+ *
  * Default highlight: 12 seconds (360 frames @ 30fps). 1080x1920 portrait.
  * Alert / recovery reels run tighter (240 frames / 8s) via Root's
  * calculateMetadata; the internal timeline below scales off durationInFrames.
  *
+ * Tone: the report renders on the light page like every editorial reel. The
+ * alert family renders on the SEVERITY SURFACE — the sanctioned dark tone,
+ * washed toward the condition colour — because a cream card reads calmer than
+ * high water deserves. Same masthead, same cards, same dock either way.
+ *
  * Timeline (default 360f; alert 240f is proportionally tighter):
- *   frame 0:  branded background + severity eyebrow already visible
- *   0-30:     River name entrance
- *  15-45:     Date fades in
- *  30-60:     Gauge fills, Eddy bounces in, condition badge slides in (parallel)
+ *   frame 0:  masthead, instrument panel and dock already visible (thumbnail)
+ *   0-30:     Title + condition pill settle
+ *  30-60:     Gauge fills, Eddy bounces in
  *  40-60:     Quote fades in and holds
  *  ~D-70:     CTA fades in (D = durationInFrames)
  *  D-12→D:    Loop-out handled by reelLoopOpacity wrapper
@@ -81,6 +93,8 @@ export const GaugeAnimation: React.FC<GaugeAnimationProps> = ({
   // wins (the more urgent framing). `alertMode` = either elevated-water reel.
   const isRecovery = !!recovery && !warningMode;
   const alertMode = !!warningMode || isRecovery;
+  const tone: SocialTone = alertMode ? "dark" : "light";
+  const s = SURFACES[tone];
 
   // Canonical copy shared with the caption + OG cover (shared/condition-copy.ts)
   // so all three surfaces read identically. Recovery uses the "ALL CLEAR" copy.
@@ -96,52 +110,26 @@ export const GaugeAnimation: React.FC<GaugeAnimationProps> = ({
   const loopOpacity = isPortrait ? reelLoopOpacity(frame, durationInFrames) : 1;
 
   // ─── Proportional timeline ───────────────────────────────
-  // The CTA enters ~70 frames before the end and the quote fades in early, so
-  // the same choreography works for both the 12s default and the tighter 8s
-  // alert reel.
   const ctaStart = Math.max(60, durationInFrames - 70);
-
-  // Background chrome (glow + accent bar) is now fully opaque from frame 0 — no
-  // fade-from-black — so the first autoplay frame / grid thumbnail is branded.
-  const bgOpacity = 1;
-
-  const nameEntrance = spring({ frame, fps, config: ENTRANCE });
-  const nameY = interpolate(nameEntrance, [0, 1], [40, 0]);
-
-  // Date arrives just after the name settles.
-  const dateEntrance = spring({ frame: frame - 15, fps, config: ENTRANCE });
-
-  // Data cluster (badge + gauge + Eddy) all enter in one ~30-frame window
-  // starting at frame 30, so the eye doesn't wait through three cascades.
-  const badgeEntrance = spring({ frame: frame - 45, fps, config: SNAPPY });
-  const badgeX = interpolate(badgeEntrance, [0, 1], [60, 0]);
-
-  // Quote: fade in over frames 40-60 (~1.3s-2.0s) and hold. Replaces the old
-  // typewriter which burned 2s of unreadable partial text before the viewer
-  // could read anything.
-  const quoteOpacity = interpolate(frame, [40, 60], [0, 1], {
-    extrapolateLeft: "clamp",
-    extrapolateRight: "clamp",
-  });
-
-  // CTA — enters ~70 frames before the end so it lands late on both the 12s
-  // default and the tighter 8s alert reel.
+  // Everything a viewer needs is on screen at frame 0 (the grid thumbnail):
+  // the entrances below only SETTLE elements by a few px. The animation the
+  // reel is for is the gauge filling and the numeral counting.
+  const settle = spring({ frame, fps, config: ENTRANCE });
+  const settleY = interpolate(settle, [0, 1], [14, 0]);
+  const pillEntrance = spring({ frame: frame - 20, fps, config: SNAPPY });
+  const pillX = interpolate(pillEntrance, [0, 1], [40, 0]);
+  const quoteSettle = spring({ frame: frame - 12, fps, config: ENTRANCE });
+  const quoteY = interpolate(quoteSettle, [0, 1], [18, 0]);
   const ctaEntrance = spring({
     frame: frame - ctaStart,
     fps,
     config: { damping: 12, mass: 0.5, stiffness: 100 },
   });
-  const arrowBounce = frame > ctaStart ? Math.sin((frame - ctaStart) / 8) * 4 : 0;
-
-  const glowPulse = 0.7 + 0.3 * Math.sin(frame / 20);
 
   // Shared fill model — the big counting numeral reads the SAME math as the
   // bar's fill (see GaugeBar.gaugeFillModel) so the two can never disagree.
   const RISE_START = 15;
   const RISE_DURATION = 90;
-  // Match the gauge scale + classifier "high" onset (optimalMax ?? levelHigh) so
-  // the big numeral turns condition-colored exactly when the reading enters the
-  // HIGH zone — never white-in-"good" while the bar shows high water.
   const fill = gaugeFillModel(frame, fps, {
     currentHeight: gaugeHeightFt,
     series,
@@ -152,17 +140,29 @@ export const GaugeAnimation: React.FC<GaugeAnimationProps> = ({
   });
   const crossedHigh = fill.crossingFrame != null && frame >= fill.crossingFrame;
 
-  // Field-instrument chip chrome — solid panel, condition border, hard shadow
-  // (replaces the old glow + glassmorphism).
-  const chipStyle = (borderColor: string): React.CSSProperties => ({
-    backgroundColor: "rgba(15,45,53,0.92)",
-    border: `3px solid ${borderColor}`,
-    boxShadow: "8px 8px 0 rgba(0,0,0,0.45)",
-  });
+  const mastheadTop = isPortrait ? REEL_SAFE.top : 48;
+  const stageTop = mastheadTop + 200;
+  const stageH = isPortrait ? 1240 - stageTop : 1080 - 48 - 240 - stageTop;
+  const accentInk = conditionInk(condition.solid, tone);
+
+  const label = alertMode ? severityLabel : eyebrow ?? LABELS.eddySays;
+  const subtitle = alertMode
+    ? stationLabel
+      ? `USGS · ${stationLabel}`
+      : undefined
+    : dateLabel;
 
   return (
-    <AbsoluteFill style={{ backgroundColor: colors.primary[900], opacity: loopOpacity }}>
-      {/* Background music — volume as callback for Remotion CLI compatibility */}
+    <ReelPage
+      tone={tone}
+      severity={alertMode ? condition.solid : undefined}
+      backdrop={
+        backgroundUrl
+          ? { src: backgroundUrl, opacity: tone === "light" ? 0.08 : 1, scrim: tone === "dark" ? (warningMode ? MEDIA_SCRIM.warning : MEDIA_SCRIM.neutral) : undefined }
+          : undefined
+      }
+      opacity={loopOpacity}
+    >
       <Audio
         src={staticFile("audio/background-music.wav")}
         volume={(f) =>
@@ -173,451 +173,193 @@ export const GaugeAnimation: React.FC<GaugeAnimationProps> = ({
         }
       />
 
-      {/* Full-bleed background image + legibility scrim (backgroundUrl only).
-          Renders from frame 0 so the grid thumbnail / first autoplay frame is
-          branded, not black. Absent → the solid brand background above shows. */}
-      {backgroundUrl && (
-        <AbsoluteFill>
-          <Img
-            src={backgroundUrl}
-            style={{ width: "100%", height: "100%", objectFit: "cover" }}
-          />
-          <AbsoluteFill
-            style={{ background: warningMode ? WARNING_SCRIM : NEUTRAL_SCRIM }}
-          />
-        </AbsoluteFill>
-      )}
-
-      {/* Ambient chrome layer (glow + accent bar) — visible from frame 0 */}
-      <AbsoluteFill style={{ opacity: bgOpacity }}>
-        {/* Ambient condition glow */}
-        <div
-          style={{
-            position: "absolute",
-            top: "25%",
-            left: "40%",
-            transform: "translate(-50%, -50%)",
-            width: 600,
-            height: 600,
-            borderRadius: "50%",
-            background: `radial-gradient(circle, ${condition.glow} 0%, transparent 70%)`,
-            opacity: glowPulse * 0.5,
-          }}
+      <div style={{ position: "absolute", top: mastheadTop, left: REEL_SAFE.left, right: REEL_SAFE.right, zIndex: 10 }}>
+        <ReelMasthead
+          tone={tone}
+          label={label}
+          labelFill={alertMode ? condition.solid : undefined}
+          labelOpacity={warningPulse}
+          title={riverName}
+          subtitle={subtitle}
+          aside={
+            alertMode ? (
+              // Eddy's CONDITION MOOD otter fronts the alert (red-flag for high,
+              // flood otter for dangerous, green for the all-clear) — the same
+              // otter shown everywhere else for this level.
+              <Img
+                src={staticFile(eddyVariantFile(getOtterVariant(conditionCode)))}
+                style={{ height: 72, width: "auto", objectFit: "contain" }}
+              />
+            ) : undefined
+          }
         />
+      </div>
 
-        {/* Accent bar at bottom */}
-        <div
-          style={{
-            position: "absolute",
-            bottom: 0,
-            left: 0,
-            right: 0,
-            height: 6,
-            background: `linear-gradient(to right, ${condition.solid}, ${condition.solid}88)`,
-            boxShadow: `0 0 20px ${condition.glow}`,
-          }}
-        />
-      </AbsoluteFill>
-
-      {/* Content — centered in Reels-safe zone */}
+      {/* ── Stage ─────────────────────────────────────────────── */}
       <div
         style={{
           position: "absolute",
-          top: isPortrait ? REEL_SAFE.top : 48,
-          bottom: isPortrait ? REEL_SAFE.bottom : 48,
-          left: isPortrait ? REEL_SAFE.left : 48,
-          right: isPortrait ? REEL_SAFE.right : 48,
+          top: stageTop,
+          left: REEL_SAFE.left,
+          right: REEL_SAFE.right,
+          height: stageH,
           display: "flex",
           flexDirection: "column",
           alignItems: "center",
-          justifyContent: "center",
-          // Alert packs more rows (numeral/citation/flow/rise) — tighter rhythm
-          // so the whole column stays inside the Reels safe zone.
-          gap: isPortrait ? (alertMode ? 16 : 28) : 20,
+          justifyContent: "flex-start",
+          gap: 20,
         }}
       >
-        {/* Severity eyebrow (warning OR recovery). Rendered from frame 0 (no
-            entrance dependency) so the thumbnail / first autoplay frame is
-            branded. Warning pulses + shows ⚠️; recovery is calm + shows ✓ in
-            the condition's own green/teal color. */}
-        {alertMode && (
-          <div
-            style={{
-              opacity: warningPulse,
-              display: "flex",
-              alignItems: "center",
-              gap: isPortrait ? 14 : 10,
-              ...chipStyle(condition.solid),
-              borderRadius: 999,
-              padding: isPortrait ? "10px 34px 10px 22px" : "8px 26px 8px 16px",
-              marginBottom: 8,
-            }}
-          >
-            {/* Eddy is the host — his CONDITION MOOD otter fronts the alert
-                (red-flag for high, flood otter for dangerous, green for the
-                all-clear) instead of a generic ⚠️/✅ emoji, matching the otter
-                shown everywhere else for this level. Full-body art, so it's
-                sized by height (width auto). Plain always-visible Img (no
-                entrance) so the first autoplay frame / grid thumbnail is
-                branded. */}
-            <Img
-              src={staticFile(eddyVariantFile(getOtterVariant(conditionCode)))}
-              style={{
-                height: isPortrait ? 74 : 56,
-                width: "auto",
-                objectFit: "contain",
-                filter: "drop-shadow(0 2px 5px rgba(0,0,0,0.5))",
-              }}
-            />
-            <span
-              style={{
-                fontFamily: "'Fredoka', system-ui, sans-serif",
-                fontSize: isPortrait ? 44 : 32,
-                fontWeight: 700,
-                letterSpacing: 4,
-                color: condition.solid,
-              }}
-            >
-              {severityLabel}
-            </span>
-          </div>
-        )}
-
-        {/* Eyebrow (e.g. "Eddy Says") — quote-forward / Eddy Says reel only */}
-        {eyebrow && (
-          <div
-            style={{
-              opacity: nameEntrance,
-              display: "flex",
-              alignItems: "center",
-              gap: 12,
-              fontFamily: "'Fredoka', system-ui, sans-serif",
-              fontSize: isPortrait ? 30 : 24,
-              fontWeight: 600,
-              letterSpacing: 3,
-              textTransform: "uppercase",
-              color: condition.solid,
-              textShadow: `0 0 24px ${condition.glow}`,
-            }}
-          >
-            {eyebrow}
-          </div>
-        )}
-
-        {/* River Name */}
-        <div
-          style={{
-            opacity: nameEntrance,
-            transform: `translateY(${nameY}px)`,
-            fontFamily: "'Fredoka', system-ui, sans-serif",
-            fontSize: isPortrait ? 60 : 48,
-            fontWeight: 600,
-            color: "#fff",
-            textAlign: "center",
-            textShadow: `0 0 30px ${condition.glow}`,
-          }}
-        >
-          {riverName}
-        </div>
-
-        {/* Transition arrow (warning or recovery) — old → new */}
+        {/* Transition (alert only): old → new */}
         {alertMode && previous && (
           <div
             style={{
-              opacity: dateEntrance,
+              transform: `translateY(${settleY}px)`,
+              alignSelf: "flex-start",
               display: "flex",
               alignItems: "center",
-              gap: 18,
-              fontFamily: "'Fredoka', system-ui, sans-serif",
-              fontSize: isPortrait ? 28 : 22,
-              fontWeight: 500,
-              marginTop: -14,
+              gap: 16,
+              fontFamily: fontFamilies.display,
+              fontSize: 32,
+              fontWeight: 600,
             }}
           >
             <span style={{ color: previous.solid }}>{previous.label}</span>
-            <span style={{ color: "rgba(255,255,255,0.4)", fontSize: isPortrait ? 34 : 26 }}>→</span>
+            <span style={{ color: s.inkMuted }}>→</span>
             <span style={{ color: condition.solid, fontWeight: 700 }}>{condition.label}</span>
           </div>
         )}
 
-        {/* Date — matches the OG thumbnail's timestamp so the grid cover
-            and the reel content stay in sync. Dropped in alert mode: the reel
-            posts in real time (the caption carries the timestamp), and the extra
-            row pushed the dense alert layout past the Reels safe zone. */}
-        {dateLabel && !alertMode && (
-          <div
-            style={{
-              opacity: dateEntrance,
-              marginTop: -18,
-              fontFamily: "'Geist Sans', system-ui, sans-serif",
-              fontSize: isPortrait ? 30 : 22,
-              color: "rgba(255,255,255,0.6)",
-              textAlign: "center",
-            }}
-          >
-            {dateLabel}
-          </div>
-        )}
-
-        {/* Gauge + Eddy. Alert/recovery mode makes the bar the sole HERO —
-            enlarged and CENTERED — with Eddy relocated to the alert banner
-            above (his icon fronts the severity chip). Quote-forward (Eddy Says)
-            drops the big gauge bar so the quote can be the hero. The default
-            highlight keeps the normal side-by-side bar + Eddy layout. */}
-        <div
-          style={{
-            display: "flex",
-            alignItems: "flex-end",
-            gap: isPortrait ? 36 : 32,
-            justifyContent: "center",
-          }}
-        >
-          {!quoteForward && (
+        {alertMode ? (
+          // Alert instrument: the labeled gauge scale beside the counting
+          // numeral, its citation, the flow context and the rise pill.
+          <div style={{ display: "flex", alignItems: "center", gap: 36, alignSelf: "stretch" }}>
             <GaugeBar
+              tone="dark"
               currentHeight={gaugeHeightFt}
               optimalMin={optimalMin}
               optimalMax={optimalMax}
               levelHigh={levelHigh}
               levelDangerous={levelDangerous}
               conditionColor={condition.solid}
-              conditionGlow={condition.glow}
               delay={30}
-              emphasis={alertMode}
-              series={alertMode ? series : undefined}
+              emphasis
+              series={series}
               riseStartFrame={RISE_START}
               riseDurationFrames={RISE_DURATION}
-              width={alertMode ? (isPortrait ? 140 : 110) : isPortrait ? 100 : 85}
-              // Alert bar cedes room to the counting numeral + citation + flow
-              // below it so the whole instrument column stays in REEL_SAFE.
-              height={alertMode ? (isPortrait ? 396 : 300) : isPortrait ? 420 : 300}
+              width={150}
+              height={isPortrait ? 400 : 300}
             />
-          )}
-          {!alertMode && (
-            <div style={{ marginBottom: 12 }}>
+            <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 10 }}>
+              <div style={{ display: "flex", alignItems: "baseline", gap: 10 }}>
+                <span
+                  style={{
+                    fontFamily: fontFamilies.mono,
+                    fontSize: isPortrait ? TYPE.numeral.size : 82,
+                    fontWeight: TYPE.numeral.weight,
+                    lineHeight: TYPE.numeral.lineHeight,
+                    letterSpacing: TYPE.numeral.tracking,
+                    color: crossedHigh ? condition.solid : s.ink,
+                  }}
+                >
+                  {fill.value.toFixed(1)}
+                </span>
+                <span style={{ fontFamily: fontFamilies.mono, fontSize: 40, fontWeight: 700, color: s.inkMuted }}>ft</span>
+              </div>
+              {flowText && (
+                <div style={{ fontFamily: fontFamilies.display, fontSize: 26, fontWeight: 600, color: condition.solid }}>
+                  {flowText}
+                </div>
+              )}
+              {riseText && (
+                <div style={{ opacity: warningPulse, alignSelf: "flex-start" }}>
+                  <BrandPill tone="dark" fill={condition.solid} size={26} style={{ textTransform: "none", letterSpacing: 0 }}>
+                    {riseText}
+                  </BrandPill>
+                </div>
+              )}
+            </div>
+          </div>
+        ) : (
+          // The report: the compact instrument beside Eddy's mood otter, then
+          // the condition pill. Quote-forward drops the bar so the quote leads.
+          <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "center", gap: 40 }}>
+            {!quoteForward && (
+              <GaugeBar
+                tone="light"
+                currentHeight={gaugeHeightFt}
+                optimalMin={optimalMin}
+                optimalMax={optimalMax}
+                levelHigh={levelHigh}
+                levelDangerous={levelDangerous}
+                conditionColor={condition.solid}
+                delay={30}
+                width={isPortrait ? 120 : 95}
+                height={isPortrait ? 400 : 300}
+              />
+            )}
+            <div style={{ marginBottom: 8 }}>
               <EddyMascot
                 variant={getOtterVariant(conditionCode)}
-                size={isPortrait ? (quoteForward ? 180 : 220) : 170}
-                delay={30}
+                size={isPortrait ? (quoteForward ? 200 : 240) : 170}
+                delay={-30}
               />
             </div>
-          )}
-        </div>
-
-        {/* Big counting numeral — a direct child of the centered column so it
-            shares ONE axis with the name/quote/CTA (nesting it under the bar
-            left it off-center beside Eddy). Reads the same fill model as the
-            bar, so the number and the water level always agree; white below
-            the high threshold, condition-colored the moment it crosses. */}
-        {alertMode && !quoteForward && (
-          <div
-            style={{
-              display: "flex",
-              flexDirection: "column",
-              alignItems: "center",
-              gap: 8,
-            }}
-          >
-            <div style={{ display: "flex", alignItems: "baseline", gap: 10 }}>
-              <span
-                style={{
-                  fontFamily: "'Geist Mono', monospace",
-                  fontSize: isPortrait ? 104 : 82,
-                  fontWeight: 700,
-                  lineHeight: 1,
-                  letterSpacing: -3,
-                  color: crossedHigh ? condition.solid : "#fff",
-                }}
-              >
-                {fill.value.toFixed(1)}
-              </span>
-              <span
-                style={{
-                  fontFamily: "'Geist Mono', monospace",
-                  fontSize: isPortrait ? 40 : 30,
-                  fontWeight: 700,
-                  color: "rgba(255,255,255,0.55)",
-                }}
-              >
-                ft
-              </span>
-            </div>
-
-            {/* Instrument citation — where this number comes from. */}
-            {stationLabel && (
-              <div
-                style={{
-                  fontFamily: "'Geist Sans', system-ui, sans-serif",
-                  fontSize: isPortrait ? 22 : 17,
-                  color: "rgba(255,255,255,0.55)",
-                }}
-              >
-                USGS · {stationLabel}
-              </div>
-            )}
-
-            {/* Flow context — for CFS-primary rivers the condition is driven by
-                DISCHARGE, not stage, so a shallow-looking gauge can still be
-                moving a lot of water. Surfacing "N cfs · X× normal flow" makes
-                the "High" self-explanatory instead of contradicting the feet. */}
-            {flowText && (
-              <div
-                style={{
-                  fontFamily: "'Fredoka', system-ui, sans-serif",
-                  fontSize: isPortrait ? 27 : 21,
-                  fontWeight: 600,
-                  letterSpacing: 0.3,
-                  color: condition.solid,
-                  marginTop: 2,
-                }}
-              >
-                {flowText}
-              </div>
-            )}
-
-            {/* Rise pill — the urgency signal, right under the gauge reading.
-                Orange/red in warning, teal/green (condition color) in recovery. */}
-            {riseText && (
-              <div
-                style={{
-                  opacity: warningPulse,
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 8,
-                  ...chipStyle(condition.solid),
-                  borderRadius: 999,
-                  padding: isPortrait ? "10px 24px" : "8px 18px",
-                  fontFamily: "'Fredoka', system-ui, sans-serif",
-                  fontSize: isPortrait ? 34 : 26,
-                  fontWeight: 700,
-                  letterSpacing: 0.5,
-                  color: condition.solid,
-                  whiteSpace: "nowrap",
-                  marginTop: 4,
-                }}
-              >
-                {riseText}
-              </div>
-            )}
           </div>
         )}
 
-        {/* Condition Badge — field-instrument chrome. Hidden in alert mode:
-            the severity eyebrow + transition already say "High"; a third
-            mention read as clutter. */}
         {!alertMode && (
-          <div
-            style={{
-              opacity: badgeEntrance,
-              transform: `translateX(${badgeX}px)`,
-              display: "flex",
-              alignItems: "center",
-              gap: 10,
-              ...chipStyle(condition.solid),
-              padding: "10px 24px",
-              borderRadius: 999,
-            }}
-          >
-            <div
-              style={{
-                width: 12,
-                height: 12,
-                borderRadius: "50%",
-                backgroundColor: condition.solid,
-              }}
-            />
-            <span
-              style={{
-                fontFamily: "'Fredoka', system-ui, sans-serif",
-                fontSize: 28,
-                fontWeight: 600,
-                color: condition.solid,
-              }}
+          <div style={{ transform: `translateX(${pillX}px)` }}>
+            <BrandPill
+              fill={condition.solid}
+              size={26}
+              leading={<span style={{ width: 12, height: 12, borderRadius: "50%", background: colors.neutral[900], opacity: 0.55 }} />}
             >
               {condition.label}
-            </span>
+            </BrandPill>
           </div>
         )}
 
-        {/* Quote — a teaser by default; the centered hero in quote-forward mode */}
-        <div
-          style={{
-            maxWidth: isPortrait ? 920 : 800,
-            textAlign: "center",
-            opacity: quoteOpacity,
-          }}
-        >
-          <span
-            style={{
-              fontSize: quoteForward ? (isPortrait ? 46 : 34) : isPortrait ? 32 : 24,
-              color: quoteForward ? "#fff" : "rgba(255,255,255,0.9)",
-              lineHeight: quoteForward ? 1.4 : 1.5,
-              fontStyle: "italic",
-              fontWeight: quoteForward ? 500 : 400,
-              textShadow: quoteForward ? `0 0 30px ${condition.glow}` : undefined,
-            }}
-          >
-            &ldquo;{quoteText}&rdquo;
-          </span>
-        </div>
-
-        {/* CTA — alert/recovery copy in those modes, "Full report below ▼"
-            otherwise. Optional smaller followCta line beneath (lower emphasis). */}
-        <div
-          style={{
-            opacity: ctaEntrance,
-            display: "flex",
-            flexDirection: "column",
-            alignItems: "center",
-            gap: 6,
-          }}
-        >
-          <span
-            style={{
-              fontFamily: "'Fredoka', system-ui, sans-serif",
-              fontSize: alertMode ? (isPortrait ? 28 : 22) : 24,
-              fontWeight: alertMode ? 700 : 400,
-              color: condition.solid,
-              letterSpacing: alertMode ? 1 : 0.5,
-              textAlign: "center",
-              maxWidth: isPortrait ? 900 : 700,
-              textShadow: alertMode ? `0 0 24px ${condition.glow}` : undefined,
-            }}
-          >
-            {alertMode ? alertCta : 'Full report below'}
-          </span>
-          {!alertMode && (
-            <span
+        {/* Quote — a teaser by default; the hero in quote-forward mode */}
+        <div style={{ transform: `translateY(${quoteY}px)`, width: "100%" }}>
+          <BrandCard tone={tone} accent={alertMode ? condition.solid : undefined} padding={isPortrait ? "22px 30px" : "16px 22px"}>
+            <div
               style={{
-                fontSize: 28,
-                color: condition.solid,
-                opacity: 0.7,
-                transform: `translateY(${arrowBounce}px)`,
-              }}
-            >
-              ▼
-            </span>
-          )}
-          {followCta && (
-            <span
-              style={{
-                fontFamily: "'Fredoka', system-ui, sans-serif",
-                fontSize: isPortrait ? 22 : 18,
-                fontWeight: 500,
-                color: "rgba(255,255,255,0.6)",
-                letterSpacing: 0.5,
+                fontSize: quoteForward ? (isPortrait ? 38 : 30) : isPortrait ? 27 : 22,
+                fontWeight: quoteForward ? 520 : 500,
+                lineHeight: quoteForward ? 1.3 : 1.4,
+                fontStyle: "italic",
+                color: s.ink,
                 textAlign: "center",
-                marginTop: 2,
               }}
             >
-              {followCta}
-            </span>
-          )}
+              &ldquo;{quoteText}&rdquo;
+            </div>
+          </BrandCard>
         </div>
       </div>
 
-      {/* Watermark — persistent so the eddy.guide source mark survives any
-          mid-animation screenshot (under the global loop fade above). */}
-      <Watermark format={isPortrait ? "portrait" : "landscape"} />
-    </AbsoluteFill>
+      {/* ── Dock ──────────────────────────────────────────────── */}
+      <ReelDock
+        tone={tone}
+        accent={alertMode ? condition.solid : undefined}
+        bottom={isPortrait ? undefined : 88}
+        followBottom={isPortrait ? undefined : 48}
+        tiles={[
+          <StatTile key="reading" tone={tone} value={gaugeHeightFt.toFixed(1)} unit="FT" label="Gauge" />,
+          <StatTile key="condition" tone={tone} value={condition.label} label="Conditions" color={condition.solid} compact />,
+        ]}
+        detail={alertMode ? alertCta : undefined}
+        detailColor={alertMode ? accentInk : undefined}
+        cta={alertMode ? CTA.gauge : CTA.reportBelow}
+        ctaFill={alertMode ? condition.solid : undefined}
+        ctaVariant={alertMode ? "button" : "text"}
+        // The report's CTA points at the caption, not the site — it is a fact
+        // about the post, so it is on screen from frame 0. The alert's button
+        // lands late, like every other reel's.
+        ctaProgress={alertMode ? ctaEntrance : 1}
+        followCta={followCta}
+      />
+    </ReelPage>
   );
 };
