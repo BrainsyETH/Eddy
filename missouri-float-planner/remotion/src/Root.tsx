@@ -29,6 +29,7 @@ import type {
   TrendReelProps,
   ClipReelProps,
 } from "./lib/social-props";
+import { journeyDuration } from "../../shared/social-route-journey";
 
 import "./style.css";
 
@@ -552,10 +553,11 @@ export const RemotionRoot: React.FC = () => {
         fps={FPS}
         width={1080}
         height={1920}
-        calculateMetadata={({ props: _props }: { props: RouteDrawProps }) => ({
-          // ~12s default. The route draws over frames 45-205 and the CTA scales
-          // off durationInFrames, so this is the single place to retune pacing.
-          durationInFrames: 360,
+        calculateMetadata={({ props }: { props: RouteDrawProps }) => ({
+          // Base journey plus one readable pause per intermediate feature.
+          durationInFrames: journeyDuration(
+            (props.routePoints ?? []).filter((point) => point.progress > 0.015 && point.progress < 0.985).length,
+          ),
         })}
         defaultProps={{
           riverName: "Current River",
@@ -568,6 +570,23 @@ export const RemotionRoot: React.FC = () => {
           hoursToday: 3.5,
           hoursTypical: 4.5,
           dateLabel: "April 18, 2026",
+          routeCoordinates: [
+            [-91.569, 37.382],
+            [-91.558, 37.374],
+            [-91.563, 37.363],
+            [-91.548, 37.352],
+            [-91.531, 37.356],
+            [-91.520, 37.344],
+            [-91.526, 37.331],
+            [-91.510, 37.318],
+            [-91.492, 37.312],
+          ],
+          routePoints: [
+            { id: "akers", name: "Akers Ferry", kind: "put_in", riverMile: 20, progress: 0, detail: "Put-in" },
+            { id: "welch", name: "Welch Spring", kind: "spring", riverMile: 23.2, progress: 0.34, detail: "Spring · river left" },
+            { id: "cave", name: "Cave Spring", kind: "poi", riverMile: 26.1, progress: 0.63, detail: "Point of interest" },
+            { id: "pulltite", name: "Pulltite", kind: "take_out", riverMile: 30.5, progress: 1, detail: "Take-out" },
+          ],
           format: "portrait",
         } satisfies RouteDrawProps}
       />

@@ -31,12 +31,17 @@ export interface RouteSpring {
 }
 
 export interface Section {
+  /** IDs are retained so the social assembler can request the exact PostGIS
+   * segment used by the planner instead of reconstructing geometry from miles. */
+  riverId: string;
   /** Slug used in eddy_updates / river_gauges (e.g. "current", "jacks-fork"). */
   riverSlug: string;
   /** Display name (e.g. "Current River"). */
   riverName: string;
+  putInId: string;
   putInName: string;
   putInMile: number;
+  takeOutId: string;
   takeOutName: string;
   takeOutMile: number;
   /** Distance in miles. */
@@ -55,6 +60,7 @@ export interface Section {
 }
 
 interface AccessRow {
+  id: string;
   name: string;
   mile: number;
   description: string | null;
@@ -117,7 +123,7 @@ export async function listAllSections(
 ): Promise<Section[]> {
   const { data, error } = await supabase
     .from('access_points')
-    .select('name, river_mile_downstream, description, type, types, rivers!inner(slug, name)')
+    .select('id, name, river_mile_downstream, description, type, types, rivers!inner(id, slug, name)')
     .eq('is_public', true)
     .eq('approved', true)
     .not('river_mile_downstream', 'is', null);
@@ -128,7 +134,7 @@ export async function listAllSections(
   }
 
   // Group access points by river slug.
-  const byRiver = new Map<string, { name: string; access: AccessRow[] }>();
+  const byRiver = new Map<string, { id: string; name: string; access: AccessRow[] }>();
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   for (const row of data as any[]) {
     const slug: string | undefined = row.rivers?.slug;
@@ -142,9 +148,10 @@ export async function listAllSections(
     const carAccessible =
       row.type === 'access' || types.includes('access') || types.includes('boat_ramp');
     if (!carAccessible) continue;
-    const entry: { name: string; access: AccessRow[] } =
-      byRiver.get(slug) || { name: row.rivers?.name || riverDisplayLong(slug), access: [] };
+    const entry: { id: string; name: string; access: AccessRow[] } =
+      byRiver.get(slug) || { id: row.rivers?.id, name: row.rivers?.name || riverDisplayLong(slug), access: [] };
     entry.access.push({
+      id: row.id,
       name: cleanName(row.name),
       mile: Number(row.river_mile_downstream),
       description: row.description || null,
@@ -156,7 +163,7 @@ export async function listAllSections(
   const springs = getSpringsBySlug();
   const sections: Section[] = [];
   for (const slug of Array.from(byRiver.keys()).sort()) {
-    const { name: riverName, access } = byRiver.get(slug)!;
+    const { id: riverId, name: riverName, access } = byRiver.get(slug)!;
     const sorted = access.slice().sort((a, b) => a.mile - b.mile);
     const riverSprings = springs.get(slug) || [];
 
@@ -172,10 +179,13 @@ export async function listAllSections(
           .map((s) => ({ name: cleanSpringName(s.description), mile: s.mile, side: s.side }))
           .sort((a, b) => a.mile - b.mile);
         sections.push({
+          riverId,
           riverSlug: slug,
           riverName,
+          putInId: putIn.id,
           putInName: putIn.name,
           putInMile: putIn.mile,
+          takeOutId: takeOut.id,
           takeOutName: takeOut.name,
           takeOutMile: takeOut.mile,
           distanceMi: distance,

@@ -17,6 +17,7 @@ import { overlayLiveConditions } from './live-conditions';
 import { riverDisplayLong, riverDisplayShort } from './river-display';
 import { loadFtThresholds } from './gauge-thresholds';
 import { pickSectionForRivers } from './section-picker';
+import { buildSocialRouteScene } from './route-scene';
 import { pickFavoriteFloat } from './favorite-floats';
 import { pickNotableTrend } from './trend-picker';
 import { hasRainComing, weatherChip } from '@/lib/weather/openweather';
@@ -202,6 +203,7 @@ export async function buildPostContext(
       { minMi: 5, maxMi: 9 },
     );
     if (section) {
+      const routeScene = await buildSocialRouteScene(supabase, section);
       const latest = floatable.find((u) => u.river_slug === section.riverSlug);
       const conditionCode = latest?.condition_code || 'flowing';
       // Cover image carries the exact section + condition so it renders the SAME
@@ -219,7 +221,7 @@ export async function buildPostContext(
         // No photoUrl: the live pick renders on the solid live background with a
         // condition-colored route + pulsing boat (a live instrument); the
         // evergreen fallback below keeps its editorial photo backdrop.
-        renderData: { ...section, conditionCode, dateLabel: longDate() },
+        renderData: { ...section, ...routeScene, conditionCode, dateLabel: longDate() },
         caption: (platform, custom) => formatSectionGuideCaption({ ...section, conditionCode }, custom, platform),
         // route is video-only; reuse the section thumbnail as the cover.
         imageUrl: (platform) => og('section', platform, coverParams),
@@ -230,6 +232,7 @@ export async function buildPostContext(
     // live-conditions overlay; rotates deterministically by day.
     const fav = await pickFavoriteFloat(supabase);
     if (!fav) return null;
+    const routeScene = await buildSocialRouteScene(supabase, fav);
     // Bake the exact endpoints into the cover URL so the poster renders the SAME
     // float as the reel (and the unique URL defeats Meta's by-URL OG cache).
     const coverParams =
@@ -244,6 +247,7 @@ export async function buildPostContext(
       riverSlug: fav.riverSlug,
       renderData: {
         ...fav,
+        ...routeScene,
         evergreen: true,
         // 'flowing' is the evergreen baseline: it makes hoursToday === hoursTypical
         // in the shared route props, so the reel shows typical pace with no delta.

@@ -11,6 +11,7 @@ import {
   type ConditionCode as SharedConditionCode,
   type OtterMood,
 } from "../../../shared/condition-system";
+import type { LngLat, SocialRoutePoint } from "../../../shared/social-route-journey";
 
 export type ConditionCode = SharedConditionCode;
 
@@ -202,6 +203,10 @@ export type SectionGuideProps = {
  * instead of the live condition).
  */
 export type RouteDrawProps = SectionGuideProps & {
+  /** Exact selected river segment. Missing geometry falls back to SectionGuide. */
+  routeCoordinates?: LngLat[];
+  /** Ordered route features. Endpoints are included at progress 0 and 1. */
+  routePoints?: SocialRoutePoint[];
   /** Eyebrow label. Defaults to "Float of the Day"; favorites pass "Eddy's Favorite Float". */
   label?: string;
   /** Editorial hook shown under the river name (replaces the date for favorites). */
