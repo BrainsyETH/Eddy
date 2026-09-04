@@ -51,9 +51,12 @@ const FPS = 30;
  * high water deserves. Same masthead, same cards, same dock either way.
  *
  * Timeline (default 360f; alert 240f is proportionally tighter):
- *   frame 0:  masthead, instrument panel and dock already visible (thumbnail)
+ *   frame 0:  masthead, instrument panel and dock already visible (thumbnail);
+ *             the report's bar is already ~filled, the alert's numeral is the
+ *             current reading — nothing on frame 0 disagrees with the dock
  *   0-30:     Title + condition pill settle
- *  30-60:     Gauge fills, Eddy bounces in
+ *  10-60:     Report: the bar settles into the reading. Alert: the instrument
+ *             replays the last 24 h under a "N h ago → now" label
  *  40-60:     Quote fades in and holds
  *  ~D-70:     CTA fades in (D = durationInFrames)
  *  D-12→D:    Loop-out handled by reelLoopOpacity wrapper
@@ -138,7 +141,13 @@ export const GaugeAnimation: React.FC<GaugeAnimationProps> = ({
     riseDurationFrames: RISE_DURATION,
     delay: 30,
   });
-  const crossedHigh = fill.crossingFrame != null && frame >= fill.crossingFrame;
+  // The big numeral is the CURRENT reading from frame 0, so the grid thumbnail
+  // agrees with the dock tile (it once read 3.1 ft beside a 6.8 ft dock). The
+  // instrument replays the last 24 h beneath it; this label says where in that
+  // replay the waterline is, so nobody reads the replayed level as the reading.
+  const riseSpanHours = Math.max(0, ...(series ?? []).map((p) => Math.abs(p.hoursAgo)));
+  const hoursBack = Math.round(riseSpanHours * (1 - fill.progress));
+  const riseLabel = (series?.length ?? 0) >= 3 && riseSpanHours > 0 ? (hoursBack > 0 ? `${hoursBack} h ago` : "Now") : null;
 
   const mastheadTop = isPortrait ? REEL_SAFE.top : 48;
   const stageTop = mastheadTop + 200;
@@ -234,22 +243,39 @@ export const GaugeAnimation: React.FC<GaugeAnimationProps> = ({
           // Alert instrument: the labeled gauge scale beside the counting
           // numeral, its citation, the flow context and the rise pill.
           <div style={{ display: "flex", alignItems: "center", gap: 36, alignSelf: "stretch" }}>
-            <GaugeBar
-              tone="dark"
-              currentHeight={gaugeHeightFt}
-              optimalMin={optimalMin}
-              optimalMax={optimalMax}
-              levelHigh={levelHigh}
-              levelDangerous={levelDangerous}
-              conditionColor={condition.solid}
-              delay={30}
-              emphasis
-              series={series}
-              riseStartFrame={RISE_START}
-              riseDurationFrames={RISE_DURATION}
-              width={150}
-              height={isPortrait ? 400 : 300}
-            />
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 10 }}>
+              <GaugeBar
+                tone="dark"
+                currentHeight={gaugeHeightFt}
+                optimalMin={optimalMin}
+                optimalMax={optimalMax}
+                levelHigh={levelHigh}
+                levelDangerous={levelDangerous}
+                conditionColor={condition.solid}
+                delay={30}
+                emphasis
+                series={series}
+                riseStartFrame={RISE_START}
+                riseDurationFrames={RISE_DURATION}
+                width={150}
+                height={isPortrait ? 400 : 300}
+              />
+              {riseLabel && (
+                <span
+                  style={{
+                    fontFamily: fontFamilies.mono,
+                    fontSize: 18,
+                    fontWeight: 700,
+                    letterSpacing: 1.5,
+                    textTransform: "uppercase",
+                    color: hoursBack > 0 ? s.inkMuted : condition.solid,
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  {riseLabel}
+                </span>
+              )}
+            </div>
             <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 10 }}>
               <div style={{ display: "flex", alignItems: "baseline", gap: 10 }}>
                 <span
@@ -259,10 +285,10 @@ export const GaugeAnimation: React.FC<GaugeAnimationProps> = ({
                     fontWeight: TYPE.numeral.weight,
                     lineHeight: TYPE.numeral.lineHeight,
                     letterSpacing: TYPE.numeral.tracking,
-                    color: crossedHigh ? condition.solid : s.ink,
+                    color: condition.solid,
                   }}
                 >
-                  {fill.value.toFixed(1)}
+                  {gaugeHeightFt.toFixed(1)}
                 </span>
                 <span style={{ fontFamily: fontFamilies.mono, fontSize: 40, fontWeight: 700, color: s.inkMuted }}>ft</span>
               </div>
@@ -293,7 +319,11 @@ export const GaugeAnimation: React.FC<GaugeAnimationProps> = ({
                 levelHigh={levelHigh}
                 levelDangerous={levelDangerous}
                 conditionColor={condition.solid}
-                delay={30}
+                // The report's bar is already filled to most of the reading at
+                // frame 0 and settles the rest — a finished instrument on the
+                // grid thumbnail, not an empty tube waiting for its animation.
+                delay={10}
+                settleFrom={0.85}
                 width={isPortrait ? 120 : 95}
                 height={isPortrait ? 400 : 300}
               />

@@ -53,6 +53,11 @@ interface GaugeBarProps {
   riseDurationFrames?: number;
   /** Numeric ft labels on the scale ticks. Defaults to `emphasis`. */
   labeledTicks?: boolean;
+  /** Fallback (no-series) mode only: the fraction of currentHeight the bar is
+   *  ALREADY filled to at frame 0, so it settles into the reading rather than
+   *  filling from empty. 0 (default) keeps the classic fill-from-empty; the
+   *  report passes ~0.85 so its grid thumbnail is a finished instrument. */
+  settleFrom?: number;
   /** Surface the instrument sits on: the light page (the report) or the dark
    *  severity surface (alerts). Panel, rule, tick and shadow colours follow. */
   tone?: SocialTone;
@@ -96,6 +101,8 @@ export function gaugeFillModel(
     riseStartFrame?: number;
     riseDurationFrames?: number;
     delay?: number;
+    /** Fallback mode: fraction of currentHeight the fill starts from (0..1). */
+    startFraction?: number;
   },
 ): GaugeFillState {
   const {
@@ -105,6 +112,7 @@ export function gaugeFillModel(
     riseStartFrame = 15,
     riseDurationFrames = 90,
     delay = 30,
+    startFraction = 0,
   } = opts;
 
   const samples = (series ?? [])
@@ -125,9 +133,11 @@ export function gaugeFillModel(
       const frac = pos - i;
       return { value: path[i] + (path[i + 1] - path[i]) * frac, progress: t };
     }
-    // Classic spring fill (unchanged legacy behavior).
+    // Classic spring fill, from empty by default or from a settled fraction of
+    // the reading when the caller wants a finished frame 0.
     const p = spring({ frame: f - delay, fps, config: SMOOTH });
-    return { value: interpolate(p, [0, 1], [0, currentHeight]), progress: p };
+    const from = currentHeight * Math.min(1, Math.max(0, startFraction));
+    return { value: interpolate(p, [0, 1], [from, currentHeight]), progress: p };
   };
 
   const { value, progress } = valueAt(frame);
@@ -262,6 +272,7 @@ export const GaugeBar: React.FC<GaugeBarProps> = ({
   riseDurationFrames = 90,
   labeledTicks,
   tone = "dark",
+  settleFrom = 0,
 }) => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
@@ -306,6 +317,7 @@ export const GaugeBar: React.FC<GaugeBarProps> = ({
     riseStartFrame,
     riseDurationFrames,
     delay,
+    startFraction: settleFrom,
   });
 
   const fillFraction = Math.min(1, Math.max(0, fill.value / maxHeight));

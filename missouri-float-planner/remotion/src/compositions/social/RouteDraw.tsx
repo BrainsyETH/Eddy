@@ -383,17 +383,50 @@ const RiverStage: React.FC<StageProps & { journey: Journey; frame: number }> = (
 // A schematic channel down the left of the stage with the stops as rows in
 // float order — spaced evenly, NOT to scale (the miles are on each row). Eddy
 // paddles from row to row on the same journeyState clock the river stage uses,
-// so the pauses, the "also along this float" hold and the duration Root
-// computes are identical whichever stage renders.
+// so the pauses, the arrival hold and the duration Root computes are identical
+// whichever stage renders. Mile-only features (guidebook springs with no
+// coordinate) are rows too — slotted by their nominal mile and drawn as
+// approximate — rather than a floating card, which has nowhere to sit in a
+// list without covering a row. The arrival hold highlights them.
 
 const LINE_X = REEL_SAFE.left + 100;
 const ROW_LEFT = LINE_X + 60;
 const ROW_W = 1080 - REEL_SAFE.right - ROW_LEFT;
 const ROW_H = 92;
-// The first row clears the progress ticket (top-right of the stage); the last
-// clears the dock, which overlaps the stage's bottom edge.
-const ITINERARY_TOP = 136;
-const ITINERARY_BOTTOM = 104;
+// The first row clears the progress ticket (top-right of the stage, ~80px
+// tall); the last clears the dock, which overlaps the stage's bottom edge. Six
+// rows — two endpoints, three stops and a mile-only feature, the fixture — fit
+// at the minimum pitch without scrolling, so the first row stays out from
+// under the ticket; longer lists scroll and fade at the edges.
+const ITINERARY_TOP = 150;
+const ITINERARY_BOTTOM = 96;
+const ROW_PITCH_MIN = 108;
+const ROW_PITCH_MAX = 200;
+
+type ItineraryRow =
+  | { kind: "stop"; point: SocialRoutePoint; stopIndex: number }
+  | { kind: "approx"; point: UnanchoredRoutePoint };
+
+/**
+ * Stops in float order with the mile-only features slotted between them by
+ * river mile. Their miles are on the guidebook's scale, which can disagree
+ * with the DB's by over a mile, so a mile-only row is placed by its nominal
+ * mile and DRAWN as approximate (dashed, "≈ MM", an APPROX. pill), and is
+ * always kept inside the endpoints: after the put-in, before the take-out.
+ */
+function itineraryRows(
+  stops: ReadonlyArray<SocialRoutePoint>,
+  unanchored: ReadonlyArray<UnanchoredRoutePoint>,
+): ItineraryRow[] {
+  const rows: ItineraryRow[] = stops.map((point, stopIndex) => ({ kind: "stop", point, stopIndex }));
+  const byMile = [...unanchored].sort((a, b) => a.riverMile - b.riverMile);
+  for (const point of byMile) {
+    const downstream = rows.findIndex((row) => row.kind === "stop" && row.point.riverMile > point.riverMile);
+    const at = downstream === -1 ? Math.max(1, rows.length - 1) : Math.max(1, downstream);
+    rows.splice(at, 0, { kind: "approx", point });
+  }
+  return rows;
+}
 
 const ItineraryStage: React.FC<StageProps> = ({
   stops,
@@ -405,14 +438,21 @@ const ItineraryStage: React.FC<StageProps> = ({
   calloutProgress,
   summaryVisible,
 }) => {
-  const n = stops.length;
-  const pitch = n > 1 ? clamp((STAGE_HEIGHT - ITINERARY_TOP - ITINERARY_BOTTOM) / (n - 1), 124, 200) : 0;
+  const rows = useMemo(() => itineraryRows(stops, unanchoredPoints), [stops, unanchoredPoints]);
+  const n = rows.length;
+  const pitch = n > 1 ? clamp((STAGE_HEIGHT - ITINERARY_TOP - ITINERARY_BOTTOM) / (n - 1), ROW_PITCH_MIN, ROW_PITCH_MAX) : 0;
   const contentH = ITINERARY_TOP + ITINERARY_BOTTOM + Math.max(0, n - 1) * pitch;
   const rowY = (index: number) => ITINERARY_TOP + index * pitch;
+  // Row index of each stop, so the boat's row-to-row path skips the approx rows
+  // it has no progress value for (it glides past them).
+  const stopRow: number[] = [];
+  rows.forEach((row, index) => {
+    if (row.kind === "stop") stopRow[row.stopIndex] = index;
+  });
 
-  // Boat: piecewise-linear from row to row by the stops' own progress, so it
-  // arrives at a row exactly when the journey clock pauses there.
-  const boatContentY = boatYAt(stops, state.progress, rowY);
+  // Boat: piecewise-linear from stop row to stop row by the stops' own
+  // progress, so it arrives at a row exactly when the journey clock pauses there.
+  const boatContentY = boatYAt(stops, state.progress, (stopIndex) => rowY(stopRow[stopIndex] ?? 0));
   // Short itineraries sit centred; long ones scroll so the boat stays in the
   // reading zone, clamped at either end like the river camera.
   const offsetY =
@@ -423,15 +463,6 @@ const ItineraryStage: React.FC<StageProps> = ({
   const lineTop = rowY(0);
   const lineBottom = rowY(n - 1);
   const drawn = lineBottom > lineTop ? clamp((boatContentY - lineTop) / (lineBottom - lineTop), 0, 1) : 1;
-
-  const alongH = alongCardHeight(unanchoredPoints.length);
-  const alongStyle: React.CSSProperties = {
-    position: "absolute",
-    zIndex: 12,
-    left: 1080 - REEL_SAFE.right - CALLOUT_W,
-    top: clamp(STAGE_TOP + boatY - alongH - 40, STAGE_TOP + 12, STAGE_TOP + STAGE_HEIGHT - alongH - 12),
-    transform: `translateX(${interpolate(calloutProgress, [0, 1], [22, 0])}px) scale(${interpolate(calloutProgress, [0, 1], [0.96, 1])})`,
-  };
 
   return (
     <>
@@ -461,34 +492,46 @@ const ItineraryStage: React.FC<StageProps> = ({
               strokeLinecap="round"
               opacity={drawn > 0 ? 1 : 0}
             />
-            {stops.map((point, index) => (
-              <RouteMarker
-                key={point.id}
-                point={point}
-                position={{ x: LINE_X, y: rowY(index) }}
-                counterScale={1}
-                visited={point.progress <= state.progress + 0.001}
-                active={activeCallout?.id === point.id}
-              />
-            ))}
+            {rows.map((row, index) =>
+              row.kind === "stop" ? (
+                <RouteMarker
+                  key={row.point.id}
+                  point={row.point}
+                  position={{ x: LINE_X, y: rowY(index) }}
+                  counterScale={1}
+                  visited={row.point.progress <= state.progress + 0.001}
+                  active={activeCallout?.id === row.point.id && !summaryVisible}
+                />
+              ) : (
+                <ApproxMarker key={row.point.id} point={row.point} y={rowY(index)} active={summaryVisible} />
+              ),
+            )}
           </svg>
-          {stops.map((point, index) => (
-            <StopRow
-              key={point.id}
-              point={point}
-              putInMile={putInMile}
-              top={rowY(index) - ROW_H / 2}
-              visited={point.progress <= state.progress + 0.001}
-              active={activeCallout?.id === point.id && !summaryVisible}
-              activeProgress={activeCallout?.id === point.id ? calloutProgress : 0}
-            />
-          ))}
+          {rows.map((row, index) =>
+            row.kind === "stop" ? (
+              <StopRow
+                key={row.point.id}
+                point={row.point}
+                putInMile={putInMile}
+                top={rowY(index) - ROW_H / 2}
+                visited={row.point.progress <= state.progress + 0.001}
+                active={activeCallout?.id === row.point.id && !summaryVisible}
+                activeProgress={activeCallout?.id === row.point.id ? calloutProgress : 0}
+              />
+            ) : (
+              <ApproxRow
+                key={row.point.id}
+                point={row.point}
+                top={rowY(index) - ROW_H / 2}
+                active={summaryVisible}
+                activeProgress={summaryVisible ? calloutProgress : 0}
+              />
+            ),
+          )}
         </div>
       </div>
 
       <Boat x={LINE_X} y={STAGE_TOP + boatY} conditionColor={condition.solid} />
-
-      {summaryVisible ? <AlongCallout points={unanchoredPoints} opacity={calloutProgress} style={alongStyle} /> : null}
     </>
   );
 };
@@ -603,6 +646,142 @@ const StopRow: React.FC<{
         {milesIn.toFixed(1)} MI IN
         <br />
         MM {point.riverMile.toFixed(1)}
+      </span>
+    </div>
+  );
+};
+
+/** A mile-only feature's mark on the schematic channel: hollow and dashed, so
+ *  it reads as "about here" next to the solid, coordinate-true stop marks. */
+const ApproxMarker: React.FC<{ point: UnanchoredRoutePoint; y: number; active: boolean }> = ({ point, y, active }) => {
+  const style = KIND_STYLE[point.kind];
+  return (
+    <g transform={`translate(${LINE_X} ${y}) scale(${active ? 1.25 : 1})`} opacity={active ? 1 : 0.85}>
+      {active ? <circle r={29} fill="none" stroke={style.fill} strokeWidth={5} opacity={0.5} /> : null}
+      <circle r={18} fill={LIGHT.surface} stroke={colors.neutral[900]} strokeWidth={4} strokeDasharray="6 5" />
+      <text y={5} textAnchor="middle" fontFamily={fontFamilies.mono} fontSize={13} fontWeight={850} fill={colors.neutral[600]}>
+        {style.short}
+      </text>
+    </g>
+  );
+};
+
+/**
+ * The itinerary row for a mile-only feature. Same card as a stop, but dashed,
+ * with "≈ MM" and an APPROX. pill: the float passes it, the guidebook says
+ * roughly where, and nothing here claims more than that.
+ */
+const ApproxRow: React.FC<{
+  point: UnanchoredRoutePoint;
+  top: number;
+  active: boolean;
+  activeProgress: number;
+}> = ({ point, top, active, activeProgress }) => {
+  const accent = KIND_STYLE[point.kind].fill;
+  const lift = active ? activeProgress : 0;
+  return (
+    <div
+      style={{
+        position: "absolute",
+        left: ROW_LEFT,
+        top,
+        width: ROW_W,
+        height: ROW_H,
+        ...calloutStyle("light", active ? accent : undefined),
+        borderWidth: 4,
+        borderStyle: "dashed",
+        opacity: active ? 1 : 0.8,
+        transform: `scale(${1 + 0.025 * lift})`,
+        transformOrigin: "left center",
+        display: "flex",
+        alignItems: "center",
+        gap: 16,
+        padding: "0 18px",
+        overflow: "hidden",
+      }}
+    >
+      <span
+        style={{
+          flexShrink: 0,
+          display: "grid",
+          placeItems: "center",
+          minWidth: 40,
+          height: 40,
+          padding: "0 10px",
+          borderRadius: 999,
+          background: LIGHT.surface,
+          color: colors.neutral[700],
+          border: `3px dashed ${LIGHT.chipRule}`,
+          fontFamily: fontFamilies.mono,
+          fontSize: 15,
+          fontWeight: 850,
+        }}
+      >
+        {KIND_STYLE[point.kind].short}
+      </span>
+      <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 3 }}>
+        <span style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
+          <span
+            style={{
+              fontFamily: fontFamilies.display,
+              fontSize: 15,
+              fontWeight: 700,
+              letterSpacing: 0.8,
+              textTransform: "uppercase",
+              color: conditionInk(accent),
+              whiteSpace: "nowrap",
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+            }}
+          >
+            {point.detail || "Along this float"}
+          </span>
+          <span
+            style={{
+              flexShrink: 0,
+              fontFamily: fontFamilies.mono,
+              fontSize: 11,
+              fontWeight: 700,
+              color: colors.primary[800],
+              border: `2px solid ${colors.primary[700]}`,
+              borderRadius: 999,
+              padding: "1px 7px",
+              letterSpacing: 0.6,
+              whiteSpace: "nowrap",
+            }}
+          >
+            APPROX.
+          </span>
+        </span>
+        <span
+          style={{
+            fontFamily: fontFamilies.display,
+            fontSize: 30,
+            fontWeight: 680,
+            lineHeight: 1.05,
+            color: LIGHT.ink,
+            whiteSpace: "nowrap",
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+          }}
+        >
+          {cleanName(point.name, 30)}
+        </span>
+      </div>
+      <span
+        style={{
+          flexShrink: 0,
+          textAlign: "right",
+          fontFamily: fontFamilies.mono,
+          fontSize: 16,
+          fontWeight: 650,
+          color: LIGHT.inkMuted,
+          lineHeight: 1.3,
+        }}
+      >
+        ≈ MM {point.riverMile.toFixed(1)}
+        <br />
+        GUIDEBOOK MILE
       </span>
     </div>
   );

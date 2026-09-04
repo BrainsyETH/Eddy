@@ -9,11 +9,15 @@ on:
   pull_request:
     paths:
       - 'missouri-float-planner/remotion/**'
+      # The compositions import shared/social-brand, shared/social-route-journey
+      # and shared/condition-system; a change there re-renders every reel.
+      - 'missouri-float-planner/shared/**'
       - '.github/workflows/remotion-check.yml'
   push:
     branches: [main]
     paths:
       - 'missouri-float-planner/remotion/**'
+      - 'missouri-float-planner/shared/**'
   workflow_dispatch:
     inputs:
       update_baselines:

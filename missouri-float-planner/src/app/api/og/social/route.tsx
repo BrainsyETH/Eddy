@@ -10,14 +10,20 @@
 //
 // Supports:
 //   ?type=digest                       — all rivers, daily digest thumbnail
-//   ?type=highlight&river=slug         — single-river "Eddy Says" report thumbnail
+//   ?type=highlight&river=slug&id=&ft=&condition=&at=
+//                                      — single-river "Eddy Says" report thumbnail; the
+//                                        post pins its eddy_update row, reading, condition
+//                                        and timestamp so the cover can't drift from the reel
 //   ?type=eddy_says&river=slug         — legacy alias for ?type=highlight (merged format)
 //   ?type=tip&id=uuid                  — custom content snippet thumbnail
-//   ?type=forecast                     — weekly forecast: top 3 floatable rivers
+//   ?type=forecast&river=&condition=&ft=&bets=&rain=&wx=
+//                                      — weekly forecast: the pinned best bet (absent → live pick)
 //   ?type=section                      — Float Pick: live condition-aware section
 //   ?type=favorite&river=&fromSlug=&toSlug= — Float Pick evergreen fallback (from guides)
 //   ?type=clip&river=&creator=         — branded clip cover
-//   ?type=trend                        — 7-day trend: river with biggest gauge move
+//   ?type=trend&river=&asOf=&condition=&wx=
+//                                      — 7-day trend as of the post's own instant (absent →
+//                                        live pick of the river with the biggest gauge move)
 //   ?type=warning&river=slug&from=...  — condition-change warning (flowing → high/dangerous)
 //   ?type=storm&rivers=slug:cond,...   — batch "rivers rising" alert
 
@@ -89,6 +95,24 @@ function numParam(v: string | null): number | null {
   if (v === null) return null;
   const n = Number(v);
   return Number.isFinite(n) ? n : null;
+}
+
+/** A pinned weather chip, `high|low|precip|condition` as post-context bakes it
+ *  (weatherCoverParam). Any field may be empty. Null when absent/unparseable. */
+function parseWeatherParam(raw: string | null): WeatherChip | null {
+  if (!raw) return null;
+  const [high, low, precip, condition = ''] = raw.split('|');
+  const highF = numParam(high || null);
+  const lowF = numParam(low || null);
+  const precipChance = numParam(precip || null) ?? 0;
+  if (highF === null && lowF === null && !condition) return null;
+  return { highF, lowF, precipChance, condition };
+}
+
+/** A pinned ISO instant, or now when absent/invalid. */
+function instantParam(raw: string | null): Date {
+  const ms = raw ? Date.parse(raw) : NaN;
+  return Number.isFinite(ms) ? new Date(ms) : new Date();
 }
 
 /** A river's published-guide hero photo as a data URI, for the photo card
@@ -165,15 +189,24 @@ export async function GET(request: NextRequest) {
     const riverSlug = searchParams.get('river');
     const contentId = searchParams.get('id');
 
+    // The post pins what its reel showed (see post-context) so the cover Meta
+    // renders at crawl time is the same report, not a later one.
+    const highlightPins = {
+      id: contentId,
+      ft: numParam(searchParams.get('ft')),
+      condition: searchParams.get('condition'),
+      at: searchParams.get('at'),
+    };
+
     if (type === 'highlight' && riverSlug) {
-      return await generateHighlightImage(riverSlug, size);
+      return await generateHighlightImage(riverSlug, size, highlightPins);
     }
 
     // Legacy alias: eddy_says merged into the highlight report. Old posts'
     // image_urls keep resolving (Meta re-crawls by URL), rendered as the
     // current highlight cover.
     if (type === 'eddy_says' && riverSlug) {
-      return await generateHighlightImage(riverSlug, size);
+      return await generateHighlightImage(riverSlug, size, highlightPins);
     }
 
     if (type === 'tip' && contentId) {
@@ -181,7 +214,14 @@ export async function GET(request: NextRequest) {
     }
 
     if (type === 'forecast') {
-      return await generateForecastImage(size);
+      return await generateForecastImage(size, {
+        river: riverSlug,
+        condition: searchParams.get('condition'),
+        ft: numParam(searchParams.get('ft')),
+        bets: numParam(searchParams.get('bets')),
+        rain: searchParams.get('rain') === '1',
+        weather: parseWeatherParam(searchParams.get('wx')),
+      });
     }
 
     if (type === 'section') {
@@ -209,7 +249,11 @@ export async function GET(request: NextRequest) {
     }
 
     if (type === 'trend') {
-      return await generateTrendImage(size, searchParams.get('river'));
+      return await generateTrendImage(size, searchParams.get('river'), {
+        asOf: searchParams.get('asOf'),
+        condition: searchParams.get('condition'),
+        weather: parseWeatherParam(searchParams.get('wx')),
+      });
     }
 
     if (type === 'storm') {
@@ -336,35 +380,53 @@ async function generateDigestImage(size: Size, pinned?: string | null) {
 
 // ─── Eddy Says report ───────────────────────────────────────────────────────
 
-async function generateHighlightImage(riverSlug: string, size: Size) {
+async function generateHighlightImage(
+  riverSlug: string,
+  size: Size,
+  pins: { id?: string | null; ft?: number | null; condition?: string | null; at?: string | null } = {},
+) {
   const supabase = createAdminClient();
   const cover = coverGeometry(size);
 
-  // Fetch latest update for this river
-  const { data: rawUpdate } = await supabase
-    .from('eddy_updates')
-    .select('river_slug, condition_code, gauge_height_ft, summary_text, quote_text')
-    .eq('river_slug', riverSlug)
-    .is('section_slug', null)
-    .gt('expires_at', new Date().toISOString())
-    .order('generated_at', { ascending: false })
-    .limit(1)
-    .maybeSingle();
+  // Pinned path: the post named its exact eddy_update row, so fetch THAT (no
+  // expiry filter — Meta may re-crawl days later and the row is still the one
+  // the reel was rendered from). Absent → the latest update for the river.
+  const select = 'river_slug, condition_code, gauge_height_ft, summary_text, quote_text';
+  const { data: rawUpdate } = pins.id
+    ? await supabase.from('eddy_updates').select(select).eq('id', pins.id).maybeSingle()
+    : await supabase
+        .from('eddy_updates')
+        .select(select)
+        .eq('river_slug', riverSlug)
+        .is('section_slug', null)
+        .gt('expires_at', new Date().toISOString())
+        .order('generated_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
 
   if (!rawUpdate) {
     return NextResponse.json({ error: 'No update found for river' }, { status: 404 });
   }
 
-  // Overlay live gauge data so the headline + badge match reality, and drop
-  // AI prose if the live condition has crossed into a different bucket
-  // (otherwise we'd render "sweet spot" copy next to a "High Water" badge).
-  const [update] = await overlayLiveConditions(supabase, [rawUpdate]);
+  // The reel already applied the live-conditions overlay when the post was
+  // built and pinned the result (ft + condition). Honour the pins verbatim;
+  // only an un-pinned (legacy) URL overlays live data at crawl time — which
+  // is the drift the pins exist to prevent.
+  const pinnedReading = pins.ft != null || !!pins.condition;
+  const [update] = pinnedReading
+    ? [{
+        ...rawUpdate,
+        gauge_height_ft: pins.ft ?? rawUpdate.gauge_height_ft,
+        condition_code: pins.condition ?? rawUpdate.condition_code,
+      }]
+    : await overlayLiveConditions(supabase, [rawUpdate]);
 
   const riverName = riverDisplayLong(riverSlug);
   const conditionCode = (update.condition_code || 'unknown') as ConditionCode;
   const c = cond(conditionCode);
   const snippet = update.summary_text || update.quote_text || '';
-  const now = new Date();
+  // The subtitle is the post's timestamp, not the crawl's.
+  const now = instantParam(pins.at ?? null);
   const cstFormatter = new Intl.DateTimeFormat('en-US', {
     timeZone: 'America/Chicago',
     weekday: 'long',
@@ -450,10 +512,21 @@ function ogWeatherLabel(chip: WeatherChip | null): string {
   return parts.join(' · ');
 }
 
-async function generateForecastImage(size: Size) {
-  const supabase = createAdminClient();
-  const cover = coverGeometry(size);
+/** What the forecast cover shows. Built from the post's pins, or — for an
+ *  un-pinned legacy URL — from a live pick at crawl time. */
+type ForecastBest = {
+  river_slug: string;
+  condition_code: string;
+  gauge_height_ft: number | null;
+  /** The weather chip label already resolved (pins carry the chip, not the raw summary). */
+  weatherLabel: string;
+  betCount: number;
+  usingFallback: boolean;
+};
 
+async function liveForecastBest(
+  supabase: ReturnType<typeof createAdminClient>,
+): Promise<ForecastBest | null> {
   const { data: updates } = await supabase
     .from('eddy_updates')
     .select('river_slug, condition_code, gauge_height_ft, weather')
@@ -485,11 +558,50 @@ async function generateForecastImage(size: Size) {
   const dry = floatable.filter((u) => !hasRainComing(u.weather));
   const usingFallback = dry.length === 0;
   const top = (usingFallback ? floatable : dry).slice(0, 3);
+  const best = top[0];
+  if (!best) return null;
+  return {
+    river_slug: best.river_slug,
+    condition_code: best.condition_code,
+    gauge_height_ft: best.gauge_height_ft,
+    weatherLabel: ogWeatherLabel(weatherChip(best.weather)),
+    betCount: top.length,
+    usingFallback,
+  };
+}
 
-  // Cover features only the single best bet (best condition, rain-free if any).
-  const best = top[0] || null;
+async function generateForecastImage(
+  size: Size,
+  pins: {
+    river?: string | null;
+    condition?: string | null;
+    ft?: number | null;
+    bets?: number | null;
+    rain?: boolean;
+    weather?: WeatherChip | null;
+  } = {},
+) {
+  const supabase = createAdminClient();
+  const cover = coverGeometry(size);
+
+  // Pinned path: post-context baked the best bet it showed in the reel —
+  // river, condition, reading, weather chip, bets count, rain note — so this
+  // render cannot re-pick a different river when Meta fetches it later.
+  const best: ForecastBest | null =
+    pins.river && pins.condition
+      ? {
+          river_slug: pins.river,
+          condition_code: pins.condition,
+          gauge_height_ft: pins.ft ?? null,
+          weatherLabel: ogWeatherLabel(pins.weather ?? null),
+          betCount: Math.max(1, pins.bets ?? 1),
+          usingFallback: !!pins.rain,
+        }
+      : await liveForecastBest(supabase);
+
   const bestName = best ? riverDisplayShort(best.river_slug) : '';
-  const bestWeather = best ? ogWeatherLabel(weatherChip(best.weather)) : '';
+  const bestWeather = best ? best.weatherLabel : '';
+  const usingFallback = best?.usingFallback ?? false;
   const photo = best
     ? ((await loadBackgroundDataUri(supabase, 'forecast')) ??
        (await loadRiverPhotoDataUri(supabase, best.river_slug)))
@@ -522,7 +634,7 @@ async function generateForecastImage(size: Size) {
         tiles={[
           { value: condLabel(best.condition_code), label: 'Conditions', color: c.solid, compact: true },
           ...(best.gauge_height_ft !== null ? [{ value: best.gauge_height_ft.toFixed(1), unit: 'FT', label: 'Gauge' }] : []),
-          ...(top.length > 1 ? [{ value: String(top.length), label: 'Best bets' }] : []),
+          ...(best.betCount > 1 ? [{ value: String(best.betCount), label: 'Best bets' }] : []),
         ]}
         detail={bestWeather || undefined}
         cta={CTA.levels}
@@ -707,7 +819,11 @@ async function generateClipImage(
 // ---------------------------------------------------------------------------
 // 7-Day Trend thumbnail
 // ---------------------------------------------------------------------------
-async function generateTrendImage(size: Size, pinnedRiver?: string | null) {
+async function generateTrendImage(
+  size: Size,
+  pinnedRiver?: string | null,
+  pins: { asOf?: string | null; condition?: string | null; weather?: WeatherChip | null } = {},
+) {
   const supabase = createAdminClient();
   const cover = coverGeometry(size);
   const s = SURFACES[cover.tone];
@@ -722,20 +838,22 @@ async function generateTrendImage(size: Size, pinnedRiver?: string | null) {
   type Row = { river_slug: string; condition_code: string; weather?: WeatherSummary | null };
   const rows = (updates || []) as Row[];
   const slugs = Array.from(new Set(rows.map((u) => u.river_slug)));
-  // Pinned path: the caller baked the exact river into the URL so the cover
-  // matches the reel it accompanies (no live re-pick). pickNotableTrend already
-  // supports restrictTo, so pin by restricting the candidate set to that one
-  // slug — it then builds the identical trend object from that river's 7-day
-  // history. Absent → keep the current "most notable across all rivers" pick.
+  // Pinned path: the caller baked the exact river AND the instant into the URL
+  // so the cover matches the reel it accompanies. pickNotableTrend restricts
+  // the candidate set to that slug and evaluates the seven days as of that
+  // instant, so the delta, range and sparkline are the reel's — not whatever
+  // the gauge did between posting and Meta's crawl. Absent → keep the live
+  // "most notable across all rivers" pick (legacy URLs).
   const restrictTo = pinnedRiver ? [pinnedRiver] : slugs;
-  const trend = await pickNotableTrend(supabase, { restrictTo });
+  const trend = await pickNotableTrend(supabase, { restrictTo, asOf: pins.asOf ?? null });
   if (!trend) {
     return NextResponse.json({ error: 'No notable trend' }, { status: 404 });
   }
-  const wx = ogWeatherLabel(weatherChip(rows.find((u) => u.river_slug === trend.riverSlug)?.weather ?? null));
+  const liveRow = rows.find((u) => u.river_slug === trend.riverSlug);
+  const wx = ogWeatherLabel(pins.weather ?? weatherChip(liveRow?.weather ?? null));
 
   const meta = trendMeta(trend.direction);
-  const trendCondition = rows.find((u) => u.river_slug === trend.riverSlug)?.condition_code || 'unknown';
+  const trendCondition = pins.condition || liveRow?.condition_code || 'unknown';
   const deltaSign = trend.deltaFt > 0 ? '+' : trend.deltaFt < 0 ? '-' : '';
   const deltaAbs = Math.abs(trend.deltaFt).toFixed(1);
   const otter = await loadOtter(trendCondition);

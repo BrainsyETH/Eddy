@@ -16,10 +16,11 @@
 //   node test/visual-diff.mjs --stills <dir> --baselines <dir> --out <dir>
 // Env equivalents: STILLS_DIR, BASELINES_DIR, DIFF_DIR.
 //
-// A missing baseline for a rendered comp is a soft skip (so a new composition or
-// first run doesn't hard-fail); create/refresh baselines with `--update` (or the
-// remotion-check "update_baselines" workflow_dispatch, which renders in the CI
-// environment and commits canonical baselines).
+// A missing baseline for a rendered comp FAILS the gate, and so does a run that
+// compared nothing: every still in test/check-stills.sh is a configured
+// expectation. Create/refresh baselines with `--update` (or the remotion-check
+// "update_baselines" workflow_dispatch, which renders in the CI environment and
+// commits canonical baselines).
 
 import {
   readFileSync,
@@ -85,8 +86,15 @@ for (const file of stills) {
   const baselinePath = join(BASELINES, file);
 
   if (!existsSync(baselinePath)) {
-    console.log(`• ${comp}: no baseline — skipped (run \`npm run test:visual:update\`)`);
+    // A rendered still with no baseline is a FAILURE, not a skip. Every still
+    // in test/check-stills.sh is a configured expectation; skipping it would
+    // let a deleted or never-committed baseline pass the gate silently (which
+    // is exactly how "0 checked, 16 skipped" once exited green). New
+    // compositions get their baseline through `--update` / the remotion-check
+    // update_baselines dispatch, which renders in CI and commits the file.
+    console.error(`✗ ${comp}: no baseline at ${baselinePath} — commit one via the update_baselines dispatch`);
     skipped++;
+    failed++;
     continue;
   }
 
@@ -120,5 +128,10 @@ for (const file of stills) {
   }
 }
 
-console.log(`\n${checked} checked, ${skipped} skipped, ${failed} failed.`);
+console.log(`\n${checked} checked, ${skipped} missing, ${failed} failed.`);
+if (checked === 0) {
+  // Nothing compared means the gate validated nothing — never a pass.
+  console.error('✗ no composition was compared against a baseline');
+  process.exit(1);
+}
 process.exit(failed > 0 ? 1 : 0);
