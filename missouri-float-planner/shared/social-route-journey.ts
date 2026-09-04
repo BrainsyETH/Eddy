@@ -25,6 +25,21 @@ export type SocialRoutePoint = {
   severity?: string;
 };
 
+/**
+ * A feature known to be on the float but with no coordinate — placed by a
+ * guidebook river mile only, on a mile scale that disagrees with the DB's by
+ * over a mile in places (Powder Mill: 58.7 vs 60.73). Never pinned to the line
+ * or given a timed pause; surfaced once as an "also along this float" note so
+ * the fact survives without the false precision.
+ */
+export type UnanchoredRoutePoint = {
+  id: string;
+  name: string;
+  kind: RoutePointKind;
+  riverMile: number;
+  detail?: string;
+};
+
 export type JourneyPoint = {
   x: number;
   y: number;
@@ -39,6 +54,8 @@ export type JourneyTiming = {
   travelFrames: number;
   pauseFrames: number;
   outroFrames: number;
+  /** Hold for the "also along this float" card, only when there is one. */
+  summaryFrames?: number;
 };
 
 export type JourneyState = {
@@ -78,6 +95,25 @@ export type JourneyCamera = {
   translateY: number;
 };
 
+/**
+ * The rendered journey: the authoritative projected LineString, the polyline
+ * that is actually stroked, and the mapping between them.
+ */
+export type Journey = {
+  /** Raw projected LineString — rotated and scaled, nothing else. Authoritative. */
+  raw: JourneyPoint[];
+  /** What gets stroked: `raw` with each corner rounded inside a bounded radius. */
+  points: JourneyPoint[];
+  /** The most any stroked point may sit from the raw line, in canvas px. */
+  maxDeviationPx: number;
+  /**
+   * Raw arc-length fraction → the stroked point standing in for it, plus the
+   * stroked arc-length fraction needed to reach it (for draw-on dash offsets,
+   * so the drawn line and the boat never disagree at a corner).
+   */
+  locate(progress: number): { point: JourneyPoint; renderedProgress: number };
+};
+
 export const DEFAULT_TIMING: JourneyTiming = {
   // The overview (whole float, every stop, the put-in callout) holds through
   // the intro, so frame 0 — the grid thumbnail — is a complete, branded card.
@@ -85,6 +121,7 @@ export const DEFAULT_TIMING: JourneyTiming = {
   travelFrames: 210,
   pauseFrames: 38,
   outroFrames: 90,
+  summaryFrames: 54,
 };
 
 /** Frames over which the camera pushes in from the overview to the boat. It
@@ -92,6 +129,17 @@ export const DEFAULT_TIMING: JourneyTiming = {
  *  rather than after a hard cut. */
 const PUSH_IN_LEAD = 15;
 const PUSH_IN_FRAMES = 48;
+
+/**
+ * Migration 00116 simplified the NHD flowlines with Douglas–Peucker at 0.0005°
+ * (~50 m), so the stored line is already up to this far from the channel. The
+ * stroked line may leave the stored line by at most the same distance: the
+ * render never claims more precision than the data has, and never less.
+ */
+export const MAX_DEVIATION_METERS = 50;
+const METERS_PER_DEGREE_LAT = 111_320;
+/** Samples per rounded corner. Enough that a 44px stroke shows no facets. */
+const CORNER_SAMPLES = 6;
 
 export function validRouteCoordinates(
   coordinates: ReadonlyArray<LngLat> | null | undefined,
@@ -117,16 +165,18 @@ export function sampleRouteCoordinates(
 
 /**
  * Project and rotate a real river so its overall downstream direction points
- * upward. Scale is based on travelled path length, not its bounding box: the
- * camera follows the route, so broad bends may pan sideways without flattening
- * or stretching the geography to fit one frame.
+ * upward, scaled so the travelled path is `travelPixels` long. Scale is based
+ * on path length, not bounding box: the camera follows the route, so broad
+ * bends may pan sideways without flattening or stretching the geography.
+ *
+ * Returns null for anything that cannot be drawn honestly (fewer than two
+ * distinct points). The caller falls back; it never invents a line.
  */
-export function buildJourneyRoute(
+export function buildJourney(
   coordinates: ReadonlyArray<LngLat> | null | undefined,
   travelPixels = 2550,
-  maxPoints = 400,
-  smooth = true,
-): JourneyPoint[] | null {
+  roundCornersEnabled = true,
+): Journey | null {
   const clean = validRouteCoordinates(coordinates);
   if (clean.length < 2 || !(travelPixels > 0)) return null;
 
@@ -151,108 +201,141 @@ export function buildJourneyRoute(
     x: point.x * cos - point.y * sin,
     y: point.x * sin + point.y * cos,
   }));
-  // The stored channel is Douglas-Peucker'd to ~50 m at import (see migration
-  // 00116), so a 9-mile section is ~35 vertices and draws as visible facets at
-  // reel scale. A Catmull-Rom pass through those vertices reads as a river
-  // again without inventing geometry: every stored vertex is still on the line.
-  const smoothed = smooth ? smoothRoute(rotated) : rotated;
-  const total = routeLength(smoothed);
-  if (!(total > 0)) return null;
+  const lengthDegrees = routeLength(rotated);
+  if (!(lengthDegrees > 0)) return null;
 
-  const scale = travelPixels / total;
-  const scaled = smoothed.map((point) => ({ x: point.x * scale, y: point.y * scale }));
-  return sampleByDistance(scaled, maxPoints);
+  const scale = travelPixels / lengthDegrees;
+  const raw = rotated.map((point) => ({ x: point.x * scale, y: point.y * scale }));
+
+  // Both axes are in latitude-degree units (longitude was pre-scaled by
+  // cos(lat)), so one planar degree ≈ 111.3 km everywhere on the route.
+  const pxPerMeter = travelPixels / (lengthDegrees * METERS_PER_DEGREE_LAT);
+  const maxDeviationPx = MAX_DEVIATION_METERS * pxPerMeter;
+  // A quadratic corner with control point V bulges at most r/2 from the
+  // polyline (see roundCorners), so r = 2·bound keeps every stroked point
+  // inside the bound by construction.
+  const rounded = roundCorners(raw, roundCornersEnabled ? maxDeviationPx * 2 : 0, CORNER_SAMPLES);
+
+  const rawCum = arcLengths(raw);
+  const rawTotal = rawCum[rawCum.length - 1];
+  const renderedCum = arcLengths(rounded.points);
+  const renderedTotal = renderedCum[renderedCum.length - 1];
+
+  const locate = (progress: number) => {
+    const target = clamp01(progress) * rawTotal;
+    const { rawArc, points } = rounded;
+    // rawArc is non-decreasing; find the first sample at or past the target.
+    let hi = rawArc.length - 1;
+    let lo = 0;
+    while (lo < hi) {
+      const mid = (lo + hi) >> 1;
+      if (rawArc[mid] < target) lo = mid + 1;
+      else hi = mid;
+    }
+    if (lo === 0) return { point: points[0], renderedProgress: 0 };
+    const span = rawArc[lo] - rawArc[lo - 1];
+    const t = span <= 0 ? 0 : (target - rawArc[lo - 1]) / span;
+    const a = points[lo - 1];
+    const b = points[lo];
+    const renderedArc = renderedCum[lo - 1] + (renderedCum[lo] - renderedCum[lo - 1]) * t;
+    return {
+      point: { x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t },
+      renderedProgress: renderedTotal > 0 ? renderedArc / renderedTotal : 0,
+    };
+  };
+
+  return { raw, points: rounded.points, maxDeviationPx, locate };
+}
+
+/** The stroked polyline only. See buildJourney for the full mapping. */
+export function buildJourneyRoute(
+  coordinates: ReadonlyArray<LngLat> | null | undefined,
+  travelPixels = 2550,
+  roundCornersEnabled = true,
+): JourneyPoint[] | null {
+  return buildJourney(coordinates, travelPixels, roundCornersEnabled)?.points ?? null;
 }
 
 /**
- * Centripetal-ish Catmull-Rom through every vertex, `samplesPerSegment` points
- * per original segment. Endpoints are preserved exactly; interior vertices lie
- * on the curve. Two points (or fewer) come back unchanged — there is nothing
- * to smooth.
+ * Round each interior corner with a quadratic curve whose control point is the
+ * vertex itself, tangent to both segments `r` before and after it. Straight
+ * runs between corners are untouched, so the stroked line IS the raw line
+ * everywhere except within `r` of a vertex — and there it stays inside the
+ * triangle (A, V, B), never further than r/2 from the polyline.
+ *
+ * Returns, alongside the points, each point's position along the RAW line so
+ * a raw arc-length fraction can be mapped to a stroked point without going
+ * through the stroked line's own (slightly different) length.
  */
-export function smoothRoute(
-  points: ReadonlyArray<JourneyPoint>,
-  samplesPerSegment = 8,
-): JourneyPoint[] {
-  if (points.length < 3 || samplesPerSegment < 2) return [...points];
-  const at = (index: number) => points[Math.max(0, Math.min(points.length - 1, index))];
-  const out: JourneyPoint[] = [];
-  for (let i = 0; i < points.length - 1; i += 1) {
-    const p0 = at(i - 1);
-    const p1 = at(i);
-    const p2 = at(i + 1);
-    const p3 = at(i + 2);
-    for (let j = 0; j < samplesPerSegment; j += 1) {
-      const t = j / samplesPerSegment;
-      const t2 = t * t;
-      const t3 = t2 * t;
-      out.push({
-        x: 0.5 * (2 * p1.x + (-p0.x + p2.x) * t + (2 * p0.x - 5 * p1.x + 4 * p2.x - p3.x) * t2 + (-p0.x + 3 * p1.x - 3 * p2.x + p3.x) * t3),
-        y: 0.5 * (2 * p1.y + (-p0.y + p2.y) * t + (2 * p0.y - 5 * p1.y + 4 * p2.y - p3.y) * t2 + (-p0.y + 3 * p1.y - 3 * p2.y + p3.y) * t3),
-      });
+export function roundCorners(
+  raw: ReadonlyArray<JourneyPoint>,
+  radius: number,
+  samplesPerCorner = CORNER_SAMPLES,
+): { points: JourneyPoint[]; rawArc: number[] } {
+  const cum = arcLengths(raw);
+  if (raw.length < 3 || !(radius > 0)) {
+    return { points: [...raw], rawArc: cum };
+  }
+  const points: JourneyPoint[] = [raw[0]];
+  const rawArc: number[] = [0];
+  const push = (point: JourneyPoint, arc: number) => {
+    const prev = points[points.length - 1];
+    if (Math.hypot(point.x - prev.x, point.y - prev.y) < 1e-9) return;
+    points.push(point);
+    rawArc.push(arc);
+  };
+
+  for (let i = 1; i < raw.length - 1; i += 1) {
+    const before = raw[i - 1];
+    const vertex = raw[i];
+    const after = raw[i + 1];
+    const lenIn = cum[i] - cum[i - 1];
+    const lenOut = cum[i + 1] - cum[i];
+    const r = Math.min(radius, lenIn / 2, lenOut / 2);
+    if (!(r > 1e-9)) {
+      push(vertex, cum[i]);
+      continue;
+    }
+    const uIn = { x: (vertex.x - before.x) / lenIn, y: (vertex.y - before.y) / lenIn };
+    const uOut = { x: (after.x - vertex.x) / lenOut, y: (after.y - vertex.y) / lenOut };
+    const a = { x: vertex.x - r * uIn.x, y: vertex.y - r * uIn.y };
+    const b = { x: vertex.x + r * uOut.x, y: vertex.y + r * uOut.y };
+    for (let k = 0; k <= samplesPerCorner; k += 1) {
+      const t = k / samplesPerCorner;
+      const w0 = (1 - t) * (1 - t);
+      const w1 = 2 * (1 - t) * t;
+      const w2 = t * t;
+      push(
+        { x: w0 * a.x + w1 * vertex.x + w2 * b.x, y: w0 * a.y + w1 * vertex.y + w2 * b.y },
+        cum[i] - r + 2 * r * t,
+      );
     }
   }
-  out.push(points[points.length - 1]);
-  return out;
+  push(raw[raw.length - 1], cum[cum.length - 1]);
+  return { points, rawArc };
 }
 
-export function routeBounds(points: ReadonlyArray<JourneyPoint>): JourneyBounds {
-  let minX = Infinity;
-  let minY = Infinity;
-  let maxX = -Infinity;
-  let maxY = -Infinity;
+/** Largest distance from any of `points` to the polyline `line`. */
+export function maxDistanceToPolyline(
+  points: ReadonlyArray<JourneyPoint>,
+  line: ReadonlyArray<JourneyPoint>,
+): number {
+  let worst = 0;
   for (const point of points) {
-    if (point.x < minX) minX = point.x;
-    if (point.y < minY) minY = point.y;
-    if (point.x > maxX) maxX = point.x;
-    if (point.y > maxY) maxY = point.y;
+    let best = Infinity;
+    for (let i = 1; i < line.length; i += 1) {
+      const a = line[i - 1];
+      const b = line[i];
+      const vx = b.x - a.x;
+      const vy = b.y - a.y;
+      const d2 = vx * vx + vy * vy;
+      const t = d2 === 0 ? 0 : clamp01(((point.x - a.x) * vx + (point.y - a.y) * vy) / d2);
+      const d = Math.hypot(point.x - (a.x + vx * t), point.y - (a.y + vy * t));
+      if (d < best) best = d;
+    }
+    if (best > worst) worst = best;
   }
-  if (!Number.isFinite(minX)) {
-    return { minX: 0, minY: 0, maxX: 0, maxY: 0, width: 0, height: 0, centerX: 0, centerY: 0 };
-  }
-  return {
-    minX, minY, maxX, maxY,
-    width: maxX - minX,
-    height: maxY - minY,
-    centerX: (minX + maxX) / 2,
-    centerY: (minY + maxY) / 2,
-  };
-}
-
-/**
- * Overview → follow camera. Through the intro the whole float is fitted inside
- * the stage (never magnified past the travel scale, so a short float doesn't
- * balloon); it then pushes in on the boat and stays anchored to it. Pure, so
- * the thumbnail frame is a testable fact rather than a hope.
- */
-export function journeyCamera(
-  frame: number,
-  route: ReadonlyArray<JourneyPoint>,
-  current: JourneyPoint,
-  stage: JourneyStage,
-  timing: JourneyTiming = DEFAULT_TIMING,
-): JourneyCamera {
-  const bounds = routeBounds(route);
-  const usableW = Math.max(1, stage.width - stage.padding * 2);
-  const usableH = Math.max(1, stage.height - stage.padding * 2);
-  const fit = Math.min(
-    1,
-    bounds.width > 0 ? usableW / bounds.width : 1,
-    bounds.height > 0 ? usableH / bounds.height : 1,
-  );
-  const start = timing.introFrames - PUSH_IN_LEAD;
-  const k = smoothstep(clamp01((frame - start) / PUSH_IN_FRAMES));
-
-  const scale = Math.exp(Math.log(fit) * (1 - k)); // log-lerp fit → 1
-  const anchorWorldX = bounds.centerX + (current.x - bounds.centerX) * k;
-  const anchorWorldY = bounds.centerY + (current.y - bounds.centerY) * k;
-  const anchorScreenX = stage.width / 2 + (stage.boatX - stage.width / 2) * k;
-  const anchorScreenY = stage.height / 2 + (stage.boatY - stage.height / 2) * k;
-  return {
-    scale,
-    translateX: anchorScreenX - anchorWorldX * scale,
-    translateY: anchorScreenY - anchorWorldY * scale,
-  };
+  return worst;
 }
 
 export function routeLength(points: ReadonlyArray<JourneyPoint>): number {
@@ -331,11 +414,53 @@ export function progressAlongRoute(
   return clamp01(bestProgress);
 }
 
+/**
+ * Total frames: intro, travel, one pause per intermediate stop, the summary
+ * hold when there are unanchored features to mention, then the outro.
+ */
 export function journeyDuration(
   stopCount: number,
   timing: JourneyTiming = DEFAULT_TIMING,
+  withSummary = false,
 ): number {
-  return timing.introFrames + timing.travelFrames + Math.max(0, stopCount) * timing.pauseFrames + timing.outroFrames;
+  const summary = withSummary ? timing.summaryFrames ?? DEFAULT_TIMING.summaryFrames ?? 0 : 0;
+  return (
+    timing.introFrames +
+    timing.travelFrames +
+    Math.max(0, stopCount) * timing.pauseFrames +
+    summary +
+    timing.outroFrames
+  );
+}
+
+/** Intermediate stops only, in order — endpoints never pause. */
+function usableStops(rawStops: ReadonlyArray<JourneyStop>): number[] {
+  return rawStops
+    .map((stop) => clamp01(stop.progress))
+    .filter((progress) => progress > 0.015 && progress < 0.985)
+    .sort((a, b) => a - b);
+}
+
+function legFrames(from: number, to: number, timing: JourneyTiming): number {
+  return Math.max(1, Math.round((to - from) * timing.travelFrames));
+}
+
+/**
+ * The frame at which the boat reaches the take-out. Uses the same per-leg
+ * rounding as journeyState, so it is exact rather than ±(stops) frames.
+ */
+export function arrivalFrame(
+  rawStops: ReadonlyArray<JourneyStop>,
+  timing: JourneyTiming = DEFAULT_TIMING,
+): number {
+  const stops = usableStops(rawStops);
+  let frame = timing.introFrames;
+  let previous = 0;
+  for (const stop of stops) {
+    frame += legFrames(previous, stop, timing) + timing.pauseFrames;
+    previous = stop;
+  }
+  return frame + legFrames(previous, 1, timing);
 }
 
 /**
@@ -347,18 +472,14 @@ export function journeyState(
   rawStops: ReadonlyArray<JourneyStop>,
   timing: JourneyTiming = DEFAULT_TIMING,
 ): JourneyState {
-  const stops = rawStops
-    .map((stop) => clamp01(stop.progress))
-    .filter((progress) => progress > 0.015 && progress < 0.985)
-    .sort((a, b) => a - b);
+  const stops = usableStops(rawStops);
   const elapsed = Math.max(0, frame - timing.introFrames);
-  const travelPerProgress = timing.travelFrames;
   let cursor = 0;
   let previous = 0;
 
   for (let i = 0; i < stops.length; i += 1) {
     const stop = stops[i];
-    const travel = Math.max(1, Math.round((stop - previous) * travelPerProgress));
+    const travel = legFrames(previous, stop, timing);
     if (elapsed < cursor + travel) {
       const local = (elapsed - cursor) / travel;
       return {
@@ -382,7 +503,7 @@ export function journeyState(
     previous = stop;
   }
 
-  const finalTravel = Math.max(1, Math.round((1 - previous) * travelPerProgress));
+  const finalTravel = legFrames(previous, 1, timing);
   if (elapsed < cursor + finalTravel) {
     const local = (elapsed - cursor) / finalTravel;
     return {
@@ -395,11 +516,71 @@ export function journeyState(
   return { progress: 1, activeStop: null, calloutProgress: 0, complete: true };
 }
 
-function sampleByDistance(points: ReadonlyArray<JourneyPoint>, maxPoints: number): JourneyPoint[] {
-  if (points.length <= maxPoints || maxPoints < 2) return [...points];
-  return Array.from({ length: maxPoints }, (_, index) =>
-    pointAtRouteProgress(points, index / (maxPoints - 1)),
+export function routeBounds(points: ReadonlyArray<JourneyPoint>): JourneyBounds {
+  let minX = Infinity;
+  let minY = Infinity;
+  let maxX = -Infinity;
+  let maxY = -Infinity;
+  for (const point of points) {
+    if (point.x < minX) minX = point.x;
+    if (point.y < minY) minY = point.y;
+    if (point.x > maxX) maxX = point.x;
+    if (point.y > maxY) maxY = point.y;
+  }
+  if (!Number.isFinite(minX)) {
+    return { minX: 0, minY: 0, maxX: 0, maxY: 0, width: 0, height: 0, centerX: 0, centerY: 0 };
+  }
+  return {
+    minX, minY, maxX, maxY,
+    width: maxX - minX,
+    height: maxY - minY,
+    centerX: (minX + maxX) / 2,
+    centerY: (minY + maxY) / 2,
+  };
+}
+
+/**
+ * Overview → follow camera. Through the intro the whole float is fitted inside
+ * the stage (never magnified past the travel scale, so a short float doesn't
+ * balloon); it then pushes in on the boat and stays anchored to it. Pure, so
+ * the thumbnail frame is a testable fact rather than a hope.
+ */
+export function journeyCamera(
+  frame: number,
+  route: ReadonlyArray<JourneyPoint>,
+  current: JourneyPoint,
+  stage: JourneyStage,
+  timing: JourneyTiming = DEFAULT_TIMING,
+): JourneyCamera {
+  const bounds = routeBounds(route);
+  const usableW = Math.max(1, stage.width - stage.padding * 2);
+  const usableH = Math.max(1, stage.height - stage.padding * 2);
+  const fit = Math.min(
+    1,
+    bounds.width > 0 ? usableW / bounds.width : 1,
+    bounds.height > 0 ? usableH / bounds.height : 1,
   );
+  const start = timing.introFrames - PUSH_IN_LEAD;
+  const k = smoothstep(clamp01((frame - start) / PUSH_IN_FRAMES));
+
+  const scale = Math.exp(Math.log(fit) * (1 - k)); // log-lerp fit → 1
+  const anchorWorldX = bounds.centerX + (current.x - bounds.centerX) * k;
+  const anchorWorldY = bounds.centerY + (current.y - bounds.centerY) * k;
+  const anchorScreenX = stage.width / 2 + (stage.boatX - stage.width / 2) * k;
+  const anchorScreenY = stage.height / 2 + (stage.boatY - stage.height / 2) * k;
+  return {
+    scale,
+    translateX: anchorScreenX - anchorWorldX * scale,
+    translateY: anchorScreenY - anchorWorldY * scale,
+  };
+}
+
+function arcLengths(points: ReadonlyArray<JourneyPoint>): number[] {
+  const cum = [0];
+  for (let i = 1; i < points.length; i += 1) {
+    cum.push(cum[i - 1] + Math.hypot(points[i].x - points[i - 1].x, points[i].y - points[i - 1].y));
+  }
+  return cum;
 }
 
 function clamp01(value: number): number {

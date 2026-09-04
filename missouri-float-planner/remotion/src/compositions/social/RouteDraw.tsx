@@ -11,15 +11,16 @@ import {
 } from "remotion";
 import {
   DEFAULT_TIMING,
-  buildJourneyRoute,
+  arrivalFrame,
+  buildJourney,
   journeyCamera,
   journeyState,
-  pointAtRouteProgress,
   type JourneyCamera,
   type JourneyPoint,
   type JourneyStage,
   type RoutePointKind,
   type SocialRoutePoint,
+  type UnanchoredRoutePoint,
 } from "../../../../shared/social-route-journey";
 import { EddyMascot } from "../../components/EddyMascot";
 import { colors } from "../../design-tokens/colors";
@@ -118,15 +119,16 @@ export const RouteDraw: React.FC<RouteDrawProps> = (props) => {
     photoUrl,
     routeCoordinates,
     routePoints = [],
+    unanchoredPoints = [],
   } = props;
   const frame = useCurrentFrame();
   const { fps, durationInFrames } = useVideoConfig();
   const condition = evergreen
     ? EVERGREEN_STYLE
     : CONDITION_COLORS[conditionCode] ?? CONDITION_COLORS.unknown;
-  const route = useMemo(() => buildJourneyRoute(routeCoordinates), [routeCoordinates]);
+  const journey = useMemo(() => buildJourney(routeCoordinates), [routeCoordinates]);
 
-  if (!route) {
+  if (!journey) {
     return (
       <SectionGuide
         riverName={riverName}
@@ -145,9 +147,14 @@ export const RouteDraw: React.FC<RouteDrawProps> = (props) => {
     );
   }
 
+  const route = journey.points;
   const intermediate = routePoints.filter((point) => point.progress > 0.015 && point.progress < 0.985);
   const state = journeyState(frame, intermediate);
-  const current = pointAtRouteProgress(route, state.progress);
+  // Every on-screen position is a RAW arc-length fraction mapped through the
+  // journey — boat, markers and drawn line alike — so all of them agree with
+  // the stored geometry to within journey.maxDeviationPx.
+  const located = journey.locate(state.progress);
+  const current = located.point;
   const camera = journeyCamera(frame, route, current, STAGE);
   const boatScreen = toScreen(current, camera);
   const travelledMiles = Math.min(distanceMi, distanceMi * state.progress);
@@ -163,11 +170,25 @@ export const RouteDraw: React.FC<RouteDrawProps> = (props) => {
     [1, 1, 0],
     { extrapolateLeft: "clamp", extrapolateRight: "clamp" },
   );
-  const finishProgress = state.complete
+  // Unanchored features (guidebook springs with no coordinate) get ONE hold at
+  // arrival, before the take-out's own callout: a fact without a false pin.
+  const summaryFrames = DEFAULT_TIMING.summaryFrames ?? 0;
+  const arrival = arrivalFrame(intermediate);
+  const summaryVisible =
+    unanchoredPoints.length > 0 && frame >= arrival && frame < arrival + summaryFrames;
+  const summaryProgress = summaryVisible
+    ? Math.min(1, (frame - arrival) / 6, (arrival + summaryFrames - frame) / 6)
+    : 0;
+  const finishProgress = state.complete && !summaryVisible
     ? spring({ frame: frame - (durationInFrames - 88), fps, config: { damping: 14, stiffness: 120 } })
     : 0;
-  const activeCallout = activeIntermediate ?? (launchProgress > 0 ? putIn : finishProgress > 0 ? takeOut : null);
-  const calloutProgress = activeIntermediate ? state.calloutProgress : Math.max(launchProgress, finishProgress);
+  const activeCallout =
+    activeIntermediate ?? (launchProgress > 0 ? putIn : summaryVisible || finishProgress > 0 ? takeOut : null);
+  const calloutProgress = activeIntermediate
+    ? state.calloutProgress
+    : summaryVisible
+      ? summaryProgress
+      : Math.max(launchProgress, finishProgress);
 
   // Callout placement: attach to the active point on screen and open on the
   // side the channel is NOT heading toward, so the card never covers the
@@ -175,11 +196,14 @@ export const RouteDraw: React.FC<RouteDrawProps> = (props) => {
   let calloutStyle: React.CSSProperties | null = null;
   if (activeCallout) {
     const p = activeCallout.progress;
-    const here = pointAtRouteProgress(route, p);
-    const probe = p >= 0.99 ? pointAtRouteProgress(route, p - 0.06) : pointAtRouteProgress(route, Math.min(1, p + 0.06));
+    const here = journey.locate(p).point;
+    const probe = journey.locate(p >= 0.99 ? p - 0.06 : Math.min(1, p + 0.06)).point;
     const headingX = p >= 0.99 ? here.x - probe.x : probe.x - here.x;
     const anchor = toScreen(here, camera);
     const openLeft = headingX > 0;
+    const cardH = summaryVisible
+      ? 96 + 38 * Math.min(4, unanchoredPoints.length) + (unanchoredPoints.length > 4 ? 28 : 0)
+      : CALLOUT_H;
     // Eddy paddles on the left of the boat dot (see the mascot offset below),
     // so a card opening left needs a wider gap or it lands on the otter.
     const left = clamp(
@@ -187,7 +211,7 @@ export const RouteDraw: React.FC<RouteDrawProps> = (props) => {
       REEL_SAFE.left,
       1080 - REEL_SAFE.right - CALLOUT_W,
     );
-    const top = clamp(STAGE_TOP + anchor.y - CALLOUT_H / 2, STAGE_TOP + 12, STAGE_TOP + STAGE_HEIGHT - CALLOUT_H - 12);
+    const top = clamp(STAGE_TOP + anchor.y - cardH / 2, STAGE_TOP + 12, STAGE_TOP + STAGE_HEIGHT - cardH - 12);
     calloutStyle = {
       left,
       top,
@@ -273,14 +297,14 @@ export const RouteDraw: React.FC<RouteDrawProps> = (props) => {
               strokeLinejoin="round"
               pathLength={1}
               strokeDasharray={1}
-              strokeDashoffset={1 - state.progress}
+              strokeDashoffset={1 - located.renderedProgress}
               filter="url(#flowSoft)"
             />
             {routePoints.map((point) => (
               <RouteMarker
                 key={point.id}
                 point={point}
-                position={pointAtRouteProgress(route, point.progress)}
+                position={journey.locate(point.progress).point}
                 counterScale={1 / camera.scale}
                 visited={point.progress <= state.progress + 0.001}
                 active={activeCallout?.id === point.id}
@@ -312,7 +336,11 @@ export const RouteDraw: React.FC<RouteDrawProps> = (props) => {
       />
 
       {activeCallout && calloutStyle ? (
-        <RouteCallout point={activeCallout} putInMile={putInMile} opacity={calloutProgress} style={calloutStyle} />
+        summaryVisible ? (
+          <AlongCallout points={unanchoredPoints} opacity={calloutProgress} style={calloutStyle} />
+        ) : (
+          <RouteCallout point={activeCallout} putInMile={putInMile} opacity={calloutProgress} style={calloutStyle} />
+        )
       ) : null}
 
       <ProgressTicket current={travelledMiles} total={distanceMi} conditionColor={condition.solid} />
@@ -468,6 +496,51 @@ const RouteCallout: React.FC<{ point: SocialRoutePoint; putInMile: number; opaci
       <div style={{ padding: "14px 17px 15px" }}>
         <div style={{ fontFamily: fontFamilies.display, fontSize: 34, lineHeight: 1.05, fontWeight: 680, color: BRUTAL.ink }}>{cleanName(point.name, 35)}</div>
         <div style={{ marginTop: 8, fontFamily: fontFamilies.mono, fontSize: 18, fontWeight: 650, color: BRUTAL.inkMuted }}>{milesIn.toFixed(1)} MI INTO FLOAT · MM {point.riverMile.toFixed(1)}</div>
+      </div>
+    </div>
+  );
+};
+
+/**
+ * Features on the float with no coordinate. Named once at arrival, marked
+ * approximate, never pinned or paused at: the guidebook's mile scale can be a
+ * mile off the DB's, so a pin would be a lie in a graphic that is otherwise
+ * exact — but the float still passes them, and the reel should say so.
+ */
+const AlongCallout: React.FC<{ points: UnanchoredRoutePoint[]; opacity: number; style: React.CSSProperties }> = ({ points, opacity, style }) => {
+  const shown = points.slice(0, 4);
+  const more = points.length - shown.length;
+  return (
+    <div
+      style={{
+        position: "absolute",
+        zIndex: 12,
+        width: CALLOUT_W,
+        opacity,
+        background: BRUTAL.surface,
+        border: BRUTAL.cardBorder,
+        borderRadius: 20,
+        boxShadow: BRUTAL.cardShadow,
+        overflow: "hidden",
+        ...style,
+      }}
+    >
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, padding: "9px 14px", background: colors.primary[100], borderBottom: `4px solid ${colors.primary[700]}` }}>
+        <span style={{ fontFamily: fontFamilies.display, fontSize: 19, fontWeight: 700, color: colors.primary[900], textTransform: "uppercase", letterSpacing: 0.8, whiteSpace: "nowrap" }}>
+          Also along this float
+        </span>
+        <span style={{ fontFamily: fontFamilies.mono, fontSize: 12, fontWeight: 700, color: colors.primary[800], border: `2px solid ${colors.primary[700]}`, borderRadius: 999, padding: "2px 8px", letterSpacing: 0.6, whiteSpace: "nowrap" }}>
+          APPROX.
+        </span>
+      </div>
+      <div style={{ padding: "12px 17px 14px", display: "flex", flexDirection: "column", gap: 8 }}>
+        {shown.map((point) => (
+          <div key={point.id} style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 12 }}>
+            <span style={{ fontFamily: fontFamilies.display, fontSize: 26, fontWeight: 650, color: BRUTAL.ink, lineHeight: 1.1 }}>{cleanName(point.name, 24)}</span>
+            <span style={{ fontFamily: fontFamilies.mono, fontSize: 16, fontWeight: 650, color: BRUTAL.inkMuted, whiteSpace: "nowrap" }}>≈ MM {point.riverMile.toFixed(1)}</span>
+          </div>
+        ))}
+        {more > 0 ? <span style={{ fontSize: 16, fontWeight: 600, color: BRUTAL.inkMuted }}>+{more} more</span> : null}
       </div>
     </div>
   );

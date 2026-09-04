@@ -8,11 +8,15 @@ import {
   type LngLat,
   type RoutePointKind,
   type SocialRoutePoint,
+  type UnanchoredRoutePoint,
 } from '@shared/social-route-journey';
 
 export type SocialRouteScene = {
   routeCoordinates: LngLat[];
+  /** Coordinate-backed features, pinned to the channel. */
   routePoints: SocialRoutePoint[];
+  /** Mile-only features: named once as "also along this float", never pinned. */
+  unanchoredPoints: UnanchoredRoutePoint[];
 };
 
 type GeoJsonPoint = { coordinates?: number[] } | null;
@@ -152,14 +156,6 @@ export async function buildSocialRouteScene(
     });
   }
 
-  // Guidebook springs (section.springs, from floatmissouri_mile_markers.json)
-  // are deliberately NOT drawn. They carry a river mile only, on the
-  // guidebook's own mile scale, which disagrees with access_points' by more
-  // than a mile in places (Powder Mill: 58.7 vs 60.73). Placing them by
-  // mile-fraction puts a named spring in the wrong bend of a line that is
-  // otherwise exact. Springs with real coordinates still arrive via the POI
-  // query above. They remain in the caption, where a mile is just a mile.
-
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   for (const row of (hazardResult.data || []) as any[]) {
     const mile = numberOrNull(row.river_mile_downstream);
@@ -191,7 +187,33 @@ export async function buildSocialRouteScene(
     const key = `${point.name.toLowerCase().replace(/\W/g, '')}:${point.riverMile.toFixed(1)}`;
     if (!deduped.has(key)) deduped.set(key, point);
   }
-  return { routeCoordinates, routePoints: Array.from(deduped.values()).sort((a, b) => a.progress - b.progress) };
+  const routePoints = Array.from(deduped.values()).sort((a, b) => a.progress - b.progress);
+
+  // Guidebook springs (section.springs, from floatmissouri_mile_markers.json)
+  // carry a river mile only, on the guidebook's own mile scale, which disagrees
+  // with access_points' by more than a mile in places (Powder Mill: 58.7 vs
+  // 60.73). Pinning one by mile-fraction puts a named spring in the wrong bend
+  // of a line that is otherwise exact, and pausing at it by mile can fire it
+  // out of order with the mapped stops. So they are NOT pinned or paused: the
+  // reel names them once, marked approximate. A spring the POI table already
+  // maps is dropped here so it is not said twice.
+  const mapped = new Set(routePoints.map((point) => nameKey(point.name)));
+  const unanchoredPoints: UnanchoredRoutePoint[] = section.springs
+    .filter((spring) => !mapped.has(nameKey(spring.name)))
+    .sort((a, b) => a.mile - b.mile)
+    .map((spring) => ({
+      id: `spring-${section.riverSlug}-${spring.mile}`,
+      name: spring.name,
+      kind: 'spring',
+      riverMile: spring.mile,
+      detail: spring.side ? `Spring · river ${spring.side}` : 'Spring',
+    }));
+
+  return { routeCoordinates, routePoints, unanchoredPoints };
+}
+
+function nameKey(name: string): string {
+  return name.toLowerCase().replace(/\W/g, '');
 }
 
 function priority(kind: RoutePointKind): number {

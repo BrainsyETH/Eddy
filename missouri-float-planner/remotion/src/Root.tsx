@@ -29,7 +29,7 @@ import type {
   TrendReelProps,
   ClipReelProps,
 } from "./lib/social-props";
-import { journeyDuration } from "../../shared/social-route-journey";
+import { DEFAULT_TIMING, journeyDuration } from "../../shared/social-route-journey";
 
 import "./style.css";
 
@@ -554,9 +554,12 @@ export const RemotionRoot: React.FC = () => {
         width={1080}
         height={1920}
         calculateMetadata={({ props }: { props: RouteDrawProps }) => ({
-          // Base journey plus one readable pause per intermediate feature.
+          // Base journey plus one readable pause per intermediate feature, plus
+          // one hold for the "also along this float" card when there is one.
           durationInFrames: journeyDuration(
             (props.routePoints ?? []).filter((point) => point.progress > 0.015 && point.progress < 0.985).length,
+            DEFAULT_TIMING,
+            (props.unanchoredPoints?.length ?? 0) > 0,
           ),
         })}
         defaultProps={{
