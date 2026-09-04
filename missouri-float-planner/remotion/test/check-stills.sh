@@ -21,11 +21,20 @@ STILLS=(
   #   230  the first stop's pause with its callout up
   # (frame 230 is Echo Bluff on the Pulltite → Round Spring defaultProps.)
   "social-route-portrait:0,120,230"
-  "social-section-portrait:120"
-  "social-gauge:120"
-  "social-gauge-alert:120"
-  "social-trend-portrait:120"
-  "social-digest:120"
+  # The same reel with NO geometry — the itinerary stage. Frame 0 is its
+  # thumbnail; 230 is the same first stop's pause, as a highlighted row; 380
+  # is the arrival hold, where the approximate (mile-only) row is highlighted.
+  "social-route-itinerary-portrait:0,230,380"
+  # Every other composition is baselined at frame 0 too: the grid thumbnail /
+  # first autoplay frame must be a complete branded card, not an empty ground.
+  # social-gauge-portrait is the PRODUCTION Eddy Says reel (river_highlight);
+  # the square social-gauge and the alert are the other two gauge layouts.
+  "social-gauge-portrait:0,120"
+  "social-gauge:0,120"
+  "social-gauge-alert:0,120"
+  "social-trend-portrait:0,120"
+  "social-digest:0,120"
+  "social-digest-portrait:0,200"
 )
 
 for entry in "${STILLS[@]}"; do

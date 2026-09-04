@@ -12,8 +12,14 @@ import {
 } from '@shared/social-route-journey';
 
 export type SocialRouteScene = {
-  routeCoordinates: LngLat[];
-  /** Coordinate-backed features, pinned to the channel. */
+  /** The exact PostGIS channel, simplified for payload size. ABSENT when the
+   *  database has no drawable line for this section — the reel then renders
+   *  its non-geographic itinerary from routePoints instead of inventing one. */
+  routeCoordinates?: LngLat[];
+  /** Every feature on the float in order. Coordinate-backed features are
+   *  pinned to the channel by arc length; without a channel, by mile fraction
+   *  (which orders them correctly for the itinerary, and is never drawn as a
+   *  map position). */
   routePoints: SocialRoutePoint[];
   /** Mile-only features: named once as "also along this float", never pinned. */
   unanchoredPoints: UnanchoredRoutePoint[];
@@ -53,14 +59,15 @@ function accessKind(row: { type?: string | null; types?: string[] | null }): Rou
 }
 
 /**
- * Returns null when PostGIS cannot supply a drawable line. The caller then
- * selects the static section composition; it must never invent a fallback path.
+ * The exact channel between the two access points, or [] when PostGIS cannot
+ * supply one. Never a reconstructed line: the reel draws what the database
+ * knows, and says so when it knows less.
  */
-export async function buildSocialRouteScene(
+async function loadSegment(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   supabase: any,
   section: Section,
-): Promise<SocialRouteScene | null> {
+): Promise<LngLat[]> {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: segment, error: segmentError } = await (supabase.rpc as any)('get_float_segment', {
     p_start_access_id: section.putInId,
@@ -68,10 +75,25 @@ export async function buildSocialRouteScene(
   });
   const rawCoordinates = validRouteCoordinates(segment?.[0]?.segment_geom?.coordinates);
   if (segmentError || rawCoordinates.length < 2) {
-    console.warn('[SocialRoute] exact geometry unavailable; using static section reel', segmentError?.message || 'empty LineString');
-    return null;
+    console.warn('[SocialRoute] exact geometry unavailable; rendering the itinerary instead', segmentError?.message || 'empty LineString');
+    return [];
   }
-  const routeCoordinates = sampleRouteCoordinates(rawCoordinates, 180);
+  return rawCoordinates;
+}
+
+/**
+ * Returns null only when a route-point query fails: a float presented as
+ * "what you pass" cannot silently lose a whole data source — especially the
+ * hazards — so the caller then renders the two-stop factual card and the
+ * omission is observable. Missing geometry is NOT a failure: the stops are
+ * still fetched, ordered by mile, and the reel renders its itinerary.
+ */
+export async function buildSocialRouteScene(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  supabase: any,
+  section: Section,
+): Promise<SocialRouteScene | null> {
+  const rawCoordinates = await loadSegment(supabase, section);
   const minMile = Math.min(section.putInMile, section.takeOutMile);
   const maxMile = Math.max(section.putInMile, section.takeOutMile);
 
@@ -106,10 +128,7 @@ export async function buildSocialRouteScene(
 
   const routeDataError = accessResult.error || poiResult.error || hazardResult.error;
   if (routeDataError) {
-    // A route presented as "what you pass" cannot silently lose a whole data
-    // source—especially hazards. Use the static factual card for this post and
-    // make the omission observable instead.
-    console.warn('[SocialRoute] route-point query failed; using static section reel', routeDataError.message);
+    console.warn('[SocialRoute] route-point query failed; using the two-stop section card', routeDataError.message);
     return null;
   }
 
@@ -209,7 +228,11 @@ export async function buildSocialRouteScene(
       detail: spring.side ? `Spring · river ${spring.side}` : 'Spring',
     }));
 
-  return { routeCoordinates, routePoints, unanchoredPoints };
+  return {
+    routeCoordinates: rawCoordinates.length >= 2 ? sampleRouteCoordinates(rawCoordinates, 180) : undefined,
+    routePoints,
+    unanchoredPoints,
+  };
 }
 
 function nameKey(name: string): string {

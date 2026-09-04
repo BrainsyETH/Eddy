@@ -1,20 +1,36 @@
 // src/app/api/og/social/route.tsx
-// Generates square (1080x1080) or portrait (1080x1920) OG images for social posts.
+// Generates square (1080x1080) or portrait (1080x1920) covers for social posts.
+//
+// The cover IS the reel's thumbnail — on Instagram the OG image is passed as
+// the Reel's cover_url, so it sits in the same grid tile the video plays in.
+// Every cover here is therefore drawn with the SAME social design system the
+// Remotion reels use (shared/social-brand.ts, via src/lib/og/social-cover.tsx):
+// the series-label masthead, the ruled cards and tiles, the coral button, the
+// light page — or the dark severity surface for the alert family.
+//
 // Supports:
 //   ?type=digest                       — all rivers, daily digest thumbnail
-//   ?type=highlight&river=slug         — single-river "Eddy Says" report thumbnail
+//   ?type=highlight&river=slug&id=&ft=&condition=&at=
+//                                      — single-river "Eddy Says" report thumbnail; the
+//                                        post pins its eddy_update row, reading, condition
+//                                        and timestamp so the cover can't drift from the reel
 //   ?type=eddy_says&river=slug         — legacy alias for ?type=highlight (merged format)
 //   ?type=tip&id=uuid                  — custom content snippet thumbnail
-//   ?type=forecast                     — weekly forecast: top 3 floatable rivers
+//   ?type=forecast&river=&condition=&ft=&bets=&rain=&wx=
+//                                      — weekly forecast: the pinned best bet (absent → live pick)
 //   ?type=section                      — Float Pick: live condition-aware section
 //   ?type=favorite&river=&fromSlug=&toSlug= — Float Pick evergreen fallback (from guides)
-//   ?type=trend                        — 7-day trend: river with biggest gauge move
+//   ?type=clip&river=&creator=         — branded clip cover
+//   ?type=trend&river=&asOf=&condition=&wx=
+//                                      — 7-day trend as of the post's own instant (absent →
+//                                        live pick of the river with the biggest gauge move)
 //   ?type=warning&river=slug&from=...  — condition-change warning (flowing → high/dangerous)
+//   ?type=storm&rivers=slug:cond,...   — batch "rivers rising" alert
 
 import { ImageResponse } from 'next/og';
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { loadFredokaFont, loadOgFonts, loadConditionOtter, loadImageAsDataUri } from '@/lib/og/fonts';
+import { loadOgFonts, loadConditionOtter, loadImageAsDataUri } from '@/lib/og/fonts';
 import {
   hasRainComing,
   weatherChip,
@@ -22,12 +38,10 @@ import {
   type WeatherSummary,
   type WeatherChip,
 } from '@/lib/weather/openweather';
-import { getStatusStyles, getStatusGradient, conditionCoverBackground, BRAND_COLORS } from '@/lib/og/colors';
 import {
   WEEKEND_FLOATABLE as FORECAST_FLOATABLE,
   WEEKEND_SEVERITY as FORECAST_SEVERITY,
 } from '@shared/condition-system';
-import { CONDITION_LABELS } from '@/constants';
 import type { ConditionCode } from '@/lib/og/types';
 import { pickSectionForRivers, findSection, type Section } from '@/lib/social/section-picker';
 import { pickFavoriteFloat, findFavoriteFloat, type FavoriteFloat } from '@/lib/social/favorite-floats';
@@ -38,6 +52,25 @@ import { warningCopy, recoveryCopy } from '@shared/condition-copy';
 // never the raw slug ("big-river"), which briefly shipped on live covers.
 import { riverDisplayLong, riverDisplayShort } from '@/lib/social/river-display';
 import { trendMeta } from '@shared/trend-meta';
+import { canoeHours } from '@/lib/social/post-types';
+import { CTA, LABELS, MEDIA_SCRIM, SURFACES, colors, conditionInk, hexAlpha } from '@shared/social-brand';
+import {
+  CoverCard,
+  CoverDock,
+  CoverMasthead,
+  CoverPage,
+  CoverPhotoCard,
+  CoverPill,
+  CoverQuote,
+  CoverRiverRow,
+  CoverSpacer,
+  DISPLAY,
+  MONO,
+  cond,
+  condLabel,
+  coverGeometry,
+  type Size,
+} from '@/lib/og/social-cover';
 
 export const revalidate = 300;
 
@@ -46,7 +79,7 @@ const CACHE_HEADERS = {
   'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=600',
 };
 
-function getSize(platform: string | null): { width: number; height: number } {
+function getSize(platform: string | null): Size {
   // Instagram gets 9:16 portrait for Stories format
   if (platform === 'instagram') return { width: 1080, height: 1920 };
   // Facebook and default: 1:1 square
@@ -64,9 +97,27 @@ function numParam(v: string | null): number | null {
   return Number.isFinite(n) ? n : null;
 }
 
-/** A river's published-guide hero photo as a data URI, for compositing behind a
- *  cover (Satori can't lazy-load remote images). Null when there's no guide
- *  photo, so the caller keeps its solid-gradient background. */
+/** A pinned weather chip, `high|low|precip|condition` as post-context bakes it
+ *  (weatherCoverParam). Any field may be empty. Null when absent/unparseable. */
+function parseWeatherParam(raw: string | null): WeatherChip | null {
+  if (!raw) return null;
+  const [high, low, precip, condition = ''] = raw.split('|');
+  const highF = numParam(high || null);
+  const lowF = numParam(low || null);
+  const precipChance = numParam(precip || null) ?? 0;
+  if (highF === null && lowF === null && !condition) return null;
+  return { highF, lowF, precipChance, condition };
+}
+
+/** A pinned ISO instant, or now when absent/invalid. */
+function instantParam(raw: string | null): Date {
+  const ms = raw ? Date.parse(raw) : NaN;
+  return Number.isFinite(ms) ? new Date(ms) : new Date();
+}
+
+/** A river's published-guide hero photo as a data URI, for the photo card
+ *  (Satori can't lazy-load remote images). Null when there's no guide photo,
+ *  so the caller renders no photo card. */
 async function loadRiverPhotoDataUri(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   supabase: any,
@@ -92,7 +143,7 @@ async function loadRiverPhotoDataUri(
 
 /** A cached AI cover background (og_backgrounds) as a data URI, by key — a river
  *  slug, or 'forecast' / 'danger'. This model-made art is the PREFERRED cover
- *  background; callers fall back to a guide photo, then the solid gradient. */
+ *  art; callers fall back to a guide photo, then to no photo card at all. */
 async function loadBackgroundDataUri(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   supabase: any,
@@ -112,111 +163,21 @@ async function loadBackgroundDataUri(
   }
 }
 
-/** Intrinsic pixel size of a base64 PNG/JPEG data URI, read from its header, so
- *  the cover layer can size the photo explicitly. Satori centers an overflowing
- *  flex child reliably, but its object-fit/object-position centering does not —
- *  which left portrait 2:3 backgrounds anchored to one edge. */
-function imageDims(dataUri: string): { w: number; h: number } | null {
-  const m = /^data:image\/(png|jpe?g);base64,(.+)$/.exec(dataUri);
-  if (!m) return null;
+/** The series-identity otter for a cover's masthead; null when the fetch
+ *  fails (the masthead simply shows the wordmark alone). */
+async function loadOtter(condition: string): Promise<string | null> {
   try {
-    const buf = Buffer.from(m[2], 'base64');
-    if (m[1] === 'png') {
-      if (buf.length < 24) return null;
-      return { w: buf.readUInt32BE(16), h: buf.readUInt32BE(20) };
-    }
-    // JPEG: walk segment markers to the Start-Of-Frame, which carries the size.
-    let off = 2;
-    while (off + 9 < buf.length) {
-      if (buf[off] !== 0xff) { off++; continue; }
-      const marker = buf[off + 1];
-      if (marker >= 0xc0 && marker <= 0xcf && marker !== 0xc4 && marker !== 0xc8 && marker !== 0xcc) {
-        return { h: buf.readUInt16BE(off + 5), w: buf.readUInt16BE(off + 7) };
-      }
-      off += 2 + buf.readUInt16BE(off + 2);
-    }
-    return null;
+    return await loadConditionOtter(condition);
   } catch {
     return null;
   }
 }
 
-/** Full-bleed photo + legibility scrim layers for a cover (empty when no photo,
- *  so the card's gradient shows through). Shared by Favorite / Section / Forecast
- *  so the three read as one photo-led series. The photo is scaled to COVER the
- *  frame and centered in a flex/overflow-hidden box, so a portrait 2:3 (or any
- *  off-aspect) background is cropped evenly instead of pinned to an edge. */
-function photoLayers(dataUri: string | null, size: { width: number; height: number }) {
-  if (!dataUri) return [];
-  const dims = imageDims(dataUri);
-  const coverScale = dims ? Math.max(size.width / dims.w, size.height / dims.h) : 1;
-  const imgStyle = dims
-    ? { width: Math.ceil(dims.w * coverScale), height: Math.ceil(dims.h * coverScale), flexShrink: 0 }
-    : { width: size.width, height: size.height, objectFit: 'cover' as const, flexShrink: 0 };
-  // These layers sit inside the card's PADDED root. The Satori build bundled in
-  // next/og 14 resolves a percentage width/height on an absolutely-positioned
-  // child against the parent's CONTENT box — so `width/height: 100%` here covered
-  // only `frame − padding` and left a teal gap on the right + bottom edges (one
-  // padding wide). Pin both layers to the full frame in explicit pixels so the
-  // photo + scrim always bleed edge-to-edge, regardless of the root's padding.
-  return [
-    <div
-      key="bg"
-      style={{
-        position: 'absolute',
-        top: 0,
-        left: 0,
-        width: size.width,
-        height: size.height,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        overflow: 'hidden',
-      }}
-    >
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src={dataUri} alt="" style={imgStyle} />
-    </div>,
-    <div
-      key="scrim"
-      style={{
-        position: 'absolute',
-        top: 0,
-        left: 0,
-        width: size.width,
-        height: size.height,
-        background:
-          'linear-gradient(160deg, rgba(13,42,44,0.84) 0%, rgba(26,61,64,0.7) 50%, rgba(13,42,44,0.92) 100%)',
-      }}
-    />,
-  ];
+function render(node: React.ReactElement, size: Size) {
+  return new ImageResponse(node, { ...size, fonts: loadOgFonts(), headers: CACHE_HEADERS });
 }
 
-/** Largest cover title that still fits the safe zone, scaled by name length. */
-function heroFontSize(name: string, isPortrait: boolean): number {
-  const n = (name || '').length;
-  if (isPortrait) return n <= 10 ? 164 : n <= 14 ? 140 : n <= 17 ? 122 : 106;
-  return n <= 10 ? 128 : n <= 14 ? 110 : n <= 17 ? 96 : 84;
-}
-
-/** Size + bottom/right offsets for the corner mascot, kept inside the frame's
- *  visible band. Portrait covers (Instagram) are cropped to a 4:5 tile in the
- *  profile grid — and to 4:5 max in-feed — which lops ~285px off the bottom of a
- *  1080×1920 canvas; anchoring Eddy to `bottom: 48` there put his body below the
- *  cut, so the grid showed only his head + flag. Lift him above the crop line so
- *  he's never decapitated. Square (Facebook) covers render in full, so Eddy keeps
- *  the true bottom-right corner. */
-function otterBox(
-  size: { width: number; height: number },
-  portraitSize = 300,
-  landscapeSize = 240,
-): { size: number; bottom: number; right: number } {
-  if (size.height <= size.width) return { size: landscapeSize, bottom: 40, right: 40 };
-  // Height of the strip cropped away below the centered 4:5 tile, + a margin so
-  // Eddy's feet clear the cut line (≈330px on 1080×1920).
-  const cropGap = (size.height - (size.width * 5) / 4) / 2;
-  return { size: portraitSize, bottom: Math.round(cropGap + 45), right: 48 };
-}
+// ─── Router ─────────────────────────────────────────────────────────────────
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
@@ -228,15 +189,24 @@ export async function GET(request: NextRequest) {
     const riverSlug = searchParams.get('river');
     const contentId = searchParams.get('id');
 
+    // The post pins what its reel showed (see post-context) so the cover Meta
+    // renders at crawl time is the same report, not a later one.
+    const highlightPins = {
+      id: contentId,
+      ft: numParam(searchParams.get('ft')),
+      condition: searchParams.get('condition'),
+      at: searchParams.get('at'),
+    };
+
     if (type === 'highlight' && riverSlug) {
-      return await generateHighlightImage(riverSlug, size);
+      return await generateHighlightImage(riverSlug, size, highlightPins);
     }
 
     // Legacy alias: eddy_says merged into the highlight report. Old posts'
     // image_urls keep resolving (Meta re-crawls by URL), rendered as the
     // current highlight cover.
     if (type === 'eddy_says' && riverSlug) {
-      return await generateHighlightImage(riverSlug, size);
+      return await generateHighlightImage(riverSlug, size, highlightPins);
     }
 
     if (type === 'tip' && contentId) {
@@ -244,7 +214,14 @@ export async function GET(request: NextRequest) {
     }
 
     if (type === 'forecast') {
-      return await generateForecastImage(size);
+      return await generateForecastImage(size, {
+        river: riverSlug,
+        condition: searchParams.get('condition'),
+        ft: numParam(searchParams.get('ft')),
+        bets: numParam(searchParams.get('bets')),
+        rain: searchParams.get('rain') === '1',
+        weather: parseWeatherParam(searchParams.get('wx')),
+      });
     }
 
     if (type === 'section') {
@@ -272,7 +249,11 @@ export async function GET(request: NextRequest) {
     }
 
     if (type === 'trend') {
-      return await generateTrendImage(size, searchParams.get('river'));
+      return await generateTrendImage(size, searchParams.get('river'), {
+        asOf: searchParams.get('asOf'),
+        condition: searchParams.get('condition'),
+        weather: parseWeatherParam(searchParams.get('wx')),
+      });
     }
 
     if (type === 'storm') {
@@ -291,32 +272,12 @@ export async function GET(request: NextRequest) {
     return await generateDigestImage(size, searchParams.get('rivers'));
   } catch (err) {
     console.error('[OG/Social] Image generation failed:', err);
-    return new ImageResponse(
-      (
-        <div
-          style={{
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            justifyContent: 'center',
-            width: '100%',
-            height: '100%',
-            background: '#1A3D40',
-            fontFamily: 'system-ui, sans-serif',
-          }}
-        >
-          <span style={{ fontSize: 64, fontWeight: 700, color: '#E8734A' }}>
-            Eddy Says
-          </span>
-          <span style={{ fontSize: 32, color: 'rgba(255,255,255,0.6)', marginTop: 16 }}>
-            River Conditions
-          </span>
-          <span style={{ fontSize: 24, color: 'rgba(255,255,255,0.3)', marginTop: 32 }}>
-            eddy.guide
-          </span>
-        </div>
-      ),
-      { ...size }
+    const cover = coverGeometry(size);
+    return render(
+      <CoverPage cover={cover}>
+        <CoverMasthead cover={cover} label={LABELS.eddySays} title="River conditions" subtitle="Live Ozark river levels" />
+      </CoverPage>,
+      size,
     );
   }
 }
@@ -347,13 +308,22 @@ function parsePinnedDigestRivers(
     .map((r) => [r.slug, { condition_code: r.condition_code, gauge_height_ft: r.gauge_height_ft }]);
 }
 
-async function generateDigestImage(
-  size: { width: number; height: number },
-  pinned?: string | null,
-) {
+/** Conditions the digest headline counts as floatable (matches the reel). */
+const FLOATABLE = new Set(['flowing', 'good']);
+
+function digestHeadline(codes: string[]): string {
+  const floatable = codes.filter((code) => FLOATABLE.has(code)).length;
+  if (codes.length === 0) return 'No river data';
+  if (floatable === 0) return 'No rivers floatable';
+  if (floatable === codes.length) return `All ${codes.length} rivers floatable`;
+  return `${floatable} of ${codes.length} rivers floatable`;
+}
+
+// ─── Digest ─────────────────────────────────────────────────────────────────
+
+async function generateDigestImage(size: Size, pinned?: string | null) {
   const supabase = createAdminClient();
-  const fonts = loadFredokaFont();
-  const isPortrait = size.height > size.width;
+  const cover = coverGeometry(size);
 
   // Preferred path: the caller baked a pinned river list into the URL so the
   // cover matches the reel's pinned data exactly (no live drift). Absent/empty
@@ -371,207 +341,92 @@ async function generateDigestImage(
       { condition_code: live.condition_code, gauge_height_ft: live.gauge_height_ft },
     ]);
   }
+  // Most notable first, like the reel.
+  rivers.sort((a, b) => cond(a[1].condition_code).severity - cond(b[1].condition_code).severity);
   const today = new Date().toLocaleDateString('en-US', {
     weekday: 'long',
     month: 'long',
     day: 'numeric',
   });
 
-  // Load otter
-  let otterImage: string | null = null;
-  try {
-    otterImage = await loadConditionOtter('flowing');
-  } catch {
-    // Skip otter if fetch fails
-  }
+  const otter = await loadOtter('flowing');
+  const headline = digestHeadline(rivers.map(([, r]) => r.condition_code));
 
-  return new ImageResponse(
-    (
-      <div
-        style={{
-          display: 'flex',
-          flexDirection: 'column',
-          width: '100%',
-          height: '100%',
-          fontFamily: 'system-ui, sans-serif',
-          background: '#1A3D40',
-          padding: '56px',
-          justifyContent: isPortrait ? 'center' : 'flex-start',
-          position: 'relative',
-        }}
-      >
-        {/* Header */}
-        <span
-          style={{
-            fontFamily: 'Fredoka',
-            fontSize: 72,
-            fontWeight: 600,
-            color: BRAND_COLORS.accentCoral,
-            lineHeight: 1,
-            letterSpacing: -1,
-            marginBottom: 8,
-          }}
-        >
-          River Report
-        </span>
-        <span
-          style={{
-            fontSize: 32,
-            color: 'rgba(255,255,255,0.6)',
-            marginBottom: 40,
-          }}
-        >
-          {today}
-        </span>
+  // Rows shrink to fit up to ten rivers under the masthead.
+  const mastheadH = Math.round(320 * cover.k);
+  const gap = rivers.length > 8 ? 10 : rivers.length > 6 ? 12 : 16;
+  const avail = cover.height - mastheadH;
+  const rowH = Math.max(56, Math.min(Math.round(104 * cover.k), (avail - gap * Math.max(0, rivers.length - 1)) / Math.max(1, rivers.length)));
 
-        {/* River grid */}
-        <div
-          style={{
-            display: 'flex',
-            flexWrap: 'wrap',
-            gap: 20,
-          }}
-        >
-          {rivers.map(([slug, data]) => {
-            const statusStyles = getStatusStyles(data.condition_code as ConditionCode);
-            const name = riverDisplayShort(slug);
-            return (
-              <div
-                key={slug}
-                style={{
-                  display: 'flex',
-                  flexDirection: 'column',
-                  width: '48%',
-                  backgroundColor: 'rgba(255,255,255,0.05)',
-                  borderRadius: 16,
-                  padding: '28px 32px',
-                  borderLeft: `4px solid ${statusStyles.solid}`,
-                }}
-              >
-                <span
-                  style={{
-                    fontSize: 36,
-                    fontWeight: 700,
-                    color: 'white',
-                    marginBottom: 8,
-                  }}
-                >
-                  {name}
-                </span>
-                <span
-                  style={{
-                    fontSize: 28,
-                    color: statusStyles.solid,
-                    fontWeight: 600,
-                  }}
-                >
-                  {statusStyles.label}
-                </span>
-                {data.gauge_height_ft !== null && (
-                  <span
-                    style={{
-                      fontSize: 24,
-                      color: 'rgba(255,255,255,0.5)',
-                    }}
-                  >
-                    {data.gauge_height_ft.toFixed(1)} ft
-                  </span>
-                )}
-              </div>
-            );
-          })}
-        </div>
-
-        {/* Branding footer */}
-        <span
-          style={{
-            fontFamily: 'Fredoka',
-            fontSize: 32,
-            fontWeight: 600,
-            color: 'rgba(255,255,255,0.4)',
-            ...(isPortrait
-              ? { position: 'absolute' as const, bottom: 56, left: 56 }
-              : { marginTop: 24 }),
-          }}
-        >
-          eddy.guide
-        </span>
-
-        {/* Otter */}
-        {otterImage && (
-          <div
-            style={{
-              display: 'flex',
-              position: 'absolute',
-              bottom: 24,
-              right: 32,
-              opacity: 0.85,
-            }}
-          >
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={otterImage}
-              width={200}
-              height={200}
-              alt=""
-              style={{ objectFit: 'contain' }}
-            />
-          </div>
-        )}
-
-        {/* Bottom gradient bar */}
-        <div
-          style={{
-            position: 'absolute',
-            bottom: 0,
-            left: 0,
-            right: 0,
-            height: 6,
-            background: `linear-gradient(90deg, ${BRAND_COLORS.greenTreeline} 0%, ${BRAND_COLORS.accentCoral} 50%, ${BRAND_COLORS.bluewater} 100%)`,
-          }}
-        />
+  return render(
+    <CoverPage cover={cover}>
+      <CoverMasthead cover={cover} label={LABELS.riverReport} title={headline} subtitle={today} otter={otter} />
+      <div style={{ display: 'flex', flexDirection: 'column', gap, width: '100%' }}>
+        {rivers.map(([slug, data]) => (
+          <CoverRiverRow
+            key={slug}
+            cover={cover}
+            name={riverDisplayShort(slug)}
+            conditionCode={data.condition_code}
+            gaugeFt={data.gauge_height_ft}
+            height={rowH}
+          />
+        ))}
       </div>
-    ),
-    {
-      ...size,
-      fonts,
-      headers: CACHE_HEADERS,
-    }
+    </CoverPage>,
+    size,
   );
 }
 
-async function generateHighlightImage(riverSlug: string, size: { width: number; height: number }) {
-  const supabase = createAdminClient();
-  const fonts = loadFredokaFont();
+// ─── Eddy Says report ───────────────────────────────────────────────────────
 
-  // Fetch latest update for this river
-  const { data: rawUpdate } = await supabase
-    .from('eddy_updates')
-    .select('river_slug, condition_code, gauge_height_ft, summary_text, quote_text')
-    .eq('river_slug', riverSlug)
-    .is('section_slug', null)
-    .gt('expires_at', new Date().toISOString())
-    .order('generated_at', { ascending: false })
-    .limit(1)
-    .maybeSingle();
+async function generateHighlightImage(
+  riverSlug: string,
+  size: Size,
+  pins: { id?: string | null; ft?: number | null; condition?: string | null; at?: string | null } = {},
+) {
+  const supabase = createAdminClient();
+  const cover = coverGeometry(size);
+
+  // Pinned path: the post named its exact eddy_update row, so fetch THAT (no
+  // expiry filter — Meta may re-crawl days later and the row is still the one
+  // the reel was rendered from). Absent → the latest update for the river.
+  const select = 'river_slug, condition_code, gauge_height_ft, summary_text, quote_text';
+  const { data: rawUpdate } = pins.id
+    ? await supabase.from('eddy_updates').select(select).eq('id', pins.id).maybeSingle()
+    : await supabase
+        .from('eddy_updates')
+        .select(select)
+        .eq('river_slug', riverSlug)
+        .is('section_slug', null)
+        .gt('expires_at', new Date().toISOString())
+        .order('generated_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
 
   if (!rawUpdate) {
     return NextResponse.json({ error: 'No update found for river' }, { status: 404 });
   }
 
-  // Overlay live gauge data so the headline + badge match reality, and drop
-  // AI prose if the live condition has crossed into a different bucket
-  // (otherwise we'd render "sweet spot" copy next to a "High Water" badge).
-  const [update] = await overlayLiveConditions(supabase, [rawUpdate]);
+  // The reel already applied the live-conditions overlay when the post was
+  // built and pinned the result (ft + condition). Honour the pins verbatim;
+  // only an un-pinned (legacy) URL overlays live data at crawl time — which
+  // is the drift the pins exist to prevent.
+  const pinnedReading = pins.ft != null || !!pins.condition;
+  const [update] = pinnedReading
+    ? [{
+        ...rawUpdate,
+        gauge_height_ft: pins.ft ?? rawUpdate.gauge_height_ft,
+        condition_code: pins.condition ?? rawUpdate.condition_code,
+      }]
+    : await overlayLiveConditions(supabase, [rawUpdate]);
 
   const riverName = riverDisplayLong(riverSlug);
   const conditionCode = (update.condition_code || 'unknown') as ConditionCode;
-  const statusStyles = getStatusStyles(conditionCode);
-  const [gradientStart, gradientEnd] = getStatusGradient(conditionCode);
-  const conditionLabel = CONDITION_LABELS[conditionCode as keyof typeof CONDITION_LABELS] || 'Unknown';
+  const c = cond(conditionCode);
   const snippet = update.summary_text || update.quote_text || '';
-  const isPortrait = size.height > size.width;
-  const now = new Date();
+  // The subtitle is the post's timestamp, not the crawl's.
+  const now = instantParam(pins.at ?? null);
   const cstFormatter = new Intl.DateTimeFormat('en-US', {
     timeZone: 'America/Chicago',
     weekday: 'long',
@@ -581,224 +436,36 @@ async function generateHighlightImage(riverSlug: string, size: { width: number; 
     minute: '2-digit',
   });
   const timestamp = cstFormatter.format(now) + ' CST';
+  const otter = await loadOtter(conditionCode);
 
-  // Load otter
-  let otterImage: string | null = null;
-  try {
-    otterImage = await loadConditionOtter(conditionCode);
-  } catch {
-    // Skip otter
-  }
-  const otterPos = otterBox(size);
-
-  return new ImageResponse(
-    (
-      <div
-        style={{
-          display: 'flex',
-          flexDirection: 'column',
-          width: '100%',
-          height: '100%',
-          fontFamily: 'system-ui, sans-serif',
-          // Faint condition wash (High → orange, Dangerous → red, …) so the
-          // grid reads the condition at a glance; floatable stays blue-green.
-          background: conditionCoverBackground(conditionCode),
-          padding: isPortrait ? '72px' : '64px',
-          justifyContent: isPortrait ? 'center' : 'flex-start',
-          position: 'relative',
-        }}
-      >
-        {/* "Eddy Says" label */}
-        <span
-          style={{
-            fontFamily: 'Fredoka',
-            fontSize: isPortrait ? 36 : 32,
-            fontWeight: 600,
-            color: 'rgba(255,255,255,0.4)',
-            textTransform: 'uppercase',
-            letterSpacing: 3,
-            marginBottom: 8,
-          }}
-        >
-          Eddy Says
-        </span>
-
-        {/* Timestamp */}
-        <span
-          style={{
-            fontSize: isPortrait ? 30 : 26,
-            color: 'rgba(255,255,255,0.5)',
-            marginBottom: 20,
-          }}
-        >
-          {timestamp}
-        </span>
-
-        {/* River name */}
-        <span
-          style={{
-            fontFamily: 'Fredoka',
-            fontSize: isPortrait
-              ? (riverName.length > 18 ? 96 : 112)
-              : (riverName.length > 18 ? 88 : 104),
-            fontWeight: 600,
-            color: BRAND_COLORS.accentCoral,
-            lineHeight: 1,
-            letterSpacing: -2,
-            marginBottom: 40,
-          }}
-        >
-          {riverName}
-        </span>
-
-        {/* Condition badge + gauge */}
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 20,
-            marginBottom: 40,
-          }}
-        >
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 14,
-              backgroundColor: statusStyles.bg,
-              border: `2px solid ${statusStyles.border}`,
-              borderRadius: 100,
-              padding: isPortrait ? '18px 40px' : '16px 36px',
-            }}
-          >
-            <div
-              style={{
-                width: isPortrait ? 20 : 18,
-                height: isPortrait ? 20 : 18,
-                borderRadius: '50%',
-                backgroundColor: statusStyles.solid,
-              }}
-            />
-            <span
-              style={{
-                fontSize: isPortrait ? 40 : 36,
-                fontWeight: 700,
-                color: statusStyles.text,
-              }}
-            >
-              {conditionLabel}
-            </span>
-          </div>
-
-          {update.gauge_height_ft !== null && (
-            <span
-              style={{
-                fontSize: isPortrait ? 64 : 56,
-                fontWeight: 700,
-                color: 'white',
-              }}
-            >
-              {update.gauge_height_ft.toFixed(1)} ft
-            </span>
-          )}
-        </div>
-
-        {/* Quote snippet */}
-        {snippet && (
-          <span
-            style={{
-              fontSize: isPortrait ? 44 : 42,
-              color: 'rgba(255,255,255,0.8)',
-              lineHeight: 1.4,
-              // Keep the copy clear of the corner mascot (now lifted into the
-              // grid-safe band on portrait) so long summaries never run under Eddy.
-              maxWidth: otterImage ? (isPortrait ? 640 : 700) : '100%',
-            }}
-          >
-            {truncate(snippet, isPortrait ? 400 : 300)}
-          </span>
-        )}
-
-        {/* CTA — portrait (Instagram Stories) only */}
-        {isPortrait && (
-          <span
-            style={{
-              fontFamily: 'Fredoka',
-              fontSize: 38,
-              fontWeight: 600,
-              color: BRAND_COLORS.accentCoral,
-              opacity: 0.85,
-              position: 'absolute',
-              bottom: 120,
-              left: 72,
-            }}
-          >
-            Plan your float at eddy.guide
-          </span>
-        )}
-
-        {/* Footer */}
-        <span
-          style={{
-            fontFamily: 'Fredoka',
-            fontSize: isPortrait ? 32 : 28,
-            fontWeight: 600,
-            color: 'rgba(255,255,255,0.35)',
-            position: 'absolute',
-            bottom: isPortrait ? 72 : 64,
-            left: isPortrait ? 72 : 64,
-          }}
-        >
-          eddy.guide
-        </span>
-
-        {/* Otter — anchored inside the grid-safe band (see otterBox) so the
-            portrait cover survives Instagram's 4:5 profile-grid crop. */}
-        {otterImage && (
-          <div
-            style={{
-              display: 'flex',
-              position: 'absolute',
-              bottom: otterPos.bottom,
-              right: otterPos.right,
-              opacity: 0.9,
-            }}
-          >
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={otterImage}
-              width={otterPos.size}
-              height={otterPos.size}
-              alt=""
-              style={{ objectFit: 'contain' }}
-            />
-          </div>
-        )}
-
-        {/* Bottom gradient bar */}
-        <div
-          style={{
-            position: 'absolute',
-            bottom: 0,
-            left: 0,
-            right: 0,
-            height: 6,
-            background: `linear-gradient(90deg, ${gradientStart} 0%, ${BRAND_COLORS.accentCoral} 50%, ${gradientEnd} 100%)`,
-          }}
-        />
-      </div>
-    ),
-    {
-      ...size,
-      fonts,
-      headers: CACHE_HEADERS,
-    }
+  return render(
+    <CoverPage cover={cover}>
+      <CoverMasthead cover={cover} label={LABELS.eddySays} title={riverName} subtitle={timestamp} otter={otter} />
+      {snippet ? (
+        <CoverQuote cover={cover} text={truncate(snippet, cover.portrait ? 260 : 190)} size={Math.round(40 * cover.k)} caption="Eddy's read" />
+      ) : null}
+      <CoverSpacer />
+      <CoverDock
+        cover={cover}
+        tiles={[
+          ...(update.gauge_height_ft !== null
+            ? [{ value: update.gauge_height_ft.toFixed(1), unit: 'FT', label: 'Gauge' }]
+            : []),
+          { value: condLabel(conditionCode), label: 'Conditions', color: c.solid, compact: true },
+        ]}
+        cta={CTA.reportBelow}
+        ctaAsText
+      />
+    </CoverPage>,
+    size,
   );
 }
 
-async function generateTipImage(contentId: string, size: { width: number; height: number }) {
+// ─── Tip / seasonal note ────────────────────────────────────────────────────
+
+async function generateTipImage(contentId: string, size: Size) {
   const supabase = createAdminClient();
-  const fonts = loadFredokaFont();
+  const cover = coverGeometry(size);
 
   const { data: content } = await supabase
     .from('social_custom_content')
@@ -810,119 +477,20 @@ async function generateTipImage(contentId: string, size: { width: number; height
     return NextResponse.json({ error: 'Content not found' }, { status: 404 });
   }
 
-  const isPortrait = size.height > size.width;
-  const tipText = truncate(content.text, isPortrait ? 400 : 280);
-  const typeLabel = content.content_type === 'seasonal' ? 'Seasonal Note' :
-    content.content_type === 'tip' ? 'Float Tip' :
-    content.content_type === 'promo' ? 'Announcement' : 'From Eddy';
+  const tipText = truncate(content.text, cover.portrait ? 360 : 240);
+  const typeLabel = content.content_type === 'seasonal' ? LABELS.seasonalNote :
+    content.content_type === 'tip' ? LABELS.floatTip :
+    content.content_type === 'promo' ? LABELS.announcement : LABELS.fromEddy;
+  const otter = await loadOtter('flowing');
 
-  // Load otter
-  let otterImage: string | null = null;
-  try {
-    otterImage = await loadConditionOtter('flowing');
-  } catch {
-    // Skip otter
-  }
-  const otterPos = otterBox(size, 260, 200);
-
-  return new ImageResponse(
-    (
-      <div
-        style={{
-          display: 'flex',
-          flexDirection: 'column',
-          width: '100%',
-          height: '100%',
-          fontFamily: 'system-ui, sans-serif',
-          background: '#1A3D40',
-          padding: isPortrait ? '72px' : '64px',
-          justifyContent: 'center',
-          position: 'relative',
-        }}
-      >
-        {/* Type label */}
-        <span
-          style={{
-            fontFamily: 'Fredoka',
-            fontSize: isPortrait ? 36 : 32,
-            fontWeight: 600,
-            color: 'rgba(255,255,255,0.4)',
-            textTransform: 'uppercase',
-            letterSpacing: 3,
-            marginBottom: isPortrait ? 28 : 24,
-          }}
-        >
-          {typeLabel}
-        </span>
-
-        {/* Tip text */}
-        <span
-          style={{
-            fontSize: isPortrait ? 52 : 46,
-            color: 'white',
-            lineHeight: 1.4,
-            maxWidth: otterImage ? (isPortrait ? 700 : 750) : '100%',
-          }}
-        >
-          {tipText}
-        </span>
-
-        {/* Branding */}
-        <span
-          style={{
-            fontFamily: 'Fredoka',
-            fontSize: isPortrait ? 32 : 28,
-            fontWeight: 600,
-            color: 'rgba(255,255,255,0.35)',
-            position: 'absolute',
-            bottom: isPortrait ? 72 : 64,
-            left: isPortrait ? 72 : 64,
-          }}
-        >
-          eddy.guide
-        </span>
-
-        {/* Otter — grid-safe placement (see otterBox) so the portrait cover
-            clears Instagram's 4:5 profile-grid crop. */}
-        {otterImage && (
-          <div
-            style={{
-              display: 'flex',
-              position: 'absolute',
-              bottom: otterPos.bottom,
-              right: otterPos.right,
-              opacity: 0.9,
-            }}
-          >
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={otterImage}
-              width={otterPos.size}
-              height={otterPos.size}
-              alt=""
-              style={{ objectFit: 'contain' }}
-            />
-          </div>
-        )}
-
-        {/* Bottom gradient bar */}
-        <div
-          style={{
-            position: 'absolute',
-            bottom: 0,
-            left: 0,
-            right: 0,
-            height: 6,
-            background: `linear-gradient(90deg, ${BRAND_COLORS.greenTreeline} 0%, ${BRAND_COLORS.accentCoral} 50%, ${BRAND_COLORS.bluewater} 100%)`,
-          }}
-        />
-      </div>
-    ),
-    {
-      ...size,
-      fonts,
-      headers: CACHE_HEADERS,
-    }
+  return render(
+    <CoverPage cover={cover}>
+      <CoverMasthead cover={cover} label={typeLabel} title="A note from Eddy" otter={otter} />
+      <CoverQuote cover={cover} text={tipText} size={Math.round((tipText.length > 200 ? 40 : 48) * cover.k)} />
+      <CoverSpacer />
+      <CoverDock cover={cover} detail="Live levels for every Ozark river" cta={CTA.levels} />
+    </CoverPage>,
+    size,
   );
 }
 
@@ -944,11 +512,21 @@ function ogWeatherLabel(chip: WeatherChip | null): string {
   return parts.join(' · ');
 }
 
-async function generateForecastImage(size: { width: number; height: number }) {
-  const supabase = createAdminClient();
-  const fonts = loadFredokaFont();
-  const isPortrait = size.height > size.width;
+/** What the forecast cover shows. Built from the post's pins, or — for an
+ *  un-pinned legacy URL — from a live pick at crawl time. */
+type ForecastBest = {
+  river_slug: string;
+  condition_code: string;
+  gauge_height_ft: number | null;
+  /** The weather chip label already resolved (pins carry the chip, not the raw summary). */
+  weatherLabel: string;
+  betCount: number;
+  usingFallback: boolean;
+};
 
+async function liveForecastBest(
+  supabase: ReturnType<typeof createAdminClient>,
+): Promise<ForecastBest | null> {
   const { data: updates } = await supabase
     .from('eddy_updates')
     .select('river_slug, condition_code, gauge_height_ft, weather')
@@ -980,155 +558,101 @@ async function generateForecastImage(size: { width: number; height: number }) {
   const dry = floatable.filter((u) => !hasRainComing(u.weather));
   const usingFallback = dry.length === 0;
   const top = (usingFallback ? floatable : dry).slice(0, 3);
+  const best = top[0];
+  if (!best) return null;
+  return {
+    river_slug: best.river_slug,
+    condition_code: best.condition_code,
+    gauge_height_ft: best.gauge_height_ft,
+    weatherLabel: ogWeatherLabel(weatherChip(best.weather)),
+    betCount: top.length,
+    usingFallback,
+  };
+}
 
-  // Cover features only the single best bet (best condition, rain-free if any).
-  const best = top[0] || null;
+async function generateForecastImage(
+  size: Size,
+  pins: {
+    river?: string | null;
+    condition?: string | null;
+    ft?: number | null;
+    bets?: number | null;
+    rain?: boolean;
+    weather?: WeatherChip | null;
+  } = {},
+) {
+  const supabase = createAdminClient();
+  const cover = coverGeometry(size);
+
+  // Pinned path: post-context baked the best bet it showed in the reel —
+  // river, condition, reading, weather chip, bets count, rain note — so this
+  // render cannot re-pick a different river when Meta fetches it later.
+  const best: ForecastBest | null =
+    pins.river && pins.condition
+      ? {
+          river_slug: pins.river,
+          condition_code: pins.condition,
+          gauge_height_ft: pins.ft ?? null,
+          weatherLabel: ogWeatherLabel(pins.weather ?? null),
+          betCount: Math.max(1, pins.bets ?? 1),
+          usingFallback: !!pins.rain,
+        }
+      : await liveForecastBest(supabase);
+
   const bestName = best ? riverDisplayShort(best.river_slug) : '';
-  const bestStyles = best ? getStatusStyles(best.condition_code as ConditionCode) : null;
-  const bestCondLabel = best
-    ? (CONDITION_LABELS[best.condition_code as keyof typeof CONDITION_LABELS] || bestStyles!.label)
-    : '';
-  const bestWeather = best ? ogWeatherLabel(weatherChip(best.weather)) : '';
-  const bestGauge = best && best.gauge_height_ft !== null
-    ? `${bestWeather ? ' · ' : ''}${best.gauge_height_ft.toFixed(1)} ft`
-    : '';
-  const photoDataUri = best
+  const bestWeather = best ? best.weatherLabel : '';
+  const usingFallback = best?.usingFallback ?? false;
+  const photo = best
     ? ((await loadBackgroundDataUri(supabase, 'forecast')) ??
        (await loadRiverPhotoDataUri(supabase, best.river_slug)))
     : null;
+  const otter = await loadOtter(best?.condition_code ?? 'flowing');
 
-  return new ImageResponse(
-    (
-      <div
-        style={{
-          display: 'flex',
-          flexDirection: 'column',
-          width: '100%',
-          height: '100%',
-          fontFamily: 'system-ui, sans-serif',
-          background: `linear-gradient(160deg, #0d2a2c 0%, #1A3D40 55%, #0d2a2c 100%)`,
-          padding: isPortrait ? '120px 72px' : '72px 64px',
-          justifyContent: 'center',
-          position: 'relative',
-        }}
-      >
-        {photoLayers(photoDataUri, size)}
+  if (!best) {
+    return render(
+      <CoverPage cover={cover}>
+        <CoverMasthead cover={cover} label={LABELS.weekendForecast} title="No floatable rivers" subtitle="Right now — check back after the rain" otter={otter} />
+      </CoverPage>,
+      size,
+    );
+  }
 
-        {/* Eyebrow */}
-        <span
-          style={{
-            fontFamily: 'Fredoka',
-            fontSize: isPortrait ? 38 : 30,
-            fontWeight: 600,
-            color: BRAND_COLORS.accentCoral,
-            textTransform: 'uppercase',
-            letterSpacing: 6,
-            marginBottom: 16,
-          }}
-        >
-          Best Bets Right Now
-        </span>
-
-        {best && bestStyles ? (
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
-            {/* Hero: the single best river */}
-            <span
-              style={{
-                fontFamily: 'Fredoka',
-                fontSize: heroFontSize(bestName, isPortrait),
-                fontWeight: 700,
-                color: '#fff',
-                lineHeight: 0.92,
-                letterSpacing: -3,
-                textShadow: '0 2px 16px rgba(0,0,0,0.5)',
-                marginBottom: isPortrait ? 36 : 24,
-              }}
-            >
-              {bestName}
-            </span>
-
-            {/* Fact 1 — condition */}
-            <div
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 14,
-                backgroundColor: bestStyles.bg,
-                border: `2px solid ${bestStyles.border}`,
-                borderRadius: 100,
-                padding: isPortrait ? '18px 40px' : '14px 32px',
-                marginBottom: isPortrait ? 28 : 18,
-              }}
-            >
-              <div
-                style={{
-                  display: 'flex',
-                  width: isPortrait ? 22 : 18,
-                  height: isPortrait ? 22 : 18,
-                  borderRadius: '50%',
-                  backgroundColor: bestStyles.solid,
-                }}
-              />
-              <span style={{ fontFamily: 'Fredoka', fontSize: isPortrait ? 44 : 34, fontWeight: 700, color: bestStyles.text }}>
-                {bestCondLabel}
-              </span>
-            </div>
-
-            {/* Fact 2 — weather + gauge */}
-            {(bestWeather || bestGauge) && (
-              <span style={{ fontFamily: 'Fredoka', fontSize: isPortrait ? 36 : 28, color: 'rgba(255,255,255,0.75)' }}>
-                {bestWeather}{bestGauge}
-              </span>
-            )}
-          </div>
-        ) : (
-          <span style={{ fontSize: isPortrait ? 44 : 32, color: 'rgba(255,255,255,0.55)' }}>
-            No floatable rivers right now.
-          </span>
-        )}
-
-        {/* Footer */}
-        <span
-          style={{
-            fontFamily: 'Fredoka',
-            fontSize: isPortrait ? 32 : 26,
-            fontWeight: 600,
-            color: 'rgba(255,255,255,0.35)',
-            position: 'absolute',
-            bottom: isPortrait ? 120 : 48,
-            left: isPortrait ? 72 : 64,
-          }}
-        >
-          eddy.guide
-        </span>
-
-        {/* Bottom gradient bar */}
-        <div
-          style={{
-            position: 'absolute',
-            bottom: 0,
-            left: 0,
-            right: 0,
-            height: 6,
-            background: `linear-gradient(90deg, ${BRAND_COLORS.bluewater}, ${BRAND_COLORS.accentCoral}, ${BRAND_COLORS.greenTreeline})`,
-          }}
-        />
-      </div>
-    ),
-    { ...size, fonts, headers: CACHE_HEADERS }
+  const c = cond(best.condition_code);
+  return render(
+    <CoverPage cover={cover}>
+      <CoverMasthead
+        cover={cover}
+        label={LABELS.weekendForecast}
+        title={bestName}
+        subtitle={usingFallback ? 'Best bet this weekend — rain likely' : 'Best bet this weekend'}
+        otter={otter}
+      />
+      {photo ? <CoverPhotoCard cover={cover} dataUri={photo} height={cover.portrait ? 440 : 300} /> : null}
+      <CoverSpacer />
+      <CoverDock
+        cover={cover}
+        tiles={[
+          { value: condLabel(best.condition_code), label: 'Conditions', color: c.solid, compact: true },
+          ...(best.gauge_height_ft !== null ? [{ value: best.gauge_height_ft.toFixed(1), unit: 'FT', label: 'Gauge' }] : []),
+          ...(best.betCount > 1 ? [{ value: String(best.betCount), label: 'Best bets' }] : []),
+        ]}
+        detail={bestWeather || undefined}
+        cta={CTA.levels}
+      />
+    </CoverPage>,
+    size,
   );
 }
 
 // ---------------------------------------------------------------------------
-// Section Guide thumbnail
+// Float Pick thumbnail — the live, condition-aware section
 // ---------------------------------------------------------------------------
 async function generateSectionImage(
-  size: { width: number; height: number },
+  size: Size,
   params?: { river?: string | null; putInMile?: number | null; takeOutMile?: number | null; condition?: string | null },
 ) {
   const supabase = createAdminClient();
-  const fonts = loadFredokaFont();
-  const isPortrait = size.height > size.width;
+  const cover = coverGeometry(size);
 
   let section: Section | null = null;
   let condition = 'flowing';
@@ -1162,128 +686,50 @@ async function generateSectionImage(
     condition = overlaid.find((u) => u.river_slug === section!.riverSlug)?.condition_code || 'flowing';
   }
 
-  const styles = getStatusStyles(condition as ConditionCode);
-  const photoDataUri =
+  const c = cond(condition);
+  const photo =
     (await loadBackgroundDataUri(supabase, section.riverSlug)) ??
     (await loadRiverPhotoDataUri(supabase, section.riverSlug));
+  const otter = await loadOtter(condition);
+  // Same float-time model as the reel (canoeHours — the planner's speeds).
+  const hoursToday = canoeHours(section.distanceMi, condition as ConditionCode);
 
-  return new ImageResponse(
-    (
-      <div
-        style={{
-          display: 'flex',
-          flexDirection: 'column',
-          width: '100%',
-          height: '100%',
-          fontFamily: 'system-ui, sans-serif',
-          // Condition wash over the brand teal (see conditionCoverBackground).
-          background: conditionCoverBackground(condition as ConditionCode),
-          padding: isPortrait ? '120px 72px' : '72px 64px',
-          justifyContent: 'center',
-          alignItems: 'center',
-          textAlign: 'center',
-          position: 'relative',
-        }}
-      >
-        {photoLayers(photoDataUri, size)}
-
-        <span
-          style={{
-            fontFamily: 'Fredoka',
-            fontSize: isPortrait ? 38 : 30,
-            fontWeight: 600,
-            color: BRAND_COLORS.accentCoral,
-            textTransform: 'uppercase',
-            letterSpacing: 6,
-            marginBottom: 12,
-          }}
-        >
-          Float of the Day
-        </span>
-
-        <span
-          style={{
-            fontFamily: 'Fredoka',
-            fontSize: heroFontSize(section.riverName, isPortrait),
-            fontWeight: 700,
-            color: '#fff',
-            lineHeight: 0.92,
-            letterSpacing: -3,
-            textShadow: '0 2px 16px rgba(0,0,0,0.5)',
-            marginBottom: isPortrait ? 44 : 30,
-          }}
-        >
-          {section.riverName}
-        </span>
-
-        {/* Put-in only — "Starts at …" replaces the full route card */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: isPortrait ? 48 : 32 }}>
-          <div
-            style={{
-              display: 'flex',
-              width: isPortrait ? 20 : 16,
-              height: isPortrait ? 20 : 16,
-              borderRadius: '50%',
-              backgroundColor: BRAND_COLORS.accentCoral,
-              boxShadow: `0 0 16px ${BRAND_COLORS.accentCoral}`,
-              flexShrink: 0,
-            }}
-          />
-          <span style={{ fontFamily: 'Fredoka', fontSize: isPortrait ? 44 : 34, fontWeight: 600, color: '#fff' }}>
-            Starts at {section.putInName}
-          </span>
-        </div>
-
-        {/* Two facts */}
-        <div style={{ display: 'flex', gap: isPortrait ? 64 : 44 }}>
-          <StatCell value={`${section.distanceMi.toFixed(1)} mi`} label="Distance" isPortrait={isPortrait} />
-          <StatCell value={CONDITION_LABELS[condition as keyof typeof CONDITION_LABELS] || '—'} label="Conditions" color={styles.solid} isPortrait={isPortrait} />
-        </div>
-
-        <span
-          style={{
-            fontFamily: 'Fredoka',
-            fontSize: isPortrait ? 32 : 26,
-            fontWeight: 600,
-            color: 'rgba(255,255,255,0.35)',
-            position: 'absolute',
-            bottom: isPortrait ? 120 : 48,
-            left: 0,
-            right: 0,
-            textAlign: 'center',
-          }}
-        >
-          eddy.guide
-        </span>
-
-        <div
-          style={{
-            position: 'absolute',
-            bottom: 0,
-            left: 0,
-            right: 0,
-            height: 6,
-            background: `linear-gradient(90deg, ${BRAND_COLORS.accentCoral}, ${styles.solid})`,
-          }}
-        />
-      </div>
-    ),
-    { ...size, fonts, headers: CACHE_HEADERS }
+  return render(
+    <CoverPage cover={cover}>
+      <CoverMasthead
+        cover={cover}
+        label={LABELS.floatPick}
+        title={section.riverName}
+        subtitle={`${section.putInName} to ${section.takeOutName}`}
+        otter={otter}
+      />
+      {photo ? <CoverPhotoCard cover={cover} dataUri={photo} height={cover.portrait ? 440 : 300} /> : null}
+      <CoverSpacer />
+      <CoverDock
+        cover={cover}
+        tiles={[
+          ...(hoursToday > 0 ? [{ value: `~${hoursToday.toFixed(1)}`, unit: 'HRS', label: 'Float time' }] : []),
+          { value: section.distanceMi.toFixed(1), unit: 'MI', label: 'Distance' },
+          { value: condLabel(condition), label: 'Conditions', color: c.solid, compact: true },
+        ]}
+        cta={CTA.plan}
+      />
+    </CoverPage>,
+    size,
   );
 }
 
 // ---------------------------------------------------------------------------
-// Eddy's Favorite Float thumbnail — the evergreen, editorial cousin of the
-// Section Guide cover. Same route card, neutral water-teal accent, the guide's
-// section name as a tagline, and difficulty in place of the live condition.
+// Float Pick thumbnail — the evergreen favourite. SAME series label as the
+// live pick (the caption says "Float Pick", so must the art); the guide's
+// section name as the tagline, difficulty in place of the live condition.
 // ---------------------------------------------------------------------------
 async function generateFavoriteImage(
-  size: { width: number; height: number },
+  size: Size,
   params: { river?: string | null; fromSlug?: string | null; toSlug?: string | null },
 ) {
   const supabase = createAdminClient();
-  const fonts = loadFredokaFont();
-  const isPortrait = size.height > size.width;
+  const cover = coverGeometry(size);
 
   // Preferred path: the post baked the exact endpoints into the URL, so render
   // THAT float (matching the reel). Fall back to today's rotation if absent.
@@ -1296,165 +742,55 @@ async function generateFavoriteImage(
     return NextResponse.json({ error: 'No favorite float available' }, { status: 404 });
   }
 
-  const accent = BRAND_COLORS.bluewater;
-
-  // Real guide photography behind the card (matches the reel). Inlined as a data
-  // URI because Satori can't lazy-load remote images; a dead/slow URL degrades
-  // to the solid-gradient card below rather than failing the cover.
+  // Real guide photography in the photo card (matches the reel). Inlined as a
+  // data URI because Satori can't lazy-load remote images; a dead/slow URL
+  // degrades to no photo card rather than failing the cover.
   // Prefer the cached AI cover background; then the guide section's own photo;
-  // then the river's guide hero photo. (Solid gradient if all absent.)
-  let photoDataUri = await loadBackgroundDataUri(supabase, fav.riverSlug);
-  if (!photoDataUri && fav.photoUrl) {
+  // then the river's guide hero photo.
+  let photo = await loadBackgroundDataUri(supabase, fav.riverSlug);
+  if (!photo && fav.photoUrl) {
     try {
-      photoDataUri = await loadImageAsDataUri(fav.photoUrl);
+      photo = await loadImageAsDataUri(fav.photoUrl);
     } catch {
-      // fall through to the river hero / gradient
+      // fall through to the river hero
     }
   }
-  if (!photoDataUri) photoDataUri = await loadRiverPhotoDataUri(supabase, fav.riverSlug);
+  if (!photo) photo = await loadRiverPhotoDataUri(supabase, fav.riverSlug);
+  const otter = await loadOtter('flowing');
+  const hoursTypical = canoeHours(fav.distanceMi, 'flowing');
 
-  return new ImageResponse(
-    (
-      <div
-        style={{
-          display: 'flex',
-          flexDirection: 'column',
-          width: '100%',
-          height: '100%',
-          fontFamily: 'system-ui, sans-serif',
-          background: `linear-gradient(160deg, #0d2a2c 0%, #1A3D40 50%, #0d2a2c 100%)`,
-          padding: isPortrait ? '120px 72px' : '72px 64px',
-          justifyContent: 'center',
-          alignItems: 'center',
-          textAlign: 'center',
-          position: 'relative',
-        }}
-      >
-        {photoLayers(photoDataUri, size)}
-
-        <span
-          style={{
-            fontFamily: 'Fredoka',
-            fontSize: isPortrait ? 38 : 30,
-            fontWeight: 600,
-            color: accent,
-            textTransform: 'uppercase',
-            letterSpacing: 6,
-            marginBottom: 12,
-          }}
-        >
-          Eddy&apos;s Favorite Float
-        </span>
-
-        <span
-          style={{
-            fontFamily: 'Fredoka',
-            fontSize: heroFontSize(fav.riverName, isPortrait),
-            fontWeight: 700,
-            color: '#fff',
-            lineHeight: 0.92,
-            letterSpacing: -3,
-            textShadow: '0 2px 16px rgba(0,0,0,0.5)',
-            marginBottom: isPortrait ? 44 : 30,
-          }}
-        >
-          {fav.riverName}
-        </span>
-
-        {/* Put-in → take-out */}
-        <div
-          style={{
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            gap: isPortrait ? 16 : 12,
-            marginBottom: isPortrait ? 48 : 32,
-          }}
-        >
-          <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-            <div
-              style={{
-                display: 'flex',
-                width: isPortrait ? 20 : 16,
-                height: isPortrait ? 20 : 16,
-                borderRadius: '50%',
-                backgroundColor: BRAND_COLORS.accentCoral,
-                boxShadow: `0 0 16px ${BRAND_COLORS.accentCoral}`,
-                flexShrink: 0,
-              }}
-            />
-            <span style={{ fontFamily: 'Fredoka', fontSize: isPortrait ? 44 : 34, fontWeight: 600, color: '#fff' }}>
-              Starts at {fav.putInName}
-            </span>
-          </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-            <div
-              style={{
-                display: 'flex',
-                width: isPortrait ? 20 : 16,
-                height: isPortrait ? 20 : 16,
-                borderRadius: '50%',
-                backgroundColor: accent,
-                boxShadow: `0 0 16px ${accent}`,
-                flexShrink: 0,
-              }}
-            />
-            <span style={{ fontFamily: 'Fredoka', fontSize: isPortrait ? 44 : 34, fontWeight: 600, color: '#fff' }}>
-              Ends at {fav.takeOutName}
-            </span>
-          </div>
-        </div>
-
-        {/* One fact — distance */}
-        <div style={{ display: 'flex', gap: isPortrait ? 64 : 44 }}>
-          <StatCell value={`${fav.distanceMi.toFixed(1)} mi`} label="Distance" isPortrait={isPortrait} />
-        </div>
-
-        <span
-          style={{
-            fontFamily: 'Fredoka',
-            fontSize: isPortrait ? 32 : 26,
-            fontWeight: 600,
-            color: 'rgba(255,255,255,0.35)',
-            position: 'absolute',
-            bottom: isPortrait ? 120 : 48,
-            left: 0,
-            right: 0,
-            textAlign: 'center',
-          }}
-        >
-          eddy.guide
-        </span>
-
-        <div
-          style={{
-            position: 'absolute',
-            bottom: 0,
-            left: 0,
-            right: 0,
-            height: 6,
-            background: `linear-gradient(90deg, ${BRAND_COLORS.accentCoral}, ${accent})`,
-          }}
-        />
-      </div>
-    ),
-    { ...size, fonts, headers: CACHE_HEADERS }
+  return render(
+    <CoverPage cover={cover}>
+      <CoverMasthead cover={cover} label={LABELS.floatPick} title={fav.riverName} subtitle={fav.tagline || `${fav.putInName} to ${fav.takeOutName}`} otter={otter} />
+      {photo ? <CoverPhotoCard cover={cover} dataUri={photo} height={cover.portrait ? 440 : 300} /> : null}
+      <CoverSpacer />
+      <CoverDock
+        cover={cover}
+        tiles={[
+          ...(hoursTypical > 0 ? [{ value: `~${hoursTypical.toFixed(1)}`, unit: 'HRS', label: 'Float time' }] : []),
+          { value: fav.distanceMi.toFixed(1), unit: 'MI', label: 'Distance' },
+          { value: fav.difficulty ? `Class ${fav.difficulty}` : 'Favorite', label: fav.difficulty ? 'Difficulty' : 'Conditions', color: colors.secondary[600], compact: true },
+        ]}
+        detail={fav.tagline ? `${fav.putInName} to ${fav.takeOutName}` : undefined}
+        cta={CTA.plan}
+      />
+    </CoverPage>,
+    size,
   );
 }
 
 // ---------------------------------------------------------------------------
-// Clip cover — the still shown as a river_highlight Reel's grid thumbnail. Clips
-// have no OG cover otherwise, so Instagram falls back to the video's first frame
-// (which fades in → black). Mirrors the ClipReel framing: "On the Water" eyebrow
-// + river name over the river's AI background. Tier-2 (no river) → "Ozark Paddling".
+// Clip cover — the still shown as a clip Reel's grid thumbnail. Clips have no
+// OG cover otherwise, so Instagram falls back to the video's first frame.
+// Mirrors the ClipReel framing: "On the Water" pill + river name, the river's
+// art in the photo card. Tier-2 (no river) → "Ozark Paddling".
 // ---------------------------------------------------------------------------
 async function generateClipImage(
-  size: { width: number; height: number },
+  size: Size,
   params: { river?: string | null; creator?: string | null },
 ) {
   const supabase = createAdminClient();
-  const fonts = loadFredokaFont();
-  const isPortrait = size.height > size.width;
+  const cover = coverGeometry(size);
 
   const riverSlug = params.river || null;
   let riverName = 'Ozark Paddling';
@@ -1464,139 +800,19 @@ async function generateClipImage(
   }
   const creator = (params.creator || '').trim();
 
-  const photoDataUri =
+  const photo =
     (await loadBackgroundDataUri(supabase, riverSlug)) ??
     (await loadRiverPhotoDataUri(supabase, riverSlug));
+  const otter = await loadOtter('flowing');
 
-  return new ImageResponse(
-    (
-      <div
-        style={{
-          display: 'flex',
-          flexDirection: 'column',
-          width: '100%',
-          height: '100%',
-          fontFamily: 'system-ui, sans-serif',
-          background: `linear-gradient(160deg, #0d2a2c 0%, #1A3D40 50%, #0d2a2c 100%)`,
-          padding: isPortrait ? '120px 72px' : '72px 64px',
-          justifyContent: 'center',
-          alignItems: 'center',
-          textAlign: 'center',
-          position: 'relative',
-        }}
-      >
-        {photoLayers(photoDataUri, size)}
-
-        <span
-          style={{
-            fontFamily: 'Fredoka',
-            fontSize: isPortrait ? 38 : 30,
-            fontWeight: 600,
-            color: BRAND_COLORS.accentCoral,
-            textTransform: 'uppercase',
-            letterSpacing: 6,
-            marginBottom: 12,
-          }}
-        >
-          On the Water
-        </span>
-
-        <span
-          style={{
-            fontFamily: 'Fredoka',
-            fontSize: heroFontSize(riverName, isPortrait),
-            fontWeight: 700,
-            color: '#fff',
-            lineHeight: 0.92,
-            letterSpacing: -3,
-            textShadow: '0 2px 16px rgba(0,0,0,0.5)',
-            marginBottom: isPortrait ? 28 : 18,
-          }}
-        >
-          {riverName}
-        </span>
-
-        {creator !== '' && (
-          <span
-            style={{
-              fontFamily: 'Fredoka',
-              fontSize: isPortrait ? 34 : 26,
-              color: 'rgba(255,255,255,0.78)',
-            }}
-          >
-            Clip via {creator}
-          </span>
-        )}
-
-        <span
-          style={{
-            fontFamily: 'Fredoka',
-            fontSize: isPortrait ? 32 : 26,
-            fontWeight: 600,
-            color: 'rgba(255,255,255,0.35)',
-            position: 'absolute',
-            bottom: isPortrait ? 120 : 48,
-            left: 0,
-            right: 0,
-            textAlign: 'center',
-          }}
-        >
-          eddy.guide
-        </span>
-
-        <div
-          style={{
-            position: 'absolute',
-            bottom: 0,
-            left: 0,
-            right: 0,
-            height: 6,
-            background: `linear-gradient(90deg, ${BRAND_COLORS.greenTreeline}, ${BRAND_COLORS.accentCoral}, ${BRAND_COLORS.bluewater})`,
-          }}
-        />
-      </div>
-    ),
-    { ...size, fonts, headers: CACHE_HEADERS }
-  );
-}
-
-function StatCell({
-  value,
-  label,
-  color,
-  isPortrait,
-}: {
-  value: string;
-  label: string;
-  color?: string;
-  isPortrait: boolean;
-}) {
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column' }}>
-      <span
-        style={{
-          fontFamily: 'Fredoka',
-          fontSize: isPortrait ? 64 : 48,
-          fontWeight: 700,
-          color: color || '#fff',
-          lineHeight: 1,
-        }}
-      >
-        {value}
-      </span>
-      <span
-        style={{
-          fontFamily: 'Fredoka',
-          fontSize: isPortrait ? 22 : 18,
-          color: 'rgba(255,255,255,0.45)',
-          textTransform: 'uppercase',
-          letterSpacing: 2,
-          marginTop: 6,
-        }}
-      >
-        {label}
-      </span>
-    </div>
+  return render(
+    <CoverPage cover={cover}>
+      <CoverMasthead cover={cover} label={LABELS.clip} title={riverName} subtitle={creator !== '' ? `Clip via ${creator}` : undefined} otter={otter} />
+      {photo ? <CoverPhotoCard cover={cover} dataUri={photo} height={cover.portrait ? 520 : 340} /> : null}
+      <CoverSpacer />
+      <CoverDock cover={cover} detail="Real water, real paddlers" cta={riverSlug ? CTA.plan : CTA.find} />
+    </CoverPage>,
+    size,
   );
 }
 
@@ -1604,12 +820,13 @@ function StatCell({
 // 7-Day Trend thumbnail
 // ---------------------------------------------------------------------------
 async function generateTrendImage(
-  size: { width: number; height: number },
+  size: Size,
   pinnedRiver?: string | null,
+  pins: { asOf?: string | null; condition?: string | null; weather?: WeatherChip | null } = {},
 ) {
   const supabase = createAdminClient();
-  const fonts = loadFredokaFont();
-  const isPortrait = size.height > size.width;
+  const cover = coverGeometry(size);
+  const s = SURFACES[cover.tone];
 
   const { data: updates } = await supabase
     .from('eddy_updates')
@@ -1621,29 +838,30 @@ async function generateTrendImage(
   type Row = { river_slug: string; condition_code: string; weather?: WeatherSummary | null };
   const rows = (updates || []) as Row[];
   const slugs = Array.from(new Set(rows.map((u) => u.river_slug)));
-  // Pinned path: the caller baked the exact river into the URL so the cover
-  // matches the reel it accompanies (no live re-pick). pickNotableTrend already
-  // supports restrictTo, so pin by restricting the candidate set to that one
-  // slug — it then builds the identical trend object from that river's 7-day
-  // history. Absent → keep the current "most notable across all rivers" pick.
+  // Pinned path: the caller baked the exact river AND the instant into the URL
+  // so the cover matches the reel it accompanies. pickNotableTrend restricts
+  // the candidate set to that slug and evaluates the seven days as of that
+  // instant, so the delta, range and sparkline are the reel's — not whatever
+  // the gauge did between posting and Meta's crawl. Absent → keep the live
+  // "most notable across all rivers" pick (legacy URLs).
   const restrictTo = pinnedRiver ? [pinnedRiver] : slugs;
-  const trend = await pickNotableTrend(supabase, { restrictTo });
+  const trend = await pickNotableTrend(supabase, { restrictTo, asOf: pins.asOf ?? null });
   if (!trend) {
     return NextResponse.json({ error: 'No notable trend' }, { status: 404 });
   }
-  const wx = ogWeatherLabel(weatherChip(rows.find((u) => u.river_slug === trend.riverSlug)?.weather ?? null));
+  const liveRow = rows.find((u) => u.river_slug === trend.riverSlug);
+  const wx = ogWeatherLabel(pins.weather ?? weatherChip(liveRow?.weather ?? null));
 
   const meta = trendMeta(trend.direction);
-  // Featured river's live condition — drives the cover's faint condition wash.
-  const trendCondition = (rows.find((u) => u.river_slug === trend.riverSlug)?.condition_code ||
-    'unknown') as ConditionCode;
-  const deltaSign = trend.deltaFt > 0 ? '+' : trend.deltaFt < 0 ? '−' : '';
+  const trendCondition = pins.condition || liveRow?.condition_code || 'unknown';
+  const deltaSign = trend.deltaFt > 0 ? '+' : trend.deltaFt < 0 ? '-' : '';
   const deltaAbs = Math.abs(trend.deltaFt).toFixed(1);
+  const otter = await loadOtter(trendCondition);
 
-  // Normalize sparkline coords to an SVG viewBox.
-  const CHART_W = isPortrait ? 900 : 820;
-  const CHART_H = isPortrait ? 380 : 260;
-  const PAD = 30;
+  // Normalize sparkline coords to an SVG viewBox inside the chart card.
+  const CHART_W = cover.width - 2 * 5 - 2 * Math.round(24 * cover.k);
+  const CHART_H = cover.portrait ? 360 : 260;
+  const PAD = 34;
   const valid = trend.series.filter((p) => p.gaugeHeightFt !== null) as Array<{
     hoursAgo: number;
     gaugeHeightFt: number;
@@ -1668,190 +886,56 @@ async function generateTrendImage(
     points.length > 0
       ? `${pathD} L ${points[points.length - 1].x} ${CHART_H - PAD} L ${points[0].x} ${CHART_H - PAD} Z`
       : '';
+  const range =
+    trend.sevenDayMinFt !== null && trend.sevenDayMaxFt !== null
+      ? `${trend.sevenDayMinFt.toFixed(1)}-${trend.sevenDayMaxFt.toFixed(1)}`
+      : null;
 
-  return new ImageResponse(
-    (
-      <div
-        style={{
-          display: 'flex',
-          flexDirection: 'column',
-          width: '100%',
-          height: '100%',
-          fontFamily: 'system-ui, sans-serif',
-          // Condition wash keyed to the featured river's live condition.
-          background: conditionCoverBackground(trendCondition),
-          padding: isPortrait ? '120px 72px' : '72px 64px',
-          justifyContent: 'center',
-          position: 'relative',
-        }}
-      >
-        <span
-          style={{
-            fontFamily: 'Fredoka',
-            fontSize: isPortrait ? 38 : 30,
-            fontWeight: 600,
-            color: meta.color,
-            textTransform: 'uppercase',
-            letterSpacing: 6,
-            marginBottom: 12,
-          }}
-        >
-          7-Day Trend
-        </span>
-        <span
-          style={{
-            fontFamily: 'Fredoka',
-            fontSize: isPortrait ? 104 : 80,
-            fontWeight: 700,
-            color: '#fff',
-            lineHeight: 0.95,
-            letterSpacing: -3,
-            marginBottom: isPortrait ? 40 : 28,
-          }}
-        >
-          {trend.riverName}
-        </span>
-
-        {wx !== '' && (
-          <span
-            style={{
-              fontFamily: 'Fredoka',
-              fontSize: isPortrait ? 30 : 22,
-              color: 'rgba(255,255,255,0.6)',
-              marginTop: isPortrait ? -28 : -16,
-              marginBottom: isPortrait ? 36 : 22,
-            }}
-          >
-            {wx}
-          </span>
-        )}
-
-        {/* Sparkline */}
-        <div
-          style={{
-            display: 'flex',
-            backgroundColor: 'rgba(255,255,255,0.04)',
-            border: '1px solid rgba(255,255,255,0.08)',
-            borderRadius: 24,
-            padding: '16px 12px',
-            marginBottom: isPortrait ? 40 : 24,
-          }}
-        >
-          <svg width={CHART_W} height={CHART_H} style={{ display: 'block' }}>
-            <line
-              x1={PAD}
-              y1={CHART_H - PAD}
-              x2={CHART_W - PAD}
-              y2={CHART_H - PAD}
-              stroke="rgba(255,255,255,0.1)"
-              strokeWidth={1}
-            />
-            {areaD && <path d={areaD} fill={meta.color} fillOpacity={0.18} />}
-            {pathD && (
-              <path
-                d={pathD}
-                fill="none"
-                stroke={meta.color}
-                strokeWidth={6}
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            )}
-            {points.length > 0 && (
-              <circle
-                cx={points[points.length - 1].x}
-                cy={points[points.length - 1].y}
-                r={12}
-                fill={meta.color}
-              />
-            )}
-          </svg>
-        </div>
-
-        {/* Delta + range */}
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: isPortrait ? 40 : 32,
-          }}
-        >
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 16,
-              backgroundColor: `${meta.color}22`,
-              border: `2px solid ${meta.color}`,
-              borderRadius: 999,
-              padding: isPortrait ? '18px 36px' : '14px 28px',
-            }}
-          >
-            <span
-              style={{
-                fontFamily: 'Fredoka',
-                fontSize: isPortrait ? 52 : 40,
-                fontWeight: 700,
-                color: meta.color,
-              }}
-            >
-              {meta.arrow} {meta.label}
-            </span>
-            <span
-              style={{
-                fontSize: isPortrait ? 44 : 34,
-                fontWeight: 700,
-                color: '#fff',
-              }}
-            >
-              {deltaSign}{deltaAbs} ft
-            </span>
-          </div>
-          {trend.sevenDayMinFt !== null && trend.sevenDayMaxFt !== null && (
-            <span
-              style={{
-                fontSize: isPortrait ? 28 : 22,
-                color: 'rgba(255,255,255,0.5)',
-              }}
-            >
-              Week range {trend.sevenDayMinFt.toFixed(1)}–{trend.sevenDayMaxFt.toFixed(1)} ft
-            </span>
+  return render(
+    <CoverPage cover={cover}>
+      <CoverMasthead cover={cover} label={LABELS.trend} title={trend.riverName} subtitle={['This week', wx].filter(Boolean).join(' · ')} otter={otter} />
+      <CoverCard cover={cover}>
+        <svg width={CHART_W} height={CHART_H} viewBox={`0 0 ${CHART_W} ${CHART_H}`}>
+          <line x1={PAD} y1={CHART_H - PAD} x2={CHART_W - PAD} y2={CHART_H - PAD} stroke={s.divider} strokeWidth={3} />
+          {areaD && <path d={areaD} fill={hexAlpha(meta.color, 0.18)} />}
+          {pathD && (
+            <path d={pathD} fill="none" stroke={conditionInk(meta.color)} strokeWidth={6} strokeLinecap="round" strokeLinejoin="round" />
           )}
+          {points.length > 0 && (
+            <circle cx={points[points.length - 1].x} cy={points[points.length - 1].y} r={13} fill={meta.color} stroke={colors.neutral[900]} strokeWidth={4} />
+          )}
+        </svg>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 18, marginTop: 12, padding: '0 6px' }}>
+          <CoverPill cover={cover} fill={meta.color} size={Math.round(26 * cover.k)}>
+            <span style={{ fontFamily: MONO }}>{meta.arrow}</span>
+            <span style={{ marginLeft: 10 }}>{meta.label}</span>
+          </CoverPill>
+          <span style={{ fontFamily: MONO, fontSize: Math.round(36 * cover.k), fontWeight: 700, color: s.ink }}>
+            {deltaSign}{deltaAbs} ft
+          </span>
+          <span style={{ fontFamily: DISPLAY, fontSize: Math.round(24 * cover.k), fontWeight: 600, color: s.inkMuted }}>over 7 days</span>
         </div>
-
-        <span
-          style={{
-            fontFamily: 'Fredoka',
-            fontSize: isPortrait ? 32 : 26,
-            fontWeight: 600,
-            color: 'rgba(255,255,255,0.35)',
-            position: 'absolute',
-            bottom: isPortrait ? 120 : 48,
-            left: isPortrait ? 72 : 64,
-          }}
-        >
-          eddy.guide
-        </span>
-        <div
-          style={{
-            position: 'absolute',
-            bottom: 0,
-            left: 0,
-            right: 0,
-            height: 6,
-            background: `linear-gradient(90deg, ${meta.color}, ${BRAND_COLORS.accentCoral})`,
-          }}
-        />
-      </div>
-    ),
-    { ...size, fonts, headers: CACHE_HEADERS }
+      </CoverCard>
+      <CoverSpacer />
+      <CoverDock
+        cover={cover}
+        tiles={[
+          { value: trend.currentHeightFt !== null ? trend.currentHeightFt.toFixed(1) : '—', unit: 'FT', label: 'Right now' },
+          { value: `${deltaSign}${deltaAbs}`, unit: 'FT', label: '7-day change', color: meta.color },
+          { value: range ?? '—', unit: range ? 'FT' : undefined, label: 'Week range', compact: true },
+        ]}
+        cta={CTA.chart}
+      />
+    </CoverPage>,
+    size,
   );
 }
 
 // ---------------------------------------------------------------------------
 // Condition-change Warning thumbnail — fired when a river crosses from
-// flowing into high / dangerous water. Designed to stop the scroll: bold red
-// or orange accent, WARNING eyebrow, river name, transition arrow, gauge.
+// flowing into high / dangerous water. The SEVERITY SURFACE: the dark tone
+// washed toward the condition colour, the danger art under a scrim, the
+// numeral in Geist Mono — the same look as the alert reel.
 // ---------------------------------------------------------------------------
 const CONDITION_DISPLAY: Record<string, string> = {
   flowing: 'Flowing',
@@ -1866,16 +950,15 @@ const CONDITION_DISPLAY: Record<string, string> = {
 async function generateWarningImage(
   riverSlug: string,
   fromCondition: string | undefined,
-  size: { width: number; height: number },
+  size: Size,
   toCondition?: string,
   pinnedFt?: number | null,
   kind?: string,
   riseText?: string,
 ) {
   const supabase = createAdminClient();
-  // Alert covers carry instrument numerals — Fredoka + Geist Mono.
-  const fonts = loadOgFonts();
-  const isPortrait = size.height > size.width;
+  const cover = coverGeometry(size, 'dark');
+  const s = SURFACES.dark;
 
   const { data: rawUpdate } = await supabase
     .from('eddy_updates')
@@ -1908,288 +991,87 @@ async function generateWarningImage(
   }
 
   const isRecovery = kind === 'recovery';
-  const styles = getStatusStyles(newCondition);
+  const c = cond(newCondition);
   const { severityLabel, cta: actionCta } = isRecovery
     ? recoveryCopy(newCondition, riverName)
     : warningCopy(newCondition, riverName);
   // Warning covers use the generic 'danger' art; recovery ("all clear") covers
   // use the river's own calm art — mirrors the reel's background selection in
   // condition-alerts.ts so the cover/reel pair reads as one piece.
-  const photoDataUri = await loadBackgroundDataUri(supabase, isRecovery ? riverSlug : 'danger');
-
-  // Series-identity mascot, bottom-right (matches the reel + other covers).
-  let otterImage: string | null = null;
-  try {
-    otterImage = await loadConditionOtter(newCondition);
-  } catch {
-    otterImage = null;
-  }
-  const otterPos = otterBox(size);
-
-  // Recovery is an all-clear: swap the red-tinted frame for a calmer teal-green.
-  const eyebrowIcon = isRecovery ? '✅' : '⚠️';
-  const rootGradient = isRecovery
-    ? 'linear-gradient(160deg, #0d2a24 0%, #12403a 55%, #0d2a2c 100%)'
-    : 'linear-gradient(160deg, #2a0d0d 0%, #1A3D40 60%, #0d2a2c 100%)';
+  const photo = await loadBackgroundDataUri(supabase, isRecovery ? riverSlug : 'danger');
+  const otter = await loadOtter(newCondition);
 
   // Rate-of-rise/fall pill (e.g. "▲ up 2.4 ft in 6h"). Direction inferred from
-  // the phrase; colored by the cover's accent (recovery teal vs warning red).
-  const riseArrow = riseText
-    ? /down/i.test(riseText)
-      ? '▼'
-      : '▲'
-    : '';
+  // the phrase; drawn in the condition colour.
+  const riseArrow = riseText ? (/down/i.test(riseText) ? '▼' : '▲') : '';
+  const prev = fromCondition ? cond(fromCondition) : null;
 
-  return new ImageResponse(
-    (
-      <div
-        style={{
-          display: 'flex',
-          flexDirection: 'column',
-          width: '100%',
-          height: '100%',
-          fontFamily: 'system-ui, sans-serif',
-          background: rootGradient,
-          padding: isPortrait ? '120px 72px' : '72px 64px',
-          justifyContent: 'center',
-          position: 'relative',
-        }}
-      >
-        {photoLayers(photoDataUri, size)}
+  return render(
+    <CoverPage cover={cover} severity={c.solid} photo={photo} scrim={isRecovery ? MEDIA_SCRIM.neutral : MEDIA_SCRIM.warning}>
+      <CoverMasthead
+        cover={cover}
+        label={severityLabel}
+        labelFill={c.solid}
+        title={riverName}
+        otter={otter}
+        subtitleNode={
+          fromCondition && prev ? (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+              <span style={{ fontFamily: DISPLAY, fontWeight: 600, color: prev.solid }}>{CONDITION_DISPLAY[fromCondition] || fromCondition}</span>
+              <span style={{ fontFamily: MONO, fontWeight: 700, color: s.inkMuted }}>→</span>
+              <span style={{ fontFamily: DISPLAY, fontWeight: 600, color: c.solid }}>{CONDITION_DISPLAY[newCondition] || newCondition}</span>
+            </div>
+          ) : undefined
+        }
+      />
 
-        {/* Warning eyebrow banner — field-instrument chrome (hard shadow) */}
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 16,
-            backgroundColor: 'rgba(15,45,53,0.92)',
-            border: `3px solid ${styles.solid}`,
-            borderRadius: 999,
-            padding: isPortrait ? '18px 42px' : '14px 32px',
-            boxShadow: '10px 10px 0 rgba(0,0,0,0.5)',
-            alignSelf: 'flex-start',
-            marginBottom: isPortrait ? 40 : 28,
-          }}
-        >
-          <span style={{ fontSize: isPortrait ? 56 : 40 }}>{eyebrowIcon}</span>
-          <span
-            style={{
-              fontFamily: 'Fredoka',
-              fontSize: isPortrait ? 56 : 42,
-              fontWeight: 700,
-              letterSpacing: 5,
-              color: styles.solid,
-            }}
-          >
-            {severityLabel}
+      {/* The reading — instrument numerals, condition-coloured */}
+      {gaugeFt !== null ? (
+        <div style={{ display: 'flex', alignItems: 'baseline', gap: 16 }}>
+          <span style={{ fontFamily: MONO, fontSize: Math.round(150 * cover.k), fontWeight: 700, color: c.solid, lineHeight: 1, letterSpacing: -4 }}>
+            {gaugeFt.toFixed(1)}
           </span>
+          <span style={{ fontFamily: MONO, fontSize: Math.round(48 * cover.k), fontWeight: 700, color: s.inkMuted }}>ft right now</span>
         </div>
+      ) : null}
 
-        {/* River name */}
-        <span
-          style={{
-            fontFamily: 'Fredoka',
-            fontSize: isPortrait ? (riverName.length > 18 ? 104 : 120) : (riverName.length > 18 ? 80 : 96),
-            fontWeight: 700,
-            color: '#fff',
-            lineHeight: 0.95,
-            letterSpacing: -3,
-            marginBottom: isPortrait ? 32 : 20,
-          }}
-        >
-          {riverName}
-        </span>
+      {riseText ? (
+        <div style={{ display: 'flex' }}>
+          <CoverPill cover={cover} fill={c.solid} size={Math.round(30 * cover.k)}>
+            <span style={{ fontFamily: MONO }}>{riseArrow}</span>
+            <span style={{ marginLeft: 12, textTransform: 'none', letterSpacing: 0 }}>{riseText}</span>
+          </CoverPill>
+        </div>
+      ) : null}
 
-        {/* Transition line: from → now */}
-        {fromCondition && (
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 20,
-              marginBottom: isPortrait ? 48 : 32,
-            }}
-          >
-            <span
-              style={{
-                fontFamily: 'Fredoka',
-                fontSize: isPortrait ? 44 : 34,
-                fontWeight: 500,
-                color: 'rgba(255,255,255,0.6)',
-              }}
-            >
-              {CONDITION_DISPLAY[fromCondition] || fromCondition}
-            </span>
-            <span
-              style={{
-                fontSize: isPortrait ? 52 : 40,
-                color: 'rgba(255,255,255,0.4)',
-              }}
-            >
-              →
-            </span>
-            <span
-              style={{
-                fontFamily: 'Fredoka',
-                fontSize: isPortrait ? 48 : 36,
-                fontWeight: 700,
-                color: styles.solid,
-              }}
-            >
-              {CONDITION_DISPLAY[newCondition] || newCondition}
-            </span>
-          </div>
-        )}
-
-        {/* Current gauge reading — instrument numerals (Geist Mono, no glow) */}
-        {gaugeFt !== null && (
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'baseline',
-              gap: 16,
-              marginBottom: isPortrait ? 56 : 40,
-            }}
-          >
-            <span
-              style={{
-                fontFamily: 'Geist Mono',
-                fontSize: isPortrait ? 140 : 96,
-                fontWeight: 700,
-                color: styles.solid,
-                lineHeight: 1,
-                letterSpacing: -4,
-              }}
-            >
-              {gaugeFt.toFixed(1)}
-            </span>
-            <span
-              style={{
-                fontFamily: 'Geist Mono',
-                fontSize: isPortrait ? 48 : 36,
-                fontWeight: 700,
-                color: 'rgba(255,255,255,0.6)',
-              }}
-            >
-              ft right now
-            </span>
-          </div>
-        )}
-
-        {/* Rate-of-rise/fall pill — mono numerals, hard shadow */}
-        {riseText && (
-          <div
-            style={{
-              display: 'flex',
-              alignSelf: 'flex-start',
-              alignItems: 'center',
-              backgroundColor: 'rgba(15,45,53,0.92)',
-              border: `3px solid ${styles.solid}`,
-              borderRadius: 999,
-              padding: isPortrait ? '12px 26px' : '10px 20px',
-              boxShadow: '10px 10px 0 rgba(0,0,0,0.5)',
-              marginBottom: isPortrait ? 40 : 28,
-            }}
-          >
-            <span
-              style={{
-                fontFamily: 'Geist Mono',
-                fontSize: isPortrait ? 36 : 28,
-                fontWeight: 700,
-                color: styles.solid,
-              }}
-            >
-              {riseArrow} {riseText}
-            </span>
-          </div>
-        )}
-
-        {/* Action CTA — hard-shadow panel */}
-        <span
-          style={{
-            fontFamily: 'Fredoka',
-            fontSize: isPortrait ? 44 : 32,
-            fontWeight: 600,
-            color: '#fff',
-            backgroundColor: 'rgba(15,45,53,0.92)',
-            border: `3px solid ${styles.solid}`,
-            padding: isPortrait ? '18px 32px' : '14px 24px',
-            borderRadius: 16,
-            boxShadow: '10px 10px 0 rgba(0,0,0,0.5)',
-            alignSelf: 'flex-start',
-          }}
-        >
-          {actionCta}
-        </span>
-
-        {/* Otter — series identity, anchored inside the grid-safe band (see
-            otterBox); square keeps the true corner, portrait lifts above the
-            Instagram 4:5 crop so Eddy isn't decapitated in the profile grid. */}
-        {otterImage && (
-          <div
-            style={{
-              display: 'flex',
-              position: 'absolute',
-              bottom: otterPos.bottom,
-              right: otterPos.right,
-              opacity: 0.9,
-            }}
-          >
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={otterImage}
-              width={otterPos.size}
-              height={otterPos.size}
-              alt=""
-              style={{ objectFit: 'contain' }}
-            />
-          </div>
-        )}
-
-        <span
-          style={{
-            fontFamily: 'Fredoka',
-            fontSize: isPortrait ? 32 : 26,
-            fontWeight: 600,
-            color: 'rgba(255,255,255,0.35)',
-            position: 'absolute',
-            bottom: isPortrait ? 120 : 48,
-            left: isPortrait ? 72 : 64,
-          }}
-        >
-          eddy.guide/{riverSlug}
-        </span>
-        <div
-          style={{
-            position: 'absolute',
-            bottom: 0,
-            left: 0,
-            right: 0,
-            height: 8,
-            background: `linear-gradient(90deg, ${styles.solid}, ${BRAND_COLORS.accentCoral}, ${styles.solid})`,
-          }}
-        />
-      </div>
-    ),
-    { ...size, fonts, headers: CACHE_HEADERS }
+      <CoverSpacer />
+      <CoverDock
+        cover={cover}
+        accent={c.solid}
+        tiles={[
+          ...(gaugeFt !== null ? [{ value: gaugeFt.toFixed(1), unit: 'FT', label: 'Gauge' }] : []),
+          { value: condLabel(newCondition), label: 'Conditions', color: c.solid, compact: true },
+        ]}
+        detail={actionCta}
+        detailColor={c.solid}
+        cta={CTA.gauge}
+        ctaFill={c.solid}
+      />
+    </CoverPage>,
+    size,
   );
 }
 
 // ---------------------------------------------------------------------------
 // Storm-digest cover — fired when several rivers rise at once (batch alert).
 // A compact list of the affected rivers, each with its live condition pill,
-// over the same red-tinted danger frame as the single-river warning cover.
+// on the same severity surface as the single-river warning cover.
 // `riversParam` is a comma-separated list of `slug:condition` pairs, e.g.
 //   current:dangerous,meramec:high,niangua:high
 // ---------------------------------------------------------------------------
-async function generateStormImage(
-  size: { width: number; height: number },
-  riversParam: string | null,
-) {
-  // Alert-family cover — same font pair as the warning cover.
-  const fonts = loadOgFonts();
-  const isPortrait = size.height > size.width;
+async function generateStormImage(size: Size, riversParam: string | null) {
+  const cover = coverGeometry(size, 'dark');
+  const high = cond('high');
 
   // Parse `slug:condition` pairs; keep up to 5 so the list stays legible.
   const rivers = (riversParam || '')
@@ -2200,150 +1082,28 @@ async function generateStormImage(
     })
     .filter((r) => r.slug !== '')
     .slice(0, 5);
+  const worst = rivers.some((r) => r.condition === 'dangerous') ? cond('dangerous') : high;
+  const otter = await loadOtter(worst === high ? 'high' : 'dangerous');
+  const rowH = cover.portrait ? 104 : 84;
 
-  return new ImageResponse(
-    (
-      <div
-        style={{
-          display: 'flex',
-          flexDirection: 'column',
-          width: '100%',
-          height: '100%',
-          fontFamily: 'system-ui, sans-serif',
-          background: `linear-gradient(160deg, #2a0d0d 0%, #1A3D40 60%, #0d2a2c 100%)`,
-          padding: isPortrait ? '120px 72px' : '72px 64px',
-          justifyContent: 'center',
-          position: 'relative',
-        }}
-      >
-        {/* Rising eyebrow banner — field-instrument chrome (hard shadow) */}
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 16,
-            backgroundColor: 'rgba(15,45,53,0.92)',
-            border: `3px solid ${BRAND_COLORS.accentCoral}`,
-            borderRadius: 999,
-            padding: isPortrait ? '18px 42px' : '14px 32px',
-            boxShadow: '10px 10px 0 rgba(0,0,0,0.5)',
-            alignSelf: 'flex-start',
-            marginBottom: isPortrait ? 40 : 28,
-          }}
-        >
-          <span style={{ fontSize: isPortrait ? 56 : 40 }}>⚠️</span>
-          <span
-            style={{
-              fontFamily: 'Fredoka',
-              fontSize: isPortrait ? 56 : 42,
-              fontWeight: 700,
-              letterSpacing: 5,
-              color: BRAND_COLORS.accentCoral,
-            }}
-          >
-            RIVERS RISING
-          </span>
-        </div>
-
-        {/* Headline */}
-        <span
-          style={{
-            fontFamily: 'Fredoka',
-            fontSize: isPortrait ? 84 : 64,
-            fontWeight: 700,
-            color: '#fff',
-            lineHeight: 1.0,
-            letterSpacing: -2,
-            marginBottom: isPortrait ? 48 : 32,
-          }}
-        >
-          Multiple Ozark rivers are rising
-        </span>
-
-        {/* River list — name + condition pill */}
-        <div
-          style={{
-            display: 'flex',
-            flexDirection: 'column',
-            gap: isPortrait ? 24 : 18,
-          }}
-        >
-          {rivers.map((r) => {
-            const styles = getStatusStyles(r.condition as ConditionCode);
-            const name = riverDisplayLong(r.slug);
-            return (
-              <div
-                key={r.slug}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  gap: 24,
-                  backgroundColor: 'rgba(15,45,53,0.92)',
-                  border: '2px solid rgba(255,255,255,0.1)',
-                  borderLeft: `5px solid ${styles.solid}`,
-                  borderRadius: 16,
-                  padding: isPortrait ? '22px 32px' : '18px 28px',
-                  boxShadow: '8px 8px 0 rgba(0,0,0,0.45)',
-                }}
-              >
-                <span
-                  style={{
-                    fontFamily: 'Fredoka',
-                    fontSize: isPortrait ? 48 : 38,
-                    fontWeight: 700,
-                    color: '#fff',
-                  }}
-                >
-                  {name}
-                </span>
-                <span
-                  style={{
-                    fontFamily: 'Fredoka',
-                    fontSize: isPortrait ? 36 : 28,
-                    fontWeight: 700,
-                    color: styles.solid,
-                    border: `3px solid ${styles.border}`,
-                    borderRadius: 999,
-                    padding: isPortrait ? '10px 26px' : '8px 20px',
-                    whiteSpace: 'nowrap',
-                  }}
-                >
-                  {styles.label}
-                </span>
-              </div>
-            );
-          })}
-        </div>
-
-        {/* Footer */}
-        <span
-          style={{
-            fontFamily: 'Fredoka',
-            fontSize: isPortrait ? 32 : 26,
-            fontWeight: 600,
-            color: 'rgba(255,255,255,0.35)',
-            position: 'absolute',
-            bottom: isPortrait ? 120 : 48,
-            left: isPortrait ? 72 : 64,
-          }}
-        >
-          eddy.guide
-        </span>
-
-        {/* Bottom gradient bar */}
-        <div
-          style={{
-            position: 'absolute',
-            bottom: 0,
-            left: 0,
-            right: 0,
-            height: 8,
-            background: `linear-gradient(90deg, ${BRAND_COLORS.accentCoral}, #ef4444, ${BRAND_COLORS.accentCoral})`,
-          }}
-        />
+  return render(
+    <CoverPage cover={cover} severity={worst.solid}>
+      <CoverMasthead
+        cover={cover}
+        label={LABELS.riversRising}
+        labelFill={worst.solid}
+        title="Multiple rivers rising"
+        subtitle="Levels are climbing across the Ozarks"
+        otter={otter}
+      />
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 14, width: '100%' }}>
+        {rivers.map((r) => (
+          <CoverRiverRow key={r.slug} cover={cover} name={riverDisplayLong(r.slug)} conditionCode={r.condition} gaugeFt={null} height={rowH} accent={cond(r.condition).solid} />
+        ))}
       </div>
-    ),
-    { ...size, fonts, headers: CACHE_HEADERS }
+      <CoverSpacer />
+      <CoverDock cover={cover} accent={worst.solid} detail="Do not float until levels drop" detailColor={worst.solid} cta={CTA.levels} ctaFill={worst.solid} />
+    </CoverPage>,
+    size,
   );
 }

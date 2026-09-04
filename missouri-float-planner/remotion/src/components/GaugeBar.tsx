@@ -8,6 +8,7 @@ import {
 } from "remotion";
 import { SMOOTH } from "../lib/spring-presets";
 import { colors } from "../design-tokens/colors";
+import { SURFACES, type SocialTone } from "../../../shared/social-brand";
 
 export interface GaugeSeriesPoint {
   hoursAgo: number;
@@ -52,6 +53,14 @@ interface GaugeBarProps {
   riseDurationFrames?: number;
   /** Numeric ft labels on the scale ticks. Defaults to `emphasis`. */
   labeledTicks?: boolean;
+  /** Fallback (no-series) mode only: the fraction of currentHeight the bar is
+   *  ALREADY filled to at frame 0, so it settles into the reading rather than
+   *  filling from empty. 0 (default) keeps the classic fill-from-empty; the
+   *  report passes ~0.85 so its grid thumbnail is a finished instrument. */
+  settleFrom?: number;
+  /** Surface the instrument sits on: the light page (the report) or the dark
+   *  severity surface (alerts). Panel, rule, tick and shadow colours follow. */
+  tone?: SocialTone;
 }
 
 /** Pre-crossing water color — the calm instrument teal from the brand scale. */
@@ -92,6 +101,8 @@ export function gaugeFillModel(
     riseStartFrame?: number;
     riseDurationFrames?: number;
     delay?: number;
+    /** Fallback mode: fraction of currentHeight the fill starts from (0..1). */
+    startFraction?: number;
   },
 ): GaugeFillState {
   const {
@@ -101,6 +112,7 @@ export function gaugeFillModel(
     riseStartFrame = 15,
     riseDurationFrames = 90,
     delay = 30,
+    startFraction = 0,
   } = opts;
 
   const samples = (series ?? [])
@@ -121,9 +133,11 @@ export function gaugeFillModel(
       const frac = pos - i;
       return { value: path[i] + (path[i + 1] - path[i]) * frac, progress: t };
     }
-    // Classic spring fill (unchanged legacy behavior).
+    // Classic spring fill, from empty by default or from a settled fraction of
+    // the reading when the caller wants a finished frame 0.
     const p = spring({ frame: f - delay, fps, config: SMOOTH });
-    return { value: interpolate(p, [0, 1], [0, currentHeight]), progress: p };
+    const from = currentHeight * Math.min(1, Math.max(0, startFraction));
+    return { value: interpolate(p, [0, 1], [from, currentHeight]), progress: p };
   };
 
   const { value, progress } = valueAt(frame);
@@ -257,10 +271,16 @@ export const GaugeBar: React.FC<GaugeBarProps> = ({
   riseStartFrame = 15,
   riseDurationFrames = 90,
   labeledTicks,
+  tone = "dark",
+  settleFrom = 0,
 }) => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
   const showTickLabels = labeledTicks ?? emphasis;
+  const s = SURFACES[tone];
+  const light = tone === "light";
+  const tickColor = light ? "rgba(45,42,36,0.35)" : "rgba(255,255,255,0.35)";
+  const tickInk = light ? s.inkMuted : "rgba(255,255,255,0.6)";
 
   // Include the dangerous threshold in the scale so its zone is always visible,
   // even when the current reading sits below it. A series can peak above the
@@ -297,6 +317,7 @@ export const GaugeBar: React.FC<GaugeBarProps> = ({
     riseStartFrame,
     riseDurationFrames,
     delay,
+    startFraction: settleFrom,
   });
 
   const fillFraction = Math.min(1, Math.max(0, fill.value / maxHeight));
@@ -348,9 +369,11 @@ export const GaugeBar: React.FC<GaugeBarProps> = ({
         position: "relative",
         borderRadius: 20,
         overflow: "hidden",
-        backgroundColor: "rgba(15,45,53,0.92)",
-        border: "3px solid rgba(255,255,255,0.14)",
-        boxShadow: "10px 10px 0 rgba(0,0,0,0.45)",
+        // The instrument panel is a card of the social design system: solid
+        // surface, thick rule, hard offset shadow — on either tone.
+        backgroundColor: light ? s.surface : colors.primary[900],
+        border: `4px solid ${s.rule}`,
+        boxShadow: `8px 8px 0 ${s.shadow}`,
       }}
     >
       {/* Numeric scale ticks — above the water fill (zIndex) so the scale
@@ -370,7 +393,7 @@ export const GaugeBar: React.FC<GaugeBarProps> = ({
             style={{
               width: showTickLabels ? 14 : 10,
               height: 2,
-              backgroundColor: "rgba(255,255,255,0.35)",
+              backgroundColor: tickColor,
             }}
           />
           {showTickLabels && (
@@ -382,10 +405,10 @@ export const GaugeBar: React.FC<GaugeBarProps> = ({
                 transform: "translateY(-50%)",
                 fontFamily: "'Geist Mono', monospace",
                 fontSize: emphasis ? 20 : 14,
-                color: "rgba(255,255,255,0.6)",
+                color: tickInk,
                 letterSpacing: 0.5,
                 whiteSpace: "nowrap",
-                textShadow: "0 1px 3px rgba(0,0,0,0.7)",
+                textShadow: light ? undefined : "0 1px 3px rgba(0,0,0,0.7)",
               }}
             >
               {ft} ft
@@ -551,9 +574,9 @@ export const GaugeBar: React.FC<GaugeBarProps> = ({
             bottom: `${optMinFraction * 100}%`,
             height: `${(optMaxFraction - optMinFraction) * 100}%`,
             width: "100%",
-            backgroundColor: "rgba(78,184,107,0.30)",
-            borderTop: "2px dashed rgba(149,217,167,0.8)",
-            borderBottom: "2px dashed rgba(149,217,167,0.8)",
+            backgroundColor: light ? "rgba(78,184,107,0.22)" : "rgba(78,184,107,0.30)",
+            borderTop: `2px dashed ${light ? colors.support[600] : "rgba(149,217,167,0.8)"}`,
+            borderBottom: `2px dashed ${light ? colors.support[600] : "rgba(149,217,167,0.8)"}`,
             display: "flex",
             alignItems: "center",
             justifyContent: "flex-end",
@@ -647,14 +670,16 @@ export const GaugeBar: React.FC<GaugeBarProps> = ({
         <ThresholdLabel
           fraction={highFraction}
           text="high"
-          color={thresholdColor}
+          color={light ? "#C2410C" : thresholdColor}
+          light={light}
         />
       )}
       {dangerFraction != null && !emphasis && (
         <ThresholdLabel
           fraction={dangerFraction}
           text="flood"
-          color="rgba(239,68,68,0.95)"
+          color={light ? "#B91C1C" : "rgba(239,68,68,0.95)"}
+          light={light}
         />
       )}
 
@@ -696,7 +721,8 @@ const ThresholdLabel: React.FC<{
   color: string;
   emphasis?: boolean;
   mono?: boolean;
-}> = ({ fraction, text, color, emphasis = false, mono = false }) => (
+  light?: boolean;
+}> = ({ fraction, text, color, emphasis = false, mono = false, light = false }) => (
   <div
     style={{
       position: "absolute",
@@ -709,7 +735,7 @@ const ThresholdLabel: React.FC<{
       fontFamily: mono ? "'Geist Mono', monospace" : "'Geist Sans', system-ui, sans-serif",
       whiteSpace: "nowrap",
       letterSpacing: 0.5,
-      textShadow: "0 1px 3px rgba(0,0,0,0.8)",
+      textShadow: light ? undefined : "0 1px 3px rgba(0,0,0,0.8)",
     }}
   >
     {text}

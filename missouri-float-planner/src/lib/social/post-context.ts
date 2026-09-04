@@ -20,7 +20,7 @@ import { pickSectionForRivers } from './section-picker';
 import { buildSocialRouteScene } from './route-scene';
 import { pickFavoriteFloat } from './favorite-floats';
 import { pickNotableTrend } from './trend-picker';
-import { hasRainComing, weatherChip } from '@/lib/weather/openweather';
+import { hasRainComing, weatherChip, type WeatherChip } from '@/lib/weather/openweather';
 import { WEEKEND_FLOATABLE, WEEKEND_SEVERITY } from '@shared/condition-system';
 import { upcomingHolidayWeekend } from './holiday-weekends';
 import {
@@ -52,6 +52,29 @@ const longDate = () =>
 
 const og = (type: string, platform: SocialPlatform, extra = '') =>
   `${BASE_URL}/api/og/social?type=${type}&platform=${platform}${extra}`;
+
+/** The weather chip as a cover URL param (`wx=high|low|precip|condition`), or
+ *  '' when there is no chip. Parsed back by the OG route's parseWeatherParam. */
+function weatherCoverParam(chip: WeatherChip | null | undefined): string {
+  if (!chip) return '';
+  const raw = [chip.highF ?? '', chip.lowF ?? '', chip.precipChance ?? '', chip.condition ?? ''].join('|');
+  return `&wx=${encodeURIComponent(raw)}`;
+}
+
+/** Everything the forecast cover displays, baked into its URL. */
+function forecastCoverParams(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  topRivers: any[],
+  usingFallback: boolean,
+): string {
+  const best = topRivers[0];
+  if (!best) return '';
+  return (
+    `&river=${best.river_slug}&condition=${best.condition_code}&ft=${best.gauge_height_ft ?? ''}` +
+    `&bets=${topRivers.length}&rain=${usingFallback ? 1 : 0}` +
+    weatherCoverParam(weatherChip(best.weather))
+  );
+}
 
 /** Cached AI background URL (og_backgrounds) by key — the same art the cover
  *  uses — so the reel video matches its cover. Null → existing behavior
@@ -181,7 +204,11 @@ export async function buildPostContext(
       },
       caption: (platform, custom) =>
         formatWeeklyForecastCaption(topRivers, custom, platform, usingFallback, holidayName ? { name: holidayName } : null),
-      imageUrl: (platform) => og('forecast', platform),
+      // Pin everything the cover displays — the best bet, its condition and
+      // reading, the weather chip, the bets count and the rain note — so Meta's
+      // crawl-time render is THIS forecast, not a re-pick from whatever is live
+      // then, and so the URL is unique per post (Meta caches covers by URL).
+      imageUrl: (platform) => og('forecast', platform, forecastCoverParams(topRivers, usingFallback)),
     };
   }
 
@@ -276,8 +303,18 @@ export async function buildPostContext(
       renderData: { ...trend, conditionCode, weather, dateLabel: 'This Week' },
       caption: (platform, custom) =>
         formatWeeklyTrendCaption({ ...trend, weather: latest?.weather ?? null }, custom, platform),
-      // Pin the river so Meta's crawl-time render is THIS trend, not a re-pick.
-      imageUrl: (platform) => og('trend', platform, `&river=${trend.riverSlug}`),
+      // Pin the river AND the instant: the cover re-derives the seven days as of
+      // this post's own asOf (trend-picker honours it), so its delta, range and
+      // sparkline match the reel instead of the gauge's later movement. The
+      // condition and weather chip are pinned too; asOf also makes the URL
+      // unique per post, which is what defeats Meta's by-URL cover cache.
+      imageUrl: (platform) =>
+        og(
+          'trend',
+          platform,
+          `&river=${trend.riverSlug}&asOf=${encodeURIComponent(nowIso)}&condition=${conditionCode}` +
+            weatherCoverParam(weather),
+        ),
     };
   }
 
@@ -323,7 +360,18 @@ export async function buildPostContext(
         backgroundUrl,
       },
       caption: (platform, custom) => formatRiverHighlightCaption(update, custom, platform),
-      imageUrl: (platform) => og('highlight', platform, `&river=${update.river_slug}`),
+      // Pin the exact eddy_update row plus the reading and condition the reel
+      // shows (the live-conditions overlay can move both), and the post's own
+      // timestamp for the cover's subtitle — so the cover Meta renders at crawl
+      // time is this report, not a later one, and the URL is unique per post.
+      imageUrl: (platform) =>
+        og(
+          'highlight',
+          platform,
+          `&river=${update.river_slug}&id=${encodeURIComponent(String(rawUpdate.id))}` +
+            `&ft=${update.gauge_height_ft ?? ''}&condition=${update.condition_code}` +
+            `&at=${encodeURIComponent(nowIso)}`,
+        ),
     };
   }
 

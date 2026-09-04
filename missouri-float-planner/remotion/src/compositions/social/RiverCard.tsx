@@ -6,11 +6,14 @@ import {
   interpolate,
 } from "remotion";
 import { SNAPPY } from "../../lib/spring-presets";
+import { fontFamilies } from "../../design-tokens/fonts";
+import { BrandPill } from "../../components/BrandCard";
 import {
   CONDITION_COLORS,
   type ConditionCode,
   type WeatherChipProps,
 } from "../../lib/social-props";
+import { SURFACES, TYPE, colors, conditionInk, tileStyle } from "../../../../shared/social-brand";
 
 interface RiverCardProps {
   riverName: string;
@@ -22,11 +25,12 @@ interface RiverCardProps {
   delay?: number;
   /** Card width */
   width?: number;
+  /** Card height — the type inside scales with it so ten rivers still fit. */
+  height?: number;
 }
 
-const FREDOKA = "'Fredoka', system-ui, sans-serif";
-const GEIST = "'Geist Sans', system-ui, sans-serif";
-const MONO = "'Geist Mono', 'SF Mono', monospace";
+const LIGHT = SURFACES.light;
+const RAIN_BLUE = "#2563EB";
 
 /** Simple SVG weather glyph — no emoji, so it renders the same in any Chromium
  *  (the GH Actions render box has no color-emoji font). */
@@ -38,11 +42,11 @@ const WeatherIcon: React.FC<{ condition: string; size?: number }> = ({ condition
   const clear = /clear|sun/.test(c);
 
   const cloud = (fill: string) => (
-    <g fill={fill}>
+    <g fill={fill} stroke={colors.neutral[900]} strokeWidth={2} strokeLinejoin="round">
       <circle cx={23} cy={35} r={11} />
       <circle cx={37} cy={29} r={14} />
       <circle cx={46} cy={37} r={10} />
-      <rect x={19} y={35} width={29} height={13} rx={6.5} />
+      <rect x={19} y={35} width={29} height={13} rx={6.5} stroke="none" />
     </g>
   );
   const sun = (cx: number, cy: number, r: number) => (
@@ -56,13 +60,13 @@ const WeatherIcon: React.FC<{ condition: string; size?: number }> = ({ condition
             y1={cy + Math.sin(rad) * (r + 4)}
             x2={cx + Math.cos(rad) * (r + 11)}
             y2={cy + Math.sin(rad) * (r + 11)}
-            stroke="#fbbf24"
+            stroke="#E5A000"
             strokeWidth={3.5}
             strokeLinecap="round"
           />
         );
       })}
-      <circle cx={cx} cy={cy} r={r} fill="#fbbf24" />
+      <circle cx={cx} cy={cy} r={r} fill="#FBBF24" stroke={colors.neutral[900]} strokeWidth={2} />
     </g>
   );
 
@@ -70,7 +74,7 @@ const WeatherIcon: React.FC<{ condition: string; size?: number }> = ({ condition
     <svg width={size} height={size} viewBox="0 0 64 64" style={{ display: "block" }}>
       {rainy || snowy ? (
         <>
-          {cloud("#9aa6b2")}
+          {cloud(colors.neutral[300])}
           {[26, 34, 42].map((x) => (
             <line
               key={x}
@@ -78,20 +82,20 @@ const WeatherIcon: React.FC<{ condition: string; size?: number }> = ({ condition
               y1={50}
               x2={x - 3}
               y2={58}
-              stroke={snowy ? "#e0f2fe" : "#60a5fa"}
+              stroke={snowy ? colors.primary[200] : RAIN_BLUE}
               strokeWidth={3}
               strokeLinecap="round"
             />
           ))}
         </>
       ) : cloudy ? (
-        cloud("#cbd5e1")
+        cloud(colors.neutral[200])
       ) : clear ? (
         sun(32, 32, 13)
       ) : (
         <>
           {sun(23, 23, 9)}
-          {cloud("#cbd5e1")}
+          {cloud(colors.neutral[200])}
         </>
       )}
     </svg>
@@ -99,11 +103,13 @@ const WeatherIcon: React.FC<{ condition: string; size?: number }> = ({ condition
 };
 
 /**
- * Single river card for the digest / forecast reels.
+ * Single river row for the digest / forecast reels — a white, ruled, shadowed
+ * card from the social design system.
  *
- * - Daily digest (no `weather`): name + gauge on the left, condition badge right.
- * - Weekend forecast (`weather` present): name + condition + gauge on the left,
- *   a prominent weather block (icon + high/low + rain) on the right.
+ * - Daily digest (no `weather`): swatch + name on the left, condition pill and
+ *   gauge reading on the right.
+ * - Weekend forecast (`weather` present): name + condition pill on the left, a
+ *   weather tile (icon + high/low + rain) on the right.
  */
 export const RiverCard: React.FC<RiverCardProps> = ({
   riverName,
@@ -111,21 +117,20 @@ export const RiverCard: React.FC<RiverCardProps> = ({
   gaugeHeightFt,
   weather,
   delay = 0,
-  width = 700,
+  width = 960,
+  height = 96,
 }) => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
   const condition = CONDITION_COLORS[conditionCode] ?? CONDITION_COLORS.unknown;
+  const k = Math.max(0.6, Math.min(1, height / 96));
 
   const entrance = spring({
     frame: frame - delay,
     fps,
     config: { ...SNAPPY, damping: 14 },
   });
-
-  const translateX = interpolate(entrance, [0, 1], [80, 0]);
-  const rotate = interpolate(entrance, [0, 1], [-2, 0]);
-  const scale = interpolate(entrance, [0, 1], [0.95, 1]);
+  const translateX = interpolate(entrance, [0, 1], [60, 0]);
 
   const temp =
     weather && weather.highF !== null && weather.lowF !== null
@@ -139,141 +144,99 @@ export const RiverCard: React.FC<RiverCardProps> = ({
     <div
       style={{
         opacity: entrance,
-        transform: `translateX(${translateX}px) rotate(${rotate}deg) scale(${scale})`,
+        transform: `translateX(${translateX}px)`,
         width,
+        height,
+        boxSizing: "border-box",
         display: "flex",
         alignItems: "center",
-        backgroundColor: "rgba(255,255,255,0.05)",
-        backdropFilter: "blur(8px)",
-        WebkitBackdropFilter: "blur(8px)",
+        justifyContent: "space-between",
+        gap: 16,
+        padding: `0 ${Math.round(22 * k)}px 0 ${Math.round(20 * k)}px`,
+        background: LIGHT.surface,
+        border: `4px solid ${LIGHT.rule}`,
         borderRadius: 16,
-        overflow: "hidden",
-        border: "1px solid rgba(255,255,255,0.08)",
+        boxShadow: `6px 6px 0 ${LIGHT.shadow}`,
       }}
     >
-      {/* Condition color bar */}
-      <div
-        style={{
-          width: 8,
-          alignSelf: "stretch",
-          backgroundColor: condition.solid,
-          boxShadow: `0 0 8px ${condition.glow}`,
-          flexShrink: 0,
-        }}
-      />
-
-      {/* Content */}
-      <div
-        style={{
-          flex: 1,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          padding: "20px 30px",
-        }}
-      >
+      {/* Left: condition swatch + river name (+ condition pill on the forecast) */}
+      <div style={{ display: "flex", alignItems: "center", gap: Math.round(16 * k), minWidth: 0 }}>
+        <div
+          style={{
+            flexShrink: 0,
+            width: Math.round(20 * k),
+            height: Math.round(20 * k),
+            borderRadius: "50%",
+            backgroundColor: condition.solid,
+            border: `3px solid ${LIGHT.chipRule}`,
+          }}
+        />
+        <div
+          style={{
+            fontFamily: fontFamilies.display,
+            fontSize: Math.round(TYPE.rowTitle.size * k),
+            fontWeight: TYPE.rowTitle.weight,
+            lineHeight: TYPE.rowTitle.lineHeight,
+            color: LIGHT.ink,
+            whiteSpace: "nowrap",
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+          }}
+        >
+          {riverName}
+        </div>
         {weather ? (
-          <>
-            {/* Left: name + condition + gauge */}
-            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-              <div style={{ fontFamily: FREDOKA, fontSize: 40, fontWeight: 600, color: "#fff" }}>
-                {riverName}
-              </div>
-              <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                <div
-                  style={{
-                    width: 13,
-                    height: 13,
-                    borderRadius: "50%",
-                    backgroundColor: condition.solid,
-                    boxShadow: `0 0 6px ${condition.solid}`,
-                  }}
-                />
-                <span style={{ fontFamily: FREDOKA, fontSize: 26, fontWeight: 600, color: condition.solid }}>
-                  {condition.label}
-                </span>
-                {gaugeHeightFt !== null && (
-                  <span style={{ fontFamily: MONO, fontSize: 22, color: "rgba(255,255,255,0.5)" }}>
-                    · {gaugeHeightFt.toFixed(1)} ft
-                  </span>
-                )}
-              </div>
-            </div>
-
-            {/* Right: prominent weather block */}
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 14,
-                backgroundColor: "rgba(255,255,255,0.06)",
-                border: "1px solid rgba(255,255,255,0.12)",
-                borderRadius: 16,
-                padding: "12px 22px",
-                flexShrink: 0,
-              }}
-            >
-              <WeatherIcon condition={weather.condition} size={58} />
-              <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-start" }}>
-                <span style={{ fontFamily: FREDOKA, fontSize: 34, fontWeight: 600, color: "#fff", lineHeight: 1.05 }}>
-                  {temp}
-                </span>
-                <span
-                  style={{
-                    fontFamily: GEIST,
-                    fontSize: 20,
-                    fontWeight: 500,
-                    color: showRain ? "#60a5fa" : "rgba(255,255,255,0.55)",
-                  }}
-                >
-                  {showRain ? `${weather.precipChance}% rain` : weather.condition}
-                </span>
-              </div>
-            </div>
-          </>
-        ) : (
-          <>
-            {/* Left: River name + gauge height */}
-            <div style={{ display: "flex", alignItems: "baseline", gap: 16 }}>
-              <div style={{ fontFamily: FREDOKA, fontSize: 40, fontWeight: 600, color: "#fff" }}>
-                {riverName}
-              </div>
-              {gaugeHeightFt !== null && (
-                <span style={{ fontFamily: MONO, fontSize: 24, color: "rgba(255,255,255,0.5)", fontWeight: 500 }}>
-                  {gaugeHeightFt.toFixed(1)} ft
-                </span>
-              )}
-            </div>
-
-            {/* Right: Condition badge */}
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 10,
-                backgroundColor: condition.bg,
-                padding: "10px 22px",
-                borderRadius: 999,
-                border: `1.5px solid ${condition.solid}`,
-                boxShadow: `0 0 10px ${condition.glow}`,
-              }}
-            >
-              <div
-                style={{
-                  width: 14,
-                  height: 14,
-                  borderRadius: "50%",
-                  backgroundColor: condition.solid,
-                  boxShadow: `0 0 6px ${condition.solid}`,
-                }}
-              />
-              <span style={{ fontFamily: FREDOKA, fontSize: 28, fontWeight: 600, color: condition.solid }}>
-                {condition.label}
-              </span>
-            </div>
-          </>
-        )}
+          <BrandPill fill={condition.solid} size={Math.round(17 * k)}>
+            {condition.label}
+          </BrandPill>
+        ) : null}
       </div>
+
+      {/* Right */}
+      {weather ? (
+        <div
+          style={{
+            ...tileStyle("light"),
+            display: "flex",
+            alignItems: "center",
+            gap: Math.round(12 * k),
+            padding: `${Math.round(6 * k)}px ${Math.round(16 * k)}px`,
+            flexShrink: 0,
+          }}
+        >
+          <WeatherIcon condition={weather.condition} size={Math.round(50 * k)} />
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-start" }}>
+            <span style={{ fontFamily: fontFamilies.display, fontSize: Math.round(28 * k), fontWeight: 650, color: LIGHT.ink, lineHeight: 1.05 }}>
+              {temp}
+            </span>
+            <span
+              style={{
+                fontSize: Math.round(17 * k),
+                fontWeight: 620,
+                color: showRain ? RAIN_BLUE : LIGHT.inkMuted,
+                whiteSpace: "nowrap",
+              }}
+            >
+              {showRain ? `${weather.precipChance}% rain` : weather.condition}
+            </span>
+          </div>
+        </div>
+      ) : (
+        <div style={{ display: "flex", alignItems: "center", gap: Math.round(16 * k), flexShrink: 0 }}>
+          {gaugeHeightFt !== null && (
+            <span style={{ fontFamily: fontFamilies.mono, fontSize: Math.round(22 * k), fontWeight: 650, color: LIGHT.inkMuted }}>
+              {gaugeHeightFt.toFixed(1)} ft
+            </span>
+          )}
+          <BrandPill fill={condition.solid} size={Math.round(20 * k)}>
+            {condition.label}
+          </BrandPill>
+        </div>
+      )}
     </div>
   );
 };
+
+/** Condition colour as text on the light surface (for a headline count). */
+export const conditionTextColor = (code: ConditionCode) =>
+  conditionInk((CONDITION_COLORS[code] ?? CONDITION_COLORS.unknown).solid);
