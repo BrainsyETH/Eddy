@@ -52,6 +52,7 @@ import {
   seasonalBandEligible,
 } from '@/lib/usgs/percentile-snapshot';
 import { flowBand, type FlowBand } from '@shared/flow-band';
+import { computeTrend } from '@shared/gauge-trend';
 import type { HistoryCapabilities } from '@/lib/flow-providers/types';
 import { toNum } from '@/lib/utils/num';
 import { withX402Route } from '@/lib/x402-config';
@@ -137,6 +138,17 @@ export interface GaugeDetail {
   readingAgeHours: number | null;
   readingSuspect: boolean;
   qualifierNote: string | null;
+  /**
+   * Which way the reading is going over roughly the last six hours.
+   *
+   * The SAME computation the river outlook publishes (shared/gauge-trend.ts,
+   * computeTrend over the last day of gauge_readings, in the unit the station
+   * is graded in), so the gauge card and the river card cannot disagree about
+   * direction. Null with fewer than two readings to compare. Carries no raw
+   * delta across the wire for the reason RiverReadingTrend gives: a delta is
+   * unit-dependent and the label is derived from percent change.
+   */
+  trend: { direction: 'rising' | 'falling' | 'steady'; label: string; windowHours: number } | null;
   /** 0-100 vs this site's own day-of-year history; null when none is held. */
   flowPercentile: number | null;
   /**
@@ -267,6 +279,21 @@ async function _GET(
 
     // Everything else keys off the station uuid and is independent, so it goes
     // out together rather than in a waterfall.
+    // The last day of readings, for the trend. Same window and the same table
+    // the outlook route reads; a failure here costs the pill and nothing else,
+    // which is why it is settled rather than awaited alongside the rest.
+    const trendSince = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+    const trendReadingsPromise = supabase
+      .from('gauge_readings')
+      .select('reading_timestamp, gauge_height_ft, discharge_cfs')
+      .eq('gauge_station_id', row.id)
+      .gte('reading_timestamp', trendSince)
+      .order('reading_timestamp', { ascending: true })
+      .then(
+        (result) => result.data ?? [],
+        () => [] as { reading_timestamp: string; gauge_height_ft: unknown; discharge_cfs: unknown }[],
+      );
+
     const [stationResult, currentReadings, linksResult] = await Promise.all([
       supabase
         .from('gauge_stations')
@@ -484,6 +511,40 @@ async function _GET(
 
     const floodStages: GaugeFloodStages | null = resolveFloodStages(station, curatedLink);
 
+    // ── The trend ───────────────────────────────────────────────────────────
+    // In the unit the station is GRADED in, like the outlook route: a curated
+    // station follows its primary ladder's unit, a reference station follows
+    // discharge (what its percentile describes) and falls back to stage. Never
+    // computed for a suspect reading — a direction derived from an ice-affected
+    // series is a claim the qualifier has already withdrawn.
+    const trendUnit: 'ft' | 'cfs' =
+      orderedThresholds[0]?.thresholdUnit === 'ft'
+        ? 'ft'
+        : orderedThresholds[0]?.thresholdUnit === 'cfs'
+          ? 'cfs'
+          : dischargeCfs != null
+            ? 'cfs'
+            : 'ft';
+    const trendRows = await trendReadingsPromise;
+    const computedTrend = suspect
+      ? null
+      : computeTrend(
+          trendRows.map((r) => ({
+            timestamp: r.reading_timestamp,
+            gaugeHeightFt: toNum(r.gauge_height_ft),
+            dischargeCfs: toNum(r.discharge_cfs),
+          })),
+          trendUnit,
+          6,
+        );
+    const trend: GaugeDetail['trend'] = computedTrend
+      ? {
+          direction: computedTrend.direction,
+          label: computedTrend.label,
+          windowHours: computedTrend.windowHours,
+        }
+      : null;
+
     const waterTemperature = await waterTemperaturePromise;
     const dissolvedOxygen = await dissolvedOxygenPromise;
 
@@ -529,6 +590,7 @@ async function _GET(
       readingAgeHours: ageHoursOf(readingTimestamp),
       readingSuspect: suspect,
       qualifierNote: note,
+      trend,
       flowPercentile: row.flow_percentile,
       seasonalContext,
       historyCapabilities: getFlowProvider(provider)?.historyCapabilities ?? {

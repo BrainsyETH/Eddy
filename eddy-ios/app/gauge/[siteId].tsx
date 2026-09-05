@@ -53,7 +53,6 @@ import {
   conditionBg,
   conditionChipBorder,
   conditionInk,
-  conditionLongLabel,
   conditionText,
 } from '@/theme/conditions';
 import { flowBandChip, flowBandLabel, flowBandSentence } from '@/theme/flow';
@@ -63,6 +62,7 @@ import {
 } from '@/theme/floodStage';
 import { safetySummarySentence, summarizeSafety } from '@eddy/conditions/safety-summary';
 import { isReadingStale } from '@eddy/conditions/reading-staleness';
+import { presentReading } from '@eddy/conditions/reading-presentation';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
 import { SafetyDisclaimer } from '@/components/SafetyDisclaimer';
@@ -89,6 +89,7 @@ import { EddyTake } from '@/components/EddyTake';
 import { GaugeChart } from '@/components/GaugeChart';
 import { ReadingScale } from '@/components/ReadingScale';
 import { ShareButton } from '@/components/ShareButton';
+import { TrendPill } from '@/components/TrendPill';
 import { FeedbackSheet } from '@/components/FeedbackSheet';
 import { PaywallSheet } from '@/components/PaywallSheet';
 import { premiumPitch } from '@/lib/premiumCopy';
@@ -408,10 +409,21 @@ export default function GaugeDetailScreen() {
   // A suspect reading is displayed beside its caveat and is never graded — the
   // identical rule gaugeConditionCode and flowBandFor both apply before they
   // will colour anything.
-  const code =
+  const classified =
     rated && link && !gauge.readingSuspect
       ? classifyReading(gauge.gaugeHeightFt, link, gauge.dischargeCfs, { strictUnit: true })
       : 'unknown';
+
+  // ── And a STALE reading is never graded in the present tense ──────────────
+  // This screen used to colour a three-day-old number "Good - Floatable" with a
+  // green otter beside it while the NWS line on the same card, six lines down,
+  // withheld its comparison for the same reading. One resolver decides now:
+  // past the shared six-hour line the paintable code is `unknown`, the chip
+  // says "Last known: Good", the otter is the flag, and no trend is drawn. The
+  // number itself stays — an old number with an honest age beats no number.
+  const presented = presentReading(classified, gauge.readingAgeHours);
+  const code = presented.paintCode;
+  const staleReading = value != null && !presented.fresh;
 
   const band = gauge.readingSuspect ? null : flowBand(gauge.flowPercentile);
   const bandChip = flowBandChip(band, colors);
@@ -582,7 +594,21 @@ export default function GaugeDetailScreen() {
               >
                 {value != null && unit ? formatReading(value, unit) : 'No reading'}
               </Text>
-              {age ? (
+              {/* Rising or falling, beside the number rather than buried in
+                  the chart header — it is the second thing a reader wants
+                  after the number and it must not depend on the history
+                  request succeeding. Withheld with the verdict once stale:
+                  a trend is a claim about now. */}
+              {presented.showTrend && gauge.trend ? (
+                <View style={styles.trendRow}>
+                  <TrendPill
+                    direction={gauge.trend.direction}
+                    label={gauge.trend.label}
+                    enclosed={false}
+                  />
+                </View>
+              ) : null}
+              {age && !staleReading ? (
                 <Text style={[styles.age, { color: colors.textSubtle }]}>{age}</Text>
               ) : null}
             </View>
@@ -608,7 +634,7 @@ export default function GaugeDetailScreen() {
                 ]}
               >
                 <Text style={[styles.chipText, { color: conditionInk(code) }]}>
-                  {conditionLongLabel(code)}
+                  {presented.label}
                 </Text>
               </View>
             ) : (
@@ -624,6 +650,19 @@ export default function GaugeDetailScreen() {
               </View>
             )}
           </View>
+
+          {/* The age, PROMOTED, when it is the reason the chip went grey. The
+              12pt subtle line under the number was the only thing saying a
+              confident verdict was three days old; once the verdict is
+              withheld the age is the headline fact and reads at body size. */}
+          {staleReading && age ? (
+            <View style={styles.staleRow}>
+              <Ionicons name="time-outline" size={15} color={colors.text} />
+              <Text style={[styles.staleText, { color: colors.text }]}>
+                {age.replace('Updated', 'Last reported')}. Conditions may have changed since.
+              </Text>
+            </View>
+          ) : null}
 
           {/* The caveat that explains a grey chip, rather than leaving an
               ungraded reading looking like a missing one. */}
@@ -1027,6 +1066,9 @@ const styles = StyleSheet.create({
   readingText: { flex: 1 },
   reading: { ...t['3xl'], fontFamily: fonts.mono },
   age: { ...t.xs, fontFamily: fonts.body, marginTop: 2 },
+  trendRow: { flexDirection: 'row', marginTop: 4 },
+  staleRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 6, marginTop: 12 },
+  staleText: { ...t.sm, fontFamily: fonts.medium, flex: 1 },
   chip: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: 999, borderWidth: 1 },
   chipText: { ...t.xs, fontFamily: fonts.semibold },
   // Sized to the labels it stands in for — "Floatable" and "Much lower than

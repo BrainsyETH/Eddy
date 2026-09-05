@@ -61,6 +61,68 @@ function coord(point: DrivePoint): string {
   return `${point.coordinates.lat},${point.coordinates.lng}`;
 }
 
+/** Anything a curator may have recorded a parking coordinate for. */
+export interface ParkablePoint {
+  name: string;
+  coordinates: { lng: number; lat: number };
+  drivingLat?: number | null;
+  drivingLng?: number | null;
+}
+
+/**
+ * Where a drive to an access point should end, and whether that is the
+ * parking or the water.
+ *
+ * A gravel bar's coordinate sits on the waterline; its parking can be a quarter
+ * mile up a track. `drivingLat/Lng` is that parking when an admin has entered
+ * it, and it is what navigation must prefer — routing someone to the waterline
+ * hands them a destination with no road to it and a track they may not be able
+ * to reverse out of.
+ *
+ * Most access points (372 of 406 at the last count) have NO parking coordinate,
+ * so the fallback is the common case, not the edge. That is why this returns
+ * `usedParking` beside the point rather than silently choosing: the surface
+ * that draws the Directions button has to be able to say which of the two it
+ * is about to open. One helper, so the sentence it justifies is written once
+ * (NO_PARKING_COORDINATE_NOTE) and the choice is made the same way on the
+ * access screen, the plan result and the map sheet.
+ *
+ * The coordinate choice itself is @eddy/geo's navCoordinatesFor, shared with
+ * the website, so the two cannot disagree about where "there" is.
+ */
+export interface DriveTarget {
+  point: DrivePoint;
+  /** True when the drive ends at a recorded parking coordinate. */
+  usedParking: boolean;
+}
+
+export function driveTargetFor(accessPoint: ParkablePoint): DriveTarget {
+  const nav = navCoordinatesFor(accessPoint);
+  return {
+    point: { name: nav.label ?? accessPoint.name, coordinates: { lat: nav.lat, lng: nav.lng } },
+    usedParking: accessPoint.drivingLat != null && accessPoint.drivingLng != null,
+  };
+}
+
+/**
+ * Said beside a Directions button that will end at the water.
+ *
+ * Plain about the consequence rather than the data model: "no parking
+ * coordinate recorded" is our problem, "stop where the road ends" is theirs.
+ */
+export const NO_PARKING_COORDINATE_NOTE =
+  'No parking location recorded — directions point to the mapped river access. Stop where the road ends.';
+
+/** The label a Directions button wears for each of the two destinations. */
+export function directionsLabel(target: DriveTarget): string {
+  return target.usedParking ? 'Directions' : 'Directions to the water';
+}
+
+/** "37.3762, -91.5563" — for the Garmin or onX user who types coordinates by hand. */
+export function coordinateLine(point: DrivePoint): string {
+  return `${point.coordinates.lat.toFixed(4)}, ${point.coordinates.lng.toFixed(4)}`;
+}
+
 /** Directions from wherever the phone is now to a single point. */
 export function driveToUrl(point: DrivePoint): string {
   return `https://maps.apple.com/?daddr=${encodeURIComponent(coord(point))}&dirflg=d`;

@@ -80,7 +80,6 @@ import {
   conditionColor,
   conditionInk,
   conditionLongLabel,
-  conditionShortLabel,
 } from '@/theme/conditions';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
@@ -128,7 +127,8 @@ import { useStarredRivers } from '@/hooks/useStarredRivers';
 import { readBestIndex, readConditions } from '@/lib/riverCache';
 import { useRiverData } from '@/hooks/useRiverData';
 import { selectEddySays } from '@/lib/eddySays';
-import { effectiveReadingAgeHours, readingBand } from '@/lib/offline-cache';
+import { effectiveReadingAgeHours } from '@/lib/offline-cache';
+import { presentReading } from '@eddy/conditions/reading-presentation';
 import { shareInFlight } from '@/lib/shareInFlight';
 import { goBack } from '@/lib/nav';
 import { TrendPill } from '@/components/TrendPill';
@@ -1127,7 +1127,15 @@ export default function RiverDetailScreen() {
    */
   const cachedReading = cachedReadingAgeHours !== undefined && !pickedGauge;
   const readingAgeHours = cachedReading ? cachedReadingAgeHours : rawReadingAgeHours;
-  const band = cachedReading ? readingBand(cachedReadingAgeHours ?? null) : 'fresh';
+  // ── One resolver, live and cached alike ─────────────────────────────────
+  // The band used to be computed for CACHED readings only; a live reading
+  // from a station that stopped reporting on Tuesday kept its present-tense
+  // verdict. @eddy/conditions/reading-presentation now decides for both, on
+  // the same six-hour line the gauge screen and the website use. A river with
+  // no reading at all has nothing to age, so it stays on the fresh path and
+  // its chip reads the plain "Unknown".
+  const presented = presentReading(code, readingAgeHours);
+  const band = reading ? presented.band : 'fresh';
   // A grey chip over a confident label would be the screen arguing with itself.
   const shownCode = band === 'fresh' ? code : 'unknown';
   const shownGaugeName = pickedGauge ? pickedGauge.name : condition?.gaugeName;
@@ -1326,9 +1334,7 @@ export default function RiverDetailScreen() {
                       "Floatable" — and an instruction is a claim about right
                       now. A reading recovered from disk names what was last
                       seen and stops there. */}
-                  {band === 'fresh'
-                    ? conditionLongLabel(code)
-                    : `Last known: ${conditionShortLabel(code)}`}
+                  {band === 'fresh' ? conditionLongLabel(code) : presented.label}
                 </Text>
               </View>
               {reading ? (

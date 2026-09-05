@@ -340,10 +340,18 @@ export function touchViewportGaugeIndex(
   return [...entries.filter((entry) => entry.key !== key), hit];
 }
 
-/** Past this, the number itself is withheld rather than shown with a hedge. */
-export const UNUSABLE_READING_HOURS = 48;
-
-export type ReadingBand = 'fresh' | 'stale' | 'expired';
+/**
+ * The bands themselves now live in @eddy/conditions/reading-presentation, so the
+ * live gauge screen and the cached river screen cross the same lines — this
+ * file was one of two definitions and the other one (the gauge screen's) had
+ * none at all. Re-exported here so every existing caller and the web suite's
+ * offline-cache test keep their import.
+ */
+export {
+  UNUSABLE_READING_HOURS,
+  readingBand,
+  type ReadingBand,
+} from '@eddy/conditions/reading-presentation';
 
 /**
  * How old a stored reading ACTUALLY is, as opposed to how old it says it is.
@@ -378,22 +386,6 @@ export function effectiveReadingAgeHours(
   // so the stored age is the floor.
   const elapsedHours = elapsedMs > 0 ? elapsedMs / 3_600_000 : 0;
   return storedAgeHours + elapsedHours;
-}
-
-/**
- * Which of the three presentations a reading has earned.
- *
- *   fresh    the ordinary condition colour, plus an offline glyph
- *   stale    grey, and the label becomes "Last known: Good" — the SHORT label,
- *            because the long one is an instruction and a two-day-old reading
- *            has no business instructing anyone
- *   expired  grey, and the number is not shown at all
- */
-export function readingBand(effectiveAgeHours: number | null): ReadingBand {
-  if (effectiveAgeHours === null) return 'expired';
-  if (effectiveAgeHours < STALE_READING_HOURS) return 'fresh';
-  if (effectiveAgeHours < UNUSABLE_READING_HOURS) return 'stale';
-  return 'expired';
 }
 
 /** A cached gauge may keep its number, but not an old interpretation of it. */

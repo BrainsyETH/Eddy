@@ -36,6 +36,7 @@ import type {
   GaugeFloodStages,
   MapGauge,
   MapGaugeLite,
+  RiverReadingTrend,
   SearchResult,
 } from '@eddy/types';
 import { stationTier } from '@eddy/conditions/station-tier';
@@ -119,6 +120,16 @@ export interface GaugeSeed {
    * every list seed. Display it only WITH its measurement time.
    */
   waterTemperature: { valueF: number; observedAt: string } | null;
+  /**
+   * Which way the reading is going, from the detail fetch only.
+   *
+   * Computed server-side by the same function the river outlook uses, so the
+   * gauge card and the river card cannot disagree about direction. Null on
+   * every list seed and on a detail from a deploy that predates the field —
+   * the card simply draws no pill. Never shown for a stale reading: a trend is
+   * a claim about now (see @eddy/conditions/reading-presentation).
+   */
+  trend: RiverReadingTrend | null;
 }
 
 /**
@@ -188,6 +199,7 @@ export function seedFromMapGauge(gauge: MapGauge): GaugeSeed | null {
     thresholds: gauge.thresholds ?? null,
     floodStages: null,
     waterTemperature: null,
+    trend: null,
   };
 }
 
@@ -214,6 +226,7 @@ export function seedFromMapGaugeLite(gauge: MapGaugeLite): GaugeSeed {
     thresholds: null,
     floodStages: null,
     waterTemperature: null,
+    trend: null,
   };
 }
 
@@ -255,6 +268,7 @@ export function seedFromSearchResult(result: SearchResult): GaugeSeed | null {
     thresholds: null,
     floodStages: null,
     waterTemperature: null,
+    trend: null,
   };
 }
 
@@ -312,6 +326,7 @@ export function seedFromStar(star: {
     thresholds: null,
     floodStages: null,
     waterTemperature: null,
+    trend: null,
   };
 }
 
@@ -383,5 +398,6 @@ export function seedFromDetail(gauge: GaugeDetail): GaugeSeed {
     thresholds: gauge.thresholds,
     floodStages: gauge.floodStages,
     waterTemperature: gauge.waterTemperature ?? null,
+    trend: gauge.trend ?? null,
   };
 }

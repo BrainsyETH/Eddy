@@ -13,16 +13,20 @@
 //   3. How much water is through the turbines?  the cfs figure
 //   4. When does generation change?             the next-change panel
 //
-// ── Why the percentage is the headline, and why the bar and release left ───
-// This block used to say the same magnitude three ways — "About 6 of 8
-// generators' worth", then a capacity bar labelled "72% of full generation",
-// then "Total release at dam", which on a hydropower project is the turbine
-// figure again plus or minus a spillway that is almost always shut. Three
-// statements of one fact stacked the top of the screen tall enough to push the
-// schedule below the fold. The rack still draws the unit picture; the one
-// sentence beneath it is now the percentage, which is the number a reader can
-// check against SWPA's published table. Release stays on the flood-control
-// projects, where DamStateCard is the only surface that carries it.
+// ── The STATE is the headline; the unit phrase and the percentage follow ────
+// The on/off fact is what a wader opens this screen for, and it used to be the
+// smallest text in the block: 11pt letter-spaced caps under the same lightning
+// glyph whether the units were running or not. It now leads at reading size,
+// the glyph switches between `flash` and `flash-off-outline`, and the off state
+// draws an EMPTY rack so the page keeps its shape either way.
+//
+// Beneath the rack, "About 6 of 8 generators' worth" is printed for sighted
+// readers — it was computed and handed only to VoiceOver. Units are the mental
+// model anglers use; the percentage stays as the second line because it is the
+// number a reader can check against SWPA's published table. "Total release at
+// dam" stays off this block: on a hydropower project it is the turbine figure
+// again plus or minus a spillway that is almost always shut, and it lives on
+// DamStateCard for the flood-control projects.
 //
 // ── Why a generator rack and not just a percentage ─────────────────────────
 // "Six generators" is the unit anglers already think in, and it makes a
@@ -47,6 +51,7 @@ import {
   generationPercentLabel,
   generationStatusLabel,
   generationVoiceOver,
+  generatorEquivalentPhrase,
   generatorRack,
   nowNextClauses,
   scheduledClauseProvenance,
@@ -133,8 +138,18 @@ export function DamGenerationHero({
   if (!status) return null;
 
   const ref = dam.generationReference;
-  const rack = state.kind === 'generating' ? generatorRack(state.turbineCfs, ref) : null;
-  const percent = state.kind === 'generating' ? generationPercentLabel(state.fraction) : null;
+  const generating = state.kind === 'generating';
+  const rack = generating ? generatorRack(state.turbineCfs, ref) : null;
+  const percent = generating ? generationPercentLabel(state.fraction) : null;
+  // The unit phrase, visible. It rides beside the rack it explains and is
+  // hedged by generatorEquivalentPhrase itself ("About", never a unit count).
+  const unitPhrase = generating ? generatorEquivalentPhrase(state.equivalents, ref) : null;
+  // The off state draws the same rack, unlit. `ref.units` is the nameplate
+  // count; without a reference there is no rack to leave empty.
+  const emptyCells =
+    state.kind === 'not-generating' && ref && Number.isFinite(ref.units) && ref.units > 0
+      ? ref.units
+      : 0;
   const clauses = nowNextClauses(state, dam.schedule, ref);
   const voiceOver = generationVoiceOver(state, ref);
   const provenance = scheduledClauseProvenance(dam.schedule, ref);
@@ -147,9 +162,18 @@ export function DamGenerationHero({
 
   return (
     <View style={embedded ? undefined : [styles.card, { backgroundColor: colors.card }, elevation(2)]}>
+      {/* The state, at reading size and in sentence case. The glyph is the
+          second carrier: lit for generating, struck through otherwise, so the
+          two states differ in shape as well as in words. Muted rather than
+          teal for the off state — teal is the "live instrument" colour and an
+          idle powerhouse is not one. */}
       <View style={styles.statusRow}>
-        <Ionicons name="flash" size={13} color={colors.interactive} />
-        <Text style={[styles.status, { color: colors.interactive }]}>{status.toUpperCase()}</Text>
+        <Ionicons
+          name={generating ? 'flash' : 'flash-off-outline'}
+          size={20}
+          color={generating ? colors.interactive : colors.textMuted}
+        />
+        <Text style={[styles.status, { color: colors.text }]}>{status}</Text>
       </View>
 
       {/* The rack, the number and the bar are one figure. It is hidden from
@@ -172,6 +196,23 @@ export function DamGenerationHero({
               />
             ))}
           </View>
+        ) : emptyCells > 0 ? (
+          <View style={styles.rack}>
+            {Array.from({ length: emptyCells }, (_, i) => (
+              <GeneratorCell
+                key={i}
+                fill={0}
+                on={colors.border}
+                off={colors.cardRaised}
+                channel={colors.card}
+              />
+            ))}
+          </View>
+        ) : null}
+
+        {/* Units, in words, for the people the rack was drawn for. */}
+        {unitPhrase ? (
+          <Text style={[styles.units, { color: colors.text }]}>{unitPhrase}</Text>
         ) : null}
 
         {/* The headline is the percentage. The label names what it is a
@@ -262,9 +303,10 @@ export function DamGenerationHero({
 
 const styles = StyleSheet.create({
   card: { borderRadius: 14, padding: 16, gap: 10 },
-  statusRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  status: { fontSize: 11, lineHeight: 15, fontFamily: fonts.heading, letterSpacing: 0.6 },
-  rack: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 2 },
+  statusRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  status: { ...t.xl, fontFamily: fonts.heading, flexShrink: 1 },
+  rack: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 6 },
+  units: { ...t.sm, fontFamily: fonts.semibold, marginTop: 8 },
   cell: {
     width: 20,
     height: 32,
@@ -274,7 +316,7 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   cellChannel: { position: 'absolute', top: 4, bottom: 4, left: '50%', width: 1, opacity: 0.7 },
-  headline: { ...t.lg, fontFamily: fonts.display, marginTop: 8, fontVariant: ['tabular-nums'] },
+  headline: { ...t.lg, fontFamily: fonts.display, marginTop: 4, fontVariant: ['tabular-nums'] },
   // The "of full generation" qualifier, at reading weight beside the figure so
   // the number leads and what it is a share of follows.
   headlineAside: { fontSize: 15, lineHeight: 20, fontFamily: fonts.medium },

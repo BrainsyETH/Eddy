@@ -80,8 +80,12 @@ import { FeedbackSheet } from '@/components/FeedbackSheet';
 import { goBack } from '@/lib/nav';
 import { readRiver } from '@/lib/riverCache';
 import {
+  coordinateLine,
+  directionsLabel,
+  driveTargetFor,
   driveToUrl,
   installedNavLinks,
+  NO_PARKING_COORDINATE_NOTE,
   openNavLink,
   type NavLinkSpec,
 } from '@/lib/directions';
@@ -109,17 +113,22 @@ const SERVICE_ICON: Record<string, keyof typeof Ionicons.glyphMap> = {
 };
 
 /**
- * Where to actually drive.
+ * Where to actually drive, and whether that is the parking or the water.
  *
  * `drivingLat/Lng` when the curator recorded one, the access point's own
  * coordinate otherwise. Never a name — "Akers Ferry" is ambiguous to a geocoder
  * and most Ozark access points are not in one at all, which is the rule the
  * whole of directions.ts is built on.
+ *
+ * The seeded state below WITHHOLDS the button for want of a parking coordinate.
+ * The loaded state used to draw an identical button either way, which meant
+ * the safety argument applied for half a second and then lapsed: once the
+ * detail landed without a parking coordinate, the same waterline target was
+ * offered with nothing said. driveTargetFor returns which of the two it chose
+ * so the button and the line beneath it can say so.
  */
 function driveTarget(point: AccessPointDetail) {
-  const lat = point.drivingLat ?? point.coordinates.lat;
-  const lng = point.drivingLng ?? point.coordinates.lng;
-  return { name: point.name, coordinates: { lng, lat } };
+  return driveTargetFor(point);
 }
 
 /**
@@ -582,6 +591,7 @@ export default function AccessPointDetailScreen() {
   const hasFacilities =
     point.amenities.length > 0 || Boolean(point.facilities) || Boolean(point.npsCampground);
   const hasNotes = Boolean(point.description) || Boolean(tips);
+  const drive = driveTarget(point);
 
   return (
     <SafeAreaView style={[styles.screen, { backgroundColor: colors.bg }]} edges={['top']}>
@@ -671,7 +681,7 @@ export default function AccessPointDetailScreen() {
             this screen from a list already decided they are interested. */}
         <View style={styles.actions}>
           <Pressable
-            onPress={() => void Linking.openURL(driveToUrl(driveTarget(point)))}
+            onPress={() => void Linking.openURL(driveToUrl(drive.point))}
             style={({ pressed }) => [
               styles.primaryAction,
               {
@@ -679,10 +689,16 @@ export default function AccessPointDetailScreen() {
               },
             ]}
             accessibilityRole="button"
-            accessibilityLabel={`Directions to ${point.name}`}
+            accessibilityLabel={
+              drive.usedParking
+                ? `Directions to ${point.name}`
+                : `Directions to the water at ${point.name}. No parking location recorded.`
+            }
           >
             <Ionicons name="navigate" size={17} color={colors.onAccent} />
-            <Text style={[styles.primaryActionText, { color: colors.onAccent }]}>Directions</Text>
+            <Text style={[styles.primaryActionText, { color: colors.onAccent }]} numberOfLines={2}>
+              {directionsLabel(drive)}
+            </Text>
           </Pressable>
 
           {/* ── BACK TO THE MAP, WITH THIS PLACE SELECTED ────────────
@@ -735,6 +751,28 @@ export default function AccessPointDetailScreen() {
             </Pressable>
           ) : null}
         </View>
+
+        {/* ── Where Directions actually ends ─────────────────────
+            Said BEFORE the handoff, on the screen, rather than discovered at
+            the end of a track with a trailer on. The coordinates are printed
+            for the Garmin and onX users who type them by hand — the last mile
+            to an Ozark put-in is routinely a road that consumer maps refuse,
+            and a number they can copy is the one thing that always works. */}
+        {!drive.usedParking ? (
+          <View style={styles.driveNote}>
+            <Ionicons name="alert-circle-outline" size={14} color={colors.textMuted} />
+            <Text style={[styles.driveNoteText, { color: colors.textMuted }]}>
+              {NO_PARKING_COORDINATE_NOTE}
+            </Text>
+          </View>
+        ) : null}
+        <Text
+          style={[styles.coordinates, { color: colors.textMuted }]}
+          selectable
+          accessibilityLabel={`${drive.usedParking ? 'Parking' : 'River access'} coordinates ${coordinateLine(drive.point)}`}
+        >
+          {drive.usedParking ? 'Parking' : 'River access'} · {coordinateLine(drive.point)}
+        </Text>
 
         {/* ── The last half mile ──────────────────────────────────
             Apple Maps above will get you to the area. What it will not do is
@@ -1083,6 +1121,15 @@ const styles = StyleSheet.create({
   stat: { paddingHorizontal: 9, paddingVertical: 4, borderRadius: 8 },
   statText: { ...t.xs, fontFamily: fonts.medium },
   actions: { flexDirection: 'row', gap: 10, paddingHorizontal: 16, marginTop: 16 },
+  driveNote: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 6,
+    paddingHorizontal: 20,
+    marginTop: 10,
+  },
+  driveNoteText: { ...t.sm, fontFamily: fonts.medium, flex: 1 },
+  coordinates: { ...t.xs, fontFamily: fonts.mono, paddingHorizontal: 20, marginTop: 6 },
   /** Under the seeded body, where the sections the request is still fetching go. */
   seedPending: { alignItems: 'center', marginTop: 28 },
   primaryAction: {

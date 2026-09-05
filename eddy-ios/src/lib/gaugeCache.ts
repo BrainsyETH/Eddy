@@ -58,6 +58,9 @@ export async function readGauge(siteId: string): Promise<GaugeSeed | null> {
       thresholds: conditionIsFresh ? stored.payload.thresholds : null,
       flowPercentile: conditionIsFresh ? stored.payload.flowPercentile : null,
       floodStages: conditionIsFresh ? stored.payload.floodStages : null,
+      // A direction is a claim about now, same as the verdict. Entries written
+      // before the field existed read as undefined and normalise to null.
+      trend: conditionIsFresh ? (stored.payload.trend ?? null) : null,
     };
   } catch {
     return null;

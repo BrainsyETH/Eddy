@@ -1130,6 +1130,15 @@ export interface GaugeDetail {
   readingAgeHours: number | null;
   readingSuspect: boolean;
   qualifierNote: string | null;
+  /**
+   * Which way the reading is going over roughly the last six hours.
+   *
+   * Computed by the backend with the same function the river outlook uses, in
+   * the unit the station is graded in, so a gauge card and a river card can
+   * never disagree about direction. Optional because deploys before it shipped
+   * send nothing; null when fewer than two readings exist to compare.
+   */
+  trend?: RiverReadingTrend | null;
   /** 0-100 vs this site's own day-of-year history; null when none is held. */
   flowPercentile: number | null;
   /**
