@@ -88,6 +88,11 @@ interface WeeklyReviewData {
   topPerformers: number;
 }
 
+interface RiverOption {
+  slug: string;
+  name: string;
+}
+
 const BRAND_BADGES: Record<string, { label: string; className: string }> = {
   pending: { label: 'Pending', className: 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30' },
   approved: { label: 'Approved', className: 'bg-green-500/20 text-green-400 border-green-500/30' },
@@ -112,18 +117,6 @@ const POST_STATUS_CLASS: Record<string, string> = {
 const PLATFORM_ABBR: Record<string, string> = { instagram: 'IG', facebook: 'FB', tiktok: 'TT' };
 const PLATFORM_LABEL: Record<string, string> = { instagram: 'Instagram', facebook: 'Facebook', tiktok: 'TikTok' };
 
-// River options for the metadata editor (fix a null/wrong river_slug).
-const RIVER_OPTIONS: [string, string][] = [
-  ['meramec', 'Meramec River'],
-  ['current', 'Current River'],
-  ['eleven-point', 'Eleven Point River'],
-  ['jacks-fork', 'Jacks Fork River'],
-  ['niangua', 'Niangua River'],
-  ['big-piney', 'Big Piney River'],
-  ['huzzah', 'Huzzah Creek'],
-  ['courtois', 'Courtois Creek'],
-];
-
 // Rows per library page. The API caps `limit` at 100, so this must stay <= 100.
 const PAGE_SIZE = 50;
 
@@ -141,6 +134,7 @@ export default function ClipsAdminPage() {
 
   // ─── Library state ───
   const [clips, setClips] = useState<ClipItem[]>([]);
+  const [riverOptions, setRiverOptions] = useState<RiverOption[]>([]);
   const [clipCount, setClipCount] = useState(0);
   const [clipOffset, setClipOffset] = useState(0);
   const [clipFilter, setClipFilter] = useState({ brand_status: '', river_slug: '' });
@@ -149,6 +143,8 @@ export default function ClipsAdminPage() {
   // current page.
   const [selectedClips, setSelectedClips] = useState<Map<string, ClipItem>>(new Map());
   const [previewClip, setPreviewClip] = useState<ClipItem | null>(null);
+  const [brandCheckingClip, setBrandCheckingClip] = useState<string | null>(null);
+  const [brandCheckError, setBrandCheckError] = useState<{ clipId: string; message: string } | null>(null);
 
   // ─── Pipeline state ───
   const [pipelineUrl, setPipelineUrl] = useState('');
@@ -191,6 +187,7 @@ export default function ClipsAdminPage() {
         }
         setClips(page);
         setClipCount(data.total || 0);
+        setRiverOptions(data.riverOptions || []);
       }
     } catch (err) {
       console.error('Failed to fetch clips:', err);
@@ -242,20 +239,45 @@ export default function ClipsAdminPage() {
 
   // ─── Brand check ───
   const triggerBrandCheck = async (clipId: string) => {
+    setBrandCheckingClip(clipId);
+    setBrandCheckError(null);
     try {
       const res = await adminFetch('/api/admin/clips/brand-check', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ clipId }),
       });
+      const data = await res.json().catch(() => ({}));
       if (res.ok) {
-        // Update local state
+        const inReview = {
+          brand_check_status: 'review',
+          brand_check_result: null,
+          brand_check_error: null,
+        };
         setClips((prev) =>
-          prev.map((c) => (c.id === clipId ? { ...c, brand_check_status: 'review' } : c)),
+          prev.map((c) => (c.id === clipId ? { ...c, ...inReview } : c)),
         );
+        setPreviewClip((clip) => (clip?.id === clipId ? { ...clip, ...inReview } : clip));
+      } else {
+        const message = data.error || `Brand check failed (${res.status})`;
+        const failed = { brand_check_status: 'failed', brand_check_error: message };
+        setBrandCheckError({ clipId, message });
+        setClips((prev) => prev.map((clip) => (clip.id === clipId ? { ...clip, ...failed } : clip)));
+        setPreviewClip((clip) => (clip?.id === clipId ? { ...clip, ...failed } : clip));
+        await fetchClips();
       }
     } catch (err) {
       console.error('Brand check failed:', err);
+      const message = 'Brand check failed: network error';
+      setBrandCheckError({ clipId, message });
+      setClips((prev) => prev.map((clip) => (
+        clip.id === clipId ? { ...clip, brand_check_status: 'failed', brand_check_error: message } : clip
+      )));
+      setPreviewClip((clip) => (
+        clip?.id === clipId ? { ...clip, brand_check_status: 'failed', brand_check_error: message } : clip
+      ));
+    } finally {
+      setBrandCheckingClip(null);
     }
   };
 
@@ -448,14 +470,9 @@ export default function ClipsAdminPage() {
                 className="px-3 py-2 bg-neutral-800 border border-neutral-600 rounded-lg text-white text-sm"
               >
                 <option value="">All Rivers</option>
-                <option value="meramec">Meramec River</option>
-                <option value="current">Current River</option>
-                <option value="eleven-point">Eleven Point River</option>
-                <option value="jacks-fork">Jacks Fork River</option>
-                <option value="niangua">Niangua River</option>
-                <option value="big-piney">Big Piney River</option>
-                <option value="huzzah">Huzzah Creek</option>
-                <option value="courtois">Courtois Creek</option>
+                {riverOptions.map((river) => (
+                  <option key={river.slug} value={river.slug}>{river.name}</option>
+                ))}
               </select>
               <button
                 onClick={fetchClips}
@@ -475,6 +492,12 @@ export default function ClipsAdminPage() {
                 )}
               </span>
             </div>
+
+            {brandCheckError && (
+              <div className="p-3 bg-red-500/10 border border-red-500/30 rounded-lg text-sm text-red-300">
+                {brandCheckError.message}
+              </div>
+            )}
 
             {/* Clips table */}
             {clips.length === 0 ? (
@@ -600,19 +623,23 @@ export default function ClipsAdminPage() {
                                 {clip.brand_check_status === 'pending' && (
                                   <button
                                     onClick={() => triggerBrandCheck(clip.id)}
-                                    className="p-1.5 text-neutral-400 hover:text-green-400 transition-colors"
+                                    disabled={brandCheckingClip === clip.id}
+                                    className="p-1.5 text-neutral-400 hover:text-green-400 transition-colors disabled:opacity-40"
                                     title="Run brand check"
                                   >
-                                    <ShieldCheck className="w-4 h-4" />
+                                    {brandCheckingClip === clip.id
+                                      ? <RefreshCw className="w-4 h-4 animate-spin" />
+                                      : <ShieldCheck className="w-4 h-4" />}
                                   </button>
                                 )}
                                 {(clip.brand_check_status === 'review' || clip.brand_check_status === 'failed') && (
                                   <button
                                     onClick={() => triggerBrandCheck(clip.id)}
-                                    className="p-1.5 text-neutral-400 hover:text-blue-400 transition-colors"
+                                    disabled={brandCheckingClip === clip.id}
+                                    className="p-1.5 text-neutral-400 hover:text-blue-400 transition-colors disabled:opacity-40"
                                     title="Retry brand check"
                                   >
-                                    <RefreshCw className="w-4 h-4" />
+                                    <RefreshCw className={`w-4 h-4 ${brandCheckingClip === clip.id ? 'animate-spin' : ''}`} />
                                   </button>
                                 )}
                                 {clip.brand_check_status !== 'approved' && (
@@ -743,15 +770,9 @@ export default function ClipsAdminPage() {
                       className="w-full px-3 py-2 bg-neutral-900 border border-neutral-600 rounded-lg text-white"
                     >
                       <option value="">Auto-detect</option>
-                      <option value="meramec">Meramec River</option>
-                      <option value="current">Current River</option>
-                      <option value="eleven-point">Eleven Point River</option>
-                      <option value="jacks-fork">Jacks Fork River</option>
-                      <option value="niangua">Niangua River</option>
-                      <option value="big-piney">Big Piney River</option>
-                      <option value="huzzah">Huzzah Creek</option>
-                      <option value="courtois">Courtois Creek</option>
-                      <option value="gasconade">Gasconade River</option>
+                      {riverOptions.map((river) => (
+                        <option key={river.slug} value={river.slug}>{river.name}</option>
+                      ))}
                     </select>
                   </div>
                   <div>
@@ -1097,8 +1118,8 @@ export default function ClipsAdminPage() {
                       className="flex-1 px-3 py-2 bg-neutral-800 border border-neutral-600 rounded-lg text-white text-sm disabled:opacity-40"
                     >
                       <option value="">— none —</option>
-                      {RIVER_OPTIONS.map(([slug, label]) => (
-                        <option key={slug} value={slug}>{label}</option>
+                      {riverOptions.map((river) => (
+                        <option key={river.slug} value={river.slug}>{river.name}</option>
                       ))}
                     </select>
                   </div>
@@ -1125,9 +1146,11 @@ export default function ClipsAdminPage() {
                     )}
                     <button
                       onClick={() => triggerBrandCheck(previewClip.id)}
-                      className="flex items-center gap-2 px-3 py-2 bg-neutral-700 text-white rounded-lg text-sm font-medium hover:bg-neutral-600 transition-colors"
+                      disabled={brandCheckingClip === previewClip.id}
+                      className="flex items-center gap-2 px-3 py-2 bg-neutral-700 text-white rounded-lg text-sm font-medium hover:bg-neutral-600 transition-colors disabled:opacity-40"
                     >
-                      <RefreshCw className="w-4 h-4" /> Re-run brand check
+                      <RefreshCw className={`w-4 h-4 ${brandCheckingClip === previewClip.id ? 'animate-spin' : ''}`} />
+                      {brandCheckingClip === previewClip.id ? 'Dispatching…' : 'Re-run brand check'}
                     </button>
                   </div>
                   <div className="pt-2 border-t border-neutral-700/50">
@@ -1178,14 +1201,14 @@ export default function ClipsAdminPage() {
                 <div className="flex gap-2 pt-2">
                   {previewClip.brand_check_status === 'pending' && (
                     <button
-                      onClick={() => {
-                        triggerBrandCheck(previewClip.id);
-                        setPreviewClip(null);
-                      }}
-                      className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700 transition-colors"
+                      onClick={() => triggerBrandCheck(previewClip.id)}
+                      disabled={brandCheckingClip === previewClip.id}
+                      className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700 transition-colors disabled:opacity-40"
                     >
-                      <ShieldCheck className="w-4 h-4" />
-                      Run Brand Check
+                      {brandCheckingClip === previewClip.id
+                        ? <RefreshCw className="w-4 h-4 animate-spin" />
+                        : <ShieldCheck className="w-4 h-4" />}
+                      {brandCheckingClip === previewClip.id ? 'Dispatching…' : 'Run Brand Check'}
                     </button>
                   )}
                   {previewClip.source_url && (

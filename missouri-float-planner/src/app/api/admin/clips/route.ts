@@ -118,7 +118,23 @@ export async function GET(request: NextRequest) {
     return { ...c, ...derivePostState(resolved) };
   });
 
-  return NextResponse.json({ clips: enriched, total: count });
+  // Keep every clip-library river selector tied to the canonical table. The
+  // admin previously carried three separate hard-coded lists, so newly added
+  // rivers could not be filtered, assigned, or sent to the extraction pipeline.
+  const { data: riverRows, error: riverError } = await supabase
+    .from('rivers')
+    .select('slug, name')
+    .order('name', { ascending: true });
+
+  if (riverError) {
+    console.error('Error fetching clip-library river options:', riverError);
+  }
+
+  return NextResponse.json({
+    clips: enriched,
+    total: count,
+    riverOptions: riverRows || [],
+  });
 }
 
 const ALLOWED_STATUSES = ['pending', 'approved', 'rejected', 'review', 'failed'];
