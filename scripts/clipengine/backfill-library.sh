@@ -59,6 +59,7 @@ ROWS=$(jq -c --argjson limit "$LIMIT" \
   '[.[]
     | select(((.used_in_posts // []) | length) == 0)
     | select((((.brand_check_error // "") | startswith("Corrected rerender")) | not))
+    | select(((.clip_url | contains("-peakbackfill-")) | not))
   ] | .[:$limit]' \
   "$INVENTORY")
 COUNT=$(jq 'length' <<<"$ROWS")
