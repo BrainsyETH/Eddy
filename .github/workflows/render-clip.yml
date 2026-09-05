@@ -14,6 +14,7 @@ name: Render Clip
 on:
   workflow_dispatch:
     inputs:
+      clip_id:          { description: 'Existing clip_library UUID to replace in place (empty = insert a new row)', required: false, type: string, default: '' }
       video_url:        { description: 'Public URL of the RAW extracted clip', required: true, type: string }
       youtube_video_id: { description: 'Source YouTube video id', required: true, type: string }
       river_slug:       { description: 'Detected river slug (empty = Tier 2, generic Ozark paddling)', required: false, type: string, default: '' }
@@ -129,6 +130,7 @@ jobs:
           ORIENTATION: ${{ inputs.orientation }}
           HEATMAP_SCORE: ${{ inputs.heatmap_score }}
           CATEGORY: ${{ inputs.category }}
+          CLIP_ID: ${{ inputs.clip_id }}
         run: |
           python3 - <<'PY'
           import json, os, urllib.request, urllib.parse
@@ -177,17 +179,45 @@ jobs:
               except Exception as e:
                   print(f"river validation skipped: {e}")
 
+          clip_id = os.environ.get("CLIP_ID") or ""
+          method = "POST"
+          target = f"{os.environ['SUPABASE_URL']}/rest/v1/clip_library"
+          if clip_id:
+              # A corrected rerender replaces the existing library asset in
+              # place. Keep its identity, source metadata, and post history;
+              # only replace the rendered media and restart brand review.
+              row = {
+                  "clip_url": row["clip_url"],
+                  "duration_secs": row["duration_secs"],
+                  "orientation": row["orientation"],
+                  "brand_check_status": "pending",
+                  "brand_check_result": None,
+                  "brand_check_error": None,
+                  "posting_claimed_at": None,
+              }
+              method = "PATCH"
+              target += (
+                  f"?id=eq.{urllib.parse.quote(clip_id, safe='')}"
+                  f"&youtube_video_id=eq.{urllib.parse.quote(os.environ['VIDEO_ID'], safe='')}"
+              )
+
           req = urllib.request.Request(
-              f"{os.environ['SUPABASE_URL']}/rest/v1/clip_library",
+              target,
               data=json.dumps(row).encode(),
               headers={
                   "apikey": os.environ["SUPABASE_KEY"],
                   "Authorization": f"Bearer {os.environ['SUPABASE_KEY']}",
                   "Content-Type": "application/json",
-                  "Prefer": "return=minimal",
-              }, method="POST")
+                  "Prefer": "return=representation",
+              }, method=method)
           with urllib.request.urlopen(req, timeout=15) as r:
-              print("Inserted clip_library:", r.status)
+              changed = json.loads(r.read() or "[]")
+              if len(changed) != 1:
+                  raise RuntimeError(
+                      f"Expected exactly one clip_library row, changed {len(changed)}"
+                  )
+              verb = "Replaced" if clip_id else "Inserted"
+              print(f"{verb} clip_library: {changed[0]['id']}")
           PY
 
   # Dispatchers fire-and-forget, so a failed render/persist would otherwise just

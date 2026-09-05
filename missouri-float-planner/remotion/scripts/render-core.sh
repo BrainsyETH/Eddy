@@ -79,6 +79,16 @@ else
   } >> "$GITHUB_OUTPUT"
 fi
 
+# A successful Remotion process is not sufficient proof of a healthy upload.
+# Decode the exact muxed artifact and verify its duration. Clip renders also
+# reject sustained duplicated frames; data-driven social reels intentionally
+# contain static holds, so they receive the decode/duration gate only.
+if [ "$AUDIO_MODE" = "clip" ]; then
+  bash scripts/video-health.sh "$OUTFILE" 4 2
+else
+  bash scripts/video-health.sh "$OUTFILE" 4 off
+fi
+
 # Upload to Vercel Blob.
 DATE_PREFIX=$(date -u +%Y-%m-%d)
 BLOB_PATH="${BLOB_PREFIX}/${DATE_PREFIX}/${OUTPUT_FILENAME}.mp4"

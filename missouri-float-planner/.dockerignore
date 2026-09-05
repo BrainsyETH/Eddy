@@ -1,0 +1,11 @@
+**
+!remotion/
+!remotion/**
+remotion/node_modules
+remotion/build
+remotion/out
+remotion/.git
+remotion/*.mp4
+remotion/test/baselines
+!shared/
+!shared/**

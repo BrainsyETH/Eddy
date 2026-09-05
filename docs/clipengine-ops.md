@@ -174,22 +174,30 @@ isn't a fit but whose flood clips are. Seeded with `@serrasolsesmedia` and
 Cloud-only Remotion (`clip-reel` composition), PR #715/#750. `run-local.sh`
 hard-requires Blob + Supabase creds + `gh` and never renders locally. Brand
 primitives shared across all reels live in `remotion/src/` (`lib/brand.ts`,
-`ReelBrandFrame.tsx`, `BrandCTA.tsx`, `ReelMasthead.tsx`), all drawn from the
+`ReelBrandFrame.tsx`, `ReelMasthead.tsx`), all drawn from the
 social design system (`shared/social-brand.ts`, `docs/social-design-system.md`)
 — the same tokens as every other reel and cover. Transcript captions come from
-`vtt-to-captions.py` and render as subtitles over the media. The button on a
-paddling clip (either tier) and its cover is `Get the app →` (`CTA.download`)
-and the caption ends on `Download the Eddy River Guide on iOS`
-(`CLIP_CAPTION_CTA`) — a reposted clip has no float page of its own to promise,
-so it sells the app. High-water clips keep the gauge CTA below. The CI still
-gate renders `clip-reel` and `clip-reel-high-water` over the bundled promo
-footage, so a change to the clip's chrome is caught like any other reel's.
+`vtt-to-captions.py` and render as subtitles over the media. Reels and covers
+draw no fake CTA button; the real call to action remains in the caption as
+`Download the Eddy River Guide on iOS` (`CLIP_CAPTION_CTA`). High-water clips
+keep their safety guidance as information in the dock. The CI still gate
+renders `clip-reel` and `clip-reel-high-water` over the bundled promo footage,
+so a change to the clip's chrome is caught like any other reel's.
 
 ## Download efficiency & reliability
 
 - `extract-clip.sh` downloads only the clip window
   (`yt-dlp --download-sections`, ±3s pad) — ~14 MB instead of the full video;
   falls back to a full download when the windowed grab is empty (PR #740).
+- Extraction is fail-closed: a non-zero windowed download cannot leave behind a
+  partial MP4 that passes on file existence alone, FFmpeg errors propagate, and
+  output is normalized to a generated 30 fps timeline with asynchronous audio
+  resampling.
+- `remotion/scripts/video-health.sh` fully decodes clips, requires a real video
+  stream and ≥4 seconds of proven duration, and rejects a duplicated-frame run
+  longer than 2 seconds. It runs after extraction and again on the final muxed
+  artifact before Blob upload. Data-only reels use its decode/duration checks
+  without the freeze rule because intentional static holds are part of them.
 - Channel listing calls use `--socket-timeout 30 --retries 3` so a stalled
   YouTube connection can't hang a scheduled run for hours.
 - **YouTube bot-check is the #1 failure mode on CI** (shared IPs): "Sign in to

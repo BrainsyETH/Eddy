@@ -199,11 +199,31 @@ jobs:
               with urllib.request.urlopen(req, timeout=30, context=ssl_ctx) as resp:
                   data = json.loads(resp.read())
                   text = data["content"][0]["text"]
-                  json_match = re.search(r'\{[^{}]+\}', text, re.DOTALL)
-                  if json_match:
-                      result = json.loads(json_match.group())
-                  else:
-                      result = {"verdict": "REVIEW", "reasoning": text}
+                  # Models occasionally return otherwise valid JSON with a
+                  # stray backslash before punctuation (for example ``\_``).
+                  # Try the exact object first, then escape only invalid JSON
+                  # backslashes. A still-malformed response is a human-review
+                  # result, not an infrastructure failure or silent approval.
+                  start = text.find("{")
+                  end = text.rfind("}")
+                  result = None
+                  if start >= 0 and end > start:
+                      candidate = text[start:end + 1]
+                      attempts = [
+                          candidate,
+                          re.sub(r'\\(?!["\\/bfnrtu])', r'\\\\', candidate),
+                      ]
+                      for attempt in attempts:
+                          try:
+                              result = json.loads(attempt)
+                              break
+                          except json.JSONDecodeError:
+                              pass
+                  if not isinstance(result, dict):
+                      result = {
+                          "verdict": "REVIEW",
+                          "reasoning": "Model response was not valid JSON: " + text[:800],
+                      }
           except Exception as e:
               # An API/configuration failure is not a human-review verdict. Let
               # the step fail so the cleanup step marks the clip retryable.

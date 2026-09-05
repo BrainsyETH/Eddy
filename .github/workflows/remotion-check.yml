@@ -57,12 +57,15 @@ jobs:
       - name: Typecheck
         run: npx tsc --noEmit -p tsconfig.json
 
+      - name: Video health gate tests
+        run: npm run test:video-health
+
       - name: Render smoke test
         # Stills of each data-driven composition with its registered defaultProps
         # catch runtime crashes; the frame list lives in test/check-stills.sh so
         # this gate and `npm run render:check-stills` can't drift. clip-reel
         # renders over the bundled promo footage (its Root.tsx defaultProps), so
-        # the captions, credit and CTA it alone draws are covered too.
+        # the captions and creator credit it alone draws are covered too.
         run: npm run render:check-stills
 
       # update_baselines mode: adopt the freshly rendered stills as the canonical
