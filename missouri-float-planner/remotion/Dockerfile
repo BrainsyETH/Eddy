@@ -1,6 +1,6 @@
 # Prebuilt render image for the Eddy social pipeline: Node + Chrome Headless
 # Shell + the Remotion deps and a prebuilt bundle, all baked in. Renders start
-# from /app/build with no `npm ci`, no browser download, and no bundling — which
+# from /app/remotion/build with no `npm ci`, no browser download, and no bundling — which
 # turns a multi-minute cold start into seconds. Rebuilt by
 # build-remotion-image.yml on changes under remotion/.
 FROM node:22-bookworm-slim
@@ -19,22 +19,26 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
       curl ca-certificates jq bc gawk ffmpeg \
     && rm -rf /var/lib/apt/lists/*
 
-WORKDIR /app
+WORKDIR /app/remotion
 
 # Remotion ships + manages its own Chrome Headless Shell; never let Puppeteer
 # download a second browser.
 ENV PUPPETEER_SKIP_DOWNLOAD=true
 
 # Install deps first so the layer cache survives source-only changes.
-COPY package*.json ./
+COPY remotion/package*.json ./
 RUN npm ci
 
 # Bake the project source, the Chrome Headless Shell, and a prebuilt bundle.
 # `remotion bundle` embeds ./public (fonts, eddy PNGs, audio) into ./build, so
 # renders need neither --public-dir nor a checkout.
-COPY . .
+COPY remotion/ .
+# Remotion deliberately imports the product's canonical shared social tokens
+# rather than carrying a second copy. Preserve the repository-relative layout
+# inside the image so those imports resolve during bundling.
+COPY shared/ ../shared/
 RUN npx remotion browser ensure
 RUN npx remotion bundle src/index.ts --out-dir=build
 
 # Renders run from the baked bundle, e.g.:
-#   npx remotion render /app/build <composition-id> /tmp/out.mp4 --props=/tmp/props.json
+#   npx remotion render /app/remotion/build <composition-id> /tmp/out.mp4 --props=/tmp/props.json

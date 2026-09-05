@@ -71,7 +71,7 @@ jobs:
             echo "use_container=false" >> "$GITHUB_OUTPUT"
           fi
 
-  # ── Fast path: render in the prebuilt image from the baked /app/build bundle.
+  # ── Fast path: render in the prebuilt /app/remotion/build bundle.
   container-render:
     needs: preflight
     if: ${{ needs.preflight.outputs.use_container == 'true' }}
@@ -87,7 +87,7 @@ jobs:
         password: ${{ secrets.GITHUB_TOKEN }}
     defaults:
       run:
-        working-directory: /app
+        working-directory: /app/remotion
     outputs:
       clip_url: ${{ steps.core.outputs.clip_url }}
       audio_verified: ${{ steps.core.outputs.audio_verified }}
