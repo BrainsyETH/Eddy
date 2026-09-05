@@ -306,6 +306,27 @@ async function main() {
   }
 
   // ── Apply ─────────────────────────────────────────────────────────────
+  //
+  // The migration that adds `position_source` has to be in front of this run.
+  // Without it every insert below fails on an unknown column, which is a loud
+  // enough failure — but it fails 22 times after the report has already
+  // printed, and the operator has to read past the results to find out nothing
+  // was written. One probe, one sentence, no partial run.
+  {
+    const probe = await supabase
+      .from('points_of_interest')
+      .select('position_source')
+      .limit(1);
+    if (probe.error) {
+      throw new Error(
+        'points_of_interest.position_source is missing — apply migration ' +
+          '20260904120000_a_spring_is_a_spring_and_a_cabin_is_not.sql first. ' +
+          'Without it these rows cannot record that their positions are derived, ' +
+          `and every one would read as surveyed. (${probe.error.message})`,
+      );
+    }
+  }
+
   let written = 0;
   for (const s of kept) {
     const description = s.sourceText.slice(0, 500);
@@ -321,6 +342,15 @@ async function main() {
       river_mile: s.mile,
       active: true,
       is_on_water: true,
+      // ── THE FIELD THAT KEEPS THIS HONEST ────────────────────────────
+      // Every row this script writes has an INTERPOLATED position, and
+      // `toSpring` reads a missing value as 'surveyed' — correct for the rows
+      // that predate the column, and a lie about every row here. Without this
+      // line the whole approximate/surveyed distinction collapses silently:
+      // the pins draw, the callouts read as confident, and nothing fails.
+      // It is also what gates `positionBracketMiles`, so omitting it throws
+      // away the error bar as well as the label.
+      position_source: 'derived_from_river_mile',
       raw_data: {
         source_mile: s.sourceMile,
         side: s.side,

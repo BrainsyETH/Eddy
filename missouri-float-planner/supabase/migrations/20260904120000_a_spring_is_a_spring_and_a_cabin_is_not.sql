@@ -48,9 +48,15 @@ update points_of_interest
    and type = 'spring';
 
 -- 2. Alley Spring: the attached row becomes the spring it is, and the orphan
---    duplicate is retired rather than deleted — it may carry images or text
---    somebody wrote, and `active = false` is how this table already says "not
---    on the map" (see the six inactive rows it arrived with).
+--    duplicate is pointed at it.
+--
+--    The orphan is ALREADY `active = false` in production — it is not being
+--    switched off here, and the `set active = false` below is a no-op that
+--    holds the invariant rather than a change. What this statement actually
+--    does is leave a pointer in the description, so the next person to open
+--    the row learns why it is dark instead of reactivating a duplicate. It is
+--    retired rather than deleted because it may carry images or text somebody
+--    wrote.
 update points_of_interest
    set type = 'spring',
        updated_at = now()
