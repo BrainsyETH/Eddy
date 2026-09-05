@@ -10,20 +10,15 @@
 // know", and it is the only thing this module ever puts an "@" in front of. An
 // @mention in an Instagram caption tags whichever account owns that handle, so
 // a YouTube handle guessed into an "@" would tag a stranger — the channel name
-// is written out instead, and Facebook (where links are clickable) gets the
-// source video's URL so the credit still leads back to the creator.
-
-import { CTA, DOWNLOAD_URL } from '@shared/social-brand';
-import type { SocialPlatform } from './types';
+// is written out instead.
 
 export interface ClipSource {
   source_creator: string | null;
   youtube_channel?: string | null;
-  source_url?: string | null;
 }
 
-/** The caption's call to action: the button copy plus the typeable link. */
-export const CLIP_CAPTION_CTA = `${CTA.download} → ${DOWNLOAD_URL}`;
+/** The caption's closing call to action — the full line the button abbreviates. */
+export const CLIP_CAPTION_CTA = 'Download the Eddy River Guide on iOS';
 
 /** "@handle" when the credit is a known Instagram account, else null. */
 export function clipCreditHandle(clip: ClipSource): string | null {
@@ -54,42 +49,38 @@ export function clipCreditLine(clip: ClipSource): string | null {
 }
 
 /**
- * The clickable link back to the source video — Facebook only. Instagram
- * captions are not clickable, so a URL there is noise under the credit.
+ * True when the caption carries the canonical credit line itself — not merely
+ * the creator's name somewhere in the prose. "Thanks @creator" is a mention,
+ * but it is not the attribution the pipeline promised, so it does not count.
  */
-export function clipSourceLine(clip: ClipSource, platform: SocialPlatform): string | null {
-  if (platform !== 'facebook') return null;
-  const url = (clip.source_url || '').trim();
-  return /^https?:\/\/\S+$/.test(url) ? `▶️ Full video: ${url}` : null;
-}
-
-/** True when the caption already names the creator (handle or channel). */
 export function captionCreditsClip(caption: string, clip: ClipSource): boolean {
-  const lower = caption.toLowerCase();
-  const handle = clipCreditHandle(clip);
-  if (handle) return lower.includes(handle.toLowerCase());
-  const channel = clipChannelName(clip);
-  return channel !== '' && lower.includes(channel.toLowerCase());
-}
-
-/**
- * The caption with the credit guaranteed present. The AI is asked to keep the
- * credit line verbatim; this is the backstop for a draft that dropped it.
- */
-export function ensureClipCredit(caption: string, clip: ClipSource): string {
   const line = clipCreditLine(clip);
-  if (!line || captionCreditsClip(caption, clip)) return caption;
-  return `${caption.trimEnd()}\n\n${line}`;
+  return line !== null && caption.toLowerCase().includes(line.toLowerCase());
+}
+
+/** A line that is (a variant of) the CTA — matched so it can be moved last. */
+function isCtaLine(line: string): boolean {
+  return /download the eddy river guide/i.test(line);
 }
 
 /**
- * The caption with the download call to action guaranteed present. Checks for
- * the link, not the words: a draft that mentions the app in passing but never
- * tells people where to get it still needs the line.
+ * The caption body in its promised shape: prose, then the canonical credit
+ * line, then the CTA as the LAST line. The model is asked for exactly this
+ * order and to keep both lines verbatim; this is the backstop for a draft that
+ * dropped the credit, reworded the CTA, or put the CTA before the credit.
+ * Any CTA line the draft already carries is lifted out and re-appended, so
+ * restoring the credit can never bury the CTA.
  */
-export function ensureClipCta(caption: string): string {
-  if (caption.toLowerCase().includes(DOWNLOAD_URL.toLowerCase())) return caption;
-  return `${caption.trimEnd()}\n\n${CLIP_CAPTION_CTA}`;
+export function finalizeClipBody(body: string, clip: ClipSource): string {
+  const kept = body
+    .split('\n')
+    .filter((line) => !isCtaLine(line))
+    .join('\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+  const credit = clipCreditLine(clip);
+  const withCredit = credit && !captionCreditsClip(kept, clip) ? `${kept}\n\n${credit}` : kept;
+  return `${withCredit}\n${CLIP_CAPTION_CTA}`;
 }
 
 /** The caption body (no hashtag block yet) plus the hashtags to post with it. */
@@ -110,30 +101,19 @@ export interface ClipCaptionDraft {
  */
 export function buildClipCaption(riverName: string | null, clip: ClipSource): ClipCaptionDraft {
   const hasRiver = !!(riverName && riverName.trim());
-  const credit = clipCreditLine(clip);
-  const lines = [hasRiver ? `🛶 ${riverName}.` : '🛶 Ozark paddling.', ''];
-  if (credit) lines.push(credit);
-  lines.push(CLIP_CAPTION_CTA);
+  const body = finalizeClipBody(hasRiver ? `🛶 ${riverName}.` : '🛶 Ozark paddling.', clip);
   const hashtags = hasRiver
     ? ['#' + riverName!.replace(/[^A-Za-z0-9]/g, ''), '#kayaking', '#canoe', '#float', '#paddling', '#Ozarks', '#Missouri', '#eddyguide']
     : ['#kayaking', '#canoe', '#float', '#paddling', '#Ozarks', '#eddyguide'];
-  return { body: lines.join('\n'), hashtags };
+  return { body, hashtags };
 }
 
 /**
- * Assemble the caption that is actually posted to one platform: the body (credit
- * and CTA already guaranteed), the Facebook-only source link, then the hashtag
+ * The caption that is actually posted: the finalized body, then the hashtag
  * block — unless the body already carries hashtags inline.
  */
-export function assembleClipCaption(
-  body: string,
-  hashtags: string[],
-  clip: ClipSource,
-  platform: SocialPlatform,
-): string {
+export function assembleClipCaption(body: string, hashtags: string[]): string {
   const parts = [body.trim()];
-  const source = clipSourceLine(clip, platform);
-  if (source) parts.push(source);
   if (hashtags.length && !/#\w/.test(body)) parts.push(hashtags.join(' '));
   return parts.join('\n\n');
 }

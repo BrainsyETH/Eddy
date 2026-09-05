@@ -35,6 +35,12 @@ STILLS=(
   "social-trend-portrait:0,120"
   "social-digest:0,120"
   "social-digest-portrait:0,200"
+  # The clip wrapper over the bundled promo footage (Root.tsx fixture): frame 0
+  # is the thumbnail, 45 has the subtitle up over the media card with the
+  # tagged creator beside the button. The high-water variant checks the dock
+  # when the safety payload owns the detail line.
+  "clip-reel:0,45"
+  "clip-reel-high-water:45"
 )
 
 for entry in "${STILLS[@]}"; do

@@ -79,14 +79,14 @@ clip cover's subtitle.
 At post time (`src/lib/social/clip-credit.ts`, used by `clip-poster.ts` and
 the caption model) the caption carries `🎥 Clip via @handle` — on Instagram
 that @mention is what actually tags the creator — or, with no handle known,
-`🎥 Clip via <channel> on YouTube`. Facebook captions also get
-`▶️ Full video: <source_url>` (links are clickable there; on Instagram they are
-noise). **A YouTube handle is never promoted to an `@`**: an Instagram mention
-tags whoever owns that username, and the two rarely coincide by anything but
-luck. Add the Instagram handle to `channels.json` instead. The AI caption is
-asked to keep the credit and CTA lines verbatim, and both are restored if a
-draft drops them. Backlog rows still credit by name (their `source_creator` is
-the channel name) until they are re-rendered.
+`🎥 Clip via <channel> on YouTube`. **A YouTube handle is never promoted to an
+`@`**: an Instagram mention tags whoever owns that username, and the two
+rarely coincide by anything but luck. Add the Instagram handle to
+`channels.json` instead. The AI caption is asked to keep the credit line
+verbatim and end on the CTA; `finalizeClipBody` enforces that shape (credit
+line present, CTA last) on whatever the model returns. Backlog rows still
+credit by name (their `source_creator` is the channel name) until they are
+re-rendered.
 
 ## Dedup
 
@@ -177,12 +177,13 @@ primitives shared across all reels live in `remotion/src/` (`lib/brand.ts`,
 `ReelBrandFrame.tsx`, `BrandCTA.tsx`, `ReelMasthead.tsx`), all drawn from the
 social design system (`shared/social-brand.ts`, `docs/social-design-system.md`)
 — the same tokens as every other reel and cover. Transcript captions come from
-`vtt-to-captions.py` and render in the system's caption chip. The button on a
-paddling clip (either tier), its cover and its caption is
-`Download the Eddy River Guide on iOS` (`CTA.download`; the caption adds
-`→ eddy.guide/ios`, which redirects to the App Store listing) — a reposted
-clip has no float page of its own to promise, so it sells the app. High-water
-clips keep the gauge CTA below.
+`vtt-to-captions.py` and render as subtitles over the media. The button on a
+paddling clip (either tier) and its cover is `Get the app →` (`CTA.download`)
+and the caption ends on `Download the Eddy River Guide on iOS`
+(`CLIP_CAPTION_CTA`) — a reposted clip has no float page of its own to promise,
+so it sells the app. High-water clips keep the gauge CTA below. The CI still
+gate renders `clip-reel` and `clip-reel-high-water` over the bundled promo
+footage, so a change to the clip's chrome is caught like any other reel's.
 
 ## Download efficiency & reliability
 

@@ -36,8 +36,8 @@ fi
 
 # Tier 1 (known river) vs Tier 2 (no river → generic "Ozark paddling"). Tier 2
 # drops the river + Missouri hashtags (the clip may be out of state). Both end
-# on the app download CTA (shared/social-brand.ts CTA.download + DOWNLOAD_URL).
-CTA="Download the Eddy River Guide on iOS → eddy.guide/ios"
+# on the app download CTA (src/lib/social/clip-credit.ts CLIP_CAPTION_CTA).
+CTA="Download the Eddy River Guide on iOS"
 if [ -n "$RIVER" ]; then
   HEADER="🛶 ${RIVER}."
   TAGS="#${RIVER//[^A-Za-z0-9]/} #kayaking #canoe #float #paddling #Ozarks #Missouri #eddyguide"

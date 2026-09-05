@@ -1,10 +1,9 @@
 import React from "react";
-import { AbsoluteFill, spring } from "remotion";
+import { AbsoluteFill } from "remotion";
 import { EddyMascot } from "./EddyMascot";
 import { ReelMasthead } from "./ReelMasthead";
 import { ReelDock } from "./ReelDock";
 import { Captions } from "./Captions";
-import { ENTRANCE } from "../lib/spring-presets";
 import { REEL_SAFE } from "../lib/reel-safe";
 import { NEUTRAL_ACCENT, PLAN_CTA } from "../lib/brand";
 import { fontFamilies } from "../design-tokens/fonts";
@@ -55,9 +54,6 @@ interface ReelBrandFrameProps {
   /** Full-bleed blurred copy of the media (e.g. a muted OffthreadVideo) drawn
    *  behind the media card. Ignored for `fullBleed` sources. */
   backdrop?: React.ReactNode;
-  /** Current frame + fps, for staggered entrances. */
-  frame: number;
-  fps: number;
   /** The media itself (e.g. an OffthreadVideo); the frame positions it. */
   children: React.ReactNode;
 }
@@ -78,13 +74,14 @@ export const ReelBrandFrame: React.FC<ReelBrandFrameProps> = ({
   captions,
   fullBleed = false,
   backdrop,
-  frame,
-  fps,
   children,
 }) => {
-  const titleIn = spring({ frame: frame - 6, fps, config: ENTRANCE });
-  const dockIn = spring({ frame: frame - 16, fps, config: ENTRANCE });
+  // No entrances: frame 0 is the grid thumbnail and the first autoplay frame,
+  // so the title, the credit and the button are all present from the start —
+  // the same "honest frame zero" rule every other reel follows. The footage
+  // is the only thing that moves.
   const dark = SURFACES.dark;
+  const creditLine = creatorCredit ? `🎥 Clip via ${creatorCredit}` : undefined;
 
   return (
     <AbsoluteFill style={{ backgroundColor: dark.ground, color: dark.ink, fontFamily: fontFamilies.body }}>
@@ -130,7 +127,6 @@ export const ReelBrandFrame: React.FC<ReelBrandFrameProps> = ({
         label={label}
         labelFill={labelFill}
         title={title}
-        titleOpacity={titleIn}
         overMedia
         aside={<EddyMascot variant="canoe" size={96} delay={-30} float={false} />}
       />
@@ -151,12 +147,14 @@ export const ReelBrandFrame: React.FC<ReelBrandFrameProps> = ({
         </div>
       ) : null}
 
-      <ReelDock tone="dark" accent={accent} detail={detail} cta={cta} ctaProgress={dockIn}>
-        {creatorCredit ? (
-          // The credit is the dock's detail step (the same line the other reels
-          // use for "0.4 hr faster today"), so a clip's chrome types nothing of
-          // its own. An "@handle" credit is the creator's Instagram account —
-          // the caption tags the same handle.
+      {/* The credit IS the dock's detail line — the slot beside the button that
+          the other reels use for "0.4 hr faster today" — so the dock stays one
+          row: credit left, button right. Only when the category already owns
+          the detail line (the high-water safety payload) does the credit move
+          to its own row above. An "@handle" credit is the creator's Instagram
+          account; the caption tags the same handle. */}
+      <ReelDock tone="dark" accent={accent} detail={detail ?? creditLine} cta={cta}>
+        {detail && creditLine ? (
           <div
             style={{
               fontSize: TYPE.detail.size,
@@ -165,7 +163,7 @@ export const ReelBrandFrame: React.FC<ReelBrandFrameProps> = ({
               padding: "0 5px",
             }}
           >
-            🎥 Clip via {creatorCredit}
+            {creditLine}
           </div>
         ) : null}
       </ReelDock>

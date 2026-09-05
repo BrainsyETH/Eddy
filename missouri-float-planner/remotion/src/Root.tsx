@@ -1,5 +1,5 @@
 import React from "react";
-import { Composition } from "remotion";
+import { Composition, staticFile } from "remotion";
 import { TutorialFull } from "./compositions/TutorialFull";
 import { IntroScene } from "./compositions/scenes/01-Intro";
 import { HomeScene } from "./compositions/scenes/02-HomeScreen";
@@ -30,6 +30,21 @@ import type {
 import { DEFAULT_TIMING, journeyDuration } from "../../shared/social-route-journey";
 
 import "./style.css";
+
+/**
+ * What the clip-reel compositions render when nothing passes props — i.e. the
+ * CI still gate. The bundled promo footage stands in for a YouTube clip (a
+ * landscape source, so the media card + blurred backdrop layout is exercised),
+ * with a subtitle cue up by frame 45 and a tagged creator in the dock.
+ */
+const CLIP_REEL_FIXTURE: ClipReelProps = {
+  videoUrl: staticFile("video/promo-map.mp4"),
+  riverName: "Current River",
+  creatorCredit: "@ozarkmediaco",
+  durationSecs: 11,
+  sourceOrientation: "landscape",
+  captions: [{ start: 0.5, end: 4, text: "this is the clearest water I have ever paddled" }],
+};
 
 /** Base journey plus one readable pause per intermediate feature, plus one
  *  hold for the "also along this float" card when there is one. Identical for
@@ -181,7 +196,11 @@ export const RemotionRoot: React.FC = () => {
         height={1920}
       />
 
-      {/* Branded wrapper around a downloaded YouTube clip (ClipEngine) */}
+      {/* Branded wrapper around a downloaded YouTube clip (ClipEngine).
+          render-clip.yml passes every prop; the defaults exist so the CI still
+          gate (test/check-stills.sh) can render the frame over the bundled
+          promo footage: a landscape source in the media card, a subtitle up,
+          and a tagged creator in the dock. */}
       <Composition
         id="clip-reel"
         component={ClipReel}
@@ -191,11 +210,25 @@ export const RemotionRoot: React.FC = () => {
         calculateMetadata={async ({ props }: { props: ClipReelProps }) => ({
           durationInFrames: getClipReelDuration(props.durationSecs, FPS),
         })}
+        defaultProps={CLIP_REEL_FIXTURE}
+      />
+      {/* The same wrapper in its high-water category — the safety payload owns
+          the dock's detail line, so the credit takes its own row. */}
+      <Composition
+        id="clip-reel-high-water"
+        component={ClipReel}
+        fps={FPS}
+        width={1080}
+        height={1920}
+        calculateMetadata={async ({ props }: { props: ClipReelProps }) => ({
+          durationInFrames: getClipReelDuration(props.durationSecs, FPS),
+        })}
         defaultProps={{
-          videoUrl: "",
-          riverName: "Current River",
-          creatorCredit: "",
-          durationSecs: 13,
+          ...CLIP_REEL_FIXTURE,
+          riverName: "",
+          creatorCredit: "@serrasolsesmedia",
+          category: "high_water",
+          captions: [{ start: 0.5, end: 4, text: "look how fast that is moving" }],
         } satisfies ClipReelProps}
       />
 

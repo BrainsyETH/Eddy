@@ -58,10 +58,11 @@ Every panel on a reel or cover is one of these. Reel component → cover twin.
   short because the masthead already carries the wordmark. A CTA that points
   at the caption rather than the site ("Full report below ▼") is text, not a
   button.
-- **Caption chip** — `Captions` (reels only; covers have no transcript). A
-  spoken line over footage sits in a deep-teal chip with the tile rule and a
-  hard shadow (`captionChipStyle`, `TYPE.caption`), so it reads as a panel of
-  the system between the masthead and the dock — never white type in a glow.
+- **Subtitle** — `Captions` (reels only; covers have no transcript). A spoken
+  line over footage is a subtitle, not a fourth panel: a quiet deep-teal wash
+  under subtitle-sized body type (`subtitleStyle`, `TYPE.subtitle_media`), no
+  rule, no offset shadow, no glow. It must never compete with the masthead
+  above it or the dock below it.
 
 Condition colours are the canonical ones from `shared/condition-system.ts`.
 As TEXT on the light surface they are pulled toward the ink (`conditionInk`)
@@ -106,13 +107,14 @@ the same whether the pick is live or the evergreen favourite: the caption says
 "Float Pick", so must the art.
 
 A reposted clip has no float page of its own to promise, so its button — on
-the reel, the cover and in the caption — is `CTA.download`, "Download the
-Eddy River Guide on iOS" (the caption adds `→ eddy.guide/ios`, `DOWNLOAD_URL`,
-which redirects to the App Store). It carries no arrow: it is an install, not
-a link to the site. The high-water clip keeps the gauge CTA. The clip's dock
-also carries the creator credit in the detail step — an `@handle` there is the
-creator's Instagram account, and the caption tags the same handle
-(`docs/clipengine-ops.md`, *Credit and tagging*).
+the reel and the cover — is `CTA.download`, "Get the app →": as short as every
+other button, because the masthead already says whose app. The caption spells
+out the full line ("Download the Eddy River Guide on iOS",
+`CLIP_CAPTION_CTA` in `src/lib/social/clip-credit.ts`). The high-water clip
+keeps the gauge CTA. The clip's dock carries the creator credit as its detail
+line, beside the button — an `@handle` there is the creator's Instagram
+account, and the caption tags the same handle (`docs/clipengine-ops.md`,
+*Credit and tagging*).
 
 ## Fallbacks are still the system
 

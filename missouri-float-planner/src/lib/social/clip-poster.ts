@@ -9,8 +9,7 @@ import {
   assembleClipCaption,
   buildClipCaption,
   clipCreditLine,
-  ensureClipCredit,
-  ensureClipCta,
+  finalizeClipBody,
   type ClipCaptionDraft,
   type ClipSource,
 } from './clip-credit';
@@ -37,8 +36,6 @@ export interface ClipRow extends ClipSource {
    *  channel name — see clip-credit.ts for the rule. */
   source_creator: string | null;
   youtube_channel?: string | null;
-  /** The original YouTube URL; linked from the Facebook caption. */
-  source_url?: string | null;
   brand_check_status: string;
   brand_check_result: BrandCheckResult | null;
   used_in_posts: string[] | null;
@@ -46,7 +43,6 @@ export interface ClipRow extends ClipSource {
 
 export interface ClipPostResult {
   ok: boolean;
-  /** The caption as posted to Instagram (Facebook adds the source link). */
   caption: string;
   results: Array<{ platform: string; success: boolean; error?: string; postId?: string }>;
 }
@@ -62,8 +58,8 @@ const HOOK_STYLES: HookStyle[] = ['question', 'story'];
 // is configured, and falls back to the deterministic buildClipCaption template
 // when the key is absent or the model returns nothing usable. Either way the
 // body is guaranteed to credit the creator (tagging their Instagram when known)
-// and to end on the download CTA; assembleClipCaption adds the per-platform
-// source link and the hashtag block at post time.
+// and to END on the download CTA; assembleClipCaption adds the hashtag block
+// at post time.
 async function composeClipCaption(
   riverName: string | null,
   clip: ClipSource,
@@ -85,9 +81,8 @@ async function composeClipCaption(
       // Tier 2 clips have no confirmed river, so their location isn't confirmed
       // to be in Missouri — suppress Missouri/place-specific claims + hashtags.
       allowLocationHashtags: hasRiver,
-      // The model is told to keep this line verbatim; ensureClipCredit below
-      // backstops a draft that drops it. The source URL is NOT given to the
-      // model — it is a Facebook-only line added per platform at post time.
+      // The model is told to keep this line verbatim and end on the CTA;
+      // finalizeClipBody below backstops a draft that drops or reorders them.
       creditLine: clipCreditLine(clip) ?? undefined,
       ctaLine: CLIP_CAPTION_CTA,
       // scene_description (from the brand-check vision pass) grounds the caption
@@ -98,11 +93,11 @@ async function composeClipCaption(
       },
     });
 
-    let body = (generated.caption || '').trim();
-    if (body.length < 20) return fallback; // model returned nothing usable
+    const draft = (generated.caption || '').trim();
+    if (draft.length < 20) return fallback; // model returned nothing usable
 
     // A caption that credits nobody or sells nothing is not a clip caption.
-    body = ensureClipCta(ensureClipCredit(body, clip));
+    const body = finalizeClipBody(draft, clip);
 
     const hashtags = generated.hashtags.length ? generated.hashtags : fallback.hashtags;
     return { body, hashtags };
@@ -124,12 +119,11 @@ export async function publishClip(supabase: any, clip: ClipRow, platforms: Socia
     riverName = river?.name || clip.river_slug;
   }
   const sceneDescription = clip.brand_check_result?.scene_description?.trim() || null;
-  // One caption body serves every platform below, so the model is resolved once
-  // here rather than inside the per-platform loop; only the Facebook source
-  // link differs per platform (assembleClipCaption).
+  // One caption serves every platform below, so the model is resolved once here
+  // rather than inside the per-platform loop.
   const { social_caption: captionModel } = await resolveModels();
   const { body, hashtags } = await composeClipCaption(riverName, clip, sceneDescription, captionModel);
-  const caption = assembleClipCaption(body, hashtags, clip, 'instagram');
+  const caption = assembleClipCaption(body, hashtags);
 
   const results: ClipPostResult['results'] = [];
   const postedRowIds: string[] = [];
@@ -140,7 +134,6 @@ export async function publishClip(supabase: any, clip: ClipRow, platforms: Socia
       results.push({ platform, success: false, error: `No credentials for ${platform}` });
       continue;
     }
-    const platformCaption = assembleClipCaption(body, hashtags, clip, platform);
 
     // Idempotency guard: never re-post the same clip video to a platform that
     // already has a live (published) or in-flight (publishing) row for it. The
@@ -179,7 +172,7 @@ export async function publishClip(supabase: any, clip: ClipRow, platforms: Socia
         post_type: 'river_highlight',
         platform,
         river_slug: clip.river_slug || null,
-        caption: platformCaption,
+        caption,
         video_url: clip.clip_url,
         image_url: coverUrl,
         media_type: 'video',
@@ -195,12 +188,7 @@ export async function publishClip(supabase: any, clip: ClipRow, platforms: Socia
     }
 
     try {
-      const result = await adapter.publishPost({
-        caption: platformCaption,
-        videoUrl: clip.clip_url || undefined,
-        coverUrl,
-        mediaType: 'video',
-      });
+      const result = await adapter.publishPost({ caption, videoUrl: clip.clip_url || undefined, coverUrl, mediaType: 'video' });
       if (result.success) {
         await supabase
           .from('social_posts')

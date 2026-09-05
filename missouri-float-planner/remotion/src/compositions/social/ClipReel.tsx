@@ -1,5 +1,5 @@
 import React from "react";
-import { OffthreadVideo, useCurrentFrame, useVideoConfig, interpolate } from "remotion";
+import { OffthreadVideo } from "remotion";
 import { ReelBrandFrame } from "../../components/ReelBrandFrame";
 import {
   DOWNLOAD_CTA,
@@ -31,13 +31,6 @@ export const ClipReel: React.FC<ClipReelProps> = ({
   sourceOrientation,
   category,
 }) => {
-  const frame = useCurrentFrame();
-  const { fps } = useVideoConfig();
-  const videoFade = interpolate(frame, [0, 10], [0, 1], {
-    extrapolateLeft: "clamp",
-    extrapolateRight: "clamp",
-  });
-
   // Tier 2: a clip with no known Eddy river (e.g. out-of-Missouri paddling)
   // still renders the same frame, but with a generic hero label instead of a
   // river name. Both tiers share the download button: a reposted clip has no
@@ -70,8 +63,6 @@ export const ClipReel: React.FC<ClipReelProps> = ({
       creatorCredit={creatorCredit}
       captions={captions}
       fullBleed={sourceOrientation === "portrait"}
-      frame={frame}
-      fps={fps}
       backdrop={
         sourceOrientation === "portrait" ? undefined : (
           <OffthreadVideo
@@ -82,10 +73,9 @@ export const ClipReel: React.FC<ClipReelProps> = ({
         )
       }
     >
-      <OffthreadVideo
-        src={videoUrl}
-        style={{ width: "100%", height: "100%", objectFit: "cover", opacity: videoFade }}
-      />
+      {/* No fade-in: frame 0 is the thumbnail, and a thumbnail of an empty
+          card is the black-first-frame problem the cover exists to solve. */}
+      <OffthreadVideo src={videoUrl} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
     </ReelBrandFrame>
   );
 };

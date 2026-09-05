@@ -212,8 +212,6 @@ export const TILE = { border: 4, radius: 16, offset: 5 } as const;
 export const PILL = { border: 4, radius: 999, offset: 4 } as const;
 export const BUTTON = { border: 4, radius: 14, offset: 6 } as const;
 export const CALLOUT = { border: 5, radius: 20, offset: 8 } as const;
-/** The transcript-caption chip drawn over footage (ClipReel). */
-export const CAPTION_CHIP = { border: 4, radius: 16, offset: 5 } as const;
 
 export interface SurfaceStyle {
   background: string;
@@ -268,18 +266,13 @@ export function buttonStyle(tone: SocialTone = 'light', fill: string = colors.ac
   };
 }
 
-/** A transcript caption over footage: a deep-teal chip with the tile rule and a
- *  hard shadow, so a spoken line reads as a panel of the system — not white
- *  type in a glow, which the system does not draw. Always on the dark tone,
- *  because captions only ever sit on the media. */
-export function captionChipStyle(): SurfaceStyle {
-  const s = SURFACES.dark;
-  return {
-    background: s.tile,
-    border: `${CAPTION_CHIP.border}px solid ${s.tileRule}`,
-    borderRadius: CAPTION_CHIP.radius,
-    boxShadow: `${CAPTION_CHIP.offset}px ${CAPTION_CHIP.offset}px 0 ${s.tileShadow}`,
-  };
+/** A transcript subtitle over footage (ClipReel). NOT a card: no rule, no
+ *  offset shadow — those would make a spoken line a third panel competing with
+ *  the masthead and dock. A quiet deep-teal wash under the words is all it
+ *  needs to stay legible on bright water; white type in a glow is what the
+ *  system does not draw. Always on the dark tone: subtitles only sit on media. */
+export function subtitleStyle(): { background: string; borderRadius: number } {
+  return { background: hexAlpha(colors.primary[900], 0.72), borderRadius: 10 };
 }
 
 /** A callout card (the route reel's stop cards): a card with a coloured header. */
@@ -349,8 +342,9 @@ export const TYPE = {
   body: { size: 30, weight: 500, lineHeight: 1.38 },
   /** The centred hero quote on a quote-forward reel. Body. */
   quote: { size: 40, weight: 520, lineHeight: 1.32 },
-  /** A transcript caption in its chip over footage (ClipReel). Body. */
-  caption: { size: 36, weight: 700, lineHeight: 1.22 },
+  /** A transcript subtitle over footage (ClipReel). Body — subtitle-sized,
+   *  smaller than the dock's detail line's neighbours, never a headline. */
+  subtitle_media: { size: 30, weight: 600, lineHeight: 1.25 },
   /** Instrument numerals (the big gauge reading). Mono. */
   numeral: { size: 104, weight: 700, lineHeight: 1, tracking: -3 },
 } as const satisfies Record<string, TypeStep>;
@@ -406,17 +400,13 @@ export const CTA = {
   gauge: 'Check the live gauge →',
   chart: 'See the 7-day chart →',
   levels: 'See every river →',
-  /** The reposted-clip button (reel + cover + caption): a clip sells the app,
-   *  not a page. No arrow — it is an install, not a link to the site. */
-  download: 'Download the Eddy River Guide on iOS',
+  /** The reposted-clip button (reel + cover): a clip has no float page of its
+   *  own to promise, so it sells the app. Short like the rest — the masthead
+   *  already says whose app; the caption spells out the full download line. */
+  download: 'Get the app →',
   /** Points at the caption, not the site — rendered as text, not a button. */
   reportBelow: 'Full report below ▼',
 } as const;
-
-/** Where the download button sends people in a caption, where a link can be
- *  typed. eddy.guide/ios redirects to the App Store listing (next.config.mjs),
- *  so the caption never carries a raw apps.apple.com URL. */
-export const DOWNLOAD_URL = 'eddy.guide/ios';
 
 /** Tier-2 hero label for clips not tied to one of Eddy's rivers. */
 export const OZARK_PADDLING_LABEL = 'Ozark Paddling';

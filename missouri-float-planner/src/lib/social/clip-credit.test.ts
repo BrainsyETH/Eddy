@@ -6,8 +6,8 @@
 // in clip_library.source_creator when channels.json knows it, and the bare
 // YouTube channel name otherwise. These tests pin the rule that keeps a
 // YouTube name from ever being promoted to a mention of a stranger, the
-// Facebook-only source link, the backstops that restore a credit or CTA the
-// model dropped, and the resolver both pipeline paths share.
+// promised shape of the body (credit line verbatim, CTA last — whatever the
+// model did with them), and the resolver both pipeline paths share.
 
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
@@ -22,21 +22,11 @@ import {
   captionCreditsClip,
   clipCreditHandle,
   clipCreditLine,
-  clipSourceLine,
-  ensureClipCredit,
-  ensureClipCta,
+  finalizeClipBody,
 } from './clip-credit';
 
-const handleClip = {
-  source_creator: '@ozarkmediaco',
-  youtube_channel: 'Ozark Media Co',
-  source_url: 'https://youtu.be/abc123XYZ_0',
-};
-const nameClip = {
-  source_creator: 'Ozark Media Co',
-  youtube_channel: 'Ozark Media Co',
-  source_url: 'https://youtu.be/abc123XYZ_0',
-};
+const handleClip = { source_creator: '@ozarkmediaco', youtube_channel: 'Ozark Media Co' };
+const nameClip = { source_creator: 'Ozark Media Co', youtube_channel: 'Ozark Media Co' };
 
 test('only a leading "@" is treated as an Instagram handle to tag', () => {
   assert.equal(clipCreditHandle(handleClip), '@ozarkmediaco');
@@ -58,40 +48,48 @@ test('the credit line mentions a handle, or names the channel as a YouTube credi
   assert.equal(clipCreditLine({ source_creator: null }), null);
 });
 
-test('the source link is Facebook-only and requires a real URL', () => {
-  assert.equal(clipSourceLine(handleClip, 'facebook'), '▶️ Full video: https://youtu.be/abc123XYZ_0');
-  assert.equal(clipSourceLine(handleClip, 'instagram'), null);
-  assert.equal(clipSourceLine(handleClip, 'tiktok'), null);
-  assert.equal(clipSourceLine({ ...handleClip, source_url: 'youtu.be/abc' }, 'facebook'), null);
-  assert.equal(clipSourceLine({ ...handleClip, source_url: null }, 'facebook'), null);
+test('only the canonical credit line counts as attribution — a passing mention does not', () => {
+  assert.equal(captionCreditsClip('Some water.\n\n🎥 Clip via @OzarkMediaCo', handleClip), true);
+  assert.equal(captionCreditsClip('Thanks @ozarkmediaco for the footage!', handleClip), false);
+  assert.equal(captionCreditsClip('Ozark Media Co went out again.', nameClip), false);
 });
 
-test('a caption that dropped the credit gets it back; one that kept it is untouched', () => {
-  const kept = 'Some water.\n\n🎥 Clip via @OzarkMediaCo\nmore';
-  assert.equal(captionCreditsClip(kept, handleClip), true);
-  assert.equal(ensureClipCredit(kept, handleClip), kept);
+test('finalizeClipBody: credit restored, CTA last, no matter what the draft did', () => {
+  assert.equal(CLIP_CAPTION_CTA, 'Download the Eddy River Guide on iOS');
 
-  const dropped = 'Some water.';
-  assert.equal(ensureClipCredit(dropped, handleClip), 'Some water.\n\n🎥 Clip via @ozarkmediaco');
-  assert.equal(ensureClipCredit(dropped, nameClip), 'Some water.\n\n🎥 Clip via Ozark Media Co on YouTube');
-  // Nothing known → nothing to add.
-  assert.equal(ensureClipCredit(dropped, { source_creator: null }), dropped);
-});
-
-test('the CTA is the download line with its typeable link, restored when missing', () => {
-  assert.equal(CLIP_CAPTION_CTA, 'Download the Eddy River Guide on iOS → eddy.guide/ios');
-  const has = 'Go paddle.\n\nDownload the Eddy River Guide on iOS → eddy.guide/ios';
-  assert.equal(ensureClipCta(has), has);
-  // Mentioning the site is not the same as telling people where to get the app.
-  assert.equal(ensureClipCta('Check levels at eddy.guide'), `Check levels at eddy.guide\n\n${CLIP_CAPTION_CTA}`);
+  // The draft kept the CTA but dropped the credit: the credit must go in
+  // BEFORE the CTA, never after it.
+  assert.equal(
+    finalizeClipBody(`Some water.\n\n${CLIP_CAPTION_CTA}`, handleClip),
+    `Some water.\n\n🎥 Clip via @ozarkmediaco\n${CLIP_CAPTION_CTA}`,
+  );
+  // A passing mention is not the credit; the canonical line is still added.
+  assert.equal(
+    finalizeClipBody('Thanks @ozarkmediaco!', handleClip),
+    `Thanks @ozarkmediaco!\n\n🎥 Clip via @ozarkmediaco\n${CLIP_CAPTION_CTA}`,
+  );
+  // The draft had both, in the right order, with its own casing: untouched
+  // apart from the CTA being normalised.
+  assert.equal(
+    finalizeClipBody(`Good stuff.\n\n🎥 Clip via @OzarkMediaCo\ndownload the eddy river guide on ios!`, handleClip),
+    `Good stuff.\n\n🎥 Clip via @OzarkMediaCo\n${CLIP_CAPTION_CTA}`,
+  );
+  // The draft put the CTA first: it is lifted to the end.
+  assert.equal(
+    finalizeClipBody(`${CLIP_CAPTION_CTA}\n\nThen some water.\n🎥 Clip via Ozark Media Co on YouTube`, nameClip),
+    `Then some water.\n🎥 Clip via Ozark Media Co on YouTube\n${CLIP_CAPTION_CTA}`,
+  );
+  // Nothing known about the creator → just the CTA.
+  assert.equal(finalizeClipBody('Some water.', { source_creator: null }), `Some water.\n${CLIP_CAPTION_CTA}`);
+  // Every result ends on the CTA line.
+  for (const draft of ['x', `${CLIP_CAPTION_CTA}\nx`, 'x\n🎥 Clip via @ozarkmediaco']) {
+    assert.ok(finalizeClipBody(draft, handleClip).endsWith(`\n${CLIP_CAPTION_CTA}`));
+  }
 });
 
 test('the template caption credits, tags, sells the app, and never says "plan this float"', () => {
   const tier1 = buildClipCaption('Current River', handleClip);
-  assert.equal(
-    tier1.body,
-    '🛶 Current River.\n\n🎥 Clip via @ozarkmediaco\nDownload the Eddy River Guide on iOS → eddy.guide/ios',
-  );
+  assert.equal(tier1.body, `🛶 Current River.\n\n🎥 Clip via @ozarkmediaco\n${CLIP_CAPTION_CTA}`);
   assert.deepEqual(tier1.hashtags.slice(0, 1), ['#CurrentRiver']);
   assert.ok(tier1.hashtags.includes('#Missouri'));
 
@@ -104,15 +102,10 @@ test('the template caption credits, tags, sells the app, and never says "plan th
   }
 });
 
-test('assembly adds the Facebook link before the hashtags, and only there', () => {
+test('assembly appends the hashtag block unless the body already carries tags', () => {
   const draft = buildClipCaption('Current River', handleClip);
-  const fb = assembleClipCaption(draft.body, draft.hashtags, handleClip, 'facebook');
-  const ig = assembleClipCaption(draft.body, draft.hashtags, handleClip, 'instagram');
-  assert.equal(fb, `${draft.body}\n\n▶️ Full video: https://youtu.be/abc123XYZ_0\n\n${draft.hashtags.join(' ')}`);
-  assert.equal(ig, `${draft.body}\n\n${draft.hashtags.join(' ')}`);
-  // A model that wove tags into the body does not get a second block.
-  const inline = assembleClipCaption('Water #kayaking', ['#float'], handleClip, 'instagram');
-  assert.equal(inline, 'Water #kayaking');
+  assert.equal(assembleClipCaption(draft.body, draft.hashtags), `${draft.body}\n\n${draft.hashtags.join(' ')}`);
+  assert.equal(assembleClipCaption('Water #kayaking', ['#float']), 'Water #kayaking');
 });
 
 // ─── resolve-credit.py — the rule both pipeline paths run ──────────────────
