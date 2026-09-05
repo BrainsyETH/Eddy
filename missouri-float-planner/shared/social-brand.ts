@@ -399,10 +399,6 @@ export const CTA = {
   gauge: 'Check the live gauge →',
   chart: 'See the 7-day chart →',
   levels: 'See every river →',
-  /** The reposted-clip button (reel + cover): a clip has no float page of its
-   *  own to promise, so it sells the app. Short like the rest — the masthead
-   *  already says whose app; the caption spells out the full download line. */
-  download: 'Get the app →',
   /** Points at the caption, not the site — rendered as text, not a button. */
   reportBelow: 'Full report below ▼',
 } as const;

@@ -5,8 +5,8 @@
 // the Reel's cover_url, so it sits in the same grid tile the video plays in.
 // Every cover here is therefore drawn with the SAME social design system the
 // Remotion reels use (shared/social-brand.ts, via src/lib/og/social-cover.tsx):
-// the series-label masthead, the ruled cards and tiles, the coral button, the
-// light page — or the dark severity surface for the alert family.
+// the series-label masthead, ruled cards and tiles, CTA treatment where one is
+// meaningful, and the light page — or the dark severity surface for alerts.
 //
 // Supports:
 //   ?type=digest                       — all rivers, daily digest thumbnail
@@ -783,10 +783,9 @@ async function generateFavoriteImage(
 // Clip cover — the still shown as a clip Reel's grid thumbnail. Clips have no
 // OG cover otherwise, so Instagram falls back to the video's first frame.
 // Mirrors the ClipReel framing: "On the Water" pill + river name, the river's
-// art in the photo card, and the same download button the reel ends on (a
-// reposted clip has no float page to promise, so it sells the app). Tier-2
-// (no river) → "Ozark Paddling". The dock carries the button alone: the copy
-// is long enough that a detail line beside it would overrun the card.
+// art in the photo card. Tier-2 (no river) → "Ozark Paddling". There is no
+// fake CTA button on a non-interactive cover; the real link lives in caption
+// and platform chrome.
 // ---------------------------------------------------------------------------
 async function generateClipImage(
   size: Size,
@@ -813,7 +812,6 @@ async function generateClipImage(
       <CoverMasthead cover={cover} label={LABELS.clip} title={riverName} subtitle={creator !== '' ? `Clip via ${creator}` : undefined} otter={otter} />
       {photo ? <CoverPhotoCard cover={cover} dataUri={photo} height={cover.portrait ? 520 : 340} /> : null}
       <CoverSpacer />
-      <CoverDock cover={cover} cta={CTA.download} />
     </CoverPage>,
     size,
   );

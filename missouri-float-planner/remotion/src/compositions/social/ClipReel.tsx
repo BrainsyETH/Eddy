@@ -2,11 +2,9 @@ import React from "react";
 import { OffthreadVideo } from "remotion";
 import { ReelBrandFrame } from "../../components/ReelBrandFrame";
 import {
-  DOWNLOAD_CTA,
   HIGH_WATER_LABEL,
   NEUTRAL_ACCENT,
   OZARK_PADDLING_LABEL,
-  SAFETY_CTA,
   SAFETY_DETAIL,
   WARNING_ACCENT,
 } from "../../lib/brand";
@@ -17,8 +15,8 @@ import type { ClipReelProps } from "../../lib/social-props";
  * ClipReel — wraps a downloaded YouTube clip in the shared Eddy brand frame so
  * its branding matches the rest of the render pipeline (RouteDraw, Digest,
  * Trend, Eddy Says): the series-label masthead, the ruled media card, the dock
- * with the canonical CTA, and timed transcript captions over the footage. A clip
- * has no live gauge reading, so the frame uses the neutral brand accent.
+ * with creator/safety context, and timed transcript captions over the footage.
+ * A clip has no live gauge reading, so the frame uses the neutral brand accent.
  * Ordinary clips use the light editorial surface: the video replaces the
  * route/chart/illustration stage inside a ruled card. High-water clips alone
  * use the dark severity surface, where vertical sources may fill the frame and
@@ -34,13 +32,12 @@ export const ClipReel: React.FC<ClipReelProps> = ({
 }) => {
   // Tier 2: a clip with no known Eddy river (e.g. out-of-Missouri paddling)
   // still renders the same frame, but with a generic hero label instead of a
-  // river name. Both tiers share the download button: a reposted clip has no
-  // float page of its own to promise, so it sells the app.
+  // river name. The visual does not draw a fake button: Reels are not
+  // interactive canvases, and the real destination belongs in the caption.
   const hasRiver = !!(riverName && riverName.trim());
 
   // High-water safety PSA: the alarm look (orange "HIGH WATER" pill, warning
-  // rule on the cards) and a button pointing straight at the live gauge — the
-  // whole reason the footage is scary — with the safety payload beside it. The
+  // rule on the cards) with the safety payload in the dock. The
   // hero title falls back to a neutral, universal line (not "Ozark Paddling")
   // because flood clips are often out-of-region.
   const isHighWater = category === "high_water";
@@ -50,7 +47,6 @@ export const ClipReel: React.FC<ClipReelProps> = ({
     : isHighWater
       ? HIGH_WATER_LABEL
       : OZARK_PADDLING_LABEL;
-  const cta = isHighWater ? SAFETY_CTA : DOWNLOAD_CTA;
   const accent = isHighWater ? WARNING_ACCENT : NEUTRAL_ACCENT;
 
   return (
@@ -58,7 +54,6 @@ export const ClipReel: React.FC<ClipReelProps> = ({
       label={label}
       labelFill={isHighWater ? WARNING_ACCENT : undefined}
       title={title}
-      cta={cta}
       detail={isHighWater ? SAFETY_DETAIL : undefined}
       accent={accent}
       tone={isHighWater ? "dark" : "light"}

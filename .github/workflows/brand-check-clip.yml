@@ -205,8 +205,10 @@ jobs:
                   else:
                       result = {"verdict": "REVIEW", "reasoning": text}
           except Exception as e:
+              # An API/configuration failure is not a human-review verdict. Let
+              # the step fail so the cleanup step marks the clip retryable.
               print(f"Claude API error: {e}")
-              result = {"verdict": "REVIEW", "reasoning": f"API error: {e}"}
+              raise
 
           verdict = result.get("verdict", "REVIEW").lower()
           status_map = {"publish": "approved", "review": "review", "reject": "rejected"}
@@ -218,7 +220,7 @@ jobs:
           update_body = json.dumps({
               "brand_check_status": status,
               "brand_check_result": result,
-              "updated_at": "now()",
+              "brand_check_error": None,
           }).encode()
 
           update_req = urllib.request.Request(
@@ -238,6 +240,9 @@ jobs:
                   print(f"Updated clip {clip_id}: {status}")
           except Exception as e:
               print(f"Failed to update clip: {e}")
+              # Do not report a green workflow when the verdict never reached
+              # clip_library. The failure step below will mark it retryable.
+              raise
           PYEOF
           python3 /tmp/brand_check.py
 

@@ -98,8 +98,8 @@ social composition (`remotion/test/check-stills.sh`).
 
 Springs from `remotion/src/lib/spring-presets.ts`. The story animates (the
 river scrolls, the gauge fills, the line inks in, the rows slide); the chrome
-does not. The CTA button lands ~70 frames before the end. Portrait reels dip
-toward the loop seam with `reelLoopOpacity`.
+does not. Where a data post has a CTA, it lands ~70 frames before the end.
+Portrait reels dip toward the loop seam with `reelLoopOpacity`.
 
 ## Copy
 
@@ -107,15 +107,13 @@ Series labels and CTAs live in `LABELS` and `CTA`. The Float Pick's label is
 the same whether the pick is live or the evergreen favourite: the caption says
 "Float Pick", so must the art.
 
-A reposted clip has no float page of its own to promise, so its button — on
-the reel and the cover — is `CTA.download`, "Get the app →": as short as every
-other button, because the masthead already says whose app. The caption spells
-out the full line ("Download the Eddy River Guide on iOS",
-`CLIP_CAPTION_CTA` in `src/lib/social/clip-credit.ts`). The high-water clip
-keeps the gauge CTA. The clip's dock carries the creator credit as its detail
-line, beside the button — an `@handle` there is the creator's Instagram
-account, and the caption tags the same handle (`docs/clipengine-ops.md`,
-*Credit and tagging*).
+A reposted clip has no clickable destination inside the video, so neither its
+reel nor its cover draws a fake CTA button. The real CTA stays in the caption
+("Download the Eddy River Guide on iOS", `CLIP_CAPTION_CTA` in
+`src/lib/social/clip-credit.ts`). The clip's dock carries creator provenance;
+an `@handle` there is the creator's Instagram account, and the caption tags the
+same handle (`docs/clipengine-ops.md`, *Credit and tagging*). High-water clips
+use that same rule and keep their safety guidance as plain information.
 
 ## Fallbacks are still the system
 

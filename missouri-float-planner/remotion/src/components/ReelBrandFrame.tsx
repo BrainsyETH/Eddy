@@ -5,7 +5,7 @@ import { ReelMasthead } from "./ReelMasthead";
 import { ReelDock } from "./ReelDock";
 import { Captions } from "./Captions";
 import { REEL_SAFE } from "../lib/reel-safe";
-import { NEUTRAL_ACCENT, PLAN_CTA } from "../lib/brand";
+import { NEUTRAL_ACCENT } from "../lib/brand";
 import { fontFamilies } from "../design-tokens/fonts";
 import { CARD, MEDIA_SCRIM, SURFACES, TYPE, colors, type SocialTone } from "../../../shared/social-brand";
 import type { Caption } from "../lib/social-props";
@@ -38,8 +38,6 @@ interface ReelBrandFrameProps {
   /** Optional attribution in the dock: the creator's Instagram "@handle" when
    *  known, else the YouTube channel name (resolve-credit.py decides). */
   creatorCredit?: string;
-  /** Button copy; defaults to the canonical PLAN_CTA. */
-  cta?: string;
   /** Dock detail line (the safety payload on a high-water clip). */
   detail?: string;
   /** Category accent: the dock's rule and the media card's rule. Defaults to
@@ -61,15 +59,14 @@ interface ReelBrandFrameProps {
 }
 
 /**
- * Eddy brand chrome for a media reel — the shared masthead, media card, dock
- * and CTA over footage — so a wrapped clip reads as part of the same system as
- * the Float Pick, Digest, Trend and Eddy Says reels.
+ * Eddy brand chrome for a media reel — the shared masthead, media card and
+ * informational dock over footage — so a wrapped clip reads as part of the
+ * same system as the Float Pick, Digest, Trend and Eddy Says reels.
  */
 export const ReelBrandFrame: React.FC<ReelBrandFrameProps> = ({
   label,
   title,
   creatorCredit,
-  cta = PLAN_CTA,
   detail,
   accent = NEUTRAL_ACCENT,
   labelFill,
@@ -80,9 +77,9 @@ export const ReelBrandFrame: React.FC<ReelBrandFrameProps> = ({
   children,
 }) => {
   // No entrances: frame 0 is the grid thumbnail and the first autoplay frame,
-  // so the title, the credit and the button are all present from the start —
-  // the same "honest frame zero" rule every other reel follows. The footage
-  // is the only thing that moves.
+  // so the title and credit are present from the start — the same "honest
+  // frame zero" rule every other reel follows. The footage is the only thing
+  // that moves.
   const surface = SURFACES[tone];
   const severity = tone === "dark";
   const useFullBleed = severity && fullBleed;
@@ -167,13 +164,9 @@ export const ReelBrandFrame: React.FC<ReelBrandFrameProps> = ({
         </div>
       ) : null}
 
-      {/* The credit IS the dock's detail line — the slot beside the button that
-          the other reels use for "0.4 hr faster today" — so the dock stays one
-          row: credit left, button right. Only when the category already owns
-          the detail line (the high-water safety payload) does the credit move
-          to its own row above. An "@handle" credit is the creator's Instagram
-          account; the caption tags the same handle. */}
-      <ReelDock tone={tone} accent={severity ? accent : undefined} detail={detail ?? creditLine} cta={cta}>
+      {/* The dock contains provenance or safety context, never a fake button.
+          When the category owns the detail line, credit moves above it. */}
+      <ReelDock tone={tone} accent={severity ? accent : undefined} detail={detail ?? creditLine}>
         {detail && creditLine ? (
           <div
             style={{

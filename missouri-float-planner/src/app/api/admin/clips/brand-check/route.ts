@@ -35,23 +35,55 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Clip not found' }, { status: 404 });
   }
 
-  const success = await triggerBrandCheck({
-    clipId,
-    clipUrl: clip.clip_url,
-  });
+  // Move the clip into the in-flight state before dispatch. Doing this after
+  // dispatch allowed a fast workflow to write `approved`/`rejected` first and
+  // then get overwritten back to `review` by this request.
+  const { error: checkingError } = await supabase
+    .from('clip_library')
+    .update({
+      brand_check_status: 'review',
+      brand_check_result: null,
+      brand_check_error: null,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', clipId);
 
-  if (!success) {
+  if (checkingError) {
+    console.error('Failed to mark clip brand check in progress:', checkingError);
     return NextResponse.json(
-      { error: 'Failed to dispatch brand check workflow' },
+      { error: 'Could not mark the clip as in review' },
       { status: 500 },
     );
   }
 
-  // Mark as checking
-  await supabase
-    .from('clip_library')
-    .update({ brand_check_status: 'review', updated_at: new Date().toISOString() })
-    .eq('id', clipId);
+  let success = false;
+  try {
+    success = await triggerBrandCheck({
+      clipId,
+      clipUrl: clip.clip_url,
+    });
+  } catch (dispatchError) {
+    console.error('Brand check workflow dispatch threw:', dispatchError);
+  }
+
+  if (!success) {
+    const message = 'Failed to dispatch brand check workflow';
+    const { error: failureUpdateError } = await supabase
+      .from('clip_library')
+      .update({
+        brand_check_status: 'failed',
+        brand_check_error: message,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', clipId);
+    if (failureUpdateError) {
+      console.error('Failed to persist brand check dispatch failure:', failureUpdateError);
+    }
+    return NextResponse.json(
+      { error: message },
+      { status: 502 },
+    );
+  }
 
   return NextResponse.json({ ok: true, message: 'Brand check dispatched' });
 }

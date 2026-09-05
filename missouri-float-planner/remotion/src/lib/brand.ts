@@ -18,15 +18,6 @@ export const PLAN_CTA = CTA.plan;
  *  page to send the viewer to. */
 export const GENERIC_CTA = CTA.find;
 
-/** The reposted-clip button (Tier 1 and Tier 2 alike): a clip has no page of
- *  its own to send people to, so it sells the app instead. */
-export const DOWNLOAD_CTA = CTA.download;
-
-/** Safety-PSA button for the high-water clip category: points straight at the
- *  live gauge (the whole reason the clip is scary). The payload line
- *  (SAFETY_DETAIL) sits beside it in the dock. */
-export const SAFETY_CTA = CTA.gauge;
-
 /** Neutral water-teal accent for content NOT tied to a live gauge reading
  *  (clips, Favorite Floats). */
 export const NEUTRAL_ACCENT = colors.primary[300];
