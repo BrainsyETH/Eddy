@@ -151,7 +151,7 @@ export default async function Home() {
                 alt={FEATURE_RIVER.name}
                 fill
                 sizes="(min-width: 768px) 56vw, 100vw"
-                className="object-cover transition-transform duration-500 group-hover:scale-105"
+                className="object-cover transition-transform duration-slower group-hover:scale-105"
               />
             ) : (
               <div className="absolute inset-0" style={{ background: 'linear-gradient(135deg, #163F4A 0%, #0F2D35 100%)' }} />

@@ -144,6 +144,14 @@ Not cold grays — these are warm, sandstone-toned neutrals that feel organic an
 
 ## 4. Component Stylings
 
+The web app renders these through the primitives in `src/components/ui/` —
+`Button`, `Card`, `Badge`, `Segmented`, `Skeleton` — which wrap the classes in
+`globals.css`. The classes carry every state (hover, active, focus-visible,
+disabled) and the motion tokens; a component that uses a primitive gets all of
+them, and a component that hand-rolls a `px-3 py-1 rounded-lg` string gets none.
+New UI goes through the primitive. If the primitive lacks what you need, add a
+variant here and in the CSS, not a one-off class string.
+
 ### Buttons
 
 | Variant | Background | Border | Shadow | Shape | Behavior |
@@ -152,12 +160,25 @@ Not cold grays — these are warm, sandstone-toned neutrals that feel organic an
 | **Secondary** | Transparent | 2px solid Primary 500 | None | 6px rounded | Hover: Primary-50 fill, darker border. |
 | **Ghost** | Transparent | None | None | 4px rounded | Hover: Neutral-100 fill, primary text. |
 | **Icon** | White surface | 2px solid Neutral 200 | None | 6px rounded, 40×40px | Hover: Primary-50 fill, primary border. |
+| **Outline** | White surface | 1px solid Neutral 300 | None | 8px rounded | Hover: Neutral-50 fill. The neutral chip for small controls on data surfaces (Expand, Zoom, Export). |
+
+**Sizes:** `sm` (0.25rem 0.75rem, 12px), `md` (each variant's own default), `lg`
+(1rem 2rem, 18px). Sizes change the box only, never colour or curve. Icon buttons
+are 32 / 40 / 48px.
+
+**Segmented control:** a row of mutually exclusive options (ft / cfs, 24H / 7D /
+30D). Outline-style group, 8px radius, hairline Neutral 300 border; the pressed
+option fills Primary 500 with white text. The pressed look is styled from
+`aria-pressed`, so state and appearance are one attribute. Disabled options dim
+to Neutral 400 on Neutral 100 and carry their reason in `title`. Focus ring is
+inset, because the group clips overflow. Render with `<Segmented>`.
 
 ### Cards
 
 | Variant | Background | Border | Shadow | Radius | Behavior |
 |:---|:---|:---|:---|:---|:---|
 | **Standard** | White surface | 2px solid Primary 700 | md (3px 3px) | 8px | Hover: lifts -2px, lg shadow |
+| **Panel** | White surface | 1px solid Neutral 200 | None | 12px | Static. The quiet data surface: chart shells, threshold tables, notices. Unpadded; carries its own header row. |
 | **Trip Summary** | Secondary-50 (tan tint) | 3px solid Primary 600 | lg (4px 4px) | 12px | Static, no hover lift |
 | **Access Point** | White surface | 2px solid Neutral 200 | None (soft on hover) | 6px | Hover: Primary-400 border. Selected: Accent-500 border, accent shadow |
 | **Glass (light)** | rgba(255,255,255,0.95) | 2px solid Neutral 200 | soft-lg | 8px | For map overlays |
@@ -165,9 +186,18 @@ Not cold grays — these are warm, sandstone-toned neutrals that feel organic an
 
 ### Badges
 
-- **Shape:** Pill-shaped (border-radius: 9999px) for standard badges; 6px rounded for condition badges.
+- **Shape:** Pill-shaped (border-radius: 9999px).
 - **Sizing:** 12px font, 600 weight, 0.25rem 0.75rem padding.
-- **Pattern:** Tinted background + dark text of same hue + optional 1px border.
+- **Pattern:** Tinted background + dark text of same hue. Tones: primary, accent, support, secondary, neutral. Render with `<Badge tone>`.
+- **Condition badges are not badges.** A river condition is rendered only by `ConditionBadge`, whose colours come from `shared/condition-system.ts` — the same source the iOS app draws from. There is no `.badge-flowing` class on purpose.
+
+### Skeletons
+
+A loading placeholder in the shape of the element that replaces it, sized with
+the same classes (`h-7 w-48 rounded-xl`), so the page does not jump when the
+data lands. Shimmer sweep on the block itself, never on a parent — a parent
+opacity animation also fades real content already on the page. Mark the
+containing group `aria-busy="true"`. Render with `<Skeleton>`.
 
 ### Form Elements
 
@@ -233,8 +263,21 @@ The signature "Organic Brutalist" depth system uses **hard-edged offset shadows*
 - Fast (100ms): Button interactions, hover states
 - Normal (200ms): Color transitions, border changes
 - Slow (300ms): Large element movements, panels
+- Slower (500ms): Image zoom on hover, long reveals
 
-**Easing:** `cubic-bezier(0.4, 0, 0.2, 1)` default; `cubic-bezier(0, 0, 0.2, 1)` for exits; `cubic-bezier(0.68, -0.55, 0.265, 1.55)` for bouncy mascot animations.
+**Easing:**
+- Default `cubic-bezier(0.4, 0, 0.2, 1)` — most transitions
+- Out `cubic-bezier(0, 0, 0.2, 1)` — exits and settles
+- Out-expo `cubic-bezier(0.22, 1, 0.36, 1)` — height and size reveals, where a symmetric curve reads as the panel arriving late
+- Bounce `cubic-bezier(0.68, -0.55, 0.265, 1.55)` — the mascot only
+
+**Tokens, and the rule:** every value above is a CSS custom property in
+`globals.css` (`--duration-fast|normal|slow|slower`, `--ease-default|out|out-expo|bounce`)
+and a Tailwind utility (`duration-fast`, `ease-out-expo`, …). Components use
+those and nothing else. A raw `duration-200` or an inline `cubic-bezier(…)`
+under `src/components` or `src/app` fails lint (`eslint.config.mjs`), because
+one more hand-typed timing is one more thing that matches nothing else on the
+page. In a style object, write `var(--ease-default)`.
 
 **Reduced motion:** All animations collapse to 0.01ms for users with `prefers-reduced-motion`.
 

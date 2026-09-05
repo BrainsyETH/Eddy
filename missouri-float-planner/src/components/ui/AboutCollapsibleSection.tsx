@@ -29,13 +29,13 @@ export default function AboutCollapsibleSection({
         <h2 className="text-3xl font-bold text-neutral-900 flex-1">{title}</h2>
         <ChevronDown
           aria-hidden="true"
-          className={`w-6 h-6 text-neutral-500 transition-transform duration-200 ${
+          className={`w-6 h-6 text-neutral-500 transition-transform duration-normal ${
             isExpanded ? 'rotate-180' : ''
           }`}
         />
       </button>
       <div
-        className={`overflow-hidden transition-all duration-300 ease-in-out ${
+        className={`overflow-hidden transition-all duration-slow ease-in-out ${
           isExpanded ? 'max-h-[5000px] opacity-100' : 'max-h-0 opacity-0'
         }`}
       >

@@ -13,6 +13,11 @@ import { hasLadder } from '@shared/condition-ladder';
 import { stationTier } from '@shared/station-tier';
 import { CFS_EXPLAINER, CONDITION_COLORS } from '@/constants';
 import InfoTip from '@/components/ui/InfoTip';
+import Button from '@/components/ui/Button';
+import Card from '@/components/ui/Card';
+import Segmented from '@/components/ui/Segmented';
+import Skeleton from '@/components/ui/Skeleton';
+import { RANGE_OPTIONS, UNIT_OPTIONS } from '@/components/gauge/gaugeControls';
 import type { ConditionCode } from '@/types/api';
 import { useRiverGroup } from '@/hooks/useRiverGroups';
 import { useGaugeDetail } from '@/hooks/useGaugeDetail';
@@ -382,18 +387,18 @@ export default function RiverGaugeDetail({ riverSlug, damSlot }: RiverGaugeDetai
   // Loading state
   if (isLoading) {
     return (
-      <section className="space-y-6">
-        {/* The pulse is on the skeletons, not the section. It was on the
+      <section className="space-y-6" aria-busy="true">
+        {/* The animation is on each Skeleton, not the section. It was on the
             section, which animates OPACITY, and `animate-none` on a child
             cannot opt out of an inherited opacity animation — so the tailwater
             row below, real data already on the page, faded in and out with the
             placeholders until the gauge query settled. */}
-        <div className="h-7 w-48 animate-pulse bg-neutral-200 rounded" />
+        <Skeleton className="h-7 w-48" />
         <div className="grid grid-cols-1 lg:grid-cols-[1fr_300px] gap-6">
-          <div className="h-64 animate-pulse bg-neutral-200 rounded-xl" />
+          <Skeleton rounded="xl" className="h-64" />
           <div className="space-y-4">
-            <div className="h-36 animate-pulse bg-neutral-200 rounded-xl" />
-            <div className="h-24 animate-pulse bg-neutral-200 rounded-xl" />
+            <Skeleton rounded="xl" className="h-36" />
+            <Skeleton rounded="xl" className="h-24" />
           </div>
         </div>
         {damSlot}
@@ -404,11 +409,11 @@ export default function RiverGaugeDetail({ riverSlug, damSlot }: RiverGaugeDetai
   if (!riverGroup || !activeGauge) {
     return (
       <section className="space-y-6">
-        <div className="bg-white border border-neutral-200 rounded-xl p-6 text-center">
+        <Card variant="panel" className="p-6 text-center">
           <p className="text-sm text-neutral-600">
             Live gauge data isn&apos;t available for this river right now.
           </p>
-        </div>
+        </Card>
         {damSlot}
       </section>
     );
@@ -488,7 +493,7 @@ export default function RiverGaugeDetail({ riverSlug, damSlot }: RiverGaugeDetai
         {/* The hydrograph — third, above the outdoor conditions and the
             deeper interpretation. It used to close the column, below the
             photos; the redesign leads with how the number came about. */}
-          <div className="bg-white border border-neutral-200 rounded-xl overflow-hidden">
+          <Card variant="panel">
             <div className="flex flex-col gap-3 px-5 pt-4 pb-0 sm:flex-row sm:items-center sm:justify-between">
               <h2 className="text-base font-bold text-neutral-900 whitespace-nowrap">
                 {dateRange === 1 ? '24-Hour' : `${dateRange}-Day`} {effectiveUnit === 'ft' ? 'Stage' : 'Flow'} Trend
@@ -510,63 +515,32 @@ export default function RiverGaugeDetail({ riverSlug, damSlot }: RiverGaugeDetai
                 />
                 {/* Unit toggle — show when gauge reports both ft and cfs */}
                 {canToggleUnit && (
-                  <div className="flex rounded-lg border border-neutral-300 overflow-hidden">
-                    <button
-                      onClick={() => handleUnitToggle('ft')}
-                      aria-pressed={effectiveUnit === 'ft'}
-                      title="Gauge height in feet"
-                      className={`px-3 py-1 text-xs font-semibold transition-colors ${
-                        effectiveUnit === 'ft'
-                          ? 'bg-primary-500 text-white'
-                          : 'bg-white text-neutral-600 hover:bg-neutral-50'
-                      }`}
-                    >
-                      ft
-                    </button>
-                    <button
-                      onClick={() => handleUnitToggle('cfs')}
-                      aria-pressed={effectiveUnit === 'cfs'}
-                      title="Flow in cubic feet per second"
-                      className={`px-3 py-1 text-xs font-semibold transition-colors ${
-                        effectiveUnit === 'cfs'
-                          ? 'bg-primary-500 text-white'
-                          : 'bg-white text-neutral-600 hover:bg-neutral-50'
-                      }`}
-                    >
-                      cfs
-                    </button>
-                  </div>
+                  <Segmented
+                    aria-label="Display unit"
+                    options={UNIT_OPTIONS}
+                    value={effectiveUnit}
+                    onChange={handleUnitToggle}
+                  />
                 )}
-                {/* Date range toggle — 24h / 7d / 30d inline; longer ranges
-                    belong to the expanded mode (ADR 0010), not more buttons. */}
-                <div className="flex rounded-lg border border-neutral-300 overflow-hidden">
-                  {[{ days: 1, label: '24H' }, { days: 7, label: '7D' }, { days: 30, label: '30D' }].map((opt) => (
-                    <button
-                      key={opt.days}
-                      onClick={() => {
-                        setDateRange(opt.days);
-                        trackGaugeRangeChanged({ provider: gaugeDetail?.provider ?? 'usgs', tier }, rangeLabelForDays(opt.days));
-                      }}
-                      aria-pressed={dateRange === opt.days}
-                      className={`px-3 py-1 text-xs font-semibold transition-colors ${
-                        dateRange === opt.days
-                          ? 'bg-primary-500 text-white'
-                          : 'bg-white text-neutral-600 hover:bg-neutral-50'
-                      }`}
-                    >
-                      {opt.label}
-                    </button>
-                  ))}
-                </div>
-                <button
+                <Segmented
+                  aria-label="Trend range"
+                  options={RANGE_OPTIONS}
+                  value={dateRange}
+                  onChange={(days) => {
+                    setDateRange(days);
+                    trackGaugeRangeChanged({ provider: gaugeDetail?.provider ?? 'usgs', tier }, rangeLabelForDays(days));
+                  }}
+                />
+                <Button
+                  variant="outline"
+                  size="sm"
                   onClick={() => {
                     setExpandedOpen(true);
                     trackGaugeExpandedOpened({ provider: gaugeDetail?.provider ?? 'usgs', tier });
                   }}
-                  className="rounded-lg border border-neutral-300 px-3 py-1 text-xs font-semibold text-neutral-600 hover:bg-neutral-50"
                 >
                   Expand
-                </button>
+                </Button>
               </div>
             </div>
             <FlowTrendChart
@@ -584,7 +558,7 @@ export default function RiverGaugeDetail({ riverSlug, damSlot }: RiverGaugeDetai
               showTypical={tier !== 'rated'}
               showProvenance
             />
-          </div>
+          </Card>
 
         <ExpandedGaugeChart
           open={expandedOpen}

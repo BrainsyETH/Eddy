@@ -78,14 +78,14 @@ export default function ChatBubble() {
       {!isOpen && (
         <button
           onClick={() => setIsOpen(true)}
-          className={`fixed right-4 z-[60] transition-all duration-300 ease-out group ${
+          className={`fixed right-4 z-[60] transition-all duration-slow ease-out group ${
             hideFab ? 'opacity-0 pointer-events-none scale-75' : 'opacity-100 scale-100'
           } ${isRiverPage ? 'lg:hidden' : ''}`}
           style={{ bottom: fabBottom }}
           aria-label="Ask Eddy"
         >
           <div className="flex flex-col items-center gap-1.5">
-            <div className="relative w-14 h-14 rounded-full bg-primary-800 shadow-lg border-2 border-accent-400 flex items-center justify-center overflow-hidden group-hover:scale-110 group-hover:shadow-xl transition-all duration-200">
+            <div className="relative w-14 h-14 rounded-full bg-primary-800 shadow-lg border-2 border-accent-400 flex items-center justify-center overflow-hidden group-hover:scale-110 group-hover:shadow-xl transition-all duration-normal">
               <Image
                 src={EDDY_IMAGES.favicon}
                 alt="Ask Eddy"
@@ -115,7 +115,7 @@ export default function ChatBubble() {
 
           {/* Chat panel container */}
           <div
-            className={`fixed z-[80] inset-x-0 bottom-0 ${desktopPanelClass} lg:shadow-2xl lg:border-2 lg:border-primary-200 overflow-hidden animate-slide-up lg:animate-fade-in transition-all duration-300`}
+            className={`fixed z-[80] inset-x-0 bottom-0 ${desktopPanelClass} lg:shadow-2xl lg:border-2 lg:border-primary-200 overflow-hidden animate-slide-up lg:animate-fade-in transition-all duration-slow`}
             style={{ height: isFullscreen ? undefined : 'min(85vh, 700px)' }}
           >
             {/* Branded header */}

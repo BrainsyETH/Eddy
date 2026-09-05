@@ -78,7 +78,7 @@ export function TimeScrubber({
         borderColor: '#3F3B33',
         color: THEME.parchment,
         boxShadow: '4px 4px 0 #1A1814',
-        transition: 'height 220ms cubic-bezier(0.4,0,0.2,1)',
+        transition: 'height 220ms var(--ease-default)',
       }}
     >
       <div className="mb-1.5 flex items-center justify-between">

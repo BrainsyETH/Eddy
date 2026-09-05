@@ -74,6 +74,7 @@
   /* Neutrals — Warm stone tones */
   --color-neutral-950: #1A1814;
   --color-neutral-900: #2D2A24;
+  --color-neutral-850: #36332C; /* interpolated 800↔900, as in tailwind.config.ts; the dark-theme hover fill */
   --color-neutral-800: #3F3B33;
   --color-neutral-700: #524D43;
   --color-neutral-600: #6B6459;
@@ -93,6 +94,13 @@
   --color-text-inverse: #FFFFFF;
   --color-border: var(--color-neutral-200);
   --color-border-strong: var(--color-neutral-300);
+
+  /* Interaction fills for quiet controls (outline buttons, segmented
+     options). Semantic, so the dark theme can remap them: a raw neutral-50
+     hover would put the dark theme's neutral-400 text on a near-white fill
+     at 2.5:1. Light: hover 5.4:1, pressed 4.9:1 against text-secondary. */
+  --color-surface-hover: var(--color-neutral-50);
+  --color-surface-pressed: var(--color-neutral-100);
 
   /* State Colors */
   --color-success: var(--color-support-500);
@@ -122,12 +130,20 @@
   --border-thick: 3px;
   --border-chunky: 4px;
 
-  /* Transitions */
+  /* Transitions — the only place a duration or a curve is written down.
+     Components reach these as Tailwind utilities (duration-fast|normal|slow|
+     slower, ease|ease-out|ease-out-expo|ease-bounce) or as var(--…) inside a
+     style object; a raw `duration-200` or an inline cubic-bezier in
+     src/components fails lint (eslint.config.mjs says why). */
   --duration-fast: 100ms;
   --duration-normal: 200ms;
   --duration-slow: 300ms;
+  --duration-slower: 500ms;
   --ease-default: cubic-bezier(0.4, 0, 0.2, 1);
   --ease-out: cubic-bezier(0, 0, 0.2, 1);
+  /* Expo-out: fast start, long settle. For height and size reveals, where a
+     symmetric curve reads as the panel arriving late. */
+  --ease-out-expo: cubic-bezier(0.22, 1, 0.36, 1);
   --ease-bounce: cubic-bezier(0.68, -0.55, 0.265, 1.55);
 }
 
@@ -140,6 +156,10 @@
   --color-text-muted: var(--color-neutral-500);
   --color-border: var(--color-neutral-800);
   --color-border-strong: var(--color-neutral-700);
+  /* Hover goes one step lighter than the surface (4.6:1 under neutral-400
+     text); pressed goes darker, not lighter — neutral-800 would be 4.1:1. */
+  --color-surface-hover: var(--color-neutral-850);
+  --color-surface-pressed: var(--color-neutral-950);
 }
 
 /* Base styles */
@@ -529,6 +549,115 @@ h1, h2, h3, h4, h5, h6 {
   border-color: var(--color-primary-300);
 }
 
+/* Outline Button — the neutral chip. Small controls on data surfaces (Expand,
+   Zoom in, Export CSV, Apply): one hairline stone border, no shadow, no fill
+   until hover. It was the most-used button style on the site and the only
+   one with no class, so every instance re-derived it by hand. */
+.btn-outline {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.375rem;
+  padding: 0.5rem 1rem;
+  font-family: var(--font-body), system-ui, sans-serif;
+  font-size: 0.875rem;
+  font-weight: 600;
+  line-height: 1.4;
+  white-space: nowrap;
+  color: var(--color-text-secondary);
+  background-color: var(--color-surface);
+  border: var(--border-thin) solid var(--color-border-strong);
+  border-radius: 8px;
+  cursor: pointer;
+  transition:
+    background-color var(--duration-fast) var(--ease-out),
+    color var(--duration-fast) var(--ease-out),
+    border-color var(--duration-fast) var(--ease-out);
+}
+
+.btn-outline:hover {
+  background-color: var(--color-surface-hover);
+}
+
+.btn-outline:active {
+  background-color: var(--color-surface-pressed);
+}
+
+.btn-outline:disabled {
+  color: var(--color-neutral-400);
+  background-color: var(--color-surface);
+  cursor: not-allowed;
+}
+
+/* Sizes — one modifier for every variant. `md` is each variant's own default
+   above; these adjust the box only, never the colour or the curve. */
+.btn--sm {
+  gap: 0.25rem;
+  padding: 0.25rem 0.75rem;
+  font-size: 0.75rem;
+}
+
+.btn--lg {
+  padding: 1rem 2rem;
+  font-size: 1.125rem;
+}
+
+.btn-icon.btn--sm { width: 32px; height: 32px; padding: 0; }
+.btn-icon.btn--lg { width: 48px; height: 48px; padding: 0; }
+
+/* Segmented control — a row of mutually exclusive options (ft / cfs,
+   24H / 7D / 30D). The pressed look is styled from aria-pressed, so the
+   accessible state and the visual state are the same attribute and cannot
+   drift apart. The focus ring is inset because the group clips overflow; an
+   outset ring was being cut off on every option but the two ends. */
+.segmented {
+  display: inline-flex;
+  overflow: hidden;
+  background-color: var(--color-surface);
+  border: var(--border-thin) solid var(--color-border-strong);
+  border-radius: 8px;
+}
+
+.segmented__option {
+  padding: 0.25rem 0.75rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  line-height: 1.4;
+  white-space: nowrap;
+  color: var(--color-text-secondary);
+  background-color: transparent;
+  border: 0;
+  cursor: pointer;
+  transition:
+    background-color var(--duration-fast) var(--ease-out),
+    color var(--duration-fast) var(--ease-out);
+}
+
+.segmented__option:hover {
+  background-color: var(--color-surface-hover);
+}
+
+.segmented__option[aria-pressed="true"] {
+  color: #FFFFFF;
+  background-color: var(--color-primary-500);
+}
+
+.segmented__option[aria-disabled="true"] {
+  color: var(--color-neutral-400);
+  background-color: var(--color-surface-pressed);
+  cursor: not-allowed;
+}
+
+.segmented__option:focus-visible {
+  outline: 3px solid var(--color-primary-300);
+  outline-offset: -3px;
+}
+
+.segmented--md .segmented__option {
+  padding: 0.375rem 0.875rem;
+  font-size: 0.875rem;
+}
+
 /* ===== CARDS ===== */
 
 .card {
@@ -548,6 +677,17 @@ h1, h2, h3, h4, h5, h6 {
 .card:hover {
   transform: translate(-2px, -2px);
   box-shadow: var(--shadow-lg);
+}
+
+/* Panel — the quiet data surface: chart shells, threshold tables, the "not
+   available" notice. One hairline stone border, no shadow, no hover lift; the
+   content (a hydrograph, a ladder) is the emphasis, not the container.
+   Unpadded on purpose — panels carry their own header rows. */
+.card-panel {
+  overflow: hidden;
+  background-color: var(--color-surface);
+  border: var(--border-thin) solid var(--color-border);
+  border-radius: 12px;
 }
 
 /* Trip Summary Card */
@@ -643,56 +783,11 @@ h1, h2, h3, h4, h5, h6 {
   background-color: var(--color-neutral-200);
 }
 
-/* Condition badges */
-.badge-flowing {
-  background: var(--color-support-100);
-  color: var(--color-support-700);
-  border: 1px solid var(--color-support-300);
-  border-radius: 6px;
-  padding: 0.25rem 0.75rem;
-  font-weight: 600;
-  font-size: 0.875rem;
-}
-
-.badge-low {
-  background: #FFFBEB;
-  color: #92400E;
-  border: 1px solid #FCD34D;
-  border-radius: 6px;
-  padding: 0.25rem 0.75rem;
-  font-weight: 600;
-  font-size: 0.875rem;
-}
-
-.badge-high {
-  background: #FFF7ED;
-  color: #9A3412;
-  border: 1px solid #FDBA74;
-  border-radius: 6px;
-  padding: 0.25rem 0.75rem;
-  font-weight: 600;
-  font-size: 0.875rem;
-}
-
-.badge-danger {
-  background: #FEF2F2;
-  color: #991B1B;
-  border: 1px solid #FCA5A5;
-  border-radius: 6px;
-  padding: 0.25rem 0.75rem;
-  font-weight: 600;
-  font-size: 0.875rem;
-}
-
-.badge-unknown {
-  background: var(--color-neutral-100);
-  color: var(--color-neutral-600);
-  border: 1px solid var(--color-neutral-300);
-  border-radius: 6px;
-  padding: 0.25rem 0.75rem;
-  font-weight: 600;
-  font-size: 0.875rem;
-}
+/* Condition badges have no CSS class on purpose. River conditions are drawn
+   ONLY by src/components/ui/ConditionBadge.tsx, whose colours come from
+   shared/condition-system.ts — the same source the iOS app reads. The
+   .badge-flowing/-low/-high/-danger/-unknown classes that used to live here
+   hard-coded a second palette for the same five verdicts, and had no callers. */
 
 /* ===== FORM ELEMENTS ===== */
 
@@ -1027,12 +1122,14 @@ h1, h2, h3, h4, h5, h6 {
 .spinner--sm { width: 16px; height: 16px; border-width: 2px; }
 .spinner--lg { width: 40px; height: 40px; border-width: 4px; }
 
-/* Skeleton loader */
+/* Skeleton loader — rendered by src/components/ui/Skeleton.tsx. No radius
+   here: this rule sits after @tailwind utilities, so a radius on it would
+   beat the rounded-* class the caller passes to match the real element
+   (RiverReportsGrid's rounded-full skeletons were rendering at 4px). */
 .skeleton {
   position: relative;
   overflow: hidden;
   background-color: var(--color-neutral-200);
-  border-radius: 4px;
 }
 
 .skeleton::after {
@@ -1197,6 +1294,16 @@ h1, h2, h3, h4, h5, h6 {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
+  }
+
+  /* The skeleton sweep is a gradient overlay that the animation carries
+     across the block. Cutting the animation short does not remove the
+     overlay: a finished animation snaps back to the element's un-animated
+     state, and that state is translateX(0) — the band parked ON the block as
+     a static stripe. Screenshot-verified. Reduced motion means a flat
+     placeholder, so the overlay goes away entirely. */
+  .skeleton::after {
+    display: none;
   }
 }
 

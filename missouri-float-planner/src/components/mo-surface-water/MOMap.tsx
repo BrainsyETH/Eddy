@@ -781,7 +781,7 @@ export default function MOMap(props: MOMapProps) {
         ? {}
         : {
             opacity: lit ? 1 : 0,
-            transition: `opacity ${durMs}ms cubic-bezier(0.4,0,0.2,1) ${delayMs}ms`,
+            transition: `opacity ${durMs}ms var(--ease-default) ${delayMs}ms`,
           },
     [lit, reducedMotion],
   );
@@ -1184,7 +1184,7 @@ export default function MOMap(props: MOMapProps) {
   const basemapLayer = useMemo(() => {
     const style: React.CSSProperties | undefined = reducedMotion
       ? undefined
-      : { opacity: lit ? 1 : 0, transition: 'opacity 1200ms cubic-bezier(0.4,0,0.2,1) 650ms' };
+      : { opacity: lit ? 1 : 0, transition: 'opacity 1200ms var(--ease-default) 650ms' };
     return (
       <g pointerEvents="none" style={style}>
         {basemapLakePaths.map((l) => (
@@ -1213,7 +1213,7 @@ export default function MOMap(props: MOMapProps) {
     if (props.showSites === false || contextNodes.length === 0) return null;
     const style: React.CSSProperties | undefined = reducedMotion
       ? undefined
-      : { opacity: lit ? 1 : 0, transition: 'opacity 1200ms cubic-bezier(0.4,0,0.2,1) 850ms' };
+      : { opacity: lit ? 1 : 0, transition: 'opacity 1200ms var(--ease-default) 850ms' };
     return (
       <g style={style}>
         {contextNodes.map((n) => {
@@ -2037,7 +2037,7 @@ export default function MOMap(props: MOMapProps) {
         on phones the sheet owns the bottom of the screen, so the cluster
         fades out entirely instead of poking out half-buried behind it. */}
     <div
-      className={`absolute top-1/2 -translate-y-1/2 flex flex-col gap-1 z-10 transition-[right,opacity] duration-300 right-4 ${
+      className={`absolute top-1/2 -translate-y-1/2 flex flex-col gap-1 z-10 transition-[right,opacity] duration-slow right-4 ${
         props.railOpen ? 'md:right-[min(384px,calc(100vw-52px))] max-md:pointer-events-none max-md:opacity-0' : ''
       }`}
       style={{ fontFamily: 'var(--font-mono), ui-monospace, monospace' }}

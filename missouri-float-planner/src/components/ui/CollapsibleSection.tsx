@@ -38,7 +38,7 @@ export default function CollapsibleSection({
         </div>
         <ChevronDown
           aria-hidden="true"
-          className={`w-5 h-5 text-neutral-500 transition-transform duration-200 ${
+          className={`w-5 h-5 text-neutral-500 transition-transform duration-normal ${
             isOpen ? 'rotate-180' : ''
           }`}
         />
@@ -47,7 +47,7 @@ export default function CollapsibleSection({
       <div
         role="region"
         aria-label={title}
-        className={`transition-all duration-200 ease-in-out ${
+        className={`transition-all duration-normal ease-in-out ${
           isOpen ? 'max-h-[10000px] opacity-100' : 'max-h-0 opacity-0 overflow-hidden invisible'
         }`}
       >

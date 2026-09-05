@@ -12,6 +12,11 @@ import { computeCondition, getConditionShortLabel, getConditionTailwindColor, ty
 import { getEddyImageForCondition } from '@/constants';
 import { conditionChip } from '@shared/condition-system';
 import ConditionBadge from '@/components/ui/ConditionBadge';
+import Button from '@/components/ui/Button';
+import Card from '@/components/ui/Card';
+import Segmented from '@/components/ui/Segmented';
+import Skeleton from '@/components/ui/Skeleton';
+import { RANGE_OPTIONS, UNIT_OPTIONS } from '@/components/gauge/gaugeControls';
 import { CONDITION_CARD_BLURBS } from '@/data/eddy-quotes';
 import { useGaugeStations } from '@/hooks/useGaugeStations';
 import { useGaugeDetail } from '@/hooks/useGaugeDetail';
@@ -263,16 +268,16 @@ export default function GaugeDetailView({ siteId }: GaugeDetailViewProps) {
   if (loading) {
     return (
       <div className="min-h-screen bg-neutral-50">
-        <div className="max-w-5xl mx-auto px-4 py-8">
-          <div className="animate-pulse space-y-6">
-            <div className="h-6 w-32 bg-neutral-200 rounded" />
-            <div className="h-10 w-72 bg-neutral-200 rounded" />
-            <div className="h-5 w-96 bg-neutral-200 rounded" />
-            <div className="grid grid-cols-1 lg:grid-cols-[1fr_280px] gap-6 mt-8">
-              <div className="h-64 bg-neutral-200 rounded-xl" />
+        <div className="max-w-5xl mx-auto px-4 py-8" role="status" aria-busy="true" aria-label="Loading gauge">
+          <div className="space-y-6">
+            <Skeleton className="h-6 w-32" />
+            <Skeleton className="h-10 w-72" />
+            <Skeleton className="h-5 w-96 max-w-full" />
+            <div className="grid grid-cols-1 lg:grid-cols-[1fr_300px] gap-6 mt-8">
+              <Skeleton rounded="xl" className="h-64" />
               <div className="space-y-4">
-                <div className="h-36 bg-neutral-200 rounded-xl" />
-                <div className="h-24 bg-neutral-200 rounded-xl" />
+                <Skeleton rounded="xl" className="h-36" />
+                <Skeleton rounded="xl" className="h-24" />
               </div>
             </div>
           </div>
@@ -386,7 +391,7 @@ export default function GaugeDetailView({ siteId }: GaugeDetailViewProps) {
         {/* Chart + Reading Row */}
         <div className="grid grid-cols-1 lg:grid-cols-[1fr_300px] gap-6 mb-8">
           {/* Chart */}
-          <div className="bg-white border border-neutral-200 rounded-xl overflow-hidden">
+          <Card variant="panel">
             {/* Stacks below `sm`, and the control row wraps rather than
                 overflowing. As one unbreakable row it did neither: at 390px the
                 heading was squeezed into three lines ("7-Day" / "Stage" /
@@ -400,63 +405,32 @@ export default function GaugeDetailView({ siteId }: GaugeDetailViewProps) {
               <div className="flex flex-wrap items-center gap-2">
                 {/* Unit toggle — show when gauge reports both ft and cfs */}
                 {canToggleUnit && (
-                  <div className="flex rounded-lg border border-neutral-300 overflow-hidden">
-                    <button
-                      onClick={() => handleUnitToggle('ft')}
-                      aria-pressed={effectiveUnit === 'ft'}
-                      title="Gauge height in feet"
-                      className={`px-2.5 py-1 text-xs font-semibold transition-colors sm:px-3 ${
-                        effectiveUnit === 'ft'
-                          ? 'bg-primary-500 text-white'
-                          : 'bg-white text-neutral-600 hover:bg-neutral-50'
-                      }`}
-                    >
-                      ft
-                    </button>
-                    <button
-                      onClick={() => handleUnitToggle('cfs')}
-                      aria-pressed={effectiveUnit === 'cfs'}
-                      title="Flow in cubic feet per second"
-                      className={`px-2.5 py-1 text-xs font-semibold transition-colors sm:px-3 ${
-                        effectiveUnit === 'cfs'
-                          ? 'bg-primary-500 text-white'
-                          : 'bg-white text-neutral-600 hover:bg-neutral-50'
-                      }`}
-                    >
-                      cfs
-                    </button>
-                  </div>
+                  <Segmented
+                    aria-label="Display unit"
+                    options={UNIT_OPTIONS}
+                    value={effectiveUnit}
+                    onChange={handleUnitToggle}
+                  />
                 )}
-                {/* Date range toggle — 24h / 7d / 30d inline; longer ranges
-                    belong to the expanded mode (ADR 0010), not more buttons. */}
-                <div className="flex rounded-lg border border-neutral-300 overflow-hidden">
-                  {[{ days: 1, label: '24H' }, { days: 7, label: '7D' }, { days: 30, label: '30D' }].map((opt) => (
-                    <button
-                      key={opt.days}
-                      onClick={() => {
-                        setDateRange(opt.days);
-                        trackGaugeRangeChanged({ provider: gaugeDetail?.provider ?? 'usgs', tier }, rangeLabelForDays(opt.days));
-                      }}
-                      aria-pressed={dateRange === opt.days}
-                      className={`px-2.5 py-1 text-xs font-semibold transition-colors sm:px-3 ${
-                        dateRange === opt.days
-                          ? 'bg-primary-500 text-white'
-                          : 'bg-white text-neutral-600 hover:bg-neutral-50'
-                      }`}
-                    >
-                      {opt.label}
-                    </button>
-                  ))}
-                </div>
-                <button
+                <Segmented
+                  aria-label="Trend range"
+                  options={RANGE_OPTIONS}
+                  value={dateRange}
+                  onChange={(days) => {
+                    setDateRange(days);
+                    trackGaugeRangeChanged({ provider: gaugeDetail?.provider ?? 'usgs', tier }, rangeLabelForDays(days));
+                  }}
+                />
+                <Button
+                  variant="outline"
+                  size="sm"
                   onClick={() => {
                     setExpandedOpen(true);
                     trackGaugeExpandedOpened({ provider: gaugeDetail?.provider ?? 'usgs', tier });
                   }}
-                  className="rounded-lg border border-neutral-300 px-2.5 py-1 text-xs font-semibold text-neutral-600 whitespace-nowrap hover:bg-neutral-50 sm:px-3"
                 >
                   Expand
-                </button>
+                </Button>
               </div>
             </div>
             <FlowTrendChart
@@ -473,7 +447,7 @@ export default function GaugeDetailView({ siteId }: GaugeDetailViewProps) {
               showTypical={tier !== 'rated'}
               showProvenance
             />
-          </div>
+          </Card>
 
           <ExpandedGaugeChart
             open={expandedOpen}
@@ -565,7 +539,7 @@ export default function GaugeDetailView({ siteId }: GaugeDetailViewProps) {
             {riverSlug && (
               <Link
                 href={`/rivers/${riverSlug}`}
-                className="flex-shrink-0 self-center px-5 py-2.5 bg-[#163F4A] text-white text-sm font-semibold rounded-lg hover:bg-[#1A4A57] transition-colors shadow-sm"
+                className="flex-shrink-0 self-center px-5 py-2.5 bg-primary-800 text-white text-sm font-semibold rounded-lg hover:bg-primary-700 transition-colors shadow-sm"
               >
                 Plan Trip
               </Link>

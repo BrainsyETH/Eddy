@@ -25,6 +25,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { X, Download, ZoomOut } from 'lucide-react';
+import Button from '@/components/ui/Button';
+import Segmented from '@/components/ui/Segmented';
 import FlowTrendChart, {
   type ChartFloodStages,
   type ChartThresholdLines,
@@ -199,15 +201,6 @@ export default function ExpandedGaugeChart({
 
   if (!open) return null;
 
-  const rangeButton = (active: boolean, enabled: boolean) =>
-    `px-3 py-1 text-xs font-semibold transition-colors ${
-      active
-        ? 'bg-primary-500 text-white'
-        : enabled
-          ? 'bg-white text-neutral-600 hover:bg-neutral-50'
-          : 'bg-neutral-100 text-neutral-400 cursor-not-allowed'
-    }`;
-
   return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 md:p-8">
       {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions */}
@@ -241,20 +234,18 @@ export default function ExpandedGaugeChart({
         </div>
 
         <div className="flex flex-wrap items-center gap-2 px-5 pt-3">
-          <div className="flex rounded-lg border border-neutral-300 overflow-hidden">
-            {presets.map((preset) => (
-              <button
-                key={preset.label}
-                onClick={() => preset.enabled && chooseRange({ kind: 'days', days: preset.days })}
-                aria-pressed={range.kind === 'days' && range.days === preset.days}
-                aria-disabled={!preset.enabled}
-                title={preset.reason ?? undefined}
-                className={rangeButton(range.kind === 'days' && range.days === preset.days, preset.enabled)}
-              >
-                {preset.label}
-              </button>
-            ))}
-          </div>
+          {/* A custom range presses nothing: 0 matches no preset. */}
+          <Segmented
+            aria-label="History range"
+            options={presets.map((preset) => ({
+              value: preset.days,
+              label: preset.label,
+              disabled: !preset.enabled,
+              title: preset.reason ?? undefined,
+            }))}
+            value={range.kind === 'days' ? range.days : 0}
+            onChange={(days) => chooseRange({ kind: 'days', days })}
+          />
 
           {caps.supportsCustomRange ? (
             <div className="flex items-center gap-1.5 text-xs text-neutral-600">
@@ -277,13 +268,9 @@ export default function ExpandedGaugeChart({
                   className="rounded border border-neutral-300 px-1.5 py-1"
                 />
               </label>
-              <button
-                onClick={applyCustom}
-                disabled={!customFrom || !customTo}
-                className="rounded-lg border border-neutral-300 px-2.5 py-1 text-xs font-semibold text-neutral-700 hover:bg-neutral-50 disabled:text-neutral-400"
-              >
+              <Button variant="outline" size="sm" onClick={applyCustom} disabled={!customFrom || !customTo}>
                 Apply
-              </button>
+              </Button>
             </div>
           ) : (
             <span className="text-xs text-neutral-400">
@@ -294,28 +281,22 @@ export default function ExpandedGaugeChart({
           <div className="ml-auto flex items-center gap-2">
             {/* Zoom keeps its own labeled controls — the arrow keys stay
                 bound to scrubbing, always. */}
-            <button
-              onClick={zoomIn}
-              className="rounded-lg border border-neutral-300 px-2.5 py-1 text-xs font-semibold text-neutral-700 hover:bg-neutral-50"
-            >
+            <Button variant="outline" size="sm" onClick={zoomIn}>
               Zoom in
-            </button>
-            <button
-              onClick={() => setZoom(null)}
-              disabled={!zoom}
-              className="inline-flex items-center gap-1 rounded-lg border border-neutral-300 px-2.5 py-1 text-xs font-semibold text-neutral-700 hover:bg-neutral-50 disabled:text-neutral-400"
-            >
+            </Button>
+            <Button variant="outline" size="sm" onClick={() => setZoom(null)} disabled={!zoom}>
               <ZoomOut className="h-3.5 w-3.5" />
               Reset zoom
-            </button>
-            <button
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
               onClick={exportCsv}
               disabled={!history || history.readings.length === 0}
-              className="inline-flex items-center gap-1 rounded-lg border border-neutral-300 px-2.5 py-1 text-xs font-semibold text-neutral-700 hover:bg-neutral-50 disabled:text-neutral-400"
             >
               <Download className="h-3.5 w-3.5" />
               Export CSV
-            </button>
+            </Button>
           </div>
         </div>
 
