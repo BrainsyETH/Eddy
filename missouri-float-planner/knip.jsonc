@@ -1,0 +1,54 @@
+{
+  "$schema": "https://unpkg.com/knip@5/schema.json",
+
+  // Next discovers these modules rather than importing them; manifest commands
+  // are likewise runtime entry points.
+  "entry": [
+    "src/app/**/{page,layout,route,loading,error,not-found,template,default}.{ts,tsx}",
+    "src/app/{robots,sitemap,manifest,icon,apple-icon,opengraph-image,twitter-image}.{ts,tsx}",
+    "src/**/*.test.{ts,tsx}",
+    "shared/**/*.test.ts",
+    "scripts/**/*.test.ts",
+
+    // Every file under scripts/ is an entry point, whether or not a manifest
+    // command names it. Knip finds the ones wired to `npm run db:*` on its
+    // own; the rest are run by hand and say so in their own headers —
+    // discover-usace-locations.ts is explicit that it stays out of the test
+    // script because it needs the network. Modelling only the manifest-named
+    // ones reported 40+ live maintenance scripts as dead code, which is the
+    // kind of result that teaches people to ignore the tool.
+    "scripts/**/*.{ts,tsx}"
+  ],
+
+  // remotion/ is DELIBERATELY ABSENT, and that is the correction this file
+  // needed. It has its own package.json, so it is a third independent npm root
+  // — not a subdirectory of this one. Auditing it from here produced ~60
+  // "unlisted dependency: remotion" findings and counted its internals as
+  // unused files, because every one of its imports resolves against a manifest
+  // this root cannot see. Nothing under remotion/ is audited today; giving it
+  // its own knip.jsonc and command is separate work.
+  "project": [
+    "src/**/*.{ts,tsx}",
+    "shared/**/*.ts",
+    "scripts/**/*.{ts,tsx}",
+    "!remotion/**"
+  ],
+
+  "typescript": {
+    "config": ["tsconfig.json", "tsconfig.test.json"]
+  },
+
+  // The @eddy/* packages are consumed through tsconfig path mapping, not as
+  // npm dependencies — this manifest lists none of them, on purpose: Vercel
+  // installs only this directory, so a `file:` dep pointing outside it would
+  // break the build. Knip is right that they are unlisted and wrong that it
+  // means anything.
+  "ignoreDependencies": ["@eddy/.*"],
+
+  // Only framework-owned module exports are exempt. Application modules remain
+  // fully audited; do not replace this with a repository-wide export ignore.
+  "ignoreIssues": {
+    "src/app/**/{page,layout,route,loading,error,not-found,template,default}.{ts,tsx}": ["exports", "types"],
+    "src/app/{robots,sitemap,manifest,icon,apple-icon,opengraph-image,twitter-image}.{ts,tsx}": ["exports", "types"]
+  }
+}
