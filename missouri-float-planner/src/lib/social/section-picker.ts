@@ -10,6 +10,7 @@
 // downstream-mile scale.
 
 import mileMarkers from '../../../floatmissouri_mile_markers.json';
+import { guideRiverSlug } from '@/lib/pois/guide-rivers';
 import { riverDisplayLong } from './river-display';
 
 interface MileMarker {
@@ -70,10 +71,10 @@ interface AccessRow {
 /** Longest float we'll ever offer as a "section" (caps the pair-building). */
 const MAX_SECTION_MI = 12;
 
-/** Mile-markers use "-river" / "-creek" / "-fork" suffixes; DB slugs don't. */
-function normalizeSlug(markerId: string): string {
-  return markerId.replace(/-river$/, '').replace(/-creek$/, '').replace(/-fork$/, '');
-}
+// The guide-id → slug mapping used to be a suffix strip right here, and it was
+// wrong on three rivers in ways nothing reported: it dropped Bryant Creek and
+// the North Fork entirely, and merged Big River with Big Creek. See
+// `src/lib/pois/guide-rivers.ts`, which owns the table and explains each.
 
 /** DB access-point names are already curated — just normalize whitespace. */
 function cleanName(s: string): string {
@@ -99,7 +100,13 @@ function getSpringsBySlug(): Map<string, MileMarker[]> {
   const m = new Map<string, MileMarker[]>();
   for (const marker of mileMarkers as MileMarker[]) {
     if (marker.feature_type === 'spring' || marker.has_spring) {
-      const slug = normalizeSlug(marker.river_id);
+      const slug = guideRiverSlug(marker.river_id);
+      // A guide river Eddy does not carry contributes no springs to anything.
+      // Previously the suffix strip invented a slug for these too, so markers
+      // from the Missouri and Little Niangua sat in the map under keys no
+      // caller would ever ask for — harmless, and hiding the three cases above
+      // that were not.
+      if (!slug) continue;
       const list = m.get(slug) || [];
       list.push(marker);
       m.set(slug, list);

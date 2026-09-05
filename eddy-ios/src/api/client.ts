@@ -29,6 +29,7 @@ import type {
   Hazard,
   HazardsResponse,
   MapAccessPoint,
+  MapSpring,
   MapGauge,
   MapGaugesResponse,
   PublicLandsResponse,
@@ -716,6 +717,14 @@ export async function seedOfflineBundle(): Promise<void> {
         accessPoints?: MapAccessPoint[];
         hazards?: Hazard[];
         reaches?: RiverReach[];
+        /**
+         * Optional for the same reason `index` below is: a build carrying this
+         * field can meet a deploy that predates it. Absent means the springs
+         * layer has nothing to draw for this river yet, which is also the
+         * honest state for most rivers — see the bundle's own note on why
+         * springs are in it and services are not.
+         */
+        springs?: MapSpring[];
       }[];
       /**
        * Optional because a build of this app can meet a deploy that predates
@@ -756,6 +765,7 @@ export async function seedOfflineBundle(): Promise<void> {
           accessPoints: entry.accessPoints,
           hazards: entry.hazards,
           reaches: entry.reaches,
+          springs: entry.springs,
         },
         fetchedAt,
         etag,
@@ -774,6 +784,7 @@ export async function seedOfflineBundle(): Promise<void> {
                 riverSlug: entry.slug,
                 accessPoints: entry.accessPoints ?? [],
                 hazards: entry.hazards ?? [],
+                springs: entry.springs ?? [],
               },
             ]
           : [],
@@ -805,6 +816,7 @@ type BundleSeededPayload = {
   riverSlug: string;
   accessPoints: MapAccessPoint[];
   hazards: Hazard[];
+  springs: MapSpring[];
 }[];
 const bundleListeners = new Set<(payload: BundleSeededPayload) => void>();
 

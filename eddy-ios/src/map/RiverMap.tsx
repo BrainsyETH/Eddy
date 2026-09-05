@@ -51,6 +51,7 @@ import type {
   CampsiteAvailabilitySummary,
   Hazard,
   MapAccessPoint,
+  MapSpring,
   MapGauge,
   PublicLandAccess,
   PublicLandFeature,
@@ -126,7 +127,8 @@ type PinShape =
   | 'boatRamp'
   | 'outfitter'
   | 'lodging'
-  | 'dam';
+  | 'dam'
+  | 'spring';
 
 /**
  * The bundled map icons, and how each one sits on its coordinate.
@@ -154,6 +156,7 @@ const PIN_ICONS: Record<PinShape, { image: string; anchor: 'center' | 'bottom'; 
   outfitter: { image: 'eddy-outfitter-map', anchor: 'center', labelOffset: 1.4, themed: true },
   lodging: { image: 'eddy-lodging-map', anchor: 'center', labelOffset: 1.4, themed: true },
   dam: { image: 'eddy-dam-map', anchor: 'center', labelOffset: 1.4, themed: true },
+  spring: { image: 'eddy-spring-map', anchor: 'center', labelOffset: 1.4, themed: true },
 };
 
 const PIN_IMAGES = {
@@ -169,6 +172,7 @@ const PIN_IMAGES = {
   'eddy-outfitter-map': { image: require('../../assets/map/eddy-outfitter.png'), sdf: false, scale: 3 },
   'eddy-lodging-map': { image: require('../../assets/map/eddy-lodging.png'), sdf: false, scale: 3 },
   'eddy-dam-map': { image: require('../../assets/map/eddy-dam.png'), sdf: false, scale: 3 },
+  'eddy-spring-map': { image: require('../../assets/map/eddy-spring.png'), sdf: false, scale: 3 },
   'route-start': { image: require('../../assets/map/route-start.png'), sdf: true, scale: 3 },
   'route-finish': { image: require('../../assets/map/route-finish.png'), sdf: true, scale: 3 },
 };
@@ -684,6 +688,62 @@ export function mapGaugePin(g: MapGauge): MapPin {
 }
 
 /**
+ * The canonical presentation object for a spring.
+ *
+ * ── THE CALLOUT HAS TO SAY HOW WELL EDDY KNOWS WHERE THIS IS ─────────────
+ *
+ * Eddy holds springs from two sources at two precisions. A `surveyed` position
+ * was placed by hand. A `derived` one was interpolated along the river line
+ * from a printed river mile — accurate to roughly the spacing of the access
+ * points either side of it, which is a couple of hundred metres at best and
+ * over a mile at worst. Drawn identically, the second borrows the first's
+ * credibility, and the reader who paddles to it finds nothing and concludes the
+ * map is wrong rather than approximate.
+ *
+ * So the caveat goes in `instruction`, the one slot on this pin whose whole
+ * documented purpose is a fact that must not be rendered as prose. That field
+ * was built for a hazard's portage note, and this is the same kind of thing:
+ * not a description of the spring, but something the reader has to act on
+ * before trusting the coordinate.
+ *
+ * The private note rides in the same slot and for the same reason — "you may
+ * not land here" is not a description either — and both are shown when both
+ * apply, because a private spring in the wrong place is two surprises.
+ */
+export function mapSpringPin(s: MapSpring): MapPin {
+  const notes: string[] = [];
+  if (s.positionSource === 'derived') {
+    notes.push(
+      s.positionBracketMiles != null && s.positionBracketMiles > 0
+        ? `Approximate position — placed from the river mile printed in the float ` +
+          `guide, between access points ${Math.round(s.positionBracketMiles)} miles apart.`
+        : 'Approximate position — placed from the river mile printed in the float guide.',
+    );
+  }
+  if (s.isPrivate) {
+    notes.push('On private ground. Visible from the water; not somewhere to land.');
+  }
+
+  return {
+    id: `spring:${s.id}`,
+    name: s.name,
+    layer: 'springs' as const,
+    subtitle: [
+      s.riverMile != null ? `Mile ${s.riverMile}` : null,
+      // "Approximate" earns a place in the SUBTITLE as well as the note. The
+      // subtitle is what a reader skims before deciding to open anything, and
+      // the distinction this pin turns on should not need a tap to reach.
+      s.positionSource === 'derived' ? 'Approximate' : null,
+    ]
+      .filter(Boolean)
+      .join(' · ') || null,
+    coordinates: s.coordinates,
+    instruction: notes.length > 0 ? notes.join('\n\n') : null,
+    body: s.description,
+  };
+}
+
+/**
  * The canonical presentation object for a hazard. Exported for search, like
  * the two builders above it — found by name or tapped on the map, one shape.
  */
@@ -811,6 +871,14 @@ interface Props {
   /** A tapped cluster: the caller issues a one-shot closer camera command. */
   onZoomToCluster?: (point: { lng: number; lat: number }) => void;
   hazards: Hazard[];
+  /**
+   * Named springs, from the offline bundle rather than a request.
+   *
+   * Statewide like hazards and access points: springs reach the phone in the
+   * launch bundle (see useNetworkPlaces), so this is a read of what is already
+   * on disk and the layer costs the map no network at all.
+   */
+  springs: MapSpring[];
   services: RiverService[];
   /** Which layers are switched on. Anything absent is not fetched into GeoJSON. */
   layers: LayerKey[];
@@ -918,6 +986,7 @@ export function RiverMap({
   onViewportChange,
   onZoomToCluster,
   hazards,
+  springs,
   services,
   layers,
   initialCamera,
@@ -1168,6 +1237,11 @@ export function RiverMap({
     [hazards],
   );
 
+  const springPins: MapPin[] = useMemo(
+    () => springs.filter((s) => hasCoordinates(s)).map(mapSpringPin),
+    [springs],
+  );
+
   // One service, one pin, whichever tier draws it — see mapServicePin, which
   // moved to module scope so a search result can build the same pin a tap
   // would. The rules it encodes are unchanged.
@@ -1242,6 +1316,7 @@ export function RiverMap({
       campgrounds: campgroundPins,
       gauges: gaugePins,
       hazards: hazardPins,
+      springs: springPins,
       outfitters: outfitterPins,
       lodging: lodgingPins,
     }),
@@ -1251,6 +1326,7 @@ export function RiverMap({
       campgroundPins,
       gaugePins,
       hazardPins,
+      springPins,
       outfitterPins,
       lodgingPins,
     ],
@@ -1300,6 +1376,11 @@ export function RiverMap({
   const hazardShape = useMemo(
     () => featureCollection(hazardPins, layerColorFor('hazards', colors)),
     [hazardPins, colors],
+  );
+
+  const springShape = useMemo(
+    () => featureCollection(springPins, layerColorFor('springs', colors)),
+    [springPins, colors],
   );
   const damShape = useMemo(
     () => featureCollection(dams ?? [], layerColorFor('dams', colors)),
@@ -1390,6 +1471,7 @@ export function RiverMap({
         campgrounds: campgroundShape,
         gauges: gaugeShape,
         hazards: hazardShape,
+        springs: springShape,
         dams: damShape,
         // Never drawn through pinLayer — the national tier has its own
         // clustered source. Present so the record is total.
@@ -1403,6 +1485,7 @@ export function RiverMap({
       campgroundShape,
       gaugeShape,
       hazardShape,
+      springShape,
       damShape,
     ],
   );
@@ -2631,6 +2714,22 @@ export function RiverMap({
         : null}
       {layerOn('campgrounds')
         ? pinLayer('campgrounds', 'campground', ZOOM.names, ZOOM.cluster, ZOOM.places)
+        : null}
+
+      {/* ── Springs ride the standard rungs, and cluster ───────────────────
+          The same three arguments as the place layers above, deliberately: a
+          spring is a destination like a campground is, there are a few dozen of
+          them statewide, and nothing about one is urgent. It is emphatically
+          NOT the hazards case — a hazard may not disappear into a count because
+          missing it hurts you; missing a spring in a bubble costs a zoom.
+
+          Drawn AFTER the place layers so a spring paints over a put-in where
+          the two land together, which they do at Alley, Big and Bennett: the
+          access dedupe (spring-dedupe.ts) keeps a spring OUT of this layer when
+          it is already an access point, so anything drawing here is a feature
+          the access layer is not showing, and it should not be buried by one. */}
+      {layerOn('springs')
+        ? pinLayer('springs', 'spring', ZOOM.names, ZOOM.cluster, ZOOM.places)
         : null}
       {/* Drawn exactly as the campgrounds layer is, because it is exactly the
           same handover: a put-in leaves the access source and wears its own mark

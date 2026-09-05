@@ -32,7 +32,7 @@ import { useEffect, useState } from 'react';
 import { onOfflineBundleSeeded } from '@/api/client';
 import { readAllPlaces, type CachedPlaces } from '@/lib/riverCache';
 
-const EMPTY: CachedPlaces = { accessPoints: [], hazards: [] };
+const EMPTY: CachedPlaces = { accessPoints: [], hazards: [], springs: [] };
 
 export function useNetworkPlaces(): CachedPlaces {
   const [places, setPlaces] = useState<CachedPlaces>(EMPTY);
@@ -62,9 +62,15 @@ export function useNetworkPlaces(): CachedPlaces {
         entry.accessPoints.map((point) => ({ point, riverSlug: entry.riverSlug })),
       );
       const hazards = payload.flatMap((entry) => entry.hazards);
+      const springs = payload.flatMap((entry) => entry.springs);
+      // Springs deliberately do NOT join this condition. Most rivers have none,
+      // so a payload of springs alone is not a signal that the seed landed —
+      // and gating on it would let a spring-only payload replace a filled set
+      // with an empty one, which is the emptiness bug this hook already guards
+      // against twice.
       if (accessPoints.length > 0 || hazards.length > 0) {
         seeded = true;
-        setPlaces({ accessPoints, hazards });
+        setPlaces({ accessPoints, hazards, springs });
       }
     });
 

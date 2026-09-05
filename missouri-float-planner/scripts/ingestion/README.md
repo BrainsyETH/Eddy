@@ -325,6 +325,42 @@ never guessed.
 
 ---
 
+## Springs from the mile-by-mile guide
+
+`scripts/ingestion/snap-springs.ts` turns the spring mentions in
+`floatmissouri_mile_markers.json` into `points_of_interest` rows with real
+coordinates. Dry run by default; `--apply` needs the `EXPECTED_SUPABASE_REF`
+pin like every other write.
+
+```bash
+npx tsx scripts/ingestion/snap-springs.ts                 # report
+npx tsx scripts/ingestion/snap-springs.ts --json out.json # report + machine-readable
+export EXPECTED_SUPABASE_REF=ilefwfpvphadsbptiaur
+npx tsx scripts/ingestion/snap-springs.ts --apply
+```
+
+Two things about it are worth knowing before reading its output.
+
+**The source flag is not a spring flag.** 105 markers carry
+`feature_type: "spring"` or `has_spring: true`, and about half are the word
+occurring in prose — seasons ("access in spring or high water"), creeks
+("Spring Creek enters on left"), place names ("Weldon Spring Conservation
+Area", ×7), businesses ("Keener Springs Resort"). `src/lib/pois/spring-extract.ts`
+reads the sentence instead of trusting the flag, and refuses by default. It
+also refuses a spring the text places off the channel ("Harrison Spring 0.3
+mile up branch"), because a mile is the only position the source carries.
+
+**River mile is not a fraction of the river line.** On rivers whose access
+points were corrected against a published mile index — the Meramec, Bourbeuse,
+Niangua, St. Francis and others — `river_mile_downstream` no longer corresponds
+to `ST_LineInterpolatePoint(geom, mile / length_miles)`; feeding an access
+point's own mile back through that formula misses its own location by a median
+of 15–20 km. `src/lib/geo/mile-index.ts` interpolates between access points
+instead, which is exact on the rivers where the naive formula worked and three
+orders of magnitude better on the rest. Positions written this way are stamped
+`position_source = 'derived_from_river_mile'` with the bracket width in
+`raw_data.bracket_miles`, and both apps show them as approximate.
+
 ## Launch checklist
 
 - [ ] `EXPECTED_SUPABASE_REF=ilefwfpvphadsbptiaur` exported; app URL matches.

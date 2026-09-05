@@ -29,6 +29,7 @@ import type {
   HazardType,
   NearbyService,
   NPSCampgroundInfo,
+  MapSpring,
 } from '@/types/api';
 
 /** A PostGIS point as PostgREST hands it back. */
@@ -196,6 +197,55 @@ export function toHazard(row: HazardRow) {
       lng: coords(row.location)?.[0] || 0,
       lat: coords(row.location)?.[1] || 0,
     },
+  };
+}
+
+/** A `points_of_interest` row, as far as a spring needs one. */
+export interface SpringRow {
+  id: string;
+  river_id: string | null;
+  name: string;
+  description: string | null;
+  latitude: number | string | null;
+  longitude: number | string | null;
+  river_mile: number | string | null;
+  position_source: string | null;
+  raw_data: Record<string, unknown> | null;
+}
+
+/**
+ * Returns null for a spring that must not be drawn.
+ *
+ * The same ruling as `toAccessPoint` below and for a sharper reason: a spring
+ * is a destination people paddle to, so a row with no coordinates is not a
+ * degraded pin, it is a pin at (0, 0) in the Gulf of Guinea. Two rows in
+ * production have no river either — the orphaned Alley Spring duplicate and
+ * Devils Well — and a spring with no river cannot be filed under one.
+ */
+export function toSpring(row: SpringRow): MapSpring | null {
+  const lat = row.latitude == null ? null : parseFloat(String(row.latitude));
+  const lng = row.longitude == null ? null : parseFloat(String(row.longitude));
+  if (lat == null || lng == null || !Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+  if (lat === 0 && lng === 0) return null;
+
+  const raw = row.raw_data ?? {};
+  const bracket = raw.bracket_miles;
+  return {
+    id: row.id,
+    name: row.name,
+    riverMile: row.river_mile == null ? null : parseFloat(String(row.river_mile)),
+    coordinates: { lng, lat },
+    description: row.description,
+    // The column is the authority; `raw_data` is where the ingest script keeps
+    // its working. A row written before the column existed is surveyed by
+    // definition — nothing derived a position until the script that stamps this
+    // shipped. See migration 20260905125455.
+    positionSource: row.position_source === 'derived_from_river_mile' ? 'derived' : 'surveyed',
+    positionBracketMiles:
+      row.position_source === 'derived_from_river_mile' && typeof bracket === 'number'
+        ? bracket
+        : null,
+    isPrivate: raw.private === true,
   };
 }
 

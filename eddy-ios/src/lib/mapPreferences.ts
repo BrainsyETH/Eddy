@@ -75,6 +75,7 @@ const KNOWN_LAYERS: Record<LayerKey, true> = {
   outfitters: true,
   lodging: true,
   dams: true,
+  springs: true,
   weatherRadar: true,
   publicLand: true,
 };

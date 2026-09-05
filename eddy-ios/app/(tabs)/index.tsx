@@ -1122,6 +1122,18 @@ export default function MapScreen() {
     return [...byId.values()];
   }, [networkPlaces.hazards, hazards]);
 
+  /**
+   * Every spring Eddy has, statewide, straight off disk.
+   *
+   * NO LIVE MERGE, unlike the two above, and the asymmetry is the point. Those
+   * merge a per-river fetch over the bundle because a put-in can be closed and
+   * a hazard can appear between bundles — both are STATE, and a stale answer to
+   * either is a wrong answer. A spring is not state. It is where it has been
+   * since before the river was named, so the bundle's copy is as current as any
+   * request would be, and the layer costs the map nothing.
+   */
+  const drawnSprings = networkPlaces.springs;
+
   // ── Layer data, fetched on demand ───────────────────────────────
   // Nothing here is requested until its layer (or another consumer) wants it.
   // The fetch behaviour lives in each hook, moved verbatim from this screen —
@@ -2650,6 +2662,7 @@ export default function MapScreen() {
             onViewportChange={onViewportChange}
             onZoomToCluster={onZoomToCluster}
             hazards={drawnHazards}
+            springs={drawnSprings}
             services={services ?? NO_SERVICES}
             layers={layers}
             initialCamera={initialCamera}

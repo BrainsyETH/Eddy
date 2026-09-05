@@ -303,6 +303,13 @@ def main() -> None:
         "eddy-outfitter": "eddy-outfitter",
         "eddy-lodging": "eddy-lodging",
         "eddy-dam": "eddy-dam",
+        # Springs. Eddy has no spring drawing of its own, and the droplet is the
+        # closest true thing in the catalog rather than a stand-in: a spring IS
+        # where the water comes out, and the same droplet already means "water"
+        # on the river screen. Reusing it keeps one meaning per mark — which is
+        # the rule the layers sheet depends on, since a row there is only a
+        # legend if its mark is the mark its pins wear.
+        "eddy-spring": "eddy-water-droplet",
     }
     for name, source_name in themed.items():
         icon = themed_icon(source_name)

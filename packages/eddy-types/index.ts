@@ -834,6 +834,61 @@ export interface HazardsResponse {
   hazards: Hazard[];
 }
 
+// ── Springs (offline bundle, and /api/rivers/[slug]/pois) ────────
+//
+// A spring is the thing an Ozark float is FOR as often as not — Big Spring,
+// Alley Spring, Blue Spring and Greer are why people pick the river they pick —
+// and until this type existed the iOS map had no way to know one was there.
+//
+// A STRUCTURAL SUBSET of the web's PointOfInterest, on the same reasoning as
+// MapAccessPoint above: that type carries images, amenities, NPS ids, booking
+// urls and body text for a river page, and restating those here would be pure
+// drift risk for a map that draws a pin and a callout.
+
+/**
+ * How a spring's coordinates were obtained, which the map has to be able to
+ * say out loud.
+ *
+ * Eddy holds springs from two sources and they are not equally precise. A
+ * `surveyed` position was placed by hand or came with the record. A `derived`
+ * one was interpolated along the river line from a printed river mile, by
+ * scripts/ingestion/snap-springs.ts, and is accurate to roughly the spacing of
+ * the access points either side of it — typically a couple of hundred metres,
+ * occasionally more. Both are worth drawing; only one is worth navigating to,
+ * and a map that renders them identically is making a promise about the second
+ * that nobody checked.
+ */
+export type SpringPositionSource = 'surveyed' | 'derived';
+
+export interface MapSpring {
+  id: string;
+  name: string;
+  /** Mile on the river's own axis. Null for a spring nobody has placed on it. */
+  riverMile: number | null;
+  coordinates: { lng: number; lat: number };
+  /** The guide's sentence, or the curated description. May be long. */
+  description: string | null;
+  positionSource: SpringPositionSource;
+  /**
+   * Half-width of the uncertainty on a derived position, in miles of river.
+   *
+   * The distance between the two access points the position was interpolated
+   * between — the honest error bar, and the number the callout's caveat is
+   * written from. Null on a surveyed position, which has no such bar.
+   */
+  positionBracketMiles: number | null;
+  /**
+   * The source says this one is on private ground or closed to the public.
+   *
+   * Eddy draws it anyway — a spring visible from the water is a landmark you
+   * navigate BY whether or not you may land at it — but the callout must say
+   * so, for the same reason the public-land layer says "ownership, not
+   * permission". A paddler who ties up at a private spring because a map drew
+   * it like every other one has been misled by this app.
+   */
+  isPrivate: boolean;
+}
+
 // ── Gauge stations (GET /api/gauges) ─────────────────────────────
 // Every active USGS station Eddy tracks, with its latest reading. One flat
 // request for all of them, which is what lets the map draw a gauge layer and
