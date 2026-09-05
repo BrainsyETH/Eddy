@@ -74,6 +74,7 @@
   /* Neutrals — Warm stone tones */
   --color-neutral-950: #1A1814;
   --color-neutral-900: #2D2A24;
+  --color-neutral-850: #36332C; /* interpolated 800↔900, as in tailwind.config.ts; the dark-theme hover fill */
   --color-neutral-800: #3F3B33;
   --color-neutral-700: #524D43;
   --color-neutral-600: #6B6459;
@@ -93,6 +94,13 @@
   --color-text-inverse: #FFFFFF;
   --color-border: var(--color-neutral-200);
   --color-border-strong: var(--color-neutral-300);
+
+  /* Interaction fills for quiet controls (outline buttons, segmented
+     options). Semantic, so the dark theme can remap them: a raw neutral-50
+     hover would put the dark theme's neutral-400 text on a near-white fill
+     at 2.5:1. Light: hover 5.4:1, pressed 4.9:1 against text-secondary. */
+  --color-surface-hover: var(--color-neutral-50);
+  --color-surface-pressed: var(--color-neutral-100);
 
   /* State Colors */
   --color-success: var(--color-support-500);
@@ -148,6 +156,10 @@
   --color-text-muted: var(--color-neutral-500);
   --color-border: var(--color-neutral-800);
   --color-border-strong: var(--color-neutral-700);
+  /* Hover goes one step lighter than the surface (4.6:1 under neutral-400
+     text); pressed goes darker, not lighter — neutral-800 would be 4.1:1. */
+  --color-surface-hover: var(--color-neutral-850);
+  --color-surface-pressed: var(--color-neutral-950);
 }
 
 /* Base styles */
@@ -564,11 +576,11 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 .btn-outline:hover {
-  background-color: var(--color-neutral-50);
+  background-color: var(--color-surface-hover);
 }
 
 .btn-outline:active {
-  background-color: var(--color-neutral-100);
+  background-color: var(--color-surface-pressed);
 }
 
 .btn-outline:disabled {
@@ -622,7 +634,7 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 .segmented__option:hover {
-  background-color: var(--color-neutral-50);
+  background-color: var(--color-surface-hover);
 }
 
 .segmented__option[aria-pressed="true"] {
@@ -632,7 +644,7 @@ h1, h2, h3, h4, h5, h6 {
 
 .segmented__option[aria-disabled="true"] {
   color: var(--color-neutral-400);
-  background-color: var(--color-neutral-100);
+  background-color: var(--color-surface-pressed);
   cursor: not-allowed;
 }
 
@@ -1282,6 +1294,16 @@ h1, h2, h3, h4, h5, h6 {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
+  }
+
+  /* The skeleton sweep is a gradient overlay that the animation carries
+     across the block. Cutting the animation short does not remove the
+     overlay: a finished animation snaps back to the element's un-animated
+     state, and that state is translateX(0) — the band parked ON the block as
+     a static stripe. Screenshot-verified. Reduced motion means a flat
+     placeholder, so the overlay goes away entirely. */
+  .skeleton::after {
+    display: none;
   }
 }
 

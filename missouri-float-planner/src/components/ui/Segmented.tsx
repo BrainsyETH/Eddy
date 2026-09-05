@@ -12,6 +12,15 @@
 // stay in the tab order and announce aria-disabled rather than vanishing: a
 // range that exists but is unavailable here is a different fact from a range
 // that does not exist.
+//
+// Semantics: a group of aria-pressed toggle buttons, each in the tab order.
+// That is a valid pattern and it is exactly what the call sites already were.
+// The APG "radio group" pattern (role=radiogroup, one tab stop, arrow keys
+// move selection) is the upgrade path for a strictly single-select control.
+// It is not done here because it changes keyboard behaviour, and inside
+// ExpandedGaugeChart the arrow keys are contracted to chart scrubbing
+// (chart-parity.test.ts) — that interaction needs its own decision, not a
+// side effect of a migration.
 
 import type { ReactNode } from 'react';
 import { cx } from '@/lib/utils/cx';

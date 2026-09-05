@@ -16,6 +16,12 @@
 // Variants are the design system's (DESIGN.md §4) plus `outline`, the
 // neutral chip that data surfaces were already using everywhere with no
 // class. Sizes adjust the box only.
+//
+// A link cannot be disabled — `disabled` is not in the `href` form's type,
+// and that is deliberate, not a gap. Anchors have no native disabled state;
+// faking one with aria-disabled and a swallowed click leaves a focusable
+// element that goes nowhere. If the action is unavailable, it is a <button
+// disabled>, not a link; if the destination exists, the link is live.
 
 import Link from 'next/link';
 import type { AnchorHTMLAttributes, ButtonHTMLAttributes, ReactNode, Ref } from 'react';
