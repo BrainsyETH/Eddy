@@ -42,7 +42,10 @@ echo ""
 # out ~15s is the wrong process — yt-dlp's --download-sections fetches only the
 # byte range we need (a few MB). We pad the window by SECTION_PAD seconds on each
 # side so keyframe snapping can't clip the edges, then seek by that pad in step 3.
-# Falls back to a full download if the section grab yields nothing.
+# Prefer an HLS format because YouTube's current cookie-bound direct HTTPS
+# formats can return 403 under SABR delivery, while the equivalent HLS stream
+# remains available. Falls back to another combined format, then to a full
+# download if the section grab yields nothing.
 SECTION_PAD=3
 DL_START=$(awk "BEGIN{s=$START_SECS-$SECTION_PAD; if(s<0)s=0; print s}")
 DL_END=$(awk "BEGIN{print $START_SECS+$DURATION_SECS+$SECTION_PAD}")
@@ -51,10 +54,11 @@ SEEK_OFFSET=$(awk "BEGIN{print $START_SECS-$DL_START}")
 echo "Step 1: Downloading clip window ${DL_START}s–${DL_END}s (not full video)..."
 yt-dlp \
     "${COOKIE_ARGS[@]}" \
+    --extractor-args "youtube:player_client=default,web_embedded" \
     --retries 5 \
     --download-sections "*${DL_START}-${DL_END}" \
     --downloader ffmpeg \
-    --format "bestvideo[height<=1080]+bestaudio/best[height<=1080]" \
+    --format "95/best[protocol^=m3u8][height<=720]/best[height<=720]" \
     --merge-output-format mp4 \
     --output "$TEMP_DIR/source.%(ext)s" \
     --no-playlist \
@@ -69,8 +73,9 @@ if [ -z "$SOURCE_VIDEO" ] || [ ! -f "$SOURCE_VIDEO" ]; then
     echo "  ⚠️  windowed download empty — falling back to full download"
     yt-dlp \
         "${COOKIE_ARGS[@]}" \
+        --extractor-args "youtube:player_client=default,web_embedded" \
         --retries 5 \
-        --format "bestvideo[height<=1080]+bestaudio/best[height<=1080]" \
+        --format "95/best[protocol^=m3u8][height<=720]/best[height<=720]" \
         --merge-output-format mp4 \
         --output "$TEMP_DIR/source.%(ext)s" \
         --no-playlist \
