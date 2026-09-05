@@ -50,13 +50,16 @@ trap 'rm -rf "$TMP"' EXIT
 INVENTORY="$TMP/inventory.json"
 
 curl -fsS \
-  "$SUPABASE_URL/rest/v1/clip_library?select=id,youtube_video_id,youtube_channel,river_slug,clip_url,duration_secs,clip_start_secs,orientation,heatmap_score,source_creator,source_url,content_type,used_in_posts,brand_check_status&order=created_at.asc&limit=1000" \
+  "$SUPABASE_URL/rest/v1/clip_library?select=id,youtube_video_id,youtube_channel,river_slug,clip_url,duration_secs,clip_start_secs,orientation,heatmap_score,source_creator,source_url,content_type,used_in_posts,brand_check_status,brand_check_error&order=created_at.asc&limit=1000" \
   -H "apikey: $SUPABASE_KEY" \
   -H "Authorization: Bearer $SUPABASE_KEY" \
   -o "$INVENTORY"
 
 ROWS=$(jq -c --argjson limit "$LIMIT" \
-  '[.[] | select(((.used_in_posts // []) | length) == 0)] | .[:$limit]' \
+  '[.[]
+    | select(((.used_in_posts // []) | length) == 0)
+    | select((((.brand_check_error // "") | startswith("Corrected rerender")) | not))
+  ] | .[:$limit]' \
   "$INVENTORY")
 COUNT=$(jq 'length' <<<"$ROWS")
 
