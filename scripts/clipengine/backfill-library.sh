@@ -74,7 +74,13 @@ fi
 
 [ "$COUNT" -gt 0 ] || exit 0
 
-echo "$ROWS" | jq -c '.[]' | while IFS= read -r ROW; do
+ROWS_FILE="$TMP/rows.ndjson"
+jq -c '.[]' <<<"$ROWS" > "$ROWS_FILE"
+
+# Read the inventory on a dedicated descriptor. Commands inside the loop (most
+# notably gh) may inspect stdin; letting them share the row stream can consume
+# the next JSON record and silently derail a bulk run.
+while IFS= read -r ROW <&3; do
   CLIP_ID=$(jq -r '.id' <<<"$ROW")
   VIDEO_ID=$(jq -r '.youtube_video_id' <<<"$ROW")
   CHANNEL=$(jq -r '.youtube_channel // ""' <<<"$ROW")
@@ -190,6 +196,6 @@ echo "$ROWS" | jq -c '.[]' | while IFS= read -r ROW; do
   # with the eventual replacement without allowing a live re-query to change
   # which rows this run owns.
   : "$OLD_URL"
-done
+done 3< "$ROWS_FILE"
 
 echo "Backfill dispatch pass complete. Rows remain quarantined until each render replaces its URL."
