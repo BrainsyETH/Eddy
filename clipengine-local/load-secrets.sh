@@ -29,7 +29,20 @@ if [ -z "${YOUTUBE_COOKIES_FILE:-}" ]; then
   _ck="$(_kc YOUTUBE_COOKIES)"
   if [ -n "$_ck" ]; then
     _ckf="${TMPDIR:-/tmp}/eddy-clipengine-cookies.txt"
-    ( umask 077; printf '%s\n' "$_ck" > "$_ckf" )
+    (
+      umask 077
+      # macOS `security -w` hex-encodes multiline generic-password values.
+      # Decode that representation back to Netscape cookies; retain backward
+      # compatibility with keychain entries that are returned as plaintext.
+      if printf '%s' "$_ck" | grep -Eq '^[[:xdigit:]]+$' && [ $((${#_ck} % 2)) -eq 0 ]; then
+        printf '%s' "$_ck" | xxd -r -p > "$_ckf"
+        if ! head -n 1 "$_ckf" | grep -q 'Netscape HTTP Cookie File'; then
+          printf '%s\n' "$_ck" > "$_ckf"
+        fi
+      else
+        printf '%s\n' "$_ck" > "$_ckf"
+      fi
+    )
     export YOUTUBE_COOKIES_FILE="$_ckf"
   fi
   unset _ck
