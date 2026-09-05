@@ -18,9 +18,8 @@
 //   light  the default. Off-white ground, dark ink. Every editorial reel.
 //   dark   the SEVERITY SURFACE: deep teal ground, white ink, cards bordered in
 //          the condition colour. Sanctioned for the high-water / all-clear alert
-//          family (a cream card reads less urgent than the alarm deserves) and
-//          for chrome drawn OVER footage (ClipReel), where the ground is the
-//          blurred clip + scrim, never the off-white.
+//          family (including high-water ClipReels, where chrome sits over
+//          footage). Ordinary ClipReels remain on the light editorial surface.
 //
 // All sizes are canvas pixels on the 1080-wide social canvas (1080×1920 reels,
 // 1080×1080 / 1080×1920 covers).

@@ -30,12 +30,13 @@ keeps them from drifting again.
 
 | Tone | Ground | Ink | Used by |
 | --- | --- | --- | --- |
-| `light` (default) | off-white `neutral-50` | `neutral-900` | Float Pick, Digest, Forecast, Trend, Eddy Says report, tips |
-| `dark` — the severity surface | deep teal `primary-900`, washed faintly toward the condition colour | white | the high-water / all-clear alert family; chrome drawn OVER footage (ClipReel) |
+| `light` (default) | off-white `neutral-50` | `neutral-900` | Float Pick, Digest, Forecast, Trend, Eddy Says report, ordinary ClipReels, tips |
+| `dark` — the severity surface | deep teal `primary-900`, washed faintly toward the condition colour | white | the high-water / all-clear alert family, including high-water ClipReels |
 
 The dark tone is sanctioned, not a fallback: a cream card reads calmer than
-high water deserves. Over footage the ground is the blurred clip plus a scrim,
-never the off-white.
+high water deserves. An ordinary clip remains an editorial post on the light
+canvas, with its footage taking the place of the chart, route or illustration.
+Only a severity clip may put the dark chrome over footage and scrims.
 
 ## Primitives
 

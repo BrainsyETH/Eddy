@@ -7,28 +7,28 @@ import { Captions } from "./Captions";
 import { REEL_SAFE } from "../lib/reel-safe";
 import { NEUTRAL_ACCENT, PLAN_CTA } from "../lib/brand";
 import { fontFamilies } from "../design-tokens/fonts";
-import { CARD, MEDIA_SCRIM, SURFACES, TYPE, colors } from "../../../shared/social-brand";
+import { CARD, MEDIA_SCRIM, SURFACES, TYPE, colors, type SocialTone } from "../../../shared/social-brand";
 import type { Caption } from "../lib/social-props";
 
-// Vertical geometry. Two layouts share this frame:
+// Vertical geometry. The default editorial treatment matches Float Pick,
+// Eddy Says, Digest and Trend: cream ground, dark ink, a framed media stage and
+// a white dock. High-water is the one sanctioned severity treatment and keeps
+// the dark over-media layout.
 //
-//  • BAND (landscape sources): the sharp 16:9 clip sits as a ruled, shadowed
-//    card over a BLURRED, scaled, dimmed full-bleed copy of itself, so the
-//    frame is full and immersive instead of a flat teal void. Scrims top +
-//    bottom seat the masthead and dock inside the Reels safe zone.
+//  • LIGHT / LANDSCAPE: a gently cropped, taller card gives the footage the
+//    same visual weight as the chart / route stage in the other editorial reels.
 //
-//  • FULL-BLEED (vertical sources): the footage fills the frame behind the
-//    scrims; the masthead sits high and the dock low over them.
+//  • LIGHT / PORTRAIT: a narrower portrait card preserves more of the source.
 //
-// Either way this is the design system's OVER-MEDIA use of the dark tone: the
-// ground is the footage + scrim, never the off-white, and the chrome (pill,
-// wordmark, dock, button) is the same chrome every other reel draws.
-const BAND_W = 1080 - REEL_SAFE.left - REEL_SAFE.right;
-const BAND_H = Math.round((BAND_W * 9) / 16);
-// Centred between the masthead's foot (~430) and the dock's top (~1290).
-const BAND_TOP = 590;
-const BAND_CAPTION_TOP = BAND_TOP + BAND_H - 90;
-const FB_CAPTION_TOP = 1180;
+//  • DARK severity: vertical footage may fill the canvas; landscape footage
+//    keeps its 16:9 card over a dimmed copy, as before.
+const CONTENT_W = 1080 - REEL_SAFE.left - REEL_SAFE.right;
+const DARK_BAND_H = Math.round((CONTENT_W * 9) / 16);
+const DARK_BAND_TOP = 590;
+const LIGHT_LANDSCAPE = { top: 510, left: REEL_SAFE.left, width: CONTENT_W, height: 680 } as const;
+const LIGHT_PORTRAIT = { top: 475, left: 225, width: 630, height: 760 } as const;
+const DARK_CAPTION_TOP = DARK_BAND_TOP + DARK_BAND_H - 90;
+const DARK_FULL_BLEED_CAPTION_TOP = 1180;
 
 interface ReelBrandFrameProps {
   /** Series label in the masthead pill ("On the Water", "High Water"). */
@@ -47,6 +47,8 @@ interface ReelBrandFrameProps {
   accent?: string;
   /** Pill fill override (the warning orange on a high-water clip). */
   labelFill?: string;
+  /** Light for editorial clips; dark is reserved for severity content. */
+  tone?: SocialTone;
   /** Timed transcript captions drawn over the lower media (optional). */
   captions?: Caption[];
   /** Full-bleed media instead of the centered 16:9 card — for VERTICAL sources. */
@@ -71,6 +73,7 @@ export const ReelBrandFrame: React.FC<ReelBrandFrameProps> = ({
   detail,
   accent = NEUTRAL_ACCENT,
   labelFill,
+  tone = "light",
   captions,
   fullBleed = false,
   backdrop,
@@ -80,14 +83,22 @@ export const ReelBrandFrame: React.FC<ReelBrandFrameProps> = ({
   // so the title, the credit and the button are all present from the start —
   // the same "honest frame zero" rule every other reel follows. The footage
   // is the only thing that moves.
-  const dark = SURFACES.dark;
+  const surface = SURFACES[tone];
+  const severity = tone === "dark";
+  const useFullBleed = severity && fullBleed;
+  const media = severity
+    ? { top: DARK_BAND_TOP, left: REEL_SAFE.left, width: CONTENT_W, height: DARK_BAND_H }
+    : fullBleed
+      ? LIGHT_PORTRAIT
+      : LIGHT_LANDSCAPE;
+  const mediaAccent = severity ? accent : surface.rule;
   const creditLine = creatorCredit ? `🎥 Clip via ${creatorCredit}` : undefined;
 
   return (
-    <AbsoluteFill style={{ backgroundColor: dark.ground, color: dark.ink, fontFamily: fontFamilies.body }}>
-      {fullBleed ? (
+    <AbsoluteFill style={{ backgroundColor: surface.ground, color: surface.ink, fontFamily: fontFamilies.body }}>
+      {useFullBleed ? (
         <AbsoluteFill style={{ overflow: "hidden" }}>{children}</AbsoluteFill>
-      ) : backdrop ? (
+      ) : severity && backdrop ? (
         // Blurred, scaled, dimmed full-bleed copy of the footage so the
         // landscape clip fills the frame instead of a dead teal void.
         <AbsoluteFill style={{ overflow: "hidden" }}>
@@ -97,24 +108,29 @@ export const ReelBrandFrame: React.FC<ReelBrandFrameProps> = ({
         </AbsoluteFill>
       ) : null}
 
-      {/* Scrims seat the masthead + dock legibly on the footage. */}
-      <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: fullBleed ? 560 : 640, background: MEDIA_SCRIM.top }} />
-      <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: fullBleed ? 1000 : 780, background: MEDIA_SCRIM.bottom }} />
+      {/* Scrims belong only to the severity/over-media treatment. */}
+      {severity ? (
+        <>
+          <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: fullBleed ? 560 : 640, background: MEDIA_SCRIM.top }} />
+          <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: fullBleed ? 1000 : 780, background: MEDIA_SCRIM.bottom }} />
+        </>
+      ) : null}
 
-      {!fullBleed ? (
-        // Sharp landscape clip — a ruled, shadowed card, like every other panel.
+      {!useFullBleed ? (
+        // The video is the editorial reel's central stage: one ruled, shadowed
+        // card on the cream canvas, exactly like a chart, route or quote panel.
         <div
           style={{
             position: "absolute",
-            top: BAND_TOP,
-            left: REEL_SAFE.left,
-            width: BAND_W,
-            height: BAND_H,
+            top: media.top,
+            left: media.left,
+            width: media.width,
+            height: media.height,
             overflow: "hidden",
-            border: `${CARD.border}px solid ${accent}`,
+            border: `${CARD.border}px solid ${mediaAccent}`,
             borderRadius: CARD.radius,
-            boxShadow: `${CARD.offset}px ${CARD.offset}px 0 ${dark.shadow}`,
-            background: colors.primary[900],
+            boxShadow: `${CARD.offset}px ${CARD.offset}px 0 ${surface.shadow}`,
+            background: severity ? colors.primary[900] : surface.surface,
           }}
         >
           {children}
@@ -123,21 +139,25 @@ export const ReelBrandFrame: React.FC<ReelBrandFrameProps> = ({
 
       <ReelMasthead
         pinned
-        tone="dark"
+        tone={tone}
         label={label}
         labelFill={labelFill}
         title={title}
-        overMedia
-        aside={<EddyMascot variant="canoe" size={96} delay={-30} float={false} />}
+        overMedia={severity}
+        aside={severity ? <EddyMascot variant="red" size={96} delay={-30} float={false} /> : undefined}
       />
 
       {captions && captions.length > 0 ? (
         <div
           style={{
             position: "absolute",
-            top: fullBleed ? FB_CAPTION_TOP : BAND_CAPTION_TOP,
-            left: REEL_SAFE.left + 24,
-            right: REEL_SAFE.right + 24,
+            top: severity
+              ? fullBleed
+                ? DARK_FULL_BLEED_CAPTION_TOP
+                : DARK_CAPTION_TOP
+              : media.top + media.height - 82,
+            left: useFullBleed ? REEL_SAFE.left + 24 : media.left + 24,
+            width: useFullBleed ? CONTENT_W - 48 : media.width - 48,
             display: "flex",
             justifyContent: "center",
             zIndex: 12,
@@ -153,13 +173,13 @@ export const ReelBrandFrame: React.FC<ReelBrandFrameProps> = ({
           the detail line (the high-water safety payload) does the credit move
           to its own row above. An "@handle" credit is the creator's Instagram
           account; the caption tags the same handle. */}
-      <ReelDock tone="dark" accent={accent} detail={detail ?? creditLine} cta={cta}>
+      <ReelDock tone={tone} accent={severity ? accent : undefined} detail={detail ?? creditLine} cta={cta}>
         {detail && creditLine ? (
           <div
             style={{
               fontSize: TYPE.detail.size,
               fontWeight: TYPE.detail.weight,
-              color: dark.inkSecondary,
+              color: surface.inkSecondary,
               padding: "0 5px",
             }}
           >

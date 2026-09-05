@@ -40,6 +40,7 @@ STILLS=(
   # tagged creator beside the button. The high-water variant checks the dock
   # when the safety payload owns the detail line.
   "clip-reel:0,45"
+  "clip-reel-portrait:45"
   "clip-reel-high-water:45"
 )
 

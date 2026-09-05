@@ -79,8 +79,9 @@ it: `export YOUTUBE_COOKIES_FILE=/path/to/cookies.txt`.
 
 - 1080×1920 vertical Reel, branded by `render-clip.yml` in the cloud — the same
   composition production uses, so there's no local ffmpeg render to diverge from.
-- The social design system's over-media frame (`docs/social-design-system.md`):
-  the `eddy.guide` masthead, the ruled media card, transcript subtitles, and a
-  dock with the creator credit beside the "Get the app →" button.
+- The social design system's editorial frame (`docs/social-design-system.md`):
+  the warm cream canvas, `eddy.guide` masthead, ruled media card, transcript
+  subtitles, and a light dock with the creator credit beside the "Get the app
+  →" button. High-water clips alone switch to the dark severity frame.
 - Clip length is heatmap-driven (12–60s) at the YouTube "Most Replayed" peak, or a
   Tier-1 fallback window when a known river has no heatmap (`TIER1_HEATMAP_OPTIONAL`).

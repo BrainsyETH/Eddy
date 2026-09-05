@@ -19,9 +19,10 @@ import type { ClipReelProps } from "../../lib/social-props";
  * Trend, Eddy Says): the series-label masthead, the ruled media card, the dock
  * with the canonical CTA, and timed transcript captions over the footage. A clip
  * has no live gauge reading, so the frame uses the neutral brand accent.
- * Vertical sources fill the frame (full-bleed); landscape sources play as a
- * centered 16:9 card over a blurred full-bleed copy of themselves, so they fill
- * the frame instead of sitting in a dead teal void.
+ * Ordinary clips use the light editorial surface: the video replaces the
+ * route/chart/illustration stage inside a ruled card. High-water clips alone
+ * use the dark severity surface, where vertical sources may fill the frame and
+ * landscape sources sit over a dimmed copy of themselves.
  */
 export const ClipReel: React.FC<ClipReelProps> = ({
   videoUrl,
@@ -60,6 +61,7 @@ export const ClipReel: React.FC<ClipReelProps> = ({
       cta={cta}
       detail={isHighWater ? SAFETY_DETAIL : undefined}
       accent={accent}
+      tone={isHighWater ? "dark" : "light"}
       creatorCredit={creatorCredit}
       captions={captions}
       fullBleed={sourceOrientation === "portrait"}

@@ -212,6 +212,23 @@ export const RemotionRoot: React.FC = () => {
         })}
         defaultProps={CLIP_REEL_FIXTURE}
       />
+      {/* Portrait-source geometry stays on the same light editorial canvas;
+          only the media card changes shape. Kept as a separate fixture so a
+          future full-bleed regression cannot hide behind the landscape still. */}
+      <Composition
+        id="clip-reel-portrait"
+        component={ClipReel}
+        fps={FPS}
+        width={1080}
+        height={1920}
+        calculateMetadata={async ({ props }: { props: ClipReelProps }) => ({
+          durationInFrames: getClipReelDuration(props.durationSecs, FPS),
+        })}
+        defaultProps={{
+          ...CLIP_REEL_FIXTURE,
+          sourceOrientation: "portrait",
+        } satisfies ClipReelProps}
+      />
       {/* The same wrapper in its high-water category — the safety payload owns
           the dock's detail line, so the credit takes its own row. */}
       <Composition
