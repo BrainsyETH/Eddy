@@ -4,8 +4,22 @@
 
 import { getAdapter } from './adapters';
 import { generateCaption } from './caption-generator';
+import {
+  CLIP_CAPTION_CTA,
+  assembleClipCaption,
+  buildClipCaption,
+  clipCreditLine,
+  ensureClipCredit,
+  ensureClipCta,
+  type ClipCaptionDraft,
+  type ClipSource,
+} from './clip-credit';
 import { resolveModels, type ResolvedModel } from '@/lib/ai/resolve-models';
 import type { SocialPlatform, HookStyle } from './types';
+
+// The template lives with the credit rule now (clip-credit.ts); re-exported so
+// the poster keeps its public surface.
+export { buildClipCaption };
 
 /** Subset of the brand_check_result JSONB (written by brand-check-clip.yml) we read here. */
 export interface BrandCheckResult {
@@ -15,11 +29,16 @@ export interface BrandCheckResult {
   [key: string]: unknown;
 }
 
-export interface ClipRow {
+export interface ClipRow extends ClipSource {
   id: string;
   clip_url: string | null;
   river_slug: string | null;
+  /** "@handle" (the creator's Instagram, tagged in the caption) or the YouTube
+   *  channel name — see clip-credit.ts for the rule. */
   source_creator: string | null;
+  youtube_channel?: string | null;
+  /** The original YouTube URL; linked from the Facebook caption. */
+  source_url?: string | null;
   brand_check_status: string;
   brand_check_result: BrandCheckResult | null;
   used_in_posts: string[] | null;
@@ -27,30 +46,9 @@ export interface ClipRow {
 
 export interface ClipPostResult {
   ok: boolean;
+  /** The caption as posted to Instagram (Facebook adds the source link). */
   caption: string;
   results: Array<{ platform: string; success: boolean; error?: string; postId?: string }>;
-}
-
-// Tier 1 = a known Eddy river (river name + targeted hashtag + "plan your float
-// trip" CTA pointing at a real guide page). Tier 2 = good paddling content with
-// no known river (generic "Ozark paddling" header + softer CTA + no river/Missouri
-// hashtag, since the clip may be out of state). Pass a null/empty riverName for
-// Tier 2.
-export function buildClipCaption(riverName: string | null, creator: string | null): { caption: string; hashtags: string[] } {
-  const hasRiver = !!(riverName && riverName.trim());
-  if (!hasRiver) {
-    const hashtags = ['#kayaking', '#canoe', '#float', '#paddling', '#Ozarks', '#eddyguide'];
-    const lines = ['🛶 Ozark paddling.', ''];
-    if (creator) lines.push(`🎥 Clip via ${creator}`);
-    lines.push('Find your next float at eddy.guide', '', hashtags.join(' '));
-    return { caption: lines.join('\n'), hashtags };
-  }
-  const riverTag = '#' + riverName!.replace(/[^A-Za-z0-9]/g, '');
-  const hashtags = [riverTag, '#kayaking', '#canoe', '#float', '#paddling', '#Ozarks', '#Missouri', '#eddyguide'];
-  const lines = [`🛶 ${riverName}.`, ''];
-  if (creator) lines.push(`🎥 Clip via ${creator}`);
-  lines.push('Plan your float trip at eddy.guide', '', hashtags.join(' '));
-  return { caption: lines.join('\n'), hashtags };
 }
 
 // Reposted clips carry NO live gauge/condition data, so the 'stat' and
@@ -59,19 +57,20 @@ export function buildClipCaption(riverName: string | null, creator: string | nul
 // honest without live data.
 const HOOK_STYLES: HookStyle[] = ['question', 'story'];
 
-// Compose the caption + hashtags for a clip. Prefers an AI-written caption
+// Compose the caption body + hashtags for a clip. Prefers an AI-written caption
 // (knowledgeable-local tone, deduped against recent posts) when ANTHROPIC_API_KEY
 // is configured, and falls back to the deterministic buildClipCaption template
-// when the key is absent or the model returns nothing usable. The returned
-// caption has the hashtags appended inline (matching how the templated caption
-// is posted) and is guaranteed to carry the eddy.guide CTA.
+// when the key is absent or the model returns nothing usable. Either way the
+// body is guaranteed to credit the creator (tagging their Instagram when known)
+// and to end on the download CTA; assembleClipCaption adds the per-platform
+// source link and the hashtag block at post time.
 async function composeClipCaption(
   riverName: string | null,
-  creator: string | null,
+  clip: ClipSource,
   sceneDescription: string | null,
   model: ResolvedModel,
-): Promise<{ caption: string; hashtags: string[] }> {
-  const fallback = buildClipCaption(riverName, creator);
+): Promise<ClipCaptionDraft> {
+  const fallback = buildClipCaption(riverName, clip);
   if (!process.env.ANTHROPIC_API_KEY) return fallback;
 
   try {
@@ -86,31 +85,27 @@ async function composeClipCaption(
       // Tier 2 clips have no confirmed river, so their location isn't confirmed
       // to be in Missouri — suppress Missouri/place-specific claims + hashtags.
       allowLocationHashtags: hasRiver,
+      // The model is told to keep this line verbatim; ensureClipCredit below
+      // backstops a draft that drops it. The source URL is NOT given to the
+      // model — it is a Facebook-only line added per platform at post time.
+      creditLine: clipCreditLine(clip) ?? undefined,
+      ctaLine: CLIP_CAPTION_CTA,
       // scene_description (from the brand-check vision pass) grounds the caption
       // in what the footage actually shows, not just the river name. Null for
       // backlog clips checked before this field existed → caption stays river-only.
       clipMetadata: {
-        sourceCreator: creator || undefined,
         description: sceneDescription || undefined,
       },
     });
 
-    let caption = (generated.caption || '').trim();
-    if (caption.length < 20) return fallback; // model returned nothing usable
+    let body = (generated.caption || '').trim();
+    if (body.length < 20) return fallback; // model returned nothing usable
 
-    // The prompt asks for an eddy.guide CTA; ensure one is present regardless.
-    if (!/eddy\.guide/i.test(caption)) {
-      caption += `\n\n${hasRiver ? 'Plan your float trip' : 'Find your next float'} at eddy.guide`;
-    }
+    // A caption that credits nobody or sells nothing is not a clip caption.
+    body = ensureClipCta(ensureClipCredit(body, clip));
 
-    // Post the hashtags inline, the same way the templated caption does. Skip if
-    // the model already wove tags into the body, to avoid duplicating them.
     const hashtags = generated.hashtags.length ? generated.hashtags : fallback.hashtags;
-    if (!/#\w/.test(caption) && hashtags.length) {
-      caption += `\n\n${hashtags.join(' ')}`;
-    }
-
-    return { caption, hashtags };
+    return { body, hashtags };
   } catch (err) {
     console.error('[clip-poster] AI caption failed, using template:', err);
     return fallback;
@@ -129,15 +124,12 @@ export async function publishClip(supabase: any, clip: ClipRow, platforms: Socia
     riverName = river?.name || clip.river_slug;
   }
   const sceneDescription = clip.brand_check_result?.scene_description?.trim() || null;
-  // One caption serves every platform below, so the model is resolved once here
-  // rather than inside the per-platform loop.
+  // One caption body serves every platform below, so the model is resolved once
+  // here rather than inside the per-platform loop; only the Facebook source
+  // link differs per platform (assembleClipCaption).
   const { social_caption: captionModel } = await resolveModels();
-  const { caption, hashtags } = await composeClipCaption(
-    riverName,
-    clip.source_creator,
-    sceneDescription,
-    captionModel,
-  );
+  const { body, hashtags } = await composeClipCaption(riverName, clip, sceneDescription, captionModel);
+  const caption = assembleClipCaption(body, hashtags, clip, 'instagram');
 
   const results: ClipPostResult['results'] = [];
   const postedRowIds: string[] = [];
@@ -148,6 +140,7 @@ export async function publishClip(supabase: any, clip: ClipRow, platforms: Socia
       results.push({ platform, success: false, error: `No credentials for ${platform}` });
       continue;
     }
+    const platformCaption = assembleClipCaption(body, hashtags, clip, platform);
 
     // Idempotency guard: never re-post the same clip video to a platform that
     // already has a live (published) or in-flight (publishing) row for it. The
@@ -186,7 +179,7 @@ export async function publishClip(supabase: any, clip: ClipRow, platforms: Socia
         post_type: 'river_highlight',
         platform,
         river_slug: clip.river_slug || null,
-        caption,
+        caption: platformCaption,
         video_url: clip.clip_url,
         image_url: coverUrl,
         media_type: 'video',
@@ -202,7 +195,12 @@ export async function publishClip(supabase: any, clip: ClipRow, platforms: Socia
     }
 
     try {
-      const result = await adapter.publishPost({ caption, videoUrl: clip.clip_url || undefined, coverUrl, mediaType: 'video' });
+      const result = await adapter.publishPost({
+        caption: platformCaption,
+        videoUrl: clip.clip_url || undefined,
+        coverUrl,
+        mediaType: 'video',
+      });
       if (result.success) {
         await supabase
           .from('social_posts')

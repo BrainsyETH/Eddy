@@ -52,6 +52,15 @@ const nextConfig = {
     // search engines, equivalent to 301 for ranking transfer). Query params
     // not in destination are forwarded automatically.
     return [
+      // The typeable App Store link social captions carry ("Download the Eddy
+      // River Guide on iOS → eddy.guide/ios", shared/social-brand DOWNLOAD_URL).
+      // Temporary (307) on purpose: browsers cache a 308 forever, and the
+      // destination should be free to change with the listing.
+      {
+        source: '/ios',
+        destination: 'https://apps.apple.com/app/id6794933267',
+        permanent: false,
+      },
       // River Reports consolidated from /gauges onto the canonical /rivers index.
       {
         source: '/gauges',

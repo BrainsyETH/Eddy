@@ -18,7 +18,8 @@ operator's workspace, not here.
 
 Shared logic lives in `scripts/clipengine/` (`scrape-heatmap.sh`,
 `extract-clip.sh`, `detect-river.sh`, `detect-paddling.sh`,
-`vtt-to-captions.py`) so local and cloud behave identically.
+`resolve-credit.py`, `vtt-to-captions.py`) so local and cloud behave
+identically.
 
 The local clone self-updates to `origin/main` before every run (PR #739,
 `NO_SELF_UPDATE=1` to skip) — **the repo is the source of truth; never rely on
@@ -28,8 +29,9 @@ local-only edits to the pipeline scripts.**
 
 ```
 channels.json → title gate (river / paddling topic; detect-flood → high_water) → video-level dedup
-  → scrape-heatmap (peaks, river detect, Tier-1 fallback)
+  → scrape-heatmap (peaks, river detect, Tier-1 fallback, channel identity)
   → extract-clip (windowed download, 12–60s at the peak)
+  → resolve-credit (@instagram from channels.json, else channel name)
   → upload raw to Vercel Blob → dispatch render-clip.yml
   → Remotion clip-reel brand → clip_library (brand_check_status=pending)
   → /api/cron/brand-check-pending (13:00 & 23:00 UTC, Claude vision) → approved/review/rejected
@@ -51,8 +53,40 @@ pick it up. There is no `YOUTUBE_CHANNELS_JSON` secret anymore.
 
 - `river_slug` is a per-channel default; river is otherwise detected per-video
   from the title (`detect-river.sh`).
-- `instagram` is the credit @handle (local runner threads it through; the cloud
-  path credits the channel name).
+- `instagram` is the creator's Instagram handle. When set, every clip from that
+  channel is credited **and tagged** as `@handle` on both paths (see *Credit
+  and tagging*). Filling this in is the single highest-leverage edit for a
+  source channel: without it the creator is named but not tagged.
+
+## Credit and tagging
+
+One rule, one resolver — `scripts/clipengine/resolve-credit.py` — run by both
+`clipengine-local/handoff-clip.sh` and the cloud scan before dispatching
+`render-clip.yml`:
+
+1. An explicit Instagram handle (`--instagram` on the local runner, or the
+   channel's `instagram` in `channels.json`, matched to the scraped video by
+   YouTube `@handle`, channel id or `/c/` `/user/` path — so a manual `--url`
+   run with no channel context still finds it) → the credit is **`@handle`**.
+2. Otherwise → the bare **channel name**.
+
+`scrape-heatmap.sh` records `channel_handle`, `channel_id` and `channel_url`
+in `heatmap-data.json` for that match. `render-clip.yml` stores the resolved
+credit as `clip_library.source_creator` (it used to store the channel name
+regardless of the credit the reel drew), draws it in the reel's dock, and the
+clip cover's subtitle.
+
+At post time (`src/lib/social/clip-credit.ts`, used by `clip-poster.ts` and
+the caption model) the caption carries `🎥 Clip via @handle` — on Instagram
+that @mention is what actually tags the creator — or, with no handle known,
+`🎥 Clip via <channel> on YouTube`. Facebook captions also get
+`▶️ Full video: <source_url>` (links are clickable there; on Instagram they are
+noise). **A YouTube handle is never promoted to an `@`**: an Instagram mention
+tags whoever owns that username, and the two rarely coincide by anything but
+luck. Add the Instagram handle to `channels.json` instead. The AI caption is
+asked to keep the credit and CTA lines verbatim, and both are restored if a
+draft drops them. Backlog rows still credit by name (their `source_creator` is
+the channel name) until they are re-rendered.
 
 ## Dedup
 
@@ -140,8 +174,15 @@ isn't a fit but whose flood clips are. Seeded with `@serrasolsesmedia` and
 Cloud-only Remotion (`clip-reel` composition), PR #715/#750. `run-local.sh`
 hard-requires Blob + Supabase creds + `gh` and never renders locally. Brand
 primitives shared across all reels live in `remotion/src/` (`lib/brand.ts`,
-`ReelBrandFrame.tsx`, `BrandCTA.tsx`, `ReelMasthead.tsx`). Captions come from
-the video transcript via `vtt-to-captions.py`.
+`ReelBrandFrame.tsx`, `BrandCTA.tsx`, `ReelMasthead.tsx`), all drawn from the
+social design system (`shared/social-brand.ts`, `docs/social-design-system.md`)
+— the same tokens as every other reel and cover. Transcript captions come from
+`vtt-to-captions.py` and render in the system's caption chip. The button on a
+paddling clip (either tier), its cover and its caption is
+`Download the Eddy River Guide on iOS` (`CTA.download`; the caption adds
+`→ eddy.guide/ios`, which redirects to the App Store listing) — a reposted
+clip has no float page of its own to promise, so it sells the app. High-water
+clips keep the gauge CTA below.
 
 ## Download efficiency & reliability
 

@@ -22,9 +22,12 @@ strings also work). `river_slug` is metadata only; it is NOT drawn on the video.
 
 The cloud pipeline (`youtube-clip-pipeline.yml`) reads this same file from the
 repo checkout, so committing a channel change to `main` updates both the local
-runner and the daily cloud scan — nothing else to sync. (The optional
-`instagram` field is used locally for the on-screen credit; the cloud parser
-ignores it.)
+runner and the daily cloud scan — nothing else to sync. The optional
+`instagram` field is the creator's Instagram handle: when set, every clip from
+that channel is credited as `@handle` on the reel and in the caption, where the
+mention tags them (`docs/clipengine-ops.md`, *Credit and tagging*). Both paths
+resolve it through `scripts/clipengine/resolve-credit.py`; without it the
+creator is named, not tagged.
 
 ## Run
 
@@ -76,6 +79,9 @@ it: `export YOUTUBE_COOKIES_FILE=/path/to/cookies.txt`.
 
 - 1080×1920 vertical Reel, branded by `render-clip.yml` in the cloud — the same
   composition production uses, so there's no local ffmpeg render to diverge from.
-- Dark-teal `#0F2D35` brand frame, `eddy.guide` masthead, transcript captions.
+- The social design system's over-media frame (`docs/social-design-system.md`):
+  the `eddy.guide` masthead, the ruled media card, transcript captions in the
+  caption chip, and a dock with the creator credit and the
+  "Download the Eddy River Guide on iOS" button.
 - Clip length is heatmap-driven (12–60s) at the YouTube "Most Replayed" peak, or a
   Tier-1 fallback window when a known river has no heatmap (`TIER1_HEATMAP_OPTIONAL`).

@@ -47,7 +47,7 @@ echo "Video ID: $VIDEO_ID"
 
 # Fetch metadata + heatmap via yt-dlp (authenticated, JS-runtime aware).
 python3 << PYEOF
-import json, os, subprocess, sys
+import json, os, re, subprocess, sys
 
 video_id = "$VIDEO_ID"
 url = f"https://www.youtube.com/watch?v={video_id}"
@@ -76,10 +76,22 @@ views = int(info.get("view_count") or 0)
 channel = info.get("channel") or info.get("uploader") or "Unknown"
 heatmap = info.get("heatmap") or []
 
+# Who the channel IS, not just what it is called: the @handle, the UC… id and
+# the URL let resolve-credit.py match this video to its channels.json entry
+# (and its Instagram handle) even on a manual --url run with no channel context.
+channel_id = info.get("channel_id") or ""
+channel_url = info.get("channel_url") or info.get("uploader_url") or ""
+uploader_id = info.get("uploader_id") or ""
+channel_handle = uploader_id if uploader_id.startswith("@") else ""
+if not channel_handle:
+    m = re.search(r"/@([^/?#]+)", channel_url)
+    if m:
+        channel_handle = "@" + m.group(1)
+
 print(f"  Title: {title}")
 print(f"  Duration: {duration}s")
 print(f"  Views: {views:,}")
-print(f"  Channel: {channel}")
+print(f"  Channel: {channel}" + (f" ({channel_handle})" if channel_handle else ""))
 
 # Clip length tracks the WIDTH of the most-replayed span, not a fixed window:
 # find contiguous runs of high-engagement heatmap segments and use their extent,
@@ -199,6 +211,9 @@ result = {
     "video_id": video_id,
     "title": title,
     "channel": channel,
+    "channel_handle": channel_handle,
+    "channel_id": channel_id,
+    "channel_url": channel_url,
     "duration_secs": duration,
     "view_count": views,
     "source": source,

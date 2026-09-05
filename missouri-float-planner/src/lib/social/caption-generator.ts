@@ -7,6 +7,7 @@
 
 import Anthropic from '@anthropic-ai/sdk';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { clipCreditLine } from './clip-credit';
 import { getLocalParts, getLocalDateStrings } from './local-time';
 import type { HookStyle, ContentCategory } from './types';
 import type { ResolvedModel } from '@/lib/ai/resolve-models';
@@ -43,7 +44,20 @@ interface CaptionParams {
   // (Tier 2 reposts may be out of state). Suppresses Missouri/location-specific
   // claims and hashtags. Defaults to true for callers that pass a known river.
   allowLocationHashtags?: boolean;
+  /**
+   * The creator credit for a reposted clip, already worded ("🎥 Clip via
+   * @handle"). The model must keep it verbatim: an "@handle" is the creator's
+   * Instagram account and the mention is what tags them. Built by
+   * clip-credit.ts; prefer this over clipMetadata.sourceCreator.
+   */
+  creditLine?: string;
+  /**
+   * The exact call-to-action line to end on. Absent → the generic "point to
+   * eddy.guide" instruction. Clips pass the app download CTA.
+   */
+  ctaLine?: string;
   clipMetadata?: {
+    /** Legacy: a bare creator credit ("@handle" or channel name); worded by clipCreditLine. */
     sourceCreator?: string;
     sourceUrl?: string;
     description?: string;
@@ -86,16 +100,28 @@ const HOOK_EXAMPLES: Record<HookStyle, string[]> = {
 
 /**
  * Build the source-attribution lines for a clip: credit the original creator
- * and link back to the source video. Returned as separate lines so the same
+ * (tagging their Instagram when the credit is an @handle) and link back to the
+ * source video when a URL is given. Returned as separate lines so the same
  * citation is used by both the AI prompt and the template fallback.
  */
-function buildAttributionLines(clip?: CaptionParams['clipMetadata']): string[] {
+function buildAttributionLines(params: Pick<CaptionParams, 'creditLine' | 'clipMetadata'>): string[] {
   const lines: string[] = [];
-  const creator = clip?.sourceCreator?.trim();
-  const url = clip?.sourceUrl?.trim();
-  if (creator) lines.push(`📹 Clip: ${creator}`);
+  const credit =
+    params.creditLine?.trim() ||
+    (params.clipMetadata?.sourceCreator?.trim()
+      ? clipCreditLine({ source_creator: params.clipMetadata.sourceCreator.trim() })
+      : null);
+  const url = params.clipMetadata?.sourceUrl?.trim();
+  if (credit) lines.push(credit);
   if (url) lines.push(url);
   return lines;
+}
+
+/** The closing CTA instruction: the caller's exact line, or the generic one. */
+function ctaRule(ctaLine: string | undefined): string {
+  return ctaLine?.trim()
+    ? `- End with this call to action, verbatim, on its own line: ${ctaLine.trim()}`
+    : '- End with a call to action pointing to eddy.guide';
 }
 
 /**
@@ -121,9 +147,9 @@ export async function generateCaption(params: CaptionParams): Promise<GeneratedC
 
   const hookExamples = HOOK_EXAMPLES[params.hookStyle].join('\n- ');
 
-  const attributionLines = buildAttributionLines(params.clipMetadata);
+  const attributionLines = buildAttributionLines(params);
   const attributionPrompt = attributionLines.length
-    ? `ATTRIBUTION (required): this clip is sourced from another creator. End the caption with these lines verbatim, each on its own line, and do not omit them:\n${attributionLines.join('\n')}`
+    ? `ATTRIBUTION (required): this clip is sourced from another creator. Include these lines verbatim, each on its own line, directly before the call to action, and do not omit or reword them (an @handle is the creator's Instagram account — keep it exactly as written):\n${attributionLines.join('\n')}`
     : '';
 
   const now = new Date();
@@ -159,7 +185,7 @@ ${conditionsRule}${locationRule}
 - NO INVENTED PERSONAL HISTORY: Do NOT claim first-person experience that didn't happen ("I've floated this 50 times", "we were just out here"). Write as a knowledgeable guide, not with a fake personal anecdote.
 - 2-3 relevant keywords woven naturally
 - Minimal emojis (0-2 max)
-- End with a call to action pointing to eddy.guide
+${ctaRule(params.ctaLine)}
 
 CONTENT TYPE: ${params.contentType}
 HOOK STYLE: ${params.hookStyle}
@@ -357,7 +383,7 @@ export function findAccuracyViolations(draft: GeneratedCaption, ctx: AccuracyCon
  * Template-based fallback when API is unavailable.
  */
 function generateTemplateFallback(params: CaptionParams): GeneratedCaption {
-  const { hookStyle, riverName, conditionCode, clipMetadata } = params;
+  const { hookStyle, riverName, conditionCode } = params;
   const allowLocation = params.allowLocationHashtags !== false;
 
   // Honest by construction: no manufactured scarcity, no "right now" recency
@@ -376,12 +402,14 @@ function generateTemplateFallback(params: CaptionParams): GeneratedCaption {
   if (conditionCode) {
     caption += `Conditions: ${conditionCode}. `;
   }
-  caption += `Check the current gauge and plan your float at eddy.guide`;
 
-  const attributionLines = buildAttributionLines(clipMetadata);
+  // Credit first, then the call to action — the same order the prompt asks
+  // the model for, so a templated caption reads like a generated one.
+  const attributionLines = buildAttributionLines(params);
   if (attributionLines.length) {
-    caption += `\n\n${attributionLines.join('\n')}`;
+    caption += `${attributionLines.join('\n')}\n\n`;
   }
+  caption += params.ctaLine?.trim() || 'Check the current gauge and plan your float at eddy.guide';
 
   const riverTag = `#${riverName.replace(/[^A-Za-z0-9]/g, '')}`;
   const hashtags = allowLocation

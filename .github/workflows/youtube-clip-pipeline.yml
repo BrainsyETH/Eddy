@@ -99,7 +99,9 @@ jobs:
           # Channels come straight from the repo checkout — the SAME file the
           # local runner uses (clipengine-local/channels.json), so there is one
           # source of truth and no YOUTUBE_CHANNELS_JSON secret to keep in sync.
-          # The parser below ignores extra fields (e.g. instagram).
+          # The scan parser below reads url / river_slug / flood_only; the
+          # "instagram" field is read per video by resolve-credit.py instead,
+          # which matches the scraped channel back to its entry.
           YOUTUBE_CHANNELS_JSON="$(cat clipengine-local/channels.json 2>/dev/null || echo '')"
 
           # YouTube bot-blocks shared CI IPs; authenticated cookies are required
@@ -139,6 +141,14 @@ jobs:
             # Extract peak info
             local VIDEO_ID=$(python3 -c "import json; d=json.load(open('$VIDEO_DIR/heatmap-data.json')); print(d['video_id'])")
             local CHANNEL=$(python3 -c "import json; d=json.load(open('$VIDEO_DIR/heatmap-data.json')); print(d.get('channel','Unknown'))")
+            # Creator credit: the channel's Instagram "@handle" from
+            # channels.json when it has one (the caption's mention is what tags
+            # the creator), else the channel name. Same resolver, same rule as
+            # the local runner (clipengine-local/handoff-clip.sh).
+            local CREDIT
+            CREDIT=$(python3 scripts/clipengine/resolve-credit.py "$VIDEO_DIR/heatmap-data.json" clipengine-local/channels.json 2>/dev/null || echo "")
+            CREDIT="${CREDIT:-$CHANNEL}"
+            echo "Credit: $CREDIT"
 
             # River is detected per-video by scrape-heatmap (a channel covers many
             # rivers). A dispatch/channel river_slug overrides; otherwise use the
@@ -273,7 +283,7 @@ jobs:
               -f youtube_video_id="$VIDEO_ID" \
               -f river_slug="$RIVER" \
               -f river_name="$RIVER_NAME" \
-              -f creator="$CHANNEL" \
+              -f creator="$CREDIT" \
               -f source_url="$URL" \
               -f youtube_channel="$CHANNEL" \
               -f peak_number="$PEAK" \

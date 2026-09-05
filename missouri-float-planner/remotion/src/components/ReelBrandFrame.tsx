@@ -8,7 +8,7 @@ import { ENTRANCE } from "../lib/spring-presets";
 import { REEL_SAFE } from "../lib/reel-safe";
 import { NEUTRAL_ACCENT, PLAN_CTA } from "../lib/brand";
 import { fontFamilies } from "../design-tokens/fonts";
-import { CARD, MEDIA_SCRIM, SURFACES, colors } from "../../../shared/social-brand";
+import { CARD, MEDIA_SCRIM, SURFACES, TYPE, colors } from "../../../shared/social-brand";
 import type { Caption } from "../lib/social-props";
 
 // Vertical geometry. Two layouts share this frame:
@@ -36,7 +36,8 @@ interface ReelBrandFrameProps {
   label: string;
   /** Hero line — usually the river name. */
   title: string;
-  /** Optional attribution in the dock (a channel name or "@handle"). */
+  /** Optional attribution in the dock: the creator's Instagram "@handle" when
+   *  known, else the YouTube channel name (resolve-credit.py decides). */
   creatorCredit?: string;
   /** Button copy; defaults to the canonical PLAN_CTA. */
   cta?: string;
@@ -152,7 +153,20 @@ export const ReelBrandFrame: React.FC<ReelBrandFrameProps> = ({
 
       <ReelDock tone="dark" accent={accent} detail={detail} cta={cta} ctaProgress={dockIn}>
         {creatorCredit ? (
-          <div style={{ fontSize: 22, fontWeight: 600, color: dark.inkSecondary, padding: "0 5px" }}>🎥 Clip via {creatorCredit}</div>
+          // The credit is the dock's detail step (the same line the other reels
+          // use for "0.4 hr faster today"), so a clip's chrome types nothing of
+          // its own. An "@handle" credit is the creator's Instagram account —
+          // the caption tags the same handle.
+          <div
+            style={{
+              fontSize: TYPE.detail.size,
+              fontWeight: TYPE.detail.weight,
+              color: dark.inkSecondary,
+              padding: "0 5px",
+            }}
+          >
+            🎥 Clip via {creatorCredit}
+          </div>
         ) : null}
       </ReelDock>
     </AbsoluteFill>

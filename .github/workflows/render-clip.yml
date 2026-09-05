@@ -18,7 +18,7 @@ on:
       youtube_video_id: { description: 'Source YouTube video id', required: true, type: string }
       river_slug:       { description: 'Detected river slug (empty = Tier 2, generic Ozark paddling)', required: false, type: string, default: '' }
       river_name:       { description: 'River display name for the frame (empty = generic)', required: false, type: string, default: '' }
-      creator:          { description: 'Creator credit (channel or @handle)', required: false, type: string }
+      creator:          { description: 'Creator credit: "@instagram" when known (tagged in the caption), else the channel name — see scripts/clipengine/resolve-credit.py', required: false, type: string }
       source_url:       { description: 'Original YouTube URL', required: false, type: string }
       youtube_channel:  { description: 'Source channel name', required: false, type: string }
       peak_number:      { description: 'Heatmap peak index', required: false, type: string, default: '1' }
@@ -121,6 +121,7 @@ jobs:
           CLIP_URL: ${{ needs.render.outputs.clip_url }}
           VIDEO_ID: ${{ inputs.youtube_video_id }}
           CHANNEL: ${{ inputs.youtube_channel }}
+          CREATOR: ${{ inputs.creator }}
           RIVER_SLUG: ${{ inputs.river_slug }}
           SOURCE_URL: ${{ inputs.source_url }}
           CLIP_START: ${{ inputs.clip_start_secs }}
@@ -143,7 +144,11 @@ jobs:
               "clip_end_secs": start + dur,
               "orientation": os.environ.get("ORIENTATION") or "portrait",
               "heatmap_score": float(os.environ.get("HEATMAP_SCORE") or 0),
-              "source_creator": os.environ.get("CHANNEL") or None,
+              # The credit the reel drew — "@instagram" when known, else the
+              # channel name (resolve-credit.py). The caption pipeline tags an
+              # "@" credit on Instagram, so this must be the creator input,
+              # not the bare channel name it used to be.
+              "source_creator": os.environ.get("CREATOR") or os.environ.get("CHANNEL") or None,
               "source_url": os.environ.get("SOURCE_URL") or None,
               "brand_check_status": "pending",
           }

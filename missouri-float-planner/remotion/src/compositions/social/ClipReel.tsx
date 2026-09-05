@@ -2,11 +2,10 @@ import React from "react";
 import { OffthreadVideo, useCurrentFrame, useVideoConfig, interpolate } from "remotion";
 import { ReelBrandFrame } from "../../components/ReelBrandFrame";
 import {
-  GENERIC_CTA,
+  DOWNLOAD_CTA,
   HIGH_WATER_LABEL,
   NEUTRAL_ACCENT,
   OZARK_PADDLING_LABEL,
-  PLAN_CTA,
   SAFETY_CTA,
   SAFETY_DETAIL,
   WARNING_ACCENT,
@@ -40,8 +39,9 @@ export const ClipReel: React.FC<ClipReelProps> = ({
   });
 
   // Tier 2: a clip with no known Eddy river (e.g. out-of-Missouri paddling)
-  // still renders the same frame, but with a generic hero label + softer CTA
-  // instead of a river name + "plan this float" page promise.
+  // still renders the same frame, but with a generic hero label instead of a
+  // river name. Both tiers share the download button: a reposted clip has no
+  // float page of its own to promise, so it sells the app.
   const hasRiver = !!(riverName && riverName.trim());
 
   // High-water safety PSA: the alarm look (orange "HIGH WATER" pill, warning
@@ -56,7 +56,7 @@ export const ClipReel: React.FC<ClipReelProps> = ({
     : isHighWater
       ? HIGH_WATER_LABEL
       : OZARK_PADDLING_LABEL;
-  const cta = isHighWater ? SAFETY_CTA : hasRiver ? PLAN_CTA : GENERIC_CTA;
+  const cta = isHighWater ? SAFETY_CTA : DOWNLOAD_CTA;
   const accent = isHighWater ? WARNING_ACCENT : NEUTRAL_ACCENT;
 
   return (
