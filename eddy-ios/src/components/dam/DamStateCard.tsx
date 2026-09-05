@@ -102,9 +102,9 @@ export function DamStateCard({
    * This card is NOT the top of the screen.
    *
    * Set on the dam screen, where DamGenerationHero sits above it and already
-   * carries the generation summary and the release figure. Two copies of one
-   * fact on one screen read as two facts. Named to match the web card's prop so
-   * the two surfaces stay legibly the same component.
+   * carries the generation summary. Two copies of one fact on one screen read
+   * as two facts. Named to match the web card's prop so the two surfaces stay
+   * legibly the same component.
    */
   secondary,
 }: {
@@ -203,10 +203,13 @@ export function DamStateCard({
       {/* Tailwater facts lead, lake facts follow. The water below the dam is
           what someone is standing in; the pool is context. */}
       <View style={styles.statGrid}>
-        {/* Hidden only when the hero above ACTUALLY carried it. A flood-control
-            project renders no hero — DamGenerationHero returns null for a dam
-            with no powerhouse — so on Clearwater this is the only place total
-            release appears. */}
+        {/* Hidden on a hydropower project's own screen, where the hero above
+            already shows the turbine flow and total release is that figure
+            again plus or minus a spillway that is almost always shut — the
+            pair read as one number stated twice. A flood-control project
+            renders no hero — DamGenerationHero returns null for a dam with no
+            powerhouse — so on Clearwater this is the only place total release
+            appears, and it stays. */}
         {release && !(secondary && dam.hasTurbines) ? (
           <Stat
             icon="water-outline"

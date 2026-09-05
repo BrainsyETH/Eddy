@@ -9,16 +9,20 @@
 //
 // ── The four questions, in order ───────────────────────────────────────────
 //   1. Is the powerhouse generating now?       the status line
-//   2. How much water is through the turbines?  the cfs figure
-//   3. How large is that for THIS project?      the rack and the bar
+//   2. How large is that for THIS project?      the rack and the percentage
+//   3. How much water is through the turbines?  the cfs figure
 //   4. When does generation change?             the next-change panel
 //
-// ── Why the next-change panel sits above total release ─────────────────────
-// It was last, in the same 11px subtle grey as the caveats, under a block of
-// secondary measurements — and it is the single most load-bearing sentence
-// here. "How much water is moving" is answered by every other surface Eddy
-// has; "when does that change" is answered by nothing else, and it is the one
-// a person uses to decide whether to go now or wait.
+// ── Why the percentage is the headline, and why the bar and release left ───
+// This block used to say the same magnitude three ways — "About 6 of 8
+// generators' worth", then a capacity bar labelled "72% of full generation",
+// then "Total release at dam", which on a hydropower project is the turbine
+// figure again plus or minus a spillway that is almost always shut. Three
+// statements of one fact stacked the top of the screen tall enough to push the
+// schedule below the fold. The rack still draws the unit picture; the one
+// sentence beneath it is now the percentage, which is the number a reader can
+// check against SWPA's published table. Release stays on the flood-control
+// projects, where DamStateCard is the only surface that carries it.
 //
 // ── Why a generator rack and not just a percentage ─────────────────────────
 // "Six generators" is the unit anglers already think in, and it makes a
@@ -35,11 +39,7 @@
 import { StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import type { DamSnapshot } from '@eddy/types';
-import {
-  relativeAge,
-  readingStaleness,
-  SCHEDULE_CHANGE_SENTENCE,
-} from '@eddy/conditions/dam-schedule-copy';
+import { relativeAge, SCHEDULE_CHANGE_SENTENCE } from '@eddy/conditions/dam-schedule-copy';
 import {
   FULL_GENERATION_SHORT_LABEL,
   generationReferenceCitation,
@@ -47,13 +47,10 @@ import {
   generationPercentLabel,
   generationStatusLabel,
   generationVoiceOver,
-  generatorEquivalentPhrase,
   generatorRack,
   nowNextClauses,
-  releaseComparison,
   scheduledClauseProvenance,
   speaksForNow,
-  OTHER_RELEASE_NOTE,
   generationReferenceLine,
 } from '@eddy/conditions/dam-generation';
 import { useTheme } from '@/theme/ThemeProvider';
@@ -137,13 +134,8 @@ export function DamGenerationHero({
 
   const ref = dam.generationReference;
   const rack = state.kind === 'generating' ? generatorRack(state.turbineCfs, ref) : null;
-  const equivalentPhrase =
-    state.kind === 'generating' ? generatorEquivalentPhrase(state.equivalents, ref) : null;
   const percent = state.kind === 'generating' ? generationPercentLabel(state.fraction) : null;
   const clauses = nowNextClauses(state, dam.schedule, ref);
-  const comparison = releaseComparison(dam.metrics.generationFlow, dam.metrics.release, ref, {
-    declared: dam.releaseExcludesGeneration,
-  });
   const voiceOver = generationVoiceOver(state, ref);
   const provenance = scheduledClauseProvenance(dam.schedule, ref);
 
@@ -182,8 +174,20 @@ export function DamGenerationHero({
           </View>
         ) : null}
 
-        {equivalentPhrase ? (
-          <Text style={[styles.headline, { color: colors.text }]}>{equivalentPhrase}</Text>
+        {/* The headline is the percentage. The label names what it is a
+            percentage OF — "72% of full generation", never "72% power", which
+            describes something the number is not. */}
+        {percent && ref && fraction !== null ? (
+          <Text style={[styles.headline, { color: colors.text }]}>
+            {percent}
+            <Text style={[styles.headlineAside, { color: colors.textMuted }]}>
+              {` ${FULL_GENERATION_SHORT_LABEL}`}
+              {/* Above the reference is real information — spill, a different
+                  measurement basis, or a reference that has drifted since the
+                  rehabilitation project. Say so rather than clamp. */}
+              {fraction > 1 ? ' — above the published reference' : ''}
+            </Text>
+          </Text>
         ) : null}
 
         {state.kind !== 'unavailable' ? (
@@ -198,39 +202,14 @@ export function DamGenerationHero({
           <Text style={[styles.age, { color: colors.textSubtle }]}>Updated {observedAt}</Text>
         ) : null}
 
-        {/* The capacity bar. The label names the exact reference — "31% of
-            published full-generation discharge", never "31% power", which
-            describes something the number is not. */}
-        {percent && ref && fraction !== null ? (
-          <View style={styles.barBlock}>
-            <View style={[styles.track, { backgroundColor: colors.cardRaised }]}>
-              <View
-                style={[
-                  styles.fill,
-                  {
-                    width: `${Math.min(100, Math.round(fraction * 100))}%`,
-                    backgroundColor: colors.generationHigh,
-                  },
-                ]}
-              />
-            </View>
-            <Text style={[styles.barLabel, { color: colors.textMuted }]}>
-              <Text style={[styles.percent, { color: colors.text }]}>{percent}</Text>{' '}
-              {FULL_GENERATION_SHORT_LABEL}
-              {/* Above the reference is real information — spill, a different
-                  measurement basis, or a reference that has drifted since the
-                  rehabilitation project. The bar caps; the sentence does not. */}
-              {fraction > 1 ? ' — above the published reference' : ''}
-            </Text>
-            {/* The citation, demoted but never dropped: the percentage is only
-                checkable because the denominator is published. The estimate
-                hedge rides on the end of it — see generationReferenceLine for
-                why two sentences of grey subtext under an already-hedged
-                headline were the least-read thing on the card. */}
-            <Text style={[styles.note, { color: colors.textSubtle }]}>
-              {rack ? generationReferenceLine(ref) : generationReferenceCitation(ref)}
-            </Text>
-          </View>
+        {/* The citation, demoted but never dropped: the percentage is only
+            checkable because the denominator is published. The estimate hedge
+            rides on the end of it whenever the rack is drawn — see
+            generationReferenceLine for why it lost its own line. */}
+        {percent && ref ? (
+          <Text style={[styles.note, { color: colors.textSubtle }]}>
+            {rack ? generationReferenceLine(ref) : generationReferenceCitation(ref)}
+          </Text>
         ) : null}
       </View>
 
@@ -277,46 +256,6 @@ export function DamGenerationHero({
           ) : null}
         </View>
       ) : null}
-
-      {/* Turbine flow and total release as two labelled facts. The difference is
-          only ever named when releaseComparison says every rule passed — see
-          that function for why a bare subtraction is a claim someone acts on. */}
-      {dam.metrics.release ? (
-        <View style={[styles.divided, { borderTopColor: colors.border }]}>
-          {/* The age is not optional. Turbine flow above carries one, and two
-              adjacent measurements with different ages look synchronised when
-              only one is dated. */}
-          <Text
-            style={[
-              styles.rowLabel,
-              { color: colors.textMuted },
-              readingStaleness(dam.metrics.release.at) !== 'fresh' && { opacity: 0.6 },
-            ]}
-          >
-            {dam.metrics.release.dailyMean ? 'Total release at dam (daily avg)' : 'Total release at dam'}
-            <Text style={[styles.rowValue, { color: colors.text }]}>
-              {'  '}
-              {formatCfs(dam.metrics.release.value)}
-            </Text>
-            <Text style={[styles.note, { color: colors.textSubtle }]}>
-              {'  '}
-              {relativeAge(dam.metrics.release.at)}
-            </Text>
-          </Text>
-          {comparison.kind === 'other-release' ? (
-            <>
-              <Text style={[styles.rowLabel, { color: colors.textMuted }]}>
-                Other release
-                <Text style={[styles.rowValue, { color: colors.text }]}>
-                  {'  '}
-                  {formatCfs(comparison.otherCfs)}
-                </Text>
-              </Text>
-              <Text style={[styles.note, { color: colors.textSubtle }]}>{OTHER_RELEASE_NOTE}</Text>
-            </>
-          ) : null}
-        </View>
-      ) : null}
     </View>
   );
 }
@@ -335,19 +274,14 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   cellChannel: { position: 'absolute', top: 4, bottom: 4, left: '50%', width: 1, opacity: 0.7 },
-  headline: { ...t.lg, fontFamily: fonts.display, marginTop: 8 },
+  headline: { ...t.lg, fontFamily: fonts.display, marginTop: 8, fontVariant: ['tabular-nums'] },
+  // The "of full generation" qualifier, at reading weight beside the figure so
+  // the number leads and what it is a share of follows.
+  headlineAside: { fontSize: 15, lineHeight: 20, fontFamily: fonts.medium },
   flow: { fontSize: 17, lineHeight: 22, fontFamily: fonts.heading, fontVariant: ['tabular-nums'] },
   flowAside: { fontSize: 13, lineHeight: 18, fontFamily: fonts.medium },
   age: { fontSize: 11, lineHeight: 15 },
-  barBlock: { marginTop: 12, gap: 4 },
-  track: { height: 10, borderRadius: 999, overflow: 'hidden' },
-  fill: { height: '100%', borderRadius: 999 },
-  barLabel: { fontSize: 12, lineHeight: 16 },
-  percent: { fontFamily: fonts.heading, fontVariant: ['tabular-nums'] },
   note: { fontSize: 11, lineHeight: 15 },
-  divided: { borderTopWidth: StyleSheet.hairlineWidth, paddingTop: 10, gap: 3 },
-  rowLabel: { fontSize: 13, lineHeight: 18, fontFamily: fonts.medium },
-  rowValue: { fontSize: 14, lineHeight: 18, fontFamily: fonts.heading, fontVariant: ['tabular-nums'] },
   blockLabel: { fontSize: 10, lineHeight: 14, fontFamily: fonts.heading, letterSpacing: 0.6 },
   stale: { fontSize: 11, lineHeight: 15, fontFamily: fonts.medium },
   scheduledRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
