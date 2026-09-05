@@ -13,6 +13,7 @@
     "generate:assets": "tsx scripts/generate-video.ts --assets-only",
     "generate:render": "tsx scripts/generate-video.ts --render-only",
     "render:check-stills": "bash test/check-stills.sh",
+    "test:video-health": "bash test/video-health.test.sh && bash ../../scripts/clipengine/extract-clip.test.sh",
     "test:visual": "node test/visual-diff.mjs",
     "test:visual:update": "node test/visual-diff.mjs --update"
   },

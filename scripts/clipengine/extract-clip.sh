@@ -6,7 +6,12 @@
 #
 # Ported from ClawsifiedInfo/workspace/scripts/youtube-to-reel.sh
 
-set -e
+set -euo pipefail
+
+SCRIPT_DIR=$(cd "$(dirname "$0")" && pwd)
+REPO_ROOT=$(cd "$SCRIPT_DIR/../.." && pwd)
+VIDEO_HEALTH="$REPO_ROOT/missouri-float-planner/remotion/scripts/video-health.sh"
+TRANSCRIPT_FILE=""
 
 YOUTUBE_URL="$1"
 START_SECS="$2"
@@ -52,8 +57,9 @@ DL_END=$(awk "BEGIN{print $START_SECS+$DURATION_SECS+$SECTION_PAD}")
 SEEK_OFFSET=$(awk "BEGIN{print $START_SECS-$DL_START}")
 
 echo "Step 1: Downloading clip window ${DL_START}s–${DL_END}s (not full video)..."
-yt-dlp \
-    "${COOKIE_ARGS[@]}" \
+WINDOW_DOWNLOAD_OK=true
+if ! yt-dlp \
+    ${COOKIE_ARGS[@]+"${COOKIE_ARGS[@]}"} \
     --extractor-args "youtube:player_client=default,web_embedded" \
     --retries 5 \
     --download-sections "*${DL_START}-${DL_END}" \
@@ -63,16 +69,19 @@ yt-dlp \
     --output "$TEMP_DIR/source.%(ext)s" \
     --no-playlist \
     --quiet \
-    "$YOUTUBE_URL" || true
+    "$YOUTUBE_URL"; then
+    WINDOW_DOWNLOAD_OK=false
+fi
 
 SOURCE_VIDEO=$(find "$TEMP_DIR" -name "source.*" -type f | head -1)
 
-# Fallback: if the windowed download produced nothing, grab the full video and
-# seek into it the old way (SEEK_OFFSET becomes the absolute start).
-if [ -z "$SOURCE_VIDEO" ] || [ ! -f "$SOURCE_VIDEO" ]; then
-    echo "  ⚠️  windowed download empty — falling back to full download"
+# Fallback: a failed yt-dlp command may still leave a partial MP4. Never accept
+# it merely because the path exists; discard it and grab the full source.
+if [ "$WINDOW_DOWNLOAD_OK" != "true" ] || [ -z "$SOURCE_VIDEO" ] || [ ! -s "$SOURCE_VIDEO" ]; then
+    echo "  ⚠️  windowed download failed or was empty — falling back to full download"
+    [ -z "$SOURCE_VIDEO" ] || rm -f "$SOURCE_VIDEO"
     yt-dlp \
-        "${COOKIE_ARGS[@]}" \
+        ${COOKIE_ARGS[@]+"${COOKIE_ARGS[@]}"} \
         --extractor-args "youtube:player_client=default,web_embedded" \
         --retries 5 \
         --format "95/best[protocol^=m3u8][height<=720]/best[height<=720]" \
@@ -96,7 +105,7 @@ if [ "$TRANSCRIPT_FLAG" = "--transcript" ]; then
     echo ""
     echo "Step 2: Fetching transcript..."
     yt-dlp \
-        "${COOKIE_ARGS[@]}" \
+        ${COOKIE_ARGS[@]+"${COOKIE_ARGS[@]}"} \
         --write-auto-subs \
         --sub-lang en \
         --sub-format vtt \
@@ -119,19 +128,28 @@ echo "Step 3: Extracting clip at ${START_SECS}s for ${DURATION_SECS}s..."
 
 mkdir -p "$(dirname "$OUTPUT_PATH")"
 
-ffmpeg -y \
+FFMPEG_LOG="$TEMP_DIR/extract-ffmpeg.log"
+if ! ffmpeg -y \
+    -fflags +genpts \
     -ss "$SEEK_OFFSET" \
     -i "$SOURCE_VIDEO" \
     -t "$DURATION_SECS" \
+    -map 0:v:0 -map 0:a:0? \
+    -vf "fps=30" \
     -c:v libx264 -preset fast -crf 20 \
-    -c:a aac -b:a 128k \
+    -c:a aac -b:a 128k -af "aresample=async=1:first_pts=0" \
+    -avoid_negative_ts make_zero \
     -movflags +faststart \
-    "$OUTPUT_PATH" 2>&1 | grep -E "^(frame|Input|Output|Error)" || true
-
-if [ ! -f "$OUTPUT_PATH" ]; then
-    echo "❌ Clip extraction failed"
+    "$OUTPUT_PATH" >"$FFMPEG_LOG" 2>&1; then
+    echo "❌ FFmpeg clip extraction failed" >&2
+    sed -n '1,80p' "$FFMPEG_LOG" >&2
     exit 1
 fi
+
+# Existence and duration alone are not enough: truncated HLS can decode with a
+# timestamp gap that FFmpeg fills by repeating the last frame. Reject corrupt,
+# short, or visibly frozen clips before they ever reach Remotion.
+"$VIDEO_HEALTH" "$OUTPUT_PATH" 4 2
 
 # Step 4: Get metadata
 CLIP_SIZE=$(du -h "$OUTPUT_PATH" | awk '{print $1}')

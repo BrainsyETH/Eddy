@@ -186,10 +186,8 @@ jobs:
             # Step 2: Extract clip
             echo "→ Extracting clip at ${PEAK_START}s for ${PEAK_DURATION}s..."
             local RAW_CLIP="$VIDEO_DIR/raw-clip.mp4"
-            bash scripts/clipengine/extract-clip.sh "$URL" "$PEAK_START" "$PEAK_DURATION" "$RAW_CLIP" --transcript || true
-
-            if [ ! -f "$RAW_CLIP" ]; then
-              echo "⚠️ Clip extraction failed, skipping"
+            if ! bash scripts/clipengine/extract-clip.sh "$URL" "$PEAK_START" "$PEAK_DURATION" "$RAW_CLIP" --transcript; then
+              echo "⚠️ Clip extraction or video-health validation failed, skipping"
               rm -rf "$VIDEO_DIR"
               return
             fi
@@ -267,9 +265,14 @@ jobs:
             # frozen on a still image. Probe the real duration (floored to whole
             # seconds so the render never outruns the media) and use THAT. Skip
             # clips too short to post as a Reel instead of shipping a frozen blip.
-            local ACTUAL_DUR=$(ffprobe -v error -show_entries format=duration \
-              -of default=noprint_wrappers=1:nokey=1 "$RAW_CLIP" 2>/dev/null | cut -d. -f1)
-            if ! [ "$ACTUAL_DUR" -ge 0 ] 2>/dev/null; then ACTUAL_DUR="${PEAK_DURATION:-13}"; fi
+            local ACTUAL_DUR
+            ACTUAL_DUR=$(ffprobe -v error -show_entries format=duration \
+              -of default=noprint_wrappers=1:nokey=1 "$RAW_CLIP" 2>/dev/null | cut -d. -f1) || true
+            if ! [ "$ACTUAL_DUR" -ge 0 ] 2>/dev/null; then
+              echo "⚠️ Could not prove the extracted clip duration — skipping rather than guessing"
+              rm -rf "$VIDEO_DIR"
+              return
+            fi
             if [ "$ACTUAL_DUR" -lt 4 ] 2>/dev/null; then
               echo "⚠️ Extracted clip is only ${ACTUAL_DUR}s (< 4s floor) — skipping to avoid a frozen reel"
               rm -rf "$VIDEO_DIR"

@@ -8,13 +8,15 @@ FROM node:22-bookworm-slim
 # Chrome Headless Shell runtime libraries (Remotion's documented Linux deps),
 # plus tools the render jobs shell out to that the -slim base omits:
 #   curl + ca-certificates  -> Vercel Blob upload
+#   ffmpeg                  -> full decode + frozen-frame validation (the
+#                              Remotion binary omits freezedetect)
 #   jq                      -> parse the Blob response
-#   bc + gawk               -> the social audio gate's arithmetic
+#   bc + gawk               -> audio/video gate arithmetic and parsing
 RUN apt-get update && apt-get install -y --no-install-recommends \
       libnss3 libdbus-1-3 libatk1.0-0 libatk-bridge2.0-0 libasound2 \
       libxkbcommon0 libgbm1 libxrandr2 libxfixes3 libxcomposite1 libxdamage1 \
       libpango-1.0-0 libcairo2 libcups2 fonts-liberation \
-      curl ca-certificates jq bc gawk \
+      curl ca-certificates jq bc gawk ffmpeg \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
