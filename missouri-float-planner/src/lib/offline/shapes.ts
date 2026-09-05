@@ -239,7 +239,7 @@ export function toSpring(row: SpringRow): MapSpring | null {
     // The column is the authority; `raw_data` is where the ingest script keeps
     // its working. A row written before the column existed is surveyed by
     // definition — nothing derived a position until the script that stamps this
-    // shipped. See migration 20260904120000.
+    // shipped. See migration 20260905125455.
     positionSource: row.position_source === 'derived_from_river_mile' ? 'derived' : 'surveyed',
     positionBracketMiles:
       row.position_source === 'derived_from_river_mile' && typeof bracket === 'number'

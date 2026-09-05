@@ -183,7 +183,7 @@ export async function buildOfflineBundle(): Promise<OfflineBundle> {
     supabase
       .from('points_of_interest')
       // `select('*')`, like the two queries above, rather than naming columns:
-      // `position_source` arrives with migration 20260904120000 and
+      // `position_source` arrives with migration 20260905125455 and
       // src/types/database.ts is regenerated separately, so a named select
       // fails to compile in the window between the two. `toSpring` reads the
       // column structurally and treats it as absent when it is.

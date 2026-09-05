@@ -320,7 +320,7 @@ async function main() {
     if (probe.error) {
       throw new Error(
         'points_of_interest.position_source is missing — apply migration ' +
-          '20260904120000_a_spring_is_a_spring_and_a_cabin_is_not.sql first. ' +
+          '20260905125455_a_spring_is_a_spring_and_a_cabin_is_not.sql first. ' +
           'Without it these rows cannot record that their positions are derived, ' +
           `and every one would read as surveyed. (${probe.error.message})`,
       );
