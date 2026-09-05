@@ -12,6 +12,8 @@
 
 import { useState } from 'react';
 import { ChevronDown, ChevronUp } from 'lucide-react';
+import Card from '@/components/ui/Card';
+import Segmented from '@/components/ui/Segmented';
 import {
   buildZones,
   formatZoneRange,
@@ -61,7 +63,7 @@ export default function ThresholdTable({
   if (zones.length === 0) return null;
 
   return (
-    <div className="overflow-hidden rounded-xl border border-neutral-200 bg-white">
+    <Card variant="panel">
       <div className="flex flex-wrap items-center justify-between gap-3 px-5 py-4">
         <button
           type="button"
@@ -85,26 +87,15 @@ export default function ThresholdTable({
         </button>
 
         {hasAlt && isOpen && (
-          <div className="flex overflow-hidden rounded-lg border border-neutral-300">
-            <button
-              onClick={() => setShowingAlt(false)}
-              aria-pressed={!showingAlt}
-              className={`px-3 py-1.5 text-xs font-semibold transition-colors ${
-                !showingAlt ? 'bg-primary-500 text-white' : 'bg-white text-neutral-600 hover:bg-neutral-50'
-              }`}
-            >
-              {thresholdUnit === 'ft' ? 'Gauge (ft)' : 'Flow (cfs)'}
-            </button>
-            <button
-              onClick={() => setShowingAlt(true)}
-              aria-pressed={showingAlt}
-              className={`px-3 py-1.5 text-xs font-semibold transition-colors ${
-                showingAlt ? 'bg-primary-500 text-white' : 'bg-white text-neutral-600 hover:bg-neutral-50'
-              }`}
-            >
-              {altUnit === 'ft' ? 'Gauge (ft)' : 'Flow (cfs)'}
-            </button>
-          </div>
+          <Segmented
+            aria-label="Threshold unit"
+            options={[
+              { value: 'primary', label: thresholdUnit === 'ft' ? 'Gauge (ft)' : 'Flow (cfs)' },
+              { value: 'alt', label: altUnit === 'ft' ? 'Gauge (ft)' : 'Flow (cfs)' },
+            ]}
+            value={showingAlt ? 'alt' : 'primary'}
+            onChange={(unit) => setShowingAlt(unit === 'alt')}
+          />
         )}
       </div>
 
@@ -139,6 +130,6 @@ export default function ThresholdTable({
           })}
         </div>
       )}
-    </div>
+    </Card>
   );
 }

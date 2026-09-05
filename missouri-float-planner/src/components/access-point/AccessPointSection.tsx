@@ -76,7 +76,7 @@ export default function AccessPointSection({
 
       <div
         id={panelId}
-        className={`transition-all duration-200 ${
+        className={`transition-all duration-normal ${
           isOpen ? 'max-h-none opacity-100' : 'max-h-0 opacity-0 overflow-hidden invisible'
         }`}
       >

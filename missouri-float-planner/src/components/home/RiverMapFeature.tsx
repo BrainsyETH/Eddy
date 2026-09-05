@@ -42,7 +42,7 @@ export default function RiverMapFeature() {
       {/* ── Decorative map layer: topo contours + rivers colored by condition ── */}
       <svg
         aria-hidden="true"
-        className="absolute inset-y-0 right-0 h-full w-[72%] transition-transform duration-500 group-hover:scale-105"
+        className="absolute inset-y-0 right-0 h-full w-[72%] transition-transform duration-slower group-hover:scale-105"
         viewBox="0 0 400 300"
         preserveAspectRatio="xMidYMid slice"
       >

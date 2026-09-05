@@ -225,10 +225,20 @@ const config: Config = {
       },
       transitionDuration: {
         '0': '0ms',
-        'fast': '100ms',
-        'normal': '200ms',
-        'slow': '300ms',
-        'slower': '500ms',
+        'fast': 'var(--duration-fast)',
+        'normal': 'var(--duration-normal)',
+        'slow': 'var(--duration-slow)',
+        'slower': 'var(--duration-slower)',
+      },
+      transitionTimingFunction: {
+        // Token-backed so a curve changed in globals.css lands here too. The
+        // DEFAULT (what every `transition-*` utility uses) and `ease-out`
+        // keep Tailwind's own values, now by reference; `ease-out-expo` and
+        // `ease-bounce` are Eddy's.
+        DEFAULT: 'var(--ease-default)',
+        'out': 'var(--ease-out)',
+        'out-expo': 'var(--ease-out-expo)',
+        'bounce': 'var(--ease-bounce)',
       },
     },
   },

@@ -239,7 +239,7 @@ export default function DataDock({
       <aside
         ref={rootRef}
         aria-label="Live river conditions panel"
-        className={`absolute inset-y-0 left-0 z-40 flex w-[min(320px,88vw)] flex-col transition-transform duration-300 md:static md:z-auto md:w-[320px] md:translate-x-0 md:transition-none ${
+        className={`absolute inset-y-0 left-0 z-40 flex w-[min(320px,88vw)] flex-col transition-transform duration-slow md:static md:z-auto md:w-[320px] md:translate-x-0 md:transition-none ${
           open ? 'translate-x-0' : '-translate-x-full'
         }`}
         style={{
@@ -259,7 +259,7 @@ export default function DataDock({
               {!reduced && (
                 <span
                   className="absolute inline-flex h-full w-full rounded-full"
-                  style={{ background: '#F07052', animation: 'mosw-ping 2.4s cubic-bezier(0,0,0.2,1) infinite' }}
+                  style={{ background: '#F07052', animation: 'mosw-ping 2.4s var(--ease-out) infinite' }}
                 />
               )}
               <span className="relative inline-flex h-1.5 w-1.5 rounded-full" style={{ background: '#F07052' }} />
@@ -325,7 +325,7 @@ export default function DataDock({
               onClick={() =>
                 isFloatableFilter ? onClearConditionFilter() : onSetConditions([...FLOATABLE])
               }
-              className="rounded-sm px-1.5 py-0.5 transition-colors duration-150"
+              className="rounded-sm px-1.5 py-0.5 transition-colors duration-fast"
               style={{
                 fontFamily: MONO, fontSize: 13, color: '#10b981', fontWeight: 700,
                 border: `1px solid ${isFloatableFilter ? '#10b981' : 'transparent'}`,
@@ -362,7 +362,7 @@ export default function DataDock({
             <button
               type="button"
               onClick={onClearConditionFilter}
-              className="mt-2 flex w-full items-center justify-between rounded-sm border px-2 py-1 transition-colors duration-150"
+              className="mt-2 flex w-full items-center justify-between rounded-sm border px-2 py-1 transition-colors duration-fast"
               style={{
                 borderColor: 'var(--color-accent-500)',
                 background: 'rgba(240,112,82,0.12)',
@@ -400,7 +400,7 @@ export default function DataDock({
                   style={{
                     width: `${(counts[code] / Math.max(1, rivers.length)) * 100}%`,
                     background: STAGE_VERDICTS[code].color,
-                    transition: 'width 600ms cubic-bezier(0.4,0,0.2,1)',
+                    transition: 'width 600ms var(--ease-default)',
                   }}
                 />
               ) : null,
@@ -479,7 +479,7 @@ export default function DataDock({
                     type="button"
                     aria-pressed={on}
                     onClick={() => setSortKey(o.key)}
-                    className="rounded-sm border px-1.5 py-0.5 font-bold uppercase transition-colors duration-150"
+                    className="rounded-sm border px-1.5 py-0.5 font-bold uppercase transition-colors duration-fast"
                     style={{
                       fontFamily: MONO, fontSize: 8.5, letterSpacing: '0.08em',
                       borderColor: on ? 'rgba(114,181,196,0.5)' : 'rgba(242,234,216,0.16)',
@@ -701,7 +701,7 @@ function LayerToggle({
       type="button"
       onClick={onToggle}
       aria-pressed={on}
-      className="rounded-md border px-2 py-1.5 text-left font-bold uppercase transition-colors duration-150"
+      className="rounded-md border px-2 py-1.5 text-left font-bold uppercase transition-colors duration-fast"
       style={{
         fontFamily: MONO, fontSize: 9, letterSpacing: '0.12em',
         borderColor: on ? 'rgba(114,181,196,0.5)' : 'rgba(242,234,216,0.18)',
@@ -745,7 +745,7 @@ function VerdictMini({
       disabled={!interactive}
       aria-pressed={selected}
       onClick={interactive ? () => onToggle(code) : undefined}
-      className="rounded-md border px-1 pb-1 pt-1.5 text-center transition-all duration-200"
+      className="rounded-md border px-1 pb-1 pt-1.5 text-center transition-all duration-normal"
       title={
         interactive
           ? `${selected ? 'Clear' : 'Show only'} ${v.label}${v.desc ? ` — ${v.desc}` : ''}`
@@ -850,7 +850,7 @@ function RiverRow({
       onMouseLeave={() => onHover(false)}
       aria-pressed={focused}
       aria-label={`${river.name} — ${v.label}, ${valueLabel}${trend ? `, ${trend.dir} over 24 hours` : ''}. ${focused ? 'Unpin' : 'Show on map'}`}
-      className="group mb-1.5 block w-full rounded-md border p-2.5 text-left transition-all duration-200"
+      className="group mb-1.5 block w-full rounded-md border p-2.5 text-left transition-all duration-normal"
       style={{
         borderColor: lit ? `${v.color}88` : 'rgba(242,234,216,0.09)',
         background: lit

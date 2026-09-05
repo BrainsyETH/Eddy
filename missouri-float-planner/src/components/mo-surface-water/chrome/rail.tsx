@@ -348,7 +348,7 @@ function RailSheet({
           transform: entered ? 'translateY(0)' : 'translateY(100%)',
           transition: dragging
             ? 'none'
-            : 'height 260ms cubic-bezier(0.4,0,0.2,1), transform 260ms cubic-bezier(0.4,0,0.2,1)',
+            : 'height 260ms var(--ease-default), transform 260ms var(--ease-default)',
           paddingBottom: isMobile ? undefined : 'env(safe-area-inset-bottom, 0px)',
         }}
       >

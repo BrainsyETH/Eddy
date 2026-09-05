@@ -573,7 +573,7 @@ export default async function RiverGuidePage({ params }: Props) {
                     <img
                       src={guidePost.featured_image_url || heroImage || ''}
                       alt={guidePost.title}
-                      className="absolute inset-0 w-full h-full object-cover group-hover:scale-[1.02] transition-transform duration-500"
+                      className="absolute inset-0 w-full h-full object-cover group-hover:scale-[1.02] transition-transform duration-slower"
                     />
                   </div>
                 )}

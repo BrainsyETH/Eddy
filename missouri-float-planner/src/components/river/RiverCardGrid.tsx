@@ -68,7 +68,7 @@ export default function RiverCardGrid({ rivers }: RiverCardGridProps) {
                     src={river.imageUrl}
                     alt={river.name}
                     fill
-                    className="object-cover group-hover:scale-105 transition-transform duration-500"
+                    className="object-cover group-hover:scale-105 transition-transform duration-slower"
                     sizes="(max-width: 768px) 100vw, 50vw"
                   />
                 ) : (

@@ -86,6 +86,14 @@ demonstrates its thesis before it states it.
 
 ## 3. Takeaways for Eddy
 
+> **Status.** The findings below are as measured on 2026-09-05. The same branch
+> then addressed §3.1, §3.4 and the web half of §3.6: `src/components/ui/` now
+> has `Button`, `Card`, `Badge`, `Segmented` and `Skeleton` wrapping the
+> existing CSS; every raw `duration-N` and inline `cubic-bezier` in components
+> was moved to a token and a lint rule keeps it that way; and the gauge-detail
+> screen is migrated as the proof. §3.2, §3.3, §3.5, §3.7, §3.8 and §3.9 are
+> still open.
+
 Eddy's design system is genuinely above average — `.stitch/DESIGN.md` is a real design
 system of record, the palette is documented down to *why* the neutrals are warm, and
 `eddy-ios/src/theme/typography.ts` explains that mono is functional (tabular digits hold

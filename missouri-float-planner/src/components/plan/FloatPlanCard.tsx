@@ -1325,7 +1325,7 @@ function MobileBottomSheet({
         height: `calc(${sheetHeight ?? COLLAPSED_HEIGHT}px + env(safe-area-inset-bottom, 0px))`,
         transition: isDragging
           ? 'none'
-          : 'height 380ms cubic-bezier(0.22, 1, 0.36, 1), background-color 260ms ease-out, border-color 260ms ease-out',
+          : 'height 380ms var(--ease-out-expo), background-color 260ms ease-out, border-color 260ms ease-out',
         willChange: 'height',
       }}
     >
