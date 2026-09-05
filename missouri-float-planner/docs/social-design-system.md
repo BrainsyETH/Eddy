@@ -30,12 +30,13 @@ keeps them from drifting again.
 
 | Tone | Ground | Ink | Used by |
 | --- | --- | --- | --- |
-| `light` (default) | off-white `neutral-50` | `neutral-900` | Float Pick, Digest, Forecast, Trend, Eddy Says report, tips |
-| `dark` — the severity surface | deep teal `primary-900`, washed faintly toward the condition colour | white | the high-water / all-clear alert family; chrome drawn OVER footage (ClipReel) |
+| `light` (default) | off-white `neutral-50` | `neutral-900` | Float Pick, Digest, Forecast, Trend, Eddy Says report, ordinary ClipReels, tips |
+| `dark` — the severity surface | deep teal `primary-900`, washed faintly toward the condition colour | white | the high-water / all-clear alert family, including high-water ClipReels |
 
 The dark tone is sanctioned, not a fallback: a cream card reads calmer than
-high water deserves. Over footage the ground is the blurred clip plus a scrim,
-never the off-white.
+high water deserves. An ordinary clip remains an editorial post on the light
+canvas, with its footage taking the place of the chart, route or illustration.
+Only a severity clip may put the dark chrome over footage and scrims.
 
 ## Primitives
 
@@ -58,6 +59,11 @@ Every panel on a reel or cover is one of these. Reel component → cover twin.
   short because the masthead already carries the wordmark. A CTA that points
   at the caption rather than the site ("Full report below ▼") is text, not a
   button.
+- **Subtitle** — `Captions` (reels only; covers have no transcript). A spoken
+  line over footage is a subtitle, not a fourth panel: a quiet deep-teal wash
+  under subtitle-sized body type (`subtitleStyle`, `TYPE.subtitle_media`), no
+  rule, no offset shadow, no glow. It must never compete with the masthead
+  above it or the dock below it.
 
 Condition colours are the canonical ones from `shared/condition-system.ts`.
 As TEXT on the light surface they are pulled toward the ink (`conditionInk`)
@@ -100,6 +106,16 @@ toward the loop seam with `reelLoopOpacity`.
 Series labels and CTAs live in `LABELS` and `CTA`. The Float Pick's label is
 the same whether the pick is live or the evergreen favourite: the caption says
 "Float Pick", so must the art.
+
+A reposted clip has no float page of its own to promise, so its button — on
+the reel and the cover — is `CTA.download`, "Get the app →": as short as every
+other button, because the masthead already says whose app. The caption spells
+out the full line ("Download the Eddy River Guide on iOS",
+`CLIP_CAPTION_CTA` in `src/lib/social/clip-credit.ts`). The high-water clip
+keeps the gauge CTA. The clip's dock carries the creator credit as its detail
+line, beside the button — an `@handle` there is the creator's Instagram
+account, and the caption tags the same handle (`docs/clipengine-ops.md`,
+*Credit and tagging*).
 
 ## Fallbacks are still the system
 

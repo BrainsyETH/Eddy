@@ -1,13 +1,17 @@
 import React from "react";
 import { useCurrentFrame, useVideoConfig } from "remotion";
 import { fontFamilies } from "../design-tokens/fonts";
+import { subtitleStyle, SURFACES, TYPE } from "../../../shared/social-brand";
 import type { Caption } from "../lib/social-props";
 
 /**
- * Active transcript phrase for the current frame, as a single centered line.
- * Geist with a heavy shadow so it stays readable over bright water footage on
- * muted autoplay feeds. The caller positions it (ReelBrandFrame places it just
- * above the footer). Replaces the ffmpeg drawtext captions finalize-reel burned.
+ * Active transcript phrase for the current frame, as a centered subtitle.
+ * Subtitles are not a panel of the reel: they sit on the footage between the
+ * masthead and the dock and must read as captions, not as a third card. So the
+ * design system gives them a quiet wash under the words (subtitleStyle) and a
+ * subtitle-sized body step — no rule, no offset shadow, no glow. The caller
+ * positions it (ReelBrandFrame places it just above the media's lower edge).
+ * Replaces the ffmpeg drawtext captions finalize-reel burned.
  */
 export const Captions: React.FC<{ cues: Caption[] }> = ({ cues }) => {
   const frame = useCurrentFrame();
@@ -19,14 +23,16 @@ export const Captions: React.FC<{ cues: Caption[] }> = ({ cues }) => {
   return (
     <span
       style={{
+        ...subtitleStyle(),
+        display: "inline-block",
+        padding: "6px 16px",
+        maxWidth: 820,
         fontFamily: fontFamilies.body,
-        fontSize: 38,
-        fontWeight: 700,
-        color: "#fff",
+        fontSize: TYPE.subtitle_media.size,
+        fontWeight: TYPE.subtitle_media.weight,
+        lineHeight: TYPE.subtitle_media.lineHeight,
+        color: SURFACES.dark.ink,
         textAlign: "center",
-        lineHeight: 1.2,
-        maxWidth: 1000,
-        textShadow: "0 2px 10px rgba(0,0,0,0.95), 0 0 4px rgba(0,0,0,0.9)",
       }}
     >
       {active.text}

@@ -1,12 +1,11 @@
 import React from "react";
-import { OffthreadVideo, useCurrentFrame, useVideoConfig, interpolate } from "remotion";
+import { OffthreadVideo } from "remotion";
 import { ReelBrandFrame } from "../../components/ReelBrandFrame";
 import {
-  GENERIC_CTA,
+  DOWNLOAD_CTA,
   HIGH_WATER_LABEL,
   NEUTRAL_ACCENT,
   OZARK_PADDLING_LABEL,
-  PLAN_CTA,
   SAFETY_CTA,
   SAFETY_DETAIL,
   WARNING_ACCENT,
@@ -20,9 +19,10 @@ import type { ClipReelProps } from "../../lib/social-props";
  * Trend, Eddy Says): the series-label masthead, the ruled media card, the dock
  * with the canonical CTA, and timed transcript captions over the footage. A clip
  * has no live gauge reading, so the frame uses the neutral brand accent.
- * Vertical sources fill the frame (full-bleed); landscape sources play as a
- * centered 16:9 card over a blurred full-bleed copy of themselves, so they fill
- * the frame instead of sitting in a dead teal void.
+ * Ordinary clips use the light editorial surface: the video replaces the
+ * route/chart/illustration stage inside a ruled card. High-water clips alone
+ * use the dark severity surface, where vertical sources may fill the frame and
+ * landscape sources sit over a dimmed copy of themselves.
  */
 export const ClipReel: React.FC<ClipReelProps> = ({
   videoUrl,
@@ -32,16 +32,10 @@ export const ClipReel: React.FC<ClipReelProps> = ({
   sourceOrientation,
   category,
 }) => {
-  const frame = useCurrentFrame();
-  const { fps } = useVideoConfig();
-  const videoFade = interpolate(frame, [0, 10], [0, 1], {
-    extrapolateLeft: "clamp",
-    extrapolateRight: "clamp",
-  });
-
   // Tier 2: a clip with no known Eddy river (e.g. out-of-Missouri paddling)
-  // still renders the same frame, but with a generic hero label + softer CTA
-  // instead of a river name + "plan this float" page promise.
+  // still renders the same frame, but with a generic hero label instead of a
+  // river name. Both tiers share the download button: a reposted clip has no
+  // float page of its own to promise, so it sells the app.
   const hasRiver = !!(riverName && riverName.trim());
 
   // High-water safety PSA: the alarm look (orange "HIGH WATER" pill, warning
@@ -56,7 +50,7 @@ export const ClipReel: React.FC<ClipReelProps> = ({
     : isHighWater
       ? HIGH_WATER_LABEL
       : OZARK_PADDLING_LABEL;
-  const cta = isHighWater ? SAFETY_CTA : hasRiver ? PLAN_CTA : GENERIC_CTA;
+  const cta = isHighWater ? SAFETY_CTA : DOWNLOAD_CTA;
   const accent = isHighWater ? WARNING_ACCENT : NEUTRAL_ACCENT;
 
   return (
@@ -67,11 +61,10 @@ export const ClipReel: React.FC<ClipReelProps> = ({
       cta={cta}
       detail={isHighWater ? SAFETY_DETAIL : undefined}
       accent={accent}
+      tone={isHighWater ? "dark" : "light"}
       creatorCredit={creatorCredit}
       captions={captions}
       fullBleed={sourceOrientation === "portrait"}
-      frame={frame}
-      fps={fps}
       backdrop={
         sourceOrientation === "portrait" ? undefined : (
           <OffthreadVideo
@@ -82,10 +75,9 @@ export const ClipReel: React.FC<ClipReelProps> = ({
         )
       }
     >
-      <OffthreadVideo
-        src={videoUrl}
-        style={{ width: "100%", height: "100%", objectFit: "cover", opacity: videoFade }}
-      />
+      {/* No fade-in: frame 0 is the thumbnail, and a thumbnail of an empty
+          card is the black-first-frame problem the cover exists to solve. */}
+      <OffthreadVideo src={videoUrl} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
     </ReelBrandFrame>
   );
 };

@@ -18,9 +18,8 @@
 //   light  the default. Off-white ground, dark ink. Every editorial reel.
 //   dark   the SEVERITY SURFACE: deep teal ground, white ink, cards bordered in
 //          the condition colour. Sanctioned for the high-water / all-clear alert
-//          family (a cream card reads less urgent than the alarm deserves) and
-//          for chrome drawn OVER footage (ClipReel), where the ground is the
-//          blurred clip + scrim, never the off-white.
+//          family (including high-water ClipReels, where chrome sits over
+//          footage). Ordinary ClipReels remain on the light editorial surface.
 //
 // All sizes are canvas pixels on the 1080-wide social canvas (1080×1920 reels,
 // 1080×1080 / 1080×1920 covers).
@@ -266,6 +265,15 @@ export function buttonStyle(tone: SocialTone = 'light', fill: string = colors.ac
   };
 }
 
+/** A transcript subtitle over footage (ClipReel). NOT a card: no rule, no
+ *  offset shadow — those would make a spoken line a third panel competing with
+ *  the masthead and dock. A quiet deep-teal wash under the words is all it
+ *  needs to stay legible on bright water; white type in a glow is what the
+ *  system does not draw. Always on the dark tone: subtitles only sit on media. */
+export function subtitleStyle(): { background: string; borderRadius: number } {
+  return { background: hexAlpha(colors.primary[900], 0.72), borderRadius: 10 };
+}
+
 /** A callout card (the route reel's stop cards): a card with a coloured header. */
 export function calloutStyle(tone: SocialTone = 'light', accent?: string): SurfaceStyle {
   const s = SURFACES[tone];
@@ -333,6 +341,9 @@ export const TYPE = {
   body: { size: 30, weight: 500, lineHeight: 1.38 },
   /** The centred hero quote on a quote-forward reel. Body. */
   quote: { size: 40, weight: 520, lineHeight: 1.32 },
+  /** A transcript subtitle over footage (ClipReel). Body — subtitle-sized,
+   *  smaller than the dock's detail line's neighbours, never a headline. */
+  subtitle_media: { size: 30, weight: 600, lineHeight: 1.25 },
   /** Instrument numerals (the big gauge reading). Mono. */
   numeral: { size: 104, weight: 700, lineHeight: 1, tracking: -3 },
 } as const satisfies Record<string, TypeStep>;
@@ -388,6 +399,10 @@ export const CTA = {
   gauge: 'Check the live gauge →',
   chart: 'See the 7-day chart →',
   levels: 'See every river →',
+  /** The reposted-clip button (reel + cover): a clip has no float page of its
+   *  own to promise, so it sells the app. Short like the rest — the masthead
+   *  already says whose app; the caption spells out the full download line. */
+  download: 'Get the app →',
   /** Points at the caption, not the site — rendered as text, not a button. */
   reportBelow: 'Full report below ▼',
 } as const;

@@ -42,7 +42,13 @@ RESP=$(curl -s "${SUPABASE_URL}/rest/v1/rivers?slug=eq.${RIVER}&select=name" \
 NAME=$(echo "$RESP" | python3 -c "import json,sys;d=json.loads(sys.stdin.read() or '[]');print(d[0]['name'] if d else '')" 2>/dev/null || echo "")
 [ -n "$NAME" ] && RIVER_NAME="$NAME"
 
-CREDIT="${IG:+@${IG#@}}"; CREDIT="${CREDIT:-$CHANNEL}"
+# Creator credit — "@instagram" when known (the caption's mention tags them),
+# else the channel name. One rule for both paths: scripts/clipengine/resolve-credit.py
+# takes an explicit --instagram (channel scan / manual arg) first, then the
+# channels.json entry matching this video's channel, then the channel name.
+CREDIT=$(python3 "$HERE/../scripts/clipengine/resolve-credit.py" "$HEATMAP" "$HERE/channels.json" \
+  ${IG:+--instagram "$IG"} 2>/dev/null || echo "")
+CREDIT="${CREDIT:-$CHANNEL}"
 
 # Upload the RAW clip so cloud Remotion can fetch it.
 DATE_PREFIX=$(date -u +%Y-%m-%d)
