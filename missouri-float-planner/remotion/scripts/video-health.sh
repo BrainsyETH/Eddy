@@ -44,7 +44,7 @@ DECODE_LOG=$(mktemp)
 FREEZE_LOG=$(mktemp)
 trap 'rm -f "$DECODE_LOG" "$FREEZE_LOG"' EXIT
 if ! ffmpeg -hide_banner -nostats -v error -xerror -i "$VIDEO_PATH" \
-  -map 0:v:0 -an -c:v libx264 -f null - >"$DECODE_LOG" 2>&1; then
+  -map 0:v:0 -an -f null - >"$DECODE_LOG" 2>&1; then
   echo "video-health: video does not decode cleanly" >&2
   sed -n '1,20p' "$DECODE_LOG" >&2
   exit 1
@@ -59,7 +59,7 @@ if [ "$MAX_FREEZE" = "off" ]; then
 fi
 
 if ! ffmpeg -hide_banner -nostats -i "$VIDEO_PATH" \
-  -vf "freezedetect=noise=-60dB:d=${MAX_FREEZE}" -an -c:v libx264 -f null - \
+  -vf "freezedetect=noise=-60dB:d=${MAX_FREEZE}" -an -f null - \
   >"$FREEZE_LOG" 2>&1; then
   echo "video-health: freeze analysis failed" >&2
   sed -n '1,20p' "$FREEZE_LOG" >&2
