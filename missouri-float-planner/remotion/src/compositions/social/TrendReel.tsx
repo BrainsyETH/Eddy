@@ -1,6 +1,5 @@
 import React from "react";
 import {
-  AbsoluteFill,
   Audio,
   useCurrentFrame,
   useVideoConfig,
@@ -9,26 +8,30 @@ import {
   staticFile,
 } from "remotion";
 import { EddyMascot } from "../../components/EddyMascot";
-import { Watermark } from "../../components/Watermark";
-import { ENTRANCE, SNAPPY } from "../../lib/spring-presets";
+import { ReelPage } from "../../components/ReelPage";
+import { ReelMasthead } from "../../components/ReelMasthead";
+import { ReelDock } from "../../components/ReelDock";
+import { BrandCard, BrandPill, StatTile } from "../../components/BrandCard";
 import { REEL_SAFE, reelLoopOpacity } from "../../lib/reel-safe";
+import { fontFamilies } from "../../design-tokens/fonts";
 import {
-  CONDITION_COLORS,
   DIRECTION_META,
   formatWeatherChipLabel,
   getOtterVariant,
   type TrendReelProps,
 } from "../../lib/social-props";
-import { colors } from "../../design-tokens/colors";
+import { CTA, LABELS, SURFACES, colors, conditionInk, hexAlpha } from "../../../../shared/social-brand";
 
 const FPS = 30;
-const CHART_WIDTH = 900;
-const CHART_HEIGHT = 320;
+const LIGHT = SURFACES.light;
+const CARD_W = 1080 - REEL_SAFE.left - REEL_SAFE.right;
+const CHART_WIDTH = CARD_W - 2 * 5 - 2 * 18; // inside the card's rule + padding
+const CHART_HEIGHT = 330;
 const CHART_PADDING = 40;
 
 /**
- * 7-Day Trend reel — shows a sparkline of the last week's gauge readings for
- * the most-notable river, with a direction arrow and delta callout.
+ * 7-Day Trend reel — the last week's gauge readings as a sparkline in a card,
+ * with the direction pill and the delta, on the shared social page.
  *
  * 12s / 360 frames / 1080x1920.
  */
@@ -49,19 +52,17 @@ export const TrendReel: React.FC<TrendReelProps> = ({
 }) => {
   const frame = useCurrentFrame();
   const { fps, durationInFrames } = useVideoConfig();
-  const condition = CONDITION_COLORS[conditionCode] ?? CONDITION_COLORS.unknown;
   const isPortrait = format === "portrait";
   const weatherLabel = formatWeatherChipLabel(weather);
   const loopOpacity = isPortrait ? reelLoopOpacity(frame, durationInFrames) : 1;
   const meta = DIRECTION_META[direction];
+  const mastheadTop = isPortrait ? REEL_SAFE.top : 48;
+  const stageTop = mastheadTop + 200;
 
   // CTA enters ~70 frames before the end so it lands late regardless of the
   // duration Root's calculateMetadata chooses (360 default, tighter otherwise).
   const ctaStart = Math.max(60, durationInFrames - 70);
 
-  const riverEntrance = spring({ frame: frame - 10, fps, config: ENTRANCE });
-  const dateEntrance = spring({ frame: frame - 20, fps, config: ENTRANCE });
-  const chartEntrance = spring({ frame: frame - 30, fps, config: SNAPPY });
   // Reveal the sparkline line from left to right across frames 40-120.
   const sparklineReveal = interpolate(frame, [40, 120], [0, 1], {
     extrapolateLeft: "clamp",
@@ -83,7 +84,7 @@ export const TrendReel: React.FC<TrendReelProps> = ({
   const deltaSign = deltaFt > 0 ? "+" : deltaFt < 0 ? "−" : "";
   const range =
     sevenDayMinFt !== null && sevenDayMaxFt !== null
-      ? `${sevenDayMinFt.toFixed(1)}–${sevenDayMaxFt.toFixed(1)} ft`
+      ? `${sevenDayMinFt.toFixed(1)}–${sevenDayMaxFt.toFixed(1)}`
       : null;
 
   // Build normalized sparkline points (0..1 in both axes).
@@ -106,21 +107,25 @@ export const TrendReel: React.FC<TrendReelProps> = ({
     return { x, y };
   });
 
-  // SVG path with the reveal factor clamping how much of the line shows.
+  // SVG path with the reveal factor clamping how much of the line shows. The
+  // whole week is ghosted underneath from frame 0, so the thumbnail is a
+  // complete chart and the reveal inks it in rather than drawing on nothing.
   const visibleCount = Math.max(2, Math.floor(points.length * sparklineReveal));
   const visiblePoints = points.slice(0, visibleCount);
-  const pathD = visiblePoints.length > 0
-    ? visiblePoints.map((p, i) => (i === 0 ? `M ${p.x} ${p.y}` : `L ${p.x} ${p.y}`)).join(" ")
-    : "";
+  const toPath = (list: typeof points) =>
+    list.length > 0 ? list.map((p, i) => (i === 0 ? `M ${p.x} ${p.y}` : `L ${p.x} ${p.y}`)).join(" ") : "";
+  const ghostD = toPath(points);
+  const pathD = toPath(visiblePoints);
   // Area fill below the line.
   const areaD = visiblePoints.length > 0
     ? `${pathD} L ${visiblePoints[visiblePoints.length - 1].x} ${CHART_HEIGHT - CHART_PADDING} L ${visiblePoints[0].x} ${CHART_HEIGHT - CHART_PADDING} Z`
     : "";
 
   const lastPoint = visiblePoints[visiblePoints.length - 1];
+  const lineInk = conditionInk(meta.color);
 
   return (
-    <AbsoluteFill style={{ backgroundColor: colors.primary[900], opacity: loopOpacity }}>
+    <ReelPage opacity={loopOpacity}>
       <Audio
         src={staticFile("audio/background-music.wav")}
         volume={(f) =>
@@ -131,273 +136,90 @@ export const TrendReel: React.FC<TrendReelProps> = ({
         }
       />
 
-      {/* Ambient glow */}
-      <div
-        style={{
-          position: "absolute",
-          top: "35%",
-          left: "50%",
-          transform: "translate(-50%, -50%)",
-          width: 700,
-          height: 700,
-          borderRadius: "50%",
-          background: `radial-gradient(circle, ${meta.color}33 0%, transparent 65%)`,
-          opacity: 0.5,
-        }}
-      />
+      <div style={{ position: "absolute", top: mastheadTop, left: REEL_SAFE.left, right: REEL_SAFE.right, zIndex: 10 }}>
+        <ReelMasthead
+          label={LABELS.trend}
+          title={riverName}
+          subtitle={[dateLabel, weatherLabel].filter(Boolean).join(" · ") || undefined}
+        />
+      </div>
 
-      <div
-        style={{
-          position: "absolute",
-          top: isPortrait ? REEL_SAFE.top : 48,
-          bottom: isPortrait ? REEL_SAFE.bottom : 48,
-          left: isPortrait ? REEL_SAFE.left : 48,
-          right: isPortrait ? REEL_SAFE.right : 48,
-          display: "flex",
-          flexDirection: "column",
-          alignItems: "center",
-          justifyContent: "center",
-          gap: 18,
-        }}
-      >
-        {/* Title — rendered at full opacity from frame 0 (no entrance fade) so
-            the first autoplay frame / grid thumbnail is branded, not empty. */}
-        <div
-          style={{
-            fontFamily: "'Fredoka', system-ui, sans-serif",
-            fontSize: isPortrait ? 42 : 32,
-            fontWeight: 500,
-            color: colors.accent[400],
-            letterSpacing: 1,
-            textTransform: "uppercase",
-          }}
-        >
-          7-Day Trend
-        </div>
-
-        {/* River name */}
-        <div
-          style={{
-            opacity: riverEntrance,
-            fontFamily: "'Fredoka', system-ui, sans-serif",
-            fontSize: isPortrait ? 76 : 56,
-            fontWeight: 600,
-            color: "#fff",
-            textAlign: "center",
-            textShadow: `0 0 30px ${condition.glow}`,
-            marginTop: -6,
-          }}
-        >
-          {riverName}
-        </div>
-
-        {/* Date */}
-        {dateLabel && (
-          <div
-            style={{
-              opacity: dateEntrance,
-              fontFamily: "'Geist Sans', system-ui, sans-serif",
-              fontSize: isPortrait ? 28 : 22,
-              color: "rgba(255,255,255,0.55)",
-              marginTop: -12,
-            }}
-          >
-            {dateLabel}
-          </div>
-        )}
-
-        {/* Forecast chip */}
-        {weatherLabel && (
-          <div
-            style={{
-              opacity: dateEntrance,
-              fontFamily: "'Geist Sans', system-ui, sans-serif",
-              fontSize: isPortrait ? 24 : 18,
-              color: "rgba(255,255,255,0.6)",
-              marginTop: 2,
-            }}
-          >
-            {weatherLabel}
-          </div>
-        )}
-
-        {/* Sparkline */}
-        <div
-          style={{
-            opacity: chartEntrance,
-            marginTop: 4,
-            backgroundColor: "rgba(255,255,255,0.04)",
-            border: "1px solid rgba(255,255,255,0.08)",
-            borderRadius: 20,
-            padding: "18px 12px",
-          }}
-        >
+      {/* Chart card — visible from frame 0 (the thumbnail); the line draws on. */}
+      <div style={{ position: "absolute", top: stageTop, left: REEL_SAFE.left, width: CARD_W }}>
+        <BrandCard>
           <svg width={CHART_WIDTH} height={CHART_HEIGHT} style={{ display: "block" }}>
-            {/* Baseline */}
-            <line
-              x1={CHART_PADDING}
-              y1={CHART_HEIGHT - CHART_PADDING}
-              x2={CHART_WIDTH - CHART_PADDING}
-              y2={CHART_HEIGHT - CHART_PADDING}
-              stroke="rgba(255,255,255,0.1)"
-              strokeWidth={1}
-            />
+            {/* Baseline + a faint mid gridline */}
+            <line x1={CHART_PADDING} y1={CHART_HEIGHT - CHART_PADDING} x2={CHART_WIDTH - CHART_PADDING} y2={CHART_HEIGHT - CHART_PADDING} stroke={LIGHT.divider} strokeWidth={3} />
+            <line x1={CHART_PADDING} y1={CHART_PADDING} x2={CHART_WIDTH - CHART_PADDING} y2={CHART_PADDING} stroke={LIGHT.divider} strokeWidth={2} strokeDasharray="6 8" />
+            {/* The whole week, ghosted — the shape is there from frame 0 */}
+            {ghostD && (
+              <path d={ghostD} fill="none" stroke={LIGHT.divider} strokeWidth={5} strokeLinecap="round" strokeLinejoin="round" strokeDasharray="2 12" />
+            )}
             {/* Area fill */}
-            {areaD && <path d={areaD} fill={meta.color} fillOpacity={0.15} />}
+            {areaD && <path d={areaD} fill={hexAlpha(meta.color, 0.18)} />}
             {/* Line */}
             {pathD && (
-              <path
-                d={pathD}
-                fill="none"
-                stroke={meta.color}
-                strokeWidth={4}
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                style={{ filter: `drop-shadow(0 0 6px ${meta.color})` }}
-              />
+              <path d={pathD} fill="none" stroke={lineInk} strokeWidth={6} strokeLinecap="round" strokeLinejoin="round" />
             )}
             {/* Current-point marker */}
             {lastPoint && (
-              <circle
-                cx={lastPoint.x}
-                cy={lastPoint.y}
-                r={10}
-                fill={meta.color}
-                style={{ filter: `drop-shadow(0 0 10px ${meta.color})` }}
-              />
+              <circle cx={lastPoint.x} cy={lastPoint.y} r={12} fill={meta.color} stroke={colors.neutral[900]} strokeWidth={4} />
             )}
             {/* Axis labels */}
             {sevenDayFirstFt !== null && (
-              <text
-                x={CHART_PADDING}
-                y={CHART_HEIGHT - 10}
-                fill="rgba(255,255,255,0.4)"
-                fontSize={18}
-                fontFamily="'Geist Mono', monospace"
-              >
+              <text x={CHART_PADDING} y={CHART_HEIGHT - 10} fill={LIGHT.inkMuted} fontSize={18} fontWeight={650} fontFamily={fontFamilies.mono}>
                 {`7d ago · ${sevenDayFirstFt.toFixed(1)} ft`}
               </text>
             )}
             {currentHeightFt !== null && (
-              <text
-                x={CHART_WIDTH - CHART_PADDING}
-                y={CHART_HEIGHT - 10}
-                fill="rgba(255,255,255,0.7)"
-                fontSize={18}
-                fontFamily="'Geist Mono', monospace"
-                textAnchor="end"
-              >
+              <text x={CHART_WIDTH - CHART_PADDING} y={CHART_HEIGHT - 10} fill={LIGHT.ink} fontSize={18} fontWeight={700} fontFamily={fontFamilies.mono} textAnchor="end">
                 {`Now · ${currentHeightFt.toFixed(1)} ft`}
               </text>
             )}
           </svg>
-        </div>
 
-        {/* Delta callout */}
-        <div
-          style={{
-            opacity: deltaEntrance,
-            transform: `scale(${deltaScale})`,
-            display: "flex",
-            alignItems: "center",
-            gap: 16,
-            backgroundColor: `${meta.color}22`,
-            border: `2px solid ${meta.color}`,
-            borderRadius: 999,
-            padding: "14px 32px",
-            boxShadow: `0 0 20px ${meta.color}66`,
-            marginTop: 4,
-          }}
-        >
-          <span
-            style={{
-              fontFamily: "'Fredoka', system-ui, sans-serif",
-              fontSize: isPortrait ? 36 : 28,
-              color: meta.color,
-              fontWeight: 700,
-            }}
-          >
-            {meta.arrow} {meta.label}
-          </span>
-          <span
-            style={{
-              fontFamily: "'Geist Mono', monospace",
-              fontSize: isPortrait ? 32 : 24,
-              color: "#fff",
-              fontWeight: 600,
-            }}
-          >
-            {deltaSign}{deltaAbs} ft
-          </span>
-        </div>
-
-        {/* Range */}
-        {range && (
+          {/* Direction + delta — the one-line verdict */}
           <div
             style={{
-              opacity: deltaEntrance,
-              fontFamily: "'Geist Sans', system-ui, sans-serif",
-              fontSize: isPortrait ? 22 : 18,
-              color: "rgba(255,255,255,0.5)",
-              marginTop: -4,
-            }}
-          >
-            Week range: {range}
-          </div>
-        )}
-
-        {/* Eddy + CTA */}
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: 20,
-            marginTop: 6,
-          }}
-        >
-          <EddyMascot
-            variant={getOtterVariant(conditionCode)}
-            size={isPortrait ? 130 : 100}
-            delay={120}
-          />
-          {/* CTA + optional smaller followCta line beneath (lower emphasis). */}
-          <div
-            style={{
-              opacity: ctaEntrance,
               display: "flex",
-              flexDirection: "column",
-              gap: 4,
+              alignItems: "center",
+              gap: 16,
+              marginTop: 10,
+              padding: "0 5px",
+              opacity: deltaEntrance,
+              transform: `scale(${deltaScale})`,
+              transformOrigin: "left center",
             }}
           >
-            <span
-              style={{
-                fontFamily: "'Fredoka', system-ui, sans-serif",
-                fontSize: isPortrait ? 28 : 22,
-                color: meta.color,
-                letterSpacing: 0.5,
-              }}
-            >
-              Full 7-day chart at eddy.guide
+            <BrandPill fill={meta.color} size={26}>
+              {meta.arrow} {meta.label}
+            </BrandPill>
+            <span style={{ fontFamily: fontFamilies.mono, fontSize: 34, fontWeight: 700, color: LIGHT.ink }}>
+              {deltaSign}{deltaAbs} ft
             </span>
-            {followCta && (
-              <span
-                style={{
-                  fontFamily: "'Fredoka', system-ui, sans-serif",
-                  fontSize: isPortrait ? 22 : 18,
-                  fontWeight: 500,
-                  color: "rgba(255,255,255,0.6)",
-                  letterSpacing: 0.5,
-                }}
-              >
-                {followCta}
-              </span>
-            )}
+            <span style={{ fontSize: 22, fontWeight: 600, color: LIGHT.inkMuted }}>over 7 days</span>
           </div>
-        </div>
+        </BrandCard>
       </div>
 
-      {/* Persistent eddy.guide mark — survives any mid-animation screenshot. */}
-      <Watermark format={isPortrait ? "portrait" : "landscape"} />
-    </AbsoluteFill>
+      {/* Eddy's condition mood, in the gap between the chart and the dock. */}
+      <div style={{ position: "absolute", top: isPortrait ? stageTop + 500 : stageTop + 470, left: REEL_SAFE.left + 30 }}>
+        <EddyMascot variant={getOtterVariant(conditionCode)} size={isPortrait ? 200 : 120} delay={120} />
+      </div>
+
+      <ReelDock
+        bottom={isPortrait ? undefined : 88}
+        followBottom={isPortrait ? undefined : 48}
+        tiles={[
+          <StatTile key="now" value={currentHeightFt !== null ? currentHeightFt.toFixed(1) : "—"} unit="FT" label="Right now" />,
+          <StatTile key="delta" value={`${deltaSign}${deltaAbs}`} unit="FT" label="7-day change" color={meta.color} />,
+          <StatTile key="range" value={range ?? "—"} unit={range ? "FT" : undefined} label="Week range" compact />,
+        ]}
+        detail={`${meta.label} over the last 7 days`}
+        cta={CTA.chart}
+        ctaProgress={ctaEntrance}
+        followCta={followCta}
+      />
+    </ReelPage>
   );
 };

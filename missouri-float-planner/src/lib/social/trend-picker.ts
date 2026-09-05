@@ -42,9 +42,21 @@ const FLAT_THRESHOLD_FT = 0.15;
 export async function pickNotableTrend(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   supabase: any,
-  opts: { restrictTo?: string[] } = {},
+  opts: {
+    restrictTo?: string[];
+    /**
+     * Evaluate the trend as of this ISO instant instead of now: readings after
+     * it are excluded and "hours ago" is measured from it. The OG cover pins
+     * the reel's own asOf so Meta's crawl-time render reproduces the same
+     * seven days, the same delta and the same sparkline the reel showed —
+     * not whatever the gauge has done since.
+     */
+    asOf?: string | null;
+  } = {},
 ): Promise<TrendRiverData | null> {
   const LOG = '[TrendPicker]';
+  const asOfMs = opts.asOf ? Date.parse(opts.asOf) : NaN;
+  const nowMs = Number.isFinite(asOfMs) ? asOfMs : Date.now();
 
   // 1. Map river slug → primary gauge station id.
   const { data: riverGauges, error: rgError } = await supabase
@@ -68,14 +80,17 @@ export async function pickNotableTrend(
   if (stationBySlug.size === 0) return null;
 
   // 2. Pull 7 days of readings for all primary stations in one query.
-  const since = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+  const since = new Date(nowMs - 7 * 24 * 60 * 60 * 1000).toISOString();
   const stationIds = Array.from(stationBySlug.values());
-  const { data: readings, error: rError } = await supabase
+  let readingsQuery = supabase
     .from('gauge_readings')
     .select('gauge_station_id, reading_timestamp, gauge_height_ft')
     .in('gauge_station_id', stationIds)
-    .gte('reading_timestamp', since)
-    .order('reading_timestamp', { ascending: true });
+    .gte('reading_timestamp', since);
+  if (Number.isFinite(asOfMs)) {
+    readingsQuery = readingsQuery.lte('reading_timestamp', new Date(nowMs).toISOString());
+  }
+  const { data: readings, error: rError } = await readingsQuery.order('reading_timestamp', { ascending: true });
   if (rError) {
     console.error(`${LOG} gauge_readings query failed:`, rError.message);
     return null;
@@ -107,7 +122,6 @@ export async function pickNotableTrend(
     // Downsample to SPARKLINE_POINTS for the chart.
     const step = Math.max(1, Math.floor(valid.length / SPARKLINE_POINTS));
     const sparkline: TrendSeriesPoint[] = [];
-    const nowMs = Date.now();
     for (let i = 0; i < valid.length; i += step) {
       const r = valid[i];
       sparkline.push({

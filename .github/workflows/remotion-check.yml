@@ -9,11 +9,15 @@ on:
   pull_request:
     paths:
       - 'missouri-float-planner/remotion/**'
+      # The compositions import shared/social-brand, shared/social-route-journey
+      # and shared/condition-system; a change there re-renders every reel.
+      - 'missouri-float-planner/shared/**'
       - '.github/workflows/remotion-check.yml'
   push:
     branches: [main]
     paths:
       - 'missouri-float-planner/remotion/**'
+      - 'missouri-float-planner/shared/**'
   workflow_dispatch:
     inputs:
       update_baselines:
@@ -54,24 +58,12 @@ jobs:
         run: npx tsc --noEmit -p tsconfig.json
 
       - name: Render smoke test
-        # One still per data-driven composition catches runtime crashes with the
-        # registered defaultProps. clip-reel is skipped — it needs an external
-        # source video — so its frame is exercised by the others' shared chrome.
-        run: |
-          set -e
-          mkdir -p /tmp/stills
-          for comp in \
-            social-route-portrait \
-            social-section-portrait \
-            social-gauge \
-            social-gauge-alert \
-            social-trend-portrait \
-            social-digest; do
-            echo "→ rendering still: $comp"
-            npx remotion still --entry-point=src/index.ts --public-dir=./public \
-              "$comp" "/tmp/stills/${comp}.png" --frame=120
-          done
-          ls -la /tmp/stills
+        # Stills of each data-driven composition with its registered defaultProps
+        # catch runtime crashes; the frame list lives in test/check-stills.sh so
+        # this gate and `npm run render:check-stills` can't drift. clip-reel is
+        # skipped — it needs an external source video — so its frame is
+        # exercised by the others' shared chrome.
+        run: npm run render:check-stills
 
       # update_baselines mode: adopt the freshly rendered stills as the canonical
       # baselines (generated in THIS runner so anti-aliasing matches the gate) and
@@ -96,11 +88,13 @@ jobs:
         if: ${{ !(github.event_name == 'workflow_dispatch' && inputs.update_baselines) }}
         run: npm run test:visual
 
-      # On a mismatch, surface both the diff images (what shifted) and the fresh
-      # stills (so an *intended* change can be adopted as the new baseline from a
-      # CI-rendered file, sidestepping cross-runner anti-aliasing).
+      # Always surface the fresh stills, plus the diff images on a mismatch. On a
+      # failure the diffs show what shifted; on ANY run the stills are the
+      # CI-rendered files a baseline should be adopted from (sidestepping
+      # cross-runner anti-aliasing) — including a green run whose committed
+      # baselines were rendered locally and should be replaced with CI's bytes.
       - name: Upload visual diffs
-        if: failure()
+        if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: visual-diffs

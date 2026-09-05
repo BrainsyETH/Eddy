@@ -1,529 +1,961 @@
-import React from "react";
+import React, { useMemo } from "react";
+import { Audio, interpolate, spring, staticFile, useCurrentFrame, useVideoConfig } from "remotion";
 import {
-  AbsoluteFill,
-  Audio,
-  Easing,
-  Img,
-  useCurrentFrame,
-  useVideoConfig,
-  spring,
-  interpolate,
-  staticFile,
-} from "remotion";
+  DEFAULT_TIMING,
+  arrivalFrame,
+  buildJourney,
+  journeyCamera,
+  journeyState,
+  type Journey,
+  type JourneyCamera,
+  type JourneyPoint,
+  type JourneyStage,
+  type JourneyState,
+  type RoutePointKind,
+  type SocialRoutePoint,
+  type UnanchoredRoutePoint,
+} from "../../../../shared/social-route-journey";
+import {
+  SURFACES,
+  calloutStyle,
+  colors,
+  conditionInk,
+  inkOn,
+  TYPE,
+} from "../../../../shared/social-brand";
 import { EddyMascot } from "../../components/EddyMascot";
-import { Watermark } from "../../components/Watermark";
-import { BrandCTA } from "../../components/BrandCTA";
+import { ReelPage } from "../../components/ReelPage";
 import { ReelMasthead } from "../../components/ReelMasthead";
-import { ENTRANCE } from "../../lib/spring-presets";
-import { REEL_SAFE, reelLoopOpacity } from "../../lib/reel-safe";
-import {
-  CONDITION_COLORS,
-  getOtterVariant,
-  type RouteDrawProps,
-} from "../../lib/social-props";
-import { colors } from "../../design-tokens/colors";
+import { ReelDock } from "../../components/ReelDock";
+import { BrandCallout, KindBadge, StatTile } from "../../components/BrandCard";
+import { fontFamilies } from "../../design-tokens/fonts";
+import { REEL_SAFE } from "../../lib/reel-safe";
+import { PLAN_CTA } from "../../lib/brand";
+import { CONDITION_COLORS, type RouteDrawProps } from "../../lib/social-props";
 
 const FPS = 30;
 
-// Evergreen "favorite" accent — a warm editorial gold, deliberately OFF the
-// cool live-condition palette so "Eddy's Favorite Float" reads as a curated,
-// timeless postcard rather than today's gauge snapshot (Float of the Day).
+// ─── Layout ─────────────────────────────────────────────────────────────────
+// Everything readable sits inside REEL_SAFE (Instagram's top/bottom chrome).
+// The stage is the only thing that may run under the masthead / dock, and it
+// fades out at both edges so nothing is ever clipped by chrome mid-word.
+const STAGE_TOP = 440;
+const STAGE_HEIGHT = 800;
+const STAGE: JourneyStage = {
+  width: 1080,
+  height: STAGE_HEIGHT,
+  boatX: 540,
+  boatY: 400,
+  padding: 100,
+};
+const CALLOUT_W = 390;
+const CALLOUT_H = 160;
+
+const LIGHT = SURFACES.light;
+
 const EVERGREEN_STYLE = {
-  solid: "#e0b057",
-  bg: "rgba(224,176,87,0.12)",
-  glow: "rgba(224,176,87,0.45)",
+  solid: colors.secondary[600],
+  bg: colors.secondary[100],
+  glow: "rgba(184,157,114,0.22)",
   label: "Favorite",
 };
 
-type Pt = [number, number];
+const KIND_STYLE: Record<RoutePointKind, { fill: string; short: string }> = {
+  put_in: { fill: colors.support[500], short: "IN" },
+  take_out: { fill: colors.accent[500], short: "OUT" },
+  access: { fill: colors.primary[300], short: "A" },
+  campground: { fill: colors.secondary[400], short: "C" },
+  spring: { fill: colors.primary[400], short: "S" },
+  poi: { fill: colors.secondary[300], short: "P" },
+  hazard: { fill: "#E5A000", short: "!" },
+};
 
-/** Build a smooth serpentine "river" polyline from put-in (top) to take-out
- *  (bottom) within the given pixel bounds. Many points → straight segments read
- *  as a smooth meander while keeping arc-length math trivial and deterministic. */
-function buildRoute(
-  centerX: number,
-  topY: number,
-  bottomY: number,
-  amplitude: number,
-): Pt[] {
-  const N = 40;
-  return Array.from({ length: N }, (_, i) => {
-    const t = i / (N - 1);
-    const y = topY + t * (bottomY - topY);
-    // 2.5 bends, tapering near the ends so the markers sit on a calm stretch.
-    const taper = Math.sin(t * Math.PI);
-    const x = centerX + Math.sin(t * Math.PI * 2.5) * amplitude * taper;
-    return [x, y];
-  });
-}
+const hazardFill = (point: SocialRoutePoint) =>
+  point.kind === "hazard" ? (point.severity === "danger" ? "#DC2626" : "#E5A000") : KIND_STYLE[point.kind].fill;
 
-/** Point at fraction p (0..1) of total polyline length, plus the drawn prefix. */
-function along(pts: Pt[], p: number): { point: Pt; drawn: Pt[] } {
-  const segLen: number[] = [];
-  let total = 0;
-  for (let i = 1; i < pts.length; i++) {
-    const d = Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]);
-    segLen.push(d);
-    total += d;
-  }
-  const target = p * total;
-  const drawn: Pt[] = [pts[0]];
-  let acc = 0;
-  for (let i = 1; i < pts.length; i++) {
-    const d = segLen[i - 1];
-    if (acc + d >= target) {
-      const f = d === 0 ? 0 : (target - acc) / d;
-      const x = pts[i - 1][0] + (pts[i][0] - pts[i - 1][0]) * f;
-      const y = pts[i - 1][1] + (pts[i][1] - pts[i - 1][1]) * f;
-      drawn.push([x, y]);
-      return { point: [x, y], drawn };
-    }
-    acc += d;
-    drawn.push(pts[i]);
-  }
-  return { point: pts[pts.length - 1], drawn };
-}
-
-function toPath(pts: Pt[]): string {
-  if (pts.length === 0) return "";
-  return (
-    `M ${pts[0][0].toFixed(2)} ${pts[0][1].toFixed(2)} ` +
-    pts
-      .slice(1)
-      .map(([x, y]) => `L ${x.toFixed(2)} ${y.toFixed(2)}`)
-      .join(" ")
-  );
-}
+const toScreen = (point: JourneyPoint, camera: JourneyCamera) => ({
+  x: point.x * camera.scale + camera.translateX,
+  y: point.y * camera.scale + camera.translateY,
+});
 
 /**
- * Self-drawing route reel — 12s, 1080x1920.
+ * A truthful river journey. Frame 0 is the whole float — every bend, every
+ * stop, the put-in named — so the grid thumbnail is a complete card; the
+ * camera then pushes in and the selected PostGIS LineString scrolls beneath a
+ * fixed Eddy canoe, pausing at each intermediate feature in the reading zone.
  *
- * The put-in → take-out line draws itself while a glowing "boat" rides the
- * leading edge, then the current float time is stamped on the route. A static
- * conditions card looks like anyone made it; a route that draws itself reads as
- * a live instrument — visual proof there's real data underneath.
+ * Missing geometry never invents a line: the same masthead, dock and pauses
+ * frame a schematic ITINERARY instead — the stops in order down a channel,
+ * with their miles, Eddy paddling from one to the next. Same series label,
+ * same evergreen handling, same facts; just no map.
  */
-export const RouteDraw: React.FC<RouteDrawProps> = ({
-  riverName,
-  conditionCode,
-  putInName,
-  putInMile,
-  takeOutName,
-  takeOutMile,
-  distanceMi,
-  hoursToday,
-  hoursTypical,
-  dateLabel,
-  followCta,
-  format,
-  label = "Float of the Day",
-  tagline,
-  evergreen = false,
-  difficulty,
-  photoUrl,
-}) => {
+export const RouteDraw: React.FC<RouteDrawProps> = (props) => {
+  const {
+    riverName,
+    conditionCode,
+    putInName,
+    putInMile,
+    takeOutName,
+    takeOutMile,
+    distanceMi,
+    hoursToday,
+    hoursTypical,
+    dateLabel,
+    followCta,
+    label = "Float Pick",
+    tagline,
+    evergreen = false,
+    difficulty,
+    photoUrl,
+    routeCoordinates,
+    routePoints = [],
+    unanchoredPoints = [],
+  } = props;
   const frame = useCurrentFrame();
-  const { fps, width, height, durationInFrames } = useVideoConfig();
-  // Favorites are evergreen — not tied to today's gauge — so they use a neutral
-  // brand accent instead of a live condition color.
+  const { fps, durationInFrames } = useVideoConfig();
   const condition = evergreen
     ? EVERGREEN_STYLE
     : CONDITION_COLORS[conditionCode] ?? CONDITION_COLORS.unknown;
-  const isPortrait = format === "portrait";
-  const loopOpacity = isPortrait ? reelLoopOpacity(frame, durationInFrames) : 1;
+  const journey = useMemo(() => buildJourney(routeCoordinates), [routeCoordinates]);
 
-  // ─── Route geometry ──────────────────────────────────────
-  const centerX = width / 2;
-  // Route sits between the put-in lane (below the header) and the take-out lane
-  // (above the float-time stamp). Labels live in those lanes — never on the path.
-  const topY = height * 0.33;
-  const bottomY = height * 0.51;
-  const amplitude = width * 0.18;
-  const route = buildRoute(centerX, topY, bottomY, amplitude);
-  const putIn = route[0];
-  const takeOut = route[route.length - 1];
+  // Every stop in float order, endpoints guaranteed: the itinerary needs them
+  // as rows even when the points query failed and routePoints is empty.
+  const stops = useMemo(
+    () => orderedStops(routePoints, { putInName, putInMile, takeOutName, takeOutMile }),
+    [routePoints, putInName, putInMile, takeOutName, takeOutMile],
+  );
+  const intermediate = stops.filter((point) => point.progress > 0.015 && point.progress < 0.985);
+  const state = journeyState(frame, intermediate);
+  const travelledMiles = Math.min(distanceMi, distanceMi * state.progress);
+  const activeIntermediate = state.activeStop === null ? null : intermediate[state.activeStop];
+  const putIn = stops[0];
+  const takeOut = stops[stops.length - 1];
 
-  // ─── Float-time delta (the decision-grade number) ─────────
-  const deltaHrs = hoursTypical - hoursToday; // + = faster than usual today
-  const absDelta = Math.abs(deltaHrs);
-  const faster = deltaHrs > 0;
-  const significantDelta = absDelta >= 0.3;
-  // Evergreen favorites aren't a live snapshot — show the typical pace, never a
-  // "faster/slower today" delta (there's no today to compare against).
-  const deltaText = evergreen
-    ? "typical pace"
-    : significantDelta
-      ? `${absDelta.toFixed(1)} hrs ${faster ? "faster" : "slower"}`
-      : "about the usual pace";
-  const deltaColor = evergreen || !significantDelta
-    ? "rgba(255,255,255,0.6)"
-    : faster
-      ? condition.solid
-      : "#eab308";
+  // The put-in callout is up from frame 0 (thumbnail) and holds through the
+  // overview; it lets go as the camera finishes pushing in on the boat.
+  const launchProgress = interpolate(
+    frame,
+    [0, DEFAULT_TIMING.introFrames + 10, DEFAULT_TIMING.introFrames + 24],
+    [1, 1, 0],
+    { extrapolateLeft: "clamp", extrapolateRight: "clamp" },
+  );
+  // Unanchored features (guidebook springs with no coordinate) get ONE hold at
+  // arrival, before the take-out's own callout: a fact without a false pin.
+  const summaryFrames = DEFAULT_TIMING.summaryFrames ?? 0;
+  const arrival = arrivalFrame(intermediate);
+  const summaryVisible =
+    unanchoredPoints.length > 0 && frame >= arrival && frame < arrival + summaryFrames;
+  const summaryProgress = summaryVisible
+    ? Math.min(1, (frame - arrival) / 6, (arrival + summaryFrames - frame) / 6)
+    : 0;
+  const finishProgress = state.complete && !summaryVisible
+    ? spring({ frame: frame - (durationInFrames - 88), fps, config: { damping: 14, stiffness: 120 } })
+    : 0;
+  const activeCallout =
+    activeIntermediate ?? (launchProgress > 0 ? putIn : summaryVisible || finishProgress > 0 ? takeOut : null);
+  const calloutProgress = activeIntermediate
+    ? state.calloutProgress
+    : summaryVisible
+      ? summaryProgress
+      : Math.max(launchProgress, finishProgress);
 
-  // ─── Animations ──────────────────────────────────────────
-  const bgOpacity = interpolate(frame, [0, 20], [0, 1], { extrapolateRight: "clamp" });
-  const riverEntrance = spring({ frame: frame - 10, fps, config: ENTRANCE });
-  const dateEntrance = spring({ frame: frame - 20, fps, config: ENTRANCE });
-
-  // The line draws itself over frames 45-205 (~5.3s).
-  const drawProgress = interpolate(frame, [45, 205], [0, 1], {
-    extrapolateLeft: "clamp",
-    extrapolateRight: "clamp",
-    easing: Easing.inOut(Easing.ease),
+  const delta = hoursTypical - hoursToday;
+  const deltaCopy = evergreen
+    ? "Typical pace"
+    : Math.abs(delta) < 0.3
+      ? "About the usual pace"
+      : `${Math.abs(delta).toFixed(1)} hr ${delta > 0 ? "faster" : "slower"} today`;
+  const cta = spring({
+    frame: frame - (durationInFrames - 72),
+    fps,
+    config: { damping: 14, stiffness: 120, mass: 0.6 },
   });
-  const { point: boat, drawn } = along(route, drawProgress);
-  const drawComplete = drawProgress >= 0.999;
 
-  // Float of the Day pulses the leading "boat" — a live-instrument tell. Evergreen
-  // favorites draw with a calm, steady marker so they don't read as live.
-  const boatPulse = evergreen ? 1 : 1 + 0.25 * Math.sin(frame / 5);
-
-  // The payoff (float time + distance) lands first — front-loaded into the first
-  // second for retention — while the route keeps drawing as live "proof" beneath
-  // it. The take-out reveal still ties to the line finishing.
-  const stampEntrance = spring({ frame: frame - 25, fps, config: ENTRANCE });
-  const takeOutReveal = interpolate(drawProgress, [0.9, 1], [0, 1], {
-    extrapolateLeft: "clamp",
-    extrapolateRight: "clamp",
-  });
-  // CTA enters ~70 frames before the end so it lands late regardless of the
-  // duration Root's calculateMetadata chooses (360 default, tighter otherwise);
-  // clamped so it never fires before the route/stamp choreography (frame 120).
-  const ctaStart = Math.min(120, Math.max(60, durationInFrames - 70));
-  const ctaEntrance = spring({ frame: frame - ctaStart, fps, config: { damping: 12, mass: 0.5, stiffness: 100 } });
-
-  const labelFont = "'Geist Sans', system-ui, sans-serif";
-  const displayFont = "'Fredoka', system-ui, sans-serif";
+  const stageProps = {
+    stops,
+    state,
+    condition,
+    putInMile,
+    unanchoredPoints,
+    activeCallout,
+    calloutProgress,
+    summaryVisible,
+  };
 
   return (
-    <AbsoluteFill style={{ backgroundColor: colors.primary[900], opacity: loopOpacity }}>
+    <ReelPage backdrop={photoUrl ? { src: photoUrl } : undefined}>
       <Audio
         src={staticFile("audio/background-music.wav")}
-        volume={(f) =>
-          interpolate(f, [0, FPS, durationInFrames - FPS, durationInFrames], [0, 0.5, 0.5, 0], {
+        volume={(audioFrame) =>
+          interpolate(audioFrame, [0, FPS, durationInFrames - FPS, durationInFrames], [0, 0.42, 0.42, 0], {
             extrapolateLeft: "clamp",
             extrapolateRight: "clamp",
           })
         }
       />
 
-      {/* Favorites composite a real section photo behind the graphic; a dimmed
-          teal wash keeps the white text legible + on-brand. A dead/slow URL
-          degrades to the solid background (SafeImg) so the daily render never
-          fails. Daily Float-of-the-Day passes no photoUrl → solid bg unchanged. */}
-      {photoUrl && (
-        <AbsoluteFill style={{ opacity: bgOpacity }}>
-          <SafeImg
-            src={photoUrl}
-            style={{ width: "100%", height: "100%", objectFit: "cover" }}
-          />
-          <AbsoluteFill
-            style={{
-              background:
-                "linear-gradient(180deg, rgba(15,45,53,0.74) 0%, rgba(15,45,53,0.58) 46%, rgba(15,45,53,0.85) 100%)",
-            }}
-          />
-        </AbsoluteFill>
-      )}
-
-      {/* Ambient condition glow behind the route */}
-      <div
-        style={{
-          position: "absolute",
-          top: "48%",
-          left: "50%",
-          transform: "translate(-50%, -50%)",
-          width: 760,
-          height: 760,
-          borderRadius: "50%",
-          background: `radial-gradient(circle, ${condition.glow} 0%, transparent 65%)`,
-          opacity: 0.3,
-        }}
+      <ReelMasthead
+        pinned
+        label={label}
+        title={riverName}
+        subtitle={tagline || dateLabel || `${putInName} to ${takeOutName}`}
       />
 
-      {/* ─── SVG route ─────────────────────────────────────── */}
-      <AbsoluteFill style={{ opacity: bgOpacity }}>
-        <svg width={width} height={height} viewBox={`0 0 ${width} ${height}`} style={{ position: "absolute" }}>
-          <defs>
-            <filter id="routeGlow" x="-40%" y="-40%" width="180%" height="180%">
-              <feGaussianBlur stdDeviation="8" result="b" />
-              <feMerge>
-                <feMergeNode in="b" />
-                <feMergeNode in="SourceGraphic" />
-              </feMerge>
-            </filter>
-          </defs>
+      {journey ? <RiverStage journey={journey} frame={frame} {...stageProps} /> : <ItineraryStage {...stageProps} />}
 
-          {/* Full route as a faint "remaining" track */}
-          <path
-            d={toPath(route)}
-            fill="none"
-            stroke="rgba(255,255,255,0.12)"
-            strokeWidth={6}
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeDasharray="2 14"
-          />
+      <ProgressTicket current={travelledMiles} total={distanceMi} conditionColor={condition.solid} />
 
-          {/* Drawn portion — condition-colored, glowing */}
-          <path
-            d={toPath(drawn)}
-            fill="none"
-            stroke={condition.solid}
-            strokeWidth={10}
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            filter="url(#routeGlow)"
-          />
-
-          {/* Put-in marker (always present from the start) */}
-          <circle cx={putIn[0]} cy={putIn[1]} r={14} fill={colors.accent[400]} filter="url(#routeGlow)" />
-          <circle cx={putIn[0]} cy={putIn[1]} r={6} fill="#fff" />
-
-          {/* Leading "boat" dot rides the draw edge */}
-          {!drawComplete && (
-            <>
-              <circle cx={boat[0]} cy={boat[1]} r={18 * boatPulse} fill={condition.solid} opacity={0.25} />
-              <circle cx={boat[0]} cy={boat[1]} r={10} fill="#fff" filter="url(#routeGlow)" />
-            </>
-          )}
-
-          {/* Take-out marker fades in as the route completes */}
-          <g opacity={takeOutReveal}>
-            <circle cx={takeOut[0]} cy={takeOut[1]} r={16} fill={condition.solid} filter="url(#routeGlow)" />
-            <circle cx={takeOut[0]} cy={takeOut[1]} r={6} fill="#fff" />
-          </g>
-        </svg>
-
-        {/* Put-in lane — above the route, centered, cleaned + truncated name */}
-        <EndpointRow
-          top={putIn[1] - (isPortrait ? 150 : 112)}
-          tag="Put-in"
-          name={cleanName(putInName)}
-          mile={putInMile}
-          color={colors.accent[400]}
-          opacity={riverEntrance}
-          isPortrait={isPortrait}
-          labelFont={labelFont}
-          displayFont={displayFont}
-        />
-        {/* Take-out lane — below the route */}
-        <EndpointRow
-          top={takeOut[1] + (isPortrait ? 44 : 30)}
-          tag="Take-out"
-          name={cleanName(takeOutName)}
-          mile={takeOutMile}
-          color={condition.solid}
-          opacity={takeOutReveal}
-          isPortrait={isPortrait}
-          labelFont={labelFont}
-          displayFont={displayFont}
-        />
-      </AbsoluteFill>
-
-      {/* ─── Header ─────────────────────────────────────────── */}
-      <div
-        style={{
-          position: "absolute",
-          top: isPortrait ? REEL_SAFE.top : 48,
-          left: 0,
-          right: 0,
-          display: "flex",
-          flexDirection: "column",
-          alignItems: "center",
-          gap: 8,
-        }}
-      >
-        {/* Favorites relabel the eyebrow + show the guide's section name as the
-            tagline ("why"); otherwise the date. The eyebrow renders at full
-            opacity from frame 0 (no entrance fade) so the first autoplay frame /
-            grid thumbnail is branded, not empty. */}
-        <ReelMasthead
-          eyebrow={label}
-          title={riverName}
-          subtitle={tagline || dateLabel}
-          subtitleItalic={!!tagline}
-          glow={condition.glow}
-          isPortrait={isPortrait}
-          eyebrowOpacity={1}
-          titleOpacity={riverEntrance}
-          subtitleOpacity={dateEntrance}
-        />
-      </div>
-
-      {/* ─── Float-time stamp (hero) ────────────────────────── */}
-      <div
-        style={{
-          position: "absolute",
-          bottom: isPortrait ? REEL_SAFE.bottom + 40 : 80,
-          left: 0,
-          right: 0,
-          display: "flex",
-          flexDirection: "column",
-          alignItems: "center",
-          gap: 10,
-        }}
-      >
-        {/* Float Time + Distance as co-equal hero stats (same size). */}
-        <div
-          style={{
-            opacity: stampEntrance,
-            transform: `scale(${interpolate(stampEntrance, [0, 1], [0.85, 1])})`,
-            display: "flex",
-            alignItems: "stretch",
-            gap: isPortrait ? 40 : 30,
-            backgroundColor: "rgba(10,30,35,0.7)",
-            backdropFilter: "blur(10px)",
-            WebkitBackdropFilter: "blur(10px)",
-            border: `1.5px solid ${condition.solid}`,
-            borderRadius: 22,
-            padding: isPortrait ? "20px 44px" : "16px 34px",
-            boxShadow: `0 0 30px ${condition.glow}`,
-          }}
-        >
-          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 2, minWidth: isPortrait ? 250 : 190 }}>
-            <span style={{ fontFamily: labelFont, fontSize: isPortrait ? 20 : 16, color: "rgba(255,255,255,0.6)", textTransform: "uppercase", letterSpacing: 2 }}>
-              Float Time
-            </span>
-            <span style={{ fontFamily: displayFont, fontSize: isPortrait ? 64 : 48, fontWeight: 700, color: condition.solid, textShadow: `0 0 24px ${condition.glow}`, lineHeight: 1.05 }}>
-              ~{hoursToday.toFixed(1)} hrs
-            </span>
-            <span style={{ fontFamily: labelFont, fontSize: isPortrait ? 22 : 16, fontWeight: 500, color: deltaColor, textAlign: "center" }}>
-              {deltaText}
-            </span>
-          </div>
-
-          <div style={{ width: 1.5, alignSelf: "stretch", backgroundColor: "rgba(255,255,255,0.15)" }} />
-
-          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 2, minWidth: isPortrait ? 250 : 190 }}>
-            <span style={{ fontFamily: labelFont, fontSize: isPortrait ? 20 : 16, color: "rgba(255,255,255,0.6)", textTransform: "uppercase", letterSpacing: 2 }}>
-              Distance
-            </span>
-            <span style={{ fontFamily: displayFont, fontSize: isPortrait ? 64 : 48, fontWeight: 700, color: "#fff", lineHeight: 1.05 }}>
-              {distanceMi.toFixed(1)} mi
-            </span>
-            <span style={{ fontFamily: labelFont, fontSize: isPortrait ? 22 : 16, fontWeight: 600, color: condition.solid }}>
-              {evergreen ? (difficulty ? `Class ${difficulty}` : "Favorite") : condition.label}
-            </span>
-          </div>
-        </div>
-
-        {/* CTA + optional smaller followCta line beneath (lower emphasis). */}
-        <BrandCTA color={condition.solid} opacity={ctaEntrance} isPortrait={isPortrait} style={{ marginTop: 4 }} />
-        {followCta && (
-          <span
-            style={{
-              opacity: ctaEntrance,
-              fontFamily: displayFont,
-              fontSize: isPortrait ? 22 : 18,
-              fontWeight: 500,
-              color: "rgba(255,255,255,0.6)",
-              letterSpacing: 0.5,
-              textAlign: "center",
-            }}
-          >
-            {followCta}
-          </span>
-        )}
-      </div>
-
-      {/* Eddy paddles in to the right of the take-out, tucked just beside the
-          label so it never overlaps the centered text or the float-time stamp. */}
-      <div style={{ position: "absolute", right: isPortrait ? 56 : 48, top: takeOut[1] + (isPortrait ? 6 : 4), opacity: takeOutReveal }}>
-        <EddyMascot variant={getOtterVariant(conditionCode)} size={isPortrait ? 150 : 120} delay={195} />
-      </div>
-
-      {/* Persistent eddy.guide mark — survives any mid-animation screenshot. */}
-      <Watermark format={isPortrait ? "portrait" : "landscape"} />
-    </AbsoluteFill>
+      <ReelDock
+        tiles={[
+          <StatTile key="hours" value={`~${hoursToday.toFixed(1)}`} unit="HRS" label="Float time" />,
+          <StatTile key="distance" value={distanceMi.toFixed(1)} unit="MI" label="Distance" />,
+          <StatTile
+            key="condition"
+            value={evergreen ? (difficulty ? `Class ${difficulty}` : "Favorite") : condition.label}
+            label="Conditions"
+            color={condition.solid}
+            compact
+          />,
+        ]}
+        detail={deltaCopy}
+        cta={PLAN_CTA}
+        ctaProgress={cta}
+        followCta={followCta}
+      />
+    </ReelPage>
   );
 };
 
-/** Access-point names can be long ("Hazel Creek Recreation Area and access in
- *  Mark Twain National Forest"). Keep the first clause and cap on a word
- *  boundary so the label fits one line and never overruns the graphic. */
-function cleanName(s: string): string {
-  // Names arrive pre-cleaned (first clause) from the picker; just cap length so
-  // long ones don't overrun. We deliberately don't re-split on punctuation here,
-  // which would re-break names like "Hwy. 76 Bridge".
-  let t = (s || "").trim().replace(/\s+/g, " ");
-  if (t.length > 26) {
-    t = t.slice(0, 26);
-    const sp = t.lastIndexOf(" ");
-    t = (sp > 14 ? t.slice(0, sp) : t) + "…";
-  }
-  return t;
+// ─── Shared stage inputs ────────────────────────────────────────────────────
+
+type ConditionStyle = { solid: string; bg: string; glow: string; label: string };
+
+interface StageProps {
+  stops: SocialRoutePoint[];
+  state: JourneyState;
+  condition: ConditionStyle;
+  putInMile: number;
+  unanchoredPoints: UnanchoredRoutePoint[];
+  activeCallout: SocialRoutePoint | null;
+  calloutProgress: number;
+  summaryVisible: boolean;
 }
 
-/** Put-in / take-out info in a fixed full-width lane (centered), so the label
- *  never overlaps the animated route path. */
-const EndpointRow: React.FC<{
+/** All stops in float order with the endpoints guaranteed present. */
+function orderedStops(
+  routePoints: ReadonlyArray<SocialRoutePoint>,
+  ends: { putInName: string; putInMile: number; takeOutName: string; takeOutMile: number },
+): SocialRoutePoint[] {
+  const sorted = [...routePoints].sort((a, b) => a.progress - b.progress);
+  const hasPutIn = sorted.some((point) => point.kind === "put_in");
+  const hasTakeOut = sorted.some((point) => point.kind === "take_out");
+  return [
+    ...(hasPutIn
+      ? []
+      : [{ id: "put-in", name: ends.putInName, kind: "put_in" as const, riverMile: ends.putInMile, progress: 0, detail: "Put-in" }]),
+    ...sorted,
+    ...(hasTakeOut
+      ? []
+      : [{ id: "take-out", name: ends.takeOutName, kind: "take_out" as const, riverMile: ends.takeOutMile, progress: 1, detail: "Take-out" }]),
+  ];
+}
+
+// ─── The river stage (exact geometry) ───────────────────────────────────────
+
+const RiverStage: React.FC<StageProps & { journey: Journey; frame: number }> = ({
+  journey,
+  frame,
+  stops,
+  state,
+  condition,
+  putInMile,
+  unanchoredPoints,
+  activeCallout,
+  calloutProgress,
+  summaryVisible,
+}) => {
+  const route = journey.points;
+  // Every on-screen position is a RAW arc-length fraction mapped through the
+  // journey — boat, markers and drawn line alike — so all of them agree with
+  // the stored geometry to within journey.maxDeviationPx.
+  const located = journey.locate(state.progress);
+  const current = located.point;
+  const camera = journeyCamera(frame, route, current, STAGE);
+  const boatScreen = toScreen(current, camera);
+
+  // Callout placement: attach to the active point on screen and open on the
+  // side the channel is NOT heading toward, so the card never covers the
+  // next bend. Clamped into the stage and the horizontal safe zone.
+  let calloutStyleAt: React.CSSProperties | null = null;
+  if (activeCallout) {
+    const p = activeCallout.progress;
+    const here = journey.locate(p).point;
+    const probe = journey.locate(p >= 0.99 ? p - 0.06 : Math.min(1, p + 0.06)).point;
+    const headingX = p >= 0.99 ? here.x - probe.x : probe.x - here.x;
+    const anchor = toScreen(here, camera);
+    const openLeft = headingX > 0;
+    const cardH = summaryVisible ? alongCardHeight(unanchoredPoints.length) : CALLOUT_H;
+    // Eddy paddles on the left of the boat dot (see the mascot offset below),
+    // so a card opening left needs a wider gap or it lands on the otter.
+    const left = clamp(
+      openLeft ? anchor.x - 200 - CALLOUT_W : anchor.x + 70,
+      REEL_SAFE.left,
+      1080 - REEL_SAFE.right - CALLOUT_W,
+    );
+    const top = clamp(STAGE_TOP + anchor.y - cardH / 2, STAGE_TOP + 12, STAGE_TOP + STAGE_HEIGHT - cardH - 12);
+    calloutStyleAt = {
+      position: "absolute",
+      zIndex: 12,
+      left,
+      top,
+      transform: `translateX(${interpolate(calloutProgress, [0, 1], [openLeft ? -22 : 22, 0])}px) scale(${interpolate(calloutProgress, [0, 1], [0.96, 1])})`,
+    };
+  }
+
+  // Strokes are authored at travel scale; counter-scale so the overview still
+  // reads as a channel rather than a hairline, without ballooning mid-zoom.
+  const strokeK = 1 / Math.max(camera.scale, 0.45);
+
+  return (
+    <>
+      <div
+        style={{
+          position: "absolute",
+          top: STAGE_TOP,
+          left: 0,
+          width: "100%",
+          height: STAGE_HEIGHT,
+          overflow: "hidden",
+          WebkitMaskImage: "linear-gradient(to bottom, transparent 0%, #000 10%, #000 90%, transparent 100%)",
+          maskImage: "linear-gradient(to bottom, transparent 0%, #000 10%, #000 90%, transparent 100%)",
+        }}
+      >
+        <svg width={1080} height={STAGE_HEIGHT} viewBox={`0 0 1080 ${STAGE_HEIGHT}`}>
+          <defs>
+            <filter id="flowSoft" x="-30%" y="-30%" width="160%" height="160%">
+              <feGaussianBlur stdDeviation="5" result="blur" />
+              <feMerge><feMergeNode in="blur" /><feMergeNode in="SourceGraphic" /></feMerge>
+            </filter>
+          </defs>
+          <g transform={`translate(${camera.translateX} ${camera.translateY}) scale(${camera.scale})`}>
+            <path d={toPath(route)} fill="none" stroke={colors.primary[700]} strokeWidth={44 * strokeK} strokeLinecap="round" strokeLinejoin="round" />
+            <path d={toPath(route)} fill="none" stroke={colors.primary[200]} strokeWidth={32 * strokeK} strokeLinecap="round" strokeLinejoin="round" />
+            <path
+              d={toPath(route)}
+              fill="none"
+              stroke={condition.solid}
+              strokeWidth={11 * strokeK}
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              pathLength={1}
+              strokeDasharray={1}
+              strokeDashoffset={1 - located.renderedProgress}
+              filter="url(#flowSoft)"
+            />
+            {stops.map((point) => (
+              <RouteMarker
+                key={point.id}
+                point={point}
+                position={journey.locate(point.progress).point}
+                counterScale={1 / camera.scale}
+                visited={point.progress <= state.progress + 0.001}
+                active={activeCallout?.id === point.id}
+              />
+            ))}
+          </g>
+        </svg>
+      </div>
+
+      <Boat x={boatScreen.x} y={STAGE_TOP + boatScreen.y} conditionColor={condition.solid} />
+
+      {activeCallout && calloutStyleAt ? (
+        summaryVisible ? (
+          <AlongCallout points={unanchoredPoints} opacity={calloutProgress} style={calloutStyleAt} />
+        ) : (
+          <RouteCallout point={activeCallout} putInMile={putInMile} opacity={calloutProgress} style={calloutStyleAt} />
+        )
+      ) : null}
+    </>
+  );
+};
+
+// ─── The itinerary stage (no geometry) ──────────────────────────────────────
+// A schematic channel down the left of the stage with the stops as rows in
+// float order — spaced evenly, NOT to scale (the miles are on each row). Eddy
+// paddles from row to row on the same journeyState clock the river stage uses,
+// so the pauses, the arrival hold and the duration Root computes are identical
+// whichever stage renders. Mile-only features (guidebook springs with no
+// coordinate) are rows too — slotted by their nominal mile and drawn as
+// approximate — rather than a floating card, which has nowhere to sit in a
+// list without covering a row. The arrival hold highlights them.
+
+const LINE_X = REEL_SAFE.left + 100;
+const ROW_LEFT = LINE_X + 60;
+const ROW_W = 1080 - REEL_SAFE.right - ROW_LEFT;
+const ROW_H = 92;
+// The first row clears the progress ticket (top-right of the stage, ~80px
+// tall); the last clears the dock, which overlaps the stage's bottom edge. Six
+// rows — two endpoints, three stops and a mile-only feature, the fixture — fit
+// at the minimum pitch without scrolling, so the first row stays out from
+// under the ticket; longer lists scroll and fade at the edges.
+const ITINERARY_TOP = 150;
+const ITINERARY_BOTTOM = 96;
+const ROW_PITCH_MIN = 108;
+const ROW_PITCH_MAX = 200;
+
+type ItineraryRow =
+  | { kind: "stop"; point: SocialRoutePoint; stopIndex: number }
+  | { kind: "approx"; point: UnanchoredRoutePoint };
+
+/**
+ * Stops in float order with the mile-only features slotted between them by
+ * river mile. Their miles are on the guidebook's scale, which can disagree
+ * with the DB's by over a mile, so a mile-only row is placed by its nominal
+ * mile and DRAWN as approximate (dashed, "≈ MM", an APPROX. pill), and is
+ * always kept inside the endpoints: after the put-in, before the take-out.
+ */
+function itineraryRows(
+  stops: ReadonlyArray<SocialRoutePoint>,
+  unanchored: ReadonlyArray<UnanchoredRoutePoint>,
+): ItineraryRow[] {
+  const rows: ItineraryRow[] = stops.map((point, stopIndex) => ({ kind: "stop", point, stopIndex }));
+  const byMile = [...unanchored].sort((a, b) => a.riverMile - b.riverMile);
+  for (const point of byMile) {
+    const downstream = rows.findIndex((row) => row.kind === "stop" && row.point.riverMile > point.riverMile);
+    const at = downstream === -1 ? Math.max(1, rows.length - 1) : Math.max(1, downstream);
+    rows.splice(at, 0, { kind: "approx", point });
+  }
+  return rows;
+}
+
+const ItineraryStage: React.FC<StageProps> = ({
+  stops,
+  state,
+  condition,
+  putInMile,
+  unanchoredPoints,
+  activeCallout,
+  calloutProgress,
+  summaryVisible,
+}) => {
+  const rows = useMemo(() => itineraryRows(stops, unanchoredPoints), [stops, unanchoredPoints]);
+  const n = rows.length;
+  const pitch = n > 1 ? clamp((STAGE_HEIGHT - ITINERARY_TOP - ITINERARY_BOTTOM) / (n - 1), ROW_PITCH_MIN, ROW_PITCH_MAX) : 0;
+  const contentH = ITINERARY_TOP + ITINERARY_BOTTOM + Math.max(0, n - 1) * pitch;
+  const rowY = (index: number) => ITINERARY_TOP + index * pitch;
+  // Row index of each stop, so the boat's row-to-row path skips the approx rows
+  // it has no progress value for (it glides past them).
+  const stopRow: number[] = [];
+  rows.forEach((row, index) => {
+    if (row.kind === "stop") stopRow[row.stopIndex] = index;
+  });
+
+  // Boat: piecewise-linear from stop row to stop row by the stops' own
+  // progress, so it arrives at a row exactly when the journey clock pauses there.
+  const boatContentY = boatYAt(stops, state.progress, (stopIndex) => rowY(stopRow[stopIndex] ?? 0));
+  // Short itineraries sit centred; long ones scroll so the boat stays in the
+  // reading zone, clamped at either end like the river camera.
+  const offsetY =
+    contentH <= STAGE_HEIGHT
+      ? (STAGE_HEIGHT - contentH) / 2
+      : clamp(STAGE_HEIGHT * 0.45 - boatContentY, STAGE_HEIGHT - contentH, 0);
+  const boatY = boatContentY + offsetY;
+  const lineTop = rowY(0);
+  const lineBottom = rowY(n - 1);
+  const drawn = lineBottom > lineTop ? clamp((boatContentY - lineTop) / (lineBottom - lineTop), 0, 1) : 1;
+
+  return (
+    <>
+      <div
+        style={{
+          position: "absolute",
+          top: STAGE_TOP,
+          left: 0,
+          width: "100%",
+          height: STAGE_HEIGHT,
+          overflow: "hidden",
+          WebkitMaskImage: "linear-gradient(to bottom, transparent 0%, #000 8%, #000 92%, transparent 100%)",
+          maskImage: "linear-gradient(to bottom, transparent 0%, #000 8%, #000 92%, transparent 100%)",
+        }}
+      >
+        <div style={{ position: "absolute", top: offsetY, left: 0, width: "100%", height: contentH }}>
+          <svg width={1080} height={contentH} viewBox={`0 0 1080 ${contentH}`} style={{ position: "absolute", top: 0, left: 0 }}>
+            <line x1={LINE_X} y1={lineTop} x2={LINE_X} y2={lineBottom} stroke={colors.primary[700]} strokeWidth={44} strokeLinecap="round" />
+            <line x1={LINE_X} y1={lineTop} x2={LINE_X} y2={lineBottom} stroke={colors.primary[200]} strokeWidth={32} strokeLinecap="round" />
+            <line
+              x1={LINE_X}
+              y1={lineTop}
+              x2={LINE_X}
+              y2={lineTop + (lineBottom - lineTop) * drawn}
+              stroke={condition.solid}
+              strokeWidth={11}
+              strokeLinecap="round"
+              opacity={drawn > 0 ? 1 : 0}
+            />
+            {rows.map((row, index) =>
+              row.kind === "stop" ? (
+                <RouteMarker
+                  key={row.point.id}
+                  point={row.point}
+                  position={{ x: LINE_X, y: rowY(index) }}
+                  counterScale={1}
+                  visited={row.point.progress <= state.progress + 0.001}
+                  active={activeCallout?.id === row.point.id && !summaryVisible}
+                />
+              ) : (
+                <ApproxMarker key={row.point.id} point={row.point} y={rowY(index)} active={summaryVisible} />
+              ),
+            )}
+          </svg>
+          {rows.map((row, index) =>
+            row.kind === "stop" ? (
+              <StopRow
+                key={row.point.id}
+                point={row.point}
+                putInMile={putInMile}
+                top={rowY(index) - ROW_H / 2}
+                visited={row.point.progress <= state.progress + 0.001}
+                active={activeCallout?.id === row.point.id && !summaryVisible}
+                activeProgress={activeCallout?.id === row.point.id ? calloutProgress : 0}
+              />
+            ) : (
+              <ApproxRow
+                key={row.point.id}
+                point={row.point}
+                top={rowY(index) - ROW_H / 2}
+                active={summaryVisible}
+                activeProgress={summaryVisible ? calloutProgress : 0}
+              />
+            ),
+          )}
+        </div>
+      </div>
+
+      <Boat x={LINE_X} y={STAGE_TOP + boatY} conditionColor={condition.solid} />
+    </>
+  );
+};
+
+/** Vertical position of the boat for a raw progress, row-to-row. */
+function boatYAt(stops: ReadonlyArray<SocialRoutePoint>, progress: number, rowY: (index: number) => number): number {
+  if (stops.length < 2) return rowY(0);
+  for (let i = 1; i < stops.length; i += 1) {
+    const from = stops[i - 1].progress;
+    const to = stops[i].progress;
+    if (progress <= to || i === stops.length - 1) {
+      const span = Math.max(to - from, 1e-6);
+      const t = clamp((progress - from) / span, 0, 1);
+      return rowY(i - 1) + (rowY(i) - rowY(i - 1)) * t;
+    }
+  }
+  return rowY(stops.length - 1);
+}
+
+const StopRow: React.FC<{
+  point: SocialRoutePoint;
+  putInMile: number;
   top: number;
-  tag: string;
-  name: string;
-  mile: number;
-  color: string;
-  opacity: number;
-  isPortrait: boolean;
-  labelFont: string;
-  displayFont: string;
-}> = ({ top, tag, name, mile, color, opacity, isPortrait, labelFont, displayFont }) => (
+  visited: boolean;
+  active: boolean;
+  activeProgress: number;
+}> = ({ point, putInMile, top, visited, active, activeProgress }) => {
+  const accent = hazardFill(point);
+  const milesIn = Math.max(0, point.riverMile - putInMile);
+  const lift = active ? interpolate(activeProgress, [0, 1], [0, 1]) : 0;
+  return (
+    <div
+      style={{
+        position: "absolute",
+        left: ROW_LEFT,
+        top,
+        width: ROW_W,
+        height: ROW_H,
+        ...calloutStyle("light", active ? accent : undefined),
+        borderWidth: 4,
+        opacity: visited || active ? 1 : 0.62,
+        transform: `scale(${1 + 0.025 * lift})`,
+        transformOrigin: "left center",
+        display: "flex",
+        alignItems: "center",
+        gap: 16,
+        padding: "0 18px",
+        overflow: "hidden",
+      }}
+    >
+      <span
+        style={{
+          flexShrink: 0,
+          display: "grid",
+          placeItems: "center",
+          minWidth: 40,
+          height: 40,
+          padding: "0 10px",
+          borderRadius: 999,
+          background: accent,
+          color: inkOn(accent),
+          border: `3px solid ${LIGHT.chipRule}`,
+          fontFamily: fontFamilies.mono,
+          fontSize: 15,
+          fontWeight: 850,
+        }}
+      >
+        {KIND_STYLE[point.kind].short}
+      </span>
+      <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 3 }}>
+        <span
+          style={{
+            fontFamily: fontFamilies.display,
+            fontSize: 15,
+            fontWeight: 700,
+            letterSpacing: 0.8,
+            textTransform: "uppercase",
+            color: conditionInk(accent),
+            whiteSpace: "nowrap",
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+          }}
+        >
+          {point.detail || point.kind.replace(/_/g, " ")}
+        </span>
+        <span
+          style={{
+            fontFamily: fontFamilies.display,
+            fontSize: 30,
+            fontWeight: 680,
+            lineHeight: 1.05,
+            color: LIGHT.ink,
+            whiteSpace: "nowrap",
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+          }}
+        >
+          {cleanName(point.name, 30)}
+        </span>
+      </div>
+      <span
+        style={{
+          flexShrink: 0,
+          textAlign: "right",
+          fontFamily: fontFamilies.mono,
+          fontSize: 16,
+          fontWeight: 650,
+          color: LIGHT.inkMuted,
+          lineHeight: 1.3,
+        }}
+      >
+        {milesIn.toFixed(1)} MI IN
+        <br />
+        MM {point.riverMile.toFixed(1)}
+      </span>
+    </div>
+  );
+};
+
+/** A mile-only feature's mark on the schematic channel: hollow and dashed, so
+ *  it reads as "about here" next to the solid, coordinate-true stop marks. */
+const ApproxMarker: React.FC<{ point: UnanchoredRoutePoint; y: number; active: boolean }> = ({ point, y, active }) => {
+  const style = KIND_STYLE[point.kind];
+  return (
+    <g transform={`translate(${LINE_X} ${y}) scale(${active ? 1.25 : 1})`} opacity={active ? 1 : 0.85}>
+      {active ? <circle r={29} fill="none" stroke={style.fill} strokeWidth={5} opacity={0.5} /> : null}
+      <circle r={18} fill={LIGHT.surface} stroke={colors.neutral[900]} strokeWidth={4} strokeDasharray="6 5" />
+      <text y={5} textAnchor="middle" fontFamily={fontFamilies.mono} fontSize={13} fontWeight={850} fill={colors.neutral[600]}>
+        {style.short}
+      </text>
+    </g>
+  );
+};
+
+/**
+ * The itinerary row for a mile-only feature. Same card as a stop, but dashed,
+ * with "≈ MM" and an APPROX. pill: the float passes it, the guidebook says
+ * roughly where, and nothing here claims more than that.
+ */
+const ApproxRow: React.FC<{
+  point: UnanchoredRoutePoint;
+  top: number;
+  active: boolean;
+  activeProgress: number;
+}> = ({ point, top, active, activeProgress }) => {
+  const accent = KIND_STYLE[point.kind].fill;
+  const lift = active ? activeProgress : 0;
+  return (
+    <div
+      style={{
+        position: "absolute",
+        left: ROW_LEFT,
+        top,
+        width: ROW_W,
+        height: ROW_H,
+        ...calloutStyle("light", active ? accent : undefined),
+        borderWidth: 4,
+        borderStyle: "dashed",
+        opacity: active ? 1 : 0.8,
+        transform: `scale(${1 + 0.025 * lift})`,
+        transformOrigin: "left center",
+        display: "flex",
+        alignItems: "center",
+        gap: 16,
+        padding: "0 18px",
+        overflow: "hidden",
+      }}
+    >
+      <span
+        style={{
+          flexShrink: 0,
+          display: "grid",
+          placeItems: "center",
+          minWidth: 40,
+          height: 40,
+          padding: "0 10px",
+          borderRadius: 999,
+          background: LIGHT.surface,
+          color: colors.neutral[700],
+          border: `3px dashed ${LIGHT.chipRule}`,
+          fontFamily: fontFamilies.mono,
+          fontSize: 15,
+          fontWeight: 850,
+        }}
+      >
+        {KIND_STYLE[point.kind].short}
+      </span>
+      <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 3 }}>
+        <span style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
+          <span
+            style={{
+              fontFamily: fontFamilies.display,
+              fontSize: 15,
+              fontWeight: 700,
+              letterSpacing: 0.8,
+              textTransform: "uppercase",
+              color: conditionInk(accent),
+              whiteSpace: "nowrap",
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+            }}
+          >
+            {point.detail || "Along this float"}
+          </span>
+          <span
+            style={{
+              flexShrink: 0,
+              fontFamily: fontFamilies.mono,
+              fontSize: 11,
+              fontWeight: 700,
+              color: colors.primary[800],
+              border: `2px solid ${colors.primary[700]}`,
+              borderRadius: 999,
+              padding: "1px 7px",
+              letterSpacing: 0.6,
+              whiteSpace: "nowrap",
+            }}
+          >
+            APPROX.
+          </span>
+        </span>
+        <span
+          style={{
+            fontFamily: fontFamilies.display,
+            fontSize: 30,
+            fontWeight: 680,
+            lineHeight: 1.05,
+            color: LIGHT.ink,
+            whiteSpace: "nowrap",
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+          }}
+        >
+          {cleanName(point.name, 30)}
+        </span>
+      </div>
+      <span
+        style={{
+          flexShrink: 0,
+          textAlign: "right",
+          fontFamily: fontFamilies.mono,
+          fontSize: 16,
+          fontWeight: 650,
+          color: LIGHT.inkMuted,
+          lineHeight: 1.3,
+        }}
+      >
+        ≈ MM {point.riverMile.toFixed(1)}
+        <br />
+        GUIDEBOOK MILE
+      </span>
+    </div>
+  );
+};
+
+// ─── Pieces both stages share ───────────────────────────────────────────────
+
+/** Eddy in the canoe, paddling on the left of the boat dot. */
+const Boat: React.FC<{ x: number; y: number; conditionColor: string }> = ({ x, y, conditionColor }) => (
+  <>
+    <div style={{ position: "absolute", top: y - 68, left: x - 120, zIndex: 5 }}>
+      {/* Negative delay: the entrance spring is already settled at frame 0,
+          so the thumbnail has Eddy in the boat rather than an empty put-in. */}
+      <EddyMascot variant="canoe" size={112} delay={-30} float={false} />
+    </div>
+    <div
+      style={{
+        position: "absolute",
+        top: y - 10,
+        left: x - 10,
+        width: 20,
+        height: 20,
+        borderRadius: "50%",
+        background: conditionColor,
+        border: `4px solid ${LIGHT.ink}`,
+        boxShadow: `3px 3px 0 ${colors.neutral[300]}`,
+        zIndex: 6,
+      }}
+    />
+  </>
+);
+
+const ProgressTicket: React.FC<{ current: number; total: number; conditionColor: string }> = ({ current, total, conditionColor }) => (
   <div
     style={{
       position: "absolute",
-      top,
-      left: 0,
-      right: 0,
-      opacity,
+      top: STAGE_TOP + 16,
+      right: REEL_SAFE.right,
+      zIndex: 8,
+      background: LIGHT.surface,
+      border: `4px solid ${LIGHT.rule}`,
+      borderRadius: 14,
+      padding: "10px 15px",
+      boxShadow: `5px 5px 0 ${LIGHT.shadow}`,
       display: "flex",
-      flexDirection: "column",
-      alignItems: "center",
-      gap: 2,
-      padding: "0 70px",
+      alignItems: "baseline",
+      gap: 7,
     }}
   >
-    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-      <div style={{ width: 12, height: 12, borderRadius: "50%", backgroundColor: color, boxShadow: `0 0 10px ${color}` }} />
-      <span style={{ fontFamily: labelFont, fontSize: isPortrait ? 20 : 16, color, textTransform: "uppercase", letterSpacing: 1.5, fontWeight: 600 }}>
-        {tag}
-      </span>
-    </div>
-    <span style={{ fontFamily: displayFont, fontSize: isPortrait ? 38 : 28, fontWeight: 600, color: "#fff", textAlign: "center", lineHeight: 1.1, textShadow: "0 2px 14px rgba(0,0,0,0.9)" }}>
-      {name}
-    </span>
-    <span style={{ fontFamily: "'Geist Mono', 'SF Mono', monospace", fontSize: isPortrait ? 28 : 20, fontWeight: 600, color: "rgba(255,255,255,0.8)", textShadow: "0 2px 12px rgba(0,0,0,0.95)" }}>
-      MM {mile.toFixed(1)}
-    </span>
+    <span style={{ fontFamily: fontFamilies.mono, fontSize: 25, fontWeight: 750, color: conditionInk(conditionColor) }}>{current.toFixed(1)}</span>
+    <span style={{ fontFamily: fontFamilies.mono, fontSize: 16, color: LIGHT.inkMuted }}>/ {total.toFixed(1)} MI</span>
   </div>
 );
 
+const RouteMarker: React.FC<{
+  point: SocialRoutePoint;
+  position: JourneyPoint;
+  counterScale: number;
+  visited: boolean;
+  active: boolean;
+}> = ({ point, position, counterScale, visited, active }) => {
+  const style = KIND_STYLE[point.kind];
+  const endpoint = point.kind === "put_in" || point.kind === "take_out";
+  const scale = (active ? 1.25 : 1) * counterScale;
+  return (
+    <g transform={`translate(${position.x} ${position.y}) scale(${scale})`} opacity={visited ? 1 : 0.58}>
+      {active ? <circle r={endpoint ? 36 : 29} fill="none" stroke={style.fill} strokeWidth={5} opacity={0.5} /> : null}
+      {endpoint ? (
+        // Endpoints get a bigger, wordless mark — "OUT" in an 18px circle was
+        // unreadable, and the callout already names the place.
+        <>
+          <circle r={24} fill={style.fill} stroke={colors.neutral[900]} strokeWidth={4} />
+          <circle r={8} fill={colors.neutral[50]} stroke={colors.neutral[900]} strokeWidth={3} />
+        </>
+      ) : (
+        <>
+          <circle r={18} fill={visited ? style.fill : colors.neutral[100]} stroke={colors.neutral[900]} strokeWidth={4} />
+          <text y={5} textAnchor="middle" fontFamily={fontFamilies.mono} fontSize={13} fontWeight={850} fill={visited ? colors.neutral[900] : colors.neutral[500]}>
+            {style.short}
+          </text>
+        </>
+      )}
+    </g>
+  );
+};
+
+const RouteCallout: React.FC<{ point: SocialRoutePoint; putInMile: number; opacity: number; style: React.CSSProperties }> = ({ point, putInMile, opacity, style }) => {
+  const accent = hazardFill(point);
+  const milesIn = Math.max(0, point.riverMile - putInMile);
+  return (
+    <BrandCallout
+      accent={accent}
+      width={CALLOUT_W}
+      opacity={opacity}
+      style={style}
+      header={
+        <>
+          <KindBadge>{KIND_STYLE[point.kind].short}</KindBadge>
+          <span style={{ overflow: "hidden", textOverflow: "ellipsis" }}>{point.detail || point.kind.replace(/_/g, " ")}</span>
+        </>
+      }
+    >
+      <div style={{ fontFamily: fontFamilies.display, fontSize: TYPE.calloutTitle.size, lineHeight: TYPE.calloutTitle.lineHeight, fontWeight: TYPE.calloutTitle.weight, color: LIGHT.ink }}>
+        {cleanName(point.name, 35)}
+      </div>
+      <div style={{ marginTop: 8, fontFamily: fontFamilies.mono, fontSize: TYPE.calloutMeta.size, fontWeight: TYPE.calloutMeta.weight, color: LIGHT.inkMuted }}>
+        {milesIn.toFixed(1)} MI INTO FLOAT · MM {point.riverMile.toFixed(1)}
+      </div>
+    </BrandCallout>
+  );
+};
+
+function alongCardHeight(count: number): number {
+  return 96 + 38 * Math.min(4, count) + (count > 4 ? 28 : 0);
+}
+
 /**
- * Full-bleed image that degrades to nothing — the solid brand background shows
- * through — if the source fails to load. Favorites pass a real (public) section
- * photo URL; a dead or slow URL must never fail the daily posting render, so we
- * both pass Remotion's `onError` (which keeps the render from failing) and catch
- * any synchronous error as a belt-and-suspenders fallback.
+ * Features on the float with no coordinate. Named once at arrival, marked
+ * approximate, never pinned or paused at: the guidebook's mile scale can be a
+ * mile off the DB's, so a pin would be a lie in a graphic that is otherwise
+ * exact — but the float still passes them, and the reel should say so.
  */
-class SafeImg extends React.Component<
-  { src: string; style?: React.CSSProperties },
-  { failed: boolean }
-> {
-  state = { failed: false };
-  static getDerivedStateFromError() {
-    return { failed: true };
-  }
-  componentDidCatch() {
-    // Swallow — the fallback (solid background) renders instead.
-  }
-  render() {
-    if (this.state.failed) return null;
-    return (
-      <Img
-        src={this.props.src}
-        onError={() => this.setState({ failed: true })}
-        style={this.props.style}
-      />
-    );
-  }
+const AlongCallout: React.FC<{ points: UnanchoredRoutePoint[]; opacity: number; style: React.CSSProperties }> = ({ points, opacity, style }) => {
+  const shown = points.slice(0, 4);
+  const more = points.length - shown.length;
+  return (
+    <BrandCallout
+      accent={colors.primary[100]}
+      width={CALLOUT_W}
+      opacity={opacity}
+      style={style}
+      header={<span>Also along this float</span>}
+      headerAside={
+        <span
+          style={{
+            fontFamily: fontFamilies.mono,
+            fontSize: 12,
+            fontWeight: 700,
+            color: colors.primary[800],
+            border: `2px solid ${colors.primary[700]}`,
+            borderRadius: 999,
+            padding: "2px 8px",
+            letterSpacing: 0.6,
+            whiteSpace: "nowrap",
+          }}
+        >
+          APPROX.
+        </span>
+      }
+    >
+      <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: -2 }}>
+        {shown.map((point) => (
+          <div key={point.id} style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 12 }}>
+            <span style={{ fontFamily: fontFamilies.display, fontSize: 26, fontWeight: 650, color: LIGHT.ink, lineHeight: 1.1 }}>{cleanName(point.name, 24)}</span>
+            <span style={{ fontFamily: fontFamilies.mono, fontSize: 16, fontWeight: 650, color: LIGHT.inkMuted, whiteSpace: "nowrap" }}>≈ MM {point.riverMile.toFixed(1)}</span>
+          </div>
+        ))}
+        {more > 0 ? <span style={{ fontSize: 16, fontWeight: 600, color: LIGHT.inkMuted }}>+{more} more</span> : null}
+      </div>
+    </BrandCallout>
+  );
+};
+
+function clamp(value: number, min: number, max: number): number {
+  return Math.max(min, Math.min(max, value));
+}
+
+function toPath(points: ReadonlyArray<JourneyPoint>): string {
+  return points.map((point, index) => `${index === 0 ? "M" : "L"}${point.x.toFixed(2)} ${point.y.toFixed(2)}`).join(" ");
+}
+
+function cleanName(value: string, max: number): string {
+  const clean = value.trim().replace(/\s+/g, " ");
+  if (clean.length <= max) return clean;
+  const sliced = clean.slice(0, max);
+  return `${sliced.slice(0, Math.max(16, sliced.lastIndexOf(" ")))}…`;
 }

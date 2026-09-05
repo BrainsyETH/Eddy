@@ -3,6 +3,11 @@
 
 import type { ConditionCode, StatusStyle } from './types';
 import { CONDITION_SYSTEM } from '@shared/condition-system';
+import { colors as palette } from '@shared/social-brand';
+
+// The SOCIAL covers (api/og/social) draw from shared/social-brand.ts directly —
+// the same tokens the Remotion reels use. The legacy keys below serve the
+// non-social OG images (river / access / float-plan cards).
 
 /** #RRGGBB → rgba() with the given alpha. */
 function hexToRgba(hex: string, a: number): string {
@@ -31,7 +36,7 @@ export const BRAND_COLORS = {
   adventureNight: '#161748',
   greenTreeline: '#478559',
   bluewater: '#39a0ca',
-  accentCoral: '#F07052',
+  accentCoral: palette.accent[500],
 
   // Extended palette
   deepWater: '#0B2545',

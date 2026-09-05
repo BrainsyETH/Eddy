@@ -916,14 +916,35 @@ export default function SocialAdminPage() {
               </button>
             </div>
             <div className="p-4">
-              <div className="bg-black rounded-lg overflow-hidden">
-                <video
-                  src={videoPreviewPost.video_url}
-                  controls
-                  autoPlay
-                  playsInline
-                  className="w-full max-h-[500px]"
-                />
+              {/* The cover beside the video: on Instagram the OG image IS the
+                  Reel's grid thumbnail, so drift between the two shows up here
+                  before it shows up in the feed. */}
+              <div className={`grid gap-4 ${videoPreviewPost.image_url ? 'grid-cols-2' : 'grid-cols-1'}`}>
+                <div>
+                  <p className="text-xs font-medium text-neutral-400 uppercase tracking-wide mb-1">Reel</p>
+                  <div className="bg-black rounded-lg overflow-hidden">
+                    <video
+                      src={videoPreviewPost.video_url}
+                      controls
+                      autoPlay
+                      playsInline
+                      className="w-full max-h-[500px]"
+                    />
+                  </div>
+                </div>
+                {videoPreviewPost.image_url && (
+                  <div>
+                    <p className="text-xs font-medium text-neutral-400 uppercase tracking-wide mb-1">Cover (grid thumbnail)</p>
+                    <div className="bg-black rounded-lg overflow-hidden">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={videoPreviewPost.image_url}
+                        alt="Post cover image"
+                        className="w-full max-h-[500px] object-contain"
+                      />
+                    </div>
+                  </div>
+                )}
               </div>
               <p className="text-xs text-neutral-500 mt-2">
                 {new Date(videoPreviewPost.created_at).toLocaleString()} {videoPreviewPost.river_slug ? `\u2022 ${videoPreviewPost.river_slug}` : ''}

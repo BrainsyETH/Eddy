@@ -1,6 +1,5 @@
 import React from "react";
 import {
-  AbsoluteFill,
   Audio,
   Series,
   useCurrentFrame,
@@ -10,281 +9,171 @@ import {
   staticFile,
 } from "remotion";
 import { EddyMascot } from "../../components/EddyMascot";
-import { Watermark } from "../../components/Watermark";
+import { ReelPage } from "../../components/ReelPage";
+import { ReelMasthead } from "../../components/ReelMasthead";
+import { ReelDock } from "../../components/ReelDock";
+import { BrandCard, StatTile } from "../../components/BrandCard";
 import { RiverCard } from "./RiverCard";
 import { ENTRANCE } from "../../lib/spring-presets";
 import { REEL_SAFE, reelLoopOpacity } from "../../lib/reel-safe";
-import { SEVERITY_ORDER, type DigestReelProps } from "../../lib/social-props";
-import { colors } from "../../design-tokens/colors";
+import { fontFamilies } from "../../design-tokens/fonts";
+import { CONDITION_COLORS, SEVERITY_ORDER, type DigestReelProps } from "../../lib/social-props";
+import { CTA, LABELS, SURFACES, TYPE, colors } from "../../../../shared/social-brand";
 
-// Alias for non-portrait layouts (square/landscape preview in Studio).
-// Portrait uses REEL_SAFE; other formats keep the compact 48px margin.
-const SAFE = REEL_SAFE;
+const LIGHT = SURFACES.light;
+/** Conditions a digest counts as floatable in its headline. */
+const FLOATABLE = new Set(["flowing", "good"]);
 
-/** Title slide — configurable headline + date + Eddy + optional global quote */
+/** Page geometry for portrait (production) and the square Studio preview. */
+function frameFor(isPortrait: boolean) {
+  const top = isPortrait ? REEL_SAFE.top : 48;
+  const bottom = isPortrait ? REEL_SAFE.bottom : 48;
+  const height = isPortrait ? 1920 : 1080;
+  return {
+    mastheadTop: top,
+    stageTop: top + 200,
+    stageBottom: height - bottom,
+    dockBottom: bottom + (isPortrait ? 52 : 40),
+    followBottom: bottom,
+  };
+}
+
+/** The masthead every digest slide carries, so any frame of the reel — and the
+ *  screenshot of its data slide — says what this is and when. */
+const DigestMasthead: React.FC<{
+  label: string;
+  headline: string;
+  dateLabel: string;
+  isPortrait: boolean;
+}> = ({ label, headline, dateLabel, isPortrait }) => {
+  const g = frameFor(isPortrait);
+  return (
+    <div style={{ position: "absolute", top: g.mastheadTop, left: REEL_SAFE.left, right: REEL_SAFE.right, zIndex: 10 }}>
+      <ReelMasthead label={label} title={headline} subtitle={dateLabel} />
+    </div>
+  );
+};
+
+/** Title slide — the headline count, Eddy, and the global read as a card. */
 const TitleSlide: React.FC<{
-  title: string;
+  label: string;
+  headline: string;
   dateLabel: string;
   globalQuote?: string;
   isPortrait: boolean;
   titleFrames: number;
-}> = ({ title, dateLabel, globalQuote, isPortrait, titleFrames }) => {
+}> = ({ label, headline, dateLabel, globalQuote, isPortrait, titleFrames }) => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
+  const g = frameFor(isPortrait);
 
-  const titleEntrance = spring({ frame, fps, config: ENTRANCE });
-  const titleY = interpolate(titleEntrance, [0, 1], [50, 0]);
-  const dateEntrance = spring({ frame: frame - 10, fps, config: ENTRANCE });
-  const quoteEntrance = spring({ frame: frame - 12, fps, config: ENTRANCE });
-
-  // Hold the quote at full opacity, then gently fade the last ~0.3s so the
-  // cut to the river cards doesn't feel like the quote vanished mid-read.
-  const quoteHold = interpolate(
-    frame,
-    [titleFrames - 10, titleFrames],
-    [1, 0.6],
-    { extrapolateLeft: "clamp", extrapolateRight: "clamp" },
-  );
-
-  return (
-    <AbsoluteFill style={{ backgroundColor: colors.primary[900] }}>
-      <div
-        style={{
-          position: "absolute",
-          top: isPortrait ? SAFE.top : 48,
-          bottom: isPortrait ? SAFE.bottom : 48,
-          left: isPortrait ? SAFE.left : 48,
-          right: isPortrait ? SAFE.right : 48,
-          display: "flex",
-          flexDirection: "column",
-          alignItems: "center",
-          justifyContent: "center",
-          gap: isPortrait ? 28 : 20,
-        }}
-      >
-        <EddyMascot variant="canoe" size={isPortrait ? 200 : 160} delay={5} />
-        {/* Title — rendered at full opacity from frame 0 (no entrance fade;
-            the slide-up Y-translate is kept) so the first autoplay frame / grid
-            thumbnail is branded, not empty. */}
-        <div
-          style={{
-            transform: `translateY(${titleY}px)`,
-            fontFamily: "'Fredoka', system-ui, sans-serif",
-            fontSize: isPortrait ? 88 : 48,
-            fontWeight: 600,
-            color: "#fff",
-            textAlign: "center",
-          }}
-        >
-          {title}
-        </div>
-        <div
-          style={{
-            opacity: dateEntrance,
-            fontFamily: "'Geist Sans', system-ui, sans-serif",
-            fontSize: isPortrait ? 32 : 20,
-            color: "rgba(255,255,255,0.6)",
-          }}
-        >
-          {dateLabel}
-        </div>
-        {globalQuote && (
-          <div
-            style={{
-              opacity: quoteEntrance * quoteHold,
-              maxWidth: isPortrait ? 900 : 750,
-              textAlign: "center",
-              marginTop: 8,
-            }}
-          >
-            <span
-              style={{
-                fontSize: isPortrait ? 34 : 18,
-                color: "rgba(255,255,255,0.7)",
-                lineHeight: 1.4,
-                fontStyle: "italic",
-              }}
-            >
-              &ldquo;{globalQuote}&rdquo;
-            </span>
-          </div>
-        )}
-      </div>
-    </AbsoluteFill>
-  );
-};
-
-/** CTA slide — "Plan your float" with energetic Eddy */
-const CTASlide: React.FC<{ isPortrait: boolean; followCta?: string }> = ({ isPortrait, followCta }) => {
-  const frame = useCurrentFrame();
-  const { fps } = useVideoConfig();
-
-  const entrance = spring({ frame, fps, config: ENTRANCE });
-  const y = interpolate(entrance, [0, 1], [40, 0]);
-  const bounce = spring({
-    frame: frame - 15,
-    fps,
-    config: { damping: 8, mass: 0.5, stiffness: 150 },
+  // Everything is on screen at frame 0 (the grid thumbnail); the card only
+  // settles up a few px.
+  const settle = spring({ frame, fps, config: ENTRANCE });
+  const cardY = interpolate(settle, [0, 1], [24, 0]);
+  // Hold the quote, then ease it down over the last ~0.3s so the cut to the
+  // river cards doesn't feel like the quote vanished mid-read.
+  const quoteHold = interpolate(frame, [titleFrames - 10, titleFrames], [1, 0.6], {
+    extrapolateLeft: "clamp",
+    extrapolateRight: "clamp",
   });
-  const eddyScale = interpolate(bounce, [0, 1], [0.8, 1]);
-  const eddyRotate = interpolate(bounce, [0, 0.5, 1], [0, -8, 0]);
 
   return (
-    <AbsoluteFill style={{ backgroundColor: colors.primary[900] }}>
+    <>
+      <DigestMasthead label={label} headline={headline} dateLabel={dateLabel} isPortrait={isPortrait} />
       <div
         style={{
           position: "absolute",
-          top: "30%",
-          left: "50%",
-          transform: "translate(-50%, -50%)",
-          width: 300,
-          height: 300,
-          borderRadius: "50%",
-          background:
-            "radial-gradient(circle, rgba(16,185,129,0.15) 0%, transparent 70%)",
-          opacity: bounce,
-        }}
-      />
-      <div
-        style={{
-          position: "absolute",
-          top: isPortrait ? SAFE.top : 48,
-          bottom: isPortrait ? SAFE.bottom : 48,
-          left: isPortrait ? SAFE.left : 48,
-          right: isPortrait ? SAFE.right : 48,
+          top: g.stageTop,
+          left: REEL_SAFE.left,
+          right: REEL_SAFE.right,
+          height: g.stageBottom - g.stageTop,
           display: "flex",
           flexDirection: "column",
           alignItems: "center",
           justifyContent: "center",
-          gap: 24,
+          // Sit the group in the upper-middle: the lower stage is where the
+          // Reels caption chrome lands, and an empty cream floor reads better
+          // than a card jammed against it.
+          paddingBottom: isPortrait ? 200 : 40,
+          gap: isPortrait ? 40 : 20,
         }}
       >
-        <div
-          style={{
-            transform: `scale(${eddyScale}) rotate(${eddyRotate}deg)`,
-          }}
-        >
-          <EddyMascot
-            variant="green"
-            size={isPortrait ? 180 : 150}
-            delay={0}
-            float={false}
-          />
-        </div>
-        <div
-          style={{
-            opacity: entrance,
-            transform: `translateY(${y}px)`,
-            fontFamily: "'Fredoka', system-ui, sans-serif",
-            fontSize: isPortrait ? 38 : 34,
-            fontWeight: 600,
-            color: "#fff",
-            textAlign: "center",
-          }}
-        >
-          Plan your float
-        </div>
-        <div
-          style={{
-            opacity: entrance,
-            fontFamily: "'Fredoka', system-ui, sans-serif",
-            fontSize: isPortrait ? 26 : 22,
-            color: colors.accent[400],
-            textShadow: "0 0 20px rgba(244,142,118,0.3)",
-          }}
-        >
-          eddy.guide
-        </div>
-        {/* Optional smaller followCta line beneath the main CTA (lower emphasis). */}
-        {followCta && (
-          <div
-            style={{
-              opacity: entrance,
-              fontFamily: "'Fredoka', system-ui, sans-serif",
-              fontSize: isPortrait ? 22 : 18,
-              fontWeight: 500,
-              color: "rgba(255,255,255,0.6)",
-              letterSpacing: 0.5,
-              textAlign: "center",
-              marginTop: 2,
-            }}
-          >
-            {followCta}
+        <EddyMascot variant="canoe" size={isPortrait ? 360 : 200} delay={-30} />
+        {globalQuote ? (
+          <div style={{ transform: `translateY(${cardY}px)`, opacity: quoteHold, width: "100%" }}>
+            <BrandCard padding={isPortrait ? "26px 32px" : "18px 24px"}>
+              <div
+                style={{
+                  fontSize: isPortrait ? TYPE.body.size : 22,
+                  fontWeight: TYPE.body.weight,
+                  lineHeight: TYPE.body.lineHeight,
+                  fontStyle: "italic",
+                  color: LIGHT.ink,
+                  textAlign: "center",
+                }}
+              >
+                &ldquo;{globalQuote}&rdquo;
+              </div>
+              <div
+                style={{
+                  marginTop: 12,
+                  textAlign: "center",
+                  fontFamily: fontFamilies.display,
+                  fontSize: 18,
+                  fontWeight: 650,
+                  letterSpacing: 1,
+                  textTransform: "uppercase",
+                  color: LIGHT.inkMuted,
+                }}
+              >
+                Eddy&apos;s read
+              </div>
+            </BrandCard>
           </div>
-        )}
+        ) : null}
       </div>
-    </AbsoluteFill>
+    </>
   );
 };
 
 /**
- * ALL rivers on a single screen — no batching/pagination.
- * Cards are sized to fit up to 10 rivers in the safe zone.
+ * ALL rivers on a single screen — no batching/pagination. Rows shrink to fit
+ * up to ten rivers between the masthead and the safe-zone floor.
  */
 const RiverCardsSlide: React.FC<{
   rivers: DigestReelProps["rivers"];
   isPortrait: boolean;
-  title: string;
+  label: string;
+  headline: string;
   dateLabel: string;
   rainNote?: boolean;
-}> = ({ rivers, isPortrait, title, dateLabel, rainNote }) => {
-  // Scale card size based on river count to fit all on one screen
+}> = ({ rivers, isPortrait, label, headline, dateLabel, rainNote }) => {
+  const g = frameFor(isPortrait);
   const count = rivers.length;
-  const cardGap = count > 8 ? 8 : count > 6 ? 10 : 14;
-  const cardWidth = isPortrait ? 920 : 850;
-  // Reserve room for the persistent header so this slide is self-contained —
-  // a screenshot of the data slide must still say what it is and when.
-  const headerH = isPortrait ? 120 : 88;
+  const gap = count > 8 ? 10 : count > 6 ? 12 : 16;
+  const noteH = rainNote ? 56 : 0;
+  const avail = g.stageBottom - g.stageTop - noteH;
+  const rowH = Math.max(56, Math.min(isPortrait ? 110 : 84, (avail - gap * Math.max(0, count - 1)) / Math.max(1, count)));
+  const width = 1080 - REEL_SAFE.left - REEL_SAFE.right;
 
   return (
-    <AbsoluteFill style={{ backgroundColor: colors.primary[900] }}>
-      {/* Persistent header — title + date travel with the conditions so the
-          most data-rich frame survives being screenshotted out of context. */}
+    <>
+      <DigestMasthead label={label} headline={headline} dateLabel={dateLabel} isPortrait={isPortrait} />
+      {/* Rows read top-down from the masthead, like every other reel's stage;
+          a short list leaves the floor clear rather than floating mid-frame. */}
       <div
         style={{
           position: "absolute",
-          top: isPortrait ? SAFE.top : 40,
-          left: isPortrait ? SAFE.left : 40,
-          right: isPortrait ? SAFE.right : 40,
+          top: g.stageTop,
+          left: REEL_SAFE.left,
+          right: REEL_SAFE.right,
+          height: g.stageBottom - g.stageTop,
           display: "flex",
           flexDirection: "column",
           alignItems: "center",
-          gap: 2,
-        }}
-      >
-        <span
-          style={{
-            fontFamily: "'Fredoka', system-ui, sans-serif",
-            fontSize: isPortrait ? 48 : 34,
-            fontWeight: 600,
-            color: "#fff",
-          }}
-        >
-          {title}
-        </span>
-        <span
-          style={{
-            fontFamily: "'Geist Sans', system-ui, sans-serif",
-            fontSize: isPortrait ? 26 : 18,
-            color: "rgba(255,255,255,0.6)",
-          }}
-        >
-          {dateLabel}
-        </span>
-      </div>
-
-      <div
-        style={{
-          position: "absolute",
-          top: (isPortrait ? SAFE.top : 40) + headerH,
-          bottom: isPortrait ? SAFE.bottom : 40,
-          left: isPortrait ? SAFE.left : 40,
-          right: isPortrait ? SAFE.right : 40,
-          display: "flex",
-          flexDirection: "column",
-          alignItems: "center",
-          justifyContent: "center",
-          gap: cardGap,
+          justifyContent: "flex-start",
+          gap,
         }}
       >
         {rivers.map((river, i) => (
@@ -295,17 +184,18 @@ const RiverCardsSlide: React.FC<{
             gaugeHeightFt={river.gaugeHeightFt}
             weather={river.weather}
             delay={i * 5}
-            width={cardWidth}
+            width={width}
+            height={rowH}
           />
         ))}
         {rainNote && (
           <span
             style={{
-              marginTop: 6,
-              maxWidth: cardWidth,
-              fontFamily: "'Geist Sans', system-ui, sans-serif",
-              fontSize: isPortrait ? 24 : 18,
-              color: "rgba(255,255,255,0.55)",
+              marginTop: 8,
+              maxWidth: width,
+              fontSize: isPortrait ? 22 : 18,
+              fontWeight: 600,
+              color: LIGHT.inkSecondary,
               fontStyle: "italic",
               textAlign: "center",
             }}
@@ -314,22 +204,95 @@ const RiverCardsSlide: React.FC<{
           </span>
         )}
       </div>
-    </AbsoluteFill>
+    </>
+  );
+};
+
+/** CTA slide — Eddy, the tally, and the button. */
+const CTASlide: React.FC<{
+  label: string;
+  headline: string;
+  dateLabel: string;
+  rivers: DigestReelProps["rivers"];
+  isForecast: boolean;
+  isPortrait: boolean;
+  followCta?: string;
+}> = ({ label, headline, dateLabel, rivers, isForecast, isPortrait, followCta }) => {
+  const frame = useCurrentFrame();
+  const { fps } = useVideoConfig();
+  const g = frameFor(isPortrait);
+
+  const entrance = spring({ frame, fps, config: ENTRANCE });
+  const bounce = spring({ frame: frame - 10, fps, config: { damping: 8, mass: 0.5, stiffness: 150 } });
+  const eddyScale = interpolate(bounce, [0, 1], [0.85, 1]);
+  const eddyRotate = interpolate(bounce, [0, 0.5, 1], [0, -8, 0]);
+
+  const floatable = rivers.filter((river) => FLOATABLE.has(river.conditionCode)).length;
+  const best = rivers[0];
+  const bestCondition = best ? CONDITION_COLORS[best.conditionCode] ?? CONDITION_COLORS.unknown : null;
+
+  return (
+    <>
+      <DigestMasthead label={label} headline={headline} dateLabel={dateLabel} isPortrait={isPortrait} />
+      <div
+        style={{
+          position: "absolute",
+          top: g.stageTop,
+          left: 0,
+          right: 0,
+          height: isPortrait ? 560 : 300,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+        }}
+      >
+        <div style={{ transform: `scale(${eddyScale}) rotate(${eddyRotate}deg)` }}>
+          <EddyMascot variant="green" size={isPortrait ? 320 : 200} delay={-30} float={false} />
+        </div>
+      </div>
+      <ReelDock
+        bottom={g.dockBottom}
+        followBottom={g.followBottom}
+        tiles={
+          isForecast
+            ? [
+                <StatTile key="picks" value={String(rivers.length)} label={rivers.length === 1 ? "Best bet" : "Best bets"} />,
+                best && bestCondition ? (
+                  <StatTile key="top" value={best.riverName} label="Top pick" color={bestCondition.solid} compact />
+                ) : (
+                  <StatTile key="top" value="—" label="Top pick" />
+                ),
+              ]
+            : [
+                <StatTile key="floatable" value={String(floatable)} unit={`/ ${rivers.length}`} label="Floatable" color={colors.support[600]} />,
+                best && bestCondition ? (
+                  <StatTile key="best" value={best.riverName} label="Most notable" color={bestCondition.solid} compact />
+                ) : (
+                  <StatTile key="best" value="—" label="Most notable" />
+                ),
+              ]
+        }
+        detail={isForecast ? "Live levels and forecasts for every river" : "Live levels for every Ozark river"}
+        cta={CTA.levels}
+        ctaProgress={entrance}
+        followCta={followCta}
+      />
+    </>
   );
 };
 
 /**
- * Multi-river daily digest reel.
- * ALL rivers shown on a single screen (no pagination).
- * Includes global Eddy Says quote on the title slide.
+ * Multi-river daily digest reel — and, with `title` + per-river `weather`, the
+ * Weekend Forecast. ALL rivers on a single screen (no pagination); the global
+ * Eddy Says read on the title slide.
  *
- * Structure: Title (with global quote) → All rivers → CTA
+ * Structure: Title (headline count + quote) → All rivers → CTA
  */
 export const DigestReel: React.FC<DigestReelProps> = ({
   rivers,
   dateLabel,
   globalQuote,
-  title = 'River Report',
+  title = LABELS.riverReport,
   rainNote,
   followCta,
   format,
@@ -345,6 +308,23 @@ export const DigestReel: React.FC<DigestReelProps> = ({
       (SEVERITY_ORDER[b.conditionCode] ?? 6)
   );
 
+  // The forecast variant carries a title other than the digest's and weather
+  // chips; its rivers are already the top picks, so the headline counts picks
+  // rather than floatable-of-total.
+  const isForecast = title !== LABELS.riverReport || sortedRivers.some((river) => !!river.weather);
+  const floatable = sortedRivers.filter((river) => FLOATABLE.has(river.conditionCode)).length;
+  const headline = isForecast
+    ? sortedRivers.length === 1
+      ? "One best bet"
+      : `Top ${sortedRivers.length} floats`
+    : sortedRivers.length === 0
+      ? "No river data"
+      : floatable === 0
+        ? "No rivers floatable"
+        : floatable === sortedRivers.length
+          ? `All ${sortedRivers.length} rivers floatable`
+          : `${floatable} of ${sortedRivers.length} rivers floatable`;
+
   // Durations mirror getDigestDuration() below — keep in sync.
   const titleFrames = globalQuote ? 165 : 105;
   const riverFrames = 180 + Math.max(0, sortedRivers.length - 5) * 6;
@@ -354,7 +334,7 @@ export const DigestReel: React.FC<DigestReelProps> = ({
   const loopOpacity = isPortrait ? reelLoopOpacity(frame, durationInFrames) : 1;
 
   return (
-    <AbsoluteFill style={{ opacity: loopOpacity }}>
+    <ReelPage opacity={loopOpacity}>
       <Audio
         src={staticFile("audio/background-music.wav")}
         volume={(f) =>
@@ -367,7 +347,8 @@ export const DigestReel: React.FC<DigestReelProps> = ({
       <Series>
         <Series.Sequence durationInFrames={titleFrames}>
           <TitleSlide
-            title={title}
+            label={title}
+            headline={headline}
             dateLabel={dateLabel}
             globalQuote={globalQuote}
             isPortrait={isPortrait}
@@ -379,18 +360,26 @@ export const DigestReel: React.FC<DigestReelProps> = ({
           <RiverCardsSlide
             rivers={sortedRivers}
             isPortrait={isPortrait}
-            title={title}
+            label={title}
+            headline={headline}
             dateLabel={dateLabel}
             rainNote={rainNote}
           />
         </Series.Sequence>
 
         <Series.Sequence durationInFrames={ctaFrames}>
-          <CTASlide isPortrait={isPortrait} followCta={followCta} />
+          <CTASlide
+            label={title}
+            headline={headline}
+            dateLabel={dateLabel}
+            rivers={sortedRivers}
+            isForecast={isForecast}
+            isPortrait={isPortrait}
+            followCta={followCta}
+          />
         </Series.Sequence>
       </Series>
-      <Watermark format={isPortrait ? "portrait" : "landscape"} />
-    </AbsoluteFill>
+    </ReelPage>
   );
 };
 

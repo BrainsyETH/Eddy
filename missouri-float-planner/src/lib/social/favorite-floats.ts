@@ -48,6 +48,7 @@ interface GuideRow {
 }
 
 interface ApRow {
+  id: string;
   slug: string;
   name: string;
   river_mile_downstream: number | null;
@@ -114,7 +115,7 @@ async function loadFavoritePool(
 
   const { data: apRows } = await supabase
     .from('access_points')
-    .select('slug, name, river_mile_downstream, type, types, river_id')
+    .select('id, slug, name, river_mile_downstream, type, types, river_id')
     .in('river_id', riverIds)
     .in('slug', Array.from(wantedSlugs))
     .not('river_mile_downstream', 'is', null);
@@ -159,10 +160,13 @@ async function loadFavoritePool(
       if (distanceMi < 0.5) continue;
 
       pool.push({
+        riverId,
         riverSlug,
         riverName,
+        putInId: putIn.id,
         putInName: cleanName(putIn.name),
         putInMile,
+        takeOutId: takeOut.id,
         takeOutName: cleanName(takeOut.name),
         takeOutMile,
         distanceMi,
