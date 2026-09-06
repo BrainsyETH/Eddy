@@ -514,6 +514,33 @@ export type HazardType =
 
 export type HazardSeverity = 'info' | 'caution' | 'warning' | 'danger';
 
+/** Which model produced a float time. */
+export type FloatTimeModel = 'known' | 'flow' | 'band';
+
+/** What a float time assumed. Every field is a fact the card can print. */
+export interface FloatTimeAssumptions {
+  /** The boat the speeds came from, e.g. "Canoe". The server defaults it when the client sends none. */
+  vessel: string;
+  conditionCode: ConditionCode;
+  /** A live discharge was on hand and the flow model used it. */
+  usedLiveDischarge: boolean;
+  /** A reference (typical) flow was on hand to scale against. */
+  usedReferenceFlow: boolean;
+  /** The speed was cut for low water; the number assumes dragging. */
+  lowWaterAdjusted: boolean;
+  /** A dam tailwater estimated at the current release; a generation change invalidates it. */
+  releaseDependent: boolean;
+  /** The headline includes typical stops (trip basis) rather than paddling only. */
+  stopsIncluded: boolean;
+}
+
+/** One pace's range, in minutes. `ceilingMinutes` is what "Up to ~N" prints. */
+export interface FloatTimePace {
+  minMinutes: number;
+  maxMinutes: number;
+  ceilingMinutes: number;
+}
+
 export interface FloatPlan {
   river: River;
   putIn: AccessPoint;
@@ -523,6 +550,7 @@ export interface FloatPlan {
     miles: number;
     formatted: string;
   };
+  /** See FloatPlan.floatTime below. Mirrored in @eddy/types — keep in step. */
   floatTime: {
     minutes: number;
     formatted: string;
@@ -533,6 +561,25 @@ export interface FloatPlan {
     timeRange?: {          // honest min/max range (asymmetric, skewed long)
       min: number;
       max: number;
+    };
+    /**
+     * Which model produced the number: a published segment time scaled for
+     * today's condition, the flow-dependent estimate, or the condition-band
+     * step. Optional — older servers omit it; clients say nothing about the
+     * model when it is absent.
+     */
+    model?: FloatTimeModel;
+    /** What the number assumed, so the card can say so instead of "an average pace". */
+    assumptions?: FloatTimeAssumptions;
+    /**
+     * Both paces at once, so the card can switch without a second request.
+     * `standard` is the range the app has always shown (moving time to 1.6×);
+     * `fishing` starts where that ends and runs to 2.5× — frequent stops and
+     * time on the water. `ceilingMinutes` is what "Up to ~N hours" prints.
+     */
+    paceEstimates?: {
+      standard: FloatTimePace;
+      fishing: FloatTimePace;
     };
   } | null;  // null when conditions are dangerous — we do not estimate a time
   /**

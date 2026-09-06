@@ -435,7 +435,27 @@ async function _GET(request: NextRequest) {
       isEstimate: boolean;
       basis: 'trip' | 'moving';
       timeRange?: { min: number; max: number };
+      /** Which model produced the number — the card says so in words. */
+      model: 'known' | 'flow' | 'band';
+      /** Both paces, so the card can switch without a second request. */
+      paceEstimates: {
+        standard: { minMinutes: number; maxMinutes: number; ceilingMinutes: number };
+        fishing: { minMinutes: number; maxMinutes: number; ceilingMinutes: number };
+      };
+      lowWaterAdjusted: boolean;
+      releaseDependent: boolean;
     } | null = null;
+
+    /**
+     * Fishing pace for a PUBLISHED time, which has no moving-time to scale.
+     * Its floor is the published long end (the relaxed float), its ceiling the
+     * same proportion the estimate model uses (2.5 / 1.6 of the relaxed end).
+     */
+    const fishingFromKnown = (relaxedMax: number) => ({
+      minMinutes: relaxedMax,
+      maxMinutes: Math.round(relaxedMax * (2.5 / 1.6)),
+      ceilingMinutes: Math.round(relaxedMax * (2.5 / 1.6)),
+    });
 
     // Dangerous water gets NO float time (neither known nor estimated).
     const isDangerous = conditionCode === 'dangerous';
@@ -449,11 +469,17 @@ async function _GET(request: NextRequest) {
     // the published-times branch below never calls that function, so a
     // float_segments row on a tailwater would serve a stored time straight
     // past the refusal. Read off the river row, so it cannot fail open.
+    // A tailwater is refused only WITHOUT a live release to estimate from; with
+    // one, the number is served flagged release-dependent and the card carries
+    // the caveat. See floatTimeWithholding.
+    const hasFlowInputs = dischargeCfs != null && refCfs != null;
     const withholdReason = floatTimeWithholding(
       conditionCode,
       river.river_type as ReachRiverType | null,
+      { hasFlowInputs },
     );
     const withholdFloatTime = withholdReason !== null;
+    const releaseDependent = river.river_type === 'dam_tailwater';
 
     if (!withholdFloatTime && segmentTime && segmentTime.length > 0 && segmentTime[0].time_avg_minutes) {
       // Known, published (trip-basis) times — scale by current flow, never serve raw.
@@ -461,12 +487,21 @@ async function _GET(request: NextRequest) {
       const avg = scaleKnownTimeForCondition(st.time_avg_minutes, conditionCode);
       const rMin = st.time_min_minutes ? scaleKnownTimeForCondition(st.time_min_minutes, conditionCode) : undefined;
       const rMax = st.time_max_minutes ? scaleKnownTimeForCondition(st.time_max_minutes, conditionCode) : undefined;
+      const relaxedMax = rMax ?? avg;
       floatTimeResult = {
         minutes: avg,
         speedMph: avg > 0 ? distanceMiles / (avg / 60) : 0,
         isEstimate: false,
         basis: 'trip',
         timeRange: rMin != null && rMax != null ? { min: rMin, max: rMax } : undefined,
+        model: 'known',
+        paceEstimates: {
+          standard: { minMinutes: rMin ?? avg, maxMinutes: relaxedMax, ceilingMinutes: relaxedMax },
+          fishing: fishingFromKnown(relaxedMax),
+        },
+        // scaleKnownTimeForCondition stretched the published time for low water.
+        lowWaterAdjusted: conditionCode === 'low' || conditionCode === 'too_low',
+        releaseDependent,
       };
     } else if (!withholdFloatTime) {
       // Flow-dependent estimate (falls back to the condition-band step if no
@@ -497,6 +532,21 @@ async function _GET(request: NextRequest) {
           isEstimate: true,
           basis: calcResult.basis,
           timeRange: { min: calcResult.minMinutes, max: calcResult.maxMinutes },
+          model: calcResult.model,
+          paceEstimates: {
+            standard: {
+              minMinutes: calcResult.minMinutes,
+              maxMinutes: calcResult.maxMinutes,
+              ceilingMinutes: calcResult.maxMinutes,
+            },
+            fishing: {
+              minMinutes: calcResult.fishingMinMinutes,
+              maxMinutes: calcResult.fishingMaxMinutes,
+              ceilingMinutes: calcResult.fishingMaxMinutes,
+            },
+          },
+          lowWaterAdjusted: calcResult.lowWaterAdjusted,
+          releaseDependent: calcResult.releaseDependent,
         };
       }
     }
@@ -793,6 +843,22 @@ async function _GET(request: NextRequest) {
             isEstimate: floatTimeResult.isEstimate,
             basis: floatTimeResult.basis,
             timeRange: floatTimeResult.timeRange,
+            // ── What the number assumed, said on the wire ──────────────────
+            // The card used to print "Estimated at an average pace" under
+            // every time, whatever the boat, the flow or the model. An angler
+            // could not tell whether stops were included or how much to pad,
+            // and guessed short. These are additive; older clients ignore them.
+            model: floatTimeResult.model,
+            assumptions: {
+              vessel: vesselType.name,
+              conditionCode,
+              usedLiveDischarge: dischargeCfs != null,
+              usedReferenceFlow: refCfs != null,
+              lowWaterAdjusted: floatTimeResult.lowWaterAdjusted,
+              releaseDependent: floatTimeResult.releaseDependent,
+              stopsIncluded: floatTimeResult.basis === 'trip',
+            },
+            paceEstimates: floatTimeResult.paceEstimates,
           }
         : null,
       // The reason travels with the absence. Withholding was computed above

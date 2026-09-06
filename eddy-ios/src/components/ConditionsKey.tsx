@@ -27,6 +27,17 @@ import { fonts, type as t } from '@/theme/typography';
 /** Best-to-worst for reading: people scan for "can I go" first. */
 const ROWS: ConditionCode[] = [...CONDITION_ORDER].reverse();
 
+/**
+ * The two pattern inks, the same values RiverMap paints over the line.
+ *
+ * Module constants applied inline rather than StyleSheet values: the theme
+ * test forbids a colour frozen in a StyleSheet, and rightly — but these are
+ * not theme colours. They are the map's own overlay inks, scheme-independent
+ * by design because they sit on the condition solid, not on a card.
+ */
+const HATCH_INK = 'rgba(0,0,0,0.45)';
+const DOT_INK = 'rgba(255,255,255,0.85)';
+
 /** One plain sentence per level, shorter than the canonical description. */
 const MEANING: Record<ConditionCode, string> = {
   flowing: 'Ideal water. Everything floats.',
@@ -48,14 +59,14 @@ function Swatch({ code }: { code: ConditionCode }) {
       {code === 'dangerous' ? (
         <View style={styles.hatch}>
           {[0, 1, 2, 3].map((i) => (
-            <View key={i} style={styles.hatchMark} />
+            <View key={i} style={[styles.hatchMark, { backgroundColor: HATCH_INK }]} />
           ))}
         </View>
       ) : null}
       {code === 'too_low' ? (
         <View style={styles.hatch}>
           {[0, 1, 2, 3, 4].map((i) => (
-            <View key={i} style={styles.dot} />
+            <View key={i} style={[styles.dot, { backgroundColor: DOT_INK }]} />
           ))}
         </View>
       ) : null}
@@ -142,8 +153,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   hatch: { flexDirection: 'row', justifyContent: 'space-evenly', alignItems: 'center' },
-  hatchMark: { width: 3, height: 6, backgroundColor: 'rgba(0,0,0,0.45)' },
-  dot: { width: 3, height: 3, borderRadius: 2, backgroundColor: 'rgba(255,255,255,0.85)' },
+  hatchMark: { width: 3, height: 6 },
+  dot: { width: 3, height: 3, borderRadius: 2 },
   label: { ...t.sm, fontFamily: fonts.semibold, width: 62 },
   meaning: { ...t.xs, fontFamily: fonts.body, flex: 1 },
   foot: { ...t.xs, fontFamily: fonts.body, marginTop: 2 },

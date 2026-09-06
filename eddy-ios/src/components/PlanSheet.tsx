@@ -36,6 +36,7 @@ import { Ionicons } from '@expo/vector-icons';
 import type { FloatPlan, MapAccessPoint, RiverListItem } from '@eddy/types';
 import { accessTypeLabel } from '@eddy/types';
 import { saveFloatPlan } from '@/api/client';
+import { planShareSummary } from '@/lib/planCopy';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
 import { EddyScene } from '@/components/EddyScene';
@@ -68,20 +69,6 @@ interface Props {
   userCoords?: Coords | null;
 }
 
-/**
- * The share line's version of the two withheld-time silences. "No estimate in
- * this water" reads as a warning about the water; on a tailwater the truth is
- * about the schedule, and the recipient of a shared float is exactly the
- * person who has not seen the dam panel that explains it.
- */
-function floatTimeShareLabel(plan: FloatPlan): string {
-  return (
-    plan.floatTime?.formatted ??
-    (plan.floatTimeWithheldReason === 'regulated'
-      ? 'time depends on dam releases'
-      : 'no estimate in this water')
-  );
-}
 
 export function PlanSheet({
   visible,
@@ -113,16 +100,17 @@ export function PlanSheet({
       // wants to keep it, and filing every share under Favorites made that list
       // a log of things sent rather than a list of things chosen. The star
       // beside this button is where keeping happens now.
-      const time = floatTimeShareLabel(plan);
+      // The same headline the sender is looking at (planCopy), with the link
+      // passed as `url` too so Mail and AirDrop get a link object rather than
+      // a bare string.
       await Share.share({
-        message: `${plan.putIn.name} → ${plan.takeOut.name} on the ${plan.river.name} · ${plan.distance.formatted} · ${time}\n${saved.url}`,
+        message: `${planShareSummary(plan)}\n${saved.url}`,
+        url: saved.url,
       });
     } catch {
       // A share that cannot be saved falls back to the numbers themselves.
       // Losing the short link is worth far less than losing the share.
-      await Share.share({
-        message: `${plan.putIn.name} → ${plan.takeOut.name} on the ${plan.river.name} · ${plan.distance.formatted} · ${floatTimeShareLabel(plan)}`,
-      });
+      await Share.share({ message: planShareSummary(plan) });
     } finally {
       setSharing(false);
     }

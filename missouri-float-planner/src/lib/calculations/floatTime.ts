@@ -59,6 +59,28 @@ export interface FloatTimeResult {
   /** Whether `minutes` is a trip or moving figure. */
   basis: TimeBasis;
   /**
+   * The fishing pace: frequent stops and time spent working water rather than
+   * covering it. 1.6×–2.5× moving time, so its short end is the standard
+   * range's long end — an angler who "floats" a stretch is on it for about
+   * twice as long as a paddler, and the old single range sent them off short.
+   */
+  fishingMinMinutes: number;
+  fishingMaxMinutes: number;
+  /**
+   * The speed was cut for low water (the band curve, or the flow floor). Said
+   * out loud on the plan card, because a doubled number under the same neutral
+   * "estimated at an average pace" line looked like a long river rather than
+   * a dragged one.
+   */
+  lowWaterAdjusted: boolean;
+  /**
+   * A dam tailwater, estimated from the CURRENT release. True only when flow
+   * inputs were supplied — without them the tailwater is still refused — and
+   * the plan card must say that a generation change mid-float invalidates the
+   * number. See floatTimeWithholding.
+   */
+  releaseDependent: boolean;
+  /**
    * Which speed model produced `speedMph`.
    *
    * Exposed because the fallback is silent by construction: omit dischargeCfs
@@ -94,6 +116,14 @@ export interface FloatTimeOptions {
 const TRIP_STOP_FACTOR = 1.25;
 /** Relaxed end of the range = moving time × this. Skewed long on purpose. */
 const RANGE_MAX_FACTOR = 1.6;
+/**
+ * The fishing pace, as multiples of moving time. Its floor is the standard
+ * range's ceiling: a day spent fishing a stretch begins where a relaxed float
+ * of it ends. 2.5× is the long end of what Ozark smallmouth floats actually
+ * run — two anglers, a jon boat, every gravel bar worked.
+ */
+export const FISHING_RANGE_MIN_FACTOR = RANGE_MAX_FACTOR;
+export const FISHING_RANGE_MAX_FACTOR = 2.5;
 /** Discharge sensitivity of velocity. V ∝ (Q/Q_ref)^FLOW_EXPONENT. */
 const FLOW_EXPONENT = 0.3;
 /** Clamp on the flow factor so extreme readings can't produce absurd speeds. */
@@ -169,12 +199,26 @@ function bandSpeed(
  */
 export type FloatTimeWithholdReason = 'dangerous' | 'regulated';
 
+/**
+ * ── Tailwaters: refused without flow, estimated WITH it ─────────────────────
+ * A tailwater used to be refused unconditionally, on the argument that the
+ * release can change mid-float. That argument is right about the caveat and
+ * wrong about the refusal: the anglers who float the White and the North Fork
+ * weekly got no number at all on their home water, and went to a competitor
+ * for one with no caveat. With a live downstream discharge and a reference
+ * flow the same model that serves every other river produces an estimate AT
+ * TODAY'S RELEASE; the result is flagged `releaseDependent` and the plan card
+ * says, beside the number, that a generation change invalidates it. Without
+ * flow inputs there is nothing to estimate from and the tailwater is still
+ * refused — "forgot the flow args" must not become "quoted a tailwater a time".
+ */
 export function floatTimeWithholding(
   conditionCode: ConditionCode,
   riverType?: ReachRiverType | null,
+  options?: { hasFlowInputs?: boolean },
 ): FloatTimeWithholdReason | null {
   if (conditionCode === 'dangerous') return 'dangerous';
-  if (riverType === 'dam_tailwater') return 'regulated';
+  if (riverType === 'dam_tailwater' && !options?.hasFlowInputs) return 'regulated';
   return null;
 }
 
@@ -190,28 +234,30 @@ export function calculateFloatTime(
   conditionCode: ConditionCode,
   options?: FloatTimeOptions
 ): FloatTimeResult | null {
+  const hasFlowInputs = options?.dischargeCfs != null && options?.refCfs != null;
+
   // One decision, made in one place — see floatTimeWithholding above.
-  if (floatTimeWithholding(conditionCode, options?.riverType)) {
+  if (floatTimeWithholding(conditionCode, options?.riverType, { hasFlowInputs })) {
     return null;
   }
 
-  // Kept as prose because the reason is not obvious from the predicate:
+  // Kept as prose because the caveat is not obvious from the flag:
   //
-  // Every model above takes ONE discharge and holds it for the whole trip.
+  // Every model below takes ONE discharge and holds it for the whole trip.
   // That is a fair assumption on a rain-fed river, where the flow a floater
-  // launches on is roughly the flow they take out on. It is simply false below
-  // a hydro dam: Bull Shoals can go from a minimum-flow 800 cfs to over 20,000
+  // launches on is roughly the flow they take out on. It is false below a
+  // hydro dam: Bull Shoals can go from a minimum-flow 800 cfs to over 20,000
   // in about an hour, so a party that launches on an idle river can be on a
   // different river by mile five — faster, deeper, and pushing.
   //
-  // The failure is asymmetric, which is why this is a hard null rather than a
-  // wider range. An estimate computed at idle flow is too LONG, so it reads as
-  // conservative while actually telling someone they have hours of daylight
-  // left on water that is about to rise under them.
-  //
-  // Restoring a number here means knowing when the release arrives at each
-  // access, which is the travel-time lag calibration in docs/TAILWATER_PLAN.md
-  // — measured, with a correlation floor, not assumed.
+  // The failure is asymmetric. An estimate computed at idle flow is too LONG,
+  // so it reads as conservative while telling someone they have hours of
+  // daylight left on water that is about to rise under them. That is why a
+  // tailwater estimate carries `releaseDependent` and the plan card prints
+  // the caveat beside the number rather than in a footnote. A time that
+  // follows the release as it arrives at each access is the travel-time lag
+  // calibration in docs/TAILWATER_PLAN.md — measured, not assumed.
+  const releaseDependent = options?.riverType === 'dam_tailwater';
 
   const basis: TimeBasis = options?.basis ?? 'trip';
 
@@ -250,9 +296,16 @@ export function calculateFloatTime(
     movingMinutes,
     minMinutes: movingMinutes, // fastest realistic: steady paddle, minimal stops
     maxMinutes: Math.round(movingMinutes * RANGE_MAX_FACTOR), // relaxed pace
+    fishingMinMinutes: Math.round(movingMinutes * FISHING_RANGE_MIN_FACTOR),
+    fishingMaxMinutes: Math.round(movingMinutes * FISHING_RANGE_MAX_FACTOR),
     speedMph: Math.round(speedMph * 10) / 10,
     basis,
     model,
+    // The band curve cuts speed at low/too_low outright; the flow model's
+    // floor does the same job when discharge is well under reference. Either
+    // way the reader is told the number assumes dragging.
+    lowWaterAdjusted: conditionCode === 'low' || conditionCode === 'too_low',
+    releaseDependent,
   };
 }
 

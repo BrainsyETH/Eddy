@@ -37,7 +37,7 @@
 // whether they get off the water before dark. The short end was never the
 // useful one.
 
-import type { ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import { Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import type { FloatPlan, MapAccessPoint } from '@eddy/types';
@@ -53,10 +53,16 @@ import {
 import { primary } from '@/theme/palette';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
+import { formatFloatTimeRange } from '@eddy/conditions/float-time-format';
 import {
-  floatTimeCeilingBasisNote,
-  formatFloatTimeCeiling,
-} from '@eddy/conditions/float-time-format';
+  PACE_LABEL,
+  floatTimeBasis,
+  floatTimeHeadline,
+  floatTimeModelSentence,
+  hasPaceEstimates,
+  type FloatPace,
+} from '@/lib/planCopy';
+import { CollapsibleSection } from '@/components/CollapsibleSection';
 import { formatReading, primaryReading, readingAge } from '@/lib/readingCopy';
 import { driveBetweenUrl, driveToUrl, usgsGaugeUrl } from '@/lib/directions';
 import { Otter, otterForCondition } from '@/components/Otter';
@@ -73,6 +79,15 @@ interface Props {
 
 export function PlanResult({ plan, actions }: Props) {
   const { colors, elevation, isDark } = useTheme();
+  /**
+   * Which pace the headline is quoting. A CLIENT toggle — both paces arrive in
+   * the one plan response — so switching costs nothing and never refetches.
+   * Standard by default, which is the number the app has always shown.
+   */
+  const [pace, setPace] = useState<FloatPace>('standard');
+  const paced = hasPaceEstimates(plan.floatTime);
+  const assumptions = plan.floatTime?.assumptions ?? null;
+  const tooLow = plan.condition.code === 'too_low';
 
   return (
     <ScrollView contentContainerStyle={styles.body}>
@@ -131,27 +146,162 @@ export function PlanResult({ plan, actions }: Props) {
 
         {plan.floatTime ? (
           <>
+            {/* ── Too low, said before the number ──────────────────────
+                The model halves the speed below the floatable line, so the
+                headline silently doubled under the same neutral basis line as
+                a good day. Now the doubling is announced first: the number
+                below assumes you will be walking riffles. */}
+            {tooLow ? (
+              <View
+                style={[
+                  styles.lowWater,
+                  {
+                    backgroundColor: conditionBg('too_low'),
+                    borderColor: conditionChipBorder('too_low'),
+                  },
+                ]}
+              >
+                <Ionicons name="walk-outline" size={15} color={conditionChipInk('too_low', isDark)} />
+                <Text style={[styles.lowWaterText, { color: conditionChipInk('too_low', isDark) }]}>
+                  Below the floatable level. Expect to walk riffles — this time assumes frequent
+                  dragging, and floating is not recommended.
+                </Text>
+              </View>
+            ) : null}
+
             {/* A CEILING, NOT A RANGE. "~2 hours 30 minutes – ~4 hours" makes
                 the reader do arithmetic before they can answer the only
                 question they actually have — will I be off the water before
                 dark? The long end answers it outright, and it is the end that
                 matters; nobody was ever caught out by finishing early.
-                `timeRange` has always been on the wire and was never read. */}
+                The pace picks WHICH long end (planCopy). */}
             <Text style={[styles.headline, { color: colors.text }]}>
-              {plan.floatTime.timeRange
-                ? formatFloatTimeCeiling(plan.floatTime.timeRange.max)
-                : plan.floatTime.formatted}
+              {floatTimeHeadline(plan.floatTime, pace)}
             </Text>
+
+            {/* ── Paddling / Fishing ─────────────────────────────────────
+                Anglers float a stretch in about twice the time a paddler does
+                and were sent off short by a single range. Both paces arrive
+                in the plan; this switches between them without a request.
+                Hidden when the server sent only one range. */}
+            {paced ? (
+              <View style={styles.paceRow} accessibilityRole="tablist">
+                {(['standard', 'fishing'] as FloatPace[]).map((option) => {
+                  const on = pace === option;
+                  return (
+                    <Pressable
+                      key={option}
+                      onPress={() => setPace(option)}
+                      style={[
+                        styles.paceChip,
+                        { borderColor: on ? colors.interactive : colors.border },
+                        on ? { backgroundColor: colors.selectionBg } : null,
+                      ]}
+                      accessibilityRole="tab"
+                      accessibilityState={{ selected: on }}
+                      accessibilityLabel={`${PACE_LABEL[option]} pace`}
+                    >
+                      <Ionicons
+                        name={option === 'fishing' ? 'fish-outline' : 'boat-outline'}
+                        size={14}
+                        color={on ? colors.selectionText : colors.textMuted}
+                      />
+                      <Text
+                        style={[
+                          styles.paceText,
+                          { color: on ? colors.selectionText : colors.textMuted },
+                        ]}
+                      >
+                        {PACE_LABEL[option]}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+            ) : null}
+
             <Text style={[styles.headlineNote, { color: colors.textSubtle }]}>
-              {/* One short sentence under the headline, and no longer a clause
-                  about the boat. It used to open with the vessel — "Raft at
-                  today's level, estimated at a relaxed pace with stops" —
-                  which put a noun the reader had not chosen, and cannot change
-                  from this screen, in front of the only thing the line is for.
-                  See floatTimeCeilingBasisNote for what the vessel was doing
-                  there and where it went. */}
-              {floatTimeCeilingBasisNote()}
+              {/* What the number assumed — the boat, the speed in today's
+                  water, whether stops are in — rather than "an average pace"
+                  under every time whatever it was built from. */}
+              {floatTimeBasis(plan.floatTime, pace)}
             </Text>
+
+            {/* ── A tailwater number carries its own caveat, beside it ───
+                Estimated at TODAY'S release. A generation change mid-float
+                makes it wrong in the dangerous direction — an idle-flow time
+                reads as conservative while the water is about to rise — so
+                this is not a footnote. */}
+            {assumptions?.releaseDependent ? (
+              <View style={[styles.releaseNote, { backgroundColor: colors.cardRaised }]}>
+                <Ionicons name="flash-outline" size={15} color={colors.text} />
+                <Text style={[styles.releaseNoteText, { color: colors.text }]}>
+                  Built from the current dam release. If generation starts or stops mid-float this
+                  time is wrong — check the dam&apos;s schedule before you launch.
+                </Text>
+              </View>
+            ) : null}
+
+            {/* ── How this estimate works ────────────────────────────────
+                Collapsed: the inputs, for the reader who wants to discount
+                the number rather than take it. */}
+            <View style={styles.howWrap}>
+              <CollapsibleSection title="How this estimate works">
+                <View style={styles.howRows}>
+                  <HowRow label="Boat" value={assumptions?.vessel ?? plan.vessel.name} />
+                  <HowRow
+                    label="Pace"
+                    value={
+                      pace === 'fishing'
+                        ? 'Fishing — frequent stops, time on the water'
+                        : assumptions?.stopsIncluded === false
+                          ? 'Paddling, no stops'
+                          : 'Paddling with gravel-bar stops'
+                    }
+                  />
+                  <HowRow
+                    label="Speed"
+                    value={
+                      plan.floatTime.speedMph > 0
+                        ? `≈${plan.floatTime.speedMph.toFixed(1)} mph moving`
+                        : 'Not stated'
+                    }
+                  />
+                  <HowRow
+                    label="Water"
+                    value={`${plan.condition.label}${
+                      primaryReading(plan.condition)
+                        ? ` · ${formatReading(primaryReading(plan.condition)!.value, primaryReading(plan.condition)!.unit)}`
+                        : ''
+                    }`}
+                  />
+                  <HowRow label="Model" value={floatTimeModelSentence(plan.floatTime)} />
+                  {plan.floatTime.paceEstimates ? (
+                    <HowRow
+                      label="Range"
+                      value={formatFloatTimeRange(
+                        plan.floatTime.paceEstimates[pace].minMinutes,
+                        plan.floatTime.paceEstimates[pace].maxMinutes,
+                      )}
+                    />
+                  ) : plan.floatTime.timeRange ? (
+                    <HowRow
+                      label="Range"
+                      value={formatFloatTimeRange(
+                        plan.floatTime.timeRange.min,
+                        plan.floatTime.timeRange.max,
+                      )}
+                    />
+                  ) : null}
+                  {assumptions?.lowWaterAdjusted ? (
+                    <HowRow label="Caveat" value="Slowed for low water — assumes dragging." />
+                  ) : null}
+                  {assumptions?.releaseDependent ? (
+                    <HowRow label="Caveat" value="Valid only at the current dam release." />
+                  ) : null}
+                </View>
+              </CollapsibleSection>
+            </View>
           </>
         ) : plan.floatTimeWithheldReason === 'regulated' ? (
           <>
@@ -244,6 +394,17 @@ export function PlanResult({ plan, actions }: Props) {
 
       {actions}
     </ScrollView>
+  );
+}
+
+/** One labelled line in "How this estimate works". */
+function HowRow({ label, value }: { label: string; value: string }) {
+  const { colors } = useTheme();
+  return (
+    <View style={styles.howRow} accessible accessibilityLabel={`${label}: ${value}`}>
+      <Text style={[styles.howLabel, { color: colors.textSubtle }]}>{label}</Text>
+      <Text style={[styles.howValue, { color: colors.text }]}>{value}</Text>
+    </View>
   );
 }
 
@@ -411,7 +572,43 @@ const styles = StyleSheet.create({
   // time below is the headline and this must not start competing with it.
   segmentDistance: { ...t.base, fontFamily: fonts.mono },
   headline: { ...t['3xl'], fontFamily: fonts.display, marginTop: 6 },
-  headlineNote: { ...t.xs, fontFamily: fonts.body, marginTop: 2 },
+  headlineNote: { ...t.sm, fontFamily: fonts.body, marginTop: 4 },
+  lowWater: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 8,
+    marginTop: 10,
+    padding: 10,
+    borderRadius: 10,
+    borderWidth: 1,
+  },
+  lowWaterText: { ...t.sm, fontFamily: fonts.medium, flex: 1 },
+  paceRow: { flexDirection: 'row', gap: 8, marginTop: 10 },
+  // 44pt chips, like every other choice on the phone.
+  paceChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    minHeight: 44,
+    paddingHorizontal: 14,
+    borderRadius: 999,
+    borderWidth: 1,
+  },
+  paceText: { ...t.sm, fontFamily: fonts.semibold },
+  releaseNote: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 8,
+    marginTop: 10,
+    padding: 10,
+    borderRadius: 10,
+  },
+  releaseNoteText: { ...t.sm, fontFamily: fonts.medium, flex: 1 },
+  howWrap: { marginTop: 8 },
+  howRows: { gap: 6 },
+  howRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 10 },
+  howLabel: { ...t.xs, fontFamily: fonts.semibold, width: 56, marginTop: 2 },
+  howValue: { ...t.sm, fontFamily: fonts.body, flex: 1 },
   conditionHead: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   conditionText: { flex: 1, minWidth: 0 },
   conditionLabel: { ...t.sm, fontFamily: fonts.semibold },

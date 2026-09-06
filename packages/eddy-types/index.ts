@@ -1705,6 +1705,33 @@ export interface FloatPlanCondition {
   medianDischargeCfs?: number | null;
 }
 
+/** Which model produced a float time. */
+export type FloatTimeModel = 'known' | 'flow' | 'band';
+
+/** What a float time assumed. Every field is a fact the card can print. */
+export interface FloatTimeAssumptions {
+  /** The boat the speeds came from, e.g. "Canoe". The server defaults it when the client sends none. */
+  vessel: string;
+  conditionCode: ConditionCode;
+  /** A live discharge was on hand and the flow model used it. */
+  usedLiveDischarge: boolean;
+  /** A reference (typical) flow was on hand to scale against. */
+  usedReferenceFlow: boolean;
+  /** The speed was cut for low water; the number assumes dragging. */
+  lowWaterAdjusted: boolean;
+  /** A dam tailwater estimated at the current release; a generation change invalidates it. */
+  releaseDependent: boolean;
+  /** The headline includes typical stops (trip basis) rather than paddling only. */
+  stopsIncluded: boolean;
+}
+
+/** One pace's range, in minutes. `ceilingMinutes` is what "Up to ~N" prints. */
+export interface FloatTimePace {
+  minMinutes: number;
+  maxMinutes: number;
+  ceilingMinutes: number;
+}
+
 export interface FloatPlan {
   river: River;
   putIn: MapAccessPoint;
@@ -1724,6 +1751,21 @@ export interface FloatPlan {
     /** 'trip' includes typical stops; 'moving' is paddling-only. */
     basis?: 'trip' | 'moving';
     timeRange?: { min: number; max: number };
+    /**
+     * Which model produced the number. Optional: an older server omits it and
+     * the card says nothing about the model.
+     */
+    model?: FloatTimeModel;
+    /** What the number assumed, so the card can say so instead of "an average pace". */
+    assumptions?: FloatTimeAssumptions;
+    /**
+     * Both paces at once, so the card can switch without a second request.
+     * `standard` is the range the app has always shown; `fishing` starts where
+     * that ends and runs to 2.5× moving time. `ceilingMinutes` is what
+     * "Up to ~N hours" prints. Absent from an older server, or from a saved
+     * float read back through one — the card falls back to `timeRange`.
+     */
+    paceEstimates?: { standard: FloatTimePace; fishing: FloatTimePace };
   } | null;
   /**
    * WHY floatTime is null, when it is — two different silences that clients

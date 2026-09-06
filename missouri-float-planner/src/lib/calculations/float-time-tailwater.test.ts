@@ -8,29 +8,47 @@ const MILES = 7.2;
 
 // The float-time model takes ONE discharge and holds it for the whole trip.
 // Below a hydro dam that assumption is false: Bull Shoals moves from a
-// minimum-flow ~800 cfs to over 20,000 cfs in about an hour. These tests pin
-// the refusal so a later change cannot quietly start quoting a number again.
+// minimum-flow ~800 cfs to over 20,000 cfs in about an hour. A tailwater is
+// therefore estimated only from a LIVE release, flagged releaseDependent so
+// the card carries the caveat, and refused outright without flow inputs.
+// These tests pin both halves.
 
-test('a dam tailwater gets no float time at any condition', () => {
+test('a dam tailwater with a live release gets an estimate, flagged release-dependent', () => {
   for (const condition of ['too_low', 'low', 'good', 'flowing', 'high'] as const) {
-    assert.equal(
-      calculateFloatTime(MILES, DEFAULT_CANOE_SPEEDS, condition, {
-        dischargeCfs: 800,
-        refCfs: 4000,
-        riverType: 'dam_tailwater',
-      }),
-      null,
-      `expected no estimate on a tailwater at condition "${condition}"`,
-    );
+    const result = calculateFloatTime(MILES, DEFAULT_CANOE_SPEEDS, condition, {
+      dischargeCfs: 800,
+      refCfs: 4000,
+      riverType: 'dam_tailwater',
+    });
+    assert.ok(result, `expected an estimate on a tailwater at condition "${condition}"`);
+    assert.equal(result.releaseDependent, true);
+    assert.ok(result.minutes > 0);
   }
 });
 
-test('the refusal does not depend on having flow inputs', () => {
+test('a rain-fed river is never marked release-dependent', () => {
+  const result = calculateFloatTime(MILES, DEFAULT_CANOE_SPEEDS, 'flowing', {
+    dischargeCfs: 240,
+    refCfs: 180,
+    riverType: 'spring_fed_float',
+  });
+  assert.equal(result?.releaseDependent, false);
+});
+
+test('a tailwater without flow inputs is still refused', () => {
   // The band-step fallback is the path a caller lands on when it forgets to
-  // pass discharge. It must refuse too, or "forgot the flow args" becomes
-  // "quoted a tailwater a float time".
+  // pass discharge. It must refuse, or "forgot the flow args" becomes "quoted a
+  // tailwater a float time" — and there is no release to estimate from anyway.
   assert.equal(
     calculateFloatTime(MILES, DEFAULT_CANOE_SPEEDS, 'flowing', { riverType: 'dam_tailwater' }),
+    null,
+  );
+  // Half the inputs is no inputs.
+  assert.equal(
+    calculateFloatTime(MILES, DEFAULT_CANOE_SPEEDS, 'flowing', {
+      dischargeCfs: 800,
+      riverType: 'dam_tailwater',
+    }),
     null,
   );
 });
@@ -80,17 +98,43 @@ test('dangerous water still refuses even on a river type that would otherwise pa
 
 test('withholding names which of the two silences applies', () => {
   assert.equal(floatTimeWithholding('flowing', 'dam_tailwater'), 'regulated');
+  assert.equal(floatTimeWithholding('flowing', 'dam_tailwater', { hasFlowInputs: false }), 'regulated');
+  // With a live release there is something to estimate from, and no silence.
+  assert.equal(floatTimeWithholding('flowing', 'dam_tailwater', { hasFlowInputs: true }), null);
   assert.equal(floatTimeWithholding('dangerous', 'spring_fed_float'), 'dangerous');
   assert.equal(floatTimeWithholding('flowing', 'spring_fed_float'), null);
   assert.equal(floatTimeWithholding('flowing', null), null);
   assert.equal(floatTimeWithholding('flowing'), null);
 });
 
-test('dangerous outranks regulated when both apply', () => {
+test('dangerous outranks regulated when both apply, with or without flow', () => {
   // A tailwater in flood is dangerous first. "The release might change" is the
   // wrong thing to tell someone standing next to water that should not be
-  // floated at all.
+  // floated at all — and a live release does not make flood water floatable.
   assert.equal(floatTimeWithholding('dangerous', 'dam_tailwater'), 'dangerous');
+  assert.equal(floatTimeWithholding('dangerous', 'dam_tailwater', { hasFlowInputs: true }), 'dangerous');
+});
+
+// ── The fishing pace ─────────────────────────────────────────────────────────
+
+test('the fishing pace starts where the relaxed float ends and runs to 2.5× moving time', () => {
+  const result = calculateFloatTime(MILES, DEFAULT_CANOE_SPEEDS, 'flowing', {
+    dischargeCfs: 240,
+    refCfs: 180,
+  });
+  assert.ok(result);
+  assert.equal(result.fishingMinMinutes, result.maxMinutes);
+  assert.equal(result.fishingMaxMinutes, Math.round(result.movingMinutes * 2.5));
+  assert.ok(result.fishingMaxMinutes > result.maxMinutes);
+});
+
+test('low water is disclosed as an adjustment, not hidden in a longer number', () => {
+  const low = calculateFloatTime(MILES, DEFAULT_CANOE_SPEEDS, 'too_low');
+  const fine = calculateFloatTime(MILES, DEFAULT_CANOE_SPEEDS, 'flowing');
+  assert.ok(low && fine);
+  assert.equal(low.lowWaterAdjusted, true);
+  assert.equal(fine.lowWaterAdjusted, false);
+  assert.ok(low.minutes > fine.minutes);
 });
 
 // ── Static ratchets on the call sites ───────────────────────────────────────
@@ -200,9 +244,14 @@ test('the reason travels with the absence, and the iOS plan card branches on it'
     'the regulated branch must have its own sentence, not the flood one',
   );
 
-  const planSheet = readFileSync(
-    join(process.cwd(), '../eddy-ios/src/components/PlanSheet.tsx'),
-    'utf-8',
-  );
-  assert.match(planSheet, /floatTimeWithheldReason === 'regulated'/);
+  // The share line moved to src/lib/planCopy.ts so the sheet, the saved-float
+  // screen and the card word one float time identically; the regulated branch
+  // lives there now, and both share surfaces have to be reading it.
+  const planCopy = readFileSync(join(process.cwd(), '../eddy-ios/src/lib/planCopy.ts'), 'utf-8');
+  assert.match(planCopy, /floatTimeWithheldReason === 'regulated'/);
+  assert.match(planCopy, /time depends on dam releases/);
+  for (const surface of ['src/components/PlanSheet.tsx', 'app/float/[shortCode].tsx']) {
+    const source = readFileSync(join(process.cwd(), '../eddy-ios', surface), 'utf-8');
+    assert.match(source, /planShareSummary/, `${surface} must share through planCopy`);
+  }
 });

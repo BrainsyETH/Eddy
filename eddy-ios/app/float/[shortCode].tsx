@@ -22,6 +22,7 @@ import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import type { FloatPlan } from '@eddy/types';
 import { ApiError, fetchSavedPlan } from '@/api/client';
+import { planShareSummary } from '@/lib/planCopy';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
 import { Otter } from '@/components/Otter';
@@ -73,10 +74,12 @@ export default function SavedFloatScreen() {
 
   const onShare = useCallback(async () => {
     const url = stub?.url ?? `https://eddy.guide/plan/${shortCode}`;
+    // The same line the planner shares, time included — a re-share used to
+    // drop the float time, so the second recipient read less than the first.
     const summary = plan
-      ? `${plan.putIn.name} → ${plan.takeOut.name} on the ${plan.river.name} · ${plan.distance.formatted}`
+      ? planShareSummary(plan)
       : `${stub?.putInName ?? 'A float'} → ${stub?.takeOutName ?? ''}`.trim();
-    await Share.share({ message: `${summary}\n${url}` });
+    await Share.share({ message: `${summary}\n${url}`, url });
   }, [plan, stub, shortCode]);
 
   const saved = plan != null && isSaved(plan);
