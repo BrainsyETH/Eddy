@@ -47,6 +47,7 @@ import {
   unstarRiver,
 } from '@/api/client';
 import { useSession } from '@/hooks/useSession';
+import { haptics } from '@/theme/haptics';
 import { warn } from '@/lib/monitoring';
 
 // v3 carries gauges as well as rivers; v2 carried tombstones; v1 was a plain
@@ -325,6 +326,9 @@ export function StarredRiversProvider({ children }: { children: ReactNode }) {
       // the ref here is allowed; see the note beside its declaration.
       const next = toggleLocal(entriesRef.current, item, new Date().toISOString());
       entriesRef.current = next;
+      // Every star in the app comes through here, so this is the one place
+      // the tap gets its tick.
+      haptics.confirm();
       // Any pass already on the wire is now reconciling a stale set and must
       // not publish its result.
       mutationGen.current += 1;

@@ -83,6 +83,7 @@ import type {
   RiverAlertSeverity,
 } from '@eddy/types';
 import { ApiError, fetchAlertEvents, fetchHighWater, fetchRiverAlerts } from '@/api/client';
+import { haptics } from '@/theme/haptics';
 import type { AlertEventEntry } from '@eddy/types';
 import { usePush } from '@/hooks/usePush';
 import { useSession } from '@/hooks/useSession';
@@ -461,7 +462,10 @@ export default function AlertsScreen() {
     const on = segment === value;
     return (
       <Pressable
-        onPress={() => setSegment(value)}
+        onPress={() => {
+          haptics.selection();
+          setSegment(value);
+        }}
         style={[
           styles.toggle,
           { borderColor: colors.border },

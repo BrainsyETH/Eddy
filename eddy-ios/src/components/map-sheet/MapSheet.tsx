@@ -35,6 +35,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import type { GestureType } from 'react-native-gesture-handler';
 import { useTheme } from '@/theme/ThemeProvider';
+import { haptics } from '@/theme/haptics';
 import { useReducedMotion } from '@/hooks/useReducedMotion';
 import {
   applyRubberBand,
@@ -205,6 +206,9 @@ export function MapSheet({
 
   const commit = useCallback(
     (next: Detent) => {
+      // Once per settle, here in the commit and never in the drag: the spring
+      // does the motion, this says it landed.
+      haptics.settle();
       setDetent(next);
       onDetentChange?.(next, detents.height[next]);
     },

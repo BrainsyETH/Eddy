@@ -63,6 +63,7 @@ import {
   type FloatPace,
 } from '@/lib/planCopy';
 import { CollapsibleSection } from '@/components/CollapsibleSection';
+import { haptics } from '@/theme/haptics';
 import { formatReading, primaryReading, readingAge } from '@/lib/readingCopy';
 import { driveBetweenUrl, driveToUrl, usgsGaugeUrl } from '@/lib/directions';
 import { Otter, otterForCondition } from '@/components/Otter';
@@ -191,7 +192,10 @@ export function PlanResult({ plan, actions }: Props) {
                   return (
                     <Pressable
                       key={option}
-                      onPress={() => setPace(option)}
+                      onPress={() => {
+                        haptics.selection();
+                        setPace(option);
+                      }}
                       style={[
                         styles.paceChip,
                         { borderColor: on ? colors.interactive : colors.border },

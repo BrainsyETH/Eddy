@@ -61,6 +61,7 @@ import { readingAge } from '@/lib/readingCopy';
 import { useAlertRules } from '@/hooks/useAlertRules';
 import { useAlertGate } from '@/hooks/useAlertGate';
 import { useTheme } from '@/theme/ThemeProvider';
+import { haptics } from '@/theme/haptics';
 import { fonts, type as t } from '@/theme/typography';
 import { goBack } from '@/lib/nav';
 

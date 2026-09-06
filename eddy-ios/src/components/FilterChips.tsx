@@ -20,6 +20,7 @@ import { memo, useRef } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { EddySymbol, type EddySymbolName } from '@/components/EddySymbol';
+import { haptics } from '@/theme/haptics';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
 
@@ -153,7 +154,10 @@ function FilterChipsComponent({
         return (
           <Pressable
             key={chip.key}
-            onPress={() => onToggle(chip.key)}
+            onPress={() => {
+              haptics.selection();
+              onToggle(chip.key);
+            }}
             style={({ pressed }) => [
               styles.chip,
               {

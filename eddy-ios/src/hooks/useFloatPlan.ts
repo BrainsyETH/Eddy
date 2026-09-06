@@ -38,6 +38,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { FloatPlan, MapAccessPoint } from '@eddy/types';
 import { ApiError, fetchFloatPlan } from '@/api/client';
+import { haptics } from '@/theme/haptics';
 
 export type PlanStep = 'put-in' | 'take-out' | 'result';
 
@@ -157,6 +158,7 @@ export function useFloatPlan(riverId: string | null, accessPoints: MapAccessPoin
     // pickers filter; these three guards are what make the rule hold for
     // everything else.
     if (point.isFloatEndpoint === false) return;
+    haptics.settle();
     setPutIn(point);
     // A take-out upstream of the new put-in is no longer a float. Dropping it
     // here is what keeps takeOutOptions and the selection from disagreeing.
@@ -170,6 +172,7 @@ export function useFloatPlan(riverId: string | null, accessPoints: MapAccessPoin
   const chooseTakeOut = useCallback(
     (point: MapAccessPoint) => {
       if (point.isFloatEndpoint === false) return;
+      haptics.settle();
       setTakeOut(point);
       setPlan(null);
       if (putIn) void calculate(putIn, point);

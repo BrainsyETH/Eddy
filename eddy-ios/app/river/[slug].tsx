@@ -82,6 +82,7 @@ import {
   conditionLongLabel,
 } from '@/theme/conditions';
 import { useTheme } from '@/theme/ThemeProvider';
+import { haptics } from '@/theme/haptics';
 import { fonts, type as t } from '@/theme/typography';
 import {
   accuracyNote,
@@ -950,6 +951,7 @@ export default function RiverDetailScreen() {
     try {
       await gate.run(async (token) => {
         await subscribeToRiver(token, river.id, BELL_KIND);
+        haptics.confirm();
         setSubscribed(true);
         // Local state first so the bell answers immediately; the provider
         // catches up in the background. Not awaited — a slow list must not

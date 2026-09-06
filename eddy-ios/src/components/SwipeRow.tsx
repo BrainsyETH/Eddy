@@ -55,6 +55,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '@/theme/ThemeProvider';
+import { haptics } from '@/theme/haptics';
 import { fonts, type as t } from '@/theme/typography';
 
 /** How much of the row is given over to the action once it is open. */
@@ -146,8 +147,14 @@ export function SwipeRow({
   );
 
   const run = useCallback(async () => {
+    // A light tap as the action starts — the row is about to leave under the
+    // thumb — and a warning only if it could not.
+    haptics.confirm();
     try {
       await onAction();
+    } catch (error) {
+      haptics.failure();
+      throw error;
     } finally {
       // Closed either way. On success the row is usually gone with the data;
       // on failure the list puts it back, and it must not come back open.

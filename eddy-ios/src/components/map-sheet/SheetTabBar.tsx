@@ -41,6 +41,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
 import { useTheme } from '@/theme/ThemeProvider';
+import { haptics } from '@/theme/haptics';
 import { useReducedMotion } from '@/hooks/useReducedMotion';
 import { fonts, type as t } from '@/theme/typography';
 
@@ -170,7 +171,10 @@ export function SheetTabBar({ labels, index, onSelect, progress }: Props) {
           return (
             <Pressable
               key={label}
-              onPress={() => onSelect(i)}
+              onPress={() => {
+                haptics.selection();
+                onSelect(i);
+              }}
               onLayout={onTabLayout(i)}
               style={styles.tab}
               accessibilityRole="tab"

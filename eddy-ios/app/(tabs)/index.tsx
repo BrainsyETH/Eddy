@@ -79,6 +79,7 @@ import {
   formatFloatTimeCompact,
 } from '@eddy/conditions/float-time-format';
 import { ApiError, fetchRiverAccessPoints, fetchRivers } from '@/api/client';
+import { haptics } from '@/theme/haptics';
 import { floatableRank } from '@/theme/conditions';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
@@ -1817,6 +1818,7 @@ export default function MapScreen() {
 
   const toggleLayer = useCallback(
     (key: LayerKey) => {
+      haptics.selection();
       setLayers((prev) =>
         commitLayers(prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key]),
       );

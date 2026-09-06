@@ -36,6 +36,7 @@ import { Ionicons } from '@expo/vector-icons';
 import type { FloatPlan, MapAccessPoint, RiverListItem } from '@eddy/types';
 import { accessTypeLabel } from '@eddy/types';
 import { saveFloatPlan } from '@/api/client';
+import { haptics } from '@/theme/haptics';
 import { planShareSummary } from '@/lib/planCopy';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
@@ -141,6 +142,7 @@ export function PlanSheet({
     setSaving(true);
     try {
       remember(plan, await saveFloatPlan(plan));
+      haptics.success();
     } catch {
       setSaveError('Could not save this float. Check your connection and try again.');
     } finally {
