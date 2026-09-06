@@ -671,6 +671,21 @@ export default function AccessPointDetailScreen() {
             ))}
         </View>
 
+        {/* ── The fee, wherever it is known ────────────────────────
+            This used to render only inside the Facilities section, so an
+            access with a fee and no listed amenities said "Fee required" in a
+            chip and nothing else, and the note that says HOW MUCH and WHO to
+            pay was lost with the section. Money is a decide-before-you-drive
+            fact, so it sits with the chips that decide the drive. */}
+        {point.feeRequired || point.feeNotes ? (
+          <View style={styles.feeRow}>
+            <Ionicons name="cash-outline" size={16} color={colors.textMuted} />
+            <Text style={[styles.feeText, { color: colors.textMuted }]}>
+              {point.feeNotes ?? 'A fee is charged here. The amount is not listed; bring cash.'}
+            </Text>
+          </View>
+        ) : null}
+
         {/* ── Get there ──────────────────────────────────────────
             The primary action, above everything descriptive: someone who opened
             this screen from a list already decided they are interested. */}
@@ -882,10 +897,6 @@ export default function AccessPointDetailScreen() {
             {point.facilities ? (
               <Text style={[styles.prose, { color: colors.textMuted }]}>{point.facilities}</Text>
             ) : null}
-            {point.feeNotes ? (
-              <Text style={[styles.prose, { color: colors.textMuted }]}>{point.feeNotes}</Text>
-            ) : null}
-
             {/* ── OUTSIDE the NPS card, which is the whole point ──────────────
                 This lived inside the block below, so it rendered only for
                 campgrounds the National Park Service runs. Meramec, Onondaga
@@ -1117,6 +1128,14 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   stat: { paddingHorizontal: 9, paddingVertical: 4, borderRadius: 8 },
+  feeRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 8,
+    paddingHorizontal: 20,
+    marginTop: 10,
+  },
+  feeText: { ...t.sm, fontFamily: fonts.body, flex: 1, lineHeight: 21 },
   statText: { ...t.xs, fontFamily: fonts.medium },
   actions: { flexDirection: 'row', gap: 10, paddingHorizontal: 16, marginTop: 16 },
   driveNote: {

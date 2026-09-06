@@ -21,7 +21,7 @@
 // Both a drag and a tab TAP write the same shared value, so the indicator
 // tracks a finger and animates on a tap through one code path rather than two
 // that have to be kept looking alike.
-import { useEffect, useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 import { StyleSheet } from 'react-native';
 import { Gesture, GestureDetector, type GestureType } from 'react-native-gesture-handler';
 import { CONTENT_BOTTOM_PAD } from './sheetGeometry';
@@ -177,10 +177,13 @@ export function SheetPager({
             maxHeight={pageMaxHeight}
             panRef={sheet?.panRef}
             published={sheet?.scrollY ?? null}
-            // Only at the tallest detent. Below it a vertical drag is how you
-            // OPEN the sheet, and a scroller that ate it would strand the
-            // reader at the glance.
-            scrollEnabled={sheet?.atFull ?? false}
+            publishedRange={sheet?.scrollRange ?? null}
+            // At every detent above the peek. At the peek a vertical drag is
+            // how you OPEN the sheet, and a scroller that ate it would strand
+            // the reader at the glance; above it the sheet's pan reads this
+            // page's offset and range and hands the drag back the moment the
+            // content runs out in either direction (sheetScroll.ts).
+            scrollEnabled={sheet ? sheet.detent !== 'peek' : false}
           >
             {page}
           </SheetPage>
@@ -198,6 +201,8 @@ interface PageProps {
   panRef: SheetPagerPanRef;
   /** The sheet's shared offset, or null when a page is rendered outside one. */
   published: SharedValue<number> | null;
+  /** The sheet's shared scroll range, published beside the offset. */
+  publishedRange: SharedValue<number> | null;
   scrollEnabled: boolean;
   children: React.ReactNode;
 }
@@ -232,6 +237,7 @@ function SheetPage({
   maxHeight,
   panRef,
   published,
+  publishedRange,
   scrollEnabled,
   children,
 }: PageProps) {
@@ -239,6 +245,16 @@ function SheetPage({
   // that becoming the front page can republish the truth about this page
   // rather than leaving the last page's number standing.
   const offset = useSharedValue(0);
+  // And its own range, for the same reason. Content and layout heights arrive
+  // in either order from two callbacks, so both are held and the range is
+  // recomputed whenever one of them changes.
+  const range = useSharedValue(0);
+  const sizes = useRef({ content: 0, layout: 0 });
+  const publishRange = useCallback(() => {
+    const next = Math.max(0, sizes.current.content - sizes.current.layout);
+    range.value = next;
+    if (active && publishedRange) publishedRange.value = next;
+  }, [active, publishedRange, range]);
 
   const onScroll = useAnimatedScrollHandler(
     (event) => {
@@ -251,7 +267,8 @@ function SheetPage({
 
   useEffect(() => {
     if (active && published) published.value = offset.value;
-  }, [active, published, offset]);
+    if (active && publishedRange) publishedRange.value = range.value;
+  }, [active, published, offset, publishedRange, range]);
 
   const native = useMemo(
     () => (panRef ? Gesture.Native().simultaneousWithExternalGesture(panRef) : Gesture.Native()),
@@ -271,6 +288,14 @@ function SheetPage({
         // long tab clears the tab bar and a short tab wastes nothing.
         contentContainerStyle={{ paddingBottom: CONTENT_BOTTOM_PAD }}
         onScroll={onScroll}
+        onContentSizeChange={(_w, h) => {
+          sizes.current.content = h;
+          publishRange();
+        }}
+        onLayout={(event) => {
+          sizes.current.layout = event.nativeEvent.layout.height;
+          publishRange();
+        }}
         scrollEventThrottle={16}
         scrollEnabled={scrollEnabled}
         // iOS rubber-band drives contentOffset.y negative, which makes "at the

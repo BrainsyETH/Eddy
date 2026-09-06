@@ -60,6 +60,18 @@ interface Props {
   progress: SharedValue<number>;
 }
 
+/**
+ * The bar's laid-out height: the tab's 44pt minimum plus the 4pt above it.
+ *
+ * Exported so a peek can RESERVE this much before the tabs exist. PinSheet
+ * puts the bar in the peek, and the peek must not change height when the
+ * detail request lands — MapSheet follows its detent to a new peek height
+ * over 180ms, which reads as the sheet resettling under a thumb that did
+ * nothing. A placeholder of exactly this height holds the line until the
+ * labels arrive.
+ */
+export const TAB_BAR_HEIGHT = 48;
+
 export function SheetTabBar({ labels, index, onSelect, progress }: Props) {
   const { colors } = useTheme();
   const reducedMotion = useReducedMotion();

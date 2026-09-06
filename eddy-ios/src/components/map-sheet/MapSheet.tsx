@@ -193,6 +193,7 @@ export function MapSheet({
   const translateY = useSharedValue(0);
   const dragStart = useSharedValue(0);
   const scrollY = useSharedValue(0);
+  const scrollRange = useSharedValue(0);
   const entered = useSharedValue(false);
 
   // Handed to the pages so each can declare ITSELF simultaneous with this pan.
@@ -284,10 +285,17 @@ export function MapSheet({
         .onUpdate((event) => {
           'worklet';
           const notFull = translateY.value > detents.available - largestHeight + 0.5;
+          const atPeek = translateY.value >= detents.available - smallestHeight - 0.5;
           const atTop = scrollY.value <= 0;
-          // The content gets the drag only when it is open all the way AND has
-          // somewhere left to go in that direction.
-          const sheetTakesIt = notFull || (atTop && event.translationY > 0);
+          const atEnd = scrollY.value >= scrollRange.value - 0.5;
+          const down = event.translationY > 0;
+          // The content gets the drag only when the sheet is above its peek
+          // AND the content has somewhere left to go in that direction. A
+          // page at its end pushed upward hands the drag back so the sheet
+          // opens further; at full there is nowhere further, and the sheet
+          // simply holds. See sheetScroll.ts for the rule in full.
+          const sheetTakesIt =
+            atPeek || (atTop && down) || (atEnd && !down && notFull);
           if (!sheetTakesIt) {
             // RE-ANCHOR. Without this the sheet lurches by however far the
             // finger had already travelled the instant the scroller reaches
@@ -321,12 +329,14 @@ export function MapSheet({
     [
       detents,
       largestHeight,
+      smallestHeight,
       reducedMotion,
       commit,
       onClose,
       dragStart,
       translateY,
       scrollY,
+      scrollRange,
       panRef,
     ],
   );
@@ -446,8 +456,8 @@ export function MapSheet({
   const budget = useMemo(() => pageBudget(available, peekHeight), [available, peekHeight]);
 
   const scrollContext = useMemo(
-    () => ({ scrollY, panRef, detent, atFull, pageBudget: budget, resetKey }),
-    [scrollY, panRef, detent, atFull, budget, resetKey],
+    () => ({ scrollY, scrollRange, panRef, detent, atFull, pageBudget: budget, resetKey }),
+    [scrollY, scrollRange, panRef, detent, atFull, budget, resetKey],
   );
 
   return (

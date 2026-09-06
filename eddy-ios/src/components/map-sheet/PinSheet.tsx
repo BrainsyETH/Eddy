@@ -43,7 +43,7 @@ import { MapSheet, type SheetMetrics } from './MapSheet';
 import { PinCallout } from './PinCallout';
 import { PlaceHead } from './PlaceHead';
 import { AccessGaugeReading, AccessTypeBadges, LinkRow } from './sections';
-import { SheetTabBar } from './SheetTabBar';
+import { SheetTabBar, TAB_BAR_HEIGHT } from './SheetTabBar';
 import { SheetPager, mountedPages } from './SheetPager';
 import { accessTabs, initialTabKey, type TabKey } from './tabs';
 import type { PlaceSymbolName } from './placeSymbol';
@@ -330,39 +330,51 @@ export function PinSheet(props: PinSheetProps) {
       onDetentChange={props.onDetentChange}
       metrics={props.metrics}
       peek={
-        <PinSheetHeader
-          {...props}
-          detail={detail}
-          status={status}
-          gaugeFacts={gaugeFacts}
-          backLabel={props.backLabel}
-          // The availability card is a shortcut to the tab that can be operated:
-          // the peek's fortnight is a chart because fourteen columns are twenty
-          // points each, and Camping draws the same nights as 44pt chips.
-          onOpenCamping={() => setChosen('camping')}
-          peekSlot={slot}
-        />
+        <>
+          <PinSheetHeader
+            {...props}
+            detail={detail}
+            status={status}
+            gaugeFacts={gaugeFacts}
+            backLabel={props.backLabel}
+            // The availability card is a shortcut to the tab that can be operated:
+            // the peek's fortnight is a chart because fourteen columns are twenty
+            // points each, and Camping draws the same nights as 44pt chips.
+            onOpenCamping={() => setChosen('camping')}
+            peekSlot={slot}
+          />
+          {/* ── THE TABS ARE THE LAST ROW OF THE PEEK ───────────────────────
+              They used to sit below it, which put "Float trips" and "Camping"
+              under the fold at the glance with nothing above the fold saying
+              they existed. A first-time reader saw a put-in's name, its
+              facts and "Use as put-in", and no way to plan a float from it
+              short of dragging a sheet they had no reason to drag. In the
+              peek they are the cue, and tapping one opens the sheet.
+
+              ONE TAB IS NOT A TAB BAR — but its HEIGHT is still reserved for
+              an access point, whose tabs qualify only when the detail request
+              lands. The peek must not grow at that moment: MapSheet follows
+              its detent to a new peek height, which reads as the sheet
+              resettling under a thumb that did nothing. A gauge's tabs are
+              complete on the first frame (gaugeTabs.ts), so a one-tab
+              station reserves nothing and shows nothing. */}
+          {activeTabs.length > 1 ? (
+            <SheetTabBar
+              labels={activeTabs.map((tab) => tab.label)}
+              index={activeIndex}
+              onSelect={(i) => setChosen(activeTabs[i]?.key ?? null)}
+              progress={progress}
+            />
+          ) : accessPoint ? (
+            <View style={{ height: TAB_BAR_HEIGHT }} />
+          ) : null}
+        </>
       }
     >
+      {/* What is left of the chrome once the bar moved up: the badges and the
+          private notice. Measured because the page budget has to know. */}
       <View onLayout={onChromeLayout}>
         <PinSheetDetail pin={pin} accessPoint={accessPoint} />
-        {/* ONE TAB IS NOT A TAB BAR. An access point holds this shape from the
-            first frame, so for the moment before its detail lands there is a
-            single page and nothing to choose between — and a bar with one
-            entry is a control that cannot be operated.
-
-            It appears rather than the layout changing around it: everything
-            above is in the peek and does not move, and the pager below is
-            already the right width for one page. Measured either way, because
-            onChromeLayout wraps both and the page budget has to know. */}
-        {activeTabs.length > 1 ? (
-          <SheetTabBar
-            labels={activeTabs.map((tab) => tab.label)}
-            index={activeIndex}
-            onSelect={(i) => setChosen(activeTabs[i]?.key ?? null)}
-            progress={progress}
-          />
-        ) : null}
       </View>
       <SheetPager
         count={activeTabs.length}

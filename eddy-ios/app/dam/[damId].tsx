@@ -649,6 +649,34 @@ export default function DamDetailScreen() {
               levels NULL on purpose, because calibrating a floatability ladder
               for a dam release is a safety judgement Eddy would be held to, and
               the screen now tests for levels rather than for the row. */}
+          {/* The station that reads this dam's release, for EVERY dam that has
+              one. The river button above is gated on Eddy carrying the reach,
+              which the flagship tailwaters mostly are not, so a reader on
+              Bull Shoals or Table Rock had a dam screen with a number on it
+              and no way to the gauge the number came from. The gauge screen
+              needs nothing but the site id. */}
+          {dam.tailwater?.gaugeSiteId ? (
+            <Pressable
+              onPress={() =>
+                router.push({
+                  pathname: '/gauge/[siteId]',
+                  params: { siteId: dam.tailwater!.gaugeSiteId },
+                })
+              }
+              style={({ pressed }) => [
+                styles.sourceButton,
+                { borderColor: colors.border, opacity: pressed ? 0.6 : 1 },
+              ]}
+              accessibilityRole="button"
+              accessibilityLabel={`Open the tailwater gauge below ${dam.name}`}
+            >
+              <Ionicons name="water-outline" size={16} color={colors.text} />
+              <Text style={[styles.sourceText, { color: colors.text }]}>
+                Tailwater gauge below the dam
+              </Text>
+            </Pressable>
+          ) : null}
+
           {dam.tailwater?.gaugeSiteId ? (
             <Pressable
               onPress={() =>

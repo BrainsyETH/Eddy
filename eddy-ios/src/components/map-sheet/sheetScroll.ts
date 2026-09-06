@@ -6,9 +6,18 @@
 // website's rail.tsx and from every native maps sheet:
 //
 //   at the smallest detent   the content does not scroll at all
-//   below full               a vertical drag moves the SHEET
-//   at full, scrolled down   a vertical drag moves the CONTENT
-//   at full, scrolled to top pulling down moves the sheet again
+//   above it, content has somewhere to go in the drag's direction
+//                            a vertical drag moves the CONTENT
+//   above it, content at its top, pulling down
+//                            moves the SHEET
+//   above it, content at its end, pushing up
+//                            moves the SHEET (and opens it further)
+//
+// "Above it" used to read "at full": below the tallest detent every drag moved
+// the sheet, so at `half` trying to read a long Overview lurched the sheet to
+// `full` instead. The content scrolls at every detent above the peek now; a
+// page that is SHORT still hands every drag to the sheet, because a scroller
+// with nowhere to go must not swallow the gesture that opens the sheet.
 //
 // The last line is the one that needs state shared across components: the sheet
 // gesture lives in MapSheet and the scroller lives in a tab page several levels
@@ -35,6 +44,15 @@ export interface SheetScroll {
    * believed the content was scrolled 300pt down.
    */
   scrollY: SharedValue<number>;
+  /**
+   * How far the front page CAN scroll: its content height less its layout
+   * height, never negative. Published by the same page that publishes scrollY,
+   * on the JS thread from the scroller's size callbacks. The sheet's pan reads
+   * it to know whether an upward drag still has content to move or should
+   * open the sheet instead; 0 means "nothing to scroll", which is every short
+   * page and every page before it has measured.
+   */
+  scrollRange: SharedValue<number>;
   /**
    * The sheet's own pan, so a scroller can declare itself simultaneous with it.
    *

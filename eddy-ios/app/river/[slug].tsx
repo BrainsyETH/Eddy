@@ -1611,6 +1611,31 @@ export default function RiverDetailScreen() {
           </Text>
         </Pressable>
 
+        {/* ── Plan a float, from here ──
+            The planner is mounted by the Map tab and nowhere else, so a reader
+            who arrived at this screen from a search, a star or a push had read
+            the river's condition, its reaches and its access points and still
+            had no way to plan a float on it without finding the river again
+            on the map. This hands the map the river and opens the planner on
+            it. navigate, not push: the Map tab must not be minted twice. */}
+        <Pressable
+          onPress={() =>
+            router.navigate({ pathname: '/', params: { planRiver: river.slug } })
+          }
+          style={({ pressed }) => [
+            styles.planButton,
+            {
+              borderColor: colors.border,
+              backgroundColor: pressed ? colors.cardRaised : colors.card,
+            },
+          ]}
+          accessibilityRole="button"
+          accessibilityLabel={`Plan a float on ${river.name}`}
+        >
+          <Ionicons name="map-outline" size={18} color={colors.text} />
+          <Text style={[styles.notifyText, { color: colors.text }]}>Plan a float on the map</Text>
+        </Pressable>
+
         {/* ── Hazards. Free, and above access points on purpose. ──
             COLLAPSED, BUT NEVER SILENT. This section used to open showing the
             dangerous ones, so folding it shut could hide that a river has a
@@ -2030,6 +2055,16 @@ const styles = StyleSheet.create({
     marginBottom: 22,
   },
   notifyText: { ...t.base, fontFamily: fonts.heading },
+  planButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 9,
+    paddingVertical: 14,
+    borderRadius: 12,
+    borderWidth: 1,
+    marginBottom: 22,
+  },
   notifyError: { ...t.xs, fontFamily: fonts.body, textAlign: 'center', marginTop: -14, marginBottom: 20 },
   customizeButton: { alignItems: 'center', paddingVertical: 10, marginTop: -14, marginBottom: 18 },
   customizeText: { ...t.xs, fontFamily: fonts.semibold },

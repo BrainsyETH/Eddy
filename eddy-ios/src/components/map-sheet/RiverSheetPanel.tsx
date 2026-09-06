@@ -116,20 +116,27 @@ export function RiverSheetPanel({
       onClose={onClose}
       onDetentChange={onDetentChange}
       metrics={metrics}
-      peek={head}
+      peek={
+        <>
+          {head}
+          {/* In the peek, as the last row, for the reason PinSheet gives: a
+              tab bar below the fold is a set of pages nobody knows are there.
+              A river with no access points and no hazards is one tab, and one
+              tab is not a tab bar. */}
+          {tabs.length > 1 ? (
+            <SheetTabBar
+              labels={tabs.map((tab) => tab.label)}
+              index={activeIndex}
+              onSelect={(i) => setChosen(tabs[i]?.key ?? null)}
+              progress={progress}
+            />
+          ) : null}
+        </>
+      }
     >
-      <View onLayout={onChromeLayout}>
-      {/* A river with no access points and no hazards is one tab, and one tab
-          is not a tab bar. */}
-        {tabs.length > 1 ? (
-          <SheetTabBar
-          labels={tabs.map((tab) => tab.label)}
-          index={activeIndex}
-          onSelect={(i) => setChosen(tabs[i]?.key ?? null)}
-          progress={progress}
-        />
-        ) : null}
-      </View>
+      {/* Nothing left between the peek and the pages, but the pager still
+          asks how tall the chrome is, and zero is the honest answer. */}
+      <View onLayout={onChromeLayout} />
       <SheetPager
         count={tabs.length}
         index={activeIndex}

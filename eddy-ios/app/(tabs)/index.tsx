@@ -1434,10 +1434,16 @@ export default function MapScreen() {
    * cold launch into the map. Setting it in both branches is what makes the
    * deep link work before the network has answered — see the selection effect.
    */
-  const focusParams = useLocalSearchParams<{ focusAccess?: string; focusRiver?: string }>();
+  const focusParams = useLocalSearchParams<{
+    focusAccess?: string;
+    focusRiver?: string;
+    planRiver?: string;
+  }>();
   const focusAccess = focusParams.focusAccess ?? null;
   const focusRiver = focusParams.focusRiver ?? null;
+  const planRiver = focusParams.planRiver ?? null;
   const focusConsumed = useRef<string | null>(null);
+  const planConsumed = useRef<string | null>(null);
 
   // The work, as a callback rather than inline in the effect below. A route
   // param is an external system and reacting to one is what an effect is for,
@@ -1503,6 +1509,37 @@ export default function MapScreen() {
     focusConsumed.current = token;
     focusOnAccess(focusAccess, focusRiver);
   }, [focusAccess, focusRiver, focusOnAccess]);
+
+  // ── "Plan a float" from a river screen ─────────────────────────────────
+  // The same shape as focusOnAccess above, for the same reasons: a route param
+  // is an external system, the state writes live in a named function, and the
+  // params are cleared once consumed so a later return to this tab does not
+  // reopen a planner the reader has since closed. The planner is mounted by
+  // this tab and nowhere else, which is why a river screen has to come here to
+  // offer it at all.
+  const openPlannerFor = useCallback(
+    (riverSlug: string) => {
+      clearSearch();
+      setSelectedPin(null);
+      setRevealsRiverSheet(false);
+      selectRiver(riverSlug, { camera: 'fitRiver' });
+      setPlanOpen(true);
+      router.setParams({ planRiver: undefined });
+    },
+    [clearSearch, selectRiver, router],
+  );
+
+  useEffect(() => {
+    if (!planRiver) {
+      // Spent when the param goes — see the focusAccess effect above for why
+      // the ref alone cannot be the record of an outstanding request.
+      planConsumed.current = null;
+      return;
+    }
+    if (planConsumed.current === planRiver) return;
+    planConsumed.current = planRiver;
+    openPlannerFor(planRiver);
+  }, [planRiver, openPlannerFor]);
 
   // ── Float plan ──────────────────────────────────────────────────
   const plannerAccessPoints =

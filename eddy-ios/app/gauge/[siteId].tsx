@@ -61,7 +61,7 @@ import { presentReading } from '@eddy/conditions/reading-presentation';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
 import { SafetyDisclaimer } from '@/components/SafetyDisclaimer';
-import { formatReading, percentileLabel, readingAge } from '@/lib/readingCopy';
+import { allReadings, formatReading, percentileLabel, readingAge } from '@/lib/readingCopy';
 import { usgsGaugeUrl } from '@/lib/directions';
 import { gaugeSharePath } from '@/lib/share';
 import {
@@ -446,6 +446,14 @@ export default function GaugeDetailScreen() {
         : gauge.gaugeHeightFt,
   });
 
+  // The reading the headline did NOT use, if the station published one.
+  const secondary =
+    allReadings({
+      gaugeHeightFt: gauge.gaugeHeightFt,
+      dischargeCfs: gauge.dischargeCfs,
+      thresholdUnit: unit,
+    }).find((reading) => reading.unit !== unit) ?? null;
+
   const age = readingAge(gauge.readingAgeHours);
   const percentile = percentileLabel(gauge.flowPercentile);
   const starred = gauge.id ? isStarred('gauge', gauge.id) : false;
@@ -608,6 +616,17 @@ export default function GaugeDetailScreen() {
                   />
                 </View>
               ) : null}
+              {/* The OTHER number, when the station publishes both. A float
+                  planner reads stage and an angler reads discharge, and the
+                  headline can only be one of them: it has to match the colour
+                  beside it. This line makes no claim, so it can carry the
+                  other unit safely — allReadings marks which one the verdict
+                  came from and this shows the one it did not. */}
+              {secondary ? (
+                <Text style={[styles.secondaryReading, { color: colors.textMuted }]}>
+                  {formatReading(secondary.value, secondary.unit)}
+                </Text>
+              ) : null}
               {age && !staleReading ? (
                 <Text style={[styles.age, { color: colors.textSubtle }]}>{age}</Text>
               ) : null}
@@ -665,9 +684,23 @@ export default function GaugeDetailScreen() {
           ) : null}
 
           {/* The caveat that explains a grey chip, rather than leaving an
-              ungraded reading looking like a missing one. */}
+              ungraded reading looking like a missing one.
+
+              Red ONLY when the reading is actually suspect. "Provisional data
+              subject to revision" is what USGS says about nearly every station
+              every day; painted in the error colour it made the app's most
+              common state look like its rarest, and a reader who has seen red
+              under thirty ordinary readings stops looking at the one that
+              means the number is wrong. */}
           {gauge.qualifierNote ? (
-            <Text style={[styles.caveat, { color: colors.error }]}>{gauge.qualifierNote}</Text>
+            <Text
+              style={[
+                styles.caveat,
+                { color: gauge.readingSuspect ? colors.error : colors.textMuted },
+              ]}
+            >
+              {gauge.qualifierNote}
+            </Text>
           ) : null}
 
           {/* The ladder, at equal band widths — see ReadingScale's header for
@@ -1066,6 +1099,7 @@ const styles = StyleSheet.create({
   readingText: { flex: 1 },
   reading: { ...t['3xl'], fontFamily: fonts.mono },
   age: { ...t.xs, fontFamily: fonts.body, marginTop: 2 },
+  secondaryReading: { ...t.sm, fontFamily: fonts.mono, marginTop: 2 },
   trendRow: { flexDirection: 'row', marginTop: 4 },
   staleRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 6, marginTop: 12 },
   staleText: { ...t.sm, fontFamily: fonts.medium, flex: 1 },
