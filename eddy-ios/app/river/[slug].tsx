@@ -77,8 +77,8 @@ import {
 import {
   conditionBg,
   conditionChipBorder,
+  conditionChipInk,
   conditionColor,
-  conditionInk,
   conditionLongLabel,
 } from '@/theme/conditions';
 import { useTheme } from '@/theme/ThemeProvider';
@@ -374,7 +374,7 @@ export default function RiverDetailScreen() {
     alertSource?: string;
   }>();
   const router = useRouter();
-  const { colors, elevation } = useTheme();
+  const { colors, elevation, isDark } = useTheme();
   const { getAccessToken } = useSession();
   const { isStarred, toggleStar } = useStarredRivers();
 
@@ -1279,7 +1279,7 @@ export default function RiverDetailScreen() {
             <Ionicons
               name={starred ? 'star' : 'star-outline'}
               size={24}
-              color={starred ? colors.warm : colors.textSubtle}
+              color={starred ? colors.favorite : colors.textSubtle}
             />
           </Pressable>
         </View>
@@ -1329,7 +1329,7 @@ export default function RiverDetailScreen() {
                   },
                 ]}
               >
-                <Text style={[styles.conditionChipText, { color: conditionInk(shownCode) }]}>
+                <Text style={[styles.conditionChipText, { color: conditionChipInk(shownCode, isDark) }]}>
                   {/* The long label is an instruction — "Do Not Float",
                       "Floatable" — and an instruction is a claim about right
                       now. A reading recovered from disk names what was last
@@ -1688,8 +1688,8 @@ export default function RiverDetailScreen() {
                     <View
                       style={[styles.portage, { backgroundColor: conditionBg(hazardCode) }]}
                     >
-                      <Ionicons name="walk-outline" size={14} color={conditionInk(hazardCode)} />
-                      <Text style={[styles.portageText, { color: conditionInk(hazardCode) }]}>
+                      <Ionicons name="walk-outline" size={14} color={conditionChipInk(hazardCode, isDark)} />
+                      <Text style={[styles.portageText, { color: conditionChipInk(hazardCode, isDark) }]}>
                         {portage}
                       </Text>
                     </View>

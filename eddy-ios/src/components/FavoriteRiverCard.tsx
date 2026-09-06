@@ -47,8 +47,8 @@ import type { MapGauge, RiverListItem } from '@eddy/types';
 import {
   conditionBg,
   conditionChipBorder,
+  conditionChipInk,
   conditionColor,
-  conditionInk,
   conditionLongLabel,
   conditionText,
 } from '@/theme/conditions';
@@ -173,7 +173,7 @@ function FavoriteRiverCardComponent({
                 { backgroundColor: conditionBg(code), borderColor: conditionChipBorder(code) },
               ]}
             >
-              <Text style={[styles.chipText, { color: conditionInk(code) }]}>
+              <Text style={[styles.chipText, { color: conditionChipInk(code, isDark) }]}>
                 {damControlledLabel(river.riverType, code) ?? condition?.label ?? conditionLongLabel(code)}
               </Text>
             </View>
@@ -188,7 +188,7 @@ function FavoriteRiverCardComponent({
             accessibilityRole="button"
             accessibilityLabel={`Unstar ${river.name}`}
           >
-            <Ionicons name="star" size={21} color={colors.warm} />
+            <Ionicons name="star" size={21} color={colors.favorite} />
           </Pressable>
         </View>
 

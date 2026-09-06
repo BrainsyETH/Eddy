@@ -1,18 +1,20 @@
 // eddy-ios/app/alerts/quiet-hours.tsx
 // A window in which the phone stays silent.
 //
-// ── This suppresses; it does not queue ──────────────────────────────────────
+// ── This suppresses; it does not queue — and it re-arms ─────────────────────
 //
 // The screen says so, in as many words, because the honest behaviour is not the
-// one people assume. Delivery already discards any alert older than three hours
-// — "your river is floatable" must never fire about water that has since
-// dropped — and a quiet window is typically eight. Holding an alert until
-// morning would therefore deliver a stale promise or, more often, nothing at
-// all. What survives is the Alerts feed, which is free, needs no account, and is
-// still there when you wake up.
+// one people assume. Delivery discards any alert older than three hours —
+// "your river is floatable" must never fire about water that has since
+// dropped — and a quiet window is typically eight, so the night's reading is
+// never sent. What the server does instead, once the window ends, is put the
+// rule back on the far side of its line and let the next evaluation read the
+// CURRENT number: still there, one fresh push; gone, nothing. See
+// src/lib/alerts/quiet-hours.ts on the server. The activity list under the
+// rules on the Alerts tab records what the night held back.
 //
 // Saying that plainly costs a sentence. Implying a morning digest that does not
-// exist costs someone a trip.
+// exist costs someone a trip; promising a "feed" that no longer exists did.
 //
 // Times are entered as whole hours. Minute precision on a sleep window is
 // false precision, and two wheels of 1,440 values each is a worse control than
@@ -416,7 +418,15 @@ const styles = StyleSheet.create({
     marginHorizontal: 4,
   },
   hourRow: { gap: 8, paddingHorizontal: 2 },
-  hourChip: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 999, borderWidth: 1 },
+  // 44pt floor — see the chips on the configure screen.
+  hourChip: {
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    minHeight: 44,
+    justifyContent: 'center',
+    borderRadius: 999,
+    borderWidth: 1,
+  },
   hourText: { ...t.xs, fontFamily: fonts.semibold },
   footnote: { ...t.xs, fontFamily: fonts.body, marginTop: 16, marginHorizontal: 4, lineHeight: 17 },
   zoneRow: { marginTop: 16, marginHorizontal: 4, gap: 4 },

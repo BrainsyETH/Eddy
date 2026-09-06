@@ -49,12 +49,7 @@ import type {
 import { classifyReading, hasLadder } from '@eddy/conditions/condition-ladder';
 import { flowBand } from '@eddy/conditions/flow-band';
 import { fetchGaugeDetail, fetchRiverOutlook } from '@/api/client';
-import {
-  conditionBg,
-  conditionChipBorder,
-  conditionInk,
-  conditionText,
-} from '@/theme/conditions';
+import { conditionBg, conditionChipBorder, conditionChipInk, conditionText } from '@/theme/conditions';
 import { flowBandChip, flowBandLabel, flowBandSentence } from '@/theme/flow';
 import {
   floodStageColor,
@@ -530,7 +525,7 @@ export default function GaugeDetailScreen() {
               <Ionicons
                 name={starred ? 'star' : 'star-outline'}
                 size={24}
-                color={starred ? colors.warm : colors.textSubtle}
+                color={starred ? colors.favorite : colors.textSubtle}
               />
             </Pressable>
           ) : null}
@@ -590,7 +585,12 @@ export default function GaugeDetailScreen() {
                     color: value != null && rated ? conditionText(code, isDark) : colors.text,
                   },
                 ]}
+                // The number is the product. At accessibility text sizes it
+                // shrinks to fit rather than ellipsising — "12,4…" is not a
+                // reading — and never below 70% of its 30pt.
                 numberOfLines={1}
+                adjustsFontSizeToFit
+                minimumFontScale={0.7}
               >
                 {value != null && unit ? formatReading(value, unit) : 'No reading'}
               </Text>
@@ -633,7 +633,7 @@ export default function GaugeDetailScreen() {
                   { backgroundColor: conditionBg(code), borderColor: conditionChipBorder(code) },
                 ]}
               >
-                <Text style={[styles.chipText, { color: conditionInk(code) }]}>
+                <Text style={[styles.chipText, { color: conditionChipInk(code, isDark) }]}>
                   {presented.label}
                 </Text>
               </View>

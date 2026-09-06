@@ -88,7 +88,7 @@ import { usePush } from '@/hooks/usePush';
 import { useSession } from '@/hooks/useSession';
 import { PushDeliveryBanner, pushDeliveryBlocked } from '@/components/PushDeliveryBanner';
 import { AlertActivityList } from '@/components/AlertActivityList';
-import { conditionBg, conditionColor, conditionInk } from '@/theme/conditions';
+import { conditionBg, conditionChipInk, conditionColor } from '@/theme/conditions';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
 import type { Palette } from '@/theme/palette';
@@ -230,7 +230,7 @@ export default function AlertsScreen() {
     setEnabled,
     remove,
   } = useAlertRules();
-  const { colors, elevation } = useTheme();
+  const { colors, elevation, isDark } = useTheme();
   const router = useRouter();
   const push = usePush();
   const { getAccessToken } = useSession();
@@ -908,7 +908,7 @@ export default function AlertsScreen() {
                 {/* ink, not `solid`. The solid is the marker/stripe colour and
                     is not a text colour — several of the ladder's fills fall
                     below 4.5:1 on white. */}
-                <Text style={[styles.headline, { color: conditionInk(entry.conditionCode) }]}>
+                <Text style={[styles.headline, { color: conditionChipInk(entry.conditionCode, isDark) }]}>
                   {entry.conditionLabel}
                 </Text>
                 <Text style={[styles.detail, { color: colors.textMuted }]}>
@@ -923,7 +923,7 @@ export default function AlertsScreen() {
                 <Ionicons
                   name={entry.conditionCode === 'dangerous' ? 'warning-outline' : 'water-outline'}
                   size={16}
-                  color={conditionInk(entry.conditionCode)}
+                  color={conditionChipInk(entry.conditionCode, isDark)}
                 />
               </View>
             </Pressable>

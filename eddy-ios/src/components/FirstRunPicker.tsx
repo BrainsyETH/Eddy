@@ -51,7 +51,7 @@ import { riverDistanceLabel, riverMilesByGauge } from '@/lib/riverDistance';
 import { primaryReading } from '@/lib/readingCopy';
 import { report, warn } from '@/lib/monitoring';
 import { useTheme } from '@/theme/ThemeProvider';
-import { conditionColor, conditionShortLabel } from '@/theme/conditions';
+import { conditionColor, conditionShortLabel, conditionText } from '@/theme/conditions';
 import { fonts, type as t } from '@/theme/typography';
 
 /** Reverse geocoding is best-effort chrome; this is the honest fallback. */
@@ -385,7 +385,7 @@ function RiverPickCard({
   selected: boolean;
   onPress: () => void;
 }) {
-  const { colors } = useTheme();
+  const { colors, isDark } = useTheme();
   const code = river.currentCondition?.code ?? 'unknown';
   const reading = river.currentCondition ? primaryReading(river.currentCondition) : null;
 
@@ -417,7 +417,7 @@ function RiverPickCard({
         {river.name}
       </Text>
 
-      <Text style={[styles.cardReading, { color: conditionColor(code) }]} numberOfLines={1}>
+      <Text style={[styles.cardReading, { color: conditionText(code, isDark) }]} numberOfLines={1}>
         {reading ? `${formatReading(reading.value)} ${reading.unit} · ` : ''}
         {conditionShortLabel(code)}
       </Text>

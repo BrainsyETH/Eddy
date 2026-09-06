@@ -24,7 +24,7 @@ import { Ionicons } from '@expo/vector-icons';
 import type { RiverReach } from '@eddy/types';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
-import { conditionBg, conditionInk } from '@/theme/conditions';
+import { conditionBg, conditionChipInk } from '@/theme/conditions';
 
 /** Short human label for a hydrology type. Mirrors the web's riverTypeLabel(). */
 function riverTypeLabel(type: string): string {
@@ -71,7 +71,7 @@ export function RiverReaches({
   highlightSlug?: string | null;
   damName?: string | null;
 }) {
-  const { colors, elevation } = useTheme();
+  const { colors, elevation, isDark } = useTheme();
 
   // Nothing to explain unless at least two reaches and a real difference. The
   // API already gates on this; re-checking keeps the component honest on its own.
@@ -110,7 +110,7 @@ export function RiverReaches({
 
           <View style={styles.chipRow}>
             <View style={[styles.chip, { backgroundColor: conditionBg(reach.conditionCode) }]}>
-              <Text style={[styles.chipText, { color: conditionInk(reach.conditionCode) }]}>
+              <Text style={[styles.chipText, { color: conditionChipInk(reach.conditionCode, isDark) }]}>
                 {reach.conditionLabel ?? reach.conditionCode}
               </Text>
             </View>

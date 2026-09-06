@@ -29,7 +29,7 @@ import { fonts, type as t } from '@/theme/typography';
 import {
   conditionBg,
   conditionChipBorder,
-  conditionInk,
+  conditionChipInk,
   conditionLongLabel,
   conditionText,
 } from '@/theme/conditions';
@@ -113,7 +113,7 @@ export function GaugeReadingRow({
             },
           ]}
         >
-          <Text style={[styles.chipText, { color: conditionInk(facts.code) }]}>
+          <Text style={[styles.chipText, { color: conditionChipInk(facts.code, isDark) }]}>
             {conditionLongLabel(facts.code)}
           </Text>
         </View>

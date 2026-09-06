@@ -427,7 +427,7 @@ export default function FavoritesScreen() {
               accessibilityRole="button"
               accessibilityLabel={`Unstar ${item.name}`}
             >
-              <Ionicons name="star" size={21} color={colors.warm} />
+              <Ionicons name="star" size={21} color={colors.favorite} />
             </Pressable>
           </View>
         );
@@ -526,7 +526,7 @@ export default function FavoritesScreen() {
           accessibilityRole="button"
           accessibilityLabel={`Unstar ${item.name}`}
         >
-          <Ionicons name="star" size={21} color={colors.warm} />
+          <Ionicons name="star" size={21} color={colors.favorite} />
         </Pressable>
       </View>
     );

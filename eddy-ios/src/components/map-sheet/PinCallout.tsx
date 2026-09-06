@@ -14,12 +14,7 @@
 import { Linking, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import type { MapAccessPoint } from '@eddy/types';
-import {
-  conditionBg,
-  conditionChipBorder,
-  conditionInk,
-  conditionText,
-} from '@/theme/conditions';
+import { conditionBg, conditionChipBorder, conditionChipInk, conditionText } from '@/theme/conditions';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
 import type { MapPin } from '@/map/RiverMap';
@@ -318,7 +313,7 @@ export function PinCallout({
               <Text
                 style={[
                   styles.calloutChipText,
-                  { color: pin.code ? conditionInk(pin.code) : colors.textMuted },
+                  { color: pin.code ? conditionChipInk(pin.code, isDark) : colors.textMuted },
                 ]}
               >
                 {pin.codeLabel}

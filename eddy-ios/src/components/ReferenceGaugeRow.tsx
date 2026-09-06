@@ -132,7 +132,7 @@ function ReferenceGaugeRowComponent({
           <Ionicons
             name={starred ? 'star' : 'star-outline'}
             size={21}
-            color={starred ? colors.warm : colors.textSubtle}
+            color={starred ? colors.favorite : colors.textSubtle}
           />
         </Pressable>
       ) : null}

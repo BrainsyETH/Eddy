@@ -820,7 +820,16 @@ const styles = StyleSheet.create({
     marginHorizontal: 4,
   },
   chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  chip: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 999, borderWidth: 1 },
+  // 44pt floor: 8pt padding around 12pt type was a 33pt pill on the screen
+  // where somebody types a level with a wet thumb.
+  chip: {
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    minHeight: 44,
+    justifyContent: 'center',
+    borderRadius: 999,
+    borderWidth: 1,
+  },
   chipText: { ...t.xs, fontFamily: fonts.semibold },
   brandChip: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingLeft: 10 },
   // Otter centres itself by default, which fights a row layout.

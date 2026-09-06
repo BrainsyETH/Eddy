@@ -2582,6 +2582,82 @@ export function RiverMap({
             lineJoin: 'round',
           }}
         />
+
+        {/* ── Two patterns, for the two ends that matter without colour ──
+            The network was colour-only: seven hues on a 2.5pt line, three of
+            them a single hue to a deutan reader, over green forest and pale
+            gravel. Nothing on the surface said what red meant. These two
+            overlays carry the verdicts a floater cannot afford to misread in
+            SHAPE: dark hatching over a river in flood, light dots over one
+            too low to float. Everything between stays a solid line — the
+            middle of the ladder is a judgement call and a dashed "good" would
+            be noise.
+
+            Filtered layers rather than data-driven dashes, because
+            lineDasharray is not a data-driven property in either renderer —
+            the public-lands pair above already pays the same price. Keyed on
+            the RIVER's code (buildNetwork's `code`), not the run's colour: a
+            run graded by one gauge can differ from the river's verdict, and
+            the pattern should say what the river as a whole says. */}
+        <Mapbox.LineLayer
+          id="network-flood-hatch"
+          filter={['==', ['get', 'code'], 'dangerous'] as never}
+          style={{
+            lineColor: 'rgba(0,0,0,0.45)',
+            lineWidth: networkWidths.fill,
+            lineDasharray: [1.2, 1.8],
+            lineCap: 'butt',
+            lineJoin: 'round',
+          }}
+        />
+        <Mapbox.LineLayer
+          id="network-too-low-dots"
+          filter={['==', ['get', 'code'], 'too_low'] as never}
+          style={{
+            lineColor: 'rgba(255,255,255,0.85)',
+            lineWidth: 2,
+            // Near-zero dashes with round caps draw as a string of dots.
+            lineDasharray: [0.1, 2.2],
+            lineCap: 'round',
+            lineJoin: 'round',
+          }}
+        />
+
+        {/* ── The word, on the water ─────────────────────────────────────
+            From the names rung, each river carries its own name and its
+            condition word along the line — "Current River · Flood". This is
+            the cheapest carrier there is for a colour-blind reader and the
+            one that survives sun glare; it also stops the map being the one
+            screen in the app where the ladder appears without its word. The
+            label sits on the network's own geometry, so it draws with the
+            line and needs no second source. Unknown gets the name alone: "·
+            Unknown" along a river would read as a verdict about the river
+            rather than about the data. */}
+        <Mapbox.SymbolLayer
+          id="network-label"
+          minZoomLevel={ZOOM.names}
+          style={{
+            symbolPlacement: 'line',
+            symbolSpacing: 320,
+            textField: [
+              'concat',
+              ['get', 'name'],
+              [
+                'match',
+                ['get', 'code'],
+                ...CONDITION_ORDER.flatMap((code) => [code, ` · ${conditionLabel(code)}`]),
+                '',
+              ],
+            ],
+            textSize: 12,
+            textMaxAngle: 30,
+            textLetterSpacing: 0.02,
+            textColor: LABEL_INK,
+            textHaloColor: LABEL_HALO,
+            textHaloWidth: 1.5,
+            textPitchAlignment: 'viewport',
+          }}
+        />
       </Mapbox.ShapeSource>
 
       {/* FALLBACK ONLY, and usually empty. The network draws every curated

@@ -47,6 +47,27 @@ export function conditionInk(code: string): string {
 }
 
 /**
+ * The ink for text and icons ON a tinted condition chip, per scheme.
+ *
+ * ── The bug this ends ──────────────────────────────────────────────────────
+ * `conditionInk` is the canonical 800-level dark, chosen for the light `bg`
+ * tint over white. The same tint over Eddy's dark cards (primary-900 teal) is
+ * near black, and that ink sat on it at 1.1–1.6:1 — every verdict chip in the
+ * app, "Flood - Do Not Float" included, unreadable in dark mode. Fifteen files
+ * called conditionInk on a chip with no scheme check.
+ *
+ * Light keeps `ink`; dark takes the canonical `darkInk` (a 300-level of the
+ * same hue). Both clear 4.5:1 over every surface the app draws a chip on — the
+ * web suite composites and asserts it (condition-chip-contrast.test.ts). Use
+ * this on anything sitting on conditionBg; use conditionText for condition
+ * colour on a PLAIN card.
+ */
+export function conditionChipInk(code: string, isDark: boolean): string {
+  const def = CONDITION_SYSTEM[code as ConditionCode] ?? CONDITION_SYSTEM.unknown;
+  return isDark ? def.darkInk : def.ink;
+}
+
+/**
  * Condition colour for TEXT sitting on an ordinary card, not on a tinted chip.
  *
  * The two existing roles both assume a background: `solid` is drawn as a stripe

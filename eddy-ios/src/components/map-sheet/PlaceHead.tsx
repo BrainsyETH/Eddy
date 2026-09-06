@@ -170,7 +170,7 @@ export function PlaceHead({
           <Ionicons
             name={starred ? 'star' : 'star-outline'}
             size={19}
-            color={starred ? colors.warm : colors.textMuted}
+            color={starred ? colors.favorite : colors.textMuted}
           />
         </Pressable>
       ) : null}

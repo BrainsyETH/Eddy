@@ -94,7 +94,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { Ionicons } from '@expo/vector-icons';
 import type { RiverOutlookResponse } from '@eddy/types';
-import { conditionBg, conditionInk, conditionLabel } from '@/theme/conditions';
+import { conditionBg, conditionChipInk, conditionLabel, conditionText } from '@/theme/conditions';
 import { EddySymbol } from '@/components/EddySymbol';
 import { Otter } from '@/components/Otter';
 import { PREMIUM_LOCK_TITLE } from '@/lib/premiumCopy';
@@ -288,7 +288,7 @@ export function EddyTake({
   entitled = null,
   onUpgrade,
 }: EddyTakeProps) {
-  const { colors, elevation } = useTheme();
+  const { colors, elevation, isDark } = useTheme();
   const { sections, days } = outlook;
 
   // The long report when the server sent one, the single deterministic line
@@ -397,7 +397,7 @@ export function EddyTake({
                     ) : null}
                     {day.heatAdvisory ? (
                       <View style={[styles.heat, { backgroundColor: conditionBg('high') }]}>
-                        <Text style={[styles.heatText, { color: conditionInk('high') }]}>HEAT</Text>
+                        <Text style={[styles.heatText, { color: conditionChipInk('high', isDark) }]}>HEAT</Text>
                       </View>
                     ) : null}
                   </>
@@ -422,7 +422,7 @@ export function EddyTake({
                           <Text
                             style={[
                               styles.forecastCode,
-                              { color: conditionInk(day.river.conditionCode) },
+                              { color: conditionText(day.river.conditionCode, isDark) },
                             ]}
                             numberOfLines={1}
                           >

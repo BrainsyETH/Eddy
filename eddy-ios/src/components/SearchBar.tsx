@@ -68,7 +68,8 @@ function SearchBarComponent({
         // via hitSlop instead of the system's ~20pt glyph.
         <Pressable
           onPress={() => onChangeText('')}
-          hitSlop={12}
+          // 18pt glyph + 13pt each side = 44pt. It was 12, which is 42.
+          hitSlop={13}
           accessibilityRole="button"
           accessibilityLabel="Clear search"
         >
@@ -87,12 +88,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 9,
     paddingHorizontal: 13,
-    height: 42,
+    // A FLOOR, not a fixed height: 44 so the field is itself a full target,
+    // and free to grow at accessibility text sizes — a fixed 42 clipped a
+    // 14pt input at 3.1× scale. The map below reads the field's laid-out
+    // height, so growing is safe.
+    minHeight: 44,
     borderRadius: 12,
     borderWidth: 1,
   },
-  // No vertical padding and an explicit height on the row above: a TextInput
-  // with padding grows the row differently on each platform, and this field
-  // sits directly above a map that has to keep its size.
+  // No vertical padding on the input: a TextInput with padding grows the row
+  // differently on each platform. The row's own minHeight sets the size.
   input: { flex: 1, ...t.sm, fontFamily: fonts.body, padding: 0 },
 });

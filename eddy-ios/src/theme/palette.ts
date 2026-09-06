@@ -98,8 +98,42 @@ export interface Palette {
   cardRaised: string;
   border: string;
   text: string;
+  /**
+   * Secondary text. Clears AA (4.5:1) as body-size text on every surface of
+   * its scheme — see the note on `textSubtle`.
+   */
   textMuted: string;
+  /**
+   * Tertiary text: reading ages, provenance lines, chart axes, chip metadata.
+   *
+   * ── Why light is neutral-600, not 500 ────────────────────────────────────
+   * Neutral-500 (#857D70) is 4.07:1 on a white card and 3.76:1 on the canvas —
+   * under AA for the 12pt lines this role carries, which are exactly the lines
+   * that say "Updated 3 days ago" and "Mile 47.2 · Private". Hierarchy between
+   * muted and subtle is carried by size and weight, which is how it should be
+   * carried; colour alone was never a safe way to say "less important" at 12pt.
+   * Dark keeps its own two steps because both already clear.
+   */
   textSubtle: string;
+  /**
+   * The filled star: something the user follows.
+   *
+   * Sandbar Tan (`warm`) was 2.59:1 on a white card — under the 3:1 floor for
+   * a graphical object whose fill is the ONLY thing distinguishing followed
+   * from not. It is the `interactive` teal in both schemes: a filled star is a
+   * selection indicator, which is that role's own definition, and teal is the
+   * one family on the page that carries no verdict about water. `warm` stays
+   * for borders, fills and decorative emphasis.
+   */
+  favorite: string;
+  /**
+   * Text on a `warm`-bordered chip — "Unmaintained gravel", "4WD required".
+   *
+   * `warm` itself fails as text on light (2.59:1). This is the dark warm stone
+   * on light and the pale sand on dark, both from the doc's own scales, so the
+   * chip keeps its tan border and its words can be read at a glance.
+   */
+  warmInk: string;
   /** Sunset Coral — Eddy branding and decorative emphasis. NEVER a CTA fill. */
   accent: string;
   /**
@@ -270,7 +304,11 @@ export const darkPalette: Palette = {
   border: primary[700],
   text: '#FFFFFF',
   textMuted: primary[300],
-  textSubtle: neutral[400],
+  // 300, not 400: neutral-400 was 4.19:1 on the raised teal card, under AA for
+  // the 12pt lines this role carries. The contrast test pins it.
+  textSubtle: neutral[300],
+  favorite: primary[300],
+  warmInk: secondary[200],
   accent: accent[500],
   emphasisFill: accent[500],
   onEmphasis: neutral[950],
@@ -318,8 +356,13 @@ export const lightPalette: Palette = {
   cardRaised: secondary[50],
   border: neutral[200],
   text: neutral[900],
-  textMuted: neutral[600],
-  textSubtle: neutral[500],
+  // 700 and 600, one step darker each than before: 600 was the doc's
+  // "secondary text" and 500 the subtle line, and 500 fails AA at the sizes
+  // the subtle role is drawn at. See the role notes on the interface.
+  textMuted: neutral[700],
+  textSubtle: neutral[600],
+  favorite: primary[600],
+  warmInk: neutral[800],
   accent: accent[500],
   emphasisFill: accent[500],
   onEmphasis: neutral[950],

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState, type ReactNode } from 'react';
-import { Linking, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Otter } from '@/components/Otter';
 import { FirstRunPicker } from '@/components/FirstRunPicker';
@@ -125,7 +125,15 @@ export function OnboardingGate({ children }: { children: ReactNode }) {
 
   return (
     <SafeAreaView style={[styles.screen, { backgroundColor: colors.bg }]}>
-      <View style={styles.body}>
+      {/* A ScrollView, centred only while it fits: at accessibility text sizes
+          the title, two paragraphs, the disclaimer and the links outgrow an
+          iPhone SE, and a centred non-scrolling column clipped the top and the
+          bottom — the disclaimer among them. */}
+      <ScrollView
+        contentContainerStyle={styles.body}
+        alwaysBounceVertical={false}
+        showsVerticalScrollIndicator={false}
+      >
         <Otter mood="flag" size={110} />
         <Text style={[styles.title, { color: colors.text }]}>Know before you go</Text>
         <Text style={[styles.copy, { color: colors.textMuted }]}>Eddy helps you plan river trips using gauge readings, forecasts, and researched access information.</Text>
@@ -140,8 +148,8 @@ export function OnboardingGate({ children }: { children: ReactNode }) {
             <Text style={[styles.link, { color: colors.interactive }]}>Privacy Policy</Text>
           </Pressable>
         </View>
-      </View>
-      <View style={[styles.footer, { borderTopColor: colors.border }]}> 
+      </ScrollView>
+      <View style={[styles.footer, { borderTopColor: colors.border }]}>
         <Pressable
           accessibilityRole="button"
           onPress={() => void agree()}
@@ -157,7 +165,15 @@ export function OnboardingGate({ children }: { children: ReactNode }) {
 
 const styles = StyleSheet.create({
   screen: { flex: 1 },
-  body: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 30 },
+  // flexGrow rather than flex: a contentContainerStyle grows to fill and
+  // centres while the content is short, and scrolls once it is not.
+  body: {
+    flexGrow: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 30,
+    paddingVertical: 24,
+  },
   title: { ...t['2xl'], fontFamily: fonts.displayBold, textAlign: 'center', marginTop: 12 },
   copy: { ...t.sm, fontFamily: fonts.body, textAlign: 'center', marginTop: 12 },
   links: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 18 },

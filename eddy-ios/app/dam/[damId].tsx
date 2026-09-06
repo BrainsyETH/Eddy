@@ -468,7 +468,7 @@ export default function DamDetailScreen() {
           <Ionicons
             name={starred ? 'star' : 'star-outline'}
             size={24}
-            color={starred ? colors.warm : colors.textSubtle}
+            color={starred ? colors.favorite : colors.textSubtle}
           />
         </Pressable>
       </View>

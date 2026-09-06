@@ -29,7 +29,7 @@ import { serviceContactUrl } from '@/lib/planSupport';
 import { criticalHazards, hazardTypeLabel, portageNote, severityLabel, sortHazards } from '@eddy/hazards';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
-import { conditionBg, conditionChipBorder, conditionInk, conditionLabel } from '@/theme/conditions';
+import { conditionBg, conditionChipBorder, conditionChipInk, conditionLabel } from '@/theme/conditions';
 import { Absent, Fact, LinkRow, Prose, Section } from './sections';
 import { RiverHead } from './RiverHead';
 import { EddySymbol } from '../EddySymbol';
@@ -80,7 +80,7 @@ export interface RiverTabProps {
  * where it is drawn from the river's own condition code.
  */
 export function RiverConditionsTab({ river, onOpenGauge }: RiverTabProps) {
-  const { colors } = useTheme();
+  const { colors, isDark } = useTheme();
 
   if (!river.gauges.length) {
     return <Absent>No gauge grades this river yet, so Eddy has no reading for it.</Absent>;
@@ -117,7 +117,7 @@ export function RiverConditionsTab({ river, onOpenGauge }: RiverTabProps) {
                 },
               ]}
             >
-              <Text style={[styles.chipText, { color: conditionInk(gauge.code) }]}>
+              <Text style={[styles.chipText, { color: conditionChipInk(gauge.code, isDark) }]}>
                 {conditionLabel(gauge.code)}
               </Text>
             </View>

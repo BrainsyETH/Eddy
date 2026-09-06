@@ -50,8 +50,8 @@ import { fonts, type as t } from '@/theme/typography';
 import {
   conditionBg,
   conditionChipBorder,
+  conditionChipInk,
   conditionColor,
-  conditionInk,
   conditionLongLabel,
 } from '@/theme/conditions';
 import { EddySymbol } from '@/components/EddySymbol';
@@ -74,7 +74,7 @@ export function RiverHead({
   onClose: () => void;
   onOpenGauge: (siteId: string) => void;
 }) {
-  const { colors } = useTheme();
+  const { colors, isDark } = useTheme();
   const says = selectEddySays(useCachedEddyUpdate(river.slug));
 
   // The station the river is graded on. Falls back to the first, because a river
@@ -149,7 +149,7 @@ export function RiverHead({
               },
             ]}
           >
-            <Text style={[styles.chipText, { color: conditionInk(river.code) }]}>
+            <Text style={[styles.chipText, { color: conditionChipInk(river.code, isDark) }]}>
               {conditionLongLabel(river.code)}
             </Text>
           </View>

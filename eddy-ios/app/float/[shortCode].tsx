@@ -125,7 +125,7 @@ export default function SavedFloatScreen() {
               <Ionicons
                 name={saved ? 'star' : 'star-outline'}
                 size={22}
-                color={saved ? colors.warm : colors.textSubtle}
+                color={saved ? colors.favorite : colors.textSubtle}
               />
             </Pressable>
           ) : null}

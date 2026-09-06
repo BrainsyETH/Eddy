@@ -53,7 +53,7 @@ import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-nati
 import { Ionicons } from '@expo/vector-icons';
 import type { ConditionCode, RiverVisual, RiverVisualsResponse } from '@eddy/types';
 import { CONDITION_ORDER } from '@eddy/conditions';
-import { conditionBg, conditionChipBorder, conditionInk, conditionLabel } from '@/theme/conditions';
+import { conditionBg, conditionChipBorder, conditionChipInk, conditionLabel } from '@/theme/conditions';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
 import { formatReading } from '@/lib/readingCopy';
@@ -145,7 +145,7 @@ export function RiverVisuals({
    */
   onReportPhoto?: (visual: RiverVisual) => void;
 }) {
-  const { colors, elevation } = useTheme();
+  const { colors, elevation, isDark } = useTheme();
   const [level, setLevel] = useState<ConditionCode | null>(() => pickLevel(data));
 
   const bands = data.byLevel.filter((g) => g.visuals.length > 0);
@@ -211,7 +211,7 @@ export function RiverVisuals({
                 <Text
                   style={[
                     styles.levelText,
-                    { color: on ? conditionInk(group.code) : colors.textMuted },
+                    { color: on ? conditionChipInk(group.code, isDark) : colors.textMuted },
                   ]}
                 >
                   {conditionLabel(group.code)} {group.visuals.length}

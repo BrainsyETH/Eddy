@@ -13,10 +13,12 @@
 
 import { memo } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
-import { conditionBg, conditionChipBorder, conditionInk, conditionLabel } from '@/theme/conditions';
+import { conditionBg, conditionChipBorder, conditionChipInk, conditionLabel } from '@/theme/conditions';
+import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
 
 function ConditionCodeChipsInner({ codes }: { codes: string[] }) {
+  const { isDark } = useTheme();
   if (codes.length === 0) return null;
 
   return (
@@ -29,7 +31,7 @@ function ConditionCodeChipsInner({ codes }: { codes: string[] }) {
             { backgroundColor: conditionBg(code), borderColor: conditionChipBorder(code) },
           ]}
         >
-          <Text style={[styles.text, { color: conditionInk(code) }]}>{conditionLabel(code)}</Text>
+          <Text style={[styles.text, { color: conditionChipInk(code, isDark) }]}>{conditionLabel(code)}</Text>
         </View>
       ))}
     </View>

@@ -158,6 +158,7 @@ import {
   type GaugeFilterKey,
 } from '@/components/GaugeFilterBar';
 import { LayerZoomHint } from '@/components/LayerZoomHint';
+import { ConditionsKey } from '@/components/ConditionsKey';
 import { PlanSheet } from '@/components/PlanSheet';
 import { PinSheet } from '@/components/map-sheet/PinSheet';
 import { RiverSheetPanel } from '@/components/map-sheet/RiverSheetPanel';
@@ -2815,17 +2816,16 @@ export default function MapScreen() {
             </Pressable>
           ) : null}
 
-          {/* ── THERE IS NO CONDITION LEGEND HERE ANY MORE ───────────
-              It sat in this row, open by default, on the argument that the map
-              is the one screen where colour works alone and therefore the one
-              screen that owes the reader a key. The argument was sound and the
-              placement was not: a six-row card anchored over the water covered
-              the thing it was explaining, on the surface with the least room to
-              spare, permanently, for a ladder that is paired with its word on
-              every other screen in the app — the Today list, a river screen, an
-              alert, and the callout that opens the moment you tap any pin here.
-              Removed rather than moved: the map has no spare corner, and the
-              layers sheet already carries the marks it toggles. */}
+          {/* ── The key, one tap away, on the thumb's side ────────────
+              The always-open legend that used to sit here was removed for
+              covering the water it explained — sound — and its job went to a
+              sentence behind the ⓘ on the layers sheet, two taps deep, which
+              left the map as the one screen where colour worked alone. This is
+              the middle: a 44pt "Key" pill on the baseline beside Locate, and a
+              card that opens above it only when asked and closes on the next
+              tap. It hides with the rest of the controls while a sheet is open
+              or a search is live, same as Locate. See ConditionsKey. */}
+          {!unavailable && !search.active ? <ConditionsKey /> : null}
           </View>
         </Animated.View>
         )}

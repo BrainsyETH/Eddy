@@ -578,10 +578,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 7,
     paddingHorizontal: 11,
-    // 32pt tall rather than 44: these sit inside a modal sheet with a 44pt row
-    // above them and no neighbour below to mis-hit, and a full-height chip
-    // strip would push Done off a small screen.
+    // 44pt, the same floor FilterChips settled on. These were 32 on the
+    // argument that nothing below them could be mis-hit — but a wet thumb in
+    // glare misses a 32pt pill on its own, and the sheet scrolls, so the
+    // extra height costs a swipe rather than the Done button.
     paddingVertical: 7,
+    minHeight: 44,
     borderRadius: 999,
     borderWidth: 1,
   },

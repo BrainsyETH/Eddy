@@ -260,7 +260,7 @@ export function PlanSheet({
                       <Ionicons
                         name={saved ? 'star' : 'star-outline'}
                         size={17}
-                        color={saved ? colors.warm : colors.textMuted}
+                        color={saved ? colors.favorite : colors.textMuted}
                       />
                     )}
                     <Text
@@ -268,7 +268,6 @@ export function PlanSheet({
                         styles.saveButtonText,
                         { color: saved ? colors.text : colors.textMuted },
                       ]}
-                      numberOfLines={1}
                     >
                       {saved ? 'Saved' : 'Save'}
                     </Text>
@@ -292,10 +291,7 @@ export function PlanSheet({
                     ) : (
                       <Ionicons name="share-outline" size={17} color={colors.onAccent} />
                     )}
-                    <Text
-                      style={[styles.primaryButtonText, { color: colors.onAccent }]}
-                      numberOfLines={1}
-                    >
+                    <Text style={[styles.primaryButtonText, { color: colors.onAccent }]}>
                       Share
                     </Text>
                   </Pressable>
@@ -425,7 +421,9 @@ function Breadcrumb({
               size={15}
               style={{ opacity: done || current ? 1 : 0.45 }}
             />
-            <Text style={[styles.crumbValue, { color: ink }]} numberOfLines={1}>
+            {/* Two lines, not one: "Meramec State Park" in a third of the
+                width truncated at the default size and worse at AX sizes. */}
+            <Text style={[styles.crumbValue, { color: ink }]} numberOfLines={2}>
               {crumb.value ?? crumb.label}
             </Text>
           </Pressable>

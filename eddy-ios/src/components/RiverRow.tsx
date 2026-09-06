@@ -209,7 +209,7 @@ function RiverRowComponent({
         <Ionicons
           name={starred ? 'star' : 'star-outline'}
           size={21}
-          color={starred ? colors.warm : colors.textSubtle}
+          color={starred ? colors.favorite : colors.textSubtle}
         />
       </Pressable>
     </View>
@@ -243,7 +243,11 @@ const styles = StyleSheet.create({
   kindMark: { position: 'absolute', left: 12, top: 14 },
   titleLine: { flexDirection: 'row', alignItems: 'baseline', gap: 8 },
   name: { ...t.base, fontFamily: fonts.semibold, flexShrink: 1 },
-  conditionWord: { ...t.xs, fontFamily: fonts.semibold, flexShrink: 0 },
+  // 14pt, not 12. The stripe and the reading's ink carry the verdict for eyes
+  // that separate lime from yellow; for anyone who cannot, and for everyone in
+  // sun glare, this word is the only unambiguous carrier on the row — and it
+  // was the smallest text on it.
+  conditionWord: { ...t.sm, fontFamily: fonts.semibold, flexShrink: 0 },
   readingLine: { flexDirection: 'row', alignItems: 'baseline', gap: 8, marginTop: 3 },
   // Mono is functional, not decorative: proportional digits change width as the
   // number ticks, which would shift this row on every refresh.

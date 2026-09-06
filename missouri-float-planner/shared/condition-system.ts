@@ -45,6 +45,16 @@ export interface ConditionDef {
    * condition fills — use tint + ink. IDENTICAL in app and video.
    */
   ink: string;
+  /**
+   * Accessible LIGHT "ink" for text/icons on the `bg` tint over a DARK surface.
+   *
+   * `ink` is an 800-level dark chosen for white. Composited over the phone's
+   * dark cards (primary-900 teal, neutral-950 stone) the same tint is near
+   * black, and the dark ink sits on it at 1.1–1.6:1 — "Flood - Do Not Float"
+   * unreadable at 5am. This is the 300-level of the same hue, which clears AA
+   * on every dark surface the app draws. Pick by scheme; never by guessing.
+   */
+  darkInk: string;
   /** Border hex for tinted chips/badges (a mid tint of the same hue). */
   chipBorder: string;
   /** Short label for compact displays, e.g. "Flowing". */
@@ -71,6 +81,7 @@ export const CONDITION_SYSTEM: Record<ConditionCode, ConditionDef> = {
     bg: "rgba(239,68,68,0.15)",
     glow: "rgba(239,68,68,0.6)",
     ink: "#991B1B", // red-800
+    darkInk: "#FCA5A5", // red-300
     chipBorder: "#FCA5A5", // red-300
     label: "Flood",
     longLabel: "Flood - Do Not Float",
@@ -87,6 +98,7 @@ export const CONDITION_SYSTEM: Record<ConditionCode, ConditionDef> = {
     bg: "rgba(16,185,129,0.15)",
     glow: "rgba(16,185,129,0.5)",
     ink: "#065F46", // emerald-800
+    darkInk: "#6EE7B7", // emerald-300
     chipBorder: "#6EE7B7", // emerald-300
     label: "Flowing",
     longLabel: "Flowing",
@@ -101,6 +113,7 @@ export const CONDITION_SYSTEM: Record<ConditionCode, ConditionDef> = {
     bg: "rgba(132,204,22,0.15)",
     glow: "rgba(132,204,22,0.4)",
     ink: "#3F6212", // lime-800
+    darkInk: "#BEF264", // lime-300
     chipBorder: "#BEF264", // lime-300
     label: "Good",
     longLabel: "Good - Floatable",
@@ -114,6 +127,7 @@ export const CONDITION_SYSTEM: Record<ConditionCode, ConditionDef> = {
     bg: "rgba(249,115,22,0.2)",
     glow: "rgba(249,115,22,0.4)",
     ink: "#9A3412", // orange-800
+    darkInk: "#FDBA74", // orange-300
     chipBorder: "#FDBA74", // orange-300
     label: "High",
     longLabel: "High Water - Use Caution",
@@ -128,6 +142,7 @@ export const CONDITION_SYSTEM: Record<ConditionCode, ConditionDef> = {
     bg: "rgba(234,179,8,0.15)",
     glow: "rgba(234,179,8,0.3)",
     ink: "#854D0E", // yellow-800
+    darkInk: "#FCD34D", // yellow-300
     chipBorder: "#FCD34D", // yellow-300
     label: "Low",
     longLabel: "Low - Scraping Likely",
@@ -142,6 +157,7 @@ export const CONDITION_SYSTEM: Record<ConditionCode, ConditionDef> = {
     bg: "rgba(120,113,108,0.15)",
     glow: "rgba(120,113,108,0.2)",
     ink: "#44403C", // stone-700
+    darkInk: "#D6D3D1", // stone-300
     chipBorder: "#D6D3D1", // stone-300
     label: "Too Low",
     longLabel: "Too Low - Not Recommended",
@@ -156,6 +172,7 @@ export const CONDITION_SYSTEM: Record<ConditionCode, ConditionDef> = {
     bg: "rgba(156,163,175,0.15)",
     glow: "transparent",
     ink: "#374151", // gray-700
+    darkInk: "#D1D5DB", // gray-300
     chipBorder: "#D1D5DB", // gray-300
     label: "Unknown",
     longLabel: "Unknown",

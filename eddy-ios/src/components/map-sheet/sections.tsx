@@ -21,7 +21,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import type { AccessPointGaugeStatus, MapAccessPoint } from '@eddy/types';
 import { accessTypeLabel } from '@eddy/types';
-import { conditionBg, conditionChipBorder, conditionInk, conditionText } from '@/theme/conditions';
+import { conditionBg, conditionChipBorder, conditionChipInk, conditionText } from '@/theme/conditions';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
 import { formatReading } from '@/lib/readingCopy';
@@ -406,7 +406,7 @@ export function AccessGaugeReading({
             },
           ]}
         >
-          <Text style={[styles.readingChipText, { color: conditionInk(status.level) }]}>
+          <Text style={[styles.readingChipText, { color: conditionChipInk(status.level, isDark) }]}>
             {status.label}
           </Text>
         </View>

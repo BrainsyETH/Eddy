@@ -321,7 +321,15 @@ const styles = StyleSheet.create({
   // into the form rather than sitting over it.
   nimble: { ...t.xs, fontFamily: fonts.body, lineHeight: 17, marginTop: -2 },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 4 },
-  chip: { paddingHorizontal: 12, paddingVertical: 8, borderRadius: 999, borderWidth: 1 },
+  // 44pt floor, like every other chip row that takes a decision.
+  chip: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    minHeight: 44,
+    justifyContent: 'center',
+    borderRadius: 999,
+    borderWidth: 1,
+  },
   chipText: { ...t.xs, fontFamily: fonts.medium },
   hint: { ...t.xs, fontFamily: fonts.body },
   input: {

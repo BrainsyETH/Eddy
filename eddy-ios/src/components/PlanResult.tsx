@@ -45,8 +45,8 @@ import { hazardConditionCode, hazardTypeLabel, portageNote, sortHazards } from '
 import {
   conditionBg,
   conditionChipBorder,
+  conditionChipInk,
   conditionColor,
-  conditionInk,
   conditionLongLabel,
   conditionText,
 } from '@/theme/conditions';
@@ -90,8 +90,8 @@ export function PlanResult({ plan, actions }: Props) {
         >
           {plan.warnings.map((warning) => (
             <View key={warning} style={styles.warningRow}>
-              <Ionicons name="alert-circle" size={15} color={conditionInk(plan.condition.code)} />
-              <Text style={[styles.warningText, { color: conditionInk(plan.condition.code) }]}>
+              <Ionicons name="alert-circle" size={15} color={conditionChipInk(plan.condition.code, isDark)} />
+              <Text style={[styles.warningText, { color: conditionChipInk(plan.condition.code, isDark) }]}>
                 {warning}
               </Text>
             </View>
@@ -173,7 +173,7 @@ export function PlanResult({ plan, actions }: Props) {
           </>
         ) : (
           <>
-            <Text style={[styles.headline, { color: conditionColor(plan.condition.code) }]}>
+            <Text style={[styles.headline, { color: conditionText(plan.condition.code, isDark) }]}>
               No float time
             </Text>
             <Text style={[styles.headlineNote, { color: colors.textSubtle }]}>

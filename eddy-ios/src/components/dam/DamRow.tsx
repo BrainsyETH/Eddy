@@ -133,14 +133,15 @@ function DamRowComponent({
         {onToggleStar ? (
           <Pressable
             onPress={onToggleStar}
-            hitSlop={10}
+            // 19pt glyph + 13 each side = 45pt; 10 left it at 39.
+            hitSlop={13}
             accessibilityRole="button"
             accessibilityLabel={starred ? `Unstar ${dam.name}` : `Star ${dam.name}`}
           >
             <Ionicons
               name={starred ? 'star' : 'star-outline'}
               size={19}
-              color={starred ? colors.warm : colors.textSubtle}
+              color={starred ? colors.favorite : colors.textSubtle}
             />
           </Pressable>
         ) : null}

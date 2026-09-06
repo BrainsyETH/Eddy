@@ -61,12 +61,7 @@ import type {
 } from '@eddy/types';
 import { accessPointTypes, accessTypeLabel } from '@eddy/types';
 import { ApiError, fetchAccessPointDetail } from '@/api/client';
-import {
-  conditionBg,
-  conditionChipBorder,
-  conditionInk,
-  conditionText,
-} from '@/theme/conditions';
+import { conditionBg, conditionChipBorder, conditionChipInk, conditionText } from '@/theme/conditions';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
 import { formatReading } from '@/lib/readingCopy';
@@ -326,7 +321,7 @@ function GaugeCard({ status, onOpen }: { status: AccessPointGaugeStatus; onOpen:
             },
           ]}
         >
-          <Text style={[styles.chipText, { color: conditionInk(status.level) }]}>
+          <Text style={[styles.chipText, { color: conditionChipInk(status.level, isDark) }]}>
             {status.label}
           </Text>
         </View>
@@ -842,7 +837,7 @@ export default function AccessPointDetailScreen() {
                     <Text
                       style={[
                         styles.chipOutlineText,
-                        { color: demanding ? colors.warm : colors.textMuted },
+                        { color: demanding ? colors.warmInk : colors.textMuted },
                       ]}
                     >
                       {roadSurfaceLabel(surface)}
@@ -1099,12 +1094,15 @@ const styles = StyleSheet.create({
     marginHorizontal: 16,
     marginTop: 22,
   },
+  // 44pt: this is the one control that corrects the data, and it was a bare
+  // 12pt line with no hit area.
   reportRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 6,
-    marginTop: 14,
+    marginTop: 8,
+    minHeight: 44,
   },
   reportText: { ...t.xs, fontFamily: fonts.medium },
   body: { paddingBottom: 40 },
