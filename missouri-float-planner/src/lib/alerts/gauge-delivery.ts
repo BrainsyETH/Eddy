@@ -24,6 +24,7 @@ import { planDrain, spentOneShots } from './drain';
 import { isRuleLive, parentIdsOf, type GatedRule } from './gating';
 import { buildGaugeNotification, type GaugeEventKind } from './gauge-threshold';
 import { suppressedByQuietHours } from './quiet-hours';
+import { planRearm, REARMED_RULE_STATE, type SuppressedEvent } from './quiet-hours-rearm';
 import { disableTokens, recordTokenFailures } from './token-health';
 import { chunkMessages, classifyTicketError, sendExpoPush, type ExpoMessage } from '@/lib/push/expo';
 import type { AlertComparator, AlertMetric, AlertSubscriptionKind, NotificationPreferences } from '@/types/api';
@@ -47,6 +48,8 @@ export interface GaugeDeliveryStats {
   sent: number;
   failed: number;
   quietSuppressed: number;
+  /** Threshold rules put back on the far side of their line after a quiet window ended. */
+  rearmed: number;
   /** Events dropped because the rule, or its river alert, was paused since. */
   gated: number;
   retried: number;
@@ -60,6 +63,7 @@ const EMPTY: GaugeDeliveryStats = {
   sent: 0,
   failed: 0,
   quietSuppressed: 0,
+  rearmed: 0,
   gated: 0,
   retried: 0,
   givenUp: 0,
@@ -154,6 +158,15 @@ export async function deliverGaugeAlerts(
   now: Date = new Date(),
 ): Promise<GaugeDeliveryStats> {
   try {
+    // ── First, the debts from last night ────────────────────────────────────
+    // Before reading the outbox: any rule whose event was suppressed by quiet
+    // hours, for a user whose window has since ended, is put back on the far
+    // side of its line so the NEXT evaluation re-reads the current number and
+    // fires a fresh event if the water is still there. Ordered first so a
+    // pass that finds the window just closed re-arms before it drains anything
+    // new. See quiet-hours-rearm.ts for why this beats holding the old event.
+    const rearmed = await rearmAfterQuietHours(supabase, now);
+
     const cutoff = new Date(now.getTime() - MAX_EVENT_AGE_HOURS * 60 * 60 * 1000).toISOString();
 
     const { data: pending, error } = await supabase
@@ -172,11 +185,11 @@ export async function deliverGaugeAlerts(
 
     if (error) {
       logger.error('[deliver-push:gauge] could not read outbox', error);
-      return EMPTY;
+      return { ...EMPTY, rearmed };
     }
 
     const rows = pending ?? [];
-    if (rows.length === 0) return EMPTY;
+    if (rows.length === 0) return { ...EMPTY, rearmed };
 
     const expired = rows.filter((r: { detected_at: string }) => r.detected_at < cutoff);
     if (expired.length > 0) {
@@ -185,7 +198,7 @@ export async function deliverGaugeAlerts(
 
     const fresh = rows.filter((r: { detected_at: string }) => r.detected_at >= cutoff);
     if (fresh.length === 0) {
-      return { ...EMPTY, events: rows.length, expired: expired.length };
+      return { ...EMPTY, events: rows.length, expired: expired.length, rearmed };
     }
 
     const userIds = [...new Set(fresh.map((r: { user_id: string }) => r.user_id))] as string[];
@@ -215,6 +228,8 @@ export async function deliverGaugeAlerts(
     const planned: PlannedGaugeMessage[] = [];
     let quietSuppressed = 0;
     let gated = 0;
+    /** Suppressed by quiet hours this pass: recorded on the row, not merely drained. */
+    const quietSuppressedIds: string[] = [];
 
     /**
      * ── The gate, re-checked at SEND ────────────────────────────────────────
@@ -239,6 +254,10 @@ export async function deliverGaugeAlerts(
         quietSuppressed++;
         // Counted as handled, not retried. The window outlives MAX_EVENT_AGE_HOURS,
         // so leaving it in the outbox would only burn attempts until it expired.
+        // RECORDED, though: the row is tagged so the re-arm step at the top of
+        // the next passes can put the rule back once the window ends, and so
+        // the activity list can say what the night held back.
+        quietSuppressedIds.push(row.id as string);
         continue;
       }
 
@@ -446,6 +465,15 @@ export async function deliverGaugeAlerts(
     for (const [attempts, ids] of retryByNextAttempt) {
       await supabase.from('gauge_alert_events').update({ push_attempts: attempts }).in('id', ids);
     }
+    // Tag BEFORE the drain stamp so a pass that dies between the two leaves a
+    // row that is suppressed-and-pending (retried, re-tagged) rather than
+    // drained-and-anonymous (lost).
+    if (quietSuppressedIds.length > 0) {
+      await supabase
+        .from('gauge_alert_events')
+        .update({ suppressed_reason: 'quiet_hours' })
+        .in('id', quietSuppressedIds);
+    }
     await markDelivered(supabase, delivered);
 
     if (givenUp > 0) {
@@ -462,6 +490,7 @@ export async function deliverGaugeAlerts(
       sent,
       failed,
       quietSuppressed,
+      rearmed,
       gated,
       retried: fresh.length - delivered.length,
       givenUp,
@@ -469,6 +498,83 @@ export async function deliverGaugeAlerts(
   } catch (error) {
     logger.error('[deliver-push:gauge] pass failed', error);
     return EMPTY;
+  }
+}
+
+/**
+ * Put back every threshold rule whose quiet-hours suppression has now lapsed.
+ *
+ * Reads the small set of suppressed-and-not-yet-rearmed events, decides per
+ * user whether the window has ended (planRearm), writes the rule state that
+ * lets the next evaluation fire afresh, and stamps the events so they leave
+ * the lookup. Never throws — a failure here costs one pass of latency on the
+ * morning notification and nothing else, and must not stop the drain.
+ *
+ * Returns the number of rules re-armed, for the pass's stats.
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function rearmAfterQuietHours(supabase: any, now: Date): Promise<number> {
+  try {
+    const { data, error } = await supabase
+      .from('gauge_alert_events')
+      .select('id, subscription_id, user_id, gauge_alert_subscriptions!inner(mode)')
+      .not('suppressed_reason', 'is', null)
+      .is('rearmed_at', null)
+      .order('detected_at', { ascending: true })
+      .limit(EVENT_BATCH);
+
+    if (error) {
+      logger.error('[deliver-push:gauge] could not read suppressed events', error);
+      return 0;
+    }
+    const rows = data ?? [];
+    if (rows.length === 0) return 0;
+
+    const suppressed: SuppressedEvent[] = rows.map(
+      (row: {
+        id: string;
+        subscription_id: string;
+        user_id: string;
+        gauge_alert_subscriptions: { mode: 'condition' | 'threshold' } | { mode: 'condition' | 'threshold' }[];
+      }) => ({
+        id: row.id,
+        subscriptionId: row.subscription_id,
+        userId: row.user_id,
+        mode: one(row.gauge_alert_subscriptions)?.mode ?? 'threshold',
+      }),
+    );
+
+    const userIds = [...new Set(suppressed.map((s) => s.userId))];
+    const { data: prefsData } = await supabase
+      .from('notification_preferences')
+      .select('user_id, quiet_hours_enabled, quiet_start_minute, quiet_end_minute, timezone, safety_overrides_quiet')
+      .in('user_id', userIds);
+
+    const prefsByUser = new Map<string, NotificationPreferences>();
+    for (const row of prefsData ?? []) prefsByUser.set(row.user_id, toPreferences(row));
+
+    const plan = planRearm(suppressed, prefsByUser, now);
+    if (plan.eventIds.length === 0) return 0;
+
+    // The rule first, then the stamp: a pass that dies between the two re-arms
+    // the same rule again next time, which is idempotent, rather than stamping
+    // an event whose rule was never put back.
+    if (plan.subscriptionIds.length > 0) {
+      await supabase
+        .from('gauge_alert_subscriptions')
+        .update(REARMED_RULE_STATE)
+        .in('id', plan.subscriptionIds)
+        .eq('mode', 'threshold');
+    }
+    await supabase
+      .from('gauge_alert_events')
+      .update({ rearmed_at: now.toISOString() })
+      .in('id', plan.eventIds);
+
+    return plan.subscriptionIds.length;
+  } catch (error) {
+    logger.error('[deliver-push:gauge] re-arm after quiet hours failed', error);
+    return 0;
   }
 }
 

@@ -82,7 +82,12 @@ import type {
   RiverAlert,
   RiverAlertSeverity,
 } from '@eddy/types';
-import { ApiError, fetchHighWater, fetchRiverAlerts } from '@/api/client';
+import { ApiError, fetchAlertEvents, fetchHighWater, fetchRiverAlerts } from '@/api/client';
+import type { AlertEventEntry } from '@eddy/types';
+import { usePush } from '@/hooks/usePush';
+import { useSession } from '@/hooks/useSession';
+import { PushDeliveryBanner, pushDeliveryBlocked } from '@/components/PushDeliveryBanner';
+import { AlertActivityList } from '@/components/AlertActivityList';
 import { conditionBg, conditionColor, conditionInk } from '@/theme/conditions';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
@@ -227,6 +232,40 @@ export default function AlertsScreen() {
   } = useAlertRules();
   const { colors, elevation } = useTheme();
   const router = useRouter();
+  const push = usePush();
+  const { getAccessToken } = useSession();
+
+  /**
+   * Whether a push can reach THIS phone right now.
+   *
+   * The list used to read "Never sent · watching since June" under every rule
+   * regardless, which reads as working. When this is true the banner above
+   * the list names the blocker and its fix, and every row says the same thing
+   * in fewer words — so the screen cannot describe the server as watching
+   * while the phone cannot be reached.
+   */
+  const pushBlocked = pushDeliveryBlocked({
+    permission: push.permission,
+    optedOut: push.optedOut,
+    registered: push.registered,
+  });
+
+  /**
+   * What the rules DID this week — sent, held back by quiet hours, or never
+   * reached a phone. Null while signed out or when the route is unreachable;
+   * the list renders nothing for either, because an empty "Recent activity"
+   * heading is a claim that nothing happened.
+   */
+  const [events, setEvents] = useState<AlertEventEntry[] | null>(null);
+  const loadEvents = useCallback(async () => {
+    const token = await getAccessToken();
+    if (!token) {
+      setEvents(null);
+      return;
+    }
+    const list = await fetchAlertEvents(token).catch(() => null);
+    setEvents(list);
+  }, [getAccessToken]);
 
   const load = useCallback(async (signal?: AbortSignal) => {
     try {
@@ -283,14 +322,20 @@ export default function AlertsScreen() {
   useFocusEffect(
     useCallback(() => {
       void refreshRules();
-    }, [refreshRules]),
+      // The activity list too: a push that just buzzed is the reason the tab
+      // was opened, and its row should be there when it comes forward.
+      void loadEvents();
+      // And the phone's own state — permission can change in Settings while
+      // the app is backgrounded, and the banner has to notice on return.
+      void push.refresh();
+    }, [refreshRules, loadEvents, push]),
   );
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
-    await Promise.all([load(), loadNotices(), refreshRules()]);
+    await Promise.all([load(), loadNotices(), refreshRules(), loadEvents()]);
     setRefreshing(false);
-  }, [load, loadNotices, refreshRules]);
+  }, [load, loadNotices, refreshRules, loadEvents]);
 
   /**
    * A rule's switch — a river alert's, a gauge alert's, either.
@@ -525,7 +570,25 @@ export default function AlertsScreen() {
             <>
               {header}
               <QuietHoursRow />
+              {/* Only when there are rules for it to be wrong about. A person
+                  with no alerts has not been promised anything yet. */}
+              {pushBlocked && rules && rules.length > 0 ? (
+                <PushDeliveryBanner
+                  state={{
+                    permission: push.permission,
+                    optedOut: push.optedOut,
+                    registered: push.registered,
+                  }}
+                  // The banner is the primer here: it says what the prompt is
+                  // for, and the tap is explicit. Same reasoning as Profile.
+                  onEnable={() => void push.enable()}
+                  onRetry={() => void push.refresh()}
+                />
+              ) : null}
             </>
+          }
+          ListFooterComponent={
+            rules && rules.length > 0 ? <AlertActivityList events={events} /> : null
           }
           ListEmptyComponent={
             <View style={styles.empty}>
@@ -643,6 +706,7 @@ export default function AlertsScreen() {
                   <AlertRuleRow
                     rule={parent}
                     childCount={count}
+                    pushOff={pushBlocked}
                     // `source` rides along because the two tables are addressed
                     // differently on write — a gauge rule by its own id, a river
                     // subscription by riverId — and the edit screen must not have
@@ -667,6 +731,7 @@ export default function AlertsScreen() {
                       key={`${child.source}:${child.id}`}
                       rule={child}
                       nested
+                      pushOff={pushBlocked}
                       // Held off by the river alert above, with its own switch
                       // still reading on — because it IS on, and the gate is
                       // what stops it. Nothing else on the row could explain

@@ -32,10 +32,12 @@ export function notificationDetail({
     return 'Push alerts need a real device — the simulator cannot receive them.';
   }
   if (permission === 'denied') {
-    return 'Notifications are turned off for Eddy in iOS Settings. Alerts still appear in the Alerts tab.';
+    // No promise about a feed: the Alerts tab shows your rules and the
+    // statewide high-water snapshot, not the changes this phone missed.
+    return 'Notifications are turned off for Eddy in iOS Settings. Your alerts stay saved, but nothing can reach this phone until you turn them back on.';
   }
   if (!signedIn) {
-    return 'Sign in to get alerts on this device. The Alerts tab works without an account.';
+    return 'Sign in to get alerts on this device. Conditions and high water stay free without an account.';
   }
   if (optedOut) {
     return 'Alerts are stopped on this device. Turn them on when you want to resume notifications.';

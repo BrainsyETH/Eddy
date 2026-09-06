@@ -263,7 +263,12 @@ export function buildGaugeNotification(input: GaugeNotificationInput): {
   // The station name is the fallback and the only option on the national tier.
   const target = input.riverName ?? input.stationName;
 
-  if (input.kind === 'threshold') {
+  // Keyed on the rule's MODE, not the event kind. A custom "rises above N"
+  // whose N sits at or above the station's high-water line is emitted as a
+  // `warning` so quiet hours let it through — but it is still the user's own
+  // number that tripped, and the copy has to read that number back rather than
+  // announce a condition the rule never graded.
+  if (input.rule.mode === 'threshold') {
     const metric: AlertMetric =
       input.readingUnit === 'cfs' ? 'discharge_cfs' : 'gauge_height_ft';
     const reading =
@@ -436,7 +441,7 @@ export function evaluateSubscription(input: EvalInput): EvalResult {
       user_id: sub.user_id,
       gauge_station_id: sub.gauge_station_id,
       river_id: sub.river_id,
-      kind: 'threshold',
+      kind: isHighWaterLine(sub, ladder, unit) ? 'warning' : 'threshold',
       reading_value: value,
       reading_unit: unit,
       reading_at: reading.reading_at,
@@ -445,6 +450,39 @@ export function evaluateSubscription(input: EvalInput): EvalResult {
     state: { ...state, last_triggered_at: now.toISOString() },
     skip: null,
   };
+}
+
+/**
+ * Is this custom level a flood line in all but name?
+ *
+ * A "rises above N" whose N sits at or above the station's own high-water
+ * threshold is the user drawing Eddy's warning line for themselves — and on the
+ * ~14,000 stations Eddy has not rated it is the ONLY way to draw one, because
+ * "Eddy's call" needs a ladder. The quiet-hours screen promises that "high and
+ * dangerous water still wakes you"; until this, that promise held for Eddy's
+ * lines and not for the user's, so a self-set flood alert was silenced at 3am
+ * while the screen said otherwise.
+ *
+ * Emitting the crossing as a `warning` is what makes it true: quiet hours let
+ * warnings through, and deliver-push sends them at high priority. Everything
+ * else about the event is unchanged — the copy still reads the user's number
+ * back (buildGaugeNotification keys on the rule's MODE, not the kind).
+ *
+ * Conservative on purpose. Only `above`, only against a ladder in the SAME unit
+ * as the rule (a cfs line is not compared to a feet ladder), and only at or
+ * over levelHigh. A "drops below" is never a warning, whatever its number.
+ */
+export function isHighWaterLine(
+  sub: Pick<GaugeAlertSubscription, 'comparator' | 'threshold_value' | 'metric'>,
+  ladder: LadderRow | null,
+  unit: 'ft' | 'cfs',
+): boolean {
+  if (sub.comparator !== 'above') return false;
+  if (!ladder || ladder.levelHigh == null) return false;
+  if ((ladder.thresholdUnit ?? 'ft') !== unit) return false;
+  const line = Number(sub.threshold_value);
+  if (!Number.isFinite(line)) return false;
+  return line >= ladder.levelHigh;
 }
 
 export interface PlanInput {

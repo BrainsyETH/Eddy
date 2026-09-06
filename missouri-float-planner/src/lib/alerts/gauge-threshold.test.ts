@@ -349,6 +349,70 @@ test('warnings break through quiet hours; everything else is dropped', () => {
   assert.equal(suppressedByQuietHours(null, 'threshold', night), false);
 });
 
+// ── a custom flood line is a warning, and wakes you ─────────────
+
+test('a "rises above" at or over the high-water line is emitted as a warning', () => {
+  // LADDER.levelHigh is 5 ft. A user who draws their own line there or above
+  // has drawn Eddy's warning line; quiet hours must treat it as one.
+  const atLine = evaluate(sub({ threshold_value: 5 }), reading({ gauge_height_ft: 5.2 }), LADDER);
+  assert.equal(atLine.fired?.kind, 'warning');
+  const overLine = evaluate(sub({ threshold_value: 6 }), reading({ gauge_height_ft: 6.1 }), LADDER);
+  assert.equal(overLine.fired?.kind, 'warning');
+
+  const night = new Date('2026-07-28T08:00:00Z');
+  assert.equal(suppressedByQuietHours(prefs(), atLine.fired!.kind, night), false);
+});
+
+test('a "rises above" below the high-water line stays an ordinary threshold', () => {
+  const result = evaluate(sub({ threshold_value: 3 }), reading({ gauge_height_ft: 3.4 }), LADDER);
+  assert.equal(result.fired?.kind, 'threshold');
+});
+
+test('"drops below" is never a warning, and neither is a line with no ladder', () => {
+  const below = evaluate(
+    sub({ comparator: 'below', threshold_value: 6, last_state: 'outside' }),
+    reading({ gauge_height_ft: 5.5 }),
+    LADDER,
+  );
+  assert.equal(below.fired?.kind, 'threshold');
+  // The national tier: no ladder, so nothing to call "high".
+  const unrated = evaluate(sub({ threshold_value: 9 }), reading({ gauge_height_ft: 9.5 }), null);
+  assert.equal(unrated.fired?.kind, 'threshold');
+});
+
+test('a cfs line is not judged against a feet ladder', () => {
+  const result = evaluate(
+    sub({ metric: 'discharge_cfs', threshold_value: 6, last_value: 400 }),
+    reading({ discharge_cfs: 480 }),
+    LADDER,
+  );
+  assert.equal(result.fired?.kind, 'threshold');
+});
+
+test('a warning from a custom line still reads the user\'s number back', () => {
+  // Keyed on the rule's mode: the copy must not announce a condition the rule
+  // never graded ("Conditions changed to unknown").
+  const note = buildGaugeNotification({
+    stationName: 'Current River at Van Buren',
+    riverName: 'Current River',
+    kind: 'warning',
+    readingValue: 6.1,
+    readingUnit: 'ft',
+    conditionCode: null,
+    rule: {
+      mode: 'threshold',
+      conditionKind: null,
+      metric: 'gauge_height_ft',
+      comparator: 'above',
+      thresholdValue: 6,
+      thresholdValueMax: null,
+    },
+  });
+  assert.match(note.title, /Current River is at 6\.1/);
+  assert.match(note.body, /above/);
+  assert.doesNotMatch(note.body, /unknown/);
+});
+
 // ── plan + copy ──────────────────────────────────────────────────
 
 test('planGaugeAlerts tallies every rule exactly once', () => {

@@ -59,6 +59,17 @@ interface Props {
    * changes nothing.
    */
   gated?: boolean;
+  /**
+   * This phone cannot receive a push right now — permission denied, opted out,
+   * or never registered.
+   *
+   * The row used to read "Never sent · watching since June" regardless, which
+   * reads as WORKING. A rule can be on and the server can be watching while
+   * nothing can reach the device, and the row is the place the reader looks to
+   * judge whether the silence is the river or the phone. The banner above the
+   * list carries the action; this line stops the row contradicting it.
+   */
+  pushOff?: boolean;
 }
 
 /** A spent one-shot: it has already fired and will not fire again unarmed. */
@@ -77,6 +88,7 @@ function AlertRuleRowInner({
   nested = false,
   childCount = 0,
   gated = false,
+  pushOff = false,
 }: Props) {
   const { colors, elevation } = useTheme();
 
@@ -186,6 +198,13 @@ function AlertRuleRowInner({
           // again is true and useless.
           <Text style={[styles.meta, { color: colors.textSubtle }]}>
             Already sent — tap to set it again
+          </Text>
+        ) : pushOff && rule.enabled ? (
+          // Wins over lastSentNote: "watching since June" on a phone that
+          // cannot be reached describes the server, and the reader is asking
+          // about the phone.
+          <Text style={[styles.meta, { color: colors.textMuted }]}>
+            Rule on · notifications off on this phone
           </Text>
         ) : sentNote ? (
           <Text style={[styles.meta, { color: colors.textSubtle }]}>{sentNote}</Text>

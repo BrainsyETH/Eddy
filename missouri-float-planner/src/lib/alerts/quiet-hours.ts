@@ -19,14 +19,32 @@
 // I/O-free like gate.ts and gating.ts beside it: the callers do the querying,
 // this owns the policy, so every case is testable without a database.
 //
-// ── This suppresses; it does not queue ──────────────────────────────────────
+// ── This suppresses; it does not queue — but the rule is RE-ARMED ────────────
 //
 // Both passes discard events older than three hours, because "your river is
 // floatable" must never fire about water that has since dropped, and a quiet
-// window is typically eight. Holding an alert until morning would therefore
-// deliver a stale promise or, far more often, nothing at all. The Alerts feed
-// is the durable record and is still there when the user wakes up. The
-// quiet-hours screen in the app says exactly this, on purpose.
+// window is typically eight. Holding the night's event until morning would
+// therefore deliver a stale reading or, far more often, nothing at all.
+//
+// What used to happen next was worse than either: the suppressed event was
+// drained, the rule's crossing state had already advanced, and a "drops below
+// 3 ft" that crossed at 2am was never heard about — not at 7am, not ever, until
+// the river rose back out of the band and fell in again. The app meanwhile
+// promised the change would be waiting "in the Alerts feed", which had been
+// replaced by a high-water snapshot that a falling river never appears in.
+//
+// So a suppressed threshold event is now RECORDED (suppressed_reason on the
+// row) and, once the user's window has ended, the rule's crossing state is put
+// back on the far side of its line — see quiet-hours-rearm.ts and the top of
+// deliverGaugeAlerts. The next evaluation then reads the CURRENT number and
+// fires a fresh event if the water is still there. Nothing stale is ever sent;
+// nothing true is ever lost.
+//
+// ── What breaks through ─────────────────────────────────────────────────────
+// `warning` events, when the user has left safetyOverridesQuiet on. A custom
+// "rises above N" rule whose N sits at or above the station's high-water line
+// is emitted AS a warning by the evaluator (gauge-threshold.ts), so a flood
+// line somebody drew for themselves wakes them like Eddy's own would.
 
 import type { NotificationPreferences } from '@/types/api';
 

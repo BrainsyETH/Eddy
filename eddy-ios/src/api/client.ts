@@ -65,6 +65,8 @@ import type {
   AlertRuleSeed,
   AlertRuleScope,
   AlertRulesResponse,
+  AlertEventEntry,
+  AlertEventsResponse,
   NotificationPreferences,
   NotificationPreferencesResponse,
   MeEntitlement,
@@ -1514,6 +1516,21 @@ export async function fetchAlertRules(
 ): Promise<AlertRule[] | null> {
   const data = await authed<AlertRulesResponse>('/api/me/alerts', token, { signal });
   return data ? (data.rules ?? []) : null;
+}
+
+/**
+ * What the caller's gauge alerts did this week — sent, held back by quiet
+ * hours, or never reached a phone. The durable record the removed "Alerts
+ * feed" was once claimed to be. Null when the session is unusable; an empty
+ * array when nothing happened. A deploy that predates the route answers 404,
+ * which `authed` surfaces as null — the list simply does not render.
+ */
+export async function fetchAlertEvents(
+  token: string,
+  signal?: AbortSignal,
+): Promise<AlertEventEntry[] | null> {
+  const data = await authed<AlertEventsResponse>('/api/me/alert-events', token, { signal });
+  return data ? (data.events ?? []) : null;
 }
 
 export interface CreateGaugeAlertInput {

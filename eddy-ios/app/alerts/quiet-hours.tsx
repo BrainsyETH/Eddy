@@ -310,7 +310,8 @@ export default function QuietHoursScreen() {
                   Let safety warnings through
                 </Text>
                 <Text style={[styles.optionHint, { color: colors.textMuted }]}>
-                  High and dangerous water still wakes you.
+                  High and dangerous water still wakes you — including a level of your own set
+                  at or above a river&apos;s high-water line.
                 </Text>
               </View>
               <Switch
@@ -320,12 +321,18 @@ export default function QuietHoursScreen() {
               />
             </Pressable>
 
-            {/* The honesty line, and the reason this screen has a paragraph. */}
+            {/* The honesty line, and the reason this screen has a paragraph.
+                It used to promise "every change in the Alerts feed" — a feed
+                that no longer exists — and said nothing about what happens to
+                a level crossed at 2am. The server now re-checks such a rule
+                when the window ends and sends once if the water is still
+                there; a reading from the night itself is never sent, because
+                it would be hours stale by the time anyone read it. */}
             <Text style={[styles.footnote, { color: colors.textSubtle }]}>
-              Alerts during quiet hours are skipped, not saved for later — a
-              river reading goes stale within a few hours, so an old one would
-              be worse than none. You will still see every change in the Alerts
-              feed.
+              An alert that trips during quiet hours is not sent from the night&apos;s reading —
+              that number would be hours old by morning. When the window ends, Eddy checks
+              the level again and sends once if the water is still there. Recent activity,
+              including anything quiet hours held back, is listed under your alerts.
             </Text>
 
             {/* ── WHICH CLOCK, and a way to change the answer ──────────────

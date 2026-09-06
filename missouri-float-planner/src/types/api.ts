@@ -1253,6 +1253,52 @@ export interface AlertRulesResponse {
 }
 
 /**
+ * What happened to a gauge alert, for GET /api/me/alert-events.
+ *
+ * One row per evaluation that owed the user a notification, with the outcome
+ * the drain recorded: sent to at least one device, held back by quiet hours
+ * (and whether the rule has since been re-armed), drained without reaching a
+ * device, or still in the outbox. This is the durable record the removed
+ * "Alerts feed" was once claimed to be — per user, and honest about the ones
+ * that never arrived.
+ */
+export type AlertEventStatus = 'sent' | 'suppressed' | 'not_delivered' | 'pending';
+
+export interface AlertEventEntry {
+  id: string;
+  subscriptionId: string;
+  scope: AlertRuleScope;
+  kind: 'threshold' | 'floatable' | 'warning' | 'easing';
+  riverName: string | null;
+  gaugeName: string | null;
+  readingValue: number | null;
+  readingUnit: 'ft' | 'cfs' | null;
+  conditionCode: string | null;
+  /** When the river was measured. */
+  readingAt: string | null;
+  /** When the evaluator noticed. */
+  detectedAt: string;
+  status: AlertEventStatus;
+  /** Why it was not sent, when it was not. Only 'quiet_hours' today. */
+  suppressedReason: 'quiet_hours' | null;
+  /** Set once a quiet-hours suppression has lapsed and the rule was re-armed. */
+  rearmedAt: string | null;
+  /** The rule as it stood, so a client can describe it with describeAlertRule. */
+  rule: {
+    mode: AlertRuleMode;
+    conditionKind: AlertSubscriptionKind | null;
+    metric: AlertMetric | null;
+    comparator: AlertComparator | null;
+    thresholdValue: number | null;
+    thresholdValueMax: number | null;
+  };
+}
+
+export interface AlertEventsResponse {
+  events: AlertEventEntry[];
+}
+
+/**
  * The reading a rule was seeded from, returned by POST /api/me/gauge-alerts.
  * A new rule already knows which side of its threshold the river is on, so it
  * fires on the next CROSSING rather than immediately; the app needs this to say

@@ -38,14 +38,15 @@ test('a denied permission outranks being signed out', () => {
   assert.doesNotMatch(detail, /sign in/i);
 });
 
-test('a denied permission still points at the free feed', () => {
-  // Someone who declined push has not lost the alerts themselves — the feed is
-  // free and does not need an account. Saying so is the difference between a
-  // dead end and a redirect.
-  assert.match(
-    notificationDetail({ permission: 'denied', registered: false, signedIn: true }),
-    /Alerts tab/,
-  );
+test('a denied permission says the rules are kept and nothing can reach the phone', () => {
+  // It used to promise the changes would be waiting "in the Alerts tab". That
+  // tab shows the rules and a statewide high-water snapshot, not the changes
+  // this phone missed — so the sentence now says what is true: the alerts are
+  // saved, and nothing arrives until notifications are back on.
+  const detail = notificationDetail({ permission: 'denied', registered: false, signedIn: true });
+  assert.doesNotMatch(detail, /Alerts tab|feed/i);
+  assert.match(detail, /stay saved/);
+  assert.match(detail, /nothing can reach this phone/i);
 });
 
 test('being signed out is named before the prompt is offered', () => {
