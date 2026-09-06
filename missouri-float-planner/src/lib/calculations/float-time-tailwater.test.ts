@@ -255,3 +255,84 @@ test('the reason travels with the absence, and the iOS plan card branches on it'
     assert.match(source, /planShareSummary/, `${surface} must share through planCopy`);
   }
 });
+
+// ── The reach, not the river; the caveat, not a claim ───────────────────────
+//
+// Migration 00204 lets a river_sections row override rivers.river_type, and
+// the Black is the live case: the reach below Clearwater Dam is a tailwater
+// while the row says spring-fed. Both callers read the row, so the one
+// tailwater with active access points got neither the refusal nor the caveat.
+// And the caveat itself said "Built from the current dam release" about a
+// number that read a downstream gauge, or — on the published-time branch — no
+// flow at all. These ratchets pin the resolution and the wording.
+
+test('both call sites resolve the river type at the put-in reach, with the row as fallback', () => {
+  for (const [name, src] of [
+    ['/api/plan', PLAN_ROUTE],
+    ['chat', CHAT_HANDLERS],
+  ] as const) {
+    assert.match(
+      src,
+      /reachRiverTypeAtMile/,
+      `${name} must resolve the reach type at the put-in mile`,
+    );
+    // The river row feeds the resolver as its fallback and nothing else: no
+    // direct hand-off of `river.river_type` into the float-time decision.
+    assert.doesNotMatch(
+      src,
+      /floatTimeWithholding\(\s*[^)]*river\.river_type/,
+      `${name} must not pass river.river_type straight into floatTimeWithholding`,
+    );
+    assert.doesNotMatch(
+      src,
+      /riverType: river\.river_type/,
+      `${name} must not pass river.river_type straight into calculateFloatTime`,
+    );
+  }
+  assert.doesNotMatch(
+    PLAN_ROUTE,
+    /releaseDependent = river\.river_type/,
+    '/api/plan must derive releaseDependent from the reach-resolved type',
+  );
+});
+
+test('usedLiveDischarge means the flow model ran, not that a discharge was in hand', () => {
+  // The published-time branch scales an outfitter figure by condition band and
+  // never reads the flow; the card must not say "in today's water" under it.
+  assert.match(PLAN_ROUTE, /usedLiveDischarge: floatTimeResult\.model === 'flow'/);
+  assert.doesNotMatch(PLAN_ROUTE, /usedLiveDischarge: dischargeCfs != null/);
+  // And the caveat can name the station it read.
+  assert.match(PLAN_ROUTE, /gaugeName: condition\?\.gauge_name/);
+});
+
+test('every surface that prints a tailwater time prints the shared caveat', () => {
+  // Chat: the note field carries the caveat when a time IS quoted, so the model
+  // cannot hand an angler a number without the sentence that qualifies it.
+  assert.match(CHAT_HANDLERS, /releaseCaveat\(/, 'chat must build the release caveat');
+  assert.match(CHAT_HANDLERS, /from '@shared\/float-time-caveat'/);
+
+  // iOS: the card no longer carries its own sentence.
+  const planResult = readFileSync(
+    join(process.cwd(), '../eddy-ios/src/components/PlanResult.tsx'),
+    'utf-8',
+  );
+  assert.doesNotMatch(planResult, /Built from the current dam release/);
+  assert.doesNotMatch(planResult, /Valid only at the current dam release/);
+  assert.match(planResult, /floatTimeReleaseCaveat/);
+  const planCopy = readFileSync(join(process.cwd(), '../eddy-ios/src/lib/planCopy.ts'), 'utf-8');
+  assert.match(planCopy, /from '@eddy\/conditions\/float-time-caveat'/);
+
+  // Web: the three plan surfaces that print the time mount the caveat. Before
+  // this they printed the newly-unlocked tailwater number with nothing beside it.
+  for (const surface of [
+    'src/components/plan/FloatPlanCard.tsx',
+    'src/components/plan/PlanSummary.tsx',
+    'src/components/plan/PlanSidebar.tsx',
+  ]) {
+    const source = readFileSync(join(process.cwd(), surface), 'utf-8');
+    assert.match(source, /<FloatTimeCaveat /, `${surface} must mount FloatTimeCaveat`);
+  }
+  const caveat = readFileSync(join(process.cwd(), 'src/components/plan/FloatTimeCaveat.tsx'), 'utf-8');
+  assert.match(caveat, /from '@shared\/float-time-caveat'/);
+  assert.match(caveat, /floatTimeWithheldReason === 'regulated'/);
+});

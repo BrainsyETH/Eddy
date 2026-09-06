@@ -60,6 +60,41 @@ export function readingBand(ageHours: number | null | undefined): ReadingBand {
 /** The prefix a withheld verdict wears. One string, so it cannot be spelled two ways. */
 export const LAST_KNOWN_PREFIX = 'Last known: ';
 
+/**
+ * The chip and the headline once a reading is EXPIRED.
+ *
+ * Not "Last known: Good": at five days that is the decoration the header above
+ * warns about, a name for water that has rained twice since. The number moves
+ * into the caveat ("… — last 2.31 ft") so the datum is demoted, not lost.
+ */
+export const NO_RECENT_READING_LABEL = 'No recent reading';
+
+/**
+ * "an hour", "5 hours", "3 days" — the age as a person says it. Mirrors the
+ * iOS readingAge() so the two never disagree about the same reading.
+ */
+export function readingAgePhrase(ageHours: number): string {
+  if (ageHours < 2) return 'an hour';
+  if (ageHours < 24) return `${Math.round(ageHours)} hours`;
+  const days = Math.max(2, Math.round(ageHours / 24));
+  return `${days} days`;
+}
+
+/**
+ * The sentence that explains a withheld verdict, or null when fresh.
+ *
+ * Every non-fresh state gets one, INCLUDING an unknown age — a grey chip over a
+ * number with nothing saying why was the gauge screen's silent case.
+ */
+export function readingCaveat(band: ReadingBand, ageHours: number | null | undefined): string | null {
+  if (band === 'fresh') return null;
+  if (ageHours == null || !Number.isFinite(ageHours)) return 'Reading time unknown';
+  const phrase = readingAgePhrase(ageHours);
+  return band === 'stale'
+    ? `Last reported ${phrase} ago`
+    : `Last reported ${phrase} ago — too old to use`;
+}
+
 export interface ReadingPresentation {
   band: ReadingBand;
   /** True only when the verdict may be stated in the present tense. */
@@ -70,10 +105,23 @@ export interface ReadingPresentation {
    * never from the raw classification.
    */
   paintCode: ConditionCode;
-  /** The chip text: the long label when fresh, "Last known: Good" otherwise. */
+  /**
+   * The chip text: the long label when fresh, "Last known: Good" when stale,
+   * NO_RECENT_READING_LABEL when expired.
+   */
   label: string;
-  /** Whether the number itself may be shown. False once expired. */
+  /**
+   * Whether the number itself may be shown as the headline. False once
+   * expired; a screen then prints the label in its place and carries the last
+   * value inside `caveat`'s row instead.
+   */
   showValue: boolean;
+  /**
+   * Why the verdict is withheld, for a visible row: "Last reported 9 hours
+   * ago", "Last reported 3 days ago — too old to use", "Reading time unknown".
+   * Null when fresh.
+   */
+  caveat: string | null;
   /** Whether a "rising / falling" pill may be shown. A trend is a claim about now. */
   showTrend: boolean;
   /** The otter mood the canonical system assigns to `paintCode`. */
@@ -102,7 +150,9 @@ export function presentReading(
   const paintCode: ConditionCode = fresh ? classified : 'unknown';
   const label = fresh
     ? CONDITION_SYSTEM[classified].longLabel
-    : `${LAST_KNOWN_PREFIX}${CONDITION_SYSTEM[classified].label}`;
+    : band === 'stale'
+      ? `${LAST_KNOWN_PREFIX}${CONDITION_SYSTEM[classified].label}`
+      : NO_RECENT_READING_LABEL;
 
   return {
     band,
@@ -112,5 +162,6 @@ export function presentReading(
     showValue: band !== 'expired',
     showTrend: fresh,
     otter: CONDITION_SYSTEM[paintCode].otter,
+    caveat: readingCaveat(band, ageHours),
   };
 }

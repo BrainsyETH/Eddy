@@ -522,14 +522,30 @@ export interface FloatTimeAssumptions {
   /** The boat the speeds came from, e.g. "Canoe". The server defaults it when the client sends none. */
   vessel: string;
   conditionCode: ConditionCode;
-  /** A live discharge was on hand and the flow model used it. */
+  /**
+   * The FLOW MODEL ran on a live discharge. False on the published-time branch
+   * even when a discharge was in hand — that branch scales an outfitter figure
+   * by condition band and never reads the flow, and the card must not say
+   * "in today's water" about a number that did not.
+   */
   usedLiveDischarge: boolean;
   /** A reference (typical) flow was on hand to scale against. */
   usedReferenceFlow: boolean;
   /** The speed was cut for low water; the number assumes dragging. */
   lowWaterAdjusted: boolean;
-  /** A dam tailwater estimated at the current release; a generation change invalidates it. */
+  /**
+   * The put-in is on a dam tailwater, so a generation change invalidates this
+   * time whichever model produced it. Resolved from the REACH (river_sections,
+   * migration 00204) with the river row as fallback.
+   */
   releaseDependent: boolean;
+  /**
+   * The station whose reading set the condition and, on the flow model, the
+   * speed. Lets the caveat say "the flow at Black River below Clearwater Dam"
+   * rather than claiming to have read the release. Optional: older servers
+   * omit it.
+   */
+  gaugeName?: string | null;
   /** The headline includes typical stops (trip basis) rather than paddling only. */
   stopsIncluded: boolean;
 }

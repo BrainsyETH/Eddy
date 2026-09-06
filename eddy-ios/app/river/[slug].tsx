@@ -129,7 +129,7 @@ import { readBestIndex, readConditions } from '@/lib/riverCache';
 import { useRiverData } from '@/hooks/useRiverData';
 import { selectEddySays } from '@/lib/eddySays';
 import { effectiveReadingAgeHours } from '@/lib/offline-cache';
-import { presentReading } from '@eddy/conditions/reading-presentation';
+import { NO_RECENT_READING_LABEL, presentReading } from '@eddy/conditions/reading-presentation';
 import { shareInFlight } from '@/lib/shareInFlight';
 import { goBack } from '@/lib/nav';
 import { TrendPill } from '@/components/TrendPill';
@@ -1124,8 +1124,10 @@ export default function RiverDetailScreen() {
    *
    *   fresh    normal colour, plus an offline glyph on the age line
    *   stale    grey, and "Last known: Good" instead of "Good - Floatable"
-   *   expired  grey, and the age is not printed at all — past two days the
-   *            number stops being information and becomes decoration
+   *   expired  grey, "No recent reading" in place of the number, and the
+   *            last value demoted into the provenance line — past two days
+   *            the number stops being information and becomes decoration.
+   *            The shared resolver's showValue decides this, not this file.
    */
   const cachedReading = cachedReadingAgeHours !== undefined && !pickedGauge;
   const readingAgeHours = cachedReading ? cachedReadingAgeHours : rawReadingAgeHours;
@@ -1344,7 +1346,9 @@ export default function RiverDetailScreen() {
                 // width as the number ticks, so a reading going 1.51 -> 1.62
                 // would shift this whole row.
                 <Text style={[styles.reading, { color: colors.text }]}>
-                  {formatReading(reading.value, reading.unit)}
+                  {presented.showValue
+                    ? formatReading(reading.value, reading.unit)
+                    : NO_RECENT_READING_LABEL}
                 </Text>
               ) : (
                 <Text style={[styles.noReading, { color: colors.textMuted }]}>
@@ -1406,22 +1410,35 @@ export default function RiverDetailScreen() {
             </View>
           ) : null}
 
-          {/* Past forty-eight hours the age is not printed at all. "Updated 3
-              days ago" invites arithmetic against water that has rained twice
-              since; the honest form is to stop claiming an age.
-
-              PROVENANCE ONLY, now that the trend has moved to the head of the
+          {/* PROVENANCE ONLY, now that the trend has moved to the head of the
               card. This line answers "how do you know" — when the reading was
               taken and which station took it — and it gets the whole width for
               it, so a station name no longer truncates to make room for a
-              direction it has nothing to do with. */}
-          {(readingAgeHours != null && band !== 'expired') || shownGaugeName ? (
+              direction it has nothing to do with.
+
+              Once the verdict is withheld the resolver's caveat leads instead:
+              "Last reported 9 hours ago", or past forty-eight hours "Last
+              reported 3 days ago — too old to use · last 2.31 ft", with the
+              number demoted here from the headline rather than dropped. An
+              unknown age says so, instead of a grey chip explaining nothing. */}
+          {reading && presented.caveat ? (
+            <View style={styles.updatedRow}>
+              {cachedReading ? (
+                <Ionicons name="cloud-offline-outline" size={12} color={colors.textSubtle} />
+              ) : null}
+              <Text style={[styles.updated, { color: colors.textSubtle }]} numberOfLines={2}>
+                {presented.caveat}
+                {!presented.showValue ? ` · last ${formatReading(reading.value, reading.unit)}` : ''}
+                {shownGaugeName ? ` · ${shownGaugeName}` : ''}
+              </Text>
+            </View>
+          ) : (readingAgeHours != null && band === 'fresh') || shownGaugeName ? (
             <View style={styles.updatedRow}>
               {cachedReading ? (
                 <Ionicons name="cloud-offline-outline" size={12} color={colors.textSubtle} />
               ) : null}
               <Text style={[styles.updated, { color: colors.textSubtle }]} numberOfLines={1}>
-                {readingAgeHours != null && band !== 'expired'
+                {readingAgeHours != null && band === 'fresh'
                   ? `${readingAge(readingAgeHours)}${shownGaugeName ? ` · ${shownGaugeName}` : ''}`
                   : (shownGaugeName ?? '')}
               </Text>

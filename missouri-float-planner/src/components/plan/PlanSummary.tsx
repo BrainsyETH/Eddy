@@ -11,6 +11,7 @@ import type { FloatPlan, ConditionCode } from '@/types/api';
 import { useVesselTypes } from '@/hooks/useVesselTypes';
 import { useFloatPlan } from '@/hooks/useFloatPlan';
 import { getEddyImageForCondition } from '@/constants';
+import FloatTimeCaveat from '@/components/plan/FloatTimeCaveat';
 
 // Condition display config — matches GaugeOverview labels and colors
 const CONDITION_CONFIG: Record<ConditionCode, {
@@ -378,6 +379,9 @@ export default function PlanSummary({
               />
               <StatTile value={displayPlan.distance.formatted} label="Distance" />
             </div>
+            {/* A tailwater time is only good while the release holds, and a
+                withheld one has a reason; the tile alone said neither. */}
+            {recalculating ? null : <FloatTimeCaveat plan={displayPlan} />}
           </div>
 
           {/* Column 3: Conditions */}

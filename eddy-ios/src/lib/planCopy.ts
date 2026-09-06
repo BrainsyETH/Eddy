@@ -19,6 +19,7 @@
 
 import type { FloatPlan } from '@eddy/types';
 import { formatFloatTimeCeiling } from '@eddy/conditions/float-time-format';
+import { RELEASE_HOW_ROW, releaseCaveat } from '@eddy/conditions/float-time-caveat';
 
 export type FloatPace = 'standard' | 'fishing';
 
@@ -74,15 +75,41 @@ export function floatTimeBasis(
 
   const boat = a.vessel ? a.vessel.toLowerCase() : 'boat';
   const speed = floatTime.speedMph > 0 ? `≈${floatTime.speedMph.toFixed(1)} mph` : null;
+  // `usedLiveDischarge` is true only when the FLOW MODEL ran. A published
+  // outfitter time scaled by condition band never read the flow, and saying
+  // "in today's water" under it would claim a provenance it does not have.
   const water = a.usedLiveDischarge ? "in today's water" : 'at a typical pace';
 
   if (pace === 'fishing') {
     return `Fishing pace: a ${boat} with frequent stops and time spent working the water.`;
   }
+  if (floatTime.model === 'known') {
+    const parts = [`A ${boat}, from a time published for this stretch, adjusted for today's level`];
+    if (a.stopsIncluded) parts.push('includes gravel-bar stops');
+    return `${parts.join(' · ')}.`;
+  }
   const parts = [`A ${boat} ${speed ? `${speed} ` : ''}${water}`];
   if (a.stopsIncluded) parts.push('includes gravel-bar stops');
   return `${parts.join(' · ')}.`;
 }
+
+/**
+ * The sentence beside a tailwater time, or null. Built by the shared module so
+ * the website and chat say the same thing — and so no surface says "built from
+ * the current dam release" about a number that read a gauge, or no flow at all.
+ */
+export function floatTimeReleaseCaveat(floatTime: FloatTime | null | undefined): string | null {
+  const a = floatTime?.assumptions;
+  if (!floatTime || !a) return null;
+  return releaseCaveat({
+    releaseDependent: a.releaseDependent,
+    model: floatTime.model,
+    gaugeName: a.gaugeName ?? null,
+  });
+}
+
+/** The short form for the How row. */
+export { RELEASE_HOW_ROW };
 
 /** The one-line share form, identical to the headline the sender is looking at. */
 export function floatTimeShareLabel(plan: FloatPlan, pace: FloatPace = 'standard'): string {

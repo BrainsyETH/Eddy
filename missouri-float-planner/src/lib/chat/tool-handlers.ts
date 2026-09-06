@@ -8,6 +8,8 @@ import { toNum } from '@/lib/utils/num';
 import { fetchWeather, fetchForecast, getWeatherPointForRiver } from '@/lib/weather/openweather';
 import { fetchNWSAlerts, filterAlertsForRiver } from '@/lib/nws/alerts';
 import { calculateFloatTime, floatTimeWithholding, DEFAULT_CANOE_SPEEDS } from '@/lib/calculations/floatTime';
+import { reachRiverTypeAtMile } from '@/lib/rivers/reach-type-at-mile';
+import { releaseCaveat } from '@shared/float-time-caveat';
 import { resolveFlowInputs } from '@/lib/calculations/flow-inputs';
 import { getGaugeConditions } from '@/lib/gauge/get-gauge-conditions';
 import { overlayLiveConditions } from '@/lib/social/live-conditions';
@@ -273,14 +275,24 @@ async function handleGetFloatRoute(input: Record<string, unknown>) {
   // rather than quoting a number computed from the flow at launch. It is read
   // off the river row above, so it cannot fail open.
   const flow = await resolveFlowInputs(gauge?.usgsSiteId, gauge?.dischargeCfs);
+  // The REACH's type at the put-in, with the river row as fallback — the same
+  // resolution /api/plan makes, for the same reason: the Black's row says
+  // spring-fed and its reach below Clearwater Dam is a tailwater.
+  const reachRiverType = await reachRiverTypeAtMile<ReachRiverType>(
+    supabase,
+    river.id,
+    parseFloat(segData.start_river_mile ?? ''),
+    (river.river_type as ReachRiverType | null) ?? null,
+  );
   const withholdReason = floatTimeWithholding(
     currentCondition,
-    river.river_type as ReachRiverType | null,
+    reachRiverType,
+    { hasFlowInputs: flow.dischargeCfs != null && flow.refCfs != null },
   );
   const floatTime = calculateFloatTime(distanceMiles, DEFAULT_CANOE_SPEEDS, currentCondition, {
     dischargeCfs: flow.dischargeCfs,
     refCfs: flow.refCfs,
-    riverType: river.river_type as ReachRiverType | null,
+    riverType: reachRiverType,
   });
 
   const estimatedHours = floatTime
@@ -298,8 +310,16 @@ async function handleGetFloatRoute(input: Record<string, unknown>) {
   // one that spends the credibility of the phrase that has to mean something
   // when the river really is in flood. Regulated water is uncertainty about
   // WHEN, not a verdict about whether.
+  //
+  // And a tailwater time that IS quoted carries its caveat in the same field,
+  // built by the shared module every other surface uses, so the model cannot
+  // hand an angler a number without the sentence that qualifies it.
   const floatTimeNote = floatTime
-    ? null
+    ? releaseCaveat({
+        releaseDependent: floatTime.releaseDependent,
+        model: floatTime.model,
+        gaugeName: gauge?.gaugeName ?? null,
+      })
     : withholdReason === 'regulated'
       ? 'No float time on a dam-controlled river: the release can change mid-float, ' +
         'so any single estimate would be wrong as soon as the units start or stop. ' +

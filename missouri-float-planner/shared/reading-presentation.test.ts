@@ -4,9 +4,12 @@ import { CONDITION_SYSTEM } from './condition-system';
 import { STALE_READING_HOURS } from './reading-staleness';
 import {
   LAST_KNOWN_PREFIX,
+  NO_RECENT_READING_LABEL,
   UNUSABLE_READING_HOURS,
   presentReading,
+  readingAgePhrase,
   readingBand,
+  readingCaveat,
 } from './reading-presentation';
 
 test('the bands share the six-hour line and add a 48-hour floor', () => {
@@ -34,6 +37,7 @@ test('a fresh reading keeps its verdict, its colour, its otter and its trend', (
   assert.equal(p.showValue, true);
   assert.equal(p.showTrend, true);
   assert.equal(p.otter, CONDITION_SYSTEM.good.otter);
+  assert.equal(p.caveat, null);
 });
 
 test('a stale reading is named, not instructed: "Last known: Good" in neutral', () => {
@@ -49,6 +53,8 @@ test('a stale reading is named, not instructed: "Last known: Good" in neutral', 
   assert.equal(p.showValue, true);
   // A trend is a claim about now.
   assert.equal(p.showTrend, false);
+  // And the reason is a sentence, not an inference from a grey chip.
+  assert.equal(p.caveat, 'Last reported 12 hours ago');
 });
 
 test('"Do Not Float" survives as a name once stale, never as an instruction', () => {
@@ -63,7 +69,31 @@ test('an expired reading withholds the number as well as the verdict', () => {
   assert.equal(p.showValue, false);
   assert.equal(p.showTrend, false);
   assert.equal(p.paintCode, 'unknown');
-  assert.equal(p.label, `${LAST_KNOWN_PREFIX}${CONDITION_SYSTEM.flowing.label}`);
+  // Not "Last known: Flowing": at three days that names water that has rained
+  // twice since. The chip and the headline both say there is nothing recent.
+  assert.equal(p.label, NO_RECENT_READING_LABEL);
+  assert.equal(p.caveat, 'Last reported 3 days ago — too old to use');
+});
+
+test('an unknown age gets a caveat too — the silent case', () => {
+  // A grey chip over a number with no sentence saying why: the gauge screen
+  // used to key its caveat row off the age, so a null age produced nothing.
+  const p = presentReading('good', null);
+  assert.equal(p.band, 'expired');
+  assert.equal(p.showValue, false);
+  assert.equal(p.label, NO_RECENT_READING_LABEL);
+  assert.equal(p.caveat, 'Reading time unknown');
+  assert.equal(readingCaveat('fresh', null), null);
+});
+
+test('the age phrase reads like the iOS one', () => {
+  assert.equal(readingAgePhrase(1.2), 'an hour');
+  assert.equal(readingAgePhrase(9.4), '9 hours');
+  assert.equal(readingAgePhrase(23.6), '24 hours');
+  assert.equal(readingAgePhrase(30), '2 days');
+  assert.equal(readingAgePhrase(72), '3 days');
+  // Expired starts at 48h, so "1 day" can never be said of an expired reading.
+  assert.equal(readingAgePhrase(48), '2 days');
 });
 
 test('a code the system does not know resolves to unknown rather than throwing', () => {

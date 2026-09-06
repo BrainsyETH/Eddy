@@ -11,6 +11,7 @@ import type { AccessPoint, FloatPlan, ConditionCode, NearbyService } from '@/typ
 import { useVesselTypes } from '@/hooks/useVesselTypes';
 import { formatFloatTimeRangeCompact } from '@/lib/calculations/floatTime';
 import PlanFreshnessNotice from '@/components/plan/PlanFreshnessNotice';
+import FloatTimeCaveat from '@/components/plan/FloatTimeCaveat';
 import { eddyIconUrl } from '@/components/ui/EddyIcon';
 import { POI_TYPES, ACCESS_POINT_TYPE_ORDER, CONDITION_SHORT_LABELS } from '@/constants';
 import {
@@ -337,6 +338,9 @@ export function ShareableFloatCard({
             {statTile(plan.floatTime?.formatted || '--', null, 'Est. Time')}
             {statTile(flowValue, flowUnit, flowLabel)}
           </div>
+          {/* Inline-styled: this card is rasterised for sharing, and the
+              caveat has to travel with the number into the image. */}
+          <FloatTimeCaveat plan={plan} inline />
 
           {/* Route with logistics */}
           <div style={{ display: 'flex', alignItems: 'stretch', gap: 12 }}>

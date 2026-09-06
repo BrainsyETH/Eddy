@@ -57,7 +57,7 @@ import {
 } from '@/theme/floodStage';
 import { safetySummarySentence, summarizeSafety } from '@eddy/conditions/safety-summary';
 import { isReadingStale } from '@eddy/conditions/reading-staleness';
-import { presentReading } from '@eddy/conditions/reading-presentation';
+import { NO_RECENT_READING_LABEL, presentReading } from '@eddy/conditions/reading-presentation';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
 import { SafetyDisclaimer } from '@/components/SafetyDisclaimer';
@@ -414,13 +414,19 @@ export default function GaugeDetailScreen() {
   // green otter beside it while the NWS line on the same card, six lines down,
   // withheld its comparison for the same reading. One resolver decides now:
   // past the shared six-hour line the paintable code is `unknown`, the chip
-  // says "Last known: Good", the otter is the flag, and no trend is drawn. The
-  // number itself stays — an old number with an honest age beats no number.
+  // says "Last known: Good", the otter is the flag, and no trend is drawn.
+  // Past forty-eight hours (showValue false) the number goes too: the headline
+  // reads "No recent reading" and the last value moves into the caveat row,
+  // demoted rather than lost. The same resolver decides for a null age, which
+  // it treats as expired — and it supplies the sentence for that case, where
+  // this screen used to show a grey chip over a number and say nothing.
   const presented = presentReading(classified, gauge.readingAgeHours);
   const code = presented.paintCode;
   const staleReading = value != null && !presented.fresh;
 
-  const band = gauge.readingSuspect ? null : flowBand(gauge.flowPercentile);
+  // The percentile band is a present-tense comparison too; it is withheld with
+  // the verdict rather than saying "much higher than usual" about Tuesday.
+  const band = gauge.readingSuspect || staleReading ? null : flowBand(gauge.flowPercentile);
   const bandChip = flowBandChip(band, colors);
 
   const stages = gauge.floodStages;
@@ -590,7 +596,10 @@ export default function GaugeDetailScreen() {
                 style={[
                   styles.reading,
                   {
-                    color: value != null && rated ? conditionText(code, isDark) : colors.text,
+                    color:
+                      value != null && rated && presented.showValue
+                        ? conditionText(code, isDark)
+                        : colors.text,
                   },
                 ]}
                 // The number is the product. At accessibility text sizes it
@@ -600,7 +609,11 @@ export default function GaugeDetailScreen() {
                 adjustsFontSizeToFit
                 minimumFontScale={0.7}
               >
-                {value != null && unit ? formatReading(value, unit) : 'No reading'}
+                {value != null && unit
+                  ? presented.showValue
+                    ? formatReading(value, unit)
+                    : NO_RECENT_READING_LABEL
+                  : 'No reading'}
               </Text>
               {/* Rising or falling, beside the number rather than buried in
                   the chart header — it is the second thing a reader wants
@@ -622,7 +635,7 @@ export default function GaugeDetailScreen() {
                   beside it. This line makes no claim, so it can carry the
                   other unit safely — allReadings marks which one the verdict
                   came from and this shows the one it did not. */}
-              {secondary ? (
+              {secondary && presented.showValue ? (
                 <Text style={[styles.secondaryReading, { color: colors.textMuted }]}>
                   {formatReading(secondary.value, secondary.unit)}
                 </Text>
@@ -664,7 +677,7 @@ export default function GaugeDetailScreen() {
                 ]}
               >
                 <Text style={[styles.chipText, { color: bandChip.ink }]}>
-                  {flowBandLabel(band)}
+                  {staleReading ? 'Not current' : flowBandLabel(band)}
                 </Text>
               </View>
             )}
@@ -673,12 +686,20 @@ export default function GaugeDetailScreen() {
           {/* The age, PROMOTED, when it is the reason the chip went grey. The
               12pt subtle line under the number was the only thing saying a
               confident verdict was three days old; once the verdict is
-              withheld the age is the headline fact and reads at body size. */}
-          {staleReading && age ? (
+              withheld the age is the headline fact and reads at body size.
+              The sentence is the resolver's, so an UNKNOWN age gets one too
+              ("Reading time unknown") — keying this row off the age left
+              that case silent. When the number has left the headline it
+              rides along here as "last 2.31 ft". */}
+          {staleReading && presented.caveat ? (
             <View style={styles.staleRow}>
               <Ionicons name="time-outline" size={15} color={colors.text} />
               <Text style={[styles.staleText, { color: colors.text }]}>
-                {age.replace('Updated', 'Last reported')}. Conditions may have changed since.
+                {presented.caveat}
+                {!presented.showValue && value != null && unit
+                  ? ` · last ${formatReading(value, unit)}`
+                  : ''}
+                . Conditions may have changed since.
               </Text>
             </View>
           ) : null}
@@ -708,7 +729,7 @@ export default function GaugeDetailScreen() {
               this but a different axis entirely. */}
           {rated && link && unit ? (
             <View style={styles.scaleWrap}>
-              <ReadingScale thresholds={link} value={value} unit={unit} />
+              <ReadingScale thresholds={link} value={presented.showValue ? value : null} unit={unit} />
             </View>
           ) : null}
 
@@ -719,7 +740,7 @@ export default function GaugeDetailScreen() {
               Withheld entirely while the tier is unresolved — this line is the
               one that actually said the false thing. "No historical comparison
               published for this gauge", under a rated river, for one frame. */}
-          {tierResolving ? null : !rated && supportsFlowBand(gauge.provider) ? (
+          {tierResolving || staleReading ? null : !rated && supportsFlowBand(gauge.provider) ? (
             <Text style={[styles.bandSentence, { color: colors.textMuted }]}>
               {flowBandSentence(band)}
               {percentile ? ` — ${percentile}.` : '.'}

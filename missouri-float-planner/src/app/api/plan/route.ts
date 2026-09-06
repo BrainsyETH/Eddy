@@ -7,6 +7,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { getDriveTime, geocodeAddress } from '@/lib/mapbox/directions';
 import { assessShuttlePlausibility } from '@/lib/shuttle-plausibility';
 import { calculateFloatTime, floatTimeWithholding, formatFloatTime, formatFloatTimeRange, formatDistance, formatDriveTime } from '@/lib/calculations/floatTime';
+import { reachRiverTypeAtMile } from '@/lib/rivers/reach-type-at-mile';
 import {
   fetchGaugeReadings,
   fetchDailyStatistics,
@@ -473,13 +474,26 @@ async function _GET(request: NextRequest) {
     // one, the number is served flagged release-dependent and the card carries
     // the caveat. See floatTimeWithholding.
     const hasFlowInputs = dischargeCfs != null && refCfs != null;
+    // ── The REACH's type, not the river's ─────────────────────────────────
+    // rivers.river_type is one number for one river; migration 00204 lets a
+    // reach override it, and on the Black the reach below Clearwater Dam is a
+    // tailwater while the row says spring-fed. Read off the river row, this
+    // decision never saw the one tailwater with active access points: no
+    // withholding without flow, no caveat with it. The river row stays the
+    // fallback, so nothing here fails more open than before.
+    const reachRiverType = await reachRiverTypeAtMile<ReachRiverType>(
+      supabase,
+      riverId,
+      putInMile,
+      (river.river_type as ReachRiverType | null) ?? null,
+    );
     const withholdReason = floatTimeWithholding(
       conditionCode,
-      river.river_type as ReachRiverType | null,
+      reachRiverType,
       { hasFlowInputs },
     );
     const withholdFloatTime = withholdReason !== null;
-    const releaseDependent = river.river_type === 'dam_tailwater';
+    const releaseDependent = reachRiverType === 'dam_tailwater';
 
     if (!withholdFloatTime && segmentTime && segmentTime.length > 0 && segmentTime[0].time_avg_minutes) {
       // Known, published (trip-basis) times — scale by current flow, never serve raw.
@@ -518,10 +532,10 @@ async function _GET(request: NextRequest) {
           refCfs,
           basis: 'trip',
           speedCurve: riverCtx?.characteristics?.speedCurve,
-          // Belt and braces behind withholdFloatTime above, and from the river
-          // ROW rather than the cached context so the two agree even when the
-          // cache does not answer.
-          riverType: river.river_type as ReachRiverType | null,
+          // Belt and braces behind withholdFloatTime above, and the same
+          // reach-resolved value (river row as fallback) rather than the cached
+          // context, so the two agree even when the cache does not answer.
+          riverType: reachRiverType,
         }
       );
 
@@ -852,11 +866,18 @@ async function _GET(request: NextRequest) {
             assumptions: {
               vessel: vesselType.name,
               conditionCode,
-              usedLiveDischarge: dischargeCfs != null,
+              // The MODEL consumed it, not merely "a discharge was in hand":
+              // the published-time branch scales by condition band and never
+              // reads the flow, and the card must not say "in today's water"
+              // about a number that did not.
+              usedLiveDischarge: floatTimeResult.model === 'flow',
               usedReferenceFlow: refCfs != null,
               lowWaterAdjusted: floatTimeResult.lowWaterAdjusted,
               releaseDependent: floatTimeResult.releaseDependent,
               stopsIncluded: floatTimeResult.basis === 'trip',
+              // So the release caveat can name the station it read rather
+              // than claim to have read the release.
+              gaugeName: condition?.gauge_name ?? null,
             },
             paceEstimates: floatTimeResult.paceEstimates,
           }

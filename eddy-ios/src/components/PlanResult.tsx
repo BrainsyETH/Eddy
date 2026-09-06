@@ -61,6 +61,8 @@ import {
   floatTimeModelSentence,
   hasPaceEstimates,
   type FloatPace,
+  floatTimeReleaseCaveat,
+  RELEASE_HOW_ROW,
 } from '@/lib/planCopy';
 import { CollapsibleSection } from '@/components/CollapsibleSection';
 import { haptics } from '@/theme/haptics';
@@ -88,6 +90,7 @@ export function PlanResult({ plan, actions }: Props) {
   const [pace, setPace] = useState<FloatPace>('standard');
   const paced = hasPaceEstimates(plan.floatTime);
   const assumptions = plan.floatTime?.assumptions ?? null;
+  const releaseCaveat = floatTimeReleaseCaveat(plan.floatTime);
   const tooLow = plan.condition.code === 'too_low';
 
   return (
@@ -232,17 +235,17 @@ export function PlanResult({ plan, actions }: Props) {
             </Text>
 
             {/* ── A tailwater number carries its own caveat, beside it ───
-                Estimated at TODAY'S release. A generation change mid-float
-                makes it wrong in the dangerous direction — an idle-flow time
-                reads as conservative while the water is about to rise — so
-                this is not a footnote. */}
-            {assumptions?.releaseDependent ? (
+                A generation change mid-float makes it wrong in the dangerous
+                direction — an idle-flow time reads as conservative while the
+                water is about to rise — so this is not a footnote. The
+                sentence comes from @eddy/conditions/float-time-caveat and says
+                what the number was actually built from: the flow at a named
+                gauge, or a published time that assumes the release holds.
+                Never "the current dam release" — nothing here reads it. */}
+            {releaseCaveat ? (
               <View style={[styles.releaseNote, { backgroundColor: colors.cardRaised }]}>
                 <Ionicons name="flash-outline" size={15} color={colors.text} />
-                <Text style={[styles.releaseNoteText, { color: colors.text }]}>
-                  Built from the current dam release. If generation starts or stops mid-float this
-                  time is wrong — check the dam&apos;s schedule before you launch.
-                </Text>
+                <Text style={[styles.releaseNoteText, { color: colors.text }]}>{releaseCaveat}</Text>
               </View>
             ) : null}
 
@@ -301,7 +304,7 @@ export function PlanResult({ plan, actions }: Props) {
                     <HowRow label="Caveat" value="Slowed for low water — assumes dragging." />
                   ) : null}
                   {assumptions?.releaseDependent ? (
-                    <HowRow label="Caveat" value="Valid only at the current dam release." />
+                    <HowRow label="Caveat" value={RELEASE_HOW_ROW} />
                   ) : null}
                 </View>
               </CollapsibleSection>

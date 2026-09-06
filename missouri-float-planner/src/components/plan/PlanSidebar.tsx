@@ -16,6 +16,7 @@ import type { PointOfInterest } from '@/types/nps';
 import ConditionBadge from '@/components/ui/ConditionBadge';
 import { useVesselTypes } from '@/hooks/useVesselTypes';
 import { formatFloatTimeRangeCompact } from '@/lib/calculations/floatTime';
+import FloatTimeCaveat from '@/components/plan/FloatTimeCaveat';
 import CompactAccessCard from './CompactAccessCard';
 import { AlongYourRoute, type RouteItem } from './FloatPlanCard';
 import Breadcrumbs from '@/components/ui/Breadcrumbs';
@@ -127,6 +128,9 @@ export default function PlanSidebar({
             on desktop, not only in the transient map badge. */}
         {hasBothPoints && plan && (
           <div className="bg-neutral-50 rounded-xl p-3">
+            {/* Above the stats, full width: a tailwater time is only good while
+                the release holds, and a withheld one has a reason. */}
+            {isLoading ? null : <FloatTimeCaveat plan={plan} />}
             <div className="grid grid-cols-[1fr_auto_1.4fr_auto_1fr] items-start justify-items-center gap-x-2">
               <div className="text-center">
                 <p className="text-lg font-bold text-neutral-900 leading-tight" style={{ fontFamily: 'var(--font-display)' }}>{plan.distance.formatted}</p>
