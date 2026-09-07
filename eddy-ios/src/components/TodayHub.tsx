@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Image, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Image, Linking, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import type {
@@ -23,12 +23,14 @@ import { useAccount } from '@/hooks/useAccount';
 import { type LocationStatus } from '@/hooks/useLocation';
 import { useStarredRivers, type StarredItem } from '@/hooks/useStarredRivers';
 import { readFavoriteFloats, writeFavoriteFloats } from '@/lib/favoriteFloatCache';
+import { favoriteFloatMeta } from '@/lib/favoriteFloatCopy';
 import { formatReading, primaryReading, readingAge } from '@/lib/readingCopy';
 import {
   chooseTodayRecommendation,
   TODAY_RADIUS_MILES,
 } from '@/lib/todayRecommendation';
 import { readRecommendation, writeRecommendation } from '@/lib/todayPreferences';
+import { chooseTodaySafetyScope, filterTodaySafety } from '@/lib/todaySafety';
 import {
   conditionBg,
   conditionChipBorder,
@@ -125,19 +127,22 @@ export function TodayHub({
   const { entitlement, loaded: accountLoaded, error: accountError, refresh: refreshAccount } = useAccount();
   const [floats, setFloats] = useState<FavoriteFloatSummary[] | null>(null);
   const [safety, setSafety] = useState<{
-    favoriteKey: string;
+    scopeKey: string;
     high: HighWaterEntry[];
     notices: RiverAlert[];
   } | null>(null);
   const [floatFailure, setFloatFailure] = useState(false);
-  const [safetyFailure, setSafetyFailure] = useState(false);
-  const [incumbent, setIncumbent] = useState<string | null>(null);
+  const [safetyFailureScope, setSafetyFailureScope] = useState<string | null>(null);
+  const [incumbentState, setIncumbentState] = useState<{
+    ready: boolean;
+    riverId: string | null;
+  }>({ ready: false, riverId: null });
   const [outlook, setOutlook] = useState<{ slug: string; data: RiverOutlookResponse | null } | null>(null);
   const [paywallOpen, setPaywallOpen] = useState(false);
 
   useEffect(() => {
     void ensureGauges();
-    void readRecommendation().then(setIncumbent);
+    void readRecommendation().then((riverId) => setIncumbentState({ ready: true, riverId }));
   }, [ensureGauges]);
 
   useEffect(() => {
@@ -168,48 +173,55 @@ export function TodayHub({
     () => new Set(starred.filter((item) => item.kind === 'river' && item.slug).map((item) => item.slug)),
     [starred],
   );
-  const favoriteKey = useMemo(() => [...favoriteRiverSlugs].sort().join(','), [favoriteRiverSlugs]);
+  const safetyScope = useMemo(() => chooseTodaySafetyScope({
+    favoriteRiverSlugs,
+    rivers,
+    gauges: gauges ?? [],
+    coords: location.coords,
+  }), [favoriteRiverSlugs, gauges, location.coords, rivers]);
 
   useEffect(() => {
-    if (!starsReady || favoriteRiverSlugs.size === 0) {
-      return;
-    }
+    if (!starsReady || (location.coords && !gauges && favoriteRiverSlugs.size === 0)) return;
     const controller = new AbortController();
     void Promise.allSettled([fetchHighWater(controller.signal), fetchRiverAlerts(undefined, controller.signal)])
       .then(([highResult, noticeResult]) => {
         if (controller.signal.aborted) return;
-        const high = highResult.status === 'fulfilled'
-          ? highResult.value.filter((entry) => entry.riverSlug && favoriteRiverSlugs.has(entry.riverSlug))
-          : [];
-        const notices = noticeResult.status === 'fulfilled'
-          ? noticeResult.value.filter((entry) => favoriteRiverSlugs.has(entry.riverSlug))
-          : [];
-        setSafety({ favoriteKey, high, notices });
-        setSafetyFailure(highResult.status === 'rejected' || noticeResult.status === 'rejected');
+        const filtered = filterTodaySafety(
+          highResult.status === 'fulfilled' ? highResult.value : [],
+          noticeResult.status === 'fulfilled' ? noticeResult.value : [],
+          safetyScope,
+        );
+        const { high, notices } = filtered;
+        setSafety({ scopeKey: safetyScope.key, high, notices });
+        setSafetyFailureScope(
+          highResult.status === 'rejected' || noticeResult.status === 'rejected'
+            ? safetyScope.key
+            : null,
+        );
       });
     return () => controller.abort();
-  }, [favoriteKey, favoriteRiverSlugs, refreshRevision, starsReady]);
+  }, [favoriteRiverSlugs.size, gauges, location.coords, refreshRevision, safetyScope, starsReady]);
 
   const favoriteIds = useMemo(
     () => new Set(starred.filter((item) => item.kind === 'river').map((item) => item.entityId)),
     [starred],
   );
   const recommendation = useMemo(
-    () => chooseTodayRecommendation({
+    () => incumbentState.ready ? chooseTodayRecommendation({
       rivers,
       gauges: gauges ?? [],
       favoriteRiverIds: favoriteIds,
       coords: location.coords,
-      incumbentRiverId: incumbent,
-    }),
-    [favoriteIds, gauges, incumbent, location.coords, rivers],
+      incumbentRiverId: incumbentState.riverId,
+    }) : null,
+    [favoriteIds, gauges, incumbentState, location.coords, rivers],
   );
 
   useEffect(() => {
-    if (!recommendation || recommendation.river.id === incumbent) return;
+    if (!incumbentState.ready || !recommendation || recommendation.river.id === incumbentState.riverId) return;
     const next = recommendation.river.id;
-    void writeRecommendation(next).then(() => setIncumbent(next));
-  }, [incumbent, recommendation]);
+    void writeRecommendation(next).then(() => setIncumbentState({ ready: true, riverId: next }));
+  }, [incumbentState, recommendation]);
 
   const recommendationSlug = recommendation?.river.slug ?? null;
   useEffect(() => {
@@ -238,11 +250,14 @@ export function TodayHub({
     });
   }, [router]);
 
-  const activeSafety = safety?.favoriteKey === favoriteKey ? safety : null;
-  const safetyCount = favoriteRiverSlugs.size > 0
-    ? (activeSafety?.high.length ?? 0) + (activeSafety?.notices.length ?? 0)
-    : 0;
-  const detailFailure = floatFailure || (favoriteRiverSlugs.size > 0 && safetyFailure);
+  const activeSafety = safety?.scopeKey === safetyScope.key ? safety : null;
+  const safetyCount = (activeSafety?.high.length ?? 0) + (activeSafety?.notices.length ?? 0);
+  const detailFailure = floatFailure || safetyFailureScope === safetyScope.key;
+  const safetyScopeLabel = safetyScope.kind === 'favorites'
+    ? 'on your favorite rivers'
+    : safetyScope.kind === 'nearby'
+      ? 'near you'
+      : 'statewide';
   const featuredFloat = floats?.find((item) => item.riverSlug === recommendation?.river.slug) ?? floats?.[0] ?? null;
   const condition = recommendation?.river.currentCondition ?? null;
   const reading = condition ? primaryReading(condition) : null;
@@ -264,7 +279,7 @@ export function TodayHub({
           onPress={() => router.push('/alerts')}
           style={({ pressed }) => [styles.safetyBand, { backgroundColor: colors.anchorSurface, opacity: pressed ? 0.74 : 1 }]}
           accessibilityRole="button"
-          accessibilityLabel={`${safetyCount} safety ${safetyCount === 1 ? 'item' : 'items'} on your favorite rivers`}
+          accessibilityLabel={`${safetyCount} safety ${safetyCount === 1 ? 'item' : 'items'} ${safetyScopeLabel}`}
         >
           <Ionicons name="warning-outline" size={19} color={colors.onAnchor} />
           <View style={styles.flex}>
@@ -305,7 +320,7 @@ export function TodayHub({
 
       <View style={styles.section}>
         <SectionHead title={location.coords ? 'Best Near You' : 'Best Right Now'} />
-        {!gauges ? (
+        {!gauges || !incumbentState.ready ? (
           <View style={styles.loading}><ActivityIndicator color={colors.interactive} /></View>
         ) : recommendation && condition ? (
           <View style={[styles.bestCard, { backgroundColor: colors.card }, elevation(1)]}>
@@ -364,14 +379,14 @@ export function TodayHub({
         )}
         {!location.coords ? (
           <Pressable
-            onPress={() => void location.request()}
-            disabled={location.status === 'locating' || location.status === 'denied'}
-            style={({ pressed }) => [styles.location, { opacity: pressed ? 0.62 : location.status === 'denied' ? 0.55 : 1 }]}
+            onPress={() => location.status === 'denied' ? void Linking.openSettings() : void location.request()}
+            disabled={location.status === 'locating'}
+            style={({ pressed }) => [styles.location, { opacity: pressed ? 0.62 : 1 }]}
             accessibilityRole="button"
           >
             <Ionicons name="location-outline" size={16} color={colors.interactive} />
             <Text style={[styles.locationText, { color: colors.interactive }]}>
-              {location.status === 'locating' ? 'Finding your location…' : location.status === 'denied' ? 'Location is off for Eddy' : 'Use my location for a closer pick'}
+              {location.status === 'locating' ? 'Finding your location…' : location.status === 'denied' ? 'Open Settings for location' : 'Use my location for a closer pick'}
             </Text>
           </Pressable>
         ) : null}
@@ -385,7 +400,7 @@ export function TodayHub({
             <View style={styles.floatBody}>
               <Text style={[styles.floatRiver, { color: colors.accent }]}>{featuredFloat.riverName.toUpperCase()}</Text>
               <Text style={[styles.floatTitle, { color: colors.text }]} numberOfLines={2}>{featuredFloat.putInName} to {featuredFloat.takeOutName}</Text>
-              <Text style={[styles.floatMeta, { color: colors.textMuted }]}>{featuredFloat.distanceMiles} mi · ~{featuredFloat.durationHours} hr · Class {featuredFloat.difficulty}</Text>
+              <Text style={[styles.floatMeta, { color: colors.textMuted }]}>{favoriteFloatMeta(featuredFloat)}</Text>
               <Text style={[styles.floatTagline, { color: colors.textMuted }]} numberOfLines={2}>{featuredFloat.tagline}</Text>
               <Pressable
                 onPress={() => openPlan(featuredFloat.riverSlug, featuredFloat.putInId, featuredFloat.takeOutId)}

@@ -1,10 +1,12 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import type { MapGauge, RiverListItem } from '@eddy/types';
+import type { HighWaterEntry, MapGauge, RiverAlert, RiverListItem } from '@eddy/types';
 import {
   chooseTodayRecommendation,
   isTodayRecommendationEligible,
 } from '../../../eddy-ios/src/lib/todayRecommendation';
+import { favoriteFloatMeta } from '../../../eddy-ios/src/lib/favoriteFloatCopy';
+import { chooseTodaySafetyScope, filterTodaySafety } from '../../../eddy-ios/src/lib/todaySafety';
 
 function river(id: string, code: 'good' | 'flowing' | 'high', age = 1): RiverListItem {
   return {
@@ -80,4 +82,91 @@ test('known location has no statewide fallback outside the fixed radius', () => 
     favoriteRiverIds: new Set(), coords: { lat: 37, lng: -93 },
   });
   assert.equal(result, null);
+});
+
+test('statewide mode falls through null distance to age and name tiebreaks', () => {
+  const zulu = river('zulu', 'good', 9);
+  const alpha = river('alpha', 'good', 1);
+  const mike = river('mike', 'good', 5);
+  const result = chooseTodayRecommendation({
+    rivers: [zulu, alpha, mike], gauges: [], favoriteRiverIds: new Set(), coords: null,
+  });
+  assert.equal(result?.river.id, alpha.id);
+
+  const bravo = river('bravo', 'good', 1);
+  const sameAge = chooseTodayRecommendation({
+    rivers: [bravo, alpha], gauges: [], favoriteRiverIds: new Set(), coords: null,
+  });
+  assert.equal(sameAge?.river.id, alpha.id);
+});
+
+test('statewide mode keeps a same-band incumbent but yields to a better band', () => {
+  const incumbent = river('incumbent', 'good', 5);
+  const fresher = river('fresher', 'good', 1);
+  const stable = chooseTodayRecommendation({
+    rivers: [fresher, incumbent], gauges: [], favoriteRiverIds: new Set(), coords: null,
+    incumbentRiverId: incumbent.id,
+  });
+  assert.equal(stable?.river.id, incumbent.id);
+
+  const better = river('better', 'flowing', 4);
+  const improved = chooseTodayRecommendation({
+    rivers: [incumbent, better], gauges: [], favoriteRiverIds: new Set(), coords: null,
+    incumbentRiverId: incumbent.id,
+  });
+  assert.equal(improved?.river.id, better.id);
+});
+
+test('favorite float metadata labels the nominal paddling estimate', () => {
+  assert.equal(
+    favoriteFloatMeta({ distanceMiles: 8, durationHours: 4, difficulty: 'I–II' }),
+    '8.0 mi · about 4.0 hrs paddling, no stops · Class I–II',
+  );
+});
+
+test('safety scope falls back from favorites to nearby rivers to statewide', () => {
+  const near = river('near', 'good');
+  const far = river('far', 'good');
+  const favorites = chooseTodaySafetyScope({
+    favoriteRiverSlugs: new Set([far.slug]),
+    rivers: [near, far],
+    gauges: [gauge('near', near.id, -93.1), gauge('far', far.id, -96)],
+    coords: { lat: 37, lng: -93 },
+  });
+  assert.equal(favorites.kind, 'favorites');
+  assert.deepEqual([...favorites.slugs!], [far.slug]);
+
+  const nearby = chooseTodaySafetyScope({
+    favoriteRiverSlugs: new Set(),
+    rivers: [near, far],
+    gauges: [gauge('near', near.id, -93.1), gauge('far', far.id, -96)],
+    coords: { lat: 37, lng: -93 },
+  });
+  assert.equal(nearby.kind, 'nearby');
+  assert.deepEqual([...nearby.slugs!], [near.slug]);
+
+  const statewide = chooseTodaySafetyScope({
+    favoriteRiverSlugs: new Set(), rivers: [near, far], gauges: [], coords: null,
+  });
+  assert.equal(statewide.kind, 'statewide');
+  assert.equal(statewide.slugs, null);
+});
+
+test('statewide safety keeps only flood and warning severity', () => {
+  const high = (id: string, conditionCode: 'high' | 'dangerous'): HighWaterEntry => ({
+    kind: 'river', id, name: id, subtitle: null, conditionCode,
+    conditionLabel: conditionCode, readingValue: 4, readingUnit: 'ft',
+    readingAgeHours: 1, riverSlug: id, siteId: null, damId: null,
+  });
+  const alert = (id: string, severity: 'warning' | 'watch'): RiverAlert => ({
+    id, source: 'nws', severity, riverSlug: id, riverName: id, title: id,
+    body: '', category: id, startsAt: null, endsAt: null, url: null,
+  });
+  const result = filterTodaySafety(
+    [high('high', 'high'), high('flood', 'dangerous')],
+    [alert('watch', 'watch'), alert('warning', 'warning')],
+    { kind: 'statewide', key: 'statewide', slugs: null },
+  );
+  assert.deepEqual(result.high.map((entry) => entry.id), ['flood']);
+  assert.deepEqual(result.notices.map((entry) => entry.id), ['warning']);
 });

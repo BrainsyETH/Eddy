@@ -62,8 +62,10 @@ function compareCandidates(a: Candidate, b: Candidate): number {
     floatableRank(a.river.currentCondition?.code ?? 'unknown') -
     floatableRank(b.river.currentCondition?.code ?? 'unknown');
   if (byCondition !== 0) return byCondition;
-  const byDistance = (a.distanceMiles ?? Infinity) - (b.distanceMiles ?? Infinity);
-  if (byDistance !== 0) return byDistance;
+  if (a.distanceMiles != null || b.distanceMiles != null) {
+    const byDistance = (a.distanceMiles ?? Infinity) - (b.distanceMiles ?? Infinity);
+    if (byDistance !== 0) return byDistance;
+  }
   const byAge = a.readingAgeHours - b.readingAgeHours;
   return byAge || a.river.name.localeCompare(b.river.name);
 }
@@ -122,13 +124,18 @@ export function chooseTodayRecommendation({
   if (incumbent && incumbent !== challenger) {
     const incumbentRank = floatableRank(incumbent.river.currentCondition?.code ?? 'unknown');
     const challengerRank = floatableRank(challenger.river.currentCondition?.code ?? 'unknown');
-    if (
-      incumbentRank === challengerRank &&
-      incumbent.distanceMiles != null &&
-      challenger.distanceMiles != null &&
-      incumbent.distanceMiles - challenger.distanceMiles < switchMarginMiles
-    ) {
-      selected = incumbent;
+    if (incumbentRank === challengerRank) {
+      if (!coords) {
+        // Statewide has no meaningful distance threshold. Keep a still-fresh
+        // same-band pick until it becomes ineligible or a better band appears.
+        selected = incumbent;
+      } else if (
+        incumbent.distanceMiles != null &&
+        challenger.distanceMiles != null &&
+        incumbent.distanceMiles - challenger.distanceMiles < switchMarginMiles
+      ) {
+        selected = incumbent;
+      }
     }
   }
 

@@ -6,6 +6,7 @@ import { useRouter } from 'expo-router';
 import type { FavoriteFloatSummary } from '@eddy/types';
 import { ApiError, fetchFavoriteFloats } from '@/api/client';
 import { readFavoriteFloats, writeFavoriteFloats } from '@/lib/favoriteFloatCache';
+import { favoriteFloatMeta } from '@/lib/favoriteFloatCopy';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
 
@@ -87,7 +88,7 @@ export default function FavoriteFloatsScreen() {
               <View style={styles.body}>
                 <Text style={[styles.river, { color: colors.accent }]}>{item.riverName.toUpperCase()}</Text>
                 <Text style={[styles.cardTitle, { color: colors.text }]}>{item.putInName} to {item.takeOutName}</Text>
-                <Text style={[styles.meta, { color: colors.textMuted }]}>{item.distanceMiles} mi · ~{item.durationHours} hr · Class {item.difficulty}</Text>
+                <Text style={[styles.meta, { color: colors.textMuted }]}>{favoriteFloatMeta(item)}</Text>
                 <Text style={[styles.tagline, { color: colors.text }]}>{item.tagline}</Text>
                 {item.bestFor ? <Text style={[styles.bodyText, { color: colors.textMuted }]}>Best for {item.bestFor}</Text> : null}
                 <Pressable

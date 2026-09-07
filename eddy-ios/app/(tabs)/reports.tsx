@@ -120,7 +120,7 @@ import { getSharedDams } from '@/hooks/useDams';
 import { onForeground } from '@/lib/foreground';
 import { agedIndex, readBestIndex } from '@/lib/riverCache';
 import { useStarredRivers } from '@/hooks/useStarredRivers';
-import { useLocation, type Coords } from '@/hooks/useLocation';
+import { useLocation, type Coords, type LocationStatus } from '@/hooks/useLocation';
 import { riverMilesByGauge } from '@/lib/riverDistance';
 import { gaugeLink } from '@/lib/gaugeCondition';
 import { stationCaption } from '@/lib/gaugeProvider';
@@ -193,6 +193,105 @@ const FILTER_LABELS: { key: FilterKey; label: string }[] = [
   { key: 'low', label: 'Low water' },
   { key: 'high', label: 'High water' },
 ];
+
+interface RiverBrowseControlsProps {
+  chips: FilterChip[];
+  filter: FilterKey;
+  locationStatus: LocationStatus;
+  onPickSort: (key: SortKey) => Promise<void>;
+  onToggleFilter: (key: string) => void;
+  onToggleSort: () => void;
+  showHeading?: boolean;
+  sort: SortKey;
+  sortOpen: boolean;
+}
+
+/** One implementation for both the resting river list and Rivers search scope. */
+const RiverBrowseControls = memo(function RiverBrowseControls({
+  chips,
+  filter,
+  locationStatus,
+  onPickSort,
+  onToggleFilter,
+  onToggleSort,
+  showHeading = false,
+  sort,
+  sortOpen,
+}: RiverBrowseControlsProps) {
+  const { colors } = useTheme();
+  const sortLabel = SORT_LABELS.find((item) => item.key === sort)?.label ?? 'Floatable first';
+  const trigger = (
+    <Pressable
+      onPress={onToggleSort}
+      disabled={locationStatus === 'locating'}
+      hitSlop={8}
+      style={({ pressed }) => [styles.sortTrigger, { opacity: pressed ? 0.6 : 1 }]}
+      accessibilityRole="button"
+      accessibilityState={{ expanded: sortOpen }}
+      accessibilityLabel={`Order: ${sortLabel}. Change the order`}
+    >
+      {locationStatus === 'locating' ? (
+        <ActivityIndicator size="small" color={colors.interactive} />
+      ) : (
+        <Ionicons
+          name={sort === 'nearest' ? 'navigate' : 'swap-vertical-outline'}
+          size={15}
+          color={colors.interactive}
+        />
+      )}
+      <Text style={[styles.sortTriggerText, { color: colors.interactive }]}>{sortLabel}</Text>
+      <Ionicons name={sortOpen ? 'chevron-up' : 'chevron-down'} size={14} color={colors.interactive} />
+    </Pressable>
+  );
+
+  return (
+    <View>
+      {showHeading ? (
+        <View style={styles.browseHead}>
+          <Text style={[styles.browseTitle, { color: colors.text }]}>All river conditions</Text>
+          {trigger}
+        </View>
+      ) : (
+        <View style={styles.sortRow}>{trigger}</View>
+      )}
+      {sortOpen ? (
+        <View style={[styles.sortMenu, { backgroundColor: colors.card, borderColor: colors.border }]}>
+          {SORT_LABELS.map(({ key, label }) => {
+            const selected = sort === key;
+            return (
+              <Pressable
+                key={key}
+                onPress={() => void onPickSort(key)}
+                style={({ pressed }) => [styles.sortItem, { opacity: pressed ? 0.6 : 1 }]}
+                accessibilityRole="button"
+                accessibilityState={{ selected }}
+              >
+                <Text style={[styles.sortItemText, { color: selected ? colors.interactive : colors.text }]}>{label}</Text>
+                {selected ? <Ionicons name="checkmark" size={16} color={colors.interactive} /> : null}
+              </Pressable>
+            );
+          })}
+        </View>
+      ) : null}
+      {sort === 'nearest' ? (
+        <Text style={[styles.sortNote, { color: colors.textSubtle }]}>Nearest first, straight-line to each river&apos;s gauge — not drive time.</Text>
+      ) : locationStatus === 'denied' ? (
+        <View style={styles.sortNoteRow}>
+          <Text style={[styles.sortNoteInline, { color: colors.textSubtle }]}>Location is off for Eddy, so it cannot sort by what is closest.</Text>
+          <Pressable
+            onPress={() => void Linking.openSettings()}
+            hitSlop={8}
+            accessibilityRole="button"
+            accessibilityLabel="Open Settings to turn location on for Eddy"
+          >
+            <Text style={[styles.sortNoteAction, { color: colors.interactive }]}>Open Settings</Text>
+          </Pressable>
+        </View>
+      ) : null}
+      <FilterChips chips={chips} active={[filter]} onToggle={onToggleFilter} paddingHorizontal={16} />
+    </View>
+  );
+});
 
 /** Which kind of thing the field is searching. Exactly one at a time. */
 type ScopeKey = 'all' | 'rivers' | 'gauges' | 'access' | 'dams';
@@ -515,14 +614,7 @@ export default function ReportsScreen() {
       cancelled = true;
     };
   }, [scope]);
-  /**
-   * null means "not chosen yet", which is NOT the same as 'all'.
-   *
-   * The distinction is what lets the default below apply exactly once without an
-   * effect: the moment somebody taps a chip this holds their answer, and the
-   * derived default stops having an opinion — including when they tap All, which
-   * a `setFilter('all')` default would be unable to tell from never having asked.
-   */
+  /** null means no explicit chip choice; the browse default below is All. */
   const [chosenFilter, setFilter] = useState<FilterKey | null>(null);
   const [gaugeFilter, setGaugeFilter] = useState<GaugeFilterKey>('all');
   const [sort, setSort] = useState<SortKey>('condition');
@@ -534,20 +626,8 @@ export default function ReportsScreen() {
   const { colors } = useTheme();
   const router = useRouter();
 
-  /**
-   * Somebody who follows rivers opens on THEIR rivers.
-   *
-   * This is the other half of first-run onboarding: the picker's promise is that
-   * picking does something, and landing on the same twenty-four-river list it
-   * would have shown anyway makes the pick look ignored. It is also simply right
-   * for anyone with follows, whether they came through the picker or starred a
-   * river months ago.
-   *
-   * DERIVED, not assigned in an effect. The store loads asynchronously and syncs
-   * in the background, so an effect would need a ref to fire once — and would
-   * still be a cascading render on every launch. As a fallback it costs nothing
-   * and cannot fight the user: `chosenFilter` wins the instant they tap a chip.
-   */
+  // Favorites now own the personalized hero above this list. Browse therefore
+  // opens on every river and changes only after the user chooses a filter.
   const filter: FilterKey = chosenFilter ?? 'all';
 
   /** When the rivers last loaded — a ref, read only by the foreground check. */
@@ -1277,7 +1357,6 @@ export default function ReportsScreen() {
     );
   }
 
-  const sortLabel = SORT_LABELS.find((s) => s.key === sort)?.label ?? 'Floatable first';
   /**
    * Scopes whose results come from /api/search, as opposed to a list this
    * screen already holds.
@@ -1366,175 +1445,44 @@ export default function ReportsScreen() {
 
       {searching ? (
         <>
-      {/* ── The ordering, named ──────────────────────────────────
-          Below the field rather than inside it, and spelled out rather than
-          drawn.
-
-          This was a bare ⇅ glyph in the field's trailing slot, which is the
-          whole of what five orderings looked like: the live one was legible
-          only to VoiceOver, through an accessibilityLabel. Somebody who can
-          READ "Floatable first" knows both that the list is ordered and that
-          there is another way to see it; somebody looking at an unlabelled
-          glyph knows neither.
-
-          Still a menu rather than a chip row. Five orderings would double the
-          width of the filter strip and read as ten filters, and unlike the
-          filters only one ordering is ever live — which is what a menu says
-          and a chip row does not.
-
-          Rivers only. Every ordering here is a question about rivers — "most
-          water" compares readings across rated units, "near me" measures to a
-          river's own gauge — and offering them over a list of national
-          stations would be five orderings that do nothing. */}
-      {riverScope ? (
-        <View style={styles.sortRow}>
-          <Pressable
-            onPress={() => setSortOpen((open) => !open)}
-            disabled={location.status === 'locating'}
-            hitSlop={8}
-            style={({ pressed }) => [styles.sortTrigger, { opacity: pressed ? 0.6 : 1 }]}
-            accessibilityRole="button"
-            accessibilityState={{ expanded: sortOpen }}
-            accessibilityLabel={`Order: ${sortLabel}. Change the order`}
-          >
-            {location.status === 'locating' ? (
-              <ActivityIndicator size="small" color={colors.interactive} />
-            ) : (
-              <Ionicons
-                name={sort === 'nearest' ? 'navigate' : 'swap-vertical-outline'}
-                size={15}
-                color={colors.interactive}
-              />
-            )}
-            <Text style={[styles.sortTriggerText, { color: colors.interactive }]}>{sortLabel}</Text>
-            <Ionicons
-              name={sortOpen ? 'chevron-up' : 'chevron-down'}
-              size={14}
-              color={colors.interactive}
+          <ScopeSwitch options={SCOPES} value={scope} onChange={setScope} />
+          {riverScope ? (
+            <RiverBrowseControls
+              chips={chips}
+              filter={filter}
+              locationStatus={location.status}
+              onPickSort={onPickSort}
+              onToggleFilter={(key) => setFilter(filter === key ? 'all' : (key as FilterKey))}
+              onToggleSort={() => setSortOpen((open) => !open)}
+              sort={sort}
+              sortOpen={sortOpen}
             />
-          </Pressable>
-        </View>
-      ) : null}
-
-      {/* ── Which kind of thing ──────────────────────────────────
-          ONLY WHILE THE FIELD IS ENGAGED. A scope is a refinement of a search,
-          and there is no search at rest — so at rest this was a taxonomy asked
-          before the question, sitting where the first river should be. Focus
-          the field and it appears, above the filters and below the field,
-          because it governs both. */}
-      {searching ? (
-        <ScopeSwitch options={SCOPES} value={scope} onChange={setScope} />
-      ) : null}
-
-      {/* A menu, not a chip row. Five orderings would double the width of the
-          filter strip and read as ten filters; and unlike the filters, only one
-          ordering is ever live, which is what a menu says and a chip row does
-          not. Collapsed by default — the default order is the right one for
-          most visits. */}
-      {sortOpen && riverScope ? (
-        <View style={[styles.sortMenu, { backgroundColor: colors.card, borderColor: colors.border }]}>
-          {SORT_LABELS.map(({ key, label }) => {
-            const on = sort === key;
-            return (
-              <Pressable
-                key={key}
-                onPress={() => void onPickSort(key)}
-                style={({ pressed }) => [styles.sortItem, { opacity: pressed ? 0.6 : 1 }]}
-                accessibilityRole="button"
-                accessibilityState={{ selected: on }}
-              >
-                <Text
-                  style={[
-                    styles.sortItemText,
-                    { color: on ? colors.interactive : colors.text },
-                  ]}
-                >
-                  {label}
+          ) : scope === 'gauges' ? (
+            <View>
+              {gaugeCount !== null ? (
+                <Text style={[styles.corpusCount, { color: colors.textMuted }]}>
+                  {gaugeCorpusLabel(gaugeCount)}
                 </Text>
-                {on ? <Ionicons name="checkmark" size={16} color={colors.interactive} /> : null}
-              </Pressable>
-            );
-          })}
-        </View>
-      ) : null}
-
-      {/* Stated once, above the list, rather than repeated on every row. The
-          proxy is worth admitting exactly as loudly as it deserves. */}
-      {nearest && riverScope ? (
-        <Text style={[styles.sortNote, { color: colors.textSubtle }]}>
-          Nearest first, straight-line to each river&apos;s gauge — not drive time.
-        </Text>
-      ) : riverScope && location.status === 'denied' ? (
-        // A WAY OUT, not just an explanation. iOS spends the location prompt
-        // once; after a denial `useLocation` never asks again, so a sentence
-        // saying "turn it on in Settings" left the only recovery in the app as
-        // a trip somebody had to make on their own, through two levels of
-        // Settings, having been told to and not shown where. Same
-        // Linking.openSettings escape the push denial has had in Profile.
-        <View style={styles.sortNoteRow}>
-          <Text style={[styles.sortNoteInline, { color: colors.textSubtle }]}>
-            Location is off for Eddy, so it cannot sort by what is closest.
-          </Text>
-          <Pressable
-            onPress={() => void Linking.openSettings()}
-            hitSlop={8}
-            accessibilityRole="button"
-            accessibilityLabel="Open Settings to turn location on for Eddy"
-          >
-            <Text style={[styles.sortNoteAction, { color: colors.interactive }]}>Open Settings</Text>
-          </Pressable>
-        </View>
-      ) : null}
-
-      {/* ── The filters, per scope ───────────────────────────────
-          The whole reason the switch above exists. Rivers are narrowed by a
-          floatability VERDICT and gauges by a comparison to their own history,
-          and the two vocabularies must never appear in one row implying they
-          are the same kind of answer — see src/theme/flow.ts.
-
-          Access points get no strip at all rather than a token one. Every cut
-          worth making over them (by type, by river, by public/private) is a
-          filter over a set the server returns pre-narrowed to a query, and a
-          chip row that could only ever say "All" is a control pretending to be
-          a choice. */}
-      {riverScope ? (
-        <FilterChips
-          chips={chips}
-          active={[filter]}
-          // Single-select: tapping the live chip returns to All rather than
-          // leaving the screen with nothing selected and no rivers shown.
-          // Compared against the DERIVED filter, not the stored one: before the
-          // first tap that is null, and tapping the chip that is visibly active
-          // has to clear it rather than re-select it.
-          onToggle={(key) => setFilter(filter === key ? 'all' : (key as FilterKey))}
-          paddingHorizontal={16}
-        />
-      ) : scope === 'gauges' ? (
-        <View>
-          {gaugeCount !== null ? (
-            <Text style={[styles.corpusCount, { color: colors.textMuted }]}>
-              {gaugeCorpusLabel(gaugeCount)}
-            </Text>
+              ) : null}
+              <FilterChips
+                chips={gaugeChips}
+                active={[gaugeFilter]}
+                onToggle={(key) =>
+                  setGaugeFilter((prev) => (prev === key ? 'all' : (key as GaugeFilterKey)))
+                }
+                paddingHorizontal={16}
+              />
+            </View>
+          ) : scope === 'dams' ? (
+            <FilterChips
+              chips={damChips}
+              active={[damFilter]}
+              onToggle={(key) =>
+                setDamFilter((prev) => (prev === key ? 'all' : (key as DamFilterKey)))
+              }
+              paddingHorizontal={16}
+            />
           ) : null}
-          <FilterChips
-            chips={gaugeChips}
-            active={[gaugeFilter]}
-            onToggle={(key) =>
-              setGaugeFilter((prev) => (prev === key ? 'all' : (key as GaugeFilterKey)))
-            }
-            paddingHorizontal={16}
-          />
-        </View>
-      ) : scope === 'dams' ? (
-        <FilterChips
-          chips={damChips}
-          active={[damFilter]}
-          onToggle={(key) =>
-            setDamFilter((prev) => (prev === key ? 'all' : (key as DamFilterKey)))
-          }
-          paddingHorizontal={16}
-        />
-      ) : null}
         </>
       ) : null}
 
@@ -1573,53 +1521,16 @@ export default function ReportsScreen() {
                   />
                 </View>
               ) : null}
-              <View style={styles.browseHead}>
-                <Text style={[styles.browseTitle, { color: colors.text }]}>All river conditions</Text>
-                <Pressable
-                  onPress={() => setSortOpen((open) => !open)}
-                  disabled={location.status === 'locating'}
-                  hitSlop={8}
-                  style={({ pressed }) => [styles.sortTrigger, { opacity: pressed ? 0.6 : 1 }]}
-                  accessibilityRole="button"
-                  accessibilityState={{ expanded: sortOpen }}
-                  accessibilityLabel={`Order: ${sortLabel}. Change the order`}
-                >
-                  <Ionicons
-                    name={sort === 'nearest' ? 'navigate' : 'swap-vertical-outline'}
-                    size={15}
-                    color={colors.interactive}
-                  />
-                  <Text style={[styles.sortTriggerText, { color: colors.interactive }]}>{sortLabel}</Text>
-                  <Ionicons name={sortOpen ? 'chevron-up' : 'chevron-down'} size={14} color={colors.interactive} />
-                </Pressable>
-              </View>
-              {sortOpen ? (
-                <View style={[styles.sortMenu, { backgroundColor: colors.card, borderColor: colors.border }]}>
-                  {SORT_LABELS.map(({ key, label }) => {
-                    const on = sort === key;
-                    return (
-                      <Pressable
-                        key={key}
-                        onPress={() => void onPickSort(key)}
-                        style={({ pressed }) => [styles.sortItem, { opacity: pressed ? 0.6 : 1 }]}
-                        accessibilityRole="button"
-                        accessibilityState={{ selected: on }}
-                      >
-                        <Text style={[styles.sortItemText, { color: on ? colors.interactive : colors.text }]}>{label}</Text>
-                        {on ? <Ionicons name="checkmark" size={16} color={colors.interactive} /> : null}
-                      </Pressable>
-                    );
-                  })}
-                </View>
-              ) : null}
-              {nearest ? (
-                <Text style={[styles.sortNote, { color: colors.textSubtle }]}>Nearest first, straight-line to each river&apos;s gauge — not drive time.</Text>
-              ) : null}
-              <FilterChips
+              <RiverBrowseControls
                 chips={chips}
-                active={[filter]}
-                onToggle={(key) => setFilter(filter === key ? 'all' : (key as FilterKey))}
-                paddingHorizontal={16}
+                filter={filter}
+                locationStatus={location.status}
+                onPickSort={onPickSort}
+                onToggleFilter={(key) => setFilter(filter === key ? 'all' : (key as FilterKey))}
+                onToggleSort={() => setSortOpen((open) => !open)}
+                showHeading
+                sort={sort}
+                sortOpen={sortOpen}
               />
             </View>
           ) : null
