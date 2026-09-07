@@ -350,22 +350,61 @@ export const TYPE = {
 
 // ─── Safe zones ─────────────────────────────────────────────────────────────
 
-/**
- * Instagram Reels overlays chrome on the rendered 1080×1920 canvas: ~230px of
- * handle / sound / follow at the top and ~380px of caption, actions and the
- * progress bar at the bottom. Everything readable lives inside this inset;
- * symmetric horizontal padding keeps centred layouts on the true centreline.
- */
-export const REEL_SAFE = { top: 250, bottom: 420, left: 60, right: 60 } as const;
+/** Reel and Story playback use different chrome, and every platform reserves a
+ * different right rail / caption floor. Keep those profiles separate here. */
+export type SocialPlatform = 'instagram' | 'facebook' | 'tiktok';
+export type SocialVideoPlacement = 'reel' | 'story';
+export type SafeInsets = { top: number; bottom: number; left: number; right: number };
 
-/**
- * Cover insets. A portrait cover is cropped to a 4:5 tile in the profile grid
- * and in-feed, lopping ~285px off the top AND bottom of a 1080×1920 canvas;
- * anything that must survive the grid stays inside `gridCropGap` of each edge.
- */
-export function gridCropGap(width: number, height: number): number {
+/** UI-safe bounds on a 1080x1920 master. These are conservative working
+ * bounds for important text/logos; photography may extend behind the UI. */
+export const SOCIAL_VIDEO_SAFE: Record<SocialPlatform, Record<SocialVideoPlacement, SafeInsets>> = {
+  instagram: {
+    reel: { top: 250, bottom: 420, left: 60, right: 160 },
+    story: { top: 250, bottom: 300, left: 60, right: 60 },
+  },
+  facebook: {
+    reel: { top: 220, bottom: 420, left: 60, right: 160 },
+    story: { top: 250, bottom: 300, left: 60, right: 60 },
+  },
+  tiktok: {
+    // Reserve the full action rail seen in TikTok playback, including labels.
+    reel: { top: 180, bottom: 420, left: 60, right: 270 },
+    story: { top: 180, bottom: 420, left: 60, right: 270 },
+  },
+} as const;
+
+export function sharedVideoSafe(placement: SocialVideoPlacement): SafeInsets {
+  const zones = Object.values(SOCIAL_VIDEO_SAFE).map((platform) => platform[placement]);
+  return {
+    top: Math.max(...zones.map((zone) => zone.top)),
+    bottom: Math.max(...zones.map((zone) => zone.bottom)),
+    left: Math.max(...zones.map((zone) => zone.left)),
+    right: Math.max(...zones.map((zone) => zone.right)),
+  };
+}
+
+/** Intersection-safe bounds for the one Reel master cross-posted everywhere. */
+export const REEL_SAFE = sharedVideoSafe('reel');
+/** Intersection-safe bounds for a dedicated cross-posted Story master. */
+export const STORY_SAFE = sharedVideoSafe('story');
+
+/** Cover crops are independent from playback chrome. Instagram and TikTok use
+ * a centered 3:4 profile tile; Eddy emits a square Facebook cover. */
+export const SOCIAL_COVER_ASPECT: Record<SocialPlatform, number> = {
+  instagram: 3 / 4,
+  facebook: 1,
+  tiktok: 3 / 4,
+} as const;
+
+export function gridCropGap(
+  width: number,
+  height: number,
+  platform: SocialPlatform = 'instagram',
+): number {
   if (height <= width) return 0;
-  return Math.round((height - (width * 5) / 4) / 2);
+  const visibleHeight = width / SOCIAL_COVER_ASPECT[platform];
+  return Math.max(0, Math.round((height - visibleHeight) / 2));
 }
 
 export const COVER_INSET = { square: 64, portrait: 72 } as const;

@@ -380,6 +380,10 @@ export async function publishVideoToTikTokDirect(
           disable_comment: false,
           disable_duet: false,
           disable_stitch: false,
+          // TikTok supports choosing a cover frame by timestamp, not a custom
+          // cover image. Frame 0 is already complete, but 500ms gives the
+          // decoder time to settle on the same visual-first branded layout.
+          video_cover_timestamp_ms: 500,
         },
         source_info: { source: 'FILE_UPLOAD', video_size: size, chunk_size: size, total_chunk_count: 1 },
       }),

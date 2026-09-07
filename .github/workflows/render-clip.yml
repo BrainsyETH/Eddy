@@ -115,11 +115,36 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
+      - name: Capture representative source frame
+        id: thumbnail
+        env:
+          RAW_VIDEO_URL: ${{ inputs.video_url }}
+          BLOB_READ_WRITE_TOKEN: ${{ secrets.BLOB_READ_WRITE_TOKEN }}
+          VIDEO_ID: ${{ inputs.youtube_video_id }}
+          PEAK_NUMBER: ${{ inputs.peak_number }}
+        run: |
+          set -euo pipefail
+          curl -fsSL "$RAW_VIDEO_URL" -o /tmp/raw-clip.mp4
+          ffmpeg -hide_banner -loglevel error -y -ss 0.5 -i /tmp/raw-clip.mp4 \
+            -frames:v 1 -q:v 2 /tmp/clip-thumbnail.jpg
+          DATE_PREFIX=$(date -u +%Y-%m-%d)
+          BLOB_PATH="clip-thumbnails/${DATE_PREFIX}/${VIDEO_ID}-peak${PEAK_NUMBER}.jpg"
+          RESPONSE=$(curl -fsS -X PUT "https://blob.vercel-storage.com/${BLOB_PATH}" \
+            -H "Authorization: Bearer ${BLOB_READ_WRITE_TOKEN}" \
+            -H "x-content-type: image/jpeg" \
+            -H "x-cache-control-max-age: 31536000" \
+            --data-binary @/tmp/clip-thumbnail.jpg)
+          THUMBNAIL_URL=$(echo "$RESPONSE" | jq -r '.url // empty')
+          [ -n "$THUMBNAIL_URL" ] || { echo "::error::Thumbnail upload failed: $RESPONSE"; exit 1; }
+          echo "thumbnail_url=$THUMBNAIL_URL" >> "$GITHUB_OUTPUT"
+          echo "Captured representative cover frame"
+
       - name: Insert into clip_library (pending)
         env:
           SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
           SUPABASE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           CLIP_URL: ${{ needs.render.outputs.clip_url }}
+          THUMBNAIL_URL: ${{ steps.thumbnail.outputs.thumbnail_url }}
           VIDEO_ID: ${{ inputs.youtube_video_id }}
           CHANNEL: ${{ inputs.youtube_channel }}
           CREATOR: ${{ inputs.creator }}
@@ -141,6 +166,7 @@ jobs:
               "youtube_channel": os.environ.get("CHANNEL") or None,
               "river_slug": os.environ.get("RIVER_SLUG") or None,
               "clip_url": os.environ["CLIP_URL"],
+              "thumbnail_url": os.environ.get("THUMBNAIL_URL") or None,
               "duration_secs": int(dur),
               "clip_start_secs": start,
               "clip_end_secs": start + dur,
@@ -188,6 +214,7 @@ jobs:
               # only replace the rendered media and restart brand review.
               row = {
                   "clip_url": row["clip_url"],
+                  "thumbnail_url": row["thumbnail_url"],
                   "duration_secs": row["duration_secs"],
                   "orientation": row["orientation"],
                   "brand_check_status": "pending",

@@ -79,12 +79,25 @@ embedded, so covers set body copy in Fredoka and every arrow, ▲▼ and ° in m
 
 ## Safe zones
 
-- Reels: `REEL_SAFE` — 250px of Instagram chrome at the top, 420px at the
-  bottom, 60px sides. Only a stage may run under the chrome, and it fades out
-  at both edges.
-- Covers: a portrait cover is cropped to 4:5 in the grid and in-feed, taking
-  ~285px off the top AND bottom. `coverGeometry` keeps everything inside that
-  band.
+Playback and cover crops are different constraints and must not share one
+rectangle:
+
+- `SOCIAL_VIDEO_SAFE` holds separate 1080×1920 UI bounds for Instagram,
+  Facebook and TikTok, with a `reel` and `story` profile for each platform.
+- `REEL_SAFE` is the conservative intersection used by the single Reel master
+  cross-posted to all three platforms. Text, logos, faces, captions and CTAs
+  stay inside it. TikTok's profile/action rail gets a 270px right reserve, and
+  ruled media cards stay inside that edge so their border is not cut off.
+- `STORY_SAFE` is the corresponding intersection for a dedicated Story export.
+  Story navigation reserves different top and bottom strips and does not reuse
+  the Reel rectangle.
+- `SOCIAL_COVER_ASPECT` and `coverGeometry` own profile-thumbnail crops.
+  Instagram and TikTok use a centered 3:4 tile; Eddy's Facebook cover artifact
+  is square. A cover never borrows Reel or Story UI padding.
+
+The bounds are intentionally conservative working values because native app
+chrome can shift. Check Meta's Reels safe-zone template and TikTok Creative
+Center when changing them, then refresh the visual baselines.
 
 ## Frame zero
 
@@ -114,6 +127,18 @@ reel nor its cover draws a fake CTA button. The real CTA stays in the caption
 an `@handle` there is the creator's Instagram account, and the caption tags the
 same handle (`docs/clipengine-ops.md`, *Credit and tagging*). High-water clips
 use that same rule and keep their safety guidance as plain information.
+
+Lower docks carry category-specific utility instead of generic filler:
+high-water clips show a three-step launch checklist and live-level destination;
+Float Picks identify the put-in-to-take-out route alongside time, distance and
+conditions. Gauge, Trend and Digest reels retain their own readings, movement
+and roundup summaries.
+
+Clip covers are visual-first: the render workflow captures a representative
+frame from the unbranded source and stores it as `clip_library.thumbnail_url`.
+The cover uses that still before any river artwork fallback. Creator provenance
+stays in the Reel dock and caption, where it remains readable instead of being
+shrunk into profile-grid text.
 
 ## Fallbacks are still the system
 

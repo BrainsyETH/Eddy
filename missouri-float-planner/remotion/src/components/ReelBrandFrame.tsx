@@ -25,8 +25,15 @@ import type { Caption } from "../lib/social-props";
 const CONTENT_W = 1080 - REEL_SAFE.left - REEL_SAFE.right;
 const DARK_BAND_H = Math.round((CONTENT_W * 9) / 16);
 const DARK_BAND_TOP = 590;
-const LIGHT_LANDSCAPE = { top: 510, left: REEL_SAFE.left, width: CONTENT_W, height: 680 } as const;
-const LIGHT_PORTRAIT = { top: 475, left: 225, width: 630, height: 760 } as const;
+// Keep the ruled media edge visible beside TikTok's action rail. Photography
+// may still crop within the card, but the frame itself communicates intent.
+const LIGHT_LANDSCAPE = { top: 500, left: REEL_SAFE.left, width: CONTENT_W, height: 800 } as const;
+const LIGHT_PORTRAIT = {
+  top: 475,
+  left: REEL_SAFE.left + Math.round((CONTENT_W - 630) / 2),
+  width: 630,
+  height: 760,
+} as const;
 const DARK_CAPTION_TOP = DARK_BAND_TOP + DARK_BAND_H - 90;
 const DARK_FULL_BLEED_CAPTION_TOP = 1180;
 
@@ -40,6 +47,10 @@ interface ReelBrandFrameProps {
   creatorCredit?: string;
   /** Dock detail line (the safety payload on a high-water clip). */
   detail?: string;
+  /** Compact, actionable steps shown only when the content calls for them. */
+  checklist?: string[];
+  /** Supporting destination line pinned at the safe-zone floor. */
+  followCta?: string;
   /** Category accent: the dock's rule and the media card's rule. Defaults to
    *  the neutral water teal (a clip has no live gauge reading). */
   accent?: string;
@@ -68,6 +79,8 @@ export const ReelBrandFrame: React.FC<ReelBrandFrameProps> = ({
   title,
   creatorCredit,
   detail,
+  checklist,
+  followCta,
   accent = NEUTRAL_ACCENT,
   labelFill,
   tone = "light",
@@ -89,7 +102,9 @@ export const ReelBrandFrame: React.FC<ReelBrandFrameProps> = ({
       ? LIGHT_PORTRAIT
       : LIGHT_LANDSCAPE;
   const mediaAccent = severity ? accent : surface.rule;
-  const creditLine = creatorCredit ? `🎥 Clip via ${creatorCredit}` : undefined;
+  // Fredoka does not contain emoji glyphs; the old camera emoji rendered as a
+  // broken vertical box in production. Keep attribution plain and explicit.
+  const creditLine = creatorCredit ? `Footage: ${creatorCredit}` : undefined;
 
   return (
     <AbsoluteFill style={{ backgroundColor: surface.ground, color: surface.ink, fontFamily: fontFamilies.body }}>
@@ -153,8 +168,8 @@ export const ReelBrandFrame: React.FC<ReelBrandFrameProps> = ({
                 ? DARK_FULL_BLEED_CAPTION_TOP
                 : DARK_CAPTION_TOP
               : media.top + media.height - 82,
-            left: useFullBleed ? REEL_SAFE.left + 24 : media.left + 24,
-            width: useFullBleed ? CONTENT_W - 48 : media.width - 48,
+            left: REEL_SAFE.left + 24,
+            width: CONTENT_W - 48,
             display: "flex",
             justifyContent: "center",
             zIndex: 12,
@@ -166,7 +181,34 @@ export const ReelBrandFrame: React.FC<ReelBrandFrameProps> = ({
 
       {/* The dock contains provenance or safety context, never a fake button.
           When the category owns the detail line, credit moves above it. */}
-      <ReelDock tone={tone} accent={severity ? accent : undefined} detail={detail ?? creditLine}>
+      <ReelDock
+        tone={tone}
+        accent={severity ? accent : undefined}
+        detail={detail ?? creditLine}
+        followCta={followCta}
+      >
+        {checklist && checklist.length > 0 ? (
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
+            {checklist.map((item, index) => (
+              <div
+                key={item}
+                style={{
+                  flex: "1 1 210px",
+                  padding: "12px 14px",
+                  border: `3px solid ${surface.tileRule}`,
+                  borderRadius: 12,
+                  background: surface.tile,
+                  color: surface.ink,
+                  fontSize: 24,
+                  fontWeight: 700,
+                  lineHeight: 1.12,
+                }}
+              >
+                {index + 1}. {item}
+              </div>
+            ))}
+          </div>
+        ) : null}
         {detail && creditLine ? (
           <div
             style={{
