@@ -21,6 +21,8 @@ import type {
   ConditionResponse,
   DamSnapshot,
   DamsResponse,
+  FavoriteFloatsResponse,
+  FavoriteFloatSummary,
   FloatPlan,
   GaugeDetail,
   GaugeDetailResponse,
@@ -1769,6 +1771,14 @@ export async function fetchAlerts(signal?: AbortSignal): Promise<AlertFeedEntry[
 export async function fetchHighWater(signal?: AbortSignal): Promise<HighWaterEntry[]> {
   const data = await get<HighWaterResponse>('/api/high-water', signal);
   return data.entries ?? [];
+}
+
+/** Hand-curated guide sections, including the exact endpoint IDs the planner needs. */
+export async function fetchFavoriteFloats(
+  signal?: AbortSignal,
+): Promise<FavoriteFloatSummary[]> {
+  const data = await get<FavoriteFloatsResponse>('/api/favorite-floats', signal);
+  return data.floats ?? [];
 }
 
 /**

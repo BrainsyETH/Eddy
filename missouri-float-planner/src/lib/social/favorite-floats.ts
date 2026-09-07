@@ -71,16 +71,19 @@ const isCampground = (ap: ApRow): boolean =>
 async function loadFavoritePool(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   supabase: any,
+  strict = false,
 ): Promise<FavoriteFloat[]> {
   const { data: guides, error: guidesError } = await supabase
     .from('blog_posts')
     .select('slug, river_slug, guide_data')
     .eq('category', 'River Guides')
     .eq('status', 'published')
+    .lte('published_at', new Date().toISOString())
     .not('guide_data', 'is', null);
 
   if (guidesError || !guides) {
     if (guidesError) console.error('[FavoriteFloats] guide query failed:', guidesError.message);
+    if (strict) throw guidesError ?? new Error('Favorite float guides were unavailable');
     return [];
   }
 
@@ -90,10 +93,15 @@ async function loadFavoritePool(
   );
   if (riverSlugs.length === 0) return [];
 
-  const { data: riverRows } = await supabase
+  const { data: riverRows, error: riversError } = await supabase
     .from('rivers')
     .select('id, slug, name')
     .in('slug', riverSlugs);
+  if (riversError) {
+    console.error('[FavoriteFloats] river query failed:', riversError.message);
+    if (strict) throw riversError;
+    return [];
+  }
   const riverIdBySlug = new Map<string, string>();
   const riverNameBySlug = new Map<string, string>();
   for (const r of (riverRows || []) as { id: string; slug: string; name: string }[]) {
@@ -113,12 +121,17 @@ async function loadFavoritePool(
   }
   if (wantedSlugs.size === 0) return [];
 
-  const { data: apRows } = await supabase
+  const { data: apRows, error: accessError } = await supabase
     .from('access_points')
     .select('id, slug, name, river_mile_downstream, type, types, river_id')
     .in('river_id', riverIds)
     .in('slug', Array.from(wantedSlugs))
     .not('river_mile_downstream', 'is', null);
+  if (accessError) {
+    console.error('[FavoriteFloats] access query failed:', accessError.message);
+    if (strict) throw accessError;
+    return [];
+  }
 
   // Key by river_id + slug (slugs aren't guaranteed unique across rivers).
   const apByKey = new Map<string, ApRow>();
@@ -194,6 +207,14 @@ async function loadFavoritePool(
       : x.riverSlug.localeCompare(y.riverSlug),
   );
   return pool;
+}
+
+/** API reader: a failed query must never become a successful empty collection. */
+export function listFavoriteFloats(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  supabase: any,
+): Promise<FavoriteFloat[]> {
+  return loadFavoritePool(supabase, true);
 }
 
 /**

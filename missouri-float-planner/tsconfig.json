@@ -59,6 +59,8 @@
     "remotion",
     "**/*.test.ts",
     "**/*.test.tsx",
+    "**/*.spec.ts",
+    "**/*.spec.tsx",
     "scripts/check-service-model.ts"
   ]
 }

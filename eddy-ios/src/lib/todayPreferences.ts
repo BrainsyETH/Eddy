@@ -23,6 +23,7 @@
 // screen, and nobody would remember setting it.
 
 export const TODAY_UPDATE_COLLAPSED_KEY = 'eddy.today.updateCollapsed.v1';
+export const TODAY_RECOMMENDATION_KEY = 'eddy.today.recommendation.v1';
 
 export interface TodayPreferenceStorage {
   getItem(key: string): Promise<string | null>;
@@ -64,6 +65,28 @@ export async function writeUpdateCollapsed(
   } catch {
     // Intentionally silent. A card that draws correctly and forgets its fold is
     // a smaller failure than a tab that stalls on a key-value write.
+  }
+}
+
+/** Last discovery pick, used only as the selector's anti-flap incumbent. */
+export async function readRecommendation(
+  storage: TodayPreferenceStorage = deviceStorage(),
+): Promise<string | null> {
+  try {
+    return await storage.getItem(TODAY_RECOMMENDATION_KEY);
+  } catch {
+    return null;
+  }
+}
+
+export async function writeRecommendation(
+  riverId: string,
+  storage: TodayPreferenceStorage = deviceStorage(),
+): Promise<void> {
+  try {
+    await storage.setItem(TODAY_RECOMMENDATION_KEY, riverId);
+  } catch {
+    // A forgotten incumbent may change a card; it must never block Today.
   }
 }
 

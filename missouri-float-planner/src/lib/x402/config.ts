@@ -164,6 +164,7 @@ export const X402_ROUTES = {
   '/api/weather/:riverSlug/forecast': { price: '$0.01', description: 'Weather forecast data' },
   '/api/blog': { price: '$0.005', description: 'Blog posts data' },
   '/api/blog/:slug': { price: '$0.005', description: 'Blog post data' },
+  '/api/favorite-floats': { price: '$0.005', description: "Eddy's curated float routes" },
   '/api/chat': { price: '$0.02', description: 'AI chat access' },
   '/api/plan': { price: '$0.02', description: 'Float plan data' },
   '/api/plan/campgrounds': { price: '$0.01', description: 'Campgrounds data' },
