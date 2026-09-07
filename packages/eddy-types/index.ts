@@ -2036,6 +2036,32 @@ export interface AlertsResponse {
   alerts: AlertFeedEntry[];
 }
 
+// ── Eddy's Favorite Floats (GET /api/favorite-floats) ───────────
+
+/** A compact, planner-ready projection of a curated river-guide section. */
+export interface FavoriteFloatSummary {
+  id: string;
+  riverId: string;
+  riverSlug: string;
+  riverName: string;
+  putInId: string;
+  putInName: string;
+  takeOutId: string;
+  takeOutName: string;
+  distanceMiles: number;
+  durationHours: number;
+  difficulty: string;
+  tagline: string;
+  bestFor: string;
+  bestForTags: string[];
+  guideSlug: string;
+  photoUrl: string | null;
+}
+
+export interface FavoriteFloatsResponse {
+  floats: FavoriteFloatSummary[];
+}
+
 // ── High water right now (GET /api/high-water) ───────────────────
 //
 // A SNAPSHOT, and deliberately not the feed above. AlertFeedEntry is a

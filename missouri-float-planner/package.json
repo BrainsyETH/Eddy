@@ -4,6 +4,7 @@
   "private": true,
   "scripts": {
     "test:safe-zones": "tsx --tsconfig tsconfig.test.json --test shared/social-brand.test.ts",
+    "pretest": "tsx --tsconfig tsconfig.test.json --test src/lib/today-recommendation.spec.ts",
     "dev": "next dev",
     "build": "next build",
     "start": "next start",

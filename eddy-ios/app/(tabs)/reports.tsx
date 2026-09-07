@@ -111,6 +111,7 @@ import { ScopeSwitch, type ScopeOption } from '@/components/ScopeSwitch';
 import { DamRow } from '@/components/dam/DamRow';
 import { SearchBar } from '@/components/SearchBar';
 import { TodaySummary } from '@/components/TodaySummary';
+import { TodayHub } from '@/components/TodayHub';
 import { FilterChips, type FilterChip } from '@/components/FilterChips';
 import { FeedbackSheet } from '@/components/FeedbackSheet';
 import { gaugeToSearchResult, useEddySearch } from '@/hooks/useEddySearch';
@@ -127,7 +128,6 @@ import { rememberGauge, seedFromMapGauge, seedFromSearchResult } from '@/lib/gau
 import { primaryReading } from '@/lib/readingCopy';
 import { useRouter } from 'expo-router';
 import { asHref } from '@/lib/href';
-import { warn } from '@/lib/monitoring';
 
 type FilterKey = 'all' | 'floatable' | 'starred' | 'low' | 'high';
 
@@ -189,7 +189,7 @@ const MIN_GAUGE_QUERY = 2;
 const FILTER_LABELS: { key: FilterKey; label: string }[] = [
   { key: 'all', label: 'All rivers' },
   { key: 'floatable', label: 'Floatable now' },
-  { key: 'starred', label: 'Following' },
+  { key: 'starred', label: 'Favorites' },
   { key: 'low', label: 'Low water' },
   { key: 'high', label: 'High water' },
 ];
@@ -435,6 +435,7 @@ export default function ReportsScreen() {
   const [rivers, setRivers] = useState<RiverListItem[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
+  const [hubRefreshRevision, setHubRefreshRevision] = useState(0);
   /**
    * True while the list on screen is the launch bundle's SEED and /api/rivers
    * has not yet answered.
@@ -529,7 +530,7 @@ export default function ReportsScreen() {
   const nearest = sort === 'nearest';
   const [gauges, setGauges] = useState<MapGauge[] | null>(null);
   const location = useLocation();
-  const { starred, isStarred, toggleStar, ready: starsReady } = useStarredRivers();
+  const { starred, isStarred, ready: starsReady } = useStarredRivers();
   const { colors } = useTheme();
   const router = useRouter();
 
@@ -547,9 +548,7 @@ export default function ReportsScreen() {
    * still be a cascading render on every launch. As a fallback it costs nothing
    * and cannot fight the user: `chosenFilter` wins the instant they tap a chip.
    */
-  const filter: FilterKey =
-    chosenFilter ??
-    (starsReady && starred.some((entry) => entry.kind === 'river') ? 'starred' : 'all');
+  const filter: FilterKey = chosenFilter ?? 'all';
 
   /** When the rivers last loaded — a ref, read only by the foreground check. */
   const riversAt = useRef<number | null>(null);
@@ -774,6 +773,7 @@ export default function ReportsScreen() {
     // screen first, so pulling down with no signal costs the reader nothing.
     // See clauses 3 and 4 in src/hooks/useEddyUpdates.ts.
     await Promise.all([load(), refreshEddyUpdates()]);
+    setHubRefreshRevision((revision) => revision + 1);
     setRefreshing(false);
   }, [load, refreshEddyUpdates]);
 
@@ -1177,7 +1177,7 @@ export default function ReportsScreen() {
       },
       {
         key: 'starred',
-        label: 'Following',
+        label: 'Favorites',
         // The STARRED SET, not the search results. See starredGaugeResults —
         // counting inside the query made this read 0 until something was typed.
         count: starredGaugeResults.length,
@@ -1312,22 +1312,9 @@ export default function ReportsScreen() {
     <SafeAreaView style={[styles.screen, { backgroundColor: colors.bg }]} edges={['top']}>
       <View style={styles.header}>
         <Text style={[styles.title, { color: colors.text }]}>Today</Text>
-        {/* THE ANSWER, THEN THE ERROR.
-
-            This slot was reduced to errors only on the grounds that the
-            "Floatable now" chip already carried the count. It does — but only
-            in the Rivers segment, and the tab opens on All, so the number that
-            answers the question the screen is named for was not on screen at
-            all when it loaded. A count inside a filter is also a different
-            claim from a headline: one is a filter's size, the other is the
-            state of the Ozarks this morning.
-
-            The error still wins the slot when there is one. A failed
-            pull-to-refresh leaves the stale list on screen, so
-            ListEmptyComponent never renders and this is the only thing that
-            says the refresh failed — and a confident tally above a list that
-            silently failed to update is the exact thing this screen must not
-            do. Collapses to nothing when there is neither. */}
+        {/* Failure/loading stays beside the title. The statewide answer moved
+            below the personalized modules so Search remains at the top and
+            Favorites, not a generic summary, owns the page's hero position. */}
         {error ? (
           <Text style={[styles.subtitle, { color: colors.error }]}>{error}</Text>
         ) : awaitingConditions ? (
@@ -1342,13 +1329,7 @@ export default function ReportsScreen() {
               Loading conditions…
             </Text>
           </View>
-        ) : (
-          <TodaySummary
-            headline={headline}
-            prose={summary?.quoteText ?? null}
-            generatedAt={summary?.generatedAt ?? null}
-          />
-        )}
+        ) : null}
       </View>
 
       {/* Header and controls sit OUTSIDE the FlatList rather than in
@@ -1383,6 +1364,8 @@ export default function ReportsScreen() {
         />
       </View>
 
+      {searching ? (
+        <>
       {/* ── The ordering, named ──────────────────────────────────
           Below the field rather than inside it, and spelled out rather than
           drawn.
@@ -1552,6 +1535,8 @@ export default function ReportsScreen() {
           paddingHorizontal={16}
         />
       ) : null}
+        </>
+      ) : null}
 
       <FlatList
         data={rows}
@@ -1568,6 +1553,77 @@ export default function ReportsScreen() {
         // accident, and it is not how any other iOS search list behaves.
         keyboardDismissMode="on-drag"
         contentContainerStyle={styles.listContent}
+        ListHeaderComponent={
+          !searching ? (
+            <View>
+              <TodayHub
+                rivers={rivers ?? []}
+                gauges={gauges}
+                ensureGauges={ensureGauges}
+                location={location}
+                refreshRevision={hubRefreshRevision}
+                suppressNetworkNotice={Boolean(error)}
+              />
+              {!error && !awaitingConditions ? (
+                <View style={styles.summaryWrap}>
+                  <TodaySummary
+                    headline={headline}
+                    prose={summary?.quoteText ?? null}
+                    generatedAt={summary?.generatedAt ?? null}
+                  />
+                </View>
+              ) : null}
+              <View style={styles.browseHead}>
+                <Text style={[styles.browseTitle, { color: colors.text }]}>All river conditions</Text>
+                <Pressable
+                  onPress={() => setSortOpen((open) => !open)}
+                  disabled={location.status === 'locating'}
+                  hitSlop={8}
+                  style={({ pressed }) => [styles.sortTrigger, { opacity: pressed ? 0.6 : 1 }]}
+                  accessibilityRole="button"
+                  accessibilityState={{ expanded: sortOpen }}
+                  accessibilityLabel={`Order: ${sortLabel}. Change the order`}
+                >
+                  <Ionicons
+                    name={sort === 'nearest' ? 'navigate' : 'swap-vertical-outline'}
+                    size={15}
+                    color={colors.interactive}
+                  />
+                  <Text style={[styles.sortTriggerText, { color: colors.interactive }]}>{sortLabel}</Text>
+                  <Ionicons name={sortOpen ? 'chevron-up' : 'chevron-down'} size={14} color={colors.interactive} />
+                </Pressable>
+              </View>
+              {sortOpen ? (
+                <View style={[styles.sortMenu, { backgroundColor: colors.card, borderColor: colors.border }]}>
+                  {SORT_LABELS.map(({ key, label }) => {
+                    const on = sort === key;
+                    return (
+                      <Pressable
+                        key={key}
+                        onPress={() => void onPickSort(key)}
+                        style={({ pressed }) => [styles.sortItem, { opacity: pressed ? 0.6 : 1 }]}
+                        accessibilityRole="button"
+                        accessibilityState={{ selected: on }}
+                      >
+                        <Text style={[styles.sortItemText, { color: on ? colors.interactive : colors.text }]}>{label}</Text>
+                        {on ? <Ionicons name="checkmark" size={16} color={colors.interactive} /> : null}
+                      </Pressable>
+                    );
+                  })}
+                </View>
+              ) : null}
+              {nearest ? (
+                <Text style={[styles.sortNote, { color: colors.textSubtle }]}>Nearest first, straight-line to each river&apos;s gauge — not drive time.</Text>
+              ) : null}
+              <FilterChips
+                chips={chips}
+                active={[filter]}
+                onToggle={(key) => setFilter(filter === key ? 'all' : (key as FilterKey))}
+                paddingHorizontal={16}
+              />
+            </View>
+          ) : null
+        }
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -1750,6 +1806,17 @@ const styles = StyleSheet.create({
   loadingRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 4 },
   loadingText: { ...t.sm, fontFamily: fonts.body },
   searchRow: { paddingHorizontal: 16, paddingTop: 12 },
+  summaryWrap: { paddingHorizontal: 16, paddingBottom: 22 },
+  browseHead: {
+    paddingHorizontal: 18,
+    paddingTop: 2,
+    paddingBottom: 6,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  browseTitle: { ...t.xl, fontFamily: fonts.heading },
   sortRow: { paddingHorizontal: 16, paddingTop: 10 },
   sortTrigger: {
     flexDirection: 'row',

@@ -1432,10 +1432,17 @@ export default function MapScreen() {
    * cold launch into the map. Setting it in both branches is what makes the
    * deep link work before the network has answered — see the selection effect.
    */
-  const focusParams = useLocalSearchParams<{ focusAccess?: string; focusRiver?: string }>();
+  const focusParams = useLocalSearchParams<{
+    focusAccess?: string;
+    focusRiver?: string;
+    openPlan?: string;
+    planPutIn?: string;
+    planTakeOut?: string;
+  }>();
   const focusAccess = focusParams.focusAccess ?? null;
   const focusRiver = focusParams.focusRiver ?? null;
   const focusConsumed = useRef<string | null>(null);
+  const planIntentConsumed = useRef<string | null>(null);
 
   // The work, as a callback rather than inline in the effect below. A route
   // param is an external system and reacting to one is what an effect is for,
@@ -1503,12 +1510,64 @@ export default function MapScreen() {
   }, [focusAccess, focusRiver, focusOnAccess]);
 
   // ── Float plan ──────────────────────────────────────────────────
-  const plannerAccessPoints =
-    plannerAccess?.slug === selectedSlug ? plannerAccess.items : [];
+  const plannerAccessPoints = useMemo(
+    () => (plannerAccess?.slug === selectedSlug ? plannerAccess.items : []),
+    [plannerAccess, selectedSlug],
+  );
   // Planning needs a river ID and ordered access points, not the river's heavy
   // full-resolution geometry. RiverListItem already carries that ID, so the
   // planner becomes usable as soon as cached access points arrive.
   const planner = useFloatPlan(selected?.id ?? null, plannerAccessPoints);
+
+  /**
+   * Planner handoff from Today. The route carries database IDs, not names or
+   * slugs that can drift, and waits until the selected river's own access list
+   * has landed before calculating the exact editorial stretch.
+   */
+  useEffect(() => {
+    if (focusParams.openPlan !== '1' || !focusRiver) {
+      planIntentConsumed.current = null;
+      return;
+    }
+    const token = `${focusRiver}:${focusParams.planPutIn ?? ''}:${focusParams.planTakeOut ?? ''}`;
+    if (planIntentConsumed.current === token) return;
+
+    if (selectedSlug !== focusRiver) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- route intent synchronizes the kept-alive map tab.
+      selectRiver(focusRiver, { camera: 'fitRiver' });
+      return;
+    }
+    if (plannerAccess?.slug !== focusRiver) return;
+
+    if (focusParams.planPutIn && focusParams.planTakeOut) {
+      const putIn = plannerAccessPoints.find((point) => point.id === focusParams.planPutIn);
+      const takeOut = plannerAccessPoints.find((point) => point.id === focusParams.planTakeOut);
+      // A cached editorial pick can outlive an access-point edit. Preserve the
+      // handoff by opening the river's planner even if one old ID no longer
+      // resolves; the user can then choose the current endpoints explicitly.
+      if (putIn && takeOut) planner.planFloat(putIn, takeOut);
+    }
+
+    planIntentConsumed.current = token;
+    setPlanOpen(true);
+    router.setParams({
+      focusRiver: undefined,
+      openPlan: undefined,
+      planPutIn: undefined,
+      planTakeOut: undefined,
+    });
+  }, [
+    focusParams.openPlan,
+    focusParams.planPutIn,
+    focusParams.planTakeOut,
+    focusRiver,
+    planner,
+    plannerAccess?.slug,
+    plannerAccessPoints,
+    router,
+    selectRiver,
+    selectedSlug,
+  ]);
 
   // Memoised for identity: built inline it was a fresh object per render,
   // re-rendering the endpoint markers' shape sources with unchanged contents.
