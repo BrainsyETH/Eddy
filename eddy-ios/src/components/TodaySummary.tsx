@@ -54,8 +54,8 @@
 import { useEffect, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { Otter } from '@/components/Otter';
-import { primary } from '@/theme/palette';
+import { EddySymbol } from '@/components/EddySymbol';
+import { useTheme } from '@/theme/ThemeProvider';
 // Shared with every per-river surface, so the statewide card and the river
 // screen cannot end up describing the same daily generator in different words.
 // It was this file's private function first; see src/lib/eddySays.ts.
@@ -78,6 +78,7 @@ interface Props {
 }
 
 export function TodaySummary({ headline, prose, generatedAt }: Props) {
+  const { colors, elevation } = useTheme();
   /**
    * Undefined until the stored answer lands, and that third state matters.
    *
@@ -121,7 +122,7 @@ export function TodaySummary({ headline, prose, generatedAt }: Props) {
   };
 
   return (
-    <View style={[styles.card, { backgroundColor: primary[800] }]}>
+    <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }, elevation(1)]}>
       {/* The whole head is the control, not just the chevron: this is a card
           somebody folds while holding a phone one-handed, and a 24pt glyph in
           the corner is the smallest target on the screen. */}
@@ -137,28 +138,27 @@ export function TodaySummary({ headline, prose, generatedAt }: Props) {
             : undefined
         }
       >
-        {/* Small, and beside the headline rather than over it. Eddy is the
-            voice here, not the subject. */}
-        <Otter mood="standard" size={44} />
-        {/* primary[50] and [100] rather than a theme role: this card is teal
-            in BOTH schemes, so it needs ink chosen against teal, not against
-            whichever background the app is currently wearing. DESIGN.md §2
-            names the 100/50 steps for exactly this — content on dark. */}
-        <Text style={[styles.headline, { color: primary[50] }]}>{headline}</Text>
+        <View style={[styles.iconWell, { backgroundColor: colors.selectionBg }]}>
+          <EddySymbol name="water" size={30} />
+        </View>
+        <View style={styles.copy}>
+          <Text style={[styles.kicker, { color: colors.accent }]}>STATEWIDE PULSE</Text>
+          <Text style={[styles.headline, { color: colors.text }]}>{headline}</Text>
+        </View>
         {foldable ? (
           <Ionicons
             name={open ? 'chevron-up' : 'chevron-down'}
             size={20}
-            color={primary[300]}
+            color={colors.interactive}
           />
         ) : null}
       </Pressable>
 
       {open && prose ? (
         <>
-          <Text style={[styles.prose, { color: primary[100] }]}>{prose}</Text>
+          <Text style={[styles.prose, { color: colors.textMuted }]}>{prose}</Text>
           {written ? (
-            <Text style={[styles.footnote, { color: primary[300] }]}>{written}</Text>
+            <Text style={[styles.footnote, { color: colors.textSubtle }]}>{written}</Text>
           ) : null}
         </>
       ) : null}
@@ -167,11 +167,12 @@ export function TodaySummary({ headline, prose, generatedAt }: Props) {
 }
 
 const styles = StyleSheet.create({
-  card: { marginTop: 12, borderRadius: 16, padding: 16, gap: 10 },
+  card: { borderWidth: StyleSheet.hairlineWidth, borderRadius: 16, padding: 14, gap: 10 },
   top: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  // Fredoka, like the screen title above it — this is Eddy speaking, and the
-  // display face is where the brand actually lives.
-  headline: { ...t.xl, fontFamily: fonts.display, flex: 1 },
-  prose: { ...t.sm, fontFamily: fonts.body, lineHeight: 21 },
-  footnote: { ...t.xs, fontFamily: fonts.body },
+  iconWell: { width: 48, height: 48, borderRadius: 24, alignItems: 'center', justifyContent: 'center' },
+  copy: { flex: 1, minWidth: 0 },
+  kicker: { ...t.xs, fontFamily: fonts.heading, letterSpacing: 0.8, marginBottom: 2 },
+  headline: { ...t.lg, fontFamily: fonts.display },
+  prose: { ...t.sm, fontFamily: fonts.body, lineHeight: 21, paddingLeft: 60 },
+  footnote: { ...t.xs, fontFamily: fonts.body, paddingLeft: 60 },
 });

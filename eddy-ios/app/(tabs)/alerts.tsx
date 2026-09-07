@@ -95,7 +95,7 @@ import { QuietHoursRow } from '@/components/QuietHoursRow';
 import { SwipeRow } from '@/components/SwipeRow';
 import { groupAlertRules, isGatedByParent, type AlertRuleGroup } from '@/lib/alertGroups';
 import { useAlertRules } from '@/hooks/useAlertRules';
-import { useFocusEffect, useRouter } from 'expo-router';
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { asHref } from '@/lib/href';
 
 type Segment = 'high-water' | 'rules' | 'notices';
@@ -207,6 +207,7 @@ const CAPTION: Record<Segment, string> = {
 };
 
 export default function AlertsScreen() {
+  const routeParams = useLocalSearchParams<{ segment?: string }>();
   const [highWater, setHighWater] = useState<HighWaterEntry[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
@@ -227,6 +228,22 @@ export default function AlertsScreen() {
   } = useAlertRules();
   const { colors, elevation } = useTheme();
   const router = useRouter();
+
+  useEffect(() => {
+    const requested = routeParams.segment;
+    if (requested !== 'rules' && requested !== 'high-water' && requested !== 'notices') return;
+    let current = true;
+    void Promise.resolve().then(() => {
+      if (!current) return;
+      setSegment(requested);
+      // Clear the intent after consuming it so tapping the same Today row can
+      // select this segment again after the user switches away inside Alerts.
+      router.setParams({ segment: undefined });
+    });
+    return () => {
+      current = false;
+    };
+  }, [routeParams.segment, router]);
 
   const load = useCallback(async (signal?: AbortSignal) => {
     try {

@@ -247,10 +247,12 @@ const RiverBrowseControls = memo(function RiverBrowseControls({
   return (
     <View>
       {showHeading ? (
-        <View style={styles.browseHead}>
-          <Text style={[styles.browseTitle, { color: colors.text }]}>All river conditions</Text>
-          {trigger}
-        </View>
+        <>
+          <View style={styles.browseHead}>
+            <Text style={[styles.browseTitle, { color: colors.text }]}>All river conditions</Text>
+          </View>
+          <View style={styles.sortRestRow}>{trigger}</View>
+        </>
       ) : (
         <View style={styles.sortRow}>{trigger}</View>
       )}
@@ -1414,7 +1416,7 @@ export default function ReportsScreen() {
       {/* Header and controls sit OUTSIDE the FlatList rather than in
           ListHeaderComponent. Inside, the search field is unmounted and
           remounted as the list re-renders, which drops the keyboard mid-word. */}
-      <View style={styles.searchRow}>
+      <View style={[styles.searchRow, { backgroundColor: colors.bg, borderBottomColor: colors.border }]}>
         <SearchBar
           value={query}
           onChangeText={setQuery}
@@ -1716,19 +1718,16 @@ const styles = StyleSheet.create({
   // with a small spinner ahead of it on the same baseline.
   loadingRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 4 },
   loadingText: { ...t.sm, fontFamily: fonts.body },
-  searchRow: { paddingHorizontal: 16, paddingTop: 12 },
+  searchRow: { paddingHorizontal: 16, paddingTop: 12, paddingBottom: 10, borderBottomWidth: StyleSheet.hairlineWidth, zIndex: 10 },
   summaryWrap: { paddingHorizontal: 16, paddingBottom: 22 },
   browseHead: {
     paddingHorizontal: 18,
     paddingTop: 2,
-    paddingBottom: 6,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 12,
+    paddingBottom: 2,
   },
   browseTitle: { ...t.xl, fontFamily: fonts.heading },
   sortRow: { paddingHorizontal: 16, paddingTop: 10 },
+  sortRestRow: { paddingHorizontal: 18, paddingBottom: 8, alignItems: 'flex-end' },
   sortTrigger: {
     flexDirection: 'row',
     alignItems: 'center',
