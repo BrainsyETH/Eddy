@@ -20,7 +20,8 @@
 //                                      — weekly forecast: the pinned best bet (absent → live pick)
 //   ?type=section                      — Float Pick: live condition-aware section
 //   ?type=favorite&river=&fromSlug=&toSlug= — Float Pick evergreen fallback (from guides)
-//   ?type=clip&river=&creator=         — branded clip cover
+//   ?type=clip&id=&river=&creator=     — branded clip cover; id supplies the
+//                                        representative source-frame image
 //   ?type=trend&river=&asOf=&condition=&wx=
 //                                      — 7-day trend as of the post's own instant (absent →
 //                                        live pick of the river with the biggest gauge move)
@@ -80,9 +81,12 @@ const CACHE_HEADERS = {
 };
 
 function getSize(platform: string | null): Size {
-  // Instagram gets 9:16 portrait for Stories format
-  if (platform === 'instagram') return { width: 1080, height: 1920 };
-  // Facebook and default: 1:1 square
+  // Instagram accepts this as a custom Reel cover. TikTok chooses a frame by
+  // timestamp, but keeping its stored preview artifact portrait makes its 3:4
+  // profile crop testable with the same cover geometry.
+  if (platform === 'instagram' || platform === 'tiktok') return { width: 1080, height: 1920 };
+  // Facebook's current Page video publisher does not accept Instagram's
+  // cover_url parameter, so its stored preview/default remain square.
   return { width: 1080, height: 1080 };
 }
 
@@ -243,6 +247,7 @@ export async function GET(request: NextRequest) {
 
     if (type === 'clip') {
       return await generateClipImage(size, {
+        id: contentId,
         river: riverSlug,
         creator: searchParams.get('creator'),
       });
@@ -789,7 +794,7 @@ async function generateFavoriteImage(
 // ---------------------------------------------------------------------------
 async function generateClipImage(
   size: Size,
-  params: { river?: string | null; creator?: string | null },
+  params: { id?: string | null; river?: string | null; creator?: string | null },
 ) {
   const supabase = createAdminClient();
   const cover = coverGeometry(size);
@@ -800,17 +805,37 @@ async function generateClipImage(
     const { data: river } = await supabase.from('rivers').select('name').eq('slug', riverSlug).maybeSingle();
     riverName = river?.name || riverDisplayLong(riverSlug);
   }
-  const creator = (params.creator || '').trim();
+  // The cover is visual-first; provenance stays readable in the Reel dock and
+  // caption instead of becoming tiny grid text. `creator` remains accepted so
+  // old cover URLs keep resolving without changing their cache identity.
+  void params.creator;
+
+  let clipThumbnail: string | null = null;
+  if (params.id) {
+    const { data: clip } = await supabase
+      .from('clip_library')
+      .select('thumbnail_url')
+      .eq('id', params.id)
+      .maybeSingle();
+    if (clip?.thumbnail_url) {
+      try {
+        clipThumbnail = await loadImageAsDataUri(clip.thumbnail_url);
+      } catch {
+        clipThumbnail = null;
+      }
+    }
+  }
 
   const photo =
+    clipThumbnail ??
     (await loadBackgroundDataUri(supabase, riverSlug)) ??
     (await loadRiverPhotoDataUri(supabase, riverSlug));
   const otter = await loadOtter('flowing');
 
   return render(
     <CoverPage cover={cover}>
-      <CoverMasthead cover={cover} label={LABELS.clip} title={riverName} subtitle={creator !== '' ? `Clip via ${creator}` : undefined} otter={otter} />
-      {photo ? <CoverPhotoCard cover={cover} dataUri={photo} height={cover.portrait ? 520 : 340} /> : null}
+      <CoverMasthead cover={cover} label={LABELS.clip} title={riverName} otter={otter} />
+      {photo ? <CoverPhotoCard cover={cover} dataUri={photo} height={cover.portrait ? 700 : 460} /> : null}
       <CoverSpacer />
     </CoverPage>,
     size,

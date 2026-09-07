@@ -26,6 +26,7 @@ import {
   pillStyle,
   severityGround,
   tileStyle,
+  type SocialPlatform,
   type SocialTone,
 } from '@shared/social-brand';
 import { CONDITION_SYSTEM } from '@shared/condition-system';
@@ -92,14 +93,15 @@ export interface Cover {
   k: number;
 }
 
-/**
- * A portrait cover is cropped to a 4:5 tile in the profile grid and in-feed,
- * lopping ~285px off the top AND bottom of a 1080×1920 canvas. Everything on
- * a cover lives inside that band, so nothing is ever decapitated in the grid.
- */
-export function coverGeometry(size: Size, tone: SocialTone = 'light'): Cover {
+/** Keep the layout inside the selected platform's centered profile-tile crop.
+ * Playback UI safe zones are separate and never participate in this geometry. */
+export function coverGeometry(
+  size: Size,
+  tone: SocialTone = 'light',
+  platform: SocialPlatform = 'instagram',
+): Cover {
   const portrait = size.height > size.width;
-  const crop = gridCropGap(size.width, size.height);
+  const crop = gridCropGap(size.width, size.height, platform);
   const inset = portrait ? COVER_INSET.portrait : COVER_INSET.square;
   return {
     size,

@@ -31,6 +31,8 @@ export interface BrandCheckResult {
 export interface ClipRow extends ClipSource {
   id: string;
   clip_url: string | null;
+  /** Representative still from the raw source, used by the dedicated cover. */
+  thumbnail_url?: string | null;
   river_slug: string | null;
   /** "@handle" (the creator's Instagram, tagged in the caption) or the YouTube
    *  channel name — see clip-credit.ts for the rule. */
@@ -163,6 +165,7 @@ export async function publishClip(supabase: any, clip: ClipRow, platforms: Socia
     // frame (clips have no OG cover otherwise). Per-platform for the right size.
     const coverUrl =
       `https://eddy.guide/api/og/social?type=clip&platform=${platform}` +
+      `&id=${encodeURIComponent(clip.id)}` +
       (clip.river_slug ? `&river=${encodeURIComponent(clip.river_slug)}` : '') +
       (clip.source_creator ? `&creator=${encodeURIComponent(clip.source_creator)}` : '');
 

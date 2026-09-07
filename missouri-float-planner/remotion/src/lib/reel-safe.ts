@@ -4,14 +4,11 @@
 import { interpolate } from "remotion";
 
 /**
- * Instagram Reels overlays chrome on the rendered 1080x1920 canvas:
- *   - Top ~230 px: handle, sound indicator, follow button
- *   - Bottom ~380 px: caption, like/comment/share, "original audio",
- *     progress bar
- * The inset is owned by shared/social-brand.ts (the covers use the same
- * numbers for their grid-crop band); re-exported here for the reels.
+ * The cross-posted master must survive Instagram, Facebook and TikTok Reel
+ * chrome. Platform-specific Reel and Story profiles live in social-brand;
+ * cover crop geometry is deliberately independent from both.
  */
-export { REEL_SAFE } from "../../../shared/social-brand";
+export { REEL_SAFE, STORY_SAFE, SOCIAL_VIDEO_SAFE } from "../../../shared/social-brand";
 
 /**
  * Global opacity envelope for a looping reel. Opens at FULL brightness from

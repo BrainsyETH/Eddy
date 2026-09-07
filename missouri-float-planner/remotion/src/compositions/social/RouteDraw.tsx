@@ -221,7 +221,21 @@ export const RouteDraw: React.FC<RouteDrawProps> = (props) => {
         cta={PLAN_CTA}
         ctaProgress={cta}
         followCta={followCta}
-      />
+      >
+        <div
+          style={{
+            marginTop: 16,
+            padding: "0 5px",
+            fontSize: 25,
+            fontWeight: 700,
+            lineHeight: 1.15,
+            color: colors.primary[800],
+          }}
+        >
+          <span style={{ color: colors.neutral[500], marginRight: 10 }}>Route</span>
+          {putInName} → {takeOutName}
+        </div>
+      </ReelDock>
     </ReelPage>
   );
 };
