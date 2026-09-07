@@ -67,7 +67,7 @@ const isCampground = (ap: ApRow): boolean =>
  * time are real). Stable order (river slug, then section id) keeps the daily
  * rotation deterministic regardless of DB row order.
  */
-async function loadFavoritePool(
+export async function listFavoriteFloats(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   supabase: any,
 ): Promise<FavoriteFloat[]> {
@@ -202,7 +202,7 @@ export async function pickFavoriteFloat(
   supabase: any,
   date = new Date(),
 ): Promise<FavoriteFloat | null> {
-  const pool = await loadFavoritePool(supabase);
+  const pool = await listFavoriteFloats(supabase);
   if (pool.length === 0) return null;
   return pool[dayIndex(date) % pool.length];
 }
@@ -219,7 +219,7 @@ export async function findFavoriteFloat(
   fromSlug: string,
   toSlug: string,
 ): Promise<FavoriteFloat | null> {
-  const pool = await loadFavoritePool(supabase);
+  const pool = await listFavoriteFloats(supabase);
   return (
     pool.find(
       (f) =>

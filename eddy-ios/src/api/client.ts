@@ -16,6 +16,8 @@ import type {
   ConditionResponse,
   DamSnapshot,
   DamsResponse,
+  FavoriteFloatsResponse,
+  FavoriteFloatSummary,
   FloatPlan,
   GaugeDetail,
   GaugeDetailResponse,
@@ -1095,6 +1097,18 @@ export async function fetchDams(signal?: AbortSignal): Promise<DamSnapshot[]> {
   try {
     const data = await get<DamsResponse>('/api/dams', signal);
     return data.dams ?? [];
+  } catch {
+    return [];
+  }
+}
+
+/** Eddy's hand-curated, planner-ready routes from published river guides. */
+export async function fetchFavoriteFloats(
+  signal?: AbortSignal,
+): Promise<FavoriteFloatSummary[]> {
+  try {
+    const data = await get<FavoriteFloatsResponse>('/api/favorite-floats', signal);
+    return data.floats ?? [];
   } catch {
     return [];
   }

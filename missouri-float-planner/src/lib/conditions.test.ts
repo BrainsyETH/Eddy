@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { computeCondition, mapConditionCode, type ConditionThresholds } from './conditions';
 import { CONDITION_ORDER } from '@shared/condition-system';
+import './today-recommendation.test';
 
 // A ft-primary ladder in the shape the Ozark rivers actually use.
 const FT: ConditionThresholds = {

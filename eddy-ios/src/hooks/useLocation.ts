@@ -21,11 +21,10 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import * as Location from 'expo-location';
+import type { Coords } from '@/lib/geoDistance';
 
-export interface Coords {
-  lat: number;
-  lng: number;
-}
+export type { Coords } from '@/lib/geoDistance';
+export { milesBetween } from '@/lib/geoDistance';
 
 export type LocationStatus =
   /** Never asked. The only state in which a tap will show the system prompt. */
@@ -56,19 +55,6 @@ interface LocationValue {
  * too expensive to run across two dozen rivers to sort a list. "32 miles away"
  * with the caveat beats a spinner, and beats nothing.
  */
-export function milesBetween(a: Coords, b: Coords): number {
-  const EARTH_RADIUS_MILES = 3958.8;
-  const toRad = (deg: number) => (deg * Math.PI) / 180;
-  const dLat = toRad(b.lat - a.lat);
-  const dLng = toRad(b.lng - a.lng);
-  const lat1 = toRad(a.lat);
-  const lat2 = toRad(b.lat);
-
-  const h =
-    Math.sin(dLat / 2) ** 2 + Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLng / 2) ** 2;
-  return 2 * EARTH_RADIUS_MILES * Math.asin(Math.min(1, Math.sqrt(h)));
-}
-
 export function useLocation(): LocationValue {
   const [coords, setCoords] = useState<Coords | null>(null);
   const [status, setStatus] = useState<LocationStatus>('idle');

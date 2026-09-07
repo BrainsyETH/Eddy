@@ -3,17 +3,17 @@ import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts } from '@/theme/typography';
 
-// Five tabs: Search, Map, Alerts, Favorites, Profile.
+// Five tabs: Today, Map, Alerts, Favorites, Profile. Search is still a full
+// screen, launched from the persistent search control at the top of Today.
 //
-// The first tab's route file is still `reports.tsx` — only its labels changed.
-// Renaming the file would mean chasing `initialRouteName` below, every
-// router.push('/reports'), and any deep link already in the wild, for nothing.
-//
-// SEARCH LAUNCHES, NOT MAP. The app opens on the screen that answers the
+// TODAY LAUNCHES, NOT MAP. The app opens on the screen that answers the
 // question people came with — "what can I float today?" — rather than on the
 // one screen that cannot render at all in Expo Go (Mapbox is a native module;
 // see src/map/runtime.ts) and that answers it least directly. Map is still one
 // tap away and still second in the bar.
+//
+// reports.tsx stays routable but hidden from the bar. Existing deep links keep
+// working, while the Today search control gives it a clear entry point.
 //
 // Tab colours come from the hook rather than a constant because the bar has to
 // repaint when the system flips scheme — a frozen tabBarStyle would leave a
@@ -22,7 +22,7 @@ import { fonts } from '@/theme/typography';
 // The file is still app/(tabs)/index.tsx, so expo-router would otherwise make
 // Map the initial route by filename. This is what actually moves the landing
 // screen; reordering the <Tabs.Screen> children below only moves the icons.
-export const unstable_settings = { initialRouteName: 'reports' };
+export const unstable_settings = { initialRouteName: 'today' };
 
 export default function TabsLayout() {
   const { colors } = useTheme();
@@ -41,12 +41,13 @@ export default function TabsLayout() {
       }}
     >
       <Tabs.Screen
-        name="reports"
+        name="today"
         options={{
-          title: 'Search',
-          tabBarIcon: ({ color, size }) => <Ionicons name="search-outline" size={size} color={color} />,
+          title: 'Today',
+          tabBarIcon: ({ color, size }) => <Ionicons name="water-outline" size={size} color={color} />,
         }}
       />
+      <Tabs.Screen name="reports" options={{ href: null }} />
       <Tabs.Screen
         name="index"
         options={{

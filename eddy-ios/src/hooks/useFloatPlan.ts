@@ -54,6 +54,8 @@ export interface FloatPlanState {
   takeOutOptions: MapAccessPoint[];
   choosePutIn: (point: MapAccessPoint) => void;
   chooseTakeOut: (point: MapAccessPoint) => void;
+  /** Preselect a published stretch and calculate it in one action. */
+  chooseStretch: (start: MapAccessPoint, end: MapAccessPoint) => void;
   goToStep: (step: PlanStep) => void;
   reset: () => void;
 }
@@ -135,6 +137,16 @@ export function useFloatPlan(riverId: string | null, accessPoints: MapAccessPoin
     [putIn, calculate],
   );
 
+  const chooseStretch = useCallback(
+    (start: MapAccessPoint, end: MapAccessPoint) => {
+      setPutIn(start);
+      setTakeOut(end);
+      setPlan(null);
+      void calculate(start, end);
+    },
+    [calculate],
+  );
+
   const reset = useCallback(() => {
     setStep('put-in');
     setPutIn(null);
@@ -154,6 +166,7 @@ export function useFloatPlan(riverId: string | null, accessPoints: MapAccessPoin
     takeOutOptions,
     choosePutIn,
     chooseTakeOut,
+    chooseStretch,
     goToStep: setStep,
     reset,
   };

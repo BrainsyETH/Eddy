@@ -1210,6 +1210,31 @@ export interface AlertsResponse {
   alerts: AlertFeedEntry[];
 }
 
+// ── Eddy's Favorite Floats (GET /api/favorite-floats) ───────────
+
+export interface FavoriteFloatSummary {
+  id: string;
+  riverSlug: string;
+  riverName: string;
+  putInName: string;
+  takeOutName: string;
+  fromSlug: string;
+  toSlug: string;
+  distanceMiles: number;
+  durationHours: number;
+  /** Existing guide vocabulary: International Scale of River Difficulty. */
+  difficulty: string;
+  tagline: string;
+  bestFor: string;
+  bestForTags: string[];
+  guideSlug: string;
+  photoUrl: string | null;
+}
+
+export interface FavoriteFloatsResponse {
+  floats: FavoriteFloatSummary[];
+}
+
 // ── Consumer account endpoints (/api/me/*) ───────────────────────
 
 export interface MeEntitlement {

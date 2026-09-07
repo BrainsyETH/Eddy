@@ -105,7 +105,7 @@ import { useAccount } from '@/hooks/useAccount';
 import { useAppConfig } from '@/hooks/useAppConfig';
 import { useLocation } from '@/hooks/useLocation';
 import { useStatewideNetwork } from '@/hooks/useStatewideNetwork';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Otter } from '@/components/Otter';
 import { SearchBar } from '@/components/SearchBar';
 import { SearchResultsList } from '@/components/SearchResultsList';
@@ -188,6 +188,13 @@ function planButtonLabel(plan: FloatPlan): string {
 }
 
 export default function MapScreen() {
+  const route = useLocalSearchParams<{
+    river?: string;
+    plan?: string;
+    from?: string;
+    to?: string;
+  }>();
+  const handledPlan = useRef<string | null>(null);
   const [rivers, setRivers] = useState<RiverListItem[] | null>(null);
   const [pickedSlug, setPickedSlug] = useState<string | null>(null);
   const [detail, setDetail] = useState<RiverDetail | null>(null);
@@ -446,6 +453,30 @@ export default function MapScreen() {
   // never come from two different rivers while one is still loading — the two are
   // swapped in together, and an access point belongs to exactly one river.
   const planner = useFloatPlan(detail?.id ?? null, accessPoints);
+
+  // Today can hand the map either a river to plan or a complete editorial
+  // stretch. The map remains the planner; Today only supplies intent.
+  useEffect(() => {
+    if (!route.river || !rivers?.some((river) => river.slug === route.river)) return;
+    setPickedSlug(route.river);
+  }, [route.river, rivers]);
+
+  useEffect(() => {
+    if (route.plan !== '1' || !route.river || detail?.slug !== route.river) return;
+    const key = `${route.river}:${route.from ?? ''}:${route.to ?? ''}`;
+    if (handledPlan.current === key) return;
+
+    if (route.from && route.to) {
+      const start = accessPoints.find((point) => point.slug === route.from);
+      const end = accessPoints.find((point) => point.slug === route.to);
+      if (!start || !end) return;
+      handledPlan.current = key;
+      planner.chooseStretch(start, end);
+    } else {
+      handledPlan.current = key;
+    }
+    setPlanOpen(true);
+  }, [accessPoints, detail?.slug, planner, route.from, route.plan, route.river, route.to]);
 
   const accessPointForPin = useCallback(
     (pin: MapPin | null): MapAccessPoint | null => {
