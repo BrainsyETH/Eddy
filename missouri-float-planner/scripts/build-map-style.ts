@@ -202,6 +202,73 @@ function buildImmersive(original: StyleDoc): StyleDoc {
     return l;
   };
 
+  // Satellite imagery has enough texture to imply roads at a glance, but not
+  // enough to navigate a shuttle. The old Immersive style kept road shields
+  // while dropping every road line, leaving labels attached to invisible
+  // geometry. Keep Liberty's tested filters, widths, caps and zoom expressions;
+  // only translate the colour/opacity for imagery and delay the smaller roads
+  // until a paddler is close enough to use them.
+  const ROAD_LAYER_IDS = [
+    'road_motorway_link_casing',
+    'road_service_track_casing',
+    'road_link_casing',
+    'road_minor_casing',
+    'road_secondary_tertiary_casing',
+    'road_trunk_primary_casing',
+    'road_motorway_casing',
+    'road_path_pedestrian',
+    'road_motorway_link',
+    'road_service_track',
+    'road_link',
+    'road_minor',
+    'road_secondary_tertiary',
+    'road_trunk_primary',
+    'road_motorway',
+    'bridge_motorway_link_casing',
+    'bridge_service_track_casing',
+    'bridge_link_casing',
+    'bridge_street_casing',
+    'bridge_path_pedestrian_casing',
+    'bridge_secondary_tertiary_casing',
+    'bridge_trunk_primary_casing',
+    'bridge_motorway_casing',
+    'bridge_path_pedestrian',
+    'bridge_motorway_link',
+    'bridge_service_track',
+    'bridge_link',
+    'bridge_street',
+    'bridge_secondary_tertiary',
+    'bridge_trunk_primary',
+    'bridge_motorway',
+  ] as const;
+
+  const roadMinzoom = (id: string): number => {
+    if (id.includes('path_pedestrian')) return 14;
+    if (id.includes('service_track')) return 13;
+    if (id.includes('minor') || id.includes('street')) return 12;
+    if (id.includes('link')) return 10;
+    if (id.includes('secondary_tertiary')) return 9;
+    if (id.includes('trunk_primary')) return 7;
+    return 5;
+  };
+
+  const immersiveRoad = (id: string): StyleLayer => {
+    const casing = id.endsWith('_casing');
+    const path = id.includes('path_pedestrian');
+    const layer = repaint(pick(id), {
+      'line-color': casing
+        ? 'rgba(6, 18, 23, 0.78)'
+        : path
+          ? 'rgba(238, 225, 196, 0.72)'
+          : 'rgba(255, 248, 229, 0.88)',
+      'line-opacity': path ? 0.72 : 0.9,
+    });
+    layer.minzoom = Math.max(layer.minzoom ?? 0, roadMinzoom(id));
+    return layer;
+  };
+
+  const roadLayers = ROAD_LAYER_IDS.map(immersiveRoad);
+
   const layers: StyleLayer[] = [
     // Dark base under the imagery while tiles stream in.
     { id: 'background', type: 'background', paint: { 'background-color': '#0b1216' } },
@@ -212,11 +279,16 @@ function buildImmersive(original: StyleDoc): StyleDoc {
       minzoom: 0,
       maxzoom: 22,
     },
-    anchorLayer(ANCHOR_OVERLAYS),
     // Water context: translucent fill + aqua veins over the imagery.
     repaint(pick('water'), { 'fill-color': 'rgba(85, 176, 205, 0.38)' }),
     repaint(pick('waterway_river'), { 'line-color': '#59c5e3', 'line-opacity': 0.9 }),
     repaint(pick('waterway_other'), { 'line-color': '#6fd0ea', 'line-opacity': 0.85 }),
+    // Honor layer-anchors.ts: rasters and public-land context sit above the
+    // basemap's land/water, then roads remain readable above those overlays.
+    // Previously this anchor sat below `water`, so radar disappeared beneath
+    // aqua water only on Immersive.
+    anchorLayer(ANCHOR_OVERLAYS),
+    ...roadLayers,
     // State/county lines for orientation over imagery.
     repaint(pick('boundary_3'), { 'line-color': 'rgba(255,255,255,0.35)' }),
     repaint(pick('boundary_2'), { 'line-color': 'rgba(255,255,255,0.5)' }),
@@ -225,6 +297,9 @@ function buildImmersive(original: StyleDoc): StyleDoc {
     repaint(pick('waterway_line_label'), { 'text-color': '#c5ecf8', ...DARK_HALO }),
     repaint(pick('water_name_point_label'), { 'text-color': '#c5ecf8', ...DARK_HALO }),
     repaint(pick('water_name_line_label'), { 'text-color': '#c5ecf8', ...DARK_HALO }),
+    whiteLabel('highway-name-path', 14),
+    whiteLabel('highway-name-minor', 12),
+    whiteLabel('highway-name-major', 9),
     whiteLabel('label_village'),
     whiteLabel('label_town'),
     whiteLabel('label_state'),

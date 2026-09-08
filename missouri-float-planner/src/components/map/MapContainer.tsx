@@ -14,7 +14,7 @@ import { CONDITION_SHORT_LABELS } from '@/constants';
 import { ANCHORS, addLayerAt } from './layer-anchors';
 import { MapProvider } from './map-context';
 import PublicLandsLayer from './PublicLandsLayer';
-import { PUBLIC_LAND_OWNERSHIP_NOTE } from '@/lib/map/public-land-style';
+import { MAP_OVERLAYS, type MapOverlayKey } from './map-overlays';
 
 // Available map styles (all free, no API key required)
 // Immersive is first and default: satellite imagery with luminous water
@@ -384,6 +384,10 @@ export default function MapContainer({
     onWeatherToggle?.(newValue);
   }, [weatherEnabled, onWeatherToggle]);
 
+  const togglePublicLands = useCallback(() => {
+    setPublicLandsEnabled((on) => !on);
+  }, []);
+
   // (Gauge visibility is page state, not map state: the planner's Filters
   // panel owns it and simply doesn't render GaugeStationMarkers when off.)
 
@@ -635,6 +639,15 @@ export default function MapContainer({
     map.current.fitBounds(bounds, { padding: 50, duration: 800 });
   }, [initialBounds]);
 
+  // Feature state stays beside the behavior that owns it; the catalog carries
+  // the metadata shared by the controls and attribution. 3D deliberately
+  // remains outside this registry while terrain work is out of scope.
+  const overlayControls: Record<MapOverlayKey, { enabled: boolean; toggle: () => void }> = {
+    weather: { enabled: weatherEnabled, toggle: toggleWeather },
+    publicLands: { enabled: publicLandsEnabled, toggle: togglePublicLands },
+  };
+  const activeOverlays = MAP_OVERLAYS.filter((overlay) => overlayControls[overlay.id].enabled);
+
   return (
     // `isolate` gives the map its own stacking context so its internal DOM
     // markers (inline z-index up to 10) and popups can't escape upward to
@@ -673,9 +686,9 @@ export default function MapContainer({
           the layers menu is open. The dropdown PANEL itself is portaled to
           <body> (below) so it clears the mobile float plan sheet. */}
       <div className={`absolute top-2.5 md:top-[120px] right-2.5 flex flex-col gap-3 md:gap-2 ${showStylePicker ? 'z-30' : 'z-10'}`}>
-        {/* Layers menu: map style everywhere; on mobile it also carries the
-            weather-radar and gauge toggles so the map edge shows ONE button
-            instead of three. */}
+        {/* One menu, two questions: basemaps change the canvas; overlays add
+            information. 3D keeps its existing control and behavior while that
+            feature is explicitly out of scope. */}
         <div ref={stylePickerRef} className="relative">
           <button
             ref={stylePickerBtnRef}
@@ -706,32 +719,55 @@ export default function MapContainer({
           <div
             ref={stylePanelRef}
             style={{ position: 'fixed', top: stylePanelPos.top, right: stylePanelPos.right, zIndex: 60 }}
-            className="bg-white/95 backdrop-blur-md rounded-lg shadow-lg border border-gray-200 overflow-hidden min-w-[150px]"
+            className="bg-white/95 backdrop-blur-md rounded-lg shadow-lg border border-gray-200 overflow-hidden min-w-[190px]"
           >
-            {(Object.keys(MAP_STYLES) as MapStyleKey[]).map((key) => (
-              <button
-                key={key}
-                onClick={() => changeMapStyle(key)}
-                className={`w-full px-4 py-2.5 md:py-2 text-left text-sm hover:bg-gray-100 transition-colors ${
-                  mapStyle === key ? 'bg-primary-50 text-primary-600 font-medium' : 'text-gray-700'
-                }`}
-              >
-                {MAP_STYLES[key].name}
-              </button>
-            ))}
+            <div role="group" aria-label="Basemap">
+              <div className="px-4 pb-1 pt-2.5 text-[10px] font-semibold uppercase tracking-wider text-gray-500">
+                Basemap
+              </div>
+              {(Object.keys(MAP_STYLES) as MapStyleKey[]).map((key) => (
+                <button
+                  key={key}
+                  onClick={() => changeMapStyle(key)}
+                  className={`w-full px-4 py-2.5 md:py-2 text-left text-sm hover:bg-gray-100 transition-colors ${
+                    mapStyle === key ? 'bg-primary-50 text-primary-600 font-medium' : 'text-gray-700'
+                  }`}
+                  aria-pressed={mapStyle === key}
+                >
+                  {MAP_STYLES[key].name}
+                </button>
+              ))}
+            </div>
 
-            {/* Mobile-only overlay toggles (desktop keeps dedicated buttons).
-                Deliberately does NOT close the menu, so both can be toggled
-                in one visit. */}
+            <div className="border-t border-gray-200" role="group" aria-label="Map overlays">
+              <div className="px-4 pb-1 pt-2.5 text-[10px] font-semibold uppercase tracking-wider text-gray-500">
+                Overlays
+              </div>
+              {MAP_OVERLAYS.map((overlay) => {
+                const control = overlayControls[overlay.id];
+                return (
+                  <div key={overlay.id}>
+                    <button
+                      onClick={control.toggle}
+                      className="w-full px-4 py-2.5 md:py-2 text-left text-sm hover:bg-gray-100 transition-colors flex items-center justify-between gap-3 text-gray-700"
+                      aria-pressed={control.enabled}
+                    >
+                      <span>{overlay.label}</span>
+                      <span className={`w-2 h-2 rounded-full ${control.enabled ? 'bg-primary-500' : 'bg-gray-300'}`} aria-hidden="true" />
+                    </button>
+                    {control.enabled && overlay.caveat && (
+                      <p className="px-4 pb-2.5 text-[11px] leading-snug text-gray-500">
+                        {overlay.caveat}
+                      </p>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Existing mobile 3D control stays isolated from the overlay
+                registry; no terrain behavior is changed in this phase. */}
             <div className="md:hidden border-t border-gray-200">
-              <button
-                onClick={toggleWeather}
-                className="w-full px-4 py-2.5 text-left text-sm hover:bg-gray-100 transition-colors flex items-center justify-between gap-3 text-gray-700"
-                aria-pressed={weatherEnabled}
-              >
-                <span>Weather radar</span>
-                <span className={`w-2 h-2 rounded-full ${weatherEnabled ? 'bg-primary-500' : 'bg-gray-300'}`} aria-hidden="true" />
-              </button>
               <button
                 onClick={toggle3D}
                 className="w-full px-4 py-2.5 text-left text-sm hover:bg-gray-100 transition-colors flex items-center justify-between gap-3 text-gray-700"
@@ -741,60 +777,9 @@ export default function MapContainer({
                 <span className={`w-2 h-2 rounded-full ${is3D ? 'bg-primary-500' : 'bg-gray-300'}`} aria-hidden="true" />
               </button>
             </div>
-
-            {/* Public land — on EVERY breakpoint, unlike the two above.
-                Deliberately not given a dedicated desktop button: the map edge
-                already carries four, and a fifth icon for a layer nobody
-                toggles twice in a session is worse than one more row here.
-
-                The caveat renders under the switch while the layer is on. It
-                belongs on the control, not only in the popup, because the fill
-                is visible without anyone ever clicking a parcel — and what the
-                fill does not mean is the entire reason this layer is careful. */}
-            <div className="border-t border-gray-200">
-              <button
-                onClick={() => setPublicLandsEnabled((on) => !on)}
-                className="w-full px-4 py-2.5 md:py-2 text-left text-sm hover:bg-gray-100 transition-colors flex items-center justify-between gap-3 text-gray-700"
-                aria-pressed={publicLandsEnabled}
-              >
-                <span>Public land</span>
-                <span className={`w-2 h-2 rounded-full ${publicLandsEnabled ? 'bg-primary-500' : 'bg-gray-300'}`} aria-hidden="true" />
-              </button>
-              {publicLandsEnabled && (
-                <p className="px-4 pb-2.5 text-[11px] leading-snug text-gray-500">
-                  {PUBLIC_LAND_OWNERSHIP_NOTE}
-                </p>
-              )}
-            </div>
           </div>,
           document.body
         )}
-
-        {/* Weather Overlay Toggle - desktop only (mobile: inside Layers menu) */}
-        <button
-          onClick={toggleWeather}
-          className={`hidden md:block p-2.5 md:p-2 rounded-lg shadow-lg transition-all ${
-            weatherEnabled
-              ? 'bg-primary-500 text-white'
-              : 'bg-white/90 text-gray-700 hover:bg-white'
-          }`}
-          title={weatherEnabled ? 'Hide weather radar' : 'Show weather radar'}
-          aria-label={weatherEnabled ? 'Hide weather radar' : 'Show weather radar'}
-        >
-          <svg
-            className="w-5 h-5"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 10-9.78 2.096A4.001 4.001 0 003 15z"
-            />
-          </svg>
-        </button>
 
         {/* 2D/3D terrain toggle - desktop only (mobile: inside Layers menu) */}
         <button
@@ -824,21 +809,18 @@ export default function MapContainer({
         </button>
       </div>
 
-      {/* Source attribution for the two overlays that are somebody else's data.
-          Stacked in one corner rather than each claiming their own, so turning
-          both on does not put two labels on top of each other. */}
-      {(weatherEnabled || publicLandsEnabled) && (
+      {/* Attribution follows the same catalog as the controls, so adding an
+          overlay cannot produce a switch without its required source credit. */}
+      {activeOverlays.length > 0 && (
         <div className="absolute bottom-1 left-1 z-10 flex flex-col gap-0.5 text-xs text-white/60">
-          {weatherEnabled && (
-            <span className="bg-black/30 px-1 rounded w-fit">
-              Radar: <a href="https://www.rainviewer.com/" target="_blank" rel="noopener noreferrer" className="underline">RainViewer</a>
+          {activeOverlays.map((overlay) => (
+            <span key={overlay.id} className="bg-black/30 px-1 rounded w-fit">
+              {overlay.attribution.label}:{' '}
+              <a href={overlay.attribution.url} target="_blank" rel="noopener noreferrer" className="underline">
+                {overlay.attribution.source}
+              </a>
             </span>
-          )}
-          {publicLandsEnabled && (
-            <span className="bg-black/30 px-1 rounded w-fit">
-              Boundaries: <a href="https://www.usgs.gov/programs/gap-analysis-project/science/pad-us-data-overview" target="_blank" rel="noopener noreferrer" className="underline">USGS PAD-US</a>
-            </span>
-          )}
+          ))}
         </div>
       )}
 
