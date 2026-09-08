@@ -71,14 +71,13 @@ function compareCandidates(a: Candidate, b: Candidate): number {
 }
 
 function reasonFor(candidate: Candidate, mode: RecommendationMode): string {
-  const water = candidate.river.currentCondition?.code === 'good' ? 'Good water' : 'Flowing water';
   if (mode === 'nearby' && candidate.distanceMiles != null) {
     const distance = candidate.distanceMiles < 10
       ? candidate.distanceMiles.toFixed(1)
       : Math.round(candidate.distanceMiles);
-    return `${water} nearby · ≈ ${distance} mi to its gauge`;
+    return `≈ ${distance} mi to gauge`;
   }
-  return `${water} with a fresh gauge reading`;
+  return 'Fresh gauge reading';
 }
 
 /**

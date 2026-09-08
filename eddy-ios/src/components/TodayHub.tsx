@@ -20,14 +20,15 @@ import {
 } from '@/api/client';
 import { PaywallSheet } from '@/components/PaywallSheet';
 import { EddyScene } from '@/components/EddyScene';
-import { EddySymbol } from '@/components/EddySymbol';
 import { Otter, otterForCondition } from '@/components/Otter';
+import { TodaySummary } from '@/components/TodaySummary';
 import { useAccount } from '@/hooks/useAccount';
 import { type LocationStatus } from '@/hooks/useLocation';
 import { useStarredRivers, type StarredItem } from '@/hooks/useStarredRivers';
 import { readFavoriteFloats, writeFavoriteFloats } from '@/lib/favoriteFloatCache';
 import { favoriteFloatMeta } from '@/lib/favoriteFloatCopy';
 import { formatReading, primaryReading, readingAge } from '@/lib/readingCopy';
+import { dailyFavoriteFloats, dailyHighlightedFavorite } from '@/lib/todayFloats';
 import {
   chooseTodayRecommendation,
   TODAY_RADIUS_MILES,
@@ -54,6 +55,11 @@ interface Props {
   };
   refreshRevision: number;
   suppressNetworkNotice: boolean;
+  statewide: {
+    headline: string | null;
+    prose: string | null;
+    generatedAt: string | null;
+  };
 }
 
 function SectionHead({ title, action, onAction }: { title: string; action?: string; onAction?: () => void }) {
@@ -94,36 +100,8 @@ function favoriteDetail(item: StarredItem, river: RiverListItem | null): string 
         : 'Saved dam';
 }
 
-function FavoriteTile({ item, river, onPress }: { item: StarredItem; river: RiverListItem | null; onPress: () => void }) {
-  const { colors } = useTheme();
-  const detail = favoriteDetail(item, river);
-  return (
-    <Pressable
-      onPress={onPress}
-      style={({ pressed }) => [
-        styles.favoriteTile,
-        { backgroundColor: colors.card, borderColor: colors.border, opacity: pressed ? 0.62 : 1 },
-      ]}
-      accessibilityRole="button"
-      accessibilityLabel={[item.name, river?.currentCondition?.label, detail].filter(Boolean).join(', ')}
-    >
-      <View style={[styles.tileIcon, { backgroundColor: colors.selectionBg }]}>
-        <Ionicons
-          name={item.kind === 'river' ? 'water-outline' : item.kind === 'gauge' ? 'speedometer-outline' : 'flash-outline'}
-          size={19}
-          color={colors.interactive}
-        />
-      </View>
-      <View style={styles.flex}>
-        <Text style={[styles.tileName, { color: colors.text }]} numberOfLines={1}>{item.name}</Text>
-        <Text style={[styles.tileMeta, { color: colors.textMuted }]} numberOfLines={1}>{detail}</Text>
-      </View>
-      <Ionicons name="chevron-forward" size={15} color={colors.textSubtle} />
-    </Pressable>
-  );
-}
-
 function SafetyRow({
+  kicker,
   title,
   meta,
   icon,
@@ -131,6 +109,7 @@ function SafetyRow({
   surface,
   onPress,
 }: {
+  kicker: string;
   title: string;
   meta: string;
   icon: React.ComponentProps<typeof Ionicons>['name'];
@@ -153,6 +132,7 @@ function SafetyRow({
         <Ionicons name={icon} size={19} color={ink} />
       </View>
       <View style={styles.flex}>
+        <Text style={[styles.safetyKicker, { color: ink }]}>{kicker}</Text>
         <Text style={[styles.safetyRowTitle, { color: colors.text }]} numberOfLines={2}>{title}</Text>
         <Text style={[styles.safetyRowMeta, { color: colors.textMuted }]} numberOfLines={1}>{meta}</Text>
       </View>
@@ -207,6 +187,7 @@ export function TodayHub({
   location,
   refreshRevision,
   suppressNetworkNotice,
+  statewide,
 }: Props) {
   const router = useRouter();
   const { colors, elevation } = useTheme();
@@ -293,6 +274,7 @@ export function TodayHub({
     () => new Set(starred.filter((item) => item.kind === 'river').map((item) => item.entityId)),
     [starred],
   );
+  const highlightedFavorite = useMemo(() => dailyHighlightedFavorite(starred), [starred]);
   const recommendation = useMemo(
     () => incumbentState.ready ? chooseTodayRecommendation({
       rivers,
@@ -310,26 +292,22 @@ export function TodayHub({
     void writeRecommendation(next).then(() => setIncumbentState({ ready: true, riverId: next }));
   }, [incumbentState, recommendation]);
 
-  const recommendationSlug = recommendation?.river.slug ?? null;
+  const outlookSlug = recommendation?.river.slug
+    ?? (highlightedFavorite?.kind === 'river' ? highlightedFavorite.slug : null)
+    ?? null;
   useEffect(() => {
-    if (!recommendationSlug) return;
+    if (!outlookSlug) return;
     const controller = new AbortController();
-    void fetchRiverOutlook(recommendationSlug, controller.signal)
-      .then((data) => setOutlook({ slug: recommendationSlug, data }))
-      .catch(() => setOutlook({ slug: recommendationSlug, data: null }));
+    void fetchRiverOutlook(outlookSlug, controller.signal)
+      .then((data) => setOutlook({ slug: outlookSlug, data }))
+      .catch(() => setOutlook({ slug: outlookSlug, data: null }));
     return () => controller.abort();
-  }, [recommendationSlug, refreshRevision]);
+  }, [outlookSlug, refreshRevision]);
 
   const riverById = useMemo(() => new Map(rivers.map((river) => [river.id, river])), [rivers]);
-  const previewFavorites = useMemo(
-    () => [...starred].sort((a, b) => Number(b.kind === 'river') - Number(a.kind === 'river')).slice(0, 3),
-    [starred],
-  );
-  const primaryFavorite = previewFavorites[0] ?? null;
-  const primaryFavoriteRiver = primaryFavorite?.kind === 'river'
-    ? riverById.get(primaryFavorite.entityId) ?? null
+  const highlightedRiver = highlightedFavorite?.kind === 'river'
+    ? riverById.get(highlightedFavorite.entityId) ?? null
     : null;
-  const secondaryFavorites = previewFavorites.slice(1);
   const openFavorite = useCallback((item: StarredItem) => {
     if (item.kind === 'river' && item.slug) router.push(`/river/${item.slug}`);
     else if (item.kind === 'gauge' && item.usgsSiteId) router.push(`/gauge/${item.usgsSiteId}`);
@@ -358,23 +336,20 @@ export function TodayHub({
     () => [...(activeSafety?.high ?? [])].sort((a, b) => Number(b.conditionCode === 'dangerous') - Number(a.conditionCode === 'dangerous'))[0] ?? null,
     [activeSafety?.high],
   );
-  const floatPreviews = useMemo(() => {
-    const list = floats ?? [];
-    if (!recommendation) return list.slice(0, 4);
-    return [...list].sort((a, b) => Number(b.riverSlug === recommendation.river.slug) - Number(a.riverSlug === recommendation.river.slug)).slice(0, 4);
-  }, [floats, recommendation]);
+  const floatPreviews = useMemo(() => dailyFavoriteFloats(floats ?? []).slice(0, 4), [floats]);
   const condition = recommendation?.river.currentCondition ?? null;
   const reading = condition ? primaryReading(condition) : null;
   const liveOutlook = outlook && outlook.slug === recommendation?.river.slug ? outlook.data : null;
+  const weatherOutlook = outlook && outlook.slug === outlookSlug ? outlook.data : null;
   const eddyRead = liveOutlook?.fullRead ?? liveOutlook?.sections?.eddyRead ?? liveOutlook?.sections?.bottomLine ?? null;
   const entitled = accountLoaded && !accountError ? Boolean(entitlement?.isActive) : null;
   const recommendationFacts = condition
     ? [
         reading ? formatReading(reading.value, reading.unit) : null,
         condition.trend?.label ?? null,
-        readingAge(condition.readingAgeHours),
       ].filter(Boolean).join(' · ')
     : '';
+  const recommendationAge = condition ? readingAge(condition.readingAgeHours) : null;
   const publicRead = recommendation && condition
     ? `${recommendation.river.name} has ${conditionLabel(condition.code).toLowerCase()} water based on a fresh gauge reading.`
     : null;
@@ -388,22 +363,26 @@ export function TodayHub({
         </View>
       ) : null}
 
+      {statewide.headline ? (
+        <View style={styles.summaryTop}>
+          <TodaySummary
+            headline={statewide.headline}
+            prose={statewide.prose}
+            generatedAt={statewide.generatedAt}
+            weather={weatherOutlook?.days[0]?.weather ?? null}
+            weatherLocation={weatherOutlook?.weatherLocation ?? null}
+          />
+        </View>
+      ) : null}
+
       {safetyCount > 0 ? (
         <View style={styles.safetySection}>
-          <View style={styles.safetyHead}>
-            <View style={[styles.safetyMark, { backgroundColor: colors.selectionBg }]}>
-              <EddySymbol name="alertWatch" size={28} />
-            </View>
-            <View style={styles.flex}>
-              <Text style={[styles.safetyKicker, { color: colors.accent }]}>BEFORE YOU LAUNCH</Text>
-              <Text style={[styles.safetyScope, { color: colors.textMuted }]}>What needs your attention {safetyScopeLabel}</Text>
-            </View>
-          </View>
           <View style={styles.safetyRows}>
             {topNotice ? (
               <SafetyRow
+                kicker="BEFORE YOU LAUNCH"
                 title={topNotice.title}
-                meta={`${topNotice.source.toUpperCase()} · ${activeSafety?.notices.length ?? 0} agency ${(activeSafety?.notices.length ?? 0) === 1 ? 'notice' : 'notices'}`}
+                meta={`${topNotice.source.toUpperCase()} · ${activeSafety?.notices.length ?? 0} agency ${(activeSafety?.notices.length ?? 0) === 1 ? 'notice' : 'notices'} ${safetyScopeLabel}`}
                 icon={topNotice.severity === 'warning' ? 'warning-outline' : 'megaphone-outline'}
                 ink={topNotice.severity === 'warning' ? conditionInk('dangerous') : colors.accent}
                 surface={topNotice.severity === 'warning' ? conditionBg('dangerous') : colors.cardRaised}
@@ -412,6 +391,7 @@ export function TodayHub({
             ) : null}
             {topHigh ? (
               <SafetyRow
+                kicker="HIGH WATER"
                 title={`${topHigh.name} is ${conditionLabel(topHigh.conditionCode).toLowerCase()}`}
                 meta={`${activeSafety?.high.length ?? 0} high-water ${(activeSafety?.high.length ?? 0) === 1 ? 'reading' : 'readings'} ${safetyScopeLabel}`}
                 icon="water-outline"
@@ -425,18 +405,17 @@ export function TodayHub({
       ) : null}
 
       <View style={styles.section}>
-        <SectionHead title="Favorites" action={previewFavorites.length ? 'See all' : undefined} onAction={() => router.push('/favorites')} />
-        {starsReady && primaryFavorite ? (
-          <>
-            <View
+        <SectionHead title="Favorites" action={starred.length ? 'See all' : undefined} onAction={() => router.push('/favorites')} />
+        {starsReady && highlightedFavorite ? (
+          <View
               style={[
                 styles.favoriteHero,
                 {
-                  backgroundColor: primaryFavoriteRiver
-                    ? conditionBg(primaryFavoriteRiver.currentCondition?.code ?? 'unknown')
+                  backgroundColor: highlightedRiver
+                    ? conditionBg(highlightedRiver.currentCondition?.code ?? 'unknown')
                     : colors.selectionBg,
-                  borderColor: primaryFavoriteRiver
-                    ? conditionChipBorder(primaryFavoriteRiver.currentCondition?.code ?? 'unknown')
+                  borderColor: highlightedRiver
+                    ? conditionChipBorder(highlightedRiver.currentCondition?.code ?? 'unknown')
                     : colors.border,
                 },
                 elevation(1),
@@ -444,30 +423,30 @@ export function TodayHub({
             >
               <View style={styles.favoriteHeroTop}>
                 <View style={styles.heroCopy}>
-                  <Text style={[styles.eyebrow, { color: colors.accent }]}>YOUR FAVORITE</Text>
-                  <Text style={[styles.heroName, { color: colors.text }]} numberOfLines={2}>{primaryFavorite.name}</Text>
+                  <Text style={[styles.eyebrow, { color: colors.accent }]}>HIGHLIGHTED</Text>
+                  <Text style={[styles.heroName, { color: colors.text }]} numberOfLines={2}>{highlightedFavorite.name}</Text>
                   <Text style={[styles.heroMeta, { color: colors.textMuted }]} numberOfLines={2}>
-                    {favoriteDetail(primaryFavorite, primaryFavoriteRiver)}
+                    {favoriteDetail(highlightedFavorite, highlightedRiver)}
                   </Text>
-                  {primaryFavoriteRiver ? <View style={styles.heroPill}><ConditionPill river={primaryFavoriteRiver} /></View> : null}
+                  {highlightedRiver ? <View style={styles.heroPill}><ConditionPill river={highlightedRiver} /></View> : null}
                 </View>
-                {primaryFavoriteRiver ? (
-                  <Otter mood={otterForCondition(primaryFavoriteRiver.currentCondition?.code ?? 'unknown')} size={96} style={styles.heroOtter} />
+                {highlightedRiver ? (
+                  <Otter mood={otterForCondition(highlightedRiver.currentCondition?.code ?? 'unknown')} size={96} style={styles.heroOtter} />
                 ) : (
                   <EddyScene name="heart" size={92} style={styles.heroOtter} />
                 )}
               </View>
               <View style={styles.actions}>
                 <Pressable
-                  onPress={() => openFavorite(primaryFavorite)}
+                  onPress={() => openFavorite(highlightedFavorite)}
                   style={({ pressed }) => [styles.secondaryButton, { backgroundColor: colors.card, borderColor: colors.border, opacity: pressed ? 0.65 : 1 }]}
                   accessibilityRole="button"
                 >
                   <Text style={[styles.secondaryButtonText, { color: colors.interactive }]}>View details</Text>
                 </Pressable>
-                {primaryFavoriteRiver?.slug ? (
+                {highlightedRiver?.slug ? (
                   <Pressable
-                    onPress={() => openPlan(primaryFavoriteRiver.slug)}
+                    onPress={() => openPlan(highlightedRiver.slug)}
                     style={({ pressed }) => [styles.primaryButton, { backgroundColor: pressed ? colors.accentFillPressed : colors.accentFill }]}
                     accessibilityRole="button"
                   >
@@ -476,20 +455,7 @@ export function TodayHub({
                   </Pressable>
                 ) : null}
               </View>
-            </View>
-            {secondaryFavorites.length ? (
-              <View style={styles.favoriteTiles}>
-                {secondaryFavorites.map((item) => (
-                  <FavoriteTile
-                    key={`${item.kind}:${item.entityId}`}
-                    item={item}
-                    river={item.kind === 'river' ? riverById.get(item.entityId) ?? null : null}
-                    onPress={() => openFavorite(item)}
-                  />
-                ))}
-              </View>
-            ) : null}
-          </>
+          </View>
         ) : starsReady ? (
           <View style={[styles.emptyCard, { backgroundColor: colors.selectionBg, borderColor: colors.border }]}>
             <EddyScene name="heart" size={76} />
@@ -518,10 +484,17 @@ export function TodayHub({
               </View>
               <Otter mood={otterForCondition(condition.code)} size={94} style={styles.bestOtter} />
             </View>
-            {recommendationFacts ? (
+            {recommendationFacts || recommendationAge ? (
               <View style={[styles.factRow, { backgroundColor: colors.card }]}>
                 <Ionicons name="pulse-outline" size={17} color={conditionInk(condition.code)} />
-                <Text style={[styles.factText, { color: colors.text }]} numberOfLines={2}>{recommendationFacts}</Text>
+                <View style={styles.flex}>
+                  {recommendationFacts ? (
+                    <Text style={[styles.factText, { color: colors.text }]} numberOfLines={1}>{recommendationFacts}</Text>
+                  ) : null}
+                  {recommendationAge ? (
+                    <Text style={[styles.factAge, { color: colors.textMuted }]} numberOfLines={1}>{recommendationAge}</Text>
+                  ) : null}
+                </View>
               </View>
             ) : null}
             {publicRead || eddyRead ? (
@@ -536,7 +509,7 @@ export function TodayHub({
                   <Text style={[styles.readLabel, { color: colors.accent }]}>EDDY&apos;S READ</Text>
                   <Ionicons name="chevron-forward" size={15} color={colors.textSubtle} />
                 </View>
-                <Text style={[styles.readCopy, { color: colors.text }]} numberOfLines={entitled === true ? 4 : 3}>
+                <Text style={[styles.readCopy, { color: colors.text }]} numberOfLines={2}>
                   {entitled === true && eddyRead ? eddyRead : publicRead}
                 </Text>
                 {entitled === false ? (
@@ -624,13 +597,11 @@ const styles = StyleSheet.create({
   flex: { flex: 1, minWidth: 0 },
   notice: { borderWidth: 1, borderRadius: 12, padding: 12, flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 14 },
   noticeText: { ...t.sm, fontFamily: fonts.body, flex: 1 },
-  safetySection: { marginBottom: 22 },
-  safetyHead: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 2, marginBottom: 9 },
-  safetyMark: { width: 42, height: 42, borderRadius: 21, alignItems: 'center', justifyContent: 'center' },
-  safetyKicker: { ...t.xs, fontFamily: fonts.heading, letterSpacing: 0.8 },
-  safetyScope: { ...t.xs, fontFamily: fonts.body, marginTop: 1 },
+  summaryTop: { marginBottom: 14 },
+  safetySection: { marginBottom: 20 },
+  safetyKicker: { ...t.xs, fontFamily: fonts.heading, letterSpacing: 0.7, marginBottom: 2 },
   safetyRows: { gap: 8 },
-  safetyRow: { minHeight: 72, borderWidth: 1, borderLeftWidth: 4, borderRadius: 14, paddingHorizontal: 12, paddingVertical: 10, flexDirection: 'row', alignItems: 'center', gap: 10 },
+  safetyRow: { minHeight: 82, borderWidth: 1, borderLeftWidth: 4, borderRadius: 14, paddingHorizontal: 12, paddingVertical: 9, flexDirection: 'row', alignItems: 'center', gap: 10 },
   safetyIcon: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
   safetyRowTitle: { ...t.sm, fontFamily: fonts.semibold },
   safetyRowMeta: { ...t.xs, fontFamily: fonts.body, marginTop: 2 },
@@ -646,11 +617,6 @@ const styles = StyleSheet.create({
   heroMeta: { ...t.sm, fontFamily: fonts.body, marginTop: 4 },
   heroPill: { alignSelf: 'flex-start', marginTop: 9 },
   heroOtter: { marginRight: -8, marginLeft: 2 },
-  favoriteTiles: { gap: 8, marginTop: 9 },
-  favoriteTile: { minHeight: 66, borderWidth: StyleSheet.hairlineWidth, borderRadius: 14, paddingHorizontal: 12, paddingVertical: 9, flexDirection: 'row', alignItems: 'center', gap: 10 },
-  tileIcon: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
-  tileName: { ...t.sm, fontFamily: fonts.semibold },
-  tileMeta: { ...t.xs, fontFamily: fonts.body, marginTop: 1 },
   pill: { borderRadius: 999, borderWidth: 1, paddingHorizontal: 10, paddingVertical: 4, alignSelf: 'flex-start' },
   pillText: { ...t.xs, fontFamily: fonts.semibold },
   emptyCard: { borderWidth: 1, borderRadius: 18, paddingHorizontal: 14, paddingVertical: 10, flexDirection: 'row', alignItems: 'center', gap: 10 },
@@ -665,6 +631,7 @@ const styles = StyleSheet.create({
   bestOtter: { marginRight: -9, marginLeft: 2 },
   factRow: { minHeight: 44, borderRadius: 12, paddingHorizontal: 12, paddingVertical: 9, flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 8 },
   factText: { ...t.sm, fontFamily: fonts.mono, flex: 1 },
+  factAge: { ...t.xs, fontFamily: fonts.body, marginTop: 2 },
   eddyRead: { borderWidth: StyleSheet.hairlineWidth, borderRadius: 14, padding: 13, marginTop: 10 },
   readHead: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   readLabel: { ...t.xs, fontFamily: fonts.heading, letterSpacing: 0.7, flex: 1 },
