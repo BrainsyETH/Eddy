@@ -6,6 +6,16 @@ export function localDayKey(date: Date): string {
   return `${year}-${month}-${day}`;
 }
 
+function dailyRank(dayKey: string, id: string): number {
+  let hash = 2166136261;
+  const value = `${dayKey}:${id}`;
+  for (let index = 0; index < value.length; index += 1) {
+    hash ^= value.charCodeAt(index);
+    hash = Math.imul(hash, 16777619);
+  }
+  return hash >>> 0;
+}
+
 /**
  * A daily rotation rather than render-time randomness.
  *
@@ -17,15 +27,20 @@ export function dailyFavoriteFloats<T extends { id: string }>(
   floats: T[],
   dayKey = localDayKey(new Date()),
 ): T[] {
-  const rank = (id: string) => {
-    let hash = 2166136261;
-    const value = `${dayKey}:${id}`;
-    for (let index = 0; index < value.length; index += 1) {
-      hash ^= value.charCodeAt(index);
-      hash = Math.imul(hash, 16777619);
-    }
-    return hash >>> 0;
-  };
+  return [...floats].sort(
+    (a, b) => dailyRank(dayKey, a.id) - dailyRank(dayKey, b.id) || a.id.localeCompare(b.id),
+  );
+}
 
-  return [...floats].sort((a, b) => rank(a.id) - rank(b.id) || a.id.localeCompare(b.id));
+/** One daily favorite hero: rivers first, then any saved place as a fallback. */
+export function dailyHighlightedFavorite<
+  T extends { kind: string; entityId: string },
+>(favorites: T[], dayKey = localDayKey(new Date())): T | null {
+  const rivers = favorites.filter((item) => item.kind === 'river');
+  const pool = rivers.length > 0 ? rivers : favorites;
+  return [...pool].sort((a, b) => {
+    const aKey = `${a.kind}:${a.entityId}`;
+    const bKey = `${b.kind}:${b.entityId}`;
+    return dailyRank(dayKey, aKey) - dailyRank(dayKey, bKey) || aKey.localeCompare(bKey);
+  })[0] ?? null;
 }

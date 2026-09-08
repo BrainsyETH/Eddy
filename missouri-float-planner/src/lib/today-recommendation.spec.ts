@@ -6,7 +6,11 @@ import {
   isTodayRecommendationEligible,
 } from '../../../eddy-ios/src/lib/todayRecommendation';
 import { favoriteFloatMeta } from '../../../eddy-ios/src/lib/favoriteFloatCopy';
-import { dailyFavoriteFloats, localDayKey } from '../../../eddy-ios/src/lib/todayFloats';
+import {
+  dailyFavoriteFloats,
+  dailyHighlightedFavorite,
+  localDayKey,
+} from '../../../eddy-ios/src/lib/todayFloats';
 import { chooseTodaySafetyScope, filterTodaySafety } from '../../../eddy-ios/src/lib/todaySafety';
 
 function river(id: string, code: 'good' | 'flowing' | 'high', age = 1): RiverListItem {
@@ -135,6 +139,25 @@ test('favorite floats rotate by local day without flapping during that day', () 
   assert.notDeepEqual(first, tomorrow);
   assert.deepEqual(floats.map((item) => item.id), ['alpha', 'bravo', 'charlie', 'delta', 'echo']);
   assert.equal(localDayKey(new Date(2026, 8, 8, 23, 59)), '2026-09-08');
+});
+
+test('highlighted favorite rotates among rivers and falls back when there are none', () => {
+  const favorites = [
+    { kind: 'gauge', entityId: 'gauge-1' },
+    { kind: 'river', entityId: 'river-1' },
+    { kind: 'river', entityId: 'river-2' },
+  ];
+  const highlight = dailyHighlightedFavorite(favorites, '2026-09-08');
+  assert.equal(highlight?.kind, 'river');
+  assert.deepEqual(
+    dailyHighlightedFavorite([...favorites].reverse(), '2026-09-08'),
+    highlight,
+  );
+  assert.deepEqual(
+    dailyHighlightedFavorite([{ kind: 'dam', entityId: 'dam-1' }], '2026-09-08'),
+    { kind: 'dam', entityId: 'dam-1' },
+  );
+  assert.equal(dailyHighlightedFavorite([], '2026-09-08'), null);
 });
 
 test('safety scope falls back from favorites to nearby rivers to statewide', () => {
