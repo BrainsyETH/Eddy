@@ -14,6 +14,7 @@ import { embedPalette, embedShadow, EMBED_FONTS } from '@/lib/embed/theme';
 import EmbedFooter from '@/components/embed/EmbedFooter';
 import { useEmbedBranding } from '@/components/embed/useEmbedBranding';
 import type { RiverListItem, AccessPoint } from '@/types/api';
+import { typicalCanoeTripMinutes } from '@/lib/calculations/floatTime';
 
 const EDDY_CANOE = 'https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy%20the%20otter%20in%20a%20cool%20canoe.png';
 
@@ -96,9 +97,10 @@ export default function EmbedPlannerPage() {
     const takeOut = accessPoints.find(ap => ap.id === selectedTakeOut);
     if (putIn && takeOut) {
       const distance = Math.abs(takeOut.riverMile - putIn.riverMile);
-      // Rough estimate: ~2 mph average float speed
-      const minutes = Math.round((distance / 2) * 60);
-      setTripSummary({ distanceMiles: Math.round(distance * 10) / 10, estimatedMinutes: minutes });
+      const minutes = typicalCanoeTripMinutes(distance);
+      setTripSummary(minutes == null
+        ? null
+        : { distanceMiles: Math.round(distance * 10) / 10, estimatedMinutes: minutes });
     }
   }, [selectedPutIn, selectedTakeOut, accessPoints]);
 

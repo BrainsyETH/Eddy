@@ -12,10 +12,10 @@
 // the results screen. Both are gone.
 //
 // The boat because it was a required tap that changed nothing anyone noticed: the
-// server already defaults to a canoe, the difference between a canoe and a kayak
-// is inside the error bars of a float-time estimate, and a mandatory step between
+// client explicitly requests the canonical canoe plan, the difference between a
+// canoe and a kayak is inside the error bars of a float-time estimate, and a mandatory step between
 // "I picked two access points" and "how long is it" is a step that loses people.
-// Which boat the estimate assumed is still printed on the answer.
+// The answer names the canoe assumption so it is never hidden.
 //
 // The nights because it was a planner inside a planner — a second fetch, a
 // segmented control, an itinerary, and a whole class of "the stretch has fewer

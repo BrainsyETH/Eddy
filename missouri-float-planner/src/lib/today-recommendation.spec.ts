@@ -9,6 +9,7 @@ import { favoriteFloatMeta } from '../../../eddy-ios/src/lib/favoriteFloatCopy';
 import {
   dailyFavoriteFloats,
   dailyHighlightedFavorite,
+  excludeKnownDangerousFavorites,
   localDayKey,
 } from '../../../eddy-ios/src/lib/todayFloats';
 import { chooseTodaySafetyScope, filterTodaySafety } from '../../../eddy-ios/src/lib/todaySafety';
@@ -123,10 +124,10 @@ test('statewide mode keeps a same-band incumbent but yields to a better band', (
   assert.equal(improved?.river.id, better.id);
 });
 
-test('favorite float metadata labels the nominal paddling estimate', () => {
+test('favorite float metadata labels the relaxed canoe trip estimate', () => {
   assert.equal(
     favoriteFloatMeta({ distanceMiles: 8, durationHours: 4, difficulty: 'I–II' }),
-    '8.0 mi · about 4.0 hrs paddling, no stops · Class I–II',
+    '8.0 mi · about 4.0 hrs at a relaxed canoe pace · Class I–II',
   );
 });
 
@@ -139,6 +140,23 @@ test('favorite floats rotate by local day without flapping during that day', () 
   assert.notDeepEqual(first, tomorrow);
   assert.deepEqual(floats.map((item) => item.id), ['alpha', 'bravo', 'charlie', 'delta', 'echo']);
   assert.equal(localDayKey(new Date(2026, 8, 8, 23, 59)), '2026-09-08');
+});
+
+test('the Today rail excludes favorites on rivers known to be dangerous', () => {
+  const floats = [
+    { id: 'danger', riverSlug: 'flooded-river' },
+    { id: 'good', riverSlug: 'good-river' },
+    { id: 'unknown', riverSlug: 'unloaded-river' },
+  ];
+  const conditions = new Map<string, string | null>([
+    ['flooded-river', 'dangerous'],
+    ['good-river', 'good'],
+  ]);
+
+  assert.deepEqual(
+    excludeKnownDangerousFavorites(floats, conditions).map((item) => item.id),
+    ['good', 'unknown'],
+  );
 });
 
 test('highlighted favorite rotates among rivers and falls back when there are none', () => {

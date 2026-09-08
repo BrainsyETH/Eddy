@@ -28,7 +28,11 @@ import { useStarredRivers, type StarredItem } from '@/hooks/useStarredRivers';
 import { readFavoriteFloats, writeFavoriteFloats } from '@/lib/favoriteFloatCache';
 import { favoriteFloatMeta } from '@/lib/favoriteFloatCopy';
 import { formatReading, primaryReading, readingAge } from '@/lib/readingCopy';
-import { dailyFavoriteFloats, dailyHighlightedFavorite } from '@/lib/todayFloats';
+import {
+  dailyFavoriteFloats,
+  dailyHighlightedFavorite,
+  excludeKnownDangerousFavorites,
+} from '@/lib/todayFloats';
 import {
   chooseTodayRecommendation,
   TODAY_RADIUS_MILES,
@@ -336,7 +340,16 @@ export function TodayHub({
     () => [...(activeSafety?.high ?? [])].sort((a, b) => Number(b.conditionCode === 'dangerous') - Number(a.conditionCode === 'dangerous'))[0] ?? null,
     [activeSafety?.high],
   );
-  const floatPreviews = useMemo(() => dailyFavoriteFloats(floats ?? []).slice(0, 4), [floats]);
+  const conditionByRiverSlug = useMemo(
+    () => new Map(rivers.map((river) => [river.slug, river.currentCondition?.code])),
+    [rivers],
+  );
+  const floatPreviews = useMemo(
+    () => dailyFavoriteFloats(
+      excludeKnownDangerousFavorites(floats ?? [], conditionByRiverSlug),
+    ).slice(0, 4),
+    [conditionByRiverSlug, floats],
+  );
   const condition = recommendation?.river.currentCondition ?? null;
   const reading = condition ? primaryReading(condition) : null;
   const liveOutlook = outlook && outlook.slug === recommendation?.river.slug ? outlook.data : null;

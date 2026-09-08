@@ -48,6 +48,7 @@ import { useSavedFloats } from '@/hooks/useSavedFloats';
 import { milesBetween, type Coords } from '@/hooks/useLocation';
 import { damControlledLabel } from '@/lib/readingCopy';
 import { conditionColor } from '@/theme/conditions';
+import { formatFloatTimeCeiling } from '@eddy/conditions/float-time-format';
 
 interface Props {
   visible: boolean;
@@ -75,12 +76,15 @@ interface Props {
  * person who has not seen the dam panel that explains it.
  */
 function floatTimeShareLabel(plan: FloatPlan): string {
-  return (
-    plan.floatTime?.formatted ??
-    (plan.floatTimeWithheldReason === 'regulated'
-      ? 'time depends on dam releases'
-      : 'no estimate in this water')
-  );
+  if (plan.floatTime) {
+    const time = plan.floatTime.timeRange
+      ? formatFloatTimeCeiling(plan.floatTime.timeRange.max)
+      : plan.floatTime.formatted;
+    return `${plan.vessel.name} · ${time}`;
+  }
+  return plan.floatTimeWithheldReason === 'regulated'
+    ? 'time depends on dam releases'
+    : 'no estimate in this water';
 }
 
 export function PlanSheet({

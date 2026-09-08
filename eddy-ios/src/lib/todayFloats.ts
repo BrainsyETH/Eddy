@@ -32,6 +32,20 @@ export function dailyFavoriteFloats<T extends { id: string }>(
   );
 }
 
+/**
+ * Hide evergreen trip suggestions when the already-loaded river index says the
+ * water is dangerous. Unknown conditions stay visible as guide content; the
+ * live planner remains the final safety gate when somebody opens the route.
+ */
+export function excludeKnownDangerousFavorites<T extends { riverSlug: string }>(
+  floats: T[],
+  conditionByRiverSlug: ReadonlyMap<string, string | null | undefined>,
+): T[] {
+  return floats.filter(
+    (item) => conditionByRiverSlug.get(item.riverSlug) !== 'dangerous',
+  );
+}
+
 /** One daily favorite hero: rivers first, then any saved place as a fallback. */
 export function dailyHighlightedFavorite<
   T extends { kind: string; entityId: string },

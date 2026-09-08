@@ -18,6 +18,7 @@ import type { GuideData } from '@/types/blog';
 import { dayIndex, springsForRun, type Section } from './section-picker';
 import { toNum } from '@/lib/utils/num';
 import { riverDisplayLong } from './river-display';
+import { typicalCanoeTripHours } from '@/lib/calculations/floatTime';
 
 /** A curated favorite float: the route geometry RouteDraw needs + editorial copy. */
 export interface FavoriteFloat extends Section {
@@ -183,7 +184,7 @@ async function loadFavoritePool(
         takeOutName: cleanName(takeOut.name),
         takeOutMile,
         distanceMi,
-        hoursCanoe: Math.round((distanceMi / 2) * 10) / 10,
+        hoursCanoe: typicalCanoeTripHours(distanceMi) ?? 0,
         putInDescription: '',
         takeOutDescription: '',
         putInCamping: isCampground(putIn),

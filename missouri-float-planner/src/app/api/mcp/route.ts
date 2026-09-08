@@ -7,6 +7,7 @@ import { WebStandardStreamableHTTPServerTransport } from '@modelcontextprotocol/
 import { createClient } from '@/lib/supabase/server';
 import { z } from 'zod';
 import { computeCondition, getConditionShortLabel, type ConditionThresholds } from '@/lib/conditions';
+import { typicalCanoeTripHours, typicalCanoeTripMinutes } from '@/lib/calculations/floatTime';
 
 export const dynamic = 'force-dynamic';
 
@@ -293,20 +294,33 @@ function createMcpServer() {
       const endMile = end.river_mile_downstream != null ? parseFloat(String(end.river_mile_downstream)) : 0;
       const distance = Math.abs(endMile - startMile);
 
-      // Get hazards along route
+      // Get hazards and the put-in reach's current condition together. The
+      // static preview must not print a trip time beside dangerous water.
       const minMile = Math.min(startMile, endMile);
       const maxMile = Math.max(startMile, endMile);
 
-      const { data: hazards } = await supabase
-        .from('river_hazards')
-        .select('name, type, severity, river_mile_downstream, portage_required')
-        .eq('river_id', riverId)
-        .eq('active', true)
-        .gte('river_mile_downstream', minMile)
-        .lte('river_mile_downstream', maxMile);
+      const [{ data: hazards }, { data: conditionData }] = await Promise.all([
+        supabase
+          .from('river_hazards')
+          .select('name, type, severity, river_mile_downstream, portage_required')
+          .eq('river_id', riverId)
+          .eq('active', true)
+          .gte('river_mile_downstream', minMile)
+          .lte('river_mile_downstream', maxMile),
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (supabase.rpc as any)('get_river_condition_segment', {
+          p_river_id: riverId,
+          p_put_in_mile: startMile,
+          p_put_in_point: null,
+        }),
+      ]);
 
-      // Estimate float time at ~2 mph average
-      const estimatedHours = distance / 2;
+      // Evergreen typical-flow canoe trip preview. This lightweight MCP tool
+      // does not fetch the live gauge inputs required by the full plan route.
+      const estimatedMinutes = typicalCanoeTripMinutes(distance);
+      const estimatedHours = typicalCanoeTripHours(distance);
+      const conditionCode = conditionData?.[0]?.condition_code ?? 'unknown';
+      const withholdEstimate = conditionCode === 'dangerous';
 
       return {
         content: [{
@@ -315,12 +329,17 @@ function createMcpServer() {
             putIn: start.name,
             takeOut: end.name,
             distanceMiles: Math.round(distance * 10) / 10,
-            estimatedFloatTime: {
-              hours: Math.round(estimatedHours * 10) / 10,
-              formatted: estimatedHours < 1
-                ? `${Math.round(estimatedHours * 60)} min`
-                : `${Math.round(estimatedHours * 10) / 10} hr`,
-            },
+            condition: conditionCode,
+            estimatedFloatTime: !withholdEstimate && estimatedMinutes != null && estimatedHours != null
+              ? {
+                  hours: estimatedHours,
+                  formatted: estimatedMinutes < 60
+                    ? `${estimatedMinutes} min`
+                    : `${estimatedHours} hr`,
+                  basis: 'typical-flow canoe trip with ordinary stops',
+                }
+              : null,
+            estimatedFloatTimeWithheldReason: withholdEstimate ? 'dangerous' : null,
             hazardsAlongRoute: (hazards || []).map((h) => ({
               name: h.name,
               type: h.type,

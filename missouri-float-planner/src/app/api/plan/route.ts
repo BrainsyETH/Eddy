@@ -59,6 +59,7 @@ async function _GET(request: NextRequest) {
     const startId = searchParams.get('startId');
     const endId = searchParams.get('endId');
     const vesselTypeId = searchParams.get('vesselTypeId');
+    const vesselTypeSlug = searchParams.get('vesselTypeSlug');
     // tripDurationDays is parsed but used by the separate /api/plan/campgrounds endpoint
     // Kept here for potential future inline campground response
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -119,7 +120,9 @@ async function _GET(request: NextRequest) {
       );
     }
 
-    // Get vessel type (default to first if not specified)
+    // Resolve an explicitly requested vessel, or default by stable slug. Sort
+    // order is presentation metadata: using its first row made every caller
+    // that omitted a vessel silently receive a raft plan in production.
     let vesselType;
     if (vesselTypeId) {
       const { data: vt } = await supabase
@@ -128,14 +131,18 @@ async function _GET(request: NextRequest) {
         .eq('id', vesselTypeId)
         .single();
       vesselType = vt;
-    }
-
-    if (!vesselType) {
+    } else if (vesselTypeSlug) {
+      const { data: vt } = await supabase
+        .from('vessel_types')
+        .select('*')
+        .eq('slug', vesselTypeSlug)
+        .single();
+      vesselType = vt;
+    } else {
       const { data: defaultVessel } = await supabase
         .from('vessel_types')
         .select('*')
-        .order('sort_order', { ascending: true })
-        .limit(1)
+        .eq('slug', 'canoe')
         .single();
       vesselType = defaultVessel;
     }
@@ -436,9 +443,6 @@ async function _GET(request: NextRequest) {
       basis: 'trip' | 'moving';
       timeRange?: { min: number; max: number };
     } | null = null;
-
-    // Dangerous water gets NO float time (neither known nor estimated).
-    const isDangerous = conditionCode === 'dangerous';
 
     // Neither does regulated water, and for a different reason. Dangerous
     // water has a float time we decline to quote; a tailwater has one we

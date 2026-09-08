@@ -1,6 +1,14 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { calculateFloatTime, DEFAULT_CANOE_SPEEDS } from './floatTime';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import {
+  calculateFloatTime,
+  DEFAULT_CANOE_SPEEDS,
+  floatTimeCeilingBasisNote,
+  typicalCanoeTripHours,
+  typicalCanoeTripMinutes,
+} from './floatTime';
 import { canoeHours } from '@/lib/social/post-types';
 
 const MILES = 7.2;
@@ -80,6 +88,24 @@ test('canoeHours at typical flow matches the planner regardless of model', () =>
   assert.equal(social, Math.round((plan!.minutes / 60) * 10) / 10);
 });
 
+test('evergreen canoe previews use the canonical typical trip model', () => {
+  const plan = calculateFloatTime(MILES, DEFAULT_CANOE_SPEEDS, 'flowing');
+  assert.notEqual(plan, null);
+  assert.equal(typicalCanoeTripMinutes(MILES), plan!.minutes);
+  assert.equal(
+    typicalCanoeTripHours(MILES),
+    Math.round((plan!.minutes / 60) * 10) / 10,
+  );
+  assert.equal(typicalCanoeTripMinutes(0), null);
+});
+
+test('the plan basis line names both the vessel and stop assumption', () => {
+  assert.equal(
+    floatTimeCeilingBasisNote('Canoe'),
+    'Canoe estimate at a relaxed pace with stops',
+  );
+});
+
 test('canoeHours uses the flow model when a caller supplies flow', () => {
   // The parameter exists so the social render path can close its remaining gap
   // once RenderData carries dischargeCfs; this asserts the plumbing works today.
@@ -119,4 +145,65 @@ test('the flow factor stays clamped at both extremes', () => {
 
   assert.equal(flood!.speedMph <= DEFAULT_CANOE_SPEEDS.speedHighWater, true);
   assert.equal(trickle!.speedMph >= DEFAULT_CANOE_SPEEDS.speedLowWater * 0.5, true);
+});
+
+test('iOS and the API both pin the canoe default by stable slug', () => {
+  const route = readFileSync(join(process.cwd(), 'src/app/api/plan/route.ts'), 'utf8');
+  const client = readFileSync(join(process.cwd(), '../eddy-ios/src/api/client.ts'), 'utf8');
+
+  assert.match(route, /\.eq\('slug', 'canoe'\)/);
+  assert.doesNotMatch(route, /defaultVessel[\s\S]*?\.order\('sort_order'/);
+  assert.match(client, /vesselTypeSlug: 'canoe'/);
+});
+
+test('float-time copy never labels trip estimates as no-stop paddling', () => {
+  const files = [
+    join(process.cwd(), '../eddy-ios/src/lib/favoriteFloatCopy.ts'),
+    join(process.cwd(), 'src/lib/social/content-formatter.ts'),
+  ];
+  for (const file of files) {
+    assert.doesNotMatch(readFileSync(file, 'utf8'), /no stops/i);
+  }
+});
+
+test('shared-plan previews omit frozen time and condition claims', () => {
+  const layout = readFileSync(
+    join(process.cwd(), 'src/app/plan/[shortCode]/layout.tsx'),
+    'utf8',
+  );
+  const image = readFileSync(
+    join(process.cwd(), 'src/app/plan/[shortCode]/opengraph-image.tsx'),
+    'utf8',
+  );
+  for (const source of [layout, image]) {
+    assert.doesNotMatch(source, /estimated_float_minutes/);
+    assert.doesNotMatch(source, /condition_at_creation/);
+  }
+  assert.match(layout, /Open Eddy for current conditions and estimated time/);
+});
+
+test('lightweight server previews suppress time in known dangerous water', () => {
+  const mcp = readFileSync(join(process.cwd(), 'src/app/api/mcp/route.ts'), 'utf8');
+  const detail = readFileSync(
+    join(process.cwd(), 'src/lib/access-points/detail.ts'),
+    'utf8',
+  );
+  assert.match(mcp, /withholdEstimate = conditionCode === 'dangerous'/);
+  assert.match(mcp, /estimatedFloatTime: !withholdEstimate/);
+  assert.match(detail, /withholdFloatEstimates = gaugeStatus\?\.level === 'dangerous'/);
+  assert.match(detail, /estimatedFloatTime: withholdFloatEstimates \? null/);
+});
+
+test('the iOS result and share text use the same range ceiling', () => {
+  const result = readFileSync(
+    join(process.cwd(), '../eddy-ios/src/components/PlanResult.tsx'),
+    'utf8',
+  );
+  const sheet = readFileSync(
+    join(process.cwd(), '../eddy-ios/src/components/PlanSheet.tsx'),
+    'utf8',
+  );
+  assert.match(result, /formatFloatTimeCeiling\(plan\.floatTime\.timeRange\.max\)/);
+  assert.match(sheet, /formatFloatTimeCeiling\(plan\.floatTime\.timeRange\.max\)/);
+  assert.match(sheet, /plan\.vessel\.name/);
 });

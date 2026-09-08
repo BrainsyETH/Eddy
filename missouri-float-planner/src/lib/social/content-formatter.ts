@@ -409,7 +409,7 @@ export function formatSectionGuideCaption(
   // emphasized detail lines, so they're not duplicated in the caption.
   lines.push(`Float Pick — ${section.riverName}`);
   lines.push('');
-  lines.push(`🛶 ${section.distanceMi.toFixed(1)} mi · ~${hours.toFixed(1)} hrs with no stops`);
+  lines.push(`🛶 ${section.distanceMi.toFixed(1)} mi · ~${hours.toFixed(1)} hrs at a relaxed canoe pace`);
   lines.push('');
 
   // Put-in / take-out are the emphasis. Camping flagged only where it exists.
@@ -480,7 +480,7 @@ export function formatFavoriteFloatCaption(
   }
   lines.push('');
   lines.push(
-    `🛶 ${fav.distanceMi.toFixed(1)} mi · ~${hours.toFixed(1)} hrs at a relaxed pace` +
+    `🛶 ${fav.distanceMi.toFixed(1)} mi · ~${hours.toFixed(1)} hrs at a relaxed canoe pace` +
       (fav.difficulty ? ` · Class ${fav.difficulty}` : ''),
   );
   lines.push('');

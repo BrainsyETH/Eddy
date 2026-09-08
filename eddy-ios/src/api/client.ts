@@ -1149,9 +1149,9 @@ export async function fetchRiverServices(
  * reading and Mapbox for the shuttle drive — so it runs once on an explicit
  * tap, never speculatively as the user moves between access points.
  *
- * NO vesselTypeId. The app stopped asking which boat you are in — the endpoint
- * defaults to a canoe, and the plan it returns names the vessel it used, which
- * is all the answer needs to say. See useFloatPlan for why that step is gone.
+ * The app stopped asking which boat you are in, but it still sends the stable
+ * canoe slug explicitly. The server also defaults by slug; sending it here is
+ * defense in depth so database display order can never change the iOS answer.
  */
 export async function fetchFloatPlan(
   params: { riverId: string; startId: string; endId: string },
@@ -1161,6 +1161,7 @@ export async function fetchFloatPlan(
     riverId: params.riverId,
     startId: params.startId,
     endId: params.endId,
+    vesselTypeSlug: 'canoe',
   });
   const data = await get<PlanResponse>(`/api/plan?${query.toString()}`, signal);
   return data.plan;

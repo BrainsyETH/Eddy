@@ -256,6 +256,29 @@ export function calculateFloatTime(
   };
 }
 
+/**
+ * Evergreen canoe trip time at typical flow.
+ *
+ * This replaces `distance / 2` shortcuts in guide cards, embeds and lightweight
+ * API previews. The arithmetic is currently equivalent (2.5 mph moving speed
+ * with the 1.25 trip factor), but this preserves the "trip, with ordinary
+ * stops" meaning if either calibration constant changes later.
+ */
+export function typicalCanoeTripMinutes(distanceMiles: number): number | null {
+  return calculateFloatTime(
+    distanceMiles,
+    DEFAULT_CANOE_SPEEDS,
+    'flowing',
+    { basis: 'trip' },
+  )?.minutes ?? null;
+}
+
+/** Typical-flow canoe trip time in hours, rounded for compact guide metadata. */
+export function typicalCanoeTripHours(distanceMiles: number): number | null {
+  const minutes = typicalCanoeTripMinutes(distanceMiles);
+  return minutes == null ? null : Math.round((minutes / 60) * 10) / 10;
+}
+
 // ── Wording ──────────────────────────────────────────────────────────────
 // The formatters moved to shared/float-time-format.ts so eddy-ios can word a
 // float time with the same rounding the website uses; a phone that rounded

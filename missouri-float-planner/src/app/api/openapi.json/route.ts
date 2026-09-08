@@ -350,6 +350,13 @@ const spec = {
             schema: { type: 'string', format: 'uuid' },
             description: 'Vessel type ID (defaults to canoe)',
           },
+          {
+            name: 'vesselTypeSlug',
+            in: 'query',
+            required: false,
+            schema: { type: 'string', enum: ['canoe', 'kayak', 'raft', 'tube'] },
+            description: 'Stable vessel slug. Ignored when vesselTypeId is supplied; defaults to canoe.',
+          },
         ],
         responses: {
           '200': {

@@ -12,6 +12,7 @@
 import mileMarkers from '../../../floatmissouri_mile_markers.json';
 import { guideRiverSlug } from '@/lib/pois/guide-rivers';
 import { riverDisplayLong } from './river-display';
+import { typicalCanoeTripHours } from '@/lib/calculations/floatTime';
 
 interface MileMarker {
   river_id: string;
@@ -196,7 +197,7 @@ export async function listAllSections(
           takeOutName: takeOut.name,
           takeOutMile: takeOut.mile,
           distanceMi: distance,
-          hoursCanoe: Math.round((distance / 2) * 10) / 10,
+          hoursCanoe: typicalCanoeTripHours(distance) ?? 0,
           putInDescription: putIn.description || '',
           takeOutDescription: takeOut.description || '',
           putInCamping: putIn.isCampground,

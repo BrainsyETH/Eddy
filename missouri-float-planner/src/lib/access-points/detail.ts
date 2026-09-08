@@ -24,6 +24,7 @@ import type {
 import { loadAvailability } from '@/lib/camping/read';
 import { bookingUrlFor, loadBookingLink } from '@/lib/camping/booking';
 import { loadLinkedServices, withLinkedServices } from '@/lib/access-points/linked-services';
+import { typicalCanoeTripMinutes } from '@/lib/calculations/floatTime';
 
 type SupabaseServerClient = Awaited<ReturnType<typeof createClient>>;
 
@@ -117,6 +118,7 @@ export async function getAccessPointDetail(
   ]);
 
   const allAccessPoints = neighbourResult.data;
+  const withholdFloatEstimates = gaugeStatus?.level === 'dangerous';
 
   const nearbyAccessPoints: NearbyAccessPoint[] = [];
 
@@ -162,7 +164,7 @@ export async function getAccessPointDetail(
         slug: entry.point.slug,
         direction: 'upstream',
         distanceMiles: Math.round(distance * 10) / 10,
-        estimatedFloatTime: estimateFloatTime(distance),
+        estimatedFloatTime: withholdFloatEstimates ? null : estimateFloatTime(distance),
         riverMile: entry.mile,
         // `!== false` so a row read before the column existed stays eligible.
         // The Float-trips tab offers a trip TO each of these, and a park is a
@@ -179,7 +181,7 @@ export async function getAccessPointDetail(
         slug: entry.point.slug,
         direction: 'downstream',
         distanceMiles: Math.round(distance * 10) / 10,
-        estimatedFloatTime: estimateFloatTime(distance),
+        estimatedFloatTime: withholdFloatEstimates ? null : estimateFloatTime(distance),
         riverMile: entry.mile,
         // `!== false` so a row read before the column existed stays eligible.
         // The Float-trips tab offers a trip TO each of these, and a park is a
@@ -347,15 +349,15 @@ export async function getAccessPointDetail(
   };
 }
 
-// Helper to estimate float time based on distance
+// Lightweight typical-flow preview. A full plan recalculates against the
+// selected reach, vessel and current water.
 function estimateFloatTime(miles: number): string | null {
-  if (miles <= 0) return null;
-  // Assume average 2 mph float speed
-  const hours = miles / 2;
-  if (hours < 1) {
-    return `~${Math.round(hours * 60)} min`;
+  const minutes = typicalCanoeTripMinutes(miles);
+  if (minutes == null) return null;
+  if (minutes < 60) {
+    return `~${minutes} min`;
   }
-  return `~${Math.round(hours * 10) / 10} hr`;
+  return `~${Math.round((minutes / 60) * 10) / 10} hr`;
 }
 
 // Helper to get gauge status for the river (segment-aware based on access point river mile)

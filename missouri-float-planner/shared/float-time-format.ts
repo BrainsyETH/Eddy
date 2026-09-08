@@ -128,21 +128,16 @@ export function formatFloatTimeCeilingCompact(maxMinutes: number): string {
  * fragments, because it is a sentence: it says what the number assumed, and
  * "Estimated · relaxed pace, some stops" made a reader assemble that themselves.
  *
- * ── The boat, and why it is no longer in the line ───────────────────────────
+ * ── The boat belongs in the line ────────────────────────────────────────────
  *
- * `vesselName` used to lead it: "Raft at today's level, estimated at a relaxed
- * pace with stops". The argument for that was real — the server defaults to a
- * canoe when the client sends no vessel, and an unattributed estimate cannot be
- * discounted by somebody in a slower boat. What it produced on screen was a
- * fourteen-word clause under a headline, opening with a noun most readers had
- * not chosen and could not change from that screen.
+ * The vessel is part of the claim. The client now explicitly requests a canoe,
+ * the server defaults by stable canoe slug, and callers with a resolved plan
+ * pass that vessel here so a bad default can never hide behind generic wording.
  *
- * The parameter is gone rather than accepted and ignored, so a caller cannot
- * pass a vessel and believe it reached the screen. Nothing is lost from the
- * plan itself: `plan.vessel` is still on the wire, still what the speed model
- * used, and still available to any surface that wants to say so in a place with
- * room for it.
+ * Keep the sentence short, but keep both assumptions visible: which craft the
+ * estimate models and that it is trip time with ordinary stops.
  */
-export function floatTimeCeilingBasisNote(): string {
-  return 'Estimated at an average pace';
+export function floatTimeCeilingBasisNote(vesselName?: string): string {
+  const prefix = vesselName ? `${vesselName} estimate` : 'Estimate';
+  return `${prefix} at a relaxed pace with stops`;
 }

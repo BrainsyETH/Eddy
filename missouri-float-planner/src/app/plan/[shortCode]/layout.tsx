@@ -28,14 +28,6 @@ interface PlanLayoutProps {
   params: Promise<{ shortCode: string }>;
 }
 
-function formatMinutes(totalMinutes: number): string {
-  const hours = Math.floor(totalMinutes / 60);
-  const mins = Math.round(totalMinutes % 60);
-  if (hours === 0) return `${mins}min`;
-  if (mins === 0) return `${hours}h`;
-  return `${hours}h ${mins}m`;
-}
-
 export async function generateMetadata({ params }: PlanLayoutProps): Promise<Metadata> {
   try {
     const BASE_URL = await getBaseUrl();
@@ -82,32 +74,12 @@ export async function generateMetadata({ params }: PlanLayoutProps): Promise<Met
     const distanceMiles = savedPlan.distance_miles != null
       ? parseFloat(String(savedPlan.distance_miles)).toFixed(1)
       : '';
-    const floatTimeFormatted = savedPlan.estimated_float_minutes
-      ? formatMinutes(savedPlan.estimated_float_minutes)
-      : '';
-    const conditionCode = savedPlan.condition_at_creation || 'unknown';
-
-    const conditionLabels: Record<string, string> = {
-      flowing: 'Flowing',
-      good: 'Good - Floatable',
-      low: 'Very Low',
-      high: 'High Water',
-      too_low: 'Too Low',
-      dangerous: 'Dangerous',
-      unknown: '',
-    };
-
-    const conditionText = conditionLabels[conditionCode] || '';
-
     const title = `${riverName} - ${putInName} to ${takeOutName}`;
-    const descParts: string[] = [];
-    if (distanceMiles) descParts.push(`${distanceMiles} mi`);
-    if (floatTimeFormatted) descParts.push(`~${floatTimeFormatted} float`);
-    if (conditionText) descParts.push(`Conditions: ${conditionText}`);
-
-    const description = descParts.length > 0
-      ? `${riverName} float plan - ${descParts.join(' | ')} | Check conditions on Eddy.`
-      : `${riverName} float plan from ${putInName} to ${takeOutName}. Check conditions on Eddy.`;
+    // A plan's endpoints and mileage are stable. Its saved condition and time
+    // are not: the page recalculates both when opened, while messaging clients
+    // may cache this preview indefinitely. Keep volatile claims out of metadata.
+    const distanceText = distanceMiles ? ` (${distanceMiles} mi)` : '';
+    const description = `${riverName} float plan from ${putInName} to ${takeOutName}${distanceText}. Open Eddy for current conditions and estimated time.`;
 
     const pageUrl = `${BASE_URL}/plan/${shortCode}`;
 

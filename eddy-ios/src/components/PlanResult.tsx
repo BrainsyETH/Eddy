@@ -143,14 +143,8 @@ export function PlanResult({ plan, actions }: Props) {
                 : plan.floatTime.formatted}
             </Text>
             <Text style={[styles.headlineNote, { color: colors.textSubtle }]}>
-              {/* One short sentence under the headline, and no longer a clause
-                  about the boat. It used to open with the vessel — "Raft at
-                  today's level, estimated at a relaxed pace with stops" —
-                  which put a noun the reader had not chosen, and cannot change
-                  from this screen, in front of the only thing the line is for.
-                  See floatTimeCeilingBasisNote for what the vessel was doing
-                  there and where it went. */}
-              {floatTimeCeilingBasisNote()}
+              {/* The vessel and stop assumptions are part of the estimate. */}
+              {floatTimeCeilingBasisNote(plan.vessel.name)}
             </Text>
           </>
         ) : plan.floatTimeWithheldReason === 'regulated' ? (
