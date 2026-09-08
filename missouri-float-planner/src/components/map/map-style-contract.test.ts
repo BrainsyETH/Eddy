@@ -6,6 +6,7 @@ import test from 'node:test';
 interface StyleLayer {
   id: string;
   type: string;
+  minzoom?: number;
   'source-layer'?: string;
   layout?: Record<string, unknown>;
 }
@@ -26,6 +27,10 @@ function indexOf(layers: StyleLayer[], id: string): number {
   return index;
 }
 
+function layerOf(layers: StyleLayer[], id: string): StyleLayer {
+  return layers[indexOf(layers, id)];
+}
+
 test('both curated styles honor the shared overlay and line anchor contract', () => {
   for (const name of ['eddy-natural', 'eddy-immersive'] as const) {
     const layers = style(name).layers;
@@ -44,7 +49,7 @@ test('both curated styles honor the shared overlay and line anchor contract', ()
   }
 });
 
-test('Immersive carries usable road geometry and matching road names', () => {
+test('Immersive includes selected road and name layers without rail clutter', () => {
   const layers = style('eddy-immersive').layers;
   for (const id of [
     'road_motorway',
@@ -53,6 +58,7 @@ test('Immersive carries usable road geometry and matching road names', () => {
     'road_minor',
     'road_service_track',
     'bridge_trunk_primary',
+    'tunnel_trunk_primary',
     'highway-name-major',
     'highway-name-minor',
   ]) {
@@ -64,4 +70,39 @@ test('Immersive carries usable road geometry and matching road names', () => {
     false,
     'Immersive should not gain unrelated rail clutter with its roads',
   );
+});
+
+test('Immersive bridge and tunnel segments never precede their connecting roads', () => {
+  const layers = style('eddy-immersive').layers;
+  for (const [segmentId, roadId] of [
+    ['bridge_link', 'road_link'],
+    ['bridge_link_casing', 'road_link_casing'],
+    ['bridge_motorway_link', 'road_motorway_link'],
+    ['bridge_motorway_link_casing', 'road_motorway_link_casing'],
+    ['tunnel_link', 'road_link'],
+    ['tunnel_motorway_link', 'road_motorway_link'],
+  ] as const) {
+    const segment = layerOf(layers, segmentId);
+    const road = layerOf(layers, roadId);
+    assert.ok(
+      (segment.minzoom ?? 0) >= (road.minzoom ?? 0),
+      `${segmentId} must not appear before ${roadId}`,
+    );
+  }
+});
+
+test('Immersive road names appear no earlier than their geometry', () => {
+  const layers = style('eddy-immersive').layers;
+  for (const [labelId, roadId] of [
+    ['highway-name-path', 'road_path_pedestrian'],
+    ['highway-name-minor', 'road_minor'],
+    ['highway-name-major', 'road_trunk_primary'],
+  ] as const) {
+    const label = layerOf(layers, labelId);
+    const road = layerOf(layers, roadId);
+    assert.ok(
+      (label.minzoom ?? 0) >= (road.minzoom ?? 0),
+      `${labelId} must not appear before ${roadId}`,
+    );
+  }
 });

@@ -767,7 +767,10 @@ export default function MapContainer({
 
             {/* Existing mobile 3D control stays isolated from the overlay
                 registry; no terrain behavior is changed in this phase. */}
-            <div className="md:hidden border-t border-gray-200">
+            <div className="md:hidden border-t border-gray-200" role="group" aria-label="Map view">
+              <div className="px-4 pb-1 pt-2.5 text-[10px] font-semibold uppercase tracking-wider text-gray-500">
+                View
+              </div>
               <button
                 onClick={toggle3D}
                 className="w-full px-4 py-2.5 text-left text-sm hover:bg-gray-100 transition-colors flex items-center justify-between gap-3 text-gray-700"

@@ -196,11 +196,8 @@ function buildImmersive(original: StyleDoc): StyleDoc {
     'text-halo-width': 1.6,
     'text-halo-blur': 1,
   };
-  const whiteLabel = (id: string, minzoom?: number): StyleLayer => {
-    const l = repaint(pick(id), { 'text-color': '#ffffff', ...DARK_HALO });
-    if (minzoom !== undefined) l.minzoom = Math.max(l.minzoom ?? 0, minzoom);
-    return l;
-  };
+  const whiteLabel = (id: string): StyleLayer =>
+    repaint(pick(id), { 'text-color': '#ffffff', ...DARK_HALO });
 
   // Satellite imagery has enough texture to imply roads at a glance, but not
   // enough to navigate a shuttle. The old Immersive style kept road shields
@@ -209,6 +206,21 @@ function buildImmersive(original: StyleDoc): StyleDoc {
   // only translate the colour/opacity for imagery and delay the smaller roads
   // until a paddler is close enough to use them.
   const ROAD_LAYER_IDS = [
+    'tunnel_motorway_link_casing',
+    'tunnel_service_track_casing',
+    'tunnel_link_casing',
+    'tunnel_street_casing',
+    'tunnel_secondary_tertiary_casing',
+    'tunnel_trunk_primary_casing',
+    'tunnel_motorway_casing',
+    'tunnel_path_pedestrian',
+    'tunnel_motorway_link',
+    'tunnel_service_track',
+    'tunnel_link',
+    'tunnel_minor',
+    'tunnel_secondary_tertiary',
+    'tunnel_trunk_primary',
+    'tunnel_motorway',
     'road_motorway_link_casing',
     'road_service_track_casing',
     'road_link_casing',
@@ -242,7 +254,9 @@ function buildImmersive(original: StyleDoc): StyleDoc {
     'bridge_motorway',
   ] as const;
 
-  const roadMinzoom = (id: string): number => {
+  // These values are minimum floors, not replacements for Liberty's native
+  // thresholds. This preserves any stricter upstream clutter control.
+  const roadMinzoomFloor = (id: string): number => {
     if (id.includes('path_pedestrian')) return 14;
     if (id.includes('service_track')) return 13;
     if (id.includes('minor') || id.includes('street')) return 12;
@@ -250,6 +264,16 @@ function buildImmersive(original: StyleDoc): StyleDoc {
     if (id.includes('secondary_tertiary')) return 9;
     if (id.includes('trunk_primary')) return 7;
     return 5;
+  };
+
+  const counterpartRoadId = (id: string): string => {
+    const roadId = id.replace(/^(bridge|tunnel)_/, 'road_').replace('_street', '_minor');
+    return roadId === 'road_path_pedestrian_casing' ? 'road_path_pedestrian' : roadId;
+  };
+
+  const resolvedRoadMinzoom = (id: string): number => {
+    const layer = pick(id);
+    return Math.max(layer.minzoom ?? 0, roadMinzoomFloor(id));
   };
 
   const immersiveRoad = (id: string): StyleLayer => {
@@ -263,7 +287,13 @@ function buildImmersive(original: StyleDoc): StyleDoc {
           : 'rgba(255, 248, 229, 0.88)',
       'line-opacity': path ? 0.72 : 0.9,
     });
-    layer.minzoom = Math.max(layer.minzoom ?? 0, roadMinzoom(id));
+    const ownMinzoom = Math.max(layer.minzoom ?? 0, roadMinzoomFloor(id));
+    const counterpartMinzoom = /^(bridge|tunnel)_/.test(id)
+      ? resolvedRoadMinzoom(counterpartRoadId(id))
+      : 0;
+    // A bridge or tunnel must never appear before the road feeding it, or the
+    // segment floats over imagery as an orphaned stub.
+    layer.minzoom = Math.max(ownMinzoom, counterpartMinzoom);
     return layer;
   };
 
@@ -297,9 +327,11 @@ function buildImmersive(original: StyleDoc): StyleDoc {
     repaint(pick('waterway_line_label'), { 'text-color': '#c5ecf8', ...DARK_HALO }),
     repaint(pick('water_name_point_label'), { 'text-color': '#c5ecf8', ...DARK_HALO }),
     repaint(pick('water_name_line_label'), { 'text-color': '#c5ecf8', ...DARK_HALO }),
-    whiteLabel('highway-name-path', 14),
-    whiteLabel('highway-name-minor', 12),
-    whiteLabel('highway-name-major', 9),
+    // Retain Liberty's later native label thresholds; matching geometry can be
+    // useful before its name without crowding the satellite view.
+    whiteLabel('highway-name-path'),
+    whiteLabel('highway-name-minor'),
+    whiteLabel('highway-name-major'),
     whiteLabel('label_village'),
     whiteLabel('label_town'),
     whiteLabel('label_state'),
