@@ -196,11 +196,108 @@ function buildImmersive(original: StyleDoc): StyleDoc {
     'text-halo-width': 1.6,
     'text-halo-blur': 1,
   };
-  const whiteLabel = (id: string, minzoom?: number): StyleLayer => {
-    const l = repaint(pick(id), { 'text-color': '#ffffff', ...DARK_HALO });
-    if (minzoom !== undefined) l.minzoom = Math.max(l.minzoom ?? 0, minzoom);
-    return l;
+  const whiteLabel = (id: string): StyleLayer =>
+    repaint(pick(id), { 'text-color': '#ffffff', ...DARK_HALO });
+
+  // Satellite imagery has enough texture to imply roads at a glance, but not
+  // enough to navigate a shuttle. The old Immersive style kept road shields
+  // while dropping every road line, leaving labels attached to invisible
+  // geometry. Keep Liberty's tested filters, widths, caps and zoom expressions;
+  // only translate the colour/opacity for imagery and delay the smaller roads
+  // until a paddler is close enough to use them.
+  const ROAD_LAYER_IDS = [
+    'tunnel_motorway_link_casing',
+    'tunnel_service_track_casing',
+    'tunnel_link_casing',
+    'tunnel_street_casing',
+    'tunnel_secondary_tertiary_casing',
+    'tunnel_trunk_primary_casing',
+    'tunnel_motorway_casing',
+    'tunnel_path_pedestrian',
+    'tunnel_motorway_link',
+    'tunnel_service_track',
+    'tunnel_link',
+    'tunnel_minor',
+    'tunnel_secondary_tertiary',
+    'tunnel_trunk_primary',
+    'tunnel_motorway',
+    'road_motorway_link_casing',
+    'road_service_track_casing',
+    'road_link_casing',
+    'road_minor_casing',
+    'road_secondary_tertiary_casing',
+    'road_trunk_primary_casing',
+    'road_motorway_casing',
+    'road_path_pedestrian',
+    'road_motorway_link',
+    'road_service_track',
+    'road_link',
+    'road_minor',
+    'road_secondary_tertiary',
+    'road_trunk_primary',
+    'road_motorway',
+    'bridge_motorway_link_casing',
+    'bridge_service_track_casing',
+    'bridge_link_casing',
+    'bridge_street_casing',
+    'bridge_path_pedestrian_casing',
+    'bridge_secondary_tertiary_casing',
+    'bridge_trunk_primary_casing',
+    'bridge_motorway_casing',
+    'bridge_path_pedestrian',
+    'bridge_motorway_link',
+    'bridge_service_track',
+    'bridge_link',
+    'bridge_street',
+    'bridge_secondary_tertiary',
+    'bridge_trunk_primary',
+    'bridge_motorway',
+  ] as const;
+
+  // These values are minimum floors, not replacements for Liberty's native
+  // thresholds. This preserves any stricter upstream clutter control.
+  const roadMinzoomFloor = (id: string): number => {
+    if (id.includes('path_pedestrian')) return 14;
+    if (id.includes('service_track')) return 13;
+    if (id.includes('minor') || id.includes('street')) return 12;
+    if (id.includes('link')) return 10;
+    if (id.includes('secondary_tertiary')) return 9;
+    if (id.includes('trunk_primary')) return 7;
+    return 5;
   };
+
+  const counterpartRoadId = (id: string): string => {
+    const roadId = id.replace(/^(bridge|tunnel)_/, 'road_').replace('_street', '_minor');
+    return roadId === 'road_path_pedestrian_casing' ? 'road_path_pedestrian' : roadId;
+  };
+
+  const resolvedRoadMinzoom = (id: string): number => {
+    const layer = pick(id);
+    return Math.max(layer.minzoom ?? 0, roadMinzoomFloor(id));
+  };
+
+  const immersiveRoad = (id: string): StyleLayer => {
+    const casing = id.endsWith('_casing');
+    const path = id.includes('path_pedestrian');
+    const layer = repaint(pick(id), {
+      'line-color': casing
+        ? 'rgba(6, 18, 23, 0.78)'
+        : path
+          ? 'rgba(238, 225, 196, 0.72)'
+          : 'rgba(255, 248, 229, 0.88)',
+      'line-opacity': path ? 0.72 : 0.9,
+    });
+    const ownMinzoom = Math.max(layer.minzoom ?? 0, roadMinzoomFloor(id));
+    const counterpartMinzoom = /^(bridge|tunnel)_/.test(id)
+      ? resolvedRoadMinzoom(counterpartRoadId(id))
+      : 0;
+    // A bridge or tunnel must never appear before the road feeding it, or the
+    // segment floats over imagery as an orphaned stub.
+    layer.minzoom = Math.max(ownMinzoom, counterpartMinzoom);
+    return layer;
+  };
+
+  const roadLayers = ROAD_LAYER_IDS.map(immersiveRoad);
 
   const layers: StyleLayer[] = [
     // Dark base under the imagery while tiles stream in.
@@ -212,11 +309,16 @@ function buildImmersive(original: StyleDoc): StyleDoc {
       minzoom: 0,
       maxzoom: 22,
     },
-    anchorLayer(ANCHOR_OVERLAYS),
     // Water context: translucent fill + aqua veins over the imagery.
     repaint(pick('water'), { 'fill-color': 'rgba(85, 176, 205, 0.38)' }),
     repaint(pick('waterway_river'), { 'line-color': '#59c5e3', 'line-opacity': 0.9 }),
     repaint(pick('waterway_other'), { 'line-color': '#6fd0ea', 'line-opacity': 0.85 }),
+    // Honor layer-anchors.ts: rasters and public-land context sit above the
+    // basemap's land/water, then roads remain readable above those overlays.
+    // Previously this anchor sat below `water`, so radar disappeared beneath
+    // aqua water only on Immersive.
+    anchorLayer(ANCHOR_OVERLAYS),
+    ...roadLayers,
     // State/county lines for orientation over imagery.
     repaint(pick('boundary_3'), { 'line-color': 'rgba(255,255,255,0.35)' }),
     repaint(pick('boundary_2'), { 'line-color': 'rgba(255,255,255,0.5)' }),
@@ -225,6 +327,11 @@ function buildImmersive(original: StyleDoc): StyleDoc {
     repaint(pick('waterway_line_label'), { 'text-color': '#c5ecf8', ...DARK_HALO }),
     repaint(pick('water_name_point_label'), { 'text-color': '#c5ecf8', ...DARK_HALO }),
     repaint(pick('water_name_line_label'), { 'text-color': '#c5ecf8', ...DARK_HALO }),
+    // Retain Liberty's later native label thresholds; matching geometry can be
+    // useful before its name without crowding the satellite view.
+    whiteLabel('highway-name-path'),
+    whiteLabel('highway-name-minor'),
+    whiteLabel('highway-name-major'),
     whiteLabel('label_village'),
     whiteLabel('label_town'),
     whiteLabel('label_state'),
