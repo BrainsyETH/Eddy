@@ -1,3 +1,6 @@
+import type { ConditionCode, ReachRiverType } from '@eddy/types';
+import { floatTimeWithholding } from '@eddy/conditions/float-time-policy';
+
 /** Local calendar date, so the rail does not rotate at 6 p.m. in Missouri. */
 export function localDayKey(date: Date): string {
   const year = date.getFullYear();
@@ -33,16 +36,25 @@ export function dailyFavoriteFloats<T extends { id: string }>(
 }
 
 /**
- * Hide evergreen trip suggestions when the already-loaded river index says the
- * water is dangerous. Unknown conditions stay visible as guide content; the
- * live planner remains the final safety gate when somebody opens the route.
+ * Hide evergreen trip suggestions when the shared policy would withhold their
+ * time: dangerous water or a regulated tailwater. Unknown conditions stay
+ * visible as guide content; the live planner remains the final safety gate.
  */
-export function excludeKnownDangerousFavorites<T extends { riverSlug: string }>(
+export function excludeWithheldFavoriteFloats<T extends { riverSlug: string }>(
   floats: T[],
-  conditionByRiverSlug: ReadonlyMap<string, string | null | undefined>,
+  stateByRiverSlug: ReadonlyMap<
+    string,
+    { conditionCode?: ConditionCode | null; riverType?: string | null }
+  >,
 ): T[] {
   return floats.filter(
-    (item) => conditionByRiverSlug.get(item.riverSlug) !== 'dangerous',
+    (item) => {
+      const state = stateByRiverSlug.get(item.riverSlug);
+      return floatTimeWithholding(
+        state?.conditionCode ?? 'unknown',
+        state?.riverType as ReachRiverType | null,
+      ) === null;
+    },
   );
 }
 

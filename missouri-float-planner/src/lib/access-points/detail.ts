@@ -25,6 +25,8 @@ import { loadAvailability } from '@/lib/camping/read';
 import { bookingUrlFor, loadBookingLink } from '@/lib/camping/booking';
 import { loadLinkedServices, withLinkedServices } from '@/lib/access-points/linked-services';
 import { typicalCanoeTripMinutes } from '@/lib/calculations/floatTime';
+import { floatTimeWithholding } from '@shared/float-time-policy';
+import type { ReachRiverType } from '@shared/reach-types';
 
 type SupabaseServerClient = Awaited<ReturnType<typeof createClient>>;
 
@@ -47,7 +49,7 @@ export async function getAccessPointDetail(
   // hierarchy is state-segmented and nothing else in this payload carries it.
   const { data: river, error: riverError } = await supabase
     .from('rivers')
-    .select('id, name, slug, state')
+    .select('id, name, slug, state, river_type')
     .eq('slug', riverSlug)
     .single();
 
@@ -118,7 +120,10 @@ export async function getAccessPointDetail(
   ]);
 
   const allAccessPoints = neighbourResult.data;
-  const withholdFloatEstimates = gaugeStatus?.level === 'dangerous';
+  const withholdFloatEstimates = floatTimeWithholding(
+    gaugeStatus?.level ?? 'unknown',
+    river.river_type as ReachRiverType | null,
+  ) !== null;
 
   const nearbyAccessPoints: NearbyAccessPoint[] = [];
 

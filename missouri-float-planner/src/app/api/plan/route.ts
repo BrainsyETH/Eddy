@@ -6,7 +6,7 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getDriveTime, geocodeAddress } from '@/lib/mapbox/directions';
 import { assessShuttlePlausibility } from '@/lib/shuttle-plausibility';
-import { calculateFloatTime, floatTimeWithholding, formatFloatTime, formatFloatTimeRange, formatDistance, formatDriveTime } from '@/lib/calculations/floatTime';
+import { calculateFloatTime, floatTimeWithholding, formatFloatTime, formatFloatTimeRange, formatDistance, formatDriveTime, scalePublishedCanoeTripMinutes } from '@/lib/calculations/floatTime';
 import {
   fetchGaugeReadings,
   fetchDailyStatistics,
@@ -16,7 +16,7 @@ import { computeConditionFromDbRow } from '@/lib/conditions';
 import { classifyQualifiers } from '@/lib/usgs/gauges';
 import { conditionCodeToFlowRating, FLOW_DESCRIPTIONS, type FlowRating } from '@/lib/calculations/conditions';
 import { rateLimit, getClientIp } from '@/lib/rate-limit';
-import type { PlanResponse, FloatPlan, AccessPointType, HazardType, HazardSeverity, ConditionCode } from '@/types/api';
+import type { PlanResponse, FloatPlan, FloatTimeSource, AccessPointType, HazardType, HazardSeverity, ConditionCode } from '@/types/api';
 import type { ReachRiverType } from '@shared/reach-types';
 import { withX402Route } from '@/lib/x402-config';
 import { resolveFloatEndpoints, endpointFailureStatus } from '@/lib/access-points/endpoint-resolver';
@@ -440,6 +440,7 @@ async function _GET(request: NextRequest) {
       minutes: number;
       speedMph: number;
       isEstimate: boolean;
+      source: FloatTimeSource;
       basis: 'trip' | 'moving';
       timeRange?: { min: number; max: number };
     } | null = null;
@@ -459,16 +460,69 @@ async function _GET(request: NextRequest) {
     );
     const withholdFloatTime = withholdReason !== null;
 
-    if (!withholdFloatTime && segmentTime && segmentTime.length > 0 && segmentTime[0].time_avg_minutes) {
+    let publishedTime = segmentTime?.[0] ?? null;
+    let publishedSource: FloatTimeSource = 'published';
+    let publishedCanoeSpeed: number | null = null;
+    const requestedPublishedAverage = toNum(publishedTime?.time_avg_minutes);
+
+    // A route-specific guide range is stronger evidence than a generic speed
+    // model. If this vessel has no published column, retain that route evidence
+    // and adapt the canoe range by the two vessels' normal moving speeds.
+    if (
+      !withholdFloatTime &&
+      !(requestedPublishedAverage != null && requestedPublishedAverage > 0) &&
+      vesselType.slug !== 'canoe' &&
+      // Reverse rows encode separate navigation constraints (notably, tubing
+      // upstream is deliberately null). A null there is not missing evidence.
+      publishedTime?.is_reverse !== true
+    ) {
+      const [{ data: canoeTimes }, { data: canoeVessel }] = await Promise.all([
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (supabase.rpc as any)('get_segment_float_time', {
+          p_put_in_id: startId,
+          p_take_out_id: endId,
+          p_vessel_type: 'canoe',
+        }),
+        supabase
+          .from('vessel_types')
+          .select('speed_normal')
+          .eq('slug', 'canoe')
+          .single(),
+      ]);
+      const canoeRow = canoeTimes?.[0] ?? null;
+      const canoeAverage = toNum(canoeRow?.time_avg_minutes);
+      const canoeSpeed = toNum(canoeVessel?.speed_normal);
+      if (canoeAverage != null && canoeAverage > 0 && canoeSpeed != null && canoeSpeed > 0) {
+        publishedTime = canoeRow;
+        publishedSource = 'published_canoe_scaled';
+        publishedCanoeSpeed = canoeSpeed;
+      }
+    }
+
+    const adaptPublishedMinutes = (value: unknown): number | null => {
+      const minutes = toNum(value);
+      if (minutes == null || minutes <= 0) return null;
+      if (publishedSource === 'published') return minutes;
+      return scalePublishedCanoeTripMinutes(
+        minutes,
+        publishedCanoeSpeed ?? 0,
+        speedNormal,
+      );
+    };
+    const publishedAverage = adaptPublishedMinutes(publishedTime?.time_avg_minutes);
+
+    if (!withholdFloatTime && publishedTime && publishedAverage != null) {
       // Known, published (trip-basis) times — scale by current flow, never serve raw.
-      const st = segmentTime[0];
-      const avg = scaleKnownTimeForCondition(st.time_avg_minutes, conditionCode);
-      const rMin = st.time_min_minutes ? scaleKnownTimeForCondition(st.time_min_minutes, conditionCode) : undefined;
-      const rMax = st.time_max_minutes ? scaleKnownTimeForCondition(st.time_max_minutes, conditionCode) : undefined;
+      const avg = scaleKnownTimeForCondition(publishedAverage, conditionCode);
+      const minBase = adaptPublishedMinutes(publishedTime.time_min_minutes);
+      const maxBase = adaptPublishedMinutes(publishedTime.time_max_minutes);
+      const rMin = minBase != null ? scaleKnownTimeForCondition(minBase, conditionCode) : undefined;
+      const rMax = maxBase != null ? scaleKnownTimeForCondition(maxBase, conditionCode) : undefined;
       floatTimeResult = {
         minutes: avg,
         speedMph: avg > 0 ? distanceMiles / (avg / 60) : 0,
-        isEstimate: false,
+        isEstimate: publishedSource !== 'published',
+        source: publishedSource,
         basis: 'trip',
         timeRange: rMin != null && rMax != null ? { min: rMin, max: rMax } : undefined,
       };
@@ -499,6 +553,7 @@ async function _GET(request: NextRequest) {
           minutes: calcResult.minutes,
           speedMph: calcResult.speedMph,
           isEstimate: true,
+          source: 'calculated',
           basis: calcResult.basis,
           timeRange: { min: calcResult.minMinutes, max: calcResult.maxMinutes },
         };
@@ -795,6 +850,7 @@ async function _GET(request: NextRequest) {
               : formatFloatTime(floatTimeResult.minutes),
             speedMph: floatTimeResult.speedMph,
             isEstimate: floatTimeResult.isEstimate,
+            source: floatTimeResult.source,
             basis: floatTimeResult.basis,
             timeRange: floatTimeResult.timeRange,
           }

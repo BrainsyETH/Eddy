@@ -31,7 +31,7 @@ import { formatReading, primaryReading, readingAge } from '@/lib/readingCopy';
 import {
   dailyFavoriteFloats,
   dailyHighlightedFavorite,
-  excludeKnownDangerousFavorites,
+  excludeWithheldFavoriteFloats,
 } from '@/lib/todayFloats';
 import {
   chooseTodayRecommendation,
@@ -340,15 +340,21 @@ export function TodayHub({
     () => [...(activeSafety?.high ?? [])].sort((a, b) => Number(b.conditionCode === 'dangerous') - Number(a.conditionCode === 'dangerous'))[0] ?? null,
     [activeSafety?.high],
   );
-  const conditionByRiverSlug = useMemo(
-    () => new Map(rivers.map((river) => [river.slug, river.currentCondition?.code])),
+  const stateByRiverSlug = useMemo(
+    () => new Map(rivers.map((river) => [
+      river.slug,
+      {
+        conditionCode: river.currentCondition?.code,
+        riverType: river.riverType,
+      },
+    ])),
     [rivers],
   );
   const floatPreviews = useMemo(
     () => dailyFavoriteFloats(
-      excludeKnownDangerousFavorites(floats ?? [], conditionByRiverSlug),
+      excludeWithheldFavoriteFloats(floats ?? [], stateByRiverSlug),
     ).slice(0, 4),
-    [conditionByRiverSlug, floats],
+    [stateByRiverSlug, floats],
   );
   const condition = recommendation?.river.currentCondition ?? null;
   const reading = condition ? primaryReading(condition) : null;

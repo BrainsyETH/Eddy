@@ -8,6 +8,8 @@ import { createClient } from '@/lib/supabase/server';
 import { z } from 'zod';
 import { computeCondition, getConditionShortLabel, type ConditionThresholds } from '@/lib/conditions';
 import { typicalCanoeTripHours, typicalCanoeTripMinutes } from '@/lib/calculations/floatTime';
+import { floatTimeWithholding } from '@shared/float-time-policy';
+import type { ReachRiverType } from '@shared/reach-types';
 
 export const dynamic = 'force-dynamic';
 
@@ -299,7 +301,11 @@ function createMcpServer() {
       const minMile = Math.min(startMile, endMile);
       const maxMile = Math.max(startMile, endMile);
 
-      const [{ data: hazards }, { data: conditionData }] = await Promise.all([
+      const [
+        { data: hazards },
+        { data: conditionData },
+        { data: river },
+      ] = await Promise.all([
         supabase
           .from('river_hazards')
           .select('name, type, severity, river_mile_downstream, portage_required')
@@ -313,6 +319,11 @@ function createMcpServer() {
           p_put_in_mile: startMile,
           p_put_in_point: null,
         }),
+        supabase
+          .from('rivers')
+          .select('river_type')
+          .eq('id', riverId)
+          .single(),
       ]);
 
       // Evergreen typical-flow canoe trip preview. This lightweight MCP tool
@@ -320,7 +331,10 @@ function createMcpServer() {
       const estimatedMinutes = typicalCanoeTripMinutes(distance);
       const estimatedHours = typicalCanoeTripHours(distance);
       const conditionCode = conditionData?.[0]?.condition_code ?? 'unknown';
-      const withholdEstimate = conditionCode === 'dangerous';
+      const withholdReason = floatTimeWithholding(
+        conditionCode,
+        river?.river_type as ReachRiverType | null,
+      );
 
       return {
         content: [{
@@ -330,7 +344,7 @@ function createMcpServer() {
             takeOut: end.name,
             distanceMiles: Math.round(distance * 10) / 10,
             condition: conditionCode,
-            estimatedFloatTime: !withholdEstimate && estimatedMinutes != null && estimatedHours != null
+            estimatedFloatTime: withholdReason == null && estimatedMinutes != null && estimatedHours != null
               ? {
                   hours: estimatedHours,
                   formatted: estimatedMinutes < 60
@@ -339,7 +353,7 @@ function createMcpServer() {
                   basis: 'typical-flow canoe trip with ordinary stops',
                 }
               : null,
-            estimatedFloatTimeWithheldReason: withholdEstimate ? 'dangerous' : null,
+            estimatedFloatTimeWithheldReason: withholdReason,
             hazardsAlongRoute: (hazards || []).map((h) => ({
               name: h.name,
               type: h.type,

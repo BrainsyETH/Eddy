@@ -9,7 +9,7 @@ import { favoriteFloatMeta } from '../../../eddy-ios/src/lib/favoriteFloatCopy';
 import {
   dailyFavoriteFloats,
   dailyHighlightedFavorite,
-  excludeKnownDangerousFavorites,
+  excludeWithheldFavoriteFloats,
   localDayKey,
 } from '../../../eddy-ios/src/lib/todayFloats';
 import { chooseTodaySafetyScope, filterTodaySafety } from '../../../eddy-ios/src/lib/todaySafety';
@@ -142,19 +142,21 @@ test('favorite floats rotate by local day without flapping during that day', () 
   assert.equal(localDayKey(new Date(2026, 8, 8, 23, 59)), '2026-09-08');
 });
 
-test('the Today rail excludes favorites on rivers known to be dangerous', () => {
+test('the Today rail applies shared dangerous-water and tailwater withholding', () => {
   const floats = [
     { id: 'danger', riverSlug: 'flooded-river' },
+    { id: 'regulated', riverSlug: 'tailwater' },
     { id: 'good', riverSlug: 'good-river' },
     { id: 'unknown', riverSlug: 'unloaded-river' },
   ];
-  const conditions = new Map<string, string | null>([
-    ['flooded-river', 'dangerous'],
-    ['good-river', 'good'],
+  const conditions = new Map([
+    ['flooded-river', { conditionCode: 'dangerous' as const, riverType: 'spring_fed_float' }],
+    ['good-river', { conditionCode: 'good' as const, riverType: 'spring_fed_float' }],
+    ['tailwater', { conditionCode: 'flowing' as const, riverType: 'dam_tailwater' }],
   ]);
 
   assert.deepEqual(
-    excludeKnownDangerousFavorites(floats, conditions).map((item) => item.id),
+    excludeWithheldFavoriteFloats(floats, conditions).map((item) => item.id),
     ['good', 'unknown'],
   );
 });

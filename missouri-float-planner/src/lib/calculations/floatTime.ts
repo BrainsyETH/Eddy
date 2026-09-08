@@ -13,6 +13,7 @@
 
 import type { ConditionCode } from '@/types/api';
 import type { ReachRiverType } from '@shared/reach-types';
+import { floatTimeWithholding } from '@shared/float-time-policy';
 
 export interface VesselSpeeds {
   speedLowWater: number; // mph
@@ -167,16 +168,7 @@ function bandSpeed(
  * "conditions are dangerous" for every withheld time regardless of cause.
  * One function, so the gate and the reason cannot drift apart again.
  */
-export type FloatTimeWithholdReason = 'dangerous' | 'regulated';
-
-export function floatTimeWithholding(
-  conditionCode: ConditionCode,
-  riverType?: ReachRiverType | null,
-): FloatTimeWithholdReason | null {
-  if (conditionCode === 'dangerous') return 'dangerous';
-  if (riverType === 'dam_tailwater') return 'regulated';
-  return null;
-}
+export { floatTimeWithholding } from '@shared/float-time-policy';
 
 /**
  * Calculates float time from distance, vessel speeds, and water conditions.
@@ -277,6 +269,21 @@ export function typicalCanoeTripMinutes(distanceMiles: number): number | null {
 export function typicalCanoeTripHours(distanceMiles: number): number | null {
   const minutes = typicalCanoeTripMinutes(distanceMiles);
   return minutes == null ? null : Math.round((minutes / 60) * 10) / 10;
+}
+
+/**
+ * Adapt a published canoe trip time to another vessel without discarding the
+ * route-specific guide evidence. Time varies inversely with moving speed.
+ */
+export function scalePublishedCanoeTripMinutes(
+  canoeMinutes: number,
+  canoeSpeedMph: number,
+  requestedSpeedMph: number,
+): number | null {
+  if (!(canoeMinutes > 0) || !(canoeSpeedMph > 0) || !(requestedSpeedMph > 0)) {
+    return null;
+  }
+  return Math.round(canoeMinutes * (canoeSpeedMph / requestedSpeedMph));
 }
 
 // ── Wording ──────────────────────────────────────────────────────────────

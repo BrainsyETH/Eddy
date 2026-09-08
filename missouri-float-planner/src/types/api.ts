@@ -514,6 +514,11 @@ export type HazardType =
 
 export type HazardSeverity = 'info' | 'caution' | 'warning' | 'danger';
 
+export type FloatTimeSource =
+  | 'published'
+  | 'published_canoe_scaled'
+  | 'calculated';
+
 export interface FloatPlan {
   river: River;
   putIn: AccessPoint;
@@ -527,7 +532,9 @@ export interface FloatPlan {
     minutes: number;
     formatted: string;
     speedMph: number;
-    isEstimate?: boolean;  // true if calculated, false if from known segment data
+    isEstimate?: boolean;  // true if calculated or vessel-scaled; false for direct guide data
+    /** How the duration was produced; scaled means route evidence + vessel model. */
+    source?: FloatTimeSource;
     /** 'trip' includes typical stops; 'moving' is paddling-only. */
     basis?: 'trip' | 'moving';
     timeRange?: {          // honest min/max range (asymmetric, skewed long)

@@ -1696,6 +1696,11 @@ export interface FloatPlanCondition {
   medianDischargeCfs?: number | null;
 }
 
+export type FloatTimeSource =
+  | 'published'
+  | 'published_canoe_scaled'
+  | 'calculated';
+
 export interface FloatPlan {
   river: River;
   putIn: MapAccessPoint;
@@ -1711,7 +1716,10 @@ export interface FloatPlan {
     minutes: number;
     formatted: string;
     speedMph: number;
+    /** True for calculated or vessel-scaled times; false for direct guide data. */
     isEstimate?: boolean;
+    /** How the duration was produced; scaled means route evidence + vessel model. */
+    source?: FloatTimeSource;
     /** 'trip' includes typical stops; 'moving' is paddling-only. */
     basis?: 'trip' | 'moving';
     timeRange?: { min: number; max: number };

@@ -132,7 +132,7 @@ test('the published float_segments branch is gated, not just the estimate branch
   // branch never calls calculateFloatTime at all.
   assert.match(
     PLAN_ROUTE,
-    /if \(!withholdFloatTime && segmentTime/,
+    /if \(!withholdFloatTime && publishedTime/,
     'the known-times branch must be gated on withholdFloatTime',
   );
   assert.match(

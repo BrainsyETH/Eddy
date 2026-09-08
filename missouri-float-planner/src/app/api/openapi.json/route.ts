@@ -637,6 +637,12 @@ const spec = {
               minutes: { type: 'number' },
               formatted: { type: 'string' },
               speedMph: { type: 'number' },
+              isEstimate: { type: 'boolean' },
+              source: {
+                type: 'string',
+                enum: ['published', 'published_canoe_scaled', 'calculated'],
+                description: 'Whether the time is direct guide data, guide canoe data adapted to the requested vessel, or fully calculated.',
+              },
             },
           },
           driveBack: {

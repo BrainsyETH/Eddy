@@ -6,6 +6,7 @@ import {
   calculateFloatTime,
   DEFAULT_CANOE_SPEEDS,
   floatTimeCeilingBasisNote,
+  scalePublishedCanoeTripMinutes,
   typicalCanoeTripHours,
   typicalCanoeTripMinutes,
 } from './floatTime';
@@ -106,6 +107,13 @@ test('the plan basis line names both the vessel and stop assumption', () => {
   );
 });
 
+test('published canoe times scale inversely by the requested vessel speed', () => {
+  assert.equal(scalePublishedCanoeTripMinutes(480, 2.5, 1.5), 800);
+  assert.equal(scalePublishedCanoeTripMinutes(480, 2.5, 2.5), 480);
+  assert.equal(scalePublishedCanoeTripMinutes(0, 2.5, 1.5), null);
+  assert.equal(scalePublishedCanoeTripMinutes(480, 2.5, 0), null);
+});
+
 test('canoeHours uses the flow model when a caller supplies flow', () => {
   // The parameter exists so the social render path can close its remaining gap
   // once RenderData carries dischargeCfs; this asserts the plumbing works today.
@@ -152,7 +160,7 @@ test('iOS and the API both pin the canoe default by stable slug', () => {
   const client = readFileSync(join(process.cwd(), '../eddy-ios/src/api/client.ts'), 'utf8');
 
   assert.match(route, /\.eq\('slug', 'canoe'\)/);
-  assert.doesNotMatch(route, /defaultVessel[\s\S]*?\.order\('sort_order'/);
+  assert.doesNotMatch(route, /\.order\('sort_order'/);
   assert.match(client, /vesselTypeSlug: 'canoe'/);
 });
 
@@ -182,16 +190,27 @@ test('shared-plan previews omit frozen time and condition claims', () => {
   assert.match(layout, /Open Eddy for current conditions and estimated time/);
 });
 
-test('lightweight server previews suppress time in known dangerous water', () => {
+test('lightweight previews use the shared withholding policy and river type', () => {
   const mcp = readFileSync(join(process.cwd(), 'src/app/api/mcp/route.ts'), 'utf8');
   const detail = readFileSync(
     join(process.cwd(), 'src/lib/access-points/detail.ts'),
     'utf8',
   );
-  assert.match(mcp, /withholdEstimate = conditionCode === 'dangerous'/);
-  assert.match(mcp, /estimatedFloatTime: !withholdEstimate/);
-  assert.match(detail, /withholdFloatEstimates = gaugeStatus\?\.level === 'dangerous'/);
+  assert.match(mcp, /floatTimeWithholding\(/);
+  assert.match(mcp, /\.select\('river_type'\)/);
+  assert.match(mcp, /estimatedFloatTime: withholdReason == null/);
+  assert.match(detail, /\.select\('id, name, slug, state, river_type'\)/);
+  assert.match(detail, /withholdFloatEstimates = floatTimeWithholding\(/);
   assert.match(detail, /estimatedFloatTime: withholdFloatEstimates \? null/);
+});
+
+test('missing vessel columns retain published canoe evidence with provenance', () => {
+  const route = readFileSync(join(process.cwd(), 'src/app/api/plan/route.ts'), 'utf8');
+  assert.match(route, /p_vessel_type: 'canoe'/);
+  assert.match(route, /scalePublishedCanoeTripMinutes\(/);
+  assert.match(route, /publishedSource = 'published_canoe_scaled'/);
+  assert.match(route, /publishedTime\?\.is_reverse !== true/);
+  assert.match(route, /source: floatTimeResult\.source/);
 });
 
 test('the iOS result and share text use the same range ceiling', () => {
