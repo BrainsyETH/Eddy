@@ -6,6 +6,7 @@ import {
   isTodayRecommendationEligible,
 } from '../../../eddy-ios/src/lib/todayRecommendation';
 import { favoriteFloatMeta } from '../../../eddy-ios/src/lib/favoriteFloatCopy';
+import { dailyFavoriteFloats, localDayKey } from '../../../eddy-ios/src/lib/todayFloats';
 import { chooseTodaySafetyScope, filterTodaySafety } from '../../../eddy-ios/src/lib/todaySafety';
 
 function river(id: string, code: 'good' | 'flowing' | 'high', age = 1): RiverListItem {
@@ -50,6 +51,7 @@ test('Best Near You is discovery and excludes favorites', () => {
     favoriteRiverIds: new Set([favorite.id]), coords: { lat: 37, lng: -93 },
   });
   assert.equal(result?.river.id, discovery.id);
+  assert.match(result?.reason ?? '', /^≈ [\d.]+ mi to gauge$/);
 });
 
 test('condition band ranks before distance', () => {
@@ -122,6 +124,17 @@ test('favorite float metadata labels the nominal paddling estimate', () => {
     favoriteFloatMeta({ distanceMiles: 8, durationHours: 4, difficulty: 'I–II' }),
     '8.0 mi · about 4.0 hrs paddling, no stops · Class I–II',
   );
+});
+
+test('favorite floats rotate by local day without flapping during that day', () => {
+  const floats = ['alpha', 'bravo', 'charlie', 'delta', 'echo'].map((id) => ({ id }));
+  const first = dailyFavoriteFloats(floats, '2026-09-08').map((item) => item.id);
+  const again = dailyFavoriteFloats([...floats].reverse(), '2026-09-08').map((item) => item.id);
+  const tomorrow = dailyFavoriteFloats(floats, '2026-09-09').map((item) => item.id);
+  assert.deepEqual(first, again);
+  assert.notDeepEqual(first, tomorrow);
+  assert.deepEqual(floats.map((item) => item.id), ['alpha', 'bravo', 'charlie', 'delta', 'echo']);
+  assert.equal(localDayKey(new Date(2026, 8, 8, 23, 59)), '2026-09-08');
 });
 
 test('safety scope falls back from favorites to nearby rivers to statewide', () => {

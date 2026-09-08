@@ -31,29 +31,20 @@
 // it is the only thing here that reads as observation rather than measurement.
 // The stamp is what keeps it from being mistaken for the former.
 //
-// ── The card has no footer, and has stopped having one twice ────────────────
+// ── Weather belongs beside the statewide answer ────────────────────────────
 //
-// It printed the reading-lag note first — "Gauge readings can trail the river by
-// up to about an hour" — under every state of this card, including the ones with
-// no reading anywhere near it. A caveat repeated on a screen that cannot act on
-// it is a caveat people stop seeing, and the app makes the same disclosure twice
-// more where it bites: on the Alerts tab, beside the thing that will wake your
-// phone, and in Profile.
-//
-// What replaced it was a "Show the 9 that are floatable" row, on the reasoning
-// that the headline states a count and the reader should be able to act on it.
-// That is gone too. The count is a fact about the Ozarks, not a filter, and
-// restating it as a button directly under the sentence that just said it made
-// the card ask a question it had already answered — three lines of teal to
-// arrive at the chip row a thumb's width below, which does the same thing,
-// says the same number, and is on screen either way.
-//
-// So the card is the headline and the paragraph, and nothing else. Anything
-// that wants to be under the prose has to earn the slot against being absent.
+// Today used to make somebody scroll through every personalized module before
+// saying what the Ozarks look like generally, while the only weather lived on a
+// river detail page. This compact card now answers both planning questions near
+// the top: how much water is usable, and what the day is likely to bring at the
+// selected river. It uses the outlook endpoint's named forecast point—never an
+// inferred river-wide forecast—and omits weather cleanly when that payload is
+// unavailable. The longer written statewide update remains foldable beneath it.
 
 import { useEffect, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import type { OutlookWeatherDay } from '@eddy/types';
 import { EddySymbol } from '@/components/EddySymbol';
 import { useTheme } from '@/theme/ThemeProvider';
 // Shared with every per-river surface, so the statewide card and the river
@@ -75,9 +66,23 @@ interface Props {
   prose: string | null;
   /** When the prose was generated. Ignored when there is no prose. */
   generatedAt: string | null;
+  /** Today's weather at Eddy's selected river forecast point. */
+  weather?: OutlookWeatherDay | null;
+  /** The town the weather provider actually forecast. */
+  weatherLocation?: string | null;
 }
 
-export function TodaySummary({ headline, prose, generatedAt }: Props) {
+function weatherGlyph(code: string): React.ComponentProps<typeof Ionicons>['name'] {
+  if (code.startsWith('01')) return 'sunny-outline';
+  if (code.startsWith('02') || code.startsWith('03') || code.startsWith('04')) return 'cloud-outline';
+  if (code.startsWith('09') || code.startsWith('10')) return 'rainy-outline';
+  if (code.startsWith('11')) return 'thunderstorm-outline';
+  if (code.startsWith('13')) return 'snow-outline';
+  if (code.startsWith('50')) return 'cloudy-outline';
+  return 'partly-sunny-outline';
+}
+
+export function TodaySummary({ headline, prose, generatedAt, weather, weatherLocation }: Props) {
   const { colors, elevation } = useTheme();
   /**
    * Undefined until the stored answer lands, and that third state matters.
@@ -154,6 +159,25 @@ export function TodaySummary({ headline, prose, generatedAt }: Props) {
         ) : null}
       </Pressable>
 
+      {weather ? (
+        <View style={[styles.weather, { borderTopColor: colors.border }]}>
+          <View style={[styles.weatherIcon, { backgroundColor: colors.selectionBg }]}>
+            <Ionicons name={weatherGlyph(weather.conditionIcon)} size={22} color={colors.interactive} />
+          </View>
+          <View style={styles.copy}>
+            <Text style={[styles.weatherPlace, { color: colors.textSubtle }]} numberOfLines={1}>
+              TODAY{weatherLocation ? ` NEAR ${weatherLocation.toUpperCase()}` : ''}
+            </Text>
+            <Text style={[styles.weatherMain, { color: colors.text }]} numberOfLines={1}>
+              {weather.tempHigh}° / {weather.tempLow}° · {weather.condition}
+            </Text>
+            <Text style={[styles.weatherMeta, { color: colors.textMuted }]} numberOfLines={2}>
+              {weather.precipitation}% rain{weather.windSpeed != null ? ` · ${Math.round(weather.windSpeed)} mph wind` : ''}
+            </Text>
+          </View>
+        </View>
+      ) : null}
+
       {open && prose ? (
         <>
           <Text style={[styles.prose, { color: colors.textMuted }]}>{prose}</Text>
@@ -173,6 +197,11 @@ const styles = StyleSheet.create({
   copy: { flex: 1, minWidth: 0 },
   kicker: { ...t.xs, fontFamily: fonts.heading, letterSpacing: 0.8, marginBottom: 2 },
   headline: { ...t.lg, fontFamily: fonts.display },
+  weather: { borderTopWidth: StyleSheet.hairlineWidth, paddingTop: 10, flexDirection: 'row', alignItems: 'center', gap: 10 },
+  weatherIcon: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
+  weatherPlace: { ...t.xs, fontFamily: fonts.heading, letterSpacing: 0.6 },
+  weatherMain: { ...t.sm, fontFamily: fonts.semibold, marginTop: 1 },
+  weatherMeta: { ...t.xs, fontFamily: fonts.body, marginTop: 1 },
   prose: { ...t.sm, fontFamily: fonts.body, lineHeight: 21, paddingLeft: 60 },
   footnote: { ...t.xs, fontFamily: fonts.body, paddingLeft: 60 },
 });

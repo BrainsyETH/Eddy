@@ -110,7 +110,6 @@ import { ReferenceGaugeRow } from '@/components/ReferenceGaugeRow';
 import { ScopeSwitch, type ScopeOption } from '@/components/ScopeSwitch';
 import { DamRow } from '@/components/dam/DamRow';
 import { SearchBar } from '@/components/SearchBar';
-import { TodaySummary } from '@/components/TodaySummary';
 import { TodayHub } from '@/components/TodayHub';
 import { FilterChips, type FilterChip } from '@/components/FilterChips';
 import { FeedbackSheet } from '@/components/FeedbackSheet';
@@ -1513,16 +1512,12 @@ export default function ReportsScreen() {
                 location={location}
                 refreshRevision={hubRefreshRevision}
                 suppressNetworkNotice={Boolean(error)}
+                statewide={{
+                  headline: !error && !awaitingConditions ? headline : null,
+                  prose: summary?.quoteText ?? null,
+                  generatedAt: summary?.generatedAt ?? null,
+                }}
               />
-              {!error && !awaitingConditions ? (
-                <View style={styles.summaryWrap}>
-                  <TodaySummary
-                    headline={headline}
-                    prose={summary?.quoteText ?? null}
-                    generatedAt={summary?.generatedAt ?? null}
-                  />
-                </View>
-              ) : null}
               <RiverBrowseControls
                 chips={chips}
                 filter={filter}
@@ -1719,7 +1714,6 @@ const styles = StyleSheet.create({
   loadingRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 4 },
   loadingText: { ...t.sm, fontFamily: fonts.body },
   searchRow: { paddingHorizontal: 16, paddingTop: 12, paddingBottom: 10, borderBottomWidth: StyleSheet.hairlineWidth, zIndex: 10 },
-  summaryWrap: { paddingHorizontal: 16, paddingBottom: 22 },
   browseHead: {
     paddingHorizontal: 18,
     paddingTop: 2,
