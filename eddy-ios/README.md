@@ -877,9 +877,10 @@ identity: the route and the RLS policy in migration `00183` both enforce it.
 Signing out and deleting an account each unregister first, while the token can
 still authenticate.
 
-Profile reports OS state rather than mirroring it in a switch — iOS owns the
-permission, and a second source of truth can only disagree with Settings. The
-sentence explaining why alerts will or will not arrive is a precedence order
-(`src/lib/notificationCopy.ts`), tested in the web app: several reasons can be
-true at once, and naming the wrong one sends someone to fix something that was
-never the problem.
+Eddy Settings shows a switch only when the app can change notification state.
+When iOS has denied permission, the row opens iOS Settings instead; when the
+remote push flag is off, the row reports that alerts are unavailable rather
+than showing a switch that cannot move. The sentence explaining why alerts will
+or will not arrive remains a tested precedence order
+(`src/lib/notificationCopy.ts`): several reasons can be true at once, and naming
+the wrong one sends someone to fix something that was never the problem.

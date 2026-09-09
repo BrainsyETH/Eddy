@@ -1,5 +1,5 @@
 // src/lib/notification-copy.test.ts
-// The sentence Profile shows under "Alerts are on/off".
+// The sentence Eddy Settings shows under Notifications.
 //
 // Tested here because the Expo app has no test runner. What is actually being
 // checked is a PRECEDENCE order: several reasons alerts might not arrive can be
@@ -9,6 +9,7 @@
 // mode — and it is invisible unless the combinations are enumerated.
 
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import { notificationDetail } from '../../../eddy-ios/src/lib/notificationCopy';
 
@@ -103,4 +104,15 @@ test('every combination produces a non-empty sentence', () => {
       }
     }
   }
+});
+
+test('Settings exposes a switch only when push can change on this device', () => {
+  const settings = readFileSync('../eddy-ios/app/(tabs)/profile.tsx', 'utf8');
+  assert.match(settings, /features\.push &&\s*permission !== 'denied'/);
+  assert.match(settings, /permission !== 'unsupported'/);
+  assert.match(settings, /accessibilityRole="switch"/);
+  assert.match(settings, /accessibilityState=\{\{ checked, disabled, busy: disabled \}\}/);
+  assert.match(settings, /<View pointerEvents="none">\s*<Switch/);
+  assert.match(settings, /permission === 'denied' \? \(\) => void Linking\.openSettings\(\)/);
+  assert.match(settings, /Temporarily unavailable\. Alerts still appear in the Alerts tab\./);
 });

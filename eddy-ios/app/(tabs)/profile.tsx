@@ -11,13 +11,12 @@
 //     real user reinstalling needs it.
 //   * Delete Account (Guideline 5.1.1(v)) — in-app, and actually deleting. Not
 //     deactivating, not emailing support.
-//   * Auto-renew disclosure plus Terms and Privacy, shown WITH the subscription
-//     controls rather than buried behind a link.
+//   * Auto-renew disclosure plus Terms and Privacy remain on PaywallSheet, the
+//     point of sale. Settings keeps direct links without repeating legal copy.
 //
-// Notification preferences show OS state rather than duplicating it. iOS owns
-// the permission, so a switch here would be a second source of truth that can
-// disagree with Settings — the section reports what is true and links to the
-// place that can change it.
+// Notification preferences distinguish Eddy's device opt-out from iOS
+// permission. A switch appears only while Eddy can honor it; denied permission
+// links to iOS Settings, and the remote kill switch renders unavailable state.
 //
 // Colour convention, as everywhere in this app: StyleSheet.create holds layout
 // and type only — it runs once at import, so a colour written into it would be
@@ -69,6 +68,8 @@ import {
   type EntitlementSnapshot,
 } from '@/lib/purchases';
 import { usePush } from '@/hooks/usePush';
+import { useAppConfig } from '@/hooks/useAppConfig';
+import { notificationDetail } from '@/lib/notificationCopy';
 import { FeedbackSheet } from '@/components/FeedbackSheet';
 import { PaywallSheet } from '@/components/PaywallSheet';
 import { PRIVACY_URL, TERMS_URL } from '@/lib/legal';
@@ -111,11 +112,13 @@ export default function ProfileScreen() {
   } = useSession();
   const { profile, entitlement, loaded, error, refresh } = useAccount();
   const { permission, optedOut, registered, enable, disable } = usePush();
+  const { features } = useAppConfig();
 
   const [busy, setBusy] = useState<null | 'apple' | 'restore' | 'redeem' | 'delete'>(null);
   const [feedbackOpen, setFeedbackOpen] = useState(false);
   const [paywallOpen, setPaywallOpen] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [alertsBusy, setAlertsBusy] = useState(false);
 
   /**
    * The App Store has confirmed a purchase the server has not caught up with.
@@ -478,13 +481,10 @@ export default function ProfileScreen() {
 
   const handleAlertToggle = useCallback(
     async (next: boolean) => {
+      setAlertsBusy(true);
       try {
         if (!next) {
           await handleDisableAlerts();
-          return;
-        }
-        if (permission === 'denied') {
-          await Linking.openSettings();
           return;
         }
         await enable();
@@ -493,34 +493,25 @@ export default function ProfileScreen() {
           'Could not change alerts',
           error instanceof Error ? error.message : 'Please try again.',
         );
+      } finally {
+        setAlertsBusy(false);
       }
     },
-    [enable, handleDisableAlerts, permission],
+    [enable, handleDisableAlerts],
   );
 
   const version = Constants.expoConfig?.version ?? '0.0.0';
 
-  const notificationSummary =
-    permission === 'unsupported'
-      ? 'Not available on this device'
-      : permission === 'denied'
-        ? 'Off in iOS Settings'
-        : !signedIn
-          ? 'Sign in to receive river alerts'
-          : optedOut
-            ? 'Off on this device'
-            : permission === 'undetermined'
-              ? 'Get changes for followed rivers'
-              : !registered
-                ? 'Connecting on next launch'
-                : 'Changes to followed rivers';
+  const notificationSummary = features.push
+    ? notificationDetail({ permission, optedOut, registered, signedIn })
+    : 'Temporarily unavailable. Alerts still appear in the Alerts tab.';
 
   return (
     <SafeAreaView style={[styles.screen, { backgroundColor: colors.bg }]} edges={['top']}>
       <ScrollView
         contentContainerStyle={styles.content}
         // The gesture the restore and redemption alerts point at ("pull down
-        // on your Settings"). This screen is where entitlement state renders,
+        // on Eddy's Settings tab"). This screen is where entitlement state renders,
         // and useAccount re-reads only on mount — so without this, "check
         // again in a moment" had no mechanism short of leaving the tab.
         refreshControl={
@@ -596,7 +587,11 @@ export default function ProfileScreen() {
               <Otter mood={entitlement?.isActive ? 'green' : 'standard'} size={40} />
               <View style={styles.rowBody}>
                 <Text style={[styles.rowTitle, { color: colors.text }]}>
-                  {entitlement?.isActive ? 'Premium is active' : 'Free plan'}
+                  {entitlement?.isActive
+                    ? 'Premium is active'
+                    : entitlement?.billingIssue
+                      ? 'Premium is inactive'
+                      : 'Free plan'}
                 </Text>
                 <Text
                   style={[
@@ -608,9 +603,11 @@ export default function ProfileScreen() {
                     ? 'Checking…'
                     : confirmPending && !entitlement?.isActive
                       ? 'Purchase found — your account is catching up. Pull down to check again.'
-                      : entitlement?.isActive
-                        ? subscriptionSummary(entitlement)
-                        : 'Unlock Eddy’s full river outlook.'}
+                      : entitlement?.billingIssue && !entitlement.isActive
+                        ? 'Check your Apple ID payment method to restore access.'
+                        : entitlement?.isActive
+                          ? subscriptionSummary(entitlement)
+                          : 'Unlock Eddy’s full river outlook.'}
                 </Text>
               </View>
             </View>
@@ -635,12 +632,12 @@ export default function ProfileScreen() {
                 onPress={() => void Linking.openURL(MANAGE_SUBSCRIPTIONS_URL)}
                 disabled={busy !== null}
                 accessibilityRole="button"
-                accessibilityLabel="Manage subscription"
+                accessibilityLabel="Manage or cancel subscription"
                 accessibilityState={{ disabled: busy !== null }}
                 style={[styles.primary, { backgroundColor: colors.accentFill }]}
               >
                 <Text style={[styles.primaryText, { color: colors.onAccent }]}>
-                  Manage subscription
+                  Manage or cancel subscription
                 </Text>
               </Pressable>
             )}
@@ -658,7 +655,7 @@ export default function ProfileScreen() {
                   {busy === 'restore' ? 'Restoring…' : 'Restore purchases'}
                 </Text>
               </Pressable>
-              {signedIn ? (
+              {signedIn && (
                 <>
                   <View style={[styles.utilityDivider, { backgroundColor: colors.border }]} />
                   <Pressable
@@ -674,35 +671,40 @@ export default function ProfileScreen() {
                     </Text>
                   </Pressable>
                 </>
-              ) : null}
+              )}
             </View>
           </View>
         </Section>
 
         <Section title="Preferences" muted={colors.textMuted}>
           <View style={[styles.group, { backgroundColor: colors.card }, elevation(1)]}>
-            <SettingsRow
-              icon={receiving ? 'notifications' : 'notifications-outline'}
-              title="Notifications"
-              detail={notificationSummary}
-              accessory={
-                signedIn && permission !== 'unsupported' ? (
-                  <Switch
-                    value={receiving}
-                    onValueChange={(next) => void handleAlertToggle(next)}
-                    trackColor={{ true: colors.interactive, false: colors.border }}
-                    accessibilityLabel={receiving ? 'Turn notifications off' : 'Turn notifications on'}
-                  />
-                ) : undefined
-              }
-            />
             {signedIn ? (
-              <SettingsRow
-                icon="moon-outline"
-                title="Quiet hours"
-                detail="Choose when notifications stay silent"
-                onPress={() => router.push('/alerts/quiet-hours')}
-              />
+              <>
+                {features.push &&
+                permission !== 'denied' &&
+                permission !== 'unsupported' ? (
+                  <NotificationSettingsRow
+                    checked={receiving}
+                    detail={notificationSummary}
+                    disabled={alertsBusy}
+                    onToggle={() => void handleAlertToggle(!receiving)}
+                  />
+                ) : (
+                  <SettingsRow
+                    icon="notifications-outline"
+                    title="Notifications"
+                    detail={notificationSummary}
+                    onPress={permission === 'denied' ? () => void Linking.openSettings() : undefined}
+                    external={permission === 'denied'}
+                  />
+                )}
+                <SettingsRow
+                  icon="moon-outline"
+                  title="Quiet hours"
+                  detail="Choose when notifications stay silent"
+                  onPress={() => router.push('/alerts/quiet-hours')}
+                />
+              </>
             ) : null}
             <SettingsRow
               icon="cloud-offline-outline"
@@ -725,6 +727,7 @@ export default function ProfileScreen() {
             <SettingsRow
               icon="mail-outline"
               title="Email support"
+              detail={SUPPORT_EMAIL}
               onPress={() => void Linking.openURL(`mailto:${SUPPORT_EMAIL}`)}
               external
             />
@@ -762,12 +765,15 @@ export default function ProfileScreen() {
                 icon="log-out-outline"
                 title="Sign out"
                 onPress={handleSignOut}
+                disabled={busy !== null}
               />
               <SettingsRow
                 icon="trash-outline"
                 title={busy === 'delete' ? 'Deleting…' : 'Delete account'}
                 detail="Permanently removes your Eddy account"
-                onPress={busy === null ? handleDelete : undefined}
+                onPress={handleDelete}
+                disabled={busy !== null}
+                busy={busy === 'delete'}
                 destructive
                 last
               />
@@ -829,12 +835,74 @@ function Section({
   );
 }
 
+/**
+ * The row is the switch.
+ *
+ * A nested native Switch inside an accessible Pressable is swallowed by that
+ * parent on iOS. Giving the row the switch role and drawing the native control
+ * through a pointer-events-none wrapper produces one truthful VoiceOver stop
+ * and makes the full 58pt row the touch target. This is the same pattern as
+ * MapLayersSheet.
+ */
+function NotificationSettingsRow({
+  checked,
+  detail,
+  disabled,
+  onToggle,
+}: {
+  checked: boolean;
+  detail: string;
+  disabled: boolean;
+  onToggle: () => void;
+}) {
+  const { colors } = useTheme();
+
+  return (
+    <View>
+      <Pressable
+        onPress={onToggle}
+        disabled={disabled}
+        accessibilityRole="switch"
+        accessibilityState={{ checked, disabled, busy: disabled }}
+        accessibilityLabel="Notifications"
+        accessibilityHint={detail}
+        style={({ pressed }) => [
+          styles.settingsRow,
+          { opacity: disabled ? 0.55 : pressed ? 0.62 : 1 },
+        ]}
+      >
+        <View style={[styles.rowIcon, { backgroundColor: colors.selectionBg }]}>
+          <Ionicons
+            name={checked ? 'notifications' : 'notifications-outline'}
+            size={19}
+            color={colors.interactive}
+          />
+        </View>
+        <View style={styles.rowBody}>
+          <Text style={[styles.rowTitle, { color: colors.text }]}>Notifications</Text>
+          <Text style={[styles.rowNote, { color: colors.textMuted }]}>{detail}</Text>
+        </View>
+        <View pointerEvents="none">
+          <Switch
+            value={checked}
+            trackColor={{ false: colors.border, true: colors.interactive }}
+            thumbColor={colors.onInteractive}
+            ios_backgroundColor={colors.border}
+          />
+        </View>
+      </Pressable>
+      <View style={[styles.divider, { backgroundColor: colors.border }]} />
+    </View>
+  );
+}
+
 function SettingsRow({
   icon,
   title,
   detail,
   onPress,
-  accessory,
+  disabled = false,
+  busy = false,
   destructive = false,
   external = false,
   last = false,
@@ -843,7 +911,8 @@ function SettingsRow({
   title: string;
   detail?: string;
   onPress?: () => void;
-  accessory?: ReactNode;
+  disabled?: boolean;
+  busy?: boolean;
   destructive?: boolean;
   external?: boolean;
   last?: boolean;
@@ -855,9 +924,13 @@ function SettingsRow({
     <View>
       <Pressable
         onPress={onPress}
-        disabled={!onPress}
+        disabled={!onPress || disabled}
         accessibilityRole={onPress ? (external ? 'link' : 'button') : undefined}
-        style={({ pressed }) => [styles.settingsRow, { opacity: pressed ? 0.62 : 1 }]}
+        accessibilityState={onPress ? { disabled, busy } : undefined}
+        style={({ pressed }) => [
+          styles.settingsRow,
+          { opacity: disabled ? 0.55 : pressed ? 0.62 : 1 },
+        ]}
       >
         <View style={[styles.rowIcon, { backgroundColor: destructive ? 'transparent' : colors.selectionBg }]}>
           <Ionicons name={icon} size={19} color={ink} />
@@ -868,14 +941,13 @@ function SettingsRow({
           </Text>
           {detail ? <Text style={[styles.rowNote, { color: colors.textMuted }]}>{detail}</Text> : null}
         </View>
-        {accessory ??
-          (onPress ? (
-            <Ionicons
-              name={external ? 'open-outline' : 'chevron-forward'}
-              size={external ? 17 : 18}
-              color={colors.textSubtle}
-            />
-          ) : null)}
+        {onPress ? (
+          <Ionicons
+            name={external ? 'open-outline' : 'chevron-forward'}
+            size={external ? 17 : 18}
+            color={colors.textSubtle}
+          />
+        ) : null}
       </Pressable>
       {!last ? <View style={[styles.divider, { backgroundColor: colors.border }]} /> : null}
     </View>

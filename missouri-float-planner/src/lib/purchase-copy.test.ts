@@ -560,9 +560,15 @@ test('the redeem controls are signed-in only, like every purchase control', () =
   // The entitlement a code grants arrives through the receipt and must land
   // on a real account — the same identity guard the purchase flow enforces.
   // In the paywall the link lives inside the existing `signedIn ?` footer
-  // block beside Restore; in Profile the button carries its own guard.
+  // block beside Restore; in Settings the control carries its own guard.
   const profile = readFileSync('../eddy-ios/app/(tabs)/profile.tsx', 'utf8');
-  assert.match(profile, /\{signedIn && \([\s\S]{0,400}handleRedeem/);
+  const redeem = profile.indexOf('onPress={() => void handleRedeem()}');
+  assert.notEqual(redeem, -1, 'Settings has no redeem control');
+  assert.notEqual(
+    profile.lastIndexOf('{signedIn && (', redeem),
+    -1,
+    'Settings redeem control is not inside a signed-in guard',
+  );
 
   const paywall = readFileSync('../eddy-ios/src/components/PaywallSheet.tsx', 'utf8');
   const footer = paywall.slice(paywall.indexOf('footerLinks'));
@@ -628,10 +634,13 @@ test('every identity and purchase control is gated on the whole busy state', () 
   const control = (onPress: string): string => {
     const at = profile.indexOf(onPress);
     assert.notEqual(at, -1, `Profile has no control with ${onPress}`);
-    const open = profile.lastIndexOf('<Pressable', at);
-    const close = profile.indexOf('</Pressable>', at);
-    assert.ok(open !== -1 && close !== -1, `${onPress} is not inside a Pressable`);
-    return profile.slice(open, close);
+    const pressable = profile.lastIndexOf('<Pressable', at);
+    const settingsRow = profile.lastIndexOf('<SettingsRow', at);
+    const open = Math.max(pressable, settingsRow);
+    const closeTag = open === settingsRow ? '/>' : '</Pressable>';
+    const close = profile.indexOf(closeTag, at);
+    assert.ok(open !== -1 && close !== -1, `${onPress} is not inside a purchase control`);
+    return profile.slice(open, close + closeTag.length);
   };
 
   for (const onPress of [

@@ -204,7 +204,7 @@ export function FeedbackSheet({ visible, onDismiss, context, defaultType = 'othe
                   in front of the person deciding whether to file one — and this
                   sheet is the only surface every report goes through, from the
                   river screen, the gauge screen, an access point, River Reports
-                  and Profile alike. Putting it on any one of those would show
+                  and Eddy Settings alike. Putting it on any one of those would show
                   it to a fraction of the people it is addressed to, and putting
                   it on all of them would be the same sentence five times.
 
@@ -212,7 +212,9 @@ export function FeedbackSheet({ visible, onDismiss, context, defaultType = 'othe
                   form is a form people close; one line above the type chips is
                   read on the way past. */}
               <Text style={[styles.nimble, { color: colors.textMuted }]}>
-                Eddy is small and moves fast. Say what looks wrong and it gets fixed.
+                {context.type === 'general'
+                  ? 'For a river or gauge problem, use Report on that screen so its details are included.'
+                  : 'Eddy is small and moves fast. Say what looks wrong and it gets fixed.'}
               </Text>
 
               <View style={styles.chips}>
