@@ -3,7 +3,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts } from '@/theme/typography';
 
-// Five tabs: Today, Map, Alerts, Favorites, Profile.
+// Five tabs: Today, Map, Alerts, Favorites, Settings.
 //
 // The first tab's route file is still `reports.tsx` — only its labels changed.
 // Renaming the file would mean chasing `initialRouteName` below, every
@@ -77,8 +77,8 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="profile"
         options={{
-          title: 'Profile',
-          tabBarIcon: ({ color, size }) => <Ionicons name="person-outline" size={size} color={color} />,
+          title: 'Settings',
+          tabBarIcon: ({ color, size }) => <Ionicons name="settings-outline" size={size} color={color} />,
         }}
       />
     </Tabs>
