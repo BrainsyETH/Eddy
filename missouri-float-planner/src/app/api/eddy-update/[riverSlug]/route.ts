@@ -3,12 +3,13 @@
 // Optionally filtered by section via ?section=upper-current
 
 import { NextRequest, NextResponse } from 'next/server';
-import { cdnCacheHeaders, privateNoStore } from '@/lib/api-utils';
+import { optionalAuthCacheHeaders } from '@/lib/api-utils';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { withX402Route } from '@/lib/x402-config';
 import { toNum } from '@/lib/utils/num';
 import { overlayLiveConditions, WEBSITE_PROSE_STALE_HOURS } from '@/lib/social/live-conditions';
-import { requireEntitlement } from '@/lib/entitlement';
+import { optionalEntitlement } from '@/lib/entitlement';
+import { tierGeneratedEddyProse } from '@/lib/eddy/tiered-prose';
 
 export const dynamic = 'force-dynamic';
 
@@ -35,14 +36,21 @@ async function _GET(
   request: NextRequest,
   { params }: { params: Promise<{ riverSlug: string }> }
 ) {
+  const responseHeaders = optionalAuthCacheHeaders(
+    Boolean(request.headers.get('authorization')),
+    300,
+    1800,
+  );
   try {
     const { riverSlug } = await params;
-    const authHeaderPresent = Boolean(request.headers.get('authorization'));
-    const auth = authHeaderPresent ? await requireEntitlement(request) : null;
-    const entitled = Boolean(auth && !(auth instanceof NextResponse));
-    const responseHeaders = authHeaderPresent
-      ? privateNoStore()
-      : { ...cdnCacheHeaders(300, 1800), Vary: 'Authorization' };
+    const auth = await optionalEntitlement(request);
+    // A bearer token is an explicit request for the premium representation.
+    // Preserve verification failures so the caller can refresh an expired
+    // token, show the paywall for a 402, or retry a transient 500. Collapsing
+    // all four responses into `entitled = false` made a broken auth service
+    // indistinguishable from a free account.
+    if (auth instanceof NextResponse) return auth;
+    const entitled = auth !== null;
     const supabase = createAdminClient();
 
     const sectionSlug = request.nextUrl.searchParams.get('section') || null;
@@ -68,7 +76,7 @@ async function _GET(
       console.error(`[EddyUpdate] Query error for ${riverSlug}:`, error);
       return NextResponse.json<EddyUpdateResponse>(
         { available: false, update: null },
-        { status: 500 }
+        { status: 500, headers: responseHeaders }
       );
     }
 
@@ -101,12 +109,13 @@ async function _GET(
     // eddy_read comes from that same model run, so it may be returned only when
     // at least one of those overlaid fields survived the safety gate. Never let
     // the untouched database value decide availability on its own.
-    const overlayKeptProse = Boolean(overlaid.summary_text || overlaid.quote_text);
-    const proseAvailable = entitled
-      ? overlayKeptProse
-      : Boolean(overlaid.summary_text);
+    const prose = tierGeneratedEddyProse(entitled, {
+      quoteText: overlaid.quote_text || null,
+      summaryText: overlaid.summary_text ?? null,
+      eddyRead: data.eddy_read ?? null,
+    });
 
-    if (!proseAvailable) {
+    if (!prose.available) {
       // Live condition has diverged from the AI snapshot — surface no prose
       // so the client falls back to the static quote.
       return NextResponse.json<EddyUpdateResponse>({ available: false, update: null }, { headers: responseHeaders });
@@ -115,9 +124,9 @@ async function _GET(
     return NextResponse.json<EddyUpdateResponse>({
       available: true,
       update: {
-        quoteText: entitled ? overlaid.quote_text || null : null,
-        summaryText: overlaid.summary_text ?? null,
-        eddyRead: entitled && overlayKeptProse ? data.eddy_read ?? null : null,
+        quoteText: prose.quoteText,
+        summaryText: prose.summaryText,
+        eddyRead: prose.eddyRead,
         conditionCode: overlaid.condition_code,
         gaugeHeightFt: toNum(overlaid.gauge_height_ft),
         dischargeCfs: toNum(overlaid.discharge_cfs),
@@ -132,7 +141,7 @@ async function _GET(
     console.error('[EddyUpdate] Unexpected error:', error);
     return NextResponse.json<EddyUpdateResponse>(
       { available: false, update: null },
-      { status: 500 }
+      { status: 500, headers: responseHeaders }
     );
   }
 }

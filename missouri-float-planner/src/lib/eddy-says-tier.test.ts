@@ -4,9 +4,9 @@
 // ── The rule under test ────────────────────────────────────────────────────
 // Per-river summary_text is free; per-river quote_text is the artifact EddyTake
 // sells. The public /api/eddy-updates DTO does not carry that column; fullRead
-// is available only through the entitled outlook response. The statewide
-// overview is a separately named public field and is not routed through the
-// selector at all.
+// is available only through an entitled singular report response. The
+// statewide overview is a separately named public field and is not routed
+// through the selector at all.
 //
 // ── Why the SHAPE is asserted and not just the value ───────────────────────
 // A source assertion over the component would pass happily if some layer in
@@ -36,6 +36,11 @@ import test from 'node:test';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { selectEddySays, writtenAge } from '../../../eddy-ios/src/lib/eddySays';
+import {
+  classifyPremiumReadFailure,
+  resolvePremiumTakeState,
+} from '../../../eddy-ios/src/lib/premiumRead';
+import { premiumText, tierGeneratedEddyProse } from './eddy/tiered-prose';
 
 test('the free line is the summary, and only the summary', () => {
   const says = selectEddySays({
@@ -125,50 +130,65 @@ test('the public updates DTO cannot carry a per-river full quote', () => {
   assert.ok(!/quoteText|fullRead/.test(block), 'the public batch DTO exposes premium prose');
 });
 
-test('the outlook returns a full read only after server-side entitlement', () => {
-  const route = readFileSync(
-    join(process.cwd(), 'src/app/api/rivers/[slug]/outlook/route.ts'),
-    'utf8',
+test('public report responses contain a summary but no premium prose', () => {
+  assert.deepEqual(
+    tierGeneratedEddyProse(false, {
+      summaryText: 'One free sentence.',
+      quoteText: 'Four to six paid sentences.',
+      eddyRead: 'A paid interpretation.',
+    }),
+    {
+      available: true,
+      summaryText: 'One free sentence.',
+      quoteText: null,
+      eddyRead: null,
+    },
   );
-  assert.match(route, /requireEntitlement\(request\)/);
-  assert.match(route, /fullRead:\s*entitled \? fullRead : null/);
-  assert.match(route, /Cache-Control': 'private, no-store'/);
-  assert.match(route, /Vary: 'Authorization'/);
+  assert.equal(premiumText(false, 'Full outlook read.'), null);
 });
 
-test('singular report routes cannot expose paid prose to public callers', () => {
-  for (const relative of [
-    'src/app/api/eddy-update/[riverSlug]/route.ts',
-    'src/app/api/gauge-update/[siteId]/route.ts',
-  ]) {
-    const route = readFileSync(join(process.cwd(), relative), 'utf8');
-    assert.match(route, /requireEntitlement\(request\)/, `${relative} does not verify entitlement`);
-    assert.match(route, /quoteText:\s*entitled \?/, `${relative} exposes quoteText publicly`);
-    assert.match(
-      route,
-      /eddyRead:\s*entitled(?:\s*&&\s*overlayKeptProse)?\s*\?/,
-      `${relative} exposes eddyRead publicly`,
-    );
-    assert.match(route, /Vary: 'Authorization'/, `${relative} can mix public and authenticated cache entries`);
-    assert.match(route, /privateNoStore\(\)/, `${relative} can cache an authenticated response`);
+test('entitled report responses retain the premium prose', () => {
+  assert.deepEqual(
+    tierGeneratedEddyProse(true, {
+      summaryText: 'One free sentence.',
+      quoteText: 'Four to six paid sentences.',
+      eddyRead: 'A paid interpretation.',
+    }),
+    {
+      available: true,
+      summaryText: 'One free sentence.',
+      quoteText: 'Four to six paid sentences.',
+      eddyRead: 'A paid interpretation.',
+    },
+  );
+  assert.equal(premiumText(true, 'Full outlook read.'), 'Full outlook read.');
+});
+
+test('premium-read failures preserve denial versus retryable outcomes', () => {
+  assert.equal(classifyPremiumReadFailure(402), 'denied');
+  assert.equal(classifyPremiumReadFailure(403), 'denied');
+  for (const status of [401, 408, 429, 500, 503, undefined]) {
+    assert.equal(classifyPremiumReadFailure(status), 'retryable');
   }
+  assert.equal(resolvePremiumTakeState(true, true, 'denied'), false);
+  assert.equal(resolvePremiumTakeState(true, true, 'retryable'), 'error');
+  assert.equal(resolvePremiumTakeState(true, false, null), 'pending');
+  assert.equal(resolvePremiumTakeState(true, true, null), true);
+  assert.equal(resolvePremiumTakeState(false, false, null), false);
+  assert.equal(resolvePremiumTakeState(null, false, null), null);
 });
 
-test('the river report cannot use raw eddy_read to bypass its live-condition gate', () => {
-  const route = readFileSync(
-    join(process.cwd(), 'src/app/api/eddy-update/[riverSlug]/route.ts'),
-    'utf8',
-  );
-
-  assert.match(route, /const overlayKeptProse = Boolean\(overlaid\.summary_text \|\| overlaid\.quote_text\)/);
-  assert.match(route, /const proseAvailable = entitled\s*\? overlayKeptProse\s*:\s*Boolean\(overlaid\.summary_text\)/);
-  assert.match(route, /eddyRead:\s*entitled && overlayKeptProse \? data\.eddy_read \?\? null : null/);
-  assert.match(route, /quoteText:\s*entitled \? overlaid\.quote_text \|\| null : null/);
-  assert.doesNotMatch(
-    route,
-    /const proseAvailable[\s\S]{0,180}data\.eddy_read/,
-    'raw eddy_read must never decide whether a stale or contradictory report is available',
-  );
+test('raw eddy_read cannot resurrect a report withheld by the safety gate', () => {
+  for (const entitled of [false, true]) {
+    assert.deepEqual(
+      tierGeneratedEddyProse(entitled, {
+        summaryText: null,
+        quoteText: null,
+        eddyRead: 'Stale interpretation from the database.',
+      }),
+      { available: false, summaryText: null, quoteText: null, eddyRead: null },
+    );
+  }
 });
 
 test('refresh never discards the cache it is refreshing', () => {

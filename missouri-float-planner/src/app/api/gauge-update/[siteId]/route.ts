@@ -2,12 +2,13 @@
 // Returns the latest non-expired per-gauge Haiku update for a USGS site.
 
 import { NextRequest, NextResponse } from 'next/server';
-import { cdnCacheHeaders, privateNoStore } from '@/lib/api-utils';
+import { optionalAuthCacheHeaders } from '@/lib/api-utils';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { toNum } from '@/lib/utils/num';
 import { applyFloodStageOverride, computeConditionFromDbRow } from '@/lib/conditions';
 import { isGaugeReportCompatible } from '@/lib/eddy/gauge-update-policy';
-import { requireEntitlement } from '@/lib/entitlement';
+import { optionalEntitlement } from '@/lib/entitlement';
+import { tierGeneratedEddyProse } from '@/lib/eddy/tiered-prose';
 
 export const dynamic = 'force-dynamic';
 
@@ -32,14 +33,19 @@ export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ siteId: string }> },
 ) {
+  const responseHeaders = optionalAuthCacheHeaders(
+    Boolean(request.headers.get('authorization')),
+    300,
+    1800,
+  );
   try {
     const { siteId } = await params;
-    const authHeaderPresent = Boolean(request.headers.get('authorization'));
-    const auth = authHeaderPresent ? await requireEntitlement(request) : null;
-    const entitled = Boolean(auth && !(auth instanceof NextResponse));
-    const responseHeaders = authHeaderPresent
-      ? privateNoStore()
-      : { ...cdnCacheHeaders(300, 1800), Vary: 'Authorization' };
+    const auth = await optionalEntitlement(request);
+    // A bearer token asks for the premium representation. Do not turn an
+    // expired token or failed entitlement lookup into a successful free
+    // response; callers need the original status in order to recover.
+    if (auth instanceof NextResponse) return auth;
+    const entitled = auth !== null;
     const supabase = createAdminClient();
 
     const { data, error } = await supabase
@@ -53,7 +59,7 @@ export async function GET(
 
     if (error) {
       console.error(`[GaugeUpdate] Query error for ${siteId}:`, error);
-      return NextResponse.json<GaugeUpdateResponse>({ available: false, update: null }, { status: 500 });
+      return NextResponse.json<GaugeUpdateResponse>({ available: false, update: null }, { status: 500, headers: responseHeaders });
     }
 
     if (!data) {
@@ -106,12 +112,21 @@ export async function GET(
       return NextResponse.json<GaugeUpdateResponse>({ available: false, update: null }, { headers: responseHeaders });
     }
 
+    const prose = tierGeneratedEddyProse(entitled, {
+      quoteText: data.quote_text,
+      summaryText: data.summary_text,
+      eddyRead: data.eddy_read,
+    });
+    if (!prose.available) {
+      return NextResponse.json<GaugeUpdateResponse>({ available: false, update: null }, { headers: responseHeaders });
+    }
+
     return NextResponse.json<GaugeUpdateResponse>({
       available: true,
       update: {
-        quoteText: entitled ? data.quote_text : null,
-        summaryText: data.summary_text,
-        eddyRead: entitled ? data.eddy_read : null,
+        quoteText: prose.quoteText,
+        summaryText: prose.summaryText,
+        eddyRead: prose.eddyRead,
         conditionCode: liveCondition,
         gaugeHeightFt: liveHeight ?? toNum(data.gauge_height_ft),
         dischargeCfs: liveDischarge ?? toNum(data.discharge_cfs),
@@ -123,6 +138,6 @@ export async function GET(
     }, { headers: responseHeaders });
   } catch (error) {
     console.error('[GaugeUpdate] Unexpected error:', error);
-    return NextResponse.json<GaugeUpdateResponse>({ available: false, update: null }, { status: 500 });
+    return NextResponse.json<GaugeUpdateResponse>({ available: false, update: null }, { status: 500, headers: responseHeaders });
   }
 }

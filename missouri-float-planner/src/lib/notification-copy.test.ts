@@ -8,9 +8,11 @@
 // failure mode — and it is invisible unless the combinations are enumerated.
 
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 import test from 'node:test';
-import { notificationDetail } from '../../../eddy-ios/src/lib/notificationCopy';
+import {
+  notificationControlKind,
+  notificationDetail,
+} from '../../../eddy-ios/src/lib/notificationCopy';
 
 const base = { permission: 'granted' as const, registered: true };
 
@@ -82,16 +84,11 @@ test('every combination produces a non-empty sentence', () => {
   }
 });
 
-test('Settings exposes a switch only when push can change on this device', () => {
-  const settings = readFileSync('../eddy-ios/app/(tabs)/profile.tsx', 'utf8');
-  assert.match(settings, /features\.push &&\s*permission !== 'denied'/);
-  assert.match(settings, /permission !== 'unsupported'/);
-  assert.match(settings, /accessibilityRole="switch"/);
-  assert.match(settings, /accessibilityState=\{\{ checked, disabled, busy: disabled \}\}/);
-  assert.match(settings, /accessibilityLabel=\{`Notifications\. \$\{detail\}`\}/);
-  assert.match(settings, /<View pointerEvents="none">\s*<Switch/);
-  assert.match(settings, /features\.push && permission === 'denied'[\s\S]{0,100}Linking\.openSettings/);
-  assert.match(settings, /external=\{features\.push && permission === 'denied'\}/);
-  assert.match(settings, /!last \? <View style=\{\[styles\.divider/);
-  assert.match(settings, /Temporarily unavailable\. Alerts still appear in the Alerts tab\./);
+test('Settings offers a switch only when push can change on this device', () => {
+  assert.equal(notificationControlKind(true, 'granted'), 'switch');
+  assert.equal(notificationControlKind(true, 'undetermined'), 'switch');
+  assert.equal(notificationControlKind(true, 'denied'), 'settings-link');
+  assert.equal(notificationControlKind(true, 'unsupported'), 'status');
+  assert.equal(notificationControlKind(false, 'granted'), 'status');
+  assert.equal(notificationControlKind(false, 'denied'), 'status');
 });

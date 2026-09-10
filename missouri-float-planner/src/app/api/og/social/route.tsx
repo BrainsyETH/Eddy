@@ -396,7 +396,7 @@ async function generateHighlightImage(
   // Pinned path: the post named its exact eddy_update row, so fetch THAT (no
   // expiry filter — Meta may re-crawl days later and the row is still the one
   // the reel was rendered from). Absent → the latest update for the river.
-  const select = 'river_slug, condition_code, gauge_height_ft, summary_text, quote_text';
+  const select = 'river_slug, condition_code, gauge_height_ft, summary_text';
   const { data: rawUpdate } = pins.id
     ? await supabase.from('eddy_updates').select(select).eq('id', pins.id).maybeSingle()
     : await supabase
@@ -429,7 +429,7 @@ async function generateHighlightImage(
   const riverName = riverDisplayLong(riverSlug);
   const conditionCode = (update.condition_code || 'unknown') as ConditionCode;
   const c = cond(conditionCode);
-  const snippet = update.summary_text || update.quote_text || '';
+  const snippet = update.summary_text || '';
   // The subtitle is the post's timestamp, not the crawl's.
   const now = instantParam(pins.at ?? null);
   const cstFormatter = new Intl.DateTimeFormat('en-US', {

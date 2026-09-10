@@ -5,9 +5,7 @@ import type { EddyUpdateResponse } from '@/app/api/eddy-update/[riverSlug]/route
 import type { GaugeUpdateResponse } from '@/app/api/gauge-update/[siteId]/route';
 
 export interface SelectedEddyReport {
-  quoteText: string | null;
-  summaryText: string | null;
-  eddyRead: string | null;
+  summaryText: string;
   generatedAt: string;
 }
 
@@ -18,7 +16,7 @@ interface UseSelectedEddyReportOptions {
   enabled: boolean;
 }
 
-/** Lazy, session-lived cache for the generated narrative behind Full report. */
+/** Lazy, session-lived cache for the public summary of the selected report. */
 export function useSelectedEddyReport({
   riverSlug,
   siteId,
@@ -36,11 +34,9 @@ export function useSelectedEddyReport({
         const response = await fetch(`/api/eddy-update/${encodeURIComponent(id)}`);
         if (!response.ok) throw new Error('Failed to load river report');
         const data: EddyUpdateResponse = await response.json();
-        if (!data.available || !data.update) return null;
+        if (!data.available || !data.update?.summaryText) return null;
         return {
-          quoteText: data.update.quoteText,
           summaryText: data.update.summaryText,
-          eddyRead: data.update.eddyRead,
           generatedAt: data.update.generatedAt,
         };
       }
@@ -48,11 +44,9 @@ export function useSelectedEddyReport({
       const response = await fetch(`/api/gauge-update/${encodeURIComponent(id)}`);
       if (!response.ok) throw new Error('Failed to load gauge report');
       const data: GaugeUpdateResponse = await response.json();
-      if (!data.available || !data.update) return null;
+      if (!data.available || !data.update?.summaryText) return null;
       return {
-        quoteText: data.update.quoteText,
         summaryText: data.update.summaryText,
-        eddyRead: data.update.eddyRead,
         generatedAt: data.update.generatedAt,
       };
     },

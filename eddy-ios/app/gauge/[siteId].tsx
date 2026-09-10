@@ -48,7 +48,18 @@ import type {
 } from '@eddy/types';
 import { classifyReading, hasLadder } from '@eddy/conditions/condition-ladder';
 import { flowBand } from '@eddy/conditions/flow-band';
-import { fetchGaugeDetail, fetchRiverOutlook } from '@/api/client';
+import {
+  ApiError,
+  fetchGaugeDetail,
+  fetchPremiumEddyRead,
+  fetchRiverOutlook,
+  type PremiumEddyRead,
+} from '@/api/client';
+import {
+  classifyPremiumReadFailure,
+  resolvePremiumTakeState,
+  type PremiumReadFailure,
+} from '@/lib/premiumRead';
 import {
   conditionBg,
   conditionChipBorder,
@@ -222,6 +233,11 @@ export default function GaugeDetailScreen() {
   const [report, setReport] = useState<{ key: string; data: RiverOutlookResponse | null } | null>(
     null,
   );
+  const [premiumRead, setPremiumRead] = useState<{
+    key: string;
+    data: PremiumEddyRead | null;
+    failure: PremiumReadFailure | null;
+  } | null>(null);
 
   /**
    * Bumped by the failure body's "Try again". The error copy always SAID try
@@ -230,6 +246,7 @@ export default function GaugeDetailScreen() {
    * on the screen whose whole content is one request.
    */
   const [reloadNonce, setReloadNonce] = useState(0);
+  const [premiumRetry, setPremiumRetry] = useState(0);
 
   useEffect(() => {
     if (!siteId) return;
@@ -315,21 +332,49 @@ export default function GaugeDetailScreen() {
     if (!reportSlug) return;
     const key = `${reportSlug}:${reportGaugeId ?? ''}`;
     const controller = new AbortController();
-    void (async () => fetchRiverOutlook(
+    void fetchRiverOutlook(
       reportSlug,
       controller.signal,
       reportGaugeId,
-      canRequestPremium ? await getAccessToken() : null,
-    ))()
+    )
       .catch(() => null)
       .then((data) => {
         if (!controller.signal.aborted) setReport({ key, data });
       });
     return () => controller.abort();
-  }, [canRequestPremium, getAccessToken, reportSlug, reportGaugeId]);
+  }, [reportSlug, reportGaugeId, reloadNonce]);
+
+  // Resolve Premium prose separately so entitlement loading never repeats the
+  // route's weather, NWS, and gauge fan-out. Primary stations use the river
+  // report; secondary stations use their own gauge report.
+  useEffect(() => {
+    if (!canRequestPremium || !reportSlug || !reportKey) return;
+    const controller = new AbortController();
+    const premiumSiteId = link?.isPrimary ? null : siteId;
+
+    void (async () => {
+      const token = await getAccessToken();
+      if (!token) throw new ApiError('No active session');
+      return fetchPremiumEddyRead(reportSlug, token, controller.signal, premiumSiteId);
+    })()
+      .then((data) => {
+        if (!controller.signal.aborted) setPremiumRead({ key: reportKey, data, failure: null });
+      })
+      .catch((error) => {
+        if (!controller.signal.aborted) {
+          setPremiumRead({
+            key: reportKey,
+            data: null,
+            failure: classifyPremiumReadFailure(error instanceof ApiError ? error.status : undefined),
+          });
+        }
+      });
+
+    return () => controller.abort();
+  }, [canRequestPremium, getAccessToken, link?.isPrimary, premiumRetry, reloadNonce, reportKey, reportSlug, siteId]);
 
   /** The held report, but only while it still describes the station on screen. */
-  const outlook = reportKey && report?.key === reportKey ? report.data : null;
+  const publicOutlook = reportKey && report?.key === reportKey ? report.data : null;
 
   if (loading && !gauge) {
     // The chevron renders DURING the load — configure.tsx's own rule: a
@@ -480,6 +525,17 @@ export default function GaugeDetailScreen() {
     : accountError
       ? null
       : Boolean(entitlement?.isActive);
+  const premiumResolved = Boolean(reportKey && premiumRead?.key === reportKey);
+  const premiumFailure = premiumResolved ? premiumRead?.failure ?? null : null;
+  const activePremiumRead = premiumResolved && !premiumFailure ? premiumRead?.data : null;
+  const outlook = publicOutlook && activePremiumRead
+    ? {
+        ...publicOutlook,
+        fullRead: activePremiumRead.fullRead,
+        generatedAt: activePremiumRead.generatedAt,
+      }
+    : publicOutlook;
+  const takeEntitlement = resolvePremiumTakeState(entitled, premiumResolved, premiumFailure);
 
   // A plain function, not a useCallback: everything above it is guarded by
   // early returns, and a hook below one of those is a hook that does not run in
@@ -759,8 +815,9 @@ export default function GaugeDetailScreen() {
             <EddyTake
               outlook={outlook}
               ratedUnit={unit}
-              entitled={entitled}
+              entitled={takeEntitlement}
               onUpgrade={() => setPaywallOpen(true)}
+              onRetry={() => setPremiumRetry((value) => value + 1)}
             />
           </View>
         ) : null}

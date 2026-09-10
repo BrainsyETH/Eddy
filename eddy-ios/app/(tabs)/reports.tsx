@@ -121,7 +121,7 @@ import { getSharedDams } from '@/hooks/useDams';
 import { onForeground } from '@/lib/foreground';
 import { agedIndex, readBestIndex } from '@/lib/riverCache';
 import { useStarredRivers } from '@/hooks/useStarredRivers';
-import { useLocation, type Coords, type LocationStatus } from '@/hooks/useLocation';
+import { useLocation, type LocationStatus } from '@/hooks/useLocation';
 import { riverMilesByGauge } from '@/lib/riverDistance';
 import { gaugeLink } from '@/lib/gaugeCondition';
 import { stationCaption } from '@/lib/gaugeProvider';
@@ -915,7 +915,7 @@ export default function ReportsScreen() {
   // same way, and two copies would be two definitions of "near".
   const distanceByRiver = useMemo(() => {
     if (!nearest || !location.coords || !gauges) return null;
-    return riverMilesByGauge(gauges, location.coords as Coords);
+    return riverMilesByGauge(gauges, location.coords);
   }, [nearest, location.coords, gauges]);
 
   /**
@@ -1093,7 +1093,7 @@ export default function ReportsScreen() {
   );
 
   const readDistanceByRiver = useMemo(
-    () => location.coords && gauges ? riverMilesByGauge(gauges, location.coords as Coords) : null,
+    () => location.coords && gauges ? riverMilesByGauge(gauges, location.coords) : null,
     [gauges, location.coords],
   );
   const readItems = useMemo<TodayRead[]>(() => {
@@ -1533,6 +1533,10 @@ export default function ReportsScreen() {
           // the list has to exist before the first one — the same reason the
           // map's field warms it on focus.
           onFocus={() => {
+            // Starting a search from a browse-only river view is a new question,
+            // so open it across every kind. Refocusing a query that already has
+            // a chosen scope preserves that explicit choice.
+            if (!searching) setScope('all');
             setSearchFocused(true);
             ensureGauges();
           }}

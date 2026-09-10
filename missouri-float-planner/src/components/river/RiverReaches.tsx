@@ -135,7 +135,7 @@ export default function RiverReaches({
               {reach.report && (
                 <blockquote className="mb-2 border-l-2 border-primary-300 pl-3">
                   <p className="text-sm text-neutral-700 italic">
-                    &ldquo;{reach.report.summaryText || reach.report.quoteText}&rdquo;
+                    &ldquo;{reach.report.summaryText}&rdquo;
                   </p>
                   <cite className="not-italic text-[11px] text-neutral-500">
                     Eddy on this reach &middot; {formatAge(reach.report.generatedAt)}

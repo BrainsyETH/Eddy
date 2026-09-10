@@ -165,7 +165,10 @@ export const RouteDraw: React.FC<RouteDrawProps> = (props) => {
       : Math.max(launchProgress, finishProgress);
 
   const delta = hoursTypical - hoursToday;
-  const routeLabel = `${putInName} → ${takeOutName}`;
+  // Each end is capped independently so one verbose access name cannot consume
+  // the other end of the route. The CSS guard is still required for unusually
+  // wide glyphs and translated/user-authored names.
+  const routeLabel = `${cleanName(putInName, 24)} → ${cleanName(takeOutName, 24)}`;
   const deltaCopy = evergreen
     ? "Typical pace"
     : Math.abs(delta) < 0.3
@@ -240,6 +243,8 @@ export const RouteDraw: React.FC<RouteDrawProps> = (props) => {
             lineHeight: 1.15,
             color: colors.primary[800],
             whiteSpace: "nowrap",
+            overflow: "hidden",
+            textOverflow: "ellipsis",
           }}
         >
           <span style={{ color: colors.neutral[500], marginRight: 10 }}>Route</span>

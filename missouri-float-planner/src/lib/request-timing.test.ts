@@ -167,8 +167,12 @@ test('the outlook effect joins an in-flight request instead of restarting it', (
   // the second river's name.
   assert.match(
     source,
-    /const key = `\$\{slug\}\|\$\{askedFor \?\? ''\}\|\$\{canRequestPremium \? 'premium' : 'free'\}`;/,
-    'the outlook key must carry the slug and entitlement tier',
+    /const key = `\$\{slug\}\|\$\{askedFor \?\? ''\}`;/,
+    'the public outlook key must carry the slug and selected gauge',
+  );
+  assert.ok(
+    !/fetchRiverOutlook\([\s\S]{0,200}getAccessToken/.test(source),
+    'entitlement resolution must not restart the expensive public outlook request',
   );
   // And the cleanup must not abort: the answer belongs to the cache as much as
   // to the run that asked for it.

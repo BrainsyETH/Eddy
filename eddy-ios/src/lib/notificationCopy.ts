@@ -7,6 +7,17 @@
 // is wrong in the one state nobody tried.
 
 export type NotificationPermission = 'granted' | 'denied' | 'undetermined' | 'unsupported';
+export type NotificationControlKind = 'switch' | 'settings-link' | 'status';
+
+/** Which control the Settings row can honestly offer in the current state. */
+export function notificationControlKind(
+  pushAvailable: boolean,
+  permission: NotificationPermission,
+): NotificationControlKind {
+  if (!pushAvailable || permission === 'unsupported') return 'status';
+  if (permission === 'denied') return 'settings-link';
+  return 'switch';
+}
 
 /**
  * One sentence describing why alerts will or will not arrive.

@@ -129,7 +129,7 @@ export function RiverReaches({
 
           {reach.report ? (
             <Text style={[styles.report, { color: colors.text }]}>
-              &ldquo;{reach.report.summaryText || reach.report.quoteText}&rdquo;
+              &ldquo;{reach.report.summaryText}&rdquo;
             </Text>
           ) : reach.description ? (
             <Text style={[styles.report, { color: colors.textMuted }]}>{reach.description}</Text>

@@ -76,9 +76,12 @@
 // a report that runs to paragraphs, and it is the line most likely to make
 // somebody want the rest.
 //
-// It is NOT a security boundary and never was — the text is in the payload
-// either way, and both the smear and the blur render the real words. The gate
-// is unchanged. What changed is that the reader can tell it is a gate.
+// The blur is the presentation of the gate, not the authority for the long
+// read. Public outlook responses no longer carry `fullRead`; a locked card uses
+// LOCKED_READ_SHAPE beneath the frost, while an entitled bearer receives the
+// real report. The server, not this visual effect, decides who gets that text.
+// The derived Weather and Bottom line sections remain in the outlook payload;
+// their blur is a presentation tier rather than a secrecy boundary.
 //
 // BOTTOM LINE CLOSES rather than opens. It used to lead, on the reasoning that
 // the answer should come first — but the reading card directly above this
@@ -165,12 +168,11 @@ const LOCKED_BOTTOM_LINE_SHAPE = 'Good day to be on this river.';
 /**
  * Eddy's writing, behind frosted glass.
  *
- * The real text renders and a BlurView covers it. That is the only way to get
- * a genuine gaussian blur in React Native — a UIVisualEffectView blurs what is
- * BEHIND it, so the paragraph has to be there for the effect to have anything
- * to work on. It puts no more of the text on the device than the old text
- * shadow did, which also rendered the real string; see the header on why this
- * has never been a security boundary.
+ * A string renders and a BlurView covers it. For an entitled read that is the
+ * real text; for a locked read it is LOCKED_READ_SHAPE because the server did
+ * not send `fullRead`. The derived Weather and Bottom line sections still use
+ * their real payload text beneath the presentation gate. UIVisualEffectView
+ * blurs what is BEHIND it, so every branch needs a string to render.
  *
  * `sharpLines` leaves the first N lines legible and starts the blur beneath
  * them, by offsetting the overlay rather than by splitting the string. Splitting
@@ -276,10 +278,15 @@ interface EddyTakeProps {
    * paint the full paid report for as long as /api/me/profile took, and then
    * yank it away — the report leaked to non-subscribers by default, and the
    * flash looked like a bug to everyone else. Loading renders a skeleton.
+   * `'error'` is a fourth, explicit state: the Premium request failed without
+   * an entitlement decision, so the card offers a retry instead of pretending
+   * the deterministic short read is the paid response.
    */
-  entitled?: boolean | null | 'pending';
+  entitled?: boolean | null | 'pending' | 'error';
   /** Opens the paywall. Only ever called from the locked take. */
   onUpgrade?: () => void;
+  /** Retries a Premium read that failed without an entitlement decision. */
+  onRetry?: () => void;
 }
 
 export function EddyTake({
@@ -287,6 +294,7 @@ export function EddyTake({
   ratedUnit = null,
   entitled = null,
   onUpgrade,
+  onRetry,
 }: EddyTakeProps) {
   const { colors, elevation } = useTheme();
   const { sections, days } = outlook;
@@ -298,6 +306,7 @@ export function EddyTake({
   const read = outlook.fullRead || sections?.eddyRead || '';
   const locked = entitled === false;
   const resolving = entitled === 'pending';
+  const failed = entitled === 'error';
 
   return (
     <View style={styles.wrapper}>
@@ -489,6 +498,24 @@ export function EddyTake({
                   ]}
                 />
               ))}
+            </View>
+          ) : failed ? (
+            <View style={[styles.loadError, { backgroundColor: colors.cardRaised }]}>
+              <Ionicons name="cloud-offline-outline" size={18} color={colors.textMuted} />
+              <View style={styles.loadErrorCopy}>
+                <Text style={[styles.loadErrorTitle, { color: colors.text }]}>Full read couldn&apos;t load</Text>
+                <Text style={[styles.loadErrorBody, { color: colors.textSubtle }]}>The river facts above are still current.</Text>
+              </View>
+              {onRetry ? (
+                <Pressable
+                  onPress={onRetry}
+                  hitSlop={8}
+                  accessibilityRole="button"
+                  accessibilityLabel="Try loading Eddy's take again"
+                >
+                  <Text style={[styles.loadErrorAction, { color: colors.interactive }]}>Try again</Text>
+                </Pressable>
+              ) : null}
             </View>
           ) : (
             <>
@@ -690,6 +717,11 @@ const styles = StyleSheet.create({
   // real answer lands — a skeleton that changes the layout is just a slower
   // version of the flash it was added to prevent.
   skeletonLine: { height: 11, borderRadius: 5, marginTop: 9 },
+  loadError: { flexDirection: 'row', alignItems: 'center', gap: 10, padding: 12, borderRadius: 12 },
+  loadErrorCopy: { flex: 1, minWidth: 0 },
+  loadErrorTitle: { ...t.sm, fontFamily: fonts.semibold },
+  loadErrorBody: { ...t.xs, fontFamily: fonts.body, marginTop: 2 },
+  loadErrorAction: { ...t.sm, fontFamily: fonts.semibold },
   lock: {
     padding: 13,
     borderRadius: 14,

@@ -2,7 +2,12 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { cdnCacheHeaders, parseRowLimit, privateNoStore } from './api-utils';
+import {
+  cdnCacheHeaders,
+  optionalAuthCacheHeaders,
+  parseRowLimit,
+  privateNoStore,
+} from './api-utils';
 
 const API = join(process.cwd(), 'src/app/api');
 const read = (p: string) => readFileSync(join(API, p), 'utf8');
@@ -25,6 +30,20 @@ test('privateNoStore is the inverse and names both directives', () => {
   assert.match(value, /\bno-store\b/);
   assert.doesNotMatch(value, /\bpublic\b/);
   assert.doesNotMatch(value, /s-maxage/);
+});
+
+test('optional-auth routes cache only their public representation', () => {
+  const headers = optionalAuthCacheHeaders(false, 300, 1800);
+  assert.equal(headers.Vary, 'Authorization');
+  assert.match(headers['Cache-Control'], /\bpublic\b/);
+  assert.match(headers['Cache-Control'], /s-maxage=300\b/);
+  assert.match(headers['Cache-Control'], /stale-while-revalidate=1800\b/);
+});
+
+test('optional-auth routes never store a bearer representation', () => {
+  assert.deepEqual(optionalAuthCacheHeaders(true, 300, 1800), {
+    'Cache-Control': 'private, no-store',
+  });
 });
 
 // ── the contract, enforced against the routes themselves ─────────
@@ -103,6 +122,25 @@ test('public read routes the app depends on are shared-cacheable', () => {
     assert.ok(
       read(route).includes('cdnCacheHeaders'),
       `${route} serves public data with no CDN caching`,
+    );
+  }
+});
+
+test('every tiered report route uses the optional-auth cache boundary', () => {
+  const TIERED = [
+    'eddy-update/[riverSlug]/route.ts',
+    'gauge-update/[siteId]/route.ts',
+    'rivers/[slug]/outlook/route.ts',
+  ];
+  for (const route of TIERED) {
+    const src = read(route);
+    assert.ok(
+      src.includes('optionalAuthCacheHeaders'),
+      `${route} must vary public responses and make bearer responses private/no-store`,
+    );
+    assert.ok(
+      !src.includes("Vary: 'Authorization'"),
+      `${route} hand-rolls the tiered cache boundary instead of using the tested helper`,
     );
   }
 });

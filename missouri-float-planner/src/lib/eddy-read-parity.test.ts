@@ -30,7 +30,7 @@ import { join } from 'node:path';
 const IOS = join(process.cwd(), '../eddy-ios/src/components/EddyTake.tsx');
 const WEB = join(process.cwd(), 'src/components/gauge/RiverGaugeDetail.tsx');
 
-test('iOS prefers the entitled report while public web falls back to the summary', () => {
+test('iOS prefers the entitled report while public web uses only the summary', () => {
   // iOS: `outlook.fullRead || sections?.eddyRead || ''` — fullRead is quote_text.
   assert.match(
     readFileSync(IOS, 'utf8'),
@@ -38,12 +38,12 @@ test('iOS prefers the entitled report while public web falls back to the summary
     'EddyTake.tsx no longer prefers fullRead over sections.eddyRead',
   );
 
-  // Web keeps the longer fields first for a future authenticated caller, but
-  // public requests receive only summaryText from the singular report routes.
+  // The web hook deliberately narrows the public response before handing it
+  // to the renderer, so premium fields cannot survive under another name.
   assert.match(
     readFileSync(WEB, 'utf8'),
-    /activeEddyUpdate\?\.quoteText \|\| activeEddyUpdate\?\.eddyRead \|\| activeEddyUpdate\?\.summaryText/,
-    'RiverGaugeDetail.tsx no longer falls back to the public summary',
+    /generatedEddyRead:\s*activeEddyUpdate\?\.summaryText/,
+    'RiverGaugeDetail.tsx no longer uses the public summary',
   );
 });
 

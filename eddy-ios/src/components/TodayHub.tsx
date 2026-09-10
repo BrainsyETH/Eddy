@@ -16,8 +16,10 @@ import {
   fetchFavoriteFloats,
   fetchHighWater,
   fetchLocationWeather,
+  fetchPremiumEddyRead,
   fetchRiverAlerts,
   fetchRiverOutlook,
+  type PremiumEddyRead,
 } from '@/api/client';
 import { PaywallSheet } from '@/components/PaywallSheet';
 import { EddyReadCard } from '@/components/EddyReadCard';
@@ -39,6 +41,11 @@ import {
 import { readRecommendation, writeRecommendation } from '@/lib/todayPreferences';
 import type { EddySays } from '@/lib/eddySays';
 import { riverMilesByGauge } from '@/lib/riverDistance';
+import {
+  classifyPremiumReadFailure,
+  resolvePremiumTakeState,
+  type PremiumReadFailure,
+} from '@/lib/premiumRead';
 import { chooseTodaySafetyScope, filterTodaySafety } from '@/lib/todaySafety';
 import {
   conditionBg,
@@ -255,12 +262,18 @@ export function TodayHub({
     riverId: string | null;
   }>({ ready: false, riverId: null });
   const [outlook, setOutlook] = useState<{ slug: string; data: RiverOutlookResponse | null } | null>(null);
+  const [premiumRead, setPremiumRead] = useState<{
+    slug: string;
+    data: PremiumEddyRead | null;
+    failure: PremiumReadFailure | null;
+  } | null>(null);
   const [localWeather, setLocalWeather] = useState<{
     data: Awaited<ReturnType<typeof fetchLocationWeather>>;
     coordsKey: string;
   } | null>(null);
   const [weatherFailedKey, setWeatherFailedKey] = useState<string | null>(null);
   const [weatherRetry, setWeatherRetry] = useState(0);
+  const [premiumRetry, setPremiumRetry] = useState(0);
   const [paywallOpen, setPaywallOpen] = useState(false);
 
   useEffect(() => {
@@ -335,10 +348,15 @@ export function TodayHub({
   const weatherCoordsKey = location.coords
     ? `${Math.round(location.coords.lat / 0.05)}:${Math.round(location.coords.lng / 0.05)}`
     : null;
+  const weatherCoords = useMemo(() => {
+    if (!weatherCoordsKey) return null;
+    const [latBucket, lngBucket] = weatherCoordsKey.split(':').map(Number);
+    return { lat: latBucket * 0.05, lng: lngBucket * 0.05 };
+  }, [weatherCoordsKey]);
   useEffect(() => {
-    if (!location.coords || !weatherCoordsKey) return;
+    if (!weatherCoords || !weatherCoordsKey) return;
     const controller = new AbortController();
-    void fetchLocationWeather(location.coords, controller.signal)
+    void fetchLocationWeather(weatherCoords, controller.signal)
       .then((data) => {
         if (!controller.signal.aborted) {
           setLocalWeather({ data, coordsKey: weatherCoordsKey });
@@ -349,7 +367,7 @@ export function TodayHub({
         if (!controller.signal.aborted) setWeatherFailedKey(weatherCoordsKey);
       });
     return () => controller.abort();
-  }, [location.coords, refreshRevision, weatherCoordsKey, weatherRetry]);
+  }, [refreshRevision, weatherCoords, weatherCoordsKey, weatherRetry]);
 
   const favoriteIds = useMemo(
     () => new Set(starred.filter((item) => item.kind === 'river').map((item) => item.entityId)),
@@ -379,10 +397,7 @@ export function TodayHub({
   useEffect(() => {
     if (!outlookSlug) return;
     const controller = new AbortController();
-    void (async () => {
-      const token = requestPremiumOutlook ? await getAccessToken() : null;
-      return fetchRiverOutlook(outlookSlug, controller.signal, null, token);
-    })()
+    void fetchRiverOutlook(outlookSlug, controller.signal)
       .then((data) => {
         if (!controller.signal.aborted) setOutlook({ slug: outlookSlug, data });
       })
@@ -390,7 +405,31 @@ export function TodayHub({
         if (!controller.signal.aborted) setOutlook({ slug: outlookSlug, data: null });
       });
     return () => controller.abort();
-  }, [getAccessToken, outlookSlug, refreshRevision, requestPremiumOutlook]);
+  }, [outlookSlug, refreshRevision]);
+
+  useEffect(() => {
+    if (!requestPremiumOutlook || !outlookSlug) return;
+    const slug = outlookSlug;
+    const controller = new AbortController();
+    void getAccessToken()
+      .then((token) => {
+        if (!token) throw new ApiError('No active session');
+        return fetchPremiumEddyRead(slug, token, controller.signal);
+      })
+      .then((data) => {
+        if (!controller.signal.aborted) setPremiumRead({ slug, data, failure: null });
+      })
+      .catch((error) => {
+        if (!controller.signal.aborted) {
+          setPremiumRead({
+            slug,
+            data: null,
+            failure: classifyPremiumReadFailure(error instanceof ApiError ? error.status : undefined),
+          });
+        }
+      });
+    return () => controller.abort();
+  }, [getAccessToken, outlookSlug, premiumRetry, refreshRevision, requestPremiumOutlook]);
 
   const riverById = useMemo(() => new Map(rivers.map((river) => [river.id, river])), [rivers]);
   const highlightedRiver = highlightedFavorite?.kind === 'river'
@@ -465,7 +504,19 @@ export function TodayHub({
     .slice(0, 3), [favoriteIds, previewDistances, previewReservedIds, rivers]);
   const condition = recommendation?.river.currentCondition ?? null;
   const reading = condition ? primaryReading(condition) : null;
-  const liveOutlook = outlook && outlook.slug === recommendation?.river.slug ? outlook.data : null;
+  const publicOutlook = outlook && outlook.slug === recommendation?.river.slug ? outlook.data : null;
+  const premiumResolved = premiumRead?.slug === recommendation?.river.slug;
+  const premiumFailure = premiumResolved ? premiumRead?.failure ?? null : null;
+  const activePremiumRead = premiumResolved && !premiumFailure ? premiumRead?.data : null;
+  const todayEntitled = resolvePremiumTakeState(entitled, premiumResolved, premiumFailure);
+  const premiumFailed = todayEntitled === 'error';
+  const liveOutlook = publicOutlook && activePremiumRead
+    ? {
+        ...publicOutlook,
+        fullRead: activePremiumRead.fullRead,
+        generatedAt: activePremiumRead.generatedAt,
+      }
+    : publicOutlook;
   const activeWeather = weatherCoordsKey && localWeather?.coordsKey === weatherCoordsKey
     ? localWeather.data
     : null;
@@ -682,10 +733,14 @@ export function TodayHub({
             ) : null}
             {publicRead || eddyRead ? (
               <Pressable
-                onPress={() => entitled === false ? setPaywallOpen(true) : router.push(`/river/${recommendation.river.slug}`)}
+                onPress={() => {
+                  if (premiumFailed) setPremiumRetry((value) => value + 1);
+                  else if (todayEntitled === false) setPaywallOpen(true);
+                  else router.push(`/river/${recommendation.river.slug}`);
+                }}
                 style={({ pressed }) => [styles.eddyRead, { backgroundColor: colors.card, borderColor: colors.border, opacity: pressed ? 0.7 : 1 }]}
                 accessibilityRole="button"
-                accessibilityLabel={`Eddy's Read for ${recommendation.river.name}${entitled === false ? ', locked' : ''}`}
+                accessibilityLabel={`Eddy's Read for ${recommendation.river.name}${premiumFailed ? ', retry loading full read' : todayEntitled === false ? ', locked' : ''}`}
               >
                 <View style={styles.readHead}>
                   <Ionicons name="sparkles" size={15} color={colors.accent} />
@@ -693,9 +748,14 @@ export function TodayHub({
                   <Ionicons name="chevron-forward" size={15} color={colors.textSubtle} />
                 </View>
                 <Text style={[styles.readCopy, { color: colors.text }]} numberOfLines={2}>
-                  {entitled === true && eddyRead ? eddyRead : publicRead}
+                  {todayEntitled === true && premiumResolved && !premiumFailure && eddyRead ? eddyRead : publicRead}
                 </Text>
-                {entitled === false ? (
+                {premiumFailed ? (
+                  <View style={styles.unlockRow}>
+                    <Ionicons name="refresh" size={13} color={colors.interactive} />
+                    <Text style={[styles.unlockText, { color: colors.interactive }]}>Full read couldn&apos;t load · Try again</Text>
+                  </View>
+                ) : todayEntitled === false ? (
                   <View style={styles.unlockRow}>
                     <Ionicons name="lock-closed" size={13} color={colors.accent} />
                     <Text style={[styles.unlockText, { color: colors.accent }]}>Read Eddy’s full take</Text>

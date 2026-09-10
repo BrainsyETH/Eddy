@@ -3,11 +3,13 @@
 // src/components/river/EddyQuote.tsx
 // Eddy's conditions quote — speech bubble with otter avatar.
 // Tries to fetch AI-generated update first, falls back to static templates.
-// Supports summary/full toggle and share button.
+// The web intentionally shows the public summary. The full generated read is
+// server-gated for Eddy Premium and is available in the iOS app.
 
 import { useEffect, useState, useCallback } from 'react';
 import Image from 'next/image';
-import { ChevronDown, ChevronUp, Share2, Check } from 'lucide-react';
+import Link from 'next/link';
+import { Share2, Check } from 'lucide-react';
 import type { ConditionCode } from '@/types/api';
 import { buildEddyQuote, RIVER_NOTES } from '@/data/eddy-quotes';
 import type { WeatherInput } from '@/data/eddy-quotes';
@@ -53,7 +55,6 @@ function formatGeneratedAge(generatedAt: string): string {
 export default function EddyQuote({ riverSlug, conditionCode, gaugeHeightFt, weather, readingAgeHours, optimalRange, embedded }: EddyQuoteProps) {
   const [aiUpdate, setAiUpdate] = useState<EddyUpdateResponse['update']>(null);
   const [aiLoaded, setAiLoaded] = useState(false);
-  const [showFull, setShowFull] = useState(true);
   const [shareStatus, setShareStatus] = useState<'idle' | 'copied'>('idle');
 
   // Fetch AI-generated update on mount
@@ -95,7 +96,7 @@ export default function EddyQuote({ riverSlug, conditionCode, gaugeHeightFt, wea
 
     if (isMobile && navigator.share) {
       const title = `River conditions on Eddy`;
-      const text = aiUpdate?.summaryText || aiUpdate?.quoteText || staticQuote.text;
+      const text = aiUpdate?.summaryText || staticQuote.text;
       try {
         await navigator.share({ title, text, url });
         return;
@@ -113,14 +114,11 @@ export default function EddyQuote({ riverSlug, conditionCode, gaugeHeightFt, wea
     }
   }, [riverSlug, aiUpdate, staticQuote.text]);
 
-  // Summary vs full text
-  const hasSummary = useAi && aiUpdate.summaryText;
-  const summaryText = hasSummary ? aiUpdate.summaryText : null;
-  const fullText = useAi
-    ? aiUpdate.quoteText || aiUpdate.summaryText || staticQuote.text
-    : staticQuote.text;
-  const hasLongRead = Boolean(useAi && aiUpdate.quoteText && aiUpdate.quoteText !== aiUpdate.summaryText);
-  const displayText = hasSummary && hasLongRead && !showFull ? summaryText! : fullText;
+  // Public web callers receive the summary only. Fall back to the static,
+  // live-condition copy when no generated summary is available.
+  const summaryText = useAi ? aiUpdate?.summaryText ?? null : null;
+  const hasSummary = Boolean(summaryText);
+  const displayText = summaryText || staticQuote.text;
 
   const eddyImage = getEddyImageForCondition(displayConditionCode);
   const notes = RIVER_NOTES[riverSlug];
@@ -180,20 +178,16 @@ export default function EddyQuote({ riverSlug, conditionCode, gaugeHeightFt, wea
             &ldquo;{displayText}&rdquo;
           </p>
 
-          {/* Toggle + Share row */}
+          {/* Premium app CTA + Share row */}
           <div className="flex items-center gap-3 mt-1.5">
-            {hasSummary && hasLongRead && (
-              <button
-                onClick={() => setShowFull(!showFull)}
-                className="flex items-center gap-1 text-xs font-semibold transition-colors opacity-60 hover:opacity-100"
+            {hasSummary && (
+              <Link
+                href="/app"
+                className="text-xs font-semibold underline decoration-1 underline-offset-2 opacity-70 transition-opacity hover:opacity-100"
                 style={{ color: surface.color }}
               >
-                {showFull ? (
-                  <>Show less <ChevronUp className="w-3 h-3" /></>
-                ) : (
-                  <>Read more <ChevronDown className="w-3 h-3" /></>
-                )}
-              </button>
+                Unlock the full read in the iOS app
+              </Link>
             )}
 
             {(optimalRange || notes) && !hasSummary && (
@@ -217,7 +211,7 @@ export default function EddyQuote({ riverSlug, conditionCode, gaugeHeightFt, wea
             </button>
           </div>
 
-          {(optimalRange || notes) && hasSummary && showFull && (
+          {(optimalRange || notes) && hasSummary && (
             <p className="text-xs mt-1.5 opacity-50">
               {optimalRange ? `Optimal range: ${optimalRange}` : ''}{optimalRange && notes ? ' \u00b7 ' : ''}{notes || ''}
             </p>
