@@ -646,6 +646,30 @@ export const RemotionRoot: React.FC = () => {
         } satisfies RouteDrawProps}
       />
 
+      {/* Screenshot regression fixture: long production access names must not
+          wrap the callout into the dock or wrap the dock's route line. */}
+      <Composition
+        id="social-route-long-names-portrait"
+        component={RouteDraw}
+        durationInFrames={360}
+        fps={FPS}
+        width={1080}
+        height={1920}
+        calculateMetadata={routeDuration}
+        defaultProps={{
+          ...ROUTE_DEMO,
+          putInName: "Sinking Creek Campground",
+          putInMile: 0,
+          takeOutName: "Primitive Access",
+          takeOutMile: 6,
+          distanceMi: 6,
+          hoursToday: 3.8,
+          hoursTypical: 3,
+          routeCoordinates: ROUTE_DEMO_LINE,
+          routePoints: [],
+        } satisfies RouteDrawProps}
+      />
+
       {/* 7-Day Trend reel with sparkline */}
       <Composition
         id="social-trend-portrait"

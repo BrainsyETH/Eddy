@@ -25,6 +25,9 @@ STILLS=(
   # thumbnail; 230 is the same first stop's pause, as a highlighted row; 380
   # is the arrival hold, where the approximate (mile-only) row is highlighted.
   "social-route-itinerary-portrait:0,230,380"
+  # The exact long-name case from the Instagram screenshots: neither the
+  # put-in callout nor the dock route may gain a second line and collide.
+  "social-route-long-names-portrait:0"
   # Every other composition is baselined at frame 0 too: the grid thumbnail /
   # first autoplay frame must be a complete branded card, not an empty ground.
   # social-gauge-portrait is the PRODUCTION Eddy Says reel (river_highlight);

@@ -88,6 +88,12 @@ rectangle:
   cross-posted to all three platforms. Text, logos, faces, captions and CTAs
   stay inside it. TikTok's profile/action rail gets a 270px right reserve, and
   ruled media cards stay inside that edge so their border is not cut off.
+  Instagram's Reel profile also includes the horizontal loss from aspect-fill
+  playback on tall phones: a 9:16 master loses about 52 source pixels per side
+  in the observed iPhone viewport, so its 120px left inset still presents as a
+  deliberate ~60px gutter instead of collapsing against the screen edge. The
+  route camera uses the centre of this usable editorial corridor, not x=540,
+  so its river and canoe align with the masthead and dock after that crop.
 - `STORY_SAFE` is the corresponding intersection for a dedicated Story export.
   Story navigation reserves different top and bottom strips and does not reuse
   the Reel rectangle.
