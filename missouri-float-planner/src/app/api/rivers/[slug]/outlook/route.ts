@@ -53,7 +53,7 @@
 // response names the station it actually used.
 
 import { NextRequest, NextResponse } from 'next/server';
-import { cdnCacheHeaders, getCoordinates, privateNoStore } from '@/lib/api-utils';
+import { getCoordinates, optionalAuthCacheHeaders } from '@/lib/api-utils';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { computeTrend } from '@shared/gauge-trend';
 import {
@@ -188,9 +188,13 @@ async function _GET(
   request: NextRequest,
   { params }: { params: Promise<{ slug: string }> },
 ) {
+  const responseHeaders = optionalAuthCacheHeaders(
+    Boolean(request.headers.get('authorization')),
+    300,
+    1800,
+  );
   try {
     const { slug } = await params;
-    const authHeaderPresent = Boolean(request.headers.get('authorization'));
     // Public outlooks stay on the fast path. Only a caller presenting a token
     // asks the auth service whether the premium field may be included.
     const entitlement = await optionalEntitlement(request);
@@ -212,7 +216,7 @@ async function _GET(
       .maybeSingle();
 
     if (!river) {
-      return NextResponse.json<RiverOutlookApiResponse>(EMPTY, { status: 404 });
+      return NextResponse.json<RiverOutlookApiResponse>(EMPTY, { status: 404, headers: responseHeaders });
     }
 
     // The station asked for, when one was and when it actually rates this
@@ -244,7 +248,7 @@ async function _GET(
       // A river with no primary gauge is an ordinary state, not a fault — the
       // app hides the panel rather than showing an error.
       return NextResponse.json<RiverOutlookApiResponse>(EMPTY, {
-        headers: cdnCacheHeaders(300, 1800),
+        headers: responseHeaders,
       });
     }
 
@@ -499,7 +503,7 @@ async function _GET(
     // THIS gauge's condition — so the read still changes with the gauge even
     // when there is no written report for it, which for most stations there is
     // not.
-    if (!usingPrimary && gaugeUpdate?.quote_text) {
+    if (entitled && !usingPrimary && gaugeUpdate?.quote_text) {
       const compatible = isGaugeReportCompatible({
         storedCondition: gaugeUpdate.condition_code,
         liveCondition: currentCondition,
@@ -508,7 +512,7 @@ async function _GET(
       if (compatible) fullRead = gaugeUpdate.quote_text || null;
     }
 
-    if (update?.quote_text) {
+    if (entitled && update?.quote_text) {
       try {
         const [overlaid] = await overlayLiveConditions(
           supabase,
@@ -591,14 +595,12 @@ async function _GET(
       // refresh hourly at best, and a slightly stale outlook beside a live
       // condition is better than a spinner on a phone with no signal to spare.
       {
-        headers: authHeaderPresent
-          ? privateNoStore()
-          : { ...cdnCacheHeaders(300, 1800), Vary: 'Authorization' },
+        headers: responseHeaders,
       },
     );
   } catch (error) {
     console.error('[RiverOutlook] Unexpected error:', error);
-    return NextResponse.json<RiverOutlookApiResponse>(EMPTY, { status: 500 });
+    return NextResponse.json<RiverOutlookApiResponse>(EMPTY, { status: 500, headers: responseHeaders });
   }
 }
 

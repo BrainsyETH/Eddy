@@ -49,11 +49,17 @@ import type {
 import { classifyReading, hasLadder } from '@eddy/conditions/condition-ladder';
 import { flowBand } from '@eddy/conditions/flow-band';
 import {
+  ApiError,
   fetchGaugeDetail,
   fetchPremiumEddyRead,
   fetchRiverOutlook,
   type PremiumEddyRead,
 } from '@/api/client';
+import {
+  classifyPremiumReadFailure,
+  resolvePremiumTakeState,
+  type PremiumReadFailure,
+} from '@/lib/premiumRead';
 import {
   conditionBg,
   conditionChipBorder,
@@ -230,6 +236,7 @@ export default function GaugeDetailScreen() {
   const [premiumRead, setPremiumRead] = useState<{
     key: string;
     data: PremiumEddyRead | null;
+    failure: PremiumReadFailure | null;
   } | null>(null);
 
   /**
@@ -239,6 +246,7 @@ export default function GaugeDetailScreen() {
    * on the screen whose whole content is one request.
    */
   const [reloadNonce, setReloadNonce] = useState(0);
+  const [premiumRetry, setPremiumRetry] = useState(0);
 
   useEffect(() => {
     if (!siteId) return;
@@ -334,7 +342,7 @@ export default function GaugeDetailScreen() {
         if (!controller.signal.aborted) setReport({ key, data });
       });
     return () => controller.abort();
-  }, [reportSlug, reportGaugeId]);
+  }, [reportSlug, reportGaugeId, reloadNonce]);
 
   // Resolve Premium prose separately so entitlement loading never repeats the
   // route's weather, NWS, and gauge fan-out. Primary stations use the river
@@ -346,18 +354,24 @@ export default function GaugeDetailScreen() {
 
     void (async () => {
       const token = await getAccessToken();
-      if (!token) return null;
+      if (!token) throw new ApiError('No active session');
       return fetchPremiumEddyRead(reportSlug, token, controller.signal, premiumSiteId);
     })()
       .then((data) => {
-        if (!controller.signal.aborted) setPremiumRead({ key: reportKey, data });
+        if (!controller.signal.aborted) setPremiumRead({ key: reportKey, data, failure: null });
       })
-      .catch(() => {
-        if (!controller.signal.aborted) setPremiumRead({ key: reportKey, data: null });
+      .catch((error) => {
+        if (!controller.signal.aborted) {
+          setPremiumRead({
+            key: reportKey,
+            data: null,
+            failure: classifyPremiumReadFailure(error instanceof ApiError ? error.status : undefined),
+          });
+        }
       });
 
     return () => controller.abort();
-  }, [canRequestPremium, getAccessToken, link?.isPrimary, reloadNonce, reportKey, reportSlug, siteId]);
+  }, [canRequestPremium, getAccessToken, link?.isPrimary, premiumRetry, reloadNonce, reportKey, reportSlug, siteId]);
 
   /** The held report, but only while it still describes the station on screen. */
   const publicOutlook = reportKey && report?.key === reportKey ? report.data : null;
@@ -512,7 +526,8 @@ export default function GaugeDetailScreen() {
       ? null
       : Boolean(entitlement?.isActive);
   const premiumResolved = Boolean(reportKey && premiumRead?.key === reportKey);
-  const activePremiumRead = premiumResolved ? premiumRead?.data : null;
+  const premiumFailure = premiumResolved ? premiumRead?.failure ?? null : null;
+  const activePremiumRead = premiumResolved && !premiumFailure ? premiumRead?.data : null;
   const outlook = publicOutlook && activePremiumRead
     ? {
         ...publicOutlook,
@@ -520,9 +535,7 @@ export default function GaugeDetailScreen() {
         generatedAt: activePremiumRead.generatedAt,
       }
     : publicOutlook;
-  const takeEntitlement = entitled === true && !premiumResolved
-    ? ('pending' as const)
-    : entitled;
+  const takeEntitlement = resolvePremiumTakeState(entitled, premiumResolved, premiumFailure);
 
   // A plain function, not a useCallback: everything above it is guarded by
   // early returns, and a hook below one of those is a hook that does not run in
@@ -804,6 +817,7 @@ export default function GaugeDetailScreen() {
               ratedUnit={unit}
               entitled={takeEntitlement}
               onUpgrade={() => setPaywallOpen(true)}
+              onRetry={() => setPremiumRetry((value) => value + 1)}
             />
           </View>
         ) : null}

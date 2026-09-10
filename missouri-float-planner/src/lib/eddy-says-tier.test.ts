@@ -36,6 +36,10 @@ import test from 'node:test';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { selectEddySays, writtenAge } from '../../../eddy-ios/src/lib/eddySays';
+import {
+  classifyPremiumReadFailure,
+  resolvePremiumTakeState,
+} from '../../../eddy-ios/src/lib/premiumRead';
 import { premiumText, tierGeneratedEddyProse } from './eddy/tiered-prose';
 
 test('the free line is the summary, and only the summary', () => {
@@ -158,6 +162,20 @@ test('entitled report responses retain the premium prose', () => {
     },
   );
   assert.equal(premiumText(true, 'Full outlook read.'), 'Full outlook read.');
+});
+
+test('premium-read failures preserve denial versus retryable outcomes', () => {
+  assert.equal(classifyPremiumReadFailure(402), 'denied');
+  assert.equal(classifyPremiumReadFailure(403), 'denied');
+  for (const status of [401, 408, 429, 500, 503, undefined]) {
+    assert.equal(classifyPremiumReadFailure(status), 'retryable');
+  }
+  assert.equal(resolvePremiumTakeState(true, true, 'denied'), false);
+  assert.equal(resolvePremiumTakeState(true, true, 'retryable'), 'error');
+  assert.equal(resolvePremiumTakeState(true, false, null), 'pending');
+  assert.equal(resolvePremiumTakeState(true, true, null), true);
+  assert.equal(resolvePremiumTakeState(false, false, null), false);
+  assert.equal(resolvePremiumTakeState(null, false, null), null);
 });
 
 test('raw eddy_read cannot resurrect a report withheld by the safety gate', () => {

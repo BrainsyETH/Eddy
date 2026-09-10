@@ -77,6 +77,11 @@ import {
   type PremiumEddyRead,
 } from '@/api/client';
 import {
+  classifyPremiumReadFailure,
+  resolvePremiumTakeState,
+  type PremiumReadFailure,
+} from '@/lib/premiumRead';
+import {
   conditionBg,
   conditionChipBorder,
   conditionColor,
@@ -458,7 +463,9 @@ export default function RiverDetailScreen() {
   const [premiumRead, setPremiumRead] = useState<{
     key: string;
     data: PremiumEddyRead | null;
+    failure: PremiumReadFailure | null;
   } | null>(null);
+  const [premiumRetry, setPremiumRetry] = useState(0);
   const [visuals, setVisuals] = useState<RiverVisualsResponse | null>(null);
   const [gauges, setGauges] = useState<MapGauge[]>([]);
   // Keyed by the slug it was fetched for, so a change of river cannot show the
@@ -909,40 +916,50 @@ export default function RiverDetailScreen() {
     };
   }, [slug, shownGaugeId, primaryGaugeId]);
 
+  const premiumGaugeId = shownGaugeId && shownGaugeId !== primaryGaugeId
+    ? shownGaugeId
+    : null;
+  const premiumSiteId = premiumGaugeId
+    ? gauges.find((candidate) => candidate.id === premiumGaugeId)?.usgsSiteId ?? null
+    : null;
+
   // The public outlook is the expensive weather + hydrograph request and is
   // fetched once above. When account state resolves to Premium, fetch only the
   // generated prose from the lightweight singular route instead of repeating
   // the whole outlook request.
   useEffect(() => {
     if (!canRequestPremium || !slug) return;
-    const askedFor = shownGaugeId && shownGaugeId !== primaryGaugeId ? shownGaugeId : null;
+    const askedFor = premiumGaugeId;
     const key = `${slug}|${askedFor ?? ''}`;
-    const siteId = askedFor
-      ? gauges.find((candidate) => candidate.id === askedFor)?.usgsSiteId ?? null
-      : null;
     const controller = new AbortController();
 
     void (async () => {
       const token = await getAccessToken();
-      if (!token) return null;
+      if (!token) throw new ApiError('No active session');
       // A selected secondary station must never fall back to the river's
       // primary report just because its provider id has not arrived (or the
       // station has none). In that case the deterministic selected-gauge read
       // remains the honest fallback.
-      if (askedFor && !siteId) return null;
-      return fetchPremiumEddyRead(slug, token, controller.signal, siteId);
+      if (askedFor && !premiumSiteId) return null;
+      return fetchPremiumEddyRead(slug, token, controller.signal, premiumSiteId);
     })()
       .then((data) => {
-        if (!controller.signal.aborted) setPremiumRead({ key, data });
+        if (!controller.signal.aborted) setPremiumRead({ key, data, failure: null });
       })
-      .catch(() => {
+      .catch((error) => {
         // Keep the already-loaded public outlook. A refresh/retry can ask for
         // the Premium field again without discarding weather or river data.
-        if (!controller.signal.aborted) setPremiumRead({ key, data: null });
+        if (!controller.signal.aborted) {
+          setPremiumRead({
+            key,
+            data: null,
+            failure: classifyPremiumReadFailure(error instanceof ApiError ? error.status : undefined),
+          });
+        }
       });
 
     return () => controller.abort();
-  }, [canRequestPremium, gauges, getAccessToken, primaryGaugeId, reloadNonce, shownGaugeId, slug]);
+  }, [canRequestPremium, getAccessToken, premiumGaugeId, premiumRetry, premiumSiteId, reloadNonce, slug]);
 
   /**
    * Does this person already have alerts on for this river?
@@ -1289,13 +1306,12 @@ export default function RiverDetailScreen() {
       : Boolean(entitlement?.isActive);
   const activeOutlookKey = `${slug}|${shownGaugeId && shownGaugeId !== primaryGaugeId ? shownGaugeId : ''}`;
   const premiumResolved = premiumRead?.key === activeOutlookKey;
-  const activePremiumRead = premiumResolved ? premiumRead?.data : null;
+  const premiumFailure = premiumResolved ? premiumRead?.failure ?? null : null;
+  const activePremiumRead = premiumResolved && !premiumFailure ? premiumRead?.data : null;
   const displayedOutlook = outlook && activePremiumRead
     ? { ...outlook, fullRead: activePremiumRead.fullRead, generatedAt: activePremiumRead.generatedAt }
     : outlook;
-  const takeEntitlement = entitled === true && !premiumResolved
-    ? ('pending' as const)
-    : entitled;
+  const takeEntitlement = resolvePremiumTakeState(entitled, premiumResolved, premiumFailure);
 
   return (
     <SafeAreaView style={[styles.screen, { backgroundColor: colors.bg }]} edges={['top']}>
@@ -1543,6 +1559,7 @@ export default function RiverDetailScreen() {
             ratedUnit={reading?.unit ?? null}
             entitled={takeEntitlement}
             onUpgrade={() => setPaywallOpen(true)}
+            onRetry={() => setPremiumRetry((value) => value + 1)}
           />
         ) : outlookLoading ? (
           // A placeholder the height of a sentence, not a full-card skeleton.

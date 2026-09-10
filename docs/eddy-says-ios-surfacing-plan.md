@@ -113,7 +113,10 @@ Public social output is a separate editorial channel. OG cards use
 overview. Scheduled Remotion marketing may publish a selected full
 `quote_text` (truncated in the video and complete in its caption). That explicit
 editorial exception is not available through a public report API; changing it
-requires a content-policy decision.
+requires a content-policy decision. Product/content owns that exception and
+must re-approve it before the next production social campaign, or by
+**2026-09-30**, whichever comes first. Until then it remains limited to the
+scheduled marketing pipeline; it is not a precedent for public API delivery.
 
 What is actually being sold on iOS is unchanged: Eddy's long-form writing, the
 72-hour strip's interpretation, the weather section and the bottom line. What
@@ -300,9 +303,13 @@ The tier is only as strong as the narrowest thing that can produce the string.
   component would pass happily if some other layer handed it a `quoteText`
   already renamed to `text`; a type that cannot carry the full quote closes that
   path instead of policing it.
-- **Behavioral route coverage.** Exercise public, entitled, expired-token,
-  inactive-entitlement, and verification-error outcomes. Source assertions may
-  remain cheap backstops, but must not be the only test of the server boundary.
+- **Behavioral boundary coverage.** Exercise public and entitled prose through
+  `tierGeneratedEddyProse`; exercise expired-token, inactive-entitlement, and
+  verification-error outcomes through the verifier seam in
+  `optionalEntitlement`; and exercise both cache variants through
+  `optionalAuthCacheHeaders`. A route-wiring assertion pins all three tiered
+  handlers to that tested cache helper so none can silently hand-roll the
+  security-sensitive `Vary` / `private, no-store` split.
 - **Record the delivery contract** here and in the public components: the web
   shows the summary and points to the iOS app for the full read.
 

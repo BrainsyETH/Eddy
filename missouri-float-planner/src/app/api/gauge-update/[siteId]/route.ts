@@ -2,7 +2,7 @@
 // Returns the latest non-expired per-gauge Haiku update for a USGS site.
 
 import { NextRequest, NextResponse } from 'next/server';
-import { cdnCacheHeaders, privateNoStore } from '@/lib/api-utils';
+import { optionalAuthCacheHeaders } from '@/lib/api-utils';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { toNum } from '@/lib/utils/num';
 import { applyFloodStageOverride, computeConditionFromDbRow } from '@/lib/conditions';
@@ -33,18 +33,19 @@ export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ siteId: string }> },
 ) {
+  const responseHeaders = optionalAuthCacheHeaders(
+    Boolean(request.headers.get('authorization')),
+    300,
+    1800,
+  );
   try {
     const { siteId } = await params;
-    const authHeaderPresent = Boolean(request.headers.get('authorization'));
     const auth = await optionalEntitlement(request);
     // A bearer token asks for the premium representation. Do not turn an
     // expired token or failed entitlement lookup into a successful free
     // response; callers need the original status in order to recover.
     if (auth instanceof NextResponse) return auth;
     const entitled = auth !== null;
-    const responseHeaders = authHeaderPresent
-      ? privateNoStore()
-      : { ...cdnCacheHeaders(300, 1800), Vary: 'Authorization' };
     const supabase = createAdminClient();
 
     const { data, error } = await supabase
@@ -58,7 +59,7 @@ export async function GET(
 
     if (error) {
       console.error(`[GaugeUpdate] Query error for ${siteId}:`, error);
-      return NextResponse.json<GaugeUpdateResponse>({ available: false, update: null }, { status: 500 });
+      return NextResponse.json<GaugeUpdateResponse>({ available: false, update: null }, { status: 500, headers: responseHeaders });
     }
 
     if (!data) {
@@ -137,6 +138,6 @@ export async function GET(
     }, { headers: responseHeaders });
   } catch (error) {
     console.error('[GaugeUpdate] Unexpected error:', error);
-    return NextResponse.json<GaugeUpdateResponse>({ available: false, update: null }, { status: 500 });
+    return NextResponse.json<GaugeUpdateResponse>({ available: false, update: null }, { status: 500, headers: responseHeaders });
   }
 }

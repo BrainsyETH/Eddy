@@ -278,10 +278,15 @@ interface EddyTakeProps {
    * paint the full paid report for as long as /api/me/profile took, and then
    * yank it away — the report leaked to non-subscribers by default, and the
    * flash looked like a bug to everyone else. Loading renders a skeleton.
+   * `'error'` is a fourth, explicit state: the Premium request failed without
+   * an entitlement decision, so the card offers a retry instead of pretending
+   * the deterministic short read is the paid response.
    */
-  entitled?: boolean | null | 'pending';
+  entitled?: boolean | null | 'pending' | 'error';
   /** Opens the paywall. Only ever called from the locked take. */
   onUpgrade?: () => void;
+  /** Retries a Premium read that failed without an entitlement decision. */
+  onRetry?: () => void;
 }
 
 export function EddyTake({
@@ -289,6 +294,7 @@ export function EddyTake({
   ratedUnit = null,
   entitled = null,
   onUpgrade,
+  onRetry,
 }: EddyTakeProps) {
   const { colors, elevation } = useTheme();
   const { sections, days } = outlook;
@@ -300,6 +306,7 @@ export function EddyTake({
   const read = outlook.fullRead || sections?.eddyRead || '';
   const locked = entitled === false;
   const resolving = entitled === 'pending';
+  const failed = entitled === 'error';
 
   return (
     <View style={styles.wrapper}>
@@ -491,6 +498,24 @@ export function EddyTake({
                   ]}
                 />
               ))}
+            </View>
+          ) : failed ? (
+            <View style={[styles.loadError, { backgroundColor: colors.cardRaised }]}>
+              <Ionicons name="cloud-offline-outline" size={18} color={colors.textMuted} />
+              <View style={styles.loadErrorCopy}>
+                <Text style={[styles.loadErrorTitle, { color: colors.text }]}>Full read couldn&apos;t load</Text>
+                <Text style={[styles.loadErrorBody, { color: colors.textSubtle }]}>The river facts above are still current.</Text>
+              </View>
+              {onRetry ? (
+                <Pressable
+                  onPress={onRetry}
+                  hitSlop={8}
+                  accessibilityRole="button"
+                  accessibilityLabel="Try loading Eddy's take again"
+                >
+                  <Text style={[styles.loadErrorAction, { color: colors.interactive }]}>Try again</Text>
+                </Pressable>
+              ) : null}
             </View>
           ) : (
             <>
@@ -692,6 +717,11 @@ const styles = StyleSheet.create({
   // real answer lands — a skeleton that changes the layout is just a slower
   // version of the flash it was added to prevent.
   skeletonLine: { height: 11, borderRadius: 5, marginTop: 9 },
+  loadError: { flexDirection: 'row', alignItems: 'center', gap: 10, padding: 12, borderRadius: 12 },
+  loadErrorCopy: { flex: 1, minWidth: 0 },
+  loadErrorTitle: { ...t.sm, fontFamily: fonts.semibold },
+  loadErrorBody: { ...t.xs, fontFamily: fonts.body, marginTop: 2 },
+  loadErrorAction: { ...t.sm, fontFamily: fonts.semibold },
   lock: {
     padding: 13,
     borderRadius: 14,

@@ -148,29 +148,27 @@ export function EddyReportCard({ report }: { report: EddyReport | null | undefin
           {relativeTime(report.generatedAt)}
         </span>
       </div>
-      {report.summaryText && (
-        <p
-          className="mt-2 leading-snug"
-          style={{ fontFamily: SANS, fontSize: 13, fontWeight: 600, color: THEME.primaryDark }}
-        >
-          “{report.summaryText}”
-        </p>
-      )}
+      <p
+        className="mt-2 leading-snug"
+        style={{ fontFamily: SANS, fontSize: 13, fontWeight: 600, color: THEME.primaryDark }}
+      >
+        “{report.summaryText}”
+      </p>
       <Link
-          href="/app"
-          className="mt-2 inline-block uppercase font-bold transition-opacity hover:opacity-70"
-          style={{
-            fontFamily: MONO,
-            fontSize: 9,
-            letterSpacing: '0.15em',
-            color: THEME.inkDim,
-            background: 'transparent',
-            border: 'none',
-            padding: 0,
-            cursor: 'pointer',
-          }}
-        >
-          Unlock the full read in the iOS app
+        href="/app"
+        className="mt-2 inline-block uppercase font-bold transition-opacity hover:opacity-70"
+        style={{
+          fontFamily: MONO,
+          fontSize: 9,
+          letterSpacing: '0.15em',
+          color: THEME.inkDim,
+          background: 'transparent',
+          border: 'none',
+          padding: 0,
+          cursor: 'pointer',
+        }}
+      >
+        Unlock the full read in the iOS app
       </Link>
     </div>
   );

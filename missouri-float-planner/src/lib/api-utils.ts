@@ -38,6 +38,27 @@ export function privateNoStore(): Record<string, string> {
 }
 
 /**
+ * Cache policy for a route whose public and bearer-authenticated bodies differ.
+ *
+ * Public responses may use the CDN, but must vary on Authorization so a cache
+ * can never reuse that representation for a bearer request. Any request that
+ * presents a bearer is private/no-store, including unavailable and error
+ * responses. Keeping both halves in one helper makes the security boundary a
+ * behavioral contract instead of three hand-written header expressions.
+ */
+export function optionalAuthCacheHeaders(
+  authenticated: boolean,
+  sMaxageSeconds: number,
+  staleWhileRevalidateSeconds: number,
+): Record<string, string> {
+  if (authenticated) return privateNoStore();
+  return {
+    ...cdnCacheHeaders(sMaxageSeconds, staleWhileRevalidateSeconds),
+    Vary: 'Authorization',
+  };
+}
+
+/**
  * NextResponse.json with privateNoStore applied.
  *
  * Used for EVERY response in `/api/me/*`, including errors, rather than only

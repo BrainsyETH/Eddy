@@ -3,7 +3,7 @@
 // Optionally filtered by section via ?section=upper-current
 
 import { NextRequest, NextResponse } from 'next/server';
-import { cdnCacheHeaders, privateNoStore } from '@/lib/api-utils';
+import { optionalAuthCacheHeaders } from '@/lib/api-utils';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { withX402Route } from '@/lib/x402-config';
 import { toNum } from '@/lib/utils/num';
@@ -36,9 +36,13 @@ async function _GET(
   request: NextRequest,
   { params }: { params: Promise<{ riverSlug: string }> }
 ) {
+  const responseHeaders = optionalAuthCacheHeaders(
+    Boolean(request.headers.get('authorization')),
+    300,
+    1800,
+  );
   try {
     const { riverSlug } = await params;
-    const authHeaderPresent = Boolean(request.headers.get('authorization'));
     const auth = await optionalEntitlement(request);
     // A bearer token is an explicit request for the premium representation.
     // Preserve verification failures so the caller can refresh an expired
@@ -47,9 +51,6 @@ async function _GET(
     // indistinguishable from a free account.
     if (auth instanceof NextResponse) return auth;
     const entitled = auth !== null;
-    const responseHeaders = authHeaderPresent
-      ? privateNoStore()
-      : { ...cdnCacheHeaders(300, 1800), Vary: 'Authorization' };
     const supabase = createAdminClient();
 
     const sectionSlug = request.nextUrl.searchParams.get('section') || null;
@@ -75,7 +76,7 @@ async function _GET(
       console.error(`[EddyUpdate] Query error for ${riverSlug}:`, error);
       return NextResponse.json<EddyUpdateResponse>(
         { available: false, update: null },
-        { status: 500 }
+        { status: 500, headers: responseHeaders }
       );
     }
 
@@ -140,7 +141,7 @@ async function _GET(
     console.error('[EddyUpdate] Unexpected error:', error);
     return NextResponse.json<EddyUpdateResponse>(
       { available: false, update: null },
-      { status: 500 }
+      { status: 500, headers: responseHeaders }
     );
   }
 }
