@@ -149,28 +149,19 @@ export function MapSheet({
   const glanceOnly = children == null;
 
   /**
-   * The air under the last row of the peek — the SAME expression the content
-   * column pads with, deliberately.
+   * Air under the last row of the peek.
    *
-   * ── The peek had none, and it clipped its own primary button ────────────
-   * The column's paddingBottom sits below `children`, which at the peek detent
-   * is hundreds of points under the fold and therefore contributes nothing. So
-   * the peek detent resolved to exactly grabber + peek subtree, putting the last
-   * row — "Use as put-in", the one action the glance exists to offer — flush
-   * against the card's bottom edge, which is the tab bar's top edge.
+   * This must be REAL layout space inside the measured peek, not just a number
+   * added to its detent. Adding it only to the detent makes the sheet 28pt
+   * taller while the next child still begins immediately after the peek, so
+   * the collapsed sheet reveals exactly 28pt of the category row below it.
+   * Padding the measured wrapper makes the visible height and the content
+   * boundary the same fact: the sheet stops after the details link and its air,
+   * and the category row begins below the fold.
    *
-   * Mirroring the column's expression rather than picking a number is what keeps
-   * the peek and the tallest detent from disagreeing about how much air the
-   * sheet owes its content.
-   *
-   * NO SAFE-AREA INSET. This read `insets.bottom + CONTENT_BOTTOM_PAD` while the
-   * rest of this comment argued that the tab navigator had already consumed the
-   * inset "so in practice this is CONTENT_BOTTOM_PAD alone" — a sum and a claim
-   * that cannot both be right. useSafeAreaInsets() reports the WINDOW's inset
-   * and a tab bar sitting in that band does not zero it, so on a home-indicator
-   * phone this was 34pt over. `available` is measured from the map's overlay
-   * stack, which already excludes the tab bar and both insets (see above), so
-   * the sheet cannot reach the home indicator and owes it no clearance.
+   * NO SAFE-AREA INSET. `available` is measured from the map's overlay stack,
+   * which already excludes the tab bar and both insets, so the sheet cannot
+   * reach the home indicator and owes it no clearance.
    */
   const peekBottomPad = CONTENT_BOTTOM_PAD;
 
@@ -179,10 +170,10 @@ export function MapSheet({
       resolveDetents(
         available,
         contentHeight > 0 ? contentHeight + GRABBER_BLOCK : 0,
-        peekHeight > 0 ? peekHeight + peekBottomPad : 0,
+        peekHeight,
         glanceOnly,
       ),
-    [available, contentHeight, peekHeight, peekBottomPad, glanceOnly],
+    [available, contentHeight, peekHeight, glanceOnly],
   );
 
   // translateY is the DISTANCE THE SHEET IS PUSHED DOWN from fully open, so 0
@@ -434,11 +425,9 @@ export function MapSheet({
     setPeekHeight(Math.round(event.nativeEvent.layout.height) + GRABBER_BLOCK);
   }, []);
 
-  // `peekHeight`, not `peekHeight + peekBottomPad`: the pad below the peek is
-  // only on screen at the peek detent, and this budget is for the tallest one.
-  //
-  // No inset argument any more — pageBudget stopped taking one when the bottom
-  // pad moved inside the pages. See CONTENT_BOTTOM_PAD.
+  // peekHeight includes the real padding on the wrapper below. It must come out
+  // of the page budget because it remains between the peek and the pages at the
+  // tallest detent too. No inset argument: the overlay already excludes it.
   const budget = useMemo(() => pageBudget(available, peekHeight), [available, peekHeight]);
 
   const scrollContext = useMemo(
@@ -531,7 +520,7 @@ export function MapSheet({
           </View>
 
           <SheetScrollContext.Provider value={scrollContext}>
-            {/* ── THE BOTTOM PAD IS THE PAGES' NOW, NOT THE COLUMN'S ────────
+            {/* ── EACH CONTENT REGION OWNS ITS OWN BOTTOM PAD ───────────────
                 This column used to carry `paddingBottom: inset + PAD`, which
                 put it BELOW the pager — so it was never air under the last row
                 of a page, it was a permanent empty strip across the foot of the
@@ -539,13 +528,14 @@ export function MapSheet({
                 own scroll content instead (SheetPager), so the gap is where it
                 claimed to be: at the end of what you are reading.
 
-                The single-page callout still needs it here, because it has no
-                scroller to put it in. */}
-            <View
-              onLayout={onContentLayout}
-              style={glanceOnly ? { paddingBottom: peekBottomPad } : undefined}
-            >
-              <View onLayout={onPeekLayout}>{peek}</View>
+                The peek owns a separate gap on its own wrapper. That is
+                load-bearing: making only its DETENT taller exposes the next
+                child's first 28pt instead of creating air under the peek. A
+                single-page callout is all peek, so the same wrapper covers it. */}
+            <View onLayout={onContentLayout}>
+              <View onLayout={onPeekLayout} style={{ paddingBottom: peekBottomPad }}>
+                {peek}
+              </View>
               {children}
             </View>
           </SheetScrollContext.Provider>

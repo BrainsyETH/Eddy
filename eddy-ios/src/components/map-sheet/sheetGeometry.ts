@@ -60,7 +60,7 @@ export const REDUCED_SETTLE = { duration: 0 } as const;
 export const GRABBER_BLOCK = 16;
 
 /**
- * Air under the last row of a page.
+ * Air under the last row of a page or collapsed peek.
  *
  * 28 rather than 12. The sheet's bottom edge is the tab bar's top edge, so this
  * is the only thing between the final line of content and a hard chrome border —
@@ -78,11 +78,13 @@ export const GRABBER_BLOCK = 16;
  *
  * It is now applied to each page's scroll CONTENT (see SheetPager), so it is
  * what it always claimed to be: the gap you arrive at when you reach the end.
- * pageBudget therefore no longer subtracts it — the viewport is the whole card,
- * and the pad rides inside what scrolls through it.
+ * The peek separately applies it to its own measured wrapper (see MapSheet),
+ * so its resting edge lands after real space instead of revealing the next row.
+ * pageBudget does not subtract the PAGE pad — the viewport is the whole card,
+ * and that pad rides inside what scrolls through it. The peek's gap is already
+ * included in measured `peekHeight`, so it is naturally accounted for there.
  *
- * The single-page callout keeps it on the column, because there is no scroller
- * there for it to live in.
+ * A single-page callout is all peek, so the measured wrapper covers its gap too.
  *
  * ── AND IT IS NOT ADDED TO THE SAFE-AREA INSET ANY MORE ───────────────────
  *
@@ -161,15 +163,15 @@ export const ORNAMENT_BAND = 62;
  * adds it explicitly — and it is the same number it hands resolveDetents, so the
  * grabber is discounted here once, not twice.
  *
- * ── NEITHER THE PAD NOR THE INSET IS SUBTRACTED ANY MORE ──────────────────
+ * ── NEITHER THE PAGE PAD NOR THE INSET IS SUBTRACTED SEPARATELY ───────────
  *
- * Both used to be. CONTENT_BOTTOM_PAD now lives inside each page's scroll
- * content instead of under the pager (see its own note), so it is part of what
- * scrolls THROUGH this viewport rather than something taken off it — charging
- * for it here as well would shorten every page by 28pt for a gap that is no
- * longer in the way. The safe-area inset is gone for the reason given there
- * too: `available` is measured from an overlay that already excludes the tab
- * bar and both insets, so the sheet never reaches the home indicator.
+ * Both used to be explicit terms. CONTENT_BOTTOM_PAD inside each page's scroll
+ * content is part of what scrolls THROUGH this viewport rather than something
+ * taken off it. The peek's own real gap is different: onPeekLayout includes it
+ * in `peekHeight`, so the ordinary peek subtraction below accounts for it once.
+ * The safe-area inset is gone for the reason given there too: `available` is
+ * measured from an overlay that already excludes the tab bar and both insets,
+ * so the sheet never reaches the home indicator.
  */
 export function pageBudget(available: number, peekHeight = 0): number {
   const peek = Math.max(0, peekHeight - GRABBER_BLOCK);

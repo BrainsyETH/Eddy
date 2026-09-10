@@ -283,7 +283,8 @@ test('peek plus chrome plus a full page still fits the tallest detent', () => {
   // The property the whole budget exists to hold, now with the peek in it: a
   // page that fills its budget must not push the column past what the sheet can
   // show. This is the assertion that would have failed before the fix.
-  const peek = 240;
+  // The measurement includes the real padding on the peek wrapper.
+  const peek = 240 + CONTENT_BOTTOM_PAD;
   const chrome = 90;
   const page = pageBudget(TALL, peek) - chrome;
   // What MapSheet's content column measures: the peek's own subtree (the peek
@@ -297,12 +298,15 @@ test('peek plus chrome plus a full page still fits the tallest detent', () => {
   );
 });
 
-test('the peek detent leaves room under the last row of the peek', () => {
-  // A peek measured to its own height put the primary action flush against the
-  // card's bottom edge — which is the tab bar's top edge — and clipped it. The
-  // sheet pads the measurement before handing it over, so the caller's job is
-  // simply that a padded peek resolves taller than a bare one.
+test('a padded peek grows its detent and reduces the page budget by the same amount', () => {
+  // MapSheet puts CONTENT_BOTTOM_PAD on the measured peek wrapper. The same
+  // measured value drives both calculations: the collapsed detent therefore
+  // ends after that real space, and expanded pages cannot spend it again.
   const bare = resolveDetents(TALL, 900, 240).height.peek;
   const padded = resolveDetents(TALL, 900, 240 + CONTENT_BOTTOM_PAD).height.peek;
   assert.equal(padded - bare, CONTENT_BOTTOM_PAD);
+  assert.equal(
+    pageBudget(TALL, 240) - pageBudget(TALL, 240 + CONTENT_BOTTOM_PAD),
+    CONTENT_BOTTOM_PAD,
+  );
 });
