@@ -47,7 +47,7 @@ async function _GET() {
 
     if (error) {
       console.error('[EddyUpdates] Query error:', error);
-      return NextResponse.json<EddyUpdatesResponse>({ updates: {} }, { status: 500 });
+      return NextResponse.json<EddyUpdatesResponse>({ updates: {}, statewide: null }, { status: 500 });
     }
 
     // Keep the most recent row per river (results are ordered desc).
@@ -116,13 +116,17 @@ async function _GET() {
     );
 
     const updates: Record<string, EddyUpdateEntry> = {};
+    let statewide: EddyUpdatesResponse['statewide'] = null;
     for (const u of overlaid) {
       const quoteText = u.quote_text ?? '';
       const summaryText = u.summary_text ?? null;
+      if (u.river_slug === 'global') {
+        if (quoteText) statewide = { prose: quoteText, generatedAt: u.generated_at };
+        continue;
+      }
       // Skip rivers whose prose the overlay cleared (live condition diverged).
-      if (!quoteText && !summaryText) continue;
+      if (!summaryText) continue;
       updates[u.river_slug] = {
-        quoteText,
         summaryText,
         conditionCode: u.condition_code,
         gaugeHeightFt: u.gauge_height_ft,
@@ -147,9 +151,9 @@ async function _GET() {
      * written before. The count and the live list below it still answer the
      * question, which is why removing this costs the screen nothing.
      */
-    if (updates.global) {
+    if (statewide) {
       const verdict = gateGlobalProse({
-        generatedAt: updates.global.generatedAt,
+        generatedAt: statewide.generatedAt,
         live: Array.from(liveConditions.entries()).map(([slug, c]) => ({
           conditionCode: c.condition_code,
           conditionWhenWritten: conditionsWhenGlobalWritten.get(slug) ?? null,
@@ -161,14 +165,14 @@ async function _GET() {
       });
       if (!verdict.show) {
         console.warn(`[EddyUpdates] statewide summary withheld: ${verdict.reason}`);
-        delete updates.global;
+        statewide = null;
       }
     }
 
-    return NextResponse.json<EddyUpdatesResponse>({ updates }, { headers: cdnCacheHeaders(300, 1800) });
+    return NextResponse.json<EddyUpdatesResponse>({ updates, statewide }, { headers: cdnCacheHeaders(300, 1800) });
   } catch (error) {
     console.error('[EddyUpdates] Unexpected error:', error);
-    return NextResponse.json<EddyUpdatesResponse>({ updates: {} }, { status: 500 });
+    return NextResponse.json<EddyUpdatesResponse>({ updates: {}, statewide: null }, { status: 500 });
   }
 }
 

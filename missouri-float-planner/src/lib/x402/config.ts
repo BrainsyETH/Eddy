@@ -160,6 +160,7 @@ export const X402_ROUTES = {
   '/api/vessel-types': { price: '$0.001', description: 'Vessel types data' },
   '/api/conditions/:riverId': { price: '$0.01', description: 'River conditions data' },
   '/api/weather': { price: '$0.01', description: 'Weather data' },
+  '/api/weather/forecast': { price: '$0.01', description: 'Coordinate weather forecast' },
   '/api/weather/:riverSlug': { price: '$0.01', description: 'River weather data' },
   '/api/weather/:riverSlug/forecast': { price: '$0.01', description: 'Weather forecast data' },
   '/api/blog': { price: '$0.005', description: 'Blog posts data' },

@@ -263,7 +263,7 @@ export default function GaugeDetailView({ siteId }: GaugeDetailViewProps) {
 
   const eddyDisplayText = eddyUpdate?.summaryText && !eddyShowFull
     ? eddyUpdate.summaryText
-    : eddyUpdate ? eddyUpdate.quoteText : buildStaticText();
+    : eddyUpdate?.summaryText ?? buildStaticText();
 
   if (loading) {
     return (

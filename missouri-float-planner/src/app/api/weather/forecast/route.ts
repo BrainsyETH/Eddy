@@ -4,12 +4,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { cdnCacheHeaders } from '@/lib/api-utils';
 import { fetchForecast } from '@/lib/weather/openweather';
+import { withX402Route } from '@/lib/x402-config';
 
 // Simple in-memory cache
 const forecastCache = new Map<string, { data: unknown; timestamp: number }>();
 const CACHE_TTL = 60 * 60 * 1000; // 1 hour
 
-export async function GET(request: NextRequest) {
+async function _GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
   const lat = searchParams.get('lat');
   const lon = searchParams.get('lon');
@@ -58,3 +59,5 @@ export async function GET(request: NextRequest) {
     );
   }
 }
+
+export const GET = withX402Route(_GET, '/api/weather/forecast');

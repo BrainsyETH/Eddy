@@ -45,8 +45,8 @@ import type {
   RiverVisualsResponse,
   RiverService,
   RiversResponse,
-  EddyUpdateEntry,
   EddyUpdatesResponse,
+  LocationWeatherForecast,
   RiverListItem,
   SavePlanResponse,
   SearchResponse,
@@ -79,6 +79,7 @@ import type {
   RiverAlertsResponse,
 } from '@eddy/types';
 import type { CampsiteSitesResponse } from '@eddy/types';
+import type { Coords } from '@eddy/geo';
 import { normalizeGaugeHistory } from '@eddy/conditions/history-normalize';
 import type { ServerStar } from '@eddy/sync';
 import type { StatewideReading, StatewideRiver } from '@/lib/statewideNetwork';
@@ -283,13 +284,17 @@ async function fetchOnce(
   }
 }
 
-async function get<T>(path: string, signal?: AbortSignal): Promise<T> {
+async function get<T>(path: string, signal?: AbortSignal, token?: string | null): Promise<T> {
   const deadline = withDeadline(signal);
   const startedAt = Date.now();
   let response: Response;
   try {
     response = await fetch(`${BASE_URL}${path}`, {
-      headers: { Accept: 'application/json', 'User-Agent': USER_AGENT },
+      headers: {
+        Accept: 'application/json',
+        'User-Agent': USER_AGENT,
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
       signal: deadline.signal,
     });
   } catch (err) {
@@ -531,9 +536,12 @@ export async function unstarGauge(token: string, gaugeId: string): Promise<void>
  */
 export async function fetchEddyUpdates(
   signal?: AbortSignal,
-): Promise<Record<string, EddyUpdateEntry>> {
+): Promise<EddyUpdatesResponse> {
   const data = await get<EddyUpdatesResponse>('/api/eddy-updates', signal);
-  return data.updates ?? {};
+  return {
+    updates: data.updates ?? {},
+    statewide: data.statewide ?? null,
+  };
 }
 
 /** All curated Eddy Rivers with their current condition. */
@@ -1402,13 +1410,33 @@ export async function fetchRiverOutlook(
   slug: string,
   signal?: AbortSignal,
   gaugeId?: string | null,
+  token?: string | null,
 ): Promise<RiverOutlookResponse | null> {
   const query = gaugeId ? `?gaugeId=${encodeURIComponent(gaugeId)}` : '';
   const data = await get<RiverOutlookResponse>(
     `/api/rivers/${encodeURIComponent(slug)}/outlook${query}`,
     signal,
+    token,
   );
   return data.available ? data : null;
+}
+
+/**
+ * Forecast near the device, independent of any river or gauge selection.
+ *
+ * Coordinates are quantised before they leave the phone. Five-hundredths of a
+ * degree is local enough for a useful daily forecast, avoids transmitting a
+ * trailhead-level position, and gives the CDN keys that nearby users share.
+ */
+export async function fetchLocationWeather(
+  coords: Coords,
+  signal?: AbortSignal,
+): Promise<LocationWeatherForecast> {
+  const quantise = (value: number) => (Math.round(value / 0.05) * 0.05).toFixed(2);
+  return get<LocationWeatherForecast>(
+    `/api/weather/forecast?lat=${quantise(coords.lat)}&lon=${quantise(coords.lng)}`,
+    signal,
+  );
 }
 
 /**

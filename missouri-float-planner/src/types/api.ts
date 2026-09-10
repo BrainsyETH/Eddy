@@ -1389,7 +1389,6 @@ export interface RiverAlertsResponse {
 // cannot resolve the package. See the note at the top of eddy-types.
 
 export interface EddyUpdateEntry {
-  quoteText: string;
   summaryText: string | null;
   conditionCode: string;
   gaugeHeightFt: number | null;
@@ -1401,8 +1400,10 @@ export interface EddyUpdateEntry {
 }
 
 export interface EddyUpdatesResponse {
-  /** Keyed by river slug; the statewide summary is under "global". */
+  /** Keyed by river slug; contains free summaries only. */
   updates: Record<string, EddyUpdateEntry>;
+  /** Free statewide overview, or null when the live safety gate withholds it. */
+  statewide: { prose: string; generatedAt: string } | null;
 }
 
 // ── Springs (offline bundle) ────────────────────────────────────────────────

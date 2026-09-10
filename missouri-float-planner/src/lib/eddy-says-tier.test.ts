@@ -3,10 +3,10 @@
 //
 // ── The rule under test ────────────────────────────────────────────────────
 // Per-river summary_text is free; per-river quote_text is the artifact EddyTake
-// sells, and it reaches the app twice — inside EddyUpdateEntry from the batched
-// /api/eddy-updates, and as `fullRead` on /api/rivers/[slug]/outlook, which is
-// the same column. The statewide 'global' row is a separate free overview and
-// is not routed through the selector at all.
+// sells. The public /api/eddy-updates DTO does not carry that column; fullRead
+// is available only through the entitled outlook response. The statewide
+// overview is a separately named public field and is not routed through the
+// selector at all.
 //
 // ── Why the SHAPE is asserted and not just the value ───────────────────────
 // A source assertion over the component would pass happily if some layer in
@@ -96,7 +96,7 @@ test('the selector cannot return the full quote, by construction', () => {
   );
 });
 
-test('the statewide card still renders the global quote directly', () => {
+test('the statewide card renders the explicitly public statewide prose', () => {
   // The rule is about PER-RIVER quote_text. insertGlobal in the
   // generate-eddy-updates cron writes quote_text and nothing else for
   // river_slug 'global' — there is no summary_text on that row, ever — so the
@@ -111,9 +111,28 @@ test('the statewide card still renders the global quote directly', () => {
   );
   assert.match(
     reports,
-    /prose=\{summary\?\.quoteText \?\? null\}/,
-    'the Today tab no longer renders the statewide quote directly',
+    /prose:\s*statewideUpdate\?\.prose \?\? null/,
+    'the Today tab no longer renders the public statewide prose',
   );
+});
+
+test('the public updates DTO cannot carry a per-river full quote', () => {
+  const shared = readFileSync(
+    join(process.cwd(), '../packages/eddy-types/index.ts'),
+    'utf8',
+  );
+  const block = shared.match(/export interface EddyUpdateEntry \{([\s\S]*?)\n\}/)?.[1] ?? '';
+  assert.ok(!/quoteText|fullRead/.test(block), 'the public batch DTO exposes premium prose');
+});
+
+test('the outlook returns a full read only after server-side entitlement', () => {
+  const route = readFileSync(
+    join(process.cwd(), 'src/app/api/rivers/[slug]/outlook/route.ts'),
+    'utf8',
+  );
+  assert.match(route, /requireEntitlement\(request\)/);
+  assert.match(route, /fullRead:\s*entitled \? fullRead : null/);
+  assert.match(route, /Cache-Control': 'private, no-store'/);
 });
 
 test('refresh never discards the cache it is refreshing', () => {

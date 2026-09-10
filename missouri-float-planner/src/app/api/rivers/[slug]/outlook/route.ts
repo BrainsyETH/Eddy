@@ -77,6 +77,7 @@ import {
 import type { EddyTakeSections } from '@/lib/eddy/take-sections';
 import type { ConditionCode } from '@/types/api';
 import { withX402Route } from '@/lib/x402-config';
+import { requireEntitlement } from '@/lib/entitlement';
 
 export const dynamic = 'force-dynamic';
 
@@ -140,9 +141,9 @@ export interface RiverOutlookApiResponse {
    * The long-form read: the same 4-6 sentence prose /rivers shows on the web,
    * as opposed to `sections.eddyRead`, which is one line.
    *
-   * Null when no model prose exists for this river, and — importantly — also
-   * null when the live river has moved far enough that the prose would
-   * contradict the condition badge. See the overlay call below.
+   * Null without an active Premium entitlement. Entitled callers also receive
+   * null when no model prose exists or live water has moved far enough that the
+   * prose would contradict the condition badge. See the overlay call below.
    */
   fullRead: string | null;
   /** Present only when a model wrote the read; null means it is deterministic. */
@@ -188,6 +189,11 @@ async function _GET(
 ) {
   try {
     const { slug } = await params;
+    const authHeaderPresent = Boolean(request.headers.get('authorization'));
+    // Public outlooks stay on the fast path. Only a caller presenting a token
+    // asks the auth service whether the premium field may be included.
+    const entitlement = authHeaderPresent ? await requireEntitlement(request) : null;
+    const entitled = Boolean(entitlement && !(entitlement instanceof NextResponse));
     // gauge_stations.id, which is what /api/gauges hands the app as MapGauge.id
     // — the same key the reading card and the gauge picker are keyed on.
     const requestedGaugeId = request.nextUrl.searchParams.get('gaugeId');
@@ -567,7 +573,7 @@ async function _GET(
         gaugeName: station?.name ?? null,
         gaugeStationId: gauge.gauge_station_id ?? null,
         weatherLocation,
-        fullRead,
+        fullRead: entitled ? fullRead : null,
         generatedAt:
           update?.eddy_read
             ? update.generated_at
@@ -578,7 +584,11 @@ async function _GET(
       // Short CDN life with a long stale window: the weather and NWS inputs
       // refresh hourly at best, and a slightly stale outlook beside a live
       // condition is better than a spinner on a phone with no signal to spare.
-      { headers: cdnCacheHeaders(300, 1800) },
+      {
+        headers: authHeaderPresent
+          ? { 'Cache-Control': 'private, no-store' }
+          : cdnCacheHeaders(300, 1800),
+      },
     );
   } catch (error) {
     console.error('[RiverOutlook] Unexpected error:', error);

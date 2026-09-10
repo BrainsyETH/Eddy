@@ -96,6 +96,7 @@ import { EddySymbol } from '@/components/EddySymbol';
 import { Otter, otterForCondition } from '@/components/Otter';
 import { useStarredRivers } from '@/hooks/useStarredRivers';
 import { useAccount } from '@/hooks/useAccount';
+import { useSession } from '@/hooks/useSession';
 import { goBack } from '@/lib/nav';
 import { AlertOriginRow } from '@/components/AlertOriginRow';
 import { pickPrimaryRiverLink } from '@eddy/conditions/primary-river-link';
@@ -181,6 +182,8 @@ export default function GaugeDetailScreen() {
     error: accountError,
     refresh: refreshAccount,
   } = useAccount();
+  const { getAccessToken } = useSession();
+  const canRequestPremium = accountLoaded && !accountError && Boolean(entitlement?.isActive);
 
   // Seeded synchronously from whatever opened this screen, so the first frame
   // has the reading on it. Null on a deep link, which is the loading path.
@@ -312,13 +315,18 @@ export default function GaugeDetailScreen() {
     if (!reportSlug) return;
     const key = `${reportSlug}:${reportGaugeId ?? ''}`;
     const controller = new AbortController();
-    fetchRiverOutlook(reportSlug, controller.signal, reportGaugeId)
+    void (async () => fetchRiverOutlook(
+      reportSlug,
+      controller.signal,
+      reportGaugeId,
+      canRequestPremium ? await getAccessToken() : null,
+    ))()
       .catch(() => null)
       .then((data) => {
         if (!controller.signal.aborted) setReport({ key, data });
       });
     return () => controller.abort();
-  }, [reportSlug, reportGaugeId]);
+  }, [canRequestPremium, getAccessToken, reportSlug, reportGaugeId]);
 
   /** The held report, but only while it still describes the station on screen. */
   const outlook = reportKey && report?.key === reportKey ? report.data : null;
