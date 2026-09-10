@@ -91,7 +91,7 @@ export function PushPrimer({ visible, riverName, promise, onAllow, onDismiss }: 
             />
             <Point
               icon="settings-outline"
-              text="Turn them off any time in Profile."
+              text="Turn them off any time in Settings."
               colors={colors}
             />
           </View>

@@ -11,20 +11,26 @@
 //     real user reinstalling needs it.
 //   * Delete Account (Guideline 5.1.1(v)) — in-app, and actually deleting. Not
 //     deactivating, not emailing support.
-//   * Auto-renew disclosure plus Terms and Privacy, shown WITH the subscription
-//     controls rather than buried behind a link.
+//   * Auto-renew disclosure plus Terms and Privacy remain on PaywallSheet, the
+//     point of sale. Settings keeps direct links without repeating legal copy.
 //
-// Notification preferences show OS state rather than duplicating it. iOS owns
-// the permission, so a switch here would be a second source of truth that can
-// disagree with Settings — the section reports what is true and links to the
-// place that can change it.
+// Notification preferences distinguish Eddy's device opt-out from iOS
+// permission. A switch appears only while Eddy can honor it; denied permission
+// links to iOS Settings, and the remote kill switch renders unavailable state.
 //
 // Colour convention, as everywhere in this app: StyleSheet.create holds layout
 // and type only — it runs once at import, so a colour written into it would be
 // frozen at whichever scheme the app launched with. Colour comes from
 // useTheme(), inline.
 
-import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type ComponentProps,
+  type ReactNode,
+} from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -34,6 +40,7 @@ import {
   RefreshControl,
   ScrollView,
   StyleSheet,
+  Switch,
   Text,
   View,
 } from 'react-native';
@@ -61,10 +68,10 @@ import {
   type EntitlementSnapshot,
 } from '@/lib/purchases';
 import { usePush } from '@/hooks/usePush';
+import { useAppConfig } from '@/hooks/useAppConfig';
 import { notificationDetail } from '@/lib/notificationCopy';
 import { FeedbackSheet } from '@/components/FeedbackSheet';
 import { PaywallSheet } from '@/components/PaywallSheet';
-import { SafetyDisclaimer } from '@/components/SafetyDisclaimer';
 import { PRIVACY_URL, TERMS_URL } from '@/lib/legal';
 import { report, resolveEnvironment } from '@/lib/monitoring';
 import { resetFirstRun } from '@/lib/onboarding';
@@ -105,11 +112,13 @@ export default function ProfileScreen() {
   } = useSession();
   const { profile, entitlement, loaded, error, refresh } = useAccount();
   const { permission, optedOut, registered, enable, disable } = usePush();
+  const { features } = useAppConfig();
 
   const [busy, setBusy] = useState<null | 'apple' | 'restore' | 'redeem' | 'delete'>(null);
   const [feedbackOpen, setFeedbackOpen] = useState(false);
   const [paywallOpen, setPaywallOpen] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [alertsBusy, setAlertsBusy] = useState(false);
 
   /**
    * The App Store has confirmed a purchase the server has not caught up with.
@@ -470,14 +479,49 @@ export default function ProfileScreen() {
     ]);
   }, [signOut, disable]);
 
+  const handleAlertToggle = useCallback(
+    async (next: boolean) => {
+      setAlertsBusy(true);
+      try {
+        if (!next) {
+          await handleDisableAlerts();
+          return;
+        }
+        await enable();
+      } catch (error) {
+        Alert.alert(
+          'Could not change alerts',
+          error instanceof Error ? error.message : 'Please try again.',
+        );
+      } finally {
+        setAlertsBusy(false);
+      }
+    },
+    [enable, handleDisableAlerts],
+  );
+
+  const handlePremiumAction = useCallback(() => {
+    if (entitlement?.billingIssue) {
+      void Linking.openURL(MANAGE_SUBSCRIPTIONS_URL);
+      return;
+    }
+    setPaywallOpen(true);
+  }, [entitlement?.billingIssue]);
+
   const version = Constants.expoConfig?.version ?? '0.0.0';
+
+  const notificationSummary = signedIn
+    ? features.push
+      ? notificationDetail({ permission, optedOut, registered })
+      : 'Temporarily unavailable. Alerts still appear in the Alerts tab.'
+    : '';
 
   return (
     <SafeAreaView style={[styles.screen, { backgroundColor: colors.bg }]} edges={['top']}>
       <ScrollView
         contentContainerStyle={styles.content}
         // The gesture the restore and redemption alerts point at ("pull down
-        // on your Profile"). This screen is where entitlement state renders,
+        // on Eddy's Settings tab"). This screen is where entitlement state renders,
         // and useAccount re-reads only on mount — so without this, "check
         // again in a moment" had no mechanism short of leaving the tab.
         refreshControl={
@@ -491,58 +535,41 @@ export default function ProfileScreen() {
           />
         }
       >
-        <Text style={[styles.title, { color: colors.text }]}>Profile</Text>
+        <Text style={[styles.title, { color: colors.text }]}>Settings</Text>
 
-        {/* ── Account ─────────────────────────────────────────────── */}
-        <Section title="Account" muted={colors.textMuted}>
+        {/* Identity is the page anchor, not another labelled settings group. */}
+        <View style={[styles.accountCard, { backgroundColor: colors.card }, elevation(1)]}>
           {!ready ? (
             <ActivityIndicator color={colors.interactive} style={styles.pad} />
-          ) : signedIn ? (
-            <View style={[styles.card, { backgroundColor: colors.card }, elevation(1)]}>
-              <View style={styles.row}>
-                <Ionicons name="person-circle-outline" size={26} color={colors.interactive} />
+          ) : (
+            <>
+              <View style={styles.accountRow}>
+                <View style={[styles.accountIcon, { backgroundColor: colors.selectionBg }]}>
+                  <Ionicons name="person-outline" size={24} color={colors.interactive} />
+                </View>
                 <View style={styles.rowBody}>
                   <Text style={[styles.rowTitle, { color: colors.text }]}>
-                    {profile?.displayName ?? 'Signed in with Apple'}
+                    {signedIn
+                      ? (profile?.displayName ?? 'Signed in with Apple')
+                      : unavailable
+                        ? 'Accounts unavailable'
+                        : 'Not signed in'}
                   </Text>
                   <Text style={[styles.rowNote, { color: colors.textMuted }]}>
-                    Your favorites and floats sync across your iOS devices.
+                    {signedIn
+                      ? 'Favorites and saved floats sync across devices.'
+                      : unavailable
+                        ? 'Your favorites stay on this device.'
+                        : 'Sign in to sync favorites and saved floats.'}
                   </Text>
                 </View>
               </View>
-              <Pressable
-                onPress={handleSignOut}
-                disabled={busy !== null}
-                accessibilityRole="button"
-                accessibilityLabel="Sign out"
-                accessibilityState={{ disabled: busy !== null }}
-                style={[styles.secondary, { borderColor: colors.border }]}
-              >
-                <Text style={[styles.secondaryText, { color: colors.textMuted }]}>Sign out</Text>
-              </Pressable>
-            </View>
-          ) : (
-            <View style={[styles.card, { backgroundColor: colors.card }, elevation(1)]}>
-              <Text style={[styles.rowTitle, { color: colors.text }]}>
-                {unavailable ? 'Accounts are unavailable' : 'Not signed in'}
-              </Text>
-              <Text style={[styles.rowNote, { color: colors.textMuted }]}>
-                {unavailable
-                  ? 'Everything still works — your favorites are kept on this device.'
-                  : 'Eddy works without an account. Sign in to sync your favorites across devices, and to subscribe.'}
-              </Text>
 
-              {!unavailable && (
-                <View
-                  style={styles.appleWrap}
-                  pointerEvents={busy === null ? 'auto' : 'none'}
-                >
+              {!signedIn && !unavailable ? (
+                <View style={styles.appleWrap} pointerEvents={busy === null ? 'auto' : 'none'}>
                   {busy === 'apple' ? (
                     <ActivityIndicator color={colors.interactive} />
                   ) : (
-                    // Apple's own button, not a facsimile: the Human Interface
-                    // Guidelines require the real control, and its style has to
-                    // follow the colour scheme.
                     <AppleAuthentication.AppleAuthenticationButton
                       buttonType={AppleAuthentication.AppleAuthenticationButtonType.SIGN_IN}
                       buttonStyle={
@@ -556,19 +583,25 @@ export default function ProfileScreen() {
                     />
                   )}
                 </View>
-              )}
-            </View>
+              ) : null}
+            </>
           )}
-        </Section>
+        </View>
 
-        {/* ── Subscription ────────────────────────────────────────── */}
+        {/* Premium is the only promotional surface and therefore owns the only
+            filled action on the page. Restore and redeem remain discoverable,
+            but read as utilities rather than competing calls to action. */}
         <Section title="Eddy Premium" muted={colors.textMuted}>
-          <View style={[styles.card, { backgroundColor: colors.card }, elevation(1)]}>
-            <View style={styles.row}>
+          <View style={[styles.premiumCard, { backgroundColor: colors.card }, elevation(1)]}>
+            <View style={styles.premiumHead}>
               <Otter mood={entitlement?.isActive ? 'green' : 'standard'} size={40} />
               <View style={styles.rowBody}>
                 <Text style={[styles.rowTitle, { color: colors.text }]}>
-                  {entitlement?.isActive ? 'Eddy Premium is active' : 'Eddy Premium'}
+                  {entitlement?.isActive
+                    ? 'Premium is active'
+                    : entitlement?.billingIssue
+                      ? 'Premium is inactive'
+                      : 'Free plan'}
                 </Text>
                 <Text
                   style={[
@@ -580,34 +613,28 @@ export default function ProfileScreen() {
                     ? 'Checking…'
                     : confirmPending && !entitlement?.isActive
                       ? 'Purchase found — your account is catching up. Pull down to check again.'
-                      : subscriptionSummary(entitlement)}
+                      : entitlement?.billingIssue && !entitlement.isActive
+                        ? 'Review your Apple subscription to restore access.'
+                        : entitlement?.isActive
+                          ? subscriptionSummary(entitlement)
+                          : 'Unlock Eddy’s full river outlook.'}
                 </Text>
               </View>
             </View>
 
-            {/* The way IN, which this card had no version of.
-                The only other route to the paywall is Eddy's read on a river,
-                the one thing a subscription gates — so someone who simply wants
-                to subscribe, or who dismissed an offer earlier and came back for
-                it, arrived at a card that could only restore a purchase they had
-                never made. `loaded` gates it so the button does not flash up
-                under someone who is already subscribed — and `confirmPending`
-                gates it so it cannot appear under a "you are subscribed" alert
-                while the server is still catching up to a confirmed purchase.
-                That gate lifts when the window closes: past it, hiding the
-                button is no longer covering a gap, and the note above still
-                says the purchase was found. */}
             {loaded && !entitlement?.isActive && (!confirmPending || confirmWindowClosed) && (
               <Pressable
-                onPress={() => setPaywallOpen(true)}
+                onPress={handlePremiumAction}
                 disabled={busy !== null}
                 accessibilityRole="button"
-                accessibilityLabel="Get Eddy Premium"
+                accessibilityLabel={
+                  entitlement?.billingIssue ? 'Review subscription' : 'View Eddy Premium'
+                }
                 accessibilityState={{ disabled: busy !== null }}
                 style={[styles.primary, { backgroundColor: colors.accentFill }]}
               >
                 <Text style={[styles.primaryText, { color: colors.onAccent }]}>
-                  Get Eddy Premium
+                  {entitlement?.billingIssue ? 'Review subscription' : 'View Eddy Premium'}
                 </Text>
               </Pressable>
             )}
@@ -617,287 +644,155 @@ export default function ProfileScreen() {
                 onPress={() => void Linking.openURL(MANAGE_SUBSCRIPTIONS_URL)}
                 disabled={busy !== null}
                 accessibilityRole="button"
-                accessibilityLabel="Manage or cancel in Settings"
+                accessibilityLabel="Manage or cancel subscription"
                 accessibilityState={{ disabled: busy !== null }}
-                style={[styles.secondary, { borderColor: colors.border }]}
+                style={[styles.primary, { backgroundColor: colors.accentFill }]}
               >
-                <Text style={[styles.secondaryText, { color: colors.textMuted }]}>
-                  Manage or cancel in Settings
+                <Text style={[styles.primaryText, { color: colors.onAccent }]}>
+                  Manage or cancel subscription
                 </Text>
               </Pressable>
             )}
 
-            <Pressable
-              onPress={handleRestore}
-              disabled={busy !== null}
-              accessibilityRole="button"
-              accessibilityLabel="Restore purchases"
-              accessibilityState={{ disabled: busy !== null, busy: busy === 'restore' }}
-              style={[styles.secondary, { borderColor: colors.border }]}
-            >
-              <Text style={[styles.secondaryText, { color: colors.textMuted }]}>
-                {busy === 'restore' ? 'Restoring…' : 'Restore purchases'}
-              </Text>
-            </Pressable>
-
-            {/* Subscription offer codes — redeemed on the App Store's screen,
-                picked up here on return. Signed-in only, matching the
-                paywall's identity guard: the entitlement a code grants has to
-                land on a real account the moment the receipt syncs. Not gated
-                on entitlement state — an offer for existing subscribers is a
-                thing App Store Connect can issue. */}
-            {signedIn && (
+            <View style={styles.purchaseUtilities}>
               <Pressable
-                onPress={() => void handleRedeem()}
+                onPress={handleRestore}
                 disabled={busy !== null}
                 accessibilityRole="button"
-                accessibilityLabel="Redeem a code"
-                accessibilityState={{ disabled: busy !== null, busy: busy === 'redeem' }}
-                style={[styles.secondary, { borderColor: colors.border }]}
+                accessibilityLabel="Restore purchases"
+                accessibilityState={{ disabled: busy !== null, busy: busy === 'restore' }}
+                style={({ pressed }) => [styles.utilityAction, { opacity: pressed ? 0.6 : 1 }]}
               >
-                <Text style={[styles.secondaryText, { color: colors.textMuted }]}>
-                  {busy === 'redeem' ? 'Checking your code…' : 'Redeem a code'}
+                <Text style={[styles.utilityText, { color: colors.interactive }]}>
+                  {busy === 'restore' ? 'Restoring…' : 'Restore purchases'}
                 </Text>
               </Pressable>
-            )}
-
-            {/* Auto-renew disclosure. Required wherever a subscription is sold
-                or managed, and it has to sit WITH the controls rather than
-                behind a link. */}
-            <Text style={[styles.legal, { color: colors.textSubtle }]}>
-              Eddy Premium is an auto-renewing subscription billed through your Apple ID. It renews
-              automatically unless turned off at least 24 hours before the period ends. Manage or
-              cancel it in your Apple ID settings — deleting the app does not cancel it.
-            </Text>
-
-            {/* `link` so VoiceOver reads them as more than plain text — same
-                treatment as the paywall's pair. */}
-            <View style={styles.legalLinks}>
-              <Pressable
-                onPress={() => void Linking.openURL(TERMS_URL)}
-                accessibilityRole="link"
-              >
-                <Text style={[styles.legalLink, { color: colors.interactive }]}>Terms</Text>
-              </Pressable>
-              <Text style={[styles.legal, { color: colors.textSubtle }]}>·</Text>
-              <Pressable
-                onPress={() => void Linking.openURL(PRIVACY_URL)}
-                accessibilityRole="link"
-              >
-                <Text style={[styles.legalLink, { color: colors.interactive }]}>Privacy</Text>
-              </Pressable>
+              {signedIn && (
+                <>
+                  <View style={[styles.utilityDivider, { backgroundColor: colors.border }]} />
+                  <Pressable
+                    onPress={() => void handleRedeem()}
+                    disabled={busy !== null}
+                    accessibilityRole="button"
+                    accessibilityLabel="Redeem a code"
+                    accessibilityState={{ disabled: busy !== null, busy: busy === 'redeem' }}
+                    style={({ pressed }) => [styles.utilityAction, { opacity: pressed ? 0.6 : 1 }]}
+                  >
+                    <Text style={[styles.utilityText, { color: colors.interactive }]}>
+                      {busy === 'redeem' ? 'Checking…' : 'Redeem code'}
+                    </Text>
+                  </Pressable>
+                </>
+              )}
             </View>
           </View>
         </Section>
 
-        {/* ── Notifications ───────────────────────────────────────── */}
-        <Section title="Notifications" muted={colors.textMuted}>
-          <View style={[styles.card, { backgroundColor: colors.card }, elevation(1)]}>
-            <View style={styles.row}>
-              {/* ── "Alerts are on" next to a button reading "Turn on alerts" ──
-                  The headline reported the OS PERMISSION and nothing else, so
-                  stopping alerts on this device left the card saying they were
-                  on — beside a button offering to turn them on, and a sentence
-                  underneath saying they were stopped. Three controls, three
-                  answers, and the one in the largest type was the wrong one.
-                  It read as a preference that had not saved. It had: the
-                  opt-out is what makes the button and the sentence change.
-
-                  iOS permission is a PRECONDITION, not the state. This device
-                  receives alerts when the permission is granted AND the device
-                  has not opted out, and that conjunction is what the line says
-                  now. `notificationDetail` below already ordered its cases this
-                  way; the headline simply never agreed with it. */}
-              <Ionicons
-                name={receiving ? 'notifications' : 'notifications-off-outline'}
-                size={22}
-                color={receiving ? colors.success : colors.textMuted}
-              />
-              <View style={styles.rowBody}>
-                <Text style={[styles.rowTitle, { color: colors.text }]}>
-                  {receiving ? 'Alerts are on' : 'Alerts are off'}
-                </Text>
-                <Text style={[styles.rowNote, { color: colors.textMuted }]}>
-                  {notificationDetail({ permission, optedOut, registered, signedIn })}
-                </Text>
-              </View>
-            </View>
-
-            {/* Three different states, three different actions — and only one
-                of them is a prompt we are still allowed to show. */}
-            {((permission === 'undetermined' && signedIn) ||
-              (permission === 'granted' && optedOut)) && (
-              <Pressable
-                onPress={() => void enable()}
-                style={[styles.secondary, { borderColor: colors.border }]}
-              >
-                <Text style={[styles.secondaryText, { color: colors.textMuted }]}>
-                  Turn on alerts
-                </Text>
-              </Pressable>
-            )}
-
-            {(permission === 'denied' || permission === 'unsupported') && (
-              // iOS will not show its dialog again, so Settings is the only
-              // route left. Saying "turn on alerts" here would be a button
-              // that cannot do what it says.
-              <Pressable
-                onPress={() => void Linking.openSettings()}
-                style={[styles.secondary, { borderColor: colors.border }]}
-              >
-                <Text style={[styles.secondaryText, { color: colors.textMuted }]}>
-                  Open Settings
-                </Text>
-              </Pressable>
-            )}
-
-            {permission === 'granted' && registered && (
-              <Pressable
-                onPress={() => void handleDisableAlerts()}
-                style={[styles.secondary, { borderColor: colors.border }]}
-              >
-                <Text style={[styles.secondaryText, { color: colors.textMuted }]}>
-                  Stop alerts on this device
-                </Text>
-              </Pressable>
-            )}
-
-            {/* Offered whatever the OS permission says. Someone whose alerts
-                are currently off may still be setting up before they turn them
-                on, and a control that appears only once you are already being
-                notified is one you find by being woken up. */}
-            {signedIn && (
-              <Pressable
-                onPress={() => router.push('/alerts/quiet-hours')}
-                style={[styles.secondary, { borderColor: colors.border }]}
-                accessibilityRole="button"
-              >
-                <Text style={[styles.secondaryText, { color: colors.textMuted }]}>
-                  Quiet hours
-                </Text>
-              </Pressable>
-            )}
-
-            <SafetyDisclaimer compact />
-            <Text style={[styles.legal, { color: colors.textSubtle }]}>
-              Readings come from USGS gauges and can trail the river by up to about an hour.
-            </Text>
-          </View>
-        </Section>
-
-        {/* ── Storage ─────────────────────────────────────────────── */}
-        {/* Here because this is where someone goes looking, and because "what
-            is this app keeping on my phone" had no in-app answer at all — a
-            question App Review and privacy-minded users both ask directly. */}
-        <Section title="Storage" muted={colors.textMuted}>
-          <View style={[styles.card, { backgroundColor: colors.card }, elevation(1)]}>
-            <View style={styles.row}>
-              <Ionicons name="phone-portrait-outline" size={22} color={colors.textMuted} />
-              <View style={styles.rowBody}>
-                <Text style={[styles.rowTitle, { color: colors.text }]}>On this phone</Text>
-                <Text style={[styles.rowNote, { color: colors.textMuted }]}>
-                  Eddy keeps every river&apos;s put-ins, hazards and last reading here so they
-                  work with no signal.
-                </Text>
-              </View>
-            </View>
-            <Pressable
+        <Section title="Preferences" muted={colors.textMuted}>
+          <View style={[styles.group, { backgroundColor: colors.card }, elevation(1)]}>
+            {signedIn ? (
+              <>
+                {features.push &&
+                permission !== 'denied' &&
+                permission !== 'unsupported' ? (
+                  <NotificationSettingsRow
+                    checked={receiving}
+                    detail={notificationSummary}
+                    disabled={alertsBusy}
+                    onToggle={() => void handleAlertToggle(!receiving)}
+                  />
+                ) : (
+                  <SettingsRow
+                    icon="notifications-outline"
+                    title="Notifications"
+                    detail={notificationSummary}
+                    onPress={
+                      features.push && permission === 'denied'
+                        ? () => void Linking.openSettings()
+                        : undefined
+                    }
+                    external={features.push && permission === 'denied'}
+                  />
+                )}
+                <SettingsRow
+                  icon="moon-outline"
+                  title="Quiet hours"
+                  detail="Choose when notifications stay silent"
+                  onPress={() => router.push('/alerts/quiet-hours')}
+                />
+              </>
+            ) : null}
+            <SettingsRow
+              icon="cloud-offline-outline"
+              title="Offline storage"
+              detail="River details saved for offline use"
               onPress={() => router.push('/storage')}
-              style={[styles.secondary, { borderColor: colors.border }]}
-              accessibilityRole="button"
-            >
-              <Text style={[styles.secondaryText, { color: colors.textMuted }]}>
-                Manage storage
-              </Text>
-            </Pressable>
+              last
+            />
+          </View>
+        </Section>
 
-            {/* ── Re-running first run, off production only ──────────────
-                First run is the one flow in the app that cannot be entered
-                twice on a device: two AsyncStorage keys are written once and
-                nothing clears them, so checking a change to the disclaimer or
-                the river picker meant deleting the app and reinstalling from
-                TestFlight.
-
-                That is also why "I reinstalled and was not prompted" could not
-                be investigated — there was no way to ask the device to do it
-                again. See resetFirstRun in src/lib/onboarding.ts.
-
-                NOT ON PRODUCTION. A control that clears a legal acknowledgement
-                has no business in a shipped build, and the channel is read from
-                monitoring's resolver rather than a second copy of the same
-                logic. It relaunches nothing: the keys are cleared and the next
-                cold start reads them, which is precisely the path being
-                tested. */}
+        <Section title="Help" muted={colors.textMuted}>
+          <View style={[styles.group, { backgroundColor: colors.card }, elevation(1)]}>
+            <SettingsRow
+              icon="chatbubble-ellipses-outline"
+              title="Send feedback"
+              detail="Report a problem or share an idea"
+              onPress={() => setFeedbackOpen(true)}
+            />
+            <SettingsRow
+              icon="mail-outline"
+              title="Email support"
+              detail={SUPPORT_EMAIL}
+              onPress={() => void Linking.openURL(`mailto:${SUPPORT_EMAIL}`)}
+              external
+            />
+            <SettingsRow
+              icon="document-text-outline"
+              title="Terms of Use"
+              onPress={() => void Linking.openURL(TERMS_URL)}
+              external
+            />
+            <SettingsRow
+              icon="shield-checkmark-outline"
+              title="Privacy Policy"
+              onPress={() => void Linking.openURL(PRIVACY_URL)}
+              external
+              last={resolveEnvironment() === 'production'}
+            />
             {resolveEnvironment() !== 'production' ? (
-              <Pressable
+              <SettingsRow
+                icon="refresh-outline"
+                title={firstRunCleared ? 'First run reset' : 'Reset first run'}
+                detail={firstRunCleared ? 'Force-quit and reopen Eddy' : 'Show onboarding on next launch'}
                 onPress={() => {
                   void resetFirstRun().then(() => setFirstRunCleared(true));
                 }}
-                style={[styles.secondary, { borderColor: colors.border }]}
-                accessibilityRole="button"
-                accessibilityLabel="Show the disclaimer and river picker again on next launch"
-              >
-                <Text style={[styles.secondaryText, { color: colors.textMuted }]}>
-                  {firstRunCleared ? 'Cleared — force-quit and reopen' : 'Reset first run'}
-                </Text>
-              </Pressable>
+                last
+              />
             ) : null}
           </View>
         </Section>
 
-        {/* ── Telling us something is wrong ───────────────────────── */}
-        <Section title="Feedback" muted={colors.textMuted}>
-          <View style={[styles.card, { backgroundColor: colors.card }, elevation(1)]}>
-            <Text style={[styles.rowNote, { color: colors.textMuted }]}>
-              Wrong reading, missing put-in, or something broken? The river and gauge screens each
-              have their own report button, which arrives with the thing it is about attached — use
-              those when you can. This one is for everything else.
-            </Text>
-            <Pressable
-              onPress={() => setFeedbackOpen(true)}
-              style={[styles.secondary, { borderColor: colors.border }]}
-              accessibilityRole="button"
-            >
-              <Text style={[styles.secondaryText, { color: colors.textMuted }]}>Send feedback</Text>
-            </Pressable>
-
-            {/* Feedback goes one way. This is the one that answers back. */}
-            <Pressable
-              onPress={() => void Linking.openURL(`mailto:${SUPPORT_EMAIL}`)}
-              style={[styles.secondary, { borderColor: colors.border }]}
-              accessibilityRole="button"
-            >
-              <Text style={[styles.secondaryText, { color: colors.textMuted }]}>
-                Email support
-              </Text>
-            </Pressable>
-
-            <Text style={[styles.legal, { color: colors.textSubtle }]}>
-              Or write to {SUPPORT_EMAIL} from any mail app.
-            </Text>
-          </View>
-        </Section>
-
-        {/* ── Deleting the account ────────────────────────────────── */}
         {signedIn && (
-          <Section title="Delete account" muted={colors.textMuted}>
-            <View style={[styles.card, { backgroundColor: colors.card }, elevation(1)]}>
-              <Text style={[styles.rowNote, { color: colors.textMuted }]}>
-                Deleting your account removes your profile, favorites and saved floats. This
-                cannot be undone.
-              </Text>
-              <Pressable
+          <Section title="Account" muted={colors.textMuted}>
+            <View style={[styles.group, { backgroundColor: colors.card }, elevation(1)]}>
+              <SettingsRow
+                icon="log-out-outline"
+                title="Sign out"
+                onPress={handleSignOut}
+                disabled={busy !== null}
+              />
+              <SettingsRow
+                icon="trash-outline"
+                title={busy === 'delete' ? 'Deleting…' : 'Delete account'}
+                detail="Permanently removes your Eddy account"
                 onPress={handleDelete}
                 disabled={busy !== null}
-                accessibilityRole="button"
-                accessibilityLabel="Delete account"
-                accessibilityState={{ disabled: busy !== null, busy: busy === 'delete' }}
-                style={[styles.danger, { borderColor: colors.error }]}
-              >
-                <Text style={[styles.dangerText, { color: colors.error }]}>
-                  {busy === 'delete' ? 'Deleting…' : 'Delete account'}
-                </Text>
-              </Pressable>
+                busy={busy === 'delete'}
+                destructive
+                last
+              />
             </View>
           </Section>
         )}
@@ -950,8 +845,128 @@ function Section({
 }) {
   return (
     <View style={styles.section}>
-      <Text style={[styles.sectionTitle, { color: muted }]}>{title.toUpperCase()}</Text>
+      <Text style={[styles.sectionTitle, { color: muted }]}>{title}</Text>
       {children}
+    </View>
+  );
+}
+
+/**
+ * The row is the switch.
+ *
+ * A nested native Switch inside an accessible Pressable is swallowed by that
+ * parent on iOS. Giving the row the switch role and drawing the native control
+ * through a pointer-events-none wrapper produces one truthful VoiceOver stop
+ * and makes the full 58pt row the touch target. This is the same pattern as
+ * MapLayersSheet.
+ */
+function NotificationSettingsRow({
+  checked,
+  detail,
+  disabled,
+  onToggle,
+  last = false,
+}: {
+  checked: boolean;
+  detail: string;
+  disabled: boolean;
+  onToggle: () => void;
+  last?: boolean;
+}) {
+  const { colors } = useTheme();
+
+  return (
+    <View>
+      <Pressable
+        onPress={onToggle}
+        disabled={disabled}
+        accessibilityRole="switch"
+        accessibilityState={{ checked, disabled, busy: disabled }}
+        accessibilityLabel={`Notifications. ${detail}`}
+        style={({ pressed }) => [
+          styles.settingsRow,
+          { opacity: disabled ? 0.55 : pressed ? 0.62 : 1 },
+        ]}
+      >
+        <View style={[styles.rowIcon, { backgroundColor: colors.selectionBg }]}>
+          <Ionicons
+            name={checked ? 'notifications' : 'notifications-outline'}
+            size={19}
+            color={colors.interactive}
+          />
+        </View>
+        <View style={styles.rowBody}>
+          <Text style={[styles.rowTitle, { color: colors.text }]}>Notifications</Text>
+          <Text style={[styles.rowNote, { color: colors.textMuted }]}>{detail}</Text>
+        </View>
+        <View pointerEvents="none">
+          <Switch
+            value={checked}
+            trackColor={{ false: colors.border, true: colors.interactive }}
+            thumbColor={colors.onInteractive}
+            ios_backgroundColor={colors.border}
+          />
+        </View>
+      </Pressable>
+      {!last ? <View style={[styles.divider, { backgroundColor: colors.border }]} /> : null}
+    </View>
+  );
+}
+
+function SettingsRow({
+  icon,
+  title,
+  detail,
+  onPress,
+  disabled = false,
+  busy = false,
+  destructive = false,
+  external = false,
+  last = false,
+}: {
+  icon: ComponentProps<typeof Ionicons>['name'];
+  title: string;
+  detail?: string;
+  onPress?: () => void;
+  disabled?: boolean;
+  busy?: boolean;
+  destructive?: boolean;
+  external?: boolean;
+  last?: boolean;
+}) {
+  const { colors } = useTheme();
+  const ink = destructive ? colors.error : colors.interactive;
+
+  return (
+    <View>
+      <Pressable
+        onPress={onPress}
+        disabled={!onPress || disabled}
+        accessibilityRole={onPress ? (external ? 'link' : 'button') : undefined}
+        accessibilityState={onPress ? { disabled, busy } : undefined}
+        style={({ pressed }) => [
+          styles.settingsRow,
+          { opacity: disabled ? 0.55 : pressed ? 0.62 : 1 },
+        ]}
+      >
+        <View style={[styles.rowIcon, { backgroundColor: destructive ? 'transparent' : colors.selectionBg }]}>
+          <Ionicons name={icon} size={19} color={ink} />
+        </View>
+        <View style={styles.rowBody}>
+          <Text style={[styles.rowTitle, { color: destructive ? colors.error : colors.text }]}>
+            {title}
+          </Text>
+          {detail ? <Text style={[styles.rowNote, { color: colors.textMuted }]}>{detail}</Text> : null}
+        </View>
+        {onPress ? (
+          <Ionicons
+            name={external ? 'open-outline' : 'chevron-forward'}
+            size={external ? 17 : 18}
+            color={colors.textSubtle}
+          />
+        ) : null}
+      </Pressable>
+      {!last ? <View style={[styles.divider, { backgroundColor: colors.border }]} /> : null}
     </View>
   );
 }
@@ -960,10 +975,13 @@ const styles = StyleSheet.create({
   screen: { flex: 1 },
   content: { padding: 20, paddingBottom: 48 },
   title: { ...t['3xl'], fontFamily: fonts.heading },
-  section: { marginTop: 24 },
-  sectionTitle: { ...t.xs, fontFamily: fonts.semibold, letterSpacing: 0.8, marginBottom: 8 },
-  card: { borderRadius: 14, padding: 16, gap: 12 },
-  row: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  section: { marginTop: 22 },
+  sectionTitle: { ...t.sm, fontFamily: fonts.semibold, marginBottom: 8, marginLeft: 2 },
+  accountCard: { borderRadius: 14, padding: 16, gap: 14, marginTop: 18 },
+  accountRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  accountIcon: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center' },
+  premiumCard: { borderRadius: 14, padding: 16, gap: 14 },
+  premiumHead: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   rowBody: { flex: 1, gap: 2 },
   rowTitle: { ...t.base, fontFamily: fonts.semibold },
   rowNote: { ...t.sm, fontFamily: fonts.body },
@@ -971,13 +989,21 @@ const styles = StyleSheet.create({
   appleButton: { height: 46, width: '100%' },
   primary: { borderRadius: 10, paddingVertical: 13, alignItems: 'center' },
   primaryText: { ...t.base, fontFamily: fonts.semibold },
-  secondary: { borderWidth: 1, borderRadius: 10, paddingVertical: 11, alignItems: 'center' },
-  secondaryText: { ...t.sm, fontFamily: fonts.medium },
-  danger: { borderWidth: 1, borderRadius: 10, paddingVertical: 11, alignItems: 'center' },
-  dangerText: { ...t.sm, fontFamily: fonts.semibold },
-  legal: { ...t.xs, fontFamily: fonts.body },
-  legalLinks: { flexDirection: 'row', gap: 8, alignItems: 'center' },
-  legalLink: { ...t.xs, fontFamily: fonts.medium },
+  purchaseUtilities: { flexDirection: 'row', alignItems: 'center', minHeight: 44 },
+  utilityAction: { flex: 1, minHeight: 44, alignItems: 'center', justifyContent: 'center' },
+  utilityText: { ...t.sm, fontFamily: fonts.medium },
+  utilityDivider: { width: StyleSheet.hairlineWidth, height: 20 },
+  group: { borderRadius: 14, overflow: 'hidden' },
+  settingsRow: {
+    minHeight: 58,
+    paddingHorizontal: 14,
+    paddingVertical: 11,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  rowIcon: { width: 32, height: 32, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
+  divider: { height: StyleSheet.hairlineWidth, marginLeft: 58 },
   pad: { paddingVertical: 8 },
   version: { ...t.xs, fontFamily: fonts.mono, textAlign: 'center', marginTop: 32 },
 });

@@ -684,13 +684,13 @@ export function restoreAlert(
   if (!result.entitled) return { title: 'Nothing to restore', message: result.message };
   if (serverConfirmed) return { title: 'Subscription restored', message: result.message };
 
-  // "Pull down on your Profile", not "pull to refresh": this alert can appear
+  // "Pull down on Eddy's Settings tab", not "pull to refresh": this alert can appear
   // over the paywall on a river or gauge screen, where there is nothing to
-  // pull. The Profile tab is the one place that shows entitlement state AND
+  // pull. The Settings tab is the one place that shows entitlement state AND
   // has the gesture — an instruction is only worth giving where it works.
   return {
     title: 'Purchase found',
-    message: `The App Store confirms a subscription on this Apple ID, but this Eddy account has not picked it up yet. Pull down on your Profile in a moment to check again — if Premium is still locked, email ${SUPPORT_EMAIL} for support.`,
+    message: `The App Store confirms a subscription on this Apple ID, but this Eddy account has not picked it up yet. Pull down on Eddy’s Settings tab in a moment to check again — if Premium is still locked, email ${SUPPORT_EMAIL} for support.`,
   };
 }
 
@@ -929,22 +929,22 @@ export function redemptionAlert(
     return {
       title: 'Subscription updated',
       message:
-        'Something changed on this Apple ID, but Eddy still sees no active subscription. If you just redeemed a code, pull down on your Profile in a moment.',
+        'Something changed on this Apple ID, but Eddy still sees no active subscription. If you just redeemed a code, pull down on Eddy’s Settings tab in a moment.',
     };
   }
 
-  // "Pull down on your Profile", same reasoning as restoreAlert: the redeem
-  // control lives on the paywall too, and only Profile has the gesture.
+  // "Pull down on Eddy's Settings tab", same reasoning as restoreAlert: the redeem
+  // control lives on the paywall too, and only Settings has the gesture.
   return {
     title: 'Subscription updated',
     message: serverConfirmed
       ? 'Eddy Premium is active on your account.'
-      : 'It can take a moment to show up. If this still looks wrong in a minute, pull down on your Profile.',
+      : 'It can take a moment to show up. If this still looks wrong in a minute, pull down on Eddy’s Settings tab.',
   };
 }
 
 /**
- * Human-readable renewal line for the Profile tab.
+ * Human-readable renewal line for the Settings tab.
  *
  * Ordering matters here: a billing problem outranks the renewal date, because
  * it is the only state the user can still act on before losing access.
