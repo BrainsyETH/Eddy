@@ -5,7 +5,7 @@ import type { EddyUpdateResponse } from '@/app/api/eddy-update/[riverSlug]/route
 import type { GaugeUpdateResponse } from '@/app/api/gauge-update/[siteId]/route';
 
 export interface SelectedEddyReport {
-  quoteText: string;
+  quoteText: string | null;
   summaryText: string | null;
   eddyRead: string | null;
   generatedAt: string;

@@ -587,7 +587,7 @@ async function _GET(
       {
         headers: authHeaderPresent
           ? { 'Cache-Control': 'private, no-store' }
-          : cdnCacheHeaders(300, 1800),
+          : { ...cdnCacheHeaders(300, 1800), Vary: 'Authorization' },
       },
     );
   } catch (error) {

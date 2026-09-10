@@ -133,6 +133,21 @@ test('the outlook returns a full read only after server-side entitlement', () =>
   assert.match(route, /requireEntitlement\(request\)/);
   assert.match(route, /fullRead:\s*entitled \? fullRead : null/);
   assert.match(route, /Cache-Control': 'private, no-store'/);
+  assert.match(route, /Vary: 'Authorization'/);
+});
+
+test('singular report routes cannot expose paid prose to public callers', () => {
+  for (const relative of [
+    'src/app/api/eddy-update/[riverSlug]/route.ts',
+    'src/app/api/gauge-update/[siteId]/route.ts',
+  ]) {
+    const route = readFileSync(join(process.cwd(), relative), 'utf8');
+    assert.match(route, /requireEntitlement\(request\)/, `${relative} does not verify entitlement`);
+    assert.match(route, /quoteText:\s*entitled \?/, `${relative} exposes quoteText publicly`);
+    assert.match(route, /eddyRead:\s*entitled \?/, `${relative} exposes eddyRead publicly`);
+    assert.match(route, /Vary: 'Authorization'/, `${relative} can mix public and authenticated cache entries`);
+    assert.match(route, /privateNoStore\(\)/, `${relative} can cache an authenticated response`);
+  }
 });
 
 test('refresh never discards the cache it is refreshing', () => {

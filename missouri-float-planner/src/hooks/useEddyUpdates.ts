@@ -1,7 +1,7 @@
 // src/hooks/useEddyUpdates.ts
-// Shared React Query hook for the batched Eddy updates (one request for all
-// rivers + the statewide "global" entry). React Query dedupes the call, so the
-// hero bubble and the statewide "Eddy says" card share a single fetch.
+// Shared React Query hook for the batched public river summaries. Statewide
+// prose is a separate response field; this hook intentionally returns only the
+// per-river map used by the website cards.
 
 import { useQuery } from '@tanstack/react-query';
 import type { EddyUpdatesResponse, EddyUpdateEntry } from '@/app/api/eddy-updates/route';

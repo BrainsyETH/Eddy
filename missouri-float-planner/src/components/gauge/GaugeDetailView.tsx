@@ -6,7 +6,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { ArrowLeft, MapPin, ExternalLink, Clock, Share2, Check, ChevronDown, ChevronUp } from 'lucide-react';
+import { ArrowLeft, MapPin, ExternalLink, Clock, Share2, Check } from 'lucide-react';
 
 import { computeCondition, getConditionShortLabel, getConditionTailwindColor, type ConditionThresholds } from '@/lib/conditions';
 import { getEddyImageForCondition } from '@/constants';
@@ -58,7 +58,6 @@ export default function GaugeDetailView({ siteId }: GaugeDetailViewProps) {
   // Eddy AI update
   const [eddyUpdate, setEddyUpdate] = useState<EddyUpdateResponse['update'] | null>(null);
   const [eddyLoading, setEddyLoading] = useState(false);
-  const [eddyShowFull, setEddyShowFull] = useState(false);
 
   // Gauge data via the shared React Query cache — deduped with every other
   // consumer of /api/gauges instead of a one-off raw fetch of the full list.
@@ -261,9 +260,7 @@ export default function GaugeDetailView({ siteId }: GaugeDetailViewProps) {
     return parts.join(' ');
   };
 
-  const eddyDisplayText = eddyUpdate?.summaryText && !eddyShowFull
-    ? eddyUpdate.summaryText
-    : eddyUpdate?.summaryText ?? buildStaticText();
+  const eddyDisplayText = eddyUpdate?.summaryText ?? buildStaticText();
 
   if (loading) {
     return (
@@ -519,20 +516,6 @@ export default function GaugeDetailView({ siteId }: GaugeDetailViewProps) {
                 </p>
               )}
 
-              {/* Toggle row */}
-              {eddyUpdate?.summaryText && (
-                <button
-                  onClick={() => setEddyShowFull(!eddyShowFull)}
-                  className="flex items-center gap-1 text-xs font-semibold transition-colors mt-1.5 opacity-60 hover:opacity-100"
-                  style={{ color: surface.color }}
-                >
-                  {eddyShowFull ? (
-                    <>Show less <ChevronUp className="w-3 h-3" /></>
-                  ) : (
-                    <>Read more <ChevronDown className="w-3 h-3" /></>
-                  )}
-                </button>
-              )}
             </div>
 
             {/* Plan Trip CTA */}

@@ -1092,6 +1092,10 @@ export default function ReportsScreen() {
     [search.results],
   );
 
+  const readDistanceByRiver = useMemo(
+    () => location.coords && gauges ? riverMilesByGauge(gauges, location.coords as Coords) : null,
+    [gauges, location.coords],
+  );
   const readItems = useMemo<TodayRead[]>(() => {
     if (!rivers || !eddyUpdates) return [];
     return rivers
@@ -1103,15 +1107,18 @@ export default function ReportsScreen() {
       .sort((a, b) => {
         const favoriteOrder = Number(isStarred('river', b.river.id)) - Number(isStarred('river', a.river.id));
         if (favoriteOrder !== 0) return favoriteOrder;
+        if (readDistanceByRiver) {
+          const distanceOrder =
+            (readDistanceByRiver.get(a.river.id) ?? Infinity) -
+            (readDistanceByRiver.get(b.river.id) ?? Infinity);
+          if (distanceOrder !== 0) return distanceOrder;
+        }
         const conditionOrder = floatableRank(a.river.currentCondition?.code ?? 'unknown') - floatableRank(b.river.currentCondition?.code ?? 'unknown');
-        return conditionOrder || a.river.name.localeCompare(b.river.name);
+        if (conditionOrder !== 0) return conditionOrder;
+        const writtenOrder = new Date(b.says.generatedAt).getTime() - new Date(a.says.generatedAt).getTime();
+        return writtenOrder || a.river.name.localeCompare(b.river.name);
       });
-  }, [eddyUpdates, isStarred, rivers]);
-
-  const readDistanceByRiver = useMemo(
-    () => location.coords && gauges ? riverMilesByGauge(gauges, location.coords as Coords) : null,
-    [gauges, location.coords],
-  );
+  }, [eddyUpdates, isStarred, readDistanceByRiver, rivers]);
   const visibleReadItems = useMemo(() => {
     if (readFilter === 'following') {
       return readItems.filter(({ river }) => isStarred('river', river.id));
@@ -1345,6 +1352,15 @@ export default function ReportsScreen() {
       })),
     [sorted, isStarred],
   );
+  const todayConditionCounts = useMemo(() => {
+    const countByKey = new Map(chips.map((chip) => [chip.key, chip.count ?? 0]));
+    return {
+      floatable: countByKey.get('floatable') ?? 0,
+      low: countByKey.get('low') ?? 0,
+      high: countByKey.get('high') ?? 0,
+      unknown: countByKey.get('unknown') ?? 0,
+    };
+  }, [chips]);
 
   /**
    * The headline count, off the WHOLE catalog rather than the filtered set.
@@ -1599,6 +1615,8 @@ export default function ReportsScreen() {
                     generatedAt: statewideUpdate?.generatedAt ?? null,
                   }}
                   reads={readItems}
+                  readsLoading={eddyUpdates === null}
+                  conditionCounts={todayConditionCounts}
                   onBrowseReads={() => {
                     setScope('all');
                     setBrowseMode('reads');
@@ -1664,7 +1682,19 @@ export default function ReportsScreen() {
                 claim about the database made before reading it — and it is the
                 claim a blank list makes on its own, which is why the spinner
                 has to win this branch. */}
-            {awaitingServer && !error ? (
+            {!searching && browseMode === 'reads' && eddyUpdates === null ? (
+              <ActivityIndicator color={colors.interactive} />
+            ) : !searching && browseMode === 'reads' ? (
+              <Text style={[styles.emptyText, { color: colors.textMuted }]}>
+                {readFilter === 'following'
+                  ? 'No current reads for your favorite rivers.'
+                  : readFilter === 'nearby'
+                    ? `No current reads within ${TODAY_RADIUS_MILES} miles.`
+                    : readFilter === 'floatable'
+                      ? 'No current reads for floatable rivers.'
+                      : 'No current Eddy reads. Fresh summaries return when the latest water and written conditions agree.'}
+              </Text>
+            ) : awaitingServer && !error ? (
               <ActivityIndicator color={colors.interactive} />
             ) : (
               <Text style={[styles.emptyText, { color: colors.textMuted }]}>

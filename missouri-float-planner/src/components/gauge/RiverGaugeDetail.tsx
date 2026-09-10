@@ -332,9 +332,10 @@ export default function RiverGaugeDetail({ riverSlug, damSlot }: RiverGaugeDetai
     () => buildEddyTakeSections({
       outlook,
       currentCondition: condition.code,
-      generatedEddyRead: activeEddyUpdate?.quoteText || activeEddyUpdate?.eddyRead,
+      generatedEddyRead:
+        activeEddyUpdate?.quoteText || activeEddyUpdate?.eddyRead || activeEddyUpdate?.summaryText,
     }),
-    [condition.code, outlook, activeEddyUpdate?.quoteText, activeEddyUpdate?.eddyRead],
+    [condition.code, outlook, activeEddyUpdate?.quoteText, activeEddyUpdate?.eddyRead, activeEddyUpdate?.summaryText],
   );
 
   const eddySourceGaugeName = activeGauge?.name ?? null;
@@ -625,7 +626,7 @@ export default function RiverGaugeDetail({ riverSlug, damSlot }: RiverGaugeDetai
             sections={eddyTakeSections}
             isGuidance={outlook.isGuidance}
             readLoading={selectedEddyReport.isFetching && !activeEddyUpdate}
-            readIsGenerated={Boolean(activeEddyUpdate?.quoteText || activeEddyUpdate?.eddyRead)}
+            readIsGenerated={Boolean(activeEddyUpdate?.quoteText || activeEddyUpdate?.eddyRead || activeEddyUpdate?.summaryText)}
             generatedAt={activeEddyUpdate?.generatedAt}
             gaugeName={eddySourceGaugeName}
           />

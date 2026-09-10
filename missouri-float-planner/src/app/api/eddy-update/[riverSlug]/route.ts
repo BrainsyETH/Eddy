@@ -3,19 +3,22 @@
 // Optionally filtered by section via ?section=upper-current
 
 import { NextRequest, NextResponse } from 'next/server';
-import { cdnCacheHeaders } from '@/lib/api-utils';
+import { cdnCacheHeaders, privateNoStore } from '@/lib/api-utils';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { withX402Route } from '@/lib/x402-config';
 import { toNum } from '@/lib/utils/num';
 import { overlayLiveConditions, WEBSITE_PROSE_STALE_HOURS } from '@/lib/social/live-conditions';
+import { requireEntitlement } from '@/lib/entitlement';
 
 export const dynamic = 'force-dynamic';
 
 export interface EddyUpdateResponse {
   available: boolean;
   update: {
-    quoteText: string;
+    /** Premium long-form prose. Null for public callers. */
+    quoteText: string | null;
     summaryText: string | null;
+    /** Premium short interpretation. Null for public callers. */
     eddyRead: string | null;
     conditionCode: string;
     gaugeHeightFt: number | null;
@@ -34,6 +37,12 @@ async function _GET(
 ) {
   try {
     const { riverSlug } = await params;
+    const authHeaderPresent = Boolean(request.headers.get('authorization'));
+    const auth = authHeaderPresent ? await requireEntitlement(request) : null;
+    const entitled = Boolean(auth && !(auth instanceof NextResponse));
+    const responseHeaders = authHeaderPresent
+      ? privateNoStore()
+      : { ...cdnCacheHeaders(300, 1800), Vary: 'Authorization' };
     const supabase = createAdminClient();
 
     const sectionSlug = request.nextUrl.searchParams.get('section') || null;
@@ -65,7 +74,7 @@ async function _GET(
 
     if (!data) {
       // No AI update available — frontend will fall back to static quote
-      return NextResponse.json<EddyUpdateResponse>({ available: false, update: null }, { headers: cdnCacheHeaders(300, 1800) });
+      return NextResponse.json<EddyUpdateResponse>({ available: false, update: null }, { headers: responseHeaders });
     }
 
     // Overlay live gauge-derived condition + height so the river page's
@@ -87,20 +96,22 @@ async function _GET(
       proseStaleHours: WEBSITE_PROSE_STALE_HOURS,
       logLabel: 'eddy-update',
     });
-    const proseAvailable = Boolean(overlaid.quote_text || overlaid.summary_text);
+    const proseAvailable = Boolean(
+      overlaid.summary_text || (entitled && (overlaid.quote_text || data.eddy_read)),
+    );
 
     if (!proseAvailable) {
       // Live condition has diverged from the AI snapshot — surface no prose
       // so the client falls back to the static quote.
-      return NextResponse.json<EddyUpdateResponse>({ available: false, update: null }, { headers: cdnCacheHeaders(300, 1800) });
+      return NextResponse.json<EddyUpdateResponse>({ available: false, update: null }, { headers: responseHeaders });
     }
 
     return NextResponse.json<EddyUpdateResponse>({
       available: true,
       update: {
-        quoteText: overlaid.quote_text ?? '',
+        quoteText: entitled ? overlaid.quote_text ?? null : null,
         summaryText: overlaid.summary_text ?? null,
-        eddyRead: data.eddy_read ?? null,
+        eddyRead: entitled ? data.eddy_read ?? null : null,
         conditionCode: overlaid.condition_code,
         gaugeHeightFt: toNum(overlaid.gauge_height_ft),
         dischargeCfs: toNum(overlaid.discharge_cfs),
@@ -110,7 +121,7 @@ async function _GET(
         readingTimestamp: overlaid.reading_timestamp ?? null,
         snapshotId: overlaid.snapshot_id ?? null,
       },
-    }, { headers: cdnCacheHeaders(300, 1800) });
+    }, { headers: responseHeaders });
   } catch (error) {
     console.error('[EddyUpdate] Unexpected error:', error);
     return NextResponse.json<EddyUpdateResponse>(

@@ -4,8 +4,8 @@
 // Two things that are one statement: how many rivers are floatable, and what
 // Eddy makes of the water generally. The count is computed here from the live
 // list; the prose is written once a day by the same generator that has fed the
-// website for a while (src/lib/eddy/generate-global-update.ts) and arrives
-// through /api/eddy-updates under the key "global".
+// website for a while (src/lib/eddy/generate-global-update.ts) and arrives as
+// the explicitly public `statewide` field on /api/eddy-updates.
 //
 // ── The count outranks the prose ────────────────────────────────────────────
 //
@@ -35,11 +35,11 @@
 //
 // Today used to make somebody scroll through every personalized module before
 // saying what the Ozarks look like generally, while the only weather lived on a
-// river detail page. This compact card now answers both planning questions near
-// the top: how much water is usable, and what the day is likely to bring at the
-// user's current area. It is fetched independently of river and gauge choice,
-// names the provider's forecast town, and never silently substitutes a selected
-// river. The longer written statewide update remains foldable beneath it.
+// river detail page. The two sibling cards now answer both planning questions
+// near the top without sharing a render gate: how much water is usable, and
+// what the day is likely to bring at the user's current area. Weather is fetched
+// independently of river and gauge choice, names the provider's forecast town,
+// and never silently substitutes a selected river.
 
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
@@ -66,6 +66,9 @@ interface Props {
   prose: string | null;
   /** When the prose was generated. Ignored when there is no prose. */
   generatedAt: string | null;
+}
+
+interface TodayWeatherProps {
   /** Daily forecast near the device's current location. */
   weather?: OutlookWeatherDay | null;
   /** The town the weather provider actually forecast. */
@@ -97,11 +100,6 @@ export function TodaySummary({
   headline,
   prose,
   generatedAt,
-  weather,
-  weatherLocation,
-  onRequestLocation,
-  locationActionLabel,
-  weatherLoading = false,
 }: Props) {
   const { colors, elevation } = useTheme();
   /**
@@ -179,8 +177,33 @@ export function TodaySummary({
         ) : null}
       </Pressable>
 
+      {open && prose ? (
+        <>
+          <Text style={[styles.prose, { color: colors.textMuted }]}>{prose}</Text>
+          {written ? (
+            <Text style={[styles.footnote, { color: colors.textSubtle }]}>{written}</Text>
+          ) : null}
+        </>
+      ) : null}
+    </View>
+  );
+}
+
+/** Local weather is independent from the statewide conditions request. */
+export function TodayWeather({
+  weather,
+  weatherLocation,
+  onRequestLocation,
+  locationActionLabel,
+  weatherLoading = false,
+}: TodayWeatherProps) {
+  const { colors, elevation } = useTheme();
+  if (!weather && !weatherLoading && !(onRequestLocation && locationActionLabel)) return null;
+
+  return (
+    <View style={[styles.weatherCard, { backgroundColor: colors.card, borderColor: colors.border }, elevation(1)]}>
       {weather ? (
-        <View style={[styles.weather, { borderTopColor: colors.border }]}>
+        <View style={styles.weather}>
           <View style={[styles.weatherIcon, { backgroundColor: colors.selectionBg }]}>
             <Ionicons name={weatherGlyph(weather.conditionIcon)} size={22} color={colors.interactive} />
           </View>
@@ -198,7 +221,7 @@ export function TodaySummary({
           </View>
         </View>
       ) : weatherLoading ? (
-        <View style={[styles.weatherAction, { borderTopColor: colors.border }]}>
+        <View style={styles.weatherAction}>
           <View style={[styles.weatherIcon, { backgroundColor: colors.selectionBg }]}>
             <ActivityIndicator size="small" color={colors.interactive} />
           </View>
@@ -207,11 +230,12 @@ export function TodaySummary({
             <Text style={[styles.weatherActionText, { color: colors.textMuted }]}>Updating local forecast…</Text>
           </View>
         </View>
-      ) : onRequestLocation && locationActionLabel ? (
+      ) : (
         <Pressable
-          onPress={onRequestLocation}
-          style={({ pressed }) => [styles.weatherAction, { borderTopColor: colors.border, opacity: pressed ? 0.65 : 1 }]}
+          onPress={onRequestLocation ?? undefined}
+          style={({ pressed }) => [styles.weatherAction, { opacity: pressed ? 0.65 : 1 }]}
           accessibilityRole="button"
+          accessibilityLabel={locationActionLabel ?? undefined}
         >
           <View style={[styles.weatherIcon, { backgroundColor: colors.selectionBg }]}>
             <Ionicons name="location-outline" size={21} color={colors.interactive} />
@@ -222,29 +246,21 @@ export function TodaySummary({
           </View>
           <Ionicons name="chevron-forward" size={17} color={colors.interactive} />
         </Pressable>
-      ) : null}
-
-      {open && prose ? (
-        <>
-          <Text style={[styles.prose, { color: colors.textMuted }]}>{prose}</Text>
-          {written ? (
-            <Text style={[styles.footnote, { color: colors.textSubtle }]}>{written}</Text>
-          ) : null}
-        </>
-      ) : null}
+      )}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   card: { borderWidth: StyleSheet.hairlineWidth, borderRadius: 16, padding: 14, gap: 10 },
+  weatherCard: { borderWidth: StyleSheet.hairlineWidth, borderRadius: 16, padding: 14 },
   top: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   iconWell: { width: 48, height: 48, borderRadius: 24, alignItems: 'center', justifyContent: 'center' },
   copy: { flex: 1, minWidth: 0 },
   kicker: { ...t.xs, fontFamily: fonts.heading, letterSpacing: 0.8, marginBottom: 2 },
   headline: { ...t.lg, fontFamily: fonts.display },
-  weather: { borderTopWidth: StyleSheet.hairlineWidth, paddingTop: 10, flexDirection: 'row', alignItems: 'center', gap: 10 },
-  weatherAction: { borderTopWidth: StyleSheet.hairlineWidth, paddingTop: 10, flexDirection: 'row', alignItems: 'center', gap: 10 },
+  weather: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  weatherAction: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   weatherIcon: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
   weatherPlace: { ...t.xs, fontFamily: fonts.heading, letterSpacing: 0.6 },
   weatherMain: { ...t.sm, fontFamily: fonts.semibold, marginTop: 1 },

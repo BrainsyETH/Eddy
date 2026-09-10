@@ -116,8 +116,11 @@ export default function EddyQuote({ riverSlug, conditionCode, gaugeHeightFt, wea
   // Summary vs full text
   const hasSummary = useAi && aiUpdate.summaryText;
   const summaryText = hasSummary ? aiUpdate.summaryText : null;
-  const fullText = useAi ? aiUpdate.quoteText : staticQuote.text;
-  const displayText = hasSummary && !showFull ? summaryText! : fullText;
+  const fullText = useAi
+    ? aiUpdate.quoteText || aiUpdate.summaryText || staticQuote.text
+    : staticQuote.text;
+  const hasLongRead = Boolean(useAi && aiUpdate.quoteText && aiUpdate.quoteText !== aiUpdate.summaryText);
+  const displayText = hasSummary && hasLongRead && !showFull ? summaryText! : fullText;
 
   const eddyImage = getEddyImageForCondition(displayConditionCode);
   const notes = RIVER_NOTES[riverSlug];
@@ -179,7 +182,7 @@ export default function EddyQuote({ riverSlug, conditionCode, gaugeHeightFt, wea
 
           {/* Toggle + Share row */}
           <div className="flex items-center gap-3 mt-1.5">
-            {hasSummary && (
+            {hasSummary && hasLongRead && (
               <button
                 onClick={() => setShowFull(!showFull)}
                 className="flex items-center gap-1 text-xs font-semibold transition-colors opacity-60 hover:opacity-100"
