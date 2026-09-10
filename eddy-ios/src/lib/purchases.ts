@@ -944,7 +944,7 @@ export function redemptionAlert(
 }
 
 /**
- * Human-readable renewal line for the Profile tab.
+ * Human-readable renewal line for the Settings tab.
  *
  * Ordering matters here: a billing problem outranks the renewal date, because
  * it is the only state the user can still act on before losing access.

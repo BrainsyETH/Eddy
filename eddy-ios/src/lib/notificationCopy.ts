@@ -18,12 +18,10 @@ export type NotificationPermission = 'granted' | 'denied' | 'undetermined' | 'un
 export function notificationDetail({
   permission,
   registered,
-  signedIn,
   optedOut = false,
 }: {
   permission: NotificationPermission;
   registered: boolean;
-  signedIn: boolean;
   optedOut?: boolean;
 }): string {
   if (permission === 'unsupported') {
@@ -33,9 +31,6 @@ export function notificationDetail({
   }
   if (permission === 'denied') {
     return 'Off in iOS Settings. Alerts still appear in the Alerts tab.';
-  }
-  if (!signedIn) {
-    return 'Sign in for push alerts. The Alerts tab works without an account.';
   }
   if (optedOut) {
     return 'Alerts are stopped on this device.';

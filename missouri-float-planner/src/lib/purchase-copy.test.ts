@@ -1,5 +1,5 @@
 // src/lib/purchase-copy.test.ts
-// The strings on the purchase screen and the subscription row in Profile.
+// The strings on the purchase screen and the subscription row in Settings.
 //
 // Tested here because the Expo app has no test runner — the same arrangement as
 // geo-tiles.test.ts and chunked-store.test.ts. purchases.ts is importable from
@@ -645,7 +645,7 @@ test('every identity and purchase control is gated on the whole busy state', () 
 
   for (const onPress of [
     'onPress={handleSignOut}',
-    'onPress={() => setPaywallOpen(true)}',
+    'onPress={handlePremiumAction}',
     'onPress={() => void Linking.openURL(MANAGE_SUBSCRIPTIONS_URL)}',
     'onPress={handleRestore}',
     'onPress={() => void handleRedeem()}',
@@ -662,6 +662,16 @@ test('every identity and purchase control is gated on the whole busy state', () 
 
   // And nothing may go back to gating on its own operation alone.
   assert.doesNotMatch(profile, /disabled=\{busy === /);
+});
+
+test('an inactive billing issue points to the subscription action, not the paywall', () => {
+  const profile = readFileSync('../eddy-ios/app/(tabs)/profile.tsx', 'utf8');
+  assert.match(
+    profile,
+    /if \(entitlement\?\.billingIssue\) \{\s*void Linking\.openURL\(MANAGE_SUBSCRIPTIONS_URL\)/,
+  );
+  assert.match(profile, /billingIssue \? 'Review subscription' : 'View Eddy Premium'/);
+  assert.match(profile, /Review your Apple subscription to restore access\./);
 });
 
 test('a billing problem outranks the renewal date', () => {

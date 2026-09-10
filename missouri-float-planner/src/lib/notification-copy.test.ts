@@ -4,16 +4,15 @@
 // Tested here because the Expo app has no test runner. What is actually being
 // checked is a PRECEDENCE order: several reasons alerts might not arrive can be
 // true at once, and naming the wrong one sends someone to fix something that
-// was never the problem. Telling a simulator user to check iOS Settings, or a
-// signed-out user that their device "has not registered yet", is the failure
-// mode — and it is invisible unless the combinations are enumerated.
+// was never the problem. Telling a simulator user to check iOS Settings is the
+// failure mode — and it is invisible unless the combinations are enumerated.
 
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import { notificationDetail } from '../../../eddy-ios/src/lib/notificationCopy';
 
-const base = { permission: 'granted' as const, registered: true, signedIn: true };
+const base = { permission: 'granted' as const, registered: true };
 
 test('the working state says what will happen', () => {
   assert.match(notificationDetail(base), /will get a push/i);
@@ -25,18 +24,9 @@ test('an unsupported device outranks every other reason', () => {
   const detail = notificationDetail({
     permission: 'unsupported',
     registered: false,
-    signedIn: false,
   });
   assert.match(detail, /real device/i);
   assert.doesNotMatch(detail, /settings/i);
-  assert.doesNotMatch(detail, /sign in/i);
-});
-
-test('a denied permission outranks being signed out', () => {
-  // Signing in would not help: iOS will not show its dialog again.
-  const detail = notificationDetail({ permission: 'denied', registered: false, signedIn: false });
-  assert.match(detail, /iOS Settings/);
-  assert.doesNotMatch(detail, /sign in/i);
 });
 
 test('a denied permission still points at the free feed', () => {
@@ -44,21 +34,9 @@ test('a denied permission still points at the free feed', () => {
   // free and does not need an account. Saying so is the difference between a
   // dead end and a redirect.
   assert.match(
-    notificationDetail({ permission: 'denied', registered: false, signedIn: true }),
+    notificationDetail({ permission: 'denied', registered: false }),
     /Alerts tab/,
   );
-});
-
-test('being signed out is named before the prompt is offered', () => {
-  // Order matters here specifically: the "turn on alerts" button is gated on
-  // signedIn, so promising the prompt to a signed-out user describes a control
-  // that is not on screen.
-  const detail = notificationDetail({
-    permission: 'undetermined',
-    registered: false,
-    signedIn: false,
-  });
-  assert.match(detail, /Sign in/);
 });
 
 test('an undetermined permission makes the case rather than reporting state', () => {
@@ -67,7 +45,6 @@ test('an undetermined permission makes the case rather than reporting state', ()
   const detail = notificationDetail({
     permission: 'undetermined',
     registered: false,
-    signedIn: true,
   });
   assert.match(detail, /floatable|dangerous/i);
 });
@@ -75,7 +52,7 @@ test('an undetermined permission makes the case rather than reporting state', ()
 test('granted but unregistered says it will retry rather than blaming the user', () => {
   // Registration can fail transiently — no network on launch, a token that has
   // not been issued yet. Nothing here is the user's to fix.
-  const detail = notificationDetail({ permission: 'granted', registered: false, signedIn: true });
+  const detail = notificationDetail({ permission: 'granted', registered: false });
   assert.match(detail, /retry/i);
 });
 
@@ -83,7 +60,6 @@ test('an explicit device opt-out outranks transient registration state', () => {
   const detail = notificationDetail({
     permission: 'granted',
     registered: false,
-    signedIn: true,
     optedOut: true,
   });
   assert.match(detail, /stopped on this device/i);
@@ -94,11 +70,11 @@ test('every combination produces a non-empty sentence', () => {
   const permissions = ['granted', 'denied', 'undetermined', 'unsupported'] as const;
   for (const permission of permissions) {
     for (const registered of [true, false]) {
-      for (const signedIn of [true, false]) {
-        const detail = notificationDetail({ permission, registered, signedIn });
+      for (const optedOut of [true, false]) {
+        const detail = notificationDetail({ permission, registered, optedOut });
         assert.ok(
           detail.trim().length > 0,
-          `empty copy for ${permission}/${registered}/${signedIn}`,
+          `empty copy for ${permission}/${registered}/${optedOut}`,
         );
         assert.ok(detail.endsWith('.'), `unpunctuated copy for ${permission}`);
       }
@@ -112,7 +88,10 @@ test('Settings exposes a switch only when push can change on this device', () =>
   assert.match(settings, /permission !== 'unsupported'/);
   assert.match(settings, /accessibilityRole="switch"/);
   assert.match(settings, /accessibilityState=\{\{ checked, disabled, busy: disabled \}\}/);
+  assert.match(settings, /accessibilityLabel=\{`Notifications\. \$\{detail\}`\}/);
   assert.match(settings, /<View pointerEvents="none">\s*<Switch/);
-  assert.match(settings, /permission === 'denied' \? \(\) => void Linking\.openSettings\(\)/);
+  assert.match(settings, /features\.push && permission === 'denied'[\s\S]{0,100}Linking\.openSettings/);
+  assert.match(settings, /external=\{features\.push && permission === 'denied'\}/);
+  assert.match(settings, /!last \? <View style=\{\[styles\.divider/);
   assert.match(settings, /Temporarily unavailable\. Alerts still appear in the Alerts tab\./);
 });

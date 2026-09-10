@@ -500,11 +500,21 @@ export default function ProfileScreen() {
     [enable, handleDisableAlerts],
   );
 
+  const handlePremiumAction = useCallback(() => {
+    if (entitlement?.billingIssue) {
+      void Linking.openURL(MANAGE_SUBSCRIPTIONS_URL);
+      return;
+    }
+    setPaywallOpen(true);
+  }, [entitlement?.billingIssue]);
+
   const version = Constants.expoConfig?.version ?? '0.0.0';
 
-  const notificationSummary = features.push
-    ? notificationDetail({ permission, optedOut, registered, signedIn })
-    : 'Temporarily unavailable. Alerts still appear in the Alerts tab.';
+  const notificationSummary = signedIn
+    ? features.push
+      ? notificationDetail({ permission, optedOut, registered })
+      : 'Temporarily unavailable. Alerts still appear in the Alerts tab.'
+    : '';
 
   return (
     <SafeAreaView style={[styles.screen, { backgroundColor: colors.bg }]} edges={['top']}>
@@ -604,7 +614,7 @@ export default function ProfileScreen() {
                     : confirmPending && !entitlement?.isActive
                       ? 'Purchase found — your account is catching up. Pull down to check again.'
                       : entitlement?.billingIssue && !entitlement.isActive
-                        ? 'Check your Apple ID payment method to restore access.'
+                        ? 'Review your Apple subscription to restore access.'
                         : entitlement?.isActive
                           ? subscriptionSummary(entitlement)
                           : 'Unlock Eddy’s full river outlook.'}
@@ -614,15 +624,17 @@ export default function ProfileScreen() {
 
             {loaded && !entitlement?.isActive && (!confirmPending || confirmWindowClosed) && (
               <Pressable
-                onPress={() => setPaywallOpen(true)}
+                onPress={handlePremiumAction}
                 disabled={busy !== null}
                 accessibilityRole="button"
-                accessibilityLabel="View Eddy Premium"
+                accessibilityLabel={
+                  entitlement?.billingIssue ? 'Review subscription' : 'View Eddy Premium'
+                }
                 accessibilityState={{ disabled: busy !== null }}
                 style={[styles.primary, { backgroundColor: colors.accentFill }]}
               >
                 <Text style={[styles.primaryText, { color: colors.onAccent }]}>
-                  View Eddy Premium
+                  {entitlement?.billingIssue ? 'Review subscription' : 'View Eddy Premium'}
                 </Text>
               </Pressable>
             )}
@@ -694,8 +706,12 @@ export default function ProfileScreen() {
                     icon="notifications-outline"
                     title="Notifications"
                     detail={notificationSummary}
-                    onPress={permission === 'denied' ? () => void Linking.openSettings() : undefined}
-                    external={permission === 'denied'}
+                    onPress={
+                      features.push && permission === 'denied'
+                        ? () => void Linking.openSettings()
+                        : undefined
+                    }
+                    external={features.push && permission === 'denied'}
                   />
                 )}
                 <SettingsRow
@@ -849,11 +865,13 @@ function NotificationSettingsRow({
   detail,
   disabled,
   onToggle,
+  last = false,
 }: {
   checked: boolean;
   detail: string;
   disabled: boolean;
   onToggle: () => void;
+  last?: boolean;
 }) {
   const { colors } = useTheme();
 
@@ -864,8 +882,7 @@ function NotificationSettingsRow({
         disabled={disabled}
         accessibilityRole="switch"
         accessibilityState={{ checked, disabled, busy: disabled }}
-        accessibilityLabel="Notifications"
-        accessibilityHint={detail}
+        accessibilityLabel={`Notifications. ${detail}`}
         style={({ pressed }) => [
           styles.settingsRow,
           { opacity: disabled ? 0.55 : pressed ? 0.62 : 1 },
@@ -891,7 +908,7 @@ function NotificationSettingsRow({
           />
         </View>
       </Pressable>
-      <View style={[styles.divider, { backgroundColor: colors.border }]} />
+      {!last ? <View style={[styles.divider, { backgroundColor: colors.border }]} /> : null}
     </View>
   );
 }

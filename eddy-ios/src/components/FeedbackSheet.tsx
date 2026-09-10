@@ -199,18 +199,11 @@ export function FeedbackSheet({ visible, onDismiss, context, defaultType = 'othe
                 </Text>
               ) : null}
 
-              {/* ── Why this line is HERE and not on a tab ────────────────
-                  It is a promise about what happens to a report, so it belongs
-                  in front of the person deciding whether to file one — and this
-                  sheet is the only surface every report goes through, from the
-                  river screen, the gauge screen, an access point, River Reports
-                  and Eddy Settings alike. Putting it on any one of those would show
-                  it to a fraction of the people it is addressed to, and putting
-                  it on all of them would be the same sentence five times.
-
-                  It also has to be small. A paragraph about the company on a
-                  form is a form people close; one line above the type chips is
-                  read on the way past. */}
+              {/* General feedback needs one line routing river and gauge issues
+                  to their contextual Report actions, which attach useful
+                  details. Reports opened from a specific surface already carry
+                  that context, so their line can instead set an expectation
+                  that a person will read the report. */}
               <Text style={[styles.nimble, { color: colors.textMuted }]}>
                 {context.type === 'general'
                   ? 'For a river or gauge problem, use Report on that screen so its details are included.'
