@@ -159,6 +159,14 @@ export function MapSheet({
    * boundary the same fact: the sheet stops after the details link and its air,
    * and the category row begins below the fold.
    *
+   * ── THE GAP REMAINS WHEN THE SHEET EXPANDS ─────────────────────────────
+   * The wrapper is real layout at every detent, so these 28pt become a section
+   * break between the persistent glance/actions and the detail navigation when
+   * the sheet is open. That is intentional: removing it only while expanded
+   * would make the content boundary depend on animated state and put the snap
+   * calculation and layout back on different facts. Check this separation on a
+   * device when changing either the peek contents or CONTENT_BOTTOM_PAD.
+   *
    * NO SAFE-AREA INSET. `available` is measured from the map's overlay stack,
    * which already excludes the tab bar and both insets, so the sheet cannot
    * reach the home indicator and owes it no clearance.

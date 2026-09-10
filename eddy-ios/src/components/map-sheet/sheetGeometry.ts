@@ -297,10 +297,11 @@ export function resolveDetents(
     // tallest detent is what makes the lift always possible; ORNAMENT_BAND
     // explains the number.
     //
-    // Only `full` is capped. `half` is 55% of available and `peek` never
-    // exceeds 340, so on any map area big enough to draw a sheet at all both
-    // already clear the band by a wide margin — capping them would be dead
-    // arithmetic that read as though it were doing something.
+    // Only `full` has an independent ornament ceiling. `half` is already 55%
+    // of available. The fallback peek and a whole-content peek are capped by
+    // PEEK_MAX, but an authored measured peek is deliberately taken at its real
+    // height (see `measured` above) and may exceed that cap. Capping it here
+    // would cut through the control strip it was measured to preserve.
     full: Math.min(content, fullTarget(safeAvailable)),
   };
 
