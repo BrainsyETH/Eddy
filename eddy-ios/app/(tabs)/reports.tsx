@@ -111,6 +111,8 @@ import { ScopeSwitch, type ScopeOption } from '@/components/ScopeSwitch';
 import { DamRow } from '@/components/dam/DamRow';
 import { SearchBar } from '@/components/SearchBar';
 import { TodayHub } from '@/components/TodayHub';
+import type { TodayRead, TodayRiverFilter } from '@/components/TodayHub';
+import { EddyReadCard } from '@/components/EddyReadCard';
 import { FilterChips, type FilterChip } from '@/components/FilterChips';
 import { FeedbackSheet } from '@/components/FeedbackSheet';
 import { gaugeToSearchResult, useEddySearch } from '@/hooks/useEddySearch';
@@ -127,8 +129,12 @@ import { rememberGauge, seedFromMapGauge, seedFromSearchResult } from '@/lib/gau
 import { primaryReading } from '@/lib/readingCopy';
 import { useRouter } from 'expo-router';
 import { asHref } from '@/lib/href';
+import { selectEddySays } from '@/lib/eddySays';
+import { TODAY_RADIUS_MILES } from '@/lib/todayRecommendation';
 
-type FilterKey = 'all' | 'floatable' | 'starred' | 'low' | 'high';
+type FilterKey = TodayRiverFilter;
+type BrowseMode = 'today' | 'rivers' | 'reads';
+type ReadFilter = 'for-you' | 'following' | 'nearby' | 'floatable' | 'all';
 
 /**
  * How the list is ordered.
@@ -176,6 +182,7 @@ const FILTERS: Record<FilterKey, (river: RiverListItem, starred: boolean) => boo
     const code = river.currentCondition?.code ?? 'unknown';
     return code === 'high' || code === 'dangerous';
   },
+  unknown: (river) => !river.currentCondition || river.currentCondition.code === 'unknown',
 };
 
 /**
@@ -191,6 +198,7 @@ const FILTER_LABELS: { key: FilterKey; label: string }[] = [
   { key: 'starred', label: 'Favorites' },
   { key: 'low', label: 'Low water' },
   { key: 'high', label: 'High water' },
+  { key: 'unknown', label: 'No fresh reading' },
 ];
 
 interface RiverBrowseControlsProps {
@@ -200,7 +208,6 @@ interface RiverBrowseControlsProps {
   onPickSort: (key: SortKey) => Promise<void>;
   onToggleFilter: (key: string) => void;
   onToggleSort: () => void;
-  showHeading?: boolean;
   sort: SortKey;
   sortOpen: boolean;
 }
@@ -213,7 +220,6 @@ const RiverBrowseControls = memo(function RiverBrowseControls({
   onPickSort,
   onToggleFilter,
   onToggleSort,
-  showHeading = false,
   sort,
   sortOpen,
 }: RiverBrowseControlsProps) {
@@ -245,16 +251,7 @@ const RiverBrowseControls = memo(function RiverBrowseControls({
 
   return (
     <View>
-      {showHeading ? (
-        <>
-          <View style={styles.browseHead}>
-            <Text style={[styles.browseTitle, { color: colors.text }]}>All river conditions</Text>
-          </View>
-          <View style={styles.sortRestRow}>{trigger}</View>
-        </>
-      ) : (
-        <View style={styles.sortRow}>{trigger}</View>
-      )}
+      <View style={styles.sortRow}>{trigger}</View>
       {sortOpen ? (
         <View style={[styles.sortMenu, { backgroundColor: colors.card, borderColor: colors.border }]}>
           {SORT_LABELS.map(({ key, label }) => {
@@ -380,6 +377,7 @@ function gaugeCorpusLabel(count: number): string {
  */
 type SearchRow =
   | { kind: 'section'; key: string; title: string; count: number }
+  | { kind: 'read'; key: string; read: TodayRead }
   | { kind: 'river'; key: string; river: RiverListItem }
   | { kind: 'gauge'; key: string; gauge: MapGauge; result: SearchResult }
   | { kind: 'refgauge'; key: string; result: SearchResult }
@@ -555,6 +553,8 @@ export default function ReportsScreen() {
    */
   const [awaitingConditions, setAwaitingConditions] = useState(false);
   const [scope, setScope] = useState<ScopeKey>('all');
+  const [browseMode, setBrowseMode] = useState<BrowseMode>('today');
+  const [readFilter, setReadFilter] = useState<ReadFilter>('for-you');
   const [searchFocused, setSearchFocused] = useState(false);
   /**
    * Eddy's written summary of the water generally, or null.
@@ -566,13 +566,15 @@ export default function ReportsScreen() {
    * stored paragraph about yesterday's water is precisely what the server's
    * gate exists to stop us showing.
    *
-   * Read from the shared batched response rather than fetched here. The
-   * statewide entry is keyed 'global' and is ABSENT rather than stale when the
-   * server withholds it, so a missing key is the signal — never fall back to a
-   * previously seen one.
+   * Read from the shared batched response rather than fetched here. Statewide
+   * prose is a separate public field and is null rather than stale when the
+   * server withholds it — never fall back to a previously seen one.
    */
-  const { updates: eddyUpdates, refresh: refreshEddyUpdates } = useEddyUpdates();
-  const summary = eddyUpdates?.global ?? null;
+  const {
+    updates: eddyUpdates,
+    statewide: statewideUpdate,
+    refresh: refreshEddyUpdates,
+  } = useEddyUpdates();
   const [damFilter, setDamFilter] = useState<DamFilterKey>('all');
   const [dams, setDams] = useState<DamSnapshot[]>([]);
   const [gaugeCount, setGaugeCount] = useState<number | null>(null);
@@ -944,7 +946,7 @@ export default function ReportsScreen() {
    * chip that filters. It has to be computed HERE, above the memo that reads
    * it, rather than beside the render where it used to live.
    */
-  const riverScope = scope === 'rivers' || (scope === 'all' && !searching);
+  const riverScope = searching ? scope === 'rivers' : browseMode === 'rivers';
 
   const visible = useMemo(() => {
     const needle = query.trim().toLowerCase();
@@ -1090,6 +1092,61 @@ export default function ReportsScreen() {
     [search.results],
   );
 
+  const readDistanceByRiver = useMemo(
+    () => location.coords && gauges ? riverMilesByGauge(gauges, location.coords as Coords) : null,
+    [gauges, location.coords],
+  );
+  const readItems = useMemo<TodayRead[]>(() => {
+    if (!rivers || !eddyUpdates) return [];
+    return rivers
+      .map((river) => {
+        const says = selectEddySays(eddyUpdates[river.slug]);
+        return says ? { river, says } : null;
+      })
+      .filter((item): item is TodayRead => item !== null)
+      .sort((a, b) => {
+        const favoriteOrder = Number(isStarred('river', b.river.id)) - Number(isStarred('river', a.river.id));
+        if (favoriteOrder !== 0) return favoriteOrder;
+        if (readDistanceByRiver) {
+          const distanceOrder =
+            (readDistanceByRiver.get(a.river.id) ?? Infinity) -
+            (readDistanceByRiver.get(b.river.id) ?? Infinity);
+          if (distanceOrder !== 0) return distanceOrder;
+        }
+        const conditionOrder = floatableRank(a.river.currentCondition?.code ?? 'unknown') - floatableRank(b.river.currentCondition?.code ?? 'unknown');
+        if (conditionOrder !== 0) return conditionOrder;
+        const writtenOrder = new Date(b.says.generatedAt).getTime() - new Date(a.says.generatedAt).getTime();
+        return writtenOrder || a.river.name.localeCompare(b.river.name);
+      });
+  }, [eddyUpdates, isStarred, readDistanceByRiver, rivers]);
+  const visibleReadItems = useMemo(() => {
+    if (readFilter === 'following') {
+      return readItems.filter(({ river }) => isStarred('river', river.id));
+    }
+    if (readFilter === 'nearby') {
+      if (!readDistanceByRiver) return [];
+      return readItems
+        .filter(({ river }) => (readDistanceByRiver.get(river.id) ?? Infinity) <= TODAY_RADIUS_MILES)
+        .sort((a, b) =>
+          (readDistanceByRiver.get(a.river.id) ?? Infinity) -
+          (readDistanceByRiver.get(b.river.id) ?? Infinity));
+    }
+    if (readFilter === 'floatable') {
+      return readItems.filter(({ river }) => isFloatableNow(river.currentCondition?.code ?? 'unknown'));
+    }
+    if (readFilter === 'all') {
+      return [...readItems].sort((a, b) => a.river.name.localeCompare(b.river.name));
+    }
+    return readItems;
+  }, [isStarred, readDistanceByRiver, readFilter, readItems]);
+  const readChips = useMemo<FilterChip[]>(() => [
+    { key: 'for-you', label: 'For you', count: readItems.length },
+    { key: 'following', label: 'Following', count: readItems.filter(({ river }) => isStarred('river', river.id)).length },
+    { key: 'nearby', label: 'Nearby', count: readDistanceByRiver ? readItems.filter(({ river }) => (readDistanceByRiver.get(river.id) ?? Infinity) <= TODAY_RADIUS_MILES).length : undefined },
+    { key: 'floatable', label: 'Floatable', count: readItems.filter(({ river }) => isFloatableNow(river.currentCondition?.code ?? 'unknown')).length },
+    { key: 'all', label: 'All', count: readItems.length },
+  ], [isStarred, readDistanceByRiver, readItems]);
+
   /**
    * The dams, narrowed by the field and the chips.
    *
@@ -1128,6 +1185,14 @@ export default function ReportsScreen() {
   );
 
   const rows = useMemo<SearchRow[]>(() => {
+    if (!searching) {
+      if (browseMode === 'today') return [];
+      if (browseMode === 'reads') {
+        return visibleReadItems.map((read) => ({ kind: 'read' as const, key: `read:${read.river.id}`, read }));
+      }
+      return visible.map((river) => ({ kind: 'river' as const, key: `river:${river.id}`, river }));
+    }
+
     /**
      * ALL: every kind at once, under headings.
      *
@@ -1220,7 +1285,7 @@ export default function ReportsScreen() {
       key: `access:${result.id}`,
       result,
     }));
-  }, [scope, shortQuery, visible, visibleGauges, gaugeResults, gaugeRow, accessResults, visibleDams]);
+  }, [searching, browseMode, visibleReadItems, scope, shortQuery, visible, visibleGauges, gaugeResults, gaugeRow, accessResults, visibleDams]);
 
   /**
    * Counts for the band chips, off the UNFILTERED gauge results.
@@ -1287,6 +1352,15 @@ export default function ReportsScreen() {
       })),
     [sorted, isStarred],
   );
+  const todayConditionCounts = useMemo(() => {
+    const countByKey = new Map(chips.map((chip) => [chip.key, chip.count ?? 0]));
+    return {
+      floatable: countByKey.get('floatable') ?? 0,
+      low: countByKey.get('low') ?? 0,
+      high: countByKey.get('high') ?? 0,
+      unknown: countByKey.get('unknown') ?? 0,
+    };
+  }, [chips]);
 
   /**
    * The headline count, off the WHOLE catalog rather than the filtered set.
@@ -1391,10 +1465,32 @@ export default function ReportsScreen() {
   return (
     <SafeAreaView style={[styles.screen, { backgroundColor: colors.bg }]} edges={['top']}>
       <View style={styles.header}>
-        <Text style={[styles.title, { color: colors.text }]}>Today</Text>
-        {/* Failure/loading stays beside the title. The statewide answer moved
-            below the personalized modules so Search remains at the top and
-            Favorites, not a generic summary, owns the page's hero position. */}
+        <View style={styles.titleRow}>
+          {!searching && browseMode !== 'today' ? (
+            <Pressable
+              onPress={() => {
+                setBrowseMode('today');
+                setScope('all');
+                setSortOpen(false);
+              }}
+              hitSlop={10}
+              accessibilityRole="button"
+              accessibilityLabel="Back to Today"
+            >
+              <Ionicons name="chevron-back" size={25} color={colors.interactive} />
+            </Pressable>
+          ) : null}
+          <Text style={[styles.title, { color: colors.text }]}>
+            {!searching && browseMode === 'rivers'
+              ? 'River Conditions'
+              : !searching && browseMode === 'reads'
+                ? 'Eddy’s Reads'
+                : 'Today'}
+          </Text>
+        </View>
+        {/* Failure/loading stays beside the title. Search remains mounted below
+            this header across Today, Browse, and Reads so focus never remounts
+            the field or drops the keyboard. */}
         {error ? (
           <Text style={[styles.subtitle, { color: colors.error }]}>{error}</Text>
         ) : awaitingConditions ? (
@@ -1505,30 +1601,69 @@ export default function ReportsScreen() {
         ListHeaderComponent={
           !searching ? (
             <View>
-              <TodayHub
-                rivers={rivers ?? []}
-                gauges={gauges}
-                ensureGauges={ensureGauges}
-                location={location}
-                refreshRevision={hubRefreshRevision}
-                suppressNetworkNotice={Boolean(error)}
-                statewide={{
-                  headline: !error && !awaitingConditions ? headline : null,
-                  prose: summary?.quoteText ?? null,
-                  generatedAt: summary?.generatedAt ?? null,
-                }}
-              />
-              <RiverBrowseControls
-                chips={chips}
-                filter={filter}
-                locationStatus={location.status}
-                onPickSort={onPickSort}
-                onToggleFilter={(key) => setFilter(filter === key ? 'all' : (key as FilterKey))}
-                onToggleSort={() => setSortOpen((open) => !open)}
-                showHeading
-                sort={sort}
-                sortOpen={sortOpen}
-              />
+              {browseMode === 'today' ? (
+                <TodayHub
+                  rivers={rivers ?? []}
+                  gauges={gauges}
+                  ensureGauges={ensureGauges}
+                  location={location}
+                  refreshRevision={hubRefreshRevision}
+                  suppressNetworkNotice={Boolean(error)}
+                  statewide={{
+                    headline: !error && !awaitingConditions ? headline : null,
+                    prose: statewideUpdate?.prose ?? null,
+                    generatedAt: statewideUpdate?.generatedAt ?? null,
+                  }}
+                  reads={readItems}
+                  readsLoading={eddyUpdates === null}
+                  conditionCounts={todayConditionCounts}
+                  onBrowseReads={() => {
+                    setScope('all');
+                    setBrowseMode('reads');
+                  }}
+                  onBrowseRivers={(nextFilter) => {
+                    setFilter(nextFilter);
+                    setScope('rivers');
+                    setBrowseMode('rivers');
+                  }}
+                />
+              ) : browseMode === 'rivers' ? (
+                <RiverBrowseControls
+                  chips={chips}
+                  filter={filter}
+                  locationStatus={location.status}
+                  onPickSort={onPickSort}
+                  onToggleFilter={(key) => setFilter(filter === key ? 'all' : (key as FilterKey))}
+                  onToggleSort={() => setSortOpen((open) => !open)}
+                  sort={sort}
+                  sortOpen={sortOpen}
+                />
+              ) : (
+                <View>
+                  <View style={styles.readsIntro}>
+                    <Text style={[styles.readsIntroText, { color: colors.textMuted }]}>Fresh, free summaries from rivers Eddy is tracking right now.</Text>
+                    <Text style={[styles.readsCount, { color: colors.textSubtle }]}>{visibleReadItems.length} available</Text>
+                  </View>
+                  <FilterChips
+                    chips={readChips}
+                    active={[readFilter]}
+                    onToggle={(key) => {
+                      if (key !== 'nearby' || location.coords) {
+                        setReadFilter(key as ReadFilter);
+                        return;
+                      }
+                      if (location.status === 'denied') {
+                        void Linking.openSettings();
+                        return;
+                      }
+                      void location.request().then((coords) => {
+                        if (coords) setReadFilter('nearby');
+                      });
+                    }}
+                    paddingHorizontal={16}
+                  />
+                </View>
+              )}
             </View>
           ) : null
         }
@@ -1540,13 +1675,26 @@ export default function ReportsScreen() {
           />
         }
         ListEmptyComponent={
+          !searching && browseMode === 'today' ? null : (
           <View style={styles.empty}>
             {/* A scope still waiting on its first answer has not FOUND nothing;
                 it has not looked yet. Saying "nothing matches" here would be a
                 claim about the database made before reading it — and it is the
                 claim a blank list makes on its own, which is why the spinner
                 has to win this branch. */}
-            {awaitingServer && !error ? (
+            {!searching && browseMode === 'reads' && eddyUpdates === null ? (
+              <ActivityIndicator color={colors.interactive} />
+            ) : !searching && browseMode === 'reads' ? (
+              <Text style={[styles.emptyText, { color: colors.textMuted }]}>
+                {readFilter === 'following'
+                  ? 'No current reads for your favorite rivers.'
+                  : readFilter === 'nearby'
+                    ? `No current reads within ${TODAY_RADIUS_MILES} miles.`
+                    : readFilter === 'floatable'
+                      ? 'No current reads for floatable rivers.'
+                      : 'No current Eddy reads. Fresh summaries return when the latest water and written conditions agree.'}
+              </Text>
+            ) : awaitingServer && !error ? (
               <ActivityIndicator color={colors.interactive} />
             ) : (
               <Text style={[styles.emptyText, { color: colors.textMuted }]}>
@@ -1561,6 +1709,7 @@ export default function ReportsScreen() {
               </Text>
             )}
           </View>
+          )
         }
         // ── Paging ────────────────────────────────────────────────
         // Only the scopes the server answers can page; rivers and dams are
@@ -1612,6 +1761,16 @@ export default function ReportsScreen() {
           </View>
         }
         renderItem={({ item }) => {
+          if (item.kind === 'read') {
+            return (
+              <EddyReadCard
+                river={item.read.river}
+                says={item.read.says}
+                onPress={() => router.push(`/river/${item.read.river.slug}`)}
+              />
+            );
+          }
+
           // A heading, only ever emitted by the All scope. It carries its own
           // count so a section states its size — the same thing the chips do
           // for the scopes that have them, and the reason neither has to be
@@ -1704,6 +1863,7 @@ const styles = StyleSheet.create({
   screen: { flex: 1 },
   centered: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24 },
   header: { paddingHorizontal: 20, paddingTop: 12 },
+  titleRow: { flexDirection: 'row', alignItems: 'center', gap: 5 },
   // Fredoka, the brand display face. It previously appeared nowhere in the
   // product — only inside the paywall — so the app looked generic on every
   // screen a user actually spends time on.
@@ -1714,14 +1874,7 @@ const styles = StyleSheet.create({
   loadingRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 4 },
   loadingText: { ...t.sm, fontFamily: fonts.body },
   searchRow: { paddingHorizontal: 16, paddingTop: 12, paddingBottom: 10, borderBottomWidth: StyleSheet.hairlineWidth, zIndex: 10 },
-  browseHead: {
-    paddingHorizontal: 18,
-    paddingTop: 2,
-    paddingBottom: 2,
-  },
-  browseTitle: { ...t.xl, fontFamily: fonts.heading },
   sortRow: { paddingHorizontal: 16, paddingTop: 10 },
-  sortRestRow: { paddingHorizontal: 18, paddingBottom: 8, alignItems: 'flex-end' },
   sortTrigger: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1767,6 +1920,9 @@ const styles = StyleSheet.create({
   requestRiver: { ...t.xs, fontFamily: fonts.semibold },
   corpusCount: { ...t.xs, fontFamily: fonts.mono, paddingHorizontal: 20, paddingTop: 8 },
   listContent: { paddingTop: 4, paddingBottom: 16 },
+  readsIntro: { paddingHorizontal: 20, paddingTop: 4, paddingBottom: 10, flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between', gap: 12 },
+  readsIntroText: { ...t.sm, fontFamily: fonts.body, flex: 1 },
+  readsCount: { ...t.xs, fontFamily: fonts.mono },
   // Aligned with the row cards below it (16pt margin + 4pt of optical inset),
   // so the heading reads as the label on the group rather than as a stray line.
   accessRow: {

@@ -167,8 +167,8 @@ test('the outlook effect joins an in-flight request instead of restarting it', (
   // the second river's name.
   assert.match(
     source,
-    /const key = `\$\{slug\}\|\$\{askedFor \?\? ''\}`;/,
-    'the outlook key must carry the slug',
+    /const key = `\$\{slug\}\|\$\{askedFor \?\? ''\}\|\$\{canRequestPremium \? 'premium' : 'free'\}`;/,
+    'the outlook key must carry the slug and entitlement tier',
   );
   // And the cleanup must not abort: the answer belongs to the cache as much as
   // to the run that asked for it.

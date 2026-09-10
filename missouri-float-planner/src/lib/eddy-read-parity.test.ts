@@ -1,5 +1,5 @@
 // src/lib/eddy-read-parity.test.ts
-// "Eddy's read" names the same column on both platforms.
+// "Eddy's read" respects the public/Premium boundary on both platforms.
 //
 // ── The drift this exists to stop ─────────────────────────────────────────
 // One model call writes three blocks — [SUMMARY], [EDDY_READ], [FULL] — into
@@ -17,11 +17,10 @@
 // parity test next door in outlook-guidance-caveat.test.ts.
 //
 // ── Why the fallback is part of the contract ──────────────────────────────
-// The long prose is withheld — '' on web from /api/eddy-update/[riverSlug],
-// null on iOS from /api/rivers/[slug]/outlook — when the river has crossed
-// into a different floatability class or the row is past
-// WEBSITE_PROSE_STALE_HOURS. Withholding is the guard working, so each
-// platform must fall through to the short read rather than reach around it.
+// The long prose is null on public web responses and on free iOS outlooks. It
+// is also withheld when live water has crossed into a different floatability
+// class or the row is stale. Each platform must fall through to the public
+// summary rather than reach around either guard.
 
 import assert from 'node:assert/strict';
 import test from 'node:test';
@@ -31,7 +30,7 @@ import { join } from 'node:path';
 const IOS = join(process.cwd(), '../eddy-ios/src/components/EddyTake.tsx');
 const WEB = join(process.cwd(), 'src/components/gauge/RiverGaugeDetail.tsx');
 
-test('both platforms prefer the long report and fall back to the short read', () => {
+test('iOS prefers the entitled report while public web falls back to the summary', () => {
   // iOS: `outlook.fullRead || sections?.eddyRead || ''` — fullRead is quote_text.
   assert.match(
     readFileSync(IOS, 'utf8'),
@@ -39,11 +38,12 @@ test('both platforms prefer the long report and fall back to the short read', ()
     'EddyTake.tsx no longer prefers fullRead over sections.eddyRead',
   );
 
-  // Web: the same precedence, expressed over the fields /api/eddy-update returns.
+  // Web keeps the longer fields first for a future authenticated caller, but
+  // public requests receive only summaryText from the singular report routes.
   assert.match(
     readFileSync(WEB, 'utf8'),
-    /generatedEddyRead:\s*activeEddyUpdate\?\.quoteText\s*\|\|\s*activeEddyUpdate\?\.eddyRead/,
-    'RiverGaugeDetail.tsx no longer prefers quoteText over eddyRead',
+    /activeEddyUpdate\?\.quoteText \|\| activeEddyUpdate\?\.eddyRead \|\| activeEddyUpdate\?\.summaryText/,
+    'RiverGaugeDetail.tsx no longer falls back to the public summary',
   );
 });
 

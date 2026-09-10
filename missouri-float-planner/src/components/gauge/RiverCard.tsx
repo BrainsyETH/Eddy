@@ -88,9 +88,7 @@ export default function RiverCard({ riverGroup, meta, distanceMiles }: RiverCard
   const surface = conditionChip(displayConditionCode);
   const surfaceStyle = { backgroundColor: surface.background, borderColor: surface.borderColor };
 
-  const displayText = usableEddyUpdate?.summaryText && !showFull
-    ? usableEddyUpdate.summaryText
-    : usableEddyUpdate ? usableEddyUpdate.quoteText : buildStaticText();
+  const displayText = usableEddyUpdate?.summaryText ?? buildStaticText();
 
   // Measure whether the collapsed quote overflows its 2-line clamp so we can
   // offer a More toggle even when there's no AI summaryText. Only measured
@@ -110,9 +108,9 @@ export default function RiverCard({ riverGroup, meta, distanceMiles }: RiverCard
     // unchanged between the loading and loaded renders.
   }, [displayText, showFull, eddyLoading]);
 
-  // A toggle is worthwhile when there's a longer AI narrative to reveal, or
-  // when the (static/AI) quote is being truncated by the clamp.
-  const canExpand = Boolean(usableEddyUpdate?.summaryText) || isClamped || showFull;
+  // Public cards receive only the summary. A toggle is worthwhile precisely
+  // when that summary (or the static fallback) is truncated by the clamp.
+  const canExpand = isClamped || showFull;
 
   const isCfsPrimary = primaryThreshold.thresholdUnit === 'cfs';
   const primaryValue = isCfsPrimary ? primaryGauge.dischargeCfs : primaryGauge.gaugeHeightFt;

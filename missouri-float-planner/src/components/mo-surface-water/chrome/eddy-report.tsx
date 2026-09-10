@@ -8,7 +8,7 @@ import type { EddyUpdateResponse } from '@/app/api/eddy-update/[riverSlug]/route
 import { MONO, SANS, VerdictChipSpan, floatabilityClass, relativeTime } from './shared';
 
 export type EddyReport = {
-  quoteText: string;
+  quoteText: string | null;
   summaryText: string | null;
   conditionCode: string;
   generatedAt: string;
@@ -119,6 +119,7 @@ export function EddyReportCard({ report }: { report: EddyReport | null | undefin
     return null;
   }
   const verdict = STAGE_VERDICTS[report.conditionCode as StageVerdict] ?? STAGE_VERDICTS.unknown;
+  const hasFullReport = Boolean(report.quoteText && report.quoteText !== report.summaryText);
   return (
     <div
       className="mt-3 rounded-md border-2 p-3"
@@ -154,7 +155,7 @@ export function EddyReportCard({ report }: { report: EddyReport | null | undefin
           “{report.summaryText}”
         </p>
       )}
-      {(showFull || !report.summaryText) && (
+      {report.quoteText && (showFull || !report.summaryText) && (
         <p
           className="mt-2 leading-snug"
           style={{ fontFamily: SANS, fontSize: 12, color: THEME.ink }}
@@ -162,7 +163,7 @@ export function EddyReportCard({ report }: { report: EddyReport | null | undefin
           {report.quoteText}
         </p>
       )}
-      {report.summaryText && (
+      {report.summaryText && hasFullReport && (
         <button
           type="button"
           onClick={() => setShowFull((v) => !v)}
@@ -184,4 +185,3 @@ export function EddyReportCard({ report }: { report: EddyReport | null | undefin
     </div>
   );
 }
-

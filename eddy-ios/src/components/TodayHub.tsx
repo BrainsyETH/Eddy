@@ -15,14 +15,17 @@ import {
   ApiError,
   fetchFavoriteFloats,
   fetchHighWater,
+  fetchLocationWeather,
   fetchRiverAlerts,
   fetchRiverOutlook,
 } from '@/api/client';
 import { PaywallSheet } from '@/components/PaywallSheet';
+import { EddyReadCard } from '@/components/EddyReadCard';
 import { EddyScene } from '@/components/EddyScene';
 import { Otter, otterForCondition } from '@/components/Otter';
-import { TodaySummary } from '@/components/TodaySummary';
+import { TodaySummary, TodayWeather } from '@/components/TodaySummary';
 import { useAccount } from '@/hooks/useAccount';
+import { useSession } from '@/hooks/useSession';
 import { type LocationStatus } from '@/hooks/useLocation';
 import { useStarredRivers, type StarredItem } from '@/hooks/useStarredRivers';
 import { readFavoriteFloats, writeFavoriteFloats } from '@/lib/favoriteFloatCache';
@@ -34,12 +37,15 @@ import {
   TODAY_RADIUS_MILES,
 } from '@/lib/todayRecommendation';
 import { readRecommendation, writeRecommendation } from '@/lib/todayPreferences';
+import type { EddySays } from '@/lib/eddySays';
+import { riverMilesByGauge } from '@/lib/riverDistance';
 import { chooseTodaySafetyScope, filterTodaySafety } from '@/lib/todaySafety';
 import {
   conditionBg,
   conditionChipBorder,
   conditionInk,
   conditionLabel,
+  floatableRank,
 } from '@/theme/conditions';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
@@ -60,7 +66,21 @@ interface Props {
     prose: string | null;
     generatedAt: string | null;
   };
+  reads: TodayRead[];
+  readsLoading: boolean;
+  conditionCounts: Record<'floatable' | 'low' | 'high' | 'unknown', number>;
+  onBrowseReads: () => void;
+  onBrowseRivers: (filter: TodayRiverFilter) => void;
 }
+
+export type TodayRiverFilter = 'all' | 'floatable' | 'starred' | 'low' | 'high' | 'unknown';
+
+export interface TodayRead {
+  river: RiverListItem;
+  says: EddySays;
+}
+
+const NO_FAVORITE_RIVERS = new Set<string>();
 
 function SectionHead({ title, action, onAction }: { title: string; action?: string; onAction?: () => void }) {
   const { colors } = useTheme();
@@ -84,6 +104,28 @@ function ConditionPill({ river }: { river: RiverListItem }) {
         {conditionLabel(code)}
       </Text>
     </View>
+  );
+}
+
+function CompactRiverRow({ river, onPress }: { river: RiverListItem; onPress: () => void }) {
+  const { colors } = useTheme();
+  const reading = river.currentCondition ? primaryReading(river.currentCondition) : null;
+  return (
+    <Pressable
+      onPress={onPress}
+      style={({ pressed }) => [styles.compactRiver, { borderBottomColor: colors.border, opacity: pressed ? 0.65 : 1 }]}
+      accessibilityRole="button"
+      accessibilityLabel={`${river.name}, ${conditionLabel(river.currentCondition?.code ?? 'unknown')}`}
+    >
+      <View style={styles.flex}>
+        <Text style={[styles.compactRiverName, { color: colors.text }]} numberOfLines={1}>{river.name}</Text>
+        <Text style={[styles.compactRiverMeta, { color: colors.textMuted }]} numberOfLines={1}>
+          {reading ? formatReading(reading.value, reading.unit) : 'No fresh reading'}
+        </Text>
+      </View>
+      <ConditionPill river={river} />
+      <Ionicons name="chevron-forward" size={16} color={colors.textSubtle} />
+    </Pressable>
   );
 }
 
@@ -188,24 +230,37 @@ export function TodayHub({
   refreshRevision,
   suppressNetworkNotice,
   statewide,
+  reads,
+  readsLoading,
+  conditionCounts,
+  onBrowseReads,
+  onBrowseRivers,
 }: Props) {
   const router = useRouter();
   const { colors, elevation } = useTheme();
   const { starred, ready: starsReady } = useStarredRivers();
   const { entitlement, loaded: accountLoaded, error: accountError, refresh: refreshAccount } = useAccount();
+  const { getAccessToken } = useSession();
+  const entitled = accountLoaded && !accountError ? Boolean(entitlement?.isActive) : null;
+  const requestPremiumOutlook = entitled === true;
   const [floats, setFloats] = useState<FavoriteFloatSummary[] | null>(null);
   const [safety, setSafety] = useState<{
-    scopeKey: string;
-    high: HighWaterEntry[];
-    notices: RiverAlert[];
-  } | null>(null);
+    high: HighWaterEntry[] | null;
+    notices: RiverAlert[] | null;
+  }>({ high: null, notices: null });
   const [floatFailure, setFloatFailure] = useState(false);
-  const [safetyFailureScope, setSafetyFailureScope] = useState<string | null>(null);
+  const [safetyFailure, setSafetyFailure] = useState({ high: false, notices: false });
   const [incumbentState, setIncumbentState] = useState<{
     ready: boolean;
     riverId: string | null;
   }>({ ready: false, riverId: null });
   const [outlook, setOutlook] = useState<{ slug: string; data: RiverOutlookResponse | null } | null>(null);
+  const [localWeather, setLocalWeather] = useState<{
+    data: Awaited<ReturnType<typeof fetchLocationWeather>>;
+    coordsKey: string;
+  } | null>(null);
+  const [weatherFailedKey, setWeatherFailedKey] = useState<string | null>(null);
+  const [weatherRetry, setWeatherRetry] = useState(0);
   const [paywallOpen, setPaywallOpen] = useState(false);
 
   useEffect(() => {
@@ -242,33 +297,59 @@ export function TodayHub({
     [starred],
   );
   const safetyScope = useMemo(() => chooseTodaySafetyScope({
-    favoriteRiverSlugs,
+    favoriteRiverSlugs: starsReady ? favoriteRiverSlugs : NO_FAVORITE_RIVERS,
     rivers,
     gauges: gauges ?? [],
-    coords: location.coords,
-  }), [favoriteRiverSlugs, gauges, location.coords, rivers]);
+    // Until favorites and the gauge geometry are ready, severe statewide
+    // warnings are the honest progressive result. The same fetched arrays are
+    // narrowed locally as soon as a personalized scope can be resolved.
+    coords: starsReady && (!location.coords || gauges) ? location.coords : null,
+  }), [favoriteRiverSlugs, gauges, location.coords, rivers, starsReady]);
 
   useEffect(() => {
-    if (!starsReady || (location.coords && !gauges && favoriteRiverSlugs.size === 0)) return;
     const controller = new AbortController();
-    void Promise.allSettled([fetchHighWater(controller.signal), fetchRiverAlerts(undefined, controller.signal)])
-      .then(([highResult, noticeResult]) => {
+
+    void fetchHighWater(controller.signal).then(
+      (entries) => {
         if (controller.signal.aborted) return;
-        const filtered = filterTodaySafety(
-          highResult.status === 'fulfilled' ? highResult.value : [],
-          noticeResult.status === 'fulfilled' ? noticeResult.value : [],
-          safetyScope,
-        );
-        const { high, notices } = filtered;
-        setSafety({ scopeKey: safetyScope.key, high, notices });
-        setSafetyFailureScope(
-          highResult.status === 'rejected' || noticeResult.status === 'rejected'
-            ? safetyScope.key
-            : null,
-        );
+        setSafety((current) => ({ ...current, high: entries }));
+        setSafetyFailure((current) => ({ ...current, high: false }));
+      },
+      () => {
+        if (!controller.signal.aborted) setSafetyFailure((current) => ({ ...current, high: true }));
+      },
+    );
+    void fetchRiverAlerts(undefined, controller.signal).then(
+      (entries) => {
+        if (controller.signal.aborted) return;
+        setSafety((current) => ({ ...current, notices: entries }));
+        setSafetyFailure((current) => ({ ...current, notices: false }));
+      },
+      () => {
+        if (!controller.signal.aborted) setSafetyFailure((current) => ({ ...current, notices: true }));
+      },
+    );
+    return () => controller.abort();
+  }, [refreshRevision]);
+
+  const weatherCoordsKey = location.coords
+    ? `${Math.round(location.coords.lat / 0.05)}:${Math.round(location.coords.lng / 0.05)}`
+    : null;
+  useEffect(() => {
+    if (!location.coords || !weatherCoordsKey) return;
+    const controller = new AbortController();
+    void fetchLocationWeather(location.coords, controller.signal)
+      .then((data) => {
+        if (!controller.signal.aborted) {
+          setLocalWeather({ data, coordsKey: weatherCoordsKey });
+          setWeatherFailedKey(null);
+        }
+      })
+      .catch(() => {
+        if (!controller.signal.aborted) setWeatherFailedKey(weatherCoordsKey);
       });
     return () => controller.abort();
-  }, [favoriteRiverSlugs.size, gauges, location.coords, refreshRevision, safetyScope, starsReady]);
+  }, [location.coords, refreshRevision, weatherCoordsKey, weatherRetry]);
 
   const favoriteIds = useMemo(
     () => new Set(starred.filter((item) => item.kind === 'river').map((item) => item.entityId)),
@@ -298,11 +379,18 @@ export function TodayHub({
   useEffect(() => {
     if (!outlookSlug) return;
     const controller = new AbortController();
-    void fetchRiverOutlook(outlookSlug, controller.signal)
-      .then((data) => setOutlook({ slug: outlookSlug, data }))
-      .catch(() => setOutlook({ slug: outlookSlug, data: null }));
+    void (async () => {
+      const token = requestPremiumOutlook ? await getAccessToken() : null;
+      return fetchRiverOutlook(outlookSlug, controller.signal, null, token);
+    })()
+      .then((data) => {
+        if (!controller.signal.aborted) setOutlook({ slug: outlookSlug, data });
+      })
+      .catch(() => {
+        if (!controller.signal.aborted) setOutlook({ slug: outlookSlug, data: null });
+      });
     return () => controller.abort();
-  }, [outlookSlug, refreshRevision]);
+  }, [getAccessToken, outlookSlug, refreshRevision, requestPremiumOutlook]);
 
   const riverById = useMemo(() => new Map(rivers.map((river) => [river.id, river])), [rivers]);
   const highlightedRiver = highlightedFavorite?.kind === 'river'
@@ -320,9 +408,16 @@ export function TodayHub({
     });
   }, [router]);
 
-  const activeSafety = safety?.scopeKey === safetyScope.key ? safety : null;
-  const safetyCount = (activeSafety?.high.length ?? 0) + (activeSafety?.notices.length ?? 0);
-  const detailFailure = floatFailure || safetyFailureScope === safetyScope.key;
+  const filteredSafety = useMemo(
+    () => filterTodaySafety(safety.high ?? [], safety.notices ?? [], safetyScope),
+    [safety.high, safety.notices, safetyScope],
+  );
+  const activeSafety = {
+    high: safety.high === null ? null : filteredSafety.high,
+    notices: safety.notices === null ? null : filteredSafety.notices,
+  };
+  const safetyCount = (activeSafety?.high?.length ?? 0) + (activeSafety?.notices?.length ?? 0);
+  const detailFailure = floatFailure || safetyFailure.high || safetyFailure.notices;
   const safetyScopeLabel = safetyScope.kind === 'favorites'
     ? 'on your favorite rivers'
     : safetyScope.kind === 'nearby'
@@ -337,12 +432,63 @@ export function TodayHub({
     [activeSafety?.high],
   );
   const floatPreviews = useMemo(() => dailyFavoriteFloats(floats ?? []).slice(0, 4), [floats]);
+  const previewDistances = useMemo(
+    () => location.coords && gauges ? riverMilesByGauge(gauges, location.coords) : null,
+    [gauges, location.coords],
+  );
+  const readPreviews = useMemo(() => {
+    const reserved = new Set<string>();
+    if (highlightedFavorite?.kind === 'river') reserved.add(highlightedFavorite.entityId);
+    if (recommendation) reserved.add(recommendation.river.id);
+    const distinct = reads.filter(({ river }) => !reserved.has(river.id));
+    return (distinct.length > 0 ? distinct : reads).slice(0, 3);
+  }, [highlightedFavorite, reads, recommendation]);
+  const previewReservedIds = useMemo(() => {
+    const ids = new Set(readPreviews.map(({ river }) => river.id));
+    if (highlightedFavorite?.kind === 'river') ids.add(highlightedFavorite.entityId);
+    if (recommendation) ids.add(recommendation.river.id);
+    return ids;
+  }, [highlightedFavorite, readPreviews, recommendation]);
+  const conditionPreviews = useMemo(() => [...rivers]
+    .filter((river) => !previewReservedIds.has(river.id))
+    .sort((a, b) => {
+      const favoriteOrder = Number(favoriteIds.has(b.id)) - Number(favoriteIds.has(a.id));
+      if (favoriteOrder !== 0) return favoriteOrder;
+      if (previewDistances) {
+        const distanceOrder = (previewDistances.get(a.id) ?? Infinity) - (previewDistances.get(b.id) ?? Infinity);
+        if (distanceOrder !== 0) return distanceOrder;
+      }
+      const conditionOrder = floatableRank(a.currentCondition?.code ?? 'unknown') - floatableRank(b.currentCondition?.code ?? 'unknown');
+      if (conditionOrder !== 0) return conditionOrder;
+      return (a.currentCondition?.readingAgeHours ?? Infinity) - (b.currentCondition?.readingAgeHours ?? Infinity);
+    })
+    .slice(0, 3), [favoriteIds, previewDistances, previewReservedIds, rivers]);
   const condition = recommendation?.river.currentCondition ?? null;
   const reading = condition ? primaryReading(condition) : null;
   const liveOutlook = outlook && outlook.slug === recommendation?.river.slug ? outlook.data : null;
-  const weatherOutlook = outlook && outlook.slug === outlookSlug ? outlook.data : null;
+  const activeWeather = weatherCoordsKey && localWeather?.coordsKey === weatherCoordsKey
+    ? localWeather.data
+    : null;
+  const localWeatherFailed = Boolean(weatherCoordsKey && weatherFailedKey === weatherCoordsKey);
+  const requestLocalWeather = location.coords
+    ? localWeatherFailed
+      ? () => {
+          setWeatherFailedKey(null);
+          setWeatherRetry((value) => value + 1);
+        }
+      : null
+    : () => {
+        if (location.status === 'denied') void Linking.openSettings();
+        else void location.request();
+      };
+  const locationActionLabel = localWeatherFailed
+    ? 'Retry local weather'
+    : location.status === 'locating'
+      ? 'Finding your location…'
+      : location.status === 'denied'
+        ? 'Open Settings for local weather'
+        : 'Use my location for local weather';
   const eddyRead = liveOutlook?.fullRead ?? liveOutlook?.sections?.eddyRead ?? liveOutlook?.sections?.bottomLine ?? null;
-  const entitled = accountLoaded && !accountError ? Boolean(entitlement?.isActive) : null;
   const recommendationFacts = condition
     ? [
         reading ? formatReading(reading.value, reading.unit) : null,
@@ -363,18 +509,6 @@ export function TodayHub({
         </View>
       ) : null}
 
-      {statewide.headline ? (
-        <View style={styles.summaryTop}>
-          <TodaySummary
-            headline={statewide.headline}
-            prose={statewide.prose}
-            generatedAt={statewide.generatedAt}
-            weather={weatherOutlook?.days[0]?.weather ?? null}
-            weatherLocation={weatherOutlook?.weatherLocation ?? null}
-          />
-        </View>
-      ) : null}
-
       {safetyCount > 0 ? (
         <View style={styles.safetySection}>
           <View style={styles.safetyRows}>
@@ -382,7 +516,7 @@ export function TodayHub({
               <SafetyRow
                 kicker="BEFORE YOU LAUNCH"
                 title={topNotice.title}
-                meta={`${topNotice.source.toUpperCase()} · ${activeSafety?.notices.length ?? 0} agency ${(activeSafety?.notices.length ?? 0) === 1 ? 'notice' : 'notices'} ${safetyScopeLabel}`}
+                meta={`${topNotice.source.toUpperCase()} · ${activeSafety?.notices?.length ?? 0} agency ${(activeSafety?.notices?.length ?? 0) === 1 ? 'notice' : 'notices'} ${safetyScopeLabel}`}
                 icon={topNotice.severity === 'warning' ? 'warning-outline' : 'megaphone-outline'}
                 ink={topNotice.severity === 'warning' ? conditionInk('dangerous') : colors.accent}
                 surface={topNotice.severity === 'warning' ? conditionBg('dangerous') : colors.cardRaised}
@@ -393,7 +527,7 @@ export function TodayHub({
               <SafetyRow
                 kicker="HIGH WATER"
                 title={`${topHigh.name} is ${conditionLabel(topHigh.conditionCode).toLowerCase()}`}
-                meta={`${activeSafety?.high.length ?? 0} high-water ${(activeSafety?.high.length ?? 0) === 1 ? 'reading' : 'readings'} ${safetyScopeLabel}`}
+                meta={`${activeSafety?.high?.length ?? 0} high-water ${(activeSafety?.high?.length ?? 0) === 1 ? 'reading' : 'readings'} ${safetyScopeLabel}`}
                 icon="water-outline"
                 ink={conditionInk(topHigh.conditionCode)}
                 surface={conditionBg(topHigh.conditionCode)}
@@ -403,6 +537,55 @@ export function TodayHub({
           </View>
         </View>
       ) : null}
+
+      <View style={styles.summaryTop}>
+        {statewide.headline ? (
+          <TodaySummary
+            headline={statewide.headline}
+            prose={statewide.prose}
+            generatedAt={statewide.generatedAt}
+          />
+        ) : null}
+        <TodayWeather
+          weather={activeWeather?.days[0] ?? null}
+          weatherLocation={activeWeather?.city ?? null}
+          weatherLoading={Boolean(location.coords && !activeWeather && !localWeatherFailed)}
+          onRequestLocation={requestLocalWeather}
+          locationActionLabel={locationActionLabel}
+        />
+      </View>
+
+      <View style={styles.section}>
+        <SectionHead title="Eddy’s Reads" action={reads.length > 0 ? 'See all' : undefined} onAction={onBrowseReads} />
+        {readPreviews.length > 0 ? (
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.readRail}
+            style={styles.floatRailViewport}
+            decelerationRate="fast"
+          >
+            {readPreviews.map(({ river, says }) => (
+              <EddyReadCard
+                key={river.id}
+                river={river}
+                says={says}
+                compact
+                onPress={() => router.push(`/river/${river.slug}`)}
+              />
+            ))}
+          </ScrollView>
+        ) : readsLoading ? (
+          <View style={styles.loading}><ActivityIndicator color={colors.interactive} /></View>
+        ) : (
+          <View style={[styles.emptyCard, { backgroundColor: colors.selectionBg, borderColor: colors.border }]}>
+            <View style={styles.flex}>
+              <Text style={[styles.emptyTitle, { color: colors.text }]}>Eddy is between reads</Text>
+              <Text style={[styles.emptyBody, { color: colors.textMuted }]}>Fresh summaries return when the latest water and written conditions agree.</Text>
+            </View>
+          </View>
+        )}
+      </View>
 
       <View style={styles.section}>
         <SectionHead title="Favorites" action={starred.length ? 'See all' : undefined} onAction={() => router.push('/favorites')} />
@@ -543,22 +726,45 @@ export function TodayHub({
             <Text style={[styles.emptyTitle, { color: colors.text }]}>
               {location.coords ? `No fresh floatable pick within ${TODAY_RADIUS_MILES} miles` : 'No fresh floatable reading yet'}
             </Text>
-            <Text style={[styles.emptyBody, { color: colors.textMuted }]}>The complete condition list is just below.</Text>
+            <Text style={[styles.emptyBody, { color: colors.textMuted }]}>River Conditions is just below.</Text>
           </View>
         )}
-        {!location.coords ? (
+      </View>
+
+      <View style={styles.section}>
+        <SectionHead title="River Conditions" />
+        <View style={styles.conditionSummary}>
+          {([
+            ['floatable', 'Floatable', conditionCounts.floatable],
+            ['low', 'Low', conditionCounts.low],
+            ['high', 'High', conditionCounts.high],
+            ['unknown', 'No fresh reading', conditionCounts.unknown],
+          ] as const).map(([key, label, count]) => (
+            <Pressable
+              key={key}
+              onPress={() => onBrowseRivers(key)}
+              style={({ pressed }) => [styles.conditionCount, { backgroundColor: colors.card, borderColor: colors.border, opacity: pressed ? 0.65 : 1 }]}
+              accessibilityRole="button"
+              accessibilityLabel={`${label}, ${count} rivers`}
+            >
+              <Text style={[styles.conditionCountNumber, { color: colors.text }]}>{count}</Text>
+              <Text style={[styles.conditionCountLabel, { color: colors.textMuted }]} numberOfLines={1}>{label}</Text>
+            </Pressable>
+          ))}
+        </View>
+        <View style={[styles.conditionPreviewCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+          {conditionPreviews.map((river) => (
+            <CompactRiverRow key={river.id} river={river} onPress={() => router.push(`/river/${river.slug}`)} />
+          ))}
           <Pressable
-            onPress={() => location.status === 'denied' ? void Linking.openSettings() : void location.request()}
-            disabled={location.status === 'locating'}
-            style={({ pressed }) => [styles.location, { opacity: pressed ? 0.62 : 1 }]}
+            onPress={() => onBrowseRivers('all')}
+            style={({ pressed }) => [styles.browseAll, { opacity: pressed ? 0.65 : 1 }]}
             accessibilityRole="button"
           >
-            <Ionicons name="location-outline" size={16} color={colors.interactive} />
-            <Text style={[styles.locationText, { color: colors.interactive }]}>
-              {location.status === 'locating' ? 'Finding your location…' : location.status === 'denied' ? 'Open Settings for location' : 'Use my location for a closer pick'}
-            </Text>
+            <Text style={[styles.browseAllText, { color: colors.interactive }]}>Browse all {rivers.length} rivers</Text>
+            <Ionicons name="arrow-forward" size={16} color={colors.interactive} />
           </Pressable>
-        ) : null}
+        </View>
       </View>
 
       {floatPreviews.length ? (
@@ -597,7 +803,7 @@ const styles = StyleSheet.create({
   flex: { flex: 1, minWidth: 0 },
   notice: { borderWidth: 1, borderRadius: 12, padding: 12, flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 14 },
   noticeText: { ...t.sm, fontFamily: fonts.body, flex: 1 },
-  summaryTop: { marginBottom: 14 },
+  summaryTop: { marginBottom: 14, gap: 10 },
   safetySection: { marginBottom: 20 },
   safetyKicker: { ...t.xs, fontFamily: fonts.heading, letterSpacing: 0.7, marginBottom: 2 },
   safetyRows: { gap: 8 },
@@ -643,10 +849,19 @@ const styles = StyleSheet.create({
   secondaryButtonText: { ...t.sm, fontFamily: fonts.semibold },
   primaryButton: { minHeight: 46, borderRadius: 12, paddingHorizontal: 16, flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7 },
   primaryButtonText: { ...t.sm, fontFamily: fonts.semibold },
-  location: { minHeight: 44, alignSelf: 'center', flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 10 },
-  locationText: { ...t.sm, fontFamily: fonts.medium },
   floatRailViewport: { marginHorizontal: -16 },
   floatRail: { paddingHorizontal: 16, paddingBottom: 4, gap: 12 },
+  readRail: { paddingHorizontal: 16, paddingBottom: 4, gap: 12 },
+  conditionSummary: { flexDirection: 'row', flexWrap: 'wrap', gap: 7, marginBottom: 10 },
+  conditionCount: { flexGrow: 1, flexBasis: '47%', minWidth: 0, borderWidth: StyleSheet.hairlineWidth, borderRadius: 12, paddingHorizontal: 10, paddingVertical: 9 },
+  conditionCountNumber: { ...t.lg, fontFamily: fonts.heading },
+  conditionCountLabel: { ...t.xs, fontFamily: fonts.body, marginTop: 1 },
+  conditionPreviewCard: { borderWidth: StyleSheet.hairlineWidth, borderRadius: 16, paddingHorizontal: 13, overflow: 'hidden' },
+  compactRiver: { minHeight: 58, borderBottomWidth: StyleSheet.hairlineWidth, flexDirection: 'row', alignItems: 'center', gap: 9 },
+  compactRiverName: { ...t.sm, fontFamily: fonts.semibold },
+  compactRiverMeta: { ...t.xs, fontFamily: fonts.body, marginTop: 2 },
+  browseAll: { minHeight: 48, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6 },
+  browseAllText: { ...t.sm, fontFamily: fonts.semibold },
   floatPreview: { width: 292, borderRadius: 18, overflow: 'hidden' },
   floatPreviewPhoto: { width: '100%', height: 126 },
   floatFallback: { width: '100%', height: 126, overflow: 'hidden' },

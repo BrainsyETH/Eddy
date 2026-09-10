@@ -1,8 +1,8 @@
 // eddy-ios/src/hooks/useEddyUpdates.ts
 // The batched Eddy updates, fetched once for the whole app.
 //
-// /api/eddy-updates answers with an entry for EVERY river plus the statewide
-// 'global' one, in a single CDN-cached unauthenticated request. Four surfaces
+// /api/eddy-updates answers with a free summary for every eligible river plus
+// a separately named statewide overview, in one CDN-cached request. Four surfaces
 // want a slice of it — the Today tab's headline card, the river screen, the
 // favourites list and the map's river sheet — and none of them should pay for
 // their own copy. So the response is held in module state and shared, and this
@@ -72,13 +72,13 @@
 // a server-side safety gate silently, so this cache dies with the process.
 
 import { useCallback, useEffect, useSyncExternalStore } from 'react';
-import type { EddyUpdateEntry } from '@eddy/types';
+import type { EddyUpdateEntry, EddyUpdatesResponse } from '@eddy/types';
 import { fetchEddyUpdates } from '@/api/client';
 
 type Updates = Record<string, EddyUpdateEntry>;
 
 interface Snapshot {
-  updates: Updates;
+  response: EddyUpdatesResponse;
   at: number;
 }
 
@@ -86,7 +86,7 @@ interface Snapshot {
 const TTL_MS = 300_000;
 
 let cached: Snapshot | null = null;
-let inFlight: Promise<Updates> | null = null;
+let inFlight: Promise<EddyUpdatesResponse> | null = null;
 const listeners = new Set<() => void>();
 
 function emit(): void {
@@ -121,13 +121,13 @@ function isFresh(snapshot: Snapshot | null): snapshot is Snapshot {
  * Clause 1: no caller signal. Clause 3: `inFlight` is cleared on both paths and
  * `cached` is written only on the successful one.
  */
-function revalidate(): Promise<Updates> {
+function revalidate(): Promise<EddyUpdatesResponse> {
   if (inFlight) return inFlight;
   inFlight = fetchEddyUpdates()
-    .then((updates) => {
-      cached = { updates, at: Date.now() };
+    .then((response) => {
+      cached = { response, at: Date.now() };
       emit();
-      return updates;
+      return response;
     })
     .finally(() => {
       inFlight = null;
@@ -144,6 +144,7 @@ function revalidate(): Promise<Updates> {
  */
 export function useEddyUpdates(): {
   updates: Updates | null;
+  statewide: EddyUpdatesResponse['statewide'];
   /** Clause 4. Await this from a RefreshControl's handler. */
   refresh: () => Promise<void>;
 } {
@@ -188,11 +189,15 @@ export function useEddyUpdates(): {
     }
   }, []);
 
-  return { updates: snapshot?.updates ?? null, refresh };
+  return {
+    updates: snapshot?.response.updates ?? null,
+    statewide: snapshot?.response.statewide ?? null,
+    refresh,
+  };
 }
 
 /**
- * One river's entry, if the app already holds it. NEVER fetches.
+ * One river's free-summary entry, if the app already holds it. NEVER fetches.
  *
  * For surfaces that have promised not to make a request — see the header on
  * RiverSheet. Returns null both when nothing has been fetched and when this
@@ -201,7 +206,7 @@ export function useEddyUpdates(): {
  */
 export function useCachedEddyUpdate(slug: string | null | undefined): EddyUpdateEntry | null {
   const read = useCallback(
-    () => (slug ? (getSnapshot()?.updates[slug] ?? null) : null),
+    () => (slug ? (getSnapshot()?.response.updates[slug] ?? null) : null),
     [slug],
   );
   return useSyncExternalStore(subscribe, read, read);

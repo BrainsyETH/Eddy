@@ -4,8 +4,8 @@
 // Two things that are one statement: how many rivers are floatable, and what
 // Eddy makes of the water generally. The count is computed here from the live
 // list; the prose is written once a day by the same generator that has fed the
-// website for a while (src/lib/eddy/generate-global-update.ts) and arrives
-// through /api/eddy-updates under the key "global".
+// website for a while (src/lib/eddy/generate-global-update.ts) and arrives as
+// the explicitly public `statewide` field on /api/eddy-updates.
 //
 // ── The count outranks the prose ────────────────────────────────────────────
 //
@@ -35,14 +35,14 @@
 //
 // Today used to make somebody scroll through every personalized module before
 // saying what the Ozarks look like generally, while the only weather lived on a
-// river detail page. This compact card now answers both planning questions near
-// the top: how much water is usable, and what the day is likely to bring at the
-// selected river. It uses the outlook endpoint's named forecast point—never an
-// inferred river-wide forecast—and omits weather cleanly when that payload is
-// unavailable. The longer written statewide update remains foldable beneath it.
+// river detail page. The two sibling cards now answer both planning questions
+// near the top without sharing a render gate: how much water is usable, and
+// what the day is likely to bring at the user's current area. Weather is fetched
+// independently of river and gauge choice, names the provider's forecast town,
+// and never silently substitutes a selected river.
 
 import { useEffect, useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import type { OutlookWeatherDay } from '@eddy/types';
 import { EddySymbol } from '@/components/EddySymbol';
@@ -66,10 +66,17 @@ interface Props {
   prose: string | null;
   /** When the prose was generated. Ignored when there is no prose. */
   generatedAt: string | null;
-  /** Today's weather at Eddy's selected river forecast point. */
+}
+
+interface TodayWeatherProps {
+  /** Daily forecast near the device's current location. */
   weather?: OutlookWeatherDay | null;
   /** The town the weather provider actually forecast. */
   weatherLocation?: string | null;
+  /** Offered in the weather slot when location has not been granted yet. */
+  onRequestLocation?: (() => void) | null;
+  locationActionLabel?: string | null;
+  weatherLoading?: boolean;
 }
 
 function weatherGlyph(code: string): React.ComponentProps<typeof Ionicons>['name'] {
@@ -82,7 +89,18 @@ function weatherGlyph(code: string): React.ComponentProps<typeof Ionicons>['name
   return 'partly-sunny-outline';
 }
 
-export function TodaySummary({ headline, prose, generatedAt, weather, weatherLocation }: Props) {
+function localDateKey(now = new Date()): string {
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+export function TodaySummary({
+  headline,
+  prose,
+  generatedAt,
+}: Props) {
   const { colors, elevation } = useTheme();
   /**
    * Undefined until the stored answer lands, and that third state matters.
@@ -159,25 +177,6 @@ export function TodaySummary({ headline, prose, generatedAt, weather, weatherLoc
         ) : null}
       </Pressable>
 
-      {weather ? (
-        <View style={[styles.weather, { borderTopColor: colors.border }]}>
-          <View style={[styles.weatherIcon, { backgroundColor: colors.selectionBg }]}>
-            <Ionicons name={weatherGlyph(weather.conditionIcon)} size={22} color={colors.interactive} />
-          </View>
-          <View style={styles.copy}>
-            <Text style={[styles.weatherPlace, { color: colors.textSubtle }]} numberOfLines={1}>
-              TODAY{weatherLocation ? ` NEAR ${weatherLocation.toUpperCase()}` : ''}
-            </Text>
-            <Text style={[styles.weatherMain, { color: colors.text }]} numberOfLines={1}>
-              {weather.tempHigh}° / {weather.tempLow}° · {weather.condition}
-            </Text>
-            <Text style={[styles.weatherMeta, { color: colors.textMuted }]} numberOfLines={2}>
-              {weather.precipitation}% rain{weather.windSpeed != null ? ` · ${Math.round(weather.windSpeed)} mph wind` : ''}
-            </Text>
-          </View>
-        </View>
-      ) : null}
-
       {open && prose ? (
         <>
           <Text style={[styles.prose, { color: colors.textMuted }]}>{prose}</Text>
@@ -190,18 +189,83 @@ export function TodaySummary({ headline, prose, generatedAt, weather, weatherLoc
   );
 }
 
+/** Local weather is independent from the statewide conditions request. */
+export function TodayWeather({
+  weather,
+  weatherLocation,
+  onRequestLocation,
+  locationActionLabel,
+  weatherLoading = false,
+}: TodayWeatherProps) {
+  const { colors, elevation } = useTheme();
+  if (!weather && !weatherLoading && !(onRequestLocation && locationActionLabel)) return null;
+
+  return (
+    <View style={[styles.weatherCard, { backgroundColor: colors.card, borderColor: colors.border }, elevation(1)]}>
+      {weather ? (
+        <View style={styles.weather}>
+          <View style={[styles.weatherIcon, { backgroundColor: colors.selectionBg }]}>
+            <Ionicons name={weatherGlyph(weather.conditionIcon)} size={22} color={colors.interactive} />
+          </View>
+          <View style={styles.copy}>
+            <Text style={[styles.weatherPlace, { color: colors.textSubtle }]} numberOfLines={1}>
+              {weather.date === localDateKey() ? 'TODAY' : weather.dayOfWeek.toUpperCase()}
+              {weatherLocation ? ` NEAR ${weatherLocation.toUpperCase()}` : ''}
+            </Text>
+            <Text style={[styles.weatherMain, { color: colors.text }]} numberOfLines={1}>
+              {weather.tempHigh}° / {weather.tempLow}° · {weather.condition}
+            </Text>
+            <Text style={[styles.weatherMeta, { color: colors.textMuted }]} numberOfLines={2}>
+              {weather.precipitation}% rain{weather.windSpeed != null ? ` · ${Math.round(weather.windSpeed)} mph wind` : ''}
+            </Text>
+          </View>
+        </View>
+      ) : weatherLoading ? (
+        <View style={styles.weatherAction}>
+          <View style={[styles.weatherIcon, { backgroundColor: colors.selectionBg }]}>
+            <ActivityIndicator size="small" color={colors.interactive} />
+          </View>
+          <View style={styles.copy}>
+            <Text style={[styles.weatherPlace, { color: colors.textSubtle }]}>WEATHER NEAR YOU</Text>
+            <Text style={[styles.weatherActionText, { color: colors.textMuted }]}>Updating local forecast…</Text>
+          </View>
+        </View>
+      ) : (
+        <Pressable
+          onPress={onRequestLocation ?? undefined}
+          style={({ pressed }) => [styles.weatherAction, { opacity: pressed ? 0.65 : 1 }]}
+          accessibilityRole="button"
+          accessibilityLabel={locationActionLabel ?? undefined}
+        >
+          <View style={[styles.weatherIcon, { backgroundColor: colors.selectionBg }]}>
+            <Ionicons name="location-outline" size={21} color={colors.interactive} />
+          </View>
+          <View style={styles.copy}>
+            <Text style={[styles.weatherPlace, { color: colors.textSubtle }]}>WEATHER NEAR YOU</Text>
+            <Text style={[styles.weatherActionText, { color: colors.interactive }]}>{locationActionLabel}</Text>
+          </View>
+          <Ionicons name="chevron-forward" size={17} color={colors.interactive} />
+        </Pressable>
+      )}
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
   card: { borderWidth: StyleSheet.hairlineWidth, borderRadius: 16, padding: 14, gap: 10 },
+  weatherCard: { borderWidth: StyleSheet.hairlineWidth, borderRadius: 16, padding: 14 },
   top: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   iconWell: { width: 48, height: 48, borderRadius: 24, alignItems: 'center', justifyContent: 'center' },
   copy: { flex: 1, minWidth: 0 },
   kicker: { ...t.xs, fontFamily: fonts.heading, letterSpacing: 0.8, marginBottom: 2 },
   headline: { ...t.lg, fontFamily: fonts.display },
-  weather: { borderTopWidth: StyleSheet.hairlineWidth, paddingTop: 10, flexDirection: 'row', alignItems: 'center', gap: 10 },
+  weather: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  weatherAction: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   weatherIcon: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
   weatherPlace: { ...t.xs, fontFamily: fonts.heading, letterSpacing: 0.6 },
   weatherMain: { ...t.sm, fontFamily: fonts.semibold, marginTop: 1 },
   weatherMeta: { ...t.xs, fontFamily: fonts.body, marginTop: 1 },
+  weatherActionText: { ...t.sm, fontFamily: fonts.semibold, marginTop: 2 },
   prose: { ...t.sm, fontFamily: fonts.body, lineHeight: 21, paddingLeft: 60 },
   footnote: { ...t.xs, fontFamily: fonts.body, paddingLeft: 60 },
 });

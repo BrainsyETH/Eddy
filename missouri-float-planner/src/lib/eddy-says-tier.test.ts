@@ -3,10 +3,10 @@
 //
 // ── The rule under test ────────────────────────────────────────────────────
 // Per-river summary_text is free; per-river quote_text is the artifact EddyTake
-// sells, and it reaches the app twice — inside EddyUpdateEntry from the batched
-// /api/eddy-updates, and as `fullRead` on /api/rivers/[slug]/outlook, which is
-// the same column. The statewide 'global' row is a separate free overview and
-// is not routed through the selector at all.
+// sells. The public /api/eddy-updates DTO does not carry that column; fullRead
+// is available only through the entitled outlook response. The statewide
+// overview is a separately named public field and is not routed through the
+// selector at all.
 //
 // ── Why the SHAPE is asserted and not just the value ───────────────────────
 // A source assertion over the component would pass happily if some layer in
@@ -96,7 +96,7 @@ test('the selector cannot return the full quote, by construction', () => {
   );
 });
 
-test('the statewide card still renders the global quote directly', () => {
+test('the statewide card renders the explicitly public statewide prose', () => {
   // The rule is about PER-RIVER quote_text. insertGlobal in the
   // generate-eddy-updates cron writes quote_text and nothing else for
   // river_slug 'global' — there is no summary_text on that row, ever — so the
@@ -111,8 +111,63 @@ test('the statewide card still renders the global quote directly', () => {
   );
   assert.match(
     reports,
-    /prose=\{summary\?\.quoteText \?\? null\}/,
-    'the Today tab no longer renders the statewide quote directly',
+    /prose:\s*statewideUpdate\?\.prose \?\? null/,
+    'the Today tab no longer renders the public statewide prose',
+  );
+});
+
+test('the public updates DTO cannot carry a per-river full quote', () => {
+  const shared = readFileSync(
+    join(process.cwd(), '../packages/eddy-types/index.ts'),
+    'utf8',
+  );
+  const block = shared.match(/export interface EddyUpdateEntry \{([\s\S]*?)\n\}/)?.[1] ?? '';
+  assert.ok(!/quoteText|fullRead/.test(block), 'the public batch DTO exposes premium prose');
+});
+
+test('the outlook returns a full read only after server-side entitlement', () => {
+  const route = readFileSync(
+    join(process.cwd(), 'src/app/api/rivers/[slug]/outlook/route.ts'),
+    'utf8',
+  );
+  assert.match(route, /requireEntitlement\(request\)/);
+  assert.match(route, /fullRead:\s*entitled \? fullRead : null/);
+  assert.match(route, /Cache-Control': 'private, no-store'/);
+  assert.match(route, /Vary: 'Authorization'/);
+});
+
+test('singular report routes cannot expose paid prose to public callers', () => {
+  for (const relative of [
+    'src/app/api/eddy-update/[riverSlug]/route.ts',
+    'src/app/api/gauge-update/[siteId]/route.ts',
+  ]) {
+    const route = readFileSync(join(process.cwd(), relative), 'utf8');
+    assert.match(route, /requireEntitlement\(request\)/, `${relative} does not verify entitlement`);
+    assert.match(route, /quoteText:\s*entitled \?/, `${relative} exposes quoteText publicly`);
+    assert.match(
+      route,
+      /eddyRead:\s*entitled(?:\s*&&\s*overlayKeptProse)?\s*\?/,
+      `${relative} exposes eddyRead publicly`,
+    );
+    assert.match(route, /Vary: 'Authorization'/, `${relative} can mix public and authenticated cache entries`);
+    assert.match(route, /privateNoStore\(\)/, `${relative} can cache an authenticated response`);
+  }
+});
+
+test('the river report cannot use raw eddy_read to bypass its live-condition gate', () => {
+  const route = readFileSync(
+    join(process.cwd(), 'src/app/api/eddy-update/[riverSlug]/route.ts'),
+    'utf8',
+  );
+
+  assert.match(route, /const overlayKeptProse = Boolean\(overlaid\.summary_text \|\| overlaid\.quote_text\)/);
+  assert.match(route, /const proseAvailable = entitled\s*\? overlayKeptProse\s*:\s*Boolean\(overlaid\.summary_text\)/);
+  assert.match(route, /eddyRead:\s*entitled && overlayKeptProse \? data\.eddy_read \?\? null : null/);
+  assert.match(route, /quoteText:\s*entitled \? overlaid\.quote_text \|\| null : null/);
+  assert.doesNotMatch(
+    route,
+    /const proseAvailable[\s\S]{0,180}data\.eddy_read/,
+    'raw eddy_read must never decide whether a stale or contradictory report is available',
   );
 });
 

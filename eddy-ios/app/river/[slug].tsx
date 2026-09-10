@@ -402,6 +402,7 @@ export default function RiverDetailScreen() {
     error: accountError,
     refresh: refreshAccount,
   } = useAccount();
+  const canRequestPremium = accountLoaded && !accountError && Boolean(entitlement?.isActive);
 
   const [river, setRiver] = useState<RiverListItem | null>(null);
   const [condition, setCondition] = useState<RiverConditionDetail | null>(null);
@@ -847,7 +848,7 @@ export default function RiverDetailScreen() {
     // every river's primary-gauge request share the key '' — so a screen
     // re-pointed at another river mid-request joined the first river's
     // promise and cached its outlook under the second river's name.
-    const key = `${slug}|${askedFor ?? ''}`;
+    const key = `${slug}|${askedFor ?? ''}|${canRequestPremium ? 'premium' : 'free'}`;
 
     const cached = outlookCache.current.get(key);
     if (cached !== undefined) {
@@ -878,8 +879,13 @@ export default function RiverDetailScreen() {
     // the entry before any handler below runs, so a later run that finds the
     // cache empty — a failure, which is deliberately not cached — starts a
     // fresh attempt rather than joining a settled promise.
-    const request = shareInFlight(outlookInFlight.current, key, () =>
-      fetchRiverOutlook(slug, undefined, askedFor)
+    const request = shareInFlight(outlookInFlight.current, key, async () =>
+      fetchRiverOutlook(
+        slug,
+        undefined,
+        askedFor,
+        canRequestPremium ? await getAccessToken() : null,
+      )
         .then((data) => {
           outlookCache.current.set(key, data);
           return data;
@@ -896,7 +902,7 @@ export default function RiverDetailScreen() {
     return () => {
       current = false;
     };
-  }, [slug, shownGaugeId, primaryGaugeId]);
+  }, [canRequestPremium, getAccessToken, slug, shownGaugeId, primaryGaugeId]);
 
   /**
    * Does this person already have alerts on for this river?

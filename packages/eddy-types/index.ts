@@ -1955,6 +1955,12 @@ export interface OutlookWeatherDay {
   humidity?: number | null;
 }
 
+/** Coordinate-based forecast used by Today for the device's current area. */
+export interface LocationWeatherForecast {
+  city: string;
+  days: OutlookWeatherDay[];
+}
+
 export interface RiverOutlookDay {
   date: string;
   weather: OutlookWeatherDay | null;
@@ -2005,11 +2011,10 @@ export interface RiverOutlookResponse {
    * The long read: the same multi-paragraph prose /rivers shows on the web, as
    * against `sections.eddyRead`, which is one line.
    *
-   * OPTIONAL for the same forward-compatibility reason. Null means either that
-   * no model wrote one or that the live river has moved far enough that the
-   * prose would contradict the condition badge — the server withholds it in
-   * that case, and a client must NOT paper over the difference by reaching for
-   * its own cached copy.
+   * OPTIONAL for the same forward-compatibility reason. Null also means the
+   * request had no active Premium entitlement. When entitled, null means no
+   * model wrote one or live water moved far enough that the prose would
+   * contradict the condition badge.
    */
   fullRead?: string | null;
   /** Non-null only when a model wrote the read; null means deterministic copy. */
@@ -2887,17 +2892,15 @@ export function publicLandAccessLabel(access: string | null | undefined): string
 
 // ── Eddy's written conditions prose (GET /api/eddy-updates) ──────────────
 //
-// One batched, CDN-cached request carrying the latest non-expired update for
-// every river PLUS a statewide entry under the key "global". Public and
-// unauthenticated: this is not the per-river written read sold behind the
-// paywall, which comes from /api/rivers/[slug]/outlook and is a different
-// artifact entirely.
+// One batched, CDN-cached request carrying the latest non-expired FREE summary
+// for every river plus the public statewide overview. The long per-river read
+// is deliberately absent: a public DTO must not rely on every caller remembering
+// which database column is paid.
 //
 // Mirrored in missouri-float-planner/src/types/api.ts, which is what the web
 // app imports — Vercel installs only that directory and never sees this file.
 
 export interface EddyUpdateEntry {
-  quoteText: string;
   summaryText: string | null;
   conditionCode: string;
   gaugeHeightFt: number | null;
@@ -2917,9 +2920,14 @@ export interface EddyUpdateEntry {
 
 export interface EddyUpdatesResponse {
   /**
-   * Keyed by river slug. The statewide summary is under "global", and is
-   * ABSENT rather than stale when the server has withheld it — a missing key
-   * is the signal, so never fall back to a previous one.
+   * Keyed by river slug. Entries whose prose no longer agrees with live water
+   * are absent rather than stale.
    */
   updates: Record<string, EddyUpdateEntry>;
+  /**
+   * The free statewide overview. Separate from the per-river map because the
+   * database stores it in quote_text while per-river quote_text is premium.
+   * Null means the live safety gate withheld it.
+   */
+  statewide: { prose: string; generatedAt: string } | null;
 }
