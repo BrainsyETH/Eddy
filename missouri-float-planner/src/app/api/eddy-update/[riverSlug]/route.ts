@@ -96,9 +96,15 @@ async function _GET(
       proseStaleHours: WEBSITE_PROSE_STALE_HOURS,
       logLabel: 'eddy-update',
     });
-    const proseAvailable = Boolean(
-      overlaid.summary_text || (entitled && (overlaid.quote_text || data.eddy_read)),
-    );
+    // quote_text and summary_text are the fields the live-condition overlay
+    // clears when the written report is stale or contradicts current water.
+    // eddy_read comes from that same model run, so it may be returned only when
+    // at least one of those overlaid fields survived the safety gate. Never let
+    // the untouched database value decide availability on its own.
+    const overlayKeptProse = Boolean(overlaid.summary_text || overlaid.quote_text);
+    const proseAvailable = entitled
+      ? overlayKeptProse
+      : Boolean(overlaid.summary_text);
 
     if (!proseAvailable) {
       // Live condition has diverged from the AI snapshot — surface no prose
@@ -109,9 +115,9 @@ async function _GET(
     return NextResponse.json<EddyUpdateResponse>({
       available: true,
       update: {
-        quoteText: entitled ? overlaid.quote_text ?? null : null,
+        quoteText: entitled ? overlaid.quote_text || null : null,
         summaryText: overlaid.summary_text ?? null,
-        eddyRead: entitled ? data.eddy_read ?? null : null,
+        eddyRead: entitled && overlayKeptProse ? data.eddy_read ?? null : null,
         conditionCode: overlaid.condition_code,
         gaugeHeightFt: toNum(overlaid.gauge_height_ft),
         dischargeCfs: toNum(overlaid.discharge_cfs),

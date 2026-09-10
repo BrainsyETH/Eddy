@@ -144,10 +144,31 @@ test('singular report routes cannot expose paid prose to public callers', () => 
     const route = readFileSync(join(process.cwd(), relative), 'utf8');
     assert.match(route, /requireEntitlement\(request\)/, `${relative} does not verify entitlement`);
     assert.match(route, /quoteText:\s*entitled \?/, `${relative} exposes quoteText publicly`);
-    assert.match(route, /eddyRead:\s*entitled \?/, `${relative} exposes eddyRead publicly`);
+    assert.match(
+      route,
+      /eddyRead:\s*entitled(?:\s*&&\s*overlayKeptProse)?\s*\?/,
+      `${relative} exposes eddyRead publicly`,
+    );
     assert.match(route, /Vary: 'Authorization'/, `${relative} can mix public and authenticated cache entries`);
     assert.match(route, /privateNoStore\(\)/, `${relative} can cache an authenticated response`);
   }
+});
+
+test('the river report cannot use raw eddy_read to bypass its live-condition gate', () => {
+  const route = readFileSync(
+    join(process.cwd(), 'src/app/api/eddy-update/[riverSlug]/route.ts'),
+    'utf8',
+  );
+
+  assert.match(route, /const overlayKeptProse = Boolean\(overlaid\.summary_text \|\| overlaid\.quote_text\)/);
+  assert.match(route, /const proseAvailable = entitled\s*\? overlayKeptProse\s*:\s*Boolean\(overlaid\.summary_text\)/);
+  assert.match(route, /eddyRead:\s*entitled && overlayKeptProse \? data\.eddy_read \?\? null : null/);
+  assert.match(route, /quoteText:\s*entitled \? overlaid\.quote_text \|\| null : null/);
+  assert.doesNotMatch(
+    route,
+    /const proseAvailable[\s\S]{0,180}data\.eddy_read/,
+    'raw eddy_read must never decide whether a stale or contradictory report is available',
+  );
 });
 
 test('refresh never discards the cache it is refreshing', () => {
