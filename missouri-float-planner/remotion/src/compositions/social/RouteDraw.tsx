@@ -41,10 +41,15 @@ const FPS = 30;
 // fades out at both edges so nothing is ever clipped by chrome mid-word.
 const STAGE_TOP = 440;
 const STAGE_HEIGHT = 800;
+const CONTENT_RIGHT = 1080 - REEL_SAFE.right;
+const CONTENT_CENTER_X = Math.round((REEL_SAFE.left + CONTENT_RIGHT) / 2);
 const STAGE: JourneyStage = {
-  width: 1080,
+  // journeyCamera centres the overview at width / 2. Give it the logical
+  // editorial viewport (ending before the action rail), not the raw canvas,
+  // so the river, canoe, masthead and dock share one visual centreline.
+  width: CONTENT_CENTER_X * 2,
   height: STAGE_HEIGHT,
-  boatX: 540,
+  boatX: CONTENT_CENTER_X,
   boatY: 400,
   padding: 100,
 };
@@ -160,6 +165,7 @@ export const RouteDraw: React.FC<RouteDrawProps> = (props) => {
       : Math.max(launchProgress, finishProgress);
 
   const delta = hoursTypical - hoursToday;
+  const routeLabel = `${putInName} → ${takeOutName}`;
   const deltaCopy = evergreen
     ? "Typical pace"
     : Math.abs(delta) < 0.3
@@ -226,14 +232,18 @@ export const RouteDraw: React.FC<RouteDrawProps> = (props) => {
           style={{
             marginTop: 16,
             padding: "0 5px",
-            fontSize: 25,
+            // Preserve the dock's one-line rhythm for long real-world access
+            // names (for example "Sinking Creek Campground → Primitive
+            // Access") after the usable Reel corridor narrows.
+            fontSize: routeLabel.length > 40 ? 21 : 25,
             fontWeight: 700,
             lineHeight: 1.15,
             color: colors.primary[800],
+            whiteSpace: "nowrap",
           }}
         >
           <span style={{ color: colors.neutral[500], marginRight: 10 }}>Route</span>
-          {putInName} → {takeOutName}
+          {routeLabel}
         </div>
       </ReelDock>
     </ReelPage>
@@ -885,6 +895,7 @@ const RouteMarker: React.FC<{
 const RouteCallout: React.FC<{ point: SocialRoutePoint; putInMile: number; opacity: number; style: React.CSSProperties }> = ({ point, putInMile, opacity, style }) => {
   const accent = hazardFill(point);
   const milesIn = Math.max(0, point.riverMile - putInMile);
+  const title = cleanName(point.name, 35);
   return (
     <BrandCallout
       accent={accent}
@@ -898,8 +909,19 @@ const RouteCallout: React.FC<{ point: SocialRoutePoint; putInMile: number; opaci
         </>
       }
     >
-      <div style={{ fontFamily: fontFamilies.display, fontSize: TYPE.calloutTitle.size, lineHeight: TYPE.calloutTitle.lineHeight, fontWeight: TYPE.calloutTitle.weight, color: LIGHT.ink }}>
-        {cleanName(point.name, 35)}
+      <div
+        style={{
+          fontFamily: fontFamilies.display,
+          fontSize: title.length > 22 ? 24 : TYPE.calloutTitle.size,
+          lineHeight: TYPE.calloutTitle.lineHeight,
+          fontWeight: TYPE.calloutTitle.weight,
+          color: LIGHT.ink,
+          whiteSpace: "nowrap",
+          overflow: "hidden",
+          textOverflow: "ellipsis",
+        }}
+      >
+        {title}
       </div>
       <div style={{ marginTop: 8, fontFamily: fontFamilies.mono, fontSize: TYPE.calloutMeta.size, fontWeight: TYPE.calloutMeta.weight, color: LIGHT.inkMuted }}>
         {milesIn.toFixed(1)} MI INTO FLOAT · MM {point.riverMile.toFixed(1)}

@@ -360,7 +360,12 @@ export type SafeInsets = { top: number; bottom: number; left: number; right: num
  * bounds for important text/logos; photography may extend behind the UI. */
 export const SOCIAL_VIDEO_SAFE: Record<SocialPlatform, Record<SocialVideoPlacement, SafeInsets>> = {
   instagram: {
-    reel: { top: 250, bottom: 420, left: 60, right: 160 },
+    // Instagram's full-screen player aspect-fills a 9:16 asset into the
+    // available app viewport. On tall iPhones that trims about 52 source px
+    // from EACH side before the UI is drawn (the in-feed player does not).
+    // 120 leaves a real ~60px reading gutter in both placements instead of
+    // turning the nominal 60px gutter into a 7px sliver in full-screen Reels.
+    reel: { top: 250, bottom: 420, left: 120, right: 160 },
     story: { top: 250, bottom: 300, left: 60, right: 60 },
   },
   facebook: {
