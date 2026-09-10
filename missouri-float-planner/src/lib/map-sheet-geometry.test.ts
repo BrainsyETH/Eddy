@@ -283,26 +283,65 @@ test('peek plus chrome plus a full page still fits the tallest detent', () => {
   // The property the whole budget exists to hold, now with the peek in it: a
   // page that fills its budget must not push the column past what the sheet can
   // show. This is the assertion that would have failed before the fix.
-  const peek = 240;
+  // The measurement includes the real padding on the peek wrapper.
+  const peek = 240 + CONTENT_BOTTOM_PAD;
   const chrome = 90;
   const page = pageBudget(TALL, peek) - chrome;
   // What MapSheet's content column measures: the peek's own subtree (the peek
   // measurement less the grabber it was given), the chrome, and the page. The
   // page's bottom pad is inside `page`, and the column no longer pads itself.
   const content = peek - GRABBER_BLOCK + chrome + page;
-  const d = resolveDetents(TALL, content + GRABBER_BLOCK);
-  assert.ok(
-    d.height.full <= resolveDetents(TALL, TALL * 2).height.full,
-    'a budgeted page must not exceed the ceiling the tallest detent is capped at',
+  const ceiling = resolveDetents(TALL, TALL * 2).height.full;
+  assert.equal(
+    content + GRABBER_BLOCK,
+    ceiling,
+    'a page that fills its budget must land exactly at the tallest-detent ceiling',
   );
 });
 
-test('the peek detent leaves room under the last row of the peek', () => {
-  // A peek measured to its own height put the primary action flush against the
-  // card's bottom edge — which is the tab bar's top edge — and clipped it. The
-  // sheet pads the measurement before handing it over, so the caller's job is
-  // simply that a padded peek resolves taller than a bare one.
+test('a padded peek grows its detent and reduces the page budget by the same amount', () => {
+  // MapSheet puts CONTENT_BOTTOM_PAD on the measured peek wrapper. The same
+  // measured value drives both calculations: the collapsed detent therefore
+  // ends after that real space, and expanded pages cannot spend it again.
   const bare = resolveDetents(TALL, 900, 240).height.peek;
   const padded = resolveDetents(TALL, 900, 240 + CONTENT_BOTTOM_PAD).height.peek;
   assert.equal(padded - bare, CONTENT_BOTTOM_PAD);
+  assert.equal(
+    pageBudget(TALL, 240) - pageBudget(TALL, 240 + CONTENT_BOTTOM_PAD),
+    CONTENT_BOTTOM_PAD,
+  );
+});
+
+test('real peek padding preserves detent order across the reported phone bands', () => {
+  // Before the layout fix, MapSheet measured the bare peek and added the pad
+  // only when calling resolveDetents. Now the wrapper itself measures 28pt
+  // taller and the same measured number is passed directly. The effective peek
+  // is therefore unchanged. Content grows because that wrapper is inside the
+  // measured column, which can preserve or add a detent but cannot remove half.
+  //
+  // These fixtures cover the ordinary phone/peek bands raised in review.
+  for (const [available, barePeek] of [
+    [560, 209],
+    [560, 236],
+    [600, 231],
+    [600, 258],
+    [640, 253],
+    [640, 280],
+    [700, 286],
+    [700, 313],
+  ] as const) {
+    const effectivePeek = barePeek + CONTENT_BOTTOM_PAD;
+    const contentBefore = Math.round(available * 0.8);
+    const before = resolveDetents(available, contentBefore, effectivePeek);
+    const after = resolveDetents(
+      available,
+      contentBefore + CONTENT_BOTTOM_PAD,
+      effectivePeek,
+    );
+    assert.deepEqual(
+      after.order,
+      before.order,
+      `${available}pt sheet changed detent order`,
+    );
+  }
 });
