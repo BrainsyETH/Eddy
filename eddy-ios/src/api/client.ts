@@ -1421,6 +1421,43 @@ export async function fetchRiverOutlook(
   return data.available ? data : null;
 }
 
+interface PremiumEddyUpdateResponse {
+  available: boolean;
+  update: {
+    quoteText: string | null;
+    generatedAt: string;
+  } | null;
+}
+
+export interface PremiumEddyRead {
+  fullRead: string;
+  generatedAt: string;
+}
+
+/**
+ * Fetch only the Premium prose after the public outlook is already available.
+ *
+ * This deliberately uses the lightweight singular report routes instead of
+ * repeating the expensive weather + hydrograph outlook request when account
+ * state resolves. Omit `siteId` for the river-level report; pass a USGS site id
+ * when a secondary gauge owns the selected report.
+ */
+export async function fetchPremiumEddyRead(
+  riverSlug: string,
+  token: string,
+  signal?: AbortSignal,
+  siteId?: string | null,
+): Promise<PremiumEddyRead | null> {
+  const path = siteId
+    ? `/api/gauge-update/${encodeURIComponent(siteId)}`
+    : `/api/eddy-update/${encodeURIComponent(riverSlug)}`;
+  const data = await get<PremiumEddyUpdateResponse>(path, signal, token);
+  const fullRead = data.available ? data.update?.quoteText?.trim() : null;
+  return fullRead && data.update
+    ? { fullRead, generatedAt: data.update.generatedAt }
+    : null;
+}
+
 /**
  * Forecast near the device, independent of any river or gauge selection.
  *

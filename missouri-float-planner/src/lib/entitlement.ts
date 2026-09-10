@@ -155,6 +155,29 @@ export async function requireEntitlement(
   return { supabase, user, entitlement: row };
 }
 
+type EntitlementVerifier = (
+  request: NextRequest,
+) => Promise<AuthedEntitlement | NextResponse>;
+
+/**
+ * Resolve the optional premium representation requested by a bearer token.
+ *
+ * No Authorization header is the ordinary public path and deliberately skips
+ * Supabase. Once a caller supplies a header, however, its verification result
+ * is authoritative: the ready-made 401/402/403/500 response is returned to the
+ * route instead of being collapsed into "not entitled".
+ *
+ * The verifier seam keeps this contract behavior-testable without contacting
+ * Supabase; production callers always use requireEntitlement.
+ */
+export async function optionalEntitlement(
+  request: NextRequest,
+  verify: EntitlementVerifier = requireEntitlement,
+): Promise<AuthedEntitlement | NextResponse | null> {
+  if (!request.headers.get('authorization')) return null;
+  return verify(request);
+}
+
 type StaticRouteContext = { params: Promise<Record<string, never>> };
 
 /**

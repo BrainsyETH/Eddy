@@ -53,7 +53,7 @@
 // response names the station it actually used.
 
 import { NextRequest, NextResponse } from 'next/server';
-import { cdnCacheHeaders, getCoordinates } from '@/lib/api-utils';
+import { cdnCacheHeaders, getCoordinates, privateNoStore } from '@/lib/api-utils';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { computeTrend } from '@shared/gauge-trend';
 import {
@@ -77,7 +77,8 @@ import {
 import type { EddyTakeSections } from '@/lib/eddy/take-sections';
 import type { ConditionCode } from '@/types/api';
 import { withX402Route } from '@/lib/x402-config';
-import { requireEntitlement } from '@/lib/entitlement';
+import { optionalEntitlement } from '@/lib/entitlement';
+import { premiumText } from '@/lib/eddy/tiered-prose';
 
 export const dynamic = 'force-dynamic';
 
@@ -138,8 +139,8 @@ export interface RiverOutlookApiResponse {
    */
   weatherLocation: string | null;
   /**
-   * The long-form read: the same 4-6 sentence prose /rivers shows on the web,
-   * as opposed to `sections.eddyRead`, which is one line.
+   * The Premium long-form read, as opposed to `sections.eddyRead`, which is
+   * the shorter derived interpretation included in the public outlook.
    *
    * Null without an active Premium entitlement. Entitled callers also receive
    * null when no model prose exists or live water has moved far enough that the
@@ -192,8 +193,13 @@ async function _GET(
     const authHeaderPresent = Boolean(request.headers.get('authorization'));
     // Public outlooks stay on the fast path. Only a caller presenting a token
     // asks the auth service whether the premium field may be included.
-    const entitlement = authHeaderPresent ? await requireEntitlement(request) : null;
-    const entitled = Boolean(entitlement && !(entitlement instanceof NextResponse));
+    const entitlement = await optionalEntitlement(request);
+    // Supplying a token is an explicit premium request. Preserve 401/402/403
+    // and 500 responses so the app can refresh, offer the paywall, or retry;
+    // silently returning the free payload made every failure look like a
+    // missing subscription.
+    if (entitlement instanceof NextResponse) return entitlement;
+    const entitled = entitlement !== null;
     // gauge_stations.id, which is what /api/gauges hands the app as MapGauge.id
     // — the same key the reading card and the gauge picker are keyed on.
     const requestedGaugeId = request.nextUrl.searchParams.get('gaugeId');
@@ -573,7 +579,7 @@ async function _GET(
         gaugeName: station?.name ?? null,
         gaugeStationId: gauge.gauge_station_id ?? null,
         weatherLocation,
-        fullRead: entitled ? fullRead : null,
+        fullRead: premiumText(entitled, fullRead),
         generatedAt:
           update?.eddy_read
             ? update.generated_at
@@ -586,7 +592,7 @@ async function _GET(
       // condition is better than a spinner on a phone with no signal to spare.
       {
         headers: authHeaderPresent
-          ? { 'Cache-Control': 'private, no-store' }
+          ? privateNoStore()
           : { ...cdnCacheHeaders(300, 1800), Vary: 'Authorization' },
       },
     );

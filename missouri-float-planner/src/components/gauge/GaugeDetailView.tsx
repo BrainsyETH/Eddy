@@ -511,9 +511,20 @@ export default function GaugeDetailView({ siteId }: GaugeDetailViewProps) {
               {eddyLoading && !eddyUpdate ? (
                 <p className="text-sm text-neutral-500 italic">Loading Eddy&apos;s take...</p>
               ) : (
-                <p className="text-sm sm:text-base leading-relaxed font-medium" style={{ color: surface.color }}>
-                  &ldquo;{eddyDisplayText}&rdquo;
-                </p>
+                <>
+                  <p className="text-sm sm:text-base leading-relaxed font-medium" style={{ color: surface.color }}>
+                    &ldquo;{eddyDisplayText}&rdquo;
+                  </p>
+                  {eddyUpdate?.summaryText && (
+                    <Link
+                      href="/app"
+                      className="mt-1.5 inline-block text-xs font-semibold underline decoration-1 underline-offset-2 opacity-70 transition-opacity hover:opacity-100"
+                      style={{ color: surface.color }}
+                    >
+                      Unlock the full read in the iOS app
+                    </Link>
+                  )}
+                </>
               )}
 
             </div>

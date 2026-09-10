@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import Link from 'next/link';
 import { STAGE_VERDICTS, THEME, type StageVerdict } from '@/lib/usgs/mo-statewide-data';
 import type { MoStatewideGauge } from '@/app/api/usgs/mo-statewide/route';
 import type { GaugeUpdateResponse } from '@/app/api/gauge-update/[siteId]/route';
@@ -8,8 +9,7 @@ import type { EddyUpdateResponse } from '@/app/api/eddy-update/[riverSlug]/route
 import { MONO, SANS, VerdictChipSpan, floatabilityClass, relativeTime } from './shared';
 
 export type EddyReport = {
-  quoteText: string | null;
-  summaryText: string | null;
+  summaryText: string;
   conditionCode: string;
   generatedAt: string;
 };
@@ -35,8 +35,11 @@ function fetchReport(gauge: MoStatewideGauge): Promise<EddyReport | null> {
         reportCache.set(key, null);
         return null;
       }
+      if (!j.update.summaryText) {
+        reportCache.set(key, null);
+        return null;
+      }
       const norm: EddyReport = {
-        quoteText: j.update.quoteText,
         summaryText: j.update.summaryText,
         conditionCode: j.update.conditionCode,
         generatedAt: j.update.generatedAt,
@@ -101,7 +104,6 @@ export function useGaugeRailReport(
 }
 
 export function EddyReportCard({ report }: { report: EddyReport | null | undefined }) {
-  const [showFull, setShowFull] = useState(false);
   if (report === undefined) {
     return (
       <div
@@ -119,7 +121,6 @@ export function EddyReportCard({ report }: { report: EddyReport | null | undefin
     return null;
   }
   const verdict = STAGE_VERDICTS[report.conditionCode as StageVerdict] ?? STAGE_VERDICTS.unknown;
-  const hasFullReport = Boolean(report.quoteText && report.quoteText !== report.summaryText);
   return (
     <div
       className="mt-3 rounded-md border-2 p-3"
@@ -155,19 +156,9 @@ export function EddyReportCard({ report }: { report: EddyReport | null | undefin
           “{report.summaryText}”
         </p>
       )}
-      {report.quoteText && (showFull || !report.summaryText) && (
-        <p
-          className="mt-2 leading-snug"
-          style={{ fontFamily: SANS, fontSize: 12, color: THEME.ink }}
-        >
-          {report.quoteText}
-        </p>
-      )}
-      {report.summaryText && hasFullReport && (
-        <button
-          type="button"
-          onClick={() => setShowFull((v) => !v)}
-          className="mt-2 uppercase font-bold transition-opacity hover:opacity-70"
+      <Link
+          href="/app"
+          className="mt-2 inline-block uppercase font-bold transition-opacity hover:opacity-70"
           style={{
             fontFamily: MONO,
             fontSize: 9,
@@ -179,9 +170,8 @@ export function EddyReportCard({ report }: { report: EddyReport | null | undefin
             cursor: 'pointer',
           }}
         >
-          {showFull ? 'Show less' : 'Show full report'}
-        </button>
-      )}
+          Unlock the full read in the iOS app
+      </Link>
     </div>
   );
 }

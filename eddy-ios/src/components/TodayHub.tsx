@@ -16,8 +16,10 @@ import {
   fetchFavoriteFloats,
   fetchHighWater,
   fetchLocationWeather,
+  fetchPremiumEddyRead,
   fetchRiverAlerts,
   fetchRiverOutlook,
+  type PremiumEddyRead,
 } from '@/api/client';
 import { PaywallSheet } from '@/components/PaywallSheet';
 import { EddyReadCard } from '@/components/EddyReadCard';
@@ -255,6 +257,7 @@ export function TodayHub({
     riverId: string | null;
   }>({ ready: false, riverId: null });
   const [outlook, setOutlook] = useState<{ slug: string; data: RiverOutlookResponse | null } | null>(null);
+  const [premiumRead, setPremiumRead] = useState<{ slug: string; data: PremiumEddyRead | null } | null>(null);
   const [localWeather, setLocalWeather] = useState<{
     data: Awaited<ReturnType<typeof fetchLocationWeather>>;
     coordsKey: string;
@@ -335,10 +338,15 @@ export function TodayHub({
   const weatherCoordsKey = location.coords
     ? `${Math.round(location.coords.lat / 0.05)}:${Math.round(location.coords.lng / 0.05)}`
     : null;
+  const weatherCoords = useMemo(() => {
+    if (!weatherCoordsKey) return null;
+    const [latBucket, lngBucket] = weatherCoordsKey.split(':').map(Number);
+    return { lat: latBucket * 0.05, lng: lngBucket * 0.05 };
+  }, [weatherCoordsKey]);
   useEffect(() => {
-    if (!location.coords || !weatherCoordsKey) return;
+    if (!weatherCoords || !weatherCoordsKey) return;
     const controller = new AbortController();
-    void fetchLocationWeather(location.coords, controller.signal)
+    void fetchLocationWeather(weatherCoords, controller.signal)
       .then((data) => {
         if (!controller.signal.aborted) {
           setLocalWeather({ data, coordsKey: weatherCoordsKey });
@@ -349,7 +357,7 @@ export function TodayHub({
         if (!controller.signal.aborted) setWeatherFailedKey(weatherCoordsKey);
       });
     return () => controller.abort();
-  }, [location.coords, refreshRevision, weatherCoordsKey, weatherRetry]);
+  }, [refreshRevision, weatherCoords, weatherCoordsKey, weatherRetry]);
 
   const favoriteIds = useMemo(
     () => new Set(starred.filter((item) => item.kind === 'river').map((item) => item.entityId)),
@@ -379,15 +387,27 @@ export function TodayHub({
   useEffect(() => {
     if (!outlookSlug) return;
     const controller = new AbortController();
-    void (async () => {
-      const token = requestPremiumOutlook ? await getAccessToken() : null;
-      return fetchRiverOutlook(outlookSlug, controller.signal, null, token);
-    })()
+    void fetchRiverOutlook(outlookSlug, controller.signal)
       .then((data) => {
         if (!controller.signal.aborted) setOutlook({ slug: outlookSlug, data });
       })
       .catch(() => {
         if (!controller.signal.aborted) setOutlook({ slug: outlookSlug, data: null });
+      });
+    return () => controller.abort();
+  }, [outlookSlug, refreshRevision]);
+
+  useEffect(() => {
+    if (!requestPremiumOutlook || !outlookSlug) return;
+    const slug = outlookSlug;
+    const controller = new AbortController();
+    void getAccessToken()
+      .then((token) => token ? fetchPremiumEddyRead(slug, token, controller.signal) : null)
+      .then((data) => {
+        if (!controller.signal.aborted) setPremiumRead({ slug, data });
+      })
+      .catch(() => {
+        if (!controller.signal.aborted) setPremiumRead({ slug, data: null });
       });
     return () => controller.abort();
   }, [getAccessToken, outlookSlug, refreshRevision, requestPremiumOutlook]);
@@ -465,7 +485,16 @@ export function TodayHub({
     .slice(0, 3), [favoriteIds, previewDistances, previewReservedIds, rivers]);
   const condition = recommendation?.river.currentCondition ?? null;
   const reading = condition ? primaryReading(condition) : null;
-  const liveOutlook = outlook && outlook.slug === recommendation?.river.slug ? outlook.data : null;
+  const publicOutlook = outlook && outlook.slug === recommendation?.river.slug ? outlook.data : null;
+  const premiumResolved = premiumRead?.slug === recommendation?.river.slug;
+  const activePremiumRead = premiumResolved ? premiumRead?.data : null;
+  const liveOutlook = publicOutlook && activePremiumRead
+    ? {
+        ...publicOutlook,
+        fullRead: activePremiumRead.fullRead,
+        generatedAt: activePremiumRead.generatedAt,
+      }
+    : publicOutlook;
   const activeWeather = weatherCoordsKey && localWeather?.coordsKey === weatherCoordsKey
     ? localWeather.data
     : null;
@@ -693,7 +722,7 @@ export function TodayHub({
                   <Ionicons name="chevron-forward" size={15} color={colors.textSubtle} />
                 </View>
                 <Text style={[styles.readCopy, { color: colors.text }]} numberOfLines={2}>
-                  {entitled === true && eddyRead ? eddyRead : publicRead}
+                  {entitled === true && premiumResolved && eddyRead ? eddyRead : publicRead}
                 </Text>
                 {entitled === false ? (
                   <View style={styles.unlockRow}>

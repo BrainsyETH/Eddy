@@ -317,25 +317,15 @@ export default function RiverGaugeDetail({ riverSlug, damSlot }: RiverGaugeDetai
 
   const activeEddyUpdate = selectedEddyReport.data;
 
-  // The long report first, exactly as the app does it
-  // (eddy-ios/src/components/EddyTake.tsx: `outlook.fullRead || sections?.eddyRead`).
-  // One heading, "Eddy's read", had been naming two different columns depending on
-  // the platform: quote_text on iOS, the 240-character eddy_read here, with the long
-  // version parked behind an expander most readers never opened.
-  //
-  // `quoteText` arrives as '' — not as stale prose — when the river has crossed into
-  // a different floatability class or the row is past WEBSITE_PROSE_STALE_HOURS; the
-  // overlay in /api/eddy-update/[riverSlug] does that before it ever reaches the
-  // client. So this falls through to eddy_read, and buildEddyTakeSections falls
-  // through again to its deterministic line. Withholding stays withholding.
+  // Public web callers receive only the selected report's summary. The iOS app
+  // separately requests the long report after entitlement verification.
   const eddyTakeSections = useMemo(
     () => buildEddyTakeSections({
       outlook,
       currentCondition: condition.code,
-      generatedEddyRead:
-        activeEddyUpdate?.quoteText || activeEddyUpdate?.eddyRead || activeEddyUpdate?.summaryText,
+      generatedEddyRead: activeEddyUpdate?.summaryText,
     }),
-    [condition.code, outlook, activeEddyUpdate?.quoteText, activeEddyUpdate?.eddyRead, activeEddyUpdate?.summaryText],
+    [condition.code, outlook, activeEddyUpdate?.summaryText],
   );
 
   const eddySourceGaugeName = activeGauge?.name ?? null;
@@ -626,7 +616,7 @@ export default function RiverGaugeDetail({ riverSlug, damSlot }: RiverGaugeDetai
             sections={eddyTakeSections}
             isGuidance={outlook.isGuidance}
             readLoading={selectedEddyReport.isFetching && !activeEddyUpdate}
-            readIsGenerated={Boolean(activeEddyUpdate?.quoteText || activeEddyUpdate?.eddyRead || activeEddyUpdate?.summaryText)}
+            readIsGenerated={Boolean(activeEddyUpdate?.summaryText)}
             generatedAt={activeEddyUpdate?.generatedAt}
             gaugeName={eddySourceGaugeName}
           />

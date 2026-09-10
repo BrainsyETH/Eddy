@@ -32,8 +32,7 @@ export type ReachRiverType =
   | 'flatwater';
 
 export interface ReachReport {
-  summaryText: string | null;
-  quoteText: string;
+  summaryText: string;
   generatedAt: string;
 }
 

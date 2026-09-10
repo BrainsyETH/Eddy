@@ -1,12 +1,14 @@
-# Eddy Says on iOS: the per-river summary is free, the per-river quote is gated
+# Eddy Says delivery: public summaries, server-gated full reads
 
-The iOS app has never shown a river's "Eddy Says" quote. It downloads one for
-every river on the Today tab and keeps a single key out of the response. The one
-place a full quote does reach an iOS screen, it arrives through a different
-endpoint under a different name and is blurred behind the paywall.
+PR #1287 completed the iOS surfacing work and made the premium boundary a real
+server boundary. Every public surface receives the short per-river summary.
+The long per-river quote is returned only to a bearer token with an active Eddy
+Premium entitlement. The statewide overview remains public.
 
-This plan puts Eddy's voice on the screens that were missing it. It changes no
-server gate and no web page.
+That shipped decision intentionally changes the web: eddy.guide is
+summary-first because it has no consumer sign-in or entitlement session. Web
+surfaces link to `/app` for the full read. This section supersedes the original
+client-only gating assumption recorded in the first draft of this plan.
 
 > **Measured baseline — 2026-08-23**, from `eddy_updates` on the linked project.
 > 353 per-river rows in the retained window (2026-08-19 onward), 80 of them
@@ -29,11 +31,11 @@ server gate and no web page.
 
 ## The rule
 
-Stated precisely, because the obvious phrasing — "`quote_text` is paid on iOS" —
-is false:
+Stated precisely:
 
-> **Per-river `summary_text` is free. Per-river `quote_text` is gated on iOS.
-> The statewide `global.quoteText` is a separate free overview and stays free.**
+> **Per-river `summary_text` is free on every platform. The long per-river
+> `quote_text` is returned only after server-side entitlement verification.
+> The statewide overview is a separate public artifact and stays free.**
 
 The exception is not a carve-out, it is structural. `insertGlobal` in
 `src/app/api/cron/generate-eddy-updates/route.ts:207` writes `quote_text` and
@@ -57,29 +59,29 @@ The prompt specifies each block's job and length:
 | --- | --- | --- | --- |
 | `[SUMMARY]` | `summary_text` | "A single sentence, under 120 characters. This is for share cards and compact views." | **Free** |
 | `[EDDY_READ]` | `eddy_read` | "One or two concise sentences, under 240 characters total… an experienced outfitter's read." | Not used by this plan — see W6 |
-| `[FULL]` | `quote_text` | "4-6 sentences with details, trends, and context." | **Gated on iOS** |
+| `[FULL]` | `quote_text` | "4-6 sentences with details, trends, and context." | **Premium; server-gated** |
 
-The full quote reaches clients three ways, and the third is the one that matters:
+The delivery contract after #1287 is:
 
 | Endpoint | Serves | Called by |
 | --- | --- | --- |
-| `/api/eddy-updates` | `quoteText` + `summaryText` for every river, plus `global` | iOS Today tab, web home |
-| `/api/eddy-update/[riverSlug]` | the same, plus `eddyRead` | web river pages |
-| `/api/rivers/[slug]/outlook` → `fullRead` | **the same `quote_text` column** | iOS `EddyTake` |
+| `/api/eddy-updates` | Public `summaryText` for every river, plus the public statewide overview | iOS and web summary surfaces |
+| `/api/eddy-update/[riverSlug]` | Public summary; `quoteText` and `eddyRead` only for an entitled bearer | Web summaries and iOS Premium prose |
+| `/api/gauge-update/[siteId]` | Public summary; `quoteText` and `eddyRead` only for an entitled bearer | Web summaries and iOS Premium prose |
+| `/api/rivers/[slug]/outlook` → `fullRead` | Public forecast; `fullRead` only for an entitled bearer | Public outlook clients; authenticated representation remains supported |
 
-`outlook/route.ts:493` sets `fullRead = overlaid?.quote_text`, under the same
-`overlayLiveConditions` guard the public endpoints apply. The blurred paragraph
-under "EDDY'S READ" on iOS and the paragraph eddy.guide prints in full are one
-string.
+All routes apply the same live-condition safety checks before considering prose.
+Supplying a bearer token is an explicit request for the premium representation:
+authentication and entitlement failures keep their `401`, `402`, `403`, or
+`500` status instead of silently returning a free `200` response.
 
 ## Where iOS stands today
 
 | Surface | Shows | Note |
 | --- | --- | --- |
-| `TodaySummary.tsx:171` (Today tab) | the **statewide** `quoteText`, folded | free, and stays free — see [the rule](#the-rule); wired at `reports.tsx:1062` |
-| `RiverReaches.tsx:132` (river screen) | `summaryText \|\| quoteText` per reach | prefers the short one, no expander |
-| `EddyTake.tsx:298` (river + gauge screens) | `outlook.fullRead \|\| sections?.eddyRead` | this *is* the per-river full quote, blurred for non-subscribers |
-| everywhere else | nothing | — |
+| Today overview | Statewide prose | Free and unchanged |
+| Today reads, river, favorites, and map | Per-river `summaryText` | Free |
+| `EddyTake` on river and gauge screens | Entitled `fullRead`, with deterministic locked shapes for free users | Premium |
 
 And the payload the app already holds:
 
@@ -89,10 +91,9 @@ void fetchEddyUpdates(signal)
   .then((updates) => setSummary(updates.global ?? null))
 ```
 
-`fetchEddyUpdates` resolves to `Record<slug, EddyUpdateEntry>` for all 24 rivers
-— one batched, CDN-cached, unauthenticated request. `updates.global` is the only
-key any code reads. Every per-river surface below is therefore free in network
-terms; the data is already on the device.
+`fetchEddyUpdates` resolves to the public summaries for all eligible rivers plus
+the separately named statewide overview. The public DTO cannot carry
+`quoteText`, so a free component cannot expose it accidentally.
 
 ## The constraint that shapes everything
 
@@ -102,21 +103,17 @@ Bearer-token auth, and the entitlement it reads is written by the RevenueCat
 webhook against a subscription bought in the iOS app. No web page checks
 entitlement, because no web visitor has one.
 
-So "gated" can only mean **an in-app presentation tier**. It cannot mean the
-string becomes unavailable, and the plan must not pretend otherwise:
+Therefore the web cannot unlock a per-user premium response today. The shipped
+contract is intentionally **summary-first on the web**, with `/app` as the path
+to purchase and read the full report. A future web sign-in can reuse the same
+bearer-token routes without changing the content model.
 
-- `/api/eddy-updates` and `/api/eddy-update/[riverSlug]` stay public and keep
-  serving `quoteText`. Removing it would break the web river pages,
-  `MapEddySays`, `RiverCard` and everything else downstream of
-  `useEddyUpdates`, and would strip both routes' `withX402Route` offering — to
-  hide a string the same server prints on eddy.guide.
-- It would not even make the string private. `src/app/api/og/social/route.tsx`
-  selects `summary_text, quote_text` from `eddy_updates` directly, and
-  Remotion's social props carry a `quoteText` of their own, so the prose reaches
-  public OG cards and rendered video without passing through either endpoint.
-- `EddyTake`'s own header already says this of the blur: *"It is NOT a security
-  boundary and never was — the text is in the payload either way."* The tier
-  here is the same kind of thing, and is defensible on the same grounds.
+Public social output is a separate editorial channel. OG cards use
+`summary_text`; the river-index OG image uses the explicitly public statewide
+overview. Scheduled Remotion marketing may publish a selected full
+`quote_text` (truncated in the video and complete in its caption). That explicit
+editorial exception is not available through a public report API; changing it
+requires a content-policy decision.
 
 What is actually being sold on iOS is unchanged: Eddy's long-form writing, the
 72-hour strip's interpretation, the weather section and the bottom line. What
@@ -125,17 +122,13 @@ on it at all.
 
 ## The divergence this creates, on purpose
 
-After this plan, eddy.guide prints the per-river full quote free while the iOS
-app shows the summary free and the full quote behind the gate. That is a
-deliberate asymmetry with a reason — one platform has a payment path and the
-other has none — and it should be recorded so a later parity pass does not
-"correct" it.
+After #1287, eddy.guide and free iOS surfaces both print the per-river summary.
+An entitled iOS session can additionally request the full quote. The platforms
+differ only in whether they currently have a consumer entitlement session.
 
-`src/lib/eddy-read-parity.test.ts` is untouched by this. It asserts that
-`EddyTake` prefers `fullRead` over `sections.eddyRead` and that
-`RiverGaugeDetail` prefers `quoteText` over `eddyRead` — both remain true. The
-new free surface is a different slot on a different tier, and W7 is what keeps
-it from drifting into the paid one.
+`src/lib/eddy-read-parity.test.ts` records that split: `EddyTake` prefers the
+entitled `fullRead`, while `RiverGaugeDetail` receives the narrowed public
+summary. W7 keeps the free value from drifting into the paid one.
 
 ## Workstreams
 
@@ -250,12 +243,11 @@ this must not be a change to the component's default behaviour.
   summary line when there is one.
 - **Null behaviour:** no summary, no change — the share is exactly what it is
   today. The prose is an addition, never a precondition.
-- **Never the full quote.** Web's `EddyQuote.tsx:98` shares
-  `summaryText || quoteText`; iOS must not inherit that fallback, or the one
-  control designed to send things to other people becomes the way the gated
-  artifact leaves the app. The summary is also the block the prompt describes as
-  "for share cards and compact views", under 120 characters — it is the right
-  string on its own merits.
+- **Never the full quote.** Both web and iOS share the summary only; the one
+  control designed to send things to other people must not become a way for the
+  gated artifact to leave the app. The summary is also the block the prompt
+  describes as "for share cards and compact views", under 120 characters — it
+  is the right string on its own merits.
 
 ### W6 — Dropped: the `eddyRead` fallback rescues nothing
 
@@ -275,8 +267,9 @@ and therefore zero would be helped. The only rows with nulls are the 5 statewide
 ones, which have no summary by design and are exempt under
 [the rule](#the-rule).
 
-So: **no wire change, no new field, no edit to either hand-mirrored copy of
-`EddyUpdateEntry`.** What replaces it:
+So W6 adds **no fallback field**. PR #1287 later and independently narrowed the
+public wire shape by removing `quoteText` from both hand-mirrored copies of
+`EddyUpdateEntry`. What replaces the proposed fallback:
 
 - **Render nothing** when the summary is null. The deck is absent, the section
   keeps its body, and nothing claims Eddy said something he did not.
@@ -307,11 +300,11 @@ The tier is only as strong as the narrowest thing that can produce the string.
   component would pass happily if some other layer handed it a `quoteText`
   already renamed to `text`; a type that cannot carry the full quote closes that
   path instead of policing it.
-- **Source assertion, secondary.** Keep one in the web suite beside
-  `eddy-read-parity.test.ts` as a cheap backstop, but do not let it be the only
-  thing standing between the free surface and the gated column.
-- **Record the divergence** — this document, plus a line in the component's
-  header saying the web prints the full quote and iOS does not, and why.
+- **Behavioral route coverage.** Exercise public, entitled, expired-token,
+  inactive-entitlement, and verification-error outcomes. Source assertions may
+  remain cheap backstops, but must not be the only test of the server boundary.
+- **Record the delivery contract** here and in the public components: the web
+  shows the summary and points to the iOS app for the full read.
 
 ## Sequencing
 
@@ -331,18 +324,18 @@ W6 is dropped; nothing depends on it.
 - `make bundle-mobile` — the production bundle plus the `.easignore` allowlist
   check, which is what catches Metro breakage invisible in dev.
 
-No migration, no schema change and no wire change, so `make check-db` is not in
-scope. Every column this plan reads already exists and is already populated.
+No migration or schema change is required. The public wire shape did change:
+`EddyUpdateEntry` no longer carries per-river `quoteText`, and the singular and
+outlook routes return premium fields only to entitled bearer requests.
 
 ## What this plan does not do
 
-- **Does not remove `quoteText` from the public endpoints.** See
-  [the constraint](#the-constraint-that-shapes-everything).
-- **Does not change the wire format.** W6 is dropped.
+- **Does not expose `quoteText` through the public batch endpoint.**
+- **Does not add consumer authentication to the web.** Web remains summary-first
+  and links to the iOS app for the premium read.
 - **Does not change what the Today tab shows.** The statewide overview stays
   free and unfolded exactly as it is.
 - **Does not cache prose to disk.** The server's gate is a live check.
-- **Does not change the web.** No web component, page or route changes.
 - **Does not change the paywall gate.** `EddyTake` keeps `fullRead`, keeps the
   blur, keeps one lock for three sections.
 
@@ -357,6 +350,6 @@ scope. Every column this plan reads already exists and is already populated.
    the river screen can afford to initiate, but if the Today tab has almost
    always run first, the simpler wiring may be to let the river screen
    revalidate and everything else subscribe.
-3. **Whether the web should follow to summary-first** — recommended no. With no
-   consumer session there is nothing to unlock the full quote with, so a web
-   summary tier would hide the text from everyone rather than tier it.
+3. **Resolved by #1287: the web follows summary-first.** It has no consumer
+   session today, so the full read links to the iOS purchase path. Adding web
+   sign-in later can unlock the same entitled representation.

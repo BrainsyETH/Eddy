@@ -24,7 +24,7 @@ import { conditionChip } from '@shared/condition-system';
 import type { ConditionCode } from '@/types/api';
 
 interface EddyUpdate {
-  quoteText: string;
+  summaryText: string | null;
   conditionCode: string;
   gaugeHeightFt: number | null;
   dischargeCfs: number | null;
@@ -209,7 +209,7 @@ export default function EddyQuoteEmbedPage() {
   );
 
   // Build fallback text if no AI update
-  const quoteText = update?.quoteText || (() => {
+  const quoteText = update?.summaryText || (() => {
     const blurb = CONDITION_CARD_BLURBS[conditionCode as ConditionCode] || CONDITION_CARD_BLURBS.unknown;
     const notes = RIVER_NOTES[slug];
     const parts: string[] = [];

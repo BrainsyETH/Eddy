@@ -99,7 +99,7 @@ export async function fetchRiverReaches(
       // the first paint, inside the page's revalidate window.
       const { data: reportRow } = await supabase
         .from('eddy_updates')
-        .select('quote_text, summary_text, generated_at')
+        .select('summary_text, generated_at')
         .eq('river_slug', riverSlug)
         .eq('section_slug', r.section_slug)
         .gt('expires_at', new Date().toISOString())
@@ -120,10 +120,9 @@ export async function fetchRiverReaches(
         gaugeName: cond?.gauge_name ?? null,
         gaugeHeightFt: cond?.gauge_height_ft ?? null,
         dischargeCfs: cond?.discharge_cfs ?? null,
-        report: reportRow?.quote_text
+        report: reportRow?.summary_text
           ? {
-              summaryText: reportRow.summary_text ?? null,
-              quoteText: reportRow.quote_text,
+              summaryText: reportRow.summary_text,
               generatedAt: reportRow.generated_at,
             }
           : null,

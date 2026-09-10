@@ -76,9 +76,12 @@
 // a report that runs to paragraphs, and it is the line most likely to make
 // somebody want the rest.
 //
-// It is NOT a security boundary and never was — the text is in the payload
-// either way, and both the smear and the blur render the real words. The gate
-// is unchanged. What changed is that the reader can tell it is a gate.
+// The blur is the presentation of the gate, not the authority for the long
+// read. Public outlook responses no longer carry `fullRead`; a locked card uses
+// LOCKED_READ_SHAPE beneath the frost, while an entitled bearer receives the
+// real report. The server, not this visual effect, decides who gets that text.
+// The derived Weather and Bottom line sections remain in the outlook payload;
+// their blur is a presentation tier rather than a secrecy boundary.
 //
 // BOTTOM LINE CLOSES rather than opens. It used to lead, on the reasoning that
 // the answer should come first — but the reading card directly above this
@@ -165,12 +168,11 @@ const LOCKED_BOTTOM_LINE_SHAPE = 'Good day to be on this river.';
 /**
  * Eddy's writing, behind frosted glass.
  *
- * The real text renders and a BlurView covers it. That is the only way to get
- * a genuine gaussian blur in React Native — a UIVisualEffectView blurs what is
- * BEHIND it, so the paragraph has to be there for the effect to have anything
- * to work on. It puts no more of the text on the device than the old text
- * shadow did, which also rendered the real string; see the header on why this
- * has never been a security boundary.
+ * A string renders and a BlurView covers it. For an entitled read that is the
+ * real text; for a locked read it is LOCKED_READ_SHAPE because the server did
+ * not send `fullRead`. The derived Weather and Bottom line sections still use
+ * their real payload text beneath the presentation gate. UIVisualEffectView
+ * blurs what is BEHIND it, so every branch needs a string to render.
  *
  * `sharpLines` leaves the first N lines legible and starts the blur beneath
  * them, by offsetting the overlay rather than by splitting the string. Splitting

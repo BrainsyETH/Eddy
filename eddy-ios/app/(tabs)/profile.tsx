@@ -69,7 +69,7 @@ import {
 } from '@/lib/purchases';
 import { usePush } from '@/hooks/usePush';
 import { useAppConfig } from '@/hooks/useAppConfig';
-import { notificationDetail } from '@/lib/notificationCopy';
+import { notificationControlKind, notificationDetail } from '@/lib/notificationCopy';
 import { FeedbackSheet } from '@/components/FeedbackSheet';
 import { PaywallSheet } from '@/components/PaywallSheet';
 import { PRIVACY_URL, TERMS_URL } from '@/lib/legal';
@@ -515,6 +515,7 @@ export default function ProfileScreen() {
       ? notificationDetail({ permission, optedOut, registered })
       : 'Temporarily unavailable. Alerts still appear in the Alerts tab.'
     : '';
+  const notificationControl = notificationControlKind(features.push, permission);
 
   return (
     <SafeAreaView style={[styles.screen, { backgroundColor: colors.bg }]} edges={['top']}>
@@ -692,9 +693,7 @@ export default function ProfileScreen() {
           <View style={[styles.group, { backgroundColor: colors.card }, elevation(1)]}>
             {signedIn ? (
               <>
-                {features.push &&
-                permission !== 'denied' &&
-                permission !== 'unsupported' ? (
+                {notificationControl === 'switch' ? (
                   <NotificationSettingsRow
                     checked={receiving}
                     detail={notificationSummary}
@@ -707,11 +706,11 @@ export default function ProfileScreen() {
                     title="Notifications"
                     detail={notificationSummary}
                     onPress={
-                      features.push && permission === 'denied'
+                      notificationControl === 'settings-link'
                         ? () => void Linking.openSettings()
                         : undefined
                     }
-                    external={features.push && permission === 'denied'}
+                    external={notificationControl === 'settings-link'}
                   />
                 )}
                 <SettingsRow

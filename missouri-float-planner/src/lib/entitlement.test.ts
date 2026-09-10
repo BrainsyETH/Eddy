@@ -1,6 +1,12 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { isEntitlementActive, sandboxEntitlementsAllowed } from './entitlement';
+import { NextRequest, NextResponse } from 'next/server';
+import {
+  isEntitlementActive,
+  optionalEntitlement,
+  sandboxEntitlementsAllowed,
+  type AuthedEntitlement,
+} from './entitlement';
 
 const NOW = new Date('2026-07-25T12:00:00.000Z');
 const FUTURE = '2027-01-01T00:00:00.000Z';
@@ -116,4 +122,45 @@ test('an expired sandbox entitlement is still expired', () => {
     if (prior === undefined) delete process.env.DENY_SANDBOX_ENTITLEMENTS;
     else process.env.DENY_SANDBOX_ENTITLEMENTS = prior;
   }
+});
+
+// ── Optional premium representation ────────────────────────────────────────
+
+test('a public request skips entitlement verification', async () => {
+  let calls = 0;
+  const result = await optionalEntitlement(
+    new NextRequest('https://eddy.guide/api/eddy-update/current'),
+    async () => {
+      calls += 1;
+      return new NextResponse(null, { status: 500 });
+    },
+  );
+
+  assert.equal(result, null);
+  assert.equal(calls, 0);
+});
+
+test('an authenticated request preserves every entitlement error status', async () => {
+  const request = new NextRequest('https://eddy.guide/api/eddy-update/current', {
+    headers: { Authorization: 'Bearer test-token' },
+  });
+
+  for (const status of [401, 402, 403, 500]) {
+    const failure = NextResponse.json({ error: 'verification failed' }, { status });
+    const result = await optionalEntitlement(request, async () => failure);
+    assert.equal(result, failure);
+    assert.equal((result as NextResponse).status, status);
+  }
+});
+
+test('an authenticated request returns the verified entitlement', async () => {
+  const request = new NextRequest('https://eddy.guide/api/eddy-update/current', {
+    headers: { Authorization: 'Bearer test-token' },
+  });
+  const verified = {
+    entitlement: { expires_at: FUTURE },
+  } as AuthedEntitlement;
+
+  const result = await optionalEntitlement(request, async () => verified);
+  assert.equal(result, verified);
 });
