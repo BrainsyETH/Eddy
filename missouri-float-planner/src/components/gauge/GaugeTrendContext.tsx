@@ -8,7 +8,13 @@
 
 import { TrendingUp, TrendingDown, Minus } from 'lucide-react';
 import { useGaugeHistory } from '@/hooks/useGaugeHistory';
-import { computeTrend, computePercentile, type GaugeUnit } from '@shared/gauge-trend';
+import {
+  computeTrend,
+  computePercentile,
+  formatGaugeTrendWindowHours,
+  isGaugeTrendWindowReliable,
+  type GaugeUnit,
+} from '@shared/gauge-trend';
 
 interface GaugeTrendContextProps {
   siteId: string | null | undefined;
@@ -28,7 +34,8 @@ export default function GaugeTrendContext({
   const { data: history } = useGaugeHistory(siteId ?? null, days);
   const readings = history?.readings;
 
-  const trend = computeTrend(readings, unit);
+  const computedTrend = computeTrend(readings, unit);
+  const trend = isGaugeTrendWindowReliable(computedTrend) ? computedTrend : null;
   const pct = computePercentile(readings, currentValue, unit, days);
 
   if (!trend && !pct) return null;
@@ -49,7 +56,7 @@ export default function GaugeTrendContext({
         <span className={`inline-flex items-center gap-1 font-semibold ${trendTone}`}>
           <TrendIcon className="w-3.5 h-3.5 flex-shrink-0" aria-hidden="true" />
           {trend.label}
-          <span className="font-normal text-neutral-400">· {trend.windowHours}h</span>
+          <span className="font-normal text-neutral-400">· {formatGaugeTrendWindowHours(trend.windowHours)}</span>
         </span>
       )}
       {trend && pct && <span className="text-neutral-300" aria-hidden="true">·</span>}

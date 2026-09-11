@@ -19,6 +19,9 @@ import {
   TREND_STEADY_PCT,
   classifyTrend,
   computeTrend,
+  formatGaugeTrend,
+  formatGaugeTrendWindowHours,
+  isGaugeTrendWindowReliable,
   trendLabel,
 } from './gauge-trend';
 import type { ChartReadingLike } from './chart-model';
@@ -69,6 +72,21 @@ test('the five labels are exactly these strings', () => {
   assert.equal(trendLabel('falling', 'fast'), 'Falling fast');
   assert.equal(trendLabel('falling', 'slowly'), 'Falling slowly');
   assert.equal(trendLabel('steady', null), 'Holding steady');
+});
+
+test('trend display copy preserves a meaningful fractional window on every platform', () => {
+  assert.equal(formatGaugeTrend({ label: 'Rising slowly', windowHours: 6 }), 'Rising slowly · 6h');
+  assert.equal(formatGaugeTrend({ label: 'Rising slowly', windowHours: 5.84 }), 'Rising slowly · 5.8h');
+  assert.equal(formatGaugeTrendWindowHours(5.84), '5.8h');
+});
+
+test('UI trend reliability accepts the six-hour neighborhood and rejects stale self-comparisons', () => {
+  assert.equal(isGaugeTrendWindowReliable({ windowHours: 3 }), true);
+  assert.equal(isGaugeTrendWindowReliable({ windowHours: 6 }), true);
+  assert.equal(isGaugeTrendWindowReliable({ windowHours: 9 }), true);
+  assert.equal(isGaugeTrendWindowReliable({ windowHours: 1 }), false);
+  assert.equal(isGaugeTrendWindowReliable({ windowHours: 10 }), false);
+  assert.equal(isGaugeTrendWindowReliable(null), false);
 });
 
 test('computeTrend reads the series as ascending and compares against ~6h back', () => {

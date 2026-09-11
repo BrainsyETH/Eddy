@@ -40,8 +40,9 @@
 // boundaries on top. The result was accurate and nearly impossible to parse.
 //
 // This plot now uses a neutral grid and reserves its single shaded area for the
-// typical 25–75% range. Eddy's condition remains in the reading card and scrub
-// copy; official NWS stages remain labelled rules because they are independent
+// typical 25–75% range. One labelled rule marks the next condition above the
+// current reading; it preserves the decision number without repainting the full
+// ladder. Official NWS stages remain labelled rules because they are independent
 // safety context rather than a second background classification.
 //
 // ── NWS stages, for gauges that publish them ────────────────────────────────
@@ -121,8 +122,16 @@ import {
   timeTicks,
   type ChartPoint,
 } from '@eddy/conditions/chart-model';
-import { buildZones, type ThresholdValues } from '@eddy/conditions/threshold-zones';
-import { computeTrend } from '@eddy/conditions/gauge-trend';
+import {
+  buildZones,
+  nextZoneBoundary,
+  type ThresholdValues,
+} from '@eddy/conditions/threshold-zones';
+import {
+  computeTrend,
+  formatGaugeTrend,
+  isGaugeTrendWindowReliable,
+} from '@eddy/conditions/gauge-trend';
 import { conditionColor } from '@/theme/conditions';
 import {
   FLOOD_STAGE_ORDER,
@@ -168,12 +177,11 @@ const PAD_TOP = 10;
 const stageLabelBelowLine = (y: number): boolean => y - 3 < PAD_TOP + 8;
 
 /**
- * How far past the data a threshold may sit and still be pulled into view, as a
+ * How far past the data a reference line may sit and still be pulled into view, as a
  * fraction of the data's own range.
  *
- * Generous enough that "High is just above where you've been" shows, tight
- * enough that a flood line an order of magnitude up does not flatten the week
- * you came to look at into a straight line along the bottom.
+ * Generous enough that the next Eddy condition or a nearby NWS stage shows,
+ * tight enough that a distant boundary does not flatten the week into a line.
  */
 const NEAR_THRESHOLD_FRACTION = 0.75;
 
@@ -259,8 +267,9 @@ interface Props {
 /** One day of the day-of-year typical range, at the instant it is drawn at. */
 interface TypicalRow {
   t: number;
-  low: number;
-  high: number;
+  median: number;
+  low: number | null;
+  high: number | null;
 }
 
 /** What the scrub is sitting on. A forecast must never read as a measurement. */
@@ -407,7 +416,7 @@ function GaugeChartInner({
         : computeTrend(history.readings, drawnUnit),
     [matchesRequest, history, days, drawnUnit],
   );
-  const trustedTrend = trend && Math.abs(trend.windowHours - 6) <= 3 ? trend : null;
+  const trustedTrend = isGaugeTrendWindowReliable(trend) ? trend : null;
   const shownTrend = showTrend ? trustedTrend : null;
 
   const onLayout = useCallback((e: LayoutChangeEvent) => {
@@ -455,6 +464,19 @@ function GaugeChartInner({
     () => (history ? chartPoints(history.readings, drawnUnit) : []),
     [history, drawnUnit],
   );
+  const newest = points.length ? points[points.length - 1] : null;
+
+  /**
+   * One decision boundary, rather than the whole condition ladder.
+   *
+   * The upper edge of the current band answers the useful next question—for
+   * example, "High · 1,400 cfs"—while keeping the observed history dominant.
+   * An open-ended final band has no honest next boundary.
+   */
+  const conditionBoundary = useMemo(
+    () => nextZoneBoundary(zones, newest?.v),
+    [zones, newest],
+  );
 
   /**
    * The official forecast, ahead of the last reading.
@@ -485,8 +507,8 @@ function GaugeChartInner({
     if (drawnUnit !== 'cfs' || !history?.typical?.length) return [];
     return history.typical.flatMap((row) => {
       const t = new Date(`${row.date}T12:00:00`).getTime();
-      return Number.isFinite(t) && row.p25Cfs !== null && row.p75Cfs !== null
-        ? [{ t, low: row.p25Cfs, high: row.p75Cfs }]
+      return Number.isFinite(t) && row.p50Cfs !== null
+        ? [{ t, median: row.p50Cfs, low: row.p25Cfs, high: row.p75Cfs }]
         : [];
     });
   }, [history, drawnUnit]);
@@ -507,21 +529,28 @@ function GaugeChartInner({
       ...points,
       ...forecastPoints,
       ...typical.flatMap((row) =>
-        [row.low, row.high].map((value) => ({
-          t: row.t,
-          v: value,
-          timestamp: '',
-          qualifiers: [],
-        })),
+        [row.low, row.median, row.high].flatMap((value) =>
+          value === null
+            ? []
+            : [{
+                t: row.t,
+                v: value,
+                timestamp: '',
+                qualifiers: [],
+              }],
+        ),
       ),
     ].sort((a, b) => a.t - b.t);
 
-    // Only context actually drawn on the plot may stretch its scale. Condition
-    // thresholds used to remain here after their bands were removed, flattening
-    // the observed line to make room for invisible boundaries.
-    const context = stageLines.map((line) => line.value);
+    // Only context actually drawn on the plot may stretch its scale. One nearby
+    // condition boundary is useful; the rest of the ladder remains on the
+    // ReadingScale and cannot flatten the observed history invisibly.
+    const context = [
+      ...stageLines.map((line) => line.value),
+      ...(conditionBoundary ? [conditionBoundary.value] : []),
+    ];
     return chartDomain(spanning, drawnUnit, context, NEAR_THRESHOLD_FRACTION);
-  }, [points, forecastPoints, typical, stageLines, drawnUnit]);
+  }, [points, forecastPoints, typical, stageLines, conditionBoundary, drawnUnit]);
 
   const plotWidth = Math.max(0, width - PAD_RIGHT);
   const plotHeight = CHART_HEIGHT - PAD_TOP - PAD_BOTTOM;
@@ -535,6 +564,19 @@ function GaugeChartInner({
       y: (v: number) => PAD_TOP + (1 - (v - domain.min) / spanV) * plotHeight,
     };
   }, [domain, plotWidth, plotHeight]);
+
+  const visibleConditionBoundary = (() => {
+    if (!conditionBoundary || !scale) return null;
+    const y = scale.y(conditionBoundary.value);
+    return y >= PAD_TOP && y <= PAD_TOP + plotHeight
+      ? { ...conditionBoundary, y }
+      : null;
+  })();
+  const showConditionBoundaryLabel =
+    visibleConditionBoundary !== null &&
+    !stageLines.some(
+      (line) => Math.abs(scale!.y(line.value) - visibleConditionBoundary.y) < 14,
+    );
 
   /**
    * The line, as one or more segments, plus the readings that stand alone.
@@ -552,6 +594,7 @@ function GaugeChartInner({
       forecastPaths: [] as string[],
       forecastDots: [] as ChartPoint[],
       typicalArea: '',
+      typicalPath: '',
     };
     if (!scale) return empty;
     const toPath = (segment: ChartPoint[]) =>
@@ -570,17 +613,33 @@ function GaugeChartInner({
       // stop in the observed one.
       forecastDots: forecastSplit.isolated,
       typicalArea: (() => {
-        if (typical.length < 2) return '';
-        const up = typical
+        const rows = typical.filter(
+          (row): row is TypicalRow & { low: number; high: number } =>
+            row.low !== null && row.high !== null,
+        );
+        if (rows.length < 2) return '';
+        const up = rows
           .map((row, i) => `${i ? 'L' : 'M'} ${scale.x(row.t).toFixed(2)} ${scale.y(row.high).toFixed(2)}`)
           .join(' ');
-        const back = typical
+        const back = rows
           .slice()
           .reverse()
           .map((row) => `L ${scale.x(row.t).toFixed(2)} ${scale.y(row.low).toFixed(2)}`)
           .join(' ');
         return `${up} ${back} Z`;
       })(),
+      // A shortened USGS percentile ladder may still publish a valid median.
+      // Draw it only when the 25–75% envelope cannot be formed, so the fallback
+      // preserves context without adding another layer to a complete chart.
+      typicalPath:
+        typical.length > 1 && typical.filter((row) => row.low !== null && row.high !== null).length < 2
+          ? toPath(typical.map((row) => ({
+              t: row.t,
+              v: row.median,
+              timestamp: '',
+              qualifiers: [],
+            })))
+          : '',
     };
   }, [points, forecastPoints, typical, scale]);
 
@@ -748,8 +807,6 @@ function GaugeChartInner({
         zones[zones.length - 1])
       : null;
 
-  const newest = points.length ? points[points.length - 1] : null;
-
   /**
    * "Now" while the newest reading is still current, "Last reading" once it
    * is not. The shared model decides, on the same six-hour line the reading
@@ -795,13 +852,24 @@ function GaugeChartInner({
         : `${measure}, ${window}.`,
     ];
     // The pill is a fact about the water, not decoration, so it is spoken.
-    if (shownTrend) bits.push(`${shownTrend.label} over the last ${shownTrend.windowHours} hours.`);
+    // Visual deduplication must not erase a water fact from VoiceOver. The
+    // river screen hides the chart pill because the card above repeats it, but
+    // the adjustable plot still carries a self-contained spoken summary.
+    if (trustedTrend) {
+      bits.push(`${trustedTrend.label} over the last ${trustedTrend.windowHours} hours.`);
+    }
     const latestQualifiers = newest ? qualifierText(newest.qualifiers) : null;
     if (latestQualifiers) bits.push(`Latest reading ${latestQualifiers}.`);
     if (forecastPoints.length > 0) {
       bits.push(`NWS forecast included${forecastIssued ? `, issued ${forecastIssued}` : ''}.`);
     }
     if (series.typicalArea) bits.push('Typical range for the date shown.');
+    else if (series.typicalPath) bits.push('Typical median for the date shown.');
+    if (visibleConditionBoundary) {
+      bits.push(
+        `${visibleConditionBoundary.toLabel} begins at ${formatReading(visibleConditionBoundary.value, drawnUnit)}.`,
+      );
+    }
     return bits.join(' ');
   })();
 
@@ -857,7 +925,7 @@ function GaugeChartInner({
             {shownTrend ? (
               <TrendPill
                 direction={shownTrend.direction}
-                label={`${shownTrend.label} · ${Math.round(shownTrend.windowHours)}h`}
+                label={formatGaugeTrend(shownTrend)}
               />
             ) : null}
           </View>
@@ -1036,6 +1104,58 @@ function GaugeChartInner({
                     fillOpacity={isDark ? 0.2 : 0.13}
                   />
                 ) : null}
+                {series.typicalPath ? (
+                  <Path
+                    d={series.typicalPath}
+                    fill="none"
+                    stroke={TYPICAL_COLOR}
+                    strokeWidth={1.25}
+                    strokeDasharray="4,3"
+                    opacity={0.7}
+                  />
+                ) : null}
+
+                {/* ── The next Eddy condition ──
+                    One labelled rule preserves the useful decision number
+                    without bringing back six fills and six boundaries. It is
+                    omitted when distant (chartDomain leaves it outside the
+                    plot). If its label would collide with an NWS stage, the
+                    rule remains and official safety context wins the label. */}
+                {visibleConditionBoundary
+                  ? (() => {
+                      const color = conditionColor(visibleConditionBoundary.toKey);
+                      return (
+                        <G key={`condition-${visibleConditionBoundary.toKey}`}>
+                          <Line
+                            x1={0}
+                            y1={visibleConditionBoundary.y}
+                            x2={plotWidth}
+                            y2={visibleConditionBoundary.y}
+                            stroke={color}
+                            strokeWidth={1}
+                            strokeDasharray="3,3"
+                            opacity={0.65}
+                          />
+                          {showConditionBoundaryLabel ? (
+                            <SvgText
+                              x={2}
+                              y={
+                                stageLabelBelowLine(visibleConditionBoundary.y)
+                                  ? visibleConditionBoundary.y + 11
+                                  : visibleConditionBoundary.y - 3
+                              }
+                              fill={color}
+                              fontSize={9}
+                              fontFamily={fonts.medium}
+                              opacity={0.9}
+                            >
+                              {`${visibleConditionBoundary.toLabel} · ${formatReading(visibleConditionBoundary.value, drawnUnit)}`}
+                            </SvgText>
+                          ) : null}
+                        </G>
+                      );
+                    })()
+                  : null}
 
                 {/* ── The NWS stages ──
                     Drawn over the typical range and under the observed line:
@@ -1278,7 +1398,7 @@ function GaugeChartInner({
                   attribute, and the issue time is the part that makes a forecast
                   checkable — NWPS reissues on a schedule, so a line read at 6pm may
                   predate the afternoon's rain. */}
-              {series.typicalArea || forecastPoints.length > 0 ? (
+              {series.typicalArea || series.typicalPath || forecastPoints.length > 0 ? (
                 <View style={styles.legend}>
                   {/* Each entry carries a sample of its own mark — coloured text
                       alone asks the reader to hold a colour table in their head.
@@ -1311,6 +1431,14 @@ function GaugeChartInner({
                         ]}
                       />
                       <Text style={[styles.legendText, { color: TYPICAL_COLOR }]}>Typical 25–75%</Text>
+                    </View>
+                  ) : series.typicalPath ? (
+                    <View style={styles.legendItem}>
+                      <View style={styles.legendDashes} aria-hidden>
+                        <View style={[styles.legendDash, { backgroundColor: TYPICAL_COLOR }]} />
+                        <View style={[styles.legendDash, { backgroundColor: TYPICAL_COLOR }]} />
+                      </View>
+                      <Text style={[styles.legendText, { color: TYPICAL_COLOR }]}>Typical median</Text>
                     </View>
                   ) : null}
                 </View>

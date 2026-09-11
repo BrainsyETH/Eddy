@@ -55,7 +55,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { cdnCacheHeaders, getCoordinates } from '@/lib/api-utils';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { computeTrend } from '@shared/gauge-trend';
+import { computeTrend, isGaugeTrendWindowReliable } from '@shared/gauge-trend';
 import {
   applyFloodStageOverride,
   computeConditionFromDbRow,
@@ -434,7 +434,8 @@ async function _GET(
           }))
         : [];
     // Trend follows the unit the condition was GRADED in, not the forecast unit.
-    const trend = computeTrend(readings, primaryUnit, 6);
+    const computedTrend = computeTrend(readings, primaryUnit, 6);
+    const trend = isGaugeTrendWindowReliable(computedTrend) ? computedTrend : null;
 
     const weatherOk = weatherResult.status === 'fulfilled' && weatherResult.value != null;
     const weatherDays = weatherOk ? weatherResult.value!.days : [];

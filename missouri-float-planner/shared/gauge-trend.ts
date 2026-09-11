@@ -43,6 +43,43 @@ export interface GaugeTrend {
   label: string;
 }
 
+/** The live trend shown throughout Eddy is intended to describe roughly six hours. */
+export const GAUGE_TREND_TARGET_HOURS = 6;
+/** One missed hourly observation may stretch the comparison without making it misleading. */
+export const GAUGE_TREND_WINDOW_TOLERANCE_HOURS = 3;
+
+/**
+ * Whether a computed trend is close enough to its intended window to show.
+ *
+ * Kept separate from computeTrend(): some analytical callers still want the
+ * nearest comparison it can produce, while UI surfaces must not present a
+ * one-hour self-comparison as a six-hour trend.
+ */
+export function isGaugeTrendWindowReliable(
+  trend: Pick<GaugeTrend, 'windowHours'> | null | undefined,
+  targetHours = GAUGE_TREND_TARGET_HOURS,
+  toleranceHours = GAUGE_TREND_WINDOW_TOLERANCE_HOURS,
+): boolean {
+  return Boolean(
+    trend &&
+      Number.isFinite(trend.windowHours) &&
+      Math.abs(trend.windowHours - targetHours) <= toleranceHours,
+  );
+}
+
+/** One precision policy for the measured window on web and iOS. */
+export function formatGaugeTrendWindowHours(windowHours: number): string {
+  const hours = Math.round(windowHours * 10) / 10;
+  return `${hours}h`;
+}
+
+/** One display policy for the combined label on compact surfaces. */
+export function formatGaugeTrend(
+  trend: Pick<GaugeTrend, 'label' | 'windowHours'>,
+): string {
+  return `${trend.label} · ${formatGaugeTrendWindowHours(trend.windowHours)}`;
+}
+
 export interface GaugePercentile {
   percentile: number; // 1..99
   windowDays: number;

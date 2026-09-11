@@ -5,6 +5,7 @@ import {
   buildZones,
   findZoneIndex,
   formatZoneRange,
+  nextZoneBoundary,
   zoneMarkerPercent,
   type ThresholdValues,
 } from './threshold-zones';
@@ -81,6 +82,28 @@ test('readings below the ladder clamp to the start, above it to the end', () => 
   const zones = buildZones(FULL);
   assert.equal(zoneMarkerPercent(zones, -5), 0);
   assert.equal(zoneMarkerPercent(zones, 999_999), 100);
+});
+
+test('the compact-chart boundary is the next condition above the current reading', () => {
+  const zones = buildZones(FULL);
+  assert.deepEqual(nextZoneBoundary(zones, 339), {
+    value: 900,
+    fromKey: 'flowing',
+    toKey: 'high',
+    toLabel: 'High',
+  });
+  assert.deepEqual(nextZoneBoundary(zones, 80), {
+    value: 130,
+    fromKey: 'too_low',
+    toKey: 'low',
+    toLabel: 'Low',
+  });
+});
+
+test('there is no next condition boundary above an open-ended reading', () => {
+  const zones = buildZones(FULL);
+  assert.equal(nextZoneBoundary(zones, 5001), null);
+  assert.equal(nextZoneBoundary(zones, null), null);
 });
 
 test('no reading means no marker', () => {

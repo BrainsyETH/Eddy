@@ -67,6 +67,16 @@ export interface Zone {
   openEnded: boolean;
 }
 
+export interface ZoneBoundary {
+  /** Numeric edge at which the next condition begins. */
+  value: number;
+  /** The condition the current reading is leaving. */
+  fromKey: string;
+  /** The condition that begins at this edge. */
+  toKey: string;
+  toLabel: string;
+}
+
 export function buildZones(
   tv: ThresholdValues,
   descriptions?: ThresholdDescriptions | null,
@@ -182,6 +192,33 @@ export function zoneMarkerPercent(zones: Zone[], value: number | null | undefine
   }
 
   return 100;
+}
+
+/**
+ * The next condition boundary above a reading.
+ *
+ * This gives a compact hydrograph one useful decision line without repainting
+ * the whole six-band ladder. Null means the reading is already in the final,
+ * open-ended condition or cannot be placed honestly.
+ */
+export function nextZoneBoundary(
+  zones: Zone[],
+  value: number | null | undefined,
+): ZoneBoundary | null {
+  if (value == null || !Number.isFinite(value) || zones.length < 2) return null;
+
+  const index = zones.findIndex((zone) => value <= zone.max || zone.openEnded);
+  const currentIndex = index === -1 ? zones.length - 1 : index;
+  const current = zones[currentIndex];
+  const next = zones[currentIndex + 1];
+  if (!current || !next || current.openEnded || !Number.isFinite(current.max)) return null;
+
+  return {
+    value: current.max,
+    fromKey: current.key,
+    toKey: next.key,
+    toLabel: next.label,
+  };
 }
 
 export function findZoneIndex(zones: Zone[], key: string | null | undefined): number {

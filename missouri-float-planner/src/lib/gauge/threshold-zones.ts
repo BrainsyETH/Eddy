@@ -12,8 +12,14 @@ export {
   formatZoneValue,
   formatZoneRange,
   zoneMarkerPercent,
+  nextZoneBoundary,
   findZoneIndex,
   DEFAULT_THRESHOLD_DESCRIPTIONS,
 } from '@shared/threshold-zones';
 
-export type { ThresholdValues, ThresholdDescriptions, Zone } from '@shared/threshold-zones';
+export type {
+  ThresholdValues,
+  ThresholdDescriptions,
+  Zone,
+  ZoneBoundary,
+} from '@shared/threshold-zones';

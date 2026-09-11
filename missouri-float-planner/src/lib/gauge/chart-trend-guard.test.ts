@@ -18,6 +18,7 @@ import { computeTrend } from '@shared/gauge-trend';
 import type { ChartReadingLike } from '@shared/chart-model';
 
 const CHART = readFileSync(join(process.cwd(), '../eddy-ios/src/components/GaugeChart.tsx'), 'utf8');
+const RIVER = readFileSync(join(process.cwd(), '../eddy-ios/app/river/[slug].tsx'), 'utf8');
 const HOOK = readFileSync(join(process.cwd(), '../eddy-ios/src/hooks/useGaugeHistory.ts'), 'utf8');
 
 function cfs(hoursAgo: number, value: number): ChartReadingLike {
@@ -131,8 +132,16 @@ test('the 30-day range computes no trend at all', () => {
 test('a window more than three hours off six is dropped', () => {
   assert.match(
     CHART,
-    /Math\.abs\(trend\.windowHours - 6\) <= 3 \? trend : null/,
+    /isGaugeTrendWindowReliable\(trend\) \? trend : null/,
     'the gauge chart no longer checks the window computeTrend actually found',
+  );
+});
+
+test('the river card applies the same reliability guard as the chart', () => {
+  assert.match(
+    RIVER,
+    /isGaugeTrendWindowReliable\(candidateTrend\) \? candidateTrend : null/,
+    'the river screen can show a stale self-comparison the chart rejects',
   );
 });
 
@@ -171,11 +180,20 @@ test('the pill is on the title row, which the scrub readout does not replace', (
 });
 
 test('the visible trend names the window it was computed from', () => {
-  assert.ok(
-    CHART.includes(
-      'label={`${shownTrend.label} · ${Math.round(shownTrend.windowHours)}h`}',
-    ),
+  assert.match(
+    CHART,
+    /label=\{formatGaugeTrend\(shownTrend\)\}/,
     'the trend can again be mistaken for a summary of the selected chart range',
+  );
+});
+
+test('hiding a duplicate pill does not erase the trend from VoiceOver', () => {
+  const summary = CHART.slice(CHART.indexOf('const plotSummary'));
+  assert.match(summary, /if \(trustedTrend\)/);
+  assert.doesNotMatch(
+    summary.slice(0, summary.indexOf('const spokenValue')),
+    /if \(shownTrend\)/,
+    'visual pill visibility still controls the spoken chart summary',
   );
 });
 

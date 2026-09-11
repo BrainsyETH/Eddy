@@ -4,7 +4,11 @@
 
 import { createAdminClient } from '@/lib/supabase/admin';
 import { mapConditionCode } from '@/lib/conditions';
-import { computeTrend, type GaugeUnit } from '@shared/gauge-trend';
+import {
+  computeTrend,
+  isGaugeTrendWindowReliable,
+  type GaugeUnit,
+} from '@shared/gauge-trend';
 import { riverPath } from '@/lib/navigation/river-path';
 import type { RiverListItem } from '@/types/api';
 
@@ -262,9 +266,10 @@ export async function getRivers(): Promise<RiverListItem[]> {
       // Trending stage while grading on discharge would let the row say "falling"
       // about a number it isn't showing.
       const stationId = stationByRiver.get(river.id);
-      const trend = thresholdUnit && stationId
+      const computedTrend = thresholdUnit && stationId
         ? computeTrend(readingsByStation.get(stationId), thresholdUnit, 6)
         : null;
+      const trend = isGaugeTrendWindowReliable(computedTrend) ? computedTrend : null;
 
       return {
         id: river.id,

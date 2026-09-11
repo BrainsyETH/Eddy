@@ -132,6 +132,10 @@ import { effectiveReadingAgeHours, readingBand } from '@/lib/offline-cache';
 import { shareInFlight } from '@/lib/shareInFlight';
 import { goBack } from '@/lib/nav';
 import { TrendPill } from '@/components/TrendPill';
+import {
+  formatGaugeTrend,
+  isGaugeTrendWindowReliable,
+} from '@eddy/conditions/gauge-trend';
 
 /**
  * What the one-tap bell subscribes to.
@@ -1210,10 +1214,11 @@ export default function RiverDetailScreen() {
    * trend arrives live and the number beside it did not, and a fresh "Rising
    * fast" over a two-day-old reading is the screen contradicting itself.
    */
-  const shownTrend =
+  const candidateTrend =
     band !== 'fresh'
       ? null
       : (outlook?.trend ?? (pickedGauge ? null : (river.currentCondition?.trend ?? null)));
+  const shownTrend = isGaugeTrendWindowReliable(candidateTrend) ? candidateTrend : null;
 
   const caveat = condition && !pickedGauge ? accuracyNote(condition) : null;
 
@@ -1364,7 +1369,7 @@ export default function RiverDetailScreen() {
             {shownTrend ? (
               <TrendPill
                 direction={shownTrend.direction}
-                label={`${shownTrend.label} · ${Math.round(shownTrend.windowHours)}h`}
+                label={formatGaugeTrend(shownTrend)}
               />
             ) : null}
           </View>

@@ -137,6 +137,10 @@ export function ReadingScale({ thresholds, value, unit }: ReadingScaleProps) {
         <View style={styles.nowLabelLane}>
           <Text
             onLayout={(event) => setNowLabelWidth(event.nativeEvent.layout.width)}
+            accessibilityElementsHidden={trackWidth === 0 || nowLabelWidth === 0}
+            importantForAccessibility={
+              trackWidth > 0 && nowLabelWidth > 0 ? 'auto' : 'no-hide-descendants'
+            }
             style={[
               styles.labelNow,
               {

@@ -1,6 +1,13 @@
 // src/lib/gauge/chart-parity.test.ts
 //
-// Asserts the web hydrograph and the app hydrograph are still one chart.
+// Asserts the web and app hydrographs tell the same story from the same model.
+//
+// This is SEMANTIC parity, not pixel parity. The renderers share time geometry,
+// domains, gaps, forecasts, qualifiers and threshold interpretation. Their
+// presentation may differ where the surface demands it: the phone has a 200pt,
+// roughly 390pt-wide plot with touch/VoiceOver but no hover, while the expanded
+// web chart has more room and pointer labels. Mobile-only density decisions live
+// in chart-mobile-clarity.test.ts rather than being disguised as parity claims.
 //
 // ── Why a test and not a review note ───────────────────────────────────────
 // The two renderers have drifted twice, and both times the drawing looked fine.
@@ -218,16 +225,6 @@ test("threshold interpretation obeys the ladder's declared unit on both platform
   // Neither may interpret a reading through a ladder declared in another unit.
   assert.match(app, /thresholds\.thresholdUnit && thresholds\.thresholdUnit !== drawnUnit/);
   assert.match(web, /thresholds\.unit == null \|\| thresholds\.unit === displayUnit/);
-});
-
-test('the app chart reserves its shaded background for the typical range', () => {
-  // The reading card already owns the equal-width condition ladder. Painting
-  // those zones again at numeric height, then stacking an observed-area wash
-  // and the typical band on top, made the history line the quietest layer.
-  assert.doesNotMatch(app, /<Rect\b/, 'condition zones are painting the plot again');
-  assert.doesNotMatch(app, /series\.areas/, 'the observed line regained a competing area wash');
-  assert.match(app, /series\.typicalArea/, 'the typical 25–75% context disappeared');
-  assert.match(app, /key={`grid-\$\{tick\.value\}`}/, 'the neutral value grid disappeared');
 });
 
 test('the web scrub is reachable without a pointer', () => {
