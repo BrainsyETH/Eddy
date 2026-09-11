@@ -5,7 +5,8 @@
   "scripts": {
     "test:safe-zones": "tsx --tsconfig tsconfig.test.json --test shared/social-brand.test.ts",
     "test:today": "tsx --tsconfig tsconfig.test.json --test src/lib/today-recommendation.spec.ts",
-    "pretest": "npm run test:today",
+    "test:reading-scale-layout": "tsx --tsconfig tsconfig.test.json --test src/lib/reading-scale-layout.test.ts",
+    "pretest": "npm run test:today && npm run test:reading-scale-layout",
     "dev": "next dev",
     "build": "next build",
     "start": "next start",

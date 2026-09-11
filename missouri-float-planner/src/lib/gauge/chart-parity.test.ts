@@ -211,13 +211,23 @@ test('NWS flood stages come from one visual system, and only onto a feet axis', 
   assert.match(web, /isFt && floodStages/, 'web lost its feet-axis stage guard');
 });
 
-test("threshold shading obeys the ladder's declared unit on both platforms", () => {
+test("threshold interpretation obeys the ladder's declared unit on both platforms", () => {
   // The band bounds are raw numbers and the drawn series is raw numbers;
-  // comparing them is arithmetic that cannot tell feet from cfs. The app has
-  // guarded this since the unit toggle shipped; the web type had no unit field
-  // at all, so nothing could refuse a mismatch.
+  // comparing them is arithmetic that cannot tell feet from cfs. The app uses
+  // the ladder to name a scrubbed reading; the web also paints the thresholds.
+  // Neither may interpret a reading through a ladder declared in another unit.
   assert.match(app, /thresholds\.thresholdUnit && thresholds\.thresholdUnit !== drawnUnit/);
   assert.match(web, /thresholds\.unit == null \|\| thresholds\.unit === displayUnit/);
+});
+
+test('the app chart reserves its shaded background for the typical range', () => {
+  // The reading card already owns the equal-width condition ladder. Painting
+  // those zones again at numeric height, then stacking an observed-area wash
+  // and the typical band on top, made the history line the quietest layer.
+  assert.doesNotMatch(app, /<Rect\b/, 'condition zones are painting the plot again');
+  assert.doesNotMatch(app, /series\.areas/, 'the observed line regained a competing area wash');
+  assert.match(app, /series\.typicalArea/, 'the typical 25–75% context disappeared');
+  assert.match(app, /key={`grid-\$\{tick\.value\}`}/, 'the neutral value grid disappeared');
 });
 
 test('the web scrub is reachable without a pointer', () => {

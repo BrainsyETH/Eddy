@@ -170,6 +170,15 @@ test('the pill is on the title row, which the scrub readout does not replace', (
   );
 });
 
+test('the visible trend names the window it was computed from', () => {
+  assert.ok(
+    CHART.includes(
+      'label={`${shownTrend.label} · ${Math.round(shownTrend.windowHours)}h`}',
+    ),
+    'the trend can again be mistaken for a summary of the selected chart range',
+  );
+});
+
 test('the six-hour window is fixed, never scaled to the selected range', () => {
   // computeTrend's third argument is the target window. Passing `days` into it
   // would make the badge mean something different at each zoom level.

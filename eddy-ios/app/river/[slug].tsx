@@ -1362,7 +1362,10 @@ export default function RiverDetailScreen() {
                 approaching flood "rising fast" is the opposite of good news,
                 and the chip beside it already carries the verdict. */}
             {shownTrend ? (
-              <TrendPill direction={shownTrend.direction} label={shownTrend.label} />
+              <TrendPill
+                direction={shownTrend.direction}
+                label={`${shownTrend.label} · ${Math.round(shownTrend.windowHours)}h`}
+              />
             ) : null}
           </View>
 
@@ -1452,10 +1455,9 @@ export default function RiverDetailScreen() {
 
             Follows the PICKER, like everything else on this screen since the
             outlook started to — a chart of Van Buren under a Montauk reading is
-            the exact mismatch that effect was written to end. The unit and the
-            bands come from the SAME link the reading and the scale use, so the
-            three cannot disagree; GaugeChart drops the shading itself if that
-            ladder is in a unit it is not drawing.
+            the exact mismatch that effect was written to end. The threshold
+            ladder still follows that same link so a scrubbed reading can name
+            its condition without ever borrowing another gauge's verdict.
 
             Absent when the river has no gauge at all. There is nothing to plot
             and nothing to apologise for. */}
@@ -1474,6 +1476,10 @@ export default function RiverDetailScreen() {
               shownSiteId === condition?.gaugeUsgsId ? condition?.floodStages ?? null : null
             }
             title="Recent history"
+            // The status card immediately above already states this station's
+            // trend, with its six-hour window. Repeating it here was both noisy
+            // and the reason the chart title collapsed to "Re…" on a phone.
+            showTrend={false}
           />
         ) : null}
 

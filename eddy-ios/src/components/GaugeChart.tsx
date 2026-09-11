@@ -1,5 +1,5 @@
 // eddy-ios/src/components/GaugeChart.tsx
-// The hydrograph: what this gauge has been doing, against what the bands mean.
+// The hydrograph: what this gauge has been doing, against its usual range.
 //
 // ── Why the app has a chart at all ──────────────────────────────────────────
 // Every surface in Eddy until now answered "what is the river doing RIGHT NOW".
@@ -33,26 +33,21 @@
 // snapshotted for discharge and there is no stage equivalent. Same guard the web
 // chart makes, for the same reason.
 //
-// ── Bands are drawn at TRUE numeric height here, unlike the track ───────────
-// ReadingScale draws the same ladder at EQUAL width per band, deliberately, so
-// a 20,000-cfs flood band cannot crush the bands people float in down to a
-// sliver. That is right for a track whose axis is "how far through the ladder".
+// ── One background context, not two competing verdict systems ──────────────
+// ReadingScale above this chart already answers where the current reading sits
+// in Eddy's condition ladder. Repainting all six condition bands here put that
+// verdict behind the day-of-year typical range, then added both sets of dashed
+// boundaries on top. The result was accurate and nearly impossible to parse.
 //
-// It is wrong here. This chart's y axis is the READING, so a band has to sit at
-// the numbers it actually covers or the line would cross into "High" at a height
-// that is not where High starts. The two therefore look different on purpose,
-// and neither is a rescaling of the other.
+// This plot now uses a neutral grid and reserves its single shaded area for the
+// typical 25–75% range. Eddy's condition remains in the reading card and scrub
+// copy; official NWS stages remain labelled rules because they are independent
+// safety context rather than a second background classification.
 //
-// The y domain comes from the DATA, then stretches to swallow any threshold
-// that is close enough to be worth seeing (see NEAR_THRESHOLD_FRACTION). A week
-// spent entirely in Good shows one band and the line inside it — which is the
-// honest picture — but if High is just above, High is on screen.
-//
-// ── NWS stages, for the gauges that have no bands ──────────────────────────
-// A rated gauge gets condition bands because a human decided where they go. An
-// unrated one got a bare line and no way to tell whether it was high — the flow
-// band on the card above says "higher than usual", which is a comparison to its
-// own record and not a threshold.
+// ── NWS stages, for gauges that publish them ────────────────────────────────
+// An unrated gauge otherwise has no way to say whether it is near an official
+// flood threshold — the flow band on the card above says "higher than usual",
+// which is a comparison to its own record and not a safety stage.
 //
 // The Weather Service publishes action/flood/moderate/major stages for ~12,700
 // forecast points, and quoting those is not the same as issuing a verdict. They
@@ -108,13 +103,9 @@ import {
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Svg, {
   Circle,
-  Defs,
   G,
   Line,
-  LinearGradient,
   Path,
-  Rect,
-  Stop,
   Text as SvgText,
 } from 'react-native-svg';
 import type { GaugeFloodStages } from '@eddy/types';
@@ -154,13 +145,11 @@ const RANGES = [
 ] as const;
 
 /**
- * 200, up from 168. The plot carries up to six condition bands, a typical
- * range, NWS stage rules and a forecast; at 140px of usable height those
- * layers sat close enough to read as texture. Every consumer scrolls (the
- * gauge screen, the river screen, the map sheet's tabbed body — the peek row
- * never mounts the chart), so the extra 32px costs scroll distance, not
- * layout. Sized WITH the axis: four labels down a 172px edge is a rung of the
- * tick budget below, and neither number should move without the other.
+ * 200, up from 168. Four labelled value ticks plus a typical range, optional
+ * NWS stage rules and a forecast need the usable height. Every consumer scrolls
+ * (the gauge screen, river screen and map sheet tab), so the extra 32px costs
+ * scroll distance rather than squeezing another panel. Sized WITH the axis:
+ * neither this nor the tick budget below should move without the other.
  */
 const CHART_HEIGHT = 200;
 /** Room for the value labels down the right edge. */
@@ -249,32 +238,29 @@ interface Props {
    */
   unit: 'ft' | 'cfs';
   /**
-   * The ladder to shade behind the line. Null for any station Eddy has not
-   * rated — the chart still draws, it just has no verdict to draw against,
-   * which is exactly the distinction the whole app maintains between a rated
-   * gauge and a reference one.
+   * The ladder used to name an observed value while scrubbing. Null for any
+   * station Eddy has not rated, so a reference gauge never inherits Eddy's
+   * condition vocabulary.
    */
   thresholds?: (ThresholdValues & { thresholdUnit?: 'ft' | 'cfs' }) | null;
   /**
    * NWS stages to rule across the plot. FEET ONLY — see the guard below.
    *
-   * The reference tier's only piece of context. A rated gauge gets condition
-   * bands because a human decided where they go; an unrated one got a bare line
-   * and no way to tell whether it was high. These are the Weather Service's own
-   * published thresholds for the station, so drawing them makes no claim Eddy
-   * has not earned.
+   * These are the Weather Service's own published thresholds for the station,
+   * so drawing them makes no claim Eddy has not earned.
    */
   floodStages?: GaugeFloodStages | null;
   /** Section heading. Omitted when the caller draws its own. */
   title?: string;
+  /** Hide when the surrounding card already states the same trend. */
+  showTrend?: boolean;
 }
 
 /** One day of the day-of-year typical range, at the instant it is drawn at. */
 interface TypicalRow {
   t: number;
-  median: number;
-  low: number | null;
-  high: number | null;
+  low: number;
+  high: number;
 }
 
 /** What the scrub is sitting on. A forecast must never read as a measurement. */
@@ -326,6 +312,7 @@ function GaugeChartInner({
   thresholds = null,
   floodStages = null,
   title,
+  showTrend = true,
 }: Props) {
   const { colors, elevation, isDark } = useTheme();
   const [days, setDays] = useState<number>(7);
@@ -420,19 +407,19 @@ function GaugeChartInner({
         : computeTrend(history.readings, drawnUnit),
     [matchesRequest, history, days, drawnUnit],
   );
-  const shownTrend = trend && Math.abs(trend.windowHours - 6) <= 3 ? trend : null;
+  const trustedTrend = trend && Math.abs(trend.windowHours - 6) <= 3 ? trend : null;
+  const shownTrend = showTrend ? trustedTrend : null;
 
   const onLayout = useCallback((e: LayoutChangeEvent) => {
     setWidth(e.nativeEvent.layout.width);
   }, []);
 
   /**
-   * THE LADDER'S OWN UNIT WINS, or there is no shading.
+   * THE LADDER'S OWN UNIT WINS, or there is no scrub verdict.
    *
-   * The band bounds are raw numbers and the drawn series is raw numbers, and
-   * comparing them is arithmetic that cannot tell feet from cfs. A ladder in
-   * stage shaded behind a discharge line would put "Flood" at 4 cfs. Same guard
-   * ReadingScale makes, same reason.
+   * The bounds and drawn series are raw numbers, and comparing them is arithmetic
+   * that cannot tell feet from cfs. Without this guard the scrub could call a
+   * discharge reading "Flood" using a four-foot stage threshold.
    */
   const zones = useMemo(() => {
     if (!thresholds) return [];
@@ -446,9 +433,9 @@ function GaugeChartInner({
    * EMPTY ON A CFS AXIS, unconditionally. NWPS publishes these as stages and
    * nothing else — its category `flow` field comes back as -9999 — so a flood
    * line drawn against discharge would put "flood" at 20 cfs on a river that
-   * floods at 20 feet. Same guard the condition bands make one block up, and
-   * the more important of the two: that one mislabels a band, this one draws a
-   * flood line in the wrong place.
+   * floods at 20 feet. Same unit guard as the scrub verdict one block up, and
+   * the more important of the two: this would draw a flood line in the wrong
+   * place rather than merely mislabel one reading.
    */
   const stageLines = useMemo(() => {
     if (!floodStages || drawnUnit !== 'ft') return [];
@@ -498,8 +485,8 @@ function GaugeChartInner({
     if (drawnUnit !== 'cfs' || !history?.typical?.length) return [];
     return history.typical.flatMap((row) => {
       const t = new Date(`${row.date}T12:00:00`).getTime();
-      return Number.isFinite(t) && row.p50Cfs !== null
-        ? [{ t, median: row.p50Cfs, low: row.p25Cfs, high: row.p75Cfs }]
+      return Number.isFinite(t) && row.p25Cfs !== null && row.p75Cfs !== null
+        ? [{ t, low: row.p25Cfs, high: row.p75Cfs }]
         : [];
     });
   }, [history, drawnUnit]);
@@ -520,21 +507,21 @@ function GaugeChartInner({
       ...points,
       ...forecastPoints,
       ...typical.flatMap((row) =>
-        [row.low, row.median, row.high].flatMap((value) =>
-          value === null ? [] : [{ t: row.t, v: value, timestamp: '', qualifiers: [] }],
-        ),
+        [row.low, row.high].map((value) => ({
+          t: row.t,
+          v: value,
+          timestamp: '',
+          qualifiers: [],
+        })),
       ),
     ].sort((a, b) => a.t - b.t);
 
-    // Band edges and stage lines are context the axis may stretch to include —
-    // only the EDGES, since a band boundary is the number someone needs to see
-    // their line approaching, and a band's far side is not.
-    const context = [
-      ...stageLines.map((line) => line.value),
-      ...zones.flatMap((zone) => [zone.min, zone.max]),
-    ];
+    // Only context actually drawn on the plot may stretch its scale. Condition
+    // thresholds used to remain here after their bands were removed, flattening
+    // the observed line to make room for invisible boundaries.
+    const context = stageLines.map((line) => line.value);
     return chartDomain(spanning, drawnUnit, context, NEAR_THRESHOLD_FRACTION);
-  }, [points, forecastPoints, typical, zones, stageLines, drawnUnit]);
+  }, [points, forecastPoints, typical, stageLines, drawnUnit]);
 
   const plotWidth = Math.max(0, width - PAD_RIGHT);
   const plotHeight = CHART_HEIGHT - PAD_TOP - PAD_BOTTOM;
@@ -561,12 +548,10 @@ function GaugeChartInner({
   const series = useMemo(() => {
     const empty = {
       paths: [] as string[],
-      areas: [] as string[],
       dots: [] as ChartPoint[],
       forecastPaths: [] as string[],
       forecastDots: [] as ChartPoint[],
       typicalArea: '',
-      typicalPath: '',
     };
     if (!scale) return empty;
     const toPath = (segment: ChartPoint[]) =>
@@ -574,56 +559,30 @@ function GaugeChartInner({
         .map((p, i) => `${i ? 'L' : 'M'} ${scale.x(p.t).toFixed(2)} ${scale.y(p.v).toFixed(2)}`)
         .join(' ');
 
-    /**
-     * The same segment, closed down to the foot of the plot.
-     *
-     * PER SEGMENT, not one area under the whole series — an area closed across a
-     * gap would fill the outage in, which is the thing splitAtGaps() exists to
-     * stop the line from doing. A hole in the telemetry has to stay a hole in
-     * every layer that draws it.
-     */
-    const toArea = (segment: ChartPoint[]) => {
-      const base = (PAD_TOP + plotHeight).toFixed(2);
-      const first = scale.x(segment[0].t).toFixed(2);
-      const last = scale.x(segment[segment.length - 1].t).toFixed(2);
-      return `${toPath(segment)} L ${last} ${base} L ${first} ${base} Z`;
-    };
-
     const { lines, isolated } = chartSegments(points, GAP_BREAK_MULTIPLE);
     const forecastSplit = chartSegments(forecastPoints, GAP_BREAK_MULTIPLE);
     return {
       paths: lines.map(toPath),
-      areas: lines.map(toArea),
       dots: isolated,
       forecastPaths: forecastSplit.lines.map(toPath),
       // A short-range issuance can be a single point. Dropping it would repeat,
       // in the forecast series, exactly the omission chartSegments() exists to
       // stop in the observed one.
       forecastDots: forecastSplit.isolated,
-      // The band needs both edges, so it is drawn from the rows that HAVE both
-      // rather than suppressed by one row that does not. The median covers every
-      // row regardless.
       typicalArea: (() => {
-        const rows = typical.filter((row) => row.low !== null && row.high !== null);
-        if (rows.length < 2) return '';
-        const up = rows
-          .map((row, i) => `${i ? 'L' : 'M'} ${scale.x(row.t).toFixed(2)} ${scale.y(row.high!).toFixed(2)}`)
+        if (typical.length < 2) return '';
+        const up = typical
+          .map((row, i) => `${i ? 'L' : 'M'} ${scale.x(row.t).toFixed(2)} ${scale.y(row.high).toFixed(2)}`)
           .join(' ');
-        const back = rows
+        const back = typical
           .slice()
           .reverse()
-          .map((row) => `L ${scale.x(row.t).toFixed(2)} ${scale.y(row.low!).toFixed(2)}`)
+          .map((row) => `L ${scale.x(row.t).toFixed(2)} ${scale.y(row.low).toFixed(2)}`)
           .join(' ');
         return `${up} ${back} Z`;
       })(),
-      typicalPath:
-        typical.length > 1
-          ? typical
-              .map((row, i) => `${i ? 'L' : 'M'} ${scale.x(row.t).toFixed(2)} ${scale.y(row.median).toFixed(2)}`)
-              .join(' ')
-          : '',
     };
-  }, [points, forecastPoints, typical, scale, plotHeight]);
+  }, [points, forecastPoints, typical, scale]);
 
   /**
    * Round numbers down the right edge, from the same tick function the web axis
@@ -744,13 +703,6 @@ function GaugeChartInner({
   const lineColor = colors.interactive;
 
   /**
-   * Gradient ids share one namespace across every mounted Svg, and this chart is
-   * mounted more than once at a time — the map sheet pages between stations. A
-   * bare "flowFill" would have the second chart's gradient resolve to the first
-   * one's, which is invisible until the two disagree about the theme.
-   */
-  const fillId = `flowFill-${siteId ?? 'none'}-${drawnUnit}`;
-  /**
    * ONE OBSERVED READING PLUS A FORECAST IS A CHART — and so is a forecast
    * with none. One reading ALONE is not, and that is the web chart's rule too.
    *
@@ -849,7 +801,7 @@ function GaugeChartInner({
     if (forecastPoints.length > 0) {
       bits.push(`NWS forecast included${forecastIssued ? `, issued ${forecastIssued}` : ''}.`);
     }
-    if (series.typicalPath) bits.push('Typical range for the date shown.');
+    if (series.typicalArea) bits.push('Typical range for the date shown.');
     return bits.join(' ');
   })();
 
@@ -895,76 +847,70 @@ function GaugeChartInner({
   return (
     <View style={[styles.card, { backgroundColor: colors.card }, elevation(1)]}>
       <View style={styles.head}>
-        <View style={styles.headText}>
-          {/* ── The pill sits on the TITLE line, not the subtitle ───────────
-              The subtitle is replaced outright by the scrub readout below, so a
-              trend rendered there would vanish the moment a finger touched the
-              plot — exactly when the reader is asking which way the water is
-              going. The title is short ("Recent history") and the unit and
-              range controls sit hard right, so the room is here. */}
-          {title || shownTrend ? (
-            <View style={styles.titleRow}>
-              {title ? (
-                <Text style={[styles.title, { color: colors.text }]} numberOfLines={1}>
-                  {title}
+        {/* The title and trend own a full row. They used to share horizontal
+            space with both segmented controls, leaving only "Re…" on a phone.
+            The trend names its six-hour window so it cannot be mistaken for a
+            summary of the selected seven- or thirty-day line. */}
+        {title || shownTrend ? (
+          <View style={styles.titleRow}>
+            {title ? <Text style={[styles.title, { color: colors.text }]}>{title}</Text> : null}
+            {shownTrend ? (
+              <TrendPill
+                direction={shownTrend.direction}
+                label={`${shownTrend.label} · ${Math.round(shownTrend.windowHours)}h`}
+              />
+            ) : null}
+          </View>
+        ) : null}
+
+        {/* The scrub readout replaces the subtitle rather than sitting beside
+            it: a finger on the plot means the question is "what was it then",
+            and two lines of metadata competing for the same row is how a
+            readout gets missed. */}
+        {scrubbed ? (
+          <Text style={[styles.scrubLine, { color: colors.textMuted }]} numberOfLines={1}>
+            <Text style={[styles.scrubValue, { color: colors.text }]}>
+              {formatReading(scrubbed.point.v, drawnUnit)}
+            </Text>
+            {/* The verdict beside the number, in the band's own colour —
+                parity with the web tooltip's "340 cfs — Flowing". */}
+            {scrubZone ? (
+              <Text style={{ color: conditionColor(scrubZone.key) }}>{` ${scrubZone.label}`}</Text>
+            ) : null}
+            {'  '}
+            {scrubTime(scrubbed.point.t)}
+            {/* Two labels that must survive being read in a hurry: a forecast is
+                not a measurement, and a provisional reading is not a verified
+                one. The qualifier came with the reading and was thrown away
+                here until the copy moved into the shared model. */}
+            {scrubbed.kind === 'forecast' ? (
+              <Text style={{ color: floodStageColor() }}>{'  NWS forecast'}</Text>
+            ) : scrubQualifiers ? (
+              <Text style={{ color: colors.textSubtle }}>{`  ${scrubQualifiers}`}</Text>
+            ) : null}
+          </Text>
+        ) : (
+          <Text style={[styles.subtitle, { color: colors.textSubtle }]} numberOfLines={1}>
+            {/* The newest reading rides in the idle subtitle — the exact
+                "what is it now" number, in the row the scrub readout will
+                reuse, instead of a callout crowding the plot's right edge
+                where the axis and the current dot already live. */}
+            {newest ? (
+              <>
+                <Text style={[styles.scrubValue, { color: colors.text }]}>
+                  {formatReading(newest.v, drawnUnit)}
                 </Text>
-              ) : null}
-              {shownTrend ? (
-                <TrendPill direction={shownTrend.direction} label={shownTrend.label} />
-              ) : null}
-            </View>
-          ) : null}
-          {/* The scrub readout replaces the subtitle rather than sitting beside
-              it: a finger on the plot means the question is "what was it then",
-              and two lines of metadata competing for the same row is how a
-              readout gets missed. */}
-          {scrubbed ? (
-            <Text style={[styles.scrubLine, { color: colors.textMuted }]} numberOfLines={1}>
-              <Text style={[styles.scrubValue, { color: colors.text }]}>
-                {formatReading(scrubbed.point.v, drawnUnit)}
-              </Text>
-              {/* The verdict beside the number, in the band's own colour —
-                  parity with the web tooltip's "340 cfs — Flowing". */}
-              {scrubZone ? (
-                <Text style={{ color: conditionColor(scrubZone.key) }}>{` ${scrubZone.label}`}</Text>
-              ) : null}
-              {'  '}
-              {scrubTime(scrubbed.point.t)}
-              {/* Two labels that must survive being read in a hurry: a forecast is
-                  not a measurement, and a provisional reading is not a verified
-                  one. The qualifier came with the reading and was thrown away
-                  here until the copy moved into the shared model. */}
-              {scrubbed.kind === 'forecast' ? (
-                <Text style={{ color: floodStageColor() }}>{'  NWS forecast'}</Text>
-              ) : scrubQualifiers ? (
-                <Text style={{ color: colors.textSubtle }}>{`  ${scrubQualifiers}`}</Text>
-              ) : null}
-            </Text>
-          ) : (
-            <Text style={[styles.subtitle, { color: colors.textSubtle }]} numberOfLines={1}>
-              {/* The newest reading rides in the idle subtitle — the exact
-                  "what is it now" number, in the row the scrub readout will
-                  reuse, instead of a callout crowding the plot's right edge
-                  where the axis and the current dot already live. The unit
-                  names the series, so "Discharge"/"Gauge height" only earns
-                  its space when there is no reading to show. */}
-              {newest ? (
-                <>
-                  <Text style={[styles.scrubValue, { color: colors.text }]}>
-                    {formatReading(newest.v, drawnUnit)}
-                  </Text>
-                  {' now · last '}
-                </>
-              ) : (
-                <>
-                  {drawnUnit === 'cfs' ? 'Discharge' : 'Gauge height'}
-                  {' · last '}
-                </>
-              )}
-              {drawnDays === 1 ? '24 hours' : `${drawnDays} days`}
-            </Text>
-          )}
-        </View>
+                {' now · last '}
+              </>
+            ) : (
+              <>
+                {drawnUnit === 'cfs' ? 'Discharge' : 'Gauge height'}
+                {' · last '}
+              </>
+            )}
+            {drawnDays === 1 ? '24 hours' : `${drawnDays} days`}
+          </Text>
+        )}
 
         {/* ── Units ────────────────────────────────────────────────
             Only when the station published BOTH in this window. One unit and
@@ -973,25 +919,60 @@ function GaugeChartInner({
 
             It sits before the range toggle because it changes what the chart is
             OF, where the range only changes how much of it you see. */}
-        {availableUnits.length > 1 ? (
+        <View style={styles.controls}>
+          {availableUnits.length > 1 ? (
+            <View style={[styles.ranges, { borderColor: colors.border }]}>
+              {availableUnits.map((u) => {
+                const active = u === drawnUnit;
+                return (
+                  <Pressable
+                    key={u}
+                    // The scrub is cleared with the switch: it is stored as a
+                    // pixel, and the same pixel names a different reading on the
+                    // other axis. A finger-driven scrub clears itself on release;
+                    // a VoiceOver-stepped one would otherwise survive the change.
+                    onPress={() => {
+                      setUnitOverride(u);
+                      setScrubX(null);
+                    }}
+                    style={[styles.range, active && { backgroundColor: colors.cardRaised }]}
+                    accessibilityRole="button"
+                    accessibilityState={{ selected: active }}
+                    accessibilityLabel={u === 'ft' ? 'Show gauge height' : 'Show discharge'}
+                  >
+                    <Text
+                      style={[
+                        styles.rangeText,
+                        { color: active ? colors.text : colors.textSubtle },
+                      ]}
+                    >
+                      {u}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+          ) : null}
+
           <View style={[styles.ranges, { borderColor: colors.border }]}>
-            {availableUnits.map((u) => {
-              const active = u === drawnUnit;
+            {RANGES.map((r) => {
+              const active = r.days === days;
               return (
                 <Pressable
-                  key={u}
-                  // The scrub is cleared with the switch: it is stored as a
-                  // pixel, and the same pixel names a different reading on the
-                  // other axis. A finger-driven scrub clears itself on release;
-                  // a VoiceOver-stepped one would otherwise survive the change.
+                  key={r.days}
+                  // Same clearing as the unit toggle: a pixel kept across a
+                  // window change would point at a different instant.
                   onPress={() => {
-                    setUnitOverride(u);
+                    setDays(r.days);
                     setScrubX(null);
                   }}
-                  style={[styles.range, active && { backgroundColor: colors.cardRaised }]}
+                  style={[
+                    styles.range,
+                    active && { backgroundColor: colors.cardRaised },
+                  ]}
                   accessibilityRole="button"
                   accessibilityState={{ selected: active }}
-                  accessibilityLabel={u === 'ft' ? 'Show gauge height' : 'Show discharge'}
+                  accessibilityLabel={`Show last ${r.label}`}
                 >
                   <Text
                     style={[
@@ -999,45 +980,12 @@ function GaugeChartInner({
                       { color: active ? colors.text : colors.textSubtle },
                     ]}
                   >
-                    {u}
+                    {r.label}
                   </Text>
                 </Pressable>
               );
             })}
           </View>
-        ) : null}
-
-        <View style={[styles.ranges, { borderColor: colors.border }]}>
-          {RANGES.map((r) => {
-            const active = r.days === days;
-            return (
-              <Pressable
-                key={r.days}
-                // Same clearing as the unit toggle: a pixel kept across a
-                // window change would point at a different instant.
-                onPress={() => {
-                  setDays(r.days);
-                  setScrubX(null);
-                }}
-                style={[
-                  styles.range,
-                  active && { backgroundColor: colors.cardRaised },
-                ]}
-                accessibilityRole="button"
-                accessibilityState={{ selected: active }}
-                accessibilityLabel={`Show last ${r.label}`}
-              >
-                <Text
-                  style={[
-                    styles.rangeText,
-                    { color: active ? colors.text : colors.textSubtle },
-                  ]}
-                >
-                  {r.label}
-                </Text>
-              </Pressable>
-            );
-          })}
         </View>
       </View>
 
@@ -1060,121 +1008,39 @@ function GaugeChartInner({
               onAccessibilityAction={onAccessibilityAction}
             >
               <Svg width={width} height={CHART_HEIGHT}>
-                {/* ── The gradient the fill draws with ──
-                    The website's hydrograph has carried a fill since it was
-                    built and the app's never did, so the same river drew as a
-                    weighted body of water on one screen and a bare 2px stroke
-                    on the other. It is the cheapest thing on the chart that
-                    says "this is water and this is how much of it".
-
-                    Fades to nearly nothing at the foot so it stays a fill and
-                    does not read as one more condition band — those carry
-                    meaning this must not borrow. */}
-                <Defs>
-                  <LinearGradient id={fillId} x1="0" y1="0" x2="0" y2="1">
-                    {/* Deliberately fainter than the web chart's ramp
-                        (0.30 → 0.05): this plot already stacks condition
-                        bands, a typical range and a forecast in 200px, and at
-                        a quarter alpha the fill competed with all of them. The
-                        line stays the data mark; the fill is something a
-                        reader should feel more than notice. Dark sits a step
-                        above light because the same alpha over near-black
-                        stone all but disappears — the band rects make the
-                        identical adjustment. */}
-                    <Stop offset="0" stopColor={lineColor} stopOpacity={isDark ? 0.18 : 0.12} />
-                    <Stop offset="1" stopColor={lineColor} stopOpacity={0.01} />
-                  </LinearGradient>
-                </Defs>
-
-                {/* ── The fill under the line ──
-                    FIRST out of the paint can, under even the condition bands,
-                    because paint order is meaning order: the fill is decoration
-                    and every layer after it carries a number.
-
-                    Drawn last (its first home, next to the line it belongs to)
-                    it painted over the typical range, the band boundaries, the
-                    NWS stage rules AND their labels, and the value axis — at up
-                    to 0.34 alpha, which is a teal wash across every threshold on
-                    the chart. A fill that tints a flood line is worse than no
-                    fill at all. Under the bands too, so the condition colours —
-                    which carry a verdict — stay their own hue rather than
-                    arriving pre-tinted teal. */}
-                {series.areas.map((d, i) => (
-                  <Path key={`a-${i}`} d={d} fill={`url(#${fillId})`} />
+                {/* A neutral value grid replaces the stacked condition fills and
+                    dashed boundaries. The ladder remains in ReadingScale above;
+                    here these rules make the observed line readable against one
+                    contextual area: the typical range. */}
+                {valueTicks.map((tick) => (
+                  <Line
+                    key={`grid-${tick.value}`}
+                    x1={0}
+                    y1={scale.y(tick.value)}
+                    x2={plotWidth}
+                    y2={scale.y(tick.value)}
+                    stroke={colors.border}
+                    strokeWidth={1}
+                    opacity={0.65}
+                  />
                 ))}
 
-                {/* ── The bands, at their true numeric height ── */}
-                {zones.map((zone) => {
-                  const top = scale.y(Math.min(zone.max, domain.max));
-                  const bottom = scale.y(Math.max(zone.min, domain.min));
-                  const h = bottom - top;
-                  // Entirely outside the visible domain — not clipped to a sliver,
-                  // dropped. A 1px stripe of "Flood" along the top edge implies a
-                  // proximity the numbers do not support.
-                  if (h <= 0.5) return null;
-                  return (
-                    <Rect
-                      key={zone.key}
-                      x={0}
-                      y={top}
-                      width={plotWidth}
-                      height={h}
-                      fill={conditionColor(zone.key)}
-                      // Low enough that the line and its readout stay the subject.
-                      // Lifted slightly on dark, where the same alpha over
-                      // near-black stone all but disappears.
-                      opacity={isDark ? 0.17 : 0.13}
-                    />
-                  );
-                })}
-
                 {/* ── What this river normally does on this date ──
-                    Above the fills and below every rule: both it and the
-                    observed fill are areas, and the question this band exists
-                    to answer is where the line sits INSIDE it. Labelled in the
-                    legend below — a shaded band with nothing naming it is a
-                    claim the reader cannot check. Discharge only; see the memo. */}
+                    The chart's only shaded area. The median used to add another
+                    dashed line through a plot already full of threshold rules;
+                    the labelled 25–75% envelope is the comparison people need. */}
                 {series.typicalArea ? (
-                  <Path d={series.typicalArea} fill={TYPICAL_COLOR} fillOpacity={isDark ? 0.16 : 0.1} />
-                ) : null}
-                {series.typicalPath ? (
                   <Path
-                    d={series.typicalPath}
-                    stroke={TYPICAL_COLOR}
-                    strokeWidth={1}
-                    strokeDasharray="4,3"
-                    opacity={0.55}
-                    fill="none"
+                    d={series.typicalArea}
+                    fill={TYPICAL_COLOR}
+                    fillOpacity={isDark ? 0.2 : 0.13}
                   />
                 ) : null}
 
-                {/* Band boundaries, labelled down the right edge. These are the
-                    numbers people actually want off a chart like this — "High
-                    starts at 1,400" — and a shaded region alone does not say it. */}
-                {zones.map((zone) => {
-                  const y = scale.y(zone.max);
-                  if (zone.openEnded) return null;
-                  if (y < PAD_TOP || y > PAD_TOP + plotHeight) return null;
-                  return (
-                    <Line
-                      key={`edge-${zone.key}`}
-                      x1={0}
-                      y1={y}
-                      x2={plotWidth}
-                      y2={y}
-                      stroke={conditionColor(zone.key)}
-                      strokeWidth={1}
-                      strokeDasharray="3,3"
-                      opacity={0.55}
-                    />
-                  );
-                })}
-
                 {/* ── The NWS stages ──
-                    Drawn OVER the bands and UNDER the line: they are somebody
-                    else's threshold laid across the picture, so they must not sit
-                    behind a condition band that would tint them, and they must not
-                    cover the reading they are context for.
+                    Drawn over the typical range and under the observed line:
+                    official safety context remains visible without covering the
+                    reading it qualifies.
 
                     Never rendered on a cfs axis — stageLines is empty there by
                     construction, so this cannot be got wrong by editing the JSX.
@@ -1412,7 +1278,7 @@ function GaugeChartInner({
                   attribute, and the issue time is the part that makes a forecast
                   checkable — NWPS reissues on a schedule, so a line read at 6pm may
                   predate the afternoon's rain. */}
-              {series.typicalPath || forecastPoints.length > 0 ? (
+              {series.typicalArea || forecastPoints.length > 0 ? (
                 <View style={styles.legend}>
                   {/* Each entry carries a sample of its own mark — coloured text
                       alone asks the reader to hold a colour table in their head.
@@ -1431,19 +1297,16 @@ function GaugeChartInner({
                       </Text>
                     </View>
                   ) : null}
-                  {series.typicalPath ? (
+                  {series.typicalArea ? (
                     <View style={styles.legendItem}>
-                      {/* The band's own recipe at legend scale: translucent teal
-                          under the median's solid top edge. */}
+                      {/* The range's own translucent envelope at legend scale. */}
                       <View
                         aria-hidden
                         style={[
                           styles.legendBand,
                           {
-                            // Alpha in the fill, not view opacity, which would
-                            // fade the solid median edge with it.
                             backgroundColor: `${TYPICAL_COLOR}${isDark ? '59' : '40'}`,
-                            borderTopColor: TYPICAL_COLOR,
+                            borderColor: TYPICAL_COLOR,
                           },
                         ]}
                       />
@@ -1590,14 +1453,15 @@ const styles = StyleSheet.create({
   // Horizontal placement therefore belongs to the caller. Vertical rhythm does
   // not: the gap under a card is the same question on both screens.
   card: { marginBottom: 14, borderRadius: 16, padding: 16 },
-  head: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, marginBottom: 6 },
-  headText: { flex: 1 },
-  // The title takes the squeeze, not the pill — TrendPill is flexShrink 0.
-  titleRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  title: { ...t.base, fontFamily: fonts.heading, flexShrink: 1 },
-  subtitle: { ...t.xs, fontFamily: fonts.body, marginTop: 2 },
-  scrubLine: { ...t.xs, fontFamily: fonts.body, marginTop: 2 },
+  head: { gap: 6, marginBottom: 8 },
+  // The row can wrap under large accessibility text without surrendering the
+  // title to an ellipsis. The segmented controls live on their own row below.
+  titleRow: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 8 },
+  title: { ...t.base, fontFamily: fonts.heading },
+  subtitle: { ...t.xs, fontFamily: fonts.body },
+  scrubLine: { ...t.xs, fontFamily: fonts.body },
   scrubValue: { ...t.sm, fontFamily: fonts.monoMedium },
+  controls: { flexDirection: 'row', justifyContent: 'flex-end', flexWrap: 'wrap', gap: 8 },
   ranges: { flexDirection: 'row', borderWidth: 1, borderRadius: 9, overflow: 'hidden' },
   range: { paddingHorizontal: 10, paddingVertical: 5 },
   rangeText: { ...t.xs, fontFamily: fonts.medium },
@@ -1606,7 +1470,7 @@ const styles = StyleSheet.create({
   legendItem: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   legendDashes: { flexDirection: 'row', gap: 2 },
   legendDash: { width: 6, height: 2, borderRadius: 1 },
-  legendBand: { width: 14, height: 8, borderRadius: 2, borderTopWidth: 1 },
+  legendBand: { width: 14, height: 8, borderRadius: 2, borderWidth: 1 },
   legendText: { ...t.xs, fontFamily: fonts.medium },
   placeholder: { alignItems: 'center', justifyContent: 'center', paddingHorizontal: 20 },
   placeholderText: { ...t.sm, fontFamily: fonts.body, textAlign: 'center' },

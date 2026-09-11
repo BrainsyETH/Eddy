@@ -23,10 +23,12 @@
 // "how much water", which is what keeps a 20,000-cfs flood band from crushing
 // the bands people actually float in down to a sliver.
 
+import { useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { buildZones, formatZoneValue, zoneMarkerPercent } from '@eddy/conditions/threshold-zones';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
+import { anchoredLabelLeft } from '@/lib/readingScale';
 
 interface ReadingScaleProps {
   thresholds: {
@@ -45,6 +47,8 @@ interface ReadingScaleProps {
 
 export function ReadingScale({ thresholds, value, unit }: ReadingScaleProps) {
   const { colors } = useTheme();
+  const [trackWidth, setTrackWidth] = useState(0);
+  const [nowLabelWidth, setNowLabelWidth] = useState(0);
 
   // THE LADDER'S OWN UNIT WINS. Every label below is formatted with `unit`, but
   // the numbers being formatted are the THRESHOLDS — so if the caller's unit and
@@ -79,6 +83,13 @@ export function ReadingScale({ thresholds, value, unit }: ReadingScaleProps) {
       : Math.min(zones.length - 1, Math.floor((markerPercent / 100) * zones.length));
   const first = zones[0];
   const last = zones[zones.length - 1];
+  // Centre the label on the marker, then clamp the label — not the marker — so
+  // a reading near either end remains fully legible. Until both measurements
+  // arrive the label is hidden for one frame instead of flashing at the left.
+  const nowLabelLeft =
+    markerPercent == null || trackWidth === 0 || nowLabelWidth === 0
+      ? 0
+      : anchoredLabelLeft(trackWidth, nowLabelWidth, markerPercent);
 
   return (
     <View
@@ -89,7 +100,10 @@ export function ReadingScale({ thresholds, value, unit }: ReadingScaleProps) {
           : 'Condition scale, no current reading'
       }
     >
-      <View style={styles.track}>
+      <View
+        style={styles.track}
+        onLayout={(event) => setTrackWidth(event.nativeEvent.layout.width)}
+      >
         {/* The band the reading is IN stays at full strength and the rest
             recede. Six saturated bands compete with a 6pt marker for attention
             and win; dimming makes the answer readable before the marker is even
@@ -119,15 +133,28 @@ export function ReadingScale({ thresholds, value, unit }: ReadingScaleProps) {
         ) : null}
       </View>
 
-      <View style={styles.labels}>
+      {value != null && markerPercent != null ? (
+        <View style={styles.nowLabelLane}>
+          <Text
+            onLayout={(event) => setNowLabelWidth(event.nativeEvent.layout.width)}
+            style={[
+              styles.labelNow,
+              {
+                color: colors.text,
+                left: nowLabelLeft,
+                opacity: trackWidth > 0 && nowLabelWidth > 0 ? 1 : 0,
+              },
+            ]}
+          >
+            {formatZoneValue(value, scaleUnit)} now
+          </Text>
+        </View>
+      ) : null}
+
+      <View style={[styles.labels, markerPercent == null && styles.labelsWithoutNow]}>
         <Text style={[styles.label, { color: colors.textSubtle }]}>
           {formatZoneValue(first.max, scaleUnit)} low
         </Text>
-        {value != null ? (
-          <Text style={[styles.labelNow, { color: colors.text }]}>
-            {formatZoneValue(value, scaleUnit)} now
-          </Text>
-        ) : null}
         {/* The flood band is open-ended, so its floor is the meaningful number —
             printing the synthetic max would invent a ceiling. */}
         <Text style={[styles.label, { color: colors.textSubtle }]}>
@@ -163,7 +190,9 @@ const styles = StyleSheet.create({
     borderRadius: 3,
     borderWidth: MARKER_HALO,
   },
-  labels: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline', marginTop: 6 },
+  nowLabelLane: { height: t.xs.lineHeight, marginTop: 4, position: 'relative' },
+  labels: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline', marginTop: 2 },
+  labelsWithoutNow: { marginTop: 6 },
   label: { ...t.xs, fontFamily: fonts.mono },
-  labelNow: { ...t.xs, fontFamily: fonts.monoMedium },
+  labelNow: { ...t.xs, fontFamily: fonts.monoMedium, position: 'absolute', top: 0 },
 });

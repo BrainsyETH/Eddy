@@ -710,10 +710,9 @@ export default function GaugeDetailScreen() {
 
         {/* ── How it got here ──────────────────────────────────────
             Directly under the number, because the number is the thing that
-            provokes the question. Bands are shaded behind the line only when
-            this station has a ladder AND that ladder is in the unit being
-            drawn; GaugeChart drops the shading itself otherwise rather than
-            comparing feet against cfs. */}
+            provokes the question. The condition ladder stays in the reading
+            card above; the chart uses a neutral grid and one shaded comparison,
+            the day-of-year typical range. */}
         {/* Inset by the SCREEN, not by the card. GaugeChart carries no
             horizontal margin of its own — this ScrollView pads nothing, the
             river screen's pads 16, and a margin inside the component was added
