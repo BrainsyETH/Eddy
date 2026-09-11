@@ -11,7 +11,7 @@ EXPORT_DIR := $(or $(TMPDIR),/tmp)/eddy-expo-export
 NODE_MAJOR := $(shell sed 's/[^0-9].*//' .nvmrc 2>/dev/null)
 
 .PHONY: help guard-node setup-web setup-mobile check-web check-mobile check-db \
-        bundle-mobile check dev preflight-eas build-ios testflight check-eas-env \
+        bundle-mobile audit-dead-code check dev preflight-eas build-ios testflight check-eas-env \
         env-pull run-ios archive-ios
 
 help: ## List targets (default)
@@ -92,6 +92,10 @@ check-db: guard-node ## Migration + access-slug drift: repo files vs the linked 
 	@command -v npx >/dev/null || { echo "npx not found"; exit 1; }
 	cd $(WEB) && npm run db:check-migrations
 	cd $(WEB) && npm run db:check-access-slugs
+
+audit-dead-code: guard-node ## Report static reachability findings in both independent npm roots
+	cd $(WEB) && npm run audit:dead-code
+	cd $(MOBILE) && npm run audit:dead-code
 
 check: check-web check-mobile bundle-mobile ## Everything CI gates on
 
