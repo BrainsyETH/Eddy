@@ -1,10 +1,16 @@
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import test from 'node:test';
 import {
   classifyPoints,
   dossierColumns,
+  dossierExpectationsOf,
+  endpointIntentOf,
   REVIEW_STATE_COLUMNS,
+  rolesOf,
   type DbPoint,
+  type DossierExpectation,
 } from './import-dossier-access-points';
 
 // Both rules below exist because the importer broke them against production
@@ -28,7 +34,21 @@ function point(over: Partial<DbPoint> = {}): DbPoint {
 }
 
 const dossier = (...slugs: string[]) =>
-  new Map<string, number | null | undefined>(slugs.map((s) => [s, null]));
+  new Map<string, DossierExpectation>(
+    slugs.map((s) => [s, { expectedMile: null, isFloatEndpoint: true }]),
+  );
+
+const IMPORTER_SOURCE = readFileSync(
+  resolve(process.cwd(), 'scripts/ingestion/import-dossier-access-points.ts'),
+  'utf8',
+);
+const ATOMIC_MIGRATION = readFileSync(
+  resolve(
+    process.cwd(),
+    'supabase/migrations/20260914194000_apply_access_point_dossiers_atomically.sql',
+  ),
+  'utf8',
+);
 
 // ── --write must not withdraw a published page ────────────────────────────
 
@@ -79,6 +99,80 @@ test('an agency outside the 00034 enum nulls the column rather than failing the 
   assert.equal(cols.ownership, 'AGFC');
 });
 
+test('an existing-row patch preserves every optional field the dossier omits', () => {
+  const cols = dossierColumns(
+    { name: 'Bass Ford', kind: 'access', expected_mile: 3, lat: 37.9, lon: -91.2 },
+    true,
+  );
+  assert.deepEqual(Object.keys(cols).sort(), ['location_orig', 'name', 'type']);
+});
+
+test('an explicit null still clears a dossier-owned field', () => {
+  const cols = dossierColumns(
+    {
+      name: 'Bass Ford', kind: 'access', expected_mile: 3, lat: 37.9, lon: -91.2,
+      description: null,
+    },
+    true,
+  );
+  assert.ok(Object.prototype.hasOwnProperty.call(cols, 'description'));
+  assert.equal(cols.description, null);
+});
+
+test('roles can describe a campground that also has a boat ramp', () => {
+  const row = {
+    name: 'Two Things',
+    kind: 'campground' as const,
+    roles: ['campground', 'boat_ramp'] as const,
+    expected_mile: 3,
+    lat: 37.9,
+    lon: -91.2,
+  };
+  assert.deepEqual(rolesOf({ ...row, roles: [...row.roles] }), ['campground', 'boat_ramp']);
+  assert.equal(endpointIntentOf({ ...row, roles: [...row.roles] }), true);
+  assert.equal(endpointIntentOf({ ...row, roles: [...row.roles], is_float_endpoint: false }), false);
+});
+
+test('all roles validate even when endpoint eligibility is explicit', () => {
+  assert.throws(
+    () =>
+      dossierExpectationsOf([
+        {
+          name: 'Broken Roles',
+          kind: 'campground',
+          roles: ['not-a-role' as never],
+          is_float_endpoint: false,
+          expected_mile: 3,
+          lat: 37.9,
+          lon: -91.2,
+        },
+      ]),
+    /invalid role/,
+  );
+});
+
+test('duplicate dossier slugs fail before a write plan can be built', () => {
+  assert.throws(
+    () => dossierExpectationsOf([
+      { name: 'Bass Ford', kind: 'access', expected_mile: 3, lat: 37.9, lon: -91.2 },
+      { name: 'Bass-Ford', kind: 'access', expected_mile: 3, lat: 37.9, lon: -91.2 },
+    ]),
+    /duplicate dossier slug/,
+  );
+});
+
+test('--write hands one finished plan to the atomic database function', () => {
+  const writeBlock = IMPORTER_SOURCE.slice(
+    IMPORTER_SOURCE.indexOf('if (write) {'),
+    IMPORTER_SOURCE.indexOf('// Read back current DB state'),
+  );
+  assert.match(writeBlock, /\.rpc\('apply_access_point_dossier'/);
+  assert.doesNotMatch(writeBlock, /\.from\('access_points'\)\.(?:insert|update|upsert)/);
+  assert.match(ATOMIC_MIGRATION, /CREATE OR REPLACE FUNCTION public\.apply_access_point_dossier/);
+  assert.match(ATOMIC_MIGRATION, /set_access_point_miles_from_geometry\(p_river_id, FALSE\)/);
+  assert.match(ATOMIC_MIGRATION, /REVOKE EXECUTE[\s\S]+FROM PUBLIC, anon, authenticated/);
+});
+
 // ── --approve must not publish somebody else's row ────────────────────────
 
 test('approval is confined to the rows this dossier carries coordinates for', () => {
@@ -115,12 +209,24 @@ test('a row outside the dossier still supplies ordering context to its neighbour
 test('distance from the channel blocks a launch and not a park', () => {
   const far = { snap_distance_m: 2236, slug: 'montauk', river_mile_downstream: 0.1 };
 
-  const asPark = classifyPoints([point({ ...far, is_float_endpoint: false })], dossier('montauk'));
+  const asPark = classifyPoints(
+    [point({ ...far, is_float_endpoint: false })],
+    new Map([['montauk', { expectedMile: null, isFloatEndpoint: false }]]),
+  );
   assert.deepEqual(asPark.validated, ['ap-1'], 'a park 2.2 km out is correctly pinned, not broken');
 
   const asLaunch = classifyPoints([point({ ...far, is_float_endpoint: true })], dossier('montauk'));
   assert.deepEqual(asLaunch.validated, []);
   assert.match(asLaunch.problems[0], /FAR\(2236m\)/);
+});
+
+test('approval refuses a dossier launch whose stored review state still says non-launch', () => {
+  const { validated, problems } = classifyPoints(
+    [point({ slug: 'legacy-ramp', is_float_endpoint: false })],
+    dossier('legacy-ramp'),
+  );
+  assert.deepEqual(validated, []);
+  assert.match(problems[0], /ENDPOINT-REVIEW/);
 });
 
 test('a point with no river mile is never approved', () => {

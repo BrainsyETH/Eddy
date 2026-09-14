@@ -35,7 +35,7 @@ is hidden by RLS (`Approved access points are viewable by everyone`), and
 
 ---
 
-## P0 — The app shows wrong distances on 11 of 24 rivers
+## P0 — A bad endpoint can make the map contradict the quoted distance
 
 **This is the most serious finding, and it is silent.**
 
@@ -51,7 +51,8 @@ reads — and the float time computed from it in `/api/plan` — is
 `river_mile_downstream` arithmetic. When those two disagree, the map and the
 number disagree, and nothing notices.
 
-They disagree on 11 rivers. Comparing each approved point's stored mile against
+The two systems use different datums on 11 rivers; that disagreement is mostly
+intentional, not eleven broken rivers. Comparing each approved point's stored mile against
 the database's own formula (`ST_LineLocatePoint(geom, pt) * length_miles`, which
 is exactly what `snap_to_river()` computes):
 
@@ -183,13 +184,14 @@ every approved point, while the real `location_orig → geom` distance reaches
 `location_orig`. The stored `snap_distance_m` column already holds the right
 number and could be used directly.
 
-**Recommended:** add a magnitude check to `validate_river_data()`
-(stored vs `ST_LineLocatePoint * length_miles`, warn above ~1 mi), fix
-`access_point_offline` to measure `location_orig`, fix Williams Ford by hand,
-then decide per river whether to re-run
-`set_access_point_miles_from_geometry(river_id, true)` or to keep a deliberate
-curated datum (Buffalo's NPS miles are the case for keeping one — and if kept,
-`get_float_segment` should derive distance from geometry, not from the datum).
+**Recommended:** keep the segment-plausibility rule added by
+`20260914175427_a_quoted_mile_answers_to_the_river_line.sql`, keep
+`access_point_offline` measuring `location_orig`, and investigate each named
+segment against an authoritative published source. Williams Ford needs a sourced
+coordinate correction, not a mile correction; it remains deliberately unchanged
+until that source is reachable. **Do not force-recompute non-null access-point
+miles from geometry:** that would erase the editorial indexes and the control
+points `buildMileIndex` uses to translate them.
 
 ---
 
@@ -285,9 +287,9 @@ Gasconade row (Odin Access) have `river_mile_downstream = NULL` and need a mile
 before they are useful.
 
 **Correction (after review): not all 68 are junk, and a date window is the wrong
-selector.** Classifying by mislocation instead splits them 54 / 14. The 54 that
+selector.** The final exact manifest splits them 53 / 15. The 53 that
 sit more than 1 500 m off the line and are referenced by no saved plan are
-unambiguously safe to delete. The other 14 must be kept and triaged: three are
+unambiguously safe to delete. The other 15 must be kept and triaged: three are
 duplicates of an approved row within 63 m (eleven-point "MDC Myrtle" 23 m from
 Myrtle Access; "Boze Mill Spring on left" 53 m; current "Van Buren City Access"
 63 m), five are referenced by saved float plans, and several are well-formed
@@ -297,9 +299,10 @@ Spring Road" (225 m, MDC) and jacks-fork "Bunker Hill" (89 m). A naive
 `created_at` window would also have missed Bunker Hill entirely, which was
 created 2026-01-26, outside the 01-22/01-23 band the rest fall in.
 
-Deleting the 54 cuts the admin queue from 92 to 38 and makes the
-`unapprovedAccessPoints` badge mean something again; the full manifest for both
-sets is in the query appendix.
+Deleting the 53 cut the active-river admin queue from 92 to 39. Publishing the
+10 candidates that passed the later source, distance, mileage and role review
+then reduced it to 29. The full purge and retained manifests are in the query
+appendix.
 
 ### 39 mapped services have no coordinates
 
@@ -378,23 +381,21 @@ hazard datum and the access-point datum are not guaranteed to agree.
 
 ## Suggested order of work
 
-1. Fix the four `scripts/ingestion/import-dossier-access-points.ts` defects
-   first — `--write` upserts `approved: false` over existing rows, so it can
-   unpublish live access points on any already-onboarded river. Doing data work
-   on this table while that is armed is the wrong order.
-2. Add the segment-plausibility rule to `validate_river_data()` and fix
-   `access_point_offline`, together with the off-channel exception metadata the
-   fixed rule needs so it does not emit permanent false warnings.
-3. Source-check each implausible pair and correct the offending rows. This is
-   done and written up in
+1. **Completed:** harden `scripts/ingestion/import-dossier-access-points.ts` so
+   existing rows keep review state and omitted descriptive fields, approvals are
+   confined to the reviewed dossier with explicit endpoint intent, multi-role
+   places are representable, and each write plan applies atomically.
+2. **Completed:** add the segment-plausibility rule to `validate_river_data()`
+   and fix `access_point_offline`, together with off-channel exception metadata.
+3. **Investigated; corrections held:** source-check each implausible pair. The
+   result is written up in
    [`river-mile-segment-findings-2026-09-14.md`](river-mile-segment-findings-2026-09-14.md):
    Williams Ford's **mile is correct and its coordinate is wrong**, which is the
    opposite of what item 3 originally said, and the remaining segments have no
    isolable bad row. **Not** a re-base: see *Correction: two mile systems* above.
-4. Delete the 54 mislocated legacy rows; triage the other 14 rather than
-   deleting them (see the manifest in the query appendix — several are
-   well-formed records that were simply never reviewed, and five are referenced
-   by saved float plans). Approve the 16 verified sub-250 m pending points.
+4. **Completed:** delete 53 exact-manifest mislocated legacy rows, retain 15 for
+   triage, and approve the 10 candidates that passed the full review. The other
+   11 researched candidates remain held; the active-river queue is 29.
 5. Geocode the 39 coordinate-less services. Note both geocoders select
    `latitude IS NULL`, so the three badly-geocoded rows need separate handling.
 6. Wire the 7 missing Buffalo NPS campgrounds to `campsite_facilities`.

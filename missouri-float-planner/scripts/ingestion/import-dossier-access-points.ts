@@ -5,29 +5,32 @@
  * `ingest-dossier.ts` deliberately NEVER writes access points ([manual] gate) —
  * accesses ship only after a human verifies coordinates. This script is that
  * deliberate step. It reads a per-river JSON of verified access points and
- * upserts them, letting the DB `auto_snap_access_point` trigger compute
- * river_mile_downstream + snap_distance_m so we can validate placement.
+ * applies them, letting the DB `auto_snap_access_point` trigger compute the
+ * snapped point + snap_distance_m and the atomic RPC fill still-null geometry
+ * miles so we can validate placement.
  *
  * Data files: scripts/ingestion/access-points/<slug>.json
- *   [{ name, kind, expected_mile, lat, lon, is_public, ownership,
+ *   [{ name, kind, roles, is_float_endpoint, expected_mile, lat, lon, is_public, ownership,
  *      managing_agency, official_site_url, facilities, description,
  *      confidence, source_urls }]
- *   kind ∈ access | bridge | boat_ramp | park | campground | gravel_bar
+ *   kind/roles ∈ access | bridge | boat_ramp | park | campground | gravel_bar
  *
  * Usage:
  *   npx tsx scripts/ingestion/import-dossier-access-points.ts <slug> [--write] [--approve]
  *     (no flag)  dry-run: show what WOULD import + current DB state
  *     --write    insert NEW slugs (approved=false, is_float_endpoint and types
- *                from kind) and refresh the descriptive columns of existing
- *                ones. It never writes approved / approved_at /
+ *                from explicit roles/eligibility, falling back to kind) and
+ *                refresh only the descriptive columns an existing row's JSON
+ *                actually carries. It never writes approved / approved_at /
  *                is_float_endpoint / types on a row that already exists —
  *                those are human review state, not dossier facts. (It used to
  *                blind-upsert `approved: false`, which unpublished every
  *                already-approved point on the river.)
  *     --approve  flip approved=true for rows that PASS validation AND appear in
  *                this dossier — river_mile_downstream not null, monotonic
- *                ordering vs expected_mile, and, for LAUNCH kinds only,
- *                snap_distance_m <= MAX_SNAP_M. The printed table covers the
+ *                ordering vs expected_mile, reviewed endpoint intent matching
+ *                stored state, and, for launches only, snap_distance_m <=
+ *                MAX_SNAP_M. The printed table covers the
  *                whole river because placement is only judgeable against
  *                neighbours, but approval never reaches past the dossier's own
  *                rows; it used to, on somebody else's evidence.
@@ -48,10 +51,20 @@ import { isLaunchRole } from '../../src/lib/access-points/launch-roles';
 
 const MAX_SNAP_M = 250; // a verified put-in should snap within ~250 m of the channel
 
-type Kind = 'access' | 'bridge' | 'boat_ramp' | 'park' | 'campground' | 'gravel_bar';
-interface APRow {
+export type Kind =
+  | 'access'
+  | 'bridge'
+  | 'boat_ramp'
+  | 'park'
+  | 'campground'
+  | 'gravel_bar';
+export interface APRow {
   name: string;
   kind: Kind;
+  /** Every role the place offers. `kind` remains the primary display category. */
+  roles?: Kind[];
+  /** Explicit human decision; otherwise inferred from roles for new rows. */
+  is_float_endpoint?: boolean;
   expected_mile: number | null;
   lat: number | null;
   lon: number | null;
@@ -73,27 +86,82 @@ function slugify(t: string): string {
 // AGFC / USGS / MoDOT are NOT in it — map known synonyms, else null the column
 // (ownership still records the true operator as free text, matching the 00158
 // Buffalo precedent: "managing_agency left null because AGFC is not in the enum").
-const ALLOWED_AGENCY = new Set(['MDC', 'NPS', 'USFS', 'COE', 'State Park', 'County', 'Municipal', 'Private']);
-const AGENCY_SYNONYM: Record<string, string> = { City: 'Municipal', 'State Parks': 'State Park', Federal: 'USFS' };
+const ALLOWED_AGENCY = new Set([
+  'MDC', 'NPS', 'USFS', 'COE', 'State Park', 'County', 'Municipal', 'Private',
+]);
+const AGENCY_SYNONYM: Record<string, string> = {
+  City: 'Municipal',
+  'State Parks': 'State Park',
+  Federal: 'USFS',
+};
 function normalizeAgency(raw: string | null | undefined): string | null {
   if (!raw) return null;
   const mapped = AGENCY_SYNONYM[raw] ?? raw;
   return ALLOWED_AGENCY.has(mapped) ? mapped : null;
 }
 
-/** The columns the dossier is the source of truth for, on a row that exists. */
-export function dossierColumns(r: APRow) {
-  return {
+const OPTIONAL_DOSSIER_COLUMNS = [
+  'is_public',
+  'ownership',
+  'official_site_url',
+  'facilities',
+  'description',
+] as const;
+
+function owns(r: APRow, key: keyof APRow): boolean {
+  return Object.prototype.hasOwnProperty.call(r, key);
+}
+
+/**
+ * The columns the dossier owns.
+ *
+ * Inserts receive defaults. Existing rows receive only fields the JSON actually
+ * carries, so a thin dossier cannot erase richer data or turn a private access
+ * public merely by omitting a key.
+ */
+export function dossierColumns(r: APRow, existing = false): Record<string, unknown> {
+  const columns: Record<string, unknown> = {
     name: r.name,
     type: r.kind,
-    is_public: r.is_public ?? true,
-    ownership: r.ownership ?? null,
-    managing_agency: normalizeAgency(r.managing_agency ?? r.ownership),
-    official_site_url: r.official_site_url ?? null,
-    facilities: r.facilities ?? null,
-    description: r.description ?? null,
     location_orig: { type: 'Point', coordinates: [r.lon, r.lat] },
   };
+
+  for (const key of OPTIONAL_DOSSIER_COLUMNS) {
+    if (!existing || owns(r, key)) {
+      columns[key] = r[key] ?? (key === 'is_public' ? true : null);
+    }
+  }
+
+  // managing_agency may be claimed directly or derived from a claimed owner.
+  // If neither key appears on an existing-row dossier, preserve the stored value.
+  if (!existing || owns(r, 'managing_agency') || owns(r, 'ownership')) {
+    columns.managing_agency = normalizeAgency(r.managing_agency ?? r.ownership);
+  }
+
+  return columns;
+}
+
+const VALID_KINDS: ReadonlySet<string> = new Set<Kind>([
+  'access', 'bridge', 'boat_ramp', 'park', 'campground', 'gravel_bar',
+]);
+
+/** Roles are explicit when supplied; singular kind is a backwards-compatible fallback. */
+export function rolesOf(r: APRow): Kind[] {
+  if (!VALID_KINDS.has(r.kind)) throw new Error(`${r.name}: invalid kind ${String(r.kind)}`);
+  const roles = r.roles ?? [r.kind];
+  if (!Array.isArray(roles)) throw new Error(`${r.name}: roles must be an array`);
+  if (roles.length === 0) throw new Error(`${r.name}: roles must not be empty`);
+  for (const role of roles) {
+    if (!VALID_KINDS.has(role)) throw new Error(`${r.name}: invalid role ${String(role)}`);
+  }
+  return [...new Set(roles)];
+}
+
+export function endpointIntentOf(r: APRow): boolean {
+  if (r.is_float_endpoint != null && typeof r.is_float_endpoint !== 'boolean') {
+    throw new Error(`${r.name}: is_float_endpoint must be true or false`);
+  }
+  return r.is_float_endpoint ?? rolesOf(r).some(isLaunchRole);
 }
 
 /**
@@ -119,6 +187,28 @@ export interface DbPoint {
   managing_agency: string | null;
 }
 
+export interface DossierExpectation {
+  expectedMile: number | null | undefined;
+  isFloatEndpoint: boolean;
+}
+
+/** Validate every dossier decision before a write client can be constructed. */
+export function dossierExpectationsOf(rows: APRow[]): Map<string, DossierExpectation> {
+  const expectations = new Map<string, DossierExpectation>();
+  for (const row of rows) {
+    // Validate roles even when explicit endpoint eligibility means
+    // endpointIntentOf() would not need to inspect them.
+    rolesOf(row);
+    const slug = slugify(row.name);
+    if (expectations.has(slug)) throw new Error(`duplicate dossier slug: ${slug}`);
+    expectations.set(slug, {
+      expectedMile: row.expected_mile,
+      isFloatEndpoint: endpointIntentOf(row),
+    });
+  }
+  return expectations;
+}
+
 /**
  * Judge every point on the river, but nominate only the dossier's own for
  * approval.
@@ -133,7 +223,7 @@ export interface DbPoint {
  */
 export function classifyPoints(
   dbPts: DbPoint[],
-  expBySlug: Map<string, number | null | undefined>,
+  expBySlug: Map<string, DossierExpectation>,
 ): { lines: string[]; validated: string[]; problems: string[] } {
   const lines: string[] = [];
   const validated: string[] = [];
@@ -141,7 +231,8 @@ export function classifyPoints(
   let prevMile = -Infinity;
 
   for (const p of dbPts) {
-    const exp = expBySlug.get(p.slug);
+    const expectation = expBySlug.get(p.slug);
+    const exp = expectation?.expectedMile;
     const snap = p.snap_distance_m == null ? null : Math.round(p.snap_distance_m);
     // ── FAR still reports; it no longer BLOCKS a place that is not a launch ──
     //
@@ -157,10 +248,15 @@ export function classifyPoints(
     // So the flag is still printed for every row, because it is also the signal
     // that catches a genuinely wrong park coordinate. It just stops being
     // disqualifying for a record that was never claiming to be a launch.
-    const isLaunch = p.is_float_endpoint === true;
+    const isLaunch = expectation?.isFloatEndpoint ?? p.is_float_endpoint === true;
     const flags: string[] = [];
     const blocking: string[] = [];
     if (p.river_mile_downstream == null) blocking.push('NO-MILE');
+    if (expectation && p.is_float_endpoint !== expectation.isFloatEndpoint) {
+      blocking.push(
+        `ENDPOINT-REVIEW(dossier=${expectation.isFloatEndpoint},stored=${p.is_float_endpoint})`,
+      );
+    }
     if (snap != null && snap > MAX_SNAP_M) {
       const far = `FAR(${snap}m)`;
       flags.push(far);
@@ -181,7 +277,7 @@ export function classifyPoints(
         (shown.length ? `  [${shown.join(', ')}]` : ''),
     );
 
-    if (!expBySlug.has(p.slug)) continue;
+    if (!expectation) continue;
     if (ok) validated.push(p.id);
     else problems.push(`${p.name}: ${blocking.join(', ')}`);
   }
@@ -207,6 +303,7 @@ async function main() {
   // Only rows with real coordinates are importable; the rest are held.
   const placeable = all.filter((r) => r.lat != null && r.lon != null);
   const held = all.filter((r) => r.lat == null || r.lon == null);
+  const expBySlug = dossierExpectationsOf(placeable);
 
   // `write: write` here meant `--approve` on its own built a READ client and
   // then ran a real UPDATE through it, so the EXPECTED_SUPABASE_REF pin that
@@ -240,56 +337,64 @@ async function main() {
       .select('id, slug')
       .eq('river_id', river.id);
     if (exErr) throw exErr;
-    const existingBySlug = new Map((existingRows ?? []).map((e) => [e.slug as string, e.id as string]));
+    const existingBySlug = new Map(
+      (existingRows ?? []).map((e) => [e.slug as string, e.id as string]),
+    );
 
-    let inserted = 0;
-    let updated = 0;
-    for (const r of placeable) {
+    const operations = placeable.map((r) => {
       const slugKey = slugify(r.name);
       const existingId = existingBySlug.get(slugKey);
 
       if (existingId) {
-        const { error } = await db.from('access_points').update(dossierColumns(r)).eq('id', existingId);
-        if (error) throw new Error(`update ${r.name}: ${error.message}`);
-        updated += 1;
-        continue;
+        return {
+          action: 'update',
+          id: existingId,
+          slug: slugKey,
+          payload: dossierColumns(r, true),
+        };
       }
 
-      const { error } = await db.from('access_points').insert({
-        river_id: river.id,
+      return {
+        action: 'insert',
         slug: slugKey,
-        ...dossierColumns(r),
-        approved: false,
-        // Set here, not left to the column default. 20260823190713 made
-        // is_float_endpoint opt-in precisely so nothing becomes a launch by
-        // accident — but a launch that nobody opts in is a put-in Eddy silently
-        // never offers, which is the failure nobody reports. The importer knows
-        // the kind, so it answers rather than deferring.
-        is_float_endpoint: isLaunchRole(r.kind),
-        // The ROLES axis of ADR 0008. Writing only the singular `type` is why
-        // every dossier-imported river carries types = '{}' — 92 approved
-        // points across 11 rivers. launchRolesOf() falls back to `type` so
-        // launches still resolve, but a single value cannot express two roles,
-        // and 20260806020305's campground join (`types @> ARRAY['campground']`)
-        // has no fallback at all, so those rivers cannot link a facility.
-        types: [r.kind],
-      });
-      if (error) throw new Error(`insert ${r.name}: ${error.message}`);
-      inserted += 1;
-    }
-    console.log(
-      `  ✅ ${inserted} inserted (approved=false), ${updated} existing refreshed ` +
-        `(approved / is_float_endpoint / types untouched)`,
-    );
-
-    // Since 00121 the auto-snap trigger sets only location_snap + snap_distance_m;
-    // river_mile_downstream is populated here from the geometry (00165 helper).
-    const { data: nSet, error: mileErr } = await db.rpc('set_access_point_miles_from_geometry', {
-      p_river_id: river.id,
-      p_force: false,
+        payload: {
+          ...dossierColumns(r),
+          // Set here, not left to the column default. 20260823190713 made
+          // is_float_endpoint opt-in precisely so nothing becomes a launch by
+          // accident. An explicit dossier decision wins; otherwise all roles,
+          // not merely the primary display kind, determine the new-row default.
+          is_float_endpoint: endpointIntentOf(r),
+          // The ROLES axis of ADR 0008. Explicit roles can say that one place is
+          // both a campground and boat ramp; kind remains a fallback for the
+          // existing single-role dossiers.
+          types: rolesOf(r),
+        },
+      };
     });
-    if (mileErr) throw new Error(`set miles: ${mileErr.message}`);
-    console.log(`  ✅ set river_mile_downstream on ${nSet} point(s) from geometry`);
+
+    // One RPC, one transaction. The function applies this already-decided plan
+    // and fills missing geometry miles before committing. A failure on any row
+    // rolls back every earlier row in the same dossier.
+    const { data: tally, error } = await db.rpc('apply_access_point_dossier', {
+      p_river_id: river.id,
+      p_plan: operations,
+    });
+    if (error) {
+      throw new Error(`nothing was written; dossier transaction rolled back: ${error.message}`);
+    }
+    const applied = (tally ?? {}) as {
+      inserted?: number;
+      updated?: number;
+      miles_set?: number;
+    };
+    console.log(
+      `  ✅ ${applied.inserted ?? 0} inserted (approved=false), ` +
+        `${applied.updated ?? 0} existing refreshed ` +
+        `(existing approval / is_float_endpoint / types untouched)`,
+    );
+    console.log(
+      `  ✅ set river_mile_downstream on ${applied.miles_set ?? 0} point(s) from geometry`,
+    );
   }
 
   // Read back current DB state (post-trigger snap)
@@ -300,7 +405,6 @@ async function main() {
     .order('river_mile_downstream', { ascending: true, nullsFirst: false });
   if (qErr) throw qErr;
 
-  const expBySlug = new Map(placeable.map((r) => [slugify(r.name), r.expected_mile]));
   console.log(`\n  DB access points (${dbPts?.length ?? 0}):`);
   const { lines, validated, problems } = classifyPoints((dbPts ?? []) as DbPoint[], expBySlug);
   lines.forEach((l) => console.log(l));
