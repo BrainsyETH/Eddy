@@ -19,7 +19,7 @@ import { VALIDATE_RIVER_DATA_RULES } from '../severity';
 const MIGRATION_FILE = readFileSync(
   resolve(
     process.cwd(),
-    'supabase/migrations/20260914183000_a_quoted_mile_answers_to_the_river_line.sql',
+    'supabase/migrations/20260914175427_a_quoted_mile_answers_to_the_river_line.sql',
   ),
   'utf8',
 );

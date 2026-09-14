@@ -1,5 +1,10 @@
--- NOT YET APPLIED to production (ilefwfpvphadsbptiaur).
--- Ledger: supabase/production-migrations.txt.
+-- APPLIED to production (ilefwfpvphadsbptiaur) 2026-09-14 17:54:27 UTC and
+-- RECORDED as 20260914175427; authored as 20260914183000 and renamed to the
+-- recorded version. Ledger: supabase/production-migrations.txt.
+--
+-- Apply output: access_point_offline reported 0 findings (Echo Bluff excluded by
+-- the launch gate, Buffalo City and Ha Ha Tonka by off_channel_reason);
+-- mileage_segment_implausible reported 3 rivers — huzzah, meramec, niangua.
 --
 -- Teach the validator to see a bad river mile, and wake a rule that never fired.
 --

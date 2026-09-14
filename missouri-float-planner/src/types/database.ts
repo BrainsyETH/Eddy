@@ -88,6 +88,7 @@ export type Database = {
           name: string
           nearby_services: Json | null
           nps_campground_id: string | null
+          off_channel_reason: string | null
           official_site_url: string | null
           ownership: string | null
           parking_capacity: string | null
@@ -131,6 +132,7 @@ export type Database = {
           name: string
           nearby_services?: Json | null
           nps_campground_id?: string | null
+          off_channel_reason?: string | null
           official_site_url?: string | null
           ownership?: string | null
           parking_capacity?: string | null
@@ -174,6 +176,7 @@ export type Database = {
           name?: string
           nearby_services?: Json | null
           nps_campground_id?: string | null
+          off_channel_reason?: string | null
           official_site_url?: string | null
           ownership?: string | null
           parking_capacity?: string | null
