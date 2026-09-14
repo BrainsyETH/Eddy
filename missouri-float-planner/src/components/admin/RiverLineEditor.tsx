@@ -151,6 +151,8 @@ export default function RiverLineEditor({
   useEffect(() => {
     if (!map || !rivers.length) return;
 
+    const canvas = map.getCanvas();
+
     // Get all layer IDs for querying (only include layers that exist on the map)
     const layerIds = rivers
       .filter((r) => r.geometry && r.geometry.coordinates)
@@ -179,10 +181,8 @@ export default function RiverLineEditor({
     const handleMouseMove = (e: maplibregl.MapMouseEvent) => {
       const existingLayers = layerIds.filter((id) => map.getLayer(id));
       if (existingLayers.length === 0) {
-        if (hoveredRiverId) {
-          setHoveredRiverId(null);
-          map.getCanvas().style.cursor = '';
-        }
+        setHoveredRiverId(null);
+        canvas.style.cursor = '';
         return;
       }
 
@@ -192,32 +192,34 @@ export default function RiverLineEditor({
 
       if (features.length > 0) {
         const riverId = features[0].properties?.id;
-        if (riverId && hoveredRiverId !== riverId) {
-          setHoveredRiverId(riverId);
-          map.getCanvas().style.cursor = 'pointer';
+        if (riverId) {
+          setHoveredRiverId((current) =>
+            current === riverId ? current : riverId
+          );
+          canvas.style.cursor = 'pointer';
         }
-      } else if (hoveredRiverId) {
+      } else {
         setHoveredRiverId(null);
-        map.getCanvas().style.cursor = '';
+        canvas.style.cursor = '';
       }
     };
 
     const handleMouseLeave = () => {
       setHoveredRiverId(null);
-      map.getCanvas().style.cursor = '';
+      canvas.style.cursor = '';
     };
 
     map.on('click', handleClick);
     map.on('mousemove', handleMouseMove);
-    map.getCanvas().addEventListener('mouseleave', handleMouseLeave);
+    canvas.addEventListener('mouseleave', handleMouseLeave);
 
     return () => {
       map.off('click', handleClick);
       map.off('mousemove', handleMouseMove);
-      map.getCanvas().removeEventListener('mouseleave', handleMouseLeave);
-      map.getCanvas().style.cursor = '';
+      canvas.removeEventListener('mouseleave', handleMouseLeave);
+      canvas.style.cursor = '';
     };
-  }, [map, rivers, hoveredRiverId, onUpdate]);
+  }, [map, rivers, onUpdate]);
 
   const selectedRiver = selectedRiverId 
     ? rivers.find((r) => r.id === selectedRiverId)
