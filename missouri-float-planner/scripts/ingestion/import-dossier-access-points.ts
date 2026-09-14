@@ -17,12 +17,20 @@
  * Usage:
  *   npx tsx scripts/ingestion/import-dossier-access-points.ts <slug> [--write] [--approve]
  *     (no flag)  dry-run: show what WOULD import + current DB state
- *     --write    upsert rows (approved=false, is_float_endpoint from kind);
- *                trigger snaps; prints validation
- *     --approve  flip approved=true for rows that PASS validation
- *                (river_mile_downstream not null, monotonic ordering vs
- *                 expected_mile, and — for LAUNCH kinds only —
- *                 snap_distance_m <= MAX_SNAP_M)
+ *     --write    insert NEW slugs (approved=false, is_float_endpoint and types
+ *                from kind) and refresh the descriptive columns of existing
+ *                ones. It never writes approved / approved_at /
+ *                is_float_endpoint / types on a row that already exists —
+ *                those are human review state, not dossier facts. (It used to
+ *                blind-upsert `approved: false`, which unpublished every
+ *                already-approved point on the river.)
+ *     --approve  flip approved=true for rows that PASS validation AND appear in
+ *                this dossier — river_mile_downstream not null, monotonic
+ *                ordering vs expected_mile, and, for LAUNCH kinds only,
+ *                snap_distance_m <= MAX_SNAP_M. The printed table covers the
+ *                whole river because placement is only judgeable against
+ *                neighbours, but approval never reaches past the dossier's own
+ *                rows; it used to, on somebody else's evidence.
  *
  *                Distance from the channel does not disqualify a park or a
  *                campground: those are places on the river, not put-ins, and a
@@ -73,85 +81,66 @@ function normalizeAgency(raw: string | null | undefined): string | null {
   return ALLOWED_AGENCY.has(mapped) ? mapped : null;
 }
 
-async function main() {
-  const [slug, ...flags] = process.argv.slice(2);
-  if (!slug) {
-    console.error('Usage: import-dossier-access-points.ts <slug> [--write] [--approve]');
-    process.exit(1);
-  }
-  const write = flags.includes('--write');
-  const approve = flags.includes('--approve');
+/** The columns the dossier is the source of truth for, on a row that exists. */
+export function dossierColumns(r: APRow) {
+  return {
+    name: r.name,
+    type: r.kind,
+    is_public: r.is_public ?? true,
+    ownership: r.ownership ?? null,
+    managing_agency: normalizeAgency(r.managing_agency ?? r.ownership),
+    official_site_url: r.official_site_url ?? null,
+    facilities: r.facilities ?? null,
+    description: r.description ?? null,
+    location_orig: { type: 'Point', coordinates: [r.lon, r.lat] },
+  };
+}
 
-  const dataPath = path.join(__dirname, 'access-points', `${slug}.json`);
-  if (!fs.existsSync(dataPath)) {
-    console.error(`No data file: ${dataPath}`);
-    process.exit(1);
-  }
-  const all: APRow[] = JSON.parse(fs.readFileSync(dataPath, 'utf-8'));
-  // Only rows with real coordinates are importable; the rest are held.
-  const placeable = all.filter((r) => r.lat != null && r.lon != null);
-  const held = all.filter((r) => r.lat == null || r.lon == null);
+/**
+ * Columns that record a HUMAN's review of a place, which this importer must
+ * never write over a row that already exists.
+ *
+ * `approved` is the one RLS publishes on, so writing it blind is not an
+ * ordinary overwrite — it withdraws a live page. `is_float_endpoint` and
+ * `types` are the launch decision and the roles axis, both of which a reviewer
+ * may have corrected away from what `kind` implies.
+ */
+export const REVIEW_STATE_COLUMNS = ['approved', 'approved_at', 'is_float_endpoint', 'types'] as const;
 
-  const db = getScriptClient({ script: 'import-dossier-access-points', write: write });
-  const { data: river, error: rErr } = await db.from('rivers').select('id, name').eq('slug', slug).single();
-  if (rErr || !river) throw new Error(`river ${slug} not found: ${rErr?.message}`);
+export interface DbPoint {
+  id: string;
+  name: string;
+  slug: string;
+  type: string;
+  river_mile_downstream: number | null;
+  snap_distance_m: number | null;
+  approved: boolean | null;
+  is_float_endpoint: boolean | null;
+  managing_agency: string | null;
+}
 
-  console.log(`\n${river.name} (${slug}) — ${placeable.length} placeable, ${held.length} held (no coord)`);
-  if (held.length) console.log('  held:', held.map((h) => h.name).join(', '));
-
-  if (write) {
-    for (const r of placeable) {
-      const row = {
-        river_id: river.id,
-        name: r.name,
-        slug: slugify(r.name),
-        type: r.kind,
-        is_public: r.is_public ?? true,
-        ownership: r.ownership ?? null,
-        managing_agency: normalizeAgency(r.managing_agency ?? r.ownership),
-        official_site_url: r.official_site_url ?? null,
-        facilities: r.facilities ?? null,
-        description: r.description ?? null,
-        approved: false,
-        // Set here, not left to the column default. 20260823190713 made
-        // is_float_endpoint opt-in precisely so nothing becomes a launch by
-        // accident — but a launch that nobody opts in is a put-in Eddy silently
-        // never offers, which is the failure nobody reports. The importer knows
-        // the kind, so it answers rather than deferring.
-        is_float_endpoint: isLaunchRole(r.kind),
-        location_orig: { type: 'Point', coordinates: [r.lon, r.lat] },
-      };
-      const { error } = await db
-        .from('access_points')
-        .upsert(row, { onConflict: 'river_id,slug' });
-      if (error) throw new Error(`upsert ${r.name}: ${error.message}`);
-    }
-    console.log(`  ✅ upserted ${placeable.length} rows (approved=false)`);
-
-    // Since 00121 the auto-snap trigger sets only location_snap + snap_distance_m;
-    // river_mile_downstream is populated here from the geometry (00165 helper).
-    const { data: nSet, error: mileErr } = await db.rpc('set_access_point_miles_from_geometry', {
-      p_river_id: river.id,
-      p_force: false,
-    });
-    if (mileErr) throw new Error(`set miles: ${mileErr.message}`);
-    console.log(`  ✅ set river_mile_downstream on ${nSet} point(s) from geometry`);
-  }
-
-  // Read back current DB state (post-trigger snap)
-  const { data: dbPts, error: qErr } = await db
-    .from('access_points')
-    .select('id, name, slug, type, river_mile_downstream, snap_distance_m, approved, is_float_endpoint, managing_agency, official_site_url')
-    .eq('river_id', river.id)
-    .order('river_mile_downstream', { ascending: true, nullsFirst: false });
-  if (qErr) throw qErr;
-
-  const expBySlug = new Map(placeable.map((r) => [slugify(r.name), r.expected_mile]));
-  console.log(`\n  DB access points (${dbPts?.length ?? 0}):`);
+/**
+ * Judge every point on the river, but nominate only the dossier's own for
+ * approval.
+ *
+ * Both halves of that sentence are load-bearing and were each a bug. Placement
+ * is judgeable only in context, because an out-of-order mile is a statement
+ * about a row's NEIGHBOURS — so the walk covers the whole river and carries
+ * `prevMile` across rows the dossier never mentions. Approval is the opposite:
+ * this script holds verified coordinates for the dossier's rows and for nothing
+ * else, and nominating every passing row published points on somebody else's
+ * evidence.
+ */
+export function classifyPoints(
+  dbPts: DbPoint[],
+  expBySlug: Map<string, number | null | undefined>,
+): { lines: string[]; validated: string[]; problems: string[] } {
+  const lines: string[] = [];
   const validated: string[] = [];
   const problems: string[] = [];
   let prevMile = -Infinity;
-  for (const p of dbPts ?? []) {
+
+  for (const p of dbPts) {
     const exp = expBySlug.get(p.slug);
     const snap = p.snap_distance_m == null ? null : Math.round(p.snap_distance_m);
     // ── FAR still reports; it no longer BLOCKS a place that is not a launch ──
@@ -184,16 +173,137 @@ async function main() {
     // Union for display, so the printed line still shows everything observed.
     const shown = [...new Set([...blocking, ...flags])];
     const ok = blocking.length === 0;
-    const line =
-      `    ${ok ? '✅' : '⚠️ '} ${p.name.padEnd(34)} type=${(p.type as string).padEnd(10)} ` +
-      `mile=${p.river_mile_downstream ?? '—'}${exp != null ? ` (exp~${exp})` : ''} ` +
-      `snap=${snap ?? '—'}m agency=${p.managing_agency ?? '—'} approved=${p.approved}` +
-      `${isLaunch ? '' : ' not-a-launch'}` +
-      (shown.length ? `  [${shown.join(', ')}]` : '');
-    console.log(line);
+    lines.push(
+      `    ${ok ? '✅' : '⚠️ '} ${p.name.padEnd(34)} type=${p.type.padEnd(10)} ` +
+        `mile=${p.river_mile_downstream ?? '—'}${exp != null ? ` (exp~${exp})` : ''} ` +
+        `snap=${snap ?? '—'}m agency=${p.managing_agency ?? '—'} approved=${p.approved}` +
+        `${isLaunch ? '' : ' not-a-launch'}` +
+        (shown.length ? `  [${shown.join(', ')}]` : ''),
+    );
+
+    if (!expBySlug.has(p.slug)) continue;
     if (ok) validated.push(p.id);
     else problems.push(`${p.name}: ${blocking.join(', ')}`);
   }
+
+  return { lines, validated, problems };
+}
+
+async function main() {
+  const [slug, ...flags] = process.argv.slice(2);
+  if (!slug) {
+    console.error('Usage: import-dossier-access-points.ts <slug> [--write] [--approve]');
+    process.exit(1);
+  }
+  const write = flags.includes('--write');
+  const approve = flags.includes('--approve');
+
+  const dataPath = path.join(__dirname, 'access-points', `${slug}.json`);
+  if (!fs.existsSync(dataPath)) {
+    console.error(`No data file: ${dataPath}`);
+    process.exit(1);
+  }
+  const all: APRow[] = JSON.parse(fs.readFileSync(dataPath, 'utf-8'));
+  // Only rows with real coordinates are importable; the rest are held.
+  const placeable = all.filter((r) => r.lat != null && r.lon != null);
+  const held = all.filter((r) => r.lat == null || r.lon == null);
+
+  // `write: write` here meant `--approve` on its own built a READ client and
+  // then ran a real UPDATE through it, so the EXPECTED_SUPABASE_REF pin that
+  // scripts/lib/db.ts exists to enforce was never checked on that path.
+  // Both flags mutate; both must be pinned.
+  const db = getScriptClient({ script: 'import-dossier-access-points', write: write || approve });
+  const { data: river, error: rErr } = await db.from('rivers').select('id, name').eq('slug', slug).single();
+  if (rErr || !river) throw new Error(`river ${slug} not found: ${rErr?.message}`);
+
+  console.log(`\n${river.name} (${slug}) — ${placeable.length} placeable, ${held.length} held (no coord)`);
+  if (held.length) console.log('  held:', held.map((h) => h.name).join(', '));
+
+  if (write) {
+    // ── WHY THIS IS NOT ONE upsert() ─────────────────────────────────────
+    //
+    // It was, and the row literal carried `approved: false`. `upsert` has no
+    // partial-on-conflict form, so re-running --write on a river whose points
+    // had long since been approved wrote `approved = false` straight over them
+    // and every one of them vanished from the app — RLS publishes on exactly
+    // that column. The same statement also reset `is_float_endpoint` from the
+    // dossier's `kind`, discarding whatever a human had decided in
+    // /admin/geography.
+    //
+    // Neither of those is a field this importer owns once a row exists. It owns
+    // the DESCRIPTION of a place; approval and launch-eligibility are human
+    // judgements recorded later. So the write splits: new slugs are inserted
+    // pending, existing slugs get their descriptive columns refreshed and their
+    // review state left exactly alone.
+    const { data: existingRows, error: exErr } = await db
+      .from('access_points')
+      .select('id, slug')
+      .eq('river_id', river.id);
+    if (exErr) throw exErr;
+    const existingBySlug = new Map((existingRows ?? []).map((e) => [e.slug as string, e.id as string]));
+
+    let inserted = 0;
+    let updated = 0;
+    for (const r of placeable) {
+      const slugKey = slugify(r.name);
+      const existingId = existingBySlug.get(slugKey);
+
+      if (existingId) {
+        const { error } = await db.from('access_points').update(dossierColumns(r)).eq('id', existingId);
+        if (error) throw new Error(`update ${r.name}: ${error.message}`);
+        updated += 1;
+        continue;
+      }
+
+      const { error } = await db.from('access_points').insert({
+        river_id: river.id,
+        slug: slugKey,
+        ...dossierColumns(r),
+        approved: false,
+        // Set here, not left to the column default. 20260823190713 made
+        // is_float_endpoint opt-in precisely so nothing becomes a launch by
+        // accident — but a launch that nobody opts in is a put-in Eddy silently
+        // never offers, which is the failure nobody reports. The importer knows
+        // the kind, so it answers rather than deferring.
+        is_float_endpoint: isLaunchRole(r.kind),
+        // The ROLES axis of ADR 0008. Writing only the singular `type` is why
+        // every dossier-imported river carries types = '{}' — 92 approved
+        // points across 11 rivers. launchRolesOf() falls back to `type` so
+        // launches still resolve, but a single value cannot express two roles,
+        // and 20260806020305's campground join (`types @> ARRAY['campground']`)
+        // has no fallback at all, so those rivers cannot link a facility.
+        types: [r.kind],
+      });
+      if (error) throw new Error(`insert ${r.name}: ${error.message}`);
+      inserted += 1;
+    }
+    console.log(
+      `  ✅ ${inserted} inserted (approved=false), ${updated} existing refreshed ` +
+        `(approved / is_float_endpoint / types untouched)`,
+    );
+
+    // Since 00121 the auto-snap trigger sets only location_snap + snap_distance_m;
+    // river_mile_downstream is populated here from the geometry (00165 helper).
+    const { data: nSet, error: mileErr } = await db.rpc('set_access_point_miles_from_geometry', {
+      p_river_id: river.id,
+      p_force: false,
+    });
+    if (mileErr) throw new Error(`set miles: ${mileErr.message}`);
+    console.log(`  ✅ set river_mile_downstream on ${nSet} point(s) from geometry`);
+  }
+
+  // Read back current DB state (post-trigger snap)
+  const { data: dbPts, error: qErr } = await db
+    .from('access_points')
+    .select('id, name, slug, type, river_mile_downstream, snap_distance_m, approved, is_float_endpoint, managing_agency, official_site_url')
+    .eq('river_id', river.id)
+    .order('river_mile_downstream', { ascending: true, nullsFirst: false });
+  if (qErr) throw qErr;
+
+  const expBySlug = new Map(placeable.map((r) => [slugify(r.name), r.expected_mile]));
+  console.log(`\n  DB access points (${dbPts?.length ?? 0}):`);
+  const { lines, validated, problems } = classifyPoints((dbPts ?? []) as DbPoint[], expBySlug);
+  lines.forEach((l) => console.log(l));
 
   if (problems.length) {
     console.log(`\n  ⚠️  ${problems.length} need review:`);
@@ -214,4 +324,11 @@ async function main() {
   }
 }
 
-main().then(() => process.exit(0)).catch((e) => { console.error(e); process.exit(1); });
+// Exact, not `includes`: this module is imported by
+// import-dossier-access-points.test.ts, whose path contains this file's name. A
+// substring guard runs main() during the test run and exits the process before a
+// single assertion executes. (Same reasoning as import-services-csv.ts.)
+const invokedAs = path.basename(process.argv[1] ?? '').replace(/\.[cm]?[tj]s$/, '');
+if (invokedAs === 'import-dossier-access-points') {
+  main().then(() => process.exit(0)).catch((e) => { console.error(e); process.exit(1); });
+}
