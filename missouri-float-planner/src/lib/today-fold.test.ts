@@ -1,3 +1,4 @@
+import { railSelectionIndex, railIndexAtOffset } from '../../../eddy-ios/src/lib/railSelection';
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
@@ -53,4 +54,26 @@ test('nothing to show is shut, whatever the preference says', () => {
   assert.equal(isUpdateOpen(false, false), false);
   assert.equal(isUpdateOpen(false, true), false);
   assert.equal(isUpdateOpen(false, undefined), false);
+});
+
+
+test('rail selection follows the entity through a live reorder', () => {
+  const selection = { scope: 'account-a', id: 'current' };
+  assert.equal(railSelectionIndex(['meramec', 'current', 'jacks'], selection, 'account-a'), 1);
+  assert.equal(railSelectionIndex(['current', 'jacks', 'meramec'], selection, 'account-a'), 0);
+});
+
+test('rail selection falls back when the item disappears or account changes', () => {
+  const selection = { scope: 'account-a', id: 'current' };
+  assert.equal(railSelectionIndex(['meramec'], selection, 'account-a'), 0);
+  assert.equal(railSelectionIndex(['meramec', 'current'], selection, 'signed-out'), 0);
+  assert.equal(railSelectionIndex(['meramec', 'current'], selection, 'account-b'), 0);
+  assert.equal(railSelectionIndex([], selection, 'account-a'), 0);
+});
+
+test('rail tracking handles a slow drag without momentum and overscroll', () => {
+  assert.equal(railIndexAtOffset(298 * 2, 298, 3), 2);
+  assert.equal(railIndexAtOffset(-40, 298, 3), 0);
+  assert.equal(railIndexAtOffset(1200, 298, 3), 2);
+  assert.equal(railIndexAtOffset(100, 298, 0), 0);
 });

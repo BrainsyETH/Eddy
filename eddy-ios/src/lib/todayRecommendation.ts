@@ -116,22 +116,15 @@ function reasonFor(candidate: Candidate, mode: RecommendationMode): string {
  * least `switchMarginMiles` closer, preventing the card from flapping as a
  * coarse location fix or two readings arrive in a different order.
  */
-export function chooseTodayRecommendation({
-  rivers,
-  gauges,
-  favoriteRiverIds,
+export function chooseTodayRecommendation(input: RecommendationInput): TodayRecommendation | null {
+  return chooseLead(recommendationCandidates(input), input);
+}
+
+function chooseLead(candidates: Candidate[], {
   coords,
   incumbentRiverId = null,
-  radiusMiles = TODAY_RADIUS_MILES,
   switchMarginMiles = TODAY_SWITCH_MARGIN_MILES,
 }: RecommendationInput): TodayRecommendation | null {
-  const candidates = recommendationCandidates({
-    rivers,
-    gauges,
-    favoriteRiverIds,
-    coords,
-    radiusMiles,
-  });
   const challenger = candidates[0];
   if (!challenger) return null;
 
@@ -171,11 +164,12 @@ export function chooseTodayRecommendations(
 ): TodayRecommendation[] {
   if (limit <= 0) return [];
 
-  const lead = chooseTodayRecommendation(input);
+  const candidates = recommendationCandidates(input);
+  const lead = chooseLead(candidates, input);
   if (!lead) return [];
 
   const mode: RecommendationMode = input.coords ? 'nearby' : 'statewide';
-  const remaining = recommendationCandidates(input)
+  const remaining = candidates
     .filter((candidate) => candidate.river.id !== lead.river.id)
     .slice(0, limit - 1)
     .map((candidate) => ({ ...candidate, mode, reason: reasonFor(candidate, mode) }));

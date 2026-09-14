@@ -1,5 +1,8 @@
 // eddy-ios/src/lib/eddySays.ts
-// What Eddy is allowed to say for free about ONE river, and how old it is.
+// Public summary DTO and written-age formatting for ONE river.
+// Today/Reads index cards intentionally render metadata only (no free summary).
+// They accept only generatedAt and never carry premium report text. Existing
+// detail/web summary consumers still use this DTO; full reads stay server-gated.
 //
 // ── The tier, and why it lives in a return type ─────────────────────────────
 //

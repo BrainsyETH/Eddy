@@ -1,5 +1,7 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { Children, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import {
+  AccessibilityInfo,
+  useWindowDimensions,
   ActivityIndicator,
   Image,
   Linking,
@@ -12,7 +14,6 @@ import {
   type NativeSyntheticEvent,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import * as Haptics from 'expo-haptics';
 import { useRouter } from 'expo-router';
 import type {
   FavoriteFloatSummary,
@@ -33,6 +34,7 @@ import { BlurredReadPreview, EddyReadCard } from '@/components/EddyReadCard';
 import { EddyScene } from '@/components/EddyScene';
 import { Otter, otterForCondition } from '@/components/Otter';
 import { TodaySummary, TodayWeather } from '@/components/TodaySummary';
+import { useSession } from '@/hooks/useSession';
 import { type LocationStatus } from '@/hooks/useLocation';
 import { useStarredRivers, type StarredItem } from '@/hooks/useStarredRivers';
 import { readFavoriteFloats, writeFavoriteFloats } from '@/lib/favoriteFloatCache';
@@ -44,6 +46,7 @@ import {
   TODAY_RADIUS_MILES,
   type TodayRecommendation,
 } from '@/lib/todayRecommendation';
+import { railSelectionIndex, railIndexAtOffset } from '@/lib/railSelection';
 import { readRecommendation, writeRecommendation } from '@/lib/todayPreferences';
 import type { EddySays } from '@/lib/eddySays';
 import { riverMilesByGauge } from '@/lib/riverDistance';
@@ -90,61 +93,116 @@ export interface TodayRead {
 
 const NO_FAVORITE_RIVERS = new Set<string>();
 const CARD_GAP = 12;
-const railPositions = new Map<string, number>();
-
-function CardRail({
-  railKey,
-  label,
-  count,
-  cardWidth,
-  children,
-}: {
-  railKey: string;
+// Selection belongs to this mounted screen and account, never a process-global index.
+function CardRail({ label, cardWidth, children }: {
   label: string;
-  count: number;
   cardWidth: number;
   children: ReactNode;
 }) {
+  const { session } = useSession();
+  const scope = session?.user.id ?? 'signed-out';
+  const [selection, setSelection] = useState<{ scope: string; id: string } | null>(null);
+  const { width, fontScale } = useWindowDimensions();
+  const items = Children.toArray(children);
+  const ids = items.map((item, index) => typeof item === 'object' && item !== null && 'key' in item
+    ? String(item.key) : String(index));
+  const initialIndex = railSelectionIndex(ids, selection, scope);
+  const effectiveWidth = Math.min(cardWidth, Math.max(1, width - 48));
+  const vertical = fontScale >= 1.3;
+  if (!items.length) return null;
+  return (
+    <RailViewport
+      key={JSON.stringify([scope, ids, effectiveWidth, vertical])}
+      label={label}
+      items={items}
+      initialIndex={initialIndex}
+      cardWidth={effectiveWidth}
+      viewportWidth={width}
+      vertical={vertical}
+      onSelect={(index) => setSelection((current) => current?.scope === scope && current.id === ids[index]
+        ? current : { scope, id: ids[index] })}
+    />
+  );
+}
+
+function RailViewport({ label, items, initialIndex, cardWidth, viewportWidth, vertical, onSelect }: {
+  label: string;
+  items: ReactNode[];
+  initialIndex: number;
+  cardWidth: number;
+  viewportWidth: number;
+  vertical: boolean;
+  onSelect: (index: number) => void;
+}) {
   const { colors } = useTheme();
-  const interval = cardWidth + CARD_GAP;
-  const initialIndex = Math.min(railPositions.get(railKey) ?? 0, Math.max(0, count - 1));
-  const activeIndex = useRef(initialIndex);
+  const scroll = useRef<ScrollView>(null);
+  const positionInitialized = useRef(false);
   const [visibleIndex, setVisibleIndex] = useState(initialIndex);
-  const displayedIndex = Math.min(visibleIndex, Math.max(0, count - 1));
-
-  const commitPosition = useCallback((event: NativeSyntheticEvent<NativeScrollEvent>) => {
-    const next = Math.min(
-      count - 1,
-      Math.max(0, Math.round(event.nativeEvent.contentOffset.x / interval)),
-    );
-    railPositions.set(railKey, next);
-    if (next === activeIndex.current) return;
-    activeIndex.current = next;
+  const [openingIndex] = useState(initialIndex);
+  const interval = cardWidth + CARD_GAP;
+  const count = items.length;
+  // Called during dragging AND snapping: slow releases need no momentum event.
+  const trackPosition = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+    const next = railIndexAtOffset(event.nativeEvent.contentOffset.x, interval, count);
     setVisibleIndex(next);
-    void Haptics.selectionAsync().catch(() => {});
-  }, [count, interval, railKey]);
-
+    onSelect(next);
+  };
+  const move = (delta: number) => {
+    const next = Math.min(count - 1, Math.max(0, visibleIndex + delta));
+    scroll.current?.scrollTo({ x: next * interval, animated: false });
+    setVisibleIndex(next);
+    onSelect(next);
+    AccessibilityInfo.announceForAccessibility(`${label}, ${next + 1} of ${count}`);
+  };
+  if (vertical) return <View style={{ gap: CARD_GAP }}>{items}</View>;
   return (
     <View>
       <ScrollView
+        ref={scroll}
         horizontal
         showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.cardRail}
+        contentContainerStyle={[styles.cardRail, { paddingRight: 16 + Math.max(0, viewportWidth - 32 - cardWidth) }]}
         style={styles.cardRailViewport}
-        contentOffset={{ x: initialIndex * interval, y: 0 }}
+        contentOffset={{ x: openingIndex * interval, y: 0 }}
+        onLayout={() => {
+          if (!positionInitialized.current) {
+            positionInitialized.current = true;
+            onSelect(openingIndex);
+          }
+        }}
         decelerationRate="fast"
         snapToInterval={interval}
         snapToAlignment="start"
         disableIntervalMomentum
-        onMomentumScrollEnd={commitPosition}
-        accessibilityLabel={`${label}, horizontal list`}
-        accessibilityHint={`${count} items. Swipe left or right to browse.`}
+        onScroll={trackPosition}
+        onScrollEndDrag={trackPosition}
+        onMomentumScrollEnd={trackPosition}
+        scrollEventThrottle={16}
       >
-        {children}
+        {items.map((item, index) => <View key={index} style={{ width: cardWidth }}>{item}</View>)}
       </ScrollView>
-      <Text style={[styles.railPosition, { color: colors.textSubtle }]} accessibilityLiveRegion="polite">
-        {displayedIndex + 1} of {count}
-      </Text>
+      <View style={styles.railControls}>
+        <Pressable accessibilityRole="button" accessibilityLabel={`Previous ${label} card`}
+          accessibilityState={{ disabled: visibleIndex === 0 }} disabled={visibleIndex === 0}
+          onPress={() => move(-1)} style={styles.railButton}>
+          <Ionicons name="chevron-back" size={20} color={visibleIndex === 0 ? colors.textSubtle : colors.interactive} />
+        </Pressable>
+        <Text style={[styles.railPosition, { color: colors.textSubtle }]}
+          accessibilityRole="adjustable" accessibilityLabel={label}
+          accessibilityValue={{ min: 1, max: count, now: visibleIndex + 1, text: `${visibleIndex + 1} of ${count}` }}
+          accessibilityActions={[{ name: 'increment' }, { name: 'decrement' }]}
+          onAccessibilityAction={({ nativeEvent }) => {
+            if (nativeEvent.actionName === 'increment') move(1);
+            if (nativeEvent.actionName === 'decrement') move(-1);
+          }}>
+          {visibleIndex + 1} of {count}
+        </Text>
+        <Pressable accessibilityRole="button" accessibilityLabel={`Next ${label} card`}
+          accessibilityState={{ disabled: visibleIndex === count - 1 }} disabled={visibleIndex === count - 1}
+          onPress={() => move(1)} style={styles.railButton}>
+          <Ionicons name="chevron-forward" size={20} color={visibleIndex === count - 1 ? colors.textSubtle : colors.interactive} />
+        </Pressable>
+      </View>
     </View>
   );
 }
@@ -334,7 +392,7 @@ function FavoritePreviewCard({
       <View style={styles.favoriteHeroTop}>
         <View style={styles.heroCopy}>
           <Text style={[styles.eyebrow, { color: colors.accent }]}>FAVORITE</Text>
-          <Text style={[styles.favoritePreviewName, { color: colors.text }]} numberOfLines={2}>{item.name}</Text>
+          <Text style={[styles.favoritePreviewName, { color: colors.text }]} >{item.name}</Text>
           <Text style={[styles.heroMeta, { color: colors.textMuted }]} numberOfLines={2}>
             {favoriteDetail(item, river, gauge)}
           </Text>
@@ -382,7 +440,15 @@ function BestRiverCard({
 }) {
   const { colors, elevation } = useTheme();
   const condition = recommendation.river.currentCondition;
-  if (!condition) return null;
+  if (!condition) return (
+    <View style={[styles.bestPreview, { backgroundColor: colors.card, borderColor: colors.border }]}>
+      <Text style={[styles.bestName, { color: colors.text }]}>{recommendation.river.name}</Text>
+      <Text style={[styles.heroMeta, { color: colors.textMuted }]}>Conditions unavailable</Text>
+      <Pressable onPress={onOpen} accessibilityRole="button" style={styles.secondaryButton}>
+        <Text style={[styles.secondaryButtonText, { color: colors.interactive }]}>View river</Text>
+      </Pressable>
+    </View>
+  );
 
   const reading = primaryReading(condition);
   const facts = [
@@ -403,7 +469,7 @@ function BestRiverCard({
       <View style={styles.bestTop}>
         <View style={styles.heroCopy}>
           <Text style={[styles.eyebrow, { color: colors.accent }]}>EDDY&apos;S PICK</Text>
-          <Text style={[styles.bestName, { color: colors.text }]} numberOfLines={2}>{recommendation.river.name}</Text>
+          <Text style={[styles.bestName, { color: colors.text }]} >{recommendation.river.name}</Text>
           <Text style={[styles.bestReason, { color: colors.textMuted }]} numberOfLines={2}>{recommendation.reason}</Text>
           <View style={styles.heroPill}><ConditionPill river={recommendation.river} /></View>
         </View>
@@ -426,7 +492,7 @@ function BestRiverCard({
       >
         <View style={styles.readHead}>
           <Ionicons name="sparkles" size={15} color={colors.accent} />
-          <Text style={[styles.readLabel, { color: colors.accent }]}>EDDY&apos;S READ</Text>
+          <Text style={[styles.readLabel, { color: colors.accent }]}>View full read</Text>
           <Ionicons name="chevron-forward" size={15} color={colors.textSubtle} />
         </View>
         <BlurredReadPreview lines={1} />
@@ -774,12 +840,12 @@ export function TodayHub({
       <View style={styles.section}>
         <SectionHead title="Eddy’s Reads" action={reads.length > 0 ? 'See all' : undefined} onAction={onBrowseReads} />
         {readPreviews.length > 1 ? (
-          <CardRail railKey="reads" label="Eddy's Reads" count={readPreviews.length} cardWidth={286}>
+          <CardRail label="Eddy's Reads" cardWidth={286}>
             {readPreviews.map(({ river, says }) => (
               <EddyReadCard
                 key={river.id}
                 river={river}
-                says={says}
+                says={{ generatedAt: says.generatedAt }}
                 compact
                 onPress={() => router.push(`/river/${river.slug}`)}
               />
@@ -788,7 +854,7 @@ export function TodayHub({
         ) : readPreviews.length === 1 ? (
           <EddyReadCard
             river={readPreviews[0].river}
-            says={readPreviews[0].says}
+            says={{ generatedAt: readPreviews[0].says.generatedAt }}
             standalone
             onPress={() => router.push(`/river/${readPreviews[0].river.slug}`)}
           />
@@ -798,7 +864,7 @@ export function TodayHub({
           <View style={[styles.emptyCard, { backgroundColor: colors.selectionBg, borderColor: colors.border }]}>
             <View style={styles.flex}>
               <Text style={[styles.emptyTitle, { color: colors.text }]}>Eddy is between reads</Text>
-              <Text style={[styles.emptyBody, { color: colors.textMuted }]}>Fresh summaries return when the latest water and written conditions agree.</Text>
+              <Text style={[styles.emptyBody, { color: colors.textMuted }]}>New reads appear when current conditions are available.</Text>
             </View>
           </View>
         )}
@@ -807,7 +873,7 @@ export function TodayHub({
       <View style={styles.section}>
         <SectionHead title="Favorites" action={starred.length ? 'See all' : undefined} onAction={() => router.push('/favorites')} />
         {starsReady && favoritePreviews.length > 1 ? (
-          <CardRail railKey="favorites" label="Favorites" count={favoritePreviews.length} cardWidth={286}>
+          <CardRail label="Favorites" cardWidth={286}>
             {favoritePreviews.map((item) => {
               const river = item.kind === 'river' ? riverById.get(item.entityId) ?? null : null;
               return (
@@ -855,7 +921,7 @@ export function TodayHub({
         {!gauges || !incumbentState.ready ? (
           <View style={styles.loading}><ActivityIndicator color={colors.interactive} /></View>
         ) : recommendations.length > 1 ? (
-          <CardRail railKey="best" label={location.coords ? 'Best Near You' : 'Best Right Now'} count={recommendations.length} cardWidth={300}>
+          <CardRail label={location.coords ? 'Best Near You' : 'Best Right Now'} cardWidth={300}>
             {recommendations.map((item) => (
               <BestRiverCard
                 key={item.river.id}
@@ -920,7 +986,7 @@ export function TodayHub({
 
       {featuredFloat ? (
         <View style={styles.section}>
-          <SectionHead title="Eddy’s Favorite Floats" action="See all" onAction={() => router.push('/favorite-floats')} />
+          <SectionHead title="Featured float" action="See all" onAction={() => router.push('/favorite-floats')} />
           <FloatPreviewCard
             item={featuredFloat}
             onPlan={() => openPlan(featuredFloat.riverSlug, featuredFloat.putInId, featuredFloat.takeOutId)}
@@ -949,7 +1015,7 @@ const styles = StyleSheet.create({
   sectionHead: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 10, paddingHorizontal: 2 },
   sectionTitle: { ...t.xl, fontFamily: fonts.heading },
   sectionAction: { ...t.sm, fontFamily: fonts.semibold },
-  favoritePreview: { width: 286, height: 252, borderWidth: 1, borderRadius: 20, padding: 16, overflow: 'hidden' },
+  favoritePreview: { width: '100%', minHeight: 252, borderWidth: 1, borderRadius: 20, padding: 16 },
   favoriteStandalone: { width: 'auto', height: 'auto', minHeight: 252 },
   favoriteHeroTop: { flexDirection: 'row', alignItems: 'center', minHeight: 116 },
   heroCopy: { flex: 1, minWidth: 0, zIndex: 1 },
@@ -965,7 +1031,7 @@ const styles = StyleSheet.create({
   emptyTitle: { ...t.base, fontFamily: fonts.semibold },
   emptyBody: { ...t.sm, fontFamily: fonts.body, marginTop: 3 },
   loading: { height: 150, alignItems: 'center', justifyContent: 'center' },
-  bestPreview: { width: 300, height: 354, borderWidth: 1, borderRadius: 20, padding: 16, overflow: 'hidden' },
+  bestPreview: { width: '100%', minHeight: 354, borderWidth: 1, borderRadius: 20, padding: 16 },
   bestStandalone: { width: 'auto', height: 'auto', minHeight: 354 },
   bestTop: { flexDirection: 'row', alignItems: 'center', minHeight: 112 },
   bestName: { ...t['2xl'], fontFamily: fonts.display },
@@ -977,14 +1043,16 @@ const styles = StyleSheet.create({
   eddyRead: { borderWidth: StyleSheet.hairlineWidth, borderRadius: 14, padding: 13, marginTop: 10 },
   readHead: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   readLabel: { ...t.xs, fontFamily: fonts.heading, letterSpacing: 0.7, flex: 1 },
-  actions: { flexDirection: 'row', alignItems: 'center', gap: 9, marginTop: 'auto', paddingTop: 15 },
+  actions: { flexWrap: 'wrap', flexDirection: 'row', alignItems: 'center', gap: 9, marginTop: 'auto', paddingTop: 15 },
   secondaryButton: { minHeight: 46, borderWidth: 1, borderRadius: 12, paddingHorizontal: 15, alignItems: 'center', justifyContent: 'center' },
   secondaryButtonText: { ...t.sm, fontFamily: fonts.semibold },
   primaryButton: { minHeight: 46, borderRadius: 12, paddingHorizontal: 16, flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7 },
-  primaryButtonText: { ...t.sm, fontFamily: fonts.semibold },
+  primaryButtonText: { ...t.sm, fontFamily: fonts.semibold, flexShrink: 1 },
   viewLink: { minHeight: 46, paddingHorizontal: 8, alignItems: 'center', justifyContent: 'center' },
   viewLinkText: { ...t.sm, fontFamily: fonts.semibold },
   flexButton: { flex: 1 },
+  railControls: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 },
+  railButton: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
   cardRailViewport: { marginHorizontal: -16 },
   cardRail: { paddingHorizontal: 16, paddingBottom: 2, gap: CARD_GAP },
   railPosition: { ...t.xs, fontFamily: fonts.mono, textAlign: 'right', marginTop: 5, paddingRight: 2 },
