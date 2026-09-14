@@ -8,7 +8,7 @@
 // POIMarkers.
 
 import { useEffect, useRef } from 'react';
-import maplibregl from 'maplibre-gl';
+import * as maplibregl from 'maplibre-gl';
 import { useMap } from './MapContainer';
 import { presentPopup } from './popup-manager';
 import { CONDITION_COLORS, CONDITION_SHORT_LABELS } from '@/constants';

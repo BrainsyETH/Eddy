@@ -4,7 +4,7 @@
 // River line editor with selection and visual feedback
 
 import { useEffect, useRef, useState } from 'react';
-import maplibregl from 'maplibre-gl';
+import * as maplibregl from 'maplibre-gl';
 import { useMap } from '@/components/map/MapContainer';
 
 interface River {
@@ -209,12 +209,12 @@ export default function RiverLineEditor({
 
     map.on('click', handleClick);
     map.on('mousemove', handleMouseMove);
-    map.on('mouseleave', handleMouseLeave);
+    map.getCanvas().addEventListener('mouseleave', handleMouseLeave);
 
     return () => {
       map.off('click', handleClick);
       map.off('mousemove', handleMouseMove);
-      map.off('mouseleave', handleMouseLeave);
+      map.getCanvas().removeEventListener('mouseleave', handleMouseLeave);
       map.getCanvas().style.cursor = '';
     };
   }, [map, rivers, hoveredRiverId, onUpdate]);

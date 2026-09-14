@@ -33,7 +33,7 @@
 // keeps whatever is already drawn rather than blanking it.
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import maplibregl from 'maplibre-gl';
+import * as maplibregl from 'maplibre-gl';
 import { useMap } from './MapContainer';
 import { ANCHORS, addLayerAt, whenStyleReady } from './layer-anchors';
 import { presentPopup } from './popup-manager';

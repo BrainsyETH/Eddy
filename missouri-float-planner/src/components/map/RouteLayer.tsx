@@ -15,6 +15,7 @@ import { useMap } from './MapContainer';
 import { ANCHORS, addLayerAt, whenStyleReady } from './layer-anchors';
 import { LINE_WIDTH as ROUTE_WIDTH, CASING_WIDTH, CASING_COLOR } from './line-style';
 import type { GeoJSON } from 'geojson';
+import type * as maplibregl from 'maplibre-gl';
 
 interface RouteLayerProps {
   routeGeometry: GeoJSON.LineString | GeoJSON.Feature | null;
