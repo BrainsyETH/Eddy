@@ -1,5 +1,9 @@
 -- Apply a human-reviewed access-point dossier as one transaction.
 --
+-- APPLIED to production (ilefwfpvphadsbptiaur) on 2026-09-14 at 20:40 UTC
+-- and recorded as 20260914194000 after the function and its execute grants
+-- were verified against the live database.
+--
 -- The TypeScript importer owns planning: it decides insert versus update,
 -- preserves omitted fields on existing rows, and prints the result. This
 -- function owns only atomic application. If any operation or the final mileage
