@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { classifyExisting, type ExistingFindingRow } from './ledger';
+import { classifyExisting, indexEmitted, type ExistingFindingRow } from './ledger';
+import type { RawFinding } from './types';
 
 const NOW = new Date('2026-08-04T12:00:00Z');
 
@@ -82,4 +83,63 @@ test('a mixed set partitions correctly', () => {
   );
   assert.deepEqual(openFingerprints.sort(), ['a', 'd']);
   assert.deepEqual(snoozedFingerprints, ['b']);
+});
+
+// ── Fingerprint collisions must not be absorbed ───────────────────────────
+//
+// The fingerprint excludes title, detail and evidence, so two findings collide
+// exactly when a check emits the same rule twice for one entity. The map that
+// indexes them used to be built with a bare .set(), which discarded all but the
+// last — a check reporting fewer problems than it found, with nothing saying
+// so. That is the same shape as the bug this whole pass started from:
+// validate_river_data's access_point_offline rule could not fire for four
+// migrations, and "zero findings" looked identical to "cannot produce
+// findings".
+
+function finding(over: Partial<RawFinding> = {}): RawFinding {
+  return {
+    entityType: 'river',
+    entityKey: 'niangua',
+    ruleKey: 'mileage_segment_implausible',
+    title: 'niangua: mileage_segment_implausible',
+    detail: 'Williams Ford Access to Moon Valley quotes 10.10 mi against 1.55 mi of line',
+    ...over,
+  };
+}
+
+test('two findings on one entity and rule are reported as a collision, not merged', () => {
+  const { byFingerprint, collisions } = indexEmitted('validate_river_data', [
+    finding({ detail: 'Williams Ford Access to Moon Valley' }),
+    finding({ detail: 'Lead Mine Access to Herrick Ford' }),
+  ]);
+
+  assert.equal(byFingerprint.size, 1, 'they genuinely do share one fingerprint');
+  assert.equal(collisions.length, 1, 'and that must be surfaced rather than absorbed');
+  assert.match(collisions[0], /river:niangua\/mileage_segment_implausible/);
+});
+
+test('the first finding is kept, so a collision never also loses the original', () => {
+  const { byFingerprint } = indexEmitted('validate_river_data', [
+    finding({ title: 'first' }),
+    finding({ title: 'second' }),
+  ]);
+  assert.deepEqual([...byFingerprint.values()].map((f) => f.title), ['first']);
+});
+
+test('the same rule on different entities does not collide', () => {
+  const { byFingerprint, collisions } = indexEmitted('validate_river_data', [
+    finding({ entityKey: 'niangua' }),
+    finding({ entityKey: 'huzzah' }),
+  ]);
+  assert.equal(byFingerprint.size, 2);
+  assert.deepEqual(collisions, []);
+});
+
+test('different rules on one entity do not collide', () => {
+  const { byFingerprint, collisions } = indexEmitted('validate_river_data', [
+    finding({ ruleKey: 'mileage_segment_implausible' }),
+    finding({ ruleKey: 'mileage_order_mismatch' }),
+  ]);
+  assert.equal(byFingerprint.size, 2);
+  assert.deepEqual(collisions, []);
 });
