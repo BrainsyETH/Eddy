@@ -138,9 +138,20 @@ resolve these per endpoint rather than per pair.
 
 Williams Ford Access is a single bad value rather than a datum question. Every
 other Niangua point sits ≈25.5 mi below its geometry mile; Williams Ford sits
-33.4 below. Against its downstream neighbour Moon Valley it should read ≈20.8,
-not 12.2. A user planning Williams Ford → Moon Valley is told to budget a
-10-mile day for a 1.5-mile paddle.
+33.4 below.
+
+> **Correction, after source-checking.** This section originally continued
+> "against its downstream neighbour Moon Valley it should read ≈20.8, not 12.2",
+> and that is wrong in the most expensive direction. MDC's published index
+> chains Big John `1.30` → 10.9 mi → Williams Ford `12.20` → 10.1 mi → Moon
+> Valley `22.30`, so the stored **mile is correct** and writing 20.8 would have
+> destroyed it. The defect is the **coordinate**, which sits 2.57 mi east of
+> Windyville where MDC places the access two miles west. Full workings:
+> [`river-mile-segment-findings-2026-09-14.md`](river-mile-segment-findings-2026-09-14.md).
+
+A user planning Williams Ford → Moon Valley is still misled — the quoted 10.1 mi
+is right while the drawn segment is 1.55 mi — but the repair is to move the pin,
+not the mile.
 
 Ordering is *not* affected — only two adjacent near-ties swap rank across all 24
 rivers — so access lists and upstream/downstream logic are fine. This is purely
