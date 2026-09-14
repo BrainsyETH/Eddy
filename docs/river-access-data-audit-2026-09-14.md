@@ -6,7 +6,15 @@ production (`ilefwfpvphadsbptiaur`). Read-only; no data was changed.
 Covers `access_points`, `nearby_services` (campground / cabin_lodge /
 outfitter), `nps_campgrounds`, `campsite_facilities`, and the mile/geometry
 plumbing those three depend on. Every number below came from a query against
-production and the query is quoted so it can be re-run.
+production; the queries and the row manifests behind them are committed
+alongside this file as
+[`river-access-data-audit-2026-09-14-queries.sql`](river-access-data-audit-2026-09-14-queries.sql).
+
+> **Correction, 2026-09-14 (after review).** The first version of this section
+> read the stored-vs-geometry mile disagreement as staleness and recommended
+> re-running `set_access_point_miles_from_geometry`. That was wrong and the
+> recommendation has been withdrawn — see *Correction: two mile systems* below.
+> The user-facing defect is real but far narrower than first reported.
 
 ## Baseline
 
@@ -63,27 +71,70 @@ is exactly what `snap_to_river()` computes):
 
 The other 13 rivers (current, jacks-fork, james, kings-river, crooked-creek,
 mulberry, caddo-river, bryant-creek, spring-river, spring-river-mo, big-river,
-war-eagle-creek, big-piney) match to ≤0.05 mi. Those are the rivers where
-`set_access_point_miles_from_geometry()` has been run against the current
-geometry; the 11 above have not been re-run since their geometry last changed.
+war-eagle-creek, big-piney) match to ≤0.05 mi.
 
-**The mean offset is mostly harmless — the spread is not.** A constant offset is
-just a different mile datum (Buffalo's ≈−16 looks like official NPS miles, and
-its spread of 2.29 is consistent with that). Distances are differences, so only
-the *variation* in the offset corrupts them. Worst real put-in/take-out pairs:
+### Correction: two mile systems, and only one of them is geometry
 
-| River | Put-in → take-out | App quotes | Map draws | Error |
+The first draft read that split as staleness — rivers where
+`set_access_point_miles_from_geometry()` had not been re-run. **It is not.**
+`src/lib/geo/mile-index.ts:12-31` documents that `river_mile_downstream`
+deliberately carries two different things:
+
+- **geometry miles** — `ST_LineLocatePoint(geom, pt) * length_miles`;
+- **editorial miles** — the published mile index a river is actually described
+  by, on the outfitter's map and in the mile-by-mile guides.
+
+That file names the same rivers this audit flagged, with the same magnitudes:
+"a median of 20 km on the Meramec, 19 km on the St. Francis, 17 km on the
+Bourbeuse and 15 km on the Niangua, while landing within 5 m on the Current and
+the James." The divergence is the *curated* answer, and `buildMileIndex`
+converts between the two by interpolating between access points as control
+points. **Re-basing those rivers onto geometry would destroy the editorial index
+and the control points that decode it.** The recommendation to re-run
+`set_access_point_miles_from_geometry` is withdrawn.
+
+### The defect that is real: implausible segments
+
+Because a real channel is longer than its generalised NHD line, the ratio
+`editorial_delta / geometry_delta` between consecutive usable endpoints should
+sit near 1.0-1.5 and can never fall far below 1.0. That invariant holds in
+**both** mile systems, which is what makes it the right instrument. Over 272
+pairs with a geometry delta above 0.25 mi:
+
+| ratio | pairs | reading |
+| --- | --- | --- |
+| < 0.60 | 6 | impossible — editorial far shorter than the line |
+| 0.60-0.90 | 29 | mostly 0.1-mi rounding on short segments |
+| **0.90-1.54** | **236** | normal sinuosity — the editorial index is coherent |
+| 1.60-2.50 | 0 | — |
+| > 2.50 | 1 | **niangua Williams Ford → Moon Valley, 6.51** |
+
+So the editorial miles are overwhelmingly sound, and the defect is a handful of
+individual rows rather than 11 rivers. The empty 1.54-6.51 band is what makes a
+threshold defensible. Note also that an implausible *pair* names a bad
+*segment*, not a bad *row*: either endpoint could be at fault, and only Williams
+Ford is independently isolated.
+
+The pairs that fail the plausibility test — the quoted figure is the editorial
+delta the app shows, the line figure is the generalised NHD length, and a ratio
+far from 1.0-1.5 is what condemns the pair:
+
+| River | Put-in → take-out | Quoted | Line | Ratio |
 | --- | --- | --- | --- | --- |
-| **niangua** | **Williams Ford → Moon Valley** | **10.10 mi** | **1.55 mi** | **+551%** |
-| black | Highway K → River Road Park | 13.20 mi | 18.00 mi | −27% |
-| black | River Road Park → Mill Spring | 12.40 mi | 9.22 mi | +34% |
-| meramec | Sappington Bridge → Meramec State Park | 4.80 mi | 6.91 mi | −31% |
-| jacks-fork | Bay Creek → Alley Spring | 5.80 mi | 4.02 mi | +44% |
-| huzzah | Dillard Mill → Highway 49 Bridge | 0.10 mi | 1.44 mi | −93% |
-| meramec | Meramec State Park → Spanish Claim | 4.00 mi | 2.67 mi | +50% |
-| niangua | Cat Hollow → Riverfront Campground | 3.50 mi | 2.28 mi | +53% |
+| **niangua** | **Williams Ford → Moon Valley** | **10.10 mi** | **1.55 mi** | **6.51** |
+| huzzah | Dillard Mill → Highway 49 Bridge | 0.10 mi | 1.44 mi | 0.07 |
+| niangua | Riverfront Campground → Bennett Spring | 0.20 mi | 0.75 mi | 0.27 |
+| niangua | Lead Mine → Herrick Ford | 0.40 mi | 1.09 mi | 0.37 |
+| meramec | Campbell Bridge → Riverview Ranch | 0.20 mi | 0.53 mi | 0.38 |
+| meramec | Onondaga Cave SP → Ozark Outdoors | 0.10 mi | 0.26 mi | 0.38 |
+| niangua | Bennett Spring → Hidden Valley Outfitters | 0.30 mi | 0.77 mi | 0.39 |
 
-25 consecutive-pair segments are off by ≥1.0 mi.
+Pairs such as black Highway K → River Road Park (0.73) and meramec Sappington
+Bridge → Meramec State Park (0.69) sit in the 0.60-0.90 band. On the evidence
+they are 0.1-mile rounding on short segments rather than errors, and they are
+not proposed for correction. The three Niangua rows above share endpoints —
+Bennett Spring and Herrick Ford each appear twice — which is further reason to
+resolve these per endpoint rather than per pair.
 
 Williams Ford Access is a single bad value rather than a datum question. Every
 other Niangua point sits ≈25.5 mi below its geometry mile; Williams Ford sits
@@ -222,8 +273,22 @@ Two of those (Meramec State Park Lower Ramp, Huzzah CA / Highway E) and one
 Gasconade row (Odin Access) have `river_mile_downstream = NULL` and need a mile
 before they are useful.
 
-Purging the 68 legacy rows would cut the admin queue from 92 to 24 and make the
-`unapprovedAccessPoints` badge mean something again.
+**Correction (after review): not all 68 are junk, and a date window is the wrong
+selector.** Classifying by mislocation instead splits them 54 / 14. The 54 that
+sit more than 1 500 m off the line and are referenced by no saved plan are
+unambiguously safe to delete. The other 14 must be kept and triaged: three are
+duplicates of an approved row within 63 m (eleven-point "MDC Myrtle" 23 m from
+Myrtle Access; "Boze Mill Spring on left" 53 m; current "Van Buren City Access"
+63 m), five are referenced by saved float plans, and several are well-formed
+records that were simply never reviewed — meramec "Scotia Bridge Access"
+(101 m, county-managed), "Steelville City Park" (239 m, municipal), "Fishing
+Spring Road" (225 m, MDC) and jacks-fork "Bunker Hill" (89 m). A naive
+`created_at` window would also have missed Bunker Hill entirely, which was
+created 2026-01-26, outside the 01-22/01-23 band the rest fall in.
+
+Deleting the 54 cuts the admin queue from 92 to 38 and makes the
+`unapprovedAccessPoints` badge mean something again; the full manifest for both
+sets is in the query appendix.
 
 ### 39 mapped services have no coordinates
 
@@ -302,13 +367,22 @@ hazard datum and the access-point datum are not guaranteed to agree.
 
 ## Suggested order of work
 
-1. Fix Williams Ford's mile (one row, worst single user-facing error).
-2. Add the mile-magnitude check to `validate_river_data()` and fix
-   `access_point_offline` — without these, item 3 regresses silently.
-3. Re-run `set_access_point_miles_from_geometry` per river, or record the datum
-   as deliberate and change `get_float_segment` to measure geometry.
-4. Approve the 21 good pending points; delete the 68 legacy rows.
-5. Geocode the 39 coordinate-less services.
+1. Fix the four `scripts/ingestion/import-dossier-access-points.ts` defects
+   first — `--write` upserts `approved: false` over existing rows, so it can
+   unpublish live access points on any already-onboarded river. Doing data work
+   on this table while that is armed is the wrong order.
+2. Add the segment-plausibility rule to `validate_river_data()` and fix
+   `access_point_offline`, together with the off-channel exception metadata the
+   fixed rule needs so it does not emit permanent false warnings.
+3. Source-check each implausible pair and correct the offending rows —
+   Williams Ford first, it is the only one already isolated. **Not** a re-base:
+   see *Correction: two mile systems* above.
+4. Delete the 54 mislocated legacy rows; triage the other 14 rather than
+   deleting them (see the manifest in the query appendix — several are
+   well-formed records that were simply never reviewed, and five are referenced
+   by saved float plans). Approve the 16 verified sub-250 m pending points.
+5. Geocode the 39 coordinate-less services. Note both geocoders select
+   `latitude IS NULL`, so the three badly-geocoded rows need separate handling.
 6. Wire the 7 missing Buffalo NPS campgrounds to `campsite_facilities`.
 7. Backfill `types` roles on the 11 empty-roles rivers.
 8. Fill the camping void on james, kings-river, spring-river-mo.
