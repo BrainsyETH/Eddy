@@ -607,39 +607,7 @@ export function TodayHub({
       </View>
 
       <View style={styles.section}>
-        <SectionHead title="Eddy’s Reads" action={reads.length > 0 ? 'See all' : undefined} onAction={onBrowseReads} />
-        {readPreviews.length > 0 ? (
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.readRail}
-            style={styles.floatRailViewport}
-            decelerationRate="fast"
-          >
-            {readPreviews.map(({ river, says }) => (
-              <EddyReadCard
-                key={river.id}
-                river={river}
-                says={says}
-                compact
-                onPress={() => router.push(`/river/${river.slug}`)}
-              />
-            ))}
-          </ScrollView>
-        ) : readsLoading ? (
-          <View style={styles.loading}><ActivityIndicator color={colors.interactive} /></View>
-        ) : (
-          <View style={[styles.emptyCard, { backgroundColor: colors.selectionBg, borderColor: colors.border }]}>
-            <View style={styles.flex}>
-              <Text style={[styles.emptyTitle, { color: colors.text }]}>Eddy is between reads</Text>
-              <Text style={[styles.emptyBody, { color: colors.textMuted }]}>Fresh summaries return when the latest water and written conditions agree.</Text>
-            </View>
-          </View>
-        )}
-      </View>
-
-      <View style={styles.section}>
-        <SectionHead title="Favorites" action={starred.length ? 'See all' : undefined} onAction={() => router.push('/favorites')} />
+        <SectionHead title="Your favorites" action={starred.length ? 'See all' : undefined} onAction={() => router.push('/favorites')} />
         {starsReady && highlightedFavorite ? (
           <View
               style={[
@@ -695,12 +663,19 @@ export function TodayHub({
             <EddyScene name="heart" size={76} />
             <View style={styles.flex}>
               <Text style={[styles.emptyTitle, { color: colors.text }]}>Make Today yours</Text>
-              <Text style={[styles.emptyBody, { color: colors.textMuted }]}>Star rivers, gauges, or dams and they’ll lead this page.</Text>
+              <Text style={[styles.emptyBody, { color: colors.textMuted }]}>Star rivers, gauges, or dams to see them here.</Text>
             </View>
           </View>
         ) : (
           <ActivityIndicator color={colors.interactive} />
         )}
+        {starsReady ? starred
+          .filter((item) => item.kind === 'river' && item.entityId !== highlightedFavorite?.entityId)
+          .slice(0, 2)
+          .map((item) => {
+            const river = riverById.get(item.entityId);
+            return river ? <CompactRiverRow key={item.entityId} river={river} onPress={() => openFavorite(item)} /> : null;
+          }) : null}
       </View>
 
       <View style={styles.section}>
@@ -825,6 +800,38 @@ export function TodayHub({
             <Ionicons name="arrow-forward" size={16} color={colors.interactive} />
           </Pressable>
         </View>
+      </View>
+
+      <View style={styles.section}>
+        <SectionHead title="Eddy’s Reads" action={reads.length > 0 ? 'See all' : undefined} onAction={onBrowseReads} />
+        {readPreviews.length > 0 ? (
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.readRail}
+            style={styles.floatRailViewport}
+            decelerationRate="fast"
+          >
+            {readPreviews.map(({ river, says }) => (
+              <EddyReadCard
+                key={river.id}
+                river={river}
+                says={says}
+                compact
+                onPress={() => router.push(`/river/${river.slug}`)}
+              />
+            ))}
+          </ScrollView>
+        ) : readsLoading ? (
+          <View style={styles.loading}><ActivityIndicator color={colors.interactive} /></View>
+        ) : (
+          <View style={[styles.emptyCard, { backgroundColor: colors.selectionBg, borderColor: colors.border }]}>
+            <View style={styles.flex}>
+              <Text style={[styles.emptyTitle, { color: colors.text }]}>Eddy is between reads</Text>
+              <Text style={[styles.emptyBody, { color: colors.textMuted }]}>Fresh summaries return when the latest water and written conditions agree.</Text>
+            </View>
+          </View>
+        )}
       </View>
 
       {floatPreviews.length ? (

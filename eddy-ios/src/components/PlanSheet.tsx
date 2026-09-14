@@ -53,6 +53,9 @@ interface Props {
   visible: boolean;
   onClose: () => void;
   rivers: RiverListItem[];
+  riversLoading: boolean;
+  riversError: string | null;
+  onRetryRivers: () => void;
   river: RiverListItem | null;
   riverDistances: ReadonlyMap<string, number> | null;
   onSelectRiver: (river: RiverListItem) => void;
@@ -87,6 +90,9 @@ export function PlanSheet({
   visible,
   onClose,
   rivers,
+  riversLoading,
+  riversError,
+  onRetryRivers,
   river,
   riverDistances,
   onSelectRiver,
@@ -183,6 +189,9 @@ export function PlanSheet({
         {!river ? (
           <RiverList
             rivers={rivers}
+            loading={riversLoading}
+            error={riversError}
+            onRetry={onRetryRivers}
             distances={riverDistances}
             onSelect={onSelectRiver}
           />
@@ -224,8 +233,17 @@ export function PlanSheet({
             <Text style={[styles.errorText, { color: colors.text }]}>
               {error ?? 'Could not build that float plan'}
             </Text>
-            <Pressable onPress={state.reset} hitSlop={10}>
-              <Text style={[styles.link, { color: colors.interactive }]}>Start over</Text>
+            {putIn && takeOut ? (
+              <Pressable
+                onPress={() => state.planFloat(putIn, takeOut)}
+                style={[styles.primaryButton, styles.retryButton, { backgroundColor: colors.accentFill }]}
+                accessibilityRole="button"
+              >
+                <Text style={[styles.primaryButtonText, { color: colors.onAccent }]}>Try again</Text>
+              </Pressable>
+            ) : null}
+            <Pressable onPress={() => state.goToStep('put-in')} style={styles.secondaryButton} accessibilityRole="button">
+              <Text style={[styles.link, { color: colors.interactive }]}>Change access points</Text>
             </Pressable>
           </View>
         ) : (
@@ -425,9 +443,12 @@ function Breadcrumb({
               size={15}
               style={{ opacity: done || current ? 1 : 0.45 }}
             />
-            <Text style={[styles.crumbValue, { color: ink }]} numberOfLines={1}>
-              {crumb.value ?? crumb.label}
-            </Text>
+            <View style={styles.crumbText}>
+              <Text style={[styles.crumbLabel, { color: ink }]}>{crumb.label}</Text>
+              <Text style={[styles.crumbValue, { color: ink }]} numberOfLines={2}>
+                {crumb.value ?? (crumb.step === 'put-in' ? 'Where you launch' : 'Where you finish')}
+              </Text>
+            </View>
           </Pressable>
         );
       })}
@@ -437,10 +458,16 @@ function Breadcrumb({
 
 function RiverList({
   rivers,
+  loading,
+  error,
+  onRetry,
   distances,
   onSelect,
 }: {
   rivers: RiverListItem[];
+  loading: boolean;
+  error: string | null;
+  onRetry: () => void;
   distances: ReadonlyMap<string, number> | null;
   onSelect: (river: RiverListItem) => void;
 }) {
@@ -449,8 +476,15 @@ function RiverList({
   if (rivers.length === 0) {
     return (
       <View style={styles.centered}>
-        <ActivityIndicator color={colors.interactive} />
-        <Text style={[styles.calculating, { color: colors.textMuted }]}>Loading rivers…</Text>
+        {loading ? <ActivityIndicator color={colors.interactive} /> : <EddyScene name="routePlanning" size={100} />}
+        <Text style={[styles.calculating, { color: colors.textMuted }]}>
+          {loading ? 'Loading rivers…' : error ? 'Could not load rivers. Check your connection and try again.' : 'No rivers are available to plan right now.'}
+        </Text>
+        {!loading ? (
+          <Pressable onPress={onRetry} style={styles.secondaryButton} accessibilityRole="button">
+            <Text style={[styles.link, { color: colors.interactive }]}>Try again</Text>
+          </Pressable>
+        ) : null}
       </View>
     );
   }
@@ -637,14 +671,16 @@ function AccessPointList({
               )}
             </View>
             <View style={styles.optionBody}>
-              <Text style={[styles.optionName, { color: colors.text }]} numberOfLines={1}>
+              <Text style={[styles.optionName, { color: colors.text }]}>
                 {point.name}
               </Text>
-              <Text style={[styles.optionMeta, { color: colors.textMuted }]} numberOfLines={1}>
+              <Text style={[styles.accessStatus, { color: colors.text }]}>
+                {point.isPublic ? 'Public access' : 'Private access · Check permission'}
+              </Text>
+              <Text style={[styles.optionMeta, { color: colors.textMuted }]}>
                 {[
                   accessTypeLabel(point.type),
                   `Mile ${point.riverMile.toFixed(1)}`,
-                  point.isPublic ? null : 'Private',
                   // The number that actually decides a take-out. Reading it off
                   // two river miles in your head is exactly the arithmetic an
                   // app should be doing for you.
@@ -701,22 +737,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 6,
-    // 8 was not enough for a bordered pill: the mark sat on the left edge and a
-    // truncated place name ran into the right one, so the whole control read as
-    // text that happened to have a line drawn round it.
-    paddingHorizontal: 12,
-    paddingVertical: 7,
-    // 34 rather than 30, which is what the vertical padding above lands on for
-    // a single line of 13pt — stated as a floor so a pill holding a mark and no
-    // text cannot come out shorter than its neighbours.
-    minHeight: 34,
-    borderRadius: 999,
+    paddingHorizontal: 8,
+    paddingVertical: 10,
+    minHeight: 60,
+    borderRadius: 12,
     borderWidth: 1,
   },
-  // The label is gone as a separate line: an answered crumb says "Akers", and
-  // an unanswered one says "Put-in". Printing both stacked was the thing that
-  // forced 12pt and two rows of height on a control with three columns.
-  crumbValue: { ...t.sm, fontFamily: fonts.medium },
+  crumbText: { flex: 1, minWidth: 0, gap: 3 },
+  crumbLabel: { ...t.sm, fontFamily: fonts.semibold },
+  crumbValue: { ...t.sm, fontFamily: fonts.body },
+  accessStatus: { ...t.sm, fontFamily: fonts.semibold, marginTop: 4 },
   list: { padding: 16, gap: 8 },
   option: { flexDirection: 'row', alignItems: 'center', gap: 11, padding: 13, borderRadius: 12 },
   // Fixed, so the row keeps one height whether or not the point has a photo.
@@ -733,7 +763,7 @@ const styles = StyleSheet.create({
   optionPhoto: { width: '100%', height: '100%', resizeMode: 'cover' },
   optionBody: { flex: 1, minWidth: 0 },
   optionName: { ...t.sm, fontFamily: fonts.semibold },
-  optionMeta: { ...t.xs, fontFamily: fonts.body, marginTop: 2 },
+  optionMeta: { ...t.sm, fontFamily: fonts.body, marginTop: 2 },
   pickerIntro: { ...t.sm, fontFamily: fonts.body, marginBottom: 4 },
   riverMetaRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   conditionDot: { width: 8, height: 8, borderRadius: 4 },
@@ -747,14 +777,16 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     borderWidth: 1,
     marginBottom: 4,
+    minHeight: 44,
   },
-  sortText: { ...t.xs, fontFamily: fonts.semibold },
+  sortText: { ...t.sm, fontFamily: fonts.semibold },
   centered: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 32, gap: 12 },
   calculating: { ...t.sm, fontFamily: fonts.body, textAlign: 'center' },
   emptyText: { ...t.sm, fontFamily: fonts.body, textAlign: 'center' },
   errorText: { ...t.base, fontFamily: fonts.semibold, textAlign: 'center' },
-  link: { ...t.sm, fontFamily: fonts.semibold },
+  link: { ...t.base, fontFamily: fonts.semibold },
   actions: { gap: 10, marginTop: 6 },
+  retryButton: { flex: 0, paddingHorizontal: 24, minHeight: 44 },
   actionRow: { flexDirection: 'row', gap: 10 },
   // Both flex:1, so the two intentions carry the same weight. Share keeps the
   // accent — it is still the thing most people do with a finished plan — and

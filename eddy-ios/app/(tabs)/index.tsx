@@ -411,6 +411,7 @@ export default function MapScreen() {
    * message left, so the slot is single again.
    */
   const [riversError, setRiversError] = useState<string | null>(null);
+  const [riversLoading, setRiversLoading] = useState(true);
 
   // Copied, not aliased: DEFAULT_LAYERS is a module constant and nothing should
   // be one `push` away from redefining what the app opens with. Replaced by
@@ -717,8 +718,8 @@ export default function MapScreen() {
   // setState in the effect that calls it, and this is not one — the response
   // has to come back first.
   const loadRivers = useCallback(
-    (signal?: AbortSignal) =>
-      fetchRivers(signal)
+    (signal?: AbortSignal) => {
+      return fetchRivers(signal)
         .then((loaded) => {
           setRivers(loaded);
           // The line means "this is not working RIGHT NOW", which it can only
@@ -732,7 +733,9 @@ export default function MapScreen() {
               ? err.message
               : 'Couldn’t load rivers. Eddy retries when you reopen this tab.',
           );
-        }),
+        })
+        .finally(() => { if (!signal?.aborted) setRiversLoading(false); });
+    },
     [],
   );
 
@@ -1525,8 +1528,14 @@ export default function MapScreen() {
    * has landed before calculating the exact editorial stretch.
    */
   useEffect(() => {
-    if (focusParams.openPlan !== '1' || !focusRiver) {
+    if (focusParams.openPlan !== '1') {
       planIntentConsumed.current = null;
+      return;
+    }
+    if (!focusRiver) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- explicit navigation from Saved floats opens the planner.
+      setPlanOpen(true);
+      router.setParams({ openPlan: undefined, planPutIn: undefined, planTakeOut: undefined });
       return;
     }
     const token = `${focusRiver}:${focusParams.planPutIn ?? ''}:${focusParams.planTakeOut ?? ''}`;
@@ -3220,6 +3229,9 @@ export default function MapScreen() {
         visible={planOpen}
         onClose={() => setPlanOpen(false)}
         rivers={plannerRivers}
+        riversLoading={riversLoading}
+        riversError={riversError}
+        onRetryRivers={() => { setRiversLoading(true); setRiversError(null); void loadRivers(); }}
         river={selected}
         riverDistances={plannerDistances}
         // Picking a river here frames it, same as tapping its line on the map.
