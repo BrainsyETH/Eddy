@@ -1,5 +1,7 @@
 -- Restore the upper-Niangua access chain from MDC's live GIS, without rebasing
 -- the published FloatMissouri mile index.
+-- PENDING BY DESIGN: apply after review, then record production's migration
+-- version here and in supabase/production-migrations.txt (renaming if needed).
 --
 -- SOURCES (checked 2026-09-14):
 --   MDC place pages:
@@ -29,11 +31,13 @@
 
 DO $niangua$
 DECLARE
-    populated       BOOLEAN;
-    approved_before INTEGER;
-    approved_after  INTEGER;
-    n_missing       INTEGER;
-    n_bad           INTEGER;
+    populated          BOOLEAN;
+    approved_before    INTEGER;
+    approved_after     INTEGER;
+    implausible_before INTEGER;
+    implausible_after  INTEGER;
+    n_missing          INTEGER;
+    n_bad              INTEGER;
 BEGIN
     SELECT EXISTS (SELECT 1 FROM public.access_points) INTO populated;
     IF NOT populated THEN
@@ -41,13 +45,28 @@ BEGIN
         RETURN;
     END IF;
 
+    -- Hold these editorial records stable between the prerequisite check and
+    -- the updates so a concurrent admin change cannot be overwritten.
+    PERFORM 1
+    FROM public.access_points ap
+    JOIN public.rivers r ON r.id = ap.river_id
+    WHERE r.slug = 'niangua'
+      AND ap.slug IN (
+          'charity-access', 'big-john-access', 'williams-ford', 'moon-valley'
+      )
+    FOR UPDATE OF ap;
+
     SELECT count(*) INTO n_missing
     FROM (VALUES
-        ('charity-access', FALSE, 0.10::NUMERIC),
-        ('big-john-access', FALSE, 1.30::NUMERIC),
-        ('williams-ford', TRUE, 12.20::NUMERIC),
-        ('moon-valley', TRUE, 22.30::NUMERIC)
-    ) AS expected(slug, approved, mile)
+        ('charity-access', FALSE, 0.10::NUMERIC, 'access',
+         ARRAY['access', 'boat_ramp']::TEXT[]),
+        ('big-john-access', FALSE, 1.30::NUMERIC, 'access',
+         ARRAY['access']::TEXT[]),
+        ('williams-ford', TRUE, 12.20::NUMERIC, 'bridge',
+         ARRAY['access', 'bridge']::TEXT[]),
+        ('moon-valley', TRUE, 22.30::NUMERIC, 'access',
+         ARRAY['access', 'gravel_bar', 'bridge']::TEXT[])
+    ) AS expected(slug, approved, mile, access_type, role_types)
     WHERE NOT EXISTS (
         SELECT 1
         FROM public.access_points ap
@@ -56,11 +75,25 @@ BEGIN
           AND ap.slug = expected.slug
           AND ap.approved IS NOT DISTINCT FROM expected.approved
           AND ap.river_mile_downstream = expected.mile
+          AND ap.type IS NOT DISTINCT FROM expected.access_type
+          AND ap.types IS NOT DISTINCT FROM expected.role_types
     );
     IF n_missing <> 0 THEN
         RAISE EXCEPTION 'refusing: % upper-Niangua prerequisite row(s) changed or disappeared',
                         n_missing;
     END IF;
+
+    -- Snapshot the rule's own aggregate. Production currently has four
+    -- Niangua failures: the Williams -> Moon defect repaired here and three
+    -- unrelated downstream pairs. This migration must remove exactly one;
+    -- requiring global zero would improperly couple this focused repair to
+    -- separate mileage cleanup.
+    SELECT COALESCE(SUM(
+        ((regexp_match(detail, '^([0-9]+) segment'))[1])::INTEGER
+    ), 0) INTO implausible_before
+    FROM public.validate_river_data()
+    WHERE river_slug = 'niangua'
+      AND check_name = 'mileage_segment_implausible';
 
     SELECT count(*) INTO approved_before
     FROM public.access_points ap
@@ -152,31 +185,18 @@ BEGIN
         RAISE EXCEPTION 'refusing: % curated Niangua mile(s) changed', n_bad;
     END IF;
 
-    -- Re-run the same invariant as mileage_segment_implausible, narrowly over
-    -- the two source-backed consecutive segments repaired here.
-    WITH pairs(start_slug, end_slug) AS (VALUES
-        ('big-john-access', 'williams-ford'),
-        ('williams-ford', 'moon-valley')
-    ), measured AS (
-        SELECT
-            p.start_slug,
-            p.end_slug,
-            abs(b.river_mile_downstream - a.river_mile_downstream) AS quoted_mi,
-            abs(
-                ST_LineLocatePoint(r.geom, b.location_snap)
-                - ST_LineLocatePoint(r.geom, a.location_snap)
-            ) * ST_Length(r.geom::GEOGRAPHY) / 1609.344 AS line_mi
-        FROM pairs p
-        JOIN public.access_points a ON a.slug = p.start_slug
-        JOIN public.access_points b ON b.slug = p.end_slug
-        JOIN public.rivers r
-          ON r.id = a.river_id AND r.id = b.river_id AND r.slug = 'niangua'
-    )
-    SELECT count(*) INTO n_bad
-    FROM measured
-    WHERE line_mi < 0.5 OR quoted_mi / line_mi NOT BETWEEN 0.5 AND 2.0;
-    IF n_bad <> 0 THEN
-        RAISE EXCEPTION 'refusing: % repaired Niangua segment(s) remain implausible', n_bad;
+    -- Exercise the production rule itself so every consecutive endpoint pair,
+    -- including adjacency changed by publishing Big John, is covered. The
+    -- three unrelated downstream findings remain tracked outside this repair.
+    SELECT COALESCE(SUM(
+        ((regexp_match(detail, '^([0-9]+) segment'))[1])::INTEGER
+    ), 0) INTO implausible_after
+    FROM public.validate_river_data()
+    WHERE river_slug = 'niangua'
+      AND check_name = 'mileage_segment_implausible';
+    IF implausible_after <> implausible_before - 1 THEN
+        RAISE EXCEPTION 'refusing: Niangua mileage_segment_implausible count moved from % to %, expected one repaired segment',
+                        implausible_before, implausible_after;
     END IF;
 
     SELECT count(*) INTO approved_after
