@@ -374,9 +374,12 @@ hazard datum and the access-point datum are not guaranteed to agree.
 2. Add the segment-plausibility rule to `validate_river_data()` and fix
    `access_point_offline`, together with the off-channel exception metadata the
    fixed rule needs so it does not emit permanent false warnings.
-3. Source-check each implausible pair and correct the offending rows —
-   Williams Ford first, it is the only one already isolated. **Not** a re-base:
-   see *Correction: two mile systems* above.
+3. Source-check each implausible pair and correct the offending rows. This is
+   done and written up in
+   [`river-mile-segment-findings-2026-09-14.md`](river-mile-segment-findings-2026-09-14.md):
+   Williams Ford's **mile is correct and its coordinate is wrong**, which is the
+   opposite of what item 3 originally said, and the remaining segments have no
+   isolable bad row. **Not** a re-base: see *Correction: two mile systems* above.
 4. Delete the 54 mislocated legacy rows; triage the other 14 rather than
    deleting them (see the manifest in the query appendix — several are
    well-formed records that were simply never reviewed, and five are referenced
