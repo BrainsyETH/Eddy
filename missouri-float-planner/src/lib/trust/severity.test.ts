@@ -18,12 +18,12 @@ test('every rule any check can emit has a severity', () => {
   assert.deepEqual(unclassified, []);
 });
 
-test('validate_river_data contributes all twenty of its rules', () => {
-  // 00164_harden_river_validation.sql emits nine 'error' rows and eleven
-  // 'warning' rows. If that file grows a UNION ALL branch, this count is the
-  // thing that notices.
-  assert.equal(VALIDATE_RIVER_DATA_RULES.length, 20);
-  assert.equal(new Set(VALIDATE_RIVER_DATA_RULES).size, 20);
+test('validate_river_data contributes all twenty-one of its rules', () => {
+  // 20260914183000_a_quoted_mile_answers_to_the_river_line.sql emits nine
+  // 'error' rows and twelve 'warning' rows. If that file grows a branch, this
+  // count is the thing that notices.
+  assert.equal(VALIDATE_RIVER_DATA_RULES.length, 21);
+  assert.equal(new Set(VALIDATE_RIVER_DATA_RULES).size, 21);
 });
 
 test('rule keys are unique across every check', () => {
@@ -74,7 +74,7 @@ test('mileage defects are medium because the float time cannot become a go/no-go
   // Bad mileage means a bad float time, but /api/plan returns a range and
   // floatTime.ts:145-148 refuses to estimate at all for dangerous water, so the
   // error cannot compound into a safety answer.
-  for (const rule of ['mileage_order_mismatch', 'mileage_equals_length', 'access_point_offline']) {
+  for (const rule of ['mileage_order_mismatch', 'mileage_equals_length', 'mileage_segment_implausible', 'access_point_offline']) {
     assert.equal(severityForRule(rule), 'medium', `${rule} should be medium`);
   }
 });

@@ -22,9 +22,10 @@
 export type TrustSeverity = 'critical' | 'high' | 'medium' | 'low';
 
 /**
- * Every rule validate_river_data() can emit, as of 00164_harden_river_validation.
- * Nine errors and eleven warnings. Listed explicitly so the exhaustiveness test
- * fails when the SQL grows a rule that nobody has classified.
+ * Every rule validate_river_data() can emit, as of
+ * 20260914183000_a_quoted_mile_answers_to_the_river_line. Nine errors and
+ * twelve warnings. Listed explicitly so the exhaustiveness test fails when the
+ * SQL grows a rule that nobody has classified.
  */
 export const VALIDATE_RIVER_DATA_RULES = [
   'missing_timezone',
@@ -47,6 +48,7 @@ export const VALIDATE_RIVER_DATA_RULES = [
   'access_point_not_snapped',
   'mileage_order_mismatch',
   'mileage_equals_length',
+  'mileage_segment_implausible',
 ] as const;
 
 /**
@@ -253,6 +255,11 @@ const SEVERITY_BY_RULE: Readonly<Record<string, TrustSeverity>> = {
   usgs_site_moved: 'medium',
   mileage_order_mismatch: 'medium',
   mileage_equals_length: 'medium',
+  // The one that actually catches a wrong quoted distance, rather than a wrong
+  // ordering or a clamped placeholder. Same band as its siblings for the reason
+  // stated above them, though it is the strongest case in the group for high:
+  // the finding that opened it quotes 10.1 mi for a 1.5 mi paddle.
+  mileage_segment_implausible: 'medium',
   missing_river_type: 'medium',
   missing_characteristics: 'medium',
   // Not a badge problem today, on a Missouri-only product. Both gate correct

@@ -66,6 +66,36 @@ export function classifyExisting(
   return { openFingerprints, snoozedFingerprints };
 }
 
+/**
+ * Index a check's findings by fingerprint, and say which ones collided.
+ *
+ * Separated from runTrustCheck so the collision rule is testable without a
+ * database: the damage it prevents is silent, so the only way to know it still
+ * works is to assert on it directly.
+ */
+export function indexEmitted(
+  checkId: string,
+  emitted: RawFinding[],
+): { byFingerprint: Map<string, RawFinding>; collisions: string[] } {
+  const byFingerprint = new Map<string, RawFinding>();
+  const collisions: string[] = [];
+
+  for (const finding of emitted) {
+    const fp = fingerprint(checkId, finding);
+    const previous = byFingerprint.get(fp);
+    if (previous) {
+      collisions.push(
+        `${finding.entityType}:${finding.entityKey}/${finding.ruleKey} ` +
+          `("${previous.title}" then "${finding.title}")`,
+      );
+      continue;
+    }
+    byFingerprint.set(fp, finding);
+  }
+
+  return { byFingerprint, collisions };
+}
+
 export async function runTrustCheck(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   supabase: any,
@@ -162,9 +192,31 @@ export async function runTrustCheck(
   const byFingerprint = new Map(existing.map((row) => [row.fingerprint, row]));
   const { openFingerprints, snoozedFingerprints } = classifyExisting(existing, options.now);
 
-  const emittedByFingerprint = new Map<string, RawFinding>();
-  for (const finding of emitted) {
-    emittedByFingerprint.set(fingerprint(check.id, finding), finding);
+  // ── A COLLAPSED FINDING IS A LOST ONE ──────────────────────────────────
+  //
+  // This map used to be built with a bare .set() per finding, so two findings
+  // sharing a fingerprint silently became one: last write wins, and the check
+  // reported fewer problems than it found with nothing anywhere saying so.
+  //
+  // The fingerprint is sha256(check_id | entity_type | entity_key | rule_key)
+  // and deliberately excludes title, detail and evidence, so two findings
+  // collide exactly when a check emits the same rule twice for one entity. That
+  // is an authoring bug in the check — either it should aggregate, or its
+  // entity_key is too coarse to carry what it wants to say — and it is
+  // invisible from the outside, which is the same property that let
+  // access_point_offline sit dead for four migrations.
+  //
+  // So it is demoted to a check failure and routed through the refusal path
+  // that already exists: planReconcile() refuses everything on checkStatus
+  // 'error', the run changes nothing, and the detail names the colliding rule.
+  const { byFingerprint: emittedByFingerprint, collisions } = indexEmitted(check.id, emitted);
+  if (collisions.length > 0 && checkStatus === 'ok') {
+    checkStatus = 'error';
+    errorDetail =
+      `${check.id} emitted ${collisions.length} finding(s) that collide on an existing ` +
+      `fingerprint, which would silently discard all but the last: ` +
+      `${collisions.join('; ')}. Aggregate them into one finding, or give the rule ` +
+      `an entity key specific enough to tell them apart.`;
   }
 
   const plan = planReconcile({

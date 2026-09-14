@@ -19,7 +19,7 @@ import { VALIDATE_RIVER_DATA_RULES } from '../severity';
 const MIGRATION_FILE = readFileSync(
   resolve(
     process.cwd(),
-    'supabase/migrations/20260804192753_validate_river_data_stable_gauge_key.sql',
+    'supabase/migrations/20260914183000_a_quoted_mile_answers_to_the_river_line.sql',
   ),
   'utf8',
 );
@@ -60,12 +60,12 @@ test('the gauge rule no longer joins through rivers', () => {
   assert.match(untilNextRule, /gs\.name/, 'the name must survive, in the detail');
 });
 
-test('the migration reproduces all twenty rules, not a subset', () => {
+test('the migration reproduces all twenty-one rules, not a subset', () => {
   // CREATE OR REPLACE FUNCTION has no partial form, so this migration restates
   // the whole body. A dropped branch would silently stop a rule from ever
   // firing again — a check that cannot see, reporting a confident pass.
-  assert.equal(MIGRATION.match(/UNION ALL/g)?.length, 19, 'twenty branches means nineteen unions');
-  assert.equal(VALIDATE_RIVER_DATA_RULES.length, 20);
+  assert.equal(MIGRATION.match(/UNION ALL/g)?.length, 20, 'twenty-one branches means twenty unions');
+  assert.equal(VALIDATE_RIVER_DATA_RULES.length, 21);
   for (const rule of VALIDATE_RIVER_DATA_RULES) {
     assert.ok(MIGRATION.includes(`'${rule}'`), `${rule} must survive the replacement`);
   }

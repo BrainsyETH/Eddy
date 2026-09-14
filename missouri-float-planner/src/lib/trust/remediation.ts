@@ -305,9 +305,10 @@ const REMEDIATION_BY_RULE: Readonly<Record<string, Remediation>> = {
   },
   access_point_offline: {
     kind: 'investigate',
-    action: 'A snapped point more than 500 m from the line is usually a wrong river, not a wrong point.',
+    action: 'A launch more than 500 m from the line is usually a wrong river, not a wrong point.',
     where: '/admin/access-points',
-    method: 'Check the access point belongs to this river before re-snapping it.',
+    method:
+      'The rule measures location_orig, and only for is_float_endpoint rows — distance from the channel is the right test for a put-in and the wrong one for a park, which is why Echo Bluff at 993 m is not reported. If the distance is a fact about geography rather than a bad coordinate (a confluence take-out, a lake arm), record it in access_points.off_channel_reason and the rule stops asking; do not reach for `approved` to silence it.',
   },
   mileage_order_mismatch: {
     kind: 'mechanical',
@@ -320,6 +321,13 @@ const REMEDIATION_BY_RULE: Readonly<Record<string, Remediation>> = {
     kind: 'mechanical',
     action: 'Recompute the mile marker; equal-to-river-length is a clamped placeholder.',
     where: 'npm run db:correct-miles',
+  },
+  mileage_segment_implausible: {
+    kind: 'judgment',
+    action: 'One of the two named access points carries a wrong river mile. Find out which.',
+    where: '/admin/access-points',
+    method:
+      'Do NOT recompute the river. river_mile_downstream deliberately carries two systems — geometry miles and the published editorial index — and src/lib/geo/mile-index.ts:12-31 measures the intended divergence at 15-20 km on the Meramec, St. Francis, Bourbeuse and Niangua. Re-running set_access_point_miles_from_geometry would erase that index and the control points buildMileIndex uses to decode it. db:correct-miles is no help either: it snaps to river_mile_markers, which is empty. The finding names a SEGMENT, so either endpoint may be the wrong one — check both against the published float chart and against each point\'s other neighbour, then correct the single row the evidence condemns, keeping it on that river\'s own datum (its neighbours\' median stored-minus-geometry offset plus its geometry mile).',
   },
   no_gauges_linked: {
     kind: 'judgment',
