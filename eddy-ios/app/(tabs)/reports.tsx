@@ -1645,7 +1645,7 @@ export default function ReportsScreen() {
               ) : (
                 <View>
                   <View style={styles.readsIntro}>
-                    <Text style={[styles.readsIntroText, { color: colors.textMuted }]}>Fresh, free summaries from rivers Eddy is tracking right now.</Text>
+                    <Text style={[styles.readsIntroText, { color: colors.textMuted }]}>Fresh reads from rivers Eddy is tracking right now. Open one for Eddy&apos;s latest take.</Text>
                     <Text style={[styles.readsCount, { color: colors.textSubtle }]}>{visibleReadItems.length} available</Text>
                   </View>
                   <FilterChips

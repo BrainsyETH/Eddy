@@ -35,6 +35,36 @@ interface RecommendationInput {
   switchMarginMiles?: number;
 }
 
+function recommendationCandidates({
+  rivers,
+  gauges,
+  favoriteRiverIds,
+  coords,
+  radiusMiles = TODAY_RADIUS_MILES,
+}: RecommendationInput): Candidate[] {
+  const candidates = rivers
+    .filter((river) => !favoriteRiverIds.has(river.id) && isTodayRecommendationEligible(river))
+    .map<Candidate>((river) => {
+      const gauge = primaryGaugeForRiver(gauges, river.id);
+      const distanceMiles =
+        coords && gauge && hasCoordinates(gauge) ? milesBetween(coords, gauge.coordinates) : null;
+      return {
+        river,
+        gauge,
+        distanceMiles,
+        readingAgeHours: river.currentCondition?.readingAgeHours ?? Infinity,
+      };
+    });
+
+  return candidates
+    .filter(
+      (candidate) =>
+        !coords ||
+        (candidate.distanceMiles != null && candidate.distanceMiles <= radiusMiles),
+    )
+    .sort(compareCandidates);
+}
+
 function primaryGaugeForRiver(gauges: MapGauge[], riverId: string): MapGauge | null {
   let fallback: MapGauge | null = null;
   for (const gauge of gauges) {
@@ -95,26 +125,13 @@ export function chooseTodayRecommendation({
   radiusMiles = TODAY_RADIUS_MILES,
   switchMarginMiles = TODAY_SWITCH_MARGIN_MILES,
 }: RecommendationInput): TodayRecommendation | null {
-  let candidates = rivers
-    .filter((river) => !favoriteRiverIds.has(river.id) && isTodayRecommendationEligible(river))
-    .map<Candidate>((river) => {
-      const gauge = primaryGaugeForRiver(gauges, river.id);
-      const distanceMiles =
-        coords && gauge && hasCoordinates(gauge) ? milesBetween(coords, gauge.coordinates) : null;
-      return {
-        river,
-        gauge,
-        distanceMiles,
-        readingAgeHours: river.currentCondition?.readingAgeHours ?? Infinity,
-      };
-    });
-
-  if (coords) {
-    candidates = candidates.filter(
-      (candidate) => candidate.distanceMiles != null && candidate.distanceMiles <= radiusMiles,
-    );
-  }
-  candidates.sort(compareCandidates);
+  const candidates = recommendationCandidates({
+    rivers,
+    gauges,
+    favoriteRiverIds,
+    coords,
+    radiusMiles,
+  });
   const challenger = candidates[0];
   if (!challenger) return null;
 
@@ -140,4 +157,28 @@ export function chooseTodayRecommendation({
 
   const mode: RecommendationMode = coords ? 'nearby' : 'statewide';
   return { ...selected, mode, reason: reasonFor(selected, mode) };
+}
+
+/**
+ * Returns a stable lead recommendation followed by the next best discovery
+ * candidates. The lead uses the same anti-flapping rule as the original
+ * single-card picker; the rest remain in ranked order so the swipe rail is
+ * predictable and never repeats the first card.
+ */
+export function chooseTodayRecommendations(
+  input: RecommendationInput,
+  limit = 3,
+): TodayRecommendation[] {
+  if (limit <= 0) return [];
+
+  const lead = chooseTodayRecommendation(input);
+  if (!lead) return [];
+
+  const mode: RecommendationMode = input.coords ? 'nearby' : 'statewide';
+  const remaining = recommendationCandidates(input)
+    .filter((candidate) => candidate.river.id !== lead.river.id)
+    .slice(0, limit - 1)
+    .map((candidate) => ({ ...candidate, mode, reason: reasonFor(candidate, mode) }));
+
+  return [lead, ...remaining];
 }
