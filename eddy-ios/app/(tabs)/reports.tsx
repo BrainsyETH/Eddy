@@ -1645,7 +1645,7 @@ export default function ReportsScreen() {
               ) : (
                 <View>
                   <View style={styles.readsIntro}>
-                    <Text style={[styles.readsIntroText, { color: colors.textMuted }]}>Fresh, free summaries from rivers Eddy is tracking right now.</Text>
+                    <Text style={[styles.readsIntroText, { color: colors.textMuted }]}>Choose a river to view its full read.</Text>
                     <Text style={[styles.readsCount, { color: colors.textSubtle }]}>{visibleReadItems.length} available</Text>
                   </View>
                   <FilterChips
@@ -1769,7 +1769,7 @@ export default function ReportsScreen() {
             return (
               <EddyReadCard
                 river={item.read.river}
-                says={item.read.says}
+                says={{ generatedAt: item.read.says.generatedAt }}
                 onPress={() => router.push(`/river/${item.read.river.slug}`)}
               />
             );

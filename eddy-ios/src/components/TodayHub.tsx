@@ -1,5 +1,18 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Image, Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Children, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import {
+  AccessibilityInfo,
+  useWindowDimensions,
+  ActivityIndicator,
+  Image,
+  Linking,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+  type NativeScrollEvent,
+  type NativeSyntheticEvent,
+} from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import type {
@@ -8,7 +21,6 @@ import type {
   MapGauge,
   RiverAlert,
   RiverListItem,
-  RiverOutlookResponse,
 } from '@eddy/types';
 import type { Coords } from '@eddy/geo';
 import {
@@ -16,17 +28,12 @@ import {
   fetchFavoriteFloats,
   fetchHighWater,
   fetchLocationWeather,
-  fetchPremiumEddyRead,
   fetchRiverAlerts,
-  fetchRiverOutlook,
-  type PremiumEddyRead,
 } from '@/api/client';
-import { PaywallSheet } from '@/components/PaywallSheet';
-import { EddyReadCard } from '@/components/EddyReadCard';
+import { BlurredReadPreview, EddyReadCard } from '@/components/EddyReadCard';
 import { EddyScene } from '@/components/EddyScene';
 import { Otter, otterForCondition } from '@/components/Otter';
 import { TodaySummary, TodayWeather } from '@/components/TodaySummary';
-import { useAccount } from '@/hooks/useAccount';
 import { useSession } from '@/hooks/useSession';
 import { type LocationStatus } from '@/hooks/useLocation';
 import { useStarredRivers, type StarredItem } from '@/hooks/useStarredRivers';
@@ -35,17 +42,14 @@ import { favoriteFloatMeta } from '@/lib/favoriteFloatCopy';
 import { formatReading, primaryReading, readingAge } from '@/lib/readingCopy';
 import { dailyFavoriteFloats, dailyHighlightedFavorite } from '@/lib/todayFloats';
 import {
-  chooseTodayRecommendation,
+  chooseTodayRecommendations,
   TODAY_RADIUS_MILES,
+  type TodayRecommendation,
 } from '@/lib/todayRecommendation';
+import { railSelectionIndex, railIndexAtOffset } from '@/lib/railSelection';
 import { readRecommendation, writeRecommendation } from '@/lib/todayPreferences';
 import type { EddySays } from '@/lib/eddySays';
 import { riverMilesByGauge } from '@/lib/riverDistance';
-import {
-  classifyPremiumReadFailure,
-  resolvePremiumTakeState,
-  type PremiumReadFailure,
-} from '@/lib/premiumRead';
 import { chooseTodaySafetyScope, filterTodaySafety } from '@/lib/todaySafety';
 import {
   conditionBg,
@@ -88,6 +92,120 @@ export interface TodayRead {
 }
 
 const NO_FAVORITE_RIVERS = new Set<string>();
+const CARD_GAP = 12;
+// Selection belongs to this mounted screen and account, never a process-global index.
+function CardRail({ label, cardWidth, children }: {
+  label: string;
+  cardWidth: number;
+  children: ReactNode;
+}) {
+  const { session } = useSession();
+  const scope = session?.user.id ?? 'signed-out';
+  const [selection, setSelection] = useState<{ scope: string; id: string } | null>(null);
+  const { width, fontScale } = useWindowDimensions();
+  const items = Children.toArray(children);
+  const ids = items.map((item, index) => typeof item === 'object' && item !== null && 'key' in item
+    ? String(item.key) : String(index));
+  const initialIndex = railSelectionIndex(ids, selection, scope);
+  const effectiveWidth = Math.min(cardWidth, Math.max(1, width - 48));
+  const vertical = fontScale >= 1.3;
+  if (!items.length) return null;
+  return (
+    <RailViewport
+      key={JSON.stringify([scope, ids, effectiveWidth, vertical])}
+      label={label}
+      items={items}
+      initialIndex={initialIndex}
+      cardWidth={effectiveWidth}
+      viewportWidth={width}
+      vertical={vertical}
+      onSelect={(index) => setSelection((current) => current?.scope === scope && current.id === ids[index]
+        ? current : { scope, id: ids[index] })}
+    />
+  );
+}
+
+function RailViewport({ label, items, initialIndex, cardWidth, viewportWidth, vertical, onSelect }: {
+  label: string;
+  items: ReactNode[];
+  initialIndex: number;
+  cardWidth: number;
+  viewportWidth: number;
+  vertical: boolean;
+  onSelect: (index: number) => void;
+}) {
+  const { colors } = useTheme();
+  const scroll = useRef<ScrollView>(null);
+  const positionInitialized = useRef(false);
+  const [visibleIndex, setVisibleIndex] = useState(initialIndex);
+  const [openingIndex] = useState(initialIndex);
+  const interval = cardWidth + CARD_GAP;
+  const count = items.length;
+  // Called during dragging AND snapping: slow releases need no momentum event.
+  const trackPosition = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+    const next = railIndexAtOffset(event.nativeEvent.contentOffset.x, interval, count);
+    setVisibleIndex(next);
+    onSelect(next);
+  };
+  const move = (delta: number) => {
+    const next = Math.min(count - 1, Math.max(0, visibleIndex + delta));
+    scroll.current?.scrollTo({ x: next * interval, animated: false });
+    setVisibleIndex(next);
+    onSelect(next);
+    AccessibilityInfo.announceForAccessibility(`${label}, ${next + 1} of ${count}`);
+  };
+  if (vertical) return <View style={{ gap: CARD_GAP }}>{items}</View>;
+  return (
+    <View>
+      <ScrollView
+        ref={scroll}
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={[styles.cardRail, { paddingRight: 16 + Math.max(0, viewportWidth - 32 - cardWidth) }]}
+        style={styles.cardRailViewport}
+        contentOffset={{ x: openingIndex * interval, y: 0 }}
+        onLayout={() => {
+          if (!positionInitialized.current) {
+            positionInitialized.current = true;
+            onSelect(openingIndex);
+          }
+        }}
+        decelerationRate="fast"
+        snapToInterval={interval}
+        snapToAlignment="start"
+        disableIntervalMomentum
+        onScroll={trackPosition}
+        onScrollEndDrag={trackPosition}
+        onMomentumScrollEnd={trackPosition}
+        scrollEventThrottle={16}
+      >
+        {items.map((item, index) => <View key={index} style={{ width: cardWidth }}>{item}</View>)}
+      </ScrollView>
+      <View style={styles.railControls}>
+        <Pressable accessibilityRole="button" accessibilityLabel={`Previous ${label} card`}
+          accessibilityState={{ disabled: visibleIndex === 0 }} disabled={visibleIndex === 0}
+          onPress={() => move(-1)} style={styles.railButton}>
+          <Ionicons name="chevron-back" size={20} color={visibleIndex === 0 ? colors.textSubtle : colors.interactive} />
+        </Pressable>
+        <Text style={[styles.railPosition, { color: colors.textSubtle }]}
+          accessibilityRole="adjustable" accessibilityLabel={label}
+          accessibilityValue={{ min: 1, max: count, now: visibleIndex + 1, text: `${visibleIndex + 1} of ${count}` }}
+          accessibilityActions={[{ name: 'increment' }, { name: 'decrement' }]}
+          onAccessibilityAction={({ nativeEvent }) => {
+            if (nativeEvent.actionName === 'increment') move(1);
+            if (nativeEvent.actionName === 'decrement') move(-1);
+          }}>
+          {visibleIndex + 1} of {count}
+        </Text>
+        <Pressable accessibilityRole="button" accessibilityLabel={`Next ${label} card`}
+          accessibilityState={{ disabled: visibleIndex === count - 1 }} disabled={visibleIndex === count - 1}
+          onPress={() => move(1)} style={styles.railButton}>
+          <Ionicons name="chevron-forward" size={20} color={visibleIndex === count - 1 ? colors.textSubtle : colors.interactive} />
+        </Pressable>
+      </View>
+    </View>
+  );
+}
 
 function SectionHead({ title, action, onAction }: { title: string; action?: string; onAction?: () => void }) {
   const { colors } = useTheme();
@@ -136,17 +254,30 @@ function CompactRiverRow({ river, onPress }: { river: RiverListItem; onPress: ()
   );
 }
 
-function favoriteDetail(item: StarredItem, river: RiverListItem | null): string {
+function favoriteDetail(
+  item: StarredItem,
+  river: RiverListItem | null,
+  gauge: MapGauge | null,
+): string {
   const reading = river?.currentCondition ? primaryReading(river.currentCondition) : null;
-  return reading
-    ? [formatReading(reading.value, reading.unit), readingAge(river?.currentCondition?.readingAgeHours)]
+  if (reading) {
+    return [formatReading(reading.value, reading.unit), readingAge(river?.currentCondition?.readingAgeHours)]
         .filter(Boolean)
-        .join(' · ')
-    : item.kind === 'river'
-      ? 'Conditions unavailable'
-      : item.kind === 'gauge'
-        ? 'Saved gauge'
-        : 'Saved dam';
+        .join(' · ');
+  }
+  if (gauge) {
+    const value = gauge.gaugeHeightFt != null
+      ? formatReading(gauge.gaugeHeightFt, 'ft')
+      : gauge.dischargeCfs != null
+        ? formatReading(gauge.dischargeCfs, 'cfs')
+        : null;
+    return [value, readingAge(gauge.readingAgeHours)].filter(Boolean).join(' · ') || 'No fresh reading';
+  }
+  return item.kind === 'river'
+    ? 'Conditions unavailable'
+    : item.kind === 'gauge'
+      ? 'No fresh reading'
+      : 'Saved dam';
 }
 
 function SafetyRow({
@@ -217,12 +348,170 @@ function FloatPreviewCard({
         <Text style={[styles.floatMeta, { color: colors.textMuted }]} numberOfLines={2}>{favoriteFloatMeta(item)}</Text>
         <Pressable
           onPress={onPlan}
-          style={({ pressed }) => [styles.floatPlan, { backgroundColor: pressed ? colors.accentFillPressed : colors.accentFill }]}
+          style={({ pressed }) => [styles.floatPlan, { backgroundColor: pressed ? colors.accentFillPressed : colors.accentFill, transform: [{ scale: pressed ? 0.98 : 1 }] }]}
           accessibilityRole="button"
           accessibilityLabel={`Plan ${item.putInName} to ${item.takeOutName}`}
         >
           <Ionicons name="map-outline" size={17} color={colors.onAccent} />
           <Text style={[styles.floatPlanText, { color: colors.onAccent }]}>Plan this float</Text>
+        </Pressable>
+      </View>
+    </View>
+  );
+}
+
+function FavoritePreviewCard({
+  item,
+  river,
+  gauge,
+  onOpen,
+  onPlan,
+  standalone = false,
+}: {
+  item: StarredItem;
+  river: RiverListItem | null;
+  gauge: MapGauge | null;
+  onOpen: () => void;
+  onPlan: (() => void) | null;
+  standalone?: boolean;
+}) {
+  const { colors, elevation } = useTheme();
+  const code = river?.currentCondition?.code ?? 'unknown';
+  return (
+    <View
+      style={[
+        styles.favoritePreview,
+        standalone ? styles.favoriteStandalone : null,
+        {
+          backgroundColor: river ? conditionBg(code) : colors.selectionBg,
+          borderColor: river ? conditionChipBorder(code) : colors.border,
+        },
+        elevation(1),
+      ]}
+    >
+      <View style={styles.favoriteHeroTop}>
+        <View style={styles.heroCopy}>
+          <Text style={[styles.eyebrow, { color: colors.accent }]}>FAVORITE</Text>
+          <Text style={[styles.favoritePreviewName, { color: colors.text }]} >{item.name}</Text>
+          <Text style={[styles.heroMeta, { color: colors.textMuted }]} numberOfLines={2}>
+            {favoriteDetail(item, river, gauge)}
+          </Text>
+          {river ? <View style={styles.heroPill}><ConditionPill river={river} /></View> : null}
+        </View>
+        {river ? (
+          <Otter mood={otterForCondition(code)} size={78} style={styles.favoritePreviewOtter} />
+        ) : (
+          <EddyScene name="heart" size={74} style={styles.favoritePreviewOtter} />
+        )}
+      </View>
+      <View style={styles.actions}>
+        <Pressable
+          onPress={onOpen}
+          style={({ pressed }) => [styles.secondaryButton, styles.flexButton, { backgroundColor: colors.card, borderColor: colors.border, opacity: pressed ? 0.65 : 1, transform: [{ scale: pressed ? 0.98 : 1 }] }]}
+          accessibilityRole="button"
+        >
+          <Text style={[styles.secondaryButtonText, { color: colors.interactive }]}>View details</Text>
+        </Pressable>
+        {onPlan ? (
+          <Pressable
+            onPress={onPlan}
+            style={({ pressed }) => [styles.primaryButton, { backgroundColor: pressed ? colors.accentFillPressed : colors.accentFill, transform: [{ scale: pressed ? 0.98 : 1 }] }]}
+            accessibilityRole="button"
+          >
+            <Ionicons name="map-outline" size={17} color={colors.onAccent} />
+            <Text style={[styles.primaryButtonText, { color: colors.onAccent }]}>Plan</Text>
+          </Pressable>
+        ) : null}
+      </View>
+    </View>
+  );
+}
+
+function BestRiverCard({
+  recommendation,
+  onOpen,
+  onPlan,
+  standalone = false,
+}: {
+  recommendation: TodayRecommendation;
+  onOpen: () => void;
+  onPlan: () => void;
+  standalone?: boolean;
+}) {
+  const { colors, elevation } = useTheme();
+  const condition = recommendation.river.currentCondition;
+  if (!condition) return (
+    <View style={[styles.bestPreview, { backgroundColor: colors.card, borderColor: colors.border }]}>
+      <Text style={[styles.bestName, { color: colors.text }]}>{recommendation.river.name}</Text>
+      <Text style={[styles.heroMeta, { color: colors.textMuted }]}>Conditions unavailable</Text>
+      <Pressable onPress={onOpen} accessibilityRole="button" style={styles.secondaryButton}>
+        <Text style={[styles.secondaryButtonText, { color: colors.interactive }]}>View river</Text>
+      </Pressable>
+    </View>
+  );
+
+  const reading = primaryReading(condition);
+  const facts = [
+    reading ? formatReading(reading.value, reading.unit) : null,
+    condition.trend?.label ?? null,
+  ].filter(Boolean).join(' · ');
+  const age = readingAge(condition.readingAgeHours);
+
+  return (
+    <View
+      style={[
+        styles.bestPreview,
+        standalone ? styles.bestStandalone : null,
+        { backgroundColor: conditionBg(condition.code), borderColor: conditionChipBorder(condition.code) },
+        elevation(1),
+      ]}
+    >
+      <View style={styles.bestTop}>
+        <View style={styles.heroCopy}>
+          <Text style={[styles.eyebrow, { color: colors.accent }]}>EDDY&apos;S PICK</Text>
+          <Text style={[styles.bestName, { color: colors.text }]} >{recommendation.river.name}</Text>
+          <Text style={[styles.bestReason, { color: colors.textMuted }]} numberOfLines={2}>{recommendation.reason}</Text>
+          <View style={styles.heroPill}><ConditionPill river={recommendation.river} /></View>
+        </View>
+        <Otter mood={otterForCondition(condition.code)} size={82} style={styles.bestPreviewOtter} />
+      </View>
+      {facts || age ? (
+        <View style={[styles.factRow, { backgroundColor: colors.card }]}>
+          <Ionicons name="pulse-outline" size={17} color={conditionInk(condition.code)} />
+          <View style={styles.flex}>
+            {facts ? <Text style={[styles.factText, { color: colors.text }]} numberOfLines={1}>{facts}</Text> : null}
+            {age ? <Text style={[styles.factAge, { color: colors.textMuted }]} numberOfLines={1}>{age}</Text> : null}
+          </View>
+        </View>
+      ) : null}
+      <Pressable
+        onPress={onOpen}
+        style={({ pressed }) => [styles.eddyRead, { backgroundColor: colors.card, borderColor: colors.border, opacity: pressed ? 0.7 : 1, transform: [{ scale: pressed ? 0.98 : 1 }] }]}
+        accessibilityRole="button"
+        accessibilityLabel={`Open Eddy's Read for ${recommendation.river.name}`}
+      >
+        <View style={styles.readHead}>
+          <Ionicons name="sparkles" size={15} color={colors.accent} />
+          <Text style={[styles.readLabel, { color: colors.accent }]}>View full read</Text>
+          <Ionicons name="chevron-forward" size={15} color={colors.textSubtle} />
+        </View>
+        <BlurredReadPreview lines={1} />
+      </Pressable>
+      <View style={styles.actions}>
+        <Pressable
+          onPress={onPlan}
+          style={({ pressed }) => [styles.primaryButton, { backgroundColor: pressed ? colors.accentFillPressed : colors.accentFill, transform: [{ scale: pressed ? 0.98 : 1 }] }]}
+          accessibilityRole="button"
+        >
+          <Ionicons name="map-outline" size={17} color={colors.onAccent} />
+          <Text style={[styles.primaryButtonText, { color: colors.onAccent }]}>Plan this river</Text>
+        </Pressable>
+        <Pressable
+          onPress={onOpen}
+          style={({ pressed }) => [styles.viewLink, { opacity: pressed ? 0.6 : 1, transform: [{ scale: pressed ? 0.98 : 1 }] }]}
+          accessibilityRole="button"
+        >
+          <Text style={[styles.viewLinkText, { color: colors.interactive }]}>View river</Text>
         </Pressable>
       </View>
     </View>
@@ -244,12 +533,8 @@ export function TodayHub({
   onBrowseRivers,
 }: Props) {
   const router = useRouter();
-  const { colors, elevation } = useTheme();
+  const { colors } = useTheme();
   const { starred, ready: starsReady } = useStarredRivers();
-  const { entitlement, loaded: accountLoaded, error: accountError, refresh: refreshAccount } = useAccount();
-  const { getAccessToken } = useSession();
-  const entitled = accountLoaded && !accountError ? Boolean(entitlement?.isActive) : null;
-  const requestPremiumOutlook = entitled === true;
   const [floats, setFloats] = useState<FavoriteFloatSummary[] | null>(null);
   const [safety, setSafety] = useState<{
     high: HighWaterEntry[] | null;
@@ -261,20 +546,12 @@ export function TodayHub({
     ready: boolean;
     riverId: string | null;
   }>({ ready: false, riverId: null });
-  const [outlook, setOutlook] = useState<{ slug: string; data: RiverOutlookResponse | null } | null>(null);
-  const [premiumRead, setPremiumRead] = useState<{
-    slug: string;
-    data: PremiumEddyRead | null;
-    failure: PremiumReadFailure | null;
-  } | null>(null);
   const [localWeather, setLocalWeather] = useState<{
     data: Awaited<ReturnType<typeof fetchLocationWeather>>;
     coordsKey: string;
   } | null>(null);
   const [weatherFailedKey, setWeatherFailedKey] = useState<string | null>(null);
   const [weatherRetry, setWeatherRetry] = useState(0);
-  const [premiumRetry, setPremiumRetry] = useState(0);
-  const [paywallOpen, setPaywallOpen] = useState(false);
 
   useEffect(() => {
     void ensureGauges();
@@ -374,16 +651,28 @@ export function TodayHub({
     [starred],
   );
   const highlightedFavorite = useMemo(() => dailyHighlightedFavorite(starred), [starred]);
-  const recommendation = useMemo(
-    () => incumbentState.ready ? chooseTodayRecommendation({
+  const favoritePreviews = useMemo(() => {
+    if (!highlightedFavorite) return [];
+    return [
+      highlightedFavorite,
+      ...starred.filter(
+        (item) =>
+          item.kind !== highlightedFavorite.kind ||
+          item.entityId !== highlightedFavorite.entityId,
+      ),
+    ].slice(0, 4);
+  }, [highlightedFavorite, starred]);
+  const recommendations = useMemo(
+    () => incumbentState.ready ? chooseTodayRecommendations({
       rivers,
       gauges: gauges ?? [],
       favoriteRiverIds: favoriteIds,
       coords: location.coords,
       incumbentRiverId: incumbentState.riverId,
-    }) : null,
+    }) : [],
     [favoriteIds, gauges, incumbentState, location.coords, rivers],
   );
+  const recommendation = recommendations[0] ?? null;
 
   useEffect(() => {
     if (!incumbentState.ready || !recommendation || recommendation.river.id === incumbentState.riverId) return;
@@ -391,50 +680,15 @@ export function TodayHub({
     void writeRecommendation(next).then(() => setIncumbentState({ ready: true, riverId: next }));
   }, [incumbentState, recommendation]);
 
-  const outlookSlug = recommendation?.river.slug
-    ?? (highlightedFavorite?.kind === 'river' ? highlightedFavorite.slug : null)
-    ?? null;
-  useEffect(() => {
-    if (!outlookSlug) return;
-    const controller = new AbortController();
-    void fetchRiverOutlook(outlookSlug, controller.signal)
-      .then((data) => {
-        if (!controller.signal.aborted) setOutlook({ slug: outlookSlug, data });
-      })
-      .catch(() => {
-        if (!controller.signal.aborted) setOutlook({ slug: outlookSlug, data: null });
-      });
-    return () => controller.abort();
-  }, [outlookSlug, refreshRevision]);
-
-  useEffect(() => {
-    if (!requestPremiumOutlook || !outlookSlug) return;
-    const slug = outlookSlug;
-    const controller = new AbortController();
-    void getAccessToken()
-      .then((token) => {
-        if (!token) throw new ApiError('No active session');
-        return fetchPremiumEddyRead(slug, token, controller.signal);
-      })
-      .then((data) => {
-        if (!controller.signal.aborted) setPremiumRead({ slug, data, failure: null });
-      })
-      .catch((error) => {
-        if (!controller.signal.aborted) {
-          setPremiumRead({
-            slug,
-            data: null,
-            failure: classifyPremiumReadFailure(error instanceof ApiError ? error.status : undefined),
-          });
-        }
-      });
-    return () => controller.abort();
-  }, [getAccessToken, outlookSlug, premiumRetry, refreshRevision, requestPremiumOutlook]);
-
   const riverById = useMemo(() => new Map(rivers.map((river) => [river.id, river])), [rivers]);
-  const highlightedRiver = highlightedFavorite?.kind === 'river'
-    ? riverById.get(highlightedFavorite.entityId) ?? null
-    : null;
+  const gaugeByFavoriteId = useMemo(() => {
+    const index = new Map<string, MapGauge>();
+    (gauges ?? []).forEach((gauge) => {
+      index.set(gauge.id, gauge);
+      if (gauge.usgsSiteId) index.set(gauge.usgsSiteId, gauge);
+    });
+    return index;
+  }, [gauges]);
   const openFavorite = useCallback((item: StarredItem) => {
     if (item.kind === 'river' && item.slug) router.push(`/river/${item.slug}`);
     else if (item.kind === 'gauge' && item.usgsSiteId) router.push(`/gauge/${item.usgsSiteId}`);
@@ -470,24 +724,28 @@ export function TodayHub({
     () => [...(activeSafety?.high ?? [])].sort((a, b) => Number(b.conditionCode === 'dangerous') - Number(a.conditionCode === 'dangerous'))[0] ?? null,
     [activeSafety?.high],
   );
-  const floatPreviews = useMemo(() => dailyFavoriteFloats(floats ?? []).slice(0, 4), [floats]);
+  const featuredFloat = useMemo(() => dailyFavoriteFloats(floats ?? [])[0] ?? null, [floats]);
   const previewDistances = useMemo(
     () => location.coords && gauges ? riverMilesByGauge(gauges, location.coords) : null,
     [gauges, location.coords],
   );
   const readPreviews = useMemo(() => {
     const reserved = new Set<string>();
-    if (highlightedFavorite?.kind === 'river') reserved.add(highlightedFavorite.entityId);
-    if (recommendation) reserved.add(recommendation.river.id);
+    favoritePreviews.forEach((item) => {
+      if (item.kind === 'river') reserved.add(item.entityId);
+    });
+    recommendations.forEach((item) => reserved.add(item.river.id));
     const distinct = reads.filter(({ river }) => !reserved.has(river.id));
     return (distinct.length > 0 ? distinct : reads).slice(0, 3);
-  }, [highlightedFavorite, reads, recommendation]);
+  }, [favoritePreviews, reads, recommendations]);
   const previewReservedIds = useMemo(() => {
     const ids = new Set(readPreviews.map(({ river }) => river.id));
-    if (highlightedFavorite?.kind === 'river') ids.add(highlightedFavorite.entityId);
-    if (recommendation) ids.add(recommendation.river.id);
+    favoritePreviews.forEach((item) => {
+      if (item.kind === 'river') ids.add(item.entityId);
+    });
+    recommendations.forEach((item) => ids.add(item.river.id));
     return ids;
-  }, [highlightedFavorite, readPreviews, recommendation]);
+  }, [favoritePreviews, readPreviews, recommendations]);
   const conditionPreviews = useMemo(() => [...rivers]
     .filter((river) => !previewReservedIds.has(river.id))
     .sort((a, b) => {
@@ -502,21 +760,6 @@ export function TodayHub({
       return (a.currentCondition?.readingAgeHours ?? Infinity) - (b.currentCondition?.readingAgeHours ?? Infinity);
     })
     .slice(0, 3), [favoriteIds, previewDistances, previewReservedIds, rivers]);
-  const condition = recommendation?.river.currentCondition ?? null;
-  const reading = condition ? primaryReading(condition) : null;
-  const publicOutlook = outlook && outlook.slug === recommendation?.river.slug ? outlook.data : null;
-  const premiumResolved = premiumRead?.slug === recommendation?.river.slug;
-  const premiumFailure = premiumResolved ? premiumRead?.failure ?? null : null;
-  const activePremiumRead = premiumResolved && !premiumFailure ? premiumRead?.data : null;
-  const todayEntitled = resolvePremiumTakeState(entitled, premiumResolved, premiumFailure);
-  const premiumFailed = todayEntitled === 'error';
-  const liveOutlook = publicOutlook && activePremiumRead
-    ? {
-        ...publicOutlook,
-        fullRead: activePremiumRead.fullRead,
-        generatedAt: activePremiumRead.generatedAt,
-      }
-    : publicOutlook;
   const activeWeather = weatherCoordsKey && localWeather?.coordsKey === weatherCoordsKey
     ? localWeather.data
     : null;
@@ -539,18 +782,6 @@ export function TodayHub({
       : location.status === 'denied'
         ? 'Open Settings for local weather'
         : 'Use my location for local weather';
-  const eddyRead = liveOutlook?.fullRead ?? liveOutlook?.sections?.eddyRead ?? liveOutlook?.sections?.bottomLine ?? null;
-  const recommendationFacts = condition
-    ? [
-        reading ? formatReading(reading.value, reading.unit) : null,
-        condition.trend?.label ?? null,
-      ].filter(Boolean).join(' · ')
-    : '';
-  const recommendationAge = condition ? readingAge(condition.readingAgeHours) : null;
-  const publicRead = recommendation && condition
-    ? `${recommendation.river.name} has ${conditionLabel(condition.code).toLowerCase()} water based on a fresh gauge reading.`
-    : null;
-
   return (
     <View style={styles.hub}>
       {!suppressNetworkNotice && detailFailure ? (
@@ -607,57 +838,71 @@ export function TodayHub({
       </View>
 
       <View style={styles.section}>
-        <SectionHead title="Your favorites" action={starred.length ? 'See all' : undefined} onAction={() => router.push('/favorites')} />
-        {starsReady && highlightedFavorite ? (
-          <View
-              style={[
-                styles.favoriteHero,
-                {
-                  backgroundColor: highlightedRiver
-                    ? conditionBg(highlightedRiver.currentCondition?.code ?? 'unknown')
-                    : colors.selectionBg,
-                  borderColor: highlightedRiver
-                    ? conditionChipBorder(highlightedRiver.currentCondition?.code ?? 'unknown')
-                    : colors.border,
-                },
-                elevation(1),
-              ]}
-            >
-              <View style={styles.favoriteHeroTop}>
-                <View style={styles.heroCopy}>
-                  <Text style={[styles.eyebrow, { color: colors.accent }]}>HIGHLIGHTED</Text>
-                  <Text style={[styles.heroName, { color: colors.text }]} numberOfLines={2}>{highlightedFavorite.name}</Text>
-                  <Text style={[styles.heroMeta, { color: colors.textMuted }]} numberOfLines={2}>
-                    {favoriteDetail(highlightedFavorite, highlightedRiver)}
-                  </Text>
-                  {highlightedRiver ? <View style={styles.heroPill}><ConditionPill river={highlightedRiver} /></View> : null}
-                </View>
-                {highlightedRiver ? (
-                  <Otter mood={otterForCondition(highlightedRiver.currentCondition?.code ?? 'unknown')} size={96} style={styles.heroOtter} />
-                ) : (
-                  <EddyScene name="heart" size={92} style={styles.heroOtter} />
-                )}
-              </View>
-              <View style={styles.actions}>
-                <Pressable
-                  onPress={() => openFavorite(highlightedFavorite)}
-                  style={({ pressed }) => [styles.secondaryButton, { backgroundColor: colors.card, borderColor: colors.border, opacity: pressed ? 0.65 : 1 }]}
-                  accessibilityRole="button"
-                >
-                  <Text style={[styles.secondaryButtonText, { color: colors.interactive }]}>View details</Text>
-                </Pressable>
-                {highlightedRiver?.slug ? (
-                  <Pressable
-                    onPress={() => openPlan(highlightedRiver.slug)}
-                    style={({ pressed }) => [styles.primaryButton, { backgroundColor: pressed ? colors.accentFillPressed : colors.accentFill }]}
-                    accessibilityRole="button"
-                  >
-                    <Ionicons name="map-outline" size={17} color={colors.onAccent} />
-                    <Text style={[styles.primaryButtonText, { color: colors.onAccent }]}>Plan a float</Text>
-                  </Pressable>
-                ) : null}
-              </View>
+        <SectionHead title="Eddy’s Reads" action={reads.length > 0 ? 'See all' : undefined} onAction={onBrowseReads} />
+        {readPreviews.length > 1 ? (
+          <CardRail label="Eddy's Reads" cardWidth={286}>
+            {readPreviews.map(({ river, says }) => (
+              <EddyReadCard
+                key={river.id}
+                river={river}
+                says={{ generatedAt: says.generatedAt }}
+                compact
+                onPress={() => router.push(`/river/${river.slug}`)}
+              />
+            ))}
+          </CardRail>
+        ) : readPreviews.length === 1 ? (
+          <EddyReadCard
+            river={readPreviews[0].river}
+            says={{ generatedAt: readPreviews[0].says.generatedAt }}
+            standalone
+            onPress={() => router.push(`/river/${readPreviews[0].river.slug}`)}
+          />
+        ) : readsLoading ? (
+          <View style={styles.loading}><ActivityIndicator color={colors.interactive} /></View>
+        ) : (
+          <View style={[styles.emptyCard, { backgroundColor: colors.selectionBg, borderColor: colors.border }]}>
+            <View style={styles.flex}>
+              <Text style={[styles.emptyTitle, { color: colors.text }]}>Eddy is between reads</Text>
+              <Text style={[styles.emptyBody, { color: colors.textMuted }]}>New reads appear when current conditions are available.</Text>
+            </View>
           </View>
+        )}
+      </View>
+
+      <View style={styles.section}>
+        <SectionHead title="Favorites" action={starred.length ? 'See all' : undefined} onAction={() => router.push('/favorites')} />
+        {starsReady && favoritePreviews.length > 1 ? (
+          <CardRail label="Favorites" cardWidth={286}>
+            {favoritePreviews.map((item) => {
+              const river = item.kind === 'river' ? riverById.get(item.entityId) ?? null : null;
+              return (
+                <FavoritePreviewCard
+                  key={`${item.kind}:${item.entityId}`}
+                  item={item}
+                  river={river}
+                  gauge={item.kind === 'gauge'
+                    ? gaugeByFavoriteId.get(item.entityId) ?? gaugeByFavoriteId.get(item.usgsSiteId ?? '') ?? null
+                    : null}
+                  onOpen={() => openFavorite(item)}
+                  onPlan={river?.slug ? () => openPlan(river.slug) : null}
+                />
+              );
+            })}
+          </CardRail>
+        ) : starsReady && favoritePreviews.length === 1 ? (
+          <FavoritePreviewCard
+            item={favoritePreviews[0]}
+            river={favoritePreviews[0].kind === 'river' ? riverById.get(favoritePreviews[0].entityId) ?? null : null}
+            gauge={favoritePreviews[0].kind === 'gauge'
+              ? gaugeByFavoriteId.get(favoritePreviews[0].entityId) ?? gaugeByFavoriteId.get(favoritePreviews[0].usgsSiteId ?? '') ?? null
+              : null}
+            onOpen={() => openFavorite(favoritePreviews[0])}
+            onPlan={favoritePreviews[0].kind === 'river' && favoritePreviews[0].slug
+              ? () => openPlan(favoritePreviews[0].slug)
+              : null}
+            standalone
+          />
         ) : starsReady ? (
           <View style={[styles.emptyCard, { backgroundColor: colors.selectionBg, borderColor: colors.border }]}>
             <EddyScene name="heart" size={76} />
@@ -682,80 +927,24 @@ export function TodayHub({
         <SectionHead title={location.coords ? 'Best Near You' : 'Best Right Now'} />
         {!gauges || !incumbentState.ready ? (
           <View style={styles.loading}><ActivityIndicator color={colors.interactive} /></View>
-        ) : recommendation && condition ? (
-          <View style={[styles.bestCard, { backgroundColor: conditionBg(condition.code), borderColor: conditionChipBorder(condition.code) }, elevation(1)]}>
-            <View style={styles.bestTop}>
-              <View style={styles.heroCopy}>
-                <Text style={[styles.eyebrow, { color: colors.accent }]}>EDDY&apos;S PICK</Text>
-                <Text style={[styles.bestName, { color: colors.text }]} numberOfLines={2}>{recommendation.river.name}</Text>
-                <Text style={[styles.bestReason, { color: colors.textMuted }]} numberOfLines={2}>{recommendation.reason}</Text>
-                <View style={styles.heroPill}><ConditionPill river={recommendation.river} /></View>
-              </View>
-              <Otter mood={otterForCondition(condition.code)} size={94} style={styles.bestOtter} />
-            </View>
-            {recommendationFacts || recommendationAge ? (
-              <View style={[styles.factRow, { backgroundColor: colors.card }]}>
-                <Ionicons name="pulse-outline" size={17} color={conditionInk(condition.code)} />
-                <View style={styles.flex}>
-                  {recommendationFacts ? (
-                    <Text style={[styles.factText, { color: colors.text }]} numberOfLines={1}>{recommendationFacts}</Text>
-                  ) : null}
-                  {recommendationAge ? (
-                    <Text style={[styles.factAge, { color: colors.textMuted }]} numberOfLines={1}>{recommendationAge}</Text>
-                  ) : null}
-                </View>
-              </View>
-            ) : null}
-            {publicRead || eddyRead ? (
-              <Pressable
-                onPress={() => {
-                  if (premiumFailed) setPremiumRetry((value) => value + 1);
-                  else if (todayEntitled === false) setPaywallOpen(true);
-                  else router.push(`/river/${recommendation.river.slug}`);
-                }}
-                style={({ pressed }) => [styles.eddyRead, { backgroundColor: colors.card, borderColor: colors.border, opacity: pressed ? 0.7 : 1 }]}
-                accessibilityRole="button"
-                accessibilityLabel={`Eddy's Read for ${recommendation.river.name}${premiumFailed ? ', retry loading full read' : todayEntitled === false ? ', locked' : ''}`}
-              >
-                <View style={styles.readHead}>
-                  <Ionicons name="sparkles" size={15} color={colors.accent} />
-                  <Text style={[styles.readLabel, { color: colors.accent }]}>EDDY&apos;S READ</Text>
-                  <Ionicons name="chevron-forward" size={15} color={colors.textSubtle} />
-                </View>
-                <Text style={[styles.readCopy, { color: colors.text }]} numberOfLines={2}>
-                  {todayEntitled === true && premiumResolved && !premiumFailure && eddyRead ? eddyRead : publicRead}
-                </Text>
-                {premiumFailed ? (
-                  <View style={styles.unlockRow}>
-                    <Ionicons name="refresh" size={13} color={colors.interactive} />
-                    <Text style={[styles.unlockText, { color: colors.interactive }]}>Full read couldn&apos;t load · Try again</Text>
-                  </View>
-                ) : todayEntitled === false ? (
-                  <View style={styles.unlockRow}>
-                    <Ionicons name="lock-closed" size={13} color={colors.accent} />
-                    <Text style={[styles.unlockText, { color: colors.accent }]}>Read Eddy’s full take</Text>
-                  </View>
-                ) : null}
-              </Pressable>
-            ) : null}
-            <View style={styles.actions}>
-              <Pressable
-                onPress={() => router.push(`/river/${recommendation.river.slug}`)}
-                style={({ pressed }) => [styles.secondaryButton, { borderColor: colors.border, opacity: pressed ? 0.65 : 1 }]}
-                accessibilityRole="button"
-              >
-                <Text style={[styles.secondaryButtonText, { color: colors.interactive }]}>View river</Text>
-              </Pressable>
-              <Pressable
-                onPress={() => openPlan(recommendation.river.slug)}
-                style={({ pressed }) => [styles.primaryButton, { backgroundColor: pressed ? colors.accentFillPressed : colors.accentFill }]}
-                accessibilityRole="button"
-              >
-                <Ionicons name="map-outline" size={17} color={colors.onAccent} />
-                <Text style={[styles.primaryButtonText, { color: colors.onAccent }]}>Plan a float</Text>
-              </Pressable>
-            </View>
-          </View>
+        ) : recommendations.length > 1 ? (
+          <CardRail label={location.coords ? 'Best Near You' : 'Best Right Now'} cardWidth={300}>
+            {recommendations.map((item) => (
+              <BestRiverCard
+                key={item.river.id}
+                recommendation={item}
+                onOpen={() => router.push(`/river/${item.river.slug}`)}
+                onPlan={() => openPlan(item.river.slug)}
+              />
+            ))}
+          </CardRail>
+        ) : recommendations.length === 1 ? (
+          <BestRiverCard
+            recommendation={recommendations[0]}
+            onOpen={() => router.push(`/river/${recommendations[0].river.slug}`)}
+            onPlan={() => openPlan(recommendations[0].river.slug)}
+            standalone
+          />
         ) : (
           <View style={[styles.emptyBest, { backgroundColor: colors.card, borderColor: colors.border }]}>
             <Text style={[styles.emptyTitle, { color: colors.text }]}>
@@ -802,65 +991,16 @@ export function TodayHub({
         </View>
       </View>
 
-      <View style={styles.section}>
-        <SectionHead title="Eddy’s Reads" action={reads.length > 0 ? 'See all' : undefined} onAction={onBrowseReads} />
-        {readPreviews.length > 0 ? (
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.readRail}
-            style={styles.floatRailViewport}
-            decelerationRate="fast"
-          >
-            {readPreviews.map(({ river, says }) => (
-              <EddyReadCard
-                key={river.id}
-                river={river}
-                says={says}
-                compact
-                onPress={() => router.push(`/river/${river.slug}`)}
-              />
-            ))}
-          </ScrollView>
-        ) : readsLoading ? (
-          <View style={styles.loading}><ActivityIndicator color={colors.interactive} /></View>
-        ) : (
-          <View style={[styles.emptyCard, { backgroundColor: colors.selectionBg, borderColor: colors.border }]}>
-            <View style={styles.flex}>
-              <Text style={[styles.emptyTitle, { color: colors.text }]}>Eddy is between reads</Text>
-              <Text style={[styles.emptyBody, { color: colors.textMuted }]}>Fresh summaries return when the latest water and written conditions agree.</Text>
-            </View>
-          </View>
-        )}
-      </View>
-
-      {floatPreviews.length ? (
+      {featuredFloat ? (
         <View style={styles.section}>
-          <SectionHead title="Eddy’s Favorite Floats" action="See all" onAction={() => router.push('/favorite-floats')} />
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.floatRail}
-            style={styles.floatRailViewport}
-            decelerationRate="fast"
-          >
-            {floatPreviews.map((item) => (
-              <FloatPreviewCard
-                key={item.id}
-                item={item}
-                onPlan={() => openPlan(item.riverSlug, item.putInId, item.takeOutId)}
-              />
-            ))}
-          </ScrollView>
+          <SectionHead title="Featured float" action="See all" onAction={() => router.push('/favorite-floats')} />
+          <FloatPreviewCard
+            item={featuredFloat}
+            onPlan={() => openPlan(featuredFloat.riverSlug, featuredFloat.putInId, featuredFloat.takeOutId)}
+          />
         </View>
       ) : null}
 
-      <PaywallSheet
-        visible={paywallOpen}
-        onClose={() => setPaywallOpen(false)}
-        riverName={recommendation?.river.name}
-        onPurchased={() => void refreshAccount()}
-      />
     </View>
   );
 }
@@ -882,14 +1022,15 @@ const styles = StyleSheet.create({
   sectionHead: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 10, paddingHorizontal: 2 },
   sectionTitle: { ...t.xl, fontFamily: fonts.heading },
   sectionAction: { ...t.sm, fontFamily: fonts.semibold },
-  favoriteHero: { borderWidth: 1, borderRadius: 20, padding: 16, overflow: 'hidden' },
+  favoritePreview: { width: '100%', minHeight: 252, borderWidth: 1, borderRadius: 20, padding: 16 },
+  favoriteStandalone: { width: 'auto', height: 'auto', minHeight: 252 },
   favoriteHeroTop: { flexDirection: 'row', alignItems: 'center', minHeight: 116 },
   heroCopy: { flex: 1, minWidth: 0, zIndex: 1 },
   eyebrow: { ...t.xs, fontFamily: fonts.heading, letterSpacing: 0.9, marginBottom: 3 },
-  heroName: { ...t['2xl'], fontFamily: fonts.display },
+  favoritePreviewName: { ...t.xl, fontFamily: fonts.display },
   heroMeta: { ...t.sm, fontFamily: fonts.body, marginTop: 4 },
   heroPill: { alignSelf: 'flex-start', marginTop: 9 },
-  heroOtter: { marginRight: -8, marginLeft: 2 },
+  favoritePreviewOtter: { marginRight: -9, marginLeft: 2 },
   pill: { borderRadius: 999, borderWidth: 1, paddingHorizontal: 10, paddingVertical: 4, alignSelf: 'flex-start' },
   pillText: { ...t.xs, fontFamily: fonts.semibold },
   emptyCard: { borderWidth: 1, borderRadius: 18, paddingHorizontal: 14, paddingVertical: 10, flexDirection: 'row', alignItems: 'center', gap: 10 },
@@ -897,28 +1038,31 @@ const styles = StyleSheet.create({
   emptyTitle: { ...t.base, fontFamily: fonts.semibold },
   emptyBody: { ...t.sm, fontFamily: fonts.body, marginTop: 3 },
   loading: { height: 150, alignItems: 'center', justifyContent: 'center' },
-  bestCard: { borderWidth: 1, borderRadius: 20, padding: 16, overflow: 'hidden' },
+  bestPreview: { width: '100%', minHeight: 354, borderWidth: 1, borderRadius: 20, padding: 16 },
+  bestStandalone: { width: 'auto', height: 'auto', minHeight: 354 },
   bestTop: { flexDirection: 'row', alignItems: 'center', minHeight: 112 },
   bestName: { ...t['2xl'], fontFamily: fonts.display },
   bestReason: { ...t.sm, fontFamily: fonts.body, marginTop: 4 },
-  bestOtter: { marginRight: -9, marginLeft: 2 },
+  bestPreviewOtter: { marginRight: -10, marginLeft: 2 },
   factRow: { minHeight: 44, borderRadius: 12, paddingHorizontal: 12, paddingVertical: 9, flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 8 },
   factText: { ...t.sm, fontFamily: fonts.mono, flex: 1 },
   factAge: { ...t.xs, fontFamily: fonts.body, marginTop: 2 },
   eddyRead: { borderWidth: StyleSheet.hairlineWidth, borderRadius: 14, padding: 13, marginTop: 10 },
   readHead: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   readLabel: { ...t.xs, fontFamily: fonts.heading, letterSpacing: 0.7, flex: 1 },
-  readCopy: { ...t.sm, fontFamily: fonts.body, lineHeight: 20, marginTop: 7 },
-  unlockRow: { flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 8 },
-  unlockText: { ...t.xs, fontFamily: fonts.semibold },
-  actions: { flexDirection: 'row', gap: 9, marginTop: 15 },
+  actions: { flexWrap: 'wrap', flexDirection: 'row', alignItems: 'center', gap: 9, marginTop: 'auto', paddingTop: 15 },
   secondaryButton: { minHeight: 46, borderWidth: 1, borderRadius: 12, paddingHorizontal: 15, alignItems: 'center', justifyContent: 'center' },
   secondaryButtonText: { ...t.sm, fontFamily: fonts.semibold },
   primaryButton: { minHeight: 46, borderRadius: 12, paddingHorizontal: 16, flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7 },
-  primaryButtonText: { ...t.sm, fontFamily: fonts.semibold },
-  floatRailViewport: { marginHorizontal: -16 },
-  floatRail: { paddingHorizontal: 16, paddingBottom: 4, gap: 12 },
-  readRail: { paddingHorizontal: 16, paddingBottom: 4, gap: 12 },
+  primaryButtonText: { ...t.sm, fontFamily: fonts.semibold, flexShrink: 1 },
+  viewLink: { minHeight: 46, paddingHorizontal: 8, alignItems: 'center', justifyContent: 'center' },
+  viewLinkText: { ...t.sm, fontFamily: fonts.semibold },
+  flexButton: { flex: 1 },
+  railControls: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 },
+  railButton: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
+  cardRailViewport: { marginHorizontal: -16 },
+  cardRail: { paddingHorizontal: 16, paddingBottom: 2, gap: CARD_GAP },
+  railPosition: { ...t.xs, fontFamily: fonts.mono, textAlign: 'right', marginTop: 5, paddingRight: 2 },
   conditionSummary: { flexDirection: 'row', flexWrap: 'wrap', gap: 7, marginBottom: 10 },
   conditionCount: { flexGrow: 1, flexBasis: '47%', minWidth: 0, borderWidth: StyleSheet.hairlineWidth, borderRadius: 12, paddingHorizontal: 10, paddingVertical: 9 },
   conditionCountNumber: { ...t.lg, fontFamily: fonts.heading },
@@ -929,7 +1073,7 @@ const styles = StyleSheet.create({
   compactRiverMeta: { ...t.xs, fontFamily: fonts.body, marginTop: 2 },
   browseAll: { minHeight: 48, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6 },
   browseAllText: { ...t.sm, fontFamily: fonts.semibold },
-  floatPreview: { width: 292, borderRadius: 18, overflow: 'hidden' },
+  floatPreview: { width: '100%', borderRadius: 18, overflow: 'hidden' },
   floatPreviewPhoto: { width: '100%', height: 126 },
   floatFallback: { width: '100%', height: 126, overflow: 'hidden' },
   routeDot: { position: 'absolute', width: 12, height: 12, borderRadius: 6, zIndex: 2 },

@@ -3,6 +3,7 @@ import test from 'node:test';
 import type { HighWaterEntry, MapGauge, RiverAlert, RiverListItem } from '@eddy/types';
 import {
   chooseTodayRecommendation,
+  chooseTodayRecommendations,
   isTodayRecommendationEligible,
 } from '../../../eddy-ios/src/lib/todayRecommendation';
 import { favoriteFloatMeta } from '../../../eddy-ios/src/lib/favoriteFloatCopy';
@@ -56,6 +57,43 @@ test('Best Near You is discovery and excludes favorites', () => {
   });
   assert.equal(result?.river.id, discovery.id);
   assert.match(result?.reason ?? '', /^≈ [\d.]+ mi to gauge$/);
+});
+
+test('Best Near You rail returns distinct ranked candidates', () => {
+  const favorite = river('favorite', 'flowing');
+  const first = river('first', 'flowing');
+  const second = river('second', 'good');
+  const third = river('third', 'good');
+  const outsideRadius = river('outside', 'flowing');
+  const results = chooseTodayRecommendations({
+    rivers: [favorite, third, outsideRadius, second, first],
+    gauges: [
+      gauge('favorite', favorite.id, -93.01),
+      gauge('first', first.id, -93.2),
+      gauge('second', second.id, -93.1),
+      gauge('third', third.id, -93.3),
+      gauge('outside', outsideRadius.id, -96),
+    ],
+    favoriteRiverIds: new Set([favorite.id]),
+    coords: { lat: 37, lng: -93 },
+  });
+
+  assert.deepEqual(results.map((item) => item.river.id), ['first', 'second', 'third']);
+  assert.equal(new Set(results.map((item) => item.river.id)).size, results.length);
+});
+
+test('Best Near You rail keeps the stabilized recommendation first', () => {
+  const incumbent = river('incumbent', 'good');
+  const challenger = river('challenger', 'good');
+  const results = chooseTodayRecommendations({
+    rivers: [challenger, incumbent],
+    gauges: [gauge('challenger', challenger.id, -93.1), gauge('incumbent', incumbent.id, -93.15)],
+    favoriteRiverIds: new Set(),
+    coords: { lat: 37, lng: -93 },
+    incumbentRiverId: incumbent.id,
+  });
+
+  assert.deepEqual(results.map((item) => item.river.id), ['incumbent', 'challenger']);
 });
 
 test('condition band ranks before distance', () => {

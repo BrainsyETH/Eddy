@@ -1,5 +1,23 @@
 # Eddy Says delivery: public summaries, server-gated full reads
 
+## Current index-card decision (2026-09-14)
+
+Product direction: no free summary on Today/Reads index cards, including the
+Best Near You previews. These surfaces show river context, written age where
+available, and decorative blurred shapes. Every account state gets the stable
+“View full read” navigation action; subscription access is resolved at the
+destination. Cards never fetch account state or premium prose.
+
+This supersedes the index-card display claims below. The public API contract
+and existing detail/web summary surfaces are unchanged. Blurred shapes are
+decoration, not obscured fetched text or a loading indicator. The narrowed
+index-card prop carries only the written timestamp, never report prose.
+
+Rails use account-scoped, screen-local entity selection, not global indexes.
+Large text uses vertical cards with content-driven height. The curated float
+section intentionally shows one item, labeled “Featured float”, with See all.
+
+
 PR #1287 completed the iOS surfacing work and made the premium boundary a real
 server boundary. Every public surface receives the short per-river summary.
 The long per-river quote is returned only to a bearer token with an active Eddy
