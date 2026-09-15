@@ -12,8 +12,7 @@ import { fonts } from '@/theme/typography';
 // "TODAY", NOT "SEARCH". The tab was named after its mechanism rather than its
 // job. Nobody opens Eddy in order to search; they open it to find out what the
 // water is doing, and searching is one of the things they do once they are
-// here. The field below the title still says what it accepts, so nothing about
-// searching became less discoverable — the icon is still a magnifying glass.
+// here. Search keeps its own magnifying glass; the tab icon names the home screen.
 //
 // TODAY LAUNCHES, NOT MAP. The app opens on the screen that answers the
 // question people came with — "what can I float today?" — rather than on the
@@ -50,7 +49,7 @@ export default function TabsLayout() {
         name="reports"
         options={{
           title: 'Today',
-          tabBarIcon: ({ color, size }) => <Ionicons name="search-outline" size={size} color={color} />,
+          tabBarIcon: ({ color, size }) => <Ionicons name="home-outline" size={size} color={color} />,
         }}
       />
       <Tabs.Screen

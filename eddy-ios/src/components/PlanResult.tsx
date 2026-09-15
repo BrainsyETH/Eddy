@@ -398,7 +398,7 @@ const styles = StyleSheet.create({
   body: { padding: 16, paddingBottom: 40 },
   warnings: { borderRadius: 12, borderWidth: 1, padding: 12, marginBottom: 10, gap: 8 },
   warningRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 8 },
-  warningText: { ...t.xs, fontFamily: fonts.medium, flex: 1 },
+  warningText: { ...t.sm, fontFamily: fonts.medium, flex: 1 },
   card: { padding: 16, borderRadius: 16, marginBottom: 10 },
   cardTitle: { ...t.base, fontFamily: fonts.heading, marginBottom: 6 },
   // `center`, now that the distance is taller than the endpoint line it sits
@@ -411,12 +411,12 @@ const styles = StyleSheet.create({
   // time below is the headline and this must not start competing with it.
   segmentDistance: { ...t.base, fontFamily: fonts.mono },
   headline: { ...t['3xl'], fontFamily: fonts.display, marginTop: 6 },
-  headlineNote: { ...t.xs, fontFamily: fonts.body, marginTop: 2 },
+  headlineNote: { ...t.sm, fontFamily: fonts.body, marginTop: 2 },
   conditionHead: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   conditionText: { flex: 1, minWidth: 0 },
   conditionLabel: { ...t.sm, fontFamily: fonts.semibold },
   planReading: { ...t.xl, fontFamily: fonts.mono, marginTop: 4 },
-  planReadingMeta: { ...t.xs, fontFamily: fonts.body, marginTop: 3 },
+  planReadingMeta: { ...t.sm, fontFamily: fonts.body, marginTop: 3 },
   sourceRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -430,7 +430,7 @@ const styles = StyleSheet.create({
   endpointRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 8 },
   endpointDot: { width: 12, height: 12, borderRadius: 999, marginLeft: 1 },
   endpointText: { flex: 1, minWidth: 0 },
-  endpointRole: { ...t.xs, fontFamily: fonts.semibold },
+  endpointRole: { ...t.sm, fontFamily: fonts.semibold },
   endpointName: { ...t.sm, fontFamily: fonts.semibold, marginTop: 1 },
   // The dashed leg between the two ends, aligned under the put-in's dot so the
   // pair reads as one route rather than two unrelated rows.
@@ -476,5 +476,5 @@ const styles = StyleSheet.create({
   hazardDot: { width: 10, height: 10, borderRadius: 999 },
   hazardBody: { flex: 1, minWidth: 0 },
   hazardName: { ...t.sm, fontFamily: fonts.semibold },
-  hazardMeta: { ...t.xs, fontFamily: fonts.body, marginTop: 2 },
+  hazardMeta: { ...t.sm, fontFamily: fonts.body, marginTop: 2 },
 });
