@@ -7,7 +7,7 @@
 // condition card ended up stacked on top of each other. Routing every
 // popup open through this presenter closes whatever else is showing first.
 
-import type maplibregl from 'maplibre-gl';
+import type * as maplibregl from 'maplibre-gl';
 
 let current: maplibregl.Popup | null = null;
 

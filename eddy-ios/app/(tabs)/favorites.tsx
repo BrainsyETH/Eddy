@@ -312,30 +312,24 @@ export default function FavoritesScreen() {
               </View>
             ) : null}
 
-            {/* Saved floats live here rather than in a sixth tab: this is
-                already the screen for "things I kept", and both of them are
-                local, account-free and work offline. Hidden at zero — an empty
-                row teaching a feature nobody has used yet is clutter on the one
-                screen that should be all the user's own stuff. */}
-            {savedFloats.length > 0 ? (
-              <Pressable
-                onPress={() => router.push('/floats')}
-                style={({ pressed }) => [
-                  styles.floatsRow,
-                  { backgroundColor: colors.card, opacity: pressed ? 0.6 : 1 },
-                  elevation(1),
-                ]}
-                accessibilityRole="button"
-                accessibilityLabel={`Saved floats, ${savedFloats.length}`}
-              >
-                <Ionicons name="navigate-outline" size={18} color={colors.interactive} />
-                <Text style={[styles.floatsText, { color: colors.text }]}>Saved floats</Text>
-                <Text style={[styles.floatsCount, { color: colors.textSubtle }]}>
-                  {savedFloats.length}
-                </Text>
-                <Ionicons name="chevron-forward" size={16} color={colors.textSubtle} />
-              </Pressable>
-            ) : null}
+            {/* Keep saved floats discoverable before the first save. */}
+            <Pressable
+              onPress={() => router.push('/floats')}
+              style={({ pressed }) => [
+                styles.floatsRow,
+                { backgroundColor: colors.card, opacity: pressed ? 0.6 : 1 },
+                elevation(1),
+              ]}
+              accessibilityRole="button"
+              accessibilityLabel={`Saved floats, ${savedFloats.length}`}
+            >
+              <Ionicons name="navigate-outline" size={18} color={colors.interactive} />
+              <Text style={[styles.floatsText, { color: colors.text }]}>Saved floats</Text>
+              <Text style={[styles.floatsCount, { color: colors.textSubtle }]}>
+                {savedFloats.length}
+              </Text>
+              <Ionicons name="chevron-forward" size={16} color={colors.textSubtle} />
+            </Pressable>
 
             {/* Full-bleed rather than inside the header's 20pt gutter: the chip
                 row scrolls horizontally and has to be able to run to the screen

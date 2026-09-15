@@ -146,10 +146,12 @@
 20260914184414
 20260914190147
 20260914191118
-
-# Merged to main but not yet applied to production. Each is older than the
-# newest applied version, so applying them needs `supabase db push
-# --include-all` (or the API path). Move each to [applied] once it is, under
-# the version the recording assigned, and rename the file to match.
-[pending]
 20260914194000
+
+# Reviewed but not yet applied to production. Use a plain `supabase db push`
+# when a pending version is newer than the newest applied version; use
+# `--include-all` only for an older pending version. Move each to [applied]
+# once it is, under the version production recorded, and rename the file to
+# match when necessary.
+[pending]
+20260914205500

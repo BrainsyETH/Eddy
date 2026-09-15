@@ -908,12 +908,19 @@ export function TodayHub({
             <EddyScene name="heart" size={76} />
             <View style={styles.flex}>
               <Text style={[styles.emptyTitle, { color: colors.text }]}>Make Today yours</Text>
-              <Text style={[styles.emptyBody, { color: colors.textMuted }]}>Star rivers, gauges, or dams and they’ll lead this page.</Text>
+              <Text style={[styles.emptyBody, { color: colors.textMuted }]}>Star rivers, gauges, or dams to see them here.</Text>
             </View>
           </View>
         ) : (
           <ActivityIndicator color={colors.interactive} />
         )}
+        {starsReady ? starred
+          .filter((item) => item.kind === 'river' && item.entityId !== highlightedFavorite?.entityId)
+          .slice(0, 2)
+          .map((item) => {
+            const river = riverById.get(item.entityId);
+            return river ? <CompactRiverRow key={item.entityId} river={river} onPress={() => openFavorite(item)} /> : null;
+          }) : null}
       </View>
 
       <View style={styles.section}>

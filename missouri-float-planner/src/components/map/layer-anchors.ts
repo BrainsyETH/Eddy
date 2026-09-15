@@ -20,7 +20,7 @@
 // the first symbol layer — same "data below labels" guarantee — or to
 // appending on styles with no symbols at all (satellite).
 
-import type maplibregl from 'maplibre-gl';
+import type * as maplibregl from 'maplibre-gl';
 
 export const ANCHORS = {
   overlays: 'eddy-anchor-overlays',

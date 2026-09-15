@@ -72,6 +72,13 @@ export default function SavedFloatsScreen() {
                 Plan a float on the Map tab and tap Save. It shows up here, re-read against the
                 river every time you open it.
               </Text>
+              <Pressable
+                onPress={() => router.push({ pathname: '/', params: { openPlan: '1' } })}
+                style={[styles.planButton, { backgroundColor: colors.accentFill }]}
+                accessibilityRole="button"
+              >
+                <Text style={[styles.planButtonText, { color: colors.onAccent }]}>Plan your first float</Text>
+              </Pressable>
             </View>
           ) : null
         }
@@ -156,5 +163,7 @@ const styles = StyleSheet.create({
   rowMeta: { ...t.xs, fontFamily: fonts.body, marginTop: 3 },
   forget: { width: 52, alignItems: 'center', justifyContent: 'center' },
   empty: { padding: 32, alignItems: 'center', gap: 12 },
+  planButton: { minHeight: 44, borderRadius: 12, paddingHorizontal: 18, paddingVertical: 12, justifyContent: 'center' },
+  planButtonText: { ...t.base, fontFamily: fonts.semibold },
   emptyText: { ...t.sm, fontFamily: fonts.body, textAlign: 'center' },
 });

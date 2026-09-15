@@ -5,7 +5,7 @@
 
 import { useEffect, useRef } from 'react';
 import React from 'react';
-import maplibregl from 'maplibre-gl';
+import * as maplibregl from 'maplibre-gl';
 import { Star, type LucideIcon, Droplets, Mountain, Landmark, Eye, CircleDot, Tent, Sailboat } from 'lucide-react';
 import { createRoot, Root } from 'react-dom/client';
 import { useMap } from './MapContainer';

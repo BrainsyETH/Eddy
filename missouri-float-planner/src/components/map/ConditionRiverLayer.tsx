@@ -27,7 +27,7 @@
 // (gray reads as broken, not as "no data").
 
 import { useEffect, useMemo, useState } from 'react';
-import maplibregl from 'maplibre-gl';
+import * as maplibregl from 'maplibre-gl';
 import { useMap } from './MapContainer';
 import { ANCHORS, addLayerAt, whenStyleReady } from './layer-anchors';
 import { simplifyLine, LABEL_SIMPLIFY_TOLERANCE } from './simplify';

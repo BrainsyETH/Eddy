@@ -4,7 +4,7 @@
 // Access point editor with draggable markers showing original vs new positions
 
 import { useEffect, useRef, useState } from 'react';
-import maplibregl from 'maplibre-gl';
+import * as maplibregl from 'maplibre-gl';
 import { useMap } from '@/components/map/MapContainer';
 import { MapPin } from 'lucide-react';
 import { createRoot, Root } from 'react-dom/client';
