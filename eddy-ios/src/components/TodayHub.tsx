@@ -43,7 +43,6 @@ import { formatReading, primaryReading, readingAge } from '@/lib/readingCopy';
 import { dailyFavoriteFloats, dailyHighlightedFavorite } from '@/lib/todayFloats';
 import {
   chooseTodayRecommendations,
-  TODAY_RADIUS_MILES,
   type TodayRecommendation,
 } from '@/lib/todayRecommendation';
 import { railSelectionIndex, railIndexAtOffset } from '@/lib/railSelection';
@@ -497,6 +496,14 @@ function BestRiverCard({
         </View>
         <BlurredReadPreview lines={1} />
       </Pressable>
+      {recommendation.notices.length > 0 ? (
+        <Pressable onPress={onOpen} accessibilityRole="button" style={styles.factRow}>
+          <Ionicons name="warning-outline" size={18} color={colors.text} />
+          <Text style={[styles.factText, styles.flex, { color: colors.text }]}>
+            {recommendation.notices[0].title} · View agency notice
+          </Text>
+        </Pressable>
+      ) : null}
       <View style={styles.actions}>
         <Pressable
           onPress={onPlan}
@@ -667,10 +674,11 @@ export function TodayHub({
       rivers,
       gauges: gauges ?? [],
       favoriteRiverIds: favoriteIds,
+      notices: safetyFailure.notices ? null : safety.notices,
       coords: location.coords,
       incumbentRiverId: incumbentState.riverId,
     }) : [],
-    [favoriteIds, gauges, incumbentState, location.coords, rivers],
+    [favoriteIds, gauges, incumbentState, location.coords, rivers, safety.notices, safetyFailure.notices],
   );
   const recommendation = recommendations[0] ?? null;
 
@@ -701,9 +709,13 @@ export function TodayHub({
     });
   }, [router]);
 
+  const displayedRiverSlugs = useMemo(
+    () => new Set(recommendations.map(({ river }) => river.slug)),
+    [recommendations],
+  );
   const filteredSafety = useMemo(
-    () => filterTodaySafety(safety.high ?? [], safety.notices ?? [], safetyScope),
-    [safety.high, safety.notices, safetyScope],
+    () => filterTodaySafety(safety.high ?? [], safety.notices ?? [], safetyScope, displayedRiverSlugs),
+    [safety.high, safety.notices, safetyScope, displayedRiverSlugs],
   );
   const activeSafety = {
     high: safety.high === null ? null : filteredSafety.high,
@@ -712,7 +724,7 @@ export function TodayHub({
   const safetyCount = (activeSafety?.high?.length ?? 0) + (activeSafety?.notices?.length ?? 0);
   const detailFailure = floatFailure || safetyFailure.high || safetyFailure.notices;
   const safetyScopeLabel = safetyScope.kind === 'favorites'
-    ? 'on your favorite rivers'
+    ? recommendations.length ? 'on your favorites and suggested rivers' : 'on your favorite rivers'
     : safetyScope.kind === 'nearby'
       ? 'near you'
       : 'statewide';
@@ -948,9 +960,14 @@ export function TodayHub({
         ) : (
           <View style={[styles.emptyBest, { backgroundColor: colors.card, borderColor: colors.border }]}>
             <Text style={[styles.emptyTitle, { color: colors.text }]}>
-              {location.coords ? `No fresh floatable pick within ${TODAY_RADIUS_MILES} miles` : 'No fresh floatable reading yet'}
+              {safetyFailure.notices ? 'Couldn’t check agency notices'
+                : safety.notices === null ? 'Checking agency notices…'
+                  : 'No recommendation right now'}
             </Text>
-            <Text style={[styles.emptyBody, { color: colors.textMuted }]}>River Conditions is just below.</Text>
+            <Text style={[styles.emptyBody, { color: colors.textMuted }]}>
+              {safetyFailure.notices ? 'Pull down to retry. ' : ''}
+              Picks need a fresh floatable reading and no agency warning or closure. Browse River Conditions below.
+            </Text>
           </View>
         )}
       </View>

@@ -40,12 +40,14 @@ export function filterTodaySafety(
   highWater: HighWaterEntry[],
   notices: RiverAlert[],
   scope: TodaySafetyScope,
+  displayedRiverSlugs: ReadonlySet<string> = new Set(),
 ): { high: HighWaterEntry[]; notices: RiverAlert[] } {
-  const inScope = (slug: string | null) => scope.slugs === null || Boolean(slug && scope.slugs.has(slug));
+  const displayed = (slug: string | null) => Boolean(slug && displayedRiverSlugs.has(slug));
+  const inScope = (slug: string | null) => displayed(slug) || scope.slugs === null || Boolean(slug && scope.slugs.has(slug));
   return {
     high: highWater.filter((entry) =>
-      inScope(entry.riverSlug) && (scope.kind !== 'statewide' || entry.conditionCode === 'dangerous')),
+      inScope(entry.riverSlug) && (displayed(entry.riverSlug) || scope.kind !== 'statewide' || entry.conditionCode === 'dangerous')),
     notices: notices.filter((entry) =>
-      inScope(entry.riverSlug) && (scope.kind !== 'statewide' || entry.severity === 'warning')),
+      inScope(entry.riverSlug) && (displayed(entry.riverSlug) || scope.kind !== 'statewide' || entry.severity === 'warning')),
   };
 }

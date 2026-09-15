@@ -83,9 +83,10 @@ export default function PrivacyPage() {
             </li>
             <li>
               <strong>Precise location in the app.</strong> If you allow it, the app may use your
-              device&apos;s location to show where you are relative to a river. Location is used
-              on the device to draw the map and is not stored on Eddy&apos;s servers or shared
-              with third parties for advertising. You can decline, and the app remains usable;
+              device&apos;s location to show where you are relative to a river. Precise location is used
+              on the device for map and distance features. For local weather, the app sends
+              coordinates rounded to 0.05 degrees to Eddy&apos;s forecast endpoint. Location
+              is not shared with third parties for advertising. You can decline, and the app remains usable;
               you can revoke the permission at any time in iOS Settings.
             </li>
             <li>

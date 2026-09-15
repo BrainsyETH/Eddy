@@ -20,15 +20,9 @@
 // has an anonymous identity for most of its users. So the list of codes YOU
 // created is a local fact, and this is where it lives.
 //
-// Only a stub is stored — the code, the names, the distance, the date. Never
-// the numbers. A float saved in April and opened in July describes the same
-// stretch and completely different water, so the plan itself is always re-read
-// from the server, which recalculates it against today's gauge. Caching the
-// April conditions here and showing them under a July date would be a lie with
-// a timestamp on it. See fetchSavedPlan.
-//
-// The stub exists purely so the LIST renders instantly and offline. Opening one
-// needs a connection, and says so.
+// The list and saved logistics work offline. Live readings and time estimates
+// are never stored here. Older stubs gain logistics the next time they open
+// successfully online; timestamped saved warnings remain clearly historical.
 
 import {
   createContext,
@@ -37,10 +31,13 @@ import {
   useEffect,
   useMemo,
   useState,
+  useRef,
   type ReactNode,
 } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { FloatPlan } from '@eddy/types';
+import { savedFloatLogistics, type SavedFloatLogistics } from '@/lib/savedFloatLogistics';
+import { createStorageQueue } from '@/lib/storageQueue';
 
 const STORAGE_KEY = 'eddy.savedFloats.v1';
 
@@ -70,6 +67,7 @@ export interface SavedFloat {
   /** Rendered straight from the plan, so the list matches what was saved. */
   distanceLabel: string;
   savedAt: string;
+  logistics?: SavedFloatLogistics;
 }
 
 interface SavedFloatsValue {
@@ -90,6 +88,8 @@ interface SavedFloatsValue {
   isSaved: (plan: FloatPlan) => boolean;
   /** Drop this stretch, whatever code it happens to be filed under. */
   forgetPlan: (plan: FloatPlan) => void;
+  updateLogistics: (shortCode: string, plan: FloatPlan) => void;
+  clearForAccountDeletion: () => Promise<void>;
 }
 
 const SavedFloatsContext = createContext<SavedFloatsValue>({
@@ -99,6 +99,8 @@ const SavedFloatsContext = createContext<SavedFloatsValue>({
   forget: () => {},
   isSaved: () => false,
   forgetPlan: () => {},
+  updateLogistics: () => {},
+  clearForAccountDeletion: async () => {},
 });
 
 /** True when a stored stub describes the same stretch as this plan. */
@@ -113,14 +115,22 @@ function matchesPlan(entry: SavedFloat, plan: FloatPlan): boolean {
 export function SavedFloatsProvider({ children }: { children: ReactNode }) {
   const [floats, setFloats] = useState<SavedFloat[]>([]);
   const [ready, setReady] = useState(false);
+  const floatsRef = useRef<SavedFloat[]>([]);
+  const writes = useRef(createStorageQueue());
+  const epoch = useRef(0);
+  const [revision, setRevision] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
+    const loadedEpoch = epoch.current;
     (async () => {
       try {
         const raw = await AsyncStorage.getItem(STORAGE_KEY);
         const parsed = raw ? (JSON.parse(raw) as SavedFloat[]) : [];
-        if (!cancelled && Array.isArray(parsed)) setFloats(parsed);
+        if (!cancelled && epoch.current === loadedEpoch && Array.isArray(parsed)) {
+          floatsRef.current = parsed;
+          setFloats(parsed);
+        }
       } catch {
         // A corrupt store is an empty store. Losing a list of share codes is
         // not worth a crash on launch, and re-sharing regenerates them.
@@ -134,65 +144,55 @@ export function SavedFloatsProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const persist = useCallback((next: SavedFloat[]) => {
+    floatsRef.current = next;
     setFloats(next);
-    // Fire and forget. A write that fails costs this entry from the history,
-    // which is never worth interrupting someone mid-share over.
-    AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(next)).catch(() => {});
+    void writes.current.run(() => AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(next))).catch(() => {});
   }, []);
 
-  const remember = useCallback(
-    (plan: FloatPlan, saved: { shortCode: string; url: string }) => {
-      setFloats((current) => {
-        const entry: SavedFloat = {
-          shortCode: saved.shortCode,
-          url: saved.url,
-          riverName: plan.river.name,
-          riverSlug: plan.river.slug,
-          putInName: plan.putIn.name,
-          takeOutName: plan.takeOut.name,
-          putInId: plan.putIn.id,
-          takeOutId: plan.takeOut.id,
-          distanceLabel: plan.distance.formatted,
-          savedAt: new Date().toISOString(),
-        };
-        // De-duped by code AND by stretch. The code alone was enough while this
-        // list only ever recorded shares — saving the same stretch twice
-        // returns the same short code — but a row written by an older build has
-        // no ids to match on and could otherwise reappear beside its own
-        // replacement. Two identical rows is not a history either way.
-        const next = [
-          entry,
-          ...current.filter((f) => f.shortCode !== entry.shortCode && !matchesPlan(f, plan)),
-        ].slice(0, MAX_ENTRIES);
-        AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(next)).catch(() => {});
-        return next;
-      });
-    },
-    [],
-  );
+  const remember = useCallback((plan: FloatPlan, saved: { shortCode: string; url: string }) => {
+    // An earlier save request may finish after deletion. Its callback belongs
+    // to the old revision and must not put that trip back on this device.
+    if (epoch.current !== revision) return;
+    const entry: SavedFloat = {
+      ...saved, riverName: plan.river.name, riverSlug: plan.river.slug,
+      putInName: plan.putIn.name, takeOutName: plan.takeOut.name,
+      putInId: plan.putIn.id, takeOutId: plan.takeOut.id,
+      distanceLabel: plan.distance.formatted, savedAt: new Date().toISOString(),
+      logistics: savedFloatLogistics(plan),
+    };
+    persist([entry, ...floatsRef.current.filter((f) => f.shortCode !== entry.shortCode && !matchesPlan(f, plan))].slice(0, MAX_ENTRIES));
+  }, [persist, revision]);
 
-  const forget = useCallback(
-    (shortCode: string) => {
-      persist(floats.filter((f) => f.shortCode !== shortCode));
-    },
-    [floats, persist],
-  );
+  const forget = useCallback((shortCode: string) => {
+    persist(floatsRef.current.filter((f) => f.shortCode !== shortCode));
+  }, [persist]);
 
-  const isSaved = useCallback(
-    (plan: FloatPlan) => floats.some((f) => matchesPlan(f, plan)),
-    [floats],
-  );
+  const isSaved = useCallback((plan: FloatPlan) => floats.some((f) => matchesPlan(f, plan)), [floats]);
+  const forgetPlan = useCallback((plan: FloatPlan) => {
+    persist(floatsRef.current.filter((f) => !matchesPlan(f, plan)));
+  }, [persist]);
 
-  const forgetPlan = useCallback(
-    (plan: FloatPlan) => {
-      persist(floats.filter((f) => !matchesPlan(f, plan)));
-    },
-    [floats, persist],
-  );
+  const updateLogistics = useCallback((shortCode: string, plan: FloatPlan) => {
+    if (epoch.current !== revision || !floatsRef.current.some((f) => f.shortCode === shortCode)) return;
+    persist(floatsRef.current.map((f) => f.shortCode === shortCode ? {
+      ...f, logistics: savedFloatLogistics(plan),
+      riverName: plan.river.name, riverSlug: plan.river.slug,
+      putInName: plan.putIn.name, takeOutName: plan.takeOut.name,
+      putInId: plan.putIn.id, takeOutId: plan.takeOut.id, distanceLabel: plan.distance.formatted,
+    } : f));
+  }, [persist, revision]);
+
+  const clearForAccountDeletion = useCallback(async () => {
+    epoch.current += 1;
+    setRevision(epoch.current);
+    floatsRef.current = [];
+    setFloats([]);
+    await writes.current.run(() => AsyncStorage.removeItem(STORAGE_KEY));
+  }, []);
 
   const value = useMemo<SavedFloatsValue>(
-    () => ({ floats, ready, remember, forget, isSaved, forgetPlan }),
-    [floats, ready, remember, forget, isSaved, forgetPlan],
+    () => ({ floats, ready, remember, forget, isSaved, forgetPlan, updateLogistics, clearForAccountDeletion }),
+    [floats, ready, remember, forget, isSaved, forgetPlan, updateLogistics, clearForAccountDeletion],
   );
 
   return <SavedFloatsContext.Provider value={value}>{children}</SavedFloatsContext.Provider>;

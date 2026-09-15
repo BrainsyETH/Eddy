@@ -48,6 +48,7 @@ import {
 } from '@/api/client';
 import { useSession } from '@/hooks/useSession';
 import { warn } from '@/lib/monitoring';
+import { createStorageQueue } from '@/lib/storageQueue';
 
 // v3 carries gauges as well as rivers; v2 carried tombstones; v1 was a plain
 // list of starred rivers. Each older key is READ and left in place — a rollback
@@ -86,6 +87,7 @@ interface StarredRiversValue {
   followStars: (items: Omit<StarredItem, 'starredAt'>[]) => void;
   /** True while a background reconciliation is in flight. Never blocks the UI. */
   syncing: boolean;
+  clearForAccountDeletion: () => Promise<void>;
 }
 
 const StarredRiversContext = createContext<StarredRiversValue>({
@@ -95,6 +97,7 @@ const StarredRiversContext = createContext<StarredRiversValue>({
   toggleStar: () => {},
   followStars: () => {},
   syncing: false,
+  clearForAccountDeletion: async () => {},
 });
 
 export function StarredRiversProvider({ children }: { children: ReactNode }) {
@@ -102,6 +105,9 @@ export function StarredRiversProvider({ children }: { children: ReactNode }) {
   const [ready, setReady] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const { session, getAccessToken } = useSession();
+  const writes = useRef(createStorageQueue());
+  const deletionEpoch = useRef(0);
+  const clearedUserId = useRef<string | null>(null);
 
   // The store is read inside sync() without being a dependency of it — a stale
   // closure there would reconcile against an out-of-date local set and undo a
@@ -148,7 +154,7 @@ export function StarredRiversProvider({ children }: { children: ReactNode }) {
   const persist = useCallback((next: LocalStar[]) => {
     // Fire-and-forget: in-memory state is already updated, so a failed write
     // costs at most this session's changes rather than blocking the tap.
-    AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(next)).catch(() => {});
+    void writes.current.run(() => AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(next))).catch(() => {});
   }, []);
 
   // Load once on mount, reading whichever stored version is present. Newest
@@ -158,20 +164,21 @@ export function StarredRiversProvider({ children }: { children: ReactNode }) {
   // next sync.
   useEffect(() => {
     let cancelled = false;
+    const epoch = deletionEpoch.current;
 
     (async () => {
       try {
         const current = await AsyncStorage.getItem(STORAGE_KEY);
         if (current) {
-          if (!cancelled) setEntries(migrateStars(JSON.parse(current)));
+          if (!cancelled && deletionEpoch.current === epoch) setEntries(migrateStars(JSON.parse(current)));
           return;
         }
         for (const key of LEGACY_KEYS) {
           const legacy = await AsyncStorage.getItem(key);
           if (!legacy) continue;
           const migrated = migrateStars(JSON.parse(legacy));
-          if (!cancelled) setEntries(migrated);
-          persist(migrated);
+          if (!cancelled && deletionEpoch.current === epoch) setEntries(migrated);
+          if (!cancelled && deletionEpoch.current === epoch) persist(migrated);
           return;
         }
       } catch {
@@ -196,6 +203,8 @@ export function StarredRiversProvider({ children }: { children: ReactNode }) {
   const sync = useCallback(async () => {
     // One pass at a time. A second caller leaves a note rather than starting a
     // parallel round of pushes against the same ids.
+    if (clearedUserId.current) return;
+    const epoch = deletionEpoch.current;
     if (syncInFlight.current) {
       syncQueued.current = true;
       return;
@@ -204,7 +213,7 @@ export function StarredRiversProvider({ children }: { children: ReactNode }) {
 
     try {
       const token = await getAccessToken();
-      if (!token) return;
+      if (!token || epoch !== deletionEpoch.current) return;
 
       // Captured with the snapshot below, and checked against it before this
       // pass is allowed to publish anything.
@@ -224,7 +233,7 @@ export function StarredRiversProvider({ children }: { children: ReactNode }) {
         fetchStarredGauges(token),
         fetchStarredDams(token),
       ]);
-      if (!riverServer && !gaugeServer && !damServer) return;
+      if (epoch !== deletionEpoch.current || (!riverServer && !gaugeServer && !damServer)) return;
 
       let merged = entriesRef.current;
       const settledIds: string[] = [];
@@ -243,6 +252,7 @@ export function StarredRiversProvider({ children }: { children: ReactNode }) {
         settledIds.push(...plan.toUnstar);
       }
 
+      if (epoch !== deletionEpoch.current) return;
       if (gaugeServer) {
         const plan = mergeStars(merged, gaugeServer, 'gauge');
         await Promise.all([
@@ -253,6 +263,7 @@ export function StarredRiversProvider({ children }: { children: ReactNode }) {
         settledIds.push(...plan.toUnstar);
       }
 
+      if (epoch !== deletionEpoch.current) return;
       if (damServer) {
         const plan = mergeStars(merged, damServer, 'dam');
         await Promise.all([
@@ -272,6 +283,7 @@ export function StarredRiversProvider({ children }: { children: ReactNode }) {
       // Tombstone pruning is skipped with it, deliberately: a tombstone kept
       // one pass too long is re-sent and re-settled, which costs a request. A
       // star dropped is gone.
+      if (epoch !== deletionEpoch.current) return;
       if (mutationGen.current !== gen) {
         syncQueued.current = true;
         return;
@@ -311,6 +323,7 @@ export function StarredRiversProvider({ children }: { children: ReactNode }) {
   // syncing before the disk read would merge against an empty local set and
   // push nothing while adopting everything.
   useEffect(() => {
+    if (clearedUserId.current && session?.user.id !== clearedUserId.current) clearedUserId.current = null;
     if (!ready || !session) return;
     sync();
   }, [ready, session, sync]);
@@ -363,6 +376,17 @@ export function StarredRiversProvider({ children }: { children: ReactNode }) {
     [persist, sync],
   );
 
+  const clearForAccountDeletion = useCallback(async () => {
+    deletionEpoch.current += 1;
+    mutationGen.current += 1;
+    clearedUserId.current = session?.user.id ?? null;
+    syncQueued.current = false;
+    entriesRef.current = [];
+    setEntries([]);
+    setSyncing(false);
+    await writes.current.run(() => AsyncStorage.multiRemove([STORAGE_KEY, ...LEGACY_KEYS]));
+  }, [session?.user.id]);
+
   const value = useMemo<StarredRiversValue>(() => {
     const visible = visibleStars(entries);
     // Keyed on the PAIR: a river and a gauge could carry the same uuid, and a
@@ -380,11 +404,12 @@ export function StarredRiversProvider({ children }: { children: ReactNode }) {
       })),
       ready,
       syncing,
+      clearForAccountDeletion,
       isStarred: (kind: StarKind, entityId: string) => keys.has(`${kind}:${entityId}`),
       toggleStar,
       followStars,
     };
-  }, [entries, ready, syncing, toggleStar, followStars]);
+  }, [entries, ready, syncing, toggleStar, followStars, clearForAccountDeletion]);
 
   return (
     <StarredRiversContext.Provider value={value}>{children}</StarredRiversContext.Provider>

@@ -49,7 +49,7 @@ import { Ionicons } from '@expo/vector-icons';
 import type { DamSnapshot, MapGauge, RiverListItem } from '@eddy/types';
 import { fetchGauges, fetchRivers } from '@/api/client';
 import { getSharedDams } from '@/hooks/useDams';
-import { agedIndex, readIndex } from '@/lib/riverCache';
+import { readIndex } from '@/lib/riverCache';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
 import { EddyScene } from '@/components/EddyScene';
@@ -63,7 +63,10 @@ import { useStarredRivers } from '@/hooks/useStarredRivers';
 import { useEddyUpdates } from '@/hooks/useEddyUpdates';
 import { selectEddySays } from '@/lib/eddySays';
 import { useSavedFloats } from '@/hooks/useSavedFloats';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
+import { agedIndex, envelope, effectiveReadingAgeHours, type CacheEnvelope } from '@/lib/offline-cache';
+import { onForeground } from '@/lib/foreground';
+import { createLatestRequest } from '@/lib/latestRequest';
 
 /**
  * The ladder a river's own reading is graded on, out of the gauge list.
@@ -134,8 +137,17 @@ export default function FavoritesScreen() {
   const { colors, elevation } = useTheme();
   const router = useRouter();
 
-  const [rivers, setRivers] = useState<RiverListItem[] | null>(null);
-  const [gauges, setGauges] = useState<MapGauge[] | null>(null);
+  const [riverSnapshot, setRiverSnapshot] = useState<CacheEnvelope<RiverListItem[]> | null>(null);
+  const [gaugeSnapshot, setGaugeSnapshot] = useState<CacheEnvelope<MapGauge[]> | null>(null);
+  const [now, setNow] = useState(Date.now);
+  const [refreshFailed, setRefreshFailed] = useState(false);
+  const requests = useRef(createLatestRequest());
+  const lastAttempt = useRef(0);
+  const rivers = useMemo(() => riverSnapshot ? agedIndex(riverSnapshot, now) : null, [riverSnapshot, now]);
+  const gauges = useMemo(() => gaugeSnapshot?.payload.map((gauge) => ({
+    ...gauge,
+    readingAgeHours: effectiveReadingAgeHours(gauge.readingAgeHours, gaugeSnapshot.fetchedAt, now),
+  })) ?? null, [gaugeSnapshot, now]);
   // Not nullable, unlike the two above. fetchDams throws now rather than
   // answering [] — see its header — but this screen still wants the lenient
   // reading: the row renders from the store either way, and the enrichment
@@ -144,70 +156,60 @@ export default function FavoritesScreen() {
   const [dams, setDams] = useState<DamSnapshot[]>([]);
   const [refreshing, setRefreshing] = useState(false);
   const [filter, setFilter] = useState<FavoriteFilter>('all');
-  /**
-   * True while the conditions on the cards are the STORED index and no
-   * /api/rivers answer has landed this session.
-   *
-   * agedIndex already greys anything past the trusted window and labels it
-   * "Last known", but inside that window a cached reading paints in its full
-   * condition colour — and nothing on this screen said it was cached. A green
-   * card three hours after the signal dropped is honest only if it says so
-   * (offline-cache.ts describes the fresh band as "the ordinary colour, plus
-   * an offline glyph"; this is the glyph). Drops the moment the network
-   * answers, which is also the only thing that ever replaces the list.
-   */
   const [riversFromCache, setRiversFromCache] = useState(false);
-  /**
-   * Whether a LIVE list has landed this session — a ref, because it is only
-   * ever read inside load(). It is what keeps a failed pull over a live list
-   * from raising the marker: the cache read below never replaces what is on
-   * screen, so the rows in that case are still today's and must not be
-   * described as yesterday's.
-   */
-  const riversLive = useRef(false);
 
-  // Errors are swallowed on purpose. A failed enrichment must not produce an
-  // error state on a screen whose whole promise is that it works offline.
-  const load = useCallback(async (signal?: AbortSignal) => {
-    // Rivers and gauges enrich independently: a starred gauge must still show a
-    // live reading when the river list fails, and vice versa.
-    await Promise.all([
-      fetchRivers(signal)
-        .then((live) => {
-          setRivers(live);
-          riversLive.current = true;
-          setRiversFromCache(false);
-        })
-        .catch(async () => {
-          // Disk before nothing, on the screen whose whole promise is that it
-          // works offline: the index is written through on every successful
-          // fetch, and until now a dead connection left every starred river
-          // reading "Conditions unavailable" while its last condition sat on
-          // the phone. agedIndex recomputes ages on this clock and withholds
-          // any verdict past the trusted window; a live list already shown is
-          // never replaced.
-          const cached = await readIndex();
-          if (cached && cached.payload.length > 0) {
-            setRivers((current) => current ?? agedIndex(cached, Date.now()));
-            if (!riversLive.current) setRiversFromCache(true);
-          }
-        }),
-      fetchGauges(signal)
-        .then(setGauges)
-        .catch(() => {}),
-      // A third enrichment, on the same terms as the other two: the store holds
-      // a dam's slug and name, and this supplies what it is doing right now.
-      // Failing is fine — the row still renders from the store.
-      getSharedDams()
-        .then(setDams)
-        .catch(() => {}),
+  // Keep useful readings after failures, but age the original snapshots against
+  // the clock. A successful fetch earlier in the session never masks a failure.
+  const load = useCallback(async () => {
+    const request = requests.current.start();
+    lastAttempt.current = Date.now();
+    const failures = await Promise.all([
+      fetchRivers(request.signal).then((live) => {
+        if (!request.isCurrent()) return false;
+        setRiverSnapshot(envelope(live, new Date().toISOString()));
+        setRiversFromCache(false);
+        return false;
+      }).catch(async () => {
+        const cached = await readIndex();
+        if (!request.isCurrent()) return true;
+        if (cached?.payload.length) {
+          setRiverSnapshot((current) => current ?? cached);
+          setRiversFromCache(true);
+        }
+        return true;
+      }),
+      fetchGauges(request.signal).then((live) => {
+        if (request.isCurrent()) setGaugeSnapshot(envelope(live, new Date().toISOString()));
+        return false;
+      }).catch(() => true),
+      getSharedDams().then((live) => {
+        if (request.isCurrent()) setDams(live);
+        return false;
+      }).catch(() => true),
     ]);
+    if (request.isCurrent()) {
+      setRefreshFailed(failures.some(Boolean));
+      setNow(Date.now());
+    }
   }, []);
 
+  useFocusEffect(useCallback(() => {
+    setNow(Date.now());
+    if (Date.now() - lastAttempt.current >= 5 * 60_000) void load();
+  }, [load]));
+
   useEffect(() => {
-    const controller = new AbortController();
-    load(controller.signal);
-    return () => controller.abort();
+    const activeRequests = requests.current;
+    const unsubscribe = onForeground(() => {
+      setNow(Date.now());
+      if (Date.now() - lastAttempt.current >= 5 * 60_000) void load();
+    });
+    const timer = setInterval(() => setNow(Date.now()), 60_000);
+    return () => {
+      activeRequests.invalidate();
+      unsubscribe();
+      clearInterval(timer);
+    };
   }, [load]);
 
   // Shared with every other surface; this screen initiates like the others and
@@ -296,18 +298,13 @@ export default function FavoritesScreen() {
                 : favoritesSummary}
             </Text>
 
-            {/* The offline marker for cached conditions — see riversFromCache.
-                One line under the summary rather than a badge per card: every
-                river card below draws from the same stored index, so they are
-                all offline together or none are, and each card already prints
-                its own "Updated N hours ago" from the aged reading. The same
-                sentence the Today tab uses for the same state, so the two tabs
-                do not describe one condition of the phone two ways. */}
-            {riversFromCache ? (
+            {refreshFailed || riversFromCache ? (
               <View style={styles.offlineRow}>
                 <Ionicons name="cloud-offline-outline" size={14} color={colors.textMuted} />
                 <Text style={[styles.offlineText, { color: colors.textMuted }]}>
-                  Offline — showing the last conditions Eddy saw. Pull down to retry.
+                  {refreshFailed ? 'Couldn’t update all conditions.' : 'Showing saved conditions.'}
+                  {riverSnapshot ? ` River readings last checked ${new Date(riverSnapshot.fetchedAt).toLocaleString()}.` : ''}
+                  {' Pull down to retry.'}
                 </Text>
               </View>
             ) : null}

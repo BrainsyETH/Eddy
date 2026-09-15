@@ -25,7 +25,7 @@
 //   float plan results  /api/plan/[shortCode] RECALCULATES against today's
 //                       gauge — a float saved in April and opened in July is
 //                       the same stretch and completely different water. The
-//                       saved-float stub is already the right amount to keep.
+//                       saved-float store keeps only logistics and dated cautions.
 //   Eddy's take         a 72-hour forecast read four days later describes
 //                       weather that already happened, and it is the paid
 //                       artefact besides.
@@ -56,12 +56,10 @@ import {
   CONDITIONS_KEY,
   META_KEY,
   NETWORK_KEY,
-  effectiveReadingAgeHours,
   envelope,
   isCacheKey,
   isRiverKey,
   isStaleVersionKey,
-  mayPaintCachedCondition,
   mergeParts,
   parseEnvelope,
   riverKey,
@@ -135,48 +133,7 @@ export async function readBestIndex(): Promise<
   return null;
 }
 
-/**
- * The stored index, honestly aged for a list surface.
- *
- * The write-through above meant every river's name and last condition sat on
- * disk while an offline cold start showed a spinner and then an error over an
- * empty list — the cache's whole reason to exist, unread on the two tabs that
- * need it most. This is the read for that path, holding the river screen's own
- * rules for cached readings:
- *
- *   - ages are recomputed on the reader's clock (a stored "2h ago" from last
- *     night is not 2h ago), with the stored age as the floor so a clock that
- *     moved backwards cannot make a reading younger;
- *   - past the trusted window the VERDICT is withheld — code goes to
- *     `unknown`, the label says "Last known: …", and the trend is dropped —
- *     because a paddler must never drive to yesterday's green.
- *
- * Pure over its inputs, so the web test suite can hold the rules.
- */
-export function agedIndex(
-  stored: CacheEnvelope<RiverListItem[]>,
-  now: number,
-): RiverListItem[] {
-  return stored.payload.map((river) => {
-    const condition = river.currentCondition;
-    if (!condition) return river;
-
-    const age = effectiveReadingAgeHours(condition.readingAgeHours, stored.fetchedAt, now);
-    if (mayPaintCachedCondition(condition.readingAgeHours, stored.fetchedAt, now)) {
-      return { ...river, currentCondition: { ...condition, readingAgeHours: age } };
-    }
-    return {
-      ...river,
-      currentCondition: {
-        ...condition,
-        readingAgeHours: age,
-        code: 'unknown',
-        label: `Last known: ${condition.label}`,
-        trend: null,
-      },
-    };
-  });
-}
+export { agedIndex } from '@/lib/offline-cache';
 
 /**
  * Persist the rivers index. Never awaited on a render path.

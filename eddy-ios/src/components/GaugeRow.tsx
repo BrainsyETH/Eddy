@@ -29,6 +29,7 @@
 // pins use, so a gauge cannot read one way here and another as a dot on the map.
 
 import { memo } from 'react';
+import { isReadingStale } from '@eddy/conditions/reading-staleness';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import type { MapGauge } from '@eddy/types';
@@ -62,7 +63,7 @@ interface Props {
 function GaugeRowComponent({ name, riverName, gauge, starred, onPress, onToggleStar }: Props) {
   const { colors, elevation, isDark } = useTheme();
 
-  const code = gauge ? gaugeConditionCode(gauge) : 'unknown';
+  const code = gauge && !isReadingStale(gauge.readingAgeHours) ? gaugeConditionCode(gauge) : 'unknown';
   const reading = gauge ? gaugeReadingText(gauge) : null;
   const age = gauge ? readingAge(gauge.readingAgeHours) : null;
 
