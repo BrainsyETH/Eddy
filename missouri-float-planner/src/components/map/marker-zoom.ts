@@ -14,7 +14,7 @@
 // `pinned` entries (selected put-in/take-out, highlighted gauges) always
 // render at full prominence — they're the user's anchors.
 
-import type maplibregl from 'maplibre-gl';
+import type * as maplibregl from 'maplibre-gl';
 
 export interface ZoomFadeEntry {
   /** Outer marker element (owned by maplibregl.Marker). */

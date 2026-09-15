@@ -4,7 +4,7 @@
 // POI editor with draggable markers on the geography editor map
 
 import { useEffect, useRef, useState } from 'react';
-import maplibregl from 'maplibre-gl';
+import * as maplibregl from 'maplibre-gl';
 import { useMap } from '@/components/map/MapContainer';
 import { Landmark } from 'lucide-react';
 import { createRoot, Root } from 'react-dom/client';

@@ -7,7 +7,7 @@
 // size shrinks per level) so lines stay readable from state framing (z7)
 // to gravel-bar framing (z16) instead of going hairline or chunky.
 
-import type maplibregl from 'maplibre-gl';
+import type * as maplibregl from 'maplibre-gl';
 
 export const LINE_WIDTH: maplibregl.ExpressionSpecification = [
   'interpolate', ['exponential', 1.5], ['zoom'],

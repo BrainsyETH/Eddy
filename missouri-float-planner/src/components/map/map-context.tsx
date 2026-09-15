@@ -11,7 +11,7 @@
 // living in MapContainer, the two modules would import each other.
 
 import { createContext, useContext } from 'react';
-import type maplibregl from 'maplibre-gl';
+import type * as maplibregl from 'maplibre-gl';
 
 const MapContext = createContext<maplibregl.Map | null>(null);
 
