@@ -32,7 +32,7 @@ interface RecommendationInput {
   gauges: MapGauge[];
   favoriteRiverIds: ReadonlySet<string>;
   coords: Coords | null;
-  /** null means notices have not been checked; withhold positive recommendations. */
+  /** Display context only. Agency notices do not determine river-wide eligibility. */
   notices?: RiverAlert[] | null;
   incumbentRiverId?: string | null;
   radiusMiles?: number;
@@ -47,12 +47,8 @@ function recommendationCandidates({
   radiusMiles = TODAY_RADIUS_MILES,
   notices = [],
 }: RecommendationInput): Candidate[] {
-  if (notices === null) return [];
-  const blocks = (river: RiverListItem) => notices.some((notice) =>
-    notice.riverSlug === river.slug &&
-    (notice.severity === 'warning' || /closure/i.test(notice.category)));
   const candidates = rivers
-    .filter((river) => !favoriteRiverIds.has(river.id) && isTodayRecommendationEligible(river) && !blocks(river))
+    .filter((river) => !favoriteRiverIds.has(river.id) && isTodayRecommendationEligible(river))
     .map<Candidate>((river) => {
       const gauge = primaryGaugeForRiver(gauges, river.id);
       const distanceMiles =
@@ -60,7 +56,7 @@ function recommendationCandidates({
       return {
         river,
         gauge,
-        notices: notices.filter((notice) => notice.riverSlug === river.slug),
+        notices: (notices ?? []).filter((notice) => notice.riverSlug === river.slug),
         distanceMiles,
         readingAgeHours: river.currentCondition?.readingAgeHours ?? Infinity,
       };

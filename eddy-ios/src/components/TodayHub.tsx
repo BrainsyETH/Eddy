@@ -43,6 +43,7 @@ import { formatReading, primaryReading, readingAge } from '@/lib/readingCopy';
 import { dailyFavoriteFloats, dailyHighlightedFavorite } from '@/lib/todayFloats';
 import {
   chooseTodayRecommendations,
+  TODAY_RADIUS_MILES,
   type TodayRecommendation,
 } from '@/lib/todayRecommendation';
 import { railSelectionIndex, railIndexAtOffset } from '@/lib/railSelection';
@@ -674,11 +675,11 @@ export function TodayHub({
       rivers,
       gauges: gauges ?? [],
       favoriteRiverIds: favoriteIds,
-      notices: safetyFailure.notices ? null : safety.notices,
+      notices: safety.notices,
       coords: location.coords,
       incumbentRiverId: incumbentState.riverId,
     }) : [],
-    [favoriteIds, gauges, incumbentState, location.coords, rivers, safety.notices, safetyFailure.notices],
+    [favoriteIds, gauges, incumbentState, location.coords, rivers, safety.notices],
   );
   const recommendation = recommendations[0] ?? null;
 
@@ -960,14 +961,9 @@ export function TodayHub({
         ) : (
           <View style={[styles.emptyBest, { backgroundColor: colors.card, borderColor: colors.border }]}>
             <Text style={[styles.emptyTitle, { color: colors.text }]}>
-              {safetyFailure.notices ? 'Couldn’t check agency notices'
-                : safety.notices === null ? 'Checking agency notices…'
-                  : 'No recommendation right now'}
+              {location.coords ? `No fresh floatable pick within ${TODAY_RADIUS_MILES} miles` : 'No fresh floatable reading yet'}
             </Text>
-            <Text style={[styles.emptyBody, { color: colors.textMuted }]}>
-              {safetyFailure.notices ? 'Pull down to retry. ' : ''}
-              Picks need a fresh floatable reading and no agency warning or closure. Browse River Conditions below.
-            </Text>
+            <Text style={[styles.emptyBody, { color: colors.textMuted }]}>River Conditions is just below.</Text>
           </View>
         )}
       </View>

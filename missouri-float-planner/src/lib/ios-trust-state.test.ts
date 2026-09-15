@@ -21,14 +21,19 @@ const notice = (riverSlug: string, severity: RiverAlert['severity'], category = 
 const inputs = { rivers: [river('current'), river('jacks-fork'), river('meramec')], gauges: [],
   favoriteRiverIds: new Set(['current']), coords: null };
 
-test('recommendations exclude agency warnings and closures even with fresh favorable gauges', () => {
+test('agency warnings and local closures remain visible without excluding an entire river', () => {
   const recommendations = chooseTodayRecommendations({ ...inputs,
     notices: [notice('jacks-fork', 'warning'), notice('meramec', 'notice', 'Closure')] });
-  assert.deepEqual(recommendations, []);
+  assert.deepEqual(recommendations.map((pick) => pick.river.id), ['jacks-fork', 'meramec']);
+  assert.equal(recommendations[0].notices[0].severity, 'warning');
+  assert.equal(recommendations[1].notices[0].category, 'Closure');
 });
 
-test('unchecked notices cannot be mistaken for an empty agency feed', () => {
-  assert.deepEqual(chooseTodayRecommendations({ ...inputs, notices: null }), []);
+test('unavailable agency notices do not suppress gauge-based recommendations', () => {
+  assert.deepEqual(
+    chooseTodayRecommendations({ ...inputs, notices: null }),
+    chooseTodayRecommendations({ ...inputs, notices: [] }),
+  );
   assert.equal(chooseTodayRecommendations({ ...inputs, notices: [] }).length, 2);
 });
 
