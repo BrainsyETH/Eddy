@@ -87,16 +87,27 @@ the same stretch as Williams Ford, and both were in the candidate approval set:
   the river, but it sits 20 line-miles below Charity while the index puts them
   1.2 miles apart.
 
-Hold both until the upper-Niangua coordinates are sourced. Run the ratio query
-from the appendix over any future approval batch before publishing it; it is one
-query and it is the only pre-publication check available.
+**Resolved in the follow-up source pass.** MDC's live Discover Nature ArcGIS
+service now exposes exact features for all three accesses: Charity's concrete
+ramp at `37.51980535885081, -92.983741758884122`, Big John's gravel-bar launch
+at `37.64176700355199, -93.043858867544444`, and Williams Ford's entry point at
+`37.692403, -92.953851`. With those pins, Big John -> Williams measures 10.94
+line miles for a published 10.90, and Williams -> Moon Valley measures 9.92 for
+a published 10.10. Migration `20260914205500` corrects all three pins and can
+publish Big John.
+
+Charity remains held for a different reason exposed by the corrected pin: it is
+19.1 line miles above Big John, while their stored `0.10` and `1.30` values came
+from different mile-index origins. Publishing both would quote 1.2 miles for a
+roughly 19-mile trip. Represent that datum boundary explicitly before approving
+Charity; do not move either source-backed ramp or rebase the downstream guide.
 
 ## What would settle each one
 
 | Finding | Source that settles it |
 | --- | --- |
-| Williams Ford coordinate | MDC Atlas / `mdc.mo.gov/media/80138` / 2017 area management plan |
+| Williams Ford coordinate | **Resolved:** MDC Discover Nature ArcGIS Entry Points layer, area 9008 |
 | Bennett Spring cluster | The published Niangua float chart, at one-decimal resolution, plus each operator's own stated mile |
 | Huzzah top-of-float | Whether a published Huzzah mile index exists; if not, these are geometry miles and should say so |
 | Meramec Campbell Bridge | The Meramec float chart; likely no defect |
-| Charity / Big John | Same as Williams Ford — the upper-Niangua access coordinates |
+| Charity / Big John | **Coordinates resolved:** MDC Boat Ramps layer, areas 8249 / 7010. Charity's conflicting mile-index origin remains. |
