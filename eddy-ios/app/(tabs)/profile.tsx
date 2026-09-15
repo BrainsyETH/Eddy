@@ -52,6 +52,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
 import { Otter } from '@/components/Otter';
+import { useStarredRivers } from '@/hooks/useStarredRivers';
+import { useSavedFloats } from '@/hooks/useSavedFloats';
 import { APPLE_SIGN_IN_CANCELLED, useSession } from '@/hooks/useSession';
 import { useAccount } from '@/hooks/useAccount';
 import { deleteAccount, refreshEntitlement, waitForEntitlement } from '@/api/client';
@@ -404,6 +406,9 @@ export default function ProfileScreen() {
     }
   }, [disable]);
 
+  const { clearForAccountDeletion: clearStars } = useStarredRivers();
+  const { clearForAccountDeletion: clearSavedFloats } = useSavedFloats();
+
   const runDelete = useCallback(async () => {
     setBusy('delete');
     try {
@@ -416,26 +421,32 @@ export default function ProfileScreen() {
       // Unregister first, while the token still authenticates. After deletion
       // the device_tokens row is gone with the cascade anyway; doing it here
       // covers the case where deletion fails partway.
-      await disable();
+      await disable().catch(() => {});
 
       const result = await deleteAccount(token);
 
-      // signOut() would post to an endpoint whose user no longer exists, so the
-      // session is dropped locally instead.
-      await forgetSession();
-
-      Alert.alert(
-        'Account deleted',
-        result.hadActiveEntitlement
-          ? 'Your account and its data are gone. Your Apple subscription is still active — cancel it in Settings › Apple ID › Subscriptions to stop being billed.'
-          : 'Your account and its data are gone.',
-      );
+      // Server deletion succeeded. Local cleanup has its own retry so it can
+      // never be reported as an account-deletion failure or silently skipped.
+      const finish = async () => {
+        const cleanup = await Promise.allSettled([clearStars(), clearSavedFloats(), forgetSession()]);
+        const subscriptionNote = result.hadActiveEntitlement
+          ? ' Your Apple subscription is still active — cancel it in Settings › Apple ID › Subscriptions to stop being billed.'
+          : '';
+        if (cleanup.some((entry) => entry.status === 'rejected')) {
+          Alert.alert('Account deleted',
+            'Some saved data could not be removed from this device. Retry to finish clearing it.' + subscriptionNote,
+            [{ text: 'Retry cleanup', onPress: () => void finish() }]);
+          return;
+        }
+        Alert.alert('Account deleted', 'Your account, favorites and saved floats have been removed.' + subscriptionNote);
+      };
+      await finish();
     } catch (err) {
       Alert.alert('Could not delete', err instanceof Error ? err.message : 'Please try again.');
     } finally {
       setBusy(null);
     }
-  }, [getAccessToken, forgetSession, disable]);
+  }, [getAccessToken, forgetSession, disable, clearStars, clearSavedFloats]);
 
   const handleDelete = useCallback(() => {
     // Two steps, and the first names what is lost. This is the only
@@ -558,10 +569,10 @@ export default function ProfileScreen() {
                   </Text>
                   <Text style={[styles.rowNote, { color: colors.textMuted }]}>
                     {signedIn
-                      ? 'Favorites and saved floats sync across devices.'
+                      ? 'Favorites sync across devices. Saved floats stay on this device.'
                       : unavailable
                         ? 'Your favorites stay on this device.'
-                        : 'Sign in to sync favorites and saved floats.'}
+                        : 'Sign in to sync favorites. Saved floats stay on this device.'}
                   </Text>
                 </View>
               </View>

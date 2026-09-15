@@ -1,4 +1,4 @@
-import type { MapGauge, RiverListItem } from '@eddy/types';
+import type { MapGauge, RiverAlert, RiverListItem } from '@eddy/types';
 import { hasCoordinates } from '@eddy/types';
 import { milesBetween, type Coords } from '@eddy/geo';
 import { isReadingStale } from '@eddy/conditions/reading-staleness';
@@ -16,6 +16,7 @@ export interface TodayRecommendation {
   distanceMiles: number | null;
   mode: RecommendationMode;
   reason: string;
+  notices: RiverAlert[];
 }
 
 interface Candidate {
@@ -23,6 +24,7 @@ interface Candidate {
   gauge: MapGauge | null;
   distanceMiles: number | null;
   readingAgeHours: number;
+  notices: RiverAlert[];
 }
 
 interface RecommendationInput {
@@ -30,6 +32,8 @@ interface RecommendationInput {
   gauges: MapGauge[];
   favoriteRiverIds: ReadonlySet<string>;
   coords: Coords | null;
+  /** Display context only. Agency notices do not determine river-wide eligibility. */
+  notices?: RiverAlert[] | null;
   incumbentRiverId?: string | null;
   radiusMiles?: number;
   switchMarginMiles?: number;
@@ -41,6 +45,7 @@ function recommendationCandidates({
   favoriteRiverIds,
   coords,
   radiusMiles = TODAY_RADIUS_MILES,
+  notices = [],
 }: RecommendationInput): Candidate[] {
   const candidates = rivers
     .filter((river) => !favoriteRiverIds.has(river.id) && isTodayRecommendationEligible(river))
@@ -51,6 +56,7 @@ function recommendationCandidates({
       return {
         river,
         gauge,
+        notices: (notices ?? []).filter((notice) => notice.riverSlug === river.slug),
         distanceMiles,
         readingAgeHours: river.currentCondition?.readingAgeHours ?? Infinity,
       };

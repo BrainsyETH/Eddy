@@ -38,6 +38,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { FloatPlan, MapAccessPoint } from '@eddy/types';
 import { ApiError, fetchFloatPlan } from '@/api/client';
+import { createLatestRequest } from '@/lib/latestRequest';
 
 export type PlanStep = 'put-in' | 'take-out' | 'result';
 
@@ -67,23 +68,27 @@ export function useFloatPlan(riverId: string | null, accessPoints: MapAccessPoin
   const [plan, setPlan] = useState<FloatPlan | null>(null);
   const [calculating, setCalculating] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  // The request cannot currently be cancelled at the API boundary, so a small
-  // generation guard prevents an old river's late response from becoming the
-  // new river's plan.
-  const calculationId = useRef(0);
+  const requests = useRef(createLatestRequest());
+  const invalidate = useCallback(() => {
+    requests.current.invalidate();
+    setCalculating(false);
+    setError(null);
+  }, []);
 
   // Changing river invalidates everything: an access point belongs to exactly
   // one river, and a half-built plan carried across would pair two rivers'
   // points into a segment the server cannot resolve.
   useEffect(() => {
-    calculationId.current += 1;
+    invalidate();
     setStep('put-in');
     setPutIn(null);
     setTakeOut(null);
     setPlan(null);
     setCalculating(false);
     setError(null);
-  }, [riverId]);
+    const activeRequests = requests.current;
+    return () => activeRequests.invalidate();
+  }, [riverId, invalidate]);
 
   // ── Eligibility is filtered here, not validated after the fact ────────────
   //
@@ -116,6 +121,7 @@ export function useFloatPlan(riverId: string | null, accessPoints: MapAccessPoin
       // river Eddy has not curated — /api/plan is scoped to one — and the silent
       // return left the sheet on a spinner-less blank forever. Neither ending is
       // good, but one of them can be read.
+      invalidate();
       if (!riverId) {
         setStep('result');
         setPlan(null);
@@ -123,15 +129,19 @@ export function useFloatPlan(riverId: string | null, accessPoints: MapAccessPoin
         setError('Eddy cannot plan a float on this river yet.');
         return;
       }
-      const requestId = ++calculationId.current;
+      const request = requests.current.start();
       setCalculating(true);
       setError(null);
       setStep('result');
       try {
-        const result = await fetchFloatPlan({ riverId, startId: start.id, endId: end.id });
-        if (calculationId.current === requestId) setPlan(result);
+        const result = await fetchFloatPlan({ riverId, startId: start.id, endId: end.id }, request.signal);
+        if (!request.isCurrent()) return;
+        if (result.river.id !== riverId || result.putIn.id !== start.id || result.takeOut.id !== end.id) {
+          throw new Error('The river or access points changed. Please try this float again.');
+        }
+        setPlan(result);
       } catch (err) {
-        if (calculationId.current !== requestId) return;
+        if (!request.isCurrent()) return;
         setPlan(null);
         setError(
           err instanceof ApiError
@@ -144,10 +154,10 @@ export function useFloatPlan(riverId: string | null, accessPoints: MapAccessPoin
             : 'Could not build that float plan',
         );
       } finally {
-        if (calculationId.current === requestId) setCalculating(false);
+        if (request.isCurrent()) setCalculating(false);
       }
     },
-    [riverId],
+    [riverId, invalidate],
   );
 
   const choosePutIn = useCallback((point: MapAccessPoint) => {
@@ -157,24 +167,26 @@ export function useFloatPlan(riverId: string | null, accessPoints: MapAccessPoin
     // pickers filter; these three guards are what make the rule hold for
     // everything else.
     if (point.isFloatEndpoint === false) return;
+    invalidate();
     setPutIn(point);
     // A take-out upstream of the new put-in is no longer a float. Dropping it
     // here is what keeps takeOutOptions and the selection from disagreeing.
     setTakeOut((current) => (current && current.riverMile > point.riverMile ? current : null));
     setPlan(null);
     setStep('take-out');
-  }, []);
+  }, [invalidate]);
 
   // The take-out is the last thing anyone has to say. Picking one goes straight
   // to the answer rather than through a boat nobody wanted to choose.
   const chooseTakeOut = useCallback(
     (point: MapAccessPoint) => {
       if (point.isFloatEndpoint === false) return;
+      invalidate();
       setTakeOut(point);
       setPlan(null);
       if (putIn) void calculate(putIn, point);
     },
-    [putIn, calculate],
+    [putIn, calculate, invalidate],
   );
 
   /**
@@ -218,18 +230,18 @@ export function useFloatPlan(riverId: string | null, accessPoints: MapAccessPoin
   );
 
   const reset = useCallback(() => {
-    calculationId.current += 1;
+    invalidate();
     setStep('put-in');
     setPutIn(null);
     setTakeOut(null);
     setPlan(null);
-    // The bumped generation makes the in-flight calculate skip its OWN
-    // `finally` cleanup, so this has to clear the flag itself — the
-    // river-change effect above always did, and reset tapped mid-spinner
-    // left `calculating` latched true until the next calculation.
-    setCalculating(false);
-    setError(null);
-  }, []);
+    // invalidate() already cleared pending work and its loading/error state.
+  }, [invalidate]);
+
+  const goToStep = useCallback((next: PlanStep) => {
+    invalidate();
+    setStep(next);
+  }, [invalidate]);
 
   return {
     step,
@@ -243,7 +255,7 @@ export function useFloatPlan(riverId: string | null, accessPoints: MapAccessPoin
     choosePutIn,
     chooseTakeOut,
     planFloat,
-    goToStep: setStep,
+    goToStep,
     reset,
   };
 }

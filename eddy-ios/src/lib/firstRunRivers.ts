@@ -118,3 +118,13 @@ export function pickFirstRunRivers(
 
   return picked;
 }
+
+/** Keep selected rivers visible when location replaces the suggestions. */
+export function retainSelectedRivers(
+  suggestions: RiverListItem[],
+  rivers: RiverListItem[],
+  selected: ReadonlySet<string>,
+): RiverListItem[] {
+  const shown = new Set(suggestions.map((river) => river.id));
+  return [...rivers.filter((river) => selected.has(river.id) && !shown.has(river.id)), ...suggestions];
+}

@@ -1,3 +1,4 @@
+import type { RiverListItem } from '@eddy/types';
 // eddy-ios/src/lib/offline-cache.ts
 // Key formats and envelope handling for the on-disk river cache. PURE — no
 // AsyncStorage, no Expo, nothing that cannot run under the web test runner.
@@ -404,4 +405,47 @@ export function mayPaintCachedCondition(
 ): boolean {
   const age = effectiveReadingAgeHours(storedAgeHours, fetchedAt, now);
   return age !== null && age < STALE_READING_HOURS;
+}
+
+/**
+ * The stored index, honestly aged for a list surface.
+ *
+ * The write-through above meant every river's name and last condition sat on
+ * disk while an offline cold start showed a spinner and then an error over an
+ * empty list — the cache's whole reason to exist, unread on the two tabs that
+ * need it most. This is the read for that path, holding the river screen's own
+ * rules for cached readings:
+ *
+ *   - ages are recomputed on the reader's clock (a stored "2h ago" from last
+ *     night is not 2h ago), with the stored age as the floor so a clock that
+ *     moved backwards cannot make a reading younger;
+ *   - past the trusted window the VERDICT is withheld — code goes to
+ *     `unknown`, the label says "Last known: …", and the trend is dropped —
+ *     because a paddler must never drive to yesterday's green.
+ *
+ * Pure over its inputs, so the web test suite can hold the rules.
+ */
+export function agedIndex(
+  stored: CacheEnvelope<RiverListItem[]>,
+  now: number,
+): RiverListItem[] {
+  return stored.payload.map((river) => {
+    const condition = river.currentCondition;
+    if (!condition) return river;
+
+    const age = effectiveReadingAgeHours(condition.readingAgeHours, stored.fetchedAt, now);
+    if (mayPaintCachedCondition(condition.readingAgeHours, stored.fetchedAt, now)) {
+      return { ...river, currentCondition: { ...condition, readingAgeHours: age } };
+    }
+    return {
+      ...river,
+      currentCondition: {
+        ...condition,
+        readingAgeHours: age,
+        code: 'unknown',
+        label: `Last known: ${condition.label}`,
+        trend: null,
+      },
+    };
+  });
 }

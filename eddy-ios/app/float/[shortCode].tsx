@@ -1,21 +1,11 @@
 // eddy-ios/app/float/[shortCode].tsx
 // One saved float, re-read against today's river.
 //
-// ── This screen is not a cache ──────────────────────────────────────────────
-// /api/plan/[shortCode] recalculates the whole plan from the two access points
-// before answering — the same gauge read, the same shuttle drive, the same
-// hazard sweep as a plan built a moment ago. That is the only correct behaviour
-// here. A float saved in April and opened in July is the same stretch and
-// completely different water, and a screen that replayed April's numbers under
-// July's date would be dangerous rather than merely stale.
-//
-// Which is also why it needs a connection and says so plainly when it does not
-// have one, rather than showing a skeleton of a plan.
-//
-// The rendering is PlanResult, shared with the sheet a plan is built in, so a
-// shared float and the plan that produced it cannot read differently.
+// Current conditions always come from the server. The saved logistics view is
+// available immediately and after a failed refresh, with historical cautions
+// explicitly dated. It never presents an old water verdict as current.
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Pressable, Share, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
@@ -28,47 +18,54 @@ import { Otter } from '@/components/Otter';
 import { PlanResult } from '@/components/PlanResult';
 import { useSavedFloats } from '@/hooks/useSavedFloats';
 import { goBack } from '@/lib/nav';
+import { SavedFloatDetails } from '@/components/SavedFloatDetails';
+import { createLatestRequest } from '@/lib/latestRequest';
+import { onForeground } from '@/lib/foreground';
 
 export default function SavedFloatScreen() {
   const { shortCode } = useLocalSearchParams<{ shortCode: string }>();
   const router = useRouter();
   const { colors } = useTheme();
-  const { floats, isSaved, remember, forgetPlan } = useSavedFloats();
+  const { floats, isSaved, remember, forgetPlan, updateLogistics } = useSavedFloats();
 
   const [plan, setPlan] = useState<FloatPlan | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const requests = useRef(createLatestRequest());
 
-  // The local stub, used only for the header while the real plan loads. It is
-  // what makes this screen name the stretch instantly instead of showing a
-  // spinner with no idea what it is loading.
   const stub = floats.find((f) => f.shortCode === shortCode) ?? null;
 
   const load = useCallback(
-    async (signal?: AbortSignal) => {
+    async () => {
       if (!shortCode) return;
+      const request = requests.current.start();
       setLoading(true);
+      setPlan(null);
       try {
-        setPlan(await fetchSavedPlan(shortCode, signal));
+        const live = await fetchSavedPlan(shortCode, request.signal);
+        if (!request.isCurrent()) return;
+        setPlan(live);
+        updateLogistics(shortCode, live);
         setError(null);
       } catch (err) {
-        if (err instanceof ApiError && err.message === 'Request cancelled') return;
+        if (!request.isCurrent()) return;
         setError(
           err instanceof ApiError && err.status === 404
             ? 'This float is no longer available. The link may have expired.'
             : 'Eddy needs a connection to read this float against today’s river.',
         );
       } finally {
-        if (!signal?.aborted) setLoading(false);
+        if (request.isCurrent()) setLoading(false);
       }
     },
-    [shortCode],
+    [shortCode, updateLogistics],
   );
 
   useEffect(() => {
-    const controller = new AbortController();
-    load(controller.signal);
-    return () => controller.abort();
+    const activeRequests = requests.current;
+    void load();
+    const unsubscribe = onForeground(() => void load());
+    return () => { activeRequests.invalidate(); unsubscribe(); };
   }, [load]);
 
   const onShare = useCallback(async () => {
@@ -153,7 +150,9 @@ export default function SavedFloatScreen() {
         </Text>
       </View>
 
-      {loading ? (
+      {stub && (loading || error || !plan) ? (
+        <SavedFloatDetails saved={stub} loading={loading} error={error} onRetry={() => void load()} />
+      ) : loading ? (
         <View style={styles.centered}>
           <ActivityIndicator color={colors.interactive} />
           <Text style={[styles.centeredText, { color: colors.textMuted }]}>

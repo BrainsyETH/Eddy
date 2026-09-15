@@ -1,7 +1,9 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import type { RiverListItem } from '../../../packages/eddy-types';
 import { readFileSync } from 'node:fs';
 import {
+  agedIndex,
   CACHE_VERSION,
   INDEX_KEY,
   META_KEY,
@@ -298,13 +300,12 @@ test('clearing the cache cannot reach anything a user chose', () => {
 // on disk.
 
 test('agedIndex withholds stale verdicts and stamps "Last known"', () => {
-  const source = readFileSync('../eddy-ios/src/lib/riverCache.ts', 'utf8');
-  assert.match(source, /export function agedIndex/);
-  // Past the trusted window the verdict is withheld, not re-painted…
-  assert.match(source, /code: 'unknown'/);
-  assert.match(source, /`Last known: \$\{condition\.label\}`/);
-  // …and the stale trend goes with it — yesterday's arrow is not a fact.
-  assert.match(source, /trend: null/);
+  const river = { currentCondition: { code: 'good', label: 'Good', readingAgeHours: 12,
+    trend: { label: 'Rising' } } } as RiverListItem;
+  const [aged] = agedIndex(envelope([river], NOW), Date.parse(NOW));
+  assert.equal(aged.currentCondition?.code, 'unknown');
+  assert.equal(aged.currentCondition?.label, 'Last known: Good');
+  assert.equal(aged.currentCondition?.trend, null);
 });
 
 test('Today and Favorites read the cache when the network fails', () => {
@@ -317,7 +318,12 @@ test('Today and Favorites read the cache when the network fails', () => {
     // so either spelling satisfies "falls back to the stored index" — the
     // second is strictly the larger fallback.
     assert.match(source, /await read(Best)?Index\(\)/, `${path} must fall back to the stored index`);
-    assert.match(source, /agedIndex\(cached, Date\.now\(\)\)/, `${path} must age what it shows`);
+    if (path.includes('favorites')) {
+      assert.match(source, /agedIndex\(riverSnapshot, now\)/, 'Favorites must age its retained snapshot');
+      assert.match(source, /setInterval\(\(\) => setNow\(Date\.now\(\)\)/, 'Favorites must advance its clock');
+    } else {
+      assert.match(source, /agedIndex\(cached, Date\.now\(\)\)/, `${path} must age what it shows`);
+    }
     // Never over a live list — a failed refresh keeps what is on screen.
     assert.match(source, /\(current\) => current \?\?/, `${path} must not clobber live data`);
   }

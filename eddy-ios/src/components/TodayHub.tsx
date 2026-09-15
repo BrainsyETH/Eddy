@@ -497,6 +497,14 @@ function BestRiverCard({
         </View>
         <BlurredReadPreview lines={1} />
       </Pressable>
+      {recommendation.notices.length > 0 ? (
+        <Pressable onPress={onOpen} accessibilityRole="button" style={styles.factRow}>
+          <Ionicons name="warning-outline" size={18} color={colors.text} />
+          <Text style={[styles.factText, styles.flex, { color: colors.text }]}>
+            {recommendation.notices[0].title} · View agency notice
+          </Text>
+        </Pressable>
+      ) : null}
       <View style={styles.actions}>
         <Pressable
           onPress={onPlan}
@@ -667,10 +675,11 @@ export function TodayHub({
       rivers,
       gauges: gauges ?? [],
       favoriteRiverIds: favoriteIds,
+      notices: safety.notices,
       coords: location.coords,
       incumbentRiverId: incumbentState.riverId,
     }) : [],
-    [favoriteIds, gauges, incumbentState, location.coords, rivers],
+    [favoriteIds, gauges, incumbentState, location.coords, rivers, safety.notices],
   );
   const recommendation = recommendations[0] ?? null;
 
@@ -701,9 +710,13 @@ export function TodayHub({
     });
   }, [router]);
 
+  const displayedRiverSlugs = useMemo(
+    () => new Set(recommendations.map(({ river }) => river.slug)),
+    [recommendations],
+  );
   const filteredSafety = useMemo(
-    () => filterTodaySafety(safety.high ?? [], safety.notices ?? [], safetyScope),
-    [safety.high, safety.notices, safetyScope],
+    () => filterTodaySafety(safety.high ?? [], safety.notices ?? [], safetyScope, displayedRiverSlugs),
+    [safety.high, safety.notices, safetyScope, displayedRiverSlugs],
   );
   const activeSafety = {
     high: safety.high === null ? null : filteredSafety.high,
@@ -712,7 +725,7 @@ export function TodayHub({
   const safetyCount = (activeSafety?.high?.length ?? 0) + (activeSafety?.notices?.length ?? 0);
   const detailFailure = floatFailure || safetyFailure.high || safetyFailure.notices;
   const safetyScopeLabel = safetyScope.kind === 'favorites'
-    ? 'on your favorite rivers'
+    ? recommendations.length ? 'on your favorites and suggested rivers' : 'on your favorite rivers'
     : safetyScope.kind === 'nearby'
       ? 'near you'
       : 'statewide';

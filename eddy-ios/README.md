@@ -600,12 +600,13 @@ their own data so they work identically on the screen that opens a shared float,
 which holds a plan and nothing else.
 
 **Saved floats** are local (`useSavedFloats`) because the server has no notion of
-"mine": `float_plans` is keyed by share code, and most users are anonymous. Only
-a stub is stored — river, both ends, distance, date. Never the numbers.
-`/api/plan/[shortCode]` recalculates the whole plan against today's gauge when
-one is opened, which is the only correct behaviour: a float saved in April and
-opened in July is the same stretch and completely different water. So the list
-works offline and opening one does not, and the screen says so.
+"mine": `float_plans` is keyed by share code, and most users are anonymous. The saved collection stays on this device; signing in syncs favorites, not
+saved floats. Saved trips retain endpoint coordinates, access details, distance,
+and dated cautions for offline use. Live conditions and time estimates are not
+stored in that record. Opening a trip online recalculates the plan and updates
+its saved details; older stubs gain details on their next successful open.
+Account deletion clears both the current and legacy local favorites stores and
+the saved-float collection, including queued writes and in-flight sync results.
 
 ### Location is never requested on launch
 
@@ -615,8 +616,10 @@ the Search tab's search field — so the ask always arrives with a visible reaso
 attached. A denial is not re-prompted; iOS would suppress the dialog anyway, so
 the only effect would be a silent retry behind a spinner.
 
-Coordinates never leave the phone, which is why the permission strings in
-`app.json` can say so plainly.
+Precise coordinates are used on the device for distance sorting. Today also
+requests local weather from Eddy using coordinates rounded to 0.05 degrees.
+The location permission discloses that approximate coordinates are sent for
+the forecast; do not describe location as never leaving the device.
 
 Two things it powers. The planner's put-in list gains a **nearest-first**
 ordering (headwaters-first stays the default — that is the order a river runs

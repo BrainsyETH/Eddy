@@ -46,7 +46,7 @@ import { useLocation } from '@/hooks/useLocation';
 import { useStarredRivers } from '@/hooks/useStarredRivers';
 import { fetchGauges, fetchRivers } from '@/api/client';
 import { readBestIndex } from '@/lib/riverCache';
-import { pickFirstRunRivers } from '@/lib/firstRunRivers';
+import { pickFirstRunRivers, retainSelectedRivers } from '@/lib/firstRunRivers';
 import { riverDistanceLabel, riverMilesByGauge } from '@/lib/riverDistance';
 import { primaryReading } from '@/lib/readingCopy';
 import { report, warn } from '@/lib/monitoring';
@@ -123,8 +123,8 @@ export function FirstRunPicker({ onDone, onUnavailable }: Props) {
   }, []);
 
   const featured = useMemo(
-    () => (rivers ? pickFirstRunRivers(rivers, distances) : []),
-    [rivers, distances],
+    () => (rivers ? retainSelectedRivers(pickFirstRunRivers(rivers, distances), rivers, selected) : []),
+    [rivers, distances, selected],
   );
 
   const toggle = useCallback((id: string) => {
@@ -200,7 +200,7 @@ export function FirstRunPicker({ onDone, onUnavailable }: Props) {
       // hold some of these, and a toggle would unstar exactly the rivers the
       // user just pressed a button to follow. See addStars in @eddy/sync.
       followStars(
-        featured
+        (rivers ?? [])
           .filter((river) => selected.has(river.id))
           .map((river) => ({
             kind: 'river' as const,
@@ -218,9 +218,9 @@ export function FirstRunPicker({ onDone, onUnavailable }: Props) {
       setSaving(false);
       onDone();
     }
-  }, [saving, selected, featured, followStars, onDone]);
+  }, [saving, selected, rivers, followStars, onDone]);
 
-  const count = selected.size;
+  const count = (rivers ?? []).filter((river) => selected.has(river.id)).length;
   const locationChip = describeLocationChip(location.status, placeName, locating, distances != null);
 
   return (

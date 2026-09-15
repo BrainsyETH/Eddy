@@ -56,7 +56,7 @@
       [
         "expo-location",
         {
-          "locationWhenInUsePermission": "Eddy uses your location to show which put-ins and rivers are closest to you. It is never sent to our servers.",
+          "locationWhenInUsePermission": "Eddy uses your location to find nearby rivers and put-ins and show local weather. Approximate coordinates are sent to Eddy for the weather forecast.",
           "isIosBackgroundLocationEnabled": false
         }
       ],
