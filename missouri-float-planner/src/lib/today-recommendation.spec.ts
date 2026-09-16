@@ -244,3 +244,8 @@ test('statewide safety keeps only flood and warning severity', () => {
   assert.deepEqual(result.high.map((entry) => entry.id), ['flood']);
   assert.deepEqual(result.notices.map((entry) => entry.id), ['warning']);
 });
+
+test('favorites remain readable when a route time is withheld', () => {
+  assert.match(favoriteFloatMeta({ distanceMiles: 8, durationHours: null, durationFormatted: null, durationUnavailableReason: 'regulated', difficulty: 'I' }), /dam releases/);
+  assert.match(favoriteFloatMeta({ distanceMiles: 8, durationHours: null, durationFormatted: null, difficulty: 'I' }), /Open plan for float time/);
+});

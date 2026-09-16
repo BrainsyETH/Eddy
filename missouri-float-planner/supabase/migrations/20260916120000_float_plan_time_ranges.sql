@@ -3,6 +3,7 @@
 alter table public.float_plans
   add column if not exists estimated_float_min_minutes integer,
   add column if not exists estimated_float_max_minutes integer;
+alter table public.float_plans drop constraint if exists float_plan_time_range_valid;
 alter table public.float_plans add constraint float_plan_time_range_valid check (
   (estimated_float_min_minutes is null and estimated_float_max_minutes is null)
   or (estimated_float_min_minutes is not null and estimated_float_max_minutes is not null

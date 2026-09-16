@@ -53,6 +53,6 @@ test('saved previews never manufacture a range from an old average', () => {
 test('all route entry points delegate to the shared service', () => {
   for (const path of ['src/app/api/plan/route.ts', 'src/app/api/route-estimate/route.ts', 'src/app/api/mcp/route.ts', 'src/lib/chat/tool-handlers.ts', 'src/lib/social/post-context.ts', 'src/app/api/favorite-floats/route.ts', 'src/lib/access-points/detail.ts']) {
     const source = readFileSync(path, 'utf8');
-    assert.match(source, /await estimateRoute\(|=> estimateRoute\(/, path);
+    assert.match(source, /await estimateRoute\(|=>\s*estimateRoute\(/, path);
   }
 });

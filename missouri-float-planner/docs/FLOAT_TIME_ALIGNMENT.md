@@ -63,3 +63,19 @@ A future offline API cache or already-cached social cover may keep older text un
 - `make check-mobile` passes with 28 pre-existing warnings; `make bundle-mobile` exports the iOS production bundle and passes the archive allowlist check.
 - Remotion `tsc --noEmit` passes. A still-render attempt could not download Chromium (`storage.googleapis.com` DNS unavailable); visual review of the longer time tiles remains pending.
 - No database credentials were available for a production comparison. No migrations, deployments or social posts were executed.
+
+## Review fixes and deployment order
+
+The long-route calculation and its assumptions are intentionally unchanged per
+product direction. `/api/route-estimate` now uses the same x402 policy/price as
+`/api/plan`. Favorites v2 (`?v=2`, used by the updated app) retains every curated
+route, represents withheld/failed estimates with null and a reason, and caches
+typical route calculations for an hour independently of CDN misses. The unversioned
+endpoint preserves its pre-PR numeric editorial contract for installed clients
+that call `durationHours.toFixed()`; no routes are removed. Legacy estimates are
+marked `legacy_editorial`; retire v1 when those clients are no longer supported.
+
+Apply the range migration before deploying the save endpoint. Run the read-only
+preflight SQL first and regenerate database types after applying it. No production
+DB checks or migration were performed in this environment. The explicit default
+vessel is canoe; explicit raft/tube selections keep their existing speeds.

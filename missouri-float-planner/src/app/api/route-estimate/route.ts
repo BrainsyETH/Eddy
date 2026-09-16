@@ -1,9 +1,10 @@
+import { withX402Route } from '@/lib/x402-config';
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { estimateRoute, RouteEstimateError } from '@/lib/calculations/route-estimate';
 import { rateLimit, getClientIp } from '@/lib/rate-limit';
 export const dynamic = 'force-dynamic';
-export async function GET(request: NextRequest) {
+async function _GET(request: NextRequest) {
   const limited = await rateLimit(`route-estimate:${getClientIp(request)}`, 30, 60_000);
   if (limited) return limited;
   const p = request.nextUrl.searchParams;
@@ -18,3 +19,5 @@ export async function GET(request: NextRequest) {
       { status: error instanceof RouteEstimateError ? error.status : 500 });
   }
 }
+
+export const GET = withX402Route(_GET, '/api/route-estimate');

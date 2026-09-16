@@ -1843,7 +1843,7 @@ export async function fetchHighWater(signal?: AbortSignal): Promise<HighWaterEnt
 export async function fetchFavoriteFloats(
   signal?: AbortSignal,
 ): Promise<FavoriteFloatSummary[]> {
-  const data = await get<FavoriteFloatsResponse>('/api/favorite-floats', signal);
+  const data = await get<FavoriteFloatsResponse>('/api/favorite-floats?v=2', signal);
   return data.floats ?? [];
 }
 

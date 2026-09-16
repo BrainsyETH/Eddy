@@ -2054,7 +2054,8 @@ export interface FavoriteFloatSummary {
   takeOutId: string;
   takeOutName: string;
   distanceMiles: number;
-  durationHours: number;
+  durationHours: number | null;
+  durationUnavailableReason?: string | null;
   durationFormatted?: string | null;
   estimateBasis?: 'typical';
   difficulty: string;
