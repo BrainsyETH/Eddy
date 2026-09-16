@@ -32,7 +32,7 @@ export default function WeatherScreen() {
     range: { ...layout.range, backgroundColor: skyColors.range },
     metricValue: { ...layout.metricValue, color: skyColors.text },
     message: { ...layout.message, color: skyColors.text },
-    source: { ...layout.source, color: skyColors.muted },
+    source: { ...layout.source, color: skyColors.muted, backgroundColor: skyColors.panel },
   };
   const { lat: latParam, lng: lngParam } = useLocalSearchParams<{ lat: string; lng: string }>();
   const lat = Number(latParam);
@@ -161,5 +161,5 @@ const layout = StyleSheet.create({
   metricValue: { fontSize: 32, fontFamily: fonts.body },
   unit: { ...t.base },
   message: { paddingVertical: 16, textAlign: 'center' },
-  source: { ...t.xs, textAlign: 'center', lineHeight: 20 },
+  source: { ...t.xs, padding: 12, borderRadius: 12, textAlign: 'center', lineHeight: 20 },
 });
