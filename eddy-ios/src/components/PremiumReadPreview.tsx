@@ -10,8 +10,9 @@ import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
 
 /** Parent mounts only for Premium and keys by user: no cross-user prose cache. */
-export function PremiumReadPreview({ slug, revision }: { slug: string; revision: string }) {
-  const { colors } = useTheme();
+export function PremiumReadPreview({ slug, revision, onPhoto = false }: { slug: string; revision: string; onPhoto?: boolean }) {
+  const theme = useTheme();
+  const colors = onPhoto ? { ...theme.colors, text: '#ffffff', textMuted: '#e2eee8', textSubtle: '#cbded5', interactive: '#ffffff' } : theme.colors;
   const { getAccessToken } = useSession();
   const key = JSON.stringify([slug, revision]);
   const [result, setResult] = useState<{ key: string; data: PremiumEddyRead | null; error: boolean } | null>(null);

@@ -158,14 +158,16 @@ test('the guard keeps an ordinary reading, and a mildly stretched one', () => {
   assert.ok(Math.abs((stretched?.windowHours ?? 0) - 6) <= 3);
 });
 
-test('the recent trend names its window and is separate from the inspection readout', () => {
-  const header = CHART.slice(CHART.indexOf('<View style={styles.head}>'), CHART.indexOf('<View style={styles.controls}>'));
-  assert.match(header, /showTrend && shownTrend/);
-  assert.match(header, /shownTrend.label/);
-  assert.match(header, /past \{shownTrend.windowHours\} hours/);
-  assert.doesNotMatch(header, /scrubbed/);
-  const river = readFileSync(join(process.cwd(), '../eddy-ios/app/river/[slug].tsx'), 'utf8');
-  assert.match(river, /showTrend=\{false\}/, 'river chart duplicates the trend in the reading card');
+test('the pill is on the title row, which the scrub readout does not replace', () => {
+  // The subtitle is swapped for the scrub readout while a finger is on the
+  // plot. A trend rendered there would disappear at exactly the moment the
+  // reader is interrogating the line.
+  assert.match(CHART, /styles\.titleRow/, 'the trend pill left the title row');
+  const titleRow = CHART.slice(CHART.indexOf('styles.titleRow'));
+  assert.ok(
+    titleRow.indexOf('TrendPill') < titleRow.indexOf('styles.subtitle'),
+    'the trend pill is no longer rendered inside the title row',
+  );
 });
 
 test('the six-hour window is fixed, never scaled to the selected range', () => {

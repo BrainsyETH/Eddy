@@ -17,6 +17,9 @@ export interface RiverWithDetails extends River {
 }
 
 export interface RiverListItem extends River {
+  /** River-specific editorial scenery, not a current-condition photograph. */
+  photoUrl?: string | null;
+  photoCredit?: { text: string; url: string } | null;
   accessPointCount: number;
   /** rivers.state code, e.g. 'MO' */
   state: string;
@@ -1446,6 +1449,8 @@ export interface MapSpring {
 // change to either is a change to both.
 
 export interface GaugeHistoryReading {
+  /** Outages detected before downsampling, per measurement unit. */
+  gapBefore?: ('ft' | 'cfs')[];
   timestamp: string;
   gaugeHeightFt: number | null;
   dischargeCfs: number | null;
