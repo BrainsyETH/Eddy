@@ -19,6 +19,11 @@ export function savedFloatLogistics(plan: FloatPlan, now = new Date().toISOStrin
     savedAt: now,
     putIn: point(plan.putIn), takeOut: point(plan.takeOut),
     hazards: plan.hazards.map((hazard) => ({ ...hazard })),
-    warnings: [...plan.warnings],
+    warnings: logisticsWarnings(plan.warnings, plan.putIn.name, plan.takeOut.name),
   };
+}
+
+export function logisticsWarnings(warnings: readonly string[], putInName: string, takeOutName: string): string[] {
+  const allowed = new Set([`${putInName} does not have direct road access`, `${takeOutName} does not have direct road access`]);
+  return warnings.filter(warning => allowed.has(warning));
 }

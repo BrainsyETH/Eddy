@@ -1,3 +1,4 @@
+import { logisticsWarnings } from '@/lib/savedFloatLogistics';
 import { Alert, Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { hazardTypeLabel, portageNote } from '@eddy/hazards';
 import type { SavedFloat } from '@/hooks/useSavedFloats';
@@ -56,7 +57,7 @@ export function SavedFloatDetails({ saved, loading, error, onRetry }: {
           <Text style={[styles.body, { color: colors.textMuted }]}>
             Recorded {new Date(details.savedAt).toLocaleString()}. These may have changed and do not include new hazards or closures.
           </Text>
-          {details.warnings.map((warning, i) => <Text key={i} style={[styles.body, { color: colors.text }]}>{warning}</Text>)}
+          {logisticsWarnings(details.warnings, details.putIn.name, details.takeOut.name).map((warning, i) => <Text key={i} style={[styles.body, { color: colors.text }]}>{warning}</Text>)}
           {details.hazards.map((hazard) => (
             <View key={hazard.id} style={styles.hazard}>
               <Text style={[styles.action, { color: colors.text }]}>{hazard.name} · {hazardTypeLabel(hazard.type)}</Text>
@@ -66,7 +67,7 @@ export function SavedFloatDetails({ saved, loading, error, onRetry }: {
               {hazard.description ? <Text style={[styles.body, { color: colors.text }]}>{hazard.description}</Text> : null}
             </View>
           ))}
-          {!details.warnings.length && !details.hazards.length ? <Text style={[styles.body, { color: colors.textMuted }]}>No cautions were saved. This does not mean the stretch is clear.</Text> : null}
+          {!logisticsWarnings(details.warnings, details.putIn.name, details.takeOut.name).length && !details.hazards.length ? <Text style={[styles.body, { color: colors.textMuted }]}>No cautions were saved. This does not mean the stretch is clear.</Text> : null}
         </View>
       </> : <Text style={[styles.body, { color: colors.text }]}>
         {saved.putInName} → {saved.takeOutName}. Open this float with a connection once to save its access details for offline use.

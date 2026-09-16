@@ -106,14 +106,14 @@ test('offline logistics keep access and dated cautions without caching live verd
     coordinates: { lat: 37.3, lng: -91.5 }, isPublic: false, feeRequired: true,
     description: 'Ask the operator before launching.' } as MapAccessPoint;
   const plan = { putIn: point, takeOut: { ...point, id: 'pulltite' },
-    warnings: ['A caution at save time'], hazards: [],
+    warnings: ['Akers does not have direct road access', 'Water conditions are dangerous - do not float', 'Gauge reading may be inaccurate'], hazards: [],
     condition: { code: 'good' }, floatTime: { minutes: 240 }, driveBack: { minutes: 30 },
   } as unknown as FloatPlan;
   const saved = savedFloatLogistics(plan, '2026-09-15T08:00:00Z');
   assert.equal(saved.putIn.isPublic, false);
   assert.equal(saved.putIn.feeRequired, true);
   assert.deepEqual(saved.putIn.coordinates, point.coordinates);
-  assert.deepEqual(saved.warnings, plan.warnings);
+  assert.deepEqual(saved.warnings, ['Akers does not have direct road access']);
   assert.equal(saved.savedAt, '2026-09-15T08:00:00Z');
   for (const field of ['condition', 'floatTime', 'driveBack']) assert.equal(field in saved, false);
   plan.warnings.push('later');
