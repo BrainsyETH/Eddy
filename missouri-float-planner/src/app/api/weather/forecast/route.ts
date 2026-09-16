@@ -3,7 +3,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { cdnCacheHeaders } from '@/lib/api-utils';
-import { fetchForecast } from '@/lib/weather/openweather';
+import { fetchForecast, fetchWeather } from '@/lib/weather/openweather';
 import { withX402Route } from '@/lib/x402-config';
 
 // Simple in-memory cache
@@ -40,12 +40,18 @@ async function _GET(request: NextRequest) {
   }
 
   try {
-    const forecast = await fetchForecast(roundedLat, roundedLon, apiKey);
+    const [forecast, current] = await Promise.all([
+      fetchForecast(roundedLat, roundedLon, apiKey),
+      fetchWeather(roundedLat, roundedLon, apiKey).catch(() => null),
+    ]);
 
-    // Return only the next 3 days (skip today if partial)
+    // Current observation and the provider’s actual three-hour forecast periods.
     const responseData = {
       city: forecast.city,
-      days: forecast.days.slice(0, 4),
+      days: forecast.days,
+      periods: forecast.periods,
+      localDate: forecast.localDate,
+      current: current ? { ...current, fetchedAt: new Date().toISOString() } : null,
     };
 
     forecastCache.set(cacheKey, { data: responseData, timestamp: Date.now() });

@@ -113,6 +113,9 @@ export interface ForecastDay {
 
 export interface ForecastData {
   city: string;
+  localDate?: string;
+  periods?: Array<{ timestamp: string; localHour: number; temp: number; conditionIcon: string; precipitation: number }>;
+
   days: ForecastDay[];
 }
 
@@ -203,7 +206,14 @@ export async function fetchForecast(
   // Limit to 5 days
   return {
     city: data.city?.name || 'Unknown',
+    localDate: new Date(Date.now() + timezoneOffsetSeconds * 1000).toISOString().slice(0, 10),
     days: days.slice(0, 5),
+    periods: data.list.slice(0, 8).map((item: { dt: number; main: { temp: number }; weather: Array<{ icon: string }>; pop?: number }) => ({
+      timestamp: new Date(item.dt * 1000).toISOString(),
+      localHour: new Date((item.dt + timezoneOffsetSeconds) * 1000).getUTCHours(),
+      temp: Math.round(item.main.temp), conditionIcon: item.weather[0]?.icon ?? '01d',
+      precipitation: Math.round((item.pop ?? 0) * 100),
+    })),
   };
 }
 

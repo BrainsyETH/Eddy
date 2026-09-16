@@ -1,3 +1,4 @@
+import { RIVER_PHOTOS, RIVER_PHOTO_CREDITS } from '@shared/river-photos';
 // src/lib/data/rivers.ts
 // Shared server-side data fetching for rivers
 // Used by both the API route and server components
@@ -270,6 +271,8 @@ export async function getRivers(): Promise<RiverListItem[]> {
         id: river.id,
         name: river.name,
         slug: river.slug,
+        photoUrl: RIVER_PHOTOS[river.slug] ?? null,
+        photoCredit: RIVER_PHOTO_CREDITS[river.slug] ?? null,
         state: river.state || 'MO',
         riverType: river.river_type ?? null,
         path: riverPath(river.state || 'MO', river.slug),

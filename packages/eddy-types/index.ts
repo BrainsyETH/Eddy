@@ -68,6 +68,9 @@ export interface RiverReadingTrend {
 }
 
 export interface RiverListItem extends River {
+  /** River-specific editorial scenery, not a current-condition photograph. */
+  photoUrl?: string | null;
+  photoCredit?: { text: string; url: string } | null;
   accessPointCount: number;
   /** rivers.state code, e.g. 'MO' */
   state: string;
@@ -1213,6 +1216,8 @@ export interface GaugeDetailResponse {
 // happened. shared/chart-model.ts splitAtGaps() is the shared implementation.
 
 export interface GaugeHistoryReading {
+  /** Outages detected before downsampling, per measurement unit. */
+  gapBefore?: ('ft' | 'cfs')[];
   timestamp: string;
   gaugeHeightFt: number | null;
   dischargeCfs: number | null;
@@ -1957,6 +1962,9 @@ export interface OutlookWeatherDay {
 
 /** Coordinate-based forecast used by Today for the device's current area. */
 export interface LocationWeatherForecast {
+  localDate?: string;
+  current?: { temp: number; condition: string; conditionIcon: string; windSpeed: number; humidity: number; fetchedAt: string } | null;
+  periods?: Array<{ timestamp: string; localHour: number; temp: number; conditionIcon: string; precipitation: number }>;
   city: string;
   days: OutlookWeatherDay[];
 }

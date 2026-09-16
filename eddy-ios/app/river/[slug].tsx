@@ -1560,8 +1560,6 @@ export default function RiverDetailScreen() {
               shownSiteId === condition?.gaugeUsgsId ? condition?.floodStages ?? null : null
             }
             title="Recent history"
-            stationName={shownGaugeName}
-            showTrend={false}
           />
         ) : null}
 

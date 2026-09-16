@@ -28,6 +28,7 @@ export interface ChartReadingLike {
   gaugeHeightFt: number | null;
   dischargeCfs: number | null;
   qualifiers?: string[] | null;
+  gapBefore?: ReadingUnit[];
 }
 
 /** One plotted observation: a real number at a real instant. Never synthesized. */
@@ -37,6 +38,7 @@ export interface ChartPoint {
   v: number;
   timestamp: string;
   qualifiers: string[];
+  breakBefore?: boolean;
 }
 
 export interface ChartDomain {
@@ -72,7 +74,7 @@ export function chartPoints(readings: ChartReadingLike[], unit: ReadingUnit): Ch
       const t = new Date(reading.timestamp).getTime();
       const v = valueForUnit(reading, unit);
       return Number.isFinite(t) && v !== null
-        ? [{ t, v, timestamp: reading.timestamp, qualifiers: reading.qualifiers ?? [] }]
+        ? [{ t, v, timestamp: reading.timestamp, qualifiers: reading.qualifiers ?? [], breakBefore: reading.gapBefore?.includes(unit) }]
         : [];
     })
     .sort((a, b) => a.t - b.t);
@@ -91,7 +93,7 @@ export function chartPoints(readings: ChartReadingLike[], unit: ReadingUnit): Ch
  * deliberately UNEVENLY spaced, and a mean-based threshold reads that unevenness
  * as outages that never happened.
  */
-export function splitAtGaps<T extends { t: number }>(points: T[], multiple = 4): T[][] {
+export function splitAtGaps<T extends { t: number; breakBefore?: boolean }>(points: T[], multiple = 4): T[][] {
   if (points.length < 2) return points.length ? [points] : [];
 
   const intervals = points
@@ -109,7 +111,7 @@ export function splitAtGaps<T extends { t: number }>(points: T[], multiple = 4):
   const breakAt = cadence * multiple;
   const segments: T[][] = [[points[0]]];
   for (let index = 1; index < points.length; index += 1) {
-    if (points[index].t - points[index - 1].t > breakAt) segments.push([]);
+    if (points[index].breakBefore ?? (points[index].t - points[index - 1].t > breakAt)) segments.push([]);
     segments[segments.length - 1].push(points[index]);
   }
   return segments;
@@ -136,7 +138,7 @@ export interface ChartSegments<T> {
  * So the split hands back both halves and neither renderer gets to decide on its
  * own that a real number is unrenderable.
  */
-export function chartSegments<T extends { t: number }>(
+export function chartSegments<T extends { t: number; breakBefore?: boolean }>(
   points: T[],
   multiple = 4,
 ): ChartSegments<T> {
@@ -564,4 +566,31 @@ export function nowLabel(latestAt: number, now: number = Date.now()): 'Now' | 'L
   // An unreadable age counts as stale — the same absence-is-not-freshness rule
   // isReadingStale() applies to a null age.
   return isReadingStale(Number.isFinite(ageHours) ? ageHours : null) ? 'Last reading' : 'Now';
+}
+
+/** Detect outages in original telemetry before extrema sampling changes its cadence. */
+export function sampleChartReadings<T extends ChartReadingLike>(readings: T[], maxPoints: number): T[] {
+  readings = readings.map(reading => ({ ...reading, gapBefore: [] }));
+
+  const units = (['ft', 'cfs'] as const).filter((unit) =>
+    readings.some((reading) => (unit === 'ft' ? reading.gaugeHeightFt : reading.dischargeCfs) !== null)
+  );
+  const budget = Math.max(4, Math.floor(maxPoints / Math.max(1, units.length)));
+
+  const retained = new Set<T>();
+  for (const unit of units) {
+    const valid = readings.filter(reading => (unit === 'ft' ? reading.gaugeHeightFt : reading.dischargeCfs) !== null)
+      .map(reading => ({ t: Date.parse(reading.timestamp), reading }));
+    const segments = splitAtGaps(valid);
+    for (const [index, segment] of segments.entries()) {
+      if (index > 0) segment[0].reading.gapBefore!.push(unit);
+      const segmentBudget = Math.max(4, Math.floor(budget * segment.length / Math.max(1, valid.length)));
+      const selected = readings.length <= maxPoints ? segment : samplePreservingExtrema(segment, segmentBudget,
+        item => unit === 'ft' ? item.reading.gaugeHeightFt : item.reading.dischargeCfs);
+      for (const point of selected) retained.add(point.reading);
+    }
+  }
+  return [...retained].sort(
+    (a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
+  );
 }

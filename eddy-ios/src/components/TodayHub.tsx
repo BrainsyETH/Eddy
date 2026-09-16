@@ -604,7 +604,7 @@ export function TodayHub({
     return () => { clearInterval(timer); off(); };
   }, [refreshAccount]);
   const openRead = (slug: string) => router.push({ pathname: '/river/[slug]', params: { slug, focus: 'read' } });
-  const snoozeAll = () => Alert.alert('Snooze Today alerts', 'Dangerous water conditions remain visible while other Today banners are snoozed. Notices remain available in Alerts.', [
+  const snoozeAll = () => Alert.alert('Snooze Today alerts', 'Hide all Today alerts until the snooze ends. You can still view them in Alerts.', [
     { text: '1 hour', onPress: () => snooze('hour') },
     { text: 'Rest of today', onPress: () => snooze('today') },
     { text: '24 hours', onPress: () => snooze('day') },
@@ -790,8 +790,7 @@ export function TodayHub({
     high: safety.high === null ? null : filteredSafety.high,
     notices: safety.notices === null ? null : filteredSafety.notices,
   };
-  const { ready: snoozeReady, snoozed, until, snooze } = useTodaySnooze();
-  const dangerousHigh = activeSafety.high?.find(row => row.conditionCode === 'dangerous') ?? null;
+  const { ready: snoozeReady, snoozed, snooze } = useTodaySnooze();
   const safetyCount = (activeSafety?.high?.length ?? 0) + (activeSafety?.notices?.length ?? 0);
   const detailFailure = floatFailure || safetyFailure.high || safetyFailure.notices;
   const safetyScopeLabel = safetyScope.kind === 'favorites'
@@ -807,12 +806,13 @@ export function TodayHub({
     () => [...(activeSafety?.high ?? [])].sort((a, b) => Number(b.conditionCode === 'dangerous') - Number(a.conditionCode === 'dangerous'))[0] ?? null,
     [activeSafety?.high],
   );
-  const topHigh = snoozed ? dangerousHigh : ordinaryTopHigh;
+  const topHigh = ordinaryTopHigh;
   const photos = useMemo(() => {
     const result = new Map<string, string>();
+    for (const river of rivers) if (river.photoUrl) result.set(river.slug, river.photoUrl);
     for (const item of floats ?? []) if (item.photoUrl && !result.has(item.riverSlug)) result.set(item.riverSlug, item.photoUrl);
     return result;
-  }, [floats]);
+  }, [floats, rivers]);
   const featuredFloat = useMemo(() => dailyFavoriteFloats(floats ?? [])[0] ?? null, [floats]);
   const previewDistances = useMemo(
     () => location.coords && gauges ? riverMilesByGauge(gauges, location.coords) : null,
@@ -886,11 +886,7 @@ export function TodayHub({
         </View>
       ) : null}
 
-      {snoozeReady && snoozed ? <View style={[styles.notice, { backgroundColor: colors.cardRaised, borderColor: colors.border }]}>
-        <Text style={[styles.noticeText, { color: colors.textMuted }]}>Other Today alerts snoozed until {new Date(until).toLocaleString([], { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}</Text>
-        <Pressable onPress={() => snooze(null)} accessibilityRole="button" style={{ minHeight: 44, justifyContent: 'center' }}><Text style={{ color: colors.interactive }}>Show alerts</Text></Pressable>
-      </View> : null}
-      {snoozeReady && safetyCount > 0 && (!snoozed || dangerousHigh !== null) ? (
+      {snoozeReady && !snoozed && safetyCount > 0 ? (
         <View style={styles.safetySection}>
           <Pressable onPress={snoozeAll} accessibilityRole="button" style={{ minHeight: 44, alignSelf: 'flex-end', justifyContent: 'center' }}><Text style={{ color: colors.interactive }}>Snooze alerts</Text></Pressable>
           <View style={styles.safetyRows}>
@@ -907,7 +903,7 @@ export function TodayHub({
             ) : null}
             {topHigh ? (
               <SafetyRow
-                kicker={snoozed ? "DANGEROUS CONDITIONS" : "HIGH WATER"}
+                kicker="HIGH WATER"
                 title={`${topHigh.name} is ${conditionLabel(topHigh.conditionCode).toLowerCase()}`}
                 meta={`${activeSafety?.high?.length ?? 0} high-water ${(activeSafety?.high?.length ?? 0) === 1 ? 'reading' : 'readings'} ${safetyScopeLabel}`}
                 icon="water-outline"

@@ -21,7 +21,7 @@ import { type HistoricalData } from '@/lib/usgs/gauges';
 import { leapDayOfYearForDate } from '@/lib/usgs/percentile-snapshot';
 import { toNum } from '@/lib/utils/num';
 import { withX402Route } from '@/lib/x402-config';
-import { samplePreservingExtrema } from '@shared/chart-model';
+import { sampleChartReadings } from '@shared/chart-model';
 import type {
   GaugeForecastReading,
   GaugeHistoryReading,
@@ -144,25 +144,7 @@ async function fetchHistoryFromDb(
  * the other's shape — the union is deduped by reference and re-sorted.
  */
 function sampleHistory(readings: GaugeHistoryReading[], days: number): GaugeHistoryReading[] {
-  const maxPoints = days <= 1 ? 192 : days <= 7 ? 336 : 360;
-  if (readings.length <= maxPoints) return readings;
-
-  const units = (['ft', 'cfs'] as const).filter((unit) =>
-    readings.some((reading) => (unit === 'ft' ? reading.gaugeHeightFt : reading.dischargeCfs) !== null)
-  );
-  const budget = Math.max(4, Math.floor(maxPoints / Math.max(1, units.length)));
-
-  const retained = new Set<GaugeHistoryReading>();
-  for (const unit of units) {
-    for (const reading of samplePreservingExtrema(readings, budget, (item) =>
-      unit === 'ft' ? item.gaugeHeightFt : item.dischargeCfs
-    )) {
-      retained.add(reading);
-    }
-  }
-  return [...retained].sort(
-    (a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
-  );
+  return sampleChartReadings(readings, days <= 1 ? 192 : days <= 7 ? 336 : 360);
 }
 
 /**

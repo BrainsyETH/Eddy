@@ -17,6 +17,7 @@
 // A derived value keeps an old payload honest; an invented one would not.
 
 export interface GaugeHistoryReadingLike {
+  gapBefore?: ('ft' | 'cfs')[];
   timestamp: string;
   gaugeHeightFt: number | null;
   dischargeCfs: number | null;

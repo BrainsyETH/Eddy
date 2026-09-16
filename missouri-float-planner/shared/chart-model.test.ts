@@ -17,6 +17,7 @@ import {
   nowLabel,
   qualifierText,
   samplePreservingExtrema,
+  sampleChartReadings,
   splitAtGaps,
   stepScrubTime,
   timeTicks,
@@ -383,4 +384,23 @@ test('a flat stage series still pads by its synthetic range', () => {
   // 10% of 7 is 0.7, so the window is 6.65–7.35 — room for hundredth ticks.
   assert.ok(domain.min < 7 && domain.max > 7);
   assert.ok(domain.max - domain.min > 0.5);
+});
+
+
+test('sampling gaps do not become outages when original continuity is provided', () => {
+  const points = [0, 1, 2, 30, 31, 32, 60].map(t => ({ t, breakBefore: false }));
+  assert.equal(splitAtGaps(points).length, 1);
+  points[3].breakBefore = true;
+  assert.deepEqual(splitAtGaps(points).map(segment => segment.length), [3, 4]);
+});
+
+
+test('API sampling keeps a continuous hydrograph together and preserves a real outage', () => {
+  const raw = Array.from({ length: 800 }, (_, i) => ({ timestamp: new Date(i * 900000).toISOString(),
+    gaugeHeightFt: null, dischargeCfs: i === 410 ? 900 : 300 + i % 9 }));
+  const sampled = sampleChartReadings(raw, 60);
+  assert.ok(sampled.some(point => point.dischargeCfs === 900), 'crest survives');
+  assert.equal(chartSegments(chartPoints(sampled, 'cfs')).lines.length, 1);
+  const outage = raw.filter((_, i) => i < 300 || i > 400);
+  assert.equal(chartSegments(chartPoints(sampleChartReadings(outage, 60), 'cfs')).lines.length, 2);
 });
