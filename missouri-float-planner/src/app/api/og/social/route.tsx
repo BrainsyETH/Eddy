@@ -443,7 +443,7 @@ async function generateHighlightImage(
 
   return render(
     <CoverPage cover={cover}>
-      <CoverMasthead cover={cover} label={LABELS.eddySays} title={riverName} subtitle={timestamp} otter={otter} />
+      <CoverMasthead cover={cover} label={LABELS.eddyRead} title={riverName} subtitle={timestamp} otter={otter} />
       <CoverSpacer />
       <CoverDock
         cover={cover}

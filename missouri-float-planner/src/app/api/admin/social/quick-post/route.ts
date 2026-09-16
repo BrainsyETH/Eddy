@@ -32,6 +32,8 @@ export async function POST(request: NextRequest) {
     platforms: string[];
   };
 
+  if (type === 'weekly_trend') return NextResponse.json({ error: 'Weekly Trend is retired. Generate an Eddy’s Read for a river instead.' }, { status: 410 });
+
   if (!type) {
     return NextResponse.json({ error: 'type is required' }, { status: 400 });
   }

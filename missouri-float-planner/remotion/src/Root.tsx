@@ -1,3 +1,5 @@
+import { EddyReadReel, type EddyReadReelProps } from "./compositions/social/EddyReadReel";
+import { readingDuration } from "../../shared/eddy-read-reel";
 import React from "react";
 import { Composition, staticFile } from "remotion";
 import { TutorialFull } from "./compositions/TutorialFull";
@@ -480,6 +482,11 @@ export const RemotionRoot: React.FC = () => {
           format: "square",
         } satisfies GaugeAnimationProps}
       />
+
+      <Composition id="social-eddy-read" component={EddyReadReel} width={1080} height={1920} fps={FPS}
+        durationInFrames={readingDuration('Check the latest river reading before planning your float.')}
+        defaultProps={{ riverName: 'Current River', readingText: 'Check the latest river reading before planning your float.', dateLabel: 'Report preview' } satisfies EddyReadReelProps}
+        calculateMetadata={({ props }: { props: EddyReadReelProps }) => ({ durationInFrames: readingDuration(props.readingText) })} />
 
       {/* Gauge Animation — portrait for Instagram Stories */}
       <Composition

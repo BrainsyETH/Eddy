@@ -1,3 +1,4 @@
+import { publishableReading } from '@shared/eddy-read-reel';
 import { shortSummary, reportStamp } from '@shared/social-editorial';
 import { weekendWeather } from './weekend-weather';
 // src/lib/social/post-context.ts
@@ -17,7 +18,6 @@ import type { SocialPlatform, SocialCustomContent } from './types';
 import type { PostKind, RenderData } from './post-types';
 import { overlayLiveConditions } from './live-conditions';
 import { riverDisplayLong, riverDisplayShort } from './river-display';
-import { loadFtThresholds } from './gauge-thresholds';
 import { pickSectionForRivers } from './section-picker';
 import { buildSocialRouteScene } from './route-scene';
 import { pickFavoriteFloat } from './favorite-floats';
@@ -324,7 +324,8 @@ export async function buildPostContext(
     // Fetch by explicit eddy_update id (cron) or latest for a river (quick-post).
     let query = supabase
       .from('eddy_updates')
-      .select('id, river_slug, condition_code, gauge_height_ft, quote_text, summary_text')
+      .select('id, river_slug, condition_code, gauge_height_ft, quote_text, summary_text, eddy_read, generated_at')
+      .gt('expires_at', nowIso)
       .is('section_slug', null);
     query = opts.eddyUpdateId
       ? query.eq('id', opts.eddyUpdateId)
@@ -333,36 +334,20 @@ export async function buildPostContext(
     const { data: rawUpdate } = await query.maybeSingle();
     if (!rawUpdate) return null;
     const [update] = await overlayLiveConditions(supabase, [rawUpdate]);
-
-    // Optimal band for the gauge composition — unit-aware ft thresholds via the
-    // shared resolver. The old inline query filtered river_gauges.river_id (a
-    // UUID) by slug, always failed silently, and painted a generic 1.5–4.0 ft
-    // band on every daily reel. Undefined thresholds → the reel draws a
-    // level-only bar instead of inventing a band.
-    const { optimalMin, optimalMax, levelHigh, levelDangerous } =
-      await loadFtThresholds(supabase, update.river_slug);
-
-    // Same cached AI art the cover uses, so the reel's full-bleed background
-    // matches its thumbnail (null → the reel's solid brand background).
-    const backgroundUrl = (await bgUrl(supabase, update.river_slug)) ?? undefined;
+    const readingText = publishableReading(update);
+    if (!readingText) return null;
 
     return {
       postType,
       riverSlug: update.river_slug,
       renderData: {
         riverName: riverDisplayLong(update.river_slug),
-        dateLabel: update.reading_timestamp ? `Reading ${reportStamp(new Date(update.reading_timestamp))}` : `Prepared ${reportStamp()} · Reading time unavailable`,
+        readingText,
+        dateLabel: `Report ${reportStamp(new Date(rawUpdate.generated_at))}` + (update.reading_timestamp ? ` · Gauge ${reportStamp(new Date(update.reading_timestamp))}` : " · Gauge time unavailable"),
         conditionCode: update.condition_code,
         gaugeHeightFt: update.gauge_height_ft,
-        optimalMin,
-        optimalMax,
-        levelHigh,
-        levelDangerous,
-        quoteText: truncateForVideo(update.quote_text ?? null),
-        summaryText: truncateForVideo(update.summary_text ?? null),
-        backgroundUrl,
       },
-      caption: (platform, custom) => formatRiverHighlightCaption(update, custom, platform),
+      caption: (platform, custom) => formatRiverHighlightCaption({ ...update, quote_text: readingText }, custom, platform),
       // Pin the exact eddy_update row plus the reading and condition the reel
       // shows (the live-conditions overlay can move both), and the post's own
       // timestamp for the cover's subtitle — so the cover Meta renders at crawl

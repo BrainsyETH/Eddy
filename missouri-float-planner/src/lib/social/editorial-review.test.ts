@@ -51,3 +51,19 @@ test('editorial cover content survives centered square and portrait crops', asyn
   }
  }
 });
+
+test('reading pagination preserves every word and duration scales with the report', async () => {
+ const { readingPages, readingTimeline, readingDuration, READ_CTA_FRAMES } = await import('../../../shared/eddy-read-reel');
+ const text='The water is steady. Check shallow crossings before choosing your route. '.repeat(15)+'\n\nFinish at the selected take-out.';
+ assert.equal(readingPages(text).join(' '),text.trim().replace(/\s+/g,' '));
+ const timeline=readingTimeline(text);
+ assert.ok(timeline.every((p,i)=>p.frames>=150 && (i===0 || p.start===timeline[i-1].start+timeline[i-1].frames)));
+ assert.equal(readingDuration(text),timeline.at(-1)!.start+timeline.at(-1)!.frames+READ_CTA_FRAMES);
+ assert.ok(readingDuration(text)>readingDuration('Short reading.'));
+});
+test('full report follows the compact interpretation and stale prose stays withheld', async () => {
+ const { publishableReading } = await import('../../../shared/eddy-read-reel');
+ assert.equal(publishableReading({eddy_read:'Compact interpretation.',quote_text:'The complete report.'}),'Compact interpretation.\n\nThe complete report.');
+ assert.equal(publishableReading({eddy_read:'Stale interpretation.',quote_text:'',summary_text:null}),null);
+ assert.equal(publishableReading({quote_text:'Legacy full report.'}),'Legacy full report.');
+});

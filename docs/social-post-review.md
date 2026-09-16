@@ -58,3 +58,18 @@ A local Satori/ImageResponse fixture with long route endpoint names rendered
 successfully and was visually inspected. This checks static cover primitives;
 it does not replace live-photo, all-template, or animated-video QA. A regression
 test checks central cover bounds against all four crop ratios.
+
+## Eddy’s Read
+
+River Highlight is now a full text-first reading reel. The compact `eddy_read`
+opens the reel and the complete `quote_text` follows; legacy reports without a
+compact interpretation use their full report directly. Text is never shortened
+for runtime. Pages move upward briefly, then hold; the previous excerpt remains
+faintly visible. The river and report/gauge timestamps stay on screen. There is
+quiet music and no narration. The ending points to access-point planning in Eddy.
+
+Standalone Weekly Trend is removed from the schedule and quick-post choices.
+The existing reading already incorporates trend context from report generation;
+the reel adds no invented trend interpretation. Tests cover word preservation,
+continuous timing, duration growth, complete-report inclusion and stale-prose
+rejection. Animated visual QA and audio listening remain release gates.

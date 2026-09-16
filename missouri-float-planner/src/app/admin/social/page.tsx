@@ -245,18 +245,7 @@ const SCHEDULE_ROWS: ScheduleRow[] = [
     },
     action: 'section_guide',
   },
-  {
-    key: 'weekly_trend',
-    label: 'Weekly Trend',
-    time: {
-      get: (c) => c.weekly_trend?.time_cst ?? '15:00',
-      set: (c, v, set) => set({
-        ...c,
-        weekly_trend: { ...(c.weekly_trend || { enabled: true, day_of_week: 0, time_cst: '15:00', media: 'video' }), time_cst: v },
-      }),
-    },
-    action: 'weekly_trend',
-  },
+
 ];
 
 // Display names for post_type values — aligned with the post formats we ship.
@@ -264,12 +253,12 @@ const SCHEDULE_ROWS: ScheduleRow[] = [
 // historical rows in the post table still render a label.
 const POST_TYPE_LABELS: Record<string, string> = {
   daily_digest: 'Digest',
-  river_highlight: 'Eddy Says Report',
+  river_highlight: 'Eddy’s Read',
   eddy_says: 'Eddy Says (legacy)',
   weekly_forecast: 'Weekend Forecast',
   section_guide: 'Float Pick',
   favorite_float: 'Favorite Float (legacy)',
-  weekly_trend: 'Weekly Trend',
+  weekly_trend: 'Weekly Trend (retired)',
   route_draw: 'Float of the Day (legacy)',
   condition_change: 'Alert',
   condition_easing: 'Easing',
@@ -1008,10 +997,10 @@ export default function SocialAdminPage() {
                 className="w-full px-3 py-2 bg-neutral-900 border border-neutral-600 rounded-lg text-white"
               >
                 <option value="digest">Daily Digest (all rivers)</option>
-                <option value="highlight">Eddy Says Report (per river)</option>
+                <option value="highlight">Eddy’s Read (per river)</option>
                 <option value="weekly_forecast">Weekend Forecast</option>
                 <option value="section_guide">Float Pick</option>
-                <option value="weekly_trend">Weekly Trend</option>
+
                 <option value="tip">Tip / Seasonal Quote</option>
               </select>
             </div>
@@ -1412,7 +1401,7 @@ export default function SocialAdminPage() {
                         </tr>
                       </thead>
                       <tbody>
-                        {/* Five uniform tri-state rows — one per post type */}
+                        {/* Active post formats; retired formats remain visible in history */}
                         {SCHEDULE_ROWS.map((row) => {
                           const cells = config.media_schedule?.[row.key] as Record<string, string | null> | undefined;
                           return (

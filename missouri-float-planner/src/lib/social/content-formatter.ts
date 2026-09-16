@@ -269,11 +269,10 @@ export function formatRiverHighlightCaption(
   lines.push(hook);
   lines.push('');
 
-  // 3. Eddy Says full report — both platforms
-  // The video shows a teaser with "Full report below ▼" directing viewers here
+  // The same complete reading is available in the reel and its caption.
   const fullQuote = update.quote_text || update.summary_text;
   if (fullQuote) {
-    lines.push(`Eddy says: \u201C${fullQuote}\u201D`);
+    lines.push(`Eddy’s Read:\n${fullQuote}`);
     lines.push('');
   }
 

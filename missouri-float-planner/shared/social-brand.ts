@@ -425,6 +425,7 @@ export const LABELS = {
   todayFloatPick: 'Today’s Float Pick',
   tripIdea: 'Trip Idea',
   eddySays: 'Eddy Says',
+  eddyRead: 'Eddy’s Read',
   riverReport: 'River Report',
   weekendForecast: 'Weekend Forecast',
   trend: '7-Day Trend',
