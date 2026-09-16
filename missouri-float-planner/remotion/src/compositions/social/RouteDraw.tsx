@@ -39,8 +39,8 @@ const FPS = 30;
 // Everything readable sits inside REEL_SAFE (Instagram's top/bottom chrome).
 // The stage is the only thing that may run under the masthead / dock, and it
 // fades out at both edges so nothing is ever clipped by chrome mid-word.
-const STAGE_TOP = 440;
-const STAGE_HEIGHT = 800;
+const STAGE_TOP = 550;
+const STAGE_HEIGHT = 690;
 const CONTENT_RIGHT = 1080 - REEL_SAFE.right;
 const CONTENT_CENTER_X = Math.round((REEL_SAFE.left + CONTENT_RIGHT) / 2);
 const STAGE: JourneyStage = {

@@ -1,3 +1,4 @@
+import { digestPages, shortSummary } from "../../../../shared/social-editorial";
 import React from "react";
 import {
   Audio,
@@ -31,7 +32,7 @@ function frameFor(isPortrait: boolean) {
   const height = isPortrait ? 1920 : 1080;
   return {
     mastheadTop: top,
-    stageTop: top + 200,
+    stageTop: top + 300,
     stageBottom: height - bottom,
     dockBottom: bottom + (isPortrait ? 52 : 40),
     followBottom: bottom,
@@ -113,7 +114,7 @@ const TitleSlide: React.FC<{
                   textAlign: "center",
                 }}
               >
-                &ldquo;{globalQuote}&rdquo;
+                &ldquo;{shortSummary(globalQuote)}&rdquo;
               </div>
               <div
                 style={{
@@ -138,8 +139,7 @@ const TitleSlide: React.FC<{
 };
 
 /**
- * ALL rivers on a single screen — no batching/pagination. Rows shrink to fit
- * up to ten rivers between the masthead and the safe-zone floor.
+ * At most five rivers per page, held for eight seconds. Rows fit between the masthead and the safe-zone floor.
  */
 const RiverCardsSlide: React.FC<{
   rivers: DigestReelProps["rivers"];
@@ -200,7 +200,7 @@ const RiverCardsSlide: React.FC<{
               textAlign: "center",
             }}
           >
-            Rain in the forecast everywhere this weekend — these are the best bets.
+            Rain is possible at these picks. Check the latest forecast.
           </span>
         )}
       </div>
@@ -320,14 +320,15 @@ export const DigestReel: React.FC<DigestReelProps> = ({
     : sortedRivers.length === 0
       ? "No river data"
       : floatable === 0
-        ? "No rivers floatable"
+        ? "No float picks today"
         : floatable === sortedRivers.length
-          ? `All ${sortedRivers.length} rivers floatable`
-          : `${floatable} of ${sortedRivers.length} rivers floatable`;
+          ? `All ${sortedRivers.length} in float range`
+          : `${floatable} of ${sortedRivers.length} in float range`;
 
   // Durations mirror getDigestDuration() below — keep in sync.
   const titleFrames = globalQuote ? 165 : 105;
-  const riverFrames = 180 + Math.max(0, sortedRivers.length - 5) * 6;
+  const pages = digestPages(sortedRivers);
+  const riverFrames = 240;
   const ctaFrames = 75;
 
   // Fade in/out on the whole composition so the Reel auto-loop is seamless.
@@ -356,16 +357,12 @@ export const DigestReel: React.FC<DigestReelProps> = ({
           />
         </Series.Sequence>
 
-        <Series.Sequence durationInFrames={riverFrames}>
-          <RiverCardsSlide
-            rivers={sortedRivers}
-            isPortrait={isPortrait}
-            label={title}
-            headline={headline}
-            dateLabel={dateLabel}
-            rainNote={rainNote}
-          />
-        </Series.Sequence>
+        {pages.map((page, index) => (
+          <Series.Sequence key={index} durationInFrames={riverFrames}>
+            <RiverCardsSlide rivers={page} isPortrait={isPortrait} label={title}
+              headline={headline} dateLabel={`${dateLabel}${pages.length > 1 ? ` · ${index + 1}/${pages.length}` : ''}`} rainNote={rainNote} />
+          </Series.Sequence>
+        ))}
 
         <Series.Sequence durationInFrames={ctaFrames}>
           <CTASlide
@@ -386,7 +383,7 @@ export const DigestReel: React.FC<DigestReelProps> = ({
 /** Calculate total frames — always 3 slides now (title + rivers + CTA). */
 export function getDigestDuration(riverCount: number, hasGlobalQuote = false): number {
   const titleFrames = hasGlobalQuote ? 165 : 105;               // 5.5s / 3.5s
-  const riverFrames = 180 + Math.max(0, riverCount - 5) * 6;    // base 6s, +0.2s per extra river
+  const riverFrames = 240 * Math.max(1, Math.ceil(riverCount / 5));    // base 6s, +0.2s per extra river
   const ctaFrames = 75;                                          // 2.5s
   return titleFrames + riverFrames + ctaFrames;
 }

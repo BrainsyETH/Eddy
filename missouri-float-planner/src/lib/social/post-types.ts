@@ -1,3 +1,5 @@
+import { LABELS } from '@shared/social-brand';
+import { reportStamp, shortSummary } from '@shared/social-editorial';
 // src/lib/social/post-types.ts
 //
 // Single source of truth for social post types. Each entry declares how a type
@@ -33,6 +35,7 @@ export type VideoPostKind = Exclude<PostKind, 'tip'>;
  */
 export interface RenderData {
   riverName?: string;
+  readingText?: string;
   riverSlug?: string;
   conditionCode?: string;
   gaugeHeightFt?: number | null;
@@ -118,13 +121,7 @@ export interface PostTypeDef {
 const FORMAT = 'portrait' as const;
 
 /** Long-form date label matching the OG thumbnail timestamp format. */
-function defaultDate(): string {
-  return new Date().toLocaleDateString('en-US', {
-    month: 'long',
-    day: 'numeric',
-    year: 'numeric',
-  });
-}
+function defaultDate() { return `Prepared ${reportStamp()}`; }
 
 const isoDay = () => new Date().toISOString().slice(0, 10);
 const slugify = (s: string) => s.toLowerCase().replace(/\s+/g, '-');
@@ -157,32 +154,19 @@ function sectionRouteProps(data: RenderData): Record<string, unknown> {
 }
 
 export const POST_TYPES: Record<PostKind, PostTypeDef> = {
-  // The daily per-river report — "Eddy Says" branding over the gauge-forward
-  // layout, with Eddy's quote as the payoff. (Merged: the separate quote-forward
-  // eddy_says type is retired; this single format carries both jobs.)
+  // Text-first full reading. Keep the persisted river_highlight key so
+  // existing per-river schedules continue to work.
   river_highlight: {
     id: 'river_highlight',
-    label: 'Eddy Says Report',
+    label: 'Eddy’s Read',
     needs: 'river',
     media: ['video'],
-    composition: 'social-gauge-portrait',
+    composition: 'social-eddy-read',
     ogType: 'highlight',
     renderProps: (data) => ({
       riverName: data.riverName || 'Unknown River',
-      conditionCode: data.conditionCode || 'unknown',
-      gaugeHeightFt: data.gaugeHeightFt ?? 0,
-      // No invented defaults: absent thresholds render a level-only bar rather
-      // than a fake 1.5–4.0 "GOOD" band that can contradict the condition.
-      optimalMin: data.optimalMin,
-      optimalMax: data.optimalMax,
-      levelHigh: data.levelHigh,
-      levelDangerous: data.levelDangerous,
-      quoteText: data.quoteText || data.summaryText || '',
+      readingText: data.readingText || data.quoteText || data.summaryText || '',
       dateLabel: data.dateLabel || defaultDate(),
-      eyebrow: 'Eddy Says',
-      backgroundUrl: data.backgroundUrl,
-      followCta: FOLLOW_CTA,
-      format: FORMAT,
     }),
     outputFilename: (data) => `highlight-${slugify(data.riverName || 'river')}`,
   },
@@ -197,7 +181,7 @@ export const POST_TYPES: Record<PostKind, PostTypeDef> = {
     renderProps: (data) => ({
       rivers: data.rivers || [],
       dateLabel: data.dateLabel || defaultDate(),
-      globalQuote: data.globalQuote || undefined,
+      globalQuote: shortSummary(data.globalQuote) || undefined,
       followCta: FOLLOW_CTA,
       format: FORMAT,
     }),
@@ -243,14 +227,14 @@ export const POST_TYPES: Record<PostKind, PostTypeDef> = {
             // Evergreen: float time is the typical "flowing" pace (post-context
             // uses a typical route estimate and
             // the reel hides the faster/slower delta.
-            label: 'Float Pick',
+            label: LABELS.tripIdea,
             tagline: data.tagline,
             difficulty: data.difficulty,
             evergreen: true,
           }
         : {
             ...sectionRouteProps(data),
-            label: 'Float Pick',
+            label: LABELS.todayFloatPick,
           },
     outputFilename: () => `float-pick-${isoDay()}`,
   },

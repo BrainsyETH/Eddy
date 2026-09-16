@@ -34,6 +34,7 @@ export class TikTokAdapter implements PlatformAdapter {
       : await publishVideoToTikTok({ videoUrl: params.videoUrl }, supabase);
     return {
       success: result.success,
+      delivery: isTikTokDirectPost() ? 'published' : 'inbox',
       platformPostId: result.postId,
       error: result.error,
     };

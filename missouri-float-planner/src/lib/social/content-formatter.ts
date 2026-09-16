@@ -1,3 +1,5 @@
+import { LABELS } from '@shared/social-brand';
+import { trendMeaning } from '@shared/social-editorial';
 // src/lib/social/content-formatter.ts
 // Formats Eddy updates into social-media-optimized captions
 // Designed for engagement: hook-first structure, deep link CTAs, platform-specific formatting
@@ -87,10 +89,10 @@ const CONDITION_EMOJI: Record<string, string> = {
 
 const HIGHLIGHT_HOOKS: Record<string, string[]> = {
   flowing: [
-    '{river} is running perfect right now.',
+    '{river} is in the flowing range at the latest check.',
     '{river} just hit the sweet spot \u2014 {gauge} ft and dialed in.',
     'If you\u2019ve been waiting for the right time on {river}, this is it.',
-    'Green light on {river}. Conditions are locked in.',
+    'Latest update for {river}. Check your route and the latest reading before heading out.',
   ],
   good: [
     '{river} is looking good \u2014 {gauge} ft and floatable.',
@@ -265,11 +267,10 @@ export function formatRiverHighlightCaption(
   lines.push(hook);
   lines.push('');
 
-  // 3. Eddy Says full report — both platforms
-  // The video shows a teaser with "Full report below ▼" directing viewers here
+  // The same complete reading is available in the reel and its caption.
   const fullQuote = update.quote_text || update.summary_text;
   if (fullQuote) {
-    lines.push(`Eddy says: \u201C${fullQuote}\u201D`);
+    lines.push(`Eddy’s Read:\n${fullQuote}`);
     lines.push('');
   }
 
@@ -328,6 +329,8 @@ export function formatWeeklyForecastCaption(
   lines.push(holiday ? `${holiday.name} Weekend — ${names} 🛶` : `This Weekend — ${names} 🛶`);
   lines.push('');
 
+  lines.push('Water conditions are current readings, not a prediction for the weekend.');
+  lines.push('');
   // Per-river one-liner: "🟢 Current River — Flowing at 3.2 ft · 78°/55° · Clear"
   for (const river of topRivers.slice(0, 3)) {
     const name = riverCasualName(river.river_slug);
@@ -339,13 +342,13 @@ export function formatWeeklyForecastCaption(
       river.gauge_height_ft !== null
         ? `${emoji} ${name} — ${label} at ${gauge} ft`
         : `${emoji} ${name} — ${label}`;
-    lines.push(wx ? `${base} · ${wx}` : base);
+    lines.push(wx ? `${base} · ${river.weather?.forecast[0]?.dayOfWeek ?? "Weekend"}: ${wx}` : `${base} · Weekend forecast unavailable`);
   }
   lines.push('');
 
   // Rain-everywhere fallback note (best-available picks rather than dry ones).
   if (rainNote) {
-    lines.push('Rain’s in the forecast across the board this weekend — these are the best bets. Keep an eye on the radar.');
+    lines.push('Rain is possible at these picks this weekend. Check the latest forecast before leaving.');
     lines.push('');
   }
 
@@ -386,7 +389,9 @@ export function formatSectionGuideCaption(
     takeOutName: string;
     takeOutMile: number;
     distanceMi: number;
-    timeRangeLabel?: string | null;
+    hoursCanoe: number;
+    putInId?: string;
+    takeOutId?: string;
     conditionCode?: string;
     putInCamping?: boolean;
     takeOutCamping?: boolean;
@@ -399,7 +404,7 @@ export function formatSectionGuideCaption(
 
   // Headline is the river only — the put-in/take-out appear once below, in the
   // emphasized detail lines, so they're not duplicated in the caption.
-  lines.push(`Float Pick — ${section.riverName}`);
+  lines.push(`${LABELS.todayFloatPick} — ${section.riverName}`);
   lines.push('');
   lines.push(`🛶 ${section.distanceMi.toFixed(1)} mi · ${section.timeRangeLabel ?? 'Time unavailable'} estimated canoe trip`);
   lines.push('');
@@ -425,7 +430,7 @@ export function formatSectionGuideCaption(
   }
 
   lines.push('');
-  lines.push(`Plan this float → ${riverUrl(section.riverSlug)}`);
+  lines.push(`Plan this float → ${riverUrl(section.riverSlug)}${section.putInId && section.takeOutId ? `?putIn=${encodeURIComponent(section.putInId)}&takeOut=${encodeURIComponent(section.takeOutId)}` : ''}`);
 
   const snippets = getActiveSnippets(customContent, platform);
   if (snippets.length > 0) {
@@ -453,6 +458,8 @@ export function formatFavoriteFloatCaption(
     distanceMi: number;
     timeRangeLabel?: string | null;
     tagline: string;
+    putInId?: string;
+    takeOutId?: string;
     bestFor: string;
     difficulty: string;
     putInCamping?: boolean;
@@ -466,7 +473,7 @@ export function formatFavoriteFloatCaption(
   // Typical canoe pace at normal "flowing" flow — evergreen, no live delta.
 
 
-  lines.push(`Float Pick — ${fav.riverName}`);
+  lines.push(`${LABELS.tripIdea} — ${fav.riverName}`);
   if (fav.tagline) {
     lines.push('');
     lines.push(`“${fav.tagline}”`);
@@ -502,7 +509,7 @@ export function formatFavoriteFloatCaption(
   }
 
   lines.push('');
-  lines.push(`Plan this float → ${riverUrl(fav.riverSlug)}`);
+  lines.push(`Plan this float → ${riverUrl(fav.riverSlug)}${fav.putInId && fav.takeOutId ? `?putIn=${encodeURIComponent(fav.putInId)}&takeOut=${encodeURIComponent(fav.takeOutId)}` : ''}`);
 
   const snippets = getActiveSnippets(customContent, platform);
   if (snippets.length > 0) {
@@ -527,6 +534,7 @@ export function formatWeeklyTrendCaption(
     sevenDayMaxFt: number | null;
     deltaFt: number;
     direction: 'rising' | 'falling' | 'flat';
+    conditionCode?: string;
     weather?: WeatherSummary | null;
   },
   customContent: SocialCustomContent[],
@@ -550,13 +558,7 @@ export function formatWeeklyTrendCaption(
   const trendWx = formatWeatherChip(weatherChip(trend.weather));
   if (trendWx) lines.push(`Forecast: ${trendWx}`);
   lines.push('');
-  if (trend.direction === 'rising') {
-    lines.push('Levels are climbing — check back midweek for updated conditions.');
-  } else if (trend.direction === 'falling') {
-    lines.push('Levels are dropping — good timing if you were waiting for high water to clear.');
-  } else {
-    lines.push('Holding steady — predictable conditions for planning.');
-  }
+  lines.push(trendMeaning(trend.direction, trend.conditionCode));
   lines.push('');
   lines.push(`Full 7-day chart → ${riverUrl(trend.riverSlug)}`);
 

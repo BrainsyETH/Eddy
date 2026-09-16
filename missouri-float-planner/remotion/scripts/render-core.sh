@@ -28,13 +28,15 @@ echo "Rendered: $(stat -c%s "$OUTFILE") bytes"
 # plain volume scaling; -stream_loop -1 covers a video longer than the source.
 if [ "$AUDIO_MODE" = "social" ]; then
   AUDIO_SRC="public/audio/background-music.wav"
+  AUDIO_GAIN="0.9"
+  if [ "$COMPOSITION_ID" = "social-eddy-read" ]; then AUDIO_GAIN="0.16"; fi
   DURATION=$(npx remotion ffprobe -v error -show_entries format=duration \
     -of default=noprint_wrappers=1:nokey=1 "$OUTFILE")
   echo "Video duration: ${DURATION}s"
   [ -n "$DURATION" ] || { echo "::error::Could not read video duration"; exit 1; }
 
   npx remotion ffmpeg -y -stream_loop -1 -i "$AUDIO_SRC" -i "$OUTFILE" \
-    -c:v copy -c:a aac -b:a 192k -ar 48000 -ac 2 -t "$DURATION" -af "volume=0.9" \
+    -c:v copy -c:a aac -b:a 192k -ar 48000 -ac 2 -t "$DURATION" -af "volume=$AUDIO_GAIN" \
     -map 1:v:0 -map 0:a:0 -movflags +faststart /tmp/normalized.mp4
   mv /tmp/normalized.mp4 "$OUTFILE"
   echo "Audio normalized: $(stat -c%s "$OUTFILE") bytes"

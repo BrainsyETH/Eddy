@@ -61,6 +61,8 @@ export async function POST(request: NextRequest) {
 
     const platform = post.platform as SocialPlatform;
 
+    if (post.status !== 'rendering') { results.push({ postId, platform, success: true }); continue; }
+
     // Handle render failure — do NOT fall back to image; fail loudly
     if (status === 'failed') {
       console.error(`${LOG_PREFIX} Render failed for ${postId} (${platform}): ${error}`);
@@ -71,7 +73,7 @@ export async function POST(request: NextRequest) {
           error_message: error || 'Video render failed — no fallback',
           updated_at: new Date().toISOString(),
         })
-        .eq('id', postId);
+        .eq('id', postId).eq('status', 'rendering');
       results.push({ postId, platform, success: false, error: error || 'Render failed' });
       continue;
     }
@@ -93,8 +95,16 @@ export async function POST(request: NextRequest) {
           error_message: `Video not published — ${reason}`,
           updated_at: new Date().toISOString(),
         })
-        .eq('id', postId);
+        .eq('id', postId).eq('status', 'rendering');
       results.push({ postId, platform, success: false, error: reason });
+      continue;
+    }
+
+    if (post.auto_publish === false) {
+      const { error: reviewError } = await supabase.from('social_posts')
+        .update({ video_url: videoUrl, status: 'review', error_message: null, updated_at: new Date().toISOString() })
+        .eq('id', postId).eq('status', 'rendering');
+      results.push({ postId, platform, success: !reviewError, error: reviewError?.message });
       continue;
     }
 
@@ -150,9 +160,9 @@ export async function POST(request: NextRequest) {
       await supabase
         .from('social_posts')
         .update({
-          status: result.success ? 'published' : 'failed',
+          status: result.success ? (result.delivery ?? 'published') : 'failed',
           platform_post_id: result.platformPostId || null,
-          published_at: result.success ? new Date().toISOString() : null,
+          published_at: result.success && result.delivery !== 'inbox' ? new Date().toISOString() : null,
           error_message: result.success ? null : result.error,
           updated_at: new Date().toISOString(),
         })

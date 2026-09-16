@@ -261,6 +261,18 @@ Signals that the pipeline is stalled even though workflows are "green":
    scanning* + skipping already-clipped videos before the download — not a
    cheaper per-video call.)
 
-### Remotion review dependency
+### Eddy’s Read social reel
 
-Remotion Check installs ffmpeg before video-health tests so render smoke and visual regression can run. Visual baseline changes still require frame review.
+`river_highlight` now dispatches `social-eddy-read`. Its timeline includes the
+compact interpretation followed by the complete report, without a fixed runtime
+or voiceover. Paragraph cards advance at 155 words/minute plus a reading pause.
+The live-condition prose gate and report expiry apply before manual or scheduled
+dispatch. A missing reading skips the scheduled post rather than rendering empty.
+
+The social audio mux in `render-core.sh` uses gain 0.16 for this composition;
+other social compositions retain gain 0.9. This is necessary because the final
+mux replaces Remotion's audio track. Keep the existing audio validation gates.
+Rebuild the render image/bundle before dispatching this new composition in
+production. Rendering stale-job cleanup now allows 30 minutes for longer reads.
+Standalone Weekly Trend scheduling and new manual generation are retired;
+legacy compositions/history remain available for inspection.

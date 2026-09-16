@@ -1,3 +1,4 @@
+import { shortSummary } from "../../../../shared/social-editorial";
 import React from "react";
 import {
   Audio,
@@ -134,7 +135,7 @@ export const GaugeAnimation: React.FC<GaugeAnimationProps> = ({
   const RISE_START = 15;
   const RISE_DURATION = 90;
   const fill = gaugeFillModel(frame, fps, {
-    currentHeight: gaugeHeightFt,
+    currentHeight: gaugeHeightFt ?? 0,
     series,
     levelHigh: optimalMax ?? levelHigh,
     riseStartFrame: RISE_START,
@@ -150,7 +151,7 @@ export const GaugeAnimation: React.FC<GaugeAnimationProps> = ({
   const riseLabel = (series?.length ?? 0) >= 3 && riseSpanHours > 0 ? (hoursBack > 0 ? `${hoursBack} h ago` : "Now") : null;
 
   const mastheadTop = isPortrait ? REEL_SAFE.top : 48;
-  const stageTop = mastheadTop + 200;
+  const stageTop = mastheadTop + 300;
   const stageH = isPortrait ? 1240 - stageTop : 1080 - 48 - 240 - stageTop;
   const accentInk = conditionInk(condition.solid, tone);
 
@@ -239,14 +240,14 @@ export const GaugeAnimation: React.FC<GaugeAnimationProps> = ({
           </div>
         )}
 
-        {alertMode ? (
+        {gaugeHeightFt === null ? <BrandCard><p>Reading unavailable · Check the latest river report</p></BrandCard> : alertMode ? (
           // Alert instrument: the labeled gauge scale beside the counting
           // numeral, its citation, the flow context and the rise pill.
           <div style={{ display: "flex", alignItems: "center", gap: 36, alignSelf: "stretch" }}>
             <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 10 }}>
               <GaugeBar
                 tone="dark"
-                currentHeight={gaugeHeightFt}
+                currentHeight={gaugeHeightFt ?? 0}
                 optimalMin={optimalMin}
                 optimalMax={optimalMax}
                 levelHigh={levelHigh}
@@ -258,7 +259,7 @@ export const GaugeAnimation: React.FC<GaugeAnimationProps> = ({
                 riseStartFrame={RISE_START}
                 riseDurationFrames={RISE_DURATION}
                 width={150}
-                height={isPortrait ? 400 : 300}
+                height={isPortrait ? 340 : 260}
               />
               {riseLabel && (
                 <span
@@ -288,7 +289,7 @@ export const GaugeAnimation: React.FC<GaugeAnimationProps> = ({
                     color: condition.solid,
                   }}
                 >
-                  {gaugeHeightFt.toFixed(1)}
+                  {gaugeHeightFt === null ? "Unavailable" : gaugeHeightFt.toFixed(1)}
                 </span>
                 <span style={{ fontFamily: fontFamilies.mono, fontSize: 40, fontWeight: 700, color: s.inkMuted }}>ft</span>
               </div>
@@ -310,10 +311,10 @@ export const GaugeAnimation: React.FC<GaugeAnimationProps> = ({
           // The report: the compact instrument beside Eddy's mood otter, then
           // the condition pill. Quote-forward drops the bar so the quote leads.
           <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "center", gap: 40 }}>
-            {!quoteForward && (
+            {!quoteForward && gaugeHeightFt !== null && (
               <GaugeBar
                 tone="light"
-                currentHeight={gaugeHeightFt}
+                currentHeight={gaugeHeightFt ?? 0}
                 optimalMin={optimalMin}
                 optimalMax={optimalMax}
                 levelHigh={levelHigh}
@@ -325,7 +326,7 @@ export const GaugeAnimation: React.FC<GaugeAnimationProps> = ({
                 delay={10}
                 settleFrom={0.85}
                 width={isPortrait ? 120 : 95}
-                height={isPortrait ? 400 : 300}
+                height={isPortrait ? 340 : 260}
               />
             )}
             <div style={{ marginBottom: 8 }}>
@@ -363,7 +364,7 @@ export const GaugeAnimation: React.FC<GaugeAnimationProps> = ({
                 textAlign: "center",
               }}
             >
-              &ldquo;{quoteText}&rdquo;
+              &ldquo;{shortSummary(quoteText)}&rdquo;
             </div>
           </BrandCard>
         </div>
@@ -376,7 +377,7 @@ export const GaugeAnimation: React.FC<GaugeAnimationProps> = ({
         bottom={isPortrait ? undefined : 88}
         followBottom={isPortrait ? undefined : 48}
         tiles={[
-          <StatTile key="reading" tone={tone} value={gaugeHeightFt.toFixed(1)} unit="FT" label="Gauge" />,
+          <StatTile key="reading" tone={tone} value={gaugeHeightFt === null ? "Unavailable" : gaugeHeightFt.toFixed(1)} unit={gaugeHeightFt === null ? "" : "FT"} label="Gauge" />,
           <StatTile key="condition" tone={tone} value={condition.label} label="Conditions" color={condition.solid} compact />,
         ]}
         detail={alertMode ? alertCta : undefined}

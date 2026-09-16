@@ -53,7 +53,6 @@ import { warningCopy, recoveryCopy } from '@shared/condition-copy';
 // never the raw slug ("big-river"), which briefly shipped on live covers.
 import { riverDisplayLong, riverDisplayShort } from '@/lib/social/river-display';
 import { trendMeta } from '@shared/trend-meta';
-import { estimateRoute } from '@/lib/calculations/route-estimate';
 import { CTA, LABELS, MEDIA_SCRIM, SURFACES, colors, conditionInk, hexAlpha } from '@shared/social-brand';
 import {
   CoverCard,
@@ -321,16 +320,16 @@ const FLOATABLE = new Set(['flowing', 'good']);
 function digestHeadline(codes: string[]): string {
   const floatable = codes.filter((code) => FLOATABLE.has(code)).length;
   if (codes.length === 0) return 'No river data';
-  if (floatable === 0) return 'No rivers floatable';
-  if (floatable === codes.length) return `All ${codes.length} rivers floatable`;
-  return `${floatable} of ${codes.length} rivers floatable`;
+  if (floatable === 0) return 'No float picks today';
+  if (floatable === codes.length) return `All ${codes.length} in float range`;
+  return `${floatable} of ${codes.length} in float range`;
 }
 
 // ─── Digest ─────────────────────────────────────────────────────────────────
 
 async function generateDigestImage(size: Size, pinned?: string | null) {
   const supabase = createAdminClient();
-  const cover = coverGeometry(size);
+  const cover = coverGeometry(size, 'light', 'instagram', true);
 
   // Preferred path: the caller baked a pinned river list into the URL so the
   // cover matches the reel's pinned data exactly (no live drift). Absent/empty
@@ -359,17 +358,15 @@ async function generateDigestImage(size: Size, pinned?: string | null) {
   const otter = await loadOtter('flowing');
   const headline = digestHeadline(rivers.map(([, r]) => r.condition_code));
 
-  // Rows shrink to fit up to ten rivers under the masthead.
-  const mastheadH = Math.round(320 * cover.k);
-  const gap = rivers.length > 8 ? 10 : rivers.length > 6 ? 12 : 16;
-  const avail = cover.height - mastheadH;
-  const rowH = Math.max(56, Math.min(Math.round(104 * cover.k), (avail - gap * Math.max(0, rivers.length - 1)) / Math.max(1, rivers.length)));
+  const featured = rivers.slice(0, 3);
+  const gap = 16;
+  const rowH = Math.round(104 * cover.k);
 
   return render(
     <CoverPage cover={cover}>
       <CoverMasthead cover={cover} label={LABELS.riverReport} title={headline} subtitle={today} otter={otter} />
       <div style={{ display: 'flex', flexDirection: 'column', gap, width: '100%' }}>
-        {rivers.map(([slug, data]) => (
+        {featured.map(([slug, data]) => (
           <CoverRiverRow
             key={slug}
             cover={cover}
@@ -380,6 +377,7 @@ async function generateDigestImage(size: Size, pinned?: string | null) {
           />
         ))}
       </div>
+      {rivers.length > featured.length ? <span style={{ fontSize: 30, color: colors.neutral[700] }}>Full {rivers.length}-river report in the reel</span> : null}
     </CoverPage>,
     size,
   );
@@ -393,7 +391,7 @@ async function generateHighlightImage(
   pins: { id?: string | null; ft?: number | null; condition?: string | null; at?: string | null } = {},
 ) {
   const supabase = createAdminClient();
-  const cover = coverGeometry(size);
+  const cover = coverGeometry(size, 'light', 'instagram', true);
 
   // Pinned path: the post named its exact eddy_update row, so fetch THAT (no
   // expiry filter — Meta may re-crawl days later and the row is still the one
@@ -431,7 +429,6 @@ async function generateHighlightImage(
   const riverName = riverDisplayLong(riverSlug);
   const conditionCode = (update.condition_code || 'unknown') as ConditionCode;
   const c = cond(conditionCode);
-  const snippet = update.summary_text || '';
   // The subtitle is the post's timestamp, not the crawl's.
   const now = instantParam(pins.at ?? null);
   const cstFormatter = new Intl.DateTimeFormat('en-US', {
@@ -441,23 +438,18 @@ async function generateHighlightImage(
     day: 'numeric',
     hour: 'numeric',
     minute: '2-digit',
+    timeZoneName: 'short',
   });
-  const timestamp = cstFormatter.format(now) + ' CST';
+  const timestamp = cstFormatter.format(now);
   const otter = await loadOtter(conditionCode);
 
   return render(
     <CoverPage cover={cover}>
-      <CoverMasthead cover={cover} label={LABELS.eddySays} title={riverName} subtitle={timestamp} otter={otter} />
-      {snippet ? (
-        <CoverQuote cover={cover} text={truncate(snippet, cover.portrait ? 260 : 190)} size={Math.round(40 * cover.k)} caption="Eddy's read" />
-      ) : null}
+      <CoverMasthead cover={cover} label={LABELS.eddyRead} title={riverName} subtitle={timestamp} otter={otter} />
       <CoverSpacer />
       <CoverDock
         cover={cover}
         tiles={[
-          ...(update.gauge_height_ft !== null
-            ? [{ value: update.gauge_height_ft.toFixed(1), unit: 'FT', label: 'Gauge' }]
-            : []),
           { value: condLabel(conditionCode), label: 'Conditions', color: c.solid, compact: true },
         ]}
         cta={CTA.reportBelow}
@@ -589,7 +581,7 @@ async function generateForecastImage(
   } = {},
 ) {
   const supabase = createAdminClient();
-  const cover = coverGeometry(size);
+  const cover = coverGeometry(size, 'light', 'instagram', true);
 
   // Pinned path: post-context baked the best bet it showed in the reel —
   // river, condition, reading, weather chip, bets count, rain note — so this
@@ -631,17 +623,15 @@ async function generateForecastImage(
         cover={cover}
         label={LABELS.weekendForecast}
         title={bestName}
-        subtitle={usingFallback ? 'Best bet this weekend — rain likely' : 'Best bet this weekend'}
+        subtitle={usingFallback ? 'Weekend pick · Rain possible' : 'Weekend pick · Check current conditions'}
         otter={otter}
       />
-      {photo ? <CoverPhotoCard cover={cover} dataUri={photo} height={cover.portrait ? 440 : 300} /> : null}
+      {photo ? <CoverPhotoCard cover={cover} dataUri={photo} height={cover.portrait ? 260 : 240} /> : null}
       <CoverSpacer />
       <CoverDock
         cover={cover}
         tiles={[
           { value: condLabel(best.condition_code), label: 'Conditions', color: c.solid, compact: true },
-          ...(best.gauge_height_ft !== null ? [{ value: best.gauge_height_ft.toFixed(1), unit: 'FT', label: 'Gauge' }] : []),
-          ...(best.betCount > 1 ? [{ value: String(best.betCount), label: 'Best bets' }] : []),
         ]}
         detail={bestWeather || undefined}
         cta={CTA.levels}
@@ -659,7 +649,7 @@ async function generateSectionImage(
   params?: { timeRangeLabel?: string; river?: string | null; putInMile?: number | null; takeOutMile?: number | null; condition?: string | null },
 ) {
   const supabase = createAdminClient();
-  const cover = coverGeometry(size);
+  const cover = coverGeometry(size, 'light', 'instagram', true);
 
   let section: Section | null = null;
   let condition = 'flowing';
@@ -693,33 +683,26 @@ async function generateSectionImage(
     condition = overlaid.find((u) => u.river_slug === section!.riverSlug)?.condition_code || 'flowing';
   }
 
-  const c = cond(condition);
   const photo =
     (await loadBackgroundDataUri(supabase, section.riverSlug)) ??
     (await loadRiverPhotoDataUri(supabase, section.riverSlug));
   const otter = await loadOtter(condition);
-  // Use the captured post estimate, or resolve a legacy URL with the route service.
-  const timeRangeLabel = params?.timeRangeLabel ?? (await estimateRoute(supabase, {
-    riverId: section.riverId, startId: section.putInId, endId: section.takeOutId,
-  })).floatTime?.formattedCompact;
 
   return render(
     <CoverPage cover={cover}>
       <CoverMasthead
         cover={cover}
-        label={LABELS.floatPick}
+        label={LABELS.todayFloatPick}
         title={section.riverName}
         subtitle={`${section.putInName} to ${section.takeOutName}`}
         otter={otter}
       />
-      {photo ? <CoverPhotoCard cover={cover} dataUri={photo} height={cover.portrait ? 440 : 300} /> : null}
+      {photo ? <CoverPhotoCard cover={cover} dataUri={photo} height={cover.portrait ? 260 : 240} /> : null}
       <CoverSpacer />
       <CoverDock
         cover={cover}
         tiles={[
-          ...(timeRangeLabel ? [{ value: timeRangeLabel, label: 'Estimated canoe trip', compact: true, wrap: true }] : []),
           { value: section.distanceMi.toFixed(1), unit: 'MI', label: 'Distance' },
-          { value: condLabel(condition), label: 'Conditions', color: c.solid, compact: true },
         ]}
         cta={CTA.plan}
       />
@@ -738,7 +721,7 @@ async function generateFavoriteImage(
   params: { timeRangeLabel?: string; river?: string | null; fromSlug?: string | null; toSlug?: string | null },
 ) {
   const supabase = createAdminClient();
-  const cover = coverGeometry(size);
+  const cover = coverGeometry(size, 'light', 'instagram', true);
 
   // Preferred path: the post baked the exact endpoints into the URL, so render
   // THAT float (matching the reel). Fall back to today's rotation if absent.
@@ -766,21 +749,16 @@ async function generateFavoriteImage(
   }
   if (!photo) photo = await loadRiverPhotoDataUri(supabase, fav.riverSlug);
   const otter = await loadOtter('flowing');
-  const timeRangeLabel = params.timeRangeLabel ?? (await estimateRoute(supabase, {
-    riverId: fav.riverId, startId: fav.putInId, endId: fav.takeOutId, mode: 'typical',
-  })).floatTime?.formattedCompact;
 
   return render(
     <CoverPage cover={cover}>
-      <CoverMasthead cover={cover} label={LABELS.floatPick} title={fav.riverName} subtitle={fav.tagline || `${fav.putInName} to ${fav.takeOutName}`} otter={otter} />
-      {photo ? <CoverPhotoCard cover={cover} dataUri={photo} height={cover.portrait ? 440 : 300} /> : null}
+      <CoverMasthead cover={cover} label={LABELS.tripIdea} title={fav.riverName} subtitle={fav.tagline || `${fav.putInName} to ${fav.takeOutName}`} otter={otter} />
+      {photo ? <CoverPhotoCard cover={cover} dataUri={photo} height={cover.portrait ? 260 : 240} /> : null}
       <CoverSpacer />
       <CoverDock
         cover={cover}
         tiles={[
-          ...(timeRangeLabel ? [{ value: timeRangeLabel, label: 'Typical canoe trip', compact: true, wrap: true }] : []),
           { value: fav.distanceMi.toFixed(1), unit: 'MI', label: 'Distance' },
-          { value: fav.difficulty ? `Class ${fav.difficulty}` : 'Favorite', label: fav.difficulty ? 'Difficulty' : 'Conditions', color: colors.secondary[600], compact: true },
         ]}
         detail={fav.tagline ? `${fav.putInName} to ${fav.takeOutName}` : undefined}
         cta={CTA.plan}
@@ -857,7 +835,7 @@ async function generateTrendImage(
   pins: { asOf?: string | null; condition?: string | null; weather?: WeatherChip | null } = {},
 ) {
   const supabase = createAdminClient();
-  const cover = coverGeometry(size);
+  const cover = coverGeometry(size, 'light', 'instagram', true);
   const s = SURFACES[cover.tone];
 
   const { data: updates } = await supabase
@@ -918,10 +896,6 @@ async function generateTrendImage(
     points.length > 0
       ? `${pathD} L ${points[points.length - 1].x} ${CHART_H - PAD} L ${points[0].x} ${CHART_H - PAD} Z`
       : '';
-  const range =
-    trend.sevenDayMinFt !== null && trend.sevenDayMaxFt !== null
-      ? `${trend.sevenDayMinFt.toFixed(1)}-${trend.sevenDayMaxFt.toFixed(1)}`
-      : null;
 
   return render(
     <CoverPage cover={cover}>
@@ -951,11 +925,6 @@ async function generateTrendImage(
       <CoverSpacer />
       <CoverDock
         cover={cover}
-        tiles={[
-          { value: trend.currentHeightFt !== null ? trend.currentHeightFt.toFixed(1) : '—', unit: 'FT', label: 'Right now' },
-          { value: `${deltaSign}${deltaAbs}`, unit: 'FT', label: '7-day change', color: meta.color },
-          { value: range ?? '—', unit: range ? 'FT' : undefined, label: 'Week range', compact: true },
-        ]}
         cta={CTA.chart}
       />
     </CoverPage>,
