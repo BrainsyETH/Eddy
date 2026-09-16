@@ -1,6 +1,7 @@
 import { Children, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import {
   AccessibilityInfo,
+  Alert,
   useWindowDimensions,
   ActivityIndicator,
   Image,
@@ -14,8 +15,9 @@ import {
   type NativeSyntheticEvent,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import type {
+  DamSnapshot,
   FavoriteFloatSummary,
   HighWaterEntry,
   MapGauge,
@@ -31,6 +33,16 @@ import {
   fetchRiverAlerts,
 } from '@/api/client';
 import { BlurredReadPreview, EddyReadCard } from '@/components/EddyReadCard';
+import { useAccount } from '@/hooks/useAccount';
+import { useDams } from '@/hooks/useDams';
+import { useTodaySnooze } from '@/hooks/useTodaySnooze';
+import { onForeground } from '@/lib/foreground';
+import { seedLocationForecast } from '@/lib/locationForecast';
+import { generationNow, generationStatusLabel, generationPercentLabel } from '@eddy/conditions/dam-generation';
+import { relativeAge } from '@eddy/conditions/dam-schedule-copy';
+import { EddySymbol } from '@/components/EddySymbol';
+import { TodayRiverPhoto } from '@/components/TodayRiverPhoto';
+import { PremiumReadPreview } from '@/components/PremiumReadPreview';
 import { EddyScene } from '@/components/EddyScene';
 import { Otter, otterForCondition } from '@/components/Otter';
 import { TodaySummary, TodayWeather } from '@/components/TodaySummary';
@@ -79,6 +91,8 @@ interface Props {
   };
   reads: TodayRead[];
   readsLoading: boolean;
+  readsError: boolean;
+  onRetryReads: () => void;
   conditionCounts: Record<'floatable' | 'low' | 'high' | 'unknown', number>;
   onBrowseReads: () => void;
   onBrowseRivers: (filter: TodayRiverFilter) => void;
@@ -221,10 +235,10 @@ function SectionHead({ title, action, onAction }: { title: string; action?: stri
   );
 }
 
-function ConditionPill({ river }: { river: RiverListItem }) {
+function ConditionPill({ river, centered = false }: { river: RiverListItem; centered?: boolean }) {
   const code = river.currentCondition?.code ?? 'unknown';
   return (
-    <View style={[styles.pill, { backgroundColor: conditionBg(code), borderColor: conditionChipBorder(code) }]}>
+    <View style={[styles.pill, centered ? { alignSelf: 'center' } : null, { backgroundColor: conditionBg(code), borderColor: conditionChipBorder(code) }]}>
       <Text style={[styles.pillText, { color: conditionInk(code) }]} numberOfLines={1}>
         {conditionLabel(code)}
       </Text>
@@ -248,7 +262,7 @@ function CompactRiverRow({ river, onPress }: { river: RiverListItem; onPress: ()
           {reading ? formatReading(reading.value, reading.unit) : 'No fresh reading'}
         </Text>
       </View>
-      <ConditionPill river={river} />
+      <ConditionPill river={river} centered />
       <Ionicons name="chevron-forward" size={16} color={colors.textSubtle} />
     </Pressable>
   );
@@ -258,6 +272,8 @@ function favoriteDetail(
   item: StarredItem,
   river: RiverListItem | null,
   gauge: MapGauge | null,
+  dam: DamSnapshot | null,
+  now: number,
 ): string {
   const reading = river?.currentCondition ? primaryReading(river.currentCondition) : null;
   if (reading) {
@@ -273,11 +289,20 @@ function favoriteDetail(
         : null;
     return [value, readingAge(gauge.readingAgeHours)].filter(Boolean).join(' · ') || 'No fresh reading';
   }
+  if (dam) {
+    const state = generationNow(dam, now);
+    if (state.kind !== 'unavailable') {
+      const amount = state.kind === 'generating' ? generationPercentLabel(state.fraction) : null;
+      return [generationStatusLabel(state), amount, relativeAge(state.observedAt, now)].filter(Boolean).join(' · ');
+    }
+    const release = dam.metrics.release;
+    return release ? `Release ${Math.round(release.value).toLocaleString()} cfs · ${relativeAge(release.at, now)}` : 'Generation data unavailable';
+  }
   return item.kind === 'river'
     ? 'Conditions unavailable'
     : item.kind === 'gauge'
       ? 'No fresh reading'
-      : 'Saved dam';
+      : 'Generation data unavailable';
 }
 
 function SafetyRow({
@@ -364,6 +389,8 @@ function FavoritePreviewCard({
   item,
   river,
   gauge,
+  dam,
+  now,
   onOpen,
   onPlan,
   standalone = false,
@@ -371,6 +398,8 @@ function FavoritePreviewCard({
   item: StarredItem;
   river: RiverListItem | null;
   gauge: MapGauge | null;
+  dam: DamSnapshot | null;
+  now: number;
   onOpen: () => void;
   onPlan: (() => void) | null;
   standalone?: boolean;
@@ -393,13 +422,15 @@ function FavoritePreviewCard({
         <View style={styles.heroCopy}>
           <Text style={[styles.eyebrow, { color: colors.accent }]}>FAVORITE</Text>
           <Text style={[styles.favoritePreviewName, { color: colors.text }]} >{item.name}</Text>
-          <Text style={[styles.heroMeta, { color: colors.textMuted }]} numberOfLines={2}>
-            {favoriteDetail(item, river, gauge)}
+          <Text style={[styles.heroMeta, { color: colors.textMuted }]} numberOfLines={item.kind === 'dam' ? undefined : 2}>
+            {favoriteDetail(item, river, gauge, dam, now)}
           </Text>
           {river ? <View style={styles.heroPill}><ConditionPill river={river} /></View> : null}
         </View>
         {river ? (
           <Otter mood={otterForCondition(code)} size={78} style={styles.favoritePreviewOtter} />
+        ) : item.kind === 'dam' ? (
+          <EddySymbol name="dam" size={74} />
         ) : (
           <EddyScene name="heart" size={74} style={styles.favoritePreviewOtter} />
         )}
@@ -429,11 +460,19 @@ function FavoritePreviewCard({
 
 function BestRiverCard({
   recommendation,
+  photoUrl,
+  premiumUserId,
+  revision,
+  onRead,
   onOpen,
   onPlan,
   standalone = false,
 }: {
   recommendation: TodayRecommendation;
+  photoUrl?: string | null;
+  premiumUserId: string | null;
+  revision: string;
+  onRead: () => void;
   onOpen: () => void;
   onPlan: () => void;
   standalone?: boolean;
@@ -466,6 +505,7 @@ function BestRiverCard({
         elevation(1),
       ]}
     >
+      <TodayRiverPhoto uri={photoUrl} name={recommendation.river.name} />
       <View style={styles.bestTop}>
         <View style={styles.heroCopy}>
           <Text style={[styles.eyebrow, { color: colors.accent }]}>EDDY&apos;S PICK</Text>
@@ -485,7 +525,7 @@ function BestRiverCard({
         </View>
       ) : null}
       <Pressable
-        onPress={onOpen}
+        onPress={onRead}
         style={({ pressed }) => [styles.eddyRead, { backgroundColor: colors.card, borderColor: colors.border, opacity: pressed ? 0.7 : 1, transform: [{ scale: pressed ? 0.98 : 1 }] }]}
         accessibilityRole="button"
         accessibilityLabel={`Open Eddy's Read for ${recommendation.river.name}`}
@@ -495,8 +535,9 @@ function BestRiverCard({
           <Text style={[styles.readLabel, { color: colors.accent }]}>View full read</Text>
           <Ionicons name="chevron-forward" size={15} color={colors.textSubtle} />
         </View>
-        <BlurredReadPreview lines={1} />
+        {!premiumUserId ? <BlurredReadPreview lines={1} /> : null}
       </Pressable>
+      {premiumUserId ? <PremiumReadPreview key={premiumUserId} slug={recommendation.river.slug} revision={revision} /> : null}
       {recommendation.notices.length > 0 ? (
         <Pressable onPress={onOpen} accessibilityRole="button" style={styles.factRow}>
           <Ionicons name="warning-outline" size={18} color={colors.text} />
@@ -536,6 +577,8 @@ export function TodayHub({
   statewide,
   reads,
   readsLoading,
+  readsError,
+  onRetryReads,
   conditionCounts,
   onBrowseReads,
   onBrowseRivers,
@@ -543,6 +586,32 @@ export function TodayHub({
   const router = useRouter();
   const { colors } = useTheme();
   const { starred, ready: starsReady } = useStarredRivers();
+  const { session } = useSession();
+  const account = useAccount();
+  const premiumUserId = account.loaded && !account.error && account.entitlement?.isActive && account.profile?.id === session?.user.id
+    ? session?.user.id ?? null : null;
+  const { refresh: refreshAccount } = account;
+  const focusedOnce = useRef(false);
+  useFocusEffect(useCallback(() => {
+    if (focusedOnce.current) void refreshAccount();
+    focusedOnce.current = true;
+  }, [refreshAccount]));
+  const { ready: snoozeReady, snoozed, until, snooze } = useTodaySnooze();
+  const dams = useDams(starred.some((item) => item.kind === 'dam'));
+  const [now, setNow] = useState(Date.now);
+  useEffect(() => {
+    const timer = setInterval(() => setNow(Date.now()), 60_000);
+    const off = onForeground(() => { setNow(Date.now()); void refreshAccount(); });
+    return () => { clearInterval(timer); off(); };
+  }, [refreshAccount]);
+  const openRead = (slug: string) => router.push({ pathname: '/river/[slug]', params: { slug, focus: 'read' } });
+  const snoozeAll = () => Alert.alert('Snooze all Today alerts', 'Hide Today banners temporarily. Notices remain available in Alerts.', [
+    { text: '1 hour', onPress: () => snooze('hour') },
+    { text: 'Rest of today', onPress: () => snooze('today') },
+    { text: '24 hours', onPress: () => snooze('day') },
+    { text: 'Cancel', style: 'cancel' },
+  ]);
+
   const [floats, setFloats] = useState<FavoriteFloatSummary[] | null>(null);
   const [safety, setSafety] = useState<{
     high: HighWaterEntry[] | null;
@@ -737,20 +806,31 @@ export function TodayHub({
     () => [...(activeSafety?.high ?? [])].sort((a, b) => Number(b.conditionCode === 'dangerous') - Number(a.conditionCode === 'dangerous'))[0] ?? null,
     [activeSafety?.high],
   );
+  const photos = useMemo(() => {
+    const result = new Map<string, string>();
+    for (const item of floats ?? []) if (item.photoUrl && !result.has(item.riverSlug)) result.set(item.riverSlug, item.photoUrl);
+    return result;
+  }, [floats]);
   const featuredFloat = useMemo(() => dailyFavoriteFloats(floats ?? [])[0] ?? null, [floats]);
   const previewDistances = useMemo(
     () => location.coords && gauges ? riverMilesByGauge(gauges, location.coords) : null,
     [gauges, location.coords],
   );
   const readPreviews = useMemo(() => {
+    // Premium report requests can start as soon as the river catalog arrives,
+    // independently of the public batched index and its live-condition gate.
+    const candidates = reads.length || !premiumUserId || (!readsLoading && !readsError)
+      ? reads
+      : [...rivers].sort((a, b) => Number(favoriteIds.has(b.id)) - Number(favoriteIds.has(a.id)))
+        .map((river) => ({ river, says: { text: '', generatedAt: '' } }));
     const reserved = new Set<string>();
     favoritePreviews.forEach((item) => {
       if (item.kind === 'river') reserved.add(item.entityId);
     });
     recommendations.forEach((item) => reserved.add(item.river.id));
-    const distinct = reads.filter(({ river }) => !reserved.has(river.id));
-    return (distinct.length > 0 ? distinct : reads).slice(0, 3);
-  }, [favoritePreviews, reads, recommendations]);
+    const distinct = candidates.filter(({ river }) => !reserved.has(river.id));
+    return (distinct.length > 0 ? distinct : candidates).slice(0, 3);
+  }, [favoritePreviews, reads, recommendations, premiumUserId, readsLoading, readsError, rivers, favoriteIds]);
   const previewReservedIds = useMemo(() => {
     const ids = new Set(readPreviews.map(({ river }) => river.id));
     favoritePreviews.forEach((item) => {
@@ -804,8 +884,13 @@ export function TodayHub({
         </View>
       ) : null}
 
-      {safetyCount > 0 ? (
+      {snoozeReady && snoozed ? <View style={[styles.notice, { backgroundColor: colors.cardRaised, borderColor: colors.border }]}>
+        <Text style={[styles.noticeText, { color: colors.textMuted }]}>Today alerts snoozed until {new Date(until).toLocaleString([], { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}</Text>
+        <Pressable onPress={() => snooze(null)} accessibilityRole="button" style={{ minHeight: 44, justifyContent: 'center' }}><Text style={{ color: colors.interactive }}>Show alerts</Text></Pressable>
+      </View> : null}
+      {snoozeReady && !snoozed && safetyCount > 0 ? (
         <View style={styles.safetySection}>
+          <Pressable onPress={snoozeAll} accessibilityRole="button" style={{ minHeight: 44, alignSelf: 'flex-end', justifyContent: 'center' }}><Text style={{ color: colors.interactive }}>Snooze all alerts</Text></Pressable>
           <View style={styles.safetyRows}>
             {topNotice ? (
               <SafetyRow
@@ -839,9 +924,17 @@ export function TodayHub({
             headline={statewide.headline}
             prose={statewide.prose}
             generatedAt={statewide.generatedAt}
+            loading={readsLoading}
+            error={readsError}
+            onRetry={onRetryReads}
           />
         ) : null}
         <TodayWeather
+          onOpen={() => {
+            if (!weatherCoords || !activeWeather) return;
+            seedLocationForecast(JSON.stringify([weatherCoords.lat, weatherCoords.lng]), activeWeather);
+            router.push({ pathname: '/weather', params: { lat: String(weatherCoords.lat), lng: String(weatherCoords.lng) } });
+          }}
           weather={activeWeather?.days[0] ?? null}
           weatherLocation={activeWeather?.city ?? null}
           weatherLoading={Boolean(location.coords && !activeWeather && !localWeatherFailed)}
@@ -860,7 +953,10 @@ export function TodayHub({
                 river={river}
                 says={{ generatedAt: says.generatedAt }}
                 compact
-                onPress={() => router.push(`/river/${river.slug}`)}
+                photoUrl={photos.get(river.slug)}
+                premiumUserId={premiumUserId}
+                refreshRevision={refreshRevision}
+                onPress={() => openRead(river.slug)}
               />
             ))}
           </CardRail>
@@ -869,8 +965,16 @@ export function TodayHub({
             river={readPreviews[0].river}
             says={{ generatedAt: readPreviews[0].says.generatedAt }}
             standalone
-            onPress={() => router.push(`/river/${readPreviews[0].river.slug}`)}
+            photoUrl={photos.get(readPreviews[0].river.slug)}
+            premiumUserId={premiumUserId}
+            refreshRevision={refreshRevision}
+            onPress={() => openRead(readPreviews[0].river.slug)}
           />
+        ) : readsError ? (
+          <View style={[styles.emptyCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+            <Text style={{ color: colors.textMuted }}>Couldn’t load Eddy’s Reads.</Text>
+            <Pressable onPress={onRetryReads} accessibilityRole="button" style={{ minHeight: 44, justifyContent: 'center' }}><Text style={{ color: colors.interactive }}>Retry Reads</Text></Pressable>
+          </View>
         ) : readsLoading ? (
           <View style={styles.loading}><ActivityIndicator color={colors.interactive} /></View>
         ) : (
@@ -893,6 +997,8 @@ export function TodayHub({
                 <FavoritePreviewCard
                   key={`${item.kind}:${item.entityId}`}
                   item={item}
+                  dam={item.kind === 'dam' ? dams?.find((dam) => dam.id === item.entityId) ?? null : null}
+                  now={now}
                   river={river}
                   gauge={item.kind === 'gauge'
                     ? gaugeByFavoriteId.get(item.entityId) ?? gaugeByFavoriteId.get(item.usgsSiteId ?? '') ?? null
@@ -906,6 +1012,8 @@ export function TodayHub({
         ) : starsReady && favoritePreviews.length === 1 ? (
           <FavoritePreviewCard
             item={favoritePreviews[0]}
+            dam={favoritePreviews[0].kind === 'dam' ? dams?.find((dam) => dam.id === favoritePreviews[0].entityId) ?? null : null}
+            now={now}
             river={favoritePreviews[0].kind === 'river' ? riverById.get(favoritePreviews[0].entityId) ?? null : null}
             gauge={favoritePreviews[0].kind === 'gauge'
               ? gaugeByFavoriteId.get(favoritePreviews[0].entityId) ?? gaugeByFavoriteId.get(favoritePreviews[0].usgsSiteId ?? '') ?? null
@@ -927,13 +1035,6 @@ export function TodayHub({
         ) : (
           <ActivityIndicator color={colors.interactive} />
         )}
-        {starsReady ? starred
-          .filter((item) => item.kind === 'river' && item.entityId !== highlightedFavorite?.entityId)
-          .slice(0, 2)
-          .map((item) => {
-            const river = riverById.get(item.entityId);
-            return river ? <CompactRiverRow key={item.entityId} river={river} onPress={() => openFavorite(item)} /> : null;
-          }) : null}
       </View>
 
       <View style={styles.section}>
@@ -946,6 +1047,10 @@ export function TodayHub({
               <BestRiverCard
                 key={item.river.id}
                 recommendation={item}
+                photoUrl={photos.get(item.river.slug)}
+                premiumUserId={premiumUserId}
+                revision={String(refreshRevision)}
+                onRead={() => openRead(item.river.slug)}
                 onOpen={() => router.push(`/river/${item.river.slug}`)}
                 onPlan={() => openPlan(item.river.slug)}
               />
@@ -954,6 +1059,10 @@ export function TodayHub({
         ) : recommendations.length === 1 ? (
           <BestRiverCard
             recommendation={recommendations[0]}
+            photoUrl={photos.get(recommendations[0].river.slug)}
+            premiumUserId={premiumUserId}
+            revision={String(refreshRevision)}
+            onRead={() => openRead(recommendations[0].river.slug)}
             onOpen={() => router.push(`/river/${recommendations[0].river.slug}`)}
             onPlan={() => openPlan(recommendations[0].river.slug)}
             standalone

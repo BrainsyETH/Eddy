@@ -73,6 +73,7 @@
 
 import { useCallback, useEffect, useSyncExternalStore } from 'react';
 import type { EddyUpdateEntry, EddyUpdatesResponse } from '@eddy/types';
+import { onForeground } from '@/lib/foreground';
 import { fetchEddyUpdates } from '@/api/client';
 
 type Updates = Record<string, EddyUpdateEntry>;
@@ -87,6 +88,8 @@ const TTL_MS = 300_000;
 
 let cached: Snapshot | null = null;
 let inFlight: Promise<EddyUpdatesResponse> | null = null;
+let requestState: 'idle' | 'loading' | 'ready' | 'error' = 'idle';
+const getRequestState = () => requestState;
 const listeners = new Set<() => void>();
 
 function emit(): void {
@@ -123,15 +126,23 @@ function isFresh(snapshot: Snapshot | null): snapshot is Snapshot {
  */
 function revalidate(): Promise<EddyUpdatesResponse> {
   if (inFlight) return inFlight;
+  requestState = 'loading';
   inFlight = fetchEddyUpdates()
     .then((response) => {
+      requestState = 'ready';
       cached = { response, at: Date.now() };
       emit();
       return response;
     })
+    .catch((error) => {
+      requestState = 'error';
+      emit();
+      throw error;
+    })
     .finally(() => {
       inFlight = null;
     });
+  emit();
   return inFlight;
 }
 
@@ -143,12 +154,15 @@ function revalidate(): Promise<EddyUpdatesResponse> {
  * than "nothing to say".
  */
 export function useEddyUpdates(): {
+  loading: boolean;
+  error: boolean;
   updates: Updates | null;
   statewide: EddyUpdatesResponse['statewide'];
   /** Clause 4. Await this from a RefreshControl's handler. */
   refresh: () => Promise<void>;
 } {
   const snapshot = useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
+  const status = useSyncExternalStore(subscribe, getRequestState, getRequestState);
 
   // Kick a fetch on first use, and whenever what we hold has aged out.
   //
@@ -166,6 +180,10 @@ export function useEddyUpdates(): {
     // on it would not be a dependency React can see anyway; what re-checks
     // freshness is the next consumer to mount, or `refresh`.
   }, []);
+
+  useEffect(() => onForeground(() => {
+    if (!isFresh(cached)) void revalidate().catch(() => {});
+  }), []);
 
   const refresh = useCallback(async () => {
     try {
@@ -190,6 +208,8 @@ export function useEddyUpdates(): {
   }, []);
 
   return {
+    loading: status === 'idle' || status === 'loading',
+    error: status === 'error',
     updates: snapshot?.response.updates ?? null,
     statewide: snapshot?.response.statewide ?? null,
     refresh,
@@ -215,6 +235,7 @@ export function useCachedEddyUpdate(slug: string | null | undefined): EddyUpdate
 /** Test seam. Not for app code — the cache is process-lifetime by design. */
 export function __resetEddyUpdatesCacheForTests(): void {
   cached = null;
+  requestState = 'idle';
   inFlight = null;
   listeners.clear();
 }

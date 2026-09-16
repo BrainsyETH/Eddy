@@ -574,6 +574,8 @@ export default function ReportsScreen() {
     updates: eddyUpdates,
     statewide: statewideUpdate,
     refresh: refreshEddyUpdates,
+    loading: eddyLoading,
+    error: eddyError,
   } = useEddyUpdates();
   const [damFilter, setDamFilter] = useState<DamFilterKey>('all');
   const [dams, setDams] = useState<DamSnapshot[]>([]);
@@ -1619,7 +1621,9 @@ export default function ReportsScreen() {
                     generatedAt: statewideUpdate?.generatedAt ?? null,
                   }}
                   reads={readItems}
-                  readsLoading={eddyUpdates === null}
+                  readsLoading={eddyUpdates === null && eddyLoading}
+                  readsError={eddyError}
+                  onRetryReads={() => void refreshEddyUpdates()}
                   conditionCounts={todayConditionCounts}
                   onBrowseReads={() => {
                     setScope('all');
