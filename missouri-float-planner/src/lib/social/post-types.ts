@@ -1,3 +1,4 @@
+import { reportStamp, shortSummary } from '@shared/social-editorial';
 // src/lib/social/post-types.ts
 //
 // Single source of truth for social post types. Each entry declares how a type
@@ -120,13 +121,7 @@ export interface PostTypeDef {
 const FORMAT = 'portrait' as const;
 
 /** Long-form date label matching the OG thumbnail timestamp format. */
-function defaultDate(): string {
-  return new Date().toLocaleDateString('en-US', {
-    month: 'long',
-    day: 'numeric',
-    year: 'numeric',
-  });
-}
+function defaultDate() { return `Prepared ${reportStamp()}`; }
 
 const isoDay = () => new Date().toISOString().slice(0, 10);
 const slugify = (s: string) => s.toLowerCase().replace(/\s+/g, '-');
@@ -210,7 +205,7 @@ export const POST_TYPES: Record<PostKind, PostTypeDef> = {
     renderProps: (data) => ({
       riverName: data.riverName || 'Unknown River',
       conditionCode: data.conditionCode || 'unknown',
-      gaugeHeightFt: data.gaugeHeightFt ?? 0,
+      gaugeHeightFt: data.gaugeHeightFt ?? null,
       // No invented defaults: absent thresholds render a level-only bar rather
       // than a fake 1.5–4.0 "GOOD" band that can contradict the condition.
       optimalMin: data.optimalMin,
@@ -237,7 +232,7 @@ export const POST_TYPES: Record<PostKind, PostTypeDef> = {
     renderProps: (data) => ({
       rivers: data.rivers || [],
       dateLabel: data.dateLabel || defaultDate(),
-      globalQuote: data.globalQuote || undefined,
+      globalQuote: shortSummary(data.globalQuote) || undefined,
       followCta: FOLLOW_CTA,
       format: FORMAT,
     }),
@@ -283,14 +278,14 @@ export const POST_TYPES: Record<PostKind, PostTypeDef> = {
             // Evergreen: float time is the typical "flowing" pace (post-context
             // sets conditionCode='flowing'), so hoursToday === hoursTypical and
             // the reel hides the faster/slower delta.
-            label: 'Float Pick',
+            label: 'Trip Idea',
             tagline: data.tagline,
             difficulty: data.difficulty,
             evergreen: true,
           }
         : {
             ...sectionRouteProps(data),
-            label: 'Float Pick',
+            label: 'Today’s Float Pick',
           },
     outputFilename: () => `float-pick-${isoDay()}`,
   },

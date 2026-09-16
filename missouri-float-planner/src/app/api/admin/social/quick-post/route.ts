@@ -103,18 +103,8 @@ async function dispatchVideo(
 ) {
   const postIds: string[] = [];
   const insertErrors: string[] = [];
-  const todayStart = new Date();
-  todayStart.setUTCHours(0, 0, 0, 0);
-
-  for (const platform of platforms) {
-    // Manual action — clear today's rows so the dedup index won't block.
-    await supabase
-      .from('social_posts')
-      .delete()
-      .eq('post_type', kind)
-      .eq('platform', platform)
-      .gte('created_at', todayStart.toISOString());
-
+  const renderRequest = getCompositionForPost(kind, ctx.renderData);
+  for (const platform of [...new Set(platforms)]) {
     const { caption, hashtags } = ctx.caption(platform, customContent);
     const { data: record, error: insertError } = await supabase
       .from('social_posts')
@@ -127,6 +117,8 @@ async function dispatchVideo(
         media_type: 'video',
         hashtags,
         status: 'rendering',
+        auto_publish: false,
+        render_request: renderRequest,
       })
       .select('id')
       .single();
@@ -145,8 +137,8 @@ async function dispatchVideo(
     );
   }
 
-  const { compositionId, inputProps, outputFilename } = getCompositionForPost(kind, ctx.renderData);
-  const success = await triggerVideoRender({ postIds: postIds.join(','), compositionId, inputProps, outputFilename });
+  const { compositionId, inputProps, outputFilename } = renderRequest;
+  const success = await triggerVideoRender({ postIds: postIds.join(','), compositionId, inputProps, outputFilename }).catch(() => false);
 
   if (!success) {
     const reason = 'GH Actions dispatch returned non-204 — check GH_ACTIONS_TOKEN scope/expiry and that workflow render-social-video.yml exists on the configured ref.';
@@ -169,7 +161,7 @@ async function dispatchVideo(
     entityType: 'social_post',
     details: { platforms, dispatched: postIds.length },
   });
-  return NextResponse.json({ rendering: postIds.length });
+  return NextResponse.json({ rendering: postIds.length, reviewRequired: true, warnings: insertErrors });
 }
 
 // --- Tip (custom content, image-only) ---
@@ -207,7 +199,7 @@ async function postTip(
     details: { contentId, platforms, results: results.map((r) => ({ platform: r.platform, success: r.success })) },
   });
 
-  return NextResponse.json({ results });
+  return NextResponse.json({ results, reviewRequired: true });
 }
 
 // --- Shared publish helper ---
@@ -237,17 +229,6 @@ async function publishToPlatforms(
 
     const post = buildPost(platform);
 
-    // Admin quick-post is an intentional manual action — clear ALL existing
-    // records for this post type/platform today so the dedup index won't block it.
-    const todayStart = new Date();
-    todayStart.setUTCHours(0, 0, 0, 0);
-    await supabase
-      .from('social_posts')
-      .delete()
-      .eq('post_type', post.postType)
-      .eq('platform', platform)
-      .gte('created_at', todayStart.toISOString());
-
     const { data: record, error: insertError } = await supabase
       .from('social_posts')
       .insert({
@@ -258,7 +239,8 @@ async function publishToPlatforms(
         image_url: post.imageUrl,
         media_type: 'image',
         hashtags: post.hashtags,
-        status: 'publishing',
+        status: 'review',
+        auto_publish: false,
       })
       .select('id')
       .single();
@@ -268,38 +250,8 @@ async function publishToPlatforms(
       continue;
     }
 
-    try {
-      const result = await adapter.publishPost({ caption: post.caption, imageUrl: post.imageUrl });
+    results.push({ platform, success: true, postId: record.id });
 
-      if (result.success) {
-        await supabase
-          .from('social_posts')
-          .update({
-            status: 'published',
-            platform_post_id: result.platformPostId || null,
-            published_at: new Date().toISOString(),
-            updated_at: new Date().toISOString(),
-          })
-          .eq('id', record.id);
-
-        results.push({ platform, success: true, postId: result.platformPostId });
-      } else {
-        await supabase
-          .from('social_posts')
-          .update({ status: 'failed', error_message: result.error || 'Unknown error', updated_at: new Date().toISOString() })
-          .eq('id', record.id);
-
-        results.push({ platform, success: false, error: result.error });
-      }
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Unknown error';
-      await supabase
-        .from('social_posts')
-        .update({ status: 'failed', error_message: msg, updated_at: new Date().toISOString() })
-        .eq('id', record.id);
-
-      results.push({ platform, success: false, error: msg });
-    }
   }
 
   return results;

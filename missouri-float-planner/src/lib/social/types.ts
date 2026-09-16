@@ -22,7 +22,7 @@ export type PostType =
   | 'eddy_says'
   | 'favorite_float'
   | 'route_draw';
-export type PostStatus = 'pending' | 'rendering' | 'publishing' | 'published' | 'failed' | 'skipped';
+export type PostStatus = 'pending' | 'rendering' | 'review' | 'inbox' | 'publishing' | 'published' | 'failed' | 'skipped';
 export type CustomContentType = 'promo' | 'tip' | 'seasonal' | 'cta';
 
 export type MediaType = 'image' | 'video';
@@ -134,6 +134,7 @@ export interface PublishParams {
 }
 
 export interface PublishResult {
+  delivery?: 'published' | 'inbox';
   success: boolean;
   platformPostId?: string;
   error?: string;

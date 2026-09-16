@@ -216,7 +216,7 @@ export async function getScheduledPosts(options?: { skipTimeCheck?: boolean }): 
 
       if (!timeMatches) {
         console.log(`${LOG_PREFIX} Weekly forecast: not near ${time_cst} CST — skipping`);
-      } else if (alreadyPosted) {
+      } else if (alreadyPosted && !options?.skipTimeCheck) {
         console.log(`${LOG_PREFIX} Weekly forecast: already posted today — skipping`);
       } else if (updates.length === 0) {
         console.log(`${LOG_PREFIX} Weekly forecast: no fresh eddy updates — skipping`);
@@ -271,7 +271,7 @@ export async function getScheduledPosts(options?: { skipTimeCheck?: boolean }): 
 
       if (!timeMatches) {
         console.log(`${LOG_PREFIX} Float Pick: not near ${time_cst} CST — skipping`);
-      } else if (alreadyPosted) {
+      } else if (alreadyPosted && !options?.skipTimeCheck) {
         console.log(`${LOG_PREFIX} Float Pick: already posted today — skipping`);
       } else {
         const ctx = await buildPostContext(supabase, { postType: 'section_guide' });
@@ -312,7 +312,7 @@ export async function getScheduledPosts(options?: { skipTimeCheck?: boolean }): 
 
       if (!timeMatches) {
         console.log(`${LOG_PREFIX} Weekly trend: not near ${time_cst} CST — skipping`);
-      } else if (alreadyPosted) {
+      } else if (alreadyPosted && !options?.skipTimeCheck) {
         console.log(`${LOG_PREFIX} Weekly trend: already posted today — skipping`);
       } else {
         const availableSlugs = updates.map((u) => u.river_slug);
@@ -512,7 +512,7 @@ async function hasPostedToday(
     .select('id')
     .eq('post_type', postType)
     .gte('created_at', todayStart.toISOString())
-    .in('status', ['pending', 'publishing', 'published', 'rendering']);
+    .in('status', ['pending', 'publishing', 'published', 'rendering', 'inbox']);
 
   if (riverSlug) {
     query = query.eq('river_slug', riverSlug);
@@ -543,6 +543,7 @@ export async function getRetryablePosts(): Promise<
     .from('social_posts')
     .select('id, post_type, platform, river_slug, caption, image_url, hashtags, eddy_update_id')
     .eq('status', 'failed')
+    .eq('auto_publish', true)
     .lt('retry_count', 3)
     .gte('created_at', cutoff)
     .order('created_at', { ascending: true });

@@ -15,6 +15,7 @@ export interface TrendSeriesPoint {
 
 export interface TrendRiverData {
   riverSlug: string;
+  readingAt: string;
   riverName: string;
   currentHeightFt: number | null;
   sevenDayFirstFt: number | null;
@@ -114,6 +115,10 @@ export async function pickNotableTrend(
       .filter((r) => r.gauge_height_ft !== null) as Array<Reading & { gauge_height_ft: number }>;
     if (valid.length < 4) continue; // Not enough signal.
 
+    const firstAge = (nowMs - Date.parse(valid[0].reading_timestamp)) / 3_600_000;
+    const lastAge = (nowMs - Date.parse(valid[valid.length - 1].reading_timestamp)) / 3_600_000;
+    if (firstAge < 162 || lastAge > 6 || lastAge < 0) continue;
+
     const first = valid[0].gauge_height_ft;
     const last = valid[valid.length - 1].gauge_height_ft;
     const heights = valid.map((r) => r.gauge_height_ft);
@@ -122,20 +127,18 @@ export async function pickNotableTrend(
     // Downsample to SPARKLINE_POINTS for the chart.
     const step = Math.max(1, Math.floor(valid.length / SPARKLINE_POINTS));
     const sparkline: TrendSeriesPoint[] = [];
-    for (let i = 0; i < valid.length; i += step) {
-      const r = valid[i];
-      sparkline.push({
-        hoursAgo: (nowMs - new Date(r.reading_timestamp).getTime()) / (1000 * 60 * 60) * -1,
-        gaugeHeightFt: r.gauge_height_ft,
-      });
-    }
-    // Ensure the final point is included.
-    if (sparkline[sparkline.length - 1]?.gaugeHeightFt !== last) {
-      const r = valid[valid.length - 1];
-      sparkline.push({
-        hoursAgo: (nowMs - new Date(r.reading_timestamp).getTime()) / (1000 * 60 * 60) * -1,
-        gaugeHeightFt: r.gauge_height_ft,
-      });
+    const indices = Array.from({ length: Math.ceil(valid.length / step) }, (_, i) => i * step);
+    if (indices[indices.length - 1] !== valid.length - 1) indices.push(valid.length - 1);
+    let previous = 0;
+    for (const i of indices) {
+      // Preserve acquisition outages even when downsampling skips their edges.
+      for (let j = previous + 1; j <= i; j++) {
+        if (Date.parse(valid[j].reading_timestamp) - Date.parse(valid[j - 1].reading_timestamp) > 6 * 3_600_000) {
+          sparkline.push({ hoursAgo: (Date.parse(valid[j].reading_timestamp) - nowMs) / 3_600_000 - 0.001, gaugeHeightFt: null });
+        }
+      }
+      sparkline.push({ hoursAgo: (Date.parse(valid[i].reading_timestamp) - nowMs) / 3_600_000, gaugeHeightFt: valid[i].gauge_height_ft });
+      previous = i;
     }
 
     let direction: TrendRiverData['direction'];
@@ -145,6 +148,7 @@ export async function pickNotableTrend(
 
     candidates.push({
       stationId,
+      readingAt: valid[valid.length - 1].reading_timestamp,
       riverSlug: slug,
       riverName: riverDisplayLong(slug),
       currentHeightFt: last,

@@ -137,6 +137,7 @@ interface SocialPost {
   image_url: string | null;
   video_url: string | null;
   media_type: string;
+  render_request?: unknown;
   created_at: string;
   published_at: string | null;
 }
@@ -173,6 +174,8 @@ const ALL_CONDITIONS = [
 ];
 
 const STATUS_BADGES: Record<string, { label: string; className: string }> = {
+  review: { label: 'Ready for review', className: 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30' },
+  inbox: { label: 'Sent to TikTok inbox', className: 'bg-blue-500/20 text-blue-400 border-blue-500/30' },
   published: { label: 'Published', className: 'bg-green-500/20 text-green-400 border-green-500/30' },
   failed: { label: 'Failed', className: 'bg-red-500/20 text-red-400 border-red-500/30' },
   pending: { label: 'Pending', className: 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30' },
@@ -323,6 +326,7 @@ export default function SocialAdminPage() {
 
   // Preview modal state
   const [showPreview, setShowPreview] = useState(false);
+  const [previewOverlay, setPreviewOverlay] = useState<'off' | 'safe' | 'crop'>('off');
   const [previewData, setPreviewData] = useState<PreviewData | null>(null);
   const [previewLoading, setPreviewLoading] = useState(false);
 
@@ -602,7 +606,7 @@ export default function SocialAdminPage() {
       if (res.ok) {
         const body = await res.json().catch(() => null);
         const count = body?.rendering ?? body?.results?.filter?.((r: { success: boolean }) => r.success)?.length ?? 0;
-        showToast(count ? `Queued ${count} ${postType.replace('_', ' ')} post(s)` : 'Posted', 'success');
+        showToast(count ? `Preparing ${count} draft(s) for review` : 'No drafts created', 'success');
         fetchPosts();
       } else {
         const body = await res.json().catch(() => null);
@@ -615,16 +619,17 @@ export default function SocialAdminPage() {
     }
   };
 
-  const retryPost = async (postId: string) => {
+  const retryPost = async (postId: string, action: 'retry' | 'approve' | 'render' = 'retry') => {
     try {
       const res = await adminFetch('/api/admin/social/retry', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: postId }),
+        body: JSON.stringify({ id: postId, action }),
       });
       if (res.ok) {
         fetchPosts();
-        showToast('Post queued for retry', 'success');
+        setVideoPreviewPost(null);
+        showToast(action === 'render' ? 'Rendering a new draft for review' : 'Delivery complete — check the post status', 'success');
       } else {
         const data = await res.json().catch(() => ({}));
         showToast(data.error || `Retry failed (${res.status})`, 'error');
@@ -716,9 +721,9 @@ export default function SocialAdminPage() {
         const successes = data.results?.filter((r: { success: boolean }) => r.success).length || 0;
         const failures = data.results?.filter((r: { success: boolean }) => !r.success) || [];
         if (failures.length > 0) {
-          showToast(`Published to ${successes} platform(s). ${failures.length} failed: ${failures.map((f: { platform: string; error?: string }) => `${f.platform}: ${f.error}`).join('; ')}`, failures.length === data.results?.length ? 'error' : 'success');
+          showToast(`Drafts ready for ${successes} platform(s). ${failures.length} failed: ${failures.map((f: { platform: string; error?: string }) => `${f.platform}: ${f.error}`).join('; ')}`, failures.length === data.results?.length ? 'error' : 'success');
         } else {
-          showToast(`Published to ${successes} platform(s)`, 'success');
+          showToast(`Drafts ready for ${successes} platform(s)`, 'success');
         }
         setShowCompose(false);
         setComposeForm({ caption: '', imageUrl: '', platforms: ['facebook', 'instagram'] });
@@ -768,14 +773,14 @@ export default function SocialAdminPage() {
       if (res.ok) {
         const data = await res.json();
         if (data.rendering) {
-          showToast(`Video render dispatched for ${data.rendering} platform(s) — will publish in ~3-5 min`, 'success');
+          showToast(`Video render dispatched for ${data.rendering} platform(s) — will be ready for review after rendering`, 'success');
         } else {
           const successes = data.results?.filter((r: { success: boolean }) => r.success).length || 0;
           const failures = data.results?.filter((r: { success: boolean }) => !r.success) || [];
           if (failures.length > 0) {
-            showToast(`Published to ${successes} platform(s). ${failures.length} failed: ${failures.map((f: { platform: string; error?: string }) => `${f.platform}: ${f.error}`).join('; ')}`, failures.length === data.results?.length ? 'error' : 'success');
+            showToast(`Drafts ready for ${successes} platform(s). ${failures.length} failed: ${failures.map((f: { platform: string; error?: string }) => `${f.platform}: ${f.error}`).join('; ')}`, failures.length === data.results?.length ? 'error' : 'success');
           } else {
-            showToast(`Published to ${successes} platform(s)`, 'success');
+            showToast(`Drafts ready for ${successes} platform(s)`, 'success');
           }
         }
         setShowQuickPost(false);
@@ -792,11 +797,11 @@ export default function SocialAdminPage() {
     }
   };
 
-  const loadPreview = async () => {
+  const loadPreview = async (fullDay = false) => {
     setPreviewLoading(true);
     setShowPreview(true);
     try {
-      const res = await adminFetch(`/api/admin/social/preview?_t=${Date.now()}`);
+      const res = await adminFetch(`/api/admin/social/preview?skip_time_check=${fullDay}&_t=${Date.now()}`);
       if (res.ok) {
         setPreviewData(await res.json());
       } else {
@@ -839,12 +844,14 @@ export default function SocialAdminPage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
           <div className="bg-neutral-800 border border-neutral-700 rounded-xl w-full max-w-3xl max-h-[80vh] overflow-y-auto">
             <div className="flex items-center justify-between p-4 border-b border-neutral-700">
-              <h3 className="text-lg font-semibold text-white">Preview Next Posts</h3>
+              <h3 className="text-lg font-semibold text-white">Schedule Preview</h3>
               <button onClick={() => setShowPreview(false)} className="text-neutral-400 hover:text-white">
                 <X className="w-5 h-5" />
               </button>
             </div>
             <div className="p-4 space-y-4">
+              <div className="flex gap-3"><button onClick={() => loadPreview(false)} className="text-sm text-primary-400">Due now</button><button onClick={() => loadPreview(true)} className="text-sm text-primary-400">Today’s schedule</button></div>
+              <p className="text-xs text-neutral-400">Schedule preview uses current data. Inspect the rendered draft before publishing manually.</p>
               {previewLoading ? (
                 <div className="flex justify-center py-8">
                   <RefreshCw className="w-6 h-6 animate-spin text-neutral-400" />
@@ -872,7 +879,9 @@ export default function SocialAdminPage() {
                             <span className="text-xs text-neutral-400">{post.riverSlug}</span>
                           )}
                         </div>
-                        <p className="text-sm text-neutral-200 whitespace-pre-line line-clamp-4">{post.caption}</p>
+                        {post.imageUrl && <details className="mb-3 text-sm text-neutral-300"><summary className="cursor-pointer">Inspect cover</summary>{/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img src={post.imageUrl} alt="Scheduled post cover" className="mt-2 max-h-96 object-contain" /></details>}
+                        <p className="text-sm text-neutral-200 whitespace-pre-line break-words">{post.caption}</p>
                       </div>
                     ))
                   )}
@@ -898,12 +907,12 @@ export default function SocialAdminPage() {
       )}
 
       {/* Video Preview Modal */}
-      {videoPreviewPost && videoPreviewPost.video_url && (
+      {videoPreviewPost && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-          <div className="bg-neutral-800 border border-neutral-700 rounded-xl w-full max-w-2xl">
+          <div className="bg-neutral-800 border border-neutral-700 rounded-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between p-4 border-b border-neutral-700">
               <div className="flex items-center gap-2">
-                <h3 className="text-lg font-semibold text-white">Video Preview</h3>
+                <h3 className="text-lg font-semibold text-white">Review Post</h3>
                 <span className="text-xs font-medium px-2 py-0.5 rounded bg-primary-500/20 text-primary-400 uppercase">
                   {videoPreviewPost.platform}
                 </span>
@@ -920,18 +929,21 @@ export default function SocialAdminPage() {
                   Reel's grid thumbnail, so drift between the two shows up here
                   before it shows up in the feed. */}
               <div className={`grid gap-4 ${videoPreviewPost.image_url ? 'grid-cols-2' : 'grid-cols-1'}`}>
-                <div>
+                {videoPreviewPost.video_url && <div>
                   <p className="text-xs font-medium text-neutral-400 uppercase tracking-wide mb-1">Reel</p>
-                  <div className="bg-black rounded-lg overflow-hidden">
+                  <div className="relative bg-black rounded-lg overflow-hidden aspect-[9/16]">
                     <video
                       src={videoPreviewPost.video_url}
                       controls
                       autoPlay
                       playsInline
-                      className="w-full max-h-[500px]"
+                      className="w-full h-full object-contain"
                     />
+                    {previewOverlay !== 'off' && <div aria-hidden="true" className="absolute pointer-events-none border-2 border-dashed border-yellow-400" style={previewOverlay === 'safe' ? { top: '13.02%', bottom: '21.875%', left: '11.11%', right: '25%' } : { top: '14.84%', bottom: '14.84%', left: 0, right: 0 }} />}
                   </div>
-                </div>
+                  <label className="block mt-2 text-xs text-neutral-300">Preview guide <select value={previewOverlay} onChange={e => setPreviewOverlay(e.target.value as 'off' | 'safe' | 'crop')} className="bg-neutral-700 rounded p-1"><option value="off">Off</option><option value="safe">Reel text safe area</option><option value="crop">Centered 4:5 crop</option></select></label>
+                  <p className="mt-1 text-xs text-neutral-400">Guides are approximate; platform controls and crops vary.</p>
+                </div>}
                 {videoPreviewPost.image_url && (
                   <div>
                     <p className="text-xs font-medium text-neutral-400 uppercase tracking-wide mb-1">Cover (grid thumbnail)</p>
@@ -946,6 +958,9 @@ export default function SocialAdminPage() {
                   </div>
                 )}
               </div>
+              <p className="mt-4 text-sm text-neutral-200 whitespace-pre-wrap break-words">{videoPreviewPost.caption}</p>
+              {videoPreviewPost.platform === 'tiktok' && <p className="mt-3 text-sm text-neutral-400">Inbox delivery requires finishing the post in TikTok. Check the resulting status after delivery.</p>}
+              {videoPreviewPost.status === 'review' && <button onClick={() => retryPost(videoPreviewPost.id, 'approve')} className="mt-4 px-4 py-2 rounded bg-primary-600 text-white">Publish approved draft</button>}
               <p className="text-xs text-neutral-500 mt-2">
                 {new Date(videoPreviewPost.created_at).toLocaleString()} {videoPreviewPost.river_slug ? `\u2022 ${videoPreviewPost.river_slug}` : ''}
               </p>
@@ -972,7 +987,7 @@ export default function SocialAdminPage() {
             Compose Post
           </button>
           <button
-            onClick={loadPreview}
+            onClick={() => loadPreview()}
             className="flex items-center gap-2 px-4 py-2 bg-neutral-700 text-white rounded-lg font-medium hover:bg-neutral-600 transition-colors"
           >
             <Eye className="w-4 h-4" />
@@ -988,7 +1003,7 @@ export default function SocialAdminPage() {
               Quick Post
             </h3>
             <p className="text-sm text-neutral-400">
-              Auto-generates caption and branded image, then publishes immediately.
+              Generate a draft, inspect the caption and media, then choose Publish. Scheduled posts still publish automatically.
             </p>
 
             {/* Post type selector */}
@@ -1096,8 +1111,8 @@ export default function SocialAdminPage() {
             {/* Media note — Digest/Highlight post as animated video; Tip is an image. */}
             <div className="p-3 bg-neutral-900/50 border border-neutral-700 rounded-lg text-xs text-neutral-400">
               {quickPostType === 'tip'
-                ? 'Posts a static branded image immediately.'
-                : 'Posts as an animated video — renders via GitHub Actions (~3-5 min), then publishes automatically.'}
+                ? 'Creates a static image draft for review.'
+                : 'Creates a video draft. Rendering usually takes 3–5 minutes. Review the finished video and caption in posting history, then publish.'}
             </div>
 
             {/* Actions */}
@@ -1115,7 +1130,7 @@ export default function SocialAdminPage() {
                 <Send className="w-4 h-4" />
                 {quickPosting
                   ? (quickPostType === 'tip' ? 'Publishing...' : 'Dispatching...')
-                  : (quickPostType === 'tip' ? 'Publish Now' : 'Render & Publish')}
+                  : 'Generate draft'}
               </button>
               <button
                 onClick={() => setShowQuickPost(false)}
@@ -1392,7 +1407,7 @@ export default function SocialAdminPage() {
                   <h3 className="text-lg font-semibold text-white mb-2">Posting Schedule</h3>
                   <p className="text-sm text-neutral-400 mb-4">
                     Everything in one grid. Click a day cell to toggle <span className="text-neutral-300">Off / Video</span>.
-                    If every day for a row is Off, that post type is disabled. Set the time each type fires, or hit Post Now to trigger immediately.
+                    If every day for a row is Off, that post type is disabled. Set the time each type fires, or choose Generate draft to review a manual post.
                   </p>
                   <div className="overflow-x-auto">
                     <table className="w-full text-sm">
@@ -1403,7 +1418,7 @@ export default function SocialAdminPage() {
                           {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((day) => (
                             <th key={day} className="text-center text-xs font-medium text-neutral-400 uppercase px-1 py-2 min-w-[58px]">{day}</th>
                           ))}
-                          <th className="text-center text-xs font-medium text-neutral-400 uppercase px-2 py-2 min-w-[140px]">Time (CST)</th>
+                          <th className="text-center text-xs font-medium text-neutral-400 uppercase px-2 py-2 min-w-[140px]">Time (Central)</th>
                           <th className="text-center text-xs font-medium text-neutral-400 uppercase px-2 py-2 min-w-[100px]"></th>
                         </tr>
                       </thead>
@@ -1474,7 +1489,7 @@ export default function SocialAdminPage() {
                                     onClick={() => postNow(row.action as PostNowType)}
                                     className="px-3 py-1 bg-accent-500 hover:bg-accent-600 disabled:opacity-50 text-white rounded text-xs font-medium transition-colors"
                                   >
-                                    {postingNow === row.action ? 'Posting…' : 'Post Now'}
+                                    {postingNow === row.action ? 'Preparing…' : 'Generate draft'}
                                   </button>
                                 )}
                               </td>
@@ -1484,7 +1499,7 @@ export default function SocialAdminPage() {
                         {/* Visual separator between format rows and river rows */}
                         <tr>
                           <td colSpan={11} className="px-2 pt-4 pb-1 text-[10px] uppercase tracking-wider text-neutral-500">
-                            Per-river posting times (CST) — controls when river highlights fire for each river
+                            Per-river posting times (Central) — controls when river highlights fire for each river
                           </td>
                         </tr>
                         {rivers.map((river) => {
@@ -1588,7 +1603,7 @@ export default function SocialAdminPage() {
                     </table>
                   </div>
                   <p className="text-xs text-neutral-500 mt-3">
-                    All times are Central (CST). Click &quot;skip&quot; to enable a day or the x to disable it.
+                    All times are Central (CST/CDT). Click &quot;skip&quot; to enable a day or the x to disable it.
                   </p>
                 </div>
 
@@ -1985,7 +2000,7 @@ export default function SocialAdminPage() {
                                 </td>
                                 <td className="px-4 py-3">
                                   <div className="flex items-center gap-2">
-                                    {post.video_url && (
+                                    {(post.video_url || post.image_url || post.caption) && (
                                       <button
                                         onClick={() => setVideoPreviewPost(post)}
                                         className="flex items-center gap-1 px-2 py-1 text-xs text-purple-400 hover:text-purple-300 bg-purple-500/10 hover:bg-purple-500/20 rounded transition-colors"
@@ -2006,11 +2021,11 @@ export default function SocialAdminPage() {
                                     )}
                                     {post.status === 'failed' && (
                                       <button
-                                        onClick={() => retryPost(post.id)}
+                                        onClick={() => retryPost(post.id, post.media_type === 'video' && !post.video_url ? 'render' : 'retry')}
                                         className="flex items-center gap-1 px-2 py-1 text-xs text-blue-400 hover:text-blue-300 bg-blue-500/10 hover:bg-blue-500/20 rounded transition-colors"
                                       >
                                         <RotateCcw className="w-3 h-3" />
-                                        Retry
+                                        {post.media_type === 'video' && !post.video_url ? 'Render again' : 'Retry delivery'}
                                       </button>
                                     )}
                                   </div>

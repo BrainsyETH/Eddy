@@ -1,3 +1,5 @@
+import { shortSummary, reportStamp } from '@shared/social-editorial';
+import { weekendWeather } from './weekend-weather';
 // src/lib/social/post-context.ts
 //
 // Single assembler for social posts. Given a post type (+ optional river /
@@ -47,8 +49,7 @@ export function truncateForVideo(text: string | null): string {
 // "Current" instead of "Current River" on hero reels and can't know real
 // punctuation like "St. Francis".)
 
-const longDate = () =>
-  new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+const longDate = () => `Prepared ${reportStamp()}`;
 
 const og = (type: string, platform: SocialPlatform, extra = '') =>
   `${BASE_URL}/api/og/social?type=${type}&platform=${platform}${extra}`;
@@ -165,7 +166,7 @@ export async function buildPostContext(
     return {
       postType,
       riverSlug: null,
-      renderData: { rivers, dateLabel: longDate(), globalQuote: globalSummary || undefined },
+      renderData: { rivers, dateLabel: longDate(), globalQuote: shortSummary(globalSummary) || undefined },
       caption: (platform, custom) => formatDailyDigestCaption(deduped, globalSummary, custom, platform),
       imageUrl: (platform) => og('digest', platform, `&rivers=${encodeURIComponent(pinned)}`),
     };
@@ -176,14 +177,15 @@ export async function buildPostContext(
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const floatable = (deduped as any[])
       .filter((u) => WEEKEND_FLOATABLE.has(u.condition_code))
+      .map((u) => ({ ...u, weather: weekendWeather(u.weather) }))
       .sort((a, b) => (WEEKEND_SEVERITY[a.condition_code] ?? 99) - (WEEKEND_SEVERITY[b.condition_code] ?? 99));
     if (floatable.length === 0) return null;
     // Prefer rivers with no rain coming; if every floatable river has rain in
     // the forecast, fall back to the best available and flag it with a note.
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const dry = floatable.filter((u: any) => !hasRainComing(u.weather));
-    const usingFallback = dry.length === 0;
-    const topRivers = (usingFallback ? floatable : dry).slice(0, 3);
+    const dry = floatable.filter((u: any) => u.weather != null && !hasRainComing(u.weather));
+    const usingFallback = dry.length === 0 && floatable.every((u) => u.weather != null);
+    const topRivers = (dry.length ? dry : floatable).slice(0, 3);
     // Holiday branding (Memorial Day / July 4th / Labor Day) carries through the
     // reel title + cover label so the video matches the caption's framing.
     const holidayName = upcomingHolidayWeekend();
@@ -198,7 +200,7 @@ export async function buildPostContext(
           gaugeHeightFt: u.gauge_height_ft,
           weather: weatherChip(u.weather),
         })),
-        dateLabel: holidayName ? `${holidayName} Weekend` : 'This Weekend',
+        dateLabel: `${topRivers.find(u => u.weather)?.weather?.forecast[0]?.dayOfWeek ?? "Weekend forecast unavailable"} · Current water`,
         title: holidayName ? `${holidayName} Forecast` : 'Weekend Forecast',
         rainNote: usingFallback,
       },
@@ -300,9 +302,9 @@ export async function buildPostContext(
     return {
       postType,
       riverSlug: trend.riverSlug,
-      renderData: { ...trend, conditionCode, weather, dateLabel: 'This Week' },
+      renderData: { ...trend, conditionCode, weather, dateLabel: `Latest reading ${reportStamp(new Date(trend.readingAt))}` },
       caption: (platform, custom) =>
-        formatWeeklyTrendCaption({ ...trend, weather: latest?.weather ?? null }, custom, platform),
+        formatWeeklyTrendCaption({ ...trend, conditionCode, weather: latest?.weather ?? null }, custom, platform),
       // Pin the river AND the instant: the cover re-derives the seven days as of
       // this post's own asOf (trend-picker honours it), so its delta, range and
       // sparkline match the reel instead of the gauge's later movement. The
@@ -349,6 +351,7 @@ export async function buildPostContext(
       riverSlug: update.river_slug,
       renderData: {
         riverName: riverDisplayLong(update.river_slug),
+        dateLabel: update.reading_timestamp ? `Reading ${reportStamp(new Date(update.reading_timestamp))}` : `Prepared ${reportStamp()} · Reading time unavailable`,
         conditionCode: update.condition_code,
         gaugeHeightFt: update.gauge_height_ft,
         optimalMin,

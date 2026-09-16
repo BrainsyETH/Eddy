@@ -190,6 +190,7 @@ async function runSocialPosting(request: NextRequest) {
           .delete()
           .eq('post_type', post.postType)
           .eq('platform', post.platform)
+          .eq('auto_publish', true)
           .in('status', ['failed', 'publishing', 'pending'])
           .gte('created_at', todayStart.toISOString());
 
@@ -311,7 +312,8 @@ async function runSocialPosting(request: NextRequest) {
         .delete()
         .eq('post_type', post.postType)
         .eq('platform', post.platform)
-        .in('status', ['failed', 'publishing', 'pending'])
+        .eq('auto_publish', true)
+          .in('status', ['failed', 'publishing', 'pending'])
         .gte('created_at', todayStart.toISOString());
 
       const { data: record, error: insertError } = await supabase

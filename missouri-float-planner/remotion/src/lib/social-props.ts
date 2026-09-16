@@ -62,7 +62,7 @@ export function getOtterVariant(conditionCode: ConditionCode): OtterMood {
 export type GaugeAnimationProps = {
   riverName: string;
   conditionCode: ConditionCode;
-  gaugeHeightFt: number;
+  gaugeHeightFt: number | null;
   /** Ft bounds of the GOOD band. OPTIONAL: rivers without trustworthy ft
    *  thresholds (e.g. CFS-primary gauges with no ft mirror) omit them and the
    *  bar renders level-only — never a made-up band that can contradict the

@@ -1,3 +1,4 @@
+import { splitTrendSeries, trendMeaning } from "../../../../shared/social-editorial";
 import React from "react";
 import {
   Audio,
@@ -91,35 +92,19 @@ export const TrendReel: React.FC<TrendReelProps> = ({
   const chartMinFt = sevenDayMinFt ?? 0;
   const chartMaxFt = sevenDayMaxFt ?? chartMinFt + 1;
   const ftRange = chartMaxFt - chartMinFt || 1;
-  const validSeries = series.filter((p) => p.gaugeHeightFt !== null) as Array<{
-    hoursAgo: number;
-    gaugeHeightFt: number;
-  }>;
-  const minHoursAgo = validSeries.length > 0 ? validSeries[0].hoursAgo : -168;
-  const hoursRange = validSeries.length > 0 ? 0 - minHoursAgo : 168;
-
-  const points = validSeries.map((p) => {
-    const x = ((p.hoursAgo - minHoursAgo) / (hoursRange || 1)) * (CHART_WIDTH - CHART_PADDING * 2) + CHART_PADDING;
-    const y =
-      CHART_HEIGHT -
-      CHART_PADDING -
-      ((p.gaugeHeightFt - chartMinFt) / ftRange) * (CHART_HEIGHT - CHART_PADDING * 2);
-    return { x, y };
+  const segments = splitTrendSeries(series);
+  const chartPoint = (p: { hoursAgo: number; gaugeHeightFt: number | null }) => ({
+    x: ((p.hoursAgo + 168) / 168) * (CHART_WIDTH - CHART_PADDING * 2) + CHART_PADDING,
+    y: CHART_HEIGHT - CHART_PADDING - ((p.gaugeHeightFt! - chartMinFt) / ftRange) * (CHART_HEIGHT - CHART_PADDING * 2),
   });
-
-  // SVG path with the reveal factor clamping how much of the line shows. The
-  // whole week is ghosted underneath from frame 0, so the thumbnail is a
-  // complete chart and the reveal inks it in rather than drawing on nothing.
-  const visibleCount = Math.max(2, Math.floor(points.length * sparklineReveal));
-  const visiblePoints = points.slice(0, visibleCount);
-  const toPath = (list: typeof points) =>
-    list.length > 0 ? list.map((p, i) => (i === 0 ? `M ${p.x} ${p.y}` : `L ${p.x} ${p.y}`)).join(" ") : "";
-  const ghostD = toPath(points);
-  const pathD = toPath(visiblePoints);
-  // Area fill below the line.
-  const areaD = visiblePoints.length > 0
-    ? `${pathD} L ${visiblePoints[visiblePoints.length - 1].x} ${CHART_HEIGHT - CHART_PADDING} L ${visiblePoints[0].x} ${CHART_HEIGHT - CHART_PADDING} Z`
-    : "";
+  const toPath = (list: Array<{ x: number; y: number }>) => list.map((p, i) => `${i ? 'L' : 'M'} ${p.x} ${p.y}`).join(' ');
+  const ghostD = segments.map(group => toPath(group.map(chartPoint))).join(' ');
+  const visibleGroups = segments.map(group => group.filter(p => p.hoursAgo <= -168 + sparklineReveal * 168).map(chartPoint));
+  const visiblePoints = visibleGroups.flat();
+  const pathD = visibleGroups.map(toPath).join(' ');
+  // Each observed run has its own fill. Missing readings stay visibly missing.
+  const areaD = visibleGroups.filter(group => group.length > 1).map(group =>
+    `${toPath(group)} L ${group[group.length - 1].x} ${CHART_HEIGHT - CHART_PADDING} L ${group[0].x} ${CHART_HEIGHT - CHART_PADDING} Z`).join(' ');
 
   const lastPoint = visiblePoints[visiblePoints.length - 1];
   const lineInk = conditionInk(meta.color);
@@ -168,12 +153,12 @@ export const TrendReel: React.FC<TrendReelProps> = ({
             {/* Axis labels */}
             {sevenDayFirstFt !== null && (
               <text x={CHART_PADDING} y={CHART_HEIGHT - 10} fill={LIGHT.inkMuted} fontSize={18} fontWeight={650} fontFamily={fontFamilies.mono}>
-                {`7d ago · ${sevenDayFirstFt.toFixed(1)} ft`}
+                {`Week start · ${sevenDayFirstFt.toFixed(1)} ft`}
               </text>
             )}
             {currentHeightFt !== null && (
               <text x={CHART_WIDTH - CHART_PADDING} y={CHART_HEIGHT - 10} fill={LIGHT.ink} fontSize={18} fontWeight={700} fontFamily={fontFamilies.mono} textAnchor="end">
-                {`Now · ${currentHeightFt.toFixed(1)} ft`}
+                {`Latest · ${currentHeightFt.toFixed(1)} ft`}
               </text>
             )}
           </svg>
@@ -215,7 +200,7 @@ export const TrendReel: React.FC<TrendReelProps> = ({
           <StatTile key="delta" value={`${deltaSign}${deltaAbs}`} unit="FT" label="7-day change" color={meta.color} />,
           <StatTile key="range" value={range ?? "—"} unit={range ? "FT" : undefined} label="Week range" compact />,
         ]}
-        detail={`${meta.label} over the last 7 days`}
+        children={<p style={{ fontSize: 26, lineHeight: 1.3, margin: "16px 0 0" }}>{trendMeaning(direction, conditionCode)}</p>}
         cta={CTA.chart}
         ctaProgress={ctaEntrance}
         followCta={followCta}
