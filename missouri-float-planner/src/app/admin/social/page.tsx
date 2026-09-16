@@ -3,6 +3,8 @@
 // src/app/admin/social/page.tsx
 // Admin dashboard for social media posting — settings, filters, custom content, post history
 
+import { CoverPreview } from '@/components/admin/social/CoverPreview';
+import { REEL_SAFE } from '@shared/social-brand';
 import { useEffect, useState, useCallback } from 'react';
 import { adminFetch } from '@/hooks/useAdminAuth';
 import AdminLayout from '@/components/admin/AdminLayout';
@@ -326,7 +328,7 @@ export default function SocialAdminPage() {
 
   // Preview modal state
   const [showPreview, setShowPreview] = useState(false);
-  const [previewOverlay, setPreviewOverlay] = useState<'off' | 'safe' | 'crop'>('off');
+  const [previewOverlay, setPreviewOverlay] = useState<'off' | 'safe'>('off');
   const [previewData, setPreviewData] = useState<PreviewData | null>(null);
   const [previewLoading, setPreviewLoading] = useState(false);
 
@@ -928,35 +930,22 @@ export default function SocialAdminPage() {
               {/* The cover beside the video: on Instagram the OG image IS the
                   Reel's grid thumbnail, so drift between the two shows up here
                   before it shows up in the feed. */}
-              <div className={`grid gap-4 ${videoPreviewPost.image_url ? 'grid-cols-2' : 'grid-cols-1'}`}>
+              <div className={`grid gap-4 ${videoPreviewPost.image_url || videoPreviewPost.video_url ? 'grid-cols-1 sm:grid-cols-2' : 'grid-cols-1'}`}>
                 {videoPreviewPost.video_url && <div>
                   <p className="text-xs font-medium text-neutral-400 uppercase tracking-wide mb-1">Reel</p>
                   <div className="relative bg-black rounded-lg overflow-hidden aspect-[9/16]">
                     <video
                       src={videoPreviewPost.video_url}
                       controls
-                      autoPlay
                       playsInline
                       className="w-full h-full object-contain"
                     />
-                    {previewOverlay !== 'off' && <div aria-hidden="true" className="absolute pointer-events-none border-2 border-dashed border-yellow-400" style={previewOverlay === 'safe' ? { top: '13.02%', bottom: '21.875%', left: '11.11%', right: '25%' } : { top: '14.84%', bottom: '14.84%', left: 0, right: 0 }} />}
+                    {previewOverlay !== 'off' && <div aria-hidden="true" className="absolute pointer-events-none border-2 border-dashed border-yellow-400" style={{ top: `${REEL_SAFE.top / 1920 * 100}%`, bottom: `${REEL_SAFE.bottom / 1920 * 100}%`, left: `${REEL_SAFE.left / 1080 * 100}%`, right: `${REEL_SAFE.right / 1080 * 100}%` }} />}
                   </div>
-                  <label className="block mt-2 text-xs text-neutral-300">Preview guide <select value={previewOverlay} onChange={e => setPreviewOverlay(e.target.value as 'off' | 'safe' | 'crop')} className="bg-neutral-700 rounded p-1"><option value="off">Off</option><option value="safe">Reel text safe area</option><option value="crop">Centered 4:5 crop</option></select></label>
+                  <label className="block mt-2 text-xs text-neutral-300">Preview guide <select value={previewOverlay} onChange={e => setPreviewOverlay(e.target.value as 'off' | 'safe')} className="bg-neutral-700 rounded p-1"><option value="off">Off</option><option value="safe">Reel text safe area</option></select></label>
                   <p className="mt-1 text-xs text-neutral-400">Guides are approximate; platform controls and crops vary.</p>
                 </div>}
-                {videoPreviewPost.image_url && (
-                  <div>
-                    <p className="text-xs font-medium text-neutral-400 uppercase tracking-wide mb-1">Cover (grid thumbnail)</p>
-                    <div className="bg-black rounded-lg overflow-hidden">
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img
-                        src={videoPreviewPost.image_url}
-                        alt="Post cover image"
-                        className="w-full max-h-[500px] object-contain"
-                      />
-                    </div>
-                  </div>
-                )}
+                <CoverPreview key={videoPreviewPost.id} src={videoPreviewPost.image_url} platform={videoPreviewPost.platform} videoUrl={videoPreviewPost.video_url} directPost={tiktokStatus?.directPost} />
               </div>
               <p className="mt-4 text-sm text-neutral-200 whitespace-pre-wrap break-words">{videoPreviewPost.caption}</p>
               {videoPreviewPost.platform === 'tiktok' && <p className="mt-3 text-sm text-neutral-400">Inbox delivery requires finishing the post in TikTok. Check the resulting status after delivery.</p>}

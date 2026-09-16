@@ -38,3 +38,16 @@ test('weekend weather requires both actual weekend dates', () => {
  assert.equal(result?.maxPrecipChance,75); assert.match(result!.forecast[0].dayOfWeek,/Sat–Sun/);
  assert.equal(weekendWeather(null,friday),null);
 });
+
+test('editorial cover content survives centered square and portrait crops', async () => {
+ const { coverGeometry } = await import('../og/social-cover');
+ for (const size of [{width:1080,height:1920},{width:1080,height:1080}]) {
+  const box=coverGeometry(size,'light','instagram',true);
+  for (const aspect of size.height > size.width ? [1, 3/4, 4/5, 9/16] : [1]) {
+   const visibleHeight=Math.min(size.height,size.width/aspect);
+   const top=(size.height-visibleHeight)/2;
+   assert.ok(box.top>=top);
+   assert.ok(box.top+box.height<=top+visibleHeight);
+  }
+ }
+});

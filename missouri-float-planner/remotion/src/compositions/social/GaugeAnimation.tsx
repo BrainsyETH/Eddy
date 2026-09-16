@@ -1,3 +1,4 @@
+import { shortSummary } from "../../../../shared/social-editorial";
 import React from "react";
 import {
   Audio,
@@ -150,7 +151,7 @@ export const GaugeAnimation: React.FC<GaugeAnimationProps> = ({
   const riseLabel = (series?.length ?? 0) >= 3 && riseSpanHours > 0 ? (hoursBack > 0 ? `${hoursBack} h ago` : "Now") : null;
 
   const mastheadTop = isPortrait ? REEL_SAFE.top : 48;
-  const stageTop = mastheadTop + 200;
+  const stageTop = mastheadTop + 300;
   const stageH = isPortrait ? 1240 - stageTop : 1080 - 48 - 240 - stageTop;
   const accentInk = conditionInk(condition.solid, tone);
 
@@ -258,7 +259,7 @@ export const GaugeAnimation: React.FC<GaugeAnimationProps> = ({
                 riseStartFrame={RISE_START}
                 riseDurationFrames={RISE_DURATION}
                 width={150}
-                height={isPortrait ? 400 : 300}
+                height={isPortrait ? 340 : 260}
               />
               {riseLabel && (
                 <span
@@ -325,7 +326,7 @@ export const GaugeAnimation: React.FC<GaugeAnimationProps> = ({
                 delay={10}
                 settleFrom={0.85}
                 width={isPortrait ? 120 : 95}
-                height={isPortrait ? 400 : 300}
+                height={isPortrait ? 340 : 260}
               />
             )}
             <div style={{ marginBottom: 8 }}>
@@ -363,7 +364,7 @@ export const GaugeAnimation: React.FC<GaugeAnimationProps> = ({
                 textAlign: "center",
               }}
             >
-              &ldquo;{quoteText}&rdquo;
+              &ldquo;{shortSummary(quoteText)}&rdquo;
             </div>
           </BrandCard>
         </div>

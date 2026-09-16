@@ -84,7 +84,7 @@ export interface Cover {
   portrait: boolean;
   tone: SocialTone;
   inset: number;
-  /** Content box, inside the inset and — on portrait — inside the 4:5 grid crop. */
+  /** Content box, inside the inset and — on portrait — inside the selected crop. */
   top: number;
   left: number;
   width: number;
@@ -99,9 +99,10 @@ export function coverGeometry(
   size: Size,
   tone: SocialTone = 'light',
   platform: SocialPlatform = 'instagram',
+  squareSafe = false,
 ): Cover {
   const portrait = size.height > size.width;
-  const crop = gridCropGap(size.width, size.height, platform);
+  const crop = Math.max(gridCropGap(size.width, size.height, platform), squareSafe ? (size.height - size.width) / 2 : 0);
   const inset = portrait ? COVER_INSET.portrait : COVER_INSET.square;
   return {
     size,

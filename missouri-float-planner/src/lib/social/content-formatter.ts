@@ -1,3 +1,4 @@
+import { LABELS } from '@shared/social-brand';
 import { trendMeaning } from '@shared/social-editorial';
 // src/lib/social/content-formatter.ts
 // Formats Eddy updates into social-media-optimized captions
@@ -412,7 +413,7 @@ export function formatSectionGuideCaption(
 
   // Headline is the river only — the put-in/take-out appear once below, in the
   // emphasized detail lines, so they're not duplicated in the caption.
-  lines.push(`Today’s Float Pick — ${section.riverName}`);
+  lines.push(`${LABELS.todayFloatPick} — ${section.riverName}`);
   lines.push('');
   lines.push(`🛶 ${section.distanceMi.toFixed(1)} mi · ~${hours.toFixed(1)} hrs with no stops`);
   lines.push('');
@@ -480,7 +481,7 @@ export function formatFavoriteFloatCaption(
   // Typical canoe pace at normal "flowing" flow — evergreen, no live delta.
   const hours = canoeHours(fav.distanceMi, 'flowing' as ConditionCode);
 
-  lines.push(`Float Pick — ${fav.riverName}`);
+  lines.push(`${LABELS.tripIdea} — ${fav.riverName}`);
   if (fav.tagline) {
     lines.push('');
     lines.push(`“${fav.tagline}”`);

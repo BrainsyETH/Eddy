@@ -32,7 +32,7 @@ function frameFor(isPortrait: boolean) {
   const height = isPortrait ? 1920 : 1080;
   return {
     mastheadTop: top,
-    stageTop: top + 200,
+    stageTop: top + 300,
     stageBottom: height - bottom,
     dockBottom: bottom + (isPortrait ? 52 : 40),
     followBottom: bottom,

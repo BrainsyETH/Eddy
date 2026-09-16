@@ -58,7 +58,7 @@ export const TrendReel: React.FC<TrendReelProps> = ({
   const loopOpacity = isPortrait ? reelLoopOpacity(frame, durationInFrames) : 1;
   const meta = DIRECTION_META[direction];
   const mastheadTop = isPortrait ? REEL_SAFE.top : 48;
-  const stageTop = mastheadTop + 200;
+  const stageTop = mastheadTop + 300;
 
   // CTA enters ~70 frames before the end so it lands late regardless of the
   // duration Root's calculateMetadata chooses (360 default, tighter otherwise).

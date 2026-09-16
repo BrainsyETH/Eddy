@@ -1,3 +1,4 @@
+import { LABELS } from '@shared/social-brand';
 import { reportStamp, shortSummary } from '@shared/social-editorial';
 // src/lib/social/post-types.ts
 //
@@ -278,14 +279,14 @@ export const POST_TYPES: Record<PostKind, PostTypeDef> = {
             // Evergreen: float time is the typical "flowing" pace (post-context
             // sets conditionCode='flowing'), so hoursToday === hoursTypical and
             // the reel hides the faster/slower delta.
-            label: 'Trip Idea',
+            label: LABELS.tripIdea,
             tagline: data.tagline,
             difficulty: data.difficulty,
             evergreen: true,
           }
         : {
             ...sectionRouteProps(data),
-            label: 'Today’s Float Pick',
+            label: LABELS.todayFloatPick,
           },
     outputFilename: () => `float-pick-${isoDay()}`,
   },
