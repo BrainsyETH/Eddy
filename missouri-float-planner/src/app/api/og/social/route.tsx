@@ -53,7 +53,7 @@ import { warningCopy, recoveryCopy } from '@shared/condition-copy';
 // never the raw slug ("big-river"), which briefly shipped on live covers.
 import { riverDisplayLong, riverDisplayShort } from '@/lib/social/river-display';
 import { trendMeta } from '@shared/trend-meta';
-import { canoeHours } from '@/lib/social/post-types';
+import { estimateRoute } from '@/lib/calculations/route-estimate';
 import { CTA, LABELS, MEDIA_SCRIM, SURFACES, colors, conditionInk, hexAlpha } from '@shared/social-brand';
 import {
   CoverCard,
@@ -233,6 +233,7 @@ export async function GET(request: NextRequest) {
         river: riverSlug,
         putInMile: numParam(searchParams.get('putInMile')),
         takeOutMile: numParam(searchParams.get('takeOutMile')),
+        timeRangeLabel: searchParams.get('time')?.slice(0, 80),
         condition: searchParams.get('condition'),
       });
     }
@@ -241,6 +242,7 @@ export async function GET(request: NextRequest) {
       return await generateFavoriteImage(size, {
         river: riverSlug,
         fromSlug: searchParams.get('fromSlug'),
+        timeRangeLabel: searchParams.get('time')?.slice(0, 80),
         toSlug: searchParams.get('toSlug'),
       });
     }
@@ -654,7 +656,7 @@ async function generateForecastImage(
 // ---------------------------------------------------------------------------
 async function generateSectionImage(
   size: Size,
-  params?: { river?: string | null; putInMile?: number | null; takeOutMile?: number | null; condition?: string | null },
+  params?: { timeRangeLabel?: string; river?: string | null; putInMile?: number | null; takeOutMile?: number | null; condition?: string | null },
 ) {
   const supabase = createAdminClient();
   const cover = coverGeometry(size);
@@ -696,8 +698,10 @@ async function generateSectionImage(
     (await loadBackgroundDataUri(supabase, section.riverSlug)) ??
     (await loadRiverPhotoDataUri(supabase, section.riverSlug));
   const otter = await loadOtter(condition);
-  // Same float-time model as the reel (canoeHours — the planner's speeds).
-  const hoursToday = canoeHours(section.distanceMi, condition as ConditionCode);
+  // Use the captured post estimate, or resolve a legacy URL with the route service.
+  const timeRangeLabel = params?.timeRangeLabel ?? (await estimateRoute(supabase, {
+    riverId: section.riverId, startId: section.putInId, endId: section.takeOutId,
+  })).floatTime?.formattedCompact;
 
   return render(
     <CoverPage cover={cover}>
@@ -713,7 +717,7 @@ async function generateSectionImage(
       <CoverDock
         cover={cover}
         tiles={[
-          ...(hoursToday > 0 ? [{ value: `~${hoursToday.toFixed(1)}`, unit: 'HRS', label: 'Float time' }] : []),
+          ...(timeRangeLabel ? [{ value: timeRangeLabel, label: 'Estimated canoe trip', compact: true, wrap: true }] : []),
           { value: section.distanceMi.toFixed(1), unit: 'MI', label: 'Distance' },
           { value: condLabel(condition), label: 'Conditions', color: c.solid, compact: true },
         ]}
@@ -731,7 +735,7 @@ async function generateSectionImage(
 // ---------------------------------------------------------------------------
 async function generateFavoriteImage(
   size: Size,
-  params: { river?: string | null; fromSlug?: string | null; toSlug?: string | null },
+  params: { timeRangeLabel?: string; river?: string | null; fromSlug?: string | null; toSlug?: string | null },
 ) {
   const supabase = createAdminClient();
   const cover = coverGeometry(size);
@@ -762,7 +766,9 @@ async function generateFavoriteImage(
   }
   if (!photo) photo = await loadRiverPhotoDataUri(supabase, fav.riverSlug);
   const otter = await loadOtter('flowing');
-  const hoursTypical = canoeHours(fav.distanceMi, 'flowing');
+  const timeRangeLabel = params.timeRangeLabel ?? (await estimateRoute(supabase, {
+    riverId: fav.riverId, startId: fav.putInId, endId: fav.takeOutId, mode: 'typical',
+  })).floatTime?.formattedCompact;
 
   return render(
     <CoverPage cover={cover}>
@@ -772,7 +778,7 @@ async function generateFavoriteImage(
       <CoverDock
         cover={cover}
         tiles={[
-          ...(hoursTypical > 0 ? [{ value: `~${hoursTypical.toFixed(1)}`, unit: 'HRS', label: 'Float time' }] : []),
+          ...(timeRangeLabel ? [{ value: timeRangeLabel, label: 'Typical canoe trip', compact: true, wrap: true }] : []),
           { value: fav.distanceMi.toFixed(1), unit: 'MI', label: 'Distance' },
           { value: fav.difficulty ? `Class ${fav.difficulty}` : 'Favorite', label: fav.difficulty ? 'Difficulty' : 'Conditions', color: colors.secondary[600], compact: true },
         ]}

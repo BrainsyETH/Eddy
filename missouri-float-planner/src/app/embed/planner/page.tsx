@@ -48,7 +48,7 @@ export default function EmbedPlannerPage() {
   const [selectedPutIn, setSelectedPutIn] = useState('');
   const [selectedTakeOut, setSelectedTakeOut] = useState('');
   const [loadingAP, setLoadingAP] = useState(false);
-  const [tripSummary, setTripSummary] = useState<{ distanceMiles: number; estimatedMinutes: number } | null>(null);
+  const [tripSummary, setTripSummary] = useState<{ distanceMiles: number; formatted: string } | null>(null);
 
   // Get the selected river's condition (#17)
   const selectedRiverData = rivers.find(r => r.slug === selectedRiver);
@@ -86,21 +86,19 @@ export default function EmbedPlannerPage() {
       .finally(() => setLoadingAP(false));
   }, [selectedRiver]);
 
-  // Compute mini trip summary when both points selected (#18)
+  // Resolve exactly the same route as the full planner. Cancel stale selections.
+  const riverId = selectedRiverData?.id;
   useEffect(() => {
-    if (!selectedPutIn || !selectedTakeOut) {
-      setTripSummary(null);
-      return;
-    }
-    const putIn = accessPoints.find(ap => ap.id === selectedPutIn);
-    const takeOut = accessPoints.find(ap => ap.id === selectedTakeOut);
-    if (putIn && takeOut) {
-      const distance = Math.abs(takeOut.riverMile - putIn.riverMile);
-      // Rough estimate: ~2 mph average float speed
-      const minutes = Math.round((distance / 2) * 60);
-      setTripSummary({ distanceMiles: Math.round(distance * 10) / 10, estimatedMinutes: minutes });
-    }
-  }, [selectedPutIn, selectedTakeOut, accessPoints]);
+    setTripSummary(null);
+    if (!riverId || !selectedPutIn || !selectedTakeOut) return;
+    const controller = new AbortController();
+    const params = new URLSearchParams({ riverId, startId: selectedPutIn, endId: selectedTakeOut });
+    fetch(`/api/route-estimate?${params}`, { signal: controller.signal })
+      .then(r => r.ok ? r.json() : null)
+      .then(data => { if (data && !controller.signal.aborted) setTripSummary({ distanceMiles: data.distanceMiles, formatted: data.floatTime?.formatted ?? 'Time unavailable' }); })
+      .catch(() => {});
+    return () => controller.abort();
+  }, [riverId, selectedPutIn, selectedTakeOut]);
 
   // Filter take-out to downstream of put-in
   const takeOutOptions = useMemo(() => {
@@ -126,14 +124,6 @@ export default function EmbedPlannerPage() {
   const inputBorder = palette.border;
   const borderColor = palette.border;
   const ctaColor = branding?.accentColor || palette.accent;
-
-  function formatTime(minutes: number): string {
-    const hours = Math.floor(minutes / 60);
-    const mins = minutes % 60;
-    if (hours === 0) return `${mins} min`;
-    if (mins === 0) return `${hours} hr`;
-    return `${hours} hr ${mins} min`;
-  }
 
   return (
     <div
@@ -281,7 +271,7 @@ export default function EmbedPlannerPage() {
           </div>
           <div style={{ width: 1, height: 16, background: borderColor }} />
           <div>
-            <span style={{ fontWeight: 700, color: textPrimary, fontSize: 14 }}>~{formatTime(tripSummary.estimatedMinutes)}</span>
+            <span style={{ fontWeight: 700, color: textPrimary, fontSize: 14 }}>{tripSummary.formatted}</span>
             <span style={{ marginLeft: 3 }}>float</span>
           </div>
           {conditionCode && conditionColor && (

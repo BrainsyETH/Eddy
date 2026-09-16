@@ -1,3 +1,4 @@
+import { estimateRoute } from '@/lib/calculations/route-estimate';
 // MCP Server for eddy.guide
 // Exposes river data, conditions, access points, hazards, and float planning as MCP tools.
 // Free access (no x402 gating) to encourage AI agent adoption.
@@ -279,19 +280,10 @@ function createMcpServer() {
     async ({ riverId, startAccessPointId, endAccessPointId }) => {
       const supabase = await createClient();
 
-      // Get access points
-      const [{ data: start }, { data: end }] = await Promise.all([
-        supabase.from('access_points').select('name, river_mile_downstream').eq('id', startAccessPointId).single(),
-        supabase.from('access_points').select('name, river_mile_downstream').eq('id', endAccessPointId).single(),
-      ]);
-
-      if (!start || !end) {
-        return { content: [{ type: 'text', text: 'One or both access points not found.' }], isError: true };
-      }
-
-      const startMile = start.river_mile_downstream != null ? parseFloat(String(start.river_mile_downstream)) : 0;
-      const endMile = end.river_mile_downstream != null ? parseFloat(String(end.river_mile_downstream)) : 0;
-      const distance = Math.abs(endMile - startMile);
+      const estimate = await estimateRoute(supabase, { riverId, startId: startAccessPointId, endId: endAccessPointId });
+      const { putIn: start, takeOut: end, distanceMiles: distance } = estimate;
+      const startMile = Number(estimate.segmentData.start_river_mile);
+      const endMile = Number(estimate.segmentData.end_river_mile);
 
       // Get hazards along route
       const minMile = Math.min(startMile, endMile);
@@ -305,8 +297,7 @@ function createMcpServer() {
         .gte('river_mile_downstream', minMile)
         .lte('river_mile_downstream', maxMile);
 
-      // Estimate float time at ~2 mph average
-      const estimatedHours = distance / 2;
+
 
       return {
         content: [{
@@ -315,12 +306,9 @@ function createMcpServer() {
             putIn: start.name,
             takeOut: end.name,
             distanceMiles: Math.round(distance * 10) / 10,
-            estimatedFloatTime: {
-              hours: Math.round(estimatedHours * 10) / 10,
-              formatted: estimatedHours < 1
-                ? `${Math.round(estimatedHours * 60)} min`
-                : `${Math.round(estimatedHours * 10) / 10} hr`,
-            },
+            estimatedFloatTime: estimate.floatTime,
+            floatTimeWithheldReason: estimate.withholdReason,
+            estimateBasis: estimate.estimateBasis,
             hazardsAlongRoute: (hazards || []).map((h) => ({
               name: h.name,
               type: h.type,

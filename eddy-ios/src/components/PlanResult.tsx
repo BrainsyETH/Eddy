@@ -55,7 +55,7 @@ import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
 import {
   floatTimeCeilingBasisNote,
-  formatFloatTimeCeiling,
+  formatFloatTimeRangeCompact,
 } from '@eddy/conditions/float-time-format';
 import { formatReading, primaryReading, readingAge } from '@/lib/readingCopy';
 import { driveBetweenUrl, driveToUrl, usgsGaugeUrl } from '@/lib/directions';
@@ -131,15 +131,10 @@ export function PlanResult({ plan, actions }: Props) {
 
         {plan.floatTime ? (
           <>
-            {/* A CEILING, NOT A RANGE. "~2 hours 30 minutes – ~4 hours" makes
-                the reader do arithmetic before they can answer the only
-                question they actually have — will I be off the water before
-                dark? The long end answers it outright, and it is the end that
-                matters; nobody was ever caught out by finishing early.
-                `timeRange` has always been on the wire and was never read. */}
+            {/* Use the same range as the web plan and shared estimate. */}
             <Text style={[styles.headline, { color: colors.text }]}>
               {plan.floatTime.timeRange
-                ? formatFloatTimeCeiling(plan.floatTime.timeRange.max)
+                ? formatFloatTimeRangeCompact(plan.floatTime.timeRange.min, plan.floatTime.timeRange.max)
                 : plan.floatTime.formatted}
             </Text>
             <Text style={[styles.headlineNote, { color: colors.textSubtle }]}>

@@ -260,3 +260,7 @@ Signals that the pipeline is stalled even though workflows are "green":
    (yt-dlp has no metadata fetch lighter than `-J`, so the win here is *not
    scanning* + skipping already-clipped videos before the download — not a
    cheaper per-video call.)
+
+### Remotion review dependency
+
+Remotion Check installs ffmpeg before video-health tests so render smoke and visual regression can run. Visual baseline changes still require frame review.

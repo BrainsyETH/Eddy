@@ -106,43 +106,7 @@ export function formatFloatTimeCeilingCompact(maxMinutes: number): string {
   return `up to ~${formatFloatTimeCompact(maxMinutes)}`;
 }
 
-/**
- * The one-line caveat that belongs under a ceiling. ALWAYS THE SAME SENTENCE.
- *
- * It used to branch on `isEstimate`, printing "Published time" for the ~30
- * outfitter-published segments in float_segments on the reasoning that a time
- * we did not set gets no pace claim from us. That reasoning was sound and the
- * premise was false: the plan route runs every published time through
- * scaleKnownTimeForCondition, which multiplies it by 2.0 at too_low, 1.33 at
- * low and 0.85 at high. In three of the four condition bands the number on
- * screen is OURS, derived from a published seed — Akers to Pulltite has a
- * published max of six hours and printed "Up to ~8 hours / Published time" in
- * low water. No outfitter published eight hours for that stretch.
- *
- * Rather than carry a flag that is right a quarter of the time, everything now
- * says what is true of every number we print: it is an estimate, and the long
- * end describes a relaxed pace that stops on gravel bars. Do not caption a
- * ceiling "no stops" — that describes the SHORT end while printing the long one.
- *
- * Written as one plain sentence rather than the app's usual dot-separated
- * fragments, because it is a sentence: it says what the number assumed, and
- * "Estimated · relaxed pace, some stops" made a reader assemble that themselves.
- *
- * ── The boat, and why it is no longer in the line ───────────────────────────
- *
- * `vesselName` used to lead it: "Raft at today's level, estimated at a relaxed
- * pace with stops". The argument for that was real — the server defaults to a
- * canoe when the client sends no vessel, and an unattributed estimate cannot be
- * discounted by somebody in a slower boat. What it produced on screen was a
- * fourteen-word clause under a headline, opening with a noun most readers had
- * not chosen and could not change from that screen.
- *
- * The parameter is gone rather than accepted and ignored, so a caller cannot
- * pass a vessel and believe it reached the screen. Nothing is lost from the
- * plan itself: `plan.vessel` is still on the wire, still what the speed model
- * used, and still available to any surface that wants to say so in a place with
- * room for it.
- */
+/** Trip-time caveat shared by existing callers; legacy export name retained. */
 export function floatTimeCeilingBasisNote(): string {
-  return 'Estimated at an average pace';
+  return 'Estimated trip time; allow extra time for long stops or fishing';
 }
