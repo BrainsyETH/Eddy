@@ -61,6 +61,9 @@ import { fonts, type as t } from '@/theme/typography';
 
 interface Props {
   /** "9 of 24 rivers are floatable right now", or null when unknowable. */
+  loading?: boolean;
+  error?: boolean;
+  onRetry?: () => void;
   headline: string | null;
   /** Eddy's written summary, or null when there is none to show. */
   prose: string | null;
@@ -77,6 +80,7 @@ interface TodayWeatherProps {
   onRequestLocation?: (() => void) | null;
   locationActionLabel?: string | null;
   weatherLoading?: boolean;
+  onOpen?: () => void;
 }
 
 function weatherGlyph(code: string): React.ComponentProps<typeof Ionicons>['name'] {
@@ -100,6 +104,9 @@ export function TodaySummary({
   headline,
   prose,
   generatedAt,
+  loading = false,
+  error = false,
+  onRetry,
 }: Props) {
   const { colors, elevation } = useTheme();
   /**
@@ -128,10 +135,8 @@ export function TodaySummary({
   if (!headline) return null;
 
   const written = prose && generatedAt ? writtenAge(generatedAt) : null;
-  // Nothing to fold on a day the server withheld the prose, so the control is
-  // absent rather than disabled — a chevron that opens an empty card is a
-  // chevron that teaches people the card is broken.
-  const foldable = Boolean(prose);
+  // The control stays available while the independent prose request settles.
+  const foldable = true;
   const open = isUpdateOpen(foldable, collapsed);
 
   // Both halves come from todayPreferences, and neither is written out here.
@@ -165,7 +170,7 @@ export function TodaySummary({
           <EddySymbol name="water" size={30} />
         </View>
         <View style={styles.copy}>
-          <Text style={[styles.kicker, { color: colors.accent }]}>STATEWIDE PULSE</Text>
+          <Text style={[styles.kicker, { color: colors.accent }]}>OZARKS PULSE</Text>
           <Text style={[styles.headline, { color: colors.text }]}>{headline}</Text>
         </View>
         {foldable ? (
@@ -177,6 +182,12 @@ export function TodaySummary({
         ) : null}
       </Pressable>
 
+      {open && !prose ? (
+        <View style={{ gap: 8 }}>
+          <Text style={[styles.prose, { color: colors.textMuted }]}>{loading ? 'Loading Ozarks update…' : error ? 'Couldn’t load the Ozarks update.' : 'No current Ozarks update is available.'}</Text>
+          {!loading && onRetry ? <Pressable onPress={onRetry} accessibilityRole="button" style={{ minHeight: 44, justifyContent: 'center', paddingLeft: 60 }}><Text style={{ color: colors.interactive }}>Retry update</Text></Pressable> : null}
+        </View>
+      ) : null}
       {open && prose ? (
         <>
           <Text style={[styles.prose, { color: colors.textMuted }]}>{prose}</Text>
@@ -196,6 +207,7 @@ export function TodayWeather({
   onRequestLocation,
   locationActionLabel,
   weatherLoading = false,
+  onOpen,
 }: TodayWeatherProps) {
   const { colors, elevation } = useTheme();
   if (!weather && !weatherLoading && !(onRequestLocation && locationActionLabel)) return null;
@@ -203,7 +215,7 @@ export function TodayWeather({
   return (
     <View style={[styles.weatherCard, { backgroundColor: colors.card, borderColor: colors.border }, elevation(1)]}>
       {weather ? (
-        <View style={styles.weather}>
+        <Pressable onPress={onOpen} accessibilityRole="button" accessibilityLabel="View detailed local forecast" style={styles.weather}>
           <View style={[styles.weatherIcon, { backgroundColor: colors.selectionBg }]}>
             <Ionicons name={weatherGlyph(weather.conditionIcon)} size={22} color={colors.interactive} />
           </View>
@@ -213,13 +225,14 @@ export function TodayWeather({
               {weatherLocation ? ` NEAR ${weatherLocation.toUpperCase()}` : ''}
             </Text>
             <Text style={[styles.weatherMain, { color: colors.text }]} numberOfLines={1}>
-              {weather.tempHigh}° / {weather.tempLow}° · {weather.condition}
+              H {weather.tempHigh}° / L {weather.tempLow}° · {weather.condition}
             </Text>
             <Text style={[styles.weatherMeta, { color: colors.textMuted }]} numberOfLines={2}>
               {weather.precipitation}% rain{weather.windSpeed != null ? ` · ${Math.round(weather.windSpeed)} mph wind` : ''}
             </Text>
           </View>
-        </View>
+          <Ionicons name="chevron-forward" size={18} color={colors.interactive} />
+        </Pressable>
       ) : weatherLoading ? (
         <View style={styles.weatherAction}>
           <View style={[styles.weatherIcon, { backgroundColor: colors.selectionBg }]}>
