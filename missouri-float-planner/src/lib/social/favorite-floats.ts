@@ -183,7 +183,6 @@ async function loadFavoritePool(
         takeOutName: cleanName(takeOut.name),
         takeOutMile,
         distanceMi,
-        hoursCanoe: Math.round((distanceMi / 2) * 10) / 10,
         putInDescription: '',
         takeOutDescription: '',
         putInCamping: isCampground(putIn),

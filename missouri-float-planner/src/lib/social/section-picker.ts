@@ -47,9 +47,6 @@ export interface Section {
   takeOutMile: number;
   /** Distance in miles. */
   distanceMi: number;
-  /** Rough float time in hours (2 mph canoe default; callers prefer the
-   *  condition-aware canoeHours()). */
-  hoursCanoe: number;
   putInDescription: string;
   takeOutDescription: string;
   /** Whether the put-in access point offers camping. */
@@ -196,7 +193,6 @@ export async function listAllSections(
           takeOutName: takeOut.name,
           takeOutMile: takeOut.mile,
           distanceMi: distance,
-          hoursCanoe: Math.round((distance / 2) * 10) / 10,
           putInDescription: putIn.description || '',
           takeOutDescription: takeOut.description || '',
           putInCamping: putIn.isCampground,

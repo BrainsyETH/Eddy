@@ -1,3 +1,4 @@
+import { estimateRoute } from '@/lib/calculations/route-estimate';
 // src/lib/social/post-context.ts
 //
 // Single assembler for social posts. Given a post type (+ optional river /
@@ -231,8 +232,11 @@ export async function buildPostContext(
     );
     if (section) {
       const routeScene = await buildSocialRouteScene(supabase, section);
-      const latest = floatable.find((u) => u.river_slug === section.riverSlug);
-      const conditionCode = latest?.condition_code || 'flowing';
+      const estimate = await estimateRoute(supabase, { riverId: section.riverId, startId: section.putInId, endId: section.takeOutId });
+      const conditionCode = estimate.conditionCode;
+      if (!estimate.floatTime) return null;
+      const timeRangeLabel = estimate.floatTime.formattedCompact;
+      section.distanceMi = estimate.distanceMiles;
       // Cover image carries the exact section + condition so it renders the SAME
       // float as the reel (instead of re-picking), and so the URL is unique per
       // section — Meta caches OG images by URL, and a shared URL served a stale
@@ -241,15 +245,15 @@ export async function buildPostContext(
         `&river=${section.riverSlug}` +
         `&putInMile=${section.putInMile}` +
         `&takeOutMile=${section.takeOutMile}` +
-        `&condition=${conditionCode}`;
+        `&condition=${conditionCode}&time=${encodeURIComponent(timeRangeLabel)}&asOf=${encodeURIComponent(estimate.estimatedAt)}`;
       return {
         postType,
         riverSlug: section.riverSlug,
         // No photoUrl: the live pick renders on the solid live background with a
         // condition-colored route + pulsing boat (a live instrument); the
         // evergreen fallback below keeps its editorial photo backdrop.
-        renderData: { ...section, ...routeScene, conditionCode, dateLabel: longDate() },
-        caption: (platform, custom) => formatSectionGuideCaption({ ...section, conditionCode }, custom, platform),
+        renderData: { ...section, ...routeScene, conditionCode, timeRangeLabel, dateLabel: longDate() },
+        caption: (platform, custom) => formatSectionGuideCaption({ ...section, conditionCode, timeRangeLabel }, custom, platform),
         // route is video-only; reuse the section thumbnail as the cover.
         imageUrl: (platform) => og('section', platform, coverParams),
       };
@@ -260,12 +264,15 @@ export async function buildPostContext(
     const fav = await pickFavoriteFloat(supabase);
     if (!fav) return null;
     const routeScene = await buildSocialRouteScene(supabase, fav);
+    const estimate = await estimateRoute(supabase, { riverId: fav.riverId, startId: fav.putInId, endId: fav.takeOutId, mode: 'typical' });
+    const timeRangeLabel = estimate.floatTime?.formattedCompact ?? null;
+    fav.distanceMi = estimate.distanceMiles;
     // Bake the exact endpoints into the cover URL so the poster renders the SAME
     // float as the reel (and the unique URL defeats Meta's by-URL OG cache).
     const coverParams =
       `&river=${fav.riverSlug}` +
       `&fromSlug=${encodeURIComponent(fav.fromSlug)}` +
-      `&toSlug=${encodeURIComponent(fav.toSlug)}`;
+      `&toSlug=${encodeURIComponent(fav.toSlug)}&time=${encodeURIComponent(timeRangeLabel ?? "unavailable")}&asOf=${encodeURIComponent(estimate.estimatedAt)}`;
     // Prefer the river's AI background (same art as the cover); fall back to the
     // guide section's own photo.
     const favBg = await bgUrl(supabase, fav.riverSlug);
@@ -275,14 +282,14 @@ export async function buildPostContext(
       renderData: {
         ...fav,
         ...routeScene,
+        timeRangeLabel,
         evergreen: true,
-        // 'flowing' is the evergreen baseline: it makes hoursToday === hoursTypical
-        // in the shared route props, so the reel shows typical pace with no delta.
+        // Evergreen status is distinct from live water; the estimate is typical.
         conditionCode: 'flowing',
         dateLabel: longDate(),
         photoUrl: favBg || fav.photoUrl,
       },
-      caption: (platform, custom) => formatFavoriteFloatCaption(fav, custom, platform),
+      caption: (platform, custom) => formatFavoriteFloatCaption({ ...fav, timeRangeLabel }, custom, platform),
       imageUrl: (platform) => og('favorite', platform, coverParams),
     };
   }

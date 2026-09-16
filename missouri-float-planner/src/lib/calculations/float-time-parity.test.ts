@@ -1,7 +1,8 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { calculateFloatTime, DEFAULT_CANOE_SPEEDS } from './floatTime';
-import { canoeHours } from '@/lib/social/post-types';
+import { getPostType } from '@/lib/social/post-types';
+import { formatSectionGuideCaption } from '@/lib/social/content-formatter';
 
 const MILES = 7.2;
 
@@ -71,21 +72,13 @@ test('the two models agree exactly at typical flow', () => {
   assert.equal(flowModel!.speedMph, bandModel!.speedMph);
 });
 
-test('canoeHours at typical flow matches the planner regardless of model', () => {
-  const social = canoeHours(MILES, 'flowing');
-  const plan = calculateFloatTime(MILES, DEFAULT_CANOE_SPEEDS, 'flowing', {
-    dischargeCfs: 180,
-    refCfs: 180,
-  });
-  assert.equal(social, Math.round((plan!.minutes / 60) * 10) / 10);
-});
-
-test('canoeHours uses the flow model when a caller supplies flow', () => {
-  // The parameter exists so the social render path can close its remaining gap
-  // once RenderData carries dischargeCfs; this asserts the plumbing works today.
-  const withFlow = canoeHours(MILES, 'good', { dischargeCfs: 400, refCfs: 180 });
-  const without = canoeHours(MILES, 'good');
-  assert.notEqual(withFlow, without);
+test('social rendering and caption preserve the resolved range instead of recalculating', () => {
+  const data = { riverSlug: 'current', riverName: 'Current River', putInName: 'Akers', takeOutName: 'Pulltite', putInMile: 0, takeOutMile: 12, distanceMi: 12, conditionCode: 'good', timeRangeLabel: '~4h–6h' };
+  assert.equal(getPostType('section_guide')?.renderProps?.(data).timeRangeLabel, data.timeRangeLabel);
+  const caption = formatSectionGuideCaption(data, [], 'facebook').caption;
+  assert.ok(caption.includes(data.timeRangeLabel));
+  assert.ok(!caption.includes('no stops'));
+  assert.equal(getPostType('section_guide')?.renderProps?.({ ...data, timeRangeLabel: null }).timeRangeLabel, null);
 });
 
 // ── the guard that must never regress ────────────────────────────
@@ -102,7 +95,6 @@ test('dangerous water returns null under both models', () => {
     }),
     null,
   );
-  assert.equal(canoeHours(MILES, 'dangerous'), 0);
 });
 
 test('the flow factor stays clamped at both extremes', () => {

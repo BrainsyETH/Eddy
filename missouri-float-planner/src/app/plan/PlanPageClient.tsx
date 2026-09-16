@@ -485,6 +485,7 @@ export default function PlanPageClient({
             ? {
                 distanceMiles: plan.distance.miles,
                 estimatedFloatMinutes: plan.floatTime?.minutes ?? null,
+        floatTimeRange: plan.floatTime?.timeRange ?? null,
                 driveBackMinutes: plan.driveBack?.minutes ?? null,
                 conditionCode: plan.condition?.code ?? null,
                 gaugeHeightFt: plan.condition?.gaugeHeightFt ?? null,

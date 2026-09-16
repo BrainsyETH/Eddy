@@ -161,10 +161,10 @@ test('statewide mode keeps a same-band incumbent but yields to a better band', (
   assert.equal(improved?.river.id, better.id);
 });
 
-test('favorite float metadata labels the nominal paddling estimate', () => {
+test('favorite float metadata labels the typical trip range', () => {
   assert.equal(
-    favoriteFloatMeta({ distanceMiles: 8, durationHours: 4, difficulty: 'I–II' }),
-    '8.0 mi · about 4.0 hrs paddling, no stops · Class I–II',
+    favoriteFloatMeta({ distanceMiles: 8, durationHours: 4, durationFormatted: '3–5 hours', difficulty: 'I–II' }),
+    '8.0 mi · 3–5 hours typical canoe trip · Class I–II',
   );
 });
 

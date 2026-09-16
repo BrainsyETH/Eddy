@@ -41,6 +41,7 @@ interface StatTileProps {
   color?: string;
   /** Word values ("Flowing", "Class I–II") use the smaller step. */
   compact?: boolean;
+  wrap?: boolean;
   tone?: SocialTone;
   minHeight?: number;
 }
@@ -52,6 +53,7 @@ export const StatTile: React.FC<StatTileProps> = ({
   label,
   color,
   compact = false,
+  wrap = false,
   tone = "light",
   minHeight = 112,
 }) => {
@@ -73,11 +75,11 @@ export const StatTile: React.FC<StatTileProps> = ({
       <div
         style={{
           fontFamily: fontFamilies.display,
-          fontSize: step.size,
+          fontSize: wrap ? 28 : step.size,
           lineHeight: step.lineHeight,
           fontWeight: step.weight,
           color: color ? conditionInk(color, tone) : s.ink,
-          whiteSpace: "nowrap",
+          whiteSpace: wrap ? "normal" : "nowrap",
         }}
       >
         {value}

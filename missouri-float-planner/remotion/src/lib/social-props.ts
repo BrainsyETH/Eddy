@@ -182,10 +182,12 @@ export type FloatSectionProps = {
   takeOutMile: number;
   distanceMi: number;
   /** Estimated canoe float time at TODAY's flow (condition-adjusted), in hours. */
-  hoursToday: number;
+  hoursToday?: number;
+  /** Preformatted range resolved once by the shared route service. */
+  timeRangeLabel?: string | null;
   /** Typical canoe float time at normal "flowing" flow, in hours — the baseline
    *  the hero graphic diffs against ("3.5 hrs today, not the usual 4.5"). */
-  hoursTypical: number;
+  hoursTypical?: number;
   dateLabel?: string;
   /** Optional smaller secondary CTA line beneath the main CTA (growth prompt,
    *  e.g. "Follow for a new float every day"). Absent → not rendered. */

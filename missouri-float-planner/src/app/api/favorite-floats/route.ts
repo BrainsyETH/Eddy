@@ -1,3 +1,4 @@
+import { estimateRoute } from '@/lib/calculations/route-estimate';
 // GET /api/favorite-floats — the planner-ready projection of hand-curated
 // sections from Eddy's published river guides.
 
@@ -11,10 +12,14 @@ export const dynamic = 'force-dynamic';
 
 async function _GET() {
   try {
-    const floats = await listFavoriteFloats(createAdminClient());
+    const supabase = createAdminClient();
+    const floats = await listFavoriteFloats(supabase);
+    const estimates = await Promise.all(floats.map(float => estimateRoute(supabase, {
+      riverId: float.riverId, startId: float.putInId, endId: float.takeOutId, mode: 'typical',
+    }).catch(() => null)));
     return NextResponse.json(
       {
-        floats: floats.map((float) => ({
+        floats: floats.flatMap((float, index) => estimates[index]?.floatTime ? [{
           id: `${float.riverSlug}:${float.putInId}:${float.takeOutId}`,
           riverId: float.riverId,
           riverSlug: float.riverSlug,
@@ -23,15 +28,17 @@ async function _GET() {
           putInName: float.putInName,
           takeOutId: float.takeOutId,
           takeOutName: float.takeOutName,
-          distanceMiles: float.distanceMi,
-          durationHours: float.hoursCanoe,
+          distanceMiles: estimates[index]!.distanceMiles,
+          durationHours: estimates[index]!.floatTime!.minutes / 60,
+          durationFormatted: estimates[index]?.floatTime?.formatted ?? null,
+          estimateBasis: 'typical',
           difficulty: float.difficulty,
           tagline: float.tagline,
           bestFor: float.bestFor,
           bestForTags: float.bestForTags,
           guideSlug: float.postSlug,
           photoUrl: float.photoUrl ?? null,
-        })),
+        }] : []),
       },
       { headers: cdnCacheHeaders(900, 3600) },
     );
