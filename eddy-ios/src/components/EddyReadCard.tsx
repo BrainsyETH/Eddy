@@ -6,12 +6,17 @@ import type { EddySays } from '@/lib/eddySays';
 import { writtenAge } from '@/lib/eddySays';
 import { conditionBg, conditionChipBorder, conditionInk, conditionLabel } from '@/theme/conditions';
 import { useTheme } from '@/theme/ThemeProvider';
+import { PremiumReadPreview } from '@/components/PremiumReadPreview';
+import { TodayRiverPhoto } from '@/components/TodayRiverPhoto';
 import { fonts, type as t } from '@/theme/typography';
 
 interface Props {
   river: RiverListItem;
   says: Pick<EddySays, 'generatedAt'>;
   onPress: () => void;
+  photoUrl?: string | null;
+  premiumUserId?: string | null;
+  refreshRevision?: number;
   compact?: boolean;
   standalone?: boolean;
 }
@@ -48,33 +53,28 @@ export function BlurredReadPreview({ lines = 3 }: { lines?: number }) {
   );
 }
 
-/** Metadata-only index card. No free summary or premium report is rendered here.
- * The narrowed prop cannot carry prose; the destination owns entitlement checks.
- */
-export function EddyReadCard({ river, says, onPress, compact = false, standalone = false }: Props) {
+/** Public metadata stays immediate. Premium excerpts use the authenticated report endpoint. */
+export function EddyReadCard({ river, says, onPress, compact = false, standalone = false, photoUrl, premiumUserId, refreshRevision = 0 }: Props) {
   const { colors, elevation } = useTheme();
   const code = river.currentCondition?.code ?? 'unknown';
   const age = writtenAge(says.generatedAt);
   const action = 'View full read';
 
   return (
-    <Pressable
-      onPress={onPress}
-      style={({ pressed }) => [
+    <View
+      style={[
         styles.card,
         compact ? styles.compact : null,
         standalone ? styles.standalone : null,
         {
           backgroundColor: colors.card,
           borderColor: colors.border,
-          opacity: pressed ? 0.7 : 1,
-          transform: [{ scale: pressed ? 0.98 : 1 }],
         },
         elevation(1),
       ]}
-      accessibilityRole="button"
-      accessibilityLabel={`Eddy's read for ${river.name}. ${action}`}
     >
+      <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel={`Eddy's Read for ${river.name}. ${conditionLabel(code)}. ${action}`}>
+      <TodayRiverPhoto uri={photoUrl} name={river.name} />
       <View style={styles.head}>
         <View style={styles.nameWrap}>
           <Text style={[styles.kicker, { color: colors.accent }]}>EDDY&apos;S READ</Text>
@@ -84,15 +84,16 @@ export function EddyReadCard({ river, says, onPress, compact = false, standalone
           <Text style={[styles.pillText, { color: conditionInk(code) }]}>{conditionLabel(code)}</Text>
         </View>
       </View>
-      <BlurredReadPreview lines={compact ? 3 : 4} />
+      </Pressable>
+      {premiumUserId ? <PremiumReadPreview key={premiumUserId} slug={river.slug} revision={String(refreshRevision)} /> : <BlurredReadPreview lines={compact ? 3 : 4} />}
       <View style={styles.foot}>
-        {age ? <Text style={[styles.age, { color: colors.textSubtle }]}>{age}</Text> : <View />}
-        <View style={styles.footAction}>
+        {age && !premiumUserId ? <Text style={[styles.age, { color: colors.textSubtle }]}>{age}</Text> : <View />}
+        <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel={`View full Read for ${river.name}`} style={[styles.footAction, { minHeight: 44 }]}>
           <Text style={[styles.footActionText, { color: colors.interactive }]}>{action}</Text>
           <Ionicons name="chevron-forward" size={15} color={colors.interactive} />
-        </View>
+        </Pressable>
       </View>
-    </Pressable>
+    </View>
   );
 }
 

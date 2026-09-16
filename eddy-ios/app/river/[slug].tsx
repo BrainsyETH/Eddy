@@ -372,9 +372,10 @@ export default function RiverDetailScreen() {
   // came for — today the dam screen. `section` names the reach to mark in the
   // reaches panel; `gauge` is the provider-native site id that reads it. Both
   // are optional, and an unknown value for either does nothing.
-  const { slug, section, gauge: gaugeParam, alertId, alertSource } = useLocalSearchParams<{
+  const { slug, section, focus, gauge: gaugeParam, alertId, alertSource } = useLocalSearchParams<{
     slug: string;
     section?: string;
+    focus?: string;
     gauge?: string;
     /** Set only by a push-notification tap — see routeTo in usePush. */
     alertId?: string;
@@ -382,6 +383,18 @@ export default function RiverDetailScreen() {
   }>();
   const router = useRouter();
   const { colors, elevation } = useTheme();
+  const readScroll = useRef<ScrollView>(null);
+  const readAnchor = useRef<{ key: string; y: number | null; done: boolean }>({ key: '', y: null, done: false });
+  const readTargetKey = JSON.stringify([slug, focus]);
+  const scrollToRead = () => {
+    const anchor = readAnchor.current;
+    if (focus !== 'read' || anchor.key !== readTargetKey || anchor.y === null || anchor.done) return;
+    requestAnimationFrame(() => {
+      if (readAnchor.current !== anchor || anchor.done) return;
+      readScroll.current?.scrollTo({ y: Math.max(0, (anchor.y ?? 0) - 12), animated: true });
+      anchor.done = true;
+    });
+  };
   const { getAccessToken } = useSession();
   const { isStarred, toggleStar } = useStarredRivers();
 
@@ -1348,7 +1361,9 @@ export default function RiverDetailScreen() {
         </View>
       </View>
 
-      <ScrollView contentContainerStyle={styles.body}>
+      <ScrollView ref={readScroll} contentContainerStyle={styles.body}
+        onContentSizeChange={() => { if (displayedOutlook || !outlookLoading) scrollToRead(); }}
+        onScrollBeginDrag={() => { readAnchor.current.done = true; }}>
         {/* The way back to the rule that fired the push this screen answered.
             Renders nothing on ordinary navigation — only a notification tap
             carries the params. First in the scroll: the person it serves just
@@ -1555,6 +1570,11 @@ export default function RiverDetailScreen() {
                expects, and this says what to do about it. Hidden entirely when
                the river has no gauge or every upstream source failed — an
                empty interpretation is worse than none. ── */}
+        <View onLayout={(event) => {
+          if (readAnchor.current.key !== readTargetKey) readAnchor.current = { key: readTargetKey, y: null, done: false };
+          readAnchor.current.y = event.nativeEvent.layout.y;
+          if (displayedOutlook || !outlookLoading) scrollToRead();
+        }}>
         {displayedOutlook ? (
           <EddyTake
             outlook={displayedOutlook}
@@ -1575,7 +1595,13 @@ export default function RiverDetailScreen() {
               </Text>
             </View>
           </View>
+        ) : focus === 'read' ? (
+          <View style={[styles.card, { backgroundColor: colors.card }]}>
+            <Text style={[styles.sectionTitle, { color: colors.text }]}>Eddy’s Read</Text>
+            <Text style={{ color: colors.textMuted }}>This river’s Read is currently unavailable. Try reopening the river in a moment.</Text>
+          </View>
         ) : null}
+        </View>
 
         {/* AFTER the take, not before it. These photos are banded by condition,
             so they illustrate a verdict — and putting them above the verdict
