@@ -794,6 +794,7 @@ export default function GaugeDetailScreen() {
             // units to make that happen.
             floodStages={stages}
             title="Recent history"
+            stationName={gauge.name}
           />
         </View>
 
