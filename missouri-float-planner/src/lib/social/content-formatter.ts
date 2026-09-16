@@ -389,7 +389,7 @@ export function formatSectionGuideCaption(
     takeOutName: string;
     takeOutMile: number;
     distanceMi: number;
-    hoursCanoe: number;
+    timeRangeLabel?: string | null;
     putInId?: string;
     takeOutId?: string;
     conditionCode?: string;

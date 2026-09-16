@@ -596,7 +596,6 @@ export function TodayHub({
     if (focusedOnce.current) void refreshAccount();
     focusedOnce.current = true;
   }, [refreshAccount]));
-  const { ready: snoozeReady, snoozed, until, snooze } = useTodaySnooze();
   const dams = useDams(starred.some((item) => item.kind === 'dam'));
   const [now, setNow] = useState(Date.now);
   useEffect(() => {
@@ -605,7 +604,7 @@ export function TodayHub({
     return () => { clearInterval(timer); off(); };
   }, [refreshAccount]);
   const openRead = (slug: string) => router.push({ pathname: '/river/[slug]', params: { slug, focus: 'read' } });
-  const snoozeAll = () => Alert.alert('Snooze all Today alerts', 'Hide Today banners temporarily. Notices remain available in Alerts.', [
+  const snoozeAll = () => Alert.alert('Snooze Today alerts', 'Dangerous water conditions remain visible while other Today banners are snoozed. Notices remain available in Alerts.', [
     { text: '1 hour', onPress: () => snooze('hour') },
     { text: 'Rest of today', onPress: () => snooze('today') },
     { text: '24 hours', onPress: () => snooze('day') },
@@ -791,6 +790,8 @@ export function TodayHub({
     high: safety.high === null ? null : filteredSafety.high,
     notices: safety.notices === null ? null : filteredSafety.notices,
   };
+  const { ready: snoozeReady, snoozed, until, snooze } = useTodaySnooze();
+  const dangerousHigh = activeSafety.high?.find(row => row.conditionCode === 'dangerous') ?? null;
   const safetyCount = (activeSafety?.high?.length ?? 0) + (activeSafety?.notices?.length ?? 0);
   const detailFailure = floatFailure || safetyFailure.high || safetyFailure.notices;
   const safetyScopeLabel = safetyScope.kind === 'favorites'
@@ -802,10 +803,11 @@ export function TodayHub({
     const rank = { warning: 0, watch: 1, notice: 2 } as const;
     return [...(activeSafety?.notices ?? [])].sort((a, b) => rank[a.severity] - rank[b.severity])[0] ?? null;
   }, [activeSafety?.notices]);
-  const topHigh = useMemo(
+  const ordinaryTopHigh = useMemo(
     () => [...(activeSafety?.high ?? [])].sort((a, b) => Number(b.conditionCode === 'dangerous') - Number(a.conditionCode === 'dangerous'))[0] ?? null,
     [activeSafety?.high],
   );
+  const topHigh = snoozed ? dangerousHigh : ordinaryTopHigh;
   const photos = useMemo(() => {
     const result = new Map<string, string>();
     for (const item of floats ?? []) if (item.photoUrl && !result.has(item.riverSlug)) result.set(item.riverSlug, item.photoUrl);
@@ -885,14 +887,14 @@ export function TodayHub({
       ) : null}
 
       {snoozeReady && snoozed ? <View style={[styles.notice, { backgroundColor: colors.cardRaised, borderColor: colors.border }]}>
-        <Text style={[styles.noticeText, { color: colors.textMuted }]}>Today alerts snoozed until {new Date(until).toLocaleString([], { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}</Text>
+        <Text style={[styles.noticeText, { color: colors.textMuted }]}>Other Today alerts snoozed until {new Date(until).toLocaleString([], { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}</Text>
         <Pressable onPress={() => snooze(null)} accessibilityRole="button" style={{ minHeight: 44, justifyContent: 'center' }}><Text style={{ color: colors.interactive }}>Show alerts</Text></Pressable>
       </View> : null}
-      {snoozeReady && !snoozed && safetyCount > 0 ? (
+      {snoozeReady && safetyCount > 0 && (!snoozed || dangerousHigh !== null) ? (
         <View style={styles.safetySection}>
-          <Pressable onPress={snoozeAll} accessibilityRole="button" style={{ minHeight: 44, alignSelf: 'flex-end', justifyContent: 'center' }}><Text style={{ color: colors.interactive }}>Snooze all alerts</Text></Pressable>
+          <Pressable onPress={snoozeAll} accessibilityRole="button" style={{ minHeight: 44, alignSelf: 'flex-end', justifyContent: 'center' }}><Text style={{ color: colors.interactive }}>Snooze alerts</Text></Pressable>
           <View style={styles.safetyRows}>
-            {topNotice ? (
+            {!snoozed && topNotice ? (
               <SafetyRow
                 kicker="BEFORE YOU LAUNCH"
                 title={topNotice.title}
@@ -905,7 +907,7 @@ export function TodayHub({
             ) : null}
             {topHigh ? (
               <SafetyRow
-                kicker="HIGH WATER"
+                kicker={snoozed ? "DANGEROUS CONDITIONS" : "HIGH WATER"}
                 title={`${topHigh.name} is ${conditionLabel(topHigh.conditionCode).toLowerCase()}`}
                 meta={`${activeSafety?.high?.length ?? 0} high-water ${(activeSafety?.high?.length ?? 0) === 1 ? 'reading' : 'readings'} ${safetyScopeLabel}`}
                 icon="water-outline"

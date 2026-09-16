@@ -1,4 +1,5 @@
 import { publishableReading } from '@shared/eddy-read-reel';
+import { estimateRoute } from '@/lib/calculations/route-estimate';
 import { shortSummary, reportStamp } from '@shared/social-editorial';
 import { weekendWeather } from './weekend-weather';
 // src/lib/social/post-context.ts
