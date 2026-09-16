@@ -14,7 +14,6 @@ const section: Section = {
   takeOutName: 'Pulltite',
   takeOutMile: 30,
   distanceMi: 10,
-  hoursCanoe: 5,
   putInDescription: '',
   takeOutDescription: '',
   putInCamping: false,

@@ -232,6 +232,7 @@ export async function GET(request: NextRequest) {
         river: riverSlug,
         putInMile: numParam(searchParams.get('putInMile')),
         takeOutMile: numParam(searchParams.get('takeOutMile')),
+        timeRangeLabel: searchParams.get('time')?.slice(0, 80),
         condition: searchParams.get('condition'),
       });
     }
@@ -240,6 +241,7 @@ export async function GET(request: NextRequest) {
       return await generateFavoriteImage(size, {
         river: riverSlug,
         fromSlug: searchParams.get('fromSlug'),
+        timeRangeLabel: searchParams.get('time')?.slice(0, 80),
         toSlug: searchParams.get('toSlug'),
       });
     }
@@ -644,7 +646,7 @@ async function generateForecastImage(
 // ---------------------------------------------------------------------------
 async function generateSectionImage(
   size: Size,
-  params?: { river?: string | null; putInMile?: number | null; takeOutMile?: number | null; condition?: string | null },
+  params?: { timeRangeLabel?: string; river?: string | null; putInMile?: number | null; takeOutMile?: number | null; condition?: string | null },
 ) {
   const supabase = createAdminClient();
   const cover = coverGeometry(size, 'light', 'instagram', true);
@@ -716,7 +718,7 @@ async function generateSectionImage(
 // ---------------------------------------------------------------------------
 async function generateFavoriteImage(
   size: Size,
-  params: { river?: string | null; fromSlug?: string | null; toSlug?: string | null },
+  params: { timeRangeLabel?: string; river?: string | null; fromSlug?: string | null; toSlug?: string | null },
 ) {
   const supabase = createAdminClient();
   const cover = coverGeometry(size, 'light', 'instagram', true);

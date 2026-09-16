@@ -13,8 +13,6 @@ import { reportStamp, shortSummary } from '@shared/social-editorial';
 // assembly (buildContext) + a unified executor are later phases.
 
 import type { MediaType } from './types';
-import type { ConditionCode } from '@/types/api';
-import { calculateFloatTime, DEFAULT_CANOE_SPEEDS } from '@/lib/calculations/floatTime';
 import type { WeatherChip } from '@/lib/weather/openweather';
 import { FOLLOW_CTA } from '@shared/condition-copy';
 import type { LngLat, SocialRoutePoint, UnanchoredRoutePoint } from '@shared/social-route-journey';
@@ -68,7 +66,7 @@ export interface RenderData {
   takeOutName?: string;
   takeOutMile?: number;
   distanceMi?: number;
-  hoursCanoe?: number;
+  timeRangeLabel?: string | null;
   /** Exact selected PostGIS channel geometry, simplified for workflow payload size. */
   routeCoordinates?: LngLat[];
   /** Ordered endpoints, accesses, POIs, springs, and hazards on the float. */
@@ -128,47 +126,10 @@ function defaultDate() { return `Prepared ${reportStamp()}`; }
 const isoDay = () => new Date().toISOString().slice(0, 10);
 const slugify = (s: string) => s.toLowerCase().replace(/\s+/g, '-');
 
-/**
- * Estimated canoe float time (hours, 1 decimal) for a distance at a condition.
- * Returns 0 for dangerous water (no time is quoted) — callers must treat 0 as
- * "not floatable" and suppress the stat rather than printing "0 hours".
- *
- * Uses the shared DEFAULT_CANOE_SPEEDS so social matches the planner's speeds.
- * It does NOT automatically match the planner's MODEL, and the distinction is
- * worth stating because the old comment here claimed otherwise:
- *
- *   - Pass `flow` and you get the flow-dependent model /api/plan uses.
- *   - Omit it and calculateFloatTime degrades to the legacy condition-band step,
- *     silently and with a plausible number.
- *
- * The saving grace for social's TYPICAL figures is arithmetic rather than luck:
- * at Q = Q_ref the flow factor is exactly 1, so the flow model returns
- * speedNormal — which is precisely what bandSpeed() returns for 'flowing'. The
- * two models agree exactly at typical flow, so `canoeHours(mi, 'flowing')` is
- * already model-independent. Only the TODAY figures can diverge, and they only
- * diverge as far as today's water is from typical.
- *
- * Threading real flow into the today figures means carrying dischargeCfs and
- * the gauge's usgs id through RenderData and the section picker, which feed the
- * Remotion render path; that is a larger change than it looks and is not done.
- * float-time-parity.test.ts pins both halves of this so it cannot drift quietly.
- */
-export function canoeHours(
-  distanceMi: number,
-  conditionCode: ConditionCode,
-  flow?: { dischargeCfs: number | null; refCfs: number | null },
-): number {
-  const result = calculateFloatTime(distanceMi, DEFAULT_CANOE_SPEEDS, conditionCode, {
-    dischargeCfs: flow?.dischargeCfs ?? null,
-    refCfs: flow?.refCfs ?? null,
-  });
-  return result ? Math.round((result.minutes / 60) * 10) / 10 : 0;
-}
-
 /** Shared section/route inputProps (both use SectionGuideProps + float-time hero). */
 function sectionRouteProps(data: RenderData): Record<string, unknown> {
   const distanceMi = data.distanceMi ?? 0;
-  const code = (data.conditionCode || 'unknown') as ConditionCode;
+
   return {
     riverName: data.riverName || 'Unknown River',
     conditionCode: data.conditionCode || 'unknown',
@@ -178,8 +139,7 @@ function sectionRouteProps(data: RenderData): Record<string, unknown> {
     takeOutMile: data.takeOutMile ?? 0,
     distanceMi,
     // Float time at TODAY's flow vs the normal "flowing" baseline.
-    hoursToday: canoeHours(distanceMi, code),
-    hoursTypical: canoeHours(distanceMi, 'flowing'),
+    timeRangeLabel: data.timeRangeLabel ?? null,
     followCta: FOLLOW_CTA,
     dateLabel: data.dateLabel || defaultDate(),
     // Background art behind the route (RouteDraw composites it with a scrim).
@@ -265,7 +225,7 @@ export const POST_TYPES: Record<PostKind, PostTypeDef> = {
         ? {
             ...sectionRouteProps(data),
             // Evergreen: float time is the typical "flowing" pace (post-context
-            // sets conditionCode='flowing'), so hoursToday === hoursTypical and
+            // uses a typical route estimate and
             // the reel hides the faster/slower delta.
             label: LABELS.tripIdea,
             tagline: data.tagline,

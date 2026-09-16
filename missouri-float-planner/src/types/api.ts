@@ -607,6 +607,7 @@ export interface SavePlanRequest {
 export interface SavePlanSnapshot {
   distanceMiles: number;
   estimatedFloatMinutes: number | null;
+  floatTimeRange?: { min: number; max: number } | null;
   driveBackMinutes: number | null;
   conditionCode: string | null;
   gaugeHeightFt: number | null;

@@ -1,3 +1,4 @@
+import { validTimeRange } from '@/lib/calculations/saved-time-range';
 // src/app/api/plan/save/route.ts
 // POST /api/plan/save - Save a float plan and get shareable URL
 
@@ -72,6 +73,7 @@ export async function POST(request: NextRequest) {
       snap = {
         distanceMiles: plan.distance.miles,
         estimatedFloatMinutes: plan.floatTime?.minutes ?? null,
+        floatTimeRange: plan.floatTime?.timeRange ?? null,
         driveBackMinutes: plan.driveBack?.minutes ?? null,
         conditionCode: plan.condition?.code ?? null,
         gaugeHeightFt: plan.condition?.gaugeHeightFt ?? null,
@@ -121,7 +123,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Save plan
+    const range = snap.estimatedFloatMinutes != null && snap.conditionCode !== 'dangerous'
+      ? validTimeRange(snap.floatTimeRange) : null;
+    // Save plan (range columns require 20260916120000 before deployment).
     const { error: insertError } = await supabase.from('float_plans').insert({
       short_code: shortCode,
       river_id: riverId,
@@ -130,6 +134,8 @@ export async function POST(request: NextRequest) {
       vessel_type_id: vesselTypeId,
       distance_miles: snap.distanceMiles,
       estimated_float_minutes: snap.estimatedFloatMinutes,
+      estimated_float_min_minutes: range?.min ?? null,
+        estimated_float_max_minutes: range?.max ?? null,
       drive_back_minutes: snap.driveBackMinutes,
       condition_at_creation: snap.conditionCode,
       gauge_reading_at_creation: snap.gaugeHeightFt,

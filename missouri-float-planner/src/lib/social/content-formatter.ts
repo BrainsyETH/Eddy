@@ -7,8 +7,6 @@ import { trendMeaning } from '@shared/social-editorial';
 import type { SocialPlatform, SocialCustomContent } from './types';
 import { CONDITION_SYSTEM } from '@shared/condition-system';
 import { warningCopy, recoveryCopy, FOLLOW_CTA, type TrendDir } from '@shared/condition-copy';
-import { canoeHours } from './post-types';
-import type { ConditionCode } from '@/types/api';
 import { weatherChip, formatWeatherChip, type WeatherSummary } from '@/lib/weather/openweather';
 import { toNum } from '@/lib/utils/num';
 // Long display names ("Current River", "Huzzah Creek") — shared with the OG
@@ -404,17 +402,11 @@ export function formatSectionGuideCaption(
 ): { caption: string; hashtags: string[] } {
   const lines: string[] = [];
 
-  // Condition-aware float time so the caption matches the reel + cover image
-  // (all three run through canoeHours; flat hoursCanoe is only a fallback).
-  const hours = section.conditionCode
-    ? canoeHours(section.distanceMi, section.conditionCode as ConditionCode)
-    : section.hoursCanoe;
-
   // Headline is the river only — the put-in/take-out appear once below, in the
   // emphasized detail lines, so they're not duplicated in the caption.
   lines.push(`${LABELS.todayFloatPick} — ${section.riverName}`);
   lines.push('');
-  lines.push(`🛶 ${section.distanceMi.toFixed(1)} mi · ~${hours.toFixed(1)} hrs with no stops`);
+  lines.push(`🛶 ${section.distanceMi.toFixed(1)} mi · ${section.timeRangeLabel ?? 'Time unavailable'} estimated canoe trip`);
   lines.push('');
 
   // Put-in / take-out are the emphasis. Camping flagged only where it exists.
@@ -464,6 +456,7 @@ export function formatFavoriteFloatCaption(
     takeOutName: string;
     takeOutMile: number;
     distanceMi: number;
+    timeRangeLabel?: string | null;
     tagline: string;
     putInId?: string;
     takeOutId?: string;
@@ -478,7 +471,7 @@ export function formatFavoriteFloatCaption(
 ): { caption: string; hashtags: string[] } {
   const lines: string[] = [];
   // Typical canoe pace at normal "flowing" flow — evergreen, no live delta.
-  const hours = canoeHours(fav.distanceMi, 'flowing' as ConditionCode);
+
 
   lines.push(`${LABELS.tripIdea} — ${fav.riverName}`);
   if (fav.tagline) {
@@ -487,7 +480,7 @@ export function formatFavoriteFloatCaption(
   }
   lines.push('');
   lines.push(
-    `🛶 ${fav.distanceMi.toFixed(1)} mi · ~${hours.toFixed(1)} hrs at a relaxed pace` +
+    `🛶 ${fav.distanceMi.toFixed(1)} mi · ${fav.timeRangeLabel ?? 'Time unavailable'} typical canoe trip` +
       (fav.difficulty ? ` · Class ${fav.difficulty}` : ''),
   );
   lines.push('');

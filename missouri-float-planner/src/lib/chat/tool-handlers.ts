@@ -1,3 +1,4 @@
+import { estimateRoute } from '@/lib/calculations/route-estimate';
 // src/lib/chat/tool-handlers.ts
 // Executes tool calls by querying existing DB/API functions directly.
 // Each handler returns a JSON-serializable result that gets sent back to Claude.
@@ -7,11 +8,8 @@ import { buildGaugeTrajectory } from '@/lib/eddy/gauge-trajectory';
 import { toNum } from '@/lib/utils/num';
 import { fetchWeather, fetchForecast, getWeatherPointForRiver } from '@/lib/weather/openweather';
 import { fetchNWSAlerts, filterAlertsForRiver } from '@/lib/nws/alerts';
-import { calculateFloatTime, floatTimeWithholding, DEFAULT_CANOE_SPEEDS } from '@/lib/calculations/floatTime';
-import { resolveFlowInputs } from '@/lib/calculations/flow-inputs';
 import { getGaugeConditions } from '@/lib/gauge/get-gauge-conditions';
 import { overlayLiveConditions } from '@/lib/social/live-conditions';
-import type { ReachRiverType } from '@shared/reach-types';
 // Note: getDriveTime/geocodeAddress from mapbox/directions are used by /api/plan, not here
 
 // Slug map: user-facing names → DB slugs
@@ -242,52 +240,11 @@ async function handleGetFloatRoute(input: Record<string, unknown>) {
     return { error: `Start and end are the same access point: ${startAp.name}` };
   }
 
-  // Get float segment via RPC
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: segment, error: segError } = await (supabase.rpc as any)('get_float_segment', {
-    p_start_access_id: startAp.id,
-    p_end_access_id: endAp.id,
-  });
-
-  if (segError || !segment || segment.length === 0) {
-    return { error: `Could not calculate segment between ${startAp.name} and ${endAp.name}` };
-  }
-
-  const segData = segment[0];
-  const distanceMiles = segData.distance_miles != null ? parseFloat(segData.distance_miles) : 0;
-
-  // Fetch actual condition for this river to calculate accurate float time
-  const gauge = await getGaugeConditions(riverSlug);
-  const currentCondition = gauge?.conditionCode ?? 'flowing';
-
-  // Calculate float time using shared default canoe speeds and actual condition.
-  // Returns null for dangerous water — we do not quote a time next to "do not float".
-  //
-  // The flow inputs are what keep this equal to /api/plan. Without them
-  // calculateFloatTime silently degrades to the legacy condition-band step, and
-  // chat quoted a different number than the planner for the same two access
-  // points — same speeds, different model, no error anywhere.
-  //
-  // riverType matters for the same reason: on a dam tailwater the release can
-  // change mid-float, so calculateFloatTime returns null and chat says nothing
-  // rather than quoting a number computed from the flow at launch. It is read
-  // off the river row above, so it cannot fail open.
-  const flow = await resolveFlowInputs(gauge?.usgsSiteId, gauge?.dischargeCfs);
-  const withholdReason = floatTimeWithholding(
-    currentCondition,
-    river.river_type as ReachRiverType | null,
-  );
-  const floatTime = calculateFloatTime(distanceMiles, DEFAULT_CANOE_SPEEDS, currentCondition, {
-    dischargeCfs: flow.dischargeCfs,
-    refCfs: flow.refCfs,
-    riverType: river.river_type as ReachRiverType | null,
-  });
-
-  const estimatedHours = floatTime
-    ? {
-        low: Math.round((floatTime.minMinutes / 60) * 10) / 10,
-        high: Math.round((floatTime.maxMinutes / 60) * 10) / 10,
-      }
+  const estimate = await estimateRoute(supabase, { riverId: river.id, startId: startAp.id, endId: endAp.id });
+  const { segmentData: segData, distanceMiles, conditionCode: currentCondition,
+    floatTime, withholdReason } = estimate;
+  const estimatedHours = floatTime?.timeRange
+    ? { low: floatTime.timeRange.min / 60, high: floatTime.timeRange.max / 60 }
     : null;
 
   // Two different silences, and they must not be worded the same.
@@ -348,6 +305,8 @@ async function handleGetFloatRoute(input: Record<string, unknown>) {
     endPoint: endAp.name,
     distanceMiles: Math.round(distanceMiles * 10) / 10,
     estimatedHours,
+    estimatedFloatTime: floatTime?.formatted ?? null,
+    estimateBasis: estimate.estimateBasis,
     conditionCode: currentCondition,
     floatTimeNote,
     shuttleUrl,

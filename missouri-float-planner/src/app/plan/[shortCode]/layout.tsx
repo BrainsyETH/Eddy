@@ -1,3 +1,4 @@
+import { savedTimeRangeLabel } from '@/lib/calculations/saved-time-range';
 // src/app/plan/[shortCode]/layout.tsx
 // Layout for shared plan pages
 // Exports generateMetadata for dynamic social media preview tags
@@ -26,14 +27,6 @@ async function getBaseUrl(): Promise<string> {
 interface PlanLayoutProps {
   children: React.ReactNode;
   params: Promise<{ shortCode: string }>;
-}
-
-function formatMinutes(totalMinutes: number): string {
-  const hours = Math.floor(totalMinutes / 60);
-  const mins = Math.round(totalMinutes % 60);
-  if (hours === 0) return `${mins}min`;
-  if (mins === 0) return `${hours}h`;
-  return `${hours}h ${mins}m`;
 }
 
 export async function generateMetadata({ params }: PlanLayoutProps): Promise<Metadata> {
@@ -82,9 +75,7 @@ export async function generateMetadata({ params }: PlanLayoutProps): Promise<Met
     const distanceMiles = savedPlan.distance_miles != null
       ? parseFloat(String(savedPlan.distance_miles)).toFixed(1)
       : '';
-    const floatTimeFormatted = savedPlan.estimated_float_minutes
-      ? formatMinutes(savedPlan.estimated_float_minutes)
-      : '';
+    const floatTimeFormatted = savedTimeRangeLabel(savedPlan);
     const conditionCode = savedPlan.condition_at_creation || 'unknown';
 
     const conditionLabels: Record<string, string> = {
@@ -102,8 +93,8 @@ export async function generateMetadata({ params }: PlanLayoutProps): Promise<Met
     const title = `${riverName} - ${putInName} to ${takeOutName}`;
     const descParts: string[] = [];
     if (distanceMiles) descParts.push(`${distanceMiles} mi`);
-    if (floatTimeFormatted) descParts.push(`~${floatTimeFormatted} float`);
-    if (conditionText) descParts.push(`Conditions: ${conditionText}`);
+    if (floatTimeFormatted) descParts.push(`${floatTimeFormatted} estimated when saved`);
+    if (conditionText) descParts.push(`Conditions when saved: ${conditionText}`);
 
     const description = descParts.length > 0
       ? `${riverName} float plan - ${descParts.join(' | ')} | Check conditions on Eddy.`

@@ -1,3 +1,4 @@
+import { savedTimeRangeLabel } from '@/lib/calculations/saved-time-range';
 // src/app/plan/[shortCode]/opengraph-image.tsx
 // OG image for shared float plans — Field Notebook "Float Plan" card: river
 // name, put-in → take-out route, distance + float time, status badge.
@@ -18,14 +19,6 @@ function truncate(text: string, maxLength: number): string {
   return text.slice(0, maxLength - 1).trim() + '…';
 }
 
-function formatDuration(minutes: number | null): string | null {
-  if (!minutes || minutes <= 0) return null;
-  const h = Math.floor(minutes / 60);
-  const m = minutes % 60;
-  if (h === 0) return `${m}m`;
-  return m === 0 ? `~${h}h` : `~${h}h ${m}m`;
-}
-
 export default async function Image({ params }: { params: Promise<{ shortCode: string }> }) {
   const { shortCode } = await params;
 
@@ -34,7 +27,7 @@ export default async function Image({ params }: { params: Promise<{ shortCode: s
   let takeOutName = 'End';
   let code = 'unknown';
   let distanceMiles: number | null = null;
-  let floatMinutes: number | null = null;
+  let duration: string | null = null;
 
   if (shortCode) {
     try {
@@ -43,7 +36,9 @@ export default async function Image({ params }: { params: Promise<{ shortCode: s
       if (plan) {
         code = plan.condition_at_creation || 'unknown';
         distanceMiles = plan.distance_miles != null ? Number(plan.distance_miles) : null;
-        floatMinutes = plan.estimated_float_minutes ?? null;
+        duration = savedTimeRangeLabel(plan as typeof plan & {
+          estimated_float_min_minutes?: number | null; estimated_float_max_minutes?: number | null;
+        });
         const [river, putIn, takeOut] = await Promise.all([
           supabase.from('rivers').select('name').eq('id', plan.river_id).single(),
           supabase.from('access_points').select('name').eq('id', plan.start_access_id).single(),
@@ -60,14 +55,14 @@ export default async function Image({ params }: { params: Promise<{ shortCode: s
 
   const meta = conditionMeta(code);
   const badge: CardBadge | null = code === 'unknown' ? null : { label: meta.label, accent: meta.accent, tint: meta.tint };
-  const duration = formatDuration(floatMinutes);
+
 
   const fonts = loadFredokaFont();
   const avatar = await loadEddyAvatar().catch(() => null);
 
   return new ImageResponse(
     (
-      <CardFrame eyebrow="Float Plan" title={truncate(riverName, 22)} avatar={avatar} badge={badge} accent={meta.accent}>
+      <CardFrame eyebrow="Float Plan · Estimated when saved" title={truncate(riverName, 22)} avatar={avatar} badge={badge} accent={meta.accent}>
         {/* Route */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 18, marginTop: 6 }}>
           <span style={{ fontFamily: 'Fredoka', fontSize: 32, fontWeight: 600, color: INK }}>{truncate(putInName, 18)}</span>
@@ -88,7 +83,7 @@ export default async function Image({ params }: { params: Promise<{ shortCode: s
               </span>
             )}
             {duration && (
-              <span style={{ fontFamily: 'Fredoka', fontSize: 64, fontWeight: 600, color: INK }}>{duration}</span>
+              <span style={{ fontFamily: 'Fredoka', fontSize: 44, fontWeight: 600, color: INK }}>{duration}</span>
             )}
           </div>
         )}

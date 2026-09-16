@@ -75,7 +75,7 @@ import type {
 import { hasCoordinates } from '@eddy/types';
 import { boundsForLine, milePosts } from '@eddy/geo';
 import {
-  formatFloatTimeCeilingCompact,
+  formatFloatTimeRangeCompact,
   formatFloatTimeCompact,
 } from '@eddy/conditions/float-time-format';
 import { ApiError, fetchRiverAccessPoints, fetchRivers } from '@/api/client';
@@ -259,16 +259,14 @@ interface RiverScoped<T> {
  * `distance.formatted` and `floatTime.formatted` are both written for a card
  * with a whole line to spend ("8.3 miles", "~2 hours 30 minutes – ~4 hours").
  * Concatenated they wrapped this button to two lines and covered a band of
- * river. Abbreviated units and the ceiling instead of the range say the same
- * thing in a third of the space; PlanResult still carries the long form.
+ * river. Abbreviated units keep the same range in a compact label.
  */
 function planButtonLabel(plan: FloatPlan): string {
   const miles = `${Math.round(plan.distance.miles * 10) / 10} mi`;
   if (!plan.floatTime) return miles;
-  // No range means a float short enough that both ends round together — the
-  // ceiling and the estimate are the same number, so print it plainly.
+  // Older cached responses may not carry a range.
   const time = plan.floatTime.timeRange
-    ? formatFloatTimeCeilingCompact(plan.floatTime.timeRange.max)
+    ? formatFloatTimeRangeCompact(plan.floatTime.timeRange.min, plan.floatTime.timeRange.max)
     : `~${formatFloatTimeCompact(plan.floatTime.minutes)}`;
   return `${miles} · ${time}`;
 }

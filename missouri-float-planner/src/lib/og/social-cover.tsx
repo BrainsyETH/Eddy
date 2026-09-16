@@ -363,11 +363,12 @@ export interface TileSpec {
   label: string;
   color?: string;
   compact?: boolean;
+  wrap?: boolean;
 }
 
 export function CoverTile({ cover, tile }: { cover: Cover; tile: TileSpec }) {
   const s = SURFACES[cover.tone];
-  const valueSize = Math.round((tile.compact ? 40 : 58) * cover.k);
+  const valueSize = Math.round((tile.wrap ? 28 : tile.compact ? 40 : 58) * cover.k);
   return (
     <div
       style={{
@@ -389,7 +390,7 @@ export function CoverTile({ cover, tile }: { cover: Cover; tile: TileSpec }) {
             fontWeight: 600,
             lineHeight: 1,
             color: tile.color ? conditionInk(tile.color, cover.tone) : s.ink,
-            whiteSpace: 'nowrap',
+            whiteSpace: tile.wrap ? 'normal' : 'nowrap',
           }}
         >
           {tile.value}
