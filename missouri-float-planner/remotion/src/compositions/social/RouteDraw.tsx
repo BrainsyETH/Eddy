@@ -39,8 +39,8 @@ const FPS = 30;
 // Everything readable sits inside REEL_SAFE (Instagram's top/bottom chrome).
 // The stage is the only thing that may run under the masthead / dock, and it
 // fades out at both edges so nothing is ever clipped by chrome mid-word.
-const STAGE_TOP = 440;
-const STAGE_HEIGHT = 800;
+const STAGE_TOP = 550;
+const STAGE_HEIGHT = 690;
 const CONTENT_RIGHT = 1080 - REEL_SAFE.right;
 const CONTENT_CENTER_X = Math.round((REEL_SAFE.left + CONTENT_RIGHT) / 2);
 const STAGE: JourneyStage = {
@@ -103,8 +103,7 @@ export const RouteDraw: React.FC<RouteDrawProps> = (props) => {
     takeOutName,
     takeOutMile,
     distanceMi,
-    hoursToday,
-    hoursTypical,
+    timeRangeLabel,
     dateLabel,
     followCta,
     label = "Float Pick",
@@ -164,16 +163,12 @@ export const RouteDraw: React.FC<RouteDrawProps> = (props) => {
       ? summaryProgress
       : Math.max(launchProgress, finishProgress);
 
-  const delta = hoursTypical - hoursToday;
+
   // Each end is capped independently so one verbose access name cannot consume
   // the other end of the route. The CSS guard is still required for unusually
   // wide glyphs and translated/user-authored names.
   const routeLabel = `${cleanName(putInName, 24)} → ${cleanName(takeOutName, 24)}`;
-  const deltaCopy = evergreen
-    ? "Typical pace"
-    : Math.abs(delta) < 0.3
-      ? "About the usual pace"
-      : `${Math.abs(delta).toFixed(1)} hr ${delta > 0 ? "faster" : "slower"} today`;
+  const deltaCopy = evergreen ? "Typical canoe trip" : "Estimated canoe trip";
   const cta = spring({
     frame: frame - (durationInFrames - 72),
     fps,
@@ -216,7 +211,7 @@ export const RouteDraw: React.FC<RouteDrawProps> = (props) => {
 
       <ReelDock
         tiles={[
-          <StatTile key="hours" value={`~${hoursToday.toFixed(1)}`} unit="HRS" label="Float time" />,
+          <StatTile key="hours" value={timeRangeLabel ?? "Unavailable"} label="Float time" compact wrap />,
           <StatTile key="distance" value={distanceMi.toFixed(1)} unit="MI" label="Distance" />,
           <StatTile
             key="condition"

@@ -178,15 +178,15 @@ export const RiverCard: React.FC<RiverCardProps> = ({
             fontWeight: TYPE.rowTitle.weight,
             lineHeight: TYPE.rowTitle.lineHeight,
             color: LIGHT.ink,
-            whiteSpace: "nowrap",
-            overflow: "hidden",
-            textOverflow: "ellipsis",
+            whiteSpace: "normal",
+            overflowWrap: "anywhere",
+            minWidth: 0,
           }}
         >
           {riverName}
         </div>
         {weather ? (
-          <BrandPill fill={condition.solid} size={Math.round(17 * k)}>
+          <BrandPill fill={condition.solid} size={Math.round(21 * k)}>
             {condition.label}
           </BrandPill>
         ) : null}
@@ -206,12 +206,12 @@ export const RiverCard: React.FC<RiverCardProps> = ({
         >
           <WeatherIcon condition={weather.condition} size={Math.round(50 * k)} />
           <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-start" }}>
-            <span style={{ fontFamily: fontFamilies.display, fontSize: Math.round(28 * k), fontWeight: 650, color: LIGHT.ink, lineHeight: 1.05 }}>
+            <span style={{ fontFamily: fontFamilies.display, fontSize: Math.round(30 * k), fontWeight: 650, color: LIGHT.ink, lineHeight: 1.05 }}>
               {temp}
             </span>
             <span
               style={{
-                fontSize: Math.round(17 * k),
+                fontSize: Math.round(21 * k),
                 fontWeight: 620,
                 color: showRain ? RAIN_BLUE : LIGHT.inkMuted,
                 whiteSpace: "nowrap",

@@ -8,9 +8,7 @@ import {
   formatDailyDigestCaption,
   formatRiverHighlightCaption,
   formatWeeklyForecastCaption,
-  formatWeeklyTrendCaption,
 } from './content-formatter';
-import { pickNotableTrend } from './trend-picker';
 import { overlayLiveConditions } from './live-conditions';
 import { buildPostContext } from './post-context';
 import { getEnabledPlatforms } from './adapters';
@@ -216,7 +214,7 @@ export async function getScheduledPosts(options?: { skipTimeCheck?: boolean }): 
 
       if (!timeMatches) {
         console.log(`${LOG_PREFIX} Weekly forecast: not near ${time_cst} CST — skipping`);
-      } else if (alreadyPosted) {
+      } else if (alreadyPosted && !options?.skipTimeCheck) {
         console.log(`${LOG_PREFIX} Weekly forecast: already posted today — skipping`);
       } else if (updates.length === 0) {
         console.log(`${LOG_PREFIX} Weekly forecast: no fresh eddy updates — skipping`);
@@ -271,7 +269,7 @@ export async function getScheduledPosts(options?: { skipTimeCheck?: boolean }): 
 
       if (!timeMatches) {
         console.log(`${LOG_PREFIX} Float Pick: not near ${time_cst} CST — skipping`);
-      } else if (alreadyPosted) {
+      } else if (alreadyPosted && !options?.skipTimeCheck) {
         console.log(`${LOG_PREFIX} Float Pick: already posted today — skipping`);
       } else {
         const ctx = await buildPostContext(supabase, { postType: 'section_guide' });
@@ -301,44 +299,7 @@ export async function getScheduledPosts(options?: { skipTimeCheck?: boolean }): 
     }
   }
 
-  // --- Weekly Trend (media_schedule.weekly_trend drives day/media) ---
-  {
-    const todayMedia = config.media_schedule?.weekly_trend?.[todayKey] ?? null;
-    // Grid cell is the gate, not the legacy `enabled` flag.
-    if (todayMedia && config.weekly_trend) {
-      const { time_cst } = config.weekly_trend;
-      const timeMatches = skipTimeCheck || isDueNow(time_cst);
-      const alreadyPosted = await hasPostedToday('weekly_trend', null, supabase);
-
-      if (!timeMatches) {
-        console.log(`${LOG_PREFIX} Weekly trend: not near ${time_cst} CST — skipping`);
-      } else if (alreadyPosted) {
-        console.log(`${LOG_PREFIX} Weekly trend: already posted today — skipping`);
-      } else {
-        const availableSlugs = updates.map((u) => u.river_slug);
-        const trend = await pickNotableTrend(supabase, { restrictTo: availableSlugs });
-        if (!trend) {
-          console.log(`${LOG_PREFIX} Weekly trend: no notable movement this week — skipping`);
-        } else {
-          const latest = updates.find((u) => u.river_slug === trend.riverSlug);
-          const platforms = platformsForPost();
-          for (const platform of platforms) {
-            const { caption, hashtags } = formatWeeklyTrendCaption(trend, customContent, platform);
-            posts.push({
-              postType: 'weekly_trend',
-              platform,
-              riverSlug: trend.riverSlug,
-              caption,
-              imageUrl: `${baseUrl}/api/og/social?type=trend&platform=${platform}`,
-              mediaType: 'video', // video-only; the matrix cell is just the on/off gate
-              hashtags,
-              eddyUpdateId: latest?.id ?? null,
-            });
-          }
-        }
-      }
-    }
-  }
+  // Standalone weekly trends are retired; trend context lives in Eddy’s Read.
 
   // --- Daily Digest ---
   // Matrix cell is the single source of truth: null cell => skip this day.
@@ -512,7 +473,7 @@ async function hasPostedToday(
     .select('id')
     .eq('post_type', postType)
     .gte('created_at', todayStart.toISOString())
-    .in('status', ['pending', 'publishing', 'published', 'rendering']);
+    .in('status', ['pending', 'publishing', 'published', 'rendering', 'inbox']);
 
   if (riverSlug) {
     query = query.eq('river_slug', riverSlug);
@@ -543,6 +504,8 @@ export async function getRetryablePosts(): Promise<
     .from('social_posts')
     .select('id, post_type, platform, river_slug, caption, image_url, hashtags, eddy_update_id')
     .eq('status', 'failed')
+    .eq('auto_publish', true)
+    .neq('post_type', 'weekly_trend')
     .lt('retry_count', 3)
     .gte('created_at', cutoff)
     .order('created_at', { ascending: true });

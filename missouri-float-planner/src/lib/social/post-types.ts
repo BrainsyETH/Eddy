@@ -1,3 +1,5 @@
+import { LABELS } from '@shared/social-brand';
+import { reportStamp, shortSummary } from '@shared/social-editorial';
 // src/lib/social/post-types.ts
 //
 // Single source of truth for social post types. Each entry declares how a type
@@ -11,8 +13,6 @@
 // assembly (buildContext) + a unified executor are later phases.
 
 import type { MediaType } from './types';
-import type { ConditionCode } from '@/types/api';
-import { calculateFloatTime, DEFAULT_CANOE_SPEEDS } from '@/lib/calculations/floatTime';
 import type { WeatherChip } from '@/lib/weather/openweather';
 import { FOLLOW_CTA } from '@shared/condition-copy';
 import type { LngLat, SocialRoutePoint, UnanchoredRoutePoint } from '@shared/social-route-journey';
@@ -35,6 +35,7 @@ export type VideoPostKind = Exclude<PostKind, 'tip'>;
  */
 export interface RenderData {
   riverName?: string;
+  readingText?: string;
   riverSlug?: string;
   conditionCode?: string;
   gaugeHeightFt?: number | null;
@@ -65,7 +66,7 @@ export interface RenderData {
   takeOutName?: string;
   takeOutMile?: number;
   distanceMi?: number;
-  hoursCanoe?: number;
+  timeRangeLabel?: string | null;
   /** Exact selected PostGIS channel geometry, simplified for workflow payload size. */
   routeCoordinates?: LngLat[];
   /** Ordered endpoints, accesses, POIs, springs, and hazards on the float. */
@@ -120,58 +121,15 @@ export interface PostTypeDef {
 const FORMAT = 'portrait' as const;
 
 /** Long-form date label matching the OG thumbnail timestamp format. */
-function defaultDate(): string {
-  return new Date().toLocaleDateString('en-US', {
-    month: 'long',
-    day: 'numeric',
-    year: 'numeric',
-  });
-}
+function defaultDate() { return `Prepared ${reportStamp()}`; }
 
 const isoDay = () => new Date().toISOString().slice(0, 10);
 const slugify = (s: string) => s.toLowerCase().replace(/\s+/g, '-');
 
-/**
- * Estimated canoe float time (hours, 1 decimal) for a distance at a condition.
- * Returns 0 for dangerous water (no time is quoted) — callers must treat 0 as
- * "not floatable" and suppress the stat rather than printing "0 hours".
- *
- * Uses the shared DEFAULT_CANOE_SPEEDS so social matches the planner's speeds.
- * It does NOT automatically match the planner's MODEL, and the distinction is
- * worth stating because the old comment here claimed otherwise:
- *
- *   - Pass `flow` and you get the flow-dependent model /api/plan uses.
- *   - Omit it and calculateFloatTime degrades to the legacy condition-band step,
- *     silently and with a plausible number.
- *
- * The saving grace for social's TYPICAL figures is arithmetic rather than luck:
- * at Q = Q_ref the flow factor is exactly 1, so the flow model returns
- * speedNormal — which is precisely what bandSpeed() returns for 'flowing'. The
- * two models agree exactly at typical flow, so `canoeHours(mi, 'flowing')` is
- * already model-independent. Only the TODAY figures can diverge, and they only
- * diverge as far as today's water is from typical.
- *
- * Threading real flow into the today figures means carrying dischargeCfs and
- * the gauge's usgs id through RenderData and the section picker, which feed the
- * Remotion render path; that is a larger change than it looks and is not done.
- * float-time-parity.test.ts pins both halves of this so it cannot drift quietly.
- */
-export function canoeHours(
-  distanceMi: number,
-  conditionCode: ConditionCode,
-  flow?: { dischargeCfs: number | null; refCfs: number | null },
-): number {
-  const result = calculateFloatTime(distanceMi, DEFAULT_CANOE_SPEEDS, conditionCode, {
-    dischargeCfs: flow?.dischargeCfs ?? null,
-    refCfs: flow?.refCfs ?? null,
-  });
-  return result ? Math.round((result.minutes / 60) * 10) / 10 : 0;
-}
-
 /** Shared section/route inputProps (both use SectionGuideProps + float-time hero). */
 function sectionRouteProps(data: RenderData): Record<string, unknown> {
   const distanceMi = data.distanceMi ?? 0;
-  const code = (data.conditionCode || 'unknown') as ConditionCode;
+
   return {
     riverName: data.riverName || 'Unknown River',
     conditionCode: data.conditionCode || 'unknown',
@@ -181,8 +139,7 @@ function sectionRouteProps(data: RenderData): Record<string, unknown> {
     takeOutMile: data.takeOutMile ?? 0,
     distanceMi,
     // Float time at TODAY's flow vs the normal "flowing" baseline.
-    hoursToday: canoeHours(distanceMi, code),
-    hoursTypical: canoeHours(distanceMi, 'flowing'),
+    timeRangeLabel: data.timeRangeLabel ?? null,
     followCta: FOLLOW_CTA,
     dateLabel: data.dateLabel || defaultDate(),
     // Background art behind the route (RouteDraw composites it with a scrim).
@@ -197,32 +154,19 @@ function sectionRouteProps(data: RenderData): Record<string, unknown> {
 }
 
 export const POST_TYPES: Record<PostKind, PostTypeDef> = {
-  // The daily per-river report — "Eddy Says" branding over the gauge-forward
-  // layout, with Eddy's quote as the payoff. (Merged: the separate quote-forward
-  // eddy_says type is retired; this single format carries both jobs.)
+  // Text-first full reading. Keep the persisted river_highlight key so
+  // existing per-river schedules continue to work.
   river_highlight: {
     id: 'river_highlight',
-    label: 'Eddy Says Report',
+    label: 'Eddy’s Read',
     needs: 'river',
     media: ['video'],
-    composition: 'social-gauge-portrait',
+    composition: 'social-eddy-read',
     ogType: 'highlight',
     renderProps: (data) => ({
       riverName: data.riverName || 'Unknown River',
-      conditionCode: data.conditionCode || 'unknown',
-      gaugeHeightFt: data.gaugeHeightFt ?? 0,
-      // No invented defaults: absent thresholds render a level-only bar rather
-      // than a fake 1.5–4.0 "GOOD" band that can contradict the condition.
-      optimalMin: data.optimalMin,
-      optimalMax: data.optimalMax,
-      levelHigh: data.levelHigh,
-      levelDangerous: data.levelDangerous,
-      quoteText: data.quoteText || data.summaryText || '',
+      readingText: data.readingText || data.quoteText || data.summaryText || '',
       dateLabel: data.dateLabel || defaultDate(),
-      eyebrow: 'Eddy Says',
-      backgroundUrl: data.backgroundUrl,
-      followCta: FOLLOW_CTA,
-      format: FORMAT,
     }),
     outputFilename: (data) => `highlight-${slugify(data.riverName || 'river')}`,
   },
@@ -237,7 +181,7 @@ export const POST_TYPES: Record<PostKind, PostTypeDef> = {
     renderProps: (data) => ({
       rivers: data.rivers || [],
       dateLabel: data.dateLabel || defaultDate(),
-      globalQuote: data.globalQuote || undefined,
+      globalQuote: shortSummary(data.globalQuote) || undefined,
       followCta: FOLLOW_CTA,
       format: FORMAT,
     }),
@@ -281,16 +225,16 @@ export const POST_TYPES: Record<PostKind, PostTypeDef> = {
         ? {
             ...sectionRouteProps(data),
             // Evergreen: float time is the typical "flowing" pace (post-context
-            // sets conditionCode='flowing'), so hoursToday === hoursTypical and
+            // uses a typical route estimate and
             // the reel hides the faster/slower delta.
-            label: 'Float Pick',
+            label: LABELS.tripIdea,
             tagline: data.tagline,
             difficulty: data.difficulty,
             evergreen: true,
           }
         : {
             ...sectionRouteProps(data),
-            label: 'Float Pick',
+            label: LABELS.todayFloatPick,
           },
     outputFilename: () => `float-pick-${isoDay()}`,
   },

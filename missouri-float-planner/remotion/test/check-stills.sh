@@ -33,6 +33,10 @@ STILLS=(
   # social-gauge-portrait is the PRODUCTION Eddy Says reel (river_highlight);
   # the square social-gauge and the alert are the other two gauge layouts.
   "social-gauge-portrait:0,120"
+  # Full reading: opening, legible first paragraph, and closing CTA.
+  "social-eddy-read:0,18,240"
+  # Long names/text and a paragraph transition (fixture timeline is asserted).
+  "social-eddy-read-long:0,18,420,438,1300"
   "social-gauge:0,120"
   "social-gauge-alert:0,120"
   "social-trend-portrait:0,120"

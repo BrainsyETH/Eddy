@@ -84,7 +84,7 @@ export interface Cover {
   portrait: boolean;
   tone: SocialTone;
   inset: number;
-  /** Content box, inside the inset and — on portrait — inside the 4:5 grid crop. */
+  /** Content box, inside the inset and — on portrait — inside the selected crop. */
   top: number;
   left: number;
   width: number;
@@ -99,9 +99,10 @@ export function coverGeometry(
   size: Size,
   tone: SocialTone = 'light',
   platform: SocialPlatform = 'instagram',
+  squareSafe = false,
 ): Cover {
   const portrait = size.height > size.width;
-  const crop = gridCropGap(size.width, size.height, platform);
+  const crop = Math.max(gridCropGap(size.width, size.height, platform), squareSafe ? (size.height - size.width) / 2 : 0);
   const inset = portrait ? COVER_INSET.portrait : COVER_INSET.square;
   return {
     size,
@@ -362,11 +363,12 @@ export interface TileSpec {
   label: string;
   color?: string;
   compact?: boolean;
+  wrap?: boolean;
 }
 
 export function CoverTile({ cover, tile }: { cover: Cover; tile: TileSpec }) {
   const s = SURFACES[cover.tone];
-  const valueSize = Math.round((tile.compact ? 40 : 58) * cover.k);
+  const valueSize = Math.round((tile.wrap ? 28 : tile.compact ? 40 : 58) * cover.k);
   return (
     <div
       style={{
@@ -388,7 +390,7 @@ export function CoverTile({ cover, tile }: { cover: Cover; tile: TileSpec }) {
             fontWeight: 600,
             lineHeight: 1,
             color: tile.color ? conditionInk(tile.color, cover.tone) : s.ink,
-            whiteSpace: 'nowrap',
+            whiteSpace: tile.wrap ? 'normal' : 'nowrap',
           }}
         >
           {tile.value}

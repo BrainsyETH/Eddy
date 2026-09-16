@@ -62,7 +62,7 @@ export function getOtterVariant(conditionCode: ConditionCode): OtterMood {
 export type GaugeAnimationProps = {
   riverName: string;
   conditionCode: ConditionCode;
-  gaugeHeightFt: number;
+  gaugeHeightFt: number | null;
   /** Ft bounds of the GOOD band. OPTIONAL: rivers without trustworthy ft
    *  thresholds (e.g. CFS-primary gauges with no ft mirror) omit them and the
    *  bar renders level-only — never a made-up band that can contradict the
@@ -182,10 +182,12 @@ export type FloatSectionProps = {
   takeOutMile: number;
   distanceMi: number;
   /** Estimated canoe float time at TODAY's flow (condition-adjusted), in hours. */
-  hoursToday: number;
+  hoursToday?: number;
+  /** Preformatted range resolved once by the shared route service. */
+  timeRangeLabel?: string | null;
   /** Typical canoe float time at normal "flowing" flow, in hours — the baseline
    *  the hero graphic diffs against ("3.5 hrs today, not the usual 4.5"). */
-  hoursTypical: number;
+  hoursTypical?: number;
   dateLabel?: string;
   /** Optional smaller secondary CTA line beneath the main CTA (growth prompt,
    *  e.g. "Follow for a new float every day"). Absent → not rendered. */

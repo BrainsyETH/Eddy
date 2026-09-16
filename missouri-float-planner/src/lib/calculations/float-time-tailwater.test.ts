@@ -103,7 +103,7 @@ test('dangerous outranks regulated when both apply', () => {
 // predicate cannot see any of that. These read the sources.
 
 const PLAN_ROUTE = readFileSync(
-  join(process.cwd(), 'src/app/api/plan/route.ts'),
+  join(process.cwd(), 'src/lib/calculations/route-estimate.ts'),
   'utf-8',
 );
 const CHAT_HANDLERS = readFileSync(
@@ -182,7 +182,7 @@ test('the reason travels with the absence, and the iOS plan card branches on it'
   // "Wait for it to drop", on a tailwater at ordinary generation, where
   // dropping is not the problem and waiting will not help.
   assert.match(
-    PLAN_ROUTE,
+    readFileSync(join(process.cwd(), 'src/app/api/plan/route.ts'), 'utf8'),
     /floatTimeWithheldReason: withholdReason/,
     '/api/plan must put the withholding reason on the wire',
   );

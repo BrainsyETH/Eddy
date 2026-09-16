@@ -415,15 +415,17 @@ export function gridCropGap(
 export const COVER_INSET = { square: 64, portrait: 72 } as const;
 
 // ─── Copy ───────────────────────────────────────────────────────────────────
-// Series labels and calls-to-action, in one place so a reel and its cover say
-// the same thing. The Float Pick's label is the same whether the pick is live
-// or the evergreen favourite: the caption says "Float Pick", so must the art.
+// Series labels and calls-to-action shared by covers and reels.
+// Live picks and evergreen trip ideas use distinct labels.
 
 export const WORDMARK = 'eddy.guide';
 
 export const LABELS = {
   floatPick: 'Float Pick',
+  todayFloatPick: 'Today’s Float Pick',
+  tripIdea: 'Trip Idea',
   eddySays: 'Eddy Says',
+  eddyRead: 'Eddy’s Read',
   riverReport: 'River Report',
   weekendForecast: 'Weekend Forecast',
   trend: '7-Day Trend',

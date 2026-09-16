@@ -1,8 +1,8 @@
 import type { FavoriteFloatSummary } from '@eddy/types';
 
-/** Makes the editorial estimate explicit: moving time at the source's 2 mph canoe pace. */
+/** Typical trip range; opening the plan recalculates for current water. */
 export function favoriteFloatMeta(
-  float: Pick<FavoriteFloatSummary, 'distanceMiles' | 'durationHours' | 'difficulty'>,
+  float: Pick<FavoriteFloatSummary, 'distanceMiles' | 'durationHours' | 'durationFormatted' | 'durationUnavailableReason' | 'difficulty'>,
 ): string {
   if (typeof float.durationHours !== 'number' || !Number.isFinite(float.durationHours)) return `${float.distanceMiles.toFixed(1)} mi · Open plan for float time · Class ${float.difficulty}`;
   const hours = float.durationHours.toFixed(1);

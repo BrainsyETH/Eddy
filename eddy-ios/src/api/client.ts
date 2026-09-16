@@ -1220,6 +1220,7 @@ export async function saveFloatPlan(plan: FloatPlan): Promise<SavePlanResponse> 
       snapshot: {
         distanceMiles: plan.distance.miles,
         estimatedFloatMinutes: plan.floatTime?.minutes ?? null,
+        floatTimeRange: plan.floatTime?.timeRange ?? null,
         driveBackMinutes: plan.driveBack?.minutes ?? null,
         conditionCode: plan.condition?.code ?? null,
         gaugeHeightFt: plan.condition?.gaugeHeightFt ?? null,
@@ -1842,7 +1843,7 @@ export async function fetchHighWater(signal?: AbortSignal): Promise<HighWaterEnt
 export async function fetchFavoriteFloats(
   signal?: AbortSignal,
 ): Promise<FavoriteFloatSummary[]> {
-  const data = await get<FavoriteFloatsResponse>('/api/favorite-floats', signal);
+  const data = await get<FavoriteFloatsResponse>('/api/favorite-floats?v=2', signal);
   return data.floats ?? [];
 }
 

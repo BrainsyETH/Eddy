@@ -38,7 +38,7 @@ test('nothing redefines STALE_READING_HOURS outside this module', () => {
   // copy being added, because a fourth copy type-checks perfectly.
   const repoRoot = join(__dirname, '..', '..');
   const files = [
-    'missouri-float-planner/src/app/api/plan/route.ts',
+    'missouri-float-planner/src/lib/calculations/route-estimate.ts',
     'missouri-float-planner/src/lib/social/live-conditions.ts',
     'eddy-ios/src/lib/offline-cache.ts',
   ];

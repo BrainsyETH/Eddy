@@ -1,3 +1,6 @@
+import { publishableReading } from '@shared/eddy-read-reel';
+import { shortSummary, reportStamp } from '@shared/social-editorial';
+import { weekendWeather } from './weekend-weather';
 // src/lib/social/post-context.ts
 //
 // Single assembler for social posts. Given a post type (+ optional river /
@@ -15,7 +18,6 @@ import type { SocialPlatform, SocialCustomContent } from './types';
 import type { PostKind, RenderData } from './post-types';
 import { overlayLiveConditions } from './live-conditions';
 import { riverDisplayLong, riverDisplayShort } from './river-display';
-import { loadFtThresholds } from './gauge-thresholds';
 import { pickSectionForRivers } from './section-picker';
 import { buildSocialRouteScene } from './route-scene';
 import { pickFavoriteFloat } from './favorite-floats';
@@ -47,8 +49,7 @@ export function truncateForVideo(text: string | null): string {
 // "Current" instead of "Current River" on hero reels and can't know real
 // punctuation like "St. Francis".)
 
-const longDate = () =>
-  new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+const longDate = () => `Prepared ${reportStamp()}`;
 
 const og = (type: string, platform: SocialPlatform, extra = '') =>
   `${BASE_URL}/api/og/social?type=${type}&platform=${platform}${extra}`;
@@ -165,7 +166,7 @@ export async function buildPostContext(
     return {
       postType,
       riverSlug: null,
-      renderData: { rivers, dateLabel: longDate(), globalQuote: globalSummary || undefined },
+      renderData: { rivers, dateLabel: longDate(), globalQuote: shortSummary(globalSummary) || undefined },
       caption: (platform, custom) => formatDailyDigestCaption(deduped, globalSummary, custom, platform),
       imageUrl: (platform) => og('digest', platform, `&rivers=${encodeURIComponent(pinned)}`),
     };
@@ -176,14 +177,15 @@ export async function buildPostContext(
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const floatable = (deduped as any[])
       .filter((u) => WEEKEND_FLOATABLE.has(u.condition_code))
+      .map((u) => ({ ...u, weather: weekendWeather(u.weather) }))
       .sort((a, b) => (WEEKEND_SEVERITY[a.condition_code] ?? 99) - (WEEKEND_SEVERITY[b.condition_code] ?? 99));
     if (floatable.length === 0) return null;
     // Prefer rivers with no rain coming; if every floatable river has rain in
     // the forecast, fall back to the best available and flag it with a note.
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const dry = floatable.filter((u: any) => !hasRainComing(u.weather));
-    const usingFallback = dry.length === 0;
-    const topRivers = (usingFallback ? floatable : dry).slice(0, 3);
+    const dry = floatable.filter((u: any) => u.weather != null && !hasRainComing(u.weather));
+    const usingFallback = dry.length === 0 && floatable.every((u) => u.weather != null);
+    const topRivers = (dry.length ? dry : floatable).slice(0, 3);
     // Holiday branding (Memorial Day / July 4th / Labor Day) carries through the
     // reel title + cover label so the video matches the caption's framing.
     const holidayName = upcomingHolidayWeekend();
@@ -198,7 +200,7 @@ export async function buildPostContext(
           gaugeHeightFt: u.gauge_height_ft,
           weather: weatherChip(u.weather),
         })),
-        dateLabel: holidayName ? `${holidayName} Weekend` : 'This Weekend',
+        dateLabel: `${topRivers.find(u => u.weather)?.weather?.forecast[0]?.dayOfWeek ?? "Weekend forecast unavailable"} · Current water`,
         title: holidayName ? `${holidayName} Forecast` : 'Weekend Forecast',
         rainNote: usingFallback,
       },
@@ -231,8 +233,11 @@ export async function buildPostContext(
     );
     if (section) {
       const routeScene = await buildSocialRouteScene(supabase, section);
-      const latest = floatable.find((u) => u.river_slug === section.riverSlug);
-      const conditionCode = latest?.condition_code || 'flowing';
+      const estimate = await estimateRoute(supabase, { riverId: section.riverId, startId: section.putInId, endId: section.takeOutId });
+      const conditionCode = estimate.conditionCode;
+      if (!estimate.floatTime) return null;
+      const timeRangeLabel = estimate.floatTime.formattedCompact;
+      section.distanceMi = estimate.distanceMiles;
       // Cover image carries the exact section + condition so it renders the SAME
       // float as the reel (instead of re-picking), and so the URL is unique per
       // section — Meta caches OG images by URL, and a shared URL served a stale
@@ -241,15 +246,15 @@ export async function buildPostContext(
         `&river=${section.riverSlug}` +
         `&putInMile=${section.putInMile}` +
         `&takeOutMile=${section.takeOutMile}` +
-        `&condition=${conditionCode}`;
+        `&condition=${conditionCode}&time=${encodeURIComponent(timeRangeLabel)}&asOf=${encodeURIComponent(estimate.estimatedAt)}`;
       return {
         postType,
         riverSlug: section.riverSlug,
         // No photoUrl: the live pick renders on the solid live background with a
         // condition-colored route + pulsing boat (a live instrument); the
         // evergreen fallback below keeps its editorial photo backdrop.
-        renderData: { ...section, ...routeScene, conditionCode, dateLabel: longDate() },
-        caption: (platform, custom) => formatSectionGuideCaption({ ...section, conditionCode }, custom, platform),
+        renderData: { ...section, ...routeScene, conditionCode, timeRangeLabel, dateLabel: longDate() },
+        caption: (platform, custom) => formatSectionGuideCaption({ ...section, conditionCode, timeRangeLabel }, custom, platform),
         // route is video-only; reuse the section thumbnail as the cover.
         imageUrl: (platform) => og('section', platform, coverParams),
       };
@@ -260,12 +265,15 @@ export async function buildPostContext(
     const fav = await pickFavoriteFloat(supabase);
     if (!fav) return null;
     const routeScene = await buildSocialRouteScene(supabase, fav);
+    const estimate = await estimateRoute(supabase, { riverId: fav.riverId, startId: fav.putInId, endId: fav.takeOutId, mode: 'typical' });
+    const timeRangeLabel = estimate.floatTime?.formattedCompact ?? null;
+    fav.distanceMi = estimate.distanceMiles;
     // Bake the exact endpoints into the cover URL so the poster renders the SAME
     // float as the reel (and the unique URL defeats Meta's by-URL OG cache).
     const coverParams =
       `&river=${fav.riverSlug}` +
       `&fromSlug=${encodeURIComponent(fav.fromSlug)}` +
-      `&toSlug=${encodeURIComponent(fav.toSlug)}`;
+      `&toSlug=${encodeURIComponent(fav.toSlug)}&time=${encodeURIComponent(timeRangeLabel ?? "unavailable")}&asOf=${encodeURIComponent(estimate.estimatedAt)}`;
     // Prefer the river's AI background (same art as the cover); fall back to the
     // guide section's own photo.
     const favBg = await bgUrl(supabase, fav.riverSlug);
@@ -275,14 +283,14 @@ export async function buildPostContext(
       renderData: {
         ...fav,
         ...routeScene,
+        timeRangeLabel,
         evergreen: true,
-        // 'flowing' is the evergreen baseline: it makes hoursToday === hoursTypical
-        // in the shared route props, so the reel shows typical pace with no delta.
+        // Evergreen status is distinct from live water; the estimate is typical.
         conditionCode: 'flowing',
         dateLabel: longDate(),
         photoUrl: favBg || fav.photoUrl,
       },
-      caption: (platform, custom) => formatFavoriteFloatCaption(fav, custom, platform),
+      caption: (platform, custom) => formatFavoriteFloatCaption({ ...fav, timeRangeLabel }, custom, platform),
       imageUrl: (platform) => og('favorite', platform, coverParams),
     };
   }
@@ -300,9 +308,9 @@ export async function buildPostContext(
     return {
       postType,
       riverSlug: trend.riverSlug,
-      renderData: { ...trend, conditionCode, weather, dateLabel: 'This Week' },
+      renderData: { ...trend, conditionCode, weather, dateLabel: `Latest reading ${reportStamp(new Date(trend.readingAt))}` },
       caption: (platform, custom) =>
-        formatWeeklyTrendCaption({ ...trend, weather: latest?.weather ?? null }, custom, platform),
+        formatWeeklyTrendCaption({ ...trend, conditionCode, weather: latest?.weather ?? null }, custom, platform),
       // Pin the river AND the instant: the cover re-derives the seven days as of
       // this post's own asOf (trend-picker honours it), so its delta, range and
       // sparkline match the reel instead of the gauge's later movement. The
@@ -322,7 +330,8 @@ export async function buildPostContext(
     // Fetch by explicit eddy_update id (cron) or latest for a river (quick-post).
     let query = supabase
       .from('eddy_updates')
-      .select('id, river_slug, condition_code, gauge_height_ft, quote_text, summary_text')
+      .select('id, river_slug, condition_code, gauge_height_ft, quote_text, summary_text, eddy_read, generated_at')
+      .gt('expires_at', nowIso)
       .is('section_slug', null);
     query = opts.eddyUpdateId
       ? query.eq('id', opts.eddyUpdateId)
@@ -331,35 +340,20 @@ export async function buildPostContext(
     const { data: rawUpdate } = await query.maybeSingle();
     if (!rawUpdate) return null;
     const [update] = await overlayLiveConditions(supabase, [rawUpdate]);
-
-    // Optimal band for the gauge composition — unit-aware ft thresholds via the
-    // shared resolver. The old inline query filtered river_gauges.river_id (a
-    // UUID) by slug, always failed silently, and painted a generic 1.5–4.0 ft
-    // band on every daily reel. Undefined thresholds → the reel draws a
-    // level-only bar instead of inventing a band.
-    const { optimalMin, optimalMax, levelHigh, levelDangerous } =
-      await loadFtThresholds(supabase, update.river_slug);
-
-    // Same cached AI art the cover uses, so the reel's full-bleed background
-    // matches its thumbnail (null → the reel's solid brand background).
-    const backgroundUrl = (await bgUrl(supabase, update.river_slug)) ?? undefined;
+    const readingText = publishableReading(update);
+    if (!readingText) return null;
 
     return {
       postType,
       riverSlug: update.river_slug,
       renderData: {
         riverName: riverDisplayLong(update.river_slug),
+        readingText,
+        dateLabel: `Report ${reportStamp(new Date(rawUpdate.generated_at))}` + (update.reading_timestamp ? ` · Gauge ${reportStamp(new Date(update.reading_timestamp))}` : " · Gauge time unavailable"),
         conditionCode: update.condition_code,
         gaugeHeightFt: update.gauge_height_ft,
-        optimalMin,
-        optimalMax,
-        levelHigh,
-        levelDangerous,
-        quoteText: truncateForVideo(update.quote_text ?? null),
-        summaryText: truncateForVideo(update.summary_text ?? null),
-        backgroundUrl,
       },
-      caption: (platform, custom) => formatRiverHighlightCaption(update, custom, platform),
+      caption: (platform, custom) => formatRiverHighlightCaption({ ...update, quote_text: readingText }, custom, platform),
       // Pin the exact eddy_update row plus the reading and condition the reel
       // shows (the live-conditions overlay can move both), and the post's own
       // timestamp for the cover's subtitle — so the cover Meta renders at crawl

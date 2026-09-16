@@ -44,7 +44,8 @@ async function buildRenderData(post: ScheduledPost, supabase: any) {
     riverSlug: post.riverSlug ?? undefined,
     eddyUpdateId: post.eddyUpdateId ?? undefined,
   });
-  return ctx?.renderData ?? {};
+  if (!ctx) throw new Error('No fresh content available; refusing to render an empty post');
+  return ctx.renderData;
 }
 
 // Link a clip post back to its clip_library row by matching the rendered video
@@ -110,10 +111,9 @@ async function runSocialPosting(request: NextRequest) {
   // and keep the row so the callback can still find and report it.
   try {
     const nonRenderCutoff = new Date(Date.now() - 15 * 60 * 1000).toISOString();
-    // 12s portrait reels usually render in 60-90s on ubuntu-latest. 10 min is
-    // a generous ceiling; anything older than that is dead and the admin
-    // retry button needs signal sooner than 30 min.
-    const renderCutoff = new Date(Date.now() - 10 * 60 * 1000).toISOString();
+    // Full-reading reels scale with report length; allow longer renders
+    // before exposing a retry in the admin history.
+    const renderCutoff = new Date(Date.now() - 30 * 60 * 1000).toISOString();
 
     const { count: nonRenderStale } = await supabase
       .from('social_posts')
@@ -133,7 +133,7 @@ async function runSocialPosting(request: NextRequest) {
       .update(
         {
           status: 'failed',
-          error_message: 'Stale — render did not complete within 10 min',
+          error_message: 'Stale — render did not complete within 30 min',
           updated_at: new Date().toISOString(),
         },
         { count: 'exact' },
@@ -171,6 +171,18 @@ async function runSocialPosting(request: NextRequest) {
     }
 
     for (const [groupKey, groupPosts] of Array.from(videoGroups.entries())) {
+      const first = groupPosts[0];
+      const readingContext = first.postType === 'river_highlight'
+        ? await buildPostContext(supabase, { postType: 'river_highlight', riverSlug: first.riverSlug ?? undefined, eddyUpdateId: first.eddyUpdateId ?? undefined }) : null;
+      if (first.postType === 'river_highlight' && !readingContext) { skipped += groupPosts.length; continue; }
+      if (readingContext) {
+        const { data: snippets } = await supabase.from('social_custom_content').select('*').eq('active', true);
+        for (const post of groupPosts) {
+          Object.assign(post, readingContext.caption(post.platform, snippets ?? []));
+          post.imageUrl = readingContext.imageUrl(post.platform);
+        }
+      }
+
       const todayStart = new Date();
       todayStart.setUTCHours(0, 0, 0, 0);
       const postIds: string[] = [];
@@ -190,6 +202,7 @@ async function runSocialPosting(request: NextRequest) {
           .delete()
           .eq('post_type', post.postType)
           .eq('platform', post.platform)
+          .eq('auto_publish', true)
           .in('status', ['failed', 'publishing', 'pending'])
           .gte('created_at', todayStart.toISOString());
 
@@ -223,7 +236,7 @@ async function runSocialPosting(request: NextRequest) {
       // Dispatch ONE GH Actions workflow for all platforms
       const firstPost = groupPosts[0];
       try {
-        const renderData = await buildRenderData(firstPost, supabase);
+        const renderData = readingContext?.renderData ?? await buildRenderData(firstPost, supabase);
         const { compositionId, inputProps, outputFilename } = getCompositionForPost(
           firstPost.postType as Parameters<typeof getCompositionForPost>[0],
           renderData,
@@ -311,7 +324,8 @@ async function runSocialPosting(request: NextRequest) {
         .delete()
         .eq('post_type', post.postType)
         .eq('platform', post.platform)
-        .in('status', ['failed', 'publishing', 'pending'])
+        .eq('auto_publish', true)
+          .in('status', ['failed', 'publishing', 'pending'])
         .gte('created_at', todayStart.toISOString());
 
       const { data: record, error: insertError } = await supabase

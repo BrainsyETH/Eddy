@@ -32,6 +32,8 @@ export async function POST(request: NextRequest) {
     platforms: string[];
   };
 
+  if (type === 'weekly_trend') return NextResponse.json({ error: 'Weekly Trend is retired. Generate an Eddy’s Read for a river instead.' }, { status: 410 });
+
   if (!type) {
     return NextResponse.json({ error: 'type is required' }, { status: 400 });
   }
@@ -103,18 +105,8 @@ async function dispatchVideo(
 ) {
   const postIds: string[] = [];
   const insertErrors: string[] = [];
-  const todayStart = new Date();
-  todayStart.setUTCHours(0, 0, 0, 0);
-
-  for (const platform of platforms) {
-    // Manual action — clear today's rows so the dedup index won't block.
-    await supabase
-      .from('social_posts')
-      .delete()
-      .eq('post_type', kind)
-      .eq('platform', platform)
-      .gte('created_at', todayStart.toISOString());
-
+  const renderRequest = getCompositionForPost(kind, ctx.renderData);
+  for (const platform of [...new Set(platforms)]) {
     const { caption, hashtags } = ctx.caption(platform, customContent);
     const { data: record, error: insertError } = await supabase
       .from('social_posts')
@@ -127,6 +119,8 @@ async function dispatchVideo(
         media_type: 'video',
         hashtags,
         status: 'rendering',
+        auto_publish: false,
+        render_request: renderRequest,
       })
       .select('id')
       .single();
@@ -145,8 +139,8 @@ async function dispatchVideo(
     );
   }
 
-  const { compositionId, inputProps, outputFilename } = getCompositionForPost(kind, ctx.renderData);
-  const success = await triggerVideoRender({ postIds: postIds.join(','), compositionId, inputProps, outputFilename });
+  const { compositionId, inputProps, outputFilename } = renderRequest;
+  const success = await triggerVideoRender({ postIds: postIds.join(','), compositionId, inputProps, outputFilename }).catch(() => false);
 
   if (!success) {
     const reason = 'GH Actions dispatch returned non-204 — check GH_ACTIONS_TOKEN scope/expiry and that workflow render-social-video.yml exists on the configured ref.';
@@ -169,7 +163,7 @@ async function dispatchVideo(
     entityType: 'social_post',
     details: { platforms, dispatched: postIds.length },
   });
-  return NextResponse.json({ rendering: postIds.length });
+  return NextResponse.json({ rendering: postIds.length, reviewRequired: true, warnings: insertErrors });
 }
 
 // --- Tip (custom content, image-only) ---
@@ -193,7 +187,7 @@ async function postTip(
   const caption = `${content.text}\n\neddy.guide`;
   const imageUrl = `${BASE_URL}/api/og/social?type=tip&id=${contentId}`;
 
-  const results = await publishToPlatforms(supabase, platforms, () => ({
+  const results = await createDraftsForPlatforms(supabase, platforms, () => ({
     caption,
     imageUrl,
     hashtags: [],
@@ -204,10 +198,10 @@ async function postTip(
   logAdminAction({
     action: 'quick_post_tip',
     entityType: 'social_post',
-    details: { contentId, platforms, results: results.map((r) => ({ platform: r.platform, success: r.success })) },
+    details: { contentId, platforms, results: results.map((r) => ({ platform: r.platform, status: r.status })) },
   });
 
-  return NextResponse.json({ results });
+  return NextResponse.json({ results, reviewRequired: true });
 }
 
 // --- Shared publish helper ---
@@ -220,33 +214,22 @@ type PostBuilder = (platform: SocialPlatform) => {
   riverSlug: string | null;
 };
 
-async function publishToPlatforms(
+async function createDraftsForPlatforms(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   supabase: any,
   platforms: SocialPlatform[],
   buildPost: PostBuilder,
 ) {
-  const results: Array<{ platform: string; success: boolean; error?: string; postId?: string }> = [];
+  const results: Array<{ platform: string; status: 'review' | 'failed'; error?: string; postId?: string }> = [];
 
   for (const platform of platforms) {
     const adapter = getAdapter(platform);
     if (!adapter) {
-      results.push({ platform, success: false, error: `No credentials for ${platform}` });
+      results.push({ platform, status: 'failed', error: `No credentials for ${platform}` });
       continue;
     }
 
     const post = buildPost(platform);
-
-    // Admin quick-post is an intentional manual action — clear ALL existing
-    // records for this post type/platform today so the dedup index won't block it.
-    const todayStart = new Date();
-    todayStart.setUTCHours(0, 0, 0, 0);
-    await supabase
-      .from('social_posts')
-      .delete()
-      .eq('post_type', post.postType)
-      .eq('platform', platform)
-      .gte('created_at', todayStart.toISOString());
 
     const { data: record, error: insertError } = await supabase
       .from('social_posts')
@@ -258,48 +241,19 @@ async function publishToPlatforms(
         image_url: post.imageUrl,
         media_type: 'image',
         hashtags: post.hashtags,
-        status: 'publishing',
+        status: 'review',
+        auto_publish: false,
       })
       .select('id')
       .single();
 
     if (insertError) {
-      results.push({ platform, success: false, error: insertError.message });
+      results.push({ platform, status: 'failed', error: insertError.message });
       continue;
     }
 
-    try {
-      const result = await adapter.publishPost({ caption: post.caption, imageUrl: post.imageUrl });
+    results.push({ platform, status: 'review', postId: record.id });
 
-      if (result.success) {
-        await supabase
-          .from('social_posts')
-          .update({
-            status: 'published',
-            platform_post_id: result.platformPostId || null,
-            published_at: new Date().toISOString(),
-            updated_at: new Date().toISOString(),
-          })
-          .eq('id', record.id);
-
-        results.push({ platform, success: true, postId: result.platformPostId });
-      } else {
-        await supabase
-          .from('social_posts')
-          .update({ status: 'failed', error_message: result.error || 'Unknown error', updated_at: new Date().toISOString() })
-          .eq('id', record.id);
-
-        results.push({ platform, success: false, error: result.error });
-      }
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Unknown error';
-      await supabase
-        .from('social_posts')
-        .update({ status: 'failed', error_message: msg, updated_at: new Date().toISOString() })
-        .eq('id', record.id);
-
-      results.push({ platform, success: false, error: msg });
-    }
   }
 
   return results;

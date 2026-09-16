@@ -1,3 +1,5 @@
+import { EddyReadReel, type EddyReadReelProps } from "./compositions/social/EddyReadReel";
+import { readingDuration, LONG_READING_FIXTURE } from "../../shared/eddy-read-reel";
 import React from "react";
 import { Composition, staticFile } from "remotion";
 import { TutorialFull } from "./compositions/TutorialFull";
@@ -69,6 +71,7 @@ const ROUTE_DEMO = {
   takeOutName: "Round Spring",
   takeOutMile: 35.44,
   distanceMi: 9.21,
+  timeRangeLabel: "~3h 15m–5h",
   hoursToday: 4.2,
   hoursTypical: 4.6,
   dateLabel: "April 18, 2026",
@@ -481,6 +484,16 @@ export const RemotionRoot: React.FC = () => {
         } satisfies GaugeAnimationProps}
       />
 
+      <Composition id="social-eddy-read" component={EddyReadReel} width={1080} height={1920} fps={FPS}
+        durationInFrames={readingDuration('Check the latest river reading before planning your float.')}
+        defaultProps={{ riverName: 'Current River', readingText: 'Check the latest river reading before planning your float.', dateLabel: 'Report preview' } satisfies EddyReadReelProps}
+        calculateMetadata={({ props }: { props: EddyReadReelProps }) => ({ durationInFrames: readingDuration(props.readingText) })} />
+
+      <Composition id="social-eddy-read-long" component={EddyReadReel} width={1080} height={1920} fps={FPS}
+        durationInFrames={readingDuration(LONG_READING_FIXTURE)}
+        defaultProps={{ riverName: 'Little Missouri River', readingText: LONG_READING_FIXTURE, dateLabel: 'Report Sep 16, 9:00 AM CDT · Gauge Sep 16, 8:45 AM CDT' } satisfies EddyReadReelProps}
+        calculateMetadata={({ props }: { props: EddyReadReelProps }) => ({ durationInFrames: readingDuration(props.readingText) })} />
+
       {/* Gauge Animation — portrait for Instagram Stories */}
       <Composition
         id="social-gauge-portrait"
@@ -663,6 +676,7 @@ export const RemotionRoot: React.FC = () => {
           takeOutName: "Primitive Access",
           takeOutMile: 6,
           distanceMi: 6,
+          timeRangeLabel: "~3h–4h 45m",
           hoursToday: 3.8,
           hoursTypical: 3,
           routeCoordinates: ROUTE_DEMO_LINE,

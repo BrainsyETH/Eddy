@@ -1,3 +1,4 @@
+import { estimateRoute } from '@/lib/calculations/route-estimate';
 // src/lib/access-points/detail.ts
 // Shared access-point-detail data loader. Extracted from the API route so both
 // the /api/rivers/[slug]/access/[accessSlug] handler and the server-rendered
@@ -162,7 +163,7 @@ export async function getAccessPointDetail(
         slug: entry.point.slug,
         direction: 'upstream',
         distanceMiles: Math.round(distance * 10) / 10,
-        estimatedFloatTime: estimateFloatTime(distance),
+        estimatedFloatTime: null,
         riverMile: entry.mile,
         // `!== false` so a row read before the column existed stays eligible.
         // The Float-trips tab offers a trip TO each of these, and a park is a
@@ -179,7 +180,7 @@ export async function getAccessPointDetail(
         slug: entry.point.slug,
         direction: 'downstream',
         distanceMiles: Math.round(distance * 10) / 10,
-        estimatedFloatTime: estimateFloatTime(distance),
+        estimatedFloatTime: null,
         riverMile: entry.mile,
         // `!== false` so a row read before the column existed stays eligible.
         // The Float-trips tab offers a trip TO each of these, and a park is a
@@ -188,6 +189,17 @@ export async function getAccessPointDetail(
       });
     }
   }
+
+  await Promise.all(nearbyAccessPoints.map(async (point) => {
+    if (ap.is_float_endpoint === false || point.isFloatEndpoint === false) return;
+    try {
+      const estimate = await estimateRoute(supabase, { riverId: river.id,
+        startId: point.direction === 'upstream' ? point.id : ap.id,
+        endId: point.direction === 'upstream' ? ap.id : point.id });
+      point.estimatedFloatTime = estimate.floatTime?.formatted ?? null;
+      point.distanceMiles = Math.round(estimate.distanceMiles * 10) / 10;
+    } catch { /* An unavailable route must not invent a time. */ }
+  }));
 
   // ── Availability, by whichever name this place goes under ────────────────
   //
@@ -345,17 +357,6 @@ export async function getAccessPointDetail(
     ok: true,
     data: { accessPoint, nearbyAccessPoints, gaugeStatus },
   };
-}
-
-// Helper to estimate float time based on distance
-function estimateFloatTime(miles: number): string | null {
-  if (miles <= 0) return null;
-  // Assume average 2 mph float speed
-  const hours = miles / 2;
-  if (hours < 1) {
-    return `~${Math.round(hours * 60)} min`;
-  }
-  return `~${Math.round(hours * 10) / 10} hr`;
 }
 
 // Helper to get gauge status for the river (segment-aware based on access point river mile)
