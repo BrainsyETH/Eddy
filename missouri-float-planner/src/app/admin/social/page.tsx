@@ -596,7 +596,7 @@ export default function SocialAdminPage() {
       });
       if (res.ok) {
         const body = await res.json().catch(() => null);
-        const count = body?.rendering ?? body?.results?.filter?.((r: { success: boolean }) => r.success)?.length ?? 0;
+        const count = body?.rendering ?? body?.results?.filter?.((r: { status: string }) => r.status === 'review')?.length ?? 0;
         showToast(count ? `Preparing ${count} draft(s) for review` : 'No drafts created', 'success');
         fetchPosts();
       } else {
@@ -709,8 +709,8 @@ export default function SocialAdminPage() {
       });
       if (res.ok) {
         const data = await res.json();
-        const successes = data.results?.filter((r: { success: boolean }) => r.success).length || 0;
-        const failures = data.results?.filter((r: { success: boolean }) => !r.success) || [];
+        const successes = data.results?.filter((r: { status: string }) => r.status === 'review').length || 0;
+        const failures = data.results?.filter((r: { status: string }) => r.status === 'failed') || [];
         if (failures.length > 0) {
           showToast(`Drafts ready for ${successes} platform(s). ${failures.length} failed: ${failures.map((f: { platform: string; error?: string }) => `${f.platform}: ${f.error}`).join('; ')}`, failures.length === data.results?.length ? 'error' : 'success');
         } else {
@@ -766,8 +766,8 @@ export default function SocialAdminPage() {
         if (data.rendering) {
           showToast(`Video render dispatched for ${data.rendering} platform(s) — will be ready for review after rendering`, 'success');
         } else {
-          const successes = data.results?.filter((r: { success: boolean }) => r.success).length || 0;
-          const failures = data.results?.filter((r: { success: boolean }) => !r.success) || [];
+          const successes = data.results?.filter((r: { status: string }) => r.status === 'review').length || 0;
+          const failures = data.results?.filter((r: { status: string }) => r.status === 'failed') || [];
           if (failures.length > 0) {
             showToast(`Drafts ready for ${successes} platform(s). ${failures.length} failed: ${failures.map((f: { platform: string; error?: string }) => `${f.platform}: ${f.error}`).join('; ')}`, failures.length === data.results?.length ? 'error' : 'success');
           } else {

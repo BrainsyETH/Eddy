@@ -51,6 +51,9 @@ jobs:
           cache: npm
           cache-dependency-path: missouri-float-planner/remotion/package-lock.json
 
+      - name: Install video test dependencies
+        run: sudo apt-get update && sudo apt-get install -y ffmpeg
+
       - name: Install dependencies
         run: npm ci
 

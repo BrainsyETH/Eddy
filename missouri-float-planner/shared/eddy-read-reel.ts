@@ -31,3 +31,8 @@ export function publishableReading(prose: { eddy_read?: string | null; quote_tex
   const lead = prose.eddy_read?.trim();
   return lead && !full.includes(lead) ? `${lead}\n\n${full}` : full;
 }
+
+/** Fixed visual fixture: exercises long river names, multiple pages and the ending. */
+export const LONG_READING_FIXTURE = 'The river is holding steady, but wide gravel crossings can still be shallow. Choose your line carefully and leave time for stops along the way. Check the latest gauge reading before you launch.\n\n' +
+  'Greer Crossing Recreation Area to Riverton East Access is a substantial outing. Verify your take-out, shuttle arrangements and available daylight before leaving. This is a visual test fixture, not a current river forecast.\n\n' +
+  'If conditions change, reassess your plans. The app has the latest conditions and access information for the route you choose.';

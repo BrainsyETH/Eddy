@@ -1,5 +1,6 @@
 -- Manual generated posts wait for review. Scheduled posts keep auto-publishing.
 alter table public.social_posts add column if not exists auto_publish boolean not null default true;
+comment on column public.social_posts.auto_publish is 'Publication policy: true permits automation. Pre-migration rows default true for compatibility; original manual/scheduled provenance is unknown.';
 alter table public.social_posts add column if not exists render_request jsonb;
 alter table public.social_posts drop constraint if exists social_posts_status_check;
 alter table public.social_posts add constraint social_posts_status_check check

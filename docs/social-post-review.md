@@ -73,3 +73,17 @@ The existing reading already incorporates trend context from report generation;
 the reel adds no invented trend interpretation. Tests cover word preservation,
 continuous timing, duration growth, complete-report inclusion and stale-prose
 rejection. Animated visual QA and audio listening remain release gates.
+
+## Review follow-ups
+
+The Remotion CI job now installs ffmpeg before video-health tests. Eddy’s Read
+has opening, transition, long-text and closing fixtures in the smoke/visual list.
+Missing or changed baselines remain a failing gate until CI stills are inspected;
+do not blindly adopt all generated baselines. Legacy trend render/cover handlers
+remain for historical assets; new scheduling and generation remain disabled.
+
+Image draft creation returns `status: review` (or `failed`) rather than implying
+that publication succeeded. `auto_publish` describes publication policy, not
+historical provenance. Run `scripts/review/social-migration-preflight.sql` against
+production read-only before applying the pending migration; this session had no
+database connection, so those checks have not been executed.

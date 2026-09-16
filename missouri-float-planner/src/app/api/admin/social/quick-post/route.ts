@@ -187,7 +187,7 @@ async function postTip(
   const caption = `${content.text}\n\neddy.guide`;
   const imageUrl = `${BASE_URL}/api/og/social?type=tip&id=${contentId}`;
 
-  const results = await publishToPlatforms(supabase, platforms, () => ({
+  const results = await createDraftsForPlatforms(supabase, platforms, () => ({
     caption,
     imageUrl,
     hashtags: [],
@@ -198,7 +198,7 @@ async function postTip(
   logAdminAction({
     action: 'quick_post_tip',
     entityType: 'social_post',
-    details: { contentId, platforms, results: results.map((r) => ({ platform: r.platform, success: r.success })) },
+    details: { contentId, platforms, results: results.map((r) => ({ platform: r.platform, status: r.status })) },
   });
 
   return NextResponse.json({ results, reviewRequired: true });
@@ -214,18 +214,18 @@ type PostBuilder = (platform: SocialPlatform) => {
   riverSlug: string | null;
 };
 
-async function publishToPlatforms(
+async function createDraftsForPlatforms(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   supabase: any,
   platforms: SocialPlatform[],
   buildPost: PostBuilder,
 ) {
-  const results: Array<{ platform: string; success: boolean; error?: string; postId?: string }> = [];
+  const results: Array<{ platform: string; status: 'review' | 'failed'; error?: string; postId?: string }> = [];
 
   for (const platform of platforms) {
     const adapter = getAdapter(platform);
     if (!adapter) {
-      results.push({ platform, success: false, error: `No credentials for ${platform}` });
+      results.push({ platform, status: 'failed', error: `No credentials for ${platform}` });
       continue;
     }
 
@@ -248,11 +248,11 @@ async function publishToPlatforms(
       .single();
 
     if (insertError) {
-      results.push({ platform, success: false, error: insertError.message });
+      results.push({ platform, status: 'failed', error: insertError.message });
       continue;
     }
 
-    results.push({ platform, success: true, postId: record.id });
+    results.push({ platform, status: 'review', postId: record.id });
 
   }
 
