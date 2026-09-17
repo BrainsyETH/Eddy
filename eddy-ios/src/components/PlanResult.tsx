@@ -67,11 +67,13 @@ import { SafetyDisclaimer } from '@/components/SafetyDisclaimer';
 
 interface Props {
   plan: FloatPlan;
+  /** The planner already holds these; shared plans can load them independently. */
+  accessPoints?: MapAccessPoint[];
   /** Share, start over — whatever the host screen offers. */
   actions?: ReactNode;
 }
 
-export function PlanResult({ plan, actions }: Props) {
+export function PlanResult({ plan, actions, accessPoints }: Props) {
   const { colors, elevation, isDark } = useTheme();
 
   return (
@@ -231,7 +233,7 @@ export function PlanResult({ plan, actions }: Props) {
         </View>
       ) : null}
 
-      <PlanAlongRoute plan={plan} />
+      <PlanAlongRoute key={plan.river.slug} plan={plan} accessPoints={accessPoints} />
 
       <PlanSupport plan={plan} />
 
