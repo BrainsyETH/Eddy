@@ -138,3 +138,11 @@ export function floatableRank(code: string): number {
 export function alarmRank(code: string): number {
   return CONDITION_SYSTEM[code as ConditionCode]?.severity ?? CONDITION_SYSTEM.unknown.severity;
 }
+
+/** Canonical tint flattened onto white, so photo-backed chips stay opaque. */
+export function conditionOpaqueBg(code: string): string {
+  const channels = conditionBg(code).match(/[\d.]+/g)?.map(Number);
+  if (!channels || channels.length !== 4) return '#ffffff';
+  const [r, g, b, alpha] = channels;
+  return `rgb(${[r, g, b].map(channel => Math.round(channel * alpha + 255 * (1 - alpha))).join(',')})`;
+}
