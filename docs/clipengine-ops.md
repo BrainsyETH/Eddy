@@ -266,3 +266,21 @@ Signals that the pipeline is stalled even though workflows are "green":
 The Remotion Check runner installs ffmpeg before video-health tests. A successful
 health check must be followed by render smoke and visual regression checks.
 Do not accept new baselines until the generated frames have been visually reviewed.
+
+
+### Route layout and renderer freshness
+
+Float Pick geographic reels reserve separate map, stop annotation, and summary
+areas. Labels never float over the canoe. The progress counter lives in the
+annotation header, and the camera returns to the complete route over 36 frames
+after arrival. The missing-geometry itinerary retains its factual, scrolling
+rows inside the map area. Visual coverage includes both camera transitions,
+arrival and the final hold, long names, the full approximate-feature summary,
+and the real Akers Ferry → Pulltite channel from the September 18 screenshot.
+
+`render-reusable.yml` resolves the latest first-parent commit touching the render
+image inputs and checks its immutable GHCR SHA tag. It never consumes `latest`.
+If that image is still building or its build failed, the runtime path renders
+from the workflow checkout. An older image therefore cannot silently keep a
+merged layout fix out of newly generated posts. Existing MP4s remain unchanged;
+use **Render again** after rollout, inspect the new draft, then publish.

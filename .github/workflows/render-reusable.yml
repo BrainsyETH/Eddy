@@ -50,24 +50,36 @@ on:
         value: ${{ jobs.container-render.outputs.total_silence_s || jobs.runtime-render.outputs.total_silence_s }}
 
 jobs:
-  # Pick the render path deterministically: is the prebuilt image available?
+  # Use an image only when it contains this revision of the renderer.
   preflight:
     runs-on: ubuntu-latest
     timeout-minutes: 3
     permissions:
       packages: read
+      contents: read
     outputs:
       use_container: ${{ steps.check.outputs.use_container }}
+      image: ${{ steps.check.outputs.image }}
     steps:
+      - name: Checkout render revision
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          fetch-depth: 0
       - name: Check render image
         id: check
         run: |
           echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
-          if docker manifest inspect ghcr.io/brainsyeth/eddy-remotion:latest >/dev/null 2>&1; then
+          # Follow first-parent merge history: the image is tagged with the
+          # main push SHA, not an individual commit inside the merged PR.
+          RENDER_REVISION=$(bash missouri-float-planner/remotion/scripts/render-revision.sh)
+          test -n "$RENDER_REVISION"
+          RENDER_IMAGE="ghcr.io/brainsyeth/eddy-remotion:$RENDER_REVISION"
+          echo "image=$RENDER_IMAGE" >> "$GITHUB_OUTPUT"
+          if docker manifest inspect "$RENDER_IMAGE" >/dev/null 2>&1; then
             echo "use_container=true" >> "$GITHUB_OUTPUT"
-            echo "Render image present — fast container path."
+            echo "Rendering revision $RENDER_REVISION from its immutable image."
           else
-            echo "::warning::ghcr.io/brainsyeth/eddy-remotion:latest not found — using the slower runtime render. Build it via build-remotion-image.yml."
+            echo "::warning::Image for $RENDER_REVISION unavailable — rendering the checked-out revision at runtime."
             echo "use_container=false" >> "$GITHUB_OUTPUT"
           fi
 
@@ -81,7 +93,7 @@ jobs:
       contents: read
       packages: read
     container:
-      image: ghcr.io/brainsyeth/eddy-remotion:latest
+      image: ${{ needs.preflight.outputs.image }}
       credentials:
         username: ${{ github.actor }}
         password: ${{ secrets.GITHUB_TOKEN }}

@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { ROUTE_MAP_STAGE } from './social-route-layout';
 import {
   DEFAULT_TIMING,
   arrivalFrame,
@@ -182,4 +183,34 @@ test('missing and degenerate geometry never becomes an invented route', () => {
   assert.equal(buildJourneyRoute([]), null);
   assert.equal(buildJourneyRoute([[-91, 37]]), null);
   assert.equal(buildJourneyRoute([[-91, 37], [-91, 37]]), null);
+});
+
+// The production route layout must keep the moving mascot inside the map,
+// including the zoom transitions; end cards must contain the whole route.
+test('real river layouts finish on a full overview and never lose the canoe', async () => {
+  const { default: fixture } = await import('../remotion/src/fixtures/akers-pulltite.json');
+  for (const coordinates of [fixture.routeCoordinates as Array<[number, number]>, PULLTITE_ROUND_SPRING]) {
+    const journey = buildJourney(coordinates)!;
+    const stage = ROUTE_MAP_STAGE;
+    for (const stops of [[], [{ progress: 0.25 }, { progress: 0.8 }]]) {
+      const arrival = arrivalFrame(stops);
+      for (let frame = 0; frame < journeyDuration(stops.length); frame++) {
+        const state = journeyState(frame, stops);
+        const p = journey.locate(state.progress).point;
+        const camera = journeyCamera(frame, journey.points, p, stage, DEFAULT_TIMING, arrival);
+        const x = p.x * camera.scale + camera.translateX;
+        const y = p.y * camera.scale + camera.translateY;
+        assert.ok(x - 120 >= 0 && x + 40 <= stage.width, `mascot horizontal bounds at ${frame}`);
+        assert.ok(y - 68 >= 0 && y + 50 <= stage.height, `mascot vertical bounds at ${frame}`);
+        if (frame >= arrival + 36) {
+          for (const point of journey.points) {
+            const sx = point.x * camera.scale + camera.translateX;
+            const sy = point.y * camera.scale + camera.translateY;
+            assert.ok(sx >= 129.99 && sx <= stage.width - 129.99, `route x at ending ${frame}`);
+            assert.ok(sy >= 79.99 && sy <= stage.height - 79.99, `route y at ending ${frame}`);
+          }
+        }
+      }
+    }
+  }
 });

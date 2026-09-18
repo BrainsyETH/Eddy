@@ -86,6 +86,8 @@ export type JourneyStage = {
   boatY: number;
   /** Inset kept clear around the whole-route overview. */
   padding: number;
+  /** Optional wider horizontal inset for a mascot beside the route marker. */
+  paddingX?: number;
 };
 
 /** screen = world * scale + translate. */
@@ -551,9 +553,11 @@ export function journeyCamera(
   current: JourneyPoint,
   stage: JourneyStage,
   timing: JourneyTiming = DEFAULT_TIMING,
+  /** Arrival starts a smooth return to the whole-route overview. */
+  arrival?: number,
 ): JourneyCamera {
   const bounds = routeBounds(route);
-  const usableW = Math.max(1, stage.width - stage.padding * 2);
+  const usableW = Math.max(1, stage.width - (stage.paddingX ?? stage.padding) * 2);
   const usableH = Math.max(1, stage.height - stage.padding * 2);
   const fit = Math.min(
     1,
@@ -561,17 +565,26 @@ export function journeyCamera(
     bounds.height > 0 ? usableH / bounds.height : 1,
   );
   const start = timing.introFrames - PUSH_IN_LEAD;
-  const k = smoothstep(clamp01((frame - start) / PUSH_IN_FRAMES));
-
-  const scale = Math.exp(Math.log(fit) * (1 - k)); // log-lerp fit → 1
-  const anchorWorldX = bounds.centerX + (current.x - bounds.centerX) * k;
-  const anchorWorldY = bounds.centerY + (current.y - bounds.centerY) * k;
-  const anchorScreenX = stage.width / 2 + (stage.boatX - stage.width / 2) * k;
-  const anchorScreenY = stage.height / 2 + (stage.boatY - stage.height / 2) * k;
+  const follow = smoothstep(clamp01((frame - start) / PUSH_IN_FRAMES));
+  // Fit the complete route before the closing hold. This is independent of
+  // stop count and the optional approximate-feature summary duration.
+  const finish = arrival === undefined ? 0 : smoothstep(clamp01((frame - arrival) / 36));
+  const overview = {
+    scale: fit,
+    translateX: stage.width / 2 - bounds.centerX * fit,
+    translateY: stage.height / 2 - bounds.centerY * fit,
+  };
+  // Interpolate complete transforms in both directions. Separately blending
+  // world anchors and log zoom can send the boat outside the map mid-transition.
+  const following = {
+    scale: fit + (1 - fit) * follow,
+    translateX: overview.translateX + (stage.boatX - current.x - overview.translateX) * follow,
+    translateY: overview.translateY + (stage.boatY - current.y - overview.translateY) * follow,
+  };
   return {
-    scale,
-    translateX: anchorScreenX - anchorWorldX * scale,
-    translateY: anchorScreenY - anchorWorldY * scale,
+    scale: following.scale + (overview.scale - following.scale) * finish,
+    translateX: following.translateX + (overview.translateX - following.translateX) * finish,
+    translateY: following.translateY + (overview.translateY - following.translateY) * finish,
   };
 }
 

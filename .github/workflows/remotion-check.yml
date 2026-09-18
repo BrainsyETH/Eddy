@@ -13,6 +13,7 @@ on:
       # and shared/condition-system; a change there re-renders every reel.
       - 'missouri-float-planner/shared/**'
       - '.github/workflows/remotion-check.yml'
+      - '.github/workflows/render-reusable.yml'
   push:
     branches: [main]
     paths:
@@ -59,6 +60,9 @@ jobs:
 
       - name: Typecheck
         run: npx tsc --noEmit -p tsconfig.json
+
+      - name: Route geometry and renderer revision tests
+        run: npm run test:route-layout
 
       - name: Video health gate tests
         run: npm run test:video-health

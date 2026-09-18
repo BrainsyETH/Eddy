@@ -1,6 +1,7 @@
 import { EddyReadReel, type EddyReadReelProps } from "./compositions/social/EddyReadReel";
 import { readingDuration, LONG_READING_FIXTURE } from "../../shared/eddy-read-reel";
 import React from "react";
+import akersPulltite from "./fixtures/akers-pulltite.json";
 import { Composition, staticFile } from "remotion";
 import { TutorialFull } from "./compositions/TutorialFull";
 import { IntroScene } from "./compositions/scenes/01-Intro";
@@ -681,6 +682,50 @@ export const RemotionRoot: React.FC = () => {
           hoursTypical: 3,
           routeCoordinates: ROUTE_DEMO_LINE,
           routePoints: [],
+        } satisfies RouteDrawProps}
+      />
+
+      {/* Real Akers → Pulltite geometry with the screenshot's displayed facts.
+          Endpoint-only to exercise the short timeline and take-out hold. */}
+      <Composition
+        id="social-route-akers-pulltite"
+        component={RouteDraw}
+        durationInFrames={345}
+        fps={FPS}
+        width={1080}
+        height={1920}
+        calculateMetadata={routeDuration}
+        defaultProps={{
+          ...ROUTE_DEMO,
+          label: "Today’s Float Pick",
+          conditionCode: "low",
+          putInName: "Akers Ferry", putInMile: 17.19,
+          takeOutName: "Pulltite Spring", takeOutMile: 26.23,
+          distanceMi: 9, timeRangeLabel: "~5h 15m–8h",
+          dateLabel: "Prepared Sep 18, 7:00 AM CDT",
+          routeCoordinates: akersPulltite.routeCoordinates as [number, number][],
+          routePoints: [],
+        } satisfies RouteDrawProps}
+      />
+      <Composition
+        id="social-route-summary-portrait"
+        component={RouteDraw}
+        durationInFrames={399}
+        fps={FPS}
+        width={1080}
+        height={1920}
+        calculateMetadata={routeDuration}
+        defaultProps={{
+          ...ROUTE_DEMO,
+          routeCoordinates: ROUTE_DEMO_LINE,
+          routePoints: [],
+          unanchoredPoints: [
+            { id: "a", name: "A very long guidebook spring name", kind: "spring", riverMile: 28.2 },
+            { id: "b", name: "Another guidebook spring", kind: "spring", riverMile: 29.1 },
+            { id: "c", name: "Riverside campground", kind: "campground", riverMile: 30.4 },
+            { id: "d", name: "River bluff viewpoint", kind: "poi", riverMile: 31.8 },
+            { id: "e", name: "Additional spring", kind: "spring", riverMile: 32.2 },
+          ],
         } satisfies RouteDrawProps}
       />
 

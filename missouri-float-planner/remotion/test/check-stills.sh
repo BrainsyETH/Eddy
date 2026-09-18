@@ -14,20 +14,24 @@ STILLS_DIR="${STILLS_DIR:-/tmp/stills}"
 mkdir -p "$STILLS_DIR"
 
 STILLS=(
-  # Route reel — three frames because the composition has three distinct
-  # states, and a mid-float frame alone would pass while either end regressed:
+  # Route reel — overview, both zoom transitions, travel, stop and ending.
+  # A mid-float frame alone misses the take-out overlap:
   #   0    the grid thumbnail: whole-float overview, every stop, put-in callout
   #   120  mid-float under the following camera
   #   230  the first stop's pause with its callout up
   # (frame 230 is Echo Bluff on the Pulltite → Round Spring defaultProps.)
-  "social-route-portrait:0,120,230"
+  "social-route-portrait:0,60,120,230,370,388,440"
   # The same reel with NO geometry — the itinerary stage. Frame 0 is its
   # thumbnail; 230 is the same first stop's pause, as a highlighted row; 380
   # is the arrival hold, where the approximate (mile-only) row is highlighted.
-  "social-route-itinerary-portrait:0,230,380"
+  "social-route-itinerary-portrait:0,230,380,490"
   # The exact long-name case from the Instagram screenshots: neither the
   # put-in callout nor the dock route may gain a second line and collide.
-  "social-route-long-names-portrait:0"
+  "social-route-long-names-portrait:0,270,330"
+  # Real screenshot route: launch, travel, arrival, zoom-out, final hold.
+  "social-route-akers-pulltite:0,120,255,273,330"
+  # Full approximate-feature card and the transition into the take-out.
+  "social-route-summary-portrait:275,309,375"
   # Every other composition is baselined at frame 0 too: the grid thumbnail /
   # first autoplay frame must be a complete branded card, not an empty ground.
   # social-gauge-portrait is the PRODUCTION Eddy Says reel (river_highlight);
