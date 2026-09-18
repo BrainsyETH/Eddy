@@ -3249,6 +3249,7 @@ export default function MapScreen() {
         }}
         riverLoading={Boolean(selectedSlug) && plannerAccess?.slug !== selectedSlug}
         state={planner}
+        accessPoints={plannerAccessPoints}
         // Passed, never requested from inside the sheet. The locate button on
         // the map is the one place that spends the permission prompt.
         userCoords={location.coords}

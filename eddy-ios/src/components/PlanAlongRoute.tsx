@@ -14,45 +14,77 @@
 // leads with how far INTO this float the point is, because that is the number
 // that answers "can we make it".
 //
-// Fetched here for the same reason as PlanNearby: this has to work on the screen
-// that opens a shared float, which holds a plan and nothing else.
+// Reuse the active planner’s access points. Shared plans load cached places
+// immediately and refresh independently of the rest of the plan.
 
 import { useEffect, useMemo, useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import type { FloatPlan, MapAccessPoint } from '@eddy/types';
-import { accessTypeLabel, isCampground } from '@eddy/types';
+import { accessTypeLabel } from '@eddy/types';
 import { fetchRiverAccessPoints } from '@/api/client';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
-import { EddySymbol } from '@/components/EddySymbol';
+import { PlanAccessPhoto } from '@/components/PlanAccessPhoto';
+import { readRiver } from '@/lib/riverCache';
+import { loadPlanAccess } from '@/lib/loadPlanAccess';
 
 /** Enough to plan a bail-out; past this it is a list of the whole river. */
 const MAX_SHOWN = 6;
 
-export function PlanAlongRoute({ plan }: { plan: FloatPlan }) {
+export function PlanAlongRoute({ plan, accessPoints }: {
+  plan: FloatPlan;
+  accessPoints?: MapAccessPoint[];
+}) {
   const { colors, elevation } = useTheme();
-  const [points, setPoints] = useState<MapAccessPoint[]>([]);
-
+  const [loaded, setLoaded] = useState<MapAccessPoint[]>();
+  const [failed, setFailed] = useState(false);
+  const [retry, setRetry] = useState(0);
   const slug = plan.river.slug;
 
   useEffect(() => {
-    if (!slug) return;
+    // Includes a known-empty list: the active planner already fetched this river.
+    if (accessPoints !== undefined || !slug) return;
     const controller = new AbortController();
-    fetchRiverAccessPoints(slug, controller.signal)
-      .then(setPoints)
-      .catch(() => setPoints([]));
+    void loadPlanAccess({
+      cached: async () => (await readRiver(slug))?.payload.accessPoints,
+      fresh: () => fetchRiverAccessPoints(slug, controller.signal),
+      publish: setLoaded,
+      unavailable: () => setFailed(true),
+      signal: controller.signal,
+    });
     return () => controller.abort();
-  }, [slug]);
+  }, [slug, accessPoints, retry]);
 
+  const points = accessPoints ?? loaded;
   const between = useMemo(() => {
     const start = plan.putIn.riverMile;
     const end = plan.takeOut.riverMile;
-    return points
+    return (points ?? [])
       .filter((p) => p.riverMile > start && p.riverMile < end)
       .sort((a, b) => a.riverMile - b.riverMile)
       .slice(0, MAX_SHOWN);
   }, [points, plan.putIn.riverMile, plan.takeOut.riverMile]);
 
+  if (points === undefined) {
+    return (
+      <View style={styles.section}>
+        <Text style={[styles.sectionTitle, { color: colors.text }]}>Along the way</Text>
+        {failed ? (
+          <Pressable
+            onPress={() => { setFailed(false); setRetry((value) => value + 1); }}
+            style={styles.retry}
+            accessibilityRole="button"
+          >
+            <Text style={[styles.meta, { color: colors.interactive }]}>
+              Could not load places along your route. Tap to retry.
+            </Text>
+          </Pressable>
+        ) : (
+          <Text style={[styles.meta, { color: colors.textMuted }]}>Loading places along your route…</Text>
+        )}
+      </View>
+    );
+  }
   if (between.length === 0) return null;
 
   return (
@@ -68,12 +100,15 @@ export function PlanAlongRoute({ plan }: { plan: FloatPlan }) {
             key={point.id}
             style={[styles.row, { backgroundColor: colors.card }, elevation(1)]}
           >
-            <Text style={[styles.mile, { color: colors.textMuted }]}>{into.toFixed(1)}</Text>
+            <PlanAccessPhoto point={point} style={styles.photo} />
             <View style={styles.body}>
-              <Text style={[styles.name, { color: colors.text }]} numberOfLines={1}>
+              <Text style={[styles.name, { color: colors.text }]}>
                 {point.name}
               </Text>
-              <Text style={[styles.meta, { color: colors.textMuted }]} numberOfLines={1}>
+              <Text style={[styles.mile, { color: colors.textMuted }]}>
+                {into.toFixed(1)} mi from put-in
+              </Text>
+              <Text style={[styles.meta, { color: colors.textMuted }]}>
                 {[
                   accessTypeLabel(point.type),
                   // "Private" is the difference between a bail-out and a
@@ -84,16 +119,6 @@ export function PlanAlongRoute({ plan }: { plan: FloatPlan }) {
                   .join(' · ')}
               </Text>
             </View>
-            {/* The mark says what the place IS — a campground or an access
-                point. It no longer says whether you may use it: the "Private"
-                word on the line above does that, and a padlock here made a
-                bail-out look like a locked gate rather than one that needs
-                asking. */}
-            {isCampground(point) ? (
-              <EddySymbol name="campground" size={17} />
-            ) : (
-              <EddySymbol name="accessPoint" size={17} />
-            )}
           </View>
         );
       })}
@@ -112,8 +137,9 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     marginBottom: 8,
   },
-  // Mono and fixed-width so the mileage column reads as a column.
-  mile: { ...t.sm, fontFamily: fonts.mono, width: 34, textAlign: 'right' },
+  photo: { width: 96, aspectRatio: 4 / 3, borderRadius: 8 },
+  mile: { ...t.xs, fontFamily: fonts.mono, marginTop: 4 },
+  retry: { minHeight: 44, justifyContent: 'center' },
   body: { flex: 1, minWidth: 0 },
   name: { ...t.sm, fontFamily: fonts.semibold },
   meta: { ...t.xs, fontFamily: fonts.body, marginTop: 2 },

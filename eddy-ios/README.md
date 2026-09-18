@@ -595,9 +595,12 @@ are listed by miles from the put-in rather than from the headwaters — and
 float, under *Near the put-in* and *Near the take-out*, with the nearest
 unassociated shuttles below them. Its rules are pure and tested
 (`src/lib/planSupport.ts`); its three parallel requests degrade one lane at a
-time (`src/lib/loadPlanSupport.ts`). `PlanAlongRoute` and `PlanSupport` fetch
-their own data so they work identically on the screen that opens a shared float,
-which holds a plan and nothing else.
+time (`src/lib/loadPlanSupport.ts`). `PlanAlongRoute` reuses the active planner’s
+access list, including its photos,
+so it appears without another request after calculation. Shared floats read
+cached places while refreshing from the network. `PlanSupport` fetches its own
+data on both screens. Put-in and take-out choices use a virtualized list of
+landscape photo cards; missing or failed images retain a place-symbol fallback.
 
 **Saved floats** are local (`useSavedFloats`) because the server has no notion of
 "mine": `float_plans` is keyed by share code, and most users are anonymous. The saved collection stays on this device; signing in syncs favorites, not

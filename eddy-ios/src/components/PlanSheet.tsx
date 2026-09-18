@@ -23,7 +23,7 @@
 import { useCallback, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
-  Image,
+  FlatList,
   Modal,
   Pressable,
   ScrollView,
@@ -40,7 +40,7 @@ import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
 import { EddyScene } from '@/components/EddyScene';
 import { EddySymbol, type EddySymbolName } from '@/components/EddySymbol';
-import { placeSymbol } from '@/components/map-sheet/placeSymbol';
+import { PlanAccessPhoto } from '@/components/PlanAccessPhoto';
 import { Otter } from '@/components/Otter';
 import { PlanResult } from '@/components/PlanResult';
 import type { FloatPlanState } from '@/hooks/useFloatPlan';
@@ -62,6 +62,7 @@ interface Props {
   onClearRiver: () => void;
   riverLoading: boolean;
   state: FloatPlanState;
+  accessPoints: MapAccessPoint[];
   /**
    * Where the user is, if they have already granted it on the map. Never
    * requested from in here — a sheet that prompts for location the moment it
@@ -99,6 +100,7 @@ export function PlanSheet({
   onClearRiver,
   riverLoading,
   state,
+  accessPoints,
   userCoords,
 }: Props) {
   const { colors } = useTheme();
@@ -224,7 +226,7 @@ export function PlanSheet({
           <View style={styles.centered}>
             <ActivityIndicator color={colors.interactive} />
             <Text style={[styles.calculating, { color: colors.textMuted }]}>
-              Reading the gauge and driving the shuttle…
+              Checking current conditions and building your plan…
             </Text>
           </View>
         ) : error || !plan ? (
@@ -249,6 +251,7 @@ export function PlanSheet({
         ) : (
           <PlanResult
             plan={plan}
+            accessPoints={plan.river.id === river?.id ? accessPoints : undefined}
             actions={
               <View style={styles.actions}>
                 {/* Keep and Share, side by side and the same size, because they
@@ -588,34 +591,39 @@ function AccessPointList({
   }
 
   return (
-    <ScrollView contentContainerStyle={styles.list}>
-      {/* Shown only when we already know where they are — the map's locate
-          button is the one place that asks. A sort control that prompts for a
-          permission when tapped is a trap. */}
-      {distances ? (
-        <Pressable
-          onPress={() => setNearestFirst((prev) => !prev)}
-          style={({ pressed }) => [
-            styles.sortRow,
-            { borderColor: colors.border, opacity: pressed ? 0.6 : 1 },
-          ]}
-          accessibilityRole="button"
-          accessibilityState={{ selected: nearestFirst }}
-        >
-          <Ionicons
-            name={nearestFirst ? 'navigate' : 'navigate-outline'}
-            size={14}
-            color={nearestFirst ? colors.interactive : colors.textMuted}
-          />
-          <Text
-            style={[styles.sortText, { color: nearestFirst ? colors.text : colors.textMuted }]}
+    <FlatList
+      data={ordered}
+      keyExtractor={(point) => point.id}
+      contentContainerStyle={styles.list}
+      initialNumToRender={4}
+      maxToRenderPerBatch={4}
+      windowSize={5}
+      extraData={selectedId}
+      ListHeaderComponent={
+        distances ? (
+          <Pressable
+            onPress={() => setNearestFirst((prev) => !prev)}
+            style={({ pressed }) => [
+              styles.sortRow,
+              { borderColor: colors.border, opacity: pressed ? 0.6 : 1 },
+            ]}
+            accessibilityRole="button"
+            accessibilityState={{ selected: nearestFirst }}
           >
-            {nearestFirst ? 'Nearest to you' : 'Downstream order'}
-          </Text>
-        </Pressable>
-      ) : null}
-
-      {ordered.map((point) => {
+            <Ionicons
+              name={nearestFirst ? 'navigate' : 'navigate-outline'}
+              size={14}
+              color={nearestFirst ? colors.interactive : colors.textMuted}
+            />
+            <Text
+              style={[styles.sortText, { color: nearestFirst ? colors.text : colors.textMuted }]}
+            >
+              {nearestFirst ? 'Nearest to you' : 'Downstream order'}
+            </Text>
+          </Pressable>
+        ) : null
+      }
+      renderItem={({ item: point }) => {
         const selected = point.id === selectedId;
         const miles = fromMile != null ? point.riverMile - fromMile : null;
         const away = distances?.get(point.id) ?? null;
@@ -624,81 +632,49 @@ function AccessPointList({
             key={point.id}
             onPress={() => onSelect(point)}
             style={({ pressed }) => [
-              styles.option,
-              { backgroundColor: selected ? colors.cardRaised : colors.card, opacity: pressed ? 0.65 : 1 },
+              styles.accessCard,
               elevation(1),
+              {
+                backgroundColor: selected ? colors.cardRaised : colors.card,
+                borderColor: selected ? colors.interactive : colors.border,
+                opacity: pressed ? 0.65 : 1,
+              },
             ]}
             accessibilityRole="button"
             accessibilityState={{ selected }}
           >
-            {/* WHAT IT LOOKS LIKE, on the screen where a put-in is being
-                chosen. The name is a label and the river mile is a coordinate;
-                neither answers the question somebody has standing in a driveway
-                with a boat on the roof, which is whether they can get down
-                there. The photo does, and it has been on the wire the whole
-                time — see imageUrls on MapAccessPoint.
-
-                ── ONE WELL, PHOTO OR NOT ────────────────────────────────────
-                The river screen puts a 52pt photo where a 17pt glyph would go,
-                so its rows change shape down the list as coverage comes and
-                goes. Coverage is partial by nature and this list is long, so
-                the frame is fixed here and only its CONTENTS vary. A row
-                without a photo is plain; it is not a different row.
-
-                Through placeSymbol with a synthetic `access` layer, which is
-                what the map screen's own search results do — so a campground
-                picked as a put-in draws the tent it draws everywhere else,
-                from one derivation rather than a second guess at the call
-                site.
-
-                The padlock that used to stand in for a private point is gone
-                and is not coming back here: swapping the mark made permission
-                look like a different KIND of place rather than a condition on
-                this one. "Private" is on the meta line below, which is where a
-                caveat belongs — in words, not a glyph that has to be
-                decoded. */}
-            <View style={[styles.optionWell, { backgroundColor: colors.cardRaised }]}>
-              {point.imageUrls?.[0] ? (
-                <Image
-                  source={{ uri: point.imageUrls[0] }}
-                  style={styles.optionPhoto}
-                  // Required by RN's a11y lint: a photograph must not be
-                  // colour-inverted by Smart Invert, unlike UI chrome.
-                  accessibilityIgnoresInvertColors
-                />
-              ) : (
-                <EddySymbol name={placeSymbol({ layer: 'access' }, point)} size={22} />
-              )}
+            <PlanAccessPhoto point={point} style={styles.accessPhoto} />
+            <View style={styles.accessDetails}>
+              <View style={styles.optionBody}>
+                <Text style={[styles.optionName, { color: colors.text }]}>
+                  {point.name}
+                </Text>
+                <Text style={[styles.accessStatus, { color: colors.text }]}>
+                  {point.isPublic ? 'Public access' : 'Private access · Check permission'}
+                </Text>
+                <Text style={[styles.optionMeta, { color: colors.textMuted }]}>
+                  {[
+                    accessTypeLabel(point.type),
+                    `Mile ${point.riverMile.toFixed(1)}`,
+                    // The number that actually decides a take-out. Reading it off
+                    // two river miles in your head is exactly the arithmetic an
+                    // app should be doing for you.
+                    miles != null ? `${miles.toFixed(1)} mi float` : null,
+                    // Straight-line, and labelled "away" rather than "drive" for
+                    // exactly that reason — an Ozark put-in eight miles off can be
+                    // forty minutes of gravel road.
+                    away != null ? `${away < 10 ? away.toFixed(1) : away.toFixed(0)} mi away` : null,
+                  ]
+                    .filter(Boolean)
+                    .join(' · ')}
+                </Text>
+              </View>
+              {selected ? <Ionicons name="checkmark-circle" size={22} color={colors.interactive} /> : null}
             </View>
-            <View style={styles.optionBody}>
-              <Text style={[styles.optionName, { color: colors.text }]}>
-                {point.name}
-              </Text>
-              <Text style={[styles.accessStatus, { color: colors.text }]}>
-                {point.isPublic ? 'Public access' : 'Private access · Check permission'}
-              </Text>
-              <Text style={[styles.optionMeta, { color: colors.textMuted }]}>
-                {[
-                  accessTypeLabel(point.type),
-                  `Mile ${point.riverMile.toFixed(1)}`,
-                  // The number that actually decides a take-out. Reading it off
-                  // two river miles in your head is exactly the arithmetic an
-                  // app should be doing for you.
-                  miles != null ? `${miles.toFixed(1)} mi float` : null,
-                  // Straight-line, and labelled "away" rather than "drive" for
-                  // exactly that reason — an Ozark put-in eight miles off can be
-                  // forty minutes of gravel road.
-                  away != null ? `${away < 10 ? away.toFixed(1) : away.toFixed(0)} mi away` : null,
-                ]
-                  .filter(Boolean)
-                  .join(' · ')}
-              </Text>
-            </View>
-            {selected ? <Ionicons name="checkmark" size={18} color={colors.interactive} /> : null}
           </Pressable>
         );
-      })}
-    </ScrollView>
+      }}
+    />
   );
 }
 
@@ -749,18 +725,9 @@ const styles = StyleSheet.create({
   accessStatus: { ...t.sm, fontFamily: fonts.semibold, marginTop: 4 },
   list: { padding: 16, gap: 8 },
   option: { flexDirection: 'row', alignItems: 'center', gap: 11, padding: 13, borderRadius: 12 },
-  // Fixed, so the row keeps one height whether or not the point has a photo.
-  // The radius is the card's own, one step in — a thumbnail nested inside a
-  // rounded row reads wrong with square corners or with the same radius.
-  optionWell: {
-    width: 40,
-    height: 40,
-    borderRadius: 8,
-    alignItems: 'center',
-    justifyContent: 'center',
-    overflow: 'hidden',
-  },
-  optionPhoto: { width: '100%', height: '100%', resizeMode: 'cover' },
+  accessCard: { borderRadius: 14, borderWidth: 1 },
+  accessPhoto: { width: '100%', aspectRatio: 16 / 9, borderTopLeftRadius: 13, borderTopRightRadius: 13 },
+  accessDetails: { flexDirection: 'row', alignItems: 'center', gap: 10, padding: 14 },
   optionBody: { flex: 1, minWidth: 0 },
   optionName: { ...t.sm, fontFamily: fonts.semibold },
   optionMeta: { ...t.sm, fontFamily: fonts.body, marginTop: 2 },
