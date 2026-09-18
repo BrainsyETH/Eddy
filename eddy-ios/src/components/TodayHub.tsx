@@ -38,7 +38,7 @@ import { useDams } from '@/hooks/useDams';
 import { useTodaySnooze } from '@/hooks/useTodaySnooze';
 import { onForeground } from '@/lib/foreground';
 import { seedLocationForecast } from '@/lib/locationForecast';
-import { generationNow, generationStatusLabel, generationPercentLabel } from '@eddy/conditions/dam-generation';
+import { generationNow, generationStatusLabel } from '@eddy/conditions/dam-generation';
 import { relativeAge } from '@eddy/conditions/dam-schedule-copy';
 import { EddySymbol } from '@/components/EddySymbol';
 import { TodayRiverPhoto } from '@/components/TodayRiverPhoto';
@@ -292,7 +292,7 @@ function favoriteDetail(
   if (dam) {
     const state = generationNow(dam, now);
     if (state.kind !== 'unavailable') {
-      const amount = state.kind === 'generating' ? generationPercentLabel(state.fraction) : null;
+      const amount = state.kind === 'generating' ? `${Math.round(state.turbineCfs).toLocaleString()} cfs` : null;
       return [generationStatusLabel(state), amount, relativeAge(state.observedAt, now)].filter(Boolean).join(' · ');
     }
     const release = dam.metrics.release;

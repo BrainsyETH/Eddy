@@ -25,7 +25,7 @@ import {
 import * as AppleAuthentication from 'expo-apple-authentication';
 import type { Session } from '@supabase/supabase-js';
 import { getSupabase, isSupabaseConfigured } from '@/lib/supabase';
-import { storeAppleAuthorizationCode, updateDisplayName } from '@/api/client';
+import { clearNavigationCache, storeAppleAuthorizationCode, updateDisplayName } from '@/api/client';
 import { warn } from '@/lib/monitoring';
 
 interface SessionValue {
@@ -105,7 +105,10 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     let cancelled = false;
 
     const { data: subscription } = supabase.auth.onAuthStateChange((_event, next) => {
-      if (!cancelled) setSession(next);
+      if (!cancelled) {
+        clearNavigationCache();
+        setSession(next);
+      }
     });
 
     (async () => {
