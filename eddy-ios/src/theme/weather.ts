@@ -1,6 +1,15 @@
-/** Light-on-sky colors for the weather screen. */
-export const skyColors = {
-  text: '#ffffff', muted: '#e0edf4', low: '#d1e0ed', rain: '#bfe8ff', sun: '#ffe29b',
-  panel: '#102e4c99', separator: '#ffffff30', range: '#f7ca77',
-  day: ['#286a9c', '#83b9d1'], night: ['#102239', '#294c68'], rainSky: ['#344b65', '#65859b'],
-} as const;
+import { neutral, primary, secondary } from './palette';
+
+/** A quiet sky tint for the hero, using the same palette as the rest of Eddy. */
+export function weatherAtmosphere(isDark: boolean, icon: string): readonly [string, string] {
+  const night = icon.endsWith('n');
+  const wet = /^(09|10|11)/.test(icon);
+  if (isDark) {
+    if (night) return [primary[900], neutral[950]];
+    if (wet) return [primary[800], neutral[900]];
+    return [primary[800], primary[900]];
+  }
+  if (night) return [primary[100], neutral[100]];
+  if (wet) return [neutral[200], primary[50]];
+  return [primary[100], secondary[100]];
+}

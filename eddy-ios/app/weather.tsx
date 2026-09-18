@@ -1,4 +1,6 @@
-import { skyColors } from '@/theme/weather';
+import { weatherAtmosphere } from '@/theme/weather';
+import { useTheme } from '@/theme/ThemeProvider';
+import { EddySymbol } from '@/components/EddySymbol';
 import { useCallback, useState } from 'react';
 import { ActivityIndicator, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Stack, useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
@@ -12,27 +14,28 @@ import { goBack } from '@/lib/nav';
 import { fonts, type as t } from '@/theme/typography';
 
 export default function WeatherScreen() {
+  const { colors, elevation, isDark } = useTheme();
   const styles = { ...layout,
-    navTitle: { ...layout.navTitle, color: skyColors.text },
-    city: { ...layout.city, color: skyColors.text },
-    temperature: { ...layout.temperature, color: skyColors.text },
-    condition: { ...layout.condition, color: skyColors.text },
-    highLow: { ...layout.highLow, color: skyColors.text },
-    muted: { ...layout.muted, color: skyColors.muted },
-    white: { ...layout.white, color: skyColors.text },
-    panel: { ...layout.panel, backgroundColor: skyColors.panel },
-    sectionLabel: { ...layout.sectionLabel, color: skyColors.muted },
-    hourTemp: { ...layout.hourTemp, color: skyColors.text },
-    rain: { ...layout.rain, color: skyColors.rain },
-    dayRow: { ...layout.dayRow, borderTopColor: skyColors.separator },
-    day: { ...layout.day, color: skyColors.text },
-    low: { ...layout.low, color: skyColors.low },
-    high: { ...layout.high, color: skyColors.text },
-    track: { ...layout.track, backgroundColor: skyColors.panel },
-    range: { ...layout.range, backgroundColor: skyColors.range },
-    metricValue: { ...layout.metricValue, color: skyColors.text },
-    message: { ...layout.message, color: skyColors.text },
-    source: { ...layout.source, color: skyColors.muted, backgroundColor: skyColors.panel },
+    navTitle: { ...layout.navTitle, color: colors.text },
+    city: { ...layout.city, color: colors.text },
+    temperature: { ...layout.temperature, color: colors.text },
+    condition: { ...layout.condition, color: colors.text },
+    highLow: { ...layout.highLow, color: colors.text },
+    muted: { ...layout.muted, color: colors.textMuted },
+    bodyText: { ...layout.bodyText, color: colors.text },
+    panel: { ...layout.panel, backgroundColor: colors.card, ...elevation(1) },
+    sectionLabel: { ...layout.sectionLabel, color: colors.textMuted },
+    hourTemp: { ...layout.hourTemp, color: colors.text },
+    rain: { ...layout.rain, color: colors.interactive },
+    dayRow: { ...layout.dayRow, borderTopColor: colors.border },
+    day: { ...layout.day, color: colors.text },
+    low: { ...layout.low, color: colors.textMuted },
+    high: { ...layout.high, color: colors.text },
+    track: { ...layout.track, backgroundColor: colors.border },
+    range: { ...layout.range, backgroundColor: colors.interactive },
+    metricValue: { ...layout.metricValue, color: colors.text },
+    message: { ...layout.message, color: colors.text },
+    source: { ...layout.source, color: colors.textMuted },
   };
   const { lat: latParam, lng: lngParam } = useLocalSearchParams<{ lat: string; lng: string }>();
   const lat = Number(latParam);
@@ -62,42 +65,49 @@ export default function WeatherScreen() {
   const today = data?.days.find(day => day.date === data.localDate);
   const current = data?.current;
   const icon = current?.conditionIcon ?? today?.conditionIcon ?? '01d';
-  const wet = /^(09|10|11)/.test(icon);
-  const night = icon.endsWith('n');
-  const background = night ? skyColors.night : wet ? skyColors.rainSky : skyColors.day;
+  const atmosphere = weatherAtmosphere(isDark, icon);
   const low = Math.min(...(data?.days.map(day => day.tempLow) ?? [0]));
   const high = Math.max(...(data?.days.map(day => day.tempHigh) ?? [1]));
-  return <View style={{ flex: 1, backgroundColor: background[0] }}>
-    <Svg width="100%" height="100%" style={StyleSheet.absoluteFill} pointerEvents="none">
-      <Defs><LinearGradient id="sky" x1="0" y1="0" x2="0" y2="1"><Stop offset="0" stopColor={background[0]} /><Stop offset="1" stopColor={background[1]} /></LinearGradient></Defs>
-      <Rect width="100%" height="100%" fill="url(#sky)" />
-    </Svg>
+  return <View style={{ flex: 1, backgroundColor: colors.bg }}>
     <SafeAreaView style={{ flex: 1 }}>
       <Stack.Screen options={{ headerShown: false }} />
       <View style={styles.header}>
         <Pressable onPress={() => goBack(router)} accessibilityRole="button" accessibilityLabel="Back" style={styles.back}>
-          <Ionicons name="chevron-back" size={26} color={skyColors.text} />
+          <Ionicons name="chevron-back" size={26} color={colors.text} />
         </Pressable>
         <Text style={styles.navTitle}>Weather</Text>
         <View style={styles.back} />
       </View>
-      <ScrollView contentContainerStyle={styles.body} refreshControl={<RefreshControl refreshing={loading && Boolean(data)} onRefresh={() => setRetry(n => n + 1)} tintColor={skyColors.text} />}>
+      <ScrollView contentContainerStyle={styles.body} refreshControl={<RefreshControl refreshing={loading && Boolean(data)} onRefresh={() => setRetry(n => n + 1)} tintColor={colors.text} />}>
         <View style={styles.hero}>
+          <Svg width="100%" height="100%" style={StyleSheet.absoluteFill} pointerEvents="none" accessibilityElementsHidden importantForAccessibility="no">
+            <Defs>
+              <LinearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+                <Stop offset="0" stopColor={atmosphere[0]} />
+                <Stop offset="0.55" stopColor={atmosphere[1]} />
+                <Stop offset="1" stopColor={colors.bg} />
+              </LinearGradient>
+            </Defs>
+            <Rect width="100%" height="100%" fill="url(#sky)" />
+          </Svg>
           <Text style={styles.city}>{data?.city ?? 'Local weather'}</Text>
-          {current ? <Text style={styles.temperature}>{Math.round(current.temp)}°</Text> : <Ionicons name={weatherIcon(icon)} size={76} color={skyColors.text} style={{ marginVertical: 18 }} />}
+          <View style={styles.currentReading}>
+            <EddySymbol name="weather" size={52} />
+            {current ? <Text style={styles.temperature}>{Math.round(current.temp)}°</Text> : null}
+          </View>
           <Text style={styles.condition}>{current?.condition ?? today?.condition ?? ''}</Text>
           {today ? <Text style={styles.highLow}>H:{Math.round(today.tempHigh)}°  L:{Math.round(today.tempLow)}°</Text> : null}
           {!current && today ? <Text style={styles.muted}>Today’s forecast</Text> : null}
         </View>
         {!valid ? <Text style={styles.message}>Open weather from Today to choose your area.</Text> : null}
-        {loading && !data ? <ActivityIndicator color={skyColors.text} accessibilityLabel="Loading forecast" /> : null}
-        {failed === key ? <Pressable onPress={() => setRetry(n => n + 1)} style={styles.message} accessibilityRole="button"><Text style={styles.white}>{data ? 'Couldn’t refresh · Tap to retry' : 'Couldn’t load weather · Tap to retry'}</Text></Pressable> : null}
+        {loading && !data ? <ActivityIndicator color={colors.text} accessibilityLabel="Loading forecast" /> : null}
+        {failed === key ? <Pressable onPress={() => setRetry(n => n + 1)} style={styles.message} accessibilityRole="button"><Text style={styles.bodyText}>{data ? 'Couldn’t refresh · Tap to retry' : 'Couldn’t load weather · Tap to retry'}</Text></Pressable> : null}
         {data?.periods?.length ? <View style={styles.panel}>
           <Text style={styles.sectionLabel}>NEXT 24 HOURS · 3-HOUR FORECAST</Text>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.hours}>
             {data.periods.map(period => <View key={period.timestamp} style={styles.hour}>
-              <Text style={styles.white}>{period.localHour % 12 || 12}{period.localHour < 12 ? 'AM' : 'PM'}</Text>
-              <Ionicons name={weatherIcon(period.conditionIcon)} size={27} color={period.conditionIcon.startsWith('01') ? skyColors.sun : skyColors.text} />
+              <Text style={styles.bodyText}>{period.localHour % 12 || 12}{period.localHour < 12 ? 'AM' : 'PM'}</Text>
+              <Ionicons name={weatherIcon(period.conditionIcon)} size={27} color={colors.interactive} />
               <Text style={styles.hourTemp}>{period.temp}°</Text>
               <Text style={styles.rain}>{period.precipitation}%</Text>
             </View>)}
@@ -107,15 +117,15 @@ export default function WeatherScreen() {
           <Text style={styles.sectionLabel}>{data.days.length}-DAY FORECAST</Text>
           {data.days.map((day) => <View key={day.date} style={styles.dayRow} accessibilityLabel={`${day.date === data.localDate ? 'Today' : day.dayOfWeek}, ${day.condition}, high ${day.tempHigh}, low ${day.tempLow}, rain chance ${day.precipitation} percent`}>
             <Text style={styles.day}>{day.date === data.localDate ? 'Today' : day.dayOfWeek}</Text>
-            <View style={styles.dayIcon}><Ionicons name={weatherIcon(day.conditionIcon)} size={24} color={day.conditionIcon.startsWith('01') ? skyColors.sun : skyColors.text} /><Text style={styles.rain}>{day.precipitation}%</Text></View>
+            <View style={styles.dayIcon}><Ionicons name={weatherIcon(day.conditionIcon)} size={24} color={colors.interactive} /><Text style={styles.rain}>{day.precipitation}%</Text></View>
             <Text style={styles.low}>{Math.round(day.tempLow)}°</Text>
             <View style={styles.track}><View style={[styles.range, { left: `${(day.tempLow - low) / Math.max(1, high - low) * 100}%`, width: `${Math.max(3, (day.tempHigh - day.tempLow) / Math.max(1, high - low) * 100)}%` }]} /></View>
             <Text style={styles.high}>{Math.round(day.tempHigh)}°</Text>
           </View>)}
         </View> : null}
         {current ? <View style={styles.details}>
-          <View style={[styles.panel, styles.metric]}><Ionicons name="flag-outline" color={skyColors.text} size={21} /><Text style={styles.sectionLabel}>WIND</Text><Text style={styles.metricValue}>{Math.round(current.windSpeed)} <Text style={styles.unit}>mph</Text></Text></View>
-          <View style={[styles.panel, styles.metric]}><Ionicons name="water-outline" color={skyColors.text} size={21} /><Text style={styles.sectionLabel}>HUMIDITY</Text><Text style={styles.metricValue}>{Math.round(current.humidity)}<Text style={styles.unit}>%</Text></Text></View>
+          <View style={[styles.panel, styles.metric]}><Ionicons name="flag-outline" color={colors.text} size={21} /><Text style={styles.sectionLabel}>WIND</Text><Text style={styles.metricValue}>{Math.round(current.windSpeed)} <Text style={styles.unit}>mph</Text></Text></View>
+          <View style={[styles.panel, styles.metric]}><Ionicons name="water-outline" color={colors.text} size={21} /><Text style={styles.sectionLabel}>HUMIDITY</Text><Text style={styles.metricValue}>{Math.round(current.humidity)}<Text style={styles.unit}>%</Text></Text></View>
         </View> : null}
         {data ? <Text style={styles.source}>OpenWeather · °F{current ? ` · Updated ${new Date(current.fetchedAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}` : ''}
 Today’s range covers the remaining forecast.</Text> : null}
@@ -134,32 +144,33 @@ function weatherIcon(code: string): React.ComponentProps<typeof Ionicons>['name'
 const layout = StyleSheet.create({
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 12 },
   back: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
-  navTitle: { ...t.base, fontFamily: fonts.medium },
+  navTitle: { ...t.base, fontFamily: fonts.heading },
   body: { padding: 20, gap: 14, paddingBottom: 36 },
-  hero: { alignItems: 'center', paddingTop: 14, paddingBottom: 24 },
-  city: { fontFamily: fonts.medium, fontSize: 30, textAlign: 'center' },
-  temperature: { fontFamily: fonts.body, fontSize: 96, lineHeight: 112, letterSpacing: -5 },
-  condition: { ...t.lg },
-  highLow: { ...t.base, marginTop: 4 },
-  muted: { ...t.sm, marginTop: 8 },
-  white: { ...t.sm },
-  panel: { borderRadius: 20, padding: 16 },
-  sectionLabel: { ...t.xs, fontFamily: fonts.medium, letterSpacing: 0.6, marginBottom: 10 },
+  hero: { alignItems: 'center', paddingTop: 20, paddingBottom: 24, paddingHorizontal: 12, borderRadius: 16, overflow: 'hidden' },
+  currentReading: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', flexWrap: 'wrap', gap: 12, marginVertical: 8 },
+  city: { ...t['3xl'], fontFamily: fonts.display, textAlign: 'center' },
+  temperature: { fontFamily: fonts.monoMedium, fontSize: 72, lineHeight: 88, letterSpacing: -3 },
+  condition: { ...t.lg, fontFamily: fonts.medium, textAlign: 'center' },
+  highLow: { ...t.base, fontFamily: fonts.mono, marginTop: 4 },
+  muted: { ...t.sm, fontFamily: fonts.body, marginTop: 8 },
+  bodyText: { ...t.sm, fontFamily: fonts.body },
+  panel: { borderRadius: 16, padding: 16 },
+  sectionLabel: { ...t.xs, fontFamily: fonts.semibold, letterSpacing: 0.4, marginBottom: 10 },
   hours: { gap: 24, paddingTop: 6 },
   hour: { alignItems: 'center', gap: 12, minWidth: 46 },
-  hourTemp: { ...t.lg, fontFamily: fonts.medium },
-  rain: { fontSize: 11, fontFamily: fonts.medium },
+  hourTemp: { ...t.lg, fontFamily: fonts.monoMedium },
+  rain: { ...t.xs, fontFamily: fonts.mono },
   dayRow: { flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 60, borderTopWidth: StyleSheet.hairlineWidth },
-  day: { ...t.base, width: 52 },
+  day: { ...t.sm, fontFamily: fonts.semibold, width: 52 },
   dayIcon: { alignItems: 'center', gap: 2, width: 28 },
-  low: { ...t.base, width: 32, textAlign: 'right' },
-  high: { ...t.base, width: 32, textAlign: 'right' },
+  low: { ...t.sm, fontFamily: fonts.mono, minWidth: 34, textAlign: 'right' },
+  high: { ...t.sm, fontFamily: fonts.monoMedium, minWidth: 34, textAlign: 'right' },
   track: { flex: 1, height: 5, borderRadius: 4, overflow: 'hidden' },
   range: { position: 'absolute', height: 5, borderRadius: 4 },
   details: { flexDirection: 'row', gap: 14 },
   metric: { flex: 1, gap: 5 },
-  metricValue: { fontSize: 32, fontFamily: fonts.body },
-  unit: { ...t.base },
-  message: { paddingVertical: 16, textAlign: 'center' },
-  source: { ...t.xs, padding: 12, borderRadius: 12, textAlign: 'center', lineHeight: 20 },
+  metricValue: { ...t['3xl'], fontFamily: fonts.monoMedium },
+  unit: { ...t.base, fontFamily: fonts.body },
+  message: { ...t.sm, fontFamily: fonts.body, paddingVertical: 16, textAlign: 'center' },
+  source: { ...t.xs, fontFamily: fonts.body, padding: 12, borderRadius: 12, textAlign: 'center', lineHeight: 20 },
 });
