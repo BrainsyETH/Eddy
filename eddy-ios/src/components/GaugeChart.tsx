@@ -122,6 +122,7 @@ import {
   chartDomain,
   chartPoints,
   chartSegments,
+  splitAtGaps,
   nearestChartPoint,
   niceValueTicks,
   nowLabel,
@@ -561,6 +562,7 @@ function GaugeChartInner({
   const series = useMemo(() => {
     const empty = {
       paths: [] as string[],
+      gapPaths: [] as string[],
       areas: [] as string[],
       dots: [] as ChartPoint[],
       forecastPaths: [] as string[],
@@ -593,6 +595,9 @@ function GaugeChartInner({
     const forecastSplit = chartSegments(forecastPoints, GAP_BREAK_MULTIPLE);
     return {
       paths: lines.map(toPath),
+      gapPaths: splitAtGaps(points, GAP_BREAK_MULTIPLE).flatMap((segment, index, segments) =>
+        index === 0 ? [] : [toPath([segments[index - 1][segments[index - 1].length - 1], segment[0]])],
+      ),
       areas: lines.map(toArea),
       dots: isolated,
       forecastPaths: forecastSplit.lines.map(toPath),
@@ -896,16 +901,10 @@ function GaugeChartInner({
     <View style={[styles.card, { backgroundColor: colors.card }, elevation(1)]}>
       <View style={styles.head}>
         <View style={styles.headText}>
-          {/* ── The pill sits on the TITLE line, not the subtitle ───────────
-              The subtitle is replaced outright by the scrub readout below, so a
-              trend rendered there would vanish the moment a finger touched the
-              plot — exactly when the reader is asking which way the water is
-              going. The title is short ("Recent history") and the unit and
-              range controls sit hard right, so the room is here. */}
           {title || shownTrend ? (
             <View style={styles.titleRow}>
               {title ? (
-                <Text style={[styles.title, { color: colors.text }]} numberOfLines={1}>
+                <Text style={[styles.title, { color: colors.text }]}>
                   {title}
                 </Text>
               ) : null}
@@ -941,7 +940,7 @@ function GaugeChartInner({
               ) : null}
             </Text>
           ) : (
-            <Text style={[styles.subtitle, { color: colors.textSubtle }]} numberOfLines={1}>
+            <Text style={[styles.subtitle, { color: colors.textSubtle }]}>
               {/* The newest reading rides in the idle subtitle — the exact
                   "what is it now" number, in the row the scrub readout will
                   reuse, instead of a callout crowding the plot's right edge
@@ -1041,6 +1040,12 @@ function GaugeChartInner({
         </View>
       </View>
 
+      {series.gapPaths.length > 0 ? (
+        <View style={styles.legendItem} accessibilityLabel="Dotted connections indicate missing readings">
+          <View style={styles.legendDashes}>{[0, 1, 2].map(i => <View key={i} style={[styles.legendDash, { backgroundColor: lineColor }]} />)}</View>
+          <Text style={[styles.legendText, { color: colors.textSubtle }]}>Missing readings</Text>
+        </View>
+      ) : null}
       <View style={styles.plotWrap} onLayout={onLayout}>
         {width > 0 && hasPlot ? (
           <GestureDetector gesture={scrubGesture}>
@@ -1218,6 +1223,12 @@ function GaugeChartInner({
                   );
                 })}
 
+                {/* Dashed bridges indicate missing observations, not measured values.
+                    Keep area fills and scrubbing confined to real samples. */}
+                {series.gapPaths.map((d, i) => (
+                  <Path key={`gap-${i}`} d={d} stroke={lineColor} strokeWidth={1.5}
+                    strokeDasharray="3 5" strokeOpacity={0.65} fill="none" />
+                ))}
                 {/* ── The line ── */}
                 {series.paths.map((d, i) => (
                   <Path
@@ -1590,10 +1601,10 @@ const styles = StyleSheet.create({
   // Horizontal placement therefore belongs to the caller. Vertical rhythm does
   // not: the gap under a card is the same question on both screens.
   card: { marginBottom: 14, borderRadius: 16, padding: 16 },
-  head: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, marginBottom: 6 },
-  headText: { flex: 1 },
-  // The title takes the squeeze, not the pill — TrendPill is flexShrink 0.
-  titleRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  head: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'flex-start', gap: 10, marginBottom: 6 },
+  headText: { width: '100%' },
+  // Give the full title its own row; controls wrap beneath it.
+  titleRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 8 },
   title: { ...t.base, fontFamily: fonts.heading, flexShrink: 1 },
   subtitle: { ...t.xs, fontFamily: fonts.body, marginTop: 2 },
   scrubLine: { ...t.xs, fontFamily: fonts.body, marginTop: 2 },

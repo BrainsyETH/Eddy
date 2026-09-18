@@ -6,6 +6,7 @@
 // crawlers, and it matches on UA. Identifying as EddyiOS keeps our own app on
 // the free path (see src/lib/x402/ in the web app).
 
+import { createRequestPool, navigationCacheTtl } from '@/lib/requestPool';
 import Constants from 'expo-constants';
 // Types only — erased at compile time. The MODULE is required lazily in
 // uploadCommunityPhoto, so a build without the native side still starts.
@@ -284,7 +285,17 @@ async function fetchOnce(
   }
 }
 
-async function get<T>(path: string, signal?: AbortSignal, token?: string | null): Promise<T> {
+const readRequests = createRequestPool();
+export const clearNavigationCache = () => readRequests.clear();
+
+function get<T>(path: string, signal?: AbortSignal, token?: string | null): Promise<T> {
+  // Token is part of the identity: Premium responses never cross sessions or users.
+  // Memory only, bounded to 32 entries and 30 seconds; no offline Premium storage.
+  return readRequests.read(JSON.stringify([path, token ?? null]),
+    sharedSignal => getUnshared<T>(path, sharedSignal, token), signal, navigationCacheTtl(path));
+}
+
+async function getUnshared<T>(path: string, signal?: AbortSignal, token?: string | null): Promise<T> {
   const deadline = withDeadline(signal);
   const startedAt = Date.now();
   let response: Response;
@@ -1886,7 +1897,8 @@ export async function fetchMeProfile(
   token: string,
   signal?: AbortSignal,
 ): Promise<MeProfileResponse | null> {
-  return authed<MeProfileResponse>('/api/me/profile', token, { signal });
+  return readRequests.read(JSON.stringify(['/api/me/profile', token]),
+    sharedSignal => authed<MeProfileResponse>('/api/me/profile', token, { signal: sharedSignal }), signal);
 }
 
 /** Persist a display name. Used once, right after Apple returns one. */

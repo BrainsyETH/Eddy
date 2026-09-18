@@ -1,3 +1,4 @@
+import { clearNavigationCache } from '@/api/client';
 // eddy-ios/app/(tabs)/reports.tsx
 // Today — the list view: every curated river ranked by how floatable it is
 // right now. This is the tab that answers "what can I float today?".
@@ -852,6 +853,7 @@ export default function ReportsScreen() {
   }, [load]);
 
   const onRefresh = useCallback(async () => {
+    clearNavigationCache();
     setRefreshing(true);
     // Both. The prose one always reaches the server — the shared cache's TTL
     // governs mounting, not refreshing — and it does not clear what is on
