@@ -20,6 +20,7 @@
 // opens a saved float: a shared plan that read differently from the plan that
 // produced it would be a plan nobody trusts.
 
+import { radii } from '@/theme/layout';
 import { useCallback, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
@@ -643,7 +644,7 @@ function AccessPointList({
             accessibilityRole="button"
             accessibilityState={{ selected }}
           >
-            <PlanAccessPhoto point={point} style={styles.accessPhoto} />
+            <PlanAccessPhoto point={point} style={styles.accessPhoto} compactFallback />
             <View style={styles.accessDetails}>
               <View style={styles.optionBody}>
                 <Text style={[styles.optionName, { color: colors.text }]}>
@@ -725,8 +726,8 @@ const styles = StyleSheet.create({
   accessStatus: { ...t.sm, fontFamily: fonts.semibold, marginTop: 4 },
   list: { padding: 16, gap: 8 },
   option: { flexDirection: 'row', alignItems: 'center', gap: 11, padding: 13, borderRadius: 12 },
-  accessCard: { borderRadius: 14, borderWidth: 1 },
-  accessPhoto: { width: '100%', aspectRatio: 16 / 9, borderTopLeftRadius: 13, borderTopRightRadius: 13 },
+  accessCard: { borderRadius: radii.card, borderWidth: 1 },
+  accessPhoto: { width: '100%', aspectRatio: 16 / 9, borderTopLeftRadius: radii.card - 1, borderTopRightRadius: radii.card - 1 },
   accessDetails: { flexDirection: 'row', alignItems: 'center', gap: 10, padding: 14 },
   optionBody: { flex: 1, minWidth: 0 },
   optionName: { ...t.sm, fontFamily: fonts.semibold },

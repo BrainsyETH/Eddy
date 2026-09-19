@@ -35,6 +35,7 @@
 // are different subjects, and folding them in would rebuild the wall of card
 // this change exists to take down.
 
+import { radii } from '@/theme/layout';
 import { StyleSheet, Text, View } from 'react-native';
 import type { DamSnapshot } from '@eddy/types';
 import {
@@ -138,7 +139,7 @@ export function GenerationCard({ dam }: { dam: DamSnapshot }) {
 }
 
 const styles = StyleSheet.create({
-  card: { borderRadius: 14, padding: 16 },
+  card: { borderRadius: radii.card, padding: 16 },
   rule: { borderTopWidth: StyleSheet.hairlineWidth, marginTop: 14, marginBottom: 14 },
   footer: { borderTopWidth: StyleSheet.hairlineWidth, marginTop: 14, paddingTop: 10 },
   footerText: { ...t.xs, lineHeight: 16 },

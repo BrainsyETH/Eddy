@@ -103,7 +103,7 @@ import {
 import { floatableRank, isFloatableNow } from '@/theme/conditions';
 import { flowBandColor, flowBandLabel } from '@/theme/flow';
 import { useTheme } from '@/theme/ThemeProvider';
-import { fonts, type as t } from '@/theme/typography';
+import { fonts, textStyles, type as t } from '@/theme/typography';
 import { EddySymbol } from '@/components/EddySymbol';
 import { RiverRow } from '@/components/RiverRow';
 import { GaugeRow } from '@/components/GaugeRow';
@@ -1877,7 +1877,7 @@ const styles = StyleSheet.create({
   // Fredoka, the brand display face. It previously appeared nowhere in the
   // product — only inside the paywall — so the app looked generic on every
   // screen a user actually spends time on.
-  title: { ...t['3xl'], fontFamily: fonts.display },
+  title: { ...textStyles.pageTitle },
   subtitle: { ...t.sm, fontFamily: fonts.body, marginTop: 4 },
   // The seed's "Loading conditions…" strip: the subtitle's type and offset,
   // with a small spinner ahead of it on the same baseline.

@@ -28,6 +28,7 @@
 // Condition and reading come from gaugeCondition.ts, the SAME functions the map
 // pins use, so a gauge cannot read one way here and another as a dot on the map.
 
+import { radii } from '@/theme/layout';
 import { memo } from 'react';
 import { isReadingStale } from '@eddy/conditions/reading-staleness';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
@@ -145,7 +146,7 @@ const styles = StyleSheet.create({
     alignItems: 'stretch',
     marginHorizontal: 16,
     marginBottom: 9,
-    borderRadius: 14,
+    borderRadius: radii.card,
     overflow: 'hidden',
   },
   stripe: { width: 4 },

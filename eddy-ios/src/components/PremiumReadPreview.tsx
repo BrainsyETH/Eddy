@@ -7,6 +7,7 @@ import { useSession } from '@/hooks/useSession';
 import { premiumExcerpt } from '@/lib/todayPresentation';
 import { writtenAge } from '@/lib/eddySays';
 import { useTheme } from '@/theme/ThemeProvider';
+import { radii } from '@/theme/layout';
 import { fonts, type as t } from '@/theme/typography';
 
 /** Parent mounts only for Premium and keys by user: no cross-user prose cache. */
@@ -52,7 +53,7 @@ export function PremiumReadPreview({ slug, revision, onPhoto = false }: { slug: 
     }
   }, [revision, refresh]);
   const current = result?.key === key ? result : null;
-  return <View style={{ marginTop: 10, minHeight: 126, gap: 6 }}>
+  return <View style={{ marginTop: 10, minHeight: 126, gap: 6, ...(onPhoto ? { backgroundColor: 'rgba(7, 28, 32, 0.86)', borderRadius: radii.inset, marginHorizontal: -8, paddingHorizontal: 8, paddingVertical: 10 } : {}) }}>
     {!current ? <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
       <ActivityIndicator size="small" color={colors.interactive} /><Text style={{ ...t.xs, color: colors.textMuted }}>Loading your Read…</Text>
     </View> : <>

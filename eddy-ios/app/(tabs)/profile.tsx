@@ -23,6 +23,7 @@
 // frozen at whichever scheme the app launched with. Colour comes from
 // useTheme(), inline.
 
+import { radii } from '@/theme/layout';
 import {
   useCallback,
   useEffect,
@@ -50,7 +51,7 @@ import * as AppleAuthentication from 'expo-apple-authentication';
 import Constants from 'expo-constants';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '@/theme/ThemeProvider';
-import { fonts, type as t } from '@/theme/typography';
+import { fonts, textStyles, type as t } from '@/theme/typography';
 import { Otter } from '@/components/Otter';
 import { useStarredRivers } from '@/hooks/useStarredRivers';
 import { useSavedFloats } from '@/hooks/useSavedFloats';
@@ -984,13 +985,13 @@ function SettingsRow({
 const styles = StyleSheet.create({
   screen: { flex: 1 },
   content: { padding: 20, paddingBottom: 48 },
-  title: { ...t['3xl'], fontFamily: fonts.heading },
+  title: { ...textStyles.pageTitle },
   section: { marginTop: 22 },
   sectionTitle: { ...t.sm, fontFamily: fonts.semibold, marginBottom: 8, marginLeft: 2 },
-  accountCard: { borderRadius: 14, padding: 16, gap: 14, marginTop: 18 },
+  accountCard: { borderRadius: radii.card, padding: 16, gap: 14, marginTop: 18 },
   accountRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   accountIcon: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center' },
-  premiumCard: { borderRadius: 14, padding: 16, gap: 14 },
+  premiumCard: { borderRadius: radii.card, padding: 16, gap: 14 },
   premiumHead: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   rowBody: { flex: 1, gap: 2 },
   rowTitle: { ...t.base, fontFamily: fonts.semibold },
@@ -1003,7 +1004,7 @@ const styles = StyleSheet.create({
   utilityAction: { flex: 1, minHeight: 44, alignItems: 'center', justifyContent: 'center' },
   utilityText: { ...t.sm, fontFamily: fonts.medium },
   utilityDivider: { width: StyleSheet.hairlineWidth, height: 20 },
-  group: { borderRadius: 14, overflow: 'hidden' },
+  group: { borderRadius: radii.card, overflow: 'hidden' },
   settingsRow: {
     minHeight: 58,
     paddingHorizontal: 14,

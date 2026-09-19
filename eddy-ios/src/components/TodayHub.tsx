@@ -1,3 +1,4 @@
+import { radii } from '@/theme/layout';
 import { Children, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import {
   AccessibilityInfo,
@@ -71,7 +72,7 @@ import {
   floatableRank,
 } from '@/theme/conditions';
 import { useTheme } from '@/theme/ThemeProvider';
-import { fonts, type as t } from '@/theme/typography';
+import { fonts, textStyles, type as t } from '@/theme/typography';
 
 interface Props {
   rivers: RiverListItem[];
@@ -1134,15 +1135,15 @@ const styles = StyleSheet.create({
   safetySection: { marginBottom: 20 },
   safetyKicker: { ...t.xs, fontFamily: fonts.heading, letterSpacing: 0.7, marginBottom: 2 },
   safetyRows: { gap: 8 },
-  safetyRow: { minHeight: 82, borderWidth: 1, borderLeftWidth: 4, borderRadius: 14, paddingHorizontal: 12, paddingVertical: 9, flexDirection: 'row', alignItems: 'center', gap: 10 },
+  safetyRow: { minHeight: 82, borderWidth: 1, borderLeftWidth: 4, borderRadius: radii.card, paddingHorizontal: 12, paddingVertical: 9, flexDirection: 'row', alignItems: 'center', gap: 10 },
   safetyIcon: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
   safetyRowTitle: { ...t.sm, fontFamily: fonts.semibold },
   safetyRowMeta: { ...t.xs, fontFamily: fonts.body, marginTop: 2 },
   section: { marginBottom: 24 },
   sectionHead: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 10, paddingHorizontal: 2 },
-  sectionTitle: { ...t.xl, fontFamily: fonts.heading },
+  sectionTitle: { ...textStyles.sectionTitle },
   sectionAction: { ...t.sm, fontFamily: fonts.semibold },
-  favoritePreview: { width: '100%', minHeight: 252, borderWidth: 1, borderRadius: 20, padding: 16 },
+  favoritePreview: { width: '100%', minHeight: 252, borderWidth: 1, borderRadius: radii.feature, padding: 16 },
   favoriteStandalone: { width: 'auto', height: 'auto', minHeight: 252 },
   favoriteHeroTop: { flexDirection: 'row', alignItems: 'center', minHeight: 116 },
   heroCopy: { flex: 1, minWidth: 0, zIndex: 1 },
@@ -1154,11 +1155,11 @@ const styles = StyleSheet.create({
   pill: { borderRadius: 999, borderWidth: 1, paddingHorizontal: 10, paddingVertical: 4, alignSelf: 'flex-start' },
   pillText: { ...t.xs, fontFamily: fonts.semibold },
   emptyCard: { borderWidth: 1, borderRadius: 18, paddingHorizontal: 14, paddingVertical: 10, flexDirection: 'row', alignItems: 'center', gap: 10 },
-  emptyBest: { borderWidth: 1, borderRadius: 16, padding: 18 },
+  emptyBest: { borderWidth: 1, borderRadius: radii.card, padding: 18 },
   emptyTitle: { ...t.base, fontFamily: fonts.semibold },
   emptyBody: { ...t.sm, fontFamily: fonts.body, marginTop: 3 },
   loading: { height: 150, alignItems: 'center', justifyContent: 'center' },
-  bestPreview: { width: '100%', minHeight: 354, borderWidth: 1, borderRadius: 20, padding: 16 },
+  bestPreview: { width: '100%', minHeight: 354, borderWidth: 1, borderRadius: radii.feature, padding: 16 },
   bestStandalone: { width: 'auto', height: 'auto', minHeight: 354 },
   bestTop: { flexDirection: 'row', alignItems: 'center', minHeight: 112 },
   bestName: { ...t['2xl'], fontFamily: fonts.display },
@@ -1167,7 +1168,7 @@ const styles = StyleSheet.create({
   factRow: { minHeight: 44, borderRadius: 12, paddingHorizontal: 12, paddingVertical: 9, flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 8 },
   factText: { ...t.sm, fontFamily: fonts.mono, flex: 1 },
   factAge: { ...t.xs, fontFamily: fonts.body, marginTop: 2 },
-  eddyRead: { borderWidth: StyleSheet.hairlineWidth, borderRadius: 14, padding: 13, marginTop: 10 },
+  eddyRead: { borderWidth: StyleSheet.hairlineWidth, borderRadius: radii.card, padding: 13, marginTop: 10 },
   readHead: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   readLabel: { ...t.xs, fontFamily: fonts.heading, letterSpacing: 0.7, flex: 1 },
   actions: { flexWrap: 'wrap', flexDirection: 'row', alignItems: 'center', gap: 9, marginTop: 'auto', paddingTop: 15 },
@@ -1187,7 +1188,7 @@ const styles = StyleSheet.create({
   conditionCount: { flexGrow: 1, flexBasis: '47%', minWidth: 0, borderWidth: StyleSheet.hairlineWidth, borderRadius: 12, paddingHorizontal: 10, paddingVertical: 9 },
   conditionCountNumber: { ...t.lg, fontFamily: fonts.heading },
   conditionCountLabel: { ...t.xs, fontFamily: fonts.body, marginTop: 1 },
-  conditionPreviewCard: { borderWidth: StyleSheet.hairlineWidth, borderRadius: 16, paddingHorizontal: 13, overflow: 'hidden' },
+  conditionPreviewCard: { borderWidth: StyleSheet.hairlineWidth, borderRadius: radii.card, paddingHorizontal: 13, overflow: 'hidden' },
   compactRiver: { minHeight: 58, borderBottomWidth: StyleSheet.hairlineWidth, flexDirection: 'row', alignItems: 'center', gap: 9 },
   compactRiverName: { ...t.sm, fontFamily: fonts.semibold },
   compactRiverMeta: { ...t.xs, fontFamily: fonts.body, marginTop: 2 },

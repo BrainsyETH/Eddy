@@ -33,12 +33,23 @@ export const fonts = {
  * 4xl-6xl are dropped deliberately: they exist for desktop hero titles and a
  * 60px logo, neither of which occurs on a phone.
  */
+// Every size has an Eddy body face; explicit display/heading/data roles override it.
 export const type = {
-  xs: { fontSize: 12, lineHeight: 17 },
-  sm: { fontSize: 14, lineHeight: 21 },
-  base: { fontSize: 16, lineHeight: 24 },
-  lg: { fontSize: 18, lineHeight: 29 },
-  xl: { fontSize: 20, lineHeight: 28 },
-  '2xl': { fontSize: 24, lineHeight: 31 },
-  '3xl': { fontSize: 30, lineHeight: 38 },
+  xs: { fontFamily: fonts.body, fontSize: 12, lineHeight: 17 },
+  sm: { fontFamily: fonts.body, fontSize: 14, lineHeight: 21 },
+  base: { fontFamily: fonts.body, fontSize: 16, lineHeight: 24 },
+  lg: { fontFamily: fonts.body, fontSize: 18, lineHeight: 29 },
+  xl: { fontFamily: fonts.body, fontSize: 20, lineHeight: 28 },
+  '2xl': { fontFamily: fonts.body, fontSize: 24, lineHeight: 31 },
+  '3xl': { fontFamily: fonts.body, fontSize: 30, lineHeight: 38 },
+} as const;
+
+/** iOS hierarchy: expressive screen titles, restrained headings, stable data. */
+export const textStyles = {
+  pageTitle: { ...type['3xl'], fontFamily: fonts.display },
+  sectionTitle: { ...type.xl, fontFamily: fonts.heading },
+  cardTitle: { ...type.lg, fontFamily: fonts.heading },
+  body: { ...type.base, fontFamily: fonts.body },
+  caption: { ...type.xs, fontFamily: fonts.body },
+  data: { ...type.lg, fontFamily: fonts.monoMedium },
 } as const;

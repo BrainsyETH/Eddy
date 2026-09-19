@@ -21,7 +21,7 @@
 // something for it.
 
 import { memo } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text } from 'react-native';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
 
@@ -40,7 +40,13 @@ function ScopeSwitchComponent<K extends string>({ options, value, onChange }: Pr
   const { colors } = useTheme();
 
   return (
-    <View style={[styles.track, { backgroundColor: colors.cardRaised }]}>
+    <ScrollView
+      horizontal
+      keyboardShouldPersistTaps="handled"
+      showsHorizontalScrollIndicator
+      style={[styles.viewport, { backgroundColor: colors.cardRaised }]}
+      contentContainerStyle={styles.track}
+    >
       {options.map((option) => {
         const active = option.key === value;
         return (
@@ -60,31 +66,34 @@ function ScopeSwitchComponent<K extends string>({ options, value, onChange }: Pr
                   fontFamily: active ? fonts.semibold : fonts.medium,
                 },
               ]}
-              numberOfLines={1}
             >
               {option.label}
             </Text>
           </Pressable>
         );
       })}
-    </View>
+    </ScrollView>
   );
 }
 
 export const ScopeSwitch = memo(ScopeSwitchComponent) as typeof ScopeSwitchComponent;
 
 const styles = StyleSheet.create({
+  viewport: { marginHorizontal: 16, marginTop: 10, borderRadius: 12, flexGrow: 0 },
   track: {
+    flexGrow: 1,
     flexDirection: 'row',
-    marginHorizontal: 16,
-    marginTop: 10,
     padding: 3,
     borderRadius: 11,
     gap: 3,
   },
   segment: {
-    flex: 1,
-    paddingVertical: 7,
+    flexGrow: 1,
+    flexShrink: 0,
+    minHeight: 44,
+    minWidth: 44,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
     borderRadius: 9,
     alignItems: 'center',
     justifyContent: 'center',

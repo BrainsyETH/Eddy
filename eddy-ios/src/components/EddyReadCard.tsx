@@ -1,3 +1,4 @@
+import { radii } from '@/theme/layout';
 import { Image, Linking, Pressable, StyleSheet, Text, View } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { Ionicons } from '@expo/vector-icons';
@@ -61,7 +62,10 @@ export function EddyReadCard({ river, says, onPress, compact = false, standalone
   const action = 'View full read';
 
   return (
-    <View
+    <Pressable
+      onPress={onPress}
+      // Keep the named heading action, excerpt, Retry and credit individually accessible.
+      accessible={false}
       style={[
         styles.card,
         compact ? styles.compact : null,
@@ -96,14 +100,14 @@ export function EddyReadCard({ river, says, onPress, compact = false, standalone
           <Ionicons name="chevron-forward" size={15} color="white" />
         </Pressable>
       </View>
-      {river.photoCredit ? <Pressable onPress={() => void Linking.openURL(river.photoCredit!.url)} accessibilityRole="link" accessibilityLabel="Photo credit and license" style={{ minHeight: 44, justifyContent: 'center', alignSelf: 'flex-start' }}><Text style={{ ...t.xs, color: '#e2eee8' }}>Photo: {river.photoCredit.text}</Text></Pressable> : null}
+      {river.photoCredit ? <Pressable onPress={event => { event.stopPropagation(); void Linking.openURL(river.photoCredit!.url); }} accessibilityRole="link" accessibilityLabel="Photo credit and license" style={{ minHeight: 44, justifyContent: 'center', alignSelf: 'flex-start' }}><Text style={{ ...t.xs, color: '#e2eee8' }}>Photo: {river.photoCredit.text}</Text></Pressable> : null}
       </View>
-    </View>
+    </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
-  card: { marginHorizontal: 16, marginBottom: 10, borderWidth: StyleSheet.hairlineWidth, borderRadius: 20, overflow: 'hidden' },
+  card: { marginHorizontal: 16, marginBottom: 10, borderWidth: StyleSheet.hairlineWidth, borderRadius: radii.feature, overflow: 'hidden' },
   content: { padding: 20, minHeight: 290, justifyContent: 'flex-start' },
   compact: { width: '100%', minHeight: 190, marginHorizontal: 0, marginBottom: 0 },
   standalone: { width: 'auto', height: 'auto', minHeight: 190, marginHorizontal: 0, marginBottom: 0 },

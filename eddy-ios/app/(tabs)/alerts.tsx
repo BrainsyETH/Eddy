@@ -85,7 +85,7 @@ import type {
 import { ApiError, fetchHighWater, fetchRiverAlerts } from '@/api/client';
 import { conditionBg, conditionColor, conditionInk } from '@/theme/conditions';
 import { useTheme } from '@/theme/ThemeProvider';
-import { fonts, type as t } from '@/theme/typography';
+import { fonts, textStyles, type as t } from '@/theme/typography';
 import type { Palette } from '@/theme/palette';
 import { readingAge } from '@/lib/readingCopy';
 import { EddyScene } from '@/components/EddyScene';
@@ -891,7 +891,7 @@ const styles = StyleSheet.create({
   centered: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   header: { paddingHorizontal: 20, paddingTop: 12, paddingBottom: 12 },
   titleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  title: { ...t['3xl'], fontFamily: fonts.display },
+  title: { ...textStyles.pageTitle },
   addButton: { width: 36, height: 36, borderRadius: 999, alignItems: 'center', justifyContent: 'center' },
   toggleRow: { flexDirection: 'row', gap: 8, marginTop: 14 },
   toggle: {
