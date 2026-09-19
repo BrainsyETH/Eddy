@@ -36,6 +36,7 @@
 // conditionColor(): CONDITION_SYSTEM's palette means "should you float this
 // river", and how hard the units are running is not that verdict.
 
+import { radii } from '@/theme/layout';
 import { StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import type { DamSnapshot } from '@eddy/types';
@@ -261,7 +262,7 @@ export function DamGenerationHero({
 }
 
 const styles = StyleSheet.create({
-  card: { borderRadius: 14, padding: 16, gap: 10 },
+  card: { borderRadius: radii.card, padding: 16, gap: 10 },
   statusRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   status: { fontSize: 11, lineHeight: 15, fontFamily: fonts.heading, letterSpacing: 0.6 },
   rack: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 2 },
@@ -278,10 +279,10 @@ const styles = StyleSheet.create({
   // The "of full generation" qualifier, at reading weight beside the figure so
   // the number leads and what it is a share of follows.
   headlineAside: { fontSize: 15, lineHeight: 20, fontFamily: fonts.medium },
-  flow: { fontSize: 17, lineHeight: 22, fontFamily: fonts.heading, fontVariant: ['tabular-nums'] },
+  flow: { fontSize: 17, lineHeight: 22, fontFamily: fonts.monoMedium, fontVariant: ['tabular-nums'] },
   flowAside: { fontSize: 13, lineHeight: 18, fontFamily: fonts.medium },
-  age: { fontSize: 11, lineHeight: 15 },
-  note: { fontSize: 11, lineHeight: 15 },
+  age: { fontFamily: fonts.body, fontSize: 11, lineHeight: 15 },
+  note: { fontFamily: fonts.body, fontSize: 11, lineHeight: 15 },
   blockLabel: { fontSize: 10, lineHeight: 14, fontFamily: fonts.heading, letterSpacing: 0.6 },
   stale: { fontSize: 11, lineHeight: 15, fontFamily: fonts.medium },
   scheduledRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },

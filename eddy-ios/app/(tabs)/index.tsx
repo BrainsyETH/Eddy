@@ -81,7 +81,7 @@ import {
 import { ApiError, fetchRiverAccessPoints, fetchRivers } from '@/api/client';
 import { floatableRank } from '@/theme/conditions';
 import { useTheme } from '@/theme/ThemeProvider';
-import { fonts, type as t } from '@/theme/typography';
+import { fonts, textStyles, type as t } from '@/theme/typography';
 import {
   mapAccessPointPin,
   mapCampgroundServicePin,
@@ -3315,7 +3315,7 @@ function MapUnavailable({ reason }: { reason: 'expo-go' | 'missing-token' | 'loa
 const styles = StyleSheet.create({
   screen: { flex: 1 },
   header: { paddingHorizontal: 20, paddingTop: 12 },
-  title: { ...t['3xl'], fontFamily: fonts.display },
+  title: { ...textStyles.pageTitle },
   // The name and the clear button, as one line. `space-between` rather than a
   // gap so the × sits at the right margin instead of trailing the name, which
   // is what keeps it in the same place on "Big River" and "North Fork of the

@@ -476,7 +476,7 @@ const styles = StyleSheet.create({
   nowRow: { height: 12 },
   nowLabel: { position: 'absolute', top: 0, width: 24, fontSize: 9, lineHeight: 12, textAlign: 'center', fontFamily: fonts.medium },
   barAxis: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 3 },
-  axisText: { fontSize: 10, lineHeight: 14 },
+  axisText: { fontFamily: fonts.body, fontSize: 10, lineHeight: 14 },
 });
 
 export const _test = { markerLeft, shareOf, barColor, BAR_GAP, HOURS };

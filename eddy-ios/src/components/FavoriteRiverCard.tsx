@@ -40,6 +40,7 @@
 // reading and stops, which is exactly what the old row showed. The failure mode
 // is the previous design rather than a hole.
 
+import { radii } from '@/theme/layout';
 import { memo } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -291,7 +292,7 @@ const styles = StyleSheet.create({
     alignItems: 'stretch',
     marginHorizontal: 16,
     marginBottom: 10,
-    borderRadius: 14,
+    borderRadius: radii.card,
     overflow: 'hidden',
   },
   stripe: { width: 4 },

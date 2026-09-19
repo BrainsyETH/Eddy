@@ -21,6 +21,7 @@
 // idle treatment. A gap drawn as an empty bar says the units were off, which is
 // a claim about the river during an outage.
 
+import { radii } from '@/theme/layout';
 import { useEffect, useMemo, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import type { DamPatternDay, DamScheduleDay } from '@eddy/types';
@@ -36,7 +37,7 @@ import {
   type PatternRow as Row,
 } from '@eddy/conditions/dam-generation';
 import { useTheme } from '@/theme/ThemeProvider';
-import { fonts, type as t } from '@/theme/typography';
+import { fonts, textStyles } from '@/theme/typography';
 
 /**
  * The five ticks under the rows, as hours of a Central day.
@@ -294,25 +295,25 @@ export function DamPatternStrip({
 }
 
 const styles = StyleSheet.create({
-  card: { borderRadius: 14, padding: 16, gap: 10 },
-  title: { ...t.lg, fontFamily: fonts.display },
+  card: { borderRadius: radii.card, padding: 16, gap: 10 },
+  title: { ...textStyles.cardTitle },
   // Directly under the title, above the legend: it says what the card is OF,
   // which is read before what the treatments mean.
-  span: { fontSize: 12, lineHeight: 16, marginTop: -4 },
+  span: { fontFamily: fonts.body, fontSize: 12, lineHeight: 16, marginTop: -4 },
   legend: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
   legendItem: { flexDirection: 'row', alignItems: 'center', gap: 5 },
   legendSwatch: { width: 10, height: 12, borderRadius: 1 },
-  legendText: { fontSize: 11, lineHeight: 15 },
+  legendText: { fontFamily: fonts.body, fontSize: 11, lineHeight: 15 },
   rows: { gap: 3 },
   row: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  rowLabel: { width: 40, fontSize: 10, lineHeight: 14, fontVariant: ['tabular-nums'] },
-  rowTag: { width: 36, fontSize: 9, lineHeight: 13, textAlign: 'right' },
+  rowLabel: { fontFamily: fonts.body, width: 40, fontSize: 10, lineHeight: 14, fontVariant: ['tabular-nums'] },
+  rowTag: { fontFamily: fonts.body, width: 36, fontSize: 9, lineHeight: 13, textAlign: 'right' },
   // The row's two gutters, mirrored so the ticks line up with the bars. Same
   // widths as rowLabel and rowTag — if either moves, these move with it.
   axisLead: { width: 40 },
   axisTail: { width: 36 },
   barAxis: { flex: 1, flexDirection: 'row', justifyContent: 'space-between', marginTop: 2 },
-  axisText: { fontSize: 10, lineHeight: 14 },
+  axisText: { fontFamily: fonts.body, fontSize: 10, lineHeight: 14 },
   bars: { flex: 1, flexDirection: 'row', alignItems: 'flex-end', height: 18 },
   slot: { flex: 1, height: '100%', justifyContent: 'flex-end', paddingHorizontal: 0.5 },
   bar: { width: '100%', borderRadius: 1 },
@@ -322,5 +323,5 @@ const styles = StyleSheet.create({
   notYet: { width: '100%', height: 1, borderRadius: 1 },
   notYetSwatch: { width: 10, height: 1, borderRadius: 1 },
   divider: { borderTopWidth: StyleSheet.hairlineWidth, borderStyle: 'dashed', marginVertical: 6 },
-  footer: { fontSize: 11, lineHeight: 15, borderTopWidth: StyleSheet.hairlineWidth, paddingTop: 10 },
+  footer: { fontFamily: fonts.body, fontSize: 11, lineHeight: 15, borderTopWidth: StyleSheet.hairlineWidth, paddingTop: 10 },
 });

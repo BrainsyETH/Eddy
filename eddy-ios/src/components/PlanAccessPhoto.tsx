@@ -5,19 +5,22 @@ import { EddySymbol } from '@/components/EddySymbol';
 import { placeSymbol } from '@/components/map-sheet/placeSymbol';
 import { useTheme } from '@/theme/ThemeProvider';
 
-/** A reserved photo frame prevents layout jumps while images load or fail. */
-export function PlanAccessPhoto({ point, style }: {
+/** Real photos keep their frame; photo-free picker cards use a compact branded fallback. */
+export function PlanAccessPhoto({ point, style, compactFallback = false }: {
   point: MapAccessPoint;
   style: StyleProp<ViewStyle>;
+  compactFallback?: boolean;
 }) {
   const { colors } = useTheme();
   const uri = point.imageUrls?.[0];
   const [failedUri, setFailedUri] = useState<string>();
 
+  const showPhoto = !!uri && failedUri !== uri;
+
   return (
-    <View style={[styles.frame, { backgroundColor: colors.cardRaised }, style]}>
+    <View style={[styles.frame, { backgroundColor: colors.cardRaised }, style, compactFallback && !showPhoto && styles.compactFallback]}>
       <EddySymbol name={placeSymbol({ layer: 'access' }, point)} size={28} />
-      {uri && failedUri !== uri ? (
+      {showPhoto ? (
         <Image
           key={uri}
           source={{ uri, cache: 'default' }}
@@ -33,5 +36,6 @@ export function PlanAccessPhoto({ point, style }: {
 }
 
 const styles = StyleSheet.create({
+  compactFallback: { height: 56, aspectRatio: undefined, alignItems: 'flex-start', paddingHorizontal: 14 },
   frame: { alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
 });

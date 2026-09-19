@@ -51,7 +51,7 @@ import { fetchGauges, fetchRivers } from '@/api/client';
 import { getSharedDams } from '@/hooks/useDams';
 import { readIndex } from '@/lib/riverCache';
 import { useTheme } from '@/theme/ThemeProvider';
-import { fonts, type as t } from '@/theme/typography';
+import { fonts, textStyles, type as t } from '@/theme/typography';
 import { EddyScene } from '@/components/EddyScene';
 import { FilterChips, type FilterChip } from '@/components/FilterChips';
 import { FavoriteRiverCard, type GaugeThresholds } from '@/components/FavoriteRiverCard';
@@ -527,7 +527,7 @@ export default function FavoritesScreen() {
 const styles = StyleSheet.create({
   screen: { flex: 1 },
   header: { paddingHorizontal: 20, paddingTop: 12, paddingBottom: 16 },
-  title: { ...t['3xl'], fontFamily: fonts.display },
+  title: { ...textStyles.pageTitle },
   subtitle: { ...t.sm, fontFamily: fonts.body, marginTop: 4 },
   // The glyph and its sentence on one line, in the caption size: a marker,
   // not a banner. `flex: 1` on the text so a wrap happens under itself rather
