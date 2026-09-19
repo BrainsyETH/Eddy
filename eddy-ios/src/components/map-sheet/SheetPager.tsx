@@ -190,10 +190,27 @@ export function SheetPager({
   );
 }
 
+/** Single-page POIs use the same bounded scroller and gesture handoff as tabs. */
+export function SheetBody({ children }: { children: React.ReactNode }) {
+  const sheet = useSheetScroll();
+  return (
+    <SheetPage
+      key={sheet?.resetKey}
+      active
+      maxHeight={Math.max(0, sheet?.pageBudget ?? 0)}
+      panRef={sheet?.panRef}
+      published={sheet?.scrollY ?? null}
+      scrollEnabled={sheet?.atFull ?? false}
+    >
+      {children}
+    </SheetPage>
+  );
+}
+
 interface PageProps {
   /** Whether this is the page in front. Only that one publishes its offset. */
   active: boolean;
-  width: number;
+  width?: number;
   maxHeight: number;
   panRef: SheetPagerPanRef;
   /** The sheet's shared offset, or null when a page is rendered outside one. */

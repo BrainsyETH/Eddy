@@ -345,3 +345,18 @@ test('real peek padding preserves detent order across the reported phone bands',
     );
   }
 });
+
+
+test('a short POI body is visible when its expansion is smaller than the detent gap', () => {
+  const preview = 160;
+  const body = 40;
+  const d = resolveDetents(TALL, preview + body, preview);
+  assert.deepEqual(d.order, ['peek']);
+  assert.equal(d.height.peek, preview + body);
+});
+
+test('merging half and full preserves the last rows of a POI body', () => {
+  const content = Math.round(TALL * 0.55) + 30;
+  const d = resolveDetents(TALL, content, 160);
+  assert.equal(d.height[d.order[d.order.length - 1]], content);
+});

@@ -24,18 +24,8 @@
 // that for a while (directions, shuttle route, outfitters, points along the
 // route), so those are the shapes borrowed here.
 //
-// ── Float time is a CEILING, and sometimes nothing ──────────────────────────
-// The server returns `floatTime: null` in dangerous water rather than an
-// estimate, and that null is a verdict, not a gap. Printing "about 5 hours" for
-// a river in flood would be an invitation, so the absence is rendered as the
-// refusal it is.
-//
-// When a time does exist the headline is the LONG end of the server's range,
-// worded "Up to ~4 hours". This is still not a point estimate — it is an upper
-// bound, and it keeps the honesty a bare number would lose — but it stops
-// making the reader subtract two quarter-hour-rounded strings to work out
-// whether they get off the water before dark. The short end was never the
-// useful one.
+// Float times keep both server-provided range endpoints. Missing estimates
+// retain the existing regulated-water and dangerous-water explanations.
 
 import type { ReactNode } from 'react';
 import { Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
@@ -53,10 +43,7 @@ import {
 import { primary } from '@/theme/palette';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
-import {
-  floatTimeCeilingBasisNote,
-  formatFloatTimeRangeCompact,
-} from '@eddy/conditions/float-time-format';
+import { FloatTimeEstimate } from './FloatTimeEstimate';
 import { formatReading, primaryReading, readingAge } from '@/lib/readingCopy';
 import { driveBetweenUrl, driveToUrl, usgsGaugeUrl } from '@/lib/directions';
 import { Otter, otterForCondition } from '@/components/Otter';
@@ -118,38 +105,16 @@ export function PlanResult({ plan, actions, accessPoints }: Props) {
           <Text style={[styles.segment, { color: colors.textMuted }]} numberOfLines={2}>
             {plan.putIn.name} → {plan.takeOut.name}
           </Text>
-          {/* Distance rides here rather than in a stat row of its own. It used
-              to share that row with Shuttle drive; with the shuttle gone, a
-              lone stat sat left-aligned under a full-width rule with half the
-              card empty beside it. One number does not need a table. */}
-          {/* Raised out of the muted grey it shared with the endpoint names.
-              How far is one of the two questions the card exists to answer —
-              the other is how long, printed at 3xl below — and it was being
-              set at the same size and colour as the caption beside it. */}
           <Text style={[styles.segmentDistance, { color: colors.text }]}>
             {plan.distance.formatted}
           </Text>
         </View>
 
         {plan.floatTime ? (
-          <>
-            {/* Use the same range as the web plan and shared estimate. */}
-            <Text style={[styles.headline, { color: colors.text }]}>
-              {plan.floatTime.timeRange
-                ? formatFloatTimeRangeCompact(plan.floatTime.timeRange.min, plan.floatTime.timeRange.max)
-                : plan.floatTime.formatted}
-            </Text>
-            <Text style={[styles.headlineNote, { color: colors.textSubtle }]}>
-              {/* One short sentence under the headline, and no longer a clause
-                  about the boat. It used to open with the vessel — "Raft at
-                  today's level, estimated at a relaxed pace with stops" —
-                  which put a noun the reader had not chosen, and cannot change
-                  from this screen, in front of the only thing the line is for.
-                  See floatTimeCeilingBasisNote for what the vessel was doing
-                  there and where it went. */}
-              {floatTimeCeilingBasisNote()}
-            </Text>
-          </>
+          <FloatTimeEstimate
+            timeRange={plan.floatTime.timeRange}
+            formatted={plan.floatTime.formatted}
+          />
         ) : plan.floatTimeWithheldReason === 'regulated' ? (
           <>
             {/* TWO SILENCES, TWO SENTENCES — floatTimeWithholding's own rule.
@@ -398,15 +363,10 @@ const styles = StyleSheet.create({
   warningText: { ...t.sm, fontFamily: fonts.medium, flex: 1 },
   card: { padding: 16, borderRadius: 16, marginBottom: 10 },
   cardTitle: { ...t.base, fontFamily: fonts.heading, marginBottom: 6 },
-  // `center`, now that the distance is taller than the endpoint line it sits
-  // beside — top-aligned, a larger number hangs above the text it belongs to.
-  segmentRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  segment: { ...t.xs, fontFamily: fonts.semibold, flex: 1 },
-  // Mono for the same reason readings use it: the number changes between plans
-  // and a proportional face makes it shift against the endpoints beside it.
-  // One step up from the caption it used to match, and no further: the float
-  // time below is the headline and this must not start competing with it.
-  segmentDistance: { ...t.base, fontFamily: fonts.mono },
+  // Route and distance share a baseline and can wrap on narrow screens.
+  segmentRow: { flexDirection: 'row', alignItems: 'baseline', flexWrap: 'wrap', gap: 10 },
+  segment: { ...t.sm, fontFamily: fonts.semibold, flexGrow: 1, flexShrink: 1, flexBasis: '65%' },
+  segmentDistance: { ...t.sm, fontFamily: fonts.medium },
   headline: { ...t['3xl'], fontFamily: fonts.display, marginTop: 6 },
   headlineNote: { ...t.sm, fontFamily: fonts.body, marginTop: 2 },
   conditionHead: { flexDirection: 'row', alignItems: 'center', gap: 12 },

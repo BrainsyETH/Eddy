@@ -311,6 +311,15 @@ export function resolveDetents(
     if (height[detent] - previous >= MIN_DETENT_GAP) order.push(detent);
   }
 
+  // Coalescing nearby stops must still expose the end of the content. A short
+  // POI body can add less than MIN_DETENT_GAP below its action preview; keeping
+  // only the smaller stop would hide those last rows with no way to reach them.
+  const last = order[order.length - 1];
+  if (height.full > height[last]) {
+    if (last === 'peek') height.peek = height.full;
+    else order[order.length - 1] = 'full';
+  }
+
   return { available: safeAvailable, order, height };
 }
 

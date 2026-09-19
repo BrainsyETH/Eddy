@@ -1,16 +1,10 @@
 // eddy-ios/src/components/map-sheet/PinCallout.tsx
-// What a tapped pin says. MOVED HERE VERBATIM from app/(tabs)/index.tsx, where
-// it lived inline in a 2621-line screen file.
-//
-// The move is deliberately a MOVE and nothing else — no behaviour, no markup
-// and no copy changed — so that the diff which relocates 540 lines is one a
-// reader can dismiss at a glance, and the diff which turns this into a
-// draggable sheet is the only one they have to actually read. Doing both at
-// once would have hidden the second inside the first.
-//
-// DRIVEABLE_LAYERS came with it: it was a module constant in the screen and is
-// used by nothing else there.
+// Non-tabbed POIs keep identity and actions in a measured preview, with their
+// description and links in a bounded scroller below it.
 
+import type { ComponentProps } from 'react';
+import { MapSheet } from './MapSheet';
+import { SheetBody } from './SheetPager';
 import { Linking, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import type { MapAccessPoint } from '@eddy/types';
@@ -49,9 +43,11 @@ export function PinCallout({
   onOpenDam,
   onOpenDetail,
   onClose,
+  onDetentChange,
+  metrics,
   starred = false,
   onToggleStar = null,
-}: {
+}: Pick<ComponentProps<typeof MapSheet>, 'onDetentChange' | 'metrics'> & {
   pin: MapPin;
   accessPoint: MapAccessPoint | null;
   canSetTakeOut: boolean;
@@ -250,7 +246,7 @@ export function PinCallout({
     });
   }
 
-  return (
+  const peek = (
     <View style={styles.callout}>
       {/* The identity row is PlaceHead's, shared with the tabbed sheet's own
           header. This callout IS the peek until the detail request qualifies a
@@ -328,53 +324,6 @@ export function PinCallout({
         </View>
       ) : null}
 
-      {/* ── THE WATER AT A PUT-IN IS NOT DRAWN HERE ANY MORE ────────
-          It moved to the tabbed sheet's own header, where it is now the first
-          thing under the name — see AccessGaugeReading in sections.tsx. This
-          callout no longer renders for access points at all: PinSheet decides
-          the shell from what was TAPPED rather than from how many tabs have
-          qualified, so a put-in holds the tabbed shape from its first frame
-          and this is the non-access sheet. Keeping a copy here would have been
-          a second reading nobody could reach. */}
-
-      {/* ── NOT CAPPED AT FOUR LINES ANY MORE ──────────────────────────
-          It was, on the argument that a callout grown to a hazard's full
-          seasonal notes covers the river it is describing. True of a callout
-          that could only ever be one height; this one has detents. What the cap
-          actually did was make the rest of a hazard PERMANENTLY unreadable —
-          and a hazard's body is the portage instruction, the description and
-          the seasonal notes joined (see RiverMap), so four lines routinely cut
-          off two of the three. The river screen "has room" only if you know to
-          go there, which nothing here said.
-
-          The glance is defended by the DETENT instead, which is the thing that
-          was actually being asked for: a long body pushes the content below the
-          fold rather than lengthening the peek, and pushing content below the
-          fold is how this sheet earns its half and full heights. A short
-          body still fits inside the glance and still gets one detent, exactly
-          as before. See wholeContentIsPeek in sheetGeometry. */}
-
-      {/* Availability outranks the description, because for somewhere to sleep
-          this weekend it IS the question, and the prose below it is the same
-          sentence it was last season. This is the only place a Missouri State
-          Park's inventory appears at all — a state park has no
-          nps_campgrounds row and so never reaches the tabbed sheet's header.
-
-          THE SAME CARD THE TABBED SHEET DRAWS, and it must stay that way: a
-          reader tapping two campgrounds in a row cannot be shown the same fact
-          as a card on one and a caption on the other, and which shell they get
-          depends on whether the campground happens to also be an access point —
-          a distinction about Eddy's data model, not about the place.
-
-          No onPress here: the callout has no Camping tab to open, because a
-          service campground has no access-point detail behind it. The card is
-          the whole of what Eddy knows. */}
-      <CampgroundAvailability
-        availability={pin.availability}
-        name={pin.name}
-        today={localToday()}
-      />
-
       {/* ── THE ONE THING TO DO, ABOVE EVERYTHING TO KNOW ─────────────────
           A hazard's portage note. It arrived joined onto the front of `body`
           and was therefore drawn by the prose slot below — muted grey, body
@@ -395,10 +344,6 @@ export function PinCallout({
             {pin.instruction}
           </Text>
         </View>
-      ) : null}
-
-      {pin.body ? (
-        <Text style={[styles.calloutBody, { color: colors.textMuted }]}>{pin.body}</Text>
       ) : null}
 
       {/* ── One primary, one secondary, and rows for the rest ───────
@@ -457,7 +402,7 @@ export function PinCallout({
                 accessibilityHint={button.hint}
               >
                 {button.icon ? <Ionicons name={button.icon} size={15} color={ink} /> : null}
-                <Text style={[styles.calloutPrimaryText, { color: ink }]} numberOfLines={1}>
+                <Text style={[styles.calloutPrimaryText, { color: ink }]}>
                   {button.label}
                 </Text>
               </Pressable>
@@ -465,49 +410,89 @@ export function PinCallout({
           })}
         </View>
       ) : null}
-
-      {calloutRows.length > 0 ? (
-        <View style={styles.calloutLinks}>
-          {calloutRows.map((row) => (
-            <Pressable
-              key={row.key}
-              onPress={row.onPress}
-              style={({ pressed }) => [styles.calloutLink, { opacity: pressed ? 0.6 : 1 }]}
-              accessibilityRole="button"
-              accessibilityLabel={row.accessibilityLabel}
-            >
-              <Text style={[styles.calloutLinkText, { color: colors.text }]} numberOfLines={1}>
-                {row.label}
-              </Text>
-              {/* An arrow that leaves the app for one that stays in it. The
-                  difference is worth a glyph: one of these opens Safari. The
-                  tint, where a row carries one, names WHOSE Safari page — glyph
-                  only, for the contrast reason in lib/stays.ts. */}
-              <Ionicons
-                name={row.external ? 'open-outline' : 'chevron-forward'}
-                size={16}
-                color={row.external && row.externalTint ? row.externalTint : colors.textSubtle}
-              />
-            </Pressable>
-          ))}
-        </View>
-      ) : null}
-
-      {/* ── When it was measured ────────────────────────────────────
-          LAST, under the actions, in the quietest ink on the card. It is a
-          qualifier on everything above it rather than another fact beside them,
-          and putting it in the subtitle — where the curated tier used to keep
-          it — made the identification line carry two unrelated jobs while the
-          national tier carried neither.
-
-          Absent, not "unknown", when the station never reported a timestamp.
-          A row that says "Updated: unknown" is a row about the app. */}
-      {pin.updatedAt ? (
-        <Text style={[styles.calloutUpdated, { color: colors.textMuted }]} numberOfLines={1}>
-          {pin.updatedAt}
-        </Text>
-      ) : null}
     </View>
+  );
+
+  return (
+    <MapSheet
+      resetKey={pin.id}
+      label={`${pin.name} sheet`}
+      onClose={onClose}
+      onDetentChange={onDetentChange}
+      metrics={metrics}
+      peek={peek}
+    >
+      <SheetBody>
+        <View style={styles.callout}>
+          {/* Availability outranks the description, because for somewhere to sleep
+              this weekend it IS the question, and the prose below it is the same
+              sentence it was last season. This is the only place a Missouri State
+              Park's inventory appears at all — a state park has no
+              nps_campgrounds row and so never reaches the tabbed sheet's header.
+
+              THE SAME CARD THE TABBED SHEET DRAWS, and it must stay that way: a
+              reader tapping two campgrounds in a row cannot be shown the same fact
+              as a card on one and a caption on the other, and which shell they get
+              depends on whether the campground happens to also be an access point —
+              a distinction about Eddy's data model, not about the place.
+
+              No onPress here: the callout has no Camping tab to open, because a
+              service campground has no access-point detail behind it. The card is
+              the whole of what Eddy knows. */}
+          <CampgroundAvailability
+            availability={pin.availability}
+            name={pin.name}
+            today={localToday()}
+          />
+
+          {pin.body ? (
+            <Text style={[styles.calloutBody, { color: colors.textMuted }]}>{pin.body}</Text>
+          ) : null}
+
+          {calloutRows.length > 0 ? (
+            <View style={styles.calloutLinks}>
+              {calloutRows.map((row) => (
+                <Pressable
+                  key={row.key}
+                  onPress={row.onPress}
+                  style={({ pressed }) => [styles.calloutLink, { opacity: pressed ? 0.6 : 1 }]}
+                  accessibilityRole="button"
+                  accessibilityLabel={row.accessibilityLabel}
+                >
+                  <Text style={[styles.calloutLinkText, { color: colors.text }]} numberOfLines={1}>
+                    {row.label}
+                  </Text>
+                  {/* An arrow that leaves the app for one that stays in it. The
+                      difference is worth a glyph: one of these opens Safari. The
+                      tint, where a row carries one, names WHOSE Safari page — glyph
+                      only, for the contrast reason in lib/stays.ts. */}
+                  <Ionicons
+                    name={row.external ? 'open-outline' : 'chevron-forward'}
+                    size={16}
+                    color={row.external && row.externalTint ? row.externalTint : colors.textSubtle}
+                  />
+                </Pressable>
+              ))}
+            </View>
+          ) : null}
+
+          {/* ── When it was measured ────────────────────────────────────
+              LAST, under the actions, in the quietest ink on the card. It is a
+              qualifier on everything above it rather than another fact beside them,
+              and putting it in the subtitle — where the curated tier used to keep
+              it — made the identification line carry two unrelated jobs while the
+              national tier carried neither.
+
+              Absent, not "unknown", when the station never reported a timestamp.
+              A row that says "Updated: unknown" is a row about the app. */}
+          {pin.updatedAt ? (
+            <Text style={[styles.calloutUpdated, { color: colors.textMuted }]} numberOfLines={1}>
+              {pin.updatedAt}
+            </Text>
+          ) : null}
+        </View>
+      </SheetBody>
+    </MapSheet>
   );
 }
 

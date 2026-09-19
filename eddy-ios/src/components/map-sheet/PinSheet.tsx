@@ -253,16 +253,7 @@ export function PinSheet(props: PinSheetProps) {
   // `activeTabs.length > 1` check further down means a one-tab station simply
   // shows no bar.
   if (!accessPoint && !isGaugePin && activeTabs.length <= 1) {
-    return (
-      <MapSheet
-        resetKey={pin.id}
-        label={`${pin.name} sheet`}
-        onClose={props.onClose}
-        onDetentChange={props.onDetentChange}
-        metrics={props.metrics}
-        peek={<PinCallout {...props} />}
-      />
-    );
+    return <PinCallout {...props} onClose={props.onBack ?? props.onClose} />;
   }
 
   const renderAccessTab = (key: TabKey) => {
