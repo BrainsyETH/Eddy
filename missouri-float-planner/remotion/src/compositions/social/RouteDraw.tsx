@@ -9,7 +9,6 @@ import {
   type Journey,
   type JourneyCamera,
   type JourneyPoint,
-  type JourneyStage,
   type JourneyState,
   type RoutePointKind,
   type SocialRoutePoint,
@@ -33,28 +32,20 @@ import { REEL_SAFE } from "../../lib/reel-safe";
 import { PLAN_CTA } from "../../lib/brand";
 import { CONDITION_COLORS, type RouteDrawProps } from "../../lib/social-props";
 
+import {
+  ROUTE_STAGE_TOP as STAGE_TOP,
+  ROUTE_STAGE_HEIGHT as STAGE_HEIGHT,
+  ROUTE_MAP_HEIGHT as MAP_HEIGHT,
+  ROUTE_ANNOTATION_TOP as CALLOUT_TOP,
+  ROUTE_CONTENT_WIDTH as CALLOUT_W,
+  ROUTE_MAP_STAGE as STAGE,
+} from "../../../../shared/social-route-layout";
+
 const FPS = 30;
 
 // ─── Layout ─────────────────────────────────────────────────────────────────
-// Everything readable sits inside REEL_SAFE (Instagram's top/bottom chrome).
-// The stage is the only thing that may run under the masthead / dock, and it
-// fades out at both edges so nothing is ever clipped by chrome mid-word.
-const STAGE_TOP = 550;
-const STAGE_HEIGHT = 690;
-const CONTENT_RIGHT = 1080 - REEL_SAFE.right;
-const CONTENT_CENTER_X = Math.round((REEL_SAFE.left + CONTENT_RIGHT) / 2);
-const STAGE: JourneyStage = {
-  // journeyCamera centres the overview at width / 2. Give it the logical
-  // editorial viewport (ending before the action rail), not the raw canvas,
-  // so the river, canoe, masthead and dock share one visual centreline.
-  width: CONTENT_CENTER_X * 2,
-  height: STAGE_HEIGHT,
-  boatX: CONTENT_CENTER_X,
-  boatY: 400,
-  padding: 100,
-};
-const CALLOUT_W = 390;
-const CALLOUT_H = 160;
+// Reserve separate rectangles for the masthead, map, annotation and dock.
+// Only river strokes fade at the map edges; readable content never overlaps.
 
 const LIGHT = SURFACES.light;
 
@@ -184,6 +175,9 @@ export const RouteDraw: React.FC<RouteDrawProps> = (props) => {
     activeCallout,
     calloutProgress,
     summaryVisible,
+    travelledMiles,
+    distanceMi,
+    arrival,
   };
 
   return (
@@ -202,12 +196,15 @@ export const RouteDraw: React.FC<RouteDrawProps> = (props) => {
         pinned
         label={label}
         title={riverName}
+        titleSize={60}
         subtitle={tagline || dateLabel || `${putInName} to ${takeOutName}`}
       />
 
       {journey ? <RiverStage journey={journey} frame={frame} {...stageProps} /> : <ItineraryStage {...stageProps} />}
 
-      <ProgressTicket current={travelledMiles} total={distanceMi} conditionColor={condition.solid} />
+      {!journey ? <div style={{ position: "absolute", top: STAGE_TOP + 16, right: REEL_SAFE.right }}>
+        <ProgressTicket current={travelledMiles} total={distanceMi} />
+      </div> : null}
 
       <ReelDock
         tiles={[
@@ -263,6 +260,9 @@ interface StageProps {
   activeCallout: SocialRoutePoint | null;
   calloutProgress: number;
   summaryVisible: boolean;
+  travelledMiles: number;
+  distanceMi: number;
+  arrival: number;
 }
 
 /** All stops in float order with the endpoints guaranteed present. */
@@ -295,46 +295,21 @@ const RiverStage: React.FC<StageProps & { journey: Journey; frame: number }> = (
   putInMile,
   unanchoredPoints,
   activeCallout,
-  calloutProgress,
   summaryVisible,
+  travelledMiles,
+  distanceMi,
+  arrival,
 }) => {
   const route = journey.points;
-  // Every on-screen position is a RAW arc-length fraction mapped through the
-  // journey — boat, markers and drawn line alike — so all of them agree with
-  // the stored geometry to within journey.maxDeviationPx.
   const located = journey.locate(state.progress);
-  const current = located.point;
-  const camera = journeyCamera(frame, route, current, STAGE);
-  const boatScreen = toScreen(current, camera);
-
-  // Callout placement: attach to the active point on screen and open on the
-  // side the channel is NOT heading toward, so the card never covers the
-  // next bend. Clamped into the stage and the horizontal safe zone.
-  let calloutStyleAt: React.CSSProperties | null = null;
-  if (activeCallout) {
-    const p = activeCallout.progress;
-    const here = journey.locate(p).point;
-    const probe = journey.locate(p >= 0.99 ? p - 0.06 : Math.min(1, p + 0.06)).point;
-    const headingX = p >= 0.99 ? here.x - probe.x : probe.x - here.x;
-    const anchor = toScreen(here, camera);
-    const openLeft = headingX > 0;
-    const cardH = summaryVisible ? alongCardHeight(unanchoredPoints.length) : CALLOUT_H;
-    // Eddy paddles on the left of the boat dot (see the mascot offset below),
-    // so a card opening left needs a wider gap or it lands on the otter.
-    const left = clamp(
-      openLeft ? anchor.x - 200 - CALLOUT_W : anchor.x + 70,
-      REEL_SAFE.left,
-      1080 - REEL_SAFE.right - CALLOUT_W,
-    );
-    const top = clamp(STAGE_TOP + anchor.y - cardH / 2, STAGE_TOP + 12, STAGE_TOP + STAGE_HEIGHT - cardH - 12);
-    calloutStyleAt = {
-      position: "absolute",
-      zIndex: 12,
-      left,
-      top,
-      transform: `translateX(${interpolate(calloutProgress, [0, 1], [openLeft ? -22 : 22, 0])}px) scale(${interpolate(calloutProgress, [0, 1], [0.96, 1])})`,
-    };
-  }
+  const camera = journeyCamera(frame, route, located.point, STAGE, DEFAULT_TIMING, arrival);
+  const boatScreen = toScreen(located.point, camera);
+  const nextStop = stops.find(point => point.progress > state.progress) ?? stops[stops.length - 1];
+  const shownStop = activeCallout ?? nextStop;
+  const progress = <ProgressTicket current={travelledMiles} total={distanceMi} />;
+  const annotationStyle: React.CSSProperties = {
+    position: "absolute", left: REEL_SAFE.left, top: CALLOUT_TOP, zIndex: 12,
+  };
 
   // Strokes are authored at travel scale; counter-scale so the overview still
   // reads as a channel rather than a hairline, without ballooning mid-zoom.
@@ -346,15 +321,13 @@ const RiverStage: React.FC<StageProps & { journey: Journey; frame: number }> = (
         style={{
           position: "absolute",
           top: STAGE_TOP,
-          left: 0,
-          width: "100%",
-          height: STAGE_HEIGHT,
+          left: REEL_SAFE.left,
+          width: STAGE.width,
+          height: MAP_HEIGHT,
           overflow: "hidden",
-          WebkitMaskImage: "linear-gradient(to bottom, transparent 0%, #000 10%, #000 90%, transparent 100%)",
-          maskImage: "linear-gradient(to bottom, transparent 0%, #000 10%, #000 90%, transparent 100%)",
         }}
       >
-        <svg width={1080} height={STAGE_HEIGHT} viewBox={`0 0 1080 ${STAGE_HEIGHT}`}>
+        <svg style={{ maskImage: "linear-gradient(to bottom, transparent 0%, #000 8%, #000 92%, transparent 100%)" }} width={STAGE.width} height={MAP_HEIGHT} viewBox={`0 0 ${STAGE.width} ${MAP_HEIGHT}`}>
           <defs>
             <filter id="flowSoft" x="-30%" y="-30%" width="160%" height="160%">
               <feGaussianBlur stdDeviation="5" result="blur" />
@@ -388,17 +361,15 @@ const RiverStage: React.FC<StageProps & { journey: Journey; frame: number }> = (
             ))}
           </g>
         </svg>
+        <Boat x={boatScreen.x} y={boatScreen.y} conditionColor={condition.solid} />
       </div>
 
-      <Boat x={boatScreen.x} y={STAGE_TOP + boatScreen.y} conditionColor={condition.solid} />
-
-      {activeCallout && calloutStyleAt ? (
-        summaryVisible ? (
-          <AlongCallout points={unanchoredPoints} opacity={calloutProgress} style={calloutStyleAt} />
-        ) : (
-          <RouteCallout point={activeCallout} putInMile={putInMile} opacity={calloutProgress} style={calloutStyleAt} />
-        )
-      ) : null}
+      {summaryVisible ? (
+        <AlongCallout points={unanchoredPoints} opacity={1} style={annotationStyle} progress={progress} />
+      ) : (
+        <RouteCallout point={shownStop} putInMile={putInMile} opacity={1} style={annotationStyle}
+          progress={progress} upcoming={!activeCallout && !state.complete} />
+      )}
     </>
   );
 };
@@ -413,12 +384,12 @@ const RiverStage: React.FC<StageProps & { journey: Journey; frame: number }> = (
 // approximate — rather than a floating card, which has nowhere to sit in a
 // list without covering a row. The arrival hold highlights them.
 
-const LINE_X = REEL_SAFE.left + 100;
+const LINE_X = REEL_SAFE.left + 130;
 const ROW_LEFT = LINE_X + 60;
 const ROW_W = 1080 - REEL_SAFE.right - ROW_LEFT;
 const ROW_H = 92;
 // The first row clears the progress ticket (top-right of the stage, ~80px
-// tall); the last clears the dock, which overlaps the stage's bottom edge. Six
+// tall); the last clears the dock. Six
 // rows — two endpoints, three stops and a mile-only feature, the fixture — fit
 // at the minimum pitch without scrolling, so the first row stays out from
 // under the ticket; longer lists scroll and fade at the edges.
@@ -493,16 +464,16 @@ const ItineraryStage: React.FC<StageProps> = ({
       <div
         style={{
           position: "absolute",
-          top: STAGE_TOP,
+          top: STAGE_TOP + 64,
           left: 0,
           width: "100%",
-          height: STAGE_HEIGHT,
+          height: STAGE_HEIGHT - 64,
           overflow: "hidden",
           WebkitMaskImage: "linear-gradient(to bottom, transparent 0%, #000 8%, #000 92%, transparent 100%)",
           maskImage: "linear-gradient(to bottom, transparent 0%, #000 8%, #000 92%, transparent 100%)",
         }}
       >
-        <div style={{ position: "absolute", top: offsetY, left: 0, width: "100%", height: contentH }}>
+        <div style={{ position: "absolute", top: offsetY - 64, left: 0, width: "100%", height: contentH }}>
           <svg width={1080} height={contentH} viewBox={`0 0 1080 ${contentH}`} style={{ position: "absolute", top: 0, left: 0 }}>
             <line x1={LINE_X} y1={lineTop} x2={LINE_X} y2={lineBottom} stroke={colors.primary[700]} strokeWidth={44} strokeLinecap="round" />
             <line x1={LINE_X} y1={lineTop} x2={LINE_X} y2={lineBottom} stroke={colors.primary[200]} strokeWidth={32} strokeLinecap="round" />
@@ -582,10 +553,9 @@ const StopRow: React.FC<{
   visited: boolean;
   active: boolean;
   activeProgress: number;
-}> = ({ point, putInMile, top, visited, active, activeProgress }) => {
+}> = ({ point, putInMile, top, visited, active }) => {
   const accent = hazardFill(point);
   const milesIn = Math.max(0, point.riverMile - putInMile);
-  const lift = active ? interpolate(activeProgress, [0, 1], [0, 1]) : 0;
   return (
     <div
       style={{
@@ -597,7 +567,7 @@ const StopRow: React.FC<{
         ...calloutStyle("light", active ? accent : undefined),
         borderWidth: 4,
         opacity: visited || active ? 1 : 0.62,
-        transform: `scale(${1 + 0.025 * lift})`,
+        boxShadow: `5px 5px 0 ${active ? accent : LIGHT.shadow}`,
         transformOrigin: "left center",
         display: "flex",
         alignItems: "center",
@@ -700,9 +670,8 @@ const ApproxRow: React.FC<{
   top: number;
   active: boolean;
   activeProgress: number;
-}> = ({ point, top, active, activeProgress }) => {
+}> = ({ point, top, active }) => {
   const accent = KIND_STYLE[point.kind].fill;
-  const lift = active ? activeProgress : 0;
   return (
     <div
       style={{
@@ -715,7 +684,7 @@ const ApproxRow: React.FC<{
         borderWidth: 4,
         borderStyle: "dashed",
         opacity: active ? 1 : 0.8,
-        transform: `scale(${1 + 0.025 * lift})`,
+        boxShadow: `5px 5px 0 ${active ? accent : LIGHT.shadow}`,
         transformOrigin: "left center",
         display: "flex",
         alignItems: "center",
@@ -838,26 +807,11 @@ const Boat: React.FC<{ x: number; y: number; conditionColor: string }> = ({ x, y
   </>
 );
 
-const ProgressTicket: React.FC<{ current: number; total: number; conditionColor: string }> = ({ current, total, conditionColor }) => (
-  <div
-    style={{
-      position: "absolute",
-      top: STAGE_TOP + 16,
-      right: REEL_SAFE.right,
-      zIndex: 8,
-      background: LIGHT.surface,
-      border: `4px solid ${LIGHT.rule}`,
-      borderRadius: 14,
-      padding: "10px 15px",
-      boxShadow: `5px 5px 0 ${LIGHT.shadow}`,
-      display: "flex",
-      alignItems: "baseline",
-      gap: 7,
-    }}
-  >
-    <span style={{ fontFamily: fontFamilies.mono, fontSize: 25, fontWeight: 750, color: conditionInk(conditionColor) }}>{current.toFixed(1)}</span>
-    <span style={{ fontFamily: fontFamilies.mono, fontSize: 16, color: LIGHT.inkMuted }}>/ {total.toFixed(1)} MI</span>
-  </div>
+const ProgressTicket: React.FC<{ current: number; total: number }> = ({ current, total }) => (
+  <span style={{ flexShrink: 0, fontFamily: fontFamilies.mono, fontSize: 18, fontWeight: 700,
+    color: LIGHT.ink, background: LIGHT.surface, padding: "6px 10px", borderRadius: 8 }}>
+    {current.toFixed(1)} / {total.toFixed(1)} MI
+  </span>
 );
 
 const RouteMarker: React.FC<{
@@ -892,27 +846,28 @@ const RouteMarker: React.FC<{
   );
 };
 
-const RouteCallout: React.FC<{ point: SocialRoutePoint; putInMile: number; opacity: number; style: React.CSSProperties }> = ({ point, putInMile, opacity, style }) => {
+const RouteCallout: React.FC<{ point: SocialRoutePoint; putInMile: number; opacity: number; style: React.CSSProperties; progress?: React.ReactNode; upcoming?: boolean }> = ({ point, putInMile, opacity, style, progress, upcoming }) => {
   const accent = hazardFill(point);
   const milesIn = Math.max(0, point.riverMile - putInMile);
-  const title = cleanName(point.name, 35);
+  const title = cleanName(point.name, 58);
   return (
     <BrandCallout
       accent={accent}
       width={CALLOUT_W}
       opacity={opacity}
       style={style}
+      headerAside={progress}
       header={
         <>
           <KindBadge>{KIND_STYLE[point.kind].short}</KindBadge>
-          <span style={{ overflow: "hidden", textOverflow: "ellipsis" }}>{point.detail || point.kind.replace(/_/g, " ")}</span>
+          <span style={{ overflow: "hidden", textOverflow: "ellipsis" }}>{upcoming ? "Up next" : point.detail || point.kind.replace(/_/g, " ")}</span>
         </>
       }
     >
       <div
         style={{
           fontFamily: fontFamilies.display,
-          fontSize: title.length > 22 ? 24 : TYPE.calloutTitle.size,
+          fontSize: title.length > 42 ? 26 : TYPE.calloutTitle.size,
           lineHeight: TYPE.calloutTitle.lineHeight,
           fontWeight: TYPE.calloutTitle.weight,
           color: LIGHT.ink,
@@ -930,17 +885,13 @@ const RouteCallout: React.FC<{ point: SocialRoutePoint; putInMile: number; opaci
   );
 };
 
-function alongCardHeight(count: number): number {
-  return 96 + 38 * Math.min(4, count) + (count > 4 ? 28 : 0);
-}
-
 /**
  * Features on the float with no coordinate. Named once at arrival, marked
  * approximate, never pinned or paused at: the guidebook's mile scale can be a
  * mile off the DB's, so a pin would be a lie in a graphic that is otherwise
  * exact — but the float still passes them, and the reel should say so.
  */
-const AlongCallout: React.FC<{ points: UnanchoredRoutePoint[]; opacity: number; style: React.CSSProperties }> = ({ points, opacity, style }) => {
+const AlongCallout: React.FC<{ points: UnanchoredRoutePoint[]; opacity: number; style: React.CSSProperties; progress?: React.ReactNode }> = ({ points, opacity, style, progress }) => {
   const shown = points.slice(0, 4);
   const more = points.length - shown.length;
   return (
@@ -949,33 +900,17 @@ const AlongCallout: React.FC<{ points: UnanchoredRoutePoint[]; opacity: number; 
       width={CALLOUT_W}
       opacity={opacity}
       style={style}
-      header={<span>Also along this float</span>}
-      headerAside={
-        <span
-          style={{
-            fontFamily: fontFamilies.mono,
-            fontSize: 12,
-            fontWeight: 700,
-            color: colors.primary[800],
-            border: `2px solid ${colors.primary[700]}`,
-            borderRadius: 999,
-            padding: "2px 8px",
-            letterSpacing: 0.6,
-            whiteSpace: "nowrap",
-          }}
-        >
-          APPROX.
-        </span>
-      }
+      header={<span>Along this float · Approx.{more > 0 ? ` (+${more})` : ""}</span>}
+      headerAside={progress}
     >
-      <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: -2 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px 18px", marginTop: -2 }}>
         {shown.map((point) => (
-          <div key={point.id} style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 12 }}>
-            <span style={{ fontFamily: fontFamilies.display, fontSize: 26, fontWeight: 650, color: LIGHT.ink, lineHeight: 1.1 }}>{cleanName(point.name, 24)}</span>
+          <div key={point.id} style={{ minWidth: 0, display: "flex", flexDirection: "column", gap: 2 }}>
+            <span style={{ fontFamily: fontFamilies.display, fontSize: 22, fontWeight: 650, color: LIGHT.ink, lineHeight: 1.1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{cleanName(point.name, 24)}</span>
             <span style={{ fontFamily: fontFamilies.mono, fontSize: 16, fontWeight: 650, color: LIGHT.inkMuted, whiteSpace: "nowrap" }}>≈ MM {point.riverMile.toFixed(1)}</span>
           </div>
         ))}
-        {more > 0 ? <span style={{ fontSize: 16, fontWeight: 600, color: LIGHT.inkMuted }}>+{more} more</span> : null}
+
       </div>
     </BrandCallout>
   );
