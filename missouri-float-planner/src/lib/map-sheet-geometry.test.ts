@@ -8,6 +8,7 @@ import {
   MIN_DETENT_GAP,
   ORNAMENT_BAND,
   pageBudget,
+  scrollingPeekHeight,
   PEEK_MAX,
   resolveDetents,
   settleTarget,
@@ -22,6 +23,30 @@ import {
 //
 // A tall phone's map area, roughly: 844pt screen less the tab bar and insets.
 const TALL = 700;
+
+test('a scrolling summary fits in peek but does not consume the expanded page budget', () => {
+  for (const available of [400, 600, 780]) {
+    const identity = 76;
+    const summary = 110;
+    const page = pageBudget(available, identity);
+    const peek = scrollingPeekHeight(available, identity, summary);
+    const detents = resolveDetents(available, identity + page, peek);
+    assert.equal(detents.height.peek, identity + summary);
+    assert.equal(detents.height.full, identity + page);
+    assert.ok(available - detents.height.full >= ORNAMENT_BAND);
+  }
+});
+
+test('a large-text summary can scroll instead of extending peek beyond the full ceiling', () => {
+  const available = 400;
+  const identity = 120;
+  const peek = scrollingPeekHeight(available, identity, 350);
+  const page = pageBudget(available, identity);
+  const detents = resolveDetents(available, identity + page, peek);
+  assert.equal(peek, identity + page);
+  assert.equal(detents.height.peek, detents.height.full);
+  assert.ok(available - peek >= ORNAMENT_BAND);
+});
 
 test('a sheet whose content fits inside the glance offers one detent', () => {
   // The hazard callout is ~115pt. Three detents there would have meant two

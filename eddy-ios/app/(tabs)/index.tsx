@@ -1785,7 +1785,10 @@ export default function MapScreen() {
     height: 0,
   });
   const onSheetDetentChange = useCallback(
-    (detent: string, height: number) => setSheet({ detent, height }),
+    (detent: string, height: number) =>
+      setSheet((current) =>
+        current.detent === detent && current.height === height ? current : { detent, height },
+      ),
     [],
   );
 
@@ -2624,6 +2627,8 @@ export default function MapScreen() {
     [router],
   );
 
+  const expandedAccessSheet = Boolean(sheetOpen && pinAccessPoint && sheet.detent === 'full');
+
   // NOTHING ON THIS SCREEN IS GATED. The offline download was the Map tab's
   // only paid feature and its only reason to know about entitlement, so the
   // account read, the `entitled` computation and the paywall sheet all left
@@ -2648,26 +2653,34 @@ export default function MapScreen() {
           gap, so their expanded regions OVERLAPPED by 10pt, and iOS hit-tests
           later siblings first — the clear ✕ won a band of taps aimed at the
           chevron. */}
-      <View style={styles.header}>
-        <Text style={[styles.title, { color: colors.text }]}>Map</Text>
-      </View>
+      {/* Full access details reclaim the title/search space. The map remains
+          mounted and its attribution band stays visible above the sheet. */}
+      <View
+        style={expandedAccessSheet ? { display: 'none' } : undefined}
+        accessibilityElementsHidden={expandedAccessSheet}
+      >
+        <View style={styles.header}>
+          <Text style={[styles.title, { color: colors.text }]}>Map</Text>
+        </View>
 
-      <View style={styles.searchRow}>
-        <SearchBar
-          value={search.query}
-          onChangeText={search.setQuery}
-          placeholder="Search rivers, gauges, dams and more"
-          // Gauges and services are matched locally, so both lists have to
-          // exist before the first keystroke rather than after the first
-          // query. Services especially: the placeholder and the empty state
-          // both promise outfitters, and with all three service layers off
-          // nothing else would ever have fetched them — "Akers Ferry" answered
-          // "Nothing matched" while the directory sat unrequested.
-          onFocus={() => {
-            ensureGauges();
-            ensureServices();
-          }}
-        />
+        <View style={styles.searchRow}>
+          <SearchBar
+            value={search.query}
+            onChangeText={search.setQuery}
+            placeholder="Search rivers, gauges, dams and more"
+            // Gauges and services are matched locally, so both lists have to
+            // exist before the first keystroke rather than after the first
+            // query. Services especially: the placeholder and the empty state
+            // both promise outfitters, and with all three service layers off
+            // nothing else would ever have fetched them — "Akers Ferry" answered
+            // "Nothing matched" while the directory sat unrequested.
+            onFocus={() => {
+              ensureGauges();
+              ensureServices();
+            }}
+          />
+        </View>
+
       </View>
 
       {/* ── Why the rivers are grey ──
