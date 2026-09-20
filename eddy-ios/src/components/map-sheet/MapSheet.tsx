@@ -42,6 +42,7 @@ import {
   DRAG_DEAD_ZONE,
   GRABBER_BLOCK,
   pageBudget,
+  scrollingPeekHeight,
   REDUCED_SETTLE,
   resolveDetents,
   SETTLE_SPRING,
@@ -77,6 +78,9 @@ interface Props {
    * them at rest has spent the gesture before the reader made it.
    */
   peek: React.ReactNode;
+  /** A scrollable summary visible at peek, already included in children. */
+  peekExtraHeight?: number;
+  peekPadding?: number;
   /** Absent for a sheet that is all glance — a hazard, an outfitter. */
   children?: React.ReactNode;
   /**
@@ -124,6 +128,8 @@ export function MapSheet({
   onClose,
   onDetentChange,
   peek,
+  peekExtraHeight = 0,
+  peekPadding = CONTENT_BOTTOM_PAD,
   children,
   label,
   metrics,
@@ -148,40 +154,21 @@ export function MapSheet({
   // handed; see its `wholeContentIsPeek`.
   const glanceOnly = children == null;
 
-  /**
-   * Air under the last row of the peek.
-   *
-   * This must be REAL layout space inside the measured peek, not just a number
-   * added to its detent. Adding it only to the detent makes the sheet 28pt
-   * taller while the next child still begins immediately after the peek, so
-   * the collapsed sheet reveals exactly 28pt of the category row below it.
-   * Padding the measured wrapper makes the visible height and the content
-   * boundary the same fact: the sheet stops after the details link and its air,
-   * and the category row begins below the fold.
-   *
-   * ── THE GAP REMAINS WHEN THE SHEET EXPANDS ─────────────────────────────
-   * The wrapper is real layout at every detent, so these 28pt become a section
-   * break between the persistent glance/actions and the detail navigation when
-   * the sheet is open. That is intentional: removing it only while expanded
-   * would make the content boundary depend on animated state and put the snap
-   * calculation and layout back on different facts. Check this separation on a
-   * device when changing either the peek contents or CONTENT_BOTTOM_PAD.
-   *
-   * NO SAFE-AREA INSET. `available` is measured from the map's overlay stack,
-   * which already excludes the tab bar and both insets, so the sheet cannot
-   * reach the home indicator and owes it no clearance.
-   */
-  const peekBottomPad = CONTENT_BOTTOM_PAD;
+  // Single-page and legacy sheets retain their bottom padding. Access sheets
+  // put the gap after the scrollable summary, so it disappears with that summary.
+  const peekBottomPad = peekPadding;
 
   const detents = useMemo(
     () =>
       resolveDetents(
         available,
         contentHeight > 0 ? contentHeight + GRABBER_BLOCK : 0,
-        peekHeight,
+        peekExtraHeight > 0
+          ? scrollingPeekHeight(available, peekHeight, peekExtraHeight)
+          : peekHeight,
         glanceOnly,
       ),
-    [available, contentHeight, peekHeight, glanceOnly],
+    [available, contentHeight, peekHeight, peekExtraHeight, glanceOnly],
   );
 
   // translateY is the DISTANCE THE SHEET IS PUSHED DOWN from fully open, so 0
@@ -192,6 +179,9 @@ export function MapSheet({
   const dragStart = useSharedValue(0);
   const scrollY = useSharedValue(0);
   const entered = useSharedValue(false);
+  const sheetDragged = useSharedValue(false);
+  const openedSelection = useRef<string | null>(null);
+  const resettingSelection = useRef(false);
 
   // Handed to the pages so each can declare ITSELF simultaneous with this pan.
   // Nothing native ever enters the context this way — see sheetScroll.
@@ -211,11 +201,14 @@ export function MapSheet({
   );
 
   // ── A NEW SELECTION resets the sheet ────────────────────────────────────
-  // Keyed on resetKey and nothing else. `available` is in the deps only
-  // because the first measurement arrives after mount and the sheet cannot be
-  // placed before it; once measured it does not change without a rotation.
+  // Wait for the first measurement. Later resizes retain the chosen detent.
   useEffect(() => {
     if (available <= 0) return;
+    // Reclaiming the map header changes available height, not the selection.
+    // Keep the reader's detent and scroll offset through that resize.
+    if (openedSelection.current === resetKey) return;
+    openedSelection.current = resetKey;
+    resettingSelection.current = true;
     const smallest = detents.order[0];
     const target = detents.available - detents.height[smallest];
     // The pages this sheet is about to show are new ones (they are keyed by
@@ -245,6 +238,10 @@ export function MapSheet({
   // than snapping back to the smallest.
   useEffect(() => {
     if (available <= 0 || !entered.value) return;
+    if (resettingSelection.current) {
+      resettingSelection.current = false;
+      return;
+    }
     // A detent that no longer exists (content shrank) falls back to the tallest
     // one that does, which is the closest thing to where the reader was.
     const held = detents.order.includes(detent) ? detent : detents.order[detents.order.length - 1];
@@ -252,9 +249,9 @@ export function MapSheet({
     translateY.value = reducedMotion
       ? withTiming(target, REDUCED_SETTLE)
       : withTiming(target, { duration: 180 });
-    if (held !== detent) commit(held);
+    commit(held);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [detents, available, reducedMotion]);
+  }, [resetKey, detents, available, reducedMotion]);
 
   const pan = useMemo(
     () =>
@@ -275,6 +272,7 @@ export function MapSheet({
         .onBegin(() => {
           'worklet';
           dragStart.value = translateY.value;
+          sheetDragged.value = false;
         })
         .onUpdate((event) => {
           'worklet';
@@ -291,10 +289,13 @@ export function MapSheet({
             return;
           }
           const raw = detents.available - (dragStart.value + event.translationY);
+          sheetDragged.value = true;
           translateY.value = detents.available - applyRubberBand(raw, largestHeight);
         })
         .onEnd((event) => {
           'worklet';
+          // A fling consumed entirely by the list must not resize the sheet.
+          if (!sheetDragged.value) return;
           const height = detents.available - translateY.value;
           const target = settleTarget(detents, height, event.velocityY);
           if (target === null) {
@@ -322,6 +323,7 @@ export function MapSheet({
       dragStart,
       translateY,
       scrollY,
+      sheetDragged,
       panRef,
     ],
   );

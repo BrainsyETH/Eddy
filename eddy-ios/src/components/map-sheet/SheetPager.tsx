@@ -21,8 +21,8 @@
 // Both a drag and a tab TAP write the same shared value, so the indicator
 // tracks a finger and animates on a tap through one code path rather than two
 // that have to be kept looking alike.
-import { useEffect, useMemo } from 'react';
-import { StyleSheet } from 'react-native';
+import { useEffect, useMemo, useRef } from 'react';
+import { StyleSheet, View, type ScrollView } from 'react-native';
 import { Gesture, GestureDetector, type GestureType } from 'react-native-gesture-handler';
 import { CONTENT_BOTTOM_PAD } from './sheetGeometry';
 import { useSheetScroll } from './sheetScroll';
@@ -77,6 +77,10 @@ interface Props {
    * instead of running off the bottom of the screen.
    */
   chromeHeight: number;
+  /** Scroll the summary away, then pin the tab navigation below the identity. */
+  scrollHeader?: React.ReactNode;
+  stickyTabs?: React.ReactNode;
+  scrollHeaderHeight?: number;
 }
 
 export function SheetPager({
@@ -88,6 +92,9 @@ export function SheetPager({
   children,
   pageKeys,
   chromeHeight,
+  scrollHeader,
+  stickyTabs,
+  scrollHeaderHeight = 0,
 }: Props) {
   const reducedMotion = useReducedMotion();
   const sheet = useSheetScroll();
@@ -160,7 +167,7 @@ export function SheetPager({
   // lets the sheet still measure it and offer one detent instead of a tall
   // mostly-empty card. Only a page with more to say than fits gets capped and
   // scrolls.
-  const pageMaxHeight = Math.max(120, (sheet?.pageBudget ?? 0) - chromeHeight);
+  const pageMaxHeight = Math.max(scrollHeader ? 0 : 120, (sheet?.pageBudget ?? 0) - chromeHeight);
 
   return (
     <GestureDetector gesture={pan}>
@@ -181,7 +188,11 @@ export function SheetPager({
             // OPEN the sheet, and a scroller that ate it would strand the
             // reader at the glance.
             scrollEnabled={sheet?.atFull ?? false}
+            stickyHeaderIndices={stickyTabs ? [1] : undefined}
+            scrollHeaderHeight={scrollHeaderHeight}
           >
+            {scrollHeader ? <View>{scrollHeader}</View> : null}
+            {stickyTabs ? <View>{stickyTabs}</View> : null}
             {page}
           </SheetPage>
         ))}
@@ -217,6 +228,8 @@ interface PageProps {
   published: SharedValue<number> | null;
   scrollEnabled: boolean;
   children: React.ReactNode;
+  stickyHeaderIndices?: number[];
+  scrollHeaderHeight?: number;
 }
 
 type SheetPagerPanRef = React.MutableRefObject<GestureType | undefined> | undefined;
@@ -251,7 +264,10 @@ function SheetPage({
   published,
   scrollEnabled,
   children,
+  stickyHeaderIndices,
+  scrollHeaderHeight = 0,
 }: PageProps) {
+  const scroller = useRef<ScrollView>(null);
   // This page's OWN offset, kept whether or not it is the one in front, so
   // that becoming the front page can republish the truth about this page
   // rather than leaving the last page's number standing.
@@ -267,8 +283,15 @@ function SheetPage({
   );
 
   useEffect(() => {
-    if (active && published) published.value = offset.value;
-  }, [active, published, offset]);
+    if (!active || !published) return;
+    // Switching tabs while the summary is collapsed keeps navigation in place.
+    // Preserve deeper per-tab positions; only synchronize the header portion.
+    if (scrollEnabled && scrollHeaderHeight > 0 && published.value >= scrollHeaderHeight && offset.value < scrollHeaderHeight) {
+      offset.value = scrollHeaderHeight;
+      scroller.current?.scrollTo({ y: scrollHeaderHeight, animated: false });
+    }
+    published.value = offset.value;
+  }, [active, published, offset, scrollEnabled, scrollHeaderHeight]);
 
   const native = useMemo(
     () => (panRef ? Gesture.Native().simultaneousWithExternalGesture(panRef) : Gesture.Native()),
@@ -278,7 +301,11 @@ function SheetPage({
   return (
     <GestureDetector gesture={native}>
       <Animated.ScrollView
+        ref={scroller}
         style={{ width, maxHeight }}
+        stickyHeaderIndices={stickyHeaderIndices}
+        accessibilityElementsHidden={!active}
+        importantForAccessibility={active ? 'auto' : 'no-hide-descendants'}
         // ── The air at the end of a page ──────────────────────────────────
         // On the CONTENT, not the style, and that distinction is the whole fix:
         // this pad used to sit on the sheet's content column, one level above
@@ -286,7 +313,11 @@ function SheetPage({
         // the card rather than a gap you reach by scrolling. Inside
         // contentContainerStyle it scrolls with the page, so the last row of a
         // long tab clears the tab bar and a short tab wastes nothing.
-        contentContainerStyle={{ paddingBottom: CONTENT_BOTTOM_PAD }}
+        contentContainerStyle={{
+          paddingBottom: CONTENT_BOTTOM_PAD,
+          // Even a short tab must allow its summary to scroll fully away.
+          minHeight: scrollHeaderHeight > 0 ? maxHeight + scrollHeaderHeight : undefined,
+        }}
         onScroll={onScroll}
         scrollEventThrottle={16}
         scrollEnabled={scrollEnabled}

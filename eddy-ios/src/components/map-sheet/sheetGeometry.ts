@@ -178,6 +178,14 @@ export function pageBudget(available: number, peekHeight = 0): number {
   return Math.max(0, fullTarget(available) - GRABBER_BLOCK - peek);
 }
 
+/** Include the initial scroll summary in peek, without covering the map ornaments. */
+export function scrollingPeekHeight(available: number, identityHeight: number, summaryHeight: number): number {
+  return Math.min(
+    identityHeight + Math.max(0, summaryHeight),
+    identityHeight + pageBudget(available, identityHeight),
+  );
+}
+
 /**
  * The tallest the sheet may EVER be on a map area of this size.
  *
