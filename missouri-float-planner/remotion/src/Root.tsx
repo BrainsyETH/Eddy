@@ -707,6 +707,26 @@ export const RemotionRoot: React.FC = () => {
           routePoints: [],
         } satisfies RouteDrawProps}
       />
+      {/* Synthetic grid is a deterministic image-layer/layout test, not terrain.
+          A live Mapbox render is still required before production rollout. */}
+      <Composition
+        id="social-route-map-layout"
+        component={RouteDraw}
+        durationInFrames={360}
+        fps={FPS}
+        width={1080}
+        height={1920}
+        calculateMetadata={routeDuration}
+        defaultProps={{
+          ...ROUTE_DEMO,
+          label: "Map layout test",
+          terrainMapUrl: staticFile("test/terrain-grid.svg"),
+          routeCoordinates: akersPulltite.routeCoordinates as [number, number][],
+          putInName: "Akers Ferry", putInMile: 17.19,
+          takeOutName: "Pulltite Spring", takeOutMile: 26.23,
+          distanceMi: 9, routePoints: [],
+        } satisfies RouteDrawProps}
+      />
       <Composition
         id="social-route-summary-portrait"
         component={RouteDraw}

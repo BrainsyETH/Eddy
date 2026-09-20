@@ -16,7 +16,7 @@
     "test:video-health": "bash test/video-health.test.sh && bash ../../scripts/clipengine/extract-clip.test.sh",
     "test:visual": "node test/visual-diff.mjs",
     "test:visual:update": "node test/visual-diff.mjs --update",
-    "test:route-layout": "node --import tsx --test ../shared/social-route-journey.test.ts && bash test/render-revision.test.sh"
+    "test:route-layout": "node --import tsx --test ../shared/social-route-journey.test.ts ../shared/social-terrain-map.test.ts && bash test/render-revision.test.sh"
   },
   "dependencies": {
     "@remotion/cli": "4.0.242",
