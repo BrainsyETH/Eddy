@@ -206,6 +206,8 @@ export type FloatSectionProps = {
  * condition).
  */
 export type RouteDrawProps = FloatSectionProps & {
+  /** Prepared, geographically aligned full-frame terrain snapshot. */
+  terrainMapUrl?: string;
   /** Exact selected river segment. Absent → the itinerary stage renders. */
   routeCoordinates?: LngLat[];
   /** Ordered route features. Endpoints are included at progress 0 and 1;

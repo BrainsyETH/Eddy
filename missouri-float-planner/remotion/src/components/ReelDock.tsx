@@ -23,6 +23,8 @@ interface ReelDockProps {
   ctaVariant?: "button" | "text";
   /** Growth line drawn under the card, at the very bottom of the safe zone. */
   followCta?: string;
+  /** Solid backing when the follow line sits over a map. */
+  followBackground?: string;
   /** Anything else to stack above the detail row (a quote, a note). */
   children?: React.ReactNode;
   /** Bottom edge of the card. Defaults to sit just above the follow line. */
@@ -46,6 +48,7 @@ export const ReelDock: React.FC<ReelDockProps> = ({
   ctaProgress = 1,
   ctaVariant = "button",
   followCta,
+  followBackground,
   children,
   bottom = REEL_SAFE.bottom + 52,
   followBottom = REEL_SAFE.bottom,
@@ -94,6 +97,9 @@ export const ReelDock: React.FC<ReelDockProps> = ({
             left: REEL_SAFE.left,
             right: REEL_SAFE.right,
             bottom: followBottom,
+            background: followBackground,
+            borderRadius: followBackground ? 8 : undefined,
+            padding: followBackground ? "4px 0" : undefined,
             zIndex: 15,
             opacity: ctaProgress,
             textAlign: "center",

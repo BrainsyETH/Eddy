@@ -32,6 +32,8 @@ STILLS=(
   "social-route-akers-pulltite:0,120,255,273,330"
   # Full approximate-feature card and the transition into the take-out.
   "social-route-summary-portrait:275,309,375"
+  # Full-canvas image layer, north-up route, arrival-only callouts.
+  "social-route-map-layout:0,120,330"
   # Every other composition is baselined at frame 0 too: the grid thumbnail /
   # first autoplay frame must be a complete branded card, not an empty ground.
   # social-gauge-portrait is the PRODUCTION Eddy Says reel (river_highlight);

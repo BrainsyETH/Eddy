@@ -1,5 +1,6 @@
 import React, { useMemo } from "react";
-import { Audio, interpolate, spring, staticFile, useCurrentFrame, useVideoConfig } from "remotion";
+import { terrainMapPlan } from "../../../../shared/social-terrain-map";
+import { Audio, Img, interpolate, spring, staticFile, useCurrentFrame, useVideoConfig } from "remotion";
 import {
   DEFAULT_TIMING,
   arrivalFrame,
@@ -77,8 +78,8 @@ const toScreen = (point: JourneyPoint, camera: JourneyCamera) => ({
 /**
  * A truthful river journey. Frame 0 is the whole float — every bend, every
  * stop, the put-in named — so the grid thumbnail is a complete card; the
- * camera then pushes in and the selected PostGIS LineString scrolls beneath a
- * fixed Eddy canoe, pausing at each intermediate feature in the reading zone.
+ * terrain camera stays north-up while Eddy follows the PostGIS LineString.
+ * Legacy mapless previews retain their following camera.
  *
  * Missing geometry never invents a line: the same masthead, dock and pauses
  * frame a schematic ITINERARY instead — the stops in order down a channel,
@@ -102,6 +103,7 @@ export const RouteDraw: React.FC<RouteDrawProps> = (props) => {
     evergreen = false,
     difficulty,
     photoUrl,
+    terrainMapUrl,
     routeCoordinates,
     routePoints = [],
     unanchoredPoints = [],
@@ -111,7 +113,8 @@ export const RouteDraw: React.FC<RouteDrawProps> = (props) => {
   const condition = evergreen
     ? EVERGREEN_STYLE
     : CONDITION_COLORS[conditionCode] ?? CONDITION_COLORS.unknown;
-  const journey = useMemo(() => buildJourney(routeCoordinates), [routeCoordinates]);
+  const terrain = useMemo(() => terrainMapUrl ? terrainMapPlan(routeCoordinates) : null, [terrainMapUrl, routeCoordinates]);
+  const journey = useMemo(() => terrain?.journey ?? buildJourney(routeCoordinates), [terrain, routeCoordinates]);
 
   // Every stop in float order, endpoints guaranteed: the itinerary needs them
   // as rows even when the points query failed and routePoints is empty.
@@ -147,7 +150,7 @@ export const RouteDraw: React.FC<RouteDrawProps> = (props) => {
     ? spring({ frame: frame - (durationInFrames - 88), fps, config: { damping: 14, stiffness: 120 } })
     : 0;
   const activeCallout =
-    activeIntermediate ?? (launchProgress > 0 ? putIn : summaryVisible || finishProgress > 0 ? takeOut : null);
+    activeIntermediate ?? (launchProgress > 0 ? putIn : state.complete ? takeOut : null);
   const calloutProgress = activeIntermediate
     ? state.calloutProgress
     : summaryVisible
@@ -182,6 +185,11 @@ export const RouteDraw: React.FC<RouteDrawProps> = (props) => {
 
   return (
     <ReelPage backdrop={photoUrl ? { src: photoUrl } : undefined}>
+      {terrain && terrainMapUrl ? <>
+        <Img src={terrainMapUrl} style={{ position: "absolute", inset: 0, width: 1080, height: 1920, filter: "saturate(0.5) brightness(1.04)" }} />
+        <div style={{ position: "absolute", inset: 0, background: "rgba(250,248,240,0.22)" }} />
+        <div style={{ position: "absolute", left: REEL_SAFE.left, top: STAGE_TOP - 34, background: LIGHT.surface, color: LIGHT.ink, padding: "6px 10px", fontSize: 17 }}>© Mapbox © OpenStreetMap · N ↑</div>
+      </> : null}
       <Audio
         src={staticFile("audio/background-music.wav")}
         volume={(audioFrame) =>
@@ -192,15 +200,16 @@ export const RouteDraw: React.FC<RouteDrawProps> = (props) => {
         }
       />
 
-      <ReelMasthead
-        pinned
-        label={label}
-        title={riverName}
-        titleSize={60}
-        subtitle={tagline || dateLabel || `${putInName} to ${takeOutName}`}
-      />
+      <div style={{ position: "absolute", top: REEL_SAFE.top - 18, left: REEL_SAFE.left - 18, width: CALLOUT_W + 36, padding: 18, boxSizing: "border-box", background: terrain ? LIGHT.surface : undefined, borderRadius: 22, zIndex: 10 }}>
+        <ReelMasthead
+          label={label}
+          title={riverName}
+          titleSize={60}
+          subtitle={tagline || dateLabel || `${putInName} to ${takeOutName}`}
+        />
+      </div>
 
-      {journey ? <RiverStage journey={journey} frame={frame} {...stageProps} /> : <ItineraryStage {...stageProps} />}
+      {journey ? <RiverStage journey={journey} frame={frame} terrain={Boolean(terrain)} {...stageProps} /> : <ItineraryStage {...stageProps} />}
 
       {!journey ? <div style={{ position: "absolute", top: STAGE_TOP + 16, right: REEL_SAFE.right }}>
         <ProgressTicket current={travelledMiles} total={distanceMi} />
@@ -222,6 +231,7 @@ export const RouteDraw: React.FC<RouteDrawProps> = (props) => {
         cta={PLAN_CTA}
         ctaProgress={cta}
         followCta={followCta}
+        followBackground={terrain ? LIGHT.surface : undefined}
       >
         <div
           style={{
@@ -286,8 +296,9 @@ function orderedStops(
 
 // ─── The river stage (exact geometry) ───────────────────────────────────────
 
-const RiverStage: React.FC<StageProps & { journey: Journey; frame: number }> = ({
+const RiverStage: React.FC<StageProps & { journey: Journey; frame: number; terrain: boolean }> = ({
   journey,
+  terrain,
   frame,
   stops,
   state,
@@ -302,10 +313,9 @@ const RiverStage: React.FC<StageProps & { journey: Journey; frame: number }> = (
 }) => {
   const route = journey.points;
   const located = journey.locate(state.progress);
-  const camera = journeyCamera(frame, route, located.point, STAGE, DEFAULT_TIMING, arrival);
+  const camera = terrain ? { scale: 1, translateX: 0, translateY: 0 } : journeyCamera(frame, route, located.point, STAGE, DEFAULT_TIMING, arrival);
   const boatScreen = toScreen(located.point, camera);
-  const nextStop = stops.find(point => point.progress > state.progress) ?? stops[stops.length - 1];
-  const shownStop = activeCallout ?? nextStop;
+
   const progress = <ProgressTicket current={travelledMiles} total={distanceMi} />;
   const annotationStyle: React.CSSProperties = {
     position: "absolute", left: REEL_SAFE.left, top: CALLOUT_TOP, zIndex: 12,
@@ -335,19 +345,19 @@ const RiverStage: React.FC<StageProps & { journey: Journey; frame: number }> = (
             </filter>
           </defs>
           <g transform={`translate(${camera.translateX} ${camera.translateY}) scale(${camera.scale})`}>
-            <path d={toPath(route)} fill="none" stroke={colors.primary[700]} strokeWidth={44 * strokeK} strokeLinecap="round" strokeLinejoin="round" />
-            <path d={toPath(route)} fill="none" stroke={colors.primary[200]} strokeWidth={32 * strokeK} strokeLinecap="round" strokeLinejoin="round" />
+            <path d={toPath(route)} fill="none" stroke={colors.primary[700]} strokeWidth={(terrain ? 16 : 44) * strokeK} strokeLinecap="round" strokeLinejoin="round" />
+            <path d={toPath(route)} fill="none" stroke={colors.primary[200]} strokeWidth={(terrain ? 10 : 32) * strokeK} strokeLinecap="round" strokeLinejoin="round" />
             <path
               d={toPath(route)}
               fill="none"
               stroke={condition.solid}
-              strokeWidth={11 * strokeK}
+              strokeWidth={(terrain ? 6 : 11) * strokeK}
               strokeLinecap="round"
               strokeLinejoin="round"
               pathLength={1}
               strokeDasharray={1}
               strokeDashoffset={1 - located.renderedProgress}
-              filter="url(#flowSoft)"
+              filter={terrain ? undefined : "url(#flowSoft)"}
             />
             {stops.map((point) => (
               <RouteMarker
@@ -366,10 +376,10 @@ const RiverStage: React.FC<StageProps & { journey: Journey; frame: number }> = (
 
       {summaryVisible ? (
         <AlongCallout points={unanchoredPoints} opacity={1} style={annotationStyle} progress={progress} />
-      ) : (
-        <RouteCallout point={shownStop} putInMile={putInMile} opacity={1} style={annotationStyle}
-          progress={progress} upcoming={!activeCallout && !state.complete} />
-      )}
+      ) : activeCallout ? (
+        <RouteCallout point={activeCallout} putInMile={putInMile} opacity={1} style={annotationStyle}
+          progress={progress} />
+      ) : <div style={{ ...annotationStyle, left: undefined, right: REEL_SAFE.right }}>{progress}</div>}
     </>
   );
 };
@@ -846,7 +856,7 @@ const RouteMarker: React.FC<{
   );
 };
 
-const RouteCallout: React.FC<{ point: SocialRoutePoint; putInMile: number; opacity: number; style: React.CSSProperties; progress?: React.ReactNode; upcoming?: boolean }> = ({ point, putInMile, opacity, style, progress, upcoming }) => {
+const RouteCallout: React.FC<{ point: SocialRoutePoint; putInMile: number; opacity: number; style: React.CSSProperties; progress?: React.ReactNode }> = ({ point, putInMile, opacity, style, progress }) => {
   const accent = hazardFill(point);
   const milesIn = Math.max(0, point.riverMile - putInMile);
   const title = cleanName(point.name, 58);
@@ -860,7 +870,7 @@ const RouteCallout: React.FC<{ point: SocialRoutePoint; putInMile: number; opaci
       header={
         <>
           <KindBadge>{KIND_STYLE[point.kind].short}</KindBadge>
-          <span style={{ overflow: "hidden", textOverflow: "ellipsis" }}>{upcoming ? "Up next" : point.detail || point.kind.replace(/_/g, " ")}</span>
+          <span style={{ overflow: "hidden", textOverflow: "ellipsis" }}>{point.detail || point.kind.replace(/_/g, " ")}</span>
         </>
       }
     >

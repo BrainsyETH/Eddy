@@ -7,6 +7,8 @@
 //   GH_REPO_OWNER     — GitHub repo owner (default: 'BrainsyETH')
 //   GH_ACTIONS_REF    — Git ref for workflow dispatch (default: 'main')
 
+import { prepareTerrainMap } from './terrain-map';
+import type { LngLat } from '../../../shared/social-route-journey';
 import { POST_TYPES, type RenderData } from './post-types';
 
 const LOG_PREFIX = '[VideoRenderer]';
@@ -44,6 +46,18 @@ export async function triggerVideoRender(params: TriggerRenderParams): Promise<b
 
   console.log(`${LOG_PREFIX} Triggering render: ${params.compositionId} → ${params.outputFilename} (posts: ${params.postIds})`);
 
+  let inputProps = params.inputProps;
+  if (params.compositionId === 'social-route-portrait' && Array.isArray(inputProps.routeCoordinates) && inputProps.routeCoordinates.length >= 2) {
+    try {
+      const terrainMapUrl = await prepareTerrainMap(inputProps.routeCoordinates as LngLat[]);
+      inputProps = { ...inputProps, terrainMapUrl };
+    } catch {
+      // Never log provider URLs: their query carries the access token.
+      console.error(`${LOG_PREFIX} Terrain map preparation failed; render was not dispatched. Check Mapbox and Blob configuration.`);
+      return false;
+    }
+  }
+
   const response = await fetch(url, {
     method: 'POST',
     headers: {
@@ -56,7 +70,7 @@ export async function triggerVideoRender(params: TriggerRenderParams): Promise<b
       inputs: {
         post_ids: params.postIds,
         composition_id: params.compositionId,
-        input_props: JSON.stringify(params.inputProps),
+        input_props: JSON.stringify(inputProps),
         output_filename: params.outputFilename,
       },
     }),

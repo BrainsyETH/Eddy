@@ -164,3 +164,32 @@ pass" with a data source silently missing.
   surface per PR keeps the diff readable.
 - Verify locally with `npm run render:check-stills` in `remotion/`
   (`REMOTION_STILL_ARGS="--browser-executable=…"` outside the CI image).
+
+## Route reel terrain background
+
+Route reels fetch one Mapbox Outdoors v12 static image before workflow dispatch.
+The image fills 1080×1920, softened with reduced saturation and a cream wash;
+masthead, arrivals, stats, and follow copy retain solid readable surfaces.
+The camera stays north-up on the whole route. `shared/social-terrain-map.ts`
+owns both the provider camera and the Mercator route projection; do not rotate,
+re-fit, or smooth the overlay independently. Stop progress retains the source
+line's distance convention so markers stay on their correct route vertex.
+
+“Up Next” cards are intentionally removed. They repeated the arrival name only
+a moment later. The put-in, actual arrival holds, approximate-feature summary,
+and take-out remain; travel shows only mileage progress.
+
+Server configuration: `MAPBOX_ACCESS_TOKEN` with static-image access and
+`BLOB_READ_WRITE_TOKEN`, in addition to the existing GitHub dispatch variables.
+The server downloads once and uploads an immutable image to Blob; renderer
+props carry its URL, never the provider token. A failed map fetch/upload stops
+dispatch. Missing route geometry still uses the explicit itinerary layout.
+Mapbox's image logo is retained and text attribution is repeated in the safe area.
+
+Validation: `npm run test:route-layout` in `remotion`, web terrain-map tests,
+and `render:check-stills`. The `social-route-map-layout` fixture uses a labeled
+synthetic grid solely to test full-canvas image placement and north-up overlay;
+it is **not** a terrain preview. Before rollout, render a real route with the
+configured Mapbox account and review opening, travel, arrival and ending frames
+for map alignment, terrain/label density, attribution and contrast. This live
+provider check remains required; a synthetic visual baseline cannot replace it.
