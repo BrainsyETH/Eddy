@@ -740,10 +740,18 @@ So:
   A floor with a hole in it is not a floor. Keep it that way.
 - **Native work at module scope needs a try/catch** if the file is anywhere in
   `app/_layout.tsx`'s import graph. `usePush.tsx` is the worked example.
-- **`completeLaunch()` is what hides the splash**, called from `ThemedShell`'s
+- **`completeLaunch()` finishes the launch**, called from `ThemedShell`'s
   first `onLayout` so it lifts onto a painted, correctly-themed screen. It also
   disarms the backstop — leaving it armed would file a stall report eight
   seconds into a healthy launch.
+- While bundled fonts load, `LaunchSplash` can replace the static native splash
+  with the same polished icon at 220 points on the same light/dark background.
+  It fades from 80% opacity and gently scales 96% → 101.5% → 100% over 360 ms;
+  Reduce Motion uses only the fade. The handoff waits for image load and layout,
+  and `revealLaunchSplash()` leaves the watchdog armed. Readiness immediately
+  unmounts the artwork without waiting for animation completion; fast launches
+  can skip it entirely. It never replays on background/foreground transitions
+  or after a completed launch remounts. There are no new dependencies or assets.
 - If the backstop fires, the splash lifts onto a **"didn't finish starting"**
   screen rather than a blank one, and `warn('launch', …)` has already gone to
   Sentry.

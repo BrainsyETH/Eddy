@@ -68,7 +68,7 @@ let launched = false;
 let stalled = false;
 const stallListeners = new Set<() => void>();
 
-// Hold the native splash until the app has painted. Without this the app
+// Hold the native splash until the app or its launch artwork has painted. Without this the app
 // renders a frame in the system font and then reflows when Geist arrives — a
 // visible pop on every cold start.
 //
@@ -146,6 +146,18 @@ export function completeLaunch(): void {
   launched = true;
   clearTimeout(backstop);
   splash?.hideAsync().catch(() => {});
+}
+
+/** Replace native artwork with the painted animated artwork, keeping the
+ * launch watchdog armed until the real app's first layout calls completeLaunch.
+ */
+export function revealLaunchSplash(): void {
+  if (!launched && !stalled) splash?.hideAsync().catch(() => {});
+}
+
+/** Survives root remounts, so the launch animation is cold-start-only. */
+export function isLaunchComplete(): boolean {
+  return launched;
 }
 
 /** True once the backstop has fired without the app having painted. */
