@@ -42,6 +42,13 @@ happens *after* the pin check passes. Three values:
 - **NONE** — it writes the moment you run it (the pin is the only gate).
   Treat like a loaded migration.
 
+## Reviewed spring repairs
+
+`scripts/repair-spring-classifications.ts` previews four reviewed POI type corrections;
+`--apply` writes only `type` and `updated_at` through the shared project guard.
+`scripts/audit-spring-classifications.sql` is a read-only database-wide candidate
+report. See `docs/audits/2026-09-20-spring-classifications.md` for scope and verification.
+
 ## Checks & validation (read-only, safe always)
 
 | Script | Run | Purpose |
