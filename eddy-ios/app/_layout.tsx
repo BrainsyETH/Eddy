@@ -8,7 +8,7 @@
 // survive an import further down the list throwing.
 //
 // It has no static imports of its own for the same reason. See its header.
-import { completeLaunch, isLaunchStalled, subscribeToLaunchStall } from '@/lib/bootstrap';
+import { completeLaunch, isLaunchComplete, isLaunchStalled, subscribeToLaunchStall } from '@/lib/bootstrap';
 import { useCallback, useEffect, useState } from 'react';
 import { Pressable, StyleSheet, Text, useColorScheme, View } from 'react-native';
 import { Stack } from 'expo-router';
@@ -45,6 +45,7 @@ import { PushProvider } from '@/hooks/usePush';
 import { ThemeProvider, useTheme } from '@/theme/ThemeProvider';
 import { UpgradeGate } from '@/components/UpgradeGate';
 import { OnboardingGate } from '@/components/OnboardingGate';
+import { LaunchSplash } from '@/components/LaunchSplash';
 import { type as t } from '@/theme/typography';
 import { darkPalette, lightPalette } from '@/theme/palette';
 import { report, warn } from '@/lib/monitoring';
@@ -181,7 +182,7 @@ export default function RootLayout() {
    *
    * useFonts settles as loaded or errored, and the line below proceeds on
    * either — but "or neither" is a third outcome nothing was handling. If it
-   * never settles, `ready` stays false, this component returns null forever,
+   * never settles, `ready` stays false, this component shows launch artwork forever,
    * ThemedShell never mounts, and ThemedShell is what calls hideAsync. The app
    * sits on the splash screen with no way out.
    *
@@ -218,10 +219,9 @@ export default function RootLayout() {
    * The other half of the backstop.
    *
    * bootstrap.ts lifting the splash is necessary and not sufficient: if `ready`
-   * is still false when it fires, this component is returning null, so the
-   * splash lifts onto a BLANK SCREEN. That is a different bricked app, not a
-   * fixed one — and it is worse to look at than the splash, because a launch
-   * image at least looks like something is happening.
+   * is still false when it fires, this component would keep showing launch
+   * artwork. The animated replacement must leave too, so a stalled launch
+   * gets an actionable screen instead of an icon that never goes away.
    *
    * So the stall gets a screen. It is deliberately the same shape as
    * ErrorBoundary below and for the same reasons: palette read directly (no
@@ -231,7 +231,10 @@ export default function RootLayout() {
   const [stalled, setStalled] = useState(isLaunchStalled);
   useEffect(() => subscribeToLaunchStall(() => setStalled(true)), []);
 
-  if (!ready) return stalled ? <LaunchStalled /> : null;
+  if (!ready) {
+    if (stalled) return <LaunchStalled />;
+    return isLaunchComplete() ? null : <LaunchSplash />;
+  }
 
   return (
     <ThemeProvider>
