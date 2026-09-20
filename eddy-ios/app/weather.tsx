@@ -1,8 +1,8 @@
-import { weatherAtmosphere } from '@/theme/weather';
+import { rainChanceColor, weatherAtmosphere } from '@/theme/weather';
 import { useTheme } from '@/theme/ThemeProvider';
 import { EddySymbol } from '@/components/EddySymbol';
 import { useCallback, useState } from 'react';
-import { ActivityIndicator, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { Stack, useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -15,6 +15,7 @@ import { fonts, type as t } from '@/theme/typography';
 
 export default function WeatherScreen() {
   const { colors, elevation, isDark } = useTheme();
+  const { fontScale } = useWindowDimensions();
   const styles = { ...layout,
     navTitle: { ...layout.navTitle, color: colors.text },
     city: { ...layout.city, color: colors.text },
@@ -26,9 +27,11 @@ export default function WeatherScreen() {
     panel: { ...layout.panel, backgroundColor: colors.card, ...elevation(1) },
     sectionLabel: { ...layout.sectionLabel, color: colors.textMuted },
     hourTemp: { ...layout.hourTemp, color: colors.text },
-    rain: { ...layout.rain, color: colors.interactive },
+    rain: layout.rain,
     dayRow: { ...layout.dayRow, borderTopColor: colors.border },
-    day: { ...layout.day, color: colors.text },
+    day: { ...layout.day, width: 52 * fontScale, color: colors.text },
+    dayIcon: { ...layout.dayIcon, width: 40 * fontScale },
+    hour: { ...layout.hour, minWidth: 46 * fontScale },
     low: { ...layout.low, color: colors.textMuted },
     high: { ...layout.high, color: colors.text },
     track: { ...layout.track, backgroundColor: colors.border },
@@ -80,16 +83,19 @@ export default function WeatherScreen() {
       </View>
       <ScrollView contentContainerStyle={styles.body} refreshControl={<RefreshControl refreshing={loading && Boolean(data)} onRefresh={() => setRetry(n => n + 1)} tintColor={colors.text} />}>
         <View style={styles.hero}>
-          <Svg width="100%" height="100%" style={StyleSheet.absoluteFill} pointerEvents="none" accessibilityElementsHidden importantForAccessibility="no">
-            <Defs>
-              <LinearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
-                <Stop offset="0" stopColor={atmosphere[0]} />
-                <Stop offset="0.55" stopColor={atmosphere[1]} />
-                <Stop offset="1" stopColor={colors.bg} />
-              </LinearGradient>
-            </Defs>
-            <Rect width="100%" height="100%" fill="url(#sky)" />
-          </Svg>
+          {/* Resolve SVG percentages against an unpadded, edge-to-edge layer. */}
+          <View style={StyleSheet.absoluteFill} pointerEvents="none" accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
+            <Svg width="100%" height="100%">
+              <Defs>
+                <LinearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+                  <Stop offset="0" stopColor={atmosphere[0]} />
+                  <Stop offset="0.55" stopColor={atmosphere[1]} />
+                  <Stop offset="1" stopColor={colors.bg} />
+                </LinearGradient>
+              </Defs>
+              <Rect width="100%" height="100%" fill="url(#sky)" />
+            </Svg>
+          </View>
           <Text style={styles.city}>{data?.city ?? 'Local weather'}</Text>
           <View style={styles.currentReading}>
             <EddySymbol name="weather" size={52} />
@@ -109,18 +115,22 @@ export default function WeatherScreen() {
               <Text style={styles.bodyText}>{period.localHour % 12 || 12}{period.localHour < 12 ? 'AM' : 'PM'}</Text>
               <Ionicons name={weatherIcon(period.conditionIcon)} size={27} color={colors.interactive} />
               <Text style={styles.hourTemp}>{period.temp}°</Text>
-              <Text style={styles.rain}>{period.precipitation}%</Text>
+              <Text numberOfLines={1} style={[styles.rain, { color: rainChanceColor(period.precipitation, colors) }]}>{period.precipitation}%</Text>
             </View>)}
           </ScrollView>
         </View> : null}
         {data?.days.length ? <View style={styles.panel}>
           <Text style={styles.sectionLabel}>{data.days.length}-DAY FORECAST</Text>
           {data.days.map((day) => <View key={day.date} style={styles.dayRow} accessibilityLabel={`${day.date === data.localDate ? 'Today' : day.dayOfWeek}, ${day.condition}, high ${day.tempHigh}, low ${day.tempLow}, rain chance ${day.precipitation} percent`}>
-            <Text style={styles.day}>{day.date === data.localDate ? 'Today' : day.dayOfWeek}</Text>
-            <View style={styles.dayIcon}><Ionicons name={weatherIcon(day.conditionIcon)} size={24} color={colors.interactive} /><Text style={styles.rain}>{day.precipitation}%</Text></View>
-            <Text style={styles.low}>{Math.round(day.tempLow)}°</Text>
-            <View style={styles.track}><View style={[styles.range, { left: `${(day.tempLow - low) / Math.max(1, high - low) * 100}%`, width: `${Math.max(3, (day.tempHigh - day.tempLow) / Math.max(1, high - low) * 100)}%` }]} /></View>
-            <Text style={styles.high}>{Math.round(day.tempHigh)}°</Text>
+            <View style={styles.daySummary}>
+              <Text style={styles.day}>{day.date === data.localDate ? 'Today' : day.dayOfWeek}</Text>
+              <View style={styles.dayIcon}><Ionicons name={weatherIcon(day.conditionIcon)} size={24} color={colors.interactive} /><Text numberOfLines={1} style={[styles.rain, { color: rainChanceColor(day.precipitation, colors) }]}>{day.precipitation}%</Text></View>
+            </View>
+            <View style={styles.dayTemperatures}>
+              <Text style={styles.low}>{Math.round(day.tempLow)}°</Text>
+              <View style={styles.track}><View style={[styles.range, { left: `${(day.tempLow - low) / Math.max(1, high - low) * 100}%`, width: `${Math.max(3, (day.tempHigh - day.tempLow) / Math.max(1, high - low) * 100)}%` }]} /></View>
+              <Text style={styles.high}>{Math.round(day.tempHigh)}°</Text>
+            </View>
           </View>)}
         </View> : null}
         {current ? <View style={styles.details}>
@@ -160,9 +170,11 @@ const layout = StyleSheet.create({
   hour: { alignItems: 'center', gap: 12, minWidth: 46 },
   hourTemp: { ...t.lg, fontFamily: fonts.monoMedium },
   rain: { ...t.xs, fontFamily: fonts.mono },
-  dayRow: { flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 60, borderTopWidth: StyleSheet.hairlineWidth },
+  dayRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 8, minHeight: 64, paddingVertical: 10, borderTopWidth: StyleSheet.hairlineWidth },
   day: { ...t.sm, fontFamily: fonts.semibold, width: 52 },
-  dayIcon: { alignItems: 'center', gap: 2, width: 28 },
+  dayIcon: { alignItems: 'center', gap: 2, flexShrink: 0 },
+  daySummary: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  dayTemperatures: { flexDirection: 'row', alignItems: 'center', gap: 8, flexGrow: 1, flexBasis: 120 },
   low: { ...t.sm, fontFamily: fonts.mono, minWidth: 34, textAlign: 'right' },
   high: { ...t.sm, fontFamily: fonts.monoMedium, minWidth: 34, textAlign: 'right' },
   track: { flex: 1, height: 5, borderRadius: 4, overflow: 'hidden' },
