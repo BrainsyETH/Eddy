@@ -14,6 +14,9 @@
 // rows inside a sheet that is also a scroll surface is a scroll fight.
 
 import { useState } from 'react';
+import type { CampsitePhoto } from '@eddy/types';
+import { useCampsitePhotos } from '@/hooks/useCampsitePhotos';
+import { CampsitePhotos } from './CampsitePhotos';
 import { Linking, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '@/theme/ThemeProvider';
@@ -31,9 +34,13 @@ import {
 /** Rows per loop before the list asks whether you meant it. */
 const VISIBLE_PER_LOOP = 12;
 
-function SiteRow({ entry, date }: { entry: SiteOnNight; date: string }) {
+function SiteRow({ entry, date, photos: suppliedPhotos, stateParkFacilityId }: {
+  entry: SiteOnNight; date: string; photos?: CampsitePhoto[]; stateParkFacilityId?: string;
+}) {
   const { colors } = useTheme();
   const { site, tags, state } = entry;
+  const stateParkPhotos = useCampsitePhotos(stateParkFacilityId ?? null, site.id);
+  const photos = suppliedPhotos ?? stateParkPhotos?.[site.id];
   const badge = stateLabel(state);
   const label = site.name ?? `Site ${site.id.slice(0, 6)}`;
   const detail = [badge, ...tags].filter(Boolean).join(' · ');
@@ -41,45 +48,42 @@ function SiteRow({ entry, date }: { entry: SiteOnNight; date: string }) {
   const openable = Boolean(site.bookingUrl);
 
   return (
-    <Pressable
-      onPress={() => {
-        if (site.bookingUrl) void Linking.openURL(site.bookingUrl);
-      }}
-      disabled={!openable}
-      style={({ pressed }) => [styles.row, { opacity: pressed && openable ? 0.6 : 1 }]}
-      // A row that leaves for Safari is a link, not a button. LinkRow hardcodes
-      // `button`, which is why this one is built here rather than reusing it.
-      accessibilityRole={openable ? 'link' : 'text'}
-      accessibilityLabel={
-        `${label}${site.loop ? `, ${site.loop}` : ''}` +
-        `${detail ? `, ${detail}` : ''}, open ${spokenWeekday(date)}` +
-        `${openable ? '. Opens Recreation.gov.' : ''}`
-      }
-    >
-      <View style={styles.rowText}>
-        <Text style={[styles.rowLabel, { color: colors.text }]} numberOfLines={1}>
-          {label}
-        </Text>
-        {detail ? (
-          <Text style={[styles.rowDetail, { color: colors.textMuted }]} numberOfLines={1}>
-            {detail}
+    <View style={[styles.siteRow, photos?.length ? styles.photoRow : null]}>
+      {photos?.length ? <CampsitePhotos key={photos.map((photo) => photo.url).join('|')} photos={photos} label={label} /> : null}
+      <Pressable
+        onPress={() => {
+          if (site.bookingUrl) void Linking.openURL(site.bookingUrl);
+        }}
+        disabled={!openable}
+        style={({ pressed }) => [styles.row, styles.booking, { opacity: pressed && openable ? 0.6 : 1 }]}
+        // A row that leaves for Safari is a link, not a button. LinkRow hardcodes
+        // `button`, which is why this one is built here rather than reusing it.
+        accessibilityRole={openable ? 'link' : 'text'}
+        accessibilityLabel={
+          `${label}${site.loop ? `, ${site.loop}` : ''}` +
+          `${detail ? `, ${detail}` : ''}, open ${spokenWeekday(date)}` +
+          `${openable ? '. Opens Recreation.gov.' : ''}`
+        }
+      >
+        <View style={styles.rowText}>
+          <Text style={[styles.rowLabel, { color: colors.text }]} numberOfLines={1}>
+            {label}
           </Text>
+          {detail ? (
+            <Text style={[styles.rowDetail, { color: colors.textMuted }]} numberOfLines={1}>
+              {detail}
+            </Text>
+          ) : null}
+        </View>
+        {openable ? (
+          <Ionicons name="open-outline" size={16} color={colors.textSubtle} />
         ) : null}
-      </View>
-      {openable ? (
-        <Ionicons name="open-outline" size={16} color={colors.textSubtle} />
-      ) : null}
-    </Pressable>
+      </Pressable>
+    </View>
   );
 }
 
-/**
- * The same inventory as counts, for a feed whose sites link nowhere.
- *
- * See summariseByKind. Two lines instead of sixty-four, and nothing is lost:
- * the rows it replaces carried a number, a name repeated verbatim down the
- * column, and no destination.
- */
+/** Compact counts for fully booked loops or feeds without site-level content. */
 function KindSummaries({ group, date }: { group: LoopGroup; date: string }) {
   const { colors } = useTheme();
   const summaries = summariseByKind([...group.open, ...group.taken]);
@@ -113,9 +117,15 @@ function Loop({
   group,
   date,
   showName,
+  photos,
+  individualSites,
+  stateParkFacilityId,
 }: {
   group: LoopGroup;
   date: string;
+  photos?: Record<string, CampsitePhoto[]>;
+  individualSites?: boolean;
+  stateParkFacilityId?: string;
   /**
    * A loop name earns its line only when there is another loop to tell it from.
    *
@@ -130,13 +140,9 @@ function Loop({
   const shown = expanded ? group.open : group.open.slice(0, VISIBLE_PER_LOOP);
   const hidden = group.open.length - shown.length;
 
-  // ── A ROW IS A LINK. WITHOUT ONE IT IS A NUMBER ─────────────────────────
-  // Every site row here deep-links to that site's own booking page, which is
-  // what makes it worth a 44pt target. UseDirect — every Missouri State Park —
-  // publishes no per-unit URL, so those rows lead nowhere, and Onondaga rendered
-  // as dozens of untappable lines reading "Basic #001", "Basic #002". The counts
-  // say the same thing in two lines and are honest about what Eddy has.
-  const tappable = group.open.some((entry) => Boolean(entry.site.bookingUrl));
+  // State Parks rows also carry individually fetched photos, even though
+  // reservations still open through the park-level booking action above.
+  const tappable = group.open.some((entry) => individualSites || Boolean(entry.site.bookingUrl));
 
   return (
     <View style={styles.loop}>
@@ -147,7 +153,7 @@ function Loop({
       {!tappable ? <KindSummaries group={group} date={date} /> : null}
 
       {tappable
-        ? shown.map((entry) => <SiteRow key={entry.site.id} entry={entry} date={date} />)
+        ? shown.map((entry) => <SiteRow key={entry.site.id} entry={entry} date={date} photos={photos?.[entry.site.id]} stateParkFacilityId={stateParkFacilityId} />)
         : null}
 
       {tappable && hidden > 0 ? (
@@ -182,7 +188,13 @@ export function CampsiteList({
   filters,
   date,
   dateLabel,
+  photos,
+  individualSites,
+  stateParkFacilityId,
 }: {
+  photos?: Record<string, CampsitePhoto[]>;
+  individualSites?: boolean;
+  stateParkFacilityId?: string;
   entries: SiteOnNight[];
   filters: string[];
   date: string;
@@ -218,6 +230,9 @@ export function CampsiteList({
         <Loop
           key={group.loop ?? '—'}
           group={group}
+          photos={photos}
+          individualSites={individualSites}
+          stateParkFacilityId={stateParkFacilityId}
           date={date}
           showName={groups.length > 1}
         />
@@ -243,6 +258,9 @@ const styles = StyleSheet.create({
   loopName: { ...t.xs, fontFamily: fonts.semibold, textTransform: 'uppercase', letterSpacing: 0.5 },
   // The 44pt floor from DESIGN.md §6, same as LinkRow's.
   row: { flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 44 },
+  siteRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  photoRow: { paddingVertical: 4 },
+  booking: { flex: 1, minWidth: 0 },
   rowText: { flex: 1, minWidth: 0 },
   rowLabel: { ...t.sm, fontFamily: fonts.medium },
   rowDetail: { ...t.xs, fontFamily: fonts.body, marginTop: 1 },

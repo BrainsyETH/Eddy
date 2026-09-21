@@ -2383,3 +2383,10 @@ export async function submitRiverVisual(
     throw new ApiError(detail?.error ?? `Submit failed (${response.status})`, response.status);
   }
 }
+
+/** Optional media never blocks the availability request. */
+export function fetchCampsitePhotos(facilityId: string, signal?: AbortSignal, siteId?: string) {
+  return get<import('@eddy/types').CampsitePhotosResponse>(
+    `/api/campsites/photos?facility=${encodeURIComponent(facilityId)}${siteId ? `&site=${encodeURIComponent(siteId)}` : ''}`, signal,
+  );
+}

@@ -523,6 +523,19 @@ export interface CampsiteSite {
   nights: string;
 }
 
+/** Exact-site media, delivered separately from availability. */
+export interface CampsitePhoto {
+  source?: 'Recreation.gov' | 'Missouri State Parks';
+  url: string;
+  title: string | null;
+  credit: string | null;
+}
+
+export interface CampsitePhotosResponse {
+  facilityId: string;
+  photos: Record<string, CampsitePhoto[]>;
+}
+
 export interface CampsiteSitesResponse {
   facility: { id: string; displayName: string; kind: string; source: string };
   window: { startDate: string; endDate: string; label: string; nights: string[] };

@@ -56,5 +56,6 @@ export function createRequestPool(maxEntries = 32, now = Date.now) {
 
 /** Only bulky read-only payloads; never retain account, alert, or condition responses. */
 export function navigationCacheTtl(path: string): number {
+  if (path.startsWith('/api/campsites/photos?')) return 3_600_000;
   return /^\/api\/(?:eddy-update\/|gauge-update\/|gauges\/[^/]+\/history\?|rivers\/[^/]+\/outlook(?:\?|$))/.test(path) ? 30_000 : 0;
 }
