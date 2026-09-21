@@ -898,3 +898,15 @@ than showing a switch that cannot move. The sentence explaining why alerts will
 or will not arrive remains a tested precedence order
 (`src/lib/notificationCopy.ts`): several reasons can be true at once, and naming
 the wrong one sends someone to fix something that was never the problem.
+
+### Map sheet tab changes and campsite reservations
+
+The access sheet renders its summary and tab bar once, outside the horizontal
+page track. Vertical page offsets preserve that shared header's expanded,
+partially collapsed or collapsed position when changing tabs. The per-tab body
+continues to scroll independently.
+
+Available campsite rows prefer the provider's exact-site URL. When only the
+park reservation URL is available, the row says to select the site and date
+there; it does not claim that the provider preselects them. Walk-up sites do not
+offer an online booking action. Image taps still open the photo gallery.

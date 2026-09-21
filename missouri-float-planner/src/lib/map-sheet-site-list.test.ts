@@ -8,6 +8,7 @@
 
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { siteBooking } from '../../../eddy-ios/src/components/map-sheet/siteBooking';
 import type { CampsiteSite } from '@eddy/types';
 import { CAMPSITE_NIGHT_CODES, decodeCampsiteNights } from '@eddy/types';
 import { SITE_NIGHT_CODE, SITE_NIGHT_UNKNOWN } from './camping/sites';
@@ -410,4 +411,23 @@ test('a fully booked night collapses even where the sites do deep-link', () => {
 test('an unmeasured night lists nothing, so it lists no rows', () => {
   const entries = sitesOnNight([site({ nights: '---' })], NIGHTS, NIGHTS[0]);
   assert.equal(listsRows(entries), false);
+});
+
+
+test('open sites use exact booking links before a park fallback', () => {
+  assert.deepEqual(siteBooking('open', 'https://www.recreation.gov/camping/campsites/16089', 'https://example.com/park'), {
+    url: 'https://www.recreation.gov/camping/campsites/16089', direct: true,
+  });
+});
+
+test('State Parks rows can open reservations without claiming site preselection', () => {
+  const park = 'https://icampmo1.usedirect.com/MSPWeb/Facilities/SearchView.aspx';
+  assert.deepEqual(siteBooking('open', null, park), { url: park, direct: false });
+  assert.equal(siteBooking('open', null), null);
+});
+
+test('walk-up and unavailable sites do not offer online booking', () => {
+  for (const state of ['walk_up', 'reserved', 'closed', 'unknown'] as const) {
+    assert.equal(siteBooking(state, 'https://example.com/site', 'https://example.com/park'), null);
+  }
 });

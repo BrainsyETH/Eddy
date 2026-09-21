@@ -861,6 +861,7 @@ export function AccessCampingTab({ accessPoint, detail, status, active = false, 
                 />
               ) : null}
               <CampsiteList
+                reservationUrl={booking?.url}
                 photos={photos}
                 individualSites={individualSites}
                 stateParkFacilityId={active && individualSites ? sites.facility.id : undefined}
