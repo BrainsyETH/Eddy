@@ -24,6 +24,25 @@ import {
 // A tall phone's map area, roughly: 844pt screen less the tab bar and insets.
 const TALL = 700;
 
+test('a delayed outer measurement cannot clip a measured service preview', () => {
+  for (const content of [0, 16, 44, 90]) {
+    const preview = 180;
+    const d = resolveDetents(TALL, content, preview);
+    assert.ok(d.height.peek >= preview, `content ${content} clipped the preview`);
+    assert.ok(d.height[d.order[d.order.length - 1]] >= preview);
+  }
+});
+
+test('service body measurement adds an expanded stop without shrinking the preview', () => {
+  const preview = 180;
+  const first = resolveDetents(TALL, 44, preview);
+  const loaded = resolveDetents(TALL, 520, preview);
+  assert.equal(first.height.peek, preview);
+  assert.equal(loaded.height.peek, preview);
+  assert.equal(loaded.height.full, 520);
+  assert.equal(settleTarget(loaded, preview + 20, -800), 'full');
+});
+
 test('a scrolling summary fits in peek but does not consume the expanded page budget', () => {
   for (const available of [400, 600, 780]) {
     const identity = 76;
