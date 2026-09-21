@@ -21,7 +21,7 @@
 // Both a drag and a tab TAP write the same shared value, so the indicator
 // tracks a finger and animates on a tap through one code path rather than two
 // that have to be kept looking alike.
-import { useEffect, useMemo, useRef } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { StyleSheet, View, type ScrollView } from 'react-native';
 import { Gesture, GestureDetector, type GestureType } from 'react-native-gesture-handler';
 import { CONTENT_BOTTOM_PAD } from './sheetGeometry';
@@ -212,6 +212,7 @@ export function SheetBody({ children }: { children: React.ReactNode }) {
       panRef={sheet?.panRef}
       published={sheet?.scrollY ?? null}
       scrollEnabled={sheet?.atFull ?? false}
+      measureBody
     >
       {children}
     </SheetPage>
@@ -230,6 +231,7 @@ interface PageProps {
   children: React.ReactNode;
   stickyHeaderIndices?: number[];
   scrollHeaderHeight?: number;
+  measureBody?: boolean;
 }
 
 type SheetPagerPanRef = React.MutableRefObject<GestureType | undefined> | undefined;
@@ -266,8 +268,10 @@ function SheetPage({
   children,
   stickyHeaderIndices,
   scrollHeaderHeight = 0,
+  measureBody = false,
 }: PageProps) {
   const scroller = useRef<ScrollView>(null);
+  const [bodyHeight, setBodyHeight] = useState<number | null>(null);
   // This page's OWN offset, kept whether or not it is the one in front, so
   // that becoming the front page can republish the truth about this page
   // rather than leaving the last page's number standing.
@@ -302,7 +306,16 @@ function SheetPage({
     <GestureDetector gesture={native}>
       <Animated.ScrollView
         ref={scroller}
-        style={{ width, maxHeight }}
+        style={{
+          width,
+          maxHeight,
+          flexShrink: 0,
+          flexGrow: 0,
+          // Service POIs have no horizontal pager to establish a viewport.
+          // Measure their natural body independently of its current viewport.
+          height: measureBody ? Math.min(bodyHeight ?? maxHeight, maxHeight) : undefined,
+        }}
+        onContentSizeChange={measureBody ? (_width, height) => setBodyHeight(Math.ceil(height)) : undefined}
         stickyHeaderIndices={stickyHeaderIndices}
         accessibilityElementsHidden={!active}
         importantForAccessibility={active ? 'auto' : 'no-hide-descendants'}

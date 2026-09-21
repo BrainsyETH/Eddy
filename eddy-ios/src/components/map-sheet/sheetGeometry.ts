@@ -286,13 +286,18 @@ export function resolveDetents(
   wholeContentIsPeek = false,
 ): SheetDetents {
   const safeAvailable = Math.max(0, available);
+  const raw = peekHeight && peekHeight > 0 ? Math.min(peekHeight, safeAvailable) : null;
+  // Native preview and outer-layout events can arrive in separate frames.
+  // The outer measurement must never make the sheet shorter than its preview.
   // A content height of 0 means "not measured yet". Fall back to the peek
   // target so the first frame is not a zero-height sheet that then jumps.
   const content =
-    contentHeight > 0 ? Math.min(contentHeight, safeAvailable) : peekTarget(safeAvailable);
+    Math.min(safeAvailable, Math.max(
+      contentHeight > 0 ? contentHeight : peekTarget(safeAvailable),
+      raw ?? 0,
+    ));
 
   const target = peekTarget(safeAvailable);
-  const raw = peekHeight && peekHeight > 0 ? Math.min(peekHeight, safeAvailable) : null;
   const measured = raw != null && wholeContentIsPeek ? Math.min(raw, target) : raw;
   const peek = Math.min(content, measured ?? target);
   const height: Record<Detent, number> = {

@@ -203,7 +203,7 @@ export function MapSheet({
   // ── A NEW SELECTION resets the sheet ────────────────────────────────────
   // Wait for the first measurement. Later resizes retain the chosen detent.
   useEffect(() => {
-    if (available <= 0) return;
+    if (available <= 0 || peekHeight <= GRABBER_BLOCK) return;
     // Reclaiming the map header changes available height, not the selection.
     // Keep the reader's detent and scroll offset through that resize.
     if (openedSelection.current === resetKey) return;
@@ -229,7 +229,7 @@ export function MapSheet({
     // remeasured, and re-running this would collapse a sheet the reader had
     // opened. See the file header.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [resetKey, available, reducedMotion]);
+  }, [resetKey, available, peekHeight, reducedMotion]);
 
   // ── New CONTENT keeps the reader where they are ─────────────────────────
   // The detent the reader chose survives, but the pixel height behind it may
@@ -405,6 +405,7 @@ export function MapSheet({
   );
 
   const sheetStyle = useAnimatedStyle(() => ({
+    opacity: entered.value ? 1 : 0,
     transform: [{ translateY: translateY.value }],
   }));
 
@@ -542,8 +543,8 @@ export function MapSheet({
                 load-bearing: making only its DETENT taller exposes the next
                 child's first 28pt instead of creating air under the peek. A
                 single-page callout is all peek, so the same wrapper covers it. */}
-            <View onLayout={onContentLayout}>
-              <View onLayout={onPeekLayout} style={{ paddingBottom: peekBottomPad }}>
+            <View onLayout={onContentLayout} collapsable={false} style={{ flexShrink: 0 }}>
+              <View onLayout={onPeekLayout} collapsable={false} style={{ paddingBottom: peekBottomPad, flexShrink: 0 }}>
                 {peek}
               </View>
               {children}
