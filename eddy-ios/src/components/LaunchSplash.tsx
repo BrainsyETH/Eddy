@@ -1,19 +1,26 @@
-import { useEffect, useState } from 'react';
+import { type ReactNode, useCallback, useEffect, useState } from 'react';
 import { AccessibilityInfo, Animated, Easing, StyleSheet, useAnimatedValue, useColorScheme, View } from 'react-native';
-import { revealLaunchSplash } from '@/lib/bootstrap';
+import { completeLaunch, isLaunchComplete } from '@/lib/bootstrap';
 
-/** A font-independent replacement for the native launch image while fonts load.
- * Unmounted as soon as the app is ready: animation completion never gates launch.
+/** Stays mounted across font readiness; the real app renders under the exit
+ * animation. Nothing in the app's mounting or data loading waits on animation.
  */
-export function LaunchSplash() {
+export function LaunchSplash({ ready, children }: { ready: boolean; children: ReactNode }) {
   const scheme = useColorScheme();
-  const [laidOut, setLaidOut] = useState(false);
+  const [finished, setFinished] = useState(isLaunchComplete);
+  const [contentLaidOut, setContentLaidOut] = useState(false);
   const [imageLoaded, setImageLoaded] = useState(false);
+  const [imageFailed, setImageFailed] = useState(false);
   const [reduceMotion, setReduceMotion] = useState<boolean | null>(null);
   const scale = useAnimatedValue(1);
   const opacity = useAnimatedValue(1);
+  const dismiss = useCallback(() => {
+    completeLaunch();
+    setFinished(true);
+  }, []);
 
   useEffect(() => {
+    if (finished) return;
     let active = true;
     let changed = false;
     const subscription = AccessibilityInfo.addEventListener('reduceMotionChanged', value => {
@@ -29,55 +36,92 @@ export function LaunchSplash() {
       active = false;
       subscription.remove();
     };
-  }, []);
+  }, [finished]);
+
+  // A decorative asset, accessibility query or animation callback must never
+  // strand a ready app. This deadline includes the animation itself.
+  useEffect(() => {
+    if (!ready || !contentLaidOut || finished) return;
+    const timer = setTimeout(dismiss, 700);
+    return () => clearTimeout(timer);
+  }, [ready, contentLaidOut, finished, dismiss]);
 
   useEffect(() => {
-    if (!laidOut || !imageLoaded || reduceMotion === null) return;
+    if (!ready || !contentLaidOut || finished) return;
+    if (imageFailed) {
+      // Schedule outside the effect body, also avoiding a blank-image handoff.
+      const frame = requestAnimationFrame(dismiss);
+      return () => cancelAnimationFrame(frame);
+    }
+    if (!imageLoaded || reduceMotion === null) return;
 
-    // Match app.json's native image and background before lifting it. Keep the
-    // bootstrap watchdog armed: showing artwork is not a completed app launch.
-    scale.setValue(reduceMotion ? 1 : 0.96);
-    opacity.setValue(0.8);
-    revealLaunchSplash();
-
-    const animation = Animated.parallel([
-      Animated.timing(opacity, {
-        toValue: 1, duration: 180, useNativeDriver: true, isInteraction: false,
-      }),
-      ...(reduceMotion ? [] : [Animated.sequence([
-        Animated.timing(scale, {
-          toValue: 1.015, duration: 220, easing: Easing.out(Easing.cubic),
-          useNativeDriver: true, isInteraction: false,
-        }),
-        Animated.timing(scale, {
-          toValue: 1, duration: 140, easing: Easing.inOut(Easing.quad),
-          useNativeDriver: true, isInteraction: false,
-        }),
-      ])]),
-    ]);
-    animation.start();
-    return () => animation.stop();
-  }, [laidOut, imageLoaded, reduceMotion, opacity, scale]);
+    // The native screen and overlay start at the same size and opacity. Lift
+    // native artwork only once both the icon and the underlying app are ready.
+    // Keep the overlay mounted until its own exit finishes, even on fast boots.
+    completeLaunch();
+    const animation = reduceMotion
+      ? Animated.timing(opacity, {
+        toValue: 0, duration: 180, useNativeDriver: true, isInteraction: false,
+      })
+      : Animated.parallel([
+        Animated.sequence([
+          Animated.timing(scale, {
+            toValue: 1.045, duration: 180, easing: Easing.out(Easing.cubic),
+            useNativeDriver: true, isInteraction: false,
+          }),
+          Animated.timing(scale, {
+            toValue: 1, duration: 180, easing: Easing.inOut(Easing.quad),
+            useNativeDriver: true, isInteraction: false,
+          }),
+        ]),
+        Animated.sequence([
+          Animated.delay(120),
+          Animated.timing(opacity, {
+            toValue: 0, duration: 240, useNativeDriver: true, isInteraction: false,
+          }),
+        ]),
+      ]);
+    // Give the native splash a frame to leave before starting visible motion.
+    const frame = requestAnimationFrame(() => animation.start(({ finished: completed }) => {
+      if (completed) dismiss();
+    }));
+    return () => {
+      cancelAnimationFrame(frame);
+      animation.stop();
+    };
+  }, [ready, contentLaidOut, finished, imageLoaded, imageFailed, reduceMotion, opacity, scale, dismiss]);
 
   return (
-    <View
-      style={[styles.screen, { backgroundColor: scheme === 'dark' ? '#1A1814' : '#F7F6F3' }]}
-      onLayout={() => setLaidOut(true)}
-      pointerEvents="none"
-      accessibilityElementsHidden
-      importantForAccessibility="no-hide-descendants"
-    >
-      <Animated.Image
-        source={require('../../assets/splash-icon-polished.png')}
-        resizeMode="contain"
-        onLoad={() => setImageLoaded(true)}
-        style={[styles.icon, { opacity, transform: [{ scale }] }]}
-      />
+    <View style={styles.container}>
+      {ready && (
+        <View style={styles.container} onLayout={() => setContentLaidOut(true)}>
+          {children}
+        </View>
+      )}
+      {!finished && (
+        <Animated.View
+          style={[styles.overlay, {
+            backgroundColor: scheme === 'dark' ? '#1A1814' : '#F7F6F3', opacity,
+          }]}
+          pointerEvents="none"
+          accessibilityElementsHidden
+          importantForAccessibility="no-hide-descendants"
+        >
+          <Animated.Image
+            source={require('../../assets/splash-icon-polished.png')}
+            resizeMode="contain"
+            onLoad={() => setImageLoaded(true)}
+            onError={() => setImageFailed(true)}
+            style={[styles.icon, { transform: [{ scale }] }]}
+          />
+        </Animated.View>
+      )}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  screen: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  container: { flex: 1 },
+  overlay: { ...StyleSheet.absoluteFill, alignItems: 'center', justifyContent: 'center' },
   icon: { width: 220, height: 220 },
 });
