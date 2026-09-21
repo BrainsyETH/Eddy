@@ -138,21 +138,14 @@ function onBackstop(): void {
 /**
  * The app has painted. Hides the splash and disarms the backstop.
  *
- * Called from the first onLayout of the themed shell, so the splash lifts onto
- * a painted, correctly-themed screen rather than a blank one.
+ * Called by LaunchSplash after the real app has laid out, at the native-to-React
+ * handoff (or its bounded fallback). The exit animation does not gate the app.
  */
 export function completeLaunch(): void {
   if (launched) return;
   launched = true;
   clearTimeout(backstop);
   splash?.hideAsync().catch(() => {});
-}
-
-/** Replace native artwork with the painted animated artwork, keeping the
- * launch watchdog armed until the real app's first layout calls completeLaunch.
- */
-export function revealLaunchSplash(): void {
-  if (!launched && !stalled) splash?.hideAsync().catch(() => {});
 }
 
 /** Survives root remounts, so the launch animation is cold-start-only. */

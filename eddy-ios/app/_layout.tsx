@@ -8,16 +8,15 @@
 // survive an import further down the list throwing.
 //
 // It has no static imports of its own for the same reason. See its header.
-import { completeLaunch, isLaunchComplete, isLaunchStalled, subscribeToLaunchStall } from '@/lib/bootstrap';
-import { useCallback, useEffect, useState } from 'react';
+import { isLaunchStalled, subscribeToLaunchStall } from '@/lib/bootstrap';
+import { useEffect, useState } from 'react';
 import { Pressable, StyleSheet, Text, useColorScheme, View } from 'react-native';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider, initialWindowMetrics } from 'react-native-safe-area-context';
-// The touch root every gesture in the app resolves against. It REPLACES
-// ThemedShell's plain wrapper rather than nesting inside it — on iOS this
-// renders `<View style={style} {...rest} />`, so it carries that view's style
-// and its onLayout unchanged, and onLayout is what hides the splash.
+// The touch root every gesture in the app resolves against. LaunchSplash wraps
+// the app separately so its artwork survives font readiness and the native
+// handoff; gestures remain rooted in ThemedShell.
 //
 // Note for anything that gestures inside a Modal: RN Modals render in their own
 // native view hierarchy and do NOT inherit this root, so PlanSheet, MapLayersSheet,
@@ -183,7 +182,7 @@ export default function RootLayout() {
    * useFonts settles as loaded or errored, and the line below proceeds on
    * either — but "or neither" is a third outcome nothing was handling. If it
    * never settles, `ready` stays false, this component shows launch artwork forever,
-   * ThemedShell never mounts, and ThemedShell is what calls hideAsync. The app
+   * The app content never mounts and the launch handoff cannot begin. The app
    * sits on the splash screen with no way out.
    *
    * That is a hang caused by a decorative asset, which is the wrong trade in
@@ -231,86 +230,56 @@ export default function RootLayout() {
   const [stalled, setStalled] = useState(isLaunchStalled);
   useEffect(() => subscribeToLaunchStall(() => setStalled(true)), []);
 
-  if (!ready) {
-    if (stalled) return <LaunchStalled />;
-    return isLaunchComplete() ? null : <LaunchSplash />;
-  }
+  if (stalled) return <LaunchStalled />;
 
   return (
-    <ThemeProvider>
-      {/*
-        initialMetrics IS LOAD-BEARING. It is not a startup optimisation.
-
-        SafeAreaProvider renders `insets != null ? children : null`, and without
-        initialMetrics `insets` starts null and stays null until the native view
-        fires onInsetsChange. Everything below here — every provider, and
-        ThemedShell, which is the thing that HIDES THE SPLASH — is gated on that
-        one asynchronous native event arriving.
-
-        So a splash that never lifts had an eighth cause on top of the seven the
-        comment below counts, and it is the only one where NOTHING GOES WRONG.
-        No throw, no crash, nothing for the error boundary to catch and nothing
-        for Sentry to report: the provider is simply still waiting, and a tree
-        that never mounts looks exactly like a tree that never painted.
-
-        initialWindowMetrics is read from native at startup, synchronously, so
-        insets are non-null on the FIRST render and there is no event to wait
-        for. The async path stops being load-bearing rather than being made more
-        reliable, which is the only kind of fix that holds here.
-
-        It can be null if the native module is unavailable, in which case
-        behaviour is exactly as before — and bootstrap.ts's backstop now turns
-        that into a reported eight-second stall instead of a silent forever.
-      */}
-      <SafeAreaProvider initialMetrics={initialWindowMetrics}>
-        <AppConfigProvider>
-          <UpgradeGate>
-            <SessionProvider>
-              <StarredRiversProvider>
-                {/* Beside the stars, and for the same reason: a share-code
-                    history is local, works with no account, and never blocks a
-                    render on disk. */}
-                <SavedFloatsProvider>
-                  {/* Server state, not a local store: an alert exists to make
-                      the backend push, so one that lived only on the phone
-                      would be one the delivery cron has never heard of. Inside
-                      SessionProvider because it has nothing to read without a
-                      token, and signing in with Apple changes the answer. */}
-                  <AlertRulesProvider>
-                    {/* Inside SessionProvider: registration needs a token, and the
-                        backend only accepts one from a permanent account. */}
-                    <PushProvider>
-                      <ThemedShell />
-                    </PushProvider>
-                  </AlertRulesProvider>
-                </SavedFloatsProvider>
-              </StarredRiversProvider>
-            </SessionProvider>
-          </UpgradeGate>
-        </AppConfigProvider>
-      </SafeAreaProvider>
-    </ThemeProvider>
+    <LaunchSplash ready={ready}>
+      {ready && (
+        <ThemeProvider>
+          {/* Seed insets synchronously so the app content renders on its first
+              layout, without waiting for a native onInsetsChange event. */}
+          <SafeAreaProvider initialMetrics={initialWindowMetrics}>
+            <AppConfigProvider>
+              <UpgradeGate>
+                <SessionProvider>
+                  <StarredRiversProvider>
+                    {/* Beside the stars, and for the same reason: a share-code
+                        history is local, works with no account, and never blocks a
+                        render on disk. */}
+                    <SavedFloatsProvider>
+                      {/* Server state, not a local store: an alert exists to make
+                          the backend push, so one that lived only on the phone
+                          would be one the delivery cron has never heard of. Inside
+                          SessionProvider because it has nothing to read without a
+                          token, and signing in with Apple changes the answer. */}
+                      <AlertRulesProvider>
+                        {/* Inside SessionProvider: registration needs a token, and the
+                            backend only accepts one from a permanent account. */}
+                        <PushProvider>
+                          <ThemedShell />
+                        </PushProvider>
+                      </AlertRulesProvider>
+                    </SavedFloatsProvider>
+                  </StarredRiversProvider>
+                </SessionProvider>
+              </UpgradeGate>
+            </AppConfigProvider>
+          </SafeAreaProvider>
+        </ThemeProvider>
+      )}
+    </LaunchSplash>
   );
 }
 
 /**
  * Split out because it needs useTheme, which only resolves BELOW ThemeProvider.
- * It also owns hiding the splash: doing that on this component's first layout
- * means the splash lifts onto a painted, correctly-themed screen rather than a
- * blank one.
+ * LaunchSplash owns the native handoff after the app content has laid out.
  */
 function ThemedShell() {
   const { colors, isDark } = useTheme();
 
-  // Hides the splash AND disarms the backstop — see src/lib/bootstrap.ts. The
-  // two have to happen together: a backstop left armed after a healthy launch
-  // would file a stall report eight seconds into a working app.
-  const onLayout = useCallback(() => {
-    completeLaunch();
-  }, []);
-
   return (
-    <GestureHandlerRootView style={{ flex: 1, backgroundColor: colors.bg }} onLayout={onLayout}>
+    <GestureHandlerRootView style={{ flex: 1, backgroundColor: colors.bg }}>
       {/* Follows the scheme rather than being pinned light — on the light theme
           white status-bar text would be invisible against the off-white canvas. */}
       <StatusBar style={isDark ? 'light' : 'dark'} />
