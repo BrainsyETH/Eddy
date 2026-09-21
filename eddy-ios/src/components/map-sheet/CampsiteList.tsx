@@ -14,6 +14,8 @@
 // rows inside a sheet that is also a scroll surface is a scroll fight.
 
 import { useState } from 'react';
+import type { CampsitePhoto } from '@eddy/types';
+import { CampsitePhotos } from './CampsitePhotos';
 import { Linking, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '@/theme/ThemeProvider';
@@ -31,7 +33,7 @@ import {
 /** Rows per loop before the list asks whether you meant it. */
 const VISIBLE_PER_LOOP = 12;
 
-function SiteRow({ entry, date }: { entry: SiteOnNight; date: string }) {
+function SiteRow({ entry, date, photos }: { entry: SiteOnNight; date: string; photos?: CampsitePhoto[] }) {
   const { colors } = useTheme();
   const { site, tags, state } = entry;
   const badge = stateLabel(state);
@@ -41,35 +43,38 @@ function SiteRow({ entry, date }: { entry: SiteOnNight; date: string }) {
   const openable = Boolean(site.bookingUrl);
 
   return (
-    <Pressable
-      onPress={() => {
-        if (site.bookingUrl) void Linking.openURL(site.bookingUrl);
-      }}
-      disabled={!openable}
-      style={({ pressed }) => [styles.row, { opacity: pressed && openable ? 0.6 : 1 }]}
-      // A row that leaves for Safari is a link, not a button. LinkRow hardcodes
-      // `button`, which is why this one is built here rather than reusing it.
-      accessibilityRole={openable ? 'link' : 'text'}
-      accessibilityLabel={
-        `${label}${site.loop ? `, ${site.loop}` : ''}` +
-        `${detail ? `, ${detail}` : ''}, open ${spokenWeekday(date)}` +
-        `${openable ? '. Opens Recreation.gov.' : ''}`
-      }
-    >
-      <View style={styles.rowText}>
-        <Text style={[styles.rowLabel, { color: colors.text }]} numberOfLines={1}>
-          {label}
-        </Text>
-        {detail ? (
-          <Text style={[styles.rowDetail, { color: colors.textMuted }]} numberOfLines={1}>
-            {detail}
+    <View style={[styles.siteRow, photos?.length ? styles.photoRow : null]}>
+      {photos?.length ? <CampsitePhotos key={photos.map((photo) => photo.url).join('|')} photos={photos} label={label} /> : null}
+      <Pressable
+        onPress={() => {
+          if (site.bookingUrl) void Linking.openURL(site.bookingUrl);
+        }}
+        disabled={!openable}
+        style={({ pressed }) => [styles.row, styles.booking, { opacity: pressed && openable ? 0.6 : 1 }]}
+        // A row that leaves for Safari is a link, not a button. LinkRow hardcodes
+        // `button`, which is why this one is built here rather than reusing it.
+        accessibilityRole={openable ? 'link' : 'text'}
+        accessibilityLabel={
+          `${label}${site.loop ? `, ${site.loop}` : ''}` +
+          `${detail ? `, ${detail}` : ''}, open ${spokenWeekday(date)}` +
+          `${openable ? '. Opens Recreation.gov.' : ''}`
+        }
+      >
+        <View style={styles.rowText}>
+          <Text style={[styles.rowLabel, { color: colors.text }]} numberOfLines={1}>
+            {label}
           </Text>
+          {detail ? (
+            <Text style={[styles.rowDetail, { color: colors.textMuted }]} numberOfLines={1}>
+              {detail}
+            </Text>
+          ) : null}
+        </View>
+        {openable ? (
+          <Ionicons name="open-outline" size={16} color={colors.textSubtle} />
         ) : null}
-      </View>
-      {openable ? (
-        <Ionicons name="open-outline" size={16} color={colors.textSubtle} />
-      ) : null}
-    </Pressable>
+      </Pressable>
+    </View>
   );
 }
 
@@ -113,9 +118,11 @@ function Loop({
   group,
   date,
   showName,
+  photos,
 }: {
   group: LoopGroup;
   date: string;
+  photos?: Record<string, CampsitePhoto[]>;
   /**
    * A loop name earns its line only when there is another loop to tell it from.
    *
@@ -147,7 +154,7 @@ function Loop({
       {!tappable ? <KindSummaries group={group} date={date} /> : null}
 
       {tappable
-        ? shown.map((entry) => <SiteRow key={entry.site.id} entry={entry} date={date} />)
+        ? shown.map((entry) => <SiteRow key={entry.site.id} entry={entry} date={date} photos={photos?.[entry.site.id]} />)
         : null}
 
       {tappable && hidden > 0 ? (
@@ -182,7 +189,9 @@ export function CampsiteList({
   filters,
   date,
   dateLabel,
+  photos,
 }: {
+  photos?: Record<string, CampsitePhoto[]>;
   entries: SiteOnNight[];
   filters: string[];
   date: string;
@@ -218,6 +227,7 @@ export function CampsiteList({
         <Loop
           key={group.loop ?? '—'}
           group={group}
+          photos={photos}
           date={date}
           showName={groups.length > 1}
         />
@@ -243,6 +253,9 @@ const styles = StyleSheet.create({
   loopName: { ...t.xs, fontFamily: fonts.semibold, textTransform: 'uppercase', letterSpacing: 0.5 },
   // The 44pt floor from DESIGN.md §6, same as LinkRow's.
   row: { flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 44 },
+  siteRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  photoRow: { paddingVertical: 4 },
+  booking: { flex: 1, minWidth: 0 },
   rowText: { flex: 1, minWidth: 0 },
   rowLabel: { ...t.sm, fontFamily: fonts.medium },
   rowDetail: { ...t.xs, fontFamily: fonts.body, marginTop: 1 },
