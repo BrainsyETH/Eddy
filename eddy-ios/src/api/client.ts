@@ -2385,8 +2385,8 @@ export async function submitRiverVisual(
 }
 
 /** Optional media never blocks the availability request. */
-export function fetchCampsitePhotos(facilityId: string, signal?: AbortSignal) {
+export function fetchCampsitePhotos(facilityId: string, signal?: AbortSignal, siteId?: string) {
   return get<import('@eddy/types').CampsitePhotosResponse>(
-    `/api/campsites/photos?facility=${encodeURIComponent(facilityId)}`, signal,
+    `/api/campsites/photos?facility=${encodeURIComponent(facilityId)}${siteId ? `&site=${encodeURIComponent(siteId)}` : ''}`, signal,
   );
 }

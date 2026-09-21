@@ -676,7 +676,8 @@ export function AccessCampingTab({ accessPoint, detail, status, active = false, 
   // The filters are therefore spent only while their row is on screen. The state
   // survives, so stepping back to a night with rows restores the selection
   // rather than silently dropping it.
-  const showFilters = useMemo(() => listsRows(entries), [entries]);
+  const individualSites = sites?.facility.source === 'mo_state_parks';
+  const showFilters = useMemo(() => listsRows(entries, individualSites), [entries, individualSites]);
   const activeFilters = showFilters ? filters : [];
 
   // The timeline stays first whether the detail request is pending or ready.
@@ -861,6 +862,8 @@ export function AccessCampingTab({ accessPoint, detail, status, active = false, 
               ) : null}
               <CampsiteList
                 photos={photos}
+                individualSites={individualSites}
+                stateParkFacilityId={active && individualSites ? sites.facility.id : undefined}
                 entries={entries}
                 filters={activeFilters}
                 date={selectedDate}

@@ -2,6 +2,7 @@
 // Contract: https://ridb.recreation.gov/shared/swagger/ridb.yaml
 // Kept outside availability: slow/missing media must never delay site counts.
 export interface CampsitePhoto {
+  source?: 'Recreation.gov' | 'Missouri State Parks';
   url: string;
   title: string | null;
   credit: string | null;

@@ -525,6 +525,7 @@ export interface CampsiteSite {
 
 /** Exact-site media, delivered separately from availability. */
 export interface CampsitePhoto {
+  source?: 'Recreation.gov' | 'Missouri State Parks';
   url: string;
   title: string | null;
   credit: string | null;

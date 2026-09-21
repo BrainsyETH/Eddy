@@ -15,6 +15,7 @@
 
 import { useState } from 'react';
 import type { CampsitePhoto } from '@eddy/types';
+import { useCampsitePhotos } from '@/hooks/useCampsitePhotos';
 import { CampsitePhotos } from './CampsitePhotos';
 import { Linking, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -33,9 +34,13 @@ import {
 /** Rows per loop before the list asks whether you meant it. */
 const VISIBLE_PER_LOOP = 12;
 
-function SiteRow({ entry, date, photos }: { entry: SiteOnNight; date: string; photos?: CampsitePhoto[] }) {
+function SiteRow({ entry, date, photos: suppliedPhotos, stateParkFacilityId }: {
+  entry: SiteOnNight; date: string; photos?: CampsitePhoto[]; stateParkFacilityId?: string;
+}) {
   const { colors } = useTheme();
   const { site, tags, state } = entry;
+  const stateParkPhotos = useCampsitePhotos(stateParkFacilityId ?? null, site.id);
+  const photos = suppliedPhotos ?? stateParkPhotos?.[site.id];
   const badge = stateLabel(state);
   const label = site.name ?? `Site ${site.id.slice(0, 6)}`;
   const detail = [badge, ...tags].filter(Boolean).join(' · ');
@@ -78,13 +83,7 @@ function SiteRow({ entry, date, photos }: { entry: SiteOnNight; date: string; ph
   );
 }
 
-/**
- * The same inventory as counts, for a feed whose sites link nowhere.
- *
- * See summariseByKind. Two lines instead of sixty-four, and nothing is lost:
- * the rows it replaces carried a number, a name repeated verbatim down the
- * column, and no destination.
- */
+/** Compact counts for fully booked loops or feeds without site-level content. */
 function KindSummaries({ group, date }: { group: LoopGroup; date: string }) {
   const { colors } = useTheme();
   const summaries = summariseByKind([...group.open, ...group.taken]);
@@ -119,10 +118,14 @@ function Loop({
   date,
   showName,
   photos,
+  individualSites,
+  stateParkFacilityId,
 }: {
   group: LoopGroup;
   date: string;
   photos?: Record<string, CampsitePhoto[]>;
+  individualSites?: boolean;
+  stateParkFacilityId?: string;
   /**
    * A loop name earns its line only when there is another loop to tell it from.
    *
@@ -137,13 +140,9 @@ function Loop({
   const shown = expanded ? group.open : group.open.slice(0, VISIBLE_PER_LOOP);
   const hidden = group.open.length - shown.length;
 
-  // ── A ROW IS A LINK. WITHOUT ONE IT IS A NUMBER ─────────────────────────
-  // Every site row here deep-links to that site's own booking page, which is
-  // what makes it worth a 44pt target. UseDirect — every Missouri State Park —
-  // publishes no per-unit URL, so those rows lead nowhere, and Onondaga rendered
-  // as dozens of untappable lines reading "Basic #001", "Basic #002". The counts
-  // say the same thing in two lines and are honest about what Eddy has.
-  const tappable = group.open.some((entry) => Boolean(entry.site.bookingUrl));
+  // State Parks rows also carry individually fetched photos, even though
+  // reservations still open through the park-level booking action above.
+  const tappable = group.open.some((entry) => individualSites || Boolean(entry.site.bookingUrl));
 
   return (
     <View style={styles.loop}>
@@ -154,7 +153,7 @@ function Loop({
       {!tappable ? <KindSummaries group={group} date={date} /> : null}
 
       {tappable
-        ? shown.map((entry) => <SiteRow key={entry.site.id} entry={entry} date={date} photos={photos?.[entry.site.id]} />)
+        ? shown.map((entry) => <SiteRow key={entry.site.id} entry={entry} date={date} photos={photos?.[entry.site.id]} stateParkFacilityId={stateParkFacilityId} />)
         : null}
 
       {tappable && hidden > 0 ? (
@@ -190,8 +189,12 @@ export function CampsiteList({
   date,
   dateLabel,
   photos,
+  individualSites,
+  stateParkFacilityId,
 }: {
   photos?: Record<string, CampsitePhoto[]>;
+  individualSites?: boolean;
+  stateParkFacilityId?: string;
   entries: SiteOnNight[];
   filters: string[];
   date: string;
@@ -228,6 +231,8 @@ export function CampsiteList({
           key={group.loop ?? '—'}
           group={group}
           photos={photos}
+          individualSites={individualSites}
+          stateParkFacilityId={stateParkFacilityId}
           date={date}
           showName={groups.length > 1}
         />

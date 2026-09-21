@@ -58,7 +58,7 @@ export function CampsitePhotos({ photos, label }: { photos: CampsitePhoto[]; lab
               <View style={styles.caption}>
                 {selected.title ? <Text style={[styles.captionText, { color: colors.text }]}>{selected.title}</Text> : null}
                 <Text style={[styles.credit, { color: colors.textMuted }]}>
-                  {selected.credit ? `${selected.credit} · ` : ''}Recreation.gov
+                  {selected.credit ? `${selected.credit} · ` : ''}{selected.source ?? 'Recreation.gov'}
                 </Text>
               </View>
               <View style={styles.navigation}>
