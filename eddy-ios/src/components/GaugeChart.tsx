@@ -91,11 +91,13 @@
 // through stepScrubTime() from the shared model — the same stepping the web
 // chart gives arrow keys.
 
+import { Ionicons } from '@expo/vector-icons';
+import { chartDateRange } from '@/lib/chartDateRange';
 import { File, Paths } from 'expo-file-system';
 import { Component, useCallback, useMemo, useState, type ReactNode } from 'react';
 import {
   ActivityIndicator,
-  Modal, ScrollView, TextInput, Share, Alert,
+  ScrollView, TextInput, Share, Alert,
   LayoutChangeEvent,
   Pressable,
   StyleSheet,
@@ -107,7 +109,7 @@ import {
 // a declared dependency and the root layout already mounts its root view, so
 // this adds no new runtime fingerprint. See SwipeRow.tsx for the situation
 // where reaching for it would be wrong.
-import { Gesture, GestureDetector, GestureHandlerRootView } from 'react-native-gesture-handler';
+import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Svg, {
   Circle,
   Defs,
@@ -273,7 +275,6 @@ interface Props {
   /** Section heading. Omitted when the caller draws its own. */
   title?: string;
   historyCapabilities?: { maxInstantDays: number; supportsDaily: boolean; supportsCustomRange: boolean };
-  expanded?: boolean;
   initialDays?: number;
   initialWindow?: { from: string; to: string };
 }
@@ -336,13 +337,11 @@ function GaugeChartInner({
   floodStages = null,
   title,
   historyCapabilities,
-  expanded = false,
   initialDays = 7,
   initialWindow,
 }: Props) {
-  const chartHeight = expanded ? 360 : CHART_HEIGHT;
+  const chartHeight = CHART_HEIGHT;
   const { colors, elevation, isDark } = useTheme();
-  const [showExpanded, setShowExpanded] = useState(false);
   const [showTable, setShowTable] = useState(false);
   const [showDates, setShowDates] = useState(false);
   const [fromDate, setFromDate] = useState(initialWindow?.from.slice(0, 10) ?? '');
@@ -973,15 +972,15 @@ function GaugeChartInner({
                   <Text style={[styles.scrubValue, { color: colors.text }]}>
                     {formatReading(newest.v, drawnUnit)}
                   </Text>
-                  {' now · last '}
+                  {' · '}
                 </>
               ) : (
                 <>
                   {drawnUnit === 'cfs' ? 'Discharge' : 'Gauge height'}
-                  {' · last '}
+                  {' · '}
                 </>
               )}
-              {history?.requestedWindow ? `${history.requestedWindow.from.slice(0, 10)} – ${history.requestedWindow.to.slice(0, 10)}` : drawnDays === 1 ? '24 hours' : `${drawnDays} days`}
+              {history?.requestedWindow ? chartDateRange(history.requestedWindow.from, history.requestedWindow.to) : drawnDays === 1 ? 'Past 24 hours' : `Past ${drawnDays} days`}
             </Text>
           )}
         </View>
@@ -1062,25 +1061,41 @@ function GaugeChartInner({
         </View>
       </View>
 
-      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 16, paddingVertical: 10 }}>
-        {historyCapabilities?.supportsCustomRange && <Pressable accessibilityRole="button" onPress={() => setShowDates(!showDates)}><Text style={{ color: colors.text }}>Custom dates</Text></Pressable>}
-        {!expanded && <Pressable accessibilityRole="button" onPress={() => setShowExpanded(true)}><Text style={{ color: colors.text }}>Expand</Text></Pressable>}
-        <Pressable accessibilityRole="button" onPress={() => setShowTable(!showTable)}><Text style={{ color: colors.text }}>{showTable ? 'Hide table' : 'Data table'}</Text></Pressable>
-        <Pressable accessibilityRole="button" disabled={!history?.readings.length} onPress={async () => {
-          if (!history) return;
-          try {
-            const file = new File(Paths.cache, `gauge-${siteId}-history.csv`);
-            file.write(['timestamp,gauge_height_ft,discharge_cfs', ...history.readings.map(r => `${r.timestamp},${r.gaugeHeightFt ?? ''},${r.dischargeCfs ?? ''}`)].join('\n'));
-            await Share.share({ url: file.uri, title: 'Gauge history CSV' });
-          } catch { Alert.alert('Export unavailable', 'Please try exporting the readings again.'); }
-        }}><Text style={{ color: colors.text }}>Export CSV</Text></Pressable>
+      <View style={styles.actions}>
+        {historyCapabilities?.supportsCustomRange && (
+          <Pressable accessibilityRole="button" accessibilityLabel="Custom dates" accessibilityState={{ expanded: showDates, selected: Boolean(customWindow) }}
+            onPress={() => setShowDates(!showDates)}
+            style={({ pressed }) => [styles.action, { borderColor: colors.border, backgroundColor: showDates || customWindow ? colors.cardRaised : colors.card, opacity: pressed ? 0.65 : 1 }]}>
+            <Ionicons name="calendar-outline" size={16} color={colors.interactive} />
+            <Text style={[styles.actionText, { color: colors.interactive }]}>Dates</Text>
+          </Pressable>
+        )}
+        <Pressable accessibilityRole="button" accessibilityLabel={showTable ? 'Hide data table' : 'Show data table'} accessibilityState={{ expanded: showTable, selected: showTable }}
+          onPress={() => setShowTable(!showTable)}
+          style={({ pressed }) => [styles.action, { borderColor: colors.border, backgroundColor: showTable ? colors.cardRaised : colors.card, opacity: pressed ? 0.65 : 1 }]}>
+          <Ionicons name="list-outline" size={16} color={colors.interactive} />
+          <Text style={[styles.actionText, { color: colors.interactive }]}>{showTable ? 'Hide table' : 'Table'}</Text>
+        </Pressable>
+        <Pressable accessibilityRole="button" accessibilityState={{ disabled: !history?.readings.length }}
+          disabled={!history?.readings.length}
+          style={({ pressed }) => [styles.action, { borderColor: colors.border, backgroundColor: colors.card, opacity: !history?.readings.length ? 0.4 : pressed ? 0.65 : 1 }]}
+          onPress={async () => {
+            if (!history) return;
+            try {
+              const file = new File(Paths.cache, `gauge-${siteId}-history.csv`);
+              file.write(['timestamp,gauge_height_ft,discharge_cfs', ...history.readings.map(r => `${r.timestamp},${r.gaugeHeightFt ?? ''},${r.dischargeCfs ?? ''}`)].join('\n'));
+              await Share.share({ url: file.uri, title: 'Gauge history CSV' });
+            } catch { Alert.alert('Export unavailable', 'Please try exporting the readings again.'); }
+          }}>
+          <Ionicons name="share-outline" size={16} color={colors.interactive} />
+          <Text style={[styles.actionText, { color: colors.interactive }]}>Export CSV</Text>
+        </Pressable>
       </View>
       {showDates && <View style={{ gap: 8, paddingBottom: 12 }}>
-        <Text style={{ color: colors.textMuted }}>Dates (YYYY-MM-DD), up to one year</Text>
-        <TextInput accessibilityLabel="Start date YYYY-MM-DD" placeholder="From: YYYY-MM-DD" placeholderTextColor={colors.textSubtle} value={fromDate} onChangeText={setFromDate} style={{ color: colors.text, borderColor: colors.border, borderWidth: 1, padding: 10 }} />
-        <TextInput accessibilityLabel="End date YYYY-MM-DD" placeholder="To: YYYY-MM-DD" placeholderTextColor={colors.textSubtle} value={toDate} onChangeText={setToDate} style={{ color: colors.text, borderColor: colors.border, borderWidth: 1, padding: 10 }} />
+        <TextInput accessibilityLabel="Start date YYYY-MM-DD" placeholder="From: YYYY-MM-DD" placeholderTextColor={colors.textSubtle} value={fromDate} onChangeText={setFromDate} style={{ color: colors.text, borderColor: colors.border, borderWidth: 1, borderRadius: 10, padding: 12 }} />
+        <TextInput accessibilityLabel="End date YYYY-MM-DD" placeholder="To: YYYY-MM-DD" placeholderTextColor={colors.textSubtle} value={toDate} onChangeText={setToDate} style={{ color: colors.text, borderColor: colors.border, borderWidth: 1, borderRadius: 10, padding: 12 }} />
         {dateError && <Text accessibilityRole="alert" style={{ color: colors.text }}>{dateError}</Text>}
-        <Pressable accessibilityRole="button" onPress={() => {
+        <Pressable accessibilityRole="button" style={({ pressed }) => [styles.action, { borderColor: colors.border, backgroundColor: colors.cardRaised, opacity: pressed ? 0.65 : 1 }]} onPress={() => {
           const from = Date.parse(`${fromDate}T00:00:00Z`);
           const to = Date.parse(`${toDate}T23:59:59Z`);
           const validDate = (value: string, time: number) => /^\d{4}-\d{2}-\d{2}$/.test(value) && Number.isFinite(time) && new Date(time).toISOString().slice(0, 10) === value;
@@ -1090,24 +1105,12 @@ function GaugeChartInner({
           setDateError(null); setScrubX(null);
           setDays(Math.ceil((to - from) / 86400000));
           setCustomWindow({ from: new Date(from).toISOString(), to: new Date(Math.min(to, Date.now())).toISOString() });
-        }}><Text style={{ color: colors.text }}>Apply dates</Text></Pressable>
+        }}><Text style={[styles.actionText, { color: colors.interactive }]}>Apply dates</Text></Pressable>
       </View>}
-      {history && <Text style={{ color: colors.textSubtle, marginBottom: 8 }}>
-        {history.statistic === 'daily_mean' ? 'Daily mean readings' : history.resolution === 'daily' ? 'Daily readings' : 'Instantaneous readings'}
-        {history.sampled ? ' · sampled for display' : ''}
-        {history.coverageComplete === false ? ' · partial coverage' : ''}
-        {history.truncationReason ? ` · ${history.truncationReason}` : ''}
-      </Text>}
       {showTable && <ScrollView style={{ maxHeight: 320 }} nestedScrollEnabled>
         <Text style={{ color: colors.textMuted }}>Time · height (ft) · discharge (cfs)</Text>
         {history?.readings.map(r => <Text selectable key={r.timestamp} style={{ color: colors.text, paddingVertical: 4 }}>{new Date(r.timestamp).toLocaleString()} · {r.gaugeHeightFt ?? '—'} · {r.dischargeCfs ?? '—'}</Text>)}
       </ScrollView>}
-      {!expanded && <Modal visible={showExpanded} animationType="slide" onRequestClose={() => setShowExpanded(false)}>
-        <GestureHandlerRootView style={{ flex: 1 }}><ScrollView contentContainerStyle={{ padding: 20, paddingTop: 64, backgroundColor: colors.card, flexGrow: 1 }}>
-          <Pressable accessibilityRole="button" onPress={() => setShowExpanded(false)}><Text style={{ color: colors.text, paddingVertical: 16 }}>Close expanded history</Text></Pressable>
-          <GaugeChartInner siteId={siteId} unit={drawnUnit} thresholds={thresholds} floodStages={floodStages} title="Gauge history" historyCapabilities={historyCapabilities} initialDays={days} initialWindow={customWindow} expanded />
-        </ScrollView></GestureHandlerRootView>
-      </Modal>}
       {series.gapPaths.length > 0 ? (
         <View style={styles.legendItem} accessibilityLabel="Dotted connections indicate missing readings">
           <View style={styles.legendDashes}>{[0, 1, 2].map(i => <View key={i} style={[styles.legendDash, { backgroundColor: lineColor }]} />)}</View>
@@ -1680,6 +1683,9 @@ const styles = StyleSheet.create({
   ranges: { flexDirection: 'row', borderWidth: 1, borderRadius: 9, overflow: 'hidden' },
   range: { paddingHorizontal: 10, paddingVertical: 5 },
   rangeText: { ...t.xs, fontFamily: fonts.medium },
+  actions: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, paddingVertical: 8 },
+  action: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, minHeight: 44, paddingHorizontal: 10, paddingVertical: 8, borderWidth: 1, borderRadius: 10 },
+  actionText: { ...t.xs, fontFamily: fonts.medium },
   plotWrap: { marginTop: 2 },
   legend: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginTop: 4 },
   legendItem: { flexDirection: 'row', alignItems: 'center', gap: 4 },

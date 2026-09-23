@@ -99,12 +99,12 @@ test('everything that DESCRIBES the series reads the drawn range, not the reques
 
   // The subtitle, the axis tick format and the spoken summary. Each printed a
   // claim about a window it was not drawing.
-  assert.match(CHART, /drawnDays === 1 \? '24 hours'/, 'the subtitle reads the request again');
+  assert.match(CHART, /drawnDays === 1 \? 'Past 24 hours'/, 'the subtitle reads the request again');
   assert.match(CHART, /axisTime\(tick\.value, drawnDays\)/, 'the axis reads the request again');
   assert.match(CHART, /drawnDays === 1 \? 'last 24 hours'/, 'VoiceOver reads the request again');
 
   // And none of them may go back to bare `days`.
-  assert.ok(!/\{days === 1 \? '24 hours'/.test(CHART), 'the subtitle is back on days');
+  assert.ok(!/\{days === 1 \? 'Past 24 hours'/.test(CHART), 'the subtitle is back on days');
   assert.ok(!/axisTime\(tick\.value, days\)/.test(CHART), 'the axis is back on days');
 });
 
