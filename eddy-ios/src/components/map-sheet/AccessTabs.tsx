@@ -43,7 +43,6 @@ import {
   staySearchAreaLabel,
 } from '@/lib/stays';
 import { FilterChips } from '@/components/FilterChips';
-import { useCampsitePhotos } from '@/hooks/useCampsitePhotos';
 import { useCampsiteSites } from '@/hooks/useCampsiteSites';
 import {
   filterCounts,
@@ -659,10 +658,6 @@ export function AccessCampingTab({ accessPoint, detail, status, active = false, 
     active ? (availability?.facilityId ?? null) : null,
   );
 
-  const photos = useCampsitePhotos(
-    active && sites?.facility.source === 'recreation_gov' ? sites.facility.id : null,
-  );
-
   const entries = useMemo(
     () =>
       sites ? sitesOnNight(sites.sites, sites.window.nights, selectedDate) : [],
@@ -866,9 +861,8 @@ export function AccessCampingTab({ accessPoint, detail, status, active = false, 
               ) : null}
               <CampsiteList
                 reservationUrl={booking?.url}
-                photos={photos}
                 individualSites={individualSites}
-                stateParkFacilityId={active && individualSites ? sites.facility.id : undefined}
+                photoFacilityId={active && (individualSites || sites.facility.source === 'recreation_gov') ? sites.facility.id : undefined}
                 entries={entries}
                 filters={activeFilters}
                 date={selectedDate}
