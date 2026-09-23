@@ -20,7 +20,7 @@
 // open collapsed the moment the detail request landed or they swiped to a taller
 // tab. A new SELECTION resets the sheet; new content does not.
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { StyleSheet, View, useWindowDimensions, type LayoutChangeEvent } from 'react-native';
+import { StyleSheet, View, type LayoutChangeEvent } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
   runOnJS,
@@ -83,7 +83,7 @@ interface Props {
   /** Shared scrolling summary must be measured before the first entrance. */
   previewReady?: boolean;
   peekPadding?: number;
-  /** Absent for a sheet that is all glance — a hazard, an outfitter. */
+  /** Absent only when the sheet has no scrolling body, such as a river with no tabs. */
   children?: React.ReactNode;
   /**
    * What this sheet is about, for VoiceOver.
@@ -125,7 +125,11 @@ const DETENT_VALUE: Record<Detent, string> = {
   full: 'Expanded',
 };
 
-export function MapSheet({
+export function MapSheet(props: Props) {
+  return <MeasuredMapSheet key={props.resetKey} {...props} />;
+}
+
+function MeasuredMapSheet({
   resetKey,
   onClose,
   onDetentChange,
@@ -139,15 +143,12 @@ export function MapSheet({
 }: Props) {
   const { colors, elevation } = useTheme();
   const reducedMotion = useReducedMotion();
-  const window = useWindowDimensions();
-  const rootView = useRef<View>(null);
-  const sheetView = useRef<View>(null);
-  const peekView = useRef<View>(null);
 
   // Measured rather than assumed: the sheet lives inside the map's overlay
   // stack, not the window, and the two differ by the tab bar and both insets.
   const [available, setAvailable] = useState(0);
   const [contentHeight, setContentHeight] = useState(0);
+  const [bodyReady, setBodyReady] = useState(false);
   const [peekHeight, setPeekHeight] = useState(0);
   const [detent, setDetent] = useState<Detent>('peek');
 
@@ -155,11 +156,12 @@ export function MapSheet({
   // BOTH: it sits inside the card and outside the measured content, so a
   // detent sized to the content alone clipped its last 16pt at every height,
   // including the tallest.
-  // No children means the peek slot is the whole sheet — the single-page
-  // callout — and its measured height is then a fact about the content rather
+  // No children means the peek slot is the whole sheet, as on a river with
+  // no tabs. Its measured height is then a fact about the content rather
   // than an authored glance. resolveDetents needs to know which it is being
   // handed; see its `wholeContentIsPeek`.
   const glanceOnly = children == null;
+  const layoutReady = previewReady && (glanceOnly || bodyReady);
 
   // Single-page and legacy sheets retain their bottom padding. Access sheets
   // put the gap after the scrollable summary, so it disappears with that summary.
@@ -210,7 +212,7 @@ export function MapSheet({
   // ── A NEW SELECTION resets the sheet ────────────────────────────────────
   // Wait for the first measurement. Later resizes retain the chosen detent.
   useEffect(() => {
-    if (!previewReady || available <= 0 || peekHeight <= GRABBER_BLOCK) return;
+    if (!layoutReady || available <= 0 || peekHeight <= GRABBER_BLOCK) return;
     // Reclaiming the map header changes available height, not the selection.
     // Keep the reader's detent and scroll offset through that resize.
     if (openedSelection.current === resetKey) return;
@@ -236,7 +238,7 @@ export function MapSheet({
     // remeasured, and re-running this would collapse a sheet the reader had
     // opened. See the file header.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [resetKey, available, peekHeight, previewReady, reducedMotion]);
+  }, [resetKey, available, peekHeight, layoutReady, reducedMotion]);
 
   // ── New CONTENT keeps the reader where they are ─────────────────────────
   // The detent the reader chose survives, but the pixel height behind it may
@@ -244,7 +246,7 @@ export function MapSheet({
   // the sheet follows its own detent to wherever that detent now is, rather
   // than snapping back to the smallest.
   useEffect(() => {
-    if (available <= 0 || !entered.value) return;
+    if (!layoutReady || available <= 0 || !entered.value) return;
     if (resettingSelection.current) {
       resettingSelection.current = false;
       return;
@@ -258,36 +260,7 @@ export function MapSheet({
       : withTiming(target, { duration: 180 });
     commit(held);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [resetKey, detents, available, reducedMotion]);
-
-  // Sample native screen coordinates after layout/settling, rather than infer
-  // clipping from gauge-cache or network logs. No names, IDs or coordinates of
-  // places are logged. Cleanup suppresses measurements from an old selection.
-  useEffect(() => {
-    if (!__DEV__ || !previewReady || available <= 0) return;
-    let cancelled = false;
-    const timer = setTimeout(() => {
-      rootView.current?.measureInWindow((_x, rootY, _width, rootHeight) => {
-        sheetView.current?.measureInWindow((_sx, sheetY, _sw, sheetHeight) => {
-          peekView.current?.measureInWindow((_px, peekY, _pw, nativePeekHeight) => {
-            if (cancelled) return;
-            const rootBottom = rootY + rootHeight;
-            const expectedTop = rootBottom - detents.height[detent];
-            console.info('[map] sheet layout', {
-              detent, previewReady, available, contentHeight, peekHeight, peekExtraHeight,
-              detentHeight: detents.height[detent],
-              windowHeight: window.height,
-              rootY, rootHeight, rootBottom, sheetY, sheetHeight,
-              nativePeekHeight,
-              positionError: Math.round(sheetY - expectedTop),
-              previewOverflow: Math.round(peekY + nativePeekHeight + peekExtraHeight - rootBottom),
-            });
-          });
-        });
-      });
-    }, 1000);
-    return () => { cancelled = true; clearTimeout(timer); };
-  }, [resetKey, previewReady, available, contentHeight, peekHeight, peekExtraHeight, detent, detents, window.height]);
+  }, [resetKey, detents, available, layoutReady, reducedMotion]);
 
   const pan = useMemo(
     () =>
@@ -416,7 +389,7 @@ export function MapSheet({
   useDerivedValue(() => {
     if (!metrics) return;
     metrics.value = {
-      height: Math.max(0, detents.available - translateY.value),
+      height: entered.value ? Math.max(0, detents.available - translateY.value) : 0,
       available: detents.available,
     };
   });
@@ -449,7 +422,7 @@ export function MapSheet({
   // glance the map has to stay both visible AND tappable, because tapping a
   // different pin is how you change the selection. rail.tsx:139-142.
   const scrimStyle = useAnimatedStyle(() => {
-    if (largestHeight <= smallestHeight) return { opacity: 0 };
+    if (!entered.value || largestHeight <= smallestHeight) return { opacity: 0 };
     const height = detents.available - translateY.value;
     // To 1, not to a fraction: colors.scrim is ALREADY rgba(0,0,0,0.22), so
     // full opacity here is exactly the scrim every modal in the app uses.
@@ -478,12 +451,12 @@ export function MapSheet({
   const budget = useMemo(() => pageBudget(available, peekHeight), [available, peekHeight]);
 
   const scrollContext = useMemo(
-    () => ({ scrollY, panRef, detent, atFull, pageBudget: budget, resetKey }),
+    () => ({ scrollY, panRef, detent, atFull, pageBudget: budget, resetKey, setBodyReady }),
     [scrollY, panRef, detent, atFull, budget, resetKey],
   );
 
   return (
-    <View ref={rootView} collapsable={false} style={StyleSheet.absoluteFill} pointerEvents="box-none" onLayout={onRootLayout}>
+    <View collapsable={false} style={StyleSheet.absoluteFill} pointerEvents="box-none" onLayout={onRootLayout}>
       {/* Not a Pressable: at every detent this sheet offers, tapping the map
           behind it should reach the MAP — selecting another pin, panning — and
           a scrim that swallowed those taps would turn the glance into a modal.
@@ -495,7 +468,6 @@ export function MapSheet({
 
       <GestureDetector gesture={pan}>
         <Animated.View
-          ref={sheetView}
           collapsable={false}
           style={[
             styles.sheet,
@@ -579,10 +551,9 @@ export function MapSheet({
 
                 The peek owns a separate gap on its own wrapper. That is
                 load-bearing: making only its DETENT taller exposes the next
-                child's first 28pt instead of creating air under the peek. A
-                single-page callout is all peek, so the same wrapper covers it. */}
+                child's first 28pt instead of creating air under the peek. A sheet without a scrolling body uses this wrapper for all its content. */}
             <View onLayout={onContentLayout} collapsable={false} style={{ flexShrink: 0 }}>
-              <View ref={peekView} onLayout={onPeekLayout} collapsable={false} style={{ paddingBottom: peekBottomPad, flexShrink: 0 }}>
+              <View onLayout={onPeekLayout} collapsable={false} style={{ paddingBottom: peekBottomPad, flexShrink: 0 }}>
                 {peek}
               </View>
               {children}

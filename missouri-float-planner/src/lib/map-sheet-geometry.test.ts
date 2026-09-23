@@ -420,3 +420,47 @@ test('tab switches preserve expanded, partial and collapsed shared headers', () 
 test('tabs without a shared header retain their individual offsets', () => {
   assert.equal(tabScrollOffset(200, 75, 0), 75);
 });
+
+test('unmeasured and empty pages do not borrow the full viewport as content', async () => {
+  const { measuredPageHeight, pageMeasurementReady } = await import('../../../eddy-ios/src/components/map-sheet/sheetMeasurements');
+  assert.equal(measuredPageHeight(null, 480), CONTENT_BOTTOM_PAD);
+  assert.equal(pageMeasurementReady(null, CONTENT_BOTTOM_PAD, 480), false);
+  // Empty pages can become ready even when their native size did not change.
+  assert.equal(pageMeasurementReady(0, CONTENT_BOTTOM_PAD, 480), true);
+  assert.equal(pageMeasurementReady(80, CONTENT_BOTTOM_PAD, 480), false);
+  assert.equal(pageMeasurementReady(80, 80 + CONTENT_BOTTOM_PAD, 480), true);
+  assert.equal(pageMeasurementReady(80, 0, 0), false);
+});
+
+test('short access sheets size to real summary and body, without forced scroll slack', async () => {
+  const { measuredPageHeight } = await import('../../../eddy-ios/src/components/map-sheet/sheetMeasurements');
+  const identity = 80, summary = 100, body = 20;
+  const budget = pageBudget(TALL, identity);
+  const page = measuredPageHeight(summary + body, budget);
+  const content = identity + page;
+  const d = resolveDetents(TALL, content, scrollingPeekHeight(TALL, identity, summary));
+  assert.equal(d.order.length, 1);
+  assert.equal(d.height.peek, content);
+  assert.ok(d.height.peek < TALL * 0.55);
+});
+
+test('long pages retain bounded viewports and their complete scrollable content', async () => {
+  const { measuredPageHeight, pageMeasurementReady } = await import('../../../eddy-ios/src/components/map-sheet/sheetMeasurements');
+  assert.equal(measuredPageHeight(900, 480), 480);
+  assert.equal(pageMeasurementReady(900, 480, 480), true);
+  // A resize cannot count as adopted until the native viewport catches up.
+  assert.equal(pageMeasurementReady(900, 480, 380), false);
+  assert.equal(pageMeasurementReady(900, 380, 380), true);
+});
+
+test('selection boundaries remount measurement owners, including equal-sized successor pins', async () => {
+  const { readFileSync } = await import('node:fs');
+  const root = '../eddy-ios/src/components/map-sheet/';
+  assert.match(readFileSync(root + 'PinSheet.tsx', 'utf8'), /<PinSheetSelection key=\{props.pin.id\}/);
+  assert.match(readFileSync(root + 'RiverSheetPanel.tsx', 'utf8'), /<RiverSheetSelection key=\{props.river.slug\}/);
+  assert.match(readFileSync(root + 'MapSheet.tsx', 'utf8'), /<MeasuredMapSheet key=\{props.resetKey\}/);
+  assert.match(readFileSync(root + 'SheetPager.tsx', 'utf8'), /<MeasuredSheetPager key=\{sheet\?\.resetKey\}/);
+  // Entrance and content-follow must both wait, not just the first mount.
+  const shell = readFileSync(root + 'MapSheet.tsx', 'utf8');
+  assert.equal((shell.match(/if \(!layoutReady \|\| available <= 0/g) ?? []).length, 2);
+});

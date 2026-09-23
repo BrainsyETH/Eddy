@@ -74,6 +74,7 @@ import {
   Section,
 } from './sections';
 import { compactFloatEstimate } from './floatEstimate';
+import type { EstimateStatus } from '@/lib/loadAccessDetail';
 import type { DetailStatus } from '@/hooks/useAccessPointDetail';
 
 interface TabProps {
@@ -119,6 +120,7 @@ interface TabProps {
   nearbyMarks: Map<string, PlaceSymbolName>;
   /** Whether the one request behind every tab is pending, done or failed. */
   status: DetailStatus;
+  estimatesStatus?: EstimateStatus;
 
 }
 
@@ -400,7 +402,7 @@ export function AccessOverviewTab({
  * once per line. Ionicons rather than Eddy art: an arrow is a direction, not a
  * thing, and the catalog is a catalog of things.
  */
-export function AccessFloatsTab({ accessPoint, detail, onPlanTo, nearbyMarks }: TabProps) {
+export function AccessFloatsTab({ accessPoint, detail, onPlanTo, nearbyMarks, status, estimatesStatus }: TabProps) {
   const { colors } = useTheme();
   const nearby = detail?.nearbyAccessPoints ?? [];
 
@@ -417,6 +419,8 @@ export function AccessFloatsTab({ accessPoint, detail, onPlanTo, nearbyMarks }: 
   // `!== false` throughout, so a payload predating the field behaves as before.
   const canFloatFromHere = accessPoint.isFloatEndpoint !== false;
 
+  if (!nearby.length && status === 'loading') return <Absent>Loading nearby access points…</Absent>;
+  if (!nearby.length && status === 'failed') return <Absent>Nearby access points unavailable right now.</Absent>;
   if (!nearby.length) {
     return <Absent>No neighbouring access points are mapped on this stretch yet.</Absent>;
   }
@@ -452,7 +456,7 @@ export function AccessFloatsTab({ accessPoint, detail, onPlanTo, nearbyMarks }: 
               accessibilityRole={plannable ? 'button' : 'text'}
               accessibilityLabel={
                 plannable
-                  ? `${verb} ${entry.name}, ${entry.distanceMiles.toFixed(1)} miles${entry.estimatedFloatTime ? `, estimated float time ${entry.estimatedFloatTime}` : ''}`
+                  ? `${verb} ${entry.name}, ${entry.distanceMiles.toFixed(1)} miles${entry.estimatedFloatTime ? `, estimated float time ${entry.estimatedFloatTime}` : estimatesStatus === 'loading' ? ', calculating float time' : ', float estimate unavailable'}`
                   : `${entry.name}, ${entry.distanceMiles.toFixed(1)} miles. Not a launch.`
               }
             >
@@ -469,7 +473,7 @@ export function AccessFloatsTab({ accessPoint, detail, onPlanTo, nearbyMarks }: 
                 </Text>
                 <Text style={[styles.floatMeta, { color: colors.textMuted }]}>
                   {entry.distanceMiles.toFixed(1)} mi
-                  {entry.estimatedFloatTime ? ` · Est. ${compactFloatEstimate(entry.estimatedFloatTime)}` : ''}
+                  {entry.estimatedFloatTime ? ` · Est. ${compactFloatEstimate(entry.estimatedFloatTime)}` : plannable ? (estimatesStatus === 'loading' ? ' · Calculating…' : ' · Estimate unavailable') : ''}
                 </Text>
               </View>
               {plannable ? (

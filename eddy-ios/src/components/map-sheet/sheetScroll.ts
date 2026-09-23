@@ -68,6 +68,8 @@ export interface SheetScroll {
    * two access points are the same strings.
    */
   resetKey: string;
+  /** True once native page viewports have adopted their natural measurements. */
+  setBodyReady: (ready: boolean) => void;
 }
 
 export const SheetScrollContext = createContext<SheetScroll | null>(null);

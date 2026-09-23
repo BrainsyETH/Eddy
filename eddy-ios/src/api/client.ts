@@ -659,6 +659,13 @@ export async function fetchCampsiteSites(
   }
 }
 
+/** Float estimates only; core sheet facts have already loaded. */
+export async function fetchAccessPointEstimates(
+  riverSlug: string, accessSlug: string, signal?: AbortSignal,
+): Promise<Pick<AccessPointDetailResponse, 'nearbyAccessPoints'>> {
+  return get(`/api/rivers/${encodeURIComponent(riverSlug)}/access/${encodeURIComponent(accessSlug)}?view=estimates`, signal);
+}
+
 export async function fetchAccessPointDetail(
   riverSlug: string,
   accessSlug: string,

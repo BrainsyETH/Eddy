@@ -18,10 +18,12 @@ async function _GET(
     const { slug: riverSlug, accessSlug } = await params;
     const supabase = await createClient();
 
+    const estimatesOnly = request.nextUrl.searchParams.get('view') === 'estimates';
     const timings: string[] = [];
     const result = await getAccessPointDetail(supabase, riverSlug, accessSlug, {
       // Opt-in lightweight representation; existing callers retain full estimates.
-      includeEstimates: request.nextUrl.searchParams.get('includeEstimates') !== '0',
+      includeEstimates: estimatesOnly || request.nextUrl.searchParams.get('includeEstimates') !== '0',
+      estimatesOnly,
       onTiming: (phase, durationMs) => timings.push(`${phase};dur=${durationMs.toFixed(1)}`),
     });
 
@@ -38,7 +40,7 @@ async function _GET(
       );
     }
 
-    return NextResponse.json(result.data, {
+    return NextResponse.json(estimatesOnly ? { nearbyAccessPoints: result.data.nearbyAccessPoints } : result.data, {
       headers: { ...cdnCacheHeaders(300, 3600), 'Server-Timing': timings.join(', ') },
     });
   } catch (error) {

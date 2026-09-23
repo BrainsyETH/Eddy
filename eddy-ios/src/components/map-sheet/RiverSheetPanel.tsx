@@ -34,7 +34,11 @@ interface Props {
   metrics?: SharedValue<SheetMetrics>;
 }
 
-export function RiverSheetPanel({
+export function RiverSheetPanel(props: Props) {
+  return <RiverSheetSelection key={props.river.slug} {...props} />;
+}
+
+function RiverSheetSelection({
   river,
   width,
   onClose,
@@ -46,7 +50,6 @@ export function RiverSheetPanel({
   // Held by key for the reason PinSheet documents: the set can change under the
   // reader as access points and hazards arrive for a newly selected river.
   const [chosen, setChosen] = useState<string | null>(null);
-  const [seededFor, setSeededFor] = useState<string | null>(null);
   const progress = useSharedValue(0);
 
   // Measured, because the header is two lines for some pins and four for
@@ -59,10 +62,7 @@ export function RiverSheetPanel({
   );
 
 
-  if (seededFor !== river.slug) {
-    setSeededFor(river.slug);
-    setChosen(null);
-  }
+
 
   const activeKey = chosen && tabs.some((tab) => tab.key === chosen) ? chosen : tabs[0]?.key;
   const activeIndex = Math.max(0, tabs.findIndex((tab) => tab.key === activeKey));
@@ -94,8 +94,7 @@ export function RiverSheetPanel({
   //
   // Passing no children is the right shape rather than a guard bolted onto the
   // pager: MapSheet reads absent children as `glanceOnly` and clamps the peek to
-  // the detent fraction instead of measuring content that is not there. Same
-  // path a hazard takes through PinSheet.
+  // the detent fraction instead of measuring content that is not there. Callouts with a SheetBody use the scrolling path instead.
   if (tabs.length === 0) {
     return (
       <MapSheet

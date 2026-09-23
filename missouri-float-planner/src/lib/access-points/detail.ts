@@ -44,6 +44,8 @@ export async function getAccessPointDetail(
   options: {
     /** Map sheets can render core facts before the full route calculations. */
     includeEstimates?: boolean;
+    /** Skip unrelated detail queries for the float-estimate representation. */
+    estimatesOnly?: boolean;
     onTiming?: (phase: string, durationMs: number) => void;
   } = {},
 ): Promise<AccessPointDetailResult> {
@@ -124,10 +126,10 @@ export async function getAccessPointDetail(
       .order('river_mile_downstream', { ascending: true }),
     // Uses the access point's own mile, so the reach's gauge is chosen rather
     // than the river's headline one.
-    getGaugeStatus(supabase, river.id, currentMile),
+    options.estimatesOnly ? null : getGaugeStatus(supabase, river.id, currentMile),
     // Read unconditionally and first — see the long note below on why the gate
     // cannot come before the query it gates.
-    loadLinkedServices(supabase, ap.id),
+    options.estimatesOnly ? [] : loadLinkedServices(supabase, ap.id),
   ]);
 
   timed('related');
@@ -212,7 +214,7 @@ export async function getAccessPointDetail(
           startId: point.direction === 'upstream' ? point.id : ap.id,
           endId: point.direction === 'upstream' ? ap.id : point.id });
         point.estimatedFloatTime = estimate.floatTime?.formatted ?? null;
-        point.distanceMiles = Math.round(estimate.distanceMiles * 10) / 10;
+        // Distances remain river-mile differences in both representations.
       } catch { /* An unavailable route must not invent a time. */ }
     }));
   }
@@ -272,7 +274,7 @@ export async function getAccessPointDetail(
   // same `campgroundish` test, so an ordinary put-in still costs nothing.
   let booking: BookingLinkInfo | null = null;
 
-  if (campgroundish) {
+  if (campgroundish && !options.estimatesOnly) {
     const [index, bookingLink] = await Promise.all([
       loadAvailability(supabase),
       loadBookingLink(
@@ -305,7 +307,7 @@ export async function getAccessPointDetail(
       );
     booking = bookingLink;
   }
-  if (ap.nps_campground_id) {
+  if (ap.nps_campground_id && !options.estimatesOnly) {
     npsCampground = await getNPSCampgroundInfo(supabase, ap.nps_campground_id, availability);
   }
 
