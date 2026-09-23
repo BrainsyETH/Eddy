@@ -177,17 +177,16 @@ const PIN_IMAGES = {
   'route-finish': { image: require('../../assets/map/route-finish.png'), sdf: true, scale: 3 },
 };
 
-/**
- * Module scope, not an inline arrow. Mapbox.Images is a PureComponent, so a
- * fresh callback on every render makes it re-register every image against the
- * style on every render of this screen — which is pure work at best, and at
- * worst touches the style while layers are being updated.
- *
- * Should be unreachable: these are bundled, not sprite-sheet names. Said out
- * loud anyway, because the symptom is invisible pins.
+/** iOS emits this even when addMissingImageToStyle starts a native reload.
+ * The callback is not proof of a failed asset. Keep unknown keys actionable;
+ * registered keys get a truthful dev diagnostic instead of a false failure.
  */
 function onPinImageMissing(name: string) {
-  warn('map', `missing pin image "${name}" — pins in that layer will not draw`);
+  if (Object.prototype.hasOwnProperty.call(PIN_IMAGES, name)) {
+    if (__DEV__) console.info(`[map] pin image "${name}" registered but not yet available to the style`);
+    return;
+  }
+  warn('map', `unregistered pin image "${name}" — check the image catalog`);
 }
 
 /**

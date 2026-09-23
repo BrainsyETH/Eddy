@@ -101,11 +101,12 @@ export function SheetPager({
   const reducedMotion = useReducedMotion();
   const sheet = useSheetScroll();
   const { colors } = useTheme();
-  const [sharedHeaderHeight, setSharedHeaderHeight] = useState(0);
+  const [sharedHeaderHeight, setSharedHeaderHeight] = useState<number | null>(null);
   const fallbackScroll = useSharedValue(0);
   const publishedScroll = sheet?.scrollY ?? fallbackScroll;
   const headerClipStyle = useAnimatedStyle(() => ({
-    height: Math.max(0, sharedHeaderHeight - Math.min(scrollHeaderHeight, Math.max(0, publishedScroll.value))),
+    // First layout must be natural: a zero-height clip cannot establish its own height.
+    height: sharedHeaderHeight === null ? undefined : Math.max(0, sharedHeaderHeight - Math.min(scrollHeaderHeight, Math.max(0, publishedScroll.value))),
   }));
   const headerContentStyle = useAnimatedStyle(() => ({
     transform: [{ translateY: -Math.min(scrollHeaderHeight, Math.max(0, publishedScroll.value)) }],
@@ -202,8 +203,9 @@ export function SheetPager({
               // reader at the glance.
               scrollEnabled={sheet?.atFull ?? false}
               scrollHeaderHeight={scrollHeaderHeight}
+              measureBody
             >
-              {scrollHeader ? <View style={{ height: sharedHeaderHeight }} /> : null}
+              {scrollHeader ? <View style={{ height: sharedHeaderHeight ?? 0 }} /> : null}
               {page}
             </SheetPage>
           ))}
@@ -212,6 +214,7 @@ export function SheetPager({
       {scrollHeader ? (
         <Animated.View style={[styles.sharedHeader, { backgroundColor: colors.card }, headerClipStyle]}>
           <Animated.View
+            collapsable={false}
             onLayout={(event) => setSharedHeaderHeight(Math.ceil(event.nativeEvent.layout.height))}
             style={[{ flexShrink: 0 }, headerContentStyle]}
           >
@@ -335,8 +338,8 @@ function SheetPage({
           maxHeight,
           flexShrink: 0,
           flexGrow: 0,
-          // Service POIs have no horizontal pager to establish a viewport.
-          // Measure their natural body independently of its current viewport.
+          // Both service and tabbed POIs need an explicit viewport on iOS.
+          // Measure scroll content independently of its current viewport.
           height: measureBody ? Math.min(bodyHeight ?? maxHeight, maxHeight) : undefined,
         }}
         onContentSizeChange={measureBody ? (_width, height) => setBodyHeight(Math.ceil(height)) : undefined}
