@@ -658,9 +658,10 @@ export async function fetchAccessPointDetail(
   riverSlug: string,
   accessSlug: string,
   signal?: AbortSignal,
+  includeEstimates = true,
 ): Promise<AccessPointDetailResponse> {
   return get<AccessPointDetailResponse>(
-    `/api/rivers/${encodeURIComponent(riverSlug)}/access/${encodeURIComponent(accessSlug)}`,
+    `/api/rivers/${encodeURIComponent(riverSlug)}/access/${encodeURIComponent(accessSlug)}${includeEstimates ? '' : '?includeEstimates=0'}`,
     signal,
   );
 }

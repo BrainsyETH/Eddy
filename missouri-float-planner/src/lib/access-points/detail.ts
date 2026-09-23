@@ -41,7 +41,18 @@ export async function getAccessPointDetail(
   supabase: SupabaseServerClient,
   riverSlug: string,
   accessSlug: string,
+  options: {
+    /** Map sheets can render core facts before the full route calculations. */
+    includeEstimates?: boolean;
+    onTiming?: (phase: string, durationMs: number) => void;
+  } = {},
 ): Promise<AccessPointDetailResult> {
+  let phaseStarted = performance.now();
+  const timed = (phase: string) => {
+    const now = performance.now();
+    options.onTiming?.(phase, now - phaseStarted);
+    phaseStarted = now;
+  };
   // Get river info
   // `state` is selected only to build the canonical path below — the /rivers
   // hierarchy is state-segmented and nothing else in this payload carries it.
@@ -51,6 +62,7 @@ export async function getAccessPointDetail(
     .eq('slug', riverSlug)
     .single();
 
+  timed('river');
   if (riverError || !river) {
     return { ok: false, reason: 'river-not-found' };
   }
@@ -64,6 +76,7 @@ export async function getAccessPointDetail(
     .eq('approved', true)
     .single();
 
+  timed('access');
   if (apError || !ap) {
     return { ok: false, reason: 'not-found' };
   }
@@ -117,6 +130,7 @@ export async function getAccessPointDetail(
     loadLinkedServices(supabase, ap.id),
   ]);
 
+  timed('related');
   const allAccessPoints = neighbourResult.data;
 
   const nearbyAccessPoints: NearbyAccessPoint[] = [];
@@ -190,16 +204,20 @@ export async function getAccessPointDetail(
     }
   }
 
-  await Promise.all(nearbyAccessPoints.map(async (point) => {
-    if (ap.is_float_endpoint === false || point.isFloatEndpoint === false) return;
-    try {
-      const estimate = await estimateRoute(supabase, { riverId: river.id,
-        startId: point.direction === 'upstream' ? point.id : ap.id,
-        endId: point.direction === 'upstream' ? ap.id : point.id });
-      point.estimatedFloatTime = estimate.floatTime?.formatted ?? null;
-      point.distanceMiles = Math.round(estimate.distanceMiles * 10) / 10;
-    } catch { /* An unavailable route must not invent a time. */ }
-  }));
+  if (options.includeEstimates !== false) {
+    await Promise.all(nearbyAccessPoints.map(async (point) => {
+      if (ap.is_float_endpoint === false || point.isFloatEndpoint === false) return;
+      try {
+        const estimate = await estimateRoute(supabase, { riverId: river.id,
+          startId: point.direction === 'upstream' ? point.id : ap.id,
+          endId: point.direction === 'upstream' ? ap.id : point.id });
+        point.estimatedFloatTime = estimate.floatTime?.formatted ?? null;
+        point.distanceMiles = Math.round(estimate.distanceMiles * 10) / 10;
+      } catch { /* An unavailable route must not invent a time. */ }
+    }));
+  }
+
+  timed('estimates');
 
   // ── Availability, by whichever name this place goes under ────────────────
   //
@@ -290,6 +308,8 @@ export async function getAccessPointDetail(
   if (ap.nps_campground_id) {
     npsCampground = await getNPSCampgroundInfo(supabase, ap.nps_campground_id, availability);
   }
+
+  timed('camping');
 
   // Format the access point detail
   const accessPoint: AccessPointDetail = {

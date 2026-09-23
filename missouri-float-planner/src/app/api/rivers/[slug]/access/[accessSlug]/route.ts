@@ -18,7 +18,12 @@ async function _GET(
     const { slug: riverSlug, accessSlug } = await params;
     const supabase = await createClient();
 
-    const result = await getAccessPointDetail(supabase, riverSlug, accessSlug);
+    const timings: string[] = [];
+    const result = await getAccessPointDetail(supabase, riverSlug, accessSlug, {
+      // Opt-in lightweight representation; existing callers retain full estimates.
+      includeEstimates: request.nextUrl.searchParams.get('includeEstimates') !== '0',
+      onTiming: (phase, durationMs) => timings.push(`${phase};dur=${durationMs.toFixed(1)}`),
+    });
 
     if (!result.ok) {
       if (result.reason === 'river-not-found') {
@@ -33,7 +38,9 @@ async function _GET(
       );
     }
 
-    return NextResponse.json(result.data, { headers: cdnCacheHeaders(300, 3600) });
+    return NextResponse.json(result.data, {
+      headers: { ...cdnCacheHeaders(300, 3600), 'Server-Timing': timings.join(', ') },
+    });
   } catch (error) {
     console.error('Error in access point detail endpoint:', error);
     return NextResponse.json(

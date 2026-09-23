@@ -1,18 +1,5 @@
-// eddy-ios/src/hooks/useAccessPointDetail.ts
-// Everything the server knows about a tapped put-in, fetched after the sheet is
-// already up.
-//
-// THE ONLY HOOK THAT ASKS THIS ENDPOINT, which took two goes to become true.
-// It began as a generalisation of useAccessGaugeStatus — that one asked the
-// same route for the single `gaugeStatus` field — and for a while both shipped:
-// the callout mounted one, the tabbed sheet mounted the other, and because the
-// sheet swapped between those two shells while opening, a tapped put-in issued
-// the request twice. Deleting it was possible only once the sheet stopped
-// swapping; see the header of PinSheet.
-//
-// The tabs want the whole payload anyway — the road, the parking, the
-// amenities, who runs it, and the neighbouring accesses that make a float — and
-// it all arrives in ONE response, so adding a tab costs nothing at the network.
+// Core sheet facts load first; nearby float estimates enrich them afterward.
+// Both requests are aborted together when the selected pin changes.
 //
 // The three properties the older hook established are kept verbatim, because
 // each of them is load-bearing:
@@ -34,6 +21,7 @@
 import { useEffect, useState } from 'react';
 import type { AccessPointDetailResponse } from '@eddy/types';
 import { fetchAccessPointDetail } from '@/api/client';
+import { loadAccessDetail } from '@/lib/loadAccessDetail';
 import { warn } from '@/lib/monitoring';
 
 /**
@@ -93,17 +81,18 @@ export function useAccessPointDetail(detailRoute: string | null | undefined): {
 
     const controller = new AbortController();
     const route = detailRoute as string;
-    void fetchAccessPointDetail(slugs.river, slugs.access, controller.signal)
-      .then((response) => {
-        if (!controller.signal.aborted) setHeld({ route, detail: response ?? null, failed: false });
-      })
-      .catch((err) => {
-        // Non-fatal by construction — the sheet is usable without any of this.
-        if (!controller.signal.aborted) {
-          warn('map', 'access point detail failed', err);
-          setHeld({ route, detail: null, failed: true });
-        }
-      });
+    void loadAccessDetail({
+      signal: controller.signal,
+      fetch: (includeEstimates) => fetchAccessPointDetail(
+        slugs.river, slugs.access, controller.signal, includeEstimates,
+      ),
+      publish: (response) => setHeld({ route, detail: response, failed: false }),
+      failed: (err) => {
+        warn('map', 'access point detail failed', err);
+        setHeld({ route, detail: null, failed: true });
+      },
+      estimatesFailed: (err) => warn('map', 'nearby float estimates failed', err),
+    });
     return () => controller.abort();
   }, [detailRoute]);
 
