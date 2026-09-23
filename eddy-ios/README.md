@@ -601,6 +601,10 @@ so it appears without another request after calculation. Shared floats read
 cached places while refreshing from the network. `PlanSupport` fetches its own
 data on both screens. Put-in and take-out choices use a virtualized list of
 landscape photo cards; missing or failed images retain a place-symbol fallback.
+In downstream order, a connected timeline shows each river mile and the river
+distance from the preceding access. Take-out choices start at the selected
+put-in and also show total miles from it. Timeline spacing is not to scale.
+Nearest-first ordering hides the connector so proximity cannot imply river order.
 
 **Saved floats** are local (`useSavedFloats`) because the server has no notion of
 "mine": `float_plans` is keyed by share code, and most users are anonymous. The saved collection stays on this device; signing in syncs favorites, not
