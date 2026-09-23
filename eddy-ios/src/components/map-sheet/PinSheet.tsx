@@ -36,7 +36,7 @@ import { useAccessPointDetail } from '@/hooks/useAccessPointDetail';
 import { useGaugeDetail } from '@/hooks/useGaugeDetail';
 import { decisionSlot, type DecisionSlot } from './peekSlot';
 import { GlanceSlot } from './GlanceSlot';
-import { MapSheet, type SheetMetrics } from './MapSheet';
+import { MapSheet, SheetPresentation, type SheetMetrics } from './MapSheet';
 import { PinCallout } from './PinCallout';
 import { PlaceHead } from './PlaceHead';
 import { AccessGaugeReading, LinkRow } from './sections';
@@ -112,7 +112,7 @@ export interface PinSheetProps {
 }
 
 export function PinSheet(props: PinSheetProps) {
-  return <PinSheetSelection key={props.pin.id} {...props} />;
+  return <SheetPresentation metrics={props.metrics}><PinSheetSelection key={props.pin.id} {...props} /></SheetPresentation>;
 }
 
 function PinSheetSelection(props: PinSheetProps) {
@@ -190,9 +190,6 @@ function PinSheetSelection(props: PinSheetProps) {
     (event: LayoutChangeEvent) => setChromeHeight(Math.round(event.nativeEvent.layout.height)),
     [],
   );
-
-
-
 
   // Whichever kind of thing was tapped. The shell, the bar and the pager are
   // the same either way — only the page bodies differ, which is the whole

@@ -16,7 +16,7 @@ function fixture() {
     river_id: 'river', approved: true, is_float_endpoint: true, river_mile_downstream: i * 5,
     location_orig: { coordinates: [-91, 37] }, types: ['campground'] }));
   const routeStarted = deferred<void>();
-  const routeResponse = deferred<{ data: null; error: Error }>();
+  const routeResponse = deferred<{ data: unknown; error: Error | null }>();
   const client = {
     from(table: string) {
       tables.push(table);
@@ -36,7 +36,12 @@ function fixture() {
       };
       return query;
     },
-    rpc(name: string) { rpcs.push(name); routeStarted.resolve(); return routeResponse.promise; },
+    rpc(name: string) {
+      rpcs.push(name);
+      if (name === 'get_river_condition_segment') return Promise.resolve({ data: [{ condition_code: 'dangerous', gauge_height_ft: 3 }] });
+      if (name === 'get_segment_float_time') return Promise.resolve({ data: [] });
+      routeStarted.resolve(); return routeResponse.promise;
+    },
   } as unknown as Parameters<typeof getAccessPointDetail>[0];
   return { client, tables, rpcs, routeStarted, routeResponse };
 }
@@ -151,4 +156,18 @@ test('estimate representation avoids camping, linked-service and gauge-summary r
   for (const table of ['campsite_availability', 'campsite_facilities', 'access_point_services', 'river_gauges']) {
     assert.ok(!f.tables.includes(table), table);
   }
+});
+
+test('full access detail retains route mileage while lightweight detail uses river miles', async () => {
+  const f = fixture();
+  const core = await getAccessPointDetail(f.client, 'river', 'point-0', { includeEstimates: false });
+  assert.ok(core.ok);
+  assert.equal(core.data.nearbyAccessPoints[0].distanceMiles, 5);
+  const pending = getAccessPointDetail(f.client, 'river', 'point-0');
+  await f.routeStarted.promise;
+  f.routeResponse.resolve({ data: [{ distance_miles: '5.43', start_river_mile: '0', end_river_mile: '5' }], error: null });
+  const full = await pending;
+  assert.ok(full.ok);
+  assert.equal(full.data.nearbyAccessPoints[0].distanceMiles, 5.4);
+  assert.equal(full.data.nearbyAccessPoints[0].estimatedFloatTime, null); // dangerous-water withholding remains intact
 });

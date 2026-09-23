@@ -453,14 +453,31 @@ test('long pages retain bounded viewports and their complete scrollable content'
   assert.equal(pageMeasurementReady(900, 380, 380), true);
 });
 
-test('selection boundaries remount measurement owners, including equal-sized successor pins', async () => {
-  const { readFileSync } = await import('node:fs');
-  const root = '../eddy-ios/src/components/map-sheet/';
-  assert.match(readFileSync(root + 'PinSheet.tsx', 'utf8'), /<PinSheetSelection key=\{props.pin.id\}/);
-  assert.match(readFileSync(root + 'RiverSheetPanel.tsx', 'utf8'), /<RiverSheetSelection key=\{props.river.slug\}/);
-  assert.match(readFileSync(root + 'MapSheet.tsx', 'utf8'), /<MeasuredMapSheet key=\{props.resetKey\}/);
-  assert.match(readFileSync(root + 'SheetPager.tsx', 'utf8'), /<MeasuredSheetPager key=\{sheet\?\.resetKey\}/);
-  // Entrance and content-follow must both wait, not just the first mount.
-  const shell = readFileSync(root + 'MapSheet.tsx', 'utf8');
-  assert.equal((shell.match(/if \(!layoutReady \|\| available <= 0/g) ?? []).length, 2);
+test('first opening waits for measurements and enters only once', async () => {
+  const { sheetTransition } = await import('../../../eddy-ios/src/components/map-sheet/sheetTransition');
+  assert.equal(sheetTransition(null, 'A', false, false), 'wait');
+  assert.equal(sheetTransition(null, 'A', true, false), 'enter');
+  assert.equal(sheetTransition('A', 'A', true, true), 'follow');
+});
+
+test('successor content measures afresh without replaying the entrance', async () => {
+  const { sheetTransition } = await import('../../../eddy-ios/src/components/map-sheet/sheetTransition');
+  for (const selection of ['access-B', 'hazard', 'access-A', 'gauge']) {
+    assert.equal(sheetTransition(null, selection, false, true), 'wait');
+    assert.equal(sheetTransition(null, selection, true, true), 'replace');
+    assert.equal(sheetTransition(selection, selection, true, true), 'follow');
+  }
+});
+
+test('late tabs cannot suspend updates to an already-open selection', async () => {
+  const { sheetTransition } = await import('../../../eddy-ios/src/components/map-sheet/sheetTransition');
+  assert.equal(sheetTransition('A', 'A', false, true), 'follow');
+  assert.equal(sheetTransition('A', 'A', true, true), 'follow');
+  assert.equal(sheetTransition('A', 'B', false, true), 'wait');
+});
+
+test('closing the presentation resets entrance for a later opening', async () => {
+  const { sheetTransition } = await import('../../../eddy-ios/src/components/map-sheet/sheetTransition');
+  assert.equal(sheetTransition(null, 'A', true, false), 'enter');
+  assert.equal(sheetTransition(null, 'A', true, true), 'replace');
 });

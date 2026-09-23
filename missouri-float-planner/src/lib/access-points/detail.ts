@@ -214,7 +214,7 @@ export async function getAccessPointDetail(
           startId: point.direction === 'upstream' ? point.id : ap.id,
           endId: point.direction === 'upstream' ? ap.id : point.id });
         point.estimatedFloatTime = estimate.floatTime?.formatted ?? null;
-        // Distances remain river-mile differences in both representations.
+        point.distanceMiles = Math.round(estimate.distanceMiles * 10) / 10;
       } catch { /* An unavailable route must not invent a time. */ }
     }));
   }

@@ -19,7 +19,7 @@
 // derived from the measured content height — so a sheet the reader had dragged
 // open collapsed the moment the detail request landed or they swiped to a taller
 // tab. A new SELECTION resets the sheet; new content does not.
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { createContext, useContext, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { StyleSheet, View, type LayoutChangeEvent } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
@@ -50,6 +50,7 @@ import {
   type Detent,
 } from './sheetGeometry';
 import { SheetScrollContext } from './sheetScroll';
+import { sheetTransition } from './sheetTransition';
 
 interface Props {
   /**
@@ -125,8 +126,35 @@ const DETENT_VALUE: Record<Detent, string> = {
   full: 'Expanded',
 };
 
+interface Presentation {
+  translateY: SharedValue<number>;
+  entered: SharedValue<boolean>;
+  available: number;
+  setAvailable: (height: number) => void;
+}
+const PresentationContext = createContext<Presentation | null>(null);
+
+/** Lives outside selection keys: replacing content is not closing the sheet. */
+export function SheetPresentation({ children, metrics }: {
+  children: React.ReactNode;
+  metrics?: SharedValue<SheetMetrics>;
+}) {
+  const translateY = useSharedValue(0);
+  const entered = useSharedValue(false);
+  const [available, setAvailable] = useState(0);
+  const value = useMemo(() => ({ translateY, entered, available, setAvailable }), [translateY, entered, available]);
+  useEffect(() => () => {
+    if (metrics) metrics.value = { height: 0, available: 0 };
+  }, [metrics]);
+  return <PresentationContext.Provider value={value}>{children}</PresentationContext.Provider>;
+}
+
 export function MapSheet(props: Props) {
-  return <MeasuredMapSheet key={props.resetKey} {...props} />;
+  const presentation = useContext(PresentationContext);
+  if (!presentation) {
+    return <SheetPresentation metrics={props.metrics}><MapSheet {...props} /></SheetPresentation>;
+  }
+  return <MeasuredMapSheet key={props.resetKey} {...props} presentation={presentation} />;
 }
 
 function MeasuredMapSheet({
@@ -140,13 +168,14 @@ function MeasuredMapSheet({
   children,
   label,
   metrics,
-}: Props) {
+  presentation,
+}: Props & { presentation: Presentation }) {
   const { colors, elevation } = useTheme();
   const reducedMotion = useReducedMotion();
 
   // Measured rather than assumed: the sheet lives inside the map's overlay
   // stack, not the window, and the two differ by the tab bar and both insets.
-  const [available, setAvailable] = useState(0);
+  const { available, setAvailable, translateY, entered } = presentation;
   const [contentHeight, setContentHeight] = useState(0);
   const [bodyReady, setBodyReady] = useState(false);
   const [peekHeight, setPeekHeight] = useState(0);
@@ -184,13 +213,10 @@ function MeasuredMapSheet({
   // means "occupying the whole available height". Height is therefore
   // `available - translateY`, which is the form every rule in sheetGeometry
   // is written against.
-  const translateY = useSharedValue(0);
   const dragStart = useSharedValue(0);
   const scrollY = useSharedValue(0);
-  const entered = useSharedValue(false);
   const sheetDragged = useSharedValue(false);
   const openedSelection = useRef<string | null>(null);
-  const resettingSelection = useRef(false);
 
   // Handed to the pages so each can declare ITSELF simultaneous with this pan.
   // Nothing native ever enters the context this way — see sheetScroll.
@@ -209,58 +235,33 @@ function MeasuredMapSheet({
     [detents, onDetentChange],
   );
 
-  // ── A NEW SELECTION resets the sheet ────────────────────────────────────
-  // Wait for the first measurement. Later resizes retain the chosen detent.
+  // New content waits for its own measurements, but retains the presentation
+  // position while waiting. Once open, added tabs cannot suspend resize updates.
   useEffect(() => {
-    if (!layoutReady || available <= 0 || peekHeight <= GRABBER_BLOCK) return;
-    // Reclaiming the map header changes available height, not the selection.
-    // Keep the reader's detent and scroll offset through that resize.
-    if (openedSelection.current === resetKey) return;
-    openedSelection.current = resetKey;
-    resettingSelection.current = true;
-    const smallest = detents.order[0];
-    const target = detents.available - detents.height[smallest];
-    // The pages this sheet is about to show are new ones (they are keyed by
-    // resetKey), so nothing is scrolled. Saying so keeps the pan's hand-off
-    // rule honest for the one frame before the first scroll event lands.
-    scrollY.value = 0;
-    if (!entered.value) {
-      // First paint: start off-screen and rise, so it reads as arriving.
+    if (available <= 0 || peekHeight <= GRABBER_BLOCK) return;
+    const transition = sheetTransition(openedSelection.current, resetKey, layoutReady, entered.value);
+    if (transition === 'wait') return;
+    const next = transition === 'follow'
+      ? (detents.order.includes(detent) ? detent : detents.order[detents.order.length - 1])
+      : detents.order[0];
+    if (transition !== 'follow') {
+      openedSelection.current = resetKey;
+      scrollY.value = 0;
+    }
+    if (transition === 'enter') {
       translateY.value = detents.available;
       entered.value = true;
     }
+    const target = detents.available - detents.height[next];
     translateY.value = reducedMotion
       ? withTiming(target, REDUCED_SETTLE)
-      : withSpring(target, SETTLE_SPRING);
-    setDetent(smallest);
-    onDetentChange?.(smallest, detents.height[smallest]);
-    // detents is deliberately absent: it changes whenever the content is
-    // remeasured, and re-running this would collapse a sheet the reader had
-    // opened. See the file header.
+      : transition === 'follow'
+        ? withTiming(target, { duration: 180 })
+        : withSpring(target, SETTLE_SPRING);
+    commit(next);
+    // A gesture commits detent separately; do not restart its spring here.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [resetKey, available, peekHeight, layoutReady, reducedMotion]);
-
-  // ── New CONTENT keeps the reader where they are ─────────────────────────
-  // The detent the reader chose survives, but the pixel height behind it may
-  // have moved — a tab that measured taller, or detail that filled one out. So
-  // the sheet follows its own detent to wherever that detent now is, rather
-  // than snapping back to the smallest.
-  useEffect(() => {
-    if (!layoutReady || available <= 0 || !entered.value) return;
-    if (resettingSelection.current) {
-      resettingSelection.current = false;
-      return;
-    }
-    // A detent that no longer exists (content shrank) falls back to the tallest
-    // one that does, which is the closest thing to where the reader was.
-    const held = detents.order.includes(detent) ? detent : detents.order[detents.order.length - 1];
-    const target = detents.available - detents.height[held];
-    translateY.value = reducedMotion
-      ? withTiming(target, REDUCED_SETTLE)
-      : withTiming(target, { duration: 180 });
-    commit(held);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [resetKey, detents, available, layoutReady, reducedMotion]);
+  }, [resetKey, detents, available, peekHeight, layoutReady, reducedMotion]);
 
   const pan = useMemo(
     () =>
@@ -394,25 +395,6 @@ function MeasuredMapSheet({
     };
   });
 
-  /**
-   * ── A SHEET THAT IS GONE OCCUPIES NOTHING, AND HAS TO SAY SO ────────────
-   *
-   * The line above only runs while this component is mounted, so an unmount
-   * left the last height standing in a value whose whole meaning is "how much
-   * of the map the sheet is currently covering". Anything riding it — the map
-   * screen lifts Locate and Plan a float by exactly this — stayed lifted for a
-   * sheet that had closed, with nothing left to write it back down.
-   *
-   * On unmount rather than on close: dismissal is animated by the caller
-   * unmounting us, and there is no later frame in which we could publish this.
-   */
-  useEffect(
-    () => () => {
-      if (metrics) metrics.value = { height: 0, available: 0 };
-    },
-    [metrics],
-  );
-
   const sheetStyle = useAnimatedStyle(() => ({
     opacity: entered.value ? 1 : 0,
     transform: [{ translateY: translateY.value }],
@@ -433,7 +415,7 @@ function MeasuredMapSheet({
 
   const onRootLayout = useCallback((event: LayoutChangeEvent) => {
     setAvailable(Math.round(event.nativeEvent.layout.height));
-  }, []);
+  }, [setAvailable]);
 
   const onContentLayout = useCallback((event: LayoutChangeEvent) => {
     setContentHeight(Math.round(event.nativeEvent.layout.height));
@@ -452,7 +434,7 @@ function MeasuredMapSheet({
 
   const scrollContext = useMemo(
     () => ({ scrollY, panRef, detent, atFull, pageBudget: budget, resetKey, setBodyReady }),
-    [scrollY, panRef, detent, atFull, budget, resetKey],
+    [scrollY, panRef, detent, atFull, budget, resetKey, setBodyReady],
   );
 
   return (

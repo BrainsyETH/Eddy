@@ -8,7 +8,7 @@ import { useCallback, useMemo, useState } from 'react';
 import { StyleSheet, View, type LayoutChangeEvent } from 'react-native';
 import { useSharedValue, type SharedValue } from 'react-native-reanimated';
 import type { MapAccessPoint } from '@eddy/types';
-import { MapSheet, type SheetMetrics } from './MapSheet';
+import { MapSheet, SheetPresentation, type SheetMetrics } from './MapSheet';
 import { SheetTabBar } from './SheetTabBar';
 import { SheetPager, mountedPages } from './SheetPager';
 import {
@@ -35,7 +35,7 @@ interface Props {
 }
 
 export function RiverSheetPanel(props: Props) {
-  return <RiverSheetSelection key={props.river.slug} {...props} />;
+  return <SheetPresentation metrics={props.metrics}><RiverSheetSelection key={props.river.slug} {...props} /></SheetPresentation>;
 }
 
 function RiverSheetSelection({
@@ -60,9 +60,6 @@ function RiverSheetSelection({
     (event: LayoutChangeEvent) => setChromeHeight(Math.round(event.nativeEvent.layout.height)),
     [],
   );
-
-
-
 
   const activeKey = chosen && tabs.some((tab) => tab.key === chosen) ? chosen : tabs[0]?.key;
   const activeIndex = Math.max(0, tabs.findIndex((tab) => tab.key === activeKey));
