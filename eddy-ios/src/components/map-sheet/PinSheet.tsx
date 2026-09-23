@@ -113,7 +113,7 @@ export interface PinSheetProps {
 
 export function PinSheet(props: PinSheetProps) {
   const { pin, accessPoint, width } = props;
-  // One request, every tab. See useAccessPointDetail.
+  // Core facts first, then float estimates, shared by every tab.
   const { detail, status } = useAccessPointDetail(accessPoint ? pin.detailRoute : null);
   // Gauges of BOTH tiers. Null for anything else, so the hook no-ops on a pin
   // that is not a station rather than the call being made conditionally.
