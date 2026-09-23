@@ -28,6 +28,7 @@
 // by any of this.
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { AppState } from 'react-native';
 import type { MapGaugeLite } from '@eddy/types';
 import {
   mergeViewportItems,
@@ -181,6 +182,17 @@ export function useViewportGauges(enabled: boolean, viewport: Viewport | null) {
    * wider overview camera without containing its gauges.
    */
   const lastRequested = useRef<ViewportRequest | null>(null);
+  const [refreshTick, setRefreshTick] = useState(0);
+  useEffect(() => {
+    if (!enabled) return;
+    const refresh = () => {
+      cache.current.clear(); lastRequested.current = null;
+      setRefreshTick(n => n + 1);
+    };
+    const interval = setInterval(refresh, 5 * 60_000);
+    const subscription = AppState.addEventListener('change', state => { if (state === 'active') refresh(); });
+    return () => { clearInterval(interval); subscription.remove(); };
+  }, [enabled]);
   const hasRequested = useRef(false);
   const inFlight = useRef<AbortController | null>(null);
   /** Which quantized box the in-flight request is FOR — see the effect below. */
@@ -469,7 +481,7 @@ export function useViewportGauges(enabled: boolean, viewport: Viewport | null) {
       live = false;
       if (timer.current) clearTimeout(timer.current);
     };
-  }, [enabled, viewport, diskReady, load]);
+  }, [enabled, viewport, diskReady, load, refreshTick]);
 
   // Abort on unmount so a backgrounded map is not still fetching.
   useEffect(() => () => inFlight.current?.abort(), []);

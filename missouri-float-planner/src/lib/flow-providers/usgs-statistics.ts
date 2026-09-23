@@ -270,6 +270,7 @@ export async function fetchDailyStatisticsRows(
 ): Promise<DailyStatisticsRow[]> {
   const response = await fetch(observationNormalsUrl(siteId, parameterCode), {
     next: { revalidate: 86400 },
+    signal: AbortSignal.timeout(15_000),
     headers: statisticsHeaders(),
   });
   if (!response.ok) {

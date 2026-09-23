@@ -1,0 +1,45 @@
+{
+  "gauge": {
+    "id": "0ed8a16f-041e-43ca-b151-516e43fd908b",
+    "siteId": "07024175",
+    "name": "Mississippi River at New Madrid, MO",
+    "provider": "usgs",
+    "curated": false,
+    "coordinates": {
+      "lng": -89.5479166666667,
+      "lat": 36.5826111111111
+    },
+    "gaugeHeightFt": 5.58,
+    "dischargeCfs": 305000,
+    "readingTimestamp": "2026-09-23T11:00:00+00:00",
+    "readingAgeHours": 2.173861666666667,
+    "readingSuspect": false,
+    "qualifierNote": "Provisional USGS data",
+    "flowPercentile": 60,
+    "seasonalContext": {
+      "unit": "cfs",
+      "parameterCode": "00060",
+      "percentile": 60,
+      "band": "normal",
+      "yearsOfRecord": 10,
+      "asOf": "2026-09-23T13:10:25.902Z"
+    },
+    "historyCapabilities": {
+      "maxInstantDays": 90,
+      "supportsDaily": true,
+      "supportsCustomRange": true
+    },
+    "thresholds": null,
+    "floodStages": null,
+    "waterTemperature": null,
+    "dissolvedOxygen": null,
+    "publicUrl": "https://waterdata.usgs.gov/monitoring-location/07024175/",
+    "stationNote": null,
+    "freshness": "live",
+    "historicalWaterQuality": {
+      "waterTemperature": null,
+      "dissolvedOxygen": null
+    },
+    "seasonalContextUnavailableReason": null
+  }
+}

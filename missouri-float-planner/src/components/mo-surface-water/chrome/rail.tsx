@@ -5,6 +5,8 @@
 // These share so much context that they live together; leaf primitives come
 // from ./shared, the chart from ./Sparkline, the report from ./eddy-report.
 
+import Link from 'next/link';
+import { gaugeFreshnessLabel } from '@shared/gauge-freshness';
 import { useEffect, useRef, useState } from 'react';
 import {
   STAGE_VERDICTS,
@@ -1020,6 +1022,8 @@ export function ContextSiteCard({
         <span className="ml-auto"><DataAgeChip iso={site.readingTimestamp} /></span>
       </div>
 
+      <p className="mt-2 text-xs">{gaugeFreshnessLabel(site.readingTimestamp)}</p>
+      <Link href={`/gauges/${site.site_no}`} className="mt-3 inline-block text-sm font-bold underline">Gauge details and history →</Link>
       <p className="mt-2.5" style={{ fontFamily: MONO, fontSize: 10, lineHeight: 1.55, color: THEME.inkDim }}>
         Statewide context site — Eddy has no float rating here. Flow shown
         for hydrologic context only.

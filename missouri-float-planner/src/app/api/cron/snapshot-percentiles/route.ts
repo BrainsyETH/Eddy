@@ -1,27 +1,5 @@
-// src/app/api/cron/snapshot-percentiles/route.ts
-// GET/POST /api/cron/snapshot-percentiles — refresh the USGS percentile snapshot.
-//
-// Runs monthly. The underlying statistics describe decades of record and
-// barely move year to year, so this is not a freshness job — it is the local
-// copy every read falls back to, and the ONLY source for the ~14,000 national
-// gauges no cron polls live.
-//
-// The source is now the USGS Statistics API (src/lib/flow-providers/
-// usgs-statistics.ts), not the decommissioned legacy statistics service. This
-// header used to say percentiles had no modern equivalent; they do.
-// See src/lib/usgs/percentile-snapshot.ts and docs/OBSERVABILITY_AND_UPGRADES.md.
-//
-// Sites with too short a record simply have no published statistics — that is
-// normal and counted separately from real failures.
-//
-// ONE PARAMETER PER RUN. `?parameter=00060` (default) or `?parameter=00065`
-// selects which ladder a pass refreshes. Separate staggered schedules rather
-// than one pass over both, and that is required, not stylistic: a single pass
-// cannot finish even one parameter inside maxDuration (see the ordering note
-// below), so interleaving two would halve the coverage of each. Stage rows
-// land in the table but feed no user-facing band until the publication policy
-// in percentile-snapshot.ts says otherwise.
-
+// Hourly rotating batches over the complete station catalog.
+import { percentileBatch, PERCENTILE_SHARDS } from '@shared/percentile-shards';
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { hasValidMachineBearer } from '@/lib/security/machine-auth';
@@ -59,31 +37,17 @@ async function run(request: NextRequest) {
   const supabase = createAdminClient();
   const startedAt = Date.now();
 
-  // ORDER MATTERS since 00196, because the list no longer fits the budget.
-  //
-  // This used to be ~290 stations and a pass covered all of them. It is now
-  // ~14,300, and at DELAY_MS apart a run reaches roughly 600 before the 270s
-  // guard stops it. Unordered, that would be an arbitrary 600 every month —
-  // and the sites Eddy actually grades against could go indefinitely without a
-  // refresh while the run burned its budget on creeks nobody has opened.
-  //
-  // Curated first, then biggest watershed first: the rivers people float are
-  // large, and the long tail of headwater gauges genuinely does not need a
-  // monthly refresh of statistics that describe decades. A full national
-  // backfill is a script (scripts/snapshot-usgs-percentiles.ts), not this.
-  const { data, error } = await supabase
-    .from('gauge_stations')
-    .select('usgs_site_id, curated, drainage_area_sqmi')
-    .not('usgs_site_id', 'is', null)
-    .order('curated', { ascending: false })
-    .order('drainage_area_sqmi', { ascending: false, nullsFirst: false });
-
-  if (error) {
-    console.error('[SnapshotPercentiles] Could not list gauge stations:', error);
-    return NextResponse.json({ error: 'Could not list gauge stations' }, { status: 500 });
+  const allSiteIds: string[] = [];
+  for (let from = 0; ; from += 1000) {
+    const { data, error } = await supabase.from('gauge_stations')
+      .select('usgs_site_id').not('usgs_site_id', 'is', null)
+      .order('usgs_site_id').range(from, from + 999);
+    if (error) return NextResponse.json({ error: 'Could not list gauge stations' }, { status: 500 });
+    allSiteIds.push(...(data ?? []).map(row => row.usgs_site_id));
+    if (!data || data.length < 1000) break;
   }
-
-  const siteIds = [...new Set((data ?? []).map((r: { usgs_site_id: string }) => r.usgs_site_id))];
+  const hour = Math.floor(startedAt / 3_600_000);
+  const siteIds = percentileBatch(allSiteIds, hour);
 
   let snapshotted = 0;
   let withoutStatistics = 0;
@@ -99,9 +63,7 @@ async function run(request: NextRequest) {
       console.warn(`[SnapshotPercentiles] ${siteId} failed:`, err);
     }
 
-    // Leave headroom rather than getting killed mid-run; the next monthly
-    // pass picks up whatever we didn't reach, and rows are upserted so
-    // partial progress is never lost.
+    // Leave headroom; the next cycle rotates the starting point.
     if (Date.now() - startedAt > 270_000) {
       console.warn(`[SnapshotPercentiles] Stopping early at ${index + 1}/${siteIds.length}`);
       break;
@@ -119,6 +81,10 @@ async function run(request: NextRequest) {
     ok: true,
     parameter: parameterCode,
     sites: siteIds.length,
+    catalogSize: allSiteIds.length,
+    shard: hour % PERCENTILE_SHARDS,
+    shardCount: PERCENTILE_SHARDS,
+    complete: snapshotted + withoutStatistics + failed === siteIds.length,
     snapshotted,
     withoutStatistics,
     failed,

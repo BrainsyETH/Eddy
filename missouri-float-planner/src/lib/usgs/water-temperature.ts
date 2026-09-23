@@ -10,10 +10,8 @@
 // tailwater temperature on dam screens is a different pipeline and stays as
 // it is.)
 //
-// The reading is served with its timestamp and stays visible regardless of
-// age — water temperature moves slowly and an old measurement labelled with
-// its age is still useful — which is why observedAt is part of the value, not
-// a freshness gate here.
+// Preserve the observation time. The API moves measurements older than
+// 24 hours to historicalWaterQuality instead of presenting them as current.
 
 import {
   MODERN_BASE,
@@ -55,10 +53,10 @@ export function celsiusToFahrenheit(celsius: number): number {
 
 /** Pure half, so the parsing and validation are testable without a network. */
 export function parseWaterTemperature(features: OgcFeature[]): WaterTemperature | null {
-  for (const feature of features) {
+  for (const feature of features.filter(f => Number.isFinite(Date.parse(f.properties?.time ?? ''))).sort((a, b) => Date.parse(b.properties?.time ?? '') - Date.parse(a.properties?.time ?? ''))) {
     const props = feature.properties;
     if (props?.parameter_code !== PARAM_WATER_TEMP_C) continue;
-    if (!props.time) continue;
+    if (!props.time || !Number.isFinite(Date.parse(props.time))) continue;
     const celsius = parseOgcValue(props.value);
     if (!Number.isFinite(celsius)) continue;
     if (celsius < MIN_PLAUSIBLE_C || celsius > MAX_PLAUSIBLE_C) continue;

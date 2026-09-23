@@ -24,6 +24,7 @@ import type { ConditionCode } from '@/types/api';
 import type { EddyUpdateResponse } from '@/app/api/eddy-update/[riverSlug]/route';
 import FlowTrendChart from '@/components/ui/FlowTrendChart';
 import GaugeWeather from '@/components/ui/GaugeWeather';
+import HistoricalWaterQuality from './HistoricalWaterQuality';
 import CurrentReadingCard from '@/components/gauge/CurrentReadingCard';
 import ThresholdTable from '@/components/gauge/ThresholdTable';
 import { buildZones } from '@/lib/gauge/threshold-zones';
@@ -61,19 +62,35 @@ export default function GaugeDetailView({ siteId }: GaugeDetailViewProps) {
 
   // Gauge data via the shared React Query cache — deduped with every other
   // consumer of /api/gauges instead of a one-off raw fetch of the full list.
-  const { data: allGauges, isLoading: loading } = useGaugeStations();
-  const gauge = allGauges?.find((g) => g.usgsSiteId === siteId) ?? null;
-
-  // Station-level facts the list payload does not carry — today that means
-  // the NWS flood stages the chart draws.
-  const { data: gaugeDetail } = useGaugeDetail(siteId);
+  const { data: allGauges } = useGaugeStations();
+  const { data: gaugeDetail, isLoading: loading, error, refetch } = useGaugeDetail(siteId);
+  const listGauge = allGauges?.find(g => g.usgsSiteId === siteId);
+  // Detail owns station existence; the curated list only enriches river metadata.
+  const gauge = gaugeDetail ? {
+    ...listGauge, ...gaugeDetail,
+    usgsSiteId: gaugeDetail.siteId,
+    readingAgeHours: ageHoursOf(gaugeDetail.readingTimestamp),
+    thresholdDescriptions: listGauge?.thresholdDescriptions ?? null,
+    thresholds: gaugeDetail.thresholds?.map(link => {
+      const listed = listGauge?.thresholds?.find(l => l.riverId === link.riverId);
+      return { ...listed, ...link,
+        riverState: listed?.riverState ?? null,
+        altLevelTooLow: listed?.altLevelTooLow ?? null,
+        altLevelLow: listed?.altLevelLow ?? null,
+        altLevelOptimalMin: listed?.altLevelOptimalMin ?? null,
+        altLevelOptimalMax: listed?.altLevelOptimalMax ?? null,
+        altLevelHigh: listed?.altLevelHigh ?? null,
+        altLevelDangerous: listed?.altLevelDangerous ?? null,
+      };
+    }) ?? null,
+  } : null;
 
   // Deterministic rather than find(isPrimary): 07014000 is legitimately primary
   // for both Huzzah and Courtois, and `find` returned whichever row the query
   // happened to order first. See shared/primary-river-link.ts.
   const primaryRiver = pickPrimaryRiverLink(gauge?.thresholds) ?? undefined;
   const riverSlug = primaryRiver?.riverSlug || null;
-  const primaryUnit = primaryRiver?.thresholdUnit || 'ft';
+  const primaryUnit = primaryRiver?.thresholdUnit || (gauge?.dischargeCfs != null ? 'cfs' : 'ft');
 
   // Three states, not two: 'unknown' while neither payload has answered means
   // the summary renders a shape, not a sentence — neither "Floatable" nor
@@ -105,7 +122,7 @@ export default function GaugeDetailView({ siteId }: GaugeDetailViewProps) {
 
   // Compute condition
   const condition = (() => {
-    if (!gauge) return { code: 'unknown' as ConditionCode, label: 'Unknown', tailwindColor: 'bg-neutral-400' };
+    if (!gauge || gauge.readingSuspect || gauge.freshness !== 'live') return { code: 'unknown' as ConditionCode, label: 'Unknown', tailwindColor: 'bg-neutral-400' };
     if (!primaryRiver) return { code: 'unknown' as ConditionCode, label: 'Unknown', tailwindColor: 'bg-neutral-400' };
 
     const thresholds: ConditionThresholds = {
@@ -287,8 +304,9 @@ export default function GaugeDetailView({ siteId }: GaugeDetailViewProps) {
     return (
       <div className="min-h-screen bg-neutral-50 flex items-center justify-center">
         <div className="text-center">
-          <h1 className="text-2xl font-bold text-neutral-900 mb-2">Gauge Not Found</h1>
-          <p className="text-neutral-600 mb-4">Could not find gauge station {siteId}.</p>
+          <h1 className="text-2xl font-bold text-neutral-900 mb-2">{error ? 'Gauge temporarily unavailable' : 'Gauge Not Found'}</h1>
+          <p className="text-neutral-600 mb-4">{error ? 'Could not load this station. Please try again.' : `Could not find gauge station ${siteId}.`}</p>
+          {error && <button onClick={() => void refetch()}>Try again</button>}
           <Link href="/rivers" className="text-primary-600 hover:text-primary-700 font-medium">
             &larr; Back to river reports
           </Link>
@@ -329,7 +347,7 @@ export default function GaugeDetailView({ siteId }: GaugeDetailViewProps) {
           <div className="flex flex-wrap items-center gap-3 text-sm text-neutral-500">
             <span className="flex items-center gap-1.5">
               <EddyIcon name="gauge" size={16} />
-              Gauge near {primaryRiver?.riverName || 'Unknown'}
+              {primaryRiver ? `Gauge near ${primaryRiver.riverName}` : 'Reference gauge'}
               {primaryRiver?.riverState ? `, ${stateName(primaryRiver.riverState)}` : ''}
             </span>
             <span className="text-neutral-300">&middot;</span>
@@ -369,6 +387,8 @@ export default function GaugeDetailView({ siteId }: GaugeDetailViewProps) {
         {/* The three questions, before any chart: what is the river doing,
             is there an official safety concern, what is expected next. */}
         <GaugeSummary
+          yearsOfRecord={gaugeDetail?.seasonalContext?.yearsOfRecord}
+          seasonalContextUnavailableReason={gaugeDetail?.seasonalContextUnavailableReason}
           className="mb-6"
           siteId={gauge.usgsSiteId}
           days={dateRange}
@@ -478,7 +498,8 @@ export default function GaugeDetailView({ siteId }: GaugeDetailViewProps) {
               readingAgeHours={gauge.readingAgeHours}
               zones={ladderZones}
             />
-            <GaugeWeather
+            <HistoricalWaterQuality data={gaugeDetail?.historicalWaterQuality} />
+        <GaugeWeather
               lat={gauge.coordinates.lat}
               lon={gauge.coordinates.lng}
               enabled={true}

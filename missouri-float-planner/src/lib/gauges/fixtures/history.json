@@ -1,0 +1,92 @@
+{
+  "siteId": "07067000",
+  "siteName": "Current River at Van Buren, MO",
+  "readings": [
+    {
+      "timestamp": "2026-09-16T13:30:00+00:00",
+      "gaugeHeightFt": 2.57,
+      "dischargeCfs": 756,
+      "qualifiers": [
+        "P"
+      ],
+      "gapBefore": []
+    },
+    {
+      "timestamp": "2026-09-16T14:30:00+00:00",
+      "gaugeHeightFt": 2.57,
+      "dischargeCfs": 756,
+      "qualifiers": [
+        "P"
+      ],
+      "gapBefore": []
+    }
+  ],
+  "observedThrough": "2026-09-23T12:30:00+00:00",
+  "sampled": false,
+  "resolution": "instant",
+  "statistic": "instantaneous",
+  "requestedWindow": {
+    "from": "2026-09-16T13:10:23.717Z",
+    "to": "2026-09-23T13:10:24.317Z"
+  },
+  "coverageWindow": {
+    "from": "2026-09-16T13:30:00+00:00",
+    "to": "2026-09-23T12:30:00+00:00"
+  },
+  "coverageComplete": true,
+  "truncationReason": null,
+  "typical": [
+    {
+      "date": "2026-09-15",
+      "p25Cfs": 732.5,
+      "p50Cfs": 910,
+      "p75Cfs": 1185,
+      "yearsOfRecord": 105
+    },
+    {
+      "date": "2026-09-16",
+      "p25Cfs": 721.5,
+      "p50Cfs": 900,
+      "p75Cfs": 1190,
+      "yearsOfRecord": 105
+    }
+  ],
+  "seasonalRange": [
+    {
+      "date": "2026-09-15",
+      "unit": "cfs",
+      "p25": 732.5,
+      "p50": 910,
+      "p75": 1185,
+      "yearsOfRecord": 105
+    },
+    {
+      "date": "2026-09-16",
+      "unit": "cfs",
+      "p25": 721.5,
+      "p50": 900,
+      "p75": 1190,
+      "yearsOfRecord": 105
+    }
+  ],
+  "forecast": [
+    {
+      "timestamp": "2026-09-23T18:00:00Z",
+      "gaugeHeightFt": 2.6,
+      "dischargeCfs": 821
+    },
+    {
+      "timestamp": "2026-09-24T00:00:00Z",
+      "gaugeHeightFt": 2.6,
+      "dischargeCfs": 821
+    }
+  ],
+  "forecastIssuedAt": "2026-09-22T13:11:00Z",
+  "sourceUrl": "https://waterdata.usgs.gov/monitoring-location/07067000/",
+  "stats": {
+    "minDischarge": 744,
+    "maxDischarge": 863,
+    "minHeight": 2.55,
+    "maxHeight": 2.74
+  }
+}

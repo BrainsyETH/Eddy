@@ -1,3 +1,4 @@
+import { gaugeFreshness } from '@eddy/conditions/gauge-freshness';
 // eddy-ios/src/components/GaugeFilterBar.tsx
 // Narrow the national gauge layer to the gauges you care about.
 //
@@ -65,13 +66,14 @@ import { FilterChips, type FilterChip } from '@/components/FilterChips';
  * all it has. Nothing in this union may describe the gauge's relationship to
  * Eddy — see the note at the top of the file for the two keys that tried.
  */
-export type GaugeFilterKey = FlowBand | 'flow' | 'stage';
+export type GaugeFilterKey = FlowBand | 'flow' | 'stage' | 'historical';
 
-export const GAUGE_FILTER_KEYS: GaugeFilterKey[] = [...FLOW_BAND_ORDER, 'flow', 'stage'];
+export const GAUGE_FILTER_KEYS: GaugeFilterKey[] = [...FLOW_BAND_ORDER, 'flow', 'stage', 'historical'];
 
 /** Does this gauge satisfy one filter key? */
 export function matchesGaugeFilter(gauge: MapGaugeLite, key: GaugeFilterKey): boolean {
   switch (key) {
+    case 'historical': return gaugeFreshness(gauge.readingTimestamp) === 'historical';
     case 'flow':
       return gauge.dischargeCfs != null;
     case 'stage':
@@ -100,10 +102,11 @@ export function applyGaugeFilters(
   gauges: MapGaugeLite[],
   active: ReadonlySet<GaugeFilterKey>,
 ): MapGaugeLite[] {
+  gauges = gauges.filter(g => active.has('historical') || gaugeFreshness(g.readingTimestamp) !== 'historical');
   if (active.size === 0) return gauges;
 
   const bands = [...active].filter((k) => (FLOW_BAND_ORDER as string[]).includes(k));
-  const traits = [...active].filter((k) => !(FLOW_BAND_ORDER as string[]).includes(k));
+  const traits = [...active].filter((k) => k !== 'historical' && !(FLOW_BAND_ORDER as string[]).includes(k));
 
   return gauges.filter((g) => {
     if (bands.length && !bands.some((k) => matchesGaugeFilter(g, k))) return false;
@@ -150,11 +153,12 @@ function GaugeFilterBarComponent({
     for (const key of GAUGE_FILTER_KEYS) out[key] = 0;
     for (const g of gauges) {
       for (const key of GAUGE_FILTER_KEYS) {
+        if (key !== 'historical' && !active.has('historical') && gaugeFreshness(g.readingTimestamp) === 'historical') continue;
         if (matchesGaugeFilter(g, key)) out[key]++;
       }
     }
     return out;
-  }, [gauges]);
+  }, [gauges, active]);
 
   const chips: FilterChip[] = [
     ...FLOW_BAND_ORDER.map((band) => ({
@@ -166,12 +170,13 @@ function GaugeFilterBarComponent({
       // strip and the layers sheet both follow.
       activeColor: flowBandColor(band),
     })),
+    { key: 'historical', label: 'Include historical', count: counts.historical },
     { key: 'flow', label: 'Reports flow', count: counts.flow },
     { key: 'stage', label: 'Reports stage', count: counts.stage },
   ];
 
   const filtering = active.size > 0;
-  const matching = filtering ? applyGaugeFilters(gauges, active).length : gauges.length;
+  const matching = applyGaugeFilters(gauges, active).length;
 
   // Nothing is drawn and nothing has been fetched, so there is nothing to
   // narrow — chips over an empty set are five zeroes and a reason nobody gave.

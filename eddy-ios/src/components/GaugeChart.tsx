@@ -91,9 +91,11 @@
 // through stepScrubTime() from the shared model — the same stepping the web
 // chart gives arrow keys.
 
+import { File, Paths } from 'expo-file-system';
 import { Component, useCallback, useMemo, useState, type ReactNode } from 'react';
 import {
   ActivityIndicator,
+  Modal, ScrollView, TextInput, Share, Alert,
   LayoutChangeEvent,
   Pressable,
   StyleSheet,
@@ -105,7 +107,7 @@ import {
 // a declared dependency and the root layout already mounts its root view, so
 // this adds no new runtime fingerprint. See SwipeRow.tsx for the situation
 // where reaching for it would be wrong.
-import { Gesture, GestureDetector } from 'react-native-gesture-handler';
+import { Gesture, GestureDetector, GestureHandlerRootView } from 'react-native-gesture-handler';
 import Svg, {
   Circle,
   Defs,
@@ -152,6 +154,8 @@ const RANGES = [
   { days: 1, label: '24h' },
   { days: 7, label: '7d' },
   { days: 30, label: '30d' },
+  { days: 90, label: '90d' },
+  { days: 365, label: '1y' },
 ] as const;
 
 /**
@@ -268,6 +272,10 @@ interface Props {
   floodStages?: GaugeFloodStages | null;
   /** Section heading. Omitted when the caller draws its own. */
   title?: string;
+  historyCapabilities?: { maxInstantDays: number; supportsDaily: boolean; supportsCustomRange: boolean };
+  expanded?: boolean;
+  initialDays?: number;
+  initialWindow?: { from: string; to: string };
 }
 
 /** One day of the day-of-year typical range, at the instant it is drawn at. */
@@ -327,9 +335,22 @@ function GaugeChartInner({
   thresholds = null,
   floodStages = null,
   title,
+  historyCapabilities,
+  expanded = false,
+  initialDays = 7,
+  initialWindow,
 }: Props) {
+  const chartHeight = expanded ? 360 : CHART_HEIGHT;
   const { colors, elevation, isDark } = useTheme();
-  const [days, setDays] = useState<number>(7);
+  const [showExpanded, setShowExpanded] = useState(false);
+  const [showTable, setShowTable] = useState(false);
+  const [showDates, setShowDates] = useState(false);
+  const [fromDate, setFromDate] = useState(initialWindow?.from.slice(0, 10) ?? '');
+  const [toDate, setToDate] = useState(initialWindow?.to.slice(0, 10) ?? '');
+  const [customWindow, setCustomWindow] = useState<{ from: string; to: string } | undefined>(initialWindow);
+  const [dateError, setDateError] = useState<string | null>(null);
+  const ranges = RANGES.filter(r => r.days <= (historyCapabilities?.maxInstantDays ?? 30) || historyCapabilities?.supportsDaily);
+  const [days, setDays] = useState<number>(initialDays);
   const [width, setWidth] = useState(0);
   const [scrubX, setScrubX] = useState<number | null>(null);
   /**
@@ -344,7 +365,7 @@ function GaugeChartInner({
   const [unitOverride, setUnitOverride] = useState<'ft' | 'cfs' | null>(null);
 
   const { history, loading, unavailable, failed, retry, historyDays, matchesRequest } =
-    useGaugeHistory(siteId, days);
+    useGaugeHistory(siteId, days, customWindow);
 
   const drawnUnit = unitOverride ?? unit;
 
@@ -416,10 +437,10 @@ function GaugeChartInner({
    */
   const trend = useMemo(
     () =>
-      !matchesRequest || !history || days === 30
+      !matchesRequest || !history || days > 7 || !!customWindow || history.resolution === 'daily'
         ? null
         : computeTrend(history.readings, drawnUnit),
-    [matchesRequest, history, days, drawnUnit],
+    [matchesRequest, history, days, drawnUnit, customWindow],
   );
   const shownTrend = trend && Math.abs(trend.windowHours - 6) <= 3 ? trend : null;
 
@@ -538,7 +559,7 @@ function GaugeChartInner({
   }, [points, forecastPoints, typical, zones, stageLines, drawnUnit]);
 
   const plotWidth = Math.max(0, width - PAD_RIGHT);
-  const plotHeight = CHART_HEIGHT - PAD_TOP - PAD_BOTTOM;
+  const plotHeight = chartHeight - PAD_TOP - PAD_BOTTOM;
 
   const scale = useMemo(() => {
     if (!domain || plotWidth <= 0) return null;
@@ -640,7 +661,7 @@ function GaugeChartInner({
    */
   const valueTicks = useMemo(
     // Four with headroom for five, matched to the 200px chart — the 168px
-    // chart asked for three. See CHART_HEIGHT: the two numbers move together.
+    // chart asked for three. See chartHeight: the two numbers move together.
     //
     // Discharge is printed as whole cfs (formatReading rounds), so its ticks
     // are floored at whole cfs; a half-cfs rung on a low-water week printed
@@ -730,7 +751,7 @@ function GaugeChartInner({
         })
         .onUpdate((e) => setScrubX(e.x))
         .onFinalize(() => setScrubX(null)),
-    [],
+    [setScrubX],
   );
 
   /**
@@ -840,7 +861,7 @@ function GaugeChartInner({
    * stepped-to reading is announced through accessibilityValue below.
    */
   const plotSummary = (() => {
-    const window = drawnDays === 1 ? 'last 24 hours' : `last ${drawnDays} days`;
+    const window = history?.requestedWindow ? `${new Date(history.requestedWindow.from).toLocaleDateString()} to ${new Date(history.requestedWindow.to).toLocaleDateString()}` : drawnDays === 1 ? 'last 24 hours' : `last ${drawnDays} days`;
     const measure = drawnUnit === 'cfs' ? 'Discharge' : 'Gauge height';
     const bits = [
       newest
@@ -899,7 +920,7 @@ function GaugeChartInner({
 
   return (
     <View style={[styles.card, { backgroundColor: colors.card }, elevation(1)]}>
-      <View style={styles.head}>
+      <View style={[styles.head, { flexWrap: 'wrap', gap: 8 }]}>
         <View style={styles.headText}>
           {title || shownTrend ? (
             <View style={styles.titleRow}>
@@ -960,7 +981,7 @@ function GaugeChartInner({
                   {' · last '}
                 </>
               )}
-              {drawnDays === 1 ? '24 hours' : `${drawnDays} days`}
+              {history?.requestedWindow ? `${history.requestedWindow.from.slice(0, 10)} – ${history.requestedWindow.to.slice(0, 10)}` : drawnDays === 1 ? '24 hours' : `${drawnDays} days`}
             </Text>
           )}
         </View>
@@ -973,7 +994,7 @@ function GaugeChartInner({
             It sits before the range toggle because it changes what the chart is
             OF, where the range only changes how much of it you see. */}
         {availableUnits.length > 1 ? (
-          <View style={[styles.ranges, { borderColor: colors.border }]}>
+          <View style={[styles.ranges, { borderColor: colors.border, flexWrap: 'wrap' }]}>
             {availableUnits.map((u) => {
               const active = u === drawnUnit;
               return (
@@ -1006,15 +1027,16 @@ function GaugeChartInner({
           </View>
         ) : null}
 
-        <View style={[styles.ranges, { borderColor: colors.border }]}>
-          {RANGES.map((r) => {
-            const active = r.days === days;
+        <View style={[styles.ranges, { borderColor: colors.border, flexWrap: 'wrap' }]}>
+          {ranges.map((r) => {
+            const active = r.days === days && !customWindow;
             return (
               <Pressable
                 key={r.days}
                 // Same clearing as the unit toggle: a pixel kept across a
                 // window change would point at a different instant.
                 onPress={() => {
+                  setCustomWindow(undefined);
                   setDays(r.days);
                   setScrubX(null);
                 }}
@@ -1040,6 +1062,52 @@ function GaugeChartInner({
         </View>
       </View>
 
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 16, paddingVertical: 10 }}>
+        {historyCapabilities?.supportsCustomRange && <Pressable accessibilityRole="button" onPress={() => setShowDates(!showDates)}><Text style={{ color: colors.text }}>Custom dates</Text></Pressable>}
+        {!expanded && <Pressable accessibilityRole="button" onPress={() => setShowExpanded(true)}><Text style={{ color: colors.text }}>Expand</Text></Pressable>}
+        <Pressable accessibilityRole="button" onPress={() => setShowTable(!showTable)}><Text style={{ color: colors.text }}>{showTable ? 'Hide table' : 'Data table'}</Text></Pressable>
+        <Pressable accessibilityRole="button" disabled={!history?.readings.length} onPress={async () => {
+          if (!history) return;
+          try {
+            const file = new File(Paths.cache, `gauge-${siteId}-history.csv`);
+            file.write(['timestamp,gauge_height_ft,discharge_cfs', ...history.readings.map(r => `${r.timestamp},${r.gaugeHeightFt ?? ''},${r.dischargeCfs ?? ''}`)].join('\n'));
+            await Share.share({ url: file.uri, title: 'Gauge history CSV' });
+          } catch { Alert.alert('Export unavailable', 'Please try exporting the readings again.'); }
+        }}><Text style={{ color: colors.text }}>Export CSV</Text></Pressable>
+      </View>
+      {showDates && <View style={{ gap: 8, paddingBottom: 12 }}>
+        <Text style={{ color: colors.textMuted }}>Dates (YYYY-MM-DD), up to one year</Text>
+        <TextInput accessibilityLabel="Start date YYYY-MM-DD" placeholder="From: YYYY-MM-DD" placeholderTextColor={colors.textSubtle} value={fromDate} onChangeText={setFromDate} style={{ color: colors.text, borderColor: colors.border, borderWidth: 1, padding: 10 }} />
+        <TextInput accessibilityLabel="End date YYYY-MM-DD" placeholder="To: YYYY-MM-DD" placeholderTextColor={colors.textSubtle} value={toDate} onChangeText={setToDate} style={{ color: colors.text, borderColor: colors.border, borderWidth: 1, padding: 10 }} />
+        {dateError && <Text accessibilityRole="alert" style={{ color: colors.text }}>{dateError}</Text>}
+        <Pressable accessibilityRole="button" onPress={() => {
+          const from = Date.parse(`${fromDate}T00:00:00Z`);
+          const to = Date.parse(`${toDate}T23:59:59Z`);
+          const validDate = (value: string, time: number) => /^\d{4}-\d{2}-\d{2}$/.test(value) && Number.isFinite(time) && new Date(time).toISOString().slice(0, 10) === value;
+          if (!validDate(fromDate, from) || !validDate(toDate, to) || to <= from || to - from > 366 * 86400000 || from > Date.now()) {
+            setDateError('Enter valid dates in order, no more than one year apart.'); return;
+          }
+          setDateError(null); setScrubX(null);
+          setDays(Math.ceil((to - from) / 86400000));
+          setCustomWindow({ from: new Date(from).toISOString(), to: new Date(Math.min(to, Date.now())).toISOString() });
+        }}><Text style={{ color: colors.text }}>Apply dates</Text></Pressable>
+      </View>}
+      {history && <Text style={{ color: colors.textSubtle, marginBottom: 8 }}>
+        {history.statistic === 'daily_mean' ? 'Daily mean readings' : history.resolution === 'daily' ? 'Daily readings' : 'Instantaneous readings'}
+        {history.sampled ? ' · sampled for display' : ''}
+        {history.coverageComplete === false ? ' · partial coverage' : ''}
+        {history.truncationReason ? ` · ${history.truncationReason}` : ''}
+      </Text>}
+      {showTable && <ScrollView style={{ maxHeight: 320 }} nestedScrollEnabled>
+        <Text style={{ color: colors.textMuted }}>Time · height (ft) · discharge (cfs)</Text>
+        {history?.readings.map(r => <Text selectable key={r.timestamp} style={{ color: colors.text, paddingVertical: 4 }}>{new Date(r.timestamp).toLocaleString()} · {r.gaugeHeightFt ?? '—'} · {r.dischargeCfs ?? '—'}</Text>)}
+      </ScrollView>}
+      {!expanded && <Modal visible={showExpanded} animationType="slide" onRequestClose={() => setShowExpanded(false)}>
+        <GestureHandlerRootView style={{ flex: 1 }}><ScrollView contentContainerStyle={{ padding: 20, paddingTop: 64, backgroundColor: colors.card, flexGrow: 1 }}>
+          <Pressable accessibilityRole="button" onPress={() => setShowExpanded(false)}><Text style={{ color: colors.text, paddingVertical: 16 }}>Close expanded history</Text></Pressable>
+          <GaugeChartInner siteId={siteId} unit={drawnUnit} thresholds={thresholds} floodStages={floodStages} title="Gauge history" historyCapabilities={historyCapabilities} initialDays={days} initialWindow={customWindow} expanded />
+        </ScrollView></GestureHandlerRootView>
+      </Modal>}
       {series.gapPaths.length > 0 ? (
         <View style={styles.legendItem} accessibilityLabel="Dotted connections indicate missing readings">
           <View style={styles.legendDashes}>{[0, 1, 2].map(i => <View key={i} style={[styles.legendDash, { backgroundColor: lineColor }]} />)}</View>
@@ -1064,7 +1132,7 @@ function GaugeChartInner({
               ]}
               onAccessibilityAction={onAccessibilityAction}
             >
-              <Svg width={width} height={CHART_HEIGHT}>
+              <Svg width={width} height={chartHeight}>
                 {/* ── The gradient the fill draws with ──
                     The website's hydrograph has carried a fill since it was
                     built and the app's never did, so the same river drew as a
@@ -1404,7 +1472,7 @@ function GaugeChartInner({
                   <SvgText
                     key={`t-${index}`}
                     x={scale.x(tick.value)}
-                    y={CHART_HEIGHT - 4}
+                    y={chartHeight - 4}
                     fill={colors.textSubtle}
                     fontSize={10}
                     fontFamily={fonts.body}
@@ -1466,7 +1534,7 @@ function GaugeChartInner({
             </View>
           </GestureDetector>
         ) : (
-          <View style={[styles.placeholder, { height: CHART_HEIGHT }]}>
+          <View style={[styles.placeholder, { height: chartHeight }]}>
             {loading ? (
               <ActivityIndicator size="small" color={colors.interactive} />
             ) : failed ? (
@@ -1585,7 +1653,7 @@ export function GaugeChart(props: Props) {
         </View>
       }
     >
-      <GaugeChartInner {...props} />
+      <GaugeChartInner key={props.siteId} {...props} />
     </ChartBoundary>
   );
 }

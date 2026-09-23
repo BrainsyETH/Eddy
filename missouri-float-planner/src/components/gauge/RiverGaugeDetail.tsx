@@ -28,6 +28,7 @@ import FlowTrendChart from '@/components/ui/FlowTrendChart';
 import GaugeSummary from '@/components/gauge/GaugeSummary';
 import ExpandedGaugeChart from '@/components/gauge/ExpandedGaugeChart';
 import GaugeWeather from '@/components/ui/GaugeWeather';
+import HistoricalWaterQuality from './HistoricalWaterQuality';
 import CurrentReadingCard from '@/components/gauge/CurrentReadingCard';
 import WillItHold from '@/components/gauge/WillItHold';
 import EddyOutlookFooter from '@/components/gauge/EddyOutlookFooter';
@@ -458,6 +459,8 @@ export default function RiverGaugeDetail({ riverSlug, damSlot }: RiverGaugeDetai
             "a line qualifying the reading above". */}
         <div>
           <GaugeSummary
+          yearsOfRecord={gaugeDetail?.seasonalContext?.yearsOfRecord}
+          seasonalContextUnavailableReason={gaugeDetail?.seasonalContextUnavailableReason}
             siteId={activeGauge.usgsSiteId}
             days={dateRange}
             tier={tier}
@@ -564,6 +567,7 @@ export default function RiverGaugeDetail({ riverSlug, damSlot }: RiverGaugeDetai
         />
         {/* Outdoor conditions, after the hydrograph and before the deeper
             interpretation below. */}
+        <HistoricalWaterQuality data={gaugeDetail?.historicalWaterQuality} />
         <GaugeWeather
           lat={activeGauge.coordinates.lat}
           lon={activeGauge.coordinates.lng}

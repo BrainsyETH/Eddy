@@ -1,3 +1,4 @@
+import { gaugeFreshness, observationAgeHours } from '@shared/gauge-freshness';
 // src/app/api/gauges/map/route.ts
 // GET /api/gauges/map?bbox=w,s,e,n — gauges inside a viewport.
 //
@@ -56,6 +57,7 @@ export interface MapGaugeLite {
   curated: boolean;
   /** 0-100 vs this site's own day-of-year history; null when none is held. */
   flowPercentile: number | null;
+  freshness: ReturnType<typeof gaugeFreshness>;
 }
 
 export interface MapGaugesResponse {
@@ -67,8 +69,7 @@ export interface MapGaugesResponse {
 const DEFAULT_LIMIT = 300;
 const MAX_LIMIT = 1000;
 
-/** Degrade to an empty viewport at HTTP 200, never an error. */
-const EMPTY: MapGaugesResponse = { gauges: [], capped: false, total: 0 };
+
 
 interface BboxParse {
   bbox: [number, number, number, number] | null;
@@ -141,7 +142,7 @@ async function _GET(request: NextRequest) {
 
     if (rpcError) {
       console.error('[gauges/map] gauges_in_bbox failed:', rpcError.message);
-      return NextResponse.json(EMPTY, { status: 200 });
+      return NextResponse.json({ error: 'Gauge map temporarily unavailable' }, { status: 503 });
     }
 
     const rows = (data ?? []) as GaugeInBboxRow[];
@@ -157,9 +158,7 @@ async function _GET(request: NextRequest) {
       if (!row.site_id) continue;
 
       const readingTimestamp = row.reading_timestamp;
-      const readingAgeHours = readingTimestamp
-        ? (now - new Date(readingTimestamp).getTime()) / 3_600_000
-        : null;
+      const readingAgeHours = observationAgeHours(readingTimestamp, now);
 
       // Same qualifier classifier the curated path uses, so "suspect" means the
       // identical thing on both tiers.
@@ -176,7 +175,8 @@ async function _GET(request: NextRequest) {
         readingAgeHours,
         readingSuspect: suspect,
         curated: row.curated,
-        flowPercentile: row.flow_percentile,
+        flowPercentile: gaugeFreshness(readingTimestamp) === 'live' && !suspect ? row.flow_percentile : null,
+        freshness: gaugeFreshness(readingTimestamp),
       });
     }
 
@@ -192,11 +192,9 @@ async function _GET(request: NextRequest) {
 
     return NextResponse.json(body, { headers: cdnCacheHeaders(300, 900) });
   } catch (err) {
-    // The map's curated layer must survive this route being down. An empty
-    // viewport draws nothing extra; an error would blank the layer AND surface
-    // a failure for something the user did not ask for.
+    // A failed lookup is not an empty viewport; clients keep their last result.
     console.error('[gauges/map] failed:', err);
-    return NextResponse.json(EMPTY, { status: 200 });
+    return NextResponse.json({ error: 'Gauge map temporarily unavailable' }, { status: 503 });
   }
 }
 

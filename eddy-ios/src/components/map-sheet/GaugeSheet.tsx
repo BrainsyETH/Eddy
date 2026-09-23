@@ -246,6 +246,7 @@ export function GaugeHistoryTab({ facts, detail }: GaugeTabProps) {
       unit={primary?.thresholdUnit === 'ft' ? 'ft' : 'cfs'}
       thresholds={primary ? { ...primary, thresholdUnit: primary.thresholdUnit } : null}
       floodStages={detail?.floodStages ?? null}
+      historyCapabilities={detail?.historyCapabilities}
       // The scrub works here too: it is a Gesture.Pan that claims horizontal
       // travel before the pager does and yields vertical to the sheet — the
       // same axis contract the sheet and pager keep between themselves. See

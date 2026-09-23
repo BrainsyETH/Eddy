@@ -1,3 +1,4 @@
+import { gaugeFreshness } from '@eddy/conditions/gauge-freshness';
 // eddy-ios/src/lib/gaugeFlow.ts
 // What a REFERENCE gauge is showing — the uncurated half of the map.
 //
@@ -34,7 +35,7 @@ export type { FlowBand };
  *     colour a curated pin.
  */
 export function flowBandFor(gauge: MapGaugeLite): FlowBand | null {
-  if (gauge.readingSuspect) return null;
+  if (gauge.readingSuspect || gaugeFreshness(gauge.readingTimestamp) !== 'live') return null;
   return flowBand(gauge.flowPercentile);
 }
 

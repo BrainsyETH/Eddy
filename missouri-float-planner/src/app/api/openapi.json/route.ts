@@ -1,3 +1,4 @@
+import { gaugePaths, gaugeSchemas } from '@/lib/gauges/openapi';
 import { NextResponse } from 'next/server';
 
 const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://eddy.guide';
@@ -267,55 +268,7 @@ const spec = {
         },
       },
     },
-    '/api/gauges': {
-      get: {
-        operationId: 'listGauges',
-        summary: 'List all gauge stations with current readings',
-        description:
-          'Returns USGS gauge stations with latest water level readings, discharge, and threshold definitions.',
-        responses: {
-          '200': {
-            description: 'Array of gauge stations',
-            content: {
-              'application/json': {
-                schema: {
-                  type: 'array',
-                  items: { $ref: '#/components/schemas/GaugeStation' },
-                },
-              },
-            },
-          },
-        },
-      },
-    },
-    '/api/gauges/{siteId}/history': {
-      get: {
-        operationId: 'getGaugeHistory',
-        summary: 'Get gauge reading history',
-        parameters: [
-          {
-            name: 'siteId',
-            in: 'path',
-            required: true,
-            schema: { type: 'string' },
-            description: 'USGS site ID (e.g., "07019000")',
-          },
-        ],
-        responses: {
-          '200': {
-            description: 'Array of historical gauge readings',
-            content: {
-              'application/json': {
-                schema: {
-                  type: 'array',
-                  items: { $ref: '#/components/schemas/GaugeReading' },
-                },
-              },
-            },
-          },
-        },
-      },
-    },
+    ...gaugePaths,
     '/api/plan': {
       get: {
         operationId: 'calculateFloatPlan',
@@ -587,30 +540,7 @@ const spec = {
           amenities: { type: 'array', items: { type: 'string' } },
         },
       },
-      GaugeStation: {
-        type: 'object',
-        properties: {
-          id: { type: 'string', format: 'uuid' },
-          usgsSiteId: { type: 'string' },
-          name: { type: 'string' },
-          latestReading: {
-            type: 'object',
-            properties: {
-              gaugeHeightFt: { type: ['number', 'null'] },
-              dischargeCfs: { type: ['number', 'null'] },
-              readingTimestamp: { type: 'string', format: 'date-time' },
-            },
-          },
-        },
-      },
-      GaugeReading: {
-        type: 'object',
-        properties: {
-          gaugeHeightFt: { type: ['number', 'null'] },
-          dischargeCfs: { type: ['number', 'null'] },
-          readingTimestamp: { type: 'string', format: 'date-time' },
-        },
-      },
+      ...gaugeSchemas,
       FloatPlan: {
         type: 'object',
         properties: {

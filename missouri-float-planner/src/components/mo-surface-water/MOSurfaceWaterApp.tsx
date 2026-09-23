@@ -12,6 +12,7 @@
 // row lights the reach; scrubbing the timeline repaints the rows. On
 // mobile the dock becomes a slide-in drawer behind a floating live chip.
 
+import { gaugeFreshness } from '@shared/gauge-freshness';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import dynamic from 'next/dynamic';
 import {
@@ -136,6 +137,8 @@ export default function MOSurfaceWaterApp() {
   const showPOIs = false;
   const [showGauges, setShowGauges] = useState(true);
   const [showTerrain, setShowTerrain] = useState(true);
+  const [showHistorical, setShowHistorical] = useState(false);
+  const contextSites = (moSites?.sites ?? []).filter(site => showHistorical || gaugeFreshness(site.readingTimestamp) !== 'historical');
   const [showSites, setShowSites] = useState(true);
   const [showFlow, setShowFlow] = useState(true);
   // River name labels — off by default; an opt-in overlay for orienting to
@@ -706,13 +709,15 @@ export default function MOSurfaceWaterApp() {
         setShowGauges={setShowGauges}
         showTerrain={showTerrain}
         setShowTerrain={setShowTerrain}
+        showHistorical={showHistorical}
+        setShowHistorical={setShowHistorical}
         showSites={showSites}
         setShowSites={setShowSites}
         showFlow={showFlow}
         setShowFlow={setShowFlow}
         showRiverLabels={showRiverLabels}
         setShowRiverLabels={setShowRiverLabels}
-        siteCount={moSites?.sites.length ?? 0}
+        siteCount={contextSites.length}
         sitesCapped={moSites?.capped ?? false}
         onHoverRiver={setHoveredRiverId}
         onFocusRiver={selectRiver}
@@ -748,7 +753,7 @@ export default function MOSurfaceWaterApp() {
           showTerrain={showTerrain}
           showFlow={showFlow}
           showRiverLabels={showRiverLabels}
-          contextSites={moSites?.sites ?? []}
+          contextSites={contextSites}
           showSites={showSites}
           selectedContextSiteId={selectedSite?.site_no ?? null}
           onClickContextSite={selectSite}

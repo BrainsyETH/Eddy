@@ -1,0 +1,49 @@
+{
+  "gauges": [
+    {
+      "id": "a02843ec-9eb8-4f62-a1dc-73d351df5010",
+      "usgsSiteId": "swl-clearwater-dam",
+      "provider": "usace",
+      "name": "Black River below Clearwater Dam",
+      "coordinates": {
+        "lng": -90.7708833,
+        "lat": 37.1349222
+      },
+      "active": true,
+      "gaugeHeightFt": null,
+      "dischargeCfs": 434.25,
+      "readingTimestamp": "2026-09-23T12:00:00+00:00",
+      "readingAgeHours": 1.1732741666666666,
+      "readingSuspect": false,
+      "qualifierNote": null,
+      "thresholdDescriptions": {
+        "note": "Total release from Clearwater Dam. The Black River below the dam runs at whatever the Corps releases, so this is the controlling number for the reach down to Poplar Bluff. Releases can change without notice.",
+        "source": "USACE Little Rock District (CWMS)"
+      },
+      "thresholds": [
+        {
+          "riverId": "7dd26869-ffc9-4f01-bcfe-fa51e1d155b5",
+          "riverName": "Black River",
+          "riverSlug": "black",
+          "riverState": "MO",
+          "isPrimary": false,
+          "distanceFromSectionMiles": null,
+          "thresholdUnit": "cfs",
+          "levelTooLow": 150,
+          "levelLow": 300,
+          "levelOptimalMin": 400,
+          "levelOptimalMax": 2000,
+          "levelHigh": 2000,
+          "levelDangerous": 4000,
+          "floodStageFt": null,
+          "altLevelTooLow": null,
+          "altLevelLow": null,
+          "altLevelOptimalMin": null,
+          "altLevelOptimalMax": null,
+          "altLevelHigh": null,
+          "altLevelDangerous": null
+        }
+      ]
+    }
+  ]
+}

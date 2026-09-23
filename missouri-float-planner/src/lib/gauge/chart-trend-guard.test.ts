@@ -89,7 +89,7 @@ test('the hook says which station and window it is actually holding', () => {
 test('the trend requires the series it was handed to be the one asked for', () => {
   assert.match(
     CHART,
-    /!matchesRequest \|\| !history \|\| days === 30/,
+    /!matchesRequest \|\| !history \|\| days > 7/,
     'the trend is testing the requested range again instead of the delivered one',
   );
 });
@@ -112,7 +112,7 @@ test('the range strip still follows the reader, not the data', () => {
   // The one thing that must NOT track the delivered range. It shows what you
   // chose; a control that re-selects itself from arriving data is a control
   // nobody can trust.
-  assert.match(CHART, /const active = r\.days === days;/, 'the range strip started following data');
+  assert.match(CHART, /const active = r\.days === days && !customWindow;/, 'the range strip started following data');
 });
 
 /* ── The 30-day exclusion and the window check ───────────────────────────── */
@@ -123,7 +123,7 @@ test('the 30-day range computes no trend at all', () => {
   // extremum and there is nothing honest to derive.
   assert.match(
     CHART,
-    /days === 30\s*\n?\s*\? null\s*\n?\s*: computeTrend\(/,
+    /days > 7 \|\| !!customWindow \|\| history\.resolution === 'daily'\s*\n?\s*\? null\s*\n?\s*: computeTrend\(/,
     'the gauge chart no longer excludes the 30-day range from the trend',
   );
 });
