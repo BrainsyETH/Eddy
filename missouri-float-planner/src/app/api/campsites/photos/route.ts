@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { cdnCacheHeaders } from '@/lib/api-utils';
 import { getClientIp, rateLimit } from '@/lib/rate-limit';
-import { fetchFacilityPhotos, type CampsitePhoto } from '@/lib/camping/photos';
+import { fetchFacilityPhotos, fetchRecreationSitePhotos, type CampsitePhoto } from '@/lib/camping/photos';
 
 export const dynamic = 'force-dynamic';
 
@@ -25,7 +25,7 @@ export async function GET(request: NextRequest) {
     if (error) throw error;
     if (!facility) return NextResponse.json({ error: 'Unknown facility' }, { status: 404 });
     const photos: Record<string, CampsitePhoto[]> = {};
-    if (facility.source === 'mo_state_parks') {
+    if (facility.source === 'mo_state_parks' || (facility.source === 'recreation_gov' && siteId)) {
       // Avoid fetching hundreds of unit-detail pages when a park opens. The app
       // asks only for rendered rows, capped by the existing Show more control.
       if (!siteId) return NextResponse.json({ error: 'site is required for State Parks' }, { status: 400 });
@@ -33,8 +33,12 @@ export async function GET(request: NextRequest) {
         .select('id, source_site_id').eq('facility_id', facilityId).eq('id', siteId).maybeSingle();
       if (siteError) throw siteError;
       if (!site) return NextResponse.json({ error: 'Unknown site' }, { status: 404 });
-      photos[site.id] = await fetchStateParkPhotos(facility.source_facility_id, site.source_site_id);
+      photos[site.id] = facility.source === 'recreation_gov'
+        ? await fetchRecreationSitePhotos(site.source_site_id)
+        : await fetchStateParkPhotos(facility.source_facility_id, site.source_site_id);
     } else if (facility.source === 'recreation_gov') {
+      // Compatibility for older apps requesting a whole facility. New apps use
+      // the exact-site media service above and do not require an RIDB key.
       const key = process.env.RIDB_API_KEY;
       if (!key) return NextResponse.json({ error: 'Photos unavailable' }, { status: 503, headers: { 'Cache-Control': 'no-store' } });
       const upstream = await fetchFacilityPhotos(facility.source_facility_id, key);

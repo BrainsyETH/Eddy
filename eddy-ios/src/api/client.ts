@@ -2399,9 +2399,9 @@ export async function submitRiverVisual(
   }
 }
 
-/** Optional media never blocks the availability request. */
+/** Optional media never blocks availability. media=2 bypasses old empty photo caches. */
 export function fetchCampsitePhotos(facilityId: string, signal?: AbortSignal, siteId?: string) {
   return get<import('@eddy/types').CampsitePhotosResponse>(
-    `/api/campsites/photos?facility=${encodeURIComponent(facilityId)}${siteId ? `&site=${encodeURIComponent(siteId)}` : ''}`, signal,
+    `/api/campsites/photos?media=2&facility=${encodeURIComponent(facilityId)}${siteId ? `&site=${encodeURIComponent(siteId)}` : ''}`, signal,
   );
 }

@@ -35,13 +35,13 @@ import {
 /** Rows per loop before the list asks whether you meant it. */
 const VISIBLE_PER_LOOP = 12;
 
-function SiteRow({ entry, date, photos: suppliedPhotos, stateParkFacilityId, reservationUrl }: {
-  entry: SiteOnNight; date: string; photos?: CampsitePhoto[]; stateParkFacilityId?: string; reservationUrl?: string;
+function SiteRow({ entry, date, photos: suppliedPhotos, photoFacilityId, reservationUrl }: {
+  entry: SiteOnNight; date: string; photos?: CampsitePhoto[]; photoFacilityId?: string; reservationUrl?: string;
 }) {
   const { colors } = useTheme();
   const { site, tags, state } = entry;
-  const stateParkPhotos = useCampsitePhotos(stateParkFacilityId ?? null, site.id);
-  const photos = suppliedPhotos ?? stateParkPhotos?.[site.id];
+  const sitePhotos = useCampsitePhotos(photoFacilityId ?? null, site.id);
+  const photos = suppliedPhotos ?? sitePhotos?.[site.id];
   const badge = stateLabel(state);
   const label = site.name ?? `Site ${site.id.slice(0, 6)}`;
   const detail = [badge, ...tags].filter(Boolean).join(' · ');
@@ -128,14 +128,14 @@ function Loop({
   showName,
   photos,
   individualSites,
-  stateParkFacilityId,
+  photoFacilityId,
   reservationUrl,
 }: {
   group: LoopGroup;
   date: string;
   photos?: Record<string, CampsitePhoto[]>;
   individualSites?: boolean;
-  stateParkFacilityId?: string;
+  photoFacilityId?: string;
   reservationUrl?: string;
   /**
    * A loop name earns its line only when there is another loop to tell it from.
@@ -164,7 +164,7 @@ function Loop({
       {!tappable ? <KindSummaries group={group} date={date} /> : null}
 
       {tappable
-        ? shown.map((entry) => <SiteRow key={entry.site.id} entry={entry} date={date} photos={photos?.[entry.site.id]} stateParkFacilityId={stateParkFacilityId} reservationUrl={reservationUrl} />)
+        ? shown.map((entry) => <SiteRow key={entry.site.id} entry={entry} date={date} photos={photos?.[entry.site.id]} photoFacilityId={photoFacilityId} reservationUrl={reservationUrl} />)
         : null}
 
       {tappable && hidden > 0 ? (
@@ -201,12 +201,12 @@ export function CampsiteList({
   dateLabel,
   photos,
   individualSites,
-  stateParkFacilityId,
+  photoFacilityId,
   reservationUrl,
 }: {
   photos?: Record<string, CampsitePhoto[]>;
   individualSites?: boolean;
-  stateParkFacilityId?: string;
+  photoFacilityId?: string;
   reservationUrl?: string;
   entries: SiteOnNight[];
   filters: string[];
@@ -245,7 +245,7 @@ export function CampsiteList({
           group={group}
           photos={photos}
           individualSites={individualSites}
-          stateParkFacilityId={stateParkFacilityId}
+          photoFacilityId={photoFacilityId}
           reservationUrl={reservationUrl}
           date={date}
           showName={groups.length > 1}
