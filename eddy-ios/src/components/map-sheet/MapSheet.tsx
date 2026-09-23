@@ -80,6 +80,8 @@ interface Props {
   peek: React.ReactNode;
   /** A scrollable summary visible at peek, already included in children. */
   peekExtraHeight?: number;
+  /** Shared scrolling summary must be measured before the first entrance. */
+  previewReady?: boolean;
   peekPadding?: number;
   /** Absent for a sheet that is all glance — a hazard, an outfitter. */
   children?: React.ReactNode;
@@ -129,6 +131,7 @@ export function MapSheet({
   onDetentChange,
   peek,
   peekExtraHeight = 0,
+  previewReady = true,
   peekPadding = CONTENT_BOTTOM_PAD,
   children,
   label,
@@ -203,7 +206,7 @@ export function MapSheet({
   // ── A NEW SELECTION resets the sheet ────────────────────────────────────
   // Wait for the first measurement. Later resizes retain the chosen detent.
   useEffect(() => {
-    if (available <= 0 || peekHeight <= GRABBER_BLOCK) return;
+    if (!previewReady || available <= 0 || peekHeight <= GRABBER_BLOCK) return;
     // Reclaiming the map header changes available height, not the selection.
     // Keep the reader's detent and scroll offset through that resize.
     if (openedSelection.current === resetKey) return;
@@ -229,7 +232,7 @@ export function MapSheet({
     // remeasured, and re-running this would collapse a sheet the reader had
     // opened. See the file header.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [resetKey, available, peekHeight, reducedMotion]);
+  }, [resetKey, available, peekHeight, previewReady, reducedMotion]);
 
   // ── New CONTENT keeps the reader where they are ─────────────────────────
   // The detent the reader chose survives, but the pixel height behind it may

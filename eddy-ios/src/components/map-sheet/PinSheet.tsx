@@ -307,7 +307,7 @@ export function PinSheet(props: PinSheetProps) {
     </View>
   ) : null;
   const summary = accessPoint ? (
-    <View onLayout={(event) => setSummaryHeight(Math.round(event.nativeEvent.layout.height))}>
+    <View collapsable={false} style={{ flexShrink: 0 }} onLayout={(event) => setSummaryHeight(Math.round(event.nativeEvent.layout.height))}>
       <PinSheetHeader {...headerProps} part="summary" />
       <View style={{ height: 12 }} />
     </View>
@@ -321,6 +321,7 @@ export function PinSheet(props: PinSheetProps) {
       onDetentChange={props.onDetentChange}
       metrics={props.metrics}
       peekPadding={accessPoint ? 0 : undefined}
+      previewReady={!accessPoint || summaryHeight > 0}
       peekExtraHeight={accessPoint ? summaryHeight : 0}
       peek={<PinSheetHeader {...headerProps} part={accessPoint ? 'identity' : 'all'} />}
     >
