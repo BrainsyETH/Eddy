@@ -61,10 +61,10 @@ export interface DissolvedOxygen {
 
 /** Pure half, so the parsing and validation are testable without a network. */
 export function parseDissolvedOxygen(features: OgcFeature[]): DissolvedOxygen | null {
-  for (const feature of features) {
+  for (const feature of features.filter(f => Number.isFinite(Date.parse(f.properties?.time ?? ''))).sort((a, b) => Date.parse(b.properties?.time ?? '') - Date.parse(a.properties?.time ?? ''))) {
     const props = feature.properties;
     if (props?.parameter_code !== PARAM_DISSOLVED_OXYGEN) continue;
-    if (!props.time) continue;
+    if (!props.time || !Number.isFinite(Date.parse(props.time))) continue;
     const mgL = parseOgcValue(props.value);
     if (!Number.isFinite(mgL)) continue;
     if (mgL < MIN_PLAUSIBLE_MGL || mgL > MAX_PLAUSIBLE_MGL) continue;

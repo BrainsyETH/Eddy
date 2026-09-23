@@ -1,3 +1,5 @@
+import { calculateDischargePercentile } from '@/lib/usgs/gauges';
+import { gaugeFreshness, isCurrentWaterMeasurement } from '@shared/gauge-freshness';
 // src/app/api/gauges/[siteId]/route.ts
 // GET /api/gauges/[siteId] — one station, whichever tier it belongs to.
 //
@@ -179,9 +181,12 @@ export interface GaugeDetail {
    * time it was measured. Null is the ORDINARY case — most Ozark stations
    * publish no water-temperature series at all — and clients omit the row
    * rather than rendering a placeholder. Old values are still served; the
-   * display rule is "always with its measurement age", not a freshness gate.
+   * Measurements older than 24 hours move to historicalWaterQuality.
    */
   waterTemperature: WaterTemperature | null;
+  historicalWaterQuality: { waterTemperature: WaterTemperature | null; dissolvedOxygen: DissolvedOxygen | null };
+  seasonalContextUnavailableReason: string | null;
+  freshness: ReturnType<typeof gaugeFreshness>;
   /**
    * Latest dissolved oxygen (USGS parameter 00300, mg/L), with the time it was
    * measured. Null is the ordinary case for the same reason as above, with one
@@ -492,11 +497,13 @@ async function _GET(
     // depth, stage datum silence) is percentile-snapshot.ts's. yearsOfRecord
     // comes from the row actually used, never assumed across parameters.
     let seasonalContext: GaugeDetail['seasonalContext'] = null;
-    if (provider === 'usgs' && row.flow_percentile != null) {
-      const band = flowBand(row.flow_percentile);
-      const statsRow = band ? await readSnapshotStatistics(supabase, siteId) : null;
+    if (provider === 'usgs' && dischargeCfs != null && !suspect && gaugeFreshness(readingTimestamp) === 'live') {
+      const statsRow = await readSnapshotStatistics(supabase, siteId)
+        ?? await getFlowProvider('usgs')?.fetchDailyStatistics?.(siteId).catch(() => null);
+      const percentile = statsRow ? calculateDischargePercentile(dischargeCfs, statsRow) : null;
+      const band = flowBand(percentile);
       if (
-        band &&
+        band && percentile != null &&
         statsRow &&
         seasonalBandEligible({
           parameterCode: PARAM_DISCHARGE,
@@ -506,7 +513,7 @@ async function _GET(
         seasonalContext = {
           unit: 'cfs',
           parameterCode: PARAM_DISCHARGE,
-          percentile: row.flow_percentile,
+          percentile,
           band,
           yearsOfRecord: statsRow.yearsOfRecord,
           asOf: new Date().toISOString(),
@@ -529,7 +536,7 @@ async function _GET(
       readingAgeHours: ageHoursOf(readingTimestamp),
       readingSuspect: suspect,
       qualifierNote: note,
-      flowPercentile: row.flow_percentile,
+      flowPercentile: seasonalContext?.percentile ?? null,
       seasonalContext,
       historyCapabilities: getFlowProvider(provider)?.historyCapabilities ?? {
         maxInstantDays: 30,
@@ -538,8 +545,20 @@ async function _GET(
       },
       thresholds: orderedThresholds.length > 0 ? orderedThresholds : null,
       floodStages,
-      waterTemperature,
-      dissolvedOxygen,
+      waterTemperature: isCurrentWaterMeasurement(waterTemperature) ? waterTemperature : null,
+      dissolvedOxygen: isCurrentWaterMeasurement(dissolvedOxygen) ? dissolvedOxygen : null,
+      historicalWaterQuality: {
+        waterTemperature: isCurrentWaterMeasurement(waterTemperature) ? null : waterTemperature,
+        dissolvedOxygen: isCurrentWaterMeasurement(dissolvedOxygen) ? null : dissolvedOxygen,
+      },
+      freshness: gaugeFreshness(readingTimestamp),
+      seasonalContextUnavailableReason: seasonalContext ? null :
+        provider !== 'usgs' ? 'Seasonal comparison is not available for this provider.' :
+        dischargeCfs == null ? 'This station has no discharge reading to compare.' :
+        suspect ? 'The latest discharge observation is flagged by the source.' :
+        gaugeFreshness(readingTimestamp) !== 'live' ? 'A recent observation is needed for a seasonal comparison.' :
+        'An eligible long-term discharge record is not available yet.',
+
       publicUrl: getFlowProvider(provider)?.publicUrl(siteId) ?? null,
       stationNote,
     };

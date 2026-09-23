@@ -1062,10 +1062,12 @@ export async function fetchGaugeHistory(
   siteId: string,
   days: number,
   signal?: AbortSignal,
+  window?: { from: string; to: string },
 ): Promise<GaugeHistoryResponse | null | undefined> {
+  const query = new URLSearchParams({ days: String(days), resolution: 'auto', ...window });
   try {
     const raw = await get<GaugeHistoryResponse>(
-      `/api/gauges/${encodeURIComponent(siteId)}/history?days=${days}`,
+      `/api/gauges/${encodeURIComponent(siteId)}/history?${query}`,
       signal,
     );
     // The SHARED normalizer — the same one the website's hook runs — so a

@@ -119,7 +119,7 @@ interface OgcCollection {
  * what was collected so far and logs; a partial region is worth more than none,
  * and the caller's upsert is idempotent so the next run repairs it.
  */
-async function fetchAllFeatures(url: URL, revalidate: number): Promise<OgcFeature[]> {
+async function fetchAllFeatures(url: URL, revalidate: number, strict = false): Promise<OgcFeature[]> {
   const out: OgcFeature[] = [];
   let next: string | null = url.toString();
 
@@ -128,11 +128,13 @@ async function fetchAllFeatures(url: URL, revalidate: number): Promise<OgcFeatur
     try {
       const res = await fetch(next, { next: { revalidate }, headers: modernHeaders() });
       if (!res.ok) {
+        if (strict) throw new Error(`USGS page failed: ${res.status}`);
         console.warn(`[national-sites] ${url.pathname} page ${page} → ${res.status} ${res.statusText}`);
         return out;
       }
       data = (await res.json()) as OgcCollection;
     } catch (err) {
+      if (strict) throw err;
       console.warn(`[national-sites] ${url.pathname} page ${page} failed:`, err);
       return out;
     }
@@ -151,6 +153,7 @@ async function fetchAllFeatures(url: URL, revalidate: number): Promise<OgcFeatur
     }
   }
 
+  if (strict && next) throw new Error('USGS pagination exceeded page budget');
   return out;
 }
 
@@ -255,9 +258,8 @@ export async function fetchRegionLatest(bbox: Bbox): Promise<NationalSiteReading
     url.searchParams.set('parameter_code', param);
     url.searchParams.set('limit', String(PAGE_SIZE));
 
-    // 15 minutes: the cadence USGS publishes at, and the cadence the observatory
-    // route already uses for its context sites.
-    const pageFeatures = await fetchAllFeatures(url, 900);
+    // Ingestion bypasses the response cache so every pass sees the source.
+    const pageFeatures = await fetchAllFeatures(url, 0, true);
     for (const f of pageFeatures) {
       const locId = f.properties?.monitoring_location_id;
       if (typeof locId !== 'string' || !locId.startsWith('USGS-')) continue;

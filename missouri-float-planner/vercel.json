@@ -61,7 +61,7 @@
     },
     {
       "path": "/api/cron/sync-gauge-latest",
-      "schedule": "20 * * * *"
+      "schedule": "5,20,35,50 * * * *"
     },
     {
       "path": "/api/cron/sync-dam-history",
@@ -77,7 +77,7 @@
     },
     {
       "path": "/api/cron/snapshot-percentiles",
-      "schedule": "0 10 1 * *"
+      "schedule": "40 * * * *"
     },
     {
       "path": "/api/cron/evaluate-gauge-alerts",

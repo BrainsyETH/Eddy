@@ -1028,6 +1028,7 @@ export interface MapGaugeLite {
    * @eddy/conditions/flow-band — never with the condition ladder.
    */
   flowPercentile: number | null;
+  freshness?: 'live' | 'delayed' | 'historical' | 'unavailable';
 }
 
 export interface MapGaugesResponse {
@@ -1166,7 +1167,11 @@ export interface GaugeDetail {
    * null, which is the ordinary case (most Ozark stations publish no
    * water-temperature series). Display it only WITH its measurement age.
    */
-  waterTemperature?: { valueF: number; observedAt: string; source: 'usgs' } | null;
+  waterTemperature?: { valueF: number; observedAt: string; source: 'usgs'; measuredAtSiteId?: string; measuredAtName?: string } | null;
+  dissolvedOxygen?: { valueMgL: number; observedAt: string; source: 'usgs'; measuredAtSiteId?: string; measuredAtName?: string } | null;
+  historicalWaterQuality?: { waterTemperature: GaugeDetail['waterTemperature']; dissolvedOxygen: GaugeDetail['dissolvedOxygen'] };
+  seasonalContextUnavailableReason?: string | null;
+  freshness?: 'live' | 'delayed' | 'historical' | 'unavailable';
   /**
    * The seasonal comparison as one self-describing object. `band` speaks
    * shared/flow-band.ts's vocabulary (comparison, never verdict) —

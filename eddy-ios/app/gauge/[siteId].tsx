@@ -1,3 +1,4 @@
+import { gaugeFreshness, gaugeFreshnessLabel, isCurrentWaterMeasurement, observationAgeHours } from '@eddy/conditions/gauge-freshness';
 // eddy-ios/app/gauge/[siteId].tsx
 // One gauge: what it reads, what that means, and how it got there.
 //
@@ -149,15 +150,6 @@ function displayUnit(gauge: GaugeSeed, link: GaugeDetailThreshold | null): 'ft' 
  * of src/theme/floodStage.ts for why relaying somebody else's threshold is the
  * one safety-adjacent thing an unrated gauge is allowed to carry.
  */
-/** "measured 3 hours ago", or null when the timestamp does not parse. */
-function waterTempAge(observedAt: string): string | null {
-  const t = new Date(observedAt).getTime();
-  if (!Number.isFinite(t)) return null;
-  const hours = Math.max(0, (Date.now() - t) / 3_600_000);
-  const label = readingAge(hours);
-  return label ? label.replace('Updated', 'measured') : null;
-}
-
 function stageSummary(stages: GaugeFloodStages): string {
   return (
     [
@@ -466,7 +458,7 @@ export default function GaugeDetailScreen() {
       ? classifyReading(gauge.gaugeHeightFt, link, gauge.dischargeCfs, { strictUnit: true })
       : 'unknown';
 
-  const band = gauge.readingSuspect ? null : flowBand(gauge.flowPercentile);
+  const band = gauge.readingSuspect || gaugeFreshness(gauge.readingTimestamp) !== 'live' ? null : flowBand(gauge.flowPercentile);
   const bandChip = flowBandChip(band, colors);
 
   const stages = gauge.floodStages;
@@ -487,12 +479,12 @@ export default function GaugeDetailScreen() {
         }
       : null,
     currentFt:
-      gauge.readingSuspect || isReadingStale(gauge.readingAgeHours)
+      gauge.readingSuspect || isReadingStale(observationAgeHours(gauge.readingTimestamp))
         ? null
         : gauge.gaugeHeightFt,
   });
 
-  const age = readingAge(gauge.readingAgeHours);
+  const age = readingAge(observationAgeHours(gauge.readingTimestamp));
   const percentile = percentileLabel(gauge.flowPercentile);
   const starred = gauge.id ? isStarred('gauge', gauge.id) : false;
   // The operator's own page. Prefer the server's answer, which knows each
@@ -759,17 +751,17 @@ export default function GaugeDetailScreen() {
             </View>
           ) : null}
 
-          {/* Water temperature, when this station measures it (most do not) —
-              never without its measurement time, so an old number cannot
-              borrow the reading's freshness. */}
-          {gauge.waterTemperature ? (
-            <Text style={[styles.bandSentence, { color: colors.textMuted }]}>
-              Water {gauge.waterTemperature.valueF}°F
-              {waterTempAge(gauge.waterTemperature.observedAt)
-                ? ` · ${waterTempAge(gauge.waterTemperature.observedAt)}`
-                : ''}
-            </Text>
-          ) : null}
+          <Text style={[styles.bandSentence, { color: colors.textMuted }]}>{gaugeFreshnessLabel(gauge.readingTimestamp)}</Text>
+          {[
+            { label: 'Water temperature', measurement: gauge.waterTemperature, value: `${gauge.waterTemperature?.valueF}°F` },
+            { label: 'Dissolved oxygen', measurement: gauge.dissolvedOxygen, value: `${gauge.dissolvedOxygen?.valueMgL} mg/L` },
+            { label: 'Historical water temperature', measurement: gauge.historicalWaterQuality?.waterTemperature, value: `${gauge.historicalWaterQuality?.waterTemperature?.valueF}°F` },
+            { label: 'Historical dissolved oxygen', measurement: gauge.historicalWaterQuality?.dissolvedOxygen, value: `${gauge.historicalWaterQuality?.dissolvedOxygen?.valueMgL} mg/L` },
+          ].map(({ label, measurement, value }) => measurement ? <Text key={label} style={[styles.bandSentence, { color: colors.textMuted }]}>
+            {!isCurrentWaterMeasurement(measurement) && !label.startsWith('Historical') ? 'Historical ' : ''}{label}: {value} · {new Date(measurement.observedAt).toLocaleString()}{measurement.measuredAtName ? ` · ${measurement.measuredAtName}` : ''}
+          </Text> : null)}
+          {gauge.seasonalContext ? <Text style={[styles.bandSentence, { color: colors.textMuted }]}>Seasonal comparison based on {gauge.seasonalContext.yearsOfRecord} years of discharge records.</Text> : gauge.seasonalContextUnavailableReason ? <Text style={[styles.bandSentence, { color: colors.textMuted }]}>{gauge.seasonalContextUnavailableReason}</Text> : null}
+
         </View>
 
         {/* ── How it got here ──────────────────────────────────────
@@ -793,7 +785,8 @@ export default function GaugeDetailScreen() {
             // draws stages only on a foot axis, so nothing is compared across
             // units to make that happen.
             floodStages={stages}
-            title="Recent history"
+            title="Gauge history"
+            historyCapabilities={gauge.historyCapabilities}
           />
         </View>
 

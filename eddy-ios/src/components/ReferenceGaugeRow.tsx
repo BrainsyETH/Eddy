@@ -1,3 +1,4 @@
+import { gaugeFreshness, gaugeFreshnessLabel, observationAgeHours } from '@eddy/conditions/gauge-freshness';
 // eddy-ios/src/components/ReferenceGaugeRow.tsx
 // One gauge Eddy has NOT rated, in a list.
 //
@@ -73,9 +74,9 @@ function ReferenceGaugeRowComponent({
 }: Props) {
   const { colors, elevation } = useTheme();
 
-  const band = flowBand(reading?.flowPercentile);
+  const band = gaugeFreshness(reading?.readingTimestamp) === 'live' ? flowBand(reading?.flowPercentile) : null;
   const value = referenceReading(reading);
-  const age = readingAge(reading?.readingAgeHours);
+  const age = gaugeFreshness(reading?.readingTimestamp) === 'live' ? readingAge(observationAgeHours(reading?.readingTimestamp)) : gaugeFreshnessLabel(reading?.readingTimestamp);
   const meta = [stationCaption(provider, siteId), age].filter(Boolean).join(' · ');
 
   return (

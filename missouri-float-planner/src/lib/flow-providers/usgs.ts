@@ -130,6 +130,7 @@ export interface OgcFeature {
 
 interface OgcFeatureCollection {
   features?: OgcFeature[];
+  links?: Array<{ rel?: string; href?: string }>;
 }
 
 export function parseOgcValue(raw: number | string | null | undefined): number {
@@ -171,51 +172,45 @@ function mergeQualifierCodes(target: string[], source: string[]): void {
  *
  * Exported because national-sites.ts folds the SAME collection fetched by bbox
  * instead of by site id. The sentinel rejection (-999999), the qualifier
- * normalization and the "stage wins the timestamp" rule all have to be
+ * normalization and the conservative observation-time rule all have to be
  * identical on both paths, and the only way to guarantee that is one function.
  */
 export function foldOgcFeatures(features: OgcFeature[]): Map<string, GaugeReading> {
   const readings = new Map<string, GaugeReading>();
-
+  // Latest-continuous is latest per TIME SERIES. Retired sensors coexist with
+  // active sensors, and response order is not a freshness guarantee.
+  const selected = new Map<string, NonNullable<OgcFeature['properties']>>();
   for (const feature of features) {
-    const props = feature.properties;
-    if (!props?.monitoring_location_id || !props.time) continue;
-
-    const siteId = fromLocationId(props.monitoring_location_id);
-    if (!readings.has(siteId)) {
-      readings.set(siteId, {
-        siteId,
-        // The modern items response carries no site name; display code uses
-        // gauge_stations.name from the DB.
-        siteName: siteId,
-        gaugeHeightFt: null,
-        dischargeCfs: null,
-        readingTimestamp: null,
-        qualifiers: [],
-      });
-    }
-    const reading = readings.get(siteId)!;
-    const value = parseOgcValue(props.value);
-
-    if (props.parameter_code === PARAM_GAGE_HEIGHT) {
-      if (validHeight(value)) {
-        reading.gaugeHeightFt = value;
-        reading.readingTimestamp = props.time;
-        mergeQualifierCodes(reading.qualifiers, ogcQualifiers(props));
-      } else if (!isNaN(value)) {
-        console.warn(`[USGS] Invalid gauge height ${value} for site ${siteId}, treating as unavailable`);
-      }
-    } else if (props.parameter_code === PARAM_DISCHARGE) {
-      if (validDischarge(value)) {
-        reading.dischargeCfs = value;
-        if (!reading.readingTimestamp) reading.readingTimestamp = props.time;
-        mergeQualifierCodes(reading.qualifiers, ogcQualifiers(props));
-      } else if (!isNaN(value)) {
-        console.warn(`[USGS] Invalid discharge ${value} for site ${siteId}, treating as unavailable`);
-      }
-    }
+    const p = feature.properties;
+    if (!p?.monitoring_location_id || !p.time || !Number.isFinite(Date.parse(p.time))) continue;
+    const value = parseOgcValue(p.value);
+    if (p.parameter_code === PARAM_GAGE_HEIGHT ? !validHeight(value)
+      : p.parameter_code === PARAM_DISCHARGE ? !validDischarge(value) : true) continue;
+    const key = `${p.monitoring_location_id}:${p.parameter_code}`;
+    const previous = selected.get(key);
+    if (!previous || Date.parse(p.time) > Date.parse(previous.time!)) selected.set(key, p);
   }
-
+  const newestBySite = new Map<string, number>();
+  for (const p of selected.values()) {
+    const id = p.monitoring_location_id!;
+    newestBySite.set(id, Math.max(newestBySite.get(id) ?? -Infinity, Date.parse(p.time!)));
+  }
+  for (const p of selected.values()) {
+    // Omit a retired parameter rather than giving it the live sensor's time.
+    if (newestBySite.get(p.monitoring_location_id!)! - Date.parse(p.time!) > 86_400_000) continue;
+    const siteId = fromLocationId(p.monitoring_location_id!);
+    const reading = readings.get(siteId) ?? {
+      siteId, siteName: siteId, gaugeHeightFt: null, dischargeCfs: null,
+      readingTimestamp: null, qualifiers: [],
+    };
+    const value = parseOgcValue(p.value);
+    if (p.parameter_code === PARAM_GAGE_HEIGHT) reading.gaugeHeightFt = value;
+    else reading.dischargeCfs = value;
+    // The legacy shape has one timestamp: use the older retained observation.
+    if (!reading.readingTimestamp || Date.parse(p.time!) < Date.parse(reading.readingTimestamp)) reading.readingTimestamp = p.time!;
+    mergeQualifierCodes(reading.qualifiers, ogcQualifiers(p));
+    readings.set(siteId, reading);
+  }
   return readings;
 }
 
@@ -227,20 +222,27 @@ async function fetchLatestModern(
   url.searchParams.set('f', 'json');
   url.searchParams.set('monitoring_location_id', siteIds.map(toLocationId).join(','));
   url.searchParams.set('parameter_code', `${PARAM_GAGE_HEIGHT},${PARAM_DISCHARGE}`);
-  // One latest value per site × parameter
-  url.searchParams.set('limit', String(Math.max(siteIds.length * 2, 10)));
+  // Multiple time series can exist for one site and parameter.
+  url.searchParams.set('limit', '10000');
 
   const fetchOptions: RequestInit = options?.skipCache
     ? { cache: 'no-store', headers: modernHeaders() }
-    : { next: { revalidate: 3600 }, headers: modernHeaders() };
-
-  const response = await fetch(url.toString(), fetchOptions);
-  if (!response.ok) {
-    throw new Error(`USGS modern API error: ${response.status} ${response.statusText}`);
+    : { next: { revalidate: 300 }, headers: modernHeaders() };
+  const features: OgcFeature[] = [];
+  let next: string | null = url.toString();
+  const visited = new Set<string>();
+  while (next) {
+    if (visited.has(next) || visited.size >= 100) throw new Error('USGS latest pagination did not finish');
+    if (new URL(next).origin !== url.origin) throw new Error('Unexpected USGS pagination host');
+    visited.add(next);
+    const response = await fetch(next, { ...fetchOptions, signal: AbortSignal.timeout(15_000) });
+    if (!response.ok) throw new Error(`USGS modern API error: ${response.status} ${response.statusText}`);
+    const data = (await response.json()) as OgcFeatureCollection;
+    features.push(...(data.features ?? []));
+    const link = data.links?.find(link => link.rel === 'next')?.href;
+    next = link ? new URL(link, next).toString() : null;
   }
-
-  const data = (await response.json()) as OgcFeatureCollection;
-  return Array.from(foldOgcFeatures(data.features ?? []).values());
+  return Array.from(foldOgcFeatures(features).values());
 }
 
 /** Fold continuous (instantaneous) OGC features into a readings map. */

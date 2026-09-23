@@ -1,0 +1,40 @@
+{
+  "gauges": [
+    {
+      "id": "b3b24db5-4261-4cf3-8452-23447a5b432f",
+      "siteId": "07068000",
+      "name": "Current River at Doniphan, MO",
+      "coordinates": {
+        "lng": -90.8463888888889,
+        "lat": 36.6215
+      },
+      "dischargeCfs": 1200,
+      "gaugeHeightFt": -0.65,
+      "readingTimestamp": "2026-09-23T10:30:00+00:00",
+      "readingAgeHours": 2.673150833333333,
+      "readingSuspect": false,
+      "curated": true,
+      "flowPercentile": 22,
+      "freshness": "live"
+    },
+    {
+      "id": "ba4dfb41-14fc-4636-8751-1902b20e684a",
+      "siteId": "07063000",
+      "name": "Black River at Poplar Bluff, MO",
+      "coordinates": {
+        "lng": -90.3878333333333,
+        "lat": 36.75975
+      },
+      "dischargeCfs": 575,
+      "gaugeHeightFt": 0.44,
+      "readingTimestamp": "2026-09-23T10:15:00+00:00",
+      "readingAgeHours": 2.923150833333333,
+      "readingSuspect": false,
+      "curated": true,
+      "flowPercentile": 46,
+      "freshness": "live"
+    }
+  ],
+  "capped": true,
+  "total": 139
+}

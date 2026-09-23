@@ -106,7 +106,11 @@ const EMPTY: GaugeHistoryState = {
   historyDays: null,
 };
 
-export function useGaugeHistory(siteId: string | null, days: number): GaugeHistory {
+export function useGaugeHistory(siteId: string | null, days: number, window?: { from: string; to: string }): GaugeHistory {
+  const from = window?.from;
+  const to = window?.to;
+  const requestKey = `${siteId}:${days}:${from ?? ''}:${to ?? ''}`;
+  const [heldKey, setHeldKey] = useState<string | null>(null);
   const [state, setState] = useState<GaugeHistoryState>(EMPTY);
 
   const cache = useRef(new Map<string, GaugeHistoryResponse | null>());
@@ -135,6 +139,7 @@ export function useGaugeHistory(siteId: string | null, days: number): GaugeHisto
     // station has nothing" — and must not be re-requested on every toggle.
     if (cache.current.has(key)) {
       const hit = cache.current.get(key) ?? null;
+      setHeldKey(key);
       setState({
         history: hit,
         loading: false,
@@ -151,7 +156,7 @@ export function useGaugeHistory(siteId: string | null, days: number): GaugeHisto
 
     setState((prev) => ({ ...prev, loading: true, failed: false }));
 
-    const result = await fetchGaugeHistory(site, window, controller.signal);
+    const result = await fetchGaugeHistory(site, window, controller.signal, from && to ? { from, to } : undefined);
     // Aborted covers the ordinary supersede; the key check makes it true by
     // CONSTRUCTION rather than by the abort above happening to have fired.
     // Dropped rather than cached: the cache is written below from one place,
@@ -190,6 +195,7 @@ export function useGaugeHistory(siteId: string | null, days: number): GaugeHisto
       if (oldest !== undefined) cache.current.delete(oldest);
     }
 
+    setHeldKey(key);
     setState({
       history: usable,
       loading: false,
@@ -199,7 +205,7 @@ export function useGaugeHistory(siteId: string | null, days: number): GaugeHisto
       historyDays: usable ? window : null,
     });
     if (inFlight.current === controller) inFlight.current = null;
-  }, []);
+  }, [from, to]);
 
   useEffect(() => {
     if (!siteId) {
@@ -209,8 +215,8 @@ export function useGaugeHistory(siteId: string | null, days: number): GaugeHisto
       setState(EMPTY);
       return;
     }
-    void load(`${siteId}:${days}`, siteId, days);
-  }, [siteId, days, load]);
+    void load(requestKey, siteId, days);
+  }, [siteId, days, load, requestKey]);
 
   // Abort on unmount so a screen the user has left is not still fetching.
   useEffect(() => () => inFlight.current?.abort(), []);
@@ -220,13 +226,13 @@ export function useGaugeHistory(siteId: string | null, days: number): GaugeHisto
   // and re-sets the same honest answer, which is the right no-op.
   const retry = useCallback(() => {
     if (!siteId) return;
-    void load(`${siteId}:${days}`, siteId, days);
-  }, [siteId, days, load]);
+    void load(requestKey, siteId, days);
+  }, [siteId, days, load, requestKey]);
 
   const matchesRequest =
     state.history !== null &&
     state.historySiteId === siteId &&
-    state.historyDays === days;
+    state.historyDays === days && heldKey === requestKey;
 
   return { ...state, matchesRequest, retry };
 }

@@ -236,7 +236,7 @@ export default function CurrentReadingCard({
       )}
 
       {/* Water temperature (when available) — always with its measurement age */}
-      {waterTempF != null && (
+      {waterTempF != null && waterTempAgeHours != null && waterTempAgeHours <= 24 && (
         <div className="px-4 py-2.5 border-t border-white/10">
           <span className="font-sans text-[11px] font-semibold uppercase tracking-wider text-primary-100">
             Water Temp
@@ -254,7 +254,7 @@ export default function CurrentReadingCard({
       )}
 
       {/* Dissolved oxygen (when available) — same rule, same reason */}
-      {dissolvedOxygenMgL != null && (
+      {dissolvedOxygenMgL != null && dissolvedOxygenAgeHours != null && dissolvedOxygenAgeHours <= 24 && (
         <div className="px-4 py-2.5 border-t border-white/10">
           <span className="font-sans text-[11px] font-semibold uppercase tracking-wider text-primary-100">
             Dissolved O&#8322;

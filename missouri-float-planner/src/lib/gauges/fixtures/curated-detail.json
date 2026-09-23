@@ -1,0 +1,65 @@
+{
+  "gauge": {
+    "id": "201f1c6e-5b38-4487-897b-666f67453f8a",
+    "siteId": "07018500",
+    "name": "Big River at Byrnesville, MO",
+    "provider": "usgs",
+    "curated": true,
+    "coordinates": {
+      "lng": -90.6378055555556,
+      "lat": 38.3917222222222
+    },
+    "gaugeHeightFt": 1.75,
+    "dischargeCfs": 122,
+    "readingTimestamp": "2026-09-23T12:45:00+00:00",
+    "readingAgeHours": 0.4238213888888889,
+    "readingSuspect": false,
+    "qualifierNote": "Provisional USGS data",
+    "flowPercentile": 32,
+    "seasonalContext": {
+      "unit": "cfs",
+      "parameterCode": "00060",
+      "percentile": 32,
+      "band": "normal",
+      "yearsOfRecord": 104,
+      "asOf": "2026-09-23T13:10:25.757Z"
+    },
+    "historyCapabilities": {
+      "maxInstantDays": 90,
+      "supportsDaily": true,
+      "supportsCustomRange": true
+    },
+    "thresholds": [
+      {
+        "riverId": "0c406697-4199-42ab-9836-a68a757768a9",
+        "riverName": "Big River",
+        "riverSlug": "big-river",
+        "isPrimary": false,
+        "thresholdUnit": "cfs",
+        "levelTooLow": 90,
+        "levelLow": 150,
+        "levelOptimalMin": 300,
+        "levelOptimalMax": 600,
+        "levelHigh": 900,
+        "levelDangerous": 1200,
+        "floodStageFt": null,
+        "distanceFromSectionMiles": null
+      }
+    ],
+    "floodStages": null,
+    "waterTemperature": null,
+    "dissolvedOxygen": null,
+    "publicUrl": "https://waterdata.usgs.gov/monitoring-location/07018500/",
+    "stationNote": null,
+    "freshness": "live",
+    "historicalWaterQuality": {
+      "waterTemperature": {
+        "valueF": 71.2,
+        "observedAt": "2013-10-01T04:45:00+00:00",
+        "source": "usgs"
+      },
+      "dissolvedOxygen": null
+    },
+    "seasonalContextUnavailableReason": null
+  }
+}

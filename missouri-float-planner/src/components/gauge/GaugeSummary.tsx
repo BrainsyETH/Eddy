@@ -61,6 +61,8 @@ interface GaugeSummaryProps {
   conditionCode?: ConditionCode | null;
   /** Day-of-year percentile for the reference tier's seasonal comparison. */
   flowPercentile?: number | null;
+  yearsOfRecord?: number | null;
+  seasonalContextUnavailableReason?: string | null;
   floodStages?: GaugeFloodStages | null;
   className?: string;
 }
@@ -102,6 +104,8 @@ export default function GaugeSummary({
   qualifierNote,
   conditionCode,
   flowPercentile,
+  yearsOfRecord,
+  seasonalContextUnavailableReason,
   floodStages,
   className = '',
 }: GaugeSummaryProps) {
@@ -241,7 +245,7 @@ export default function GaugeSummary({
 
       <div className="flex items-baseline gap-2 flex-wrap">
         <span className="text-[11px] font-semibold uppercase tracking-wider text-neutral-500 w-20 flex-shrink-0">
-          Right now
+          {readingAgeHours != null && readingAgeHours <= 6 ? 'Right now' : 'Last reading'}
         </span>
         <span className="font-mono text-lg font-bold tabular-nums text-neutral-900">
           {valueText ?? '—'}
@@ -267,6 +271,7 @@ export default function GaugeSummary({
         </p>
       )}
 
+      {yearsOfRecord != null && trusted ? <p className="text-xs text-neutral-500">Seasonal comparison based on {yearsOfRecord} years of discharge records.</p> : seasonalContextUnavailableReason ? <p className="text-xs text-neutral-500">{seasonalContextUnavailableReason}</p> : null}
       {!officialEvent && safetyRow}
 
       <div className="flex items-baseline gap-2">

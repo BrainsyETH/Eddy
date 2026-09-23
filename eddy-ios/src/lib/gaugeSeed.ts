@@ -118,7 +118,12 @@ export interface GaugeSeed {
    * lands-a-beat-later trade floodStages makes above. Absent-like-null on
    * every list seed. Display it only WITH its measurement time.
    */
-  waterTemperature: { valueF: number; observedAt: string } | null;
+  waterTemperature: GaugeDetail['waterTemperature'];
+  dissolvedOxygen?: GaugeDetail['dissolvedOxygen'];
+  historicalWaterQuality?: GaugeDetail['historicalWaterQuality'];
+  seasonalContext?: GaugeDetail['seasonalContext'];
+  seasonalContextUnavailableReason?: string | null;
+  historyCapabilities?: GaugeDetail['historyCapabilities'];
 }
 
 /**
@@ -383,5 +388,10 @@ export function seedFromDetail(gauge: GaugeDetail): GaugeSeed {
     thresholds: gauge.thresholds,
     floodStages: gauge.floodStages,
     waterTemperature: gauge.waterTemperature ?? null,
+    dissolvedOxygen: gauge.dissolvedOxygen,
+    historicalWaterQuality: gauge.historicalWaterQuality,
+    seasonalContext: gauge.seasonalContext,
+    seasonalContextUnavailableReason: gauge.seasonalContextUnavailableReason,
+    historyCapabilities: gauge.historyCapabilities,
   };
 }

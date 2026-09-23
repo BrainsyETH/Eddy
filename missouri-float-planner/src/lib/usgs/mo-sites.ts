@@ -122,6 +122,7 @@ export async function fetchMoContextSites(): Promise<MoContextSitesResult> {
       (props.monitoring_location_id as string | undefined) ?? f.id,
     );
     if (!site) continue;
+    if (props.value == null || props.value === '') continue;
     const value = Number(props.value);
     // USGS uses -999999 sentinel for errored readings; also reject junk.
     if (isNaN(value) || value < 0 || value >= 1_000_000) continue;
@@ -132,7 +133,7 @@ export async function fetchMoContextSites(): Promise<MoContextSitesResult> {
     if (lon == null || lat == null) continue;
     const existing = out.get(site);
     const time = (props.time as string | undefined) ?? null;
-    if (!existing || (time && existing.readingTimestamp && time > existing.readingTimestamp)) {
+    if (!existing || (time && (!existing.readingTimestamp || time > existing.readingTimestamp))) {
       out.set(site, {
         site_no: site,
         name: m?.name ?? null,

@@ -1,3 +1,5 @@
+import { fetchDailyStatisticsRows } from '@/lib/flow-providers/usgs-statistics';
+import { leapDayOfYear } from '@/lib/usgs/percentile-snapshot';
 // src/app/api/gauges/[siteId]/history/route.ts
 // GET /api/gauges/[siteId]/history - Historical gauge data for the trend chart.
 //
@@ -201,9 +203,16 @@ async function fetchTypicalRange(
     .eq('site_no', usgsSiteId)
     .eq('parameter_code', PARAM_DISCHARGE)
     .in('day_of_year', dayIds);
-  if (error || !data) return [];
-
-  const byDay = new Map(data.map((row) => [row.day_of_year, row]));
+  const rows = !error && data ? [...data] : [];
+  if (!rows.length) {
+    try {
+      for (const row of await fetchDailyStatisticsRows(usgsSiteId)) {
+        const dayOfYear = leapDayOfYear(row.month, row.day);
+        if (dayOfYear != null) rows.push({ day_of_year: dayOfYear, p25: row.p25, p50: row.p50, p75: row.p75, count_years: row.countYears });
+      }
+    } catch (err) { console.warn('[gauge-history] seasonal statistics unavailable:', err); }
+  }
+  const byDay = new Map(rows.map((row) => [row.day_of_year, row]));
   return dates.flatMap((date) => {
     const id = leapDayOfYearForDate(date);
     const row = id === null ? undefined : byDay.get(id);

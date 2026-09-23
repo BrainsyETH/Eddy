@@ -78,6 +78,8 @@ export default function DataDock({
   setShowTerrain,
   showSites,
   setShowSites,
+  showHistorical,
+  setShowHistorical,
   showFlow,
   setShowFlow,
   showRiverLabels,
@@ -117,6 +119,8 @@ export default function DataDock({
   showTerrain: boolean;
   setShowTerrain: (v: boolean) => void;
   showSites: boolean;
+  showHistorical: boolean;
+  setShowHistorical: (v: boolean) => void;
   setShowSites: (v: boolean) => void;
   showFlow: boolean;
   setShowFlow: (v: boolean) => void;
@@ -587,6 +591,12 @@ export default function DataDock({
               glyph="◦"
               on={showSites}
               onToggle={() => setShowSites(!showSites)}
+            />
+            <LayerToggle
+              label="Include historical"
+              glyph="◷"
+              on={showHistorical}
+              onToggle={() => setShowHistorical(!showHistorical)}
             />
             <LayerToggle
               label="Flow"
