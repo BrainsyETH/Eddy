@@ -16,7 +16,7 @@ function fixture() {
     river_id: 'river', approved: true, is_float_endpoint: true, river_mile_downstream: i * 5,
     location_orig: { coordinates: [-91, 37] }, types: ['campground'] }));
   const routeStarted = deferred<void>();
-  const routeResponse = deferred<{ data: null; error: Error }>();
+  const routeResponse = deferred<{ data: unknown; error: Error | null }>();
   const client = {
     from(table: string) {
       tables.push(table);
@@ -36,7 +36,12 @@ function fixture() {
       };
       return query;
     },
-    rpc(name: string) { rpcs.push(name); routeStarted.resolve(); return routeResponse.promise; },
+    rpc(name: string) {
+      rpcs.push(name);
+      if (name === 'get_river_condition_segment') return Promise.resolve({ data: [{ condition_code: 'dangerous', gauge_height_ft: 3 }] });
+      if (name === 'get_segment_float_time') return Promise.resolve({ data: [] });
+      routeStarted.resolve(); return routeResponse.promise;
+    },
   } as unknown as Parameters<typeof getAccessPointDetail>[0];
   return { client, tables, rpcs, routeStarted, routeResponse };
 }
@@ -74,23 +79,26 @@ const full = { ...core, nearbyAccessPoints: [{ ...core.nearbyAccessPoints[0], es
 function mobileFixture() {
   const base = deferred<AccessPointDetailResponse>(), estimates = deferred<AccessPointDetailResponse>();
   const controller = new AbortController(), published: AccessPointDetailResponse[] = [];
-  const requests: boolean[] = [], errors: string[] = [];
+  const requests: boolean[] = [], errors: string[] = [], statuses: string[] = [];
   const done = loadAccessDetail({
-    fetch: (include) => { requests.push(include); return include ? estimates.promise : base.promise; },
+    fetchCore: () => { requests.push(false); return base.promise; },
+    fetchEstimates: () => { requests.push(true); return estimates.promise; },
+    estimateStatus: (status) => statuses.push(status),
     publish: (detail) => published.push(detail), failed: () => errors.push('core'),
     estimatesFailed: () => errors.push('estimates'), signal: controller.signal,
   });
-  return { base, estimates, controller, published, requests, errors, done };
+  return { base, estimates, controller, published, requests, errors, statuses, done };
 }
 test('core facts render while float estimates remain unresolved', async () => {
   const f = mobileFixture(); f.base.resolve(core); await Promise.resolve();
   assert.deepEqual(f.published, [core]); assert.deepEqual(f.requests, [false, true]);
-  f.estimates.resolve(full); await f.done; assert.deepEqual(f.published, [core, full]);
+  assert.deepEqual(f.statuses, ['loading']);
+  f.estimates.resolve(full); await f.done; assert.deepEqual(f.published, [core, full]); assert.deepEqual(f.statuses, ['loading', 'ready']);
 });
 test('estimates failure preserves core details; core failure reports unavailable', async () => {
   const f = mobileFixture(); f.base.resolve(core); await Promise.resolve();
   f.estimates.reject(new Error('timeout')); await f.done;
-  assert.deepEqual(f.published, [core]); assert.deepEqual(f.errors, ['estimates']);
+  assert.deepEqual(f.published, [core]); assert.deepEqual(f.errors, ['estimates']); assert.deepEqual(f.statuses, ['loading', 'failed']);
   const failed = mobileFixture(); failed.base.reject(new Error('offline')); await failed.done;
   assert.deepEqual(failed.requests, [false]); assert.deepEqual(failed.errors, ['core']);
 });
@@ -122,4 +130,44 @@ test('cancellation suppresses failed requests at either loading stage', async ()
     await f.done;
     assert.deepEqual(f.errors, []);
   }
+});
+
+test('estimate enrichment preserves displayed mileage, ordering and neighbour identity', async () => {
+  const f = mobileFixture();
+  const initial = { ...core, nearbyAccessPoints: [{ ...core.nearbyAccessPoints[0], distanceMiles: 5 }] };
+  f.base.resolve(initial); await Promise.resolve();
+  f.estimates.resolve({ ...full, nearbyAccessPoints: [
+    { ...full.nearbyAccessPoints[0], distanceMiles: 5.4, name: 'Changed name' },
+    { ...full.nearbyAccessPoints[0], id: 'unexpected' },
+  ] });
+  await f.done;
+  assert.deepEqual(f.published[1].nearbyAccessPoints, [
+    { ...initial.nearbyAccessPoints[0], estimatedFloatTime: '~2 hours' },
+  ]);
+});
+
+test('estimate representation avoids camping, linked-service and gauge-summary reads', async () => {
+  const f = fixture();
+  const pending = getAccessPointDetail(f.client, 'river', 'point-0', { estimatesOnly: true });
+  await f.routeStarted.promise;
+  f.routeResponse.resolve({ data: null, error: new Error('route unavailable') });
+  const result = await pending;
+  assert.equal(result.ok, true);
+  for (const table of ['campsite_availability', 'campsite_facilities', 'access_point_services', 'river_gauges']) {
+    assert.ok(!f.tables.includes(table), table);
+  }
+});
+
+test('full access detail retains route mileage while lightweight detail uses river miles', async () => {
+  const f = fixture();
+  const core = await getAccessPointDetail(f.client, 'river', 'point-0', { includeEstimates: false });
+  assert.ok(core.ok);
+  assert.equal(core.data.nearbyAccessPoints[0].distanceMiles, 5);
+  const pending = getAccessPointDetail(f.client, 'river', 'point-0');
+  await f.routeStarted.promise;
+  f.routeResponse.resolve({ data: [{ distance_miles: '5.43', start_river_mile: '0', end_river_mile: '5' }], error: null });
+  const full = await pending;
+  assert.ok(full.ok);
+  assert.equal(full.data.nearbyAccessPoints[0].distanceMiles, 5.4);
+  assert.equal(full.data.nearbyAccessPoints[0].estimatedFloatTime, null); // dangerous-water withholding remains intact
 });

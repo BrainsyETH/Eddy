@@ -20,8 +20,8 @@
 
 import { useEffect, useState } from 'react';
 import type { AccessPointDetailResponse } from '@eddy/types';
-import { fetchAccessPointDetail } from '@/api/client';
-import { loadAccessDetail } from '@/lib/loadAccessDetail';
+import { fetchAccessPointDetail, fetchAccessPointEstimates } from '@/api/client';
+import { loadAccessDetail, type EstimateStatus } from '@/lib/loadAccessDetail';
 import { warn } from '@/lib/monitoring';
 
 /**
@@ -58,12 +58,15 @@ export function useAccessPointDetail(detailRoute: string | null | undefined): {
    * know whether to wait or to give up.
    */
   status: DetailStatus;
+  estimatesStatus: EstimateStatus;
 } {
   const [held, setHeld] = useState<{
     route: string;
     detail: AccessPointDetailResponse | null;
     failed: boolean;
   } | null>(null);
+
+  const [estimates, setEstimates] = useState<{ route: string; status: EstimateStatus } | null>(null);
 
   const current = held && held.route === detailRoute ? held : null;
   const detail = current?.detail ?? null;
@@ -83,9 +86,11 @@ export function useAccessPointDetail(detailRoute: string | null | undefined): {
     const route = detailRoute as string;
     void loadAccessDetail({
       signal: controller.signal,
-      fetch: (includeEstimates) => fetchAccessPointDetail(
-        slugs.river, slugs.access, controller.signal, includeEstimates,
+      fetchCore: () => fetchAccessPointDetail(
+        slugs.river, slugs.access, controller.signal, false,
       ),
+      fetchEstimates: () => fetchAccessPointEstimates(slugs.river, slugs.access, controller.signal),
+      estimateStatus: (status) => setEstimates({ route, status }),
       publish: (response) => setHeld({ route, detail: response, failed: false }),
       failed: (err) => {
         warn('map', 'access point detail failed', err);
@@ -96,5 +101,5 @@ export function useAccessPointDetail(detailRoute: string | null | undefined): {
     return () => controller.abort();
   }, [detailRoute]);
 
-  return { detail, status };
+  return { detail, status, estimatesStatus: estimates && estimates.route === detailRoute ? estimates.status : 'idle' };
 }

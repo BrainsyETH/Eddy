@@ -36,7 +36,7 @@ import { useAccessPointDetail } from '@/hooks/useAccessPointDetail';
 import { useGaugeDetail } from '@/hooks/useGaugeDetail';
 import { decisionSlot, type DecisionSlot } from './peekSlot';
 import { GlanceSlot } from './GlanceSlot';
-import { MapSheet, type SheetMetrics } from './MapSheet';
+import { MapSheet, SheetPresentation, type SheetMetrics } from './MapSheet';
 import { PinCallout } from './PinCallout';
 import { PlaceHead } from './PlaceHead';
 import { AccessGaugeReading, LinkRow } from './sections';
@@ -112,9 +112,13 @@ export interface PinSheetProps {
 }
 
 export function PinSheet(props: PinSheetProps) {
+  return <SheetPresentation metrics={props.metrics}><PinSheetSelection key={props.pin.id} {...props} /></SheetPresentation>;
+}
+
+function PinSheetSelection(props: PinSheetProps) {
   const { pin, accessPoint, width } = props;
   // Core facts first, then float estimates, shared by every tab.
-  const { detail, status } = useAccessPointDetail(accessPoint ? pin.detailRoute : null);
+  const { detail, status, estimatesStatus } = useAccessPointDetail(accessPoint ? pin.detailRoute : null);
   // Gauges of BOTH tiers. Null for anything else, so the hook no-ops on a pin
   // that is not a station rather than the call being made conditionally.
   const isGaugePin = pin.layer === 'gauges' || pin.layer === 'allGauges';
@@ -174,7 +178,6 @@ export function PinSheet(props: PinSheetProps) {
   // first tab" and has to be, or a tent pin would drag you back to Camping
   // every time you tapped Overview.
   const [chosen, setChosen] = useState<string | null>(null);
-  const [seededFor, setSeededFor] = useState<string | null>(null);
   const progress = useSharedValue(0);
 
   // Measured, because the header is two lines for some pins and four for
@@ -187,14 +190,6 @@ export function PinSheet(props: PinSheetProps) {
     (event: LayoutChangeEvent) => setChromeHeight(Math.round(event.nativeEvent.layout.height)),
     [],
   );
-
-
-  if (seededFor !== pin.id) {
-    // Render-time seed rather than an effect: an effect would paint one frame
-    // of the previous pin's tab first.
-    setSeededFor(pin.id);
-    setChosen(null);
-  }
 
   // Whichever kind of thing was tapped. The shell, the bar and the pager are
   // the same either way — only the page bodies differ, which is the whole
@@ -259,6 +254,7 @@ export function PinSheet(props: PinSheetProps) {
       onPlanTo: props.onPlanTo,
       nearbyMarks: props.nearbyMarks,
       status,
+      estimatesStatus,
       galleryWidth: Math.max(0, width - 32),
       pinAvailability: pin.availability,
     };

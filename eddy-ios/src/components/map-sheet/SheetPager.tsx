@@ -21,10 +21,11 @@
 // Both a drag and a tab TAP write the same shared value, so the indicator
 // tracks a finger and animates on a tap through one code path rather than two
 // that have to be kept looking alike.
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { StyleSheet, View, type ScrollView } from 'react-native';
 import { Gesture, GestureDetector, type GestureType } from 'react-native-gesture-handler';
 import { CONTENT_BOTTOM_PAD } from './sheetGeometry';
+import { measuredPageHeight, pageMeasurementReady } from './sheetMeasurements';
 import { useSheetScroll } from './sheetScroll';
 import Animated, {
   runOnJS,
@@ -85,7 +86,12 @@ interface Props {
   scrollHeaderHeight?: number;
 }
 
-export function SheetPager({
+export function SheetPager(props: Props) {
+  const sheet = useSheetScroll();
+  return <MeasuredSheetPager key={sheet?.resetKey} {...props} />;
+}
+
+function MeasuredSheetPager({
   count,
   index,
   onIndexChange,
@@ -98,10 +104,19 @@ export function SheetPager({
   stickyTabs,
   scrollHeaderHeight = 0,
 }: Props) {
+  const [readyPages, setReadyPages] = useState<Record<string, boolean>>({});
+  const markReady = useCallback((key: string) => {
+    setReadyPages((current) => current[key] ? current : { ...current, [key]: true });
+  }, []);
   const reducedMotion = useReducedMotion();
   const sheet = useSheetScroll();
   const { colors } = useTheme();
   const [sharedHeaderHeight, setSharedHeaderHeight] = useState<number | null>(null);
+  const reportReady = sheet?.setBodyReady;
+  const pagesReady = pageKeys.every((key) => readyPages[key]);
+  useEffect(() => {
+    reportReady?.(pagesReady && (!scrollHeader || sharedHeaderHeight !== null));
+  }, [reportReady, pagesReady, scrollHeader, sharedHeaderHeight]);
   const fallbackScroll = useSharedValue(0);
   const publishedScroll = sheet?.scrollY ?? fallbackScroll;
   const headerClipStyle = useAnimatedStyle(() => ({
@@ -176,17 +191,14 @@ export function SheetPager({
     transform: [{ translateX: translateX.value }],
   }));
 
-  // maxHeight, not height: a SHORT page keeps its natural size, which is what
-  // lets the sheet still measure it and offer one detent instead of a tall
-  // mostly-empty card. Only a page with more to say than fits gets capped and
-  // scrolls.
+  // Natural content decides the viewport, capped to the available page budget.
   const pageMaxHeight = Math.max(scrollHeader ? 0 : 120, (sheet?.pageBudget ?? 0) - chromeHeight);
 
   return (
     <View style={{ width }}>
       <GestureDetector gesture={pan}>
         <Animated.View style={[styles.track, { width: width * count }, trackStyle]}>
-          {children.map((page, i) => (
+          {(!scrollHeader || sharedHeaderHeight !== null) && children.map((page, i) => (
             // Keyed by the TAB and by the SELECTION, never by position. See the
             // pageKeys prop for the first; the second is because two access
             // points share tab keys, so without it a new pin inherits the last
@@ -203,6 +215,7 @@ export function SheetPager({
               // reader at the glance.
               scrollEnabled={sheet?.atFull ?? false}
               scrollHeaderHeight={scrollHeaderHeight}
+              onMeasured={() => markReady(pageKeys[i])}
               measureBody
             >
               {scrollHeader ? <View style={{ height: sharedHeaderHeight ?? 0 }} /> : null}
@@ -238,6 +251,7 @@ export function SheetBody({ children }: { children: React.ReactNode }) {
       panRef={sheet?.panRef}
       published={sheet?.scrollY ?? null}
       scrollEnabled={sheet?.atFull ?? false}
+      onMeasured={() => sheet?.setBodyReady(true)}
       measureBody
     >
       {children}
@@ -258,6 +272,7 @@ interface PageProps {
   stickyHeaderIndices?: number[];
   scrollHeaderHeight?: number;
   measureBody?: boolean;
+  onMeasured?: () => void;
 }
 
 type SheetPagerPanRef = React.MutableRefObject<GestureType | undefined> | undefined;
@@ -295,9 +310,17 @@ function SheetPage({
   stickyHeaderIndices,
   scrollHeaderHeight = 0,
   measureBody = false,
+  onMeasured,
 }: PageProps) {
   const scroller = useRef<ScrollView>(null);
   const [bodyHeight, setBodyHeight] = useState<number | null>(null);
+  const [viewportHeight, setViewportHeight] = useState<number | null>(null);
+  const expectedHeight = measuredPageHeight(bodyHeight, maxHeight);
+  useEffect(() => {
+    if (pageMeasurementReady(bodyHeight, viewportHeight, maxHeight)) {
+      onMeasured?.();
+    }
+  }, [bodyHeight, viewportHeight, maxHeight, onMeasured]);
   // This page's OWN offset, kept whether or not it is the one in front, so
   // that becoming the front page can republish the truth about this page
   // rather than leaving the last page's number standing.
@@ -317,12 +340,12 @@ function SheetPage({
     // Switching tabs while the summary is collapsed keeps navigation in place.
     // Preserve deeper per-tab positions; only synchronize the header portion.
     if (scrollEnabled && scrollHeaderHeight > 0) {
-      const target = tabScrollOffset(published.value, offset.value, scrollHeaderHeight);
+      const target = Math.min(tabScrollOffset(published.value, offset.value, scrollHeaderHeight), Math.max(0, (bodyHeight ?? 0) + CONTENT_BOTTOM_PAD - maxHeight));
       offset.value = target;
       scroller.current?.scrollTo({ y: target, animated: false });
     }
     published.value = offset.value;
-  }, [active, published, offset, scrollEnabled, scrollHeaderHeight]);
+  }, [active, published, offset, scrollEnabled, scrollHeaderHeight, bodyHeight, maxHeight]);
 
   const native = useMemo(
     () => (panRef ? Gesture.Native().simultaneousWithExternalGesture(panRef) : Gesture.Native()),
@@ -340,9 +363,9 @@ function SheetPage({
           flexGrow: 0,
           // Both service and tabbed POIs need an explicit viewport on iOS.
           // Measure scroll content independently of its current viewport.
-          height: measureBody ? Math.min(bodyHeight ?? maxHeight, maxHeight) : undefined,
+          height: measureBody ? expectedHeight : undefined,
         }}
-        onContentSizeChange={measureBody ? (_width, height) => setBodyHeight(Math.ceil(height)) : undefined}
+        onLayout={(event) => setViewportHeight(event.nativeEvent.layout.height)}
         stickyHeaderIndices={stickyHeaderIndices}
         accessibilityElementsHidden={!active}
         importantForAccessibility={active ? 'auto' : 'no-hide-descendants'}
@@ -355,8 +378,6 @@ function SheetPage({
         // long tab clears the tab bar and a short tab wastes nothing.
         contentContainerStyle={{
           paddingBottom: CONTENT_BOTTOM_PAD,
-          // Even a short tab must allow its summary to scroll fully away.
-          minHeight: scrollHeaderHeight > 0 ? maxHeight + scrollHeaderHeight : undefined,
         }}
         onScroll={onScroll}
         scrollEventThrottle={16}
@@ -367,7 +388,9 @@ function SheetPage({
         bounces={false}
         showsVerticalScrollIndicator={false}
       >
-        {children}
+        <View collapsable={false} onLayout={(event) => setBodyHeight(Math.ceil(event.nativeEvent.layout.height))}>
+          {children}
+        </View>
       </Animated.ScrollView>
     </GestureDetector>
   );
