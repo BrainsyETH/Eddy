@@ -176,7 +176,12 @@ function recordTiming(path: string, outcome: RequestOutcome, startedAt: number):
   const durationMs = Date.now() - startedAt;
   const route = routeOf(path);
 
-  if (__DEV__) console.info('[net]', route, outcome, `${durationMs}ms`);
+  if (__DEV__) {
+    const stage = route === '/api/rivers/:slug/access/:accessSlug'
+      ? (/[?&]includeEstimates=0(?:&|$)/.test(path) ? 'core' : 'with-estimates')
+      : null;
+    console.info('[net]', route, outcome, `${durationMs}ms`, ...(stage ? [{ stage }] : []));
+  }
   if (!worthReporting(outcome, durationMs)) return;
 
   // The bucket is in the MESSAGE and the exact figure is in the detail, which

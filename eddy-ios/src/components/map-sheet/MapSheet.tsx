@@ -20,7 +20,7 @@
 // open collapsed the moment the detail request landed or they swiped to a taller
 // tab. A new SELECTION resets the sheet; new content does not.
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { StyleSheet, View, type LayoutChangeEvent } from 'react-native';
+import { StyleSheet, View, useWindowDimensions, type LayoutChangeEvent } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
   runOnJS,
@@ -139,6 +139,10 @@ export function MapSheet({
 }: Props) {
   const { colors, elevation } = useTheme();
   const reducedMotion = useReducedMotion();
+  const window = useWindowDimensions();
+  const rootView = useRef<View>(null);
+  const sheetView = useRef<View>(null);
+  const peekView = useRef<View>(null);
 
   // Measured rather than assumed: the sheet lives inside the map's overlay
   // stack, not the window, and the two differ by the tab bar and both insets.
@@ -255,6 +259,35 @@ export function MapSheet({
     commit(held);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [resetKey, detents, available, reducedMotion]);
+
+  // Sample native screen coordinates after layout/settling, rather than infer
+  // clipping from gauge-cache or network logs. No names, IDs or coordinates of
+  // places are logged. Cleanup suppresses measurements from an old selection.
+  useEffect(() => {
+    if (!__DEV__ || !previewReady || available <= 0) return;
+    let cancelled = false;
+    const timer = setTimeout(() => {
+      rootView.current?.measureInWindow((_x, rootY, _width, rootHeight) => {
+        sheetView.current?.measureInWindow((_sx, sheetY, _sw, sheetHeight) => {
+          peekView.current?.measureInWindow((_px, peekY, _pw, nativePeekHeight) => {
+            if (cancelled) return;
+            const rootBottom = rootY + rootHeight;
+            const expectedTop = rootBottom - detents.height[detent];
+            console.info('[map] sheet layout', {
+              detent, previewReady, available, contentHeight, peekHeight, peekExtraHeight,
+              detentHeight: detents.height[detent],
+              windowHeight: window.height,
+              rootY, rootHeight, rootBottom, sheetY, sheetHeight,
+              nativePeekHeight,
+              positionError: Math.round(sheetY - expectedTop),
+              previewOverflow: Math.round(peekY + nativePeekHeight + peekExtraHeight - rootBottom),
+            });
+          });
+        });
+      });
+    }, 1000);
+    return () => { cancelled = true; clearTimeout(timer); };
+  }, [resetKey, previewReady, available, contentHeight, peekHeight, peekExtraHeight, detent, detents, window.height]);
 
   const pan = useMemo(
     () =>
@@ -450,7 +483,7 @@ export function MapSheet({
   );
 
   return (
-    <View style={StyleSheet.absoluteFill} pointerEvents="box-none" onLayout={onRootLayout}>
+    <View ref={rootView} collapsable={false} style={StyleSheet.absoluteFill} pointerEvents="box-none" onLayout={onRootLayout}>
       {/* Not a Pressable: at every detent this sheet offers, tapping the map
           behind it should reach the MAP — selecting another pin, panning — and
           a scrim that swallowed those taps would turn the glance into a modal.
@@ -462,6 +495,8 @@ export function MapSheet({
 
       <GestureDetector gesture={pan}>
         <Animated.View
+          ref={sheetView}
+          collapsable={false}
           style={[
             styles.sheet,
             { height: available, backgroundColor: colors.card },
@@ -547,7 +582,7 @@ export function MapSheet({
                 child's first 28pt instead of creating air under the peek. A
                 single-page callout is all peek, so the same wrapper covers it. */}
             <View onLayout={onContentLayout} collapsable={false} style={{ flexShrink: 0 }}>
-              <View onLayout={onPeekLayout} collapsable={false} style={{ paddingBottom: peekBottomPad, flexShrink: 0 }}>
+              <View ref={peekView} onLayout={onPeekLayout} collapsable={false} style={{ paddingBottom: peekBottomPad, flexShrink: 0 }}>
                 {peek}
               </View>
               {children}
