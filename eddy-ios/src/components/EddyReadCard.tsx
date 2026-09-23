@@ -1,5 +1,5 @@
 import { radii } from '@/theme/layout';
-import { Image, Linking, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { Ionicons } from '@expo/vector-icons';
 import type { RiverListItem } from '@eddy/types';
@@ -64,7 +64,7 @@ export function EddyReadCard({ river, says, onPress, compact = false, standalone
   return (
     <Pressable
       onPress={onPress}
-      // Keep the named heading action, excerpt, Retry and credit individually accessible.
+      // Keep the named heading action, excerpt and Retry individually accessible.
       accessible={false}
       style={[
         styles.card,
@@ -100,7 +100,6 @@ export function EddyReadCard({ river, says, onPress, compact = false, standalone
           <Ionicons name="chevron-forward" size={15} color="white" />
         </Pressable>
       </View>
-      {river.photoCredit ? <Pressable onPress={event => { event.stopPropagation(); void Linking.openURL(river.photoCredit!.url); }} accessibilityRole="link" accessibilityLabel="Photo credit and license" style={{ minHeight: 44, justifyContent: 'center', alignSelf: 'flex-start' }}><Text style={{ ...t.xs, color: '#e2eee8' }}>Photo: {river.photoCredit.text}</Text></Pressable> : null}
       </View>
     </Pressable>
   );
