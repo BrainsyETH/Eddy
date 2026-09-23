@@ -36,6 +36,8 @@ import Animated, {
   withTiming,
   type SharedValue,
 } from 'react-native-reanimated';
+import { useTheme } from '@/theme/ThemeProvider';
+import { tabScrollOffset } from './tabScrollOffset';
 import { useReducedMotion } from '@/hooks/useReducedMotion';
 
 /** Horizontal travel that claims the gesture for the pager. */
@@ -77,7 +79,7 @@ interface Props {
    * instead of running off the bottom of the screen.
    */
   chromeHeight: number;
-  /** Scroll the summary away, then pin the tab navigation below the identity. */
+  /** Shared chrome stays outside the horizontal track; only page bodies slide. */
   scrollHeader?: React.ReactNode;
   stickyTabs?: React.ReactNode;
   scrollHeaderHeight?: number;
@@ -98,6 +100,16 @@ export function SheetPager({
 }: Props) {
   const reducedMotion = useReducedMotion();
   const sheet = useSheetScroll();
+  const { colors } = useTheme();
+  const [sharedHeaderHeight, setSharedHeaderHeight] = useState(0);
+  const fallbackScroll = useSharedValue(0);
+  const publishedScroll = sheet?.scrollY ?? fallbackScroll;
+  const headerClipStyle = useAnimatedStyle(() => ({
+    height: Math.max(0, sharedHeaderHeight - Math.min(scrollHeaderHeight, Math.max(0, publishedScroll.value))),
+  }));
+  const headerContentStyle = useAnimatedStyle(() => ({
+    transform: [{ translateY: -Math.min(scrollHeaderHeight, Math.max(0, publishedScroll.value)) }],
+  }));
   const translateX = useSharedValue(0);
   const dragStart = useSharedValue(0);
 
@@ -170,34 +182,45 @@ export function SheetPager({
   const pageMaxHeight = Math.max(scrollHeader ? 0 : 120, (sheet?.pageBudget ?? 0) - chromeHeight);
 
   return (
-    <GestureDetector gesture={pan}>
-      <Animated.View style={[styles.track, { width: width * count }, trackStyle]}>
-        {children.map((page, i) => (
-          // Keyed by the TAB and by the SELECTION, never by position. See the
-          // pageKeys prop for the first; the second is because two access
-          // points share tab keys, so without it a new pin inherits the last
-          // one's scrollers — and a native scroll offset outlives a re-render.
-          <SheetPage
-            key={`${sheet?.resetKey ?? ''}:${pageKeys[i] ?? i}`}
-            active={i === index}
-            width={width}
-            maxHeight={pageMaxHeight}
-            panRef={sheet?.panRef}
-            published={sheet?.scrollY ?? null}
-            // Only at the tallest detent. Below it a vertical drag is how you
-            // OPEN the sheet, and a scroller that ate it would strand the
-            // reader at the glance.
-            scrollEnabled={sheet?.atFull ?? false}
-            stickyHeaderIndices={stickyTabs ? [1] : undefined}
-            scrollHeaderHeight={scrollHeaderHeight}
+    <View style={{ width }}>
+      <GestureDetector gesture={pan}>
+        <Animated.View style={[styles.track, { width: width * count }, trackStyle]}>
+          {children.map((page, i) => (
+            // Keyed by the TAB and by the SELECTION, never by position. See the
+            // pageKeys prop for the first; the second is because two access
+            // points share tab keys, so without it a new pin inherits the last
+            // one's scrollers — and a native scroll offset outlives a re-render.
+            <SheetPage
+              key={`${sheet?.resetKey ?? ''}:${pageKeys[i] ?? i}`}
+              active={i === index}
+              width={width}
+              maxHeight={pageMaxHeight}
+              panRef={sheet?.panRef}
+              published={sheet?.scrollY ?? null}
+              // Only at the tallest detent. Below it a vertical drag is how you
+              // OPEN the sheet, and a scroller that ate it would strand the
+              // reader at the glance.
+              scrollEnabled={sheet?.atFull ?? false}
+              scrollHeaderHeight={scrollHeaderHeight}
+            >
+              {scrollHeader ? <View style={{ height: sharedHeaderHeight }} /> : null}
+              {page}
+            </SheetPage>
+          ))}
+        </Animated.View>
+      </GestureDetector>
+      {scrollHeader ? (
+        <Animated.View style={[styles.sharedHeader, { backgroundColor: colors.card }, headerClipStyle]}>
+          <Animated.View
+            onLayout={(event) => setSharedHeaderHeight(Math.ceil(event.nativeEvent.layout.height))}
+            style={[{ flexShrink: 0 }, headerContentStyle]}
           >
-            {scrollHeader ? <View>{scrollHeader}</View> : null}
-            {stickyTabs ? <View>{stickyTabs}</View> : null}
-            {page}
-          </SheetPage>
-        ))}
-      </Animated.View>
-    </GestureDetector>
+            {scrollHeader}
+            {stickyTabs}
+          </Animated.View>
+        </Animated.View>
+      ) : null}
+    </View>
   );
 }
 
@@ -290,9 +313,10 @@ function SheetPage({
     if (!active || !published) return;
     // Switching tabs while the summary is collapsed keeps navigation in place.
     // Preserve deeper per-tab positions; only synchronize the header portion.
-    if (scrollEnabled && scrollHeaderHeight > 0 && published.value >= scrollHeaderHeight && offset.value < scrollHeaderHeight) {
-      offset.value = scrollHeaderHeight;
-      scroller.current?.scrollTo({ y: scrollHeaderHeight, animated: false });
+    if (scrollEnabled && scrollHeaderHeight > 0) {
+      const target = tabScrollOffset(published.value, offset.value, scrollHeaderHeight);
+      offset.value = target;
+      scroller.current?.scrollTo({ y: target, animated: false });
     }
     published.value = offset.value;
   }, [active, published, offset, scrollEnabled, scrollHeaderHeight]);
@@ -382,5 +406,6 @@ const styles = StyleSheet.create({
   // card to whichever page is in front needs the active page measured and the
   // track's height animated with it; that is a bigger change than this one and
   // has not been made.
+  sharedHeader: { position: 'absolute', top: 0, left: 0, right: 0, overflow: 'hidden', zIndex: 1 },
   track: { flexDirection: 'row', alignItems: 'flex-start' },
 });

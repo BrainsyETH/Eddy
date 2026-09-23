@@ -17,10 +17,11 @@ import { useState } from 'react';
 import type { CampsitePhoto } from '@eddy/types';
 import { useCampsitePhotos } from '@/hooks/useCampsitePhotos';
 import { CampsitePhotos } from './CampsitePhotos';
-import { Linking, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Alert, Linking, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
+import { siteBooking } from './siteBooking';
 import { spokenWeekday } from './availability';
 import {
   groupSites,
@@ -34,8 +35,8 @@ import {
 /** Rows per loop before the list asks whether you meant it. */
 const VISIBLE_PER_LOOP = 12;
 
-function SiteRow({ entry, date, photos: suppliedPhotos, stateParkFacilityId }: {
-  entry: SiteOnNight; date: string; photos?: CampsitePhoto[]; stateParkFacilityId?: string;
+function SiteRow({ entry, date, photos: suppliedPhotos, stateParkFacilityId, reservationUrl }: {
+  entry: SiteOnNight; date: string; photos?: CampsitePhoto[]; stateParkFacilityId?: string; reservationUrl?: string;
 }) {
   const { colors } = useTheme();
   const { site, tags, state } = entry;
@@ -45,14 +46,17 @@ function SiteRow({ entry, date, photos: suppliedPhotos, stateParkFacilityId }: {
   const label = site.name ?? `Site ${site.id.slice(0, 6)}`;
   const detail = [badge, ...tags].filter(Boolean).join(' · ');
 
-  const openable = Boolean(site.bookingUrl);
+  const booking = siteBooking(state, site.bookingUrl, reservationUrl);
+  const openable = Boolean(booking);
 
   return (
     <View style={[styles.siteRow, photos?.length ? styles.photoRow : null]}>
       {photos?.length ? <CampsitePhotos key={photos.map((photo) => photo.url).join('|')} photos={photos} label={label} /> : null}
       <Pressable
         onPress={() => {
-          if (site.bookingUrl) void Linking.openURL(site.bookingUrl);
+          if (booking) void Linking.openURL(booking.url).catch(() => {
+            Alert.alert('Couldn’t open reservations', 'Please try again.');
+          });
         }}
         disabled={!openable}
         style={({ pressed }) => [styles.row, styles.booking, { opacity: pressed && openable ? 0.6 : 1 }]}
@@ -62,7 +66,7 @@ function SiteRow({ entry, date, photos: suppliedPhotos, stateParkFacilityId }: {
         accessibilityLabel={
           `${label}${site.loop ? `, ${site.loop}` : ''}` +
           `${detail ? `, ${detail}` : ''}, open ${spokenWeekday(date)}` +
-          `${openable ? '. Opens Recreation.gov.' : ''}`
+          `${booking ? (booking.direct ? '. Opens the site reservation page.' : '. Opens park reservations. Select this site and date there.') : ''}`
         }
       >
         <View style={styles.rowText}>
@@ -72,6 +76,11 @@ function SiteRow({ entry, date, photos: suppliedPhotos, stateParkFacilityId }: {
           {detail ? (
             <Text style={[styles.rowDetail, { color: colors.textMuted }]} numberOfLines={1}>
               {detail}
+            </Text>
+          ) : null}
+          {booking ? (
+            <Text style={[styles.rowDetail, { color: colors.interactive }]}>
+              {booking.direct ? 'Book site' : 'Reserve through park · select this site and date there'}
             </Text>
           ) : null}
         </View>
@@ -120,12 +129,14 @@ function Loop({
   photos,
   individualSites,
   stateParkFacilityId,
+  reservationUrl,
 }: {
   group: LoopGroup;
   date: string;
   photos?: Record<string, CampsitePhoto[]>;
   individualSites?: boolean;
   stateParkFacilityId?: string;
+  reservationUrl?: string;
   /**
    * A loop name earns its line only when there is another loop to tell it from.
    *
@@ -140,8 +151,8 @@ function Loop({
   const shown = expanded ? group.open : group.open.slice(0, VISIBLE_PER_LOOP);
   const hidden = group.open.length - shown.length;
 
-  // State Parks rows also carry individually fetched photos, even though
-  // reservations still open through the park-level booking action above.
+  // State Parks rows carry individually fetched photos and can open the park
+  // reservation page when the provider does not supply an exact-site URL.
   const tappable = group.open.some((entry) => individualSites || Boolean(entry.site.bookingUrl));
 
   return (
@@ -153,7 +164,7 @@ function Loop({
       {!tappable ? <KindSummaries group={group} date={date} /> : null}
 
       {tappable
-        ? shown.map((entry) => <SiteRow key={entry.site.id} entry={entry} date={date} photos={photos?.[entry.site.id]} stateParkFacilityId={stateParkFacilityId} />)
+        ? shown.map((entry) => <SiteRow key={entry.site.id} entry={entry} date={date} photos={photos?.[entry.site.id]} stateParkFacilityId={stateParkFacilityId} reservationUrl={reservationUrl} />)
         : null}
 
       {tappable && hidden > 0 ? (
@@ -191,10 +202,12 @@ export function CampsiteList({
   photos,
   individualSites,
   stateParkFacilityId,
+  reservationUrl,
 }: {
   photos?: Record<string, CampsitePhoto[]>;
   individualSites?: boolean;
   stateParkFacilityId?: string;
+  reservationUrl?: string;
   entries: SiteOnNight[];
   filters: string[];
   date: string;
@@ -233,6 +246,7 @@ export function CampsiteList({
           photos={photos}
           individualSites={individualSites}
           stateParkFacilityId={stateParkFacilityId}
+          reservationUrl={reservationUrl}
           date={date}
           showName={groups.length > 1}
         />

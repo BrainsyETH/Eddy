@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { tabScrollOffset } from '../../../eddy-ios/src/components/map-sheet/tabScrollOffset';
 import {
   CONTENT_BOTTOM_PAD,
   DISMISS_FRACTION,
@@ -403,4 +404,19 @@ test('merging half and full preserves the last rows of a POI body', () => {
   const content = Math.round(TALL * 0.55) + 30;
   const d = resolveDetents(TALL, content, 160);
   assert.equal(d.height[d.order[d.order.length - 1]], content);
+});
+
+// A tab change must preserve the shared header, including partial collapse.
+
+test('tab switches preserve expanded, partial and collapsed shared headers', () => {
+  assert.equal(tabScrollOffset(0, 240, 100), 0);
+  assert.equal(tabScrollOffset(45, 0, 100), 45);
+  assert.equal(tabScrollOffset(45, 240, 100), 45);
+  assert.equal(tabScrollOffset(160, 0, 100), 100);
+  assert.equal(tabScrollOffset(160, 240, 100), 240);
+  assert.equal(tabScrollOffset(-8, 60, 100), 0);
+});
+
+test('tabs without a shared header retain their individual offsets', () => {
+  assert.equal(tabScrollOffset(200, 75, 0), 75);
 });
