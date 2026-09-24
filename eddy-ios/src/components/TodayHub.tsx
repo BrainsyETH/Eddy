@@ -46,6 +46,7 @@ import { relativeAge } from '@eddy/conditions/dam-schedule-copy';
 import { EddySymbol } from '@/components/EddySymbol';
 import { TodayRiverPhoto } from '@/components/TodayRiverPhoto';
 import { PremiumReadPreview } from '@/components/PremiumReadPreview';
+import { PaywallSheet } from '@/components/PaywallSheet';
 import { EddyScene } from '@/components/EddyScene';
 import { Otter, otterForCondition } from '@/components/Otter';
 import { TodaySummary, TodayWeather } from '@/components/TodaySummary';
@@ -589,10 +590,14 @@ export function TodayHub({
   const router = useRouter();
   const { colors } = useTheme();
   const { starred, ready: starsReady } = useStarredRivers();
-  const { session } = useSession();
+  const { session, ready: sessionReady } = useSession();
   const account = useAccount();
   const premiumUserId = account.loaded && !account.error && account.entitlement?.isActive && account.profile?.id === session?.user.id
     ? session?.user.id ?? null : null;
+  const canUnlockRead = sessionReady && account.loaded && !account.error
+    && (!session || account.profile?.id === session.user.id)
+    && !account.entitlement?.isActive;
+  const [paywallRiver, setPaywallRiver] = useState<string | null>(null);
   const { refresh: refreshAccount } = account;
   const focusedOnce = useRef(false);
   useFocusEffect(useCallback(() => {
@@ -985,6 +990,7 @@ export function TodayHub({
                 compact
                 photoUrl={photos.get(river.slug)}
                 premiumUserId={premiumUserId}
+                onUnlock={canUnlockRead ? () => setPaywallRiver(river.name) : undefined}
                 refreshRevision={refreshRevision}
                 onPress={() => openRead(river.slug)}
               />
@@ -997,6 +1003,7 @@ export function TodayHub({
             standalone
             photoUrl={photos.get(readPreviews[0].river.slug)}
             premiumUserId={premiumUserId}
+            onUnlock={canUnlockRead ? () => setPaywallRiver(readPreviews[0].river.name) : undefined}
             refreshRevision={refreshRevision}
             onPress={() => openRead(readPreviews[0].river.slug)}
           />
@@ -1155,6 +1162,12 @@ export function TodayHub({
         </View>
       ) : null}
 
+      <PaywallSheet
+        visible={paywallRiver !== null}
+        riverName={paywallRiver ?? undefined}
+        onClose={() => setPaywallRiver(null)}
+        onPurchased={() => { void refreshAccount(); }}
+      />
     </View>
   );
 }
