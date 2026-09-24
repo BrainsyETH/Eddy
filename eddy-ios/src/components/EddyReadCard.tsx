@@ -38,22 +38,18 @@ function ReadBackdrop({ photoUrl }: { photoUrl?: string | null }) {
 }
 
 /** Reserve the card's layout without presenting an unvalidated Read or verdict. */
-export function EddyReadPlaceholder({ name, photoUrl, standalone = false }: {
-  name?: string;
-  photoUrl?: string | null;
-  standalone?: boolean;
-}) {
+export function EddyReadPlaceholder() {
   const { elevation } = useTheme();
   return <View accessible accessibilityLabel="Loading Eddy’s Read" accessibilityState={{ busy: true }}
-    style={[styles.card, standalone ? styles.standalone : styles.compact,
+    style={[styles.card, styles.compact,
       { backgroundColor: '#16352e', borderColor: 'transparent' }, elevation(1)]}>
-    <ReadBackdrop photoUrl={photoUrl} />
+    <ReadBackdrop />
     <View style={styles.content} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
       <View style={styles.head}>
         <Text style={[styles.kicker, { color: '#e2eee8' }]}>EDDY&apos;S READ</Text>
         <View style={[styles.pill, { opacity: 0 }]}><Text style={styles.pillText}>Pending</Text></View>
       </View>
-      <Text style={[styles.name, { color: 'white' }]}>{name ?? ' '}</Text>
+      <Text style={[styles.name, { color: 'white' }]}>{' '}</Text>
       <BlurredReadPreview lines={7} />
       <View style={styles.foot}><View style={{ minHeight: 44 }} /></View>
     </View>
