@@ -11,6 +11,7 @@
 // accent color with a single demoted Eddy credit.
 
 import type { Metadata } from 'next';
+import EmbedPartnerBrand from '@/components/embed/EmbedPartnerBrand';
 import { getEmbedCardData } from '@/lib/embed/cards';
 import { embedPalette, embedShadow, EMBED_FONTS } from '@/lib/embed/theme';
 import { CONDITION_COLORS, CONDITION_SHORT_LABELS } from '@/constants';
@@ -98,20 +99,9 @@ export default async function EmbedCardPage({ params, searchParams }: Props) {
         boxSizing: 'border-box',
       }}
     >
-      {/* Header: host brand first */}
+      <EmbedPartnerBrand businessName={card.businessName} logoUrl={card.logoUrl} isDark={isDark} />
+      {/* River context below the host brand */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-        {card.logoUrl && (
-          // Host logos live on arbitrary domains — next/image needs an
-          // allowlist, so use a plain img and degrade silently.
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={card.logoUrl}
-            alt=""
-            width={32}
-            height={32}
-            style={{ width: 32, height: 32, objectFit: 'contain', borderRadius: 6, flexShrink: 0 }}
-          />
-        )}
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ fontWeight: 700, fontSize: 14, lineHeight: 1.2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
             {card.riverName}
@@ -223,11 +213,6 @@ export default async function EmbedCardPage({ params, searchParams }: Props) {
 
       {/* Demoted credit — the only Eddy link on the card */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 6 }}>
-        {card.businessName && (
-          <span style={{ fontSize: 10, color: textSecondary, fontWeight: 500, marginRight: 'auto' }}>
-            {card.businessName}
-          </span>
-        )}
         <a
           href={`https://eddy.guide${card.riverPath}?utm_source=eddy_embed&utm_medium=card&utm_campaign=${card.embedId}`}
           target="_blank"

@@ -1,7 +1,7 @@
 // src/app/api/embed/register/route.ts
 // POST /api/embed/register — branding-only registration for co-branded
 // widgets. No address/pin needed (that's the card's onboarding); a business
-// name is enough to mint an embed_id that any widget accepts via ?e=.
+// name or logo is enough to mint an embed_id that any widget accepts via ?e=.
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createEmbedBranding } from '@/lib/embed/cards';
@@ -17,14 +17,15 @@ export async function POST(request: NextRequest): Promise<Response> {
 
     const body = await request.json().catch(() => null);
     const businessName = typeof body?.businessName === 'string' ? body.businessName.trim() : '';
-    if (!businessName) {
-      return NextResponse.json({ error: 'businessName is required' }, { status: 400 });
+    const logoUrl = typeof body?.logoUrl === 'string' ? body.logoUrl.trim() : '';
+    if (!businessName && !logoUrl) {
+      return NextResponse.json({ error: 'Add a business name or logo.' }, { status: 400 });
     }
 
     const result = await createEmbedBranding({
       businessName,
       siteUrl: typeof body?.siteUrl === 'string' ? body.siteUrl : undefined,
-      logoUrl: typeof body?.logoUrl === 'string' ? body.logoUrl : undefined,
+      logoUrl: logoUrl || undefined,
       accentColor: typeof body?.accentColor === 'string' ? body.accentColor : undefined,
     });
 

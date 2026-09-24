@@ -5,10 +5,10 @@
 // and lodging for a river. Designed for outfitter and campground websites.
 
 import { useEffect, useState } from 'react';
-import Image from 'next/image';
 import { useParams, useSearchParams } from 'next/navigation';
 import { embedPalette, EMBED_FONTS } from '@/lib/embed/theme';
 import EmbedFooter from '@/components/embed/EmbedFooter';
+import EmbedHeaderLogo from '@/components/embed/EmbedHeaderLogo';
 import { useEmbedBranding } from '@/components/embed/useEmbedBranding';
 
 const EDDY_LOGO = 'https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy_favicon.png';
@@ -92,7 +92,7 @@ export default function EmbedServicesPage() {
   const highlightSlugs = highlightParam ? highlightParam.split(',').map(s => s.trim()).filter(Boolean) : [];
   const partner = searchParams.get('partner') || '';
   const isDark = theme === 'dark';
-  const { branding } = useEmbedBranding();
+  const { branding, embedId } = useEmbedBranding();
 
   const [services, setServices] = useState<ServiceItem[]>([]);
   const [river, setRiver] = useState<RiverBasic | null>(null);
@@ -195,13 +195,7 @@ export default function EmbedServicesPage() {
     >
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-        <Image
-          src={EDDY_LOGO}
-          alt="Eddy"
-          width={32}
-          height={32}
-          style={{ width: 28, height: 28, objectFit: 'contain', borderRadius: '50%', flexShrink: 0 }}
-        />
+        <EmbedHeaderLogo branding={branding} fallbackSrc={EDDY_LOGO} fallbackSize={28} />
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ fontWeight: 600, fontSize: 15, lineHeight: 1.2, fontFamily: EMBED_FONTS.display }}>
             {typeFilter ? TYPE_CONFIG[typeFilter]?.label + 's' : 'Services'} on the {river.name}
@@ -415,6 +409,7 @@ export default function EmbedServicesPage() {
         isDark={isDark}
         partner={partner}
         branding={branding}
+        embedId={embedId}
         links={[{ label: 'Full river guide', path: river.path || `/rivers/${river.slug}` }]}
       />
     </div>

@@ -125,7 +125,7 @@ export async function POST(request: NextRequest) {
 
     const range = snap.estimatedFloatMinutes != null && snap.conditionCode !== 'dangerous'
       ? validTimeRange(snap.floatTimeRange) : null;
-    // Save plan (range columns require 20260916120000 before deployment).
+    // Save plan (range columns applied in production as 20260924165528).
     const { error: insertError } = await supabase.from('float_plans').insert({
       short_code: shortCode,
       river_id: riverId,

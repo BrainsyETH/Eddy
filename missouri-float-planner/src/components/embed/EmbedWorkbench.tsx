@@ -12,6 +12,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { Copy, Check, ChevronDown, X, Search, ArrowLeft } from 'lucide-react';
 import PartnerModal from '@/components/embed/PartnerModal';
+import EmbedPartnerBrand from '@/components/embed/EmbedPartnerBrand';
 import { EDDY_IMAGES } from '@/constants';
 
 // Production origin for the copy-paste snippet + API examples, so code copied
@@ -200,7 +201,7 @@ const WIDGETS: WidgetDef[] = [
     buildCode: (c) => standardIframe(withBrandingId(`${c.embedBase}/embed/eddy-quote/${c.selectedRiver}?theme=${c.theme}`, c), `${c.selectedRiverName} - Eddy's Take`, c.resizeScript),
     params: [
       { name: 'theme', values: 'light / dark' },
-      { name: 'partner', values: 'your business name', note: 'Shows "via YourBusiness" credit in the widget footer.' },
+      { name: 'partner', values: 'your business name', note: 'Shows your business name in the widget branding area.' },
     ],
   },
   {
@@ -227,7 +228,7 @@ const WIDGETS: WidgetDef[] = [
     buildCode: (c) => standardIframe(withBrandingId(`${c.embedBase}/embed/widget/${c.selectedRiver}?theme=${c.theme}`, c), `${c.selectedRiverName} - River Conditions from Eddy`, c.resizeScript),
     params: [
       { name: 'theme', values: 'light / dark' },
-      { name: 'partner', values: 'your business name', note: 'Shows "via YourBusiness" credit in the widget footer.' },
+      { name: 'partner', values: 'your business name', note: 'Shows your business name in the widget branding area.' },
     ],
   },
   {
@@ -240,7 +241,7 @@ const WIDGETS: WidgetDef[] = [
     params: [
       { name: 'theme', values: 'light / dark' },
       { name: 'river', values: 'slug', note: 'Pre-select a river (e.g. current, meramec).' },
-      { name: 'partner', values: 'your business name', note: 'Shows "via YourBusiness" credit in the widget footer.' },
+      { name: 'partner', values: 'your business name', note: 'Shows your business name in the widget branding area.' },
     ],
   },
   {
@@ -463,15 +464,15 @@ export default function EmbedWorkbench() {
   const [brandingOpen, setBrandingOpen] = useState(false);
   const [brandingForm, setBrandingForm] = useState({
     businessName: '',
-    siteUrl: '',
     logoUrl: '',
-    accentColor: '#2D7889',
+    siteUrl: '',
+    accentColor: '#F07052',
   });
   const [brandingBusy, setBrandingBusy] = useState(false);
   const [brandingError, setBrandingError] = useState<string | null>(null);
 
   const registerBranding = async () => {
-    if (!brandingForm.businessName.trim() || brandingBusy) return;
+    if ((!brandingForm.businessName.trim() && !brandingForm.logoUrl.trim()) || brandingBusy) return;
     setBrandingBusy(true);
     setBrandingError(null);
     try {
@@ -480,8 +481,8 @@ export default function EmbedWorkbench() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           businessName: brandingForm.businessName.trim(),
-          siteUrl: brandingForm.siteUrl.trim() || undefined,
           logoUrl: brandingForm.logoUrl.trim() || undefined,
+          siteUrl: brandingForm.siteUrl.trim() || undefined,
           accentColor: brandingForm.accentColor,
         }),
       });
@@ -491,6 +492,9 @@ export default function EmbedWorkbench() {
         return;
       }
       setBrandingId(data.branding.embedId);
+      setBrandingOpen(false);
+      setActiveTab('preview');
+      setShowReference(false);
     } catch {
       setBrandingError('Something went wrong saving your branding. Try again.');
     } finally {
@@ -788,18 +792,6 @@ export default function EmbedWorkbench() {
                           </option>
                         ))}
                       </select>
-                    </div>
-                    <div>
-                      <label className={labelCls} htmlFor="card-business">Business name</label>
-                      <input id="card-business" type="text" value={cardForm.businessName}
-                        onChange={e => setCardForm(f => ({ ...f, businessName: e.target.value }))}
-                        placeholder="Pine Valley Cabins" className={inputCls} />
-                    </div>
-                    <div>
-                      <label className={labelCls} htmlFor="card-logo">Logo URL (optional)</label>
-                      <input id="card-logo" type="url" value={cardForm.logoUrl}
-                        onChange={e => setCardForm(f => ({ ...f, logoUrl: e.target.value }))}
-                        placeholder="https://yoursite.com/logo.png" className={inputCls} />
                     </div>
                     <div>
                       <label className={labelCls} htmlFor="card-cta-url">Booking link (your site)</label>
@@ -1114,6 +1106,108 @@ export default function EmbedWorkbench() {
           </div>
           <p className="text-[11px] text-neutral-400 mt-1.5 mb-7">Sets the embedded widget&apos;s appearance — not this page.</p>
 
+          {active.hasCardSetup && (
+            <section aria-labelledby="card-branding-title" className="mb-6 bg-white border-2 border-neutral-200 rounded-lg p-3">
+              <h3 id="card-branding-title" className="text-sm font-bold text-neutral-800">Your branding <span className="text-xs font-medium text-neutral-500">· Optional & free</span></h3>
+              {cardEmbedId ? (
+                <p className="text-xs text-neutral-600 mt-2">Your card includes your branding. Use Start over to create a new card with different details.</p>
+              ) : (
+                <fieldset disabled={cardBusy} className="space-y-3 mt-3">
+                  <div>
+                    <label className="block text-xs font-semibold text-neutral-600 mb-1" htmlFor="card-business">Business name (optional)</label>
+                    <input id="card-business" type="text" maxLength={120} value={cardForm.businessName}
+                      onChange={e => setCardForm(f => ({ ...f, businessName: e.target.value }))}
+                      placeholder="Pine Valley Cabins" className="w-full text-sm text-neutral-800 bg-white rounded-md border-2 border-neutral-200 px-3 py-2" />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-neutral-600 mb-1" htmlFor="card-logo">Logo URL (optional)</label>
+                    <input id="card-logo" type="url" value={cardForm.logoUrl}
+                      onChange={e => setCardForm(f => ({ ...f, logoUrl: e.target.value }))}
+                      placeholder="https://yoursite.com/logo.png" className="w-full text-sm text-neutral-800 bg-white rounded-md border-2 border-neutral-200 px-3 py-2" />
+                  </div>
+
+                  {(cardForm.businessName.trim() || /^https?:\/\//i.test(cardForm.logoUrl.trim())) && (
+                    <div className="rounded-md p-3" style={{ background: theme === 'dark' ? '#0F2D35' : '#F7F6F3' }}>
+                      <EmbedPartnerBrand businessName={cardForm.businessName.trim()}
+                        logoUrl={/^https?:\/\//i.test(cardForm.logoUrl.trim()) ? cardForm.logoUrl.trim() : null} isDark={theme === 'dark'} showLogoError />
+                    </div>
+                  )}
+                  <p className="text-xs text-neutral-500">Included when you create your card. No cropping, no account, no cost.</p>
+                </fieldset>
+              )}
+            </section>
+          )}
+          {!active.hasCardSetup && !active.isBadge && (
+            <section aria-labelledby="branding-title" className="mb-6 bg-white border-2 border-neutral-200 rounded-lg p-3">
+              <h3 id="branding-title" className="text-sm font-bold text-neutral-800">Your branding <span className="text-xs font-medium text-neutral-500">· Optional & free</span></h3>
+              {brandingId ? (
+                <>
+                  <p className="text-xs text-support-700 my-2" role="status">Branding is included in your preview and embed code.</p>
+                  <button type="button" onClick={() => { setBrandingId(null); setBrandingOpen(false); setBrandingError(null); }}
+                    className="text-xs font-semibold text-primary-700 underline">Remove branding</button>
+                </>
+              ) : brandingOpen ? (
+                <form onSubmit={e => { e.preventDefault(); void registerBranding(); }} className="mt-3">
+                  <fieldset disabled={brandingBusy} className="space-y-3">
+                    <div>
+                      <label className="block text-xs font-semibold text-neutral-600 mb-1" htmlFor="branding-name">Business name (optional)</label>
+                      <input id="branding-name" type="text" maxLength={120} value={brandingForm.businessName}
+                        onChange={e => setBrandingForm(f => ({ ...f, businessName: e.target.value }))}
+                        placeholder="Pine Valley Cabins"
+                        className="w-full text-sm text-neutral-800 bg-white rounded-md border-2 border-neutral-200 px-3 py-2 focus:outline-none focus:border-primary-400" />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-neutral-600 mb-1" htmlFor="branding-logo">Logo URL (optional)</label>
+                      <input id="branding-logo" type="url" value={brandingForm.logoUrl}
+                        onChange={e => setBrandingForm(f => ({ ...f, logoUrl: e.target.value }))}
+                        placeholder="https://yoursite.com/logo.png" aria-describedby="branding-logo-help"
+                        className="w-full text-sm text-neutral-800 bg-white rounded-md border-2 border-neutral-200 px-3 py-2 focus:outline-none focus:border-primary-400" />
+                      <p id="branding-logo-help" className="text-xs text-neutral-500 mt-1">Use a direct image link. Your full logo stays visible without cropping.</p>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-neutral-600 mb-1" htmlFor="branding-site">Your website (optional)</label>
+                      <input id="branding-site" type="url" value={brandingForm.siteUrl}
+                        onChange={e => setBrandingForm(f => ({ ...f, siteUrl: e.target.value }))}
+                        placeholder="https://yoursite.com"
+                        className="w-full text-sm text-neutral-800 bg-white rounded-md border-2 border-neutral-200 px-3 py-2 focus:outline-none focus:border-primary-400" />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-neutral-600 mb-1" htmlFor="branding-accent">Planner button color (optional)</label>
+                      <input id="branding-accent" type="color" value={brandingForm.accentColor}
+                        onChange={e => setBrandingForm(f => ({ ...f, accentColor: e.target.value }))}
+                        aria-describedby="branding-accent-help"
+                        className="h-9 w-16 bg-white border-2 border-neutral-200 rounded-md cursor-pointer" />
+                      <p id="branding-accent-help" className="text-xs text-neutral-500 mt-1">Used by the Float Trip Planner only.</p>
+                    </div>
+                    {(brandingForm.businessName.trim() || /^https?:\/\//i.test(brandingForm.logoUrl.trim())) && (
+                      <div className="rounded-md p-3" style={{ background: theme === 'dark' ? '#0F2D35' : '#F7F6F3' }}>
+                        <EmbedPartnerBrand businessName={brandingForm.businessName.trim()}
+                          logoUrl={/^https?:\/\//i.test(brandingForm.logoUrl.trim()) ? brandingForm.logoUrl.trim() : null}
+                          isDark={theme === 'dark'} compact showLogoError />
+                      </div>
+                    )}
+                    {brandingError && <p className="text-xs font-medium text-red-600" role="alert">{brandingError}</p>}
+                    <div className="flex flex-wrap gap-2">
+                      <button type="submit" disabled={brandingBusy || (!brandingForm.businessName.trim() && !brandingForm.logoUrl.trim())}
+                        className="text-xs font-semibold text-white bg-primary-600 px-3 py-2 rounded-md disabled:opacity-50">
+                        {brandingBusy ? 'Applying…' : 'Apply branding'}
+                      </button>
+                      <button type="button" onClick={() => { setBrandingOpen(false); setBrandingError(null); }}
+                        className="text-xs font-semibold text-neutral-500 px-2 py-2">Cancel</button>
+                    </div>
+                  </fieldset>
+                </form>
+              ) : (
+                <>
+                  <p className="text-xs text-neutral-600 my-2">Add your logo, name, and an optional link to your site. Free, with Powered by Eddy visible.</p>
+                  <button type="button" onClick={() => setBrandingOpen(true)}
+                    className="text-xs font-semibold text-primary-700 border-2 border-primary-300 rounded-md px-3 py-2">Add branding</button>
+                </>
+              )}
+            </section>
+          )}
+          {active.isBadge && <p className="text-xs text-neutral-500 mb-6">The compact badge has no partner branding. Choose a larger widget to add your logo or name.</p>}
+
           <div className="text-[11px] font-semibold uppercase tracking-wider text-neutral-500 mb-3.5" style={{ fontFamily: 'var(--font-mono)' }}>3 &middot; Pick a widget</div>
 
           <div className="flex flex-col gap-2.5" role="list" aria-label="Widgets">
@@ -1178,8 +1272,8 @@ export default function EmbedWorkbench() {
                       <table className="w-full">
                         <tbody>
                           <ParamRow name="theme" values="light | dark" description="Widget color scheme. Defaults to light." />
-                          <ParamRow name="partner" values="string" description='Shows "via YourBusiness" in the widget footer.' />
-                          <ParamRow name="e" values="emb_xxxxxxxx" description='Co-branding ID from the free "Add your branding" setup — your logo and business name, linked to your site.' />
+                          <ParamRow name="partner" values="string" description='Shows your business name in the widget branding area.' />
+                          <ParamRow name="e" values="emb_xxxxxxxx" description='Co-branding ID from Configure → Your branding — an optional logo, business name, or both. Free, no account.' />
                         </tbody>
                       </table>
                     </div>
@@ -1328,98 +1422,6 @@ export default function EmbedWorkbench() {
                     <div className="min-w-0">
                       <div className="text-[11px] font-semibold uppercase tracking-wide text-neutral-500 mb-3" style={{ fontFamily: 'var(--font-mono)' }}>{'Copy & paste this'}</div>
                       {renderWidgetOptions()}
-
-                      {/* Optional co-branding step — mints an embed_id the widget
-                          footer resolves to logo + linked business name. */}
-                      {!active.hasCardSetup && !active.isBadge && (
-                        <div className="mb-4 bg-white border-2 border-neutral-200 rounded-lg p-4">
-                          {brandingId ? (
-                            <div className="flex items-start justify-between gap-3">
-                              <p className="text-xs text-neutral-600 leading-relaxed m-0">
-                                <span className="font-semibold text-support-700">Branding on.</span>{' '}
-                                The snippet below now shows your logo and business name in the widget footer
-                                (ID <code className="bg-neutral-100 px-1 py-0.5 rounded">{brandingId}</code> —
-                                save this page&apos;s URL to keep it).
-                              </p>
-                              <button
-                                onClick={() => { setBrandingId(null); setBrandingOpen(false); }}
-                                className="flex-none text-xs font-semibold text-neutral-500 hover:text-primary-700 border-2 border-neutral-200 rounded-md px-3 py-1.5"
-                              >
-                                Remove
-                              </button>
-                            </div>
-                          ) : brandingOpen ? (
-                            <>
-                              <h4 className="text-sm font-semibold text-neutral-800 mb-1">Add your branding</h4>
-                              <p className="text-xs text-neutral-500 mb-3 leading-relaxed">
-                                Free, no account. Your logo and business name appear in the widget footer,
-                                linked to your site.
-                              </p>
-                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
-                                <div>
-                                  <label className="block text-xs font-semibold text-neutral-600 mb-1" htmlFor="branding-name">Business name</label>
-                                  <input id="branding-name" type="text" value={brandingForm.businessName}
-                                    onChange={e => setBrandingForm(f => ({ ...f, businessName: e.target.value }))}
-                                    placeholder="Pine Valley Cabins"
-                                    className="w-full text-sm text-neutral-800 bg-white rounded-md border-2 border-neutral-200 px-3 py-2 focus:outline-none focus:border-primary-400" />
-                                </div>
-                                <div>
-                                  <label className="block text-xs font-semibold text-neutral-600 mb-1" htmlFor="branding-site">Your website</label>
-                                  <input id="branding-site" type="url" value={brandingForm.siteUrl}
-                                    onChange={e => setBrandingForm(f => ({ ...f, siteUrl: e.target.value }))}
-                                    placeholder="https://yoursite.com"
-                                    className="w-full text-sm text-neutral-800 bg-white rounded-md border-2 border-neutral-200 px-3 py-2 focus:outline-none focus:border-primary-400" />
-                                </div>
-                                <div>
-                                  <label className="block text-xs font-semibold text-neutral-600 mb-1" htmlFor="branding-logo">Logo URL (optional)</label>
-                                  <input id="branding-logo" type="url" value={brandingForm.logoUrl}
-                                    onChange={e => setBrandingForm(f => ({ ...f, logoUrl: e.target.value }))}
-                                    placeholder="https://yoursite.com/logo.png"
-                                    className="w-full text-sm text-neutral-800 bg-white rounded-md border-2 border-neutral-200 px-3 py-2 focus:outline-none focus:border-primary-400" />
-                                </div>
-                                <div>
-                                  <label className="block text-xs font-semibold text-neutral-600 mb-1" htmlFor="branding-accent">Accent color</label>
-                                  <input id="branding-accent" type="color" value={brandingForm.accentColor}
-                                    onChange={e => setBrandingForm(f => ({ ...f, accentColor: e.target.value }))}
-                                    className="h-9 w-16 bg-white border-2 border-neutral-200 rounded-md cursor-pointer" />
-                                </div>
-                              </div>
-                              {brandingError && (
-                                <p className="text-xs font-medium text-red-600 mb-3" role="alert">{brandingError}</p>
-                              )}
-                              <div className="flex gap-2">
-                                <button
-                                  onClick={registerBranding}
-                                  disabled={brandingBusy || !brandingForm.businessName.trim()}
-                                  className="text-sm font-semibold text-white px-4 py-2 rounded-md disabled:opacity-50"
-                                  style={{ background: '#2D7889' }}
-                                >
-                                  {brandingBusy ? 'Saving…' : 'Save branding'}
-                                </button>
-                                <button
-                                  onClick={() => setBrandingOpen(false)}
-                                  className="text-sm font-semibold text-neutral-500 px-3 py-2 rounded-md hover:text-primary-700"
-                                >
-                                  Cancel
-                                </button>
-                              </div>
-                            </>
-                          ) : (
-                            <div className="flex items-center justify-between gap-3">
-                              <p className="text-xs text-neutral-600 leading-relaxed m-0">
-                                <span className="font-semibold">Add your branding (free):</span> your logo and
-                                business name in the widget footer, linked to your site.
-                              </p>
-                              <button
-                                onClick={() => setBrandingOpen(true)}
-                                className="flex-none text-xs font-semibold text-primary-700 border-2 border-primary-300 rounded-md px-3 py-1.5 hover:border-primary-500"
-                              >
-                                Set up
-                              </button>
-                            </div>
-                          )}
-                        </div>
-                      )}
 
                       <CodeBlock code={active.buildCode(ctx)} label={`HTML · ${active.key} · ${themeLabel}`} />
                       <div className="mt-3">

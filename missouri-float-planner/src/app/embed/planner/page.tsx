@@ -5,13 +5,13 @@
 // Allows visitors on external sites to plan a float and view it on Eddy
 
 import { useState, useMemo, useEffect } from 'react';
-import Image from 'next/image';
 import { useSearchParams } from 'next/navigation';
 import { ArrowRight } from 'lucide-react';
 import { CONDITION_COLORS } from '@/constants';
 import { eddyDeepLink } from '@/lib/embed/branding';
 import { embedPalette, embedShadow, EMBED_FONTS } from '@/lib/embed/theme';
 import EmbedFooter from '@/components/embed/EmbedFooter';
+import EmbedHeaderLogo from '@/components/embed/EmbedHeaderLogo';
 import { useEmbedBranding } from '@/components/embed/useEmbedBranding';
 import type { RiverListItem, AccessPoint } from '@/types/api';
 
@@ -40,7 +40,7 @@ export default function EmbedPlannerPage() {
   const preselectedRiver = searchParams.get('river') || '';
   const partner = searchParams.get('partner') || ''; // (#19) partner branding
   const isDark = theme === 'dark';
-  const { branding } = useEmbedBranding();
+  const { branding, embedId } = useEmbedBranding();
 
   const [rivers, setRivers] = useState<RiverListItem[]>([]);
   const [accessPoints, setAccessPoints] = useState<AccessPoint[]>([]);
@@ -116,7 +116,7 @@ export default function EmbedPlannerPage() {
 
   const canSubmit = selectedRiver && selectedPutIn && selectedTakeOut;
   const origin = typeof window !== 'undefined' ? window.location.origin : 'https://eddy.guide';
-  const utm = { widget: 'planner', key: selectedRiver || 'none', partner: branding?.businessName || partner };
+  const utm = { widget: 'planner', key: selectedRiver || 'none', partner: branding?.businessName || embedId || partner };
 
   const palette = embedPalette(isDark);
   const { bg, cardBg, textPrimary, textSecondary } = palette;
@@ -137,7 +137,7 @@ export default function EmbedPlannerPage() {
     >
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
-        <Image src={EDDY_CANOE} alt="Eddy" width={36} height={36} style={{ width: 32, height: 32, objectFit: 'contain' }} />
+        <EmbedHeaderLogo branding={branding} fallbackSrc={EDDY_CANOE} fallbackSize={32} />
         <div style={{ fontWeight: 600, fontSize: 16, fontFamily: EMBED_FONTS.display }}>Plan Your Float</div>
       </div>
 
@@ -398,6 +398,7 @@ export default function EmbedPlannerPage() {
           isDark={isDark}
           partner={partner}
           branding={branding}
+          embedId={embedId}
         />
       </div>
     </div>

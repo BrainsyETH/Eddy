@@ -1,3 +1,5 @@
+-- Applied to production ilefwfpvphadsbptiaur on 2026-09-24.
+-- Supabase recorded version 20260924165528; originally 20260916120000.
 -- Preserve the quoted range in share previews. Old plans have no range;
 -- do not invent one from their stored average. Share RPC returns the full row.
 alter table public.float_plans

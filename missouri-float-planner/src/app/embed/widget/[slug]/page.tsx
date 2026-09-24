@@ -6,7 +6,6 @@
 // SiteHeader is hidden via pathname check in SiteHeader component
 
 import { useEffect, useState, type CSSProperties } from 'react';
-import Image from 'next/image';
 import { useParams, useSearchParams } from 'next/navigation';
 import { CONDITION_COLORS, getEddyImageForCondition, CFS_EXPLAINER } from '@/constants';
 import { computeCondition, getConditionShortLabel, type ConditionThresholds } from '@/lib/conditions';
@@ -17,6 +16,7 @@ import { FLAG_GREEN_ICON } from '@/lib/embed/tileIcons';
 import { eddyIconUrl } from '@/components/ui/EddyIcon';
 import InfoTip from '@/components/ui/InfoTip';
 import EmbedFooter from '@/components/embed/EmbedFooter';
+import EmbedHeaderLogo from '@/components/embed/EmbedHeaderLogo';
 import EmbedMetricGrid from '@/components/embed/EmbedMetricGrid';
 import EmbedTrendChart, { type EmbedChartData } from '@/components/embed/EmbedTrendChart';
 import EmbedWidgetSkeleton, { EmbedUnavailableState } from '@/components/embed/EmbedWidgetSkeleton';
@@ -120,7 +120,7 @@ export default function EmbedWidgetPage() {
   const theme = searchParams.get('theme') || 'light';
   const partner = searchParams.get('partner') || '';
   const isDark = theme === 'dark';
-  const { branding } = useEmbedBranding();
+  const { branding, embedId } = useEmbedBranding();
 
   const [river, setRiver] = useState<RiverListItem | null>(null);
   const [gauges, setGauges] = useState<GaugeWithCondition[]>([]);
@@ -312,7 +312,7 @@ export default function EmbedWidgetPage() {
 
   const conditionCode = river.currentCondition?.code;
   const origin = typeof window !== 'undefined' ? window.location.origin : 'https://eddy.guide';
-  const utm = { widget: 'widget', key: slug, partner: branding?.businessName || partner };
+  const utm = { widget: 'widget', key: slug, partner: branding?.businessName || embedId || partner };
   const riverHref = eddyDeepLink(origin, river.path || `/rivers/${river.slug}`, utm);
   const weatherHref = eddyDeepLink(origin, `/plan?river=${river.slug}`, utm);
   const suspectGauge = gauges.find(g => g.readingSuspect && g.qualifierNote);
@@ -332,13 +332,7 @@ export default function EmbedWidgetPage() {
     >
       {/* Identity + canonical live condition. */}
       <header className="flex items-start gap-3 pb-3 border-b" style={{ borderColor: palette.border }}>
-        <Image
-          src={EDDY_LOGO}
-          alt="Eddy"
-          width={36}
-          height={36}
-          className="w-9 h-9 object-contain rounded-full flex-shrink-0"
-        />
+        <EmbedHeaderLogo branding={branding} fallbackSrc={EDDY_LOGO} fallbackSize={36} />
         <div className="flex-1 min-w-0">
           <div className="font-bold text-base leading-tight truncate" style={{ fontFamily: EMBED_FONTS.display }}>
             {river.name}
@@ -542,6 +536,7 @@ export default function EmbedWidgetPage() {
         isDark={isDark}
         partner={partner}
         branding={branding}
+        embedId={embedId}
         links={[
           { label: 'Full River Report', path: river.path || `/rivers/${river.slug}` },
           { label: 'Plan a Float', path: `/plan?river=${river.slug}` },
