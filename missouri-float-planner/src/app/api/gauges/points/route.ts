@@ -3,10 +3,11 @@
 // zoomed-out map. See src/lib/gauges/points.ts for the format and the reason.
 //
 // ── Loading 14,000 rows through PostgREST ──────────────────────────────────
-// Positions come from the gauge_points RPC (st_x/st_y, keyset-paged, 5,000 a
-// page) — the same bulk reader the ingestion scripts use, so this route needs
-// no new SQL. Readings come from gauge_latest in 1,000-row pages, fetched in
-// parallel once the first page reports the count. The two are joined in
+// Positions come from the gauge_points RPC (st_x/st_y, keyset-paged) — the
+// same bulk reader the ingestion scripts use, so this route needs no new SQL.
+// Readings come from gauge_latest in 1,000-row ranges, fetched in parallel
+// once a head request reports the count. Both walkers live in
+// src/lib/gauges/points.ts, where the suite runs them against a capped fake. The two are joined in
 // memory; the whole body is CDN-cached, so this cost is paid a few times an
 // hour, not once per phone.
 
@@ -17,65 +18,52 @@ import { rateLimit, getClientIp } from '@/lib/rate-limit';
 import { withX402Route } from '@/lib/x402-config';
 import {
   buildGaugePoints,
+  collectKeyset,
+  collectRanges,
   type LatestPointRow,
   type StationPointRow,
 } from '@/lib/gauges/points';
 
 export const dynamic = 'force-dynamic';
 
-const STATION_PAGE = 5000;
+// Both match the project's PostgREST cap. The walkers do not depend on it —
+// see collectKeyset/collectRanges — but asking for more than the server will
+// send only buys a short page.
+const STATION_PAGE = 1000;
 const LATEST_PAGE = 1000;
 const LATEST_COLUMNS =
   'gauge_station_id, discharge_cfs, gauge_height_ft, reading_timestamp, qualifiers, flow_percentile';
 
 type Admin = ReturnType<typeof createAdminClient>;
 
-async function loadStations(supabase: Admin): Promise<StationPointRow[]> {
-  const out: StationPointRow[] = [];
-  let after: string | null = null;
-  // Bounded rather than while(true): 20 pages is 100,000 stations, several
-  // times the national network. A runaway cursor is a bug, not a big country.
-  for (let page = 0; page < 20; page++) {
-    const { data, error } = await supabase.rpc('gauge_points', {
-      p_after: after ?? undefined,
-      p_limit: STATION_PAGE,
-    });
-    if (error) throw new Error(`gauge_points: ${error.message}`);
-    const rows = (data ?? []) as StationPointRow[];
-    out.push(...rows);
-    if (rows.length < STATION_PAGE) break;
-    after = rows[rows.length - 1].id;
-  }
-  return out;
+function loadStations(supabase: Admin): Promise<StationPointRow[]> {
+  return collectKeyset(
+    async (after) => {
+      const { data, error } = await supabase.rpc('gauge_points', {
+        p_after: after ?? undefined,
+        p_limit: STATION_PAGE,
+      });
+      if (error) throw new Error(`gauge_points: ${error.message}`);
+      return (data ?? []) as StationPointRow[];
+    },
+    (row) => row.id,
+  );
 }
 
 async function loadLatest(supabase: Admin): Promise<LatestPointRow[]> {
-  const first = await supabase
+  const { count, error } = await supabase
     .from('gauge_latest')
-    .select(LATEST_COLUMNS, { count: 'exact' })
-    .order('gauge_station_id')
-    .range(0, LATEST_PAGE - 1);
-  if (first.error) throw new Error(`gauge_latest: ${first.error.message}`);
-
-  const rows = (first.data ?? []) as LatestPointRow[];
-  const total = first.count ?? rows.length;
-  const pages: Promise<LatestPointRow[]>[] = [];
-  for (let from = LATEST_PAGE; from < total; from += LATEST_PAGE) {
-    pages.push(
-      Promise.resolve(
-        supabase
-          .from('gauge_latest')
-          .select(LATEST_COLUMNS)
-          .order('gauge_station_id')
-          .range(from, from + LATEST_PAGE - 1),
-      ).then(({ data, error }) => {
-        if (error) throw new Error(`gauge_latest: ${error.message}`);
-        return (data ?? []) as LatestPointRow[];
-      }),
-    );
-  }
-  for (const page of await Promise.all(pages)) rows.push(...page);
-  return rows;
+    .select('gauge_station_id', { count: 'exact', head: true });
+  if (error) throw new Error(`gauge_latest count: ${error.message}`);
+  return collectRanges(count ?? 0, LATEST_PAGE, async (from, to) => {
+    const { data, error: pageError } = await supabase
+      .from('gauge_latest')
+      .select(LATEST_COLUMNS)
+      .order('gauge_station_id')
+      .range(from, to);
+    if (pageError) throw new Error(`gauge_latest: ${pageError.message}`);
+    return (data ?? []) as LatestPointRow[];
+  });
 }
 
 async function _GET(request: NextRequest) {

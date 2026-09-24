@@ -16,13 +16,16 @@
 //                    below the floor. Most sessions never pay for it.
 //   2. STALE-FIRST — the last body is kept on disk and paints immediately on
 //                    the next launch; a network refresh follows when it is
-//                    older than REFRESH_MS.
+//                    older than REFRESH_MS — checked every minute while the
+//                    layer is showing it, and on return to the foreground.
 //   3. RAW ON DISK — the stored body is re-decoded against the current clock,
 //                    so a reading that was live when saved is not painted as
 //                    live a day later (flowBandFor reads the timestamp).
-//   4. KEEP ON FAILURE — a failed refresh leaves what is drawn.
+//   4. KEEP ON FAILURE — a failed refresh leaves what is drawn, and is retried
+//                    after RETRY_MS rather than waiting for another toggle.
 
 import { useEffect, useRef, useState } from 'react';
+import { AppState } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { decodeGaugePoints, type GaugePointsResponse, type MapGaugeLite } from '@eddy/types';
 import { fetchGaugePoints } from '@/api/client';
@@ -32,6 +35,12 @@ const STORAGE_KEY = 'eddy.map.gaugeIndex.v1';
 
 /** Matches the route's CDN freshness; the national readings refresh hourly. */
 const REFRESH_MS = 15 * 60_000;
+
+/** How often an enabled layer checks whether it is due a refresh. */
+const CHECK_MS = 60_000;
+
+/** After a failed request, wait this long before asking again. */
+const RETRY_MS = 60_000;
 
 interface Stored {
   fetchedAt: number;
@@ -51,6 +60,7 @@ const EMPTY: GaugeIndexState = { gauges: [], ready: false, loading: false };
 // throw away a 14,000-row decode.
 let memory: Stored | null = null;
 let memoryGauges: MapGaugeLite[] | null = null;
+let lastFailureAt = 0;
 
 async function readDisk(): Promise<Stored | null> {
   try {
@@ -94,10 +104,14 @@ export function useGaugeIndex(enabled: boolean): GaugeIndexState {
       try {
         const body = await fetchGaugePoints(controller.signal);
         const stored = { fetchedAt: Date.now(), body };
+        lastFailureAt = 0;
         writeDisk(stored);
         apply(stored);
       } catch (err) {
+        // A cancellation (unmount) is not a failure, and must not make the
+        // next mount wait out the retry delay.
         if (!controller.signal.aborted && !(err instanceof Error && err.message === 'Request cancelled')) {
+          lastFailureAt = Date.now();
           warn('map', 'gauge index load failed', { message: err instanceof Error ? err.message : String(err) });
         }
         setState((prev) => ({ ...prev, loading: false }));
@@ -106,13 +120,38 @@ export function useGaugeIndex(enabled: boolean): GaugeIndexState {
       }
     };
 
+    // Decides whether to ask, and is safe to call as often as anything likes:
+    // it is a clock comparison until something is actually due.
+    const revalidate = () => {
+      if (inFlight.current) return;
+      const now = Date.now();
+      if (memory && now - memory.fetchedAt <= REFRESH_MS) return;
+      if (now - lastFailureAt < RETRY_MS) return;
+      void refresh();
+    };
+
     void (async () => {
       if (!memory) {
         const disk = await readDisk();
         if (disk && !memory) apply(disk);
       }
-      if (!memory || Date.now() - memory.fetchedAt > REFRESH_MS) await refresh();
+      revalidate();
     })();
+
+    // Staying zoomed out never changes `enabled`, so without these the index
+    // was fetched once per floor crossing and then aged in place — and a first
+    // request that failed was never retried. The tick is how a stale body gets
+    // refreshed and a failure gets retried; foregrounding revalidates at once,
+    // as useViewportGauges does, because a phone that slept for an hour should
+    // not wait a minute to learn it.
+    const tick = setInterval(revalidate, CHECK_MS);
+    const subscription = AppState.addEventListener('change', (next) => {
+      if (next === 'active') revalidate();
+    });
+    return () => {
+      clearInterval(tick);
+      subscription.remove();
+    };
   }, [enabled]);
 
   // Abort on unmount so a backgrounded map is not still downloading.

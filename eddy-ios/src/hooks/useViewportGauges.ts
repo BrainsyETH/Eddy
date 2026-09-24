@@ -85,6 +85,15 @@ export interface ViewportGaugesState {
   loading: boolean;
   /** True once we are zoomed out past the point where this layer is useful. */
   belowMinZoom: boolean;
+  /**
+   * True once a payload — network, memory or disk — has been applied since the
+   * layer was last reset (switched off, or zoomed below the floor). An empty
+   * `gauges` with settled=true is an ANSWER; with settled=false it is nothing
+   * yet, including a request that failed. The map holds the national index
+   * across the zoom-floor handoff until this turns true, so a failed first
+   * request cannot blank a layer that has data to show.
+   */
+  settled: boolean;
 }
 
 const EMPTY: ViewportGaugesState = {
@@ -93,6 +102,7 @@ const EMPTY: ViewportGaugesState = {
   total: 0,
   loading: false,
   belowMinZoom: false,
+  settled: false,
 };
 
 interface CacheEntry {
@@ -211,7 +221,7 @@ export function useViewportGauges(enabled: boolean, viewport: Viewport | null) {
       drawnKey.current = key;
       const payload = mergeViewportPayload(drawnGauges.current, hit.payload, hit.bbox);
       drawnGauges.current = payload.gauges;
-      setState({ ...payload, loading: false, belowMinZoom: false });
+      setState({ ...payload, loading: false, belowMinZoom: false, settled: true });
       return;
     }
 
@@ -282,7 +292,7 @@ export function useViewportGauges(enabled: boolean, viewport: Viewport | null) {
       // box — see mergeViewportItems. A capped wide answer must not yank the
       // gauges the reader was just looking at; an uncapped one replaces.
       drawnGauges.current = payload.gauges;
-      setState({ ...payload, loading: false, belowMinZoom: false });
+      setState({ ...payload, loading: false, belowMinZoom: false, settled: true });
     } catch (err) {
       if (controller.signal.aborted) return;
       if (err instanceof Error && err.message === 'Request cancelled') return;
@@ -363,7 +373,7 @@ export function useViewportGauges(enabled: boolean, viewport: Viewport | null) {
         drawnKey.current = covering.key;
         const payload = mergeViewportPayload(drawnGauges.current, covering.payload, covering.bbox);
         drawnGauges.current = payload.gauges;
-        setState({ ...payload, loading: false, belowMinZoom: false });
+        setState({ ...payload, loading: false, belowMinZoom: false, settled: true });
       }
       logViewportDecision('cache-contains', {
         zoom: viewport.zoom,
@@ -465,7 +475,7 @@ export function useViewportGauges(enabled: boolean, viewport: Viewport | null) {
             drawnKey.current = stored.key;
             const payload = mergeViewportPayload(drawnGauges.current, stored.payload, stored.bbox);
             drawnGauges.current = payload.gauges;
-            setState({ ...payload, loading: false, belowMinZoom: false });
+            setState({ ...payload, loading: false, belowMinZoom: false, settled: true });
 
             const touched = touchViewportGaugeIndex(diskIndex.current, stored.key);
             if (touched !== diskIndex.current) {

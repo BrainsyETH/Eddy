@@ -5,6 +5,8 @@ import path from 'node:path';
 import { decodeGaugePoints, GAUGE_POINTS_VERSION as PHONE_VERSION } from '@eddy/types';
 import {
   buildGaugePoints,
+  collectKeyset,
+  collectRanges,
   GAUGE_POINTS_VERSION,
   type LatestPointRow,
   type StationPointRow,
@@ -77,4 +79,38 @@ test('the route is priced and uses the shared CDN helper', () => {
   const src = fs.readFileSync(path.join(process.cwd(), 'src/app/api/gauges/points/route.ts'), 'utf8');
   assert.match(src, /withX402Route\(_GET, '\/api\/gauges\/points'\)/);
   assert.match(src, /cdnCacheHeaders\(/);
+});
+
+// ── Paging under PostgREST's silent cap ─────────────────────────────────────
+
+const CAP = 1000;
+const ids = Array.from({ length: 14_000 }, (_, i) => `s${String(i).padStart(5, '0')}`);
+
+/** A keyset RPC behind a 1,000-row cap, however many rows were asked for. */
+function cappedKeyset(requested: number) {
+  return async (after: string | null) => {
+    const start = after === null ? 0 : ids.indexOf(after) + 1;
+    return ids.slice(start, start + Math.min(requested, CAP)).map((id) => ({ id }));
+  };
+}
+
+test('the keyset walk collects every station past a 1,000-row cap', async () => {
+  // The shipped bug: asking for 5,000 and stopping on a short page returned
+  // 1,000 of 14,000. Ending on an empty page is right whatever the cap is.
+  for (const requested of [1000, 5000]) {
+    const rows = await collectKeyset(cappedKeyset(requested), (r) => r.id);
+    assert.equal(rows.length, 14_000, `page size ${requested}`);
+  }
+});
+
+test('the range walk collects every reading, and refuses a short page', async () => {
+  const fetchRange = (cap: number, table = ids) => async (from: number, to: number) =>
+    table.slice(from, Math.min(to + 1, from + cap));
+  assert.equal((await collectRanges(14_000, 1000, fetchRange(CAP))).length, 14_000);
+  // A short LAST page is the end of the table, not a cap.
+  const shorter = ids.slice(0, 13_500);
+  assert.equal((await collectRanges(13_500, 1000, fetchRange(CAP, shorter))).length, 13_500);
+  assert.equal((await collectRanges(0, 1000, fetchRange(CAP))).length, 0);
+  // A server capped below the page size must fail loudly, not ship a hole.
+  await assert.rejects(collectRanges(14_000, 1000, fetchRange(500)), /returned 500 of 1000/);
 });

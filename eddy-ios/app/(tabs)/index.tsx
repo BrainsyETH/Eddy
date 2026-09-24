@@ -1923,12 +1923,14 @@ export default function MapScreen() {
   // station, clustered natively by the same source. See useGaugeIndex.
   const gaugeIndex = useGaugeIndex(layers.includes('allGauges') && referenceGauges.belowMinZoom);
   // Also held through the HANDOFF: crossing back above the floor, the viewport
-  // hook starts empty and loading, and switching to it at once would blank
-  // the layer until its first answer lands. The index stays until then.
+  // hook starts empty, and switching to it at once would blank the layer until
+  // its first answer lands. The index stays until the viewport tier has SETTLED
+  // — a successful answer, even an empty one. Keying this on `loading` instead
+  // dropped the index the moment a first request FAILED, trading a map full of
+  // cached gauges for an empty one.
   const gaugeIndexMode =
     layers.includes('allGauges') &&
-    (referenceGauges.belowMinZoom ||
-      (gaugeIndex.ready && referenceGauges.loading && referenceGauges.gauges.length === 0));
+    (referenceGauges.belowMinZoom || (gaugeIndex.ready && !referenceGauges.settled));
 
   // ── Public land ────────────────────────────────────────────────────────────
   // Same arrangement, same reasons: viewport-scoped, only while its layer is on.
