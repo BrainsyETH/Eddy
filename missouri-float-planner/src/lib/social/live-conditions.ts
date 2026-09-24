@@ -120,7 +120,8 @@ export async function buildLiveConditionsMap(
   const stationIds = Array.from(thresholdMap.values()).map((t) => t.stationId);
   if (stationIds.length === 0) return result;
 
-  // Latest reading PER station via a DISTINCT ON RPC (migration 00161). The old
+  // Latest reading PER station via an indexed seek RPC (originally 00161;
+  // optimized in 20260924233000). The old
   // `.in(stationIds).order(desc)` had no LIMIT and PostgREST caps result sets
   // (~1000 rows); once gauge_readings grew past that for the primary stations,
   // some station's newest reading fell outside the window, so it looked stale

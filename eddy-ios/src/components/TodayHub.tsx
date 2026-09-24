@@ -16,6 +16,7 @@ import {
   type NativeSyntheticEvent,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { Image as CachedImage } from 'expo-image';
 import { useFocusEffect, useRouter } from 'expo-router';
 import type {
   DamSnapshot,
@@ -33,7 +34,7 @@ import {
   fetchLocationWeather,
   fetchRiverAlerts,
 } from '@/api/client';
-import { BlurredReadPreview, EddyReadCard } from '@/components/EddyReadCard';
+import { BlurredReadPreview, EddyReadCard, EddyReadPlaceholder } from '@/components/EddyReadCard';
 import { useAccount } from '@/hooks/useAccount';
 import { useDams } from '@/hooks/useDams';
 import { useTodaySnooze } from '@/hooks/useTodaySnooze';
@@ -819,12 +820,21 @@ export function TodayHub({
     () => location.coords && gauges ? riverMilesByGauge(gauges, location.coords) : null,
     [gauges, location.coords],
   );
+  const readCandidates = useMemo(() => {
+    const candidates = [...rivers].sort((a, b) => Number(favoriteIds.has(b.id)) - Number(favoriteIds.has(a.id)));
+    const reserved = new Set(recommendations.map((item) => item.river.id));
+    favoritePreviews.forEach((item) => {
+      if (item.kind === 'river') reserved.add(item.entityId);
+    });
+    const distinct = candidates.filter((river) => !reserved.has(river.id));
+    return (distinct.length > 0 ? distinct : candidates).slice(0, 3);
+  }, [rivers, favoriteIds, recommendations, favoritePreviews]);
   const readPreviews = useMemo(() => {
     // Premium report requests can start as soon as the river catalog arrives,
     // independently of the public batched index and its live-condition gate.
     const candidates = reads.length || !premiumUserId || (!readsLoading && !readsError)
       ? reads
-      : [...rivers].sort((a, b) => Number(favoriteIds.has(b.id)) - Number(favoriteIds.has(a.id)))
+      : readCandidates
         .map((river) => ({ river, says: { text: '', generatedAt: '' } }));
     const reserved = new Set<string>();
     favoritePreviews.forEach((item) => {
@@ -833,7 +843,25 @@ export function TodayHub({
     recommendations.forEach((item) => reserved.add(item.river.id));
     const distinct = candidates.filter(({ river }) => !reserved.has(river.id));
     return (distinct.length > 0 ? distinct : candidates).slice(0, 3);
-  }, [favoritePreviews, reads, recommendations, premiumUserId, readsLoading, readsError, rivers, favoriteIds]);
+  }, [favoritePreviews, reads, recommendations, premiumUserId, readsLoading, readsError, readCandidates]);
+  // Warm only the first rail's likely photos while the public index is in flight.
+  // Rendering and prefetching use the same Expo cache. Failed prefetches never
+  // block cards, and may be retried when the candidates change or on refresh.
+  const readPhotoKey = JSON.stringify(Array.from(new Set(
+    (readPreviews.length ? readPreviews.map(({ river }) => river) : readCandidates)
+      .map((river) => photos.get(river.slug)).filter((url): url is string => Boolean(url)),
+  )));
+  const prefetchedPhotos = useRef(new Set<string>());
+  useEffect(() => {
+    const urls: string[] = JSON.parse(readPhotoKey);
+    for (const url of urls) {
+      if (prefetchedPhotos.current.has(url)) continue;
+      prefetchedPhotos.current.add(url);
+      void CachedImage.prefetch(url, { cachePolicy: 'memory-disk' })
+        .then((ok) => { if (!ok) prefetchedPhotos.current.delete(url); })
+        .catch(() => { prefetchedPhotos.current.delete(url); });
+    }
+  }, [readPhotoKey, refreshRevision]);
   const previewReservedIds = useMemo(() => {
     const ids = new Set(readPreviews.map(({ river }) => river.id));
     favoritePreviews.forEach((item) => {
@@ -975,7 +1003,15 @@ export function TodayHub({
             <Pressable onPress={onRetryReads} accessibilityRole="button" style={{ minHeight: 44, justifyContent: 'center' }}><Text style={{ color: colors.interactive }}>Retry Reads</Text></Pressable>
           </View>
         ) : readsLoading ? (
-          <View style={styles.loading}><ActivityIndicator color={colors.interactive} /></View>
+          readCandidates.length === 1 ? (
+            <EddyReadPlaceholder standalone name={readCandidates[0].name} photoUrl={photos.get(readCandidates[0].slug)} />
+          ) : (
+            <CardRail label="Eddy's Reads" cardWidth={286}>
+              {(readCandidates.length ? readCandidates : [null, null, null]).map((river, index) => (
+                <EddyReadPlaceholder key={river?.id ?? index} name={river?.name} photoUrl={river ? photos.get(river.slug) : null} />
+              ))}
+            </CardRail>
+          )
         ) : (
           <View style={[styles.emptyCard, { backgroundColor: colors.selectionBg, borderColor: colors.border }]}>
             <View style={styles.flex}>
