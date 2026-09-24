@@ -1,5 +1,6 @@
 import { radii } from '@/theme/layout';
-import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Image } from 'expo-image';
 import { BlurView } from 'expo-blur';
 import { Ionicons } from '@expo/vector-icons';
 import type { RiverListItem } from '@eddy/types';
@@ -23,6 +24,37 @@ interface Props {
 }
 
 const BLUR_INTENSITY = 34;
+
+function ReadBackdrop({ photoUrl }: { photoUrl?: string | null }) {
+  return <>
+    {photoUrl ? <Image source={{ uri: photoUrl }} style={StyleSheet.absoluteFill}
+      contentFit="cover" cachePolicy="memory-disk" transition={120}
+      recyclingKey={photoUrl} accessibilityIgnoresInvertColors accessible={false} /> : null}
+    <Svg width="100%" height="100%" style={StyleSheet.absoluteFill} pointerEvents="none">
+      <Defs><LinearGradient id="readShade" x1="0" y1="0" x2="0" y2="1"><Stop offset="0" stopColor="#071c20" stopOpacity={0.66} /><Stop offset="0.45" stopColor="#071c20" stopOpacity={0.65} /><Stop offset="1" stopColor="#071c20" stopOpacity={0.94} /></LinearGradient></Defs>
+      <Rect width="100%" height="100%" fill="url(#readShade)" />
+    </Svg>
+  </>;
+}
+
+/** Reserve the card's layout without presenting an unvalidated Read or verdict. */
+export function EddyReadPlaceholder() {
+  const { elevation } = useTheme();
+  return <View accessible accessibilityLabel="Loading Eddy’s Read" accessibilityState={{ busy: true }}
+    style={[styles.card, styles.compact,
+      { backgroundColor: '#16352e', borderColor: 'transparent' }, elevation(1)]}>
+    <ReadBackdrop />
+    <View style={styles.content} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
+      <View style={styles.head}>
+        <Text style={[styles.kicker, { color: '#e2eee8' }]}>EDDY&apos;S READ</Text>
+        <View style={[styles.pill, { opacity: 0 }]}><Text style={styles.pillText}>Pending</Text></View>
+      </View>
+      <Text style={[styles.name, { color: 'white' }]}>{' '}</Text>
+      <BlurredReadPreview lines={7} />
+      <View style={styles.foot}><View style={{ minHeight: 44 }} /></View>
+    </View>
+  </View>;
+}
 
 export function BlurredReadPreview({ lines = 3 }: { lines?: number }) {
   const { colors, isDark } = useTheme();
@@ -70,18 +102,11 @@ export function EddyReadCard({ river, says, onPress, compact = false, standalone
         styles.card,
         compact ? styles.compact : null,
         standalone ? styles.standalone : null,
-        {
-          backgroundColor: '#16352e',
-          borderColor: 'transparent',
-        },
+        { backgroundColor: '#16352e', borderColor: 'transparent' },
         elevation(1),
       ]}
     >
-      {photoUrl ? <Image source={{ uri: photoUrl }} style={StyleSheet.absoluteFill} resizeMode="cover" accessibilityIgnoresInvertColors accessible={false} /> : null}
-      <Svg width="100%" height="100%" style={StyleSheet.absoluteFill} pointerEvents="none">
-        <Defs><LinearGradient id="readShade" x1="0" y1="0" x2="0" y2="1"><Stop offset="0" stopColor="#071c20" stopOpacity={0.66} /><Stop offset="0.45" stopColor="#071c20" stopOpacity={0.65} /><Stop offset="1" stopColor="#071c20" stopOpacity={0.94} /></LinearGradient></Defs>
-        <Rect width="100%" height="100%" fill="url(#readShade)" />
-      </Svg>
+      <ReadBackdrop photoUrl={photoUrl} />
       <View style={styles.content}>
       <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel={`Eddy's Read for ${river.name}. ${conditionLabel(code)}. ${action}`}>
       <View style={styles.head}>
