@@ -78,6 +78,7 @@ import type {
   FeedbackResponse,
   RiverAlert,
   RiverAlertsResponse,
+  GaugePointsResponse,
 } from '@eddy/types';
 import type { CampsiteSitesResponse } from '@eddy/types';
 import type { Coords } from '@eddy/geo';
@@ -968,6 +969,19 @@ export async function fetchMapGauges(
     capped: data.capped ?? false,
     total: data.total ?? 0,
   };
+}
+
+/**
+ * Every non-curated gauge in the country, as compact tuples.
+ *
+ * The zoomed-out half of the national layer: fetchMapGauges refuses a
+ * continental box (it caps at 1,000 and would drop most creeks), so below the
+ * zoom floor the map clusters this instead. Returned raw — decodeGaugePoints in
+ * @eddy/types turns it into MapGaugeLite, and useGaugeIndex stores the raw body
+ * so a relaunch decodes against the current clock rather than a stale one.
+ */
+export async function fetchGaugePoints(signal?: AbortSignal): Promise<GaugePointsResponse> {
+  return get<GaugePointsResponse>('/api/gauges/points', signal);
 }
 
 /**

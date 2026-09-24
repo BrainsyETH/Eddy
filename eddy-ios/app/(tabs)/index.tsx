@@ -72,7 +72,7 @@ import type {
 } from '@eddy/types';
 // PUBLIC_LAND_OWNERSHIP_NOTE is no longer read here: the caveat moved onto the
 // layer definition as `info` and is shown behind the row's ⓘ. See layers.ts.
-import { hasCoordinates } from '@eddy/types';
+import { hasCoordinates, isGaugeIndexId } from '@eddy/types';
 import { boundsForLine, milePosts } from '@eddy/geo';
 import {
   formatFloatTimeRangeCompact,
@@ -115,6 +115,7 @@ import { SERVICE_LAYER_KEYS, serviceOnLayer } from '@/map/serviceLayers';
 import { ZOOM, type LayerKey } from '@/map/layers';
 import { mergeRestoredLayers } from '@/map/layerRows';
 import { useViewportGauges, type Viewport } from '@/hooks/useViewportGauges';
+import { useGaugeIndex } from '@/hooks/useGaugeIndex';
 import { useNetworkPlaces } from '@/hooks/useNetworkPlaces';
 import { useCuratedGauges } from '@/hooks/useCuratedGauges';
 import { useDams } from '@/hooks/useDams';
@@ -1914,6 +1915,21 @@ export default function MapScreen() {
   // pan from being a request.
   const referenceGauges = useViewportGauges(layers.includes('allGauges'), viewport);
 
+  // ── …and zoomed out, the whole network ─────────────────────────────────────
+  // Below MIN_GAUGE_ZOOM the viewport hook asks for nothing (a continental box
+  // would be capped to the thousand biggest rivers), and the layer used to go
+  // blank there. Every other gauge map fills that view with clustered counts
+  // of the entire network, so this does too: one cached request for every
+  // station, clustered natively by the same source. See useGaugeIndex.
+  const gaugeIndex = useGaugeIndex(layers.includes('allGauges') && referenceGauges.belowMinZoom);
+  // Also held through the HANDOFF: crossing back above the floor, the viewport
+  // hook starts empty and loading, and switching to it at once would blank
+  // the layer until its first answer lands. The index stays until then.
+  const gaugeIndexMode =
+    layers.includes('allGauges') &&
+    (referenceGauges.belowMinZoom ||
+      (gaugeIndex.ready && referenceGauges.loading && referenceGauges.gauges.length === 0));
+
   // ── Public land ────────────────────────────────────────────────────────────
   // Same arrangement, same reasons: viewport-scoped, only while its layer is on.
   // The geometry is what costs here rather than the row count, so the hook keys
@@ -1939,9 +1955,32 @@ export default function MapScreen() {
    * anyone can reason about, so the set comes first now.
    */
   const layerGauges = useMemo(
-    () => referenceGauges.gauges.filter((g) => !g.curated && hasCoordinates(g)),
-    [referenceGauges.gauges],
+    () =>
+      // The index is already the drawable set: the server leaves curated
+      // stations and unlocated rows out of it.
+      gaugeIndexMode
+        ? gaugeIndex.gauges
+        : referenceGauges.gauges.filter((g) => !g.curated && hasCoordinates(g)),
+    [gaugeIndexMode, gaugeIndex.gauges, referenceGauges.gauges],
   );
+
+  /**
+   * The same set, limited to the camera — for COUNTS only.
+   *
+   * The viewport tier holds only what is on screen, so its counts were always
+   * "in view". The index holds the country, and the strip's heading says "in
+   * view", so the index is narrowed here before anything counts it. The MAP
+   * still draws the whole index: re-clustering fourteen thousand points on
+   * every pan to trim what is off screen anyway would buy nothing.
+   */
+  const layerGaugesInView = useMemo(() => {
+    if (!gaugeIndexMode || !viewport) return layerGauges;
+    const [west, south, east, north] = viewport.bounds;
+    return layerGauges.filter(
+      ({ coordinates: { lng, lat } }) =>
+        lng >= west && lng <= east && lat >= south && lat <= north,
+    );
+  }, [gaugeIndexMode, viewport, layerGauges]);
 
   /**
    * That set, narrowed by the chips.
@@ -2043,11 +2082,13 @@ export default function MapScreen() {
       gauges: gauges ? mappableGauges.length : undefined,
       // Viewport-scoped, so it moves as you pan — and `undefined` until the
       // layer has actually been switched on and fetched something, per the rule
-      // above. Below the zoom floor it is 0 rather than undefined: we HAVE
-      // looked, and the honest answer is that this layer draws nothing here.
+      // above. Below the zoom floor it counts the national index inside the
+      // camera, and is undefined until that index has answered.
       allGauges: layers.includes('allGauges')
-        ? referenceGauges.belowMinZoom
-          ? 0
+        ? gaugeIndexMode
+          ? gaugeIndex.ready
+            ? applyGaugeFilters(layerGaugesInView, gaugeFilter).length
+            : undefined
           : referenceGauges.loading && referencePins.length === 0
             ? undefined
             : referencePins.length
@@ -2109,9 +2150,12 @@ export default function MapScreen() {
     mappableGauges,
     dams,
     layers,
-    referenceGauges.belowMinZoom,
     referenceGauges.loading,
     referencePins,
+    gaugeIndexMode,
+    gaugeIndex.ready,
+    layerGaugesInView,
+    gaugeFilter,
     publicLands.belowMinZoom,
     publicLands.loading,
     publicLands.features,
@@ -2552,6 +2596,14 @@ export default function MapScreen() {
       // this, tapping a pin under the results overlay opened no callout and
       // left a camera command queued for whenever the search cleared.
       clearSearch();
+      // A dot from the zoomed-out index has no name or station uuid to open a
+      // callout with — the index leaves both out to stay one request. Treat
+      // it the way a cluster is treated: zoom toward it. Past the floor the
+      // viewport tier takes over and the same station is a full pin.
+      if (isGaugeIndexId(pin.id.replace(/^refgauge:/, ''))) {
+        onZoomToCluster(pin.coordinates);
+        return;
+      }
       const entry = accessPointForPin(pin);
       // The river this tap would newly select, or null when it selects none —
       // either because the pin has no river or because that river is already
@@ -2584,7 +2636,7 @@ export default function MapScreen() {
       }
       setSelectedPin(pin);
     },
-    [accessPointForPin, clearSearch, selectedSlug, selectRiver, issueCameraCommand],
+    [accessPointForPin, clearSearch, selectedSlug, selectRiver, issueCameraCommand, onZoomToCluster],
   );
 
   // The gauge behind a tapped gauge pin. Looked up rather than carried on
@@ -3214,10 +3266,13 @@ export default function MapScreen() {
             <GaugeFilterBar
               // The DRAWABLE set, not the raw response — see layerGauges. Every
               // count in the strip is a count of pins you can actually see.
-              gauges={layerGauges}
+              gauges={layerGaugesInView}
               active={gaugeFilter}
-              belowMinZoom={referenceGauges.belowMinZoom}
-              capped={referenceGauges.capped}
+              // Only while the zoomed-out index has not answered: once it
+              // has, the layer draws here and there is nothing to explain.
+              belowMinZoom={gaugeIndexMode && !gaugeIndex.ready}
+              // The index is uncapped by construction.
+              capped={!gaugeIndexMode && referenceGauges.capped}
               total={referenceGauges.total}
               onToggle={(k) =>
                 setGaugeFilter((prev) => {

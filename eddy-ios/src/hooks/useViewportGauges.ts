@@ -6,7 +6,8 @@
 // those sets are small and bounded. The national tier is ~14,000 gauges and
 // cannot work that way, so this hook exists to make panning cheap:
 //
-//   1. ZOOM FLOOR       — below the statewide overview it asks for nothing.
+//   1. ZOOM FLOOR       — below the statewide overview it asks for nothing;
+//                         useGaugeIndex draws the whole network there instead.
 //   2. FIRST LOAD NOW   — opening-map idle requests immediately; no fake pause.
 //   3. DEBOUNCE         — after that, a fling can emit several idle events and
 //                         only the last one should cost a request.

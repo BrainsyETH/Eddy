@@ -125,10 +125,9 @@ interface Props {
   onToggle: (key: GaugeFilterKey) => void;
   onClear: () => void;
   /**
-   * The camera is below MIN_GAUGE_ZOOM, so the layer draws nothing at all.
-   * This now occurs only after someone deliberately zooms farther out than the
-   * statewide opening view, but it still needs an explanation rather than a
-   * silent zero.
+   * The camera is below MIN_GAUGE_ZOOM and the national index (useGaugeIndex)
+   * has not answered yet — or could not — so the layer draws nothing. Once the
+   * index lands the layer draws the whole network here and this is false.
    */
   belowMinZoom?: boolean;
   /** The server dropped low-flow gauges to meet its cap. */

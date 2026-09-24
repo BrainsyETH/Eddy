@@ -1039,6 +1039,89 @@ export interface MapGaugesResponse {
   total: number;
 }
 
+// ── The national index (GET /api/gauges/points) ──────────────────────────────
+// Every non-curated station, as tuples, for the map below the viewport route's
+// zoom floor. The encoder is buildGaugePoints in
+// missouri-float-planner/src/lib/gauges/points.ts; keep the tuple order in step
+// with it by hand (it is a wire format — see the MapGaugeLite note above).
+
+export const GAUGE_POINTS_VERSION = 1;
+
+/**
+ * [siteId, lng, lat, dischargeCfs, gaugeHeightFt, readingEpochSeconds,
+ *  suspect (0|1), flowPercentile]
+ */
+export type GaugePointRow = [
+  string,
+  number,
+  number,
+  number | null,
+  number | null,
+  number | null,
+  0 | 1,
+  number | null,
+];
+
+export interface GaugePointsResponse {
+  v: number;
+  generatedAt: string;
+  rows: GaugePointRow[];
+}
+
+/**
+ * Prefix on the `id` of a gauge decoded from the index.
+ *
+ * The index carries no gauge_stations uuid (it would triple the payload), so
+ * these records must never be mistaken for a viewport record: a star stored
+ * under this id would be stored under nothing. The map treats a tap on one as
+ * "zoom in", where the viewport route supplies the full record.
+ */
+export const GAUGE_INDEX_ID_PREFIX = 'idx:';
+
+export function isGaugeIndexId(id: string): boolean {
+  return id.startsWith(GAUGE_INDEX_ID_PREFIX);
+}
+
+function finiteOrNull(value: unknown): number | null {
+  return typeof value === 'number' && Number.isFinite(value) ? value : null;
+}
+
+/**
+ * The index as MapGaugeLite records, so the layer's filters, flow bands and pin
+ * builder apply to it unchanged. Malformed rows are skipped, and an unknown
+ * version decodes to nothing — an empty layer, never a misread one.
+ */
+export function decodeGaugePoints(body: unknown, now = Date.now()): MapGaugeLite[] {
+  if (!body || typeof body !== 'object') return [];
+  const { v, rows } = body as Partial<GaugePointsResponse>;
+  if (v !== GAUGE_POINTS_VERSION || !Array.isArray(rows)) return [];
+
+  const out: MapGaugeLite[] = [];
+  for (const row of rows) {
+    if (!Array.isArray(row) || typeof row[0] !== 'string' || !row[0]) continue;
+    const lng = finiteOrNull(row[1]);
+    const lat = finiteOrNull(row[2]);
+    if (lng === null || lat === null) continue;
+    const epoch = finiteOrNull(row[5]);
+    const readingTimestamp = epoch === null ? null : new Date(epoch * 1000).toISOString();
+    const readingAgeHours = epoch === null ? null : Math.max(0, now - epoch * 1000) / 3_600_000;
+    out.push({
+      id: `${GAUGE_INDEX_ID_PREFIX}${row[0]}`,
+      siteId: row[0],
+      name: `USGS ${row[0]}`,
+      coordinates: { lng, lat },
+      dischargeCfs: finiteOrNull(row[3]),
+      gaugeHeightFt: finiteOrNull(row[4]),
+      readingTimestamp,
+      readingAgeHours,
+      readingSuspect: row[6] === 1,
+      curated: false,
+      flowPercentile: finiteOrNull(row[7]),
+    });
+  }
+  return out;
+}
+
 /** Rejects null island, which /api/gauges emits for an unparseable location. */
 export function hasCoordinates(point: { coordinates: { lng: number; lat: number } }): boolean {
   const { lng, lat } = point.coordinates;
