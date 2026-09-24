@@ -253,7 +253,7 @@ export async function createEmbedCard(input: CreateEmbedCardInput): Promise<Embe
 // ---------------------------------------------------------------------------
 
 export interface CreateEmbedBrandingInput {
-  businessName: string;
+  businessName?: string;
   siteUrl?: string;
   logoUrl?: string;
   accentColor?: string;
@@ -262,8 +262,9 @@ export interface CreateEmbedBrandingInput {
 export async function createEmbedBranding(
   input: CreateEmbedBrandingInput
 ): Promise<{ embedId: string } | null> {
-  const businessName = input.businessName.trim().slice(0, 120);
-  if (!businessName) return null;
+  const businessName = input.businessName?.trim().slice(0, 120) || null;
+  const logoUrl = safeHttpUrl(input.logoUrl?.trim());
+  if ((!businessName && !logoUrl) || (input.logoUrl?.trim() && !logoUrl)) return null;
 
   const supabase = createAdminClient();
   const embedId = mintEmbedId();
@@ -274,7 +275,7 @@ export async function createEmbedBranding(
       widget_type: 'branding',
       business_name: businessName,
       site_url: safeHttpUrl(input.siteUrl),
-      logo_url: safeHttpUrl(input.logoUrl),
+      logo_url: logoUrl,
       accent_color: input.accentColor && HEX_COLOR.test(input.accentColor) ? input.accentColor : null,
     })
     .select('embed_id')
