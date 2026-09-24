@@ -10,12 +10,12 @@
 // omitted, the widget shows all active rivers (capped).
 
 import { useEffect, useState } from 'react';
-import Image from 'next/image';
 import { useSearchParams } from 'next/navigation';
 import { CONDITION_COLORS, CONDITION_SHORT_LABELS } from '@/constants';
 import { eddyDeepLink } from '@/lib/embed/branding';
 import { embedPalette, EMBED_FONTS } from '@/lib/embed/theme';
 import EmbedFooter from '@/components/embed/EmbedFooter';
+import EmbedHeaderLogo from '@/components/embed/EmbedHeaderLogo';
 import { useEmbedBranding } from '@/components/embed/useEmbedBranding';
 
 const EDDY_LOGO = 'https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy_favicon.png';
@@ -127,13 +127,7 @@ export default function EmbedRiversPage() {
     >
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-        <Image
-          src={EDDY_LOGO}
-          alt="Eddy"
-          width={32}
-          height={32}
-          style={{ width: 28, height: 28, objectFit: 'contain', borderRadius: '50%', flexShrink: 0 }}
-        />
+        <EmbedHeaderLogo branding={branding} fallbackSrc={EDDY_LOGO} fallbackSize={28} />
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ fontWeight: 600, fontSize: 15, lineHeight: 1.2, fontFamily: EMBED_FONTS.display }}>
             River Conditions

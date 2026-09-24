@@ -62,10 +62,9 @@ export default function EmbedFooter({
         '--embed-focus': p.focus,
       } as CSSProperties}
     >
-      {(branding?.businessName || branding?.logoUrl || partner) && (
+      {(branding?.businessName || partner) && (
         <EmbedPartnerBrand
           businessName={branding ? branding.businessName : partner}
-          logoUrl={branding?.logoUrl}
           siteUrl={branding?.siteUrl}
           isDark={isDark}
           compact
