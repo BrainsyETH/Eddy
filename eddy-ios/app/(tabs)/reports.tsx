@@ -120,6 +120,7 @@ import { gaugeToSearchResult, useEddySearch } from '@/hooks/useEddySearch';
 import { useEddyUpdates } from '@/hooks/useEddyUpdates';
 import { getSharedDams } from '@/hooks/useDams';
 import { onForeground } from '@/lib/foreground';
+import { compareReadRivers } from '@/lib/readRail';
 import { agedIndex, readBestIndex } from '@/lib/riverCache';
 import { useStarredRivers } from '@/hooks/useStarredRivers';
 import { useLocation, type LocationStatus } from '@/hooks/useLocation';
@@ -1108,20 +1109,12 @@ export default function ReportsScreen() {
         return says ? { river, says } : null;
       })
       .filter((item): item is TodayRead => item !== null)
-      .sort((a, b) => {
-        const favoriteOrder = Number(isStarred('river', b.river.id)) - Number(isStarred('river', a.river.id));
-        if (favoriteOrder !== 0) return favoriteOrder;
-        if (readDistanceByRiver) {
-          const distanceOrder =
-            (readDistanceByRiver.get(a.river.id) ?? Infinity) -
-            (readDistanceByRiver.get(b.river.id) ?? Infinity);
-          if (distanceOrder !== 0) return distanceOrder;
-        }
-        const conditionOrder = floatableRank(a.river.currentCondition?.code ?? 'unknown') - floatableRank(b.river.currentCondition?.code ?? 'unknown');
-        if (conditionOrder !== 0) return conditionOrder;
-        const writtenOrder = new Date(b.says.generatedAt).getTime() - new Date(a.says.generatedAt).getTime();
-        return writtenOrder || a.river.name.localeCompare(b.river.name);
-      });
+      .sort((a, b) => compareReadRivers(
+        a.river,
+        b.river,
+        { isFavorite: (id) => isStarred('river', id), distances: readDistanceByRiver },
+        { a: a.says.generatedAt, b: b.says.generatedAt },
+      ));
   }, [eddyUpdates, isStarred, readDistanceByRiver, rivers]);
   const visibleReadItems = useMemo(() => {
     if (readFilter === 'following') {

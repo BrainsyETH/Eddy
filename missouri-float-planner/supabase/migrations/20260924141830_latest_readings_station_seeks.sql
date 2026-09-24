@@ -1,5 +1,5 @@
--- Pending production application; reconcile the recorded version and ledger
--- after applying. Same RPC contract as 00161, with one index seek per station
+-- Applied to production 2026-09-24, recorded as 20260924141830. Same RPC
+-- contract as 00161, with one index seek per station
 -- instead of scanning each station's history before DISTINCT ON discards it.
 CREATE OR REPLACE FUNCTION public.latest_readings_for_stations(p_station_ids UUID[])
 RETURNS TABLE (
