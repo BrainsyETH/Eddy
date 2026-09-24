@@ -53,7 +53,7 @@ Add `--strict` to exit nonzero for the known calibration review; ordinary execut
 
 ## Rollout
 
-Migration `20260916120000_float_plan_time_ranges.sql` is pending in the ledger. Apply and verify it before deploying the save endpoint, then regenerate database types. It only adds nullable bounds and a validity constraint; the existing share RPC returns the complete row. This change does not apply a migration or publish social posts. Existing posts remain historical snapshots.
+Migration `20260924165528_float_plan_time_ranges.sql` was applied to production on 2026-09-24 (original filename version: `20260916120000`). The filename and ledger match the version Supabase recorded. Both nullable bounds and the validity constraint are present; an anonymous insert and share-RPC round trip returned the saved range inside a rolled-back transaction. Existing posts remain historical snapshots.
 
 A future offline API cache or already-cached social cover may keep older text until refreshed. Nearby-route details now do more reads to obtain real estimates; measure request latency after deployment.
 
@@ -75,7 +75,6 @@ endpoint preserves its pre-PR numeric editorial contract for installed clients
 that call `durationHours.toFixed()`; no routes are removed. Legacy estimates are
 marked `legacy_editorial`; retire v1 when those clients are no longer supported.
 
-Apply the range migration before deploying the save endpoint. Run the read-only
-preflight SQL first and regenerate database types after applying it. No production
-DB checks or migration were performed in this environment. The explicit default
+The range migration is now applied and verified in production (2026-09-24).
+The earlier verification notes above describe the original implementation run. The explicit default
 vessel is canoe; explicit raft/tube selections keep their existing speeds.
