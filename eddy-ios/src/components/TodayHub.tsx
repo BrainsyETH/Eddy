@@ -47,6 +47,7 @@ import { EddySymbol } from '@/components/EddySymbol';
 import { TodayRiverPhoto } from '@/components/TodayRiverPhoto';
 import { PremiumReadPreview } from '@/components/PremiumReadPreview';
 import { PaywallSheet } from '@/components/PaywallSheet';
+import { canOfferReadPremium } from '@/lib/readPremiumAccess';
 import { EddyScene } from '@/components/EddyScene';
 import { Otter, otterForCondition } from '@/components/Otter';
 import { TodaySummary, TodayWeather } from '@/components/TodaySummary';
@@ -594,10 +595,20 @@ export function TodayHub({
   const account = useAccount();
   const premiumUserId = account.loaded && !account.error && account.entitlement?.isActive && account.profile?.id === session?.user.id
     ? session?.user.id ?? null : null;
-  const canUnlockRead = sessionReady && account.loaded && !account.error
-    && (!session || account.profile?.id === session.user.id)
-    && !account.entitlement?.isActive;
+  const canUnlockRead = canOfferReadPremium({
+    sessionReady,
+    userId: session?.user.id ?? null,
+    loaded: account.loaded,
+    error: account.error,
+    profileId: account.profile?.id ?? null,
+    isActive: account.entitlement?.isActive ?? false,
+  });
   const [paywallRiver, setPaywallRiver] = useState<string | null>(null);
+  // Clear the intent as well as hiding the sheet so a later account error or
+  // sign-out cannot resurrect a purchase offer the subscriber already passed.
+  useEffect(() => {
+    if (premiumUserId) setPaywallRiver(null);
+  }, [premiumUserId]);
   const { refresh: refreshAccount } = account;
   const focusedOnce = useRef(false);
   useFocusEffect(useCallback(() => {
@@ -1163,7 +1174,7 @@ export function TodayHub({
       ) : null}
 
       <PaywallSheet
-        visible={paywallRiver !== null}
+        visible={paywallRiver !== null && !premiumUserId}
         riverName={paywallRiver ?? undefined}
         onClose={() => setPaywallRiver(null)}
         onPurchased={() => { void refreshAccount(); }}
