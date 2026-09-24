@@ -17,7 +17,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Image as CachedImage } from 'expo-image';
-import { selectReadRail, readRailState } from '@/lib/readRail';
+import { compareReadRivers, selectReadRail, readRailState } from '@/lib/readRail';
 import { useFocusEffect, useRouter } from 'expo-router';
 import type {
   DamSnapshot,
@@ -828,10 +828,16 @@ export function TodayHub({
     });
     return reserved;
   }, [recommendations, favoritePreviews]);
+  // Ranked exactly as the validated Reads will be (minus prose age, which is
+  // unknown until they land), so early Premium cards and photo prefetches
+  // name the rivers the settled rail shows.
   const readCandidates = useMemo(() => selectReadRail(
-    [...rivers].sort((a, b) => Number(favoriteIds.has(b.id)) - Number(favoriteIds.has(a.id))),
+    [...rivers].sort((a, b) => compareReadRivers(a, b, {
+      isFavorite: (id) => favoriteIds.has(id),
+      distances: previewDistances,
+    })),
     reservedReadIds, (river) => river.id,
-  ), [rivers, favoriteIds, reservedReadIds]);
+  ), [rivers, favoriteIds, previewDistances, reservedReadIds]);
   const readPreviews = useMemo(() => {
     // Premium requests still start before the public index; these candidates
     // have already been selected, so do not filter or truncate them again.

@@ -120,8 +120,8 @@ export async function buildLiveConditionsMap(
   const stationIds = Array.from(thresholdMap.values()).map((t) => t.stationId);
   if (stationIds.length === 0) return result;
 
-  // Latest reading PER station via the RPC introduced in 00161. Migration
-  // 20260924233000 replaces its history scan with indexed seeks when applied. The old
+  // Latest reading PER station via the RPC introduced in 00161; migration
+  // 20260924141830 replaced its history scan with indexed seeks. The old
   // `.in(stationIds).order(desc)` had no LIMIT and PostgREST caps result sets
   // (~1000 rows); once gauge_readings grew past that for the primary stations,
   // some station's newest reading fell outside the window, so it looked stale
