@@ -67,7 +67,8 @@
           "cameraPermission": "Eddy uses your camera so you can show other floaters what the river looks like right now.",
           "microphonePermission": false
         }
-      ]
+      ],
+      "expo-image"
     ],
     "experiments": {
       "typedRoutes": true
