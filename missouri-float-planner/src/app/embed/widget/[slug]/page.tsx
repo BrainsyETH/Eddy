@@ -6,7 +6,6 @@
 // SiteHeader is hidden via pathname check in SiteHeader component
 
 import { useEffect, useState, type CSSProperties } from 'react';
-import Image from 'next/image';
 import { useParams, useSearchParams } from 'next/navigation';
 import { CONDITION_COLORS, getEddyImageForCondition, CFS_EXPLAINER } from '@/constants';
 import { computeCondition, getConditionShortLabel, type ConditionThresholds } from '@/lib/conditions';
@@ -17,6 +16,7 @@ import { FLAG_GREEN_ICON } from '@/lib/embed/tileIcons';
 import { eddyIconUrl } from '@/components/ui/EddyIcon';
 import InfoTip from '@/components/ui/InfoTip';
 import EmbedFooter from '@/components/embed/EmbedFooter';
+import EmbedHeaderLogo from '@/components/embed/EmbedHeaderLogo';
 import EmbedMetricGrid from '@/components/embed/EmbedMetricGrid';
 import EmbedTrendChart, { type EmbedChartData } from '@/components/embed/EmbedTrendChart';
 import EmbedWidgetSkeleton, { EmbedUnavailableState } from '@/components/embed/EmbedWidgetSkeleton';
@@ -332,13 +332,7 @@ export default function EmbedWidgetPage() {
     >
       {/* Identity + canonical live condition. */}
       <header className="flex items-start gap-3 pb-3 border-b" style={{ borderColor: palette.border }}>
-        <Image
-          src={EDDY_LOGO}
-          alt="Eddy"
-          width={36}
-          height={36}
-          className="w-9 h-9 object-contain rounded-full flex-shrink-0"
-        />
+        <EmbedHeaderLogo branding={branding} fallbackSrc={EDDY_LOGO} fallbackSize={36} />
         <div className="flex-1 min-w-0">
           <div className="font-bold text-base leading-tight truncate" style={{ fontFamily: EMBED_FONTS.display }}>
             {river.name}

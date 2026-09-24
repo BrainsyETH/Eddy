@@ -5,11 +5,11 @@
 // current unit-aware gauge value, and Eddy Says condition report.
 
 import { useEffect, useState, useMemo } from 'react';
-import Image from 'next/image';
 import { useParams, useSearchParams } from 'next/navigation';
 import { CONDITION_COLORS, CONDITION_SHORT_LABELS } from '@/constants';
 import { embedPalette, EMBED_FONTS } from '@/lib/embed/theme';
 import EmbedFooter from '@/components/embed/EmbedFooter';
+import EmbedHeaderLogo from '@/components/embed/EmbedHeaderLogo';
 import EmbedTrendChart from '@/components/embed/EmbedTrendChart';
 import { useEmbedBranding } from '@/components/embed/useEmbedBranding';
 
@@ -243,10 +243,10 @@ export default function EmbedGaugeReportPage() {
 
   return (
     <div style={{ fontFamily: EMBED_FONTS.body, background: bg, color: textPrimary, padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 10, boxSizing: 'border-box', overflow: 'hidden' }}>
-      {/* Header: Eddy favicon + River name + condition badge */}
+      {/* Header: partner logo (Eddy fallback) + river name + condition badge */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <Image src={EDDY_LOGO} alt="Eddy" width={32} height={32} style={{ width: 28, height: 28, objectFit: 'contain', borderRadius: '50%', flexShrink: 0 }} />
+          <EmbedHeaderLogo branding={branding} fallbackSrc={EDDY_LOGO} fallbackSize={28} />
           <div style={{ fontWeight: 600, fontSize: 15, lineHeight: 1.2, fontFamily: EMBED_FONTS.display }}>{river.name}</div>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '3px 8px', borderRadius: 12, backgroundColor: `${conditionColor}15`, border: `1px solid ${conditionColor}30` }}>
