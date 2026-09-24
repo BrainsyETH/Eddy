@@ -141,6 +141,9 @@ export const X402_ROUTES = {
   // Same price as /api/gauges: it is the same kind of answer (station rows and
   // their latest reading), just bounded by a viewport instead of by curation.
   '/api/gauges/map': { price: '$0.001', description: 'Gauges within a bounding box' },
+  // The whole national index in one body, so it prices with the composed
+  // feeds rather than a single lookup: it is every station at once.
+  '/api/gauges/points': { price: '$0.005', description: 'Every USGS gauge position with its latest reading' },
   // One station rather than a list, and priced with the lists for the same
   // reason: it is the same station row and the same latest reading, addressed
   // by site id. It composes nothing — the ladder it carries is a join, and the

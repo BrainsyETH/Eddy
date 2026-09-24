@@ -2764,8 +2764,10 @@ export function RiverMap({
           That floor is a FETCH gate and it belongs to the OTHER tier. The
           ~14,000-station reference layer is viewport-driven (useViewportGauges,
           OVERVIEW_LIMIT 1000), and a continental camera there is a request that
-          cannot be answered — so contextGaugeLayer keeps its floor and this
-          note is not an argument against it.
+          cannot be answered — so contextGaugeLayer keeps its FETCH floor and
+          this note is not an argument against it. Below that floor the screen
+          feeds this same source from the national index (useGaugeIndex), so
+          the reference tier is clustered at every zoom too.
 
           The CURATED network is not that. useStatewideNetwork fetches it once,
           ungated, and grades it on the phone; it is the same payload whose

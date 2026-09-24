@@ -532,6 +532,13 @@ discharge, so a viewport holding 1,240 quietly drew 300 and looked complete.
 `belowMinZoom`, `capped` and `total` had all been coming back from
 `useViewportGauges` unrendered. Both now say so in the strip.
 
+Below that floor the layer is no longer empty. `useGaugeIndex` fetches
+`/api/gauges/points` — every non-curated station as compact tuples (no name, no
+uuid), CDN-cached and kept on disk — and the screen feeds it into the same
+clustered source, so a zoomed-out map shows the whole network as counts, the way
+other gauge maps do. Tapping an index dot zooms toward it; past the floor the
+viewport tier supplies the full record and the callout.
+
 Every pin is a `CircleLayer` plus a text `SymbolLayer`, never a sprite icon. The
 icon names in Mapbox's outdoors style are not a contract we control, and a
 missing sprite renders as *nothing* — an invisible hazard is a worse failure
