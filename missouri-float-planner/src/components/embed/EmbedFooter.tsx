@@ -30,6 +30,7 @@ interface EmbedFooterProps {
   links?: EmbedFooterLink[];
   partner?: string;
   branding?: EmbedBranding | null;
+  embedId?: string | null;
 }
 
 export default function EmbedFooter({
@@ -40,9 +41,10 @@ export default function EmbedFooter({
   links = [],
   partner = '',
   branding = null,
+  embedId = null,
 }: EmbedFooterProps) {
   const p = embedPalette(isDark);
-  const utm = { widget, key: widgetKey, partner: branding?.businessName || partner || undefined };
+  const utm = { widget, key: widgetKey, partner: branding?.businessName || embedId || partner || undefined };
 
   return (
     <div
@@ -61,14 +63,13 @@ export default function EmbedFooter({
       } as CSSProperties}
     >
       {(branding?.businessName || branding?.logoUrl || partner) && (
-        <div style={{ flexBasis: '100%', minWidth: 0 }}>
-          <EmbedPartnerBrand
-            businessName={branding ? branding.businessName : partner}
-            logoUrl={branding?.logoUrl}
-            siteUrl={branding?.siteUrl}
-            isDark={isDark}
-          />
-        </div>
+        <EmbedPartnerBrand
+          businessName={branding ? branding.businessName : partner}
+          logoUrl={branding?.logoUrl}
+          siteUrl={branding?.siteUrl}
+          isDark={isDark}
+          compact
+        />
       )}
       {links.length > 0 && (
         <nav aria-label="More from Eddy" style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>

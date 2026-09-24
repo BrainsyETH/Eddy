@@ -87,7 +87,7 @@ export default function EmbedGaugeReportPage() {
   const theme = searchParams.get('theme') || 'light';
   const partner = searchParams.get('partner') || '';
   const isDark = theme === 'dark';
-  const { branding } = useEmbedBranding();
+  const { branding, embedId } = useEmbedBranding();
 
   // Clamped like the server clamps it — this is user input off the URL, and
   // an unclamped value only mislabelled the range the server actually served.
@@ -342,6 +342,7 @@ export default function EmbedGaugeReportPage() {
         isDark={isDark}
         partner={partner}
         branding={branding}
+        embedId={embedId}
         links={[{ label: 'Full river guide', path: river.path || `/rivers/${river.slug}` }]}
       />
     </div>

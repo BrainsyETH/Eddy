@@ -99,7 +99,7 @@ export default function EddyQuoteEmbedPage() {
   const theme = searchParams.get('theme') || 'light';
   const partner = searchParams.get('partner') || '';
   const isDark = theme === 'dark';
-  const { branding } = useEmbedBranding();
+  const { branding, embedId } = useEmbedBranding();
 
   const [update, setUpdate] = useState<EddyUpdate | null>(null);
   const [river, setRiver] = useState<RiverBasic | null>(null);
@@ -200,7 +200,7 @@ export default function EddyQuoteEmbedPage() {
   const weatherHref = eddyDeepLink(origin, `/plan?river=${slug}`, {
     widget: 'eddy-quote',
     key: slug,
-    partner: branding?.businessName || partner || undefined,
+    partner: branding?.businessName || embedId || partner || undefined,
   });
   const conditionChangedSinceQuote = Boolean(
     update?.conditionCode &&
@@ -419,6 +419,7 @@ export default function EddyQuoteEmbedPage() {
         isDark={isDark}
         partner={partner}
         branding={branding}
+        embedId={embedId}
         links={[
           { label: 'Full River Report', path: river.path || `/rivers/${river.slug}` },
           { label: 'Plan a Float', path: `/plan?river=${river.slug}` },

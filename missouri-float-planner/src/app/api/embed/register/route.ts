@@ -21,14 +21,6 @@ export async function POST(request: NextRequest): Promise<Response> {
     if (!businessName && !logoUrl) {
       return NextResponse.json({ error: 'Add a business name or logo.' }, { status: 400 });
     }
-    if (logoUrl) {
-      try {
-        const url = new URL(logoUrl);
-        if (url.protocol !== 'https:' && url.protocol !== 'http:') throw new Error('Invalid protocol');
-      } catch {
-        return NextResponse.json({ error: 'Use a valid http or https image URL for your logo.' }, { status: 400 });
-      }
-    }
 
     const result = await createEmbedBranding({
       businessName,

@@ -465,6 +465,8 @@ export default function EmbedWorkbench() {
   const [brandingForm, setBrandingForm] = useState({
     businessName: '',
     logoUrl: '',
+    siteUrl: '',
+    accentColor: '#F07052',
   });
   const [brandingBusy, setBrandingBusy] = useState(false);
   const [brandingError, setBrandingError] = useState<string | null>(null);
@@ -480,6 +482,8 @@ export default function EmbedWorkbench() {
         body: JSON.stringify({
           businessName: brandingForm.businessName.trim(),
           logoUrl: brandingForm.logoUrl.trim() || undefined,
+          siteUrl: brandingForm.siteUrl.trim() || undefined,
+          accentColor: brandingForm.accentColor,
         }),
       });
       const data = await res.json().catch(() => null);
@@ -1125,7 +1129,7 @@ export default function EmbedWorkbench() {
                   {(cardForm.businessName.trim() || /^https?:\/\//i.test(cardForm.logoUrl.trim())) && (
                     <div className="rounded-md p-3" style={{ background: theme === 'dark' ? '#0F2D35' : '#F7F6F3' }}>
                       <EmbedPartnerBrand businessName={cardForm.businessName.trim()}
-                        logoUrl={/^https?:\/\//i.test(cardForm.logoUrl.trim()) ? cardForm.logoUrl.trim() : null} isDark={theme === 'dark'} />
+                        logoUrl={/^https?:\/\//i.test(cardForm.logoUrl.trim()) ? cardForm.logoUrl.trim() : null} isDark={theme === 'dark'} showLogoError />
                     </div>
                   )}
                   <p className="text-xs text-neutral-500">Included when you create your card. No cropping, no account, no cost.</p>
@@ -1160,11 +1164,26 @@ export default function EmbedWorkbench() {
                         className="w-full text-sm text-neutral-800 bg-white rounded-md border-2 border-neutral-200 px-3 py-2 focus:outline-none focus:border-primary-400" />
                       <p id="branding-logo-help" className="text-xs text-neutral-500 mt-1">Use a direct image link. Your full logo stays visible without cropping.</p>
                     </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-neutral-600 mb-1" htmlFor="branding-site">Your website (optional)</label>
+                      <input id="branding-site" type="url" value={brandingForm.siteUrl}
+                        onChange={e => setBrandingForm(f => ({ ...f, siteUrl: e.target.value }))}
+                        placeholder="https://yoursite.com"
+                        className="w-full text-sm text-neutral-800 bg-white rounded-md border-2 border-neutral-200 px-3 py-2 focus:outline-none focus:border-primary-400" />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-neutral-600 mb-1" htmlFor="branding-accent">Planner button color (optional)</label>
+                      <input id="branding-accent" type="color" value={brandingForm.accentColor}
+                        onChange={e => setBrandingForm(f => ({ ...f, accentColor: e.target.value }))}
+                        aria-describedby="branding-accent-help"
+                        className="h-9 w-16 bg-white border-2 border-neutral-200 rounded-md cursor-pointer" />
+                      <p id="branding-accent-help" className="text-xs text-neutral-500 mt-1">Used by the Float Trip Planner only.</p>
+                    </div>
                     {(brandingForm.businessName.trim() || /^https?:\/\//i.test(brandingForm.logoUrl.trim())) && (
                       <div className="rounded-md p-3" style={{ background: theme === 'dark' ? '#0F2D35' : '#F7F6F3' }}>
                         <EmbedPartnerBrand businessName={brandingForm.businessName.trim()}
                           logoUrl={/^https?:\/\//i.test(brandingForm.logoUrl.trim()) ? brandingForm.logoUrl.trim() : null}
-                          isDark={theme === 'dark'} />
+                          isDark={theme === 'dark'} compact showLogoError />
                       </div>
                     )}
                     {brandingError && <p className="text-xs font-medium text-red-600" role="alert">{brandingError}</p>}
@@ -1180,7 +1199,7 @@ export default function EmbedWorkbench() {
                 </form>
               ) : (
                 <>
-                  <p className="text-xs text-neutral-600 my-2">Add your logo, business name, or both. Powered by Eddy stays visible.</p>
+                  <p className="text-xs text-neutral-600 my-2">Add your logo, name, and an optional link to your site. Free, with Powered by Eddy visible.</p>
                   <button type="button" onClick={() => setBrandingOpen(true)}
                     className="text-xs font-semibold text-primary-700 border-2 border-primary-300 rounded-md px-3 py-2">Add branding</button>
                 </>

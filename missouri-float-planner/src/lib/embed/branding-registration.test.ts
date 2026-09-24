@@ -30,9 +30,11 @@ test('branding accepts name-only, logo-only, and both without allowing empty or 
   assert.equal(rows[1].business_name, null);
   assert.equal(rows[1].logo_url, 'https://example.com/logo.png');
 
-  assert.ok(await createEmbedBranding({ businessName: 'River Camp', logoUrl: 'https://example.com/logo.svg' }));
+  assert.ok(await createEmbedBranding({ businessName: 'River Camp', logoUrl: 'https://example.com/logo.svg', siteUrl: 'https://example.com/book', accentColor: '#123456' }));
   assert.equal(rows[2].business_name, 'River Camp');
   assert.equal(rows[2].logo_url, 'https://example.com/logo.svg');
+  assert.equal(rows[2].site_url, 'https://example.com/book');
+  assert.equal(rows[2].accent_color, '#123456');
 
   assert.equal(await createEmbedBranding({}), null);
   assert.equal(await createEmbedBranding({ businessName: '  ' }), null);

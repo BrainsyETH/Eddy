@@ -120,7 +120,7 @@ export default function EmbedWidgetPage() {
   const theme = searchParams.get('theme') || 'light';
   const partner = searchParams.get('partner') || '';
   const isDark = theme === 'dark';
-  const { branding } = useEmbedBranding();
+  const { branding, embedId } = useEmbedBranding();
 
   const [river, setRiver] = useState<RiverListItem | null>(null);
   const [gauges, setGauges] = useState<GaugeWithCondition[]>([]);
@@ -312,7 +312,7 @@ export default function EmbedWidgetPage() {
 
   const conditionCode = river.currentCondition?.code;
   const origin = typeof window !== 'undefined' ? window.location.origin : 'https://eddy.guide';
-  const utm = { widget: 'widget', key: slug, partner: branding?.businessName || partner };
+  const utm = { widget: 'widget', key: slug, partner: branding?.businessName || embedId || partner };
   const riverHref = eddyDeepLink(origin, river.path || `/rivers/${river.slug}`, utm);
   const weatherHref = eddyDeepLink(origin, `/plan?river=${river.slug}`, utm);
   const suspectGauge = gauges.find(g => g.readingSuspect && g.qualifierNote);
@@ -542,6 +542,7 @@ export default function EmbedWidgetPage() {
         isDark={isDark}
         partner={partner}
         branding={branding}
+        embedId={embedId}
         links={[
           { label: 'Full River Report', path: river.path || `/rivers/${river.slug}` },
           { label: 'Plan a Float', path: `/plan?river=${river.slug}` },

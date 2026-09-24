@@ -40,7 +40,7 @@ export default function EmbedPlannerPage() {
   const preselectedRiver = searchParams.get('river') || '';
   const partner = searchParams.get('partner') || ''; // (#19) partner branding
   const isDark = theme === 'dark';
-  const { branding } = useEmbedBranding();
+  const { branding, embedId } = useEmbedBranding();
 
   const [rivers, setRivers] = useState<RiverListItem[]>([]);
   const [accessPoints, setAccessPoints] = useState<AccessPoint[]>([]);
@@ -116,7 +116,7 @@ export default function EmbedPlannerPage() {
 
   const canSubmit = selectedRiver && selectedPutIn && selectedTakeOut;
   const origin = typeof window !== 'undefined' ? window.location.origin : 'https://eddy.guide';
-  const utm = { widget: 'planner', key: selectedRiver || 'none', partner: branding?.businessName || partner };
+  const utm = { widget: 'planner', key: selectedRiver || 'none', partner: branding?.businessName || embedId || partner };
 
   const palette = embedPalette(isDark);
   const { bg, cardBg, textPrimary, textSecondary } = palette;
@@ -398,6 +398,7 @@ export default function EmbedPlannerPage() {
           isDark={isDark}
           partner={partner}
           branding={branding}
+          embedId={embedId}
         />
       </div>
     </div>

@@ -92,7 +92,7 @@ export default function EmbedServicesPage() {
   const highlightSlugs = highlightParam ? highlightParam.split(',').map(s => s.trim()).filter(Boolean) : [];
   const partner = searchParams.get('partner') || '';
   const isDark = theme === 'dark';
-  const { branding } = useEmbedBranding();
+  const { branding, embedId } = useEmbedBranding();
 
   const [services, setServices] = useState<ServiceItem[]>([]);
   const [river, setRiver] = useState<RiverBasic | null>(null);
@@ -415,6 +415,7 @@ export default function EmbedServicesPage() {
         isDark={isDark}
         partner={partner}
         branding={branding}
+        embedId={embedId}
         links={[{ label: 'Full river guide', path: river.path || `/rivers/${river.slug}` }]}
       />
     </div>
