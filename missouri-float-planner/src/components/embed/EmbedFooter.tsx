@@ -8,6 +8,7 @@
 // linked business name) beats the zero-setup ?partner= text credit.
 
 import Image from 'next/image';
+import EmbedPartnerBrand from './EmbedPartnerBrand';
 import type { CSSProperties } from 'react';
 import { eddyDeepLink, type EmbedBranding } from '@/lib/embed/branding';
 import { embedPalette, EMBED_FONTS } from '@/lib/embed/theme';
@@ -29,6 +30,7 @@ interface EmbedFooterProps {
   links?: EmbedFooterLink[];
   partner?: string;
   branding?: EmbedBranding | null;
+  embedId?: string | null;
 }
 
 export default function EmbedFooter({
@@ -39,39 +41,10 @@ export default function EmbedFooter({
   links = [],
   partner = '',
   branding = null,
+  embedId = null,
 }: EmbedFooterProps) {
   const p = embedPalette(isDark);
-  const utm = { widget, key: widgetKey, partner: branding?.businessName || partner || undefined };
-
-  const credit = branding?.businessName ? (
-    branding.siteUrl ? (
-      <a
-        href={branding.siteUrl}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="embed-footer-link"
-        style={{ display: 'inline-flex', alignItems: 'center', gap: 4, minHeight: 32, padding: '0 4px', borderRadius: 4, fontSize: 10, color: p.textSecondary, textDecoration: 'none', fontWeight: 600, '--embed-hover': p.hoverBg, '--embed-focus': p.focus } as CSSProperties}
-      >
-        {branding.logoUrl && (
-          // Partner logos live on arbitrary domains — next/image needs an
-          // allowlist, so use a plain img and degrade silently.
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={branding.logoUrl} alt="" width={14} height={14} style={{ width: 14, height: 14, objectFit: 'contain', borderRadius: 3 }} />
-        )}
-        via {branding.businessName}
-      </a>
-    ) : (
-      <span style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 10, color: p.textSecondary, fontWeight: 600 }}>
-        {branding.logoUrl && (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={branding.logoUrl} alt="" width={14} height={14} style={{ width: 14, height: 14, objectFit: 'contain', borderRadius: 3 }} />
-        )}
-        via {branding.businessName}
-      </span>
-    )
-  ) : partner ? (
-    <span style={{ fontSize: 10, color: p.textSecondary, fontWeight: 500 }}>via {partner}</span>
-  ) : null;
+  const utm = { widget, key: widgetKey, partner: branding?.businessName || embedId || partner || undefined };
 
   return (
     <div
@@ -89,6 +62,15 @@ export default function EmbedFooter({
         '--embed-focus': p.focus,
       } as CSSProperties}
     >
+      {(branding?.businessName || branding?.logoUrl || partner) && (
+        <EmbedPartnerBrand
+          businessName={branding ? branding.businessName : partner}
+          logoUrl={branding?.logoUrl}
+          siteUrl={branding?.siteUrl}
+          isDark={isDark}
+          compact
+        />
+      )}
       {links.length > 0 && (
         <nav aria-label="More from Eddy" style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
           {links.map(l => (
@@ -106,7 +88,6 @@ export default function EmbedFooter({
         </nav>
       )}
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginLeft: 'auto' }}>
-        {credit}
         <a
           href={eddyDeepLink(origin, '/', utm)}
           target="_blank"

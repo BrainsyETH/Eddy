@@ -41,7 +41,7 @@ export default function EmbedRiversPage() {
   const theme = searchParams.get('theme') || 'light';
   const partner = searchParams.get('partner') || '';
   const isDark = theme === 'dark';
-  const { branding } = useEmbedBranding();
+  const { branding, embedId } = useEmbedBranding();
 
   const riversParam = searchParams.get('rivers') || '';
   const requested = riversParam
@@ -156,7 +156,7 @@ export default function EmbedRiversPage() {
               href={eddyDeepLink(origin, river.path || `/rivers/${river.slug}`, {
                 widget: 'rivers',
                 key: river.slug,
-                partner: branding?.businessName || partner,
+                partner: branding?.businessName || embedId || partner,
               })}
               target="_blank"
               rel="noopener noreferrer"
@@ -210,6 +210,7 @@ export default function EmbedRiversPage() {
         isDark={isDark}
         partner={partner}
         branding={branding}
+        embedId={embedId}
         links={[{ label: 'All river reports', path: '/rivers' }]}
       />
     </div>

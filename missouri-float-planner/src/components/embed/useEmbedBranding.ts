@@ -15,7 +15,7 @@ export function useEmbedBranding(): { embedId: string | null; branding: EmbedBra
   const searchParams = useSearchParams();
   const raw = searchParams.get('e') || '';
   const embedId = EMBED_ID_RE.test(raw) ? raw : null;
-  const [branding, setBranding] = useState<EmbedBranding | null>(null);
+  const [result, setResult] = useState<{ embedId: string; branding: EmbedBranding } | null>(null);
 
   useEffect(() => {
     if (!embedId) return;
@@ -23,11 +23,11 @@ export function useEmbedBranding(): { embedId: string | null; branding: EmbedBra
     fetch(`/api/embed/widgets/${embedId}`)
       .then(r => (r.ok ? r.json() : null))
       .then(data => {
-        if (!cancelled && data?.branding) setBranding(data.branding as EmbedBranding);
+        if (!cancelled && data?.branding) setResult({ embedId, branding: data.branding as EmbedBranding });
       })
       .catch(() => {}); // co-branding is progressive enhancement — never break the widget
     return () => { cancelled = true; };
   }, [embedId]);
 
-  return { embedId, branding };
+  return { embedId, branding: embedId && result?.embedId === embedId ? result.branding : null };
 }
