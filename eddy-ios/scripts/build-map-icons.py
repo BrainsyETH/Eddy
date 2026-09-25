@@ -253,7 +253,8 @@ def themed_icon(source_name: str, size: int = 66) -> Image.Image:
 def main() -> None:
     OUT.mkdir(parents=True, exist_ok=True)
 
-    # Widths are @3x: `scale: 3` at registration makes a 66px image draw 22pt.
+    # Widths are @3x and the files say so: `name@3x.png` is how React Native
+    # knows a 66px image draws at 22pt. See PIN_IMAGES in RiverMap.
     shapes = {
         # Gauges. Round-bottomed drop, point up — the shape everyone reads as
         # water, and the one the condition colour has to fill.
@@ -282,9 +283,9 @@ def main() -> None:
             Image.new("L", size, 255),
             alpha,
         ))
-        target = OUT / f"{name}.png"
+        target = OUT / f"{name}@3x.png"
         icon.save(target, optimize=True)
-        print(f"{name + '.png':20} {size[0]}x{size[1]}  {target.stat().st_size // 1024} KB")
+        print(f"{name + '@3x.png':24} {size[0]}x{size[1]}  {target.stat().st_size // 1024} KB")
 
     # Full-colour map variants of Eddy's utility catalog. These are registered
     # once and reused by every feature, so a map with hundreds of points does
@@ -313,9 +314,9 @@ def main() -> None:
     }
     for name, source_name in themed.items():
         icon = themed_icon(source_name)
-        target = OUT / f"{name}.png"
+        target = OUT / f"{name}@3x.png"
         icon.save(target, optimize=True)
-        print(f"{name + '.png':20} {icon.width}x{icon.height}  {target.stat().st_size // 1024} KB")
+        print(f"{name + '@3x.png':24} {icon.width}x{icon.height}  {target.stat().st_size // 1024} KB")
 
 
 if __name__ == "__main__":
