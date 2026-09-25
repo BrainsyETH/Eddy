@@ -18,6 +18,7 @@ interface Props {
   onPress: () => void;
   photoUrl?: string | null;
   premiumUserId?: string | null;
+  onUnlock?: () => void;
   refreshRevision?: number;
   compact?: boolean;
   standalone?: boolean;
@@ -56,11 +57,11 @@ export function EddyReadPlaceholder() {
   </View>;
 }
 
-export function BlurredReadPreview({ lines = 3 }: { lines?: number }) {
+export function BlurredReadPreview({ lines = 3, withSpacing = true }: { lines?: number; withSpacing?: boolean }) {
   const { colors, isDark } = useTheme();
   return (
     <View
-      style={styles.blurWrap}
+      style={[styles.blurWrap, withSpacing && styles.previewSpacing]}
       accessibilityElementsHidden
       importantForAccessibility="no-hide-descendants"
     >
@@ -87,7 +88,7 @@ export function BlurredReadPreview({ lines = 3 }: { lines?: number }) {
 }
 
 /** Public metadata stays immediate. Premium excerpts use the authenticated report endpoint. */
-export function EddyReadCard({ river, says, onPress, compact = false, standalone = false, photoUrl, premiumUserId, refreshRevision = 0 }: Props) {
+export function EddyReadCard({ river, says, onPress, onUnlock, compact = false, standalone = false, photoUrl, premiumUserId, refreshRevision = 0 }: Props) {
   const { elevation } = useTheme();
   const code = river.currentCondition?.code ?? 'unknown';
   const age = writtenAge(says.generatedAt);
@@ -117,7 +118,22 @@ export function EddyReadCard({ river, says, onPress, compact = false, standalone
       </View>
       <Text style={[styles.name, { color: 'white' }]}>{river.name}</Text>
       </Pressable>
-      {premiumUserId ? <PremiumReadPreview onPhoto key={premiumUserId} slug={river.slug} revision={String(refreshRevision)} /> : <BlurredReadPreview lines={7} />}
+      {premiumUserId ? <PremiumReadPreview onPhoto key={premiumUserId} slug={river.slug} revision={String(refreshRevision)} /> : onUnlock ? (
+        <Pressable
+          onPress={event => { event.stopPropagation(); onUnlock(); }}
+          accessibilityRole="button"
+          accessibilityLabel={`Unlock Eddy's Read for ${river.name} with Premium`}
+          accessibilityHint="Opens Premium subscription options"
+          style={({ pressed }) => [styles.lockedPreview, styles.previewSpacing, { opacity: pressed ? 0.75 : 1 }]}
+        >
+          <BlurredReadPreview lines={7} withSpacing={false} />
+          <View pointerEvents="none" style={styles.lockOverlay}>
+            <View style={[styles.lockBadge, { backgroundColor: '#16352e', borderColor: '#d2e1db' }]}>
+              <Ionicons name="lock-closed" size={22} color="white" />
+            </View>
+          </View>
+        </Pressable>
+      ) : <BlurredReadPreview lines={7} />}
       <View style={styles.foot}>
         {age && !premiumUserId ? <Text style={[styles.age, { color: '#d2e1db' }]}>{age}</Text> : <View />}
         <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel={`View full Read for ${river.name}`} style={[styles.footAction, { minHeight: 44 }]}>
@@ -140,11 +156,15 @@ const styles = StyleSheet.create({
   name: { ...t['2xl'], fontFamily: fonts.heading, marginTop: 4 },
   pill: { alignSelf: 'flex-start', marginLeft: 'auto', borderWidth: 1, borderRadius: 999, paddingHorizontal: 8, paddingVertical: 3 },
   pillText: { ...t.xs, fontFamily: fonts.semibold },
-  blurWrap: { position: 'relative', overflow: 'hidden', borderRadius: 8, marginTop: 11 },
+  blurWrap: { position: 'relative', overflow: 'hidden', borderRadius: 8 },
+  previewSpacing: { marginTop: 11 },
   readShape: { gap: 7, paddingVertical: 3 },
   readLine: { height: 8, borderRadius: 4, opacity: 0.45 },
   readLineLast: { width: '68%' },
   blurOverlay: { position: 'absolute', top: 0, right: 0, bottom: 0, left: 0 },
+  lockedPreview: { minHeight: 44 },
+  lockOverlay: { position: 'absolute', top: 0, right: 0, bottom: 0, left: 0, alignItems: 'center', justifyContent: 'center' },
+  lockBadge: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center', borderWidth: 1 },
   foot: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginTop: 'auto', paddingTop: 10 },
   footAction: { flexDirection: 'row', alignItems: 'center', gap: 4, flexShrink: 1 },
   footActionText: { ...t.xs, fontFamily: fonts.semibold, flexShrink: 1 },

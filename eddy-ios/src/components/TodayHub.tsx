@@ -46,6 +46,8 @@ import { relativeAge } from '@eddy/conditions/dam-schedule-copy';
 import { EddySymbol } from '@/components/EddySymbol';
 import { TodayRiverPhoto } from '@/components/TodayRiverPhoto';
 import { PremiumReadPreview } from '@/components/PremiumReadPreview';
+import { PaywallSheet } from '@/components/PaywallSheet';
+import { canOfferReadPremium } from '@/lib/readPremiumAccess';
 import { EddyScene } from '@/components/EddyScene';
 import { Otter, otterForCondition } from '@/components/Otter';
 import { TodaySummary, TodayWeather } from '@/components/TodaySummary';
@@ -589,10 +591,24 @@ export function TodayHub({
   const router = useRouter();
   const { colors } = useTheme();
   const { starred, ready: starsReady } = useStarredRivers();
-  const { session } = useSession();
+  const { session, ready: sessionReady } = useSession();
   const account = useAccount();
   const premiumUserId = account.loaded && !account.error && account.entitlement?.isActive && account.profile?.id === session?.user.id
     ? session?.user.id ?? null : null;
+  const canUnlockRead = canOfferReadPremium({
+    sessionReady,
+    userId: session?.user.id ?? null,
+    loaded: account.loaded,
+    error: account.error,
+    profileId: account.profile?.id ?? null,
+    isActive: account.entitlement?.isActive ?? false,
+  });
+  const [paywallRiver, setPaywallRiver] = useState<string | null>(null);
+  // Clear the intent as well as hiding the sheet so a later account error or
+  // sign-out cannot resurrect a purchase offer the subscriber already passed.
+  useEffect(() => {
+    if (premiumUserId) setPaywallRiver(null);
+  }, [premiumUserId]);
   const { refresh: refreshAccount } = account;
   const focusedOnce = useRef(false);
   useFocusEffect(useCallback(() => {
@@ -985,6 +1001,7 @@ export function TodayHub({
                 compact
                 photoUrl={photos.get(river.slug)}
                 premiumUserId={premiumUserId}
+                onUnlock={canUnlockRead ? () => setPaywallRiver(river.name) : undefined}
                 refreshRevision={refreshRevision}
                 onPress={() => openRead(river.slug)}
               />
@@ -997,6 +1014,7 @@ export function TodayHub({
             standalone
             photoUrl={photos.get(readPreviews[0].river.slug)}
             premiumUserId={premiumUserId}
+            onUnlock={canUnlockRead ? () => setPaywallRiver(readPreviews[0].river.name) : undefined}
             refreshRevision={refreshRevision}
             onPress={() => openRead(readPreviews[0].river.slug)}
           />
@@ -1155,6 +1173,12 @@ export function TodayHub({
         </View>
       ) : null}
 
+      <PaywallSheet
+        visible={paywallRiver !== null && !premiumUserId}
+        riverName={paywallRiver ?? undefined}
+        onClose={() => setPaywallRiver(null)}
+        onPurchased={() => { void refreshAccount(); }}
+      />
     </View>
   );
 }
