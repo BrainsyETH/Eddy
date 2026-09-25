@@ -76,6 +76,7 @@ import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
+  Keyboard,
   Linking,
   Pressable,
   RefreshControl,
@@ -557,7 +558,8 @@ export default function ReportsScreen() {
   const [scope, setScope] = useState<ScopeKey>('all');
   const [browseMode, setBrowseMode] = useState<BrowseMode>('today');
   const [readFilter, setReadFilter] = useState<ReadFilter>('for-you');
-  const [searchFocused, setSearchFocused] = useState(false);
+  // Search stays open when scrolling dismisses the keyboard. Only Cancel exits.
+  const [searchOpen, setSearchOpen] = useState(false);
   /**
    * Eddy's written summary of the water generally, or null.
    *
@@ -923,15 +925,8 @@ export default function ReportsScreen() {
     return riverMilesByGauge(gauges, location.coords);
   }, [nearest, location.coords, gauges]);
 
-  /**
-   * The field is engaged: focused, or holding a query.
-   *
-   * This is what separates the two jobs the screen does. At rest it answers
-   * "what can I float today" and is a river list; engaged, it is a search
-   * across four kinds. The scope switch belongs only to the second — see where
-   * it renders.
-   */
-  const searching = searchFocused || query.trim().length > 0;
+  // Keyboard focus is transient; browsing search results is an explicit mode.
+  const searching = searchOpen || query.trim().length > 0;
 
   /**
    * The river controls — chips, ordering, the trust footer — belong to the
@@ -1509,36 +1504,52 @@ export default function ReportsScreen() {
           ListHeaderComponent. Inside, the search field is unmounted and
           remounted as the list re-renders, which drops the keyboard mid-word. */}
       <View style={[styles.searchRow, { backgroundColor: colors.bg, borderBottomColor: colors.border }]}>
-        <SearchBar
-          value={query}
-          onChangeText={setQuery}
-          // Names the live scope rather than listing all three. A field that
-          // says "rivers and gauges" while a switch above it says Gauges is two
-          // controls disagreeing about what is about to happen.
-          placeholder={
-            scope === 'all'
-              ? 'Search rivers, gauges, access and dams'
-              : riverScope
-                ? 'Search rivers'
-                : scope === 'gauges'
-                  ? 'Search gauges by name or site id'
-                  : scope === 'dams'
-                    ? 'Search dams and lakes'
-                    : 'Search access points'
-          }
-          // Rated gauges are matched locally so they land on the keystroke, and
-          // the list has to exist before the first one — the same reason the
-          // map's field warms it on focus.
-          onFocus={() => {
-            // Starting a search from a browse-only river view is a new question,
-            // so open it across every kind. Refocusing a query that already has
-            // a chosen scope preserves that explicit choice.
-            if (!searching) setScope('all');
-            setSearchFocused(true);
-            ensureGauges();
-          }}
-          onBlur={() => setSearchFocused(false)}
-        />
+        <View style={styles.searchField}>
+          <SearchBar
+            value={query}
+            onChangeText={setQuery}
+            // Names the live scope rather than listing all three. A field that
+            // says "rivers and gauges" while a switch above it says Gauges is two
+            // controls disagreeing about what is about to happen.
+            placeholder={
+              scope === 'all'
+                ? 'Search rivers, gauges, access and dams'
+                : riverScope
+                  ? 'Search rivers'
+                  : scope === 'gauges'
+                    ? 'Search gauges by name or site id'
+                    : scope === 'dams'
+                      ? 'Search dams and lakes'
+                      : 'Search access points'
+            }
+            // Rated gauges are matched locally so they land on the keystroke, and
+            // the list has to exist before the first one — the same reason the
+            // map's field warms it on focus.
+            onFocus={() => {
+              // Starting a search from a browse-only river view is a new question,
+              // so open it across every kind. Refocusing a query that already has
+              // a chosen scope preserves that explicit choice.
+              if (!searching) setScope('all');
+              setSearchOpen(true);
+              ensureGauges();
+            }}
+          />
+        </View>
+        {searching ? (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Cancel search"
+            onPress={() => {
+              Keyboard.dismiss();
+              setQuery('');
+              setSearchOpen(false);
+              setScope('all');
+            }}
+            style={styles.cancelSearch}
+          >
+            <Text style={[styles.cancelSearchText, { color: colors.interactive }]}>Cancel</Text>
+          </Pressable>
+        ) : null}
       </View>
 
       {searching ? (
@@ -1876,7 +1887,10 @@ const styles = StyleSheet.create({
   // with a small spinner ahead of it on the same baseline.
   loadingRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 4 },
   loadingText: { ...t.sm, fontFamily: fonts.body },
-  searchRow: { paddingHorizontal: 16, paddingTop: 12, paddingBottom: 10, borderBottomWidth: StyleSheet.hairlineWidth, zIndex: 10 },
+  searchField: { flex: 1 },
+  cancelSearch: { minHeight: 44, minWidth: 44, alignItems: 'center', justifyContent: 'center' },
+  cancelSearchText: { ...t.sm, fontFamily: fonts.semibold },
+  searchRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 16, paddingTop: 12, paddingBottom: 10, borderBottomWidth: StyleSheet.hairlineWidth, zIndex: 10 },
   sortRow: { paddingHorizontal: 16, paddingTop: 10 },
   sortTrigger: {
     flexDirection: 'row',
