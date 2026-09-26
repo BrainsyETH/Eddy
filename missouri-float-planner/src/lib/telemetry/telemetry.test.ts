@@ -172,7 +172,7 @@ test('daily snapshots are idempotent, survive late writes, and reject stale conc
     );
     await db.exec(
       readFileSync(
-        'supabase/migrations/20260926154049_upstream_usage_daily.sql',
+        'supabase/migrations/20260926182352_upstream_usage_daily.sql',
         'utf8',
       ),
     );

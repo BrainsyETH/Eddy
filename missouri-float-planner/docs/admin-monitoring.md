@@ -7,11 +7,20 @@ The sidebar does not fetch the old stats endpoint on this page.
 
 ## Stage 1
 
-Apply the two `admin_dashboard_summary` and `admin_job_runs` migrations in order.
-They are listed as **pending** in `supabase/production-migrations.txt`; deployment
-and production DDL have not been performed by this change. After applying, record
-the versions actually assigned by production and run `make check-db`, following
-CLAUDE.md. Do not move pending versions to applied before that verification.
+The dashboard migrations were applied to production on 2026-09-26:
+
+- `20260926182334_admin_dashboard_summary.sql`
+- `20260926182346_admin_job_runs.sql`
+- `20260926182352_upstream_usage_daily.sql`
+
+The filenames and production ledger use the versions assigned by Supabase.
+The production service-role summary returned 67 available metrics out of 72;
+the five unavailable chat metrics reflect the known absent `chat_logs` table.
+Job status and the empty rollup RPC were verified, and anon/authenticated
+access to all new monitoring tables and functions is denied.
+
+For another environment, apply these migrations in order. Configure and verify
+Sentry/Redis separately; applying the migrations does not activate telemetry.
 
 The summary uses service-only invoker RPCs and independent metric failures. Its
 only definer helper is an aggregate-only recent-sign-in counter in the unexposed
