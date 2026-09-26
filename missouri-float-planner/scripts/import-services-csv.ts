@@ -110,6 +110,7 @@ const TEXT_FIELDS = [
   'name', 'type', 'status', 'phone', 'phone_toll_free', 'email', 'website',
   'reservation_url', 'booking_platform', 'address_line1', 'city', 'state', 'zip',
   'description', 'seasonal_notes', 'fee_range', 'managing_agency', 'verified_source',
+  'geocode_precision', 'geocode_source', 'geocoded_at',
 ];
 const NUM_FIELDS = ['latitude', 'longitude'];
 const INT_FIELDS = [
@@ -367,7 +368,17 @@ export function buildRows(
     }
 
     const riverSlugs = list(cell('river_slugs'));
-    if (riverSlugs.length === 0) {
+    // Standalone camping belongs on the regional map even when its lake or
+    // stream is not an Eddy river. Require a deliberate per-row declaration:
+    // an accidentally empty corridor cell must still fail validation.
+    const standalone = cell('river_link_status') === 'standalone';
+    if (has('river_link_status') && !standalone) {
+      errors.push({ line, who, message: 'river_link_status must be standalone or empty' });
+    }
+    if (standalone && (type !== 'campground' || riverSlugs.length > 0)) {
+      errors.push({ line, who, message: 'standalone is only valid for a campground with no river_slugs' });
+    }
+    if (riverSlugs.length === 0 && !standalone) {
       errors.push({ line, who, message: 'river_slugs is required' });
       continue;
     }
@@ -432,6 +443,27 @@ export function buildRows(
     // latitude, so a row with a latitude and no longitude passed it.
     if (has('latitude') !== has('longitude')) {
       errors.push({ line, who, message: 'latitude and longitude must be given together' });
+    }
+    // Optional for older CSVs, but a declared coordinate review must be complete.
+    // Town centroids are retired: current map clients draw every coordinate pair.
+    const geocodeFields = ['geocode_precision', 'geocode_source', 'geocoded_at'];
+    if (geocodeFields.some(has)) {
+      if (!has('latitude') || !has('longitude') || !geocodeFields.every(has)) {
+        errors.push({ line, who, message: 'geocode provenance requires latitude, longitude, geocode_precision, geocode_source and geocoded_at together' });
+      }
+      if (!['exact', 'approximate'].includes(cell('geocode_precision'))) {
+        errors.push({ line, who, message: 'geocode_precision must be exact or approximate; town centroids cannot be imported as map pins' });
+      }
+      const stamp = cell('geocoded_at');
+      const instant = Date.parse(stamp);
+      if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z$/.test(stamp) ||
+          !Number.isFinite(instant) || new Date(instant).toISOString().slice(0, 10) !== stamp.slice(0, 10)) {
+        errors.push({ line, who, message: 'geocoded_at must be a valid UTC ISO timestamp (YYYY-MM-DDTHH:mm:ssZ)' });
+      } else if (instant > today.getTime()) {
+        errors.push({ line, who, message: 'geocoded_at cannot be in the future' });
+      } else {
+        claimed.geocoded_at = new Date(instant).toISOString();
+      }
     }
     const lat = claimed.latitude;
     const lon = claimed.longitude;
@@ -529,7 +561,31 @@ export interface RowPlan {
   changes: FieldChange[];
   linkAdds: string[];
   linkRemoves: string[];
+  /** Existing links retained when a standalone CSV omits river associations. */
+  standaloneLinksKept: string[];
   primaryFlips: string[];
+}
+
+/** Shared by the connected import read-back and regression tests. */
+export function verifyWrittenPlans(plans: RowPlan[], after: ExistingService[]): string[] {
+  const failures: string[] = [];
+  const afterBySlug = new Map(after.map((r) => [r.slug, r]));
+
+  for (const plan of plans) {
+    if (plan.action === 'unchanged') continue;
+    const landed = afterBySlug.get(plan.row.slug);
+    if (!landed) { failures.push(`${plan.row.slug}: not present after write`); continue; }
+    for (const change of plan.changes) {
+      if (change.field === 'slug') continue;
+      if (!sameValue(landed[change.field] ?? null, change.after)) {
+        failures.push(
+          `${plan.row.slug}.${change.field}: expected ${fmt(change.after)}, found ${fmt(landed[change.field] ?? null)}`,
+        );
+      }
+    }
+  }
+
+  return failures;
 }
 
 /** An ISO instant, as opposed to any other string that happens to parse. */
@@ -569,7 +625,7 @@ export function planRow(
     }
     return {
       row, action: 'insert', existingId: null, payload, changes,
-      linkAdds: [...row.riverSlugs], linkRemoves: [], primaryFlips: [],
+      linkAdds: [...row.riverSlugs], linkRemoves: [], primaryFlips: [], standaloneLinksKept: [],
     };
   }
 
@@ -597,7 +653,10 @@ export function planRow(
 
   const linkedSlugs = existingLinks.map((l) => l.river_slug);
   const linkAdds = row.riverSlugs.filter((s) => !linkedSlugs.includes(s) && riverMap.has(s));
-  const linkRemoves = overwrite ? linkedSlugs.filter((s) => !row.riverSlugs.includes(s)) : [];
+  // A standalone import never removes established river relationships, even
+  // in overwrite mode. Removing links needs a separately reviewed correction.
+  const linkRemoves = overwrite && row.riverSlugs.length > 0
+    ? linkedSlugs.filter((s) => !row.riverSlugs.includes(s)) : [];
 
   // is_primary is never re-pointed silently: a service that already has a
   // primary river keeps it, however the CSV happens to be ordered.
@@ -611,7 +670,10 @@ export function planRow(
   const action = changes.length === 0 && linkAdds.length === 0
     && linkRemoves.length === 0 && primaryFlips.length === 0 ? 'unchanged' : 'update';
 
-  return { row, action, existingId: existing.id, payload, changes, linkAdds, linkRemoves, primaryFlips };
+  return {
+    row, action, existingId: existing.id, payload, changes, linkAdds, linkRemoves, primaryFlips,
+    standaloneLinksKept: row.riverSlugs.length === 0 ? [...linkedSlugs].sort() : [],
+  };
 }
 
 /**
@@ -693,9 +755,12 @@ export function renderDiff(plans: RowPlan[]): string {
   for (const plan of plans) {
     if (plan.action === 'unchanged') {
       lines.push(`UNCHANGED  ${plan.row.slug}`);
-      continue;
+    } else {
+      lines.push(`${plan.action.toUpperCase().padEnd(10)} ${plan.row.slug}  — ${plan.row.name} [${plan.row.type}]`);
     }
-    lines.push(`${plan.action.toUpperCase().padEnd(10)} ${plan.row.slug}  — ${plan.row.name} [${plan.row.type}]`);
+    if (plan.standaloneLinksKept.length > 0) {
+      lines.push(`             standalone: keeping existing links ${plan.standaloneLinksKept.join(', ')}`);
+    }
     for (const c of plan.changes) {
       if (plan.action === 'insert') {
         lines.push(`             ${c.field.padEnd(20)} = ${fmt(c.after)}`);
@@ -917,21 +982,7 @@ async function main() {
     .from('nearby_services').select('*').in('slug', written.map((w) => w.slug));
   // Read-back is the verification step; if it fails, nothing has been verified.
   if (afterError) throw new Error(`Wrote rows but could not verify them: ${afterError.message}`);
-  const afterBySlug = new Map(((after ?? []) as ExistingService[]).map((r) => [r.slug, r]));
-
-  for (const plan of plans) {
-    if (plan.action === 'unchanged') continue;
-    const landed = afterBySlug.get(plan.row.slug);
-    if (!landed) { failures.push(`${plan.row.slug}: not present after write`); continue; }
-    for (const change of plan.changes) {
-      if (change.field === 'slug') continue;
-      if (!sameValue(landed[change.field] ?? null, change.after)) {
-        failures.push(
-          `${plan.row.slug}.${change.field}: expected ${fmt(change.after)}, found ${fmt(landed[change.field] ?? null)}`,
-        );
-      }
-    }
-  }
+  failures.push(...verifyWrittenPlans(plans, (after ?? []) as ExistingService[]));
 
   console.log('\n' + '='.repeat(70));
   console.log('📋 Summary');

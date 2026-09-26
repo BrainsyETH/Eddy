@@ -161,3 +161,10 @@ for that one-time catalog audit and the invariants that should remain permanent.
 Link a new checkout once with
 `npx supabase link --project-ref <project-ref>`; credentials remain in the
 operator's local Supabase profile and must not be committed.
+
+## Standalone campground imports
+
+The canonical behavior and CSV declaration are documented in
+[Phase 8.5: standalone camping](../missouri-float-planner/scripts/ingestion/README.md#standalone-camping-alongside-phase-85).
+For this batch's sources, remaining availability verification and apply instructions, see
+[the September 26 camping batch](../missouri-float-planner/scripts/ingestion/services-camping-gap-2026-09-26.md).

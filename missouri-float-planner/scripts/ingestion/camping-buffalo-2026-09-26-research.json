@@ -1,0 +1,30 @@
+{
+  "status": "RESEARCH VERIFIED; NOT APPLIED; availability payload validation still required",
+  "policySource": "https://www.nps.gov/buff/learn/news/buffalo-national-river-implements-campground-changes-for-2026-season.htm",
+  "facilities": [
+    {
+      "name": "Ozark Campground",
+      "npsCampgroundId": "e4605a0e-ad62-4d2a-988d-28e3472009ce",
+      "sourceFacilityId": "233120",
+      "previousReservationUrl": "https://www.recreation.gov/camping/campgrounds/10001451",
+      "reservationUrl": "https://www.recreation.gov/camping/campgrounds/233120",
+      "checkedAt": "2026-09-26"
+    },
+    {
+      "name": "Carver Campground",
+      "npsCampgroundId": "04fc5865-9803-4241-8314-42fb38ca20d9",
+      "sourceFacilityId": "10378448",
+      "previousReservationUrl": "https://www.recreation.gov/camping/poi/258698",
+      "reservationUrl": "https://www.recreation.gov/camping/campgrounds/10378448",
+      "checkedAt": "2026-09-26"
+    },
+    {
+      "name": "Rush Campground",
+      "npsCampgroundId": "49a28767-8352-49b1-b47c-e3592d9ccbf8",
+      "sourceFacilityId": "10378435",
+      "previousReservationUrl": "https://www.recreation.gov/camping/poi/258696",
+      "reservationUrl": "https://www.recreation.gov/camping/campgrounds/10378435",
+      "checkedAt": "2026-09-26"
+    }
+  ]
+}

@@ -1,7 +1,12 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { readFileSync } from 'node:fs';
+import { serviceOnLayer } from '../../eddy-ios/src/map/serviceLayers';
+import { mappableService } from '../../eddy-ios/src/map/mappable';
+import { samePlaceIndex } from '../../eddy-ios/src/map/accessLayers';
 import {
   buildRows,
+  verifyWrittenPlans,
   checkedAtProblem,
   nameCollisions,
   fieldSourceRows,
@@ -10,6 +15,7 @@ import {
   parseFieldSources,
   planRow,
   resolveOfferings,
+  renderDiff,
   sourceProblem,
   slugify,
   SOURCE_MAX_AGE_DAYS,
@@ -300,6 +306,41 @@ test('an invalid type or missing river is refused', () => {
 test('slugify strips punctuation the way stored slugs were built', () => {
   assert.equal(slugify("Akers Ferry Canoe Rental"), 'akers-ferry-canoe-rental');
   assert.equal(slugify("Windy's Floats"), 'windys-floats');
+});
+
+test('standalone campgrounds need explicit intent and retain existing river links', () => {
+  const matrix = parseCsv([
+    'name,type,river_slugs,river_link_status,city,state,verified_source,source_checked_at',
+    `Lake Camp,campground,,standalone,Branson,MO,https://mostateparks.com,${RECENT}`,
+  ].join('\n'));
+  const { rows, errors } = buildRows(matrix, TODAY);
+  assert.deepEqual(errors, []);
+  const fresh = planRow(rows[0], undefined, [], RIVERS, false);
+  assert.deepEqual(fresh.linkAdds, []);
+  assert.deepEqual(insertProblems([fresh]), []);
+  assert.ok(!('river_link_status' in fresh.payload), 'import intent is not a database column');
+  const update = planRow(rows[0], existingService(), LINKED_TO_NIANGUA, RIVERS, true);
+  assert.deepEqual(update.linkRemoves, []);
+  assert.deepEqual(update.primaryFlips, []);
+
+  assert.match(renderDiff([update]), /standalone: keeping existing links niangua/);
+  const unchanged = planRow(rows[0], {
+    ...existingService(), ...fresh.payload,
+  }, LINKED_TO_NIANGUA, RIVERS, false);
+  assert.equal(unchanged.action, 'unchanged');
+  assert.match(renderDiff([unchanged]), /UNCHANGED[\s\S]*standalone: keeping existing links niangua/);
+  assert.doesNotMatch(renderDiff([fresh]), /standalone: keeping/);
+
+  for (const [type, rivers, intent, expectedError] of [
+    ['campground', '', '', 'river_slugs is required'],
+    ['campground', '', 'standalnoe', 'river_link_status must be standalone or empty'],
+    ['outfitter', '', 'standalone', 'standalone is only valid for a campground with no river_slugs'],
+    ['campground', 'niangua', 'standalone', 'standalone is only valid for a campground with no river_slugs'],
+  ]) {
+    const bad = buildRows([matrix[0], ['Lake Camp', type, rivers, intent, 'Branson', 'MO', 'https://mostateparks.com', RECENT]], TODAY);
+    assert.ok(bad.errors.some(e => e.message === expectedError),
+      `${type}/${rivers}/${intent}: expected ${expectedError}, got ${JSON.stringify(bad.errors)}`);
+  }
 });
 
 test('a timestamp is compared as an instant, not as text', () => {
@@ -626,4 +667,76 @@ test('a placeholder inside a compound source is still a placeholder', () => {
   assert.match(sourceProblem('https://operator.example, knowledge_base') ?? '', /records nothing/);
   assert.match(sourceProblem('https://operator.example, csv_import') ?? '', /records nothing/);
   assert.equal(sourceProblem('https://operator.example, operator.example/trips'), null);
+});
+
+// The import was valid while every new campground was invisible on the map.
+// Keep the actual release input, rather than a synthetic coordinate row, covered.
+test('camping gap batch has four attributed map pins including standalone campgrounds', () => {
+  const input = readFileSync('scripts/ingestion/services-camping-gap-2026-09-26.csv', 'utf8');
+  const { rows, errors } = buildRows(parseCsv(input), new Date('2026-09-26T12:00:00Z'));
+  assert.deepEqual(errors, []);
+  assert.equal(rows.length, 4);
+  assert.equal(rows.filter(row => row.riverSlugs.length === 0).length, 3);
+  const bullShoals = rows.find(row => row.slug === 'bull-shoals-white-river-state-park-campground')!;
+  // Approved ramp coordinates read from production on 2026-09-26. The service
+  // must retain its own pin/detail instead of losing its booking link to a ramp.
+  // Only ~45 m clears the overlap box: if this fails, review identity/proximity
+  // handling; never move a sourced coordinate merely to make the test pass.
+  assert.equal(samePlaceIndex({ latitude: bullShoals.claimed.latitude as number,
+    longitude: bullShoals.claimed.longitude as number },
+  [{ coordinates: { lat: 36.35465, lng: -92.5946 } }]), -1);
+  for (const row of rows) {
+    assert.equal(row.claimed.geocode_precision, 'approximate', row.name);
+    assert.ok(row.claimed.geocode_source, row.name);
+    assert.equal(row.claimed.geocoded_at, '2026-09-26T00:00:00.000Z', row.name);
+    assert.equal(typeof row.claimed.latitude, 'number', row.name);
+    assert.equal(typeof row.claimed.longitude, 'number', row.name);
+    assert.ok(mappableService({ latitude: row.claimed.latitude as number,
+      longitude: row.claimed.longitude as number }), row.name);
+    assert.ok(row.fieldSources.latitude?.startsWith('https://'), row.name);
+    assert.ok(row.fieldSources.longitude?.startsWith('https://'), row.name);
+    assert.ok(serviceOnLayer({ type: row.type,
+      servicesOffered: row.claimed.services_offered as string[] }, 'campgrounds'), row.name);
+    assert.match(String(row.claimed.description), /Map pin represents/, row.name);
+  }
+});
+
+const GEOCODE_HEADER = 'name,type,river_slugs,city,verified_source,source_checked_at,latitude,longitude,geocode_precision,geocode_source,geocoded_at';
+function geocodeRow(over: Partial<Record<string, string>> = {}) {
+  const row = { name: 'Camp', type: 'campground', river_slugs: 'niangua', city: 'Lebanon',
+    verified_source: 'https://example.com/camping', source_checked_at: RECENT,
+    latitude: '37.8', longitude: '-92.8', geocode_precision: 'approximate',
+    geocode_source: 'osm+official_park_map', geocoded_at: '2026-08-01T00:00:00Z', ...over };
+  return buildRows([GEOCODE_HEADER.split(','), GEOCODE_HEADER.split(',').map(k => row[k as keyof typeof row])], TODAY);
+}
+
+test('coordinate provenance is planned, attributed and verified with coordinates', () => {
+  const { rows, errors } = geocodeRow();
+  assert.deepEqual(errors, []);
+  const plan = planRow(rows[0], undefined, [], RIVERS, false);
+  assert.equal(plan.payload.geocode_precision, 'approximate');
+  assert.equal(plan.payload.geocode_source, 'osm+official_park_map');
+  assert.equal(plan.payload.geocoded_at, '2026-08-01T00:00:00.000Z');
+  for (const field of ['geocode_precision', 'geocode_source', 'geocoded_at']) {
+    assert.ok(fieldSourceRows(plan).some(source => source.field === field));
+    const landed = existingService({ ...plan.payload, slug: rows[0].slug, [field]: null });
+    assert.ok(verifyWrittenPlans([plan], [landed]).some(message => message.includes(`.${field}:`)));
+  }
+  const landed = existingService({ ...plan.payload, slug: rows[0].slug,
+    geocoded_at: '2026-08-01T00:00:00+00:00' });
+  assert.deepEqual(verifyWrittenPlans([plan], [landed]), []);
+  assert.equal(planRow(rows[0], landed, [{ river_slug: 'niangua', is_primary: true }], RIVERS, false).action, 'unchanged');
+});
+
+test('malformed and incomplete coordinate provenance fails with specific messages', () => {
+  for (const over of [{ geocode_source: '' }, { geocoded_at: '' }, { latitude: '' }]) {
+    assert.ok(geocodeRow(over).errors.some(e => e.message.includes('geocode provenance requires')));
+  }
+  for (const precision of ['centroid', 'aproximate']) {
+    assert.ok(geocodeRow({ geocode_precision: precision }).errors.some(e => e.message.startsWith('geocode_precision must be')));
+  }
+  for (const stamp of ['2026-08-01', '2026-02-30T00:00:00Z', 'invalid']) {
+    assert.ok(geocodeRow({ geocoded_at: stamp }).errors.some(e => e.message.startsWith('geocoded_at must be')));
+  }
+  assert.ok(geocodeRow({ geocoded_at: '2026-08-24T00:00:00Z' }).errors.some(e => e.message === 'geocoded_at cannot be in the future'));
 });

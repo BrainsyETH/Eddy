@@ -169,3 +169,12 @@ test('every service carries its access point link, even when there is none', () 
   // emits it, and `null` is the honest value.
   assert.match(source, /accessPointId:\s*accessPointByService\.get\(s\.id\)\s*\?\?\s*null/);
 });
+
+
+test('statewide pins receive cached availability without a river requirement', () => {
+  assert.match(source, /loadAvailability\(supabase\)/);
+  assert.match(source, /availability:\s*availability\.byNearbyServiceId\.get\(s\.id\)\s*\?\?\s*null/);
+  assert.ok(selectedColumns().includes('reservation_url'));
+  assert.match(source, /reservationUrl:\s*s\.reservation_url\s*\?\?\s*null/);
+  assert.match(source, /const STALE_WHILE_REVALIDATE = 600;/);
+});
