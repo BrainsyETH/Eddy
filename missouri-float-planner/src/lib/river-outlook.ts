@@ -130,11 +130,12 @@ export function groupForecastByDay(
   stages: RiverForecastStage[],
   dates: string[],
   stageThresholds: ConditionThresholds | null,
+  timeZone = OUTLOOK_TIME_ZONE,
 ): DailyRiverForecast[] {
   const maximums = new Map<string, number>();
   for (const stage of stages) {
     if (!Number.isFinite(stage.valueFt)) continue;
-    const key = dateKey(new Date(stage.dateTime));
+    const key = dateKey(new Date(stage.dateTime), timeZone);
     const current = maximums.get(key);
     if (current == null || stage.valueFt > current) maximums.set(key, stage.valueFt);
   }

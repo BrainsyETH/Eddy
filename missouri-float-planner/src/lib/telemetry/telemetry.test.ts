@@ -209,11 +209,9 @@ test('daily snapshots are idempotent, survive late writes, and reject stale conc
   }
 });
 
-test('every registered MCP tool has telemetry and transport is limited', () => {
+test('MCP transport supplies telemetry to the shared tool catalog and is limited', () => {
   const source = readFileSync('src/app/api/mcp/route.ts', 'utf8');
-  assert.equal(
-    (source.match(/server\.tool\(/g) ?? []).length,
-    (source.match(/return trackedMcp\(/g) ?? []).length,
-  );
+  assert.match(source, /track:.*trackedMcp/);
   assert.match(source, /rateLimit\(`mcp:/);
+  assert.match(source, /requireGlobalLimiter: true/);
 });

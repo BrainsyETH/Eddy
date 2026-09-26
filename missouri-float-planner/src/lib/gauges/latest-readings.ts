@@ -238,6 +238,7 @@ export async function loadCurrentReadings(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   supabase: any,
   stationIds: string[],
+  options: { strict?: boolean } = {},
 ): Promise<Map<string, StationReading>> {
   if (stationIds.length === 0) return new Map();
 
@@ -245,10 +246,11 @@ export async function loadCurrentReadings(
   const curated: string[] = [];
 
   for (const ids of chunk(stationIds)) {
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from('gauge_stations')
       .select('id, provider, curated')
       .in('id', ids);
+    if (error && options.strict) throw new Error('Gauge station lookup failed');
     for (const row of data ?? []) {
       providerByStation.set(row.id, row.provider ?? 'usgs');
       if (row.curated) curated.push(row.id);
@@ -261,10 +263,11 @@ export async function loadCurrentReadings(
   await Promise.all([
     (async () => {
       for (const ids of chunk(stationIds)) {
-        const { data } = await supabase
+        const { data, error } = await supabase
           .from('gauge_latest')
           .select('gauge_station_id, reading_timestamp, gauge_height_ft, discharge_cfs, qualifiers')
           .in('gauge_station_id', ids);
+        if (error && options.strict) throw new Error('Latest reading lookup failed');
         latestRows.push(...((data ?? []) as RawReadingRow[]));
       }
     })(),
@@ -278,6 +281,8 @@ export async function loadCurrentReadings(
         historyRows.push(...viaRpc);
         return;
       }
+
+      if (options.strict) throw new Error('Curated reading lookup failed');
 
       // Pre-migration fallback: newest-first across the whole curated set, so
       // the first row seen for a station is that station's newest. Bounded

@@ -1,0 +1,9 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.BrainsyETH/eddy-guide",
+  "title": "Eddy River Guide",
+  "description": "Curated river conditions, access points, hazards and vessel-aware float planning with source freshness.",
+  "version": "2.0.0",
+  "websiteUrl": "https://eddy.guide/developers",
+  "remotes": [{ "type": "streamable-http", "url": "https://eddy.guide/api/mcp" }]
+}

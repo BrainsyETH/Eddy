@@ -1,3 +1,4 @@
+import { X402_ENABLED } from '@/lib/x402/config';
 // GET /llms-full.txt
 // Extended version of llms.txt with dynamically populated river data,
 // access point counts, current conditions, and gauge info.
@@ -128,18 +129,18 @@ export async function GET() {
   });
 
   const content = `# eddy.guide — Full Reference
-> Missouri Ozarks float trip planning platform with real-time river conditions, access points, float times, and weather.
+> Curated river float trip planning platform with real-time river conditions, access points, float times, and weather.
 > This is the extended version of llms.txt with live river data. See also: ${BASE_URL}/llms.txt
 
 ## About
-Eddy is a free river guide for planning float trips on Missouri's Ozark rivers. It provides live water conditions from USGS gauge stations, detailed access point information, float time calculations based on vessel type and water level, hazard warnings, and weather forecasts.
+Eddy is a free river guide for planning float trips on the active curated rivers listed below. It provides live water conditions from USGS gauge stations, detailed access point information, float time calculations based on vessel type and water level, hazard warnings, and weather forecasts.
 
 ## Rivers (${(rivers || []).length} active)
 
 ${riverSections.join('\n\n')}
 
 ## Public API Endpoints
-All API endpoints return JSON. AI agents accessing the API should use the x402 payment protocol.
+REST endpoints return JSON. MCP is free and rate-limited. REST x402 enforcement is ${X402_ENABLED ? "enabled" : "disabled"} for this deployment; consult /.well-known/x402.
 
 - GET ${BASE_URL}/api/rivers — List all active rivers with current conditions
 - GET ${BASE_URL}/api/rivers/{slug} — River details with GeoJSON geometry
@@ -156,6 +157,14 @@ All API endpoints return JSON. AI agents accessing the API should use the x402 p
 - GET ${BASE_URL}/api/weather/{riverSlug}/forecast — Weather forecast
 - GET ${BASE_URL}/api/blog — Published blog posts
 - GET ${BASE_URL}/api/blog/{slug} — Full blog post content
+
+## Agent Tools
+- Developer setup and tool guide: ${BASE_URL}/developers
+- MCP access is free, without authentication or x402 payment, within request limits.
+- Use list_rivers for authoritative curated coverage and slugs; plan_float accepts slugs/UUIDs and vesselType.
+- find_floats returns a bounded shortlist, not an exhaustive ranking.
+- Preserve component statuses and source timestamps. Current observations are not future forecasts.
+- Include returned plan/river URLs when useful. No closure records does not mean all-clear.
 
 ## Machine-Readable Specifications
 - OpenAPI 3.1: ${BASE_URL}/api/openapi.json
