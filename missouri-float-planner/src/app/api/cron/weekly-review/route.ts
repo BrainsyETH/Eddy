@@ -1,3 +1,4 @@
+import { withJobRun } from '@/lib/admin/dashboard/job-run';
 // src/app/api/cron/weekly-review/route.ts
 // GET — Weekly cron (Sunday night) for performance analysis and editorial guidance.
 
@@ -6,7 +7,7 @@ import { runWeeklyReview } from '@/lib/social/weekly-review';
 
 export const dynamic = 'force-dynamic';
 
-export async function GET(request: NextRequest) {
+async function handleGET(request: NextRequest) {
   // Verify cron secret (required — never run unauthenticated)
   const auth = request.headers.get('authorization');
   const cronSecret = process.env.CRON_SECRET;
@@ -35,3 +36,5 @@ export async function GET(request: NextRequest) {
     );
   }
 }
+
+export const GET = withJobRun("weekly-review", handleGET);

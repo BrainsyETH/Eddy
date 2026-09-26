@@ -1,3 +1,4 @@
+import { withJobRun } from '@/lib/admin/dashboard/job-run';
 // src/app/api/cron/push-receipts/route.ts
 // GET/POST /api/cron/push-receipts — the second half of sending a push.
 //
@@ -211,10 +212,14 @@ async function run(request: NextRequest) {
   }
 }
 
-export async function GET(request: NextRequest) {
+async function handleGET(request: NextRequest) {
   return run(request);
 }
 
-export async function POST(request: NextRequest) {
+async function handlePOST(request: NextRequest) {
   return run(request);
 }
+
+export const GET = withJobRun("push-receipts", handleGET);
+
+export const POST = withJobRun("push-receipts", handlePOST);

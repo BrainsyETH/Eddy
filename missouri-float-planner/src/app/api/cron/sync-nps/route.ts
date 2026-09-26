@@ -1,3 +1,4 @@
+import { withJobRun } from '@/lib/admin/dashboard/job-run';
 // src/app/api/cron/sync-nps/route.ts
 // POST /api/cron/sync-nps - Weekly NPS data sync
 // Called by Vercel Cron weekly (Sundays at 3am CT)
@@ -91,10 +92,14 @@ async function runSync(request: NextRequest) {
 }
 
 // Vercel Cron invokes routes via GET; POST kept for manual triggering.
-export async function GET(request: NextRequest) {
+async function handleGET(request: NextRequest) {
   return runSync(request);
 }
 
-export async function POST(request: NextRequest) {
+async function handlePOST(request: NextRequest) {
   return runSync(request);
 }
+
+export const GET = withJobRun("sync-nps", handleGET);
+
+export const POST = withJobRun("sync-nps", handlePOST);

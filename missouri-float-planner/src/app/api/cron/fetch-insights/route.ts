@@ -1,3 +1,4 @@
+import { withJobRun } from '@/lib/admin/dashboard/job-run';
 // src/app/api/cron/fetch-insights/route.ts
 // GET — Daily cron to fetch Meta API engagement metrics for published posts.
 
@@ -6,7 +7,7 @@ import { fetchAllPendingInsights } from '@/lib/social/insights-fetcher';
 
 export const dynamic = 'force-dynamic';
 
-export async function GET(request: NextRequest) {
+async function handleGET(request: NextRequest) {
   // Verify cron secret (required — never run unauthenticated)
   const auth = request.headers.get('authorization');
   const cronSecret = process.env.CRON_SECRET;
@@ -31,3 +32,5 @@ export async function GET(request: NextRequest) {
     );
   }
 }
+
+export const GET = withJobRun("fetch-insights", handleGET);

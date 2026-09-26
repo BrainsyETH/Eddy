@@ -1,3 +1,4 @@
+import { withJobRun } from '@/lib/admin/dashboard/job-run';
 // src/app/api/cron/sync-usfs/route.ts
 // POST /api/cron/sync-usfs - Weekly USFS/RIDB data sync
 // Fetches campgrounds and recreation facilities from Recreation.gov
@@ -79,10 +80,14 @@ async function runSync(request: NextRequest) {
 }
 
 // Vercel Cron invokes routes via GET; POST kept for manual triggering.
-export async function GET(request: NextRequest) {
+async function handleGET(request: NextRequest) {
   return runSync(request);
 }
 
-export async function POST(request: NextRequest) {
+async function handlePOST(request: NextRequest) {
   return runSync(request);
 }
+
+export const GET = withJobRun("sync-usfs", handleGET);
+
+export const POST = withJobRun("sync-usfs", handlePOST);

@@ -68,7 +68,7 @@ export default function AdminLayout({ children, title, description }: AdminLayou
   const [badges, setBadges] = useState<NavBadges | null>(null);
 
   useEffect(() => {
-    if (!isAuthorized) return;
+    if (!isAuthorized || pathname === '/admin') return;
     adminFetch('/api/admin/stats')
       .then(res => res.ok ? res.json() : null)
       .then(data => {
@@ -81,7 +81,7 @@ export default function AdminLayout({ children, title, description }: AdminLayou
         }
       })
       .catch(() => {});
-  }, [isAuthorized]);
+  }, [isAuthorized, pathname]);
 
   if (isAuthorized === null) {
     return (

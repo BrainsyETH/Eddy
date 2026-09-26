@@ -1,3 +1,4 @@
+import { withJobRun } from '@/lib/admin/dashboard/job-run';
 // src/app/api/cron/post-blog/route.ts
 // Cron: once a week (Tuesdays via vercel.json), post a river-guide blog to
 // Facebook as a link post. Rotation + publishing live in blog-poster; this route
@@ -12,7 +13,7 @@ export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
 const LOG = '[PostBlogCron]';
 
-export async function GET(request: NextRequest) {
+async function handleGET(request: NextRequest) {
   const cronSecret = process.env.CRON_SECRET;
   if (!cronSecret) {
     return NextResponse.json({ error: 'Cron secret not configured' }, { status: 500 });
@@ -49,3 +50,5 @@ export async function GET(request: NextRequest) {
   console.log(`${LOG} ${JSON.stringify(result)}`);
   return NextResponse.json(result);
 }
+
+export const GET = withJobRun("post-blog", handleGET);

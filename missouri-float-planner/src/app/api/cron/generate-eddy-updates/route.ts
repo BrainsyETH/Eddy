@@ -1,3 +1,4 @@
+import { withJobRun } from '@/lib/admin/dashboard/job-run';
 // src/app/api/cron/generate-eddy-updates/route.ts
 // Cron job: generates AI-powered Eddy condition updates for all active rivers.
 // Runs once daily at 6:10 AM Central (11:10 UTC) via Vercel Cron — offset 10
@@ -449,10 +450,14 @@ async function runGeneration(request: NextRequest) {
   });
 }
 
-export async function GET(request: NextRequest) {
+async function handleGET(request: NextRequest) {
   return runGeneration(request);
 }
 
-export async function POST(request: NextRequest) {
+async function handlePOST(request: NextRequest) {
   return runGeneration(request);
 }
+
+export const GET = withJobRun("generate-eddy-updates", handleGET);
+
+export const POST = withJobRun("generate-eddy-updates", handlePOST);

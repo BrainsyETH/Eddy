@@ -1,3 +1,4 @@
+import { withJobRun } from '@/lib/admin/dashboard/job-run';
 // src/app/api/cron/trust-tick/route.ts
 // GET — Hourly. Runs whichever trust checks are due and reconciles the ledger.
 //
@@ -249,10 +250,14 @@ async function run(request: NextRequest) {
 }
 
 // Vercel Cron invokes routes via GET; POST kept for manual triggering.
-export async function GET(request: NextRequest) {
+async function handleGET(request: NextRequest) {
   return run(request);
 }
 
-export async function POST(request: NextRequest) {
+async function handlePOST(request: NextRequest) {
   return run(request);
 }
+
+export const GET = withJobRun("trust-tick", handleGET);
+
+export const POST = withJobRun("trust-tick", handlePOST);

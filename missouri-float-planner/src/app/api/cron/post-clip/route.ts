@@ -1,3 +1,4 @@
+import { withJobRun } from '@/lib/admin/dashboard/job-run';
 // src/app/api/cron/post-clip/route.ts
 // Cron: twice a day, post the next approved clip from the backlog to every
 // connected platform (Facebook/Instagram, plus TikTok as an inbox draft).
@@ -23,7 +24,7 @@ export const dynamic = 'force-dynamic';
 export const maxDuration = 300;
 const LOG = '[PostClipCron]';
 
-export async function GET(request: NextRequest) {
+async function handleGET(request: NextRequest) {
   const cronSecret = process.env.CRON_SECRET;
   if (!cronSecret) {
     return NextResponse.json({ error: 'Cron secret not configured' }, { status: 500 });
@@ -103,3 +104,5 @@ export async function GET(request: NextRequest) {
   const result = await publishClip(supabase, next as ClipRow, platforms);
   return NextResponse.json({ clipId: next.id, ...result });
 }
+
+export const GET = withJobRun("post-clip", handleGET);

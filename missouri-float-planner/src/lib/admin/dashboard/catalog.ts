@@ -1,0 +1,594 @@
+export const METRICS = [
+  {
+    "section": "Business",
+    "key": "subscribers",
+    "label": "Active production subscribers",
+    "detail": "Current Premium access; production only. Not revenue.",
+    "href": "",
+    "attention": false
+  },
+  {
+    "section": "Business",
+    "key": "renewal_off",
+    "label": "Renewal off",
+    "detail": "Active subscriptions only; access remains until expiry.",
+    "href": "",
+    "attention": false
+  },
+  {
+    "section": "Business",
+    "key": "expiring",
+    "label": "Renewal off \u00b7 expires within 7 days",
+    "detail": "",
+    "href": "",
+    "attention": false
+  },
+  {
+    "section": "Business",
+    "key": "billing",
+    "label": "Active billing issues",
+    "detail": "",
+    "href": "",
+    "attention": true
+  },
+  {
+    "section": "Business",
+    "key": "rc_event",
+    "label": "Latest applied subscription event",
+    "detail": "Event time, not webhook receipt time. Silence alone does not indicate an outage.",
+    "href": "",
+    "attention": false
+  },
+  {
+    "section": "Business",
+    "key": "signups_7",
+    "label": "Sign-ups \u00b7 7 days",
+    "detail": "",
+    "href": "",
+    "attention": false
+  },
+  {
+    "section": "Business",
+    "key": "signins_7",
+    "label": "Recent sign-ins \u00b7 7 days",
+    "detail": "Sign-ins, not active users. Existing sessions can remain active without signing in.",
+    "href": "",
+    "attention": false
+  },
+  {
+    "section": "Business",
+    "key": "email_7",
+    "label": "Email list additions \u00b7 7 days",
+    "detail": "",
+    "href": "",
+    "attention": false
+  },
+  {
+    "section": "Trips & interests",
+    "key": "plans_7",
+    "label": "Plans saved \u00b7 7 days",
+    "detail": "",
+    "href": "",
+    "attention": false
+  },
+  {
+    "section": "Business",
+    "key": "signups_30",
+    "label": "Sign-ups \u00b7 30 days",
+    "detail": "",
+    "href": "",
+    "attention": false
+  },
+  {
+    "section": "Business",
+    "key": "signins_30",
+    "label": "Recent sign-ins \u00b7 30 days",
+    "detail": "Sign-ins, not active users. Existing sessions can remain active without signing in.",
+    "href": "",
+    "attention": false
+  },
+  {
+    "section": "Business",
+    "key": "email_30",
+    "label": "Email list additions \u00b7 30 days",
+    "detail": "",
+    "href": "",
+    "attention": false
+  },
+  {
+    "section": "Trips & interests",
+    "key": "plans_30",
+    "label": "Plans saved \u00b7 30 days",
+    "detail": "",
+    "href": "",
+    "attention": false
+  },
+  {
+    "section": "Business",
+    "key": "email_sources",
+    "label": "Email sources \u00b7 30 days",
+    "detail": "",
+    "href": "",
+    "attention": false
+  },
+  {
+    "section": "Trips & interests",
+    "key": "plan_views",
+    "label": "Recorded views of plans saved in 30 days",
+    "detail": "Lifetime views for this cohort; not unique visitors or views occurring within the period.",
+    "href": "",
+    "attention": false
+  },
+  {
+    "section": "Trips & interests",
+    "key": "plan_rivers",
+    "label": "Top planned rivers \u00b7 30 days",
+    "detail": "",
+    "href": "",
+    "attention": false
+  },
+  {
+    "section": "Trips & interests",
+    "key": "plan_pairs",
+    "label": "Top routes \u00b7 30 days",
+    "detail": "",
+    "href": "",
+    "attention": false
+  },
+  {
+    "section": "Trips & interests",
+    "key": "stars_rivers",
+    "label": "Most-followed rivers",
+    "detail": "",
+    "href": "",
+    "attention": false
+  },
+  {
+    "section": "Trips & interests",
+    "key": "stars_gauges",
+    "label": "Most-followed gauges",
+    "detail": "",
+    "href": "",
+    "attention": false
+  },
+  {
+    "section": "Trips & interests",
+    "key": "stars_dams",
+    "label": "Most-followed dams",
+    "detail": "",
+    "href": "",
+    "attention": false
+  },
+  {
+    "section": "Inbox",
+    "key": "reports",
+    "label": "Reports awaiting review",
+    "detail": "",
+    "href": "/admin/reports",
+    "attention": true
+  },
+  {
+    "section": "Inbox",
+    "key": "email",
+    "label": "Unread email",
+    "detail": "",
+    "href": "/admin/feedback",
+    "attention": true
+  },
+  {
+    "section": "Inbox",
+    "key": "feedback",
+    "label": "Feedback awaiting review",
+    "detail": "",
+    "href": "/admin/feedback",
+    "attention": true
+  },
+  {
+    "section": "Push & devices",
+    "key": "push_sent",
+    "label": "Accepted by Expo \u00b7 7 days",
+    "detail": "Current delivery ledger; not confirmed arrival on a device. Receipt errors can replace sent status.",
+    "href": "",
+    "attention": false
+  },
+  {
+    "section": "Push & devices",
+    "key": "push_errors",
+    "label": "Push errors \u00b7 24 hours",
+    "detail": "",
+    "href": "",
+    "attention": true
+  },
+  {
+    "section": "Push & devices",
+    "key": "receipt_errors",
+    "label": "Receipt errors \u00b7 24 hours",
+    "detail": "Subset of push errors, not an additional failure count.",
+    "href": "",
+    "attention": false
+  },
+  {
+    "section": "Push & devices",
+    "key": "push_codes",
+    "label": "Push errors by code \u00b7 7 days",
+    "detail": "",
+    "href": "",
+    "attention": false
+  },
+  {
+    "section": "Push & devices",
+    "key": "river_waiting",
+    "label": "River alerts \u00b7 waiting >15 minutes",
+    "detail": "Pending processing, not proof of failed phone delivery. Last 7 days.",
+    "href": "",
+    "attention": true
+  },
+  {
+    "section": "Push & devices",
+    "key": "river_retry",
+    "label": "River alerts \u00b7 retrying",
+    "detail": "Pending processing, not proof of failed phone delivery. Last 7 days.",
+    "href": "",
+    "attention": true
+  },
+  {
+    "section": "Push & devices",
+    "key": "river_exhausted",
+    "label": "River alerts \u00b7 pending at retry limit",
+    "detail": "Pending processing, not proof of failed phone delivery. Last 7 days.",
+    "href": "",
+    "attention": true
+  },
+  {
+    "section": "Push & devices",
+    "key": "gauge_waiting",
+    "label": "Gauge alerts \u00b7 waiting >15 minutes",
+    "detail": "Pending processing, not proof of failed phone delivery. Last 7 days.",
+    "href": "",
+    "attention": true
+  },
+  {
+    "section": "Push & devices",
+    "key": "gauge_retry",
+    "label": "Gauge alerts \u00b7 retrying",
+    "detail": "Pending processing, not proof of failed phone delivery. Last 7 days.",
+    "href": "",
+    "attention": true
+  },
+  {
+    "section": "Push & devices",
+    "key": "gauge_exhausted",
+    "label": "Gauge alerts \u00b7 pending at retry limit",
+    "detail": "Pending processing, not proof of failed phone delivery. Last 7 days.",
+    "href": "",
+    "attention": true
+  },
+  {
+    "section": "Push & devices",
+    "key": "cleared_unknown",
+    "label": "Suppressed / expired / exhausted history",
+    "detail": "Not distinguishable in legacy cleared events; push_delivered_at is a queue-clear timestamp.",
+    "href": "",
+    "attention": false
+  },
+  {
+    "section": "Push & devices",
+    "key": "devices",
+    "label": "Recently registered iOS devices",
+    "detail": "Push-registered devices seen in 30 days, not all installs or users.",
+    "href": "",
+    "attention": false
+  },
+  {
+    "section": "Push & devices",
+    "key": "disabled_devices",
+    "label": "Disabled recently seen tokens",
+    "detail": "",
+    "href": "",
+    "attention": false
+  },
+  {
+    "section": "Push & devices",
+    "key": "failing_devices",
+    "label": "Failing recently seen tokens",
+    "detail": "",
+    "href": "",
+    "attention": false
+  },
+  {
+    "section": "Push & devices",
+    "key": "versions",
+    "label": "iOS versions \u00b7 recently registered devices",
+    "detail": "",
+    "href": "",
+    "attention": false
+  },
+  {
+    "section": "Configuration",
+    "key": "app_config",
+    "label": "App configuration",
+    "detail": "Offline downloads is a legacy unused flag. Push also depends on EXPO_PUSH_ENABLED.",
+    "href": "",
+    "attention": false
+  },
+  {
+    "section": "Data & jobs",
+    "key": "trust",
+    "label": "Critical Trust findings",
+    "detail": "",
+    "href": "/admin/trust",
+    "attention": true
+  },
+  {
+    "section": "Data & jobs",
+    "key": "trust_last",
+    "label": "Latest Trust run",
+    "detail": "",
+    "href": "/admin/trust",
+    "attention": false
+  },
+  {
+    "section": "Data & jobs",
+    "key": "trust_errors",
+    "label": "Failed Trust runs \u00b7 24 hours",
+    "detail": "",
+    "href": "/admin/trust",
+    "attention": true
+  },
+  {
+    "section": "Data & jobs",
+    "key": "gauge_stale",
+    "label": "Curated USGS gauges delayed >6 hours",
+    "detail": "Latest-observation table; active curated USGS gauges only.",
+    "href": "/admin/gauges",
+    "attention": true
+  },
+  {
+    "section": "Data & jobs",
+    "key": "gauge_missing",
+    "label": "Curated USGS gauges without an observation",
+    "detail": "Latest-observation table; active curated USGS gauges only.",
+    "href": "/admin/gauges",
+    "attention": true
+  },
+  {
+    "section": "Data & jobs",
+    "key": "dam_stale",
+    "label": "Dam snapshots older than 6 hours",
+    "detail": "Snapshot build age, not individual measurement age.",
+    "href": "",
+    "attention": true
+  },
+  {
+    "section": "Data & jobs",
+    "key": "social_failed",
+    "label": "Failed social posts \u00b7 7 days",
+    "detail": "",
+    "href": "/admin/social",
+    "attention": true
+  },
+  {
+    "section": "Data & jobs",
+    "key": "social_stuck",
+    "label": "Rendering longer than 30 minutes \u00b7 7 days",
+    "detail": "",
+    "href": "/admin/social",
+    "attention": true
+  },
+  {
+    "section": "Data & jobs",
+    "key": "social_fallback",
+    "label": "Videos published as fallback images \u00b7 7 days",
+    "detail": "",
+    "href": "/admin/social",
+    "attention": true
+  },
+  {
+    "section": "Data & jobs",
+    "key": "campsite_sync_log_errors",
+    "label": "CAMPSITE sync errors \u00b7 7 days",
+    "detail": "",
+    "href": "/admin/data-sync",
+    "attention": true
+  },
+  {
+    "section": "Content review",
+    "key": "campsite_sync_log_empty",
+    "label": "CAMPSITE zero-result syncs \u00b7 7 days",
+    "detail": "Review hint: zero results may be expected.",
+    "href": "/admin/data-sync",
+    "attention": false
+  },
+  {
+    "section": "Data & jobs",
+    "key": "nps_sync_log_errors",
+    "label": "NPS sync errors \u00b7 7 days",
+    "detail": "",
+    "href": "/admin/data-sync",
+    "attention": true
+  },
+  {
+    "section": "Content review",
+    "key": "nps_sync_log_empty",
+    "label": "NPS zero-result syncs \u00b7 7 days",
+    "detail": "Review hint: zero results may be expected.",
+    "href": "/admin/data-sync",
+    "attention": false
+  },
+  {
+    "section": "Data & jobs",
+    "key": "usfs_sync_log_errors",
+    "label": "USFS sync errors \u00b7 7 days",
+    "detail": "",
+    "href": "/admin/data-sync",
+    "attention": true
+  },
+  {
+    "section": "Content review",
+    "key": "usfs_sync_log_empty",
+    "label": "USFS zero-result syncs \u00b7 7 days",
+    "detail": "Review hint: zero results may be expected.",
+    "href": "/admin/data-sync",
+    "attention": false
+  },
+  {
+    "section": "Content review",
+    "key": "images",
+    "label": "Access points \u00b7 Missing images",
+    "detail": "",
+    "href": "/admin/access-points",
+    "attention": false
+  },
+  {
+    "section": "Content review",
+    "key": "descriptions",
+    "label": "Access points \u00b7 Missing descriptions",
+    "detail": "",
+    "href": "/admin/access-points",
+    "attention": false
+  },
+  {
+    "section": "Content review",
+    "key": "driving",
+    "label": "Access points \u00b7 Missing driving coordinates",
+    "detail": "",
+    "href": "/admin/access-points",
+    "attention": false
+  },
+  {
+    "section": "Content review",
+    "key": "hazards",
+    "label": "Active hazards not updated in 30 days",
+    "detail": "Review hint, not an expired hazard.",
+    "href": "/admin/hazards",
+    "attention": false
+  },
+  {
+    "section": "Content review",
+    "key": "blogs",
+    "label": "Scheduled posts past publication time",
+    "detail": "",
+    "href": "/admin/blog",
+    "attention": false
+  },
+  {
+    "section": "Content review",
+    "key": "eddy_updates_expired",
+    "label": "Eddy Updates \u00b7 expired stored rows",
+    "detail": "Stored cache rows, including historical entries; not a count of broken pages.",
+    "href": "",
+    "attention": false
+  },
+  {
+    "section": "AI & reach",
+    "key": "eddy_updates_tokens",
+    "label": "Eddy Updates \u00b7 recorded tokens in 30 days",
+    "detail": "Input + output only. Cache read/write token fields are separate; retained rows are not a billing ledger.",
+    "href": "",
+    "attention": false
+  },
+  {
+    "section": "Content review",
+    "key": "gauge_updates_expired",
+    "label": "Gauge Updates \u00b7 expired stored rows",
+    "detail": "Stored cache rows, including historical entries; not a count of broken pages.",
+    "href": "",
+    "attention": false
+  },
+  {
+    "section": "AI & reach",
+    "key": "gauge_updates_tokens",
+    "label": "Gauge Updates \u00b7 recorded tokens in 30 days",
+    "detail": "Input + output only. Cache read/write token fields are separate; retained rows are not a billing ledger.",
+    "href": "",
+    "attention": false
+  },
+  {
+    "section": "Content review",
+    "key": "condition_mismatch",
+    "label": "Reads versus live conditions",
+    "detail": "Use Trust findings; live condition recomputation is intentionally not run when opening admin.",
+    "href": "/admin/trust",
+    "attention": false
+  },
+  {
+    "section": "AI & reach",
+    "key": "chat_sessions",
+    "label": "Recorded chat sessions \u00b7 7 days",
+    "detail": "Unknown if chat logging is not installed; no message content is read.",
+    "href": "",
+    "attention": false
+  },
+  {
+    "section": "AI & reach",
+    "key": "chat_duration",
+    "label": "Median chat response \u00b7 7 days",
+    "detail": "Milliseconds across recorded responses.",
+    "href": "",
+    "attention": false
+  },
+  {
+    "section": "AI & reach",
+    "key": "chat_tokens",
+    "label": "Recorded chat tokens \u00b7 7 days",
+    "detail": "",
+    "href": "",
+    "attention": false
+  },
+  {
+    "section": "AI & reach",
+    "key": "chat_tools",
+    "label": "Chat tools \u00b7 7 days",
+    "detail": "",
+    "href": "",
+    "attention": false
+  },
+  {
+    "section": "AI & reach",
+    "key": "chat_rivers",
+    "label": "Chat river context \u00b7 7 days",
+    "detail": "Structured river context only; message text is never inspected.",
+    "href": "",
+    "attention": false
+  },
+  {
+    "section": "AI & reach",
+    "key": "embeds",
+    "label": "Recorded widget impressions \u00b7 7 UTC days",
+    "detail": "Includes today; impressions, not unique visitors.",
+    "href": "",
+    "attention": false
+  },
+  {
+    "section": "AI & reach",
+    "key": "embed_hosts",
+    "label": "Widget referring sites \u00b7 7 UTC days",
+    "detail": "",
+    "href": "",
+    "attention": false
+  },
+  {
+    "section": "AI & reach",
+    "key": "embed_partners",
+    "label": "Widget partners \u00b7 7 UTC days",
+    "detail": "",
+    "href": "",
+    "attention": false
+  },
+  {
+    "section": "Security",
+    "key": "login_failed",
+    "label": "Recorded failed logins \u00b7 24 hours",
+    "detail": "Bounded recording; excludes rate-limited attempts.",
+    "href": "/admin/activity",
+    "attention": true
+  },
+  {
+    "section": "Security",
+    "key": "login_success",
+    "label": "Recorded successful logins \u00b7 24 hours",
+    "detail": "",
+    "href": "/admin/activity",
+    "attention": false
+  }
+] as const;

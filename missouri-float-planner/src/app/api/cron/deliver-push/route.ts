@@ -1,3 +1,4 @@
+import { withJobRun } from '@/lib/admin/dashboard/job-run';
 // src/app/api/cron/deliver-push/route.ts
 // GET/POST /api/cron/deliver-push — drains the alert outbox to Expo push.
 //
@@ -500,10 +501,14 @@ async function markDelivered(supabase: any, eventIds: string[]) {
     .in('id', eventIds);
 }
 
-export async function GET(request: NextRequest) {
+async function handleGET(request: NextRequest) {
   return run(request);
 }
 
-export async function POST(request: NextRequest) {
+async function handlePOST(request: NextRequest) {
   return run(request);
 }
+
+export const GET = withJobRun("deliver-push", handleGET);
+
+export const POST = withJobRun("deliver-push", handlePOST);

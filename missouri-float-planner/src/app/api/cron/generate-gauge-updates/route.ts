@@ -1,3 +1,4 @@
+import { withJobRun } from '@/lib/admin/dashboard/job-run';
 // src/app/api/cron/generate-gauge-updates/route.ts
 // Daily cron: generates per-gauge Haiku updates for every SECONDARY gauge on
 // an active river. Primary gauges are handled by the Sonnet-powered
@@ -121,10 +122,14 @@ async function runGeneration(request: NextRequest) {
   });
 }
 
-export async function GET(request: NextRequest) {
+async function handleGET(request: NextRequest) {
   return runGeneration(request);
 }
 
-export async function POST(request: NextRequest) {
+async function handlePOST(request: NextRequest) {
   return runGeneration(request);
 }
+
+export const GET = withJobRun("generate-gauge-updates", handleGET);
+
+export const POST = withJobRun("generate-gauge-updates", handlePOST);

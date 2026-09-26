@@ -1,3 +1,4 @@
+import { withJobRun } from '@/lib/admin/dashboard/job-run';
 // Hourly rotating batches over the complete station catalog.
 import { percentileBatch, PERCENTILE_SHARDS } from '@shared/percentile-shards';
 import { NextRequest, NextResponse } from 'next/server';
@@ -92,10 +93,14 @@ async function run(request: NextRequest) {
   });
 }
 
-export async function GET(request: NextRequest) {
+async function handleGET(request: NextRequest) {
   return run(request);
 }
 
-export async function POST(request: NextRequest) {
+async function handlePOST(request: NextRequest) {
   return run(request);
 }
+
+export const GET = withJobRun("snapshot-percentiles", handleGET);
+
+export const POST = withJobRun("snapshot-percentiles", handlePOST);

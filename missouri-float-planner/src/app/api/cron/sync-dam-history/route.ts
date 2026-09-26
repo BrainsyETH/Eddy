@@ -1,3 +1,4 @@
+import { withJobRun } from '@/lib/admin/dashboard/job-run';
 // src/app/api/cron/sync-dam-history/route.ts
 // GET/POST /api/cron/sync-dam-history — keep the hourly record of what each
 // powerhouse actually did.
@@ -203,10 +204,14 @@ async function runSync(request: NextRequest) {
   });
 }
 
-export async function GET(request: NextRequest) {
+async function handleGET(request: NextRequest) {
   return runSync(request);
 }
 
-export async function POST(request: NextRequest) {
+async function handlePOST(request: NextRequest) {
   return runSync(request);
 }
+
+export const GET = withJobRun("sync-dam-history", handleGET);
+
+export const POST = withJobRun("sync-dam-history", handlePOST);

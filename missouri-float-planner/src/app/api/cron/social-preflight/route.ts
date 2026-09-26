@@ -1,3 +1,4 @@
+import { withJobRun } from '@/lib/admin/dashboard/job-run';
 // src/app/api/cron/social-preflight/route.ts
 // Daily cron — verifies the GH Actions render pipeline is reachable BEFORE
 // posts try to dispatch. Alerts on failure so PAT expiry or scope drift
@@ -56,5 +57,5 @@ async function handle(request: NextRequest) {
 }
 
 // Vercel cron sends GET; allow POST too for manual reruns from `curl -X POST`.
-export const GET = handle;
-export const POST = handle;
+export const GET = withJobRun("social-preflight", handle);
+export const POST = withJobRun("social-preflight", handle);

@@ -1,3 +1,4 @@
+import { withJobRun } from '@/lib/admin/dashboard/job-run';
 // src/app/api/cron/post-social/route.ts
 // Cron job: publishes scheduled social media posts to Instagram and Facebook.
 // Runs every 30 min via Vercel Cron.
@@ -446,5 +447,9 @@ async function runSocialPosting(request: NextRequest) {
   }
 }
 
-export async function GET(request: NextRequest) { return runSocialPosting(request); }
-export async function POST(request: NextRequest) { return runSocialPosting(request); }
+async function handleGET(request: NextRequest) { return runSocialPosting(request); }
+async function handlePOST(request: NextRequest) { return runSocialPosting(request); }
+
+export const GET = withJobRun("post-social", handleGET);
+
+export const POST = withJobRun("post-social", handlePOST);

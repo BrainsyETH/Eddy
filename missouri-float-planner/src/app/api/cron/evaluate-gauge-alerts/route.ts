@@ -1,3 +1,4 @@
+import { withJobRun } from '@/lib/admin/dashboard/job-run';
 // src/app/api/cron/evaluate-gauge-alerts/route.ts
 // GET/POST /api/cron/evaluate-gauge-alerts — turn per-gauge rules into outbox rows.
 //
@@ -318,10 +319,14 @@ async function run(request: NextRequest) {
   }
 }
 
-export async function GET(request: NextRequest) {
+async function handleGET(request: NextRequest) {
   return run(request);
 }
 
-export async function POST(request: NextRequest) {
+async function handlePOST(request: NextRequest) {
   return run(request);
 }
+
+export const GET = withJobRun("evaluate-gauge-alerts", handleGET);
+
+export const POST = withJobRun("evaluate-gauge-alerts", handlePOST);
