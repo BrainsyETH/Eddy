@@ -151,6 +151,10 @@
 20260924141830
 20260924165528
 
+20260926182334
+20260926182346
+20260926182352
+
 # Reviewed but not yet applied to production. Use a plain `supabase db push`
 # when a pending version is newer than the newest applied version; use
 # `--include-all` only for an older pending version. Move each to [applied]
@@ -158,6 +162,3 @@
 # match when necessary.
 [pending]
 20260914205500
-20260926152722
-20260926153301
-20260926154049

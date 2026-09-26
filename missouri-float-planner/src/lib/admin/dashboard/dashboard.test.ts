@@ -49,7 +49,7 @@ test('SQL aggregates, source isolation, and service-only grants', async () => {
     );
     await db.exec(
       readFileSync(
-        'supabase/migrations/20260926152722_admin_dashboard_summary.sql',
+        'supabase/migrations/20260926182334_admin_dashboard_summary.sql',
         'utf8',
       ),
     );
@@ -210,7 +210,7 @@ test('rollout baseline persists independently of retained runs and is service-on
     );
     await db.exec(
       readFileSync(
-        'supabase/migrations/20260926153301_admin_job_runs.sql',
+        'supabase/migrations/20260926182346_admin_job_runs.sql',
         'utf8',
       ),
     );
