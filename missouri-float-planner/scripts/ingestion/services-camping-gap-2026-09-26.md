@@ -144,3 +144,33 @@ coverage separately. Define northern Arkansas's county/region boundary before
 claiming a regional completeness percentage. Missouri Spring River and the
 14 active camping-capable services without coordinates remain research items;
 this first batch does not claim to close them.
+
+
+## Availability integration follow-up (2026-09-26)
+
+The statewide `/api/services` route now joins the existing cached availability
+index by `nearby_service_id` and exposes `reservation_url`. This requires no
+river or access-point relationship, and feeds the iOS map's existing campground
+availability card. Missing/stale inventory remains null. The edge stale window
+is reduced from one day to ten minutes because the payload now includes inventory.
+This is PR code, not a deployed change. The current iOS callout still prioritizes
+phone/website; exposing a reservation URL alone does not add a booking button.
+
+Provider activation remains blocked, not completed:
+
+- Missouri: the existing UseDirect `search/place` POST returned HTTP 403 from
+  this execution environment, including a control request for already-supported
+  Meramec (PlaceId 60). Official catalogue reads also returned 403. Roaring River
+  and Table Rock PlaceIds have not been independently verified; campground loop
+  IDs on third-party sites are not PlaceIds. No guessed facility was enabled.
+- Arkansas: both parks use the state's reservation platform; its response here
+  is an AWS WAF CAPTCHA challenge. There is no Arkansas adapter in the existing
+  sync pipeline, and no verified public inventory feed was obtained. Their
+  existing verified reservation URLs remain in the directory.
+
+No facility links, inventory counts, or new DB writes were made in this follow-up.
+Completion requires verified Missouri PlaceIds plus a successful adapter dry run
+and a supported Arkansas feed before implementing/enabling that provider. Then
+apply facility links through the guarded data workflow, sync, and verify the
+public map response and site calendars. Do not label these four as integrated
+or include missing inventory as zero in a Today availability gauge.

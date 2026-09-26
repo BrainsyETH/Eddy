@@ -9,7 +9,10 @@
 // pulled in through access points. It is what the river screen renders, and it
 // is the right shape for a page about one river.
 //
-// The map wants the opposite: every service in the state, and almost none of
+// The map wants every service in the state, including standalone campgrounds.
+// Cached availability is joined by service ID without requiring a river link.
+// Missing or stale inventory stays null, never a fabricated zero.
+// It needs almost none of
 // the fields. It draws a pin, and the callout behind it holds a name, a type, a
 // town and a phone number. Fetching the per-river directory once per river to
 // assemble that would be 25 requests for a layer of pins.
@@ -55,15 +58,16 @@
 // deliver the facts those functions read.
 //
 // The payload goes from 28 rows to ~156 — around 30 KB, on a route already
-// cached ten minutes at the edge with a day of stale-while-revalidate. The
+// cached ten minutes at the edge with ten minutes of stale-while-revalidate. The
 // fields stay narrow for the reason the header above gives: this is a pin and a
-// callout, not the river screen's directory record.
+// callout, including cached camping inventory and the reservation URL.
 
 import { NextRequest, NextResponse } from 'next/server';
 import { cdnCacheHeaders } from '@/lib/api-utils';
 import { createClient } from '@/lib/supabase/server';
 import { rateLimit, getClientIp } from '@/lib/rate-limit';
 import { toNum } from '@/lib/utils/num';
+import { loadAvailability, type CampsiteAvailability } from '@/lib/camping/read';
 
 export const dynamic = 'force-dynamic';
 
@@ -90,6 +94,8 @@ interface MappedService {
   status: string | null;
   phone: string | null;
   website: string | null;
+  reservationUrl: string | null;
+  availability: CampsiteAvailability | null;
   city: string | null;
   state: string | null;
   latitude: number | null;
@@ -147,17 +153,15 @@ interface ServicesResponse {
 }
 
 /**
- * Ten minutes at the edge, a day of stale-while-revalidate.
- *
- * The directory changes when somebody edits it in the admin, which is to say
- * rarely and never urgently — an outfitter's phone number reaching a phone ten
- * minutes late has cost nobody anything.
+ * Ten minutes at the edge and ten minutes of stale-while-revalidate.
+ * The response now includes cached availability, so a day of stale inventory
+ * would outlive the freshness policy enforced by loadAvailability.
  */
 const S_MAXAGE = 600;
-const STALE_WHILE_REVALIDATE = 86400;
+const STALE_WHILE_REVALIDATE = 600;
 
 const SELECT_COLUMNS =
-  'id, name, type, status, phone, website, city, state, latitude, longitude, geocode_precision, description, services_offered';
+  'id, name, type, status, phone, website, reservation_url, city, state, latitude, longitude, geocode_precision, description, services_offered';
 
 /**
  * The one relationship that means "the same physical place you drive to".
@@ -339,10 +343,11 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Could not fetch services' }, { status: 500 });
     }
 
-    // Independent reads over independent tables — one round trip, not two.
-    const [accessPointByService, riverSlugsByService] = await Promise.all([
+    // Independent cached-data reads; never call booking providers on a map request.
+    const [accessPointByService, riverSlugsByService, availability] = await Promise.all([
       loadIdentityLinks(supabase),
       loadRiverSlugs(supabase),
+      loadAvailability(supabase),
     ]);
 
     const response: ServicesResponse = {
@@ -353,6 +358,8 @@ export async function GET(request: NextRequest) {
         status: s.status ?? null,
         phone: s.phone ?? null,
         website: s.website ?? null,
+        reservationUrl: s.reservation_url ?? null,
+        availability: availability.byNearbyServiceId.get(s.id) ?? null,
         city: s.city ?? null,
         state: s.state ?? null,
         // numeric(9,6) arrives as a string over PostgREST, and a string

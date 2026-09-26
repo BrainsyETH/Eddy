@@ -341,3 +341,17 @@ test('the per-site read pages past the silent row cap', async () => {
   );
   assert.equal(result!.sites.length, SITES);
 });
+
+
+test('standalone services receive inventory without access-point or NPS identities', async () => {
+  const rows = HORIZON.map((date) => ({
+    ...night(date, 7),
+    campsite_facilities: { ...FACILITY, nps_campground_id: null, nearby_service_id: 'standalone-1' },
+  }));
+  const index = await loadAvailability(supabaseReturning(rows), NOW);
+  assert.equal(index.byNearbyServiceId.get('standalone-1')?.sitesOpen, 7);
+  assert.equal(index.byAccessPointId.size, 0);
+  assert.equal(index.byNpsCampgroundId.size, 0);
+  const missing = await loadAvailability(supabaseReturning([]), NOW);
+  assert.equal(missing.byNearbyServiceId.get('standalone-1') ?? null, null);
+});
