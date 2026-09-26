@@ -1,5 +1,9 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { readFileSync } from 'node:fs';
+import { serviceOnLayer } from '../../eddy-ios/src/map/serviceLayers';
+import { mappableService } from '../../eddy-ios/src/map/mappable';
+import { samePlaceIndex } from '../../eddy-ios/src/map/accessLayers';
 import {
   buildRows,
   checkedAtProblem,
@@ -662,4 +666,31 @@ test('a placeholder inside a compound source is still a placeholder', () => {
   assert.match(sourceProblem('https://operator.example, knowledge_base') ?? '', /records nothing/);
   assert.match(sourceProblem('https://operator.example, csv_import') ?? '', /records nothing/);
   assert.equal(sourceProblem('https://operator.example, operator.example/trips'), null);
+});
+
+// The import was valid while every new campground was invisible on the map.
+// Keep the actual release input, rather than a synthetic coordinate row, covered.
+test('camping gap batch has four attributed map pins including standalone campgrounds', () => {
+  const input = readFileSync('scripts/ingestion/services-camping-gap-2026-09-26.csv', 'utf8');
+  const { rows, errors } = buildRows(parseCsv(input), new Date('2026-09-26T12:00:00Z'));
+  assert.deepEqual(errors, []);
+  assert.equal(rows.length, 4);
+  assert.equal(rows.filter(row => row.riverSlugs.length === 0).length, 3);
+  const bullShoals = rows.find(row => row.slug === 'bull-shoals-white-river-state-park-campground')!;
+  // Approved ramp coordinates read from production on 2026-09-26. The service
+  // must retain its own pin/detail instead of losing its booking link to a ramp.
+  assert.equal(samePlaceIndex({ latitude: bullShoals.claimed.latitude as number,
+    longitude: bullShoals.claimed.longitude as number },
+  [{ coordinates: { lat: 36.35465, lng: -92.5946 } }]), -1);
+  for (const row of rows) {
+    assert.equal(typeof row.claimed.latitude, 'number', row.name);
+    assert.equal(typeof row.claimed.longitude, 'number', row.name);
+    assert.ok(mappableService({ latitude: row.claimed.latitude as number,
+      longitude: row.claimed.longitude as number }), row.name);
+    assert.ok(row.fieldSources.latitude?.startsWith('https://'), row.name);
+    assert.ok(row.fieldSources.longitude?.startsWith('https://'), row.name);
+    assert.ok(serviceOnLayer({ type: row.type,
+      servicesOffered: row.claimed.services_offered as string[] }, 'campgrounds'), row.name);
+    assert.match(String(row.claimed.description), /Map pin represents/, row.name);
+  }
 });

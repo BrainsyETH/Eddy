@@ -30,18 +30,36 @@ stated total and category subtotals disagree; no count was transcribed.
 Roaring River's live advisories include a burn ban; the CSV directs visitors to
 current advisories rather than persisting a temporary restriction indefinitely.
 
-## Coordinate gate — still held
+## Verified campground map locations
 
-All four coordinate pairs are deliberately omitted. The reviewed pages establish
-camping, contact details and seasons, but not corroborated campground entrance
-coordinates. Public event pages returned coordinates for a lodge, inn, marina and
-trailheads; none establish campground entrances. Do not substitute these, park
-centroids, the Bull Shoals visitor center, or a nearby ramp.
+All four rows now include latitude/longitude and per-field source attribution.
+These are representative **campground-area pins**, not surveyed entrances or
+individual campsite locations. Descriptions identify the represented loop and
+refer campers to their reservation instructions. A multi-loop park remains one
+directory record; no float access point is created.
 
-Follow the existing geocode/coordinate review process and attribute accepted
-coordinates with `field_sources`. Until that is done, these directory records
-will not create map pins. Multiple loops can share a park-level directory record
-and availability facility; separate loop pins require separately verified places.
+| Campground | Latitude | Longitude | Coordinate source | Official map cross-check |
+| --- | --- | --- | --- | --- |
+| Roaring River, Campground 1 | 36.58714 | -93.84127 | [OSM campground polygon via Mapcarta](https://mapcarta.com/W1433446174) | [Campground 1 map](https://mostateparks.com/sites/g/files/zuston361/files/media/pdf/2025/05/Roaring-River-CG1.pdf): extended loop northwest of the park office |
+| Table Rock, Campground 1 | 36.58067 | -93.30390 | [OSM campground polygon via Mapcarta](https://mapcarta.com/W1430123140) | [Campground 1 map](https://mostateparks.com/sites/g/files/zuston361/files/media/pdf/2025/09/table-rock-cg1-100-140.pdf): camping loop west of the amphitheater, north of the marina |
+| Devil's Den, Area E | 35.77398 | -94.25776 | [OSM Area E polygon via Mapcarta](https://mapcarta.com/W412180135) | [Official brochure, map page 2](https://www.arkansas.com/sites/default/files/2025-12/a116c856070dec50e0d6ce68c3e85712_parkinformationbrochure.pdf): Area E south of Area D and southwest of the visitor center |
+| Bull Shoals-White River, riverside campground | 36.353337 | -92.591627 | [Campground listing](https://thedyrt.com/camping/arkansas/arkansas-bull-shoals-white-river) | [Official brochure, map page 2](https://www.arkansas.com/sites/default/files/2025-12/9b93e87b731f447f46cb9c57f80583dd_bullshoalsparkinformationbrochure2022.pdf): camping area below the dam on the east bank |
+
+Reviewed 2026-09-26. Bull Shoals is also corroborated by the
+[Good Sam campground coordinates](https://www.goodsam.com/campgrounds-rv-parks/arkansas/bull-shoals/bull-shoals-white-river/cgid-102002330)
+(36.353704, -92.591101, about 62 m away). Its mailing address on that listing is
+not used; the current agency page explicitly identifies the Lakeview camping
+address and warns that the visitor center has no camping access.
+
+The coordinate check uses the existing services geocoding review path (OSM
+proposals plus source review), not the stricter float-endpoint placement process.
+Official map layouts were inspected visually. No park centroids, lodge points,
+marina points, or ramp identities are substituted. Regression coverage reads the
+actual CSV and requires four attributed coordinate pairs plus campground-layer
+membership, including the three rows without river links. The Bull Shoals pin
+also passes the map resolver's non-overlap check against the approved ramp at
+36.35465, -92.5946 (read from production on 2026-09-26), so its campground details
+will not be absorbed into that ramp by the proximity heuristic.
 
 ## Buffalo booking corrections — researched, not enabled
 
@@ -83,12 +101,12 @@ npx tsx scripts/import-services-csv.ts scripts/ingestion/services-camping-gap-20
 npm run db:check-services
 ```
 
-Expect four new `no_coordinates` warnings from `db:check-services` after import.
-`--strict` fails on warnings, so it is expected to fail until the coordinate pass.
-Do not run `--update-baseline` to absorb these new omissions now. After verified
-coordinates are applied, rerun the check and review any baseline regeneration;
-do not accept unrelated findings as part of this batch. The four listings will
-not appear as map pins until their coordinates are populated.
+Expect **zero new `no_coordinates` warnings from this batch**. All four rows
+have coordinates and qualify for the Campgrounds map layer; standalone rows do
+not need a river link. After import, confirm all four records are returned by
+`/api/services` and visible with the Campgrounds layer enabled. Existing unrelated
+warnings may still make `--strict` fail. Do not run `--update-baseline` to hide
+missing coordinates or unrelated findings.
 
 The importer retains its service-role credential requirement, project pin,
 whole-file validation, atomic `import_services` RPC and read-back checks.
