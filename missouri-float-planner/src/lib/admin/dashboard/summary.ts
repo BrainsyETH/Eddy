@@ -1,3 +1,4 @@
+import { overviewData } from './overview';
 import { usageMetrics } from '@/lib/telemetry/summary';
 import { jobMetrics } from './jobs-summary';
 import { unstable_cache } from 'next/cache';
@@ -64,6 +65,7 @@ async function sentryMetrics(): Promise<Metric[]> {
 
 export const getDashboardSummary = unstable_cache(
   async (): Promise<DashboardSummary> => {
+    const overviewPromise = overviewData();
     let metrics: Metric[];
     try {
       const db = createAdminClient();
@@ -128,10 +130,14 @@ export const getDashboardSummary = unstable_cache(
       usageMetrics(),
     ]);
     metrics.push(...sentry, ...jobs, ...usage);
-    return { generatedAt: new Date().toISOString(), metrics };
+    return {
+      generatedAt: new Date().toISOString(),
+      metrics,
+      overview: await overviewPromise,
+    };
   },
   [
-    'admin-dashboard-v2',
+    'admin-dashboard-v3',
     process.env.VERCEL_ENV ?? 'development',
     process.env.VERCEL_GIT_COMMIT_SHA ?? 'local',
   ],

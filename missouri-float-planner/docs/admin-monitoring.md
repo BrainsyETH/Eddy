@@ -168,3 +168,54 @@ provider response bodies. Collection is unsampled for errors/AI/cron paths, not
 guaranteed: budgets, buffer limits, store outages and interrupted execution can
 drop observations. Neither the recording budget nor repeatable rollups guarantee
 a hard billing cap or lossless history.
+
+## Visual operator overview
+
+`/admin` now leads with growth, a service inventory, the six-hour automation
+history, and a short prioritized action list. The original metrics and admin
+shortcuts are under **Diagnostics & all metrics**. This replaces the dense
+first dashboard; the overview is not a separate demo route.
+
+- Growth charts compare the last 7 or 30 **complete UTC days** against the
+  preceding equal period. Today's partial day is excluded. Account creation
+  is not active-user measurement; saved plans are not completed trips.
+- The existing indexed `profiles.created_at` and `float_plans.created_at`
+  ranges supply 60 days of timestamps. Reads are limited to 10,000 records
+  per source and a five-second deadline. Pagination is checked for complete
+  coverage. Only daily counts reach the browser; IDs and timestamps of
+  individual accounts/plans stay server-side. Above the cap the chart says
+  unavailable, and the existing SQL totals remain in Diagnostics. Replace
+  this bounded reader with a daily aggregate RPC if traffic approaches the cap.
+- Subscriber count is current production access. No subscriber growth line is
+  fabricated: daily historical subscriber snapshots remain future work.
+- The automation view reads up to 1,000 runs from the last six hours, plus the
+  latest recorded run per scheduled job. Over-limit or failed reads show
+  unavailable, not an empty/healthy timeline. Times display in America/Chicago,
+  including DST. Ten-minute marks retain the worst recorded outcome; selecting
+  a row reveals individual runs and durations. Next-run times use the existing
+  UTC cron evaluator. Previews do not execute Vercel production schedules.
+- Service cards distinguish credential configuration, observed activity, and
+  unmeasured health. They do not probe providers or expose credential values.
+  Existing Redis and Sentry integrations can be configured while usage
+  collection or issue-read access remains unavailable. The same telemetry
+  opt-in flags and safety budgets still apply.
+- All reads share the authenticated summary's 180-second server cache. There
+  are no added provider calls or per-request writes, no new migration, and no
+  dependency on an iOS release. Production telemetry/Sentry credentials are
+  not enabled or changed by this UI deployment.
+
+Validation: database source/column availability and current read sizes checked
+with read-only production SQL; chart period boundaries and unknown states
+covered by the web tests. Browser QA uses explicit response fixtures rather
+than production credentials, including desktop/mobile interaction and missing
+history. A deployed authenticated smoke check is still needed for environment
+configuration and live Sentry/Redis reporting.
+
+Implementation validation: both TypeScript projects, ESLint (14 existing
+warnings), Tailwind token checks, and all 2,798 web tests passed. The literal
+`make check-web` command encountered the environment's `tsx` IPC `EPERM`; the
+same token and test scripts passed using `node --import tsx`. Actual Next API
+requests against a local fixture database verified authentication before reads,
+complete history, 13 service entries, cache reuse, and removal of account IDs
+and credential values. Desktop/mobile browser checks passed without page
+errors or document overflow.

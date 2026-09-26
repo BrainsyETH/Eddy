@@ -1,11 +1,10 @@
 'use client';
 import { useCallback, useEffect, useState } from 'react';
 import AdminLayout from '@/components/admin/AdminLayout';
+import OverviewDashboard from '@/components/admin/overview/OverviewDashboard';
 import DashboardLinks from '@/components/admin/DashboardLinks';
 import { adminFetch } from '@/hooks/useAdminAuth';
 import {
-  inboxCount,
-  needsAttention,
   type DashboardSummary,
   type Metric,
 } from '@/lib/admin/dashboard/model';
@@ -126,102 +125,31 @@ function Overview() {
     };
   }, [refresh]);
   const metrics = summary?.metrics ?? [];
-  const attention = metrics.filter(needsAttention);
-  const inbox = inboxCount(metrics);
-  const unknown = metrics.filter((m) => m.state !== 'ok').length;
-  const stale =
-    summary && Date.now() - Date.parse(summary.generatedAt) > 360000;
   return (
-    <div className="mx-auto max-w-7xl space-y-8 p-4 sm:p-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-semibold text-white">
-            Eddy at a glance
-          </h1>
-          <p className="mt-1 text-sm text-neutral-400">
-            {summary
-              ? `Updated ${new Date(summary.generatedAt).toLocaleString()} · refreshes every 3 minutes`
-              : 'Loading overview…'}
-          </p>
-        </div>
-        <button
-          disabled={loading}
-          onClick={() => void refresh()}
-          className="rounded-lg border border-neutral-600 px-4 py-2 text-sm text-white disabled:opacity-50"
-        >
-          {loading ? 'Refreshing…' : 'Refresh'}
-        </button>
+    <OverviewDashboard
+      summary={summary}
+      loading={loading}
+      error={error}
+      onRefresh={() => void refresh()}
+    >
+      <div className="rounded-xl bg-neutral-900 p-4 space-y-6">
+        <DashboardLinks />
+        {[...new Set(metrics.map((m) => m.section))].map((section) => (
+          <details key={section}>
+            <summary className="mb-4 cursor-pointer text-lg font-semibold text-white">
+              {section}
+            </summary>
+            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+              {metrics
+                .filter((m) => m.section === section)
+                .map((m) => (
+                  <Card key={m.key} metric={m} />
+                ))}
+            </div>
+          </details>
+        ))}
       </div>
-      {(error || stale) && (
-        <p
-          role="status"
-          className="rounded-lg border border-yellow-600 bg-yellow-950 p-4 text-yellow-200"
-        >
-          {summary
-            ? 'Showing an older snapshot. Latest refresh is unavailable.'
-            : 'Summary unavailable. Retry to load the dashboard.'}
-        </p>
-      )}
-      <section aria-labelledby="attention">
-        <div className="mb-3 flex flex-wrap justify-between gap-2">
-          <h2 id="attention" className="text-lg font-semibold text-white">
-            Needs attention
-          </h2>
-          <span className="text-sm text-neutral-300">
-            Inbox: {inbox === null ? 'Unknown' : inbox} · Sources unavailable:{' '}
-            {unknown}
-          </span>
-        </div>
-        {!summary ? (
-          <p className="text-neutral-400">Checking sources…</p>
-        ) : attention.length ? (
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {attention.map((m) => (
-              <Card key={m.key} metric={m} />
-            ))}
-          </div>
-        ) : (
-          <p className="rounded-lg border border-neutral-700 p-4 text-neutral-300">
-            No actionable issues in the available sources.
-            {unknown > 0
-              ? ' Some sources are unknown; this is not an all-clear.'
-              : ''}
-          </p>
-        )}
-      </section>
-      <DashboardLinks />
-      <p className="text-sm text-neutral-400">
-        Historical cleared push events cannot distinguish suppression, expiry,
-        or exhausted retries. For Reads versus live conditions,{' '}
-        <a href="/admin/trust" className="text-primary-400 hover:underline">
-          review Trust findings
-        </a>
-        .
-      </p>
-      {[...new Set(metrics.map((m) => m.section))].map((section) => (
-        <details
-          key={section}
-          open={[
-            'Business',
-            'Data & jobs',
-            'Push & devices',
-            'Upstream & MCP',
-          ].includes(section)}
-          className="group"
-        >
-          <summary className="mb-4 cursor-pointer text-lg font-semibold text-white">
-            {section}
-          </summary>
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {metrics
-              .filter((m) => m.section === section)
-              .map((m) => (
-                <Card key={m.key} metric={m} />
-              ))}
-          </div>
-        </details>
-      ))}
-    </div>
+    </OverviewDashboard>
   );
 }
 export default function AdminDashboard() {

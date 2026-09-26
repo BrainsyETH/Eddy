@@ -269,3 +269,41 @@ test('every deployed schedule has an independent expectation and a monitored han
     ),
   );
 });
+
+test('overview compares equal complete periods and never invents growth from missing data', async () => {
+  const { dailyCounts, comparePeriod, friendlyJob } = await import(
+    './overview-model'
+  );
+  const end = Date.parse('2026-09-26T00:00:00Z');
+  const points = dailyCounts(
+    [
+      { created_at: '2026-09-25T23:59:59Z' },
+      { created_at: '2026-09-25T12:00:00Z' },
+      { created_at: '2026-09-18T00:00:00Z' },
+      { created_at: '2026-09-26T00:00:00Z' },
+    ],
+    end,
+  );
+  assert.equal(points.length, 60);
+  assert.equal(points.at(-1)?.day, '2026-09-25');
+  const result = comparePeriod({ state: 'ok', points }, 7)!;
+  assert.equal(result.total, 2);
+  assert.equal(result.prior, 1);
+  assert.equal(result.percent, 100);
+  const zero = comparePeriod(
+    { state: 'ok', points: dailyCounts([], end) },
+    30,
+  )!;
+  assert.equal(zero.total, 0);
+  assert.equal(zero.percent, null);
+  assert.equal(comparePeriod({ state: 'unknown', points: [] }, 7), null);
+  assert.equal(comparePeriod({ state: 'ok', points: [] }, 7), null);
+  assert.equal(
+    friendlyJob('update-gauges:high-frequency'),
+    'Refresh river gauges · priority gauges',
+  );
+  assert.equal(
+    friendlyJob('generate-eddy-updates:global-only'),
+    'Write Eddy Reads · Ozarks Pulse',
+  );
+});
