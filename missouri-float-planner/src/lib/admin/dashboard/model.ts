@@ -18,6 +18,7 @@ export interface Metric {
   reason?: string;
 }
 export interface DashboardSummary {
+  overview?: import('./overview-model').OverviewData;
   generatedAt: string;
   metrics: Metric[];
 }

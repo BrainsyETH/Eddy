@@ -235,13 +235,15 @@ export default function AdminLayout({ children, title, description }: AdminLayou
       </div>
 
       {/* Main Content */}
-      <main className="flex-1 flex flex-col lg:pt-0 pt-16">
-        <header className="bg-neutral-800 border-b border-neutral-700 px-6 py-4">
-          <h1 className="text-2xl font-bold text-white">{title}</h1>
-          {description && (
-            <p className="text-sm text-neutral-400 mt-1">{description}</p>
-          )}
-        </header>
+      <main className="min-w-0 flex-1 flex flex-col lg:pt-0 pt-16">
+        {pathname !== '/admin' && (
+          <header className="bg-neutral-800 border-b border-neutral-700 px-6 py-4">
+            <h1 className="text-2xl font-bold text-white">{title}</h1>
+            {description && (
+              <p className="text-sm text-neutral-400 mt-1">{description}</p>
+            )}
+          </header>
+        )}
         <div className="flex-1 overflow-auto">
           {children}
         </div>
