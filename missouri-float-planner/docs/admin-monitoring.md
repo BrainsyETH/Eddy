@@ -29,7 +29,19 @@ Cron monitoring adds one bounded start write and one finish write per authorized
 run. Outcomes separate HTTP failures, partial application failures, skips, and
 unfinished runs. Schedule variants have separate identities. No free-text error
 messages or request URLs are written. Rows expire after 30 days via the telemetry
-rollup cron. A never-recorded job is Unknown, not healthy. Recent sign-ins are not
+rollup cron. The job migration stores a durable rollout timestamp. Apply it at rollout; this
+clock is not reset by a redeploy or retention cleanup. A never-recorded job is
+Unknown until its first scheduled UTC occurrence plus 15 minutes, then overdue.
+Deadline checks run only in Vercel production (preview/local have no cron scheduler).
+A failed monitoring query remains Unknown rather than falsely reporting missed runs.
+`src/lib/admin/dashboard/expected-jobs.json` is intentionally independent of
+`vercel.json`; reconcile both when deliberately changing schedules. Missing or
+changed expected schedules raise Needs attention. Minute lists, steps, ranges,
+multiple daily runs and weekday schedules use actual next execution times.
+Unsupported calendar syntax becomes Unknown instead of an invented deadline.
+Cron JSON may supply `monitoring_status` (`ok`, `partial`, `error`, `skipped`) to
+replace response-key heuristics. HTTP failures always remain errors; Trust lock
+contention is skipped, while unavailable locking is an error. Recent sign-ins are not
 DAU/MAU. Subscription state is current production Premium access, not revenue.
 
 Login audit recording is globally limited to 30 rows/minute by a database lock.
@@ -50,7 +62,8 @@ IP addresses or user input are recorded. Counts are explicitly recorded attempts
   consequently this dashboard does not claim a confirmed device delivery rate.
 - Reads' expiry cards count stored rows, including historic rows. They do not
   assert that a live page served expired prose. Live condition mismatch checks
-  link to Trust; opening the dashboard never recomputes live conditions.
+  link to Trust; opening the dashboard never recomputes live conditions. These
+  limitations are explanatory text, not permanently unavailable metric cards.
 - iOS adoption covers recent push-registered devices. The version list groups a
   long tail into Other versions, counted as unknown for adoption comparisons.
 - Health observed inside Eddy cannot establish external uptime during a complete
@@ -136,3 +149,13 @@ until UTC midnight. New instances can still incur rejected budget probes.
 6. Confirm one cached summary request per refresh, visible-tab polling only,
    authentication on cache hits, and explicit missing-source states.
 7. Record the final production migration versions before merging the ledger.
+
+### Verification status
+
+Configured Vercel preview checks against real Sentry and Redis remain an activation
+gate; local fixtures are not evidence of working provider credentials or quotas.
+Sentry and job-source failures emit bounded diagnostic messages without tokens or
+provider response bodies. Collection is unsampled for errors/AI/cron paths, not
+guaranteed: budgets, buffer limits, store outages and interrupted execution can
+drop observations. Neither the recording budget nor repeatable rollups guarantee
+a hard billing cap or lossless history.

@@ -1,9 +1,9 @@
-import { withJobRun } from '@/lib/admin/dashboard/job-run';
 // src/app/api/cron/sync-usfs/route.ts
 // POST /api/cron/sync-usfs - Weekly USFS/RIDB data sync
 // Fetches campgrounds and recreation facilities from Recreation.gov
 // near Missouri rivers and syncs as pending POIs for admin review.
 
+import { withJobRun } from '@/lib/admin/dashboard/job-run';
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { syncUSFSData } from '@/lib/usfs/sync';

@@ -1,4 +1,3 @@
-import { trackedFetch } from '@/lib/telemetry/upstream';
 // src/lib/flow-providers/usgs-historical.ts
 // Fetches the USGS gauge reading closest to a specific point in time — used to
 // backfill a River Visual photo's gauge height / discharge from when the photo
@@ -23,6 +22,7 @@ import { trackedFetch } from '@/lib/telemetry/upstream';
 // of the validity filters, which is how it survived the first migration of
 // ./usgs.ts untouched.
 
+import { trackedFetch } from '@/lib/telemetry/upstream';
 import {
   MODERN_BASE,
   PARAM_DISCHARGE,

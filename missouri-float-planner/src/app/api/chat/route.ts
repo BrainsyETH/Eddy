@@ -1,8 +1,8 @@
-import { trackedAnthropic } from '@/lib/telemetry/upstream';
 // src/app/api/chat/route.ts
 // POST /api/chat — Streaming chat endpoint for Eddy.
 // Accepts messages + optional river context, streams SSE responses with tool calling.
 
+import { trackedAnthropic } from '@/lib/telemetry/upstream';
 import Anthropic from '@anthropic-ai/sdk';
 import { rateLimit, getClientIp } from '@/lib/rate-limit';
 import { EDDY_TOOLS } from '@/lib/chat/tools';

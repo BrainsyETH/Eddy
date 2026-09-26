@@ -1,4 +1,3 @@
-import { trackedAnthropic } from '@/lib/telemetry/upstream';
 // src/lib/eddy/generate-gauge-update.ts
 // Per-gauge AI commentary using Haiku 4.5. Targeted at secondary gauges on
 // active rivers (the primary gauge is covered by the Sonnet-powered
@@ -9,6 +8,7 @@ import { trackedAnthropic } from '@/lib/telemetry/upstream';
 // tell a paddler about the segment of river around it, and how does it
 // compare to the primary reading?
 
+import { trackedAnthropic } from '@/lib/telemetry/upstream';
 import Anthropic from '@anthropic-ai/sdk';
 import type { ConditionCode } from '@/types/api';
 import { getRiverContext, DEFAULT_TIMEZONE } from '@/lib/rivers/context';

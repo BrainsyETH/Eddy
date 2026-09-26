@@ -36,3 +36,22 @@ END;
 $$;
 REVOKE ALL ON FUNCTION public.record_admin_login(boolean) FROM PUBLIC,anon,authenticated;
 GRANT EXECUTE ON FUNCTION public.record_admin_login(boolean) TO service_role;
+
+-- Durable rollout baseline: survives deployments and job-run retention.
+-- Apply this pending migration at rollout, not weeks before enabling the app.
+CREATE TABLE public.admin_monitoring_state (
+ id boolean PRIMARY KEY DEFAULT true CHECK (id),
+ started_at timestamptz NOT NULL DEFAULT now()
+);
+ALTER TABLE public.admin_monitoring_state ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON public.admin_monitoring_state FROM PUBLIC,anon,authenticated;
+GRANT SELECT ON public.admin_monitoring_state TO service_role;
+INSERT INTO public.admin_monitoring_state(id) VALUES(true) ON CONFLICT DO NOTHING;
+CREATE OR REPLACE FUNCTION public.admin_dashboard_job_status()
+RETURNS jsonb LANGUAGE sql SECURITY INVOKER SET search_path=pg_catalog,public AS $$
+ SELECT jsonb_build_object('started_at',
+  (SELECT started_at FROM public.admin_monitoring_state WHERE id),
+  'runs', public.admin_dashboard_jobs());
+$$;
+REVOKE ALL ON FUNCTION public.admin_dashboard_job_status() FROM PUBLIC,anon,authenticated;
+GRANT EXECUTE ON FUNCTION public.admin_dashboard_job_status() TO service_role;

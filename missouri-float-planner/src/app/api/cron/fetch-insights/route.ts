@@ -1,7 +1,7 @@
-import { withJobRun } from '@/lib/admin/dashboard/job-run';
 // src/app/api/cron/fetch-insights/route.ts
 // GET — Daily cron to fetch Meta API engagement metrics for published posts.
 
+import { withJobRun } from '@/lib/admin/dashboard/job-run';
 import { NextRequest, NextResponse } from 'next/server';
 import { fetchAllPendingInsights } from '@/lib/social/insights-fetcher';
 

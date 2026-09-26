@@ -1,4 +1,3 @@
-import { withJobRun } from '@/lib/admin/dashboard/job-run';
 // src/app/api/cron/sync-availability/route.ts
 // GET/POST /api/cron/sync-availability?source=... — nightly availability refresh.
 //
@@ -10,6 +9,7 @@ import { withJobRun } from '@/lib/admin/dashboard/job-run';
 // Scheduled off-peak, away from the morning reservation-release rush on both
 // systems — see vercel.json.
 
+import { withJobRun } from '@/lib/admin/dashboard/job-run';
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { pruneOldNights, syncSource } from '@/lib/camping/sync';

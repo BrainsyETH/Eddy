@@ -1,9 +1,9 @@
-import { withJobRun } from '@/lib/admin/dashboard/job-run';
 // src/app/api/cron/post-blog/route.ts
 // Cron: once a week (Tuesdays via vercel.json), post a river-guide blog to
 // Facebook as a link post. Rotation + publishing live in blog-poster; this route
 // just gates on the master posting switch and dedups same-day double-fires.
 
+import { withJobRun } from '@/lib/admin/dashboard/job-run';
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getOrCreateConfig } from '@/lib/social/config-helpers';

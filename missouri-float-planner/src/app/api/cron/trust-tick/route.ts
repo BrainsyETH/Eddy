@@ -1,4 +1,3 @@
-import { withJobRun } from '@/lib/admin/dashboard/job-run';
 // src/app/api/cron/trust-tick/route.ts
 // GET — Hourly. Runs whichever trust checks are due and reconciles the ledger.
 //
@@ -7,6 +6,7 @@ import { withJobRun } from '@/lib/admin/dashboard/job-run';
 // costs a slot would run out before the interesting checks got written. Cadence
 // lives in src/lib/trust/registry.ts; adding a check costs nothing here.
 
+import { withJobRun } from '@/lib/admin/dashboard/job-run';
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { hasValidMachineBearer } from '@/lib/security/machine-auth';
@@ -58,11 +58,11 @@ async function run(request: NextRequest) {
     if (lock.reason === 'unavailable') {
       logger.error('[trust-tick] cron lock unavailable', new Error(lock.error), { job: LOCK_JOB });
       return NextResponse.json(
-        { ok: false, skipped: true, reason: 'lock_unavailable', error: lock.error },
+        { ok: false, monitoring_status: 'error', skipped: true, reason: 'lock_unavailable', error: lock.error },
         { status: 503 },
       );
     }
-    return NextResponse.json({ ok: true, skipped: true, reason: 'lock_contended' });
+    return NextResponse.json({ ok: true, monitoring_status: 'skipped', skipped: true, reason: 'lock_contended' });
   }
 
   try {

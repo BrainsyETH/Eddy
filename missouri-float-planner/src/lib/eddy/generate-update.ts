@@ -1,8 +1,8 @@
-import { trackedAnthropic } from '@/lib/telemetry/upstream';
 // src/lib/eddy/generate-update.ts
 // Orchestrates data gathering and calls the configured Claude model to generate Eddy updates.
 // Used by the cron job to produce per-river (or per-section) condition quotes.
 
+import { trackedAnthropic } from '@/lib/telemetry/upstream';
 import Anthropic from '@anthropic-ai/sdk';
 import type { ConditionCode } from '@/types/api';
 import { RIVER_NOTES } from '@/data/eddy-quotes';

@@ -1,4 +1,3 @@
-import { withJobRun } from '@/lib/admin/dashboard/job-run';
 // src/app/api/cron/evaluate-gauge-alerts/route.ts
 // GET/POST /api/cron/evaluate-gauge-alerts — turn per-gauge rules into outbox rows.
 //
@@ -24,6 +23,7 @@ import { withJobRun } from '@/lib/admin/dashboard/job-run';
 // built for the river path. Sending inline would couple detection to delivery,
 // and Vercel crons never retry.
 
+import { withJobRun } from '@/lib/admin/dashboard/job-run';
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { hasValidMachineBearer } from '@/lib/security/machine-auth';

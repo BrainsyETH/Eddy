@@ -1,4 +1,3 @@
-import { withJobRun } from '@/lib/admin/dashboard/job-run';
 // src/app/api/cron/generate-eddy-updates/route.ts
 // Cron job: generates AI-powered Eddy condition updates for all active rivers.
 // Runs once daily at 6:10 AM Central (11:10 UTC) via Vercel Cron — offset 10
@@ -53,6 +52,7 @@ import { withJobRun } from '@/lib/admin/dashboard/job-run';
 // What is left here is the part that was always correct: per-river generation,
 // bounded concurrency, and a pass that finishes in ninety seconds.
 
+import { withJobRun } from '@/lib/admin/dashboard/job-run';
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getUpdateTargetsFromDb, type UpdateTarget } from '@/lib/eddy/update-targets';

@@ -1,4 +1,3 @@
-import { withJobRun } from '@/lib/admin/dashboard/job-run';
 // src/app/api/cron/post-clip/route.ts
 // Cron: twice a day, post the next approved clip from the backlog to every
 // connected platform (Facebook/Instagram, plus TikTok as an inbox draft).
@@ -8,6 +7,7 @@ import { withJobRun } from '@/lib/admin/dashboard/job-run';
 // cron just draws the oldest unused approved clip and publishes it. On dry days
 // (empty backlog) it no-ops.
 
+import { withJobRun } from '@/lib/admin/dashboard/job-run';
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { publishClip, type ClipRow } from '@/lib/social/clip-poster';

@@ -1,8 +1,8 @@
-import { trackedAnthropic } from '@/lib/telemetry/upstream';
 // src/lib/eddy/generate-global-update.ts
 // Generates a global "overall Ozarks" Eddy quote by summarizing per-river updates.
 // Called by the cron job after per-river updates are generated.
 
+import { trackedAnthropic } from '@/lib/telemetry/upstream';
 import Anthropic from '@anthropic-ai/sdk';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getActiveRiverContexts, DEFAULT_TIMEZONE } from '@/lib/rivers/context';

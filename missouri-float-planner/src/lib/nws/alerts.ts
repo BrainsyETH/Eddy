@@ -1,9 +1,9 @@
-import { trackedFetch } from '@/lib/telemetry/upstream';
 // src/lib/nws/alerts.ts
 // Fetches active NWS alerts for Missouri river areas.
 // Free API, no key required. Used to give Eddy context about flood warnings,
 // flash flood watches, and other river-relevant weather alerts.
 
+import { trackedFetch } from '@/lib/telemetry/upstream';
 export interface NWSAlert {
   id: string;
   event: string;         // e.g. "Flood Warning", "Flash Flood Watch"

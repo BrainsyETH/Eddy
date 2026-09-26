@@ -1,4 +1,3 @@
-import { trackedFetch } from '@/lib/telemetry/upstream';
 // src/lib/flow-providers/usgs-statistics.ts
 // USGS Water Data Statistics API — day-of-year discharge/stage normals.
 //
@@ -27,6 +26,7 @@ import { trackedFetch } from '@/lib/telemetry/upstream';
 // scripts/compare-usgs-percentiles.ts reproduces that comparison, and can only
 // run while the legacy service still answers.
 
+import { trackedFetch } from '@/lib/telemetry/upstream';
 import type { DailyStatisticsRow } from './types';
 
 export const STATISTICS_BASE = 'https://api.waterdata.usgs.gov/statistics/v0';

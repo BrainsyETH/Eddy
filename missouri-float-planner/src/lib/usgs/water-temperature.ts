@@ -1,4 +1,3 @@
-import { trackedFetch } from '@/lib/telemetry/upstream';
 // src/lib/usgs/water-temperature.ts
 // Targeted lookup of a station's latest water temperature — USGS parameter
 // 00010 (temperature, water, °C), converted to °F for display.
@@ -14,6 +13,7 @@ import { trackedFetch } from '@/lib/telemetry/upstream';
 // Preserve the observation time. The API moves measurements older than
 // 24 hours to historicalWaterQuality instead of presenting them as current.
 
+import { trackedFetch } from '@/lib/telemetry/upstream';
 import {
   MODERN_BASE,
   modernHeaders,

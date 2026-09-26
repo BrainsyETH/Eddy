@@ -1,4 +1,3 @@
-import { trackedFetch } from '@/lib/telemetry/upstream';
 // src/lib/nws/forecast.ts
 //
 // Official NWS forecast hydrographs via the National Water Prediction Service
@@ -24,6 +23,7 @@ import { trackedFetch } from '@/lib/telemetry/upstream';
 // document and folded BY UNIT rather than by position — same rule, and same
 // reason, as foldByUnit() in flow-providers/nws.ts.
 
+import { trackedFetch } from '@/lib/telemetry/upstream';
 const NWPS_BASE = 'https://api.water.noaa.gov/nwps/v1/gauges';
 
 /** NWPS marks missing values with large negative sentinels. */

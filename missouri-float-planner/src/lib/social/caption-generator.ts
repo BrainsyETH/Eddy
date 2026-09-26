@@ -1,4 +1,3 @@
-import { trackedAnthropic } from '@/lib/telemetry/upstream';
 // src/lib/social/caption-generator.ts
 // AI-powered caption generation using Anthropic Claude.
 // Ported from ClawsifiedInfo generate-caption.sh
@@ -6,6 +5,7 @@ import { trackedAnthropic } from '@/lib/telemetry/upstream';
 // Generates Instagram captions with hook <125 chars, "knowledgeable local" tone,
 // source attribution for YouTube clips, and recent caption deduplication.
 
+import { trackedAnthropic } from '@/lib/telemetry/upstream';
 import Anthropic from '@anthropic-ai/sdk';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { clipCreditLine } from './clip-credit';

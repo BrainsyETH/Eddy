@@ -1,4 +1,3 @@
-import { trackedFetch } from '@/lib/telemetry/upstream';
 // src/lib/usgs/dissolved-oxygen.ts
 // Targeted lookup of a station's latest dissolved oxygen — USGS parameter
 // 00300 (dissolved oxygen, water, unfiltered, mg/L).
@@ -26,6 +25,7 @@ import { trackedFetch } from '@/lib/telemetry/upstream';
 // habitat threshold rendered as a badge would read as advice Eddy has not
 // sourced. Serve the number, its unit and its timestamp; let the reader judge.
 
+import { trackedFetch } from '@/lib/telemetry/upstream';
 import {
   MODERN_BASE,
   modernHeaders,

@@ -1,4 +1,3 @@
-import { trackedFetch } from '@/lib/telemetry/upstream';
 // src/lib/flow-providers/usgs.ts
 // USGS flow provider.
 //
@@ -18,6 +17,7 @@ import { trackedFetch } from '@/lib/telemetry/upstream';
 // say percentiles had no modern equivalent. They do; that claim outlived the
 // fact by long enough to reach three other files.)
 
+import { trackedFetch } from '@/lib/telemetry/upstream';
 import { LEGACY_IV_URL, LEGACY_STAT_URL } from './usgs-legacy';
 import { fetchDailyStatisticsRows } from './usgs-statistics';
 import type {

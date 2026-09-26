@@ -1,4 +1,3 @@
-import { withJobRun } from '@/lib/admin/dashboard/job-run';
 // src/app/api/cron/post-social/route.ts
 // Cron job: publishes scheduled social media posts to Instagram and Facebook.
 // Runs every 30 min via Vercel Cron.
@@ -7,6 +6,7 @@ import { withJobRun } from '@/lib/admin/dashboard/job-run';
 // Video posts: ONE render per video (both platforms share the same file).
 //   Triggers GH Actions workflow → callback publishes to all platforms.
 
+import { withJobRun } from '@/lib/admin/dashboard/job-run';
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getScheduledPosts, getRetryablePosts, type SchedulerResult } from '@/lib/social/post-scheduler';

@@ -1,7 +1,7 @@
-import { withJobRun } from '@/lib/admin/dashboard/job-run';
 // src/app/api/cron/weekly-review/route.ts
 // GET — Weekly cron (Sunday night) for performance analysis and editorial guidance.
 
+import { withJobRun } from '@/lib/admin/dashboard/job-run';
 import { NextRequest, NextResponse } from 'next/server';
 import { runWeeklyReview } from '@/lib/social/weekly-review';
 

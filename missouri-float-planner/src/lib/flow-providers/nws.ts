@@ -1,4 +1,3 @@
-import { trackedFetch } from '@/lib/telemetry/upstream';
 // src/lib/flow-providers/nws.ts
 // NWS flow provider — polls the National Water Prediction Service (NWPS)
 // gauge API, the successor to AHPS. Site ids for this provider are NWS
@@ -15,6 +14,7 @@ import { trackedFetch } from '@/lib/telemetry/upstream';
 // secondary Flow (kcfs) — so readings are mapped by unit, not position, and
 // kcfs is normalized to cfs. Missing values use -999/-9999 sentinels.
 
+import { trackedFetch } from '@/lib/telemetry/upstream';
 import type {
   DailyStatistics,
   FlowProvider,

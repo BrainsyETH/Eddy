@@ -1,4 +1,3 @@
-import { trackedFetch } from '@/lib/telemetry/upstream';
 // src/lib/nws/flood-stages.ts
 //
 // Official NWS flood/action stages via the National Water Prediction Service (NWPS).
@@ -8,6 +7,7 @@ import { trackedFetch } from '@/lib/telemetry/upstream';
 // (audit F4). Keyed by NWS Location ID (LID, 5 letters, e.g. "VBNM7" for the Current
 // River at Van Buren) — stored in gauge_stations.nws_lid.
 
+import { trackedFetch } from '@/lib/telemetry/upstream';
 export interface NwpsFloodStages {
   lid: string;
   /** Minor flood stage (ft) — the primary "flood_stage". */

@@ -1,10 +1,10 @@
-import { trackedMcp } from '@/lib/telemetry/upstream';
-import { rateLimit, getClientIp } from '@/lib/rate-limit';
-import { estimateRoute } from '@/lib/calculations/route-estimate';
 // MCP Server for eddy.guide
 // Exposes river data, conditions, access points, hazards, and float planning as MCP tools.
 // Free access (no x402 gating) to encourage AI agent adoption.
 
+import { trackedMcp } from '@/lib/telemetry/upstream';
+import { rateLimit, getClientIp } from '@/lib/rate-limit';
+import { estimateRoute } from '@/lib/calculations/route-estimate';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { WebStandardStreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js';
 import { createClient } from '@/lib/supabase/server';

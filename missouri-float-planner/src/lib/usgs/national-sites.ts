@@ -1,4 +1,3 @@
-import { trackedFetch } from '@/lib/telemetry/upstream';
 // src/lib/usgs/national-sites.ts
 // Nationwide USGS stream sites, fetched by bounding box.
 //
@@ -22,6 +21,7 @@ import { trackedFetch } from '@/lib/telemetry/upstream';
 // reported, not created — station creation belongs to the weekly metadata sync,
 // so one malformed OGC response can never pollute the station table.
 
+import { trackedFetch } from '@/lib/telemetry/upstream';
 import {
   MODERN_BASE,
   PARAM_DISCHARGE,

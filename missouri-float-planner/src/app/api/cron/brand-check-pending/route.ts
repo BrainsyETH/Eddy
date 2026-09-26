@@ -1,4 +1,3 @@
-import { withJobRun } from '@/lib/admin/dashboard/job-run';
 // src/app/api/cron/brand-check-pending/route.ts
 // Cron: auto-run brand check on pending clips so the backlog self-approves.
 //
@@ -7,6 +6,7 @@ import { withJobRun } from '@/lib/admin/dashboard/job-run';
 // back approved/review/rejected), and marks them 'review' so they aren't
 // re-dispatched on the next pass.
 
+import { withJobRun } from '@/lib/admin/dashboard/job-run';
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { triggerBrandCheck } from '@/lib/social/video-renderer';

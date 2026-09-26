@@ -1,4 +1,3 @@
-import { withJobRun } from '@/lib/admin/dashboard/job-run';
 // src/app/api/cron/social-preflight/route.ts
 // Daily cron — verifies the GH Actions render pipeline is reachable BEFORE
 // posts try to dispatch. Alerts on failure so PAT expiry or scope drift
@@ -10,6 +9,7 @@ import { withJobRun } from '@/lib/admin/dashboard/job-run';
 // Always returns the preflight HTTP status, so the Vercel cron dashboard
 // shows non-200 invocations as failed runs.
 
+import { withJobRun } from '@/lib/admin/dashboard/job-run';
 import { NextRequest, NextResponse } from 'next/server';
 import { runPreflight, type PreflightResult } from '@/lib/social/preflight';
 

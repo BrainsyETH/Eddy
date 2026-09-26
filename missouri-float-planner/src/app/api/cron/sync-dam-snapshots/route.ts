@@ -1,4 +1,3 @@
-import { withJobRun } from '@/lib/admin/dashboard/job-run';
 // src/app/api/cron/sync-dam-snapshots/route.ts
 // GET/POST /api/cron/sync-dam-snapshots — assemble every dam's page before
 // anybody asks for it.
@@ -25,6 +24,7 @@ import { withJobRun } from '@/lib/admin/dashboard/job-run';
 // SCHEDULED AT :35 (vercel.json) — update-gauges holds the cron lock table at
 // :00 and every 15 minutes, sync-gauge-latest at :20, sync-dam-history at :25.
 
+import { withJobRun } from '@/lib/admin/dashboard/job-run';
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { tryCronLock, releaseCronLock } from '@/lib/social/cron-lock';

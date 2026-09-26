@@ -1,7 +1,7 @@
-import { trackedFetch } from '@/lib/telemetry/upstream';
 // src/lib/mapbox/directions.ts
 // Mapbox Directions API integration for drive time calculations
 
+import { trackedFetch } from '@/lib/telemetry/upstream';
 import type { ConditionCode } from '@/types/api';
 
 export interface MapboxRoute {

@@ -68,7 +68,8 @@ const ADMIN_SECTIONS = [
   },
   {
     title: 'Data Sync',
-    description: 'Sync USFS campgrounds as pending POIs from Recreation.gov (RIDB)',
+    description:
+      'Sync USFS campgrounds as pending POIs from Recreation.gov (RIDB)',
     href: '/admin/data-sync',
     icon: RefreshCw,
     color: 'bg-emerald-500',
@@ -82,7 +83,8 @@ const ADMIN_SECTIONS = [
   },
   {
     title: 'Points of Interest',
-    description: 'Manage springs, caves, campgrounds, and other points of interest',
+    description:
+      'Manage springs, caves, campgrounds, and other points of interest',
     href: '/admin/pois',
     icon: Compass,
     color: 'bg-cyan-500',
@@ -96,28 +98,32 @@ const ADMIN_SECTIONS = [
   },
   {
     title: 'Community Reports',
-    description: 'Review and moderate user-submitted hazard and condition reports',
+    description:
+      'Review and moderate user-submitted hazard and condition reports',
     href: '/admin/reports',
     icon: MessageSquare,
     color: 'bg-indigo-500',
   },
   {
     title: 'Social Media',
-    description: 'Manage Instagram and Facebook auto-posting settings and history',
+    description:
+      'Manage Instagram and Facebook auto-posting settings and history',
     href: '/admin/social',
     icon: Share2,
     color: 'bg-pink-500',
   },
   {
     title: 'Clip Library',
-    description: 'YouTube clip extraction, brand checks, montage compilation, and content decisions',
+    description:
+      'YouTube clip extraction, brand checks, montage compilation, and content decisions',
     href: '/admin/clips',
     icon: Film,
     color: 'bg-violet-500',
   },
   {
     title: 'AI Models',
-    description: 'Choose which Claude model writes river updates, gauge updates, the statewide summary, and captions',
+    description:
+      'Choose which Claude model writes river updates, gauge updates, the statewide summary, and captions',
     href: '/admin/ai-models',
     icon: Bot,
     color: 'bg-sky-500',
@@ -131,5 +137,17 @@ const ADMIN_SECTIONS = [
   },
 ];
 export default function DashboardLinks() {
- return <nav aria-label="Manage Eddy" className="flex flex-wrap gap-2">{ADMIN_SECTIONS.map(s=><Link key={s.href} href={s.href} className="rounded-lg border border-neutral-700 px-3 py-2 text-sm text-neutral-200 hover:bg-neutral-800">{s.title}</Link>)}</nav>;
+  return (
+    <nav aria-label="Manage Eddy" className="flex flex-wrap gap-2">
+      {ADMIN_SECTIONS.map((s) => (
+        <Link
+          key={s.href}
+          href={s.href}
+          className="rounded-lg border border-neutral-700 px-3 py-2 text-sm text-neutral-200 hover:bg-neutral-800"
+        >
+          {s.title}
+        </Link>
+      ))}
+    </nav>
+  );
 }

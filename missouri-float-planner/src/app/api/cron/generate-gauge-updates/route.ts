@@ -1,9 +1,9 @@
-import { withJobRun } from '@/lib/admin/dashboard/job-run';
 // src/app/api/cron/generate-gauge-updates/route.ts
 // Daily cron: generates per-gauge Haiku updates for every SECONDARY gauge on
 // an active river. Primary gauges are handled by the Sonnet-powered
 // /api/cron/generate-eddy-updates job, which runs on a different schedule.
 
+import { withJobRun } from '@/lib/admin/dashboard/job-run';
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import {

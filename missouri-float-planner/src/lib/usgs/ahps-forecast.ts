@@ -1,4 +1,3 @@
-import { trackedFetch } from '@/lib/telemetry/upstream';
 // src/lib/usgs/ahps-forecast.ts
 // NWS AHPS forecast hydrographs, by NWS location id (LID).
 //
@@ -18,6 +17,7 @@ import { trackedFetch } from '@/lib/telemetry/upstream';
 //     </forecast>
 //   </site>
 
+import { trackedFetch } from '@/lib/telemetry/upstream';
 const AHPS_BASE = 'https://water.weather.gov/ahps2/hydrograph_to_xml.php';
 
 export interface AhpsForecastDatum {

@@ -1,7 +1,7 @@
-import { trackedFetch } from '@/lib/telemetry/upstream';
 // src/lib/weather/openweather.ts
 // OpenWeatherMap API client for weather data
 
+import { trackedFetch } from '@/lib/telemetry/upstream';
 export interface WeatherData {
   temp: number;
   condition: string;

@@ -1,8 +1,8 @@
-import { recordLogin } from '@/lib/admin/dashboard/login-audit';
 // src/app/api/admin/login/route.ts
 // POST /api/admin/login - Validate admin password server-side and set an HttpOnly session cookie.
 // The password is NEVER exposed to the client bundle.
 
+import { recordLogin } from '@/lib/admin/dashboard/login-audit';
 import { NextRequest, NextResponse } from 'next/server';
 import { rateLimit, getClientIp } from '@/lib/rate-limit';
 import {

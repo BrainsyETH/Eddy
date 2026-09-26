@@ -1,8 +1,8 @@
-import { withJobRun } from '@/lib/admin/dashboard/job-run';
 // src/app/api/cron/sync-nps/route.ts
 // POST /api/cron/sync-nps - Weekly NPS data sync
 // Called by Vercel Cron weekly (Sundays at 3am CT)
 
+import { withJobRun } from '@/lib/admin/dashboard/job-run';
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { syncNPSData } from '@/lib/nps/sync';
