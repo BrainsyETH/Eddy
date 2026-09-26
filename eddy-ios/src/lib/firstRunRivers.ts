@@ -1,27 +1,5 @@
-// eddy-ios/src/lib/firstRunRivers.ts
-// Which six rivers the first-run picker offers.
-//
-// ── Six, and why they are not a hardcoded list ──────────────────────────────
-//
-// The design names six: Current, Jacks Fork, Meramec, Big Piney, Huzzah, Eleven
-// Point. They are the right opening hand — the Ozark float rivers most people
-// arrive already knowing — but a literal list of six slugs is a list that goes
-// stale. Rivers get added, and a slug that stops resolving would silently shrink
-// the grid to five with nothing to show for it.
-//
-// So the six are a PREFERENCE, not a fixture: the named rivers that exist in the
-// catalog, in the order given, and then floatable-first fill for whatever is
-// missing. The grid is always full if the catalog can fill it.
-//
-// ── Location replaces the set rather than reordering it ─────────────────────
-//
-// This is the picker's answer to "my river isn't here". Somebody in Springfield
-// has no use for a default set chosen around the Current, and asking them to
-// search a catalog they have not seen yet is a browsing task in front of an app
-// they have not opened. A location fix turns the same six cards into the six
-// nearest, which is both a better answer and no extra chrome.
-//
-// Pure so the web suite can cover it — see firstRunRivers.test.ts.
+// Six river suggestions for onboarding. Search in firstRunPlaces covers the full
+// catalog; nearby suggestions never restrict what someone can find or save.
 
 import type { RiverListItem } from '@eddy/types';
 // Relative, not '@/theme/conditions': the web test runner that covers this file

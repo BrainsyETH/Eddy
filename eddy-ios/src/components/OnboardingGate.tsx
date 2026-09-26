@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useState, type ReactNode } from 'react';
-import { Linking, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Otter } from '@/components/Otter';
+import { EddyScene } from '@/components/EddyScene';
+import { preloadTodayData } from '@/lib/firstRunPreload';
 import { FirstRunPicker } from '@/components/FirstRunPicker';
 import { SafetyDisclaimer } from '@/components/SafetyDisclaimer';
 import {
@@ -83,25 +84,20 @@ export function OnboardingGate({ children }: { children: ReactNode }) {
     };
   }, []);
 
+  useEffect(() => {
+    if (step === 'legal' || step === 'picker') preloadTodayData();
+  }, [step]);
+
   /** Followed or skipped — either way the question has been asked. */
   const finishPicker = useCallback(() => {
     void completePersonalization();
     setStep('app');
   }, []);
 
-  /**
-   * No catalog and no cache, so there was nothing to ask with.
-   *
-   * Deliberately does NOT record completion: the state stays `pending`, and
-   * somebody whose first launch happened in a dead zone gets the picker on a
-   * later one instead of losing it to a bad minute of signal.
-   */
-  const skipPickerUnasked = useCallback(() => setStep('app'), []);
-
   if (step === 'app') return <>{children}</>;
   if (step === null) return <View style={{ flex: 1, backgroundColor: colors.bg }} />;
   if (step === 'picker') {
-    return <FirstRunPicker onDone={finishPicker} onUnavailable={skipPickerUnasked} />;
+    return <FirstRunPicker onDone={finishPicker} />;
   }
 
   const agree = async () => {
@@ -125,22 +121,22 @@ export function OnboardingGate({ children }: { children: ReactNode }) {
 
   return (
     <SafeAreaView style={[styles.screen, { backgroundColor: colors.bg }]}>
-      <View style={styles.body}>
-        <Otter mood="flag" size={110} />
-        <Text style={[styles.title, { color: colors.text }]}>Know before you go</Text>
-        <Text style={[styles.copy, { color: colors.textMuted }]}>Eddy helps you plan river trips using gauge readings, forecasts, and researched access information.</Text>
+      <ScrollView contentContainerStyle={styles.body} showsVerticalScrollIndicator={false}>
+        <EddyScene name="wave" size={160} />
+        <Text style={[styles.title, { color: colors.text }]}>Your day on the water starts here.</Text>
+        <Text style={[styles.copy, { color: colors.textMuted }]}>Check conditions, find access points, and plan your next float with Eddy.</Text>
         <SafetyDisclaimer />
         <Text style={[styles.copy, { color: colors.textMuted }]}>By continuing, you agree to Eddy&apos;s Terms of Use and acknowledge the Privacy Policy.</Text>
         <View style={styles.links}>
-          <Pressable onPress={() => void Linking.openURL(TERMS_URL)} hitSlop={8}>
+          <Pressable accessibilityRole="link" onPress={() => void Linking.openURL(TERMS_URL)} hitSlop={8}>
             <Text style={[styles.link, { color: colors.interactive }]}>Terms of Use</Text>
           </Pressable>
           <Text style={{ color: colors.textSubtle }}>·</Text>
-          <Pressable onPress={() => void Linking.openURL(PRIVACY_URL)} hitSlop={8}>
+          <Pressable accessibilityRole="link" onPress={() => void Linking.openURL(PRIVACY_URL)} hitSlop={8}>
             <Text style={[styles.link, { color: colors.interactive }]}>Privacy Policy</Text>
           </Pressable>
         </View>
-      </View>
+      </ScrollView>
       <View style={[styles.footer, { borderTopColor: colors.border }]}> 
         <Pressable
           accessibilityRole="button"
@@ -157,10 +153,10 @@ export function OnboardingGate({ children }: { children: ReactNode }) {
 
 const styles = StyleSheet.create({
   screen: { flex: 1 },
-  body: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 30 },
+  body: { flexGrow: 1, paddingVertical: 24, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 30 },
   title: { ...t['2xl'], fontFamily: fonts.displayBold, textAlign: 'center', marginTop: 12 },
   copy: { ...t.sm, fontFamily: fonts.body, textAlign: 'center', marginTop: 12 },
-  links: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 18 },
+  links: { flexWrap: 'wrap', justifyContent: 'center', flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 18 },
   link: { ...t.sm, fontFamily: fonts.semibold, textDecorationLine: 'underline' },
   footer: { padding: 20, borderTopWidth: 1 },
   button: { borderRadius: 12, paddingVertical: 15, alignItems: 'center' },

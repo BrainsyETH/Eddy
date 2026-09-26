@@ -1,3 +1,4 @@
+import { takePreloadedToday } from '@/lib/firstRunPreload';
 import { radii } from '@/theme/layout';
 import { Children, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import {
@@ -30,10 +31,7 @@ import type {
 import type { Coords } from '@eddy/geo';
 import {
   ApiError,
-  fetchFavoriteFloats,
-  fetchHighWater,
   fetchLocationWeather,
-  fetchRiverAlerts,
 } from '@/api/client';
 import { BlurredReadPreview, EddyReadCard, EddyReadPlaceholder } from '@/components/EddyReadCard';
 import { useAccount } from '@/hooks/useAccount';
@@ -659,7 +657,7 @@ export function TodayHub({
       if (current && cached) setFloats(cached);
     });
     const controller = new AbortController();
-    void fetchFavoriteFloats(controller.signal)
+    void takePreloadedToday('floats', controller.signal)
       .then((live) => {
         if (!current) return;
         setFloats(live);
@@ -694,7 +692,7 @@ export function TodayHub({
   useEffect(() => {
     const controller = new AbortController();
 
-    void fetchHighWater(controller.signal).then(
+    void takePreloadedToday('highWater', controller.signal).then(
       (entries) => {
         if (controller.signal.aborted) return;
         setSafety((current) => ({ ...current, high: entries }));
@@ -704,7 +702,7 @@ export function TodayHub({
         if (!controller.signal.aborted) setSafetyFailure((current) => ({ ...current, high: true }));
       },
     );
-    void fetchRiverAlerts(undefined, controller.signal).then(
+    void takePreloadedToday('notices', controller.signal).then(
       (entries) => {
         if (controller.signal.aborted) return;
         setSafety((current) => ({ ...current, notices: entries }));

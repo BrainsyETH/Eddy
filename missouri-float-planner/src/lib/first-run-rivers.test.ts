@@ -1,3 +1,5 @@
+import { firstRunPlaces, firstRunFavorites, visibleFirstRunPlaces } from '../../../eddy-ios/src/lib/firstRunPlaces';
+import { createPreloadHandoff } from '../../../eddy-ios/src/lib/preloadHandoff';
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import type { RiverListItem } from '../../../packages/eddy-types/index';
@@ -176,4 +178,73 @@ test('the distance label always says it is a proxy', () => {
   assert.equal(riverDistanceLabel(4.26), '≈ 4.3 mi to its gauge');
   assert.match(riverDistanceLabel(50), /^≈ /);
   assert.match(riverDistanceLabel(50), /to its gauge$/);
+});
+
+// Combined onboarding keeps destination search independent of nearby suggestions.
+
+const options = () => ({ rivers: catalog(), query: '', browseAll: false, selected: new Set<string>() });
+
+test('first-run search finds a nonfeatured river and dams by lake name', () => {
+  const riverHits = visibleFirstRunPlaces({ ...options(), query: 'bourbeuse' });
+  assert.equal(riverHits.length, 1);
+  assert.equal(riverHits[0].kind, 'river');
+  const damHits = visibleFirstRunPlaces({ ...options(), query: 'lake of the ozarks' });
+  assert.equal(damHits[0]?.key, 'dam:ameren-bagnell-dam');
+  assert.equal(visibleFirstRunPlaces({ ...options(), query: 'not-a-real-place' }).length, 0);
+});
+
+test('nearby replacements retain selected dams and rivers', () => {
+  const selected = new Set(['river:bourbeuse', 'dam:ameren-bagnell-dam']);
+  const shown = visibleFirstRunPlaces({ ...options(), selected, damDistances: new Map([
+    ['lrn-center-hill-dam', 1], ['lrn-dale-hollow-dam', 2], ['lrn-wolf-creek-dam', 3],
+  ]) });
+  assert.ok(shown.some(place => place.key === 'dam:lrn-center-hill-dam'));
+  for (const key of selected) assert.ok(shown.some(place => place.key === key));
+  assert.equal(new Set(shown.map(place => place.key)).size, shown.length);
+});
+
+test('river and dam favorites have distinct identities and preserve dam routing', () => {
+  const places = firstRunPlaces([river('current', 'flowing', 'ameren-bagnell-dam')]);
+  const favorites = firstRunFavorites(places, new Set(['river:ameren-bagnell-dam', 'dam:ameren-bagnell-dam']));
+  assert.deepEqual(favorites.map(item => [item.kind, item.entityId, item.slug]), [
+    ['river', 'ameren-bagnell-dam', 'current'], ['dam', 'ameren-bagnell-dam', ''],
+  ]);
+});
+
+test('dam selection works when the river catalog is unavailable', () => {
+  const shown = visibleFirstRunPlaces({ ...options(), rivers: [] });
+  assert.equal(shown.length, 3);
+  assert.ok(shown.every(place => place.kind === 'dam'));
+});
+
+test('onboarding preloads are shared, consumed once, and expire before stale reuse', async () => {
+  let now = 100;
+  let requests = 0;
+  const handoff = createPreloadHandoff(() => now, 30);
+  const fetcher = async () => { requests++; return ['conditions']; };
+  const warm = handoff.warm('rivers', fetcher);
+  assert.equal(handoff.warm('rivers', fetcher), warm);
+  assert.deepEqual(await handoff.peek('rivers'), ['conditions']);
+  assert.equal(handoff.take('rivers'), warm);
+  assert.equal(handoff.take('rivers'), null);
+  assert.equal(requests, 1);
+  await handoff.warm('rivers', fetcher);
+  now += 30;
+  assert.equal(handoff.take('rivers'), null);
+  await handoff.warm('rivers', fetcher);
+  handoff.clear();
+  assert.equal(handoff.peek('rivers'), null);
+});
+
+test('failed preloads are evicted and a late response cannot survive a refresh clear', async () => {
+  const handoff = createPreloadHandoff();
+  await assert.rejects(handoff.warm('rivers', async () => { throw new Error('offline'); }));
+  assert.equal(handoff.peek('rivers'), null);
+  let finish!: (value: number[]) => void;
+  const pending = handoff.warm('rivers', () => new Promise<number[]>(resolve => { finish = resolve; }));
+  await Promise.resolve();
+  handoff.clear();
+  finish([1]);
+  await pending;
+  assert.equal(handoff.peek('rivers'), null);
 });

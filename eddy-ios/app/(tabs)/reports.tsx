@@ -98,8 +98,6 @@ import { floatableHeadline } from '@eddy/conditions/floatable-headline';
 import {
   ApiError,
   fetchGaugeCount,
-  fetchGauges,
-  fetchRivers,
 } from '@/api/client';
 import { floatableRank, isFloatableNow } from '@/theme/conditions';
 import { flowBandColor, flowBandLabel } from '@/theme/flow';
@@ -118,6 +116,7 @@ import { EddyReadCard } from '@/components/EddyReadCard';
 import { FilterChips, type FilterChip } from '@/components/FilterChips';
 import { FeedbackSheet } from '@/components/FeedbackSheet';
 import { gaugeToSearchResult, useEddySearch } from '@/hooks/useEddySearch';
+import { takePreloadedToday, clearFirstRunPreload } from '@/lib/firstRunPreload';
 import { useEddyUpdates } from '@/hooks/useEddyUpdates';
 import { getSharedDams } from '@/hooks/useDams';
 import { onForeground } from '@/lib/foreground';
@@ -664,7 +663,7 @@ export default function ReportsScreen() {
     // painted in between. Settled rather than caught, because the disk read
     // sits between the two halves of what a try/catch would join, and folding
     // the rejection here is what lets it.
-    const network = fetchRivers(signal).then(
+    const network = takePreloadedToday('rivers', signal).then(
       (rivers) => ({ rivers, error: null as unknown }),
       (error) => ({ rivers: null, error }),
     );
@@ -774,7 +773,7 @@ export default function ReportsScreen() {
   const gaugesPromise = useRef<Promise<MapGauge[]> | null>(null);
   const ensureGauges = useCallback(() => {
     if (!gaugesPromise.current) {
-      gaugesPromise.current = fetchGauges()
+      gaugesPromise.current = takePreloadedToday('gauges')
         .then((list) => {
           setGauges(list);
           return list;
@@ -857,6 +856,7 @@ export default function ReportsScreen() {
 
   const onRefresh = useCallback(async () => {
     clearNavigationCache();
+    clearFirstRunPreload();
     setRefreshing(true);
     // Both. The prose one always reaches the server — the shared cache's TTL
     // governs mounting, not refreshing — and it does not clear what is on
