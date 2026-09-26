@@ -5,7 +5,7 @@ import type { ReachRiverType } from '@shared/reach-types';
 import { STALE_READING_HOURS } from '@shared/reading-staleness';
 import { resolveFloatEndpoints, endpointFailureStatus } from '@/lib/access-points/endpoint-resolver';
 import { fetchGaugeReadings, fetchDailyStatistics, classifyQualifiers } from '@/lib/usgs/gauges';
-import { computeConditionFromDbRow } from '@/lib/conditions';
+import { applyFloodStageOverride, computeConditionFromDbRow, getConditionShortLabel } from '@/lib/conditions';
 import { calculateFloatTime, floatTimeWithholding, formatFloatTime, formatFloatTimeRange, formatFloatTimeRangeCompact, type SpeedCurve } from './floatTime';
 import { toNum } from '@/lib/utils/num';
 
@@ -41,7 +41,8 @@ export async function estimateRoute(supabase: SupabaseClient<Database>, {
       .eq('id', riverId)
       .single();
 
-    if (riverError || !river) {
+    if (riverError) throw new RouteEstimateError('Could not look up the river', 500);
+    if (!river) {
       throw new RouteEstimateError('River not found', 404);
     }
 
@@ -69,21 +70,23 @@ export async function estimateRoute(supabase: SupabaseClient<Database>, {
     // Use an explicit canoe default so editorial and planner requests agree.
     let vesselType;
     if (vesselTypeId) {
-      const { data: vt } = await supabase
+      const { data: vt, error: vesselError } = await supabase
         .from('vessel_types')
         .select('*')
         .eq('id', vesselTypeId)
         .single();
+      if (vesselError) throw new RouteEstimateError('Could not look up the vessel type', 500);
       if (!vt) throw new RouteEstimateError('Vessel type not found', 404);
       vesselType = vt;
     }
 
     if (!vesselType) {
-      const { data: defaultVessel } = await supabase
+      const { data: defaultVessel, error: defaultVesselError } = await supabase
         .from('vessel_types')
         .select('*')
         .eq('slug', 'canoe')
         .single();
+      if (defaultVesselError) throw new RouteEstimateError('Could not look up the vessel type', 500);
       vesselType = defaultVessel;
     }
 
@@ -123,6 +126,9 @@ export async function estimateRoute(supabase: SupabaseClient<Database>, {
     let condition: any;
     let conditionCode: ConditionCode = 'flowing';
     const spanWarnings: string[] = [];
+    let anchorCondition: Record<string, unknown> | null = null;
+    const contributingGauges: Array<{ name: string; usgsSiteId: string; riverMile: number; conditionCode: string; gaugeHeightFt: number | null; dischargeCfs: number | null; observedAt: string | null; effect: 'escalated' | 'low_water' }> = [];
+    let spanCheckComplete = true;
     let dailyStats: Awaited<ReturnType<typeof fetchDailyStatistics>> = null;
     if (mode === 'today') {
     // Get river condition using position-based gauge selection
@@ -266,6 +272,8 @@ export async function estimateRoute(supabase: SupabaseClient<Database>, {
       }
     }
 
+    anchorCondition = condition ? { ...condition } : null;
+
     // --- Within-span multi-gauge check (gauge-to-segment representativeness) ---
     // The anchor gauge sits at/upstream of the put-in, but a long float can pass
     // other gauges reading very different water (tributaries and big springs add
@@ -277,16 +285,17 @@ export async function estimateRoute(supabase: SupabaseClient<Database>, {
       const spanMinMile = Math.min(parseFloat(segmentData.start_river_mile), parseFloat(segmentData.end_river_mile));
       const spanMaxMile = Math.max(parseFloat(segmentData.start_river_mile), parseFloat(segmentData.end_river_mile));
 
-      const { data: riverGaugeRows } = await supabase
+      const { data: riverGaugeRows, error: spanGaugeError } = await supabase
         .from('river_gauges')
         .select(`
           level_too_low, level_low, level_optimal_min, level_optimal_max,
-          level_high, level_dangerous, threshold_unit, river_mile,
+          level_high, level_dangerous, threshold_unit, river_mile, flood_stage_ft,
           gauge_stations!inner (id, name, usgs_site_id, active)
         `)
         .eq('river_id', riverId)
         .not('river_mile', 'is', null);
 
+      if (spanGaugeError) throw new Error('Could not check gauges along this route');
       const inSpanGauges = (riverGaugeRows || [])
         .map((g) => ({
           row: g,
@@ -304,7 +313,7 @@ export async function estimateRoute(supabase: SupabaseClient<Database>, {
           inSpanGauges.map(({ station }) =>
             supabase
               .from('gauge_readings')
-              .select('gauge_height_ft, discharge_cfs, reading_timestamp')
+              .select('gauge_height_ft, discharge_cfs, reading_timestamp, qualifiers')
               .eq('gauge_station_id', station.id)
               .order('reading_timestamp', { ascending: false })
               .limit(1)
@@ -316,11 +325,13 @@ export async function estimateRoute(supabase: SupabaseClient<Database>, {
         for (let i = 0; i < inSpanGauges.length; i++) {
           const { row, station, mile } = inSpanGauges[i];
           const reading = latestReadings[i]?.data;
-          if (!reading) continue;
+          if (latestReadings[i]?.error || !reading) { spanCheckComplete = false; continue; }
           const ageHours = reading.reading_timestamp
             ? (Date.now() - new Date(reading.reading_timestamp).getTime()) / (1000 * 60 * 60)
             : Infinity;
-          if (ageHours > 12) continue; // never escalate off stale data
+          if (!Number.isFinite(ageHours) || ageHours < -5 / 60 || classifyQualifiers(reading.qualifiers ?? []).suspect) { spanCheckComplete = false; continue; }
+          if (ageHours > STALE_READING_HOURS) spanCheckComplete = false;
+          if (ageHours > 12) { spanCheckComplete = false; continue; } // never escalate off stale data
 
           const spanCondition = computeConditionFromDbRow(
             toNum(reading.gauge_height_ft),
@@ -328,7 +339,12 @@ export async function estimateRoute(supabase: SupabaseClient<Database>, {
             toNum(reading.discharge_cfs)
           );
 
+          spanCondition.code = applyFloodStageOverride(spanCondition.code, toNum(reading.gauge_height_ft), toNum(row.flood_stage_ft));
+          spanCondition.label = getConditionShortLabel(spanCondition.code);
+          if (spanCondition.code === 'unknown') spanCheckComplete = false;
+
           if ((SEVERITY_RANK[spanCondition.code] ?? 0) > (SEVERITY_RANK[conditionCode] ?? 0)) {
+            contributingGauges.push({ name: station.name, usgsSiteId: station.usgs_site_id, riverMile: mile!, conditionCode: spanCondition.code, gaugeHeightFt: toNum(reading.gauge_height_ft), dischargeCfs: toNum(reading.discharge_cfs), observedAt: reading.reading_timestamp, effect: 'escalated' });
             conditionCode = spanCondition.code as ConditionCode;
             condition = {
               ...condition,
@@ -339,6 +355,7 @@ export async function estimateRoute(supabase: SupabaseClient<Database>, {
               `${station.name} (mile ${mile}) reads "${spanCondition.label}" within this float — conditions reflect the worst gauge on your route`
             );
           } else if (spanCondition.code === 'too_low' && conditionCode !== 'too_low' && conditionCode !== 'unknown') {
+            contributingGauges.push({ name: station.name, usgsSiteId: station.usgs_site_id, riverMile: mile!, conditionCode: spanCondition.code, gaugeHeightFt: toNum(reading.gauge_height_ft), dischargeCfs: toNum(reading.discharge_cfs), observedAt: reading.reading_timestamp, effect: 'low_water' });
             spanWarnings.push(
               `${station.name} (mile ${mile}) reads very low — expect dragging on that stretch`
             );
@@ -346,6 +363,7 @@ export async function estimateRoute(supabase: SupabaseClient<Database>, {
         }
       }
     } catch (spanError) {
+      spanCheckComplete = false;
       console.warn('Span gauge check failed (non-fatal):', spanError);
     }
 
@@ -457,6 +475,6 @@ export async function estimateRoute(supabase: SupabaseClient<Database>, {
         : formatFloatTime(floatTimeResult.minutes),
     } : null;
     return { river, putIn, takeOut, vesselType, segmentData, distanceMiles,
-      condition, conditionCode, dailyStats, spanWarnings, floatTimeResult, floatTime,
+      condition, anchorCondition, contributingGauges, spanCheckComplete, conditionCode, dailyStats, spanWarnings, floatTimeResult, floatTime,
       withholdReason, estimateBasis: mode, estimatedAt: new Date().toISOString() };
 }

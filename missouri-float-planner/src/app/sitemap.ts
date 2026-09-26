@@ -12,6 +12,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   // Static pages remain discoverable even when a local/preview build
   // intentionally has no production database credentials.
   const staticPages: MetadataRoute.Sitemap = [
+    { url: `${BASE_URL}/developers`, changeFrequency: 'monthly', priority: 0.6 },
     { url: BASE_URL, lastModified: new Date(), changeFrequency: 'daily', priority: 1 },
     { url: `${BASE_URL}/plan`, lastModified: new Date(), changeFrequency: 'daily', priority: 0.9 },
     { url: `${BASE_URL}/rivers`, lastModified: new Date(), changeFrequency: 'daily', priority: 0.8 },

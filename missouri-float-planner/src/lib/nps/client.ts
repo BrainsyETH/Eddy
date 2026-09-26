@@ -117,7 +117,8 @@ export async function fetchNPSPlaces(
  * is closed; the surface says nothing rather than pretending it is open.
  */
 export async function fetchNPSAlerts(
-  parkCode: string = DEFAULT_PARK_CODE
+  parkCode: string = DEFAULT_PARK_CODE,
+  options: { strict?: boolean } = {},
 ): Promise<NPSAlertRaw[]> {
   try {
     const response = await fetchNPS<NPSAlertRaw>(
@@ -125,8 +126,10 @@ export async function fetchNPSAlerts(
       { parkCode, limit: '50' },
       { revalidateSeconds: 900 },
     );
+    if (options.strict && !Array.isArray(response.data)) throw new Error('Invalid NPS alert response');
     return response.data ?? [];
   } catch (err) {
+    if (options.strict) throw err;
     console.warn(`[NPS] Alert fetch failed for ${parkCode}:`, err);
     return [];
   }
