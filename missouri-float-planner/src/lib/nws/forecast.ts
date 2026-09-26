@@ -23,6 +23,7 @@
 // document and folded BY UNIT rather than by position — same rule, and same
 // reason, as foldByUnit() in flow-providers/nws.ts.
 
+import { trackedFetch } from '@/lib/telemetry/upstream';
 const NWPS_BASE = 'https://api.water.noaa.gov/nwps/v1/gauges';
 
 /** NWPS marks missing values with large negative sentinels. */
@@ -94,7 +95,7 @@ function foldByUnit(
  */
 export async function fetchNwsForecast(lid: string): Promise<NwsForecast> {
   try {
-    const res = await fetch(`${NWPS_BASE}/${encodeURIComponent(lid)}/stageflow`, {
+    const res = await trackedFetch('nws', 'forecast', `${NWPS_BASE}/${encodeURIComponent(lid)}/stageflow`, {
       signal: AbortSignal.timeout(6_000),
       headers: { Accept: 'application/json' },
       next: { revalidate: 900 },

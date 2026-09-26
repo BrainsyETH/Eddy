@@ -9,6 +9,7 @@
 // Always returns the preflight HTTP status, so the Vercel cron dashboard
 // shows non-200 invocations as failed runs.
 
+import { withJobRun } from '@/lib/admin/dashboard/job-run';
 import { NextRequest, NextResponse } from 'next/server';
 import { runPreflight, type PreflightResult } from '@/lib/social/preflight';
 
@@ -56,5 +57,5 @@ async function handle(request: NextRequest) {
 }
 
 // Vercel cron sends GET; allow POST too for manual reruns from `curl -X POST`.
-export const GET = handle;
-export const POST = handle;
+export const GET = withJobRun("social-preflight", handle);
+export const POST = withJobRun("social-preflight", handle);

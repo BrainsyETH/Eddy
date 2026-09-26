@@ -17,6 +17,7 @@
 //     </forecast>
 //   </site>
 
+import { trackedFetch } from '@/lib/telemetry/upstream';
 const AHPS_BASE = 'https://water.weather.gov/ahps2/hydrograph_to_xml.php';
 
 export interface AhpsForecastDatum {
@@ -58,7 +59,7 @@ export function parseForecastDatums(xml: string): AhpsForecastDatum[] {
  */
 export async function fetchAhpsForecast(lid: string): Promise<AhpsForecastDatum[]> {
   try {
-    const res = await fetch(ahpsUrl(lid), {
+    const res = await trackedFetch('nws', 'ahps-forecast', ahpsUrl(lid), {
       signal: AbortSignal.timeout(10_000),
       next: { revalidate: 3600 },
     });

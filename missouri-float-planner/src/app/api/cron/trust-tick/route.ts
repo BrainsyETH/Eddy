@@ -6,6 +6,7 @@
 // costs a slot would run out before the interesting checks got written. Cadence
 // lives in src/lib/trust/registry.ts; adding a check costs nothing here.
 
+import { withJobRun } from '@/lib/admin/dashboard/job-run';
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { hasValidMachineBearer } from '@/lib/security/machine-auth';
@@ -57,11 +58,11 @@ async function run(request: NextRequest) {
     if (lock.reason === 'unavailable') {
       logger.error('[trust-tick] cron lock unavailable', new Error(lock.error), { job: LOCK_JOB });
       return NextResponse.json(
-        { ok: false, skipped: true, reason: 'lock_unavailable', error: lock.error },
+        { ok: false, monitoring_status: 'error', skipped: true, reason: 'lock_unavailable', error: lock.error },
         { status: 503 },
       );
     }
-    return NextResponse.json({ ok: true, skipped: true, reason: 'lock_contended' });
+    return NextResponse.json({ ok: true, monitoring_status: 'skipped', skipped: true, reason: 'lock_contended' });
   }
 
   try {
@@ -249,10 +250,14 @@ async function run(request: NextRequest) {
 }
 
 // Vercel Cron invokes routes via GET; POST kept for manual triggering.
-export async function GET(request: NextRequest) {
+async function handleGET(request: NextRequest) {
   return run(request);
 }
 
-export async function POST(request: NextRequest) {
+async function handlePOST(request: NextRequest) {
   return run(request);
 }
+
+export const GET = withJobRun("trust-tick", handleGET);
+
+export const POST = withJobRun("trust-tick", handlePOST);

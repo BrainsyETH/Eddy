@@ -6,6 +6,7 @@
 // back approved/review/rejected), and marks them 'review' so they aren't
 // re-dispatched on the next pass.
 
+import { withJobRun } from '@/lib/admin/dashboard/job-run';
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { triggerBrandCheck } from '@/lib/social/video-renderer';
@@ -14,7 +15,7 @@ export const dynamic = 'force-dynamic';
 const LOG = '[BrandCheckCron]';
 const MAX_PER_RUN = 5;
 
-export async function GET(request: NextRequest) {
+async function handleGET(request: NextRequest) {
   const cronSecret = process.env.CRON_SECRET;
   if (!cronSecret) {
     return NextResponse.json({ error: 'Cron secret not configured' }, { status: 500 });
@@ -80,3 +81,5 @@ export async function GET(request: NextRequest) {
   console.log(`${LOG} dispatched brand check for ${dispatched.length}/${actionable.length} clips`);
   return NextResponse.json({ dispatched: dispatched.length, total: actionable.length });
 }
+
+export const GET = withJobRun("brand-check-pending", handleGET);

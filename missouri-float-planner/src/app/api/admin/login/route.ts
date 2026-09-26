@@ -2,6 +2,7 @@
 // POST /api/admin/login - Validate admin password server-side and set an HttpOnly session cookie.
 // The password is NEVER exposed to the client bundle.
 
+import { recordLogin } from '@/lib/admin/dashboard/login-audit';
 import { NextRequest, NextResponse } from 'next/server';
 import { rateLimit, getClientIp } from '@/lib/rate-limit';
 import {
@@ -45,12 +46,14 @@ export async function POST(request: NextRequest) {
     }
 
     if (password !== adminPassword) {
+      await recordLogin(false);
       return json({ error: 'Invalid password' }, 401);
     }
 
     // Generate a time-limited token (expires in 4 hours). It is only exposed as
     // an HttpOnly cookie, so browser JavaScript cannot read or exfiltrate it.
     const token = createAdminToken();
+    await recordLogin(true);
     const response = json({
       success: true,
       expiresIn: ADMIN_SESSION_MAX_AGE_SECONDS,

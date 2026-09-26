@@ -3,6 +3,7 @@
 // Free API, no key required. Used to give Eddy context about flood warnings,
 // flash flood watches, and other river-relevant weather alerts.
 
+import { trackedFetch } from '@/lib/telemetry/upstream';
 export interface NWSAlert {
   id: string;
   event: string;         // e.g. "Flood Warning", "Flash Flood Watch"
@@ -37,7 +38,7 @@ const RIVER_ALERT_EVENTS = [
 export async function fetchNWSAlerts(stateCode: string = 'MO'): Promise<NWSAlert[]> {
   const url = `https://api.weather.gov/alerts/active?area=${encodeURIComponent(stateCode)}`;
 
-  const response = await fetch(url, {
+  const response = await trackedFetch('nws', 'alerts', url, {
     signal: AbortSignal.timeout(10_000),
     headers: {
       'User-Agent': '(Eddy Float Planner, contact@eddyfloat.com)',

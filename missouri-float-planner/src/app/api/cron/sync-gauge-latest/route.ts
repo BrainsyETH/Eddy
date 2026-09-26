@@ -21,6 +21,7 @@
 // 1024 MB lambda. Region-at-a-time keeps each parse small and makes a bad
 // response cost one region instead of the run.
 
+import { withJobRun } from '@/lib/admin/dashboard/job-run';
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { US_REGIONS, fetchRegionLatest } from '@/lib/usgs/national-sites';
@@ -211,10 +212,14 @@ async function runSync(request: NextRequest) {
   });
 }
 
-export async function GET(request: NextRequest) {
+async function handleGET(request: NextRequest) {
   return runSync(request);
 }
 
-export async function POST(request: NextRequest) {
+async function handlePOST(request: NextRequest) {
   return runSync(request);
 }
+
+export const GET = withJobRun("sync-gauge-latest", handleGET);
+
+export const POST = withJobRun("sync-gauge-latest", handlePOST);

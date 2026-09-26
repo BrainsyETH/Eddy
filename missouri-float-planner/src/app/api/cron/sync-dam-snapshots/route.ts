@@ -24,6 +24,7 @@
 // SCHEDULED AT :35 (vercel.json) — update-gauges holds the cron lock table at
 // :00 and every 15 minutes, sync-gauge-latest at :20, sync-dam-history at :25.
 
+import { withJobRun } from '@/lib/admin/dashboard/job-run';
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { tryCronLock, releaseCronLock } from '@/lib/social/cron-lock';
@@ -128,10 +129,14 @@ async function runSync(request: NextRequest) {
   });
 }
 
-export async function GET(request: NextRequest) {
+async function handleGET(request: NextRequest) {
   return runSync(request);
 }
 
-export async function POST(request: NextRequest) {
+async function handlePOST(request: NextRequest) {
   return runSync(request);
 }
+
+export const GET = withJobRun("sync-dam-snapshots", handleGET);
+
+export const POST = withJobRun("sync-dam-snapshots", handlePOST);

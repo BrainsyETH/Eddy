@@ -1,6 +1,7 @@
 // src/lib/weather/openweather.ts
 // OpenWeatherMap API client for weather data
 
+import { trackedFetch } from '@/lib/telemetry/upstream';
 export interface WeatherData {
   temp: number;
   condition: string;
@@ -59,7 +60,7 @@ export async function fetchWeather(
 ): Promise<WeatherData> {
   const url = `https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lon}&appid=${apiKey}&units=imperial`;
   
-  const response = await fetch(url, {
+  const response = await trackedFetch('openweather', 'openweather', url, {
     signal: AbortSignal.timeout(10_000),
     next: { revalidate: 600 }, // Cache current weather for 10 minutes
   });
@@ -89,11 +90,7 @@ export async function fetchWeather(
 }
 
 // Get wind direction as compass direction
-export function getWindDirection(degrees: number): string {
-  const directions = ['N', 'NNE', 'NE', 'ENE', 'E', 'ESE', 'SE', 'SSE', 'S', 'SSW', 'SW', 'WSW', 'W', 'WNW', 'NW', 'NNW'];
-  const index = Math.round(degrees / 22.5) % 16;
-  return directions[index];
-}
+export { getWindDirection } from './display';
 
 // ============================================
 // 5-DAY FORECAST
@@ -129,7 +126,7 @@ export async function fetchForecast(
 ): Promise<ForecastData> {
   const url = `https://api.openweathermap.org/data/2.5/forecast?lat=${lat}&lon=${lon}&appid=${apiKey}&units=imperial`;
 
-  const response = await fetch(url, {
+  const response = await trackedFetch('openweather', 'openweather', url, {
     signal: AbortSignal.timeout(10_000),
     next: { revalidate: 3600 }, // Cache forecast for 1 hour
   });

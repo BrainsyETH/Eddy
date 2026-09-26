@@ -52,6 +52,7 @@
 // What is left here is the part that was always correct: per-river generation,
 // bounded concurrency, and a pass that finishes in ninety seconds.
 
+import { withJobRun } from '@/lib/admin/dashboard/job-run';
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getUpdateTargetsFromDb, type UpdateTarget } from '@/lib/eddy/update-targets';
@@ -449,10 +450,14 @@ async function runGeneration(request: NextRequest) {
   });
 }
 
-export async function GET(request: NextRequest) {
+async function handleGET(request: NextRequest) {
   return runGeneration(request);
 }
 
-export async function POST(request: NextRequest) {
+async function handlePOST(request: NextRequest) {
   return runGeneration(request);
 }
+
+export const GET = withJobRun("generate-eddy-updates", handleGET);
+
+export const POST = withJobRun("generate-eddy-updates", handlePOST);

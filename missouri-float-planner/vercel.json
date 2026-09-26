@@ -146,6 +146,10 @@
     {
       "path": "/api/cron/trust-tick",
       "schedule": "0 * * * *"
+    },
+    {
+      "path": "/api/cron/rollup-telemetry",
+      "schedule": "50 6 * * *"
     }
   ]
 }

@@ -16,6 +16,7 @@
 // to send at all — see the block at the end of the pass. Anything else keeps its
 // place in the outbox and burns one of MAX_ATTEMPTS.
 
+import { withJobRun } from '@/lib/admin/dashboard/job-run';
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { hasValidMachineBearer } from '@/lib/security/machine-auth';
@@ -500,10 +501,14 @@ async function markDelivered(supabase: any, eventIds: string[]) {
     .in('id', eventIds);
 }
 
-export async function GET(request: NextRequest) {
+async function handleGET(request: NextRequest) {
   return run(request);
 }
 
-export async function POST(request: NextRequest) {
+async function handlePOST(request: NextRequest) {
   return run(request);
 }
+
+export const GET = withJobRun("deliver-push", handleGET);
+
+export const POST = withJobRun("deliver-push", handlePOST);

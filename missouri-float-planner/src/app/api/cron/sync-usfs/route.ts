@@ -3,6 +3,7 @@
 // Fetches campgrounds and recreation facilities from Recreation.gov
 // near Missouri rivers and syncs as pending POIs for admin review.
 
+import { withJobRun } from '@/lib/admin/dashboard/job-run';
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { syncUSFSData } from '@/lib/usfs/sync';
@@ -79,10 +80,14 @@ async function runSync(request: NextRequest) {
 }
 
 // Vercel Cron invokes routes via GET; POST kept for manual triggering.
-export async function GET(request: NextRequest) {
+async function handleGET(request: NextRequest) {
   return runSync(request);
 }
 
-export async function POST(request: NextRequest) {
+async function handlePOST(request: NextRequest) {
   return runSync(request);
 }
+
+export const GET = withJobRun("sync-usfs", handleGET);
+
+export const POST = withJobRun("sync-usfs", handlePOST);

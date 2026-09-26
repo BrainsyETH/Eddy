@@ -6,6 +6,7 @@
 // Video posts: ONE render per video (both platforms share the same file).
 //   Triggers GH Actions workflow → callback publishes to all platforms.
 
+import { withJobRun } from '@/lib/admin/dashboard/job-run';
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getScheduledPosts, getRetryablePosts, type SchedulerResult } from '@/lib/social/post-scheduler';
@@ -446,5 +447,9 @@ async function runSocialPosting(request: NextRequest) {
   }
 }
 
-export async function GET(request: NextRequest) { return runSocialPosting(request); }
-export async function POST(request: NextRequest) { return runSocialPosting(request); }
+async function handleGET(request: NextRequest) { return runSocialPosting(request); }
+async function handlePOST(request: NextRequest) { return runSocialPosting(request); }
+
+export const GET = withJobRun("post-social", handleGET);
+
+export const POST = withJobRun("post-social", handlePOST);

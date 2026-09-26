@@ -1,6 +1,7 @@
 // src/lib/mapbox/directions.ts
 // Mapbox Directions API integration for drive time calculations
 
+import { trackedFetch } from '@/lib/telemetry/upstream';
 import type { ConditionCode } from '@/types/api';
 
 export interface MapboxRoute {
@@ -104,7 +105,7 @@ export async function geocodeAddress(
   url.searchParams.set('country', 'US');
 
   try {
-    const response = await fetch(url.toString(), {
+    const response = await trackedFetch('mapbox', 'directions', url.toString(), {
       signal: AbortSignal.timeout(10_000),
       next: { revalidate: CACHE_NORMAL }, // Cache for 30 days
     });
@@ -180,7 +181,7 @@ export async function getDriveTime(
   const revalidateTime = isDangerousConditions ? CACHE_DANGEROUS : CACHE_NORMAL;
 
   try {
-    const response = await fetch(url.toString(), {
+    const response = await trackedFetch('mapbox', 'directions', url.toString(), {
       signal: AbortSignal.timeout(10_000),
       next: { revalidate: revalidateTime },
     });

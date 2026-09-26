@@ -22,6 +22,7 @@
 // of the validity filters, which is how it survived the first migration of
 // ./usgs.ts untouched.
 
+import { trackedFetch } from '@/lib/telemetry/upstream';
 import {
   MODERN_BASE,
   PARAM_DISCHARGE,
@@ -71,7 +72,7 @@ interface OgcFeatureCollection {
 
 async function fetchOgcFeatures(url: URL): Promise<OgcFeature[] | null> {
   // Historical values never change; cache aggressively.
-  const res = await fetch(url.toString(), {
+  const res = await trackedFetch('usgs', 'usgs-historical', url.toString(), {
     next: { revalidate: 86400 },
     headers: modernHeaders(),
   });

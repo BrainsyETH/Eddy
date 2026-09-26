@@ -2,6 +2,7 @@
 // Orchestrates data gathering and calls the configured Claude model to generate Eddy updates.
 // Used by the cron job to produce per-river (or per-section) condition quotes.
 
+import { trackedAnthropic } from '@/lib/telemetry/upstream';
 import Anthropic from '@anthropic-ai/sdk';
 import type { ConditionCode } from '@/types/api';
 import { RIVER_NOTES } from '@/data/eddy-quotes';
@@ -209,7 +210,7 @@ export async function generateEddyUpdate(
   const client = new Anthropic({ apiKey: anthropicKey });
 
   try {
-    const message = await client.messages.create({
+    const message = await trackedAnthropic('river_update', model.id, () => client.messages.create({
       model: model.id,
       max_tokens: model.maxTokens,
       // Omitted entirely unless the model needs it. Sonnet 5 thinks by default
@@ -223,7 +224,7 @@ export async function generateEddyUpdate(
       system: model.cacheSystemPrompt
         ? [{ type: 'text', text: EDDY_SYSTEM_PROMPT, cache_control: { type: 'ephemeral' } }]
         : EDDY_SYSTEM_PROMPT,
-    });
+    }));
 
     const textBlock = message.content.find((block) => block.type === 'text');
     // Strip em dashes that slip through despite prompt instructions

@@ -5,6 +5,7 @@
 // Generates Instagram captions with hook <125 chars, "knowledgeable local" tone,
 // source attribution for YouTube clips, and recent caption deduplication.
 
+import { trackedAnthropic } from '@/lib/telemetry/upstream';
 import Anthropic from '@anthropic-ai/sdk';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { clipCreditLine } from './clip-credit';
@@ -232,14 +233,14 @@ HASHTAGS: [5-8 hashtags, comma-separated]`;
         );
       }
 
-      const response = await client.messages.create({
+      const response = await trackedAnthropic('social_caption', params.model.id, () => client.messages.create({
         model: params.model.id,
         max_tokens: params.model.maxTokens,
         // Omitted entirely unless the model needs it. A thinking model left
         // un-disabled would spend this budget reasoning about a caption.
         ...(params.model.thinking ? { thinking: params.model.thinking } : {}),
         messages,
-      });
+      }));
 
       const text = response.content[0].type === 'text' ? response.content[0].text : '';
       const draft = parseDraft(text);

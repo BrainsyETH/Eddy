@@ -23,6 +23,7 @@
 // built for the river path. Sending inline would couple detection to delivery,
 // and Vercel crons never retry.
 
+import { withJobRun } from '@/lib/admin/dashboard/job-run';
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { hasValidMachineBearer } from '@/lib/security/machine-auth';
@@ -318,10 +319,14 @@ async function run(request: NextRequest) {
   }
 }
 
-export async function GET(request: NextRequest) {
+async function handleGET(request: NextRequest) {
   return run(request);
 }
 
-export async function POST(request: NextRequest) {
+async function handlePOST(request: NextRequest) {
   return run(request);
 }
+
+export const GET = withJobRun("evaluate-gauge-alerts", handleGET);
+
+export const POST = withJobRun("evaluate-gauge-alerts", handlePOST);

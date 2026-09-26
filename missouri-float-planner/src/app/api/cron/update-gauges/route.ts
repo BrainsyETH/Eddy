@@ -2,6 +2,7 @@
 // GET/POST /api/cron/update-gauges - Update gauge readings from USGS
 // Vercel Cron uses GET; POST supported for manual testing.
 
+import { withJobRun } from '@/lib/admin/dashboard/job-run';
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getFlowProvider, type GaugeReading } from '@/lib/flow-providers';
@@ -926,11 +927,15 @@ async function runUpdate(request: NextRequest) {
 }
 
 /** Vercel Cron uses GET. */
-export async function GET(request: NextRequest) {
+async function handleGET(request: NextRequest) {
   return runUpdate(request);
 }
 
 /** For manual testing: curl -X POST -H "Authorization: Bearer $CRON_SECRET" https://your-app/api/cron/update-gauges */
-export async function POST(request: NextRequest) {
+async function handlePOST(request: NextRequest) {
   return runUpdate(request);
 }
+
+export const GET = withJobRun("update-gauges", handleGET);
+
+export const POST = withJobRun("update-gauges", handlePOST);

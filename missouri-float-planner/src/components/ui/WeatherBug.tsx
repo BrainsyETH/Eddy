@@ -7,7 +7,8 @@ import { useState } from 'react';
 import { Sun, Cloud, CloudRain, Wind, ChevronDown, ChevronUp } from 'lucide-react';
 // Removed: Droplet icon (river gauge status removed from weather modal)
 import { useWeather } from '@/hooks/useWeather';
-import { getWindDirection, type WeatherData } from '@/lib/weather/openweather';
+import { getWindDirection } from '@/lib/weather/display';
+import type { WeatherData } from '@/lib/weather/openweather';
 import LoadingSpinner from './LoadingSpinner';
 
 interface WeatherBugProps {

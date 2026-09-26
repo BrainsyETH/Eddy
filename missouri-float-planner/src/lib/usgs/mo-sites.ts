@@ -13,6 +13,7 @@
 // vendor-specific state filters; results are re-filtered to Missouri's
 // polygon client-side before rendering.
 
+import { trackedFetch } from '@/lib/telemetry/upstream';
 // Imported, not re-declared: flow-providers/usgs.ts exports MODERN_BASE
 // precisely so the by-bbox path here and the by-site path there cannot drift
 // onto different API generations. This file used to keep its own copy.
@@ -64,7 +65,7 @@ function siteNoFromLocationId(id: unknown): string | null {
 
 async function fetchJson(url: URL): Promise<{ features?: OgcFeature[] } | null> {
   try {
-    const res = await fetch(url.toString(), {
+    const res = await trackedFetch('usgs', 'mo-sites', url.toString(), {
       next: { revalidate: 900 },
       headers: headers(),
     });

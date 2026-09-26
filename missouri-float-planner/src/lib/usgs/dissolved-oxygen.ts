@@ -25,6 +25,7 @@
 // habitat threshold rendered as a badge would read as advice Eddy has not
 // sourced. Serve the number, its unit and its timestamp; let the reader judge.
 
+import { trackedFetch } from '@/lib/telemetry/upstream';
 import {
   MODERN_BASE,
   modernHeaders,
@@ -90,7 +91,7 @@ export async function fetchDissolvedOxygen(siteId: string): Promise<DissolvedOxy
     url.searchParams.set('parameter_code', PARAM_DISSOLVED_OXYGEN);
     url.searchParams.set('limit', '10');
 
-    const response = await fetch(url.toString(), {
+    const response = await trackedFetch('usgs', 'dissolved-oxygen', url.toString(), {
       headers: modernHeaders(),
       next: { revalidate: 3600 },
     });

@@ -13,6 +13,7 @@
 // Preserve the observation time. The API moves measurements older than
 // 24 hours to historicalWaterQuality instead of presenting them as current.
 
+import { trackedFetch } from '@/lib/telemetry/upstream';
 import {
   MODERN_BASE,
   modernHeaders,
@@ -78,7 +79,7 @@ export async function fetchWaterTemperature(siteId: string): Promise<WaterTemper
     url.searchParams.set('parameter_code', PARAM_WATER_TEMP_C);
     url.searchParams.set('limit', '10');
 
-    const response = await fetch(url.toString(), {
+    const response = await trackedFetch('usgs', 'water-temperature', url.toString(), {
       headers: modernHeaders(),
       next: { revalidate: 3600 },
     });

@@ -9,6 +9,7 @@
 // Scheduled off-peak, away from the morning reservation-release rush on both
 // systems — see vercel.json.
 
+import { withJobRun } from '@/lib/admin/dashboard/job-run';
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { pruneOldNights, syncSource } from '@/lib/camping/sync';
@@ -74,10 +75,14 @@ async function runSync(request: NextRequest) {
 }
 
 // Vercel Cron invokes routes via GET; POST kept for manual triggering.
-export async function GET(request: NextRequest) {
+async function handleGET(request: NextRequest) {
   return runSync(request);
 }
 
-export async function POST(request: NextRequest) {
+async function handlePOST(request: NextRequest) {
   return runSync(request);
 }
+
+export const GET = withJobRun("sync-availability", handleGET);
+
+export const POST = withJobRun("sync-availability", handlePOST);

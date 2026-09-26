@@ -7,6 +7,7 @@
 // cron just draws the oldest unused approved clip and publishes it. On dry days
 // (empty backlog) it no-ops.
 
+import { withJobRun } from '@/lib/admin/dashboard/job-run';
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { publishClip, type ClipRow } from '@/lib/social/clip-poster';
@@ -23,7 +24,7 @@ export const dynamic = 'force-dynamic';
 export const maxDuration = 300;
 const LOG = '[PostClipCron]';
 
-export async function GET(request: NextRequest) {
+async function handleGET(request: NextRequest) {
   const cronSecret = process.env.CRON_SECRET;
   if (!cronSecret) {
     return NextResponse.json({ error: 'Cron secret not configured' }, { status: 500 });
@@ -103,3 +104,5 @@ export async function GET(request: NextRequest) {
   const result = await publishClip(supabase, next as ClipRow, platforms);
   return NextResponse.json({ clipId: next.id, ...result });
 }
+
+export const GET = withJobRun("post-clip", handleGET);

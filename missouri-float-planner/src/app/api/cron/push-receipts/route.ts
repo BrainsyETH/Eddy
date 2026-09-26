@@ -18,6 +18,7 @@
 // returns early whenever there is nothing to deliver — which is most passes, and
 // precisely when the receipts for the last real fan-out are coming due.
 
+import { withJobRun } from '@/lib/admin/dashboard/job-run';
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { hasValidMachineBearer } from '@/lib/security/machine-auth';
@@ -211,10 +212,14 @@ async function run(request: NextRequest) {
   }
 }
 
-export async function GET(request: NextRequest) {
+async function handleGET(request: NextRequest) {
   return run(request);
 }
 
-export async function POST(request: NextRequest) {
+async function handlePOST(request: NextRequest) {
   return run(request);
 }
+
+export const GET = withJobRun("push-receipts", handleGET);
+
+export const POST = withJobRun("push-receipts", handlePOST);

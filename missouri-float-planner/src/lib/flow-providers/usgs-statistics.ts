@@ -26,6 +26,7 @@
 // scripts/compare-usgs-percentiles.ts reproduces that comparison, and can only
 // run while the legacy service still answers.
 
+import { trackedFetch } from '@/lib/telemetry/upstream';
 import type { DailyStatisticsRow } from './types';
 
 export const STATISTICS_BASE = 'https://api.waterdata.usgs.gov/statistics/v0';
@@ -268,7 +269,7 @@ export async function fetchDailyStatisticsRows(
   siteId: string,
   parameterCode: string = PARAM_DISCHARGE
 ): Promise<DailyStatisticsRow[]> {
-  const response = await fetch(observationNormalsUrl(siteId, parameterCode), {
+  const response = await trackedFetch('usgs', 'usgs-statistics', observationNormalsUrl(siteId, parameterCode), {
     next: { revalidate: 86400 },
     signal: AbortSignal.timeout(15_000),
     headers: statisticsHeaders(),
