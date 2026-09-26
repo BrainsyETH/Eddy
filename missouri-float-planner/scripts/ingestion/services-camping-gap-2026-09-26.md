@@ -45,7 +45,7 @@ and availability facility; separate loop pins require separately verified places
 
 ## Buffalo booking corrections — researched, not enabled
 
-`camping-buffalo-2026-09-26.json` records three existing NPS campground UUIDs,
+`camping-buffalo-2026-09-26-research.json` is a research manifest, not an executable importer input. Nothing consumes it. It records three existing NPS campground UUIDs,
 their stale stored reservation links, and current Recreation.gov facility IDs:
 
 | Campground | Current campground ID | Existing stored link |
@@ -64,8 +64,10 @@ a guarded, reviewed write. A website ID alone is not a verified availability fee
 Kyles Landing, Woolum and Spring Creek remain first-come; do not enable invented
 vacancy counts for them.
 
-The four new state-park records include official booking destinations. They do
-not imply integrated availability. Missouri provider PlaceIds need verification;
+The Arkansas rows include park-specific booking destinations. Missouri rows keep
+reservation_url empty until park-specific destinations and PlaceIds are verified;
+their website links still open the official camping information pages. None of
+these links implies integrated availability. Missouri provider PlaceIds need verification;
 Arkansas State Parks has no adapter in the current camping pipeline. Disabled
 Bennett Spring and Sam A. Baker facilities remain unchanged pending diagnosis.
 
@@ -80,6 +82,13 @@ npx tsx scripts/import-services-csv.ts scripts/ingestion/services-camping-gap-20
 npx tsx scripts/import-services-csv.ts scripts/ingestion/services-camping-gap-2026-09-26.csv --import
 npm run db:check-services
 ```
+
+Expect four new `no_coordinates` warnings from `db:check-services` after import.
+`--strict` fails on warnings, so it is expected to fail until the coordinate pass.
+Do not run `--update-baseline` to absorb these new omissions now. After verified
+coordinates are applied, rerun the check and review any baseline regeneration;
+do not accept unrelated findings as part of this batch. The four listings will
+not appear as map pins until their coordinates are populated.
 
 The importer retains its service-role credential requirement, project pin,
 whole-file validation, atomic `import_services` RPC and read-back checks.

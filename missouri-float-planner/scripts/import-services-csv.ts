@@ -539,6 +539,8 @@ export interface RowPlan {
   changes: FieldChange[];
   linkAdds: string[];
   linkRemoves: string[];
+  /** Existing links retained when a standalone CSV omits river associations. */
+  standaloneLinksKept: string[];
   primaryFlips: string[];
 }
 
@@ -579,7 +581,7 @@ export function planRow(
     }
     return {
       row, action: 'insert', existingId: null, payload, changes,
-      linkAdds: [...row.riverSlugs], linkRemoves: [], primaryFlips: [],
+      linkAdds: [...row.riverSlugs], linkRemoves: [], primaryFlips: [], standaloneLinksKept: [],
     };
   }
 
@@ -624,7 +626,10 @@ export function planRow(
   const action = changes.length === 0 && linkAdds.length === 0
     && linkRemoves.length === 0 && primaryFlips.length === 0 ? 'unchanged' : 'update';
 
-  return { row, action, existingId: existing.id, payload, changes, linkAdds, linkRemoves, primaryFlips };
+  return {
+    row, action, existingId: existing.id, payload, changes, linkAdds, linkRemoves, primaryFlips,
+    standaloneLinksKept: row.riverSlugs.length === 0 ? [...linkedSlugs].sort() : [],
+  };
 }
 
 /**
@@ -706,9 +711,12 @@ export function renderDiff(plans: RowPlan[]): string {
   for (const plan of plans) {
     if (plan.action === 'unchanged') {
       lines.push(`UNCHANGED  ${plan.row.slug}`);
-      continue;
+    } else {
+      lines.push(`${plan.action.toUpperCase().padEnd(10)} ${plan.row.slug}  — ${plan.row.name} [${plan.row.type}]`);
     }
-    lines.push(`${plan.action.toUpperCase().padEnd(10)} ${plan.row.slug}  — ${plan.row.name} [${plan.row.type}]`);
+    if (plan.standaloneLinksKept.length > 0) {
+      lines.push(`             standalone: keeping existing links ${plan.standaloneLinksKept.join(', ')}`);
+    }
     for (const c of plan.changes) {
       if (plan.action === 'insert') {
         lines.push(`             ${c.field.padEnd(20)} = ${fmt(c.after)}`);

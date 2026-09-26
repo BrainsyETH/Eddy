@@ -11,7 +11,6 @@ INSERT     roaring-river-state-park-campgrounds  — Roaring River State Park Ca
              type                 = campground
              phone                = 417-847-2539
              website              = https://mostateparks.com/park/roaring-river-state-park/camping
-             reservation_url      = https://icampmo1.usedirect.com/MSPWeb/
              city                 = Cassville
              description          = Three campgrounds with basic and hookup camping near Roaring River.
              seasonal_notes       = Campground 1 operates year-round; campgrounds 2 and 3 operate February 25 through October 31. Check official advisories before arrival.
@@ -31,7 +30,6 @@ INSERT     table-rock-state-park-campgrounds  — Table Rock State Park Campgrou
              type                 = campground
              phone                = 417-334-4704
              website              = https://mostateparks.com/park/table-rock-state-park/camping
-             reservation_url      = https://icampmo1.usedirect.com/MSPWeb/
              city                 = Branson
              description          = Two campgrounds on Table Rock Lake with basic and hookup sites.
              seasonal_notes       = Camping is available year-round; water and shower services vary in winter. Gates close at 10 p.m.

@@ -10,6 +10,7 @@ import {
   parseFieldSources,
   planRow,
   resolveOfferings,
+  renderDiff,
   sourceProblem,
   slugify,
   SOURCE_MAX_AGE_DAYS,
@@ -317,14 +318,23 @@ test('standalone campgrounds need explicit intent and retain existing river link
   assert.deepEqual(update.linkRemoves, []);
   assert.deepEqual(update.primaryFlips, []);
 
-  for (const [type, rivers, intent] of [
-    ['campground', '', ''],
-    ['campground', '', 'standalnoe'],
-    ['outfitter', '', 'standalone'],
-    ['campground', 'niangua', 'standalone'],
+  assert.match(renderDiff([update]), /standalone: keeping existing links niangua/);
+  const unchanged = planRow(rows[0], {
+    ...existingService(), ...fresh.payload,
+  }, LINKED_TO_NIANGUA, RIVERS, false);
+  assert.equal(unchanged.action, 'unchanged');
+  assert.match(renderDiff([unchanged]), /UNCHANGED[\s\S]*standalone: keeping existing links niangua/);
+  assert.doesNotMatch(renderDiff([fresh]), /standalone: keeping/);
+
+  for (const [type, rivers, intent, expectedError] of [
+    ['campground', '', '', 'river_slugs is required'],
+    ['campground', '', 'standalnoe', 'river_link_status must be standalone or empty'],
+    ['outfitter', '', 'standalone', 'standalone is only valid for a campground with no river_slugs'],
+    ['campground', 'niangua', 'standalone', 'standalone is only valid for a campground with no river_slugs'],
   ]) {
     const bad = buildRows([matrix[0], ['Lake Camp', type, rivers, intent, 'Branson', 'MO', 'https://mostateparks.com', RECENT]], TODAY);
-    assert.ok(bad.errors.length > 0, `${type}/${rivers}/${intent} must not silently import`);
+    assert.ok(bad.errors.some(e => e.message === expectedError),
+      `${type}/${rivers}/${intent}: expected ${expectedError}, got ${JSON.stringify(bad.errors)}`);
   }
 });
 
