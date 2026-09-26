@@ -1,6 +1,6 @@
 // Personalization does real work: both river and dam choices become Favorites.
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { AccessibilityInfo, ActivityIndicator, FlatList, KeyboardAvoidingView, Linking, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import { AccessibilityInfo, ActivityIndicator, FlatList, Keyboard, KeyboardAvoidingView, Linking, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { milesBetween, type Coords } from '@eddy/geo';
@@ -42,7 +42,7 @@ export function FirstRunPicker({ onDone }: Props) {
   const [retry, setRetry] = useState(0);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [query, setQuery] = useState('');
-  const [summaryKeys, setSummaryKeys] = useState<string[]>([]);
+  const [reviewOpen, setReviewOpen] = useState(false);
   const [browseAll, setBrowseAll] = useState(false);
   const [riverDistances, setRiverDistances] = useState<Map<string, number> | null>(null);
   const [nearbyCoords, setNearbyCoords] = useState<Coords | null>(null);
@@ -87,7 +87,6 @@ export function FirstRunPicker({ onDone }: Props) {
     [rivers, query, browseAll, selected, riverDistances, damDistances]);
   const favorites = useMemo(() => firstRunFavorites(all, selected, dams ?? []), [all, selected, dams]);
   const count = favorites.length;
-  const selectedSummary = all.filter(place => summaryKeys.includes(place.key) && selected.has(place.key));
 
   // Wait for a pause in typing. Selection and reading updates do not retrigger
   // an announcement, and clearing search cancels any pending result count.
@@ -98,11 +97,6 @@ export function FirstRunPicker({ onDone }: Props) {
     }, 500);
     return () => clearTimeout(timer);
   }, [query, places.length]);
-
-  const changeQuery = (next: string) => {
-    if (query.trim() && !next.trim()) setSummaryKeys([...selected]);
-    setQuery(next);
-  };
 
   const toggle = (key: string) => setSelected(current => {
     const next = new Set(current);
@@ -122,7 +116,6 @@ export function FirstRunPicker({ onDone }: Props) {
       if (mounted.current) {
         setRiverDistances(gauges ? riverMilesByGauge(gauges, coords) : null);
         setBrowseAll(false);
-        setSummaryKeys([...selected]);
         setQuery('');
       }
     } catch (error) {
@@ -175,7 +168,7 @@ export function FirstRunPicker({ onDone }: Props) {
               {location.status === 'denied' ? <Pressable accessibilityRole="button" onPress={() => void Linking.openSettings()} style={styles.textButton}>
                 <Text style={[styles.skipText, { color: colors.interactive }]}>Open Settings</Text>
               </Pressable> : null}
-              <View style={styles.search}><SearchBar value={query} onChangeText={changeQuery} placeholder="Search rivers, dams, or lakes" /></View>
+              <View style={styles.search}><SearchBar value={query} onChangeText={setQuery} placeholder="Search rivers, dams, or lakes" /></View>
               {riversLoading && !rivers.length ? <View style={styles.notice}><ActivityIndicator size="small" color={colors.interactive} /><Text style={{ color: colors.textMuted }}>Loading rivers…</Text></View> : null}
               {riverFailed ? <Pressable accessibilityRole="button" onPress={() => { setRiversLoading(true); setRiverFailed(false); setRetry(value => value + 1); }} style={styles.notice}>
                 <Text style={[styles.copy, { color: colors.interactive }]}>{rivers.length ? 'Showing saved rivers. Tap to retry.' : 'Rivers unavailable. Tap to retry.'}</Text>
@@ -183,17 +176,6 @@ export function FirstRunPicker({ onDone }: Props) {
               {damRequestState === 'error' ? <Pressable accessibilityRole="button" onPress={() => void getSharedDams().catch(() => {})} style={styles.textButton}>
                 <Text style={[styles.copy, { color: colors.interactive }]}>Retry dam readings</Text>
               </Pressable> : null}
-              {!query.trim() && selectedSummary.length > 0 ? <View style={styles.summary}>
-                <Text accessibilityRole="header" style={[styles.name, { color: colors.text }]}>Selected</Text>
-                {selectedSummary.map(place => {
-                  const name = place.kind === 'river' ? place.river.name : place.dam.name;
-                  return <Pressable key={place.key} accessibilityRole="button" accessibilityLabel={`Remove ${name} from selection`}
-                    onPress={() => toggle(place.key)} style={[styles.selectedRow, { borderColor: colors.border }]}>
-                    <Text style={[styles.chipText, { color: colors.text }]}>{name}</Text>
-                    <Ionicons name="close-circle-outline" size={22} color={colors.interactive} />
-                  </Pressable>;
-                })}
-              </View> : null}
               <Text style={[styles.section, { color: colors.textMuted }]}>{query.trim() ? `${places.length} results` : browseAll ? 'All rivers and dams' : nearbyCoords && !riverDistances?.size ? 'Suggested rivers and nearby dams' : 'Suggested for you'}</Text>
             </View>
           }
@@ -212,9 +194,12 @@ export function FirstRunPicker({ onDone }: Props) {
           </View>}
         />
         <View style={[styles.footer, { borderTopColor: colors.border, backgroundColor: colors.bg }]}>
-          <Text style={[styles.footerHint, { color: colors.textMuted }]}>
-            {count ? `${count} ${count === 1 ? 'favorite' : 'favorites'} selected` : 'Select at least one favorite'}
-          </Text>
+          <View style={styles.reviewControl}>
+            {count > 0 ? <Pressable accessibilityRole="button"
+              onPress={() => { Keyboard.dismiss(); setReviewOpen(true); }} style={styles.textButton}>
+              <Text style={[styles.skipText, { color: colors.interactive }]}>Review selected ({count})</Text>
+            </Pressable> : <Text style={[styles.footerHint, { color: colors.textMuted }]}>Select at least one favorite</Text>}
+          </View>
           <Pressable accessibilityRole="button" accessibilityState={{ disabled: !count || saving || !starsReady }}
             disabled={!count || saving || !starsReady} onPress={finish}
             style={({ pressed }) => [styles.button, { backgroundColor: count ? colors.accentFill : colors.border, opacity: pressed || saving ? 0.7 : 1 }]}>
@@ -225,6 +210,34 @@ export function FirstRunPicker({ onDone }: Props) {
           </Pressable>
         </View>
       </KeyboardAvoidingView>
+      {/* The sheet and save action read the same live favorites array. No
+          snapshot, duplicate inline section, or card reordering on selection. */}
+      <Modal visible={reviewOpen} animationType="slide" presentationStyle="pageSheet"
+        onRequestClose={() => setReviewOpen(false)}>
+        <SafeAreaView style={[styles.screen, { backgroundColor: colors.bg }]}>
+          <View style={styles.reviewHeader}>
+            <Text accessibilityRole="header" style={[styles.title, { color: colors.text }]}>Selected favorites ({count})</Text>
+          </View>
+          <ScrollView contentContainerStyle={styles.body}>
+            {favorites.length ? favorites.map(item => <View key={`${item.kind}:${item.entityId}`}
+              style={[styles.selectedRow, { borderColor: colors.border }]}>
+              <View style={styles.selectedCopy}>
+                <Text style={[styles.name, { color: colors.text }]}>{item.name}</Text>
+                <Text style={[styles.meta, { color: colors.textMuted }]}>{item.kind === 'river' ? 'River' : 'Dam'}</Text>
+              </View>
+              <Pressable accessibilityRole="button" accessibilityLabel={`Remove ${item.name} from selection`}
+                onPress={() => toggle(`${item.kind}:${item.entityId}`)} style={styles.textButton}>
+                <Text style={[styles.skipText, { color: colors.interactive }]}>Remove</Text>
+              </Pressable>
+            </View>) : <Text style={[styles.copy, { color: colors.textMuted }]}>No favorites selected. Tap Done to keep exploring.</Text>}
+          </ScrollView>
+          <View style={[styles.footer, { borderTopColor: colors.border }]}>
+            <Pressable accessibilityRole="button" onPress={() => setReviewOpen(false)} style={styles.textButton}>
+              <Text style={[styles.buttonText, { color: colors.interactive }]}>Done</Text>
+            </Pressable>
+          </View>
+        </SafeAreaView>
+      </Modal>
       <Modal visible={creditsOpen} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setCreditsOpen(false)}>
         <SafeAreaView style={[styles.screen, { backgroundColor: colors.bg }]}>
           <ScrollView contentContainerStyle={styles.body}>
@@ -319,7 +332,9 @@ const styles = StyleSheet.create({
   skipText: { ...t.sm, fontFamily: fonts.semibold, textAlign: 'center' },
   textButton: { paddingVertical: 12, paddingHorizontal: 12, minHeight: 44, alignItems: 'center' },
   credit: { paddingVertical: 16 },
-  summary: { width: '100%', marginTop: 16, gap: 8 },
-  selectedRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12, borderWidth: 1, borderRadius: 12, padding: 10, minHeight: 44 },
-  footerHint: { ...t.sm, fontFamily: fonts.body, textAlign: 'center', marginBottom: 8 },
+  reviewControl: { minHeight: 44, justifyContent: 'center', marginBottom: 8 },
+  reviewHeader: { paddingHorizontal: 20, paddingVertical: 12 },
+  selectedCopy: { flex: 1, gap: 4 },
+  selectedRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12, borderWidth: 1, borderRadius: 12, padding: 10, minHeight: 44, marginBottom: 10 },
+  footerHint: { ...t.sm, fontFamily: fonts.body, textAlign: 'center' },
 });
