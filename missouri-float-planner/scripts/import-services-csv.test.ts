@@ -6,6 +6,7 @@ import { mappableService } from '../../eddy-ios/src/map/mappable';
 import { samePlaceIndex } from '../../eddy-ios/src/map/accessLayers';
 import {
   buildRows,
+  verifyWrittenPlans,
   checkedAtProblem,
   nameCollisions,
   fieldSourceRows,
@@ -679,10 +680,15 @@ test('camping gap batch has four attributed map pins including standalone campgr
   const bullShoals = rows.find(row => row.slug === 'bull-shoals-white-river-state-park-campground')!;
   // Approved ramp coordinates read from production on 2026-09-26. The service
   // must retain its own pin/detail instead of losing its booking link to a ramp.
+  // Only ~45 m clears the overlap box: if this fails, review identity/proximity
+  // handling; never move a sourced coordinate merely to make the test pass.
   assert.equal(samePlaceIndex({ latitude: bullShoals.claimed.latitude as number,
     longitude: bullShoals.claimed.longitude as number },
   [{ coordinates: { lat: 36.35465, lng: -92.5946 } }]), -1);
   for (const row of rows) {
+    assert.equal(row.claimed.geocode_precision, 'approximate', row.name);
+    assert.ok(row.claimed.geocode_source, row.name);
+    assert.equal(row.claimed.geocoded_at, '2026-09-26T00:00:00.000Z', row.name);
     assert.equal(typeof row.claimed.latitude, 'number', row.name);
     assert.equal(typeof row.claimed.longitude, 'number', row.name);
     assert.ok(mappableService({ latitude: row.claimed.latitude as number,
@@ -693,4 +699,44 @@ test('camping gap batch has four attributed map pins including standalone campgr
       servicesOffered: row.claimed.services_offered as string[] }, 'campgrounds'), row.name);
     assert.match(String(row.claimed.description), /Map pin represents/, row.name);
   }
+});
+
+const GEOCODE_HEADER = 'name,type,river_slugs,city,verified_source,source_checked_at,latitude,longitude,geocode_precision,geocode_source,geocoded_at';
+function geocodeRow(over: Partial<Record<string, string>> = {}) {
+  const row = { name: 'Camp', type: 'campground', river_slugs: 'niangua', city: 'Lebanon',
+    verified_source: 'https://example.com/camping', source_checked_at: RECENT,
+    latitude: '37.8', longitude: '-92.8', geocode_precision: 'approximate',
+    geocode_source: 'osm+official_park_map', geocoded_at: '2026-08-01T00:00:00Z', ...over };
+  return buildRows([GEOCODE_HEADER.split(','), GEOCODE_HEADER.split(',').map(k => row[k as keyof typeof row])], TODAY);
+}
+
+test('coordinate provenance is planned, attributed and verified with coordinates', () => {
+  const { rows, errors } = geocodeRow();
+  assert.deepEqual(errors, []);
+  const plan = planRow(rows[0], undefined, [], RIVERS, false);
+  assert.equal(plan.payload.geocode_precision, 'approximate');
+  assert.equal(plan.payload.geocode_source, 'osm+official_park_map');
+  assert.equal(plan.payload.geocoded_at, '2026-08-01T00:00:00.000Z');
+  for (const field of ['geocode_precision', 'geocode_source', 'geocoded_at']) {
+    assert.ok(fieldSourceRows(plan).some(source => source.field === field));
+    const landed = existingService({ ...plan.payload, slug: rows[0].slug, [field]: null });
+    assert.ok(verifyWrittenPlans([plan], [landed]).some(message => message.includes(`.${field}:`)));
+  }
+  const landed = existingService({ ...plan.payload, slug: rows[0].slug,
+    geocoded_at: '2026-08-01T00:00:00+00:00' });
+  assert.deepEqual(verifyWrittenPlans([plan], [landed]), []);
+  assert.equal(planRow(rows[0], landed, [{ river_slug: 'niangua', is_primary: true }], RIVERS, false).action, 'unchanged');
+});
+
+test('malformed and incomplete coordinate provenance fails with specific messages', () => {
+  for (const over of [{ geocode_source: '' }, { geocoded_at: '' }, { latitude: '' }]) {
+    assert.ok(geocodeRow(over).errors.some(e => e.message.includes('geocode provenance requires')));
+  }
+  for (const precision of ['centroid', 'aproximate']) {
+    assert.ok(geocodeRow({ geocode_precision: precision }).errors.some(e => e.message.startsWith('geocode_precision must be')));
+  }
+  for (const stamp of ['2026-08-01', '2026-02-30T00:00:00Z', 'invalid']) {
+    assert.ok(geocodeRow({ geocoded_at: stamp }).errors.some(e => e.message.startsWith('geocoded_at must be')));
+  }
+  assert.ok(geocodeRow({ geocoded_at: '2026-08-24T00:00:00Z' }).errors.some(e => e.message === 'geocoded_at cannot be in the future'));
 });

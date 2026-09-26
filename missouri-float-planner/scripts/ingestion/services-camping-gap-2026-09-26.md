@@ -33,6 +33,10 @@ current advisories rather than persisting a temporary restriction indefinitely.
 ## Verified campground map locations
 
 All four rows now include latitude/longitude and per-field source attribution.
+Each row also writes `geocode_precision=approximate`, a descriptive
+`geocode_source`, and `geocoded_at=2026-09-26T00:00:00Z` (the review date at
+midnight UTC, not a claimed survey time). OSM way URLs are the canonical
+coordinate citations; Mapcarta was the mirror consulted during review.
 These are representative **campground-area pins**, not surveyed entrances or
 individual campsite locations. Descriptions identify the represented loop and
 refer campers to their reservation instructions. A multi-loop park remains one
@@ -40,9 +44,9 @@ directory record; no float access point is created.
 
 | Campground | Latitude | Longitude | Coordinate source | Official map cross-check |
 | --- | --- | --- | --- | --- |
-| Roaring River, Campground 1 | 36.58714 | -93.84127 | [OSM campground polygon via Mapcarta](https://mapcarta.com/W1433446174) | [Campground 1 map](https://mostateparks.com/sites/g/files/zuston361/files/media/pdf/2025/05/Roaring-River-CG1.pdf): extended loop northwest of the park office |
-| Table Rock, Campground 1 | 36.58067 | -93.30390 | [OSM campground polygon via Mapcarta](https://mapcarta.com/W1430123140) | [Campground 1 map](https://mostateparks.com/sites/g/files/zuston361/files/media/pdf/2025/09/table-rock-cg1-100-140.pdf): camping loop west of the amphitheater, north of the marina |
-| Devil's Den, Area E | 35.77398 | -94.25776 | [OSM Area E polygon via Mapcarta](https://mapcarta.com/W412180135) | [Official brochure, map page 2](https://www.arkansas.com/sites/default/files/2025-12/a116c856070dec50e0d6ce68c3e85712_parkinformationbrochure.pdf): Area E south of Area D and southwest of the visitor center |
+| Roaring River, Campground 1 | 36.58714 | -93.84127 | [OSM campground polygon](https://www.openstreetmap.org/way/1433446174) | [Campground 1 map](https://mostateparks.com/sites/g/files/zuston361/files/media/pdf/2025/05/Roaring-River-CG1.pdf): extended loop northwest of the park office |
+| Table Rock, Campground 1 | 36.58067 | -93.30390 | [OSM campground polygon](https://www.openstreetmap.org/way/1430123140) | [Campground 1 map](https://mostateparks.com/sites/g/files/zuston361/files/media/pdf/2025/09/table-rock-cg1-100-140.pdf): camping loop west of the amphitheater, north of the marina |
+| Devil's Den, Area E | 35.77398 | -94.25776 | [OSM Area E polygon](https://www.openstreetmap.org/way/412180135) | [Official brochure, map page 2](https://www.arkansas.com/sites/default/files/2025-12/a116c856070dec50e0d6ce68c3e85712_parkinformationbrochure.pdf): Area E south of Area D and southwest of the visitor center |
 | Bull Shoals-White River, riverside campground | 36.353337 | -92.591627 | [Campground listing](https://thedyrt.com/camping/arkansas/arkansas-bull-shoals-white-river) | [Official brochure, map page 2](https://www.arkansas.com/sites/default/files/2025-12/9b93e87b731f447f46cb9c57f80583dd_bullshoalsparkinformationbrochure2022.pdf): camping area below the dam on the east bank |
 
 Reviewed 2026-09-26. Bull Shoals is also corroborated by the
@@ -112,9 +116,12 @@ The importer retains its service-role credential requirement, project pin,
 whole-file validation, atomic `import_services` RPC and read-back checks.
 Do not bypass it with direct SQL inserts. No schema migration is needed.
 
-This execution environment has read-only production access through the connector
-but no service-role credentials for the guarded script. The full connected dry
-run exits at credential resolution; no production data has been written.
+The connected production query on 2026-09-26 confirms these four slugs are still
+absent. This execution environment has a Supabase connector but no service-role
+credentials for the guarded script. The full connected dry run exits at credential
+resolution; no production data has been written. `CLAUDE.md` forbids routing around
+that guard, so applying the validated plan through the connector requires an
+explicit one-time process exception or the normal credentialed execution environment.
 
 ## Remaining regional coverage work
 

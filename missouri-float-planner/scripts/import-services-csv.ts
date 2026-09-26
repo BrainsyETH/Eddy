@@ -110,6 +110,7 @@ const TEXT_FIELDS = [
   'name', 'type', 'status', 'phone', 'phone_toll_free', 'email', 'website',
   'reservation_url', 'booking_platform', 'address_line1', 'city', 'state', 'zip',
   'description', 'seasonal_notes', 'fee_range', 'managing_agency', 'verified_source',
+  'geocode_precision', 'geocode_source', 'geocoded_at',
 ];
 const NUM_FIELDS = ['latitude', 'longitude'];
 const INT_FIELDS = [
@@ -443,6 +444,27 @@ export function buildRows(
     if (has('latitude') !== has('longitude')) {
       errors.push({ line, who, message: 'latitude and longitude must be given together' });
     }
+    // Optional for older CSVs, but a declared coordinate review must be complete.
+    // Town centroids are retired: current map clients draw every coordinate pair.
+    const geocodeFields = ['geocode_precision', 'geocode_source', 'geocoded_at'];
+    if (geocodeFields.some(has)) {
+      if (!has('latitude') || !has('longitude') || !geocodeFields.every(has)) {
+        errors.push({ line, who, message: 'geocode provenance requires latitude, longitude, geocode_precision, geocode_source and geocoded_at together' });
+      }
+      if (!['exact', 'approximate'].includes(cell('geocode_precision'))) {
+        errors.push({ line, who, message: 'geocode_precision must be exact or approximate; town centroids cannot be imported as map pins' });
+      }
+      const stamp = cell('geocoded_at');
+      const instant = Date.parse(stamp);
+      if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z$/.test(stamp) ||
+          !Number.isFinite(instant) || new Date(instant).toISOString().slice(0, 10) !== stamp.slice(0, 10)) {
+        errors.push({ line, who, message: 'geocoded_at must be a valid UTC ISO timestamp (YYYY-MM-DDTHH:mm:ssZ)' });
+      } else if (instant > today.getTime()) {
+        errors.push({ line, who, message: 'geocoded_at cannot be in the future' });
+      } else {
+        claimed.geocoded_at = new Date(instant).toISOString();
+      }
+    }
     const lat = claimed.latitude;
     const lon = claimed.longitude;
     if (typeof lat === 'number' && Math.abs(lat) > 90) {
@@ -542,6 +564,28 @@ export interface RowPlan {
   /** Existing links retained when a standalone CSV omits river associations. */
   standaloneLinksKept: string[];
   primaryFlips: string[];
+}
+
+/** Shared by the connected import read-back and regression tests. */
+export function verifyWrittenPlans(plans: RowPlan[], after: ExistingService[]): string[] {
+  const failures: string[] = [];
+  const afterBySlug = new Map(after.map((r) => [r.slug, r]));
+
+  for (const plan of plans) {
+    if (plan.action === 'unchanged') continue;
+    const landed = afterBySlug.get(plan.row.slug);
+    if (!landed) { failures.push(`${plan.row.slug}: not present after write`); continue; }
+    for (const change of plan.changes) {
+      if (change.field === 'slug') continue;
+      if (!sameValue(landed[change.field] ?? null, change.after)) {
+        failures.push(
+          `${plan.row.slug}.${change.field}: expected ${fmt(change.after)}, found ${fmt(landed[change.field] ?? null)}`,
+        );
+      }
+    }
+  }
+
+  return failures;
 }
 
 /** An ISO instant, as opposed to any other string that happens to parse. */
@@ -938,21 +982,7 @@ async function main() {
     .from('nearby_services').select('*').in('slug', written.map((w) => w.slug));
   // Read-back is the verification step; if it fails, nothing has been verified.
   if (afterError) throw new Error(`Wrote rows but could not verify them: ${afterError.message}`);
-  const afterBySlug = new Map(((after ?? []) as ExistingService[]).map((r) => [r.slug, r]));
-
-  for (const plan of plans) {
-    if (plan.action === 'unchanged') continue;
-    const landed = afterBySlug.get(plan.row.slug);
-    if (!landed) { failures.push(`${plan.row.slug}: not present after write`); continue; }
-    for (const change of plan.changes) {
-      if (change.field === 'slug') continue;
-      if (!sameValue(landed[change.field] ?? null, change.after)) {
-        failures.push(
-          `${plan.row.slug}.${change.field}: expected ${fmt(change.after)}, found ${fmt(landed[change.field] ?? null)}`,
-        );
-      }
-    }
-  }
+  failures.push(...verifyWrittenPlans(plans, (after ?? []) as ExistingService[]));
 
   console.log('\n' + '='.repeat(70));
   console.log('📋 Summary');

@@ -405,3 +405,13 @@ import requirements still apply. No schema change is needed. Campground coordina
 listing a campground neither creates a float endpoint nor asserts availability.
 See [the September 26 batch](services-camping-gap-2026-09-26.md) for reviewed
 records, source attribution, verified campground map coordinates, and application commands.
+
+
+Coordinate provenance can be imported with `geocode_precision` (`exact` or
+`approximate`), `geocode_source` (a descriptive method/provider), and
+`geocoded_at` (a valid UTC ISO timestamp, not in the future). When any of these
+columns has a value, all three and both coordinate cells are required. Existing
+CSVs that omit all three remain supported. `centroid` is rejected because current
+map clients draw every stored coordinate pair. Use `field_sources` for direct
+source URLs; provenance metadata is written and read back in the same atomic
+import as the coordinates.

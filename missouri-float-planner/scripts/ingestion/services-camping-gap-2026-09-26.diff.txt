@@ -16,6 +16,9 @@ INSERT     roaring-river-state-park-campgrounds  — Roaring River State Park Ca
              seasonal_notes       = Campground 1 operates year-round; campgrounds 2 and 3 operate February 25 through October 31. Check official advisories before arrival.
              managing_agency      = MO State Parks
              verified_source      = https://mostateparks.com/park/roaring-river-state-park/camping
+             geocode_precision    = approximate
+             geocode_source       = osm+official_park_map
+             geocoded_at          = 2026-09-26T00:00:00.000Z
              latitude             = 36.58714
              longitude            = -93.84127
              last_verified_at     = 2026-09-26T00:00:00.000Z
@@ -37,6 +40,9 @@ INSERT     table-rock-state-park-campgrounds  — Table Rock State Park Campgrou
              seasonal_notes       = Camping is available year-round; water and shower services vary in winter. Gates close at 10 p.m.
              managing_agency      = MO State Parks
              verified_source      = https://mostateparks.com/park/table-rock-state-park/camping
+             geocode_precision    = approximate
+             geocode_source       = osm+official_park_map
+             geocoded_at          = 2026-09-26T00:00:00.000Z
              latitude             = 36.58067
              longitude            = -93.3039
              last_verified_at     = 2026-09-26T00:00:00.000Z
@@ -60,6 +66,9 @@ INSERT     devils-den-state-park-campground  — Devil's Den State Park Campgrou
              seasonal_notes       = Campground open year-round. Contact the park for horse-camp reservations.
              managing_agency      = AR State Parks
              verified_source      = https://www.arkansas.com/state-parks/explore/parks/devils-den-state-park
+             geocode_precision    = approximate
+             geocode_source       = osm+official_park_map
+             geocoded_at          = 2026-09-26T00:00:00.000Z
              latitude             = 35.77398
              longitude            = -94.25776
              last_verified_at     = 2026-09-26T00:00:00.000Z
@@ -83,6 +92,9 @@ INSERT     bull-shoals-white-river-state-park-campground  — Bull Shoals-White 
              seasonal_notes       = Campground open year-round; bathhouses operate March through November.
              managing_agency      = AR State Parks
              verified_source      = https://www.arkansas.com/state-parks/explore/parks/bull-shoals-white-river-state-park
+             geocode_precision    = approximate
+             geocode_source       = thedyrt+goodsam+official_park_map
+             geocoded_at          = 2026-09-26T00:00:00.000Z
              latitude             = 36.353337
              longitude            = -92.591627
              last_verified_at     = 2026-09-26T00:00:00.000Z
