@@ -1,4 +1,4 @@
-READ-ONLY PREVIEW against production snapshot retrieved 2026-09-26. NOT APPLIED.
+PRE-APPLY PREVIEW against production snapshot retrieved 2026-09-26. Applied 2026-09-26; see batch application receipt.
 INSERT     roaring-river-state-park-campgrounds  — Roaring River State Park Campgrounds [campground]
              status               = active
              state                = MO
