@@ -146,6 +146,11 @@ function revalidate(): Promise<EddyUpdatesResponse> {
   return inFlight;
 }
 
+/** Warm the same process-only store Today subscribes to. */
+export function preloadEddyUpdates(): void {
+  if (!isFresh(cached)) void revalidate().catch(() => {});
+}
+
 /**
  * The batched updates, fetching them if nobody has recently.
  *

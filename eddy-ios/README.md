@@ -921,3 +921,40 @@ Available campsite rows prefer the provider's exact-site URL. When only the
 park reservation URL is available, the row says to select the site and date
 there; it does not claim that the provider preselects them. Walk-up sites do not
 offer an online booking action. Image taps still open the photo gallery.
+
+### First-run onboarding
+
+The welcome uses Eddy's existing wave artwork, a scrollable body, and the current
+safety/terms acknowledgment. The optional next screen searches the entire river
+and dam catalog, including lake names. Suggested rivers and three dams start the
+list; an explicit Near me tap changes those suggestions without discarding picks.
+River photos come from the index. Featured dams have bundled attributed photos;
+missing imagery uses Eddy's existing river/dam illustrations. Cards become one
+column for larger Dynamic Type and keep conditions, measurements, and reading age
+on separate lines. Dam measurements use generation/release semantics, never a
+floatability rating. Cached river verdicts are aged with the same rules as Today.
+
+Both kinds of selection use additive Favorites writes, so a reinstall cannot
+unstar synced favorites. Today already reads those favorites for its cards.
+On the picker, public river, gauge, featured-float and safety requests warm a
+one-use memory handoff, fresh for 30 seconds after completion; dam data and Eddy's Reads warm their existing
+shared stores. Picker/Today reuse those reads without blocking completion. Failed
+or expired handoffs are discarded, and pull-to-refresh clears the handoff before
+fetching. No new permission, sign-in, or subscription step is introduced.
+
+The picker labels list expansion “Show all rivers and dams” and its exit “Skip
+for now.” “Review selected (N)” opens a sheet derived from the same live favorites
+array as Save. Removal updates the count and card checkmarks immediately, and an
+empty selection keeps the sheet open with a Done action. The main list has no
+duplicate Selected section and does not reorder cards on selection. Result counts are announced after a pause in typing. The primary
+button stays “Save & continue,” with a separate selection count/hint. Dam request
+status distinguishes loading, failed requests (with retry), and absent readings.
+Known tailwater slugs are preserved when saving dam favorites; offline selections
+remain possible. Denied location offers Settings, and returning with permission
+granted re-enables Near me without automatically prompting or acquiring GPS.
+
+Preloading is a head start, not a guarantee: spending longer in the picker can
+expire the handoff and cause Today to fetch fresh data. Pending requests remain
+shared until their API deadline, and Nearby reuses the gauge preload without
+consuming Today's copy. Existing launch requests outside onboarding still run
+before acknowledgment; this change only defers the onboarding-specific preload.

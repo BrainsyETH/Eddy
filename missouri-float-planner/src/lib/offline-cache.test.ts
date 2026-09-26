@@ -347,7 +347,7 @@ test('Today and Favorites read the cache when the network fails', () => {
 test('the rivers list paints the stored index before the network answers', () => {
   const source = readFileSync('../eddy-ios/app/(tabs)/reports.tsx', 'utf8');
 
-  const started = source.indexOf('const network = fetchRivers(');
+  const started = source.indexOf("const network = takePreloadedToday('rivers',");
   const readDisk = source.indexOf('await readBestIndex()');
   const awaited = source.indexOf('await network');
 

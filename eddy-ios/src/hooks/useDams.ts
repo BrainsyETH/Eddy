@@ -51,6 +51,9 @@ const DAMS_RETRY_MS = 20_000;
 let cached: { dams: DamSnapshot[]; at: number } | null = null;
 let inFlight: Promise<DamSnapshot[]> | null = null;
 let attempts = 0;
+export type DamRequestState = 'idle' | 'loading' | 'ready' | 'error';
+let requestState: DamRequestState = 'idle';
+const getRequestState = () => requestState;
 const listeners = new Set<() => void>();
 
 function emit(): void {
@@ -75,6 +78,7 @@ function isFresh(): boolean {
 
 function revalidate(): Promise<DamSnapshot[]> {
   if (inFlight) return inFlight;
+  requestState = 'loading';
   const nth = ++attempts;
   const startedAt = Date.now();
   inFlight = fetchDams()
@@ -91,10 +95,13 @@ function revalidate(): Promise<DamSnapshot[]> {
       // appears, the route changed shape.
       if (live.length === 0) warn('map', 'dams responded with no dams', { attempt: nth });
       cached = { dams: live, at: Date.now() };
+      requestState = 'ready';
       emit();
       return live;
     })
     .catch((err) => {
+      requestState = 'error';
+      emit();
       // WHICH failure, because the two want different fixes: 'No connection'
       // is the deadline expiring on a cold read-through; a status code is the
       // route itself failing. Logged here, once, however many surfaces were
@@ -108,6 +115,7 @@ function revalidate(): Promise<DamSnapshot[]> {
     .finally(() => {
       inFlight = null;
     });
+  emit();
   return inFlight;
 }
 
@@ -174,6 +182,11 @@ export function getSharedDam(damId: string): Promise<DamSnapshot> {
   return shareInFlight(inFlightDetail, damId, () => fetchDam(damId));
 }
 
+/** Subscribe to lifecycle separately; existing data readers retain their contract. */
+export function useDamRequestState(): DamRequestState {
+  return useSyncExternalStore(subscribe, getRequestState, getRequestState);
+}
+
 export function useDams(wanted: boolean): DamSnapshot[] | null {
   // Null until the first answer lands, so the layers sheet can tell "not
   // fetched" from "none".
@@ -220,5 +233,6 @@ export function __resetDamsCacheForTests(): void {
   inFlight = null;
   inFlightDetail.clear();
   attempts = 0;
+  requestState = 'idle';
   listeners.clear();
 }

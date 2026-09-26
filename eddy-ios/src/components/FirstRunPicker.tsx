@@ -1,483 +1,340 @@
-// eddy-ios/src/components/FirstRunPicker.tsx
-// Pane 2 of first run: pick the rivers you float.
-//
-// ── This screen is the tutorial, which is why there isn't one ───────────────
-//
-// Every card carries its river's LIVE condition — the coloured dot, the reading,
-// and the word for it, side by side. Six of them at once is the whole condition
-// ladder, shown rather than explained, and somebody who has never seen a gauge
-// in their life has read it before they make a single choice. That is the entire
-// education budget for onboarding, and it is spent on a screen the user wanted
-// to be on anyway.
-//
-// The alternative — a legend, a carousel, a "here's how Eddy works" pane — costs
-// screens before the app and teaches less, because nothing on it is about a
-// river the person actually cares about.
-//
-// ── It has to be worth the tap, so the picks do real work ──────────────────
-//
-// Picks become stars. Today opens filtered to them, Favorites has rows on day
-// one, and the alert flow has something to offer. Without that this pane is a
-// survey, and a survey before an app is exactly the fatigue we are avoiding.
-//
-// ── What is deliberately NOT here ──────────────────────────────────────────
-//
-// No push permission ask — PushPrimer owns that prompt and spends it at a moment
-// where the answer is obvious (see src/lib/push.ts). No sign-in. No paywall. No
-// progress dots: the flow is two panes and the legal one cannot carry a dot, so
-// a three-dot rail would promise screens that do not exist. "Not now" is the one
-// escape hatch, in the footer where the decision is being made.
-//
-// ── The CTA is teal, not the coral in the mockup ───────────────────────────
-//
-// palette.ts spells out why at length: coral collides with `dangerous` and
-// `high` on the condition ladder. On THIS screen — six condition colours in a
-// grid — a red-orange button would be the loudest warning-coloured object on a
-// screen full of actual warnings, and it would be the one asking for a tap.
-
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+// Personalization does real work: both river and dam choices become Favorites.
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { AccessibilityInfo, ActivityIndicator, FlatList, Keyboard, KeyboardAvoidingView, Linking, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import * as Location from 'expo-location';
-import type { RiverListItem } from '@eddy/types';
-import { Otter } from '@/components/Otter';
+import { milesBetween, type Coords } from '@eddy/geo';
+import type { DamSnapshot, RiverListItem } from '@eddy/types';
+import { generationNow, generationStatusLabel } from '@eddy/conditions/dam-generation';
+import { relativeAge } from '@eddy/conditions/dam-schedule-copy';
+import { EddyScene } from '@/components/EddyScene';
+import { SearchBar } from '@/components/SearchBar';
+import { DAM_PHOTOS, OnboardingPhoto } from '@/components/OnboardingPhoto';
 import { useLocation } from '@/hooks/useLocation';
 import { useStarredRivers } from '@/hooks/useStarredRivers';
-import { fetchGauges, fetchRivers } from '@/api/client';
-import { readBestIndex } from '@/lib/riverCache';
-import { pickFirstRunRivers, retainSelectedRivers } from '@/lib/firstRunRivers';
+import { useDams, useDamRequestState, getSharedDams, type DamRequestState } from '@/hooks/useDams';
+import { readBestIndex, agedIndex } from '@/lib/riverCache';
+import { envelope, type CacheEnvelope } from '@/lib/offline-cache';
+import { firstRunRivers, firstRunGauges } from '@/lib/firstRunPreload';
+import { firstRunPlaces, firstRunFavorites, visibleFirstRunPlaces, damPlaceholder, type FirstRunPlace } from '@/lib/firstRunPlaces';
+import { DAM_CATALOG } from '@/lib/damCatalog';
 import { riverDistanceLabel, riverMilesByGauge } from '@/lib/riverDistance';
-import { primaryReading } from '@/lib/readingCopy';
+import { damControlledLabel, formatReading, primaryReading, readingAge } from '@/lib/readingCopy';
 import { report, warn } from '@/lib/monitoring';
 import { useTheme } from '@/theme/ThemeProvider';
-import { conditionColor, conditionShortLabel } from '@/theme/conditions';
+import { conditionColor, conditionShortLabel, conditionText } from '@/theme/conditions';
 import { fonts, type as t } from '@/theme/typography';
 
-/** Reverse geocoding is best-effort chrome; this is the honest fallback. */
-const NEARBY_FALLBACK = 'Rivers nearest you';
+interface Props { onDone: () => void }
 
-interface Props {
-  /** Finish — followed or skipped. The gate records completion and moves on. */
-  onDone: () => void;
-  /**
-   * The catalog is unreachable and nothing is cached. There is no demonstration
-   * to make without live conditions, so the gate skips this pane entirely rather
-   * than showing an empty grid — see OnboardingGate.
-   */
-  onUnavailable: () => void;
-}
-
-export function FirstRunPicker({ onDone, onUnavailable }: Props) {
+export function FirstRunPicker({ onDone }: Props) {
   const { colors } = useTheme();
-  const { followStars } = useStarredRivers();
+  const { width, fontScale } = useWindowDimensions();
+  const columns = fontScale > 1.2 || width < 360 ? 1 : 2;
+  const { followStars, ready: starsReady } = useStarredRivers();
   const location = useLocation();
-
-  const [rivers, setRivers] = useState<RiverListItem[] | null>(null);
+  const dams = useDams(true);
+  const damRequestState = useDamRequestState();
+  const [index, setIndex] = useState<CacheEnvelope<RiverListItem[]> | null>(null);
+  const [now, setNow] = useState(Date.now);
+  const [riversLoading, setRiversLoading] = useState(true);
+  const [riverFailed, setRiverFailed] = useState(false);
+  const [retry, setRetry] = useState(0);
   const [selected, setSelected] = useState<Set<string>>(new Set());
-  const [distances, setDistances] = useState<Map<string, number> | null>(null);
-  const [placeName, setPlaceName] = useState<string | null>(null);
+  const [query, setQuery] = useState('');
+  const [reviewOpen, setReviewOpen] = useState(false);
+  const [browseAll, setBrowseAll] = useState(false);
+  const [riverDistances, setRiverDistances] = useState<Map<string, number> | null>(null);
+  const [nearbyCoords, setNearbyCoords] = useState<Coords | null>(null);
   const [locating, setLocating] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [creditsOpen, setCreditsOpen] = useState(false);
+  const mounted = useRef(true);
 
-  // onUnavailable would otherwise be a dependency that re-runs the fetch when
-  // the gate re-renders, and the gate re-renders on every step change.
-  const unavailable = useRef(onUnavailable);
   useEffect(() => {
-    unavailable.current = onUnavailable;
-  }, [onUnavailable]);
+    mounted.current = true;
+    const timer = setInterval(() => setNow(Date.now()), 60_000);
+    return () => { mounted.current = false; clearInterval(timer); };
+  }, []);
 
-  // Cache first, network second. Someone reinstalling in a canyon still gets a
-  // grid, and the request is the same CDN-cached one Today makes.
-  //
-  // readBestIndex rather than readIndex, because the sentence above was only
-  // true on a REINSTALL that had run online once before. A genuinely fresh
-  // install has no stored /api/rivers list, so the one screen that cannot be
-  // skipped had nothing to draw and called onUnavailable. The launch bundle's
-  // seeded index answers "which rivers exist", which is all this grid asks.
   useEffect(() => {
     let active = true;
+    let liveArrived = false;
+    // Disk and network overlap. A late disk read cannot replace fresh readings.
+    void readBestIndex().then(cached => {
+      if (active && !liveArrived && cached?.payload.length) setIndex(cached);
+    }).catch(() => {});
+    void firstRunRivers().then(fresh => {
+      if (!active) return;
+      if (fresh.length) {
+        liveArrived = true;
+        setNow(Date.now());
+        setIndex(envelope(fresh, new Date().toISOString()));
+      } else setRiverFailed(true);
+    }).catch(error => {
+      if (active) setRiverFailed(true);
+      warn('cache', 'first-run rivers unavailable', error);
+    }).finally(() => { if (active) setRiversLoading(false); });
+    return () => { active = false; };
+  }, [retry]);
 
-    void (async () => {
-      const cached = (await readBestIndex())?.payload ?? null;
-      const haveCache = cached != null && cached.length > 0;
-      if (active && haveCache) setRivers(cached);
+  const rivers = useMemo(() => index ? agedIndex(index, now) : [], [index, now]);
+  const all = useMemo(() => firstRunPlaces(rivers), [rivers]);
+  const damDistances = useMemo(() => nearbyCoords
+    ? new Map(DAM_CATALOG.map(dam => [dam.id, milesBetween(nearbyCoords, { lat: dam.lat, lng: dam.lon })]))
+    : null, [nearbyCoords]);
+  const places = useMemo(() => visibleFirstRunPlaces({ rivers, query, browseAll, selected, riverDistances, damDistances }),
+    [rivers, query, browseAll, selected, riverDistances, damDistances]);
+  const favorites = useMemo(() => firstRunFavorites(all, selected, dams ?? []), [all, selected, dams]);
+  const count = favorites.length;
 
-      try {
-        const fresh = await fetchRivers();
-        if (active && fresh.length > 0) {
-          setRivers(fresh);
-          return;
-        }
-      } catch (error) {
-        warn('cache', 'first-run rivers unavailable', error);
-      }
+  // Wait for a pause in typing. Selection and reading updates do not retrigger
+  // an announcement, and clearing search cancels any pending result count.
+  useEffect(() => {
+    if (!query.trim()) return;
+    const timer = setTimeout(() => {
+      AccessibilityInfo.announceForAccessibility(`${places.length} ${places.length === 1 ? 'result' : 'results'}`);
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [query, places.length]);
 
-      // Nothing live and nothing cached: there is no product to show.
-      if (active && !haveCache) unavailable.current();
-    })();
+  const toggle = (key: string) => setSelected(current => {
+    const next = new Set(current);
+    if (next.has(key)) next.delete(key); else next.add(key);
+    return next;
+  });
 
-    return () => {
-      active = false;
-    };
-  }, []);
-
-  const featured = useMemo(
-    () => (rivers ? retainSelectedRivers(pickFirstRunRivers(rivers, distances), rivers, selected) : []),
-    [rivers, distances, selected],
-  );
-
-  const toggle = useCallback((id: string) => {
-    setSelected((current) => {
-      const next = new Set(current);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  }, []);
-
-  /**
-   * The location ask, and the only thing on this screen that can prompt.
-   *
-   * useLocation never prompts on mount — its `idle` state is documented as the
-   * only one where a tap shows the dialog — so this is an explicit request with
-   * a visible reason attached, which is the whole argument for asking here
-   * rather than cold on the map later.
-   */
-  const showNearby = useCallback(async () => {
+  const showNearby = async () => {
     if (locating) return;
     setLocating(true);
     try {
-      // Gauges are a second request, and the only reason for it is this tap —
-      // /api/rivers carries no coordinates. Never fetched on open.
-      //
-      // STARTED BEFORE the location is awaited, not after. It needs no
-      // coordinates — only riverMilesByGauge does — and the two slowest things
-      // behind this chip were running one after the other: a cold GPS fix, and
-      // then a network round trip. They overlap now, so the wait is the longer
-      // of the two rather than their sum.
-      //
-      // The cost of being wrong is one CDN-cached request on a tap the user
-      // declines, which is the right side of that trade — and the promise is
-      // caught here so a rejection cannot go unhandled while the permission
-      // dialog is still up.
-      const gaugesPromise = fetchGauges().catch((error) => {
-        warn('map', 'first-run gauges unavailable', error);
-        return null;
-      });
-
+      const gaugesPromise = firstRunGauges().catch(() => null);
       const coords = await location.request();
-      if (!coords) return; // Denied or unavailable; the chip renders the state.
-
+      if (!coords || !mounted.current) return;
+      setNearbyCoords(coords);
       const gauges = await gaugesPromise;
-      if (gauges) setDistances(riverMilesByGauge(gauges, coords));
-
-      // Naming the place is what makes this feel like a reason rather than a
-      // permission grab. Entirely optional: a failure leaves the fallback copy
-      // and the distances still work.
-      try {
-        const [place] = await Location.reverseGeocodeAsync({
-          latitude: coords.lat,
-          longitude: coords.lng,
-        });
-        const city = place?.city ?? place?.subregion ?? null;
-        if (city) setPlaceName(place?.region ? `${city}, ${place.region}` : city);
-      } catch (error) {
-        warn('map', 'first-run reverse geocode failed', error);
+      if (mounted.current) {
+        setRiverDistances(gauges ? riverMilesByGauge(gauges, coords) : null);
+        setBrowseAll(false);
+        setQuery('');
       }
     } catch (error) {
       warn('map', 'first-run nearby lookup failed', error);
-    } finally {
-      setLocating(false);
-    }
-  }, [location, locating]);
+    } finally { if (mounted.current) setLocating(false); }
+  };
 
-  const follow = useCallback(() => {
-    if (saving || selected.size === 0) return;
+  const finish = () => {
+    if (saving || !starsReady || !count) return;
     setSaving(true);
     try {
-      // followStars, not toggleStar in a loop: a signed-in reinstall may already
-      // hold some of these, and a toggle would unstar exactly the rivers the
-      // user just pressed a button to follow. See addStars in @eddy/sync.
-      followStars(
-        (rivers ?? [])
-          .filter((river) => selected.has(river.id))
-          .map((river) => ({
-            kind: 'river' as const,
-            entityId: river.id,
-            name: river.name,
-            slug: river.slug,
-            usgsSiteId: null,
-          })),
-      );
-    } catch (error) {
-      // The stars are local-first and persisted optimistically; there is no
-      // recoverable failure here worth trapping someone on this pane for.
-      report(error, { operation: 'firstRun.follow' });
-    } finally {
-      setSaving(false);
+      // Additive and idempotent; never toggle off a synced favorite on reinstall.
+      followStars(favorites);
       onDone();
+    } catch (error) {
+      report(error, { operation: 'firstRun.follow' });
+      setSaving(false);
     }
-  }, [saving, selected, rivers, followStars, onDone]);
-
-  const count = (rivers ?? []).filter((river) => selected.has(river.id)).length;
-  const locationChip = describeLocationChip(location.status, placeName, locating, distances != null);
+  };
+  const locationLabel = locating ? 'Finding nearby water…'
+    : nearbyCoords ? riverDistances?.size ? 'Showing nearby water' : 'Showing nearby dams'
+    : location.status === 'denied' ? 'Location off · Search or browse below'
+    : location.status === 'unavailable' ? 'Location unavailable · Try again' : 'Near me';
 
   return (
     <SafeAreaView style={[styles.screen, { backgroundColor: colors.bg }]}>
-      <ScrollView
-        contentContainerStyle={styles.body}
-        showsVerticalScrollIndicator={false}
-        keyboardShouldPersistTaps="handled"
-      >
-        <Otter mood="green" size={78} />
-        <Text style={[styles.title, { color: colors.text }]}>Which water do you float?</Text>
-        <Text style={[styles.copy, { color: colors.textMuted }]}>
-          Pick a few and Eddy opens on them, every time. You can change this whenever.
-        </Text>
-
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={locationChip.accessibilityLabel}
-          accessibilityState={{ disabled: !locationChip.actionable }}
-          onPress={locationChip.actionable ? () => void showNearby() : undefined}
-          disabled={!locationChip.actionable}
-          hitSlop={6}
-          style={({ pressed }) => [
-            styles.chip,
-            {
-              backgroundColor: locationChip.actionable ? colors.selectionBg : 'transparent',
-              borderColor: colors.border,
-              opacity: pressed ? 0.7 : 1,
-            },
-          ]}
-        >
-          {locating ? (
-            <ActivityIndicator size="small" color={colors.interactive} />
-          ) : (
-            <Ionicons
-              name="location-outline"
-              size={15}
-              color={locationChip.actionable ? colors.interactive : colors.textSubtle}
-            />
-          )}
-          <Text
-            style={[
-              styles.chipText,
-              { color: locationChip.actionable ? colors.selectionText : colors.textSubtle },
-            ]}
-          >
-            {locationChip.label}
-          </Text>
-        </Pressable>
-
-        {rivers == null ? (
-          <ActivityIndicator style={styles.loading} color={colors.interactive} />
-        ) : (
-          <View style={styles.grid}>
-            {featured.map((river) => (
-              <RiverPickCard
-                key={river.id}
-                river={river}
-                miles={distances?.get(river.id) ?? null}
-                selected={selected.has(river.id)}
-                onPress={() => toggle(river.id)}
-              />
-            ))}
+      <KeyboardAvoidingView style={styles.screen} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+        <FlatList
+          key={columns}
+          data={places}
+          numColumns={columns}
+          keyExtractor={item => item.key}
+          contentContainerStyle={styles.body}
+          columnWrapperStyle={columns === 2 ? styles.columns : undefined}
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="on-drag"
+          showsVerticalScrollIndicator={false}
+          initialNumToRender={10}
+          ListHeaderComponent={
+            <View style={styles.header}>
+              <EddyScene name="wave" size={78} />
+              <Text accessibilityRole="header" style={[styles.title, { color: colors.text }]}>Choose your rivers and dams</Text>
+              <Text style={[styles.copy, { color: colors.textMuted }]}>Save your favorites to see their conditions on Today.</Text>
+              <Pressable accessibilityRole="button" disabled={locating || location.status === 'denied'}
+                accessibilityState={{ disabled: locating || location.status === 'denied' }}
+                onPress={() => void showNearby()} style={[styles.chip, { backgroundColor: colors.selectionBg, borderColor: colors.border }]}>
+                {locating ? <ActivityIndicator size="small" color={colors.interactive} /> : <Ionicons name="location-outline" size={17} color={colors.interactive} />}
+                <Text style={[styles.chipText, { color: colors.selectionText }]}>{locationLabel}</Text>
+              </Pressable>
+              {location.status === 'denied' ? <Pressable accessibilityRole="button" onPress={() => void Linking.openSettings()} style={styles.textButton}>
+                <Text style={[styles.skipText, { color: colors.interactive }]}>Open Settings</Text>
+              </Pressable> : null}
+              <View style={styles.search}><SearchBar value={query} onChangeText={setQuery} placeholder="Search rivers, dams, or lakes" /></View>
+              {riversLoading && !rivers.length ? <View style={styles.notice}><ActivityIndicator size="small" color={colors.interactive} /><Text style={{ color: colors.textMuted }}>Loading rivers…</Text></View> : null}
+              {riverFailed ? <Pressable accessibilityRole="button" onPress={() => { setRiversLoading(true); setRiverFailed(false); setRetry(value => value + 1); }} style={styles.notice}>
+                <Text style={[styles.copy, { color: colors.interactive }]}>{rivers.length ? 'Showing saved rivers. Tap to retry.' : 'Rivers unavailable. Tap to retry.'}</Text>
+              </Pressable> : null}
+              {damRequestState === 'error' ? <Pressable accessibilityRole="button" onPress={() => void getSharedDams().catch(() => {})} style={styles.textButton}>
+                <Text style={[styles.copy, { color: colors.interactive }]}>Retry dam readings</Text>
+              </Pressable> : null}
+              <Text style={[styles.section, { color: colors.textMuted }]}>{query.trim() ? `${places.length} results` : browseAll ? 'All rivers and dams' : nearbyCoords && !riverDistances?.size ? 'Suggested rivers and nearby dams' : 'Suggested for you'}</Text>
+            </View>
+          }
+          renderItem={({ item }) => <PlaceCard place={item} selected={selected.has(item.key)} onPress={() => toggle(item.key)}
+            damRequestState={damRequestState}
+            dam={item.kind === 'dam' ? dams?.find(dam => dam.id === item.dam.id) ?? null : null}
+            miles={item.kind === 'river' ? riverDistances?.get(item.river.id) : damDistances?.get(item.dam.id)} now={now} />}
+          ListEmptyComponent={<Text style={[styles.copy, { color: colors.textMuted }]}>No matches. Try a river, dam, or lake name.</Text>}
+          ListFooterComponent={<View>
+            {!query.trim() && !browseAll ? <Pressable accessibilityRole="button" onPress={() => setBrowseAll(true)} style={styles.textButton}>
+              <Text style={[styles.buttonText, { color: colors.interactive }]}>Show all rivers and dams</Text>
+            </Pressable> : null}
+            <Pressable accessibilityRole="button" onPress={() => setCreditsOpen(true)} style={styles.textButton}>
+              <Text style={[styles.meta, { color: colors.textMuted }]}>Photo credits</Text>
+            </Pressable>
+          </View>}
+        />
+        <View style={[styles.footer, { borderTopColor: colors.border, backgroundColor: colors.bg }]}>
+          <View style={styles.reviewControl}>
+            {count > 0 ? <Pressable accessibilityRole="button"
+              onPress={() => { Keyboard.dismiss(); setReviewOpen(true); }} style={styles.textButton}>
+              <Text style={[styles.skipText, { color: colors.interactive }]}>Review selected ({count})</Text>
+            </Pressable> : <Text style={[styles.footerHint, { color: colors.textMuted }]}>Select at least one favorite</Text>}
           </View>
-        )}
-      </ScrollView>
-
-      <View style={[styles.footer, { borderTopColor: colors.border }]}>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityState={{ disabled: count === 0 || saving }}
-          onPress={follow}
-          disabled={count === 0 || saving}
-          style={({ pressed }) => [
-            styles.button,
-            {
-              backgroundColor: count === 0 ? colors.border : colors.accentFill,
-              opacity: pressed && count > 0 ? 0.8 : 1,
-            },
-          ]}
-        >
-          <Text
-            style={[
-              styles.buttonText,
-              { color: count === 0 ? colors.textSubtle : colors.onAccent },
-            ]}
-          >
-            {count === 0 ? 'Follow rivers' : count === 1 ? 'Follow 1 river' : `Follow ${count} rivers`}
-          </Text>
-        </Pressable>
-
-        {/* Muted ink, and a real option — the same discipline PushPrimer applies
-            to a permission it can only spend once. Never disabled, never gated
-            on the grid having loaded. */}
-        <Pressable accessibilityRole="button" onPress={onDone} hitSlop={10} style={styles.skip}>
-          <Text style={[styles.skipText, { color: colors.textMuted }]}>Not now</Text>
-        </Pressable>
-      </View>
+          <Pressable accessibilityRole="button" accessibilityState={{ disabled: !count || saving || !starsReady }}
+            disabled={!count || saving || !starsReady} onPress={finish}
+            style={({ pressed }) => [styles.button, { backgroundColor: count ? colors.accentFill : colors.border, opacity: pressed || saving ? 0.7 : 1 }]}>
+            <Text style={[styles.buttonText, { color: count ? colors.onAccent : colors.textSubtle }]}>{saving ? 'Saving…' : 'Save & continue'}</Text>
+          </Pressable>
+          <Pressable accessibilityRole="button" onPress={onDone} style={styles.textButton}>
+            <Text style={[styles.skipText, { color: colors.textMuted }]}>Skip for now</Text>
+          </Pressable>
+        </View>
+      </KeyboardAvoidingView>
+      {/* The sheet and save action read the same live favorites array. No
+          snapshot, duplicate inline section, or card reordering on selection. */}
+      <Modal visible={reviewOpen} animationType="slide" presentationStyle="pageSheet"
+        onRequestClose={() => setReviewOpen(false)}>
+        <SafeAreaView style={[styles.screen, { backgroundColor: colors.bg }]}>
+          <View style={styles.reviewHeader}>
+            <Text accessibilityRole="header" style={[styles.title, { color: colors.text }]}>Selected favorites ({count})</Text>
+          </View>
+          <ScrollView contentContainerStyle={styles.body}>
+            {favorites.length ? favorites.map(item => <View key={`${item.kind}:${item.entityId}`}
+              style={[styles.selectedRow, { borderColor: colors.border }]}>
+              <View style={styles.selectedCopy}>
+                <Text style={[styles.name, { color: colors.text }]}>{item.name}</Text>
+                <Text style={[styles.meta, { color: colors.textMuted }]}>{item.kind === 'river' ? 'River' : 'Dam'}</Text>
+              </View>
+              <Pressable accessibilityRole="button" accessibilityLabel={`Remove ${item.name} from selection`}
+                onPress={() => toggle(`${item.kind}:${item.entityId}`)} style={styles.textButton}>
+                <Text style={[styles.skipText, { color: colors.interactive }]}>Remove</Text>
+              </Pressable>
+            </View>) : <Text style={[styles.copy, { color: colors.textMuted }]}>No favorites selected. Tap Done to keep exploring.</Text>}
+          </ScrollView>
+          <View style={[styles.footer, { borderTopColor: colors.border }]}>
+            <Pressable accessibilityRole="button" onPress={() => setReviewOpen(false)} style={styles.textButton}>
+              <Text style={[styles.buttonText, { color: colors.interactive }]}>Done</Text>
+            </Pressable>
+          </View>
+        </SafeAreaView>
+      </Modal>
+      <Modal visible={creditsOpen} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setCreditsOpen(false)}>
+        <SafeAreaView style={[styles.screen, { backgroundColor: colors.bg }]}>
+          <ScrollView contentContainerStyle={styles.body}>
+            <Text style={[styles.title, { color: colors.text }]}>Photo credits</Text>
+            <Text style={[styles.copy, { color: colors.textMuted }]}>Scenery photos do not show current water conditions. Dam photos are resized and cropped for display.</Text>
+            {Object.entries(DAM_PHOTOS).map(([id, photo]) => <View key={id} style={styles.credit}>
+              <Text style={[styles.name, { color: colors.text }]}>{DAM_CATALOG.find(dam => dam.id === id)?.name}</Text>
+              <Text style={{ color: colors.textMuted }}>{photo.credit}</Text>
+              <Pressable accessibilityRole="link" onPress={() => void Linking.openURL(photo.url)} style={styles.textButton}><Text style={{ color: colors.interactive }}>Original photograph</Text></Pressable>
+              <Pressable accessibilityRole="link" onPress={() => void Linking.openURL(photo.license)} style={styles.textButton}><Text style={{ color: colors.interactive }}>License</Text></Pressable>
+            </View>)}
+            {rivers.filter(river => river.photoCredit).map(river => <Pressable key={river.id} accessibilityRole="link" onPress={() => void Linking.openURL(river.photoCredit!.url)} style={styles.credit}>
+              <Text style={[styles.name, { color: colors.text }]}>{river.name}</Text><Text style={{ color: colors.interactive }}>{river.photoCredit!.text}</Text>
+            </Pressable>)}
+          </ScrollView>
+          <Pressable accessibilityRole="button" onPress={() => setCreditsOpen(false)} style={styles.textButton}><Text style={[styles.buttonText, { color: colors.interactive }]}>Done</Text></Pressable>
+        </SafeAreaView>
+      </Modal>
     </SafeAreaView>
   );
 }
 
-/**
- * The chip says what it will do, or what happened when it did it.
- *
- * ── It reads `hasDistances`, NOT the permission status ─────────────────────
- *
- * useLocation restores a granted fix from a previous session as `remembered`,
- * so on a reinstall the status can say we know where you are before this pane
- * has fetched a single gauge. Keying the label on that would put "Nearest to
- * Rolla" above a grid that is still the untouched default six — a claim about
- * the list that the list does not honour.
- *
- * The grid is only sorted by distance once `distances` exists, so that is the
- * only thing allowed to say it is.
- */
-function describeLocationChip(
-  status: ReturnType<typeof useLocation>['status'],
-  placeName: string | null,
-  locating: boolean,
-  hasDistances: boolean,
-): { label: string; actionable: boolean; accessibilityLabel: string } {
-  if (locating) {
-    return { label: 'Finding you…', actionable: false, accessibilityLabel: 'Finding your location' };
-  }
-  if (hasDistances) {
-    const label = placeName ? `Nearest to ${placeName}` : NEARBY_FALLBACK;
-    return { label, actionable: true, accessibilityLabel: `${label}. Tap to update.` };
-  }
-  if (status === 'denied') {
-    // No "Open Settings" here. Sending somebody into iOS Settings before they
-    // have seen the app is a worse outcome than six good default rivers, and
-    // Today already offers that recovery where it actually matters.
-    return {
-      label: 'Location off — showing popular rivers',
-      actionable: false,
-      accessibilityLabel: 'Location is off. Showing popular rivers instead.',
-    };
-  }
-  if (status === 'unavailable') {
-    return {
-      label: "Couldn't find you — showing popular rivers",
-      actionable: true,
-      accessibilityLabel: 'Could not find your location. Tap to try again.',
-    };
-  }
-  return {
-    label: 'Show rivers near me',
-    actionable: true,
-    accessibilityLabel: 'Show rivers near me',
-  };
-}
-
-function RiverPickCard({
-  river,
-  miles,
-  selected,
-  onPress,
-}: {
-  river: RiverListItem;
-  miles: number | null;
-  selected: boolean;
-  onPress: () => void;
+function PlaceCard({ place, selected, onPress, dam, damRequestState, miles, now }: {
+  place: FirstRunPlace; selected: boolean; onPress: () => void; dam: DamSnapshot | null; damRequestState: DamRequestState; miles?: number; now: number;
 }) {
-  const { colors } = useTheme();
-  const code = river.currentCondition?.code ?? 'unknown';
-  const reading = river.currentCondition ? primaryReading(river.currentCondition) : null;
-
+  const { colors, isDark } = useTheme();
+  const river = place.kind === 'river' ? place.river : null;
+  const name = river?.name ?? (place.kind === 'dam' ? place.dam.name : '');
+  const code = river?.currentCondition?.code ?? 'unknown';
+  const reading = river?.currentCondition ? primaryReading(river.currentCondition) : null;
+  const generation = dam ? generationNow(dam, now) : null;
+  const release = dam?.metrics.release;
+  const status = river
+    ? damControlledLabel(river.riverType, code) ?? conditionShortLabel(code)
+    : generation && generation.kind !== 'unavailable' ? generationStatusLabel(generation)
+    : release ? release.dailyMean ? 'Daily mean release' : 'Reported release'
+    : dam ? 'Reading unavailable' : damPlaceholder(damRequestState);
+  const value = reading ? formatReading(reading.value, reading.unit)
+    : generation && generation.kind !== 'unavailable' ? `${formatReading(generation.turbineCfs, 'cfs')} turbine flow`
+    : release ? `${Math.round(release.value).toLocaleString()} ${release.unit}` : null;
+  const age = reading ? readingAge(river?.currentCondition?.readingAgeHours) ?? 'Reading time unavailable'
+    : generation && generation.kind !== 'unavailable' ? relativeAge(generation.observedAt, now)
+    : release ? relativeAge(release.at, now) : null;
+  const distance = miles == null ? null : river ? riverDistanceLabel(miles) : `≈ ${Math.round(miles)} mi away`;
   return (
-    <Pressable
-      accessibilityRole="checkbox"
-      accessibilityState={{ checked: selected }}
-      accessibilityLabel={`${river.name}, ${conditionShortLabel(code)}`}
-      onPress={onPress}
-      style={({ pressed }) => [
-        styles.card,
-        {
-          backgroundColor: selected ? colors.selectionBg : colors.card,
-          borderColor: selected ? colors.interactive : colors.border,
-          borderWidth: selected ? 2 : 1,
-          opacity: pressed ? 0.85 : 1,
-        },
-      ]}
-    >
-      <View style={styles.cardTop}>
-        {/* The dot and its word, adjacent. This pairing is the lesson. */}
-        <View style={[styles.dot, { backgroundColor: conditionColor(code) }]} />
-        {selected ? (
-          <Ionicons name="checkmark-circle" size={20} color={colors.interactive} />
-        ) : null}
+    <Pressable accessibilityRole="checkbox" accessibilityState={{ checked: selected }}
+      accessibilityLabel={[name, place.kind, status, value, age, distance].filter(Boolean).join(', ')}
+      onPress={onPress} style={({ pressed }) => [styles.card, { backgroundColor: selected ? colors.selectionBg : colors.card, borderColor: selected ? colors.interactive : colors.border, opacity: pressed ? 0.8 : 1 }]}>
+      <OnboardingPhoto uri={river?.photoUrl} damId={place.kind === 'dam' ? place.dam.id : undefined} />
+      <View style={[styles.selection, { backgroundColor: colors.card }]}>
+        <Ionicons name={selected ? 'checkmark-circle' : 'ellipse-outline'} size={24} color={selected ? colors.interactive : colors.textMuted} />
       </View>
-
-      <Text style={[styles.cardName, { color: colors.text }]} numberOfLines={2}>
-        {river.name}
-      </Text>
-
-      <Text style={[styles.cardReading, { color: conditionColor(code) }]} numberOfLines={1}>
-        {reading ? `${formatReading(reading.value)} ${reading.unit} · ` : ''}
-        {conditionShortLabel(code)}
-      </Text>
-
-      {miles != null ? (
-        <Text style={[styles.cardMeta, { color: colors.textSubtle }]} numberOfLines={1}>
-          {riverDistanceLabel(miles)}
-        </Text>
-      ) : null}
+      <View style={styles.cardBody}>
+        <Text style={[styles.meta, { color: colors.textMuted }]}>{place.kind === 'river' ? 'River' : 'Dam'} · {river?.state ?? (place.kind === 'dam' ? place.dam.state : '')}</Text>
+        <Text style={[styles.name, { color: colors.text }]}>{name}</Text>
+        <View style={styles.status}>
+          {river ? <View style={[styles.dot, { backgroundColor: conditionColor(code) }]} /> : null}
+          <Text style={[styles.statusText, { color: river ? conditionText(code, isDark) : colors.text }]}>{status}</Text>
+        </View>
+        {value ? <Text style={[styles.reading, { color: colors.text }]}>{value}</Text> : null}
+        {age ? <Text style={[styles.meta, { color: colors.textMuted }]}>{age}</Text> : null}
+        {distance ? <Text style={[styles.meta, { color: colors.textMuted }]}>{distance}</Text> : null}
+      </View>
     </Pressable>
   );
 }
 
-/** Stage in hundredths, discharge whole — how each is read in the field. */
-function formatReading(value: number): string {
-  return value >= 100 ? String(Math.round(value)) : value.toFixed(2);
-}
-
 const styles = StyleSheet.create({
   screen: { flex: 1 },
-  body: { paddingHorizontal: 20, paddingTop: 8, paddingBottom: 24, alignItems: 'center' },
+  body: { paddingHorizontal: 20, paddingTop: 8, paddingBottom: 20 },
+  header: { alignItems: 'center' },
   title: { ...t['2xl'], fontFamily: fonts.displayBold, textAlign: 'center', marginTop: 10 },
   copy: { ...t.sm, fontFamily: fonts.body, textAlign: 'center', marginTop: 8 },
-  chip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 7,
-    borderWidth: 1,
-    borderRadius: 999,
-    paddingVertical: 9,
-    paddingHorizontal: 14,
-    marginTop: 18,
-    minHeight: 38,
-  },
-  chipText: { ...t.sm, fontFamily: fonts.semibold },
-  loading: { marginTop: 40 },
-  grid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 10,
-    marginTop: 18,
-    width: '100%',
-  },
-  card: {
-    // Two columns with a 10px gutter. Percentage rather than a measured width so
-    // it holds on every device and at every Dynamic Type size.
-    width: '48%',
-    flexGrow: 1,
-    borderRadius: 14,
-    padding: 12,
-    minHeight: 104,
-  },
-  cardTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', minHeight: 20 },
-  dot: { width: 10, height: 10, borderRadius: 5 },
-  cardName: { ...t.base, fontFamily: fonts.semibold, marginTop: 6 },
-  cardReading: { ...t.sm, fontFamily: fonts.monoMedium, marginTop: 4 },
-  cardMeta: { ...t.xs, fontFamily: fonts.body, marginTop: 4 },
-  footer: { paddingHorizontal: 20, paddingTop: 14, paddingBottom: 6, borderTopWidth: 1 },
-  button: { borderRadius: 12, paddingVertical: 15, alignItems: 'center' },
-  buttonText: { ...t.base, fontFamily: fonts.semibold },
-  skip: { alignSelf: 'center', paddingVertical: 14, paddingHorizontal: 24 },
-  skipText: { ...t.sm, fontFamily: fonts.semibold },
+  chip: { flexDirection: 'row', alignItems: 'center', gap: 7, borderWidth: 1, borderRadius: 24, paddingVertical: 10, paddingHorizontal: 14, marginTop: 16, minHeight: 44, maxWidth: '100%' },
+  chipText: { ...t.sm, fontFamily: fonts.semibold, flexShrink: 1 },
+  search: { width: '100%', marginTop: 16 },
+  section: { ...t.sm, fontFamily: fonts.semibold, alignSelf: 'flex-start', marginTop: 20, marginBottom: 12 },
+  notice: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 10, minHeight: 44 },
+  columns: { gap: 12 },
+  card: { flex: 1, borderWidth: 2, borderRadius: 16, overflow: 'hidden', marginBottom: 12 },
+  cardBody: { padding: 12, gap: 5 },
+  selection: { position: 'absolute', top: 8, right: 8, borderRadius: 18, padding: 3 },
+  name: { ...t.base, fontFamily: fonts.semibold },
+  status: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 4 },
+  dot: { width: 8, height: 8, borderRadius: 4 },
+  statusText: { ...t.sm, fontFamily: fonts.semibold, flexShrink: 1 },
+  reading: { ...t.sm, fontFamily: fonts.monoMedium },
+  meta: { ...t.xs, fontFamily: fonts.body },
+  footer: { paddingHorizontal: 20, paddingTop: 14, borderTopWidth: 1 },
+  button: { borderRadius: 12, paddingVertical: 15, paddingHorizontal: 12, alignItems: 'center', minHeight: 48 },
+  buttonText: { ...t.base, fontFamily: fonts.semibold, textAlign: 'center' },
+  skipText: { ...t.sm, fontFamily: fonts.semibold, textAlign: 'center' },
+  textButton: { paddingVertical: 12, paddingHorizontal: 12, minHeight: 44, alignItems: 'center' },
+  credit: { paddingVertical: 16 },
+  reviewControl: { minHeight: 44, justifyContent: 'center', marginBottom: 8 },
+  reviewHeader: { paddingHorizontal: 20, paddingVertical: 12 },
+  selectedCopy: { flex: 1, gap: 4 },
+  selectedRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12, borderWidth: 1, borderRadius: 12, padding: 10, minHeight: 44, marginBottom: 10 },
+  footerHint: { ...t.sm, fontFamily: fonts.body, textAlign: 'center' },
 });
