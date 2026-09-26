@@ -367,7 +367,17 @@ export function buildRows(
     }
 
     const riverSlugs = list(cell('river_slugs'));
-    if (riverSlugs.length === 0) {
+    // Standalone camping belongs on the regional map even when its lake or
+    // stream is not an Eddy river. Require a deliberate per-row declaration:
+    // an accidentally empty corridor cell must still fail validation.
+    const standalone = cell('river_link_status') === 'standalone';
+    if (has('river_link_status') && !standalone) {
+      errors.push({ line, who, message: 'river_link_status must be standalone or empty' });
+    }
+    if (standalone && (type !== 'campground' || riverSlugs.length > 0)) {
+      errors.push({ line, who, message: 'standalone is only valid for a campground with no river_slugs' });
+    }
+    if (riverSlugs.length === 0 && !standalone) {
       errors.push({ line, who, message: 'river_slugs is required' });
       continue;
     }
@@ -597,7 +607,10 @@ export function planRow(
 
   const linkedSlugs = existingLinks.map((l) => l.river_slug);
   const linkAdds = row.riverSlugs.filter((s) => !linkedSlugs.includes(s) && riverMap.has(s));
-  const linkRemoves = overwrite ? linkedSlugs.filter((s) => !row.riverSlugs.includes(s)) : [];
+  // A standalone import never removes established river relationships, even
+  // in overwrite mode. Removing links needs a separately reviewed correction.
+  const linkRemoves = overwrite && row.riverSlugs.length > 0
+    ? linkedSlugs.filter((s) => !row.riverSlugs.includes(s)) : [];
 
   // is_primary is never re-pointed silently: a service that already has a
   // primary river keeps it, however the CSV happens to be ordered.

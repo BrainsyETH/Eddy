@@ -302,6 +302,32 @@ test('slugify strips punctuation the way stored slugs were built', () => {
   assert.equal(slugify("Windy's Floats"), 'windys-floats');
 });
 
+test('standalone campgrounds need explicit intent and retain existing river links', () => {
+  const matrix = parseCsv([
+    'name,type,river_slugs,river_link_status,city,state,verified_source,source_checked_at',
+    `Lake Camp,campground,,standalone,Branson,MO,https://mostateparks.com,${RECENT}`,
+  ].join('\n'));
+  const { rows, errors } = buildRows(matrix, TODAY);
+  assert.deepEqual(errors, []);
+  const fresh = planRow(rows[0], undefined, [], RIVERS, false);
+  assert.deepEqual(fresh.linkAdds, []);
+  assert.deepEqual(insertProblems([fresh]), []);
+  assert.ok(!('river_link_status' in fresh.payload), 'import intent is not a database column');
+  const update = planRow(rows[0], existingService(), LINKED_TO_NIANGUA, RIVERS, true);
+  assert.deepEqual(update.linkRemoves, []);
+  assert.deepEqual(update.primaryFlips, []);
+
+  for (const [type, rivers, intent] of [
+    ['campground', '', ''],
+    ['campground', '', 'standalnoe'],
+    ['outfitter', '', 'standalone'],
+    ['campground', 'niangua', 'standalone'],
+  ]) {
+    const bad = buildRows([matrix[0], ['Lake Camp', type, rivers, intent, 'Branson', 'MO', 'https://mostateparks.com', RECENT]], TODAY);
+    assert.ok(bad.errors.length > 0, `${type}/${rivers}/${intent} must not silently import`);
+  }
+});
+
 test('a timestamp is compared as an instant, not as text', () => {
   // Postgres returns +00:00 where toISOString() produced .000Z. Comparing them
   // as strings made every timestamp this script writes look like it had failed

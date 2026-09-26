@@ -391,3 +391,15 @@ Real shipped values, as calibration examples (primary gauge shown):
 | Big Piney (inactive) | 06930000 | usgs | ft | 1.8 / 2.3 / 3.0–5.5 / 7 / 10 | complete ladder; `active=false` pending go/no-go |
 
 Open follow-ups live in `DEPLOYMENT-STATUS.md`.
+
+### Standalone camping alongside Phase 8.5
+
+Regional campgrounds do not need a fabricated river association. In a new,
+source-verified services CSV, `type=campground` plus
+`river_link_status=standalone` explicitly permits an empty `river_slugs` cell.
+Other types and accidental empty cells retain the existing required-river gate.
+This import declaration is not a database column and never removes existing
+river links. Campground coordinates still require the existing verification pass;
+listing a campground neither creates a float endpoint nor asserts availability.
+See [the September 26 batch](services-camping-gap-2026-09-26.md) for reviewed
+records, source attribution, held map coordinates, and application commands.

@@ -161,3 +161,16 @@ for that one-time catalog audit and the invariants that should remain permanent.
 Link a new checkout once with
 `npx supabase link --project-ref <project-ref>`; credentials remain in the
 operator's local Supabase profile and must not be committed.
+
+## Standalone campground imports
+
+A campground outside a represented river corridor may set
+`river_link_status=standalone` with an empty `river_slugs` cell. This explicit
+per-row declaration is restricted to `type=campground`; accidental empty river
+cells, unknown declarations, and a declaration combined with river slugs fail.
+Existing river links remain intact even with `--overwrite`. All normal source,
+identity, whole-file validation, project-pin and atomic-import requirements remain.
+No schema change is required: `/api/services` already supports unlinked services.
+
+First reviewed batch and held coordinate/availability work:
+[`services-camping-gap-2026-09-26.md`](../missouri-float-planner/scripts/ingestion/services-camping-gap-2026-09-26.md).
