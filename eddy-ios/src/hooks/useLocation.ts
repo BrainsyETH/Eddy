@@ -33,6 +33,7 @@
 // remembered position is not a live grant, and the Mapbox user-location puck
 // (which would itself prompt) must never be mounted off one.
 
+import { onForeground } from '@/lib/foreground';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Location from 'expo-location';
@@ -147,7 +148,7 @@ export function useLocation(): LocationValue {
     // leave the button looking broken. The saving is that they rarely have to
     // tap it at all any more.
     if (coords && status === 'ready') return coords;
-    // A refusal is respected until the app restarts. Re-prompting a user who
+    // A refusal is respected until permission changes in Settings. Re-prompting a user who
     // just said no is the behaviour that gets apps deleted, and iOS would
     // suppress the dialog anyway — so the only effect would be a silent retry
     // loop behind a spinner.
@@ -251,6 +252,21 @@ export function useLocation(): LocationValue {
       cancelled = true;
     };
   }, []);
+
+  // A Settings link must recover within this session. Read permission on
+  // return, without spending another prompt or requesting GPS automatically.
+  useEffect(() => {
+    if (status !== 'denied') return;
+    let active = true;
+    const unsubscribe = onForeground(() => {
+      void Location.getForegroundPermissionsAsync().then(permission => {
+        if (active && permission.status === Location.PermissionStatus.GRANTED) {
+          setStatus('idle');
+        }
+      }).catch(() => {});
+    });
+    return () => { active = false; unsubscribe(); };
+  }, [status]);
 
   return { coords, status, request };
 }

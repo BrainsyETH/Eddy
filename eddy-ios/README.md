@@ -936,8 +936,23 @@ floatability rating. Cached river verdicts are aged with the same rules as Today
 
 Both kinds of selection use additive Favorites writes, so a reinstall cannot
 unstar synced favorites. Today already reads those favorites for its cards.
-During onboarding, public river, gauge, featured-float and safety requests warm a
-30-second, one-use memory handoff; dam data and Eddy's Reads warm their existing
+On the picker, public river, gauge, featured-float and safety requests warm a
+one-use memory handoff, fresh for 30 seconds after completion; dam data and Eddy's Reads warm their existing
 shared stores. Picker/Today reuse those reads without blocking completion. Failed
 or expired handoffs are discarded, and pull-to-refresh clears the handoff before
 fetching. No new permission, sign-in, or subscription step is introduced.
+
+The picker labels list expansion “Show all rivers and dams” and its exit “Skip
+for now.” Clearing search reveals a selected summary without relocating cards
+on selection. Result counts are announced after a pause in typing. The primary
+button stays “Save & continue,” with a separate selection count/hint. Dam request
+status distinguishes loading, failed requests (with retry), and absent readings.
+Known tailwater slugs are preserved when saving dam favorites; offline selections
+remain possible. Denied location offers Settings, and returning with permission
+granted re-enables Near me without automatically prompting or acquiring GPS.
+
+Preloading is a head start, not a guarantee: spending longer in the picker can
+expire the handoff and cause Today to fetch fresh data. Pending requests remain
+shared until their API deadline, and Nearby reuses the gauge preload without
+consuming Today's copy. Existing launch requests outside onboarding still run
+before acknowledgment; this change only defers the onboarding-specific preload.

@@ -28,6 +28,11 @@ export function firstRunRivers() {
   return handoff.warm('rivers', () => fetchRivers());
 }
 
+/** Nearby lookup shares the preload without consuming Today's copy. */
+export function firstRunGauges() {
+  return handoff.warm('gauges', () => fetchGauges());
+}
+
 /** Refresh always bypasses the handoff; cancellation stays local to the caller. */
 export function takePreloadedToday<K extends Key>(key: K, signal?: AbortSignal): Promise<Data<K>> {
   if (signal?.aborted) return Promise.reject(Object.assign(new Error('Request cancelled'), { name: 'AbortError' }));

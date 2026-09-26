@@ -1,5 +1,13 @@
-// Six river suggestions for onboarding. Search in firstRunPlaces covers the full
-// catalog; nearby suggestions never restrict what someone can find or save.
+// Six river suggestions for onboarding.
+//
+// The named rivers are a preference, not a fixed catalog: missing slugs are
+// skipped and the remaining slots are filled floatable-first, so additions or
+// removals upstream never leave holes in the suggestions.
+//
+// Location replaces the suggested set rather than merely reordering it. A
+// nearby river outside the featured six should become discoverable immediately.
+// Search in firstRunPlaces independently covers the full catalog, so proximity
+// never limits someone planning a trip away from home.
 
 import type { RiverListItem } from '@eddy/types';
 // Relative, not '@/theme/conditions': the web test runner that covers this file

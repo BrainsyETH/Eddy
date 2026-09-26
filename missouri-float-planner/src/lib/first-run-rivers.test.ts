@@ -1,4 +1,4 @@
-import { firstRunPlaces, firstRunFavorites, visibleFirstRunPlaces } from '../../../eddy-ios/src/lib/firstRunPlaces';
+import { firstRunPlaces, firstRunFavorites, visibleFirstRunPlaces, damPlaceholder } from '../../../eddy-ios/src/lib/firstRunPlaces';
 import { createPreloadHandoff } from '../../../eddy-ios/src/lib/preloadHandoff';
 import assert from 'node:assert/strict';
 import test from 'node:test';
@@ -247,4 +247,42 @@ test('failed preloads are evicted and a late response cannot survive a refresh c
   finish([1]);
   await pending;
   assert.equal(handoff.peek('rivers'), null);
+});
+
+
+test('onboarding preserves known dam tailwater context and permits offline favorites', () => {
+  const places = firstRunPlaces([]);
+  const selected = new Set(['dam:swl-table-rock-dam']);
+  const dams = [{ id: 'swl-table-rock-dam', tailwater: { riverSlug: 'taneycomo', gaugeSiteId: '07053600' } }];
+  assert.equal(firstRunFavorites(places, selected, dams)[0].slug, 'taneycomo');
+  assert.equal(firstRunFavorites(places, selected)[0].slug, '');
+});
+
+test('dam placeholders distinguish initial load, failure, retry, and missing observations', () => {
+  assert.equal(damPlaceholder('idle'), 'Loading…');
+  assert.equal(damPlaceholder('loading'), 'Loading…');
+  assert.equal(damPlaceholder('error'), 'Couldn’t load readings');
+  assert.equal(damPlaceholder('ready'), 'Reading unavailable');
+});
+
+test('slow preloads remain shared and receive a full freshness window after completion', async () => {
+  let now = 0;
+  let requests = 0;
+  let finish!: (value: number[]) => void;
+  const handoff = createPreloadHandoff(() => now, 30);
+  const fetcher = () => { requests++; return new Promise<number[]>(resolve => { finish = resolve; }); };
+  const first = handoff.warm('gauges', fetcher);
+  await Promise.resolve();
+  now = 100;
+  assert.equal(handoff.warm('gauges', fetcher), first);
+  assert.equal(requests, 1);
+  finish([1]);
+  await first;
+  now = 129;
+  // Nearby reads do not spend Today's handoff, even after the fetch settles.
+  assert.equal(handoff.warm('gauges', fetcher), first);
+  assert.equal(requests, 1);
+  assert.equal(handoff.peek('gauges'), first);
+  now = 130;
+  assert.equal(handoff.take('gauges'), null);
 });

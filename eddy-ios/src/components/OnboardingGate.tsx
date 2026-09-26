@@ -85,7 +85,7 @@ export function OnboardingGate({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
-    if (step === 'legal' || step === 'picker') preloadTodayData();
+    if (step === 'picker') preloadTodayData();
   }, [step]);
 
   /** Followed or skipped — either way the question has been asked. */

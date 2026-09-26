@@ -1,6 +1,6 @@
 // Personalization does real work: both river and dam choices become Favorites.
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, FlatList, KeyboardAvoidingView, Linking, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import { AccessibilityInfo, ActivityIndicator, FlatList, KeyboardAvoidingView, Linking, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { milesBetween, type Coords } from '@eddy/geo';
@@ -12,12 +12,11 @@ import { SearchBar } from '@/components/SearchBar';
 import { DAM_PHOTOS, OnboardingPhoto } from '@/components/OnboardingPhoto';
 import { useLocation } from '@/hooks/useLocation';
 import { useStarredRivers } from '@/hooks/useStarredRivers';
-import { useDams } from '@/hooks/useDams';
-import { fetchGauges } from '@/api/client';
+import { useDams, useDamRequestState, getSharedDams, type DamRequestState } from '@/hooks/useDams';
 import { readBestIndex, agedIndex } from '@/lib/riverCache';
 import { envelope, type CacheEnvelope } from '@/lib/offline-cache';
-import { firstRunRivers } from '@/lib/firstRunPreload';
-import { firstRunPlaces, firstRunFavorites, visibleFirstRunPlaces, type FirstRunPlace } from '@/lib/firstRunPlaces';
+import { firstRunRivers, firstRunGauges } from '@/lib/firstRunPreload';
+import { firstRunPlaces, firstRunFavorites, visibleFirstRunPlaces, damPlaceholder, type FirstRunPlace } from '@/lib/firstRunPlaces';
 import { DAM_CATALOG } from '@/lib/damCatalog';
 import { riverDistanceLabel, riverMilesByGauge } from '@/lib/riverDistance';
 import { damControlledLabel, formatReading, primaryReading, readingAge } from '@/lib/readingCopy';
@@ -35,6 +34,7 @@ export function FirstRunPicker({ onDone }: Props) {
   const { followStars, ready: starsReady } = useStarredRivers();
   const location = useLocation();
   const dams = useDams(true);
+  const damRequestState = useDamRequestState();
   const [index, setIndex] = useState<CacheEnvelope<RiverListItem[]> | null>(null);
   const [now, setNow] = useState(Date.now);
   const [riversLoading, setRiversLoading] = useState(true);
@@ -42,6 +42,7 @@ export function FirstRunPicker({ onDone }: Props) {
   const [retry, setRetry] = useState(0);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [query, setQuery] = useState('');
+  const [summaryKeys, setSummaryKeys] = useState<string[]>([]);
   const [browseAll, setBrowseAll] = useState(false);
   const [riverDistances, setRiverDistances] = useState<Map<string, number> | null>(null);
   const [nearbyCoords, setNearbyCoords] = useState<Coords | null>(null);
@@ -84,8 +85,24 @@ export function FirstRunPicker({ onDone }: Props) {
     : null, [nearbyCoords]);
   const places = useMemo(() => visibleFirstRunPlaces({ rivers, query, browseAll, selected, riverDistances, damDistances }),
     [rivers, query, browseAll, selected, riverDistances, damDistances]);
-  const favorites = useMemo(() => firstRunFavorites(all, selected), [all, selected]);
+  const favorites = useMemo(() => firstRunFavorites(all, selected, dams ?? []), [all, selected, dams]);
   const count = favorites.length;
+  const selectedSummary = all.filter(place => summaryKeys.includes(place.key) && selected.has(place.key));
+
+  // Wait for a pause in typing. Selection and reading updates do not retrigger
+  // an announcement, and clearing search cancels any pending result count.
+  useEffect(() => {
+    if (!query.trim()) return;
+    const timer = setTimeout(() => {
+      AccessibilityInfo.announceForAccessibility(`${places.length} ${places.length === 1 ? 'result' : 'results'}`);
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [query, places.length]);
+
+  const changeQuery = (next: string) => {
+    if (query.trim() && !next.trim()) setSummaryKeys([...selected]);
+    setQuery(next);
+  };
 
   const toggle = (key: string) => setSelected(current => {
     const next = new Set(current);
@@ -97,7 +114,7 @@ export function FirstRunPicker({ onDone }: Props) {
     if (locating) return;
     setLocating(true);
     try {
-      const gaugesPromise = fetchGauges().catch(() => null);
+      const gaugesPromise = firstRunGauges().catch(() => null);
       const coords = await location.request();
       if (!coords || !mounted.current) return;
       setNearbyCoords(coords);
@@ -105,6 +122,7 @@ export function FirstRunPicker({ onDone }: Props) {
       if (mounted.current) {
         setRiverDistances(gauges ? riverMilesByGauge(gauges, coords) : null);
         setBrowseAll(false);
+        setSummaryKeys([...selected]);
         setQuery('');
       }
     } catch (error) {
@@ -125,7 +143,7 @@ export function FirstRunPicker({ onDone }: Props) {
     }
   };
   const locationLabel = locating ? 'Finding nearby water…'
-    : nearbyCoords ? riverDistances?.size ? 'Showing nearby water' : 'Nearby dams · Suggested rivers'
+    : nearbyCoords ? riverDistances?.size ? 'Showing nearby water' : 'Showing nearby dams'
     : location.status === 'denied' ? 'Location off · Search or browse below'
     : location.status === 'unavailable' ? 'Location unavailable · Try again' : 'Near me';
 
@@ -154,21 +172,39 @@ export function FirstRunPicker({ onDone }: Props) {
                 {locating ? <ActivityIndicator size="small" color={colors.interactive} /> : <Ionicons name="location-outline" size={17} color={colors.interactive} />}
                 <Text style={[styles.chipText, { color: colors.selectionText }]}>{locationLabel}</Text>
               </Pressable>
-              <View style={styles.search}><SearchBar value={query} onChangeText={setQuery} placeholder="Search rivers, dams, or lakes" /></View>
+              {location.status === 'denied' ? <Pressable accessibilityRole="button" onPress={() => void Linking.openSettings()} style={styles.textButton}>
+                <Text style={[styles.skipText, { color: colors.interactive }]}>Open Settings</Text>
+              </Pressable> : null}
+              <View style={styles.search}><SearchBar value={query} onChangeText={changeQuery} placeholder="Search rivers, dams, or lakes" /></View>
               {riversLoading && !rivers.length ? <View style={styles.notice}><ActivityIndicator size="small" color={colors.interactive} /><Text style={{ color: colors.textMuted }}>Loading rivers…</Text></View> : null}
               {riverFailed ? <Pressable accessibilityRole="button" onPress={() => { setRiversLoading(true); setRiverFailed(false); setRetry(value => value + 1); }} style={styles.notice}>
                 <Text style={[styles.copy, { color: colors.interactive }]}>{rivers.length ? 'Showing saved rivers. Tap to retry.' : 'Rivers unavailable. Tap to retry.'}</Text>
               </Pressable> : null}
-              <Text style={[styles.section, { color: colors.textMuted }]}>{query.trim() ? `${places.length} results` : browseAll ? 'All rivers and dams' : 'Suggested for you'}</Text>
+              {damRequestState === 'error' ? <Pressable accessibilityRole="button" onPress={() => void getSharedDams().catch(() => {})} style={styles.textButton}>
+                <Text style={[styles.copy, { color: colors.interactive }]}>Retry dam readings</Text>
+              </Pressable> : null}
+              {!query.trim() && selectedSummary.length > 0 ? <View style={styles.summary}>
+                <Text accessibilityRole="header" style={[styles.name, { color: colors.text }]}>Selected</Text>
+                {selectedSummary.map(place => {
+                  const name = place.kind === 'river' ? place.river.name : place.dam.name;
+                  return <Pressable key={place.key} accessibilityRole="button" accessibilityLabel={`Remove ${name} from selection`}
+                    onPress={() => toggle(place.key)} style={[styles.selectedRow, { borderColor: colors.border }]}>
+                    <Text style={[styles.chipText, { color: colors.text }]}>{name}</Text>
+                    <Ionicons name="close-circle-outline" size={22} color={colors.interactive} />
+                  </Pressable>;
+                })}
+              </View> : null}
+              <Text style={[styles.section, { color: colors.textMuted }]}>{query.trim() ? `${places.length} results` : browseAll ? 'All rivers and dams' : nearbyCoords && !riverDistances?.size ? 'Suggested rivers and nearby dams' : 'Suggested for you'}</Text>
             </View>
           }
           renderItem={({ item }) => <PlaceCard place={item} selected={selected.has(item.key)} onPress={() => toggle(item.key)}
+            damRequestState={damRequestState}
             dam={item.kind === 'dam' ? dams?.find(dam => dam.id === item.dam.id) ?? null : null}
             miles={item.kind === 'river' ? riverDistances?.get(item.river.id) : damDistances?.get(item.dam.id)} now={now} />}
           ListEmptyComponent={<Text style={[styles.copy, { color: colors.textMuted }]}>No matches. Try a river, dam, or lake name.</Text>}
           ListFooterComponent={<View>
             {!query.trim() && !browseAll ? <Pressable accessibilityRole="button" onPress={() => setBrowseAll(true)} style={styles.textButton}>
-              <Text style={[styles.buttonText, { color: colors.interactive }]}>Browse all rivers and dams</Text>
+              <Text style={[styles.buttonText, { color: colors.interactive }]}>Show all rivers and dams</Text>
             </Pressable> : null}
             <Pressable accessibilityRole="button" onPress={() => setCreditsOpen(true)} style={styles.textButton}>
               <Text style={[styles.meta, { color: colors.textMuted }]}>Photo credits</Text>
@@ -176,13 +212,16 @@ export function FirstRunPicker({ onDone }: Props) {
           </View>}
         />
         <View style={[styles.footer, { borderTopColor: colors.border, backgroundColor: colors.bg }]}>
+          <Text style={[styles.footerHint, { color: colors.textMuted }]}>
+            {count ? `${count} ${count === 1 ? 'favorite' : 'favorites'} selected` : 'Select at least one favorite'}
+          </Text>
           <Pressable accessibilityRole="button" accessibilityState={{ disabled: !count || saving || !starsReady }}
             disabled={!count || saving || !starsReady} onPress={finish}
             style={({ pressed }) => [styles.button, { backgroundColor: count ? colors.accentFill : colors.border, opacity: pressed || saving ? 0.7 : 1 }]}>
-            <Text style={[styles.buttonText, { color: count ? colors.onAccent : colors.textSubtle }]}>{saving ? 'Saving…' : count ? `Save ${count} ${count === 1 ? 'favorite' : 'favorites'} & continue` : 'Choose your favorites'}</Text>
+            <Text style={[styles.buttonText, { color: count ? colors.onAccent : colors.textSubtle }]}>{saving ? 'Saving…' : 'Save & continue'}</Text>
           </Pressable>
           <Pressable accessibilityRole="button" onPress={onDone} style={styles.textButton}>
-            <Text style={[styles.skipText, { color: colors.textMuted }]}>Explore all rivers and dams</Text>
+            <Text style={[styles.skipText, { color: colors.textMuted }]}>Skip for now</Text>
           </Pressable>
         </View>
       </KeyboardAvoidingView>
@@ -208,8 +247,8 @@ export function FirstRunPicker({ onDone }: Props) {
   );
 }
 
-function PlaceCard({ place, selected, onPress, dam, miles, now }: {
-  place: FirstRunPlace; selected: boolean; onPress: () => void; dam: DamSnapshot | null; miles?: number; now: number;
+function PlaceCard({ place, selected, onPress, dam, damRequestState, miles, now }: {
+  place: FirstRunPlace; selected: boolean; onPress: () => void; dam: DamSnapshot | null; damRequestState: DamRequestState; miles?: number; now: number;
 }) {
   const { colors, isDark } = useTheme();
   const river = place.kind === 'river' ? place.river : null;
@@ -221,7 +260,8 @@ function PlaceCard({ place, selected, onPress, dam, miles, now }: {
   const status = river
     ? damControlledLabel(river.riverType, code) ?? conditionShortLabel(code)
     : generation && generation.kind !== 'unavailable' ? generationStatusLabel(generation)
-    : release ? release.dailyMean ? 'Daily mean release' : 'Reported release' : 'Reading unavailable';
+    : release ? release.dailyMean ? 'Daily mean release' : 'Reported release'
+    : dam ? 'Reading unavailable' : damPlaceholder(damRequestState);
   const value = reading ? formatReading(reading.value, reading.unit)
     : generation && generation.kind !== 'unavailable' ? `${formatReading(generation.turbineCfs, 'cfs')} turbine flow`
     : release ? `${Math.round(release.value).toLocaleString()} ${release.unit}` : null;
@@ -279,4 +319,7 @@ const styles = StyleSheet.create({
   skipText: { ...t.sm, fontFamily: fonts.semibold, textAlign: 'center' },
   textButton: { paddingVertical: 12, paddingHorizontal: 12, minHeight: 44, alignItems: 'center' },
   credit: { paddingVertical: 16 },
+  summary: { width: '100%', marginTop: 16, gap: 8 },
+  selectedRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12, borderWidth: 1, borderRadius: 12, padding: 10, minHeight: 44 },
+  footerHint: { ...t.sm, fontFamily: fonts.body, textAlign: 'center', marginBottom: 8 },
 });
