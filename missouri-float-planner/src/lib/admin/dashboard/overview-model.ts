@@ -34,6 +34,7 @@ export interface ServiceInfo {
   provider?: string;
 }
 export interface OverviewData {
+  widgets?: import('./widget-model').WidgetHistory;
   accounts: GrowthSeries;
   plans: GrowthSeries;
   timeline: {

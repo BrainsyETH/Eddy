@@ -307,3 +307,85 @@ test('overview compares equal complete periods and never invents growth from mis
     'Write Eddy Reads · Ozarks Pulse',
   );
 });
+
+test('widget attribution reconciles totals, keeps unknown separate, and preserves drilldown filters', async () => {
+  const { trafficSource, widgetBreakdown } = await import('./widget-model');
+  assert.equal(trafficSource('WWW.EDDY.GUIDE.'), 'eddy');
+  assert.equal(
+    trafficSource('preview.example.com', ['preview.example.com']),
+    'eddy',
+  );
+  assert.equal(trafficSource('noteddy.guide'), 'external');
+  assert.equal(trafficSource('direct'), 'unknown');
+  const history = {
+    state: 'ok' as const,
+    through: '2026-09-26',
+    firstPartyHosts: [],
+    rows: [
+      {
+        day: '2026-09-20',
+        widget_type: 'eddy-quote',
+        widget_key: 'current',
+        referrer_host: 'eddy.guide',
+        count: 349,
+      },
+      {
+        day: '2026-09-26',
+        widget_type: 'widget',
+        widget_key: 'current',
+        referrer_host: 'www.dillardmill.com',
+        count: 18,
+      },
+      {
+        day: '2026-09-26',
+        widget_type: 'badge',
+        widget_key: 'meramec',
+        referrer_host: 'm.facebook.com',
+        count: 10,
+      },
+      {
+        day: '2026-09-26',
+        widget_type: 'badge',
+        widget_key: 'meramec',
+        referrer_host: 'direct',
+        count: 2,
+      },
+      {
+        day: '2026-09-19',
+        widget_type: 'widget',
+        widget_key: 'current',
+        referrer_host: 'www.dillardmill.com',
+        count: 30,
+      },
+      {
+        day: '2026-09-27',
+        widget_type: 'widget',
+        widget_key: 'current',
+        referrer_host: 'www.dillardmill.com',
+        count: 99,
+      },
+    ],
+  };
+  const all = widgetBreakdown(history, 7)!;
+  assert.deepEqual(all.totals, {
+    all: 379,
+    eddy: 349,
+    external: 28,
+    unknown: 2,
+  });
+  assert.equal(
+    all.daily.reduce((n, p) => n + p.count, 0),
+    all.total,
+  );
+  assert.equal(all.daily.length, 7);
+  assert.equal(widgetBreakdown(history, 7, 'external')!.total, 28);
+  const host = widgetBreakdown(history, 7, 'external', 'www.dillardmill.com')!;
+  assert.equal(host.total, 18);
+  assert.deepEqual(host.types, [{ name: 'widget', count: 18 }]);
+  assert.equal(
+    widgetBreakdown(history, 30, 'external', 'www.dillardmill.com')!.total,
+    48,
+  );
+  assert.equal(widgetBreakdown({ ...history, state: 'unknown' }, 7), null);
+  assert.equal(widgetBreakdown(undefined, 7), null);
+});

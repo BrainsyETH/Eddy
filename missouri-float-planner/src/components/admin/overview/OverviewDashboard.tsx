@@ -1,5 +1,4 @@
 'use client';
-import Link from 'next/link';
 import { useState } from 'react';
 import {
   inboxCount,
@@ -12,6 +11,11 @@ import GrowthChart, { changeLabel } from './GrowthChart';
 import AutomationTimeline from './AutomationTimeline';
 import ServiceOverview from './ServiceOverview';
 import styles from './overview.module.css';
+import MetricDetails, {
+  InspectMetricContext,
+  type DetailTarget,
+} from './MetricDetails';
+import { widgetBreakdown } from '@/lib/admin/dashboard/widget-model';
 
 export const numericMetric = (metrics: Metric[], key: string) => {
   const m = metrics.find((metric) => metric.key === key);
@@ -51,11 +55,13 @@ export default function OverviewDashboard({
   onRefresh: () => void;
   children: React.ReactNode;
 }) {
+  const [target, setTarget] = useState<DetailTarget | null>(null);
   const [days, setDays] = useState<7 | 30>(7);
   const [measure, setMeasure] = useState<'plans' | 'accounts'>('plans');
   const [showAllActions, setShowAllActions] = useState(false);
   const metrics = summary?.metrics ?? [];
   const overview = summary?.overview;
+  const widgetTraffic = widgetBreakdown(overview?.widgets, 7);
   const attention = metrics
     .filter(needsAttention)
     .sort((a, b) => priority(a) - priority(b));
@@ -73,6 +79,7 @@ export default function OverviewDashboard({
     summary && Date.now() - Date.parse(summary.generatedAt) > 360000;
   const kpis = [
     {
+      key: 'accounts',
       label: 'New accounts',
       value: accounts?.total ?? null,
       detail: accounts
@@ -80,6 +87,7 @@ export default function OverviewDashboard({
         : 'Daily account history unavailable',
     },
     {
+      key: 'plans',
       label: 'Trip plans saved',
       value: plans?.total ?? null,
       detail: plans
@@ -87,259 +95,300 @@ export default function OverviewDashboard({
         : 'Daily planning history unavailable',
     },
     {
+      key: 'subscribers',
       label: 'Premium subscribers',
       value: numericMetric(metrics, 'subscribers'),
       detail: `${display(numericMetric(metrics, 'renewal_off'))} with renewal off · current production access`,
     },
   ];
   return (
-    <div className={styles.root}>
-      <div className={styles.topbar}>
-        <b>Eddy</b>
-        <span>Operator overview</span>
-        <button onClick={onRefresh} disabled={loading}>
-          {loading ? 'Refreshing…' : 'Refresh data'}
-        </button>
-      </div>
-      <div className={styles.main}>
-        <div className={styles.heading}>
-          <div>
-            <span className={styles.eyebrow}>THE BIG PICTURE</span>
-            <h1>Your river business, at a glance.</h1>
-            <p>
-              Growth, the services behind it, and what needs your attention.
-            </p>
+    <InspectMetricContext.Provider
+      value={(value) =>
+        setTarget(value.key === 'embeds' ? { key: 'widgets' } : value)
+      }
+    >
+      <div className={styles.root}>
+        <div className={styles.topbar}>
+          <b>Eddy</b>
+          <span>Operator overview</span>
+          <button onClick={onRefresh} disabled={loading}>
+            {loading ? 'Refreshing…' : 'Refresh data'}
+          </button>
+        </div>
+        <div className={styles.main}>
+          <div className={styles.heading}>
+            <div>
+              <span className={styles.eyebrow}>THE BIG PICTURE</span>
+              <h1>Your river business, at a glance.</h1>
+              <p>
+                Growth, the services behind it, and what needs your attention.
+              </p>
+            </div>
+            <div className={styles.segment} aria-label="Growth period">
+              {([7, 30] as const).map((n) => (
+                <button
+                  key={n}
+                  aria-pressed={days === n}
+                  onClick={() => setDays(n)}
+                >
+                  {n} days
+                </button>
+              ))}
+            </div>
           </div>
-          <div className={styles.segment} aria-label="Growth period">
-            {([7, 30] as const).map((n) => (
+          {(error || stale) && (
+            <p role="status" className={styles.alert}>
+              {summary
+                ? 'Showing an older snapshot. The latest refresh is unavailable.'
+                : 'The dashboard could not load. Try Refresh data.'}
+            </p>
+          )}
+          <div className={styles.health}>
+            <button
+              className={styles.healthButton}
+              onClick={() => setTarget({ key: 'health' })}
+            >
+              {!summary
+                ? 'Checking Eddy…'
+                : !known
+                  ? 'Data freshness is not fully known'
+                  : delayed
+                    ? 'Some river data needs review'
+                    : 'No river-data freshness flags'}
+            </button>
+            <a href="#focus">
+              {summary
+                ? `${attention.length} items to review`
+                : 'Loading sources…'}
+            </a>
+            <small>
+              {summary
+                ? `Snapshot ${new Date(summary.generatedAt).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZone: 'America/Chicago' })} CT · refreshes every 3 min`
+                : 'Reading existing monitoring data'}
+            </small>
+          </div>
+          <div className={styles.kpis}>
+            {kpis.map((k) => (
               <button
-                key={n}
-                aria-pressed={days === n}
-                onClick={() => setDays(n)}
+                key={k.label}
+                className={styles.kpi}
+                onClick={() => setTarget({ key: k.key })}
+                aria-label={`Explore ${k.label.toLowerCase()}`}
               >
-                {n} days
+                <span className={styles.kpiLabel}>{k.label}</span>
+                <strong>{summary ? display(k.value) : '—'}</strong>
+                <span className={styles.kpiDetail}>{k.detail}</span>
+                {k.label === 'Premium subscribers' && (
+                  <small>
+                    Current count; historical subscriber snapshots are not
+                    collected.
+                  </small>
+                )}
+                <span className={styles.exploreLabel}>Explore metric →</span>
               </button>
             ))}
           </div>
-        </div>
-        {(error || stale) && (
-          <p role="status" className={styles.alert}>
-            {summary
-              ? 'Showing an older snapshot. The latest refresh is unavailable.'
-              : 'The dashboard could not load. Try Refresh data.'}
-          </p>
-        )}
-        <div className={styles.health}>
-          <strong>
-            {!summary
-              ? 'Checking Eddy…'
-              : !known
-                ? 'Data freshness is not fully known'
-                : delayed
-                  ? 'Some river data needs review'
-                  : 'Monitored river data is current'}
-          </strong>
-          <a href="#focus">
-            {summary
-              ? `${attention.length} items to review`
-              : 'Loading sources…'}
-          </a>
-          <small>
-            {summary
-              ? `Snapshot ${new Date(summary.generatedAt).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZone: 'America/Chicago' })} CT · refreshes every 3 min`
-              : 'Reading existing monitoring data'}
-          </small>
-        </div>
-        <div className={styles.kpis}>
-          {kpis.map((k) => (
-            <article key={k.label} className={styles.kpi}>
-              <h2>{k.label}</h2>
-              <strong>{summary ? display(k.value) : '—'}</strong>
-              <p>{k.detail}</p>
-              {k.label === 'Premium subscribers' && (
-                <small>
-                  Current count; historical subscriber snapshots are not
-                  collected.
-                </small>
+          <div className={styles.growthLayout}>
+            {overview ? (
+              <GrowthChart
+                series={overview[measure]}
+                days={days}
+                measure={measure}
+                onMeasure={setMeasure}
+              />
+            ) : (
+              <section className={styles.panel}>
+                <h2>Is Eddy growing?</h2>
+                <p className={styles.empty}>
+                  {summary
+                    ? 'Growth history is unavailable in this snapshot.'
+                    : 'Loading activity history…'}
+                </p>
+              </section>
+            )}
+            <section id="focus" className={styles.panel}>
+              <div className={styles.panelHead}>
+                <div>
+                  <h2>Where to focus</h2>
+                  <p>Fix interruptions first. Then clear the inbox.</p>
+                </div>
+              </div>
+              {attention.length ? (
+                <ol className={styles.actions}>
+                  {(showAllActions ? attention : attention.slice(0, 4)).map(
+                    (m) => (
+                      <li key={m.key}>
+                        <span className={styles.actionCount}>
+                          {display(
+                            typeof m.value === 'number' ? m.value : null,
+                          )}
+                        </span>
+                        <div>
+                          <h3>
+                            {m.key.startsWith('job_')
+                              ? (overview?.timeline.jobs.find(
+                                  (j) => `job_${j.id}` === m.key,
+                                )?.label ?? m.label)
+                              : m.label}
+                          </h3>
+                          <p>{explanation(m)}</p>
+                          <button
+                            className={styles.textButton}
+                            onClick={() => setTarget({ key: m.key })}
+                          >
+                            Understand & review →
+                          </button>
+                        </div>
+                      </li>
+                    ),
+                  )}
+                </ol>
+              ) : (
+                <p className={styles.empty}>
+                  {summary
+                    ? 'No actionable issues in the available sources. This is not an all-clear for unmeasured services.'
+                    : 'Checking for issues…'}
+                </p>
               )}
-            </article>
-          ))}
-        </div>
-        <div className={styles.growthLayout}>
-          {overview ? (
-            <GrowthChart
-              series={overview[measure]}
-              days={days}
-              measure={measure}
-              onMeasure={setMeasure}
+              {attention.length > 4 && (
+                <button
+                  className={styles.textButton}
+                  onClick={() => setShowAllActions(!showAllActions)}
+                >
+                  {showAllActions
+                    ? 'Show fewer'
+                    : `See all ${attention.length} items`}
+                </button>
+              )}
+              <button
+                className={styles.inbox}
+                onClick={() => setTarget({ key: 'inbox' })}
+                aria-label="Explore combined inbox"
+              >
+                <span>Combined inbox</span>
+                <strong>{display(inboxCount(metrics))}</strong>
+                <small>Reports, unread email & feedback · Explore →</small>
+              </button>
+            </section>
+          </div>
+          {overview && (
+            <ServiceOverview services={overview.services} metrics={metrics} />
+          )}
+          {overview && (
+            <AutomationTimeline
+              timeline={overview.timeline}
+              metrics={metrics}
             />
-          ) : (
+          )}
+          <div className={styles.growthLayout}>
             <section className={styles.panel}>
-              <h2>Is Eddy growing?</h2>
-              <p className={styles.empty}>
-                {summary
-                  ? 'Growth history is unavailable in this snapshot.'
-                  : 'Loading activity history…'}
+              <div className={styles.panelHead}>
+                <div>
+                  <h2>Where people want to float</h2>
+                  <p>Top rivers by saved plans · rolling 30 days.</p>
+                </div>
+              </div>
+              {rivers?.length ? (
+                <div className={styles.riverBars}>
+                  {rivers.map((r) => (
+                    <button
+                      key={r.name}
+                      className={styles.riverButton}
+                      onClick={() => setTarget({ key: 'river', name: r.name })}
+                    >
+                      <span className={styles.riverLabel}>
+                        <strong>{r.name}</strong>
+                        <span>{r.count.toLocaleString()} plans →</span>
+                      </span>
+                      <span className={styles.barTrack}>
+                        <span
+                          style={{
+                            width: `${(r.count / Math.max(1, rivers[0].count)) * 100}%`,
+                          }}
+                        />
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              ) : (
+                <p className={styles.empty}>
+                  {rivers
+                    ? 'No saved plans in this period yet.'
+                    : 'River demand data is unavailable.'}
+                </p>
+              )}
+              <p className={styles.note}>
+                Use this demand to guide content and partner outreach. Saved
+                plans reflect interest, not confirmed visits.
               </p>
             </section>
-          )}
-          <section id="focus" className={styles.panel}>
-            <div className={styles.panelHead}>
-              <div>
-                <h2>Where to focus</h2>
-                <p>Fix interruptions first. Then clear the inbox.</p>
+            <section className={styles.panel}>
+              <div className={styles.panelHead}>
+                <div>
+                  <h2>Build on that interest</h2>
+                  <p>Content coverage and reach · separate from outages.</p>
+                </div>
               </div>
-            </div>
-            {attention.length ? (
-              <ol className={styles.actions}>
-                {(showAllActions ? attention : attention.slice(0, 4)).map(
-                  (m) => (
-                    <li key={m.key}>
-                      <span className={styles.actionCount}>
-                        {display(typeof m.value === 'number' ? m.value : null)}
-                      </span>
-                      <div>
-                        <h3>
-                          {m.key.startsWith('job_')
-                            ? (overview?.timeline.jobs.find(
-                                (j) => `job_${j.id}` === m.key,
-                              )?.label ?? m.label)
-                            : m.label}
-                        </h3>
-                        <p>{explanation(m)}</p>
-                        <a
-                          href={
-                            m.key.startsWith('job_')
-                              ? '#automation'
-                              : m.href || '#diagnostics'
-                          }
-                        >
-                          Review →
-                        </a>
-                      </div>
-                    </li>
-                  ),
-                )}
-              </ol>
-            ) : (
-              <p className={styles.empty}>
-                {summary
-                  ? 'No actionable issues in the available sources. This is not an all-clear for unmeasured services.'
-                  : 'Checking for issues…'}
-              </p>
-            )}
-            {attention.length > 4 && (
-              <button
-                className={styles.textButton}
-                onClick={() => setShowAllActions(!showAllActions)}
-              >
-                {showAllActions
-                  ? 'Show fewer'
-                  : `See all ${attention.length} items`}
-              </button>
-            )}
-            <div className={styles.inbox}>
-              <span>Combined inbox</span>
-              <strong>{display(inboxCount(metrics))}</strong>
-              <small>Reports, unread email & feedback</small>
-            </div>
-          </section>
-        </div>
-        {overview && (
-          <ServiceOverview services={overview.services} metrics={metrics} />
-        )}
-        {overview && (
-          <AutomationTimeline timeline={overview.timeline} metrics={metrics} />
-        )}
-        <div className={styles.growthLayout}>
-          <section className={styles.panel}>
-            <div className={styles.panelHead}>
-              <div>
-                <h2>Where people want to float</h2>
-                <p>Top rivers by saved plans · rolling 30 days.</p>
+              <div className={styles.opportunities}>
+                <button onClick={() => setTarget({ key: 'images' })}>
+                  <strong>{display(numericMetric(metrics, 'images'))}</strong>
+                  <span>
+                    access points need photos
+                    <small>See what is missing and how to act.</small>
+                  </span>
+                  <span>→</span>
+                </button>
+                <button onClick={() => setTarget({ key: 'widgets' })}>
+                  <strong>
+                    {display(widgetTraffic?.totals.external ?? null)}
+                  </strong>
+                  <span>
+                    externally referred widget loads
+                    <small>
+                      {widgetTraffic
+                        ? `${widgetTraffic.totals.eddy} Eddy / preview · ${widgetTraffic.totals.unknown} unknown · ${widgetTraffic.totals.all} total`
+                        : 'Detailed attribution unavailable'}
+                      <br />7 UTC days, including today. Not unique people.
+                    </small>
+                  </span>
+                  <span>→</span>
+                </button>
+                <button onClick={() => setTarget({ key: 'email_30' })}>
+                  <strong>{display(numericMetric(metrics, 'email_30'))}</strong>
+                  <span>
+                    email list additions
+                    <small>Rolling 30 days · Explore sources.</small>
+                  </span>
+                  <span>→</span>
+                </button>
               </div>
-            </div>
-            {rivers?.length ? (
-              <div className={styles.riverBars}>
-                {rivers.map((r) => (
-                  <div key={r.name}>
-                    <div>
-                      <strong>{r.name}</strong>
-                      <span>{r.count.toLocaleString()} plans</span>
-                    </div>
-                    <div className={styles.barTrack}>
-                      <span
-                        style={{
-                          width: `${(r.count / Math.max(1, rivers[0].count)) * 100}%`,
-                        }}
-                      />
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <p className={styles.empty}>
-                {rivers
-                  ? 'No saved plans in this period yet.'
-                  : 'River demand data is unavailable.'}
-              </p>
-            )}
+            </section>
+          </div>
+          <details id="diagnostics" className={styles.diagnostics}>
+            <summary>
+              <span>Diagnostics & all metrics</span>
+              <small>
+                Source details, AI costs, configuration and admin tools
+              </small>
+            </summary>
             <p className={styles.note}>
-              Use this demand to guide content and partner outreach. Saved plans
-              reflect interest, not confirmed visits.
+              Unknown means unavailable, not zero. Historical cleared push
+              events do not distinguish suppression, expiry, and exhausted
+              retries. Review Trust for Reads versus live conditions.
             </p>
-          </section>
-          <section className={styles.panel}>
-            <div className={styles.panelHead}>
-              <div>
-                <h2>Build on that interest</h2>
-                <p>Content coverage and reach · separate from outages.</p>
-              </div>
-            </div>
-            <div className={styles.opportunities}>
-              <Link href="/admin/access-points">
-                <strong>{display(numericMetric(metrics, 'images'))}</strong>
-                <span>
-                  access points need photos
-                  <small>Make trip planning more useful.</small>
-                </span>
-                <span>→</span>
-              </Link>
-              <a href="#diagnostics">
-                <strong>{display(numericMetric(metrics, 'embeds'))}</strong>
-                <span>
-                  widget impressions
-                  <small>
-                    Last 7 UTC days, including today. Not unique visitors.
-                  </small>
-                </span>
-                <span>→</span>
-              </a>
-              <a href="#diagnostics">
-                <strong>{display(numericMetric(metrics, 'email_30'))}</strong>
-                <span>
-                  email list additions<small>Rolling 30 days.</small>
-                </span>
-                <span>→</span>
-              </a>
-            </div>
-          </section>
+            {children}
+          </details>
         </div>
-        <details id="diagnostics" className={styles.diagnostics}>
-          <summary>
-            <span>Diagnostics & all metrics</span>
-            <small>
-              Source details, AI costs, configuration and admin tools
-            </small>
-          </summary>
-          <p className={styles.note}>
-            Unknown means unavailable, not zero. Historical cleared push events
-            do not distinguish suppression, expiry, and exhausted retries.
-            Review Trust for Reads versus live conditions.
-          </p>
-          {children}
-        </details>
+        {target && summary && (
+          <MetricDetails
+            key={target.key + (target.name ?? '')}
+            target={target}
+            summary={summary}
+            days={days}
+            onClose={() => setTarget(null)}
+          />
+        )}
       </div>
-    </div>
+    </InspectMetricContext.Provider>
   );
 }

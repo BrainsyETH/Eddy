@@ -4,6 +4,7 @@ import {
   comparePeriod,
   type GrowthSeries,
 } from '@/lib/admin/dashboard/overview-model';
+import { useInspectMetric } from './MetricDetails';
 import styles from './overview.module.css';
 
 const dayLabel = (day: string) =>
@@ -34,6 +35,7 @@ export default function GrowthChart({
   measure: 'plans' | 'accounts';
   onMeasure: (value: 'plans' | 'accounts') => void;
 }) {
+  const inspect = useInspectMetric();
   const [selected, setSelected] = useState<number | null>(null);
   const period = comparePeriod(series, days);
   const max = period
@@ -70,6 +72,12 @@ export default function GrowthChart({
           ))}
         </div>
       </div>
+      <button
+        className={styles.textButton}
+        onClick={() => inspect({ key: measure })}
+      >
+        What counts & daily breakdown →
+      </button>
       {period ? (
         <>
           <div className={styles.chartSummary}>
