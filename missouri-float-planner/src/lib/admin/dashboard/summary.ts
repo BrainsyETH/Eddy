@@ -1,3 +1,4 @@
+import { usageMetrics } from '@/lib/telemetry/summary';
 import { jobMetrics } from './jobs-summary';
 import { unstable_cache } from 'next/cache';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -12,7 +13,7 @@ async function sentryMetrics(): Promise<Metric[]> {
   return Promise.all(projects.map(async project => {
     const meta = { key:`sentry_${project}`,section:'Errors',label:`${project} · unresolved issues active in 24h`,detail:'Up to 25 issues. Reported events, not total API failures.',href:`https://sentry.io/organizations/${encodeURIComponent(org)}/issues/`,attention:true };
     try {
-      const res = await fetch(`https://sentry.io/api/0/projects/${encodeURIComponent(org)}/${encodeURIComponent(project)}/issues/?query=is%3Aunresolved&statsPeriod=24h&limit=25`,{ headers:{Authorization:`Bearer ${token}`},cache:'no-store',signal:AbortSignal.timeout(3000) });
+      const res = await fetch(`https://sentry.io/api/0/projects/${encodeURIComponent(org)}/${encodeURIComponent(project)}/issues/?query=is%3Aunresolved%20lastSeen%3A-24h&statsPeriod=24h&limit=25&environment=${encodeURIComponent(process.env.SENTRY_DASHBOARD_ENVIRONMENT??'production')}`,{ headers:{Authorization:`Bearer ${token}`},cache:'no-store',signal:AbortSignal.timeout(3000) });
       if (!res.ok) throw new Error('Sentry unavailable');
       const issues: unknown = await res.json();
       if (!Array.isArray(issues)) throw new Error('Invalid Sentry response');
@@ -36,10 +37,10 @@ export const getDashboardSummary = unstable_cache(async (): Promise<DashboardSum
   if (versions?.state==='ok' && Array.isArray(versions.value) && value) {
     const adoption=versionAdoption(versions.value,String(value.min_supported_version),String(value.latest_version));
     for (const [key,label,n] of [['below_min','Devices below minimum',adoption.below],['latest_version','Devices on latest release',adoption.newest],['unknown_version','Devices with unknown version',adoption.unknown]] as const) {
-      metrics.push({key,section:'Push & devices',label,detail:`Of ${adoption.total} recently seen push-registered iOS devices.`,href:'',attention:false,state:n===null?'unknown':'ok',value:n});
+      metrics.push({key,section:'Push & devices',label,detail:`Of ${adoption.total} recently seen push-registered iOS devices. Other versions are counted as unknown.`,href:'',attention:false,state:n===null?'unknown':'ok',value:n});
     }
   }
-  const [sentry,jobs]=await Promise.all([sentryMetrics(),jobMetrics()]);
-  metrics.push(...sentry,...jobs);
+  const [sentry,jobs,usage]=await Promise.all([sentryMetrics(),jobMetrics(),usageMetrics()]);
+  metrics.push(...sentry,...jobs,...usage);
   return { generatedAt:new Date().toISOString(),metrics };
-},['admin-dashboard-v1'],{ revalidate:180 });
+},['admin-dashboard-v2',process.env.VERCEL_ENV??'development',process.env.VERCEL_GIT_COMMIT_SHA??'local'],{ revalidate:180 });

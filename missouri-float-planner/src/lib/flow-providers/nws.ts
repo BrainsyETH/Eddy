@@ -1,3 +1,4 @@
+import { trackedFetch } from '@/lib/telemetry/upstream';
 // src/lib/flow-providers/nws.ts
 // NWS flow provider — polls the National Water Prediction Service (NWPS)
 // gauge API, the successor to AHPS. Site ids for this provider are NWS
@@ -79,7 +80,7 @@ function foldByUnit(
 
 async function fetchGaugeDoc(lid: string, skipCache?: boolean): Promise<NwpsGaugeDoc | null> {
   try {
-    const res = await fetch(`${NWPS_BASE}/${encodeURIComponent(lid)}`, {
+    const res = await trackedFetch('nws', 'nws', `${NWPS_BASE}/${encodeURIComponent(lid)}`, {
       signal: AbortSignal.timeout(10_000),
       headers: { Accept: 'application/json' },
       ...(skipCache ? { cache: 'no-store' as const } : { next: { revalidate: 3600 } }),
@@ -149,7 +150,7 @@ export class NwsProvider implements FlowProvider {
     // substitute window.
     if (options?.from || options?.to || options?.resolution === 'daily') return null;
     try {
-      const res = await fetch(`${NWPS_BASE}/${encodeURIComponent(siteId)}/stageflow/observed`, {
+      const res = await trackedFetch('nws', 'nws', `${NWPS_BASE}/${encodeURIComponent(siteId)}/stageflow/observed`, {
         signal: AbortSignal.timeout(10_000),
         headers: { Accept: 'application/json' },
         next: { revalidate: 3600 },

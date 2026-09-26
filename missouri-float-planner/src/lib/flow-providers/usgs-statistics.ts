@@ -1,3 +1,4 @@
+import { trackedFetch } from '@/lib/telemetry/upstream';
 // src/lib/flow-providers/usgs-statistics.ts
 // USGS Water Data Statistics API — day-of-year discharge/stage normals.
 //
@@ -268,7 +269,7 @@ export async function fetchDailyStatisticsRows(
   siteId: string,
   parameterCode: string = PARAM_DISCHARGE
 ): Promise<DailyStatisticsRow[]> {
-  const response = await fetch(observationNormalsUrl(siteId, parameterCode), {
+  const response = await trackedFetch('usgs', 'usgs-statistics', observationNormalsUrl(siteId, parameterCode), {
     next: { revalidate: 86400 },
     signal: AbortSignal.timeout(15_000),
     headers: statisticsHeaders(),

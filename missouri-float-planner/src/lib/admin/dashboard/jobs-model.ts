@@ -13,3 +13,14 @@ export function jobOutcome(body: unknown, status: number): {status:'ok'|'partial
  inspect(body);
  return {status:status>=400?'error':partial?'partial':skipped?'skipped':'ok',counters};
 }
+
+/** Only known schedule variants enter the durable key; never raw request URLs. */
+export function jobIdentity(job:string,url:URL):string {
+ const source=url.searchParams.get('source');
+ const parts=[job];
+ if(source)parts.push(['recreation_gov','mo_state_parks'].includes(source)?source:'other');
+ if(url.searchParams.get('slot')==='2')parts.push('slot2');
+ if(url.searchParams.get('highFrequency')==='1')parts.push('high-frequency');
+ if(url.searchParams.get('globalOnly')==='1')parts.push('global-only');
+ return parts.join(':');
+}

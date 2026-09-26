@@ -1,3 +1,4 @@
+import { trackedAnthropic } from '@/lib/telemetry/upstream';
 // src/lib/eddy/generate-gauge-update.ts
 // Per-gauge AI commentary using Haiku 4.5. Targeted at secondary gauges on
 // active rivers (the primary gauge is covered by the Sonnet-powered
@@ -316,7 +317,7 @@ export async function generateGaugeUpdate(
   const client = new Anthropic({ apiKey: anthropicKey });
 
   try {
-    const message = await client.messages.create({
+    const message = await trackedAnthropic('gauge_update', model.id, () => client.messages.create({
       model: model.id,
       max_tokens: model.maxTokens,
       // Omitted entirely unless the model needs it. Sonnet 5 thinks by default
@@ -324,7 +325,7 @@ export async function generateGaugeUpdate(
       ...(model.thinking ? { thinking: model.thinking } : {}),
       messages: [{ role: 'user', content: prompt }],
       system: GAUGE_SYSTEM_PROMPT,
-    });
+    }));
 
     const textBlock = message.content.find((b) => b.type === 'text');
     const rawText = textBlock?.text?.trim().replace(/—/g, ',') ?? null;

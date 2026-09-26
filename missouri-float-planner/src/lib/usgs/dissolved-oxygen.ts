@@ -1,3 +1,4 @@
+import { trackedFetch } from '@/lib/telemetry/upstream';
 // src/lib/usgs/dissolved-oxygen.ts
 // Targeted lookup of a station's latest dissolved oxygen — USGS parameter
 // 00300 (dissolved oxygen, water, unfiltered, mg/L).
@@ -90,7 +91,7 @@ export async function fetchDissolvedOxygen(siteId: string): Promise<DissolvedOxy
     url.searchParams.set('parameter_code', PARAM_DISSOLVED_OXYGEN);
     url.searchParams.set('limit', '10');
 
-    const response = await fetch(url.toString(), {
+    const response = await trackedFetch('usgs', 'dissolved-oxygen', url.toString(), {
       headers: modernHeaders(),
       next: { revalidate: 3600 },
     });

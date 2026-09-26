@@ -8,7 +8,6 @@ import {
   Activity,
   RefreshCw,
   Share2,
-  Layers,
   ShieldAlert,
   MessageSquare,
   History,

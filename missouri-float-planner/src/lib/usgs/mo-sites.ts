@@ -1,3 +1,4 @@
+import { trackedFetch } from '@/lib/telemetry/upstream';
 // Statewide USGS context sites for /river-map.
 //
 // The observatory map shows every active Missouri stream site with a
@@ -64,7 +65,7 @@ function siteNoFromLocationId(id: unknown): string | null {
 
 async function fetchJson(url: URL): Promise<{ features?: OgcFeature[] } | null> {
   try {
-    const res = await fetch(url.toString(), {
+    const res = await trackedFetch('usgs', 'mo-sites', url.toString(), {
       next: { revalidate: 900 },
       headers: headers(),
     });

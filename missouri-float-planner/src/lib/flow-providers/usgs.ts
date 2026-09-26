@@ -1,3 +1,4 @@
+import { trackedFetch } from '@/lib/telemetry/upstream';
 // src/lib/flow-providers/usgs.ts
 // USGS flow provider.
 //
@@ -235,7 +236,7 @@ async function fetchLatestModern(
     if (visited.has(next) || visited.size >= 100) throw new Error('USGS latest pagination did not finish');
     if (new URL(next).origin !== url.origin) throw new Error('Unexpected USGS pagination host');
     visited.add(next);
-    const response = await fetch(next, { ...fetchOptions, signal: AbortSignal.timeout(15_000) });
+    const response = await trackedFetch('usgs', 'usgs', next, { ...fetchOptions, signal: AbortSignal.timeout(15_000) });
     if (!response.ok) throw new Error(`USGS modern API error: ${response.status} ${response.statusText}`);
     const data = (await response.json()) as OgcFeatureCollection;
     features.push(...(data.features ?? []));
@@ -269,7 +270,7 @@ function foldContinuousFeatures(
 }
 
 async function fetchOgcItems(url: URL): Promise<OgcFeature[]> {
-  const response = await fetch(url.toString(), {
+  const response = await trackedFetch('usgs', 'usgs', url.toString(), {
     next: { revalidate: 3600 },
     headers: modernHeaders(),
   });
@@ -420,7 +421,7 @@ async function fetchLatestLegacy(
     ? { cache: 'no-store' }
     : { next: { revalidate: 3600 } };
 
-  const response = await fetch(url.toString(), fetchOptions);
+  const response = await trackedFetch('usgs', 'usgs', url.toString(), fetchOptions);
   if (!response.ok) {
     throw new Error(`USGS legacy API error: ${response.status} ${response.statusText}`);
   }
@@ -479,7 +480,7 @@ async function fetchHistoryLegacy(siteId: string, days: number): Promise<Histori
   url.searchParams.set('period', `P${days}D`);
   url.searchParams.set('siteStatus', 'all');
 
-  const response = await fetch(url.toString(), { next: { revalidate: 3600 } });
+  const response = await trackedFetch('usgs', 'usgs', url.toString(), { next: { revalidate: 3600 } });
   if (!response.ok) {
     throw new Error(`USGS legacy history error: ${response.status} ${response.statusText}`);
   }
@@ -634,7 +635,7 @@ export async function fetchAllDailyStatistics(siteId: string): Promise<DailyStat
   url.searchParams.set('statTypeCd', STAT_TYPES);
   url.searchParams.set('parameterCd', PARAM_DISCHARGE);
 
-  const response = await fetch(url.toString(), { next: { revalidate: 86400 } });
+  const response = await trackedFetch('usgs', 'usgs', url.toString(), { next: { revalidate: 86400 } });
   if (!response.ok) {
     throw new Error(
       `USGS statistics API error for ${siteId}: ${response.status} ${response.statusText}`

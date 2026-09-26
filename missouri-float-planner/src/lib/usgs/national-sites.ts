@@ -1,3 +1,4 @@
+import { trackedFetch } from '@/lib/telemetry/upstream';
 // src/lib/usgs/national-sites.ts
 // Nationwide USGS stream sites, fetched by bounding box.
 //
@@ -126,7 +127,7 @@ async function fetchAllFeatures(url: URL, revalidate: number, strict = false): P
   for (let page = 0; page < MAX_PAGES && next; page++) {
     let data: OgcCollection;
     try {
-      const res = await fetch(next, { next: { revalidate }, headers: modernHeaders() });
+      const res = await trackedFetch('usgs', 'national-sites', next, { next: { revalidate }, headers: modernHeaders() });
       if (!res.ok) {
         if (strict) throw new Error(`USGS page failed: ${res.status}`);
         console.warn(`[national-sites] ${url.pathname} page ${page} → ${res.status} ${res.statusText}`);
@@ -555,7 +556,7 @@ export async function fetchSitesByIds(siteIds: string[]): Promise<SiteMetadataLo
     try {
       // Station metadata changes on the order of years. The same 24 hours
       // fetchRegionSites uses, for the same reason.
-      const res = await fetch(url, { next: { revalidate: 86400 }, headers: modernHeaders() });
+      const res = await trackedFetch('usgs', 'national-sites', url, { next: { revalidate: 86400 }, headers: modernHeaders() });
       if (!res.ok) {
         unreached.push(...batch);
         continue;
@@ -633,7 +634,7 @@ export async function fetchSiteRecordEnds(siteIds: string[]): Promise<SiteRecord
       // One hour. Unlike station metadata this moves continuously on a live
       // station, and the check reading it runs daily — a day-old answer would
       // put the freshness question a day behind the thing it is asking about.
-      const res = await fetch(url, { next: { revalidate: 3600 }, headers: modernHeaders() });
+      const res = await trackedFetch('usgs', 'national-sites', url, { next: { revalidate: 3600 }, headers: modernHeaders() });
       if (!res.ok) {
         unreached.push(...batch);
         continue;

@@ -1,3 +1,4 @@
+import { trackedFetch } from '@/lib/telemetry/upstream';
 // src/lib/nws/forecast.ts
 //
 // Official NWS forecast hydrographs via the National Water Prediction Service
@@ -94,7 +95,7 @@ function foldByUnit(
  */
 export async function fetchNwsForecast(lid: string): Promise<NwsForecast> {
   try {
-    const res = await fetch(`${NWPS_BASE}/${encodeURIComponent(lid)}/stageflow`, {
+    const res = await trackedFetch('nws', 'forecast', `${NWPS_BASE}/${encodeURIComponent(lid)}/stageflow`, {
       signal: AbortSignal.timeout(6_000),
       headers: { Accept: 'application/json' },
       next: { revalidate: 900 },

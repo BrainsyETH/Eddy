@@ -1,3 +1,5 @@
+import { trackedMcp } from '@/lib/telemetry/upstream';
+import { rateLimit, getClientIp } from '@/lib/rate-limit';
 import { estimateRoute } from '@/lib/calculations/route-estimate';
 // MCP Server for eddy.guide
 // Exposes river data, conditions, access points, hazards, and float planning as MCP tools.
@@ -30,6 +32,7 @@ function createMcpServer() {
     'List all active float rivers in Missouri with basic info',
     {},
     async () => {
+      return trackedMcp('list_rivers', async () => {
       const supabase = await createClient();
       const { data: rivers, error } = await supabase
         .from('rivers')
@@ -52,6 +55,8 @@ function createMcpServer() {
       }));
 
       return { content: [{ type: 'text', text: JSON.stringify(formatted, null, 2) }] };
+
+      });
     }
   );
 
@@ -61,6 +66,7 @@ function createMcpServer() {
     'Get details for a specific river by slug',
     { slug: z.string().describe('River URL slug (e.g., "current-river", "jacks-fork")') },
     async ({ slug }) => {
+      return trackedMcp('get_river', async () => {
       const supabase = await createClient();
       const { data: river, error } = await supabase
         .from('rivers')
@@ -89,6 +95,8 @@ function createMcpServer() {
           }, null, 2),
         }],
       };
+
+      });
     }
   );
 
@@ -98,6 +106,7 @@ function createMcpServer() {
     'Get current water conditions for a river (level, flow, floatability)',
     { slug: z.string().describe('River URL slug') },
     async ({ slug }) => {
+      return trackedMcp('get_conditions', async () => {
       const supabase = await createClient();
       const { data: river } = await supabase
         .from('rivers')
@@ -168,6 +177,8 @@ function createMcpServer() {
           }, null, 2),
         }],
       };
+
+      });
     }
   );
 
@@ -177,6 +188,7 @@ function createMcpServer() {
     'Get all access points (put-in/take-out locations) for a river',
     { slug: z.string().describe('River URL slug') },
     async ({ slug }) => {
+      return trackedMcp('get_access_points', async () => {
       const supabase = await createClient();
       const { data: river } = await supabase
         .from('rivers')
@@ -218,6 +230,8 @@ function createMcpServer() {
       });
 
       return { content: [{ type: 'text', text: JSON.stringify(formatted, null, 2) }] };
+
+      });
     }
   );
 
@@ -227,6 +241,7 @@ function createMcpServer() {
     'Get active hazards (dams, rapids, strainers) for a river',
     { slug: z.string().describe('River URL slug') },
     async ({ slug }) => {
+      return trackedMcp('get_hazards', async () => {
       const supabase = await createClient();
       const { data: river } = await supabase
         .from('rivers')
@@ -265,6 +280,8 @@ function createMcpServer() {
       }));
 
       return { content: [{ type: 'text', text: JSON.stringify(formatted, null, 2) }] };
+
+      });
     }
   );
 
@@ -278,6 +295,7 @@ function createMcpServer() {
       endAccessPointId: z.string().uuid().describe('Take-out access point UUID'),
     },
     async ({ riverId, startAccessPointId, endAccessPointId }) => {
+      return trackedMcp('plan_float', async () => {
       const supabase = await createClient();
 
       const estimate = await estimateRoute(supabase, { riverId, startId: startAccessPointId, endId: endAccessPointId });
@@ -318,6 +336,8 @@ function createMcpServer() {
           }, null, 2),
         }],
       };
+
+      });
     }
   );
 
@@ -327,6 +347,7 @@ function createMcpServer() {
     'List all USGS gauge stations with their latest water level readings',
     {},
     async () => {
+      return trackedMcp('get_gauges', async () => {
       const supabase = await createClient();
 
       const { data: gauges } = await supabase
@@ -378,6 +399,8 @@ function createMcpServer() {
       );
 
       return { content: [{ type: 'text', text: JSON.stringify(results, null, 2) }] };
+
+      });
     }
   );
 
@@ -387,6 +410,7 @@ function createMcpServer() {
     'Get current weather conditions for a river area',
     { slug: z.string().describe('River URL slug') },
     async ({ slug }) => {
+      return trackedMcp('get_weather', async () => {
       const supabase = await createClient();
       const { data: river } = await supabase
         .from('rivers')
@@ -453,6 +477,8 @@ function createMcpServer() {
       } catch {
         return { content: [{ type: 'text', text: `Failed to fetch weather for ${river.name}.` }], isError: true };
       }
+
+      });
     }
   );
 
@@ -460,6 +486,8 @@ function createMcpServer() {
 }
 
 async function handleMcpRequest(req: Request): Promise<Response> {
+  const limited = await rateLimit(`mcp:${getClientIp(req)}`, 120, 60_000, { failClosed: true });
+  if (limited) return limited;
   const transport = new WebStandardStreamableHTTPServerTransport({
     sessionIdGenerator: undefined, // Stateless mode
     enableJsonResponse: true,

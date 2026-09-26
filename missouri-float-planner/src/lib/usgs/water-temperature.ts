@@ -1,3 +1,4 @@
+import { trackedFetch } from '@/lib/telemetry/upstream';
 // src/lib/usgs/water-temperature.ts
 // Targeted lookup of a station's latest water temperature — USGS parameter
 // 00010 (temperature, water, °C), converted to °F for display.
@@ -78,7 +79,7 @@ export async function fetchWaterTemperature(siteId: string): Promise<WaterTemper
     url.searchParams.set('parameter_code', PARAM_WATER_TEMP_C);
     url.searchParams.set('limit', '10');
 
-    const response = await fetch(url.toString(), {
+    const response = await trackedFetch('usgs', 'water-temperature', url.toString(), {
       headers: modernHeaders(),
       next: { revalidate: 3600 },
     });

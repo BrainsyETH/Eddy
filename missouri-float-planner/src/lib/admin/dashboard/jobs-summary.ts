@@ -1,3 +1,4 @@
+import { jobIdentity } from './jobs-model';
 import config from '../../../../vercel.json';
 import { createAdminClient } from '@/lib/supabase/admin';
 import type { Metric } from './model';
@@ -13,7 +14,7 @@ export function scheduleHours(schedule:string):number {
 }
 export function scheduledJobs(){
  const jobs=new Map<string,number>();
- for(const cron of config.crons){const url=new URL(cron.path,'https://eddy.guide');const name=url.pathname.split('/').pop()!+(url.searchParams.get('source')?`:${url.searchParams.get('source')}`:'');jobs.set(name,Math.max(jobs.get(name)??0,scheduleHours(cron.schedule)));}
+ for(const cron of config.crons){const url=new URL(cron.path,'https://eddy.guide');const name=jobIdentity(url.pathname.split('/').pop()!,url);jobs.set(name,Math.max(jobs.get(name)??0,scheduleHours(cron.schedule)));}
  return jobs;
 }
 export function summarizeRuns(runs:Run[],now=Date.now()):Metric[]{

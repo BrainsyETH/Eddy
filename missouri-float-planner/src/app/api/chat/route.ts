@@ -1,3 +1,4 @@
+import { trackedAnthropic } from '@/lib/telemetry/upstream';
 // src/app/api/chat/route.ts
 // POST /api/chat — Streaming chat endpoint for Eddy.
 // Accepts messages + optional river context, streams SSE responses with tool calling.
@@ -94,7 +95,7 @@ async function _POST(request: Request) {
         let continueLoop = true;
         while (continueLoop && iterations < MAX_TOOL_ITERATIONS) {
           iterations++;
-          const response = await client.messages.create({
+          const response = await trackedAnthropic('chat', process.env.CHAT_MODEL || 'claude-sonnet-4-6', () => client.messages.create({
             model: process.env.CHAT_MODEL || 'claude-sonnet-4-6',
             max_tokens: 2048,
             system: [
@@ -110,7 +111,7 @@ async function _POST(request: Request) {
             ],
             tools: EDDY_TOOLS,
             messages: anthropicMessages,
-          });
+          }));
 
           // Track token usage
           inputTokens += response.usage?.input_tokens || 0;

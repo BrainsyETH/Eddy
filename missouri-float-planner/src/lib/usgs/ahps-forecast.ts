@@ -1,3 +1,4 @@
+import { trackedFetch } from '@/lib/telemetry/upstream';
 // src/lib/usgs/ahps-forecast.ts
 // NWS AHPS forecast hydrographs, by NWS location id (LID).
 //
@@ -58,7 +59,7 @@ export function parseForecastDatums(xml: string): AhpsForecastDatum[] {
  */
 export async function fetchAhpsForecast(lid: string): Promise<AhpsForecastDatum[]> {
   try {
-    const res = await fetch(ahpsUrl(lid), {
+    const res = await trackedFetch('nws', 'ahps-forecast', ahpsUrl(lid), {
       signal: AbortSignal.timeout(10_000),
       next: { revalidate: 3600 },
     });

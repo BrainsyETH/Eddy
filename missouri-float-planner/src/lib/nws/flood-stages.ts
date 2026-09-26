@@ -1,3 +1,4 @@
+import { trackedFetch } from '@/lib/telemetry/upstream';
 // src/lib/nws/flood-stages.ts
 //
 // Official NWS flood/action stages via the National Water Prediction Service (NWPS).
@@ -37,7 +38,7 @@ function toStage(v: unknown): number | null {
 export async function fetchNwpsFloodStages(lid: string): Promise<NwpsFloodStages | null> {
   const url = `${NWPS_BASE}/${encodeURIComponent(lid)}`;
   try {
-    const res = await fetch(url, {
+    const res = await trackedFetch('nws', 'flood-stages', url, {
       signal: AbortSignal.timeout(10_000),
       headers: { Accept: 'application/json' },
       next: { revalidate: 86400 }, // stages change rarely; cache a day
@@ -86,7 +87,7 @@ export async function fetchNwpsLidMap(): Promise<Record<string, string>> {
   const url = `${NWPS_BASE}?${params.toString()}`;
   const map: Record<string, string> = {};
   try {
-    const res = await fetch(url, { signal: AbortSignal.timeout(10_000), headers: { Accept: 'application/json' } });
+    const res = await trackedFetch('nws', 'flood-stages', url, { signal: AbortSignal.timeout(10_000), headers: { Accept: 'application/json' } });
     if (!res.ok) {
       console.warn(`[NWPS] gauge list: HTTP ${res.status}`);
       return map;

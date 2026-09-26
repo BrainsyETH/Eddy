@@ -1,3 +1,4 @@
+import { trackedFetch } from '@/lib/telemetry/upstream';
 // src/lib/flow-providers/usgs-historical.ts
 // Fetches the USGS gauge reading closest to a specific point in time — used to
 // backfill a River Visual photo's gauge height / discharge from when the photo
@@ -71,7 +72,7 @@ interface OgcFeatureCollection {
 
 async function fetchOgcFeatures(url: URL): Promise<OgcFeature[] | null> {
   // Historical values never change; cache aggressively.
-  const res = await fetch(url.toString(), {
+  const res = await trackedFetch('usgs', 'usgs-historical', url.toString(), {
     next: { revalidate: 86400 },
     headers: modernHeaders(),
   });

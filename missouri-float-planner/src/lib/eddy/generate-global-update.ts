@@ -1,3 +1,4 @@
+import { trackedAnthropic } from '@/lib/telemetry/upstream';
 // src/lib/eddy/generate-global-update.ts
 // Generates a global "overall Ozarks" Eddy quote by summarizing per-river updates.
 // Called by the cron job after per-river updates are generated.
@@ -157,7 +158,7 @@ export async function generateGlobalUpdate(
   const client = new Anthropic({ apiKey: anthropicKey });
 
   try {
-    const message = await client.messages.create({
+    const message = await trackedAnthropic('global_summary', model.id, () => client.messages.create({
       model: model.id,
       max_tokens: model.maxTokens,
       // The tightest budget of the four workloads, and so the one where an
@@ -166,7 +167,7 @@ export async function generateGlobalUpdate(
       ...(model.thinking ? { thinking: model.thinking } : {}),
       messages: [{ role: 'user', content: prompt }],
       system: GLOBAL_SYSTEM_PROMPT,
-    });
+    }));
 
     const textBlock = message.content.find((block) => block.type === 'text');
     const quoteText = textBlock?.text?.trim().replace(/\u2014/g, ',') || null;
