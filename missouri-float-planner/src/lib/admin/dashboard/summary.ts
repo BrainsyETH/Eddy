@@ -137,7 +137,7 @@ export const getDashboardSummary = unstable_cache(
     };
   },
   [
-    'admin-dashboard-v3',
+    'admin-dashboard-v4',
     process.env.VERCEL_ENV ?? 'development',
     process.env.VERCEL_GIT_COMMIT_SHA ?? 'local',
   ],

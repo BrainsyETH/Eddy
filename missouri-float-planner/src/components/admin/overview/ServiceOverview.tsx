@@ -2,6 +2,7 @@
 import { useState } from 'react';
 import type { ServiceInfo } from '@/lib/admin/dashboard/overview-model';
 import type { Metric } from '@/lib/admin/dashboard/model';
+import { useInspectMetric } from './MetricDetails';
 import styles from './overview.module.css';
 
 function values(metric?: Metric): Record<string, unknown> {
@@ -21,6 +22,7 @@ export default function ServiceOverview({
   services: ServiceInfo[];
   metrics: Metric[];
 }) {
+  const inspect = useInspectMetric();
   const [selected, setSelected] = useState('usgs');
   const service = services.find((s) => s.id === selected) ?? services[0];
   const metric = metrics.find((m) => m.key === `upstream_${service?.provider}`);
@@ -36,9 +38,15 @@ export default function ServiceOverview({
     }
     if (s.id === 'sentry') {
       const issues = metrics.filter((m) => m.key.startsWith('sentry_'));
+      if (
+        metrics.some((m) => m.key === 'sentry' && m.state === 'not_connected')
+      )
+        return 'Issue-read access not configured';
+      if (issues.some((m) => m.state === 'unknown'))
+        return 'Issue summary read failed';
       return issues.length && issues.every((m) => m.state === 'ok')
         ? `${issues.reduce((n, m) => n + Number(m.value), 0)} active issues (bounded)`
-        : 'Issue summary not connected or unavailable';
+        : 'Issue summary not measured';
     }
     if (s.id === 'supabase')
       return metrics.some((m) => m.key === 'subscribers' && m.state === 'ok')
@@ -73,7 +81,7 @@ export default function ServiceOverview({
           >
             <span className={styles.serviceName}>
               {s.name}
-              <span aria-hidden="true">↗</span>
+              <span aria-hidden="true">↓</span>
             </span>
             <span>{s.purpose}</span>
             <strong>{s.configuration}</strong>
@@ -87,7 +95,12 @@ export default function ServiceOverview({
             <h3>
               {service.name} · {service.purpose}
             </h3>
-            <a href={service.href}>Inspect →</a>
+            <button
+              className={styles.textButton}
+              onClick={() => inspect({ key: `service:${service.id}` })}
+            >
+              Usage, meaning & next steps →
+            </button>
           </div>
           <p>{service.detail}</p>
           {service.provider && (

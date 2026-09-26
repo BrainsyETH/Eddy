@@ -711,3 +711,293 @@
 .diagnostics > div a {
   color: #8bcab5;
 }
+/* One consistent exploration affordance for overview numbers and diagnostics. */
+.kpi {
+  text-align: left;
+  color: var(--ink);
+  cursor: pointer;
+}
+.kpi:hover,
+.riverButton:hover {
+  border-color: var(--teal);
+  background: #f0f6ef;
+}
+.kpiLabel,
+.kpiDetail,
+.exploreLabel {
+  display: block;
+}
+.kpiLabel {
+  font-size: 13px;
+  color: var(--muted);
+}
+.kpiDetail {
+  font-size: 12px;
+  color: var(--muted);
+}
+.exploreLabel {
+  font-size: 11px;
+  color: var(--teal);
+  font-weight: 600;
+  margin-top: 12px;
+}
+.healthButton {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+  text-align: left;
+  font-size: 13px !important;
+  font-weight: 650 !important;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.inbox {
+  background: transparent;
+  border: 0;
+  color: var(--ink);
+  width: 100%;
+  text-align: left;
+}
+.riverButton {
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  padding: 6px;
+  color: var(--ink);
+}
+.riverLabel {
+  display: flex;
+  justify-content: space-between;
+  gap: 14px;
+  font-size: 12px;
+  margin-bottom: 6px;
+}
+.barTrack {
+  display: block;
+}
+.opportunities button {
+  display: flex;
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  color: var(--teal);
+  border: 0;
+  gap: 14px;
+  align-items: center;
+  padding: 17px 0;
+  border-bottom: 1px solid var(--line);
+}
+.opportunities button:hover {
+  background: #f0f6ef;
+}
+.metricDialog {
+  color: var(--ink);
+  background: #fff;
+  width: min(960px, calc(100vw - 28px));
+  max-height: 90dvh;
+  border: 1px solid var(--line);
+  border-radius: 15px;
+  padding: 0;
+  margin: auto;
+  box-shadow: 0 20px 80px #102d3440;
+  overflow: auto;
+}
+.metricDialog::backdrop {
+  background: #102d34aa;
+}
+.dialogHeader {
+  display: flex;
+  align-items: flex-start;
+  gap: 20px;
+  justify-content: space-between;
+  padding: 22px 26px;
+  background: #f1f5ef;
+  border-bottom: 1px solid var(--line);
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+.dialogHeader h2 {
+  font-size: 22px;
+}
+.dialogHeader button {
+  flex-shrink: 0;
+  width: 44px;
+  height: 44px;
+  background: #fff;
+  color: var(--ink);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+.dialogBody {
+  padding: 25px;
+  display: grid;
+  gap: 20px;
+}
+.meaning {
+  background: #f1f5ef;
+  border-radius: 10px;
+  padding: 16px;
+  line-height: 1.7;
+  font-size: 13px;
+}
+.meaning p + p {
+  margin-top: 10px;
+}
+.filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.filters label {
+  display: grid;
+  gap: 5px;
+  color: var(--muted);
+  font-size: 12px;
+  flex: 1;
+  min-width: 150px;
+}
+.filters select {
+  border: 1px solid var(--line);
+  background: #fff;
+  border-radius: 7px;
+  padding: 9px;
+  color: var(--ink);
+  width: 100%;
+}
+.trafficTotals {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+.trafficTotals > button,
+.trafficTotals > div {
+  display: grid;
+  gap: 4px;
+  text-align: left;
+  color: var(--ink);
+  background: #f5f7f2;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  padding: 14px;
+}
+.trafficTotals > button[aria-pressed='true'] {
+  border-color: var(--teal);
+  box-shadow: 0 0 0 1px var(--teal);
+}
+.trafficTotals strong {
+  font-size: 26px;
+}
+.trafficTotals span {
+  font-size: 11px;
+}
+.dailyBars {
+  display: flex;
+  gap: 4px;
+  height: 160px;
+  padding-bottom: 30px;
+  align-items: end;
+  border-bottom: 1px solid var(--line);
+}
+.dailyBars > div {
+  position: relative;
+  height: 100%;
+  flex: 1;
+  display: flex;
+  align-items: end;
+  min-width: 0;
+}
+.dailyBars > div > span {
+  display: block;
+  width: 100%;
+  background: var(--teal);
+  border-radius: 3px 3px 0 0;
+}
+.dailyBars small {
+  position: absolute;
+  top: calc(100% + 7px);
+  width: 100%;
+  text-align: center;
+  white-space: nowrap;
+  font-size: 9px;
+}
+.breakdownColumns {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 20px;
+}
+.breakdownColumns section {
+  min-width: 0;
+}
+.detailTable {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+  margin-top: 10px;
+}
+.detailTable th,
+.detailTable td {
+  text-align: left;
+  padding: 9px 5px;
+  border-bottom: 1px solid var(--line);
+  overflow-wrap: anywhere;
+}
+.detailTable td:last-child {
+  font-variant-numeric: tabular-nums;
+}
+.detailTable button {
+  padding: 0;
+  text-align: left;
+  overflow-wrap: anywhere;
+}
+.detailMetric {
+  border-bottom: 1px solid var(--line);
+  padding-bottom: 18px;
+}
+.detailMetric p {
+  margin: 10px 0;
+  font-size: 13px;
+}
+.detailNumber {
+  font-size: 30px;
+  display: block;
+  margin-top: 6px;
+}
+.valueList {
+  margin: 12px 0;
+  font-size: 13px;
+}
+.valueList > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 15px;
+  padding: 7px 0;
+  border-bottom: 1px solid var(--line);
+}
+.valueList dd {
+  margin: 0;
+}
+@media (max-width: 600px) {
+  .dialogHeader,
+  .dialogBody {
+    padding: 17px;
+  }
+  .dialogHeader h2 {
+    font-size: 19px;
+  }
+  .breakdownColumns {
+    grid-template-columns: 1fr;
+  }
+  .trafficTotals {
+    grid-template-columns: 1fr;
+  }
+  .dailyBars {
+    gap: 2px;
+  }
+  .dailyBars small {
+    font-size: 7px;
+  }
+}

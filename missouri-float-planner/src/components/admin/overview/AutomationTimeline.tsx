@@ -5,6 +5,7 @@ import type {
   TimelineRun,
 } from '@/lib/admin/dashboard/overview-model';
 import { needsAttention, type Metric } from '@/lib/admin/dashboard/model';
+import { relativeRun } from './JobStatusTable';
 import styles from './overview.module.css';
 
 export const timeLabel = (at: string | null) =>
@@ -149,7 +150,9 @@ export default function AutomationTimeline({
                   </span>
                   <span className={styles.lastRun}>
                     {statusLabel(job.lastStatus)}
-                    <small>{timeLabel(job.lastAt)}</small>
+                    <small title={timeLabel(job.lastAt)}>
+                      {relativeRun(job.lastAt)}
+                    </small>
                   </span>
                 </button>
               ))}

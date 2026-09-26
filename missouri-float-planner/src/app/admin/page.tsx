@@ -1,6 +1,8 @@
 'use client';
 import { useCallback, useEffect, useState } from 'react';
 import AdminLayout from '@/components/admin/AdminLayout';
+import { useInspectMetric } from '@/components/admin/overview/MetricDetails';
+import JobStatusTable from '@/components/admin/overview/JobStatusTable';
 import OverviewDashboard from '@/components/admin/overview/OverviewDashboard';
 import DashboardLinks from '@/components/admin/DashboardLinks';
 import { adminFetch } from '@/hooks/useAdminAuth';
@@ -66,6 +68,7 @@ function Value({ metric }: { metric: Metric }) {
   );
 }
 function Card({ metric }: { metric: Metric }) {
+  const inspect = useInspectMetric();
   return (
     <article className="rounded-xl border border-neutral-700 bg-neutral-800 p-4">
       <h3 className="mb-3 text-sm font-medium text-neutral-300">
@@ -74,19 +77,12 @@ function Card({ metric }: { metric: Metric }) {
       <div className="text-2xl font-semibold text-white">
         <Value metric={metric} />
       </div>
-      {metric.detail && (
-        <p className="mt-3 text-xs leading-relaxed text-neutral-400">
-          {metric.detail}
-        </p>
-      )}
-      {metric.href && (
-        <a
-          href={metric.href}
-          className="mt-3 inline-block text-sm text-primary-400 hover:underline"
-        >
-          Review →
-        </a>
-      )}
+      <button
+        className="mt-3 text-sm text-primary-400 hover:underline"
+        onClick={() => inspect({ key: metric.key })}
+      >
+        What this means & details →
+      </button>
     </article>
   );
 }
@@ -139,13 +135,20 @@ function Overview() {
             <summary className="mb-4 cursor-pointer text-lg font-semibold text-white">
               {section}
             </summary>
-            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-              {metrics
-                .filter((m) => m.section === section)
-                .map((m) => (
-                  <Card key={m.key} metric={m} />
-                ))}
-            </div>
+            {section === 'Scheduled jobs' ? (
+              <JobStatusTable
+                timeline={summary?.overview?.timeline}
+                metrics={metrics}
+              />
+            ) : (
+              <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                {metrics
+                  .filter((m) => m.section === section)
+                  .map((m) => (
+                    <Card key={m.key} metric={m} />
+                  ))}
+              </div>
+            )}
           </details>
         ))}
       </div>

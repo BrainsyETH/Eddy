@@ -1,4 +1,5 @@
 import 'server-only';
+import { widgetHistory } from './widgets';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { scheduledJobs, type JobSnapshot } from './jobs-summary';
 import { nextScheduledAt } from './job-schedule';
@@ -271,10 +272,11 @@ export async function overviewData(): Promise<OverviewData> {
       };
     }
   })();
-  const [accounts, plans, timeline] = await Promise.all([
+  const [accounts, plans, timeline, widgets] = await Promise.all([
     growth('profiles', end),
     growth('float_plans', end),
     timelinePromise,
+    widgetHistory(now),
   ]);
-  return { accounts, plans, timeline, services: serviceRegistry() };
+  return { accounts, plans, timeline, widgets, services: serviceRegistry() };
 }
