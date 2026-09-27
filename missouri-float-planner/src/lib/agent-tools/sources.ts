@@ -26,12 +26,20 @@ export const sourceProviders = {
   fetchForecast,
 };
 export type SourceProviders = typeof sourceProviders;
-export function createSources(ctx: DataContext, providers = sourceProviders) {
+export function createSources(
+  ctx: DataContext,
+  providers = sourceProviders,
+  signal?: AbortSignal,
+) {
   // One request/candidate search shares upstream responses, including failures.
-  const nws = memoizeAsync((state: string) => providers.fetchNWSAlerts(state, { strict: true }));
-  const nps = memoizeAsync((park: string) => providers.fetchNPSAlerts(park, { strict: true }));
+  const nws = memoizeAsync((state: string) =>
+    providers.fetchNWSAlerts(state, { strict: true, signal }),
+  );
+  const nps = memoizeAsync((park: string) =>
+    providers.fetchNPSAlerts(park, { strict: true, signal }),
+  );
   const forecasts = memoizeAsync((lid: string) =>
-    providers.fetchNwsForecast(lid, { strict: true }),
+    providers.fetchNwsForecast(lid, { strict: true, signal }),
   );
   const weatherAt = memoizeAsync(async (key: string) => {
     const [lat, lon] = key.split(',').map(Number);
@@ -85,7 +93,11 @@ export function createSources(ctx: DataContext, providers = sourceProviders) {
         ...point,
         basis: ap ? 'put_in' : 'river_weather_reference',
       },
-      units: { temperature: 'F', wind: 'mph', precipitationProbability: 'percent' },
+      units: {
+        temperature: 'F',
+        wind: 'mph',
+        precipitationProbability: 'percent',
+      },
       note: 'Retrieval time is not a provider observation or forecast issue time. Weather does not predict river flow.',
     };
   }
@@ -122,8 +134,16 @@ export function createSources(ctx: DataContext, providers = sourceProviders) {
             ],
             new Map([[river.state, await nws(river.state)]]),
           );
-          alerts.push(...matched.filter((a) => !a.endsAt || Date.parse(a.endsAt) > ctx.now));
-          sourceStates.push({ source: 'NWS', status: 'ok', url: 'https://www.weather.gov/' });
+          alerts.push(
+            ...matched.filter(
+              (a) => !a.endsAt || Date.parse(a.endsAt) > ctx.now,
+            ),
+          );
+          sourceStates.push({
+            source: 'NWS',
+            status: 'ok',
+            url: 'https://www.weather.gov/',
+          });
         } catch {
           sourceStates.push({
             source: 'NWS',
@@ -167,7 +187,10 @@ export function createSources(ctx: DataContext, providers = sourceProviders) {
             status: rows.length >= 50 ? 'partial' : 'ok',
             url,
             ...(rows.length >= 50
-              ? { reason: 'The source page may be truncated; check the park’s official notices.' }
+              ? {
+                  reason:
+                    'The source page may be truncated; check the park’s official notices.',
+                }
               : {}),
           });
         } catch {
@@ -202,15 +225,23 @@ export function createSources(ctx: DataContext, providers = sourceProviders) {
       note: 'These feeds do not cover every managing agency or closure. An empty result is not an all-clear.',
     };
   }
-  async function outlook(river: River, link: GaugeLink | null, requestedDate?: string) {
+  async function outlook(
+    river: River,
+    link: GaugeLink | null,
+    requestedDate?: string,
+  ) {
     const gauge = link && station(link);
     const today = localDate(ctx.now, river.timezone || 'America/Chicago');
     const dates = Array.from({ length: 3 }, (_, i) =>
-      new Date(Date.parse(`${today}T12:00:00Z`) + i * 86400000).toISOString().slice(0, 10),
+      new Date(Date.parse(`${today}T12:00:00Z`) + i * 86400000)
+        .toISOString()
+        .slice(0, 10),
     );
     const base = {
       source: 'https://water.noaa.gov/',
-      gauge: gauge ? { id: gauge.id, name: gauge.name, usgsSiteId: gauge.usgs_site_id } : null,
+      gauge: gauge
+        ? { id: gauge.id, name: gauge.name, usgsSiteId: gauge.usgs_site_id }
+        : null,
       requestedDate: requestedDate ?? null,
       supportedDates: dates,
       aggregation: 'maximum forecast stage in each local calendar day',
@@ -250,7 +281,9 @@ export function createSources(ctx: DataContext, providers = sourceProviders) {
         levelDangerous: numeric(values[`${prefix}level_dangerous`]),
       };
       const stages = forecast.points.flatMap((p) =>
-        p.gaugeHeightFt == null ? [] : [{ dateTime: p.timestamp, valueFt: p.gaugeHeightFt }],
+        p.gaugeHeightFt == null
+          ? []
+          : [{ dateTime: p.timestamp, valueFt: p.gaugeHeightFt }],
       );
       const days = groupForecastByDay(
         stages,
@@ -261,14 +294,21 @@ export function createSources(ctx: DataContext, providers = sourceProviders) {
         ...day,
         conditionCode:
           age.stale === false && day.conditionCode
-            ? applyFloodStageOverride(day.conditionCode, day.valueFt, numeric(link.flood_stage_ft))
+            ? applyFloodStageOverride(
+                day.conditionCode,
+                day.valueFt,
+                numeric(link.flood_stage_ft),
+              )
             : null,
       }));
-      const relevant = requestedDate ? days.filter((d) => d.date === requestedDate) : days;
+      const relevant = requestedDate
+        ? days.filter((d) => d.date === requestedDate)
+        : days;
       return {
         ...base,
         source: `https://water.noaa.gov/gauges/${encodeURIComponent(gauge.nws_lid)}`,
-        status: (relevant.length && relevant.every((d) => d.conditionCode != null)
+        status: (relevant.length &&
+        relevant.every((d) => d.conditionCode != null)
           ? 'ok'
           : relevant.some((d) => d.conditionCode != null)
             ? 'partial'

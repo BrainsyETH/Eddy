@@ -35,7 +35,11 @@ const outlook = z
   .object({
     status: statusSchema,
     days: z.array(
-      z.object({ date: z.string(), valueFt: nullableNumber, conditionCode: z.string().nullable() }),
+      z.object({
+        date: z.string(),
+        valueFt: nullableNumber,
+        conditionCode: z.string().nullable(),
+      }),
     ),
     issuedAt: timestamp,
   })
@@ -85,10 +89,15 @@ const plan = z
       conditionCode: z.string(),
       label: z.string(),
       spanCheckComplete: z.boolean(),
-      recommendationStatus: z.enum(['candidate', 'conditional', 'not_recommended']),
+      recommendationStatus: z.enum([
+        'candidate',
+        'conditional',
+        'not_recommended',
+      ]),
       contributingGauges: z.array(record),
       blockingReasons: z.array(recommendationReason),
       cautionReasons: z.array(recommendationReason),
+      notices: z.array(recommendationReason),
     }),
     hazards: component,
     alerts: component,
@@ -97,6 +106,30 @@ const plan = z
     outfitters: component,
   })
   .passthrough();
+
+const searchPlan = plan
+  .pick({
+    url: true,
+    requestedDate: true,
+    timeZone: true,
+    vesselType: true,
+    putIn: true,
+    takeOut: true,
+    distanceMiles: true,
+    estimateBasis: true,
+    estimatedFloatTime: true,
+    floatTimeWithheldReason: true,
+    anchorGauge: true,
+  })
+  .extend({
+    routeAssessment: plan.shape.routeAssessment.omit({
+      contributingGauges: true,
+    }),
+    outlooks: z.array(outlook),
+    warnings: z.array(z.string()),
+    detailRequired: z.boolean(),
+    details: z.string(),
+  });
 
 /** Describe stable useful fields, while allowing additive component detail.
  * Errors have their own shape so an unavailable source never needs invented
@@ -120,13 +153,22 @@ const dataSchemas: Record<string, z.ZodTypeAny> = {
     })
     .passthrough(),
   get_river: z
-    .object({ id: z.string(), name: z.string(), slug: z.string(), url: z.string() })
+    .object({
+      id: z.string(),
+      name: z.string(),
+      slug: z.string(),
+      url: z.string(),
+    })
     .passthrough(),
   get_conditions: z
     .object({ river: z.string(), gauge: gauge.nullable(), url: z.string() })
     .passthrough(),
   get_access_points: z
-    .object({ river: z.string(), accessPoints: z.array(access), url: z.string() })
+    .object({
+      river: z.string(),
+      accessPoints: z.array(access),
+      url: z.string(),
+    })
     .passthrough(),
   get_hazards: z
     .object({
@@ -137,7 +179,11 @@ const dataSchemas: Record<string, z.ZodTypeAny> = {
     })
     .passthrough(),
   get_gauges: z
-    .object({ gauges: z.array(gauge), nextOffset: nullableNumber, totalRatings: z.number() })
+    .object({
+      gauges: z.array(gauge),
+      nextOffset: nullableNumber,
+      totalRatings: z.number(),
+    })
     .passthrough(),
   get_weather: z
     .object({
@@ -171,16 +217,31 @@ const dataSchemas: Record<string, z.ZodTypeAny> = {
   find_floats: z
     .object({
       recommendations: z.array(
-        z.object({ ...resultShape, data: plan, reasons: z.array(z.string()) }),
+        z.object({
+          status: statusSchema,
+          data: searchPlan,
+          reasons: z.array(z.string()),
+        }),
       ),
       evaluated: z.number().optional(),
       maxEstimates: z.number().optional(),
       failedCandidates: z.number().optional(),
       excludedCandidates: z.number().optional(),
       exclusionReasons: z
-        .array(z.object({ code: z.string(), message: z.string(), count: z.number() }))
+        .array(
+          z.object({
+            code: z.string(),
+            message: z.string(),
+            count: z.number(),
+          }),
+        )
         .optional(),
-      alertChecks: component.optional(),
+      alertChecks: component.nullable().optional(),
+      screening: record.nullable().optional(),
+      deadlineReached: z.boolean(),
+      timedOutCandidates: z.number(),
+      notEvaluatedCandidates: z.number(),
+      attempted: z.number(),
       reason: z.string().nullable(),
     })
     .passthrough(),

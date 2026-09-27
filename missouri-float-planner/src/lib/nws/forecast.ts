@@ -93,10 +93,10 @@ function foldByUnit(
  * should cost the forecast overlay rather than the whole chart. The CDN headers
  * on the calling route are what keep this off the hot path in the normal case.
  */
-export async function fetchNwsForecast(lid: string, options: { strict?: boolean } = {}): Promise<NwsForecast> {
+export async function fetchNwsForecast(lid: string, options: { strict?: boolean; signal?: AbortSignal } = {}): Promise<NwsForecast> {
   try {
     const res = await trackedFetch('nws', 'forecast', `${NWPS_BASE}/${encodeURIComponent(lid)}/stageflow`, {
-      signal: AbortSignal.timeout(6_000),
+      signal: options.signal ? AbortSignal.any([options.signal, AbortSignal.timeout(6_000)]) : AbortSignal.timeout(6_000),
       headers: { Accept: 'application/json' },
       next: { revalidate: 900 },
     });

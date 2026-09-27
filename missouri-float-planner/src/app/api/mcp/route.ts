@@ -5,7 +5,11 @@ import { trackedMcp } from '@/lib/telemetry/upstream';
 import { logger } from '@/lib/logger';
 import { createAgentExecutor } from '@/lib/agent-tools/executor';
 import { createAgentServer } from '@/lib/agent-tools/mcp-server';
-import { readMcpBody, validOrigin } from '@/lib/agent-tools/http';
+import {
+  readMcpBody,
+  validOrigin,
+  clientFamilyHint,
+} from '@/lib/agent-tools/http';
 
 import { createMcpLimiter } from '@/lib/agent-tools/limits';
 
@@ -14,7 +18,8 @@ export const maxDuration = 60;
 
 // MCP stays free. No x402 wrapper; REST billing is a separate interface.
 async function handleMcpRequest(req: Request): Promise<Response> {
-  if (!validOrigin(req)) return Response.json({ error: 'Origin not allowed' }, { status: 403 });
+  if (!validOrigin(req))
+    return Response.json({ error: 'Origin not allowed' }, { status: 403 });
   const limiter = createMcpLimiter(getClientIp(req));
   const limited = await limiter.general();
   if (limited) return limited;
@@ -24,34 +29,52 @@ async function handleMcpRequest(req: Request): Promise<Response> {
     return new Response(null, { status: 405, headers: { Allow: 'POST' } });
   }
   let parsedBody: unknown;
-  if (req.method === 'POST') {
-    try {
-      parsedBody = await readMcpBody(req);
-    } catch (error) {
-      return Response.json(
-        {
-          jsonrpc: '2.0',
-          id: null,
-          error: { code: -32600, message: 'Expected one JSON-RPC request no larger than 32 KiB.' },
+  try {
+    parsedBody = await readMcpBody(req);
+  } catch (error) {
+    return Response.json(
+      {
+        jsonrpc: '2.0',
+        id: null,
+        error: {
+          code: -32600,
+          message: 'Expected one JSON-RPC request no larger than 32 KiB.',
         },
-        { status: error instanceof Error && error.message === 'too_large' ? 413 : 400 },
-      );
-    }
-    const costly = await limiter.tool(parsedBody);
-    if (costly) return costly;
+      },
+      {
+        status:
+          error instanceof Error && error.message === 'too_large' ? 413 : 400,
+      },
+    );
   }
+  const costly = await limiter.tool(parsedBody);
+  if (costly) return costly;
 
   const transport = new WebStandardStreamableHTTPServerTransport({
     sessionIdGenerator: undefined,
     enableJsonResponse: true,
   });
   const server = createAgentServer(
-    async (name, args) => createAgentExecutor(await createClient())(name, args),
+    async (name, args) =>
+      createAgentExecutor(await createClient(), {
+        signal: req.signal,
+        logPhase: (event) => {
+          if (process.env.MCP_USAGE_LOGGING === 'true')
+            logger.info('[MCP] phase', {
+              ...event,
+              networkBucket: limiter.networkBucket,
+            });
+        },
+      })(name, args),
     {
       track: (name, run) => trackedMcp(name, run),
       log: (event) => {
         if (process.env.MCP_USAGE_LOGGING === 'true')
-          logger.info('[MCP] tool', { ...event, networkBucket: limiter.networkBucket });
+          logger.info('[MCP] tool', {
+            ...event,
+            networkBucket: limiter.networkBucket,
+            clientFamilyHint: clientFamilyHint(req.headers.get('user-agent')),
+          });
       },
     },
   );

@@ -1,7 +1,10 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import type { RiverAlert } from '@/types/api';
-import { assessRecommendation, type RecommendationInput } from './recommendation';
+import {
+  assessRecommendation,
+  type RecommendationInput,
+} from './recommendation';
 
 const base: RecommendationInput = {
   usable: true,
@@ -17,7 +20,10 @@ const base: RecommendationInput = {
   riverName: 'Current River',
   endpointNames: ['Akers Ferry', 'Pulltite'],
 };
-const notice = (title: string, patch: Partial<RiverAlert> = {}): RiverAlert => ({
+const notice = (
+  title: string,
+  patch: Partial<RiverAlert> = {},
+): RiverAlert => ({
   id: 'notice-1',
   source: 'nps',
   category: 'Closure',
@@ -32,7 +38,10 @@ const notice = (title: string, patch: Partial<RiverAlert> = {}): RiverAlert => (
   ...patch,
 });
 const withAlert = (alert: RiverAlert) =>
-  assessRecommendation({ ...base, alerts: { ...base.alerts, alerts: [alert] } });
+  assessRecommendation({
+    ...base,
+    alerts: { ...base.alerts, alerts: [alert] },
+  });
 
 test('alert categories and county matching alone only make an option conditional', () => {
   for (const alert of [
@@ -81,7 +90,11 @@ test('lookup failures and missing matching configuration explain conditional res
   ]) {
     const result = assessRecommendation({
       ...base,
-      alerts: { ...base.alerts, checkedAllApplicable: false, sources: [source] },
+      alerts: {
+        ...base.alerts,
+        checkedAllApplicable: false,
+        sources: [source],
+      },
     });
     assert.equal(result.recommendationStatus, 'conditional');
     assert.equal(result.cautionReasons[0].code, 'alert_source_incomplete');
@@ -90,29 +103,48 @@ test('lookup failures and missing matching configuration explain conditional res
 });
 
 test('danger records use the database vocabulary and cannot disappear without a portage flag', () => {
-  const danger = { id: 'dam', name: 'Dam', severity: 'danger', portage_required: false };
+  const danger = {
+    id: 'dam',
+    name: 'Dam',
+    severity: 'danger',
+    portage_required: false,
+  };
   assert.equal(
-    assessRecommendation({ ...base, hazards: [danger] }).blockingReasons[0].code,
+    assessRecommendation({ ...base, hazards: [danger] }).blockingReasons[0]
+      .code,
     'danger_on_route',
   );
   assert.equal(
-    assessRecommendation({ ...base, unlocatedHazards: [danger] }).blockingReasons[0].code,
+    assessRecommendation({ ...base, unlocatedHazards: [danger] })
+      .blockingReasons[0].code,
     'danger_location_unknown',
   );
   const caution = { ...danger, severity: 'caution' };
   assert.equal(
-    assessRecommendation({ ...base, unlocatedHazards: [caution] }).recommendationStatus,
+    assessRecommendation({ ...base, unlocatedHazards: [caution] })
+      .recommendationStatus,
     'conditional',
   );
 });
 
-test('required portage alone is not evidence of a usable bypass', () => {
+test('required portage is a caution with recorded side and description', () => {
   const result = assessRecommendation({
     ...base,
-    hazards: [{ id: 'dam', name: 'Dam', severity: 'warning', portage_required: true }],
+    hazards: [
+      {
+        id: 'dam',
+        name: 'Dam',
+        severity: 'warning',
+        portage_required: true,
+        portage_side: 'left',
+        description: 'Carry around the obstruction.',
+      },
+    ],
   });
-  assert.equal(result.recommendationStatus, 'not_recommended');
-  assert.equal(result.blockingReasons[0].code, 'portage_unverified');
+  assert.equal(result.recommendationStatus, 'conditional');
+  assert.equal(result.cautionReasons[0].code, 'portage_required');
+  assert.match(result.cautionReasons[0].message, /left.*Carry around/);
+  assert.equal(result.blockingReasons.length, 0);
 });
 
 test('water, duration and forecast blockers remain independent of conditional source checks', () => {
@@ -137,8 +169,40 @@ test('water, duration and forecast blockers remain independent of conditional so
     assert.ok(result.cautionReasons.length);
   }
   assert.equal(
-    assessRecommendation({ ...base, future: true, forecastComplete: false }).recommendationStatus,
+    assessRecommendation({ ...base, future: true, forecastComplete: false })
+      .recommendationStatus,
     'conditional',
   );
   assert.equal(assessRecommendation(base).recommendationStatus, 'candidate');
+});
+
+test('informational park notices do not change status; warnings embedded in them still require caution', () => {
+  const info = notice('Visitor center hours', {
+    category: 'Information',
+    severity: 'notice',
+    body: 'Open weekdays.',
+  });
+  const out = withAlert(info);
+  assert.equal(out.recommendationStatus, 'candidate');
+  assert.equal(out.notices[0].sourceId, info.id);
+  const unrelated = withAlert(
+    notice('Trail closure', {
+      body: 'This closure does not affect river access.',
+    }),
+  );
+  assert.equal(unrelated.recommendationStatus, 'candidate');
+  assert.equal(unrelated.notices.length, 1);
+  assert.equal(
+    withAlert({ ...info, body: 'Flood warning remains in effect.' })
+      .recommendationStatus,
+    'conditional',
+  );
+  const danger = assessRecommendation({
+    ...base,
+    hazards: [
+      { id: 'dam', name: 'Dam', severity: 'danger', portage_required: true },
+    ],
+  });
+  assert.equal(danger.recommendationStatus, 'not_recommended');
+  assert.equal(danger.cautionReasons[0].code, 'portage_required');
 });

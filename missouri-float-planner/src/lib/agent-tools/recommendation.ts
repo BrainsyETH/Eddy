@@ -11,12 +11,19 @@ interface Hazard {
   name: string;
   severity: string | null;
   portage_required: boolean | null;
+  portage_side?: string | null;
+  description?: string | null;
 }
 
 interface AlertChecks {
   checkedAllApplicable: boolean;
   alerts: RiverAlert[];
-  sources: Array<{ source: string; status: string; reason?: string; reasonCode?: string }>;
+  sources: Array<{
+    source: string;
+    status: string;
+    reason?: string;
+    reasonCode?: string;
+  }>;
 }
 
 export interface RecommendationInput {
@@ -43,8 +50,13 @@ function escapePattern(value: string) {
  * river closure. Ambiguous, qualified or scoped prose remains conditional.
  * This intentionally recognises a small set of direct statements, not NLP.
  */
-export function closureAffectsRoute(alert: RiverAlert, riverName: string, endpoints: string[]) {
-  if (alert.source !== 'nps' || !/\bclosure\b/i.test(alert.category)) return false;
+export function closureAffectsRoute(
+  alert: RiverAlert,
+  riverName: string,
+  endpoints: string[],
+) {
+  if (alert.source !== 'nps' || !/\bclosure\b/i.test(alert.category))
+    return false;
   const text = `${alert.title}. ${alert.body}`;
   const sentences = text.split(/[.!?\n]+/).map((s) => s.trim());
   for (const sentence of sentences) {
@@ -88,6 +100,7 @@ export function closureAffectsRoute(alert: RiverAlert, riverName: string, endpoi
 export function assessRecommendation(input: RecommendationInput) {
   const blockingReasons: RecommendationReason[] = [];
   const cautionReasons: RecommendationReason[] = [];
+  const notices: RecommendationReason[] = [];
   const block = (code: string, message: string, sourceId?: string) => {
     blockingReasons.push({ code, message, ...(sourceId ? { sourceId } : {}) });
   };
@@ -101,12 +114,21 @@ export function assessRecommendation(input: RecommendationInput) {
       'Current gauge coverage is stale, suspect, unrated or incomplete.',
     );
   if (!input.hasDuration)
-    block('duration_unavailable', 'A usable trip duration is unavailable for this route.');
+    block(
+      'duration_unavailable',
+      'A usable trip duration is unavailable for this route.',
+    );
   if (!['good', 'flowing', 'low'].includes(input.conditionCode)) {
-    block('water_conditions_unsuitable', `Route water conditions are ${input.conditionCode}.`);
+    block(
+      'water_conditions_unsuitable',
+      `Route water conditions are ${input.conditionCode}.`,
+    );
   }
   if (input.lowSpanGauge)
-    block('low_water_in_route', 'A gauge within the route is too low for a recommendation.');
+    block(
+      'low_water_in_route',
+      'A gauge within the route is too low for a recommendation.',
+    );
 
   // Use the database's actual severity vocabulary, retaining legacy aliases.
   const severe = (hazard: Hazard) =>
@@ -123,11 +145,9 @@ export function assessRecommendation(input: RecommendationInput) {
       );
     }
     if (hazard.portage_required) {
-      // portage_side/description are not verified permission or a usable
-      // bypass. Do not invent a safe portage from this flag alone.
-      block(
-        'portage_unverified',
-        `${hazard.name}: a portage is required, but a usable, permitted bypass has not been verified.`,
+      caution(
+        'portage_required',
+        `${hazard.name}: portage required${hazard.portage_side ? ` (${hazard.portage_side})` : ''}. ${hazard.description || 'Check the portage route and access before launch.'} Bypass availability and permission are unverified${unlocated ? '; hazard location is unknown' : ''}.`,
         hazard.id,
       );
     } else if (!severe(hazard)) {
@@ -156,10 +176,19 @@ export function assessRecommendation(input: RecommendationInput) {
         `Official closure affecting this river or a selected endpoint: ${alert.title}`,
         alert.id,
       );
+    } else if (isInformationalNotice(alert)) {
+      notices.push({
+        code: 'informational_notice',
+        message: alert.title,
+        sourceId: alert.id,
+      });
     } else if (
       /\bclosure\b/i.test(alert.category) ||
       alert.severity === 'warning' ||
-      alert.severity === 'watch'
+      alert.severity === 'watch' ||
+      /\b(closed|closure|flood|warning|danger|evacuat\w*|restricted)\b/i.test(
+        `${alert.title} ${alert.body}`,
+      )
     ) {
       caution(
         'alert_scope_unverified',
@@ -185,5 +214,31 @@ export function assessRecommendation(input: RecommendationInput) {
     : cautionReasons.length
       ? ('conditional' as const)
       : ('candidate' as const);
-  return { recommendationStatus, blockingReasons, cautionReasons };
+  return { recommendationStatus, blockingReasons, cautionReasons, notices };
+}
+
+/** Informational categories can be shown without changing a route verdict.
+ * A closure or weather warning with unresolved scope stays a caution. Free
+ * text about a campground is not sufficient to rule out shared ramp access.
+ */
+function isInformationalNotice(alert: RiverAlert) {
+  if (
+    alert.source === 'nps' &&
+    /\b(trail|museum|visitor center)\b/i.test(alert.title) &&
+    /\bthis closure does not affect (?:river access|boating|launch access)\b/i.test(
+      alert.body,
+    )
+  )
+    return true;
+  return (
+    alert.source === 'nps' &&
+    /^(information|informational|park information)$/i.test(
+      alert.category.trim(),
+    ) &&
+    alert.severity !== 'warning' &&
+    alert.severity !== 'watch' &&
+    !/\b(closed|closure|flood|warning|danger|evacuat\w*|restricted)\b/i.test(
+      `${alert.title} ${alert.body}`,
+    )
+  );
 }

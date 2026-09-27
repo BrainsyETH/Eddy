@@ -65,7 +65,7 @@ export default async function DevelopersPage() {
       </section>
       <section className="space-y-4">
         <h2 className="text-2xl font-bold">Free access and request limits</h2>
-        <p>MCP access is free: up to 120 requests per minute per network address, including up to 12 planning/search/drive requests. A shared service limit also protects expensive tools. Hosted clients may share network addresses. If Eddy returns 429, wait for the Retry-After interval.</p>
+        <p>MCP access is free: default limits of 600 requests per minute per network address, including up to 60 planning/search/drive requests. A shared service limit also protects expensive tools. Hosted clients may share network addresses. If Eddy returns 429, wait for the Retry-After interval.</p>
         <p>REST endpoints have a separate, deployment-dependent x402 policy. Check the <a href="/.well-known/x402" className="underline text-primary-700">payment manifest</a>; it does not apply to this MCP endpoint.</p>
         <p className="text-sm text-neutral-600">Operational monitoring records aggregate tool counts, latency and error outcomes when configured. Optional diagnostic logging adds the reported client software name; it does not establish a user identity. Tool arguments and response bodies are excluded from these logs. Network addresses are used for abuse limits. See our <Link href="/privacy" className="underline">privacy policy</Link>.</p>
         <div className="flex flex-wrap gap-4 text-primary-700 underline"><a href="/api/openapi.json">REST specification</a><a href="/llms.txt">Agent documentation</a><Link href="/support">Integration support</Link><Link href="/terms">Terms</Link></div>

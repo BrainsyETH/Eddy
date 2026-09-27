@@ -1,4 +1,8 @@
-import { estimateRoute, RouteEstimateError } from '@/lib/calculations/route-estimate';
+import { abortable } from './budget';
+import {
+  estimateRoute,
+  RouteEstimateError,
+} from '@/lib/calculations/route-estimate';
 import { fetchGaugeReadings } from '@/lib/usgs/gauges';
 import { readSnapshotStatistics } from '@/lib/usgs/percentile-snapshot';
 import { getDriveTime } from '@/lib/mapbox/directions';
@@ -8,7 +12,14 @@ import {
   computeConditionFromDbRow,
   getConditionShortLabel,
 } from '@/lib/conditions';
-import { AgentError, BASE_URL, freshness, tripDate, memoizeAsync, type Status } from './contracts';
+import {
+  AgentError,
+  BASE_URL,
+  freshness,
+  tripDate,
+  memoizeAsync,
+  type Status,
+} from './contracts';
 import {
   accessView,
   checked,
@@ -32,40 +43,6 @@ export interface PlanInput {
   date?: string;
 }
 export const MAX_ESTIMATES = 6;
-export function shortlist(
-  points: Access[],
-  targetHours: number,
-  speedMph: number,
-  publicOnly: boolean,
-) {
-  const eligible = points
-    .filter(
-      (p) =>
-        p.approved &&
-        p.is_float_endpoint &&
-        (!publicOnly || p.is_public === true) &&
-        numeric(p.river_mile_downstream) != null,
-    )
-    .sort((a, b) => Number(a.river_mile_downstream) - Number(b.river_mile_downstream));
-  const pairs: Array<{ putIn: Access; takeOut: Access; difference: number }> = [];
-  // Keep memory and detailed work bounded even on larger catalogs.
-  for (let i = 0; i < eligible.length; i++)
-    for (let j = i + 1; j < eligible.length; j++) {
-      const miles =
-        Number(eligible[j].river_mile_downstream) - Number(eligible[i].river_mile_downstream);
-      if (miles <= 0) continue;
-      const difference = Math.abs(miles / speedMph - targetHours);
-      pairs.push({ putIn: eligible[i], takeOut: eligible[j], difference });
-      pairs.sort(
-        (a, b) =>
-          a.difference - b.difference ||
-          a.putIn.id.localeCompare(b.putIn.id) ||
-          a.takeOut.id.localeCompare(b.takeOut.id),
-      );
-      if (pairs.length > MAX_ESTIMATES) pairs.pop();
-    }
-  return pairs;
-}
 
 export function createPlanning(
   ctx: DataContext,
@@ -75,16 +52,34 @@ export function createPlanning(
     // Historical normals are optional duration inputs. Reuse Eddy's public
     // snapshots instead of serial live/legacy statistics calls in each search.
     // Missing snapshots use the shared estimator's existing speed-band fallback.
-    fetchDailyStatistics: (id: string) => readSnapshotStatistics(ctx.db, id, new Date(ctx.now)),
+    fetchDailyStatistics: (id: string) =>
+      readSnapshotStatistics(ctx.db, id, new Date(ctx.now)),
   },
+  signal?: AbortSignal,
 ) {
-  const daily = memoizeAsync((id: string) => providers.fetchDailyStatistics(id));
-  const live = memoizeAsync((key: string) =>
-    providers.fetchGaugeReadings(JSON.parse(key) as string[]),
+  const daily = memoizeAsync((id: string) =>
+    providers.fetchDailyStatistics(id),
   );
+  const live = memoizeAsync(async (key: string) => {
+    const timeout = AbortSignal.timeout(3_000);
+    const requestSignal = signal ? AbortSignal.any([signal, timeout]) : timeout;
+    try {
+      return await abortable(
+        providers.fetchGaugeReadings(JSON.parse(key) as string[], {
+          signal: requestSignal,
+        }),
+        requestSignal,
+      );
+    } catch (error) {
+      signal?.throwIfAborted();
+      if (timeout.aborted) return [];
+      throw error;
+    }
+  });
   const estimateProviders = {
     fetchDailyStatistics: daily,
-    fetchGaugeReadings: (ids: string[]) => live(JSON.stringify([...ids].sort())),
+    fetchGaugeReadings: (ids: string[]) =>
+      live(JSON.stringify([...ids].sort())),
   };
   const vessels = memoizeAsync(async (slug: string) => {
     const row = checked(
@@ -118,31 +113,50 @@ export function createPlanning(
       (input.startAccessPointId && putIn.id !== input.startAccessPointId) ||
       (input.endAccessPointId && takeOut.id !== input.endAccessPointId)
     )
-      throw new AgentError('The legacy endpoint IDs disagree with putIn/takeOut.');
-    if (putIn.id === takeOut.id) throw new AgentError('A float needs two different access points.');
+      throw new AgentError(
+        'The legacy endpoint IDs disagree with putIn/takeOut.',
+      );
+    if (putIn.id === takeOut.id)
+      throw new AgentError('A float needs two different access points.');
     const start = numeric(putIn.river_mile_downstream),
       end = numeric(takeOut.river_mile_downstream);
     if (start == null || end == null)
-      throw new AgentError('Verified endpoint river miles are unavailable.', 'unavailable');
+      throw new AgentError(
+        'Verified endpoint river miles are unavailable.',
+        'unavailable',
+      );
     if (end <= start)
-      throw new AgentError('The take-out must be downstream of the put-in. Reverse the endpoints.');
+      throw new AgentError(
+        'The take-out must be downstream of the put-in. Reverse the endpoints.',
+      );
     return { river, putIn, takeOut };
   }
   async function calculate(input: PlanInput) {
     const { river, putIn, takeOut } = await resolve(input);
-    const requested = tripDate(input.date, river.timezone || 'America/Chicago', ctx.now);
+    const requested = tripDate(
+      input.date,
+      river.timezone || 'America/Chicago',
+      ctx.now,
+    );
     const vessel = await vessels(input.vesselType ?? 'canoe');
     let estimate;
     try {
       estimate = await estimateRoute(
         ctx.db,
-        { riverId: river.id, startId: putIn.id, endId: takeOut.id, vesselTypeId: vessel.id },
+        {
+          riverId: river.id,
+          startId: putIn.id,
+          endId: takeOut.id,
+          vesselTypeId: vessel.id,
+        },
         estimateProviders,
       );
     } catch (error) {
       if (error instanceof RouteEstimateError)
         throw new AgentError(
-          error.status < 500 ? error.message : 'Route calculation failed. Please retry.',
+          error.status < 500
+            ? error.message
+            : 'Route calculation failed. Please retry.',
           error.status < 500 ? 'invalid_request' : 'lookup_failed',
         );
       throw error;
@@ -151,7 +165,9 @@ export function createPlanning(
     const age = freshness(anchor?.reading_timestamp as string | null, ctx.now);
     const gaugeLinks = await ctx.gauges(river.id);
     const anchorLink =
-      gaugeLinks.find((g) => station(g)?.usgs_site_id === anchor?.gauge_usgs_id) ?? null;
+      gaugeLinks.find(
+        (g) => station(g)?.usgs_site_id === anchor?.gauge_usgs_id,
+      ) ?? null;
     const spanLinks = gaugeLinks.filter(
       (g) =>
         station(g)?.active &&
@@ -161,7 +177,10 @@ export function createPlanning(
     );
     const relevantLinks = [
       ...new Map(
-        [...(anchorLink ? [anchorLink] : []), ...spanLinks].map((g) => [g.gauge_station_id, g]),
+        [...(anchorLink ? [anchorLink] : []), ...spanLinks].map((g) => [
+          g.gauge_station_id,
+          g,
+        ]),
       ).values(),
     ];
     const warnings = [...estimate.spanWarnings];
@@ -170,7 +189,11 @@ export function createPlanning(
         'No float time is supplied for this dam-controlled river: releases can change during the trip.',
       );
     if (anchor?.accuracy_warning)
-      warnings.push(String(anchor.accuracy_warning_reason || 'Gauge reading may be inaccurate.'));
+      warnings.push(
+        String(
+          anchor.accuracy_warning_reason || 'Gauge reading may be inaccurate.',
+        ),
+      );
     if (age.stale !== false)
       warnings.push(
         'The anchor reading is stale, missing, or undated; current floatability is unknown.',
@@ -179,7 +202,9 @@ export function createPlanning(
       warnings.push('Some gauges along this route could not be checked.');
     for (const ap of [putIn, takeOut]) {
       if (
-        !(ap.types?.length ? ap.types : [ap.type]).some((t) => t === 'access' || t === 'boat_ramp')
+        !(ap.types?.length ? ap.types : [ap.type]).some(
+          (t) => t === 'access' || t === 'boat_ramp',
+        )
       )
         warnings.push(`${ap.name} may not have direct road access.`);
       if (ap.is_public !== true)
@@ -199,28 +224,37 @@ export function createPlanning(
         )
       : 'unknown';
     const anchorCalibrated = anchorRating !== 'unknown';
-    if (!anchorCalibrated) warnings.push('The selected gauge has no usable calibrated rating.');
+    if (!anchorCalibrated)
+      warnings.push('The selected gauge has no usable calibrated rating.');
     const usable =
       age.stale === false &&
       !anchor?.accuracy_warning &&
       anchorCalibrated &&
       estimate.spanCheckComplete;
     const conditionCode = usable ? estimate.conditionCode : 'unknown';
-    if (conditionCode === 'dangerous') warnings.push('Dangerous water conditions: do not float.');
+    if (conditionCode === 'dangerous')
+      warnings.push('Dangerous water conditions: do not float.');
     if (conditionCode === 'high')
       warnings.push(
         'High water conditions; do not treat this as a routine recreational recommendation.',
       );
     const hazardRows = await ctx.hazards(river.id);
     if (hazardRows.length > 500)
-      throw new AgentError('Hazard coverage exceeds this tool’s supported size.', 'unavailable');
+      throw new AgentError(
+        'Hazard coverage exceeds this tool’s supported size.',
+        'unavailable',
+      );
     const hazards = hazardRows.filter(
       (h) =>
         numeric(h.river_mile_downstream) != null &&
-        Number(h.river_mile_downstream) >= Number(putIn.river_mile_downstream) &&
-        Number(h.river_mile_downstream) <= Number(takeOut.river_mile_downstream),
+        Number(h.river_mile_downstream) >=
+          Number(putIn.river_mile_downstream) &&
+        Number(h.river_mile_downstream) <=
+          Number(takeOut.river_mile_downstream),
     );
-    const unlocatedHazards = hazardRows.filter((h) => numeric(h.river_mile_downstream) == null);
+    const unlocatedHazards = hazardRows.filter(
+      (h) => numeric(h.river_mile_downstream) == null,
+    );
     if (unlocatedHazards.length)
       warnings.push(
         'Some recorded river hazards have no river mile and cannot be excluded from this route.',
@@ -233,9 +267,12 @@ export function createPlanning(
         ),
       ),
     ]);
-    const forecastCodes = outlooks.flatMap((o) => o.days.map((d) => d.conditionCode));
+    const forecastCodes = outlooks.flatMap((o) =>
+      o.days.map((d) => d.conditionCode),
+    );
     const forecastComplete =
-      !!anchorLink && outlooks.every((o) => o.status === 'ok' && o.days.length > 0);
+      !!anchorLink &&
+      outlooks.every((o) => o.status === 'ok' && o.days.length > 0);
     const forecastUnsuitable = forecastCodes.some(
       (c) => c === 'high' || c === 'dangerous' || c === 'too_low',
     );
@@ -243,7 +280,9 @@ export function createPlanning(
       usable,
       hasDuration: usable && !!estimate.floatTime,
       conditionCode,
-      lowSpanGauge: estimate.contributingGauges.some((g) => g.conditionCode === 'too_low'),
+      lowSpanGauge: estimate.contributingGauges.some(
+        (g) => g.conditionCode === 'too_low',
+      ),
       hazards,
       unlocatedHazards,
       alerts,
@@ -292,7 +331,10 @@ export function createPlanning(
           : 'Current gauge coverage is incomplete or stale.',
         anchorGauge: {
           id: anchorLink?.gauge_station_id ?? null,
-          name: anchor?.gauge_name ?? (anchorLink ? station(anchorLink)?.name : null) ?? null,
+          name:
+            anchor?.gauge_name ??
+            (anchorLink ? station(anchorLink)?.name : null) ??
+            null,
           usgsSiteId: anchor?.gauge_usgs_id ?? null,
           gaugeHeightFt: numeric(anchor?.gauge_height_ft),
           dischargeCfs: numeric(anchor?.discharge_cfs),
@@ -301,7 +343,9 @@ export function createPlanning(
               ? (anchor?.condition_code ?? 'unknown')
               : 'unknown',
           ...age,
-          provider: anchorLink ? (station(anchorLink)?.provider ?? 'usgs') : null,
+          provider: anchorLink
+            ? (station(anchorLink)?.provider ?? 'usgs')
+            : null,
           source: gaugeSource(anchorLink),
         },
         gaugeSelectionReason:
@@ -314,13 +358,16 @@ export function createPlanning(
             ...g,
             ...freshness(g.observedAt, ctx.now),
             source: gaugeSource(
-              gaugeLinks.find((link) => station(link)?.usgs_site_id === g.usgsSiteId) ?? null,
+              gaugeLinks.find(
+                (link) => station(link)?.usgs_site_id === g.usgsSiteId,
+              ) ?? null,
             ),
           })),
           ...assessment,
         },
         hazards: {
-          status: hazards.length || unlocatedHazards.length ? 'ok' : 'none_recorded',
+          status:
+            hazards.length || unlocatedHazards.length ? 'ok' : 'none_recorded',
           items: hazards,
           unlocated: unlocatedHazards,
           source: 'Eddy recorded hazards',
@@ -332,7 +379,9 @@ export function createPlanning(
           'The planner opens these endpoints and vessel using current conditions; the future date is not carried into the planner.',
       },
       warnings,
-      status: (!usable || assessment.cautionReasons.length ? 'partial' : 'ok') as Status,
+      status: (!usable || assessment.cautionReasons.length
+        ? 'partial'
+        : 'ok') as Status,
     };
   }
   async function drive(input: PlanInput) {
@@ -354,7 +403,8 @@ export function createPlanning(
     const route = await getDriveTime(from[0], from[1], to[0], to[1]);
     const check = assessShuttlePlausibility(
       route.miles,
-      Number(takeOut.river_mile_downstream) - Number(putIn.river_mile_downstream),
+      Number(takeOut.river_mile_downstream) -
+        Number(putIn.river_mile_downstream),
     );
     if (check.anomaly)
       return {

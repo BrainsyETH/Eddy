@@ -42,6 +42,7 @@ export type Gauge = {
   provider: string | null;
   location: unknown;
   active: boolean;
+  curated?: boolean;
 };
 export type GaugeLink = DbThresholdRow & {
   gauge_station_id: string;
@@ -51,12 +52,19 @@ export type GaugeLink = DbThresholdRow & {
   gauge_stations: Gauge | Gauge[] | null;
 };
 export const GAUGE_SELECT =
-  'gauge_station_id, is_primary, river_mile, threshold_unit, level_too_low, level_low, level_optimal_min, level_optimal_max, level_high, level_dangerous, alt_level_too_low, alt_level_low, alt_level_optimal_min, alt_level_optimal_max, alt_level_high, alt_level_dangerous, flood_stage_ft, gauge_stations(id, name, usgs_site_id, nws_lid, provider, location, active)';
+  'gauge_station_id, is_primary, river_mile, threshold_unit, level_too_low, level_low, level_optimal_min, level_optimal_max, level_high, level_dangerous, alt_level_too_low, alt_level_low, alt_level_optimal_min, alt_level_optimal_max, alt_level_high, alt_level_dangerous, flood_stage_ft, gauge_stations(id, name, usgs_site_id, nws_lid, provider, location, active, curated)';
 export const ACCESS_SELECT =
   'id, river_id, name, slug, river_mile_downstream, type, types, is_public, is_float_endpoint, approved, amenities, description, fee_required, managing_agency, location_snap, location_orig, driving_lat, driving_lng, nps_campground_id';
 
-export function checked<T>({ data, error }: { data: T; error: unknown }, what: string): T {
-  if (error) throw new AgentError(`Could not look up ${what}. Please retry.`, 'lookup_failed');
+export function checked<T>(
+  { data, error }: { data: T; error: unknown },
+  what: string,
+): T {
+  if (error)
+    throw new AgentError(
+      `Could not look up ${what}. Please retry.`,
+      'lookup_failed',
+    );
   return data;
 }
 export function station(link: GaugeLink): Gauge | null {
@@ -66,7 +74,9 @@ export function station(link: GaugeLink): Gauge | null {
 }
 export function gaugeSource(link: GaugeLink | null) {
   const gauge = link && station(link);
-  return gauge ? (getFlowProvider(gauge.provider)?.publicUrl(gauge.usgs_site_id) ?? null) : null;
+  return gauge
+    ? (getFlowProvider(gauge.provider)?.publicUrl(gauge.usgs_site_id) ?? null)
+    : null;
 }
 export function numeric(value: unknown): number | null {
   if (value == null) return null;
@@ -95,7 +105,8 @@ export function accessView(ap: Access, river: River) {
     feeRequired: ap.fee_required,
     description: ap.description,
     managingAgency: ap.managing_agency,
-    coordinates: getCoordinates(ap.location_orig) ?? getCoordinates(ap.location_snap),
+    coordinates:
+      getCoordinates(ap.location_orig) ?? getCoordinates(ap.location_snap),
     url: ap.slug
       ? `${BASE_URL}${riverAccessPath(river.state || 'MO', river.slug, ap.slug)}`
       : riverUrl(river),
@@ -132,7 +143,10 @@ export function createDataContext(db: Db, now = Date.now()) {
   const gauges = memoizeAsync(
     async (riverId: string) =>
       checked(
-        await db.from('river_gauges').select(GAUGE_SELECT).eq('river_id', riverId),
+        await db
+          .from('river_gauges')
+          .select(GAUGE_SELECT)
+          .eq('river_id', riverId),
         'river gauges',
       ) as unknown as GaugeLink[],
   );
@@ -142,7 +156,15 @@ export function createDataContext(db: Db, now = Date.now()) {
       return await loadCurrentReadings(
         db,
         links.map((g) => g.gauge_station_id),
-        { strict: true },
+        {
+          strict: true,
+          stations: links.flatMap((link) => {
+            const g = station(link);
+            return g && typeof g.curated === 'boolean'
+              ? [{ id: g.id, provider: g.provider, curated: g.curated }]
+              : [];
+          }),
+        },
       );
     } catch {
       throw new AgentError(
@@ -166,20 +188,46 @@ export function createDataContext(db: Db, now = Date.now()) {
         'recorded hazards',
       ) ?? [],
   );
-  async function river(ref: string) {
-    const rows = await rivers('active');
+  const river = memoizeAsync(async (ref: string): Promise<River> => {
     const key = normalize(ref);
-    const found = rows.find((r) => r.id === ref || r.slug === key || normalize(r.name) === key);
+    const query = () =>
+      db
+        .from('rivers')
+        .select(
+          'id, name, slug, state, region, length_miles, description, difficulty_rating, float_summary, float_tip, timezone, park_code, alert_search_terms, weather_city, weather_lat, weather_lon',
+        )
+        .eq('active', true);
+    const uuid =
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+        ref,
+      );
+    let found = checked(
+      await query()
+        .eq(uuid ? 'id' : 'slug', uuid ? ref : key)
+        .maybeSingle(),
+      'river',
+    );
+    if (!found && !uuid) {
+      // Escape LIKE metacharacters: names are literal references, not patterns.
+      const name = ref
+        .trim()
+        .replace(/[-_]+/g, ' ')
+        .replace(/[\\%_]/g, '\\$&');
+      found = checked(await query().ilike('name', name).maybeSingle(), 'river');
+    }
     if (!found)
       throw new AgentError(
         'River not found in curated coverage. Use list_rivers for supported slugs.',
       );
     return found;
-  }
+  });
   async function point(r: River, ref: string, endpoint = false) {
     const rows = await access(r.id);
     if (rows.length > 500)
-      throw new AgentError('Access catalog exceeds this tool’s supported size.', 'unavailable');
+      throw new AgentError(
+        'Access catalog exceeds this tool’s supported size.',
+        'unavailable',
+      );
     const key = normalize(ref);
     const matches = rows.filter(
       (ap) => ap.id === ref || ap.slug === key || normalize(ap.name) === key,
@@ -189,7 +237,9 @@ export function createDataContext(db: Db, now = Date.now()) {
         'Access point not found or ambiguous on this river. Use get_access_points and provide its slug or UUID.',
       );
     if (endpoint && !matches[0].is_float_endpoint)
-      throw new AgentError('This place is not a launch and cannot be a float endpoint.');
+      throw new AgentError(
+        'This place is not a launch and cannot be a float endpoint.',
+      );
     return matches[0];
   }
   async function chooseGauge(r: River, ap?: Access, gaugeId?: string) {
@@ -197,19 +247,29 @@ export function createDataContext(db: Db, now = Date.now()) {
     if (gaugeId) {
       const match = links.find((g) => g.gauge_station_id === gaugeId);
       if (!match)
-        throw new AgentError('The requested gauge is not an active gauge for this river.');
+        throw new AgentError(
+          'The requested gauge is not an active gauge for this river.',
+        );
       return { link: match, reason: 'explicit_gauge' };
     }
     if (ap) {
       const mile = numeric(ap.river_mile_downstream);
       if (mile == null)
-        throw new AgentError('This launch has no verified river mile.', 'unavailable');
+        throw new AgentError(
+          'This launch has no verified river mile.',
+          'unavailable',
+        );
       const conditionRows = checked(
-        await db.rpc('get_river_condition_segment', { p_river_id: r.id, p_put_in_mile: mile }),
+        await db.rpc('get_river_condition_segment', {
+          p_river_id: r.id,
+          p_put_in_mile: mile,
+        }),
         'segment gauge',
       );
       const condition = conditionRows?.[0];
-      const selected = links.find((g) => station(g)?.usgs_site_id === condition?.gauge_usgs_id);
+      const selected = links.find(
+        (g) => station(g)?.usgs_site_id === condition?.gauge_usgs_id,
+      );
       if (!selected) return { link: null, reason: 'segment_gauge_unavailable' };
       return { link: selected, reason: 'shared_segment_resolver_at_put_in' };
     }
@@ -230,7 +290,10 @@ export function createDataContext(db: Db, now = Date.now()) {
       height,
       numeric(link.flood_stage_ft),
     );
-    const usable = age.stale === false && !qual.suspect && (height != null || discharge != null);
+    const usable =
+      age.stale === false &&
+      !qual.suspect &&
+      (height != null || discharge != null);
     const code = usable ? rated : 'unknown';
     return {
       id: g.id,

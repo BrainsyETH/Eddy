@@ -32,6 +32,7 @@ interface FetchOptions {
    * an upstream NPS call, and the NPS rate-limits per key.
    */
   revalidateSeconds?: number;
+  signal?: AbortSignal;
 }
 
 async function fetchNPS<T>(
@@ -52,7 +53,7 @@ async function fetchNPS<T>(
   }
 
   const response = await fetch(url.toString(), {
-    signal: AbortSignal.timeout(15_000),
+    signal: options.signal ? AbortSignal.any([options.signal, AbortSignal.timeout(15_000)]) : AbortSignal.timeout(15_000),
     headers: {
       'Accept': 'application/json',
     },
@@ -118,13 +119,13 @@ export async function fetchNPSPlaces(
  */
 export async function fetchNPSAlerts(
   parkCode: string = DEFAULT_PARK_CODE,
-  options: { strict?: boolean } = {},
+  options: { strict?: boolean; signal?: AbortSignal } = {},
 ): Promise<NPSAlertRaw[]> {
   try {
     const response = await fetchNPS<NPSAlertRaw>(
       'alerts',
       { parkCode, limit: '50' },
-      { revalidateSeconds: 900 },
+      { revalidateSeconds: 900, signal: options.signal },
     );
     if (options.strict && !Array.isArray(response.data)) throw new Error('Invalid NPS alert response');
     return response.data ?? [];

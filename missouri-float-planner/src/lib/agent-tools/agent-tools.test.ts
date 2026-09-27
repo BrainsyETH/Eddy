@@ -8,12 +8,18 @@ import { createAgentExecutor } from './executor';
 import { createAgentServer } from './mcp-server';
 import { AGENT_TOOLS } from './catalog';
 import { AGENT_VERSION, freshness, tripDate } from './contracts';
-import { readMcpBody, MAX_BODY_BYTES, expensiveTool, validOrigin } from './http';
+import {
+  readMcpBody,
+  MAX_BODY_BYTES,
+  expensiveTool,
+  validOrigin,
+} from './http';
 import { memoizeReads } from './read-cache';
 import type { Db } from './data';
 import type { SourceProviders } from './sources';
 
-const uuid = (n: number) => `00000000-0000-4000-8000-${String(n).padStart(12, '0')}`;
+const uuid = (n: number) =>
+  `00000000-0000-4000-8000-${String(n).padStart(12, '0')}`;
 // Keep estimator Date.now() and injected source clock in the same hour.
 const NOW = Date.now();
 const savedWeatherKey = process.env.OPENWEATHER_API_KEY;
@@ -24,8 +30,15 @@ after(() => {
 });
 const observed = new Date(NOW - 60_000).toISOString();
 const date = (offset: number) =>
-  new Date(NOW + offset * 86400000).toLocaleDateString('en-CA', { timeZone: 'America/Chicago' });
-const trip = { river: 'current', putIn: 'launch-0', takeOut: 'launch-2', vesselType: 'canoe' };
+  new Date(NOW + offset * 86400000).toLocaleDateString('en-CA', {
+    timeZone: 'America/Chicago',
+  });
+const trip = {
+  river: 'current',
+  putIn: 'launch-0',
+  takeOut: 'launch-2',
+  vesselType: 'canoe',
+};
 
 function fixture(
   options: {
@@ -42,6 +55,8 @@ function fixture(
     tailwater?: boolean;
     points?: number;
     snapshots?: boolean;
+    searchBudgetMs?: number;
+    stallAfter?: number;
   } = {},
 ) {
   const calls: string[] = [];
@@ -139,6 +154,7 @@ function fixture(
       speed_high_water: 3.5,
     })),
     river_characteristics: [],
+    river_sections: [],
     usgs_daily_percentiles: [],
     river_hazards: [],
     service_rivers: [],
@@ -146,10 +162,21 @@ function fixture(
   function query(name: string, initial: any[]) {
     let rows = initial,
       single = false;
+    let signal: AbortSignal | undefined;
     const q: any = {
       select: () => q,
+      abortSignal: (value: AbortSignal) => {
+        signal = value;
+        return q;
+      },
       eq: (column: string, value: unknown) => {
         rows = rows.filter((r) => r[column] === value);
+        return q;
+      },
+      ilike: (column: string, value: string) => {
+        rows = rows.filter(
+          (r) => String(r[column]).toLowerCase() === value.toLowerCase(),
+        );
         return q;
       },
       in: (column: string, values: unknown[]) => {
@@ -173,11 +200,32 @@ function fixture(
         single = true;
         return q;
       },
-      then: (resolve: (v: unknown) => unknown, reject: (e: unknown) => unknown) => {
+      then: (
+        resolve: (v: unknown) => unknown,
+        reject: (e: unknown) => unknown,
+      ) => {
         calls.push(name);
+        if (
+          name === 'get_float_segment' &&
+          options.stallAfter !== undefined &&
+          calls.filter((c) => c === name).length > options.stallAfter
+        ) {
+          return new Promise((_resolve, rejectWork) => {
+            const cancel = () => {
+              calls.push('cancelled');
+              rejectWork(signal?.reason);
+            };
+            signal?.addEventListener('abort', cancel, { once: true });
+            if (signal?.aborted) cancel();
+          }).then(resolve, reject);
+        }
         return Promise.resolve({
-          data: options.fail === name ? null : single ? (rows[0] ?? null) : rows,
-          error: options.fail === name ? { message: 'private backend failure' } : null,
+          data:
+            options.fail === name ? null : single ? (rows[0] ?? null) : rows,
+          error:
+            options.fail === name
+              ? { message: 'private backend failure' }
+              : null,
         }).then(resolve, reject);
       },
     };
@@ -195,7 +243,9 @@ function fixture(
           b = points.find((p) => p.id === args.p_end_access_id)!;
         rows = [
           {
-            distance_miles: String(b.river_mile_downstream - a.river_mile_downstream),
+            distance_miles: String(
+              b.river_mile_downstream - a.river_mile_downstream,
+            ),
             start_river_mile: String(a.river_mile_downstream),
             end_river_mile: String(b.river_mile_downstream),
           },
@@ -214,7 +264,9 @@ function fixture(
         ];
       else if (name === 'get_segment_float_time') rows = [];
       else if (name === 'get_latest_curated_readings')
-        rows = gauges.filter((n) => args.p_station_ids.includes(uuid(n))).map(reading);
+        rows = gauges
+          .filter((n) => args.p_station_ids.includes(uuid(n)))
+          .map(reading);
       else throw new Error(`Unexpected RPC ${name}`);
       return query(name, rows);
     },
@@ -246,7 +298,9 @@ function fixture(
         ? { issuedAt: null, points: [] }
         : {
             issuedAt:
-              options.forecast === 'stale' ? new Date(NOW - 25 * 3600000).toISOString() : observed,
+              options.forecast === 'stale'
+                ? new Date(NOW - 25 * 3600000).toISOString()
+                : observed,
             points: [0, 1, 2].map((n) => ({
               timestamp: `${date(n)}T18:00:00Z`,
               gaugeHeightFt: 3.5,
@@ -273,6 +327,7 @@ function fixture(
     tables,
     execute: createAgentExecutor(db, {
       now: NOW,
+      searchBudgetMs: options.searchBudgetMs,
       sources,
       routeProviders: options.snapshots
         ? undefined
@@ -298,7 +353,8 @@ async function sdk(
     },
   });
   const client = new Client({ name: 'eddy-tests', version: '1.0.0' });
-  const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
+  const [clientTransport, serverTransport] =
+    InMemoryTransport.createLinkedPair();
   await server.connect(serverTransport);
   await client.connect(clientTransport);
   try {
@@ -320,10 +376,19 @@ test('SDK negotiates all tools, schemas, read-only annotations, instructions and
       assert.equal(t.annotations?.destructiveHint, false);
       assert.ok(t.outputSchema?.properties?.status);
     }
-    const result = await client.callTool({ name: 'list_rivers', arguments: {} });
+    const result = await client.callTool({
+      name: 'list_rivers',
+      arguments: {},
+    });
     assert.equal(result.isError, false);
-    assert.equal((result.structuredContent as any).data.rivers[0].slug, 'current');
-    assert.deepEqual(JSON.parse((result.content as any)[0].text), result.structuredContent);
+    assert.equal(
+      (result.structuredContent as any).data.rivers[0].slug,
+      'current',
+    );
+    assert.deepEqual(
+      JSON.parse((result.content as any)[0].text),
+      result.structuredContent,
+    );
     assert.deepEqual(tracked, ['list_rivers']);
     const invalid = await client.callTool({
       name: 'plan_float',
@@ -336,8 +401,13 @@ test('SDK negotiates all tools, schemas, read-only annotations, instructions and
 
 test('plans resolve slugs, preserve anchor attribution and retain vessel deep links', async () => {
   const f = fixture();
-  const plan = (await f.execute('plan_float', { ...trip, vesselType: 'tube', date: date(1) }))
-    .data as any;
+  const plan = (
+    await f.execute('plan_float', {
+      ...trip,
+      vesselType: 'tube',
+      date: date(1),
+    })
+  ).data as any;
   assert.equal(plan.vesselType, 'tube');
   assert.equal(plan.anchorGauge.name, 'Anchor');
   assert.equal(plan.anchorGauge.stale, false);
@@ -363,19 +433,26 @@ test('upstream, non-launch and conflicting endpoint requests fail with actionabl
     'invalid_request',
   );
   f.tables.access_points[0].is_float_endpoint = false;
-  assert.match(String((await f.execute('plan_float', trip)).data.message), /not a launch/);
+  assert.match(
+    String((await f.execute('plan_float', trip)).data.message),
+    /not a launch/,
+  );
   assert.equal(f.calls.filter((c) => c === 'get_float_segment').length, 0);
 });
 
 test('estimator errors are recoverable tool errors rather than opaque protocol failures', async () => {
-  const out = await fixture({ fail: 'get_float_segment' }).execute('plan_float', trip);
+  const out = await fixture({ fail: 'get_float_segment' }).execute(
+    'plan_float',
+    trip,
+  );
   assert.equal(out.status, 'lookup_failed');
   assert.match(String(out.data.message), /retry/i);
   assert.doesNotMatch(JSON.stringify(out), /private backend/);
 });
 
 test('downstream danger is separately attributed and withholds duration', async () => {
-  const plan = (await fixture({ downstream: 8 }).execute('plan_float', trip)).data as any;
+  const plan = (await fixture({ downstream: 8 }).execute('plan_float', trip))
+    .data as any;
   assert.equal(plan.anchorGauge.conditionCode, 'good');
   assert.equal(plan.anchorGauge.gaugeHeightFt, 3.5);
   assert.equal(plan.routeAssessment.conditionCode, 'dangerous');
@@ -391,8 +468,13 @@ test('stale, invalid or suspect span readings cannot support a recommendation', 
     { downstream: 3.5, spanTime: 'invalid' },
     { downstream: 3.5, spanSuspect: true },
   ]) {
-    const plan = (await fixture(options).execute('plan_float', trip)).data as any;
-    assert.equal(plan.routeAssessment.conditionCode, 'unknown', JSON.stringify(options));
+    const plan = (await fixture(options).execute('plan_float', trip))
+      .data as any;
+    assert.equal(
+      plan.routeAssessment.conditionCode,
+      'unknown',
+      JSON.stringify(options),
+    );
     assert.equal(plan.estimatedFloatTime, null);
     assert.equal(plan.routeAssessment.recommendationStatus, 'not_recommended');
   }
@@ -400,12 +482,21 @@ test('stale, invalid or suspect span readings cannot support a recommendation', 
 
 test('missing future forecasts stay conditional; feet are never graded as discharge', async () => {
   const unknown = (
-    await fixture({ forecast: 'none' }).execute('plan_float', { ...trip, date: date(1) })
+    await fixture({ forecast: 'none' }).execute('plan_float', {
+      ...trip,
+      date: date(1),
+    })
   ).data as any;
   assert.equal(unknown.routeAssessment.recommendationStatus, 'conditional');
   assert.equal(unknown.outlooks[0].status, 'unavailable');
-  for (const options of [{ cfs: true, noStageThresholds: true }, { forecast: 'stale' as const }]) {
-    const out = await fixture(options).execute('get_outlook', { slug: 'current', date: date(1) });
+  for (const options of [
+    { cfs: true, noStageThresholds: true },
+    { forecast: 'stale' as const },
+  ]) {
+    const out = await fixture(options).execute('get_outlook', {
+      slug: 'current',
+      date: date(1),
+    });
     assert.equal(out.status, 'unavailable');
     assert.equal((out.data.days as any)[0].conditionCode, null);
   }
@@ -416,7 +507,8 @@ test('missing future forecasts stay conditional; feet are never graded as discha
   assert.equal(rated.status, 'ok');
   assert.equal((rated.data.days as any)[0].conditionCode, 'flowing');
   assert.equal(
-    (await fixture().execute('get_outlook', { slug: 'current', date: date(4) })).status,
+    (await fixture().execute('get_outlook', { slug: 'current', date: date(4) }))
+      .status,
     'unavailable',
   );
 });
@@ -431,13 +523,27 @@ test('failed alerts remain visible and make ranked options conditional', async (
   assert.ok((floats.data.recommendations as any[]).length > 0);
   for (const plan of floats.data.recommendations as any[]) {
     assert.equal(plan.data.routeAssessment.recommendationStatus, 'conditional');
-    assert.match(plan.reasons.join(' '), /NWS/);
-    assert.doesNotMatch(plan.reasons.join(' '), /future river rating/);
+    assert.match(
+      plan.data.routeAssessment.cautionReasons
+        .map((r: any) => r.message)
+        .join(' '),
+      /NWS/,
+    );
+    assert.doesNotMatch(
+      plan.data.routeAssessment.cautionReasons
+        .map((r: any) => r.message)
+        .join(' '),
+      /future river rating/,
+    );
   }
 });
 
 test('closed parks, low in-span water and regulated-time withholding prevent ranked recommendations', async () => {
-  for (const opts of [{ closure: true }, { downstream: 0.5 }, { tailwater: true }]) {
+  for (const opts of [
+    { closure: true },
+    { downstream: 0.5 },
+    { tailwater: true },
+  ]) {
     const out = await fixture(opts).execute('find_floats', {
       river: 'current',
       targetHours: 3,
@@ -445,8 +551,12 @@ test('closed parks, low in-span water and regulated-time withholding prevent ran
     });
     // The low-water fixture can still produce the short reach above that gauge.
     if ('downstream' in opts) {
-      const plan = (await fixture(opts).execute('plan_float', trip)).data as any;
-      assert.equal(plan.routeAssessment.recommendationStatus, 'not_recommended');
+      const plan = (await fixture(opts).execute('plan_float', trip))
+        .data as any;
+      assert.equal(
+        plan.routeAssessment.recommendationStatus,
+        'not_recommended',
+      );
     } else {
       assert.deepEqual(out.data.recommendations, [], JSON.stringify(opts));
     }
@@ -455,7 +565,10 @@ test('closed parks, low in-span water and regulated-time withholding prevent ran
 
 test('search bounds route calculations, returned options and repeated source reads', async () => {
   const f = fixture({ points: 16 });
-  const out = await f.execute('find_floats', { river: 'current', targetHours: 3 });
+  const out = await f.execute('find_floats', {
+    river: 'current',
+    targetHours: 3,
+  });
   assert.equal(out.data.evaluated, 6);
   assert.equal((out.data.recommendations as any[]).length, 3);
   assert.equal(f.calls.filter((c) => c === 'get_float_segment').length, 6);
@@ -476,7 +589,10 @@ test('database failures do not masquerade as absent access, hazards or gauge rea
   const f = fixture({ downstream: 3.5 });
   const out = await f.execute('get_gauges', { slug: 'current' });
   assert.equal((out.data.gauges as any[]).length, 2);
-  assert.equal(f.calls.filter((c) => c === 'get_latest_curated_readings').length, 1);
+  assert.equal(
+    f.calls.filter((c) => c === 'get_latest_curated_readings').length,
+    1,
+  );
   assert.equal(f.calls.filter((c) => c === 'gauge_readings').length, 0);
 });
 
@@ -517,15 +633,29 @@ test('request parser bounds streamed bytes, forbids batches and classifies heavy
   const request = (body: string) =>
     new Request('https://eddy.guide/api/mcp', { method: 'POST', body });
   await assert.rejects(readMcpBody(request('[]')), /invalid_request/);
-  await assert.rejects(readMcpBody(request('x'.repeat(MAX_BODY_BYTES + 1))), /too_large/);
-  assert.deepEqual(await readMcpBody(request('{"jsonrpc":"2.0","method":"tools/list","id":1}')), {
-    jsonrpc: '2.0',
-    method: 'tools/list',
-    id: 1,
-  });
+  await assert.rejects(
+    readMcpBody(request('x'.repeat(MAX_BODY_BYTES + 1))),
+    /too_large/,
+  );
+  assert.deepEqual(
+    await readMcpBody(
+      request('{"jsonrpc":"2.0","method":"tools/list","id":1}'),
+    ),
+    {
+      jsonrpc: '2.0',
+      method: 'tools/list',
+      id: 1,
+    },
+  );
   for (const name of ['plan_float', 'find_floats', 'get_drive_estimate'])
-    assert.equal(expensiveTool({ method: 'tools/call', params: { name } }), name);
-  assert.equal(expensiveTool({ method: 'tools/call', params: { name: 'get_river' } }), null);
+    assert.equal(
+      expensiveTool({ method: 'tools/call', params: { name } }),
+      name,
+    );
+  assert.equal(
+    expensiveTool({ method: 'tools/call', params: { name: 'get_river' } }),
+    null,
+  );
   assert.equal(
     validOrigin(
       new Request('https://eddy.guide/api/mcp', {
@@ -538,16 +668,31 @@ test('request parser bounds streamed bytes, forbids batches and classifies heavy
 });
 
 test('dates and freshness reject malformed dates and undated/future readings', () => {
-  assert.throws(() => tripDate('2027-02-30', 'America/Chicago', NOW), /valid local/);
-  assert.throws(() => tripDate('2020-01-01', 'America/Chicago', NOW), /Past trips/);
+  assert.throws(
+    () => tripDate('2027-02-30', 'America/Chicago', NOW),
+    /valid local/,
+  );
+  assert.throws(
+    () => tripDate('2020-01-01', 'America/Chicago', NOW),
+    /Past trips/,
+  );
   assert.equal(freshness(undefined, NOW).stale, null);
-  assert.equal(freshness(new Date(NOW + 3600000).toISOString(), NOW).observedAt, null);
-  assert.equal(freshness(new Date(NOW - 7 * 3600000).toISOString(), NOW).stale, true);
+  assert.equal(
+    freshness(new Date(NOW + 3600000).toISOString(), NOW).observedAt,
+    null,
+  );
+  assert.equal(
+    freshness(new Date(NOW - 7 * 3600000).toISOString(), NOW).stale,
+    true,
+  );
 });
 
 test('chat uses the shared tools while remaining disabled', () => {
   assert.match(readFileSync('src/lib/chat/tools.ts', 'utf8'), /AGENT_TOOLS/);
-  assert.match(readFileSync('src/lib/chat/tool-handlers.ts', 'utf8'), /createAgentExecutor/);
+  assert.match(
+    readFileSync('src/lib/chat/tool-handlers.ts', 'utf8'),
+    /createAgentExecutor/,
+  );
   assert.match(readFileSync('src/app/api/chat/route.ts', 'utf8'), /503/);
 });
 
@@ -581,7 +726,10 @@ test('camping includes NPS records linked to approved access points and propagat
 });
 
 test('weather reports the put-in location and current/forecast components', async () => {
-  const out = await fixture().execute('get_weather', { slug: 'current', putIn: 'launch-0' });
+  const out = await fixture().execute('get_weather', {
+    slug: 'current',
+    putIn: 'launch-0',
+  });
   assert.equal(out.status, 'ok');
   assert.equal((out.data.location as any).basis, 'put_in');
   assert.equal((out.data.current as any).temp, 75);
@@ -614,16 +762,32 @@ test('missing alert configuration yields explicit conditional candidates outside
   assert.equal(out.status, 'partial');
   const plan = (out.data.recommendations as any[])[0];
   assert.equal(plan.data.routeAssessment.recommendationStatus, 'conditional');
-  assert.match(plan.reasons.join(' '), /matching is not configured/);
-  assert.doesNotMatch(plan.reasons.join(' '), /NPS/);
+  assert.match(
+    plan.data.routeAssessment.cautionReasons
+      .map((r: any) => r.message)
+      .join(' '),
+    /matching is not configured/,
+  );
+  assert.doesNotMatch(
+    plan.data.routeAssessment.cautionReasons
+      .map((r: any) => r.message)
+      .join(' '),
+    /NPS/,
+  );
   assert.equal(f.calls.filter((c) => c === 'nws-alerts').length, 0);
 });
 
 test('empty searches explain exclusions and expose source checks', async () => {
-  const out = await fixture({ closure: true }).execute('find_floats', { river: 'current' });
+  const out = await fixture({ closure: true }).execute('find_floats', {
+    river: 'current',
+  });
   assert.deepEqual(out.data.recommendations, []);
   assert.ok(Number(out.data.excludedCandidates) > 0);
-  assert.ok((out.data.exclusionReasons as any[]).some((r) => r.code === 'official_closure'));
+  assert.ok(
+    (out.data.exclusionReasons as any[]).some(
+      (r) => r.code === 'official_closure',
+    ),
+  );
   assert.equal((out.data.alertChecks as any).checkedAllApplicable, true);
 });
 
@@ -644,10 +808,16 @@ test('uncalibrated gauges report unknown instead of false too-low, including the
   clearThresholds(f.tables.river_gauges[0]);
   const gauges = await f.execute('get_gauges', { slug: 'current' });
   assert.equal((gauges.data.gauges as any[])[0].conditionCode, 'unknown');
-  assert.match((gauges.data.gauges as any[])[0].accuracyWarningReason, /calibrated/);
+  assert.match(
+    (gauges.data.gauges as any[])[0].accuracyWarningReason,
+    /calibrated/,
+  );
   const plan = await f.execute('plan_float', trip);
   assert.equal((plan.data.anchorGauge as any).conditionCode, 'unknown');
-  assert.equal((plan.data.routeAssessment as any).recommendationStatus, 'not_recommended');
+  assert.equal(
+    (plan.data.routeAssessment as any).recommendationStatus,
+    'not_recommended',
+  );
   assert.equal(plan.data.estimatedFloatTime, null);
 });
 
@@ -676,8 +846,14 @@ test('production danger severity excludes intersecting routes without requiring 
     portage_required: false,
   });
   const out = await f.execute('plan_float', trip);
-  assert.equal((out.data.routeAssessment as any).recommendationStatus, 'not_recommended');
-  assert.equal((out.data.routeAssessment as any).blockingReasons[0].code, 'danger_on_route');
+  assert.equal(
+    (out.data.routeAssessment as any).recommendationStatus,
+    'not_recommended',
+  );
+  assert.equal(
+    (out.data.routeAssessment as any).blockingReasons[0].code,
+    'danger_on_route',
+  );
 });
 
 test('MCP searches reuse public historical snapshots without live statistics requests', async () => {
@@ -686,6 +862,80 @@ test('MCP searches reuse public historical snapshots without live statistics req
   assert.equal((out.data.recommendations as any[]).length, 3);
   assert.equal(f.calls.filter((c) => c === 'usgs_daily_percentiles').length, 1);
   const plan = (out.data.recommendations as any[])[0].data;
-  assert.equal(plan.historicalFlowReference.medianDischargeCfs, null);
+  assert.equal(plan.estimateBasis, 'current_conditions');
   assert.ok(plan.estimatedFloatTime.minutes > 0);
+});
+
+test(
+  'search deadline preserves completed options and cancels outstanding route reads',
+  { timeout: 2000 },
+  async () => {
+    const f = fixture({ points: 16, searchBudgetMs: 100, stallAfter: 1 });
+    const out = await f.execute('find_floats', { river: 'current' });
+    assert.equal(out.status, 'partial');
+    assert.equal(out.data.deadlineReached, true);
+    assert.equal(out.data.evaluated, 1);
+    assert.equal((out.data.recommendations as any[]).length, 1);
+    assert.ok(Number(out.data.timedOutCandidates) > 0);
+    assert.ok(Number(out.data.notEvaluatedCandidates) > 0);
+    assert.ok(f.calls.includes('cancelled'));
+    assert.equal(
+      f.calls.filter((c) => c === 'get_float_segment').length,
+      out.data.attempted,
+    );
+  },
+);
+
+test('search summaries have a measured size budget and omit plan-only enrichment', async () => {
+  const f = fixture({ points: 16 });
+  const out = await f.execute('find_floats', {
+    river: 'current',
+    date: date(1),
+  });
+  assert.ok(
+    Buffer.byteLength(JSON.stringify(out)) < 12_000,
+    String(Buffer.byteLength(JSON.stringify(out))),
+  );
+  assert.equal(f.calls.includes('service_rivers'), false);
+  for (const pick of out.data.recommendations as any[]) {
+    assert.equal(pick.data.weather, undefined);
+    assert.equal(pick.data.alerts, undefined);
+    assert.ok(pick.data.anchorGauge.observedAt);
+    assert.equal(pick.data.estimateBasis, 'current_conditions');
+    assert.ok(pick.data.outlooks.length);
+  }
+});
+
+test('portage plans are conditional and long instructions explicitly require full details', async () => {
+  const f = fixture();
+  f.tables.river_hazards.push({
+    id: 'portage',
+    river_id: uuid(1),
+    active: true,
+    name: 'Obstruction',
+    severity: 'caution',
+    portage_required: true,
+    portage_side: 'left',
+    river_mile_downstream: 2,
+    description: 'Carry along the left bank. '.repeat(100),
+  });
+  const plan = await f.execute('plan_float', trip);
+  assert.equal(
+    (plan.data.routeAssessment as any).recommendationStatus,
+    'conditional',
+  );
+  assert.match(
+    (plan.data.routeAssessment as any).cautionReasons[0].message,
+    /left/,
+  );
+  const search = await f.execute('find_floats', { river: 'current' });
+  const crossing = (search.data.recommendations as any[]).find(
+    (p) => p.data.putIn.riverMile < 2,
+  );
+  assert.ok(crossing);
+  assert.equal(crossing.data.detailRequired, true);
+  assert.equal(
+    crossing.data.routeAssessment.cautionReasons[0].code,
+    'portage_required',
+  );
 });

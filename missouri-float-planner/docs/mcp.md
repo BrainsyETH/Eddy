@@ -37,16 +37,32 @@ linked route gauges; it does not calculate a future-condition float duration.
 Outlooks use maximum local-day stage and compatible foot thresholds. Dates
 outside the three-day window and unavailable/stale forecasts stay explicit.
 
-`find_floats` considers at most six detailed downstream routes and returns at
-most three. Selection first shortlists by river-mile duration, then ranks by
-condition eligibility, duration fit and amenities. This is not an exhaustive
-best-stretch search. Each route assessment has `blockingReasons` and
-`cautionReasons` with stable codes, messages and source IDs where applicable.
-Unknown/unsuitable water, critical recorded hazards and withheld durations
-prevent a positive recommendation. Missing forecasts, failed/unconfigured
-alert lookups, county weather warnings and ambiguous park notices yield
-conditional options with explicit verification requirements. Source failures
-remain failures in `alerts.sources`; they never become an all-clear.
+`find_floats` screens stored observations before choosing at most six detailed
+routes and returning three compact options. Screening respects explicit reach
+gauges and upstream/downstream fallbacks, batches latest readings, retains
+unknown readings for full assessment, and excludes fresh unsuitable anchor or
+in-span readings. The shortlist spreads work across reaches and put-ins, with
+at most two pairs per put-in and a preference for less overlap. The shared
+route estimator still makes the authoritative selection. SQL parity tests
+execute the selection CTEs from the latest migration.
+
+Search summaries retain endpoint links, gauge freshness, current duration
+basis, requested-date outlooks and recommendation reasons. Shared alerts appear
+once (eight notices, 300-character body excerpts, total count and truncation
+flag). `detailRequired` means an agent must fetch `plan_float` before presenting
+the option. Full plans retain weather, outfitters and complete hazard/alert
+text. Search does not fetch weather or service enrichment. The representative
+three-option fixture has a 12 KB serialized UTF-8 envelope budget; this is a
+regression target, not a guarantee for every catalog. The safety note is
+returned once in the enclosing envelope.
+
+Route assessments have `blockingReasons`, `cautionReasons` and `notices`, with
+stable codes and source IDs. Unknown/unsuitable water, independently severe
+hazards and withheld durations prevent a positive recommendation. Missing
+forecasts, failed/unconfigured alert checks and unresolved county/park warnings
+remain conditional. Informational park notices and closures explicitly stating
+that river access is unaffected can be notices without changing status;
+ambiguous scope is not automatically downgraded. Source failures remain visible.
 
 Explicit NPS closure statements naming the river, a selected endpoint, or the
 entire park block the plan. The conservative text matcher recognises direct
@@ -58,14 +74,19 @@ terms are explicitly marked `matching_unconfigured`.
 
 Hazard severities include the database's `danger` value. Unlocated lesser
 hazards are cautions; unlocated danger cannot be excluded from the route.
-Required portages remain blocked with `portage_unverified`: a portage flag or
-bank side alone does not verify a usable, permitted bypass. A future curated
-bypass record can support conditional portage recommendations.
+Required portages are cautions (`portage_required`), including recorded side
+and description. Availability and permission remain unverified. The portage
+flag alone does not exclude a search result; an independent `danger` severity,
+unsuitable water, closure or missing duration still can. Unknown hazard location
+is preserved in the caution.
 
 Uncalibrated gauges report `unknown`, while the independent flood-stage
 threshold can still escalate danger. Missing calibration within the route
 withholds its current duration. Empty searches report `excludedCandidates`,
 `exclusionReasons` and `alertChecks` so agents can explain the outcome.
+`screening` distinguishes eligible, floatable-rated, unsuitable and unknown
+put-ins, plus screened-out pair counts. It covers recorded endpoints and stored
+observations, not the whole river and not future conditions.
 
 `get_services` includes recorded businesses and NPS campgrounds linked to
 approved access points. `get_drive_estimate` requires explicit driving
@@ -87,6 +108,17 @@ campsite availability, business hours or a booking.
   per-IP abuse allowance alongside the global budget; shared connector egress
   cannot identify individual users. Tune from 429s, upstream cost and latency.
   429 includes `Retry-After`; 503 means shared admission could not be checked.
+- Search has a 20-second execution budget, including screening and alert
+  checks. Two workers stop scheduling when it expires; the signal cancels
+  PostgREST/NPS/NWS/USGS HTTP requests. Pending network waits are also released.
+  Cancellation does not guarantee that a remote database has stopped all
+  already-started server-side work. Live USGS fallbacks have a three-second
+  budget and do not start a legacy fallback after cancellation.
+  `deadlineReached`, `attempted`, `evaluated`, `timedOutCandidates` and
+  `notEvaluatedCandidates` distinguish partial work from unsuitable routes.
+  A deadline with zero completed plans is still `partial`, not an all-clear
+  or a whole-river rejection. Platform startup/network overhead is outside
+  the executor budget. NPS/NWS already use 15-minute fetch revalidation.
 - POST bodies are bounded at 32 KiB. JSON-RPC batches are refused. Browser
   Origins must match the endpoint origin; nonbrowser clients may omit Origin.
   Stateless JSON transport supports POST only. GET and DELETE return 405 with
@@ -99,7 +131,11 @@ campsite availability, business hours or a booking.
 - Existing `trackedMcp` aggregate counts/latency/error monitoring is preserved.
   See the telemetry runbook for its environment settings and retention.
   Optional `MCP_USAGE_LOGGING=true` logs tool, status, duration and a bounded
-  client software name. Rejections are logged separately, even with optional
+  client software name, an unverified coarse User-Agent family hint, and search
+  phase timings (coverage, catalog, screening, alerts, estimates). No raw
+  User-Agent is logged. Neither the hint nor a shared network bucket can
+  establish caller identity or join calls into an individual conversation.
+  Rejections are logged separately, even with optional
   usage logging off, with status, retry delay, rejecting bucket and heavy tool
   name when available. Logs use a daily HMAC network-bucket ID, never raw IPs;
   `MCP_LOG_HASH_KEY` or the existing Upstash token supplies the server-only key.
@@ -129,7 +165,7 @@ campsite availability, business hours or a booking.
 4. On a preview with working sources, replay Current, Jacks Fork and Buffalo
    (Arkansas). Ask: “Compare roughly three-hour canoe
    floats on the Current tomorrow.” Check sources, explicit forecast gaps,
-   nearby outfitters and working plan links. A missing official forecast is a
+   working plan links, then call `plan_float` for full weather and outfitters. A missing official forecast is a
    valid result; do not require an invented rating to pass the test.
 5. Confirm bad/upstream endpoints are actionable tool errors. In development,
    temporarily set small local allowances (for example 2 general and 1 heavy)
@@ -197,3 +233,81 @@ when optional historical statistics used the existing public snapshots;
 Jacks Fork and Buffalo took approximately 10 and 21 seconds. These are local
 smoke timings, not production capacity measurements. Configured-source preview
 verification and operational tuning still apply before public promotion.
+
+
+### Model and preview evaluation
+
+`scripts/mcp-eval.ts` contains 18 prompts covering searches, explicit plans,
+reversed endpoints, drive-only requests, services, weather, alerts, gauges,
+unsupported rivers, future dates, portages and safety claims. It connects with
+the real MCP SDK, lists server tools/instructions, and runs a bounded tool loop
+through either Anthropic Messages or OpenAI Responses. No model is selected by
+default. The same harness can reach localhost or use a protected preview’s
+`VERCEL_AUTOMATION_BYPASS_SECRET` header. Credentials are never included in
+reported endpoint URLs. It does not change deployment protection.
+
+```sh
+npm run mcp:eval -- --check
+# MCP_EVAL_URL=https://<preview>/api/mcp
+npm run mcp:eval -- --smoke
+# Also set MCP_EVAL_PROVIDER=anthropic or openai, MCP_EVAL_MODEL,
+# and ANTHROPIC_API_KEY or OPENAI_API_KEY in the environment.
+# Optional MCP_EVAL_CASE=current-tomorrow; MCP_EVAL_OUTPUT defaults to /tmp.
+npm run mcp:eval
+```
+
+The report records tool sequence, arguments/results, latency, response bytes,
+provider token usage and final answer for these synthetic prompts. Link,
+expected-tool and caveat-language checks are heuristics, not automatic semantic
+approval; review the case-specific rubric and original tool results. Compare
+reports before consolidating tools. These API evaluations do not establish
+Claude/ChatGPT application connector compatibility: replay in both actual
+hosts before promotion. Hosted API MCP connectors need a reachable remote
+URL; the SDK-driven harness can use a local server without a public tunnel.
+
+For deployed verification, configure NPS, OpenWeather, Mapbox and Upstash in
+the preview and measure cold/warm phase timings there. The automation bypass
+header is supported by Vercel. Its query-parameter alternative is a secret-bearing
+URL and must not be published; host-specific preservation requires testing.
+A successful preview build or SDK smoke is not a completed model/host evaluation.
+
+References:
+- https://supabase.com/docs/reference/javascript/using-modifiers-abortsignal
+- https://developers.openai.com/api/docs/guides/function-calling
+- https://platform.claude.com/docs/en/agents-and-tools/tool-use/define-tools
+- https://vercel.com/docs/deployment-protection/methods-to-bypass-deployment-protection/protection-bypass-automation
+
+
+### Search follow-up replay (2026-09-27 UTC)
+
+Public-RLS/live-NWS local HTTP replay confirmed the new summary schema and
+cancellation behavior. No production writes were performed. Timings varied
+substantially across local proxy/database calls and are not deployed benchmarks:
+
+- The first Buffalo run completed six assessments and returned three options
+  in 12.1 seconds, with an 8.5 KB envelope (previous full data was about 22.5 KB).
+- After removing serial catalog/screening waits and reusing station metadata,
+  Current returned one completed conditional option at the 20-second deadline,
+  with explicit outstanding/not-evaluated counts and a 4.7 KB envelope.
+- Jacks Fork screened out 54 of 55 downstream pairs, then assessed the remaining
+  pair. Its requested-day forecast was unsuitable; the 3.8-second response
+  distinguished those findings from a whole-river claim.
+- A later Buffalo request reached the deadline without a completed assessment;
+  it returned `partial` and did not mislabel the river unsuitable.
+- Akers Ferry → Pulltite still returned the Akers gauge, good current conditions,
+  a full plan and a current-based duration, conditional on checking NPS notices.
+
+These runs verify honest bounded behavior, not acceptable production latency
+under load. The remaining release check is a configured Vercel preview with
+cold/warm phase timings, followed by real model and application-connector
+replays. NPS/OpenWeather keys, model API keys and a preview bypass credential
+were unavailable in this workspace; no successful live test of those paths is
+claimed. The evaluation readiness command lists 18 cases without making calls.
+
+A read-only portage impact query found affected endpoint pairs on nine active
+rivers. Required-portage flags alone now produce cautions; those counts do not
+imply every pair qualifies after water, duration, closure and severe-hazard checks.
+
+The v2 search contract now contains compact `recommendations[].data`, not full
+plan payloads. Consumers of the earlier PR preview must use `plan_float` to get
+complete details and honor `detailRequired` on abbreviated search entries.

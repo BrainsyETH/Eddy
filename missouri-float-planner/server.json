@@ -2,8 +2,23 @@
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "io.github.BrainsyETH/eddy-guide",
   "title": "Eddy River Guide",
-  "description": "Curated river conditions, access points, hazards and vessel-aware float planning with source freshness.",
+  "description": "Curated river conditions, access points, hazards and float plans with source freshness.",
   "version": "2.0.0",
   "websiteUrl": "https://eddy.guide/developers",
-  "remotes": [{ "type": "streamable-http", "url": "https://eddy.guide/api/mcp" }]
+  "remotes": [
+    {
+      "type": "streamable-http",
+      "url": "https://eddy.guide/api/mcp"
+    }
+  ],
+  "repository": {
+    "url": "https://github.com/BrainsyETH/Eddy",
+    "source": "github"
+  },
+  "icons": [
+    {
+      "src": "https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy_favicon.png",
+      "mimeType": "image/png"
+    }
+  ]
 }
