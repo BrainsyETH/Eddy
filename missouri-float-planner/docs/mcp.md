@@ -237,7 +237,7 @@ verification and operational tuning still apply before public promotion.
 
 ### Model and preview evaluation
 
-`scripts/mcp-eval.ts` contains 18 prompts covering searches, explicit plans,
+`scripts/mcp-eval.ts` reads 20 shared prompts from `scripts/mcp-eval-cases.json` covering searches, explicit plans,
 reversed endpoints, drive-only requests, services, weather, alerts, gauges,
 unsupported rivers, future dates, portages and safety claims. It connects with
 the real MCP SDK, lists server tools/instructions, and runs a bounded tool loop
@@ -252,9 +252,31 @@ npm run mcp:eval -- --check
 npm run mcp:eval -- --smoke
 # Also set MCP_EVAL_PROVIDER=anthropic or openai, MCP_EVAL_MODEL,
 # and ANTHROPIC_API_KEY or OPENAI_API_KEY in the environment.
-# Optional MCP_EVAL_CASE=current-tomorrow; MCP_EVAL_OUTPUT defaults to /tmp.
+# Optional MCP_EVAL_CASE=current-canoe; MCP_EVAL_OUTPUT defaults to /tmp.
 npm run mcp:eval
 ```
+
+`--smoke` also checks Akers Ferry → Pulltite. Set `MCP_EVAL_DATE` to replay
+all four probes for a requested date. Both evaluation modes below use the
+same case IDs, expected tools and human-review rubrics.
+
+For the hosted MCP connector path, use `npm run mcp:eval:hosted -- --list`
+without credentials. A model run requires `MCP_EVAL_URL`, `MCP_EVAL_MODEL`
+and `ANTHROPIC_API_KEY` or `OPENAI_API_KEY`:
+
+```sh
+npm run mcp:eval:hosted -- --provider anthropic --limit 1
+npm run mcp:eval:hosted -- --provider openai --case current-canoe
+```
+
+Use a remotely reachable HTTPS preview/tunnel URL, not localhost. With
+`VERCEL_AUTOMATION_BYPASS_SECRET` set, this harness adds Vercel's documented
+query parameter only in memory and redacts it from reports. Keep secret-bearing
+URLs out of registry metadata. `--out` selects the report file. This path tests
+API-hosted MCP calls, while `mcp:eval` controls the MCP client locally; neither
+replaces testing the Claude/ChatGPT application connector UI. Both record tool
+sequences, counts, latency, token usage, outputs and final answers for review.
+The hosted report records completion status; truncated replies need review.
 
 The report records tool sequence, arguments/results, latency, response bytes,
 provider token usage and final answer for these synthetic prompts. Link,
@@ -302,11 +324,37 @@ under load. The remaining release check is a configured Vercel preview with
 cold/warm phase timings, followed by real model and application-connector
 replays. NPS/OpenWeather keys, model API keys and a preview bypass credential
 were unavailable in this workspace; no successful live test of those paths is
-claimed. The evaluation readiness command lists 18 cases without making calls.
+claimed. The evaluation readiness command lists 20 cases without making calls.
 
 A read-only portage impact query found affected endpoint pairs on nine active
 rivers. Required-portage flags alone now produce cautions; those counts do not
 imply every pair qualifies after water, duration, closure and severe-hazard checks.
+
+The query counted 13 active required-portage hazards intersecting 482 distinct
+downstream pairs of approved float endpoints, including private endpoints.
+Independent public-only, water, duration and severe-hazard checks still apply.
+Screening-gauge selection matched the production database resolver at all 66
+checked approved float endpoints on Current, Jacks Fork and Buffalo. Offline
+tests additionally execute the latest migration's mile-selection CTEs, including
+explicit reach overrides and inactive stations.
+
+After reconciling the final changes, all 2,848 registered tests and the 15-test
+pretest passed on Node 20, as did both type checks. The standard check command
+still hit the workspace's `tsx` socket restriction; the same tests and token
+check passed via `node --import tsx`. The dated HTTP SDK replay returned three
+Current options (9.3 KB, five completed assessments), an explained empty Jacks
+Fork result (one assessed pair), and an explicit partial Buffalo result with
+no completed assessment when its deadline expired. Akers–Pulltite retained
+gauge 07064533 and its good rating. Local network latency varied substantially;
+no production performance or model-evaluation success is inferred from this.
+
+Screening advances through ordered in-span gauges once per put-in instead of
+rescanning every gauge for every endpoint pair. Its coverage count excludes
+duplicate-mile endpoints with no strictly downstream take-out. Summary truncation
+of any reason, notice or warning sets `detailRequired`; alert title truncation
+also marks the alert collection incomplete. HTTP abort stops client requests
+and new scheduling, but does not guarantee cancellation of statements already
+received by a database server.
 
 The v2 search contract now contains compact `recommendations[].data`, not full
 plan payloads. Consumers of the earlier PR preview must use `plan_float` to get

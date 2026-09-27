@@ -136,9 +136,17 @@ export function screenCandidates(
     1,
     Number(eligible.at(-1)?.river_mile_downstream ?? 0) - first,
   );
+  const positioned = (screen?.links ?? [])
+    .filter((g) => station(g)?.active && numeric(g.river_mile) != null)
+    .sort((a, b) => Number(a.river_mile) - Number(b.river_mile));
   for (let i = 0; i < eligible.length - 1; i++) {
     const putIn = eligible[i],
       start = Number(putIn.river_mile_downstream);
+    // Duplicate-mile endpoints cannot start a downstream route by themselves.
+    if (start >= Number(eligible.at(-1)?.river_mile_downstream)) {
+      counts.eligiblePutIns--;
+      continue;
+    }
     const gauge = screen && screeningGauge(start, screen.links, screen.reaches);
     const code = gauge
       ? (screen!.ratings.get(gauge.gauge_station_id) ?? 'unknown')
@@ -147,24 +155,29 @@ export function screenCandidates(
     else if (code === 'unknown') counts.unknownPutIns++;
     else counts.ratedFloatablePutIns++;
     const local: Candidate[] = [];
+    const group =
+      (screen && reachAt(start, screen.reaches)?.id) ||
+      `mile-quarter-${Math.min(3, Math.floor(((start - first) / extent) * 4))}`;
+    const span = positioned.filter((g) => Number(g.river_mile) >= start);
+    let spanIndex = 0;
+    let spanUnsuitable = false;
+    let spanUnknown = false;
     for (const takeOut of eligible.slice(i + 1)) {
       const end = Number(takeOut.river_mile_downstream);
       if (end <= start) continue;
       counts.eligiblePairs++;
-      const span =
-        screen?.links.filter(
-          (g) =>
-            station(g)?.active &&
-            numeric(g.river_mile) != null &&
-            Number(g.river_mile) >= start &&
-            Number(g.river_mile) <= end,
-        ) ?? [];
-      if (
-        unsuitable.has(code) ||
-        span.some((g) =>
-          unsuitable.has(screen!.ratings.get(g.gauge_station_id) ?? 'unknown'),
-        )
+      // Endpoints are ordered: advance across each gauge once per put-in,
+      // rather than rescan/sort the entire gauge and reach catalog per pair.
+      while (
+        spanIndex < span.length &&
+        Number(span[spanIndex].river_mile) <= end
       ) {
+        const spanCode =
+          screen!.ratings.get(span[spanIndex++].gauge_station_id) ?? 'unknown';
+        spanUnsuitable ||= unsuitable.has(spanCode);
+        spanUnknown ||= spanCode === 'unknown';
+      }
+      if (unsuitable.has(code) || spanUnsuitable) {
         counts.screenedOutPairs++;
         continue;
       }
@@ -172,16 +185,8 @@ export function screenCandidates(
         putIn,
         takeOut,
         difference: Math.abs((end - start) / speedMph - targetHours),
-        group:
-          (screen && reachAt(start, screen.reaches)?.id) ||
-          `${Math.min(3, Math.floor(((start - first) / extent) * 4))}`,
-        unknown:
-          code === 'unknown' ||
-          span.some(
-            (g) =>
-              (screen!.ratings.get(g.gauge_station_id) ?? 'unknown') ===
-              'unknown',
-          ),
+        group,
+        unknown: code === 'unknown' || spanUnknown,
       });
       local.sort(
         (a, b) =>

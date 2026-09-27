@@ -20,11 +20,28 @@ export function summarizePlan(
   });
   const reasons = (rows: typeof p.routeAssessment.cautionReasons) =>
     rows.slice(0, 8).map((r) => ({ ...r, message: excerpt(r.message, 240) }));
+  const warnings = [
+    ...new Set(
+      plan.warnings.filter(
+        (w) =>
+          ![
+            ...p.routeAssessment.blockingReasons,
+            ...p.routeAssessment.cautionReasons,
+          ].some((r) => r.message === w),
+      ),
+    ),
+  ];
   const detailRequired =
-    p.routeAssessment.cautionReasons.length > 8 ||
-    p.routeAssessment.notices.length > 8 ||
+    [
+      p.routeAssessment.blockingReasons,
+      p.routeAssessment.cautionReasons,
+      p.routeAssessment.notices,
+    ].some(
+      (rows) => rows.length > 8 || rows.some((r) => r.message.length > 240),
+    ) ||
     p.outlooks.length > 6 ||
-    p.routeAssessment.cautionReasons.some((r) => r.message.length > 240);
+    warnings.length > 6 ||
+    warnings.some((w) => w.length > 240);
   return {
     status: detailRequired ? 'partial' : plan.status,
     data: {
@@ -56,19 +73,7 @@ export function summarizePlan(
         source: o.source,
         reason: o.reason,
       })),
-      warnings: [
-        ...new Set(
-          plan.warnings.filter(
-            (w) =>
-              ![
-                ...p.routeAssessment.blockingReasons,
-                ...p.routeAssessment.cautionReasons,
-              ].some((r) => r.message === w),
-          ),
-        ),
-      ]
-        .slice(0, 6)
-        .map((w) => excerpt(w, 240)),
+      warnings: warnings.slice(0, 6).map((w) => excerpt(w, 240)),
       detailRequired,
       details: detailRequired
         ? 'Call plan_float before presenting this option; some details are abbreviated.'
@@ -87,7 +92,8 @@ export function summarizeAlerts(
       Number(b.severity === 'warning') - Number(a.severity === 'warning'),
   );
   const truncated =
-    alerts.length > 8 || alerts.some((a) => a.body.length > 300);
+    alerts.length > 8 ||
+    alerts.some((a) => a.body.length > 300 || a.title.length > 180);
   return {
     ...checks,
     alerts: alerts.slice(0, 8).map((a) => ({

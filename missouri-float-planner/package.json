@@ -48,7 +48,8 @@
     "promo:capture": "cd remotion && node scripts/capture-promo.mjs",
     "promo:render": "cd remotion && bash scripts/render-promo.sh",
     "typecheck": "tsc --noEmit && tsc -p tsconfig.test.json --noEmit",
-    "mcp:eval": "tsx --tsconfig tsconfig.test.json scripts/mcp-eval.ts"
+    "mcp:eval": "tsx --tsconfig tsconfig.test.json scripts/mcp-eval.ts",
+    "mcp:eval:hosted": "tsx --tsconfig tsconfig.test.json scripts/mcp-model-eval.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.74.0",

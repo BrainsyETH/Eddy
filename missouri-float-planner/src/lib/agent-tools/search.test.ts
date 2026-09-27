@@ -157,3 +157,14 @@ test('fresh unsuitable in-span gauges exclude crossing pairs and inactive gauges
     ),
   );
 });
+
+test('coverage excludes put-ins without any strictly downstream endpoint', () => {
+  const duplicateMiles = points.slice(0, 4).map((p, index) => ({
+    ...p,
+    river_mile_downstream: index === 0 ? 0 : 4,
+  }));
+  const result = screenCandidates(duplicateMiles, 3, 2.5, true);
+  assert.equal(result.coverage.eligiblePutIns, 1);
+  assert.equal(result.coverage.unknownPutIns, 1);
+  assert.equal(result.coverage.eligiblePairs, 3);
+});

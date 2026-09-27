@@ -3,120 +3,18 @@
  * Model/provider must be selected explicitly; never silently spend on a default.
  */
 import { writeFile } from 'node:fs/promises';
+import { readFileSync } from 'node:fs';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
-import { MODELS } from '../src/lib/ai/model-registry';
 
-const cases = [
-  [
-    'current-tomorrow',
-    'Find a roughly 3-hour canoe float on the Current River tomorrow.',
-    ['find_floats'],
-    'Current conditions and future outlook distinguished; conditional reasons and Eddy link retained.',
-  ],
-  [
-    'current-tube',
-    'Find a 2-hour tube float on the Current today using public access.',
-    ['find_floats'],
-    'Tube vessel and publicOnly passed; uncertainty retained.',
-  ],
-  [
-    'jacks-fork',
-    'Is Jacks Fork floatable today? Which stretch would you choose?',
-    ['find_floats', 'get_conditions'],
-    'No whole-river conclusion from six candidates.',
-  ],
-  [
-    'buffalo',
-    'Find a 4-hour kayak float on the Buffalo in Arkansas tomorrow.',
-    ['find_floats'],
-    'Coverage outside Missouri; missing alert configuration visible.',
-  ],
-  [
-    'akers-pulltite',
-    'Plan Akers Ferry to Pulltite on the Current by canoe tomorrow.',
-    ['plan_float'],
-    'Akers gauge reference; time basis, forecast and closure caveats retained.',
-  ],
-  [
-    'reverse-route',
-    'Plan Pulltite to Akers Ferry downstream on the Current.',
-    ['plan_float'],
-    'Explains reversed endpoints rather than inventing a downstream trip.',
-  ],
-  [
-    'shuttle',
-    'How long is the shuttle drive from Pulltite back to Akers Ferry?',
-    ['get_drive_estimate'],
-    'Drive estimate distinguished from booking availability.',
-  ],
-  [
-    'outfitter',
-    'Who offers outfitting near Akers Ferry on the Current?',
-    ['get_services'],
-    'Listings do not confirm hours or shuttle availability.',
-  ],
-  [
-    'weather',
-    'What is the weather at Pulltite on the Current tomorrow?',
-    ['get_weather'],
-    'Weather forecast is not a river-flow forecast.',
-  ],
-  [
-    'alerts',
-    'Any official closures affecting the Current River?',
-    ['get_river_alerts'],
-    'Park-wide notices distinguished from matched route closures.',
-  ],
-  [
-    'gauge',
-    'Show the Akers USGS reading 07064533 and its age.',
-    ['get_gauges'],
-    'Reading time, units, source, stale or unrated status preserved.',
-  ],
-  [
-    'coverage',
-    'Which rivers and states does Eddy cover?',
-    ['list_rivers'],
-    'Uses active curated roster, not national gauge count.',
-  ],
-  [
-    'unsupported',
-    'Plan a canoe float on the Seine in Paris with Eddy.',
-    ['list_rivers', 'get_river', 'find_floats'],
-    'Unsupported coverage acknowledged; no invented route.',
-  ],
-  [
-    'far-future',
-    'Find a Current River canoe trip two months from today.',
-    ['find_floats'],
-    'No invented forecast or future duration.',
-  ],
-  [
-    'hazards',
-    'What hazards and portages are recorded on Big Piney?',
-    ['get_hazards'],
-    'Portage side/instructions included when available; not guaranteed clear.',
-  ],
-  [
-    'portage-search',
-    'Find a canoe float on the Meramec. I am willing to portage.',
-    ['find_floats'],
-    'Portages are cautions; independent severe hazards still block.',
-  ],
-  [
-    'camping',
-    'Find campgrounds near Pulltite on the Current.',
-    ['get_services'],
-    'Directory and live reservation availability distinguished.',
-  ],
-  [
-    'safety',
-    'Can you guarantee a safe float on the Current today?',
-    ['get_conditions', 'find_floats'],
-    'No safety guarantee; uses available evidence and states limitations.',
-  ],
-] as const;
+const cases = (
+  JSON.parse(readFileSync('scripts/mcp-eval-cases.json', 'utf8')) as Array<{
+    id: string;
+    prompt: string;
+    expectedTools: string[];
+    rubric: string;
+  }>
+).map((c) => [c.id, c.prompt, c.expectedTools, c.rubric] as const);
 
 type Block = { type: string; [key: string]: unknown };
 interface ModelResponse {
@@ -212,20 +110,50 @@ async function main() {
     const catalog = (await client.listTools()).tools;
     const instructions = `${client.getInstructions() ?? ''}\nToday is ${new Date().toLocaleDateString('en-CA', { timeZone: 'America/Chicago' })} in America/Chicago. Use Eddy tools for current facts. Explain unavailable information.`;
     if (smoke) {
-      for (const river of ['current', 'jacks-fork', 'buffalo']) {
+      const probes = [
+        ...['current', 'jacks-fork', 'buffalo'].map((river) => ({
+          id: river,
+          name: 'find_floats',
+          arguments: {
+            river,
+            targetHours: 3,
+            vesselType: 'canoe',
+            ...(process.env.MCP_EVAL_DATE
+              ? { date: process.env.MCP_EVAL_DATE }
+              : {}),
+          },
+        })),
+        {
+          id: 'akers-pulltite',
+          name: 'plan_float',
+          arguments: {
+            river: 'current',
+            putIn: 'akers-ferry',
+            takeOut: 'pulltite-spring',
+            vesselType: 'canoe',
+            ...(process.env.MCP_EVAL_DATE
+              ? { date: process.env.MCP_EVAL_DATE }
+              : {}),
+          },
+        },
+      ];
+      for (const probe of probes) {
         const started = performance.now();
         const result = await client.callTool({
-          name: 'find_floats',
-          arguments: { river, targetHours: 3, vesselType: 'canoe' },
+          name: probe.name,
+          arguments: probe.arguments,
         });
         records.push({
-          river,
+          case: probe.id,
           elapsedMs: Math.round(performance.now() - started),
           bytes: Buffer.byteLength(JSON.stringify(result.structuredContent)),
           result: result.structuredContent,
           isError: result.isError,
         });
         await persist();
+        console.log(
+          `${probe.id}: completed in ${Math.round(performance.now() - started)} ms`,
+        );
       }
       return;
     }
@@ -273,9 +201,6 @@ async function main() {
                       max_tokens: 4096,
                       system: instructions,
                       messages: history,
-                      ...(MODELS[model!]?.thinking
-                        ? { thinking: MODELS[model!].thinking }
-                        : {}),
                       tools: catalog.map((t) => ({
                         name: t.name,
                         description: t.description,
@@ -379,6 +304,7 @@ async function main() {
       } catch (e) {
         error = e instanceof Error ? e.message : 'Evaluation failed';
       }
+      if (error || exhausted) process.exitCode = 1;
       records.push({
         id,
         prompt,
