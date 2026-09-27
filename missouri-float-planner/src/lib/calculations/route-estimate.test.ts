@@ -1,6 +1,9 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { readFileSync } from 'node:fs';
+import { createClient } from '@supabase/supabase-js';
+import type { Database } from '@/types/database';
+import { estimateRoute, RouteEstimateError } from './route-estimate';
 import { routeFixture } from './route-estimate-fixture';
 import { savedTimeRangeLabel, validTimeRange } from './saved-time-range';
 
@@ -54,5 +57,35 @@ test('all route entry points delegate to the shared service', () => {
   for (const path of ['src/app/api/plan/route.ts', 'src/app/api/route-estimate/route.ts', 'src/lib/agent-tools/planning.ts', 'src/lib/social/post-context.ts', 'src/app/api/favorite-floats/route.ts', 'src/lib/access-points/detail.ts']) {
     const source = readFileSync(path, 'utf8');
     assert.match(source, /await estimateRoute\(|=>\s*estimateRoute\(/, path);
+  }
+});
+
+
+test('real PostgREST client distinguishes missing rivers/vessels from database failures', async () => {
+  for (const target of ['rivers', 'vessel_types']) {
+    for (const failure of [false, true]) {
+      const client = createClient<Database>('https://fixture.supabase.co', 'offline-key', {
+        auth: { persistSession: false, autoRefreshToken: false },
+        global: { fetch: async (input, init) => {
+          const table = new URL(String(input)).pathname.split('/').at(-1);
+          if (table === target && failure) return Response.json({ code: '08006', message: 'Database unavailable' }, { status: 503 });
+          const rows = table === target ? [] : table === 'rivers' ? [{ id: 'river', name: 'Fixture river', slug: 'fixture', river_type: 'spring_fed_float' }] : table === 'access_points' ? [
+            { id: 'put-in', river_id: 'river', approved: true, is_float_endpoint: true },
+            { id: 'take-out', river_id: 'river', approved: true, is_float_endpoint: true },
+          ] : [];
+          // Model the wire protocol, rather than making .single() return an
+          // impossible null/no-error result for an empty table.
+          if (new Headers(init?.headers).get('accept')?.includes('vnd.pgrst.object+json')) {
+            return rows.length === 1 ? Response.json(rows[0]) : Response.json({ code: 'PGRST116', details: 'The result contains 0 rows', message: 'Cannot coerce the result to a single JSON object' }, { status: 406 });
+          }
+          return Response.json(rows);
+        } },
+      });
+      await assert.rejects(
+        estimateRoute(client, { riverId: 'river', startId: 'put-in', endId: 'take-out', vesselTypeId: 'missing-vessel' }),
+        error => error instanceof RouteEstimateError && error.status === (failure ? 500 : 404),
+        `${target}: failure=${failure}`,
+      );
+    }
   }
 });

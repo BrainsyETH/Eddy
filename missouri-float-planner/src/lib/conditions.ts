@@ -11,6 +11,7 @@ import { CONDITION_COLORS, CONDITION_LABELS } from '@/constants';
 import type { ConditionCode } from '@/types/api';
 import {
   classifyReading,
+  hasLadder,
   type ClassifyReadingOptions,
   type ConditionThresholds as LadderThresholds,
 } from '@shared/condition-ladder';
@@ -129,6 +130,11 @@ export function computeConditionFromDbRow(
     levelDangerous: row.level_dangerous,
     thresholdUnit: (row.threshold_unit as 'ft' | 'cfs') || undefined,
   };
+  // An uncalibrated station is useful raw data, but cannot be called too low.
+  // Flood-stage overrides are applied by callers independently of this ladder.
+  if (!hasLadder(thresholds)) {
+    return { code: 'unknown', label: CONDITION_LABELS.unknown, color: CONDITION_COLORS.unknown };
+  }
   return computeCondition(gaugeHeightFt, thresholds, dischargeCfs);
 }
 

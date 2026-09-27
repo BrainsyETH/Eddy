@@ -39,7 +39,7 @@ export async function estimateRoute(supabase: SupabaseClient<Database>, {
       // direction for a guard whose whole job is to withhold a number.
       .select('id, name, slug, river_type')
       .eq('id', riverId)
-      .single();
+      .maybeSingle();
 
     if (riverError) throw new RouteEstimateError('Could not look up the river', 500);
     if (!river) {
@@ -74,7 +74,7 @@ export async function estimateRoute(supabase: SupabaseClient<Database>, {
         .from('vessel_types')
         .select('*')
         .eq('id', vesselTypeId)
-        .single();
+        .maybeSingle();
       if (vesselError) throw new RouteEstimateError('Could not look up the vessel type', 500);
       if (!vt) throw new RouteEstimateError('Vessel type not found', 404);
       vesselType = vt;
@@ -85,7 +85,7 @@ export async function estimateRoute(supabase: SupabaseClient<Database>, {
         .from('vessel_types')
         .select('*')
         .eq('slug', 'canoe')
-        .single();
+        .maybeSingle();
       if (defaultVesselError) throw new RouteEstimateError('Could not look up the vessel type', 500);
       vesselType = defaultVessel;
     }

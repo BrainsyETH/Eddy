@@ -45,7 +45,7 @@ export default function PrivacyPage() {
 
         <section>
           <h2 className={heading}>Information We Collect</h2>
-          <p className={`${body} mb-4`}>Public MCP tools receive only the arguments your assistant sends for a requested lookup; Eddy does not request your chat history. Operational monitoring may record aggregate tool counts, latency and errors. Optional diagnostics may include the reported client software name, but exclude tool arguments and response bodies. Network addresses support short-lived abuse limits; hosting/security logs follow the retention practices below. Disconnect Eddy in your assistant to stop future tool calls. Gauge, weather, park and routing providers receive the river, station or route details needed for that lookup, not your chat history.</p>
+          <p className={`${body} mb-4`}>Public MCP tools receive only the arguments your assistant sends for a requested lookup; Eddy does not request your chat history. Operational monitoring may record aggregate tool counts, latency and errors. Optional diagnostics may include the reported client software name, but exclude tool arguments and response bodies. Network addresses support short-lived abuse limits. Diagnostics may include a daily keyed network-bucket identifier to understand shared-network limits; this does not identify individual users or integrations. hosting/security logs follow the retention practices below. Disconnect Eddy in your assistant to stop future tool calls. Gauge, weather, park and routing providers receive the river, station or route details needed for that lookup, not your chat history.</p>
           <ul className={list}>
             <li>
               <strong>Usage and device data.</strong> Pages viewed, rivers and features used,
