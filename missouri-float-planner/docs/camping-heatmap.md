@@ -208,3 +208,18 @@ universal booking limit. Individual night strips retain horizontal scrolling.
 Freshness follow-up: add per-night check timestamps to the site-list contract and
 judge only occupied dates. Until then the response's oldest monthly timestamp is
 used conservatively, so one expired observation can make that month unknown.
+
+### Comparison scrolling and date headings
+
+The horizontal date scroller is a sibling of the campground-name button; no
+row-wide Pressable wraps the native ScrollView. Date cells have explicit,
+non-shrinking widths (36pt on the full page, 28pt on Today), with total content
+width set from the number of dates. A tap inside the scroller can still open the
+campground, guarded against movement or cancellation; dragging belongs to the
+ScrollView. Offset synchronization remains on the UI thread.
+
+The pinned heading shows weekday/day, Today, and a persistent month/year label
+based on the leftmost visible date. Only changes to that date index bridge to
+React for the month text. Friday/Saturday cells have subtle background shading,
+and native scroll indicators expose the sideways overflow. Device verification
+is still required for diagonal drags, momentum, and switching scroll rows.
