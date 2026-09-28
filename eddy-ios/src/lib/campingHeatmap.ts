@@ -215,17 +215,22 @@ export function currentOverview(
   };
 }
 
-/** Seven-night windows overlap when needed so Friday/Saturday stay together. */
+/**
+ * Disjoint pages of about seven nights. A page never ends on a Friday whose
+ * Saturday follows, so a weekend is always picked on one page. A horizon that
+ * starts on Saturday would otherwise split Fri/Sat at the page break; the first
+ * page ends Thursday instead and a one-night tail joins the last page (eight
+ * nights) rather than becoming a third page.
+ */
 export function campingNightPages(nights: string[]): string[][] {
-  if (!nights.length) return [];
   const pages: string[][] = [];
   let start = 0;
-  while (true) {
-    pages.push(nights.slice(start, start + 7));
-    if (start + 7 >= nights.length) break;
-    let next = start + 7;
-    if (new Date(nights[next - 1] + 'T12:00:00Z').getUTCDay() === 5) next--;
-    start = Math.min(next, nights.length - 7);
+  while (start < nights.length) {
+    let end = Math.min(start + 7, nights.length);
+    if (end < nights.length && new Date(nights[end - 1] + 'T12:00:00Z').getUTCDay() === 5) end--;
+    if (nights.length - end === 1) end = nights.length;
+    pages.push(nights.slice(start, end));
+    start = end;
   }
   return pages;
 }

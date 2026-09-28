@@ -4,7 +4,7 @@
 
 - Read-only `/api/camping/availability`: facility-first catalog, sparse per-night observations, 300/300 edge cache, and complete paginated reads. No provider calls from user requests.
 - A four-row Today card and `/camping` expanded screen. Location stays on the phone; nearby means 120 straight-line miles, with a separately labeled saved-river/regional fallback.
-- Fourteen comparison cells, absolute opening-count shades, explicit unknown/closed/unreleased/full marks, seven-night selectable controls, external booking links, and optional map destinations.
+- Fourteen comparison cells, absolute opening-count shades, explicit unknown/closed/unreleased/full marks, two disjoint pages of selectable nights (usually seven each; eight when needed to keep a Friday with its Saturday), external booking links, and optional map destinations.
 - On-demand individual site lists in the expanded screen and service callouts. Site responses are cached briefly for up to eight facilities. No eager per-row site fetches.
 - Date windows shared between server and phone. Cached catalogs roll forward at Chicago midnight; newly uncovered nights remain unknown.
 
@@ -12,7 +12,7 @@
 
 Availability history is pruned seven days behind the current date. An empty retained history cannot prove never observed. The response therefore uses `fresh`, `stale`, and `unknown`, with “No recent observations” rather than “Never checked.” `last_synced_at` is not used as an observation timestamp.
 
-Fresh means at least one current-horizon valid observation; every cell separately checks `checkedAt` against `maxObservationAgeSeconds` (72 hours). The feature never promises one site for an entire stay. The heatmap uses absolute count buckets (1–2, 3–9, 10+) and a distinct “No reservable sites” mark for checked nights with zero reservable inventory. These observations retain their timestamps and freshness without implying first-come availability. Existing map strips retain their original colors, proportional fills, and status semantics.
+Fresh means at least one current-horizon valid observation; every cell separately checks `checkedAt` against `maxObservationAgeSeconds` (72 hours). The feature never promises one site for an entire stay. The heatmap uses absolute count buckets (1–2, 3–9, 10+) and a distinct “No reservable sites” mark for checked nights with zero reservable inventory. These observations retain their timestamps and freshness without implying first-come availability. Existing map strips retain their original colors, proportional fills, and status semantics. The two encodings differ deliberately: the heatmap never appears beside a map strip, and keeping the strip unchanged keeps the flag's scope clean. Don't align one to the other without a design decision.
 
 There is no general NPS-only detail route or service callout deep-link route. Their expanded heatmap row provides the calendar, sites, website, and booking destination. Verified access-point destinations open the existing map using its supported focus parameters; this does not force a particular map-sheet tab.
 

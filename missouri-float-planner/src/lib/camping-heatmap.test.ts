@@ -169,13 +169,15 @@ test('zero-reservable observations are checked without implying first-come avail
   assert.equal(cellMark({ ...n, status: 'closed' }), 'closed');
   assert.equal(cellMark({ ...n, status: 'not_yet_released' }), 'nyr');
 });
-test('seven-night pages cover every date and keep every Friday/Saturday pair together', () => {
+test('night pages are two disjoint pages that keep every Friday/Saturday pair together', () => {
   for (let offset = 0; offset < 7; offset++) {
     const dates = Array.from({ length: 14 }, (_, i) =>
       new Date(Date.UTC(2026, 8, 28 + offset + i)).toISOString().slice(0, 10));
     const pages = campingNightPages(dates);
-    assert.ok(pages.every(p => p.length <= 7));
-    assert.deepEqual([...new Set(pages.flat())], dates);
+    // Every start weekday, Saturday included, yields two pages with no repeats.
+    assert.equal(pages.length, 2, `start ${dates[0]}`);
+    assert.deepEqual(pages.flat(), dates);
+    assert.ok(pages.every(p => p.length >= 6 && p.length <= 8));
     dates.forEach((d, i) => {
       if (i < 13 && new Date(d + 'T12:00:00Z').getUTCDay() === 5)
         assert.ok(pages.some(p => p.includes(d) && p.includes(dates[i + 1])));
