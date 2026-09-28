@@ -54,3 +54,23 @@ test('the default floor of 0.0.0 never locks anyone out', () => {
     assert.equal(isUpgradeRequired(v, '0.0.0'), false, `${v} should be allowed`);
   }
 });
+
+
+import { initialAppConfigState, receiveAppConfig } from '../../../eddy-ios/src/lib/appConfigState';
+import type { AppConfigResponse as MobileConfig } from '../../../packages/eddy-types';
+
+test('foreground refresh updates flags without imposing an upgrade mid-session', () => {
+  const config = { minSupportedVersion: '1.0.0', features: { campingHeatmap: true } } as MobileConfig;
+  const launch = receiveAppConfig(initialAppConfigState, config, '1.0.0');
+  const refreshed = receiveAppConfig(launch, { ...config, minSupportedVersion: '2.0.0', features: { ...config.features, campingHeatmap: false } }, '1.0.0');
+  assert.equal(refreshed.upgradeRequired, false);
+  assert.equal(refreshed.config?.features.campingHeatmap, false);
+  assert.equal(receiveAppConfig(initialAppConfigState, refreshed.config, '1.0.0').upgradeRequired, true);
+});
+test('failed launch config stays fail-open for that session; an existing launch gate stays latched', () => {
+  const config = { minSupportedVersion: '2.0.0' } as MobileConfig;
+  const failedLaunch = receiveAppConfig(initialAppConfigState, null, '1.0.0');
+  assert.equal(receiveAppConfig(failedLaunch, config, '1.0.0').upgradeRequired, false);
+  const gatedLaunch = receiveAppConfig(initialAppConfigState, config, '1.0.0');
+  assert.equal(receiveAppConfig(gatedLaunch, null, '1.0.0').upgradeRequired, true);
+});

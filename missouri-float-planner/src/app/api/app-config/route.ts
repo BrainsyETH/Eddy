@@ -15,8 +15,8 @@
 // TWO PROPERTIES THIS ROUTE MUST KEEP:
 //
 //  1. It FAILS OPEN. If the row is missing or the database is unreachable, it
-//     returns defaults with 200 (new optional features remain off). A config endpoint that 500s would
-//     brick every client that treats a failed fetch as "do not start" — the
+//     returns defaults with 200 (new optional features remain off). A config
+//     endpoint that 500s would brick clients treating failure as "do not start" — the
 //     outage would be indistinguishable from a forced upgrade.
 //
 //  2. It stays PUBLIC and CDN-cacheable. Every app instance polls it, including
