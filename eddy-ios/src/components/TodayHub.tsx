@@ -430,7 +430,7 @@ export function TodayHub({
   onBrowseRivers,
 }: Props) {
   const router = useRouter();
-  const { colors } = useTheme();
+  const { colors, elevation } = useTheme();
   const { starred, ready: starsReady } = useStarredRivers();
   const { session, ready: sessionReady } = useSession();
   const account = useAccount();
@@ -756,14 +756,15 @@ export function TodayHub({
               locationActionLabel={locationActionLabel}
             />
           </View>
-          <View style={[styles.compactColumn, styles.alertCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
-            <Pressable accessibilityRole="button" accessibilityLabel={`Alerts. ${safetyCount ? `${safetyCount} alerts ${safetyScopeLabel}. ${topNotice?.title ?? (topHigh ? `${topHigh.name}: ${conditionLabel(topHigh.conditionCode)}` : '')}` : safetyFailure.high || safetyFailure.notices ? 'Could not refresh alerts' : activeSafety.high === null || activeSafety.notices === null ? 'Checking alerts' : `No current alerts ${safetyScopeLabel}`}`} onPress={() => router.push('/alerts')} style={styles.alertMain}>
-              <View style={styles.compactHeading}>
-                <Ionicons name={safetyCount ? 'warning-outline' : 'notifications-outline'} size={26} color={safetyCount ? conditionInk(topHigh?.conditionCode === 'dangerous' || topNotice?.severity === 'warning' ? 'dangerous' : 'high') : colors.interactive} />
-                <Text style={{ ...t.lg, fontFamily: fonts.semibold, color: colors.text }}>Alerts</Text>
-              </View>
-              <Text style={[styles.compactValue, { color: colors.text }, safetyCount ? styles.alertCount : null]}>{safetyCount ? String(safetyCount) : safetyFailure.high || safetyFailure.notices ? 'Unable to refresh' : activeSafety.high === null || activeSafety.notices === null ? 'Checking…' : 'None'}</Text>
-            </Pressable>
+          <View style={styles.compactColumn}>
+            <View style={[styles.alertCard, { backgroundColor: colors.card, borderColor: colors.border }, elevation(1)]}>
+              <Pressable accessibilityRole="button" accessibilityLabel={`Alerts. ${safetyCount ? `${safetyCount} alerts ${safetyScopeLabel}. ${topNotice?.title ?? (topHigh ? `${topHigh.name}: ${conditionLabel(topHigh.conditionCode)}` : '')}` : safetyFailure.high || safetyFailure.notices ? 'Could not refresh alerts' : activeSafety.high === null || activeSafety.notices === null ? 'Checking alerts' : `No current alerts ${safetyScopeLabel}`}`} onPress={() => router.push('/alerts')} style={styles.alertMain}>
+                <View style={styles.compactHeading}>
+                  <Ionicons name={safetyCount ? 'warning-outline' : 'notifications-outline'} size={28} color={safetyCount ? conditionInk(topHigh?.conditionCode === 'dangerous' || topNotice?.severity === 'warning' ? 'dangerous' : 'high') : colors.interactive} />
+                </View>
+                <Text style={[styles.compactValue, { color: colors.text }, safetyCount ? styles.alertCount : null]}>{safetyCount ? `${safetyCount} ${safetyCount === 1 ? 'alert' : 'alerts'}` : safetyFailure.high || safetyFailure.notices ? 'Unable to refresh' : activeSafety.high === null || activeSafety.notices === null ? 'Checking…' : 'No alerts'}</Text>
+              </Pressable>
+            </View>
           </View>
         </View>
       </View>
@@ -921,11 +922,11 @@ const styles = StyleSheet.create({
   noticeText: { ...t.sm, fontFamily: fonts.body, flex: 1 },
   weatherAlerts: { flexDirection: 'row', alignItems: 'stretch', gap: 10 },
   compactColumn: { flex: 1, minWidth: 0 },
-  alertCard: { borderWidth: StyleSheet.hairlineWidth, borderRadius: 16, padding: 12, minHeight: 120 },
+  alertCard: { flex: 1, borderWidth: StyleSheet.hairlineWidth, borderRadius: 16, padding: 12, minHeight: 120 },
   alertMain: { flex: 1, minHeight: 44, gap: 6, alignItems: 'center', justifyContent: 'center' },
-  compactHeading: { flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' },
+  compactHeading: { minHeight: 29, alignItems: 'center', justifyContent: 'center' },
   alertCount: { ...t['3xl'], fontFamily: fonts.semibold },
-  compactValue: { ...t.xl, fontFamily: fonts.semibold, textAlign: 'center' },
+  compactValue: { ...t.xl, minHeight: 38, lineHeight: 38, fontFamily: fonts.semibold, textAlign: 'center' },
   summaryTop: { marginBottom: 14, gap: 10 },
   section: { marginBottom: 24 },
   sectionHead: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 10, paddingHorizontal: 2 },
