@@ -6,6 +6,8 @@ import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { parseArgs } from 'node:util';
 import { AGENT_TOOLS } from '../src/lib/agent-tools/catalog';
+import { hostedEndpoint } from './lib/mcp-eval-config';
+import { hostedCalls, reviewDetailFollowups } from './lib/mcp-eval-review';
 import { loadEnvLocal } from './lib/db';
 
 interface EvalCase {
@@ -17,6 +19,7 @@ interface EvalCase {
 interface Block {
   type: string;
   id?: string;
+  tool_use_id?: string;
   name?: string;
   text?: string;
   input?: unknown;
@@ -38,6 +41,7 @@ async function main() {
   const { values } = parseArgs({
     options: {
       list: { type: 'boolean' },
+      'allow-provider-bypass': { type: 'boolean', default: false },
       provider: { type: 'string' },
       case: { type: 'string' },
       limit: { type: 'string', default: '20' },
@@ -63,17 +67,16 @@ async function main() {
     throw new Error(
       `Missing configuration: ${missing.join(', ')}. Use --list to inspect cases without API calls.`,
     );
-  const endpoint = new URL(process.env.MCP_EVAL_URL!);
-  if (
-    endpoint.protocol !== 'https:' ||
-    ['localhost', '127.0.0.1', '[::1]'].includes(endpoint.hostname)
-  ) {
-    throw new Error(
-      'Hosted MCP evaluation needs a remotely reachable HTTPS endpoint; use an authorized preview or tunnel, not localhost.',
+  const bypass = process.env.MCP_EVAL_BYPASS_SECRET;
+  const endpoint = hostedEndpoint(
+    process.env.MCP_EVAL_URL!,
+    bypass,
+    values['allow-provider-bypass'],
+  );
+  if (bypass)
+    console.warn(
+      'The dedicated evaluation bypass credential will be sent to the selected provider. Revoke it after the run.',
     );
-  }
-  const bypass = process.env.VERCEL_AUTOMATION_BYPASS_SECRET;
-  if (bypass) endpoint.searchParams.set('x-vercel-protection-bypass', bypass);
   const secrets = [
     process.env[keyName],
     ...endpoint.searchParams.values(),
@@ -206,6 +209,7 @@ async function main() {
         usage: payload.usage ?? null,
         toolResultBytes: Buffer.byteLength(JSON.stringify(toolResults)),
         signals: {
+          detailFollowups: reviewDetailFollowups(hostedCalls(blocks), answer),
           expectedToolUsed: c.expectedTools.some((name) =>
             toolSequence.includes(name),
           ),

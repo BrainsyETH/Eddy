@@ -37,8 +37,16 @@ async function handleMcpRequest(req: Request): Promise<Response> {
         jsonrpc: '2.0',
         id: null,
         error: {
-          code: -32600,
-          message: 'Expected one JSON-RPC request no larger than 32 KiB.',
+          code:
+            error instanceof SyntaxError ||
+            (error instanceof Error && error.message === 'invalid_json')
+              ? -32700
+              : -32600,
+          message:
+            error instanceof SyntaxError ||
+            (error instanceof Error && error.message === 'invalid_json')
+              ? 'Parse error: expected valid JSON.'
+              : 'Expected one JSON-RPC request no larger than 32 KiB.',
         },
       },
       {
@@ -62,7 +70,9 @@ async function handleMcpRequest(req: Request): Promise<Response> {
           if (process.env.MCP_USAGE_LOGGING === 'true')
             logger.info('[MCP] phase', {
               ...event,
-              networkBucket: limiter.networkBucket,
+              ...(limiter.networkBucket
+                ? { networkBucket: limiter.networkBucket }
+                : {}),
             });
         },
       })(name, args),
@@ -72,7 +82,9 @@ async function handleMcpRequest(req: Request): Promise<Response> {
         if (process.env.MCP_USAGE_LOGGING === 'true')
           logger.info('[MCP] tool', {
             ...event,
-            networkBucket: limiter.networkBucket,
+            ...(limiter.networkBucket
+              ? { networkBucket: limiter.networkBucket }
+              : {}),
             clientFamilyHint: clientFamilyHint(req.headers.get('user-agent')),
           });
       },

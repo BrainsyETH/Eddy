@@ -1,3 +1,4 @@
+import { abortable } from './budget';
 import { fetchNWSAlerts } from '@/lib/nws/alerts';
 import { fetchNPSAlerts } from '@/lib/nps/client';
 import { matchWeatherAlerts, npsSeverity } from '@/lib/alerts/river-alerts';
@@ -31,15 +32,19 @@ export function createSources(
   providers = sourceProviders,
   signal?: AbortSignal,
 ) {
+  function read<T>(run: () => Promise<T>) {
+    signal?.throwIfAborted();
+    return abortable(run(), signal);
+  }
   // One request/candidate search shares upstream responses, including failures.
   const nws = memoizeAsync((state: string) =>
-    providers.fetchNWSAlerts(state, { strict: true, signal }),
+    read(() => providers.fetchNWSAlerts(state, { strict: true, signal })),
   );
   const nps = memoizeAsync((park: string) =>
-    providers.fetchNPSAlerts(park, { strict: true, signal }),
+    read(() => providers.fetchNPSAlerts(park, { strict: true, signal })),
   );
   const forecasts = memoizeAsync((lid: string) =>
-    providers.fetchNwsForecast(lid, { strict: true, signal }),
+    read(() => providers.fetchNwsForecast(lid, { strict: true, signal })),
   );
   const weatherAt = memoizeAsync(async (key: string) => {
     const [lat, lon] = key.split(',').map(Number);
@@ -52,8 +57,12 @@ export function createSources(
         reason: 'Weather service is not configured.',
       };
     const [current, forecast] = await Promise.allSettled([
-      providers.fetchWeather(lat, lon, apiKey),
-      providers.fetchForecast(lat, lon, apiKey),
+      Promise.resolve().then(() =>
+        read(() => providers.fetchWeather(lat, lon, apiKey, { signal })),
+      ),
+      Promise.resolve().then(() =>
+        read(() => providers.fetchForecast(lat, lon, apiKey, { signal })),
+      ),
     ]);
     return {
       status: (current.status === 'fulfilled' && forecast.status === 'fulfilled'

@@ -98,16 +98,33 @@ campsite availability, business hours or a booking.
 - Production requires `UPSTASH_REDIS_REST_URL` and
   `UPSTASH_REDIS_REST_TOKEN`. Missing or failed shared limits return 503.
   Development uses the existing memory fallback.
-- Every HTTP request counts toward 600/minute/IP. The three heavy tools
-  (`plan_float`, `find_floats`, `get_drive_estimate`) additionally share
-  60/minute/IP and 120/minute across the service. One `find_floats` call counts
-  once; its internal six-estimate/two-at-a-time bounds still apply.
-  Configure `MCP_REQUESTS_PER_IP_PER_MINUTE`, `MCP_HEAVY_PER_IP_PER_MINUTE`, and
-  `MCP_HEAVY_GLOBAL_PER_MINUTE` with positive integer allowances. These are
-  initial operational budgets, not measured capacity guarantees. Keep a
-  per-IP abuse allowance alongside the global budget; shared connector egress
-  cannot identify individual users. Tune from 429s, upstream cost and latency.
-  429 includes `Retry-After`; 503 means shared admission could not be checked.
+- Every HTTP request counts toward 600/minute/IP, including rejected attempts.
+  Heavy work shares a 60/minute/IP admission allowance and a 120/minute global
+  ceiling. Within that ceiling, search and detailed planning/driving each have
+  a separate 60/minute allocation. Search cannot consume the detail allocation
+  or vice versa. Each class is capped at half the configured global ceiling;
+  unused capacity is deliberately not borrowed across classes.
+  `MCP_REQUESTS_PER_IP_PER_MINUTE`, `MCP_HEAVY_PER_IP_PER_MINUTE`,
+  `MCP_HEAVY_GLOBAL_PER_MINUTE` (minimum 2), `MCP_SEARCH_GLOBAL_PER_MINUTE` and
+  `MCP_DETAIL_GLOBAL_PER_MINUTE` configure the initial allowances. These are
+  cost controls, not measured capacity guarantees or per-user fairness: shared
+  connector egress and callers using multiple IPs remain indistinguishable.
+  Heavy admission checks all three buckets in one Redis EVAL operation and
+  increments only if all allow the call. Rejected work does not consume an IP,
+  class or global work allowance. The general HTTP attempt limit still counts
+  it. Upstash must permit EVAL/GET/INCR/PTTL/PEXPIRE; errors fail closed with 503.
+  One search admission covers at most six estimates/two concurrent workers.
+  429 includes Retry-After and logs the rejecting bucket. Redis failure logs
+  from the work-admission adapter contain no URLs, credentials or raw IP keys.
+- Explicit plans and drive estimates have a 25-second overall execution budget.
+  For plans, external alert/outlook/weather reads stop at 20 seconds, leaving
+  time to return the assessed route with explicit missing-source statuses.
+  Missing future outlooks remain conditional; completed closure/hazard blockers
+  remain blocking. A completed plan and finished enrichment are retained when
+  another add-on reaches the deadline. If core route work is unfinished, return
+  unavailable with deadlineReached and a retry message, never a fabricated time.
+  OpenWeather and Mapbox accept cancellation signals as optional arguments;
+  existing non-MCP callers retain their existing 10-second timeout behavior.
 - Search has a 20-second execution budget, including screening and alert
   checks. Two workers stop scheduling when it expires; the signal cancels
   PostgREST/NPS/NWS/USGS HTTP requests. Pending network waits are also released.
@@ -123,6 +140,8 @@ campsite availability, business hours or a booking.
   Origins must match the endpoint origin; nonbrowser clients may omit Origin.
   Stateless JSON transport supports POST only. GET and DELETE return 405 with
   Allow: POST; an empty SSE stream would cause needless SDK reconnections.
+  Malformed JSON returns -32700; invalid request shapes return -32600.
+  Oversized requests retain HTTP 413.
 - Public reads use the existing Supabase server client/RLS. No service-role
   bypass, database migrations, plan writes or booking writes are introduced.
 - Source keys remain server-side: `OPENWEATHER_API_KEY`, `NPS_API_KEY`,
@@ -138,8 +157,9 @@ campsite availability, business hours or a booking.
   Rejections are logged separately, even with optional
   usage logging off, with status, retry delay, rejecting bucket and heavy tool
   name when available. Logs use a daily HMAC network-bucket ID, never raw IPs;
-  `MCP_LOG_HASH_KEY` or the existing Upstash token supplies the server-only key.
-  Without a key the ID is `unavailable`. Optional call logs use the same ID.
+  Only a dedicated `MCP_LOG_HASH_KEY` supplies the correlation key; the Redis
+  token is never reused. Redis token rotation does not change the log buckets.
+  Without a key the correlation field is omitted. Optional call logs use the same ID.
   Apply the hosting log retention policy to these diagnostics.
   Stateless HTTP generally cannot retain
   initialize-time clientInfo across requests; `not_reported` is expected.
@@ -269,14 +289,35 @@ npm run mcp:eval:hosted -- --provider anthropic --limit 1
 npm run mcp:eval:hosted -- --provider openai --case current-canoe
 ```
 
-Use a remotely reachable HTTPS preview/tunnel URL, not localhost. With
-`VERCEL_AUTOMATION_BYPASS_SECRET` set, this harness adds Vercel's documented
-query parameter only in memory and redacts it from reports. Keep secret-bearing
-URLs out of registry metadata. `--out` selects the report file. This path tests
-API-hosted MCP calls, while `mcp:eval` controls the MCP client locally; neither
-replaces testing the Claude/ChatGPT application connector UI. Both record tool
-sequences, counts, latency, token usage, outputs and final answers for review.
+Use a remotely reachable HTTPS MCP endpoint, not localhost. The hosted harness
+**ignores VERCEL_AUTOMATION_BYPASS_SECRET**. It rejects credentials/query strings
+in MCP_EVAL_URL. Prefer the local SDK evaluator for a protected preview: it sends
+its bypass header directly to Vercel, not to the model provider.
+
+If hosted evaluation must access a protected endpoint, create a dedicated Vercel
+secret named for this evaluation and pass it as MCP_EVAL_BYPASS_SECRET together
+with --allow-provider-bypass. Both are required; setting the variable alone
+fails before any provider request. This explicitly sends a credential-bearing
+URL to the selected model provider. Local report redaction does not control
+provider-side handling or retention. A Vercel bypass secret covers deployments
+across its project; it is not scoped just to MCP. Revoke this dedicated token
+after testing. Do not rotate a shared CI token or remove protection from the
+whole app to run this test. An isolated public MCP-only test deployment is
+another option when deliberately configured for that purpose.
+
+Keep secret-bearing URLs out of registry metadata. --out selects the report.
+This path tests API-hosted MCP calls, while mcp:eval controls the client locally;
+neither replaces testing the Claude/ChatGPT application connector UI. Both
+record tool sequences, counts, latency, token usage, outputs and final answers.
 The hosted report records completion status; truncated replies need review.
+
+Both reports include detailFollowups: for each abbreviated search option, check
+for a later completed plan_float response with the same endpoints, vessel and
+requested date. A call for another route, a failed call or a call before the
+search does not qualify. unconfirmedPresentedOptions flags an option named or
+linked in the answer without that follow-up. Prose-only/ambiguous selection and
+warning preservation still require human review. An unselected option need not
+be expanded. The case rubrics explicitly include this check.
 
 The report records tool sequence, arguments/results, latency, response bytes,
 provider token usage and final answer for these synthetic prompts. Link,
@@ -359,3 +400,49 @@ received by a database server.
 The v2 search contract now contains compact `recommendations[].data`, not full
 plan payloads. Consumers of the earlier PR preview must use `plan_float` to get
 complete details and honor `detailRequired` on abbreviated search entries.
+
+
+### Shared planner impact and review boundary
+
+The shared estimator changes are not MCP-only. Flood-stage escalation and
+suspect-reading handling for in-route gauges can change conditions shown by
+/api/plan, /api/route-estimate, access-point detail estimates, and social plan
+context. Missing rivers/vessels return 404; database failures return 500.
+Typical-condition favorite-float estimates share lookup/error changes but skip
+live span checks. MCP additionally consumes the new anchorCondition,
+contributingGauges and spanCheckComplete fields. Existing web consumers do not
+automatically inherit MCP's conditional/recommendation wrapper.
+
+Review the shared estimator, its fixture and regression tests as a prerequisite
+change. MCP depends on those returned fields; rolling back the estimator alone
+while retaining this MCP version is unsupported. After the prerequisite merges,
+retarget the MCP PR to main. Weather/Mapbox optional cancellation arguments stay
+with the MCP cleanup because that is their caller; old callers are unchanged.
+
+The legacy-to-v2 envelope and compact-search result are breaking client changes.
+Notify any known preview consumers before production release and point them to
+the migration notes above. A version bump does not migrate a client's parser.
+
+### Audit cleanup validation (2026-09-28 UTC)
+
+The shared estimator and its regression coverage are isolated in prerequisite
+PR #1352. Review and merge that PR into main first, then retarget MCP PR #1343
+to main before merging it. Do not merge the MCP PR into the prerequisite branch.
+
+After resolving the test-script conflict and retaining both registrations, all
+2,908 registered tests and 15 pretests passed on Node 20. Both type checks and
+the Tailwind token check passed; full ESLint reported zero errors and the 14
+existing unrelated warnings. The evaluation scripts and helpers passed their
+explicit lint check with zero warnings. The same `tsx` socket restriction
+required `node --import tsx` for the token checker and tests.
+
+Regression coverage includes heavy-tool deadlines and retained partial plans,
+actual weather/driving cancellation, atomic heavy-work admission, class capacity
+reservation, rejected-work accounting, malformed JSON, omitted unconfigured log
+IDs, gauge overflow, hosted-token opt-in, and matching required plan follow-ups.
+The admission Lua also passed local Redis-emulator checks; this is not a hosted
+Upstash integration test. Both evaluation readiness commands list all 20 cases.
+
+No new configured preview, paid-model or application-connector run was possible
+without credentials. Existing local replay timings above remain historical;
+this cleanup does not establish production latency or capacity.

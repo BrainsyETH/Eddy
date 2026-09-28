@@ -1,0 +1,98 @@
+import { useCallback, useEffect, useState } from 'react';
+import type { CampingOverview } from '@eddy/types';
+import { fetchCampingOverview } from '@/api/client';
+import { onForeground } from '@/lib/foreground';
+import { campingDate, currentOverview } from '@/lib/campingHeatmap';
+
+// Shared, public memory cache. No location, account, or individual sites stored here.
+type WindowSize = 21 | 90;
+type Entry = {
+  cached: CampingOverview | null;
+  fetchedAt: number;
+  inFlight: Promise<CampingOverview> | null;
+};
+const windows: Record<WindowSize, Entry> = {
+  21: { cached: null, fetchedAt: 0, inFlight: null },
+  90: { cached: null, fetchedAt: 0, inFlight: null },
+};
+function request(nights: WindowSize): Promise<CampingOverview> {
+  const entry = windows[nights];
+  if (!entry.inFlight)
+    entry.inFlight = fetchCampingOverview(undefined, nights)
+      .then((data) => {
+        entry.cached = data;
+        entry.fetchedAt = Date.now();
+        return data;
+      })
+      .finally(() => {
+        entry.inFlight = null;
+      });
+  return entry.inFlight;
+}
+export function useCampingOverview(
+  enabled = true,
+  revision = 0,
+  nights: WindowSize = 90,
+) {
+  const entry = windows[nights];
+  const [held, setHeld] = useState({ nights, data: entry.cached });
+  const data = held.nights === nights ? held.data : entry.cached;
+  const [loading, setLoading] = useState(enabled && !entry.cached);
+  const [error, setError] = useState(false);
+  const [retry, setRetry] = useState(0);
+  const [now, setNow] = useState(Date.now);
+  const refresh = useCallback(() => setRetry((n) => n + 1), []);
+  useEffect(() => {
+    if (!enabled) return;
+    let active = true;
+    async function load(force = false) {
+      if (
+        !force &&
+        entry.cached &&
+        Date.now() - entry.fetchedAt < 300000 &&
+        entry.cached.horizon.startDate === campingDate()
+      ) {
+        if (active) {
+          setHeld({ nights, data: entry.cached });
+          setLoading(false);
+        }
+        return;
+      }
+      if (active) setLoading(true);
+      try {
+        const next = await request(nights);
+        if (active) {
+          setHeld({ nights, data: next });
+          setError(false);
+        }
+      } catch {
+        if (active) setError(true);
+      } finally {
+        if (active) setLoading(false);
+      }
+    }
+    void load(revision > 0 || retry > 0);
+    const off = onForeground(() => {
+      setNow(Date.now());
+      void load();
+    });
+    // Aging and midnight rollover only; this does not poll the provider or API.
+    const timer = setInterval(() => {
+      setNow(Date.now());
+      if (entry.cached && entry.cached.horizon.startDate !== campingDate())
+        void load();
+    }, 60000);
+    return () => {
+      active = false;
+      off();
+      clearInterval(timer);
+    };
+  }, [enabled, revision, retry, nights, entry]);
+  return {
+    data: data ? currentOverview(data, now) : null,
+    loading,
+    error,
+    refresh,
+    now,
+  };
+}

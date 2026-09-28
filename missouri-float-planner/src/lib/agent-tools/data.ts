@@ -140,16 +140,22 @@ export function createDataContext(db: Db, now = Date.now()) {
         'access points',
       ) as Access[],
   );
-  const gauges = memoizeAsync(
-    async (riverId: string) =>
-      checked(
-        await db
-          .from('river_gauges')
-          .select(GAUGE_SELECT)
-          .eq('river_id', riverId),
-        'river gauges',
-      ) as unknown as GaugeLink[],
-  );
+  const gauges = memoizeAsync(async (riverId: string) => {
+    const rows = checked(
+      await db
+        .from('river_gauges')
+        .select(GAUGE_SELECT)
+        .eq('river_id', riverId)
+        .limit(501),
+      'river gauges',
+    ) as unknown as GaugeLink[];
+    if (rows.length > 500)
+      throw new AgentError(
+        'Gauge catalog exceeds this tool’s supported size.',
+        'unavailable',
+      );
+    return rows;
+  });
   const readings = memoizeAsync(async (riverId: string) => {
     const links = await gauges(riverId);
     try {

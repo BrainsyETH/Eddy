@@ -2,6 +2,7 @@
  * or writes. --check lists readiness; --smoke only calls read-only MCP tools.
  * Model/provider must be selected explicitly; never silently spend on a default.
  */
+import { reviewDetailFollowups } from './lib/mcp-eval-review';
 import { writeFile } from 'node:fs/promises';
 import { readFileSync } from 'node:fs';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
@@ -317,6 +318,7 @@ async function main() {
         exhausted,
         error,
         checks: {
+          detailFollowups: reviewDetailFollowups(calls, answer),
           expectedToolUsed: calls.some((c) =>
             (expectedTools as readonly string[]).includes(c.tool),
           ),

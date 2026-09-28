@@ -70,6 +70,10 @@ interface ExecutorOptions {
   routeProviders?: Parameters<typeof createPlanning>[2];
   signal?: AbortSignal;
   searchBudgetMs?: number;
+  heavyBudgetMs?: number;
+  sourceBudgetMs?: number;
+  sourceSignal?: AbortSignal;
+  checkpoint?: (value: AgentResult) => void;
   logPhase?: (event: {
     tool: string;
     phase: string;
@@ -79,16 +83,49 @@ interface ExecutorOptions {
 
 export function createAgentExecutor(db: Db, options: ExecutorOptions = {}) {
   return async (name: string, input: unknown): Promise<AgentResult> => {
-    const budget =
-      name === 'find_floats'
-        ? searchBudget(options.searchBudgetMs ?? 20_000, options.signal)
+    const search = name === 'find_floats';
+    const heavy = AGENT_TOOLS.some((tool) => tool.name === name && tool.heavy);
+    const budget = heavy
+      ? searchBudget(
+          search
+            ? (options.searchBudgetMs ?? 20_000)
+            : (options.heavyBudgetMs ?? 25_000),
+          options.signal,
+        )
+      : null;
+    // Stop optional external sources before the overall plan deadline, leaving
+    // time to assess missing coverage and return the completed route.
+    const sources =
+      name === 'plan_float'
+        ? searchBudget(options.sourceBudgetMs ?? 20_000, budget?.signal)
         : null;
+    let checkpoint: AgentResult | undefined;
     try {
-      return await createScopedExecutor(db, {
+      const work = createScopedExecutor(db, {
         ...options,
         signal: budget?.signal ?? options.signal,
+        sourceSignal: sources?.signal ?? budget?.signal ?? options.signal,
+        checkpoint: (value) => {
+          checkpoint = value;
+        },
       })(name, input);
+      // Search assembles its own partial result when its budget expires.
+      return await (search
+        ? work
+        : abortable(work, budget?.signal ?? options.signal));
+    } catch (error) {
+      if (!budget?.signal.aborted) throw error;
+      const message = options.signal?.aborted
+        ? 'Request cancelled; unfinished lookups are unavailable.'
+        : 'Tool deadline reached; unfinished lookups are unavailable. Retry to complete the checks.';
+      return checkpoint
+        ? result({ ...checkpoint.data, deadlineReached: true }, 'partial', [
+            ...checkpoint.warnings,
+            message,
+          ])
+        : result({ message, deadlineReached: true }, 'unavailable');
     } finally {
+      sources?.dispose();
       budget?.dispose();
     }
   };
@@ -99,7 +136,7 @@ function createScopedExecutor(db: Db, options: ExecutorOptions) {
   const sources = createSources(
     ctx,
     options.sources ?? sourceProviders,
-    options.signal,
+    options.sourceSignal ?? options.signal,
   );
   const planning = createPlanning(
     ctx,
@@ -260,33 +297,57 @@ function createScopedExecutor(db: Db, options: ExecutorOptions) {
     };
   }
   async function enrich(plan: Awaited<ReturnType<typeof planning.calculate>>) {
-    const [weather, outfitters] = await Promise.allSettled([
-      sources.weather(plan.river, plan.putIn),
-      services(plan.river, {
-        near: plan.putIn.id,
-        category: 'outfitter',
-        limit: 3,
-      }),
+    let weatherData: Record<string, unknown> & { status: Status } = {
+      status: 'unavailable',
+      reason: 'Weather lookup did not complete.',
+    };
+    let serviceData: Record<string, unknown> & { status: Status } = {
+      status: 'unavailable',
+      reason: 'Outfitter lookup did not complete.',
+    };
+    const snapshot = () =>
+      result(
+        { ...plan.data, weather: weatherData, outfitters: serviceData },
+        combineStatus([plan.status, weatherData.status, serviceData.status]),
+        plan.warnings,
+      );
+    options.checkpoint?.(snapshot());
+    await Promise.all([
+      abortable(sources.weather(plan.river, plan.putIn), options.sourceSignal)
+        .then(
+          (value) => {
+            weatherData = value;
+          },
+          () => {
+            weatherData = {
+              status: 'lookup_failed',
+              reason: 'Weather could not be checked within its budget.',
+            };
+          },
+        )
+        .then(() => options.checkpoint?.(snapshot())),
+      abortable(
+        services(plan.river, {
+          near: plan.putIn.id,
+          category: 'outfitter',
+          limit: 3,
+        }),
+        options.signal,
+      )
+        .then(
+          (value) => {
+            serviceData = value;
+          },
+          () => {
+            serviceData = {
+              status: 'lookup_failed',
+              reason: 'Outfitters could not be checked within the tool budget.',
+            };
+          },
+        )
+        .then(() => options.checkpoint?.(snapshot())),
     ]);
-    const weatherData =
-      weather.status === 'fulfilled'
-        ? weather.value
-        : {
-            status: 'lookup_failed' as Status,
-            reason: 'Weather could not be checked.',
-          };
-    const serviceData =
-      outfitters.status === 'fulfilled'
-        ? outfitters.value
-        : {
-            status: 'lookup_failed' as Status,
-            reason: 'Outfitters could not be checked.',
-          };
-    return result(
-      { ...plan.data, weather: weatherData, outfitters: serviceData },
-      combineStatus([plan.status, weatherData.status, serviceData.status]),
-      plan.warnings,
-    );
+    return snapshot();
   }
   async function run(
     name: string,

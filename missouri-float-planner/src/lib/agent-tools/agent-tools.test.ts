@@ -56,6 +56,9 @@ function fixture(
     points?: number;
     snapshots?: boolean;
     searchBudgetMs?: number;
+    heavyBudgetMs?: number;
+    sourceBudgetMs?: number;
+    stallTable?: string;
     stallAfter?: number;
   } = {},
 ) {
@@ -206,7 +209,7 @@ function fixture(
       ) => {
         calls.push(name);
         if (
-          name === 'get_float_segment' &&
+          name === options.stallTable || name === 'get_float_segment' &&
           options.stallAfter !== undefined &&
           calls.filter((c) => c === name).length > options.stallAfter
         ) {
@@ -325,9 +328,12 @@ function fixture(
     db,
     calls,
     tables,
+    sources,
     execute: createAgentExecutor(db, {
       now: NOW,
       searchBudgetMs: options.searchBudgetMs,
+      heavyBudgetMs: options.heavyBudgetMs,
+      sourceBudgetMs: options.sourceBudgetMs,
       sources,
       routeProviders: options.snapshots
         ? undefined
@@ -938,4 +944,56 @@ test('portage plans are conditional and long instructions explicitly require ful
     crossing.data.routeAssessment.cautionReasons[0].code,
     'portage_required',
   );
+});
+
+
+test('plan deadline cancels unfinished core calculation without inventing a route', async () => {
+  const f = fixture({ heavyBudgetMs: 50, stallAfter: 0 });
+  const out = await f.execute('plan_float', trip);
+  assert.equal(out.status, 'unavailable');
+  assert.equal(out.data.deadlineReached, true);
+  assert.equal(out.data.estimatedFloatTime, undefined);
+  assert.ok(f.calls.includes('cancelled'));
+});
+
+test('slow official sources leave a completed future plan conditional', async () => {
+  const f = fixture({ heavyBudgetMs: 200, sourceBudgetMs: 30 });
+  f.sources.fetchNPSAlerts = () => new Promise(() => {});
+  f.sources.fetchNwsForecast = () => new Promise(() => {});
+  const out = await f.execute('plan_float', { ...trip, date: date(1) });
+  assert.equal(out.status, 'partial');
+  assert.equal((out.data.routeAssessment as any).recommendationStatus, 'conditional');
+  assert.ok((out.data.routeAssessment as any).cautionReasons.some((r: any) => r.code === 'forecast_incomplete'));
+  assert.ok(out.data.estimatedFloatTime);
+  assert.equal((out.data.alerts as any).checkedAllApplicable, false);
+  AGENT_TOOLS.find((t) => t.name === 'plan_float')!.output.parse(out);
+});
+
+test('deadline retains completed plan and weather while cancelling an outfitter lookup', async () => {
+  const f = fixture({ heavyBudgetMs: 75, sourceBudgetMs: 50, stallTable: 'service_rivers' });
+  const out = await f.execute('plan_float', trip);
+  assert.equal(out.status, 'partial');
+  assert.equal(out.data.deadlineReached, true);
+  assert.ok(out.data.estimatedFloatTime);
+  assert.equal((out.data.weather as any).status, 'ok');
+  assert.notEqual((out.data.outfitters as any).status, 'ok');
+  assert.ok(f.calls.includes('cancelled'));
+  AGENT_TOOLS.find((t) => t.name === 'plan_float')!.output.parse(out);
+});
+
+test('drive deadline bounds stalled endpoint reads', async () => {
+  const out = await fixture({ heavyBudgetMs: 50, stallTable: 'access_points' }).execute('get_drive_estimate', trip);
+  assert.equal(out.status, 'unavailable');
+  assert.equal(out.data.deadlineReached, true);
+  assert.equal(out.data.minutes, undefined);
+});
+
+test('all gauge consumers reject an oversized catalog rather than silently truncate it', async () => {
+  const f = fixture();
+  f.tables.river_gauges = Array.from({ length: 502 }, () => f.tables.river_gauges[0]);
+  for (const [name, args] of [['get_gauges', { slug: 'current' }], ['get_conditions', { slug: 'current' }], ['plan_float', trip]] as const) {
+    const out = await f.execute(name, args);
+    assert.equal(out.status, 'unavailable');
+    assert.match(String(out.data.message), /catalog exceeds/);
+  }
 });

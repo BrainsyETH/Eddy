@@ -23,6 +23,9 @@ export type SocialRoutePoint = {
   progress: number;
   detail?: string;
   severity?: string;
+  /** A photo already associated with this exact place. No generic river fallback. */
+  photoUrl?: string;
+  photoCredit?: string;
 };
 
 /**
@@ -119,9 +122,9 @@ export type Journey = {
 export const DEFAULT_TIMING: JourneyTiming = {
   // The overview (whole float, every stop, the put-in callout) holds through
   // the intro, so frame 0 — the grid thumbnail — is a complete, branded card.
-  introFrames: 45,
+  introFrames: 60,
   travelFrames: 210,
-  pauseFrames: 38,
+  pauseFrames: 60,
   outroFrames: 90,
   summaryFrames: 54,
 };

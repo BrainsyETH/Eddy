@@ -1,3 +1,4 @@
+import { TodayCamping } from '@/components/TodayCamping';
 import { takePreloadedToday } from '@/lib/firstRunPreload';
 import { radii } from '@/theme/layout';
 import { Children, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
@@ -1124,6 +1125,8 @@ export function TodayHub({
           </View>
         )}
       </View>
+
+      <TodayCamping coords={location.coords} saved={favoriteRiverSlugs} revision={refreshRevision} />
 
       <View style={styles.section}>
         <SectionHead title="River Conditions" />

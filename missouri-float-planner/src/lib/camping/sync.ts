@@ -14,24 +14,12 @@
 // Everything else here exists to keep a bad night from turning into a bad
 // neighbour: a ceiling, a breaker, a time budget, and a cursor.
 //
-// ── Why recreation.gov has TWO cron slots ─────────────────────────────────
-//
-// Its endpoint is month-locked, so a window straddling month-end costs two
-// payloads per facility instead of one. A two-night weekend did that about one
-// week in five; a fourteen-night horizon does it on roughly thirteen days in
-// thirty. Fifteen unique federal ids × two months × ten seconds is 300s, past
-// both the budget below and Vercel's own ceiling.
-//
-// The cursor already handles it — a truncated run resumes where it stopped —
-// but at forty percent of nights the tail would routinely wait a full day, and
-// read.ts stops serving a row once it is stale. So vercel.json runs this source
-// twice each morning, forty minutes apart. The second slot needs no code: the
-// `last_synced_at` ordering means it picks up exactly what the first did not
-// reach, and finds nothing to do on the days one pass was enough.
+// Multiple spaced cron slots drain the least-recently-synced queue. A facility
+// successfully attempted today is skipped in later slots; provider pacing is unchanged.
 
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { createLimiter, type Limiter } from './limiter';
-import { resolveHorizon, type CampingWindow } from './window';
+import { BudgetExceededError, DeadlineExceededError, createLimiter, type Limiter } from './limiter';
+import { localDate, PLANNING_NIGHTS, resolveHorizon, type CampingWindow } from './window';
 import type { CampingSource, FacilityLink, FetchResult } from './types';
 import * as recgov from './recgov';
 import type { MonthCache } from './recgov';
@@ -68,11 +56,11 @@ const SOURCES: Record<CampingSource, SourceConfig> = {
 /**
  * Wall-clock budget for one invocation.
  *
- * Vercel kills the function at 300s. Stopping at 240 leaves room for the
- * in-flight request plus the writes, and the cursor means the remainder is
+ * Vercel kills the function at 300s. Stopping at 180 leaves room for a multi-month
+ * facility fetch and its writes, and the cursor means the remainder is
  * picked up next run rather than lost.
  */
-const TIME_BUDGET_MS = 240_000;
+const TIME_BUDGET_MS = 180_000;
 
 export interface SyncResult {
   source: CampingSource;
@@ -167,6 +155,7 @@ interface FacilityRow {
   source_loop: string | null;
   display_name: string;
   kind: string;
+  last_synced_at: string | null;
 }
 
 function toLink(row: FacilityRow): FacilityLink {
@@ -181,7 +170,7 @@ function toLink(row: FacilityRow): FacilityLink {
 }
 
 /**
- * Refresh one source's availability for the coming weekend.
+ * Refresh one source's availability for the planning horizon.
  *
  * Failures are per-facility and never fatal: a facility that throws keeps its
  * previous rows, because a night-old number beats a blank card. Only the
@@ -195,10 +184,12 @@ export async function syncSource(
   const startedAt = Date.now();
   const budget = options.timeBudgetMs ?? TIME_BUDGET_MS;
   const config = SOURCES[source];
-  const window = resolveHorizon(options.now);
+  const now = options.now ?? new Date();
+  const window = resolveHorizon(now, PLANNING_NIGHTS);
 
   const limiter = createLimiter({
     name: source,
+    deadlineMs: startedAt + Math.min(budget + 60000, 240000),
     minSpacingMs: config.minSpacingMs,
     jitterMs: config.jitterMs,
     maxRequests: config.maxRequests,
@@ -206,7 +197,7 @@ export async function syncSource(
 
   const { data, error } = await supabase
     .from('campsite_facilities')
-    .select('id, source, source_facility_id, source_loop, display_name, kind')
+    .select('id, source, source_facility_id, source_loop, display_name, kind, last_synced_at')
     .eq('source', source)
     .eq('enabled', true)
     // Least-recently-synced first: this ordering IS the cursor.
@@ -214,7 +205,9 @@ export async function syncSource(
 
   if (error) throw new Error(`campsite_facilities: ${error.message}`);
 
-  const facilities = (data ?? []) as FacilityRow[];
+  const facilities = ((data ?? []) as FacilityRow[]).filter((row) =>
+    !row.last_synced_at || localDate(new Date(row.last_synced_at)) < localDate(now),
+  );
   // Shared across the whole run: eighteen Ozark campgrounds sit behind three
   // district ids, and without this each loop would re-fetch the same payload.
   const monthCache: MonthCache = new Map();
@@ -241,7 +234,10 @@ export async function syncSource(
       // The breaker is already open by the time it throws CircuitOpenError, so
       // every remaining facility would fail identically. Stop and keep the
       // rows we have.
-      if (message.includes('circuit open')) break;
+      if (err instanceof DeadlineExceededError || err instanceof BudgetExceededError || message.includes('circuit open')) {
+        index--; // Interrupted facility is still queued for the next slot.
+        break;
+      }
       continue;
     }
 

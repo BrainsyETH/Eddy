@@ -214,3 +214,23 @@ test('real river layouts finish on a full overview and never lose the canoe', as
     }
   }
 });
+
+
+test('the recorded three-point float visits its middle stop for two seconds without skipping', () => {
+  const stops = [{ progress: 0.33674626366689575 }];
+  let previous = 0;
+  let held = 0;
+  for (let frame = 0; frame < journeyDuration(stops.length); frame++) {
+    const state = journeyState(frame, stops);
+    assert.ok(state.progress >= previous);
+    assert.ok(state.progress - previous < 0.015, `jump at frame ${frame}`);
+    if (state.activeStop === 0) {
+      held++;
+      assert.equal(state.progress, stops[0].progress);
+    }
+    previous = state.progress;
+  }
+  assert.equal(held, 60);
+  assert.equal(previous, 1);
+  assert.equal(journeyDuration(1), 420);
+});

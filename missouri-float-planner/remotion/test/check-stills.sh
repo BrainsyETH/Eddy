@@ -18,22 +18,24 @@ STILLS=(
   # A mid-float frame alone misses the take-out overlap:
   #   0    the grid thumbnail: whole-float overview, every stop, put-in callout
   #   120  mid-float under the following camera
-  #   230  the first stop's pause with its callout up
-  # (frame 230 is Echo Bluff on the Pulltite → Round Spring defaultProps.)
-  "social-route-portrait:0,60,120,230,370,388,440"
+  #   250  the first stop's pause with its callout up
+  # (frame 250 is Echo Bluff on the Pulltite → Round Spring defaultProps.)
+  "social-route-portrait:0,75,150,250,420,450,480,520"
   # The same reel with NO geometry — the itinerary stage. Frame 0 is its
-  # thumbnail; 230 is the same first stop's pause, as a highlighted row; 380
+  # thumbnail; 250 is the same first stop's pause, as a highlighted row; 470
   # is the arrival hold, where the approximate (mile-only) row is highlighted.
-  "social-route-itinerary-portrait:0,230,380,490"
+  "social-route-itinerary-portrait:0,250,470,565"
   # The exact long-name case from the Instagram screenshots: neither the
   # put-in callout nor the dock route may gain a second line and collide.
-  "social-route-long-names-portrait:0,270,330"
+  "social-route-long-names-portrait:0,285,345"
   # Real screenshot route: launch, travel, arrival, zoom-out, final hold.
-  "social-route-akers-pulltite:0,120,255,273,330"
+  "social-route-akers-pulltite:0,120,270,300,345"
   # Full approximate-feature card and the transition into the take-out.
-  "social-route-summary-portrait:275,309,375"
+  "social-route-summary-portrait:275,309,390"
   # Full-canvas image layer, north-up route, arrival-only callouts.
-  "social-route-map-layout:0,120,330"
+  "social-route-map-layout:0,120,300,345"
+  # Actual recorded route and terrain: launch, photo stop, and complete recap.
+  "social-route-grassy-bee:0,150,405"
   # Every other composition is baselined at frame 0 too: the grid thumbnail /
   # first autoplay frame must be a complete branded card, not an empty ground.
   # social-gauge-portrait is the PRODUCTION Eddy Says reel (river_highlight);

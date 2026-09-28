@@ -1,3 +1,4 @@
+import type { CampingOverview } from '@eddy/types';
 // eddy-ios/src/api/client.ts
 // Thin client over the existing Next.js REST API, which the app consumes as a
 // headless backend. No auth yet — every endpoint used by the shell is public.
@@ -639,10 +640,11 @@ export async function fetchRiverAccessPoints(
 export async function fetchCampsiteSites(
   facilityId: string,
   signal?: AbortSignal,
+  month?: string,
 ): Promise<CampsiteSitesResponse | null> {
   try {
     return await get<CampsiteSitesResponse>(
-      `/api/campsites?facility=${encodeURIComponent(facilityId)}`,
+      `/api/campsites?facility=${encodeURIComponent(facilityId)}${month ? `&month=${encodeURIComponent(month)}` : ''}`,
       signal,
     );
   } catch (err) {
@@ -2418,4 +2420,8 @@ export function fetchCampsitePhotos(facilityId: string, signal?: AbortSignal, si
   return get<import('@eddy/types').CampsitePhotosResponse>(
     `/api/campsites/photos?media=2&facility=${encodeURIComponent(facilityId)}${siteId ? `&site=${encodeURIComponent(siteId)}` : ''}`, signal,
   );
+}
+
+export function fetchCampingOverview(signal?: AbortSignal, nights: 21 | 90 = 90): Promise<CampingOverview> {
+  return get<CampingOverview>(`/api/camping/availability?nights=${nights}`,signal);
 }

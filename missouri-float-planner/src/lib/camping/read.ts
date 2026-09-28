@@ -21,7 +21,7 @@ import type { CampingSource, FacilityKind } from './types';
  * cron's time budget and leave the tail of the queue for the next slot. Two
  * days of slack would have turned that into a campground going silent.
  */
-const MAX_AGE_MS = 72 * 60 * 60 * 1000;
+export const MAX_AGE_MS = 72 * 60 * 60 * 1000;
 
 /**
  * How much of the horizon is worth DRAWING as a strip.

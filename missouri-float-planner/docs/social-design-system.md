@@ -170,8 +170,11 @@ pass" with a data source silently missing.
 Route reels fetch one Mapbox Outdoors v12 static image before workflow dispatch.
 The image fills 1080×1920, softened with reduced saturation and a cream wash;
 masthead, arrivals, stats, and follow copy retain solid readable surfaces.
-The camera stays north-up on the whole route. `shared/social-terrain-map.ts`
-owns both the provider camera and the Mercator route projection; do not rotate,
+The camera stays north-up: a complete overview, a gentle push toward Eddy,
+a follow along the river, and a return to the whole route at arrival. `shared/social-terrain-map.ts`
+owns the immutable provider framing, the Mercator projection and the shared
+image/overlay animation. Stored snapshots retain the original 510px origin
+and 410px source stage even when the presentation layout changes. Do not rotate,
 re-fit, or smooth the overlay independently. Stop progress retains the source
 line's distance convention so markers stay on their correct route vertex.
 
@@ -184,7 +187,8 @@ Server configuration: `MAPBOX_ACCESS_TOKEN` with static-image access and
 The server downloads once and uploads an immutable image to Blob; renderer
 props carry its URL, never the provider token. A failed map fetch/upload stops
 dispatch. Missing route geometry still uses the explicit itinerary layout.
-Mapbox's image logo is retained and text attribution is repeated in the safe area.
+Mapbox's original image logo is also shown in a stationary corner strip so
+zooming never crops it away; text attribution stays in the safe area.
 
 Validation: `npm run test:route-layout` in `remotion`, web terrain-map tests,
 and `render:check-stills`. The `social-route-map-layout` fixture uses a labeled
@@ -193,3 +197,35 @@ it is **not** a terrain preview. Before rollout, render a real route with the
 configured Mapbox account and review opening, travel, arrival and ending frames
 for map alignment, terrain/label density, attribution and contrast. This live
 provider check remains required; a synthetic visual baseline cannot replace it.
+
+
+### Float Pick engagement and stop clarity
+
+The opening hook is “Your next [distance]-mile float”, followed by the river
+and put-in → take-out names. Favorites may keep their supplied editorial hook.
+The actual Eddy canoe stays legible as the map follows. Mileage occupies one
+fixed location throughout the trip. Geographic lines may extend beneath the
+platform rail, while the active canoe and information cards stay in the safe
+corridor.
+
+Intermediate stops hold for two seconds. Symbols represent access, campground,
+spring, POI and hazard; Start and Finish identify the endpoints. Never use A/C/S
+initials, which look like sequential stop labels. Each callout shows the place
+name and distance from launch, without a second absolute mile-marker scale.
+Existing per-place photos can accompany the stop; preserve agency attribution
+when supplied, and fall back gracefully when an optional photo fails. No
+unrelated river image may stand in for a named place.
+
+Time, distance, conditions and the prepared-at timestamp remain visible in the
+compact stats panel. The final three seconds return to the overview and show
+“Save this float” and “Plan it on the Eddy app” as text, with no simulated
+clickable button or competing follow prompt. A route with one intermediate stop
+runs for 14 seconds; additional stops retain their own reading time.
+
+The `social-route-grassy-bee` fixture preserves the Sep 27, 2026 recorded route,
+its real immutable terrain snapshot, and existing place images. It is historical
+preview data, not a current condition report. Camera tests check image/overlay
+alignment and canvas coverage at every frame. Still checks include the middle
+stop's photo and the final app CTA as well as long names, missing geometry and
+approximate-feature summaries. Regenerate existing MP4s after deployment;
+changing the renderer does not update previously created posts.

@@ -89,3 +89,22 @@ test('real PostgREST client distinguishes missing rivers/vessels from database f
     }
   }
 });
+
+
+test('shared web estimator escalates fresh in-span flood readings and preserves the anchor', async () => {
+  const result = await routeFixture({ condition: 'good', spanReading: { height: 6 } }).estimate();
+  assert.equal(result.conditionCode, 'dangerous');
+  assert.equal(result.anchorCondition?.condition_code, 'good');
+  assert.equal(result.floatTime, null);
+  assert.equal(result.spanCheckComplete, true);
+  assert.equal(result.contributingGauges[0].usgsSiteId, 'span-gauge');
+});
+
+test('suspect or undated span readings cannot escalate a web plan and mark coverage incomplete', async () => {
+  for (const spanReading of [{ height: 6, qualifiers: ['Ice'] }, { height: 6, timestamp: 'invalid' }]) {
+    const result = await routeFixture({ condition: 'good', spanReading }).estimate();
+    assert.equal(result.conditionCode, 'good');
+    assert.equal(result.spanCheckComplete, false);
+    assert.equal(result.contributingGauges.length, 0);
+  }
+});

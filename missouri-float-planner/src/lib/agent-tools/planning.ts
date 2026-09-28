@@ -400,7 +400,8 @@ export function createPlanning(
         reason: 'Verified driving coordinates are missing for an endpoint.',
         available: false,
       };
-    const route = await getDriveTime(from[0], from[1], to[0], to[1]);
+    signal?.throwIfAborted();
+    const route = await abortable(getDriveTime(from[0], from[1], to[0], to[1], undefined, { signal }), signal);
     const check = assessShuttlePlausibility(
       route.miles,
       Number(takeOut.river_mile_downstream) -

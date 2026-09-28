@@ -154,8 +154,8 @@ function LaunchStalled() {
   );
 }
 
-// Remote config loads once here and wraps everything, so the version gate and
-// feature flags have a single home. Both fail open — see useAppConfig.
+// Remote config wraps everything so the version gate and feature flags have
+// one home. New optional features fail closed — see useAppConfig.
 //
 // Stars sit INSIDE the upgrade gate deliberately: if a build is too old to run,
 // it should not be writing to the local store that a future version will sync.
