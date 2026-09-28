@@ -94,7 +94,7 @@ export function CampingMark({ mark }: { mark: HeatMark }) {
         </Svg>
       ) : null}
       {mark === 'unknown' ? (
-        <Text style={[styles.symbol, { color: colors.textSubtle }]}>?</Text>
+        <View style={[styles.unknownDash, { backgroundColor: colors.border }]} />
       ) : null}
     </View>
   );
@@ -352,6 +352,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   dash: { height: 2, width: '75%' },
-  symbol: { fontSize: 12, fontFamily: fonts.mono },
+  unknownDash: { height: 1, width: '50%' },
   date: { fontSize: 10, fontFamily: fonts.mono },
 });
