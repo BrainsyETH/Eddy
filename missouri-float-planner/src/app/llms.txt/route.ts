@@ -1,28 +1,32 @@
+import { X402_ENABLED } from '@/lib/x402/config';
+import { getCuratedRivers, curatedStates } from '@/lib/coverage';
 import { NextResponse } from 'next/server';
 
 const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://eddy.guide';
 
+export const revalidate = 300;
 export async function GET() {
+  const rivers = await getCuratedRivers();
   const content = `# eddy.guide
-> Missouri Ozarks float trip planning platform with real-time river conditions, access points, float times, and weather.
-> For a version with live river data and conditions, see: \${BASE_URL}/llms-full.txt
+> Curated river float trip planning platform with real-time river conditions, access points, float times, and weather.
+> For a version with live river data and conditions, see: ${BASE_URL}/llms-full.txt
 
 ## About
-Eddy is a free river guide for planning float trips on Missouri's Ozark rivers. It provides live water conditions from USGS gauge stations, detailed access point information, float time calculations based on vessel type and water level, hazard warnings, and weather forecasts. Data is sourced from USGS, NPS, and community reports.
+Eddy is a free river guide for planning float trips on curated rivers. It provides live water conditions from USGS gauge stations, detailed access point information, float time calculations based on vessel type and water level, hazard warnings, and weather forecasts. Data is sourced from USGS, NPS, and community reports.
 
 ## Rivers Covered
-Eddy covers float rivers in Missouri's Ozarks region including the Current River, Jacks Fork, Eleven Point, Meramec, Huzzah Creek, Courtois Creek, Big Piney, Niangua, and Beaver Creek. Each river has detailed access points, hazards, points of interest, and real-time gauge data.
+${rivers.length ? `Curated planning covers ${rivers.length} rivers across ${curatedStates(rivers).join(', ')}: ${rivers.map(r => r.name).join(', ')}.` : 'Read /api/coverage or call list_rivers for the current curated roster.'} National reference gauges do not imply curated float coverage.
 
 ## Key Content Pages
 - ${BASE_URL}/rivers — Browse all rivers with current conditions
-- ${BASE_URL}/rivers/{slug} — Individual river page with conditions, access points, float planning
-- ${BASE_URL}/rivers/{slug}/access/{accessSlug} — Access point details (coordinates, amenities, parking, facilities)
+- ${BASE_URL}/rivers/{stateSlug}/{slug} — Individual river page with conditions, access points, float planning
+- ${BASE_URL}/rivers/{stateSlug}/{slug}/access/{accessSlug} — Access point details (coordinates, amenities, parking, facilities)
 - ${BASE_URL}/river-map — Live statewide map: every curated river painted by its USGS gauges, with 30-day trends, gauge detail, forecast-aware flood warnings, and a drag-to-replay timeline
 - ${BASE_URL}/blog — Float trip guides, safety tips, gear reviews, and river profiles
 - ${BASE_URL}/about — How Eddy works, FAQ about river conditions and float planning
 
 ## Public API
-All API endpoints return JSON. AI agents accessing the API programmatically should use the x402 payment protocol (see below).
+REST endpoints return JSON. MCP is free and rate-limited; REST payment policy is separate (see below).
 
 - GET ${BASE_URL}/api/rivers — List all active rivers with current conditions
 - GET ${BASE_URL}/api/rivers/{slug} — River details with GeoJSON geometry
@@ -41,13 +45,21 @@ All API endpoints return JSON. AI agents accessing the API programmatically shou
 - GET ${BASE_URL}/api/blog — Published blog posts
 - GET ${BASE_URL}/api/blog/{slug} — Full blog post content
 
+## Agent Tools
+- Developer setup and tool guide: ${BASE_URL}/developers
+- MCP access is free, without authentication or x402 payment, within request limits.
+- Use list_rivers for authoritative curated coverage and slugs; plan_float accepts slugs/UUIDs and vesselType.
+- find_floats returns a bounded shortlist, not an exhaustive ranking.
+- Preserve component statuses and source timestamps. Current observations are not future forecasts.
+- Include returned plan/river URLs when useful. No closure records does not mean all-clear.
+
 ## Machine-Readable Specifications
 - OpenAPI 3.1 spec: ${BASE_URL}/api/openapi.json
-- MCP Server: ${BASE_URL}/api/mcp (Model Context Protocol for AI agent tool use)
+- MCP Server: ${BASE_URL}/api/mcp (Model Context Protocol for AI agent tool use — free, rate-limited)
 - Data Export: ${BASE_URL}/api/export/rivers.json (complete dataset for RAG pipelines)
 
 ## x402 Payment Protocol
-API endpoints are metered for AI agents via the x402 payment protocol (V2), settled in USDC on Base (and optionally Solana). Agents that call the API receive an HTTP 402 with payment requirements (the \`accepts\` list) and pay per request; regular browsers and crawlers are never charged. Endpoints are discoverable via the x402 Bazaar. See the discovery manifest for networks, facilitator, and the per-route price table:
+REST x402 enforcement is ${X402_ENABLED ? "enabled" : "disabled"} in this deployment. When enabled, applicable REST requests may receive HTTP 402 with payment requirements. MCP /api/mcp remains free. See the manifest for the actual enabled state, networks and per-route pricing:
 - ${BASE_URL}/.well-known/x402
 
 Content pages (rivers, blog, gauges, about) are freely accessible to AI crawlers for indexing and grounding.
@@ -65,7 +77,7 @@ Eddy is a community project. Submit feedback or corrections at ${BASE_URL} via t
   return new NextResponse(content.trim(), {
     headers: {
       'Content-Type': 'text/plain; charset=utf-8',
-      'Cache-Control': 'public, max-age=86400, s-maxage=86400',
+      'Cache-Control': 'public, max-age=300, s-maxage=300',
     },
   });
 }

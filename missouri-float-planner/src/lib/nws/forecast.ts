@@ -93,21 +93,23 @@ function foldByUnit(
  * should cost the forecast overlay rather than the whole chart. The CDN headers
  * on the calling route are what keep this off the hot path in the normal case.
  */
-export async function fetchNwsForecast(lid: string): Promise<NwsForecast> {
+export async function fetchNwsForecast(lid: string, options: { strict?: boolean; signal?: AbortSignal } = {}): Promise<NwsForecast> {
   try {
     const res = await trackedFetch('nws', 'forecast', `${NWPS_BASE}/${encodeURIComponent(lid)}/stageflow`, {
-      signal: AbortSignal.timeout(6_000),
+      signal: options.signal ? AbortSignal.any([options.signal, AbortSignal.timeout(6_000)]) : AbortSignal.timeout(6_000),
       headers: { Accept: 'application/json' },
       next: { revalidate: 900 },
     });
     if (!res.ok) {
       // 404 is ordinary here: not every LID we hold is an NWPS gauge.
+      if (res.status !== 404 && options.strict) throw new Error('NWS forecast lookup failed');
       if (res.status !== 404) console.warn(`[NWPS] ${lid} stageflow: HTTP ${res.status}`);
       return EMPTY;
     }
 
     const doc = (await res.json()) as { forecast?: StageflowSection };
     const section = doc.forecast;
+    if (options.strict && (!section || !Array.isArray(section.data))) throw new Error('Malformed NWS forecast response');
     if (!section?.data?.length) return EMPTY;
 
     const points = section.data
@@ -128,6 +130,7 @@ export async function fetchNwsForecast(lid: string): Promise<NwsForecast> {
 
     return points.length ? { issuedAt: issuedAtOrNull(section.issuedTime), points } : EMPTY;
   } catch (e) {
+    if (options.strict) throw e;
     console.error(`[NWPS] ${lid} stageflow: fetch failed`, e);
     return EMPTY;
   }

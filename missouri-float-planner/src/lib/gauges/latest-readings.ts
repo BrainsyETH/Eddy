@@ -238,17 +238,29 @@ export async function loadCurrentReadings(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   supabase: any,
   stationIds: string[],
+  options: { strict?: boolean; stations?: ReadonlyArray<{ id: string; provider: string | null; curated: boolean }> } = {},
 ): Promise<Map<string, StationReading>> {
   if (stationIds.length === 0) return new Map();
 
   const providerByStation = new Map<string, string | null>();
   const curated: string[] = [];
 
-  for (const ids of chunk(stationIds)) {
-    const { data } = await supabase
+  // Callers that already joined station metadata can avoid a serial round trip.
+  // Any omitted IDs still use the normal lookup; an incomplete hint cannot
+  // silently skip the curated-history tier.
+  const supplied = new Map((options.stations ?? []).map((row) => [row.id, row]));
+  for (const id of stationIds) {
+    const row = supplied.get(id);
+    if (!row) continue;
+    providerByStation.set(id, row.provider ?? 'usgs');
+    if (row.curated) curated.push(id);
+  }
+  for (const ids of chunk(stationIds.filter((id) => !supplied.has(id)))) {
+    const { data, error } = await supabase
       .from('gauge_stations')
       .select('id, provider, curated')
       .in('id', ids);
+    if (error && options.strict) throw new Error('Gauge station lookup failed');
     for (const row of data ?? []) {
       providerByStation.set(row.id, row.provider ?? 'usgs');
       if (row.curated) curated.push(row.id);
@@ -261,10 +273,11 @@ export async function loadCurrentReadings(
   await Promise.all([
     (async () => {
       for (const ids of chunk(stationIds)) {
-        const { data } = await supabase
+        const { data, error } = await supabase
           .from('gauge_latest')
           .select('gauge_station_id, reading_timestamp, gauge_height_ft, discharge_cfs, qualifiers')
           .in('gauge_station_id', ids);
+        if (error && options.strict) throw new Error('Latest reading lookup failed');
         latestRows.push(...((data ?? []) as RawReadingRow[]));
       }
     })(),
@@ -278,6 +291,8 @@ export async function loadCurrentReadings(
         historyRows.push(...viaRpc);
         return;
       }
+
+      if (options.strict) throw new Error('Curated reading lookup failed');
 
       // Pre-migration fallback: newest-first across the whole curated set, so
       // the first row seen for a station is that station's newest. Bounded

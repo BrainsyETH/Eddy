@@ -135,12 +135,19 @@ export interface NearbyServiceResult {
 
 /** Human-readable labels for tool status messages */
 export const TOOL_LABELS: Record<string, string> = {
-  get_river_conditions: 'Checking conditions...',
+  list_rivers: 'Finding covered rivers...',
+  get_river: 'Reading the river guide...',
+  get_conditions: 'Checking conditions...',
   get_access_points: 'Looking up access points...',
-  get_float_route: 'Calculating float route...',
-  get_river_hazards: 'Checking for hazards...',
+  plan_float: 'Calculating a float plan...',
+  find_floats: 'Comparing float options...',
+  get_outlook: 'Checking the river outlook...',
+  get_services: 'Finding nearby services...',
+  get_river_alerts: 'Checking official advisories...',
+  get_drive_estimate: 'Estimating the shuttle drive...',
+  get_gauges: 'Checking gauge readings...',
+  get_hazards: 'Checking for hazards...',
   get_weather: 'Checking the weather...',
-  get_nearby_services: 'Finding nearby services...',
   web_search: 'Searching the web...',
   get_eddy_report: 'Reading latest Eddy report...',
 };
