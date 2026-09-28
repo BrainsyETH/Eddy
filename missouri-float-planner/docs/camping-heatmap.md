@@ -185,8 +185,9 @@ missing images leave a text card, without substituting a park photo for a site.
 Every occupied month is fetched from the cached sites API. Departure is excluded.
 Only the same site observed open on **every** occupied night gets “Available for
 your stay”. Missing, expired, future-dated or absent-month observations never
-qualify. Unknown sites remain visible after available sites; known unavailable
-sites are behind “Show unavailable sites”. Each card has the existing green/red
+qualify. Sites observed first-come on every occupied night stay visible in a
+“First-come sites · No reservations” group; this does not promise a vacant site.
+Unknown sites and known unavailable sites have separate collapsed controls. Each card has the existing green/red
 night marks and a site reservation link, or explicitly “Park reservations” when
 only a park booking URL exists. Links do not imply that dates were prefilled.
 
@@ -201,3 +202,12 @@ Native QA still needs to cover large text, photo gallery dismissal, VoiceOver,
 cross-month date selection, location denial, and a large site's scrolling list.
 This UI change does not run the outstanding provider backfill or extend measured
 availability on its own.
+
+Nearest is the default when location is available, with A–Z otherwise. An explicit
+sort selection is preserved when location changes. Stays over 14 nights show one
+“Check campground stay limits” note; 14 is a disclosure threshold, not a verified
+universal booking limit. Individual night strips retain horizontal scrolling.
+
+Freshness follow-up: add per-night check timestamps to the site-list contract and
+judge only occupied dates. Until then the response's oldest monthly timestamp is
+used conservatively, so one expired observation can make that month unknown.

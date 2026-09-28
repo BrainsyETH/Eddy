@@ -27,6 +27,8 @@ import {
 import { CampingStayPicker } from '@/components/CampingStayPicker';
 import { useStarredRivers } from '@/hooks/useStarredRivers';
 import {
+  resolveCampingSort,
+  type CampingSort,
   stayNights,
   nextCampingDate,
   type CampingStay,
@@ -92,7 +94,7 @@ function CampingContent() {
   }));
   const [openOnly, setOpenOnly] = useState(false);
   const [saved, setSaved] = useState(false);
-  const [sort, setSort] = useState<'nearest' | 'openings' | 'name'>('name');
+  const [sortChoice, setSort] = useState<CampingSort | null>(null);
   const [riverPicker, setRiverPicker] = useState(false);
   const [query, setQuery] = useState('');
   const { starred } = useStarredRivers();
@@ -101,6 +103,7 @@ function CampingContent() {
   const [directory, setDirectory] = useState(false);
   const [linkFailed, setLinkFailed] = useState(false);
   const { coords, status, request } = useLocation();
+  const sort = resolveCampingSort(sortChoice, !!coords);
   const { data, loading, error, refresh, now } = useCampingOverview();
   const rivers = useMemo(
     () => campingRiverOptions(data?.tracked ?? [], data?.untracked ?? []),

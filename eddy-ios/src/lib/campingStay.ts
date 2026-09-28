@@ -29,7 +29,7 @@ export function stayNights(stay: CampingStay): string[] {
 export interface CampsiteStay {
   site: CampsiteSite;
   nights: { date: string; state: CampsiteNightState }[];
-  state: 'available' | 'unavailable' | 'unknown';
+  state: 'available' | 'first_come' | 'unavailable' | 'unknown';
 }
 export function campsiteStays(
   responses: CampsiteSitesResponse[],
@@ -65,9 +65,16 @@ export function campsiteStays(
     const state: CampsiteStay['state'] =
       nights.length && nights.every((n) => n.state === 'open')
         ? 'available'
-        : nights.some((n) => n.state !== 'open' && n.state !== 'unknown')
-          ? 'unavailable'
-          : 'unknown';
+        : nights.length && nights.every((n) => n.state === 'walk_up')
+          ? 'first_come'
+          : nights.some(
+                (n) =>
+                  n.state !== 'open' &&
+                  n.state !== 'unknown' &&
+                  n.state !== 'walk_up',
+              )
+            ? 'unavailable'
+            : 'unknown';
     return { site, nights, state };
   });
 }
@@ -80,3 +87,12 @@ export const campsiteStateLabel: Record<CampsiteNightState, string> = {
   not_yet_released: 'Not yet released',
   unknown: 'Availability not updated',
 };
+
+export type CampingSort = 'nearest' | 'openings' | 'name';
+/** An explicit choice survives location arriving or disappearing. */
+export function resolveCampingSort(
+  choice: CampingSort | null,
+  hasLocation: boolean,
+): CampingSort {
+  return choice ?? (hasLocation ? 'nearest' : 'name');
+}

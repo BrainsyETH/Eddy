@@ -343,5 +343,25 @@ test('stale, future and missing observations cannot promise a site', () => {
   for (const timestamp of ['2026-09-25T12:00:00Z', '2026-09-29T12:00:00Z', 'invalid']) {
     assert.equal(campsiteStays([siteMonth(['2026-09-30'], 'A', timestamp)], stay, 259200, now)[0].state, 'unknown');
   }
-  for (const code of ['R', 'W', 'C', 'N']) assert.equal(campsiteStays([siteMonth(['2026-09-30'], code)], stay, 259200, now)[0].state, 'unavailable');
+  for (const code of ['R', 'C', 'N']) assert.equal(campsiteStays([siteMonth(['2026-09-30'], code)], stay, 259200, now)[0].state, 'unavailable');
+});
+
+
+import { resolveCampingSort } from '../../../eddy-ios/src/lib/campingStay';
+test('first-come stays remain distinct from reservable, blocked, and unknown stays', () => {
+  const stay = { arrival: '2026-09-29', departure: '2026-10-01' };
+  const check = (codes: string) => campsiteStays([siteMonth(['2026-09-29', '2026-09-30'], codes)], stay, 259200, now)[0].state;
+  assert.equal(check('WW'), 'first_come');
+  assert.equal(check('WC'), 'unavailable');
+  assert.equal(check('WR'), 'unavailable');
+  assert.equal(check('W-'), 'unknown');
+  assert.equal(check('AA'), 'available');
+  assert.equal(campsiteStays([siteMonth(['2026-09-29', '2026-09-30'], 'WW', '2026-09-20T12:00:00Z')], stay, 259200, now)[0].state, 'unknown');
+});
+test('location supplies the default sort without overriding a chosen sort', () => {
+  assert.equal(resolveCampingSort(null, false), 'name');
+  assert.equal(resolveCampingSort(null, true), 'nearest');
+  assert.equal(resolveCampingSort('name', true), 'name');
+  assert.equal(resolveCampingSort('openings', true), 'openings');
+  assert.equal(resolveCampingSort('nearest', false), 'nearest');
 });

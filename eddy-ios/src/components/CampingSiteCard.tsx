@@ -94,7 +94,7 @@ export function CampingSiteCard({
           </View>
         ))}
       </ScrollView>
-      {url && entry.state !== 'unavailable' ? (
+      {url && (entry.state === 'available' || entry.state === 'unknown') ? (
         <Pressable
           accessibilityRole="link"
           accessibilityLabel={`${entry.state === 'available' ? (direct ? 'Book site' : 'Park reservations') : 'Check availability'} for ${name}`}

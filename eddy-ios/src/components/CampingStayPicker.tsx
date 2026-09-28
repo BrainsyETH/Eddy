@@ -5,7 +5,11 @@ import { useTheme } from '@/theme/ThemeProvider';
 import { textStyles } from '@/theme/typography';
 import { calendarDays } from '@/lib/campingCalendar';
 import { dateLabel } from '@/lib/campingHeatmap';
-import { nextCampingDate, type CampingStay } from '@/lib/campingStay';
+import {
+  stayNights,
+  nextCampingDate,
+  type CampingStay,
+} from '@/lib/campingStay';
 
 export function CampingStayPicker({
   stay,
@@ -55,6 +59,11 @@ export function CampingStayPicker({
           <Text style={{ color: colors.interactive }}>⌄</Text>
         </Text>
       </Pressable>
+      {stayNights(stay).length > 14 ? (
+        <Text style={{ color: colors.textMuted }}>
+          Check campground stay limits.
+        </Text>
+      ) : null}
       <Modal
         visible={open}
         animationType="slide"

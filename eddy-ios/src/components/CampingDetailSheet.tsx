@@ -52,6 +52,7 @@ export function CampingDetailSheet({
   );
   const [failed, setFailed] = useState(false);
   const [showUnavailable, setShowUnavailable] = useState(false);
+  const [showUnknown, setShowUnknown] = useState(false);
   const {
     responses,
     loading,
@@ -65,11 +66,13 @@ export function CampingDetailSheet({
     now,
   );
   const available = entries.filter((e) => e.state === 'available');
+  const firstCome = entries.filter((e) => e.state === 'first_come');
   const unknown = entries.filter((e) => e.state === 'unknown');
   const unavailable = entries.filter((e) => e.state === 'unavailable');
   const visible = [
     ...available,
-    ...unknown,
+    ...firstCome,
+    ...(showUnknown ? unknown : []),
     ...(showUnavailable ? unavailable : []),
   ];
   const booking = safeExternalUrl(row.booking?.url);
@@ -122,11 +125,21 @@ export function CampingDetailSheet({
           contentContainerStyle={styles.content}
           ItemSeparatorComponent={() => <View style={{ height: 16 }} />}
           renderItem={({ item }) => (
-            <CampingSiteCard
-              entry={item}
-              facilityId={row.facilityId}
-              bookingUrl={booking}
-            />
+            <View style={{ gap: 12 }}>
+              {item.site.id === firstCome[0]?.site.id ? (
+                <Text
+                  accessibilityRole="header"
+                  style={[textStyles.cardTitle, { color: colors.text }]}
+                >
+                  First-come sites ({firstCome.length}) · No reservations
+                </Text>
+              ) : null}
+              <CampingSiteCard
+                entry={item}
+                facilityId={row.facilityId}
+                bookingUrl={booking}
+              />
+            </View>
           )}
           ListHeaderComponent={
             <View style={{ gap: 12, paddingBottom: 16 }}>
@@ -141,6 +154,7 @@ export function CampingDetailSheet({
                 onChange={(s) => {
                   setStay(s);
                   setShowUnavailable(false);
+                  setShowUnknown(false);
                 }}
               />
               <View style={styles.links}>
@@ -191,25 +205,30 @@ export function CampingDetailSheet({
                 </Pressable>
               ) : (
                 <>
-                  <Text style={[textStyles.cardTitle, { color: colors.text }]}>
-                    {available.length
-                      ? `${available.length} ${available.length === 1 ? 'site available' : 'sites available'}`
-                      : unknown.length
-                        ? 'Availability needs an update'
-                        : entries.length
-                          ? 'No sites open for this stay'
-                          : 'Individual site data unavailable'}
-                  </Text>
+                  {available.length || !firstCome.length ? (
+                    <Text
+                      style={[textStyles.cardTitle, { color: colors.text }]}
+                    >
+                      {available.length
+                        ? `${available.length} ${available.length === 1 ? 'site available' : 'sites available'}`
+                        : unknown.length
+                          ? 'Availability needs an update'
+                          : entries.length
+                            ? 'No sites open for this stay'
+                            : 'Individual site data unavailable'}
+                    </Text>
+                  ) : null}
                   {timestamps[0] ? (
                     <Text
                       style={[textStyles.caption, { color: colors.textMuted }]}
                     >
-                      {checkedLabel(timestamps[0], now)} · Reservable sites only
+                      {checkedLabel(timestamps[0], now)}
+                      {firstCome.length ? '' : ' · Reservable sites only'}
                     </Text>
                   ) : null}
                 </>
               )}
-              {row.firstCome === 'present' ? (
+              {row.firstCome === 'present' && !firstCome.length ? (
                 <Text style={[textStyles.caption, { color: colors.textMuted }]}>
                   First-come sites also offered.
                 </Text>
@@ -219,7 +238,9 @@ export function CampingDetailSheet({
                   Reservations through the district permit.
                 </Text>
               ) : null}
-              {!available.length && booking ? (
+              {!available.length &&
+              booking &&
+              (!firstCome.length || unknown.length || unavailable.length) ? (
                 <Pressable
                   accessibilityRole="link"
                   style={styles.action}
@@ -238,19 +259,34 @@ export function CampingDetailSheet({
             </View>
           }
           ListFooterComponent={
-            unavailable.length ? (
-              <Pressable
-                accessibilityRole="button"
-                accessibilityState={{ expanded: showUnavailable }}
-                onPress={() => setShowUnavailable((v) => !v)}
-                style={styles.action}
-              >
-                <Text style={{ color: colors.interactive }}>
-                  {showUnavailable ? 'Hide' : 'Show'} unavailable sites (
-                  {unavailable.length})
-                </Text>
-              </Pressable>
-            ) : null
+            <View>
+              {unknown.length ? (
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityState={{ expanded: showUnknown }}
+                  onPress={() => setShowUnknown((v) => !v)}
+                  style={styles.action}
+                >
+                  <Text style={{ color: colors.interactive }}>
+                    {showUnknown ? 'Hide' : 'Show'} sites without updated
+                    availability ({unknown.length})
+                  </Text>
+                </Pressable>
+              ) : null}
+              {unavailable.length ? (
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityState={{ expanded: showUnavailable }}
+                  onPress={() => setShowUnavailable((v) => !v)}
+                  style={styles.action}
+                >
+                  <Text style={{ color: colors.interactive }}>
+                    {showUnavailable ? 'Hide' : 'Show'} unavailable sites (
+                    {unavailable.length})
+                  </Text>
+                </Pressable>
+              ) : null}
+            </View>
           }
         />
       </SafeAreaView>
