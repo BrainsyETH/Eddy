@@ -1,31 +1,22 @@
 import { StyleSheet, Text, View } from 'react-native';
 import type { CampingOverview, TrackedCampground } from '@eddy/types';
 import { useTheme } from '@/theme/ThemeProvider';
-import { primary } from '@/theme/palette';
 import { fonts } from '@/theme/typography';
 import { cellMark, currentNight, type HeatMark } from '@/lib/campingHeatmap';
 
 function Mark({ mark }: { mark: HeatMark }) {
-  const { colors, isDark } = useTheme();
-  const fill =
-    mark === 'open-1'
-      ? isDark
-        ? primary[700]
-        : primary[200]
-      : mark === 'open-2'
-        ? primary[500]
-        : isDark
-          ? primary[200]
-          : primary[800];
+  const { colors } = useTheme();
+  // Match NightStrip: green openings, red booked-out outlines, neutral other states.
+  const fillOpacity = mark === 'open-1' ? 0.45 : mark === 'open-2' ? 0.7 : 1;
   return (
     <View
       style={[
         styles.cell,
         { borderColor: colors.textSubtle },
         mark.startsWith('open')
-          ? { backgroundColor: fill, borderWidth: 0 }
+          ? { backgroundColor: colors.success, opacity: fillOpacity, borderWidth: 0 }
           : mark === 'full'
-            ? { borderWidth: 1 }
+            ? { borderWidth: 2, borderColor: colors.error }
             : {},
       ]}
     >
