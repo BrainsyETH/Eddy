@@ -640,10 +640,11 @@ export async function fetchRiverAccessPoints(
 export async function fetchCampsiteSites(
   facilityId: string,
   signal?: AbortSignal,
+  month?: string,
 ): Promise<CampsiteSitesResponse | null> {
   try {
     return await get<CampsiteSitesResponse>(
-      `/api/campsites?facility=${encodeURIComponent(facilityId)}`,
+      `/api/campsites?facility=${encodeURIComponent(facilityId)}${month ? `&month=${encodeURIComponent(month)}` : ''}`,
       signal,
     );
   } catch (err) {
@@ -2421,6 +2422,6 @@ export function fetchCampsitePhotos(facilityId: string, signal?: AbortSignal, si
   );
 }
 
-export function fetchCampingOverview(signal?: AbortSignal): Promise<CampingOverview> {
-  return get<CampingOverview>('/api/camping/availability',signal);
+export function fetchCampingOverview(signal?: AbortSignal, nights: 21 | 90 = 90): Promise<CampingOverview> {
+  return get<CampingOverview>(`/api/camping/availability?nights=${nights}`,signal);
 }

@@ -11,9 +11,18 @@ import type { Coords } from '@eddy/geo';
 import { useAppConfig } from '@/hooks/useAppConfig';
 import { useCampingOverview } from '@/hooks/useCampingOverview';
 import { useCampingRanking } from '@/hooks/useCampingRanking';
-import { CampingTableHeader, CampingTableRow } from './CampingGrid';
+import {
+  CampingScrollGroup,
+  CampingTableHeader,
+  CampingTableRow,
+} from './CampingGrid';
 import { CampingDetailSheet } from './CampingDetailSheet';
-import { campingFreshness, todayCampgrounds } from '@/lib/campingHeatmap';
+import {
+  campingCoverageLabel,
+  observedCampingOverview,
+  campingFreshness,
+  todayCampgrounds,
+} from '@/lib/campingHeatmap';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, textStyles } from '@/theme/typography';
 
@@ -32,6 +41,7 @@ function CampingCard({ coords, saved, revision }: Props) {
   const { data, loading, error, refresh, now } = useCampingOverview(
     true,
     revision,
+    21,
   );
   const rankingCoords = useCampingRanking(coords, revision);
   const [selected, setSelected] = useState<string | null>(null);
@@ -40,6 +50,8 @@ function CampingCard({ coords, saved, revision }: Props) {
     [data, rankingCoords, saved],
   );
   const rows = selection.rows.slice(0, 4);
+  const grid = data ? observedCampingOverview(rows, data, now) : null;
+  const planning = useCampingOverview(selected !== null);
   const scope =
     selection.title === 'Camping near you'
       ? 'Nearby'
@@ -59,7 +71,7 @@ function CampingCard({ coords, saved, revision }: Props) {
           Camping
         </Text>
         <Text style={[textStyles.caption, { color: colors.textMuted }]}>
-          Next 14 nights
+          {grid ? campingCoverageLabel(grid) : 'Camping availability'}
         </Text>
       </View>
       <Text style={[textStyles.caption, { color: colors.textMuted }]}>
@@ -67,16 +79,20 @@ function CampingCard({ coords, saved, revision }: Props) {
       </Text>
       {data ? (
         <>
-          <CampingTableHeader overview={data} now={now} />
-          {rows.map((row) => (
-            <CampingTableRow
-              key={row.facilityId}
-              row={row}
-              overview={data}
-              now={now}
-              onPress={() => setSelected(row.facilityId)}
-            />
-          ))}
+          {grid?.horizon.nights.length ? (
+            <CampingScrollGroup key={grid?.horizon.endDateExclusive}>
+              <CampingTableHeader overview={grid!} now={now} />
+              {rows.map((row) => (
+                <CampingTableRow
+                  key={row.facilityId}
+                  row={row}
+                  overview={grid!}
+                  now={now}
+                  onPress={() => setSelected(row.facilityId)}
+                />
+              ))}
+            </CampingScrollGroup>
+          ) : null}
           {!rows.length ? (
             <Text style={[textStyles.caption, { color: colors.textMuted }]}>
               No camping availability yet.
@@ -118,8 +134,12 @@ function CampingCard({ coords, saved, revision }: Props) {
       {detail && data ? (
         <CampingDetailSheet
           key={detail.facilityId}
-          row={detail}
-          overview={data}
+          row={
+            planning.data?.tracked.find(
+              (r) => r.facilityId === detail.facilityId,
+            ) ?? detail
+          }
+          overview={planning.data ?? data}
           now={now}
           onClose={() => setSelected(null)}
         />

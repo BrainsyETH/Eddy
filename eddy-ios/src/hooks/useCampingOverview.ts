@@ -5,25 +5,39 @@ import { onForeground } from '@/lib/foreground';
 import { campingDate, currentOverview } from '@/lib/campingHeatmap';
 
 // Shared, public memory cache. No location, account, or individual sites stored here.
-let cached: CampingOverview | null = null;
-let fetchedAt = 0;
-let inFlight: Promise<CampingOverview> | null = null;
-function request(): Promise<CampingOverview> {
-  if (!inFlight)
-    inFlight = fetchCampingOverview()
+type WindowSize = 21 | 90;
+type Entry = {
+  cached: CampingOverview | null;
+  fetchedAt: number;
+  inFlight: Promise<CampingOverview> | null;
+};
+const windows: Record<WindowSize, Entry> = {
+  21: { cached: null, fetchedAt: 0, inFlight: null },
+  90: { cached: null, fetchedAt: 0, inFlight: null },
+};
+function request(nights: WindowSize): Promise<CampingOverview> {
+  const entry = windows[nights];
+  if (!entry.inFlight)
+    entry.inFlight = fetchCampingOverview(undefined, nights)
       .then((data) => {
-        cached = data;
-        fetchedAt = Date.now();
+        entry.cached = data;
+        entry.fetchedAt = Date.now();
         return data;
       })
       .finally(() => {
-        inFlight = null;
+        entry.inFlight = null;
       });
-  return inFlight;
+  return entry.inFlight;
 }
-export function useCampingOverview(enabled = true, revision = 0) {
-  const [data, setData] = useState(cached);
-  const [loading, setLoading] = useState(enabled && !cached);
+export function useCampingOverview(
+  enabled = true,
+  revision = 0,
+  nights: WindowSize = 90,
+) {
+  const entry = windows[nights];
+  const [held, setHeld] = useState({ nights, data: entry.cached });
+  const data = held.nights === nights ? held.data : entry.cached;
+  const [loading, setLoading] = useState(enabled && !entry.cached);
   const [error, setError] = useState(false);
   const [retry, setRetry] = useState(0);
   const [now, setNow] = useState(Date.now);
@@ -34,21 +48,21 @@ export function useCampingOverview(enabled = true, revision = 0) {
     async function load(force = false) {
       if (
         !force &&
-        cached &&
-        Date.now() - fetchedAt < 300000 &&
-        cached.horizon.startDate === campingDate()
+        entry.cached &&
+        Date.now() - entry.fetchedAt < 300000 &&
+        entry.cached.horizon.startDate === campingDate()
       ) {
         if (active) {
-          setData(cached);
+          setHeld({ nights, data: entry.cached });
           setLoading(false);
         }
         return;
       }
       if (active) setLoading(true);
       try {
-        const next = await request();
+        const next = await request(nights);
         if (active) {
-          setData(next);
+          setHeld({ nights, data: next });
           setError(false);
         }
       } catch {
@@ -65,14 +79,15 @@ export function useCampingOverview(enabled = true, revision = 0) {
     // Aging and midnight rollover only; this does not poll the provider or API.
     const timer = setInterval(() => {
       setNow(Date.now());
-      if (cached && cached.horizon.startDate !== campingDate()) void load();
+      if (entry.cached && entry.cached.horizon.startDate !== campingDate())
+        void load();
     }, 60000);
     return () => {
       active = false;
       off();
       clearInterval(timer);
     };
-  }, [enabled, revision, retry]);
+  }, [enabled, revision, retry, nights, entry]);
   return {
     data: data ? currentOverview(data, now) : null,
     loading,

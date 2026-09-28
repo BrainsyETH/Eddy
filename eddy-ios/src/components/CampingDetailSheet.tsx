@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useState } from 'react';
 import {
   Linking,
   Modal,
@@ -21,6 +21,7 @@ import {
   checkedLabel,
   safeExternalUrl,
 } from '@/lib/campingHeatmap';
+import { CampingCalendar } from './CampingCalendar';
 import { CampingSites } from './CampingSites';
 
 export function CampingDetailSheet({
@@ -37,8 +38,6 @@ export function CampingDetailSheet({
   const { colors } = useTheme();
   const router = useRouter();
   const [selected, setSelected] = useState(() => initialCampingNight(overview));
-  const picker = useRef<ScrollView>(null);
-  const initialX = useRef(0);
   const [failed, setFailed] = useState(false);
   const date = overview.horizon.nights.includes(selected)
     ? selected
@@ -87,47 +86,13 @@ export function CampingDetailSheet({
               {row.displayGroup.label}
             </Text>
           ) : null}
-          <ScrollView
-            horizontal
-            ref={picker}
-            onContentSizeChange={() =>
-              picker.current?.scrollTo({ x: initialX.current, animated: false })
-            }
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.nights}
-          >
-            {overview.horizon.nights.map((d) => (
-              <Pressable
-                key={d}
-                onLayout={(event) => {
-                  if (d === initialCampingNight(overview))
-                    initialX.current = Math.max(
-                      0,
-                      event.nativeEvent.layout.x - 12,
-                    );
-                }}
-                accessibilityRole="button"
-                accessibilityState={{ selected: date === d }}
-                accessibilityLabel={`${dateLabel(d)}. ${nightLine(currentNight(row, d, overview.maxObservationAgeSeconds, now))}`}
-                onPress={() => setSelected(d)}
-                style={[
-                  styles.night,
-                  {
-                    borderColor:
-                      date === d ? colors.interactive : colors.border,
-                    backgroundColor:
-                      date === d ? colors.selectionBg : colors.card,
-                  },
-                ]}
-              >
-                <Text
-                  style={{ fontFamily: fonts.semibold, color: colors.text }}
-                >
-                  {dateLabel(d, true)}
-                </Text>
-              </Pressable>
-            ))}
-          </ScrollView>
+          <CampingCalendar
+            row={row}
+            overview={overview}
+            now={now}
+            selected={date}
+            onSelect={setSelected}
+          />
           <Text style={[textStyles.cardTitle, { color: colors.text }]}>
             {dateLabel(date)}
           </Text>
@@ -212,14 +177,6 @@ export function CampingDetailSheet({
 const styles = StyleSheet.create({
   header: { flexDirection: 'row', alignItems: 'center', padding: 20, gap: 12 },
   content: { paddingHorizontal: 20, paddingBottom: 24, gap: 10 },
-  nights: { gap: 8, paddingVertical: 8 },
-  night: {
-    minHeight: 48,
-    paddingHorizontal: 12,
-    borderRadius: 10,
-    borderWidth: 1,
-    justifyContent: 'center',
-  },
   action: { minHeight: 44, minWidth: 44, justifyContent: 'center' },
   book: {
     minHeight: 48,

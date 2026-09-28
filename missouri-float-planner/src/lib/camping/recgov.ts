@@ -290,7 +290,8 @@ export async function fetchWindow(
       cache?.set(key, payload);
     }
 
-    if (payload === null) return { nights: [], sites: [], siteNights: [] };
+    // An unavailable future month must not erase earlier observations.
+    if (payload === null) continue;
 
     for (const [date, agg] of parseMonth(payload, facility.sourceLoop)) merged.set(date, agg);
 

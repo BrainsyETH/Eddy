@@ -259,3 +259,14 @@ test('zero-reservable nights retain successful observations and freshness', () =
   assert.equal(r.latestObservationAt, i.observations[0].fetched_at);
   assert.equal(r.nights[0].sitesReservable, 0);
 });
+
+test('ninety nights are opt-in so shipped fixed grids keep fourteen', () => {
+  const i = input();
+  i.observations = [night({ date: '2026-12-01' })];
+  const legacy = buildCampingOverview(i, now);
+  assert.equal(legacy.horizon.nights.length, 14);
+  assert.equal(legacy.tracked[0].nights.length, 0);
+  const planning = buildCampingOverview(i, now, 90);
+  assert.equal(planning.horizon.nights.length, 90);
+  assert.deepEqual(planning.tracked[0].nights.map((n) => n.date), ['2026-12-01']);
+});

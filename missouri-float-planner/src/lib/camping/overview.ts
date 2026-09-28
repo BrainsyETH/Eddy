@@ -1,7 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { bookingUrlFor } from './booking';
 import { MAX_AGE_MS } from './read';
-import { resolveHorizon, resolveWeekend } from './window';
+import { HORIZON_NIGHTS, resolveHorizon, resolveWeekend } from './window';
 import type {
   CampingOverview,
   CampingPlace,
@@ -92,8 +92,9 @@ function location(p: PlaceRow | undefined): CampingPlace['location'] {
 export function buildCampingOverview(
   input: OverviewInput,
   now = new Date(),
+  nights = HORIZON_NIGHTS,
 ): CampingOverview {
-  const horizon = resolveHorizon(now),
+  const horizon = resolveHorizon(now, nights),
     weekend = resolveWeekend(now);
   const services = new Map(
     input.services
@@ -369,8 +370,9 @@ async function allRows<T>(
 export async function loadCampingOverview(
   db: SupabaseClient,
   now = new Date(),
+  nights = HORIZON_NIGHTS,
 ): Promise<CampingOverview> {
-  const horizon = resolveHorizon(now);
+  const horizon = resolveHorizon(now, nights);
   const [
     facilities,
     observations,
@@ -464,5 +466,6 @@ export async function loadCampingOverview(
       rivers,
     },
     now,
+    nights,
   );
 }
