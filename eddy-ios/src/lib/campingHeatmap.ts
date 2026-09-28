@@ -196,7 +196,10 @@ export function currentOverview(
   now: number,
 ): CampingOverview {
   if (data.horizon.startDate === campingDate(now)) return data;
-  const horizon = resolveHorizon(new Date(now), data.horizon.nights.length || HORIZON_NIGHTS),
+  const horizon = resolveHorizon(
+      new Date(now),
+      data.horizon.nights.length || HORIZON_NIGHTS,
+    ),
     weekend = resolveWeekend(new Date(now));
   return {
     ...data,
@@ -305,4 +308,51 @@ export function campingRiverOptions(
     .filter((slug) => labels.has(slug))
     .map((slug) => ({ slug, label: labels.get(slug)! }))
     .sort((a, b) => a.label.localeCompare(b.label));
+}
+
+/** Trim only the unobserved tail; unknown dates inside the range remain explicit. */
+export function observedCampingOverview(
+  rows: TrackedCampground[],
+  data: CampingOverview,
+  now: number,
+): CampingOverview {
+  const nights = data.horizon.nights;
+  let end = nights.length;
+  while (
+    end > 0 &&
+    !rows.some((row) =>
+      currentNight(row, nights[end - 1], data.maxObservationAgeSeconds, now),
+    )
+  )
+    end--;
+  const shown = nights.slice(0, end);
+  const endDateExclusive = shown.length
+    ? new Date(Date.parse(shown[shown.length - 1] + 'T12:00:00Z') + 86400000)
+        .toISOString()
+        .slice(0, 10)
+    : data.horizon.startDate;
+  return {
+    ...data,
+    horizon: { ...data.horizon, nights: shown, endDateExclusive },
+  };
+}
+export function campingCoverageLabel(data: CampingOverview | null): string {
+  const last = data?.horizon.nights.at(-1);
+  return last
+    ? `Through ${new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' }).format(new Date(last + 'T12:00:00Z'))}`
+    : 'No recent availability';
+}
+export function campingRowSummary(
+  row: TrackedCampground,
+  data: CampingOverview,
+  now: number,
+): string {
+  const afterWeekend = data.weekend.endDateExclusive;
+  const next = data.horizon.nights.find((date) => {
+    const night = currentNight(row, date, data.maxObservationAgeSeconds, now);
+    return (
+      date >= afterWeekend && night?.status === 'open' && night.sitesOpen > 0
+    );
+  });
+  return `This weekend: ${weekendLine(row, data, now)}.${next ? ` Next observed opening: ${dateLabel(next)}.` : ''}`;
 }

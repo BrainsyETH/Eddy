@@ -284,21 +284,38 @@ test('calendar aligns Sunday weeks and handles leap days and year boundaries', (
   assert.equal(monthSelection('2027-02', nights), undefined);
 });
 
-import { createCampingScroll } from '../../../eddy-ios/src/lib/campingScroll';
-test('date scrolling moves all rows, ignores follower events, and restores virtualized rows', () => {
-  const group = createCampingScroll();
-  const positions = [0, 0, 0];
-  const views = positions.map((_, i) => ({ scrollTo: ({ x }: { x: number }) => { positions[i] = x; } }));
-  group.register(views[0]);
-  group.register(views[1]);
-  group.begin(views[0]);
-  group.scroll(views[0], 560);
-  assert.equal(positions[1], 560);
-  group.scroll(views[1], 120);
-  assert.equal(positions[0], 0, 'a follower cannot pull the driver backward');
-  group.register(views[2]);
-  assert.equal(positions[2], 560, 'newly visible row adopts the shared date');
-  group.begin(views[2]);
-  group.scroll(views[2], 840);
-  assert.deepEqual(positions.slice(0, 2), [840, 840]);
+
+import { createCampingTapGuard } from '../../../eddy-ios/src/lib/campingScroll';
+test('horizontal and vertical pans cannot open a campground on release', () => {
+  const tap = createCampingTapGuard();
+  tap.start(20, 20); tap.move(60, 20); tap.move(20, 20);
+  assert.equal(tap.allowed(), false, 'returning to the starting point is still a pan');
+  tap.start(20, 20); tap.move(20, 60);
+  assert.equal(tap.allowed(), false);
+  tap.start(20, 20); tap.move(22, 23);
+  assert.equal(tap.allowed(), true);
+  tap.cancel(); assert.equal(tap.allowed(), false);
+});
+
+import { observedCampingOverview, campingCoverageLabel, campingRowSummary } from '../../../eddy-ios/src/lib/campingHeatmap';
+test('coverage trims only trailing unknowns across the visible rows', () => {
+  const a = row(), b = row('b');
+  a.nights = [night(2), { ...night(0), date: '2026-10-01', status: 'closed' }];
+  b.nights = [{ ...night(0), date: '2026-10-03', status: 'not_yet_released' }];
+  const visible = observedCampingOverview([a], overview, now);
+  assert.equal(visible.horizon.nights.at(-1), '2026-10-01');
+  assert.ok(visible.horizon.nights.includes('2026-09-29'), 'internal gap stays visible');
+  assert.equal(campingCoverageLabel(visible), 'Through Oct 1');
+  assert.equal(observedCampingOverview([a,b], overview, now).horizon.nights.at(-1), '2026-10-03');
+  assert.equal(observedCampingOverview([a,b], overview, now + 72 * 3600000).horizon.nights.length, 0);
+  assert.equal(campingCoverageLabel(observedCampingOverview([], overview, now)), 'No recent availability');
+  assert.equal(overview.horizon.nights.length, 14, 'calendar horizon is not mutated');
+});
+test('VoiceOver summarizes weekend observations and only claims observed next openings', () => {
+  const a = row();
+  a.nights = [{ ...night(14), date: '2026-10-02' }, { ...night(9), date: '2026-10-03' }, { ...night(1), date: '2026-10-07' }];
+  const text = campingRowSummary(a, overview, now);
+  assert.match(text, /14 open/); assert.match(text, /9 open/); assert.match(text, /Next observed opening:.*Oct 7/);
+  const stale = campingRowSummary(a, overview, now + 72 * 3600000);
+  assert.match(stale, /not checked/); assert.doesNotMatch(stale, /Next observed opening/);
 });

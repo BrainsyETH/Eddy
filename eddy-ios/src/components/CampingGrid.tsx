@@ -1,13 +1,21 @@
 import {
   createContext,
   useContext,
-  useEffect,
   useRef,
+  useMemo,
+  useId,
   type ReactNode,
-  useState,
 } from 'react';
+import Animated, {
+  useSharedValue,
+  useAnimatedRef,
+  useAnimatedScrollHandler,
+  useAnimatedReaction,
+  scrollTo,
+  type SharedValue,
+} from 'react-native-reanimated';
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
-import { createCampingScroll } from '@/lib/campingScroll';
+import { createCampingTapGuard } from '@/lib/campingScroll';
 import { support } from '@/theme/palette';
 import { Pressable, StyleSheet, Text, View, ScrollView } from 'react-native';
 import type { CampingOverview, TrackedCampground } from '@eddy/types';
@@ -15,6 +23,8 @@ import { useTheme } from '@/theme/ThemeProvider';
 import { fonts } from '@/theme/typography';
 import {
   campingRowNeedsUpdate,
+  campingRowSummary,
+  campingCoverageLabel,
   cellMark,
   currentNight,
   type HeatMark,
@@ -90,13 +100,16 @@ export function CampingMark({ mark }: { mark: HeatMark }) {
   );
 }
 const DATE_WIDTH = 28;
-const DateScrollContext = createContext<ReturnType<
-  typeof createCampingScroll
-> | null>(null);
+const DateScrollContext = createContext<{
+  offset: SharedValue<number>;
+  driver: SharedValue<string>;
+} | null>(null);
 
-/** One date offset for the ruler and every row, including newly virtualized rows. */
+/** Native date offset shared by the ruler and virtualized rows, without JS fan-out. */
 export function CampingScrollGroup({ children }: { children: ReactNode }) {
-  const [group] = useState(createCampingScroll);
+  const offset = useSharedValue(0);
+  const driver = useSharedValue('');
+  const group = useMemo(() => ({ offset, driver }), [offset, driver]);
   return (
     <DateScrollContext.Provider value={group}>
       {children}
@@ -104,32 +117,45 @@ export function CampingScrollGroup({ children }: { children: ReactNode }) {
   );
 }
 function DateScroller({ children }: { children: ReactNode }) {
-  const group = useContext(DateScrollContext);
-  const ref = useRef<ScrollView>(null);
-  useEffect(() => {
-    const view = ref.current;
-    if (!view || !group) return;
-    return group.register(view);
-  }, [group]);
+  const group = useContext(DateScrollContext)!;
+  // Capture only shared values in worklets, never the context or a React ref registry.
+  const { offset, driver } = group;
+  const id = useId();
+  const ref = useAnimatedRef<ScrollView>();
+  const ready = useSharedValue(false);
+  const handler = useAnimatedScrollHandler({
+    onBeginDrag: () => {
+      driver.set(id);
+    },
+    onScroll: (event) => {
+      if (driver.get() === id)
+        offset.set(Math.max(0, event.contentOffset.x));
+    },
+  });
+  useAnimatedReaction(
+    () => ({ x: offset.get(), active: driver.get(), ready: ready.get() }),
+    (state) => {
+      if (state.ready && state.active !== id) scrollTo(ref, state.x, 0, false);
+    },
+  );
   return (
-    <ScrollView
+    <Animated.ScrollView
       ref={ref}
       horizontal
       directionalLockEnabled
       nestedScrollEnabled
+      bounces={false}
+      canCancelContentTouches
       showsHorizontalScrollIndicator={false}
       style={{ flex: 1 }}
-      onContentSizeChange={() => group?.restore(ref.current)}
-      onScrollBeginDrag={() => {
-        group?.begin(ref.current);
+      onContentSizeChange={() => {
+        ready.set(true);
       }}
+      onScroll={handler}
       scrollEventThrottle={16}
-      onScroll={(event) => {
-        group?.scroll(ref.current, event.nativeEvent.contentOffset.x);
-      }}
     >
       {children}
-    </ScrollView>
+    </Animated.ScrollView>
   );
 }
 export function CampingGrid({
@@ -168,6 +194,7 @@ export function CampingGrid({
         >
           {headings ? (
             <Text
+              maxFontSizeMultiplier={1.3}
               style={[
                 styles.date,
                 {
@@ -221,15 +248,7 @@ export function CampingTableHeader({
     <View
       style={table.row}
       accessible
-      accessibilityLabel={overview.horizon.nights
-        .map((d) =>
-          new Date(d + 'T12:00:00Z').toLocaleDateString('en-US', {
-            month: 'short',
-            day: 'numeric',
-            timeZone: 'UTC',
-          }),
-        )
-        .join(', ')}
+      accessibilityLabel={`${campingCoverageLabel(overview)}. Highlights mark Fridays and Saturdays.`}
     >
       <View style={table.name} />
       <DateScroller>
@@ -238,6 +257,7 @@ export function CampingTableHeader({
             {months.map((m) => (
               <Text
                 key={m.label}
+                maxFontSizeMultiplier={1.3}
                 style={{
                   width: m.count * DATE_WIDTH,
                   fontFamily: fonts.medium,
@@ -268,11 +288,22 @@ export function CampingTableRow({
 }) {
   const { colors } = useTheme();
   const stale = campingRowNeedsUpdate(row, overview, now);
+  const tap = useRef(createCampingTapGuard());
   return (
     <Pressable
-      onPress={onPress}
+      onTouchStart={(event) =>
+        tap.current.start(event.nativeEvent.pageX, event.nativeEvent.pageY)
+      }
+      onTouchMove={(event) =>
+        tap.current.move(event.nativeEvent.pageX, event.nativeEvent.pageY)
+      }
+      onTouchCancel={() => tap.current.cancel()}
+      onPress={() => {
+        if (tap.current.allowed()) onPress();
+      }}
+      onAccessibilityTap={onPress}
       accessibilityRole="button"
-      accessibilityLabel={`${row.name}. Open calendar and individual sites.${stale ? '. Needs an update' : ''}`}
+      accessibilityLabel={`${row.name}. ${campingRowSummary(row, overview, now)} Open calendar and individual sites.${stale ? '. Needs an update' : ''}`}
       style={[table.row, table.item, { borderColor: colors.border }]}
     >
       <View style={table.name}>

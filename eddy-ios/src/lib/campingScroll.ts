@@ -1,30 +1,21 @@
-type ScrollTarget = {
-  scrollTo: (options: { x: number; animated: boolean }) => void;
-};
-/** Imperative native scroll coordination; follower events never drive the group. */
-export function createCampingScroll() {
-  let x = 0;
-  let driver: ScrollTarget | null = null;
-  const views = new Set<ScrollTarget>();
-  const restore = (view: ScrollTarget | null) =>
-    view?.scrollTo({ x, animated: false });
+/** A pan ending over a row must never activate its detail sheet. */
+export function createCampingTapGuard() {
+  let origin = { x: 0, y: 0 };
+  let moved = false;
   return {
-    restore,
-    register(view: ScrollTarget) {
-      views.add(view);
-      restore(view);
-      return () => {
-        views.delete(view);
-        if (driver === view) driver = null;
-      };
+    start(x: number, y: number) {
+      origin = { x, y };
+      moved = false;
     },
-    begin(view: ScrollTarget | null) {
-      driver = view;
+    move(x: number, y: number) {
+      if (Math.abs(x - origin.x) > 8 || Math.abs(y - origin.y) > 8)
+        moved = true;
     },
-    scroll(view: ScrollTarget | null, offset: number) {
-      if (!view || view !== driver) return;
-      x = Math.max(0, offset);
-      for (const other of views) if (other !== view) restore(other);
+    cancel() {
+      moved = true;
+    },
+    allowed() {
+      return !moved;
     },
   };
 }

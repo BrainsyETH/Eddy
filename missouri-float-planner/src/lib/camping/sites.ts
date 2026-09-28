@@ -5,6 +5,7 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { resolveHorizon, resolvePlanningMonth } from './window';
+import { MAX_AGE_MS } from './read';
 import type { UnitStatus } from './types';
 
 /**
@@ -171,7 +172,7 @@ export async function loadFacilitySites(
   for (const row of nightRows) {
     // One expired date cannot invalidate current observations elsewhere in a month.
     const age = now.getTime() - Date.parse(row.fetched_at);
-    if (!Number.isFinite(age) || age < 0 || age >= 72 * 3600000) continue;
+    if (!Number.isFinite(age) || age < 0 || age >= MAX_AGE_MS) continue;
     const nights = bySite.get(row.site_id) ?? new Map<string, UnitStatus>();
     nights.set(row.date, row.status as UnitStatus);
     bySite.set(row.site_id, nights);

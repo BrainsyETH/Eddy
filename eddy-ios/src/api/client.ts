@@ -2422,6 +2422,6 @@ export function fetchCampsitePhotos(facilityId: string, signal?: AbortSignal, si
   );
 }
 
-export function fetchCampingOverview(signal?: AbortSignal): Promise<CampingOverview> {
-  return get<CampingOverview>('/api/camping/availability?nights=90',signal);
+export function fetchCampingOverview(signal?: AbortSignal, nights: 21 | 90 = 90): Promise<CampingOverview> {
+  return get<CampingOverview>(`/api/camping/availability?nights=${nights}`,signal);
 }

@@ -24,6 +24,8 @@ import {
 import { CampingDetailSheet } from '@/components/CampingDetailSheet';
 import {
   campingRiverOptions,
+  observedCampingOverview,
+  campingCoverageLabel,
   campingFreshness,
   filterCamping,
   safeExternalUrl,
@@ -112,6 +114,7 @@ function CampingContent() {
         </Text>
       </Pressable>
     );
+  const grid = observedCampingOverview(rows, data, now);
   function chip(label: string, active: boolean, onPress: () => void) {
     return (
       <Pressable
@@ -221,7 +224,9 @@ function CampingContent() {
           </Text>
         </Pressable>
       ) : null}
-      <CampingScrollGroup>
+      <CampingScrollGroup
+        key={`${river}:${nearby}:${grid.horizon.endDateExclusive}`}
+      >
         <FlatList
           data={rows}
           keyExtractor={(row) => row.facilityId}
@@ -237,15 +242,15 @@ function CampingContent() {
                   { color: colors.textMuted, paddingVertical: 8 },
                 ]}
               >
-                Next {data?.horizon.nights.length ?? 90} nights
+                {campingCoverageLabel(grid)}
               </Text>
-              <CampingTableHeader overview={data} now={now} />
+              <CampingTableHeader overview={grid} now={now} />
             </View>
           }
           renderItem={({ item }) => (
             <CampingTableRow
               row={item}
-              overview={data}
+              overview={grid}
               now={now}
               onPress={() => setSelected(item.facilityId)}
             />
