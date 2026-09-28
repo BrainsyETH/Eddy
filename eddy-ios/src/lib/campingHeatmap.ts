@@ -63,19 +63,17 @@ export function nightLine(n?: CampingObservation): string {
   if (mark === 'full') return 'No reservable openings';
   return `${n!.sitesOpen} of ${n!.sitesReservable} reservable sites open`;
 }
-export function checkedLabel(at: string | null): string {
-  if (!at) return 'No recent observations';
-  return (
-    'Data from ' +
-    new Intl.DateTimeFormat('en-US', {
-      timeZone: 'America/Chicago',
-      month: 'short',
-      day: 'numeric',
-      hour: 'numeric',
-      minute: '2-digit',
-    }).format(new Date(at)) +
-    ' CT'
-  );
+export function checkedLabel(at: string | null, now = Date.now()): string {
+  const time = at ? Date.parse(at) : NaN;
+  if (!Number.isFinite(time)) return 'Not updated';
+  const today = campingDate(time) === campingDate(now);
+  const label = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'America/Chicago',
+    ...(today
+      ? { hour: 'numeric' as const, minute: '2-digit' as const }
+      : { month: 'short' as const, day: 'numeric' as const }),
+  }).format(new Date(time));
+  return `Updated ${today ? 'at' : 'on'} ${label}`;
 }
 export function weekendLine(
   row: TrackedCampground,
@@ -227,10 +225,83 @@ export function campingNightPages(nights: string[]): string[][] {
   let start = 0;
   while (start < nights.length) {
     let end = Math.min(start + 7, nights.length);
-    if (end < nights.length && new Date(nights[end - 1] + 'T12:00:00Z').getUTCDay() === 5) end--;
+    if (
+      end < nights.length &&
+      new Date(nights[end - 1] + 'T12:00:00Z').getUTCDay() === 5
+    )
+      end--;
     if (nights.length - end === 1) end = nights.length;
     pages.push(nights.slice(start, end));
     start = end;
   }
   return pages;
+}
+
+/** A compact footer describes only observations in the visible grid. */
+export function campingFreshness(
+  rows: TrackedCampground[],
+  overview: CampingOverview,
+  now: number,
+): string {
+  const dates = rows.flatMap((row) =>
+    overview.horizon.nights.flatMap((date) => {
+      const night = currentNight(
+        row,
+        date,
+        overview.maxObservationAgeSeconds,
+        now,
+      );
+      return night ? [Date.parse(night.checkedAt)] : [];
+    }),
+  );
+  return dates.length
+    ? checkedLabel(new Date(Math.min(...dates)).toISOString(), now)
+    : 'Not updated';
+}
+
+export function campingRowNeedsUpdate(
+  row: TrackedCampground,
+  overview: CampingOverview,
+  now: number,
+): boolean {
+  return !overview.horizon.nights.some((date) =>
+    currentNight(row, date, overview.maxObservationAgeSeconds, now),
+  );
+}
+
+export function filterCamping<T extends CampingPlace>(
+  rows: T[],
+  river: string | null,
+  nearby: boolean,
+  coords: Coords | null,
+): T[] {
+  return rows.filter(
+    (row) =>
+      (!river || row.riverSlugs.includes(river)) &&
+      (!nearby || distance(row, coords) <= 120),
+  );
+}
+
+/** Use the same planning night for every campground, regardless of its openings. */
+export function initialCampingNight(overview: CampingOverview): string {
+  return (
+    overview.weekend.nights.find((date) =>
+      overview.horizon.nights.includes(date),
+    ) ?? overview.horizon.startDate
+  );
+}
+
+export function campingRiverOptions(
+  tracked: TrackedCampground[],
+  places: CampingPlace[] = [],
+): { slug: string; label: string }[] {
+  const labels = new Map(
+    [...places, ...tracked]
+      .filter((row) => row.riverSlugs.includes(row.displayGroup.key))
+      .map((row) => [row.displayGroup.key, row.displayGroup.label]),
+  );
+  return [...new Set(tracked.flatMap((row) => row.riverSlugs))]
+    .filter((slug) => labels.has(slug))
+    .map((slug) => ({ slug, label: labels.get(slug)! }))
+    .sort((a, b) => a.label.localeCompare(b.label));
 }

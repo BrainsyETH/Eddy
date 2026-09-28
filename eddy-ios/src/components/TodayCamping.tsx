@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Pressable,
@@ -11,36 +11,22 @@ import type { Coords } from '@eddy/geo';
 import { useAppConfig } from '@/hooks/useAppConfig';
 import { useCampingOverview } from '@/hooks/useCampingOverview';
 import { useCampingRanking } from '@/hooks/useCampingRanking';
-import { CampingGrid } from './CampingGrid';
-import {
-  cardSummary,
-  currentNight,
-  checkedLabel,
-  dateLabel,
-  distance,
-  todayCampgrounds,
-  weekendLine,
-} from '@/lib/campingHeatmap';
+import { CampingTableHeader, CampingTableRow } from './CampingGrid';
+import { CampingDetailSheet } from './CampingDetailSheet';
+import { campingFreshness, todayCampgrounds } from '@/lib/campingHeatmap';
 import { useTheme } from '@/theme/ThemeProvider';
-import { fonts } from '@/theme/typography';
+import { fonts, textStyles } from '@/theme/typography';
 
-export function TodayCamping(props: {
+type Props = {
   coords: Coords | null;
   saved: ReadonlySet<string>;
   revision: number;
-}) {
+};
+export function TodayCamping(props: Props) {
   const { features } = useAppConfig();
   return features.campingHeatmap ? <CampingCard {...props} /> : null;
 }
-function CampingCard({
-  coords,
-  saved,
-  revision,
-}: {
-  coords: Coords | null;
-  saved: ReadonlySet<string>;
-  revision: number;
-}) {
+function CampingCard({ coords, saved, revision }: Props) {
   const { colors } = useTheme();
   const router = useRouter();
   const { data, loading, error, refresh, now } = useCampingOverview(
@@ -48,17 +34,19 @@ function CampingCard({
     revision,
   );
   const rankingCoords = useCampingRanking(coords, revision);
+  const [selected, setSelected] = useState<string | null>(null);
   const selection = useMemo(
     () => todayCampgrounds(data?.tracked ?? [], rankingCoords, saved),
     [data, rankingCoords, saved],
   );
-  const hasFresh =
-    !!data &&
-    selection.rows.some((row) =>
-      data.horizon.nights.some((date) =>
-        currentNight(row, date, data.maxObservationAgeSeconds, now),
-      ),
-    );
+  const rows = selection.rows.slice(0, 4);
+  const scope =
+    selection.title === 'Camping near you'
+      ? 'Nearby'
+      : selection.title === 'Camping on saved rivers'
+        ? 'Saved Rivers'
+        : 'Across the Ozarks';
+  const detail = data?.tracked.find((r) => r.facilityId === selected);
   return (
     <View
       style={[
@@ -66,65 +54,46 @@ function CampingCard({
         { backgroundColor: colors.card, borderColor: colors.border },
       ]}
     >
-      <Text style={[styles.title, { color: colors.text }]}>
-        {selection.title}
+      <View style={styles.heading}>
+        <Text style={[textStyles.cardTitle, { color: colors.text }]}>
+          Camping
+        </Text>
+        <Text style={[textStyles.caption, { color: colors.textMuted }]}>
+          Next 14 nights
+        </Text>
+      </View>
+      <Text style={[textStyles.caption, { color: colors.textMuted }]}>
+        {scope}
       </Text>
       {data ? (
         <>
-          <Text style={[styles.copy, { color: colors.textMuted }]}>
-            {data.weekend.label} · 14 nights from {dateLabel(data.horizon.startDate)}
-          </Text>
-          <Text style={[styles.copy, { color: colors.textMuted }]}>
-            {selection.rows.length
-              ? cardSummary(selection.rows, data, now)
-              : 'Browse campgrounds and check directly.'}
-          </Text>
-          {hasFresh ? (
-            <CampingGrid overview={data} now={now} headings />
-          ) : (
-            <Text style={[styles.copy, { color: colors.textMuted }]}>
-              Availability needs an update. Campground links are still
-              available.
+          <CampingTableHeader overview={data} now={now} />
+          {rows.map((row) => (
+            <CampingTableRow
+              key={row.facilityId}
+              row={row}
+              overview={data}
+              now={now}
+              onPress={() => setSelected(row.facilityId)}
+            />
+          ))}
+          {!rows.length ? (
+            <Text style={[textStyles.caption, { color: colors.textMuted }]}>
+              No camping availability yet.
             </Text>
-          )}
-          {(hasFresh ? selection.rows.slice(0, 4) : []).map((row) => {
-            const miles = distance(row, coords);
-            const copy = weekendLine(row, data, now);
-            return (
-              <Pressable
-                key={row.id}
-                onPress={() =>
-                  router.push({
-                    pathname: '/camping',
-                    params: { facility: row.facilityId },
-                  })
-                }
-                accessibilityRole="button"
-                accessibilityLabel={`${row.name}. ${copy}. ${checkedLabel(row.latestObservationAt)}`}
-                style={[styles.row, { borderColor: colors.border }]}
-              >
-                <Text style={[styles.name, { color: colors.text }]}>
-                  {row.name}
-                  {Number.isFinite(miles) ? ` · ${Math.round(miles)} mi` : ''}
-                </Text>
-                <CampingGrid row={row} overview={data} now={now} />
-                <Text style={[styles.copy, { color: colors.textMuted }]}>
-                  {copy}
-                </Text>
-                <Text style={[styles.small, { color: colors.textSubtle }]}>
-                  {checkedLabel(row.latestObservationAt)}
-                </Text>
-              </Pressable>
-            );
-          })}
+          ) : null}
+          {rows.length ? (
+            <Text style={[textStyles.caption, { color: colors.textSubtle }]}>
+              {campingFreshness(rows, data, now)} · Reservable sites only
+            </Text>
+          ) : null}
         </>
       ) : loading ? (
-        <View style={styles.loading}>
-          <ActivityIndicator
-            color={colors.interactive}
-            accessibilityLabel="Loading camping availability"
-          />
-        </View>
+        <ActivityIndicator
+          style={{ padding: 24 }}
+          accessibilityLabel="Loading camping availability"
+          color={colors.interactive}
+        />
       ) : null}
       {error ? (
         <Pressable
@@ -133,7 +102,7 @@ function CampingCard({
           style={styles.action}
         >
           <Text style={{ color: colors.interactive }}>
-            Couldn’t update availability. Retry
+            Couldn’t refresh. Retry
           </Text>
         </Pressable>
       ) : null}
@@ -146,9 +115,15 @@ function CampingCard({
           See all camping →
         </Text>
       </Pressable>
-      <Text style={[styles.small, { color: colors.textSubtle }]}>
-        Reservable sites only{coords ? ' · Straight-line distances' : ''}
-      </Text>
+      {detail && data ? (
+        <CampingDetailSheet
+          key={detail.facilityId}
+          row={detail}
+          overview={data}
+          now={now}
+          onClose={() => setSelected(null)}
+        />
+      ) : null}
     </View>
   );
 }
@@ -158,13 +133,15 @@ const styles = StyleSheet.create({
     padding: 16,
     borderWidth: 1,
     borderRadius: 20,
-    gap: 6,
+    gap: 4,
   },
-  title: { fontFamily: fonts.display, fontSize: 22 },
-  copy: { fontFamily: fonts.body, fontSize: 13, lineHeight: 19 },
-  name: { fontFamily: fonts.semibold, fontSize: 14 },
-  small: { fontFamily: fonts.body, fontSize: 11, lineHeight: 16 },
-  row: { paddingVertical: 10, borderBottomWidth: 1, gap: 4, minHeight: 44 },
+  heading: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: 8,
+    paddingBottom: 8,
+  },
   action: { minHeight: 44, justifyContent: 'center' },
-  loading: { minHeight: 120, justifyContent: 'center' },
 });
