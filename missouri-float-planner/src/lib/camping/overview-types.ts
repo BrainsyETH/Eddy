@@ -11,6 +11,8 @@ export interface CampingObservation {
   checkedAt: string;
 }
 export interface CampingPlace {
+  /** Campground-level photo; absent on older cached responses. */
+  imageUrl?: string | null;
   id: string;
   name: string;
   place: CampingPlaceRef | null;

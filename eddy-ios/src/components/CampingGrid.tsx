@@ -16,6 +16,7 @@ import Animated, {
   runOnJS,
   type SharedValue,
 } from 'react-native-reanimated';
+import { CampgroundThumbnail } from './CampgroundThumbnail';
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
 import { createCampingTapGuard } from '@/lib/campingScroll';
 import { support } from '@/theme/palette';
@@ -106,6 +107,7 @@ export function CampingMark({ mark }: { mark: HeatMark }) {
 }
 const DATE_WIDTH = 28;
 const DateScrollContext = createContext<{
+  thumbnails: boolean;
   dateWidth: number;
   offset: SharedValue<number>;
   driver: SharedValue<string>;
@@ -115,15 +117,17 @@ const DateScrollContext = createContext<{
 export function CampingScrollGroup({
   children,
   dateWidth = DATE_WIDTH,
+  thumbnails = false,
 }: {
   children: ReactNode;
   dateWidth?: number;
+  thumbnails?: boolean;
 }) {
   const offset = useSharedValue(0);
   const driver = useSharedValue('');
   const group = useMemo(
-    () => ({ offset, driver, dateWidth }),
-    [offset, driver, dateWidth],
+    () => ({ offset, driver, dateWidth, thumbnails }),
+    [offset, driver, dateWidth, thumbnails],
   );
   return (
     <DateScrollContext.Provider value={group}>
@@ -283,7 +287,7 @@ export function CampingTableHeader({
   now: number;
 }) {
   const { colors } = useTheme();
-  const { offset, dateWidth } = useContext(DateScrollContext)!;
+  const { offset, dateWidth, thumbnails } = useContext(DateScrollContext)!;
   const [visibleIndex, setVisibleIndex] = useState(0);
   // Only bridge date-column changes, never synchronize scrollers through JS.
   useAnimatedReaction(
@@ -319,7 +323,7 @@ export function CampingTableHeader({
         style={table.row}
         accessibilityLabel={`${campingCoverageLabel(overview)}. Highlights mark Fridays and Saturdays.`}
       >
-        <View style={table.name} />
+        <View style={[table.name, thumbnails && { width: '44%' }]} />
         <DateScroller indicator>
           <CampingGrid overview={overview} now={now} headings />
         </DateScroller>
@@ -340,27 +344,44 @@ export function CampingTableRow({
   onPress: () => void;
 }) {
   const { colors } = useTheme();
+  const thumbnails = useContext(DateScrollContext)?.thumbnails ?? false;
   const stale = campingRowNeedsUpdate(row, overview, now);
   const tap = useRef(createCampingTapGuard());
   return (
     <View style={[table.row, table.item, { borderColor: colors.border }]}>
       <Pressable
-        style={[table.name, { minHeight: 44, justifyContent: 'center' }]}
+        style={[
+          table.name,
+          { minHeight: 44, justifyContent: 'center' },
+          thumbnails && {
+            width: '44%',
+            flexDirection: 'row',
+            alignItems: 'center',
+            gap: 8,
+          },
+        ]}
         onPress={onPress}
         accessibilityRole="button"
         accessibilityLabel={`${row.name}. ${campingRowSummary(row, overview, now)} Open campground and individual sites.${stale ? ' Needs an update.' : ''}`}
       >
-        <Text
-          numberOfLines={2}
-          style={{ fontFamily: fonts.medium, fontSize: 12, color: colors.text }}
-        >
-          {row.name.replace(/ Campground$/, '')}
-        </Text>
-        {stale ? (
-          <Text style={{ fontSize: 10, color: colors.textMuted }}>
-            Needs update
+        {thumbnails ? <CampgroundThumbnail url={row.imageUrl} /> : null}
+        <View style={{ flex: 1 }}>
+          <Text
+            numberOfLines={2}
+            style={{
+              fontFamily: fonts.medium,
+              fontSize: 12,
+              color: colors.text,
+            }}
+          >
+            {row.name.replace(/ Campground$/, '')}
           </Text>
-        ) : null}
+          {stale ? (
+            <Text style={{ fontSize: 10, color: colors.textMuted }}>
+              Needs update
+            </Text>
+          ) : null}
+        </View>
       </Pressable>
       <DateScroller>
         <Pressable

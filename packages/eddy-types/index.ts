@@ -3052,6 +3052,8 @@ export interface CampingObservation {
   status: 'open' | 'full' | 'closed' | 'not_yet_released'; checkedAt: string;
 }
 export interface CampingPlace {
+  /** Campground-level photo; absent on older cached responses. */
+  imageUrl?: string | null;
   id: string; name: string; place: CampingPlaceRef | null;
   location: { lat: number; lng: number } | null;
   riverSlugs: string[]; displayGroup: { key: string; label: string };

@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { parseNpsImages } from '../services/npsCampground';
 import { bookingUrlFor } from './booking';
 import { MAX_AGE_MS } from './read';
 import { HORIZON_NIGHTS, resolveHorizon, resolveWeekend } from './window';
@@ -42,6 +43,7 @@ export interface PlaceRow {
   reservation_url?: string | null;
   managing_agency?: string | null;
   sites_first_come?: number | null;
+  images?: unknown;
 }
 export interface AccessRow {
   location_orig?: { coordinates?: number[] } | null;
@@ -77,6 +79,13 @@ export function safeCampingUrl(raw: string | null | undefined): string | null {
   } catch {
     return null;
   }
+}
+/** Use campground media, never substitute a numbered individual site or map. */
+export function campgroundImage(raw: unknown): string | null {
+  const photo = parseNpsImages(raw).find(image =>
+    !/\bmap\b|\b(?:campsite|site)\s*#?\s*\d/i.test(`${image.title ?? ''} ${image.altText ?? ''}`)
+    && safeCampingUrl(image.url));
+  return photo ? safeCampingUrl(photo.url) : null;
 }
 function location(p: PlaceRow | undefined): CampingPlace['location'] {
   if (p?.latitude == null || p.longitude == null) return null;
@@ -152,6 +161,7 @@ export function buildCampingOverview(
     return {
       id: s?.id ?? n?.id ?? a?.id ?? '',
       name: s?.name ?? n?.name ?? 'Campground',
+      imageUrl: campgroundImage(n?.images),
       place: a
         ? { type: 'access_point', id: a.id }
         : n
@@ -419,7 +429,7 @@ export async function loadCampingOverview(
       db
         .from('nps_campgrounds')
         .select(
-          'id,name,latitude,longitude,nps_url,reservation_url,sites_first_come',
+          'id,name,latitude,longitude,nps_url,reservation_url,sites_first_come,images',
         )
         .order('id')
         .range(a, b),
