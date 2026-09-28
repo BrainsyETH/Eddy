@@ -442,3 +442,15 @@ test('walk-up sites are listable even though they are not in the denominator', (
   assert.equal(parseMonth(payload).get('2026-09-05')!.sitesReservable, 0);
   assert.equal(parseMonthSites(payload).siteNights[0].status, 'walk_up');
 });
+
+test('unavailable later months preserve valid earlier observations', async () => {
+  const cache: MonthCache = new Map([
+    ['test:2026-09-01', RED_BLUFF],
+    ['test:2026-10-01', null],
+  ]);
+  const window = { startDate: '2026-09-05', endDate: '2026-10-02', label: 'test', nights: ['2026-09-05', '2026-10-01'] };
+  const result = await fetchWindow({ id: 'f', source: 'recreation_gov', sourceFacilityId: 'test', sourceLoop: null, displayName: 'Test', kind: 'campground' }, window,
+    createLimiter({ name: 'test', minSpacingMs: 0, maxRequests: 0 }), cache);
+  assert.deepEqual(result.nights.map((night) => night.date), ['2026-09-05']);
+  assert.equal(result.sites.length, 2);
+});

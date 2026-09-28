@@ -16,6 +16,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { cdnCacheHeaders } from '@/lib/api-utils';
 import { createClient } from '@/lib/supabase/server';
 import { rateLimit, getClientIp } from '@/lib/rate-limit';
+import { resolvePlanningMonth } from '@/lib/camping/window';
 import { loadFacilitySites } from '@/lib/camping/sites';
 
 export const dynamic = 'force-dynamic';
@@ -38,8 +39,13 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'facility must be an id' }, { status: 400 });
     }
 
+    const now = new Date();
+    const month = request.nextUrl.searchParams.get('month') ?? undefined;
+    if (month !== undefined && !resolvePlanningMonth(month, now)) {
+      return NextResponse.json({ error: 'month must overlap the next 90 nights (YYYY-MM)' }, { status: 400 });
+    }
     const supabase = await createClient();
-    const result = await loadFacilitySites(supabase, facilityId);
+    const result = await loadFacilitySites(supabase, facilityId, now, month);
 
     // A facility Eddy does not track, or one whose sites have not been synced
     // yet, is a different question rather than a fault.

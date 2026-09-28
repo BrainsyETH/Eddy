@@ -19,7 +19,7 @@
 // at 1.5s spacing produced zero errors.
 
 import { fetchJson, type Limiter } from './limiter';
-import type { CampingWindow } from './window';
+import { splitCalendarMonths, type CampingWindow } from './window';
 import type {
   CampsiteRecord,
   DailyAggregate,
@@ -210,12 +210,10 @@ export function foldGridSites(
  * Availability for one state park across one window.
  *
  * Costs one `search/place` plus one `search/grid` per in-season loop — nine
- * parks came to 42 requests when measured. A park with loops but none in season
- * reports every night `closed`, which is the honest answer for a campground
- * shut for the winter and matches what the federal adapter emits for the same
- * situation.
+ * parks came to 42 requests per window when measured. Out-of-season discovery
+ * establishes closure only on the discovery date, never the rest of the month.
  */
-export async function fetchWindow(
+async function fetchMonth(
   facility: FacilityLink,
   window: CampingWindow,
   limiter: Limiter,
@@ -258,7 +256,8 @@ export async function fetchWindow(
   if (campgrounds.length === 0) return { nights: [], sites: [], siteNights: [] };
   if (loops.length === 0) {
     return {
-      nights: window.nights.map((date) => ({
+      // InSeason describes the discovery date, not the whole planning window.
+      nights: [window.startDate].map((date) => ({
         date,
         sitesOpen: 0,
         sitesReservable: 0,
@@ -317,4 +316,20 @@ export async function fetchWindow(
     sites,
     siteNights: siteNights.filter((night) => wanted.has(night.date)),
   };
+}
+
+/** Discover loops separately each month, so a winter start cannot hide spring loops. */
+export async function fetchWindow(
+  facility: FacilityLink, window: CampingWindow, limiter: Limiter,
+): Promise<FetchResult> {
+  const result: FetchResult = { nights: [], sites: [], siteNights: [] };
+  const sites = new Map<string, CampsiteRecord>();
+  for (const month of splitCalendarMonths(window)) {
+    const part = await fetchMonth(facility, month, limiter);
+    result.nights.push(...part.nights);
+    result.siteNights.push(...part.siteNights);
+    for (const site of part.sites) sites.set(site.sourceSiteId, site);
+  }
+  result.sites = [...sites.values()];
+  return result;
 }

@@ -66,7 +66,13 @@ export class CircuitOpenError extends Error {
   }
 }
 
+export class DeadlineExceededError extends Error {
+  constructor(name: string) { super(`${name}: sync deadline reached`); this.name = 'DeadlineExceededError'; }
+}
+
 export interface LimiterOptions {
+  /** Absolute deadline; leave room after this for database writes. */
+  deadlineMs?: number;
   /** Source name, used in error messages and logs. */
   name: string;
   /** Floor on the gap between two request starts. Never undercut. */
@@ -124,6 +130,7 @@ export function createLimiter(options: LimiterOptions): Limiter {
     sleep = realSleep,
     now = Date.now,
     random = Math.random,
+    deadlineMs = Infinity,
   } = options;
 
   let chain: Promise<unknown> = Promise.resolve();
@@ -145,6 +152,7 @@ export function createLimiter(options: LimiterOptions): Limiter {
 
       const gap = minSpacingMs + random() * jitterMs;
       const wait = lastStartedAt + gap - now();
+      if (now() + Math.max(0, wait) >= deadlineMs) throw new DeadlineExceededError(name);
       if (wait > 0) await sleep(wait);
 
       lastStartedAt = now();
@@ -162,7 +170,9 @@ export function createLimiter(options: LimiterOptions): Limiter {
         lastError = err;
         if (!isRetryable(err) || attempt === maxAttempts) break;
         // The server's own number wins over ours whenever it gives one.
-        await sleep(retryAfterOf(err) ?? BACKOFF_MS[attempt - 1] ?? 16_000);
+        const delay = retryAfterOf(err) ?? BACKOFF_MS[attempt - 1] ?? 16_000;
+        if (now() + delay >= deadlineMs) throw new DeadlineExceededError(name);
+        await sleep(delay);
       }
     }
 

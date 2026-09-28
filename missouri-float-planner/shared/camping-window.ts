@@ -121,16 +121,32 @@ export function resolveWeekend(now: Date = new Date()): CampingWindow {
   };
 }
 
-/**
- * How many nights ahead Eddy stores and shows.
- *
- * Two weeks is the shortest horizon that answers all three questions the app is
- * asked — "can I camp tonight", "is this weekend open", "what about the weekend
- * after" — and it is deliberately short of the booking windows, which run far
- * wider (Recreation.gov ~6 months, Missouri 270 days). Widening it is a cost
- * paid in requests, not in code: see monthsSpanned.
- */
+/** Default compact map-strip coverage; planning explicitly requests a longer window. */
 export const HORIZON_NIGHTS = 14;
+
+/** Planning coverage; the map's compact strip keeps its fourteen-night default. */
+export const PLANNING_NIGHTS = 90;
+
+/** A month of cached site data, clipped to the supported planning dates. */
+export function resolvePlanningMonth(month: string, now = new Date()): CampingWindow | null {
+  if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(month)) return null;
+  const horizon = resolveHorizon(now, PLANNING_NIGHTS);
+  const nights = horizon.nights.filter((date) => date.startsWith(month));
+  if (!nights.length) return null;
+  const startDate = nights[0];
+  const endDate = addDays(nights[nights.length - 1], 1);
+  return { startDate, endDate, nights, label: formatSpan(startDate, endDate) };
+}
+
+/** Split a planning fetch at month boundaries without inventing observations. */
+export function splitCalendarMonths(window: CampingWindow): CampingWindow[] {
+  return monthsSpanned(window).map((month) => {
+    const nights = window.nights.filter((date) => date.startsWith(month.slice(0, 7)));
+    const startDate = nights[0];
+    const endDate = addDays(nights[nights.length - 1], 1);
+    return { startDate, endDate, nights, label: formatSpan(startDate, endDate) };
+  });
+}
 
 /**
  * Every night Eddy keeps a number for, starting tonight.
@@ -160,16 +176,7 @@ export function resolveHorizon(
   };
 }
 
-/**
- * The `YYYY-MM-01` month starts a window touches.
- *
- * Recreation.gov's availability endpoint is month-locked and insists on the
- * first of the month, so a window straddling month-end costs two requests
- * instead of one. A two-night weekend does that roughly one week in five; a
- * fourteen-night horizon does it on about thirteen days in thirty, which is
- * why the federal source now gets a second cron slot to finish its queue.
- * Neither ever spans three months — that would take a window of 32 nights.
- */
+/** Distinct provider month payloads needed for a window (up to four for 90 nights). */
 export function monthsSpanned(window: CampingWindow): string[] {
   const seen = new Set<string>();
   for (const night of window.nights) seen.add(`${night.slice(0, 7)}-01`);

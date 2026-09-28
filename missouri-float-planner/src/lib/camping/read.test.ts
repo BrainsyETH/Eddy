@@ -340,6 +340,16 @@ test('the per-site read pages past the silent row cap', async () => {
     `${unmeasured.length} sites lost nights to truncation — that renders as "not measured"`,
   );
   assert.equal(result!.sites.length, SITES);
+
+  // A month request must keep its exact date alignment and expire only old cells.
+  all[0].fetched_at = '2026-08-01T09:00:00Z';
+  const month = await loadFacilitySites(client, 'f1', new Date('2026-08-06T17:00:00Z'), '2026-08');
+  assert.equal(month?.window.nights.length, 26);
+  assert.equal(month?.sites[0].nights[0], '-');
+  assert.equal(month?.sites[0].nights[1], 'A');
+  assert.equal(month?.sites[0].nights[25], '-', 'missing future data is not full');
+  assert.equal(month?.fetchedAt, '2026-08-06T09:00:00Z');
+  assert.equal(await loadFacilitySites(client, 'f1', new Date('2026-08-06T17:00:00Z'), '2028-01'), null);
 });
 
 

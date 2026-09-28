@@ -159,3 +159,29 @@ test('a day-use-only park has no campground at all', () => {
   };
   assert.deepEqual(campgroundLoops(payload), []);
 });
+
+import { fetchWindow } from './usedirect';
+import { createLimiter } from './limiter';
+import { resolveHorizon } from './window';
+test('monthly discovery does not extend one closed date across later months', async (t) => {
+  const starts: string[] = [];
+  t.mock.method(globalThis, 'fetch', async (_url: string, init: RequestInit) => {
+    const body = JSON.parse(String(init.body));
+    if (String(_url).endsWith('/place')) {
+      starts.push(body.StartDate);
+      return Response.json({ SelectedPlace: { Facilities: {
+        a: { FacilityId: 803, Category: 'Campgrounds', InSeason: body.StartDate !== '2026-09-28' },
+      } } });
+    }
+    return Response.json({ Facility: { Units: { a: { UnitId: 1, Name: 'Basic #1', Slices: {
+      [`${body.StartDate}T00:00:00`]: { IsFree: true },
+    } } } } });
+  });
+  const result = await fetchWindow({ id: 'f', source: 'mo_state_parks', sourceFacilityId: '60', sourceLoop: null, displayName: 'Test', kind: 'campground' },
+    resolveHorizon(new Date('2026-09-28T12:00:00Z'), 90),
+    createLimiter({ name: 'test', minSpacingMs: 0, maxRequests: 30 }));
+  assert.deepEqual(starts, ['2026-09-28', '2026-10-01', '2026-11-01', '2026-12-01']);
+  assert.deepEqual(result.nights.filter((night) => night.status === 'closed').map((night) => night.date), ['2026-09-28']);
+  assert.equal(result.nights.find((night) => night.date === '2026-10-01')?.sitesOpen, 1);
+  assert.equal(result.sites.length, 1, 'same site in several months is one catalog record');
+});

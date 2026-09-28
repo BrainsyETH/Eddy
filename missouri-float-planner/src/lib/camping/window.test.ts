@@ -157,3 +157,15 @@ test('the horizon survives a DST transition', () => {
   assert.deepEqual(horizon.nights, [...horizon.nights].sort());
   assert.ok(horizon.nights.includes('2026-11-01'));
 });
+
+import { PLANNING_NIGHTS, resolvePlanningMonth, splitCalendarMonths } from './window';
+test('planning covers ninety nights across year-end and clips month reads', () => {
+  const now = new Date('2026-11-28T12:00:00Z');
+  const window = resolveHorizon(now, PLANNING_NIGHTS);
+  assert.equal(window.nights.length, 90);
+  assert.deepEqual(splitCalendarMonths(window).flatMap((part) => part.nights), window.nights);
+  assert.deepEqual(resolvePlanningMonth('2026-11', now)?.nights, ['2026-11-28', '2026-11-29', '2026-11-30']);
+  assert.equal(resolvePlanningMonth('2026-13', now), null);
+  assert.equal(resolvePlanningMonth('2027-12', now), null);
+  assert.equal(resolveHorizon(now).nights.length, 14, 'map default stays compact');
+});

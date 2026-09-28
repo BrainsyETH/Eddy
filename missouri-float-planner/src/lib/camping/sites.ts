@@ -4,7 +4,7 @@
 // Same rule as read.ts: Supabase only, never an upstream booking system.
 
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { resolveHorizon } from './window';
+import { resolveHorizon, resolvePlanningMonth } from './window';
 import type { UnitStatus } from './types';
 
 /**
@@ -106,8 +106,10 @@ export async function loadFacilitySites(
   supabase: SupabaseClient,
   facilityId: string,
   now = new Date(),
+  month?: string,
 ): Promise<CampsiteSitesResult | null> {
-  const window = resolveHorizon(now);
+  const window = month ? resolvePlanningMonth(month, now) : resolveHorizon(now);
+  if (!window) return null;
 
   const { data: facility, error: facilityError } = await supabase
     .from('campsite_facilities')
@@ -167,6 +169,9 @@ export async function loadFacilitySites(
   let fetchedAt: string | null = null;
 
   for (const row of nightRows) {
+    // One expired date cannot invalidate current observations elsewhere in a month.
+    const age = now.getTime() - Date.parse(row.fetched_at);
+    if (!Number.isFinite(age) || age < 0 || age >= 72 * 3600000) continue;
     const nights = bySite.get(row.site_id) ?? new Map<string, UnitStatus>();
     nights.set(row.date, row.status as UnitStatus);
     bySite.set(row.site_id, nights);

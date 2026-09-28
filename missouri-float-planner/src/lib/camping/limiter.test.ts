@@ -233,3 +233,13 @@ test('parseRetryAfter handles both delta-seconds and HTTP dates', () => {
   assert.equal(parseRetryAfter('not-a-date', now), null);
   assert.equal(parseRetryAfter('-5', now), 0, 'never negative');
 });
+
+test('deadline stops spaced requests and Retry-After before a server timeout', async () => {
+  const { limiter } = harness({ deadlineMs: 500 });
+  await limiter.run(async () => 'first');
+  await assert.rejects(limiter.run(async () => 'must not run'), /sync deadline reached/);
+  assert.equal(limiter.stats().attempts, 1);
+  const retry = harness({ deadlineMs: 500 });
+  await assert.rejects(retry.limiter.run(async () => { throw new HttpError(429, 300000, 'wait'); }), /sync deadline reached/);
+  assert.deepEqual(retry.sleeps, []);
+});
