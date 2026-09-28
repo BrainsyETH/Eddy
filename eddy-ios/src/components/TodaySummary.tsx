@@ -219,16 +219,14 @@ export function TodayWeather({
       disabled={weatherLoading || (!weather && !onRequestLocation)}
       onPress={weather ? onOpen : onRequestLocation ?? undefined}
       style={[styles.compactWeather, { backgroundColor: colors.card, borderColor: colors.border }, elevation(1)]}>
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap', justifyContent: 'center' }}>
         <Ionicons name={weather ? weatherGlyph(weather.conditionIcon) : 'partly-sunny-outline'} size={22} color={colors.interactive} />
         <Text style={{ ...t.base, fontFamily: fonts.semibold, color: colors.text }}>Weather</Text>
       </View>
       {weather ? <>
-        <Text style={{ ...t.xl, fontFamily: fonts.semibold, color: colors.text }}>H {weather.tempHigh}° <Text style={{ ...t.sm, color: colors.textMuted }}>L {weather.tempLow}°</Text></Text>
-        <Text numberOfLines={2} style={[styles.weatherMeta, { color: colors.textMuted }]}>{weather.condition}</Text>
-        <Text numberOfLines={2} style={[styles.weatherMeta, { color: colors.textMuted }]}>{weather.date === localDateKey() ? weatherLocation ?? 'Local forecast' : `${weather.dayOfWeek} · ${weatherLocation ?? 'Local forecast'}`}</Text>
-        <Text style={[styles.weatherMeta, { color: colors.textMuted }]}>{weather.precipitation}% rain</Text>
-      </> : weatherLoading ? <ActivityIndicator accessibilityLabel="Updating local forecast" color={colors.interactive} /> : <Text style={[styles.weatherActionText, { color: colors.interactive }]}>{locationActionLabel?.startsWith('Open Settings') ? 'Enable location' : locationActionLabel?.startsWith('Retry') ? 'Retry weather' : locationActionLabel ? 'Use my location' : 'Weather unavailable'}</Text>}
+        <Text style={{ ...t.xl, fontFamily: fonts.semibold, color: colors.text, textAlign: 'center' }}>H {weather.tempHigh}° <Text style={{ ...t.sm, color: colors.textMuted }}>L {weather.tempLow}°</Text></Text>
+        <Text numberOfLines={2} style={[styles.weatherMeta, { color: colors.textMuted, textAlign: 'center' }]}>{weather.date === localDateKey() ? '' : `${weather.dayOfWeek} · `}{weather.condition} · {weather.precipitation}% rain</Text>
+      </> : weatherLoading ? <ActivityIndicator accessibilityLabel="Updating local forecast" color={colors.interactive} /> : <Text style={[styles.weatherActionText, { color: colors.interactive, textAlign: 'center' }]}>{locationActionLabel?.startsWith('Open Settings') ? 'Enable location' : locationActionLabel?.startsWith('Retry') ? 'Retry weather' : locationActionLabel ? 'Use my location' : 'Weather unavailable'}</Text>}
     </Pressable>
   );
   if (!weather && !weatherLoading && !(onRequestLocation && locationActionLabel)) return null;
@@ -287,7 +285,7 @@ export function TodayWeather({
 
 const styles = StyleSheet.create({
   card: { borderWidth: StyleSheet.hairlineWidth, borderRadius: 16, padding: 14, gap: 10 },
-  compactWeather: { flex: 1, borderWidth: StyleSheet.hairlineWidth, borderRadius: 16, padding: 12, gap: 8, minHeight: 148 },
+  compactWeather: { flex: 1, borderWidth: StyleSheet.hairlineWidth, borderRadius: 16, padding: 12, gap: 6, minHeight: 120, alignItems: 'center', justifyContent: 'center' },
   weatherCard: { borderWidth: StyleSheet.hairlineWidth, borderRadius: 16, padding: 14 },
   top: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   iconWell: { width: 48, height: 48, borderRadius: 24, alignItems: 'center', justifyContent: 'center' },

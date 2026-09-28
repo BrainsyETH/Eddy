@@ -770,13 +770,11 @@ export function TodayHub({
             <Pressable accessibilityRole="button" accessibilityLabel={`Alerts. ${safetyCount ? `${safetyCount} alerts ${safetyScopeLabel}. ${topNotice?.title ?? (topHigh ? `${topHigh.name}: ${conditionLabel(topHigh.conditionCode)}` : '')}` : safetyFailure.high || safetyFailure.notices ? 'Could not refresh alerts' : activeSafety.high === null || activeSafety.notices === null ? 'Checking alerts' : `No current alerts ${safetyScopeLabel}`}`} onPress={() => router.push('/alerts')} style={styles.alertMain}>
               <View style={styles.compactHeading}>
                 <Ionicons name={safetyCount ? 'warning-outline' : 'notifications-outline'} size={22} color={safetyCount ? conditionInk(topHigh?.conditionCode === 'dangerous' || topNotice?.severity === 'warning' ? 'dangerous' : 'high') : colors.interactive} />
-                <Text style={[textStyles.cardTitle, { color: colors.text }]}>Alerts</Text>
+                <Text style={{ ...t.base, fontFamily: fonts.semibold, color: colors.text }}>Alerts</Text>
               </View>
               <Text style={[styles.compactValue, { color: colors.text }]}>{safetyCount ? `${safetyCount} ${safetyCount === 1 ? 'alert' : 'alerts'}` : safetyFailure.high || safetyFailure.notices ? 'Unable to refresh' : activeSafety.high === null || activeSafety.notices === null ? 'Checking…' : 'No current alerts'}</Text>
-              {safetyCount ? <Text numberOfLines={2} style={[textStyles.caption, { color: colors.textMuted }]}>{topNotice?.title ?? (topHigh ? `${topHigh.name} · ${conditionLabel(topHigh.conditionCode)}` : '')}</Text> : null}
-              <Text style={[textStyles.caption, { color: colors.textMuted }]}>{safetyFailure.high || safetyFailure.notices ? 'Check latest alerts' : safetyScope.kind === 'favorites' ? 'Favorites & suggested rivers' : safetyScope.kind === 'nearby' ? 'Nearby' : 'Statewide'}</Text>
             </Pressable>
-            {safetyCount > 0 ? <Pressable accessibilityRole="button" accessibilityLabel="Snooze Today alerts" onPress={snoozeAll} style={styles.snoozeButton}><Text style={{ color: colors.interactive, fontFamily: fonts.medium }}>Snooze</Text></Pressable> : null}
+            {safetyCount > 0 ? <Pressable accessibilityRole="button" accessibilityLabel="Snooze Today alerts" onPress={snoozeAll} style={styles.snoozeButton}><Ionicons name="notifications-off-outline" size={16} color={colors.textMuted} /></Pressable> : null}
           </View>
         ) : null}
         </View>
@@ -935,11 +933,11 @@ const styles = StyleSheet.create({
   noticeText: { ...t.sm, fontFamily: fonts.body, flex: 1 },
   weatherAlerts: { flexDirection: 'row', alignItems: 'stretch', gap: 10 },
   compactColumn: { flex: 1, minWidth: 0 },
-  alertCard: { borderWidth: StyleSheet.hairlineWidth, borderRadius: 16, padding: 12 },
-  alertMain: { flex: 1, minHeight: 44, gap: 8 },
+  alertCard: { borderWidth: StyleSheet.hairlineWidth, borderRadius: 16, padding: 12, minHeight: 120 },
+  alertMain: { flex: 1, minHeight: 44, gap: 6, alignItems: 'center', justifyContent: 'center', paddingBottom: 24 },
   compactHeading: { flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' },
-  compactValue: { ...t.lg, fontFamily: fonts.semibold },
-  snoozeButton: { minHeight: 44, justifyContent: 'center' },
+  compactValue: { ...t.xl, fontFamily: fonts.semibold, textAlign: 'center' },
+  snoozeButton: { position: 'absolute', right: 0, bottom: 0, width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
   summaryTop: { marginBottom: 14, gap: 10 },
   section: { marginBottom: 24 },
   sectionHead: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 10, paddingHorizontal: 2 },
