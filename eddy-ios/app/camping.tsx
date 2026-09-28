@@ -116,7 +116,10 @@ function CampingContent() {
     [data, river, nearby, coords, saved, starred],
   );
   const riverHeaders = new Map(
-    campingRiverGroups(rows).map((group) => [group.data[0].facilityId, group.title]),
+    campingRiverGroups(rows).map((group) => [
+      group.data[0].facilityId,
+      group.title,
+    ]),
   );
   const directoryHeaders = new Map(
     campingRiverGroups(other).map((group) => [group.data[0].id, group.title]),
@@ -322,6 +325,7 @@ function CampingContent() {
         </Pressable>
       ) : null}
       <CampingScrollGroup
+        dateWidth={36}
         key={`${river}:${nearby}:${grid.horizon.endDateExclusive}`}
       >
         <FlatList

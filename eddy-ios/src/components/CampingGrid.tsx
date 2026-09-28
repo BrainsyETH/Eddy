@@ -4,6 +4,7 @@ import {
   useRef,
   useMemo,
   useId,
+  useState,
   type ReactNode,
 } from 'react';
 import Animated, {
@@ -12,6 +13,7 @@ import Animated, {
   useAnimatedScrollHandler,
   useAnimatedReaction,
   scrollTo,
+  runOnJS,
   type SharedValue,
 } from 'react-native-reanimated';
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
@@ -22,6 +24,7 @@ import type { CampingOverview, TrackedCampground } from '@eddy/types';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts } from '@/theme/typography';
 import {
+  campingDate,
   campingRowNeedsUpdate,
   campingRowSummary,
   campingCoverageLabel,
@@ -94,29 +97,47 @@ export function CampingMark({ mark }: { mark: HeatMark }) {
         </Svg>
       ) : null}
       {mark === 'unknown' ? (
-        <View style={[styles.unknownDash, { backgroundColor: colors.border }]} />
+        <View
+          style={[styles.unknownDash, { backgroundColor: colors.border }]}
+        />
       ) : null}
     </View>
   );
 }
 const DATE_WIDTH = 28;
 const DateScrollContext = createContext<{
+  dateWidth: number;
   offset: SharedValue<number>;
   driver: SharedValue<string>;
 } | null>(null);
 
 /** Native date offset shared by the ruler and virtualized rows, without JS fan-out. */
-export function CampingScrollGroup({ children }: { children: ReactNode }) {
+export function CampingScrollGroup({
+  children,
+  dateWidth = DATE_WIDTH,
+}: {
+  children: ReactNode;
+  dateWidth?: number;
+}) {
   const offset = useSharedValue(0);
   const driver = useSharedValue('');
-  const group = useMemo(() => ({ offset, driver }), [offset, driver]);
+  const group = useMemo(
+    () => ({ offset, driver, dateWidth }),
+    [offset, driver, dateWidth],
+  );
   return (
     <DateScrollContext.Provider value={group}>
       {children}
     </DateScrollContext.Provider>
   );
 }
-function DateScroller({ children }: { children: ReactNode }) {
+function DateScroller({
+  children,
+  indicator = false,
+}: {
+  children: ReactNode;
+  indicator?: boolean;
+}) {
   const group = useContext(DateScrollContext)!;
   // Capture only shared values in worklets, never the context or a React ref registry.
   const { offset, driver } = group;
@@ -128,8 +149,7 @@ function DateScroller({ children }: { children: ReactNode }) {
       driver.set(id);
     },
     onScroll: (event) => {
-      if (driver.get() === id)
-        offset.set(Math.max(0, event.contentOffset.x));
+      if (driver.get() === id) offset.set(Math.max(0, event.contentOffset.x));
     },
   });
   useAnimatedReaction(
@@ -146,8 +166,9 @@ function DateScroller({ children }: { children: ReactNode }) {
       nestedScrollEnabled
       bounces={false}
       canCancelContentTouches
-      showsHorizontalScrollIndicator={false}
-      style={{ flex: 1 }}
+      showsHorizontalScrollIndicator={indicator}
+      alwaysBounceHorizontal={false}
+      style={{ flex: 1, minWidth: 0 }}
       onContentSizeChange={() => {
         ready.set(true);
       }}
@@ -170,20 +191,32 @@ export function CampingGrid({
   headings?: boolean;
 }) {
   const { colors } = useTheme();
+  const dateWidth = useContext(DateScrollContext)?.dateWidth ?? DATE_WIDTH;
+  const today = campingDate(now);
 
   return (
     <View
-      style={styles.grid}
+      style={[
+        styles.grid,
+        { width: overview.horizon.nights.length * dateWidth },
+      ]}
       accessible={false}
       accessibilityElementsHidden
       importantForAccessibility="no-hide-descendants"
     >
-      {overview.horizon.nights.map((date, index) => (
+      {overview.horizon.nights.map((date) => (
         <View
           key={date}
           style={[
             styles.column,
             {
+              width: dateWidth,
+              flexShrink: 0,
+              backgroundColor: [5, 6].includes(
+                new Date(date + 'T12:00:00Z').getUTCDay(),
+              )
+                ? colors.selectionBg
+                : 'transparent',
               borderColor: [5, 6].includes(
                 new Date(date + 'T12:00:00Z').getUTCDay(),
               )
@@ -193,18 +226,35 @@ export function CampingGrid({
           ]}
         >
           {headings ? (
-            <Text
-              maxFontSizeMultiplier={1.3}
-              style={[
-                styles.date,
-                {
-                  color: colors.textMuted,
-                  fontFamily: index === 0 ? fonts.heading : fonts.body,
-                },
-              ]}
-            >
-              {Number(date.slice(8))}
-            </Text>
+            <>
+              <Text
+                maxFontSizeMultiplier={1.3}
+                numberOfLines={1}
+                adjustsFontSizeToFit
+                minimumFontScale={0.8}
+                style={{ fontSize: 10, color: colors.textMuted }}
+              >
+                {date === today
+                  ? 'Today'
+                  : new Date(date + 'T12:00:00Z').toLocaleDateString('en-US', {
+                      weekday: 'short',
+                      timeZone: 'UTC',
+                    })}
+              </Text>
+              <Text
+                maxFontSizeMultiplier={1.3}
+                style={[
+                  styles.date,
+                  {
+                    fontFamily: date === today ? fonts.heading : fonts.medium,
+                    fontSize: 13,
+                    color: date === today ? colors.interactive : colors.text,
+                  },
+                ]}
+              >
+                {Number(date.slice(8))}
+              </Text>
+            </>
           ) : (
             <CampingMark
               mark={cellMark(
@@ -233,48 +283,51 @@ export function CampingTableHeader({
   now: number;
 }) {
   const { colors } = useTheme();
-  const months = overview.horizon.nights.reduce<
-    { label: string; count: number }[]
-  >((groups, date) => {
-    const label = new Intl.DateTimeFormat('en-US', {
-      month: 'short',
-      timeZone: 'UTC',
-    }).format(new Date(date + 'T12:00:00Z'));
-    if (groups.at(-1)?.label === label) groups[groups.length - 1].count++;
-    else groups.push({ label, count: 1 });
-    return groups;
-  }, []);
+  const { offset, dateWidth } = useContext(DateScrollContext)!;
+  const [visibleIndex, setVisibleIndex] = useState(0);
+  // Only bridge date-column changes, never synchronize scrollers through JS.
+  useAnimatedReaction(
+    () => Math.floor(offset.get() / dateWidth),
+    (index, previous) => {
+      if (index !== previous) runOnJS(setVisibleIndex)(index);
+    },
+  );
+  const visibleDate =
+    overview.horizon.nights[
+      Math.min(visibleIndex, overview.horizon.nights.length - 1)
+    ];
+  const month = visibleDate
+    ? new Date(visibleDate + 'T12:00:00Z').toLocaleDateString('en-US', {
+        month: 'long',
+        year: 'numeric',
+        timeZone: 'UTC',
+      })
+    : '';
   return (
-    <View
-      style={table.row}
-      accessible
-      accessibilityLabel={`${campingCoverageLabel(overview)}. Highlights mark Fridays and Saturdays.`}
-    >
-      <View style={table.name} />
-      <DateScroller>
-        <View>
-          <View style={{ flexDirection: 'row' }}>
-            {months.map((m) => (
-              <Text
-                key={m.label}
-                maxFontSizeMultiplier={1.3}
-                style={{
-                  width: m.count * DATE_WIDTH,
-                  fontFamily: fonts.medium,
-                  fontSize: 10,
-                  color: colors.textMuted,
-                }}
-              >
-                {m.label}
-              </Text>
-            ))}
-          </View>
+    <View>
+      <Text
+        style={{
+          color: colors.text,
+          fontFamily: fonts.semibold,
+          fontSize: 13,
+          paddingVertical: 6,
+        }}
+      >
+        {month}
+      </Text>
+      <View
+        style={table.row}
+        accessibilityLabel={`${campingCoverageLabel(overview)}. Highlights mark Fridays and Saturdays.`}
+      >
+        <View style={table.name} />
+        <DateScroller indicator>
           <CampingGrid overview={overview} now={now} headings />
-        </View>
-      </DateScroller>
+        </DateScroller>
+      </View>
     </View>
   );
 }
+
 export function CampingTableRow({
   row,
   overview,
@@ -290,23 +343,13 @@ export function CampingTableRow({
   const stale = campingRowNeedsUpdate(row, overview, now);
   const tap = useRef(createCampingTapGuard());
   return (
-    <Pressable
-      onTouchStart={(event) =>
-        tap.current.start(event.nativeEvent.pageX, event.nativeEvent.pageY)
-      }
-      onTouchMove={(event) =>
-        tap.current.move(event.nativeEvent.pageX, event.nativeEvent.pageY)
-      }
-      onTouchCancel={() => tap.current.cancel()}
-      onPress={() => {
-        if (tap.current.allowed()) onPress();
-      }}
-      onAccessibilityTap={onPress}
-      accessibilityRole="button"
-      accessibilityLabel={`${row.name}. ${campingRowSummary(row, overview, now)} Open calendar and individual sites.${stale ? '. Needs an update' : ''}`}
-      style={[table.row, table.item, { borderColor: colors.border }]}
-    >
-      <View style={table.name}>
+    <View style={[table.row, table.item, { borderColor: colors.border }]}>
+      <Pressable
+        style={[table.name, { minHeight: 44, justifyContent: 'center' }]}
+        onPress={onPress}
+        accessibilityRole="button"
+        accessibilityLabel={`${row.name}. ${campingRowSummary(row, overview, now)} Open campground and individual sites.${stale ? ' Needs an update.' : ''}`}
+      >
         <Text
           numberOfLines={2}
           style={{ fontFamily: fonts.medium, fontSize: 12, color: colors.text }}
@@ -318,13 +361,29 @@ export function CampingTableRow({
             Needs update
           </Text>
         ) : null}
-      </View>
+      </Pressable>
       <DateScroller>
-        <CampingGrid row={row} overview={overview} now={now} />
+        <Pressable
+          accessible={false}
+          onTouchStart={(event) =>
+            tap.current.start(event.nativeEvent.pageX, event.nativeEvent.pageY)
+          }
+          onTouchMove={(event) =>
+            tap.current.move(event.nativeEvent.pageX, event.nativeEvent.pageY)
+          }
+          onTouchCancel={() => tap.current.cancel()}
+          onPress={() => {
+            if (tap.current.allowed()) onPress();
+          }}
+          style={{ minHeight: 44, justifyContent: 'center' }}
+        >
+          <CampingGrid row={row} overview={overview} now={now} />
+        </Pressable>
       </DateScroller>
-    </Pressable>
+    </View>
   );
 }
+
 const table = StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   item: {
