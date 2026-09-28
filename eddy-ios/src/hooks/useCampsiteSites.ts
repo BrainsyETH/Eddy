@@ -25,6 +25,9 @@ import { fetchCampsiteSites } from '@/api/client';
 import { warn } from '@/lib/monitoring';
 import type { DetailStatus } from './useAccessPointDetail';
 
+// Small public cache: reopening a row should not download its sites again immediately.
+const siteCache = new Map<string, { at: number; sites: CampsiteSitesResponse | null }>();
+
 export function useCampsiteSites(facilityId: string | null | undefined): {
   sites: CampsiteSitesResponse | null;
   status: DetailStatus;
@@ -48,9 +51,18 @@ export function useCampsiteSites(facilityId: string | null | undefined): {
     if (!facilityId) return;
 
     const controller = new AbortController();
-    void fetchCampsiteSites(facilityId, controller.signal)
+    const cached = siteCache.get(facilityId);
+    const pending = cached && Date.now() - cached.at < 300000
+      ? Promise.resolve(cached.sites)
+      : fetchCampsiteSites(facilityId, controller.signal);
+    void pending
       .then((response) => {
         if (!controller.signal.aborted) {
+          if (!cached || Date.now() - cached.at >= 300000) {
+            siteCache.delete(facilityId);
+            siteCache.set(facilityId, { at: Date.now(), sites: response });
+            if (siteCache.size > 8) siteCache.delete(siteCache.keys().next().value!);
+          }
           setHeld({ facilityId, sites: response, failed: false });
         }
       })
