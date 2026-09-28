@@ -365,3 +365,16 @@ test('location supplies the default sort without overriding a chosen sort', () =
   assert.equal(resolveCampingSort('openings', true), 'openings');
   assert.equal(resolveCampingSort('nearest', false), 'nearest');
 });
+
+import { campingRiverGroups } from '../../../eddy-ios/src/lib/campingHeatmap';
+test('river headings and campgrounds sort alphabetically with unlinked parks last', () => {
+  const alpha = { ...row('alpha'), name: 'Alpha Camp', riverSlugs: ['current', 'jacks-fork'], displayGroup: { key: 'current', label: 'Current River' } };
+  const zulu = { ...alpha, id: 'zulu', name: 'Zulu Camp' };
+  const buffalo = { ...row('buffalo'), riverSlugs: ['buffalo'], displayGroup: { key: 'buffalo', label: 'Buffalo River' } };
+  const unlinked = { ...row('unlinked'), riverSlugs: [], displayGroup: { key: 'other', label: 'Regional' } };
+  const groups = campingRiverGroups([unlinked, zulu, alpha, buffalo]);
+  assert.deepEqual(groups.map(g => g.title), ['Buffalo River', 'Current River', 'Other campgrounds']);
+  assert.deepEqual(groups[1].data.map(r => r.id), ['alpha', 'zulu']);
+  assert.equal(groups.flatMap(g => g.data).filter(r => r.id === 'alpha').length, 1);
+  assert.deepEqual(campingRiverGroups([]), []);
+});

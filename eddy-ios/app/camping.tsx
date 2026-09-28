@@ -32,7 +32,7 @@ import {
   campingFreshness,
   filterCamping,
   safeExternalUrl,
-  sortCamping,
+  campingRiverGroups,
 } from '@/lib/campingHeatmap';
 
 export default function CampingScreen() {
@@ -100,13 +100,11 @@ function CampingContent() {
       nearby,
       coords,
     ).filter((row) => !saved || row.riverSlugs.some((slug) => slugs.has(slug)));
-    return coords
-      ? sortCamping(filtered, coords)
-      : [...filtered].sort((a, b) => a.name.localeCompare(b.name));
+    return campingRiverGroups(filtered).flatMap((group) => group.data);
   }, [data, river, nearby, coords, starred, saved]);
   const other = useMemo(
     () =>
-      sortCamping(
+      campingRiverGroups(
         filterCamping(data?.untracked ?? [], river, nearby, coords).filter(
           (row) =>
             !saved ||
@@ -114,9 +112,14 @@ function CampingContent() {
               starred.some((s) => s.kind === 'river' && s.slug === slug),
             ),
         ),
-        nearby ? coords : null,
-      ),
+      ).flatMap((group) => group.data),
     [data, river, nearby, coords, saved, starred],
+  );
+  const riverHeaders = new Map(
+    campingRiverGroups(rows).map((group) => [group.data[0].facilityId, group.title]),
+  );
+  const directoryHeaders = new Map(
+    campingRiverGroups(other).map((group) => [group.data[0].id, group.title]),
   );
   const detail = data?.tracked.find((r) => r.facilityId === selected);
   if (!data)
@@ -342,12 +345,25 @@ function CampingContent() {
             </View>
           }
           renderItem={({ item }) => (
-            <CampingTableRow
-              row={item}
-              overview={grid}
-              now={now}
-              onPress={() => setSelected(item.facilityId)}
-            />
+            <View>
+              {riverHeaders.has(item.facilityId) ? (
+                <Text
+                  accessibilityRole="header"
+                  style={[
+                    textStyles.cardTitle,
+                    { color: colors.text, paddingTop: 18, paddingBottom: 8 },
+                  ]}
+                >
+                  {riverHeaders.get(item.facilityId)}
+                </Text>
+              ) : null}
+              <CampingTableRow
+                row={item}
+                overview={grid}
+                now={now}
+                onPress={() => setSelected(item.facilityId)}
+              />
+            </View>
           )}
           ListEmptyComponent={
             <Text style={[styles.message, { color: colors.textMuted }]}>
@@ -376,7 +392,7 @@ function CampingContent() {
                       color: colors.interactive,
                     }}
                   >
-                    Other campgrounds ({other.length}) {directory ? '−' : '+'}
+                    More campgrounds ({other.length}) {directory ? '−' : '+'}
                   </Text>
                 </Pressable>
               ) : null}
@@ -392,38 +408,54 @@ function CampingContent() {
                       row.reservationUrl ?? row.website,
                     );
                     return (
-                      <View
-                        key={row.id}
-                        style={[
-                          styles.directoryRow,
-                          { borderColor: colors.border },
-                        ]}
-                      >
-                        <Text
+                      <View key={row.id}>
+                        {directoryHeaders.has(row.id) ? (
+                          <Text
+                            accessibilityRole="header"
+                            style={[
+                              textStyles.cardTitle,
+                              {
+                                color: colors.text,
+                                paddingTop: 18,
+                                paddingBottom: 8,
+                              },
+                            ]}
+                          >
+                            {directoryHeaders.get(row.id)}
+                          </Text>
+                        ) : null}
+                        <View
                           style={[
-                            textStyles.body,
-                            { color: colors.text, flex: 1 },
+                            styles.directoryRow,
+                            { borderColor: colors.border },
                           ]}
                         >
-                          {row.name}
-                        </Text>
-                        {url ? (
-                          <Pressable
-                            accessibilityRole="link"
-                            accessibilityLabel={`Check availability for ${row.name}`}
-                            style={styles.action}
-                            onPress={() => {
-                              setLinkFailed(false);
-                              void Linking.openURL(url).catch(() =>
-                                setLinkFailed(true),
-                              );
-                            }}
+                          <Text
+                            style={[
+                              textStyles.body,
+                              { color: colors.text, flex: 1 },
+                            ]}
                           >
-                            <Text style={{ color: colors.interactive }}>
-                              Check ↗
-                            </Text>
-                          </Pressable>
-                        ) : null}
+                            {row.name}
+                          </Text>
+                          {url ? (
+                            <Pressable
+                              accessibilityRole="link"
+                              accessibilityLabel={`Check availability for ${row.name}`}
+                              style={styles.action}
+                              onPress={() => {
+                                setLinkFailed(false);
+                                void Linking.openURL(url).catch(() =>
+                                  setLinkFailed(true),
+                                );
+                              }}
+                            >
+                              <Text style={{ color: colors.interactive }}>
+                                Check ↗
+                              </Text>
+                            </Pressable>
+                          ) : null}
+                        </View>
                       </View>
                     );
                   })}

@@ -192,8 +192,8 @@ night marks and a site reservation link, or explicitly “Park reservations” w
 only a park booking URL exists. Links do not imply that dates were prefilled.
 
 The full comparison page has only All rivers (searchable picker), Favorites
-(saved rivers), and Nearby filters. It defaults to nearest when location exists,
-otherwise A–Z. Date selection lives inside campground details; the comparison
+(saved rivers), and Nearby filters. Campgrounds appear once under their primary river, with river headers and
+campgrounds both A–Z. Unlinked parks appear last under Other campgrounds. Date selection lives inside campground details; the comparison
 retains horizontal scrolling through observed coverage.
 
 Native QA still needs to cover large text, photo gallery dismissal, VoiceOver,
