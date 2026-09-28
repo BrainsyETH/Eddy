@@ -1,0 +1,127 @@
+{
+  "riverName": "Current River",
+  "conditionCode": "good",
+  "putInName": "Grassy Creek Access",
+  "putInMile": 40.59,
+  "takeOutName": "Bee Bluff",
+  "takeOutMile": 45.89,
+  "distanceMi": 5.3,
+  "timeRangeLabel": "~2h 30m\u20133h 45m",
+  "followCta": "Follow for live Ozark river alerts",
+  "dateLabel": "Prepared Sep 27, 7:00 AM CDT",
+  "routeCoordinates": [
+    [
+      -91.35090435627562,
+      37.24451113431182
+    ],
+    [
+      -91.351521,
+      37.239825
+    ],
+    [
+      -91.349669,
+      37.237907
+    ],
+    [
+      -91.346177,
+      37.23829
+    ],
+    [
+      -91.343137,
+      37.239681
+    ],
+    [
+      -91.3357,
+      37.245688
+    ],
+    [
+      -91.332287,
+      37.245531
+    ],
+    [
+      -91.326904,
+      37.239642
+    ],
+    [
+      -91.324283,
+      37.238902
+    ],
+    [
+      -91.321156,
+      37.241129
+    ],
+    [
+      -91.320789,
+      37.242422
+    ],
+    [
+      -91.326118,
+      37.247661
+    ],
+    [
+      -91.325673,
+      37.24983
+    ],
+    [
+      -91.324664,
+      37.250734
+    ],
+    [
+      -91.310179,
+      37.250285
+    ],
+    [
+      -91.306898,
+      37.251807
+    ],
+    [
+      -91.300888,
+      37.252802
+    ],
+    [
+      -91.295717,
+      37.25262
+    ],
+    [
+      -91.294878,
+      37.250823
+    ],
+    [
+      -91.29491477086322,
+      37.250371521568525
+    ]
+  ],
+  "routePoints": [
+    {
+      "id": "31059835-d049-43f9-9492-9ff19f6136f6",
+      "name": "Grassy Creek Access",
+      "kind": "put_in",
+      "riverMile": 40.59,
+      "progress": 0,
+      "detail": "Put-in",
+      "photoUrl": "/test/grassy-access.png"
+    },
+    {
+      "id": "f7f828d9-336e-4b73-af11-4ae508b80db4",
+      "name": "Williams Landing",
+      "kind": "campground",
+      "riverMile": 42.34,
+      "progress": 0.33674626366689575,
+      "detail": "Campground & access",
+      "photoUrl": "/test/williams-landing.png"
+    },
+    {
+      "id": "5be1bfe5-b2bc-4a8e-97e6-2e5684b03149",
+      "name": "Bee Bluff",
+      "kind": "take_out",
+      "riverMile": 45.89,
+      "progress": 1,
+      "detail": "Take-out",
+      "photoUrl": "/test/bee-bluff.png"
+    }
+  ],
+  "unanchoredPoints": [],
+  "format": "portrait",
+  "label": "Today\u2019s Float Pick",
+  "terrainMapUrl": "/test/grassy-bee-terrain.png"
+}

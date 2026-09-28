@@ -441,6 +441,8 @@ export const LABELS = {
 /** Button copy. Short, because the masthead already carries the wordmark. */
 export const CTA = {
   plan: 'Plan this float →',
+  saveFloat: 'Save this float',
+  planInApp: 'Plan it on the Eddy app',
   find: 'Find your next float →',
   gauge: 'Check the live gauge →',
   chart: 'See the 7-day chart →',
