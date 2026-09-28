@@ -12,6 +12,7 @@ export function routeFixture(options: {
   riverType?: string; published?: { min: number; max: number };
   discharge?: number; reference?: number; wrongRiver?: boolean;
   speedCurve?: { low: number; too_low: number };
+  spanReading?: { height: number; qualifiers?: string[]; timestamp?: string; floodStage?: number };
 } = {}) {
   const calls: string[] = [];
   const slug = options.vessel ?? 'canoe';
@@ -23,7 +24,18 @@ export function routeFixture(options: {
     rivers: { id: 'river', slug: 'fixture', name: 'Fixture river', river_type: options.riverType ?? 'spring_fed_float' },
     access_points: endpoints,
     vessel_types: { id: slug, slug, name: slug, speed_low_water: speeds[0], speed_normal: speeds[1], speed_high_water: speeds[2] },
-    river_gauges: [], river_characteristics: { speed_curve: options.speedCurve ?? null },
+    river_gauges: options.spanReading ? [{
+      river_mile: 4, threshold_unit: 'ft', level_too_low: 1, level_low: 2,
+      level_optimal_min: 3, level_optimal_max: 7, level_high: 8, level_dangerous: 10,
+      flood_stage_ft: options.spanReading.floodStage ?? 5,
+      gauge_stations: { id: 'span', name: 'Span gauge', usgs_site_id: 'span-gauge', active: true },
+    }] : [],
+    gauge_readings: options.spanReading ? {
+      gauge_height_ft: options.spanReading.height, discharge_cfs: null,
+      reading_timestamp: options.spanReading.timestamp ?? new Date().toISOString(),
+      qualifiers: options.spanReading.qualifiers ?? [],
+    } : null,
+    river_characteristics: { speed_curve: options.speedCurve ?? null },
   };
   const client = {
     from(table: string) {
