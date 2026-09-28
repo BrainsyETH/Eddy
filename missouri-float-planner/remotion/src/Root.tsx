@@ -2,6 +2,7 @@ import { EddyReadReel, type EddyReadReelProps } from "./compositions/social/Eddy
 import { readingDuration, LONG_READING_FIXTURE } from "../../shared/eddy-read-reel";
 import React from "react";
 import akersPulltite from "./fixtures/akers-pulltite.json";
+import grassyBee from "./fixtures/grassy-bee.json";
 import { Composition, staticFile } from "remotion";
 import { TutorialFull } from "./compositions/TutorialFull";
 import { IntroScene } from "./compositions/scenes/01-Intro";
@@ -639,6 +640,20 @@ export const RemotionRoot: React.FC = () => {
         calculateMetadata={routeDuration}
         defaultProps={{ ...ROUTE_DEMO, routeCoordinates: ROUTE_DEMO_LINE } satisfies RouteDrawProps}
       />
+
+      {/* Recorded Sep 27 route: real terrain and the named stop's stored image.
+          Catches camera drift, icon legibility and the complete closing CTA. */}
+      <Composition id="social-route-grassy-bee" component={RouteDraw}
+        durationInFrames={420} fps={FPS} width={1080} height={1920}
+        calculateMetadata={routeDuration}
+        defaultProps={{ ...grassyBee, format: "portrait",
+          conditionCode: grassyBee.conditionCode as RouteDrawProps["conditionCode"],
+          routeCoordinates: grassyBee.routeCoordinates as [number, number][],
+          routePoints: grassyBee.routePoints.map(point => ({ ...point,
+            photoUrl: point.photoUrl ? staticFile(point.photoUrl.slice(1)) : undefined,
+          })) as RouteDrawProps["routePoints"],
+          terrainMapUrl: staticFile("test/grassy-bee-terrain.png"),
+        } satisfies RouteDrawProps} />
 
       {/* Float Pick with NO geometry — the same composition rendering its
           itinerary stage (route-scene found no drawable line). Registered so

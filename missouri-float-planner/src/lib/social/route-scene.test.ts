@@ -26,6 +26,8 @@ function resultQuery(data: unknown[], error: { message: string } | null = null) 
     select: () => query,
     eq: () => query,
     gt: () => query,
+    gte: () => query,
+    lte: () => query,
     lt: () => query,
     order: () => query,
     then: (resolve: (value: { data: unknown[]; error: { message: string } | null }) => unknown) =>
@@ -134,4 +136,26 @@ test('guidebook mile-only springs are named but never placed on the line', async
   assert.deepEqual(scene.unanchoredPoints, [
     { id: 'spring-current-23.2', name: 'Welch Spring', kind: 'spring', riverMile: 23.2, detail: 'Spring · river left' },
   ]);
+});
+
+
+test('stop photos stay attached to their place, including endpoints, without duplicate stops', async () => {
+  const supabase = {
+    rpc: async () => ({ data: [{ segment_geom: LINE }], error: null }),
+    from: (table: string) => table === 'access_points' ? resultQuery([
+      { id: 'put-in', name: 'Akers', river_mile_downstream: 20, image_urls: ['https://example.org/akers.jpg'] },
+      { ...roundSpring, image_urls: ['https://example.org/round.jpg'] },
+      { id: 'take-out', name: 'Pulltite', river_mile_downstream: 30, image_urls: [] },
+    ]) : table === 'points_of_interest' ? resultQuery([
+      { id: 'spring', name: 'Spring', type: 'spring', river_mile: 26,
+        images: JSON.stringify([{ url: 'javascript:bad' }, { url: 'https://example.org/spring.jpg', credit: 'NPS' }]) },
+    ]) : resultQuery([]),
+  };
+  const scene = await buildSocialRouteScene(supabase, section);
+  assert.ok(scene);
+  assert.deepEqual(scene.routePoints.map(p => p.name), ['Akers', 'Round Spring', 'Spring', 'Pulltite']);
+  assert.equal(scene.routePoints[0].photoUrl, 'https://example.org/akers.jpg');
+  assert.equal(scene.routePoints[1].photoUrl, 'https://example.org/round.jpg');
+  assert.equal(scene.routePoints[2].photoCredit, 'NPS');
+  assert.equal(scene.routePoints[3].photoUrl, undefined);
 });

@@ -100,16 +100,16 @@ export async function buildSocialRouteScene(
   const [accessResult, poiResult, hazardResult] = await Promise.all([
     supabase
       .from('access_points')
-      .select('id, name, river_mile_downstream, type, types, description, location_orig, location_snap')
+      .select('id, name, river_mile_downstream, type, types, description, location_orig, location_snap, image_urls')
       .eq('river_id', section.riverId)
       .eq('is_public', true)
       .eq('approved', true)
-      .gt('river_mile_downstream', minMile)
-      .lt('river_mile_downstream', maxMile)
+      .gte('river_mile_downstream', minMile)
+      .lte('river_mile_downstream', maxMile)
       .order('river_mile_downstream'),
     supabase
       .from('points_of_interest')
-      .select('id, name, type, description, river_mile, latitude, longitude')
+      .select('id, name, type, description, river_mile, latitude, longitude, images')
       .eq('river_id', section.riverId)
       .eq('active', true)
       .eq('is_on_water', true)
@@ -132,6 +132,8 @@ export async function buildSocialRouteScene(
     return null;
   }
 
+  const accessRows = (accessResult.data || []) as Array<Record<string, unknown>>;
+  const endpointPhoto = (id: string) => placePhoto(accessRows.find(row => row.id === id)?.image_urls);
   const points: SocialRoutePoint[] = [
     {
       id: section.putInId,
@@ -140,13 +142,15 @@ export async function buildSocialRouteScene(
       riverMile: section.putInMile,
       progress: 0,
       detail: 'Put-in',
+      ...endpointPhoto(section.putInId),
     },
   ];
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   for (const row of (accessResult.data || []) as any[]) {
+    if (row.id === section.putInId || row.id === section.takeOutId) continue;
     const mile = numberOrNull(row.river_mile_downstream);
-    if (mile === null) continue;
+    if (mile === null || mile <= minMile || mile >= maxMile) continue;
     const location = pointCoordinates(row.location_snap) ?? pointCoordinates(row.location_orig);
     points.push({
       id: row.id,
@@ -155,6 +159,7 @@ export async function buildSocialRouteScene(
       riverMile: mile,
       progress: locatedProgress(rawCoordinates, location, mile, section),
       detail: accessKind(row) === 'campground' ? 'Campground & access' : 'River access',
+      ...placePhoto(row.image_urls),
     });
   }
 
@@ -172,6 +177,7 @@ export async function buildSocialRouteScene(
       riverMile: mile,
       progress: locatedProgress(rawCoordinates, location, mile, section),
       detail: humanize(row.type || 'Point of interest'),
+      ...placePhoto(row.images),
     });
   }
 
@@ -197,6 +203,7 @@ export async function buildSocialRouteScene(
     riverMile: section.takeOutMile,
     progress: 1,
     detail: 'Take-out',
+    ...endpointPhoto(section.takeOutId),
   });
 
   // The same spring can exist in curated mile markers and the POI table. Keep
@@ -245,4 +252,20 @@ function priority(kind: RoutePointKind): number {
 
 function humanize(value: string): string {
   return value.replace(/_/g, ' ').replace(/\b\w/g, (letter) => letter.toUpperCase());
+}
+
+/** Curated access URLs / agency POI image objects. Keep supplied attribution;
+ * never substitute a generic river photo for a named stop. */
+function placePhoto(images: unknown): Pick<SocialRoutePoint, 'photoUrl' | 'photoCredit'> {
+  if (typeof images === 'string') {
+    try { images = JSON.parse(images); } catch { return {}; }
+  }
+  if (!Array.isArray(images)) return {};
+  for (const image of images) {
+    const url = typeof image === 'string' ? image : image?.url;
+    if (typeof url !== 'string' || !/^https:\/\//i.test(url)) continue;
+    const credit = typeof image?.credit === 'string' ? image.credit.trim() : '';
+    return { photoUrl: url, ...(credit ? { photoCredit: credit } : {}) };
+  }
+  return {};
 }
