@@ -177,11 +177,26 @@ function CampingContent() {
       >
         {chip(
           rivers.find((r) => r.slug === river)?.label ?? 'All rivers',
-          river !== null,
-          () => setRiverPicker(true),
+          !nearby && !saved,
+          () => {
+            if (nearby || saved) {
+              setNearby(false);
+              setSaved(false);
+              setRiver(null);
+            } else {
+              setQuery('');
+              setRiverPicker(true);
+            }
+          },
         )}
-        {chip('Favorites', saved, () => setSaved((v) => !v))}
+        {chip('Favorites', saved, () => {
+          setSaved((v) => !v);
+          setNearby(false);
+          setRiver(null);
+        })}
         {chip(status === 'locating' ? 'Locating…' : 'Nearby', nearby, () => {
+          setSaved(false);
+          setRiver(null);
           if (nearby) setNearby(false);
           else {
             setNearby(true);
@@ -244,6 +259,8 @@ function CampingContent() {
                 style={styles.action}
                 onPress={() => {
                   setRiver(item.slug || null);
+                  setNearby(false);
+                  setSaved(false);
                   setRiverPicker(false);
                 }}
               >
@@ -288,6 +305,7 @@ function CampingContent() {
               style={styles.action}
               onPress={() => {
                 setNearby(false);
+                setSaved(false);
                 setRiver(null);
               }}
             >
@@ -304,6 +322,7 @@ function CampingContent() {
         <Pressable
           onPress={() => {
             setNearby(false);
+            setSaved(false);
             setRiver(null);
           }}
           accessibilityRole="button"
