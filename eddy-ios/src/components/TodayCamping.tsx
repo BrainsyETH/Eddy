@@ -19,7 +19,6 @@ import {
 import { CampingDetailSheet } from './CampingDetailSheet';
 import { EddySymbol } from './EddySymbol';
 import {
-  campingCoverageLabel,
   observedCampingOverview,
   campingFreshness,
   todayCampgrounds,
@@ -53,12 +52,6 @@ function CampingCard({ coords, saved, revision }: Props) {
   const rows = selection.rows.slice(0, 4);
   const grid = data ? observedCampingOverview(rows, data, now) : null;
   const planning = useCampingOverview(selected !== null);
-  const scope =
-    selection.title === 'Camping near you'
-      ? 'Nearby'
-      : selection.title === 'Camping on saved rivers'
-        ? 'Saved Rivers'
-        : 'Across the Ozarks';
   const detail = data?.tracked.find((r) => r.facilityId === selected);
   return (
     <View
@@ -74,13 +67,7 @@ function CampingCard({ coords, saved, revision }: Props) {
             Camping
           </Text>
         </View>
-        <Text style={[textStyles.caption, { color: colors.textMuted }]}>
-          {grid ? campingCoverageLabel(grid) : 'Camping availability'}
-        </Text>
       </View>
-      <Text style={[textStyles.caption, { color: colors.textMuted }]}>
-        {scope}
-      </Text>
       {data ? (
         <>
           {grid?.horizon.nights.length ? (

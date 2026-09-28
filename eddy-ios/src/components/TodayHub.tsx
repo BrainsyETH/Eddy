@@ -4,7 +4,6 @@ import { radii } from '@/theme/layout';
 import { Children, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import {
   AccessibilityInfo,
-  Alert,
   useWindowDimensions,
   ActivityIndicator,
   Image,
@@ -35,7 +34,6 @@ import {
 } from '@/api/client';
 import { BlurredReadPreview, EddyReadCard, EddyReadPlaceholder } from '@/components/EddyReadCard';
 import { useAccount } from '@/hooks/useAccount';
-import { useTodaySnooze } from '@/hooks/useTodaySnooze';
 import { onForeground } from '@/lib/foreground';
 import { seedLocationForecast } from '@/lib/locationForecast';
 import { TodayRiverPhoto } from '@/components/TodayRiverPhoto';
@@ -460,12 +458,6 @@ export function TodayHub({
   }, [refreshAccount]));
   useEffect(() => onForeground(() => { void refreshAccount(); }), [refreshAccount]);
   const openRead = (slug: string) => router.push({ pathname: '/river/[slug]', params: { slug, focus: 'read' } });
-  const snoozeAll = () => Alert.alert('Snooze Today alerts', 'Hide all Today alerts until the snooze ends. You can still view them in Alerts.', [
-    { text: '1 hour', onPress: () => snooze('hour') },
-    { text: 'Rest of today', onPress: () => snooze('today') },
-    { text: '24 hours', onPress: () => snooze('day') },
-    { text: 'Cancel', style: 'cancel' },
-  ]);
 
   const [floats, setFloats] = useState<FavoriteFloatSummary[] | null>(null);
   const [safety, setSafety] = useState<{
@@ -620,7 +612,6 @@ export function TodayHub({
     high: safety.high === null ? null : filteredSafety.high,
     notices: safety.notices === null ? null : filteredSafety.notices,
   };
-  const { ready: snoozeReady, snoozed, snooze } = useTodaySnooze();
   const safetyCount = (activeSafety?.high?.length ?? 0) + (activeSafety?.notices?.length ?? 0);
   const detailFailure = floatFailure || safetyFailure.high || safetyFailure.notices;
   const safetyScopeLabel = safetyScope.kind === 'favorites'
@@ -751,32 +742,29 @@ export function TodayHub({
           />
         ) : null}
         <View style={styles.weatherAlerts}>
-        <View style={styles.compactColumn}>
-        <TodayWeather compact={snoozeReady && !snoozed}
-          onOpen={() => {
-            if (!weatherCoords || !activeWeather) return;
-            seedLocationForecast(JSON.stringify([weatherCoords.lat, weatherCoords.lng]), activeWeather);
-            router.push({ pathname: '/weather', params: { lat: String(weatherCoords.lat), lng: String(weatherCoords.lng) } });
-          }}
-          weather={activeWeather?.days[0] ?? null}
-          weatherLocation={activeWeather?.city ?? null}
-          weatherLoading={Boolean(location.coords && !activeWeather && !localWeatherFailed)}
-          onRequestLocation={requestLocalWeather}
-          locationActionLabel={locationActionLabel}
-        />
-        </View>
-        {snoozeReady && !snoozed ? (
+          <View style={styles.compactColumn}>
+            <TodayWeather compact
+              onOpen={() => {
+                if (!weatherCoords || !activeWeather) return;
+                seedLocationForecast(JSON.stringify([weatherCoords.lat, weatherCoords.lng]), activeWeather);
+                router.push({ pathname: '/weather', params: { lat: String(weatherCoords.lat), lng: String(weatherCoords.lng) } });
+              }}
+              weather={activeWeather?.days[0] ?? null}
+              weatherLocation={activeWeather?.city ?? null}
+              weatherLoading={Boolean(location.coords && !activeWeather && !localWeatherFailed)}
+              onRequestLocation={requestLocalWeather}
+              locationActionLabel={locationActionLabel}
+            />
+          </View>
           <View style={[styles.compactColumn, styles.alertCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
             <Pressable accessibilityRole="button" accessibilityLabel={`Alerts. ${safetyCount ? `${safetyCount} alerts ${safetyScopeLabel}. ${topNotice?.title ?? (topHigh ? `${topHigh.name}: ${conditionLabel(topHigh.conditionCode)}` : '')}` : safetyFailure.high || safetyFailure.notices ? 'Could not refresh alerts' : activeSafety.high === null || activeSafety.notices === null ? 'Checking alerts' : `No current alerts ${safetyScopeLabel}`}`} onPress={() => router.push('/alerts')} style={styles.alertMain}>
               <View style={styles.compactHeading}>
                 <Ionicons name={safetyCount ? 'warning-outline' : 'notifications-outline'} size={22} color={safetyCount ? conditionInk(topHigh?.conditionCode === 'dangerous' || topNotice?.severity === 'warning' ? 'dangerous' : 'high') : colors.interactive} />
                 <Text style={{ ...t.base, fontFamily: fonts.semibold, color: colors.text }}>Alerts</Text>
               </View>
-              <Text style={[styles.compactValue, { color: colors.text }]}>{safetyCount ? `${safetyCount} ${safetyCount === 1 ? 'alert' : 'alerts'}` : safetyFailure.high || safetyFailure.notices ? 'Unable to refresh' : activeSafety.high === null || activeSafety.notices === null ? 'Checking…' : 'No current alerts'}</Text>
+              <Text style={[styles.compactValue, { color: colors.text }]}>{safetyCount ? String(safetyCount) : safetyFailure.high || safetyFailure.notices ? 'Unable to refresh' : activeSafety.high === null || activeSafety.notices === null ? 'Checking…' : 'None'}</Text>
             </Pressable>
-            {safetyCount > 0 ? <Pressable accessibilityRole="button" accessibilityLabel="Snooze Today alerts" onPress={snoozeAll} style={styles.snoozeButton}><Ionicons name="notifications-off-outline" size={16} color={colors.textMuted} /></Pressable> : null}
           </View>
-        ) : null}
         </View>
       </View>
 
@@ -934,10 +922,9 @@ const styles = StyleSheet.create({
   weatherAlerts: { flexDirection: 'row', alignItems: 'stretch', gap: 10 },
   compactColumn: { flex: 1, minWidth: 0 },
   alertCard: { borderWidth: StyleSheet.hairlineWidth, borderRadius: 16, padding: 12, minHeight: 120 },
-  alertMain: { flex: 1, minHeight: 44, gap: 6, alignItems: 'center', justifyContent: 'center', paddingBottom: 24 },
+  alertMain: { flex: 1, minHeight: 44, gap: 6, alignItems: 'center', justifyContent: 'center' },
   compactHeading: { flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' },
   compactValue: { ...t.xl, fontFamily: fonts.semibold, textAlign: 'center' },
-  snoozeButton: { position: 'absolute', right: 0, bottom: 0, width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
   summaryTop: { marginBottom: 14, gap: 10 },
   section: { marginBottom: 24 },
   sectionHead: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 10, paddingHorizontal: 2 },
