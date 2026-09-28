@@ -2,7 +2,6 @@ import {
   resolveHorizon,
   resolveWeekend,
 } from '@eddy/conditions/camping-window';
-import { campingNightState, campingCountBucket } from '../components/map-sheet/availability';
 import type {
   CampingOverview,
   CampingObservation,
@@ -14,6 +13,7 @@ export type HeatMark =
   | 'open-1'
   | 'open-2'
   | 'open-3'
+  | 'no-reservable'
   | 'full'
   | 'closed'
   | 'nyr'
@@ -47,18 +47,19 @@ export function currentNight(
     : undefined;
 }
 export function cellMark(n?: CampingObservation): HeatMark {
-  const state = campingNightState(n);
-  if (state === 'unknown') return 'unknown';
-  if (state === 'closed') return 'closed';
-  if (state === 'not_yet_released') return 'nyr';
-  if (state === 'full') return 'full';
-  return `open-${campingCountBucket(n!.sitesOpen)}`;
+  if (!n) return 'unknown';
+  if (n.status === 'closed') return 'closed';
+  if (n.status === 'not_yet_released') return 'nyr';
+  if (n.status === 'full' && n.sitesReservable === 0) return 'no-reservable';
+  if (n.status === 'full') return 'full';
+  return n.sitesOpen < 3 ? 'open-1' : n.sitesOpen < 10 ? 'open-2' : 'open-3';
 }
 export function nightLine(n?: CampingObservation): string {
   const mark = cellMark(n);
   if (mark === 'unknown') return 'Not checked';
   if (mark === 'closed') return 'Closed for this night';
   if (mark === 'nyr') return 'Not yet released';
+  if (mark === 'no-reservable') return 'No reservable sites';
   if (mark === 'full') return 'No reservable openings';
   return `${n!.sitesOpen} of ${n!.sitesReservable} reservable sites open`;
 }
@@ -87,13 +88,15 @@ export function weekendLine(
         mark = cellMark(n);
       const text = mark.startsWith('open')
         ? `${n!.sitesOpen} open`
-        : mark === 'full'
-          ? 'full'
-          : mark === 'closed'
-            ? 'closed'
-            : mark === 'nyr'
-              ? 'unreleased'
-              : 'not checked';
+        : mark === 'no-reservable'
+          ? 'no reservable sites'
+          : mark === 'full'
+            ? 'full'
+            : mark === 'closed'
+              ? 'closed'
+              : mark === 'nyr'
+                ? 'unreleased'
+                : 'not checked';
       return `${dateLabel(date, true)}: ${text}`;
     })
     .join(' · ');
@@ -210,4 +213,19 @@ export function currentOverview(
       label: weekend.label,
     },
   };
+}
+
+/** Seven-night windows overlap when needed so Friday/Saturday stay together. */
+export function campingNightPages(nights: string[]): string[][] {
+  if (!nights.length) return [];
+  const pages: string[][] = [];
+  let start = 0;
+  while (true) {
+    pages.push(nights.slice(start, start + 7));
+    if (start + 7 >= nights.length) break;
+    let next = start + 7;
+    if (new Date(nights[next - 1] + 'T12:00:00Z').getUTCDay() === 5) next--;
+    start = Math.min(next, nights.length - 7);
+  }
+  return pages;
 }

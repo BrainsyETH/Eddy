@@ -185,7 +185,7 @@ test('untracked verified aliases appear once', () => {
   ];
   assert.equal(buildCampingOverview(i, now).untracked.length, 1);
 });
-test('loops remain separate and overlapping aggregate fails instead of inflating counts', () => {
+test('loops remain available and an overlapping aggregate is excluded', () => {
   const i = input();
   i.facilities[0].source_loop = 'Loop A';
   i.facilities.push({ ...i.facilities[0], id: 'g', source_loop: 'Loop B' });
@@ -195,7 +195,9 @@ test('loops remain separate and overlapping aggregate fails instead of inflating
     'Book through district permit',
   );
   i.facilities.push({ ...i.facilities[0], id: 'h', source_loop: null });
-  assert.throws(() => buildCampingOverview(i, now), /Overlapping/);
+  const result = buildCampingOverview(i, now);
+  assert.deepEqual(result.tracked.map(r => r.facilityId).sort(), ['f', 'g']);
+  assert.equal(result.untracked.length, 0);
 });
 test('multiple rivers produce one deterministic group, with all memberships retained', () => {
   const i = input();
@@ -245,4 +247,15 @@ test('loader paginates directory records beyond the default page without N+1 fac
   const result=await loadCampingOverview(db as unknown as SupabaseClient,now);
   assert.equal(result.untracked.length,501);
   assert.deepEqual(ranges,[0,500]);
+});
+
+test('zero-reservable nights retain successful observations and freshness', () => {
+  const i = input();
+  i.observations = [night({ status: 'full', sites_open: 0, sites_reservable: 0 })];
+  const r = buildCampingOverview(i, now).tracked[0];
+  assert.equal(r.freshness, 'fresh');
+  assert.equal(r.nights.length, 1);
+  assert.equal(r.nights[0].checkedAt, i.observations[0].fetched_at);
+  assert.equal(r.latestObservationAt, i.observations[0].fetched_at);
+  assert.equal(r.nights[0].sitesReservable, 0);
 });

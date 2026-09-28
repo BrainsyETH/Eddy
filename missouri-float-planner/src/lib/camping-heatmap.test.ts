@@ -2,6 +2,8 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
   cellMark,
+  nightLine,
+  campingNightPages,
   currentNight,
   cardSummary,
   campingDate,
@@ -66,7 +68,7 @@ test('count buckets preserve every boundary and unknown is distinct from zero', 
     ['full', 'open-1', 'open-1', 'open-2', 'open-2', 'open-3'],
   );
   assert.equal(cellMark(), 'unknown');
-  assert.equal(cellMark({ ...night(0), sitesReservable: 0 }), 'unknown');
+  assert.equal(cellMark({ ...night(0), sitesReservable: 0 }), 'no-reservable');
   assert.equal(cellMark({ ...night(0), status: 'closed' }), 'closed');
   assert.equal(cellMark({ ...night(0), status: 'not_yet_released' }), 'nyr');
 });
@@ -156,4 +158,27 @@ test('cached calendar rolls forward without inventing observations', () => {
   assert.equal(next.horizon.startDate, '2026-09-29');
   assert.equal(next.horizon.nights.length, 14);
   assert.equal(next.generatedAt, overview.generatedAt);
+});
+
+test('zero-reservable observations are checked without implying first-come availability', () => {
+  const n = { ...night(0), sitesReservable: 0 };
+  assert.equal(nightLine(n), 'No reservable sites');
+  const r = row();
+  r.nights = overview.weekend.nights.map(date => ({ ...n, date }));
+  assert.doesNotMatch(cardSummary([r], overview, now), /not fully checked/);
+  assert.equal(cellMark({ ...n, status: 'closed' }), 'closed');
+  assert.equal(cellMark({ ...n, status: 'not_yet_released' }), 'nyr');
+});
+test('seven-night pages cover every date and keep every Friday/Saturday pair together', () => {
+  for (let offset = 0; offset < 7; offset++) {
+    const dates = Array.from({ length: 14 }, (_, i) =>
+      new Date(Date.UTC(2026, 8, 28 + offset + i)).toISOString().slice(0, 10));
+    const pages = campingNightPages(dates);
+    assert.ok(pages.every(p => p.length <= 7));
+    assert.deepEqual([...new Set(pages.flat())], dates);
+    dates.forEach((d, i) => {
+      if (i < 13 && new Date(d + 'T12:00:00Z').getUTCDay() === 5)
+        assert.ok(pages.some(p => p.includes(d) && p.includes(dates[i + 1])));
+    });
+  }
 });

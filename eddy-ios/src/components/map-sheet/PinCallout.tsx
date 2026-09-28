@@ -1,8 +1,8 @@
-import { ServiceCampingSites } from '@/components/ServiceCampingSites';
 // eddy-ios/src/components/map-sheet/PinCallout.tsx
 // Non-tabbed POIs keep identity and actions in a measured preview, with their
 // description and links in a bounded scroller below it.
 
+import { ServiceCampingSites } from '@/components/ServiceCampingSites';
 import type { ComponentProps } from 'react';
 import { MapSheet } from './MapSheet';
 import { SheetBody } from './SheetPager';
@@ -446,7 +446,13 @@ export function PinCallout({
             today={localToday()}
           />
 
-          {pin.layer === 'campgrounds' && pin.id.startsWith('service:') ? <ServiceCampingSites key={pin.id} serviceId={pin.id.slice(8)} /> : null}
+          {pin.layer === 'campgrounds' && pin.id.startsWith('service:') ? (
+            <ServiceCampingSites
+              key={pin.id}
+              serviceId={pin.id.slice(8)}
+              facilityId={pin.availability?.facilityId}
+            />
+          ) : null}
 
           {pin.body ? (
             <Text style={[styles.calloutBody, { color: colors.textMuted }]}>{pin.body}</Text>

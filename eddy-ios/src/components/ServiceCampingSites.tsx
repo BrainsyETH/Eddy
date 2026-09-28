@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { campingDate } from '@/lib/campingHeatmap';
 import { ActivityIndicator, Pressable, Text, View } from 'react-native';
 import { useCampingOverview } from '@/hooks/useCampingOverview';
 import { useAppConfig } from '@/hooks/useAppConfig';
@@ -35,7 +36,13 @@ function ResolveService({ serviceId }: { serviceId: string }) {
     </Text>
   );
 }
-export function ServiceCampingSites({ serviceId }: { serviceId: string }) {
+export function ServiceCampingSites({
+  serviceId,
+  facilityId,
+}: {
+  serviceId: string;
+  facilityId?: string;
+}) {
   const { features } = useAppConfig();
   const { colors } = useTheme();
   const [open, setOpen] = useState(false);
@@ -52,7 +59,13 @@ export function ServiceCampingSites({ serviceId }: { serviceId: string }) {
           {open ? 'Hide campsite details' : 'Explore campsite details'}
         </Text>
       </Pressable>
-      {open ? <ResolveService serviceId={serviceId} /> : null}
+      {open ? (
+        facilityId ? (
+          <CampingSites facilityId={facilityId} date={campingDate()} />
+        ) : (
+          <ResolveService serviceId={serviceId} />
+        )
+      ) : null}
     </View>
   );
 }

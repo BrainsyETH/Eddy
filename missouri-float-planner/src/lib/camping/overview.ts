@@ -196,20 +196,23 @@ export function buildCampingOverview(
   const enabled = input.facilities.filter(
     (f) => f.enabled && f.kind === 'campground',
   );
-  // Fail loudly on overlapping aggregate/loop inventory; don't silently double-count coverage.
-  for (const f of enabled)
-    if (
-      f.source_loop &&
-      enabled.some(
-        (a) =>
-          a.source === f.source &&
-          a.source_facility_id === f.source_facility_id &&
-          !a.source_loop,
-      )
-    ) {
-      throw new Error('Overlapping camping aggregate and loop inventory');
+  // Prefer loop inventory over its aggregate; a catalog mistake must not hide all camping.
+  const inventory = enabled.filter((f) => {
+    const overlaps = !f.source_loop && enabled.some((loop) =>
+      loop.source_loop &&
+      loop.source === f.source &&
+      loop.source_facility_id === f.source_facility_id,
+    );
+    if (overlaps) {
+      console.warn('camping_aggregate_excluded', {
+        facilityId: f.id,
+        source: f.source,
+        sourceFacilityId: f.source_facility_id,
+      });
     }
-  const tracked = enabled
+    return !overlaps;
+  });
+  const tracked = inventory
     .map((f) => {
       const p = place(
         f.nearby_service_id,
@@ -242,7 +245,6 @@ export function buildCampingOverview(
           continue;
         if (!['open', 'full', 'closed', 'not_yet_released'].includes(r.status))
           continue;
-        if (r.status === 'full' && r.sites_reservable <= 0) continue;
         if (r.status === 'open' ? r.sites_open === 0 : r.sites_open !== 0)
           continue;
         if (

@@ -23,6 +23,7 @@ import { CampingGrid, CampingLegend } from '@/components/CampingGrid';
 import { CampingSites } from '@/components/CampingSites';
 import {
   campingSections,
+  campingNightPages,
   cardSummary,
   checkedLabel,
   currentNight,
@@ -71,7 +72,9 @@ function ExpandedCampground({
 }) {
   const { colors } = useTheme();
   const router = useRouter();
-  const [week, setWeek] = useState(0);
+  const [page, setPage] = useState(0);
+  const pages = campingNightPages(data.horizon.nights);
+  const pageIndex = Math.min(page, pages.length - 1);
   const [selected, setSelected] = useState(data.horizon.startDate);
   const date = data.horizon.nights.includes(selected)
     ? selected
@@ -85,12 +88,16 @@ function ExpandedCampground({
         </Text>
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel={week ? 'Show first week' : 'Show second week'}
+          accessibilityLabel={`Show night page ${((pageIndex + 1) % pages.length) + 1} of ${pages.length}`}
           style={styles.action}
-          onPress={() => setWeek((w) => (w ? 0 : 1))}
+          onPress={() => {
+            const next = (pageIndex + 1) % pages.length;
+            setPage(next);
+            setSelected(pages[next][0]);
+          }}
         >
           <Text style={{ color: colors.interactive }}>
-            {week ? '← First week' : 'Next week →'}
+            {pageIndex === pages.length - 1 ? '← First nights' : 'Later nights →'}
           </Text>
         </Pressable>
       </View>
@@ -99,7 +106,7 @@ function ExpandedCampground({
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={styles.picker}
       >
-        {data.horizon.nights.slice(week * 7, week * 7 + 7).map((d) => (
+        {pages[pageIndex].map((d) => (
           <Pressable
             key={d}
             accessibilityRole="button"

@@ -128,18 +128,19 @@ export function NightStrip({
                     // blindness. The empty outline is the shape that already
                     // meant "the inventory exists and none of it is left";
                     // colour only tells you faster.
-                    borderColor: bar.mark === 'empty' ? colors.textMuted : 'transparent',
+                    borderColor: bar.mark === 'empty' ? colors.error : 'transparent',
                   },
                 ]}
               >
                 {bar.mark === 'bar' ? (
-                  // Same absolute count buckets as Today: 1–2, 3–9, 10+.
+                  // Open, and HOW open — the fill is still proportional, so a
+                  // night with two sites left does not read like one with forty.
                   <View
                     style={[
                       styles.fill,
                       {
                         height: `${Math.round(bar.fill * 100)}%`,
-                        backgroundColor: colors.interactive,
+                        backgroundColor: colors.success,
                       },
                     ]}
                   />

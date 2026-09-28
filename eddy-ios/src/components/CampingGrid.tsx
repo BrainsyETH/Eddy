@@ -35,6 +35,9 @@ function Mark({ mark }: { mark: HeatMark }) {
       {mark === 'nyr' ? (
         <Text style={[styles.symbol, { color: colors.textMuted }]}>···</Text>
       ) : null}
+      {mark === 'no-reservable' ? (
+        <Text style={[styles.symbol, { color: colors.textMuted }]}>/</Text>
+      ) : null}
       {mark === 'unknown' ? (
         <Text style={[styles.symbol, { color: colors.textSubtle }]}>?</Text>
       ) : null}
@@ -113,6 +116,7 @@ export function CampingLegend() {
           ['open-2', '3–9'],
           ['open-3', '10+'],
           ['full', 'Full'],
+          ['no-reservable', 'No reservable sites'],
           ['closed', 'Closed'],
           ['nyr', 'Unreleased'],
           ['unknown', 'Not checked'],
@@ -156,5 +160,5 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
   },
   legendItem: { flexDirection: 'row', alignItems: 'center', gap: 5, width: 90 },
-  label: { fontSize: 11, fontFamily: fonts.body },
+  label: { fontSize: 11, fontFamily: fonts.body, flexShrink: 1 },
 });
