@@ -17,6 +17,7 @@ import {
   CampingTableRow,
 } from './CampingGrid';
 import { CampingDetailSheet } from './CampingDetailSheet';
+import { EddySymbol } from './EddySymbol';
 import {
   campingCoverageLabel,
   observedCampingOverview,
@@ -67,9 +68,12 @@ function CampingCard({ coords, saved, revision }: Props) {
       ]}
     >
       <View style={styles.heading}>
-        <Text style={[textStyles.cardTitle, { color: colors.text }]}>
-          Camping
-        </Text>
+        <View style={styles.title}>
+          <EddySymbol name="campground" size={28} />
+          <Text style={[textStyles.cardTitle, { color: colors.text }]}>
+            Camping
+          </Text>
+        </View>
         <Text style={[textStyles.caption, { color: colors.textMuted }]}>
           {grid ? campingCoverageLabel(grid) : 'Camping availability'}
         </Text>
@@ -154,6 +158,7 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     gap: 4,
   },
+  title: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   heading: {
     flexDirection: 'row',
     justifyContent: 'space-between',
