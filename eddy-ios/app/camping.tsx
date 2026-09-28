@@ -1,7 +1,6 @@
 import { useMemo, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   Modal,
   TextInput,
   FlatList,
@@ -24,27 +23,16 @@ import {
   CampingTableHeader,
   CampingTableRow,
 } from '@/components/CampingGrid';
-import { CampingStayPicker } from '@/components/CampingStayPicker';
 import { useStarredRivers } from '@/hooks/useStarredRivers';
-import {
-  resolveCampingSort,
-  type CampingSort,
-  stayNights,
-  nextCampingDate,
-  type CampingStay,
-} from '@/lib/campingStay';
 import { CampingDetailSheet } from '@/components/CampingDetailSheet';
 import {
-  campingDate,
-  initialCampingNight,
-  currentNight,
   campingRiverOptions,
   observedCampingOverview,
   campingCoverageLabel,
   campingFreshness,
   filterCamping,
   safeExternalUrl,
-  sortCamping,
+  campingRiverGroups,
 } from '@/lib/campingHeatmap';
 
 export default function CampingScreen() {
@@ -88,13 +76,7 @@ function CampingContent() {
   const [selected, setSelected] = useState<string | null>(
     params.facility ?? null,
   );
-  const [stay, setStay] = useState<CampingStay>(() => ({
-    arrival: campingDate(),
-    departure: nextCampingDate(campingDate()),
-  }));
-  const [openOnly, setOpenOnly] = useState(false);
   const [saved, setSaved] = useState(false);
-  const [sortChoice, setSort] = useState<CampingSort | null>(null);
   const [riverPicker, setRiverPicker] = useState(false);
   const [query, setQuery] = useState('');
   const { starred } = useStarredRivers();
@@ -103,7 +85,6 @@ function CampingContent() {
   const [directory, setDirectory] = useState(false);
   const [linkFailed, setLinkFailed] = useState(false);
   const { coords, status, request } = useLocation();
-  const sort = resolveCampingSort(sortChoice, !!coords);
   const { data, loading, error, refresh, now } = useCampingOverview();
   const rivers = useMemo(
     () => campingRiverOptions(data?.tracked ?? [], data?.untracked ?? []),
@@ -113,36 +94,17 @@ function CampingContent() {
     const slugs = new Set(
       starred.filter((s) => s.kind === 'river').map((s) => s.slug),
     );
-    const dates = stayNights(stay);
-    const score = (row: NonNullable<typeof data>['tracked'][number]) =>
-      Math.min(
-        ...dates.map((date) => {
-          const n =
-            data && currentNight(row, date, data.maxObservationAgeSeconds, now);
-          return n?.status === 'open' ? n.sitesOpen : 0;
-        }),
-      );
     const filtered = filterCamping(
       data?.tracked ?? [],
       river,
       nearby,
       coords,
-    ).filter(
-      (row) =>
-        (!saved || row.riverSlugs.some((slug) => slugs.has(slug))) &&
-        (!openOnly || score(row) > 0),
-    );
-    const ordered =
-      sort === 'nearest' && coords
-        ? sortCamping(filtered, coords)
-        : [...filtered].sort((a, b) => a.name.localeCompare(b.name));
-    return sort === 'openings'
-      ? ordered.sort((a, b) => score(b) - score(a))
-      : ordered;
-  }, [data, river, nearby, coords, starred, stay, openOnly, saved, sort, now]);
+    ).filter((row) => !saved || row.riverSlugs.some((slug) => slugs.has(slug)));
+    return campingRiverGroups(filtered).flatMap((group) => group.data);
+  }, [data, river, nearby, coords, starred, saved]);
   const other = useMemo(
     () =>
-      sortCamping(
+      campingRiverGroups(
         filterCamping(data?.untracked ?? [], river, nearby, coords).filter(
           (row) =>
             !saved ||
@@ -150,9 +112,14 @@ function CampingContent() {
               starred.some((s) => s.kind === 'river' && s.slug === slug),
             ),
         ),
-        nearby ? coords : null,
-      ),
+      ).flatMap((group) => group.data),
     [data, river, nearby, coords, saved, starred],
+  );
+  const riverHeaders = new Map(
+    campingRiverGroups(rows).map((group) => [group.data[0].facilityId, group.title]),
+  );
+  const directoryHeaders = new Map(
+    campingRiverGroups(other).map((group) => [group.data[0].id, group.title]),
   );
   const detail = data?.tracked.find((r) => r.facilityId === selected);
   if (!data)
@@ -169,14 +136,7 @@ function CampingContent() {
         </Text>
       </Pressable>
     );
-  const observed = observedCampingOverview(rows, data, now);
-  const focusNights = observed.horizon.nights.filter(
-    (date) => date >= stay.arrival,
-  );
-  const grid = {
-    ...observed,
-    horizon: { ...observed.horizon, nights: focusNights },
-  };
+  const grid = observedCampingOverview(rows, data, now);
   function chip(label: string, active: boolean, onPress: () => void) {
     return (
       <Pressable
@@ -205,61 +165,6 @@ function CampingContent() {
   }
   return (
     <>
-      <View style={{ paddingHorizontal: 20, paddingBottom: 8 }}>
-        <CampingStayPicker
-          stay={stay}
-          nights={data.horizon.nights}
-          onChange={setStay}
-        />
-      </View>
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        style={{ flexGrow: 0, flexShrink: 0 }}
-        contentContainerStyle={styles.filters}
-      >
-        {chip(
-          'Tonight',
-          stay.arrival === data.horizon.nights[0] &&
-            stay.departure === nextCampingDate(stay.arrival),
-          () =>
-            setStay({
-              arrival: data.horizon.nights[0],
-              departure: nextCampingDate(data.horizon.nights[0]),
-            }),
-        )}
-        {chip(
-          'This weekend',
-          stay.arrival === initialCampingNight(data) &&
-            stay.departure === nextCampingDate(initialCampingNight(data), 2),
-          () => {
-            const arrival = initialCampingNight(data);
-            setStay({ arrival, departure: nextCampingDate(arrival, 2) });
-          },
-        )}
-        {chip('Openings only', openOnly, () => setOpenOnly((v) => !v))}
-        {chip(
-          sort === 'name'
-            ? 'Sort: A–Z'
-            : sort === 'nearest'
-              ? 'Sort: Nearest'
-              : 'Sort: Most openings',
-          false,
-          () =>
-            Alert.alert('Sort campgrounds', undefined, [
-              {
-                text: 'Nearest',
-                onPress: () => {
-                  setSort('nearest');
-                  if (!coords) void request();
-                },
-              },
-              { text: 'Most openings', onPress: () => setSort('openings') },
-              { text: 'A–Z', onPress: () => setSort('name') },
-              { text: 'Cancel', style: 'cancel' },
-            ]),
-        )}
-      </ScrollView>
       <ScrollView
         horizontal
         style={{ flexGrow: 0, flexShrink: 0, height: 56 }}
@@ -271,7 +176,7 @@ function CampingContent() {
           river !== null,
           () => setRiverPicker(true),
         )}
-        {chip('Saved Rivers', saved, () => setSaved((v) => !v))}
+        {chip('Favorites', saved, () => setSaved((v) => !v))}
         {chip(status === 'locating' ? 'Locating…' : 'Nearby', nearby, () => {
           if (nearby) setNearby(false);
           else {
@@ -353,18 +258,7 @@ function CampingContent() {
           />
         </SafeAreaView>
       </Modal>
-      {openOnly && stayNights(stay).length > 1 ? (
-        <Text
-          style={{
-            paddingHorizontal: 20,
-            paddingBottom: 8,
-            color: colors.textMuted,
-          }}
-        >
-          Openings each night · confirm a site for the whole stay
-        </Text>
-      ) : null}
-      {(nearby || sort === 'nearest') && !coords && status !== 'locating' ? (
+      {nearby && !coords && status !== 'locating' ? (
         <View style={styles.notice}>
           <Text style={{ color: colors.textMuted }}>
             {status === 'denied'
@@ -390,7 +284,6 @@ function CampingContent() {
               style={styles.action}
               onPress={() => {
                 setNearby(false);
-                setSort('name');
                 setRiver(null);
               }}
             >
@@ -429,7 +322,7 @@ function CampingContent() {
         </Pressable>
       ) : null}
       <CampingScrollGroup
-        key={`${river}:${nearby}:${stay.arrival}:${grid.horizon.endDateExclusive}`}
+        key={`${river}:${nearby}:${grid.horizon.endDateExclusive}`}
       >
         <FlatList
           data={rows}
@@ -452,12 +345,25 @@ function CampingContent() {
             </View>
           }
           renderItem={({ item }) => (
-            <CampingTableRow
-              row={item}
-              overview={grid}
-              now={now}
-              onPress={() => setSelected(item.facilityId)}
-            />
+            <View>
+              {riverHeaders.has(item.facilityId) ? (
+                <Text
+                  accessibilityRole="header"
+                  style={[
+                    textStyles.cardTitle,
+                    { color: colors.text, paddingTop: 18, paddingBottom: 8 },
+                  ]}
+                >
+                  {riverHeaders.get(item.facilityId)}
+                </Text>
+              ) : null}
+              <CampingTableRow
+                row={item}
+                overview={grid}
+                now={now}
+                onPress={() => setSelected(item.facilityId)}
+              />
+            </View>
           )}
           ListEmptyComponent={
             <Text style={[styles.message, { color: colors.textMuted }]}>
@@ -486,7 +392,7 @@ function CampingContent() {
                       color: colors.interactive,
                     }}
                   >
-                    Other campgrounds ({other.length}) {directory ? '−' : '+'}
+                    More campgrounds ({other.length}) {directory ? '−' : '+'}
                   </Text>
                 </Pressable>
               ) : null}
@@ -502,38 +408,54 @@ function CampingContent() {
                       row.reservationUrl ?? row.website,
                     );
                     return (
-                      <View
-                        key={row.id}
-                        style={[
-                          styles.directoryRow,
-                          { borderColor: colors.border },
-                        ]}
-                      >
-                        <Text
+                      <View key={row.id}>
+                        {directoryHeaders.has(row.id) ? (
+                          <Text
+                            accessibilityRole="header"
+                            style={[
+                              textStyles.cardTitle,
+                              {
+                                color: colors.text,
+                                paddingTop: 18,
+                                paddingBottom: 8,
+                              },
+                            ]}
+                          >
+                            {directoryHeaders.get(row.id)}
+                          </Text>
+                        ) : null}
+                        <View
                           style={[
-                            textStyles.body,
-                            { color: colors.text, flex: 1 },
+                            styles.directoryRow,
+                            { borderColor: colors.border },
                           ]}
                         >
-                          {row.name}
-                        </Text>
-                        {url ? (
-                          <Pressable
-                            accessibilityRole="link"
-                            accessibilityLabel={`Check availability for ${row.name}`}
-                            style={styles.action}
-                            onPress={() => {
-                              setLinkFailed(false);
-                              void Linking.openURL(url).catch(() =>
-                                setLinkFailed(true),
-                              );
-                            }}
+                          <Text
+                            style={[
+                              textStyles.body,
+                              { color: colors.text, flex: 1 },
+                            ]}
                           >
-                            <Text style={{ color: colors.interactive }}>
-                              Check ↗
-                            </Text>
-                          </Pressable>
-                        ) : null}
+                            {row.name}
+                          </Text>
+                          {url ? (
+                            <Pressable
+                              accessibilityRole="link"
+                              accessibilityLabel={`Check availability for ${row.name}`}
+                              style={styles.action}
+                              onPress={() => {
+                                setLinkFailed(false);
+                                void Linking.openURL(url).catch(() =>
+                                  setLinkFailed(true),
+                                );
+                              }}
+                            >
+                              <Text style={{ color: colors.interactive }}>
+                                Check ↗
+                              </Text>
+                            </Pressable>
+                          ) : null}
+                        </View>
                       </View>
                     );
                   })}
@@ -551,7 +473,6 @@ function CampingContent() {
       {detail ? (
         <CampingDetailSheet
           key={detail.facilityId}
-          initialStay={stay}
           row={detail}
           overview={data}
           now={now}

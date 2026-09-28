@@ -191,20 +191,17 @@ Unknown sites and known unavailable sites have separate collapsed controls. Each
 night marks and a site reservation link, or explicitly “Park reservations” when
 only a park booking URL exists. Links do not imply that dates were prefilled.
 
-The full comparison page adds Tonight/This weekend/custom stay dates, Saved
-Rivers, a searchable river selector, Openings only, and Nearest/Most openings/A–Z
-sorting. Most openings uses the minimum observed openings across occupied nights;
-the comparison filter does not promise a single site spans the stay. Dates carry
-into the site sheet, where the exact-site check occurs. The comparison begins at
-the selected arrival and retains horizontal scrolling through observed coverage.
+The full comparison page has only All rivers (searchable picker), Favorites
+(saved rivers), and Nearby filters. Campgrounds appear once under their primary river, with river headers and
+campgrounds both A–Z. Unlinked parks appear last under Other campgrounds. Date selection lives inside campground details; the comparison
+retains horizontal scrolling through observed coverage.
 
 Native QA still needs to cover large text, photo gallery dismissal, VoiceOver,
 cross-month date selection, location denial, and a large site's scrolling list.
 This UI change does not run the outstanding provider backfill or extend measured
 availability on its own.
 
-Nearest is the default when location is available, with A–Z otherwise. An explicit
-sort selection is preserved when location changes. Stays over 14 nights show one
+In campground details, stays over 14 nights show one
 “Check campground stay limits” note; 14 is a disclosure threshold, not a verified
 universal booking limit. Individual night strips retain horizontal scrolling.
 

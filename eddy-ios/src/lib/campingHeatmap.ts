@@ -356,3 +356,32 @@ export function campingRowSummary(
   });
   return `This weekend: ${weekendLine(row, data, now)}.${next ? ` Next observed opening: ${dateLabel(next)}.` : ''}`;
 }
+
+/** The API display group identifies the primary river; never duplicate multi-river parks. */
+export function campingRiverGroups<T extends CampingPlace>(rows: T[]) {
+  const groups = new Map<string, { key: string; title: string; data: T[] }>();
+  for (const row of rows) {
+    const key = row.riverSlugs.length ? row.displayGroup.key : 'other';
+    if (!groups.has(key))
+      groups.set(key, {
+        key,
+        title: key === 'other' ? 'Other campgrounds' : row.displayGroup.label,
+        data: [],
+      });
+    groups.get(key)!.data.push(row);
+  }
+  return [...groups.values()]
+    .sort((a, b) =>
+      a.key === 'other'
+        ? 1
+        : b.key === 'other'
+          ? -1
+          : a.title.localeCompare(b.title),
+    )
+    .map((group) => ({
+      ...group,
+      data: group.data.sort(
+        (a, b) => a.name.localeCompare(b.name) || a.id.localeCompare(b.id),
+      ),
+    }));
+}
