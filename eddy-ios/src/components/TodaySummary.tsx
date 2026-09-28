@@ -72,6 +72,7 @@ interface Props {
 }
 
 interface TodayWeatherProps {
+  compact?: boolean;
   /** Daily forecast near the device's current location. */
   weather?: OutlookWeatherDay | null;
   /** The town the weather provider actually forecast. */
@@ -202,6 +203,7 @@ export function TodaySummary({
 
 /** Local weather is independent from the statewide conditions request. */
 export function TodayWeather({
+  compact = false,
   weather,
   weatherLocation,
   onRequestLocation,
@@ -210,6 +212,25 @@ export function TodayWeather({
   onOpen,
 }: TodayWeatherProps) {
   const { colors, elevation } = useTheme();
+  if (compact) return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={weather ? `Weather ${weatherLocation ? `near ${weatherLocation}` : ''}. High ${weather.tempHigh}, low ${weather.tempLow}. ${weather.condition}. ${weather.precipitation} percent rain. View forecast.` : locationActionLabel ?? 'Weather updating'}
+      disabled={weatherLoading || (!weather && !onRequestLocation)}
+      onPress={weather ? onOpen : onRequestLocation ?? undefined}
+      style={[styles.compactWeather, { backgroundColor: colors.card, borderColor: colors.border }, elevation(1)]}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+        <Ionicons name={weather ? weatherGlyph(weather.conditionIcon) : 'partly-sunny-outline'} size={22} color={colors.interactive} />
+        <Text style={{ ...t.base, fontFamily: fonts.semibold, color: colors.text }}>Weather</Text>
+      </View>
+      {weather ? <>
+        <Text style={{ ...t.xl, fontFamily: fonts.semibold, color: colors.text }}>H {weather.tempHigh}° <Text style={{ ...t.sm, color: colors.textMuted }}>L {weather.tempLow}°</Text></Text>
+        <Text numberOfLines={2} style={[styles.weatherMeta, { color: colors.textMuted }]}>{weather.condition}</Text>
+        <Text numberOfLines={2} style={[styles.weatherMeta, { color: colors.textMuted }]}>{weather.date === localDateKey() ? weatherLocation ?? 'Local forecast' : `${weather.dayOfWeek} · ${weatherLocation ?? 'Local forecast'}`}</Text>
+        <Text style={[styles.weatherMeta, { color: colors.textMuted }]}>{weather.precipitation}% rain</Text>
+      </> : weatherLoading ? <ActivityIndicator accessibilityLabel="Updating local forecast" color={colors.interactive} /> : <Text style={[styles.weatherActionText, { color: colors.interactive }]}>{locationActionLabel?.startsWith('Open Settings') ? 'Enable location' : locationActionLabel?.startsWith('Retry') ? 'Retry weather' : locationActionLabel ? 'Use my location' : 'Weather unavailable'}</Text>}
+    </Pressable>
+  );
   if (!weather && !weatherLoading && !(onRequestLocation && locationActionLabel)) return null;
 
   return (
@@ -266,6 +287,7 @@ export function TodayWeather({
 
 const styles = StyleSheet.create({
   card: { borderWidth: StyleSheet.hairlineWidth, borderRadius: 16, padding: 14, gap: 10 },
+  compactWeather: { flex: 1, borderWidth: StyleSheet.hairlineWidth, borderRadius: 16, padding: 12, gap: 8, minHeight: 148 },
   weatherCard: { borderWidth: StyleSheet.hairlineWidth, borderRadius: 16, padding: 14 },
   top: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   iconWell: { width: 48, height: 48, borderRadius: 24, alignItems: 'center', justifyContent: 'center' },
