@@ -1,6 +1,9 @@
 import { useMemo, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
+  Modal,
+  TextInput,
   FlatList,
   Linking,
   Pressable,
@@ -21,8 +24,20 @@ import {
   CampingTableHeader,
   CampingTableRow,
 } from '@/components/CampingGrid';
+import { CampingStayPicker } from '@/components/CampingStayPicker';
+import { useStarredRivers } from '@/hooks/useStarredRivers';
+import {
+  resolveCampingSort,
+  type CampingSort,
+  stayNights,
+  nextCampingDate,
+  type CampingStay,
+} from '@/lib/campingStay';
 import { CampingDetailSheet } from '@/components/CampingDetailSheet';
 import {
+  campingDate,
+  initialCampingNight,
+  currentNight,
   campingRiverOptions,
   observedCampingOverview,
   campingCoverageLabel,
@@ -73,31 +88,71 @@ function CampingContent() {
   const [selected, setSelected] = useState<string | null>(
     params.facility ?? null,
   );
+  const [stay, setStay] = useState<CampingStay>(() => ({
+    arrival: campingDate(),
+    departure: nextCampingDate(campingDate()),
+  }));
+  const [openOnly, setOpenOnly] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const [sortChoice, setSort] = useState<CampingSort | null>(null);
+  const [riverPicker, setRiverPicker] = useState(false);
+  const [query, setQuery] = useState('');
+  const { starred } = useStarredRivers();
   const [river, setRiver] = useState<string | null>(null);
   const [nearby, setNearby] = useState(false);
   const [directory, setDirectory] = useState(false);
   const [linkFailed, setLinkFailed] = useState(false);
   const { coords, status, request } = useLocation();
+  const sort = resolveCampingSort(sortChoice, !!coords);
   const { data, loading, error, refresh, now } = useCampingOverview();
   const rivers = useMemo(
     () => campingRiverOptions(data?.tracked ?? [], data?.untracked ?? []),
     [data],
   );
-  const rows = useMemo(
-    () =>
-      sortCamping(
-        filterCamping(data?.tracked ?? [], river, nearby, coords),
-        nearby ? coords : null,
-      ),
-    [data, river, nearby, coords],
-  );
+  const rows = useMemo(() => {
+    const slugs = new Set(
+      starred.filter((s) => s.kind === 'river').map((s) => s.slug),
+    );
+    const dates = stayNights(stay);
+    const score = (row: NonNullable<typeof data>['tracked'][number]) =>
+      Math.min(
+        ...dates.map((date) => {
+          const n =
+            data && currentNight(row, date, data.maxObservationAgeSeconds, now);
+          return n?.status === 'open' ? n.sitesOpen : 0;
+        }),
+      );
+    const filtered = filterCamping(
+      data?.tracked ?? [],
+      river,
+      nearby,
+      coords,
+    ).filter(
+      (row) =>
+        (!saved || row.riverSlugs.some((slug) => slugs.has(slug))) &&
+        (!openOnly || score(row) > 0),
+    );
+    const ordered =
+      sort === 'nearest' && coords
+        ? sortCamping(filtered, coords)
+        : [...filtered].sort((a, b) => a.name.localeCompare(b.name));
+    return sort === 'openings'
+      ? ordered.sort((a, b) => score(b) - score(a))
+      : ordered;
+  }, [data, river, nearby, coords, starred, stay, openOnly, saved, sort, now]);
   const other = useMemo(
     () =>
       sortCamping(
-        filterCamping(data?.untracked ?? [], river, nearby, coords),
+        filterCamping(data?.untracked ?? [], river, nearby, coords).filter(
+          (row) =>
+            !saved ||
+            row.riverSlugs.some((slug) =>
+              starred.some((s) => s.kind === 'river' && s.slug === slug),
+            ),
+        ),
         nearby ? coords : null,
       ),
-    [data, river, nearby, coords],
+    [data, river, nearby, coords, saved, starred],
   );
   const detail = data?.tracked.find((r) => r.facilityId === selected);
   if (!data)
@@ -114,7 +169,14 @@ function CampingContent() {
         </Text>
       </Pressable>
     );
-  const grid = observedCampingOverview(rows, data, now);
+  const observed = observedCampingOverview(rows, data, now);
+  const focusNights = observed.horizon.nights.filter(
+    (date) => date >= stay.arrival,
+  );
+  const grid = {
+    ...observed,
+    horizon: { ...observed.horizon, nights: focusNights },
+  };
   function chip(label: string, active: boolean, onPress: () => void) {
     return (
       <Pressable
@@ -143,13 +205,73 @@ function CampingContent() {
   }
   return (
     <>
+      <View style={{ paddingHorizontal: 20, paddingBottom: 8 }}>
+        <CampingStayPicker
+          stay={stay}
+          nights={data.horizon.nights}
+          onChange={setStay}
+        />
+      </View>
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        style={{ flexGrow: 0, flexShrink: 0 }}
+        contentContainerStyle={styles.filters}
+      >
+        {chip(
+          'Tonight',
+          stay.arrival === data.horizon.nights[0] &&
+            stay.departure === nextCampingDate(stay.arrival),
+          () =>
+            setStay({
+              arrival: data.horizon.nights[0],
+              departure: nextCampingDate(data.horizon.nights[0]),
+            }),
+        )}
+        {chip(
+          'This weekend',
+          stay.arrival === initialCampingNight(data) &&
+            stay.departure === nextCampingDate(initialCampingNight(data), 2),
+          () => {
+            const arrival = initialCampingNight(data);
+            setStay({ arrival, departure: nextCampingDate(arrival, 2) });
+          },
+        )}
+        {chip('Openings only', openOnly, () => setOpenOnly((v) => !v))}
+        {chip(
+          sort === 'name'
+            ? 'Sort: A–Z'
+            : sort === 'nearest'
+              ? 'Sort: Nearest'
+              : 'Sort: Most openings',
+          false,
+          () =>
+            Alert.alert('Sort campgrounds', undefined, [
+              {
+                text: 'Nearest',
+                onPress: () => {
+                  setSort('nearest');
+                  if (!coords) void request();
+                },
+              },
+              { text: 'Most openings', onPress: () => setSort('openings') },
+              { text: 'A–Z', onPress: () => setSort('name') },
+              { text: 'Cancel', style: 'cancel' },
+            ]),
+        )}
+      </ScrollView>
       <ScrollView
         horizontal
         style={{ flexGrow: 0, flexShrink: 0, height: 56 }}
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={styles.filters}
       >
-        {chip('All rivers', river === null, () => setRiver(null))}
+        {chip(
+          rivers.find((r) => r.slug === river)?.label ?? 'All rivers',
+          river !== null,
+          () => setRiverPicker(true),
+        )}
+        {chip('Saved Rivers', saved, () => setSaved((v) => !v))}
         {chip(status === 'locating' ? 'Locating…' : 'Nearby', nearby, () => {
           if (nearby) setNearby(false);
           else {
@@ -157,11 +279,92 @@ function CampingContent() {
             if (!coords) void request();
           }
         })}
-        {rivers.map(({ slug, label }) =>
-          chip(label, river === slug, () => setRiver(slug)),
-        )}
       </ScrollView>
-      {nearby && !coords && status !== 'locating' ? (
+      <Modal
+        visible={riverPicker}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => setRiverPicker(false)}
+      >
+        <SafeAreaView
+          style={{ flex: 1, backgroundColor: colors.bg, padding: 20 }}
+        >
+          <View
+            style={{
+              flexDirection: 'row',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+            }}
+          >
+            <Text style={[textStyles.sectionTitle, { color: colors.text }]}>
+              Rivers
+            </Text>
+            <Pressable
+              accessibilityRole="button"
+              style={styles.action}
+              onPress={() => setRiverPicker(false)}
+            >
+              <Text style={{ color: colors.interactive }}>Done</Text>
+            </Pressable>
+          </View>
+          <TextInput
+            accessibilityLabel="Search rivers"
+            placeholder="Search rivers"
+            placeholderTextColor={colors.textMuted}
+            value={query}
+            onChangeText={setQuery}
+            style={{
+              minHeight: 48,
+              color: colors.text,
+              borderBottomWidth: 1,
+              borderColor: colors.border,
+            }}
+          />
+          <FlatList
+            data={[
+              { slug: '', label: 'All rivers' },
+              ...rivers.filter((r) =>
+                r.label.toLowerCase().includes(query.toLowerCase()),
+              ),
+            ]}
+            keyExtractor={(r) => r.slug}
+            renderItem={({ item }) => (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityState={{ selected: (river ?? '') === item.slug }}
+                style={styles.action}
+                onPress={() => {
+                  setRiver(item.slug || null);
+                  setRiverPicker(false);
+                }}
+              >
+                <Text
+                  style={{
+                    color:
+                      (river ?? '') === item.slug
+                        ? colors.interactive
+                        : colors.text,
+                  }}
+                >
+                  {item.label}
+                </Text>
+              </Pressable>
+            )}
+          />
+        </SafeAreaView>
+      </Modal>
+      {openOnly && stayNights(stay).length > 1 ? (
+        <Text
+          style={{
+            paddingHorizontal: 20,
+            paddingBottom: 8,
+            color: colors.textMuted,
+          }}
+        >
+          Openings each night · confirm a site for the whole stay
+        </Text>
+      ) : null}
+      {(nearby || sort === 'nearest') && !coords && status !== 'locating' ? (
         <View style={styles.notice}>
           <Text style={{ color: colors.textMuted }}>
             {status === 'denied'
@@ -187,6 +390,7 @@ function CampingContent() {
               style={styles.action}
               onPress={() => {
                 setNearby(false);
+                setSort('name');
                 setRiver(null);
               }}
             >
@@ -225,7 +429,7 @@ function CampingContent() {
         </Pressable>
       ) : null}
       <CampingScrollGroup
-        key={`${river}:${nearby}:${grid.horizon.endDateExclusive}`}
+        key={`${river}:${nearby}:${stay.arrival}:${grid.horizon.endDateExclusive}`}
       >
         <FlatList
           data={rows}
@@ -347,6 +551,7 @@ function CampingContent() {
       {detail ? (
         <CampingDetailSheet
           key={detail.facilityId}
+          initialStay={stay}
           row={detail}
           overview={data}
           now={now}

@@ -173,3 +173,41 @@ Fresh stored dates still end October 11. Manual backfill must account for the
 same-day facility cursor: repeating today's job without re-queuing the facilities
 would skip them. The authenticated Vercel cron trigger is required; no provider
 observations have been fabricated or copied into later dates.
+
+### Site-focused campground details
+
+The campground sheet now opens with a compact arrival/departure control and a
+virtualized list of individual sites. The month calendar is available under the
+stay control, rather than occupying the top of every campground. Exact-site
+photos use the existing provider media path in a larger landscape treatment;
+missing images leave a text card, without substituting a park photo for a site.
+
+Every occupied month is fetched from the cached sites API. Departure is excluded.
+Only the same site observed open on **every** occupied night gets “Available for
+your stay”. Missing, expired, future-dated or absent-month observations never
+qualify. Sites observed first-come on every occupied night stay visible in a
+“First-come sites · No reservations” group; this does not promise a vacant site.
+Unknown sites and known unavailable sites have separate collapsed controls. Each card has the existing green/red
+night marks and a site reservation link, or explicitly “Park reservations” when
+only a park booking URL exists. Links do not imply that dates were prefilled.
+
+The full comparison page adds Tonight/This weekend/custom stay dates, Saved
+Rivers, a searchable river selector, Openings only, and Nearest/Most openings/A–Z
+sorting. Most openings uses the minimum observed openings across occupied nights;
+the comparison filter does not promise a single site spans the stay. Dates carry
+into the site sheet, where the exact-site check occurs. The comparison begins at
+the selected arrival and retains horizontal scrolling through observed coverage.
+
+Native QA still needs to cover large text, photo gallery dismissal, VoiceOver,
+cross-month date selection, location denial, and a large site's scrolling list.
+This UI change does not run the outstanding provider backfill or extend measured
+availability on its own.
+
+Nearest is the default when location is available, with A–Z otherwise. An explicit
+sort selection is preserved when location changes. Stays over 14 nights show one
+“Check campground stay limits” note; 14 is a disclosure threshold, not a verified
+universal booking limit. Individual night strips retain horizontal scrolling.
+
+Freshness follow-up: add per-night check timestamps to the site-list contract and
+judge only occupied dates. Until then the response's oldest monthly timestamp is
+used conservatively, so one expired observation can make that month unknown.

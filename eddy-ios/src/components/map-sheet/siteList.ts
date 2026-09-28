@@ -108,6 +108,13 @@ function typeTags(site: { name: string | null; siteType: string | null }): strin
   return tags;
 }
 
+/** Shared display tags for compact rows and photo-led site cards. */
+export function campsiteTags(site: CampsiteSite): string[] {
+  const tags = typeTags(site);
+  if (site.maxOccupancy && site.maxOccupancy > 0) tags.push(`Sleeps ${site.maxOccupancy}`);
+  return tags;
+}
+
 /** Every site resolved to one night, with its display tags. */
 export function sitesOnNight(
   sites: CampsiteSite[],
@@ -118,8 +125,7 @@ export function sitesOnNight(
   if (index < 0) return [];
 
   return sites.map((site) => {
-    const tags = typeTags(site);
-    if (site.maxOccupancy && site.maxOccupancy > 0) tags.push(`Sleeps ${site.maxOccupancy}`);
+    const tags = campsiteTags(site);
 
     return {
       site,
