@@ -11,11 +11,7 @@ import type { Coords } from '@eddy/geo';
 import { useAppConfig } from '@/hooks/useAppConfig';
 import { useCampingOverview } from '@/hooks/useCampingOverview';
 import { useCampingRanking } from '@/hooks/useCampingRanking';
-import {
-  CampingLegend,
-  CampingTableHeader,
-  CampingTableRow,
-} from './CampingGrid';
+import { CampingTableHeader, CampingTableRow } from './CampingGrid';
 import { CampingDetailSheet } from './CampingDetailSheet';
 import { campingFreshness, todayCampgrounds } from '@/lib/campingHeatmap';
 import { useTheme } from '@/theme/ThemeProvider';
@@ -39,14 +35,17 @@ function CampingCard({ coords, saved, revision }: Props) {
   );
   const rankingCoords = useCampingRanking(coords, revision);
   const [selected, setSelected] = useState<string | null>(null);
-  const rows = useMemo(
-    () =>
-      todayCampgrounds(data?.tracked ?? [], rankingCoords, saved).rows.slice(
-        0,
-        4,
-      ),
+  const selection = useMemo(
+    () => todayCampgrounds(data?.tracked ?? [], rankingCoords, saved),
     [data, rankingCoords, saved],
   );
+  const rows = selection.rows.slice(0, 4);
+  const scope =
+    selection.title === 'Camping near you'
+      ? 'Nearby'
+      : selection.title === 'Camping on saved rivers'
+        ? 'Saved Rivers'
+        : 'Across the Ozarks';
   const detail = data?.tracked.find((r) => r.facilityId === selected);
   return (
     <View
@@ -63,6 +62,9 @@ function CampingCard({ coords, saved, revision }: Props) {
           Next 14 nights
         </Text>
       </View>
+      <Text style={[textStyles.caption, { color: colors.textMuted }]}>
+        {scope}
+      </Text>
       {data ? (
         <>
           <CampingTableHeader overview={data} now={now} />
@@ -80,10 +82,9 @@ function CampingCard({ coords, saved, revision }: Props) {
               No camping availability yet.
             </Text>
           ) : null}
-          <CampingLegend />
           {rows.length ? (
             <Text style={[textStyles.caption, { color: colors.textSubtle }]}>
-              {campingFreshness(rows, data, now)}
+              {campingFreshness(rows, data, now)} · Reservable sites only
             </Text>
           ) : null}
         </>

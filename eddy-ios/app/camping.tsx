@@ -16,13 +16,10 @@ import { fonts, textStyles } from '@/theme/typography';
 import { useAppConfig } from '@/hooks/useAppConfig';
 import { useCampingOverview } from '@/hooks/useCampingOverview';
 import { useLocation } from '@/hooks/useLocation';
-import {
-  CampingLegend,
-  CampingTableHeader,
-  CampingTableRow,
-} from '@/components/CampingGrid';
+import { CampingTableHeader, CampingTableRow } from '@/components/CampingGrid';
 import { CampingDetailSheet } from '@/components/CampingDetailSheet';
 import {
+  campingRiverOptions,
   campingFreshness,
   filterCamping,
   safeExternalUrl,
@@ -77,14 +74,7 @@ function CampingContent() {
   const { coords, status, request } = useLocation();
   const { data, loading, error, refresh, now } = useCampingOverview();
   const rivers = useMemo(
-    () =>
-      [
-        ...new Set(
-          [...(data?.tracked ?? []), ...(data?.untracked ?? [])].flatMap(
-            (r) => r.riverSlugs,
-          ),
-        ),
-      ].sort(),
+    () => campingRiverOptions(data?.tracked ?? [], data?.untracked ?? []),
     [data],
   );
   const rows = useMemo(
@@ -160,30 +150,59 @@ function CampingContent() {
             if (!coords) void request();
           }
         })}
-        {rivers.map((slug) =>
-          chip(
-            slug
-              .split('-')
-              .map((s) => s[0].toUpperCase() + s.slice(1))
-              .join(' '),
-            river === slug,
-            () => setRiver(slug),
-          ),
+        {rivers.map(({ slug, label }) =>
+          chip(label, river === slug, () => setRiver(slug)),
         )}
       </ScrollView>
       {nearby && !coords && status !== 'locating' ? (
-        <Text style={[styles.notice, { color: colors.textMuted }]}>
-          Location unavailable. Choose All locations to browse.
-        </Text>
-      ) : null}
-      {nearby ? (
+        <View style={styles.notice}>
+          <Text style={{ color: colors.textMuted }}>
+            {status === 'denied'
+              ? 'Location access is off.'
+              : 'Couldn’t find your location.'}
+          </Text>
+          <View style={{ flexDirection: 'row', gap: 20 }}>
+            <Pressable
+              accessibilityRole="button"
+              style={styles.action}
+              onPress={() => {
+                if (status === 'denied')
+                  void Linking.openSettings().catch(() => setLinkFailed(true));
+                else void request();
+              }}
+            >
+              <Text style={{ color: colors.interactive }}>
+                {status === 'denied' ? 'Open Settings' : 'Retry'}
+              </Text>
+            </Pressable>
+            <Pressable
+              accessibilityRole="button"
+              style={styles.action}
+              onPress={() => {
+                setNearby(false);
+                setRiver(null);
+              }}
+            >
+              <Text style={{ color: colors.interactive }}>Show all</Text>
+            </Pressable>
+          </View>
+          {linkFailed ? (
+            <Text style={{ color: colors.error }}>
+              Couldn’t open Settings. Enable location in your device settings.
+            </Text>
+          ) : null}
+        </View>
+      ) : nearby && coords ? (
         <Pressable
-          onPress={() => setNearby(false)}
+          onPress={() => {
+            setNearby(false);
+            setRiver(null);
+          }}
           accessibilityRole="button"
           style={styles.notice}
         >
           <Text style={{ color: colors.interactive }}>
-            Within 120 miles · All locations
+            Within 120 miles · Show all
           </Text>
         </Pressable>
       ) : null}
@@ -233,10 +252,9 @@ function CampingContent() {
         }
         ListFooterComponent={
           <View>
-            <CampingLegend />
             {rows.length ? (
               <Text style={[textStyles.caption, { color: colors.textSubtle }]}>
-                {campingFreshness(rows, data, now)}
+                {campingFreshness(rows, data, now)} · Reservable sites only
               </Text>
             ) : null}
             {other.length ? (

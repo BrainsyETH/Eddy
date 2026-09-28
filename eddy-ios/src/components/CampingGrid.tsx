@@ -1,5 +1,6 @@
+import Svg, { Circle, Path, Rect } from 'react-native-svg';
+import { support } from '@/theme/palette';
 import {
-  Alert,
   Pressable,
   StyleSheet,
   Text,
@@ -13,14 +14,18 @@ import {
   campingRowNeedsUpdate,
   cellMark,
   currentNight,
-  weekendLine,
+  dateLabel,
+  nightLine,
   type HeatMark,
 } from '@/lib/campingHeatmap';
 
 function Mark({ mark }: { mark: HeatMark }) {
-  const { colors } = useTheme();
+  const { colors, isDark } = useTheme();
   // Match NightStrip: green openings, red booked-out outlines, neutral other states.
-  const fillOpacity = mark === 'open-1' ? 0.45 : mark === 'open-2' ? 0.7 : 1;
+  const greens = isDark
+    ? [support[500], support[300], support[100]]
+    : [support[300], support[500], support[700]];
+  const fill = greens[mark === 'open-1' ? 0 : mark === 'open-2' ? 1 : 2];
   return (
     <View
       style={[
@@ -28,23 +33,54 @@ function Mark({ mark }: { mark: HeatMark }) {
         { borderColor: colors.textSubtle },
         mark.startsWith('open')
           ? {
-              backgroundColor: colors.success,
-              opacity: fillOpacity,
+              backgroundColor: fill,
               borderWidth: 0,
             }
           : mark === 'full'
-            ? { borderWidth: 2, borderColor: colors.error }
+            ? { borderWidth: 1, borderColor: colors.error }
             : {},
       ]}
     >
-      {mark === 'closed' ? (
+      {mark === 'full' ? (
+        <Svg width="100%" height={12} viewBox="0 0 16 16">
+          <Path
+            d="M5 7V5a3 3 0 0 1 6 0v2"
+            fill="none"
+            stroke={colors.error}
+            strokeWidth={1.5}
+          />
+          <Rect
+            x={3}
+            y={7}
+            width={10}
+            height={7}
+            rx={1.5}
+            fill="none"
+            stroke={colors.error}
+            strokeWidth={1.5}
+          />
+        </Svg>
+      ) : null}
+      {mark === 'closed' || mark === 'no-reservable' ? (
         <View style={[styles.dash, { backgroundColor: colors.textMuted }]} />
       ) : null}
       {mark === 'nyr' ? (
-        <Text style={[styles.symbol, { color: colors.textMuted }]}>···</Text>
-      ) : null}
-      {mark === 'no-reservable' ? (
-        <Text style={[styles.symbol, { color: colors.textMuted }]}>/</Text>
+        <Svg width="100%" height={12} viewBox="0 0 16 16">
+          <Circle
+            cx={8}
+            cy={8}
+            r={6}
+            fill="none"
+            stroke={colors.textMuted}
+            strokeWidth={1.5}
+          />
+          <Path
+            d="M8 4v4l3 2"
+            fill="none"
+            stroke={colors.textMuted}
+            strokeWidth={1.5}
+          />
+        </Svg>
       ) : null}
       {mark === 'unknown' ? (
         <Text style={[styles.symbol, { color: colors.textSubtle }]}>?</Text>
@@ -189,7 +225,7 @@ export function CampingTableRow({
     <Pressable
       onPress={onPress}
       accessibilityRole="button"
-      accessibilityLabel={`${row.name}. ${weekendLine(row, overview, now)}${stale ? '. Needs an update' : ''}`}
+      accessibilityLabel={`${row.name}. ${overview.horizon.nights.map((date) => `${dateLabel(date)}: ${nightLine(currentNight(row, date, overview.maxObservationAgeSeconds, now))}`).join('. ')}${stale ? '. Needs an update' : ''}`}
       style={[table.row, table.item, { borderColor: colors.border }]}
     >
       <View style={table.name}>
@@ -209,71 +245,6 @@ export function CampingTableRow({
         <CampingGrid row={row} overview={overview} now={now} />
       </View>
     </Pressable>
-  );
-}
-export function CampingLegend() {
-  const { colors } = useTheme();
-  return (
-    <View style={styles.legend}>
-      <Text style={[styles.label, { color: colors.textMuted }]}>Open</Text>
-      {(
-        [
-          ['open-1', '1–2'],
-          ['open-2', '3–9'],
-          ['open-3', '10+'],
-          ['full', 'Full'],
-        ] as const
-      ).map(([mark, label]) => (
-        <View key={mark} style={styles.legendItem}>
-          <View style={{ width: 12 }}>
-            <Mark mark={mark} />
-          </View>
-          <Text style={[styles.label, { color: colors.textMuted }]}>
-            {label}
-          </Text>
-        </View>
-      ))}
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel="About camping availability"
-        hitSlop={4}
-        style={{
-          minHeight: 44,
-          minWidth: 44,
-          alignItems: 'center',
-          justifyContent: 'center',
-        }}
-        onPress={() =>
-          Alert.alert(
-            'Camping availability',
-            `Green: reservable sites open. Red outline: fully booked.
-
-— Closed
-··· Not yet released
-/ No reservable sites
-? Not checked
-
-Highlighted dates are Friday and Saturday. Counts are per night, not a guarantee of the same site for a whole stay. First-come sites are not included.`,
-          )
-        }
-      >
-        <Text
-          style={{
-            color: colors.interactive,
-            borderColor: colors.interactive,
-            borderWidth: 1,
-            borderRadius: 9,
-            width: 18,
-            height: 18,
-            textAlign: 'center',
-            fontFamily: fonts.semibold,
-            fontSize: 12,
-          }}
-        >
-          i
-        </Text>
-      </Pressable>
-    </View>
   );
 }
 const table = StyleSheet.create({
@@ -305,12 +276,4 @@ const styles = StyleSheet.create({
   dash: { height: 2, width: '75%' },
   symbol: { fontSize: 12, fontFamily: fonts.mono },
   date: { fontSize: 10, fontFamily: fonts.mono },
-  legend: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-    alignItems: 'center',
-  },
-  legendItem: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  label: { fontSize: 11, fontFamily: fonts.body, flexShrink: 1 },
 });

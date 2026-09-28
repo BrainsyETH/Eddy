@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import {
   Linking,
   Modal,
@@ -14,6 +14,7 @@ import type { CampingOverview, TrackedCampground } from '@eddy/types';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, textStyles } from '@/theme/typography';
 import {
+  initialCampingNight,
   currentNight,
   dateLabel,
   nightLine,
@@ -35,11 +36,13 @@ export function CampingDetailSheet({
 }) {
   const { colors } = useTheme();
   const router = useRouter();
-  const [selected, setSelected] = useState(overview.horizon.startDate);
+  const [selected, setSelected] = useState(() => initialCampingNight(overview));
+  const picker = useRef<ScrollView>(null);
+  const initialX = useRef(0);
   const [failed, setFailed] = useState(false);
   const date = overview.horizon.nights.includes(selected)
     ? selected
-    : overview.horizon.startDate;
+    : initialCampingNight(overview);
   const night = currentNight(row, date, overview.maxObservationAgeSeconds, now);
   const booking = safeExternalUrl(row.booking?.url);
   const website = safeExternalUrl(row.website);
@@ -86,12 +89,23 @@ export function CampingDetailSheet({
           ) : null}
           <ScrollView
             horizontal
+            ref={picker}
+            onContentSizeChange={() =>
+              picker.current?.scrollTo({ x: initialX.current, animated: false })
+            }
             showsHorizontalScrollIndicator={false}
             contentContainerStyle={styles.nights}
           >
             {overview.horizon.nights.map((d) => (
               <Pressable
                 key={d}
+                onLayout={(event) => {
+                  if (d === initialCampingNight(overview))
+                    initialX.current = Math.max(
+                      0,
+                      event.nativeEvent.layout.x - 12,
+                    );
+                }}
                 accessibilityRole="button"
                 accessibilityState={{ selected: date === d }}
                 accessibilityLabel={`${dateLabel(d)}. ${nightLine(currentNight(row, d, overview.maxObservationAgeSeconds, now))}`}
@@ -121,7 +135,7 @@ export function CampingDetailSheet({
             {nightLine(night)}
           </Text>
           <Text style={[textStyles.caption, { color: colors.textMuted }]}>
-            {checkedLabel(night?.checkedAt ?? null)}
+            {checkedLabel(night?.checkedAt ?? null, now)}
           </Text>
           {row.firstCome === 'present' ? (
             <Text style={[textStyles.caption, { color: colors.textMuted }]}>
@@ -136,7 +150,7 @@ export function CampingDetailSheet({
             >
               <Text
                 style={{
-                  color: colors.card,
+                  color: colors.onInteractive,
                   fontFamily: fonts.semibold,
                   fontSize: 16,
                 }}

@@ -194,15 +194,12 @@ import {
 test('compact freshness only summarizes visible current observations', () => {
   const a = row();
   a.nights = [night(2)];
-  assert.equal(campingFreshness([a], overview, now), 'Checked today');
+  assert.equal(campingFreshness([a], overview, now), 'Updated at 4:00 AM');
   assert.equal(campingRowNeedsUpdate(a, overview, now), false);
   const b = row('b');
   b.nights = [{ ...night(0), checkedAt: '2026-09-27T12:00:00Z' }];
-  assert.equal(campingFreshness([a, b], overview, now), 'Check times vary');
-  assert.equal(
-    campingFreshness([a], overview, now + 259200000),
-    'Needs an update',
-  );
+  assert.equal(campingFreshness([a, b], overview, now), 'Updated on Sep 27');
+  assert.equal(campingFreshness([a], overview, now + 259200000), 'Not updated');
   assert.equal(campingRowNeedsUpdate(a, overview, now + 259200000), true);
   assert.equal(campingRowNeedsUpdate(row('missing'), overview, now), true);
 });
@@ -220,4 +217,56 @@ test('river and nearby filters intersect and do not invent a location', () => {
   assert.equal(filterCamping(all, null, false, null).length, 3);
   assert.equal(filterCamping(all, null, true, null).length, 0);
   assert.equal(filterCamping(all, 'missing', false, null).length, 0);
+});
+
+import {
+  initialCampingNight,
+  campingRiverOptions,
+  checkedLabel,
+} from '../../../eddy-ios/src/lib/campingHeatmap';
+test('planning opens on the first weekend night within the horizon', () => {
+  assert.equal(initialCampingNight(overview), overview.weekend.nights[0]);
+  const saturday = {
+    ...overview,
+    horizon: {
+      ...overview.horizon,
+      startDate: overview.weekend.nights[1],
+      nights: overview.horizon.nights.filter(
+        (d) => d >= overview.weekend.nights[1],
+      ),
+    },
+  };
+  assert.equal(initialCampingNight(saturday), overview.weekend.nights[1]);
+  assert.equal(
+    initialCampingNight({
+      ...overview,
+      weekend: { ...overview.weekend, nights: [] },
+    }),
+    overview.horizon.startDate,
+  );
+});
+test('updates use Chicago time and the oldest current observation', () => {
+  assert.equal(checkedLabel('2026-09-28T04:59:00Z', now), 'Updated on Sep 27');
+  assert.equal(checkedLabel(null, now), 'Not updated');
+  const a = row();
+  a.nights = [
+    night(3),
+    { ...night(3), date: '2026-09-29', checkedAt: '2026-09-28T10:00:00Z' },
+  ];
+  assert.equal(campingFreshness([a], overview, now), 'Updated at 4:00 AM');
+});
+test('river filters retain curated names and exclude untracked-only rivers', () => {
+  const a = row();
+  a.displayGroup.label = 'Current River';
+  const b = row('untracked');
+  b.riverSlugs = ['jacks-fork'];
+  b.displayGroup = { key: 'jacks-fork', label: 'Jacks Fork River' };
+  assert.deepEqual(campingRiverOptions([a], [b]), [
+    { slug: 'current', label: 'Current River' },
+  ]);
+  a.riverSlugs.push('jacks-fork');
+  assert.deepEqual(campingRiverOptions([a], [b]), [
+    { slug: 'current', label: 'Current River' },
+    { slug: 'jacks-fork', label: 'Jacks Fork River' },
+  ]);
 });
