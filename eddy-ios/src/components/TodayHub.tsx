@@ -22,7 +22,6 @@ import { Image as CachedImage } from 'expo-image';
 import { compareReadRivers, selectReadRail, readRailState } from '@/lib/readRail';
 import { useFocusEffect, useRouter } from 'expo-router';
 import type {
-  DamSnapshot,
   FavoriteFloatSummary,
   HighWaterEntry,
   MapGauge,
@@ -36,13 +35,9 @@ import {
 } from '@/api/client';
 import { BlurredReadPreview, EddyReadCard, EddyReadPlaceholder } from '@/components/EddyReadCard';
 import { useAccount } from '@/hooks/useAccount';
-import { useDams } from '@/hooks/useDams';
 import { useTodaySnooze } from '@/hooks/useTodaySnooze';
 import { onForeground } from '@/lib/foreground';
 import { seedLocationForecast } from '@/lib/locationForecast';
-import { generationNow, generationStatusLabel } from '@eddy/conditions/dam-generation';
-import { relativeAge } from '@eddy/conditions/dam-schedule-copy';
-import { EddySymbol } from '@/components/EddySymbol';
 import { TodayRiverPhoto } from '@/components/TodayRiverPhoto';
 import { PremiumReadPreview } from '@/components/PremiumReadPreview';
 import { PaywallSheet } from '@/components/PaywallSheet';
@@ -52,11 +47,11 @@ import { Otter, otterForCondition } from '@/components/Otter';
 import { TodaySummary, TodayWeather } from '@/components/TodaySummary';
 import { useSession } from '@/hooks/useSession';
 import { type LocationStatus } from '@/hooks/useLocation';
-import { useStarredRivers, type StarredItem } from '@/hooks/useStarredRivers';
+import { useStarredRivers } from '@/hooks/useStarredRivers';
 import { readFavoriteFloats, writeFavoriteFloats } from '@/lib/favoriteFloatCache';
 import { favoriteFloatMeta } from '@/lib/favoriteFloatCopy';
 import { formatReading, primaryReading, readingAge } from '@/lib/readingCopy';
-import { dailyFavoriteFloats, dailyHighlightedFavorite } from '@/lib/todayFloats';
+import { dailyFavoriteFloats } from '@/lib/todayFloats';
 import {
   chooseTodayRecommendations,
   TODAY_RADIUS_MILES,
@@ -272,84 +267,6 @@ function CompactRiverRow({ river, onPress }: { river: RiverListItem; onPress: ()
   );
 }
 
-function favoriteDetail(
-  item: StarredItem,
-  river: RiverListItem | null,
-  gauge: MapGauge | null,
-  dam: DamSnapshot | null,
-  now: number,
-): string {
-  const reading = river?.currentCondition ? primaryReading(river.currentCondition) : null;
-  if (reading) {
-    return [formatReading(reading.value, reading.unit), readingAge(river?.currentCondition?.readingAgeHours)]
-        .filter(Boolean)
-        .join(' · ');
-  }
-  if (gauge) {
-    const value = gauge.gaugeHeightFt != null
-      ? formatReading(gauge.gaugeHeightFt, 'ft')
-      : gauge.dischargeCfs != null
-        ? formatReading(gauge.dischargeCfs, 'cfs')
-        : null;
-    return [value, readingAge(gauge.readingAgeHours)].filter(Boolean).join(' · ') || 'No fresh reading';
-  }
-  if (dam) {
-    const state = generationNow(dam, now);
-    if (state.kind !== 'unavailable') {
-      const amount = state.kind === 'generating' ? `${Math.round(state.turbineCfs).toLocaleString()} cfs` : null;
-      return [generationStatusLabel(state), amount, relativeAge(state.observedAt, now)].filter(Boolean).join(' · ');
-    }
-    const release = dam.metrics.release;
-    return release ? `Release ${Math.round(release.value).toLocaleString()} cfs · ${relativeAge(release.at, now)}` : 'Generation data unavailable';
-  }
-  return item.kind === 'river'
-    ? 'Conditions unavailable'
-    : item.kind === 'gauge'
-      ? 'No fresh reading'
-      : 'Generation data unavailable';
-}
-
-function SafetyRow({
-  kicker,
-  title,
-  meta,
-  icon,
-  ink,
-  surface,
-  onPress,
-}: {
-  kicker: string;
-  title: string;
-  meta: string;
-  icon: React.ComponentProps<typeof Ionicons>['name'];
-  ink: string;
-  surface: string;
-  onPress: () => void;
-}) {
-  const { colors } = useTheme();
-  return (
-    <Pressable
-      onPress={onPress}
-      style={({ pressed }) => [
-        styles.safetyRow,
-        { backgroundColor: surface, borderColor: ink, opacity: pressed ? 0.72 : 1 },
-      ]}
-      accessibilityRole="button"
-      accessibilityLabel={`${title}. ${meta}`}
-    >
-      <View style={[styles.safetyIcon, { backgroundColor: colors.card }]}>
-        <Ionicons name={icon} size={19} color={ink} />
-      </View>
-      <View style={styles.flex}>
-        <Text style={[styles.safetyKicker, { color: ink }]}>{kicker}</Text>
-        <Text style={[styles.safetyRowTitle, { color: colors.text }]} numberOfLines={2}>{title}</Text>
-        <Text style={[styles.safetyRowMeta, { color: colors.textMuted }]} numberOfLines={1}>{meta}</Text>
-      </View>
-      <Ionicons name="chevron-forward" size={17} color={ink} />
-    </Pressable>
-  );
-}
-
 function FloatPreviewCard({
   item,
   onPlan,
@@ -384,79 +301,6 @@ function FloatPreviewCard({
           <Ionicons name="map-outline" size={17} color={colors.onAccent} />
           <Text style={[styles.floatPlanText, { color: colors.onAccent }]}>Plan this float</Text>
         </Pressable>
-      </View>
-    </View>
-  );
-}
-
-function FavoritePreviewCard({
-  item,
-  river,
-  gauge,
-  dam,
-  now,
-  onOpen,
-  onPlan,
-  standalone = false,
-}: {
-  item: StarredItem;
-  river: RiverListItem | null;
-  gauge: MapGauge | null;
-  dam: DamSnapshot | null;
-  now: number;
-  onOpen: () => void;
-  onPlan: (() => void) | null;
-  standalone?: boolean;
-}) {
-  const { colors, elevation } = useTheme();
-  const code = river?.currentCondition?.code ?? 'unknown';
-  return (
-    <View
-      style={[
-        styles.favoritePreview,
-        standalone ? styles.favoriteStandalone : null,
-        {
-          backgroundColor: river ? conditionBg(code) : colors.selectionBg,
-          borderColor: river ? conditionChipBorder(code) : colors.border,
-        },
-        elevation(1),
-      ]}
-    >
-      <View style={styles.favoriteHeroTop}>
-        <View style={styles.heroCopy}>
-          <Text style={[styles.eyebrow, { color: colors.accent }]}>FAVORITE</Text>
-          <Text style={[styles.favoritePreviewName, { color: colors.text }]} >{item.name}</Text>
-          <Text style={[styles.heroMeta, { color: colors.textMuted }]} numberOfLines={item.kind === 'dam' ? undefined : 2}>
-            {favoriteDetail(item, river, gauge, dam, now)}
-          </Text>
-          {river ? <View style={styles.heroPill}><ConditionPill river={river} /></View> : null}
-        </View>
-        {river ? (
-          <Otter mood={otterForCondition(code)} size={78} style={styles.favoritePreviewOtter} />
-        ) : item.kind === 'dam' ? (
-          <EddySymbol name="dam" size={74} />
-        ) : (
-          <EddyScene name="heart" size={74} style={styles.favoritePreviewOtter} />
-        )}
-      </View>
-      <View style={styles.actions}>
-        <Pressable
-          onPress={onOpen}
-          style={({ pressed }) => [styles.secondaryButton, styles.flexButton, { backgroundColor: colors.card, borderColor: colors.border, opacity: pressed ? 0.65 : 1, transform: [{ scale: pressed ? 0.98 : 1 }] }]}
-          accessibilityRole="button"
-        >
-          <Text style={[styles.secondaryButtonText, { color: colors.interactive }]}>View details</Text>
-        </Pressable>
-        {onPlan ? (
-          <Pressable
-            onPress={onPlan}
-            style={({ pressed }) => [styles.primaryButton, { backgroundColor: pressed ? colors.accentFillPressed : colors.accentFill, transform: [{ scale: pressed ? 0.98 : 1 }] }]}
-            accessibilityRole="button"
-          >
-            <Ionicons name="map-outline" size={17} color={colors.onAccent} />
-            <Text style={[styles.primaryButtonText, { color: colors.onAccent }]}>Plan</Text>
-          </Pressable>
-        ) : null}
       </View>
     </View>
   );
@@ -614,13 +458,7 @@ export function TodayHub({
     if (focusedOnce.current) void refreshAccount();
     focusedOnce.current = true;
   }, [refreshAccount]));
-  const dams = useDams(starred.some((item) => item.kind === 'dam'));
-  const [now, setNow] = useState(Date.now);
-  useEffect(() => {
-    const timer = setInterval(() => setNow(Date.now()), 60_000);
-    const off = onForeground(() => { setNow(Date.now()); void refreshAccount(); });
-    return () => { clearInterval(timer); off(); };
-  }, [refreshAccount]);
+  useEffect(() => onForeground(() => { void refreshAccount(); }), [refreshAccount]);
   const openRead = (slug: string) => router.push({ pathname: '/river/[slug]', params: { slug, focus: 'read' } });
   const snoozeAll = () => Alert.alert('Snooze Today alerts', 'Hide all Today alerts until the snooze ends. You can still view them in Alerts.', [
     { text: '1 hour', onPress: () => snooze('hour') },
@@ -744,18 +582,6 @@ export function TodayHub({
     () => new Set(starred.filter((item) => item.kind === 'river').map((item) => item.entityId)),
     [starred],
   );
-  const highlightedFavorite = useMemo(() => dailyHighlightedFavorite(starred), [starred]);
-  const favoritePreviews = useMemo(() => {
-    if (!highlightedFavorite) return [];
-    return [
-      highlightedFavorite,
-      ...starred.filter(
-        (item) =>
-          item.kind !== highlightedFavorite.kind ||
-          item.entityId !== highlightedFavorite.entityId,
-      ),
-    ].slice(0, 4);
-  }, [highlightedFavorite, starred]);
   const recommendations = useMemo(
     () => incumbentState.ready ? chooseTodayRecommendations({
       rivers,
@@ -775,20 +601,6 @@ export function TodayHub({
     void writeRecommendation(next).then(() => setIncumbentState({ ready: true, riverId: next }));
   }, [incumbentState, recommendation]);
 
-  const riverById = useMemo(() => new Map(rivers.map((river) => [river.id, river])), [rivers]);
-  const gaugeByFavoriteId = useMemo(() => {
-    const index = new Map<string, MapGauge>();
-    (gauges ?? []).forEach((gauge) => {
-      index.set(gauge.id, gauge);
-      if (gauge.usgsSiteId) index.set(gauge.usgsSiteId, gauge);
-    });
-    return index;
-  }, [gauges]);
-  const openFavorite = useCallback((item: StarredItem) => {
-    if (item.kind === 'river' && item.slug) router.push(`/river/${item.slug}`);
-    else if (item.kind === 'gauge' && item.usgsSiteId) router.push(`/gauge/${item.usgsSiteId}`);
-    else if (item.kind === 'dam') router.push(`/dam/${item.entityId}`);
-  }, [router]);
   const openPlan = useCallback((riverSlug: string, putInId?: string, takeOutId?: string) => {
     router.push({
       pathname: '/',
@@ -838,11 +650,8 @@ export function TodayHub({
   );
   const reservedReadIds = useMemo(() => {
     const reserved = new Set(recommendations.map((item) => item.river.id));
-    favoritePreviews.forEach((item) => {
-      if (item.kind === 'river') reserved.add(item.entityId);
-    });
     return reserved;
-  }, [recommendations, favoritePreviews]);
+  }, [recommendations]);
   // Ranked exactly as the validated Reads will be (minus prose age, which is
   // unknown until they land), so early Premium cards and photo prefetches
   // name the rivers the settled rail shows.
@@ -882,12 +691,9 @@ export function TodayHub({
   }, [readPhotoKey, refreshRevision]);
   const previewReservedIds = useMemo(() => {
     const ids = new Set(readPreviews.map(({ river }) => river.id));
-    favoritePreviews.forEach((item) => {
-      if (item.kind === 'river') ids.add(item.entityId);
-    });
     recommendations.forEach((item) => ids.add(item.river.id));
     return ids;
-  }, [favoritePreviews, readPreviews, recommendations]);
+  }, [readPreviews, recommendations]);
   const conditionPreviews = useMemo(() => [...rivers]
     .filter((river) => !previewReservedIds.has(river.id))
     .sort((a, b) => {
@@ -933,36 +739,6 @@ export function TodayHub({
         </View>
       ) : null}
 
-      {snoozeReady && !snoozed && safetyCount > 0 ? (
-        <View style={styles.safetySection}>
-          <Pressable onPress={snoozeAll} accessibilityRole="button" style={{ minHeight: 44, alignSelf: 'flex-end', justifyContent: 'center' }}><Text style={{ color: colors.interactive }}>Snooze alerts</Text></Pressable>
-          <View style={styles.safetyRows}>
-            {!snoozed && topNotice ? (
-              <SafetyRow
-                kicker="BEFORE YOU LAUNCH"
-                title={topNotice.title}
-                meta={`${topNotice.source.toUpperCase()} · ${activeSafety?.notices?.length ?? 0} agency ${(activeSafety?.notices?.length ?? 0) === 1 ? 'notice' : 'notices'} ${safetyScopeLabel}`}
-                icon={topNotice.severity === 'warning' ? 'warning-outline' : 'megaphone-outline'}
-                ink={topNotice.severity === 'warning' ? conditionInk('dangerous') : colors.accent}
-                surface={topNotice.severity === 'warning' ? conditionBg('dangerous') : colors.cardRaised}
-                onPress={() => router.push({ pathname: '/alerts', params: { segment: 'notices' } })}
-              />
-            ) : null}
-            {topHigh ? (
-              <SafetyRow
-                kicker="HIGH WATER"
-                title={`${topHigh.name} is ${conditionLabel(topHigh.conditionCode).toLowerCase()}`}
-                meta={`${activeSafety?.high?.length ?? 0} high-water ${(activeSafety?.high?.length ?? 0) === 1 ? 'reading' : 'readings'} ${safetyScopeLabel}`}
-                icon="water-outline"
-                ink={conditionInk(topHigh.conditionCode)}
-                surface={conditionBg(topHigh.conditionCode)}
-                onPress={() => router.push({ pathname: '/alerts', params: { segment: 'high-water' } })}
-              />
-            ) : null}
-          </View>
-        </View>
-      ) : null}
-
       <View style={styles.summaryTop}>
         {statewide.headline ? (
           <TodaySummary
@@ -974,7 +750,9 @@ export function TodayHub({
             onRetry={onRetryReads}
           />
         ) : null}
-        <TodayWeather
+        <View style={styles.weatherAlerts}>
+        <View style={styles.compactColumn}>
+        <TodayWeather compact={snoozeReady && !snoozed}
           onOpen={() => {
             if (!weatherCoords || !activeWeather) return;
             seedLocationForecast(JSON.stringify([weatherCoords.lat, weatherCoords.lng]), activeWeather);
@@ -986,6 +764,22 @@ export function TodayHub({
           onRequestLocation={requestLocalWeather}
           locationActionLabel={locationActionLabel}
         />
+        </View>
+        {snoozeReady && !snoozed ? (
+          <View style={[styles.compactColumn, styles.alertCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+            <Pressable accessibilityRole="button" accessibilityLabel={`Alerts. ${safetyCount ? `${safetyCount} alerts ${safetyScopeLabel}. ${topNotice?.title ?? (topHigh ? `${topHigh.name}: ${conditionLabel(topHigh.conditionCode)}` : '')}` : safetyFailure.high || safetyFailure.notices ? 'Could not refresh alerts' : activeSafety.high === null || activeSafety.notices === null ? 'Checking alerts' : `No current alerts ${safetyScopeLabel}`}`} onPress={() => router.push('/alerts')} style={styles.alertMain}>
+              <View style={styles.compactHeading}>
+                <Ionicons name={safetyCount ? 'warning-outline' : 'notifications-outline'} size={22} color={safetyCount ? conditionInk(topHigh?.conditionCode === 'dangerous' || topNotice?.severity === 'warning' ? 'dangerous' : 'high') : colors.interactive} />
+                <Text style={[textStyles.cardTitle, { color: colors.text }]}>Alerts</Text>
+              </View>
+              <Text style={[styles.compactValue, { color: colors.text }]}>{safetyCount ? `${safetyCount} ${safetyCount === 1 ? 'alert' : 'alerts'}` : safetyFailure.high || safetyFailure.notices ? 'Unable to refresh' : activeSafety.high === null || activeSafety.notices === null ? 'Checking…' : 'No current alerts'}</Text>
+              {safetyCount ? <Text numberOfLines={2} style={[textStyles.caption, { color: colors.textMuted }]}>{topNotice?.title ?? (topHigh ? `${topHigh.name} · ${conditionLabel(topHigh.conditionCode)}` : '')}</Text> : null}
+              <Text style={[textStyles.caption, { color: colors.textMuted }]}>{safetyFailure.high || safetyFailure.notices ? 'Check latest alerts' : safetyScope.kind === 'favorites' ? 'Favorites & suggested rivers' : safetyScope.kind === 'nearby' ? 'Nearby' : 'Statewide'}</Text>
+            </Pressable>
+            {safetyCount > 0 ? <Pressable accessibilityRole="button" accessibilityLabel="Snooze Today alerts" onPress={snoozeAll} style={styles.snoozeButton}><Text style={{ color: colors.interactive, fontFamily: fonts.medium }}>Snooze</Text></Pressable> : null}
+          </View>
+        ) : null}
+        </View>
       </View>
 
       <View style={styles.section}>
@@ -1033,56 +827,6 @@ export function TodayHub({
               <Text style={[styles.emptyBody, { color: colors.textMuted }]}>New reads appear when current conditions are available.</Text>
             </View>
           </View>
-        )}
-      </View>
-
-      <View style={styles.section}>
-        <SectionHead title="Favorites" action={starred.length ? 'See all' : undefined} onAction={() => router.push('/favorites')} />
-        {starsReady && favoritePreviews.length > 1 ? (
-          <CardRail label="Favorites" cardWidth={286}>
-            {favoritePreviews.map((item) => {
-              const river = item.kind === 'river' ? riverById.get(item.entityId) ?? null : null;
-              return (
-                <FavoritePreviewCard
-                  key={`${item.kind}:${item.entityId}`}
-                  item={item}
-                  dam={item.kind === 'dam' ? dams?.find((dam) => dam.id === item.entityId) ?? null : null}
-                  now={now}
-                  river={river}
-                  gauge={item.kind === 'gauge'
-                    ? gaugeByFavoriteId.get(item.entityId) ?? gaugeByFavoriteId.get(item.usgsSiteId ?? '') ?? null
-                    : null}
-                  onOpen={() => openFavorite(item)}
-                  onPlan={river?.slug ? () => openPlan(river.slug) : null}
-                />
-              );
-            })}
-          </CardRail>
-        ) : starsReady && favoritePreviews.length === 1 ? (
-          <FavoritePreviewCard
-            item={favoritePreviews[0]}
-            dam={favoritePreviews[0].kind === 'dam' ? dams?.find((dam) => dam.id === favoritePreviews[0].entityId) ?? null : null}
-            now={now}
-            river={favoritePreviews[0].kind === 'river' ? riverById.get(favoritePreviews[0].entityId) ?? null : null}
-            gauge={favoritePreviews[0].kind === 'gauge'
-              ? gaugeByFavoriteId.get(favoritePreviews[0].entityId) ?? gaugeByFavoriteId.get(favoritePreviews[0].usgsSiteId ?? '') ?? null
-              : null}
-            onOpen={() => openFavorite(favoritePreviews[0])}
-            onPlan={favoritePreviews[0].kind === 'river' && favoritePreviews[0].slug
-              ? () => openPlan(favoritePreviews[0].slug)
-              : null}
-            standalone
-          />
-        ) : starsReady ? (
-          <View style={[styles.emptyCard, { backgroundColor: colors.selectionBg, borderColor: colors.border }]}>
-            <EddyScene name="heart" size={76} />
-            <View style={styles.flex}>
-              <Text style={[styles.emptyTitle, { color: colors.text }]}>Make Today yours</Text>
-              <Text style={[styles.emptyBody, { color: colors.textMuted }]}>Star rivers, gauges, or dams to see them here.</Text>
-            </View>
-          </View>
-        ) : (
-          <ActivityIndicator color={colors.interactive} />
         )}
       </View>
 
@@ -1189,27 +933,22 @@ const styles = StyleSheet.create({
   flex: { flex: 1, minWidth: 0 },
   notice: { borderWidth: 1, borderRadius: 12, padding: 12, flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 14 },
   noticeText: { ...t.sm, fontFamily: fonts.body, flex: 1 },
+  weatherAlerts: { flexDirection: 'row', alignItems: 'stretch', gap: 10 },
+  compactColumn: { flex: 1, minWidth: 0 },
+  alertCard: { borderWidth: StyleSheet.hairlineWidth, borderRadius: 16, padding: 12 },
+  alertMain: { flex: 1, minHeight: 44, gap: 8 },
+  compactHeading: { flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' },
+  compactValue: { ...t.lg, fontFamily: fonts.semibold },
+  snoozeButton: { minHeight: 44, justifyContent: 'center' },
   summaryTop: { marginBottom: 14, gap: 10 },
-  safetySection: { marginBottom: 20 },
-  safetyKicker: { ...t.xs, fontFamily: fonts.heading, letterSpacing: 0.7, marginBottom: 2 },
-  safetyRows: { gap: 8 },
-  safetyRow: { minHeight: 82, borderWidth: 1, borderLeftWidth: 4, borderRadius: radii.card, paddingHorizontal: 12, paddingVertical: 9, flexDirection: 'row', alignItems: 'center', gap: 10 },
-  safetyIcon: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
-  safetyRowTitle: { ...t.sm, fontFamily: fonts.semibold },
-  safetyRowMeta: { ...t.xs, fontFamily: fonts.body, marginTop: 2 },
   section: { marginBottom: 24 },
   sectionHead: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 10, paddingHorizontal: 2 },
   sectionTitle: { ...textStyles.sectionTitle },
   sectionAction: { ...t.sm, fontFamily: fonts.semibold },
-  favoritePreview: { width: '100%', minHeight: 252, borderWidth: 1, borderRadius: radii.feature, padding: 16 },
-  favoriteStandalone: { width: 'auto', height: 'auto', minHeight: 252 },
-  favoriteHeroTop: { flexDirection: 'row', alignItems: 'center', minHeight: 116 },
   heroCopy: { flex: 1, minWidth: 0, zIndex: 1 },
   eyebrow: { ...t.xs, fontFamily: fonts.heading, letterSpacing: 0.9, marginBottom: 3 },
-  favoritePreviewName: { ...t.xl, fontFamily: fonts.display },
   heroMeta: { ...t.sm, fontFamily: fonts.body, marginTop: 4 },
   heroPill: { alignSelf: 'flex-start', marginTop: 9 },
-  favoritePreviewOtter: { marginRight: -9, marginLeft: 2 },
   pill: { borderRadius: 999, borderWidth: 1, paddingHorizontal: 10, paddingVertical: 4, alignSelf: 'flex-start' },
   pillText: { ...t.xs, fontFamily: fonts.semibold },
   emptyCard: { borderWidth: 1, borderRadius: 18, paddingHorizontal: 14, paddingVertical: 10, flexDirection: 'row', alignItems: 'center', gap: 10 },
