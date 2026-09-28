@@ -129,7 +129,6 @@ function CampingCard({ coords, saved, revision }: Props) {
 }
 const styles = StyleSheet.create({
   card: {
-    marginHorizontal: 20,
     padding: 16,
     borderWidth: 1,
     borderRadius: 20,

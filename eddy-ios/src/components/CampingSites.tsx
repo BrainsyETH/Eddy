@@ -62,6 +62,7 @@ function LoadedSites({
         date={date}
         dateLabel={dateLabel(date)}
         individualSites={sites.facility.source === 'mo_state_parks'}
+        photoFacilityId={sites.facility.id}
         reservationUrl={bookingUrl}
       />
     </View>
