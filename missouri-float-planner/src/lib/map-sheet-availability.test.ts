@@ -229,10 +229,10 @@ test('nothing measured at all has no night to offer', () => {
 test('an open night always has a real denominator behind it', () => {
   // nightBars only marks 'bar' when BOTH counts are above zero, so the phrase
   // can print "of N" unguarded. A feed reporting openings against no inventory
-  // is marked 'empty' and never reaches that branch.
+  // is unknown rather than falsely reported as fully booked.
   const choices = nightChoices(summary({ nights: [night(TODAY, 1, 0)] }), TODAY);
-  assert.equal(choices[0].mark, 'empty');
-  assert.equal(nightPhrase(choices[0]), 'Fully booked');
+  assert.equal(choices[0].mark, 'none');
+  assert.equal(nightPhrase(choices[0]), null);
 });
 
 test('fill never exceeds the track', () => {

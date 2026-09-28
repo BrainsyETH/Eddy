@@ -1301,6 +1301,7 @@ export interface NotificationPreferencesResponse {
 // ─────────────────────────────────────────────────────────────
 
 export interface AppFeatureFlags {
+  campingHeatmap?: boolean;
   push: boolean;
   planner: boolean;
   chat: boolean;

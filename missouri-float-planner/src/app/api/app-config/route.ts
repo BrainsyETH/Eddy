@@ -15,7 +15,7 @@
 // TWO PROPERTIES THIS ROUTE MUST KEEP:
 //
 //  1. It FAILS OPEN. If the row is missing or the database is unreachable, it
-//     returns permissive defaults with 200. A config endpoint that 500s would
+//     returns defaults with 200 (new optional features remain off). A config endpoint that 500s would
 //     brick every client that treats a failed fetch as "do not start" — the
 //     outage would be indistinguishable from a forced upgrade.
 //
@@ -31,7 +31,7 @@ import type { AppConfigResponse } from '@/types/api';
 export const dynamic = 'force-dynamic';
 
 /**
- * Permissive fallback. Everything enabled, nothing gated — the safe direction
+ * Permissive core fallback; chat and the new camping heatmap remain disabled — the safe direction
  * when we cannot read the real config.
  */
 const FALLBACK: AppConfigResponse = {
@@ -39,6 +39,7 @@ const FALLBACK: AppConfigResponse = {
   latestVersion: '0.1.0',
   upgradeMessage: null,
   features: {
+    campingHeatmap: false,
     push: true,
     planner: true,
     chat: false,
@@ -76,6 +77,7 @@ export async function GET() {
       latestVersion: data.latest_version,
       upgradeMessage: data.upgrade_message,
       features: {
+        campingHeatmap: process.env.CAMPING_HEATMAP_ENABLED === 'true',
         push: data.push_enabled,
         planner: data.planner_enabled,
         chat: data.chat_enabled,

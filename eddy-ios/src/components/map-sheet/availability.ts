@@ -23,6 +23,14 @@
 
 import type { CampsiteAvailabilitySummary, CampsiteNightSummary } from '@eddy/types';
 
+/** Shared night meaning for the map strip and camping overview. */
+export function campingNightState(night: Pick<CampsiteNightSummary, 'status' | 'sitesOpen' | 'sitesReservable'> | undefined): 'open' | 'full' | 'closed' | 'not_yet_released' | 'unknown' {
+  if (!night) return 'unknown';
+  if (night.status === 'closed' || night.status === 'not_yet_released') return night.status;
+  if (night.sitesReservable <= 0) return 'unknown';
+  return night.sitesOpen > 0 ? 'open' : 'full';
+}
+
 /** Sunday-first, matching Date#getUTCDay. */
 const WEEKDAY_INITIALS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
 const WEEKDAY_NAMES = [
@@ -133,14 +141,10 @@ function addDays(date: string, days: number): string {
     .slice(0, 10);
 }
 
-/**
- * The smallest fill a free site may draw.
- *
- * Alley Spring has 197 sites. One of them free is 0.5% of the track, which
- * rounds to nothing and reads as "fully booked" — the opposite of the truth,
- * and the exact case somebody hunting a cancellation is looking for.
- */
-const MIN_VISIBLE_FILL = 0.12;
+/** Absolute opening buckets shared with the Today heatmap. */
+export function campingCountBucket(sitesOpen: number): 1 | 2 | 3 {
+  return sitesOpen < 3 ? 1 : sitesOpen < 10 ? 2 : 3;
+}
 
 /**
  * The strip, one entry per night of the horizon.
@@ -172,13 +176,14 @@ export function nightBars(
     let mark: NightMark = 'none';
     let fill = 0;
 
-    if (night) {
-      if (night.status === 'closed' || night.status === 'not_yet_released') {
+    const state = campingNightState(night);
+    if (night && state !== 'unknown') {
+      if (state === 'closed' || state === 'not_yet_released') {
         // Nothing to fill — the campground is not offering these nights at all.
         mark = 'dash';
       } else if (night.sitesOpen > 0 && night.sitesReservable > 0) {
         mark = 'bar';
-        fill = Math.max(MIN_VISIBLE_FILL, night.sitesOpen / night.sitesReservable);
+        fill = campingCountBucket(night.sitesOpen) / 3;
       } else {
         // Every site booked. A drawn, empty track — the inventory exists.
         mark = 'empty';
