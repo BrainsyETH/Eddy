@@ -743,7 +743,7 @@ export function TodayHub({
         ) : null}
         <View style={styles.weatherAlerts}>
           <View style={styles.compactColumn}>
-            <TodayWeather compact
+            <TodayWeather compact locationEnabled={Boolean(location.coords)}
               onOpen={() => {
                 if (!weatherCoords || !activeWeather) return;
                 seedLocationForecast(JSON.stringify([weatherCoords.lat, weatherCoords.lng]), activeWeather);
@@ -759,10 +759,10 @@ export function TodayHub({
           <View style={[styles.compactColumn, styles.alertCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
             <Pressable accessibilityRole="button" accessibilityLabel={`Alerts. ${safetyCount ? `${safetyCount} alerts ${safetyScopeLabel}. ${topNotice?.title ?? (topHigh ? `${topHigh.name}: ${conditionLabel(topHigh.conditionCode)}` : '')}` : safetyFailure.high || safetyFailure.notices ? 'Could not refresh alerts' : activeSafety.high === null || activeSafety.notices === null ? 'Checking alerts' : `No current alerts ${safetyScopeLabel}`}`} onPress={() => router.push('/alerts')} style={styles.alertMain}>
               <View style={styles.compactHeading}>
-                <Ionicons name={safetyCount ? 'warning-outline' : 'notifications-outline'} size={22} color={safetyCount ? conditionInk(topHigh?.conditionCode === 'dangerous' || topNotice?.severity === 'warning' ? 'dangerous' : 'high') : colors.interactive} />
-                <Text style={{ ...t.base, fontFamily: fonts.semibold, color: colors.text }}>Alerts</Text>
+                <Ionicons name={safetyCount ? 'warning-outline' : 'notifications-outline'} size={26} color={safetyCount ? conditionInk(topHigh?.conditionCode === 'dangerous' || topNotice?.severity === 'warning' ? 'dangerous' : 'high') : colors.interactive} />
+                <Text style={{ ...t.lg, fontFamily: fonts.semibold, color: colors.text }}>Alerts</Text>
               </View>
-              <Text style={[styles.compactValue, { color: colors.text }]}>{safetyCount ? String(safetyCount) : safetyFailure.high || safetyFailure.notices ? 'Unable to refresh' : activeSafety.high === null || activeSafety.notices === null ? 'Checking…' : 'None'}</Text>
+              <Text style={[styles.compactValue, { color: colors.text }, safetyCount ? styles.alertCount : null]}>{safetyCount ? String(safetyCount) : safetyFailure.high || safetyFailure.notices ? 'Unable to refresh' : activeSafety.high === null || activeSafety.notices === null ? 'Checking…' : 'None'}</Text>
             </Pressable>
           </View>
         </View>
@@ -924,6 +924,7 @@ const styles = StyleSheet.create({
   alertCard: { borderWidth: StyleSheet.hairlineWidth, borderRadius: 16, padding: 12, minHeight: 120 },
   alertMain: { flex: 1, minHeight: 44, gap: 6, alignItems: 'center', justifyContent: 'center' },
   compactHeading: { flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' },
+  alertCount: { ...t['3xl'], fontFamily: fonts.semibold },
   compactValue: { ...t.xl, fontFamily: fonts.semibold, textAlign: 'center' },
   summaryTop: { marginBottom: 14, gap: 10 },
   section: { marginBottom: 24 },
