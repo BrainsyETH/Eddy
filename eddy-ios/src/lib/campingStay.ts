@@ -1,0 +1,82 @@
+import {
+  decodeCampsiteNights,
+  type CampsiteNightState,
+  type CampsiteSite,
+  type CampsiteSitesResponse,
+} from '@eddy/types';
+
+export interface CampingStay {
+  arrival: string;
+  departure: string;
+}
+export function nextCampingDate(date: string, days = 1): string {
+  const d = new Date(`${date}T12:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + days);
+  return d.toISOString().slice(0, 10);
+}
+/** Departure is not an occupied night. Date-only arithmetic also crosses DST safely. */
+export function stayNights(stay: CampingStay): string[] {
+  if (stay.departure <= stay.arrival) return [];
+  const result: string[] = [];
+  for (
+    let date = stay.arrival;
+    date < stay.departure && result.length < 90;
+    date = nextCampingDate(date)
+  )
+    result.push(date);
+  return result;
+}
+export interface CampsiteStay {
+  site: CampsiteSite;
+  nights: { date: string; state: CampsiteNightState }[];
+  state: 'available' | 'unavailable' | 'unknown';
+}
+export function campsiteStays(
+  responses: CampsiteSitesResponse[],
+  stay: CampingStay,
+  maxAgeSeconds: number,
+  now: number,
+): CampsiteStay[] {
+  const dates = stayNights(stay);
+  const catalog = new Map<string, CampsiteSite>();
+  const observations = new Map<string, Map<string, CampsiteNightState>>();
+  for (const response of responses) {
+    const age = response.fetchedAt ? now - Date.parse(response.fetchedAt) : NaN;
+    const fresh =
+      Number.isFinite(age) && age >= 0 && age < maxAgeSeconds * 1000;
+    for (const site of response.sites) {
+      catalog.set(site.id, site);
+      const nights =
+        observations.get(site.id) ?? new Map<string, CampsiteNightState>();
+      const states = decodeCampsiteNights(site.nights);
+      response.window.nights.forEach((date, i) =>
+        nights.set(date, fresh ? (states[i] ?? 'unknown') : 'unknown'),
+      );
+      observations.set(site.id, nights);
+    }
+  }
+  return [...catalog.values()].map((site) => {
+    const nights = dates.map((date) => ({
+      date,
+      state:
+        observations.get(site.id)?.get(date) ??
+        ('unknown' as CampsiteNightState),
+    }));
+    const state: CampsiteStay['state'] =
+      nights.length && nights.every((n) => n.state === 'open')
+        ? 'available'
+        : nights.some((n) => n.state !== 'open' && n.state !== 'unknown')
+          ? 'unavailable'
+          : 'unknown';
+    return { site, nights, state };
+  });
+}
+
+export const campsiteStateLabel: Record<CampsiteNightState, string> = {
+  open: 'Open',
+  reserved: 'Booked',
+  closed: 'Closed',
+  walk_up: 'First-come only',
+  not_yet_released: 'Not yet released',
+  unknown: 'Availability not updated',
+};

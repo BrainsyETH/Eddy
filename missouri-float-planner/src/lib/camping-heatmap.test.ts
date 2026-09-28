@@ -319,3 +319,29 @@ test('VoiceOver summarizes weekend observations and only claims observed next op
   const stale = campingRowSummary(a, overview, now + 72 * 3600000);
   assert.match(stale, /not checked/); assert.doesNotMatch(stale, /Next observed opening/);
 });
+
+import { campsiteStays, stayNights, nextCampingDate } from '../../../eddy-ios/src/lib/campingStay';
+import type { CampsiteSitesResponse } from '../../../packages/eddy-types';
+function siteMonth(dates: string[], codes: string, fetchedAt = '2026-09-28T10:00:00Z', id = 'site-a'): CampsiteSitesResponse {
+  return { facility: { id: 'park', displayName: 'Park', kind: 'campground', source: 'recgov' }, window: { startDate: dates[0], endDate: dates[dates.length - 1], label: '', nights: dates }, fetchedAt, sites: [{ id, name: 'A', loop: null, siteType: null, maxOccupancy: null, bookingUrl: null, nights: codes }] };
+}
+test('stays exclude departure and cross month and daylight-saving boundaries', () => {
+  assert.deepEqual(stayNights({ arrival: '2026-10-31', departure: '2026-11-02' }), ['2026-10-31', '2026-11-01']);
+  assert.equal(nextCampingDate('2026-12-31'), '2027-01-01');
+  assert.deepEqual(stayNights({ arrival: '2026-10-01', departure: '2026-10-01' }), []);
+});
+test('whole-stay availability requires the same site across every occupied month', () => {
+  const stay = { arrival: '2026-09-30', departure: '2026-10-02' };
+  const september = siteMonth(['2026-09-30'], 'A');
+  const october = siteMonth(['2026-10-01', '2026-10-02'], 'AR');
+  assert.equal(campsiteStays([september, october], stay, 259200, now)[0].state, 'available');
+  assert.equal(campsiteStays([september], stay, 259200, now)[0].state, 'unknown');
+  assert.ok(campsiteStays([september, siteMonth(['2026-10-01'], 'A', undefined, 'site-b')], stay, 259200, now).every(s => s.state === 'unknown'));
+});
+test('stale, future and missing observations cannot promise a site', () => {
+  const stay = { arrival: '2026-09-30', departure: '2026-10-01' };
+  for (const timestamp of ['2026-09-25T12:00:00Z', '2026-09-29T12:00:00Z', 'invalid']) {
+    assert.equal(campsiteStays([siteMonth(['2026-09-30'], 'A', timestamp)], stay, 259200, now)[0].state, 'unknown');
+  }
+  for (const code of ['R', 'W', 'C', 'N']) assert.equal(campsiteStays([siteMonth(['2026-09-30'], code)], stay, 259200, now)[0].state, 'unavailable');
+});

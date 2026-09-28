@@ -1,9 +1,10 @@
 import { useState } from 'react';
 import {
+  ActivityIndicator,
+  FlatList,
   Linking,
   Modal,
   Pressable,
-  ScrollView,
   StyleSheet,
   Text,
   View,
@@ -15,36 +16,68 @@ import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, textStyles } from '@/theme/typography';
 import {
   initialCampingNight,
-  currentNight,
-  dateLabel,
-  nightLine,
   checkedLabel,
   safeExternalUrl,
 } from '@/lib/campingHeatmap';
-import { CampingCalendar } from './CampingCalendar';
-import { CampingSites } from './CampingSites';
+import {
+  campsiteStays,
+  nextCampingDate,
+  type CampingStay,
+} from '@/lib/campingStay';
+import { useCampsiteStay } from '@/hooks/useCampsiteStay';
+import { CampingStayPicker } from './CampingStayPicker';
+import { CampingSiteCard } from './CampingSiteCard';
 
 export function CampingDetailSheet({
   row,
   overview,
   now,
+  initialStay,
   onClose,
 }: {
   row: TrackedCampground;
   overview: CampingOverview;
   now: number;
+  initialStay?: CampingStay;
   onClose: () => void;
 }) {
   const { colors } = useTheme();
   const router = useRouter();
-  const [selected, setSelected] = useState(() => initialCampingNight(overview));
+  const [stay, setStay] = useState<CampingStay>(
+    () =>
+      initialStay ?? {
+        arrival: initialCampingNight(overview),
+        departure: nextCampingDate(initialCampingNight(overview)),
+      },
+  );
   const [failed, setFailed] = useState(false);
-  const date = overview.horizon.nights.includes(selected)
-    ? selected
-    : initialCampingNight(overview);
-  const night = currentNight(row, date, overview.maxObservationAgeSeconds, now);
+  const [showUnavailable, setShowUnavailable] = useState(false);
+  const {
+    responses,
+    loading,
+    failed: loadFailed,
+    refresh,
+  } = useCampsiteStay(row.facilityId, stay);
+  const entries = campsiteStays(
+    responses,
+    stay,
+    overview.maxObservationAgeSeconds,
+    now,
+  );
+  const available = entries.filter((e) => e.state === 'available');
+  const unknown = entries.filter((e) => e.state === 'unknown');
+  const unavailable = entries.filter((e) => e.state === 'unavailable');
+  const visible = [
+    ...available,
+    ...unknown,
+    ...(showUnavailable ? unavailable : []),
+  ];
   const booking = safeExternalUrl(row.booking?.url);
   const website = safeExternalUrl(row.website);
+  const timestamps = responses
+    .map((r) => r.fetchedAt)
+    .filter((d): d is string => !!d)
+    .sort();
   function open(url: string) {
     setFailed(false);
     void Linking.openURL(url).catch(() => setFailed(true));
@@ -80,112 +113,153 @@ export function CampingDetailSheet({
             </Text>
           </Pressable>
         </View>
-        <ScrollView contentContainerStyle={styles.content}>
-          {row.displayGroup.key !== 'other' ? (
-            <Text style={[textStyles.caption, { color: colors.textMuted }]}>
-              {row.displayGroup.label}
-            </Text>
-          ) : null}
-          <CampingCalendar
-            row={row}
-            overview={overview}
-            now={now}
-            selected={date}
-            onSelect={setSelected}
-          />
-          <Text style={[textStyles.cardTitle, { color: colors.text }]}>
-            {dateLabel(date)}
-          </Text>
-          <Text style={[textStyles.body, { color: colors.text }]}>
-            {night ? nightLine(night) : 'Availability not updated'}
-          </Text>
-          {night ? (
-            <Text style={[textStyles.caption, { color: colors.textMuted }]}>
-              {checkedLabel(night.checkedAt, now)}
-            </Text>
-          ) : null}
-          {row.firstCome === 'present' ? (
-            <Text style={[textStyles.caption, { color: colors.textMuted }]}>
-              First-come sites offered; check availability at the campground.
-            </Text>
-          ) : null}
-          {booking ? (
-            <Pressable
-              accessibilityRole="link"
-              onPress={() => open(booking)}
-              style={[styles.book, { backgroundColor: colors.interactive }]}
-            >
-              <Text
-                style={{
-                  color: colors.onInteractive,
-                  fontFamily: fonts.semibold,
-                  fontSize: 16,
+        <FlatList
+          data={visible}
+          keyExtractor={(e) => e.site.id}
+          initialNumToRender={3}
+          maxToRenderPerBatch={3}
+          windowSize={5}
+          contentContainerStyle={styles.content}
+          ItemSeparatorComponent={() => <View style={{ height: 16 }} />}
+          renderItem={({ item }) => (
+            <CampingSiteCard
+              entry={item}
+              facilityId={row.facilityId}
+              bookingUrl={booking}
+            />
+          )}
+          ListHeaderComponent={
+            <View style={{ gap: 12, paddingBottom: 16 }}>
+              {row.displayGroup.key !== 'other' ? (
+                <Text style={[textStyles.caption, { color: colors.textMuted }]}>
+                  {row.displayGroup.label}
+                </Text>
+              ) : null}
+              <CampingStayPicker
+                stay={stay}
+                nights={overview.horizon.nights}
+                onChange={(s) => {
+                  setStay(s);
+                  setShowUnavailable(false);
                 }}
-              >
-                Book campsite ↗
-              </Text>
-            </Pressable>
-          ) : null}
-          {row.loopName && booking ? (
-            <Text style={[textStyles.caption, { color: colors.textMuted }]}>
-              Booking through the district permit.
-            </Text>
-          ) : null}
-          {failed ? (
-            <Text style={{ color: colors.error }}>
-              Couldn’t open the link. Try again.
-            </Text>
-          ) : null}
-          <View style={styles.links}>
-            {row.accessDestination ? (
+              />
+              <View style={styles.links}>
+                {row.accessDestination ? (
+                  <Pressable
+                    accessibilityRole="button"
+                    style={styles.action}
+                    onPress={() => {
+                      onClose();
+                      router.push({
+                        pathname: '/',
+                        params: {
+                          focusAccess: row.accessDestination!.accessId,
+                          focusRiver: row.accessDestination!.riverSlug,
+                        },
+                      });
+                    }}
+                  >
+                    <Text style={{ color: colors.interactive }}>
+                      View on map
+                    </Text>
+                  </Pressable>
+                ) : null}
+                {website ? (
+                  <Pressable
+                    accessibilityRole="link"
+                    onPress={() => open(website)}
+                    style={styles.action}
+                  >
+                    <Text style={{ color: colors.interactive }}>Website ↗</Text>
+                  </Pressable>
+                ) : null}
+              </View>
+              {loading ? (
+                <ActivityIndicator
+                  accessibilityLabel="Loading campsites"
+                  color={colors.interactive}
+                />
+              ) : loadFailed ? (
+                <Pressable
+                  accessibilityRole="button"
+                  onPress={refresh}
+                  style={styles.action}
+                >
+                  <Text style={{ color: colors.interactive }}>
+                    Couldn’t load sites. Retry
+                  </Text>
+                </Pressable>
+              ) : (
+                <>
+                  <Text style={[textStyles.cardTitle, { color: colors.text }]}>
+                    {available.length
+                      ? `${available.length} ${available.length === 1 ? 'site available' : 'sites available'}`
+                      : unknown.length
+                        ? 'Availability needs an update'
+                        : entries.length
+                          ? 'No sites open for this stay'
+                          : 'Individual site data unavailable'}
+                  </Text>
+                  {timestamps[0] ? (
+                    <Text
+                      style={[textStyles.caption, { color: colors.textMuted }]}
+                    >
+                      {checkedLabel(timestamps[0], now)} · Reservable sites only
+                    </Text>
+                  ) : null}
+                </>
+              )}
+              {row.firstCome === 'present' ? (
+                <Text style={[textStyles.caption, { color: colors.textMuted }]}>
+                  First-come sites also offered.
+                </Text>
+              ) : null}
+              {row.loopName && booking ? (
+                <Text style={[textStyles.caption, { color: colors.textMuted }]}>
+                  Reservations through the district permit.
+                </Text>
+              ) : null}
+              {!available.length && booking ? (
+                <Pressable
+                  accessibilityRole="link"
+                  style={styles.action}
+                  onPress={() => open(booking)}
+                >
+                  <Text style={{ color: colors.interactive }}>
+                    Check park reservations ↗
+                  </Text>
+                </Pressable>
+              ) : null}
+              {failed ? (
+                <Text style={{ color: colors.error }}>
+                  Couldn’t open the link. Try again.
+                </Text>
+              ) : null}
+            </View>
+          }
+          ListFooterComponent={
+            unavailable.length ? (
               <Pressable
                 accessibilityRole="button"
-                style={styles.action}
-                onPress={() => {
-                  onClose();
-                  router.push({
-                    pathname: '/',
-                    params: {
-                      focusAccess: row.accessDestination!.accessId,
-                      focusRiver: row.accessDestination!.riverSlug,
-                    },
-                  });
-                }}
-              >
-                <Text style={{ color: colors.interactive }}>View on map</Text>
-              </Pressable>
-            ) : null}
-            {website ? (
-              <Pressable
-                accessibilityRole="link"
-                onPress={() => open(website)}
+                accessibilityState={{ expanded: showUnavailable }}
+                onPress={() => setShowUnavailable((v) => !v)}
                 style={styles.action}
               >
-                <Text style={{ color: colors.interactive }}>Website ↗</Text>
+                <Text style={{ color: colors.interactive }}>
+                  {showUnavailable ? 'Hide' : 'Show'} unavailable sites (
+                  {unavailable.length})
+                </Text>
               </Pressable>
-            ) : null}
-          </View>
-          <CampingSites
-            facilityId={row.facilityId}
-            date={date}
-            bookingUrl={booking ?? undefined}
-            autoOpen
-          />
-        </ScrollView>
+            ) : null
+          }
+        />
       </SafeAreaView>
     </Modal>
   );
 }
 const styles = StyleSheet.create({
   header: { flexDirection: 'row', alignItems: 'center', padding: 20, gap: 12 },
-  content: { paddingHorizontal: 20, paddingBottom: 24, gap: 10 },
+  content: { paddingHorizontal: 16, paddingBottom: 24 },
   action: { minHeight: 44, minWidth: 44, justifyContent: 'center' },
-  book: {
-    minHeight: 48,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: 12,
-    marginTop: 6,
-  },
   links: { flexDirection: 'row', gap: 24 },
 });
