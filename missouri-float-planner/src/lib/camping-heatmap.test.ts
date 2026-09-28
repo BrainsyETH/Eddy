@@ -164,7 +164,7 @@ test('zero-reservable observations are checked without implying first-come avail
   const n = { ...night(0), sitesReservable: 0 };
   assert.equal(nightLine(n), 'No reservable sites');
   const r = row();
-  r.nights = overview.weekend.nights.map(date => ({ ...n, date }));
+  r.nights = overview.weekend.nights.map((date) => ({ ...n, date }));
   assert.doesNotMatch(cardSummary([r], overview, now), /not fully checked/);
   assert.equal(cellMark({ ...n, status: 'closed' }), 'closed');
   assert.equal(cellMark({ ...n, status: 'not_yet_released' }), 'nyr');
@@ -172,15 +172,52 @@ test('zero-reservable observations are checked without implying first-come avail
 test('night pages are two disjoint pages that keep every Friday/Saturday pair together', () => {
   for (let offset = 0; offset < 7; offset++) {
     const dates = Array.from({ length: 14 }, (_, i) =>
-      new Date(Date.UTC(2026, 8, 28 + offset + i)).toISOString().slice(0, 10));
+      new Date(Date.UTC(2026, 8, 28 + offset + i)).toISOString().slice(0, 10),
+    );
     const pages = campingNightPages(dates);
     // Every start weekday, Saturday included, yields two pages with no repeats.
     assert.equal(pages.length, 2, `start ${dates[0]}`);
     assert.deepEqual(pages.flat(), dates);
-    assert.ok(pages.every(p => p.length >= 6 && p.length <= 8));
+    assert.ok(pages.every((p) => p.length >= 6 && p.length <= 8));
     dates.forEach((d, i) => {
       if (i < 13 && new Date(d + 'T12:00:00Z').getUTCDay() === 5)
-        assert.ok(pages.some(p => p.includes(d) && p.includes(dates[i + 1])));
+        assert.ok(pages.some((p) => p.includes(d) && p.includes(dates[i + 1])));
     });
   }
+});
+
+import {
+  campingFreshness,
+  campingRowNeedsUpdate,
+  filterCamping,
+} from '../../../eddy-ios/src/lib/campingHeatmap';
+test('compact freshness only summarizes visible current observations', () => {
+  const a = row();
+  a.nights = [night(2)];
+  assert.equal(campingFreshness([a], overview, now), 'Checked today');
+  assert.equal(campingRowNeedsUpdate(a, overview, now), false);
+  const b = row('b');
+  b.nights = [{ ...night(0), checkedAt: '2026-09-27T12:00:00Z' }];
+  assert.equal(campingFreshness([a, b], overview, now), 'Check times vary');
+  assert.equal(
+    campingFreshness([a], overview, now + 259200000),
+    'Needs an update',
+  );
+  assert.equal(campingRowNeedsUpdate(a, overview, now + 259200000), true);
+  assert.equal(campingRowNeedsUpdate(row('missing'), overview, now), true);
+});
+test('river and nearby filters intersect and do not invent a location', () => {
+  const a = row('near'),
+    b = row('far'),
+    c = row('standalone');
+  b.location = { lat: 44, lng: -100 };
+  c.riverSlugs = [];
+  const all = [a, b, c];
+  assert.deepEqual(
+    filterCamping(all, 'current', true, a.location).map((r) => r.id),
+    ['near'],
+  );
+  assert.equal(filterCamping(all, null, false, null).length, 3);
+  assert.equal(filterCamping(all, null, true, null).length, 0);
+  assert.equal(filterCamping(all, 'missing', false, null).length, 0);
 });

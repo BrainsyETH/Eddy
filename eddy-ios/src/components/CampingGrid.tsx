@@ -1,31 +1,39 @@
-import { StyleSheet, Text, View } from 'react-native';
+import {
+  Alert,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+  useWindowDimensions,
+} from 'react-native';
 import type { CampingOverview, TrackedCampground } from '@eddy/types';
 import { useTheme } from '@/theme/ThemeProvider';
-import { primary } from '@/theme/palette';
 import { fonts } from '@/theme/typography';
-import { cellMark, currentNight, type HeatMark } from '@/lib/campingHeatmap';
+import {
+  campingRowNeedsUpdate,
+  cellMark,
+  currentNight,
+  weekendLine,
+  type HeatMark,
+} from '@/lib/campingHeatmap';
 
 function Mark({ mark }: { mark: HeatMark }) {
-  const { colors, isDark } = useTheme();
-  const fill =
-    mark === 'open-1'
-      ? isDark
-        ? primary[700]
-        : primary[200]
-      : mark === 'open-2'
-        ? primary[500]
-        : isDark
-          ? primary[200]
-          : primary[800];
+  const { colors } = useTheme();
+  // Match NightStrip: green openings, red booked-out outlines, neutral other states.
+  const fillOpacity = mark === 'open-1' ? 0.45 : mark === 'open-2' ? 0.7 : 1;
   return (
     <View
       style={[
         styles.cell,
         { borderColor: colors.textSubtle },
         mark.startsWith('open')
-          ? { backgroundColor: fill, borderWidth: 0 }
+          ? {
+              backgroundColor: colors.success,
+              opacity: fillOpacity,
+              borderWidth: 0,
+            }
           : mark === 'full'
-            ? { borderWidth: 1 }
+            ? { borderWidth: 2, borderColor: colors.error }
             : {},
       ]}
     >
@@ -56,6 +64,8 @@ export function CampingGrid({
   headings?: boolean;
 }) {
   const { colors } = useTheme();
+  const { width, fontScale } = useWindowDimensions();
+  const sparseDates = width < 360 || fontScale > 1.3;
   return (
     <View
       style={styles.grid}
@@ -85,7 +95,7 @@ export function CampingGrid({
                 },
               ]}
             >
-              {Number(date.slice(8))}
+              {!sparseDates || index % 2 === 0 ? Number(date.slice(8)) : ' '}
             </Text>
           ) : (
             <Mark
@@ -106,24 +116,116 @@ export function CampingGrid({
     </View>
   );
 }
+/** Shared label width keeps every row aligned with the pinned date ruler. */
+export function CampingTableHeader({
+  overview,
+  now,
+}: {
+  overview: CampingOverview;
+  now: number;
+}) {
+  const { colors } = useTheme();
+  const months = overview.horizon.nights.reduce<
+    { label: string; count: number }[]
+  >((groups, date) => {
+    const label = new Intl.DateTimeFormat('en-US', {
+      month: 'short',
+      timeZone: 'UTC',
+    }).format(new Date(date + 'T12:00:00Z'));
+    if (groups.at(-1)?.label === label) groups[groups.length - 1].count++;
+    else groups.push({ label, count: 1 });
+    return groups;
+  }, []);
+  return (
+    <View
+      style={table.row}
+      accessible
+      accessibilityLabel={overview.horizon.nights
+        .map((d) =>
+          new Date(d + 'T12:00:00Z').toLocaleDateString('en-US', {
+            month: 'short',
+            day: 'numeric',
+            timeZone: 'UTC',
+          }),
+        )
+        .join(', ')}
+    >
+      <View style={table.name} />
+      <View style={table.dates}>
+        <View style={{ flexDirection: 'row' }}>
+          {months.map((m) => (
+            <Text
+              key={m.label}
+              style={{
+                flex: m.count,
+                fontFamily: fonts.medium,
+                fontSize: 10,
+                color: colors.textMuted,
+              }}
+            >
+              {m.label}
+            </Text>
+          ))}
+        </View>
+        <CampingGrid overview={overview} now={now} headings />
+      </View>
+    </View>
+  );
+}
+export function CampingTableRow({
+  row,
+  overview,
+  now,
+  onPress,
+}: {
+  row: TrackedCampground;
+  overview: CampingOverview;
+  now: number;
+  onPress: () => void;
+}) {
+  const { colors } = useTheme();
+  const stale = campingRowNeedsUpdate(row, overview, now);
+  return (
+    <Pressable
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={`${row.name}. ${weekendLine(row, overview, now)}${stale ? '. Needs an update' : ''}`}
+      style={[table.row, table.item, { borderColor: colors.border }]}
+    >
+      <View style={table.name}>
+        <Text
+          numberOfLines={2}
+          style={{ fontFamily: fonts.medium, fontSize: 12, color: colors.text }}
+        >
+          {row.name.replace(/ Campground$/, '')}
+        </Text>
+        {stale ? (
+          <Text style={{ fontSize: 10, color: colors.textMuted }}>
+            Needs update
+          </Text>
+        ) : null}
+      </View>
+      <View style={table.dates}>
+        <CampingGrid row={row} overview={overview} now={now} />
+      </View>
+    </Pressable>
+  );
+}
 export function CampingLegend() {
   const { colors } = useTheme();
   return (
     <View style={styles.legend}>
+      <Text style={[styles.label, { color: colors.textMuted }]}>Open</Text>
       {(
         [
           ['open-1', '1–2'],
           ['open-2', '3–9'],
           ['open-3', '10+'],
           ['full', 'Full'],
-          ['no-reservable', 'No reservable sites'],
-          ['closed', 'Closed'],
-          ['nyr', 'Unreleased'],
-          ['unknown', 'Not checked'],
         ] as const
       ).map(([mark, label]) => (
         <View key={mark} style={styles.legendItem}>
-          <View style={{ width: 18 }}>
+          <View style={{ width: 12 }}>
             <Mark mark={mark} />
           </View>
           <Text style={[styles.label, { color: colors.textMuted }]}>
@@ -131,11 +233,61 @@ export function CampingLegend() {
           </Text>
         </View>
       ))}
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel="About camping availability"
+        hitSlop={4}
+        style={{
+          minHeight: 44,
+          minWidth: 44,
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}
+        onPress={() =>
+          Alert.alert(
+            'Camping availability',
+            `Green: reservable sites open. Red outline: fully booked.
+
+— Closed
+··· Not yet released
+/ No reservable sites
+? Not checked
+
+Highlighted dates are Friday and Saturday. Counts are per night, not a guarantee of the same site for a whole stay. First-come sites are not included.`,
+          )
+        }
+      >
+        <Text
+          style={{
+            color: colors.interactive,
+            borderColor: colors.interactive,
+            borderWidth: 1,
+            borderRadius: 9,
+            width: 18,
+            height: 18,
+            textAlign: 'center',
+            fontFamily: fonts.semibold,
+            fontSize: 12,
+          }}
+        >
+          i
+        </Text>
+      </Pressable>
     </View>
   );
 }
+const table = StyleSheet.create({
+  row: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  item: {
+    minHeight: 48,
+    paddingVertical: 6,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  name: { width: '32%', flexShrink: 0 },
+  dates: { flex: 1 },
+});
 const styles = StyleSheet.create({
-  grid: { flexDirection: 'row', gap: 3 },
+  grid: { flexDirection: 'row', gap: 2 },
   column: {
     flex: 1,
     alignItems: 'center',
@@ -144,21 +296,21 @@ const styles = StyleSheet.create({
   },
   cell: {
     width: '100%',
-    minWidth: 12,
-    height: 18,
+    minWidth: 0,
+    height: 16,
     borderRadius: 3,
     alignItems: 'center',
     justifyContent: 'center',
   },
   dash: { height: 2, width: '75%' },
   symbol: { fontSize: 12, fontFamily: fonts.mono },
-  date: { fontSize: 11 },
+  date: { fontSize: 10, fontFamily: fonts.mono },
   legend: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 12,
-    paddingVertical: 12,
+    gap: 8,
+    alignItems: 'center',
   },
-  legendItem: { flexDirection: 'row', alignItems: 'center', gap: 5, width: 90 },
+  legendItem: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   label: { fontSize: 11, fontFamily: fonts.body, flexShrink: 1 },
 });

@@ -227,10 +227,61 @@ export function campingNightPages(nights: string[]): string[][] {
   let start = 0;
   while (start < nights.length) {
     let end = Math.min(start + 7, nights.length);
-    if (end < nights.length && new Date(nights[end - 1] + 'T12:00:00Z').getUTCDay() === 5) end--;
+    if (
+      end < nights.length &&
+      new Date(nights[end - 1] + 'T12:00:00Z').getUTCDay() === 5
+    )
+      end--;
     if (nights.length - end === 1) end = nights.length;
     pages.push(nights.slice(start, end));
     start = end;
   }
   return pages;
+}
+
+/** A compact footer describes only observations in the visible grid. */
+export function campingFreshness(
+  rows: TrackedCampground[],
+  overview: CampingOverview,
+  now: number,
+): string {
+  const dates = rows.flatMap((row) =>
+    overview.horizon.nights.flatMap((date) => {
+      const night = currentNight(
+        row,
+        date,
+        overview.maxObservationAgeSeconds,
+        now,
+      );
+      return night ? [campingDate(Date.parse(night.checkedAt))] : [];
+    }),
+  );
+  if (!dates.length) return 'Needs an update';
+  const days = [...new Set(dates)];
+  if (days.length > 1) return 'Check times vary';
+  if (days[0] === campingDate(now)) return 'Checked today';
+  return `Checked ${new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' }).format(new Date(days[0] + 'T12:00:00Z'))}`;
+}
+
+export function campingRowNeedsUpdate(
+  row: TrackedCampground,
+  overview: CampingOverview,
+  now: number,
+): boolean {
+  return !overview.horizon.nights.some((date) =>
+    currentNight(row, date, overview.maxObservationAgeSeconds, now),
+  );
+}
+
+export function filterCamping<T extends CampingPlace>(
+  rows: T[],
+  river: string | null,
+  nearby: boolean,
+  coords: Coords | null,
+): T[] {
+  return rows.filter(
+    (row) =>
+      (!river || row.riverSlugs.includes(river)) &&
+      (!nearby || distance(row, coords) <= 120),
+  );
 }

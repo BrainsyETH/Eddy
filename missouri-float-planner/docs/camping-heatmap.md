@@ -14,7 +14,7 @@ Availability history is pruned seven days behind the current date. An empty reta
 
 Fresh means at least one current-horizon valid observation; every cell separately checks `checkedAt` against `maxObservationAgeSeconds` (72 hours). The feature never promises one site for an entire stay. The heatmap uses absolute count buckets (1–2, 3–9, 10+) and a distinct “No reservable sites” mark for checked nights with zero reservable inventory. These observations retain their timestamps and freshness without implying first-come availability. Existing map strips retain their original colors, proportional fills, and status semantics. The two encodings differ deliberately: the heatmap never appears beside a map strip, and keeping the strip unchanged keeps the flag's scope clean. Don't align one to the other without a design decision.
 
-There is no general NPS-only detail route or service callout deep-link route. Their expanded heatmap row provides the calendar, sites, website, and booking destination. Verified access-point destinations open the existing map using its supported focus parameters; this does not force a particular map-sheet tab.
+There is no general NPS-only detail route or service callout deep-link route. Their campground detail sheet provides the calendar, sites, website, and booking destination. Verified access-point destinations open the existing map using its supported focus parameters; this does not force a particular map-sheet tab.
 
 First-come notes come from `nps_campgrounds.sites_first_come`. No permanent first-come claim is inferred from a transient walk-up site status. Booking links do not add date parameters. The three district booking pages were verified at Recreation.gov:
 
@@ -48,4 +48,14 @@ Tests cover type parity, aliases, loop overlap, source states, expiry boundaries
 
 Before release, perform real-device QA for light/dark themes, large text, VoiceOver, low bandwidth, denied location, return from background, and long expanded site lists. Automated bundling is not a substitute for these checks. In particular, visually verify the shared date headings, heatmap legend, expanded-row scrolling, and return-to-map behavior.
 
-Enabled loops take precedence over an overlapping aggregate from the same provider facility. The aggregate is excluded with a structured warning, and the remaining catalog is served. Seven-night picker pages overlap when needed to keep Friday/Saturday together while retaining all fourteen nights. Service callouts use their known facility ID directly; only missing IDs require a catalog lookup.
+Enabled loops take precedence over an overlapping aggregate from the same provider facility. The aggregate is excluded with a structured warning, and the remaining catalog is served. The detail sheet presents all fourteen date chips in a single horizontal strip, without splitting weekends across pages. Service callouts use their known facility ID directly; only missing IDs require a catalog lookup.
+
+## Compact comparison UI
+
+Today shows four campground rows under one month/date ruler, titled Camping / Next 14 nights. Both Today and the full screen use the same row component and the existing schedule's green openings/red booked-out outlines. A compact count key remains visible; the info button explains the other marks, weekend emphasis, and reservable-only coverage.
+
+The full screen is a single list with a pinned date ruler. River and Nearby filters intersect; Nearby means 120 straight-line miles and requests location only on a tap. Untracked campgrounds remain available in a collapsed directory using the same filters.
+
+Freshness is summarized for the visible observations: Checked today, a check date, or Check times vary. Rows with no current horizon observations say Needs update. Missing individual nights retain their unknown marks. No repeated row summaries or per-row timestamps are shown.
+
+A row opens a native page sheet directly from either surface. The sheet contains date chips, selected-night counts, the observation timestamp, a primary Book campsite action when a booking URL exists, secondary map/website actions, and an on-demand site list. Loop booking destinations retain the district-permit explanation. Closing preserves the grid and its filters. The existing map camping schedule is unchanged.

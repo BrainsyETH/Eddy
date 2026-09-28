@@ -71,13 +71,23 @@ export function CampingSites({
   facilityId,
   date,
   bookingUrl,
+  autoOpen = false,
 }: {
   facilityId: string;
   date: string;
   bookingUrl?: string;
+  autoOpen?: boolean;
 }) {
   const { colors } = useTheme();
   const [open, setOpen] = useState(false);
+  if (autoOpen)
+    return (
+      <LoadedSites
+        facilityId={facilityId}
+        date={date}
+        bookingUrl={bookingUrl}
+      />
+    );
   return (
     <View>
       <Pressable
