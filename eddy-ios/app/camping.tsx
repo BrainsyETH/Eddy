@@ -24,6 +24,7 @@ import {
   CampingTableRow,
 } from '@/components/CampingGrid';
 import { useStarredRivers } from '@/hooks/useStarredRivers';
+import { CampgroundThumbnail } from '@/components/CampgroundThumbnail';
 import { CampingDetailSheet } from '@/components/CampingDetailSheet';
 import {
   campingRiverOptions,
@@ -325,6 +326,7 @@ function CampingContent() {
         </Pressable>
       ) : null}
       <CampingScrollGroup
+        thumbnails
         dateWidth={36}
         key={`${river}:${nearby}:${grid.horizon.endDateExclusive}`}
       >
@@ -434,6 +436,7 @@ function CampingContent() {
                             { borderColor: colors.border },
                           ]}
                         >
+                          <CampgroundThumbnail url={row.imageUrl} />
                           <Text
                             style={[
                               textStyles.body,

@@ -223,3 +223,15 @@ based on the leftmost visible date. Only changes to that date index bridge to
 React for the month text. Friday/Saturday cells have subtle background shading,
 and native scroll indicators expose the sideways overflow. Device verification
 is still required for diagonal drags, momentum, and switching scroll rows.
+
+### Campground thumbnails
+
+The full camping list and expanded directory show 44pt campground thumbnails in
+the fixed name area; Today retains its compact text rows. The overview carries an
+optional `imageUrl`, selected from the matched NPS campground's existing images
+(including JSON-encoded arrays). Maps and numbered individual-site photos are
+excluded. No ramp or unrelated river photo is substituted. Missing/failed images
+show the Eddy campground symbol. Parks without campground-level media therefore
+use that fallback. No per-row metadata request, new database column, or migration
+is required. The full grid's shared fixed name column is 44% to accommodate both
+the image and two-line name while keeping dates horizontally scrollable.
