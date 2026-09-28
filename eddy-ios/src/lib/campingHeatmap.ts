@@ -1,4 +1,5 @@
 import {
+  HORIZON_NIGHTS,
   resolveHorizon,
   resolveWeekend,
 } from '@eddy/conditions/camping-window';
@@ -195,7 +196,7 @@ export function currentOverview(
   now: number,
 ): CampingOverview {
   if (data.horizon.startDate === campingDate(now)) return data;
-  const horizon = resolveHorizon(new Date(now)),
+  const horizon = resolveHorizon(new Date(now), data.horizon.nights.length || HORIZON_NIGHTS),
     weekend = resolveWeekend(new Date(now));
   return {
     ...data,

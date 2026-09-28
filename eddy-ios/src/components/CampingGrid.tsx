@@ -1,12 +1,15 @@
-import Svg, { Circle, Path, Rect } from 'react-native-svg';
-import { support } from '@/theme/palette';
 import {
-  Pressable,
-  StyleSheet,
-  Text,
-  View,
-  useWindowDimensions,
-} from 'react-native';
+  createContext,
+  useContext,
+  useEffect,
+  useRef,
+  type ReactNode,
+  useState,
+} from 'react';
+import Svg, { Circle, Path, Rect } from 'react-native-svg';
+import { createCampingScroll } from '@/lib/campingScroll';
+import { support } from '@/theme/palette';
+import { Pressable, StyleSheet, Text, View, ScrollView } from 'react-native';
 import type { CampingOverview, TrackedCampground } from '@eddy/types';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts } from '@/theme/typography';
@@ -14,12 +17,10 @@ import {
   campingRowNeedsUpdate,
   cellMark,
   currentNight,
-  dateLabel,
-  nightLine,
   type HeatMark,
 } from '@/lib/campingHeatmap';
 
-function Mark({ mark }: { mark: HeatMark }) {
+export function CampingMark({ mark }: { mark: HeatMark }) {
   const { colors, isDark } = useTheme();
   // Match NightStrip: green openings, red booked-out outlines, neutral other states.
   const greens = isDark
@@ -88,6 +89,49 @@ function Mark({ mark }: { mark: HeatMark }) {
     </View>
   );
 }
+const DATE_WIDTH = 28;
+const DateScrollContext = createContext<ReturnType<
+  typeof createCampingScroll
+> | null>(null);
+
+/** One date offset for the ruler and every row, including newly virtualized rows. */
+export function CampingScrollGroup({ children }: { children: ReactNode }) {
+  const [group] = useState(createCampingScroll);
+  return (
+    <DateScrollContext.Provider value={group}>
+      {children}
+    </DateScrollContext.Provider>
+  );
+}
+function DateScroller({ children }: { children: ReactNode }) {
+  const group = useContext(DateScrollContext);
+  const ref = useRef<ScrollView>(null);
+  useEffect(() => {
+    const view = ref.current;
+    if (!view || !group) return;
+    return group.register(view);
+  }, [group]);
+  return (
+    <ScrollView
+      ref={ref}
+      horizontal
+      directionalLockEnabled
+      nestedScrollEnabled
+      showsHorizontalScrollIndicator={false}
+      style={{ flex: 1 }}
+      onContentSizeChange={() => group?.restore(ref.current)}
+      onScrollBeginDrag={() => {
+        group?.begin(ref.current);
+      }}
+      scrollEventThrottle={16}
+      onScroll={(event) => {
+        group?.scroll(ref.current, event.nativeEvent.contentOffset.x);
+      }}
+    >
+      {children}
+    </ScrollView>
+  );
+}
 export function CampingGrid({
   row,
   overview,
@@ -100,8 +144,7 @@ export function CampingGrid({
   headings?: boolean;
 }) {
   const { colors } = useTheme();
-  const { width, fontScale } = useWindowDimensions();
-  const sparseDates = width < 360 || fontScale > 1.3;
+
   return (
     <View
       style={styles.grid}
@@ -115,7 +158,9 @@ export function CampingGrid({
           style={[
             styles.column,
             {
-              borderColor: overview.weekend.nights.includes(date)
+              borderColor: [5, 6].includes(
+                new Date(date + 'T12:00:00Z').getUTCDay(),
+              )
                 ? colors.interactive
                 : colors.card,
             },
@@ -131,10 +176,10 @@ export function CampingGrid({
                 },
               ]}
             >
-              {!sparseDates || index % 2 === 0 ? Number(date.slice(8)) : ' '}
+              {Number(date.slice(8))}
             </Text>
           ) : (
-            <Mark
+            <CampingMark
               mark={cellMark(
                 row
                   ? currentNight(
@@ -187,24 +232,26 @@ export function CampingTableHeader({
         .join(', ')}
     >
       <View style={table.name} />
-      <View style={table.dates}>
-        <View style={{ flexDirection: 'row' }}>
-          {months.map((m) => (
-            <Text
-              key={m.label}
-              style={{
-                flex: m.count,
-                fontFamily: fonts.medium,
-                fontSize: 10,
-                color: colors.textMuted,
-              }}
-            >
-              {m.label}
-            </Text>
-          ))}
+      <DateScroller>
+        <View>
+          <View style={{ flexDirection: 'row' }}>
+            {months.map((m) => (
+              <Text
+                key={m.label}
+                style={{
+                  width: m.count * DATE_WIDTH,
+                  fontFamily: fonts.medium,
+                  fontSize: 10,
+                  color: colors.textMuted,
+                }}
+              >
+                {m.label}
+              </Text>
+            ))}
+          </View>
+          <CampingGrid overview={overview} now={now} headings />
         </View>
-        <CampingGrid overview={overview} now={now} headings />
-      </View>
+      </DateScroller>
     </View>
   );
 }
@@ -225,7 +272,7 @@ export function CampingTableRow({
     <Pressable
       onPress={onPress}
       accessibilityRole="button"
-      accessibilityLabel={`${row.name}. ${overview.horizon.nights.map((date) => `${dateLabel(date)}: ${nightLine(currentNight(row, date, overview.maxObservationAgeSeconds, now))}`).join('. ')}${stale ? '. Needs an update' : ''}`}
+      accessibilityLabel={`${row.name}. Open calendar and individual sites.${stale ? '. Needs an update' : ''}`}
       style={[table.row, table.item, { borderColor: colors.border }]}
     >
       <View style={table.name}>
@@ -241,9 +288,9 @@ export function CampingTableRow({
           </Text>
         ) : null}
       </View>
-      <View style={table.dates}>
+      <DateScroller>
         <CampingGrid row={row} overview={overview} now={now} />
-      </View>
+      </DateScroller>
     </Pressable>
   );
 }
@@ -255,12 +302,12 @@ const table = StyleSheet.create({
     borderBottomWidth: StyleSheet.hairlineWidth,
   },
   name: { width: '32%', flexShrink: 0 },
-  dates: { flex: 1 },
 });
 const styles = StyleSheet.create({
-  grid: { flexDirection: 'row', gap: 2 },
+  grid: { flexDirection: 'row' },
   column: {
-    flex: 1,
+    width: DATE_WIDTH,
+    paddingHorizontal: 3,
     alignItems: 'center',
     paddingVertical: 3,
     borderBottomWidth: 2,

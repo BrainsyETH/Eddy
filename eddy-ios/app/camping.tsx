@@ -16,7 +16,11 @@ import { fonts, textStyles } from '@/theme/typography';
 import { useAppConfig } from '@/hooks/useAppConfig';
 import { useCampingOverview } from '@/hooks/useCampingOverview';
 import { useLocation } from '@/hooks/useLocation';
-import { CampingTableHeader, CampingTableRow } from '@/components/CampingGrid';
+import {
+  CampingScrollGroup,
+  CampingTableHeader,
+  CampingTableRow,
+} from '@/components/CampingGrid';
 import { CampingDetailSheet } from '@/components/CampingDetailSheet';
 import {
   campingRiverOptions,
@@ -217,118 +221,124 @@ function CampingContent() {
           </Text>
         </Pressable>
       ) : null}
-      <FlatList
-        data={rows}
-        keyExtractor={(row) => row.facilityId}
-        refreshing={loading}
-        onRefresh={refresh}
-        contentContainerStyle={styles.list}
-        stickyHeaderIndices={[0]}
-        ListHeaderComponent={
-          <View style={{ backgroundColor: colors.bg, paddingBottom: 6 }}>
-            <Text
-              style={[
-                textStyles.caption,
-                { color: colors.textMuted, paddingVertical: 8 },
-              ]}
-            >
-              Next 14 nights
-            </Text>
-            <CampingTableHeader overview={data} now={now} />
-          </View>
-        }
-        renderItem={({ item }) => (
-          <CampingTableRow
-            row={item}
-            overview={data}
-            now={now}
-            onPress={() => setSelected(item.facilityId)}
-          />
-        )}
-        ListEmptyComponent={
-          <Text style={[styles.message, { color: colors.textMuted }]}>
-            No campgrounds match these filters.
-          </Text>
-        }
-        ListFooterComponent={
-          <View>
-            {rows.length ? (
-              <Text style={[textStyles.caption, { color: colors.textSubtle }]}>
-                {campingFreshness(rows, data, now)} · Reservable sites only
-              </Text>
-            ) : null}
-            {other.length ? (
-              <Pressable
-                accessibilityRole="button"
-                accessibilityState={{ expanded: directory }}
-                onPress={() => setDirectory((v) => !v)}
-                style={styles.directory}
+      <CampingScrollGroup>
+        <FlatList
+          data={rows}
+          keyExtractor={(row) => row.facilityId}
+          refreshing={loading}
+          onRefresh={refresh}
+          contentContainerStyle={styles.list}
+          stickyHeaderIndices={[0]}
+          ListHeaderComponent={
+            <View style={{ backgroundColor: colors.bg, paddingBottom: 6 }}>
+              <Text
+                style={[
+                  textStyles.caption,
+                  { color: colors.textMuted, paddingVertical: 8 },
+                ]}
               >
+                Next {data?.horizon.nights.length ?? 90} nights
+              </Text>
+              <CampingTableHeader overview={data} now={now} />
+            </View>
+          }
+          renderItem={({ item }) => (
+            <CampingTableRow
+              row={item}
+              overview={data}
+              now={now}
+              onPress={() => setSelected(item.facilityId)}
+            />
+          )}
+          ListEmptyComponent={
+            <Text style={[styles.message, { color: colors.textMuted }]}>
+              No campgrounds match these filters.
+            </Text>
+          }
+          ListFooterComponent={
+            <View>
+              {rows.length ? (
                 <Text
-                  style={{
-                    fontFamily: fonts.semibold,
-                    color: colors.interactive,
-                  }}
+                  style={[textStyles.caption, { color: colors.textSubtle }]}
                 >
-                  Other campgrounds ({other.length}) {directory ? '−' : '+'}
+                  {campingFreshness(rows, data, now)} · Reservable sites only
                 </Text>
-              </Pressable>
-            ) : null}
-            {directory ? (
-              <>
-                <Text style={[textStyles.caption, { color: colors.textMuted }]}>
-                  Check availability with the campground.
-                </Text>
-                {other.map((row) => {
-                  const url = safeExternalUrl(
-                    row.reservationUrl ?? row.website,
-                  );
-                  return (
-                    <View
-                      key={row.id}
-                      style={[
-                        styles.directoryRow,
-                        { borderColor: colors.border },
-                      ]}
-                    >
-                      <Text
+              ) : null}
+              {other.length ? (
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityState={{ expanded: directory }}
+                  onPress={() => setDirectory((v) => !v)}
+                  style={styles.directory}
+                >
+                  <Text
+                    style={{
+                      fontFamily: fonts.semibold,
+                      color: colors.interactive,
+                    }}
+                  >
+                    Other campgrounds ({other.length}) {directory ? '−' : '+'}
+                  </Text>
+                </Pressable>
+              ) : null}
+              {directory ? (
+                <>
+                  <Text
+                    style={[textStyles.caption, { color: colors.textMuted }]}
+                  >
+                    Check availability with the campground.
+                  </Text>
+                  {other.map((row) => {
+                    const url = safeExternalUrl(
+                      row.reservationUrl ?? row.website,
+                    );
+                    return (
+                      <View
+                        key={row.id}
                         style={[
-                          textStyles.body,
-                          { color: colors.text, flex: 1 },
+                          styles.directoryRow,
+                          { borderColor: colors.border },
                         ]}
                       >
-                        {row.name}
-                      </Text>
-                      {url ? (
-                        <Pressable
-                          accessibilityRole="link"
-                          accessibilityLabel={`Check availability for ${row.name}`}
-                          style={styles.action}
-                          onPress={() => {
-                            setLinkFailed(false);
-                            void Linking.openURL(url).catch(() =>
-                              setLinkFailed(true),
-                            );
-                          }}
+                        <Text
+                          style={[
+                            textStyles.body,
+                            { color: colors.text, flex: 1 },
+                          ]}
                         >
-                          <Text style={{ color: colors.interactive }}>
-                            Check ↗
-                          </Text>
-                        </Pressable>
-                      ) : null}
-                    </View>
-                  );
-                })}
-                {linkFailed ? (
-                  <Text style={{ color: colors.error }}>
-                    Couldn’t open the link. Try again.
-                  </Text>
-                ) : null}
-              </>
-            ) : null}
-          </View>
-        }
-      />
+                          {row.name}
+                        </Text>
+                        {url ? (
+                          <Pressable
+                            accessibilityRole="link"
+                            accessibilityLabel={`Check availability for ${row.name}`}
+                            style={styles.action}
+                            onPress={() => {
+                              setLinkFailed(false);
+                              void Linking.openURL(url).catch(() =>
+                                setLinkFailed(true),
+                              );
+                            }}
+                          >
+                            <Text style={{ color: colors.interactive }}>
+                              Check ↗
+                            </Text>
+                          </Pressable>
+                        ) : null}
+                      </View>
+                    );
+                  })}
+                  {linkFailed ? (
+                    <Text style={{ color: colors.error }}>
+                      Couldn’t open the link. Try again.
+                    </Text>
+                  ) : null}
+                </>
+              ) : null}
+            </View>
+          }
+        />
+      </CampingScrollGroup>
       {detail ? (
         <CampingDetailSheet
           key={detail.facilityId}

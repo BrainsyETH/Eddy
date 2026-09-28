@@ -26,19 +26,26 @@ import { warn } from '@/lib/monitoring';
 import type { DetailStatus } from './useAccessPointDetail';
 
 // Small public cache: reopening a row should not download its sites again immediately.
-const siteCache = new Map<string, { at: number; sites: CampsiteSitesResponse | null }>();
+const siteCache = new Map<
+  string,
+  { at: number; sites: CampsiteSitesResponse | null }
+>();
 
-export function useCampsiteSites(facilityId: string | null | undefined): {
+export function useCampsiteSites(
+  facilityId: string | null | undefined,
+  month?: string,
+): {
   sites: CampsiteSitesResponse | null;
   status: DetailStatus;
 } {
+  const key = `${facilityId ?? ''}:${month ?? 'strip'}`;
   const [held, setHeld] = useState<{
-    facilityId: string;
+    key: string;
     sites: CampsiteSitesResponse | null;
     failed: boolean;
   } | null>(null);
 
-  const current = held && held.facilityId === facilityId ? held : null;
+  const current = held && held.key === key ? held : null;
   const status: DetailStatus = !facilityId
     ? 'idle'
     : current
@@ -51,29 +58,31 @@ export function useCampsiteSites(facilityId: string | null | undefined): {
     if (!facilityId) return;
 
     const controller = new AbortController();
-    const cached = siteCache.get(facilityId);
-    const pending = cached && Date.now() - cached.at < 300000
-      ? Promise.resolve(cached.sites)
-      : fetchCampsiteSites(facilityId, controller.signal);
+    const cached = siteCache.get(key);
+    const pending =
+      cached && Date.now() - cached.at < 300000
+        ? Promise.resolve(cached.sites)
+        : fetchCampsiteSites(facilityId, controller.signal, month);
     void pending
       .then((response) => {
         if (!controller.signal.aborted) {
           if (!cached || Date.now() - cached.at >= 300000) {
-            siteCache.delete(facilityId);
-            siteCache.set(facilityId, { at: Date.now(), sites: response });
-            if (siteCache.size > 8) siteCache.delete(siteCache.keys().next().value!);
+            siteCache.delete(key);
+            siteCache.set(key, { at: Date.now(), sites: response });
+            if (siteCache.size > 8)
+              siteCache.delete(siteCache.keys().next().value!);
           }
-          setHeld({ facilityId, sites: response, failed: false });
+          setHeld({ key, sites: response, failed: false });
         }
       })
       .catch((err) => {
         if (!controller.signal.aborted) {
           warn('map', 'campsite sites failed', err);
-          setHeld({ facilityId, sites: null, failed: true });
+          setHeld({ key, sites: null, failed: true });
         }
       });
     return () => controller.abort();
-  }, [facilityId]);
+  }, [facilityId, month, key]);
 
   return { sites: current?.sites ?? null, status };
 }

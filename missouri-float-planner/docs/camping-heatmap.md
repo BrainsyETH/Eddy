@@ -4,7 +4,7 @@
 
 - Read-only `/api/camping/availability`: facility-first catalog, sparse per-night observations, 300/300 edge cache, and complete paginated reads. No provider calls from user requests.
 - A four-row Today card and `/camping` expanded screen. Location stays on the phone; nearby means 120 straight-line miles, with a separately labeled saved-river/regional fallback.
-- Fourteen comparison cells, absolute opening-count shades, explicit unknown/closed/unreleased/full marks, two disjoint pages of selectable nights (usually seven each; eight when needed to keep a Friday with its Saturday), external booking links, and optional map destinations.
+- Ninety-night horizontally scrolling comparisons, absolute opening-count shades, explicit unknown/closed/unreleased/full marks, and a monthly campground calendar, external booking links, and optional map destinations.
 - On-demand individual site lists in the expanded screen and service callouts. Site responses are cached briefly for up to eight facilities. No eager per-row site fetches.
 - Date windows shared between server and phone. Cached catalogs roll forward at Chicago midnight; newly uncovered nights remain unknown.
 
@@ -48,14 +48,73 @@ Tests cover type parity, aliases, loop overlap, source states, expiry boundaries
 
 Before release, perform real-device QA for light/dark themes, large text, VoiceOver, low bandwidth, denied location, return from background, and long expanded site lists. Automated bundling is not a substitute for these checks. In particular, visually verify the shared date headings, heatmap status symbols, expanded-row scrolling, and return-to-map behavior.
 
-Enabled loops take precedence over an overlapping aggregate from the same provider facility. The aggregate is excluded with a structured warning, and the remaining catalog is served. The detail sheet presents all fourteen date chips in a single horizontal strip, without splitting weekends across pages. Service callouts use their known facility ID directly; only missing IDs require a catalog lookup.
+Enabled loops take precedence over an overlapping aggregate from the same provider facility. The aggregate is excluded with a structured warning, and the remaining catalog is served. The detail sheet presents a monthly calendar; each selected night drives the individual site list. Service callouts use their known facility ID directly; only missing IDs require a catalog lookup.
 
 ## Compact comparison UI
 
-Today shows four campground rows under one month/date ruler, titled Camping / Next 14 nights. Both Today and the full screen use the same row component and the existing schedule's green openings/red booked-out outlines. There is no legend. Locked cells mean fully booked; a clock means booking has not opened; a question mark means unknown. Closed nights and nights with no reservable inventory share a neutral dash in the compact grid, with distinct exact statuses in details and VoiceOver. Today identifies the selection as Nearby, Saved Rivers, or Across the Ozarks.
+Today shows four campground rows under one month/date ruler, titled Camping / Next 90 nights. Both Today and the full screen use the same row component and the existing schedule's green openings/red booked-out outlines. There is no legend. Locked cells mean fully booked; a clock means booking has not opened; a question mark means unknown. Closed nights and nights with no reservable inventory share a neutral dash in the compact grid, with distinct exact statuses in details and VoiceOver. Today identifies the selection as Nearby, Saved Rivers, or Across the Ozarks.
 
 The full screen is a single list with a pinned date ruler. River filters use curated display names and only rivers with tracked campgrounds. River and Nearby filters intersect; Nearby means 120 straight-line miles and requests location only on a tap. Untracked campgrounds remain available in a collapsed directory using the same filters.
 
 The footer uses the oldest current observation in the visible rows: Updated at [time] for today, otherwise Updated on [date], in America/Chicago. It always includes Reservable sites only. Rows with no current horizon observations say Needs update. Missing individual nights retain their unknown marks. No repeated row summaries or per-row timestamps are shown.
 
-A row opens a native page sheet directly from either surface. The sheet opens on the first weekend night within the horizon, falling back to tonight. It contains date chips, selected-night counts, the observation timestamp, a primary Book campsite action when a booking URL exists, secondary map/website actions, and a site list fetched automatically when the sheet opens (using the existing five-minute cache). Loop booking destinations retain the district-permit explanation. Closing preserves the grid and its filters. The existing map camping schedule is unchanged.
+A row opens a native page sheet directly from either surface. The sheet opens on the first weekend night within the horizon, falling back to tonight. It contains a month calendar, selected-night counts, the observation timestamp, a primary Book campsite action when a booking URL exists, secondary map/website actions, and a site list fetched automatically when the sheet opens (using the existing five-minute cache). Loop booking destinations retain the district-permit explanation. Closing preserves the grid and its filters. The existing map camping schedule is unchanged.
+
+
+## Ninety-night planning coverage
+
+The scheduled sync uses `PLANNING_NIGHTS = 90`. The scrolling client requests
+`/api/camping/availability?nights=90`; requests without that parameter retain
+fourteen nights so already-shipped fixed-grid builds remain usable. Existing map-strip
+readers retain the default fourteen nights. Missing provider dates remain unknown;
+scrolling does not imply a date has been checked or released for booking.
+
+Both comparisons keep names fixed and synchronize the header and row scroll offsets.
+The full list retains its sticky header and virtualization. The campground sheet
+pages through calendar months within the returned horizon; past and out-of-range
+dates are disabled. Choosing a night updates the list beneath it. Site rows use the
+existing individual-site photo loader, never substitute a campground photo for a
+site, and show their available type/loop/occupancy data.
+
+`/api/campsites?facility=<id>&month=YYYY-MM` reads only that month's cached data,
+clipped to the next ninety nights. The month is validated before querying. Omitting
+it preserves the existing fourteen-night response. The app caches up to eight
+facility/month responses for five minutes and discards late responses on selection
+changes. Expired site observations become unknown without hiding fresh dates in the
+same month. All database reads remain paginated and all provider reads remain cron-only.
+
+Recreation.gov fetches each touched calendar month with the existing shared permit
+cache. A missing later month does not erase earlier observations. Missouri discovers
+loops separately each month and fetches month-sized grids. A discovery date's
+`InSeason=false` establishes closure for that date only; it is not stretched into a
+three-month closure. Its boolean grid still cannot distinguish a taken site from a
+seasonal closure on later dates. Live expanded-range verification from this workspace
+was blocked by a provider HTTP 403; do not claim every park supplies all ninety nights.
+
+Six spaced federal cron slots and three Missouri slots drain the existing facility
+queue. Facilities attempted successfully on the current Chicago date are skipped by
+later slots. Provider pacing and request ceilings are unchanged. The worker stops
+starting new facilities after three minutes; provider requests and retry delays stop
+at four minutes, leaving time to write before Vercel's five-minute ceiling. Interrupted
+facilities keep their cursor and are retried in a later slot.
+
+Deployment requires both the API/cron changes and a mobile build. No schema migration
+is needed. After deployment, let the scheduled slots populate the longer range and
+verify per-provider maximum observed date, fresh-night counts, sync failures and queue
+remainder. Do not treat the UI's ninety-night horizon as proof of a completed backfill.
+
+
+Read-only pre-deployment check on September 28: fresh stored availability still
+ends October 11 for both providers (29 federal facilities / 406 nights and six
+Missouri facilities / 84 nights). This is the existing fourteen-night dataset,
+not a ninety-night backfill. Re-run this check after deployment:
+
+```sql
+select f.source, count(distinct a.facility_id) as facilities,
+       min(a.date) as first_date, max(a.date) as last_date, count(*) as fresh_nights
+from public.campsite_facilities f
+join public.campsite_availability a on a.facility_id = f.id
+where f.enabled and a.fetched_at >= now() - interval '72 hours'
+  and a.date >= (now() at time zone 'America/Chicago')::date
+group by f.source;
+```

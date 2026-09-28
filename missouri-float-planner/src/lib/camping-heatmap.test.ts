@@ -270,3 +270,35 @@ test('river filters retain curated names and exclude untracked-only rivers', () 
     { slug: 'jacks-fork', label: 'Jacks Fork River' },
   ]);
 });
+
+import { calendarDays, campingMonths, monthSelection } from '../../../eddy-ios/src/lib/campingCalendar';
+test('calendar aligns Sunday weeks and handles leap days and year boundaries', () => {
+  const leap = calendarDays('2028-02');
+  assert.equal(leap[0], null);
+  assert.ok(leap.includes('2028-02-29'));
+  assert.equal(leap.length % 7, 0);
+  assert.ok(!calendarDays('2027-02').includes('2027-02-29'));
+  const nights = ['2026-12-31', '2027-01-01'];
+  assert.deepEqual(campingMonths(nights), ['2026-12', '2027-01']);
+  assert.equal(monthSelection('2026-12', nights), '2026-12-31');
+  assert.equal(monthSelection('2027-02', nights), undefined);
+});
+
+import { createCampingScroll } from '../../../eddy-ios/src/lib/campingScroll';
+test('date scrolling moves all rows, ignores follower events, and restores virtualized rows', () => {
+  const group = createCampingScroll();
+  const positions = [0, 0, 0];
+  const views = positions.map((_, i) => ({ scrollTo: ({ x }: { x: number }) => { positions[i] = x; } }));
+  group.register(views[0]);
+  group.register(views[1]);
+  group.begin(views[0]);
+  group.scroll(views[0], 560);
+  assert.equal(positions[1], 560);
+  group.scroll(views[1], 120);
+  assert.equal(positions[0], 0, 'a follower cannot pull the driver backward');
+  group.register(views[2]);
+  assert.equal(positions[2], 560, 'newly visible row adopts the shared date');
+  group.begin(views[2]);
+  group.scroll(views[2], 840);
+  assert.deepEqual(positions.slice(0, 2), [840, 840]);
+});

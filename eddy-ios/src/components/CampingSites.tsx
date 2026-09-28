@@ -22,7 +22,7 @@ function LoadedSites({
     const timer = setInterval(() => setNow(Date.now()), 60000);
     return () => clearInterval(timer);
   }, []);
-  const { sites, status } = useCampsiteSites(facilityId);
+  const { sites, status } = useCampsiteSites(facilityId, date.slice(0, 7));
   if (status === 'loading')
     return (
       <ActivityIndicator
