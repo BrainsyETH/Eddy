@@ -139,12 +139,16 @@ export function CampingCalendar({
                 <Text
                   style={{
                     fontFamily: date === selected ? fonts.semibold : fonts.body,
-                    color: available ? colors.text : colors.textSubtle,
+                    color: !available
+                      ? colors.textSubtle
+                      : night
+                        ? colors.text
+                        : colors.textMuted,
                   }}
                 >
                   {Number(date.slice(8))}
                 </Text>
-                {available ? (
+                {available && night ? (
                   <View style={styles.mark}>
                     <CampingMark mark={cellMark(night)} />
                   </View>

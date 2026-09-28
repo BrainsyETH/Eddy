@@ -4,7 +4,7 @@
 
 - Read-only `/api/camping/availability`: facility-first catalog, sparse per-night observations, 300/300 edge cache, and complete paginated reads. No provider calls from user requests.
 - A four-row Today card and `/camping` expanded screen. Location stays on the phone; nearby means 120 straight-line miles, with a separately labeled saved-river/regional fallback.
-- Twenty-one-night Today and ninety-night full-screen scrolling comparisons, absolute opening-count shades, explicit unknown/closed/unreleased/full marks, and a monthly campground calendar, external booking links, and optional map destinations.
+- Twenty-one-night Today and ninety-night full-screen scrolling comparisons, absolute opening-count shades, distinct availability states, and a monthly campground calendar, external booking links, and optional map destinations.
 - On-demand individual site lists in the expanded screen and service callouts. Site responses are cached briefly for up to eight facilities. No eager per-row site fetches.
 - Date windows shared between server and phone. Cached catalogs roll forward at Chicago midnight; newly uncovered nights remain unknown.
 
@@ -52,7 +52,7 @@ Enabled loops take precedence over an overlapping aggregate from the same provid
 
 ## Compact comparison UI
 
-Today shows four campground rows under one month/date ruler, titled Camping with a Through [date] coverage label. Both Today and the full screen use the same row component and the existing schedule's green openings/red booked-out outlines. There is no legend. Locked cells mean fully booked; a clock means booking has not opened; a question mark means unknown. Closed nights and nights with no reservable inventory share a neutral dash in the compact grid, with distinct exact statuses in details and VoiceOver. Today identifies the selection as Nearby, Saved Rivers, or Across the Ozarks.
+Today shows four campground rows under one month/date ruler, titled Camping with a Through [date] coverage label. Both Today and the full screen use the same row component and the existing schedule's green openings/red booked-out outlines. There is no legend. Locked cells mean fully booked; a clock means booking has not opened; a faint neutral dash means unknown in comparison grids. Calendar dates without fresh observations have muted numbers and no mark. Closed nights and nights with no reservable inventory share a neutral dash in the compact grid, with distinct exact statuses in details and VoiceOver. Today identifies the selection as Nearby, Saved Rivers, or Across the Ozarks.
 
 The full screen is a single list with a pinned date ruler. River filters use curated display names and only rivers with tracked campgrounds. River and Nearby filters intersect; Nearby means 120 straight-line miles and requests location only on a tap. Untracked campgrounds remain available in a collapsed directory using the same filters.
 
@@ -158,3 +158,18 @@ Before release, test the synchronized full list on an older iPhone, large Dynami
 Type, VoiceOver row summaries and calendar selection, and swiping/releasing over a
 row without opening it. Automated type/bundle and gesture-policy checks do not
 replace native-device performance and touch QA.
+
+
+Unknown-date display: supported dates without a fresh observation remain selectable
+in the campground calendar, but have a muted number and no availability symbol.
+Selecting one says `Availability not updated`; the normal booking link remains
+available. Unsupported dates stay disabled. Comparison grids use a thin, short,
+neutral dash for unknown observations. This changes presentation only, not counts
+or freshness rules.
+
+September 28 afternoon verification: the production API accepts `nights=90`, but
+the most recent recorded provider syncs ran at 09:20 / 09:44 UTC before deployment.
+Fresh stored dates still end October 11. Manual backfill must account for the
+same-day facility cursor: repeating today's job without re-queuing the facilities
+would skip them. The authenticated Vercel cron trigger is required; no provider
+observations have been fabricated or copied into later dates.

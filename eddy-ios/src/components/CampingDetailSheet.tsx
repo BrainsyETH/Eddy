@@ -97,11 +97,13 @@ export function CampingDetailSheet({
             {dateLabel(date)}
           </Text>
           <Text style={[textStyles.body, { color: colors.text }]}>
-            {nightLine(night)}
+            {night ? nightLine(night) : 'Availability not updated'}
           </Text>
-          <Text style={[textStyles.caption, { color: colors.textMuted }]}>
-            {checkedLabel(night?.checkedAt ?? null, now)}
-          </Text>
+          {night ? (
+            <Text style={[textStyles.caption, { color: colors.textMuted }]}>
+              {checkedLabel(night.checkedAt, now)}
+            </Text>
+          ) : null}
           {row.firstCome === 'present' ? (
             <Text style={[textStyles.caption, { color: colors.textMuted }]}>
               First-come sites offered; check availability at the campground.
