@@ -221,14 +221,14 @@ export function TodayWeather({
       disabled={weatherLoading || (!weather && !onRequestLocation)}
       onPress={weather ? onOpen : onRequestLocation ?? undefined}
       style={[styles.compactWeather, { backgroundColor: colors.card, borderColor: colors.border }, elevation(1)]}>
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap', justifyContent: 'center' }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap', justifyContent: 'center', minHeight: 29 }}>
         <Ionicons name={weather ? weatherGlyph(weather.conditionIcon) : 'partly-sunny-outline'} size={28} color={colors.interactive} />
         {!locationEnabled && !weather ? <Text style={{ ...t.lg, fontFamily: fonts.semibold, color: colors.text }}>Weather</Text> : null}
       </View>
       {weather ? <>
         <Text style={{ ...t['3xl'], fontFamily: fonts.semibold, color: colors.text, textAlign: 'center' }}><Text style={{ ...t.sm, color: colors.textMuted }}>H </Text>{weather.tempHigh}° <Text style={{ ...t.sm, color: colors.textMuted }}>L </Text><Text style={{ ...t['2xl'], color: colors.textMuted }}>{weather.tempLow}°</Text></Text>
         <Text numberOfLines={2} style={[styles.weatherMeta, { ...t.sm, color: colors.textMuted, textAlign: 'center' }]}>{weather.date === localDateKey() ? '' : `${weather.dayOfWeek} · `}{weather.condition} · {weather.precipitation}% rain</Text>
-      </> : weatherLoading ? <ActivityIndicator accessibilityLabel="Updating local forecast" color={colors.interactive} /> : <Text style={[styles.weatherActionText, { ...t.base, color: colors.interactive, textAlign: 'center' }]}>{locationActionLabel?.startsWith('Open Settings') ? 'Enable location' : locationActionLabel?.startsWith('Retry') ? 'Retry weather' : locationActionLabel ? 'Use my location' : 'Weather unavailable'}</Text>}
+      </> : weatherLoading ? <ActivityIndicator accessibilityLabel="Updating local forecast" color={colors.interactive} /> : <Text style={[styles.weatherActionText, { ...t.base, minHeight: 38, lineHeight: 38, marginTop: 0, color: colors.interactive, textAlign: 'center' }]}>{locationActionLabel?.startsWith('Open Settings') ? 'Enable location' : locationActionLabel?.startsWith('Retry') ? 'Retry weather' : locationActionLabel ? 'Use my location' : 'Weather unavailable'}</Text>}
     </Pressable>
   );
   if (!weather && !weatherLoading && !(onRequestLocation && locationActionLabel)) return null;
