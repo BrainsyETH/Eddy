@@ -7,6 +7,14 @@ import {
 } from '@eddy/conditions/camping-demand';
 import { localDate } from '@eddy/conditions/camping-window';
 import type { CampingOverview } from '@eddy/types';
+import { campingRiverOptions } from './campingHeatmap';
+
+// Curated popular Ozarks destinations, not a live traffic ranking. Only rivers
+// with a usable reading for tonight can take a slot; other covered rivers follow.
+const POPULAR_CAMPING_RIVERS: readonly string[] = [
+  'current', 'jacks-fork', 'buffalo', 'meramec', 'niangua',
+  'eleven-point', 'huzzah', 'big-piney', 'courtois', 'st-francis', 'black',
+];
 
 /** Today always means tonight in the Ozarks, including Chicago midnight and
  * DST. Never fall back to an upcoming weekend or the cached horizon's start. */
@@ -17,21 +25,24 @@ export function todayCampingDemand(
   return regionalCampingDemand(overview, localDate(new Date(now)), now);
 }
 
-/** Saved order, rivers only, no unrelated fallback rows or extra API calls. */
-export function todayFavoriteCamping(
+/** Popular rivers with usable tonight data. Filter before limiting so an
+ * uncovered river never displaces one we can actually show. */
+export function todayPopularCamping(
   overview: CampingOverview,
-  favorites: readonly { kind: string; slug: string; name: string }[],
   now: number,
 ) {
   const date = localDate(new Date(now));
-  const seen = new Set<string>();
-  return favorites.filter((favorite) => {
-    if (favorite.kind !== 'river' || !favorite.slug || seen.has(favorite.slug)) return false;
-    seen.add(favorite.slug);
-    return true;
-  }).slice(0, 5).map(({ slug, name }) => ({
-    slug, name, demand: campingDemand(overview, slug, date, now),
-  }));
+  const rank = (slug: string) => {
+    const index = POPULAR_CAMPING_RIVERS.indexOf(slug);
+    return index < 0 ? POPULAR_CAMPING_RIVERS.length : index;
+  };
+  return campingRiverOptions(overview.tracked, overview.untracked)
+    .map(({ slug, label }) => ({
+      slug, name: label, demand: campingDemand(overview, slug, date, now),
+    }))
+    .filter((row) => row.demand.band !== null)
+    .sort((a, b) => rank(a.slug) - rank(b.slug) || a.name.localeCompare(b.name) || a.slug.localeCompare(b.slug))
+    .slice(0, 5);
 }
 
 /** The short reading shown beside a river and above the regional bar. */

@@ -5,7 +5,7 @@ import {
   campingPulseDetail,
   campingPulseCoverage,
   campingPulseSummary,
-  todayFavoriteCamping,
+  todayPopularCamping,
 } from '../../../eddy-ios/src/lib/campingDemand';
 import { campingDemand, demandDetail } from '../../shared/camping-demand';
 import { crowdSignalEnabled } from '../../../eddy-ios/src/lib/campingFeature';
@@ -96,32 +96,57 @@ test('Today rates tonight across the region, weighted by sites, not campground o
   assert.equal(campingPulseDetail(demand), '43% of tracked campsites booked tonight');
 });
 
-test('favorite summaries keep saved river order, remove duplicates, and cap at five', () => {
-  const favorite = (slug: string, kind = 'river') => ({ kind, slug, name: `${slug} River` });
-  const rows = todayFavoriteCamping(overview(), [
-    favorite('current', 'gauge'), favorite('buffalo'), favorite(''),
-    favorite('current'), favorite('buffalo'), favorite('jacks-fork'),
-    favorite('meramec'), favorite('untracked'), favorite('sixth'),
-  ], now.getTime());
-  assert.deepEqual(rows.map((r) => r.slug), ['buffalo', 'current', 'jacks-fork', 'meramec', 'untracked']);
-  assert.equal(rows[0].name, 'buffalo River');
-  assert.equal(rows[0].demand.booked, 0.1);
-  assert.equal(rows[1].demand.booked, 0.6);
-  assert.ok(rows.every((r) => r.demand.date === '2026-09-29'));
-  assert.equal(rows[4].demand.band, null, 'an untracked favorite is unknown, never Quiet');
-  assert.equal(campingPulseSummary(rows[4].demand), 'Not enough data');
+function riverSample(slugs: string[]) {
+  const o = overview();
+  const template = o.tracked.find((c) => c.facilityId === 'akers')!;
+  o.tracked = slugs.map((slug) => ({
+    ...template, id: slug, facilityId: slug, riverSlugs: [slug],
+    displayGroup: { key: slug, label: `${slug} River` },
+    nights: template.nights.map((night) => ({ ...night })),
+  }));
+  return o;
+}
+
+test('popular camping uses curated order, one row per river, and at most five usable readings', () => {
+  const o = riverSample(['zulu', 'niangua', 'buffalo', 'meramec', 'current', 'jacks-fork', 'alpha']);
+  // A campground serving two rivers must not create a duplicate river row.
+  o.tracked[0].riverSlugs.push('current');
+  const rows = todayPopularCamping(o, now.getTime());
+  assert.deepEqual(rows.map((r) => r.slug), ['current', 'jacks-fork', 'buffalo', 'meramec', 'niangua']);
+  assert.equal(rows[0].name, 'current River');
+  assert.ok(rows.every((r) => r.demand.date === '2026-09-29' && r.demand.band !== null));
+  o.tracked.reverse();
+  assert.deepEqual(todayPopularCamping(o, now.getTime()).map((r) => r.slug), rows.map((r) => r.slug));
 });
 
-test('favorite summaries never fill empty slots with unrelated rivers or weekend readings', () => {
-  const saved = [{ kind: 'river', slug: 'current', name: 'Current River' }];
-  assert.deepEqual(todayFavoriteCamping(overview(), [], now.getTime()), []);
-  const beforeMidnight = todayFavoriteCamping(overview(), saved, Date.parse('2026-09-30T04:59:59Z'));
-  assert.equal(beforeMidnight.length, 1);
-  assert.equal(beforeMidnight[0].demand.date, '2026-09-29');
-  assert.equal(campingPulseSummary(beforeMidnight[0].demand), 'Busy · 60% booked');
-  const afterMidnight = todayFavoriteCamping(overview(), saved, Date.parse('2026-09-30T05:00:00Z'));
-  assert.equal(afterMidnight[0].demand.date, '2026-09-30');
-  assert.equal(afterMidnight[0].demand.band, null);
+test('unusable popular rivers cannot displace covered rivers or pad the Today card', () => {
+  const o = riverSample(['current', 'jacks-fork', 'buffalo', 'meramec', 'niangua', 'huzzah', 'zulu', 'alpha']);
+  o.tracked[0].nights = []; // Missing tonight.
+  o.tracked[1].nights[0].checkedAt = '2026-09-26T17:00:00Z'; // Expired.
+  o.tracked[2].nights[0].status = 'closed';
+  o.tracked[3].source = 'mo_state_parks'; // Not a demand-compatible feed.
+  o.tracked[4].nights[0].status = 'not_yet_released';
+  o.tracked[5].nights[0] = { ...o.tracked[5].nights[0], sitesOpen: 0, sitesReservable: 1, status: 'full' };
+  assert.deepEqual(todayPopularCamping(o, now.getTime()).map((r) => r.slug), ['alpha', 'zulu']);
+  o.tracked = o.tracked.slice(0, 6);
+  assert.deepEqual(todayPopularCamping(o, now.getTime()), []);
+});
+
+test('Today keeps fully booked rivers when the reading is usable', () => {
+  const o = riverSample(['current']);
+  o.tracked[0].nights[0] = { ...o.tracked[0].nights[0], sitesOpen: 0, status: 'full' };
+  const rows = todayPopularCamping(o, now.getTime());
+  assert.equal(rows.length, 1);
+  assert.equal(rows[0].demand.band, 'packed');
+});
+
+test('popular camping uses actual river totals and drops missing tonight at Chicago midnight', () => {
+  const beforeMidnight = todayPopularCamping(overview(), Date.parse('2026-09-30T04:59:59Z'));
+  const current = beforeMidnight.find((r) => r.slug === 'current')!;
+  assert.equal(current.demand.date, '2026-09-29');
+  assert.equal(campingPulseSummary(current.demand), 'Busy · 60% booked');
+  assert.equal(beforeMidnight.find((r) => r.slug === 'buffalo')!.demand.booked, 0.1);
+  assert.deepEqual(todayPopularCamping(overview(), Date.parse('2026-09-30T05:00:00Z')), []);
 });
 
 test('duplicate facility entries cannot increase the regional total', () => {
