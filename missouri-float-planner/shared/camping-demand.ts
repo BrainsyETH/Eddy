@@ -1,6 +1,6 @@
 // shared/camping-demand.ts
 //
-// Camping demand: how booked a river's tracked campsites are on one night,
+// Camping demand: how booked tracked campsites are on one night,
 // as a Quiet → Packed band. Shared so the iOS Today card and any web surface
 // compute and word it identically. Design: docs/crowd-signal.md.
 //
@@ -77,7 +77,8 @@ export interface DemandOverview {
 }
 
 export interface CampingDemand {
-  riverSlug: string;
+  /** Null for the regional reading; otherwise the selected river. */
+  riverSlug: string | null;
   date: string;
   /** Null when withheld. */
   band: DemandBand | null;
@@ -128,7 +129,7 @@ function daysBetween(from: string, to: string): number {
 }
 
 /**
- * Camping demand on one river for one night.
+ * Camping demand on one river (or the region when null) for one night.
  *
  * Every eligible campground falls into exactly one bucket:
  * - observed: unexpired `open`/`full` night with reservable inventory → counted
@@ -143,13 +144,14 @@ function daysBetween(from: string, to: string): number {
  */
 export function campingDemand(
   overview: DemandOverview,
-  riverSlug: string,
+  riverSlug: string | null,
   date: string,
   now: number = Date.now(),
 ): CampingDemand {
   const maxAgeMs = overview.maxObservationAgeSeconds * 1000;
   const eligible = overview.tracked.filter(
-    (c) => c.source === CAMPING_DEMAND_SOURCE && c.riverSlugs.includes(riverSlug),
+    (c) => c.source === CAMPING_DEMAND_SOURCE &&
+      (riverSlug === null || c.riverSlugs.includes(riverSlug)),
   );
   let bookedSites = 0,
     reservableSites = 0,
@@ -278,6 +280,23 @@ export function campingDemand(
   };
 }
 
+/** One regional reading from unique campground inventory, never river totals.
+ * The overview already resolves district/loop overlap. facilityId also prevents
+ * a repeated campground row or a multi-river association inflating the score.
+ * Standalone tracked campgrounds participate even without a linked river. */
+export function regionalCampingDemand(
+  overview: Omit<DemandOverview, 'tracked'> & {
+    tracked: (DemandCampground & { facilityId: string })[];
+  },
+  date: string,
+  now: number = Date.now(),
+): CampingDemand {
+  const unique = new Map(
+    overview.tracked.map((campground) => [campground.facilityId, campground]),
+  );
+  return campingDemand({ ...overview, tracked: [...unique.values()] }, null, date, now);
+}
+
 /** Demand for each river over a run of nights. Never sum these across rivers:
  * a campground serving two rivers is counted in each. */
 export function campingDemandByRiver(
@@ -329,6 +348,8 @@ export function demandHeadline(d: CampingDemand): string {
 
 /** The line under the headline, e.g. "24% of tracked campsites booked so far". */
 export function demandDetail(d: CampingDemand): string {
+  if (d.withheld === 'no_tracked_campgrounds' && d.riverSlug === null)
+    return 'No Recreation.gov campgrounds tracked in the region';
   if (d.withheld) return WITHHELD_LABEL[d.withheld];
   const pct = Math.round((d.booked ?? 0) * 100);
   const soFar = d.final ? '' : ' so far';

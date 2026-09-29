@@ -3,8 +3,8 @@
 ## What this branch adds
 
 - Read-only `/api/camping/availability`: facility-first catalog, sparse per-night observations, 300/300 edge cache, and complete paginated reads. No provider calls from user requests.
-- A four-row Today card and `/camping` expanded screen. Location stays on the phone; nearby means 120 straight-line miles, with a separately labeled saved-river/regional fallback.
-- Twenty-one-night Today and ninety-night full-screen scrolling comparisons, absolute opening-count shades, distinct availability states, and a monthly campground calendar, external booking links, and optional map destinations.
+- A regional gauge inside the existing Today Camping card and a detailed `/camping` screen. The Today gauge uses tonight across the Ozarks; see [Camping demand](crowd-signal.md). Location stays on the phone for the full-screen Nearby filter (120 straight-line miles).
+- A twenty-one-night cached overview behind the same-day Today gauge, plus a ninety-night full-screen scrolling comparison, absolute opening-count shades, distinct availability states, a monthly campground calendar, external booking links, and optional map destinations.
 - On-demand individual site lists in the expanded screen and service callouts. Site responses are cached briefly for up to eight facilities. No eager per-row site fetches.
 - Date windows shared between server and phone. Cached catalogs roll forward at Chicago midnight; newly uncovered nights remain unknown.
 
@@ -52,13 +52,13 @@ Enabled loops take precedence over an overlapping aggregate from the same provid
 
 ## Compact comparison UI
 
-Today shows four campground rows under one month/date ruler, titled Camping with a Through [date] coverage label. Both Today and the full screen use the same row component and the existing schedule's green openings/red booked-out outlines. There is no legend. Locked cells mean fully booked; a clock means booking has not opened; a faint neutral dash means unknown in comparison grids. Calendar dates without fresh observations have muted numbers and no mark. Closed nights and nights with no reservable inventory share a neutral dash in the compact grid, with distinct exact statuses in details and VoiceOver. Today identifies the selection as Nearby, Saved Rivers, or Across the Ozarks.
+Today now shows one regional Quiet → Packed gauge inside its existing Camping card, replacing the compact campground rows. It always represents tonight in America/Chicago, with a tap through to `/camping`. The full screen retains the green openings/red booked-out outlines. Locked cells mean fully booked; a clock means booking has not opened; a faint neutral dash means unknown in comparison grids. Closed nights and nights with no reservable inventory share a neutral dash in the grid, with distinct statuses in details and VoiceOver. Calendar dates without fresh observations have muted numbers and no mark.
 
 The full screen is a single list with a pinned date ruler. River filters use curated display names and only rivers with tracked campgrounds. River and Nearby filters intersect; Nearby means 120 straight-line miles and requests location only on a tap. Untracked campgrounds remain available in a collapsed directory using the same filters.
 
-The footer uses the oldest current observation in the visible rows: Updated at [time] for today, otherwise Updated on [date], in America/Chicago. It always includes Reservable sites only. Rows with no current horizon observations say Needs update. Missing individual nights retain their unknown marks. No repeated row summaries or per-row timestamps are shown.
+The full-screen footer uses the oldest current observation in the visible rows: Updated at [time] for today, otherwise Updated on [date], in America/Chicago. It always includes Reservable sites only. Rows with no current horizon observations say Needs update. Missing individual nights retain their unknown marks. No repeated row summaries or per-row timestamps are shown.
 
-A row opens a native page sheet directly from either surface. The sheet opens on the first weekend night within the horizon, falling back to tonight. It contains a month calendar, selected-night counts, the observation timestamp, a primary Book campsite action when a booking URL exists, secondary map/website actions, and a site list fetched automatically when the sheet opens (using the existing five-minute cache). Loop booking destinations retain the district-permit explanation. Closing preserves the grid and its filters. The existing map camping schedule is unchanged.
+A full-screen campground row opens a native page sheet. The sheet opens on the first weekend night within the horizon, falling back to tonight. It contains a month calendar, selected-night counts, the observation timestamp, a primary Book campsite action when a booking URL exists, secondary map/website actions, and a site list fetched automatically when the sheet opens (using the existing five-minute cache). Loop booking destinations retain the district-permit explanation. Closing preserves the grid and its filters. The existing map camping schedule is unchanged.
 
 
 ## Ninety-night planning coverage
@@ -69,7 +69,7 @@ fourteen nights so already-shipped fixed-grid builds remain usable. Existing map
 readers retain the default fourteen nights. Missing provider dates remain unknown;
 scrolling does not imply a date has been checked or released for booking.
 
-Both comparisons keep names fixed and synchronize the header and row scroll offsets.
+The full-screen comparison keeps names fixed and synchronize the header and row scroll offsets.
 The full list retains its sticky header and virtualization. The campground sheet
 pages through calendar months within the returned horizon; past and out-of-range
 dates are disabled. Choosing a night updates the list beneath it. Site rows use the
@@ -213,7 +213,7 @@ used conservatively, so one expired observation can make that month unknown.
 
 The horizontal date scroller is a sibling of the campground-name button; no
 row-wide Pressable wraps the native ScrollView. Date cells have explicit,
-non-shrinking widths (36pt on the full page, 28pt on Today), with total content
+non-shrinking widths (36pt on the full page), with total content
 width set from the number of dates. A tap inside the scroller can still open the
 campground, guarded against movement or cancellation; dragging belongs to the
 ScrollView. Offset synchronization remains on the UI thread.
@@ -227,7 +227,7 @@ is still required for diagonal drags, momentum, and switching scroll rows.
 ### Campground thumbnails
 
 The full camping list and expanded directory show 44pt campground thumbnails in
-the fixed name area; Today retains its compact text rows. The overview carries an
+the fixed name area; Today uses the regional gauge. The overview carries an
 optional `imageUrl`, selected from the matched NPS campground's existing images
 (including JSON-encoded arrays). Maps and numbered individual-site photos are
 excluded. No ramp or unrelated river photo is substituted. Missing/failed images
