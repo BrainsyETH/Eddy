@@ -2,7 +2,8 @@
   "framework": "nextjs",
   "env": {
     "CAMPING_HEATMAP_ENABLED": "true",
-    "CAMPING_HISTORY_ENABLED": "true"
+    "CAMPING_HISTORY_ENABLED": "true",
+    "CROWD_SIGNAL_ENABLED": "true"
   },
   "functions": {
     "src/app/api/admin/upload-clip/route.ts": {
