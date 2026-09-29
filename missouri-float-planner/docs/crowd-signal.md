@@ -12,7 +12,7 @@ Status: v1 built, off by default. Owner decisions (September 29, 2026):
 | `expectedReservable` on each tracked campground | `src/lib/camping/overview.ts` | always on (additive) |
 | Scoring, bands, copy, info tip | `shared/camping-demand.ts` | — |
 | Today "Camping demand" card | `eddy-ios/src/components/TodayCampingDemand.tsx` | `CROWD_SIGNAL_ENABLED=true` → `features.crowdSignal` |
-| Occupancy history snapshots | `src/lib/camping/history.ts`, sync cron | `CAMPING_HISTORY_ENABLED=true`, **only after** migration `20260929120000` is applied (listed as pending in the ledger) |
+| Occupancy history snapshots | `src/lib/camping/history.ts`, sync cron | `CAMPING_HISTORY_ENABLED` — set `true` in `vercel.json`; table applied to production September 29, 2026 as `20260929023743` |
 
 v1 notes:
 
