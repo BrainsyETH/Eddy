@@ -30,11 +30,12 @@ import {
   campingRowSummary,
   campingCoverageLabel,
   cellMark,
+  campingOpenCount,
   currentNight,
   type HeatMark,
 } from '@/lib/campingHeatmap';
 
-export function CampingMark({ mark }: { mark: HeatMark }) {
+export function CampingMark({ mark, openCount }: { mark: HeatMark; openCount?: number | null }) {
   const { colors, isDark } = useTheme();
   // Match NightStrip: green openings, red booked-out outlines, neutral other states.
   const greens = isDark
@@ -56,6 +57,20 @@ export function CampingMark({ mark }: { mark: HeatMark }) {
             : {},
       ]}
     >
+      {mark.startsWith('open') && openCount != null ? (
+        <Text
+          numberOfLines={1}
+          maxFontSizeMultiplier={1.2}
+          adjustsFontSizeToFit
+          minimumFontScale={0.9}
+          style={[
+            styles.count,
+            { color: !isDark && mark === 'open-3' ? colors.onAccent : colors.campingCountInk },
+          ]}
+        >
+          {openCount}
+        </Text>
+      ) : null}
       {mark === 'full' ? (
         <Svg width="100%" height={12} viewBox="0 0 16 16">
           <Path
@@ -208,73 +223,70 @@ export function CampingGrid({
       accessibilityElementsHidden
       importantForAccessibility="no-hide-descendants"
     >
-      {overview.horizon.nights.map((date) => (
-        <View
-          key={date}
-          style={[
-            styles.column,
-            {
-              width: dateWidth,
-              flexShrink: 0,
-              backgroundColor: [5, 6].includes(
-                new Date(date + 'T12:00:00Z').getUTCDay(),
-              )
-                ? colors.selectionBg
-                : 'transparent',
-              borderColor: [5, 6].includes(
-                new Date(date + 'T12:00:00Z').getUTCDay(),
-              )
-                ? colors.interactive
-                : colors.card,
-            },
-          ]}
-        >
-          {headings ? (
-            <>
-              <Text
-                maxFontSizeMultiplier={1.3}
-                numberOfLines={1}
-                adjustsFontSizeToFit
-                minimumFontScale={0.8}
-                style={{ fontSize: 10, color: colors.textMuted }}
-              >
-                {date === today
-                  ? 'Today'
-                  : new Date(date + 'T12:00:00Z').toLocaleDateString('en-US', {
-                      weekday: 'short',
-                      timeZone: 'UTC',
-                    })}
-              </Text>
-              <Text
-                maxFontSizeMultiplier={1.3}
-                style={[
-                  styles.date,
-                  {
-                    fontFamily: date === today ? fonts.heading : fonts.medium,
-                    fontSize: 13,
-                    color: date === today ? colors.interactive : colors.text,
-                  },
-                ]}
-              >
-                {Number(date.slice(8))}
-              </Text>
-            </>
-          ) : (
-            <CampingMark
-              mark={cellMark(
-                row
-                  ? currentNight(
-                      row,
-                      date,
-                      overview.maxObservationAgeSeconds,
-                      now,
-                    )
-                  : undefined,
-              )}
-            />
-          )}
-        </View>
-      ))}
+      {overview.horizon.nights.map((date) => {
+        const night = row && !headings
+          ? currentNight(row, date, overview.maxObservationAgeSeconds, now)
+          : undefined;
+        return (
+          <View
+            key={date}
+            style={[
+              styles.column,
+              {
+                width: dateWidth,
+                flexShrink: 0,
+                backgroundColor: [5, 6].includes(
+                  new Date(date + 'T12:00:00Z').getUTCDay(),
+                )
+                  ? colors.selectionBg
+                  : 'transparent',
+                borderColor: [5, 6].includes(
+                  new Date(date + 'T12:00:00Z').getUTCDay(),
+                )
+                  ? colors.interactive
+                  : colors.card,
+              },
+            ]}
+          >
+            {headings ? (
+              <>
+                <Text
+                  maxFontSizeMultiplier={1.3}
+                  numberOfLines={1}
+                  adjustsFontSizeToFit
+                  minimumFontScale={0.8}
+                  style={{ fontSize: 10, color: colors.textMuted }}
+                >
+                  {date === today
+                    ? 'Today'
+                    : new Date(date + 'T12:00:00Z').toLocaleDateString('en-US', {
+                        weekday: 'short',
+                        timeZone: 'UTC',
+                      })}
+                </Text>
+                <Text
+                  maxFontSizeMultiplier={1.3}
+                  style={[
+                    styles.date,
+                    {
+                      fontFamily: date === today ? fonts.heading : fonts.medium,
+                      fontSize: 13,
+                      color: date === today ? colors.interactive : colors.text,
+                    },
+                  ]}
+                >
+                  {Number(date.slice(8))}
+                </Text>
+              </>
+            ) : (
+              <CampingMark
+                mark={cellMark(night)}
+                openCount={campingOpenCount(night)}
+              />
+            )}
+          </View>
+        );
+      })}
     </View>
   );
 }
@@ -431,6 +443,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  count: { fontFamily: fonts.semibold, fontSize: 11, lineHeight: 13, fontVariant: ['tabular-nums'] },
   dash: { height: 2, width: '75%' },
   unknownDash: { height: 1, width: '50%' },
   date: { fontSize: 10, fontFamily: fonts.mono },

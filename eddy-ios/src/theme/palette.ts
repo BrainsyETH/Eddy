@@ -183,6 +183,8 @@ export interface Palette {
   anchorSurface: string;
   onAnchor: string;
   success: string;
+  /** Dark ink on the camping grid's light green availability fills. */
+  campingCountInk: string;
   warm: string;
   /**
    * Something went wrong.
@@ -290,6 +292,7 @@ export const darkPalette: Palette = {
   anchorSurface: primary[800],
   onAnchor: '#FFFFFF',
   success: support[500],
+  campingCountInk: neutral[950],
   warm: secondary[500],
   // red-400. The darker red-500 used on light is muddy against near-black stone.
   error: '#F87171',
@@ -339,6 +342,7 @@ export const lightPalette: Palette = {
   onAnchor: '#FFFFFF',
   // Support 700, not 500: the base green fails AA as text on white.
   success: support[700],
+  campingCountInk: neutral[950],
   warm: secondary[500],
   // red-600, matching the canonical `dangerous` ink's contrast discipline: the
   // lighter red-500 clears AA on white only at large sizes, and error text is small.

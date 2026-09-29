@@ -4,6 +4,8 @@ import {
   todayCampingDemand,
   campingPulseDetail,
   campingPulseCoverage,
+  campingPulseSummary,
+  todayFavoriteCamping,
 } from '../../../eddy-ios/src/lib/campingDemand';
 import { campingDemand, demandDetail } from '../../shared/camping-demand';
 import { crowdSignalEnabled } from '../../../eddy-ios/src/lib/campingFeature';
@@ -92,6 +94,34 @@ test('Today rates tonight across the region, weighted by sites, not campground o
   assert.equal(demand.booked, 95 / 220);
   assert.equal(demand.band, 'moderate');
   assert.equal(campingPulseDetail(demand), '43% of tracked campsites booked tonight');
+});
+
+test('favorite summaries keep saved river order, remove duplicates, and cap at five', () => {
+  const favorite = (slug: string, kind = 'river') => ({ kind, slug, name: `${slug} River` });
+  const rows = todayFavoriteCamping(overview(), [
+    favorite('current', 'gauge'), favorite('buffalo'), favorite(''),
+    favorite('current'), favorite('buffalo'), favorite('jacks-fork'),
+    favorite('meramec'), favorite('untracked'), favorite('sixth'),
+  ], now.getTime());
+  assert.deepEqual(rows.map((r) => r.slug), ['buffalo', 'current', 'jacks-fork', 'meramec', 'untracked']);
+  assert.equal(rows[0].name, 'buffalo River');
+  assert.equal(rows[0].demand.booked, 0.1);
+  assert.equal(rows[1].demand.booked, 0.6);
+  assert.ok(rows.every((r) => r.demand.date === '2026-09-29'));
+  assert.equal(rows[4].demand.band, null, 'an untracked favorite is unknown, never Quiet');
+  assert.equal(campingPulseSummary(rows[4].demand), 'Not enough data');
+});
+
+test('favorite summaries never fill empty slots with unrelated rivers or weekend readings', () => {
+  const saved = [{ kind: 'river', slug: 'current', name: 'Current River' }];
+  assert.deepEqual(todayFavoriteCamping(overview(), [], now.getTime()), []);
+  const beforeMidnight = todayFavoriteCamping(overview(), saved, Date.parse('2026-09-30T04:59:59Z'));
+  assert.equal(beforeMidnight.length, 1);
+  assert.equal(beforeMidnight[0].demand.date, '2026-09-29');
+  assert.equal(campingPulseSummary(beforeMidnight[0].demand), 'Busy · 60% booked');
+  const afterMidnight = todayFavoriteCamping(overview(), saved, Date.parse('2026-09-30T05:00:00Z'));
+  assert.equal(afterMidnight[0].demand.date, '2026-09-30');
+  assert.equal(afterMidnight[0].demand.band, null);
 });
 
 test('duplicate facility entries cannot increase the regional total', () => {
@@ -199,6 +229,7 @@ test('a regional sample with unknown capacity cannot read as Packed', () => {
   assert.equal(demand.band, 'crowded');
   assert.equal(demand.allObservedBooked, true);
   assert.equal(demand.completeCoverage, false);
+  assert.equal(campingPulseSummary(demand), 'All observed sites booked');
 });
 
 test('partial coverage names the measured sample and cannot read as Packed', () => {
