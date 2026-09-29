@@ -4,15 +4,15 @@ import {
   type CampingDemand,
   type DemandBand,
 } from '@eddy/conditions/camping-demand';
-import { campingPulseDetail, campingPulseCoverage, campingPulseSummary } from '@/lib/campingDemand';
-import { accent, secondary } from '@/theme/palette';
+import { campingPulseDetail, campingPulseCoverage } from '@/lib/campingDemand';
+import { CAMPING_BAND_STYLES } from '@/theme/campingDemand';
+import { CampingDemandPills } from './CampingDemandPills';
 import { useTheme } from '@/theme/ThemeProvider';
 import { textStyles } from '@/theme/typography';
 
 // An ordinal Quiet → Packed scale, not a percent axis. The marker is centered
 // on the named band; the exact booked percentage is stated separately.
 const BANDS: readonly DemandBand[] = ['quiet', 'moderate', 'busy', 'crowded', 'packed'];
-const SCALE = [secondary[200], secondary[500], accent[400], accent[600], accent[700]];
 
 export function CampingDemandGauge({
   demand,
@@ -48,9 +48,7 @@ export function CampingDemandGauge({
       <Text style={[textStyles.caption, styles.centered, { color: colors.textMuted }]}>
         Across the Ozarks · Tonight
       </Text>
-      <Text style={[textStyles.body, styles.centered, { color: colors.text }]}>
-        {campingPulseSummary(demand)}
-      </Text>
+      <CampingDemandPills demand={demand} centered />
       {demand.band === null ? (
         <Text style={[textStyles.caption, styles.centered, { color: colors.textMuted }]}>{detail}</Text>
       ) : null}
@@ -62,12 +60,12 @@ export function CampingDemandGauge({
         importantForAccessibility="no-hide-descendants"
       >
         <View style={styles.track}>
-          {BANDS.map((band, index) => (
+          {BANDS.map((band) => (
             <View
               key={band}
               style={[
                 styles.segment,
-                { backgroundColor: level === null ? colors.border : SCALE[index] },
+                { backgroundColor: level === null ? colors.border : CAMPING_BAND_STYLES[band].scale },
               ]}
             />
           ))}
