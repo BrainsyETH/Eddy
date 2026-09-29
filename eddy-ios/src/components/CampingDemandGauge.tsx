@@ -4,7 +4,7 @@ import {
   type CampingDemand,
   type DemandBand,
 } from '@eddy/conditions/camping-demand';
-import { campingPulseDetail } from '@/lib/campingDemand';
+import { campingPulseDetail, campingPulseCoverage } from '@/lib/campingDemand';
 import { accent, secondary } from '@/theme/palette';
 import { useTheme } from '@/theme/ThemeProvider';
 import { textStyles } from '@/theme/typography';
@@ -32,10 +32,9 @@ export function CampingDemandGauge({
       : demand.checkedDay === 'earlier'
         ? 'Older reading — may be out of date'
         : null;
-  const partial = demand.band !== null && !demand.completeCoverage;
   const note = [
     demand.band !== null && demand.checkedDay !== 'today' ? checked : null,
-    partial ? 'Partial coverage' : null,
+    campingPulseCoverage(demand),
   ].filter(Boolean).join(' · ');
 
   return (

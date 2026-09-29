@@ -22,3 +22,10 @@ export function campingPulseDetail(demand: CampingDemand): string {
   const sample = demand.completeCoverage ? 'tracked' : 'checked';
   return `${percent}% of ${sample} campsites booked tonight`;
 }
+
+/** Describe the actual sample without inventing capacity for missing data. */
+export function campingPulseCoverage(demand: CampingDemand): string | null {
+  if (demand.band === null || demand.completeCoverage) return null;
+  const n = demand.campgroundsCounted;
+  return `Based on ${n} campground${n === 1 ? '' : 's'} · ${demand.campgroundsMissing} unavailable`;
+}
