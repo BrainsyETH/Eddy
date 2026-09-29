@@ -66,14 +66,22 @@ reservable inventory on a stored night checked in the last 30 days, within the
 requested horizon. Today continues fetching the cached 21-night overview to keep
 that baseline useful, even though the gauge shows only tonight.
 
-The existing conservative gates remain:
+The regional pulse tolerates a small missing portion while keeping these gates:
 
-- Withhold when a missing campground has no known capacity (`unsized_missing`).
-- Withhold below 50% of eligible expected capacity or 20 observed reservable sites.
+- If a missing campground has no known capacity, a regional sample may still rate
+  when at least five campgrounds are counted and at least 80% of potentially
+  operating campgrounds have valid observations. Otherwise withhold
+  (`unsized_missing`). Per-river scoring retains its strict missing-capacity rule.
+- Unknown capacity stays unknown (`coverage: null`). Never insert zero or report
+  a site-capacity coverage percentage for this sample. The card says “Based on
+  N campgrounds · M unavailable.”
+- Withhold below 50% of known eligible expected capacity or 20 observed reservable
+  sites. Known missing capacity remains in this gate even if another campground
+  has unknown capacity.
 - Withhold when most tracked campgrounds are closed, unreleased or have no
   reservable inventory, using the corresponding reason.
 - Packed requires every eligible campground observed and every observed site booked.
-- Partial coverage says “checked campsites” and identifies partial coverage.
+- Partial coverage says “checked campsites” and identifies the sample size and unavailable count.
 
 | Booked | Band |
 | --- | --- |
@@ -115,10 +123,13 @@ cover band edges, each withhold reason, freshness and complete-coverage Packed.
 Run `make check-web`, `make check-mobile` and `make bundle-mobile`. Device QA should
 check light/dark themes, large text and VoiceOver, including the info button.
 
-A read-only September 29 API check found War Eagle Campground had neither nights
-nor a capacity baseline. The regional scorer therefore withholds its rating until
-coverage can be established. Do not silently exclude it or treat its capacity as
-zero just to obtain a band.
+A read-only check at September 28, 2026, 11:32 p.m. Chicago time found 29 of 30
+eligible campgrounds reporting tonight: 78 of 675 reservable sites booked (12%).
+War Eagle had no observations or capacity baseline. The earlier strict gate
+blanked the entire regional gauge. The sample rule now shows Quiet with “Based
+on 29 campgrounds · 1 unavailable,” while retaining unknown capacity and
+incomplete coverage. This is a reading of the observed sample, not an estimate
+of occupancy at the missing campground.
 
 Later work can add relative busyness from history and resolve state-park coverage.
 Backcountry districts remain outside the campground overview.

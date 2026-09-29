@@ -38,6 +38,11 @@ export const BAND_CUTOFFS = { moderate: 0.3, busy: 0.6, crowded: 0.85 } as const
 export const MIN_COVERAGE = 0.5;
 /** Minimum observed reservable sites. */
 export const MIN_SITES = 20;
+/** A regional sample may tolerate unsized missing campgrounds only when it
+ * includes at least five campgrounds and 80% of potentially operating ones.
+ * This is a sample-size rule, never a claim about unknown site capacity. */
+export const MIN_REGIONAL_CAMPGROUNDS = 5;
+export const MIN_REGIONAL_CAMPGROUND_SHARE = 0.8;
 /** Freshness allowance for treating tonight's number as final: one nightly
  * sync cycle plus slack. The "today/yesterday" copy is separate and comes from
  * the Chicago calendar date of the reading, never from this allowance. */
@@ -101,7 +106,7 @@ export interface CampingDemand {
   campgroundsMissing: number;
   /** Missing campgrounds with no capacity baseline to size them. */
   campgroundsMissingUnsized: number;
-  /** Observed share of eligible expected capacity; null when nothing is sized. */
+  /** Observed share of eligible expected capacity; null when it cannot be sized. */
   coverage: number | null;
   completeCoverage: boolean;
   oldestCheckedAt: string | null;
@@ -139,8 +144,8 @@ function daysBetween(from: string, to: string): number {
  *     not released — booking has not opened yet;
  *     no inventory — checked, but nothing reservable (e.g. all walk-up)
  * - missing: no unexpired reading for the night → coverage unknown. A missing
- *   campground with no capacity baseline cannot be sized, so its absence
- *   withholds the rating rather than counting as zero.
+ *   campground with no capacity baseline cannot be sized. River ratings are
+ *   withheld; the regional pulse may show a sufficiently broad, labeled sample.
  */
 export function campingDemand(
   overview: DemandOverview,
@@ -207,9 +212,9 @@ export function campingDemand(
   const today = localDate(new Date(now));
   const leadDays = daysBetween(today, date);
   const sizedTotal = observedCapacity + missingCapacity;
+  const knownCapacityCoverage = sizedTotal > 0 ? observedCapacity / sizedTotal : null;
   // Unsized missing inventory makes the true share unknowable: no coverage.
-  const coverage =
-    missingUnsized > 0 ? null : sizedTotal > 0 ? observedCapacity / sizedTotal : null;
+  const coverage = missingUnsized > 0 ? null : knownCapacityCoverage;
   const completeCoverage = eligible.length > 0 && missing === 0;
   const checkedRecently = counted > 0 && recent;
   const checkedDay: CheckedDay | null =
@@ -264,8 +269,16 @@ export function campingDemand(
   // Most tracked campgrounds unavailable for the night: a smaller operating
   // sample than the river normally has, withheld separately from missing data.
   if (unavailable > eligible.length / 2) return withhold(unavailableReason());
-  if (missingUnsized > 0) return withhold('unsized_missing');
-  if (coverage != null && coverage < MIN_COVERAGE)
+  // One unavailable campground must not erase a broad regional sample. Keep
+  // its missing count and unknown capacity visible; do not call it zero or
+  // claim complete coverage. Smaller river samples retain the strict rule.
+  const broadRegionalSample = riverSlug === null &&
+    counted >= MIN_REGIONAL_CAMPGROUNDS &&
+    counted / (counted + missing) >= MIN_REGIONAL_CAMPGROUND_SHARE;
+  if (missingUnsized > 0 && !broadRegionalSample) return withhold('unsized_missing');
+  // A large missing campground with a known capacity must still block a
+  // misleading sample, even when another missing campground is unsized.
+  if (knownCapacityCoverage != null && knownCapacityCoverage < MIN_COVERAGE)
     return withhold('missing_observations');
   if (reservableSites < MIN_SITES) return withhold('small_sample');
 
@@ -357,7 +370,11 @@ export function demandDetail(d: CampingDemand): string {
     !d.completeCoverage && d.coverage != null
       ? ` · ${Math.round(d.coverage * 100)}% of tracked capacity checked`
       : '';
-  return `${pct}% of tracked campsites booked${soFar}${coverage}`;
+  const sample = d.completeCoverage ? 'tracked' : 'checked';
+  const missing = !d.completeCoverage && d.coverage == null
+    ? ` · ${d.campgroundsCounted} campgrounds checked · ${d.campgroundsMissing} unavailable`
+    : '';
+  return `${pct}% of ${sample} campsites booked${soFar}${coverage}${missing}`;
 }
 
 /** Basis line, e.g. "3 Recreation.gov campgrounds · Checked today". */
