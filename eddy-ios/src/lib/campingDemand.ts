@@ -30,8 +30,14 @@ export function demandRows(
   overview: CampingOverview,
   saved: ReadonlySet<string>,
   now: number,
-): { night: string; rows: DemandRow[] } | null {
-  const night = demandNight(overview);
+  selectedNight?: string | null,
+): { night: string; nights: string[]; rows: DemandRow[] } | null {
+  const stripNights = overview.horizon.nights.slice(0, DEMAND_STRIP_NIGHTS);
+  // A selected night must be one the strip shows; otherwise use the weekend.
+  const night =
+    selectedNight && stripNights.includes(selectedNight)
+      ? selectedNight
+      : demandNight(overview);
   if (!night) return null;
   const names = new Map<string, string>();
   for (const c of overview.tracked)
@@ -47,9 +53,9 @@ export function demandRows(
     )
     .slice(0, DEMAND_MAX_RIVERS);
   if (!rivers.length) return null;
-  const stripNights = overview.horizon.nights.slice(0, DEMAND_STRIP_NIGHTS);
   return {
     night,
+    nights: stripNights,
     rows: rivers.map(({ slug, name }) => ({
       slug,
       name,

@@ -73,7 +73,7 @@ export default function CampingScreen() {
 }
 function CampingContent() {
   const { colors } = useTheme();
-  const params = useLocalSearchParams<{ facility?: string }>();
+  const params = useLocalSearchParams<{ facility?: string; river?: string }>();
   const [selected, setSelected] = useState<string | null>(
     params.facility ?? null,
   );
@@ -81,7 +81,13 @@ function CampingContent() {
   const [riverPicker, setRiverPicker] = useState(false);
   const [query, setQuery] = useState('');
   const { starred } = useStarredRivers();
-  const [river, setRiver] = useState<string | null>(null);
+  // A river deep link (e.g. from Today's camping demand card) preselects the
+  // filter; an unknown slug falls back to all rivers once the catalog loads.
+  const [riverChoice, setRiver] = useState<string | null>(
+    typeof params.river === 'string' && /^[a-z0-9-]{1,80}$/.test(params.river)
+      ? params.river
+      : null,
+  );
   const [nearby, setNearby] = useState(false);
   const [directory, setDirectory] = useState(false);
   const [linkFailed, setLinkFailed] = useState(false);
@@ -91,6 +97,10 @@ function CampingContent() {
     () => campingRiverOptions(data?.tracked ?? [], data?.untracked ?? []),
     [data],
   );
+  const river =
+    data && riverChoice && !rivers.some((r) => r.slug === riverChoice)
+      ? null
+      : riverChoice;
   const rows = useMemo(() => {
     const slugs = new Set(
       starred.filter((s) => s.kind === 'river').map((s) => s.slug),

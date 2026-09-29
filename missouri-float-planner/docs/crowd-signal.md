@@ -19,6 +19,17 @@ v1 notes:
 - The card's headline night is the weekend's Saturday (the peak), with a
   7-night strip from tonight. Rows: saved rivers first, up to four.
 - The favorite-row pill is deferred; the card alone ships first.
+- Each strip night is a button: tapping it switches every river on the card
+  to that night (band, percentage, basis). Each night has its own VoiceOver
+  label. Tapping a river's summary opens `/camping?river=<slug>`.
+- Withhold reasons are distinct: `seasonal_closure` (known closed),
+  `booking_not_open` (not yet released), `no_reservable_inventory` (checked,
+  nothing reservable), `unsized_missing` (a missing campground has no
+  capacity baseline, so coverage is unknowable — never treated as zero),
+  `missing_observations`, `small_sample`, `no_tracked_campgrounds`.
+- "Checked today / yesterday / earlier" comes from the Chicago calendar date
+  of the oldest counted reading. The 26-hour allowance only decides whether
+  tonight's number can be called final (which also requires "today").
 - Backcountry districts are not counted: the camping overview only serves
   `kind = 'campground'` facilities. Open question 1 below stands for later.
 - `expectedReservable` is the largest bookable inventory on any stored night

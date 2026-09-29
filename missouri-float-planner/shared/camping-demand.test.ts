@@ -93,14 +93,15 @@ test('all observed booked with a missing campground is not Packed', () => {
   assert.match(demandDetail(d), /50% of tracked capacity checked/);
 });
 
-test('zero-capacity full nights are closed inventory, not booked', () => {
+test('zero-capacity full nights are no-inventory, not booked or closed', () => {
   const d = at(
     overview(
       camp([night(20, 40)], { expectedReservable: 40 }),
       camp([night(0, 0, { status: 'full' })], { expectedReservable: null }),
     ),
   );
-  assert.equal(d.campgroundsClosed, 1);
+  assert.equal(d.campgroundsNoInventory, 1);
+  assert.equal(d.campgroundsClosed, 0);
   assert.equal(d.campgroundsFull, 0);
   assert.equal(d.band, 'moderate');
   assert.equal(d.completeCoverage, true);
@@ -128,6 +129,38 @@ test('seasonal closure withholds instead of reading Quiet', () => {
     ),
   );
   assert.equal(d.withheld, 'seasonal_closure');
+  assert.equal(demandHeadline(d), 'Not enough data');
+});
+
+test('booking not yet open and no reservable inventory are not called closed', () => {
+  const unreleased = at(overview(camp([night(0, 0, { status: 'not_yet_released' })])));
+  assert.equal(unreleased.withheld, 'booking_not_open');
+  assert.equal(unreleased.campgroundsNotReleased, 1);
+  assert.equal(unreleased.campgroundsClosed, 0);
+  assert.match(demandDetail(unreleased), /Booking hasn’t opened/);
+  const walkUp = at(overview(camp([night(0, 0, { status: 'open' })], { expectedReservable: null })));
+  assert.equal(walkUp.withheld, 'no_reservable_inventory');
+  assert.match(demandDetail(walkUp), /no reservable sites/);
+  // Mostly unreleased with one open campground: the dominant reason wins.
+  const mixed = at(
+    overview(
+      camp([night(90, 100)]),
+      camp([night(0, 0, { status: 'not_yet_released' })]),
+      camp([night(0, 0, { status: 'not_yet_released' })]),
+    ),
+  );
+  assert.equal(mixed.withheld, 'booking_not_open');
+});
+
+test('missing campgrounds without a capacity baseline withhold the rating', () => {
+  // The reviewer's case: one observed, nine missing and unsized. Treating the
+  // nine as zero capacity read as "Quiet · 100% checked".
+  const unsized = Array.from({ length: 9 }, () => camp([], { expectedReservable: null }));
+  const d = at(overview(camp([night(90, 100)]), ...unsized));
+  assert.equal(d.withheld, 'unsized_missing');
+  assert.equal(d.band, null);
+  assert.equal(d.coverage, null);
+  assert.equal(d.campgroundsMissingUnsized, 9);
   assert.equal(demandHeadline(d), 'Not enough data');
 });
 
@@ -162,6 +195,22 @@ test('older-but-unexpired readings are not final and say so', () => {
   assert.equal(d.checkedRecently, false);
   assert.equal(d.final, false);
   assert.match(demandDetail(d), /booked so far$/);
+  assert.equal(d.checkedDay, 'yesterday');
+  assert.equal(demandBasis(d), '1 Recreation.gov campground · Checked yesterday');
+});
+
+test('checked yesterday afternoon is yesterday at noon today, even inside 26 hours', () => {
+  // 1 p.m. Chicago Sept 28 → noon Chicago Sept 29 is 23 hours.
+  const d = at(overview(camp([night(80, 100, { checkedAt: '2026-09-28T18:00:00Z' })])));
+  assert.equal(d.checkedRecently, true);
+  assert.equal(d.checkedDay, 'yesterday');
+  assert.equal(d.final, false);
+  assert.match(demandBasis(d), /Checked yesterday$/);
+});
+
+test('a reading two calendar days old says it may be out of date', () => {
+  const d = at(overview(camp([night(80, 100, { checkedAt: '2026-09-27T20:00:00Z' })])));
+  assert.equal(d.checkedDay, 'earlier');
   assert.match(demandBasis(d), /may be out of date/);
 });
 

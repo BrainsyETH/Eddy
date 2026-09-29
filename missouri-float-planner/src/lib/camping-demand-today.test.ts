@@ -102,3 +102,15 @@ test('crowd signal flag fails closed', () => {
     assert.equal(crowdSignalEnabled(f), false);
   assert.equal(crowdSignalEnabled({ crowdSignal: true }), true);
 });
+
+test('a selected strip night drives every river headline; an unknown night falls back to the weekend', () => {
+  const o = overview();
+  const picked = demandRows(o, new Set(), now.getTime(), '2026-09-30')!;
+  assert.equal(picked.night, '2026-09-30');
+  assert.equal(picked.nights.length, 7);
+  assert.ok(picked.rows.every((r) => r.headline.date === '2026-09-30'));
+  // No observations that night: withheld, not Quiet.
+  assert.equal(picked.rows[0].headline.band, null);
+  const stale = demandRows(o, new Set(), now.getTime(), '2026-12-25')!;
+  assert.equal(stale.night, '2026-10-03');
+});
