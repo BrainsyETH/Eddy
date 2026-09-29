@@ -320,3 +320,62 @@ test('VoiceOver summarizes weekend observations and only claims observed next op
   const stale = campingRowSummary(a, overview, now + 72 * 3600000);
   assert.match(stale, /not checked/); assert.doesNotMatch(stale, /Next observed opening/);
 });
+
+import { campsiteStays, stayNights, nextCampingDate } from '../../../eddy-ios/src/lib/campingStay';
+import type { CampsiteSitesResponse } from '../../../packages/eddy-types';
+function siteMonth(dates: string[], codes: string, fetchedAt = '2026-09-28T10:00:00Z', id = 'site-a'): CampsiteSitesResponse {
+  return { facility: { id: 'park', displayName: 'Park', kind: 'campground', source: 'recgov' }, window: { startDate: dates[0], endDate: dates[dates.length - 1], label: '', nights: dates }, fetchedAt, sites: [{ id, name: 'A', loop: null, siteType: null, maxOccupancy: null, bookingUrl: null, nights: codes }] };
+}
+test('stays exclude departure and cross month and daylight-saving boundaries', () => {
+  assert.deepEqual(stayNights({ arrival: '2026-10-31', departure: '2026-11-02' }), ['2026-10-31', '2026-11-01']);
+  assert.equal(nextCampingDate('2026-12-31'), '2027-01-01');
+  assert.deepEqual(stayNights({ arrival: '2026-10-01', departure: '2026-10-01' }), []);
+});
+test('whole-stay availability requires the same site across every occupied month', () => {
+  const stay = { arrival: '2026-09-30', departure: '2026-10-02' };
+  const september = siteMonth(['2026-09-30'], 'A');
+  const october = siteMonth(['2026-10-01', '2026-10-02'], 'AR');
+  assert.equal(campsiteStays([september, october], stay, 259200, now)[0].state, 'available');
+  assert.equal(campsiteStays([september], stay, 259200, now)[0].state, 'unknown');
+  assert.ok(campsiteStays([september, siteMonth(['2026-10-01'], 'A', undefined, 'site-b')], stay, 259200, now).every(s => s.state === 'unknown'));
+});
+test('stale, future and missing observations cannot promise a site', () => {
+  const stay = { arrival: '2026-09-30', departure: '2026-10-01' };
+  for (const timestamp of ['2026-09-25T12:00:00Z', '2026-09-29T12:00:00Z', 'invalid']) {
+    assert.equal(campsiteStays([siteMonth(['2026-09-30'], 'A', timestamp)], stay, 259200, now)[0].state, 'unknown');
+  }
+  for (const code of ['R', 'C', 'N']) assert.equal(campsiteStays([siteMonth(['2026-09-30'], code)], stay, 259200, now)[0].state, 'unavailable');
+});
+
+
+import { resolveCampingSort } from '../../../eddy-ios/src/lib/campingStay';
+test('first-come stays remain distinct from reservable, blocked, and unknown stays', () => {
+  const stay = { arrival: '2026-09-29', departure: '2026-10-01' };
+  const check = (codes: string) => campsiteStays([siteMonth(['2026-09-29', '2026-09-30'], codes)], stay, 259200, now)[0].state;
+  assert.equal(check('WW'), 'first_come');
+  assert.equal(check('WC'), 'unavailable');
+  assert.equal(check('WR'), 'unavailable');
+  assert.equal(check('W-'), 'unknown');
+  assert.equal(check('AA'), 'available');
+  assert.equal(campsiteStays([siteMonth(['2026-09-29', '2026-09-30'], 'WW', '2026-09-20T12:00:00Z')], stay, 259200, now)[0].state, 'unknown');
+});
+test('location supplies the default sort without overriding a chosen sort', () => {
+  assert.equal(resolveCampingSort(null, false), 'name');
+  assert.equal(resolveCampingSort(null, true), 'nearest');
+  assert.equal(resolveCampingSort('name', true), 'name');
+  assert.equal(resolveCampingSort('openings', true), 'openings');
+  assert.equal(resolveCampingSort('nearest', false), 'nearest');
+});
+
+import { campingRiverGroups } from '../../../eddy-ios/src/lib/campingHeatmap';
+test('river headings and campgrounds sort alphabetically with unlinked parks last', () => {
+  const alpha = { ...row('alpha'), name: 'Alpha Camp', riverSlugs: ['current', 'jacks-fork'], displayGroup: { key: 'current', label: 'Current River' } };
+  const zulu = { ...alpha, id: 'zulu', name: 'Zulu Camp' };
+  const buffalo = { ...row('buffalo'), riverSlugs: ['buffalo'], displayGroup: { key: 'buffalo', label: 'Buffalo River' } };
+  const unlinked = { ...row('unlinked'), riverSlugs: [], displayGroup: { key: 'other', label: 'Regional' } };
+  const groups = campingRiverGroups([unlinked, zulu, alpha, buffalo]);
+  assert.deepEqual(groups.map(g => g.title), ['Buffalo River', 'Current River', 'Other campgrounds']);
+  assert.deepEqual(groups[1].data.map(r => r.id), ['alpha', 'zulu']);
+  assert.equal(groups.flatMap(g => g.data).filter(r => r.id === 'alpha').length, 1);
+  assert.deepEqual(campingRiverGroups([]), []);
+});

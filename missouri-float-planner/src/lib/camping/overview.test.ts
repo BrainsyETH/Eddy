@@ -295,3 +295,19 @@ test('expected capacity is unknown without a recent bookable observation', () =>
   ];
   assert.equal(buildCampingOverview(i, now).tracked[0].expectedReservable, null);
 });
+
+import { campgroundImage } from './overview';
+test('campground thumbnails handle encoded NPS media and exclude maps and numbered sites', () => {
+  const images = [{ url: 'https://example.com/map.jpg', title: 'Campground map' }, { url: 'https://example.com/site.jpg', title: 'Campsite 127' }, { url: 'https://example.com/park.jpg', title: 'Campground shaded loops' }];
+  assert.equal(campgroundImage(JSON.stringify(images)), 'https://example.com/park.jpg');
+  assert.equal(campgroundImage([{ url: 'javascript:alert(1)' }]), null);
+  assert.equal(campgroundImage('invalid'), null);
+  assert.equal(campgroundImage(images.slice(0, 2)), null);
+});
+test('overview carries campground photos for linked NPS places and leaves missing media null', () => {
+  const data = input();
+  assert.equal(buildCampingOverview(data, now).tracked[0].imageUrl, null);
+  data.facilities[0].nps_campground_id = 'nps';
+  data.nps = [{ id: 'nps', name: 'Park', images: JSON.stringify([{ url: 'https://example.com/park.jpg', title: 'Campground' }]) }];
+  assert.equal(buildCampingOverview(data, now).tracked[0].imageUrl, 'https://example.com/park.jpg');
+});

@@ -1,6 +1,8 @@
 import { useMemo, useState } from 'react';
 import {
   ActivityIndicator,
+  Modal,
+  TextInput,
   FlatList,
   Linking,
   Pressable,
@@ -21,6 +23,8 @@ import {
   CampingTableHeader,
   CampingTableRow,
 } from '@/components/CampingGrid';
+import { useStarredRivers } from '@/hooks/useStarredRivers';
+import { CampgroundThumbnail } from '@/components/CampgroundThumbnail';
 import { CampingDetailSheet } from '@/components/CampingDetailSheet';
 import {
   campingRiverOptions,
@@ -29,7 +33,7 @@ import {
   campingFreshness,
   filterCamping,
   safeExternalUrl,
-  sortCamping,
+  campingRiverGroups,
 } from '@/lib/campingHeatmap';
 
 export default function CampingScreen() {
@@ -73,6 +77,10 @@ function CampingContent() {
   const [selected, setSelected] = useState<string | null>(
     params.facility ?? null,
   );
+  const [saved, setSaved] = useState(false);
+  const [riverPicker, setRiverPicker] = useState(false);
+  const [query, setQuery] = useState('');
+  const { starred } = useStarredRivers();
   const [river, setRiver] = useState<string | null>(null);
   const [nearby, setNearby] = useState(false);
   const [directory, setDirectory] = useState(false);
@@ -83,21 +91,39 @@ function CampingContent() {
     () => campingRiverOptions(data?.tracked ?? [], data?.untracked ?? []),
     [data],
   );
-  const rows = useMemo(
-    () =>
-      sortCamping(
-        filterCamping(data?.tracked ?? [], river, nearby, coords),
-        nearby ? coords : null,
-      ),
-    [data, river, nearby, coords],
-  );
+  const rows = useMemo(() => {
+    const slugs = new Set(
+      starred.filter((s) => s.kind === 'river').map((s) => s.slug),
+    );
+    const filtered = filterCamping(
+      data?.tracked ?? [],
+      river,
+      nearby,
+      coords,
+    ).filter((row) => !saved || row.riverSlugs.some((slug) => slugs.has(slug)));
+    return campingRiverGroups(filtered).flatMap((group) => group.data);
+  }, [data, river, nearby, coords, starred, saved]);
   const other = useMemo(
     () =>
-      sortCamping(
-        filterCamping(data?.untracked ?? [], river, nearby, coords),
-        nearby ? coords : null,
-      ),
-    [data, river, nearby, coords],
+      campingRiverGroups(
+        filterCamping(data?.untracked ?? [], river, nearby, coords).filter(
+          (row) =>
+            !saved ||
+            row.riverSlugs.some((slug) =>
+              starred.some((s) => s.kind === 'river' && s.slug === slug),
+            ),
+        ),
+      ).flatMap((group) => group.data),
+    [data, river, nearby, coords, saved, starred],
+  );
+  const riverHeaders = new Map(
+    campingRiverGroups(rows).map((group) => [
+      group.data[0].facilityId,
+      group.title,
+    ]),
+  );
+  const directoryHeaders = new Map(
+    campingRiverGroups(other).map((group) => [group.data[0].id, group.title]),
   );
   const detail = data?.tracked.find((r) => r.facilityId === selected);
   if (!data)
@@ -149,18 +175,110 @@ function CampingContent() {
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={styles.filters}
       >
-        {chip('All rivers', river === null, () => setRiver(null))}
+        {chip(
+          rivers.find((r) => r.slug === river)?.label ?? 'All rivers',
+          !nearby && !saved,
+          () => {
+            if (nearby || saved) {
+              setNearby(false);
+              setSaved(false);
+              setRiver(null);
+            } else {
+              setQuery('');
+              setRiverPicker(true);
+            }
+          },
+        )}
+        {chip('Favorites', saved, () => {
+          setSaved((v) => !v);
+          setNearby(false);
+          setRiver(null);
+        })}
         {chip(status === 'locating' ? 'Locating…' : 'Nearby', nearby, () => {
+          setSaved(false);
+          setRiver(null);
           if (nearby) setNearby(false);
           else {
             setNearby(true);
             if (!coords) void request();
           }
         })}
-        {rivers.map(({ slug, label }) =>
-          chip(label, river === slug, () => setRiver(slug)),
-        )}
       </ScrollView>
+      <Modal
+        visible={riverPicker}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => setRiverPicker(false)}
+      >
+        <SafeAreaView
+          style={{ flex: 1, backgroundColor: colors.bg, padding: 20 }}
+        >
+          <View
+            style={{
+              flexDirection: 'row',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+            }}
+          >
+            <Text style={[textStyles.sectionTitle, { color: colors.text }]}>
+              Rivers
+            </Text>
+            <Pressable
+              accessibilityRole="button"
+              style={styles.action}
+              onPress={() => setRiverPicker(false)}
+            >
+              <Text style={{ color: colors.interactive }}>Done</Text>
+            </Pressable>
+          </View>
+          <TextInput
+            accessibilityLabel="Search rivers"
+            placeholder="Search rivers"
+            placeholderTextColor={colors.textMuted}
+            value={query}
+            onChangeText={setQuery}
+            style={{
+              minHeight: 48,
+              color: colors.text,
+              borderBottomWidth: 1,
+              borderColor: colors.border,
+            }}
+          />
+          <FlatList
+            data={[
+              { slug: '', label: 'All rivers' },
+              ...rivers.filter((r) =>
+                r.label.toLowerCase().includes(query.toLowerCase()),
+              ),
+            ]}
+            keyExtractor={(r) => r.slug}
+            renderItem={({ item }) => (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityState={{ selected: (river ?? '') === item.slug }}
+                style={styles.action}
+                onPress={() => {
+                  setRiver(item.slug || null);
+                  setNearby(false);
+                  setSaved(false);
+                  setRiverPicker(false);
+                }}
+              >
+                <Text
+                  style={{
+                    color:
+                      (river ?? '') === item.slug
+                        ? colors.interactive
+                        : colors.text,
+                  }}
+                >
+                  {item.label}
+                </Text>
+              </Pressable>
+            )}
+          />
+        </SafeAreaView>
+      </Modal>
       {nearby && !coords && status !== 'locating' ? (
         <View style={styles.notice}>
           <Text style={{ color: colors.textMuted }}>
@@ -187,6 +305,7 @@ function CampingContent() {
               style={styles.action}
               onPress={() => {
                 setNearby(false);
+                setSaved(false);
                 setRiver(null);
               }}
             >
@@ -203,6 +322,7 @@ function CampingContent() {
         <Pressable
           onPress={() => {
             setNearby(false);
+            setSaved(false);
             setRiver(null);
           }}
           accessibilityRole="button"
@@ -225,6 +345,8 @@ function CampingContent() {
         </Pressable>
       ) : null}
       <CampingScrollGroup
+        thumbnails
+        dateWidth={36}
         key={`${river}:${nearby}:${grid.horizon.endDateExclusive}`}
       >
         <FlatList
@@ -248,12 +370,25 @@ function CampingContent() {
             </View>
           }
           renderItem={({ item }) => (
-            <CampingTableRow
-              row={item}
-              overview={grid}
-              now={now}
-              onPress={() => setSelected(item.facilityId)}
-            />
+            <View>
+              {riverHeaders.has(item.facilityId) ? (
+                <Text
+                  accessibilityRole="header"
+                  style={[
+                    textStyles.cardTitle,
+                    { color: colors.text, paddingTop: 18, paddingBottom: 8 },
+                  ]}
+                >
+                  {riverHeaders.get(item.facilityId)}
+                </Text>
+              ) : null}
+              <CampingTableRow
+                row={item}
+                overview={grid}
+                now={now}
+                onPress={() => setSelected(item.facilityId)}
+              />
+            </View>
           )}
           ListEmptyComponent={
             <Text style={[styles.message, { color: colors.textMuted }]}>
@@ -282,7 +417,7 @@ function CampingContent() {
                       color: colors.interactive,
                     }}
                   >
-                    Other campgrounds ({other.length}) {directory ? '−' : '+'}
+                    More campgrounds ({other.length}) {directory ? '−' : '+'}
                   </Text>
                 </Pressable>
               ) : null}
@@ -298,38 +433,55 @@ function CampingContent() {
                       row.reservationUrl ?? row.website,
                     );
                     return (
-                      <View
-                        key={row.id}
-                        style={[
-                          styles.directoryRow,
-                          { borderColor: colors.border },
-                        ]}
-                      >
-                        <Text
+                      <View key={row.id}>
+                        {directoryHeaders.has(row.id) ? (
+                          <Text
+                            accessibilityRole="header"
+                            style={[
+                              textStyles.cardTitle,
+                              {
+                                color: colors.text,
+                                paddingTop: 18,
+                                paddingBottom: 8,
+                              },
+                            ]}
+                          >
+                            {directoryHeaders.get(row.id)}
+                          </Text>
+                        ) : null}
+                        <View
                           style={[
-                            textStyles.body,
-                            { color: colors.text, flex: 1 },
+                            styles.directoryRow,
+                            { borderColor: colors.border },
                           ]}
                         >
-                          {row.name}
-                        </Text>
-                        {url ? (
-                          <Pressable
-                            accessibilityRole="link"
-                            accessibilityLabel={`Check availability for ${row.name}`}
-                            style={styles.action}
-                            onPress={() => {
-                              setLinkFailed(false);
-                              void Linking.openURL(url).catch(() =>
-                                setLinkFailed(true),
-                              );
-                            }}
+                          <CampgroundThumbnail url={row.imageUrl} />
+                          <Text
+                            style={[
+                              textStyles.body,
+                              { color: colors.text, flex: 1 },
+                            ]}
                           >
-                            <Text style={{ color: colors.interactive }}>
-                              Check ↗
-                            </Text>
-                          </Pressable>
-                        ) : null}
+                            {row.name}
+                          </Text>
+                          {url ? (
+                            <Pressable
+                              accessibilityRole="link"
+                              accessibilityLabel={`Check availability for ${row.name}`}
+                              style={styles.action}
+                              onPress={() => {
+                                setLinkFailed(false);
+                                void Linking.openURL(url).catch(() =>
+                                  setLinkFailed(true),
+                                );
+                              }}
+                            >
+                              <Text style={{ color: colors.interactive }}>
+                                Check ↗
+                              </Text>
+                            </Pressable>
+                          ) : null}
+                        </View>
                       </View>
                     );
                   })}

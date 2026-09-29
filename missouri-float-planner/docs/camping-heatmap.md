@@ -173,3 +173,65 @@ Fresh stored dates still end October 11. Manual backfill must account for the
 same-day facility cursor: repeating today's job without re-queuing the facilities
 would skip them. The authenticated Vercel cron trigger is required; no provider
 observations have been fabricated or copied into later dates.
+
+### Site-focused campground details
+
+The campground sheet now opens with a compact arrival/departure control and a
+virtualized list of individual sites. The month calendar is available under the
+stay control, rather than occupying the top of every campground. Exact-site
+photos use the existing provider media path in a larger landscape treatment;
+missing images leave a text card, without substituting a park photo for a site.
+
+Every occupied month is fetched from the cached sites API. Departure is excluded.
+Only the same site observed open on **every** occupied night gets “Available for
+your stay”. Missing, expired, future-dated or absent-month observations never
+qualify. Sites observed first-come on every occupied night stay visible in a
+“First-come sites · No reservations” group; this does not promise a vacant site.
+Unknown sites and known unavailable sites have separate collapsed controls. Each card has the existing green/red
+night marks and a site reservation link, or explicitly “Park reservations” when
+only a park booking URL exists. Links do not imply that dates were prefilled.
+
+The full comparison page has only All rivers (searchable picker), Favorites
+(saved rivers), and Nearby filters. Campgrounds appear once under their primary river, with river headers and
+campgrounds both A–Z. Unlinked parks appear last under Other campgrounds. Date selection lives inside campground details; the comparison
+retains horizontal scrolling through observed coverage.
+
+Native QA still needs to cover large text, photo gallery dismissal, VoiceOver,
+cross-month date selection, location denial, and a large site's scrolling list.
+This UI change does not run the outstanding provider backfill or extend measured
+availability on its own.
+
+In campground details, stays over 14 nights show one
+“Check campground stay limits” note; 14 is a disclosure threshold, not a verified
+universal booking limit. Individual night strips retain horizontal scrolling.
+
+Freshness follow-up: add per-night check timestamps to the site-list contract and
+judge only occupied dates. Until then the response's oldest monthly timestamp is
+used conservatively, so one expired observation can make that month unknown.
+
+### Comparison scrolling and date headings
+
+The horizontal date scroller is a sibling of the campground-name button; no
+row-wide Pressable wraps the native ScrollView. Date cells have explicit,
+non-shrinking widths (36pt on the full page, 28pt on Today), with total content
+width set from the number of dates. A tap inside the scroller can still open the
+campground, guarded against movement or cancellation; dragging belongs to the
+ScrollView. Offset synchronization remains on the UI thread.
+
+The pinned heading shows weekday/day, Today, and a persistent month/year label
+based on the leftmost visible date. Only changes to that date index bridge to
+React for the month text. Friday/Saturday cells have subtle background shading,
+and native scroll indicators expose the sideways overflow. Device verification
+is still required for diagonal drags, momentum, and switching scroll rows.
+
+### Campground thumbnails
+
+The full camping list and expanded directory show 44pt campground thumbnails in
+the fixed name area; Today retains its compact text rows. The overview carries an
+optional `imageUrl`, selected from the matched NPS campground's existing images
+(including JSON-encoded arrays). Maps and numbered individual-site photos are
+excluded. No ramp or unrelated river photo is substituted. Missing/failed images
+show the Eddy campground symbol. Parks without campground-level media therefore
+use that fallback. No per-row metadata request, new database column, or migration
+is required. The full grid's shared fixed name column is 44% to accommodate both
+the image and two-line name while keeping dates horizontally scrollable.
