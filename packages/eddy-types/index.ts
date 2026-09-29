@@ -2576,6 +2576,7 @@ export interface NotificationPreferencesResponse {
 
 export interface AppFeatureFlags {
   campingHeatmap?: boolean;
+  crowdSignal?: boolean;
   push: boolean;
   planner: boolean;
   chat: boolean;
@@ -3066,6 +3067,8 @@ export interface TrackedCampground extends CampingPlace {
   source: 'recreation_gov' | 'mo_state_parks';
   booking: { url: string; label: string } | null;
   latestObservationAt: string | null;
+  // Largest bookable inventory seen within 30 days; coverage sizing only.
+  expectedReservable: number | null;
   // History is pruned, so absence cannot prove "never observed".
   freshness: 'fresh' | 'stale' | 'unknown'; nights: CampingObservation[];
 }

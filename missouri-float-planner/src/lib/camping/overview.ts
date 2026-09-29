@@ -10,6 +10,8 @@ import type {
   CampingObservation,
 } from './overview-types';
 
+const CAPACITY_WINDOW_MS = 30 * 86_400_000;
+
 export interface FacilityRow {
   id: string;
   display_name: string;
@@ -264,6 +266,20 @@ export function buildCampingOverview(
         )
           byDate.set(r.date, r);
       }
+      // A capacity baseline independent of any one night's freshness, so a
+      // consumer can size a campground whose Saturday reading is missing.
+      // Largest bookable inventory on any stored night checked in the last
+      // 30 days; closed/unreleased nights carry no inventory and are skipped.
+      let expectedReservable: number | null = null;
+      for (const r of input.observations) {
+        if (r.facility_id !== f.id) continue;
+        if (r.status !== 'open' && r.status !== 'full') continue;
+        const age = now.getTime() - Date.parse(r.fetched_at);
+        if (!(age >= 0 && age < CAPACITY_WINDOW_MS)) continue;
+        if (!Number.isInteger(r.sites_reservable) || r.sites_reservable <= 0)
+          continue;
+        expectedReservable = Math.max(expectedReservable ?? 0, r.sites_reservable);
+      }
       const nights = [...byDate.values()]
         .sort((a, b) => a.date.localeCompare(b.date))
         .map((r) => ({
@@ -310,6 +326,7 @@ export function buildCampingOverview(
             }
           : null,
         latestObservationAt: latest,
+        expectedReservable,
         freshness: nights.length ? 'fresh' : latest ? 'stale' : 'unknown',
         nights,
       } satisfies TrackedCampground;

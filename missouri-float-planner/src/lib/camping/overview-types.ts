@@ -32,6 +32,9 @@ export interface TrackedCampground extends CampingPlace {
   source: 'recreation_gov' | 'mo_state_parks';
   booking: { url: string; label: string } | null;
   latestObservationAt: string | null;
+  // Largest bookable inventory seen on any stored night checked within 30
+  // days. A sizing baseline for coverage, not a claim about any one night.
+  expectedReservable: number | null;
   // History is pruned, so absence cannot prove "never observed".
   freshness: 'fresh' | 'stale' | 'unknown';
   nights: CampingObservation[];

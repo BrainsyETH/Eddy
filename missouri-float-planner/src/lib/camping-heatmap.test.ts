@@ -58,6 +58,7 @@ function row(id = 'a'): TrackedCampground {
     source: 'recreation_gov',
     booking: null,
     latestObservationAt: null,
+    expectedReservable: null,
     freshness: 'unknown',
     nights: [],
   };

@@ -13,6 +13,7 @@ import { withJobRun } from '@/lib/admin/dashboard/job-run';
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { pruneOldNights, syncSource } from '@/lib/camping/sync';
+import { recordOccupancyHistory } from '@/lib/camping/history';
 import type { CampingSource } from '@/lib/camping/types';
 
 export const dynamic = 'force-dynamic';
@@ -49,6 +50,18 @@ async function runSync(request: NextRequest) {
     // source happens to go first rather than standing up a third cron.
     const pruned = await pruneOldNights(supabase);
 
+    // Occupancy history is a by-product: it must never fail the sync. Off
+    // until campsite_occupancy_history exists in production, so this code can
+    // deploy ahead of the migration without a nightly error.
+    let historyRows: number | null = null;
+    if (process.env.CAMPING_HISTORY_ENABLED === 'true') {
+      try {
+        historyRows = await recordOccupancyHistory(supabase);
+      } catch (historyError) {
+        console.error('Occupancy history capture failed (non-fatal):', historyError);
+      }
+    }
+
     await supabase.from('campsite_sync_log').insert({
       source: result.source,
       facilities_synced: result.facilitiesSynced,
@@ -64,10 +77,10 @@ async function runSync(request: NextRequest) {
         `${result.facilitiesSynced} synced, ${result.facilitiesFailed} failed, ` +
         `${result.facilitiesRemaining} deferred to next run, ` +
         `${result.nightsWritten} nights written, ${result.requestsMade} requests ` +
-        `(${result.durationMs}ms, pruned ${pruned})`,
+        `(${result.durationMs}ms, pruned ${pruned}, history ${historyRows ?? 'off'})`,
     );
 
-    return NextResponse.json({ message: 'Availability sync complete', ...result, pruned });
+    return NextResponse.json({ message: 'Availability sync complete', ...result, pruned, historyRows });
   } catch (error) {
     console.error('Error in availability sync cron:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
