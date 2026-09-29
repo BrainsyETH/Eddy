@@ -16,8 +16,7 @@ import {
 } from '@eddy/conditions/camping-demand';
 import { useAppConfig } from '@/hooks/useAppConfig';
 import { useCampingOverview } from '@/hooks/useCampingOverview';
-import { useStarredRivers } from '@/hooks/useStarredRivers';
-import { todayCampingDemand, todayFavoriteCamping, campingPulseSummary, campingPulseDetail, campingPulseCoverage } from '@/lib/campingDemand';
+import { todayCampingDemand, todayPopularCamping, campingPulseSummary, campingPulseDetail, campingPulseCoverage } from '@/lib/campingDemand';
 import { campingDate } from '@/lib/campingHeatmap';
 import { CampingDemandGauge } from './CampingDemandGauge';
 import { EddySymbol } from './EddySymbol';
@@ -36,16 +35,15 @@ export function TodayCamping(props: Props) {
 function CampingCard({ revision, showDemand }: Props & { showDemand: boolean }) {
   const { colors } = useTheme();
   const router = useRouter();
-  const { starred, ready: favoritesReady } = useStarredRivers();
   // Reuse the cached overview and its capacity baseline; no provider request.
   const { data, loading, error, refresh, now } = useCampingOverview(showDemand, revision, 21);
   const demand = useMemo(
     () => (data && showDemand ? todayCampingDemand(data, now) : null),
     [data, showDemand, now],
   );
-  const favoriteRows = useMemo(
-    () => data && showDemand && favoritesReady ? todayFavoriteCamping(data, starred, now) : [],
-    [data, showDemand, favoritesReady, starred, now],
+  const riverRows = useMemo(
+    () => data && showDemand ? todayPopularCamping(data, now) : [],
+    [data, showDemand, now],
   );
   const openCamping = () => router.push({ pathname: '/camping', params: { night: campingDate(now) } });
   const showInfo = () => {
@@ -91,20 +89,20 @@ function CampingCard({ revision, showDemand }: Props & { showDemand: boolean }) 
             : 'Explore campground availability across the Ozarks.'}
         </Text>
       )}
-      {favoriteRows.length ? (
-        <View style={[styles.favorites, { borderColor: colors.border }]}>
-          <Text style={[textStyles.caption, { color: colors.textMuted }]}>Favorites · Tonight</Text>
-          {favoriteRows.map((row) => (
+      {riverRows.length ? (
+        <View style={[styles.rivers, { borderColor: colors.border }]}>
+          <Text style={[textStyles.caption, { color: colors.textMuted }]}>Popular rivers · Tonight</Text>
+          {riverRows.map((row) => (
             <Pressable
               key={row.slug}
               onPress={() => router.push({ pathname: '/camping', params: { river: row.slug, night: row.demand.date } })}
               accessibilityRole="button"
               accessibilityLabel={demandAccessibilityLabel(row.demand, row.name, 'tonight')}
               accessibilityHint="Opens campground availability on this river for tonight"
-              style={styles.favoriteRow}
+              style={styles.riverRow}
             >
-              <Text style={[styles.favoriteName, { color: colors.text }]}>{row.name}</Text>
-              <Text style={[textStyles.caption, styles.favoriteReading, { color: colors.textMuted }]}>
+              <Text style={[styles.riverName, { color: colors.text }]}>{row.name}</Text>
+              <Text style={[textStyles.caption, styles.riverReading, { color: colors.textMuted }]}>
                 {campingPulseSummary(row.demand)}
               </Text>
               <Ionicons name="chevron-forward" size={14} color={colors.textSubtle} />
@@ -134,9 +132,9 @@ const styles = StyleSheet.create({
   heading: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 8 },
   info: { minWidth: 44, minHeight: 44, alignItems: 'center', justifyContent: 'center' },
   loading: { paddingVertical: 24 },
-  favorites: { borderTopWidth: StyleSheet.hairlineWidth, marginTop: 8, paddingTop: 10 },
-  favoriteRow: { minHeight: 44, paddingVertical: 8, flexDirection: 'row', alignItems: 'center', gap: 8 },
-  favoriteName: { fontFamily: fonts.medium, fontSize: 14, flex: 1 },
-  favoriteReading: { maxWidth: '50%', flexShrink: 1, textAlign: 'right', fontVariant: ['tabular-nums'] },
+  rivers: { borderTopWidth: StyleSheet.hairlineWidth, marginTop: 8, paddingTop: 10 },
+  riverRow: { minHeight: 44, paddingVertical: 8, flexDirection: 'row', alignItems: 'center', gap: 8 },
+  riverName: { fontFamily: fonts.medium, fontSize: 14, flex: 1 },
+  riverReading: { maxWidth: '50%', flexShrink: 1, textAlign: 'right', fontVariant: ['tabular-nums'] },
   action: { minHeight: 44, justifyContent: 'center' },
 });

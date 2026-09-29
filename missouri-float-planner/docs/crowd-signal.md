@@ -5,7 +5,7 @@ Owner decisions (September 29, 2026):
 - Show one overall Ozarks reading inside the existing **Camping** card on Today.
 - Always use tonight's date in America/Chicago. No weekend default or date picker.
 - Replace Today's individual campground rows and the separate per-river demand card.
-- Keep the regional bar compact and show up to five saved rivers underneath, inside the same card.
+- Keep the regional bar compact and show up to five popular rivers with usable tonight readings underneath, inside the same card. Favorites do not control this list.
 - Under 30% booked reads as Quiet.
 - Use Recreation.gov campgrounds only, explained in the info tip.
 
@@ -19,16 +19,20 @@ symbol and “See all camping” link. Its contents start with one compact regio
 - A five-segment Quiet → Packed scale, with a marker centered on the named band
 - An older-reading label when applicable; sample coverage stays in the info tip and VoiceOver
 
-Up to five saved rivers follow in saved order, with a river name and tonight's
-band/percentage. These rows have no extra scales or night strips. They use the
-existing per-river coverage gates and never fill empty favorite slots with other
-rivers. Unknown readings say “Not enough data,” never zero bookings.
+Up to five popular rivers follow, with a river name and tonight's band/percentage.
+The curated order starts with Current, Jacks Fork and Buffalo; it is not a live
+traffic ranking. Other covered rivers can fill remaining slots in alphabetical
+order. Existing per-river coverage gates run before the five-row limit: missing,
+stale, undersized and unsupported readings are omitted entirely. Fully booked
+rivers remain useful and are included when their reading passes the gates.
+Show fewer rows when fewer qualify, and hide the list and heading if none do.
+These rows have no extra scales or night strips and do not depend on favorites.
 
 The gauge is ordinal, not a percentage axis. The exact percentage is written
 separately. Missing or insufficient data shows a neutral track without a marker,
 “Not enough data,” and the reason. It never reads as Quiet.
 
-Tapping the gauge or footer opens `/camping` with tonight's date. A saved-river
+Tapping the gauge or footer opens `/camping` with tonight's date. A river
 row also applies that river's filter. The date carries into campground details;
 unsupported dates fall back to the existing default. Individual campgrounds,
 river/nearby filters, the 90-night grid, calendars and booking links remain
