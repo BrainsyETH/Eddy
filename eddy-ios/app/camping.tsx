@@ -34,7 +34,9 @@ import {
   filterCamping,
   safeExternalUrl,
   campingRiverGroups,
+  linkedCampingNight,
 } from '@/lib/campingHeatmap';
+import { nextCampingDate } from '@/lib/campingStay';
 
 export default function CampingScreen() {
   const { features, loading } = useAppConfig();
@@ -73,7 +75,7 @@ export default function CampingScreen() {
 }
 function CampingContent() {
   const { colors } = useTheme();
-  const params = useLocalSearchParams<{ facility?: string; river?: string }>();
+  const params = useLocalSearchParams<{ facility?: string; river?: string; night?: string }>();
   const [selected, setSelected] = useState<string | null>(
     params.facility ?? null,
   );
@@ -136,6 +138,7 @@ function CampingContent() {
     campingRiverGroups(other).map((group) => [group.data[0].id, group.title]),
   );
   const detail = data?.tracked.find((r) => r.facilityId === selected);
+  const linkedNight = data ? linkedCampingNight(data, params.night) : undefined;
   if (!data)
     return loading ? (
       <ActivityIndicator color={colors.interactive} />
@@ -512,6 +515,7 @@ function CampingContent() {
           row={detail}
           overview={data}
           now={now}
+          initialStay={linkedNight ? { arrival: linkedNight, departure: nextCampingDate(linkedNight) } : undefined}
           onClose={() => setSelected(null)}
         />
       ) : null}

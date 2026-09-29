@@ -5,24 +5,32 @@ Owner decisions (September 29, 2026):
 - Show one overall Ozarks reading inside the existing **Camping** card on Today.
 - Always use tonight's date in America/Chicago. No weekend default or date picker.
 - Replace Today's individual campground rows and the separate per-river demand card.
+- Keep the regional bar compact and show up to five saved rivers underneath, inside the same card.
 - Under 30% booked reads as Quiet.
 - Use Recreation.gov campgrounds only, explained in the info tip.
 
 ## Today card
 
 `eddy-ios/src/components/TodayCamping.tsx` retains the Camping heading, campground
-symbol and “See all camping” link. Its contents are one regional gauge:
+symbol and “See all camping” link. Its contents start with one compact regional gauge:
 
 - “Across the Ozarks · Tonight”
-- A named band and the percentage of tracked campsites booked tonight
+- A single short line with the named band and booked percentage
 - A five-segment Quiet → Packed scale, with a marker centered on the named band
-- Older-reading and partial-coverage labels when applicable
+- An older-reading label when applicable; sample coverage stays in the info tip and VoiceOver
+
+Up to five saved rivers follow in saved order, with a river name and tonight's
+band/percentage. These rows have no extra scales or night strips. They use the
+existing per-river coverage gates and never fill empty favorite slots with other
+rivers. Unknown readings say “Not enough data,” never zero bookings.
 
 The gauge is ordinal, not a percentage axis. The exact percentage is written
 separately. Missing or insufficient data shows a neutral track without a marker,
 “Not enough data,” and the reason. It never reads as Quiet.
 
-Tapping the gauge or footer opens `/camping`, where individual campgrounds,
+Tapping the gauge or footer opens `/camping` with tonight's date. A saved-river
+row also applies that river's filter. The date carries into campground details;
+unsupported dates fall back to the existing default. Individual campgrounds,
 river/nearby filters, the 90-night grid, calendars and booking links remain
 available. Favorites and phone location do not change the regional Today reading.
 The info button explains the source, site weighting, sample and freshness.
@@ -73,15 +81,15 @@ The regional pulse tolerates a small missing portion while keeping these gates:
   operating campgrounds have valid observations. Otherwise withhold
   (`unsized_missing`). Per-river scoring retains its strict missing-capacity rule.
 - Unknown capacity stays unknown (`coverage: null`). Never insert zero or report
-  a site-capacity coverage percentage for this sample. The card says “Based on
-  N campgrounds · M unavailable.”
+  a site-capacity coverage percentage for this sample. The info tip and VoiceOver
+  say “Based on N campgrounds · M unavailable.”
 - Withhold below 50% of known eligible expected capacity or 20 observed reservable
   sites. Known missing capacity remains in this gate even if another campground
   has unknown capacity.
 - Withhold when most tracked campgrounds are closed, unreleased or have no
   reservable inventory, using the corresponding reason.
 - Packed requires every eligible campground observed and every observed site booked.
-- Partial coverage says “checked campsites” and identifies the sample size and unavailable count.
+- Partial coverage says “checked campsites” and identifies the sample size and unavailable count in the info tip and VoiceOver.
 
 | Booked | Band |
 | --- | --- |

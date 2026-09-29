@@ -55,6 +55,15 @@ export function cellMark(n?: CampingObservation): HeatMark {
   if (n.status === 'full') return 'full';
   return n.sitesOpen < 3 ? 'open-1' : n.sitesOpen < 10 ? 'open-2' : 'open-3';
 }
+/** Exact openings for a green pill; other availability states keep their symbol. */
+export function campingOpenCount(n?: CampingObservation): number | null {
+  return n?.status === 'open' && n.sitesOpen > 0 ? n.sitesOpen : null;
+}
+
+/** A Today deep link carries its night through to the campground sheet. */
+export function linkedCampingNight(overview: CampingOverview, night: unknown): string | undefined {
+  return typeof night === 'string' && overview.horizon.nights.includes(night) ? night : undefined;
+}
 export function nightLine(n?: CampingObservation): string {
   const mark = cellMark(n);
   if (mark === 'unknown') return 'Not checked';

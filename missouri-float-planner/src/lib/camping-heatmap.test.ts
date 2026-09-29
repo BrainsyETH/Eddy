@@ -2,6 +2,8 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
   cellMark,
+  campingOpenCount,
+  linkedCampingNight,
   nightLine,
   campingNightPages,
   currentNight,
@@ -82,6 +84,24 @@ test('cached observations expire per night with one response policy', () => {
     undefined,
   );
   assert.equal(currentNight(r, '2026-09-29', 259200, now), undefined);
+});
+test('green pills expose exact counts while unavailable and stale nights retain symbols', () => {
+  for (const count of [1, 2, 9, 10, 142]) {
+    assert.equal(campingOpenCount({ ...night(count), sitesReservable: 200 }), count);
+  }
+  for (const n of [undefined, night(0), { ...night(0), sitesReservable: 0 },
+    { ...night(2), status: 'closed' as const }, { ...night(2), status: 'not_yet_released' as const }]) {
+    assert.equal(campingOpenCount(n), null);
+  }
+  const r = row();
+  r.nights = [night(9)];
+  assert.equal(campingOpenCount(currentNight(r, '2026-09-28', 259200, now + 259200000)), null);
+});
+test('Today links carry only supported nights into campground details', () => {
+  assert.equal(linkedCampingNight(overview, '2026-09-28'), '2026-09-28');
+  for (const value of [undefined, ['2026-09-28'], '2026-09-27', '2027-01-01', 'invalid']) {
+    assert.equal(linkedCampingNight(overview, value), undefined);
+  }
 });
 test('Chicago midnight and DST are date-safe', () => {
   assert.equal(campingDate(Date.parse('2026-09-28T04:59:00Z')), '2026-09-27');
