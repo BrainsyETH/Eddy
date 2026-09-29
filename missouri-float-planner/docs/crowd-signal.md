@@ -1,163 +1,202 @@
-# Crowd signal (Quiet → Packed) — outline
+# Camping demand (Quiet → Packed) — outline
 
-Status: proposal, not built. Owner decision (September 29, 2026): under 30%
-booked reads as Quiet.
+Status: proposal, not built. Owner decisions (September 29, 2026):
+
+- Under 30% booked reads as Quiet.
+- v1 covers Recreation.gov campgrounds only, and says so in an info tip.
 
 ## What it is
 
-A per-river, per-night reading of how booked the river's reservable campsites
-are, shown on Today as a Quiet → Packed scale with a short night strip. It is a
-**demand signal**, not a headcount: most people on a summer Saturday are day
-floaters in outfitter boats who never touch a reservation system. Copy must say
-"campsites booked", never "people on the river".
+A per-river, per-night reading of how booked the river's tracked
+Recreation.gov campsites are, shown on Today as a Quiet → Packed scale. It is
+**camping demand**, not a headcount: most people on a summer Saturday are day
+floaters who never touch a reservation system. "Camping" stays visible beside
+every result, and the selected date means that night, not daytime river
+traffic.
 
-## Why it is cheap
+## Coverage: Recreation.gov only
 
-The camping heatmap (`docs/camping-heatmap.md`) already ships everything the
-calculation needs in `CampingOverview` (`src/lib/camping/overview-types.ts`),
-which Today already fetches from `/api/camping/availability`:
+Recreation.gov reports `Available`, `Reserved`, `Closed`, `Not Reservable`
+(walk-up) and `NYR` separately (`src/lib/camping/recgov.ts`), so "booked" means
+reserved. Missouri State Parks (UseDirect) only reports `IsFree`
+(`src/lib/camping/usedirect.ts`): a closed or held site is indistinguishable
+from a booked one, which would make rivers look busier than they are. State
+parks are excluded until that can be resolved.
 
-- `tracked[].riverSlugs` — which rivers each campground serves (a campground can
-  serve more than one, e.g. Two Rivers).
-- `tracked[].nights[]` — `sitesOpen`, `sitesReservable`, `status`, `checkedAt`
-  per night, up to 90 nights out.
-- `maxObservationAgeSeconds` (72 h) — the freshness rule already in force.
-- Loop/aggregate overlap is already resolved server-side, so sites are not
-  double-counted.
+Effect: Current, Jacks Fork and Buffalo are well covered. The Meramec keeps
+only Red Bluff and will usually show "Not enough data"; rivers served only by
+state parks show no reading.
 
-v1 therefore needs **no new endpoint and no migration** — only a pure function
-and UI. The history table (Phase 0) is separate and should ship first because
-it only becomes useful with time.
+### Info tip (owner decision)
+
+An ⓘ next to the "Camping demand" heading. Tapping it shows:
+
+> Based on campsites bookable on Recreation.gov (national park and forest
+> campgrounds). Missouri State Park campgrounds aren't included. Reservable
+> sites only — walk-up sites and day floaters aren't counted.
+
+Requirements:
+
+- Reachable by VoiceOver as a button labelled "About camping demand".
+- Same copy on every surface (iOS Today card, detail view, web if added).
+  Keep the string in `shared/` next to the scoring function so the platforms
+  cannot drift.
+- When a river shows "Not enough data" because its campgrounds are state
+  parks, the detail line says so ("No Recreation.gov campgrounds tracked on
+  this river").
+
+## Layout
+
+- Favorite-river row: a small pill, "Camping: Quiet".
+- Card / detail:
+
+  ```
+  Camping demand ⓘ · Current River
+  Quiet · 24% of tracked campsites booked
+  Fri night · 3 Recreation.gov campgrounds · Checked today
+  ```
+
+- Its own sequential palette. Do not reuse the heatmap's green-open /
+  red-booked colours.
+- Band name always in text, not colour alone. VoiceOver: "Current River,
+  Friday night: camping demand Quiet, 24% of tracked campsites booked".
 
 ## The calculation
 
-For river R and night D, over every tracked campground serving R:
+Inputs: every eligible entry in `CampingOverview.tracked` for river R —
+aggregated **before** Today picks its four displayed camping rows.
 
-1. Keep a night only if `status` is `open` or `full`, and `checkedAt` is within
-   `maxObservationAgeSeconds`. `closed`, `not_yet_released`, stale and missing
-   nights are excluded — they carry no inventory and must not read as full or
-   as empty.
-2. `booked = Σ(sitesReservable − sitesOpen) / Σ(sitesReservable)` across the
-   kept nights (site-weighted, so a 100-site campground outweighs a 10-site
-   one).
-3. Confidence gate — return `insufficient` instead of a band when either:
-   - kept reservable sites < 20, or
-   - kept reservable sites < 50% of the river's tracked reservable capacity
-     for that night (e.g. most campgrounds closed for the season).
+Eligible campground: `source === 'recreation_gov'`, linked to R through
+`riverSlugs`. Loop rows take precedence over an overlapping district
+aggregate, exactly as the overview already resolves them; capacity and
+coverage follow the same rule so sites are never counted twice.
+
+For night D, each eligible campground falls into one bucket:
+
+| Bucket | Meaning | Effect |
+| --- | --- | --- |
+| Observed | fresh `open`/`full` night with `sitesReservable > 0` | counted |
+| Known closed | `closed` or `not_yet_released` | removed from eligible inventory |
+| Zero capacity | `full` with `sitesReservable === 0` | dropped before any "all full" check |
+| Missing | no fresh observation for D | coverage unknown |
+
+`booked = Σ(reservable − open) / Σ(reservable)` over **Observed** only.
+
+### Coverage gate
+
+Needs `expectedReservable` per campground (see Server change). Coverage =
+observed expected capacity ÷ eligible expected capacity (known-closed
+campgrounds excluded from both).
+
+Withhold the band, with a reason code, when:
+
+- `no_tracked_campgrounds` — no eligible Recreation.gov campground on R.
+- `seasonal_closure` — most eligible inventory is known closed.
+- `missing_observations` — coverage < 50%.
+- `small_sample` — observed reservable sites < 20.
+
+These are coverage rules, not confidence: they say how much of the tracked
+inventory was seen, not how representative it is of the river.
+
+### Bands (half-open)
 
 | Booked | Band |
 | --- | --- |
 | < 30% | Quiet |
-| 30–60% | Moderate |
-| 60–85% | Busy |
-| ≥ 85% | Crowded |
-| every kept campground `full` | Packed |
+| 30 – < 60% | Moderate |
+| 60 – < 85% | Busy |
+| 85 – < 100% | Crowded |
+| 100% **and** coverage 100% | Packed |
+| 100% with partial coverage | "All observed sites booked" + coverage shown |
 
-Only the Quiet cut-off is decided; the other three are a starting proposal to
-check against real weekends (see Validation).
+Only the Quiet cut-off is decided; 60 and 85 are to be checked against real
+weekends.
 
-Output shape (proposal):
+### Freshness
 
-```ts
-type CrowdBand = 'quiet' | 'moderate' | 'busy' | 'crowded' | 'packed';
-interface CrowdNight {
-  date: string;
-  band: CrowdBand | 'insufficient';
-  bookedPct: number | null;      // 0–100, null when insufficient
-  sitesReservable: number;       // kept inventory, for the detail line
-  campgroundsCounted: number;
-  campgroundsFull: number;
-  leadDays: number;              // 0 = tonight
-  final: boolean;                // leadDays <= 1: close to the real outcome
-}
-```
+- 72 h (`maxObservationAgeSeconds`) is the expiry limit, not proof of
+  currency.
+- Tonight: a reading from the latest sync cycle (≤ ~26 h) is "Checked today";
+  older-but-unexpired is labelled "Checked yesterday" and marked not final.
+- Future nights read "booked so far". Beyond 7 nights, show the percentage
+  only (proposal).
 
-### Rules for honesty
+### Aggregation rule
 
-- **Future nights are "booked so far".** A Saturday 45% booked ten days out may
-  sell out. When `final` is false, label "45% booked so far", never "Quiet".
-  Consider showing the band only for `leadDays <= 7` and a percentage beyond.
-- **Insufficient beats Quiet.** Late-season closures must render "Not enough
-  campground data", not a calm river.
-- **Weak rivers.** Where the only campground is a non-float draw (Bennett
-  Spring's trout park on the Niangua), mark the river `lowSignal` in a small
-  curated list and either hide the card or add a caveat.
-- **Reservable sites only** — the same footer the heatmap already uses.
+A campground serving two rivers counts toward each river's view. River totals
+are never summed into a regional total.
+
+## Server change
+
+The overview drops stale nights and carries no capacity baseline, so the
+client cannot size a missing campground. Add one field per tracked
+campground to `/api/camping/availability`:
+
+- `expectedReservable: number | null` — distinct sites in `campsite_sites`
+  seen within the last 30 days whose recent per-site status is not walk-up.
+
+Additive, so existing clients are unaffected. Kept in sync with
+`@eddy/types` by the existing type test.
 
 ## Phases
 
-### Phase 0 — Start keeping history (ship first)
+### Phase 0 — Keep history (start now, does not block v1)
 
-`pruneOldNights` (`src/lib/camping/sync.ts`) deletes nights older than 7 days,
-so there is no baseline today. Add an append-only table and write to it in the
-sync cron **before** pruning:
+`pruneOldNights` (`src/lib/camping/sync.ts`) deletes nights older than 7
+days. Add an append-only table written by the sync cron before pruning:
 
-- `campsite_occupancy_history(facility_id, date, lead_days, sites_open,
-  sites_reservable, status, captured_at)`, PK `(facility_id, date, lead_days)`.
-- Capture at `lead_days` 0, 7 and 14 (final outcome plus fill pace).
-- Size: ~36 facilities × 365 nights × 3 ≈ 40k rows/year. Never pruned.
-- Migration follows the ledger rule in `CLAUDE.md` (file named for the version
-  production records; entry in `supabase/production-migrations.txt`).
+- `campsite_occupancy_history(facility_id, date, lead_days, observed_at,
+  sites_open, sites_reservable, status, source, expected_reservable)`,
+  PK `(facility_id, date, lead_days)`.
+- Captured at `lead_days` 0, 7 and 14. `source` is stored so state-park rows
+  can be filtered out of any baseline.
+- ~40k rows/year. Never pruned.
+- Migration follows the ledger rule in `CLAUDE.md`.
 
-### Phase 1 — Shared scoring
+### Phase 1 — Server field + shared scoring
 
-- `missouri-float-planner/shared/crowd-signal.ts`: pure
-  `crowdByRiver(overview, now) → Map<riverSlug, CrowdNight[]>`. Lives in
-  `shared/` so web and iOS (`@eddy/conditions`) cannot drift.
+- `expectedReservable` on the overview (above).
+- `shared/crowd-signal.ts`: pure `campingDemandByRiver(overview, now)` plus the
+  info-tip copy constant.
 - `shared/crowd-signal.test.ts`, registered in the explicit `test` script:
-  band edges (29.9 / 30 / 60 / 85), all-full → packed, closed and unreleased
-  exclusion, stale `checkedAt`, confidence gate, multi-river campgrounds,
-  Chicago midnight rollover, lead-day / `final` labelling.
+  half-open band edges (29.99/30, 59.99/60, 84.99/85, 100), Packed requires
+  full coverage, partial-coverage "all observed booked", zero-capacity full
+  dropped, state-park rows ignored, loop/district overlap, each withhold
+  reason, stale vs today vs yesterday, multi-river campgrounds, Chicago
+  midnight rollover.
 
-### Phase 2 — Today card (iOS)
+### Phase 2 — Today (iOS)
 
-- Placement: a compact band pill on each favorite river row, plus one
-  "Crowds this weekend" card listing favorites (fallback: rivers near the
-  user, then Across the Ozarks — same scoping as the heatmap).
-- Card row: river name, band pill, 7-night strip with weekend nights
-  emphasised; tap opens the existing `/camping` screen filtered to that river.
-- Palette: its own sequential scale. Do **not** reuse the heatmap's
-  green-open / red-booked colours, or "Quiet" and "lots of open sites" will
-  look like two different facts.
-- Accessibility: band name in text, not colour only; VoiceOver reads
-  "Current River, Saturday: Busy, 72% of reservable campsites booked so far".
-- Rollout flag: `features.crowdSignal` from `CROWD_SIGNAL_ENABLED`, following
+- Pill on favorite rows + one "Camping demand" card with the info tip.
+- Tap through to `/camping` filtered to that river.
+- Rollout flag `features.crowdSignal` from `CROWD_SIGNAL_ENABLED`, following
   the fail-closed `campingHeatmap` pattern.
-- Validate with `make check-mobile` + `make bundle-mobile`; real-device QA for
-  light/dark, large text and VoiceOver.
+- `make check-mobile` + `make bundle-mobile`; real-device QA for light/dark,
+  large text and VoiceOver (including the info tip).
 
 ### Phase 3 — Web (optional)
 
-Same shared function on river pages next to the camping section.
+Same shared function and info-tip copy on river pages.
 
-### Phase 4 — Later, once history exists
+### Phase 4 — Later
 
-- **Relative bands:** "busier than a typical September Saturday", thresholds
-  by river and season from Phase 0 data.
-- **Fill-pace forecast:** use lead-7/lead-14 history to project a future
-  night's final occupancy instead of "booked so far".
-- **Reach level:** "Upper Current: Crowded · Lower Current: Quiet". Needs a
-  reach key per campground (access point mile → `river_sections`); backcountry
-  districts map to reaches by hand.
-- **Holiday awareness** and an opt-in alert ("Saturday on the Jacks Fork is
-  90% booked").
+- Relative bands from history ("busier than a typical September Saturday").
+- Fill-pace projection from lead-7/lead-14 snapshots.
+- Reach level ("Upper Current: Crowded · Lower Current: Quiet").
+- State parks, if their closed vs booked states can be separated.
+- Opt-in alerts.
 
 ## Validation before release
 
-- Read-only run of the scoring against production `CampingOverview` for the
-  next two weekends on Current, Jacks Fork, Buffalo and Meramec/Huzzah;
-  sanity-check the middle band cut-offs against what those weekends actually
-  look like.
-- Confirm late-season behaviour on a night where most NPS campgrounds are
-  `closed` → `insufficient`, not Quiet.
-- `make check-web` for the shared function; `make check-mobile` +
-  `make bundle-mobile` for the card.
+- Read-only run against production for the next two weekends on Current,
+  Jacks Fork and Buffalo; tune 60/85.
+- Confirm a late-season night returns `seasonal_closure`, not Quiet.
+- Confirm the Meramec shows the expected withhold reason and detail line.
+- `make check-web`; `make check-mobile` + `make bundle-mobile`.
 
 ## Open questions
 
-1. **Backcountry districts** (Upper/Lower Current, Jacks Fork gravel-bar
-   permits): count them? They are the most float-relevant inventory but are
-   permits, not sites. Proposal: count them, and name them in the detail line.
-2. **Middle band cut-offs** (60 / 85): keep, or tune after the validation run?
-3. **Card placement:** pill on favorite rows only, a standalone card, or both?
-4. **Beyond 7 days:** band, percentage only, or hidden?
+1. Backcountry districts (gravel-bar permits): count them? Proposal: yes,
+   named in the detail line.
+2. Middle cut-offs (60 / 85): keep, or tune after validation?
+3. Beyond 7 nights: percentage only, band, or hidden?
