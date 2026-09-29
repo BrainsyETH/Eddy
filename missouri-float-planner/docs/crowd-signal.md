@@ -15,11 +15,14 @@ Owner decisions (September 29, 2026):
 symbol and “See all camping” link. Its contents start with one compact regional gauge:
 
 - “Across the Ozarks · Tonight”
-- A single short line with the named band and booked percentage
+- Two pills: the named band and a separate percentage (for example, “Quiet” and “6%”)
 - A five-segment Quiet → Packed scale, with a marker centered on the named band
 - An older-reading label when applicable; sample coverage stays in the info tip and VoiceOver
 
-Up to five popular rivers follow, with a river name and tonight's band/percentage.
+Up to five popular rivers follow, with a river name and the same two pills for tonight.
+The status pill uses a soft band color with consistent dark ink; the percentage
+uses a neutral fill. Pills can wrap with large text. Unknown readings never show
+a percentage, and partial coverage at 100% still says “All observed sites booked.”
 The curated order starts with Current, Jacks Fork and Buffalo; it is not a live
 traffic ranking. Other covered rivers can fill remaining slots in alphabetical
 order. Existing per-river coverage gates run before the five-row limit: missing,
@@ -37,7 +40,10 @@ row also applies that river's filter. The date carries into campground details;
 unsupported dates fall back to the existing default. Individual campgrounds,
 river/nearby filters, the 90-night grid, calendars and booking links remain
 available. Favorites and phone location do not change the regional Today reading.
-The info button explains the source, site weighting, sample and freshness.
+The existing info button opens a short “Camping legend” with band thresholds,
+the meaning of the percentage, source exclusions, sample size and reading age.
+Packed explicitly requires full coverage. The legend works by tap or click and
+does not rely on hover; the row and gauge still open campground availability.
 VoiceOver reads the scope, night, result and coverage/age notes as one button.
 
 The existing `features.campingHeatmap` gates the card and full camping screen.

@@ -3,6 +3,8 @@ import {
   campingDemand,
   demandHeadline,
   demandDetail,
+  demandBasis,
+  BAND_CUTOFFS,
   type CampingDemand,
 } from '@eddy/conditions/camping-demand';
 import { localDate } from '@eddy/conditions/camping-window';
@@ -45,11 +47,36 @@ export function todayPopularCamping(
     .slice(0, 5);
 }
 
-/** The short reading shown beside a river and above the regional bar. */
-export function campingPulseSummary(demand: CampingDemand): string {
-  const headline = demandHeadline(demand);
-  if (demand.band === null || demand.allObservedBooked) return headline;
-  return `${headline} · ${Math.round((demand.booked ?? 0) * 100)}% booked`;
+/** Separate labels for the status and number. Unknown never becomes 0%. */
+export function campingPulsePills(demand: CampingDemand): { status: string; percent: string | null } {
+  return {
+    status: demandHeadline(demand),
+    percent: demand.band === null || demand.booked === null
+      ? null
+      : `${Math.round(demand.booked * 100)}%`,
+  };
+}
+
+/** A short, tap-to-open legend. Bounds come from the actual scorer. */
+export function campingPulseInfo(demand: CampingDemand | null): string {
+  const moderate = BAND_CUTOFFS.moderate * 100;
+  const busy = BAND_CUTOFFS.busy * 100;
+  const crowded = BAND_CUTOFFS.crowded * 100;
+  const sample = demand && demand.campgroundsCounted > 0
+    ? `${demandBasis(demand)}${demand.campgroundsMissing ? ` · ${demand.campgroundsMissing} unavailable` : ''}`
+    : null;
+  return [
+    'Percent of checked Recreation.gov campsites booked tonight.',
+    [
+      `Quiet: under ${moderate}%`,
+      `Moderate: ${moderate}–under ${busy}%`,
+      `Busy: ${busy}–under ${crowded}%`,
+      `Crowded: ${crowded}%+`,
+      'Packed: 100%, with full coverage',
+    ].join('\n'),
+    'Excludes state parks, walk-up sites and day floaters.',
+    sample,
+  ].filter(Boolean).join('\n\n');
 }
 
 /** Keep the measured sample explicit when some tracked inventory is missing. */

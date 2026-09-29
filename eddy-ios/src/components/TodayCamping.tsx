@@ -10,15 +10,14 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import {
-  CAMPING_DEMAND_INFO,
-  demandBasis,
   demandAccessibilityLabel,
 } from '@eddy/conditions/camping-demand';
 import { useAppConfig } from '@/hooks/useAppConfig';
 import { useCampingOverview } from '@/hooks/useCampingOverview';
-import { todayCampingDemand, todayPopularCamping, campingPulseSummary, campingPulseDetail, campingPulseCoverage } from '@/lib/campingDemand';
+import { todayCampingDemand, todayPopularCamping, campingPulseInfo } from '@/lib/campingDemand';
 import { campingDate } from '@/lib/campingHeatmap';
 import { CampingDemandGauge } from './CampingDemandGauge';
+import { CampingDemandPills } from './CampingDemandPills';
 import { EddySymbol } from './EddySymbol';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, textStyles } from '@/theme/typography';
@@ -47,13 +46,7 @@ function CampingCard({ revision, showDemand }: Props & { showDemand: boolean }) 
   );
   const openCamping = () => router.push({ pathname: '/camping', params: { night: campingDate(now) } });
   const showInfo = () => {
-    const details = demand
-      ? [demandBasis(demand), campingPulseDetail(demand), campingPulseCoverage(demand)].filter(Boolean).join('.\n')
-      : '';
-    Alert.alert(
-      'About Ozarks camping',
-      `One reading for tonight across Eddy’s tracked Ozarks campgrounds, weighted by the number of reservable sites.\n\n${CAMPING_DEMAND_INFO}${details ? `\n\n${details}.` : ''}`,
-    );
+    Alert.alert('Camping legend', campingPulseInfo(demand));
   };
 
   return (
@@ -67,7 +60,8 @@ function CampingCard({ revision, showDemand }: Props & { showDemand: boolean }) 
           <Pressable
             onPress={showInfo}
             accessibilityRole="button"
-            accessibilityLabel="About Ozarks camping"
+            accessibilityLabel="Camping legend"
+            accessibilityHint="Explains the status bands and booked percentages"
             style={styles.info}
           >
             <Ionicons name="information-circle-outline" size={22} color={colors.textMuted} />
@@ -102,9 +96,9 @@ function CampingCard({ revision, showDemand }: Props & { showDemand: boolean }) 
               style={styles.riverRow}
             >
               <Text style={[styles.riverName, { color: colors.text }]}>{row.name}</Text>
-              <Text style={[textStyles.caption, styles.riverReading, { color: colors.textMuted }]}>
-                {campingPulseSummary(row.demand)}
-              </Text>
+              <View style={styles.riverReading}>
+                <CampingDemandPills demand={row.demand} />
+              </View>
               <Ionicons name="chevron-forward" size={14} color={colors.textSubtle} />
             </Pressable>
           ))}
@@ -135,6 +129,6 @@ const styles = StyleSheet.create({
   rivers: { borderTopWidth: StyleSheet.hairlineWidth, marginTop: 8, paddingTop: 10 },
   riverRow: { minHeight: 44, paddingVertical: 8, flexDirection: 'row', alignItems: 'center', gap: 8 },
   riverName: { fontFamily: fonts.medium, fontSize: 14, flex: 1 },
-  riverReading: { maxWidth: '50%', flexShrink: 1, textAlign: 'right', fontVariant: ['tabular-nums'] },
+  riverReading: { maxWidth: '55%', flexShrink: 1 },
   action: { minHeight: 44, justifyContent: 'center' },
 });

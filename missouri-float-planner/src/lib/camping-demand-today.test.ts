@@ -4,7 +4,8 @@ import {
   todayCampingDemand,
   campingPulseDetail,
   campingPulseCoverage,
-  campingPulseSummary,
+  campingPulsePills,
+  campingPulseInfo,
   todayPopularCamping,
 } from '../../../eddy-ios/src/lib/campingDemand';
 import { campingDemand, demandDetail } from '../../shared/camping-demand';
@@ -144,7 +145,7 @@ test('popular camping uses actual river totals and drops missing tonight at Chic
   const beforeMidnight = todayPopularCamping(overview(), Date.parse('2026-09-30T04:59:59Z'));
   const current = beforeMidnight.find((r) => r.slug === 'current')!;
   assert.equal(current.demand.date, '2026-09-29');
-  assert.equal(campingPulseSummary(current.demand), 'Busy · 60% booked');
+  assert.deepEqual(campingPulsePills(current.demand), { status: 'Busy', percent: '60%' });
   assert.equal(beforeMidnight.find((r) => r.slug === 'buffalo')!.demand.booked, 0.1);
   assert.deepEqual(todayPopularCamping(overview(), Date.parse('2026-09-30T05:00:00Z')), []);
 });
@@ -254,7 +255,7 @@ test('a regional sample with unknown capacity cannot read as Packed', () => {
   assert.equal(demand.band, 'crowded');
   assert.equal(demand.allObservedBooked, true);
   assert.equal(demand.completeCoverage, false);
-  assert.equal(campingPulseSummary(demand), 'All observed sites booked');
+  assert.deepEqual(campingPulsePills(demand), { status: 'All observed sites booked', percent: '100%' });
 });
 
 test('partial coverage names the measured sample and cannot read as Packed', () => {
@@ -287,4 +288,44 @@ test('crowd signal flag fails closed', () => {
   for (const f of [undefined, null, {}, { crowdSignal: 'true' }, { crowdSignal: 1 }])
     assert.equal(crowdSignalEnabled(f), false);
   assert.equal(crowdSignalEnabled({ crowdSignal: true }), true);
+});
+
+test('pills distinguish zero bookings, Packed, and an unavailable reading', () => {
+  const o = riverSample(['current']);
+  const night = o.tracked[0].nights[0];
+  night.sitesOpen = night.sitesReservable;
+  assert.deepEqual(campingPulsePills(todayCampingDemand(o, now.getTime())), { status: 'Quiet', percent: '0%' });
+  night.sitesOpen = 0;
+  night.status = 'full';
+  assert.deepEqual(campingPulsePills(todayCampingDemand(o, now.getTime())), { status: 'Packed', percent: '100%' });
+  o.tracked[0].nights = [];
+  assert.deepEqual(campingPulsePills(todayCampingDemand(o, now.getTime())), { status: 'Not enough data', percent: null });
+});
+
+test('the short legend explains the number and preserves partial coverage and reading age', () => {
+  const o = broadSample();
+  for (const c of o.tracked) for (const n of c.nights) n.checkedAt = '2026-09-28T17:00:00Z';
+  const info = campingPulseInfo(todayCampingDemand(o, now.getTime()));
+  assert.match(info, /campsites booked tonight/);
+  assert.match(info, /Quiet: under 30%/);
+  assert.match(info, /Packed: 100%, with full coverage/);
+  assert.match(info, /8 Recreation.gov campgrounds · Checked yesterday · 2 unavailable/);
+  assert.match(info, /Excludes state parks, walk-up sites and day floaters/);
+  assert.ok(info.split(/\s+/).length < 80, 'the info tip remains scannable');
+  assert.doesNotMatch(campingPulseInfo(null), /undefined|null|Checked|unavailable/);
+});
+
+import { CAMPING_BAND_STYLES } from '../../../eddy-ios/src/theme/campingDemand';
+test('status pill text clears small-text contrast for every band', () => {
+  const luminance = (hex: string) => {
+    const linear = [1, 3, 5].map((offset) => {
+      const c = parseInt(hex.slice(offset, offset + 2), 16) / 255;
+      return c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+    });
+    return linear[0] * 0.2126 + linear[1] * 0.7152 + linear[2] * 0.0722;
+  };
+  for (const [band, { fill, ink }] of Object.entries(CAMPING_BAND_STYLES)) {
+    const [low, high] = [luminance(fill), luminance(ink)].sort((a, b) => a - b);
+    assert.ok((high + 0.05) / (low + 0.05) >= 4.5, band);
+  }
 });
