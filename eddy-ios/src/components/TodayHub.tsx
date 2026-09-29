@@ -1,4 +1,5 @@
 import { TodayCamping } from '@/components/TodayCamping';
+import { TodayRiverConditions } from '@/components/TodayRiverConditions';
 import { takePreloadedToday } from '@/lib/firstRunPreload';
 import { radii } from '@/theme/layout';
 import { Children, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
@@ -240,28 +241,6 @@ function ConditionPill({ river, centered = false }: { river: RiverListItem; cent
         {conditionLabel(code)}
       </Text>
     </View>
-  );
-}
-
-function CompactRiverRow({ river, onPress }: { river: RiverListItem; onPress: () => void }) {
-  const { colors } = useTheme();
-  const reading = river.currentCondition ? primaryReading(river.currentCondition) : null;
-  return (
-    <Pressable
-      onPress={onPress}
-      style={({ pressed }) => [styles.compactRiver, { borderBottomColor: colors.border, opacity: pressed ? 0.65 : 1 }]}
-      accessibilityRole="button"
-      accessibilityLabel={`${river.name}, ${conditionLabel(river.currentCondition?.code ?? 'unknown')}`}
-    >
-      <View style={styles.flex}>
-        <Text style={[styles.compactRiverName, { color: colors.text }]} numberOfLines={1}>{river.name}</Text>
-        <Text style={[styles.compactRiverMeta, { color: colors.textMuted }]} numberOfLines={1}>
-          {reading ? formatReading(reading.value, reading.unit) : 'No fresh reading'}
-        </Text>
-      </View>
-      <ConditionPill river={river} centered />
-      <Ionicons name="chevron-forward" size={16} color={colors.textSubtle} />
-    </Pressable>
   );
 }
 
@@ -680,13 +659,9 @@ export function TodayHub({
         .catch(() => { prefetchedPhotos.current.delete(url); });
     }
   }, [readPhotoKey, refreshRevision]);
-  const previewReservedIds = useMemo(() => {
-    const ids = new Set(readPreviews.map(({ river }) => river.id));
-    recommendations.forEach((item) => ids.add(item.river.id));
-    return ids;
-  }, [readPreviews, recommendations]);
+  // This quick conditions list still includes relevant rivers featured elsewhere
+  // on Today. Loading Reads must not remove a favorite or shuffle these rows.
   const conditionPreviews = useMemo(() => [...rivers]
-    .filter((river) => !previewReservedIds.has(river.id))
     .sort((a, b) => {
       const favoriteOrder = Number(favoriteIds.has(b.id)) - Number(favoriteIds.has(a.id));
       if (favoriteOrder !== 0) return favoriteOrder;
@@ -698,7 +673,7 @@ export function TodayHub({
       if (conditionOrder !== 0) return conditionOrder;
       return (a.currentCondition?.readingAgeHours ?? Infinity) - (b.currentCondition?.readingAgeHours ?? Infinity);
     })
-    .slice(0, 3), [favoriteIds, previewDistances, previewReservedIds, rivers]);
+    .slice(0, 3), [favoriteIds, previewDistances, rivers]);
   const activeWeather = weatherCoordsKey && localWeather?.coordsKey === weatherCoordsKey
     ? localWeather.data
     : null;
@@ -860,39 +835,14 @@ export function TodayHub({
       <TodayCamping revision={refreshRevision} />
 
       <View style={styles.section}>
-        <SectionHead title="River Conditions" />
-        <View style={styles.conditionSummary}>
-          {([
-            ['floatable', 'Floatable', conditionCounts.floatable],
-            ['low', 'Low', conditionCounts.low],
-            ['high', 'High', conditionCounts.high],
-            ['unknown', 'No fresh reading', conditionCounts.unknown],
-          ] as const).map(([key, label, count]) => (
-            <Pressable
-              key={key}
-              onPress={() => onBrowseRivers(key)}
-              style={({ pressed }) => [styles.conditionCount, { backgroundColor: colors.card, borderColor: colors.border, opacity: pressed ? 0.65 : 1 }]}
-              accessibilityRole="button"
-              accessibilityLabel={`${label}, ${count} rivers`}
-            >
-              <Text style={[styles.conditionCountNumber, { color: colors.text }]}>{count}</Text>
-              <Text style={[styles.conditionCountLabel, { color: colors.textMuted }]} numberOfLines={1}>{label}</Text>
-            </Pressable>
-          ))}
-        </View>
-        <View style={[styles.conditionPreviewCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
-          {conditionPreviews.map((river) => (
-            <CompactRiverRow key={river.id} river={river} onPress={() => router.push(`/river/${river.slug}`)} />
-          ))}
-          <Pressable
-            onPress={() => onBrowseRivers('all')}
-            style={({ pressed }) => [styles.browseAll, { opacity: pressed ? 0.65 : 1 }]}
-            accessibilityRole="button"
-          >
-            <Text style={[styles.browseAllText, { color: colors.interactive }]}>Browse all {rivers.length} rivers</Text>
-            <Ionicons name="arrow-forward" size={16} color={colors.interactive} />
-          </Pressable>
-        </View>
+        <TodayRiverConditions
+          rivers={conditionPreviews}
+          total={rivers.length}
+          counts={conditionCounts}
+          photos={photos}
+          onBrowse={onBrowseRivers}
+          onOpenRiver={(slug) => router.push(`/river/${slug}`)}
+        />
       </View>
 
       {featuredFloat ? (
@@ -968,16 +918,6 @@ const styles = StyleSheet.create({
   cardRailViewport: { marginHorizontal: -16 },
   cardRail: { paddingHorizontal: 16, paddingBottom: 2, gap: CARD_GAP },
   railPosition: { ...t.xs, fontFamily: fonts.mono, textAlign: 'right', marginTop: 5, paddingRight: 2 },
-  conditionSummary: { flexDirection: 'row', flexWrap: 'wrap', gap: 7, marginBottom: 10 },
-  conditionCount: { flexGrow: 1, flexBasis: '47%', minWidth: 0, borderWidth: StyleSheet.hairlineWidth, borderRadius: 12, paddingHorizontal: 10, paddingVertical: 9 },
-  conditionCountNumber: { ...t.lg, fontFamily: fonts.heading },
-  conditionCountLabel: { ...t.xs, fontFamily: fonts.body, marginTop: 1 },
-  conditionPreviewCard: { borderWidth: StyleSheet.hairlineWidth, borderRadius: radii.card, paddingHorizontal: 13, overflow: 'hidden' },
-  compactRiver: { minHeight: 58, borderBottomWidth: StyleSheet.hairlineWidth, flexDirection: 'row', alignItems: 'center', gap: 9 },
-  compactRiverName: { ...t.sm, fontFamily: fonts.semibold },
-  compactRiverMeta: { ...t.xs, fontFamily: fonts.body, marginTop: 2 },
-  browseAll: { minHeight: 48, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6 },
-  browseAllText: { ...t.sm, fontFamily: fonts.semibold },
   floatPreview: { width: '100%', borderRadius: 18, overflow: 'hidden' },
   floatPreviewPhoto: { width: '100%', height: 126 },
   floatFallback: { width: '100%', height: 126, overflow: 'hidden' },
