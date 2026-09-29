@@ -270,3 +270,28 @@ test('ninety nights are opt-in so shipped fixed grids keep fourteen', () => {
   assert.equal(planning.horizon.nights.length, 90);
   assert.deepEqual(planning.tracked[0].nights.map((n) => n.date), ['2026-12-01']);
 });
+
+test('expected capacity sizes a campground even when the night itself is expired', () => {
+  const i = input();
+  i.observations = [
+    // Expired for display (>72h) but inside the 30-day sizing window.
+    night({ date: '2026-09-29', sites_reservable: 40, fetched_at: '2026-09-20T09:00:00Z' }),
+    night({ date: '2026-09-30', sites_reservable: 25 }),
+    // Closed and zero-capacity nights carry no inventory.
+    night({ date: '2026-10-01', status: 'closed', sites_open: 0, sites_reservable: 0 }),
+    night({ date: '2026-10-02', status: 'full', sites_open: 0, sites_reservable: 0 }),
+  ];
+  const r = buildCampingOverview(i, now).tracked[0];
+  assert.equal(r.expectedReservable, 40);
+  assert.deepEqual(r.nights.map((n) => n.date), ['2026-09-30', '2026-10-01', '2026-10-02']);
+});
+
+test('expected capacity is unknown without a recent bookable observation', () => {
+  const i = input();
+  assert.equal(buildCampingOverview(i, now).tracked[0].expectedReservable, null);
+  i.observations = [
+    night({ sites_reservable: 50, fetched_at: '2026-08-01T09:00:00Z' }),
+    night({ date: '2026-09-29', status: 'closed', sites_open: 0, sites_reservable: 0 }),
+  ];
+  assert.equal(buildCampingOverview(i, now).tracked[0].expectedReservable, null);
+});

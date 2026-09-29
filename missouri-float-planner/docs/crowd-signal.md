@@ -1,9 +1,29 @@
 # Camping demand (Quiet → Packed) — outline
 
-Status: proposal, not built. Owner decisions (September 29, 2026):
+Status: v1 built, off by default. Owner decisions (September 29, 2026):
 
 - Under 30% booked reads as Quiet.
 - v1 covers Recreation.gov campgrounds only, and says so in an info tip.
+
+## What shipped in v1, and how to turn it on
+
+| Piece | Where | Switch |
+| --- | --- | --- |
+| `expectedReservable` on each tracked campground | `src/lib/camping/overview.ts` | always on (additive) |
+| Scoring, bands, copy, info tip | `shared/camping-demand.ts` | — |
+| Today "Camping demand" card | `eddy-ios/src/components/TodayCampingDemand.tsx` | `CROWD_SIGNAL_ENABLED=true` → `features.crowdSignal` |
+| Occupancy history snapshots | `src/lib/camping/history.ts`, sync cron | `CAMPING_HISTORY_ENABLED=true`, **only after** migration `20260929120000` is applied (listed as pending in the ledger) |
+
+v1 notes:
+
+- The card's headline night is the weekend's Saturday (the peak), with a
+  7-night strip from tonight. Rows: saved rivers first, up to four.
+- The favorite-row pill is deferred; the card alone ships first.
+- Backcountry districts are not counted: the camping overview only serves
+  `kind = 'campground'` facilities. Open question 1 below stands for later.
+- `expectedReservable` is the largest bookable inventory on any stored night
+  checked in the last 30 days, within the requested horizon (Today requests
+  21 nights).
 
 ## What it is
 

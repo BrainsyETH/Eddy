@@ -9,7 +9,7 @@
 // update flags and notices but preserve the launch-time upgrade decision.
 // Camping defaults off when config is unavailable.
 
-import { campingHeatmapEnabled } from '@/lib/campingFeature';
+import { campingHeatmapEnabled, crowdSignalEnabled } from '@/lib/campingFeature';
 import {
   createContext,
   useContext,
@@ -26,6 +26,7 @@ import { initialAppConfigState, receiveAppConfig } from '@/lib/appConfigState';
 
 const DEFAULT_FEATURES: AppFeatureFlags = {
   campingHeatmap: false,
+  crowdSignal: false,
   push: true,
   planner: true,
   chat: false,
@@ -85,6 +86,7 @@ export function AppConfigProvider({ children }: { children: ReactNode }) {
         ...DEFAULT_FEATURES,
         ...config?.features,
         campingHeatmap: campingHeatmapEnabled(config?.features),
+        crowdSignal: crowdSignalEnabled(config?.features),
       },
       notice: config?.notice ?? null,
     };

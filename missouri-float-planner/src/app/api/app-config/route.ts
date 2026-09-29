@@ -40,6 +40,7 @@ const FALLBACK: AppConfigResponse = {
   upgradeMessage: null,
   features: {
     campingHeatmap: false,
+    crowdSignal: false,
     push: true,
     planner: true,
     chat: false,
@@ -78,6 +79,7 @@ export async function GET() {
       upgradeMessage: data.upgrade_message,
       features: {
         campingHeatmap: process.env.CAMPING_HEATMAP_ENABLED === 'true',
+        crowdSignal: process.env.CROWD_SIGNAL_ENABLED === 'true',
         push: data.push_enabled,
         planner: data.planner_enabled,
         chat: data.chat_enabled,

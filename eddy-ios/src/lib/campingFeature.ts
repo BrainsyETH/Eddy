@@ -7,3 +7,12 @@ export function campingHeatmapEnabled(features: unknown): boolean {
     features.campingHeatmap === true
   );
 }
+/** Camping demand (Quiet → Packed) on Today. Same fail-closed rule. */
+export function crowdSignalEnabled(features: unknown): boolean {
+  return (
+    typeof features === 'object' &&
+    features !== null &&
+    'crowdSignal' in features &&
+    features.crowdSignal === true
+  );
+}
