@@ -1,4 +1,4 @@
-// eddy-ios/app/alerts/new.tsx
+// eddy-ios/app/alerts/(create)/new.tsx
 // Step one of creating an alert: what do you want to watch?
 //
 // Rivers AND gauges in one field, because the answer to "what do I want to be
@@ -12,26 +12,26 @@
 // somebody reaches once would be a request paid at a put-in for a saving nobody
 // notices.
 
-import { BackButton } from '@/components/BackButton';
 import { useMemo } from 'react';
 import {
   ActivityIndicator,
   FlatList,
+  Keyboard,
   Pressable,
   StyleSheet,
   Text,
   TextInput,
   View,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { Stack, useRouter } from 'expo-router';
+import { useRouter } from 'expo-router';
 import type { SearchResult } from '@eddy/types';
 import { useEddySearch } from '@/hooks/useEddySearch';
 import { useStarredRivers } from '@/hooks/useStarredRivers';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
-import { goBack } from '@/lib/nav';
+import { AlertCreationFrame } from '@/components/AlertCreationFrame';
+import { useCloseAlertCreation } from '@/hooks/useCloseAlertCreation';
 
 /** What the configure screen needs to describe and create a rule. */
 interface Target {
@@ -87,9 +87,10 @@ function targetFromResult(result: SearchResult): Target | null {
 
 export default function NewAlertScreen() {
   const router = useRouter();
+  const close = useCloseAlertCreation();
   const { colors, elevation } = useTheme();
   const { starred } = useStarredRivers();
-  const { query, setQuery, results, searching, active } = useEddySearch({
+  const { query, setQuery, results, searching, active, serverUnavailable, hasMore, loadMore } = useEddySearch({
     rivers: null,
     gauges: null,
   });
@@ -110,7 +111,7 @@ export default function NewAlertScreen() {
               key: `river:${item.entityId}`,
               scope: 'river' as const,
               name: item.name,
-              subtitle: 'Starred river',
+              subtitle: 'Favorite river',
               params: {
                 scope: 'river',
                 riverId: item.entityId,
@@ -124,7 +125,7 @@ export default function NewAlertScreen() {
             key: `gauge:${item.entityId}`,
             scope: 'gauge' as const,
             name: item.name,
-            subtitle: 'Starred gauge',
+            subtitle: 'Favorite gauge',
             params: {
               scope: 'gauge',
               gaugeId: item.entityId,
@@ -143,15 +144,7 @@ export default function NewAlertScreen() {
   const data = active ? searchTargets : starredTargets;
 
   return (
-    <SafeAreaView style={[styles.screen, { backgroundColor: colors.bg }]} edges={['top']}>
-      <Stack.Screen options={{ headerShown: false }} />
-
-      <View style={styles.navRow}>
-        <BackButton onPress={() => goBack(router)} />
-        <Text style={[styles.navTitle, { color: colors.text }]}>New alert</Text>
-        <View style={styles.navSpacer} />
-      </View>
-
+    <AlertCreationFrame secondary={{ label: 'Cancel', onPress: close }}>
       <View style={[styles.searchBox, { backgroundColor: colors.card, borderColor: colors.border }]}>
         <Ionicons name="search" size={18} color={colors.textSubtle} />
         <TextInput
@@ -163,6 +156,8 @@ export default function NewAlertScreen() {
           autoCorrect={false}
           autoCapitalize="none"
           returnKeyType="search"
+          clearButtonMode="while-editing"
+          onSubmitEditing={Keyboard.dismiss}
           accessibilityLabel="Search rivers and gauges"
         />
         {searching ? <ActivityIndicator size="small" color={colors.interactive} /> : null}
@@ -172,16 +167,20 @@ export default function NewAlertScreen() {
         data={data}
         keyExtractor={(item) => item.key}
         keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="on-drag"
+        onEndReached={() => { if (hasMore) loadMore(); }}
         ListHeaderComponent={
           <Text style={[styles.sectionLabel, { color: colors.textSubtle }]}>
-            {active ? 'Results' : starredTargets.length > 0 ? 'Your starred water' : ''}
+            {active ? 'Results' : starredTargets.length > 0 ? 'Favorites' : ''}
           </Text>
         }
         ListEmptyComponent={
           <View style={styles.empty}>
             <Text style={[styles.emptyBody, { color: colors.textMuted }]}>
               {active && !searching
-                ? 'Nothing matched. Try a river name, a gauge name or a USGS site number.'
+                ? serverUnavailable
+                  ? 'Search is unavailable. Check your connection and try your search again, or clear it to choose a favorite.'
+                  : 'Nothing matched. Try a river name, a gauge name or a USGS site number.'
                 : active
                   ? ''
                   : 'Search for any river or USGS gauge — including gauges outside Missouri.'}
@@ -190,7 +189,10 @@ export default function NewAlertScreen() {
         }
         renderItem={({ item }) => (
           <Pressable
-            onPress={() => router.push({ pathname: '/alerts/configure', params: item.params })}
+            onPress={() => {
+              Keyboard.dismiss();
+              router.push({ pathname: '/alerts/configure', params: item.params });
+            }}
             style={({ pressed }) => [
               styles.row,
               { backgroundColor: colors.card, opacity: pressed ? 0.7 : 1 },
@@ -207,11 +209,11 @@ export default function NewAlertScreen() {
               />
             </View>
             <View style={styles.rowBody}>
-              <Text style={[styles.rowTitle, { color: colors.text }]} numberOfLines={1}>
+              <Text style={[styles.rowTitle, { color: colors.text }]}>
                 {item.name}
               </Text>
               {item.subtitle ? (
-                <Text style={[styles.rowSubtitle, { color: colors.textMuted }]} numberOfLines={1}>
+                <Text style={[styles.rowSubtitle, { color: colors.textMuted }]}>
                   {item.subtitle}
                 </Text>
               ) : null}
@@ -220,33 +222,24 @@ export default function NewAlertScreen() {
           </Pressable>
         )}
       />
-    </SafeAreaView>
+    </AlertCreationFrame>
   );
 }
 
 const styles = StyleSheet.create({
-  screen: { flex: 1 },
-  navRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-  },
-  navTitle: { ...t.base, fontFamily: fonts.semibold, flex: 1, textAlign: 'center' },
-  navSpacer: { width: 44 },
   searchBox: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
     marginHorizontal: 16,
+    marginTop: 16,
     marginBottom: 12,
     paddingHorizontal: 14,
     paddingVertical: 10,
     borderRadius: 12,
     borderWidth: 1,
   },
-  searchInput: { flex: 1, ...t.base, fontFamily: fonts.body, padding: 0 },
+  searchInput: { minHeight: 44, flex: 1, ...t.base, fontFamily: fonts.body, padding: 0 },
   sectionLabel: {
     ...t.xs,
     fontFamily: fonts.semibold,
