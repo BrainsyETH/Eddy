@@ -4,7 +4,9 @@ import {
   todayCampingDemand,
   campingPulseDetail,
   campingPulseCoverage,
-  campingPulsePills,
+  campingPulseHeadline,
+  campingPulseReading,
+  campingPulseAccessibilityLabel,
   campingPulseInfo,
   todayPopularCamping,
 } from '../../../eddy-ios/src/lib/campingDemand';
@@ -94,7 +96,7 @@ test('Today rates tonight across the region, weighted by sites, not campground o
   assert.equal(demand.bookedSites, 95);
   assert.equal(demand.booked, 95 / 220);
   assert.equal(demand.band, 'moderate');
-  assert.equal(campingPulseDetail(demand), '43% of tracked campsites booked tonight');
+  assert.equal(campingPulseDetail(demand), '43% of tracked campsites booked');
 });
 
 function riverSample(slugs: string[]) {
@@ -145,7 +147,7 @@ test('popular camping uses actual river totals and drops missing tonight at Chic
   const beforeMidnight = todayPopularCamping(overview(), Date.parse('2026-09-30T04:59:59Z'));
   const current = beforeMidnight.find((r) => r.slug === 'current')!;
   assert.equal(current.demand.date, '2026-09-29');
-  assert.deepEqual(campingPulsePills(current.demand), { status: 'Busy', percent: '60%' });
+  assert.deepEqual(campingPulseReading(current.demand), { percent: 60, label: '60%' });
   assert.equal(beforeMidnight.find((r) => r.slug === 'buffalo')!.demand.booked, 0.1);
   assert.deepEqual(todayPopularCamping(overview(), Date.parse('2026-09-30T05:00:00Z')), []);
 });
@@ -219,7 +221,7 @@ test('a broad regional sample can rate without inventing missing capacity', () =
   assert.equal(demand.coverage, null);
   assert.equal(demand.completeCoverage, false);
   assert.equal(demand.campgroundsMissingUnsized, 2);
-  assert.equal(campingPulseDetail(demand), '20% of checked campsites booked tonight');
+  assert.equal(campingPulseDetail(demand), '20% of checked campsites booked');
   assert.equal(campingPulseCoverage(demand), 'Based on 8 campgrounds · 2 unavailable');
   assert.match(demandDetail(demand), /20% of checked campsites booked/);
   assert.match(demandDetail(demand), /8 campgrounds checked · 2 unavailable/);
@@ -255,7 +257,13 @@ test('a regional sample with unknown capacity cannot read as Packed', () => {
   assert.equal(demand.band, 'crowded');
   assert.equal(demand.allObservedBooked, true);
   assert.equal(demand.completeCoverage, false);
-  assert.deepEqual(campingPulsePills(demand), { status: 'All observed sites booked', percent: '100%' });
+  assert.equal(campingPulseHeadline(demand), 'Checked sites fully booked');
+  assert.deepEqual(campingPulseReading(demand), { percent: 100, label: '100%' });
+  const spoken = campingPulseAccessibilityLabel(demand, 'Ozarks');
+  assert.match(spoken, /Ozarks camping tonight. Checked sites fully booked. 100% of checked campsites booked/);
+  assert.match(spoken, /Checked today/);
+  assert.match(spoken, /2 unavailable/);
+  assert.doesNotMatch(spoken, /Packed/);
 });
 
 test('partial coverage names the measured sample and cannot read as Packed', () => {
@@ -270,7 +278,7 @@ test('partial coverage names the measured sample and cannot read as Packed', () 
   assert.equal(demand.allObservedBooked, true);
   assert.equal(demand.completeCoverage, false);
   assert.equal(demand.coverage, 170 / 220);
-  assert.equal(campingPulseDetail(demand), '100% of checked campsites booked tonight');
+  assert.equal(campingPulseDetail(demand), '100% of checked campsites booked');
 });
 
 test('expired observations cannot produce a Quiet regional rating', () => {
@@ -290,23 +298,55 @@ test('crowd signal flag fails closed', () => {
   assert.equal(crowdSignalEnabled({ crowdSignal: true }), true);
 });
 
-test('pills distinguish zero bookings, Packed, and an unavailable reading', () => {
+test('the summary distinguishes zero bookings, Packed, and an unavailable reading', () => {
   const o = riverSample(['current']);
   const night = o.tracked[0].nights[0];
   night.sitesOpen = night.sitesReservable;
-  assert.deepEqual(campingPulsePills(todayCampingDemand(o, now.getTime())), { status: 'Quiet', percent: '0%' });
+  assert.equal(campingPulseHeadline(todayCampingDemand(o, now.getTime())), 'Plenty of sites open');
+  assert.deepEqual(campingPulseReading(todayCampingDemand(o, now.getTime())), { percent: 0, label: '0%' });
   night.sitesOpen = 0;
   night.status = 'full';
-  assert.deepEqual(campingPulsePills(todayCampingDemand(o, now.getTime())), { status: 'Packed', percent: '100%' });
+  assert.equal(campingPulseHeadline(todayCampingDemand(o, now.getTime())), 'Tracked sites fully booked');
+  assert.deepEqual(campingPulseReading(todayCampingDemand(o, now.getTime())), { percent: 100, label: '100%' });
   o.tracked[0].nights = [];
-  assert.deepEqual(campingPulsePills(todayCampingDemand(o, now.getTime())), { status: 'Not enough data', percent: null });
+  assert.equal(campingPulseHeadline(todayCampingDemand(o, now.getTime())), 'Not enough data');
+  assert.equal(campingPulseReading(todayCampingDemand(o, now.getTime())), null);
+});
+
+test('all Quiet rows remain separate, and changing demand never changes popular order', () => {
+  const o = riverSample(['buffalo', 'current', 'jacks-fork']);
+  for (const [i, c] of o.tracked.entries()) {
+    c.nights[0].sitesReservable = 100;
+    c.nights[0].sitesOpen = [78, 92, 93][i];
+  }
+  const quietRows = todayPopularCamping(o, now.getTime());
+  assert.deepEqual(quietRows.map((r) => [r.slug, campingPulseReading(r.demand)?.label]), [
+    ['current', '8%'], ['jacks-fork', '7%'], ['buffalo', '22%'],
+  ]);
+  assert.ok(quietRows.every((r) => r.demand.band === 'quiet'));
+  o.tracked[0].nights[0].sitesOpen = 10; // Buffalo gets busy, but stays third.
+  assert.deepEqual(todayPopularCamping(o, now.getTime()).map((r) => r.slug), quietRows.map((r) => r.slug));
+});
+
+test('bar widths use actual percentages and labels cannot round away the last open or booked site', () => {
+  const o = riverSample(['current']);
+  const night = o.tracked[0].nights[0];
+  night.sitesReservable = 1000;
+  for (const [bookedSites, label] of [[1, '<1%'], [84, '8%'], [224, '22%'], [999, '>99%']] as const) {
+    night.sitesOpen = 1000 - bookedSites;
+    const reading = campingPulseReading(todayCampingDemand(o, now.getTime()))!;
+    assert.ok(Math.abs(reading.percent - bookedSites / 10) < 1e-10);
+    assert.equal(reading.label, label);
+    assert.ok(campingPulseAccessibilityLabel(todayCampingDemand(o, now.getTime()), 'Current River').includes(`${label} of tracked campsites booked`));
+  }
 });
 
 test('the short legend explains the number and preserves partial coverage and reading age', () => {
   const o = broadSample();
   for (const c of o.tracked) for (const n of c.nights) n.checkedAt = '2026-09-28T17:00:00Z';
   const info = campingPulseInfo(todayCampingDemand(o, now.getTime()));
-  assert.match(info, /campsites booked tonight/);
+  assert.match(info, /Tonight’s bookings across tracked Ozarks Recreation.gov campsites/);
+  assert.match(info, /Longer bars mean more campsites booked/);
   assert.match(info, /Quiet: under 30%/);
   assert.match(info, /Packed: 100%, with full coverage/);
   assert.match(info, /8 Recreation.gov campgrounds · Checked yesterday · 2 unavailable/);
@@ -315,8 +355,8 @@ test('the short legend explains the number and preserves partial coverage and re
   assert.doesNotMatch(campingPulseInfo(null), /undefined|null|Checked|unavailable/);
 });
 
-import { CAMPING_BAND_STYLES } from '../../../eddy-ios/src/theme/campingDemand';
-test('status pill text clears small-text contrast for every band', () => {
+import { lightPalette, darkPalette } from '../../../eddy-ios/src/theme/palette';
+test('percentage meter fill clears graphical contrast against its track in both themes', () => {
   const luminance = (hex: string) => {
     const linear = [1, 3, 5].map((offset) => {
       const c = parseInt(hex.slice(offset, offset + 2), 16) / 255;
@@ -324,8 +364,8 @@ test('status pill text clears small-text contrast for every band', () => {
     });
     return linear[0] * 0.2126 + linear[1] * 0.7152 + linear[2] * 0.0722;
   };
-  for (const [band, { fill, ink }] of Object.entries(CAMPING_BAND_STYLES)) {
-    const [low, high] = [luminance(fill), luminance(ink)].sort((a, b) => a - b);
-    assert.ok((high + 0.05) / (low + 0.05) >= 4.5, band);
+  for (const colors of [lightPalette, darkPalette]) {
+    const [low, high] = [luminance(colors.interactive), luminance(colors.border)].sort((a, b) => a - b);
+    assert.ok((high + 0.05) / (low + 0.05) >= 3, colors.scheme);
   }
 });

@@ -1,6 +1,6 @@
 # Camping demand (Quiet → Packed)
 
-Owner decisions (September 29, 2026):
+Owner decisions (September 29–30, 2026):
 
 - Show one overall Ozarks reading inside the existing **Camping** card on Today.
 - Always use tonight's date in America/Chicago. No weekend default or date picker.
@@ -11,40 +11,46 @@ Owner decisions (September 29, 2026):
 
 ## Today card
 
-`eddy-ios/src/components/TodayCamping.tsx` retains the Camping heading, campground
-symbol and “See all camping” link. Its contents start with one compact regional gauge:
+`eddy-ios/src/components/TodayCamping.tsx` uses the **Camping tonight** heading,
+campground symbol and “See all camping” link. Its compact, left-aligned summary has:
 
-- “Across the Ozarks · Tonight”
-- Two pills: the named band and a separate percentage (for example, “Quiet” and “6%”)
-- A five-segment Quiet → Packed scale, with a marker centered on the named band
-- An older-reading label when applicable; sample coverage stays in the info tip and VoiceOver
+- An availability outcome: “Plenty of sites open,” “Sites still available,”
+  “Most sites booked,” “Few sites left,” or “Tracked sites fully booked”
+- The measured sample, for example “11% of tracked campsites booked”
+- A thin 0–100% meter filled to the actual booked percentage, with ticks at 30%,
+  60% and 85%; teal fill has at least 3:1 contrast against its track in both themes
+- “Checked yesterday” at normal text contrast when applicable; older readings
+  also get an alert icon. A failed refresh retains its retry action and alert icon.
 
-Up to five popular rivers follow, with a river name and the same two pills for tonight.
-The status pill uses a soft band color with consistent dark ink; the percentage
-uses a neutral fill. Pills can wrap with large text. Unknown readings never show
-a percentage, and partial coverage at 100% still says “All observed sites booked.”
-The curated order starts with Current, Jacks Fork and Buffalo; it is not a live
-traffic ranking. Other covered rivers can fill remaining slots in alphabetical
-order. Existing per-river coverage gates run before the five-row limit: missing,
-stale, undersized and unsupported readings are omitted entirely. Fully booked
-rivers remain useful and are included when their reading passes the gates.
-Show fewer rows when fewer qualify, and hide the list and heading if none do.
-These rows have no extra scales or night strips and do not depend on favorites.
+Up to five popular rivers follow, with a river name, equal-length mini meter and
+“N% booked.” All text uses consistent theme colors; bar length handles comparison.
+Large text and narrow screens move the reading below the name. The curated order
+starts with Current, Jacks Fork and Buffalo; it is not a live traffic ranking and
+never changes with demand. Other covered rivers can fill remaining slots in
+alphabetical order. Existing per-river coverage gates run before the five-row
+limit: missing, expired, undersized and unsupported readings are omitted entirely.
+Fully booked rivers remain useful and are included when their reading passes the
+gates. Show fewer rows when fewer qualify, and hide the list and heading if none do.
+Keep separate river rows even when every river is Quiet. Favorites do not control
+this list. There is no weekend lookahead: this card always represents tonight.
 
-The gauge is ordinal, not a percentage axis. The exact percentage is written
-separately. Missing or insufficient data shows a neutral track without a marker,
-“Not enough data,” and the reason. It never reads as Quiet.
+The former band pills and ordinal Quiet → Packed gauge are removed. All meters
+now use a true percentage axis, including zero and 100%; unknown readings show
+“Not enough data” and the reason, without a misleading empty bar. Percentage labels
+round for readability, but use “<1%” and “>99%” instead of rounding partial bookings
+to zero or full. Partial coverage at 100% says “Checked sites fully booked,” never
+Packed, and the detail names checked rather than tracked campsites.
 
-Tapping the gauge or footer opens `/camping` with tonight's date. A river
-row also applies that river's filter. The date carries into campground details;
-unsupported dates fall back to the existing default. Individual campgrounds,
-river/nearby filters, the 90-night grid, calendars and booking links remain
-available. Favorites and phone location do not change the regional Today reading.
-The existing info button opens a short “Camping legend” with band thresholds,
-the meaning of the percentage, source exclusions, sample size and reading age.
-Packed explicitly requires full coverage. The legend works by tap or click and
-does not rely on hover; the row and gauge still open campground availability.
-VoiceOver reads the scope, night, result and coverage/age notes as one button.
+The regional summary is read-only. The footer opens `/camping` with tonight's date;
+each river row also applies its river filter. The date carries into campground
+details; unsupported dates fall back to the existing default. Individual
+campgrounds, river/nearby filters, the 90-night grid, calendars and booking links
+remain available. Favorites and phone location do not change the regional reading.
+The existing info button opens a short “Camping legend” with meter meaning, band
+thresholds, source exclusions, sample size and reading age. Packed explicitly
+requires full coverage. The legend works by tap or click and does not rely on
+hover. VoiceOver reads the regional scope, night, result and coverage/age notes
+as one summary; each river row remains one labeled button.
 
 The existing `features.campingHeatmap` gates the card and full camping screen.
 `features.crowdSignal` gates the regional reading. If the latter is off, the card
@@ -120,8 +126,8 @@ and refreshes on foreground. Missing tonight never falls back to a later night.
 
 The 72-hour limit expires observations; it does not make them current. “Checked
 today / yesterday / earlier” uses the Chicago date of the oldest counted reading.
-Older readings are labeled on the card. The existing ≤26-hour rule separately
-controls the scorer's `final` field; it does not determine the calendar label.
+Older readings are labeled on the card at normal contrast. The existing ≤26-hour
+rule separately controls the scorer's `final` field; it does not determine the calendar label.
 
 ## Existing history
 
