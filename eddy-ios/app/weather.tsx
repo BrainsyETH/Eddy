@@ -1,23 +1,22 @@
 import { rainChanceColor, weatherAtmosphere } from '@/theme/weather';
 import { useTheme } from '@/theme/ThemeProvider';
 import { EddySymbol } from '@/components/EddySymbol';
+import { NativeHeaderHome } from '@/components/NativeHeaderHome';
 import { useCallback, useState } from 'react';
 import { ActivityIndicator, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
-import { Stack, useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
+import { useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import type { LocationWeatherForecast } from '@eddy/types';
 import { fetchLocationWeather } from '@/api/client';
 import Svg, { Defs, LinearGradient, Stop, Rect } from 'react-native-svg';
 import { peekLocationForecast, seedLocationForecast } from '@/lib/locationForecast';
-import { goBack } from '@/lib/nav';
 import { fonts, type as t } from '@/theme/typography';
 
 export default function WeatherScreen() {
   const { colors, elevation, isDark } = useTheme();
   const { fontScale } = useWindowDimensions();
   const styles = { ...layout,
-    navTitle: { ...layout.navTitle, color: colors.text },
     city: { ...layout.city, color: colors.text },
     temperature: { ...layout.temperature, color: colors.text },
     condition: { ...layout.condition, color: colors.text },
@@ -45,7 +44,6 @@ export default function WeatherScreen() {
   const lng = Number(lngParam);
   const valid = Boolean(latParam && lngParam) && Number.isFinite(lat) && Number.isFinite(lng) && Math.abs(lat) <= 90 && Math.abs(lng) <= 180;
   const key = JSON.stringify([lat, lng]);
-  const router = useRouter();
   const [snapshot, setSnapshot] = useState(() => ({ key, data: peekLocationForecast(key) }));
   const [failed, setFailed] = useState<string | null>(null);
   const [loadingKey, setLoadingKey] = useState<string | null>(null);
@@ -72,16 +70,9 @@ export default function WeatherScreen() {
   const low = Math.min(...(data?.days.map(day => day.tempLow) ?? [0]));
   const high = Math.max(...(data?.days.map(day => day.tempHigh) ?? [1]));
   return <View style={{ flex: 1, backgroundColor: colors.bg }}>
-    <SafeAreaView style={{ flex: 1 }}>
-      <Stack.Screen options={{ headerShown: false }} />
-      <View style={styles.header}>
-        <Pressable onPress={() => goBack(router)} accessibilityRole="button" accessibilityLabel="Back" style={styles.back}>
-          <Ionicons name="chevron-back" size={26} color={colors.text} />
-        </Pressable>
-        <Text style={styles.navTitle}>Weather</Text>
-        <View style={styles.back} />
-      </View>
-      <ScrollView contentContainerStyle={styles.body} refreshControl={<RefreshControl refreshing={loading && Boolean(data)} onRefresh={() => setRetry(n => n + 1)} tintColor={colors.text} />}>
+    <SafeAreaView style={{ flex: 1 }} edges={['left', 'right']}>
+      <NativeHeaderHome />
+      <ScrollView contentInsetAdjustmentBehavior="automatic" contentContainerStyle={styles.body} refreshControl={<RefreshControl refreshing={loading && Boolean(data)} onRefresh={() => setRetry(n => n + 1)} tintColor={colors.text} />}>
         <View style={styles.hero}>
           {/* Resolve SVG percentages against an unpadded, edge-to-edge layer. */}
           <View style={StyleSheet.absoluteFill} pointerEvents="none" accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
@@ -152,9 +143,6 @@ function weatherIcon(code: string): React.ComponentProps<typeof Ionicons>['name'
   return 'cloudy';
 }
 const layout = StyleSheet.create({
-  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 12 },
-  back: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
-  navTitle: { ...t.base, fontFamily: fonts.heading },
   body: { padding: 20, gap: 14, paddingBottom: 36 },
   hero: { alignItems: 'center', paddingTop: 20, paddingBottom: 24, paddingHorizontal: 12, borderRadius: 16, overflow: 'hidden' },
   currentReading: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', flexWrap: 'wrap', gap: 12, marginVertical: 8 },

@@ -1,4 +1,4 @@
-import { BackButton } from '@/components/BackButton';
+import { NativeHeaderHome } from '@/components/NativeHeaderHome';
 import { gaugeFreshness, gaugeFreshnessLabel, isCurrentWaterMeasurement, observationAgeHours } from '@eddy/conditions/gauge-freshness';
 // eddy-ios/app/gauge/[siteId].tsx
 // One gauge: what it reads, what that means, and how it got there.
@@ -81,7 +81,7 @@ import { fonts, type as t } from '@/theme/typography';
 import { SafetyDisclaimer } from '@/components/SafetyDisclaimer';
 import { formatReading, percentileLabel, readingAge } from '@/lib/readingCopy';
 import { usgsGaugeUrl } from '@/lib/directions';
-import { gaugeSharePath } from '@/lib/share';
+import { gaugeSharePath, shareLink } from '@/lib/share';
 import {
   isDamRelease,
   isUsgsSite,
@@ -101,7 +101,6 @@ import { readGauge, writeGauge } from '@/lib/gaugeCache';
 import { EddyTake } from '@/components/EddyTake';
 import { GaugeChart } from '@/components/GaugeChart';
 import { ReadingScale } from '@/components/ReadingScale';
-import { ShareButton } from '@/components/ShareButton';
 import { FeedbackSheet } from '@/components/FeedbackSheet';
 import { PaywallSheet } from '@/components/PaywallSheet';
 import { premiumPitch } from '@/lib/premiumCopy';
@@ -110,7 +109,6 @@ import { Otter, otterForCondition } from '@/components/Otter';
 import { useStarredRivers } from '@/hooks/useStarredRivers';
 import { useAccount } from '@/hooks/useAccount';
 import { useSession } from '@/hooks/useSession';
-import { goBack } from '@/lib/nav';
 import { AlertOriginRow } from '@/components/AlertOriginRow';
 import { pickPrimaryRiverLink } from '@eddy/conditions/primary-river-link';
 
@@ -370,29 +368,22 @@ export default function GaugeDetailScreen() {
   const publicOutlook = reportKey && report?.key === reportKey ? report.data : null;
 
   if (loading && !gauge) {
-    // The chevron renders DURING the load — configure.tsx's own rule: a
-    // spinner with no chevron is a wait with no visible way off the screen.
+    // The native header remains available while the first record loads.
     return (
-      <SafeAreaView style={[styles.screen, { backgroundColor: colors.bg }]} edges={['top']}>
-        <Stack.Screen options={{ headerShown: false }} />
-        <View style={styles.navRow}>
-          <BackButton onPress={() => goBack(router)} />
-        </View>
-        <View style={[styles.screen, styles.centre]}>
-          <ActivityIndicator size="large" color={colors.interactive} />
-        </View>
+      <SafeAreaView style={[styles.screen, { backgroundColor: colors.bg }]} edges={['left', 'right']}>
+        <NativeHeaderHome />
+        <ScrollView contentInsetAdjustmentBehavior="automatic" contentContainerStyle={[styles.centre, styles.emptyBody]}>
+          <ActivityIndicator size="large" color={colors.interactive} accessibilityLabel="Loading gauge" />
+        </ScrollView>
       </SafeAreaView>
     );
   }
 
   if (!gauge) {
     return (
-      <SafeAreaView style={[styles.screen, { backgroundColor: colors.bg }]} edges={['top']}>
-        <Stack.Screen options={{ headerShown: false }} />
-        <View style={styles.navRow}>
-          <BackButton onPress={() => goBack(router)} />
-        </View>
-        <View style={[styles.centre, styles.emptyBody]}>
+      <SafeAreaView style={[styles.screen, { backgroundColor: colors.bg }]} edges={['left', 'right']}>
+        <NativeHeaderHome />
+        <ScrollView contentInsetAdjustmentBehavior="automatic" contentContainerStyle={[styles.centre, styles.emptyBody]}>
           <Text style={[styles.emptyTitle, { color: colors.text }]}>
             {failed ? 'Gauge unavailable' : 'Gauge not found'}
           </Text>
@@ -437,7 +428,7 @@ export default function GaugeDetailScreen() {
               <Text style={[styles.sourceText, { color: colors.text }]}>Open on USGS</Text>
             </Pressable>
           ) : null}
-        </View>
+        </ScrollView>
       </SafeAreaView>
     );
   }
@@ -529,7 +520,7 @@ export default function GaugeDetailScreen() {
   // A plain function, not a useCallback: everything above it is guarded by
   // early returns, and a hook below one of those is a hook that does not run in
   // the same order every render. Nothing here is memo-sensitive — it is one
-  // Pressable's handler.
+  // toolbar button's handler.
   const onToggleStar = () => {
     if (!gauge.id) return;
     toggleStar({
@@ -545,38 +536,37 @@ export default function GaugeDetailScreen() {
   };
 
   return (
-    <SafeAreaView style={[styles.screen, { backgroundColor: colors.bg }]} edges={['top']}>
-      <Stack.Screen options={{ headerShown: false }} />
+    <SafeAreaView style={[styles.screen, { backgroundColor: colors.bg }]} edges={['left', 'right']}>
+      <NativeHeaderHome />
+      <Stack.Toolbar placement="right">
+        {/* Absent when the station has no page on the website — an NWS LID
+            has none, and gaugeSharePath says so rather than composing a URL
+            that redirects to nowhere. Same rule as the star beside it. */}
+        {sharePath ? (
+          <Stack.Toolbar.Button
+            icon="square.and.arrow.up"
+            accessibilityLabel={`Share ${gauge.name}`}
+            onPress={() => void shareLink(gauge.name, sharePath)}
+          >
+            Share
+          </Stack.Toolbar.Button>
+        ) : null}
+        {/* Absent, not disabled, when the station has no id to star it by —
+            a control that cannot do anything is worse than no control. */}
+        {gauge.id ? (
+          <Stack.Toolbar.Button
+            onPress={onToggleStar}
+            icon={starred ? 'star.fill' : 'star'}
+            selected={starred}
+            tintColor={starred ? colors.warm : colors.interactive}
+            accessibilityLabel={starred ? `Remove ${gauge.name} from Favorites` : `Add ${gauge.name} to Favorites`}
+          >
+            {starred ? 'Remove from Favorites' : 'Add to Favorites'}
+          </Stack.Toolbar.Button>
+        ) : null}
+      </Stack.Toolbar>
 
-      <View style={styles.navRow}>
-        <BackButton onPress={() => goBack(router)} />
-        <View style={styles.navActions}>
-          {/* Absent when the station has no page on the website — an NWS LID
-              has none, and gaugeSharePath says so rather than composing a URL
-              that redirects to nowhere. Same rule as the star beside it. */}
-          {sharePath ? (
-            <ShareButton title={gauge.name} path={sharePath} label={`Share ${gauge.name}`} />
-          ) : null}
-          {/* Absent, not disabled, when the station has no id to star it by —
-              a control that cannot do anything is worse than no control. */}
-          {gauge.id ? (
-            <Pressable
-              onPress={onToggleStar}
-              hitSlop={12}
-              accessibilityRole="button"
-              accessibilityLabel={starred ? `Unstar ${gauge.name}` : `Star ${gauge.name}`}
-            >
-              <Ionicons
-                name={starred ? 'star' : 'star-outline'}
-                size={24}
-                color={starred ? colors.warm : colors.textSubtle}
-              />
-            </Pressable>
-          ) : null}
-        </View>
-      </View>
-
-      <ScrollView contentContainerStyle={styles.body}>
+      <ScrollView contentInsetAdjustmentBehavior="automatic" contentContainerStyle={styles.body}>
         {/* The way back to the rule that fired the push this screen answered.
             Renders nothing on ordinary navigation — only a notification tap
             carries the params. */}
@@ -1038,19 +1028,10 @@ export default function GaugeDetailScreen() {
 const styles = StyleSheet.create({
   screen: { flex: 1 },
   centre: { alignItems: 'center', justifyContent: 'center' },
-  emptyBody: { flex: 1, paddingHorizontal: 32, gap: 10 },
+  emptyBody: { flexGrow: 1, paddingHorizontal: 32, paddingVertical: 24, gap: 10 },
   emptyTitle: { ...t.xl, fontFamily: fonts.heading, textAlign: 'center' },
   emptyBodyText: { ...t.sm, fontFamily: fonts.body, textAlign: 'center' },
-  navRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-  },
-  // The right-hand end of the nav row, now that share sits beside the star.
-  navActions: { flexDirection: 'row', alignItems: 'center', gap: 16 },
-  body: { paddingBottom: 40 },
+  body: { paddingTop: 12, paddingBottom: 40 },
   name: { ...t['2xl'], fontFamily: fonts.heading, paddingHorizontal: 20, marginTop: 4 },
   meta: { ...t.sm, fontFamily: fonts.body, paddingHorizontal: 20, marginTop: 2, marginBottom: 14 },
   card: { marginHorizontal: 16, marginBottom: 14, borderRadius: 18, padding: 16 },
