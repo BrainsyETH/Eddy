@@ -10,8 +10,8 @@
 // It has no static imports of its own for the same reason. See its header.
 import { isLaunchStalled, subscribeToLaunchStall } from '@/lib/bootstrap';
 import { useEffect, useState } from 'react';
-import { Pressable, StyleSheet, Text, useColorScheme, View } from 'react-native';
-import { Stack } from 'expo-router';
+import { Platform, Pressable, StyleSheet, Text, useColorScheme, View } from 'react-native';
+import { DarkTheme, DefaultTheme, Stack, ThemeProvider as NavigationThemeProvider } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider, initialWindowMetrics } from 'react-native-safe-area-context';
 // The touch root every gesture in the app resolves against. LaunchSplash wraps
@@ -59,6 +59,17 @@ import { seedOfflineBundle } from '@/api/client';
  * far inside this and never sees it. It exists for the unhealthy one.
  */
 const FONT_TIMEOUT_MS = 5_000;
+
+// UIKit supplies the iOS 26 scroll-edge material. Older iOS uses its standard
+// translucent material; adding that blur on iOS 26 would stack two effects.
+const detailHeaderOptions = {
+  headerShown: true,
+  headerBackButtonDisplayMode: 'generic' as const,
+  headerTransparent: Platform.OS === 'ios',
+  headerBlurEffect: Platform.OS === 'ios' && Number.parseInt(String(Platform.Version), 10) < 26
+    ? 'systemMaterial' as const
+    : undefined,
+};
 
 // Drop cache entries from a previous CACHE_VERSION. Fire and forget at module
 // scope: it touches nothing any screen reads this launch, and a cache sweep
@@ -277,6 +288,18 @@ export default function RootLayout() {
  */
 function ThemedShell() {
   const { colors, isDark } = useTheme();
+  const baseNavigationTheme = isDark ? DarkTheme : DefaultTheme;
+  const navigationTheme = {
+    ...baseNavigationTheme,
+    colors: {
+      ...baseNavigationTheme.colors,
+      primary: colors.interactive,
+      background: colors.bg,
+      text: colors.text,
+      border: colors.border,
+      notification: colors.error,
+    },
+  };
 
   return (
     <GestureHandlerRootView style={{ flex: 1, backgroundColor: colors.bg }}>
@@ -284,7 +307,18 @@ function ThemedShell() {
           white status-bar text would be invisible against the off-white canvas. */}
       <StatusBar style={isDark ? 'light' : 'dark'} />
       <OnboardingGate>
-        <Stack screenOptions={{ headerShown: false }} />
+        {/* Native chrome must share the app's scheme, including during pushes.
+            Keep system fonts/materials in navigation and Eddy styling in content. */}
+        <NavigationThemeProvider value={navigationTheme}>
+          <Stack screenOptions={({ route }) => {
+            const title = route.name === 'weather' ? 'Weather' : route.name === 'gauge/[siteId]' ? 'Gauge' : null;
+            return {
+              headerShown: false,
+              contentStyle: { backgroundColor: colors.bg },
+              ...(title ? { ...detailHeaderOptions, title } : {}),
+            };
+          }} />
+        </NavigationThemeProvider>
       </OnboardingGate>
     </GestureHandlerRootView>
   );
