@@ -341,7 +341,7 @@ test('VoiceOver summarizes weekend observations and only claims observed next op
   assert.match(stale, /not checked/); assert.doesNotMatch(stale, /Next observed opening/);
 });
 
-import { campsiteStays, stayNights, nextCampingDate } from '../../../eddy-ios/src/lib/campingStay';
+import { campingPickerDates, campsiteStays, stayNights, nextCampingDate } from '../../../eddy-ios/src/lib/campingStay';
 import type { CampsiteSitesResponse } from '../../../packages/eddy-types';
 function siteMonth(dates: string[], codes: string, fetchedAt = '2026-09-28T10:00:00Z', id = 'site-a'): CampsiteSitesResponse {
   return { facility: { id: 'park', displayName: 'Park', kind: 'campground', source: 'recgov' }, window: { startDate: dates[0], endDate: dates[dates.length - 1], label: '', nights: dates }, fetchedAt, sites: [{ id, name: 'A', loop: null, siteType: null, maxOccupancy: null, bookingUrl: null, nights: codes }] };
@@ -350,6 +350,21 @@ test('stays exclude departure and cross month and daylight-saving boundaries', (
   assert.deepEqual(stayNights({ arrival: '2026-10-31', departure: '2026-11-02' }), ['2026-10-31', '2026-11-01']);
   assert.equal(nextCampingDate('2026-12-31'), '2027-01-01');
   assert.deepEqual(stayNights({ arrival: '2026-10-01', departure: '2026-10-01' }), []);
+});
+test('both camping picker views offer only tracked arrival dates', () => {
+  const nights = ['2026-09-30', '2026-10-01', '2026-10-02'];
+  assert.deepEqual(campingPickerDates(nights, 'arrival', nights[0]), nights);
+  assert.deepEqual(campingPickerDates([], 'arrival', '2026-09-30'), []);
+});
+test('checkout excludes arrival and includes the day after the final tracked night', () => {
+  const nights = ['2026-09-30', '2026-10-01', '2026-10-02'];
+  assert.deepEqual(campingPickerDates(nights, 'departure', '2026-10-01'), ['2026-10-02', '2026-10-03']);
+  assert.deepEqual(campingPickerDates(nights, 'departure', '2026-10-02'), ['2026-10-03']);
+  assert.deepEqual(campingPickerDates([], 'departure', '2026-10-02'), []);
+});
+test('checkout date choices cross the year and Central daylight-saving boundary', () => {
+  assert.deepEqual(campingPickerDates(['2026-12-31'], 'departure', '2026-12-31'), ['2027-01-01']);
+  assert.deepEqual(campingPickerDates(['2026-10-31', '2026-11-01'], 'departure', '2026-10-31'), ['2026-11-01', '2026-11-02']);
 });
 test('whole-stay availability requires the same site across every occupied month', () => {
   const stay = { arrival: '2026-09-30', departure: '2026-10-02' };

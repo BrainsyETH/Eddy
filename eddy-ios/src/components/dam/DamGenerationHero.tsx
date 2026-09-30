@@ -145,6 +145,12 @@ export function DamGenerationHero({
   // also stops looking current.
   const dim = state.kind !== 'unavailable' && !speaksForNow(state.age);
   const fraction = state.kind === 'generating' ? state.fraction : null;
+  const figureLabel = [
+    voiceOver,
+    observedAt ? `Updated ${observedAt}.` : null,
+    dim ? 'Older reading.' : null,
+    percent && ref ? (rack ? generationReferenceLine(ref) : generationReferenceCitation(ref)) : null,
+  ].filter(Boolean).join(' ').replace(/\bcfs\b/g, 'cubic feet per second');
 
   return (
     <View style={embedded ? undefined : [styles.card, { backgroundColor: colors.card }, elevation(2)]}>
@@ -153,13 +159,12 @@ export function DamGenerationHero({
         <Text style={[styles.status, { color: colors.interactive }]}>{status.toUpperCase()}</Text>
       </View>
 
-      {/* The rack, the number and the bar are one figure. It is hidden from
-          VoiceOver and the sentence below carries the same facts — a drawing
-          that exists only for people who can see it is half a feature. */}
+      {/* The visible figure is one VoiceOver element. Its label carries the
+          reading and reference without relying on a zero-height text node. */}
       <View
         style={{ opacity: dim ? 0.6 : 1 }}
-        accessibilityElementsHidden
-        importantForAccessibility="no-hide-descendants"
+        accessible={Boolean(voiceOver)}
+        accessibilityLabel={figureLabel || undefined}
       >
         {rack ? (
           <View style={styles.rack}>
@@ -214,17 +219,6 @@ export function DamGenerationHero({
         ) : null}
       </View>
 
-      {voiceOver ? (
-        <Text
-          accessible
-          accessibilityRole="text"
-          accessibilityLabel={voiceOver}
-          style={styles.srOnly}
-        >
-          {voiceOver}
-        </Text>
-      ) : null}
-
       {/* NEXT CHANGE — the panel, not a footnote. Tinted, bordered and set at
           reading size, because this is the answer somebody came for and it was
           previously the smallest text on the card.
@@ -264,7 +258,7 @@ export function DamGenerationHero({
 const styles = StyleSheet.create({
   card: { borderRadius: radii.card, padding: 16, gap: 10 },
   statusRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  status: { fontSize: 11, lineHeight: 15, fontFamily: fonts.heading, letterSpacing: 0.6 },
+  status: { ...t.xs, fontFamily: fonts.heading, letterSpacing: 0.6, flexShrink: 1 },
   rack: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 2 },
   cell: {
     width: 20,
@@ -281,18 +275,14 @@ const styles = StyleSheet.create({
   headlineAside: { fontSize: 15, lineHeight: 20, fontFamily: fonts.medium },
   flow: { fontSize: 17, lineHeight: 22, fontFamily: fonts.monoMedium, fontVariant: ['tabular-nums'] },
   flowAside: { fontSize: 13, lineHeight: 18, fontFamily: fonts.medium },
-  age: { fontFamily: fonts.body, fontSize: 11, lineHeight: 15 },
-  note: { fontFamily: fonts.body, fontSize: 11, lineHeight: 15 },
-  blockLabel: { fontSize: 10, lineHeight: 14, fontFamily: fonts.heading, letterSpacing: 0.6 },
+  age: { ...t.xs },
+  note: { ...t.xs },
+  blockLabel: { ...t.xs, fontFamily: fonts.heading, letterSpacing: 0.6, flexShrink: 1 },
   stale: { fontSize: 11, lineHeight: 15, fontFamily: fonts.medium },
   scheduledRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   // The next-change panel: bordered and tinted so it reads as the answer
   // rather than as another caveat in the stack.
   nextPanel: { borderRadius: 10, borderWidth: 1, padding: 12, gap: 4 },
   nextSentence: { fontSize: 15, lineHeight: 20, fontFamily: fonts.heading },
-  // The VoiceOver equivalent of the figure. Zero-height rather than
-  // display:none, which RN has no equivalent of and which would take the node
-  // out of the accessibility tree along with the layout.
-  srOnly: { height: 0, opacity: 0 },
   cellFill: { position: 'absolute', left: 0, right: 0, bottom: 0 },
 });

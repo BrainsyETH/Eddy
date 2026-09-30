@@ -15,7 +15,8 @@ import { fonts, type as t } from '@/theme/typography';
 
 export default function WeatherScreen() {
   const { colors, elevation, isDark } = useTheme();
-  const { fontScale } = useWindowDimensions();
+  const { fontScale, width } = useWindowDimensions();
+  const stacked = fontScale >= 1.3 || width < 360;
   const styles = { ...layout,
     city: { ...layout.city, color: colors.text },
     temperature: { ...layout.temperature, color: colors.text },
@@ -28,7 +29,7 @@ export default function WeatherScreen() {
     hourTemp: { ...layout.hourTemp, color: colors.text },
     rain: layout.rain,
     dayRow: { ...layout.dayRow, borderTopColor: colors.border },
-    day: { ...layout.day, width: 52 * fontScale, color: colors.text },
+    day: { ...layout.day, width: stacked ? undefined : 52 * fontScale, flexShrink: 1, color: colors.text },
     dayIcon: { ...layout.dayIcon, width: 40 * fontScale },
     hour: { ...layout.hour, minWidth: 46 * fontScale },
     low: { ...layout.low, color: colors.textMuted },
@@ -69,6 +70,16 @@ export default function WeatherScreen() {
   const atmosphere = weatherAtmosphere(isDark, icon);
   const low = Math.min(...(data?.days.map(day => day.tempLow) ?? [0]));
   const high = Math.max(...(data?.days.map(day => day.tempHigh) ?? [1]));
+  const hourly = data?.periods?.map(period => {
+    const hour = `${period.localHour % 12 || 12} ${period.localHour < 12 ? 'AM' : 'PM'}`;
+    return <View key={period.timestamp} style={stacked ? [layout.hourDetail, { borderColor: colors.border }] : styles.hour}
+      accessible accessibilityLabel={`${hour}. ${weatherDescription(period.conditionIcon)}. ${period.temp} degrees Fahrenheit. Chance of rain ${period.precipitation} percent.`}>
+      <Text style={styles.bodyText}>{hour}</Text>
+      <Ionicons name={weatherIcon(period.conditionIcon)} size={27} color={colors.interactive} accessible={false} />
+      <Text style={styles.hourTemp}>{period.temp}°{stacked ? ' F' : ''}</Text>
+      <Text style={[styles.rain, { color: rainChanceColor(period.precipitation, colors) }]}>{stacked ? 'Rain ' : ''}{period.precipitation}%</Text>
+    </View>;
+  });
   return <View style={{ flex: 1, backgroundColor: colors.bg }}>
     <SafeAreaView style={{ flex: 1 }} edges={['left', 'right']}>
       <NativeHeaderHome />
@@ -88,51 +99,57 @@ export default function WeatherScreen() {
             </Svg>
           </View>
           <Text style={styles.city}>{data?.city ?? 'Local weather'}</Text>
-          <View style={styles.currentReading}>
+          <View style={styles.currentReading} accessible={Boolean(current)} accessibilityLabel={current ? `${Math.round(current.temp)} degrees Fahrenheit` : undefined}>
             <EddySymbol name="weather" size={52} />
-            {current ? <Text style={styles.temperature}>{Math.round(current.temp)}°</Text> : null}
+            {current ? <Text style={[styles.temperature, stacked && { ...t['3xl'], fontFamily: fonts.monoMedium, letterSpacing: 0 }]}>{Math.round(current.temp)}°</Text> : null}
           </View>
           <Text style={styles.condition}>{current?.condition ?? today?.condition ?? ''}</Text>
-          {today ? <Text style={styles.highLow}>H:{Math.round(today.tempHigh)}°  L:{Math.round(today.tempLow)}°</Text> : null}
+          {today ? <Text style={styles.highLow} accessibilityLabel={`High ${Math.round(today.tempHigh)} degrees Fahrenheit. Low ${Math.round(today.tempLow)} degrees Fahrenheit.`}>H:{Math.round(today.tempHigh)}°  L:{Math.round(today.tempLow)}°</Text> : null}
           {!current && today ? <Text style={styles.muted}>Today’s forecast</Text> : null}
         </View>
         {!valid ? <Text style={styles.message}>Open weather from Today to choose your area.</Text> : null}
         {loading && !data ? <ActivityIndicator color={colors.text} accessibilityLabel="Loading forecast" /> : null}
         {failed === key ? <Pressable onPress={() => setRetry(n => n + 1)} style={styles.message} accessibilityRole="button"><Text style={styles.bodyText}>{data ? 'Couldn’t refresh · Tap to retry' : 'Couldn’t load weather · Tap to retry'}</Text></Pressable> : null}
         {data?.periods?.length ? <View style={styles.panel}>
-          <Text style={styles.sectionLabel}>NEXT 24 HOURS · 3-HOUR FORECAST</Text>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.hours}>
-            {data.periods.map(period => <View key={period.timestamp} style={styles.hour}>
-              <Text style={styles.bodyText}>{period.localHour % 12 || 12}{period.localHour < 12 ? 'AM' : 'PM'}</Text>
-              <Ionicons name={weatherIcon(period.conditionIcon)} size={27} color={colors.interactive} />
-              <Text style={styles.hourTemp}>{period.temp}°</Text>
-              <Text numberOfLines={1} style={[styles.rain, { color: rainChanceColor(period.precipitation, colors) }]}>{period.precipitation}%</Text>
-            </View>)}
-          </ScrollView>
+          <Text accessibilityRole="header" style={styles.sectionLabel}>NEXT 24 HOURS · 3-HOUR FORECAST</Text>
+          {stacked ? <View>{hourly}</View> : <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.hours}>{hourly}</ScrollView>}
         </View> : null}
         {data?.days.length ? <View style={styles.panel}>
-          <Text style={styles.sectionLabel}>{data.days.length}-DAY FORECAST</Text>
-          {data.days.map((day) => <View key={day.date} style={styles.dayRow} accessibilityLabel={`${day.date === data.localDate ? 'Today' : day.dayOfWeek}, ${day.condition}, high ${day.tempHigh}, low ${day.tempLow}, rain chance ${day.precipitation} percent`}>
-            <View style={styles.daySummary}>
+          <Text accessibilityRole="header" style={styles.sectionLabel}>{data.days.length}-DAY FORECAST</Text>
+          {data.days.map((day) => <View key={day.date} style={[styles.dayRow, stacked && layout.stackedDay]} accessible accessibilityLabel={`${day.date === data.localDate ? 'Today' : day.dayOfWeek}, ${day.condition}, high ${Math.round(day.tempHigh)} degrees Fahrenheit, low ${Math.round(day.tempLow)} degrees Fahrenheit, rain chance ${day.precipitation} percent`}>
+            <View style={[styles.daySummary, stacked && { flexWrap: 'wrap' }]}>
               <Text style={styles.day}>{day.date === data.localDate ? 'Today' : day.dayOfWeek}</Text>
-              <View style={styles.dayIcon}><Ionicons name={weatherIcon(day.conditionIcon)} size={24} color={colors.interactive} /><Text numberOfLines={1} style={[styles.rain, { color: rainChanceColor(day.precipitation, colors) }]}>{day.precipitation}%</Text></View>
+              <View style={stacked ? layout.largeDayIcon : styles.dayIcon}><Ionicons name={weatherIcon(day.conditionIcon)} size={24} color={colors.interactive} /><Text style={[styles.rain, { color: rainChanceColor(day.precipitation, colors) }]}>{stacked ? 'Rain ' : ''}{day.precipitation}%</Text></View>
             </View>
-            <View style={styles.dayTemperatures}>
+            {stacked ? <View style={{ gap: 4 }}>
+              <Text style={styles.bodyText}>{day.condition}</Text>
+              <Text style={[styles.high, { textAlign: 'left' }]}>High {Math.round(day.tempHigh)}° F</Text>
+              <Text style={[styles.low, { textAlign: 'left' }]}>Low {Math.round(day.tempLow)}° F</Text>
+            </View> : <View style={styles.dayTemperatures}>
               <Text style={styles.low}>{Math.round(day.tempLow)}°</Text>
               <View style={styles.track}><View style={[styles.range, { left: `${(day.tempLow - low) / Math.max(1, high - low) * 100}%`, width: `${Math.max(3, (day.tempHigh - day.tempLow) / Math.max(1, high - low) * 100)}%` }]} /></View>
               <Text style={styles.high}>{Math.round(day.tempHigh)}°</Text>
-            </View>
+            </View>}
           </View>)}
         </View> : null}
-        {current ? <View style={styles.details}>
-          <View style={[styles.panel, styles.metric]}><Ionicons name="flag-outline" color={colors.text} size={21} /><Text style={styles.sectionLabel}>WIND</Text><Text style={styles.metricValue}>{Math.round(current.windSpeed)} <Text style={styles.unit}>mph</Text></Text></View>
-          <View style={[styles.panel, styles.metric]}><Ionicons name="water-outline" color={colors.text} size={21} /><Text style={styles.sectionLabel}>HUMIDITY</Text><Text style={styles.metricValue}>{Math.round(current.humidity)}<Text style={styles.unit}>%</Text></Text></View>
+        {current ? <View style={[styles.details, stacked && { flexDirection: 'column' }]}>
+          <View style={[styles.panel, styles.metric, stacked && { flex: 0 }]} accessible accessibilityLabel={`Wind ${Math.round(current.windSpeed)} miles per hour`}><Ionicons name="flag-outline" color={colors.text} size={21} /><Text style={styles.sectionLabel}>WIND</Text><Text style={styles.metricValue}>{Math.round(current.windSpeed)} <Text style={styles.unit}>mph</Text></Text></View>
+          <View style={[styles.panel, styles.metric, stacked && { flex: 0 }]} accessible accessibilityLabel={`Humidity ${Math.round(current.humidity)} percent`}><Ionicons name="water-outline" color={colors.text} size={21} /><Text style={styles.sectionLabel}>HUMIDITY</Text><Text style={styles.metricValue}>{Math.round(current.humidity)}<Text style={styles.unit}>%</Text></Text></View>
         </View> : null}
         {data ? <Text style={styles.source}>OpenWeather · °F{current ? ` · Updated ${new Date(current.fetchedAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}` : ''}
 Today’s range covers the remaining forecast.</Text> : null}
       </ScrollView>
     </SafeAreaView>
   </View>;
+}
+function weatherDescription(code: string): string {
+  if (code.startsWith('01')) return 'Clear';
+  if (code.startsWith('02')) return 'Partly cloudy';
+  if (/^(09|10)/.test(code)) return 'Rain';
+  if (code.startsWith('11')) return 'Thunderstorms';
+  if (code.startsWith('13')) return 'Snow';
+  if (code.startsWith('50')) return 'Mist';
+  return 'Cloudy';
 }
 function weatherIcon(code: string): React.ComponentProps<typeof Ionicons>['name'] {
   if (code.startsWith('01')) return code.endsWith('n') ? 'moon' : 'sunny';
@@ -156,6 +173,9 @@ const layout = StyleSheet.create({
   sectionLabel: { ...t.xs, fontFamily: fonts.semibold, letterSpacing: 0.4, marginBottom: 10 },
   hours: { gap: 24, paddingTop: 6 },
   hour: { alignItems: 'center', gap: 12, minWidth: 46 },
+  hourDetail: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 12, paddingVertical: 12, borderBottomWidth: StyleSheet.hairlineWidth },
+  stackedDay: { flexDirection: 'column', alignItems: 'flex-start' },
+  largeDayIcon: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 8 },
   hourTemp: { ...t.lg, fontFamily: fonts.monoMedium },
   rain: { ...t.xs, fontFamily: fonts.mono },
   dayRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 8, minHeight: 64, paddingVertical: 10, borderTopWidth: StyleSheet.hairlineWidth },
@@ -171,6 +191,6 @@ const layout = StyleSheet.create({
   metric: { flex: 1, gap: 5 },
   metricValue: { ...t['3xl'], fontFamily: fonts.monoMedium },
   unit: { ...t.base, fontFamily: fonts.body },
-  message: { ...t.sm, fontFamily: fonts.body, paddingVertical: 16, textAlign: 'center' },
+  message: { ...t.sm, fontFamily: fonts.body, minHeight: 44, paddingVertical: 16, textAlign: 'center' },
   source: { ...t.xs, fontFamily: fonts.body, padding: 12, borderRadius: 12, textAlign: 'center', lineHeight: 20 },
 });

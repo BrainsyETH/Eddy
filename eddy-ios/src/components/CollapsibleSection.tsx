@@ -16,7 +16,7 @@
 // make "collapsed by default" a way of hiding a safety fact.
 
 import { type ReactNode, useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
@@ -32,6 +32,8 @@ interface Props {
   leading?: ReactNode;
   /** Cues that must survive the fold — severity dots, a count, a warning. */
   trailing?: ReactNode;
+  /** Read a trailing status together with its heading, rather than losing it. */
+  accessibilitySummary?: string;
   /** Open on mount. Defaults to shut. */
   defaultExpanded?: boolean;
   children: ReactNode;
@@ -42,10 +44,13 @@ export function CollapsibleSection({
   summary = null,
   leading = null,
   trailing = null,
+  accessibilitySummary,
   defaultExpanded = false,
   children,
 }: Props) {
   const { colors } = useTheme();
+  const { fontScale, width } = useWindowDimensions();
+  const stacked = fontScale >= 1.3 || width < 360;
   const [expanded, setExpanded] = useState(defaultExpanded);
 
   return (
@@ -55,18 +60,19 @@ export function CollapsibleSection({
         style={({ pressed }) => [styles.head, { opacity: pressed ? 0.6 : 1 }]}
         accessibilityRole="button"
         accessibilityState={{ expanded }}
-        accessibilityLabel={summary ? `${title}, ${summary}` : title}
+        accessibilityLabel={[title, summary, accessibilitySummary].filter(Boolean).join(', ')}
       >
         {leading}
         <View style={styles.headText}>
           <Text style={[styles.title, { color: colors.text }]}>{title}</Text>
           {summary ? (
-            <Text style={[styles.summary, { color: colors.textSubtle }]} numberOfLines={1}>
+            <Text style={[styles.summary, { color: colors.textSubtle }]} numberOfLines={stacked ? undefined : 1}>
               {summary}
             </Text>
           ) : null}
+          {stacked && trailing ? <View style={{ alignItems: 'flex-start', marginTop: 8 }}>{trailing}</View> : null}
         </View>
-        {trailing}
+        {!stacked && trailing ? <View style={{ flexShrink: 1 }}>{trailing}</View> : null}
         <Ionicons
           name={expanded ? 'chevron-up' : 'chevron-down'}
           size={16}

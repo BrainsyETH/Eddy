@@ -33,7 +33,7 @@
 // never in cfs. cfs is an estimate and belongs in the prose beneath, hedged.
 
 import { useMemo, useState } from 'react';
-import { LayoutChangeEvent, PanResponder, StyleSheet, Text, View } from 'react-native';
+import { LayoutChangeEvent, PanResponder, Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import type { DamScheduleDay, ScheduledHour } from '@eddy/types';
 import {
   hourEndingLabel,
@@ -47,7 +47,8 @@ import {
 } from '@eddy/conditions/dam-generation';
 import { useTheme } from '@/theme/ThemeProvider';
 import type { Palette } from '@/theme/palette';
-import { fonts } from '@/theme/typography';
+import { fonts, type as t } from '@/theme/typography';
+import { useScreenReaderEnabled } from '@/hooks/useScreenReaderEnabled';
 
 /** The gap between bars, in points. Also the arithmetic the marker has to undo. */
 const BAR_GAP = 1;
@@ -169,6 +170,10 @@ function hourReadout(
 
 export function DayBars({ day, reference, compact = false, peakSchedule = null }: Props) {
   const { colors } = useTheme();
+  const { fontScale, width } = useWindowDimensions();
+  const screenReader = useScreenReaderEnabled();
+  const [listChoice, setListChoice] = useState<boolean | null>(null);
+  const list = !compact && (listChoice ?? (screenReader || fontScale >= 1.3 || width < 360));
   const [rowWidth, setRowWidth] = useState(0);
   const [scrubbed, setScrubbed] = useState<number | null>(null);
 
@@ -229,6 +234,19 @@ export function DayBars({ day, reference, compact = false, peakSchedule = null }
 
   return (
     <View>
+      {!compact ? <Pressable accessibilityRole="button"
+        style={styles.listToggle} onPress={() => setListChoice(!list)}>
+        <Text style={[t.sm, { color: colors.interactive }]}>{list ? 'Show hourly chart' : 'Show hourly details'}</Text>
+      </Pressable> : null}
+      {list ? <View>
+        <Text style={[t.xs, { color: colors.textMuted }]}>Scheduled generation · Central time</Text>
+        {hours.map((hour) => {
+          const line = hourReadout(hour, reference, peak);
+          return <Text key={hour.hourEnding}
+            accessibilityLabel={line.replace(/\bMW\b/g, 'megawatts').replace(/\bcfs\b/g, 'cubic feet per second').replace('~', 'approximately ')}
+            style={[styles.hourDetail, { color: colors.text, borderColor: colors.border }]}>{line}</Text>;
+        })}
+      </View> : <>
       {/* THE SCALE, which this chart went without for too long. Bars with
           nothing naming what they are drawn against are a shape, not a
           measurement. Now it names BOTH halves: the day's own peak in SWPA's
@@ -250,7 +268,7 @@ export function DayBars({ day, reference, compact = false, peakSchedule = null }
               The row still renders, holding a space, because it is where a
               scrubbed hour reports itself. Collapsing it when idle would make
               the chart jump the first time a finger touched it. */}
-          <Text style={[styles.scaleText, { color: colors.textSubtle }]} numberOfLines={1}>
+          <Text style={[styles.scaleText, { color: colors.textSubtle }]}>
             {scrubbedHour ? hourReadout(scrubbedHour, reference, peak) : ' '}
           </Text>
         </View>
@@ -387,6 +405,7 @@ export function DayBars({ day, reference, compact = false, peakSchedule = null }
           <Text style={[styles.axisText, { color: colors.textSubtle }]}>midnight</Text>
         </View>
       ) : null}
+      </>}
     </View>
   );
 }
@@ -442,8 +461,10 @@ export function nowSentence(
 }
 
 const styles = StyleSheet.create({
+  listToggle: { minHeight: 44, justifyContent: 'center', paddingVertical: 8 },
+  hourDetail: { ...t.sm, fontFamily: fonts.mono, paddingVertical: 12, borderBottomWidth: StyleSheet.hairlineWidth },
   scaleRow: { flexDirection: 'row', justifyContent: 'flex-end', marginTop: 6 },
-  scaleText: { fontSize: 10, lineHeight: 14, fontFamily: fonts.medium },
+  scaleText: { ...t.xs, fontFamily: fonts.medium, flex: 1, textAlign: 'right' },
   bars: {
     flexDirection: 'row',
     alignItems: 'flex-end',

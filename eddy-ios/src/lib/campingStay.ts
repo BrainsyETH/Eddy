@@ -14,6 +14,13 @@ export function nextCampingDate(date: string, days = 1): string {
   d.setUTCDate(d.getUTCDate() + days);
   return d.toISOString().slice(0, 10);
 }
+/** Both picker presentations use the same dates. Checkout may be the day after
+ * the final tracked night, but can never be on or before arrival. */
+export function campingPickerDates(nights: string[], field: 'arrival' | 'departure', arrival: string): string[] {
+  if (field === 'arrival') return nights;
+  if (!nights.length) return [];
+  return [...nights, nextCampingDate(nights[nights.length - 1])].filter((date) => date > arrival);
+}
 /** Departure is not an occupied night. Date-only arithmetic also crosses DST safely. */
 export function stayNights(stay: CampingStay): string[] {
   if (stay.departure <= stay.arrival) return [];
