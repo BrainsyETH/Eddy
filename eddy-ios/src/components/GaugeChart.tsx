@@ -97,7 +97,7 @@ import { File, Paths } from 'expo-file-system';
 import { Component, useCallback, useMemo, useState, type ReactNode } from 'react';
 import {
   ActivityIndicator,
-  ScrollView, TextInput, Share, Alert,
+  TextInput, Share, Alert,
   LayoutChangeEvent,
   Pressable,
   StyleSheet,
@@ -150,6 +150,7 @@ import { formatReading } from '@/lib/readingCopy';
 import { useGaugeHistory } from '@/hooks/useGaugeHistory';
 import { warn } from '@/lib/monitoring';
 import { TrendPill } from '@/components/TrendPill';
+import { GaugeHistoryTable } from '@/components/GaugeHistoryTable';
 
 /** The three questions people actually ask, and nothing else. */
 const RANGES = [
@@ -919,7 +920,7 @@ function GaugeChartInner({
 
   return (
     <View style={[styles.card, { backgroundColor: colors.card }, elevation(1)]}>
-      <View style={[styles.head, { flexWrap: 'wrap', gap: 8 }]}>
+      <View style={styles.head}>
         <View style={styles.headText}>
           {title || shownTrend ? (
             <View style={styles.titleRow}>
@@ -1065,20 +1066,20 @@ function GaugeChartInner({
         {historyCapabilities?.supportsCustomRange && (
           <Pressable accessibilityRole="button" accessibilityLabel="Custom dates" accessibilityState={{ expanded: showDates, selected: Boolean(customWindow) }}
             onPress={() => setShowDates(!showDates)}
-            style={({ pressed }) => [styles.action, { borderColor: colors.border, backgroundColor: showDates || customWindow ? colors.cardRaised : colors.card, opacity: pressed ? 0.65 : 1 }]}>
+            style={({ pressed }) => [styles.action, styles.toolbarAction, { borderColor: colors.border, backgroundColor: showDates || customWindow ? colors.cardRaised : colors.card, opacity: pressed ? 0.65 : 1 }]}>
             <Ionicons name="calendar-outline" size={16} color={colors.interactive} />
             <Text style={[styles.actionText, { color: colors.interactive }]}>Dates</Text>
           </Pressable>
         )}
         <Pressable accessibilityRole="button" accessibilityLabel={showTable ? 'Hide data table' : 'Show data table'} accessibilityState={{ expanded: showTable, selected: showTable }}
           onPress={() => setShowTable(!showTable)}
-          style={({ pressed }) => [styles.action, { borderColor: colors.border, backgroundColor: showTable ? colors.cardRaised : colors.card, opacity: pressed ? 0.65 : 1 }]}>
+          style={({ pressed }) => [styles.action, styles.toolbarAction, { borderColor: colors.border, backgroundColor: showTable ? colors.cardRaised : colors.card, opacity: pressed ? 0.65 : 1 }]}>
           <Ionicons name="list-outline" size={16} color={colors.interactive} />
           <Text style={[styles.actionText, { color: colors.interactive }]}>{showTable ? 'Hide table' : 'Table'}</Text>
         </Pressable>
         <Pressable accessibilityRole="button" accessibilityState={{ disabled: !history?.readings.length }}
           disabled={!history?.readings.length}
-          style={({ pressed }) => [styles.action, { borderColor: colors.border, backgroundColor: colors.card, opacity: !history?.readings.length ? 0.4 : pressed ? 0.65 : 1 }]}
+          style={({ pressed }) => [styles.action, styles.toolbarAction, { borderColor: colors.border, backgroundColor: colors.card, opacity: !history?.readings.length ? 0.4 : pressed ? 0.65 : 1 }]}
           onPress={async () => {
             if (!history) return;
             try {
@@ -1107,10 +1108,7 @@ function GaugeChartInner({
           setCustomWindow({ from: new Date(from).toISOString(), to: new Date(Math.min(to, Date.now())).toISOString() });
         }}><Text style={[styles.actionText, { color: colors.interactive }]}>Apply dates</Text></Pressable>
       </View>}
-      {showTable && <ScrollView style={{ maxHeight: 320 }} nestedScrollEnabled>
-        <Text style={{ color: colors.textMuted }}>Time · height (ft) · discharge (cfs)</Text>
-        {history?.readings.map(r => <Text selectable key={r.timestamp} style={{ color: colors.text, paddingVertical: 4 }}>{new Date(r.timestamp).toLocaleString()} · {r.gaugeHeightFt ?? '—'} · {r.dischargeCfs ?? '—'}</Text>)}
-      </ScrollView>}
+      {showTable ? <GaugeHistoryTable readings={history?.readings ?? []} /> : null}
       {series.gapPaths.length > 0 ? (
         <View style={styles.legendItem} accessibilityLabel="Dotted connections indicate missing readings">
           <View style={styles.legendDashes}>{[0, 1, 2].map(i => <View key={i} style={[styles.legendDash, { backgroundColor: lineColor }]} />)}</View>
@@ -1672,20 +1670,21 @@ const styles = StyleSheet.create({
   // Horizontal placement therefore belongs to the caller. Vertical rhythm does
   // not: the gap under a card is the same question on both screens.
   card: { marginBottom: 14, borderRadius: 16, padding: 16 },
-  head: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'flex-start', gap: 10, marginBottom: 6 },
+  head: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', alignItems: 'center', gap: 10, marginBottom: 6 },
   headText: { width: '100%' },
   // Give the full title its own row; controls wrap beneath it.
-  titleRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 8 },
-  title: { ...t.base, fontFamily: fonts.heading, flexShrink: 1 },
-  subtitle: { ...t.xs, fontFamily: fonts.body, marginTop: 2 },
-  scrubLine: { ...t.xs, fontFamily: fonts.body, marginTop: 2 },
+  titleRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'center', gap: 8 },
+  title: { ...t.base, fontFamily: fonts.heading, flexShrink: 1, textAlign: 'center' },
+  subtitle: { ...t.xs, fontFamily: fonts.body, marginTop: 6, textAlign: 'center' },
+  scrubLine: { ...t.xs, fontFamily: fonts.body, marginTop: 6, textAlign: 'center' },
   scrubValue: { ...t.sm, fontFamily: fonts.monoMedium },
   ranges: { flexDirection: 'row', borderWidth: 1, borderRadius: 9, overflow: 'hidden' },
-  range: { paddingHorizontal: 10, paddingVertical: 5 },
+  range: { minHeight: 44, justifyContent: 'center', paddingHorizontal: 12, paddingVertical: 5 },
   rangeText: { ...t.xs, fontFamily: fonts.medium },
-  actions: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, paddingVertical: 8 },
+  actions: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 8, paddingVertical: 8 },
+  toolbarAction: { flexGrow: 1, flexBasis: 0, minWidth: 110 },
   action: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, minHeight: 44, paddingHorizontal: 10, paddingVertical: 8, borderWidth: 1, borderRadius: 10 },
-  actionText: { ...t.xs, fontFamily: fonts.medium },
+  actionText: { ...t.xs, fontFamily: fonts.medium, flexShrink: 1, textAlign: 'center' },
   plotWrap: { marginTop: 2 },
   legend: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginTop: 4 },
   legendItem: { flexDirection: 'row', alignItems: 'center', gap: 4 },

@@ -48,7 +48,7 @@ export function HighWaterAlertRow({ entry }: { entry: HighWaterEntry }) {
   );
 }
 
-export function PublicNoticeRow({ alert }: { alert: RiverAlert }) {
+export function PublicNoticeRow({ alert, showBody = false }: { alert: RiverAlert; showBody?: boolean }) {
   const { colors, elevation } = useTheme();
   const stripe = alert.severity === 'warning' ? conditionColor('dangerous') : alert.severity === 'watch' ? colors.warm : colors.textSubtle;
   const source = alert.source === 'nps' ? 'National Park Service' : 'National Weather Service';
@@ -60,13 +60,14 @@ export function PublicNoticeRow({ alert }: { alert: RiverAlert }) {
       style={({ pressed }) => [styles.row, { backgroundColor: colors.card, opacity: pressed && alert.url ? 0.7 : 1 }, elevation(1)]}
       accessible
       accessibilityRole={alert.url ? 'link' : 'text'}
-      accessibilityLabel={`${severity}. ${alert.category}, ${alert.riverName}, ${alert.title}. ${source}`}
+      accessibilityLabel={`${severity}. ${alert.category}, ${alert.riverName}, ${alert.title}. ${source}${showBody && alert.body ? `. ${alert.body}` : ''}`}
     >
       <View style={[styles.stripe, { backgroundColor: stripe }]} />
       <View style={styles.rowBody}>
         <Text style={[styles.riverName, { color: colors.text }]}>{alert.riverName}</Text>
         <Text style={[styles.headline, { color: colors.text }]}>{alert.title}</Text>
         <Text style={[styles.detail, { color: colors.textMuted }]}>{severity} · {alert.category} · {source}</Text>
+        {showBody && alert.body ? <Text style={[styles.body, { color: colors.text }]}>{alert.body}</Text> : null}
       </View>
       {alert.url ? <Ionicons name="open-outline" size={16} color={colors.textSubtle} style={styles.externalIcon} /> : null}
     </Pressable>
@@ -80,6 +81,7 @@ const styles = StyleSheet.create({
   riverName: { ...t.base, fontFamily: fonts.semibold },
   headline: { ...t.sm, fontFamily: fonts.semibold, marginTop: 3 },
   detail: { ...t.xs, fontFamily: fonts.body, marginTop: 3 },
+  body: { ...t.sm, fontFamily: fonts.body, marginTop: 10 },
   chip: { padding: 8, borderRadius: 999, marginRight: 14 },
   externalIcon: { marginRight: 14 },
 });

@@ -1,4 +1,5 @@
 import { TodayCamping } from '@/components/TodayCamping';
+import { BestRiverNotices } from '@/components/BestRiverNotices';
 import { TodayRiverConditions } from '@/components/TodayRiverConditions';
 import { takePreloadedToday } from '@/lib/firstRunPreload';
 import { radii } from '@/theme/layout';
@@ -362,30 +363,25 @@ function BestRiverCard({
         {!premiumUserId ? <BlurredReadPreview lines={1} /> : null}
       </Pressable>
       {premiumUserId ? <PremiumReadPreview key={premiumUserId} slug={recommendation.river.slug} revision={revision} /> : null}
-      {recommendation.notices.length > 0 ? (
-        <Pressable onPress={onOpen} accessibilityRole="button" style={styles.factRow}>
-          <Ionicons name="warning-outline" size={18} color={colors.text} />
-          <Text style={[styles.factText, styles.flex, { color: colors.text }]}>
-            {recommendation.notices[0].title} · View agency notice
-          </Text>
-        </Pressable>
-      ) : null}
-      <View style={styles.actions}>
-        <Pressable
-          onPress={onPlan}
-          style={({ pressed }) => [styles.primaryButton, { backgroundColor: pressed ? colors.accentFillPressed : colors.accentFill, transform: [{ scale: pressed ? 0.98 : 1 }] }]}
-          accessibilityRole="button"
-        >
-          <Ionicons name="map-outline" size={17} color={colors.onAccent} />
-          <Text style={[styles.primaryButtonText, { color: colors.onAccent }]}>Plan this river</Text>
-        </Pressable>
-        <Pressable
-          onPress={onOpen}
-          style={({ pressed }) => [styles.viewLink, { opacity: pressed ? 0.6 : 1, transform: [{ scale: pressed ? 0.98 : 1 }] }]}
-          accessibilityRole="button"
-        >
-          <Text style={[styles.viewLinkText, { color: colors.interactive }]}>View river</Text>
-        </Pressable>
+      <View style={styles.bestFooter}>
+        <BestRiverNotices notices={recommendation.notices} riverName={recommendation.river.name} />
+        <View style={styles.actions}>
+          <Pressable
+            onPress={onPlan}
+            style={({ pressed }) => [styles.primaryButton, { backgroundColor: pressed ? colors.accentFillPressed : colors.accentFill, transform: [{ scale: pressed ? 0.98 : 1 }] }]}
+            accessibilityRole="button"
+          >
+            <Ionicons name="map-outline" size={17} color={colors.onAccent} />
+            <Text style={[styles.primaryButtonText, { color: colors.onAccent }]}>Plan this river</Text>
+          </Pressable>
+          <Pressable
+            onPress={onOpen}
+            style={({ pressed }) => [styles.viewLink, { opacity: pressed ? 0.6 : 1, transform: [{ scale: pressed ? 0.98 : 1 }] }]}
+            accessibilityRole="button"
+          >
+            <Text style={[styles.viewLinkText, { color: colors.interactive }]}>View river</Text>
+          </Pressable>
+        </View>
       </View>
     </View>
   );
@@ -872,7 +868,9 @@ const styles = StyleSheet.create({
   emptyTitle: { ...t.base, fontFamily: fonts.semibold },
   emptyBody: { ...t.sm, fontFamily: fonts.body, marginTop: 3 },
   loading: { height: 150, alignItems: 'center', justifyContent: 'center' },
-  bestPreview: { width: '100%', minHeight: 354, borderWidth: 1, borderRadius: radii.feature, padding: 16 },
+  // Rail wrappers stretch to the tallest sibling; let each card fill its wrapper
+  // while keeping intrinsic height for standalone and large-text stacked cards.
+  bestPreview: { width: '100%', flexGrow: 1, minHeight: 354, borderWidth: 1, borderRadius: radii.feature, padding: 16 },
   bestStandalone: { width: 'auto', height: 'auto', minHeight: 354 },
   bestTop: { flexDirection: 'row', alignItems: 'center', minHeight: 112 },
   bestName: { ...t['2xl'], fontFamily: fonts.display },
@@ -884,7 +882,8 @@ const styles = StyleSheet.create({
   eddyRead: { borderWidth: StyleSheet.hairlineWidth, borderRadius: radii.card, padding: 13, marginTop: 10 },
   readHead: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   readLabel: { ...t.xs, fontFamily: fonts.heading, letterSpacing: 0.7, flex: 1 },
-  actions: { flexWrap: 'wrap', flexDirection: 'row', alignItems: 'center', gap: 9, marginTop: 'auto', paddingTop: 15 },
+  bestFooter: { marginTop: 'auto' },
+  actions: { flexWrap: 'wrap', flexDirection: 'row', alignItems: 'center', gap: 9, paddingTop: 15 },
   secondaryButton: { minHeight: 46, borderWidth: 1, borderRadius: 12, paddingHorizontal: 15, alignItems: 'center', justifyContent: 'center' },
   secondaryButtonText: { ...t.sm, fontFamily: fonts.semibold },
   primaryButton: { minHeight: 46, borderRadius: 12, paddingHorizontal: 16, flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7 },
@@ -895,7 +894,7 @@ const styles = StyleSheet.create({
   railControls: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 },
   railButton: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
   cardRailViewport: { marginHorizontal: -16 },
-  cardRail: { paddingHorizontal: 16, paddingBottom: 2, gap: CARD_GAP },
+  cardRail: { paddingHorizontal: 16, paddingBottom: 2, gap: CARD_GAP, alignItems: 'stretch' },
   railPosition: { ...t.xs, fontFamily: fonts.mono, textAlign: 'right', marginTop: 5, paddingRight: 2 },
   floatPreview: { width: '100%', borderRadius: 18, overflow: 'hidden' },
   floatPreviewPhoto: { width: '100%', height: 126 },
