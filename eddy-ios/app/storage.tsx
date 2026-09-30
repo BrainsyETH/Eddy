@@ -26,21 +26,18 @@
 // and type only — it runs once at import, so a colour written into it would be
 // frozen at whichever scheme the app launched with.
 
-import { BackButton } from '@/components/BackButton';
+import { NativeHeaderHome } from '@/components/NativeHeaderHome';
 import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Stack, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { formatBytes } from '@eddy/geo';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
 import { cacheFootprint, clearCache, type CacheFootprint } from '@/lib/riverCache';
-import { goBack } from '@/lib/nav';
 
 export default function StorageScreen() {
   const { colors, elevation } = useTheme();
-  const router = useRouter();
   const [cache, setCache] = useState<CacheFootprint | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -75,16 +72,11 @@ export default function StorageScreen() {
   const empty = cache !== null && cache.entries === 0;
 
   return (
-    <SafeAreaView style={[styles.screen, { backgroundColor: colors.bg }]} edges={['top']}>
-      <Stack.Screen options={{ headerShown: false }} />
+    <SafeAreaView style={[styles.screen, { backgroundColor: colors.bg }]} edges={['left', 'right']}>
+      <NativeHeaderHome />
 
-      <View style={styles.navRow}>
-        <BackButton onPress={() => goBack(router)} />
-      </View>
-
-      <ScrollView contentContainerStyle={styles.content}>
+      <ScrollView contentInsetAdjustmentBehavior="automatic" contentContainerStyle={styles.content}>
         <View style={styles.header}>
-          <Text style={[styles.title, { color: colors.text }]}>Storage</Text>
           <Text style={[styles.subtitle, { color: colors.textMuted }]}>
             What Eddy keeps on this phone.
           </Text>
@@ -173,10 +165,8 @@ function Info({
 
 const styles = StyleSheet.create({
   screen: { flex: 1 },
-  navRow: { paddingHorizontal: 12, paddingTop: 4, paddingBottom: 2 },
   content: { padding: 20, paddingBottom: 48 },
   header: { gap: 4, marginBottom: 20 },
-  title: { ...t['3xl'], fontFamily: fonts.heading },
   subtitle: { ...t.sm, fontFamily: fonts.body },
   card: { borderRadius: 14, padding: 16, gap: 12 },
   rowTitle: { ...t.base, fontFamily: fonts.semibold },

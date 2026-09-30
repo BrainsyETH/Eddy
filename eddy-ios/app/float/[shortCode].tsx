@@ -5,12 +5,11 @@
 // available immediately and after a failed refresh, with historical cautions
 // explicitly dated. It never presents an old water verdict as current.
 
-import { BackButton } from '@/components/BackButton';
+import { NativeHeaderHome } from '@/components/NativeHeaderHome';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Pressable, Share, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, Share, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
+import { Stack, useLocalSearchParams } from 'expo-router';
 import type { FloatPlan } from '@eddy/types';
 import { ApiError, fetchSavedPlan } from '@/api/client';
 import { useTheme } from '@/theme/ThemeProvider';
@@ -18,14 +17,12 @@ import { fonts, type as t } from '@/theme/typography';
 import { Otter } from '@/components/Otter';
 import { PlanResult } from '@/components/PlanResult';
 import { useSavedFloats } from '@/hooks/useSavedFloats';
-import { goBack } from '@/lib/nav';
 import { SavedFloatDetails } from '@/components/SavedFloatDetails';
 import { createLatestRequest } from '@/lib/latestRequest';
 import { onForeground } from '@/lib/foreground';
 
 export default function SavedFloatScreen() {
   const { shortCode } = useLocalSearchParams<{ shortCode: string }>();
-  const router = useRouter();
   const { colors } = useTheme();
   const { floats, isSaved, remember, forgetPlan, updateLogistics } = useSavedFloats();
 
@@ -99,77 +96,75 @@ export default function SavedFloatScreen() {
     remember(plan, { shortCode, url: stub?.url ?? `https://eddy.guide/plan/${shortCode}` });
   }, [plan, shortCode, saved, stub, remember, forgetPlan]);
 
+  // The heading belongs to the same scroll view as the current/offline body.
+  // A fixed sibling would hide behind the transparent navigation bar.
+  const heading = (
+    <View style={styles.header}>
+      <Text style={[styles.title, { color: colors.text }]} accessibilityRole="header">
+        {plan?.river.name ?? stub?.riverName ?? 'Saved float'}
+      </Text>
+      <Text style={[styles.subtitle, { color: colors.textMuted }]}>
+        {plan
+          ? 'Re-read against the river right now'
+          : stub
+            ? `${stub.putInName} → ${stub.takeOutName}`
+            : ' '}
+      </Text>
+    </View>
+  );
+
   return (
-    <SafeAreaView style={[styles.screen, { backgroundColor: colors.bg }]} edges={['top']}>
-      <Stack.Screen options={{ headerShown: false }} />
-
-      <View style={styles.navRow}>
-        <BackButton onPress={() => goBack(router)} />
-        <View style={styles.navActions}>
-          {/* Only once the plan is in hand: the star is keyed on the stretch,
-              and there is nothing to keep until we know what it is. */}
-          {plan ? (
-            <Pressable
-              onPress={onToggleSave}
-              hitSlop={12}
-              accessibilityRole="button"
-              accessibilityState={{ selected: saved }}
-              accessibilityLabel={
-                saved ? 'Remove this float from favorites' : 'Save this float to favorites'
-              }
-            >
-              <Ionicons
-                name={saved ? 'star' : 'star-outline'}
-                size={22}
-                color={saved ? colors.warm : colors.textSubtle}
-              />
-            </Pressable>
-          ) : null}
-          <Pressable
-            onPress={() => void onShare()}
-            hitSlop={12}
-            accessibilityRole="button"
-            accessibilityLabel="Share this float"
+    <SafeAreaView style={[styles.screen, { backgroundColor: colors.bg }]} edges={['left', 'right']}>
+      <NativeHeaderHome />
+      <Stack.Toolbar placement="right">
+        <Stack.Toolbar.Button
+          icon="square.and.arrow.up"
+          accessibilityLabel="Share this float"
+          onPress={() => void onShare()}
+        >
+          Share
+        </Stack.Toolbar.Button>
+        {/* Saving needs the live plan's stretch identity, as before. */}
+        {plan ? (
+          <Stack.Toolbar.Button
+            icon={saved ? 'star.fill' : 'star'}
+            selected={saved}
+            tintColor={saved ? colors.warm : colors.interactive}
+            accessibilityLabel={saved ? 'Remove this float from Favorites' : 'Save this float to Favorites'}
+            onPress={onToggleSave}
           >
-            <Ionicons name="share-outline" size={22} color={colors.text} />
-          </Pressable>
-        </View>
-      </View>
-
-      <View style={styles.header}>
-        <Text style={[styles.title, { color: colors.text }]} numberOfLines={2}>
-          {plan?.river.name ?? stub?.riverName ?? 'Saved float'}
-        </Text>
-        <Text style={[styles.subtitle, { color: colors.textMuted }]} numberOfLines={2}>
-          {plan
-            ? 'Re-read against the river right now'
-            : stub
-              ? `${stub.putInName} → ${stub.takeOutName}`
-              : ' '}
-        </Text>
-      </View>
+            Favorite
+          </Stack.Toolbar.Button>
+        ) : null}
+      </Stack.Toolbar>
 
       {stub && (loading || error || !plan) ? (
-        <SavedFloatDetails saved={stub} loading={loading} error={error} onRetry={() => void load()} />
+        <SavedFloatDetails header={heading} saved={stub} loading={loading} error={error} onRetry={() => void load()} />
       ) : loading ? (
-        <View style={styles.centered}>
-          <ActivityIndicator color={colors.interactive} />
-          <Text style={[styles.centeredText, { color: colors.textMuted }]}>
-            Reading the gauge and driving the shuttle…
-          </Text>
-        </View>
+        <ScrollView contentInsetAdjustmentBehavior="automatic" contentContainerStyle={styles.emptyContent}>
+          {heading}
+          <View style={styles.centered}>
+            <ActivityIndicator color={colors.interactive} accessibilityLabel="Loading float" />
+            <Text style={[styles.centeredText, { color: colors.textMuted }]}>
+              Reading the gauge and driving the shuttle…
+            </Text>
+          </View>
+        </ScrollView>
       ) : error || !plan ? (
-        <View style={styles.centered}>
-          <Otter mood="flag" size={110} />
-          <Text style={[styles.centeredText, { color: colors.text }]}>
-            {error ?? 'Could not load this float'}
-          </Text>
-          <Pressable onPress={() => void load()} hitSlop={10} accessibilityRole="button">
-            <Text style={[styles.link, { color: colors.interactive }]}>Try again</Text>
-          </Pressable>
-        </View>
+        <ScrollView contentInsetAdjustmentBehavior="automatic" contentContainerStyle={styles.emptyContent}>
+          {heading}
+          <View style={styles.centered}>
+            <Otter mood="flag" size={110} />
+            <Text style={[styles.centeredText, { color: colors.text }]}>
+              {error ?? 'Could not load this float'}
+            </Text>
+            <Pressable onPress={() => void load()} style={styles.retryButton} accessibilityRole="button">
+              <Text style={[styles.link, { color: colors.interactive }]}>Try again</Text>
+            </Pressable>
+          </View>
+        </ScrollView>
       ) : (
-        <PlanResult plan={plan} />
+        <PlanResult plan={plan} header={heading} contentInsetAdjustmentBehavior="automatic" />
       )}
     </SafeAreaView>
   );
@@ -177,18 +172,12 @@ export default function SavedFloatScreen() {
 
 const styles = StyleSheet.create({
   screen: { flex: 1 },
-  navRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 18,
-    paddingTop: 6,
-  },
-  navActions: { flexDirection: 'row', alignItems: 'center', gap: 18 },
-  header: { paddingHorizontal: 20, paddingTop: 6, paddingBottom: 8 },
+  header: { paddingBottom: 12 },
+  emptyContent: { flexGrow: 1, padding: 20 },
+  retryButton: { minWidth: 44, minHeight: 44, justifyContent: 'center' },
   title: { ...t['2xl'], fontFamily: fonts.display },
   subtitle: { ...t.sm, fontFamily: fonts.body, marginTop: 2 },
-  centered: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 32, gap: 12 },
+  centered: { flexGrow: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: 32, gap: 12 },
   centeredText: { ...t.sm, fontFamily: fonts.body, textAlign: 'center' },
   link: { ...t.sm, fontFamily: fonts.semibold },
 });

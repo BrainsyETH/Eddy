@@ -19,14 +19,14 @@
 // entirety. It still needs an ACCOUNT, which is not a tier — a notification has
 // to have somewhere to go, and an anonymous id is replaced on reinstall.
 
-import { BackButton } from '@/components/BackButton';
+import { NativeHeaderHome } from '@/components/NativeHeaderHome';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
   Image,
   Linking,
-  Pressable,
+  Platform,  Pressable,
   ScrollView,
   StyleSheet,
   Text,
@@ -34,6 +34,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Stack, useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
+import { useHeaderHeight } from 'expo-router/react-navigation';
 import { Ionicons } from '@expo/vector-icons';
 import type {
   MapAccessPoint,
@@ -119,7 +120,7 @@ import { RiverVisuals } from '@/components/RiverVisuals';
 // import threw while THIS file was still loading — killing the whole river
 // screen over a feature nobody had touched. See PhotoSubmitSheetLazy's header.
 import { PhotoSubmitSheetLazy } from '@/components/PhotoSubmitSheetLazy';
-import { ShareButton } from '@/components/ShareButton';
+import { shareLink } from '@/lib/share';
 import { FeedbackSheet } from '@/components/FeedbackSheet';
 import { ReadingScale } from '@/components/ReadingScale';
 import { PaywallSheet } from '@/components/PaywallSheet';
@@ -138,7 +139,6 @@ import { useRiverData } from '@/hooks/useRiverData';
 import { selectEddySays } from '@/lib/eddySays';
 import { effectiveReadingAgeHours, readingBand } from '@/lib/offline-cache';
 import { shareInFlight } from '@/lib/shareInFlight';
-import { goBack } from '@/lib/nav';
 import { TrendPill } from '@/components/TrendPill';
 
 /**
@@ -384,6 +384,9 @@ export default function RiverDetailScreen() {
   }>();
   const router = useRouter();
   const { colors, elevation } = useTheme();
+  const headerHeight = useHeaderHeight();
+  // Programmatic anchors must clear the translucent bar as well as its safe area.
+  const readTopInset = Platform.OS === 'ios' ? headerHeight : 0;
   const readScroll = useRef<ScrollView>(null);
   const readAnchor = useRef<{ key: string; y: number | null; done: boolean }>({ key: '', y: null, done: false });
   const readTargetKey = JSON.stringify([slug, focus]);
@@ -392,7 +395,7 @@ export default function RiverDetailScreen() {
     if (focus !== 'read' || anchor.key !== readTargetKey || anchor.y === null || anchor.done) return;
     requestAnimationFrame(() => {
       if (readAnchor.current !== anchor || anchor.done) return;
-      readScroll.current?.scrollTo({ y: Math.max(0, (anchor.y ?? 0) - 12), animated: true });
+      readScroll.current?.scrollTo({ y: Math.max(-readTopInset, (anchor.y ?? 0) - readTopInset - 12), animated: true });
       anchor.done = true;
     });
   };
@@ -1116,17 +1119,13 @@ export default function RiverDetailScreen() {
   }, [subscribed, subscribe, unsubscribe, cascadingAlerts, river?.name]);
 
   if (loading) {
-    // The chevron renders DURING the load — configure.tsx's rule: with the
-    // header globally hidden, a bare spinner is a wait with no visible way
-    // off the screen.
+    // Navigation remains available while the river is loading.
     return (
-      <SafeAreaView style={[styles.screen, { backgroundColor: colors.bg }]} edges={['top']}>
-        <View style={styles.navRow}>
-          <BackButton onPress={() => goBack(router)} />
-        </View>
-        <View style={[styles.screen, styles.centered]}>
-          <ActivityIndicator color={colors.interactive} />
-        </View>
+      <SafeAreaView style={[styles.screen, { backgroundColor: colors.bg }]} edges={['left', 'right']}>
+        <NativeHeaderHome />
+        <ScrollView contentInsetAdjustmentBehavior="automatic" contentContainerStyle={styles.centered}>
+          <ActivityIndicator color={colors.interactive} accessibilityLabel="Loading river" />
+        </ScrollView>
       </SafeAreaView>
     );
   }
@@ -1137,17 +1136,17 @@ export default function RiverDetailScreen() {
     // sections — the whole-screen failure just never offered it.
     const notFound = !error || error === 'River not found';
     return (
-      <SafeAreaView style={[styles.screen, styles.centered, { backgroundColor: colors.bg }]}>
-        <Otter mood="flag" size={110} />
-        <Text style={[styles.errorTitle, { color: colors.text }]}>{error ?? 'River not found'}</Text>
-        {!notFound ? (
-          <Pressable onPress={retry} hitSlop={10}>
-            <Text style={[styles.backLink, { color: colors.interactive }]}>Try again</Text>
-          </Pressable>
-        ) : null}
-        <Pressable onPress={() => goBack(router)} accessibilityRole="button" style={{ minWidth: 44, minHeight: 44, justifyContent: 'center' }}>
-          <Text style={[styles.backLink, { color: colors.interactive }]}>Go back</Text>
-        </Pressable>
+      <SafeAreaView style={[styles.screen, { backgroundColor: colors.bg }]} edges={['left', 'right']}>
+        <NativeHeaderHome />
+        <ScrollView contentInsetAdjustmentBehavior="automatic" contentContainerStyle={styles.centered}>
+          <Otter mood="flag" size={110} />
+          <Text style={[styles.errorTitle, { color: colors.text }]}>{error ?? 'River not found'}</Text>
+          {!notFound ? (
+            <Pressable onPress={retry} accessibilityRole="button" style={styles.retryButton}>
+              <Text style={[styles.backLink, { color: colors.interactive }]}>Try again</Text>
+            </Pressable>
+          ) : null}
+        </ScrollView>
       </SafeAreaView>
     );
   }
@@ -1326,39 +1325,30 @@ export default function RiverDetailScreen() {
   const takeEntitlement = resolvePremiumTakeState(entitled, premiumResolved, premiumFailure);
 
   return (
-    <SafeAreaView style={[styles.screen, { backgroundColor: colors.bg }]} edges={['top']}>
-      <Stack.Screen options={{ headerShown: false }} />
+    <SafeAreaView style={[styles.screen, { backgroundColor: colors.bg }]} edges={['left', 'right']}>
+      <NativeHeaderHome />
 
-      <View style={styles.navRow}>
-        <BackButton onPress={() => goBack(router)} />
-        <View style={styles.navActions}>
-          {/* river.path is the WEBSITE's /rivers/<state>/<slug>, served by the
-              API. This screen's own route has no state segment and cannot be
-              turned into a working link — see src/lib/share.ts. */}
-          <ShareButton
-            title={river.name}
-            path={river.path}
-            label={`Share ${river.name}`}
-            // The FREE summary, never the gated report. Null on a river with no
-            // current update, and the message is then what it has always been.
-            note={eddySays?.text ?? null}
-          />
-          <Pressable
-            onPress={() => toggleStar({ kind: 'river', entityId: river.id, name: river.name, slug: river.slug })}
-            hitSlop={12}
-            accessibilityRole="button"
-            accessibilityLabel={starred ? `Unstar ${river.name}` : `Star ${river.name}`}
-          >
-            <Ionicons
-              name={starred ? 'star' : 'star-outline'}
-              size={24}
-              color={starred ? colors.warm : colors.textSubtle}
-            />
-          </Pressable>
-        </View>
-      </View>
+      <Stack.Toolbar placement="right">
+        {/* Keep the canonical website path and only Eddy's free summary. */}
+        <Stack.Toolbar.Button
+          icon="square.and.arrow.up"
+          accessibilityLabel={`Share ${river.name}`}
+          onPress={() => void shareLink(river.name, river.path, eddySays?.text ?? null)}
+        >
+          Share
+        </Stack.Toolbar.Button>
+        <Stack.Toolbar.Button
+          icon={starred ? 'star.fill' : 'star'}
+          selected={starred}
+          tintColor={starred ? colors.warm : colors.interactive}
+          accessibilityLabel={starred ? `Remove ${river.name} from Favorites` : `Add ${river.name} to Favorites`}
+          onPress={() => toggleStar({ kind: 'river', entityId: river.id, name: river.name, slug: river.slug })}
+        >
+          Favorite
+        </Stack.Toolbar.Button>
+      </Stack.Toolbar>
 
-      <ScrollView ref={readScroll} contentContainerStyle={styles.body}
+      <ScrollView ref={readScroll} contentInsetAdjustmentBehavior="automatic" contentContainerStyle={styles.body}
         onContentSizeChange={() => { if (displayedOutlook || !outlookLoading) scrollToRead(); }}
         onScrollBeginDrag={() => { readAnchor.current.done = true; }}>
         {/* The way back to the rule that fired the push this screen answered.
@@ -2030,19 +2020,11 @@ const styles = StyleSheet.create({
   noticeText: { ...t.sm, fontFamily: fonts.body, flexShrink: 1 },
   retryLink: { ...t.sm, fontFamily: fonts.semibold },
   screen: { flex: 1 },
-  centered: { alignItems: 'center', justifyContent: 'center', padding: 32, gap: 10 },
+  centered: { flexGrow: 1, alignItems: 'center', justifyContent: 'center', padding: 32, gap: 10 },
+  retryButton: { minWidth: 44, minHeight: 44, justifyContent: 'center' },
   errorTitle: { ...t.lg, fontFamily: fonts.semibold },
   backLink: { ...t.sm, fontFamily: fonts.semibold },
-  navRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 18,
-    paddingTop: 6,
-  },
-  // The right-hand end of the nav row, now that share sits beside the star.
-  navActions: { flexDirection: 'row', alignItems: 'center', gap: 16 },
-  body: { paddingHorizontal: 16, paddingBottom: 40 },
+  body: { paddingHorizontal: 16, paddingTop: 12, paddingBottom: 40 },
   riverName: { ...t['3xl'], fontFamily: fonts.display, paddingHorizontal: 4, marginTop: 6 },
   riverMeta: { ...t.sm, fontFamily: fonts.body, paddingHorizontal: 4, marginTop: 2, marginBottom: 16 },
   card: { padding: 16, borderRadius: 16, marginBottom: 10 },

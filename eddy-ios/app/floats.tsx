@@ -11,17 +11,16 @@
 // So this screen works offline and the one behind it does not, which is the
 // honest split — the list is a memory, the plan is a measurement.
 
-import { BackButton } from '@/components/BackButton';
+import { NativeHeaderHome } from '@/components/NativeHeaderHome';
 import { radii } from '@/theme/layout';
 import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Stack, useRouter } from 'expo-router';
+import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '@/theme/ThemeProvider';
-import { fonts, textStyles, type as t } from '@/theme/typography';
+import { fonts, type as t } from '@/theme/typography';
 import { EddyScene } from '@/components/EddyScene';
 import { useSavedFloats, type SavedFloat } from '@/hooks/useSavedFloats';
-import { goBack } from '@/lib/nav';
 
 /** "3 days ago" — the precision a share history deserves and no more. */
 function savedAgo(iso: string): string {
@@ -41,23 +40,20 @@ export default function SavedFloatsScreen() {
   const router = useRouter();
 
   return (
-    <SafeAreaView style={[styles.screen, { backgroundColor: colors.bg }]} edges={['top']}>
-      <Stack.Screen options={{ headerShown: false }} />
-
-      <View style={styles.navRow}>
-        <BackButton onPress={() => goBack(router)} />
-      </View>
-
-      <View style={styles.header}>
-        <Text style={[styles.title, { color: colors.text }]}>Saved floats</Text>
-        <Text style={[styles.subtitle, { color: colors.textMuted }]}>
-          {floats.length === 0
-            ? 'Save a float to keep it here'
-            : `${floats.length} float${floats.length === 1 ? '' : 's'} you have saved`}
-        </Text>
-      </View>
+    <SafeAreaView style={[styles.screen, { backgroundColor: colors.bg }]} edges={['left', 'right']}>
+      <NativeHeaderHome />
 
       <FlatList
+        contentInsetAdjustmentBehavior="automatic"
+        ListHeaderComponent={
+          <View style={styles.header}>
+            <Text style={[styles.subtitle, { color: colors.textMuted }]}>
+              {floats.length === 0
+                ? 'Save a float to keep it here'
+                : `${floats.length} float${floats.length === 1 ? '' : 's'} you have saved`}
+            </Text>
+          </View>
+        }
         data={floats}
         keyExtractor={(item) => item.shortCode}
         contentContainerStyle={styles.list}
@@ -144,9 +140,7 @@ function SavedFloatRow({
 
 const styles = StyleSheet.create({
   screen: { flex: 1 },
-  navRow: { paddingHorizontal: 18, paddingTop: 6 },
-  header: { paddingHorizontal: 20, paddingTop: 6, paddingBottom: 12 },
-  title: { ...textStyles.pageTitle },
+  header: { paddingHorizontal: 20, paddingTop: 12, paddingBottom: 12 },
   subtitle: { ...t.sm, fontFamily: fonts.body, marginTop: 4 },
   list: { paddingBottom: 24 },
   row: {

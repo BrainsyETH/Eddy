@@ -28,7 +28,7 @@
 // retain the existing regulated-water and dangerous-water explanations.
 
 import type { ReactNode } from 'react';
-import { Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Linking, Pressable, ScrollView, StyleSheet, Text, View, type ScrollViewProps } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import type { FloatPlan, MapAccessPoint } from '@eddy/types';
 import { hazardConditionCode, hazardTypeLabel, portageNote, sortHazards } from '@eddy/hazards';
@@ -58,13 +58,18 @@ interface Props {
   accessPoints?: MapAccessPoint[];
   /** Share, start over — whatever the host screen offers. */
   actions?: ReactNode;
+  /** The saved-float screen puts its heading inside this scroll view. */
+  header?: ReactNode;
+  /** Opt in only under a native header; the planner sheet keeps its own insets. */
+  contentInsetAdjustmentBehavior?: ScrollViewProps['contentInsetAdjustmentBehavior'];
 }
 
-export function PlanResult({ plan, actions, accessPoints }: Props) {
+export function PlanResult({ plan, actions, accessPoints, header, contentInsetAdjustmentBehavior = 'never' }: Props) {
   const { colors, elevation, isDark } = useTheme();
 
   return (
-    <ScrollView contentContainerStyle={styles.body}>
+    <ScrollView contentInsetAdjustmentBehavior={contentInsetAdjustmentBehavior} contentContainerStyle={styles.body}>
+      {header}
       {/* Warnings sit ABOVE the numbers on purpose. Everything below is a plan;
           this is the reason the plan might be wrong, or the reason not to go. */}
       {plan.warnings.length > 0 ? (

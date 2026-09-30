@@ -1,3 +1,4 @@
+import { NativeHeaderHome } from '@/components/NativeHeaderHome';
 import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Image, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -59,65 +60,61 @@ export default function FavoriteFloatsScreen() {
   }, [router]);
 
   return (
-    <SafeAreaView style={[styles.safe, { backgroundColor: colors.bg }]} edges={['top']}>
-      <View style={styles.header}>
-        <Pressable onPress={() => router.back()} style={styles.back} accessibilityRole="button" accessibilityLabel="Go back">
-          <Ionicons name="arrow-back" size={23} color={colors.interactive} />
-        </Pressable>
-        <View style={styles.flex}>
+    <SafeAreaView style={[styles.safe, { backgroundColor: colors.bg }]} edges={['left', 'right']}>
+      <NativeHeaderHome />
+      <ScrollView
+        contentInsetAdjustmentBehavior="automatic"
+        contentContainerStyle={styles.content}
+        refreshControl={floats ? <RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor={colors.interactive} /> : undefined}
+      >
+        <View>
           <Text style={[styles.title, { color: colors.text }]}>Eddy’s Favorite Floats</Text>
           <Text style={[styles.subtitle, { color: colors.textMuted }]}>Hand-picked stretches from the river guides</Text>
         </View>
-      </View>
-      {!floats ? (
-        <View style={styles.center}><ActivityIndicator color={colors.interactive} /></View>
-      ) : (
-        <ScrollView
-          contentContainerStyle={styles.content}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor={colors.interactive} />}
-        >
-          {error ? <Text style={[styles.error, { color: colors.error }]}>{error}</Text> : null}
-          {floats.length === 0 ? (
-            <View style={[styles.empty, { backgroundColor: colors.card, borderColor: colors.border }]}>
-              <Text style={[styles.cardTitle, { color: colors.text }]}>No guide picks available</Text>
-              <Text style={[styles.bodyText, { color: colors.textMuted }]}>Pull down when you’re back online.</Text>
-            </View>
-          ) : floats.map((item) => (
-            <View key={item.id} style={[styles.card, { backgroundColor: colors.card }, elevation(1)]}>
-              {item.photoUrl ? <Image source={{ uri: item.photoUrl }} style={styles.photo} /> : null}
-              <View style={styles.body}>
-                <Text style={[styles.river, { color: colors.accent }]}>{item.riverName.toUpperCase()}</Text>
-                <Text style={[styles.cardTitle, { color: colors.text }]}>{item.putInName} to {item.takeOutName}</Text>
-                <Text style={[styles.meta, { color: colors.textMuted }]}>{favoriteFloatMeta(item)}</Text>
-                <Text style={[styles.tagline, { color: colors.text }]}>{item.tagline}</Text>
-                {item.bestFor ? <Text style={[styles.bodyText, { color: colors.textMuted }]}>Best for {item.bestFor}</Text> : null}
-                <Pressable
-                  onPress={() => plan(item)}
-                  style={({ pressed }) => [styles.button, { backgroundColor: pressed ? colors.accentFillPressed : colors.accentFill }]}
-                  accessibilityRole="button"
-                  accessibilityLabel={`Plan ${item.putInName} to ${item.takeOutName}`}
-                >
-                  <Ionicons name="map-outline" size={18} color={colors.onAccent} />
-                  <Text style={[styles.buttonText, { color: colors.onAccent }]}>Plan this float</Text>
-                </Pressable>
+        {!floats ? (
+          <View style={styles.center}><ActivityIndicator color={colors.interactive} accessibilityLabel="Loading guide picks" /></View>
+        ) : (
+          <>
+            {error ? <Text style={[styles.error, { color: colors.error }]}>{error}</Text> : null}
+            {floats.length === 0 ? (
+              <View style={[styles.empty, { backgroundColor: colors.card, borderColor: colors.border }]}>
+                <Text style={[styles.cardTitle, { color: colors.text }]}>No guide picks available</Text>
+                <Text style={[styles.bodyText, { color: colors.textMuted }]}>Pull down when you’re back online.</Text>
               </View>
-            </View>
-          ))}
-        </ScrollView>
-      )}
+            ) : floats.map((item) => (
+              <View key={item.id} style={[styles.card, { backgroundColor: colors.card }, elevation(1)]}>
+                {item.photoUrl ? <Image source={{ uri: item.photoUrl }} style={styles.photo} /> : null}
+                <View style={styles.body}>
+                  <Text style={[styles.river, { color: colors.accent }]}>{item.riverName.toUpperCase()}</Text>
+                  <Text style={[styles.cardTitle, { color: colors.text }]}>{item.putInName} to {item.takeOutName}</Text>
+                  <Text style={[styles.meta, { color: colors.textMuted }]}>{favoriteFloatMeta(item)}</Text>
+                  <Text style={[styles.tagline, { color: colors.text }]}>{item.tagline}</Text>
+                  {item.bestFor ? <Text style={[styles.bodyText, { color: colors.textMuted }]}>Best for {item.bestFor}</Text> : null}
+                  <Pressable
+                    onPress={() => plan(item)}
+                    style={({ pressed }) => [styles.button, { backgroundColor: pressed ? colors.accentFillPressed : colors.accentFill }]}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Plan ${item.putInName} to ${item.takeOutName}`}
+                  >
+                    <Ionicons name="map-outline" size={18} color={colors.onAccent} />
+                    <Text style={[styles.buttonText, { color: colors.onAccent }]}>Plan this float</Text>
+                  </Pressable>
+                </View>
+              </View>
+            ))}
+          </>
+        )}
+      </ScrollView>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   safe: { flex: 1 },
-  flex: { flex: 1 },
-  header: { flexDirection: 'row', alignItems: 'flex-start', gap: 12, paddingHorizontal: 16, paddingTop: 10, paddingBottom: 16 },
-  back: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
   title: { ...t['2xl'], fontFamily: fonts.display },
   subtitle: { ...t.sm, fontFamily: fonts.body, marginTop: 2 },
-  center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  content: { paddingHorizontal: 16, paddingBottom: 40, gap: 16 },
+  center: { flexGrow: 1, paddingVertical: 32, alignItems: 'center', justifyContent: 'center' },
+  content: { flexGrow: 1, paddingHorizontal: 16, paddingTop: 12, paddingBottom: 40, gap: 16 },
   error: { ...t.sm, fontFamily: fonts.body },
   card: { borderRadius: 16, overflow: 'hidden' },
   photo: { width: '100%', height: 170 },

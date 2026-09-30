@@ -13,8 +13,8 @@
 // the snapshot is what connects them.
 //
 // ── Structure follows app/gauge/[siteId].tsx ───────────────────────────────
-// Same shell — hidden header, a back chevron in a navRow, a ScrollView, an
-// explicit error body rather than a blank screen. This is a detail screen
+// Same native header and automatically inset scroll view, with an explicit
+// error body rather than a blank screen. This is a detail screen
 // reached from a pin or a row, so it behaves like the app's other one.
 //
 // ── What it must never do ──────────────────────────────────────────────────
@@ -22,7 +22,7 @@
 // transmission constraints, outages and inflow, and this screen sits next to a
 // number somebody may wade into.
 
-import { BackButton } from '@/components/BackButton';
+import { NativeHeaderHome } from '@/components/NativeHeaderHome';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -48,7 +48,6 @@ import { GenerationForecast } from '@/components/dam/GenerationForecast';
 import { useStarredRivers } from '@/hooks/useStarredRivers';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
-import { goBack } from '@/lib/nav';
 
 export default function DamDetailScreen() {
   const { damId } = useLocalSearchParams<{ damId: string }>();
@@ -322,32 +321,23 @@ export default function DamDetailScreen() {
   // before either request answered. The only case left where this screen is a
   // spinner — a catalogued dam paints its name and lake on the first frame.
   //
-  // The chevron renders DURING the load, same rule configure.tsx states for
-  // itself: this fetch reads through to CWMS and SWPA and can run five to
-  // fifty seconds cold, and a spinner with no chevron is that long with no
-  // visible way off the screen.
+  // Native Back/Home remains available while the feed is loading.
   if (!dam && !catalogEntry && detailPending) {
     return (
-      <SafeAreaView style={[styles.screen, { backgroundColor: colors.bg }]} edges={['top']}>
-        <Stack.Screen options={{ headerShown: false }} />
-        <View style={styles.navRow}>
-          <BackButton onPress={() => goBack(router)} />
-        </View>
-        <View style={[styles.screen, styles.centre]}>
-          <ActivityIndicator size="large" color={colors.interactive} />
-        </View>
+      <SafeAreaView style={[styles.screen, { backgroundColor: colors.bg }]} edges={['left', 'right']}>
+        <NativeHeaderHome />
+        <ScrollView contentInsetAdjustmentBehavior="automatic" contentContainerStyle={[styles.centre, styles.emptyBody]}>
+          <ActivityIndicator size="large" color={colors.interactive} accessibilityLabel="Loading dam" />
+        </ScrollView>
       </SafeAreaView>
     );
   }
 
   if (!dam && !detailPending) {
     return (
-      <SafeAreaView style={[styles.screen, { backgroundColor: colors.bg }]} edges={['top']}>
-        <Stack.Screen options={{ headerShown: false }} />
-        <View style={styles.navRow}>
-          <BackButton onPress={() => goBack(router)} />
-        </View>
-        <View style={[styles.centre, styles.emptyBody]}>
+      <SafeAreaView style={[styles.screen, { backgroundColor: colors.bg }]} edges={['left', 'right']}>
+        <NativeHeaderHome />
+        <ScrollView contentInsetAdjustmentBehavior="automatic" contentContainerStyle={[styles.centre, styles.emptyBody]}>
           <Text style={[styles.emptyTitle, { color: colors.text }]}>
             {failed ? 'Dam unavailable' : 'Dam not found'}
           </Text>
@@ -378,7 +368,7 @@ export default function DamDetailScreen() {
               <Text style={[styles.sourceText, { color: colors.text }]}>Try again</Text>
             </Pressable>
           ) : null}
-        </View>
+        </ScrollView>
       </SafeAreaView>
     );
   }
@@ -401,12 +391,9 @@ export default function DamDetailScreen() {
    */
   if (!dam) {
     return (
-      <SafeAreaView style={[styles.screen, { backgroundColor: colors.bg }]} edges={['top']}>
-        <Stack.Screen options={{ headerShown: false }} />
-        <View style={styles.navRow}>
-          <BackButton onPress={() => goBack(router)} />
-        </View>
-        <ScrollView contentContainerStyle={styles.body}>
+      <SafeAreaView style={[styles.screen, { backgroundColor: colors.bg }]} edges={['left', 'right']}>
+        <NativeHeaderHome />
+        <ScrollView contentInsetAdjustmentBehavior="automatic" contentContainerStyle={styles.body}>
           <Text style={[styles.name, { color: colors.text }]}>{catalogEntry!.name}</Text>
           <Text style={[styles.meta, { color: colors.textMuted }]}>
             {[catalogEntry!.lakeName, catalogEntry!.state].filter(Boolean).join(' · ')}
@@ -440,33 +427,21 @@ export default function DamDetailScreen() {
   };
 
   return (
-    <SafeAreaView style={[styles.screen, { backgroundColor: colors.bg }]} edges={['top']}>
-      <Stack.Screen options={{ headerShown: false }} />
-      <View style={styles.navRow}>
-        <BackButton onPress={() => goBack(router)} />
-        {/* Same control, same place and same rules as the gauge screen's. A dam
-            is a thing you come back to — "is Table Rock generating this
-            weekend" is a question somebody asks every weekend — and until now
-            the only way back was to find it in search again.
-
-            Local-first and account-free, like every other star: see
-            useStarredRivers. The id is the USACE registry slug rather than a
-            uuid, which is why starred_dams carries no foreign key (00206). */}
-        <Pressable
+    <SafeAreaView style={[styles.screen, { backgroundColor: colors.bg }]} edges={['left', 'right']}>
+      <NativeHeaderHome />
+      <Stack.Toolbar placement="right">
+        <Stack.Toolbar.Button
+          icon={starred ? 'star.fill' : 'star'}
+          selected={starred}
+          tintColor={starred ? colors.warm : colors.interactive}
+          accessibilityLabel={starred ? `Remove ${dam.name} from Favorites` : `Add ${dam.name} to Favorites`}
           onPress={onToggleStar}
-          hitSlop={12}
-          accessibilityRole="button"
-          accessibilityLabel={starred ? `Unstar ${dam.name}` : `Star ${dam.name}`}
         >
-          <Ionicons
-            name={starred ? 'star' : 'star-outline'}
-            size={24}
-            color={starred ? colors.warm : colors.textSubtle}
-          />
-        </Pressable>
-      </View>
+          Favorite
+        </Stack.Toolbar.Button>
+      </Stack.Toolbar>
 
-      <ScrollView contentContainerStyle={styles.body}>
+      <ScrollView contentInsetAdjustmentBehavior="automatic" contentContainerStyle={styles.body}>
         <Text style={[styles.name, { color: colors.text }]}>{dam.name}</Text>
         <Text style={[styles.meta, { color: colors.textMuted }]}>
           {[dam.lakeName, dam.state].filter(Boolean).join(' · ')}
@@ -705,17 +680,10 @@ export default function DamDetailScreen() {
 const styles = StyleSheet.create({
   screen: { flex: 1 },
   centre: { alignItems: 'center', justifyContent: 'center' },
-  emptyBody: { flex: 1, paddingHorizontal: 32, gap: 10 },
+  emptyBody: { flexGrow: 1, padding: 32, gap: 10 },
   emptyTitle: { ...t.xl, fontFamily: fonts.heading, textAlign: 'center' },
   emptyBodyText: { ...t.sm, fontFamily: fonts.body, textAlign: 'center' },
-  navRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-  },
-  body: { paddingBottom: 40 },
+  body: { paddingTop: 12, paddingBottom: 40 },
   name: { ...t['2xl'], fontFamily: fonts.heading, paddingHorizontal: 20, marginTop: 4 },
   meta: { ...t.sm, fontFamily: fonts.body, paddingHorizontal: 20, marginTop: 2, marginBottom: 14 },
   section: { paddingHorizontal: 16, marginBottom: 14 },

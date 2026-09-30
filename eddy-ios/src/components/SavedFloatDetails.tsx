@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { logisticsWarnings } from '@/lib/savedFloatLogistics';
 import { Alert, Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { hazardTypeLabel, portageNote } from '@eddy/hazards';
@@ -7,8 +8,9 @@ import { fonts, type as t } from '@/theme/typography';
 import { driveToUrl, driveBetweenUrl } from '@/lib/directions';
 
 /** Useful without service; never renders a saved water verdict or time estimate. */
-export function SavedFloatDetails({ saved, loading, error, onRetry }: {
+export function SavedFloatDetails({ saved, loading, error, onRetry, header }: {
   saved: SavedFloat; loading: boolean; error: string | null; onRetry: () => void;
+  header?: ReactNode;
 }) {
   const { colors } = useTheme();
   const details = saved.logistics;
@@ -21,7 +23,8 @@ export function SavedFloatDetails({ saved, loading, error, onRetry }: {
     </Pressable>
   );
   return (
-    <ScrollView contentContainerStyle={styles.content}>
+    <ScrollView contentInsetAdjustmentBehavior="automatic" contentContainerStyle={styles.content}>
+      {header}
       <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
         <Text style={[styles.heading, { color: colors.text }]}>Saved trip details</Text>
         <Text style={[styles.body, { color: colors.textMuted }]}>
