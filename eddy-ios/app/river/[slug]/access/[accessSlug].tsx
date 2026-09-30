@@ -37,7 +37,7 @@
 // "unknown" this file's third paragraph refuses to print. Directions is held
 // back for a sharper reason — see the seeded body below.
 
-import { BackButton } from '@/components/BackButton';
+import { NativeHeaderHome } from '@/components/NativeHeaderHome';
 import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
@@ -72,13 +72,12 @@ import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
 import { formatReading } from '@/lib/readingCopy';
 import { EddySymbol, type EddySymbolName } from '@/components/EddySymbol';
-import { ShareButton } from '@/components/ShareButton';
+import { shareLink } from '@/lib/share';
 // Lazy — see the header of PhotoSubmitSheetLazy. Its native expo-image-picker
 // import used to run while THIS file loaded, so a stale binary lost the whole
 // access-point screen rather than just the photo button.
 import { PhotoSubmitSheetLazy } from '@/components/PhotoSubmitSheetLazy';
 import { FeedbackSheet } from '@/components/FeedbackSheet';
-import { goBack } from '@/lib/nav';
 import { readRiver } from '@/lib/riverCache';
 import {
   driveToUrl,
@@ -164,27 +163,9 @@ function SeededAccessPoint({
   const { colors } = useTheme();
 
   return (
-    <SafeAreaView style={[styles.screen, { backgroundColor: colors.bg }]} edges={['top']}>
-      <Stack.Screen options={{ headerShown: false }} />
-      <View style={styles.navRow}>
-        <BackButton onPress={() => goBack(router)} />
-        {riverName ? (
-          <View style={styles.navActions}>
-            <Pressable
-              onPress={() => router.push(`/river/${riverSlug}`)}
-              hitSlop={12}
-              accessibilityRole="button"
-              accessibilityLabel={`Open ${riverName}`}
-            >
-              <Text style={[styles.navRiver, { color: colors.interactive }]} numberOfLines={1}>
-                {riverName}
-              </Text>
-            </Pressable>
-          </View>
-        ) : null}
-      </View>
-
-      <ScrollView contentContainerStyle={styles.body}>
+    <SafeAreaView style={[styles.screen, { backgroundColor: colors.bg }]} edges={['left', 'right']}>
+      <NativeHeaderHome />
+      <ScrollView contentInsetAdjustmentBehavior="automatic" contentContainerStyle={styles.body}>
         {point.imageUrls && point.imageUrls.length > 0 ? (
           <ScrollView
             horizontal
@@ -205,6 +186,7 @@ function SeededAccessPoint({
         ) : null}
 
         <Text style={[styles.name, { color: colors.text }]}>{point.name}</Text>
+        {riverName ? <AccessRiverLink name={riverName} slug={riverSlug} /> : null}
 
         <View style={styles.stats}>
           {[
@@ -547,31 +529,31 @@ export default function AccessPointDetailScreen() {
 
   if (loading) {
     return (
-      <SafeAreaView style={[styles.screen, styles.centre, { backgroundColor: colors.bg }]}>
-        <Stack.Screen options={{ headerShown: false }} />
-        <ActivityIndicator size="large" color={colors.interactive} />
+      <SafeAreaView style={[styles.screen, { backgroundColor: colors.bg }]} edges={['left', 'right']}>
+        <NativeHeaderHome />
+        <ScrollView contentInsetAdjustmentBehavior="automatic" contentContainerStyle={[styles.centre, styles.emptyBody]}>
+          <ActivityIndicator size="large" color={colors.interactive} accessibilityLabel="Loading access point" />
+        </ScrollView>
       </SafeAreaView>
     );
   }
 
   if (error || !data) {
     return (
-      <SafeAreaView style={[styles.screen, { backgroundColor: colors.bg }]} edges={['top']}>
-        <Stack.Screen options={{ headerShown: false }} />
-        <View style={styles.navRow}>
-          <BackButton onPress={() => goBack(router)} />
-        </View>
-        <View style={[styles.centre, styles.emptyBody]}>
+      <SafeAreaView style={[styles.screen, { backgroundColor: colors.bg }]} edges={['left', 'right']}>
+        <NativeHeaderHome />
+        <ScrollView contentInsetAdjustmentBehavior="automatic" contentContainerStyle={[styles.centre, styles.emptyBody]}>
           <Text style={[styles.emptyTitle, { color: colors.text }]}>Access point unavailable</Text>
           <Text style={[styles.emptyText, { color: colors.textMuted }]}>
             {error ?? 'Could not load this access point.'}
           </Text>
-        </View>
+        </ScrollView>
       </SafeAreaView>
     );
   }
 
   const point = data.accessPoint;
+  const sharePath = point.path;
   const tips = stripHtml(point.localTips);
   const parking = parkingLabel(point.parkingCapacity);
   const hasRoad = point.roadSurface.length > 0 || Boolean(point.roadAccess);
@@ -581,36 +563,22 @@ export default function AccessPointDetailScreen() {
   const hasNotes = Boolean(point.description) || Boolean(tips);
 
   return (
-    <SafeAreaView style={[styles.screen, { backgroundColor: colors.bg }]} edges={['top']}>
-      <Stack.Screen options={{ headerShown: false }} />
+    <SafeAreaView style={[styles.screen, { backgroundColor: colors.bg }]} edges={['left', 'right']}>
+      <NativeHeaderHome />
 
-      <View style={styles.navRow}>
-        <BackButton onPress={() => goBack(router)} />
-        <View style={styles.navActions}>
-          <Pressable
-            onPress={() => router.push(`/river/${point.river.slug}`)}
-            hitSlop={12}
-            accessibilityRole="button"
-            accessibilityLabel={`Open ${point.river.name}`}
+      <Stack.Toolbar placement="right">
+        {sharePath ? (
+          <Stack.Toolbar.Button
+            icon="square.and.arrow.up"
+            accessibilityLabel={`Share ${point.name}`}
+            onPress={() => void shareLink(point.name, sharePath)}
           >
-            <Text style={[styles.navRiver, { color: colors.interactive }]} numberOfLines={1}>
-              {point.river.name}
-            </Text>
-          </Pressable>
-          {/* point.path is the WEBSITE's state-segmented path, served by the
-              API precisely because this screen's route has no state in it and
-              could not build one. See src/lib/share.ts.
+            Share
+          </Stack.Toolbar.Button>
+        ) : null}
+      </Stack.Toolbar>
 
-              Absent when the deploy this build is talking to predates the
-              field — a build outlives the deploy it was cut against, and a
-              share button is not worth handing someone /undefined. */}
-          {point.path ? (
-            <ShareButton title={point.name} path={point.path} label={`Share ${point.name}`} />
-          ) : null}
-        </View>
-      </View>
-
-      <ScrollView contentContainerStyle={styles.body}>
+      <ScrollView contentInsetAdjustmentBehavior="automatic" contentContainerStyle={styles.body}>
         {/* ── What it looks like ──────────────────────────────────
             A horizontal strip rather than one hero: several photos of a put-in
             answer more than one does — the ramp, the parking, the water — and
@@ -640,6 +608,7 @@ export default function AccessPointDetailScreen() {
         ) : null}
 
         <Text style={[styles.name, { color: colors.text }]}>{point.name}</Text>
+        <AccessRiverLink name={point.river.name} slug={point.river.slug} />
 
         {/* ── Quick stats ─────────────────────────────────────────
             The facts that decide whether to drive here, in one row of chips.
@@ -1032,23 +1001,31 @@ export default function AccessPointDetailScreen() {
   );
 }
 
+/** Keep long river names readable without crowding the native Share control. */
+function AccessRiverLink({ name, slug }: { name: string; slug: string }) {
+  const router = useRouter();
+  const { colors } = useTheme();
+  return (
+    <Pressable
+      onPress={() => router.push(`/river/${slug}`)}
+      accessibilityRole="button"
+      accessibilityLabel={`Open ${name}`}
+      style={({ pressed }) => [styles.riverLink, { opacity: pressed ? 0.6 : 1 }]}
+    >
+      <Text style={[styles.riverLinkText, { color: colors.interactive }]}>{name}</Text>
+      <Ionicons name="chevron-forward" size={14} color={colors.interactive} />
+    </Pressable>
+  );
+}
+
 const styles = StyleSheet.create({
   screen: { flex: 1 },
   centre: { alignItems: 'center', justifyContent: 'center' },
-  emptyBody: { flex: 1, paddingHorizontal: 32, gap: 10 },
+  emptyBody: { flexGrow: 1, padding: 32, gap: 10 },
   emptyTitle: { ...t.xl, fontFamily: fonts.heading, textAlign: 'center' },
   emptyText: { ...t.sm, fontFamily: fonts.body, textAlign: 'center' },
-  navRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    gap: 12,
-  },
-  // The right-hand end of the nav row, now that share sits beside the river link.
-  navActions: { flexDirection: 'row', alignItems: 'center', gap: 14, flexShrink: 1 },
-  navRiver: { ...t.sm, fontFamily: fonts.medium, flexShrink: 1 },
+  riverLink: { minHeight: 44, paddingHorizontal: 20, paddingVertical: 8, flexDirection: 'row', alignItems: 'center', gap: 8 },
+  riverLinkText: { ...t.sm, fontFamily: fonts.medium, flexShrink: 1 },
   // Centred and full-width under the content, above the quieter report link.
   photoCta: {
     flexDirection: 'row',
@@ -1064,7 +1041,7 @@ const styles = StyleSheet.create({
     marginTop: 14,
   },
   reportText: { ...t.xs, fontFamily: fonts.medium },
-  body: { paddingBottom: 40 },
+  body: { paddingTop: 12, paddingBottom: 40 },
   gallery: { paddingHorizontal: 16, gap: 8, paddingBottom: 4 },
   galleryImage: { width: 240, height: 150, borderRadius: 14 },
   name: { ...t['2xl'], fontFamily: fonts.heading, paddingHorizontal: 20, marginTop: 12 },

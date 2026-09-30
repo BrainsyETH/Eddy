@@ -12,7 +12,7 @@
 // alert from one river to another is two operations, not an edit. What is left
 // is the trigger, and that fits on one screen with delete at the bottom.
 
-import { BackButton } from '@/components/BackButton';
+import { NativeHeaderHome } from '@/components/NativeHeaderHome';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
@@ -27,7 +27,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import {
   describeAlertRule,
   formatAlertValue,
@@ -245,25 +245,25 @@ export default function EditAlertScreen() {
 
   if (!ready) {
     return (
-      <SafeAreaView style={[styles.screen, styles.centered, { backgroundColor: colors.bg }]} edges={['top']}>
-        <ActivityIndicator color={colors.interactive} />
+      <SafeAreaView style={[styles.screen, { backgroundColor: colors.bg }]} edges={['left', 'right']}>
+        <NativeHeaderHome />
+        <ScrollView contentInsetAdjustmentBehavior="automatic" contentContainerStyle={styles.centered}>
+          <ActivityIndicator color={colors.interactive} accessibilityLabel="Loading alert" />
+        </ScrollView>
       </SafeAreaView>
     );
   }
 
   if (!rule) {
     return (
-      <SafeAreaView style={[styles.screen, { backgroundColor: colors.bg }]} edges={['top']}>
-        <Stack.Screen options={{ headerShown: false }} />
-        <View style={styles.navRow}>
-          <BackButton onPress={() => goBack(router)} />
-        </View>
-        <View style={[styles.centered, styles.flex]}>
+      <SafeAreaView style={[styles.screen, { backgroundColor: colors.bg }]} edges={['left', 'right']}>
+        <NativeHeaderHome />
+        <ScrollView contentInsetAdjustmentBehavior="automatic" contentContainerStyle={styles.centered}>
           <Text style={[styles.emptyTitle, { color: colors.text }]}>Alert not found</Text>
           <Text style={[styles.emptyBody, { color: colors.textMuted }]}>
             It may have been deleted on another device.
           </Text>
-        </View>
+        </ScrollView>
       </SafeAreaView>
     );
   }
@@ -297,18 +297,13 @@ export default function EditAlertScreen() {
   ];
 
   return (
-    <SafeAreaView style={[styles.screen, { backgroundColor: colors.bg }]} edges={['top']}>
-      <Stack.Screen options={{ headerShown: false }} />
+    <SafeAreaView style={[styles.screen, { backgroundColor: colors.bg }]} edges={['left', 'right']}>
+      <NativeHeaderHome />
 
-      <View style={styles.navRow}>
-        <BackButton onPress={() => goBack(router)} />
-        <Text style={[styles.navTitle, { color: colors.text }]} numberOfLines={1}>
+      <ScrollView contentInsetAdjustmentBehavior="automatic" automaticallyAdjustKeyboardInsets contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+        <Text style={[styles.targetName, { color: colors.text }]} accessibilityRole="header">
           {targetName}
         </Text>
-        <View style={styles.navSpacer} />
-      </View>
-
-      <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
         <Text style={[styles.current, { color: colors.textMuted }]}>
           Currently: {describeAlertRule(rule)}.
         </Text>
@@ -578,19 +573,9 @@ export default function EditAlertScreen() {
 
 const styles = StyleSheet.create({
   screen: { flex: 1 },
-  flex: { flex: 1 },
-  centered: { alignItems: 'center', justifyContent: 'center' },
-  navRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    gap: 12,
-  },
-  navTitle: { ...t.base, fontFamily: fonts.semibold, flex: 1, textAlign: 'center' },
-  navSpacer: { width: 44 },
-  content: { paddingHorizontal: 16, paddingBottom: 48 },
+  centered: { flexGrow: 1, alignItems: 'center', justifyContent: 'center', padding: 32 },
+  targetName: { ...t['2xl'], fontFamily: fonts.heading, marginHorizontal: 4, marginBottom: 8 },
+  content: { paddingHorizontal: 16, paddingTop: 12, paddingBottom: 48 },
   current: { ...t.sm, fontFamily: fonts.body, marginBottom: 14, marginHorizontal: 4 },
   notice: { padding: 12, borderRadius: 12, borderWidth: 1, borderStyle: 'dashed', marginBottom: 12 },
   noticeText: { ...t.xs, fontFamily: fonts.body },

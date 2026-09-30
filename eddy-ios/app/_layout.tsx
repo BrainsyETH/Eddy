@@ -71,6 +71,21 @@ const detailHeaderOptions = {
     : undefined,
 };
 
+// Route options keep the native header visible during loading and failures,
+// without reordering the stack or adding synthetic history for direct links.
+const detailTitles: Record<string, string> = {
+  weather: 'Weather',
+  'gauge/[siteId]': 'Gauge',
+  'river/[slug]': 'River',
+  'river/[slug]/access/[accessSlug]': 'Access point',
+  'dam/[damId]': 'Dam',
+  'float/[shortCode]': 'Float',
+  floats: 'Saved floats',
+  'favorite-floats': 'Favorite floats',
+  storage: 'Storage',
+  'alerts/[id]': 'Edit alert',
+};
+
 // Drop cache entries from a previous CACHE_VERSION. Fire and forget at module
 // scope: it touches nothing any screen reads this launch, and a cache sweep
 // that could delay a render would be the tail wagging the dog.
@@ -311,7 +326,7 @@ function ThemedShell() {
             Keep system fonts/materials in navigation and Eddy styling in content. */}
         <NavigationThemeProvider value={navigationTheme}>
           <Stack screenOptions={({ route }) => {
-            const title = route.name === 'weather' ? 'Weather' : route.name === 'gauge/[siteId]' ? 'Gauge' : null;
+            const title = detailTitles[route.name];
             return {
               headerShown: false,
               contentStyle: { backgroundColor: colors.bg },
