@@ -41,7 +41,7 @@ import {
   useWindowDimensions,
   View,
 } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { EddySymbol } from '@/components/EddySymbol';
 import { useTheme } from '@/theme/ThemeProvider';
@@ -106,7 +106,6 @@ export function MapLayersSheet({
   renderLayerDetail,
 }: Props) {
   const { colors, floating } = useTheme();
-  const insets = useSafeAreaInsets();
   // The rows outgrew the fixed 340pt this scroll used to get: eleven layers,
   // three headings, two tier strips and the gauge filter left the control the
   // sheet exists for two scrolls deep. 60% of the window keeps the head, the
@@ -118,6 +117,8 @@ export function MapLayersSheet({
 
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
+      {/* A modal has its own safe area, without the underlying native tab bar. */}
+      <SafeAreaProvider>
       {/* Tapping the map behind the sheet closes it, which is how every iOS
           popover behaves and what a thumb reaches for first. */}
       <Pressable
@@ -130,11 +131,12 @@ export function MapLayersSheet({
         accessibilityLabel="Close layers"
       />
 
-      <View
+      <SafeAreaView
+        edges={['bottom']}
         style={[
           styles.sheet,
           floating(),
-          { backgroundColor: colors.card, paddingBottom: insets.bottom + 12 },
+          { backgroundColor: colors.card, paddingBottom: 12 },
         ]}
       >
         <View style={styles.grabberRow}>
@@ -454,7 +456,8 @@ export function MapLayersSheet({
         >
           <Text style={[styles.doneText, { color: colors.onInteractive }]}>Done</Text>
         </Pressable>
-      </View>
+      </SafeAreaView>
+      </SafeAreaProvider>
     </Modal>
   );
 }

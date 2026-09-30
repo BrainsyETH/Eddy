@@ -45,6 +45,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { FlatList, Pressable, RefreshControl, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { LazyTabScreen } from '@/components/LazyTabScreen';
 import { Ionicons } from '@expo/vector-icons';
 import type { DamSnapshot, MapGauge, RiverListItem } from '@eddy/types';
 import { fetchGauges, fetchRivers } from '@/api/client';
@@ -132,6 +133,10 @@ const FAVORITE_FILTERS: { key: FavoriteKind; label: string }[] = [
 ];
 
 export default function FavoritesScreen() {
+  return <LazyTabScreen><FavoritesContent /></LazyTabScreen>;
+}
+
+function FavoritesContent() {
   const { starred, toggleStar, ready } = useStarredRivers();
   const { floats: savedFloats } = useSavedFloats();
   const { colors, elevation } = useTheme();
@@ -280,6 +285,7 @@ export default function FavoritesScreen() {
   return (
     <SafeAreaView style={[styles.screen, { backgroundColor: colors.bg }]} edges={['top']}>
       <FlatList
+        contentInsetAdjustmentBehavior="automatic"
         data={visible}
         keyExtractor={(item) => `${item.kind}:${item.entityId}`}
         refreshControl={

@@ -117,6 +117,57 @@ test('resize clamps stale sheet coverage and respects horizontal safe areas', ()
   assert.equal(unmeasured.cameraPadding.paddingBottom, 0);
 });
 
+test('native tabs extend the canvas while preserving the usable map and sheet budget', () => {
+  for (const scene of MAP_SCENES) {
+    for (const safeBottom of [49, 83, 100]) {
+      const previous = mapLayout({ ...MAP_CHROME, ...scene });
+      const height = scene.height + safeBottom;
+      for (const sheetHeight of [0, 240, 380]) {
+        const before = mapLayout({ ...MAP_CHROME, ...scene, sheetHeight });
+        const native = mapLayout({ ...MAP_CHROME, ...scene, height, safeBottom, sheetHeight });
+        assert.equal(native.bottomInset, safeBottom);
+        assert.equal(height - native.sheetTop - native.bottomInset, scene.height - previous.sheetTop);
+        assert.equal(native.ornamentBottom, before.ornamentBottom + safeBottom);
+        assert.equal(native.cameraPadding.paddingBottom, before.cameraPadding.paddingBottom + safeBottom);
+        assert.equal(native.cameraPadding.paddingTop, before.cameraPadding.paddingTop);
+        assert.equal(native.chromeHidden, before.chromeHidden);
+        assert.equal(native.controlsHidden, before.controlsHidden);
+      }
+    }
+  }
+});
+
+test('full map sheets and attribution clear the floating tab bar on every phone size', () => {
+  for (const scene of MAP_SCENES) {
+    const safeBottom = 96;
+    const initial = mapLayout({ ...MAP_CHROME, ...scene, safeBottom });
+    const available = scene.height - initial.sheetTop - initial.bottomInset;
+    const detents = resolveDetents(available, 1200);
+    const full = mapLayout({ ...MAP_CHROME, ...scene, safeBottom, sheetHeight: detents.height.full });
+    assert.equal(full.ornamentBottom, safeBottom + detents.height.full);
+    assert.ok(scene.height - full.ornamentBottom - ORNAMENT_BAND >= full.sheetTop);
+    assert.ok(scene.height - full.cameraPadding.paddingTop - full.cameraPadding.paddingBottom >= 120);
+    assert.equal(full.controlsHidden, true);
+  }
+});
+
+test('changing the native tab inset clamps a stale sheet without covering attribution', () => {
+  const scene = MAP_SCENES[1];
+  for (const safeBottom of [49, 83, 110]) {
+    const layout = mapLayout({ ...MAP_CHROME, ...scene, safeBottom, sheetHeight: 900 });
+    assert.ok(scene.height - layout.ornamentBottom - ORNAMENT_BAND >= layout.sheetTop);
+    assert.ok(layout.ornamentBottom >= safeBottom);
+    assert.equal(layout.bottomInset, safeBottom);
+  }
+});
+
+test('native tab clearance is bounded before the map has a measured canvas', () => {
+  const layout = mapLayout({ ...MAP_CHROME, width: 0, height: 0, safeTop: 59, safeBottom: 96 });
+  assert.equal(layout.bottomInset, 0);
+  assert.equal(layout.ornamentBottom, 0);
+  assert.equal(layout.cameraPadding.paddingBottom, 0);
+});
+
 test('a delayed outer measurement cannot clip a measured service preview', () => {
   for (const content of [0, 16, 44, 90]) {
     const preview = 180;
