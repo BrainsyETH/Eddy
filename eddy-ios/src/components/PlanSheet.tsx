@@ -21,7 +21,7 @@
 // produced it would be a plan nobody trusts.
 
 import { radii } from '@/theme/layout';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useLayoutEffect, useMemo, useState, useSyncExternalStore, type ReactNode } from 'react';
 import {
   ActivityIndicator,
   FlatList,
@@ -31,10 +31,12 @@ import {
   Share,
   StyleSheet,
   Text,
+  useWindowDimensions,
   View,
 } from 'react-native';
+import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import type { FloatPlan, MapAccessPoint, RiverListItem } from '@eddy/types';
+import type { MapAccessPoint, RiverListItem } from '@eddy/types';
 import { accessTypeLabel } from '@eddy/types';
 import { saveFloatPlan } from '@/api/client';
 import { useTheme } from '@/theme/ThemeProvider';
@@ -49,6 +51,7 @@ import { useSavedFloats } from '@/hooks/useSavedFloats';
 import { milesBetween, type Coords } from '@/hooks/useLocation';
 import { damControlledLabel } from '@/lib/readingCopy';
 import { conditionColor } from '@/theme/conditions';
+import { createPlanActions } from '@/lib/planActions';
 
 interface Props {
   visible: boolean;
@@ -73,21 +76,6 @@ interface Props {
   userCoords?: Coords | null;
 }
 
-/**
- * The share line's version of the two withheld-time silences. "No estimate in
- * this water" reads as a warning about the water; on a tailwater the truth is
- * about the schedule, and the recipient of a shared float is exactly the
- * person who has not seen the dam panel that explains it.
- */
-function floatTimeShareLabel(plan: FloatPlan): string {
-  return (
-    plan.floatTime?.formatted ??
-    (plan.floatTimeWithheldReason === 'regulated'
-      ? 'time depends on dam releases'
-      : 'no estimate in this water')
-  );
-}
-
 export function PlanSheet({
   visible,
   onClose,
@@ -105,92 +93,71 @@ export function PlanSheet({
   userCoords,
 }: Props) {
   const { colors } = useTheme();
-  const { remember, isSaved, forgetPlan } = useSavedFloats();
-  const [sharing, setSharing] = useState(false);
-  const [saving, setSaving] = useState(false);
-  const [saveError, setSaveError] = useState<string | null>(null);
-
+  const { remember, isSaved, forgetPlan, ready: savedFloatsReady } = useSavedFloats();
+  const { fontScale } = useWindowDimensions();
+  const stacked = fontScale > 1.3;
+  const [actions] = useState(createPlanActions);
+  useSyncExternalStore(actions.subscribe, actions.getSnapshot, actions.getSnapshot);
   const { step, putIn, takeOut, plan, calculating, error } = state;
-
-  const onShare = useCallback(async () => {
-    if (!plan) return;
-    setSharing(true);
-    try {
-      const saved = await saveFloatPlan(plan);
-      // NOT remembered. Sharing a float writes a row server-side — that is how
-      // the link exists at all — but it says nothing about whether the sender
-      // wants to keep it, and filing every share under Favorites made that list
-      // a log of things sent rather than a list of things chosen. The star
-      // beside this button is where keeping happens now.
-      const time = floatTimeShareLabel(plan);
-      await Share.share({
-        message: `${plan.putIn.name} → ${plan.takeOut.name} on the ${plan.river.name} · ${plan.distance.formatted} · ${time}\n${saved.url}`,
-      });
-    } catch {
-      // A share that cannot be saved falls back to the numbers themselves.
-      // Losing the short link is worth far less than losing the share.
-      await Share.share({
-        message: `${plan.putIn.name} → ${plan.takeOut.name} on the ${plan.river.name} · ${plan.distance.formatted} · ${floatTimeShareLabel(plan)}`,
-      });
-    } finally {
-      setSharing(false);
-    }
-  }, [plan]);
-
+  const resultReady = Boolean(river && !riverLoading && step === 'result' && !calculating && !error && plan && plan.river.id === river.id);
   const saved = plan ? isSaved(plan) : false;
+  const actionState = plan ? actions.stateFor(plan) : null;
+  const saving = actionState?.saving ?? false;
+  const sharing = actions.isSharing();
 
-  /**
-   * Keep this float, or stop keeping it.
-   *
-   * ONE ROUND TRIP, and it is not optional. What Favorites stores is a stub —
-   * the river, the two ends, the date — and the plan itself is always re-read
-   * from the server when you open it, because a float kept in April and opened
-   * in July is the same stretch and completely different water. The server row
-   * is what makes that re-read possible, so keeping a float means asking for
-   * one. See the header of useSavedFloats.
-   *
-   * A failure says so and changes nothing. A star that fills in and then has
-   * nothing behind it is worse than a star that refuses.
-   */
-  const onToggleSave = useCallback(async () => {
-    if (!plan) return;
-    setSaveError(null);
-    if (saved) {
-      forgetPlan(plan);
-      return;
-    }
-    setSaving(true);
-    try {
-      remember(plan, await saveFloatPlan(plan));
-    } catch {
-      setSaveError('Could not save this float. Check your connection and try again.');
-    } finally {
-      setSaving(false);
-    }
-  }, [plan, saved, remember, forgetPlan]);
+  // Close/edit/recalculate invalidates a pending presentation, even if the
+  // same plan is reopened before its link arrives. Explicit saves still finish
+  // for their original plan; their busy/error state never moves to a new one.
+  useLayoutEffect(() => () => actions.cancelShare(), [actions, visible, plan, resultReady]);
+  const close = useCallback(() => {
+    actions.cancelShare();
+    onClose();
+  }, [actions, onClose]);
+  const onShare = useCallback(() => {
+    if (!plan || !visible || !resultReady) return;
+    return actions.share(plan, {
+      savePlan: saveFloatPlan,
+      present: (message) => Share.share({ message }),
+    });
+  }, [actions, plan, visible, resultReady]);
+  const onToggleSave = useCallback(() => {
+    if (!plan || !visible || !resultReady || !savedFloatsReady) return;
+    return actions.toggleSave(plan, { isSaved, forgetPlan, savePlan: saveFloatPlan, remember });
+  }, [actions, plan, visible, resultReady, savedFloatsReady, isSaved, forgetPlan, remember]);
+
+  const heading = (
+    <View style={styles.headText}>
+      <Text accessibilityRole="header" style={[styles.title, { color: colors.text }]}>Plan a float</Text>
+      <Text style={[styles.subtitle, { color: colors.textMuted }]}>{river?.name ?? 'Choose a river'}</Text>
+    </View>
+  );
+  const breadcrumb = river ? (
+    <Breadcrumb state={state} riverName={river.name} onChooseRiver={onClearRiver} stacked={stacked} />
+  ) : null;
+  // Large titles/names must scroll too: three full-size rows fixed above two
+  // persistent actions would leave no result viewport on a small iPhone.
+  const contentHeader = stacked ? <View style={styles.contentHeader}>{heading}{breadcrumb}</View> : undefined;
+  const actionErrors = [actionState?.saveError, actionState?.shareError].filter((message): message is string => Boolean(message));
 
   return (
     <Modal
       visible={visible}
       animationType="slide"
       presentationStyle="pageSheet"
-      onRequestClose={onClose}
+      onRequestClose={close}
     >
-      <View style={[styles.sheet, { backgroundColor: colors.bg }]}>
-        <View style={styles.head}>
-          <View style={styles.headText}>
-            <Text style={[styles.title, { color: colors.text }]}>Plan a float</Text>
-            <Text style={[styles.subtitle, { color: colors.textMuted }]}>
-              {river?.name ?? 'Choose a river'}
-            </Text>
-          </View>
-          <Pressable onPress={onClose} hitSlop={12} accessibilityRole="button" accessibilityLabel="Close">
+      <SafeAreaProvider>
+      <SafeAreaView edges={resultReady ? ['top', 'left', 'right'] : ['top', 'left', 'right', 'bottom']} style={[styles.sheet, { backgroundColor: colors.bg }]} onAccessibilityEscape={close}>
+        <View style={[styles.head, stacked && styles.compactHead]}>
+          {!stacked ? heading : null}
+          <Pressable onPress={close} style={styles.closeButton} accessibilityRole="button" accessibilityLabel="Close planner">
             <Ionicons name="close" size={26} color={colors.textMuted} />
           </Pressable>
         </View>
 
         {!river ? (
           <RiverList
+            header={contentHeader}
             rivers={rivers}
             loading={riversLoading}
             error={riversError}
@@ -199,16 +166,20 @@ export function PlanSheet({
             onSelect={onSelectRiver}
           />
         ) : (
-          <Breadcrumb state={state} riverName={river.name} onChooseRiver={onClearRiver} />
+          !stacked ? breadcrumb : null
         )}
 
         {!river ? null : riverLoading ? (
-          <View style={styles.centered}>
-            <ActivityIndicator color={colors.interactive} />
-            <Text style={[styles.calculating, { color: colors.textMuted }]}>Loading put-ins…</Text>
-          </View>
+          <ScrollView style={styles.flex} contentInsetAdjustmentBehavior="never" contentContainerStyle={styles.statusContent}>
+            {contentHeader}
+            <View style={styles.centered}>
+              <ActivityIndicator color={colors.interactive} />
+              <Text style={[styles.calculating, { color: colors.textMuted }]}>Loading put-ins…</Text>
+            </View>
+          </ScrollView>
         ) : step === 'put-in' ? (
           <AccessPointList
+            header={contentHeader}
             points={state.putInOptions}
             emptyMessage="This river has no mapped access points yet."
             onSelect={state.choosePutIn}
@@ -217,6 +188,7 @@ export function PlanSheet({
           />
         ) : step === 'take-out' ? (
           <AccessPointList
+            header={contentHeader}
             points={state.takeOutOptions}
             fromPoint={putIn}
             emptyMessage={`There is nothing downstream of ${putIn?.name ?? 'that put-in'}. Pick one further up the river.`}
@@ -224,126 +196,103 @@ export function PlanSheet({
             selectedId={takeOut?.id ?? null}
           />
         ) : calculating ? (
-          <View style={styles.centered}>
-            <ActivityIndicator color={colors.interactive} />
-            <Text style={[styles.calculating, { color: colors.textMuted }]}>
-              Checking current conditions and building your plan…
-            </Text>
-          </View>
+          <ScrollView style={styles.flex} contentInsetAdjustmentBehavior="never" contentContainerStyle={styles.statusContent}>
+            {contentHeader}
+            <View style={styles.centered}>
+              <ActivityIndicator color={colors.interactive} />
+              <Text style={[styles.calculating, { color: colors.textMuted }]}>
+                Checking current conditions and building your plan…
+              </Text>
+            </View>
+          </ScrollView>
         ) : error || !plan ? (
-          <View style={styles.centered}>
-            <Otter mood="flag" size={100} />
-            <Text style={[styles.errorText, { color: colors.text }]}>
-              {error ?? 'Could not build that float plan'}
-            </Text>
-            {putIn && takeOut ? (
-              <Pressable
-                onPress={() => state.planFloat(putIn, takeOut)}
-                style={[styles.primaryButton, styles.retryButton, { backgroundColor: colors.accentFill }]}
-                accessibilityRole="button"
-              >
-                <Text style={[styles.primaryButtonText, { color: colors.onAccent }]}>Try again</Text>
+          <ScrollView style={styles.flex} contentInsetAdjustmentBehavior="never" contentContainerStyle={styles.statusContent}>
+            {contentHeader}
+            <View style={styles.centered}>
+              <Otter mood="flag" size={100} />
+              <Text style={[styles.errorText, { color: colors.text }]}>
+                {error ?? 'Could not build that float plan'}
+              </Text>
+              {putIn && takeOut ? (
+                <Pressable
+                  onPress={() => state.planFloat(putIn, takeOut)}
+                  style={[styles.primaryButton, styles.retryButton, { backgroundColor: colors.accentFill }]}
+                  accessibilityRole="button"
+                >
+                  <Text style={[styles.primaryButtonText, { color: colors.onAccent }]}>Try again</Text>
+                </Pressable>
+              ) : null}
+              <Pressable onPress={() => state.goToStep('put-in')} style={styles.secondaryButton} accessibilityRole="button">
+                <Text style={[styles.link, { color: colors.interactive }]}>Change access points</Text>
               </Pressable>
-            ) : null}
-            <Pressable onPress={() => state.goToStep('put-in')} style={styles.secondaryButton} accessibilityRole="button">
-              <Text style={[styles.link, { color: colors.interactive }]}>Change access points</Text>
-            </Pressable>
-          </View>
+            </View>
+          </ScrollView>
         ) : (
           <PlanResult
             plan={plan}
             accessPoints={plan.river.id === river?.id ? accessPoints : undefined}
+            header={contentHeader}
             actions={
-              <View style={styles.actions}>
-                {/* Keep and Share, side by side and the same size, because they
-                    are two different intentions and neither is a side effect of
-                    the other. Share used to quietly do both. */}
-                <View style={styles.actionRow}>
-                  <Pressable
-                    onPress={() => void onToggleSave()}
-                    disabled={saving}
-                    style={({ pressed }) => [
-                      styles.saveButton,
-                      {
-                        borderColor: saved ? colors.warm : colors.border,
-                        backgroundColor: saved ? colors.cardRaised : 'transparent',
-                        opacity: pressed ? 0.6 : 1,
-                      },
-                    ]}
-                    accessibilityRole="button"
-                    accessibilityState={{ selected: saved }}
-                    accessibilityLabel={
-                      saved ? 'Remove this float from favorites' : 'Save this float to favorites'
-                    }
-                  >
-                    {saving ? (
-                      <ActivityIndicator color={colors.interactive} size="small" />
-                    ) : (
-                      <Ionicons
-                        name={saved ? 'star' : 'star-outline'}
-                        size={17}
-                        color={saved ? colors.warm : colors.textMuted}
-                      />
-                    )}
-                    <Text
-                      style={[
-                        styles.saveButtonText,
-                        { color: saved ? colors.text : colors.textMuted },
-                      ]}
-                      numberOfLines={1}
-                    >
-                      {saved ? 'Saved' : 'Save'}
-                    </Text>
-                  </Pressable>
-
-                  <Pressable
-                    onPress={() => void onShare()}
-                    disabled={sharing}
-                    style={({ pressed }) => [
-                      styles.primaryButton,
-                      {
-                        backgroundColor: pressed
-                          ? colors.accentFillPressed
-                          : colors.accentFill,
-                      },
-                    ]}
-                    accessibilityRole="button"
-                  >
-                    {sharing ? (
-                      <ActivityIndicator color={colors.onAccent} size="small" />
-                    ) : (
-                      <Ionicons name="share-outline" size={17} color={colors.onAccent} />
-                    )}
-                    <Text
-                      style={[styles.primaryButtonText, { color: colors.onAccent }]}
-                      numberOfLines={1}
-                    >
-                      Share
-                    </Text>
-                  </Pressable>
-                </View>
-
-                {saveError ? (
-                  <Text style={[styles.actionError, { color: colors.error }]}>{saveError}</Text>
-                ) : null}
-
-                <Pressable
-                  onPress={state.reset}
-                  style={({ pressed }) => [
-                    styles.secondaryButton,
-                    { borderColor: colors.border, opacity: pressed ? 0.6 : 1 },
-                  ]}
-                  accessibilityRole="button"
-                >
-                  <Text style={[styles.secondaryButtonText, { color: colors.textMuted }]}>
-                    Plan a different stretch
-                  </Text>
-                </Pressable>
-              </View>
+              <Pressable
+                onPress={state.reset}
+                style={({ pressed }) => [styles.secondaryButton, { borderColor: colors.border, opacity: pressed ? 0.6 : 1 }]}
+                accessibilityRole="button"
+              >
+                <Text style={[styles.secondaryButtonText, { color: colors.textMuted }]}>Plan a different stretch</Text>
+              </Pressable>
             }
           />
         )}
-      </View>
+        {resultReady ? (
+          <SafeAreaView edges={['bottom']} style={[styles.actionFooter, { backgroundColor: colors.chrome, borderTopColor: colors.border }]}>
+            {actionErrors.length > 0 ? (
+              <ScrollView style={styles.actionErrorArea} contentContainerStyle={styles.actionErrorContent}>
+                {actionErrors.map((message) => (
+                  <Text key={message} accessibilityRole="alert" accessibilityLiveRegion="polite" style={[styles.actionError, { color: colors.error }]}>{message}</Text>
+                ))}
+              </ScrollView>
+            ) : null}
+            <View style={[styles.actionRow, stacked && styles.actionRowStacked]}>
+              <Pressable
+                onPress={() => void onToggleSave()}
+                disabled={saving || !savedFloatsReady}
+                style={({ pressed }) => [styles.saveButton, stacked && styles.stackedButton, {
+                  borderColor: saved ? colors.warm : colors.border,
+                  backgroundColor: saved ? colors.cardRaised : colors.card,
+                  opacity: saving || !savedFloatsReady ? 0.7 : pressed ? 0.6 : 1,
+                }]}
+                accessibilityRole="button"
+                accessibilityState={{ selected: saved, disabled: saving || !savedFloatsReady, busy: saving }}
+                accessibilityLabel={saving ? 'Saving float' : saved ? 'Remove this float from favorites' : 'Save this float to favorites'}
+              >
+                {saving ? <ActivityIndicator color={colors.interactive} size="small" /> : (
+                  <Ionicons name={saved ? 'star' : 'star-outline'} size={17} color={saved ? colors.warm : colors.textMuted} />
+                )}
+                <Text style={[styles.saveButtonText, { color: saved ? colors.text : colors.textMuted }]}>
+                  {saving ? 'Saving…' : saved ? 'Saved' : 'Save'}
+                </Text>
+              </Pressable>
+              <Pressable
+                onPress={() => void onShare()}
+                disabled={sharing}
+                style={({ pressed }) => [styles.primaryButton, stacked && styles.stackedButton, {
+                  backgroundColor: pressed ? colors.accentFillPressed : colors.accentFill,
+                  opacity: sharing ? 0.7 : 1,
+                }]}
+                accessibilityRole="button"
+                accessibilityLabel={sharing ? 'Preparing to share float' : 'Share float'}
+                accessibilityState={{ disabled: sharing, busy: sharing }}
+              >
+                {sharing ? <ActivityIndicator color={colors.onAccent} size="small" /> : (
+                  <Ionicons name="share-outline" size={17} color={colors.onAccent} />
+                )}
+                <Text style={[styles.primaryButtonText, { color: colors.onAccent }]}>{sharing ? 'Sharing…' : 'Share'}</Text>
+              </Pressable>
+            </View>
+          </SafeAreaView>
+        ) : null}
+      </SafeAreaView>
+      </SafeAreaProvider>
     </Modal>
   );
 }
@@ -359,10 +308,12 @@ function Breadcrumb({
   state,
   riverName,
   onChooseRiver,
+  stacked,
 }: {
   state: FloatPlanState;
   riverName: string;
   onChooseRiver: () => void;
+  stacked: boolean;
 }) {
   const { colors } = useTheme();
   /**
@@ -386,7 +337,7 @@ function Breadcrumb({
   ];
 
   return (
-    <View style={[styles.breadcrumb, { borderBottomColor: colors.border }]}>
+    <View style={[styles.breadcrumb, stacked && styles.breadcrumbStacked, { borderBottomColor: colors.border }]}>
       {crumbs.map((crumb, index) => {
         const current = crumb.step !== 'river' && state.step === crumb.step;
         // A step is reachable once the one before it has an answer. Nothing
@@ -428,6 +379,7 @@ function Breadcrumb({
                than a tick was, and its mark is dimmed until it has an answer. */
             style={({ pressed }) => [
               styles.crumb,
+              stacked && styles.crumbStacked,
               {
                 borderColor: current
                   ? colors.interactive
@@ -440,6 +392,7 @@ function Breadcrumb({
             ]}
             accessibilityRole="button"
             accessibilityLabel={`${crumb.label}${crumb.value ? `: ${crumb.value}` : ', not chosen yet'}`}
+            accessibilityHint={reachable ? `Change ${crumb.label.toLowerCase()}` : undefined}
             accessibilityState={{ selected: current, disabled: !reachable }}
           >
             <EddySymbol
@@ -449,10 +402,11 @@ function Breadcrumb({
             />
             <View style={styles.crumbText}>
               <Text style={[styles.crumbLabel, { color: ink }]}>{crumb.label}</Text>
-              <Text style={[styles.crumbValue, { color: ink }]} numberOfLines={2}>
+              <Text style={[styles.crumbValue, { color: ink }]} numberOfLines={stacked ? undefined : 2}>
                 {crumb.value ?? (crumb.step === 'put-in' ? 'Where you launch' : 'Where you finish')}
               </Text>
             </View>
+            {stacked && reachable ? <Ionicons name="chevron-forward" size={17} color={ink} /> : null}
           </Pressable>
         );
       })}
@@ -461,6 +415,7 @@ function Breadcrumb({
 }
 
 function RiverList({
+  header,
   rivers,
   loading,
   error,
@@ -468,6 +423,7 @@ function RiverList({
   distances,
   onSelect,
 }: {
+  header?: ReactNode;
   rivers: RiverListItem[];
   loading: boolean;
   error: string | null;
@@ -479,22 +435,26 @@ function RiverList({
 
   if (rivers.length === 0) {
     return (
-      <View style={styles.centered}>
-        {loading ? <ActivityIndicator color={colors.interactive} /> : <EddyScene name="routePlanning" size={100} />}
-        <Text style={[styles.calculating, { color: colors.textMuted }]}>
-          {loading ? 'Loading rivers…' : error ? 'Could not load rivers. Check your connection and try again.' : 'No rivers are available to plan right now.'}
-        </Text>
-        {!loading ? (
-          <Pressable onPress={onRetry} style={styles.secondaryButton} accessibilityRole="button">
-            <Text style={[styles.link, { color: colors.interactive }]}>Try again</Text>
-          </Pressable>
-        ) : null}
-      </View>
+      <ScrollView style={styles.flex} contentInsetAdjustmentBehavior="never" contentContainerStyle={styles.statusContent}>
+        {header}
+        <View style={styles.centered}>
+          {loading ? <ActivityIndicator color={colors.interactive} /> : <EddyScene name="routePlanning" size={100} />}
+          <Text style={[styles.calculating, { color: colors.textMuted }]}>
+            {loading ? 'Loading rivers…' : error ? 'Could not load rivers. Check your connection and try again.' : 'No rivers are available to plan right now.'}
+          </Text>
+          {!loading ? (
+            <Pressable onPress={onRetry} style={styles.secondaryButton} accessibilityRole="button">
+              <Text style={[styles.link, { color: colors.interactive }]}>Try again</Text>
+            </Pressable>
+          ) : null}
+        </View>
+      </ScrollView>
     );
   }
 
   return (
-    <ScrollView contentContainerStyle={styles.list}>
+    <ScrollView style={styles.flex} contentInsetAdjustmentBehavior="never" contentContainerStyle={styles.list}>
+      {header}
       <Text style={[styles.pickerIntro, { color: colors.textMuted }]}>Where do you want to float?</Text>
       {rivers.map((river) => {
         const distance = distances?.get(river.slug) ?? null;
@@ -540,6 +500,7 @@ function RiverList({
 }
 
 function AccessPointList({
+  header,
   points,
   onSelect,
   selectedId,
@@ -547,6 +508,7 @@ function AccessPointList({
   fromPoint,
   userCoords,
 }: {
+  header?: ReactNode;
   points: MapAccessPoint[];
   onSelect: (point: MapAccessPoint) => void;
   selectedId: string | null;
@@ -583,19 +545,24 @@ function AccessPointList({
 
   if (points.length === 0) {
     return (
-      <View style={styles.centered}>
-        {/* Both messages this renders are about picking a point — no mapped
-            access points, or nothing downstream of the put-in — so it shows
-            Eddy over a map, not a mood for a river nobody has read.
-            The error branch above keeps the canonical `flag` otter. */}
-        <EddyScene name="routePlanning" size={100} />
-        <Text style={[styles.emptyText, { color: colors.textMuted }]}>{emptyMessage}</Text>
-      </View>
+      <ScrollView style={styles.flex} contentInsetAdjustmentBehavior="never" contentContainerStyle={styles.statusContent}>
+        {header}
+        <View style={styles.centered}>
+          {/* Both messages this renders are about picking a point — no mapped
+              access points, or nothing downstream of the put-in — so it shows
+              Eddy over a map, not a mood for a river nobody has read.
+              The error branch above keeps the canonical `flag` otter. */}
+          <EddyScene name="routePlanning" size={100} />
+          <Text style={[styles.emptyText, { color: colors.textMuted }]}>{emptyMessage}</Text>
+        </View>
+      </ScrollView>
     );
   }
 
   return (
     <FlatList
+      style={styles.flex}
+      contentInsetAdjustmentBehavior="never"
       data={ordered}
       keyExtractor={(point) => point.id}
       contentContainerStyle={styles.accessList}
@@ -605,6 +572,7 @@ function AccessPointList({
       extraData={selectedId}
       ListHeaderComponent={
         <View>
+          {header}
           {distances ? (
             <Pressable
               onPress={() => setNearestFirst((prev) => !prev)}
@@ -737,6 +705,11 @@ function AccessPointList({
 
 const styles = StyleSheet.create({
   sheet: { flex: 1 },
+  flex: { flex: 1 },
+  statusContent: { flexGrow: 1, padding: 16 },
+  contentHeader: { gap: 12, marginBottom: 12 },
+  compactHead: { paddingTop: 4, paddingBottom: 4, justifyContent: 'flex-end' },
+  closeButton: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center', marginLeft: 8 },
   head: {
     flexDirection: 'row',
     alignItems: 'flex-start',
@@ -745,7 +718,7 @@ const styles = StyleSheet.create({
     paddingTop: 18,
     paddingBottom: 10,
   },
-  headText: { flex: 1 },
+  headText: { flexShrink: 1 },
   title: { ...t['2xl'], fontFamily: fonts.display },
   subtitle: { ...t.sm, fontFamily: fonts.body, marginTop: 1 },
   breadcrumb: {
@@ -763,6 +736,8 @@ const styles = StyleSheet.create({
     // than into the gaps, where it only separated the pills from each other.
     gap: 8,
   },
+  breadcrumbStacked: { flexDirection: 'column', paddingHorizontal: 0, borderBottomWidth: 0 },
+  crumbStacked: { flex: 0, justifyContent: 'flex-start', paddingHorizontal: 12, gap: 12 },
   crumb: {
     flex: 1,
     minWidth: 0,
@@ -815,14 +790,18 @@ const styles = StyleSheet.create({
     minHeight: 44,
   },
   sortText: { ...t.sm, fontFamily: fonts.semibold },
-  centered: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 32, gap: 12 },
+  centered: { flexGrow: 1, flexShrink: 0, alignItems: 'center', justifyContent: 'center', padding: 32, gap: 12 },
   calculating: { ...t.sm, fontFamily: fonts.body, textAlign: 'center' },
   emptyText: { ...t.sm, fontFamily: fonts.body, textAlign: 'center' },
   errorText: { ...t.base, fontFamily: fonts.semibold, textAlign: 'center' },
   link: { ...t.base, fontFamily: fonts.semibold },
-  actions: { gap: 10, marginTop: 6 },
+  actionFooter: { flexShrink: 0, paddingHorizontal: 16, paddingVertical: 12, borderTopWidth: StyleSheet.hairlineWidth, gap: 8 },
+  actionErrorArea: { maxHeight: 96, flexShrink: 1 },
+  actionErrorContent: { paddingVertical: 4, gap: 8 },
   retryButton: { flex: 0, paddingHorizontal: 24, minHeight: 44 },
-  actionRow: { flexDirection: 'row', gap: 10 },
+  actionRow: { flexDirection: 'row', gap: 12 },
+  actionRowStacked: { flexDirection: 'column' },
+  stackedButton: { flex: 0 },
   // Both flex:1, so the two intentions carry the same weight. Share keeps the
   // accent — it is still the thing most people do with a finished plan — and
   // Save is outlined until it is on, when it wears the star's own warm edge.
@@ -832,22 +811,26 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    paddingVertical: 14,
+    paddingVertical: 12,
+    paddingHorizontal: 12,
+    minHeight: 48,
     borderRadius: 12,
     borderWidth: 1,
   },
-  saveButtonText: { ...t.base, fontFamily: fonts.heading },
+  saveButtonText: { ...t.base, fontFamily: fonts.heading, flexShrink: 1, textAlign: 'center' },
   primaryButton: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    paddingVertical: 14,
+    paddingVertical: 12,
+    paddingHorizontal: 12,
+    minHeight: 48,
     borderRadius: 12,
   },
-  primaryButtonText: { ...t.base, fontFamily: fonts.heading },
-  actionError: { ...t.xs, fontFamily: fonts.body, textAlign: 'center' },
-  secondaryButton: { alignItems: 'center', paddingVertical: 12, borderRadius: 12, borderWidth: 1 },
-  secondaryButtonText: { ...t.sm, fontFamily: fonts.semibold },
+  primaryButtonText: { ...t.base, fontFamily: fonts.heading, flexShrink: 1, textAlign: 'center' },
+  actionError: { ...t.sm, fontFamily: fonts.body, textAlign: 'center' },
+  secondaryButton: { minHeight: 44, alignItems: 'center', paddingVertical: 12, borderRadius: 12, borderWidth: 1 },
+  secondaryButtonText: { ...t.sm, fontFamily: fonts.semibold, textAlign: 'center' },
 });

@@ -28,7 +28,7 @@
 // retain the existing regulated-water and dangerous-water explanations.
 
 import type { ReactNode } from 'react';
-import { Linking, Pressable, ScrollView, StyleSheet, Text, View, type ScrollViewProps } from 'react-native';
+import { Linking, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View, type ScrollViewProps } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import type { FloatPlan, MapAccessPoint } from '@eddy/types';
 import { hazardConditionCode, hazardTypeLabel, portageNote, sortHazards } from '@eddy/hazards';
@@ -66,9 +66,10 @@ interface Props {
 
 export function PlanResult({ plan, actions, accessPoints, header, contentInsetAdjustmentBehavior = 'never' }: Props) {
   const { colors, elevation, isDark } = useTheme();
+  const { fontScale } = useWindowDimensions();
 
   return (
-    <ScrollView contentInsetAdjustmentBehavior={contentInsetAdjustmentBehavior} contentContainerStyle={styles.body}>
+    <ScrollView style={styles.scroll} contentInsetAdjustmentBehavior={contentInsetAdjustmentBehavior} contentContainerStyle={styles.body}>
       {header}
       {/* Warnings sit ABOVE the numbers on purpose. Everything below is a plan;
           this is the reason the plan might be wrong, or the reason not to go. */}
@@ -107,7 +108,7 @@ export function PlanResult({ plan, actions, accessPoints, header, contentInsetAd
           it. See git history for the removed component. */}
       <View style={[styles.card, { backgroundColor: colors.card }, elevation(2)]}>
         <View style={styles.segmentRow}>
-          <Text style={[styles.segment, { color: colors.textMuted }]} numberOfLines={2}>
+          <Text style={[styles.segment, { color: colors.textMuted }]} numberOfLines={fontScale > 1.3 ? undefined : 2}>
             {plan.putIn.name} → {plan.takeOut.name}
           </Text>
           <Text style={[styles.segmentDistance, { color: colors.text }]}>
@@ -362,6 +363,7 @@ function GaugeSourceLink({ plan }: { plan: FloatPlan }) {
 }
 
 const styles = StyleSheet.create({
+  scroll: { flex: 1 },
   body: { padding: 16, paddingBottom: 40 },
   warnings: { borderRadius: 12, borderWidth: 1, padding: 12, marginBottom: 10, gap: 8 },
   warningRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 8 },
