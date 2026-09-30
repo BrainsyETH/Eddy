@@ -44,7 +44,10 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  Keyboard,
+  KeyboardAvoidingView,
   Linking,
+  Platform,
   Pressable,
   StyleSheet,
   Text,
@@ -57,7 +60,8 @@ import Animated, {
   useAnimatedStyle,
   useSharedValue,
 } from 'react-native-reanimated';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import type {
   FloatPlan,
@@ -81,7 +85,7 @@ import {
 import { ApiError, fetchRiverAccessPoints, fetchRivers } from '@/api/client';
 import { floatableRank } from '@/theme/conditions';
 import { useTheme } from '@/theme/ThemeProvider';
-import { fonts, textStyles, type as t } from '@/theme/typography';
+import { fonts, type as t } from '@/theme/typography';
 import {
   mapAccessPointPin,
   mapCampgroundServicePin,
@@ -164,6 +168,7 @@ import { PinSheet } from '@/components/map-sheet/PinSheet';
 import { RiverSheetPanel } from '@/components/map-sheet/RiverSheetPanel';
 import type { SheetMetrics } from '@/components/map-sheet/MapSheet';
 import { ORNAMENT_BAND } from '@/components/map-sheet/sheetGeometry';
+import { MAP_CONTROLS_ROOM_MIN, MAP_EDGE_GAP, mapLayout } from '@/map/mapLayout';
 
 /**
  * How far above the ornament band everything floating has to sit.
@@ -203,7 +208,6 @@ const PLAN_CLUSTER_BOTTOM = 16;
  * last part of a drag to the tallest detent takes them out smoothly instead of
  * blinking them off on settle.
  */
-const CONTROLS_ROOM_MIN = MAP_CHROME_BOTTOM + 44 + 12;
 const CONTROLS_ROOM_FADE = 60;
 
 /**
@@ -390,10 +394,13 @@ export default function MapScreen() {
   );
   const [rivers, setRivers] = useState<RiverListItem[] | null>(null);
   const [pickedSlug, setPickedSlug] = useState<string | null>(null);
-  // A tab page is exactly as wide as the sheet, which is full-bleed over the
-  // map. Read from the window rather than measured so it survives a rotation
-  // without a layout round-trip.
-  const { width: windowWidth, height: windowHeight } = useWindowDimensions();
+  // Measure the tab scene, not the full window: the navigator already owns
+  // the tab bar and home-indicator area. The canvas extends under the top inset.
+  const { width: windowWidth } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
+  const [mapSize, setMapSize] = useState({ width: 0, height: 0 });
+  const [chromeHeight, setChromeHeight] = useState(0);
+  const [searchFocused, setSearchFocused] = useState(false);
   const [accessPoints, setAccessPoints] = useState<MapAccessPoint[]>([]);
   // Planner data is tagged separately from what the map is drawing. The map
   // deliberately keeps the previous river visible during a switch; the planner
@@ -1262,8 +1269,16 @@ export default function MapScreen() {
     services,
   });
 
+  const mapSearchOpen = searchFocused || search.query.length > 0;
   const clearSearch = search.clear;
+  const cancelMapSearch = useCallback(() => {
+    clearSearch();
+    setSearchFocused(false);
+    Keyboard.dismiss();
+  }, [clearSearch]);
   const onSelectResult = useCallback((result: SearchResult) => {
+    Keyboard.dismiss();
+    setSearchFocused(false);
     clearSearch();
     setSelectedPin(null);
     if (result.kind === 'access_point' && result.riverSlug) {
@@ -1781,16 +1796,31 @@ export default function MapScreen() {
    * two things that read this are a native camera prop and a layout offset,
    * and neither wants sixty writes a second.
    */
-  const [sheet, setSheet] = useState<{ detent: string; height: number }>({
+  const sheetKey = mapSearchOpen ? null
+    : selectedPin ? `pin:${selectedPin.id}`
+      : riverSheetData ? `river:${riverSheetData.slug}` : null;
+  const sheetOpen = sheetKey !== null;
+  const [sheet, setSheet] = useState<{ key: string | null; detent: string; height: number; ready: boolean }>({
+    key: sheetKey,
     detent: 'peek',
     height: 0,
+    ready: false,
   });
+  // Invalidate a previous selection's measurement before its camera command
+  // can run. Retain the visual height while the replacement sheet measures;
+  // closing/searching clears it, including reopening the same selection.
+  if (sheet.key !== sheetKey) {
+    setSheet({ key: sheetKey, detent: 'peek', height: sheetKey ? sheet.height : 0, ready: false });
+  }
   const onSheetDetentChange = useCallback(
     (detent: string, height: number) =>
-      setSheet((current) =>
-        current.detent === detent && current.height === height ? current : { detent, height },
-      ),
-    [],
+      setSheet((current) => {
+        // Ignore a queued notification from the sheet that just closed.
+        if (current.key !== sheetKey) return current;
+        return current.ready && current.detent === detent && current.height === height
+          ? current : { key: sheetKey, detent, height, ready: height > 0 };
+      }),
+    [sheetKey],
   );
 
   /**
@@ -1832,21 +1862,17 @@ export default function MapScreen() {
   const controlsStyle = useAnimatedStyle(() => {
     const { height, available } = sheetMetrics.value;
     if (available <= 0) return { opacity: 1, transform: [{ translateY: 0 }] };
-    const room = available - height;
+    const room = available - height - chromeHeight;
     return {
       opacity: interpolate(
         room,
-        [CONTROLS_ROOM_MIN, CONTROLS_ROOM_MIN + CONTROLS_ROOM_FADE],
+        [MAP_CONTROLS_ROOM_MIN, MAP_CONTROLS_ROOM_MIN + CONTROLS_ROOM_FADE],
         [0, 1],
         Extrapolation.CLAMP,
       ),
       transform: [{ translateY: -height }],
     };
   });
-
-  const sheetOpen = Boolean(
-    !search.active && (selectedPin || (riverSheetData && !selectedPin)),
-  );
 
   const onPlanToNearby = useCallback(
     (nearby: NearbyAccessPoint, from: MapAccessPoint) => {
@@ -2681,7 +2707,27 @@ export default function MapScreen() {
     [router],
   );
 
-  const expandedAccessSheet = Boolean(sheetOpen && pinAccessPoint && sheet.detent === 'full');
+  const geometry = useMemo(() => mapLayout({
+    width: mapSize.width || windowWidth,
+    height: mapSize.height,
+    safeTop: insets.top,
+    safeLeft: insets.left,
+    safeRight: insets.right,
+    chromeHeight,
+    sheetHeight: sheetOpen ? sheet.height : 0,
+  }), [mapSize, windowWidth, insets.top, insets.left, insets.right, chromeHeight, sheetOpen, sheet.height]);
+  const topChromeStyle = useAnimatedStyle(() => {
+    const { height, available } = sheetMetrics.value;
+    if (available <= 0 || mapSearchOpen) return { opacity: 1 };
+    // Fade before the sheet's attribution band reaches search. Keep the row
+    // mounted/measured so expanding a sheet never resizes the map or detents.
+    return { opacity: interpolate(
+      available - height,
+      [ORNAMENT_BAND + chromeHeight, ORNAMENT_BAND + chromeHeight + 24],
+      [0, 1],
+      Extrapolation.CLAMP,
+    ) };
+  });
 
   // NOTHING ON THIS SCREEN IS GATED. The offline download was the Map tab's
   // only paid feature and its only reason to know about entitlement, so the
@@ -2689,79 +2735,18 @@ export default function MapScreen() {
   // with it. Everything the map shows — the network, put-ins, hazards, gauges,
   // conditions — is free and always has been.
   return (
-    <SafeAreaView style={[styles.screen, { backgroundColor: colors.bg }]} edges={['top']}>
-      {/* ── ONE IDENTITY SURFACE, AND IT IS THE SHEET ──────────────────────
-          A selected river used to be announced twice at once: here, as a dot,
-          a name, a condition, a chevron to the river screen and a ✕; and again
-          in the river sheet, which carries the name, the region, the access
-          count, "Open {river}" and its own close. Two surfaces claiming the
-          same selection, one of them spending map height on it, and no way to
-          tell which owned it.
-
-          The sheet won, because it is the thing the selection produced. It now
-          carries identity, the condition and the way out — see RiverHead — and
-          its close clears the river rather than merely hiding the sheet.
-
-          This also retired a wrong-action bug of the kind PlaceHead documents:
-          the two controls here carried hitSlop 8 and hitSlop 14 across a 12pt
-          gap, so their expanded regions OVERLAPPED by 10pt, and iOS hit-tests
-          later siblings first — the clear ✕ won a band of taps aimed at the
-          chevron. */}
-      {/* Full access details reclaim the title/search space. The map remains
-          mounted and its attribution band stays visible above the sheet. */}
-      <View
-        style={expandedAccessSheet ? { display: 'none' } : undefined}
-        accessibilityElementsHidden={expandedAccessSheet}
-      >
-        <View style={styles.header}>
-          <Text style={[styles.title, { color: colors.text }]}>Map</Text>
-        </View>
-
-        <View style={styles.searchRow}>
-          <SearchBar
-            value={search.query}
-            onChangeText={search.setQuery}
-            placeholder="Search rivers, gauges, dams and more"
-            // Gauges and services are matched locally, so both lists have to
-            // exist before the first keystroke rather than after the first
-            // query. Services especially: the placeholder and the empty state
-            // both promise outfitters, and with all three service layers off
-            // nothing else would ever have fetched them — "Akers Ferry" answered
-            // "Nothing matched" while the directory sat unrequested.
-            onFocus={() => {
-              ensureGauges();
-              ensureServices();
-            }}
-          />
-        </View>
-
-      </View>
-
-      {/* ── Why the rivers are grey ──
-          The one thing that ever occupied this strip is now the only thing
-          that earns it. Every line drawn in the `unknown` grey is normally a
-          river nobody can grade; when the readings request itself failed they
-          ALL are, and the map is presenting "we could not ask" in the same ink
-          it uses for a verdict. That state shipped silently once — a null site
-          id from a dam station 400'd the whole USGS batch and twenty-four
-          rivers went grey with no explanation anywhere — so it says so now.
-
-          Not an error banner over a working map: the geometry, the pins, the
-          plan flow and the access points are all unaffected, and the only
-          claim being withdrawn is the colour. */}
-      {network.readingsFailed && !unavailable ? (
-        <View style={[styles.readingsNotice, { backgroundColor: colors.cardRaised }]}>
-          <Ionicons name="cloud-offline-outline" size={14} color={colors.textMuted} />
-          <Text style={[styles.readingsNoticeText, { color: colors.textMuted }]}>
-            Live conditions unavailable — rivers are shown uncoloured.
-          </Text>
-        </View>
-      ) : null}
-
-      <View style={styles.mapArea}>
+    <View style={[styles.screen, { backgroundColor: colors.bg }]}>
+      {/* Outdoors is a light basemap even in dark appearance. Restore the
+          app's status-bar style on blur; never paint a band over the map. */}
+      {isFocused && !planOpen && !layersOpen && !unavailable && network.collection.features.length > 0 ? <StatusBar style="dark" /> : null}
+      <View style={styles.mapArea} onLayout={({ nativeEvent: { layout } }) => {
+        const width = Math.round(layout.width);
+        const height = Math.round(layout.height);
+        setMapSize((current) => current.width === width && current.height === height ? current : { width, height });
+      }}>
         {unavailable ? (
           <MapUnavailable reason={unavailable} />
-        ) : !network.collection.features.length ? (
+        ) : !network.collection.features.length || mapSize.height <= 0 || chromeHeight <= 0 ? (
           // The spinner is for a COLD map — neither the network nor a river has
           // arrived. Once either has, the map draws: switching rivers keeps the
           // one already on screen until the next lands, and a river loading over
@@ -2771,17 +2756,11 @@ export default function MapScreen() {
           </View>
         ) : (
           <RiverMap
-            // Frame the selection into what the sheet leaves visible. Clamped
-            // to 55% of the map: past that Mapbox's framing gets unreliable,
-            // and at the tallest detent the map is not visible anyway, so
-            // there is nothing left to keep in view.
-            cameraPaddingBottom={
-              sheetOpen ? Math.min(sheet.height, Math.round(windowHeight * 0.55)) : 0
-            }
-            // NOT the clamped number above. Framing may give up past 55%
-            // because there is nothing useful left to frame into; attribution
-            // may not, because it is a term of the licence. See the prop.
-            ornamentBottomInset={sheetOpen ? sheet.height : 0}
+            cameraPadding={geometry.cameraPadding}
+            sheetReady={sheetOpen && sheet.ready}
+            // Attribution clears the full sheet, independently of camera caps.
+            ornamentBottomInset={geometry.ornamentBottom}
+            ornamentLeftInset={insets.left}
             river={mapRiver}
             milePosts={riverMilePosts}
             conditionCode={conditionCode}
@@ -2813,83 +2792,94 @@ export default function MapScreen() {
           />
         )}
 
-        {/* THERE IS NO LOADING PILL ANY MORE. It existed to name the river whose
-            geometry was in flight while the previous one stayed on screen, and
-            nothing is in flight: a selected river's line is already in memory,
-            from the statewide dataset the map opened with. A pill that could
-            only ever appear for one frame is a flicker, not a signal. */}
+        {/* Keyboard avoidance belongs to the search overlay, never the canvas. */}
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          style={[styles.topOverlay, {
+            top: geometry.sheetTop,
+            left: insets.left + 16,
+            right: insets.right + 16,
+          }]}
+          pointerEvents="box-none"
+          onAccessibilityEscape={mapSearchOpen ? cancelMapSearch : undefined}
+        >
+          <Animated.View
+            style={topChromeStyle}
+            pointerEvents={geometry.chromeHidden ? 'none' : 'box-none'}
+            accessibilityElementsHidden={geometry.chromeHidden}
+            importantForAccessibility={geometry.chromeHidden ? 'no-hide-descendants' : 'auto'}
+            onLayout={({ nativeEvent: { layout } }) => {
+              const height = Math.ceil(layout.height);
+              setChromeHeight((current) => current === height ? current : height);
+            }}
+          >
+            <View style={styles.searchRow} pointerEvents="box-none">
+              <View style={[styles.searchField, floating()]}>
+                <SearchBar
+                  value={search.query}
+                  onChangeText={search.setQuery}
+                  placeholder="Search rivers, gauges, dams and more"
+                  onFocus={() => {
+                    setSearchFocused(true);
+                    ensureGauges();
+                    ensureServices();
+                  }}
+                  onBlur={() => setSearchFocused(false)}
+                />
+              </View>
+              {mapSearchOpen ? (
+                <Pressable onPress={cancelMapSearch} accessibilityRole="button"
+                  style={({ pressed }) => [styles.cancelSearch, floating(), { backgroundColor: colors.card, opacity: pressed ? 0.6 : 1 }]}>
+                  <Text style={[styles.cancelSearchText, { color: colors.interactive }]}>Cancel</Text>
+                </Pressable>
+              ) : !unavailable ? (
+                <MapLayersButton onPress={() => setLayersOpen(true)} changed={!isDefaultLayers(layers) || gaugeFilter.size > 0} />
+              ) : null}
+            </View>
+            {network.readingsFailed && !unavailable ? (
+              <View style={[styles.readingsNotice, { backgroundColor: colors.cardRaised }]}>
+                <Ionicons name="cloud-offline-outline" size={14} color={colors.textMuted} />
+                <Text style={[styles.readingsNoticeText, { color: colors.textMuted }]}>
+                  Live conditions unavailable — rivers are shown uncoloured.
+                </Text>
+              </View>
+            ) : null}
+            {riversError ? (
+              <View style={[styles.readingsNotice, { backgroundColor: colors.card }]}>
+                <Text style={[styles.readingsNoticeText, { color: colors.error }]}>{riversError}</Text>
+              </View>
+            ) : null}
+          </Animated.View>
+          {search.active ? (
+            <View style={styles.resultsOverlay} pointerEvents="box-none">
+              <SearchResultsList
+                results={search.results}
+                onSelect={onSelectResult}
+                loading={search.searching}
+                // "Couldn't search" and "nothing matched" are different claims,
+                // and the second used to stand in for the first: with the server
+                // half backed off, a put-in name found nothing and the message
+                // blamed the data. Access points live server-side only, so the
+                // honest message names what is still being searched.
+                //
+                // And "couldn't search" is itself two claims. A phone with no
+                // signal should be told to check its connection; a phone on a
+                // good connection whose request came back a 500 — or the 404 an
+                // older deploy answers — should not, because the fault is not
+                // on its end and the advice sends somebody to the wrong place.
+                // The hook says which it was.
+                emptyMessage={
+                  search.serverFailure === 'offline'
+                    ? 'Search is unreachable right now — only what the map already holds can match. Check your connection.'
+                    : search.serverFailure === 'server'
+                      ? 'Search isn’t answering right now — only what the map already holds can match. Try again in a moment.'
+                      : 'Nothing matched. Try a river, gauge, access point, dam or outfitter.'
+                }
+              />
+            </View>
+          ) : null}
+        </KeyboardAvoidingView>
 
-        {/* Results overlay the map rather than pushing it down, so the map keeps
-            its size and the list can be dismissed by clearing the field. */}
-        {search.active ? (
-          <View style={styles.resultsOverlay} pointerEvents="box-none">
-            <SearchResultsList
-              results={search.results}
-              onSelect={onSelectResult}
-              loading={search.searching}
-              // "Couldn't search" and "nothing matched" are different claims,
-              // and the second used to stand in for the first: with the server
-              // half backed off, a put-in name found nothing and the message
-              // blamed the data. Access points live server-side only, so the
-              // honest message names what is still being searched.
-              //
-              // And "couldn't search" is itself two claims. A phone with no
-              // signal should be told to check its connection; a phone on a
-              // good connection whose request came back a 500 — or the 404 an
-              // older deploy answers — should not, because the fault is not
-              // on its end and the advice sends somebody to the wrong place.
-              // The hook says which it was.
-              emptyMessage={
-                search.serverFailure === 'offline'
-                  ? 'Search is unreachable right now — only what the map already holds can match. Check your connection.'
-                  : search.serverFailure === 'server'
-                    ? 'Search isn’t answering right now — only what the map already holds can match. Try again in a moment.'
-                    : 'Nothing matched. Try a river, gauge, access point, dam or outfitter.'
-              }
-            />
-          </View>
-        ) : null}
-
-        {/* Layers. Top-right, opposite the search results, and the reason the
-            map got a band of its height back — see MapLayersSheet.
-
-            Both buttons need the map to be up, but NOT a selected river: the
-            network is filterable and the gauge layer is statewide, so gating
-            these on `detail` would have hidden them on the opening screen. */}
-        {!unavailable && !search.active ? (
-          <MapLayersButton
-            onPress={() => setLayersOpen(true)}
-            // The gauge filter counts too: a map narrowed to one flow band
-            // with no dot anywhere reads as gauges having gone missing — the
-            // exact complaint that keeps the filter from being persisted.
-            changed={!isDefaultLayers(layers) || gaugeFilter.size > 0}
-          />
-        ) : null}
-
-
-        {/* ── The bottom stack ──────────────────────────────────────────
-            One bottom-anchored column holding the callout and the map controls,
-            rather than three overlays each anchored to the screen edge on their
-            own. The column has no `top`, so it sizes to its content and grows
-            UPWARD from MAP_CHROME_BOTTOM — which is what makes it correct by
-            construction for a 115pt access-point callout and a 251pt
-            gauge-with-a-qualifier-note alike.
-
-            This replaces `bottom: selectedPin ? 110 : 16` on the plan button,
-            which handed 94pt of clearance to a callout whose SHORTEST variant is
-            115pt. It overlapped every pin type, and a gauge — the only pin
-            carrying a large reading row — by 59pt or more. No constant could
-            have been right, because the height depends on what was tapped.
-
-            THE CALLOUT COMES FIRST, so the controls sit BELOW whatever you
-            selected. Locate and Plan a float are the same two buttons wherever
-            you are on this screen; a selection is transient and specific, and
-            putting it under the controls made them jump to a new position on
-            every tap. Fixed chrome at the bottom, the answer above it.
-
-            `gap` rather than a margin: it applies only BETWEEN children, so with
-            no callout the row sits flush at the ornament band and nothing adds
-            phantom space. */}
         {/* ── The controls ride the sheet ────────────────────────────────
             Lifted by however tall the sheet is, rather than hidden under it.
             They were hidden because the sheet is a full-width gesture surface
@@ -2909,14 +2899,12 @@ export default function MapScreen() {
             cleared the sheet and nothing else; the ornaments ride the sheet
             too now, so 12 would have landed the locate button on the (i).
 
-            At the tallest detent there is no room left above the sheet, so they
-            do genuinely go away there and only there — and that stays a settled
-            decision, because the fade has already taken them to nothing by the
-            time it happens and a per-frame pointerEvents would be a React write
-            on every frame of a drag. */}
-        {sheetOpen && sheet.detent === 'full' ? null : (
+            When search and the sheet leave too little room, remove the settled
+            controls from hit testing and VoiceOver as well. The fade itself
+            still follows the drag on the UI thread. */}
+        {geometry.controlsHidden ? null : (
         <Animated.View
-          style={[styles.bottomStack, controlsStyle]}
+          style={[styles.bottomStack, { left: insets.left, right: insets.right }, controlsStyle]}
           pointerEvents="box-none"
         >
           <View style={styles.controlRow} pointerEvents="box-none">
@@ -2924,7 +2912,7 @@ export default function MapScreen() {
               this screen — see useLocation for why the prompt is never spent on
               launch. A granted tap recentres; the map keeps the fix for the rest
               of the session and hands it to the planner. */}
-          {!unavailable && !search.active ? (
+          {!unavailable && !mapSearchOpen ? (
             <Pressable
               onPress={onLocate}
               disabled={location.status === 'locating'}
@@ -2987,9 +2975,9 @@ export default function MapScreen() {
             button reads "View float" and RESUMES state the reader already
             built, which competes with nothing: the sheet has no way back to an
             existing plan, so hiding it there would strand it. */}
-        {sheetOpen && (sheet.detent === 'full' || !planner.plan) ? null : (
+        {geometry.controlsHidden || (sheetOpen && !planner.plan) ? null : (
         <Animated.View
-          style={[styles.planCluster, controlsStyle]}
+          style={[styles.planCluster, { left: insets.left + 16, right: insets.right + 12 }, controlsStyle]}
           pointerEvents="box-none"
         >
           {/* CLEAR THE PLAN. The plan deliberately outlives its sheet — you
@@ -2999,7 +2987,7 @@ export default function MapScreen() {
               which reads as starting another one, not discarding this one. So
               someone who just wanted a clean map had no reason to open the
               planner at all. It belongs where the plan is visible. */}
-          {!unavailable && planner.plan && !search.active ? (
+          {!unavailable && planner.plan && !mapSearchOpen ? (
             <Pressable
               onPress={() => {
                 planner.reset();
@@ -3020,7 +3008,7 @@ export default function MapScreen() {
           {/* The screen's one primary action, floated over the map so the map
               keeps every pixel it can. It changes label rather than multiplying:
               once a plan exists this is how you get back to it. */}
-          {!unavailable && !search.active ? (
+          {!unavailable && !mapSearchOpen ? (
             <Pressable
               onPress={() => setPlanOpen(true)}
               style={({ pressed }) => [
@@ -3058,23 +3046,6 @@ export default function MapScreen() {
         </Animated.View>
         )}
 
-        {/* ── The sheet ─────────────────────────────────────────────────
-            OUT of the bottom stack, which sized itself to the callout and
-            grew upward from the ornament band. A sheet is not a member of
-            that column: it spans the whole map area and slides, so the stack
-            now holds only the fixed chrome it was always about.
-
-            RENDERED LAST, so it draws over the map's own controls — and
-            because it is a full-width gesture surface at the bottom of the
-            screen, it does not merely overlap them, it takes their touches.
-            An earlier version of this comment claimed they stayed reachable
-            at the glance. They do not: the peek occupies exactly the band
-            Locate and Plan a float sit in.
-
-            So they are HIDDEN while a sheet is open, rather than left under it
-            to be tapped at and not respond. Both remain a close away, and for
-            an access point the plan action is already on the sheet itself —
-            which is the more direct route to it than the floating button was. */}
         {/* ── The river sheet ───────────────────────────────────────────
             Shown when a river is selected and NO pin is. A pin belongs to a
             river, so both at once would be two sheets arguing about the same
@@ -3086,10 +3057,11 @@ export default function MapScreen() {
             set the slug, closed any callout and cleared the focus, and the only
             thing that appeared was a header chip whose one action was to leave
             the screen. */}
-        {riverSheetData && !selectedPin && !search.active ? (
+        <View style={[styles.sheetHost, { top: geometry.sheetTop, left: insets.left, right: insets.right }]} pointerEvents="box-none">
+          {riverSheetData && !selectedPin && !mapSearchOpen ? (
             <RiverSheetPanel
               river={riverSheetData}
-              width={windowWidth}
+              width={geometry.sheetWidth}
               onClose={clearRiver}
               onOpenGauge={onOpenGauge}
               onOpenRiver={(slug) => router.push(`/river/${slug}`)}
@@ -3116,10 +3088,10 @@ export default function MapScreen() {
               onDetentChange={onSheetDetentChange}
               metrics={sheetMetrics}
             />
-        ) : null}
+          ) : null}
 
-        {selectedPin && !search.active ? (
-          <PinSheet
+          {selectedPin && !mapSearchOpen ? (
+            <PinSheet
               pin={selectedPin}
               accessPoint={pinAccessPoint}
               canSetTakeOut={
@@ -3199,18 +3171,13 @@ export default function MapScreen() {
                 if (pinAccessPoint) onPlanToNearby(nearby, pinAccessPoint);
               }}
               nearbyMarks={nearbyAccessMarks}
-              width={windowWidth}
+              width={geometry.sheetWidth}
               onDetentChange={onSheetDetentChange}
               metrics={sheetMetrics}
             />
-        ) : null}
+          ) : null}
+        </View>
       </View>
-
-      {riversError ? (
-        <Text style={[styles.errorText, { color: colors.error }]} numberOfLines={2}>
-          {riversError}
-        </Text>
-      ) : null}
 
       <MapLayersSheet
         visible={layersOpen}
@@ -3325,7 +3292,7 @@ export default function MapScreen() {
         userCoords={location.coords}
       />
 
-    </SafeAreaView>
+    </View>
   );
 }
 
@@ -3384,54 +3351,24 @@ function MapUnavailable({ reason }: { reason: 'expo-go' | 'missing-token' | 'loa
 // system away from DESIGN.md §3, which is a worse trade than one step up.
 const styles = StyleSheet.create({
   screen: { flex: 1 },
-  header: { paddingHorizontal: 20, paddingTop: 12 },
-  title: { ...textStyles.pageTitle },
-  // The name and the clear button, as one line. `space-between` rather than a
-  // gap so the × sits at the right margin instead of trailing the name, which
-  // is what keeps it in the same place on "Big River" and "North Fork of the
-  // White River" alike.
-  headerMeta: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 12,
-    marginTop: 4,
-  },
-  // flexShrink, so a long river name gives way to the × rather than pushing it
-  // off the right edge — the one control on this row that must always be there.
-  headerMetaMain: { flexDirection: 'row', alignItems: 'center', gap: 7, flexShrink: 1 },
-  dot: { width: 9, height: 9, borderRadius: 999 },
-  headerMetaText: { ...t.sm, fontFamily: fonts.body, flexShrink: 1 },
-  searchRow: { paddingHorizontal: 16, paddingTop: 12, paddingBottom: 10 },
-  // Above the map rather than over it, and one line tall. It is displacing the
-  // map by ~30pt, not the ~100pt the filter strip used to, and only in the
-  // state where the map has less to say than usual anyway.
+  topOverlay: { position: 'absolute', bottom: MAP_EDGE_GAP },
+  searchRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  searchField: { flex: 1, minWidth: 0, borderRadius: 12 },
+  cancelSearch: { minWidth: 44, minHeight: 44, paddingHorizontal: 8, paddingVertical: 10, borderRadius: 12, justifyContent: 'center' },
+  cancelSearchText: { ...t.sm, fontFamily: fonts.medium },
   readingsNotice: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 7,
-    marginHorizontal: 16,
-    marginBottom: 8,
+    marginTop: 8,
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: 10,
   },
   readingsNoticeText: { ...t.sm, fontFamily: fonts.body, flexShrink: 1 },
   mapArea: { flex: 1, overflow: 'hidden' },
-  resultsOverlay: { position: 'absolute', top: 10, left: 16, right: 16 },
-  // Top-centre: clear of the layers button on the right and of nothing on the
-  // left, and gone again the moment the river lands.
-  loadingPillWrap: { position: 'absolute', top: 16, left: 0, right: 0, alignItems: 'center' },
-  loadingPill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    paddingHorizontal: 13,
-    paddingVertical: 8,
-    borderRadius: 999,
-    maxWidth: '70%',
-  },
-  loadingPillText: { ...t.sm, fontFamily: fonts.semibold },
+  resultsOverlay: { flexShrink: 1, minHeight: 0, marginTop: 8 },
+  sheetHost: { position: 'absolute', bottom: 0 },
   centered: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 40 },
   unavailableTitle: { ...t.lg, fontFamily: fonts.semibold, marginTop: 10 },
   unavailableBody: { ...t.sm, fontFamily: fonts.body, textAlign: 'center', marginTop: 8 },
@@ -3482,7 +3419,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginRight: 8,
   },
-  calloutWrap: { paddingHorizontal: 16 },
   planButton: {
     flexDirection: 'row',
     // 55% OF THE CLUSTER, which is now a real width — see planCluster. Right-
@@ -3511,5 +3447,4 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  errorText: { ...t.sm, fontFamily: fonts.body, paddingHorizontal: 20, paddingTop: 8 },
 });

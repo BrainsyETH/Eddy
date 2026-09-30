@@ -35,8 +35,8 @@ export default function TabsLayout() {
   return (
     <Tabs
       screenOptions={{
-        // Every screen draws its own large title inside a top-edge SafeAreaView,
-        // so the navigator header would be a second "Map"/"Alerts" above it.
+        // Content screens own their titles; Map uses floating controls over its
+        // full canvas, so the tab navigator must not add another header.
         // `title` below is still used — it names the tab in the bar.
         headerShown: false,
         tabBarStyle: { backgroundColor: colors.chrome, borderTopColor: colors.border },

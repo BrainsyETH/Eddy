@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { tabScrollOffset } from '../../../eddy-ios/src/components/map-sheet/tabScrollOffset';
+import { mapLayout } from '../../../eddy-ios/src/map/mapLayout';
 import {
   CONTENT_BOTTOM_PAD,
   DISMISS_FRACTION,
@@ -24,6 +25,97 @@ import {
 //
 // A tall phone's map area, roughly: 844pt screen less the tab bar and insets.
 const TALL = 700;
+
+// Canvas sizes exclude the existing tab bar/home indicator, but include the
+// top safe area now that search floats over the map.
+const MAP_SCENES = [
+  { width: 375, height: 618, safeTop: 20 },
+  { width: 390, height: 761, safeTop: 59 },
+  { width: 430, height: 849, safeTop: 59 },
+];
+const MAP_CHROME = { safeLeft: 0, safeRight: 0, chromeHeight: 46, sheetHeight: 0 };
+
+test('map camera clears floating search, safe areas, and attribution on small and large phones', () => {
+  for (const scene of MAP_SCENES) {
+    const layout = mapLayout({ ...MAP_CHROME, ...scene });
+    const pad = layout.cameraPadding;
+    assert.ok(pad.paddingTop >= scene.safeTop + MAP_CHROME.chromeHeight + 8);
+    assert.ok(pad.paddingBottom >= ORNAMENT_BAND);
+    assert.ok(scene.height - pad.paddingTop - pad.paddingBottom >= 120);
+    assert.equal(layout.sheetWidth, scene.width);
+    assert.equal(layout.ornamentBottom, 0);
+    assert.equal(layout.chromeHidden, false);
+    assert.equal(layout.controlsHidden, false);
+  }
+});
+
+test('peek and half camera framing fits between search and the sheet attribution band', () => {
+  for (const scene of MAP_SCENES) {
+    const initial = mapLayout({ ...MAP_CHROME, ...scene });
+    const detents = resolveDetents(scene.height - initial.sheetTop, 1200);
+    for (const detent of ['peek', 'half'] as const) {
+      const sheetHeight = detents.height[detent];
+      const layout = mapLayout({ ...MAP_CHROME, ...scene, sheetHeight });
+      const pad = layout.cameraPadding;
+      assert.ok(pad.paddingTop >= scene.safeTop + MAP_CHROME.chromeHeight + 8);
+      assert.ok(pad.paddingBottom >= sheetHeight + ORNAMENT_BAND,
+        `${scene.width}pt phone at ${detent} frames underneath the sheet`);
+      assert.ok(scene.height - pad.paddingTop - pad.paddingBottom >= 120);
+      assert.equal(layout.ornamentBottom, sheetHeight);
+    }
+  }
+});
+
+test('full sheets retain attribution clearance even when camera padding must be capped', () => {
+  for (const scene of MAP_SCENES) {
+    const initial = mapLayout({ ...MAP_CHROME, ...scene });
+    const detents = resolveDetents(scene.height - initial.sheetTop, 1200);
+    const layout = mapLayout({ ...MAP_CHROME, ...scene, sheetHeight: detents.height.full });
+    assert.equal(layout.ornamentBottom, detents.height.full);
+    assert.ok(scene.height - layout.ornamentBottom - ORNAMENT_BAND >= layout.sheetTop);
+    assert.ok(scene.height - layout.cameraPadding.paddingTop - layout.cameraPadding.paddingBottom >= 120);
+    assert.ok(layout.cameraPadding.paddingBottom < layout.ornamentBottom);
+    assert.equal(layout.chromeHidden, true);
+    assert.equal(layout.controlsHidden, true);
+  }
+});
+
+test('larger search text and notices change camera clearance without resizing sheet detents', () => {
+  const scene = MAP_SCENES[1];
+  const regular = mapLayout({ ...MAP_CHROME, ...scene, sheetHeight: 260 });
+  const large = mapLayout({ ...MAP_CHROME, ...scene, sheetHeight: 260, chromeHeight: 180 });
+  assert.equal(large.sheetTop, regular.sheetTop);
+  assert.equal(large.sheetWidth, regular.sheetWidth);
+  assert.equal(large.ornamentBottom, regular.ornamentBottom);
+  assert.ok(large.cameraPadding.paddingTop > regular.cameraPadding.paddingTop);
+  assert.equal(large.chromeHidden, false);
+});
+
+test('chrome visibility follows actual room, including a tall accessibility peek', () => {
+  const input = { ...MAP_CHROME, ...MAP_SCENES[0], sheetHeight: 370 };
+  const regular = mapLayout(input);
+  const large = mapLayout({ ...input, chromeHeight: 180 });
+  assert.equal(regular.chromeHidden, false);
+  assert.equal(regular.controlsHidden, false);
+  assert.equal(large.chromeHidden, true);
+  assert.equal(large.controlsHidden, true);
+});
+
+test('resize clamps stale sheet coverage and respects horizontal safe areas', () => {
+  const input = { ...MAP_CHROME, ...MAP_SCENES[0], safeLeft: 20, safeRight: 24, sheetHeight: 900 };
+  const layout = mapLayout(input);
+  assert.equal(layout.sheetWidth, input.width - input.safeLeft - input.safeRight);
+  assert.ok(layout.cameraPadding.paddingLeft > input.safeLeft);
+  assert.ok(layout.cameraPadding.paddingRight > input.safeRight);
+  assert.ok(input.height - layout.ornamentBottom - ORNAMENT_BAND >= layout.sheetTop);
+  assert.ok(input.height - layout.cameraPadding.paddingTop - layout.cameraPadding.paddingBottom >= 120);
+
+  const unmeasured = mapLayout({ ...input, width: 0, height: 0 });
+  assert.equal(unmeasured.sheetWidth, 0);
+  assert.equal(unmeasured.ornamentBottom, 0);
+  assert.equal(unmeasured.cameraPadding.paddingTop, 0);
+  assert.equal(unmeasured.cameraPadding.paddingBottom, 0);
+});
 
 test('a delayed outer measurement cannot clip a measured service preview', () => {
   for (const content of [0, 16, 44, 90]) {

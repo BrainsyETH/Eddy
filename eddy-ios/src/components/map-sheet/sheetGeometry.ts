@@ -93,7 +93,7 @@ export const GRABBER_BLOCK = 16;
  * practice this is CONTENT_BOTTOM_PAD alone". Both cannot be true.
  * useSafeAreaInsets() reports the WINDOW's inset; a tab bar occupying that band
  * does not zero it. And `available` is measured from the map's overlay stack,
- * which already excludes the tab bar and both insets (see MapSheet), so the
+ * which already excludes the tab bar and safe areas (see MapSheet), so the
  * sheet never reaches the home indicator and owes it no clearance.
  *
  * Dropping the term is therefore correct if the inset was ever non-zero here —

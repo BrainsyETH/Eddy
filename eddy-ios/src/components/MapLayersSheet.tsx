@@ -601,9 +601,6 @@ const styles = StyleSheet.create({
   },
   doneText: { ...t.base, fontFamily: fonts.heading },
   button: {
-    position: 'absolute',
-    right: 16,
-    top: 16,
     width: 44,
     height: 44,
     borderRadius: 999,

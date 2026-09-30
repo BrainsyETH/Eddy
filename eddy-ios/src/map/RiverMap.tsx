@@ -105,6 +105,7 @@ import {
 } from '@/map/accessLayers';
 import { serviceTypeLabel, type ServiceLayerKey } from '@/map/serviceLayers';
 import { cameraAnimation, type MapBounds, type MapCameraCommand } from '@/map/cameraBehavior';
+import type { MapCameraPadding } from './mapLayout';
 import { useReducedMotion } from '@/hooks/useReducedMotion';
 
 /**
@@ -778,25 +779,13 @@ export function mapHazardPin(h: Hazard): MapPin {
 }
 
 interface Props {
-  /**
-   * Extra bottom padding for the camera, in points.
-   *
-   * The map sheet passes its settled height, so a selected pin frames into the
-   * part of the map still visible above it. Updated on SETTLE only — a
-   * per-frame version would be a native prop write on every frame of a drag.
-   */
-  cameraPaddingBottom?: number;
-  /**
-   * How far to lift the Mapbox logo and attribution off the map's bottom edge.
-   *
-   * SEPARATE FROM cameraPaddingBottom, and it must stay separate. That one is
-   * about framing and is clamped to 55% of the map, because past that Mapbox's
-   * own framing gets unreliable and there is nothing left to keep in view. This
-   * one is about VISIBILITY and may not be clamped at all: the ornaments are a
-   * term of the licence, so whatever the sheet covers they have to clear. The
-   * sheet's tallest detent is capped to guarantee they can — see ORNAMENT_BAND.
-   */
+  /** Measured floating chrome/sheet insets; applied only on explicit moves. */
+  cameraPadding: MapCameraPadding;
+  /** Separate from padding: even a closed sheet has an attribution inset. */
+  sheetReady: boolean;
+  /** Full sheet coverage, never the capped camera padding. */
   ornamentBottomInset?: number;
+  ornamentLeftInset?: number;
   /**
    * The river in focus, or NULL when the map is showing the network and the
    * user has not picked one yet. Null is the opening state now, not an error:
@@ -977,8 +966,10 @@ function featureCollection(pins: MapPin[], defaultColor: string | ((pin: MapPin)
 }
 
 export function RiverMap({
-  cameraPaddingBottom,
+  cameraPadding,
+  sheetReady,
   ornamentBottomInset = 0,
+  ornamentLeftInset = 0,
   river,
   milePosts,
   conditionCode,
@@ -1618,25 +1609,6 @@ export function RiverMap({
   }, [river]);
 
   /**
-   * The camera's padding, as a STABLE REFERENCE.
-   *
-   * @rnmapbox/maps rebuilds the entire camera stop when this object's IDENTITY
-   * changes rather than its contents — `nativeStop` is one useMemo over
-   * [centerCoordinate, bounds, zoomLevel, padding, …], handed to native as a
-   * `stop` prop — so an inline literal rebuilt, and re-applied, a stop on every
-   * render of this map.
-   */
-  const cameraPadding = useMemo(
-    () => ({
-      paddingTop: 40,
-      paddingBottom: 40 + (cameraPaddingBottom ?? 0),
-      paddingLeft: 32,
-      paddingRight: 32,
-    }),
-    [cameraPaddingBottom],
-  );
-
-  /**
    * Startup framing and navigation are deliberately different channels.
    *
    * `defaultSettings` answers only the first paint. Everything after that is an
@@ -1660,10 +1632,11 @@ export function RiverMap({
       return {
         centerCoordinate: [initial.lng, initial.lat] as [number, number],
         zoomLevel: initial.zoom,
+        padding: cameraPadding,
       };
     }
     const bounds = initial.bounds;
-    return { bounds: { ne: [bounds[2], bounds[3]], sw: [bounds[0], bounds[1]] } };
+    return { bounds: { ne: [bounds[2], bounds[3]], sw: [bounds[0], bounds[1]] }, padding: cameraPadding };
   });
 
   const cameraRef = useRef<MapCameraRef | null>(null);
@@ -1731,7 +1704,7 @@ export function RiverMap({
     if (!cameraCommand || appliedCommandId.current === cameraCommand.id || !cameraRef.current) {
       return;
     }
-    if ('waitForSheet' in cameraCommand && cameraCommand.waitForSheet && !cameraPaddingBottom) {
+    if ('waitForSheet' in cameraCommand && cameraCommand.waitForSheet && !sheetReady) {
       return;
     }
 
@@ -1770,7 +1743,7 @@ export function RiverMap({
       padding: cameraPadding,
       ...cameraAnimation(cameraCommand, reducedMotion),
     });
-  }, [cameraCommand, cameraPadding, cameraPaddingBottom, onCameraCommandConsumed, reducedMotion]);
+  }, [cameraCommand, cameraPadding, sheetReady, onCameraCommandConsumed, reducedMotion]);
 
   // The caller is responsible for not rendering this when Mapbox is unavailable;
   // this guard is here so a mistake shows an empty map rather than a red screen.
@@ -2412,9 +2385,9 @@ export function RiverMap({
       // high) and, more usefully, puts the top of its 44pt tap frame at y=53 —
       // which is the number MAP_CHROME_BOTTOM has to clear.
       logoEnabled
-      logoPosition={{ bottom: 10 + ornamentBottomInset, left: 12 }}
+      logoPosition={{ bottom: 10 + ornamentBottomInset, left: 12 + ornamentLeftInset }}
       attributionEnabled
-      attributionPosition={{ bottom: 9 + ornamentBottomInset, left: 94 }}
+      attributionPosition={{ bottom: 9 + ornamentBottomInset, left: 94 + ornamentLeftInset }}
       // The camera settled. This is the ONLY viewport-driven fetch in the app
       // — everything else loads a bounded set up front — and it is on idle
       // rather than onCameraChanged because idle fires once when motion stops
