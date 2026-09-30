@@ -60,7 +60,7 @@ import { railSelectionIndex, railIndexAtOffset } from '@/lib/railSelection';
 import { readRecommendation, writeRecommendation } from '@/lib/todayPreferences';
 import type { EddySays } from '@/lib/eddySays';
 import { riverMilesByGauge } from '@/lib/riverDistance';
-import { chooseTodaySafetyScope, filterTodaySafety } from '@/lib/todaySafety';
+import { currentAlertsSummary, defaultCurrentAlertsFilter } from '@/lib/todaySafety';
 import {
   conditionBg,
   conditionChipBorder,
@@ -103,7 +103,6 @@ export interface TodayRead {
   says: EddySays;
 }
 
-const NO_FAVORITE_RIVERS = new Set<string>();
 const CARD_GAP = 12;
 // Selection belongs to this mounted screen and account, never a process-global index.
 function CardRail({ label, cardWidth, children }: {
@@ -485,20 +484,6 @@ export function TodayHub({
     };
   }, [refreshRevision]);
 
-  const favoriteRiverSlugs = useMemo(
-    () => new Set(starred.filter((item) => item.kind === 'river' && item.slug).map((item) => item.slug)),
-    [starred],
-  );
-  const safetyScope = useMemo(() => chooseTodaySafetyScope({
-    favoriteRiverSlugs: starsReady ? favoriteRiverSlugs : NO_FAVORITE_RIVERS,
-    rivers,
-    gauges: gauges ?? [],
-    // Until favorites and the gauge geometry are ready, severe statewide
-    // warnings are the honest progressive result. The same fetched arrays are
-    // narrowed locally as soon as a personalized scope can be resolved.
-    coords: starsReady && (!location.coords || gauges) ? location.coords : null,
-  }), [favoriteRiverSlugs, gauges, location.coords, rivers, starsReady]);
-
   useEffect(() => {
     const controller = new AbortController();
 
@@ -579,32 +564,24 @@ export function TodayHub({
     });
   }, [router]);
 
-  const displayedRiverSlugs = useMemo(
-    () => new Set(recommendations.map(({ river }) => river.slug)),
-    [recommendations],
+  const safetyFilter = defaultCurrentAlertsFilter(starred);
+  const activeSafety = currentAlertsSummary(
+    starsReady ? safety.high : null,
+    starsReady ? safety.notices : null,
+    safetyFilter,
+    starred,
+    safetyFailure,
   );
-  const filteredSafety = useMemo(
-    () => filterTodaySafety(safety.high ?? [], safety.notices ?? [], safetyScope, displayedRiverSlugs),
-    [safety.high, safety.notices, safetyScope, displayedRiverSlugs],
-  );
-  const activeSafety = {
-    high: safety.high === null ? null : filteredSafety.high,
-    notices: safety.notices === null ? null : filteredSafety.notices,
-  };
-  const safetyCount = (activeSafety?.high?.length ?? 0) + (activeSafety?.notices?.length ?? 0);
+  const safetyCount = activeSafety.count;
   const detailFailure = floatFailure || safetyFailure.high || safetyFailure.notices;
-  const safetyScopeLabel = safetyScope.kind === 'favorites'
-    ? recommendations.length ? 'on your favorites and suggested rivers' : 'on your favorite rivers'
-    : safetyScope.kind === 'nearby'
-      ? 'near you'
-      : 'statewide';
+  const safetyFilterLabel = safetyFilter === 'favorites' ? 'Favorites' : 'All Alerts';
   const topNotice = useMemo(() => {
     const rank = { warning: 0, watch: 1, notice: 2 } as const;
-    return [...(activeSafety?.notices ?? [])].sort((a, b) => rank[a.severity] - rank[b.severity])[0] ?? null;
-  }, [activeSafety?.notices]);
+    return [...activeSafety.notices].sort((a, b) => rank[a.severity] - rank[b.severity])[0] ?? null;
+  }, [activeSafety.notices]);
   const ordinaryTopHigh = useMemo(
-    () => [...(activeSafety?.high ?? [])].sort((a, b) => Number(b.conditionCode === 'dangerous') - Number(a.conditionCode === 'dangerous'))[0] ?? null,
-    [activeSafety?.high],
+    () => [...activeSafety.high].sort((a, b) => Number(b.conditionCode === 'dangerous') - Number(a.conditionCode === 'dangerous'))[0] ?? null,
+    [activeSafety.high],
   );
   const topHigh = ordinaryTopHigh;
   const photos = useMemo(() => {
@@ -733,11 +710,12 @@ export function TodayHub({
           </View>
           <View style={styles.compactColumn}>
             <View style={[styles.alertCard, { backgroundColor: colors.card, borderColor: colors.border }, elevation(1)]}>
-              <Pressable accessibilityRole="button" accessibilityLabel={`Alerts. ${safetyCount ? `${safetyCount} alerts ${safetyScopeLabel}. ${topNotice?.title ?? (topHigh ? `${topHigh.name}: ${conditionLabel(topHigh.conditionCode)}` : '')}` : safetyFailure.high || safetyFailure.notices ? 'Could not refresh alerts' : activeSafety.high === null || activeSafety.notices === null ? 'Checking alerts' : `No current alerts ${safetyScopeLabel}`}`} onPress={() => router.push('/alerts')} style={styles.alertMain}>
+              <Pressable accessibilityRole="button" accessibilityLabel={`Current alerts. ${activeSafety.label}. ${safetyFilterLabel}. ${activeSafety.detail ?? ''} ${topNotice?.title ?? (topHigh ? `${topHigh.name}: ${conditionLabel(topHigh.conditionCode)}` : '')}`} onPress={() => router.push({ pathname: '/current-alerts', params: { filter: safetyFilter } })} style={styles.alertMain}>
                 <View style={styles.compactHeading}>
                   <Ionicons name={safetyCount ? 'warning-outline' : 'notifications-outline'} size={28} color={safetyCount ? conditionInk(topHigh?.conditionCode === 'dangerous' || topNotice?.severity === 'warning' ? 'dangerous' : 'high') : colors.interactive} />
                 </View>
-                <Text style={[styles.compactValue, { color: colors.text }, safetyCount ? styles.alertCount : null]}>{safetyCount ? `${safetyCount} ${safetyCount === 1 ? 'alert' : 'alerts'}` : safetyFailure.high || safetyFailure.notices ? 'Unable to refresh' : activeSafety.high === null || activeSafety.notices === null ? 'Checking…' : 'No alerts'}</Text>
+                <Text style={[styles.compactValue, { color: colors.text }, safetyCount ? styles.alertCount : null]}>{activeSafety.label}</Text>
+                {activeSafety.detail ? <Text style={[styles.alertStatus, { color: colors.textMuted }]}>{activeSafety.detail}</Text> : null}
               </Pressable>
             </View>
           </View>
@@ -875,6 +853,7 @@ const styles = StyleSheet.create({
   alertCard: { flex: 1, borderWidth: StyleSheet.hairlineWidth, borderRadius: 16, padding: 12, minHeight: 120 },
   alertMain: { flex: 1, minHeight: 44, gap: 6, alignItems: 'center', justifyContent: 'center' },
   compactHeading: { minHeight: 29, alignItems: 'center', justifyContent: 'center' },
+  alertStatus: { ...t.xs, textAlign: 'center' },
   alertCount: { ...t['3xl'], fontFamily: fonts.semibold },
   compactValue: { ...t.xl, minHeight: 38, lineHeight: 38, fontFamily: fonts.semibold, textAlign: 'center' },
   summaryTop: { marginBottom: 14, gap: 10 },

@@ -22,6 +22,7 @@
 // transmission constraints, outages and inflow, and this screen sits next to a
 // number somebody may wade into.
 
+import { BackButton } from '@/components/BackButton';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -330,9 +331,7 @@ export default function DamDetailScreen() {
       <SafeAreaView style={[styles.screen, { backgroundColor: colors.bg }]} edges={['top']}>
         <Stack.Screen options={{ headerShown: false }} />
         <View style={styles.navRow}>
-          <Pressable onPress={() => goBack(router)} hitSlop={12} accessibilityLabel="Back">
-            <Ionicons name="chevron-back" size={26} color={colors.text} />
-          </Pressable>
+          <BackButton onPress={() => goBack(router)} />
         </View>
         <View style={[styles.screen, styles.centre]}>
           <ActivityIndicator size="large" color={colors.interactive} />
@@ -346,9 +345,7 @@ export default function DamDetailScreen() {
       <SafeAreaView style={[styles.screen, { backgroundColor: colors.bg }]} edges={['top']}>
         <Stack.Screen options={{ headerShown: false }} />
         <View style={styles.navRow}>
-          <Pressable onPress={() => goBack(router)} hitSlop={12} accessibilityLabel="Back">
-            <Ionicons name="chevron-back" size={26} color={colors.text} />
-          </Pressable>
+          <BackButton onPress={() => goBack(router)} />
         </View>
         <View style={[styles.centre, styles.emptyBody]}>
           <Text style={[styles.emptyTitle, { color: colors.text }]}>
@@ -407,9 +404,7 @@ export default function DamDetailScreen() {
       <SafeAreaView style={[styles.screen, { backgroundColor: colors.bg }]} edges={['top']}>
         <Stack.Screen options={{ headerShown: false }} />
         <View style={styles.navRow}>
-          <Pressable onPress={() => goBack(router)} hitSlop={12} accessibilityLabel="Back">
-            <Ionicons name="chevron-back" size={26} color={colors.text} />
-          </Pressable>
+          <BackButton onPress={() => goBack(router)} />
         </View>
         <ScrollView contentContainerStyle={styles.body}>
           <Text style={[styles.name, { color: colors.text }]}>{catalogEntry!.name}</Text>
@@ -448,9 +443,7 @@ export default function DamDetailScreen() {
     <SafeAreaView style={[styles.screen, { backgroundColor: colors.bg }]} edges={['top']}>
       <Stack.Screen options={{ headerShown: false }} />
       <View style={styles.navRow}>
-        <Pressable onPress={() => goBack(router)} hitSlop={12} accessibilityLabel="Back">
-          <Ionicons name="chevron-back" size={26} color={colors.text} />
-        </Pressable>
+        <BackButton onPress={() => goBack(router)} />
         {/* Same control, same place and same rules as the gauge screen's. A dam
             is a thing you come back to — "is Table Rock generating this
             weekend" is a question somebody asks every weekend — and until now

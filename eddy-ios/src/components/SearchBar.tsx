@@ -63,12 +63,9 @@ function SearchBarComponent({
       />
       {trailing}
       {value.length > 0 ? (
-        // Our own clear button rather than iOS's clearButtonMode, so it sits
-        // inside the same padded row as everything else and keeps a 44pt target
-        // via hitSlop instead of the system's ~20pt glyph.
         <Pressable
           onPress={() => onChangeText('')}
-          hitSlop={12}
+          style={styles.clear}
           accessibilityRole="button"
           accessibilityLabel="Clear search"
         >
@@ -86,13 +83,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 9,
-    paddingHorizontal: 13,
-    height: 42,
+    paddingLeft: 12,
+    paddingRight: 4,
+    minHeight: 46,
     borderRadius: 12,
     borderWidth: 1,
   },
-  // No vertical padding and an explicit height on the row above: a TextInput
-  // with padding grows the row differently on each platform, and this field
-  // sits directly above a map that has to keep its size.
-  input: { flex: 1, ...t.sm, fontFamily: fonts.body, padding: 0 },
+  // The field grows with Dynamic Type; Clear owns its space inside the border.
+  input: { flex: 1, minWidth: 0, ...t.base, fontFamily: fonts.body, paddingVertical: 10, paddingHorizontal: 0 },
+  clear: { minWidth: 44, minHeight: 44, alignItems: 'center', justifyContent: 'center' },
 });

@@ -26,6 +26,7 @@
 // and type only — it runs once at import, so a colour written into it would be
 // frozen at whichever scheme the app launched with.
 
+import { BackButton } from '@/components/BackButton';
 import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -78,9 +79,7 @@ export default function StorageScreen() {
       <Stack.Screen options={{ headerShown: false }} />
 
       <View style={styles.navRow}>
-        <Pressable onPress={() => goBack(router)} hitSlop={12} accessibilityLabel="Back">
-          <Ionicons name="chevron-back" size={26} color={colors.text} />
-        </Pressable>
+        <BackButton onPress={() => goBack(router)} />
       </View>
 
       <ScrollView contentContainerStyle={styles.content}>

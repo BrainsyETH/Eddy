@@ -104,7 +104,8 @@ import {
   type ResolvedServiceMarker,
 } from '@/map/accessLayers';
 import { serviceTypeLabel, type ServiceLayerKey } from '@/map/serviceLayers';
-import type { MapBounds, MapCameraCommand } from '@/map/cameraBehavior';
+import { cameraAnimation, type MapBounds, type MapCameraCommand } from '@/map/cameraBehavior';
+import { useReducedMotion } from '@/hooks/useReducedMotion';
 
 /**
  * Ink for text drawn ON the map, in either app appearance.
@@ -310,7 +311,7 @@ interface MapCameraRef {
     bounds?: { ne: [number, number]; sw: [number, number] };
     zoomLevel?: number;
     padding?: { paddingTop: number; paddingBottom: number; paddingLeft: number; paddingRight: number };
-    animationMode?: 'easeTo';
+    animationMode?: 'easeTo' | 'none';
     animationDuration?: number;
   }) => void;
 }
@@ -1666,6 +1667,7 @@ export function RiverMap({
   });
 
   const cameraRef = useRef<MapCameraRef | null>(null);
+  const reducedMotion = useReducedMotion(true);
   const appliedCommandId = useRef<number | null>(null);
   const liveCamera = useRef<{ center: [number, number]; zoom: number; gestureActive: boolean } | null>(
     null,
@@ -1757,8 +1759,7 @@ export function RiverMap({
         // moving and onMapIdle has not published its final value yet.
         zoomLevel,
         padding: cameraPadding,
-        animationMode: 'easeTo',
-        animationDuration: cameraCommand.duration,
+        ...cameraAnimation(cameraCommand, reducedMotion),
       });
       return;
     }
@@ -1767,10 +1768,9 @@ export function RiverMap({
     cameraRef.current.setCamera({
       bounds: { ne: [bounds[2], bounds[3]], sw: [bounds[0], bounds[1]] },
       padding: cameraPadding,
-      animationMode: 'easeTo',
-      animationDuration: cameraCommand.duration,
+      ...cameraAnimation(cameraCommand, reducedMotion),
     });
-  }, [cameraCommand, cameraPadding, cameraPaddingBottom, onCameraCommandConsumed]);
+  }, [cameraCommand, cameraPadding, cameraPaddingBottom, onCameraCommandConsumed, reducedMotion]);
 
   // The caller is responsible for not rendering this when Mapbox is unavailable;
   // this guard is here so a mistake shows an empty map rather than a red screen.

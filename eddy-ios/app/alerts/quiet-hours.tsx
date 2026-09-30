@@ -18,6 +18,7 @@
 // false precision, and two wheels of 1,440 values each is a worse control than
 // two rows of 24.
 
+import { BackButton } from '@/components/BackButton';
 import { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
@@ -29,7 +30,6 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
 import { Stack, useRouter } from 'expo-router';
 import type { NotificationPreferences } from '@eddy/types';
 import { fetchNotificationPreferences, updateNotificationPreferences } from '@/api/client';
@@ -138,9 +138,7 @@ export default function QuietHoursScreen() {
   // request has fifteen seconds to run before it even fails.
   const nav = (
     <View style={styles.navRow}>
-      <Pressable onPress={() => goBack(router)} hitSlop={12} accessibilityLabel="Back">
-        <Ionicons name="chevron-back" size={26} color={colors.text} />
-      </Pressable>
+      <BackButton onPress={() => goBack(router)} />
       <Text style={[styles.navTitle, { color: colors.text }]}>Quiet hours</Text>
       <View style={styles.navSpacer} />
     </View>
@@ -385,8 +383,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 10,
   },
-  navTitle: { ...t.base, fontFamily: fonts.semibold },
-  navSpacer: { width: 26 },
+  navTitle: { ...t.base, fontFamily: fonts.semibold, flex: 1, textAlign: 'center' },
+  navSpacer: { width: 44 },
   content: { paddingHorizontal: 16, paddingBottom: 48 },
   optionRow: {
     flexDirection: 'row',

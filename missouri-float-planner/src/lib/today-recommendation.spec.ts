@@ -12,7 +12,7 @@ import {
   dailyHighlightedFavorite,
   localDayKey,
 } from '../../../eddy-ios/src/lib/todayFloats';
-import { chooseTodaySafetyScope, filterTodaySafety } from '../../../eddy-ios/src/lib/todaySafety';
+import { defaultCurrentAlertsFilter, filterCurrentAlerts } from '../../../eddy-ios/src/lib/todaySafety';
 
 function river(id: string, code: 'good' | 'flowing' | 'high', age = 1): RiverListItem {
   return {
@@ -198,35 +198,12 @@ test('highlighted favorite rotates among rivers and falls back when there are no
   assert.equal(dailyHighlightedFavorite([], '2026-09-08'), null);
 });
 
-test('safety scope falls back from favorites to nearby rivers to statewide', () => {
-  const near = river('near', 'good');
-  const far = river('far', 'good');
-  const favorites = chooseTodaySafetyScope({
-    favoriteRiverSlugs: new Set([far.slug]),
-    rivers: [near, far],
-    gauges: [gauge('near', near.id, -93.1), gauge('far', far.id, -96)],
-    coords: { lat: 37, lng: -93 },
-  });
-  assert.equal(favorites.kind, 'favorites');
-  assert.deepEqual([...favorites.slugs!], [far.slug]);
-
-  const nearby = chooseTodaySafetyScope({
-    favoriteRiverSlugs: new Set(),
-    rivers: [near, far],
-    gauges: [gauge('near', near.id, -93.1), gauge('far', far.id, -96)],
-    coords: { lat: 37, lng: -93 },
-  });
-  assert.equal(nearby.kind, 'nearby');
-  assert.deepEqual([...nearby.slugs!], [near.slug]);
-
-  const statewide = chooseTodaySafetyScope({
-    favoriteRiverSlugs: new Set(), rivers: [near, far], gauges: [], coords: null,
-  });
-  assert.equal(statewide.kind, 'statewide');
-  assert.equal(statewide.slugs, null);
+test('current alerts opens Favorites when saved items exist and All Alerts otherwise', () => {
+  assert.equal(defaultCurrentAlertsFilter([{ kind: 'river', entityId: 'far', slug: 'river-far' }]), 'favorites');
+  assert.equal(defaultCurrentAlertsFilter([]), 'all');
 });
 
-test('statewide safety keeps only flood and warning severity', () => {
+test('All Alerts keeps both high-water grades and all notice severities', () => {
   const high = (id: string, conditionCode: 'high' | 'dangerous'): HighWaterEntry => ({
     kind: 'river', id, name: id, subtitle: null, conditionCode,
     conditionLabel: conditionCode, readingValue: 4, readingUnit: 'ft',
@@ -236,13 +213,13 @@ test('statewide safety keeps only flood and warning severity', () => {
     id, source: 'nws', severity, riverSlug: id, riverName: id, title: id,
     body: '', category: id, startsAt: null, endsAt: null, url: null,
   });
-  const result = filterTodaySafety(
+  const result = filterCurrentAlerts(
     [high('high', 'high'), high('flood', 'dangerous')],
     [alert('watch', 'watch'), alert('warning', 'warning')],
-    { kind: 'statewide', key: 'statewide', slugs: null },
+    'all', [],
   );
-  assert.deepEqual(result.high.map((entry) => entry.id), ['flood']);
-  assert.deepEqual(result.notices.map((entry) => entry.id), ['warning']);
+  assert.deepEqual(result.high.map((entry) => entry.id), ['high', 'flood']);
+  assert.deepEqual(result.notices.map((entry) => entry.id), ['watch', 'warning']);
 });
 
 test('favorites remain readable when a route time is withheld', () => {

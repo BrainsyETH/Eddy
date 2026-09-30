@@ -12,6 +12,7 @@
 // alert from one river to another is two operations, not an edit. What is left
 // is the trigger, and that fits on one screen with delete at the bottom.
 
+import { BackButton } from '@/components/BackButton';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
@@ -255,9 +256,7 @@ export default function EditAlertScreen() {
       <SafeAreaView style={[styles.screen, { backgroundColor: colors.bg }]} edges={['top']}>
         <Stack.Screen options={{ headerShown: false }} />
         <View style={styles.navRow}>
-          <Pressable onPress={() => goBack(router)} hitSlop={12} accessibilityLabel="Back">
-            <Ionicons name="chevron-back" size={26} color={colors.text} />
-          </Pressable>
+          <BackButton onPress={() => goBack(router)} />
         </View>
         <View style={[styles.centered, styles.flex]}>
           <Text style={[styles.emptyTitle, { color: colors.text }]}>Alert not found</Text>
@@ -302,9 +301,7 @@ export default function EditAlertScreen() {
       <Stack.Screen options={{ headerShown: false }} />
 
       <View style={styles.navRow}>
-        <Pressable onPress={() => goBack(router)} hitSlop={12} accessibilityLabel="Back">
-          <Ionicons name="chevron-back" size={26} color={colors.text} />
-        </Pressable>
+        <BackButton onPress={() => goBack(router)} />
         <Text style={[styles.navTitle, { color: colors.text }]} numberOfLines={1}>
           {targetName}
         </Text>
@@ -592,7 +589,7 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   navTitle: { ...t.base, fontFamily: fonts.semibold, flex: 1, textAlign: 'center' },
-  navSpacer: { width: 26 },
+  navSpacer: { width: 44 },
   content: { paddingHorizontal: 16, paddingBottom: 48 },
   current: { ...t.sm, fontFamily: fonts.body, marginBottom: 14, marginHorizontal: 4 },
   notice: { padding: 12, borderRadius: 12, borderWidth: 1, borderStyle: 'dashed', marginBottom: 12 },

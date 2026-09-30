@@ -37,6 +37,7 @@
 // "unknown" this file's third paragraph refuses to print. Directions is held
 // back for a sharper reason — see the seeded body below.
 
+import { BackButton } from '@/components/BackButton';
 import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
@@ -166,9 +167,7 @@ function SeededAccessPoint({
     <SafeAreaView style={[styles.screen, { backgroundColor: colors.bg }]} edges={['top']}>
       <Stack.Screen options={{ headerShown: false }} />
       <View style={styles.navRow}>
-        <Pressable onPress={() => goBack(router)} hitSlop={12} accessibilityLabel="Back">
-          <Ionicons name="chevron-back" size={26} color={colors.text} />
-        </Pressable>
+        <BackButton onPress={() => goBack(router)} />
         {riverName ? (
           <View style={styles.navActions}>
             <Pressable
@@ -560,9 +559,7 @@ export default function AccessPointDetailScreen() {
       <SafeAreaView style={[styles.screen, { backgroundColor: colors.bg }]} edges={['top']}>
         <Stack.Screen options={{ headerShown: false }} />
         <View style={styles.navRow}>
-          <Pressable onPress={() => goBack(router)} hitSlop={12} accessibilityLabel="Back">
-            <Ionicons name="chevron-back" size={26} color={colors.text} />
-          </Pressable>
+          <BackButton onPress={() => goBack(router)} />
         </View>
         <View style={[styles.centre, styles.emptyBody]}>
           <Text style={[styles.emptyTitle, { color: colors.text }]}>Access point unavailable</Text>
@@ -588,9 +585,7 @@ export default function AccessPointDetailScreen() {
       <Stack.Screen options={{ headerShown: false }} />
 
       <View style={styles.navRow}>
-        <Pressable onPress={() => goBack(router)} hitSlop={12} accessibilityLabel="Back">
-          <Ionicons name="chevron-back" size={26} color={colors.text} />
-        </Pressable>
+        <BackButton onPress={() => goBack(router)} />
         <View style={styles.navActions}>
           <Pressable
             onPress={() => router.push(`/river/${point.river.slug}`)}

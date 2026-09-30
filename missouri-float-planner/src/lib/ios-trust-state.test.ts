@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import type { FloatPlan, RiverAlert, RiverListItem, MapAccessPoint } from '../../../packages/eddy-types';
 import { chooseTodayRecommendations } from '../../../eddy-ios/src/lib/todayRecommendation';
-import { chooseTodaySafetyScope, filterTodaySafety } from '../../../eddy-ios/src/lib/todaySafety';
+import { filterCurrentAlerts } from '../../../eddy-ios/src/lib/todaySafety';
 import { agedIndex, envelope } from '../../../eddy-ios/src/lib/offline-cache';
 import { createLatestRequest } from '../../../eddy-ios/src/lib/latestRequest';
 import { createStorageQueue } from '../../../eddy-ios/src/lib/storageQueue';
@@ -37,20 +37,13 @@ test('unavailable agency notices do not suppress gauge-based recommendations', (
   assert.equal(chooseTodayRecommendations({ ...inputs, notices: [] }).length, 2);
 });
 
-test('remaining notices accompany recommendations and survive favorite-only safety filtering', () => {
+test('suggested-river notices remain on recommendations without leaking into Favorites alerts', () => {
   const watch = notice('jacks-fork', 'watch');
   const picks = chooseTodayRecommendations({ ...inputs, notices: [watch] });
   assert.deepEqual(picks.find((p) => p.river.slug === 'jacks-fork')?.notices, [watch]);
-  const scope = chooseTodaySafetyScope({ favoriteRiverSlugs: new Set(['current']),
-    rivers: inputs.rivers, gauges: [], coords: null });
-  const result = filterTodaySafety([], [watch], scope, new Set(picks.map((p) => p.river.slug)));
-  assert.deepEqual(result.notices, [watch]);
-});
-
-test('statewide severe-only filtering still includes a displayed river’s lesser notice', () => {
-  const watch = notice('jacks-fork', 'watch');
-  assert.deepEqual(filterTodaySafety([], [watch], { kind: 'statewide', key: 'statewide', slugs: null },
-    new Set(['jacks-fork'])).notices, [watch]);
+  const favorites = [{ kind: 'river' as const, entityId: 'current', slug: 'current' }];
+  assert.deepEqual(filterCurrentAlerts([], [watch], 'favorites', favorites).notices, []);
+  assert.deepEqual(filterCurrentAlerts([], [watch], 'all', favorites).notices, [watch]);
 });
 
 test('a live snapshot becomes last-known as time passes without a new fetch', () => {
