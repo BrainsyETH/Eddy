@@ -17,8 +17,11 @@ campground symbol and “See all camping” link. Its compact, left-aligned summ
 - An availability outcome: “Plenty of sites open,” “Sites still available,”
   “Most sites booked,” “Few sites left,” or “Tracked sites fully booked”
 - The measured sample, for example “11% of tracked campsites booked”
-- A thin 0–100% meter filled to the actual booked percentage, with ticks at 30%,
-  60% and 85%; teal fill has at least 3:1 contrast against its track in both themes
+- A rounded 0–100% meter filled to the actual booked percentage, with ticks at
+  30%, 60% and 85%. Its entire fill changes with availability: green below 30%
+  booked, yellow at 30–under 60%, orange at 60–under 85%, red at 85% and above.
+  Both regional and river meters use the same colors. Theme-specific shades
+  maintain at least 3:1 contrast against the pale track, including yellow.
 - “Checked yesterday” at normal text contrast when applicable; older readings
   also get an alert icon. A failed refresh retains its retry action and alert icon.
 

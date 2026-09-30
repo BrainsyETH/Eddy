@@ -10,7 +10,7 @@ import {
   campingPulseInfo,
   todayPopularCamping,
 } from '../../../eddy-ios/src/lib/campingDemand';
-import { campingDemand, demandDetail } from '../../shared/camping-demand';
+import { campingDemand, demandDetail, type DemandBand } from '../../shared/camping-demand';
 import { crowdSignalEnabled } from '../../../eddy-ios/src/lib/campingFeature';
 import { buildCampingOverview, type ObservationRow } from './camping/overview';
 
@@ -347,7 +347,10 @@ test('the short legend explains the number and preserves partial coverage and re
   const info = campingPulseInfo(todayCampingDemand(o, now.getTime()));
   assert.match(info, /Tonight’s bookings across tracked Ozarks Recreation.gov campsites/);
   assert.match(info, /Longer bars mean more campsites booked/);
-  assert.match(info, /Quiet: under 30%/);
+  assert.match(info, /Quiet: under 30% · green/);
+  assert.match(info, /Moderate: 30–under 60% · yellow/);
+  assert.match(info, /Busy: 60–under 85% · orange/);
+  assert.match(info, /Crowded: 85%\+ · red/);
   assert.match(info, /Packed: 100%, with full coverage/);
   assert.match(info, /8 Recreation.gov campgrounds · Checked yesterday · 2 unavailable/);
   assert.match(info, /Excludes state parks, walk-up sites and day floaters/);
@@ -356,7 +359,8 @@ test('the short legend explains the number and preserves partial coverage and re
 });
 
 import { lightPalette, darkPalette } from '../../../eddy-ios/src/theme/palette';
-test('percentage meter fill clears graphical contrast against its track in both themes', () => {
+import { campingMeterColor } from '../../../eddy-ios/src/theme/campingDemand';
+test('every availability color clears graphical contrast against its track in both themes', () => {
   const luminance = (hex: string) => {
     const linear = [1, 3, 5].map((offset) => {
       const c = parseInt(hex.slice(offset, offset + 2), 16) / 255;
@@ -365,7 +369,10 @@ test('percentage meter fill clears graphical contrast against its track in both 
     return linear[0] * 0.2126 + linear[1] * 0.7152 + linear[2] * 0.0722;
   };
   for (const colors of [lightPalette, darkPalette]) {
-    const [low, high] = [luminance(colors.interactive), luminance(colors.border)].sort((a, b) => a - b);
-    assert.ok((high + 0.05) / (low + 0.05) >= 3, colors.scheme);
+    for (const band of ['quiet', 'moderate', 'busy', 'crowded', 'packed'] satisfies DemandBand[]) {
+      const [low, high] = [luminance(campingMeterColor(band, colors.scheme)), luminance(colors.selectionBg)]
+        .sort((a, b) => a - b);
+      assert.ok((high + 0.05) / (low + 0.05) >= 3, `${colors.scheme} ${band}`);
+    }
   }
 });
