@@ -1391,39 +1391,39 @@ export default function RiverDetailScreen() {
         />
 
         {/* ── Live status ─────────────────────────────────────── */}
-        <View style={[styles.card, { backgroundColor: colors.card }, elevation(2)]}>
-          {/* Give the verdict its own width, so long safety labels are never
-              squeezed between the mascot and the trend. */}
-          <View
-            style={[
-              styles.conditionChip,
-              {
-                backgroundColor: conditionBg(shownCode),
-                borderColor: conditionChipBorder(shownCode),
-              },
-            ]}
-          >
-            <Text style={[styles.conditionChipText, { color: conditionInk(shownCode) }]}>
-              {band === 'fresh'
-                ? conditionLongLabel(code)
-                : `Last known: ${conditionShortLabel(code)}`}
-            </Text>
-          </View>
+        <View style={[styles.card, styles.statusCard, { backgroundColor: colors.card }, elevation(2)]}>
           <View style={styles.statusHead}>
-            <Otter mood={otterForCondition(shownCode)} size={64} />
+            <Otter mood={otterForCondition(shownCode)} size={52} />
             <View style={styles.statusHeadText}>
-              {reading ? (
-                <Text style={[styles.reading, { color: colors.text }]}>
-                  {formatReading(reading.value, reading.unit)}
+              <View
+                style={[
+                  styles.conditionChip,
+                  {
+                    backgroundColor: conditionBg(shownCode),
+                    borderColor: conditionChipBorder(shownCode),
+                  },
+                ]}
+              >
+                <Text style={[styles.conditionChipText, { color: conditionInk(shownCode) }]}>
+                  {band === 'fresh'
+                    ? conditionLongLabel(code)
+                    : `Last known: ${conditionShortLabel(code)}`}
                 </Text>
-              ) : (
-                <Text style={[styles.noReading, { color: colors.textMuted }]}>
-                  No gauge reading available
-                </Text>
-              )}
-              {shownTrend ? (
-                <TrendPill direction={shownTrend.direction} label={shownTrend.label} />
-              ) : null}
+              </View>
+              <View style={styles.readingRow}>
+                {reading ? (
+                  <Text style={[styles.reading, { color: colors.text }]}>
+                    {formatReading(reading.value, reading.unit)}
+                  </Text>
+                ) : (
+                  <Text style={[styles.noReading, { color: colors.textMuted }]}>
+                    No gauge reading available
+                  </Text>
+                )}
+                {shownTrend ? (
+                  <TrendPill direction={shownTrend.direction} label={shownTrend.label} enclosed={false} />
+                ) : null}
+              </View>
             </View>
           </View>
 
@@ -2046,23 +2046,25 @@ const styles = StyleSheet.create({
   riverName: { ...t['3xl'], fontFamily: fonts.display, paddingHorizontal: 4, marginTop: 6 },
   riverMeta: { ...t.sm, fontFamily: fonts.body, paddingHorizontal: 4, marginTop: 2, marginBottom: 16 },
   card: { padding: 16, borderRadius: 16, marginBottom: 10 },
-  statusHead: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'center', gap: 12, marginTop: 12 },
-  statusHeadText: { maxWidth: '100%', gap: 6, alignItems: 'center', justifyContent: 'center', minHeight: 64 },
+  statusCard: { paddingVertical: 12 },
+  statusHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10 },
+  statusHeadText: { flex: 1, minWidth: 0, gap: 4, alignItems: 'center' },
+  readingRow: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', alignItems: 'center', columnGap: 10, rowGap: 2 },
   conditionChip: {
     alignSelf: 'center',
     maxWidth: '100%',
     paddingHorizontal: 10,
-    paddingVertical: 5,
+    paddingVertical: 3,
     borderRadius: 999,
     borderWidth: 1,
   },
   conditionChipText: { ...t.sm, fontFamily: fonts.semibold, textAlign: 'center' },
   reading: { ...t['2xl'], fontFamily: fonts.mono, textAlign: 'center' },
   noReading: { ...t.sm, fontFamily: fonts.body, textAlign: 'center' },
-  percentileRow: { marginTop: 14, paddingTop: 12, borderTopWidth: 1 },
+  percentileRow: { marginTop: 10, paddingTop: 8, borderTopWidth: 1 },
   percentileText: { ...t.sm, fontFamily: fonts.semibold, textAlign: 'center' },
-  percentileMeta: { ...t.xs, fontFamily: fonts.mono, marginTop: 4, textAlign: 'center' },
-  updatedRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 10 },
+  percentileMeta: { ...t.xs, fontFamily: fonts.mono, marginTop: 2, textAlign: 'center' },
+  updatedRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 8 },
   // marginTop moves to the row so the glyph and the text sit on one baseline.
   // `flex: 1` still lets a long station name take the width — but it is the
   // only thing competing for it now that the trend has moved to the card head.
