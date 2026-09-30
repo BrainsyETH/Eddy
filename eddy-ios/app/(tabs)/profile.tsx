@@ -46,6 +46,7 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { LazyTabScreen } from '@/components/LazyTabScreen';
 import { useRouter } from 'expo-router';
 import * as AppleAuthentication from 'expo-apple-authentication';
 import Constants from 'expo-constants';
@@ -101,6 +102,10 @@ const MANAGE_SUBSCRIPTIONS_URL = 'https://apps.apple.com/account/subscriptions';
 const CONFIRM_PENDING_MAX_MS = 3 * 60_000;
 
 export default function ProfileScreen() {
+  return <LazyTabScreen><ProfileContent /></LazyTabScreen>;
+}
+
+function ProfileContent() {
   const { colors, elevation } = useTheme();
   const router = useRouter();
   const {
@@ -532,6 +537,7 @@ export default function ProfileScreen() {
   return (
     <SafeAreaView style={[styles.screen, { backgroundColor: colors.bg }]} edges={['top']}>
       <ScrollView
+        contentInsetAdjustmentBehavior="automatic"
         contentContainerStyle={styles.content}
         // The gesture the restore and redemption alerts point at ("pull down
         // on Eddy's Settings tab"). This screen is where entitlement state renders,

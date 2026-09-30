@@ -12,13 +12,14 @@ export interface MapCameraPadding {
   paddingRight: number;
 }
 
-/** All dimensions are local to the map canvas, which ends above the tab bar. */
+/** The canvas extends under native tabs; overlays reserve their measured inset. */
 export function mapLayout({
   width,
   height,
   safeTop,
   safeLeft,
   safeRight,
+  safeBottom = 0,
   chromeHeight,
   sheetHeight,
 }: {
@@ -27,15 +28,19 @@ export function mapLayout({
   safeTop: number;
   safeLeft: number;
   safeRight: number;
+  /** Tab screen's bottom safe area, including native tabs. Zero for JS tabs. */
+  safeBottom?: number;
   chromeHeight: number;
   sheetHeight: number;
 }) {
   const sheetTop = safeTop + MAP_EDGE_GAP;
-  const sheetAvailable = Math.max(0, height - sheetTop);
+  const bottomInset = Math.min(Math.max(0, safeBottom), Math.max(0, height - sheetTop));
+  const sheetAvailable = Math.max(0, height - sheetTop - bottomInset);
   // A prior layout's settled sheet may briefly be taller than the new canvas.
   // Attribution must stay on screen even before the sheet reports its new size.
-  const ornamentBottom = Math.min(Math.max(0, sheetHeight), Math.max(0, sheetAvailable - ORNAMENT_BAND));
-  const room = sheetAvailable - ornamentBottom;
+  const sheetLift = Math.min(Math.max(0, sheetHeight), Math.max(0, sheetAvailable - ORNAMENT_BAND));
+  const ornamentBottom = bottomInset + sheetLift;
+  const room = sheetAvailable - sheetLift;
   const chromeHidden = sheetHeight > 0 && room <= ORNAMENT_BAND + chromeHeight;
   const controlsHidden = sheetHeight > 0 && room - chromeHeight <= MAP_CONTROLS_ROOM_MIN;
   const top = Math.min(height, sheetTop + (chromeHidden ? 0 : chromeHeight) + CAMERA_GAP);
@@ -46,6 +51,7 @@ export function mapLayout({
 
   return {
     sheetTop,
+    bottomInset,
     sheetWidth: Math.max(0, width - safeLeft - safeRight),
     ornamentBottom,
     chromeHidden,

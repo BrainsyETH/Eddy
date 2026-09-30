@@ -61,6 +61,7 @@ import Animated, {
   useSharedValue,
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { LazyTabScreen } from '@/components/LazyTabScreen';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import type {
@@ -385,6 +386,10 @@ function serviceResultPin(s: RiverService): { pin: MapPin; layer: LayerKey } | n
 }
 
 export default function MapScreen() {
+  return <LazyTabScreen><MapContent /></LazyTabScreen>;
+}
+
+function MapContent() {
   const [isFocused, setIsFocused] = useState(false);
   useFocusEffect(
     useCallback(() => {
@@ -394,8 +399,9 @@ export default function MapScreen() {
   );
   const [rivers, setRivers] = useState<RiverListItem[] | null>(null);
   const [pickedSlug, setPickedSlug] = useState<string | null>(null);
-  // Measure the tab scene, not the full window: the navigator already owns
-  // the tab bar and home-indicator area. The canvas extends under the top inset.
+  // Native tabs provide a local SafeAreaProvider whose bottom inset includes
+  // the tab bar. Extend the canvas underneath; lift only controls and sheets.
+  // The non-iOS JS navigator still sizes its scene above the tab bar.
   const { width: windowWidth } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const [mapSize, setMapSize] = useState({ width: 0, height: 0 });
@@ -2713,9 +2719,10 @@ export default function MapScreen() {
     safeTop: insets.top,
     safeLeft: insets.left,
     safeRight: insets.right,
+    safeBottom: Platform.OS === 'ios' ? insets.bottom : 0,
     chromeHeight,
     sheetHeight: sheetOpen ? sheet.height : 0,
-  }), [mapSize, windowWidth, insets.top, insets.left, insets.right, chromeHeight, sheetOpen, sheet.height]);
+  }), [mapSize, windowWidth, insets.top, insets.left, insets.right, insets.bottom, chromeHeight, sheetOpen, sheet.height]);
   const topChromeStyle = useAnimatedStyle(() => {
     const { height, available } = sheetMetrics.value;
     if (available <= 0 || mapSearchOpen) return { opacity: 1 };
@@ -2797,6 +2804,7 @@ export default function MapScreen() {
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
           style={[styles.topOverlay, {
             top: geometry.sheetTop,
+            bottom: geometry.bottomInset + MAP_EDGE_GAP,
             left: insets.left + 16,
             right: insets.right + 16,
           }]}
@@ -2904,7 +2912,7 @@ export default function MapScreen() {
             still follows the drag on the UI thread. */}
         {geometry.controlsHidden ? null : (
         <Animated.View
-          style={[styles.bottomStack, { left: insets.left, right: insets.right }, controlsStyle]}
+          style={[styles.bottomStack, { left: insets.left, right: insets.right, bottom: geometry.bottomInset + MAP_CHROME_BOTTOM }, controlsStyle]}
           pointerEvents="box-none"
         >
           <View style={styles.controlRow} pointerEvents="box-none">
@@ -2977,7 +2985,7 @@ export default function MapScreen() {
             existing plan, so hiding it there would strand it. */}
         {geometry.controlsHidden || (sheetOpen && !planner.plan) ? null : (
         <Animated.View
-          style={[styles.planCluster, { left: insets.left + 16, right: insets.right + 12 }, controlsStyle]}
+          style={[styles.planCluster, { left: insets.left + 16, right: insets.right + 12, bottom: geometry.bottomInset + PLAN_CLUSTER_BOTTOM }, controlsStyle]}
           pointerEvents="box-none"
         >
           {/* CLEAR THE PLAN. The plan deliberately outlives its sheet — you
@@ -3057,7 +3065,7 @@ export default function MapScreen() {
             set the slug, closed any callout and cleared the focus, and the only
             thing that appeared was a header chip whose one action was to leave
             the screen. */}
-        <View style={[styles.sheetHost, { top: geometry.sheetTop, left: insets.left, right: insets.right }]} pointerEvents="box-none">
+        <View style={[styles.sheetHost, { top: geometry.sheetTop, bottom: geometry.bottomInset, left: insets.left, right: insets.right }]} pointerEvents="box-none">
           {riverSheetData && !selectedPin && !mapSearchOpen ? (
             <RiverSheetPanel
               river={riverSheetData}

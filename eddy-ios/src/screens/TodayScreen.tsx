@@ -1439,7 +1439,9 @@ export function TodayScreen({ browseMode = 'today', initialRiverFilter = 'all', 
       ) : null}
 
       <FlatList
-        contentInsetAdjustmentBehavior={browseMode === 'today' ? 'never' : 'automatic'}
+        // UIKit owns bottom clearance for the floating tab bar. The surrounding
+        // top-only safe area already places Today's fixed title/search correctly.
+        contentInsetAdjustmentBehavior="automatic"
         data={rows}
         keyExtractor={(item) => item.key}
         keyboardShouldPersistTaps="handled"

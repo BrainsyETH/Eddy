@@ -74,6 +74,7 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { LazyTabScreen } from '@/components/LazyTabScreen';
 import { Ionicons } from '@expo/vector-icons';
 import type {
   AlertRule,
@@ -175,6 +176,10 @@ const CAPTION: Record<Segment, string> = {
 };
 
 export default function AlertsScreen() {
+  return <LazyTabScreen><AlertsContent /></LazyTabScreen>;
+}
+
+function AlertsContent() {
   const routeParams = useLocalSearchParams<{ segment?: string }>();
   const [highWater, setHighWater] = useState<HighWaterEntry[] | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -497,6 +502,7 @@ export default function AlertsScreen() {
     return (
       <SafeAreaView style={[styles.screen, { backgroundColor: colors.bg }]} edges={['top']}>
         <FlatList
+          contentInsetAdjustmentBehavior="automatic"
           data={ruleGroups}
           keyExtractor={(item) => item.key}
           refreshControl={refreshControl}
@@ -678,6 +684,7 @@ export default function AlertsScreen() {
     return (
       <SafeAreaView style={[styles.screen, { backgroundColor: colors.bg }]} edges={['top']}>
         <FlatList
+          contentInsetAdjustmentBehavior="automatic"
           data={noticeRows}
           keyExtractor={(item) => item.key}
           refreshControl={refreshControl}
@@ -720,6 +727,7 @@ export default function AlertsScreen() {
   return (
     <SafeAreaView style={[styles.screen, { backgroundColor: colors.bg }]} edges={['top']}>
       <FlatList
+        contentInsetAdjustmentBehavior="automatic"
         data={highWaterRows}
         keyExtractor={(item) => item.key}
         refreshControl={refreshControl}
