@@ -1,7 +1,6 @@
 import {
   regionalCampingDemand,
   campingDemand,
-  demandHeadline,
   demandDetail,
   demandBasis,
   BAND_CUTOFFS,
@@ -47,14 +46,28 @@ export function todayPopularCamping(
     .slice(0, 5);
 }
 
-/** Separate labels for the status and number. Unknown never becomes 0%. */
-export function campingPulsePills(demand: CampingDemand): { status: string; percent: string | null } {
-  return {
-    status: demandHeadline(demand),
-    percent: demand.band === null || demand.booked === null
-      ? null
-      : `${Math.round(demand.booked * 100)}%`,
-  };
+/** Availability wording describes this snapshot, never a booking trend. */
+export function campingPulseHeadline(demand: CampingDemand): string {
+  if (demand.band === null) return 'Not enough data';
+  if (demand.allObservedBooked) return 'Checked sites fully booked';
+  switch (demand.band) {
+    case 'quiet': return 'Plenty of sites open';
+    case 'moderate': return 'Sites still available';
+    case 'busy': return 'Most sites booked';
+    case 'crowded': return 'Few sites left';
+    case 'packed': return 'Tracked sites fully booked';
+  }
+}
+
+/** Use the actual percent for bar width; rounding must not imply empty/full. */
+export function campingPulseReading(demand: CampingDemand): { percent: number; label: string } | null {
+  if (demand.band === null || demand.booked === null) return null;
+  const percent = demand.booked * 100;
+  const rounded = Math.round(percent);
+  const label = percent > 0 && rounded === 0 ? '<1%'
+    : percent < 100 && rounded === 100 ? '>99%'
+      : `${rounded}%`;
+  return { percent, label };
 }
 
 /** A short, tap-to-open legend. Bounds come from the actual scorer. */
@@ -66,7 +79,8 @@ export function campingPulseInfo(demand: CampingDemand | null): string {
     ? `${demandBasis(demand)}${demand.campgroundsMissing ? ` · ${demand.campgroundsMissing} unavailable` : ''}`
     : null;
   return [
-    'Percent of checked Recreation.gov campsites booked tonight.',
+    'Tonight’s bookings across tracked Ozarks Recreation.gov campsites.',
+    'Longer bars mean more campsites booked. Ticks mark band changes.',
     [
       `Quiet: under ${moderate}%`,
       `Moderate: ${moderate}–under ${busy}%`,
@@ -81,10 +95,10 @@ export function campingPulseInfo(demand: CampingDemand | null): string {
 
 /** Keep the measured sample explicit when some tracked inventory is missing. */
 export function campingPulseDetail(demand: CampingDemand): string {
-  if (demand.band === null) return demandDetail(demand);
-  const percent = Math.round((demand.booked ?? 0) * 100);
+  const reading = campingPulseReading(demand);
+  if (reading === null) return demandDetail(demand);
   const sample = demand.completeCoverage ? 'tracked' : 'checked';
-  return `${percent}% of ${sample} campsites booked tonight`;
+  return `${reading.label} of ${sample} campsites booked`;
 }
 
 /** Describe the actual sample without inventing capacity for missing data. */
@@ -92,4 +106,15 @@ export function campingPulseCoverage(demand: CampingDemand): string | null {
   if (demand.band === null || demand.completeCoverage) return null;
   const n = demand.campgroundsCounted;
   return `Based on ${n} campground${n === 1 ? '' : 's'} · ${demand.campgroundsMissing} unavailable`;
+}
+
+/** Speak the same result as the card, including sample scope and reading age. */
+export function campingPulseAccessibilityLabel(demand: CampingDemand, scope: string): string {
+  return [
+    `${scope} camping tonight`,
+    campingPulseHeadline(demand),
+    campingPulseDetail(demand),
+    demandBasis(demand),
+    campingPulseCoverage(demand),
+  ].filter(Boolean).join('. ');
 }
