@@ -994,7 +994,8 @@ function GaugeChartInner({
             It sits before the range toggle because it changes what the chart is
             OF, where the range only changes how much of it you see. */}
         {availableUnits.length > 1 ? (
-          <View style={[styles.ranges, { borderColor: colors.border, flexWrap: 'wrap' }]}>
+          <View style={styles.ranges}>
+            <View pointerEvents="none" style={[styles.rangeTrack, { borderColor: colors.border }]} />
             {availableUnits.map((u) => {
               const active = u === drawnUnit;
               return (
@@ -1008,26 +1009,29 @@ function GaugeChartInner({
                     setUnitOverride(u);
                     setScrubX(null);
                   }}
-                  style={[styles.range, active && { backgroundColor: colors.cardRaised }]}
+                  style={styles.range}
                   accessibilityRole="button"
                   accessibilityState={{ selected: active }}
                   accessibilityLabel={u === 'ft' ? 'Show gauge height' : 'Show discharge'}
                 >
-                  <Text
-                    style={[
-                      styles.rangeText,
-                      { color: active ? colors.text : colors.textSubtle },
-                    ]}
-                  >
-                    {u}
-                  </Text>
+                  <View style={[styles.rangeFace, active && { backgroundColor: colors.cardRaised }]}>
+                    <Text
+                      style={[
+                        styles.rangeText,
+                        { color: active ? colors.text : colors.textSubtle },
+                      ]}
+                    >
+                      {u}
+                    </Text>
+                  </View>
                 </Pressable>
               );
             })}
           </View>
         ) : null}
 
-        <View style={[styles.ranges, { borderColor: colors.border, flexWrap: 'wrap' }]}>
+        <View style={styles.ranges}>
+          <View pointerEvents="none" style={[styles.rangeTrack, { borderColor: colors.border }]} />
           {ranges.map((r) => {
             const active = r.days === days && !customWindow;
             return (
@@ -1040,75 +1044,27 @@ function GaugeChartInner({
                   setDays(r.days);
                   setScrubX(null);
                 }}
-                style={[
-                  styles.range,
-                  active && { backgroundColor: colors.cardRaised },
-                ]}
+                style={styles.range}
                 accessibilityRole="button"
                 accessibilityState={{ selected: active }}
                 accessibilityLabel={`Show last ${r.label}`}
               >
-                <Text
-                  style={[
-                    styles.rangeText,
-                    { color: active ? colors.text : colors.textSubtle },
-                  ]}
-                >
-                  {r.label}
-                </Text>
+                <View style={[styles.rangeFace, active && { backgroundColor: colors.cardRaised }]}>
+                  <Text
+                    style={[
+                      styles.rangeText,
+                      { color: active ? colors.text : colors.textSubtle },
+                    ]}
+                  >
+                    {r.label}
+                  </Text>
+                </View>
               </Pressable>
             );
           })}
         </View>
       </View>
 
-      <View style={styles.actions}>
-        {historyCapabilities?.supportsCustomRange && (
-          <Pressable accessibilityRole="button" accessibilityLabel="Custom dates" accessibilityState={{ expanded: showDates, selected: Boolean(customWindow) }}
-            onPress={() => setShowDates(!showDates)}
-            style={({ pressed }) => [styles.action, styles.toolbarAction, { borderColor: colors.border, backgroundColor: showDates || customWindow ? colors.cardRaised : colors.card, opacity: pressed ? 0.65 : 1 }]}>
-            <Ionicons name="calendar-outline" size={16} color={colors.interactive} />
-            <Text style={[styles.actionText, { color: colors.interactive }]}>Dates</Text>
-          </Pressable>
-        )}
-        <Pressable accessibilityRole="button" accessibilityLabel={showTable ? 'Hide data table' : 'Show data table'} accessibilityState={{ expanded: showTable, selected: showTable }}
-          onPress={() => setShowTable(!showTable)}
-          style={({ pressed }) => [styles.action, styles.toolbarAction, { borderColor: colors.border, backgroundColor: showTable ? colors.cardRaised : colors.card, opacity: pressed ? 0.65 : 1 }]}>
-          <Ionicons name="list-outline" size={16} color={colors.interactive} />
-          <Text style={[styles.actionText, { color: colors.interactive }]}>{showTable ? 'Hide table' : 'Table'}</Text>
-        </Pressable>
-        <Pressable accessibilityRole="button" accessibilityState={{ disabled: !history?.readings.length }}
-          disabled={!history?.readings.length}
-          style={({ pressed }) => [styles.action, styles.toolbarAction, { borderColor: colors.border, backgroundColor: colors.card, opacity: !history?.readings.length ? 0.4 : pressed ? 0.65 : 1 }]}
-          onPress={async () => {
-            if (!history) return;
-            try {
-              const file = new File(Paths.cache, `gauge-${siteId}-history.csv`);
-              file.write(['timestamp,gauge_height_ft,discharge_cfs', ...history.readings.map(r => `${r.timestamp},${r.gaugeHeightFt ?? ''},${r.dischargeCfs ?? ''}`)].join('\n'));
-              await Share.share({ url: file.uri, title: 'Gauge history CSV' });
-            } catch { Alert.alert('Export unavailable', 'Please try exporting the readings again.'); }
-          }}>
-          <Ionicons name="share-outline" size={16} color={colors.interactive} />
-          <Text style={[styles.actionText, { color: colors.interactive }]}>Export CSV</Text>
-        </Pressable>
-      </View>
-      {showDates && <View style={{ gap: 8, paddingBottom: 12 }}>
-        <TextInput accessibilityLabel="Start date YYYY-MM-DD" placeholder="From: YYYY-MM-DD" placeholderTextColor={colors.textSubtle} value={fromDate} onChangeText={setFromDate} style={{ color: colors.text, borderColor: colors.border, borderWidth: 1, borderRadius: 10, padding: 12 }} />
-        <TextInput accessibilityLabel="End date YYYY-MM-DD" placeholder="To: YYYY-MM-DD" placeholderTextColor={colors.textSubtle} value={toDate} onChangeText={setToDate} style={{ color: colors.text, borderColor: colors.border, borderWidth: 1, borderRadius: 10, padding: 12 }} />
-        {dateError && <Text accessibilityRole="alert" style={{ color: colors.text }}>{dateError}</Text>}
-        <Pressable accessibilityRole="button" style={({ pressed }) => [styles.action, { borderColor: colors.border, backgroundColor: colors.cardRaised, opacity: pressed ? 0.65 : 1 }]} onPress={() => {
-          const from = Date.parse(`${fromDate}T00:00:00Z`);
-          const to = Date.parse(`${toDate}T23:59:59Z`);
-          const validDate = (value: string, time: number) => /^\d{4}-\d{2}-\d{2}$/.test(value) && Number.isFinite(time) && new Date(time).toISOString().slice(0, 10) === value;
-          if (!validDate(fromDate, from) || !validDate(toDate, to) || to <= from || to - from > 366 * 86400000 || from > Date.now()) {
-            setDateError('Enter valid dates in order, no more than one year apart.'); return;
-          }
-          setDateError(null); setScrubX(null);
-          setDays(Math.ceil((to - from) / 86400000));
-          setCustomWindow({ from: new Date(from).toISOString(), to: new Date(Math.min(to, Date.now())).toISOString() });
-        }}><Text style={[styles.actionText, { color: colors.interactive }]}>Apply dates</Text></Pressable>
-      </View>}
-      {showTable ? <GaugeHistoryTable readings={history?.readings ?? []} /> : null}
       {series.gapPaths.length > 0 ? (
         <View style={styles.legendItem} accessibilityLabel="Dotted connections indicate missing readings">
           <View style={styles.legendDashes}>{[0, 1, 2].map(i => <View key={i} style={[styles.legendDash, { backgroundColor: lineColor }]} />)}</View>
@@ -1578,6 +1534,54 @@ function GaugeChartInner({
           </View>
         )}
       </View>
+      {/* Secondary tools follow the graph, keeping the data near its heading. */}
+      <View style={[styles.actions, { borderTopColor: colors.border }]}>
+        {historyCapabilities?.supportsCustomRange && (
+          <Pressable accessibilityRole="button" accessibilityLabel="Custom dates" accessibilityState={{ expanded: showDates, selected: Boolean(customWindow) }}
+            onPress={() => setShowDates(!showDates)}
+            style={({ pressed }) => [styles.toolbarAction, { backgroundColor: showDates || customWindow ? colors.cardRaised : colors.card, opacity: pressed ? 0.65 : 1 }]}>
+            <Ionicons name="calendar-outline" size={16} color={colors.interactive} />
+            <Text style={[styles.actionText, { color: colors.interactive }]}>Dates</Text>
+          </Pressable>
+        )}
+        <Pressable accessibilityRole="button" accessibilityLabel={showTable ? 'Hide data table' : 'Show data table'} accessibilityState={{ expanded: showTable, selected: showTable }}
+          onPress={() => setShowTable(!showTable)}
+          style={({ pressed }) => [styles.toolbarAction, { backgroundColor: showTable ? colors.cardRaised : colors.card, opacity: pressed ? 0.65 : 1 }]}>
+          <Ionicons name="list-outline" size={16} color={colors.interactive} />
+          <Text style={[styles.actionText, { color: colors.interactive }]}>{showTable ? 'Hide table' : 'Table'}</Text>
+        </Pressable>
+        <Pressable accessibilityRole="button" accessibilityState={{ disabled: !history?.readings.length }}
+          disabled={!history?.readings.length}
+          style={({ pressed }) => [styles.toolbarAction, { backgroundColor: colors.card, opacity: !history?.readings.length ? 0.4 : pressed ? 0.65 : 1 }]}
+          onPress={async () => {
+            if (!history) return;
+            try {
+              const file = new File(Paths.cache, `gauge-${siteId}-history.csv`);
+              file.write(['timestamp,gauge_height_ft,discharge_cfs', ...history.readings.map(r => `${r.timestamp},${r.gaugeHeightFt ?? ''},${r.dischargeCfs ?? ''}`)].join('\n'));
+              await Share.share({ url: file.uri, title: 'Gauge history CSV' });
+            } catch { Alert.alert('Export unavailable', 'Please try exporting the readings again.'); }
+          }}>
+          <Ionicons name="share-outline" size={16} color={colors.interactive} />
+          <Text style={[styles.actionText, { color: colors.interactive }]}>Export CSV</Text>
+        </Pressable>
+      </View>
+      {showDates && <View style={{ gap: 8, paddingBottom: 12 }}>
+        <TextInput accessibilityLabel="Start date YYYY-MM-DD" placeholder="From: YYYY-MM-DD" placeholderTextColor={colors.textSubtle} value={fromDate} onChangeText={setFromDate} style={{ color: colors.text, borderColor: colors.border, borderWidth: 1, borderRadius: 10, padding: 12 }} />
+        <TextInput accessibilityLabel="End date YYYY-MM-DD" placeholder="To: YYYY-MM-DD" placeholderTextColor={colors.textSubtle} value={toDate} onChangeText={setToDate} style={{ color: colors.text, borderColor: colors.border, borderWidth: 1, borderRadius: 10, padding: 12 }} />
+        {dateError && <Text accessibilityRole="alert" style={{ color: colors.text }}>{dateError}</Text>}
+        <Pressable accessibilityRole="button" style={({ pressed }) => [styles.action, { borderColor: colors.border, backgroundColor: colors.cardRaised, opacity: pressed ? 0.65 : 1 }]} onPress={() => {
+          const from = Date.parse(`${fromDate}T00:00:00Z`);
+          const to = Date.parse(`${toDate}T23:59:59Z`);
+          const validDate = (value: string, time: number) => /^\d{4}-\d{2}-\d{2}$/.test(value) && Number.isFinite(time) && new Date(time).toISOString().slice(0, 10) === value;
+          if (!validDate(fromDate, from) || !validDate(toDate, to) || to <= from || to - from > 366 * 86400000 || from > Date.now()) {
+            setDateError('Enter valid dates in order, no more than one year apart.'); return;
+          }
+          setDateError(null); setScrubX(null);
+          setDays(Math.ceil((to - from) / 86400000));
+          setCustomWindow({ from: new Date(from).toISOString(), to: new Date(Math.min(to, Date.now())).toISOString() });
+        }}><Text style={[styles.actionText, { color: colors.interactive }]}>Apply dates</Text></Pressable>
+      </View>}
+      {showTable ? <GaugeHistoryTable readings={history?.readings ?? []} /> : null}
     </View>
   );
 }
@@ -1669,20 +1673,22 @@ const styles = StyleSheet.create({
   //
   // Horizontal placement therefore belongs to the caller. Vertical rhythm does
   // not: the gap under a card is the same question on both screens.
-  card: { marginBottom: 14, borderRadius: 16, padding: 16 },
-  head: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', alignItems: 'center', gap: 10, marginBottom: 6 },
+  card: { marginBottom: 14, borderRadius: 16, paddingHorizontal: 16, paddingVertical: 12 },
+  head: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', alignItems: 'center', gap: 4, marginBottom: 0 },
   headText: { width: '100%' },
   // Give the full title its own row; controls wrap beneath it.
   titleRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'center', gap: 8 },
   title: { ...t.base, fontFamily: fonts.heading, flexShrink: 1, textAlign: 'center' },
-  subtitle: { ...t.xs, fontFamily: fonts.body, marginTop: 6, textAlign: 'center' },
-  scrubLine: { ...t.xs, fontFamily: fonts.body, marginTop: 6, textAlign: 'center' },
+  subtitle: { ...t.xs, fontFamily: fonts.body, marginTop: 2, textAlign: 'center' },
+  scrubLine: { ...t.xs, fontFamily: fonts.body, marginTop: 2, textAlign: 'center' },
   scrubValue: { ...t.sm, fontFamily: fonts.monoMedium },
-  ranges: { flexDirection: 'row', borderWidth: 1, borderRadius: 9, overflow: 'hidden' },
-  range: { minHeight: 44, justifyContent: 'center', paddingHorizontal: 12, paddingVertical: 5 },
+  ranges: { flexDirection: 'row', flexWrap: 'wrap', position: 'relative' },
+  rangeTrack: { position: 'absolute', left: 0, right: 0, top: 7, bottom: 7, borderWidth: 1, borderRadius: 9 },
+  range: { minWidth: 44, minHeight: 44, paddingVertical: 7 },
+  rangeFace: { flex: 1, minHeight: 30, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8 },
   rangeText: { ...t.xs, fontFamily: fonts.medium },
-  actions: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 8, paddingVertical: 8 },
-  toolbarAction: { flexGrow: 1, flexBasis: 0, minWidth: 110 },
+  actions: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 8, marginTop: 6, borderTopWidth: StyleSheet.hairlineWidth },
+  toolbarAction: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, minHeight: 44, paddingHorizontal: 8, paddingVertical: 6, flexGrow: 1, flexBasis: 0, minWidth: 110, borderRadius: 8 },
   action: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, minHeight: 44, paddingHorizontal: 10, paddingVertical: 8, borderWidth: 1, borderRadius: 10 },
   actionText: { ...t.xs, fontFamily: fonts.medium, flexShrink: 1, textAlign: 'center' },
   plotWrap: { marginTop: 2 },
