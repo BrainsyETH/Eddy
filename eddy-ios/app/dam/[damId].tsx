@@ -392,6 +392,7 @@ export default function DamDetailScreen() {
   if (!dam) {
     return (
       <SafeAreaView style={[styles.screen, { backgroundColor: colors.bg }]} edges={['left', 'right']}>
+        <Stack.Screen options={{ title: catalogEntry!.name }} />
         <NativeHeaderHome />
         <ScrollView contentInsetAdjustmentBehavior="automatic" contentContainerStyle={styles.body}>
           <Text style={[styles.name, { color: colors.text }]}>{catalogEntry!.name}</Text>
@@ -428,12 +429,13 @@ export default function DamDetailScreen() {
 
   return (
     <SafeAreaView style={[styles.screen, { backgroundColor: colors.bg }]} edges={['left', 'right']}>
+      <Stack.Screen options={{ title: dam.name }} />
       <NativeHeaderHome />
       <Stack.Toolbar placement="right">
         <Stack.Toolbar.Button
           icon={starred ? 'star.fill' : 'star'}
           selected={starred}
-          tintColor={starred ? colors.warm : colors.interactive}
+          tintColor={colors.interactive}
           accessibilityLabel={starred ? `Remove ${dam.name} from Favorites` : `Add ${dam.name} to Favorites`}
           onPress={onToggleStar}
         >

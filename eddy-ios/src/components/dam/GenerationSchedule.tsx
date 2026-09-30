@@ -76,7 +76,7 @@ function DayRow({
       // says nothing the bars below do not, sitting in the row a reader taps to
       // open. The trailing hour count still carries the same fact in two words.
       summary={day.idle.length > 0 ? idleWindowSentence(day.idle) : null}
-      accessibilitySummary={[now?.label, scheduledHoursSummary(day.hours, { compact: true })].filter(Boolean).join('. ')}
+      accessibilitySummary={[now?.label, scheduledHoursSummary(day.hours), peak ? schedulePeakVoiceOver(peak) : null, 'Central time'].filter(Boolean).join('. ')}
       defaultExpanded={defaultExpanded}
       trailing={
         <View style={styles.trailing}>

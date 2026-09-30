@@ -164,6 +164,7 @@ function SeededAccessPoint({
 
   return (
     <SafeAreaView style={[styles.screen, { backgroundColor: colors.bg }]} edges={['left', 'right']}>
+      <Stack.Screen options={{ title: point.name }} />
       <NativeHeaderHome />
       <ScrollView contentInsetAdjustmentBehavior="automatic" contentContainerStyle={styles.body}>
         {point.imageUrls && point.imageUrls.length > 0 ? (
@@ -564,6 +565,7 @@ export default function AccessPointDetailScreen() {
 
   return (
     <SafeAreaView style={[styles.screen, { backgroundColor: colors.bg }]} edges={['left', 'right']}>
+      <Stack.Screen options={{ title: point.name }} />
       <NativeHeaderHome />
 
       <Stack.Toolbar placement="right">

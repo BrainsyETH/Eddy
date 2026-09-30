@@ -18,7 +18,7 @@
 // false precision, and two wheels of 1,440 values each is a worse control than
 // two rows of 24.
 
-import { BackButton } from '@/components/BackButton';
+import { NativeHeaderHome } from '@/components/NativeHeaderHome';
 import { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
@@ -30,7 +30,6 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Stack, useRouter } from 'expo-router';
 import type { NotificationPreferences } from '@eddy/types';
 import { fetchNotificationPreferences, updateNotificationPreferences } from '@/api/client';
 import {
@@ -44,13 +43,11 @@ import {
 import { useSession } from '@/hooks/useSession';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
-import { goBack } from '@/lib/nav';
 
 /** 24 whole hours. See the header on why this is not a minute picker. */
 const HOURS = Array.from({ length: 24 }, (_, hour) => hour * 60);
 
 export default function QuietHoursScreen() {
-  const router = useRouter();
   const { colors, elevation } = useTheme();
   const { getAccessToken } = useSession();
 
@@ -133,35 +130,22 @@ export default function QuietHoursScreen() {
     [prefs, getAccessToken],
   );
 
-  // Declared ABOVE the loading branch so every state below renders it. A
-  // spinner with no way off it is a trap on a slow connection, where the
-  // request has fifteen seconds to run before it even fails.
-  const nav = (
-    <View style={styles.navRow}>
-      <BackButton onPress={() => goBack(router)} />
-      <Text style={[styles.navTitle, { color: colors.text }]}>Quiet hours</Text>
-      <View style={styles.navSpacer} />
-    </View>
-  );
-
   if (loading) {
     return (
-      <SafeAreaView style={[styles.screen, { backgroundColor: colors.bg }]} edges={['top']}>
-        <Stack.Screen options={{ headerShown: false }} />
-        {nav}
-        <View style={[styles.centered, styles.flex]}>
+      <SafeAreaView style={[styles.screen, { backgroundColor: colors.bg }]} edges={['left', 'right']}>
+        <NativeHeaderHome destination="settings" />
+        <ScrollView contentInsetAdjustmentBehavior="automatic" contentContainerStyle={styles.centered}>
           <ActivityIndicator color={colors.interactive} />
-        </View>
+        </ScrollView>
       </SafeAreaView>
     );
   }
 
   if (loadFailed) {
     return (
-      <SafeAreaView style={[styles.screen, { backgroundColor: colors.bg }]} edges={['top']}>
-        <Stack.Screen options={{ headerShown: false }} />
-        {nav}
-        <View style={[styles.centered, styles.flex]}>
+      <SafeAreaView style={[styles.screen, { backgroundColor: colors.bg }]} edges={['left', 'right']}>
+        <NativeHeaderHome destination="settings" />
+        <ScrollView contentInsetAdjustmentBehavior="automatic" contentContainerStyle={styles.centered}>
           <Text style={[styles.emptyTitle, { color: colors.text }]}>Couldn&apos;t load your quiet hours</Text>
           <Text style={[styles.emptyBody, { color: colors.textMuted }]}>
             Your settings are stored with your account, so this screen needs a connection. Nothing has
@@ -175,7 +159,7 @@ export default function QuietHoursScreen() {
           >
             <Text style={[styles.retryText, { color: colors.interactive }]}>Try again</Text>
           </Pressable>
-        </View>
+        </ScrollView>
       </SafeAreaView>
     );
   }
@@ -184,15 +168,14 @@ export default function QuietHoursScreen() {
   // nothing — so the sign-in copy below is now true whenever it is on screen.
   if (!prefs) {
     return (
-      <SafeAreaView style={[styles.screen, { backgroundColor: colors.bg }]} edges={['top']}>
-        <Stack.Screen options={{ headerShown: false }} />
-        {nav}
-        <View style={[styles.centered, styles.flex]}>
+      <SafeAreaView style={[styles.screen, { backgroundColor: colors.bg }]} edges={['left', 'right']}>
+        <NativeHeaderHome destination="settings" />
+        <ScrollView contentInsetAdjustmentBehavior="automatic" contentContainerStyle={styles.centered}>
           <Text style={[styles.emptyTitle, { color: colors.text }]}>Sign in to set quiet hours</Text>
           <Text style={[styles.emptyBody, { color: colors.textMuted }]}>
             Quiet hours are stored with your account so they apply to every device.
           </Text>
-        </View>
+        </ScrollView>
       </SafeAreaView>
     );
   }
@@ -243,11 +226,10 @@ export default function QuietHoursScreen() {
   );
 
   return (
-    <SafeAreaView style={[styles.screen, { backgroundColor: colors.bg }]} edges={['top']}>
-      <Stack.Screen options={{ headerShown: false }} />
-      {nav}
+    <SafeAreaView style={[styles.screen, { backgroundColor: colors.bg }]} edges={['left', 'right']}>
+      <NativeHeaderHome destination="settings" />
 
-      <ScrollView contentContainerStyle={styles.content}>
+      <ScrollView contentInsetAdjustmentBehavior="automatic" contentContainerStyle={styles.content}>
         <Pressable
           onPress={() => void save({ ...prefs, quietHoursEnabled: !prefs.quietHoursEnabled, quietStartMinute: start, quietEndMinute: end })}
           style={({ pressed }) => [
@@ -374,17 +356,7 @@ export default function QuietHoursScreen() {
 
 const styles = StyleSheet.create({
   screen: { flex: 1 },
-  flex: { flex: 1 },
-  centered: { alignItems: 'center', justifyContent: 'center', paddingHorizontal: 40 },
-  navRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-  },
-  navTitle: { ...t.base, fontFamily: fonts.semibold, flex: 1, textAlign: 'center' },
-  navSpacer: { width: 44 },
+  centered: { flexGrow: 1, alignItems: 'center', justifyContent: 'center', padding: 32 },
   content: { paddingHorizontal: 16, paddingBottom: 48 },
   optionRow: {
     flexDirection: 'row',

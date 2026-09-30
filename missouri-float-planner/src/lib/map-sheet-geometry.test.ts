@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { tabScrollOffset } from '../../../eddy-ios/src/components/map-sheet/tabScrollOffset';
-import { mapLayout } from '../../../eddy-ios/src/map/mapLayout';
+import { mapLayout, mapChromeClearance, MAP_CONTROLS_ROOM_MIN } from '../../../eddy-ios/src/map/mapLayout';
 import {
   CONTENT_BOTTOM_PAD,
   DISMISS_FRACTION,
@@ -17,6 +17,23 @@ import {
   STRONG_FLICK_VELOCITY,
   applyRubberBand,
 } from '../../../eddy-ios/src/components/map-sheet/sheetGeometry';
+
+test('live chrome boundaries hide at zero opacity and restore during an unfinished drag', () => {
+  const available = 700, chromeHeight = 100;
+  const topBoundary = available - chromeHeight - ORNAMENT_BAND;
+  const controlsBoundary = available - chromeHeight - MAP_CONTROLS_ROOM_MIN;
+  for (const [kind, boundary] of [['top', topBoundary], ['controls', controlsBoundary]] as const) {
+    for (const [offset, hidden] of [[-1, false], [0, true], [1, true], [-1, false]] as const) {
+      assert.equal(mapChromeClearance(available, boundary + offset, chromeHeight)[kind] <= 0, hidden);
+    }
+  }
+});
+test('closing a sheet resets live chrome and search remains available above the sheet', () => {
+  const reset = mapChromeClearance(0, 0, 100);
+  assert.ok(reset.top > 0 && reset.controls > 0);
+  assert.ok(mapChromeClearance(700, 690, 100, true).top > 0);
+  assert.ok(mapChromeClearance(700, 690, 100, true).controls <= 0);
+});
 
 // Covers eddy-ios/src/components/map-sheet/sheetGeometry.ts. The Expo app has
 // no runner of its own, and these are the rules that decide where a dragged

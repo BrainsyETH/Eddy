@@ -58,6 +58,8 @@ import Animated, {
   Extrapolation,
   interpolate,
   useAnimatedStyle,
+  useAnimatedReaction,
+  runOnJS,
   useSharedValue,
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -169,7 +171,7 @@ import { PinSheet } from '@/components/map-sheet/PinSheet';
 import { RiverSheetPanel } from '@/components/map-sheet/RiverSheetPanel';
 import type { SheetMetrics } from '@/components/map-sheet/MapSheet';
 import { ORNAMENT_BAND } from '@/components/map-sheet/sheetGeometry';
-import { MAP_CONTROLS_ROOM_MIN, MAP_EDGE_GAP, mapLayout } from '@/map/mapLayout';
+import { MAP_EDGE_GAP, mapChromeClearance, mapLayout } from '@/map/mapLayout';
 
 /**
  * How far above the ornament band everything floating has to sit.
@@ -1868,11 +1870,11 @@ function MapContent() {
   const controlsStyle = useAnimatedStyle(() => {
     const { height, available } = sheetMetrics.value;
     if (available <= 0) return { opacity: 1, transform: [{ translateY: 0 }] };
-    const room = available - height - chromeHeight;
+    const room = mapChromeClearance(available, height, chromeHeight).controls;
     return {
       opacity: interpolate(
         room,
-        [MAP_CONTROLS_ROOM_MIN, MAP_CONTROLS_ROOM_MIN + CONTROLS_ROOM_FADE],
+        [0, CONTROLS_ROOM_FADE],
         [0, 1],
         Extrapolation.CLAMP,
       ),
@@ -2723,17 +2725,21 @@ function MapContent() {
     chromeHeight,
     sheetHeight: sheetOpen ? sheet.height : 0,
   }), [mapSize, windowWidth, insets.top, insets.left, insets.right, insets.bottom, chromeHeight, sheetOpen, sheet.height]);
+  const [hiddenChrome, setHiddenChrome] = useState({ top: false, controls: false });
+  useAnimatedReaction(
+    () => {
+      const { height, available } = sheetMetrics.value;
+      const room = mapChromeClearance(available, height, chromeHeight, mapSearchOpen);
+      return (room.top <= 0 ? 1 : 0) | (room.controls <= 0 ? 2 : 0);
+    },
+    (hidden, previous) => {
+      if (hidden !== previous) runOnJS(setHiddenChrome)({ top: Boolean(hidden & 1), controls: Boolean(hidden & 2) });
+    },
+  );
   const topChromeStyle = useAnimatedStyle(() => {
     const { height, available } = sheetMetrics.value;
-    if (available <= 0 || mapSearchOpen) return { opacity: 1 };
-    // Fade before the sheet's attribution band reaches search. Keep the row
-    // mounted/measured so expanding a sheet never resizes the map or detents.
-    return { opacity: interpolate(
-      available - height,
-      [ORNAMENT_BAND + chromeHeight, ORNAMENT_BAND + chromeHeight + 24],
-      [0, 1],
-      Extrapolation.CLAMP,
-    ) };
+    const room = mapChromeClearance(available, height, chromeHeight, mapSearchOpen).top;
+    return { opacity: interpolate(room, [0, 24], [0, 1], Extrapolation.CLAMP) };
   });
 
   // NOTHING ON THIS SCREEN IS GATED. The offline download was the Map tab's
@@ -2813,9 +2819,9 @@ function MapContent() {
         >
           <Animated.View
             style={topChromeStyle}
-            pointerEvents={geometry.chromeHidden ? 'none' : 'box-none'}
-            accessibilityElementsHidden={geometry.chromeHidden}
-            importantForAccessibility={geometry.chromeHidden ? 'no-hide-descendants' : 'auto'}
+            pointerEvents={hiddenChrome.top ? 'none' : 'box-none'}
+            accessibilityElementsHidden={hiddenChrome.top}
+            importantForAccessibility={hiddenChrome.top ? 'no-hide-descendants' : 'auto'}
             onLayout={({ nativeEvent: { layout } }) => {
               const height = Math.ceil(layout.height);
               setChromeHeight((current) => current === height ? current : height);
@@ -2907,10 +2913,9 @@ function MapContent() {
             cleared the sheet and nothing else; the ornaments ride the sheet
             too now, so 12 would have landed the locate button on the (i).
 
-            When search and the sheet leave too little room, remove the settled
-            controls from hit testing and VoiceOver as well. The fade itself
-            still follows the drag on the UI thread. */}
-        {geometry.controlsHidden ? null : (
+            When search and the sheet leave too little room, hide controls from
+            hit testing and VoiceOver at the live fade boundary, before settling. */}
+        {hiddenChrome.controls ? null : (
         <Animated.View
           style={[styles.bottomStack, { left: insets.left, right: insets.right, bottom: geometry.bottomInset + MAP_CHROME_BOTTOM }, controlsStyle]}
           pointerEvents="box-none"
@@ -2983,7 +2988,7 @@ function MapContent() {
             button reads "View float" and RESUMES state the reader already
             built, which competes with nothing: the sheet has no way back to an
             existing plan, so hiding it there would strand it. */}
-        {geometry.controlsHidden || (sheetOpen && !planner.plan) ? null : (
+        {hiddenChrome.controls || (sheetOpen && !planner.plan) ? null : (
         <Animated.View
           style={[styles.planCluster, { left: insets.left + 16, right: insets.right + 12, bottom: geometry.bottomInset + PLAN_CLUSTER_BOTTOM }, controlsStyle]}
           pointerEvents="box-none"

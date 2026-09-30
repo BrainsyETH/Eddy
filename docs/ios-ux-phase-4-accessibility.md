@@ -1,7 +1,8 @@
 # iOS UX Phase 4: camping, dam, and weather accessibility
 
-Branch: `codex/ios-phase-4-accessibility`.
-Baseline: `425c0a0667eb666a1c7cc8636270116174097f96` (main after Phase 3C merged, September 30, 2026).
+Original Phase 4 branch: `codex/ios-phase-4-accessibility` (merged in PR #1382).
+Review follow-up branch: `codex/ios-review-stabilization`.
+Original baseline: `425c0a0667eb666a1c7cc8636270116174097f96`. Updated against main after Phase 5A native tabs merged (PR #1383).
 
 Phases 4A and 4B are combined at the user's request.
 
@@ -23,11 +24,36 @@ Generation schedules offer Show hourly details, with complete time windows and v
 
 Weather keeps its atmospheric background, illustration, colors, and standard-size structure. At larger text sizes or narrow phone widths, the hourly forecast becomes wrapping text rows, daily forecasts show labeled high/low values, and wind/humidity cards stack. The large hero reading uses a smaller base text token while retaining system text scaling. Forecast rows and metrics have grouped VoiceOver descriptions, including conditions, Fahrenheit, miles per hour, and rain probability. Decorative imagery does not become a separate reading.
 
+## Phase 1–5 review corrections
+
+- Current Alerts, Camping, and Quiet Hours use the root native stack header in
+  loaded, loading, error, and empty states. Camping filters scroll with the
+  list header; native automatic insets keep the initial row clear of chrome.
+- Loaded river, gauge, dam, and access-point names appear in native titles.
+  Full names remain in the body. Cold detail links show a Map symbol for Map;
+  Current Alerts/Camping return to Today, and Quiet Hours returns to Settings.
+- Supporting text uses separate secondary/tertiary tones in both schemes.
+  Standard page, card, raised, and selected backgrounds clear 4.5:1 without
+  making tertiary text brighter than secondary. Selected toolbar stars use
+  the interactive tint and filled symbol, preserving a non-color selection cue.
+- Alerts segments expose tab roles and selected state. An unchanged alert
+  configuration no longer registers a dismissal block; unsaved edits still
+  prompt, and save/sign-in/permission work still blocks dismissal while busy.
+- Map fading and interaction eligibility use the live sheet clearance. Only
+  boundary crossings reach React; hit testing and VoiceOver no longer wait for
+  the sheet's settled height. Camera padding/attribution retain settled updates.
+- Dam chart labels have an 11 pt base minimum. The current-time label stays
+  inside the plot. Spoken schedule headings include full hour counts, peak and
+  idle windows, and Central time; the chart/details button states the current
+  presentation instead of claiming to expand a disclosure.
+- README documents native-tabs API, lazy mounting, insets, and accessibility
+  checks for future SDK upgrades.
+
 ## Scope and validation
 
-No dependencies, API contracts, backend calculations, permissions, native configuration, or release channels change. Native tab bars, the broader material/contrast pass, and system date-picker replacement remain later work. This PR includes no deployment or release.
+The iOS changes add no dependencies and change no API contracts, backend calculations, permissions, native configuration, or release channels. The branch also incorporates the independently reviewed web security patches in PR #1384 so the runtime-audit gate can pass; merge that PR first. Native tabs are now inherited from main. Adaptive increased-contrast tokens, additional materials, and system date-picker replacement remain later work. This PR includes no deployment or release.
 
-- All 2,951 registered regression tests passed with no failures or skips. Three new tests cover the shared date choices, arrival/departure boundaries, the final checkout date, year changes, and Central daylight-saving boundaries.
+- All 2,959 registered regression tests and the separate 16-test Today pretest passed with no failures or skips. New coverage includes date-choice boundaries, supporting-text contrast/hierarchy across light/dark surfaces, and Map interaction thresholds during a drag/reset.
 - Web production/test typechecks and ESLint passed (0 errors, 14 existing warnings). Token/palette checks passed.
 - `make check-mobile` passed on Node 20 with 0 errors and 27 existing warnings.
 - `make bundle-mobile` passed: production Hermes iOS export and archive allowlist check (424 files, 10.59 MB; every Metro-resolved path included).
@@ -39,10 +65,30 @@ No simulator or physical iPhone is available here. Device rendering, safe-area m
 
 References: [Apple accessibility guidance](https://developer.apple.com/design/human-interface-guidelines/accessibility), [Dynamic Type](https://developer.apple.com/videos/play/wwdc2024/10074/), and [React Native accessibility properties](https://reactnative.dev/docs/accessibility).
 
-## Device QA
+## Device QA — combined next-build checklist
 
 Use a small iPhone and a Home Indicator device. Check default text and the largest accessibility sizes, light/dark appearance, increased contrast, VoiceOver, Reduce Motion, and Display Zoom. This app remains portrait-only. Include an older supported iOS version and iOS 26.
 
+- [ ] Cold-launch each tab. Today is first; labels and SF Symbols remain clear.
+  Switching tabs preserves state. Scroll the last row above the inset tab bar;
+  verify content moves under system chrome without an extra colored band.
+- [ ] Open Current Alerts, Camping, and Quiet Hours through the app and direct
+  links. Verify one native title/back control, edge-swipe, and correct home
+  fallback. Check loading, failure/retry, signed-out, and empty states; no
+  initial row or final action sits under a bar/Home Indicator.
+- [ ] Open river/gauge/dam/access details with long names, including offline
+  access data and dam catalog fallback. Native titles identify the place, full
+  names remain readable in the body, and selected stars stay clear in both
+  appearances. Inspect supporting text on raised/selected surfaces, too.
+- [ ] VoiceOver identifies Alerts segments as selected/unselected tabs. Open
+  alert configuration and swipe-dismiss without edits; then edit and retry:
+  Keep editing preserves the form and Discard closes it. Try cancellation while
+  saving/signing in/enabling notifications, and confirm a successful save is
+  not duplicated on retry or interrupted by dismissal.
+- [ ] Slowly drag a Map sheet through the point where search and lower controls
+  fade away, pause without releasing, and drag back. Invisible controls must
+  not accept taps or VoiceOver focus; they become usable as they return. Repeat
+  with search open, large text, Reduce Motion, rapid close/reopen, and tab changes.
 - [ ] Today remains compact. Open Camping: standard text starts in Grid; large text or VoiceOver starts in List. Manually switch views, change text size, and toggle VoiceOver. Explicit display choices remain respected during the visit.
 - [ ] In List, step through nights and open the date picker. First/last-night arrows disable correctly. Choose dates across month/year boundaries and beyond the last observed night. Rows use the same selected night and show unknown availability honestly.
 - [ ] Compare Grid and List against the same campground/night. Check open, full, zero reservable sites, closed, unreleased, missing/stale data, and first-come states. No status requires distinguishing green from red. Filters still return to All rivers; campground ordering stays grouped by river.

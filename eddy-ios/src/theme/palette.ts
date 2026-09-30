@@ -71,8 +71,10 @@ export const neutral = {
   800: '#3F3B33',
   700: '#524D43',
   600: '#6B6459',
+  550: '#766E62', // Accessible subtle text on light surfaces.
   500: '#857D70',
   400: '#A49C8E',
+  350: '#AEA698', // Accessible subtle text on raised dark teal.
   300: '#C2BAAC',
   200: '#DBD5CA',
   100: '#EDEBE6',
@@ -272,7 +274,7 @@ export const darkPalette: Palette = {
   border: primary[700],
   text: '#FFFFFF',
   textMuted: primary[300],
-  textSubtle: neutral[300],
+  textSubtle: neutral[350],
   accent: accent[500],
   emphasisFill: accent[500],
   onEmphasis: neutral[950],
@@ -322,7 +324,7 @@ export const lightPalette: Palette = {
   border: neutral[200],
   text: neutral[900],
   textMuted: neutral[600],
-  textSubtle: neutral[600],
+  textSubtle: neutral[550],
   accent: accent[500],
   emphasisFill: accent[500],
   onEmphasis: neutral[950],

@@ -75,6 +75,9 @@ const detailHeaderOptions = {
 // without reordering the stack or adding synthetic history for direct links.
 const detailTitles: Record<string, string> = {
   weather: 'Weather',
+  'current-alerts': 'Current alerts',
+  camping: 'Camping',
+  'alerts/quiet-hours': 'Quiet hours',
   'gauge/[siteId]': 'Gauge',
   'river/[slug]': 'River',
   'river/[slug]/access/[accessSlug]': 'Access point',

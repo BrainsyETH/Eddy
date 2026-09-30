@@ -1326,6 +1326,7 @@ export default function RiverDetailScreen() {
 
   return (
     <SafeAreaView style={[styles.screen, { backgroundColor: colors.bg }]} edges={['left', 'right']}>
+      <Stack.Screen options={{ title: river.name }} />
       <NativeHeaderHome />
 
       <Stack.Toolbar placement="right">
@@ -1340,7 +1341,7 @@ export default function RiverDetailScreen() {
         <Stack.Toolbar.Button
           icon={starred ? 'star.fill' : 'star'}
           selected={starred}
-          tintColor={starred ? colors.warm : colors.interactive}
+          tintColor={colors.interactive}
           accessibilityLabel={starred ? `Remove ${river.name} from Favorites` : `Add ${river.name} to Favorites`}
           onPress={() => toggleStar({ kind: 'river', entityId: river.id, name: river.name, slug: river.slug })}
         >

@@ -86,8 +86,10 @@ Not cold grays — these are warm, sandstone-toned neutrals that feel organic an
 | Neutral 800 | `#3F3B33` | Dark mode surfaces |
 | Neutral 700 | `#524D43` | Dark mode borders |
 | Neutral 600 | `#6B6459` | Secondary text, xl shadow color |
+| Neutral 550 | `#766E62` | Native subtle text on light surfaces; at least 4.5:1 |
 | Neutral 500 | `#857D70` | Muted text, lg shadow color |
 | Neutral 400 | `#A49C8E` | md shadow color, hover borders |
+| Neutral 350 | `#AEA698` | Native subtle text on dark surfaces, including raised teal; at least 4.5:1 |
 | Neutral 300 | `#C2BAAC` | xs/sm shadow color, strong borders |
 | Neutral 200 | `#DBD5CA` | Default borders, badge-neutral bg |
 | Neutral 100 | `#EDEBE6` | Skeleton loaders, subtle backgrounds |

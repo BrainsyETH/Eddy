@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { darkPalette, lightPalette } from '../../../eddy-ios/src/theme/palette';
 import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 
@@ -7,6 +8,28 @@ import { join } from 'node:path';
 // here — the same arrangement as api-cache-headers.test.ts.
 const APP = join(process.cwd(), '../eddy-ios');
 const read = (p: string) => readFileSync(join(APP, p), 'utf8');
+
+function luminance(hex: string): number {
+  const rgb = [1, 3, 5].map((offset) => parseInt(hex.slice(offset, offset + 2), 16) / 255)
+    .map((channel) => channel <= 0.04045 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4);
+  return 0.2126 * rgb[0] + 0.7152 * rgb[1] + 0.0722 * rgb[2];
+}
+function contrast(ink: string, surface: string): number {
+  const a = luminance(ink), b = luminance(surface);
+  return (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05);
+}
+for (const palette of [lightPalette, darkPalette]) {
+  test(`${palette.scheme} supporting text stays readable and subordinate on every standard surface`, () => {
+    for (const surface of [palette.bg, palette.card, palette.cardRaised, palette.selectionBg]) {
+      const subtle = contrast(palette.textSubtle, surface);
+      const muted = contrast(palette.textMuted, surface);
+      assert.ok(subtle >= 4.5, `subtle text on ${surface}: ${subtle}`);
+      assert.ok(muted > subtle, 'secondary text must have more contrast than tertiary text');
+      assert.ok(contrast(palette.text, surface) > muted, 'primary text must have the highest contrast');
+      assert.ok(contrast(palette.interactive, surface) >= 4.5, 'interactive labels must stay readable');
+    }
+  });
+}
 
 /** Every .tsx under app/ and src/, which is where StyleSheets live. */
 function componentFiles(): string[] {

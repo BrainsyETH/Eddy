@@ -1,15 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Pressable, RefreshControl, SectionList, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useLocalSearchParams } from 'expo-router';
 import type { HighWaterEntry, RiverAlert } from '@eddy/types';
 import { fetchHighWater, fetchRiverAlerts } from '@/api/client';
-import { BackButton } from '@/components/BackButton';
+import { NativeHeaderHome } from '@/components/NativeHeaderHome';
 import { HighWaterAlertRow, PublicNoticeRow } from '@/components/CurrentAlertRows';
 import { ScopeSwitch, type ScopeOption } from '@/components/ScopeSwitch';
 import { useStarredRivers } from '@/hooks/useStarredRivers';
 import { currentAlertsSummary, decodeCurrentAlertsFilter, type CurrentAlertsFilter } from '@/lib/todaySafety';
-import { goBack } from '@/lib/nav';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, textStyles, type as t } from '@/theme/typography';
 
@@ -33,7 +32,6 @@ export default function CurrentAlertsScreen() {
   const [refreshing, setRefreshing] = useState(true);
   const request = useRef<AbortController | null>(null);
   const { colors } = useTheme();
-  const router = useRouter();
 
   const load = useCallback(() => {
     request.current?.abort();
@@ -83,12 +81,10 @@ export default function CurrentAlertsScreen() {
   ];
 
   return (
-    <SafeAreaView style={[styles.screen, { backgroundColor: colors.bg }]} edges={['top', 'bottom']}>
-      <View style={styles.navigation}>
-        <BackButton onPress={() => goBack(router)} />
-        <Text accessibilityRole="header" style={[styles.title, { color: colors.text }]}>Current alerts</Text>
-      </View>
+    <SafeAreaView style={[styles.screen, { backgroundColor: colors.bg }]} edges={['left', 'right']}>
+      <NativeHeaderHome destination="today" />
       <SectionList<Row, Section>
+        contentInsetAdjustmentBehavior="automatic"
         sections={sections}
         keyExtractor={(item) => item.kind === 'high' ? `high:${item.entry.id}` : `notice:${item.alert.id}`}
         stickySectionHeadersEnabled={false}
@@ -144,8 +140,6 @@ export default function CurrentAlertsScreen() {
 
 const styles = StyleSheet.create({
   screen: { flex: 1 },
-  navigation: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, gap: 8 },
-  title: { ...textStyles.pageTitle, flex: 1 },
   content: { paddingBottom: 24 },
   filterCaption: { ...t.sm, paddingHorizontal: 20, paddingTop: 12 },
   caption: { ...t.sm },
