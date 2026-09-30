@@ -35,12 +35,11 @@ import {
   ApiError,
   fetchLocationWeather,
 } from '@/api/client';
-import { BlurredReadPreview, EddyReadCard, EddyReadPlaceholder } from '@/components/EddyReadCard';
+import { EddyReadCard, EddyReadPlaceholder } from '@/components/EddyReadCard';
 import { useAccount } from '@/hooks/useAccount';
 import { onForeground } from '@/lib/foreground';
 import { seedLocationForecast } from '@/lib/locationForecast';
 import { TodayRiverPhoto } from '@/components/TodayRiverPhoto';
-import { PremiumReadPreview } from '@/components/PremiumReadPreview';
 import { PaywallSheet } from '@/components/PaywallSheet';
 import { canOfferReadPremium } from '@/lib/readPremiumAccess';
 import { EddyScene } from '@/components/EddyScene';
@@ -287,18 +286,12 @@ function FloatPreviewCard({
 function BestRiverCard({
   recommendation,
   photoUrl,
-  premiumUserId,
-  revision,
-  onRead,
   onOpen,
   onPlan,
   standalone = false,
 }: {
   recommendation: TodayRecommendation;
   photoUrl?: string | null;
-  premiumUserId: string | null;
-  revision: string;
-  onRead: () => void;
   onOpen: () => void;
   onPlan: () => void;
   standalone?: boolean;
@@ -350,20 +343,6 @@ function BestRiverCard({
           </View>
         </View>
       ) : null}
-      <Pressable
-        onPress={onRead}
-        style={({ pressed }) => [styles.eddyRead, { backgroundColor: colors.card, borderColor: colors.border, opacity: pressed ? 0.7 : 1, transform: [{ scale: pressed ? 0.98 : 1 }] }]}
-        accessibilityRole="button"
-        accessibilityLabel={`Open Eddy's Read for ${recommendation.river.name}`}
-      >
-        <View style={styles.readHead}>
-          <Ionicons name="sparkles" size={15} color={colors.accent} />
-          <Text style={[styles.readLabel, { color: colors.accent }]}>View full read</Text>
-          <Ionicons name="chevron-forward" size={15} color={colors.textSubtle} />
-        </View>
-        {!premiumUserId ? <BlurredReadPreview lines={1} /> : null}
-      </Pressable>
-      {premiumUserId ? <PremiumReadPreview key={premiumUserId} slug={recommendation.river.slug} revision={revision} /> : null}
       <View style={styles.bestFooter}>
         <BestRiverNotices notices={recommendation.notices} riverName={recommendation.river.name} />
         <View style={styles.actions}>
@@ -592,28 +571,25 @@ export function TodayHub({
     () => location.coords && gauges ? riverMilesByGauge(gauges, location.coords) : null,
     [gauges, location.coords],
   );
-  const reservedReadIds = useMemo(() => {
-    const reserved = new Set(recommendations.map((item) => item.river.id));
-    return reserved;
-  }, [recommendations]);
   // Ranked exactly as the validated Reads will be (minus prose age, which is
   // unknown until they land), so early Premium cards and photo prefetches
-  // name the rivers the settled rail shows.
+  // name the rivers the settled rail shows. Best River cards no longer contain
+  // Reads, so their rivers stay eligible for this dedicated rail too.
   const readCandidates = useMemo(() => selectReadRail(
     [...rivers].sort((a, b) => compareReadRivers(a, b, {
       isFavorite: (id) => favoriteIds.has(id),
       distances: previewDistances,
     })),
-    reservedReadIds, (river) => river.id,
-  ), [rivers, favoriteIds, previewDistances, reservedReadIds]);
+    new Set<string>(), (river) => river.id,
+  ), [rivers, favoriteIds, previewDistances]);
   const readPreviews = useMemo(() => {
     // Premium requests still start before the public index; these candidates
     // have already been selected, so do not filter or truncate them again.
     if (!reads.length && premiumUserId && (readsLoading || readsError)) {
       return readCandidates.map((river) => ({ river, says: { text: '', generatedAt: '' } }));
     }
-    return selectReadRail(reads, reservedReadIds, ({ river }) => river.id);
-  }, [reads, premiumUserId, readsLoading, readsError, readCandidates, reservedReadIds]);
+    return selectReadRail(reads, new Set<string>(), ({ river }) => river.id);
+  }, [reads, premiumUserId, readsLoading, readsError, readCandidates]);
   const readState = readRailState(readPreviews.length, readsLoading, readsError);
   // Warm only the first rail's likely photos while the public index is in flight.
   // Rendering and prefetching use the same Expo cache. Failed prefetches never
@@ -778,9 +754,6 @@ export function TodayHub({
                 key={item.river.id}
                 recommendation={item}
                 photoUrl={photos.get(item.river.slug)}
-                premiumUserId={premiumUserId}
-                revision={String(refreshRevision)}
-                onRead={() => openRead(item.river.slug)}
                 onOpen={() => router.push(`/river/${item.river.slug}`)}
                 onPlan={() => openPlan(item.river.slug)}
               />
@@ -790,9 +763,6 @@ export function TodayHub({
           <BestRiverCard
             recommendation={recommendations[0]}
             photoUrl={photos.get(recommendations[0].river.slug)}
-            premiumUserId={premiumUserId}
-            revision={String(refreshRevision)}
-            onRead={() => openRead(recommendations[0].river.slug)}
             onOpen={() => router.push(`/river/${recommendations[0].river.slug}`)}
             onPlan={() => openPlan(recommendations[0].river.slug)}
             standalone
@@ -871,8 +841,8 @@ const styles = StyleSheet.create({
   loading: { height: 150, alignItems: 'center', justifyContent: 'center' },
   // Rail wrappers stretch to the tallest sibling; let each card fill its wrapper
   // while keeping intrinsic height for standalone and large-text stacked cards.
-  bestPreview: { width: '100%', flexGrow: 1, minHeight: 354, borderWidth: 1, borderRadius: radii.feature, padding: 16 },
-  bestStandalone: { width: 'auto', height: 'auto', minHeight: 354 },
+  bestPreview: { width: '100%', flexGrow: 1, borderWidth: 1, borderRadius: radii.feature, padding: 16 },
+  bestStandalone: { width: 'auto', height: 'auto' },
   bestTop: { flexDirection: 'row', alignItems: 'center', minHeight: 112 },
   bestName: { ...t['2xl'], fontFamily: fonts.display },
   bestReason: { ...t.sm, fontFamily: fonts.body, marginTop: 4 },
@@ -880,9 +850,6 @@ const styles = StyleSheet.create({
   factRow: { minHeight: 44, borderRadius: 12, paddingHorizontal: 12, paddingVertical: 9, flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 8 },
   factText: { ...t.sm, fontFamily: fonts.mono, flex: 1 },
   factAge: { ...t.xs, fontFamily: fonts.body, marginTop: 2 },
-  eddyRead: { borderWidth: StyleSheet.hairlineWidth, borderRadius: radii.card, padding: 13, marginTop: 10 },
-  readHead: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  readLabel: { ...t.xs, fontFamily: fonts.heading, letterSpacing: 0.7, flex: 1 },
   bestFooter: { marginTop: 'auto' },
   actions: { flexWrap: 'wrap', flexDirection: 'row', alignItems: 'center', gap: 9, paddingTop: 15 },
   secondaryButton: { minHeight: 46, borderWidth: 1, borderRadius: 12, paddingHorizontal: 15, alignItems: 'center', justifyContent: 'center' },
