@@ -200,9 +200,9 @@ test('the reason travels with the absence, and the iOS plan card branches on it'
     'the regulated branch must have its own sentence, not the flood one',
   );
 
-  const planSheet = readFileSync(
-    join(process.cwd(), '../eddy-ios/src/components/PlanSheet.tsx'),
+  const planActions = readFileSync(
+    join(process.cwd(), '../eddy-ios/src/lib/planActions.ts'),
     'utf-8',
   );
-  assert.match(planSheet, /floatTimeWithheldReason === 'regulated'/);
+  assert.match(planActions, /floatTimeWithheldReason === 'regulated'/);
 });
