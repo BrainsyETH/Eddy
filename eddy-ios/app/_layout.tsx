@@ -331,6 +331,7 @@ function ThemedShell() {
               headerShown: false,
               contentStyle: { backgroundColor: colors.bg },
               ...(title ? { ...detailHeaderOptions, title } : {}),
+              ...(route.name === 'alerts/(create)' ? { presentation: 'modal' as const } : {}),
             };
           }} />
         </NavigationThemeProvider>

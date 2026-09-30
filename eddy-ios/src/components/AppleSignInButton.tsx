@@ -36,7 +36,7 @@
 // is there an account backend in this build at all. It is constant, so it
 // cannot strand anybody mid-session.
 
-import { useCallback, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { ActivityIndicator, StyleSheet, Text, View, type StyleProp, type ViewStyle } from 'react-native';
 import * as AppleAuthentication from 'expo-apple-authentication';
 import { APPLE_SIGN_IN_CANCELLED, useSession } from '@/hooks/useSession';
@@ -45,12 +45,15 @@ import { fonts, type as t } from '@/theme/typography';
 
 export function AppleSignInButton({
   onSignedIn,
+  onBusyChange,
   cornerRadius = 12,
   height = 50,
   style,
 }: {
   /** Fired once a permanent session exists. Callers refresh whatever they hold. */
   onSignedIn: () => void;
+  /** Lets a containing task protect dismissal while Apple's prompt is open. */
+  onBusyChange?: (busy: boolean) => void;
   cornerRadius?: number;
   /**
    * The button's height, which is ALSO the spinner's.
@@ -65,10 +68,14 @@ export function AppleSignInButton({
   const { colors } = useTheme();
   const { signInWithApple, accountsConfigured } = useSession();
   const [busy, setBusy] = useState(false);
+  const busyRef = useRef(false);
   const [error, setError] = useState<string | null>(null);
 
   const handleSignIn = useCallback(async () => {
+    if (busyRef.current) return;
+    busyRef.current = true;
     setBusy(true);
+    onBusyChange?.(true);
     setError(null);
     try {
       await signInWithApple();
@@ -77,9 +84,11 @@ export function AppleSignInButton({
       const message = err instanceof Error ? err.message : 'Could not sign in.';
       if (message !== APPLE_SIGN_IN_CANCELLED) setError(message);
     } finally {
+      busyRef.current = false;
       setBusy(false);
+      onBusyChange?.(false);
     }
-  }, [signInWithApple, onSignedIn]);
+  }, [signInWithApple, onSignedIn, onBusyChange]);
 
   // No account backend in this build, no button — drawing one whose only
   // possible outcome is "Accounts are unavailable right now" is worse than the

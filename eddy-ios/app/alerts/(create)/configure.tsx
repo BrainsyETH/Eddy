@@ -1,4 +1,4 @@
-// eddy-ios/app/alerts/configure.tsx
+// eddy-ios/app/alerts/(create)/configure.tsx
 // Step two: what should it tell you, and when?
 //
 // ── Two modes, and why both ─────────────────────────────────────────────────
@@ -26,11 +26,11 @@
 // it happens we say it out loud, or a rule that correctly declines to fire looks
 // like one that is broken.
 
-import { BackButton } from '@/components/BackButton';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  Keyboard,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -38,10 +38,10 @@ import {
   Text,
   TextInput,
   View,
+  useWindowDimensions,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
+import { Stack, useLocalSearchParams, useNavigation } from 'expo-router';
 import {
   describeAlertRule,
   formatAlertValue,
@@ -53,17 +53,20 @@ import {
   type GaugeDetailThreshold,
 } from '@eddy/types';
 import { ApiError, createGaugeAlert, fetchCondition, fetchGaugeDetail, subscribeToRiver } from '@/api/client';
-import { AlertSignInSheet } from '@/components/AlertSignInSheet';
+import { AppleSignInButton } from '@/components/AppleSignInButton';
+import { AlertCreationFrame } from '@/components/AlertCreationFrame';
+import { useCloseAlertCreation } from '@/hooks/useCloseAlertCreation';
+import { useSession } from '@/hooks/useSession';
+import { usePreventRemove } from 'expo-router/react-navigation';
+import { alertAnchor, alertDraftChanged, createAlertSaveTask } from '@/lib/alertCreation';
 import { ConditionCodeChips } from '@/components/ConditionCodeChips';
 import { Otter } from '@/components/Otter';
-import { PushPrimer } from '@/components/PushPrimer';
 import { CONDITION_KINDS, codesForKind } from '@/lib/alertKinds';
 import { readingAge } from '@/lib/readingCopy';
 import { useAlertRules } from '@/hooks/useAlertRules';
 import { useAlertGate } from '@/hooks/useAlertGate';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
-import { goBack } from '@/lib/nav';
 
 /** What the screen learned about the water it is configuring. */
 interface Context {
@@ -137,11 +140,22 @@ export default function ConfigureAlertScreen() {
   const riverId = params.riverId || null;
   const riverName = params.riverName || null;
 
-  const router = useRouter();
+  const navigation = useNavigation();
+  const { fontScale } = useWindowDimensions();
+  const close = useCloseAlertCreation();
+  const { accountsConfigured } = useSession();
+  const [saveTask] = useState(createAlertSaveTask);
+  const [saving, setSaving] = useState(false);
+  const [signingIn, setSigningIn] = useState(false);
+  const [enablingPush, setEnablingPush] = useState(false);
+  const signingInRef = useRef(false);
+  const enablingPushRef = useRef(false);
+  const confirmingDiscard = useRef(false);
+  const [completion, setCompletion] = useState<{ seedNote: string | null; primed: boolean } | null>(null);
   const { colors, elevation } = useTheme();
   const { add, refresh } = useAlertRules();
-  // Session, sign-in sheet, push primer and the busy flag. Shared with the
-  // one-tap bell on the river screen — see useAlertGate.
+  // Reuse the one-tap bell's session and permission policy. This task renders
+  // sign-in and the primer inline, without adding another modal.
   const gate = useAlertGate();
 
   const [context, setContext] = useState<Context | null>(null);
@@ -153,6 +167,7 @@ export default function ConfigureAlertScreen() {
   // wrong one — telling someone who had just tapped "Alert me" on a gauge that
   // the river has no gauge. See the hints under the mode chips.
   const [loadFailed, setLoadFailed] = useState(false);
+  const [loadAttempt, setLoadAttempt] = useState(0);
 
   const [mode, setMode] = useState<AlertRuleMode>('condition');
   const [conditionKind, setConditionKind] = useState<AlertSubscriptionKind>('safety');
@@ -162,7 +177,7 @@ export default function ConfigureAlertScreen() {
   const [valueMax, setValueMax] = useState('');
   const [oneShot, setOneShot] = useState(false);
 
-  const targetName = riverName ?? params.gaugeName ?? 'this water';
+  const targetName = (scope === 'gauge' ? params.gaugeName || riverName : riverName) || 'this water';
 
   // ── Load the live reading and whatever ladder applies ────────────────────
   useEffect(() => {
@@ -234,7 +249,7 @@ export default function ConfigureAlertScreen() {
     })();
 
     return () => controller.abort();
-  }, [scope, params.siteId, params.gaugeId, params.gaugeName, riverId]);
+  }, [scope, params.siteId, params.gaugeId, params.gaugeName, riverId, loadAttempt]);
 
   // ── Defaults that follow from what we found ──────────────────────────────
   //
@@ -277,13 +292,6 @@ export default function ConfigureAlertScreen() {
 
   const currentValue = metric === 'discharge_cfs' ? context?.dischargeCfs ?? null : context?.gaugeHeightFt ?? null;
 
-  /** The reading, formatted the way that unit is reported. */
-  const anchorFor = useCallback(
-    (value: number | null, forMetric: AlertMetric) =>
-      value == null ? '' : forMetric === 'discharge_cfs' ? String(Math.round(value)) : value.toFixed(2),
-    [],
-  );
-
   // Which unit the number currently in the field was entered against. Without
   // this the screen cannot tell "the user typed 3.40 feet" from "the user typed
   // 3.40 cfs", which is the whole of the bug below.
@@ -307,17 +315,17 @@ export default function ConfigureAlertScreen() {
     if (enteredMetric.current === metric) return;
 
     enteredMetric.current = metric;
-    setValue(anchorFor(currentValue, metric));
+    setValue(alertAnchor(currentValue, metric));
     // The upper bound is cleared rather than re-anchored: both ends of a range
     // cannot be the one current reading, and a max left over from the other
     // unit is the same bug one field along.
     setValueMax('');
-  }, [context, metric, currentValue, anchorFor]);
+  }, [context, metric, currentValue]);
 
   const parsedValue = Number(value);
   const parsedMax = Number(valueMax);
   const valueValid = Number.isFinite(parsedValue) && value.trim() !== '';
-  const maxValid = comparator !== 'between' || (Number.isFinite(parsedMax) && parsedMax > parsedValue);
+  const maxValid = comparator !== 'between' || (valueMax.trim() !== '' && Number.isFinite(parsedMax) && parsedMax > parsedValue);
 
   // A level needs a station to measure it at, and a river with no gauge wired
   // has none. Without this the screen happily takes a number and the save
@@ -361,82 +369,104 @@ export default function ConfigureAlertScreen() {
     [mode, conditionKind, metric, comparator, valueValid, parsedValue, parsedMax],
   );
 
-  /**
-   * What happens after a save lands.
-   *
-   * The gate arms the push primer on its own and SAYS whether it did, because
-   * that decides whether this screen leaves. When the primer is up it is
-   * covering this screen and its own handlers go back — see the sheet at the
-   * bottom of this file — so popping here as well would dismiss the prompt
-   * before anyone could answer it.
-   */
-  const finish = useCallback(
-    (seedNote: string | null, primed: boolean) => {
-      const leave = () => {
-        if (!primed) goBack(router);
-      };
-
-      if (seedNote) Alert.alert('Alert saved', seedNote, [{ text: 'OK', onPress: leave }]);
-      else leave();
-    },
-    [router],
+  const initialMetric: AlertMetric = context?.ladderUnit === 'cfs'
+    ? 'discharge_cfs' : context?.ladderUnit === 'ft' || context?.gaugeHeightFt != null || !context
+      ? 'gauge_height_ft' : 'discharge_cfs';
+  const initialValue = initialMetric === 'discharge_cfs' ? context?.dischargeCfs : context?.gaugeHeightFt;
+  const usesOneShot = !(scope === 'river' && mode === 'condition');
+  const dirty = !loading && alertDraftChanged(
+    { mode, conditionKind, metric, comparator, value, valueMax, oneShot: usesOneShot && oneShot },
+    { mode: canUseCondition ? 'condition' : 'threshold', conditionKind: 'safety', metric: initialMetric,
+      comparator: 'above', value: alertAnchor(initialValue ?? null, initialMetric), valueMax: '', oneShot: false },
   );
 
+  // This also propagates through the nested navigator to the sheet's native
+  // swipe dismissal. Re-dispatch the exact action only after confirmation.
+  usePreventRemove(!completion || enablingPush, ({ data }) => {
+    if (saveTask.busy || signingInRef.current || enablingPushRef.current) return;
+    if (saveTask.saved || !dirty) { navigation.dispatch(data.action); return; }
+    if (confirmingDiscard.current) return;
+    confirmingDiscard.current = true;
+    Keyboard.dismiss();
+    Alert.alert('Discard this alert?', 'Your changes have not been saved.', [
+      { text: 'Keep editing', style: 'cancel', onPress: () => { confirmingDiscard.current = false; } },
+      { text: 'Discard', style: 'destructive', onPress: () => {
+        confirmingDiscard.current = false;
+        navigation.dispatch(data.action);
+      } },
+    ], { cancelable: false });
+  });
+
   const save = useCallback(async () => {
+    if (!canSave || saveTask.busy || saveTask.saved) return;
+    Keyboard.dismiss();
+    setSaving(true);
     setError(null);
     try {
-      // Collected inside the write and acted on after it, so the navigation
-      // decision can see whether the gate opened the primer.
-      let seedNote: string | null = null;
-      const { wrote, primed } = await gate.run(async (token) => {
-        // River + Eddy's call is the existing subscription path, and deliberately
-        // so: that alert is fanned out from one shared event, and duplicating it
-        // as a per-user rule would mean two mechanisms racing on one river.
-        if (scope === 'river' && mode === 'condition') {
-          if (!riverId) throw new ApiError('This river is missing an id', 400);
-          await subscribeToRiver(token, riverId, conditionKind);
-          await refresh();
-          return;
-        }
+      const result = await saveTask.run(async (commit) => {
+        // Collected inside the write and acted on after it, so the navigation
+        // decision can see whether the gate opened the primer.
+        let seedNote: string | null = null;
+        const { wrote, primed } = await gate.run(async (token) => {
+          // River + Eddy's call is the existing subscription path, and deliberately
+          // so: that alert is fanned out from one shared event, and duplicating it
+          // as a per-user rule would mean two mechanisms racing on one river.
+          if (scope === 'river' && mode === 'condition') {
+            if (!riverId) throw new ApiError('This river is missing an id', 400);
+            await subscribeToRiver(token, riverId, conditionKind);
+            commit();
+            void refresh().catch(() => {
+              setError('Your alert is saved. Pull to refresh the alert list when you are online.');
+            });
+            return;
+          }
 
-        // No parentSubscriptionId. A rule made here stands on its own, by
-        // design — the only surface that parents one to a river alert is the
-        // section inside that alert's own edit screen. See RiverGaugeAlerts.
-        const { rule, seed } = await createGaugeAlert(token, {
-          // Same params fallback as `hasStation`, and required by it: enabling
-          // Save on the strength of a route param and then sending neither id
-          // would answer 404 for a station the user plainly selected. The
-          // success path above already prefers the fetched ids the same way.
-          gaugeStationId: context?.gaugeStationId ?? params.gaugeId ?? undefined,
-          usgsSiteId: context?.usgsSiteId ?? params.siteId ?? undefined,
-          riverId: riverId ?? undefined,
-          riverSlug: params.riverSlug || undefined,
-          scope,
-          mode,
-          conditionKind: mode === 'condition' ? conditionKind : undefined,
-          metric: mode === 'threshold' ? metric : undefined,
-          comparator: mode === 'threshold' ? comparator : undefined,
-          thresholdValue: mode === 'threshold' ? parsedValue : undefined,
-          thresholdValueMax:
-            mode === 'threshold' && comparator === 'between' ? parsedMax : undefined,
-          oneShot,
+          // No parentSubscriptionId. A rule made here stands on its own, by
+          // design — the only surface that parents one to a river alert is the
+          // section inside that alert's own edit screen. See RiverGaugeAlerts.
+          const { rule, seed } = await createGaugeAlert(token, {
+            // Same params fallback as `hasStation`, and required by it: enabling
+            // Save on the strength of a route param and then sending neither id
+            // would answer 404 for a station the user plainly selected. The
+            // success path above already prefers the fetched ids the same way.
+            gaugeStationId: context?.gaugeStationId ?? params.gaugeId ?? undefined,
+            usgsSiteId: context?.usgsSiteId ?? params.siteId ?? undefined,
+            riverId: riverId ?? undefined,
+            riverSlug: params.riverSlug || undefined,
+            scope,
+            mode,
+            conditionKind: mode === 'condition' ? conditionKind : undefined,
+            metric: mode === 'threshold' ? metric : undefined,
+            comparator: mode === 'threshold' ? comparator : undefined,
+            thresholdValue: mode === 'threshold' ? parsedValue : undefined,
+            thresholdValueMax:
+              mode === 'threshold' && comparator === 'between' ? parsedMax : undefined,
+            oneShot,
+          });
+
+          commit();
+          add(rule);
+
+          // `inside` means the condition is already true. Saying so is the whole
+          // reason the server returns the seed.
+          seedNote =
+            seed?.state === 'inside' && seed.value != null
+              ? `${targetName} is already at ${formatAlertValue(seed.value, metric)}. Eddy tells you the next time it crosses your level, not right now.`
+              : null;
+        });
+
+        // Nothing was written when the gate stopped at the sign-in sheet, and
+        // leaving then would drop somebody back on the alerts list having just
+        // been asked to sign in.
+        return { wrote, seedNote, primed };
       });
-
-      add(rule);
-
-      // `inside` means the condition is already true. Saying so is the whole
-      // reason the server returns the seed.
-      seedNote =
-        seed?.state === 'inside' && seed.value != null
-          ? `${targetName} is already at ${formatAlertValue(seed.value, metric)}. Eddy tells you the next time it crosses your level, not right now.`
-          : null;
-      });
-
-      // Nothing was written when the gate stopped at the sign-in sheet, and
-      // leaving then would drop somebody back on the alerts list having just
-      // been asked to sign in.
-      if (wrote) finish(seedNote, primed);
+      if (result?.wrote) setCompletion({ seedNote: result.seedNote, primed: result.primed });
     } catch (err) {
+      if (saveTask.saved) {
+        setCompletion({ seedNote: null, primed: false });
+        setError('Your alert is saved. The alert list could not refresh. Check it again when you are online.');
+        return;
+      }
       // The gate has already absorbed 401 and 403 and opened the sign-in
       // sheet for them; what is left is the route's own refusals.
       if (err instanceof ApiError && err.status && err.status >= 400 && err.status < 500) {
@@ -447,32 +477,87 @@ export default function ConfigureAlertScreen() {
       } else {
         setError('Could not save that alert. Try again.');
       }
+    } finally {
+      setSaving(false);
     }
   }, [
-    gate, scope, mode, riverId, conditionKind, refresh, finish, context,
+    gate, scope, mode, riverId, conditionKind, refresh, context, canSave, saveTask,
     params.riverSlug, params.siteId, params.gaugeId,
     metric, comparator, parsedValue, parsedMax, oneShot, add, targetName,
   ]);
 
+  const cancel = { label: 'Cancel', onPress: close, disabled: saving || signingIn || enablingPush };
   if (loading) {
-    return (
-      <SafeAreaView style={[styles.screen, { backgroundColor: colors.bg }]} edges={['top']}>
-        <Stack.Screen options={{ headerShown: false }} />
-        {/* The nav row renders here too: the reading has fifteen seconds to
-            arrive before it times out, and a spinner with no chevron is that
-            long with no way off the screen. */}
-        <View style={styles.navRow}>
-          <BackButton onPress={() => goBack(router)} />
-          <Text style={[styles.navTitle, { color: colors.text }]} numberOfLines={1}>
-            {targetName}
+    return <AlertCreationFrame secondary={cancel}>
+      <View style={[styles.centered, styles.flex]} accessibilityRole="progressbar" accessibilityLabel="Loading alert options">
+        <ActivityIndicator color={colors.interactive} />
+      </View>
+    </AlertCreationFrame>;
+  }
+
+  // A failed river lookup hasn't told us whether a gauge exists. Don't show
+  // the no-gauge empty state or an unusable editor on the strength of a failure.
+  if (loadFailed && !hasStation) {
+    return <AlertCreationFrame secondary={cancel} primary={{ label: 'Try again', onPress: () => {
+      setLoading(true);
+      setLoadAttempt((attempt) => attempt + 1);
+    } }}>
+      <ScrollView contentContainerStyle={styles.content}>
+        <Text accessibilityRole="header" style={[styles.stepTitle, { color: colors.text }]}>Couldn&apos;t load alert options</Text>
+        <Text style={[styles.stepBody, { color: colors.textMuted }]}>Check your connection and try again to set an alert for {targetName}.</Text>
+      </ScrollView>
+    </AlertCreationFrame>;
+  }
+
+  if (completion) {
+    const allowPush = async () => {
+      if (enablingPushRef.current) return;
+      enablingPushRef.current = true;
+      setEnablingPush(true);
+      setError(null);
+      try {
+        await gate.enablePush();
+        gate.setPrimerOpen(false);
+        enablingPushRef.current = false;
+        close();
+      } catch {
+        setError('Your alert is saved. Notifications could not be enabled. Try again, or change them later in Settings.');
+      } finally {
+        enablingPushRef.current = false;
+        setEnablingPush(false);
+      }
+    };
+    return <AlertCreationFrame error={error}
+      secondary={{ label: completion.primed ? 'Not right now' : 'Done', onPress: close, disabled: enablingPush }}
+      primary={completion.primed ? { label: 'Turn on notifications', onPress: () => void allowPush(), busy: enablingPush } : undefined}
+    >
+      <Stack.Screen options={{ title: 'Alert saved', headerBackVisible: false, gestureEnabled: false }} />
+      <ScrollView contentContainerStyle={styles.content}>
+        <Text accessibilityRole="header" style={[styles.stepTitle, { color: colors.text }]}>Alert saved</Text>
+        <Text style={[styles.stepBody, { color: colors.text }]}>Notify me about {targetName} {preview}.</Text>
+        {completion.seedNote ? <Text style={[styles.stepBody, { color: colors.text }]}>{completion.seedNote}</Text> : null}
+        {completion.primed ? <>
+          <Text style={[styles.stepBody, { color: colors.text }]}>Turn on notifications to hear when this alert triggers. Your alert stays saved if you choose Not right now.</Text>
+          <Text style={[styles.stepBody, { color: colors.textMuted }]}>
+            Gauge reporting and processing mean alerts can trail the river by roughly 20–75 minutes. Check conditions again before getting on the water.
           </Text>
-          <View style={styles.navSpacer} />
-        </View>
-        <View style={[styles.centered, styles.flex]}>
-          <ActivityIndicator color={colors.interactive} />
-        </View>
-      </SafeAreaView>
-    );
+        </> : null}
+      </ScrollView>
+    </AlertCreationFrame>;
+  }
+
+  if (gate.signInOpen) {
+    return <AlertCreationFrame error={error} secondary={{ label: 'Back to alert', onPress: () => gate.setSignInOpen(false), disabled: signingIn }}>
+      <Stack.Screen options={{ title: 'Sign in' }} />
+      <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+        <Text accessibilityRole="header" style={[styles.stepTitle, { color: colors.text }]}>Sign in to save your alert</Text>
+        <Text style={[styles.stepBody, { color: colors.textMuted }]}>Eddy needs an account to keep your alert for {targetName}. Your choices will stay here while you sign in.</Text>
+        {accountsConfigured ? <AppleSignInButton
+          onBusyChange={(busy) => { signingInRef.current = busy; setSigningIn(busy); }}
+          onSignedIn={() => { gate.setSignInOpen(false); void save(); }}
+        /> : <Text style={[styles.stepBody, { color: colors.error }]}>Accounts are unavailable in this build. Go back to keep your alert choices.</Text>}
+      </ScrollView>
+    </AlertCreationFrame>;
   }
 
   const chip = (selected: boolean) => [
@@ -486,18 +571,18 @@ export default function ConfigureAlertScreen() {
   ];
 
   return (
-    <SafeAreaView style={[styles.screen, { backgroundColor: colors.bg }]} edges={['top']}>
-      <Stack.Screen options={{ headerShown: false }} />
-
-      <View style={styles.navRow}>
-        <BackButton onPress={() => goBack(router)} />
-        <Text style={[styles.navTitle, { color: colors.text }]} numberOfLines={1}>
-          {targetName}
-        </Text>
-        <View style={styles.navSpacer} />
-      </View>
-
-      <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+    <AlertCreationFrame error={error} secondary={cancel}
+      primary={{ label: saving ? 'Saving…' : 'Save', onPress: () => void save(), disabled: !canSave, busy: saving }}>
+      <Stack.Screen options={{ title: 'New alert', gestureEnabled: true }} />
+      <ScrollView
+        contentContainerStyle={styles.content}
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="interactive"
+        pointerEvents={saving ? 'none' : 'auto'}
+        accessibilityElementsHidden={saving}
+        importantForAccessibility={saving ? 'no-hide-descendants' : 'auto'}
+      >
+        <Text accessibilityRole="header" style={[styles.stepTitle, { color: colors.text }]}>{targetName}</Text>
         {/* The reading, first. Every number below this is a decision about it. */}
         <View style={[styles.card, { backgroundColor: colors.card }, elevation(1)]}>
           <Text style={[styles.cardLabel, { color: colors.textSubtle }]}>Right now</Text>
@@ -622,10 +707,10 @@ export default function ConfigureAlertScreen() {
               <>
                 <Text style={[styles.sectionLabel, { color: colors.textSubtle }]}>Measured in</Text>
                 <View style={styles.chipRow}>
-                  <Pressable onPress={() => setMetric('gauge_height_ft')} style={chip(metric === 'gauge_height_ft')}>
+                  <Pressable accessibilityRole="button" accessibilityState={{ selected: metric === 'gauge_height_ft' }} onPress={() => setMetric('gauge_height_ft')} style={chip(metric === 'gauge_height_ft')}>
                     <Text style={chipText(metric === 'gauge_height_ft')}>Feet</Text>
                   </Pressable>
-                  <Pressable onPress={() => setMetric('discharge_cfs')} style={chip(metric === 'discharge_cfs')}>
+                  <Pressable accessibilityRole="button" accessibilityState={{ selected: metric === 'discharge_cfs' }} onPress={() => setMetric('discharge_cfs')} style={chip(metric === 'discharge_cfs')}>
                     <Text style={chipText(metric === 'discharge_cfs')}>CFS</Text>
                   </Pressable>
                 </View>
@@ -649,7 +734,7 @@ export default function ConfigureAlertScreen() {
             </View>
 
             {/* ── Value ────────────────────────────────────────────────── */}
-            <View style={styles.valueRow}>
+            <View style={[styles.valueRow, fontScale > 1.3 && styles.valueColumn]}>
               <TextInput
                 value={value}
                 onChangeText={setValue}
@@ -657,10 +742,10 @@ export default function ConfigureAlertScreen() {
                 placeholder="0"
                 placeholderTextColor={colors.textSubtle}
                 style={[
-                  styles.valueInput,
+                  styles.valueInput, fontScale > 1.3 && styles.valueInputWide,
                   { backgroundColor: colors.card, borderColor: colors.border, color: colors.text },
                 ]}
-                accessibilityLabel={comparator === 'between' ? 'Lower level' : 'Level'}
+                accessibilityLabel={`${comparator === 'between' ? 'Lower level' : 'Level'}, ${metric === 'discharge_cfs' ? 'cubic feet per second' : 'feet'}`}
               />
               {comparator === 'between' ? (
                 <>
@@ -672,10 +757,10 @@ export default function ConfigureAlertScreen() {
                     placeholder="0"
                     placeholderTextColor={colors.textSubtle}
                     style={[
-                      styles.valueInput,
+                      styles.valueInput, fontScale > 1.3 && styles.valueInputWide,
                       { backgroundColor: colors.card, borderColor: colors.border, color: colors.text },
                     ]}
-                    accessibilityLabel="Upper level"
+                    accessibilityLabel={`Upper level, ${metric === 'discharge_cfs' ? 'cubic feet per second' : 'feet'}`}
                   />
                 </>
               ) : null}
@@ -692,14 +777,7 @@ export default function ConfigureAlertScreen() {
         )}
 
         {/* ── Repeat ───────────────────────────────────────────────────── */}
-        <Pressable
-          onPress={() => setOneShot((v) => !v)}
-          style={({ pressed }) => [
-            styles.optionRow,
-            { backgroundColor: colors.card, opacity: pressed ? 0.7 : 1 },
-            elevation(1),
-          ]}
-        >
+        {usesOneShot ? <View style={[styles.optionRow, { backgroundColor: colors.card }, elevation(1)]}>
           <View style={styles.optionBody}>
             <Text style={[styles.optionTitle, { color: colors.text }]}>Just once</Text>
             <Text style={[styles.optionHint, { color: colors.textMuted }]}>
@@ -710,10 +788,12 @@ export default function ConfigureAlertScreen() {
           </View>
           <Switch
             value={oneShot}
+            accessibilityLabel="Just once"
+            accessibilityHint="Turn this alert off after its first notification"
             onValueChange={setOneShot}
             trackColor={{ true: colors.interactive, false: colors.border }}
           />
-        </Pressable>
+        </View> : null}
 
         {/* The rule, in one sentence, before they commit to it. */}
         <View style={[styles.preview, { borderColor: colors.border }]}>
@@ -724,80 +804,17 @@ export default function ConfigureAlertScreen() {
           </Text>
         </View>
 
-        {error ? <Text style={[styles.errorText, { color: colors.error }]}>{error}</Text> : null}
-
-        <Pressable
-          onPress={() => void save()}
-          disabled={!canSave || gate.busy}
-          style={({ pressed }) => [
-            styles.saveButton,
-            {
-              backgroundColor: canSave ? colors.accentFill : colors.cardRaised,
-              opacity: pressed ? 0.7 : 1,
-            },
-          ]}
-          accessibilityRole="button"
-        >
-          {gate.busy ? (
-            <ActivityIndicator color={colors.onAccent} />
-          ) : (
-            <Text
-              style={[styles.saveText, { color: canSave ? colors.onAccent : colors.textSubtle }]}
-            >
-              Set alert
-            </Text>
-          )}
-        </Pressable>
       </ScrollView>
-
-      <AlertSignInSheet
-        visible={gate.signInOpen}
-        riverName={targetName}
-        onSignedIn={() => {
-          gate.setSignInOpen(false);
-          void save();
-        }}
-        onDismiss={() => gate.setSignInOpen(false)}
-      />
-      <PushPrimer
-        visible={gate.primerOpen}
-        riverName={targetName}
-        // The same sentence the preview above showed and the row will show —
-        // this sheet is asking for the one-shot iOS prompt on the strength of
-        // the alert just saved, so it has to describe that alert and not a
-        // generic one.
-        promise={preview}
-        onAllow={() => {
-          gate.setPrimerOpen(false);
-          void gate.enablePush();
-          goBack(router);
-        }}
-        onDismiss={() => {
-          gate.setPrimerOpen(false);
-          // The alert is saved either way — declining the prompt is a choice
-          // about this phone, not a reason to lose the rule.
-          goBack(router);
-        }}
-      />
-    </SafeAreaView>
+    </AlertCreationFrame>
   );
 }
 
 const styles = StyleSheet.create({
-  screen: { flex: 1 },
+  stepTitle: { ...t.xl, fontWeight: '600', marginBottom: 16 },
+  stepBody: { ...t.base, marginBottom: 24 },
   flex: { flex: 1 },
   centered: { alignItems: 'center', justifyContent: 'center' },
-  navRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    gap: 12,
-  },
-  navTitle: { ...t.base, fontFamily: fonts.semibold, flex: 1, textAlign: 'center' },
-  navSpacer: { width: 44 },
-  content: { paddingHorizontal: 16, paddingBottom: 48 },
+  content: { padding: 16, paddingBottom: 24 },
   card: { padding: 16, borderRadius: 14, marginBottom: 8 },
   cardLabel: {
     ...t.xs,
@@ -817,7 +834,7 @@ const styles = StyleSheet.create({
     marginHorizontal: 4,
   },
   chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  chip: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 999, borderWidth: 1 },
+  chip: { minHeight: 44, justifyContent: 'center', paddingHorizontal: 14, paddingVertical: 8, borderRadius: 999, borderWidth: 1 },
   chipText: { ...t.xs, fontFamily: fonts.semibold },
   brandChip: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingLeft: 10 },
   // Otter centres itself by default, which fights a row layout.
@@ -837,7 +854,10 @@ const styles = StyleSheet.create({
   optionTitle: { ...t.base, fontFamily: fonts.semibold },
   optionHint: { ...t.xs, fontFamily: fonts.body, marginTop: 2 },
   valueRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 12 },
+  valueColumn: { flexDirection: 'column', alignItems: 'stretch' },
+  valueInputWide: { flex: 0 },
   valueInput: {
+    minHeight: 44,
     flex: 1,
     borderWidth: 1,
     borderRadius: 12,
@@ -850,7 +870,5 @@ const styles = StyleSheet.create({
   unitText: { ...t.base, fontFamily: fonts.semibold },
   preview: { marginTop: 22, padding: 14, borderRadius: 12, borderWidth: 1, borderStyle: 'dashed' },
   previewText: { ...t.sm, fontFamily: fonts.body, lineHeight: 20 },
-  errorText: { ...t.sm, fontFamily: fonts.body, marginTop: 12 },
-  saveButton: { marginTop: 20, paddingVertical: 15, borderRadius: 999, alignItems: 'center' },
-  saveText: { ...t.base, fontFamily: fonts.semibold },
+
 });
