@@ -111,7 +111,7 @@ test('the statewide card renders the explicitly public statewide prose', () => {
   // selector, which would select null on every statewide row ever written and
   // silently empty the top card of the app.
   const reports = readFileSync(
-    join(process.cwd(), '../eddy-ios/app/(tabs)/reports.tsx'),
+    join(process.cwd(), '../eddy-ios/src/screens/TodayScreen.tsx'),
     'utf8',
   );
   assert.match(
