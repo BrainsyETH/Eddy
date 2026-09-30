@@ -24,10 +24,7 @@ interface Props {
   /** Rendered inside the field, right of the clear button. Used for a spinner. */
   trailing?: React.ReactNode;
   onFocus?: () => void;
-  /**
-   * Fires when the field gives up focus. Reports uses it to put the screen back
-   * to rest; the Map does not pass one.
-   */
+  /** Fires when the field gives up focus so its screen can leave search mode. */
   onBlur?: () => void;
   autoFocus?: boolean;
 }

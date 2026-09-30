@@ -7,7 +7,7 @@
 // gauges) so the same wording appears whichever half answered.
 
 import { memo } from 'react';
-import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
+import { FlatList, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import type { SearchResult } from '@eddy/types';
 import { KindMark } from '@/components/KindMark';
@@ -29,9 +29,11 @@ function SearchResultsListComponent({ results, onSelect, emptyMessage, loading }
   if (results.length === 0) {
     return (
       <View style={[styles.panel, { backgroundColor: colors.card }, elevation(2)]}>
-        <Text style={[styles.empty, { color: colors.textMuted }]}>
-          {loading ? 'Searching…' : emptyMessage}
-        </Text>
+        <ScrollView keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag">
+          <Text style={[styles.empty, { color: colors.textMuted }]}>
+            {loading ? 'Searching…' : emptyMessage}
+          </Text>
+        </ScrollView>
       </View>
     );
   }
@@ -82,8 +84,8 @@ export const SearchResultsList = memo(SearchResultsListComponent);
 const styles = StyleSheet.create({
   // Capped rather than free-growing: the map underneath is the point of the
   // screen, and a result list that fills it hides the thing being searched.
-  panel: { maxHeight: 300, borderRadius: 14, overflow: 'hidden' },
-  row: { flexDirection: 'row', alignItems: 'center', gap: 11, paddingHorizontal: 14, paddingVertical: 11 },
+  panel: { flexShrink: 1, maxHeight: 300, borderRadius: 14, overflow: 'hidden' },
+  row: { minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 11, paddingHorizontal: 14, paddingVertical: 11 },
   rowText: { flex: 1, minWidth: 0 },
   name: { ...t.sm, fontFamily: fonts.semibold },
   subtitle: { ...t.xs, fontFamily: fonts.body, marginTop: 1 },

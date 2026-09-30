@@ -174,7 +174,8 @@ function MeasuredMapSheet({
   const reducedMotion = useReducedMotion();
 
   // Measured rather than assumed: the sheet lives inside the map's overlay
-  // stack, not the window, and the two differ by the tab bar and both insets.
+  // stack, not the window. Its host clears the top safe area; the tab navigator
+  // already consumes the tab bar and home-indicator area below it.
   const { available, setAvailable, translateY, entered } = presentation;
   const [contentHeight, setContentHeight] = useState(0);
   const [bodyReady, setBodyReady] = useState(false);
