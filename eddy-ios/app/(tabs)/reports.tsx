@@ -927,6 +927,12 @@ export default function ReportsScreen() {
 
   // Keyboard focus is transient; browsing search results is an explicit mode.
   const searching = searchOpen || query.trim().length > 0;
+  const cancelSearch = () => {
+    Keyboard.dismiss();
+    setQuery('');
+    setSearchOpen(false);
+    setScope('all');
+  };
 
   /**
    * The river controls — chips, ordering, the trust footer — belong to the
@@ -1455,7 +1461,7 @@ export default function ReportsScreen() {
           : gaugeFilter !== 'all');
 
   return (
-    <SafeAreaView style={[styles.screen, { backgroundColor: colors.bg }]} edges={['top']}>
+    <SafeAreaView style={[styles.screen, { backgroundColor: colors.bg }]} edges={['top']} onAccessibilityEscape={searching ? cancelSearch : undefined}>
       <View style={styles.header}>
         <View style={styles.titleRow}>
           {!searching && browseMode !== 'today' ? (
@@ -1465,7 +1471,7 @@ export default function ReportsScreen() {
                 setScope('all');
                 setSortOpen(false);
               }}
-              hitSlop={10}
+              style={{ minWidth: 44, minHeight: 44, alignItems: 'center', justifyContent: 'center' }}
               accessibilityRole="button"
               accessibilityLabel="Back to Today"
             >
@@ -1539,12 +1545,7 @@ export default function ReportsScreen() {
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Cancel search"
-            onPress={() => {
-              Keyboard.dismiss();
-              setQuery('');
-              setSearchOpen(false);
-              setScope('all');
-            }}
+            onPress={cancelSearch}
             style={styles.cancelSearch}
           >
             <Text style={[styles.cancelSearchText, { color: colors.interactive }]}>Cancel</Text>

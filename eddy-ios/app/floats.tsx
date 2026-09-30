@@ -11,6 +11,7 @@
 // So this screen works offline and the one behind it does not, which is the
 // honest split — the list is a memory, the plan is a measurement.
 
+import { BackButton } from '@/components/BackButton';
 import { radii } from '@/theme/layout';
 import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -44,9 +45,7 @@ export default function SavedFloatsScreen() {
       <Stack.Screen options={{ headerShown: false }} />
 
       <View style={styles.navRow}>
-        <Pressable onPress={() => goBack(router)} hitSlop={12} accessibilityLabel="Back">
-          <Ionicons name="chevron-back" size={26} color={colors.text} />
-        </Pressable>
+        <BackButton onPress={() => goBack(router)} />
       </View>
 
       <View style={styles.header}>

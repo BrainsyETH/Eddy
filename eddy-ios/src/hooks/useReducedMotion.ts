@@ -1,10 +1,8 @@
 // eddy-ios/src/hooks/useReducedMotion.ts
 // Whether the OS has been told to cut animation down.
 //
-// Nothing in this app asked before now, so this hook creates an expectation as
-// much as it answers a question: it is introduced for the map sheet, and the
-// honest scope today is the map sheet. Anything else that grows a spring should
-// read it too rather than leaving the setting half-honoured.
+// Shared by animated sheets, splash, and programmatic map camera moves.
+// New app-driven animations should read the same preference.
 //
 // ── What "reduced" means here, and what it does NOT ───────────────────────
 // It does not mean "hold still". Dragging a sheet with your finger is DIRECT
@@ -22,24 +20,24 @@
 import { useEffect, useState } from 'react';
 import { AccessibilityInfo } from 'react-native';
 
-export function useReducedMotion(): boolean {
-  // Starts false so the first frame animates normally on the overwhelmingly
-  // common path. The async read below corrects it within a frame or two, which
-  // costs at most one settle — the alternative, starting true, would flash
-  // every animation off and on for everybody who has the setting off.
-  const [reduced, setReduced] = useState(false);
+export function useReducedMotion(initialValue = false): boolean {
+  // Existing callers animate until the async query answers. Camera navigation
+  // opts into a conservative first frame so a cold deep link never sweeps.
+  const [reduced, setReduced] = useState(initialValue);
 
   useEffect(() => {
     let alive = true;
+    let changed = false;
 
     AccessibilityInfo.isReduceMotionEnabled()
       .then((value) => {
-        if (alive) setReduced(value);
+        if (alive && !changed) setReduced(value);
       })
-      // A device that cannot answer is not a device that wants less motion.
+      // Keep the caller’s initial preference if the OS query is unavailable.
       .catch(() => {});
 
     const subscription = AccessibilityInfo.addEventListener('reduceMotionChanged', (value) => {
+      changed = true;
       setReduced(value);
     });
 

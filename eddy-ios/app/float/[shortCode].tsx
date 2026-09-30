@@ -5,6 +5,7 @@
 // available immediately and after a failed refresh, with historical cautions
 // explicitly dated. It never presents an old water verdict as current.
 
+import { BackButton } from '@/components/BackButton';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Pressable, Share, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -103,9 +104,7 @@ export default function SavedFloatScreen() {
       <Stack.Screen options={{ headerShown: false }} />
 
       <View style={styles.navRow}>
-        <Pressable onPress={() => goBack(router)} hitSlop={12} accessibilityLabel="Back">
-          <Ionicons name="chevron-back" size={26} color={colors.text} />
-        </Pressable>
+        <BackButton onPress={() => goBack(router)} />
         <View style={styles.navActions}>
           {/* Only once the plan is in hand: the star is keyed on the stretch,
               and there is nothing to keep until we know what it is. */}

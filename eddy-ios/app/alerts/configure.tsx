@@ -26,6 +26,7 @@
 // it happens we say it out loud, or a rule that correctly declines to fire looks
 // like one that is broken.
 
+import { BackButton } from '@/components/BackButton';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -461,9 +462,7 @@ export default function ConfigureAlertScreen() {
             arrive before it times out, and a spinner with no chevron is that
             long with no way off the screen. */}
         <View style={styles.navRow}>
-          <Pressable onPress={() => goBack(router)} hitSlop={12} accessibilityLabel="Back">
-            <Ionicons name="chevron-back" size={26} color={colors.text} />
-          </Pressable>
+          <BackButton onPress={() => goBack(router)} />
           <Text style={[styles.navTitle, { color: colors.text }]} numberOfLines={1}>
             {targetName}
           </Text>
@@ -491,9 +490,7 @@ export default function ConfigureAlertScreen() {
       <Stack.Screen options={{ headerShown: false }} />
 
       <View style={styles.navRow}>
-        <Pressable onPress={() => goBack(router)} hitSlop={12} accessibilityLabel="Back">
-          <Ionicons name="chevron-back" size={26} color={colors.text} />
-        </Pressable>
+        <BackButton onPress={() => goBack(router)} />
         <Text style={[styles.navTitle, { color: colors.text }]} numberOfLines={1}>
           {targetName}
         </Text>
@@ -799,7 +796,7 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   navTitle: { ...t.base, fontFamily: fonts.semibold, flex: 1, textAlign: 'center' },
-  navSpacer: { width: 26 },
+  navSpacer: { width: 44 },
   content: { paddingHorizontal: 16, paddingBottom: 48 },
   card: { padding: 16, borderRadius: 14, marginBottom: 8 },
   cardLabel: {

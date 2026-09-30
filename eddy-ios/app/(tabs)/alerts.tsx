@@ -55,18 +55,18 @@
 // High water is what EDDY says about the water. Notices is what everybody else
 // says about the place: the Park Service closing a campground, the Weather
 // Service issuing a flood warning. Those are not gradations of the same thing
-// and they must not share a list — a row Eddy graded and a row Eddy is merely
-// relaying carry different authority, and merging them would put Eddy's name on
-// somebody else's call. Hence a segment rather than a section.
+// and they retain separate segments here. Today’s scoped Current alerts view
+// uses labeled sections and these same source-attributed rows so an Eddy
+// condition and an agency warning remain distinguishable.
 //
 // It is also the half that answers a question the other two cannot: a river can
 // be running perfectly and the access still be shut.
 
+import { HighWaterAlertRow, PublicNoticeRow } from '@/components/CurrentAlertRows';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
-  Linking,
   Pressable,
   RefreshControl,
   StyleSheet,
@@ -83,11 +83,8 @@ import type {
   RiverAlertSeverity,
 } from '@eddy/types';
 import { ApiError, fetchHighWater, fetchRiverAlerts } from '@/api/client';
-import { conditionBg, conditionColor, conditionInk } from '@/theme/conditions';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, textStyles, type as t } from '@/theme/typography';
-import type { Palette } from '@/theme/palette';
-import { readingAge } from '@/lib/readingCopy';
 import { EddyScene } from '@/components/EddyScene';
 import { AlertRuleRow } from '@/components/AlertRuleRow';
 import { AppleSignInButton } from '@/components/AppleSignInButton';
@@ -96,7 +93,6 @@ import { SwipeRow } from '@/components/SwipeRow';
 import { groupAlertRules, isGatedByParent, type AlertRuleGroup } from '@/lib/alertGroups';
 import { useAlertRules } from '@/hooks/useAlertRules';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
-import { asHref } from '@/lib/href';
 
 type Segment = 'high-water' | 'rules' | 'notices';
 
@@ -136,13 +132,6 @@ function toNoticeRows(alerts: RiverAlert[]): NoticeRow[] {
   });
 }
 
-/** Warnings borrow the canonical danger red; nothing below them does. */
-function noticeTint(severity: RiverAlertSeverity, colors: Palette): string {
-  if (severity === 'warning') return conditionColor('dangerous');
-  if (severity === 'watch') return colors.warm;
-  return colors.textSubtle;
-}
-
 /** Section headings, in the order the list renders them. */
 const KIND_LABEL: Record<HighWaterKind, string> = {
   river: 'Rivers',
@@ -165,27 +154,6 @@ function toRows(entries: HighWaterEntry[]): HighWaterRow[] {
       ...group.map((entry) => ({ type: 'entry' as const, key: entry.id, entry })),
     ];
   });
-}
-
-/**
- * The reading, in the unit its ladder is defined in and no other.
- *
- * Null unit means the station published nothing in the unit it is graded
- * against. That renders as no number rather than the other unit's — a cfs value
- * printed under a ft ladder is a number compared to the wrong thresholds.
- */
-function readingLine(entry: HighWaterEntry): string | null {
-  const parts: string[] = [];
-  if (entry.readingValue !== null && entry.readingUnit) {
-    const value =
-      entry.readingUnit === 'ft'
-        ? entry.readingValue.toFixed(2)
-        : Math.round(entry.readingValue).toLocaleString();
-    parts.push(`${value} ${entry.readingUnit}`);
-  }
-  const age = readingAge(entry.readingAgeHours);
-  if (age) parts.push(age);
-  return parts.length > 0 ? parts.join(' · ') : null;
 }
 
 /**
@@ -226,7 +194,7 @@ export default function AlertsScreen() {
     setEnabled,
     remove,
   } = useAlertRules();
-  const { colors, elevation } = useTheme();
+  const { colors } = useTheme();
   const router = useRouter();
 
   useEffect(() => {
@@ -476,7 +444,6 @@ export default function AlertsScreen() {
         <Text style={[styles.title, { color: colors.text }]}>Alerts</Text>
         <Pressable
           onPress={() => router.push('/alerts/new')}
-          hitSlop={12}
           style={({ pressed }) => [
             styles.addButton,
             { backgroundColor: colors.interactive, opacity: pressed ? 0.7 : 1 },
@@ -718,16 +685,14 @@ export default function AlertsScreen() {
           ListEmptyComponent={
             <View style={styles.empty}>
               <EddyScene name="checkingGauge" size={120} />
-              <Text style={[styles.emptyTitle, { color: colors.text }]}>Nothing posted</Text>
+              <Text style={[styles.emptyTitle, { color: colors.text }]}>{noticeError ? 'Notices unavailable' : 'Nothing posted'}</Text>
               {/* Says what an empty list DOES NOT mean. "No closures" and "we
                   could not reach the agencies" look identical to a reader and
                   mean opposite things, and only one of them is safe to act on.
                   The Park Service also covers three of Eddy's rivers and no
                   others, which nobody would guess from a blank screen. */}
               <Text style={[styles.emptyBody, { color: colors.textMuted }]}>
-                No closures or weather warnings are posted for Eddy&apos;s rivers right now. Park
-                closures only cover rivers inside a national park, and neither agency posts
-                everything — check locally before you drive out.
+                {noticeError ? 'Couldn’t check current notices. Pull down to try again.' : 'No closures or weather warnings are posted for Eddy’s rivers right now. Park closures only cover rivers inside a national park, and neither agency posts everything — check locally before you drive out.'}
               </Text>
             </View>
           }
@@ -745,43 +710,7 @@ export default function AlertsScreen() {
               );
             }
 
-            const alert = item.alert;
-            const tint = noticeTint(alert.severity, colors);
-            return (
-              <Pressable
-                onPress={
-                  alert.url ? () => void Linking.openURL(alert.url as string) : undefined
-                }
-                disabled={!alert.url}
-                style={({ pressed }) => [
-                  styles.row,
-                  { backgroundColor: colors.card, opacity: pressed && alert.url ? 0.7 : 1 },
-                  elevation(1),
-                ]}
-                accessibilityRole={alert.url ? 'button' : undefined}
-                accessibilityLabel={`${alert.category}, ${alert.riverName}, ${alert.title}`}
-              >
-                <View style={[styles.stripe, { backgroundColor: tint }]} />
-                <View style={styles.rowBody}>
-                  {/* The RIVER leads, not the headline. This list spans every
-                      river, and "which of mine is this about" is the first
-                      question — the agencies write headlines that name counties. */}
-                  <Text style={[styles.riverName, { color: colors.text }]}>{alert.riverName}</Text>
-                  <Text style={[styles.headline, { color: tint }]} numberOfLines={2}>
-                    {alert.title}
-                  </Text>
-                  {/* WHO SAID IT, always. A closure Eddy is relaying and a
-                      condition Eddy graded must never be mistakable, and this
-                      caption is the only thing on the row that says which. */}
-                  <Text style={[styles.detail, { color: colors.textMuted }]}>
-                    {alert.category} · {alert.source === 'nps' ? 'National Park Service' : 'National Weather Service'}
-                  </Text>
-                </View>
-                {alert.url ? (
-                  <Ionicons name="open-outline" size={16} color={colors.textSubtle} />
-                ) : null}
-              </Pressable>
-            );
+            return <PublicNoticeRow alert={item.alert} />;
           }}
         />
       </SafeAreaView>
@@ -801,10 +730,9 @@ export default function AlertsScreen() {
                 the water is where it should be", and the catalog's high-water
                 scene would announce the opposite. */}
             <EddyScene name="checkingGauge" size={120} />
-            <Text style={[styles.emptyTitle, { color: colors.text }]}>Nothing running high</Text>
+            <Text style={[styles.emptyTitle, { color: colors.text }]}>{error ? 'High water unavailable' : 'Nothing running high'}</Text>
             <Text style={[styles.emptyBody, { color: colors.textMuted }]}>
-              No river, gauge or dam release Eddy grades is above its high-water
-              mark right now. That&apos;s usually good news.
+              {error ? 'Couldn’t check current high water. Pull down to try again.' : 'No river, gauge or dam release Eddy grades is above its high-water mark right now. That’s usually good news.'}
             </Text>
           </View>
         }
@@ -828,58 +756,7 @@ export default function AlertsScreen() {
             );
           }
 
-          const entry = item.entry;
-          const reading = readingLine(entry);
-          // A dam opens its own screen; everything else opens its river. Gauges
-          // route by river rather than by /gauge/[siteId] on purpose — a station
-          // that is high is a fact ABOUT that river, and the river screen shows
-          // the chart, the access points and the hazards alongside it.
-          const target = entry.damId
-            ? `/dam/${entry.damId}`
-            : entry.riverSlug
-              ? `/river/${entry.riverSlug}`
-              : entry.siteId
-                ? `/gauge/${entry.siteId}`
-                : null;
-
-          return (
-            <Pressable
-              onPress={target ? () => router.push(asHref(target)) : undefined}
-              disabled={!target}
-              style={({ pressed }) => [
-                styles.row,
-                { backgroundColor: colors.card, opacity: pressed && target ? 0.7 : 1 },
-                elevation(1),
-              ]}
-              accessibilityRole={target ? 'button' : undefined}
-              accessibilityLabel={`${entry.name}, ${entry.conditionLabel}`}
-            >
-              <View style={[styles.stripe, { backgroundColor: conditionColor(entry.conditionCode) }]} />
-              <View style={styles.rowBody}>
-                <Text style={[styles.riverName, { color: colors.text }]}>{entry.name}</Text>
-                {/* ink, not `solid`. The solid is the marker/stripe colour and
-                    is not a text colour — several of the ladder's fills fall
-                    below 4.5:1 on white. */}
-                <Text style={[styles.headline, { color: conditionInk(entry.conditionCode) }]}>
-                  {entry.conditionLabel}
-                </Text>
-                <Text style={[styles.detail, { color: colors.textMuted }]}>
-                  {[entry.subtitle, reading].filter(Boolean).join(' · ')}
-                </Text>
-              </View>
-              <View style={[styles.chip, { backgroundColor: conditionBg(entry.conditionCode) }]}>
-                {/* Flood gets the warning mark, high gets the water mark. The
-                    two are different instructions — "do not float" and "know
-                    what you are doing" — and the stripe colour alone has to be
-                    read against a scale to tell them apart. */}
-                <Ionicons
-                  name={entry.conditionCode === 'dangerous' ? 'warning-outline' : 'water-outline'}
-                  size={16}
-                  color={conditionInk(entry.conditionCode)}
-                />
-              </View>
-            </Pressable>
-          );
+          return <HighWaterAlertRow entry={item.entry} />;
         }}
       />
     </SafeAreaView>
@@ -892,9 +769,12 @@ const styles = StyleSheet.create({
   header: { paddingHorizontal: 20, paddingTop: 12, paddingBottom: 12 },
   titleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   title: { ...textStyles.pageTitle },
-  addButton: { width: 36, height: 36, borderRadius: 999, alignItems: 'center', justifyContent: 'center' },
-  toggleRow: { flexDirection: 'row', gap: 8, marginTop: 14 },
+  addButton: { width: 44, height: 44, borderRadius: 999, alignItems: 'center', justifyContent: 'center' },
+  toggleRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 14 },
   toggle: {
+    minWidth: 44,
+    minHeight: 44,
+    maxWidth: '100%',
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
@@ -903,10 +783,10 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     borderWidth: 1,
   },
-  toggleText: { ...t.xs, fontFamily: fonts.semibold },
+  toggleText: { ...t.sm, fontFamily: fonts.semibold, flexShrink: 1 },
   // Same pill the filter chips draw their counts in — see FilterChips.
   toggleCount: { minWidth: 18, paddingHorizontal: 5, borderRadius: 999, alignItems: 'center' },
-  toggleCountText: { ...t.xs, fontFamily: fonts.semibold, fontSize: 11 },
+  toggleCountText: { ...t.xs, fontFamily: fonts.semibold },
   caption: { ...t.xs, fontFamily: fonts.body, marginTop: 10, lineHeight: 16 },
   errorText: { ...t.sm, fontFamily: fonts.body, marginTop: 10 },
   empty: { alignItems: 'center', paddingHorizontal: 40, paddingTop: 30 },
@@ -918,14 +798,6 @@ const styles = StyleSheet.create({
   // 44pt, so the one control on a failed load is a real tap target.
   emptyRetry: { marginTop: 14, minHeight: 44, justifyContent: 'center' },
   emptyRetryText: { ...t.sm, fontFamily: fonts.semibold },
-  row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginHorizontal: 16,
-    marginBottom: 10,
-    borderRadius: 14,
-    overflow: 'hidden',
-  },
   sectionHeader: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -936,12 +808,6 @@ const styles = StyleSheet.create({
   },
   sectionTitle: { ...t.xs, fontFamily: fonts.semibold, textTransform: 'uppercase' },
   sectionCount: { ...t.xs },
-  stripe: { width: 4, alignSelf: 'stretch' },
-  rowBody: { flex: 1, padding: 14 },
-  riverName: { ...t.base, fontFamily: fonts.semibold },
-  headline: { ...t.sm, fontFamily: fonts.semibold, marginTop: 3 },
-  detail: { ...t.xs, fontFamily: fonts.body, marginTop: 3 },
-  chip: { padding: 8, borderRadius: 999, marginRight: 14 },
   lagNote: {
     ...t.xs,
     fontFamily: fonts.body,

@@ -1,3 +1,4 @@
+import { BackButton } from '@/components/BackButton';
 import { gaugeFreshness, gaugeFreshnessLabel, isCurrentWaterMeasurement, observationAgeHours } from '@eddy/conditions/gauge-freshness';
 // eddy-ios/app/gauge/[siteId].tsx
 // One gauge: what it reads, what that means, and how it got there.
@@ -375,9 +376,7 @@ export default function GaugeDetailScreen() {
       <SafeAreaView style={[styles.screen, { backgroundColor: colors.bg }]} edges={['top']}>
         <Stack.Screen options={{ headerShown: false }} />
         <View style={styles.navRow}>
-          <Pressable onPress={() => goBack(router)} hitSlop={12} accessibilityLabel="Back">
-            <Ionicons name="chevron-back" size={26} color={colors.text} />
-          </Pressable>
+          <BackButton onPress={() => goBack(router)} />
         </View>
         <View style={[styles.screen, styles.centre]}>
           <ActivityIndicator size="large" color={colors.interactive} />
@@ -391,9 +390,7 @@ export default function GaugeDetailScreen() {
       <SafeAreaView style={[styles.screen, { backgroundColor: colors.bg }]} edges={['top']}>
         <Stack.Screen options={{ headerShown: false }} />
         <View style={styles.navRow}>
-          <Pressable onPress={() => goBack(router)} hitSlop={12} accessibilityLabel="Back">
-            <Ionicons name="chevron-back" size={26} color={colors.text} />
-          </Pressable>
+          <BackButton onPress={() => goBack(router)} />
         </View>
         <View style={[styles.centre, styles.emptyBody]}>
           <Text style={[styles.emptyTitle, { color: colors.text }]}>
@@ -552,9 +549,7 @@ export default function GaugeDetailScreen() {
       <Stack.Screen options={{ headerShown: false }} />
 
       <View style={styles.navRow}>
-        <Pressable onPress={() => goBack(router)} hitSlop={12} accessibilityLabel="Back">
-          <Ionicons name="chevron-back" size={26} color={colors.text} />
-        </Pressable>
+        <BackButton onPress={() => goBack(router)} />
         <View style={styles.navActions}>
           {/* Absent when the station has no page on the website — an NWS LID
               has none, and gaugeSharePath says so rather than composing a URL

@@ -2,7 +2,8 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { cameraCommandFor, planFramingDecision } from '../../../eddy-ios/src/map/cameraBehavior';
+import { cameraAnimation, cameraCommandFor, planFramingDecision } from '../../../eddy-ios/src/map/cameraBehavior';
+import type { MapCameraAction } from '../../../eddy-ios/src/map/cameraBehavior';
 import type { MapCameraCommand } from '../../../eddy-ios/src/map/cameraBehavior';
 
 // Map navigation must be a one-time response to an explicit action.
@@ -30,6 +31,24 @@ import type { MapCameraCommand } from '../../../eddy-ios/src/map/cameraBehavior'
 // invariant read out of the app's source as text.
 const MAP = join(process.cwd(), '../eddy-ios/src/map/RiverMap.tsx');
 const SCREEN = join(process.cwd(), '../eddy-ios/app/(tabs)/index.tsx');
+
+test('all explicit camera moves become immediate when Reduce Motion is enabled at execution', () => {
+  const actions: MapCameraAction[] = [
+    { type: 'riverSelected', bounds: [-92, 36, -91, 38] },
+    { type: 'poiSelected', lng: -91, lat: 37 },
+    { type: 'searchResultSelected', lng: -91, lat: 37, zoom: 12 },
+    { type: 'locationRequested', lng: -91, lat: 37, zoom: 10 },
+    { type: 'clusterSelected', lng: -91, lat: 37 },
+    { type: 'planRouteFramed', bounds: [-92, 36, -91, 38] },
+  ];
+  for (const [id, action] of actions.entries()) {
+    const command = cameraCommandFor(action, id)!;
+    const original = structuredClone(command);
+    assert.deepEqual(cameraAnimation(command, true), { animationMode: 'none', animationDuration: 0 });
+    assert.deepEqual(cameraAnimation(command, false), { animationMode: 'easeTo', animationDuration: command.duration });
+    assert.deepEqual(command, original, 'motion preference must not alter target, zoom, id, or sheet waiting');
+  }
+});
 
 test('navigation is one-shot and is not attached to persistent Camera props', () => {
   const source = readFileSync(MAP, 'utf8');

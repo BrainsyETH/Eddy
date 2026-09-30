@@ -44,6 +44,14 @@ export type MapCameraAction =
    */
   | { type: 'planRouteFramed'; bounds: MapBounds };
 
+/** Resolve at execution time, including commands waiting for sheet layout. */
+export function cameraAnimation(command: MapCameraCommand, reducedMotion: boolean) {
+  return {
+    animationMode: reducedMotion ? 'none' as const : 'easeTo' as const,
+    animationDuration: reducedMotion ? 0 : command.duration,
+  };
+}
+
 /**
  * The map's navigation contract in one pure function.
  *

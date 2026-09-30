@@ -12,6 +12,7 @@
 // somebody reaches once would be a request paid at a put-in for a saving nobody
 // notices.
 
+import { BackButton } from '@/components/BackButton';
 import { useMemo } from 'react';
 import {
   ActivityIndicator,
@@ -146,9 +147,7 @@ export default function NewAlertScreen() {
       <Stack.Screen options={{ headerShown: false }} />
 
       <View style={styles.navRow}>
-        <Pressable onPress={() => goBack(router)} hitSlop={12} accessibilityLabel="Back">
-          <Ionicons name="chevron-back" size={26} color={colors.text} />
-        </Pressable>
+        <BackButton onPress={() => goBack(router)} />
         <Text style={[styles.navTitle, { color: colors.text }]}>New alert</Text>
         <View style={styles.navSpacer} />
       </View>
@@ -234,8 +233,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 10,
   },
-  navTitle: { ...t.base, fontFamily: fonts.semibold },
-  navSpacer: { width: 26 },
+  navTitle: { ...t.base, fontFamily: fonts.semibold, flex: 1, textAlign: 'center' },
+  navSpacer: { width: 44 },
   searchBox: {
     flexDirection: 'row',
     alignItems: 'center',

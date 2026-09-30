@@ -19,6 +19,7 @@
 // entirety. It still needs an ACCOUNT, which is not a tier — a notification has
 // to have somewhere to go, and an anonymous id is replaced on reinstall.
 
+import { BackButton } from '@/components/BackButton';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -1121,9 +1122,7 @@ export default function RiverDetailScreen() {
     return (
       <SafeAreaView style={[styles.screen, { backgroundColor: colors.bg }]} edges={['top']}>
         <View style={styles.navRow}>
-          <Pressable onPress={() => goBack(router)} hitSlop={12} accessibilityLabel="Back">
-            <Ionicons name="chevron-back" size={26} color={colors.text} />
-          </Pressable>
+          <BackButton onPress={() => goBack(router)} />
         </View>
         <View style={[styles.screen, styles.centered]}>
           <ActivityIndicator color={colors.interactive} />
@@ -1146,7 +1145,7 @@ export default function RiverDetailScreen() {
             <Text style={[styles.backLink, { color: colors.interactive }]}>Try again</Text>
           </Pressable>
         ) : null}
-        <Pressable onPress={() => goBack(router)} hitSlop={10}>
+        <Pressable onPress={() => goBack(router)} accessibilityRole="button" style={{ minWidth: 44, minHeight: 44, justifyContent: 'center' }}>
           <Text style={[styles.backLink, { color: colors.interactive }]}>Go back</Text>
         </Pressable>
       </SafeAreaView>
@@ -1331,9 +1330,7 @@ export default function RiverDetailScreen() {
       <Stack.Screen options={{ headerShown: false }} />
 
       <View style={styles.navRow}>
-        <Pressable onPress={() => goBack(router)} hitSlop={12} accessibilityLabel="Back">
-          <Ionicons name="chevron-back" size={26} color={colors.text} />
-        </Pressable>
+        <BackButton onPress={() => goBack(router)} />
         <View style={styles.navActions}>
           {/* river.path is the WEBSITE's /rivers/<state>/<slug>, served by the
               API. This screen's own route has no state segment and cannot be
