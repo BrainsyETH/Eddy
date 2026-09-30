@@ -310,7 +310,7 @@ test('agedIndex withholds stale verdicts and stamps "Last known"', () => {
 
 test('Today and Favorites read the cache when the network fails', () => {
   for (const path of [
-    '../eddy-ios/app/(tabs)/reports.tsx',
+    '../eddy-ios/src/hooks/useTodayCatalog.ts',
     '../eddy-ios/app/(tabs)/favorites.tsx',
   ]) {
     const source = readFileSync(path, 'utf8');
@@ -324,34 +324,12 @@ test('Today and Favorites read the cache when the network fails', () => {
     } else {
       assert.match(source, /agedIndex\(cached, Date\.now\(\)\)/, `${path} must age what it shows`);
     }
-    // Never over a live list — a failed refresh keeps what is on screen.
-    assert.match(source, /\(current\) => current \?\?/, `${path} must not clobber live data`);
+    // Today's shared store tests now exercise retention with actual async loads.
+    if (path.includes('favorites')) {
+      assert.match(source, /\(current\) => current \?\?/, `${path} must not clobber live data`);
+    }
   }
 });
 
-/**
- * The stored index is what the tab PAINTS FROM, not its consolation prize.
- *
- * Reports read the cache only from the network's catch, which made a perfectly
- * good on-disk list unreachable on the one path that most wanted it: a cold
- * start with a working connection held the full-screen spinner for as long as
- * /api/rivers took — the slowest read route in the app, since it assembles a
- * condition per river.
- *
- * The fix is an ordering, so this pins the ordering: start the request, read
- * the disk, then await the request. The two halves of what a try/catch would
- * have joined, with the disk read between them. Textual because the alternative
- * is running an Expo screen under node:test, and an ordering is exactly the
- * kind of thing a rewrite silently loses.
- */
-test('the rivers list paints the stored index before the network answers', () => {
-  const source = readFileSync('../eddy-ios/app/(tabs)/reports.tsx', 'utf8');
-
-  const started = source.indexOf("const network = takePreloadedToday('rivers',");
-  const readDisk = source.indexOf('await readBestIndex()');
-  const awaited = source.indexOf('await network');
-
-  assert.ok(started >= 0, 'reports must start the rivers request without awaiting it');
-  assert.ok(readDisk > started, 'the disk read must come after the request is started');
-  assert.ok(awaited > readDisk, 'the request must be awaited after the disk has been painted');
-});
+// Cache-before-network ordering is exercised with deferred requests in
+// ios-today-navigation.test.ts, using the store the mounted screens subscribe to.

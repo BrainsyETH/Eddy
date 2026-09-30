@@ -1,3 +1,4 @@
+import type { TodayRiverFilter } from '@/lib/todayNavigation';
 import { TodayCamping } from '@/components/TodayCamping';
 import { BestRiverNotices } from '@/components/BestRiverNotices';
 import { TodayRiverConditions } from '@/components/TodayRiverConditions';
@@ -97,7 +98,7 @@ interface Props {
   onBrowseRivers: (filter: TodayRiverFilter) => void;
 }
 
-export type TodayRiverFilter = 'all' | 'floatable' | 'starred' | 'low' | 'high' | 'unknown';
+export type { TodayRiverFilter } from '@/lib/todayNavigation';
 
 export interface TodayRead {
   river: RiverListItem;

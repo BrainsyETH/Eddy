@@ -84,6 +84,8 @@ const detailTitles: Record<string, string> = {
   'favorite-floats': 'Favorite floats',
   storage: 'Storage',
   'alerts/[id]': 'Edit alert',
+  'river-conditions': 'River Conditions',
+  'eddy-reads': 'Eddy’s Reads',
 };
 
 // Drop cache entries from a previous CACHE_VERSION. Fire and forget at module

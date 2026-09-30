@@ -1,7 +1,7 @@
 import { Stack, useNavigation, useRouter } from 'expo-router';
 
 /** A cold detail link has no native Back button. Give it an explicit way home. */
-export function NativeHeaderHome() {
+export function NativeHeaderHome({ destination = 'map' }: { destination?: 'map' | 'today' }) {
   const navigation = useNavigation();
   const router = useRouter();
 
@@ -10,8 +10,8 @@ export function NativeHeaderHome() {
 
   return (
     <Stack.Toolbar placement="left">
-      <Stack.Toolbar.Button icon="house" accessibilityLabel="Go to Map" onPress={() => router.replace('/')}>
-        Map
+      <Stack.Toolbar.Button icon="house" accessibilityLabel={destination === 'today' ? 'Go to Today' : 'Go to Map'} onPress={() => router.replace(destination === 'today' ? '/reports' : '/')}>
+        {destination === 'today' ? 'Today' : 'Map'}
       </Stack.Toolbar.Button>
     </Stack.Toolbar>
   );
