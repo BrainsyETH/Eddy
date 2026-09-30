@@ -147,6 +147,27 @@ clearest example: the real problem is an out-of-date package, but what surfaces
 is `ERR_UNSUPPORTED_NODE_MODULES_TYPE_STRIPPING`. Pinning Node does not fix
 that; it just keeps the error message honest more often.
 
+## Map sheet scroll-edge correction (iOS 26)
+
+`modules/eddy-map-sheet` is a local Expo module, autolinked from the default
+`modules/` directory. It hides UIKit's scroll-edge effects only inside the Map
+sheet's page scrollers and horizontal tabs. These scrollers move by transform
+and already clear the tab bar; the automatic effect can leave the body washed
+out after a fast expansion. The native tab bar keeps its system material.
+
+This change requires a rebuilt iOS development/TestFlight binary, using Xcode
+26 or newer. A JavaScript reload/OTA cannot add its Swift view. The component
+falls back to a regular View in older clients and on other platforms, so old
+clients remain usable but don't receive the blur correction. The existing
+fingerprint runtime policy separates incompatible binaries and updates.
+
+The module's podspec and Swift source are explicitly included in `.easignore`
+and required by `scripts/check-easignore.py`; generated iOS projects, module
+build products, and secrets remain excluded. After changing this module, run
+the mobile checks/export, inspect Expo's Apple autolinking resolution, and
+verify rapid sheet expansion/collapse and horizontal tab changes in a native
+build. A Metro export doesn't compile Swift or prove UIKit rendering.
+
 ## Why this is a monorepo without an npm workspace
 
 Vercel builds the web app with **Root Directory = `missouri-float-planner/`**.

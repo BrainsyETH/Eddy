@@ -30,6 +30,7 @@
 //   with no campgrounds should say 0, but a layer that has never been fetched
 //   must not claim zero of anything.
 
+import { useLayoutEffect, useMemo } from 'react';
 import {
   Alert,
   Modal,
@@ -42,8 +43,17 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
+import { Gesture, GestureDetector, GestureHandlerRootView } from 'react-native-gesture-handler';
+import Animated, {
+  cancelAnimation,
+  runOnJS,
+  useAnimatedStyle,
+  useSharedValue,
+  withTiming,
+} from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
 import { EddySymbol } from '@/components/EddySymbol';
+import { useReducedMotion } from '@/hooks/useReducedMotion';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
 import {
@@ -64,6 +74,7 @@ import { groupLayerRows, layerRowCount } from '@/map/layerRows';
  * read to decide whether to switch it ON.
  */
 const DIMMED = 0.45;
+const AnimatedSafeAreaView = Animated.createAnimatedComponent(SafeAreaView);
 
 interface Props {
   visible: boolean;
@@ -114,11 +125,59 @@ export function MapLayersSheet({
   // pins arrive. From the window rather than measured, like the map screen's
   // own width read, so it survives rotation without a layout round-trip.
   const { height: windowHeight } = useWindowDimensions();
+  const reducedMotion = useReducedMotion();
+  const translateY = useSharedValue(0);
+  const dragStart = useSharedValue(0);
+  const sheetHeight = useSharedValue(windowHeight);
+
+  useLayoutEffect(() => {
+    // Reopening starts at rest; closing/unmounting cancels any pending callback.
+    if (visible) translateY.set(0);
+    return () => cancelAnimation(translateY);
+  }, [visible, translateY]);
+
+  const dismissPan = useMemo(
+    () => Gesture.Pan()
+      // The whole header is draggable. Small movements remain taps on Reset;
+      // the separate list keeps every scroll gesture, even when scrolled down.
+      .activeOffsetY(8)
+      .failOffsetX([-16, 16])
+      .onStart(() => {
+        cancelAnimation(translateY);
+        dragStart.set(translateY.get());
+      })
+      .onUpdate((event) => {
+        translateY.set(Math.max(0, dragStart.get() + event.translationY));
+      })
+      .onEnd((event) => {
+        // A deliberate downward pull or flick dismisses. Reversing upward or
+        // releasing a small accidental movement returns the sheet to rest.
+        const dismiss = event.velocityY > -300 && (
+          translateY.get() >= 96 || (translateY.get() >= 24 && event.velocityY >= 700)
+        );
+        translateY.set(withTiming(dismiss ? sheetHeight.get() : 0, {
+          duration: reducedMotion ? 0 : 180,
+        }, (finished) => {
+          if (finished && dismiss) runOnJS(onClose)();
+        }));
+      })
+      .onFinalize((_event, success) => {
+        if (!success) {
+          translateY.set(withTiming(0, { duration: reducedMotion ? 0 : 180 }));
+        }
+      }),
+    [translateY, dragStart, sheetHeight, reducedMotion, onClose],
+  );
+  const sheetMotion = useAnimatedStyle(() => ({
+    transform: [{ translateY: translateY.get() }],
+  }));
 
   return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
+    <Modal visible={visible} transparent animationType={reducedMotion ? 'none' : 'fade'} onRequestClose={onClose}>
       {/* A modal has its own safe area, without the underlying native tab bar. */}
       <SafeAreaProvider>
+      {/* Native modals do not inherit the app's gesture-handler root. */}
+      <GestureHandlerRootView style={styles.modalRoot}>
       {/* Tapping the map behind the sheet closes it, which is how every iOS
           popover behaves and what a thumb reaches for first. */}
       <Pressable
@@ -128,29 +187,37 @@ export function MapLayersSheet({
         // but the invariant is structural — see app-theme.test.ts.
         style={[styles.backdrop, { backgroundColor: colors.scrim }]}
         onPress={onClose}
+        accessibilityRole="button"
         accessibilityLabel="Close layers"
       />
 
-      <SafeAreaView
+      <AnimatedSafeAreaView
         edges={['bottom']}
+        onLayout={(event) => { sheetHeight.set(event.nativeEvent.layout.height); }}
+        onAccessibilityEscape={onClose}
         style={[
           styles.sheet,
           floating(),
           { backgroundColor: colors.card, paddingBottom: 12 },
+          sheetMotion,
         ]}
       >
-        <View style={styles.grabberRow}>
-          <View style={[styles.grabber, { backgroundColor: colors.border }]} />
-        </View>
+        <GestureDetector gesture={dismissPan}>
+          <View style={styles.dragHandle}>
+            <View style={styles.grabberRow}>
+              <View style={[styles.grabber, { backgroundColor: colors.border }]} />
+            </View>
 
-        <View style={styles.head}>
-          <Text style={[styles.title, { color: colors.text }]}>Show on map</Text>
-          {isDefaultLayers(active) ? null : (
-            <Pressable onPress={onReset} hitSlop={10} accessibilityRole="button">
-              <Text style={[styles.reset, { color: colors.interactive }]}>Reset</Text>
-            </Pressable>
-          )}
-        </View>
+            <View style={styles.head}>
+              <Text accessibilityRole="header" style={[styles.title, { color: colors.text }]}>Show on map</Text>
+              {isDefaultLayers(active) ? null : (
+                <Pressable onPress={onReset} hitSlop={10} accessibilityRole="button">
+                  <Text style={[styles.reset, { color: colors.interactive }]}>Reset</Text>
+                </Pressable>
+              )}
+            </View>
+          </View>
+        </GestureDetector>
 
         <ScrollView
           style={{ maxHeight: Math.round(windowHeight * 0.6) }}
@@ -456,7 +523,8 @@ export function MapLayersSheet({
         >
           <Text style={[styles.doneText, { color: colors.onInteractive }]}>Done</Text>
         </Pressable>
-      </SafeAreaView>
+      </AnimatedSafeAreaView>
+      </GestureHandlerRootView>
       </SafeAreaProvider>
     </Modal>
   );
@@ -511,6 +579,7 @@ export function MapLayersButton({
 }
 
 const styles = StyleSheet.create({
+  modalRoot: { flex: 1 },
   backdrop: { flex: 1 },
   sheet: {
     position: 'absolute',
@@ -521,6 +590,7 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 20,
     paddingHorizontal: 16,
   },
+  dragHandle: { minHeight: 44, marginHorizontal: -16, paddingHorizontal: 16 },
   grabberRow: { alignItems: 'center', paddingTop: 8 },
   grabber: { width: 36, height: 4, borderRadius: 999 },
   head: {

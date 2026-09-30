@@ -28,6 +28,12 @@ REQUIRED = [
     "eddy-ios/assets/icon.png",
     "eddy-ios/app/(tabs)/index.tsx",
     "eddy-ios/package-lock.json",
+    # Local Expo module metadata and native source must survive the broad ios/
+    # exclusion. Metro alone cannot detect missing Swift or CocoaPods files.
+    "eddy-ios/modules/eddy-map-sheet/index.ts",
+    "eddy-ios/modules/eddy-map-sheet/expo-module.config.json",
+    "eddy-ios/modules/eddy-map-sheet/ios/EddyMapSheet.podspec",
+    "eddy-ios/modules/eddy-map-sheet/ios/EddyMapSheetModule.swift",
     "packages/eddy-types/index.ts",
     "packages/eddy-geo/index.ts",
     "packages/eddy-sync/index.ts",
@@ -66,6 +72,8 @@ MUST_BE_IGNORED = [
     "eddy-ios/ios/build/ModuleCache.noindex/1FY9/SwiftShims-ABC.pcm",
     "eddy-ios/android/gradlew",
     "eddy-ios/android/app/build/outputs/apk/app.apk",
+    "eddy-ios/modules/eddy-map-sheet/ios/.env",
+    "eddy-ios/modules/eddy-map-sheet/ios/build/ModuleCache.noindex/SwiftShims.pcm",
     # Secrets. .gitignore is not consulted once this file exists, so these are
     # uploaded unless denied HERE.
     "eddy-ios/.env",

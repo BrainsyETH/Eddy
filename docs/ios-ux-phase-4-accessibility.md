@@ -46,6 +46,14 @@ Weather keeps its atmospheric background, illustration, colors, and standard-siz
 - Map fading and interaction eligibility use the live sheet clearance. Only
   boundary crossings reach React; hit testing and VoiceOver no longer wait for
   the sheet's settled height. Camera padding/attribution retain settled updates.
+- Map filters now dismiss by dragging the grabber/header down. Small or
+  cancelled pulls settle back, rows scroll independently, and live selections
+  survive closing. Done, backdrop tap, and VoiceOver escape remain available;
+  Reduce Motion removes the release animation.
+- A local iOS module disables UIKit scroll-edge effects inside Map detail page
+  scrollers and their horizontal tabs, targeting the lingering white veil
+  reported after fast expansion. The native tab bar retains its glass. This
+  correction needs a new iOS binary and device confirmation.
 - Dam chart labels have an 11 pt base minimum. The current-time label stays
   inside the plot. Spoken schedule headings include full hour counts, peak and
   idle windows, and Central time; the chart/details button states the current
@@ -55,18 +63,22 @@ Weather keeps its atmospheric background, illustration, colors, and standard-siz
 
 ## Scope and validation
 
-The iOS changes add no dependencies and change no API contracts, backend calculations, permissions, native configuration, or release channels. The branch also incorporates the independently reviewed web security patches in PR #1384 so the runtime-audit gate can pass; merge that PR first. Native tabs are now inherited from main. Adaptive increased-contrast tokens, additional materials, and system date-picker replacement remain later work. This PR includes no deployment or release.
+The iOS changes add no third-party dependencies and change no API contracts, backend calculations, permissions, or release channels. The Map blur follow-up adds a local native Expo module and therefore requires a new iOS binary. The branch also incorporates the independently reviewed web security patches in the now-merged PR #1384. Native tabs are inherited from main. Adaptive increased-contrast tokens, additional materials, and system date-picker replacement remain later work. This PR includes no deployment or release.
 
 - All 2,959 registered regression tests and the separate 16-test Today pretest passed with no failures or skips. New coverage includes date-choice boundaries, supporting-text contrast/hierarchy across light/dark surfaces, and Map interaction thresholds during a drag/reset.
 - Web production/test typechecks and ESLint passed (0 errors, 14 existing warnings). Token/palette checks passed.
 - `make check-mobile` passed on Node 20 with 0 errors and 27 existing warnings.
 - `make bundle-mobile` passed: production Hermes iOS export and archive allowlist check (424 files, 10.59 MB; every Metro-resolved path included).
 - Review follow-up: 104 targeted camping, alerts, Map geometry, and theme tests passed; mobile typecheck/lint retained 0 errors and the same 27 existing warnings. The production export and archive check were repeated for the follow-up.
+- Map gesture follow-up: 118 existing Map geometry, layer-row, tab, and peek
+  regressions passed. Expo Apple autolinking resolves `EddyMapSheetModule` and
+  its podspec. The archive guard includes all four local module files and
+  rejects generated module build files and secrets (428 files, 10.60 MB).
 - Whitespace check passed.
 
 The environment blocks the tsx CLI IPC socket. The registered test file list and token script ran through the installed tsx Node loader, retaining `tsconfig.test.json` for tests; no dependencies or CI commands changed for this workaround.
 
-No simulator or physical iPhone is available here. Device rendering, safe-area measurements, VoiceOver focus/order, and gestures have not been visually verified.
+No Xcode, simulator, or physical iPhone is available here. The new Swift view has not been compiled here; device rendering, safe-area measurements, VoiceOver focus/order, gestures, and the blur correction require verification in a rebuilt iOS app.
 
 References: [Apple accessibility guidance](https://developer.apple.com/design/human-interface-guidelines/accessibility), [Dynamic Type](https://developer.apple.com/videos/play/wwdc2024/10074/), and [React Native accessibility properties](https://reactnative.dev/docs/accessibility).
 
@@ -94,6 +106,19 @@ Use a small iPhone and a Home Indicator device. Check default text and the large
   fade away, pause without releasing, and drag back. Invisible controls must
   not accept taps or VoiceOver focus; they become usable as they return. Watch for a dropped frame at the hide/show boundary. Repeat
   with search open, large text, Reduce Motion, rapid close/reopen, and tab changes.
+- [ ] Map filters: drag down from the grabber and from the title/header. Try a
+  short pull, a deliberate pull, a downward flick, and reversing upward before
+  release. Scroll the rows to the bottom and drag the header again. Reset,
+  switches, refinement chips, Done, backdrop tap, and VoiceOver escape still
+  work; close/reopen retains filters and starts with the sheet at rest.
+- [ ] In a rebuilt iOS 26 app, open Slabtown Recreation Area and rapidly flick
+  the detail sheet from peek to expanded several times. Overview text/photos
+  and the tab row must stay clear after release, including light/dark mode,
+  Reduce Motion, changing sheet tabs, changing app tabs, and closing/reopening.
+  Repeat with a river, gauge, dam, and another access point. Native tab-bar
+  glass remains visible; page scrolling, sticky headers, horizontal paging,
+  final-row reach, and older-iOS behavior remain intact. Reloading JavaScript
+  in an old client is insufficient to validate the native blur correction.
 - [ ] Today remains compact. Open Camping: standard text starts in Grid; large text or VoiceOver starts in List. Manually switch views, change text size, and toggle VoiceOver. Explicit display choices remain respected during the visit.
 - [ ] Scroll Camping Grid on a small iPhone: filters, Grid/List, and coverage
   scroll away; only the date row pins below the native header. Swipe the dates

@@ -40,6 +40,7 @@ import Animated, {
 import { useTheme } from '@/theme/ThemeProvider';
 import { tabScrollOffset } from './tabScrollOffset';
 import { useReducedMotion } from '@/hooks/useReducedMotion';
+import { MapSheetScrollBoundary } from '../../../modules/eddy-map-sheet';
 
 /** Horizontal travel that claims the gesture for the pager. */
 const ACTIVATE_X = 12;
@@ -353,6 +354,7 @@ function SheetPage({
   );
 
   return (
+    <MapSheetScrollBoundary collapsable={false} style={{ width, flexShrink: 0, flexGrow: 0 }}>
     <GestureDetector gesture={native}>
       <Animated.ScrollView
         ref={scroller}
@@ -393,6 +395,7 @@ function SheetPage({
         </View>
       </Animated.ScrollView>
     </GestureDetector>
+    </MapSheetScrollBoundary>
   );
 }
 

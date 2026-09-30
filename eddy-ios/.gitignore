@@ -7,6 +7,12 @@ web-build/
 ios/
 android/
 
+# Handwritten local module source; keep its generated files excluded.
+!/modules/eddy-map-sheet/ios/
+/modules/eddy-map-sheet/ios/*
+!/modules/eddy-map-sheet/ios/EddyMapSheet.podspec
+!/modules/eddy-map-sheet/ios/EddyMapSheetModule.swift
+
 # Local secrets. EXPO_PUBLIC_MAPBOX_TOKEN lives here; EAS supplies it in builds.
 .env
 # Every dotenv variant, not just the two that were listed. `eas env:pull`
