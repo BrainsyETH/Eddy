@@ -1392,32 +1392,27 @@ export default function RiverDetailScreen() {
 
         {/* ── Live status ─────────────────────────────────────── */}
         <View style={[styles.card, { backgroundColor: colors.card }, elevation(2)]}>
+          {/* Give the verdict its own width, so long safety labels are never
+              squeezed between the mascot and the trend. */}
+          <View
+            style={[
+              styles.conditionChip,
+              {
+                backgroundColor: conditionBg(shownCode),
+                borderColor: conditionChipBorder(shownCode),
+              },
+            ]}
+          >
+            <Text style={[styles.conditionChipText, { color: conditionInk(shownCode) }]}>
+              {band === 'fresh'
+                ? conditionLongLabel(code)
+                : `Last known: ${conditionShortLabel(code)}`}
+            </Text>
+          </View>
           <View style={styles.statusHead}>
             <Otter mood={otterForCondition(shownCode)} size={64} />
             <View style={styles.statusHeadText}>
-              <View
-                style={[
-                  styles.conditionChip,
-                  {
-                    backgroundColor: conditionBg(shownCode),
-                    borderColor: conditionChipBorder(shownCode),
-                  },
-                ]}
-              >
-                <Text style={[styles.conditionChipText, { color: conditionInk(shownCode) }]}>
-                  {/* The long label is an instruction — "Do Not Float",
-                      "Floatable" — and an instruction is a claim about right
-                      now. A reading recovered from disk names what was last
-                      seen and stops there. */}
-                  {band === 'fresh'
-                    ? conditionLongLabel(code)
-                    : `Last known: ${conditionShortLabel(code)}`}
-                </Text>
-              </View>
               {reading ? (
-                // Geist Mono, not the body face. Proportional digits change
-                // width as the number ticks, so a reading going 1.51 -> 1.62
-                // would shift this whole row.
                 <Text style={[styles.reading, { color: colors.text }]}>
                   {formatReading(reading.value, reading.unit)}
                 </Text>
@@ -1426,27 +1421,10 @@ export default function RiverDetailScreen() {
                   No gauge reading available
                 </Text>
               )}
+              {shownTrend ? (
+                <TrendPill direction={shownTrend.direction} label={shownTrend.label} />
+              ) : null}
             </View>
-
-            {/* ── Which way it is going, top right ──────────────────
-                It used to ride the "Updated 40 minutes ago · Van Buren" line
-                at the FOOT of this card, sharing one 12pt row with a station
-                name that had to truncate to make room. Three facts of
-                different kinds in one line, and the only forward-looking one
-                was last and smallest.
-
-                Up here it sits level with the condition chip, which is what it
-                qualifies: the chip says where the river is, this says where it
-                is heading. Same pairing the Today rows and the Favorites cards
-                already draw, and the foot of the card is left to say plainly
-                when the reading was taken and which station took it.
-
-                Still muted ink, never green-for-rising — on a river
-                approaching flood "rising fast" is the opposite of good news,
-                and the chip beside it already carries the verdict. */}
-            {shownTrend ? (
-              <TrendPill direction={shownTrend.direction} label={shownTrend.label} />
-            ) : null}
           </View>
 
           {/* The scale the number sits on. Placed directly under the reading
@@ -1495,7 +1473,7 @@ export default function RiverDetailScreen() {
               {cachedReading ? (
                 <Ionicons name="cloud-offline-outline" size={12} color={colors.textSubtle} />
               ) : null}
-              <Text style={[styles.updated, { color: colors.textSubtle }]} numberOfLines={1}>
+              <Text style={[styles.updated, { color: colors.textSubtle }]}>
                 {readingAgeHours != null && band !== 'expired'
                   ? `${readingAge(readingAgeHours)}${shownGaugeName ? ` · ${shownGaugeName}` : ''}`
                   : (shownGaugeName ?? '')}
@@ -2068,31 +2046,27 @@ const styles = StyleSheet.create({
   riverName: { ...t['3xl'], fontFamily: fonts.display, paddingHorizontal: 4, marginTop: 6 },
   riverMeta: { ...t.sm, fontFamily: fonts.body, paddingHorizontal: 4, marginTop: 2, marginBottom: 16 },
   card: { padding: 16, borderRadius: 16, marginBottom: 10 },
-  // `flex-start` so the trend sits at the TOP right rather than centred against
-  // a 64pt otter — level with the condition chip, which is the thing it
-  // qualifies.
-  statusHead: { flexDirection: 'row', alignItems: 'flex-start', gap: 12 },
-  // Centred within the row it used to define, so the chip and reading keep the
-  // vertical position they had beside the otter.
-  statusHeadText: { flex: 1, gap: 8, justifyContent: 'center', minHeight: 64 },
+  statusHead: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'center', gap: 12, marginTop: 12 },
+  statusHeadText: { maxWidth: '100%', gap: 6, alignItems: 'center', justifyContent: 'center', minHeight: 64 },
   conditionChip: {
-    alignSelf: 'flex-start',
+    alignSelf: 'center',
+    maxWidth: '100%',
     paddingHorizontal: 10,
     paddingVertical: 5,
     borderRadius: 999,
     borderWidth: 1,
   },
-  conditionChipText: { ...t.xs, fontFamily: fonts.semibold },
-  reading: { ...t['2xl'], fontFamily: fonts.mono },
-  noReading: { ...t.sm, fontFamily: fonts.body },
+  conditionChipText: { ...t.sm, fontFamily: fonts.semibold, textAlign: 'center' },
+  reading: { ...t['2xl'], fontFamily: fonts.mono, textAlign: 'center' },
+  noReading: { ...t.sm, fontFamily: fonts.body, textAlign: 'center' },
   percentileRow: { marginTop: 14, paddingTop: 12, borderTopWidth: 1 },
-  percentileText: { ...t.sm, fontFamily: fonts.semibold },
-  percentileMeta: { ...t.xs, fontFamily: fonts.mono, marginTop: 2 },
+  percentileText: { ...t.sm, fontFamily: fonts.semibold, textAlign: 'center' },
+  percentileMeta: { ...t.xs, fontFamily: fonts.mono, marginTop: 4, textAlign: 'center' },
   updatedRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 10 },
   // marginTop moves to the row so the glyph and the text sit on one baseline.
   // `flex: 1` still lets a long station name take the width — but it is the
   // only thing competing for it now that the trend has moved to the card head.
-  updated: { ...t.xs, fontFamily: fonts.body, flex: 1 },
+  updated: { ...t.xs, fontFamily: fonts.body, flex: 1, textAlign: 'center' },
   caveat: {
     flexDirection: 'row',
     alignItems: 'flex-start',

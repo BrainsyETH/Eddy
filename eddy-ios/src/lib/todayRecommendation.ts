@@ -19,6 +19,19 @@ export interface TodayRecommendation {
   notices: RiverAlert[];
 }
 
+/** Keep long agency headlines in the detail view. The compact label names the
+ * most urgent notice and still accounts for every other notice on the river. */
+export function recommendationNoticeSummary(notices: readonly RiverAlert[]) {
+  if (notices.length === 0) return null;
+  const severity = { warning: 0, watch: 1, notice: 2 };
+  const ordered = [...notices].sort((a, b) => severity[a.severity] - severity[b.severity]);
+  return {
+    label: ordered[0].category.trim() || 'Agency notice',
+    additionalCount: ordered.length - 1,
+    notices: ordered,
+  };
+}
+
 interface Candidate {
   river: RiverListItem;
   gauge: MapGauge | null;

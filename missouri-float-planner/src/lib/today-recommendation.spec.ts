@@ -5,6 +5,7 @@ import {
   chooseTodayRecommendation,
   chooseTodayRecommendations,
   isTodayRecommendationEligible,
+  recommendationNoticeSummary,
 } from '../../../eddy-ios/src/lib/todayRecommendation';
 import { favoriteFloatMeta } from '../../../eddy-ios/src/lib/favoriteFloatCopy';
 import {
@@ -40,6 +41,28 @@ function gauge(id: string, riverId: string, lng: number): MapGauge {
     }],
   };
 }
+
+test('Best River notice summary keeps the urgent category compact and preserves every full notice', () => {
+  const park: RiverAlert = {
+    id: 'park', source: 'nps', severity: 'notice', riverSlug: 'meramec', riverName: 'Meramec River',
+    title: 'A long park notice', body: 'Full park details', category: 'Information',
+    startsAt: null, endsAt: null, url: null,
+  };
+  const warning: RiverAlert = {
+    ...park, id: 'flood', source: 'nws', severity: 'warning', category: 'Flood Warning',
+    title: 'Flood Warning issued September 30 at 9:00AM CDT until October 1 at 1:00AM CDT by NWS Kansas City/Pleasant Hill',
+    body: 'Full flood details', url: 'https://weather.gov/alert',
+  };
+  const original = [park, warning];
+  const summary = recommendationNoticeSummary(original)!;
+  assert.equal(summary.label, 'Flood Warning');
+  assert.equal(summary.additionalCount, 1);
+  assert.deepEqual(summary.notices, [warning, park]);
+  assert.deepEqual(original, [park, warning], 'do not reorder the shared alert feed');
+  assert.equal(recommendationNoticeSummary([warning])?.additionalCount, 0);
+  assert.equal(recommendationNoticeSummary([{ ...park, category: ' ' }])?.label, 'Agency notice');
+  assert.equal(recommendationNoticeSummary([]), null);
+});
 
 test('recommendations require positive water and the shared fresh-reading window', () => {
   assert.equal(isTodayRecommendationEligible(river('good', 'good')), true);
