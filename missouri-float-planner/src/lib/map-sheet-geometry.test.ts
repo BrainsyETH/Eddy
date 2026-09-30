@@ -62,7 +62,6 @@ test('map camera clears floating search, safe areas, and attribution on small an
     assert.equal(layout.sheetWidth, scene.width);
     assert.equal(layout.ornamentBottom, 0);
     assert.equal(layout.chromeHidden, false);
-    assert.equal(layout.controlsHidden, false);
   }
 });
 
@@ -93,7 +92,6 @@ test('full sheets retain attribution clearance even when camera padding must be 
     assert.ok(scene.height - layout.cameraPadding.paddingTop - layout.cameraPadding.paddingBottom >= 120);
     assert.ok(layout.cameraPadding.paddingBottom < layout.ornamentBottom);
     assert.equal(layout.chromeHidden, true);
-    assert.equal(layout.controlsHidden, true);
   }
 });
 
@@ -113,9 +111,7 @@ test('chrome visibility follows actual room, including a tall accessibility peek
   const regular = mapLayout(input);
   const large = mapLayout({ ...input, chromeHeight: 180 });
   assert.equal(regular.chromeHidden, false);
-  assert.equal(regular.controlsHidden, false);
   assert.equal(large.chromeHidden, true);
-  assert.equal(large.controlsHidden, true);
 });
 
 test('resize clamps stale sheet coverage and respects horizontal safe areas', () => {
@@ -148,7 +144,6 @@ test('native tabs extend the canvas while preserving the usable map and sheet bu
         assert.equal(native.cameraPadding.paddingBottom, before.cameraPadding.paddingBottom + safeBottom);
         assert.equal(native.cameraPadding.paddingTop, before.cameraPadding.paddingTop);
         assert.equal(native.chromeHidden, before.chromeHidden);
-        assert.equal(native.controlsHidden, before.controlsHidden);
       }
     }
   }
@@ -164,7 +159,6 @@ test('full map sheets and attribution clear the floating tab bar on every phone 
     assert.equal(full.ornamentBottom, safeBottom + detents.height.full);
     assert.ok(scene.height - full.ornamentBottom - ORNAMENT_BAND >= full.sheetTop);
     assert.ok(scene.height - full.cameraPadding.paddingTop - full.cameraPadding.paddingBottom >= 120);
-    assert.equal(full.controlsHidden, true);
   }
 });
 

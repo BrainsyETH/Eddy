@@ -29,7 +29,8 @@ export default function CurrentAlertsScreen() {
   const [high, setHigh] = useState<HighWaterEntry[] | null>(null);
   const [notices, setNotices] = useState<RiverAlert[] | null>(null);
   const [failed, setFailed] = useState({ high: false, notices: false });
-  const [refreshing, setRefreshing] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [checking, setChecking] = useState(true);
   const request = useRef<AbortController | null>(null);
   const { colors } = useTheme();
 
@@ -53,13 +54,21 @@ export default function CurrentAlertsScreen() {
         if (!controller.signal.aborted) setFailed((current) => ({ ...current, notices: true }));
       }),
     ]).then(() => {
-      if (!controller.signal.aborted) setRefreshing(false);
+      if (!controller.signal.aborted) {
+        setRefreshing(false);
+        setChecking(false);
+      }
     });
   }, []);
 
+  const retry = () => {
+    setFailed({ high: false, notices: false });
+    setChecking(true);
+    void load();
+  };
   const refresh = () => {
     setRefreshing(true);
-    void load();
+    retry();
   };
 
   useEffect(() => {
@@ -119,13 +128,13 @@ export default function CurrentAlertsScreen() {
                   <Text accessibilityRole="alert" style={[styles.caption, { color: colors.error }]}>
                     {data === null ? `Couldn’t load ${section.title.toLowerCase()}.` : `Couldn’t refresh ${section.title.toLowerCase()}. Previous results may be outdated.`}
                   </Text>
-                  <Pressable onPress={refresh} accessibilityRole="button" accessibilityLabel={`Retry ${section.title.toLowerCase()}`} style={styles.action}>
+                  <Pressable onPress={retry} accessibilityRole="button" accessibilityLabel={`Retry ${section.title.toLowerCase()}`} style={styles.action}>
                     <Text style={[styles.actionText, { color: colors.interactive }]}>Retry</Text>
                   </Pressable>
                 </>
-              ) : data === null ? (
+              ) : data === null || checking ? (
                 <View style={styles.loading}>
-                  <ActivityIndicator color={colors.interactive} />
+                  {!refreshing ? <ActivityIndicator color={colors.interactive} /> : null}
                   <Text style={[styles.caption, { color: colors.textMuted }]}>Checking {section.title.toLowerCase()}…</Text>
                 </View>
               ) : section.data.length === 0 ? <Text style={[styles.caption, { color: colors.textMuted }]}>{section.empty}</Text> : null}

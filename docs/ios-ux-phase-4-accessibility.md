@@ -27,11 +27,15 @@ Weather keeps its atmospheric background, illustration, colors, and standard-siz
 ## Phase 1–5 review corrections
 
 - Current Alerts, Camping, and Quiet Hours use the root native stack header in
-  loaded, loading, error, and empty states. Camping filters scroll with the
-  list header; native automatic insets keep the initial row clear of chrome.
+  loaded, loading, error, and empty states. Camping filters and coverage copy
+  scroll away; only grid dates pin. The loaded Camping list uses explicit
+  measured navigation-bar/bottom-safe-area insets, including the sticky stop
+  and scroll indicators; other states/screens retain automatic insets.
 - Loaded river, gauge, dam, and access-point names appear in native titles.
   Full names remain in the body. Cold detail links show a Map symbol for Map;
   Current Alerts/Camping return to Today, and Quiet Hours returns to Settings.
+- Current Alerts uses section loading indicators on first load/retry and the
+  native refresh spinner only for a user pull.
 - Supporting text uses separate secondary/tertiary tones in both schemes.
   Standard page, card, raised, and selected backgrounds clear 4.5:1 without
   making tertiary text brighter than secondary. Selected toolbar stars use
@@ -57,6 +61,7 @@ The iOS changes add no dependencies and change no API contracts, backend calcula
 - Web production/test typechecks and ESLint passed (0 errors, 14 existing warnings). Token/palette checks passed.
 - `make check-mobile` passed on Node 20 with 0 errors and 27 existing warnings.
 - `make bundle-mobile` passed: production Hermes iOS export and archive allowlist check (424 files, 10.59 MB; every Metro-resolved path included).
+- Review follow-up: 104 targeted camping, alerts, Map geometry, and theme tests passed; mobile typecheck/lint retained 0 errors and the same 27 existing warnings. The production export and archive check were repeated for the follow-up.
 - Whitespace check passed.
 
 The environment blocks the tsx CLI IPC socket. The registered test file list and token script ran through the installed tsx Node loader, retaining `tsconfig.test.json` for tests; no dependencies or CI commands changed for this workaround.
@@ -87,9 +92,17 @@ Use a small iPhone and a Home Indicator device. Check default text and the large
   not duplicated on retry or interrupted by dismissal.
 - [ ] Slowly drag a Map sheet through the point where search and lower controls
   fade away, pause without releasing, and drag back. Invisible controls must
-  not accept taps or VoiceOver focus; they become usable as they return. Repeat
+  not accept taps or VoiceOver focus; they become usable as they return. Watch for a dropped frame at the hide/show boundary. Repeat
   with search open, large text, Reduce Motion, rapid close/reopen, and tab changes.
 - [ ] Today remains compact. Open Camping: standard text starts in Grid; large text or VoiceOver starts in List. Manually switch views, change text size, and toggle VoiceOver. Explicit display choices remain respected during the visit.
+- [ ] Scroll Camping Grid on a small iPhone: filters, Grid/List, and coverage
+  scroll away; only the date row pins below the native header. Swipe the dates
+  horizontally while pinned; columns stay aligned. Change text size/Display
+  Zoom, switch Grid/List, and test empty filters and pull-to-refresh. The last
+  campground/booking action and scroll indicator clear the Home Indicator.
+- [ ] Cold-open Current Alerts on a slow connection: section spinners appear
+  without an active pull-to-refresh spinner. Retry a failed section, then pull
+  to refresh; each action uses its appropriate loading state.
 - [ ] In List, step through nights and open the date picker. First/last-night arrows disable correctly. Choose dates across month/year boundaries and beyond the last observed night. Rows use the same selected night and show unknown availability honestly.
 - [ ] Compare Grid and List against the same campground/night. Check open, full, zero reservable sites, closed, unreleased, missing/stale data, and first-come states. No status requires distinguishing green from red. Filters still return to All rivers; campground ordering stays grouped by river.
 - [ ] Tap a list row and verify the campsite view's arrival equals that selected night, with checkout the next day. Done returns to the same filter/date. Check existing Today river/night links and direct facility links too.

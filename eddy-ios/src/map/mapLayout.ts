@@ -51,7 +51,6 @@ export function mapLayout({
   const ornamentBottom = bottomInset + sheetLift;
   const room = sheetAvailable - sheetLift;
   const chromeHidden = sheetHeight > 0 && room <= ORNAMENT_BAND + chromeHeight;
-  const controlsHidden = sheetHeight > 0 && room - chromeHeight <= MAP_CONTROLS_ROOM_MIN;
   const top = Math.min(height, sheetTop + (chromeHidden ? 0 : chromeHeight) + CAMERA_GAP);
   const bottom = Math.min(
     ornamentBottom + ORNAMENT_BAND + CAMERA_GAP,
@@ -64,7 +63,6 @@ export function mapLayout({
     sheetWidth: Math.max(0, width - safeLeft - safeRight),
     ornamentBottom,
     chromeHidden,
-    controlsHidden,
     cameraPadding: {
       paddingTop: top,
       paddingBottom: bottom,

@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Modal,
+  Platform,
   TextInput,
   FlatList,
   Linking,
@@ -12,7 +13,8 @@ import {
   View,
   useWindowDimensions,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useHeaderHeight } from 'expo-router/react-navigation';
 import { useLocalSearchParams } from 'expo-router';
 import { NativeHeaderHome } from '@/components/NativeHeaderHome';
 import { useTheme } from '@/theme/ThemeProvider';
@@ -67,6 +69,13 @@ export default function CampingScreen() {
 }
 function CampingContent() {
   const { colors } = useTheme();
+  const headerHeight = useHeaderHeight();
+  const insets = useSafeAreaInsets();
+  // RN's sticky-header animation includes explicit contentInset.top, not the
+  // UIKit automatic adjustment. Match both the content and sticky stop to the
+  // measured native bar, while letting ordinary rows scroll underneath it.
+  const listTopInset = Platform.OS === 'ios' ? headerHeight : 0;
+  const listBottomInset = Platform.OS === 'ios' ? insets.bottom : 0;
   const { fontScale } = useWindowDimensions();
   const screenReader = useScreenReaderEnabled();
   const reducedMotion = useReducedMotion();
@@ -265,13 +274,20 @@ function CampingContent() {
         key={`${river}:${nearby}:${grid.horizon.endDateExclusive}`}
       >
         <FlatList
-          contentInsetAdjustmentBehavior="automatic"
-          data={rows}
-          keyExtractor={(row) => row.facilityId}
+          contentInsetAdjustmentBehavior="never"
+          automaticallyAdjustContentInsets={false}
+          automaticallyAdjustsScrollIndicatorInsets={false}
+          contentInset={{ top: listTopInset, bottom: listBottomInset, left: 0, right: 0 }}
+          contentOffset={{ x: 0, y: -listTopInset }}
+          scrollIndicatorInsets={{ top: listTopInset, bottom: listBottomInset, left: 0, right: 0 }}
+          // The first data cell is the date row; filters/caption stay in the
+          // scrolling ListHeaderComponent. Index 1 accounts for that header.
+          data={[null, ...rows]}
+          keyExtractor={(row) => row?.facilityId ?? 'camping-dates'}
           refreshing={loading}
           onRefresh={refresh}
           contentContainerStyle={styles.list}
-          stickyHeaderIndices={display === 'grid' ? [0] : undefined}
+          stickyHeaderIndices={display === 'grid' ? [1] : undefined}
           ListHeaderComponent={
             <View style={{ backgroundColor: colors.bg, paddingBottom: 6 }}>
               <View style={styles.filterHeader}>
@@ -393,11 +409,14 @@ function CampingContent() {
               >
                 {campingCoverageLabel(grid)}
               </Text>
+            </View>
+          }
+          renderItem={({ item }) => item === null ? (
+            <View style={[styles.dateHeader, { backgroundColor: colors.bg }]}>
               {display === 'grid' ? <CampingTableHeader overview={grid} now={now} /> :
                 <CampingNightControl nights={data.horizon.nights} selected={night} onSelect={setNightChoice} />}
             </View>
-          }
-          renderItem={({ item }) => (
+          ) : (
             <View>
               {riverHeaders.has(item.facilityId) ? (
                 <Text
@@ -421,13 +440,14 @@ function CampingContent() {
               />}
             </View>
           )}
-          ListEmptyComponent={
-            <Text style={[styles.message, { color: colors.textMuted }]}>
-              No campgrounds match these filters.
-            </Text>
-          }
           ListFooterComponent={
             <View>
+              {/* The date cell keeps the list nonempty even with no results. */}
+              {rows.length === 0 ? (
+                <Text style={[styles.message, { color: colors.textMuted }]}>
+                  No campgrounds match these filters.
+                </Text>
+              ) : null}
               {rows.length ? (
                 <Text
                   style={[textStyles.caption, { color: colors.textSubtle }]}
@@ -543,6 +563,7 @@ function CampingContent() {
 const styles = StyleSheet.create({
   empty: { flexGrow: 1, justifyContent: 'center', alignItems: 'center' },
   action: { minHeight: 44, minWidth: 44, justifyContent: 'center' },
+  dateHeader: { paddingBottom: 6 },
   filterHeader: { marginHorizontal: -20 },
   filters: { paddingHorizontal: 20, paddingBottom: 12, gap: 8 },
   chip: {
