@@ -43,6 +43,7 @@ import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
 import { useTheme } from '@/theme/ThemeProvider';
 import { useReducedMotion } from '@/hooks/useReducedMotion';
 import { fonts, type as t } from '@/theme/typography';
+import { MapSheetScrollBoundary } from '../../../modules/eddy-map-sheet';
 
 /**
  * The inset the scrolled content carries, so the first and last tab clear the
@@ -154,6 +155,7 @@ export function SheetTabBar({ labels, index, onSelect, progress }: Props) {
 
           The indicator lives INSIDE the scrolled content, so it travels with
           the tabs it is measuring rather than sliding off its own labels. */}
+      <MapSheetScrollBoundary collapsable={false}>
       <ScrollView
         ref={scroller}
         horizontal
@@ -199,6 +201,7 @@ export function SheetTabBar({ labels, index, onSelect, progress }: Props) {
           pointerEvents="none"
         />
       </ScrollView>
+      </MapSheetScrollBoundary>
       {/* ── The edge fade ─────────────────────────────────────────────────
           A scrollable row that ends flush at the screen edge looks like a row
           that ends. Bleeding the card colour over the last few points says

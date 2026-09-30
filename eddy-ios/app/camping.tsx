@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Modal,
+  Platform,
   TextInput,
   FlatList,
   Linking,
@@ -12,8 +13,10 @@ import {
   View,
   useWindowDimensions,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useHeaderHeight } from 'expo-router/react-navigation';
+import { useLocalSearchParams } from 'expo-router';
+import { NativeHeaderHome } from '@/components/NativeHeaderHome';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, textStyles } from '@/theme/typography';
 import { useAppConfig } from '@/hooks/useAppConfig';
@@ -43,45 +46,36 @@ import { CampingNightControl } from '@/components/CampingNightControl';
 import { CampingAvailabilityRow } from '@/components/CampingAvailabilityRow';
 import { useScreenReaderEnabled } from '@/hooks/useScreenReaderEnabled';
 import { useReducedMotion } from '@/hooks/useReducedMotion';
-import { goBack } from '@/lib/nav';
 
 export default function CampingScreen() {
   const { features, loading } = useAppConfig();
   const { colors } = useTheme();
-  const router = useRouter();
   return (
     <SafeAreaView
       style={{ flex: 1, backgroundColor: colors.bg }}
-      edges={['top', 'bottom']}
+      edges={['left', 'right']}
     >
-      <Stack.Screen options={{ headerShown: false }} />
-      <View style={styles.header}>
-        <Pressable
-          onPress={() => goBack(router)}
-          accessibilityRole="button"
-          accessibilityLabel="Go back"
-          style={styles.action}
-        >
-          <Text style={{ color: colors.interactive }}>← Back</Text>
-        </Pressable>
-        <Text style={[textStyles.pageTitle, { color: colors.text }]}>
-          Camping
-        </Text>
-      </View>
+      <NativeHeaderHome destination="today" />
       {features.campingHeatmap ? (
         <CampingContent />
-      ) : loading ? (
-        <ActivityIndicator color={colors.interactive} />
       ) : (
-        <Text style={[styles.message, { color: colors.textMuted }]}>
-          Camping availability is unavailable.
-        </Text>
+        <ScrollView contentInsetAdjustmentBehavior="automatic" contentContainerStyle={styles.empty}>
+          {loading ? <ActivityIndicator color={colors.interactive} /> :
+            <Text style={[styles.message, { color: colors.textMuted }]}>Camping availability is unavailable.</Text>}
+        </ScrollView>
       )}
     </SafeAreaView>
   );
 }
 function CampingContent() {
   const { colors } = useTheme();
+  const headerHeight = useHeaderHeight();
+  const insets = useSafeAreaInsets();
+  // RN's sticky-header animation includes explicit contentInset.top, not the
+  // UIKit automatic adjustment. Match both the content and sticky stop to the
+  // measured native bar, while letting ordinary rows scroll underneath it.
+  const listTopInset = Platform.OS === 'ios' ? headerHeight : 0;
+  const listBottomInset = Platform.OS === 'ios' ? insets.bottom : 0;
   const { fontScale } = useWindowDimensions();
   const screenReader = useScreenReaderEnabled();
   const reducedMotion = useReducedMotion();
@@ -156,7 +150,7 @@ function CampingContent() {
   const night = data ? linkedCampingNight(data, nightChoice) ?? linkedNight ?? data.horizon.startDate : '';
   const detailNight = data ? linkedCampingNight(data, openedNight) ?? linkedNight : undefined;
   if (!data)
-    return loading ? (
+    return <ScrollView contentInsetAdjustmentBehavior="automatic" contentContainerStyle={styles.empty}>{loading ? (
       <ActivityIndicator color={colors.interactive} />
     ) : (
       <Pressable
@@ -168,7 +162,7 @@ function CampingContent() {
           Couldn’t load camping. Retry
         </Text>
       </Pressable>
-    );
+    )}</ScrollView>;
   const grid = observedCampingOverview(rows, data, now);
   function chip(label: string, active: boolean, onPress: () => void) {
     return (
@@ -198,49 +192,6 @@ function CampingContent() {
   }
   return (
     <>
-      <ScrollView
-        horizontal
-        style={{ flexGrow: 0, flexShrink: 0 }}
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.filters}
-      >
-        {chip(
-          rivers.find((r) => r.slug === river)?.label ?? 'All rivers',
-          !nearby && !saved,
-          () => {
-            if (nearby || saved) {
-              setNearby(false);
-              setSaved(false);
-              setRiver(null);
-            } else {
-              setQuery('');
-              setRiverPicker(true);
-            }
-          },
-        )}
-        {chip('Favorites', saved, () => {
-          setSaved((v) => !v);
-          setNearby(false);
-          setRiver(null);
-        })}
-        {chip(status === 'locating' ? 'Locating…' : 'Nearby', nearby, () => {
-          setSaved(false);
-          setRiver(null);
-          if (nearby) setNearby(false);
-          else {
-            setNearby(true);
-            if (!coords) void request();
-          }
-        })}
-      </ScrollView>
-      <ScopeSwitch
-        options={[
-          { key: 'grid', label: 'Grid', accessibilityLabel: 'Camping availability grid' },
-          { key: 'list', label: 'List', accessibilityLabel: 'Camping availability list by night' },
-        ]}
-        value={display}
-        onChange={setDisplayChoice}
-      />
       <Modal
         visible={riverPicker}
         animationType={reducedMotion ? 'none' : 'slide'}
@@ -317,85 +268,139 @@ function CampingContent() {
           />
         </SafeAreaView>
       </Modal>
-      {nearby && !coords && status !== 'locating' ? (
-        <View style={styles.notice}>
-          <Text style={{ color: colors.textMuted }}>
-            {status === 'denied'
-              ? 'Location access is off.'
-              : 'Couldn’t find your location.'}
-          </Text>
-          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 20 }}>
-            <Pressable
-              accessibilityRole="button"
-              style={styles.action}
-              onPress={() => {
-                if (status === 'denied')
-                  void Linking.openSettings().catch(() => setLinkFailed(true));
-                else void request();
-              }}
-            >
-              <Text style={{ color: colors.interactive }}>
-                {status === 'denied' ? 'Open Settings' : 'Retry'}
-              </Text>
-            </Pressable>
-            <Pressable
-              accessibilityRole="button"
-              style={styles.action}
-              onPress={() => {
-                setNearby(false);
-                setSaved(false);
-                setRiver(null);
-              }}
-            >
-              <Text style={{ color: colors.interactive }}>Show all</Text>
-            </Pressable>
-          </View>
-          {linkFailed ? (
-            <Text style={{ color: colors.error }}>
-              Couldn’t open Settings. Enable location in your device settings.
-            </Text>
-          ) : null}
-        </View>
-      ) : nearby && coords ? (
-        <Pressable
-          onPress={() => {
-            setNearby(false);
-            setSaved(false);
-            setRiver(null);
-          }}
-          accessibilityRole="button"
-          style={styles.notice}
-        >
-          <Text style={{ color: colors.interactive }}>
-            Within 120 miles · Show all
-          </Text>
-        </Pressable>
-      ) : null}
-      {error ? (
-        <Pressable
-          onPress={refresh}
-          accessibilityRole="button"
-          style={styles.notice}
-        >
-          <Text style={{ color: colors.interactive }}>
-            Couldn’t refresh. Retry
-          </Text>
-        </Pressable>
-      ) : null}
       <CampingScrollGroup
         thumbnails
         dateWidth={36}
         key={`${river}:${nearby}:${grid.horizon.endDateExclusive}`}
       >
         <FlatList
-          data={rows}
-          keyExtractor={(row) => row.facilityId}
+          contentInsetAdjustmentBehavior="never"
+          automaticallyAdjustContentInsets={false}
+          automaticallyAdjustsScrollIndicatorInsets={false}
+          contentInset={{ top: listTopInset, bottom: listBottomInset, left: 0, right: 0 }}
+          contentOffset={{ x: 0, y: -listTopInset }}
+          scrollIndicatorInsets={{ top: listTopInset, bottom: listBottomInset, left: 0, right: 0 }}
+          // The first data cell is the date row; filters/caption stay in the
+          // scrolling ListHeaderComponent. Index 1 accounts for that header.
+          data={[null, ...rows]}
+          keyExtractor={(row) => row?.facilityId ?? 'camping-dates'}
           refreshing={loading}
           onRefresh={refresh}
           contentContainerStyle={styles.list}
-          stickyHeaderIndices={display === 'grid' ? [0] : undefined}
+          stickyHeaderIndices={display === 'grid' ? [1] : undefined}
           ListHeaderComponent={
             <View style={{ backgroundColor: colors.bg, paddingBottom: 6 }}>
+              <View style={styles.filterHeader}>
+                <ScrollView
+                  horizontal
+                  style={{ flexGrow: 0, flexShrink: 0 }}
+                  showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={styles.filters}
+                >
+                  {chip(
+                    rivers.find((r) => r.slug === river)?.label ?? 'All rivers',
+                    !nearby && !saved,
+                    () => {
+                      if (nearby || saved) {
+                        setNearby(false);
+                        setSaved(false);
+                        setRiver(null);
+                      } else {
+                        setQuery('');
+                        setRiverPicker(true);
+                      }
+                    },
+                  )}
+                  {chip('Favorites', saved, () => {
+                    setSaved((v) => !v);
+                    setNearby(false);
+                    setRiver(null);
+                  })}
+                  {chip(status === 'locating' ? 'Locating…' : 'Nearby', nearby, () => {
+                    setSaved(false);
+                    setRiver(null);
+                    if (nearby) setNearby(false);
+                    else {
+                      setNearby(true);
+                      if (!coords) void request();
+                    }
+                  })}
+                </ScrollView>
+                <ScopeSwitch
+                  options={[
+                    { key: 'grid', label: 'Grid', accessibilityLabel: 'Camping availability grid' },
+                    { key: 'list', label: 'List', accessibilityLabel: 'Camping availability list by night' },
+                  ]}
+                  value={display}
+                  onChange={setDisplayChoice}
+                />
+                {nearby && !coords && status !== 'locating' ? (
+                  <View style={styles.notice}>
+                    <Text style={{ color: colors.textMuted }}>
+                      {status === 'denied'
+                        ? 'Location access is off.'
+                        : 'Couldn’t find your location.'}
+                    </Text>
+                    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 20 }}>
+                      <Pressable
+                        accessibilityRole="button"
+                        style={styles.action}
+                        onPress={() => {
+                          if (status === 'denied')
+                            void Linking.openSettings().catch(() => setLinkFailed(true));
+                          else void request();
+                        }}
+                      >
+                        <Text style={{ color: colors.interactive }}>
+                          {status === 'denied' ? 'Open Settings' : 'Retry'}
+                        </Text>
+                      </Pressable>
+                      <Pressable
+                        accessibilityRole="button"
+                        style={styles.action}
+                        onPress={() => {
+                          setNearby(false);
+                          setSaved(false);
+                          setRiver(null);
+                        }}
+                      >
+                        <Text style={{ color: colors.interactive }}>Show all</Text>
+                      </Pressable>
+                    </View>
+                    {linkFailed ? (
+                      <Text style={{ color: colors.error }}>
+                        Couldn’t open Settings. Enable location in your device settings.
+                      </Text>
+                    ) : null}
+                  </View>
+                ) : nearby && coords ? (
+                  <Pressable
+                    onPress={() => {
+                      setNearby(false);
+                      setSaved(false);
+                      setRiver(null);
+                    }}
+                    accessibilityRole="button"
+                    style={styles.notice}
+                  >
+                    <Text style={{ color: colors.interactive }}>
+                      Within 120 miles · Show all
+                    </Text>
+                  </Pressable>
+                ) : null}
+                {error ? (
+                  <Pressable
+                    onPress={refresh}
+                    accessibilityRole="button"
+                    style={styles.notice}
+                  >
+                    <Text style={{ color: colors.interactive }}>
+                      Couldn’t refresh. Retry
+                    </Text>
+                  </Pressable>
+                ) : null}
+
+              </View>
               <Text
                 style={[
                   textStyles.caption,
@@ -404,11 +409,14 @@ function CampingContent() {
               >
                 {campingCoverageLabel(grid)}
               </Text>
+            </View>
+          }
+          renderItem={({ item }) => item === null ? (
+            <View style={[styles.dateHeader, { backgroundColor: colors.bg }]}>
               {display === 'grid' ? <CampingTableHeader overview={grid} now={now} /> :
                 <CampingNightControl nights={data.horizon.nights} selected={night} onSelect={setNightChoice} />}
             </View>
-          }
-          renderItem={({ item }) => (
+          ) : (
             <View>
               {riverHeaders.has(item.facilityId) ? (
                 <Text
@@ -432,13 +440,14 @@ function CampingContent() {
               />}
             </View>
           )}
-          ListEmptyComponent={
-            <Text style={[styles.message, { color: colors.textMuted }]}>
-              No campgrounds match these filters.
-            </Text>
-          }
           ListFooterComponent={
             <View>
+              {/* The date cell keeps the list nonempty even with no results. */}
+              {rows.length === 0 ? (
+                <Text style={[styles.message, { color: colors.textMuted }]}>
+                  No campgrounds match these filters.
+                </Text>
+              ) : null}
               {rows.length ? (
                 <Text
                   style={[textStyles.caption, { color: colors.textSubtle }]}
@@ -552,8 +561,10 @@ function CampingContent() {
   );
 }
 const styles = StyleSheet.create({
-  header: { paddingHorizontal: 20, paddingBottom: 8 },
+  empty: { flexGrow: 1, justifyContent: 'center', alignItems: 'center' },
   action: { minHeight: 44, minWidth: 44, justifyContent: 'center' },
+  dateHeader: { paddingBottom: 6 },
+  filterHeader: { marginHorizontal: -20 },
   filters: { paddingHorizontal: 20, paddingBottom: 12, gap: 8 },
   chip: {
     borderRadius: 20,

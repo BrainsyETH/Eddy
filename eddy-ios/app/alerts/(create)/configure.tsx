@@ -382,7 +382,7 @@ export default function ConfigureAlertScreen() {
 
   // This also propagates through the nested navigator to the sheet's native
   // swipe dismissal. Re-dispatch the exact action only after confirmation.
-  usePreventRemove(!completion || enablingPush, ({ data }) => {
+  usePreventRemove((dirty && !completion) || saving || signingIn || enablingPush, ({ data }) => {
     if (saveTask.busy || signingInRef.current || enablingPushRef.current) return;
     if (saveTask.saved || !dirty) { navigation.dispatch(data.action); return; }
     if (confirmingDiscard.current) return;

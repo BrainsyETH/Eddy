@@ -537,6 +537,7 @@ export default function GaugeDetailScreen() {
 
   return (
     <SafeAreaView style={[styles.screen, { backgroundColor: colors.bg }]} edges={['left', 'right']}>
+      <Stack.Screen options={{ title: gauge.name }} />
       <NativeHeaderHome />
       <Stack.Toolbar placement="right">
         {/* Absent when the station has no page on the website — an NWS LID
@@ -558,7 +559,7 @@ export default function GaugeDetailScreen() {
             onPress={onToggleStar}
             icon={starred ? 'star.fill' : 'star'}
             selected={starred}
-            tintColor={starred ? colors.warm : colors.interactive}
+            tintColor={colors.interactive}
             accessibilityLabel={starred ? `Remove ${gauge.name} from Favorites` : `Add ${gauge.name} to Favorites`}
           >
             {starred ? 'Remove from Favorites' : 'Add to Favorites'}

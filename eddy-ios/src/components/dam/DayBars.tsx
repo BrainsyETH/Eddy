@@ -39,6 +39,7 @@ import {
   hourEndingLabel,
   hourEndingNow,
   scheduleHoursElapsed,
+  scheduledHoursSummary,
 } from '@eddy/conditions/dam-schedule-copy';
 import {
   scheduledBar,
@@ -235,11 +236,12 @@ export function DayBars({ day, reference, compact = false, peakSchedule = null }
   return (
     <View>
       {!compact ? <Pressable accessibilityRole="button"
+        accessibilityValue={{ text: list ? 'Hourly details shown' : 'Hourly chart shown' }}
         style={styles.listToggle} onPress={() => setListChoice(!list)}>
         <Text style={[t.sm, { color: colors.interactive }]}>{list ? 'Show hourly chart' : 'Show hourly details'}</Text>
       </Pressable> : null}
       {list ? <View>
-        <Text style={[t.xs, { color: colors.textMuted }]}>Scheduled generation · Central time</Text>
+        <Text style={[t.xs, { color: colors.textMuted }]}>{scheduledHoursSummary(day.hours)} · Central time</Text>
         {hours.map((hour) => {
           const line = hourReadout(hour, reference, peak);
           return <Text key={hour.hourEnding}
@@ -388,7 +390,7 @@ export function DayBars({ day, reference, compact = false, peakSchedule = null }
           <Text
             style={[
               styles.nowLabel,
-              { color: colors.accent, left: markerLeft(hoursElapsed, rowWidth) - 12 },
+              { color: colors.accent, left: Math.max(0, Math.min(rowWidth - 32, markerLeft(hoursElapsed, rowWidth) - 16)) },
             ]}
           >
             Now
@@ -476,10 +478,10 @@ const styles = StyleSheet.create({
   bar: { flex: 1, borderRadius: 2 },
   halfLine: { position: 'absolute', left: 0, right: 0, top: '50%', height: StyleSheet.hairlineWidth },
   nowLine: { position: 'absolute', top: -3, bottom: -3, width: 2, borderRadius: 1 },
-  // The bracket sits in its own 14pt band above the bars: inside the plot it
+  // The bracket sits in its own 18pt band above the bars: inside the plot it
   // would compete with a full-height bar, and below it would collide with the
   // hour axis.
-  peakRow: { height: 14, marginTop: 2 },
+  peakRow: { minHeight: 18, marginTop: 2 },
   peakBracket: {
     position: 'absolute',
     bottom: 0,
@@ -490,14 +492,14 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: 2,
     borderTopRightRadius: 2,
   },
-  peakCaption: { fontSize: 9, lineHeight: 12, fontFamily: fonts.medium, textAlign: 'center' },
+  peakCaption: { fontSize: 11, lineHeight: 15, fontFamily: fonts.medium, textAlign: 'center' },
   // Faint enough to stay behind the data. The bars draw over it either way, so
   // this only ever shows in the air above them.
   peakTint: { position: 'absolute', top: 0, bottom: 0, borderRadius: 2, opacity: 0.1 },
-  nowRow: { height: 12 },
-  nowLabel: { position: 'absolute', top: 0, width: 24, fontSize: 9, lineHeight: 12, textAlign: 'center', fontFamily: fonts.medium },
+  nowRow: { minHeight: 16 },
+  nowLabel: { width: 32, fontSize: 11, lineHeight: 15, textAlign: 'center', fontFamily: fonts.medium },
   barAxis: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 3 },
-  axisText: { fontFamily: fonts.body, fontSize: 10, lineHeight: 14 },
+  axisText: { fontFamily: fonts.body, fontSize: 11, lineHeight: 15 },
 });
 
 export const _test = { markerLeft, shareOf, barColor, BAR_GAP, HOURS };

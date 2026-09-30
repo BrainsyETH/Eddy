@@ -67,3 +67,9 @@ dist/
 # fails in a way that names a Swift module rather than an upload mistake.
 ios/
 android/
+
+# Source for the local Map sheet module, not a generated native project.
+!/eddy-ios/modules/eddy-map-sheet/ios/
+/eddy-ios/modules/eddy-map-sheet/ios/*
+!/eddy-ios/modules/eddy-map-sheet/ios/EddyMapSheet.podspec
+!/eddy-ios/modules/eddy-map-sheet/ios/EddyMapSheetModule.swift

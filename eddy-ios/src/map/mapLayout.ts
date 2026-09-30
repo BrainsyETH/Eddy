@@ -5,6 +5,15 @@ export const MAP_CONTROLS_ROOM_MIN = ORNAMENT_BAND + 44 + 12;
 const CAMERA_GAP = 16;
 const MIN_CAMERA_HEIGHT = 120;
 
+/** Opacity and interaction use this same live, UI-thread clearance. */
+export function mapChromeClearance(available: number, height: number, chromeHeight: number, searchOpen = false) {
+  'worklet';
+  return {
+    top: available <= 0 || searchOpen ? 24 : available - height - chromeHeight - ORNAMENT_BAND,
+    controls: available <= 0 ? 24 : available - height - chromeHeight - MAP_CONTROLS_ROOM_MIN,
+  };
+}
+
 export interface MapCameraPadding {
   paddingTop: number;
   paddingBottom: number;
@@ -42,7 +51,6 @@ export function mapLayout({
   const ornamentBottom = bottomInset + sheetLift;
   const room = sheetAvailable - sheetLift;
   const chromeHidden = sheetHeight > 0 && room <= ORNAMENT_BAND + chromeHeight;
-  const controlsHidden = sheetHeight > 0 && room - chromeHeight <= MAP_CONTROLS_ROOM_MIN;
   const top = Math.min(height, sheetTop + (chromeHidden ? 0 : chromeHeight) + CAMERA_GAP);
   const bottom = Math.min(
     ornamentBottom + ORNAMENT_BAND + CAMERA_GAP,
@@ -55,7 +63,6 @@ export function mapLayout({
     sheetWidth: Math.max(0, width - safeLeft - safeRight),
     ornamentBottom,
     chromeHidden,
-    controlsHidden,
     cameraPadding: {
       paddingTop: top,
       paddingBottom: bottom,

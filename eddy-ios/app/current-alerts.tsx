@@ -1,15 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Pressable, RefreshControl, SectionList, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useLocalSearchParams } from 'expo-router';
 import type { HighWaterEntry, RiverAlert } from '@eddy/types';
 import { fetchHighWater, fetchRiverAlerts } from '@/api/client';
-import { BackButton } from '@/components/BackButton';
+import { NativeHeaderHome } from '@/components/NativeHeaderHome';
 import { HighWaterAlertRow, PublicNoticeRow } from '@/components/CurrentAlertRows';
 import { ScopeSwitch, type ScopeOption } from '@/components/ScopeSwitch';
 import { useStarredRivers } from '@/hooks/useStarredRivers';
 import { currentAlertsSummary, decodeCurrentAlertsFilter, type CurrentAlertsFilter } from '@/lib/todaySafety';
-import { goBack } from '@/lib/nav';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, textStyles, type as t } from '@/theme/typography';
 
@@ -30,10 +29,10 @@ export default function CurrentAlertsScreen() {
   const [high, setHigh] = useState<HighWaterEntry[] | null>(null);
   const [notices, setNotices] = useState<RiverAlert[] | null>(null);
   const [failed, setFailed] = useState({ high: false, notices: false });
-  const [refreshing, setRefreshing] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [checking, setChecking] = useState(true);
   const request = useRef<AbortController | null>(null);
   const { colors } = useTheme();
-  const router = useRouter();
 
   const load = useCallback(() => {
     request.current?.abort();
@@ -55,13 +54,21 @@ export default function CurrentAlertsScreen() {
         if (!controller.signal.aborted) setFailed((current) => ({ ...current, notices: true }));
       }),
     ]).then(() => {
-      if (!controller.signal.aborted) setRefreshing(false);
+      if (!controller.signal.aborted) {
+        setRefreshing(false);
+        setChecking(false);
+      }
     });
   }, []);
 
+  const retry = () => {
+    setFailed({ high: false, notices: false });
+    setChecking(true);
+    void load();
+  };
   const refresh = () => {
     setRefreshing(true);
-    void load();
+    retry();
   };
 
   useEffect(() => {
@@ -83,12 +90,10 @@ export default function CurrentAlertsScreen() {
   ];
 
   return (
-    <SafeAreaView style={[styles.screen, { backgroundColor: colors.bg }]} edges={['top', 'bottom']}>
-      <View style={styles.navigation}>
-        <BackButton onPress={() => goBack(router)} />
-        <Text accessibilityRole="header" style={[styles.title, { color: colors.text }]}>Current alerts</Text>
-      </View>
+    <SafeAreaView style={[styles.screen, { backgroundColor: colors.bg }]} edges={['left', 'right']}>
+      <NativeHeaderHome destination="today" />
       <SectionList<Row, Section>
+        contentInsetAdjustmentBehavior="automatic"
         sections={sections}
         keyExtractor={(item) => item.kind === 'high' ? `high:${item.entry.id}` : `notice:${item.alert.id}`}
         stickySectionHeadersEnabled={false}
@@ -123,13 +128,13 @@ export default function CurrentAlertsScreen() {
                   <Text accessibilityRole="alert" style={[styles.caption, { color: colors.error }]}>
                     {data === null ? `Couldn’t load ${section.title.toLowerCase()}.` : `Couldn’t refresh ${section.title.toLowerCase()}. Previous results may be outdated.`}
                   </Text>
-                  <Pressable onPress={refresh} accessibilityRole="button" accessibilityLabel={`Retry ${section.title.toLowerCase()}`} style={styles.action}>
+                  <Pressable onPress={retry} accessibilityRole="button" accessibilityLabel={`Retry ${section.title.toLowerCase()}`} style={styles.action}>
                     <Text style={[styles.actionText, { color: colors.interactive }]}>Retry</Text>
                   </Pressable>
                 </>
-              ) : data === null ? (
+              ) : data === null || checking ? (
                 <View style={styles.loading}>
-                  <ActivityIndicator color={colors.interactive} />
+                  {!refreshing ? <ActivityIndicator color={colors.interactive} /> : null}
                   <Text style={[styles.caption, { color: colors.textMuted }]}>Checking {section.title.toLowerCase()}…</Text>
                 </View>
               ) : section.data.length === 0 ? <Text style={[styles.caption, { color: colors.textMuted }]}>{section.empty}</Text> : null}
@@ -144,8 +149,6 @@ export default function CurrentAlertsScreen() {
 
 const styles = StyleSheet.create({
   screen: { flex: 1 },
-  navigation: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, gap: 8 },
-  title: { ...textStyles.pageTitle, flex: 1 },
   content: { paddingBottom: 24 },
   filterCaption: { ...t.sm, paddingHorizontal: 20, paddingTop: 12 },
   caption: { ...t.sm },

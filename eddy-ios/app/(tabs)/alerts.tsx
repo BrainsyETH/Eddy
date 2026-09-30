@@ -415,7 +415,7 @@ function AlertsContent() {
             borderColor: colors.interactive,
           },
         ]}
-        accessibilityRole="button"
+        accessibilityRole="tab"
         accessibilityState={{ selected: on }}
         accessibilityLabel={count == null ? label : `${label}, ${count}`}
       >
@@ -464,7 +464,7 @@ function AlertsContent() {
           "Mine" rather than "My alerts": the screen is already called Alerts,
           so the second word was the title again, and the three labels only
           have to differ from each other. */}
-      <View style={styles.toggleRow}>
+      <View style={styles.toggleRow} accessibilityRole="tablist">
         {segmentButton('rules', 'Mine', rulesReady ? (rules?.length ?? null) : null)}
         {segmentButton('high-water', 'Running high', highWater?.length ?? null)}
         {segmentButton('notices', 'Notices', notices?.length ?? null)}

@@ -147,6 +147,27 @@ clearest example: the real problem is an out-of-date package, but what surfaces
 is `ERR_UNSUPPORTED_NODE_MODULES_TYPE_STRIPPING`. Pinning Node does not fix
 that; it just keeps the error message honest more often.
 
+## Map sheet scroll-edge correction (iOS 26)
+
+`modules/eddy-map-sheet` is a local Expo module, autolinked from the default
+`modules/` directory. It hides UIKit's scroll-edge effects only inside the Map
+sheet's page scrollers and horizontal tabs. These scrollers move by transform
+and already clear the tab bar; the automatic effect can leave the body washed
+out after a fast expansion. The native tab bar keeps its system material.
+
+This change requires a rebuilt iOS development/TestFlight binary, using Xcode
+26 or newer. A JavaScript reload/OTA cannot add its Swift view. The component
+falls back to a regular View in older clients and on other platforms, so old
+clients remain usable but don't receive the blur correction. The existing
+fingerprint runtime policy separates incompatible binaries and updates.
+
+The module's podspec and Swift source are explicitly included in `.easignore`
+and required by `scripts/check-easignore.py`; generated iOS projects, module
+build products, and secrets remain excluded. After changing this module, run
+the mobile checks/export, inspect Expo's Apple autolinking resolution, and
+verify rapid sheet expansion/collapse and horizontal tab changes in a native
+build. A Metro export doesn't compile Swift or prove UIKit rendering.
+
 ## Why this is a monorepo without an npm workspace
 
 Vercel builds the web app with **Root Directory = `missouri-float-planner/`**.
@@ -248,7 +269,11 @@ launched with. The convention is therefore a split:
 
 `src/lib/app-theme.test.ts` in the web app enforces this, along with both
 palettes defining every semantic role (a missing key renders as a transparent
-label on one scheme only, which is easy to miss).
+label on one scheme only, which is easy to miss). The same tests require at
+least 4.5:1 for supporting text on page, card, raised, and selected surfaces,
+with primary > secondary > tertiary contrast. Warm Stone 550 and 350 fill the
+accessible intermediate steps recorded in DESIGN.md; they are not new brand
+hues. Dynamic high-contrast variants remain a separate follow-up.
 
 ### Translating, not transcribing
 
@@ -295,7 +320,7 @@ Search uses the second. Public "floatable now" counts use `FLOATABLE_NOW`
 ## Maps (Mapbox)
 
 `@rnmapbox/maps` is a **native module**, so from here on the Map tab needs a
-development build — Expo Go cannot load it. The other three tabs still work in
+development build — Expo Go cannot load it. The other tabs still work in
 Expo Go: the map is reached through a lazy `require` in `src/map/runtime.ts` and
 the tab shows an explanatory panel instead of crashing the bundle.
 
@@ -342,6 +367,27 @@ has not been done.
 Do not pin `RNMapboxMapsVersion` unless you have a reason. `@rnmapbox/maps` 10.3.5
 pins Mapbox iOS `~> 11.23.1` in its own `package.json`, and overriding it with a
 lower version silently builds against an SDK the library is not tested on.
+
+### Native tabs upgrade checks
+
+The iOS tab shell uses `expo-router/unstable-native-tabs`. On every Expo SDK or
+Router upgrade, review the native-tabs API before changing its options. Verify
+Today / Map / Alerts / Favorites / Settings labels and symbols, tab reselection,
+retained screen state, initial Today launch, and direct-link return paths on a
+small phone and a Home Indicator device.
+
+`LazyTabScreen` defers each screen's content until first focus because SDK 57's
+native shell mounts every tab eagerly. Keep the wrapper until the installed
+Router version provides equivalent lazy mounting; then verify that background
+screens do not start requests and visited screens retain their state.
+
+Check automatic scroll insets for every tab, list, and detail screen. Native
+tabs supply their bottom inset to the Map screen; do not add a second tab-height
+constant. Test Map sheet dragging, search, attribution, locate/plan controls,
+and sheets with their own safe-area provider. Recheck iOS 26 scroll-under
+materials and the older-iOS translucent fallback in light/dark, Increase
+Contrast, Reduce Transparency, and Reduce Motion. Glass remains navigation and
+control chrome; list rows and data cards retain ordinary surfaces.
 
 ### Adding a screen, and the generated route types
 
@@ -680,7 +726,7 @@ npm install -g eas-cli
 eas login
 ```
 
-| Profile | Use |
+| Settings | Use |
 |---|---|
 | `development` | dev client for native modules; Expo Go cannot run those |
 | `preview` | internal distribution for testers |
@@ -790,10 +836,10 @@ started — look at step 2, not step 3.
 | Tab | Status |
 |---|---|
 | Map | **live** in a dev build — search, layer filters, the float plan flow |
-| Search | **live** against `/api/rivers`, with local search and condition filters |
+| Today | **live** — conditions, camping, weather, and Eddy’s Reads; dedicated browse routes for river conditions and reads |
 | Alerts | **live** against `/api/alerts` |
 | Favorites | **live**, local-first via AsyncStorage, reconciled with the server on sign-in (`useStarredRivers`) |
-| Profile | **live** — Sign in with Apple, subscription state, Restore Purchases, account deletion |
+| Settings | **live** — Sign in with Apple, subscription state, Restore Purchases, account deletion |
 
 This table said "premium-gated offline packs" against the Map row long after the
 download feature was removed — see [There is no offline map download](#there-is-no-offline-map-download),

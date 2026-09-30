@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { tabScrollOffset } from '../../../eddy-ios/src/components/map-sheet/tabScrollOffset';
-import { mapLayout } from '../../../eddy-ios/src/map/mapLayout';
+import { mapLayout, mapChromeClearance, MAP_CONTROLS_ROOM_MIN } from '../../../eddy-ios/src/map/mapLayout';
 import {
   CONTENT_BOTTOM_PAD,
   DISMISS_FRACTION,
@@ -17,6 +17,23 @@ import {
   STRONG_FLICK_VELOCITY,
   applyRubberBand,
 } from '../../../eddy-ios/src/components/map-sheet/sheetGeometry';
+
+test('live chrome boundaries hide at zero opacity and restore during an unfinished drag', () => {
+  const available = 700, chromeHeight = 100;
+  const topBoundary = available - chromeHeight - ORNAMENT_BAND;
+  const controlsBoundary = available - chromeHeight - MAP_CONTROLS_ROOM_MIN;
+  for (const [kind, boundary] of [['top', topBoundary], ['controls', controlsBoundary]] as const) {
+    for (const [offset, hidden] of [[-1, false], [0, true], [1, true], [-1, false]] as const) {
+      assert.equal(mapChromeClearance(available, boundary + offset, chromeHeight)[kind] <= 0, hidden);
+    }
+  }
+});
+test('closing a sheet resets live chrome and search remains available above the sheet', () => {
+  const reset = mapChromeClearance(0, 0, 100);
+  assert.ok(reset.top > 0 && reset.controls > 0);
+  assert.ok(mapChromeClearance(700, 690, 100, true).top > 0);
+  assert.ok(mapChromeClearance(700, 690, 100, true).controls <= 0);
+});
 
 // Covers eddy-ios/src/components/map-sheet/sheetGeometry.ts. The Expo app has
 // no runner of its own, and these are the rules that decide where a dragged
@@ -45,7 +62,6 @@ test('map camera clears floating search, safe areas, and attribution on small an
     assert.equal(layout.sheetWidth, scene.width);
     assert.equal(layout.ornamentBottom, 0);
     assert.equal(layout.chromeHidden, false);
-    assert.equal(layout.controlsHidden, false);
   }
 });
 
@@ -76,7 +92,6 @@ test('full sheets retain attribution clearance even when camera padding must be 
     assert.ok(scene.height - layout.cameraPadding.paddingTop - layout.cameraPadding.paddingBottom >= 120);
     assert.ok(layout.cameraPadding.paddingBottom < layout.ornamentBottom);
     assert.equal(layout.chromeHidden, true);
-    assert.equal(layout.controlsHidden, true);
   }
 });
 
@@ -96,9 +111,7 @@ test('chrome visibility follows actual room, including a tall accessibility peek
   const regular = mapLayout(input);
   const large = mapLayout({ ...input, chromeHeight: 180 });
   assert.equal(regular.chromeHidden, false);
-  assert.equal(regular.controlsHidden, false);
   assert.equal(large.chromeHidden, true);
-  assert.equal(large.controlsHidden, true);
 });
 
 test('resize clamps stale sheet coverage and respects horizontal safe areas', () => {
@@ -131,7 +144,6 @@ test('native tabs extend the canvas while preserving the usable map and sheet bu
         assert.equal(native.cameraPadding.paddingBottom, before.cameraPadding.paddingBottom + safeBottom);
         assert.equal(native.cameraPadding.paddingTop, before.cameraPadding.paddingTop);
         assert.equal(native.chromeHidden, before.chromeHidden);
-        assert.equal(native.controlsHidden, before.controlsHidden);
       }
     }
   }
@@ -147,7 +159,6 @@ test('full map sheets and attribution clear the floating tab bar on every phone 
     assert.equal(full.ornamentBottom, safeBottom + detents.height.full);
     assert.ok(scene.height - full.ornamentBottom - ORNAMENT_BAND >= full.sheetTop);
     assert.ok(scene.height - full.cameraPadding.paddingTop - full.cameraPadding.paddingBottom >= 120);
-    assert.equal(full.controlsHidden, true);
   }
 });
 
