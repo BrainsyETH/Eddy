@@ -28,6 +28,7 @@ import { fonts, type as t } from '@/theme/typography';
 export interface ScopeOption<K extends string> {
   key: K;
   label: string;
+  accessibilityLabel?: string;
 }
 
 interface Props<K extends string> {
@@ -56,7 +57,7 @@ function ScopeSwitchComponent<K extends string>({ options, value, onChange }: Pr
             style={[styles.segment, active && { backgroundColor: colors.selectionBg }]}
             accessibilityRole="tab"
             accessibilityState={{ selected: active }}
-            accessibilityLabel={`Search ${option.label}`}
+            accessibilityLabel={option.accessibilityLabel ?? `Search ${option.label}`}
           >
             <Text
               style={[

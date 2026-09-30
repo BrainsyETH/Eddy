@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Pressable, RefreshControl, SectionList, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -6,7 +6,9 @@ import type { HighWaterEntry, RiverAlert } from '@eddy/types';
 import { fetchHighWater, fetchRiverAlerts } from '@/api/client';
 import { BackButton } from '@/components/BackButton';
 import { HighWaterAlertRow, PublicNoticeRow } from '@/components/CurrentAlertRows';
-import { currentAlertsScopeLabel, currentAlertsSummary, decodeCurrentAlertsScope } from '@/lib/todaySafety';
+import { ScopeSwitch, type ScopeOption } from '@/components/ScopeSwitch';
+import { useStarredRivers } from '@/hooks/useStarredRivers';
+import { currentAlertsSummary, decodeCurrentAlertsFilter, type CurrentAlertsFilter } from '@/lib/todaySafety';
 import { goBack } from '@/lib/nav';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, textStyles, type as t } from '@/theme/typography';
@@ -14,10 +16,17 @@ import { fonts, textStyles, type as t } from '@/theme/typography';
 type Row = { kind: 'high'; entry: HighWaterEntry } | { kind: 'notice'; alert: RiverAlert };
 type Section = { key: 'high' | 'notices'; title: string; caption: string; empty: string; data: Row[] };
 
+const FILTERS: ScopeOption<CurrentAlertsFilter>[] = [
+  { key: 'favorites', label: 'Favorites', accessibilityLabel: 'Favorites' },
+  { key: 'all', label: 'All Alerts', accessibilityLabel: 'All Alerts' },
+];
+
 export default function CurrentAlertsScreen() {
-  const params = useLocalSearchParams<{ scope?: string | string[] }>();
-  const selection = useMemo(() => decodeCurrentAlertsScope(params.scope), [params.scope]);
-  const [viewAll, setViewAll] = useState(false);
+  const params = useLocalSearchParams<{ filter?: string | string[] }>();
+  const [selectedFilter, setSelectedFilter] = useState<CurrentAlertsFilter | null>(null);
+  const filter = selectedFilter ?? decodeCurrentAlertsFilter(params.filter);
+  const { starred, ready: starsReady } = useStarredRivers();
+  const favoritesLoading = filter === 'favorites' && !starsReady;
   const [high, setHigh] = useState<HighWaterEntry[] | null>(null);
   const [notices, setNotices] = useState<RiverAlert[] | null>(null);
   const [failed, setFailed] = useState({ high: false, notices: false });
@@ -60,17 +69,17 @@ export default function CurrentAlertsScreen() {
     return () => request.current?.abort();
   }, [load]);
 
-  const summary = currentAlertsSummary(high, notices, selection, failed);
-  const highRows = [...(viewAll ? high ?? [] : summary.high)]
+  const summary = currentAlertsSummary(favoritesLoading ? null : high, favoritesLoading ? null : notices, filter, starred, failed);
+  const highRows = [...summary.high]
     .sort((a, b) => Number(b.conditionCode === 'dangerous') - Number(a.conditionCode === 'dangerous'));
   const severityOrder = { warning: 0, watch: 1, notice: 2 };
-  const noticeRows = [...(viewAll ? notices ?? [] : summary.notices)]
+  const noticeRows = [...summary.notices]
     .sort((a, b) => severityOrder[a.severity] - severityOrder[b.severity]);
   const sections: Section[] = [
     { key: 'high', title: 'Running high', caption: 'Conditions graded by Eddy from gauge readings.',
-      empty: 'Nothing running high in this scope.', data: highRows.map((entry) => ({ kind: 'high', entry })) },
+      empty: 'No Eddy-rated rivers or gauges running high right now.', data: highRows.map((entry) => ({ kind: 'high', entry })) },
     { key: 'notices', title: 'Public notices', caption: 'Closures and weather warnings from the National Park Service and National Weather Service.',
-      empty: 'No public notices in this scope.', data: noticeRows.map((alert) => ({ kind: 'notice', alert })) },
+      empty: 'No public notices right now.', data: noticeRows.map((alert) => ({ kind: 'notice', alert })) },
   ];
 
   return (
@@ -86,12 +95,15 @@ export default function CurrentAlertsScreen() {
         contentContainerStyle={styles.content}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor={colors.interactive} />}
         ListHeaderComponent={
-          <View style={styles.summary}>
-            <Text style={[styles.scope, { color: colors.text }]}>{viewAll ? 'All current alerts statewide' : currentAlertsScopeLabel(selection)}</Text>
-            {selection.fallback && !viewAll ? <Text style={[styles.caption, { color: colors.textMuted }]}>No valid river scope was provided. Showing statewide warnings.</Text> : null}
-            <Pressable accessibilityRole="button" onPress={() => setViewAll((value) => !value)} style={styles.action}>
-              <Text style={[styles.actionText, { color: colors.interactive }]}>{viewAll ? 'Return to scoped alerts' : 'View all current alerts'}</Text>
-            </Pressable>
+          <View>
+            <ScopeSwitch options={FILTERS} value={filter} onChange={setSelectedFilter} />
+            {filter === 'favorites' ? (
+              <Text style={[styles.filterCaption, { color: colors.textMuted }]}>
+                {favoritesLoading ? 'Loading favorites…' : starred.length === 0
+                  ? 'Save rivers, gauges, or dams to Favorites to see their alerts here.'
+                  : 'Showing alerts for your favorites.'}
+              </Text>
+            ) : null}
           </View>
         }
         renderSectionHeader={({ section }) => (
@@ -106,7 +118,7 @@ export default function CurrentAlertsScreen() {
           const error = failed[section.key];
           return (
             <View style={styles.sectionFooter}>
-              {error ? (
+              {favoritesLoading ? null : error ? (
                 <>
                   <Text accessibilityRole="alert" style={[styles.caption, { color: colors.error }]}>
                     {data === null ? `Couldn’t load ${section.title.toLowerCase()}.` : `Couldn’t refresh ${section.title.toLowerCase()}. Previous results may be outdated.`}
@@ -135,8 +147,7 @@ const styles = StyleSheet.create({
   navigation: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, gap: 8 },
   title: { ...textStyles.pageTitle, flex: 1 },
   content: { paddingBottom: 24 },
-  summary: { paddingHorizontal: 20, paddingTop: 12 },
-  scope: { ...t.base, fontFamily: fonts.semibold },
+  filterCaption: { ...t.sm, paddingHorizontal: 20, paddingTop: 12 },
   caption: { ...t.sm },
   action: { minHeight: 44, minWidth: 44, justifyContent: 'center', alignSelf: 'flex-start', paddingVertical: 8 },
   actionText: { ...t.sm, fontFamily: fonts.semibold },
