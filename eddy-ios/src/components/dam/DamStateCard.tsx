@@ -27,7 +27,7 @@
 // `dangerous` red would make the app appear to have issued a floatability call
 // it has not made, on a reach it may not even carry.
 
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import type { DamSnapshot } from '@eddy/types';
 import {
@@ -79,10 +79,12 @@ interface StatProps {
 
 function Stat({ icon, label, value, suffix, sub, dim }: StatProps) {
   const { colors } = useTheme();
+  const { fontScale, width } = useWindowDimensions();
   return (
-    <View style={styles.stat}>
+    <View style={[styles.stat, (fontScale >= 1.3 || width < 360) && { flexBasis: '100%' }]} accessible
+      accessibilityLabel={[label, value.replace(/\bcfs\b/g, 'cubic feet per second').replace(/\bft\b/g, 'feet').replace('°F', 'degrees Fahrenheit'), suffix, sub, dim ? 'Older reading' : null].filter(Boolean).join('. ')}>
       <View style={styles.statLabelRow}>
-        <Ionicons name={icon} size={12} color={colors.textSubtle} />
+        <Ionicons name={icon} size={12} color={colors.textMuted} accessible={false} />
         <Text style={[styles.statLabel, { color: colors.textSubtle }]}>{label}</Text>
       </View>
       <Text style={[styles.statValue, { color: dim ? colors.textMuted : colors.text }]}>
@@ -92,6 +94,7 @@ function Stat({ icon, label, value, suffix, sub, dim }: StatProps) {
         ) : null}
       </Text>
       {sub ? <Text style={[styles.statSub, { color: colors.textSubtle }]}>{sub}</Text> : null}
+      {dim ? <Text style={[styles.statSub, { color: colors.textMuted }]}>Older reading</Text> : null}
     </View>
   );
 }
@@ -330,7 +333,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 5,
   },
-  chipText: { ...t.sm, fontFamily: fonts.semibold },
+  chipText: { ...t.sm, fontFamily: fonts.semibold, flexShrink: 1 },
   chipAside: { ...t.sm, flexShrink: 1 },
   nextChangeRow: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 5 },
   nextChange: { ...t.sm, fontFamily: fonts.semibold },
@@ -340,8 +343,8 @@ const styles = StyleSheet.create({
   // four fit on a tablet without a breakpoint.
   stat: { minWidth: 130, flexGrow: 1, flexBasis: '40%', gap: 2 },
   statLabelRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  statLabel: { ...t.xs, fontFamily: fonts.semibold, textTransform: 'uppercase' },
-  statValue: { ...t.xl, fontFamily: fonts.heading },
+  statLabel: { ...t.xs, fontFamily: fonts.semibold, textTransform: 'uppercase', flex: 1 },
+  statValue: { ...t.xl, fontFamily: fonts.monoMedium, fontVariant: ['tabular-nums'] },
   statSuffix: { ...t.sm, fontFamily: fonts.medium },
   statSub: { ...t.xs },
   plant: { ...t.xs },

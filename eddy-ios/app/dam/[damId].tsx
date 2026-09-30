@@ -682,17 +682,17 @@ const styles = StyleSheet.create({
   centre: { alignItems: 'center', justifyContent: 'center' },
   emptyBody: { flexGrow: 1, padding: 32, gap: 10 },
   emptyTitle: { ...t.xl, fontFamily: fonts.heading, textAlign: 'center' },
-  emptyBodyText: { ...t.sm, fontFamily: fonts.body, textAlign: 'center' },
+  emptyBodyText: { ...t.sm, fontFamily: fonts.body, textAlign: 'center', flexShrink: 1 },
   body: { paddingTop: 12, paddingBottom: 40 },
   name: { ...t['2xl'], fontFamily: fonts.heading, paddingHorizontal: 20, marginTop: 4 },
   meta: { ...t.sm, fontFamily: fonts.body, paddingHorizontal: 20, marginTop: 2, marginBottom: 14 },
   section: { paddingHorizontal: 16, marginBottom: 14 },
   /** The "still loading the rest" line: a spinner and its sentence, centred. */
-  pendingRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 },
+  pendingRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'center', gap: 8 },
   card: { borderRadius: 14, padding: 16 },
   actions: { paddingHorizontal: 16, gap: 10 },
-  action: { paddingVertical: 13, borderRadius: 14, alignItems: 'center' },
-  actionText: { ...t.base, fontFamily: fonts.semibold },
+  action: { minHeight: 44, paddingVertical: 13, paddingHorizontal: 12, borderRadius: 14, alignItems: 'center' },
+  actionText: { ...t.base, fontFamily: fonts.semibold, textAlign: 'center' },
   sourceButton: {
     // A row, so a button can carry a leading icon. With a single Text child
     // this renders identically to the centred column it replaced.
@@ -701,9 +701,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 8,
     paddingVertical: 12,
+    paddingHorizontal: 12,
+    minHeight: 44,
     borderRadius: 14,
     borderWidth: 1,
   },
-  sourceText: { ...t.sm, fontFamily: fonts.medium },
+  sourceText: { ...t.sm, fontFamily: fonts.medium, flexShrink: 1, textAlign: 'center' },
   sources: { ...t.xs, paddingHorizontal: 20, marginTop: 14 },
 });

@@ -23,7 +23,7 @@
 
 import { radii } from '@/theme/layout';
 import { useEffect, useMemo, useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import type { DamPatternDay, DamScheduleDay } from '@eddy/types';
 // Row construction lives in shared/ because it was written twice, once per
 // platform, and every rule it encodes — the past is measured, the future is
@@ -67,6 +67,8 @@ export function DamPatternStrip({
   generationFloorCfs?: number;
 }) {
   const { colors, elevation } = useTheme();
+  const { fontScale, width } = useWindowDimensions();
+  const stacked = fontScale >= 1.3 || width < 360;
 
   // ── The strip needs its own clock ────────────────────────────────────────
   // `patternRows` defaults its `now` to Date.now() AT CALL TIME, and the call
@@ -112,7 +114,7 @@ export function DamPatternStrip({
       {/* A legend, not a paragraph. The prose said "hatched" while the drawing
           used dashed outlines — a mismatch that survives review precisely
           because nobody reads the sentence and the picture at the same time. */}
-      <View style={styles.legend}>
+      {!stacked ? <View style={styles.legend}>
         <View style={styles.legendItem}>
           <View style={[styles.legendSwatch, { backgroundColor: colors.generationHigh }]} />
           <Text style={[styles.legendText, { color: colors.textMuted }]}>Measured</Text>
@@ -147,7 +149,7 @@ export function DamPatternStrip({
             <Text style={[styles.legendText, { color: colors.textMuted }]}>Not yet</Text>
           </View>
         ) : null}
-      </View>
+      </View> : null}
 
       <View style={styles.rows}>
         {rows.map((row, index) => (
@@ -156,7 +158,7 @@ export function DamPatternStrip({
             {todayIndex >= 0 && index === todayIndex + 1 ? (
               <View style={[styles.divider, { borderTopColor: colors.border }]} />
             ) : null}
-            <View style={styles.row}>
+            {stacked ? <Text style={[textStyles.body, { color: colors.text, paddingVertical: 8 }]}>{rowVoiceOver(row)}</Text> : <View style={styles.row}>
               <Text
                 style={[
                   styles.rowLabel,
@@ -251,7 +253,7 @@ export function DamPatternStrip({
               >
                 {row.today ? 'now' : row.scheduled ? (row.scheduleStale ? 'stale' : 'ahead') : ''}
               </Text>
-            </View>
+            </View>}
           </View>
         ))}
 
@@ -268,7 +270,7 @@ export function DamPatternStrip({
             shifts the middle ticks by half a slot, which is a ruler being
             approximate about DST rather than a marker being wrong — the now
             line, which must be exact, is placed from the row's own split. */}
-        <View style={styles.row}>
+        {!stacked ? <View style={styles.row}>
           <View style={styles.axisLead} />
           <View style={styles.barAxis}>
             {/* Keyed by the HOUR, not the word: a day starts and ends at
@@ -282,7 +284,7 @@ export function DamPatternStrip({
             ))}
           </View>
           <View style={styles.axisTail} />
-        </View>
+        </View> : null}
       </View>
 
       <Text style={[styles.footer, { color: colors.textSubtle, borderTopColor: colors.border }]}>

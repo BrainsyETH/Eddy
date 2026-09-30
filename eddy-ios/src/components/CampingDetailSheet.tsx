@@ -9,7 +9,7 @@ import {
   Text,
   View,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import type { CampingOverview, TrackedCampground } from '@eddy/types';
 import { useTheme } from '@/theme/ThemeProvider';
@@ -27,6 +27,7 @@ import {
 import { useCampsiteStay } from '@/hooks/useCampsiteStay';
 import { CampingStayPicker } from './CampingStayPicker';
 import { CampingSiteCard } from './CampingSiteCard';
+import { useReducedMotion } from '@/hooks/useReducedMotion';
 
 export function CampingDetailSheet({
   row,
@@ -42,6 +43,7 @@ export function CampingDetailSheet({
   onClose: () => void;
 }) {
   const { colors } = useTheme();
+  const reducedMotion = useReducedMotion();
   const router = useRouter();
   const [stay, setStay] = useState<CampingStay>(
     () =>
@@ -88,10 +90,11 @@ export function CampingDetailSheet({
   return (
     <Modal
       visible
-      animationType="slide"
+      animationType={reducedMotion ? 'none' : 'slide'}
       presentationStyle="pageSheet"
       onRequestClose={onClose}
     >
+      <SafeAreaProvider>
       <SafeAreaView
         style={{ flex: 1, backgroundColor: colors.bg }}
         edges={['bottom']}
@@ -290,6 +293,7 @@ export function CampingDetailSheet({
           }
         />
       </SafeAreaView>
+      </SafeAreaProvider>
     </Modal>
   );
 }
@@ -297,5 +301,5 @@ const styles = StyleSheet.create({
   header: { flexDirection: 'row', alignItems: 'center', padding: 20, gap: 12 },
   content: { paddingHorizontal: 16, paddingBottom: 24 },
   action: { minHeight: 44, minWidth: 44, justifyContent: 'center' },
-  links: { flexDirection: 'row', gap: 24 },
+  links: { flexDirection: 'row', flexWrap: 'wrap', gap: 24 },
 });

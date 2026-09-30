@@ -10,6 +10,7 @@ import {
   StyleSheet,
   Text,
   View,
+  useWindowDimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
@@ -37,6 +38,12 @@ import {
   linkedCampingNight,
 } from '@/lib/campingHeatmap';
 import { nextCampingDate } from '@/lib/campingStay';
+import { ScopeSwitch } from '@/components/ScopeSwitch';
+import { CampingNightControl } from '@/components/CampingNightControl';
+import { CampingAvailabilityRow } from '@/components/CampingAvailabilityRow';
+import { useScreenReaderEnabled } from '@/hooks/useScreenReaderEnabled';
+import { useReducedMotion } from '@/hooks/useReducedMotion';
+import { goBack } from '@/lib/nav';
 
 export default function CampingScreen() {
   const { features, loading } = useAppConfig();
@@ -50,7 +57,7 @@ export default function CampingScreen() {
       <Stack.Screen options={{ headerShown: false }} />
       <View style={styles.header}>
         <Pressable
-          onPress={() => router.back()}
+          onPress={() => goBack(router)}
           accessibilityRole="button"
           accessibilityLabel="Go back"
           style={styles.action}
@@ -75,6 +82,13 @@ export default function CampingScreen() {
 }
 function CampingContent() {
   const { colors } = useTheme();
+  const { fontScale } = useWindowDimensions();
+  const screenReader = useScreenReaderEnabled();
+  const reducedMotion = useReducedMotion();
+  const [displayChoice, setDisplayChoice] = useState<'grid' | 'list' | null>(null);
+  const display = displayChoice ?? (screenReader || fontScale >= 1.3 ? 'list' : 'grid');
+  const [nightChoice, setNightChoice] = useState<string | null>(null);
+  const [openedNight, setOpenedNight] = useState<string | undefined>();
   const params = useLocalSearchParams<{ facility?: string; river?: string; night?: string }>();
   const [selected, setSelected] = useState<string | null>(
     params.facility ?? null,
@@ -139,6 +153,8 @@ function CampingContent() {
   );
   const detail = data?.tracked.find((r) => r.facilityId === selected);
   const linkedNight = data ? linkedCampingNight(data, params.night) : undefined;
+  const night = data ? linkedCampingNight(data, nightChoice) ?? linkedNight ?? data.horizon.startDate : '';
+  const detailNight = data ? linkedCampingNight(data, openedNight) ?? linkedNight : undefined;
   if (!data)
     return loading ? (
       <ActivityIndicator color={colors.interactive} />
@@ -184,7 +200,7 @@ function CampingContent() {
     <>
       <ScrollView
         horizontal
-        style={{ flexGrow: 0, flexShrink: 0, height: 56 }}
+        style={{ flexGrow: 0, flexShrink: 0 }}
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={styles.filters}
       >
@@ -217,14 +233,23 @@ function CampingContent() {
           }
         })}
       </ScrollView>
+      <ScopeSwitch
+        options={[
+          { key: 'grid', label: 'Grid', accessibilityLabel: 'Camping availability grid' },
+          { key: 'list', label: 'List', accessibilityLabel: 'Camping availability list by night' },
+        ]}
+        value={display}
+        onChange={setDisplayChoice}
+      />
       <Modal
         visible={riverPicker}
-        animationType="slide"
+        animationType={reducedMotion ? 'none' : 'slide'}
         presentationStyle="pageSheet"
         onRequestClose={() => setRiverPicker(false)}
       >
         <SafeAreaView
           style={{ flex: 1, backgroundColor: colors.bg, padding: 20 }}
+          onAccessibilityEscape={() => setRiverPicker(false)}
         >
           <View
             style={{
@@ -299,7 +324,7 @@ function CampingContent() {
               ? 'Location access is off.'
               : 'Couldn’t find your location.'}
           </Text>
-          <View style={{ flexDirection: 'row', gap: 20 }}>
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 20 }}>
             <Pressable
               accessibilityRole="button"
               style={styles.action}
@@ -368,7 +393,7 @@ function CampingContent() {
           refreshing={loading}
           onRefresh={refresh}
           contentContainerStyle={styles.list}
-          stickyHeaderIndices={[0]}
+          stickyHeaderIndices={display === 'grid' ? [0] : undefined}
           ListHeaderComponent={
             <View style={{ backgroundColor: colors.bg, paddingBottom: 6 }}>
               <Text
@@ -379,7 +404,8 @@ function CampingContent() {
               >
                 {campingCoverageLabel(grid)}
               </Text>
-              <CampingTableHeader overview={grid} now={now} />
+              {display === 'grid' ? <CampingTableHeader overview={grid} now={now} /> :
+                <CampingNightControl nights={data.horizon.nights} selected={night} onSelect={setNightChoice} />}
             </View>
           }
           renderItem={({ item }) => (
@@ -395,12 +421,15 @@ function CampingContent() {
                   {riverHeaders.get(item.facilityId)}
                 </Text>
               ) : null}
-              <CampingTableRow
+              {display === 'list' ? <CampingAvailabilityRow
+                row={item} overview={data} now={now} night={night}
+                onPress={() => { setOpenedNight(night); setSelected(item.facilityId); }}
+              /> : <CampingTableRow
                 row={item}
                 overview={grid}
                 now={now}
-                onPress={() => setSelected(item.facilityId)}
-              />
+                onPress={() => { setOpenedNight(linkedNight); setSelected(item.facilityId); }}
+              />}
             </View>
           )}
           ListEmptyComponent={
@@ -515,7 +544,7 @@ function CampingContent() {
           row={detail}
           overview={data}
           now={now}
-          initialStay={linkedNight ? { arrival: linkedNight, departure: nextCampingDate(linkedNight) } : undefined}
+          initialStay={detailNight ? { arrival: detailNight, departure: nextCampingDate(detailNight) } : undefined}
           onClose={() => setSelected(null)}
         />
       ) : null}
@@ -531,6 +560,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     paddingHorizontal: 14,
     minHeight: 44,
+    paddingVertical: 8,
     justifyContent: 'center',
   },
   list: { paddingHorizontal: 20, paddingBottom: 24 },
@@ -539,6 +569,7 @@ const styles = StyleSheet.create({
   directory: { minHeight: 48, justifyContent: 'center', marginTop: 16 },
   directoryRow: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     alignItems: 'center',
     gap: 12,
     paddingVertical: 8,

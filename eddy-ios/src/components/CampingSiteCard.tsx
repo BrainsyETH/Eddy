@@ -1,4 +1,4 @@
-import { Linking, Pressable, ScrollView, Text, View } from 'react-native';
+import { Linking, Pressable, ScrollView, Text, View, useWindowDimensions } from 'react-native';
 import { useState } from 'react';
 import { useTheme } from '@/theme/ThemeProvider';
 import { textStyles } from '@/theme/typography';
@@ -8,6 +8,7 @@ import { campsiteStateLabel, type CampsiteStay } from '@/lib/campingStay';
 import { campsiteTags } from './map-sheet/siteList';
 import { CampsitePhotos } from './map-sheet/CampsitePhotos';
 import { CampingMark } from './CampingGrid';
+import { useScreenReaderEnabled } from '@/hooks/useScreenReaderEnabled';
 
 export function CampingSiteCard({
   entry,
@@ -19,6 +20,9 @@ export function CampingSiteCard({
   bookingUrl?: string | null;
 }) {
   const { colors } = useTheme();
+  const { fontScale } = useWindowDimensions();
+  const screenReader = useScreenReaderEnabled();
+  const listNights = screenReader || fontScale >= 1.3;
   const photos = useCampsitePhotos(facilityId, entry.site.id);
   const [failed, setFailed] = useState(false);
   const site = entry.site;
@@ -56,7 +60,11 @@ export function CampingSiteCard({
         </Text>
       ) : null}
       <Text style={[textStyles.body, { color: colors.text }]}>{status}</Text>
-      <ScrollView
+      {listNights ? <View style={{ gap: 8 }}>
+        {entry.nights.map((n) => <Text key={n.date} style={[textStyles.body, { color: colors.text }]}>
+          {dateLabel(n.date)}: {campsiteStateLabel[n.state]}
+        </Text>)}
+      </View> : <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={{ gap: 8 }}
@@ -93,13 +101,14 @@ export function CampingSiteCard({
             </View>
           </View>
         ))}
-      </ScrollView>
+      </ScrollView>}
       {url && (entry.state === 'available' || entry.state === 'unknown') ? (
         <Pressable
           accessibilityRole="link"
           accessibilityLabel={`${entry.state === 'available' ? (direct ? 'Book site' : 'Park reservations') : 'Check availability'} for ${name}`}
           style={{
             minHeight: 48,
+            padding: 12,
             borderRadius: 12,
             backgroundColor: colors.interactive,
             alignItems: 'center',
@@ -110,7 +119,7 @@ export function CampingSiteCard({
             void Linking.openURL(url).catch(() => setFailed(true));
           }}
         >
-          <Text style={{ color: colors.onInteractive }}>
+          <Text style={[textStyles.body, { color: colors.onInteractive, textAlign: 'center' }]}>
             {entry.state === 'available'
               ? direct
                 ? 'Book site ↗'
