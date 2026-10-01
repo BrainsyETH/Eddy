@@ -394,7 +394,9 @@ function GaugeChartInner({
     [history, drawnUnit],
   );
 
-  const forecastPoints = useMemo(() => chartForecastWindow(
+  // A short forecast is unreadable against a full year. Exclude it from the
+  // plot, its domain and scrubbing; the unmodified history stays in details.
+  const forecastPoints = useMemo(() => drawnDays >= 365 ? [] : chartForecastWindow(
     allForecastPoints,
     Date.parse(history?.requestedWindow?.to ?? history?.observedThrough ?? ''),
     drawnDays,
