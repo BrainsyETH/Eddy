@@ -1,70 +1,81 @@
 import { useMemo, useState } from 'react';
-import { ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
-import type { GaugeHistoryReading } from '@eddy/types';
+import { Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
+import { qualifierText, type ChartDataRow } from '@eddy/conditions/chart-model';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
 
-/** Keep units and columns visible while the readings scroll beneath them. */
-export function GaugeHistoryTable({ readings }: { readings: readonly GaugeHistoryReading[] }) {
+const PAGE_SIZE = 8;
+
+/** Page long histories without dropping any rows from the table or export. */
+export function GaugeHistoryTable({ rows }: { rows: readonly ChartDataRow[] }) {
   const { colors } = useTheme();
   const { fontScale } = useWindowDimensions();
   const [width, setWidth] = useState(0);
+  const [requestedPage, setPage] = useState(0);
+  const page = Math.min(requestedPage, Math.max(0, Math.ceil(rows.length / PAGE_SIZE) - 1));
   const formatters = useMemo(() => ({
     date: new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric', year: 'numeric' }),
-    time: new Intl.DateTimeFormat(undefined, { hour: 'numeric', minute: '2-digit' }),
+    time: new Intl.DateTimeFormat(undefined, { hour: 'numeric', minute: '2-digit', timeZoneName: 'short' }),
   }), []);
-
-  return (
-    <View style={styles.section}>
-      <View style={[styles.frame, { borderColor: colors.border }]} onLayout={(event) => setWidth(event.nativeEvent.layout.width - 2)}>
-        {/* At large text sizes, allow horizontal scrolling instead of squeezing
-            numbers into narrow columns or reducing the user's chosen font. */}
-        <ScrollView horizontal nestedScrollEnabled>
-          <View style={{ width: Math.max(width, 280 * fontScale) }}>
-            <View style={[styles.row, styles.header, { backgroundColor: colors.cardRaised, borderBottomColor: colors.border }]}>
-              <Text accessibilityRole="header" style={[styles.timeCell, styles.heading, { color: colors.textMuted }]}>Time</Text>
-              <Text accessibilityRole="header" style={[styles.numberCell, styles.heading, { color: colors.textMuted }]}>{'Height\n(ft)'}</Text>
-              <Text accessibilityRole="header" style={[styles.numberCell, styles.heading, { color: colors.textMuted }]}>{'Flow\n(cfs)'}</Text>
+  return <View onLayout={event => setWidth(event.nativeEvent.layout.width)}>
+    <ScrollView horizontal nestedScrollEnabled>
+      <View style={{ width: Math.max(width, 320 * fontScale) }}>
+        <View style={[styles.row, styles.header, { borderBottomColor: colors.border }]}>
+          <Text style={[styles.timeCell, styles.heading, { color: colors.textMuted }]}>Time</Text>
+          <Text style={[styles.numberCell, styles.heading, { color: colors.textMuted }]}>{'Flow\n(cfs)'}</Text>
+          <Text style={[styles.numberCell, styles.heading, { color: colors.textMuted }]}>{'Height\n(ft)'}</Text>
+          <Text style={[styles.sourceCell, styles.heading, { color: colors.textMuted }]}>Source</Text>
+        </View>
+        {rows.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE).map((reading, index) => {
+          const date = new Date(reading.timestamp);
+          const valid = Number.isFinite(date.getTime());
+          const codes = reading.qualifiers?.join(', ');
+          const decoded = qualifierText(reading.qualifiers ?? []);
+          const qualifiers = decoded ? `${decoded} (${codes})` : codes;
+          const height = reading.gaugeHeightFt == null ? '—' : reading.gaugeHeightFt.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 20 });
+          const flow = reading.dischargeCfs == null ? '—' : reading.dischargeCfs.toLocaleString(undefined, { maximumFractionDigits: 20 });
+          return <View key={`${reading.kind}-${reading.timestamp}-${index}`} style={[styles.row, styles.dataRow, { borderBottomColor: colors.border }]}>
+            <View style={styles.timeCell}>
+              <Text selectable style={[styles.copy, { color: colors.text }]}>{valid ? formatters.date.format(date) : reading.timestamp}</Text>
+              {valid ? <Text selectable style={[styles.copy, { color: colors.textMuted }]}>{formatters.time.format(date)}</Text> : null}
             </View>
-            <ScrollView style={styles.body} nestedScrollEnabled>
-              {readings.map((reading, index) => {
-                const date = new Date(reading.timestamp);
-                const height = reading.gaugeHeightFt == null ? '—' : reading.gaugeHeightFt.toFixed(2);
-                const flow = reading.dischargeCfs == null ? '—' : Math.round(reading.dischargeCfs).toLocaleString('en-US');
-                return (
-                  <View key={reading.timestamp} style={[styles.row, styles.dataRow, { backgroundColor: index % 2 ? colors.cardRaised : colors.card, borderBottomColor: colors.border }]}>
-                    <View style={styles.timeCell}>
-                      <Text selectable style={[styles.date, { color: colors.text }]}>{formatters.date.format(date)}</Text>
-                      <Text selectable style={[styles.time, { color: colors.textMuted }]}>{formatters.time.format(date)}</Text>
-                    </View>
-                    <Text selectable accessibilityLabel={reading.gaugeHeightFt == null ? 'Height unavailable' : `Height ${height} feet`} style={[styles.numberCell, styles.number, { color: colors.text }]}>{height}</Text>
-                    <Text selectable accessibilityLabel={reading.dischargeCfs == null ? 'Flow unavailable' : `Flow ${flow} cubic feet per second`} style={[styles.numberCell, styles.number, { color: colors.text }]}>{flow}</Text>
-                  </View>
-                );
-              })}
-              {readings.length === 0 ? <Text style={[styles.empty, { color: colors.textMuted }]}>No readings in this date range.</Text> : null}
-            </ScrollView>
-          </View>
-        </ScrollView>
+            <Text selectable accessibilityLabel={`Flow ${flow === '—' ? 'unavailable' : `${flow} cubic feet per second`}`} style={[styles.numberCell, styles.number, { color: colors.text }]}>{flow}</Text>
+            <Text selectable accessibilityLabel={`Gauge height ${height === '—' ? 'unavailable' : `${height} feet`}`} style={[styles.numberCell, styles.number, { color: colors.text }]}>{height}</Text>
+            <View style={styles.sourceCell}>
+              <Text selectable style={[styles.copy, { color: colors.text }]}>{reading.kind === 'forecast' ? 'NWS forecast' : 'Observed'}</Text>
+              {qualifiers ? <Text selectable style={[styles.copy, { color: colors.textMuted }]}>{qualifiers}</Text> : null}
+              {reading.gapBefore?.length ? <Text style={[styles.copy, { color: colors.textMuted }]}>Gap before: {reading.gapBefore.map(unit => unit === 'cfs' ? 'flow' : 'height').join(', ')}</Text> : null}
+            </View>
+          </View>;
+        })}
       </View>
-      <Text style={[styles.caption, { color: colors.textSubtle }]}>Times shown in your local time zone</Text>
-    </View>
-  );
+    </ScrollView>
+    {rows.length ? <View style={styles.pager}>
+      <Pressable accessibilityRole="button" accessibilityLabel="Previous readings" disabled={page === 0} accessibilityState={{ disabled: page === 0 }}
+        onPress={() => setPage(page - 1)} style={[styles.pageButton, { opacity: page === 0 ? 0.4 : 1 }]}>
+        <Text style={[styles.copy, { color: colors.interactive }]}>Previous</Text>
+      </Pressable>
+      <Text accessibilityLiveRegion="polite" style={[styles.pageCount, { color: colors.textMuted }]}>{page * PAGE_SIZE + 1}–{Math.min((page + 1) * PAGE_SIZE, rows.length)} of {rows.length}</Text>
+      <Pressable accessibilityRole="button" accessibilityLabel="Next readings" disabled={(page + 1) * PAGE_SIZE >= rows.length} accessibilityState={{ disabled: (page + 1) * PAGE_SIZE >= rows.length }}
+        onPress={() => setPage(page + 1)} style={[styles.pageButton, { opacity: (page + 1) * PAGE_SIZE >= rows.length ? 0.4 : 1 }]}>
+        <Text style={[styles.copy, { color: colors.interactive }]}>Next</Text>
+      </Pressable>
+    </View> : <Text style={[styles.empty, { color: colors.textMuted }]}>No readings in this view.</Text>}
+  </View>;
 }
 
 const styles = StyleSheet.create({
-  section: { marginTop: 4, marginBottom: 12 },
-  frame: { borderWidth: 1, borderRadius: 12, overflow: 'hidden' },
-  row: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, gap: 10 },
-  header: { paddingVertical: 10, borderBottomWidth: 1 },
-  body: { maxHeight: 280 },
+  row: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 4 },
+  header: { paddingVertical: 8, borderBottomWidth: 1 },
   dataRow: { paddingVertical: 10, borderBottomWidth: StyleSheet.hairlineWidth },
   timeCell: { flex: 1.5, minWidth: 0 },
   numberCell: { flex: 1, minWidth: 0, textAlign: 'right' },
+  sourceCell: { flex: 1.2, minWidth: 0 },
   heading: { ...t.xs, fontFamily: fonts.semibold },
-  date: { ...t.xs, fontFamily: fonts.medium },
-  time: { ...t.xs, fontFamily: fonts.body, marginTop: 2 },
+  copy: { ...t.xs },
   number: { ...t.sm, fontFamily: fonts.mono, fontVariant: ['tabular-nums'] },
-  empty: { ...t.sm, fontFamily: fonts.body, textAlign: 'center', padding: 16 },
-  caption: { ...t.xs, fontFamily: fonts.body, textAlign: 'center', marginTop: 6 },
+  pager: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 4, marginTop: 8 },
+  pageButton: { minHeight: 44, minWidth: 44, justifyContent: 'center', alignItems: 'center', padding: 8 },
+  pageCount: { ...t.xs, fontVariant: ['tabular-nums'], flexShrink: 1, textAlign: 'center' },
+  empty: { ...t.sm, paddingVertical: 16, textAlign: 'center' },
 });

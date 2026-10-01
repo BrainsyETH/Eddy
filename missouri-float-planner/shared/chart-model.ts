@@ -259,6 +259,13 @@ export function chartDomain(
   unit: ReadingUnit,
   contextValues: number[] = [],
   nearFraction = 0.75,
+  options: {
+    /** Compact views must not magnify an almost-flat series into a large swing. */
+    minimumSpan?: number;
+    minimumSpanFraction?: number;
+    /** Explicit reader choice; never enabled merely because thresholds exist. */
+    includeAllContext?: boolean;
+  } = {},
 ): ChartDomain | null {
   if (!points.length) return null;
 
@@ -272,12 +279,22 @@ export function chartDomain(
     if (point.v > max) max = point.v;
   }
 
-  const dataRange = max - min || Math.max(Math.abs(max) * 0.1, unit === 'cfs' ? 10 : 0.2);
+  const minimumSpan = Math.max(options.minimumSpan ?? 0, Math.abs(max) * (options.minimumSpanFraction ?? 0));
+  const dataRange = Math.max(minimumSpan, max - min || Math.max(Math.abs(max) * 0.1, unit === 'cfs' ? 10 : 0.2));
   const reach = dataRange * nearFraction;
+  // Use the original range for the compact policy: one nearby edge must not
+  // pull in another edge, then another, depending on the order of the ladder.
+  const nearMin = min - reach;
+  const nearMax = max + reach;
   for (const value of contextValues) {
     if (!Number.isFinite(value)) continue;
-    if (value < min && value >= min - reach) min = value;
-    if (value > max && value <= max + reach) max = value;
+    if (options.includeAllContext || (minimumSpan > 0 && value >= nearMin && value <= nearMax)) {
+      min = Math.min(min, value);
+      max = Math.max(max, value);
+    } else if (minimumSpan === 0) {
+      if (value < min && value >= min - reach) min = value;
+      if (value > max && value <= max + reach) max = value;
+    }
   }
 
   // A FLAT series takes the synthetic range as its domain, not 8% of it. With
@@ -286,14 +303,51 @@ export function chartDomain(
   // read "5, 5, 6". Ten cfs of headroom around a flat line is the honest
   // picture anyway: nothing moved, and here is the scale it did not move on.
   const flat = max === min;
-  const pad = flat ? dataRange * 0.5 : (max - min) * 0.08;
+  const pad = Math.max(flat ? dataRange * 0.5 : (max - min) * 0.08, (minimumSpan - (max - min)) / 2);
   const floor = unit === 'cfs' ? 0 : -Infinity;
+  const paddedMin = Math.max(floor, min - pad);
   return {
-    min: Math.max(floor, min - pad),
-    max: max + pad,
+    min: paddedMin,
+    max: Math.max(max + pad, paddedMin + minimumSpan),
     t0: points[0].t,
     t1: points[points.length - 1].t,
   };
+}
+
+/** Limit the visible forecast horizon to the selected history span. Keep the
+ * complete issuance for the data table/CSV; never shift a forecast value or
+ * manufacture a connector from the latest observation. */
+export function chartForecastWindow(points: ChartPoint[], windowEnd: number, historyDays: number): ChartPoint[] {
+  if (!Number.isFinite(windowEnd) || historyDays <= 0) return points;
+  const end = windowEnd + Math.max(1, historyDays) * 86_400_000;
+  return points.filter(point => point.t <= end);
+}
+
+export interface ChartDataRow extends ChartReadingLike {
+  kind: 'observed' | 'forecast';
+}
+
+/** Technical views keep both measurements, including rows missing the plotted
+ * unit. Sorting/filtering must not reduce the underlying observations. */
+export function chartDataRows(
+  readings: readonly ChartReadingLike[],
+  forecast: readonly ChartReadingLike[] = [],
+): ChartDataRow[] {
+  return [
+    ...readings.map(row => ({ ...row, kind: 'observed' as const })),
+    ...forecast.map(row => ({ ...row, kind: 'forecast' as const })),
+  ].sort((a, b) => Date.parse(b.timestamp) - Date.parse(a.timestamp));
+}
+
+export function chartDataCsv(rows: readonly ChartDataRow[], statistic = 'instantaneous', sampled = false): string {
+  const cell = (value: unknown) => `"${String(value ?? '').replace(/"/g, '""')}"`;
+  return [
+    ['timestamp', 'gauge_height_ft', 'discharge_cfs', 'source', 'qualifiers', 'gap_before', 'statistic', 'sampled'],
+    ...rows.map(row => [row.timestamp, row.gaugeHeightFt, row.dischargeCfs,
+      row.kind === 'forecast' ? 'NWS forecast' : 'Observed', row.qualifiers?.join('|') ?? '',
+      row.gapBefore?.join('|') ?? '', row.kind === 'forecast' ? 'forecast' : statistic,
+      row.kind === 'observed' && sampled]),
+  ].map(row => row.map(cell).join(',')).join('\r\n');
 }
 
 /**

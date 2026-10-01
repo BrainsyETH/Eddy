@@ -771,7 +771,6 @@ export default function GaugeDetailScreen() {
             // draws stages only on a foot axis, so nothing is compared across
             // units to make that happen.
             floodStages={stages}
-            title="Gauge history"
             historyCapabilities={gauge.historyCapabilities}
           />
         </View>

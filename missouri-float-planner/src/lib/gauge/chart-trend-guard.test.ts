@@ -1,6 +1,7 @@
 // src/lib/gauge/chart-trend-guard.test.ts
 //
-// The gauge chart's trend pill, and the two things that must stop it appearing.
+// The gauge chart's spoken trend, and the guards that stop misleading claims.
+// The visible current-value/trend summary now belongs to the parent page.
 // Source-reading, because the guard lives in a React component eddy-ios has no
 // runner for — the same instrument chart-parity.test.ts uses one folder over,
 // and for the same reason.
@@ -158,16 +159,10 @@ test('the guard keeps an ordinary reading, and a mildly stretched one', () => {
   assert.ok(Math.abs((stretched?.windowHours ?? 0) - 6) <= 3);
 });
 
-test('the pill is on the title row, which the scrub readout does not replace', () => {
-  // The subtitle is swapped for the scrub readout while a finger is on the
-  // plot. A trend rendered there would disappear at exactly the moment the
-  // reader is interrogating the line.
-  assert.match(CHART, /styles\.titleRow/, 'the trend pill left the title row');
-  const titleRow = CHART.slice(CHART.indexOf('styles.titleRow'));
-  assert.ok(
-    titleRow.indexOf('TrendPill') < titleRow.indexOf('styles.subtitle'),
-    'the trend pill is no longer rendered inside the title row',
-  );
+test('the compact chart leaves the visible summary to its page and overlays scrubbing', () => {
+  assert.doesNotMatch(CHART, /<TrendPill/, 'the chart must not duplicate the page trend');
+  assert.match(CHART, /if \(shownTrend\) bits\.push/, 'VoiceOver still needs the guarded chart summary');
+  assert.match(CHART, /scrubOverlay: \{ position: 'absolute'/, 'scrubbing must not grow the chart');
 });
 
 test('the six-hour window is fixed, never scaled to the selected range', () => {

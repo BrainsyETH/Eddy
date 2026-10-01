@@ -1,103 +1,14 @@
-// eddy-ios/src/components/GaugeChart.tsx
-// The hydrograph: what this gauge has been doing, against what the bands mean.
-//
-// ── Why the app has a chart at all ──────────────────────────────────────────
-// Every surface in Eddy until now answered "what is the river doing RIGHT NOW".
-// That is the right headline and it is not the whole question: 900 cfs on the
-// way down from 2,400 is a different weekend from 900 on the way up, and the
-// reading card cannot tell them apart. The trend arrow tries — it compares two
-// points — and a week of line does it properly.
-//
-// ── What this file no longer decides ────────────────────────────────────────
-// The axis, the gap rule, the tick placement, the nearest-point lookup and the
-// qualifier vocabulary all live in shared/chart-model.ts, which the website's
-// FlowTrendChart draws from too. This file took `splitAtGaps` from it and kept
-// its own copy of the rest, and the copies drifted where nobody looks: the value
-// axis was labelled with the padded domain's min, midpoint and max (so the app
-// printed 1,437.6 where the site printed 1,400), and the domain had no floor, so
-// a low-water discharge plot could label its bottom below zero — negative flow,
-// on a chart of a river.
-//
-// Pixels, gestures and colour are still decided here. Meaning is not.
-// src/lib/gauge/chart-parity.test.ts is the guard on that split.
-//
-// ── The forecast and the typical range ──────────────────────────────────────
-// The history endpoint has sent an official NWS forecast and the USGS day-of-year
-// percentile range to both clients since NWPS replaced AHPS. This chart drew
-// neither, so the phone showed a week of line beside an EddyTake paragraph
-// quoting a forecast that was not on the plot. Both are drawn now, both are
-// labelled in the legend, and the forecast carries its ISSUE TIME — NWPS reissues
-// on a schedule, so a dashed line read at 6pm may predate the afternoon's rain.
-//
-// The typical range is DISCHARGE ONLY, because usgs_daily_percentiles is
-// snapshotted for discharge and there is no stage equivalent. Same guard the web
-// chart makes, for the same reason.
-//
-// ── Bands are drawn at TRUE numeric height here, unlike the track ───────────
-// ReadingScale draws the same ladder at EQUAL width per band, deliberately, so
-// a 20,000-cfs flood band cannot crush the bands people float in down to a
-// sliver. That is right for a track whose axis is "how far through the ladder".
-//
-// It is wrong here. This chart's y axis is the READING, so a band has to sit at
-// the numbers it actually covers or the line would cross into "High" at a height
-// that is not where High starts. The two therefore look different on purpose,
-// and neither is a rescaling of the other.
-//
-// The y domain comes from the DATA, then stretches to swallow any threshold
-// that is close enough to be worth seeing (see NEAR_THRESHOLD_FRACTION). A week
-// spent entirely in Good shows one band and the line inside it — which is the
-// honest picture — but if High is just above, High is on screen.
-//
-// ── NWS stages, for the gauges that have no bands ──────────────────────────
-// A rated gauge gets condition bands because a human decided where they go. An
-// unrated one got a bare line and no way to tell whether it was high — the flow
-// band on the card above says "higher than usual", which is a comparison to its
-// own record and not a threshold.
-//
-// The Weather Service publishes action/flood/moderate/major stages for ~12,700
-// forecast points, and quoting those is not the same as issuing a verdict. They
-// rule across the plot in violet — a hue in neither the condition ladder nor the
-// flow ramp, so it cannot be misread as either. See src/theme/floodStage.ts.
-//
-// ── Both units, and never a fabricated one ─────────────────────────────────
-// A station publishes stage, discharge, or both. The toggle offers only what is
-// actually on the wire, and the caller's preferred unit is the DEFAULT rather
-// than a lock; there is no fallback across units, here or anywhere else in this
-// app. See primaryReading() for the longer version of that rule.
-//
-// That toggle became load-bearing with the stages above. NWPS publishes them in
-// FEET and nothing else, and a reference station's chart opens on discharge —
-// so without a way to reach the foot axis, the gauges that most need a flood
-// line are the ones that could never show it.
-//
-// ── The scrub ──────────────────────────────────────────────────────────────
-// Touch and drag reads out the value and the time under your finger. One
-// Gesture.Pan() over the whole plot rather than per-point touch targets: a
-// 30-day window is ~720 points, and 720 Pressables is a frame budget spent on
-// hit-testing.
-//
-// Gesture.Pan() and not PanResponder, because this chart also renders inside
-// the map sheet, whose sheet and pager are RNGH pans — and RNGH cancels the RN
-// responder system the moment one of its own gestures activates. The
-// PanResponder this file used to carry therefore scrubbed fine on the gauge
-// and river screens and was stolen ~12pt in inside the sheet, so the sheet
-// mounted the chart with the scrub switched off entirely (the deleted
-// `scrubbable` prop). The pan joins the axis-splitting contract MapSheet and
-// SheetPager keep between themselves instead of naming either by ref: see the
-// note on the gesture itself.
-//
-// The scrub is also reachable without the gesture: the plot is an adjustable
-// element for VoiceOver, and a swipe up or down steps it one READING at a time
-// through stepScrubTime() from the shared model — the same stepping the web
-// chart gives arrow keys.
+// Compact hydrograph shared by River, Gauge and map history.
+// Data geometry, gaps and reading identity come from the shared chart model.
 
 import { Ionicons } from '@expo/vector-icons';
 import { chartDateRange } from '@/lib/chartDateRange';
-import { File, Paths } from 'expo-file-system';
-import { Component, useCallback, useMemo, useState, type ReactNode } from 'react';
+import { Component, useCallback, useMemo, useState, useId, type ReactNode } from 'react';
 import {
   ActivityIndicator,
-  TextInput, Share, Alert,
+  ActionSheetIOS,
+  Platform,
+  TextInput, Switch, useWindowDimensions,
   LayoutChangeEvent,
   Pressable,
   StyleSheet,
@@ -115,15 +26,15 @@ import Svg, {
   Defs,
   G,
   Line,
-  LinearGradient,
+  ClipPath,
   Path,
   Rect,
-  Stop,
   Text as SvgText,
 } from 'react-native-svg';
 import type { GaugeFloodStages } from '@eddy/types';
 import {
   chartDomain,
+  chartForecastWindow,
   chartPoints,
   chartSegments,
   splitAtGaps,
@@ -149,10 +60,10 @@ import { fonts, type as t } from '@/theme/typography';
 import { formatReading } from '@/lib/readingCopy';
 import { useGaugeHistory } from '@/hooks/useGaugeHistory';
 import { warn } from '@/lib/monitoring';
-import { TrendPill } from '@/components/TrendPill';
-import { GaugeHistoryTable } from '@/components/GaugeHistoryTable';
+import { GaugeChartSheet } from '@/components/GaugeChartSheet';
+import { GaugeChartDetails } from '@/components/GaugeChartDetails';
 
-/** The three questions people actually ask, and nothing else. */
+/** Short history first; provider capabilities unlock the longer windows. */
 const RANGES = [
   { days: 1, label: '24h' },
   { days: 7, label: '7d' },
@@ -161,50 +72,9 @@ const RANGES = [
   { days: 365, label: '1y' },
 ] as const;
 
-/**
- * 200, up from 168. The plot carries up to six condition bands, a typical
- * range, NWS stage rules and a forecast; at 140px of usable height those
- * layers sat close enough to read as texture. Every consumer scrolls (the
- * gauge screen, the river screen, the map sheet's tabbed body — the peek row
- * never mounts the chart), so the extra 32px costs scroll distance, not
- * layout. Sized WITH the axis: four labels down a 172px edge is a rung of the
- * tick budget below, and neither number should move without the other.
- */
-const CHART_HEIGHT = 200;
-/** Room for the value labels down the right edge. */
-const PAD_RIGHT = 46;
-/** Room for the time labels under the plot. */
-const PAD_BOTTOM = 18;
-const PAD_TOP = 10;
-
-/**
- * Whether an NWS stage label goes BELOW its line rather than above it: the
- * line sits within a label's height of the top edge, and a label above it
- * would clip out of the viewport. Named because two things ask — the stage
- * label itself, and the now-label, which shares that top line of the plot
- * and has to know when it is already taken.
- */
-const stageLabelBelowLine = (y: number): boolean => y - 3 < PAD_TOP + 8;
-
-/**
- * How far past the data a threshold may sit and still be pulled into view, as a
- * fraction of the data's own range.
- *
- * Generous enough that "High is just above where you've been" shows, tight
- * enough that a flood line an order of magnitude up does not flatten the week
- * you came to look at into a straight line along the bottom.
- */
-const NEAR_THRESHOLD_FRACTION = 0.75;
-
-/**
- * The day-of-year typical range.
- *
- * Teal-700 — the flow-band family, which is where it belongs: "normal for this
- * date" is a COMPARISON, exactly what that ramp means, and never a verdict about
- * whether the river is floatable. The web chart uses this same hex for the same
- * band; see FlowTrendChart's TYPICAL_COLOR.
- */
-const TYPICAL_COLOR = '#0f766e';
+// Plot includes axes and in-plot context labels; surrounding controls add ~100pt.
+const CHART_HEIGHT = 208;
+const NEAR_THRESHOLD_FRACTION = 0.28;
 
 /**
  * Break the line when the gap between samples exceeds this multiple of the
@@ -273,8 +143,6 @@ interface Props {
    * has not earned.
    */
   floodStages?: GaugeFloodStages | null;
-  /** Section heading. Omitted when the caller draws its own. */
-  title?: string;
   historyCapabilities?: { maxInstantDays: number; supportsDaily: boolean; supportsCustomRange: boolean };
   initialDays?: number;
   initialWindow?: { from: string; to: string };
@@ -295,7 +163,7 @@ type ScrubbedPoint = { point: ChartPoint; kind: 'observed' | 'forecast' };
 function axisTime(ms: number, days: number): string {
   const d = new Date(ms);
   if (days <= 1) {
-    return d.toLocaleTimeString(undefined, { hour: 'numeric' });
+    return d.toLocaleString(undefined, { weekday: 'short', hour: 'numeric' });
   }
   return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
 }
@@ -331,20 +199,33 @@ function scrubTime(ms: number): string {
   )}`;
 }
 
+/** The narrow rail uses the category; details retain the full NWS name. */
+function stageRailLabel(key: FloodStageKey): string {
+  const category = FLOOD_STAGE_SYSTEM[key].label.replace(/^NWS /, '').split(' ')[0];
+  return category[0].toUpperCase() + category.slice(1);
+}
+
 function GaugeChartInner({
   siteId,
   unit,
   thresholds = null,
   floodStages = null,
-  title,
   historyCapabilities,
   initialDays = 7,
   initialWindow,
 }: Props) {
-  const chartHeight = CHART_HEIGHT;
-  const { colors, elevation, isDark } = useTheme();
-  const [showTable, setShowTable] = useState(false);
-  const [showDates, setShowDates] = useState(false);
+  const { fontScale } = useWindowDimensions();
+  const chartHeight = CHART_HEIGHT * Math.max(1, fontScale);
+  const axisFont = 11 * fontScale;
+  const padTop = 30 * fontScale;
+  const padBottom = 28 * fontScale;
+  const padLeft = 58 * fontScale;
+  const clipId = `gauge-${useId().replace(/[^a-zA-Z0-9]/g, '')}`;
+  const { colors, isDark } = useTheme();
+  const [sheet, setSheet] = useState<'compare' | 'data' | 'range' | 'unit' | 'dates' | null>(null);
+  const [showTypical, setShowTypical] = useState(false);
+  const [showMedian, setShowMedian] = useState(false);
+  const [fullScale, setFullScale] = useState(false);
   const [fromDate, setFromDate] = useState(initialWindow?.from.slice(0, 10) ?? '');
   const [toDate, setToDate] = useState(initialWindow?.to.slice(0, 10) ?? '');
   const [customWindow, setCustomWindow] = useState<{ from: string; to: string } | undefined>(initialWindow);
@@ -386,6 +267,8 @@ function GaugeChartInner({
    * re-selects itself from arriving data is a control you cannot trust.
    */
   const drawnDays = historyDays ?? days;
+  const observedLabel = history?.statistic === 'daily_mean' ? 'Daily mean'
+    : history?.statistic === 'daily_selected' ? 'Daily observation' : 'Observed';
 
   /**
    * Which way it is going, over roughly the last six hours.
@@ -502,10 +385,16 @@ function GaugeChartInner({
    * frequently has no forecast to draw. That is a fact to show or omit, never to
    * fill in.
    */
-  const forecastPoints = useMemo(
+  const allForecastPoints = useMemo(
     () => (history?.forecast?.length ? chartPoints(history.forecast, drawnUnit) : []),
     [history, drawnUnit],
   );
+
+  const forecastPoints = useMemo(() => chartForecastWindow(
+    allForecastPoints,
+    Date.parse(history?.requestedWindow?.to ?? history?.observedThrough ?? ''),
+    drawnDays,
+  ), [allForecastPoints, history, drawnDays]);
 
   /**
    * "What this river normally does on this date", from the USGS day-of-year
@@ -520,6 +409,9 @@ function GaugeChartInner({
     if (drawnUnit !== 'cfs' || !history?.typical?.length) return [];
     return history.typical.flatMap((row) => {
       const t = new Date(`${row.date}T12:00:00`).getTime();
+      const start = Date.parse(history.requestedWindow?.from ?? '');
+      const end = Date.parse(history.requestedWindow?.to ?? '');
+      if ((Number.isFinite(start) && t < start) || (Number.isFinite(end) && t > end)) return [];
       return Number.isFinite(t) && row.p50Cfs !== null
         ? [{ t, median: row.p50Cfs, low: row.p25Cfs, high: row.p75Cfs }]
         : [];
@@ -542,7 +434,7 @@ function GaugeChartInner({
       ...points,
       ...forecastPoints,
       ...typical.flatMap((row) =>
-        [row.low, row.median, row.high].flatMap((value) =>
+        [showTypical ? row.low : null, showMedian ? row.median : null, showTypical ? row.high : null].flatMap((value) =>
           value === null ? [] : [{ t: row.t, v: value, timestamp: '', qualifiers: [] }],
         ),
       ),
@@ -553,23 +445,28 @@ function GaugeChartInner({
     // their line approaching, and a band's far side is not.
     const context = [
       ...stageLines.map((line) => line.value),
-      ...zones.flatMap((zone) => [zone.min, zone.max]),
+      ...zones.flatMap((zone) => zone.openEnded ? [zone.min] : [zone.min, zone.max]),
     ];
-    return chartDomain(spanning, drawnUnit, context, NEAR_THRESHOLD_FRACTION);
-  }, [points, forecastPoints, typical, zones, stageLines, drawnUnit]);
+    return chartDomain(spanning, drawnUnit, context, NEAR_THRESHOLD_FRACTION, {
+      minimumSpan: drawnUnit === 'cfs' ? 80 : 0.3,
+      minimumSpanFraction: drawnUnit === 'cfs' ? 0.18 : 0.08,
+      includeAllContext: fullScale,
+    });
+  }, [points, forecastPoints, typical, zones, stageLines, drawnUnit, showTypical, showMedian, fullScale]);
 
-  const plotWidth = Math.max(0, width - PAD_RIGHT);
-  const plotHeight = chartHeight - PAD_TOP - PAD_BOTTOM;
+  const padRight = fontScale <= 1.25 && width >= 240 ? 78 * fontScale : 8;
+  const plotWidth = Math.max(0, width - padLeft - padRight);
+  const plotHeight = chartHeight - padTop - padBottom;
 
   const scale = useMemo(() => {
     if (!domain || plotWidth <= 0) return null;
     const spanT = domain.t1 - domain.t0 || 1;
     const spanV = domain.max - domain.min || 1;
     return {
-      x: (t: number) => ((t - domain.t0) / spanT) * plotWidth,
-      y: (v: number) => PAD_TOP + (1 - (v - domain.min) / spanV) * plotHeight,
+      x: (t: number) => padLeft + 4 + ((t - domain.t0) / spanT) * (plotWidth - 8),
+      y: (v: number) => padTop + (1 - (v - domain.min) / spanV) * plotHeight,
     };
-  }, [domain, plotWidth, plotHeight]);
+  }, [domain, plotWidth, plotHeight, padLeft, padTop]);
 
   /**
    * The line, as one or more segments, plus the readings that stand alone.
@@ -584,7 +481,6 @@ function GaugeChartInner({
     const empty = {
       paths: [] as string[],
       gapPaths: [] as string[],
-      areas: [] as string[],
       dots: [] as ChartPoint[],
       forecastPaths: [] as string[],
       forecastDots: [] as ChartPoint[],
@@ -597,21 +493,6 @@ function GaugeChartInner({
         .map((p, i) => `${i ? 'L' : 'M'} ${scale.x(p.t).toFixed(2)} ${scale.y(p.v).toFixed(2)}`)
         .join(' ');
 
-    /**
-     * The same segment, closed down to the foot of the plot.
-     *
-     * PER SEGMENT, not one area under the whole series — an area closed across a
-     * gap would fill the outage in, which is the thing splitAtGaps() exists to
-     * stop the line from doing. A hole in the telemetry has to stay a hole in
-     * every layer that draws it.
-     */
-    const toArea = (segment: ChartPoint[]) => {
-      const base = (PAD_TOP + plotHeight).toFixed(2);
-      const first = scale.x(segment[0].t).toFixed(2);
-      const last = scale.x(segment[segment.length - 1].t).toFixed(2);
-      return `${toPath(segment)} L ${last} ${base} L ${first} ${base} Z`;
-    };
-
     const { lines, isolated } = chartSegments(points, GAP_BREAK_MULTIPLE);
     const forecastSplit = chartSegments(forecastPoints, GAP_BREAK_MULTIPLE);
     return {
@@ -619,7 +500,6 @@ function GaugeChartInner({
       gapPaths: splitAtGaps(points, GAP_BREAK_MULTIPLE).flatMap((segment, index, segments) =>
         index === 0 ? [] : [toPath([segments[index - 1][segments[index - 1].length - 1], segment[0]])],
       ),
-      areas: lines.map(toArea),
       dots: isolated,
       forecastPaths: forecastSplit.lines.map(toPath),
       // A short-range issuance can be a single point. Dropping it would repeat,
@@ -649,10 +529,10 @@ function GaugeChartInner({
               .join(' ')
           : '',
     };
-  }, [points, forecastPoints, typical, scale, plotHeight]);
+  }, [points, forecastPoints, typical, scale]);
 
   /**
-   * Round numbers down the right edge, from the same tick function the web axis
+   * Round numbers down the left edge, from the same tick function the web axis
    * uses.
    *
    * This file used to label the axis with the padded domain's min, midpoint and
@@ -660,23 +540,26 @@ function GaugeChartInner({
    * same gauge in the same week. Nobody reads a hydrograph to learn the 8% pad.
    */
   const valueTicks = useMemo(
-    // Four with headroom for five, matched to the 200px chart — the 168px
-    // chart asked for three. See chartHeight: the two numbers move together.
+    // Three with headroom for four in the compact plot.
     //
     // Discharge is printed as whole cfs (formatReading rounds), so its ticks
     // are floored at whole cfs; a half-cfs rung on a low-water week printed
     // "5, 5, 6". Stage reads to the hundredth and takes the full ladder.
     () =>
       domain
-        ? niceValueTicks(domain.min, domain.max, 4, 5, drawnUnit === 'cfs' ? { minStep: 1 } : {})
+        ? niceValueTicks(domain.min, domain.max, 3, 4, drawnUnit === 'cfs' ? { minStep: 1 } : {})
         : [],
     [domain, drawnUnit],
   );
 
   /** Three instants across the window, so the middle of the plot is placeable. */
   const xTicks = useMemo(
-    () => (domain ? timeTicks(domain.t0, domain.t1, 3) : []),
-    [domain],
+    () => {
+      if (!domain) return [];
+      if (domain.t0 === domain.t1 || plotWidth < axisFont * 10) return [{ value: domain.t0, position: 0 }];
+      return timeTicks(domain.t0, domain.t1, plotWidth > axisFont * 22 ? 3 : 2);
+    },
+    [domain, plotWidth, axisFont],
   );
 
   /**
@@ -689,15 +572,15 @@ function GaugeChartInner({
   const availableUnits = useMemo<('ft' | 'cfs')[]>(() => {
     if (!history) return [];
     const out: ('ft' | 'cfs')[] = [];
-    if (history.readings.some((r) => r.gaugeHeightFt != null)) out.push('ft');
-    if (history.readings.some((r) => r.dischargeCfs != null)) out.push('cfs');
+    if ([...history.readings, ...(history.forecast ?? [])].some((r) => r.gaugeHeightFt != null)) out.push('ft');
+    if ([...history.readings, ...(history.forecast ?? [])].some((r) => r.dischargeCfs != null)) out.push('cfs');
     return out;
   }, [history]);
 
   const scrubbed = useMemo<ScrubbedPoint | null>(() => {
     if (scrubX === null || !scale || !domain) return null;
     const spanT = domain.t1 - domain.t0 || 1;
-    const targetT = domain.t0 + (Math.min(Math.max(scrubX, 0), plotWidth) / plotWidth) * spanT;
+    const targetT = domain.t0 + (Math.min(Math.max(scrubX - padLeft - 4, 0), plotWidth - 8) / (plotWidth - 8)) * spanT;
 
     // Binary search from the shared model, replacing a linear scan this file
     // kept. The reason to share it is not the speed — it is that both charts must
@@ -714,7 +597,7 @@ function GaugeChartInner({
     return Math.abs(observed.t - targetT) <= Math.abs(forecast.t - targetT)
       ? { point: observed, kind: 'observed' }
       : { point: forecast, kind: 'forecast' };
-  }, [scrubX, scale, points, forecastPoints, domain, plotWidth]);
+  }, [scrubX, scale, points, forecastPoints, domain, plotWidth, padLeft]);
 
   /**
    * The scrub gesture. Gesture.Pan(), so it exists inside the map sheet — the
@@ -770,13 +653,6 @@ function GaugeChartInner({
   const lineColor = colors.interactive;
 
   /**
-   * Gradient ids share one namespace across every mounted Svg, and this chart is
-   * mounted more than once at a time — the map sheet pages between stations. A
-   * bare "flowFill" would have the second chart's gradient resolve to the first
-   * one's, which is invisible until the two disagree about the theme.
-   */
-  const fillId = `flowFill-${siteId ?? 'none'}-${drawnUnit}`;
-  /**
    * ONE OBSERVED READING PLUS A FORECAST IS A CHART — and so is a forecast
    * with none. One reading ALONE is not, and that is the web chart's rule too.
    *
@@ -799,6 +675,7 @@ function GaugeChartInner({
   const hasPlot =
     scale !== null &&
     domain !== null &&
+    plotWidth > 16 &&
     (forecastPoints.length > 0 || points.length >= 2);
 
   const scrubQualifiers =
@@ -868,14 +745,20 @@ function GaugeChartInner({
         ? `${measure}, ${window}. Latest ${formatReading(newest.v, drawnUnit)}.`
         : `${measure}, ${window}.`,
     ];
-    // The pill is a fact about the water, not decoration, so it is spoken.
+    // Keep the guarded trend in the spoken summary without repeating page UI.
     if (shownTrend) bits.push(`${shownTrend.label} over the last ${shownTrend.windowHours} hours.`);
     const latestQualifiers = newest ? qualifierText(newest.qualifiers) : null;
     if (latestQualifiers) bits.push(`Latest reading ${latestQualifiers}.`);
     if (forecastPoints.length > 0) {
       bits.push(`NWS forecast included${forecastIssued ? `, issued ${forecastIssued}` : ''}.`);
     }
-    if (series.typicalPath) bits.push('Typical range for the date shown.');
+    if (showTypical && series.typicalArea) bits.push('Historical 25th–75th percentile range shown.');
+    if (showMedian && series.typicalPath) bits.push('Historical median shown.');
+    if (history?.resolution === 'daily') bits.push(`${observedLabel} history.`);
+    if (series.gapPaths.length) bits.push('Dotted connectors indicate missing readings.');
+    if (newest && nowLabelText === 'Last reading') bits.push('Last reading is stale.');
+    if (zones.length) bits.push('Eddy condition thresholds available in Data and details.');
+    if (stageLines.length) bits.push('NWS stage references shown. Full labels and values are in Data and details.');
     return bits.join(' ');
   })();
 
@@ -887,11 +770,13 @@ function GaugeChartInner({
    * provisional reading is not a verified one.
    */
   const spokenValue = (() => {
-    const at = scrubbed ?? (newest ? { point: newest, kind: 'observed' as const } : null);
+    const at = scrubbed ?? (newest ? { point: newest, kind: 'observed' as const }
+      : forecastPoints[0] ? { point: forecastPoints[0], kind: 'forecast' as const } : null);
     if (!at) return null;
     const bits = [`${formatReading(at.point.v, drawnUnit)}, ${scrubTime(at.point.t)}`];
     if (at.kind === 'forecast') bits.push('NWS forecast');
     else {
+      if (history?.resolution === 'daily') bits.push(observedLabel);
       const spokenQualifiers = qualifierText(at.point.qualifiers);
       if (spokenQualifiers) bits.push(spokenQualifiers);
     }
@@ -906,7 +791,7 @@ function GaugeChartInner({
    */
   const stepScrub = (step: 1 | -1) => {
     if (!scale) return;
-    const from = scrubbed?.point.t ?? newest?.t;
+    const from = scrubbed?.point.t ?? newest?.t ?? forecastPoints[0]?.t;
     if (from == null) return;
     const next = stepScrubTime(scrubTimes, from, step);
     if (next != null) setScrubX(scale.x(next));
@@ -918,672 +803,209 @@ function GaugeChartInner({
     else if (action === 'decrement') stepScrub(-1);
   };
 
+  const railVisible = fontScale <= 1.25 && width >= 240;
+  const railReferences = zones.length
+    ? zones.slice(1).map(zone => ({ value: zone.min, label: zone.label, color: conditionColor(zone.key) }))
+    : stageLines.map(line => ({ value: line.value, label: stageRailLabel(line.key), color: floodStageColor() }));
+  const above = domain ? railReferences.filter(r => r.value >= domain.max).sort((a, b) => a.value - b.value)[0] : null;
+  const below = domain ? railReferences.filter(r => r.value <= domain.min).sort((a, b) => b.value - a.value)[0] : null;
+  const currentZone = newest ? zones.find(zone => newest.v <= zone.max || zone.openEnded) : null;
+  const comparisonCount = Number(showTypical && typical.length > 0) + Number(showMedian && typical.length > 0) + Number(fullScale);
+  const drawnRangeLabel = drawnDays === 1 ? 'Past 24 hours' : `Past ${drawnDays} days`;
+  const rangeLabel = customWindow ? 'Custom dates' : RANGES.find(r => r.days === days)?.label ?? `${days}d`;
+  const rangeSummaryLabel = matchesRequest && history?.resolution === 'daily' ? `${rangeLabel} · daily` : rangeLabel;
+  const measurementLabel = drawnUnit === 'cfs' ? 'Flow (cfs)' : 'Gauge height (ft)';
+  const closeSheet = () => setSheet(null);
+  const chooseUnit = (value: 'ft' | 'cfs') => {
+    setUnitOverride(value); setScrubX(null); setShowTypical(false); setShowMedian(false); setFullScale(false); closeSheet();
+  };
+  const openMeasurement = (target: string) => {
+    setScrubX(null);
+    if (Platform.OS !== 'ios') { setSheet('unit'); return; }
+    const anchor = Number(target);
+    ActionSheetIOS.showActionSheetWithOptions({
+      title: 'Measurement', anchor: Number.isFinite(anchor) ? anchor : undefined, tintColor: colors.interactive, userInterfaceStyle: isDark ? 'dark' : 'light',
+      options: [...availableUnits.map(value => value === 'cfs' ? 'Flow (cfs)' : 'Gauge height (ft)'), 'Cancel'],
+      cancelButtonIndex: availableUnits.length,
+    }, index => { if (availableUnits[index]) chooseUnit(availableUnits[index]); });
+  };
+  const openRange = (target: string) => {
+    setScrubX(null);
+    if (Platform.OS !== 'ios') { setSheet('range'); return; }
+    const anchor = Number(target);
+    const options = ranges.map(range => range.days === 1 ? '24 hours' : range.days === 365 ? '1 year' : `${range.days} days`);
+    if (historyCapabilities?.supportsCustomRange) options.push('Custom dates');
+    ActionSheetIOS.showActionSheetWithOptions({
+      title: 'History range', anchor: Number.isFinite(anchor) ? anchor : undefined, tintColor: colors.interactive, userInterfaceStyle: isDark ? 'dark' : 'light',
+      options: [...options, 'Cancel'], cancelButtonIndex: options.length,
+    }, index => {
+      const range = ranges[index];
+      if (range) { setCustomWindow(undefined); setDays(range.days); }
+      else if (index < options.length) setSheet('dates');
+    });
+  };
+  const applyDates = () => {
+    const from = Date.parse(`${fromDate}T00:00:00Z`);
+    const to = Date.parse(`${toDate}T23:59:59Z`);
+    const validDate = (value: string, time: number) => /^\d{4}-\d{2}-\d{2}$/.test(value) && Number.isFinite(time) && new Date(time).toISOString().slice(0, 10) === value;
+    if (!validDate(fromDate, from) || !validDate(toDate, to) || to <= from || to - from > 366 * 86400000 || from > Date.now()) {
+      setDateError('Enter valid dates in order, no more than one year apart.'); return;
+    }
+    const end = Math.min(to, Date.now());
+    setDateError(null); setScrubX(null); setDays(Math.max(1, Math.ceil((end - from) / 86400000)));
+    setCustomWindow({ from: new Date(from).toISOString(), to: new Date(end).toISOString() }); closeSheet();
+  };
+
   return (
-    <View style={[styles.card, { backgroundColor: colors.card }, elevation(1)]}>
-      <View style={styles.head}>
-        <View style={styles.headText}>
-          {title || shownTrend ? (
-            <View style={styles.titleRow}>
-              {title ? (
-                <Text style={[styles.title, { color: colors.text }]}>
-                  {title}
-                </Text>
-              ) : null}
-              {shownTrend ? (
-                <TrendPill direction={shownTrend.direction} label={shownTrend.label} />
-              ) : null}
-            </View>
-          ) : null}
-          {/* The scrub readout replaces the subtitle rather than sitting beside
-              it: a finger on the plot means the question is "what was it then",
-              and two lines of metadata competing for the same row is how a
-              readout gets missed. */}
-          {scrubbed ? (
-            <Text style={[styles.scrubLine, { color: colors.textMuted }]} numberOfLines={1}>
-              <Text style={[styles.scrubValue, { color: colors.text }]}>
-                {formatReading(scrubbed.point.v, drawnUnit)}
-              </Text>
-              {/* The verdict beside the number, in the band's own colour —
-                  parity with the web tooltip's "340 cfs — Flowing". */}
-              {scrubZone ? (
-                <Text style={{ color: conditionColor(scrubZone.key) }}>{` ${scrubZone.label}`}</Text>
-              ) : null}
-              {'  '}
-              {scrubTime(scrubbed.point.t)}
-              {/* Two labels that must survive being read in a hurry: a forecast is
-                  not a measurement, and a provisional reading is not a verified
-                  one. The qualifier came with the reading and was thrown away
-                  here until the copy moved into the shared model. */}
-              {scrubbed.kind === 'forecast' ? (
-                <Text style={{ color: floodStageColor() }}>{'  NWS forecast'}</Text>
-              ) : scrubQualifiers ? (
-                <Text style={{ color: colors.textSubtle }}>{`  ${scrubQualifiers}`}</Text>
-              ) : null}
-            </Text>
-          ) : (
-            <Text style={[styles.subtitle, { color: colors.textSubtle }]}>
-              {/* The newest reading rides in the idle subtitle — the exact
-                  "what is it now" number, in the row the scrub readout will
-                  reuse, instead of a callout crowding the plot's right edge
-                  where the axis and the current dot already live. The unit
-                  names the series, so "Discharge"/"Gauge height" only earns
-                  its space when there is no reading to show. */}
-              {newest ? (
-                <>
-                  <Text style={[styles.scrubValue, { color: colors.text }]}>
-                    {formatReading(newest.v, drawnUnit)}
-                  </Text>
-                  {' · '}
-                </>
-              ) : (
-                <>
-                  {drawnUnit === 'cfs' ? 'Discharge' : 'Gauge height'}
-                  {' · '}
-                </>
-              )}
-              {history?.requestedWindow ? chartDateRange(history.requestedWindow.from, history.requestedWindow.to) : drawnDays === 1 ? 'Past 24 hours' : `Past ${drawnDays} days`}
-            </Text>
-          )}
-        </View>
-
-        {/* ── Units ────────────────────────────────────────────────
-            Only when the station published BOTH in this window. One unit and
-            the control is a decision nobody has, which is the same reason the
-            range strip does not offer a window the endpoint cannot fill.
-
-            It sits before the range toggle because it changes what the chart is
-            OF, where the range only changes how much of it you see. */}
-        {availableUnits.length > 1 ? (
-          <View style={styles.ranges}>
-            <View pointerEvents="none" style={[styles.rangeTrack, { borderColor: colors.border }]} />
-            {availableUnits.map((u) => {
-              const active = u === drawnUnit;
-              return (
-                <Pressable
-                  key={u}
-                  // The scrub is cleared with the switch: it is stored as a
-                  // pixel, and the same pixel names a different reading on the
-                  // other axis. A finger-driven scrub clears itself on release;
-                  // a VoiceOver-stepped one would otherwise survive the change.
-                  onPress={() => {
-                    setUnitOverride(u);
-                    setScrubX(null);
-                  }}
-                  style={styles.range}
-                  accessibilityRole="button"
-                  accessibilityState={{ selected: active }}
-                  accessibilityLabel={u === 'ft' ? 'Show gauge height' : 'Show discharge'}
-                >
-                  <View style={[styles.rangeFace, active && { backgroundColor: colors.cardRaised }]}>
-                    <Text
-                      style={[
-                        styles.rangeText,
-                        { color: active ? colors.text : colors.textSubtle },
-                      ]}
-                    >
-                      {u}
-                    </Text>
-                  </View>
-                </Pressable>
-              );
-            })}
-          </View>
-        ) : null}
-
-        <View style={styles.ranges}>
-          <View pointerEvents="none" style={[styles.rangeTrack, { borderColor: colors.border }]} />
-          {ranges.map((r) => {
-            const active = r.days === days && !customWindow;
-            return (
-              <Pressable
-                key={r.days}
-                // Same clearing as the unit toggle: a pixel kept across a
-                // window change would point at a different instant.
-                onPress={() => {
-                  setCustomWindow(undefined);
-                  setDays(r.days);
-                  setScrubX(null);
-                }}
-                style={styles.range}
-                accessibilityRole="button"
-                accessibilityState={{ selected: active }}
-                accessibilityLabel={`Show last ${r.label}`}
-              >
-                <View style={[styles.rangeFace, active && { backgroundColor: colors.cardRaised }]}>
-                  <Text
-                    style={[
-                      styles.rangeText,
-                      { color: active ? colors.text : colors.textSubtle },
-                    ]}
-                  >
-                    {r.label}
-                  </Text>
-                </View>
-              </Pressable>
-            );
-          })}
-        </View>
+    <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
+      <View style={styles.toolbar}>
+        <Pressable accessibilityRole="button" accessibilityLabel={`Measurement: ${measurementLabel}`}
+          accessibilityHint="Choose the measurement to chart"
+          accessibilityState={{ disabled: !availableUnits.some(value => value !== drawnUnit) }}
+          disabled={!availableUnits.some(value => value !== drawnUnit)} onPress={event => openMeasurement(event.nativeEvent.target)}
+          style={({ pressed }) => [styles.measurement, { opacity: pressed ? 0.65 : 1 }]}>
+          <Text style={[styles.measurementText, { color: colors.text }]}>{measurementLabel}</Text>
+          {availableUnits.some(value => value !== drawnUnit) ? <Ionicons name="chevron-down" size={14} color={colors.textMuted} /> : null}
+        </Pressable>
+        <Pressable accessibilityRole="button" accessibilityLabel={`History range: ${rangeSummaryLabel}`} onPress={event => openRange(event.nativeEvent.target)}
+          style={({ pressed }) => [styles.rangeButton, { backgroundColor: colors.cardRaised, opacity: pressed ? 0.65 : 1 }]}>
+          {loading && history ? <ActivityIndicator size="small" color={colors.interactive} /> : null}
+          <Text style={[styles.actionText, { color: colors.text }]}>{rangeSummaryLabel}</Text>
+          <Ionicons name="chevron-down" size={14} color={colors.textMuted} />
+        </Pressable>
       </View>
-
-      {series.gapPaths.length > 0 ? (
-        <View style={styles.legendItem} accessibilityLabel="Dotted connections indicate missing readings">
-          <View style={styles.legendDashes}>{[0, 1, 2].map(i => <View key={i} style={[styles.legendDash, { backgroundColor: lineColor }]} />)}</View>
-          <Text style={[styles.legendText, { color: colors.textSubtle }]}>Missing readings</Text>
-        </View>
-      ) : null}
+      {history && !matchesRequest ? <View style={styles.rangeStatus}>
+        <Text accessibilityLiveRegion="polite" style={[styles.caption, { color: colors.textMuted }]}>
+          {loading ? 'Loading selected range… ' : 'Selected range unavailable. '}
+          Showing {history.requestedWindow ? chartDateRange(history.requestedWindow.from, history.requestedWindow.to) : drawnRangeLabel.toLowerCase()}.
+        </Text>
+        {!loading ? <Pressable accessibilityRole="button" onPress={retry} style={styles.retry}>
+          <Text style={[styles.actionText, { color: colors.interactive }]}>Try again</Text>
+        </Pressable> : null}
+      </View> : null}
       <View style={styles.plotWrap} onLayout={onLayout}>
-        {width > 0 && hasPlot ? (
-          <GestureDetector gesture={scrubGesture}>
-            {/* Adjustable, not image: a VoiceOver swipe up/down steps the scrub
-                one reading at a time — the same thing the web plot's
-                role="slider" gives arrow keys. The label summarises the plot;
-                the value speaks whichever reading the scrub is on. */}
-            <View
-              accessible
-              accessibilityRole="adjustable"
-              accessibilityLabel={plotSummary}
-              accessibilityValue={spokenValue ? { text: spokenValue } : undefined}
-              accessibilityActions={[
-                { name: 'increment', label: 'Later reading' },
-                { name: 'decrement', label: 'Earlier reading' },
-              ]}
-              onAccessibilityAction={onAccessibilityAction}
-            >
-              <Svg width={width} height={chartHeight}>
-                {/* ── The gradient the fill draws with ──
-                    The website's hydrograph has carried a fill since it was
-                    built and the app's never did, so the same river drew as a
-                    weighted body of water on one screen and a bare 2px stroke
-                    on the other. It is the cheapest thing on the chart that
-                    says "this is water and this is how much of it".
-
-                    Fades to nearly nothing at the foot so it stays a fill and
-                    does not read as one more condition band — those carry
-                    meaning this must not borrow. */}
-                <Defs>
-                  <LinearGradient id={fillId} x1="0" y1="0" x2="0" y2="1">
-                    {/* Deliberately fainter than the web chart's ramp
-                        (0.30 → 0.05): this plot already stacks condition
-                        bands, a typical range and a forecast in 200px, and at
-                        a quarter alpha the fill competed with all of them. The
-                        line stays the data mark; the fill is something a
-                        reader should feel more than notice. Dark sits a step
-                        above light because the same alpha over near-black
-                        stone all but disappears — the band rects make the
-                        identical adjustment. */}
-                    <Stop offset="0" stopColor={lineColor} stopOpacity={isDark ? 0.18 : 0.12} />
-                    <Stop offset="1" stopColor={lineColor} stopOpacity={0.01} />
-                  </LinearGradient>
-                </Defs>
-
-                {/* ── The fill under the line ──
-                    FIRST out of the paint can, under even the condition bands,
-                    because paint order is meaning order: the fill is decoration
-                    and every layer after it carries a number.
-
-                    Drawn last (its first home, next to the line it belongs to)
-                    it painted over the typical range, the band boundaries, the
-                    NWS stage rules AND their labels, and the value axis — at up
-                    to 0.34 alpha, which is a teal wash across every threshold on
-                    the chart. A fill that tints a flood line is worse than no
-                    fill at all. Under the bands too, so the condition colours —
-                    which carry a verdict — stay their own hue rather than
-                    arriving pre-tinted teal. */}
-                {series.areas.map((d, i) => (
-                  <Path key={`a-${i}`} d={d} fill={`url(#${fillId})`} />
-                ))}
-
-                {/* ── The bands, at their true numeric height ── */}
-                {zones.map((zone) => {
-                  const top = scale.y(Math.min(zone.max, domain.max));
-                  const bottom = scale.y(Math.max(zone.min, domain.min));
-                  const h = bottom - top;
-                  // Entirely outside the visible domain — not clipped to a sliver,
-                  // dropped. A 1px stripe of "Flood" along the top edge implies a
-                  // proximity the numbers do not support.
-                  if (h <= 0.5) return null;
-                  return (
-                    <Rect
-                      key={zone.key}
-                      x={0}
-                      y={top}
-                      width={plotWidth}
-                      height={h}
-                      fill={conditionColor(zone.key)}
-                      // Low enough that the line and its readout stay the subject.
-                      // Lifted slightly on dark, where the same alpha over
-                      // near-black stone all but disappears.
-                      opacity={isDark ? 0.17 : 0.13}
-                    />
-                  );
-                })}
-
-                {/* ── What this river normally does on this date ──
-                    Above the fills and below every rule: both it and the
-                    observed fill are areas, and the question this band exists
-                    to answer is where the line sits INSIDE it. Labelled in the
-                    legend below — a shaded band with nothing naming it is a
-                    claim the reader cannot check. Discharge only; see the memo. */}
-                {series.typicalArea ? (
-                  <Path d={series.typicalArea} fill={TYPICAL_COLOR} fillOpacity={isDark ? 0.16 : 0.1} />
-                ) : null}
-                {series.typicalPath ? (
-                  <Path
-                    d={series.typicalPath}
-                    stroke={TYPICAL_COLOR}
-                    strokeWidth={1}
-                    strokeDasharray="4,3"
-                    opacity={0.55}
-                    fill="none"
-                  />
-                ) : null}
-
-                {/* Band boundaries, labelled down the right edge. These are the
-                    numbers people actually want off a chart like this — "High
-                    starts at 1,400" — and a shaded region alone does not say it. */}
-                {zones.map((zone) => {
-                  const y = scale.y(zone.max);
-                  if (zone.openEnded) return null;
-                  if (y < PAD_TOP || y > PAD_TOP + plotHeight) return null;
-                  return (
-                    <Line
-                      key={`edge-${zone.key}`}
-                      x1={0}
-                      y1={y}
-                      x2={plotWidth}
-                      y2={y}
-                      stroke={conditionColor(zone.key)}
-                      strokeWidth={1}
-                      strokeDasharray="3,3"
-                      opacity={0.55}
-                    />
-                  );
-                })}
-
-                {/* ── The NWS stages ──
-                    Drawn OVER the bands and UNDER the line: they are somebody
-                    else's threshold laid across the picture, so they must not sit
-                    behind a condition band that would tint them, and they must not
-                    cover the reading they are context for.
-
-                    Never rendered on a cfs axis — stageLines is empty there by
-                    construction, so this cannot be got wrong by editing the JSX.
-                    The label carries "NWS" every time; a bare violet rule is an
-                    unattributed claim about danger. */}
-                {stageLines.map((line) => {
-                  const y = scale.y(line.value);
-                  if (y < PAD_TOP || y > PAD_TOP + plotHeight) return null;
-                  const def = FLOOD_STAGE_SYSTEM[line.key];
-                  return (
-                    <G key={`stage-${line.key}`}>
-                      <Line
-                        x1={0}
-                        y1={y}
-                        x2={plotWidth}
-                        y2={y}
-                        stroke={floodStageColor()}
-                        strokeWidth={1.5}
-                        strokeDasharray={def.dash}
-                        opacity={def.opacity}
-                      />
-                      <SvgText
-                        x={2}
-                        // Above its own line, and pushed below it for a stage
-                        // sitting within a label's height of the top edge —
-                        // otherwise the topmost one clips out of the viewport.
-                        y={stageLabelBelowLine(y) ? y + 11 : y - 3}
-                        fill={floodStageColor()}
-                        fontSize={9}
-                        fontFamily={fonts.medium}
-                        opacity={Math.max(def.opacity, 0.75)}
-                      >
-                        {/* The number rides with the name: "NWS flood stage"
-                            alone tells a reader a line matters without saying
-                            where it is, and the axis ticks rarely land on it.
-                            Stage lines are feet by construction (never drawn
-                            on a cfs axis), so the unit is literal. */}
-                        {`${def.label} · ${line.value} ft`}
-                      </SvgText>
-                    </G>
-                  );
-                })}
-
-                {/* Dashed bridges indicate missing observations, not measured values.
-                    Keep area fills and scrubbing confined to real samples. */}
-                {series.gapPaths.map((d, i) => (
-                  <Path key={`gap-${i}`} d={d} stroke={lineColor} strokeWidth={1.5}
-                    strokeDasharray="3 5" strokeOpacity={0.65} fill="none" />
-                ))}
-                {/* ── The line ── */}
-                {series.paths.map((d, i) => (
-                  <Path
-                    key={`p-${i}`}
-                    d={d}
-                    stroke={lineColor}
-                    strokeWidth={2}
-                    fill="none"
-                    strokeLinejoin="round"
-                    strokeLinecap="round"
-                  />
-                ))}
-
-                {/* A reading with no neighbour inside the cadence. Dropped with its
-                    segment until chartSegments() started handing these back, which
-                    meant a station reporting once between two outages showed empty
-                    space where a number was. */}
-                {series.dots.map((point) => (
-                  <Circle
-                    key={`dot-${point.t}`}
-                    cx={scale.x(point.t)}
-                    cy={scale.y(point.v)}
-                    r={2}
-                    fill={lineColor}
-                  />
-                ))}
-
-                {/* ── The boundary between what happened and what is predicted ──
-                    Keyed on there being a forecast POINT, not a forecast path: a
-                    one-point forecast is still a forecast, and gating the rule on a
-                    drawn line put the boundary and the legend out of step with the
-                    thing they describe. */}
-                {newest && nowLabelText && forecastPoints.length > 0
-                  ? (() => {
-                      const nowX = scale.x(newest.t);
-                      // Roughly the caption's width at 9px plus the gap:
-                      // "Last reading" needs about three times the room "Now"
-                      // did, so it flips to the forecast side sooner.
-                      const flipped = nowX < (nowLabelText === 'Now' ? 36 : 64);
-                      // The caption and a top-band stage label share the top
-                      // line of the plot. When the now-line also sits in the
-                      // leftmost quarter — a 24h range under a multi-day
-                      // forecast — they would overprint, so the caption drops
-                      // one line height. The simplest rule that clears the
-                      // case seen; the web chart applies the same one.
-                      const stageLabelAtTop = stageLines.some((line) => {
-                        const y = scale.y(line.value);
-                        return y >= PAD_TOP && stageLabelBelowLine(y);
-                      });
-                      const captionY =
-                        stageLabelAtTop && nowX < plotWidth * 0.25 ? PAD_TOP + 22 : PAD_TOP + 10;
-                      return (
-                        <G>
-                          <Line
-                            x1={nowX}
-                            y1={PAD_TOP}
-                            x2={nowX}
-                            y2={PAD_TOP + plotHeight}
-                            stroke={colors.textSubtle}
-                            strokeWidth={1}
-                            strokeDasharray="2,3"
-                            opacity={0.7}
-                          />
-                          {/* The rule, named. Unlabelled it was a dashed line a
-                              reader had to infer; "Now" is what makes the dashed
-                              series past it unmistakably a prediction — and
-                              "Last reading" is what keeps that honest when the
-                              gauge has been quiet for days. On the observed
-                              side of its own line, flipped when the boundary
-                              sits so far left that an end-anchored label would
-                              clip out of the plot. */}
-                          <SvgText
-                            x={flipped ? nowX + 4 : nowX - 4}
-                            y={captionY}
-                            fill={colors.textSubtle}
-                            fontSize={9}
-                            fontFamily={fonts.medium}
-                            textAnchor={flipped ? 'start' : 'end'}
-                            opacity={0.8}
-                          >
-                            {nowLabelText}
-                          </SvgText>
-                        </G>
-                      );
-                    })()
-                  : null}
-
-                {/* ── The official forecast ──
-                    Violet and dashed, the same hue the stage lines use and for the
-                    same reason: it is the Weather Service's number, not Eddy's
-                    verdict. The legend names it; an unattributed dashed line
-                    climbing off the right edge is a prediction nobody owns. */}
-                {series.forecastPaths.map((d, i) => (
-                  <Path
-                    key={`f-${i}`}
-                    d={d}
-                    stroke={floodStageColor()}
-                    strokeWidth={2}
-                    strokeDasharray="5,4"
-                    fill="none"
-                    strokeLinejoin="round"
-                    strokeLinecap="round"
-                  />
-                ))}
-                {series.forecastDots.map((point) => (
-                  <Circle
-                    key={`fdot-${point.t}`}
-                    cx={scale.x(point.t)}
-                    cy={scale.y(point.v)}
-                    r={2}
-                    fill={floodStageColor()}
-                  />
-                ))}
-
-                {/* ── Where it is now ── the newest OBSERVED reading, never a
-                    forecast. 8px across: decisively bigger than the 4px isolated-
-                    reading dots, still under the scrub marker that lands on it. */}
-                {points.length > 0 ? (
-                  <Circle
-                    cx={scale.x(points[points.length - 1].t)}
-                    cy={scale.y(points[points.length - 1].v)}
-                    r={4}
-                    fill={lineColor}
-                  />
-                ) : null}
-
-                {/* ── The scrub rule ── */}
-                {scrubbed ? (
-                  <>
-                    <Line
-                      x1={scale.x(scrubbed.point.t)}
-                      y1={PAD_TOP}
-                      x2={scale.x(scrubbed.point.t)}
-                      y2={PAD_TOP + plotHeight}
-                      stroke={colors.text}
-                      strokeWidth={1}
-                      opacity={0.4}
-                    />
-                    <Circle
-                      cx={scale.x(scrubbed.point.t)}
-                      cy={scale.y(scrubbed.point.v)}
-                      r={4.5}
-                      fill={colors.card}
-                      stroke={scrubbed.kind === 'forecast' ? floodStageColor() : lineColor}
-                      strokeWidth={2}
-                    />
-                  </>
-                ) : null}
-
-                {/* ── Value axis, right edge ──
-                    Round numbers from niceValueTicks(), not the padded domain's own
-                    min/mid/max. See the memo for what that printed. Drawn on top of
-                    the stack with the time axis: axis text is how every other layer
-                    gets read, so nothing may paint over it. */}
-                {valueTicks.map((tick) => (
-                  <SvgText
-                    key={`v-${tick.value}`}
-                    x={plotWidth + 6}
-                    y={scale.y(tick.value) + 4}
-                    fill={colors.textSubtle}
-                    fontSize={10}
-                    fontFamily={fonts.mono}
-                  >
-                    {axisValue(tick.value, drawnUnit)}
-                  </SvgText>
-                ))}
-
-                {/* ── Time axis ──
-                    Three instants from timeTicks() rather than the two ends, so the
-                    middle of the plot can be placed in time. The first and last are
-                    anchored inward; a centred label at x=0 clips. */}
-                {xTicks.map((tick, index) => (
-                  <SvgText
-                    key={`t-${index}`}
-                    x={scale.x(tick.value)}
-                    y={chartHeight - 4}
-                    fill={colors.textSubtle}
-                    fontSize={10}
-                    fontFamily={fonts.body}
-                    textAnchor={index === 0 ? 'start' : index === xTicks.length - 1 ? 'end' : 'middle'}
-                  >
-                    {axisTime(tick.value, drawnDays)}
-                  </SvgText>
-                ))}
-              </Svg>
-
-              {/* ── Legend ──
-                  Only for the overlays that are actually on screen, and never
-                  omitted when one is: a violet dashed line climbing off the right
-                  edge is somebody's prediction, and a teal band behind the series
-                  is a national statistic. Both are claims a reader must be able to
-                  attribute, and the issue time is the part that makes a forecast
-                  checkable — NWPS reissues on a schedule, so a line read at 6pm may
-                  predate the afternoon's rain. */}
-              {series.typicalPath || forecastPoints.length > 0 ? (
-                <View style={styles.legend}>
-                  {/* Each entry carries a sample of its own mark — coloured text
-                      alone asks the reader to hold a colour table in their head.
-                      The forecast leads: it is the entry that most needs
-                      attributing. Its dash sample is two segments rather than a
-                      dashed border, which RN only renders reliably on a view
-                      bordered on all four sides. */}
-                  {forecastPoints.length > 0 ? (
-                    <View style={styles.legendItem}>
-                      <View style={styles.legendDashes} aria-hidden>
-                        <View style={[styles.legendDash, { backgroundColor: floodStageColor() }]} />
-                        <View style={[styles.legendDash, { backgroundColor: floodStageColor() }]} />
-                      </View>
-                      <Text style={[styles.legendText, { color: floodStageColor() }]} numberOfLines={1}>
-                        NWS forecast{forecastIssued ? ` · issued ${forecastIssued}` : ''}
-                      </Text>
-                    </View>
-                  ) : null}
-                  {series.typicalPath ? (
-                    <View style={styles.legendItem}>
-                      {/* The band's own recipe at legend scale: translucent teal
-                          under the median's solid top edge. */}
-                      <View
-                        aria-hidden
-                        style={[
-                          styles.legendBand,
-                          {
-                            // Alpha in the fill, not view opacity, which would
-                            // fade the solid median edge with it.
-                            backgroundColor: `${TYPICAL_COLOR}${isDark ? '59' : '40'}`,
-                            borderTopColor: TYPICAL_COLOR,
-                          },
-                        ]}
-                      />
-                      <Text style={[styles.legendText, { color: TYPICAL_COLOR }]}>Typical 25–75%</Text>
-                    </View>
-                  ) : null}
-                </View>
-              ) : null}
-            </View>
-          </GestureDetector>
-        ) : (
-          <View style={[styles.placeholder, { height: chartHeight }]}>
-            {loading ? (
-              <ActivityIndicator size="small" color={colors.interactive} />
-            ) : failed ? (
-              // A sentence about the NETWORK, and the only one here that comes
-              // with a way out. It is reachable only when nothing is held for
-              // this station — with an older window cached, useGaugeHistory
-              // keeps that line up and never lands here at all.
-              <>
-                <Text style={[styles.placeholderText, { color: colors.textSubtle }]}>
-                  Couldn&apos;t load this gauge&apos;s history.
-                </Text>
-                <Pressable
-                  onPress={retry}
-                  hitSlop={10}
-                  accessibilityRole="button"
-                  style={styles.retry}
-                >
-                  <Text style={[styles.retryText, { color: colors.interactive }]}>Try again</Text>
-                </Pressable>
-              </>
-            ) : (
-              <Text style={[styles.placeholderText, { color: colors.textSubtle }]}>
-                {/* Three distinct states, because each would be a lie as the
-                    others. Only `unavailable` may be phrased as a fact about the
-                    gauge — a failed request either leaves the previous line up or
-                    takes the branch above; see useGaugeHistory.
-
-                    THE SINGLE-READING SENTENCE IS BACK. It left when one reading
-                    started drawing as a dot; it returns because the axis under
-                    that dot was not real (see hasPlot), so the reading falls
-                    through to here again — and "no discharge reported" would be
-                    false about a window that holds one. */}
-                {unavailable
-                  ? 'No recent history published for this gauge.'
-                  : points.length === 1
-                    ? `Only one ${drawnUnit === 'cfs' ? 'discharge' : 'gauge height'} reading in this window — not enough to chart.`
-                    : `No ${drawnUnit === 'cfs' ? 'discharge' : 'gauge height'} reported in this window.`}
-              </Text>
-            )}
+        {width > 0 && hasPlot ? <GestureDetector gesture={scrubGesture}>
+          <View accessible accessibilityRole="adjustable" accessibilityLabel={plotSummary}
+            accessibilityHint="Swipe up or down for the next or previous reading. Data and details contains the full table."
+            accessibilityValue={spokenValue ? { text: spokenValue } : undefined}
+            accessibilityActions={[{ name: 'increment', label: 'Later reading' }, { name: 'decrement', label: 'Earlier reading' }]}
+            onAccessibilityAction={onAccessibilityAction} onAccessibilityEscape={() => setScrubX(null)}>
+            <Svg width={width} height={chartHeight}>
+              <Defs><ClipPath id={clipId}><Rect x={padLeft} y={padTop} width={plotWidth} height={plotHeight} /></ClipPath></Defs>
+              <G clipPath={`url(#${clipId})`}>
+                {currentZone ? <Rect x={padLeft} y={Math.max(padTop, scale.y(currentZone.openEnded ? domain.max : Math.min(currentZone.max, domain.max)))}
+                  width={plotWidth} height={Math.max(0, Math.min(padTop + plotHeight, scale.y(currentZone.min)) - Math.max(padTop, scale.y(currentZone.openEnded ? domain.max : Math.min(currentZone.max, domain.max))))}
+                  fill={conditionColor(currentZone.key)} opacity={isDark ? 0.08 : 0.05} /> : null}
+                {valueTicks.map(tick => <Line key={`grid-${tick.value}`} x1={padLeft} x2={padLeft + plotWidth} y1={scale.y(tick.value)} y2={scale.y(tick.value)} stroke={colors.border} strokeWidth={0.5} />)}
+                {showTypical && series.typicalArea ? <Path d={series.typicalArea} fill={colors.textMuted} fillOpacity={isDark ? 0.16 : 0.1} /> : null}
+                {showMedian && series.typicalPath ? <Path d={series.typicalPath} stroke={colors.textMuted} strokeWidth={1} strokeDasharray="2 4" fill="none" /> : null}
+                {zones.filter(zone => !zone.openEnded).map(zone => <Line key={`edge-${zone.key}`} x1={padLeft} x2={padLeft + plotWidth} y1={scale.y(zone.max)} y2={scale.y(zone.max)} stroke={conditionColor(zone.key)} strokeWidth={0.75} opacity={0.5} />)}
+                {stageLines.map(line => <Line key={`stage-${line.key}`} x1={padLeft} x2={padLeft + plotWidth} y1={scale.y(line.value)} y2={scale.y(line.value)} stroke={floodStageColor()} strokeWidth={1} strokeDasharray={FLOOD_STAGE_SYSTEM[line.key].dash} opacity={0.65} />)}
+                {series.gapPaths.map((d, i) => <Path key={`gap-${i}`} d={d} stroke={colors.textSubtle} strokeWidth={1} strokeDasharray="1 5" fill="none" />)}
+                {series.paths.map((d, i) => <Path key={`observed-${i}`} d={d} stroke={lineColor} strokeWidth={2.8} fill="none" strokeLinejoin="round" strokeLinecap="round" />)}
+                {series.dots.map(point => <Circle key={`dot-${point.t}`} cx={scale.x(point.t)} cy={scale.y(point.v)} r={2.5} fill={lineColor} />)}
+                {series.forecastPaths.map((d, i) => <Path key={`forecast-${i}`} d={d} stroke={lineColor} strokeWidth={1.8} strokeDasharray="6 4" opacity={0.7} fill="none" strokeLinejoin="round" />)}
+                {series.forecastDots.map(point => <Circle key={`forecast-dot-${point.t}`} cx={scale.x(point.t)} cy={scale.y(point.v)} r={3} fill={colors.card} stroke={lineColor} strokeWidth={1.3} />)}
+                {forecastPoints.length > 0 ? <Circle cx={scale.x(forecastPoints[0].t)} cy={scale.y(forecastPoints[0].v)} r={2.7} fill={colors.card} stroke={lineColor} strokeWidth={1.3} /> : null}
+                {newest ? <>
+                  {forecastPoints.length > 0 ? <Line x1={scale.x(newest.t)} x2={scale.x(newest.t)} y1={padTop} y2={padTop + plotHeight} stroke={colors.textMuted} strokeDasharray="2 4" opacity={0.3} /> : null}
+                  <Circle cx={scale.x(newest.t)} cy={scale.y(newest.v)} r={4.3} fill={lineColor} stroke={colors.card} strokeWidth={1.3} />
+                </> : null}
+                {scrubbed ? <>
+                  <Line x1={scale.x(scrubbed.point.t)} x2={scale.x(scrubbed.point.t)} y1={padTop} y2={padTop + plotHeight} stroke={colors.textMuted} opacity={0.5} />
+                  <Circle cx={scale.x(scrubbed.point.t)} cy={scale.y(scrubbed.point.v)} r={4.5} fill={colors.card} stroke={lineColor} strokeWidth={2} />
+                </> : null}
+              </G>
+              {valueTicks.map(tick => <SvgText key={`value-${tick.value}`} x={padLeft - 7} y={scale.y(tick.value) + axisFont * 0.35} textAnchor="end" fill={colors.textMuted} fontSize={axisFont} fontFamily={fonts.mono}>{axisValue(tick.value, drawnUnit)}</SvgText>)}
+              {railVisible && zones.map(zone => {
+                const top = scale.y(zone.openEnded ? domain.max : Math.min(zone.max, domain.max));
+                const bottom = scale.y(Math.max(zone.min, domain.min));
+                const height = bottom - top;
+                if (height <= 0) return null;
+                return <G key={`rail-${zone.key}`}>
+                  <Rect x={padLeft + plotWidth + 7} y={top} width={4} height={height} fill={conditionColor(zone.key)} />
+                  {height >= axisFont * 1.7 ? <SvgText x={padLeft + plotWidth + 16} y={(top + bottom) / 2 + axisFont * 0.35} fontSize={axisFont} fill={colors.text} fontFamily={fonts.medium}>{zone.label}</SvgText> : null}
+                </G>;
+              })}
+              {railVisible && !zones.length && stageLines.map((line, index) => {
+                const y = scale.y(line.value);
+                if (y < padTop || y > padTop + plotHeight) return null;
+                const previous = stageLines[index - 1];
+                const labelFits = !previous || Math.abs(scale.y(previous.value) - y) >= axisFont * 1.7;
+                return <G key={`rail-stage-${line.key}`}>
+                  <Rect x={padLeft + plotWidth + 7} y={y - 2} width={4} height={4} fill={floodStageColor()} />
+                  {labelFits ? <SvgText x={padLeft + plotWidth + 16} y={y + axisFont * 0.35} fontSize={axisFont} fill={colors.text} fontFamily={fonts.medium}>{stageRailLabel(line.key)}</SvgText> : null}
+                </G>;
+              })}
+              {railVisible && above ? <G>
+                <SvgText x={padLeft + plotWidth + 6} y={axisFont} fill={colors.textMuted} fontSize={axisFont} fontFamily={fonts.body}>↑ {above.label}</SvgText>
+                <SvgText x={padLeft + plotWidth + 6} y={axisFont * 2.2} fill={colors.textMuted} fontSize={axisFont} fontFamily={fonts.mono}>{axisValue(above.value, drawnUnit)}</SvgText>
+              </G> : null}
+              {railVisible && below ? <G>
+                <SvgText x={padLeft + plotWidth + 6} y={chartHeight - axisFont * 1.25} fill={colors.textMuted} fontSize={axisFont} fontFamily={fonts.body}>↓ {zones.find(zone => !zone.openEnded && zone.max === below.value)?.label ?? below.label}</SvgText>
+                <SvgText x={padLeft + plotWidth + 6} y={chartHeight - 1} fill={colors.textMuted} fontSize={axisFont} fontFamily={fonts.mono}>{axisValue(below.value, drawnUnit)}</SvgText>
+              </G> : null}
+              {plotWidth >= axisFont * 7 && (forecastPoints.length > 0 || stageLines.length > 0) ? <SvgText x={padLeft + plotWidth - 3} y={axisFont * 1.8} textAnchor="end" fill={colors.textMuted} fontSize={axisFont} fontFamily={fonts.body}>{forecastPoints.length ? 'NWS forecast' : 'NWS stages'}</SvgText> : null}
+              {plotWidth > axisFont * (forecastPoints.length || stageLines.length ? 18 : 8) ? <SvgText x={padLeft + 3} y={axisFont * 1.8} fill={colors.textMuted} fontSize={axisFont} fontFamily={fonts.body}>
+                {showTypical && series.typicalArea ? 'Typical' : showMedian && series.typicalPath ? 'Median' : series.gapPaths.length ? 'Dotted: gaps' : nowLabelText === 'Last reading' ? 'Last reading' : ''}
+              </SvgText> : null}
+              {xTicks.map((tick, index) => <SvgText key={`time-${index}`} x={scale.x(tick.value)} y={chartHeight - 6} fill={colors.textMuted} fontSize={axisFont} fontFamily={fonts.body} textAnchor={index === 0 ? 'start' : index === xTicks.length - 1 ? 'end' : 'middle'}>{axisTime(tick.value, drawnDays)}</SvgText>)}
+            </Svg>
+            {scrubbed ? <View pointerEvents="none" accessible={false} importantForAccessibility="no-hide-descendants"
+              style={[styles.scrubOverlay, { left: padLeft, backgroundColor: colors.card, borderColor: colors.border }]}>
+              <Text style={[styles.scrubValue, { color: colors.text }]}>{formatReading(scrubbed.point.v, drawnUnit)}{scrubZone ? ` · ${scrubZone.label}` : ''}</Text>
+              <Text style={[styles.caption, { color: colors.textMuted }]}>{scrubTime(scrubbed.point.t)} · {scrubbed.kind === 'forecast' ? 'NWS forecast' : `${observedLabel}${scrubQualifiers ? ` · ${scrubQualifiers}` : ''}`}</Text>
+            </View> : null}
           </View>
-        )}
+        </GestureDetector> : <View style={[styles.placeholder, { height: chartHeight }]}>
+          {loading ? <ActivityIndicator accessibilityLabel="Loading gauge history" color={colors.interactive} /> : failed ? <>
+            <Text style={[styles.placeholderText, { color: colors.textMuted }]}>Couldn&apos;t load this gauge&apos;s history.</Text>
+            <Pressable accessibilityRole="button" onPress={retry} style={styles.retry}><Text style={[styles.actionText, { color: colors.interactive }]}>Try again</Text></Pressable>
+          </> : <Text style={[styles.placeholderText, { color: colors.textMuted }]}>{unavailable ? 'No recent history published for this gauge.' : points.length >= 2 || forecastPoints.length ? 'Use Data & details to read this history at your current text size.' : points.length === 1 ? 'Only one reading in this window — not enough to chart.' : `No ${drawnUnit === 'cfs' ? 'flow' : 'gauge height'} reported in this window.`}</Text>}
+        </View>}
       </View>
-      {/* Secondary tools follow the graph, keeping the data near its heading. */}
       <View style={[styles.actions, { borderTopColor: colors.border }]}>
-        {historyCapabilities?.supportsCustomRange && (
-          <Pressable accessibilityRole="button" accessibilityLabel="Custom dates" accessibilityState={{ expanded: showDates, selected: Boolean(customWindow) }}
-            onPress={() => setShowDates(!showDates)}
-            style={({ pressed }) => [styles.toolbarAction, { backgroundColor: showDates || customWindow ? colors.cardRaised : colors.card, opacity: pressed ? 0.65 : 1 }]}>
-            <Ionicons name="calendar-outline" size={16} color={colors.interactive} />
-            <Text style={[styles.actionText, { color: colors.interactive }]}>Dates</Text>
-          </Pressable>
-        )}
-        <Pressable accessibilityRole="button" accessibilityLabel={showTable ? 'Hide data table' : 'Show data table'} accessibilityState={{ expanded: showTable, selected: showTable }}
-          onPress={() => setShowTable(!showTable)}
-          style={({ pressed }) => [styles.toolbarAction, { backgroundColor: showTable ? colors.cardRaised : colors.card, opacity: pressed ? 0.65 : 1 }]}>
-          <Ionicons name="list-outline" size={16} color={colors.interactive} />
-          <Text style={[styles.actionText, { color: colors.interactive }]}>{showTable ? 'Hide table' : 'Table'}</Text>
+        <Pressable accessibilityRole="button" accessibilityLabel="Compare chart layers" onPress={() => { setScrubX(null); setSheet('compare'); }} style={({ pressed }) => [styles.toolbarAction, { opacity: pressed ? 0.65 : 1 }]}>
+          <Ionicons name="options-outline" size={16} color={colors.interactive} /><Text style={[styles.actionText, { color: colors.interactive }]}>Compare{comparisonCount ? ` · ${comparisonCount}` : ''}</Text>
         </Pressable>
-        <Pressable accessibilityRole="button" accessibilityState={{ disabled: !history?.readings.length }}
-          disabled={!history?.readings.length}
-          style={({ pressed }) => [styles.toolbarAction, { backgroundColor: colors.card, opacity: !history?.readings.length ? 0.4 : pressed ? 0.65 : 1 }]}
-          onPress={async () => {
-            if (!history) return;
-            try {
-              const file = new File(Paths.cache, `gauge-${siteId}-history.csv`);
-              file.write(['timestamp,gauge_height_ft,discharge_cfs', ...history.readings.map(r => `${r.timestamp},${r.gaugeHeightFt ?? ''},${r.dischargeCfs ?? ''}`)].join('\n'));
-              await Share.share({ url: file.uri, title: 'Gauge history CSV' });
-            } catch { Alert.alert('Export unavailable', 'Please try exporting the readings again.'); }
-          }}>
-          <Ionicons name="share-outline" size={16} color={colors.interactive} />
-          <Text style={[styles.actionText, { color: colors.interactive }]}>Export CSV</Text>
+        <Pressable accessibilityRole="button" onPress={() => { setScrubX(null); setSheet('data'); }} style={({ pressed }) => [styles.toolbarAction, { opacity: pressed ? 0.65 : 1 }]}>
+          <Ionicons name="grid-outline" size={16} color={colors.interactive} /><Text style={[styles.actionText, { color: colors.interactive }]}>Data & details</Text>
         </Pressable>
       </View>
-      {showDates && <View style={{ gap: 8, paddingBottom: 12 }}>
-        <TextInput accessibilityLabel="Start date YYYY-MM-DD" placeholder="From: YYYY-MM-DD" placeholderTextColor={colors.textSubtle} value={fromDate} onChangeText={setFromDate} style={{ color: colors.text, borderColor: colors.border, borderWidth: 1, borderRadius: 10, padding: 12 }} />
-        <TextInput accessibilityLabel="End date YYYY-MM-DD" placeholder="To: YYYY-MM-DD" placeholderTextColor={colors.textSubtle} value={toDate} onChangeText={setToDate} style={{ color: colors.text, borderColor: colors.border, borderWidth: 1, borderRadius: 10, padding: 12 }} />
-        {dateError && <Text accessibilityRole="alert" style={{ color: colors.text }}>{dateError}</Text>}
-        <Pressable accessibilityRole="button" style={({ pressed }) => [styles.action, { borderColor: colors.border, backgroundColor: colors.cardRaised, opacity: pressed ? 0.65 : 1 }]} onPress={() => {
-          const from = Date.parse(`${fromDate}T00:00:00Z`);
-          const to = Date.parse(`${toDate}T23:59:59Z`);
-          const validDate = (value: string, time: number) => /^\d{4}-\d{2}-\d{2}$/.test(value) && Number.isFinite(time) && new Date(time).toISOString().slice(0, 10) === value;
-          if (!validDate(fromDate, from) || !validDate(toDate, to) || to <= from || to - from > 366 * 86400000 || from > Date.now()) {
-            setDateError('Enter valid dates in order, no more than one year apart.'); return;
-          }
-          setDateError(null); setScrubX(null);
-          setDays(Math.ceil((to - from) / 86400000));
-          setCustomWindow({ from: new Date(from).toISOString(), to: new Date(Math.min(to, Date.now())).toISOString() });
-        }}><Text style={[styles.actionText, { color: colors.interactive }]}>Apply dates</Text></Pressable>
-      </View>}
-      {showTable ? <GaugeHistoryTable readings={history?.readings ?? []} /> : null}
+      {sheet ? <GaugeChartSheet title={sheet === 'compare' ? 'Compare' : sheet === 'data' ? 'Data & details' : sheet === 'unit' ? 'Measurement' : sheet === 'range' ? 'History range' : 'Custom dates'} onClose={closeSheet}>
+        {sheet === 'compare' ? <>
+          <ChartComparison label="Typical range" detail={drawnUnit !== 'cfs' ? 'Available for Flow (cfs)' : typical.length ? 'Historical daily flow · 25th–75th percentile' : 'Historical statistics unavailable for this window'} value={showTypical && typical.length > 0} disabled={!typical.length} onChange={setShowTypical} />
+          <ChartComparison label="Historical median" detail="50th percentile for each date" value={showMedian && typical.length > 0} disabled={!typical.length} onChange={setShowMedian} />
+          <ChartComparison label={zones.length ? 'Full Eddy scale' : 'Full stage references'} detail={zones.length ? 'Show every condition threshold' : stageLines.length ? 'NWS references in feet' : 'No thresholds for this measurement'} value={fullScale} disabled={!zones.length && !stageLines.length} onChange={setFullScale} />
+          <Text style={[styles.caption, { color: colors.textMuted }]}>Historical context describes past daily flow, not forecast uncertainty. Values appear only for dates provided by USGS.</Text>
+        </> : sheet === 'data' ? <GaugeChartDetails siteId={siteId} history={history} thresholds={thresholds} floodStages={floodStages} defaultUnit={unit} /> : sheet === 'unit' ? availableUnits.map(value => <Pressable key={value} accessibilityRole="radio" accessibilityState={{ checked: value === drawnUnit }} onPress={() => chooseUnit(value)} style={[styles.choice, { borderBottomColor: colors.border }]}>
+          <Text style={[styles.choiceText, { color: colors.text }]}>{value === 'cfs' ? 'Flow (cfs)' : 'Gauge height (ft)'}</Text>{value === drawnUnit ? <Ionicons name="checkmark" size={20} color={colors.interactive} /> : null}
+        </Pressable>) : sheet === 'range' ? <>
+          {ranges.map(r => {
+            const active = r.days === days && !customWindow;
+            return <Pressable key={r.days} accessibilityRole="radio" accessibilityState={{ checked: active }} onPress={() => { setCustomWindow(undefined); setDays(r.days); setScrubX(null); closeSheet(); }} style={[styles.choice, { borderBottomColor: colors.border }]}>
+              <Text style={[styles.choiceText, { color: colors.text }]}>{r.days === 1 ? '24 hours' : r.days === 365 ? '1 year' : `${r.days} days`}</Text>{active ? <Ionicons name="checkmark" size={20} color={colors.interactive} /> : null}
+            </Pressable>;
+          })}
+          {historyCapabilities?.supportsCustomRange ? <Pressable accessibilityRole="button" onPress={() => setSheet('dates')} style={[styles.choice, { borderBottomColor: colors.border }]}><Text style={[styles.choiceText, { color: colors.interactive }]}>Custom dates</Text><Ionicons name="calendar-outline" size={20} color={colors.interactive} /></Pressable> : null}
+        </> : <>
+          <Text style={[styles.caption, { color: colors.textMuted }]}>Enter dates as YYYY-MM-DD (UTC).</Text>
+          <TextInput accessibilityLabel="Start date YYYY-MM-DD" placeholder="From: YYYY-MM-DD" autoCapitalize="none" autoCorrect={false} placeholderTextColor={colors.textSubtle} value={fromDate} onChangeText={setFromDate} style={[styles.dateInput, { color: colors.text, borderColor: colors.border }]} />
+          <TextInput accessibilityLabel="End date YYYY-MM-DD" placeholder="To: YYYY-MM-DD" autoCapitalize="none" autoCorrect={false} placeholderTextColor={colors.textSubtle} value={toDate} onChangeText={setToDate} style={[styles.dateInput, { color: colors.text, borderColor: colors.border }]} />
+          {dateError ? <Text accessibilityRole="alert" style={[styles.caption, { color: colors.text }]}>{dateError}</Text> : null}
+          <Pressable accessibilityRole="button" onPress={applyDates} style={[styles.rangeButton, { backgroundColor: colors.cardRaised }]}><Text style={[styles.actionText, { color: colors.interactive }]}>Apply dates</Text></Pressable>
+        </>}
+      </GaugeChartSheet> : null}
     </View>
   );
+}
+
+function ChartComparison({ label, detail, value, disabled, onChange }: { label: string; detail: string; value: boolean; disabled: boolean; onChange: (value: boolean) => void }) {
+  const { colors } = useTheme();
+  return <View style={[styles.comparison, { borderBottomColor: colors.border }]}>
+    <View style={styles.comparisonCopy}><Text style={[styles.choiceText, { color: colors.text }]}>{label}</Text><Text style={[styles.caption, { color: colors.textMuted }]}>{detail}</Text></View>
+    <Switch accessibilityLabel={`${label}. ${detail}`} value={value} disabled={disabled} onValueChange={onChange} trackColor={{ true: colors.interactive }} />
+  </View>;
 }
 
 /**
@@ -1638,17 +1060,14 @@ class ChartBoundary extends Component<
 }
 
 export function GaugeChart(props: Props) {
-  const { colors, elevation } = useTheme();
+  const { colors } = useTheme();
   return (
     <ChartBoundary
       // Deliberately shaped like the component's own empty states rather than
       // like an error: same card, same height, same quiet ink. What is missing
       // is one panel, and the reading it charts is still on the screen above.
       fallback={
-        <View style={[styles.card, { backgroundColor: colors.card }, elevation(1)]}>
-          {props.title ? (
-            <Text style={[styles.title, { color: colors.text }]}>{props.title}</Text>
-          ) : null}
+        <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
           <View style={[styles.placeholder, { height: CHART_HEIGHT }]}>
             <Text style={[styles.placeholderText, { color: colors.textSubtle }]}>
               Charts need a newer version of the app. Everything else on this
@@ -1664,42 +1083,27 @@ export function GaugeChart(props: Props) {
 }
 
 const styles = StyleSheet.create({
-  // NO marginHorizontal, deliberately. This card is rendered on two screens
-  // whose ScrollViews inset differently — the gauge screen pads nothing and
-  // margins each card, the river screen pads its content container by 16 — so a
-  // horizontal margin here was ADDED to the river screen's padding and the
-  // chart sat 32pt in while every card around it sat at 16. The narrower card
-  // shrank the plot with it, since plotWidth comes from onLayout.
-  //
-  // Horizontal placement therefore belongs to the caller. Vertical rhythm does
-  // not: the gap under a card is the same question on both screens.
-  card: { marginBottom: 14, borderRadius: 16, paddingHorizontal: 16, paddingVertical: 12 },
-  head: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', alignItems: 'center', gap: 4, marginBottom: 0 },
-  headText: { width: '100%' },
-  // Give the full title its own row; controls wrap beneath it.
-  titleRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'center', gap: 8 },
-  title: { ...t.base, fontFamily: fonts.heading, flexShrink: 1, textAlign: 'center' },
-  subtitle: { ...t.xs, fontFamily: fonts.body, marginTop: 2, textAlign: 'center' },
-  scrubLine: { ...t.xs, fontFamily: fonts.body, marginTop: 2, textAlign: 'center' },
+  // Page summaries own the current value, rating and freshness. This component
+  // owns only the chart: ~310pt at default text size, growing with Dynamic Type.
+  card: { marginBottom: 14, paddingHorizontal: 12, paddingTop: 8, borderTopWidth: StyleSheet.hairlineWidth, borderBottomWidth: StyleSheet.hairlineWidth },
+  toolbar: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginBottom: 4 },
+  measurement: { minHeight: 44, flexDirection: 'row', gap: 6, alignItems: 'center', flexShrink: 1, paddingVertical: 8, paddingHorizontal: 4 },
+  measurementText: { ...t.sm, fontFamily: fonts.semibold, flexShrink: 1 },
+  rangeButton: { minHeight: 44, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, borderRadius: 10, paddingHorizontal: 10, paddingVertical: 8 },
+  rangeStatus: { marginBottom: 8, gap: 4 },
+  plotWrap: { position: 'relative' },
+  scrubOverlay: { position: 'absolute', top: 0, right: 0, borderWidth: StyleSheet.hairlineWidth, borderRadius: 9, padding: 8, gap: 2 },
   scrubValue: { ...t.sm, fontFamily: fonts.monoMedium },
-  ranges: { flexDirection: 'row', flexWrap: 'wrap', position: 'relative' },
-  rangeTrack: { position: 'absolute', left: 0, right: 0, top: 7, bottom: 7, borderWidth: 1, borderRadius: 9 },
-  range: { minWidth: 44, minHeight: 44, paddingVertical: 7 },
-  rangeFace: { flex: 1, minHeight: 30, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8 },
-  rangeText: { ...t.xs, fontFamily: fonts.medium },
-  actions: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 8, marginTop: 6, borderTopWidth: StyleSheet.hairlineWidth },
-  toolbarAction: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, minHeight: 44, paddingHorizontal: 8, paddingVertical: 6, flexGrow: 1, flexBasis: 0, minWidth: 110, borderRadius: 8 },
-  action: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, minHeight: 44, paddingHorizontal: 10, paddingVertical: 8, borderWidth: 1, borderRadius: 10 },
-  actionText: { ...t.xs, fontFamily: fonts.medium, flexShrink: 1, textAlign: 'center' },
-  plotWrap: { marginTop: 2 },
-  legend: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginTop: 4 },
-  legendItem: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  legendDashes: { flexDirection: 'row', gap: 2 },
-  legendDash: { width: 6, height: 2, borderRadius: 1 },
-  legendBand: { width: 14, height: 8, borderRadius: 2, borderTopWidth: 1 },
-  legendText: { ...t.xs, fontFamily: fonts.medium },
-  placeholder: { alignItems: 'center', justifyContent: 'center', paddingHorizontal: 20 },
-  placeholderText: { ...t.sm, fontFamily: fonts.body, textAlign: 'center' },
-  retry: { marginTop: 8, minHeight: 44, justifyContent: 'center' },
-  retryText: { ...t.sm, fontFamily: fonts.semibold },
+  caption: { ...t.xs },
+  actions: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginTop: 4, borderTopWidth: StyleSheet.hairlineWidth },
+  toolbarAction: { minHeight: 44, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 8, paddingHorizontal: 4, flexShrink: 1 },
+  actionText: { ...t.xs, fontFamily: fonts.medium, flexShrink: 1 },
+  placeholder: { alignItems: 'center', justifyContent: 'center', paddingHorizontal: 16 },
+  placeholderText: { ...t.sm, textAlign: 'center' },
+  retry: { minHeight: 44, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 8 },
+  choice: { minHeight: 52, paddingVertical: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8, borderBottomWidth: StyleSheet.hairlineWidth },
+  choiceText: { ...t.base, fontFamily: fonts.medium, flexShrink: 1 },
+  comparison: { minHeight: 68, paddingVertical: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12, borderBottomWidth: StyleSheet.hairlineWidth },
+  comparisonCopy: { flex: 1, gap: 3 },
+  dateInput: { ...t.base, minHeight: 44, borderWidth: 1, borderRadius: 10, padding: 12 },
 });
