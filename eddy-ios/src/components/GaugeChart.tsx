@@ -214,7 +214,7 @@ function GaugeChartInner({
   thresholds = null,
   floodStages = null,
   historyCapabilities,
-  initialDays = 7,
+  initialDays = 30,
   initialWindow,
 }: Props) {
   const { fontScale } = useWindowDimensions();
@@ -973,7 +973,7 @@ function GaugeChartInner({
                 fill={label.kind === 'name' ? colors.text : colors.textMuted} fontFamily={label.kind === 'name' ? fonts.medium : fonts.mono}>{label.text}</SvgText>)}
               {plotWidth >= axisFont * 7 && (forecastPoints.length > 0 || stageLines.length > 0) ? <SvgText x={padLeft + plotWidth - 3} y={axisFont * 1.8} textAnchor="end" fill={colors.textMuted} fontSize={axisFont} fontFamily={fonts.body}>{forecastPoints.length ? 'NWS forecast' : 'NWS stages'}</SvgText> : null}
               {plotWidth > axisFont * (forecastPoints.length || stageLines.length ? 18 : 8) ? <SvgText x={padLeft + 3} y={axisFont * 1.8} fill={colors.textMuted} fontSize={axisFont} fontFamily={fonts.body}>
-                {showTypical && series.typicalArea ? 'Typical' : showMedian && series.typicalPath ? 'Median' : series.gapPaths.length ? 'Dotted: gaps' : nowLabelText === 'Last reading' ? 'Last reading' : ''}
+                {showTypical && series.typicalArea ? 'Typical' : showMedian && series.typicalPath ? 'Median' : nowLabelText === 'Last reading' ? 'Last reading' : ''}
               </SvgText> : null}
               {xTicks.map((tick, index) => <SvgText key={`time-${index}`} x={scale.x(tick.value)} y={chartHeight - 6} fill={colors.textMuted} fontSize={axisFont} fontFamily={fonts.body} textAnchor={index === 0 ? 'start' : index === xTicks.length - 1 ? 'end' : 'middle'}>{axisTime(tick.value, drawnDays)}</SvgText>)}
             </Svg>
