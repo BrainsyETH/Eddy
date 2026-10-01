@@ -1,3 +1,4 @@
+import { notificationDestination } from '../../../eddy-ios/src/lib/notificationDestination';
 import { redirectSystemPath } from '../../../eddy-ios/app/+native-intent';
 import assert from 'node:assert/strict';
 import test from 'node:test';
@@ -209,4 +210,29 @@ test('warm detail links preserve the current tab and modal tasks remain global',
     assert.equal(redirectSystemPath({ path, initial: true }), path);
   }
   assert.equal(redirectSystemPath({ path: 'https://example.com/river/current', initial: true }), 'https://example.com/river/current');
+});
+
+
+test('cold links use the destination tab and retain query/hash while warm links stay unqualified', () => {
+  for (const [path, owner] of [
+    ['/storage', 'settings'], ['/alerts/quiet-hours', 'settings'],
+    ['/floats', 'favorites'], ['/alerts/rule-123', 'alerts'],
+    ['/favorite-floats', 'today'], ['/current-alerts', 'today'],
+  ]) {
+    const withParams = `${path}?source=link#details`;
+    assert.equal(redirectSystemPath({ path: withParams, initial: true }), `/(tabs)/(${owner})${withParams}`);
+    assert.equal(redirectSystemPath({ path: withParams, initial: false }), withParams);
+  }
+});
+
+test('notification destinations keep the exact subject and alert context', () => {
+  assert.deepEqual(notificationDestination({ gaugeSiteId: '07067000', alertId: 'rule-1', alertSource: 'gauge' }), {
+    pathname: '/gauge/[siteId]', params: { siteId: '07067000', alertId: 'rule-1', alertSource: 'gauge' },
+  });
+  assert.deepEqual(notificationDestination({ riverSlug: 'current', alertId: 'rule-2' }), {
+    pathname: '/river/[slug]', params: { slug: 'current', alertId: 'rule-2' },
+  });
+  assert.equal(notificationDestination({}), null);
+  assert.equal(notificationDestination(null), null);
+  assert.equal(notificationDestination({ gaugeSiteId: 123, riverSlug: false }), null);
 });

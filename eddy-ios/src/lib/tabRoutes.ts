@@ -19,14 +19,22 @@ export const DETAIL_TITLES: Record<string, string> = {
   'eddy-reads': 'Eddy’s Reads',
 };
 
+// Cold links have no originating tab. Match the destination's place in the app.
+const COLD_TAB_OWNERS: Partial<Record<string, keyof typeof TAB_ROOTS>> = {
+  storage: 'settings',
+  'alerts/quiet-hours': 'settings',
+  floats: 'favorites',
+  'alerts/[id]': 'alerts',
+};
+
 /** Only known shared details need a tab owner on a cold link. */
 export function coldDetailPath(path: string): string {
   const pathname = path.split(/[?#]/)[0];
-  const shared = Object.keys(DETAIL_TITLES).some(route => {
+  const shared = Object.keys(DETAIL_TITLES).find(route => {
     const pattern = route.split('/').map(part => part.startsWith('[') ? '[^/]+' : part).join('/');
     return new RegExp(`^/${pattern}/?$`).test(pathname);
   });
   // Creation remains a root modal even though /alerts/[id] could match it.
   return shared && !/^\/alerts\/(new|configure)(?:\/|$)/.test(pathname)
-    ? `/(tabs)/(today)${path}` : path;
+    ? `/(tabs)/(${COLD_TAB_OWNERS[shared] ?? 'today'})${path}` : path;
 }

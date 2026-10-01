@@ -10,6 +10,7 @@
 // stop the app from running for someone who declined them, is on a simulator,
 // or has never signed in.
 
+import { notificationDestination } from '@/lib/notificationDestination';
 import {
   createContext,
   useCallback,
@@ -136,39 +137,8 @@ export function PushProvider({ children }: { children: ReactNode }) {
 
   const routeTo = useCallback(
     (response: Notifications.NotificationResponse) => {
-      const data = response.notification.request.content.data as {
-        riverSlug?: unknown;
-        gaugeSiteId?: unknown;
-        alertId?: unknown;
-        alertSource?: unknown;
-      };
-      const slug = typeof data?.riverSlug === 'string' ? data.riverSlug : null;
-      const siteId = typeof data?.gaugeSiteId === 'string' ? data.gaugeSiteId : null;
-
-      // The rule that fired, carried along so the landing screen can offer a
-      // way to MANAGE it — see AlertOriginRow. Pausing the thing that just
-      // buzzed the phone used to take four hops through the Alerts tab.
-      // Optional on both sides: an older server sends neither, and the screens
-      // render nothing for absent params.
-      const alertId = typeof data?.alertId === 'string' ? data.alertId : null;
-      const alertSource = typeof data?.alertSource === 'string' ? data.alertSource : null;
-      const alertParams = alertId
-        ? { alertId, ...(alertSource ? { alertSource } : {}) }
-        : {};
-
-      // The server sets exactly ONE of these, chosen from the rule's scope, so
-      // there is no precedence to get wrong here. An alert set on a gauge opens
-      // the gauge — routing it to the river the station happens to rate would
-      // land on a screen that never mentions the station the user picked.
-      //
-      // Neither means a notification we cannot route — a digest, or an older
-      // payload. Opening the app is still the right outcome; doing nothing here
-      // achieves that, since the tap already foregrounded us.
-      if (siteId) {
-        router.push({ pathname: '/gauge/[siteId]', params: { siteId, ...alertParams } });
-      } else if (slug) {
-        router.push({ pathname: '/river/[slug]', params: { slug, ...alertParams } });
-      }
+      const destination = notificationDestination(response.notification.request.content.data);
+      if (destination) router.push(destination);
     },
     [router],
   );
