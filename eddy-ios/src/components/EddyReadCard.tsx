@@ -27,15 +27,17 @@ interface Props {
 const BLUR_INTENSITY = 34;
 
 function ReadBackdrop({ photoUrl }: { photoUrl?: string | null }) {
-  return <>
+  // Anchor both layers to the final card bounds, including a wrapped footer or
+  // an excerpt that grows after loading. Avoid percentage heights on the SVG.
+  return <View style={StyleSheet.absoluteFill} pointerEvents="none" accessible={false}>
     {photoUrl ? <Image source={{ uri: photoUrl }} style={StyleSheet.absoluteFill}
       contentFit="cover" cachePolicy="memory-disk" transition={120}
       recyclingKey={photoUrl} accessibilityIgnoresInvertColors accessible={false} /> : null}
-    <Svg width="100%" height="100%" style={StyleSheet.absoluteFill} pointerEvents="none">
+    <Svg style={StyleSheet.absoluteFill}>
       <Defs><LinearGradient id="readShade" x1="0" y1="0" x2="0" y2="1"><Stop offset="0" stopColor="#071c20" stopOpacity={0.66} /><Stop offset="0.45" stopColor="#071c20" stopOpacity={0.65} /><Stop offset="1" stopColor="#071c20" stopOpacity={0.94} /></LinearGradient></Defs>
       <Rect width="100%" height="100%" fill="url(#readShade)" />
     </Svg>
-  </>;
+  </View>;
 }
 
 /** Reserve the card's layout without presenting an unvalidated Read or verdict. */
@@ -107,7 +109,7 @@ export function EddyReadCard({ river, says, onPress, onUnlock, compact = false, 
         elevation(1),
       ]}
     >
-      <ReadBackdrop photoUrl={photoUrl} />
+      <ReadBackdrop photoUrl={photoUrl ?? river.photoUrl} />
       <View style={styles.content}>
       <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel={`Eddy's Read for ${river.name}. ${conditionLabel(code)}. ${action}`}>
       <View style={styles.head}>
@@ -148,8 +150,10 @@ export function EddyReadCard({ river, says, onPress, onUnlock, compact = false, 
 
 const styles = StyleSheet.create({
   card: { marginHorizontal: 16, marginBottom: 10, borderWidth: StyleSheet.hairlineWidth, borderRadius: radii.feature, overflow: 'hidden' },
-  content: { padding: 20, minHeight: 290, justifyContent: 'flex-start' },
-  compact: { width: '100%', minHeight: 190, marginHorizontal: 0, marginBottom: 0 },
+  content: { flexGrow: 1, padding: 20, minHeight: 290, justifyContent: 'flex-start' },
+  // The rail stretches its wrappers to the tallest card; fill that height so
+  // shorter names/excerpts do not leave a bare strip below "View full read".
+  compact: { flexGrow: 1, width: '100%', minHeight: 190, marginHorizontal: 0, marginBottom: 0 },
   standalone: { width: 'auto', height: 'auto', minHeight: 190, marginHorizontal: 0, marginBottom: 0 },
   head: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
   kicker: { ...t.xs, fontFamily: fonts.heading, letterSpacing: 0.7 },
