@@ -28,7 +28,7 @@
 // it has not made, on a reach it may not even carry.
 
 import { StyleSheet, Text, View, useWindowDimensions } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { ControlIcon as Ionicons } from '@/components/ControlIcon';
 import type { DamSnapshot } from '@eddy/types';
 import {
   relativeAge,

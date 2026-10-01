@@ -1,14 +1,14 @@
 // Compact hydrograph shared by River, Gauge and map history.
 // Data geometry, gaps and reading identity come from the shared chart model.
 
-import { Ionicons } from '@expo/vector-icons';
+import { ControlIcon as Ionicons } from '@/components/ControlIcon';
 import { chartDateRange } from '@/lib/chartDateRange';
 import { Component, useCallback, useMemo, useState, useId, type ReactNode } from 'react';
 import {
   ActivityIndicator,
   ActionSheetIOS,
   Platform,
-  TextInput, Switch, useWindowDimensions,
+  Switch, useWindowDimensions,
   LayoutChangeEvent,
   Pressable,
   StyleSheet,
@@ -60,11 +60,12 @@ import { fonts, type as t } from '@/theme/typography';
 import { formatReading } from '@/lib/readingCopy';
 import { useGaugeHistory } from '@/hooks/useGaugeHistory';
 import { warn } from '@/lib/monitoring';
+import { ChartDateField } from '@/components/ChartDateField';
 import { GaugeChartSheet } from '@/components/GaugeChartSheet';
 import { GaugeChartDetails } from '@/components/GaugeChartDetails';
 import { GaugeChartReadout } from '@/components/GaugeChartReadout';
 import { chartGutters, chartGridValues, selectChartRailLabels, type ChartRailLabel } from '@/lib/gaugeChartLayout';
-import { validateChartDates, type ChartDateErrors } from '@/lib/gaugeChartDates';
+import { validateChartDates, localChartDate, type ChartDateErrors } from '@/lib/gaugeChartDates';
 
 /** Short history first; provider capabilities unlock the longer windows. */
 const RANGES = [
@@ -228,8 +229,12 @@ function GaugeChartInner({
   const [showTypical, setShowTypical] = useState(false);
   const [showMedian, setShowMedian] = useState(false);
   const [fullScale, setFullScale] = useState(false);
-  const [fromDate, setFromDate] = useState(initialWindow?.from.slice(0, 10) ?? '');
-  const [toDate, setToDate] = useState(initialWindow?.to.slice(0, 10) ?? '');
+  const [fromDate, setFromDate] = useState(() => {
+    const date = initialWindow ? new Date(initialWindow.from) : new Date();
+    if (!initialWindow) date.setDate(date.getDate() - 29);
+    return localChartDate(date);
+  });
+  const [toDate, setToDate] = useState(() => localChartDate(initialWindow ? new Date(initialWindow.to) : new Date()));
   const [customWindow, setCustomWindow] = useState<{ from: string; to: string } | undefined>(initialWindow);
   const [dateErrors, setDateErrors] = useState<ChartDateErrors>({});
   const ranges = RANGES.filter(r => r.days <= (historyCapabilities?.maxInstantDays ?? 30) || historyCapabilities?.supportsDaily);
@@ -1017,13 +1022,9 @@ function GaugeChartInner({
           })}
           {historyCapabilities?.supportsCustomRange ? <Pressable accessibilityRole="button" onPress={() => setSheet('dates')} style={[styles.choice, { borderBottomColor: colors.border }]}><Text style={[styles.choiceText, { color: colors.interactive }]}>Custom dates</Text><Ionicons name="calendar-outline" size={20} color={colors.interactive} /></Pressable> : null}
         </> : <>
-          <Text style={[styles.caption, { color: colors.textMuted }]}>Enter dates as YYYY-MM-DD (UTC). Future end dates stop at today.</Text>
-          <Text style={[styles.caption, { color: colors.text }]}>Start date</Text>
-          <TextInput accessibilityLabel="Start date" accessibilityHint={dateErrors.from ?? 'YYYY-MM-DD, UTC'} placeholder="YYYY-MM-DD" autoCapitalize="none" autoCorrect={false} placeholderTextColor={colors.textSubtle} value={fromDate} onChangeText={value => { setFromDate(value); setDateErrors({}); }} style={[styles.dateInput, { color: colors.text, borderColor: colors.border }]} />
-          {dateErrors.from ? <Text accessibilityRole="alert" accessibilityLiveRegion="polite" style={[styles.caption, { color: colors.text }]}>{dateErrors.from}</Text> : null}
-          <Text style={[styles.caption, { color: colors.text }]}>End date</Text>
-          <TextInput accessibilityLabel="End date" accessibilityHint={dateErrors.to ?? 'YYYY-MM-DD, UTC'} placeholder="YYYY-MM-DD" autoCapitalize="none" autoCorrect={false} placeholderTextColor={colors.textSubtle} value={toDate} onChangeText={value => { setToDate(value); setDateErrors({}); }} style={[styles.dateInput, { color: colors.text, borderColor: colors.border }]} />
-          {dateErrors.to ? <Text accessibilityRole="alert" accessibilityLiveRegion="polite" style={[styles.caption, { color: colors.text }]}>{dateErrors.to}</Text> : null}
+          <Text style={[styles.caption, { color: colors.textMuted }]}>Choose up to 366 days.</Text>
+          <ChartDateField label="Start date" value={fromDate} error={dateErrors.from} onChange={value => { setFromDate(value); setDateErrors({}); }} />
+          <ChartDateField label="End date" value={toDate} error={dateErrors.to} onChange={value => { setToDate(value); setDateErrors({}); }} />
           <Pressable accessibilityRole="button" onPress={applyDates} style={[styles.rangeButton, { backgroundColor: colors.cardRaised }]}><Text style={[styles.actionText, { color: colors.interactive }]}>Apply dates</Text></Pressable>
         </>}
       </GaugeChartSheet> : null}

@@ -43,7 +43,7 @@
 import { radii } from '@/theme/layout';
 import { memo } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { ControlIcon as Ionicons } from '@/components/ControlIcon';
 import type { MapGauge, RiverListItem } from '@eddy/types';
 import {
   conditionBg,

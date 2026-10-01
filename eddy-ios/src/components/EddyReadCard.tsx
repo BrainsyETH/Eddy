@@ -2,7 +2,7 @@ import { radii } from '@/theme/layout';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Image } from 'expo-image';
 import { BlurView } from 'expo-blur';
-import { Ionicons } from '@expo/vector-icons';
+import { ControlIcon as Ionicons } from '@/components/ControlIcon';
 import type { RiverListItem } from '@eddy/types';
 import type { EddySays } from '@/lib/eddySays';
 import { writtenAge } from '@/lib/eddySays';

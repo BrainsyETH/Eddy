@@ -64,7 +64,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { ControlIcon as Ionicons } from '@/components/ControlIcon';
 import type * as ImagePicker from 'expo-image-picker';
 import type * as ImageManipulator from 'expo-image-manipulator';
 import type * as ExpoFileSystem from 'expo-file-system';

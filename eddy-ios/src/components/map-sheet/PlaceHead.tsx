@@ -37,7 +37,7 @@
 // overlapping, with the last one pulled into the container's padding so the
 // glyph still sits on the optical margin while its target reaches the edge.
 import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { ControlIcon as Ionicons } from '@/components/ControlIcon';
 import type { MapAccessPoint } from '@eddy/types';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';

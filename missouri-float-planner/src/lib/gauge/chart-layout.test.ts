@@ -104,14 +104,31 @@ test('custom-date errors identify invalid fields and reject calendar rollover', 
 
 test('reversed, future-start and excessive ranges get specific corrections', () => {
   assert.match(validateChartDates('2026-09-10', '2026-09-01', NOW).errors?.to ?? '', /on or after/);
-  assert.match(validateChartDates('2026-10-02', '2026-10-04', NOW).errors?.from ?? '', /today or earlier/);
+  assert.match(validateChartDates('2026-10-04', '2026-10-05', NOW).errors?.from ?? '', /today or earlier/);
   assert.match(validateChartDates('2024-01-01', '2026-01-01', NOW).errors?.to ?? '', /366 days/);
 });
 
-test('same-day ranges and UTC boundaries remain supported, and future ends stop at now', () => {
-  assert.deepEqual(validateChartDates(' 2026-09-01 ', '2026-09-01', NOW), {
-    window: { from: '2026-09-01T00:00:00.000Z', to: '2026-09-01T23:59:59.000Z' }, days: 1,
-  });
-  assert.equal(validateChartDates('2026-10-01', '2026-10-10', NOW).window?.to, new Date(NOW).toISOString());
-  assert.equal(validateChartDates('2026-03-08', '2026-03-08', NOW).window?.from, '2026-03-08T00:00:00.000Z', 'DST must not shift the API calendar');
+test('local calendar boundaries preserve selected days across DST and time zones', () => {
+  const previous = process.env.TZ;
+  try {
+    process.env.TZ = 'America/Chicago';
+    assert.deepEqual(validateChartDates(' 2026-09-01 ', '2026-09-01', NOW), {
+      window: { from: '2026-09-01T05:00:00.000Z', to: '2026-09-02T04:59:59.000Z' }, days: 1,
+    });
+    assert.deepEqual(validateChartDates('2026-03-08', '2026-03-08', NOW), {
+      window: { from: '2026-03-08T06:00:00.000Z', to: '2026-03-09T04:59:59.000Z' }, days: 1,
+    });
+    const later = Date.parse('2026-12-01T18:00:00Z');
+    assert.deepEqual(validateChartDates('2026-11-01', '2026-11-01', later), {
+      window: { from: '2026-11-01T05:00:00.000Z', to: '2026-11-02T05:59:59.000Z' }, days: 1,
+    });
+    const justBeforeMidnight = Date.parse('2026-10-02T04:59:00Z');
+    assert.ok(validateChartDates('2026-10-02', '2026-10-02', justBeforeMidnight).errors?.from);
+    assert.equal(validateChartDates('2026-10-01', '2026-10-10', NOW).window?.to, new Date(NOW).toISOString());
+    process.env.TZ = 'Pacific/Auckland';
+    assert.equal(validateChartDates('2026-09-01', '2026-09-01', NOW).window?.from, '2026-08-31T12:00:00.000Z');
+  } finally {
+    if (previous === undefined) delete process.env.TZ;
+    else process.env.TZ = previous;
+  }
 });

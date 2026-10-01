@@ -32,7 +32,7 @@ import { radii } from '@/theme/layout';
 import { memo } from 'react';
 import { isReadingStale } from '@eddy/conditions/reading-staleness';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { ControlIcon as Ionicons } from '@/components/ControlIcon';
 import type { MapGauge } from '@eddy/types';
 import { conditionColor, conditionLabel, conditionText } from '@/theme/conditions';
 import { useTheme } from '@/theme/ThemeProvider';

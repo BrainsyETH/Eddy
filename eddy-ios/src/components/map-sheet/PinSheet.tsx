@@ -22,7 +22,7 @@
 // thing the late request is allowed to add.
 import { useCallback, useMemo, useState } from 'react';
 import { Pressable, StyleSheet, Text, View, type LayoutChangeEvent } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { ControlIcon as Ionicons } from '@/components/ControlIcon';
 import { useSharedValue, type SharedValue } from 'react-native-reanimated';
 import type {
   AccessPointDetailResponse,

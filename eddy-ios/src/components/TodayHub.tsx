@@ -19,7 +19,7 @@ import {
   type NativeScrollEvent,
   type NativeSyntheticEvent,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { ControlIcon as Ionicons } from '@/components/ControlIcon';
 import { Image as CachedImage } from 'expo-image';
 import { compareReadRivers, selectReadRail, readRailState } from '@/lib/readRail';
 import { useFocusEffect, useRouter } from 'expo-router';

@@ -1,5 +1,5 @@
 import { StyleSheet, Text, View } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { ControlIcon as Ionicons } from '@/components/ControlIcon';
 import { type CampingDemand } from '@eddy/conditions/camping-demand';
 import { campingPulseHeadline, campingPulseDetail, campingPulseAccessibilityLabel } from '@/lib/campingDemand';
 import { CampingDemandMeter } from './CampingDemandMeter';

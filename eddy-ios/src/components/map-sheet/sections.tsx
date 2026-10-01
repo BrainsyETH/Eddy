@@ -18,7 +18,7 @@
 // surface that is already competing with the map for the screen.
 import { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { ControlIcon as Ionicons } from '@/components/ControlIcon';
 import type { AccessPointGaugeStatus, MapAccessPoint } from '@eddy/types';
 import { accessTypeLabel } from '@eddy/types';
 import { conditionBg, conditionChipBorder, conditionInk, conditionText } from '@/theme/conditions';

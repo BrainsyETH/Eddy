@@ -23,7 +23,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { ControlIcon as Ionicons } from '@/components/ControlIcon';
 import { useRouter } from 'expo-router';
 import type { SearchResult } from '@eddy/types';
 import { useEddySearch } from '@/hooks/useEddySearch';

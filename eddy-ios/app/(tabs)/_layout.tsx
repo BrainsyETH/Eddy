@@ -1,7 +1,7 @@
 import { Tabs } from 'expo-router';
 import { NativeTabs } from 'expo-router/unstable-native-tabs';
 import { Platform } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { ControlIcon as Ionicons } from '@/components/ControlIcon';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts } from '@/theme/typography';
 
@@ -28,12 +28,12 @@ import { fonts } from '@/theme/typography';
 export const unstable_settings = { initialRouteName: '(today)' };
 
 export default function TabsLayout() {
-  const { colors } = useTheme();
+  const { colors, nativeColors } = useTheme();
 
   if (Platform.OS === 'ios') {
     return (
       <NativeTabs
-        tintColor={colors.interactive}
+        tintColor={nativeColors.interactive}
         minimizeBehavior="never"
         // FlatList and the map don't reliably report a native scroll edge.
         // Keep the system material visible without supplying a painted backing,

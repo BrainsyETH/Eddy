@@ -13,7 +13,7 @@
 // question, and neither should hold up the tabs themselves.
 import { useMemo, useState } from 'react';
 import { Image, Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { ControlIcon as Ionicons } from '@/components/ControlIcon';
 import { EddySymbol } from '@/components/EddySymbol';
 import type { PlaceSymbolName } from './placeSymbol';
 import type {

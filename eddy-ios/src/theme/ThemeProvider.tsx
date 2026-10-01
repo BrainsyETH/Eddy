@@ -14,12 +14,22 @@
 // colour is a handful of props per screen and costs nothing to apply inline.
 
 import { createContext, useContext, useMemo, type ReactNode } from 'react';
-import { useColorScheme } from 'react-native';
+import { DynamicColorIOS, Platform, useColorScheme, type ColorValue } from 'react-native';
 import { darkPalette, elevation, floating, lightPalette, type Palette } from './palette';
+import { highContrastDarkPalette, highContrastLightPalette } from './contrast';
+import { useIncreaseContrast } from '@/hooks/useIncreaseContrast';
+
+const nativeRoles = (colors: Palette) => Object.fromEntries(
+  (['text', 'textMuted', 'border', 'interactive'] as const).map(role => [role, Platform.OS === 'ios'
+    ? DynamicColorIOS({ light: lightPalette[role], dark: darkPalette[role], highContrastLight: highContrastLightPalette[role], highContrastDark: highContrastDarkPalette[role] })
+    : colors[role]]),
+) as Record<'text' | 'textMuted' | 'border' | 'interactive', ColorValue>;
 
 interface ThemeValue {
   colors: Palette;
   isDark: boolean;
+  increaseContrast: boolean;
+  nativeColors: ReturnType<typeof nativeRoles>;
   /** Depth for `level`, already resolved for the current scheme. */
   elevation: (level: 1 | 2) => ReturnType<typeof elevation>;
   /** Depth for a control floating over content — see floating() in palette.ts. */
@@ -31,6 +41,8 @@ interface ThemeValue {
 const ThemeContext = createContext<ThemeValue>({
   colors: darkPalette,
   isDark: true,
+  increaseContrast: false,
+  nativeColors: nativeRoles(darkPalette),
   elevation: (level) => elevation(darkPalette, level),
   floating: () => floating(darkPalette),
 });
@@ -39,16 +51,21 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   // Returns null before the scheme is known; treat that as dark rather than
   // flashing a light screen and correcting a frame later.
   const scheme = useColorScheme();
+  const increaseContrast = useIncreaseContrast();
 
   const value = useMemo<ThemeValue>(() => {
-    const colors = scheme === 'light' ? lightPalette : darkPalette;
+    const colors = scheme === 'light'
+      ? increaseContrast ? highContrastLightPalette : lightPalette
+      : increaseContrast ? highContrastDarkPalette : darkPalette;
     return {
       colors,
       isDark: colors.scheme === 'dark',
+      increaseContrast,
+      nativeColors: nativeRoles(colors),
       elevation: (level: 1 | 2) => elevation(colors, level),
       floating: () => floating(colors),
     };
-  }, [scheme]);
+  }, [scheme, increaseContrast]);
 
   return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>;
 }

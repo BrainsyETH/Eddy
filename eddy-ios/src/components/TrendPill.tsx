@@ -25,7 +25,7 @@
 // louder than the reading it qualifies. Both are correct in their place, which
 // is why the caller says which it wants rather than the component guessing.
 
-import { Ionicons } from '@expo/vector-icons';
+import { ControlIcon as Ionicons } from '@/components/ControlIcon';
 import { StyleSheet, Text, View } from 'react-native';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';

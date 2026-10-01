@@ -34,7 +34,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { ControlIcon as Ionicons } from '@/components/ControlIcon';
 import type { FeedbackContext, FeedbackType } from '@eddy/types';
 import { ApiError, submitFeedback } from '@/api/client';
 import { useTheme } from '@/theme/ThemeProvider';

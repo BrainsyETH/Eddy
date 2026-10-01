@@ -29,7 +29,7 @@
 
 import type { ReactNode } from 'react';
 import { Linking, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View, type ScrollViewProps } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { ControlIcon as Ionicons } from '@/components/ControlIcon';
 import type { FloatPlan, MapAccessPoint } from '@eddy/types';
 import { hazardConditionCode, hazardTypeLabel, portageNote, sortHazards } from '@eddy/hazards';
 import {

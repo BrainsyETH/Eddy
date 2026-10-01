@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { ControlIcon as Ionicons } from '@/components/ControlIcon';
 import { Image } from 'expo-image';
 import type { RiverListItem } from '@eddy/types';
 import type { TodayRiverFilter } from '@/components/TodayHub';

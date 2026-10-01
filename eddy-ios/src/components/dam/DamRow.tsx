@@ -13,7 +13,7 @@
 
 import { memo } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { ControlIcon as Ionicons } from '@/components/ControlIcon';
 import type { DamSnapshot } from '@eddy/types';
 import {
   centralDayKey,

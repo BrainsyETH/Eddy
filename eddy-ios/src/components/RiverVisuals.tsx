@@ -50,7 +50,7 @@
 
 import { useState } from 'react';
 import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { ControlIcon as Ionicons } from '@/components/ControlIcon';
 import type { ConditionCode, RiverVisual, RiverVisualsResponse } from '@eddy/types';
 import { CONDITION_ORDER } from '@eddy/conditions';
 import { conditionBg, conditionChipBorder, conditionInk, conditionLabel } from '@/theme/conditions';

@@ -13,7 +13,7 @@
 // latter is Android's.
 
 import { Pressable } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { ControlIcon as Ionicons } from '@/components/ControlIcon';
 import { useTheme } from '@/theme/ThemeProvider';
 import { shareLink } from '@/lib/share';
 

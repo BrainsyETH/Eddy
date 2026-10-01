@@ -30,6 +30,7 @@
 //   with no campgrounds should say 0, but a layer that has never been fetched
 //   must not claim zero of anything.
 
+import { FloatingControlSurface } from '@/components/FloatingControlSurface';
 import { useLayoutEffect, useMemo, useState } from 'react';
 import {
   AccessibilityInfo,
@@ -51,7 +52,7 @@ import Animated, {
   useSharedValue,
   withTiming,
 } from 'react-native-reanimated';
-import { Ionicons } from '@expo/vector-icons';
+import { ControlIcon as Ionicons } from '@/components/ControlIcon';
 import { EddySymbol } from '@/components/EddySymbol';
 import { useReducedMotion } from '@/hooks/useReducedMotion';
 import { useTheme } from '@/theme/ThemeProvider';
@@ -564,14 +565,14 @@ export function MapLayersButton({
   onPress: () => void;
   changed: boolean;
 }) {
-  const { colors, floating } = useTheme();
+  const { colors } = useTheme();
   return (
+    <FloatingControlSurface style={styles.button}>
     <Pressable
       onPress={onPress}
       style={({ pressed }) => [
         styles.button,
-        floating(),
-        { backgroundColor: colors.card, opacity: pressed ? 0.7 : 1 },
+        { opacity: pressed ? 0.7 : 1 },
       ]}
       accessibilityRole="button"
       accessibilityLabel="Map layers"
@@ -579,6 +580,7 @@ export function MapLayersButton({
       <Ionicons name="layers-outline" size={19} color={colors.interactive} />
       {changed ? <View style={[styles.dot, { backgroundColor: colors.interactive }]} /> : null}
     </Pressable>
+    </FloatingControlSurface>
   );
 }
 

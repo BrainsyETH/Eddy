@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
+import { ControlIcon as Ionicons } from '@/components/ControlIcon';
 import type { RiverAlert } from '@eddy/types';
 import { recommendationNoticeSummary } from '@/lib/todayRecommendation';
 import { PublicNoticeRow } from './CurrentAlertRows';

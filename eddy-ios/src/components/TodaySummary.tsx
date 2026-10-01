@@ -43,7 +43,7 @@
 
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { ControlIcon as Ionicons } from '@/components/ControlIcon';
 import type { OutlookWeatherDay } from '@eddy/types';
 import { EddySymbol } from '@/components/EddySymbol';
 import { useTheme } from '@/theme/ThemeProvider';

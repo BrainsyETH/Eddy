@@ -22,7 +22,7 @@
 
 import { useCallback, useRef, useState } from 'react';
 import { Pressable, StyleSheet, Switch, Text, View } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { ControlIcon as Ionicons } from '@/components/ControlIcon';
 import { useFocusEffect, useRouter } from 'expo-router';
 import type { NotificationPreferences } from '@eddy/types';
 import { fetchNotificationPreferences, updateNotificationPreferences } from '@/api/client';

@@ -1,4 +1,4 @@
-import { Ionicons } from '@expo/vector-icons';
+import { ControlIcon as Ionicons } from '@/components/ControlIcon';
 import { EddySymbol, type EddySymbolName } from '@/components/EddySymbol';
 
 export type KindMarkKind = 'river' | 'gauge' | 'access_point' | 'dam' | 'hazard' | 'service';

@@ -1,5 +1,5 @@
 import { Linking, Pressable, StyleSheet, Text, View } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { ControlIcon as Ionicons } from '@/components/ControlIcon';
 import { useRouter } from 'expo-router';
 import type { HighWaterEntry, RiverAlert } from '@eddy/types';
 import { conditionBg, conditionColor, conditionInk } from '@/theme/conditions';

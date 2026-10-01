@@ -46,7 +46,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { FlatList, Pressable, RefreshControl, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LazyTabScreen } from '@/components/LazyTabScreen';
-import { Ionicons } from '@expo/vector-icons';
+import { ControlIcon as Ionicons } from '@/components/ControlIcon';
 import type { DamSnapshot, MapGauge, RiverListItem } from '@eddy/types';
 import { fetchGauges, fetchRivers } from '@/api/client';
 import { getSharedDams } from '@/hooks/useDams';
