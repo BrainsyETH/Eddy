@@ -39,6 +39,7 @@ import { Ionicons } from '@expo/vector-icons';
 import type { MapAccessPoint, RiverListItem } from '@eddy/types';
 import { accessTypeLabel } from '@eddy/types';
 import { saveFloatPlan } from '@/api/client';
+import { selectionFeedback, successFeedback } from '@/lib/haptics';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
 import { EddyScene } from '@/components/EddyScene';
@@ -120,9 +121,11 @@ export function PlanSheet({
       present: (message) => Share.share({ message }),
     });
   }, [actions, plan, visible, resultReady]);
-  const onToggleSave = useCallback(() => {
+  const onToggleSave = useCallback(async () => {
     if (!plan || !visible || !resultReady || !savedFloatsReady) return;
-    return actions.toggleSave(plan, { isSaved, forgetPlan, savePlan: saveFloatPlan, remember });
+    const result = await actions.toggleSave(plan, { isSaved, forgetPlan, savePlan: saveFloatPlan, remember });
+    if (result === 'saved') successFeedback();
+    else if (result === 'removed') selectionFeedback();
   }, [actions, plan, visible, resultReady, savedFloatsReady, isSaved, forgetPlan, remember]);
 
   const heading = (

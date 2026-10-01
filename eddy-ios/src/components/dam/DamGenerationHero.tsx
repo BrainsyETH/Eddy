@@ -278,7 +278,7 @@ const styles = StyleSheet.create({
   age: { ...t.xs },
   note: { ...t.xs },
   blockLabel: { ...t.xs, fontFamily: fonts.heading, letterSpacing: 0.6, flexShrink: 1 },
-  stale: { fontSize: 11, lineHeight: 15, fontFamily: fonts.medium },
+  stale: { fontSize: 12, lineHeight: 17, fontFamily: fonts.medium },
   scheduledRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   // The next-change panel: bordered and tinted so it reads as the answer
   // rather than as another caveat in the stack.

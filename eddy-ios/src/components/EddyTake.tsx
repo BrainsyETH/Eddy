@@ -701,7 +701,7 @@ const styles = StyleSheet.create({
   temp: { ...t.sm, fontFamily: fonts.monoMedium },
   rain: { ...t.xs },
   heat: { paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4, marginTop: 2 },
-  heatText: { fontSize: 9, lineHeight: 13, fontFamily: fonts.heading },
+  heatText: { fontSize: 12, lineHeight: 17, fontFamily: fonts.heading },
   unavailable: { ...t.xs, fontFamily: fonts.body },
   forecast: { alignItems: 'center', marginTop: 8, paddingTop: 8, borderTopWidth: 1, width: '100%' },
   forecastNote: { ...t.xs, fontFamily: fonts.body, paddingHorizontal: 14, paddingBottom: 12 },

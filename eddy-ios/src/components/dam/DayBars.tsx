@@ -492,14 +492,14 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: 2,
     borderTopRightRadius: 2,
   },
-  peakCaption: { fontSize: 11, lineHeight: 15, fontFamily: fonts.medium, textAlign: 'center' },
+  peakCaption: { fontSize: 12, lineHeight: 17, fontFamily: fonts.medium, textAlign: 'center' },
   // Faint enough to stay behind the data. The bars draw over it either way, so
   // this only ever shows in the air above them.
   peakTint: { position: 'absolute', top: 0, bottom: 0, borderRadius: 2, opacity: 0.1 },
   nowRow: { minHeight: 16 },
-  nowLabel: { width: 32, fontSize: 11, lineHeight: 15, textAlign: 'center', fontFamily: fonts.medium },
+  nowLabel: { width: 32, fontSize: 12, lineHeight: 17, textAlign: 'center', fontFamily: fonts.medium },
   barAxis: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 3 },
-  axisText: { fontFamily: fonts.body, fontSize: 11, lineHeight: 15 },
+  axisText: { fontFamily: fonts.body, fontSize: 12, lineHeight: 17 },
 });
 
 export const _test = { markerLeft, shareOf, barColor, BAR_GAP, HOURS };

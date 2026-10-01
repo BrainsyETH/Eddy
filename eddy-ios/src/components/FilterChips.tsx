@@ -243,5 +243,5 @@ const styles = StyleSheet.create({
   },
   label: { ...t.xs, fontFamily: fonts.semibold },
   count: { minWidth: 18, paddingHorizontal: 5, borderRadius: 999, alignItems: 'center' },
-  countText: { ...t.xs, fontFamily: fonts.semibold, fontSize: 11 },
+  countText: { ...t.xs, fontFamily: fonts.semibold, fontSize: 12 },
 });

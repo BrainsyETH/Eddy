@@ -63,7 +63,7 @@
 //     columns make a claim ("we looked and found nothing") that blank space
 //     does not. See NightStrip's header.
 
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
 import { EddySymbol } from '@/components/EddySymbol';
@@ -135,6 +135,8 @@ export function CampgroundAvailability({
   pendingLabel?: string;
 }) {
   const { colors, isDark } = useTheme();
+  const { fontScale } = useWindowDimensions();
+  const largeText = fontScale > 1.3;
 
   const hero = pending ? null : availabilityHero(availability, today, name);
   if (!pending && !hero) return null;
@@ -177,15 +179,8 @@ export function CampgroundAvailability({
             <EddySymbol name="campground" size={MARK} />
           </View>
 
-          {hero?.count != null ? (
-            // allowFontScaling off on the count ALONE, as it was before this
-            // card existed: at the largest accessibility size a 30pt numeral
-            // grows tall enough to push the action row off the peek, and the
-            // words beside it — which DO scale — already carry the meaning.
-            //
-            // Its absence cannot change the card's height: the words beside it
-            // are two lines and always taller than this one numeral.
-            <Text style={[styles.count, { color: colors.text }]} allowFontScaling={false}>
+          {hero?.count != null && !largeText ? (
+            <Text style={[styles.count, { color: colors.text }]}>
               {hero.count}
             </Text>
           ) : null}
@@ -193,15 +188,15 @@ export function CampgroundAvailability({
           <View style={styles.words}>
             <Text
               style={[styles.label, { color: pending ? colors.textSubtle : colors.text }]}
-              numberOfLines={1}
+              numberOfLines={largeText ? undefined : 1}
             >
-              {hero ? hero.headline : (pendingLabel ?? 'Checking campsites…')}
+              {hero ? `${largeText && hero.count != null ? `${hero.count} ` : ''}${hero.headline}` : (pendingLabel ?? 'Checking campsites…')}
             </Text>
             {/* ALWAYS RENDERED — see the header. The space is what keeps the
                 line box alive for `closed`, which carries neither a detail nor
                 a caption, and without it this card is a line shorter than the
                 one the slot reserved for it. */}
-            <Text style={[styles.caption, { color: colors.textMuted }]} numberOfLines={1}>
+            <Text style={[styles.caption, { color: colors.textMuted }]} numberOfLines={largeText ? undefined : 1}>
               {(hero ? [hero.detail, hero.caption].filter(Boolean).join(' · ') : '') || ' '}
             </Text>
           </View>
@@ -215,11 +210,11 @@ export function CampgroundAvailability({
             <View style={styles.water}>
               <Text
                 style={[styles.waterReading, { color: conditionText(water.level, isDark) }]}
-                numberOfLines={1}
+                numberOfLines={largeText ? undefined : 1}
               >
                 {waterReading}
               </Text>
-              <Text style={[styles.waterLabel, { color: colors.textMuted }]} numberOfLines={1}>
+              <Text style={[styles.waterLabel, { color: colors.textMuted }]} numberOfLines={largeText ? undefined : 1}>
                 {water.label}
               </Text>
             </View>
