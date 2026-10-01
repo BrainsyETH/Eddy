@@ -54,7 +54,7 @@
     "ios": "expo run:ios",
     "android": "expo run:android",
     "typegen": "expo customize tsconfig.json",
-    "typecheck": "npm run typegen && tsc --noEmit",
+    "typecheck": "npm run typegen && node scripts/check-tab-routes.cjs && tsc --noEmit",
     "lint": "expo lint"
   },
   "dependencies": {

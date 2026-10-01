@@ -34,7 +34,7 @@ import { TAILWATER_STATUS_METRICS } from '@shared/tailwater-status';
 const IOS_LIST_SURFACES = [
   '../eddy-ios/src/components/dam/DamRow.tsx',
   '../eddy-ios/src/components/dam/RiverDamPanel.tsx',
-  '../eddy-ios/app/(tabs)/index.tsx',
+  '../eddy-ios/app/(tabs)/(map)/index.tsx',
   // The river screen's tailwater row. It reads NOTHING inline — every metric
   // goes through buildTailwaterStatus() — so the regex below finds nothing here
   // and this entry buys no coverage on its own. What actually holds that

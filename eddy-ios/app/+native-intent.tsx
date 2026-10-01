@@ -26,19 +26,21 @@
 // without adding one here is the 404 above; adding one here without claiming it
 // is dead code.
 
+import { coldDetailPath } from '../src/lib/tabRoutes';
+
 /** `/plan/<shortCode>` on the web is `/float/<shortCode>` in the app. */
 const PLAN_LINK = /^\/plan\/([^/?#]+)/;
 
-export function redirectSystemPath({ path }: { path: string; initial: boolean }): string {
+export function redirectSystemPath({ path, initial }: { path: string; initial: boolean }): string {
   try {
     // The path arrives as a full URL for a universal link and as a path for a
     // custom-scheme one, so normalise before matching rather than assuming.
-    const pathname = path.startsWith('http') ? new URL(path).pathname : path;
-
-    const plan = pathname.match(PLAN_LINK);
-    if (plan) return `/float/${plan[1]}`;
-
-    return path;
+    const url = /^(https?:|eddy:)/.test(path) ? new URL(path) : null;
+    if (url && url.protocol !== 'eddy:' && !['eddy.guide', 'www.eddy.guide'].includes(url.hostname)) return path;
+    const local = url ? `${url.protocol === 'eddy:' && url.hostname ? `/${url.hostname}` : ''}${url.pathname}${url.search}${url.hash}` : path;
+    const plan = local.match(PLAN_LINK);
+    const destination = plan ? local.replace(PLAN_LINK, `/float/${plan[1]}`) : local;
+    return initial ? coldDetailPath(destination) : destination;
   } catch {
     // Never throw from here. This runs on the cold-start path, and a throw
     // would take the launch with it — for a malformed URL, which is the one

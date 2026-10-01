@@ -71,7 +71,7 @@ test('detection lag on the first live events sat inside the stated window', () =
 
 test('alert surfaces state their real latency instead of a generic caveat', () => {
   const primer = readFileSync('../eddy-ios/src/components/PushPrimer.tsx', 'utf8');
-  const tab = readFileSync('../eddy-ios/app/(tabs)/alerts.tsx', 'utf8');
+  const tab = readFileSync('../eddy-ios/app/(tabs)/(alerts)/alerts.tsx', 'utf8');
   assert.match(primer, /roughly 20–75\s*minutes/i);
   assert.match(tab, /up to about an hour/i);
 });

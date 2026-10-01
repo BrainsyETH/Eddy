@@ -1,3 +1,4 @@
+import { redirectSystemPath } from '../../../eddy-ios/app/+native-intent';
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { readFileSync, readdirSync } from 'node:fs';
@@ -192,4 +193,20 @@ test('a URL in a string is not mistaken for a comment', () => {
   // naive, silently hiding real pushes that follow it.
   const stripped = stripComments(`const u = 'https://eddy.guide'; router.push('/storage');`);
   assert.ok(stripped.includes('/storage'), 'a push after a URL must survive stripping');
+});
+
+
+test('cold shared detail links open Today and preserve parameters', () => {
+  for (const input of ['https://eddy.guide/river/current?gauge=07067000#conditions', 'eddy://river/current?gauge=07067000#conditions', '/river/current?gauge=07067000#conditions']) {
+    assert.equal(redirectSystemPath({ path: input, initial: true }), '/(tabs)/(today)/river/current?gauge=07067000#conditions');
+  }
+  assert.equal(redirectSystemPath({ path: 'https://eddy.guide/plan/abc?view=details', initial: true }), '/(tabs)/(today)/float/abc?view=details');
+});
+
+test('warm detail links preserve the current tab and modal tasks remain global', () => {
+  assert.equal(redirectSystemPath({ path: '/river/current', initial: false }), '/river/current');
+  for (const path of ['/reports', '/', '/profile', '/alerts/new', '/alerts/configure?siteId=123', '/not-a-route']) {
+    assert.equal(redirectSystemPath({ path, initial: true }), path);
+  }
+  assert.equal(redirectSystemPath({ path: 'https://example.com/river/current', initial: true }), 'https://example.com/river/current');
 });
