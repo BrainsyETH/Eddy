@@ -62,6 +62,9 @@ import { useGaugeHistory } from '@/hooks/useGaugeHistory';
 import { warn } from '@/lib/monitoring';
 import { GaugeChartSheet } from '@/components/GaugeChartSheet';
 import { GaugeChartDetails } from '@/components/GaugeChartDetails';
+import { GaugeChartReadout } from '@/components/GaugeChartReadout';
+import { chartGutters, chartGridValues, selectChartRailLabels, type ChartRailLabel } from '@/lib/gaugeChartLayout';
+import { validateChartDates, type ChartDateErrors } from '@/lib/gaugeChartDates';
 
 /** Short history first; provider capabilities unlock the longer windows. */
 const RANGES = [
@@ -219,7 +222,6 @@ function GaugeChartInner({
   const axisFont = 11 * fontScale;
   const padTop = 30 * fontScale;
   const padBottom = 28 * fontScale;
-  const padLeft = 58 * fontScale;
   const clipId = `gauge-${useId().replace(/[^a-zA-Z0-9]/g, '')}`;
   const { colors, isDark } = useTheme();
   const [sheet, setSheet] = useState<'compare' | 'data' | 'range' | 'unit' | 'dates' | null>(null);
@@ -229,11 +231,13 @@ function GaugeChartInner({
   const [fromDate, setFromDate] = useState(initialWindow?.from.slice(0, 10) ?? '');
   const [toDate, setToDate] = useState(initialWindow?.to.slice(0, 10) ?? '');
   const [customWindow, setCustomWindow] = useState<{ from: string; to: string } | undefined>(initialWindow);
-  const [dateError, setDateError] = useState<string | null>(null);
+  const [dateErrors, setDateErrors] = useState<ChartDateErrors>({});
   const ranges = RANGES.filter(r => r.days <= (historyCapabilities?.maxInstantDays ?? 30) || historyCapabilities?.supportsDaily);
   const [days, setDays] = useState<number>(initialDays);
   const [width, setWidth] = useState(0);
-  const [scrubX, setScrubX] = useState<number | null>(null);
+  const [scrubPosition, setScrubPosition] = useState<{ x: number; y?: number } | null>(null);
+  const scrubX = scrubPosition?.x ?? null;
+  const setScrubX = useCallback((x: number | null) => setScrubPosition(x === null ? null : { x }), []);
   /**
    * The unit being drawn, once the reader has chosen one.
    *
@@ -454,9 +458,46 @@ function GaugeChartInner({
     });
   }, [points, forecastPoints, typical, zones, stageLines, drawnUnit, showTypical, showMedian, fullScale]);
 
-  const padRight = fontScale <= 1.25 && width >= 240 ? 78 * fontScale : 8;
+  /**
+   * Round numbers down the left edge, from the same tick function the web axis
+   * uses.
+   *
+   * This file used to label the axis with the padded domain's min, midpoint and
+   * max — so the app printed "1,437.6" where the website printed "1,400" for the
+   * same gauge in the same week. Nobody reads a hydrograph to learn the 8% pad.
+   */
+  const valueTicks = useMemo(
+    // Three with headroom for four in the compact plot.
+    //
+    // Discharge is printed as whole cfs (formatReading rounds), so its ticks
+    // are floored at whole cfs; a half-cfs rung on a low-water week printed
+    // "5, 5, 6". Stage reads to the hundredth and takes the full ladder.
+    () =>
+      domain
+        ? niceValueTicks(domain.min, domain.max, 3, 4, drawnUnit === 'cfs' ? { minStep: 1 } : {})
+        : [],
+    [domain, drawnUnit],
+  );
+
+  const railVisible = (zones.length > 0 || stageLines.length > 0) && fontScale <= 1.25 && width >= 240;
+  const railReferences = zones.length
+    ? zones.slice(1).map(zone => ({ value: zone.min, label: zone.label, color: conditionColor(zone.key) }))
+    : stageLines.map(line => ({ value: line.value, label: stageRailLabel(line.key), color: floodStageColor() }));
+  const above = domain ? railReferences.filter(r => r.value >= domain.max).sort((a, b) => a.value - b.value)[0] : null;
+  const below = domain ? railReferences.filter(r => r.value <= domain.min).sort((a, b) => b.value - a.value)[0] : null;
+  const referenceValues = [...zones.filter(zone => !zone.openEnded).map(zone => zone.max), ...stageLines.map(line => line.value)];
+  const railTexts = [
+    ...zones.filter(zone => domain && zone.min < domain.max && (zone.openEnded || zone.max > domain.min)).map(zone => zone.label),
+    ...railReferences.filter(reference => domain && reference.value >= domain.min && reference.value <= domain.max).flatMap(reference => [reference.label, axisValue(reference.value, drawnUnit)]),
+    ...(above ? [`↑ ${above.label}`, axisValue(above.value, drawnUnit)] : []),
+    ...(below ? [`↓ ${zones.find(zone => !zone.openEnded && zone.max === below.value)?.label ?? below.label}`, axisValue(below.value, drawnUnit)] : []),
+  ];
+  const gutters = chartGutters(valueTicks.map(tick => axisValue(tick.value, drawnUnit)), railTexts, axisFont, railVisible);
+  const padLeft = gutters.left;
+  const padRight = gutters.right;
   const plotWidth = Math.max(0, width - padLeft - padRight);
   const plotHeight = chartHeight - padTop - padBottom;
+  const gridValues = domain ? chartGridValues(valueTicks.map(tick => tick.value), referenceValues, domain, plotHeight, axisFont * 1.7) : [];
 
   const scale = useMemo(() => {
     if (!domain || plotWidth <= 0) return null;
@@ -530,27 +571,6 @@ function GaugeChartInner({
           : '',
     };
   }, [points, forecastPoints, typical, scale]);
-
-  /**
-   * Round numbers down the left edge, from the same tick function the web axis
-   * uses.
-   *
-   * This file used to label the axis with the padded domain's min, midpoint and
-   * max — so the app printed "1,437.6" where the website printed "1,400" for the
-   * same gauge in the same week. Nobody reads a hydrograph to learn the 8% pad.
-   */
-  const valueTicks = useMemo(
-    // Three with headroom for four in the compact plot.
-    //
-    // Discharge is printed as whole cfs (formatReading rounds), so its ticks
-    // are floored at whole cfs; a half-cfs rung on a low-water week printed
-    // "5, 5, 6". Stage reads to the hundredth and takes the full ladder.
-    () =>
-      domain
-        ? niceValueTicks(domain.min, domain.max, 3, 4, drawnUnit === 'cfs' ? { minStep: 1 } : {})
-        : [],
-    [domain, drawnUnit],
-  );
 
   /** Three instants across the window, so the middle of the plot is placeable. */
   const xTicks = useMemo(
@@ -630,9 +650,9 @@ function GaugeChartInner({
         .failOffsetY([-SCRUB_FAIL_Y, SCRUB_FAIL_Y])
         .onTouchesDown((e) => {
           const touch = e.allTouches[0];
-          if (touch) setScrubX(touch.x);
+          if (touch) setScrubPosition({ x: touch.x, y: touch.y });
         })
-        .onUpdate((e) => setScrubX(e.x))
+        .onUpdate((e) => setScrubPosition({ x: e.x, y: e.y }))
         .onFinalize(() => setScrubX(null)),
     [setScrubX],
   );
@@ -803,12 +823,6 @@ function GaugeChartInner({
     else if (action === 'decrement') stepScrub(-1);
   };
 
-  const railVisible = fontScale <= 1.25 && width >= 240;
-  const railReferences = zones.length
-    ? zones.slice(1).map(zone => ({ value: zone.min, label: zone.label, color: conditionColor(zone.key) }))
-    : stageLines.map(line => ({ value: line.value, label: stageRailLabel(line.key), color: floodStageColor() }));
-  const above = domain ? railReferences.filter(r => r.value >= domain.max).sort((a, b) => a.value - b.value)[0] : null;
-  const below = domain ? railReferences.filter(r => r.value <= domain.min).sort((a, b) => b.value - a.value)[0] : null;
   const currentZone = newest ? zones.find(zone => newest.v <= zone.max || zone.openEnded) : null;
   const comparisonCount = Number(showTypical && typical.length > 0) + Number(showMedian && typical.length > 0) + Number(fullScale);
   const drawnRangeLabel = drawnDays === 1 ? 'Past 24 hours' : `Past ${drawnDays} days`;
@@ -845,16 +859,37 @@ function GaugeChartInner({
     });
   };
   const applyDates = () => {
-    const from = Date.parse(`${fromDate}T00:00:00Z`);
-    const to = Date.parse(`${toDate}T23:59:59Z`);
-    const validDate = (value: string, time: number) => /^\d{4}-\d{2}-\d{2}$/.test(value) && Number.isFinite(time) && new Date(time).toISOString().slice(0, 10) === value;
-    if (!validDate(fromDate, from) || !validDate(toDate, to) || to <= from || to - from > 366 * 86400000 || from > Date.now()) {
-      setDateError('Enter valid dates in order, no more than one year apart.'); return;
-    }
-    const end = Math.min(to, Date.now());
-    setDateError(null); setScrubX(null); setDays(Math.max(1, Math.ceil((end - from) / 86400000)));
-    setCustomWindow({ from: new Date(from).toISOString(), to: new Date(end).toISOString() }); closeSheet();
+    const result = validateChartDates(fromDate, toDate, Date.now());
+    if (result.errors) { setDateErrors(result.errors); return; }
+    setDateErrors({}); setScrubX(null); setDays(result.days);
+    setCustomWindow(result.window); closeSheet();
   };
+
+  const railCandidates: ChartRailLabel[] = [];
+  if (railVisible && scale && domain) {
+    for (const zone of zones) {
+      const top = scale.y(zone.openEnded ? domain.max : Math.min(zone.max, domain.max));
+      const bottom = scale.y(Math.max(zone.min, domain.min));
+      if (bottom - top >= axisFont * 1.7) railCandidates.push({
+        id: `name-${zone.key}`, kind: 'name', text: zone.label, y: (top + bottom) / 2,
+        height: axisFont * 1.3, priority: zone === currentZone ? -1 : 2000,
+      });
+    }
+    const currentY = newest ? scale.y(newest.v) : padTop + plotHeight / 2;
+    for (const reference of railReferences) {
+      if (reference.value < domain.min || reference.value > domain.max) continue;
+      const y = scale.y(reference.value);
+      railCandidates.push({ id: `value-${reference.value}`, kind: 'value', text: axisValue(reference.value, drawnUnit),
+        y, height: axisFont * 1.3, priority: 10 + Math.abs(y - currentY) });
+      if (!zones.length) railCandidates.push({ id: `name-${reference.value}`, kind: 'name', text: reference.label,
+        y: y - axisFont * 1.8, height: axisFont * 1.3, priority: 1000 + Math.abs(y - currentY) });
+    }
+    if (above) railCandidates.push({ id: 'above', kind: 'offscreen', text: `↑ ${above.label}`, secondLine: axisValue(above.value, drawnUnit),
+      y: axisFont * 1.25 + 1, height: axisFont * 2.5, priority: -2 });
+    if (below) railCandidates.push({ id: 'below', kind: 'offscreen', text: `↓ ${zones.find(zone => !zone.openEnded && zone.max === below.value)?.label ?? below.label}`, secondLine: axisValue(below.value, drawnUnit),
+      y: chartHeight - axisFont * 1.25 - 1, height: axisFont * 2.5, priority: -2 });
+  }
+  const railLabels = selectChartRailLabels(railCandidates, 0, chartHeight, 4 * fontScale);
 
   return (
     <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
@@ -896,7 +931,7 @@ function GaugeChartInner({
                 {currentZone ? <Rect x={padLeft} y={Math.max(padTop, scale.y(currentZone.openEnded ? domain.max : Math.min(currentZone.max, domain.max)))}
                   width={plotWidth} height={Math.max(0, Math.min(padTop + plotHeight, scale.y(currentZone.min)) - Math.max(padTop, scale.y(currentZone.openEnded ? domain.max : Math.min(currentZone.max, domain.max))))}
                   fill={conditionColor(currentZone.key)} opacity={isDark ? 0.08 : 0.05} /> : null}
-                {valueTicks.map(tick => <Line key={`grid-${tick.value}`} x1={padLeft} x2={padLeft + plotWidth} y1={scale.y(tick.value)} y2={scale.y(tick.value)} stroke={colors.border} strokeWidth={0.5} />)}
+                {gridValues.map(value => <Line key={`grid-${value}`} x1={padLeft} x2={padLeft + plotWidth} y1={scale.y(value)} y2={scale.y(value)} stroke={colors.border} strokeWidth={0.5} />)}
                 {showTypical && series.typicalArea ? <Path d={series.typicalArea} fill={colors.textMuted} fillOpacity={isDark ? 0.16 : 0.1} /> : null}
                 {showMedian && series.typicalPath ? <Path d={series.typicalPath} stroke={colors.textMuted} strokeWidth={1} strokeDasharray="2 4" fill="none" /> : null}
                 {zones.filter(zone => !zone.openEnded).map(zone => <Line key={`edge-${zone.key}`} x1={padLeft} x2={padLeft + plotWidth} y1={scale.y(zone.max)} y2={scale.y(zone.max)} stroke={conditionColor(zone.key)} strokeWidth={0.75} opacity={0.5} />)}
@@ -924,38 +959,29 @@ function GaugeChartInner({
                 if (height <= 0) return null;
                 return <G key={`rail-${zone.key}`}>
                   <Rect x={padLeft + plotWidth + 7} y={top} width={4} height={height} fill={conditionColor(zone.key)} />
-                  {height >= axisFont * 1.7 ? <SvgText x={padLeft + plotWidth + 16} y={(top + bottom) / 2 + axisFont * 0.35} fontSize={axisFont} fill={colors.text} fontFamily={fonts.medium}>{zone.label}</SvgText> : null}
                 </G>;
               })}
-              {railVisible && !zones.length && stageLines.map((line, index) => {
+              {railVisible && !zones.length && stageLines.map(line => {
                 const y = scale.y(line.value);
-                if (y < padTop || y > padTop + plotHeight) return null;
-                const previous = stageLines[index - 1];
-                const labelFits = !previous || Math.abs(scale.y(previous.value) - y) >= axisFont * 1.7;
-                return <G key={`rail-stage-${line.key}`}>
-                  <Rect x={padLeft + plotWidth + 7} y={y - 2} width={4} height={4} fill={floodStageColor()} />
-                  {labelFits ? <SvgText x={padLeft + plotWidth + 16} y={y + axisFont * 0.35} fontSize={axisFont} fill={colors.text} fontFamily={fonts.medium}>{stageRailLabel(line.key)}</SvgText> : null}
-                </G>;
+                return y >= padTop && y <= padTop + plotHeight
+                  ? <Rect key={`rail-stage-${line.key}`} x={padLeft + plotWidth + 7} y={y - 2} width={4} height={4} fill={floodStageColor()} /> : null;
               })}
-              {railVisible && above ? <G>
-                <SvgText x={padLeft + plotWidth + 6} y={axisFont} fill={colors.textMuted} fontSize={axisFont} fontFamily={fonts.body}>↑ {above.label}</SvgText>
-                <SvgText x={padLeft + plotWidth + 6} y={axisFont * 2.2} fill={colors.textMuted} fontSize={axisFont} fontFamily={fonts.mono}>{axisValue(above.value, drawnUnit)}</SvgText>
-              </G> : null}
-              {railVisible && below ? <G>
-                <SvgText x={padLeft + plotWidth + 6} y={chartHeight - axisFont * 1.25} fill={colors.textMuted} fontSize={axisFont} fontFamily={fonts.body}>↓ {zones.find(zone => !zone.openEnded && zone.max === below.value)?.label ?? below.label}</SvgText>
-                <SvgText x={padLeft + plotWidth + 6} y={chartHeight - 1} fill={colors.textMuted} fontSize={axisFont} fontFamily={fonts.mono}>{axisValue(below.value, drawnUnit)}</SvgText>
-              </G> : null}
+              {railLabels.map(label => label.kind === 'offscreen' ? <G key={label.id}>
+                <SvgText x={padLeft + plotWidth + 6} y={label.y - axisFont * 0.3} fill={colors.textMuted} fontSize={axisFont} fontFamily={fonts.body}>{label.text}</SvgText>
+                <SvgText x={padLeft + plotWidth + 6} y={label.y + axisFont} fill={colors.textMuted} fontSize={axisFont} fontFamily={fonts.mono}>{label.secondLine}</SvgText>
+              </G> : <SvgText key={label.id} x={padLeft + plotWidth + 16} y={label.y + axisFont * 0.35} fontSize={axisFont}
+                fill={label.kind === 'name' ? colors.text : colors.textMuted} fontFamily={label.kind === 'name' ? fonts.medium : fonts.mono}>{label.text}</SvgText>)}
               {plotWidth >= axisFont * 7 && (forecastPoints.length > 0 || stageLines.length > 0) ? <SvgText x={padLeft + plotWidth - 3} y={axisFont * 1.8} textAnchor="end" fill={colors.textMuted} fontSize={axisFont} fontFamily={fonts.body}>{forecastPoints.length ? 'NWS forecast' : 'NWS stages'}</SvgText> : null}
               {plotWidth > axisFont * (forecastPoints.length || stageLines.length ? 18 : 8) ? <SvgText x={padLeft + 3} y={axisFont * 1.8} fill={colors.textMuted} fontSize={axisFont} fontFamily={fonts.body}>
                 {showTypical && series.typicalArea ? 'Typical' : showMedian && series.typicalPath ? 'Median' : series.gapPaths.length ? 'Dotted: gaps' : nowLabelText === 'Last reading' ? 'Last reading' : ''}
               </SvgText> : null}
               {xTicks.map((tick, index) => <SvgText key={`time-${index}`} x={scale.x(tick.value)} y={chartHeight - 6} fill={colors.textMuted} fontSize={axisFont} fontFamily={fonts.body} textAnchor={index === 0 ? 'start' : index === xTicks.length - 1 ? 'end' : 'middle'}>{axisTime(tick.value, drawnDays)}</SvgText>)}
             </Svg>
-            {scrubbed ? <View pointerEvents="none" accessible={false} importantForAccessibility="no-hide-descendants"
-              style={[styles.scrubOverlay, { left: padLeft, backgroundColor: colors.card, borderColor: colors.border }]}>
-              <Text style={[styles.scrubValue, { color: colors.text }]}>{formatReading(scrubbed.point.v, drawnUnit)}{scrubZone ? ` · ${scrubZone.label}` : ''}</Text>
-              <Text style={[styles.caption, { color: colors.textMuted }]}>{scrubTime(scrubbed.point.t)} · {scrubbed.kind === 'forecast' ? 'NWS forecast' : `${observedLabel}${scrubQualifiers ? ` · ${scrubQualifiers}` : ''}`}</Text>
-            </View> : null}
+            {scrubbed ? <GaugeChartReadout key={`${drawnUnit}-${fontScale}`} width={width} height={chartHeight}
+              point={{ x: scale.x(scrubbed.point.t), y: scale.y(scrubbed.point.v) }}
+              finger={scrubPosition?.y != null ? { x: scrubPosition.x, y: scrubPosition.y } : null}
+              value={formatReading(scrubbed.point.v, drawnUnit)} band={scrubZone?.label} time={scrubTime(scrubbed.point.t)}
+              source={scrubbed.kind === 'forecast' ? 'NWS forecast' : observedLabel} quality={scrubQualifiers} /> : null}
           </View>
         </GestureDetector> : <View style={[styles.placeholder, { height: chartHeight }]}>
           {loading ? <ActivityIndicator accessibilityLabel="Loading gauge history" color={colors.interactive} /> : failed ? <>
@@ -989,10 +1015,13 @@ function GaugeChartInner({
           })}
           {historyCapabilities?.supportsCustomRange ? <Pressable accessibilityRole="button" onPress={() => setSheet('dates')} style={[styles.choice, { borderBottomColor: colors.border }]}><Text style={[styles.choiceText, { color: colors.interactive }]}>Custom dates</Text><Ionicons name="calendar-outline" size={20} color={colors.interactive} /></Pressable> : null}
         </> : <>
-          <Text style={[styles.caption, { color: colors.textMuted }]}>Enter dates as YYYY-MM-DD (UTC).</Text>
-          <TextInput accessibilityLabel="Start date YYYY-MM-DD" placeholder="From: YYYY-MM-DD" autoCapitalize="none" autoCorrect={false} placeholderTextColor={colors.textSubtle} value={fromDate} onChangeText={setFromDate} style={[styles.dateInput, { color: colors.text, borderColor: colors.border }]} />
-          <TextInput accessibilityLabel="End date YYYY-MM-DD" placeholder="To: YYYY-MM-DD" autoCapitalize="none" autoCorrect={false} placeholderTextColor={colors.textSubtle} value={toDate} onChangeText={setToDate} style={[styles.dateInput, { color: colors.text, borderColor: colors.border }]} />
-          {dateError ? <Text accessibilityRole="alert" style={[styles.caption, { color: colors.text }]}>{dateError}</Text> : null}
+          <Text style={[styles.caption, { color: colors.textMuted }]}>Enter dates as YYYY-MM-DD (UTC). Future end dates stop at today.</Text>
+          <Text style={[styles.caption, { color: colors.text }]}>Start date</Text>
+          <TextInput accessibilityLabel="Start date" accessibilityHint={dateErrors.from ?? 'YYYY-MM-DD, UTC'} placeholder="YYYY-MM-DD" autoCapitalize="none" autoCorrect={false} placeholderTextColor={colors.textSubtle} value={fromDate} onChangeText={value => { setFromDate(value); setDateErrors({}); }} style={[styles.dateInput, { color: colors.text, borderColor: colors.border }]} />
+          {dateErrors.from ? <Text accessibilityRole="alert" accessibilityLiveRegion="polite" style={[styles.caption, { color: colors.text }]}>{dateErrors.from}</Text> : null}
+          <Text style={[styles.caption, { color: colors.text }]}>End date</Text>
+          <TextInput accessibilityLabel="End date" accessibilityHint={dateErrors.to ?? 'YYYY-MM-DD, UTC'} placeholder="YYYY-MM-DD" autoCapitalize="none" autoCorrect={false} placeholderTextColor={colors.textSubtle} value={toDate} onChangeText={value => { setToDate(value); setDateErrors({}); }} style={[styles.dateInput, { color: colors.text, borderColor: colors.border }]} />
+          {dateErrors.to ? <Text accessibilityRole="alert" accessibilityLiveRegion="polite" style={[styles.caption, { color: colors.text }]}>{dateErrors.to}</Text> : null}
           <Pressable accessibilityRole="button" onPress={applyDates} style={[styles.rangeButton, { backgroundColor: colors.cardRaised }]}><Text style={[styles.actionText, { color: colors.interactive }]}>Apply dates</Text></Pressable>
         </>}
       </GaugeChartSheet> : null}
@@ -1092,8 +1121,6 @@ const styles = StyleSheet.create({
   rangeButton: { minHeight: 44, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, borderRadius: 10, paddingHorizontal: 10, paddingVertical: 8 },
   rangeStatus: { marginBottom: 8, gap: 4 },
   plotWrap: { position: 'relative' },
-  scrubOverlay: { position: 'absolute', top: 0, right: 0, borderWidth: StyleSheet.hairlineWidth, borderRadius: 9, padding: 8, gap: 2 },
-  scrubValue: { ...t.sm, fontFamily: fonts.monoMedium },
   caption: { ...t.xs },
   actions: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginTop: 4, borderTopWidth: StyleSheet.hairlineWidth },
   toolbarAction: { minHeight: 44, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 8, paddingHorizontal: 4, flexShrink: 1 },

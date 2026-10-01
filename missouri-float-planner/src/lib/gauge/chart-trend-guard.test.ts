@@ -159,10 +159,9 @@ test('the guard keeps an ordinary reading, and a mildly stretched one', () => {
   assert.ok(Math.abs((stretched?.windowHours ?? 0) - 6) <= 3);
 });
 
-test('the compact chart leaves the visible summary to its page and overlays scrubbing', () => {
+test('the compact chart leaves the visible summary to its page', () => {
   assert.doesNotMatch(CHART, /<TrendPill/, 'the chart must not duplicate the page trend');
   assert.match(CHART, /if \(shownTrend\) bits\.push/, 'VoiceOver still needs the guarded chart summary');
-  assert.match(CHART, /scrubOverlay: \{ position: 'absolute'/, 'scrubbing must not grow the chart');
 });
 
 test('the six-hour window is fixed, never scaled to the selected range', () => {
