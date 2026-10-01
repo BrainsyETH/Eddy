@@ -27,15 +27,15 @@ interface Props {
 const BLUR_INTENSITY = 34;
 
 function ReadBackdrop({ photoUrl }: { photoUrl?: string | null }) {
-  // Anchor both layers to the final card bounds, including a wrapped footer or
-  // an excerpt that grows after loading. Avoid percentage heights on the SVG.
+  // Stretch fixed SVG coordinates over the card. Percentage Rect dimensions
+  // use a cached drawing-context size on iOS and can stop above a growing footer.
   return <View style={StyleSheet.absoluteFill} pointerEvents="none" accessible={false}>
     {photoUrl ? <Image source={{ uri: photoUrl }} style={StyleSheet.absoluteFill}
       contentFit="cover" cachePolicy="memory-disk" transition={120}
       recyclingKey={photoUrl} accessibilityIgnoresInvertColors accessible={false} /> : null}
-    <Svg style={StyleSheet.absoluteFill}>
+    <Svg viewBox="0 0 1 1" preserveAspectRatio="none" style={StyleSheet.absoluteFill}>
       <Defs><LinearGradient id="readShade" x1="0" y1="0" x2="0" y2="1"><Stop offset="0" stopColor="#071c20" stopOpacity={0.66} /><Stop offset="0.45" stopColor="#071c20" stopOpacity={0.65} /><Stop offset="1" stopColor="#071c20" stopOpacity={0.94} /></LinearGradient></Defs>
-      <Rect width="100%" height="100%" fill="url(#readShade)" />
+      <Rect width={1} height={1} fill="url(#readShade)" />
     </Svg>
   </View>;
 }

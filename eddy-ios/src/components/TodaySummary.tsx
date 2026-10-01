@@ -226,7 +226,18 @@ export function TodayWeather({
         {!locationEnabled && !weather ? <Text style={{ ...t.lg, fontFamily: fonts.semibold, color: colors.text }}>Weather</Text> : null}
       </View>
       {weather ? <>
-        <Text style={{ ...t['3xl'], fontFamily: fonts.semibold, color: colors.text, textAlign: 'center' }}><Text style={{ ...t.sm, color: colors.textMuted }}>H </Text>{weather.tempHigh}° <Text style={{ ...t.sm, color: colors.textMuted }}>L </Text><Text style={{ ...t['2xl'], color: colors.textMuted }}>{weather.tempLow}°</Text></Text>
+        {/* Separate text boxes keep the smaller labels' line heights from
+            clipping the temperatures. Wrap whole pairs at larger text sizes. */}
+        <View style={styles.temperatures}>
+          <View style={styles.temperaturePair}>
+            <Text style={[styles.temperatureLabel, { color: colors.textMuted }]}>H</Text>
+            <Text style={[styles.temperatureHigh, { color: colors.text }]}>{weather.tempHigh}°</Text>
+          </View>
+          <View style={styles.temperaturePair}>
+            <Text style={[styles.temperatureLabel, { color: colors.textMuted }]}>L</Text>
+            <Text style={[styles.temperatureLow, { color: colors.textMuted }]}>{weather.tempLow}°</Text>
+          </View>
+        </View>
         <Text numberOfLines={2} style={[styles.weatherMeta, { ...t.sm, color: colors.textMuted, textAlign: 'center' }]}>{weather.date === localDateKey() ? '' : `${weather.dayOfWeek} · `}{weather.condition} · {weather.precipitation}% rain</Text>
       </> : weatherLoading ? <ActivityIndicator accessibilityLabel="Updating local forecast" color={colors.interactive} /> : <Text style={[styles.weatherActionText, { ...t.base, minHeight: 38, lineHeight: 38, marginTop: 0, color: colors.interactive, textAlign: 'center' }]}>{locationActionLabel?.startsWith('Open Settings') ? 'Enable location' : locationActionLabel?.startsWith('Retry') ? 'Retry weather' : locationActionLabel ? 'Use my location' : 'Weather unavailable'}</Text>}
     </Pressable>
@@ -288,6 +299,11 @@ export function TodayWeather({
 const styles = StyleSheet.create({
   card: { borderWidth: StyleSheet.hairlineWidth, borderRadius: 16, padding: 14, gap: 10 },
   compactWeather: { flex: 1, borderWidth: StyleSheet.hairlineWidth, borderRadius: 16, padding: 12, gap: 6, minHeight: 120, alignItems: 'center', justifyContent: 'center' },
+  temperatures: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'baseline', justifyContent: 'center', columnGap: 10, rowGap: 4 },
+  temperaturePair: { flexDirection: 'row', alignItems: 'baseline', gap: 4 },
+  temperatureLabel: { ...t.sm },
+  temperatureHigh: { ...t['3xl'], fontFamily: fonts.semibold },
+  temperatureLow: { ...t['2xl'] },
   weatherCard: { borderWidth: StyleSheet.hairlineWidth, borderRadius: 16, padding: 14 },
   top: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   iconWell: { width: 48, height: 48, borderRadius: 24, alignItems: 'center', justifyContent: 'center' },

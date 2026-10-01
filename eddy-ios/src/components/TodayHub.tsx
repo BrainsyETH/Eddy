@@ -772,7 +772,6 @@ export function TodayHub({
             <Text style={[styles.emptyTitle, { color: colors.text }]}>
               {location.coords ? `No fresh floatable pick within ${TODAY_RADIUS_MILES} miles` : 'No fresh floatable reading yet'}
             </Text>
-            <Text style={[styles.emptyBody, { color: colors.textMuted }]}>River Conditions is just below.</Text>
           </View>
         )}
       </View>
