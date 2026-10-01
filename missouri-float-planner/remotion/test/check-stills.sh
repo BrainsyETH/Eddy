@@ -36,6 +36,8 @@ STILLS=(
   "social-route-map-layout:0,120,300,345"
   # Actual recorded route and terrain: launch, photo stop, and complete recap.
   "social-route-grassy-bee:0,150,405"
+  # Black River: wrapped finish title and photo previously collided with stats.
+  "social-route-black-river:0,120,359"
   # Every other composition is baselined at frame 0 too: the grid thumbnail /
   # first autoplay frame must be a complete branded card, not an empty ground.
   # social-gauge-portrait is the PRODUCTION Eddy Says reel (river_highlight);

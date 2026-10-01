@@ -44,6 +44,8 @@ interface StatTileProps {
   wrap?: boolean;
   tone?: SocialTone;
   minHeight?: number;
+  /** Compact route dock; leaves other social compositions unchanged. */
+  dense?: boolean;
 }
 
 /** A stat inside a dock: a big number (or word) over a small uppercase caption. */
@@ -56,6 +58,7 @@ export const StatTile: React.FC<StatTileProps> = ({
   wrap = false,
   tone = "light",
   minHeight = 112,
+  dense = false,
 }) => {
   const s = SURFACES[tone];
   const step = compact ? TYPE.statWord : TYPE.statValue;
@@ -68,7 +71,7 @@ export const StatTile: React.FC<StatTileProps> = ({
         flexDirection: "column",
         justifyContent: "center",
         alignItems: "center",
-        padding: "10px 8px",
+        padding: dense ? "8px" : "10px 8px",
         textAlign: "center",
       }}
     >
@@ -99,7 +102,8 @@ export const StatTile: React.FC<StatTileProps> = ({
       </div>
       <div
         style={{
-          marginTop: 8,
+          marginTop: dense ? 6 : 8,
+          lineHeight: dense ? 1.15 : undefined,
           fontSize: TYPE.statLabel.size,
           fontWeight: TYPE.statLabel.weight,
           letterSpacing: TYPE.statLabel.tracking,

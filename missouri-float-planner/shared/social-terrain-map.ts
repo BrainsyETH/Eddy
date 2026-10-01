@@ -1,6 +1,6 @@
 import { validRouteCoordinates, type LngLat, type Journey } from './social-route-journey';
 import { ROUTE_MAP_STAGE, ROUTE_STAGE_TOP } from './social-route-layout';
-import { DEFAULT_TIMING, routeBounds, type JourneyCamera, type JourneyPoint } from './social-route-journey';
+import { DEFAULT_TIMING, routeBounds, type JourneyCamera, type JourneyPoint, type JourneyStage } from './social-route-journey';
 import { REEL_SAFE } from './social-brand';
 
 // One camera for the full-bleed 1080x1920 image and the animated route.
@@ -70,6 +70,8 @@ export function terrainMapUrl(plan: NonNullable<ReturnType<typeof terrainMapPlan
   url.searchParams.set('access_token', token);
   // Attribution is redrawn at readable size inside the social safe area.
   url.searchParams.set('attribution', 'false');
+  // A bundled, unmodified provider logo stays in the safe attribution row.
+  url.searchParams.set('logo', 'false');
   return url.toString();
 }
 
@@ -77,9 +79,9 @@ export function terrainMapUrl(plan: NonNullable<ReturnType<typeof terrainMapPlan
  * edges to the canvas; never expose blank strips during the follow or return. */
 export function terrainJourneyCamera(
   frame: number, route: ReadonlyArray<JourneyPoint>, boat: JourneyPoint, arrival: number,
+  stage: JourneyStage = ROUTE_MAP_STAGE, stageTop = ROUTE_STAGE_TOP,
 ): JourneyCamera {
   const b = routeBounds(route);
-  const stage = ROUTE_MAP_STAGE;
   const fit = Math.max(1, Math.min(2,
     (stage.width - 2 * stage.paddingX!) / Math.max(b.width, 1),
     (stage.height - 2 * stage.padding) / Math.max(b.height, 1),
@@ -88,24 +90,35 @@ export function terrainJourneyCamera(
   const follow = smooth((frame - DEFAULT_TIMING.introFrames + 15) / 48);
   const finish = smooth((frame - arrival) / 30);
   const focus = follow * (1 - finish);
-  const scale = fit + (Math.max(fit, 2.2) - fit) * focus;
+  // Reserve the canoe's full asymmetric silhouette while the CSS viewport
+  // changes height. Zoom only as much as image coverage requires; then clamp
+  // the shared image/overlay pan to the intersection of both constraints.
+  const sourceX = boat.x + TERRAIN_ORIGIN.x;
+  const sourceY = boat.y + TERRAIN_ORIGIN.y;
+  const left = REEL_SAFE.left + 128.01, right = REEL_SAFE.left + stage.width - 42.01;
+  const top = stageTop + 76.01, bottom = stageTop + stage.height - 66.01;
+  const scale = Math.max(fit + (Math.max(fit, 2.2) - fit) * focus,
+    left / sourceX, (TERRAIN_WIDTH - right) / (TERRAIN_WIDTH - sourceX),
+    top / sourceY, (TERRAIN_HEIGHT - bottom) / (TERRAIN_HEIGHT - sourceY));
   const centerX = b.centerX + (boat.x - b.centerX) * focus;
   const centerY = b.centerY + (boat.y - b.centerY) * focus;
-  const imageX = Math.max(TERRAIN_WIDTH * (1 - scale), Math.min(0,
+  const imageX = Math.max(TERRAIN_WIDTH * (1 - scale), left - sourceX * scale, Math.min(
+    0, right - sourceX * scale,
     REEL_SAFE.left + stage.boatX - (centerX + TERRAIN_ORIGIN.x) * scale));
-  const imageY = Math.max(TERRAIN_HEIGHT * (1 - scale), Math.min(0,
-    ROUTE_STAGE_TOP + stage.boatY - (centerY + TERRAIN_ORIGIN.y) * scale));
+  const imageY = Math.max(TERRAIN_HEIGHT * (1 - scale), top - sourceY * scale, Math.min(
+    0, bottom - sourceY * scale,
+    stageTop + stage.boatY - (centerY + TERRAIN_ORIGIN.y) * scale));
   return { scale,
     translateX: imageX + TERRAIN_ORIGIN.x * scale - REEL_SAFE.left,
-    translateY: imageY + TERRAIN_ORIGIN.y * scale - ROUTE_STAGE_TOP,
+    translateY: imageY + TERRAIN_ORIGIN.y * scale - stageTop,
   };
 }
 
 /** Full-canvas image transform corresponding to the stage-local camera. */
-export function terrainImageTransform(camera: JourneyCamera) {
+export function terrainImageTransform(camera: JourneyCamera, stageTop = ROUTE_STAGE_TOP) {
   return {
     x: REEL_SAFE.left + camera.translateX - TERRAIN_ORIGIN.x * camera.scale,
-    y: ROUTE_STAGE_TOP + camera.translateY - TERRAIN_ORIGIN.y * camera.scale,
+    y: stageTop + camera.translateY - TERRAIN_ORIGIN.y * camera.scale,
     scale: camera.scale,
   };
 }

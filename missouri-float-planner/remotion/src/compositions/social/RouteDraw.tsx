@@ -1,4 +1,5 @@
 import React, { useMemo } from "react";
+import { useRouteViewport } from "../../lib/use-route-viewport";
 import { terrainMapPlan, terrainJourneyCamera, terrainImageTransform } from "../../../../shared/social-terrain-map";
 import { Audio, Img, interpolate, spring, staticFile, useCurrentFrame, useVideoConfig } from "remotion";
 import {
@@ -31,10 +32,6 @@ import { REEL_SAFE } from "../../lib/reel-safe";
 import { CONDITION_COLORS, type RouteDrawProps } from "../../lib/social-props";
 
 import {
-  ROUTE_STAGE_TOP as STAGE_TOP,
-  ROUTE_STAGE_HEIGHT as STAGE_HEIGHT,
-  ROUTE_MAP_HEIGHT as MAP_HEIGHT,
-  ROUTE_ANNOTATION_TOP as CALLOUT_TOP,
   ROUTE_CONTENT_WIDTH as CALLOUT_W,
   ROUTE_MAP_STAGE as STAGE,
 } from "../../../../shared/social-route-layout";
@@ -42,7 +39,7 @@ import {
 const FPS = 30;
 
 // ─── Layout ─────────────────────────────────────────────────────────────────
-// Reserve separate rectangles for the masthead, map, annotation and dock.
+// A CSS grid sizes the masthead, mileage row, flexible map and footer.
 // Only river strokes fade at the map edges; readable content never overlaps.
 
 const LIGHT = SURFACES.light;
@@ -71,6 +68,17 @@ const toScreen = (point: JourneyPoint, camera: JourneyCamera) => ({
   x: point.x * camera.scale + camera.translateX,
   y: point.y * camera.scale + camera.translateY,
 });
+
+/** Readable endpoint pills never clip or cover the passing canoe. */
+function showEndpointLabel(position: JourneyPoint, active: boolean, boat: JourneyPoint, height: number) {
+  const markerScale = active ? 1.25 : 1;
+  const label = { left: position.x - 43 * markerScale, right: position.x + 43 * markerScale,
+    top: position.y + 31 * markerScale, bottom: position.y + 63 * markerScale };
+  const clearsCanoe = label.right + 8 <= boat.x - 128 || label.left - 8 >= boat.x ||
+    label.bottom + 8 <= boat.y - 76 || label.top - 8 >= boat.y + 10;
+  return label.left >= 0 && label.right <= CALLOUT_W && label.top >= 0 &&
+    label.bottom <= height && clearsCanoe;
+}
 
 /**
  * A truthful river journey. Frame 0 is the whole float — every bend, every
@@ -106,6 +114,8 @@ export const RouteDraw: React.FC<RouteDrawProps> = (props) => {
   } = props;
   const frame = useCurrentFrame();
   const { fps, durationInFrames } = useVideoConfig();
+  const viewport = useRouteViewport();
+  const stage = { ...STAGE, height: viewport.height, boatY: viewport.height / 2 };
   const condition = evergreen
     ? EVERGREEN_STYLE
     : CONDITION_COLORS[conditionCode] ?? CONDITION_COLORS.unknown;
@@ -122,9 +132,9 @@ export const RouteDraw: React.FC<RouteDrawProps> = (props) => {
   const state = journeyState(frame, intermediate);
   const arrival = arrivalFrame(intermediate);
   const camera = journey ? (terrain
-    ? terrainJourneyCamera(frame, journey.points, journey.locate(state.progress).point, arrival)
-    : journeyCamera(frame, journey.points, journey.locate(state.progress).point, STAGE, DEFAULT_TIMING, arrival)) : null;
-  const mapTransform = camera ? terrainImageTransform(camera) : null;
+    ? terrainJourneyCamera(frame, journey.points, journey.locate(state.progress).point, arrival, stage, viewport.top)
+    : journeyCamera(frame, journey.points, journey.locate(state.progress).point, stage, DEFAULT_TIMING, arrival)) : null;
+  const mapTransform = camera ? terrainImageTransform(camera, viewport.top) : null;
   const travelledMiles = Math.min(distanceMi, distanceMi * state.progress);
   const activeIntermediate = state.activeStop === null ? null : intermediate[state.activeStop];
   const putIn = stops[0];
@@ -161,7 +171,9 @@ export const RouteDraw: React.FC<RouteDrawProps> = (props) => {
   const routeLabel = `${cleanName(putInName, 40)} → ${cleanName(takeOutName, 40)}`;
   const closing = Math.min(1, Math.max(0, (frame - (durationInFrames - 90)) / 12));
 
+  const presence = clamp(calloutProgress, 0, 1);
   const stageProps = {
+    stageHeight: viewport.height,
     stops,
     state,
     condition,
@@ -182,15 +194,6 @@ export const RouteDraw: React.FC<RouteDrawProps> = (props) => {
           transformOrigin: "0 0", transform: `translate(${mapTransform.x}px, ${mapTransform.y}px) scale(${mapTransform.scale})`,
           filter: "saturate(0.45) brightness(1.04)" }} />
         <div style={{ position: "absolute", inset: 0, background: "rgba(250,248,240,0.48)" }} />
-        <div style={{ position: "absolute", left: REEL_SAFE.left, top: STAGE_TOP + MAP_HEIGHT - 28,
-          zIndex: 8, background: LIGHT.surface, color: LIGHT.ink, padding: "4px 8px", fontSize: 16 }}>
-          © Mapbox © OpenStreetMap · N ↑
-        </div>
-        {/* Keep the provider's original logo visible when the camera crops its
-            corner away. This is the unmodified logo strip from the same image. */}
-        <div style={{ position: "absolute", left: 0, bottom: 0, width: 180, height: 48, overflow: "hidden" }}>
-          <Img src={terrainMapUrl} style={{ position: "absolute", left: 0, bottom: 0, width: 1080, maxWidth: "none", height: 1920 }} />
-        </div>
       </> : null}
       <Audio
         src={staticFile("audio/background-music.wav")}
@@ -202,57 +205,83 @@ export const RouteDraw: React.FC<RouteDrawProps> = (props) => {
         }
       />
 
-      <div style={{ position: "absolute", top: REEL_SAFE.top, left: REEL_SAFE.left,
-        width: CALLOUT_W, zIndex: 10 }}>
-        <BrandCard padding="12px 20px">
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <BrandPill fill={colors.accent[500]} size={15}>{label}</BrandPill>
-            <span style={{ fontFamily: fontFamilies.display, fontSize: 22, fontWeight: 700 }}>eddy.guide</span>
-          </div>
-          <div style={{ marginTop: 8, fontSize: tagline ? 24 : 28, fontWeight: 650, color: colors.primary[800],
-            display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
-            {tagline || `Your next ${distanceMi.toFixed(1)}-mile float`}
-          </div>
-          <div style={{ fontFamily: fontFamilies.display, fontSize: riverName.length > 24 ? 40 : 52,
-            fontWeight: 700, lineHeight: 1.05, marginTop: 3 }}>{riverName}</div>
-          <div style={{ fontSize: 22, lineHeight: 1.2, fontWeight: 600, marginTop: 7 }}>{routeLabel}</div>
-        </BrandCard>
-      </div>
-
-      {journey && camera
-        ? <RiverStage journey={journey} camera={camera} terrain={Boolean(terrain)} {...stageProps} />
-        : <ItineraryStage {...stageProps} />}
-
-      {/* Fixed mileage position: it never jumps into/out of a stop header. */}
-      <div style={{ position: "absolute", left: REEL_SAFE.left, top: STAGE_TOP + 8, zIndex: 12 }}>
-        <ProgressTicket current={travelledMiles} total={distanceMi} />
-      </div>
-
-      <div style={{ position: "absolute", left: REEL_SAFE.left, right: REEL_SAFE.right,
-        bottom: REEL_SAFE.bottom + 110, zIndex: 15 }}>
-        <BrandCard padding={18}>
-          <div style={{ display: "grid", gridTemplateColumns: "1.35fr 0.8fr 1fr", gap: 10 }}>
-            <StatTile value={timeRangeLabel ?? "Unavailable"} label={evergreen ? "Typical time" : "Est. float time"} compact wrap minHeight={94} />
-            <StatTile value={distanceMi.toFixed(1)} unit="MI" label="Distance" minHeight={94} />
-            <StatTile value={evergreen ? (difficulty ? `Class ${difficulty}` : "Favorite") : condition.label}
-              label={evergreen ? (difficulty ? "Difficulty" : "Float pick") : "Conditions"} color={condition.solid} compact minHeight={94} />
-          </div>
-          {dateLabel ? <div style={{ marginTop: 10, fontSize: 20, fontWeight: 550, lineHeight: 1.2,
-            color: LIGHT.inkSecondary }}>{dateLabel}</div> : null}
-        </BrandCard>
-      </div>
-      <div style={{ position: "absolute", left: REEL_SAFE.left, right: REEL_SAFE.right,
-        bottom: REEL_SAFE.bottom, zIndex: 15, opacity: closing, textAlign: "center",
-        background: LIGHT.surface, borderRadius: 16, padding: "8px 12px" }}>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 12,
-          fontFamily: fontFamilies.display, fontSize: 36, fontWeight: 700, lineHeight: 1.1 }}>
-          <svg width="26" height="30" viewBox="0 0 24 28" fill={colors.accent[500]} stroke={LIGHT.ink} strokeWidth="2.5">
-            <path d="M4 2h16v23l-8-5-8 5z" />
-          </svg>
-          {CTA.saveFloat}
+      <div data-route-layout="flow" style={{ position: "absolute", top: REEL_SAFE.top,
+        bottom: REEL_SAFE.bottom + (terrain ? 38 : 0), left: REEL_SAFE.left, width: CALLOUT_W,
+        display: "grid", gridTemplateRows: "auto auto minmax(0, 1fr) auto", gap: 12 }}>
+        <div data-route-region="header">
+          <BrandCard padding="12px 20px">
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <BrandPill fill={colors.accent[500]} size={15}>{label}</BrandPill>
+              <span style={{ fontFamily: fontFamilies.display, fontSize: 22, fontWeight: 700 }}>eddy.guide</span>
+            </div>
+            <div style={{ marginTop: 8, fontSize: tagline ? 24 : 28, lineHeight: 1.2, fontWeight: 650,
+              color: colors.primary[800], display: "-webkit-box", WebkitLineClamp: 2,
+              WebkitBoxOrient: "vertical", overflow: "hidden" }}>
+              {tagline || `Your next ${distanceMi.toFixed(1)}-mile float`}
+            </div>
+            <div style={{ fontFamily: fontFamilies.display, fontSize: riverName.length > 24 ? 40 : 52,
+              fontWeight: 700, lineHeight: 1.05, marginTop: 3, display: "-webkit-box",
+              WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>{riverName}</div>
+            <div style={{ fontSize: 22, lineHeight: 1.2, fontWeight: 600, marginTop: 7,
+              display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>{routeLabel}</div>
+          </BrandCard>
         </div>
-        <div style={{ fontSize: 26, lineHeight: 1.2, fontWeight: 650, marginTop: 4, color: colors.primary[800] }}>{CTA.planInApp}</div>
+
+        <div data-route-region="progress" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+          <ProgressTicket current={travelledMiles} total={distanceMi} />
+          {terrain ? <span style={{ fontSize: 19, fontWeight: 650, color: LIGHT.ink }}>N ↑</span> : null}
+        </div>
+
+        <div ref={viewport.ref} data-route-region="map" data-route-top={viewport.top} data-route-height={viewport.height}
+          style={{ position: "relative", minHeight: 0 }}>
+          {journey && camera
+            ? <RiverStage journey={journey} camera={camera} terrain={Boolean(terrain)} {...stageProps} />
+            : <ItineraryStage {...stageProps} />}
+        </div>
+
+        <div data-route-region="footer" style={{ position: "relative", zIndex: 15 }}>
+          {journey && (summaryVisible || activeCallout) ?
+            <div data-route-region="stop-reveal" data-presence={presence} style={{ display: "grid",
+              gridTemplateRows: `${presence}fr`, opacity: presence, marginBottom: 16 * presence }}>
+              <div style={{ minHeight: 0, overflow: "hidden", marginRight: -8 }}>
+                <div data-route-region="stop" style={{ paddingBottom: 8, paddingRight: 8 }}>
+                  {summaryVisible
+                    ? <AlongCallout points={unanchoredPoints} opacity={1} style={{ width: "100%" }} />
+                    : activeCallout ? <RouteCallout point={activeCallout} putInMile={putInMile} opacity={1} style={{ width: "100%" }} /> : null}
+                </div>
+              </div>
+            </div> : null}
+          <div data-route-region="stats">
+            <BrandCard padding={14}>
+              <div style={{ display: "grid", gridTemplateColumns: "1.35fr 0.8fr 1fr", gap: 10 }}>
+                <StatTile value={timeRangeLabel ?? "Unavailable"} label={evergreen ? "Typical time" : "Est. float time"} compact wrap dense minHeight={80} />
+                <StatTile value={distanceMi.toFixed(1)} unit="MI" label="Distance" compact dense minHeight={80} />
+                <StatTile value={evergreen ? (difficulty ? `Class ${difficulty}` : "Favorite") : condition.label}
+                  label={evergreen ? (difficulty ? "Difficulty" : "Float pick") : "Conditions"} color={condition.solid} compact dense minHeight={80} />
+              </div>
+              {dateLabel ? <div style={{ marginTop: 8, fontSize: 18, fontWeight: 550, lineHeight: 1.2,
+                color: LIGHT.inkSecondary }}>{dateLabel}</div> : null}
+            </BrandCard>
+          </div>
+          <div data-route-region="cta" style={{ marginTop: 16, opacity: closing, textAlign: "center",
+            background: LIGHT.surface, borderRadius: 16, padding: "8px 12px" }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 12,
+              fontFamily: fontFamilies.display, fontSize: 32, fontWeight: 700, lineHeight: 1.1 }}>
+              <svg width="26" height="30" viewBox="0 0 24 28" fill={colors.accent[500]} stroke={LIGHT.ink} strokeWidth="2.5">
+                <path d="M4 2h16v23l-8-5-8 5z" />
+              </svg>
+              {CTA.saveFloat}
+            </div>
+            <div style={{ fontSize: 24, lineHeight: 1.2, fontWeight: 650, marginTop: 4, color: colors.primary[800] }}>{CTA.planInApp}</div>
+          </div>
+        </div>
       </div>
+      {terrain ? <div data-route-region="attribution" style={{ position: "absolute", left: REEL_SAFE.left,
+        bottom: REEL_SAFE.bottom, display: "flex", alignItems: "center", gap: 12,
+        padding: "3px 8px", borderRadius: 6, background: colors.primary[800], color: "#FFFFFF", fontSize: 16 }}>
+        <Img src={staticFile("mapbox-logo.svg")} style={{ width: 88, height: 24 }} />
+        <span>© Mapbox © OpenStreetMap</span>
+      </div> : null}
     </ReelPage>
   );
 };
@@ -262,6 +291,7 @@ export const RouteDraw: React.FC<RouteDrawProps> = (props) => {
 type ConditionStyle = { solid: string; bg: string; glow: string; label: string };
 
 interface StageProps {
+  stageHeight: number;
   stops: SocialRoutePoint[];
   state: JourneyState;
   condition: ConditionStyle;
@@ -303,18 +333,12 @@ const RiverStage: React.FC<StageProps & { journey: Journey; camera: JourneyCamer
   stops,
   state,
   condition,
-  putInMile,
-  unanchoredPoints,
   activeCallout,
-  summaryVisible,
+  stageHeight,
 }) => {
   const route = journey.points;
   const located = journey.locate(state.progress);
   const boatScreen = toScreen(located.point, camera);
-
-  const annotationStyle: React.CSSProperties = {
-    position: "absolute", left: REEL_SAFE.left, top: CALLOUT_TOP, zIndex: 12,
-  };
 
   // Strokes are authored at travel scale; counter-scale so the overview still
   // reads as a channel rather than a hairline, without ballooning mid-zoom.
@@ -325,21 +349,23 @@ const RiverStage: React.FC<StageProps & { journey: Journey; camera: JourneyCamer
       <div
         style={{
           position: "absolute",
-          top: STAGE_TOP,
-          left: 0,
+          top: 0,
+          left: -REEL_SAFE.left,
           width: 1080,
-          height: MAP_HEIGHT,
+          height: stageHeight,
           overflow: "hidden",
         }}
       >
-        <svg style={{ maskImage: "linear-gradient(to bottom, transparent 0%, #000 8%, #000 92%, transparent 100%)" }} width={1080} height={MAP_HEIGHT} viewBox={`0 0 1080 ${MAP_HEIGHT}`}>
+        <svg width={1080} height={stageHeight} viewBox={`0 0 1080 ${stageHeight}`}>
           <defs>
+            <linearGradient id="routeEdgeFade" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="black" /><stop offset="0.06" stopColor="white" /><stop offset="0.94" stopColor="white" /><stop offset="1" stopColor="black" /></linearGradient>
+            <mask id="routeStrokeMask"><rect width={1080} height={stageHeight} fill="url(#routeEdgeFade)" /></mask>
             <filter id="flowSoft" x="-30%" y="-30%" width="160%" height="160%">
               <feGaussianBlur stdDeviation="5" result="blur" />
               <feMerge><feMergeNode in="blur" /><feMergeNode in="SourceGraphic" /></feMerge>
             </filter>
           </defs>
-          <g transform={`translate(${camera.translateX + REEL_SAFE.left} ${camera.translateY}) scale(${camera.scale})`}>
+          <g mask="url(#routeStrokeMask)"><g transform={`translate(${camera.translateX + REEL_SAFE.left} ${camera.translateY}) scale(${camera.scale})`}>
             <path d={toPath(route)} fill="none" stroke={colors.primary[700]} strokeWidth={(terrain ? 16 : 44) * strokeK} strokeLinecap="round" strokeLinejoin="round" />
             <path d={toPath(route)} fill="none" stroke={colors.primary[200]} strokeWidth={(terrain ? 10 : 32) * strokeK} strokeLinecap="round" strokeLinejoin="round" />
             <path
@@ -354,6 +380,8 @@ const RiverStage: React.FC<StageProps & { journey: Journey; camera: JourneyCamer
               strokeDashoffset={1 - located.renderedProgress}
               filter={terrain ? undefined : "url(#flowSoft)"}
             />
+          </g></g>
+          <g transform={`translate(${camera.translateX + REEL_SAFE.left} ${camera.translateY}) scale(${camera.scale})`}>
             {stops.map((point) => (
               <RouteMarker
                 key={point.id}
@@ -362,10 +390,8 @@ const RiverStage: React.FC<StageProps & { journey: Journey; camera: JourneyCamer
                 counterScale={1 / camera.scale}
                 visited={point.progress <= state.progress + 0.001}
                 active={activeCallout?.id === point.id}
-                showLabel={(() => {
-                  const screen = toScreen(journey.locate(point.progress).point, camera);
-                  return screen.x + REEL_SAFE.left >= 44 && screen.x + REEL_SAFE.left <= 1036;
-                })()}
+                showLabel={showEndpointLabel(toScreen(journey.locate(point.progress).point, camera),
+                  activeCallout?.id === point.id, boatScreen, stageHeight)}
               />
             ))}
           </g>
@@ -373,11 +399,6 @@ const RiverStage: React.FC<StageProps & { journey: Journey; camera: JourneyCamer
         <Boat x={boatScreen.x + REEL_SAFE.left} y={boatScreen.y} conditionColor={condition.solid} />
       </div>
 
-      {summaryVisible ? (
-        <AlongCallout points={unanchoredPoints} opacity={1} style={annotationStyle} />
-      ) : activeCallout ? (
-        <RouteCallout point={activeCallout} putInMile={putInMile} opacity={1} style={annotationStyle} />
-      ) : null}
     </>
   );
 };
@@ -392,18 +413,15 @@ const RiverStage: React.FC<StageProps & { journey: Journey; camera: JourneyCamer
 // approximate — rather than a floating card, which has nowhere to sit in a
 // list without covering a row. The arrival hold highlights them.
 
-const LINE_X = REEL_SAFE.left + 130;
+const LINE_X = 130;
 const ROW_LEFT = LINE_X + 60;
-const ROW_W = 1080 - REEL_SAFE.right - ROW_LEFT;
+const ROW_W = CALLOUT_W - ROW_LEFT;
 const ROW_H = 92;
-// The first row clears the progress ticket (top-right of the stage, ~80px
-// tall); the last clears the dock. Six
-// rows — two endpoints, three stops and a mile-only feature, the fixture — fit
-// at the minimum pitch without scrolling, so the first row stays out from
-// under the ticket; longer lists scroll and fade at the edges.
-const ITINERARY_TOP = 150;
-const ITINERARY_BOTTOM = 96;
-const ROW_PITCH_MIN = 108;
+// Keep the full canoe above the first row and the endpoint label below the
+// last. Longer lists scroll through the measured map viewport.
+const ITINERARY_TOP = 80;
+const ITINERARY_BOTTOM = 84;
+const ROW_PITCH_MIN = 106;
 const ROW_PITCH_MAX = 200;
 
 type ItineraryRow =
@@ -440,10 +458,11 @@ const ItineraryStage: React.FC<StageProps> = ({
   activeCallout,
   calloutProgress,
   summaryVisible,
+  stageHeight,
 }) => {
   const rows = useMemo(() => itineraryRows(stops, unanchoredPoints), [stops, unanchoredPoints]);
   const n = rows.length;
-  const pitch = n > 1 ? clamp((STAGE_HEIGHT - ITINERARY_TOP - ITINERARY_BOTTOM) / (n - 1), ROW_PITCH_MIN, ROW_PITCH_MAX) : 0;
+  const pitch = n > 1 ? clamp((stageHeight - ITINERARY_TOP - ITINERARY_BOTTOM) / (n - 1), ROW_PITCH_MIN, ROW_PITCH_MAX) : 0;
   const contentH = ITINERARY_TOP + ITINERARY_BOTTOM + Math.max(0, n - 1) * pitch;
   const rowY = (index: number) => ITINERARY_TOP + index * pitch;
   // Row index of each stop, so the boat's row-to-row path skips the approx rows
@@ -459,9 +478,9 @@ const ItineraryStage: React.FC<StageProps> = ({
   // Short itineraries sit centred; long ones scroll so the boat stays in the
   // reading zone, clamped at either end like the river camera.
   const offsetY =
-    contentH <= STAGE_HEIGHT
-      ? (STAGE_HEIGHT - contentH) / 2
-      : clamp(STAGE_HEIGHT * 0.45 - boatContentY, STAGE_HEIGHT - contentH, 0);
+    contentH <= stageHeight
+      ? (stageHeight - contentH) / 2
+      : clamp(stageHeight * 0.45 - boatContentY, stageHeight - contentH, 0);
   const boatY = boatContentY + offsetY;
   const lineTop = rowY(0);
   const lineBottom = rowY(n - 1);
@@ -472,16 +491,14 @@ const ItineraryStage: React.FC<StageProps> = ({
       <div
         style={{
           position: "absolute",
-          top: STAGE_TOP + 64,
+          top: 0,
           left: 0,
           width: "100%",
-          height: STAGE_HEIGHT - 64,
+          height: stageHeight,
           overflow: "hidden",
-          WebkitMaskImage: "linear-gradient(to bottom, transparent 0%, #000 8%, #000 92%, transparent 100%)",
-          maskImage: "linear-gradient(to bottom, transparent 0%, #000 8%, #000 92%, transparent 100%)",
         }}
       >
-        <div style={{ position: "absolute", top: offsetY - 64, left: 0, width: "100%", height: contentH }}>
+        <div style={{ position: "absolute", top: offsetY, left: 0, width: "100%", height: contentH }}>
           <svg width={1080} height={contentH} viewBox={`0 0 1080 ${contentH}`} style={{ position: "absolute", top: 0, left: 0 }}>
             <line x1={LINE_X} y1={lineTop} x2={LINE_X} y2={lineBottom} stroke={colors.primary[700]} strokeWidth={44} strokeLinecap="round" />
             <line x1={LINE_X} y1={lineTop} x2={LINE_X} y2={lineBottom} stroke={colors.primary[200]} strokeWidth={32} strokeLinecap="round" />
@@ -504,6 +521,8 @@ const ItineraryStage: React.FC<StageProps> = ({
                   counterScale={1}
                   visited={row.point.progress <= state.progress + 0.001}
                   active={activeCallout?.id === row.point.id && !summaryVisible}
+                  showLabel={showEndpointLabel({ x: LINE_X, y: rowY(index) + offsetY },
+                    activeCallout?.id === row.point.id && !summaryVisible, { x: LINE_X, y: boatY }, stageHeight)}
                 />
               ) : (
                 <ApproxMarker key={row.point.id} point={row.point} y={rowY(index)} active={summaryVisible} />
@@ -534,7 +553,7 @@ const ItineraryStage: React.FC<StageProps> = ({
         </div>
       </div>
 
-      <Boat x={LINE_X} y={STAGE_TOP + boatY} conditionColor={condition.solid} />
+      <Boat x={LINE_X} y={boatY} conditionColor={condition.solid} />
     </>
   );
 };
@@ -791,7 +810,7 @@ const ApproxRow: React.FC<{
 /** Eddy in the canoe, paddling on the left of the boat dot. */
 const Boat: React.FC<{ x: number; y: number; conditionColor: string }> = ({ x, y, conditionColor }) => (
   <>
-    <div style={{ position: "absolute", top: y - 76, left: x - 128, zIndex: 5 }}>
+    <div data-route-region="canoe" style={{ position: "absolute", top: y - 76, left: x - 128, zIndex: 5 }}>
       {/* Negative delay: the entrance spring is already settled at frame 0,
           so the thumbnail has Eddy in the boat rather than an empty put-in. */}
       <EddyMascot variant="canoe" size={128} delay={-30} float={false} />
@@ -814,7 +833,7 @@ const Boat: React.FC<{ x: number; y: number; conditionColor: string }> = ({ x, y
 );
 
 const ProgressTicket: React.FC<{ current: number; total: number }> = ({ current, total }) => (
-  <span style={{ flexShrink: 0, fontFamily: fontFamilies.mono, fontSize: 24, fontWeight: 700,
+  <span style={{ flexShrink: 0, fontFamily: fontFamilies.mono, fontSize: 24, lineHeight: 1.2, fontWeight: 700,
     color: LIGHT.ink, background: LIGHT.surface, padding: "6px 10px", borderRadius: 8 }}>
     {current.toFixed(1)} / {total.toFixed(1)} mi
   </span>
@@ -848,8 +867,8 @@ const RouteMarker: React.FC<{
         </>
       )}
       {endpoint && showLabel ? <>
-        <rect x={-42} y={34} width={84} height={30} rx={8} fill={LIGHT.surface} stroke={LIGHT.rule} strokeWidth={2} />
-        <text y={56} textAnchor="middle" fontFamily={fontFamilies.display} fontSize={22} fontWeight={700} fill={LIGHT.ink}>
+        <rect data-route-label={point.kind} x={-42} y={32} width={84} height={30} rx={8} fill={LIGHT.surface} stroke={LIGHT.rule} strokeWidth={2} />
+        <text y={54} textAnchor="middle" fontFamily={fontFamilies.display} fontSize={22} fontWeight={700} fill={LIGHT.ink}>
           {point.kind === "put_in" ? "Start" : "Finish"}
         </text>
       </> : null}
@@ -882,13 +901,13 @@ const RouteCallout: React.FC<{ point: SocialRoutePoint; putInMile: number; opaci
           <SafeImg src={point.photoUrl} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
         </div> : null}
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontFamily: fontFamilies.display, fontSize: title.length > 36 ? 30 : 38,
+          <div style={{ fontFamily: fontFamilies.display, fontSize: title.length > 40 ? 30 : 34,
             lineHeight: 1.05, fontWeight: 700, color: LIGHT.ink, display: "-webkit-box", WebkitLineClamp: 2,
             WebkitBoxOrient: "vertical", overflow: "hidden" }}>{title}</div>
-          <div style={{ marginTop: 8, fontSize: 24, fontWeight: 550, color: LIGHT.inkSecondary }}>
+          <div style={{ marginTop: 6, fontSize: 22, lineHeight: 1.2, fontWeight: 550, color: LIGHT.inkSecondary }}>
             {point.kind === "put_in" ? "Your float starts here" : `${milesIn.toFixed(1)} miles from launch`}
           </div>
-          {point.photoCredit ? <div style={{ marginTop: 4, fontSize: 14, color: LIGHT.inkMuted }}>{point.photoCredit}</div> : null}
+          {point.photoCredit ? <div style={{ marginTop: 4, fontSize: 14, lineHeight: 1.2, color: LIGHT.inkMuted }}>{point.photoCredit}</div> : null}
         </div>
       </div>
     </BrandCallout>

@@ -270,10 +270,12 @@ Do not accept new baselines until the generated frames have been visually review
 
 ### Route layout and renderer freshness
 
-Float Pick geographic reels reserve separate map, stop annotation, and summary
-areas. Labels never float over the canoe. The progress counter lives in the
-annotation header, and the camera returns to the complete route over 36 frames
-after arrival. The missing-geometry itinerary retains its factual, scrolling
+Float Pick geographic reels use one grid for the header, mileage, flexible map
+and lower stop/stats/CTA stack. The map camera follows the measured space left
+by wrapped titles and photo credits. Endpoint labels clear the canoe and remain
+opaque; only river strokes fade at the edges. The camera returns to the complete
+route after arrival. Browser collision checks run in Remotion CI, including every
+frame of the Black River photo-card regression. The missing-geometry itinerary retains its factual, scrolling
 rows inside the map area. Visual coverage includes both camera transitions,
 arrival and the final hold, long names, the full approximate-feature summary,
 and the real Akers Ferry → Pulltite channel from the September 18 screenshot.

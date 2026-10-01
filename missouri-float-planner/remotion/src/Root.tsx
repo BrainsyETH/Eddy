@@ -3,6 +3,7 @@ import { readingDuration, LONG_READING_FIXTURE } from "../../shared/eddy-read-re
 import React from "react";
 import akersPulltite from "./fixtures/akers-pulltite.json";
 import grassyBee from "./fixtures/grassy-bee.json";
+import blackRiver from "./fixtures/black-river.json";
 import { Composition, staticFile } from "remotion";
 import { TutorialFull } from "./compositions/TutorialFull";
 import { IntroScene } from "./compositions/scenes/01-Intro";
@@ -640,6 +641,19 @@ export const RemotionRoot: React.FC = () => {
         calculateMetadata={routeDuration}
         defaultProps={{ ...ROUTE_DEMO, routeCoordinates: ROUTE_DEMO_LINE } satisfies RouteDrawProps}
       />
+
+      {/* Oct 1 regression: photo + wrapped finish title, and a north/south route. */}
+      <Composition id="social-route-black-river" component={RouteDraw}
+        durationInFrames={360} fps={FPS} width={1080} height={1920}
+        calculateMetadata={routeDuration}
+        defaultProps={{ ...blackRiver, format: "portrait",
+          conditionCode: blackRiver.conditionCode as RouteDrawProps["conditionCode"],
+          routeCoordinates: blackRiver.routeCoordinates as [number, number][],
+          routePoints: blackRiver.routePoints.map(point => ({ ...point,
+            photoUrl: point.photoUrl ? staticFile(point.photoUrl) : undefined,
+          })) as RouteDrawProps["routePoints"],
+          terrainMapUrl: staticFile("test/black-river-terrain.png"),
+        } satisfies RouteDrawProps} />
 
       {/* Recorded Sep 27 route: real terrain and the named stop's stored image.
           Catches camera drift, icon legibility and the complete closing CTA. */}

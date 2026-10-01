@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="130" height="96" viewBox="0 0 130 96">
+  <rect width="130" height="96" fill="#e8e4db"/>
+  <rect x="24" y="18" width="82" height="52" rx="5" fill="none" stroke="#65736c" stroke-width="3"/>
+  <circle cx="83" cy="33" r="6" fill="#65736c"/>
+  <path d="m28 65 22-26 19 20 11-10 23 19" fill="none" stroke="#65736c" stroke-width="3"/>
+  <text x="65" y="86" text-anchor="middle" font-family="sans-serif" font-size="9" fill="#44514a">PHOTO FIXTURE</text>
+</svg>
