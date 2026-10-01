@@ -53,7 +53,7 @@ import {
   View,
   type ViewStyle,
 } from 'react-native';
-import { ControlIcon as Ionicons } from '@/components/ControlIcon';
+import { ControlIcon } from '@/components/ControlIcon';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
 
@@ -229,7 +229,7 @@ export function SwipeRow({
             accessibilityRole="button"
             accessibilityLabel={accessibilityActionLabel}
           >
-            <Ionicons name="trash-outline" size={18} color={actionInk} />
+            <ControlIcon name="trash-outline" size={18} color={actionInk} />
             <Text style={[styles.actionText, { color: actionInk }]}>{actionLabel}</Text>
           </Pressable>
         </View>

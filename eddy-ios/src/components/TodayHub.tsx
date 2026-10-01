@@ -19,7 +19,7 @@ import {
   type NativeScrollEvent,
   type NativeSyntheticEvent,
 } from 'react-native';
-import { ControlIcon as Ionicons } from '@/components/ControlIcon';
+import { ControlIcon } from '@/components/ControlIcon';
 import { Image as CachedImage } from 'expo-image';
 import { compareReadRivers, selectReadRail, readRailState } from '@/lib/readRail';
 import { useFocusEffect, useRouter } from 'expo-router';
@@ -197,7 +197,7 @@ function RailViewport({ label, items, initialIndex, cardWidth, viewportWidth, ve
         <Pressable accessibilityRole="button" accessibilityLabel={`Previous ${label} card`}
           accessibilityState={{ disabled: visibleIndex === 0 }} disabled={visibleIndex === 0}
           onPress={() => move(-1)} style={styles.railButton}>
-          <Ionicons name="chevron-back" size={20} color={visibleIndex === 0 ? colors.textSubtle : colors.interactive} />
+          <ControlIcon name="chevron-back" size={20} color={visibleIndex === 0 ? colors.textSubtle : colors.interactive} />
         </Pressable>
         <Text style={[styles.railPosition, { color: colors.textSubtle }]}
           accessibilityRole="adjustable" accessibilityLabel={label}
@@ -212,7 +212,7 @@ function RailViewport({ label, items, initialIndex, cardWidth, viewportWidth, ve
         <Pressable accessibilityRole="button" accessibilityLabel={`Next ${label} card`}
           accessibilityState={{ disabled: visibleIndex === count - 1 }} disabled={visibleIndex === count - 1}
           onPress={() => move(1)} style={styles.railButton}>
-          <Ionicons name="chevron-forward" size={20} color={visibleIndex === count - 1 ? colors.textSubtle : colors.interactive} />
+          <ControlIcon name="chevron-forward" size={20} color={visibleIndex === count - 1 ? colors.textSubtle : colors.interactive} />
         </Pressable>
       </View>
     </View>
@@ -275,7 +275,7 @@ function FloatPreviewCard({
           accessibilityRole="button"
           accessibilityLabel={`Plan ${item.putInName} to ${item.takeOutName}`}
         >
-          <Ionicons name="map-outline" size={17} color={colors.onAccent} />
+          <ControlIcon name="map-outline" size={17} color={colors.onAccent} />
           <Text style={[styles.floatPlanText, { color: colors.onAccent }]}>Plan this float</Text>
         </Pressable>
       </View>
@@ -336,7 +336,7 @@ function BestRiverCard({
       </View>
       {facts || age ? (
         <View style={[styles.factRow, { backgroundColor: colors.card }]}>
-          <Ionicons name="pulse-outline" size={17} color={conditionInk(condition.code)} />
+          <ControlIcon name="pulse-outline" size={17} color={conditionInk(condition.code)} />
           <View style={styles.flex}>
             {facts ? <Text style={[styles.factText, { color: colors.text }]} numberOfLines={1}>{facts}</Text> : null}
             {age ? <Text style={[styles.factAge, { color: colors.textMuted }]} numberOfLines={1}>{age}</Text> : null}
@@ -351,7 +351,7 @@ function BestRiverCard({
             style={({ pressed }) => [styles.primaryButton, { backgroundColor: pressed ? colors.accentFillPressed : colors.accentFill, transform: [{ scale: pressed ? 0.98 : 1 }] }]}
             accessibilityRole="button"
           >
-            <Ionicons name="map-outline" size={17} color={colors.onAccent} />
+            <ControlIcon name="map-outline" size={17} color={colors.onAccent} />
             <Text style={[styles.primaryButtonText, { color: colors.onAccent }]}>Plan this river</Text>
           </Pressable>
           <Pressable
@@ -650,7 +650,7 @@ export function TodayHub({
     <View style={styles.hub}>
       {!suppressNetworkNotice && detailFailure ? (
         <View style={[styles.notice, { backgroundColor: colors.cardRaised, borderColor: colors.border }]}>
-          <Ionicons name="cloud-offline-outline" size={16} color={colors.textMuted} />
+          <ControlIcon name="cloud-offline-outline" size={16} color={colors.textMuted} />
           <Text style={[styles.noticeText, { color: colors.textMuted }]}>Some live details could not refresh. Showing what Eddy has.</Text>
         </View>
       ) : null}
@@ -685,7 +685,7 @@ export function TodayHub({
             <View style={[styles.alertCard, { backgroundColor: colors.card, borderColor: colors.border }, elevation(1)]}>
               <Pressable accessibilityRole="button" accessibilityLabel={`Current alerts. ${activeSafety.label}. ${safetyFilterLabel}. ${activeSafety.detail ?? ''} ${topNotice?.title ?? (topHigh ? `${topHigh.name}: ${conditionLabel(topHigh.conditionCode)}` : '')}`} onPress={() => router.push({ pathname: '/current-alerts', params: { filter: safetyFilter } })} style={styles.alertMain}>
                 <View style={styles.compactHeading}>
-                  <Ionicons name={safetyCount ? 'warning-outline' : 'notifications-outline'} size={28} color={safetyCount ? conditionInk(topHigh?.conditionCode === 'dangerous' || topNotice?.severity === 'warning' ? 'dangerous' : 'high') : colors.interactive} />
+                  <ControlIcon name={safetyCount ? 'warning-outline' : 'notifications-outline'} size={28} color={safetyCount ? conditionInk(topHigh?.conditionCode === 'dangerous' || topNotice?.severity === 'warning' ? 'dangerous' : 'high') : colors.interactive} />
                 </View>
                 <Text style={[styles.compactValue, { color: colors.text }, safetyCount ? styles.alertCount : null]}>{activeSafety.label}</Text>
                 {activeSafety.detail ? <Text style={[styles.alertStatus, { color: colors.textMuted }]}>{activeSafety.detail}</Text> : null}

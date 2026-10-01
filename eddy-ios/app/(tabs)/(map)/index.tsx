@@ -63,7 +63,7 @@ import Animated, {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LazyTabScreen } from '@/components/LazyTabScreen';
 import { StatusBar } from 'expo-status-bar';
-import { ControlIcon as Ionicons } from '@/components/ControlIcon';
+import { ControlIcon } from '@/components/ControlIcon';
 import type {
   FloatPlan,
   Hazard,
@@ -2839,7 +2839,7 @@ function MapContent() {
             </View>
             {network.readingsFailed && !unavailable ? (
               <View style={[styles.readingsNotice, { backgroundColor: colors.cardRaised }]}>
-                <Ionicons name="cloud-offline-outline" size={14} color={colors.textMuted} />
+                <ControlIcon name="cloud-offline-outline" size={14} color={colors.textMuted} />
                 <Text style={[styles.readingsNoticeText, { color: colors.textMuted }]}>
                   Live conditions unavailable — rivers are shown uncoloured.
                 </Text>
@@ -2913,27 +2913,29 @@ function MapContent() {
               launch. A granted tap recentres; the map keeps the fix for the rest
               of the session and hands it to the planner. */}
           {!unavailable && !mapSearchOpen ? (
-            <FloatingControlSurface style={styles.locateButton}>
-            <Pressable
-              onPress={onLocate}
-              disabled={location.status === 'locating'}
-              style={({ pressed }) => [
-                styles.locateButton,
-                { opacity: pressed ? 0.7 : 1 },
-              ]}
-              accessibilityRole="button"
-              accessibilityLabel="Show my location"
-            >
-              {location.status === 'locating' ? (
-                <ActivityIndicator size="small" color={colors.interactive} />
-              ) : (
-                <Ionicons
-                  name={location.status === 'ready' ? 'locate' : 'locate-outline'}
-                  size={19}
-                  color={location.status === 'denied' ? colors.textSubtle : colors.interactive}
-                />
+            <FloatingControlSurface style={styles.locateButton} interactive={location.status !== 'locating'}>
+              {glass => (
+                <Pressable
+                  onPress={onLocate}
+                  disabled={location.status === 'locating'}
+                  style={({ pressed }) => [
+                    styles.locateButton,
+                    { opacity: pressed && !glass ? 0.7 : 1 },
+                  ]}
+                  accessibilityRole="button"
+                  accessibilityLabel="Show my location"
+                >
+                  {location.status === 'locating' ? (
+                    <ActivityIndicator size="small" color={colors.interactive} />
+                  ) : (
+                    <ControlIcon
+                      name={location.status === 'ready' ? 'locate' : 'locate-outline'}
+                      size={19}
+                      color={location.status === 'denied' ? colors.textSubtle : colors.interactive}
+                    />
+                  )}
+                </Pressable>
               )}
-            </Pressable>
             </FloatingControlSurface>
           ) : null}
 
@@ -3002,7 +3004,7 @@ function MapContent() {
               accessibilityRole="button"
               accessibilityLabel="Clear this float plan"
             >
-              <Ionicons name="close" size={18} color={colors.textMuted} />
+              <ControlIcon name="close" size={18} color={colors.textMuted} />
             </Pressable>
           ) : null}
 
@@ -3028,7 +3030,7 @@ function MapContent() {
               // the reader to infer what tapping it does.
               accessibilityLabel={planner.plan ? 'View your float plan' : 'Plan a float'}
             >
-              <Ionicons
+              <ControlIcon
                 name={planner.plan ? 'map-outline' : 'navigate-outline'}
                 size={17}
                 color={colors.onAccent}

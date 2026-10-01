@@ -28,7 +28,7 @@
 // it has not made, on a reach it may not even carry.
 
 import { StyleSheet, Text, View, useWindowDimensions } from 'react-native';
-import { ControlIcon as Ionicons } from '@/components/ControlIcon';
+import { ControlIcon } from '@/components/ControlIcon';
 import type { DamSnapshot } from '@eddy/types';
 import {
   relativeAge,
@@ -62,7 +62,7 @@ function isStale(metric: { at: string }): boolean {
 }
 
 interface StatProps {
-  icon: React.ComponentProps<typeof Ionicons>['name'];
+  icon: React.ComponentProps<typeof ControlIcon>['name'];
   label: string;
   value: string;
   /**
@@ -84,7 +84,7 @@ function Stat({ icon, label, value, suffix, sub, dim }: StatProps) {
     <View style={[styles.stat, (fontScale >= 1.3 || width < 360) && { flexBasis: '100%' }]} accessible
       accessibilityLabel={[label, value.replace(/\bcfs\b/g, 'cubic feet per second').replace(/\bft\b/g, 'feet').replace('°F', 'degrees Fahrenheit'), suffix, sub, dim ? 'Older reading' : null].filter(Boolean).join('. ')}>
       <View style={styles.statLabelRow}>
-        <Ionicons name={icon} size={12} color={colors.textMuted} accessible={false} />
+        <ControlIcon name={icon} size={12} color={colors.textMuted} accessible={false} />
         <Text style={[styles.statLabel, { color: colors.textSubtle }]}>{label}</Text>
       </View>
       <Text style={[styles.statValue, { color: dim ? colors.textMuted : colors.text }]}>
@@ -158,7 +158,7 @@ export function DamStateCard({
               },
             ]}
           >
-            <Ionicons
+            <ControlIcon
               name={dam.generating ? 'flash' : 'flash-off-outline'}
               size={13}
               color={dam.generating ? colors.onInteractive : colors.textMuted}
@@ -190,7 +190,7 @@ export function DamStateCard({
           {clauses.scheduled ? (
             <>
               <View style={styles.nextChangeRow}>
-                <Ionicons name="time-outline" size={13} color={colors.interactive} />
+                <ControlIcon name="time-outline" size={13} color={colors.interactive} />
                 <Text style={[styles.nextChange, { color: colors.interactive }]}>
                   {clauses.scheduled}
                 </Text>

@@ -14,7 +14,7 @@
 import { FloatingControlSurface } from '@/components/FloatingControlSurface';
 import { memo } from 'react';
 import { Pressable, StyleSheet, TextInput, View } from 'react-native';
-import { ControlIcon as Ionicons } from '@/components/ControlIcon';
+import { ControlIcon } from '@/components/ControlIcon';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
 
@@ -46,7 +46,7 @@ function SearchBarComponent({
 
   return (
     <Surface style={[styles.field, floating ? { borderWidth: 0 } : { backgroundColor: colors.card, borderColor: colors.border }]}>
-      <Ionicons name="search" size={17} color={colors.textSubtle} />
+      <ControlIcon name="search" size={17} color={colors.textSubtle} />
       <TextInput
         value={value}
         onChangeText={onChangeText}
@@ -70,7 +70,7 @@ function SearchBarComponent({
           accessibilityRole="button"
           accessibilityLabel="Clear search"
         >
-          <Ionicons name="close-circle" size={18} color={colors.textSubtle} />
+          <ControlIcon name="close-circle" size={18} color={colors.textSubtle} />
         </Pressable>
       ) : null}
     </Surface>

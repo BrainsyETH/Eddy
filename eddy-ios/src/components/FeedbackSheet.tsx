@@ -34,7 +34,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import { ControlIcon as Ionicons } from '@/components/ControlIcon';
+import { ControlIcon } from '@/components/ControlIcon';
 import type { FeedbackContext, FeedbackType } from '@eddy/types';
 import { ApiError, submitFeedback } from '@/api/client';
 import { useTheme } from '@/theme/ThemeProvider';
@@ -174,7 +174,7 @@ export function FeedbackSheet({ visible, onDismiss, context, defaultType = 'othe
             // seconds, which is fine on a desktop the user is watching; on a
             // phone it can vanish while they are still reading it.
             <View style={styles.done}>
-              <Ionicons name="checkmark-circle" size={40} color={colors.success} />
+              <ControlIcon name="checkmark-circle" size={40} color={colors.success} />
               <Text style={[styles.doneTitle, { color: colors.text }]}>Thank you</Text>
               <Text style={[styles.doneBody, { color: colors.textMuted }]}>
                 A person reads every one of these.

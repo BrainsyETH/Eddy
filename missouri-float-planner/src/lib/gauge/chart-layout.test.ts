@@ -4,7 +4,7 @@ import {
   chartGutters, chartGridValues, placeChartReadout, selectChartRailLabels,
   type ChartRailLabel, type ChartRect,
 } from '../../../../eddy-ios/src/lib/gaugeChartLayout';
-import { validateChartDates } from '../../../../eddy-ios/src/lib/gaugeChartDates';
+import { chartEndAfterStartChange, validateChartDates } from '../../../../eddy-ios/src/lib/gaugeChartDates';
 
 function overlaps(a: ChartRect, b: ChartRect) {
   return a.x < b.x + b.width && a.x + a.width > b.x && a.y < b.y + b.height && a.y + a.height > b.y;
@@ -131,4 +131,16 @@ test('local calendar boundaries preserve selected days across DST and time zones
     if (previous === undefined) delete process.env.TZ;
     else process.env.TZ = previous;
   }
+});
+
+
+test('moving the chart start past its end keeps a valid one-day range', () => {
+  const from = '2026-09-15';
+  const to = chartEndAfterStartChange(from, '2026-09-10');
+  const result = validateChartDates(from, to, Date.parse('2026-10-01T12:00:00Z'));
+  assert.equal(result.errors, undefined);
+  assert.equal(result.days, 1);
+  assert.equal(chartEndAfterStartChange('2026-09-01', '2026-09-10'), '2026-09-10');
+  // Incomplete text on the web must not silently change the other field.
+  assert.equal(chartEndAfterStartChange('2026-', '2026-09-10'), '2026-09-10');
 });

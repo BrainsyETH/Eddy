@@ -20,7 +20,7 @@
 // Piney has eight — and those are not different water.
 
 import { StyleSheet, Text, View } from 'react-native';
-import { ControlIcon as Ionicons } from '@/components/ControlIcon';
+import { ControlIcon } from '@/components/ControlIcon';
 import type { RiverReach } from '@eddy/types';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
@@ -118,7 +118,7 @@ export function RiverReaches({
                 ordinary river it would be noise. */}
             {reach.differsFromRiver && (
               <View style={[styles.chip, { backgroundColor: colors.cardRaised }]}>
-                <Ionicons name="water-outline" size={11} color={colors.interactive} />
+                <ControlIcon name="water-outline" size={11} color={colors.interactive} />
                 <Text style={[styles.chipText, { color: colors.textMuted }]}>
                   {' '}
                   {riverTypeLabel(reach.riverType)}

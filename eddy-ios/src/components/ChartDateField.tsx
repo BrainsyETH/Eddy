@@ -5,8 +5,8 @@ import { localChartDate, parseLocalChartDate } from '@/lib/gaugeChartDates';
 import { useTheme } from '@/theme/ThemeProvider';
 import { type as t } from '@/theme/typography';
 
-export function ChartDateField({ label, value, onChange, error }: {
-  label: string; value: string; onChange: (date: string) => void; error?: string;
+export function ChartDateField({ label, value, onChange, error, minimumDate }: {
+  label: string; value: string; onChange: (date: string) => void; error?: string; minimumDate?: Date;
 }) {
   const { colors, isDark } = useTheme();
   const [open, setOpen] = useState(false);
@@ -17,7 +17,7 @@ export function ChartDateField({ label, value, onChange, error }: {
       {Platform.OS === 'web' ? <TextInput accessibilityLabel={label} value={value} onChangeText={onChange}
         placeholder="YYYY-MM-DD" style={[t.base, { color: colors.text, minHeight: 44 }]} />
         : Platform.OS === 'ios' || open ? <DateTimePicker accessibilityLabel={label} value={date} mode="date"
-          display={Platform.OS === 'ios' ? 'compact' : 'default'} maximumDate={new Date()}
+          display={Platform.OS === 'ios' ? 'compact' : 'default'} minimumDate={minimumDate} maximumDate={new Date()}
           themeVariant={isDark ? 'dark' : 'light'} accentColor={colors.interactive}
           onChange={(event, selected) => {
             setOpen(false);

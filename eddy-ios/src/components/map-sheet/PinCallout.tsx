@@ -7,7 +7,7 @@ import type { ComponentProps } from 'react';
 import { MapSheet } from './MapSheet';
 import { SheetBody } from './SheetPager';
 import { Linking, Pressable, StyleSheet, Text, View } from 'react-native';
-import { ControlIcon as Ionicons } from '@/components/ControlIcon';
+import { ControlIcon } from '@/components/ControlIcon';
 import type { MapAccessPoint } from '@eddy/types';
 import {
   conditionBg,
@@ -106,7 +106,7 @@ export function PinCallout({
   const calloutButtons: {
     key: string;
     label: string;
-    icon?: React.ComponentProps<typeof Ionicons>['name'];
+    icon?: React.ComponentProps<typeof ControlIcon>['name'];
     tone: 'accent' | 'interactive' | 'neutral';
     onPress: () => void;
     accessibilityLabel?: string;
@@ -269,7 +269,7 @@ export function PinCallout({
           go and ask about, and a padlock reads as a thing that is shut. */}
       {accessPoint && !accessPoint.isPublic ? (
         <View style={[styles.calloutPrivate, { backgroundColor: colors.cardRaised }]}>
-          <Ionicons name="information-circle-outline" size={14} color={colors.textMuted} />
+          <ControlIcon name="information-circle-outline" size={14} color={colors.textMuted} />
           <Text style={[styles.calloutPrivateText, { color: colors.textMuted }]}>
             Private access — permission may be required
           </Text>
@@ -402,7 +402,7 @@ export function PinCallout({
                 accessibilityLabel={button.accessibilityLabel}
                 accessibilityHint={button.hint}
               >
-                {button.icon ? <Ionicons name={button.icon} size={15} color={ink} /> : null}
+                {button.icon ? <ControlIcon name={button.icon} size={15} color={ink} /> : null}
                 <Text style={[styles.calloutPrimaryText, { color: ink }]}>
                   {button.label}
                 </Text>
@@ -475,7 +475,7 @@ export function PinCallout({
                       difference is worth a glyph: one of these opens Safari. The
                       tint, where a row carries one, names WHOSE Safari page — glyph
                       only, for the contrast reason in lib/stays.ts. */}
-                  <Ionicons
+                  <ControlIcon
                     name={row.external ? 'open-outline' : 'chevron-forward'}
                     size={16}
                     color={row.external && row.externalTint ? row.externalTint : colors.textSubtle}

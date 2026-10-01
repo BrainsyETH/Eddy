@@ -29,7 +29,7 @@
 
 import type { ReactNode } from 'react';
 import { Linking, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View, type ScrollViewProps } from 'react-native';
-import { ControlIcon as Ionicons } from '@/components/ControlIcon';
+import { ControlIcon } from '@/components/ControlIcon';
 import type { FloatPlan, MapAccessPoint } from '@eddy/types';
 import { hazardConditionCode, hazardTypeLabel, portageNote, sortHazards } from '@eddy/hazards';
 import {
@@ -85,7 +85,7 @@ export function PlanResult({ plan, actions, accessPoints, header, contentInsetAd
         >
           {plan.warnings.map((warning) => (
             <View key={warning} style={styles.warningRow}>
-              <Ionicons name="alert-circle" size={15} color={conditionInk(plan.condition.code)} />
+              <ControlIcon name="alert-circle" size={15} color={conditionInk(plan.condition.code)} />
               <Text style={[styles.warningText, { color: conditionInk(plan.condition.code) }]}>
                 {warning}
               </Text>
@@ -263,7 +263,7 @@ function GettingThere({ plan }: { plan: FloatPlan }) {
             accent coral because the shuttle is the one thing in this card that
             is NOT the float — it is the drive that bookends it. */}
         <View style={[styles.shuttleBadge, { backgroundColor: primary[600] }]}>
-          <Ionicons name="car" size={14} color={colors.onAccent} />
+          <ControlIcon name="car" size={14} color={colors.onAccent} />
         </View>
         <View style={styles.shuttleText}>
           <Text style={[styles.shuttleTitle, { color: colors.text }]}>Shuttle route</Text>
@@ -271,7 +271,7 @@ function GettingThere({ plan }: { plan: FloatPlan }) {
             Driving directions from point-to-point
           </Text>
         </View>
-        <Ionicons name="chevron-forward" size={15} color={colors.textSubtle} />
+        <ControlIcon name="chevron-forward" size={15} color={colors.textSubtle} />
       </Pressable>
     </View>
   );
@@ -306,7 +306,7 @@ function EndpointRow({
           {point.name}
         </Text>
       </View>
-      <Ionicons name="navigate-outline" size={17} color={colors.interactive} />
+      <ControlIcon name="navigate-outline" size={17} color={colors.interactive} />
     </Pressable>
   );
 }
@@ -357,7 +357,7 @@ function GaugeSourceLink({ plan }: { plan: FloatPlan }) {
       <Text style={[styles.sourceText, { color: colors.textMuted }]}>
         Reading from USGS {plan.condition.gaugeUsgsId}
       </Text>
-      <Ionicons name="open-outline" size={14} color={colors.interactive} />
+      <ControlIcon name="open-outline" size={14} color={colors.interactive} />
     </Pressable>
   );
 }

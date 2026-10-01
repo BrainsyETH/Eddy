@@ -33,3 +33,10 @@ export function validateChartDates(fromText: string, toText: string, now: number
   const end = new Date(Math.min(to.getTime(), now));
   return { window: { from: from.toISOString(), to: end.toISOString() }, days: Math.max(1, ordinal(end) - ordinal(from) + 1) };
 }
+
+/** Moving Start past End keeps a valid one-day range instead of an invalid picker value. */
+export function chartEndAfterStartChange(fromText: string, toText: string): string {
+  const from = parseLocalChartDate(fromText);
+  const to = parseLocalChartDate(toText);
+  return from && to && from > to ? fromText : toText;
+}

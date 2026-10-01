@@ -20,7 +20,7 @@
 
 import { Pressable, StyleSheet, Text } from 'react-native';
 import { useRouter } from 'expo-router';
-import { ControlIcon as Ionicons } from '@/components/ControlIcon';
+import { ControlIcon } from '@/components/ControlIcon';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
 
@@ -55,10 +55,10 @@ export function AlertOriginRow({
       accessibilityRole="button"
       accessibilityLabel="Opened from your alert. Manage this alert."
     >
-      <Ionicons name="notifications-outline" size={15} color={colors.interactive} />
+      <ControlIcon name="notifications-outline" size={15} color={colors.interactive} />
       <Text style={[styles.text, { color: colors.textMuted }]}>Opened from your alert</Text>
       <Text style={[styles.action, { color: colors.interactive }]}>Manage</Text>
-      <Ionicons name="chevron-forward" size={14} color={colors.textSubtle} />
+      <ControlIcon name="chevron-forward" size={14} color={colors.textSubtle} />
     </Pressable>
   );
 }

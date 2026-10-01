@@ -1,5 +1,5 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { ControlIcon as Ionicons } from '@/components/ControlIcon';
+import { ControlIcon } from '@/components/ControlIcon';
 import type { CampingOverview, TrackedCampground } from '@eddy/types';
 import { useTheme } from '@/theme/ThemeProvider';
 import { textStyles } from '@/theme/typography';
@@ -20,7 +20,7 @@ export function CampingAvailabilityRow({ row, overview, night, now, onPress }: {
     <View style={styles.heading}>
       <CampgroundThumbnail url={row.imageUrl} />
       <Text style={[textStyles.cardTitle, { color: colors.text, flex: 1 }]}>{row.name}</Text>
-      <Ionicons name="chevron-forward" size={18} color={colors.textMuted} accessible={false} />
+      <ControlIcon name="chevron-forward" size={18} color={colors.textMuted} accessible={false} />
     </View>
     <Text style={[textStyles.body, { color: colors.text }]}>{status}</Text>
     <Text style={[textStyles.caption, { color: colors.textMuted }]}>{dateLabel(night)} · {updated}</Text>

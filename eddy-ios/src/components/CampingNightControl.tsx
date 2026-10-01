@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { FlatList, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
-import { ControlIcon as Ionicons } from '@/components/ControlIcon';
+import { ControlIcon } from '@/components/ControlIcon';
 import { useTheme } from '@/theme/ThemeProvider';
 import { textStyles } from '@/theme/typography';
 import { dateLabel } from '@/lib/campingHeatmap';
@@ -20,7 +20,7 @@ export function CampingNightControl({ nights, selected, onSelect }: {
     return <Pressable style={styles.arrow} disabled={!next}
       accessibilityRole="button" accessibilityLabel={direction < 0 ? 'Previous night' : 'Next night'}
       accessibilityState={{ disabled: !next }} onPress={() => { if (next) onSelect(next); }}>
-      <Ionicons name={direction < 0 ? 'chevron-back' : 'chevron-forward'} size={22} color={next ? colors.interactive : colors.textSubtle} />
+      <ControlIcon name={direction < 0 ? 'chevron-back' : 'chevron-forward'} size={22} color={next ? colors.interactive : colors.textSubtle} />
     </Pressable>;
   }
   return <View>
@@ -47,7 +47,7 @@ export function CampingNightControl({ nights, selected, onSelect }: {
             accessibilityRole="button" accessibilityState={{ selected: item === selected }}
             onPress={() => { onSelect(item); setOpen(false); }}>
             <Text style={[textStyles.body, { color: item === selected ? colors.interactive : colors.text, flex: 1 }]}>{dateLabel(item)}</Text>
-            {item === selected ? <Ionicons name="checkmark" size={22} color={colors.interactive} accessible={false} /> : null}
+            {item === selected ? <ControlIcon name="checkmark" size={22} color={colors.interactive} accessible={false} /> : null}
           </Pressable>} />
       </SafeAreaView>
       </SafeAreaProvider>

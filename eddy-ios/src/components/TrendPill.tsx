@@ -25,7 +25,7 @@
 // louder than the reading it qualifies. Both are correct in their place, which
 // is why the caller says which it wants rather than the component guessing.
 
-import { ControlIcon as Ionicons } from '@/components/ControlIcon';
+import { ControlIcon } from '@/components/ControlIcon';
 import { StyleSheet, Text, View } from 'react-native';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
@@ -64,7 +64,7 @@ export function TrendPill({
         enclosed ? [styles.enclosed, { backgroundColor: colors.cardRaised }] : null,
       ]}
     >
-      <Ionicons name={TREND_ICON[direction]} size={size} color={colors.textMuted} />
+      <ControlIcon name={TREND_ICON[direction]} size={size} color={colors.textMuted} />
       {label ? (
         <Text style={[styles.text, { color: colors.textMuted }]} numberOfLines={1}>
           {label}

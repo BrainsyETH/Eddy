@@ -17,7 +17,7 @@
 
 import { type ReactNode, useState } from 'react';
 import { Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
-import { ControlIcon as Ionicons } from '@/components/ControlIcon';
+import { ControlIcon } from '@/components/ControlIcon';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
 
@@ -73,7 +73,7 @@ export function CollapsibleSection({
           {stacked && trailing ? <View style={{ alignItems: 'flex-start', marginTop: 8 }}>{trailing}</View> : null}
         </View>
         {!stacked && trailing ? <View style={{ flexShrink: 1 }}>{trailing}</View> : null}
-        <Ionicons
+        <ControlIcon
           name={expanded ? 'chevron-up' : 'chevron-down'}
           size={16}
           color={colors.textSubtle}

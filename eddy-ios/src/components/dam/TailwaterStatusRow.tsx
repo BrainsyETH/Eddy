@@ -26,7 +26,7 @@
 
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
-import { ControlIcon as Ionicons } from '@/components/ControlIcon';
+import { ControlIcon } from '@/components/ControlIcon';
 import type { DamSnapshot } from '@eddy/types';
 import {
   buildTailwaterStatus,
@@ -67,13 +67,13 @@ export function TailwaterStatusRow({ dam }: { dam: DamSnapshot | null }) {
         accessibilityRole="button"
         accessibilityLabel={`${dam.name} controls this reach. Opens ${dam.name} details.`}
       >
-        <Ionicons name="water-outline" size={16} color={colors.interactive} style={styles.icon} />
+        <ControlIcon name="water-outline" size={16} color={colors.interactive} style={styles.icon} />
         <View style={styles.body}>
           <Text style={[styles.headline, { color: colors.text }]}>
             {dam.name} controls this reach
           </Text>
         </View>
-        <Ionicons name="chevron-forward" size={15} color={colors.textSubtle} style={styles.icon} />
+        <ControlIcon name="chevron-forward" size={15} color={colors.textSubtle} style={styles.icon} />
       </Pressable>
     );
   }
@@ -104,7 +104,7 @@ export function TailwaterStatusRow({ dam }: { dam: DamSnapshot | null }) {
       // a button: it LEAVES for the browser". This push stays in the app.
       accessibilityLabel={tailwaterStatusVoiceOver(status)}
     >
-      <Ionicons
+      <ControlIcon
         name={status.tone === 'generating' ? 'flash-outline' : 'water-outline'}
         size={16}
         color={colors.interactive}
@@ -121,7 +121,7 @@ export function TailwaterStatusRow({ dam }: { dam: DamSnapshot | null }) {
         ))}
       </View>
 
-      <Ionicons
+      <ControlIcon
         name="chevron-forward"
         size={15}
         color={colors.textSubtle}

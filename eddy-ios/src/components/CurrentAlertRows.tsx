@@ -1,5 +1,5 @@
 import { Linking, Pressable, StyleSheet, Text, View } from 'react-native';
-import { ControlIcon as Ionicons } from '@/components/ControlIcon';
+import { ControlIcon } from '@/components/ControlIcon';
 import { useRouter } from 'expo-router';
 import type { HighWaterEntry, RiverAlert } from '@eddy/types';
 import { conditionBg, conditionColor, conditionInk } from '@/theme/conditions';
@@ -42,7 +42,7 @@ export function HighWaterAlertRow({ entry }: { entry: HighWaterEntry }) {
         <Text style={[styles.detail, { color: colors.textMuted }]}>{detail}</Text>
       </View>
       <View style={[styles.chip, { backgroundColor: conditionBg(entry.conditionCode) }]}>
-        <Ionicons name={entry.conditionCode === 'dangerous' ? 'warning-outline' : 'water-outline'} size={16} color={conditionInk(entry.conditionCode)} />
+        <ControlIcon name={entry.conditionCode === 'dangerous' ? 'warning-outline' : 'water-outline'} size={16} color={conditionInk(entry.conditionCode)} />
       </View>
     </Pressable>
   );
@@ -69,7 +69,7 @@ export function PublicNoticeRow({ alert, showBody = false }: { alert: RiverAlert
         <Text style={[styles.detail, { color: colors.textMuted }]}>{severity} · {alert.category} · {source}</Text>
         {showBody && alert.body ? <Text style={[styles.body, { color: colors.text }]}>{alert.body}</Text> : null}
       </View>
-      {alert.url ? <Ionicons name="open-outline" size={16} color={colors.textSubtle} style={styles.externalIcon} /> : null}
+      {alert.url ? <ControlIcon name="open-outline" size={16} color={colors.textSubtle} style={styles.externalIcon} /> : null}
     </Pressable>
   );
 }

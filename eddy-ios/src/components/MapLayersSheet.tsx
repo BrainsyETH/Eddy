@@ -52,7 +52,7 @@ import Animated, {
   useSharedValue,
   withTiming,
 } from 'react-native-reanimated';
-import { ControlIcon as Ionicons } from '@/components/ControlIcon';
+import { ControlIcon } from '@/components/ControlIcon';
 import { EddySymbol } from '@/components/EddySymbol';
 import { useReducedMotion } from '@/hooks/useReducedMotion';
 import { useTheme } from '@/theme/ThemeProvider';
@@ -349,7 +349,7 @@ export function MapLayersSheet({
                       style={{ opacity: on ? 1 : DIMMED }}
                     />
                   ) : (
-                    <Ionicons
+                    <ControlIcon
                       name={layer.icon}
                       size={15}
                       color={on ? tint : colors.textSubtle}
@@ -384,7 +384,7 @@ export function MapLayersSheet({
                         accessible={false}
                         importantForAccessibility="no"
                       >
-                        <Ionicons
+                        <ControlIcon
                           name="information-circle-outline"
                           size={15}
                           color={colors.textSubtle}
@@ -568,18 +568,20 @@ export function MapLayersButton({
   const { colors } = useTheme();
   return (
     <FloatingControlSurface style={styles.button}>
-    <Pressable
-      onPress={onPress}
-      style={({ pressed }) => [
-        styles.button,
-        { opacity: pressed ? 0.7 : 1 },
-      ]}
-      accessibilityRole="button"
-      accessibilityLabel="Map layers"
-    >
-      <Ionicons name="layers-outline" size={19} color={colors.interactive} />
-      {changed ? <View style={[styles.dot, { backgroundColor: colors.interactive }]} /> : null}
-    </Pressable>
+      {glass => (
+        <Pressable
+          onPress={onPress}
+          style={({ pressed }) => [
+            styles.button,
+            { opacity: pressed && !glass ? 0.7 : 1 },
+          ]}
+          accessibilityRole="button"
+          accessibilityLabel="Map layers"
+        >
+          <ControlIcon name="layers-outline" size={19} color={colors.interactive} />
+          {changed ? <View style={[styles.dot, { backgroundColor: colors.interactive }]} /> : null}
+        </Pressable>
+      )}
     </FloatingControlSurface>
   );
 }

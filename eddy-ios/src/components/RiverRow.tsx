@@ -27,7 +27,7 @@
 
 import { memo } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { ControlIcon as Ionicons } from '@/components/ControlIcon';
+import { ControlIcon } from '@/components/ControlIcon';
 import type { RiverListItem } from '@eddy/types';
 import { conditionColor, conditionLabel, conditionText } from '@/theme/conditions';
 import { useTheme } from '@/theme/ThemeProvider';
@@ -149,7 +149,7 @@ function RiverRowComponent({
           </Text>
           {trend ? (
             <View style={styles.trend}>
-              <Ionicons name={TREND_ICON[trend.direction]} size={13} color={colors.textMuted} />
+              <ControlIcon name={TREND_ICON[trend.direction]} size={13} color={colors.textMuted} />
               <Text style={[styles.trendText, { color: colors.textMuted }]} numberOfLines={1}>
                 {trend.label}
               </Text>
@@ -206,7 +206,7 @@ function RiverRowComponent({
         accessibilityRole="button"
         accessibilityLabel={starred ? `Unstar ${river.name}` : `Star ${river.name}`}
       >
-        <Ionicons
+        <ControlIcon
           name={starred ? 'star' : 'star-outline'}
           size={21}
           color={starred ? colors.warm : colors.textSubtle}

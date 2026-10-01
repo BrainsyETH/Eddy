@@ -64,7 +64,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import { ControlIcon as Ionicons } from '@/components/ControlIcon';
+import { ControlIcon } from '@/components/ControlIcon';
 import type * as ImagePicker from 'expo-image-picker';
 import type * as ImageManipulator from 'expo-image-manipulator';
 import type * as ExpoFileSystem from 'expo-file-system';
@@ -507,7 +507,7 @@ export function PhotoSubmitSheet({
 
           {sent ? (
             <View style={styles.done}>
-              <Ionicons name="checkmark-circle" size={40} color={colors.success} />
+              <ControlIcon name="checkmark-circle" size={40} color={colors.success} />
               <Text style={[styles.doneTitle, { color: colors.text }]}>Thank you</Text>
               {/* Says what happens NEXT. Without it, a photo that does not
                   appear in the gallery reads as a failed upload. */}
@@ -543,7 +543,7 @@ export function PhotoSubmitSheet({
                     accessibilityRole="button"
                     accessibilityLabel="Remove photo"
                   >
-                    <Ionicons name="close" size={16} color={colors.text} />
+                    <ControlIcon name="close" size={16} color={colors.text} />
                   </Pressable>
                 </View>
               ) : (
@@ -558,7 +558,7 @@ export function PhotoSubmitSheet({
                     ]}
                     accessibilityRole="button"
                   >
-                    <Ionicons name="camera-outline" size={22} color={colors.interactive} />
+                    <ControlIcon name="camera-outline" size={22} color={colors.interactive} />
                     <Text style={[styles.pickText, { color: colors.text }]}>Take a photo</Text>
                   </Pressable>
                   <Pressable
@@ -569,7 +569,7 @@ export function PhotoSubmitSheet({
                     ]}
                     accessibilityRole="button"
                   >
-                    <Ionicons name="images-outline" size={22} color={colors.interactive} />
+                    <ControlIcon name="images-outline" size={22} color={colors.interactive} />
                     <Text style={[styles.pickText, { color: colors.text }]}>Choose one</Text>
                   </Pressable>
                 </View>
@@ -596,7 +596,7 @@ export function PhotoSubmitSheet({
                     : 'Choose where this was taken'
                 }
               >
-                <Ionicons
+                <ControlIcon
                   name="location-outline"
                   size={17}
                   color={selectedPoint ? colors.interactive : colors.textSubtle}
@@ -610,7 +610,7 @@ export function PhotoSubmitSheet({
                 >
                   {selectedPoint?.name ?? 'Choose an access point'}
                 </Text>
-                <Ionicons name="chevron-down" size={16} color={colors.textSubtle} />
+                <ControlIcon name="chevron-down" size={16} color={colors.textSubtle} />
               </Pressable>
               {/* THERE IS NO EXPLANATORY LINE UNDER THIS CONTROL. It read
                   "This is the location filed with the photo. Eddy does not read
@@ -836,7 +836,7 @@ export function PhotoSubmitSheet({
                       {point.name}
                     </Text>
                     {on ? (
-                      <Ionicons name="checkmark" size={17} color={colors.interactive} />
+                      <ControlIcon name="checkmark" size={17} color={colors.interactive} />
                     ) : null}
                   </Pressable>
                 );

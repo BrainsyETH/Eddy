@@ -1,10 +1,11 @@
 // Compact hydrograph shared by River, Gauge and map history.
 // Data geometry, gaps and reading identity come from the shared chart model.
 
-import { ControlIcon as Ionicons } from '@/components/ControlIcon';
+import { ControlIcon } from '@/components/ControlIcon';
 import { chartDateRange } from '@/lib/chartDateRange';
 import { Component, useCallback, useMemo, useState, useId, type ReactNode } from 'react';
 import {
+  AccessibilityInfo,
   ActivityIndicator,
   ActionSheetIOS,
   Platform,
@@ -65,7 +66,7 @@ import { GaugeChartSheet } from '@/components/GaugeChartSheet';
 import { GaugeChartDetails } from '@/components/GaugeChartDetails';
 import { GaugeChartReadout } from '@/components/GaugeChartReadout';
 import { chartGutters, chartGridValues, selectChartRailLabels, type ChartRailLabel } from '@/lib/gaugeChartLayout';
-import { validateChartDates, localChartDate, type ChartDateErrors } from '@/lib/gaugeChartDates';
+import { validateChartDates, localChartDate, parseLocalChartDate, chartEndAfterStartChange, type ChartDateErrors } from '@/lib/gaugeChartDates';
 
 /** Short history first; provider capabilities unlock the longer windows. */
 const RANGES = [
@@ -865,6 +866,15 @@ function GaugeChartInner({
       else if (index < options.length) setSheet('dates');
     });
   };
+  const chooseStartDate = (value: string) => {
+    const nextEnd = chartEndAfterStartChange(value, toDate);
+    setFromDate(value);
+    if (nextEnd !== toDate) {
+      setToDate(nextEnd);
+      AccessibilityInfo.announceForAccessibility(`End date moved to ${parseLocalChartDate(nextEnd)!.toLocaleDateString()}.`);
+    }
+    setDateErrors({});
+  };
   const applyDates = () => {
     const result = validateChartDates(fromDate, toDate, Date.now());
     if (result.errors) { setDateErrors(result.errors); return; }
@@ -907,13 +917,13 @@ function GaugeChartInner({
           disabled={!availableUnits.some(value => value !== drawnUnit)} onPress={event => openMeasurement(event.nativeEvent.target)}
           style={({ pressed }) => [styles.measurement, { opacity: pressed ? 0.65 : 1 }]}>
           <Text style={[styles.measurementText, { color: colors.text }]}>{measurementLabel}</Text>
-          {availableUnits.some(value => value !== drawnUnit) ? <Ionicons name="chevron-down" size={14} color={colors.textMuted} /> : null}
+          {availableUnits.some(value => value !== drawnUnit) ? <ControlIcon name="chevron-down" size={14} color={colors.textMuted} /> : null}
         </Pressable>
         <Pressable accessibilityRole="button" accessibilityLabel={`History range: ${rangeSummaryLabel}`} onPress={event => openRange(event.nativeEvent.target)}
           style={({ pressed }) => [styles.rangeButton, { backgroundColor: colors.cardRaised, opacity: pressed ? 0.65 : 1 }]}>
           {loading && history ? <ActivityIndicator size="small" color={colors.interactive} /> : null}
           <Text style={[styles.actionText, { color: colors.text }]}>{rangeSummaryLabel}</Text>
-          <Ionicons name="chevron-down" size={14} color={colors.textMuted} />
+          <ControlIcon name="chevron-down" size={14} color={colors.textMuted} />
         </Pressable>
       </View>
       {history && !matchesRequest ? <View style={styles.rangeStatus}>
@@ -999,10 +1009,10 @@ function GaugeChartInner({
       </View>
       <View style={[styles.actions, { borderTopColor: colors.border }]}>
         <Pressable accessibilityRole="button" accessibilityLabel="Compare chart layers" onPress={() => { setScrubX(null); setSheet('compare'); }} style={({ pressed }) => [styles.toolbarAction, { opacity: pressed ? 0.65 : 1 }]}>
-          <Ionicons name="options-outline" size={16} color={colors.interactive} /><Text style={[styles.actionText, { color: colors.interactive }]}>Compare{comparisonCount ? ` · ${comparisonCount}` : ''}</Text>
+          <ControlIcon name="options-outline" size={16} color={colors.interactive} /><Text style={[styles.actionText, { color: colors.interactive }]}>Compare{comparisonCount ? ` · ${comparisonCount}` : ''}</Text>
         </Pressable>
         <Pressable accessibilityRole="button" onPress={() => { setScrubX(null); setSheet('data'); }} style={({ pressed }) => [styles.toolbarAction, { opacity: pressed ? 0.65 : 1 }]}>
-          <Ionicons name="grid-outline" size={16} color={colors.interactive} /><Text style={[styles.actionText, { color: colors.interactive }]}>Data & details</Text>
+          <ControlIcon name="grid-outline" size={16} color={colors.interactive} /><Text style={[styles.actionText, { color: colors.interactive }]}>Data & details</Text>
         </Pressable>
       </View>
       {sheet ? <GaugeChartSheet title={sheet === 'compare' ? 'Compare' : sheet === 'data' ? 'Data & details' : sheet === 'unit' ? 'Measurement' : sheet === 'range' ? 'History range' : 'Custom dates'} onClose={closeSheet}>
@@ -1012,19 +1022,19 @@ function GaugeChartInner({
           <ChartComparison label={zones.length ? 'Full Eddy scale' : 'Full stage references'} detail={zones.length ? 'Show every condition threshold' : stageLines.length ? 'NWS references in feet' : 'No thresholds for this measurement'} value={fullScale} disabled={!zones.length && !stageLines.length} onChange={setFullScale} />
           <Text style={[styles.caption, { color: colors.textMuted }]}>Historical context describes past daily flow, not forecast uncertainty. Values appear only for dates provided by USGS.</Text>
         </> : sheet === 'data' ? <GaugeChartDetails siteId={siteId} history={history} thresholds={thresholds} floodStages={floodStages} defaultUnit={unit} /> : sheet === 'unit' ? availableUnits.map(value => <Pressable key={value} accessibilityRole="radio" accessibilityState={{ checked: value === drawnUnit }} onPress={() => chooseUnit(value)} style={[styles.choice, { borderBottomColor: colors.border }]}>
-          <Text style={[styles.choiceText, { color: colors.text }]}>{value === 'cfs' ? 'Flow (cfs)' : 'Gauge height (ft)'}</Text>{value === drawnUnit ? <Ionicons name="checkmark" size={20} color={colors.interactive} /> : null}
+          <Text style={[styles.choiceText, { color: colors.text }]}>{value === 'cfs' ? 'Flow (cfs)' : 'Gauge height (ft)'}</Text>{value === drawnUnit ? <ControlIcon name="checkmark" size={20} color={colors.interactive} /> : null}
         </Pressable>) : sheet === 'range' ? <>
           {ranges.map(r => {
             const active = r.days === days && !customWindow;
             return <Pressable key={r.days} accessibilityRole="radio" accessibilityState={{ checked: active }} onPress={() => { setCustomWindow(undefined); setDays(r.days); setScrubX(null); closeSheet(); }} style={[styles.choice, { borderBottomColor: colors.border }]}>
-              <Text style={[styles.choiceText, { color: colors.text }]}>{r.days === 1 ? '24 hours' : r.days === 365 ? '1 year' : `${r.days} days`}</Text>{active ? <Ionicons name="checkmark" size={20} color={colors.interactive} /> : null}
+              <Text style={[styles.choiceText, { color: colors.text }]}>{r.days === 1 ? '24 hours' : r.days === 365 ? '1 year' : `${r.days} days`}</Text>{active ? <ControlIcon name="checkmark" size={20} color={colors.interactive} /> : null}
             </Pressable>;
           })}
-          {historyCapabilities?.supportsCustomRange ? <Pressable accessibilityRole="button" onPress={() => setSheet('dates')} style={[styles.choice, { borderBottomColor: colors.border }]}><Text style={[styles.choiceText, { color: colors.interactive }]}>Custom dates</Text><Ionicons name="calendar-outline" size={20} color={colors.interactive} /></Pressable> : null}
+          {historyCapabilities?.supportsCustomRange ? <Pressable accessibilityRole="button" onPress={() => setSheet('dates')} style={[styles.choice, { borderBottomColor: colors.border }]}><Text style={[styles.choiceText, { color: colors.interactive }]}>Custom dates</Text><ControlIcon name="calendar-outline" size={20} color={colors.interactive} /></Pressable> : null}
         </> : <>
           <Text style={[styles.caption, { color: colors.textMuted }]}>Choose up to 366 days.</Text>
-          <ChartDateField label="Start date" value={fromDate} error={dateErrors.from} onChange={value => { setFromDate(value); setDateErrors({}); }} />
-          <ChartDateField label="End date" value={toDate} error={dateErrors.to} onChange={value => { setToDate(value); setDateErrors({}); }} />
+          <ChartDateField label="Start date" value={fromDate} error={dateErrors.from} onChange={chooseStartDate} />
+          <ChartDateField label="End date" minimumDate={parseLocalChartDate(fromDate) ?? undefined} value={toDate} error={dateErrors.to} onChange={value => { setToDate(value); setDateErrors({}); }} />
           <Pressable accessibilityRole="button" onPress={applyDates} style={[styles.rangeButton, { backgroundColor: colors.cardRaised }]}><Text style={[styles.actionText, { color: colors.interactive }]}>Apply dates</Text></Pressable>
         </>}
       </GaugeChartSheet> : null}

@@ -22,7 +22,7 @@
 // thing the late request is allowed to add.
 import { useCallback, useMemo, useState } from 'react';
 import { Pressable, StyleSheet, Text, View, type LayoutChangeEvent } from 'react-native';
-import { ControlIcon as Ionicons } from '@/components/ControlIcon';
+import { ControlIcon } from '@/components/ControlIcon';
 import { useSharedValue, type SharedValue } from 'react-native-reanimated';
 import type {
   AccessPointDetailResponse,
@@ -424,7 +424,7 @@ function PinSheetHeader({
           accessibilityRole="button"
           accessibilityLabel={backLabel ? `Back to ${backLabel}` : 'Back'}
         >
-          <Ionicons name="chevron-back" size={16} color={colors.interactive} />
+          <ControlIcon name="chevron-back" size={16} color={colors.interactive} />
           <Text style={[styles.backText, { color: colors.interactive }]} numberOfLines={1}>
             {backLabel ?? 'Back'}
           </Text>
@@ -497,7 +497,7 @@ function PinSheetHeader({
               accessPoint.isPublic ? undefined : 'Private access confirmation required'
             }
           >
-            <Ionicons name="flag-outline" size={15} color={colors.onAccent} />
+            <ControlIcon name="flag-outline" size={15} color={colors.onAccent} />
             <Text style={[styles.primaryText, { color: colors.onAccent }]} numberOfLines={1}>
               {planAsTakeOut ? 'Use as take-out' : 'Use as put-in'}
             </Text>
@@ -513,7 +513,7 @@ function PinSheetHeader({
             accessibilityRole="button"
             accessibilityLabel={`Directions to ${pin.name}`}
           >
-            <Ionicons name="navigate-outline" size={15} color={colors.text} />
+            <ControlIcon name="navigate-outline" size={15} color={colors.text} />
             <Text style={[styles.primaryText, { color: colors.text }]} numberOfLines={1}>
               Directions
             </Text>

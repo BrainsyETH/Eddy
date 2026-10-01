@@ -2,7 +2,7 @@ import { radii } from '@/theme/layout';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Image } from 'expo-image';
 import { BlurView } from 'expo-blur';
-import { ControlIcon as Ionicons } from '@/components/ControlIcon';
+import { ControlIcon } from '@/components/ControlIcon';
 import type { RiverListItem } from '@eddy/types';
 import type { EddySays } from '@/lib/eddySays';
 import { writtenAge } from '@/lib/eddySays';
@@ -131,7 +131,7 @@ export function EddyReadCard({ river, says, onPress, onUnlock, compact = false, 
           <BlurredReadPreview lines={7} withSpacing={false} />
           <View pointerEvents="none" style={styles.lockOverlay}>
             <View style={[styles.lockBadge, { backgroundColor: '#16352e', borderColor: '#d2e1db' }]}>
-              <Ionicons name="lock-closed" size={22} color="white" />
+              <ControlIcon name="lock-closed" size={22} color="white" />
             </View>
           </View>
         </Pressable>
@@ -140,7 +140,7 @@ export function EddyReadCard({ river, says, onPress, onUnlock, compact = false, 
         {age && !premiumUserId ? <Text style={[styles.age, { color: '#d2e1db' }]}>{age}</Text> : <View />}
         <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel={`View full Read for ${river.name}`} style={[styles.footAction, { minHeight: 44 }]}>
           <Text style={[styles.footActionText, { color: 'white' }]}>{action}</Text>
-          <Ionicons name="chevron-forward" size={15} color="white" />
+          <ControlIcon name="chevron-forward" size={15} color="white" />
         </Pressable>
       </View>
       </View>

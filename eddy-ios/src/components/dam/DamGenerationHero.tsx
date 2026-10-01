@@ -38,7 +38,7 @@
 
 import { radii } from '@/theme/layout';
 import { StyleSheet, Text, View } from 'react-native';
-import { ControlIcon as Ionicons } from '@/components/ControlIcon';
+import { ControlIcon } from '@/components/ControlIcon';
 import type { DamSnapshot } from '@eddy/types';
 import { relativeAge, SCHEDULE_CHANGE_SENTENCE } from '@eddy/conditions/dam-schedule-copy';
 import {
@@ -155,7 +155,7 @@ export function DamGenerationHero({
   return (
     <View style={embedded ? undefined : [styles.card, { backgroundColor: colors.card }, elevation(2)]}>
       <View style={styles.statusRow}>
-        <Ionicons name="flash" size={13} color={colors.interactive} />
+        <ControlIcon name="flash" size={13} color={colors.interactive} />
         <Text style={[styles.status, { color: colors.interactive }]}>{status.toUpperCase()}</Text>
       </View>
 
@@ -235,7 +235,7 @@ export function DamGenerationHero({
           ]}
         >
           <View style={styles.scheduledRow}>
-            <Ionicons name="time-outline" size={13} color={colors.interactive} />
+            <ControlIcon name="time-outline" size={13} color={colors.interactive} />
             <Text style={[styles.blockLabel, { color: colors.interactive }]}>NEXT CHANGE</Text>
           </View>
           <Text style={[styles.nextSentence, { color: colors.text }]}>{clauses.scheduled}</Text>

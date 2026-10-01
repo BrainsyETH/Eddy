@@ -43,7 +43,7 @@
 import { radii } from '@/theme/layout';
 import { memo } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { ControlIcon as Ionicons } from '@/components/ControlIcon';
+import { ControlIcon } from '@/components/ControlIcon';
 import type { MapGauge, RiverListItem } from '@eddy/types';
 import {
   conditionBg,
@@ -189,7 +189,7 @@ function FavoriteRiverCardComponent({
             accessibilityRole="button"
             accessibilityLabel={`Unstar ${river.name}`}
           >
-            <Ionicons name="star" size={21} color={colors.warm} />
+            <ControlIcon name="star" size={21} color={colors.warm} />
           </Pressable>
         </View>
 
@@ -218,7 +218,7 @@ function FavoriteRiverCardComponent({
                   {/* Muted ink, never green-for-rising: on a river approaching
                       flood, "rising fast" is the opposite of good news. The
                       chip above carries the verdict. */}
-                  <Ionicons
+                  <ControlIcon
                     name={TREND_ICON[trend.direction]}
                     size={12}
                     color={colors.textMuted}

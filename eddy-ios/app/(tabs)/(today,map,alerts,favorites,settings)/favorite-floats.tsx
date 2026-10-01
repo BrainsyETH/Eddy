@@ -2,7 +2,7 @@ import { NativeHeaderHome } from '@/components/NativeHeaderHome';
 import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Image, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { ControlIcon as Ionicons } from '@/components/ControlIcon';
+import { ControlIcon } from '@/components/ControlIcon';
 import { useRouter } from 'expo-router';
 import type { FavoriteFloatSummary } from '@eddy/types';
 import { ApiError, fetchFavoriteFloats } from '@/api/client';
@@ -96,7 +96,7 @@ export default function FavoriteFloatsScreen() {
                     accessibilityRole="button"
                     accessibilityLabel={`Plan ${item.putInName} to ${item.takeOutName}`}
                   >
-                    <Ionicons name="map-outline" size={18} color={colors.onAccent} />
+                    <ControlIcon name="map-outline" size={18} color={colors.onAccent} />
                     <Text style={[styles.buttonText, { color: colors.onAccent }]}>Plan this float</Text>
                   </Pressable>
                 </View>

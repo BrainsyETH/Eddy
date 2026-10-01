@@ -2,7 +2,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { AccessibilityInfo, ActivityIndicator, FlatList, Keyboard, KeyboardAvoidingView, Linking, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { ControlIcon as Ionicons } from '@/components/ControlIcon';
+import { ControlIcon } from '@/components/ControlIcon';
 import { milesBetween, type Coords } from '@eddy/geo';
 import type { DamSnapshot, RiverListItem } from '@eddy/types';
 import { generationNow, generationStatusLabel } from '@eddy/conditions/dam-generation';
@@ -162,7 +162,7 @@ export function FirstRunPicker({ onDone }: Props) {
               <Pressable accessibilityRole="button" disabled={locating || location.status === 'denied'}
                 accessibilityState={{ disabled: locating || location.status === 'denied' }}
                 onPress={() => void showNearby()} style={[styles.chip, { backgroundColor: colors.selectionBg, borderColor: colors.border }]}>
-                {locating ? <ActivityIndicator size="small" color={colors.interactive} /> : <Ionicons name="location-outline" size={17} color={colors.interactive} />}
+                {locating ? <ActivityIndicator size="small" color={colors.interactive} /> : <ControlIcon name="location-outline" size={17} color={colors.interactive} />}
                 <Text style={[styles.chipText, { color: colors.selectionText }]}>{locationLabel}</Text>
               </Pressable>
               {location.status === 'denied' ? <Pressable accessibilityRole="button" onPress={() => void Linking.openSettings()} style={styles.textButton}>
@@ -288,7 +288,7 @@ function PlaceCard({ place, selected, onPress, dam, damRequestState, miles, now 
       onPress={onPress} style={({ pressed }) => [styles.card, { backgroundColor: selected ? colors.selectionBg : colors.card, borderColor: selected ? colors.interactive : colors.border, opacity: pressed ? 0.8 : 1 }]}>
       <OnboardingPhoto uri={river?.photoUrl} damId={place.kind === 'dam' ? place.dam.id : undefined} />
       <View style={[styles.selection, { backgroundColor: colors.card }]}>
-        <Ionicons name={selected ? 'checkmark-circle' : 'ellipse-outline'} size={24} color={selected ? colors.interactive : colors.textMuted} />
+        <ControlIcon name={selected ? 'checkmark-circle' : 'ellipse-outline'} size={24} color={selected ? colors.interactive : colors.textMuted} />
       </View>
       <View style={styles.cardBody}>
         <Text style={[styles.meta, { color: colors.textMuted }]}>{place.kind === 'river' ? 'River' : 'Dam'} · {river?.state ?? (place.kind === 'dam' ? place.dam.state : '')}</Text>

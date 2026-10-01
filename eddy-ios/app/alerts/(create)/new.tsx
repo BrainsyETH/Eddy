@@ -23,7 +23,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import { ControlIcon as Ionicons } from '@/components/ControlIcon';
+import { ControlIcon } from '@/components/ControlIcon';
 import { useRouter } from 'expo-router';
 import type { SearchResult } from '@eddy/types';
 import { useEddySearch } from '@/hooks/useEddySearch';
@@ -146,7 +146,7 @@ export default function NewAlertScreen() {
   return (
     <AlertCreationFrame secondary={{ label: 'Cancel', onPress: close }}>
       <View style={[styles.searchBox, { backgroundColor: colors.card, borderColor: colors.border }]}>
-        <Ionicons name="search" size={18} color={colors.textSubtle} />
+        <ControlIcon name="search" size={18} color={colors.textSubtle} />
         <TextInput
           value={query}
           onChangeText={setQuery}
@@ -202,7 +202,7 @@ export default function NewAlertScreen() {
             accessibilityLabel={`Set an alert on ${item.name}`}
           >
             <View style={[styles.icon, { backgroundColor: colors.cardRaised }]}>
-              <Ionicons
+              <ControlIcon
                 name={item.scope === 'gauge' ? 'speedometer-outline' : 'water-outline'}
                 size={16}
                 color={colors.textMuted}
@@ -218,7 +218,7 @@ export default function NewAlertScreen() {
                 </Text>
               ) : null}
             </View>
-            <Ionicons name="chevron-forward" size={18} color={colors.textSubtle} />
+            <ControlIcon name="chevron-forward" size={18} color={colors.textSubtle} />
           </Pressable>
         )}
       />

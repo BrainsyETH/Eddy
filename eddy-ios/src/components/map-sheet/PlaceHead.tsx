@@ -37,7 +37,7 @@
 // overlapping, with the last one pulled into the container's padding so the
 // glyph still sits on the optical margin while its target reaches the edge.
 import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
-import { ControlIcon as Ionicons } from '@/components/ControlIcon';
+import { ControlIcon } from '@/components/ControlIcon';
 import type { MapAccessPoint } from '@eddy/types';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
@@ -167,7 +167,7 @@ export function PlaceHead({
           accessibilityRole="button"
           accessibilityLabel={starred ? `Unstar ${pin.name}` : `Star ${pin.name}`}
         >
-          <Ionicons
+          <ControlIcon
             name={starred ? 'star' : 'star-outline'}
             size={19}
             color={starred ? colors.warm : colors.textMuted}
@@ -180,7 +180,7 @@ export function PlaceHead({
         accessibilityRole="button"
         accessibilityLabel="Close"
       >
-        <Ionicons name="close" size={19} color={colors.textMuted} />
+        <ControlIcon name="close" size={19} color={colors.textMuted} />
       </Pressable>
     </View>
   );

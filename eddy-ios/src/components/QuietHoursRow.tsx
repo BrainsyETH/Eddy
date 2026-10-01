@@ -22,7 +22,7 @@
 
 import { useCallback, useRef, useState } from 'react';
 import { Pressable, StyleSheet, Switch, Text, View } from 'react-native';
-import { ControlIcon as Ionicons } from '@/components/ControlIcon';
+import { ControlIcon } from '@/components/ControlIcon';
 import { useFocusEffect, useRouter } from 'expo-router';
 import type { NotificationPreferences } from '@eddy/types';
 import { fetchNotificationPreferences, updateNotificationPreferences } from '@/api/client';
@@ -154,7 +154,7 @@ export function QuietHoursRow() {
       accessibilityRole="button"
       accessibilityLabel={`Quiet hours. ${summary(prefs)}. Opens quiet hours settings`}
     >
-      <Ionicons name="moon-outline" size={20} color={colors.interactive} />
+      <ControlIcon name="moon-outline" size={20} color={colors.interactive} />
       <View style={styles.body}>
         <Text style={[styles.title, { color: colors.text }]}>Quiet hours</Text>
         <Text style={[styles.hint, { color: colors.textMuted }]}>{summary(prefs)}</Text>
