@@ -136,6 +136,7 @@ import { useSession } from '@/hooks/useSession';
 import { useStarredRivers } from '@/hooks/useStarredRivers';
 import { readBestIndex, readConditions } from '@/lib/riverCache';
 import { useRiverData } from '@/hooks/useRiverData';
+import { useGaugeDetail } from '@/hooks/useGaugeDetail';
 import { selectEddySays } from '@/lib/eddySays';
 import { effectiveReadingAgeHours, readingBand } from '@/lib/offline-cache';
 import { shareInFlight } from '@/lib/shareInFlight';
@@ -1118,6 +1119,12 @@ export default function RiverDetailScreen() {
     );
   }, [subscribed, subscribe, unsubscribe, cascadingAlerts, river?.name]);
 
+  // Resolve the chart's station before the early returns so the detail hook
+  // can follow the picker. Capabilities load without blocking 30-day history.
+  const pickedGauge = shownGaugeId ? gauges.find((g) => g.id === shownGaugeId) ?? null : null;
+  const shownSiteId = pickedGauge ? pickedGauge.usgsSiteId : (condition?.gaugeUsgsId ?? null);
+  const { detail: chartGaugeDetail } = useGaugeDetail(loading || error || !river ? null : shownSiteId);
+
   if (loading) {
     // Navigation remains available while the river is loading.
     return (
@@ -1157,7 +1164,6 @@ export default function RiverDetailScreen() {
   // not move: the chip on the rivers list, the alerts and Eddy's take are all
   // still the primary gauge's verdict. This is a second opinion on a specific
   // stretch, which is the thing a five-gauge river could not previously give.
-  const pickedGauge = shownGaugeId ? gauges.find((g) => g.id === shownGaugeId) ?? null : null;
   // THIS river's ladder for that station, not the station's primary one — a
   // gauge shared between two rivers grades differently for each.
   const pickedLink = pickedGauge ? gaugeLink(pickedGauge, slug) : null;
@@ -1205,9 +1211,6 @@ export default function RiverDetailScreen() {
   // A grey chip over a confident label would be the screen arguing with itself.
   const shownCode = band === 'fresh' ? code : 'unknown';
   const shownGaugeName = pickedGauge ? pickedGauge.name : condition?.gaugeName;
-  // The station the chart plots, resolved the same way as the name beside it so
-  // the two can never describe different gauges. Null on a river with none.
-  const shownSiteId = pickedGauge ? pickedGauge.usgsSiteId : (condition?.gaugeUsgsId ?? null);
 
   // Not memoised: this is a filter over a list of a few dozen that only changes
   // when the fetch lands, and a useMemo below three early returns would be a
@@ -1514,6 +1517,7 @@ export default function RiverDetailScreen() {
         {shownSiteId ? (
           <GaugeChart
             siteId={shownSiteId}
+            historyCapabilities={chartGaugeDetail?.historyCapabilities}
             unit={reading?.unit ?? scaleThresholds?.thresholdUnit ?? 'cfs'}
             thresholds={scaleThresholds}
             // Only when the chart is showing the station the condition was
