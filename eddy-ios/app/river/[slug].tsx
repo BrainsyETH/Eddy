@@ -1525,7 +1525,6 @@ export default function RiverDetailScreen() {
             floodStages={
               shownSiteId === condition?.gaugeUsgsId ? condition?.floodStages ?? null : null
             }
-            title="Recent history"
           />
         ) : null}
 

@@ -10,6 +10,9 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
   chartDomain,
+  chartDataCsv,
+  chartDataRows,
+  chartForecastWindow,
   chartPoints,
   chartSegments,
   nearestChartPoint,
@@ -23,6 +26,7 @@ import {
   timeTicks,
   valueForUnit,
   type ChartPoint,
+  type ChartReadingLike,
 } from './chart-model';
 
 const HOUR = 3_600_000;
@@ -36,6 +40,66 @@ function pointsAt(hours: number[], values: number[] = hours): ChartPoint[] {
     qualifiers: [],
   }));
 }
+
+test('compact scaling avoids exaggerating flat flow, including near zero', () => {
+  const options = { minimumSpan: 80, minimumSpanFraction: 0.18 };
+  const steady = chartDomain(pointsAt([0, 1, 2], [738, 739, 738]), 'cfs', [], 0.28, options)!;
+  assert.ok(steady.max - steady.min >= 739 * 0.18 - 1e-9);
+  const dry = chartDomain(pointsAt([0, 1], [0, 0]), 'cfs', [], 0.28, options)!;
+  assert.equal(dry.min, 0);
+  assert.equal(dry.max, 80, 'the zero floor must not halve the intended span');
+  const belowDatum = chartDomain(pointsAt([0, 1], [-0.2, -0.19]), 'ft', [], 0.28, { minimumSpan: 0.3 })!;
+  assert.ok(belowDatum.min < -0.2);
+  assert.ok(belowDatum.max - belowDatum.min >= 0.3 - 1e-9);
+});
+
+test('compact thresholds cannot cascade outward; full scale is an explicit opt-in', () => {
+  const data = pointsAt([0, 1], [740, 760]);
+  const edges = [700, 680, 660, 1200, 2700, 3450];
+  const options = { minimumSpan: 100 };
+  const fitted = chartDomain(data, 'cfs', edges, 0.5, options)!;
+  assert.ok(fitted.min <= 700 && fitted.min > 660);
+  assert.ok(fitted.max < 1200);
+  assert.deepEqual(fitted, chartDomain(data, 'cfs', [...edges].reverse(), 0.5, options));
+  const full = chartDomain(data, 'cfs', edges, 0.5, { ...options, includeAllContext: true })!;
+  assert.ok(full.min <= 660 && full.max >= 3450);
+  assert.deepEqual(chartDomain(data, 'cfs', edges), chartDomain(data, 'cfs', edges, 0.75, {}), 'existing callers keep the default policy');
+});
+
+test('a short forecast view retains provider values, timestamps and the complete source issuance', () => {
+  const forecast = pointsAt([2, 12, 24, 30, 120], [821, 850, 830, 800, 750]);
+  forecast[2].breakBefore = true;
+  const original = structuredClone(forecast);
+  const visible = chartForecastWindow(forecast, BASE, 1);
+  assert.deepEqual(visible, forecast.slice(0, 3));
+  assert.equal(visible[0], forecast[0], 'no synthetic observed-to-forecast starting point');
+  assert.equal(visible[2].breakBefore, true);
+  assert.deepEqual(forecast, original, 'the full issuance remains available for details');
+  assert.deepEqual(chartForecastWindow(forecast, BASE, 7), forecast);
+  assert.deepEqual(chartForecastWindow(forecast, NaN, 1), forecast);
+});
+
+test('technical data retains both measurements, missing values and all forecast rows', () => {
+  const observed: ChartReadingLike[] = [
+    { timestamp: '2026-01-01T00:00:00Z', gaugeHeightFt: -0.123, dischargeCfs: 5.125, qualifiers: ['P', 'e'], gapBefore: ['ft'] },
+    { timestamp: '2026-01-01T01:00:00Z', gaugeHeightFt: null, dischargeCfs: 0, qualifiers: ['custom,"code"'] },
+    { timestamp: '2026-01-01T02:00:00Z', gaugeHeightFt: 0.25, dischargeCfs: null },
+  ];
+  const forecast = [{ timestamp: '2026-01-06T00:00:00Z', gaugeHeightFt: 2.654, dischargeCfs: 821.75 }];
+  const original = structuredClone(observed);
+  const rows = chartDataRows(observed, forecast);
+  assert.equal(rows.length, 4);
+  assert.equal(rows[0].kind, 'forecast');
+  assert.equal(rows[1].dischargeCfs, null);
+  assert.equal(rows[2].dischargeCfs, 0);
+  assert.deepEqual(observed, original, 'sorting the table must not reorder provider data');
+  const csv = chartDataCsv(rows, 'daily_mean', true).split('\r\n');
+  assert.equal(csv.length, 5);
+  assert.equal(csv[1], '"2026-01-06T00:00:00Z","2.654","821.75","NWS forecast","","","forecast","false"');
+  assert.equal(csv[2], '"2026-01-01T02:00:00Z","0.25","","Observed","","","daily_mean","true"');
+  assert.equal(csv[3], '"2026-01-01T01:00:00Z","","0","Observed","custom,""code""","","daily_mean","true"');
+  assert.equal(csv[4], '"2026-01-01T00:00:00Z","-0.123","5.125","Observed","P|e","ft","daily_mean","true"');
+});
 
 test('reads the selected unit and treats the other one as absent', () => {
   const reading = { timestamp: '', gaugeHeightFt: 3.2, dischargeCfs: null };
