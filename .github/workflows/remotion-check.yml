@@ -64,6 +64,9 @@ jobs:
       - name: Route geometry and renderer revision tests
         run: npm run test:route-layout
 
+      - name: Route layout collision checks
+        run: npm run test:route-browser
+
       - name: Video health gate tests
         run: npm run test:video-health
 

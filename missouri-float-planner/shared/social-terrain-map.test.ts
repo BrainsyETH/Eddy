@@ -20,12 +20,41 @@ test('north-up map and overlay share the exact provider camera and pixel scale',
   const url = new URL(terrainMapUrl(plan, 'test-token'));
   assert.ok(url.pathname.endsWith(`/${plan.lng},${plan.lat},${plan.zoom},0,0/540x960@2x`));
   assert.equal(url.searchParams.get('access_token'), 'test-token');
+  assert.equal(url.searchParams.get('logo'), 'false');
+  assert.equal(url.searchParams.get('attribution'), 'false');
   const first = plan.journey.points[0], last = plan.journey.points[1];
   assert.ok(last.x > first.x && last.y < first.y);
   const scale = 1024 * 2 ** plan.zoom;
   assert.ok(Math.abs(first.x + REEL_SAFE.left - (540 + (-91 - plan.lng) / 360 * scale)) < 1e-7);
   const y = (lat: number) => (1 - Math.asinh(Math.tan(lat * Math.PI / 180)) / Math.PI) / 2;
   assert.ok(Math.abs(first.y + TERRAIN_ORIGIN.y - (960 + (y(37) - y(plan.lat)) * scale)) < 1e-7);
+});
+
+test('measured viewports keep Black River aligned and the full canoe clear as cards grow', () => {
+  const fixture = JSON.parse(readFileSync(new URL('../remotion/src/fixtures/black-river.json', import.meta.url), 'utf8'));
+  const plan = terrainMapPlan(fixture.routeCoordinates)!;
+  // Opening/travel, wrapped finish card, and the taller photo-credit variant.
+  for (const [top, height] of [[545, 650], [545, 446], [545, 400], [570, 345]]) {
+    const stage = { ...ROUTE_MAP_STAGE, height, boatY: height / 2 };
+    for (let frame = 0; frame < journeyDuration(0); frame++) {
+      const boat = plan.journey.locate(journeyState(frame, []).progress).point;
+      const camera = terrainJourneyCamera(frame, plan.journey.points, boat, arrivalFrame([]), stage, top);
+      const image = terrainImageTransform(camera, top);
+      const x = boat.x * camera.scale + camera.translateX;
+      const y = boat.y * camera.scale + camera.translateY;
+      assert.ok(x >= 128 && x <= stage.width - 42, `canoe x at ${top}/${height}/${frame}`);
+      assert.ok(y >= 76 && y <= height - 66, `canoe y at ${top}/${height}/${frame}`);
+      assert.ok(image.x <= 1e-6 && image.y <= 1e-6);
+      assert.ok(image.x + 1080 * image.scale >= 1080 - 1e-6);
+      assert.ok(image.y + 1920 * image.scale >= 1920 - 1e-6);
+      for (const point of plan.journey.points) {
+        assert.ok(Math.abs(REEL_SAFE.left + point.x * camera.scale + camera.translateX -
+          ((point.x + TERRAIN_ORIGIN.x) * image.scale + image.x)) < 1e-6);
+        assert.ok(Math.abs(top + point.y * camera.scale + camera.translateY -
+          ((point.y + TERRAIN_ORIGIN.y) * image.scale + image.y)) < 1e-6);
+      }
+    }
+  }
 });
 test('source progress puts every vertex stop on its correct map coordinate', () => {
   const plan = terrainMapPlan(coordinates)!;

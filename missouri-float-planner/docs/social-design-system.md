@@ -187,8 +187,9 @@ Server configuration: `MAPBOX_ACCESS_TOKEN` with static-image access and
 The server downloads once and uploads an immutable image to Blob; renderer
 props carry its URL, never the provider token. A failed map fetch/upload stops
 dispatch. Missing route geometry still uses the explicit itinerary layout.
-Mapbox's original image logo is also shown in a stationary corner strip so
-zooming never crops it away; text attribution stays in the safe area.
+A bundled, unmodified Mapbox logo and text attribution stay in a stationary
+row inside the safe area. New static images omit their corner logo to avoid
+the rectangular image crop used by the old renderer.
 
 Validation: `npm run test:route-layout` in `remotion`, web terrain-map tests,
 and `render:check-stills`. The `social-route-map-layout` fixture uses a labeled
@@ -229,3 +230,24 @@ alignment and canvas coverage at every frame. Still checks include the middle
 stop's photo and the final app CTA as well as long names, missing geometry and
 approximate-feature summaries. Regenerate existing MP4s after deployment;
 changing the renderer does not update previously created posts.
+
+### Route reel layout collision protection
+
+The masthead, mileage row, flexible map viewport, and lower information stack
+share one CSS grid. Stop cards size themselves for wrapped titles, photos and
+photo credits; the map uses the remaining space. The stats and closing CTA
+stay anchored while a stop card reveals or collapses. Both the terrain image
+and route overlay use the measured viewport, including Remotion Studio scale,
+so moving a card cannot misalign the map or crop Eddy into the mileage row.
+
+Only river strokes inherit the edge fade. Endpoint labels remain opaque and
+clear the canoe's silhouette while it passes; both return in the opening and
+closing overview. The complete route, estimate and “Plan it on the Eddy app”
+remain in the final hold.
+
+`social-route-black-river` reproduces the Oct 1 Mill Spring → Markham Springs
+route and terrain. Its photo is an explicit synthetic fixture, not a location
+photo. `npm run test:route-browser` checks actual DOM bounds at every frame of
+that reel and samples the other route compositions, including missing geometry,
+long names and a wrapped photo credit. It runs in Remotion CI alongside the
+still comparisons; refreshing a screenshot cannot silently approve a collision.
