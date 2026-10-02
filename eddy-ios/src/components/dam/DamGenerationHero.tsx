@@ -37,6 +37,7 @@
 // river", and how hard the units are running is not that verdict.
 
 import { radii } from '@/theme/layout';
+import type { ReactNode } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import type { DamSnapshot } from '@eddy/types';
@@ -102,6 +103,7 @@ export function DamGenerationHero({
   dam,
   embedded = false,
   showNextChange = true,
+  headerAction,
 }: {
   dam: DamSnapshot;
   /**
@@ -122,6 +124,7 @@ export function DamGenerationHero({
    * why it was the piece that read as a duplicate.
    */
   showNextChange?: boolean;
+  headerAction?: ReactNode;
 }) {
   const { colors, elevation } = useTheme();
 
@@ -156,7 +159,8 @@ export function DamGenerationHero({
     <View style={embedded ? undefined : [styles.card, { backgroundColor: colors.card }, elevation(2)]}>
       <View style={styles.statusRow}>
         <Ionicons name="flash" size={13} color={colors.interactive} />
-        <Text style={[styles.status, { color: colors.interactive }]}>{status.toUpperCase()}</Text>
+        <Text style={[styles.status, headerAction ? styles.statusWithAction : null, { color: colors.interactive }]}>{status.toUpperCase()}</Text>
+        {headerAction}
       </View>
 
       {/* The visible figure is one VoiceOver element. Its label carries the
@@ -259,6 +263,7 @@ const styles = StyleSheet.create({
   card: { borderRadius: radii.card, padding: 16, gap: 10 },
   statusRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   status: { ...t.xs, fontFamily: fonts.heading, letterSpacing: 0.6, flexShrink: 1 },
+  statusWithAction: { flex: 1 },
   rack: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 2 },
   cell: {
     width: 20,
