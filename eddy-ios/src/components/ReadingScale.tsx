@@ -27,6 +27,7 @@ import { StyleSheet, Text, View } from 'react-native';
 import { buildZones, formatZoneValue, zoneMarkerPercent } from '@eddy/conditions/threshold-zones';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
+import { readingSummaryScaleLabels } from '@/lib/readingSummary';
 
 interface ReadingScaleProps {
   thresholds: {
@@ -41,9 +42,13 @@ interface ReadingScaleProps {
   /** The reading being placed. Must already be in `unit`. */
   value: number | null;
   unit: 'ft' | 'cfs';
+  /** Compact summary labels, without repeating the headline reading. */
+  summary?: boolean;
+  /** Historical or untrusted readings must not look like a current verdict. */
+  muted?: boolean;
 }
 
-export function ReadingScale({ thresholds, value, unit }: ReadingScaleProps) {
+export function ReadingScale({ thresholds, value, unit, summary = false, muted = false }: ReadingScaleProps) {
   const { colors } = useTheme();
 
   // THE LADDER'S OWN UNIT WINS. Every label below is formatted with `unit`, but
@@ -79,10 +84,11 @@ export function ReadingScale({ thresholds, value, unit }: ReadingScaleProps) {
       : Math.min(zones.length - 1, Math.floor((markerPercent / 100) * zones.length));
   const first = zones[0];
   const last = zones[zones.length - 1];
+  const summaryLabels = summary ? readingSummaryScaleLabels(zones, scaleUnit) : null;
 
   return (
     <View
-      style={styles.wrapper}
+      style={[styles.wrapper, summary && styles.summaryWrapper]}
       accessibilityLabel={
         value != null
           ? `${formatZoneValue(value, scaleUnit)} ${scaleUnit}, between ${formatZoneValue(first.min, scaleUnit)} and ${formatZoneValue(last.min, scaleUnit)} ${scaleUnit}`
@@ -100,8 +106,8 @@ export function ReadingScale({ thresholds, value, unit }: ReadingScaleProps) {
             style={[
               styles.band,
               {
-                backgroundColor: zone.color,
-                opacity: markerIndex == null || index === markerIndex ? 1 : 0.4,
+                backgroundColor: muted ? colors.textSubtle : zone.color,
+                opacity: muted ? 0.35 : markerIndex == null || index === markerIndex ? 1 : 0.4,
               },
             ]}
           />
@@ -119,7 +125,12 @@ export function ReadingScale({ thresholds, value, unit }: ReadingScaleProps) {
         ) : null}
       </View>
 
-      <View style={styles.labels}>
+      {summaryLabels ? (
+        <View style={styles.summaryLabels}>
+          <Text style={[styles.summaryLabel, { color: colors.textSubtle }]}>{summaryLabels.start}</Text>
+          <Text style={[styles.summaryLabel, styles.summaryEnd, { color: colors.textSubtle }]}>{summaryLabels.end}</Text>
+        </View>
+      ) : <View style={styles.labels}>
         <Text style={[styles.label, { color: colors.textSubtle }]}>
           {formatZoneValue(first.max, scaleUnit)} low
         </Text>
@@ -134,7 +145,7 @@ export function ReadingScale({ thresholds, value, unit }: ReadingScaleProps) {
           {formatZoneValue(last.min, scaleUnit)}
           {last.openEnded ? '+' : ''} flood
         </Text>
-      </View>
+      </View>}
     </View>
   );
 }
@@ -152,6 +163,10 @@ const MARKER_HALO = 1.5;
 
 const styles = StyleSheet.create({
   wrapper: { marginTop: 14 },
+  summaryWrapper: { marginTop: 12 },
+  summaryLabels: { flexDirection: 'row', justifyContent: 'space-between', gap: 8, marginTop: 6 },
+  summaryLabel: { ...t.xs, fontFamily: fonts.body, flexShrink: 1 },
+  summaryEnd: { textAlign: 'right' },
   track: { flexDirection: 'row', height: 8, borderRadius: 999, overflow: 'hidden', position: 'relative' },
   band: { flex: 1, height: '100%' },
   marker: {

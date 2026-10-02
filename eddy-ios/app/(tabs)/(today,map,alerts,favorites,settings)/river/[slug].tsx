@@ -85,19 +85,14 @@ import {
 } from '@/lib/premiumRead';
 import {
   conditionBg,
-  conditionChipBorder,
   conditionColor,
   conditionInk,
-  conditionLongLabel,
-  conditionShortLabel,
 } from '@/theme/conditions';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
 import {
   accuracyNote,
-  formatReading,
   percentileLabel,
-  percentileSentence,
   primaryReading,
   readingAge,
 } from '@/lib/readingCopy';
@@ -111,7 +106,7 @@ import { TailwaterStatusRow } from '@/components/dam/TailwaterStatusRow';
 import { RiverReaches } from '@/components/river/RiverReaches';
 import { GaugeChart } from '@/components/GaugeChart';
 import { offeringLabel } from '@/map/serviceLayers';
-import { Otter, otterForCondition } from '@/components/Otter';
+import { Otter } from '@/components/Otter';
 import { CollapsibleSection } from '@/components/CollapsibleSection';
 import { GaugePicker } from '@/components/GaugePicker';
 import { RiverVisuals } from '@/components/RiverVisuals';
@@ -122,11 +117,13 @@ import { RiverVisuals } from '@/components/RiverVisuals';
 import { PhotoSubmitSheetLazy } from '@/components/PhotoSubmitSheetLazy';
 import { shareLink } from '@/lib/share';
 import { FeedbackSheet } from '@/components/FeedbackSheet';
-import { ReadingScale } from '@/components/ReadingScale';
+import { ReadingSummaryCard } from '@/components/ReadingSummaryCard';
+import { readingSummarySeason } from '@/lib/readingSummary';
+import { isReadingStale } from '@eddy/conditions/reading-staleness';
 import { PaywallSheet } from '@/components/PaywallSheet';
 import { PushPrimer } from '@/components/PushPrimer';
 import { AlertSignInSheet } from '@/components/AlertSignInSheet';
-import { gaugeConditionCode, gaugeLink, gaugesForRiver } from '@/lib/gaugeCondition';
+import { gaugePlaceLabel, gaugeConditionCode, gaugeLink, gaugesForRiver } from '@/lib/gaugeCondition';
 import { driveToUrl } from '@/lib/directions';
 import { useAccount } from '@/hooks/useAccount';
 import { useEddyUpdates } from '@/hooks/useEddyUpdates';
@@ -140,7 +137,6 @@ import { useGaugeDetail } from '@/hooks/useGaugeDetail';
 import { selectEddySays } from '@/lib/eddySays';
 import { effectiveReadingAgeHours, readingBand } from '@/lib/offline-cache';
 import { shareInFlight } from '@/lib/shareInFlight';
-import { TrendPill } from '@/components/TrendPill';
 
 /**
  * What the one-tap bell subscribes to.
@@ -1195,10 +1191,9 @@ export default function RiverDetailScreen() {
   /**
    * How the reading is allowed to present itself.
    *
-   * Only a CACHED condition earns a band; a live one keeps the behaviour it has
-   * always had, where a stale gauge is handled by accuracyNote. The picked
-   * gauge is never banded either — it comes from the live statewide fetch, not
-   * from disk.
+   * The cache band also controls the expired-reading message. Every source,
+   * including a freshly fetched response or a picked station, uses the shared
+   * observation-age rule for the muted "Last known" verdict below.
    *
    *   fresh    normal colour, plus an offline glyph on the age line
    *   stale    grey, and "Last known: Good" instead of "Good - Floatable"
@@ -1208,8 +1203,7 @@ export default function RiverDetailScreen() {
   const cachedReading = cachedReadingAgeHours !== undefined && !pickedGauge;
   const readingAgeHours = cachedReading ? cachedReadingAgeHours : rawReadingAgeHours;
   const band = cachedReading ? readingBand(cachedReadingAgeHours ?? null) : 'fresh';
-  // A grey chip over a confident label would be the screen arguing with itself.
-  const shownCode = band === 'fresh' ? code : 'unknown';
+  const summaryLastKnown = Boolean(reading && (band !== 'fresh' || isReadingStale(readingAgeHours)));
   const shownGaugeName = pickedGauge ? pickedGauge.name : condition?.gaugeName;
 
   // Not memoised: this is a filter over a list of a few dozen that only changes
@@ -1294,7 +1288,10 @@ export default function RiverDetailScreen() {
 
   const caveat = condition && !pickedGauge ? accuracyNote(condition) : null;
 
-  const percentileText = percentileSentence(condition?.percentile);
+  const summaryPercentile = !pickedGauge && !cachedReading && !summaryLastKnown && reading ? condition?.percentile : null;
+  const percentileText = readingSummarySeason(summaryPercentile, reading?.unit ?? null);
+  const pickerSelectedId = shownGaugeId ?? gauges.find((g) => gaugeLink(g, slug)?.isPrimary)?.id ?? '';
+  const pickerIdentifiesStation = gauges.length >= 2 && gauges.some((g) => g.id === pickerSelectedId);
   const starred = isStarred('river', river.id);
   const sortedHazards = sortHazards(hazards);
   const criticalCount = criticalHazards(hazards).length;
@@ -1380,108 +1377,35 @@ export default function RiverDetailScreen() {
         <GaugePicker
           gauges={gauges}
           riverSlug={slug}
-          selectedId={shownGaugeId ?? gauges.find((g) => gaugeLink(g, slug)?.isPrimary)?.id ?? ''}
+          selectedId={pickerSelectedId}
           onSelect={setPickedGaugeId}
         />
 
-        {/* ── Live status ─────────────────────────────────────── */}
-        <View style={[styles.card, styles.statusCard, { backgroundColor: colors.card }, elevation(2)]}>
-          <View style={styles.statusHead}>
-            <Otter mood={otterForCondition(shownCode)} size={52} />
-            <View style={styles.statusHeadText}>
-              <View
-                style={[
-                  styles.conditionChip,
-                  {
-                    backgroundColor: conditionBg(shownCode),
-                    borderColor: conditionChipBorder(shownCode),
-                  },
-                ]}
-              >
-                <Text style={[styles.conditionChipText, { color: conditionInk(shownCode) }]}>
-                  {band === 'fresh'
-                    ? conditionLongLabel(code)
-                    : `Last known: ${conditionShortLabel(code)}`}
-                </Text>
-              </View>
-              <View style={styles.readingRow}>
-                {reading ? (
-                  <Text style={[styles.reading, { color: colors.text }]}>
-                    {formatReading(reading.value, reading.unit)}
-                  </Text>
-                ) : (
-                  <Text style={[styles.noReading, { color: colors.textMuted }]}>
-                    No gauge reading available
-                  </Text>
-                )}
-                {shownTrend ? (
-                  <TrendPill direction={shownTrend.direction} label={shownTrend.label} enclosed={false} />
-                ) : null}
-              </View>
-            </View>
-          </View>
-
-          {/* The scale the number sits on. Placed directly under the reading
-              because it is the reading's context, not a separate fact — "944
-              cfs" is only a decision once you can see it is nowhere near flood. */}
-          {scaleThresholds && reading ? (
-            <ReadingScale
-              thresholds={scaleThresholds}
-              value={reading.value}
-              unit={reading.unit}
-            />
-          ) : null}
-
-          {/* PRIMARY ONLY. The percentile comes from /api/conditions and is
-              computed for the river's rated gauge, so printing it under another
-              station's reading would attach a statistic to the wrong water. */}
-          {/* LIVE ONLY, on top of primary-only. The percentile is computed
-              against TODAY's day-of-year, so a cached "lower than most years
-              for late July" read in September is wrong twice over. */}
-          {percentileText && !pickedGauge && !cachedReading ? (
-            <View style={[styles.percentileRow, { borderTopColor: colors.border }]}>
-              <Text style={[styles.percentileText, { color: colors.text }]}>{percentileText}</Text>
-              <Text style={[styles.percentileMeta, { color: colors.textSubtle }]}>
-                {/* "for flow" is load-bearing. The percentile is computed from
-                    DISCHARGE only — it is null unless the gauge reported cfs —
-                    so on a ft-rated river it sits directly under a stage
-                    reading while describing a different quantity entirely.
-                    Unlabelled, it reads as a judgement about the number above. */}
-                {percentileLabel(condition?.percentile)}
-                {condition?.percentile != null ? ' for flow' : ''}
-              </Text>
-            </View>
-          ) : null}
-
-          {/* Past forty-eight hours the age is not printed at all. "Updated 3
-              days ago" invites arithmetic against water that has rained twice
-              since; the honest form is to stop claiming an age.
-
-              PROVENANCE ONLY, now that the trend has moved to the head of the
-              card. This line answers "how do you know" — when the reading was
-              taken and which station took it — and it gets the whole width for
-              it, so a station name no longer truncates to make room for a
-              direction it has nothing to do with. */}
-          {(readingAgeHours != null && band !== 'expired') || shownGaugeName ? (
-            <View style={styles.updatedRow}>
-              {cachedReading ? (
-                <Ionicons name="cloud-offline-outline" size={12} color={colors.textSubtle} />
-              ) : null}
-              <Text style={[styles.updated, { color: colors.textSubtle }]}>
-                {readingAgeHours != null && band !== 'expired'
-                  ? `${readingAge(readingAgeHours)}${shownGaugeName ? ` · ${shownGaugeName}` : ''}`
-                  : (shownGaugeName ?? '')}
-              </Text>
-            </View>
-          ) : null}
-
+        {/* Verdict first, seasonal context second; full provenance is in ⓘ. */}
+        <ReadingSummaryCard
+          key={shownSiteId ?? slug}
+          reading={reading}
+          verdict={{ code: reading ? code : 'unknown', lastKnown: summaryLastKnown }}
+          trend={summaryLastKnown ? null : shownTrend}
+          thresholds={scaleThresholds}
+          context={percentileText}
+          stationName={shownGaugeName}
+          stationLabel={!pickerIdentifiesStation && shownGaugeName ? gaugePlaceLabel(shownGaugeName) : null}
+          age={band === 'expired' ? 'Cached reading is out of date' : readingAge(readingAgeHours)}
+          ageWarning={summaryLastKnown}
+          offline={cachedReading}
+          details={[
+            { label: 'Observed', value: (pickedGauge?.readingTimestamp ?? condition?.readingTimestamp) ? new Date((pickedGauge?.readingTimestamp ?? condition?.readingTimestamp)!).toLocaleString() : null },
+            { label: 'Seasonal comparison', value: summaryPercentile == null ? null : `${percentileLabel(summaryPercentile)} for flow` },
+          ]}
+        >
           {caveat ? (
             <View style={[styles.caveat, { backgroundColor: conditionBg('unknown') }]}>
               <Ionicons name="alert-circle-outline" size={15} color={colors.textMuted} />
               <Text style={[styles.caveatText, { color: colors.textMuted }]}>{caveat}</Text>
             </View>
           ) : null}
-        </View>
+        </ReadingSummaryCard>
 
         {/* The river's own stretches, each with the gauge that actually reads
             it. Directly under the status card because a reach IS the river —
@@ -2032,29 +1956,6 @@ const styles = StyleSheet.create({
   riverName: { ...t['3xl'], fontFamily: fonts.display, paddingHorizontal: 4, marginTop: 6 },
   riverMeta: { ...t.sm, fontFamily: fonts.body, paddingHorizontal: 4, marginTop: 2, marginBottom: 16 },
   card: { padding: 16, borderRadius: 16, marginBottom: 10 },
-  statusCard: { paddingVertical: 12 },
-  statusHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10 },
-  statusHeadText: { flex: 1, minWidth: 0, gap: 4, alignItems: 'center' },
-  readingRow: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', alignItems: 'center', columnGap: 10, rowGap: 2 },
-  conditionChip: {
-    alignSelf: 'center',
-    maxWidth: '100%',
-    paddingHorizontal: 10,
-    paddingVertical: 3,
-    borderRadius: 999,
-    borderWidth: 1,
-  },
-  conditionChipText: { ...t.sm, fontFamily: fonts.semibold, textAlign: 'center' },
-  reading: { ...t['2xl'], fontFamily: fonts.mono, textAlign: 'center' },
-  noReading: { ...t.sm, fontFamily: fonts.body, textAlign: 'center' },
-  percentileRow: { marginTop: 10, paddingTop: 8, borderTopWidth: 1 },
-  percentileText: { ...t.sm, fontFamily: fonts.semibold, textAlign: 'center' },
-  percentileMeta: { ...t.xs, fontFamily: fonts.mono, marginTop: 2, textAlign: 'center' },
-  updatedRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 8 },
-  // marginTop moves to the row so the glyph and the text sit on one baseline.
-  // `flex: 1` still lets a long station name take the width — but it is the
-  // only thing competing for it now that the trend has moved to the card head.
-  updated: { ...t.xs, fontFamily: fonts.body, flex: 1, textAlign: 'center' },
   caveat: {
     flexDirection: 'row',
     alignItems: 'flex-start',
