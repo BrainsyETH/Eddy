@@ -18,7 +18,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { CampgroundThumbnail } from './CampgroundThumbnail';
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
-import { createCampingTapGuard } from '@/lib/campingScroll';
+import { campingVisibleMonthLabel, createCampingTapGuard, visibleCampingColumns } from '@/lib/campingScroll';
 import { support } from '@/theme/palette';
 import { Pressable, StyleSheet, Text, View, ScrollView } from 'react-native';
 import type { CampingOverview, TrackedCampground } from '@eddy/types';
@@ -155,9 +155,11 @@ export function CampingScrollGroup({
 function DateScroller({
   children,
   indicator = false,
+  onViewportWidth,
 }: {
   children: ReactNode;
   indicator?: boolean;
+  onViewportWidth?: (width: number) => void;
 }) {
   const group = useContext(DateScrollContext)!;
   // Capture only shared values in worklets, never the context or a React ref registry.
@@ -190,6 +192,7 @@ function DateScroller({
       showsHorizontalScrollIndicator={indicator}
       alwaysBounceHorizontal={false}
       style={{ flex: 1, minWidth: 0 }}
+      onLayout={onViewportWidth ? (event) => onViewportWidth(event.nativeEvent.layout.width) : undefined}
       onContentSizeChange={() => {
         ready.set(true);
       }}
@@ -300,46 +303,35 @@ export function CampingTableHeader({
 }) {
   const { colors } = useTheme();
   const { offset, dateWidth, thumbnails } = useContext(DateScrollContext)!;
-  const [visibleIndex, setVisibleIndex] = useState(0);
+  const viewportWidth = useSharedValue(0);
+  const [visibleColumns, setVisibleColumns] = useState({ first: 0, last: 0 });
+  const count = overview.horizon.nights.length;
   // Only bridge date-column changes, never synchronize scrollers through JS.
   useAnimatedReaction(
-    () => Math.floor(offset.get() / dateWidth),
-    (index, previous) => {
-      if (index !== previous) runOnJS(setVisibleIndex)(index);
+    () => visibleCampingColumns(offset.get(), viewportWidth.get(), dateWidth, count),
+    (columns, previous) => {
+      if (columns.first !== previous?.first || columns.last !== previous?.last) {
+        runOnJS(setVisibleColumns)(columns);
+      }
     },
   );
-  const visibleDate =
-    overview.horizon.nights[
-      Math.min(visibleIndex, overview.horizon.nights.length - 1)
-    ];
-  const month = visibleDate
-    ? new Date(visibleDate + 'T12:00:00Z').toLocaleDateString('en-US', {
-        month: 'long',
-        year: 'numeric',
-        timeZone: 'UTC',
-      })
-    : '';
+  const month = campingVisibleMonthLabel(
+    overview.horizon.nights[Math.min(visibleColumns.first, count - 1)],
+    overview.horizon.nights[Math.min(visibleColumns.last, count - 1)],
+  );
   return (
-    <View>
-      <Text
-        style={{
-          color: colors.text,
-          fontFamily: fonts.semibold,
-          fontSize: 13,
-          paddingVertical: 6,
-        }}
-      >
-        {month}
-      </Text>
-      <View
-        style={table.row}
-        accessibilityLabel={`${campingCoverageLabel(overview)}. Highlights mark Fridays and Saturdays.`}
-      >
-        <View style={[table.name, thumbnails && { width: '44%' }]} />
-        <DateScroller indicator>
-          <CampingGrid overview={overview} now={now} headings />
-        </DateScroller>
+    <View
+      style={[table.row, table.header, { backgroundColor: colors.bg, borderColor: colors.border }]}
+      accessible
+      accessibilityRole="header"
+      accessibilityLabel={`${month.accessibilityLabel}. ${campingCoverageLabel(overview)}. Highlights mark Fridays and Saturdays.`}
+    >
+      <View style={[table.name, thumbnails && { width: '44%' }]}>
+        <Text style={[table.month, { color: colors.text }]}>{month.label}</Text>
       </View>
+      <DateScroller indicator onViewportWidth={(width) => viewportWidth.set(width)}>
+        <CampingGrid overview={overview} now={now} headings />
+      </DateScroller>
     </View>
   );
 }
@@ -419,6 +411,8 @@ export function CampingTableRow({
 
 const table = StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  header: { minHeight: 44, paddingVertical: 4, borderBottomWidth: StyleSheet.hairlineWidth },
+  month: { fontFamily: fonts.semibold, fontSize: 13 },
   item: {
     minHeight: 48,
     paddingVertical: 6,
