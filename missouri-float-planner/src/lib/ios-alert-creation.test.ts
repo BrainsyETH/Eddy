@@ -3,7 +3,7 @@ import { favoriteAlerts } from '../../../eddy-ios/src/lib/favoriteAlerts';
 import test from 'node:test';
 import { alertAnchor, alertDraftChanged, createAlertSaveTask, type AlertDraft } from '../../../eddy-ios/src/lib/alertCreation';
 import { hourLabel, quietDraftChanged, quietWindowValid } from '../../../eddy-ios/src/lib/quietHours';
-import { alertCheckedLabel, shouldRefreshAlerts, ALERT_STALE_MS } from '../../../eddy-ios/src/lib/alertFreshness';
+import { checkedTimeAgo, alertCheckedLabel, shouldRefreshAlerts, ALERT_STALE_MS } from '../../../eddy-ios/src/lib/alertFreshness';
 import type { NotificationPreferences } from '@eddy/types';
 
 const initial: AlertDraft = {
@@ -130,6 +130,11 @@ test('public sources independently expire after 15 minutes, not every focus', ()
   assert.equal(shouldRefreshAlerts(now - ALERT_STALE_MS + 1, now), false);
   assert.equal(shouldRefreshAlerts(now - ALERT_STALE_MS, now), true);
   assert.equal(shouldRefreshAlerts(now, now), false);
+  assert.equal(checkedTimeAgo(null, now), null);
+  assert.equal(checkedTimeAgo(now + 60_000, now), 'just now');
+  assert.equal(checkedTimeAgo(now - 59_999, now), 'just now');
+  assert.equal(checkedTimeAgo(now - 60_000, now), '1m ago');
+  assert.equal(checkedTimeAgo(now - 3_600_000, now), '1h ago');
   assert.equal(alertCheckedLabel(null, now), null);
   assert.equal(alertCheckedLabel(now, now), 'Last checked just now');
   assert.equal(alertCheckedLabel(now - 7_200_000, now), 'Last checked 2h ago');

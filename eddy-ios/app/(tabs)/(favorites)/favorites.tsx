@@ -63,7 +63,7 @@ import { rememberGauge, seedFromMapGauge, seedFromStar } from '@/lib/gaugeSeed';
 import { useAlertRules } from '@/hooks/useAlertRules';
 import { gaugeSharePath, shareLink } from '@/lib/share';
 import { favoriteAlerts } from '@/lib/favoriteAlerts';
-import { alertCheckedLabel } from '@/lib/alertFreshness';
+import { checkedTimeAgo } from '@/lib/alertFreshness';
 import { useStarredRivers } from '@/hooks/useStarredRivers';
 import { useEddyUpdates } from '@/hooks/useEddyUpdates';
 import { selectEddySays } from '@/lib/eddySays';
@@ -305,15 +305,7 @@ function FavoritesContent() {
 
   return (
     <SafeAreaView style={[styles.screen, { backgroundColor: colors.bg }]} edges={['top']}>
-      {removed ? <View style={[styles.undoBar, { backgroundColor: colors.card, borderColor: colors.border }]}>
-        <Text style={[t.sm, styles.undoText, { color: colors.text }]}>Removed {removed.name}</Text>
-        <Pressable accessibilityRole="button" accessibilityLabel={`Undo removing ${removed.name}`} style={styles.smallAction} onPress={() => { removed.undo(); setRemoved(null); }}>
-          <Text style={[t.base, { color: colors.interactive }]}>Undo</Text>
-        </Pressable>
-        <Pressable accessibilityRole="button" accessibilityLabel="Dismiss removal message" style={styles.smallAction} onPress={() => setRemoved(null)}>
-          <ControlIcon name="close" size={20} color={colors.textMuted} />
-        </Pressable>
-      </View> : null}
+      <View style={styles.listArea}>
       <FlatList
         contentInsetAdjustmentBehavior="automatic"
         data={visible}
@@ -340,9 +332,9 @@ function FavoritesContent() {
                 <Text style={[styles.offlineText, { color: colors.textMuted }]}>
                   {failedSources.length ? `Couldn’t update ${failedSources.join(', ')}.` : 'Showing saved conditions.'}
                   {' '}{[
-                    riverSnapshot ? `Rivers checked ${alertCheckedLabel(Date.parse(riverSnapshot.fetchedAt), now)?.replace('Last checked ', '')}` : null,
-                    gaugeSnapshot ? `Gauges checked ${alertCheckedLabel(Date.parse(gaugeSnapshot.fetchedAt), now)?.replace('Last checked ', '')}` : null,
-                    damsCheckedAt ? `Dams checked ${alertCheckedLabel(damsCheckedAt, now)?.replace('Last checked ', '')}` : null,
+                    riverSnapshot ? `Rivers checked ${checkedTimeAgo(Date.parse(riverSnapshot.fetchedAt), now)}` : null,
+                    gaugeSnapshot ? `Gauges checked ${checkedTimeAgo(Date.parse(gaugeSnapshot.fetchedAt), now)}` : null,
+                    damsCheckedAt ? `Dams checked ${checkedTimeAgo(damsCheckedAt, now)}` : null,
                   ].filter(Boolean).join(' · ')}
                 </Text>
                 <Pressable accessibilityRole="button" accessibilityLabel="Retry loading favorite conditions" disabled={refreshing} onPress={() => void onRefresh()} style={styles.smallAction}>
@@ -419,6 +411,18 @@ function FavoritesContent() {
           </SwipeRow>
         )}
       />
+      {removed ? <View pointerEvents="box-none" style={styles.undoOverlay}>
+        <View style={[styles.undoBar, { backgroundColor: colors.card, borderColor: colors.border }, elevation(1)]}>
+          <Text style={[t.sm, styles.undoText, { color: colors.text }]}>Removed {removed.name}</Text>
+          <Pressable accessibilityRole="button" accessibilityLabel={`Undo removing ${removed.name}`} style={styles.smallAction} onPress={() => { removed.undo(); setRemoved(null); }}>
+            <Text style={[t.base, { color: colors.interactive }]}>Undo</Text>
+          </Pressable>
+          <Pressable accessibilityRole="button" accessibilityLabel="Dismiss removal message" style={styles.smallAction} onPress={() => setRemoved(null)}>
+            <ControlIcon name="close" size={20} color={colors.textMuted} />
+          </Pressable>
+        </View>
+      </View> : null}
+      </View>
     </SafeAreaView>
   );
 
@@ -574,9 +578,12 @@ function UnavailableFavorite({ name, onPress, accessory }: { name: string; onPre
 
 const styles = StyleSheet.create({
   screen: { flex: 1 },
+  // Overlay coordinates are relative to content BELOW the top safe-area inset.
+  listArea: { flex: 1 },
+  undoOverlay: { position: 'absolute', top: 8, left: 12, right: 12, zIndex: 1 },
   cardActions: { minWidth: 44, minHeight: 44, paddingVertical: 6, gap: 2, alignItems: 'center', justifyContent: 'center' },
   smallAction: { minWidth: 44, minHeight: 44, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 8 },
-  undoBar: { flexDirection: 'row', alignItems: 'center', borderBottomWidth: 1, padding: 12, gap: 4 },
+  undoBar: { flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderRadius: 12, padding: 12, gap: 4 },
   undoText: { flex: 1 },
   header: { paddingHorizontal: 20, paddingTop: 12, paddingBottom: 16 },
   title: { ...textStyles.pageTitle },
