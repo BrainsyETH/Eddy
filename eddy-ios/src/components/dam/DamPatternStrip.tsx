@@ -38,6 +38,7 @@ import {
 } from '@eddy/conditions/dam-generation';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, textStyles } from '@/theme/typography';
+import { DamInfoTip } from '@/components/dam/DamInfoTip';
 
 /**
  * The five ticks under the rows, as hours of a Central day.
@@ -103,7 +104,13 @@ export function DamPatternStrip({
 
   return (
     <View style={[styles.card, { backgroundColor: colors.card }, elevation(2)]}>
-      <Text style={[styles.title, { color: colors.text }]}>Generation pattern</Text>
+      <View style={styles.header}>
+        <Text style={[styles.title, { color: colors.text }]}>Generation pattern</Text>
+        <DamInfoTip
+          title="About the generation pattern"
+          message="Central time, at the dam. A pattern is a habit, not a promise — schedules change without notice, and a change at the dam does not reach every downstream location at the same time."
+        />
+      </View>
       {/* WHICH DAYS, in words. The row labels name each row and never the whole,
           so a reader had to count rows to find out whether this was a week or a
           fortnight. Derived from the rows rather than from the window constants,
@@ -286,19 +293,14 @@ export function DamPatternStrip({
           <View style={styles.axisTail} />
         </View> : null}
       </View>
-
-      <Text style={[styles.footer, { color: colors.textSubtle, borderTopColor: colors.border }]}>
-        Central time, at the dam. A pattern is a habit, not a promise — schedules change
-        without notice, and a change at the dam does not reach every downstream location
-        at the same time.
-      </Text>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   card: { borderRadius: radii.card, padding: 16, gap: 10 },
-  title: { ...textStyles.cardTitle },
+  header: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  title: { ...textStyles.cardTitle, flex: 1 },
   // Directly under the title, above the legend: it says what the card is OF,
   // which is read before what the treatments mean.
   span: { fontFamily: fonts.body, fontSize: 12, lineHeight: 16, marginTop: -4 },
@@ -325,5 +327,4 @@ const styles = StyleSheet.create({
   notYet: { width: '100%', height: 1, borderRadius: 1 },
   notYetSwatch: { width: 10, height: 1, borderRadius: 1 },
   divider: { borderTopWidth: StyleSheet.hairlineWidth, borderStyle: 'dashed', marginVertical: 6 },
-  footer: { fontFamily: fonts.body, fontSize: 12, lineHeight: 17, borderTopWidth: StyleSheet.hairlineWidth, paddingTop: 10 },
 });
