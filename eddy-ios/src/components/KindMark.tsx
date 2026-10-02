@@ -1,4 +1,4 @@
-import { Ionicons } from '@expo/vector-icons';
+import { ControlIcon } from '@/components/ControlIcon';
 import { EddySymbol, type EddySymbolName } from '@/components/EddySymbol';
 
 export type KindMarkKind = 'river' | 'gauge' | 'access_point' | 'dam' | 'hazard' | 'service';
@@ -15,7 +15,7 @@ const KIND_SYMBOL: Partial<Record<KindMarkKind, EddySymbolName>> = {
   service: 'outfitter',
 };
 
-const KIND_ICON: Record<KindMarkKind, React.ComponentProps<typeof Ionicons>['name']> = {
+const KIND_ICON: Record<KindMarkKind, React.ComponentProps<typeof ControlIcon>['name']> = {
   river: 'water-outline',
   gauge: 'speedometer-outline',
   access_point: 'location-outline',
@@ -39,6 +39,6 @@ export function KindMark({
   return symbol ? (
     <EddySymbol name={symbol} size={size} />
   ) : (
-    <Ionicons name={KIND_ICON[kind]} size={size} color={color} />
+    <ControlIcon name={KIND_ICON[kind]} size={size} color={color} />
   );
 }

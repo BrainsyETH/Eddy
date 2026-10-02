@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { ControlIcon } from '@/components/ControlIcon';
 import { Image } from 'expo-image';
 import type { RiverListItem } from '@eddy/types';
 import type { TodayRiverFilter } from '@/components/TodayHub';
@@ -42,7 +42,7 @@ export function TodayRiverConditions({ rivers, total, counts, photos, onBrowse, 
           style={({ pressed }) => [styles.browse, { opacity: pressed ? 0.65 : 1 }]}
         >
           <Text style={[styles.browseText, { color: colors.interactive }]}>All {total}</Text>
-          <Ionicons name="arrow-forward" size={16} color={colors.interactive} />
+          <ControlIcon name="arrow-forward" size={16} color={colors.interactive} />
         </Pressable>
       </View>
       <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
@@ -58,7 +58,7 @@ export function TodayRiverConditions({ rivers, total, counts, photos, onBrowse, 
                 opacity: pressed ? 0.65 : 1,
               }]}
             >
-              <Ionicons name={icon} size={17} color={colors.text} />
+              <ControlIcon name={icon} size={17} color={colors.text} />
               <Text style={[styles.countText, { color: colors.text }]}>
                 <Text style={styles.countNumber}>{counts[key]}</Text> {label}
               </Text>
@@ -94,7 +94,7 @@ function CompactRiverRow({ river, photoUrl, stacked, onPress }: {
     >
       <View style={[styles.thumbnail, { backgroundColor: colors.selectionBg }]}
         accessible={false} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
-        <Ionicons name="water-outline" size={22} color={colors.interactive} />
+        <ControlIcon name="water-outline" size={22} color={colors.interactive} />
         {photoUrl && failedPhoto !== photoUrl ? (
           <Image source={{ uri: photoUrl }} style={StyleSheet.absoluteFill}
             contentFit="cover" cachePolicy="memory-disk" recyclingKey={photoUrl}
@@ -111,7 +111,7 @@ function CompactRiverRow({ river, photoUrl, stacked, onPress }: {
           <Text style={[styles.statusText, { color: colors.text }]}>{conditionLabel(code)}</Text>
         </View>
       </View>
-      <Ionicons name="chevron-forward" size={14} color={colors.textSubtle} />
+      <ControlIcon name="chevron-forward" size={14} color={colors.textSubtle} />
     </Pressable>
   );
 }

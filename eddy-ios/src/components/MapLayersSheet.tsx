@@ -30,9 +30,10 @@
 //   with no campgrounds should say 0, but a layer that has never been fetched
 //   must not claim zero of anything.
 
-import { useLayoutEffect, useMemo } from 'react';
+import { FloatingControlSurface } from '@/components/FloatingControlSurface';
+import { useLayoutEffect, useMemo, useState } from 'react';
 import {
-  Alert,
+  AccessibilityInfo,
   Modal,
   Pressable,
   ScrollView,
@@ -51,7 +52,7 @@ import Animated, {
   useSharedValue,
   withTiming,
 } from 'react-native-reanimated';
-import { Ionicons } from '@expo/vector-icons';
+import { ControlIcon } from '@/components/ControlIcon';
 import { EddySymbol } from '@/components/EddySymbol';
 import { useReducedMotion } from '@/hooks/useReducedMotion';
 import { useTheme } from '@/theme/ThemeProvider';
@@ -117,6 +118,12 @@ export function MapLayersSheet({
   renderLayerDetail,
 }: Props) {
   const { colors, floating } = useTheme();
+  const [infoLayer, setInfoLayer] = useState<LayerKey | null>(null);
+  const toggleInfo = (key: LayerKey, info: string) => {
+    const opening = infoLayer !== key;
+    setInfoLayer(opening ? key : null);
+    if (opening) AccessibilityInfo.announceForAccessibility(info);
+  };
   // The rows outgrew the fixed 340pt this scroll used to get: eleven layers,
   // three headings, two tier strips and the gauge filter left the control the
   // sheet exists for two scrolls deep. 60% of the window keeps the head, the
@@ -302,13 +309,13 @@ export function MapLayersSheet({
                 // count — pulling it out of the container would move it to the
                 // end of the row for everyone to fix it for some. VoiceOver
                 // announces "actions available" and the action opens the same
-                // Alert the tap does.
+                // inline explanation the tap does.
                 accessibilityActions={
-                  layer.info ? [{ name: 'info', label: `About ${layer.label}` }] : undefined
+                  layer.info ? [{ name: 'info', label: infoLayer === layer.key ? `Hide information about ${layer.label}` : `About ${layer.label}` }] : undefined
                 }
                 onAccessibilityAction={(event) => {
                   if (event.nativeEvent.actionName === 'info' && layer.info) {
-                    Alert.alert(layer.label, layer.info);
+                    toggleInfo(layer.key, layer.info);
                   }
                 }}
               >
@@ -342,7 +349,7 @@ export function MapLayersSheet({
                       style={{ opacity: on ? 1 : DIMMED }}
                     />
                   ) : (
-                    <Ionicons
+                    <ControlIcon
                       name={layer.icon}
                       size={15}
                       color={on ? tint : colors.textSubtle}
@@ -358,17 +365,11 @@ export function MapLayersSheet({
                     {count != null ? (
                       <Text style={[styles.count, { color: colors.textSubtle }]}>{count}</Text>
                     ) : null}
-                    {/* ── The caveat, one tap away ──────────────────────────
-                        A native alert rather than a nested Modal: this sheet
-                        IS a Modal, and stacking a second one is the case RN
-                        handles worst on iOS. An Alert is also the presentation
-                        a reader already knows means "here is the small print",
-                        and it comes with focus handling and dismissal for
-                        free. The row itself stays the switch — this is its own
-                        target, so reaching for the ⓘ cannot toggle the layer. */}
+                    {/* Expand help in this sheet, without another modal or
+                        changing the layer's selection. */}
                     {layer.info ? (
                       <Pressable
-                        onPress={() => Alert.alert(layer.label, layer.info)}
+                        onPress={(event) => { event.stopPropagation(); toggleInfo(layer.key, layer.info!); }}
                         // 15pt glyph + this slop ≥ the 44pt floor PinCallout
                         // calls non-negotiable. At hitSlop 10 the target was
                         // ~35pt inside a row whose own tap flips the switch, so
@@ -383,7 +384,7 @@ export function MapLayersSheet({
                         accessible={false}
                         importantForAccessibility="no"
                       >
-                        <Ionicons
+                        <ControlIcon
                           name="information-circle-outline"
                           size={15}
                           color={colors.textSubtle}
@@ -417,6 +418,10 @@ export function MapLayersSheet({
                   />
                 </View>
               </Pressable>
+
+              {infoLayer === layer.key && layer.info ? (
+                <Text style={[styles.infoText, { color: colors.textMuted }]}>{layer.info}</Text>
+              ) : null}
 
               {/* ── The tiers ────────────────────────────────────────────
                   Chips rather than switches, and that is the same ruling the
@@ -560,25 +565,29 @@ export function MapLayersButton({
   onPress: () => void;
   changed: boolean;
 }) {
-  const { colors, floating } = useTheme();
+  const { colors } = useTheme();
   return (
-    <Pressable
-      onPress={onPress}
-      style={({ pressed }) => [
-        styles.button,
-        floating(),
-        { backgroundColor: colors.card, opacity: pressed ? 0.7 : 1 },
-      ]}
-      accessibilityRole="button"
-      accessibilityLabel="Map layers"
-    >
-      <Ionicons name="layers-outline" size={19} color={colors.interactive} />
-      {changed ? <View style={[styles.dot, { backgroundColor: colors.interactive }]} /> : null}
-    </Pressable>
+    <FloatingControlSurface style={styles.button}>
+      {glass => (
+        <Pressable
+          onPress={onPress}
+          style={({ pressed }) => [
+            styles.button,
+            { opacity: pressed && !glass ? 0.7 : 1 },
+          ]}
+          accessibilityRole="button"
+          accessibilityLabel="Map layers"
+        >
+          <ControlIcon name="layers-outline" size={19} color={colors.interactive} />
+          {changed ? <View style={[styles.dot, { backgroundColor: colors.interactive }]} /> : null}
+        </Pressable>
+      )}
+    </FloatingControlSurface>
   );
 }
 
 const styles = StyleSheet.create({
+  infoText: { fontFamily: fonts.body, fontSize: 14, lineHeight: 20, paddingHorizontal: 16, paddingBottom: 12 },
   modalRoot: { flex: 1 },
   backdrop: { flex: 1 },
   sheet: {

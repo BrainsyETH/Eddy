@@ -85,7 +85,7 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
+import { ControlIcon } from '@/components/ControlIcon';
 import type {
   DamSnapshot,
   MapGauge,
@@ -239,14 +239,14 @@ const RiverBrowseControls = memo(function RiverBrowseControls({
       {locationStatus === 'locating' ? (
         <ActivityIndicator size="small" color={colors.interactive} />
       ) : (
-        <Ionicons
+        <ControlIcon
           name={sort === 'nearest' ? 'navigate' : 'swap-vertical-outline'}
           size={15}
           color={colors.interactive}
         />
       )}
       <Text style={[styles.sortTriggerText, { color: colors.interactive }]}>{sortLabel}</Text>
-      <Ionicons name={sortOpen ? 'chevron-up' : 'chevron-down'} size={14} color={colors.interactive} />
+      <ControlIcon name={sortOpen ? 'chevron-up' : 'chevron-down'} size={14} color={colors.interactive} />
     </Pressable>
   );
 
@@ -266,7 +266,7 @@ const RiverBrowseControls = memo(function RiverBrowseControls({
                 accessibilityState={{ selected }}
               >
                 <Text style={[styles.sortItemText, { color: selected ? colors.interactive : colors.text }]}>{label}</Text>
-                {selected ? <Ionicons name="checkmark" size={16} color={colors.interactive} /> : null}
+                {selected ? <ControlIcon name="checkmark" size={16} color={colors.interactive} /> : null}
               </Pressable>
             );
           })}
@@ -543,6 +543,9 @@ export function TodayScreen({ browseMode = 'today', initialRiverFilter = 'all', 
   const nativeSearch = useRef<SearchBarCommands | null>(null);
   // Search stays open when scrolling dismisses the keyboard. Only Cancel exits.
   const [searchOpen, setSearchOpen] = useState(false);
+  const todayScrollOffset = useRef<{ x: number; y: number } | undefined>(undefined);
+  // Snapshot only when entering search, so normal renders never move the list.
+  const [todayReturnOffset, setTodayReturnOffset] = useState<{ x: number; y: number }>();
   /**
    * Eddy's written summary of the water generally, or null.
    *
@@ -754,6 +757,16 @@ export function TodayScreen({ browseMode = 'today', initialRiverFilter = 'all', 
   // Child routes search their own list. Today's all-water search keeps its
   // existing scopes and never changes a child route's query or filters.
   const searching = browseMode === 'today' && searchActive;
+  const beginSearch = () => {
+    if (browseMode === 'today') {
+      if (!searching) {
+        setTodayReturnOffset(todayScrollOffset.current);
+        setScope('all');
+      }
+      void ensureGauges();
+    }
+    setSearchOpen(true);
+  };
   const clearSearchState = () => {
     Keyboard.dismiss();
     setQuery('');
@@ -1290,11 +1303,7 @@ export function TodayScreen({ browseMode = 'today', initialRiverFilter = 'all', 
       hideWhenScrolling={false}
       obscureBackground={false}
       onChangeText={(event) => setQuery(event.nativeEvent.text)}
-      onFocus={() => {
-        if (browseMode === 'today' && !searching) setScope('all');
-        setSearchOpen(true);
-        if (browseMode === 'today') void ensureGauges();
-      }}
+      onFocus={beginSearch}
       onCancelButtonPress={clearSearchState}
       onSearchButtonPress={() => nativeSearch.current?.blur()}
     />
@@ -1385,13 +1394,7 @@ export function TodayScreen({ browseMode = 'today', initialRiverFilter = 'all', 
             // Rated gauges are matched locally so they land on the keystroke, and
             // the list has to exist before the first one — the same reason the
             // map's field warms it on focus.
-            onFocus={() => {
-              // Start a new Today search across every kind. Refocusing a query
-              // with a chosen scope preserves that explicit choice.
-              if (!searching) setScope('all');
-              setSearchOpen(true);
-              ensureGauges();
-            }}
+            onFocus={beginSearch}
           />
         </View>
         {searching ? (
@@ -1407,6 +1410,20 @@ export function TodayScreen({ browseMode = 'today', initialRiverFilter = 'all', 
       </View> : null}
 
       <FlatList
+        // Today and search are separate scroll surfaces. Only changing modes
+        // remounts the list; typing, refocusing and returning from a result do
+        // not. Keep the search field outside so focus survives the transition.
+        key={searching ? 'today-search' : browseMode}
+        // A new search uses UIKit's natural top (including automatic insets).
+        // Cancel restores Today's native offset without guessing bar heights.
+        contentOffset={browseMode === 'today' && !searching ? todayReturnOffset : undefined}
+        onScroll={(event) => {
+          if (browseMode === 'today' && !searching) {
+            const { x, y } = event.nativeEvent.contentOffset;
+            todayScrollOffset.current = { x, y };
+          }
+        }}
+        scrollEventThrottle={16}
         // The list is the header's scroll view; UIKit owns both bar insets.
         contentInsetAdjustmentBehavior="automatic"
         data={rows}
@@ -1689,7 +1706,7 @@ export function TodayScreen({ browseMode = 'today', initialRiverFilter = 'all', 
                   ) : null}
                 </View>
                 {target ? (
-                  <Ionicons name="chevron-forward" size={16} color={colors.textSubtle} />
+                  <ControlIcon name="chevron-forward" size={16} color={colors.textSubtle} />
                 ) : null}
               </Pressable>
             );

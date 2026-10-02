@@ -1,3 +1,4 @@
+import { highContrastDarkPalette, highContrastLightPalette } from '../../../eddy-ios/src/theme/contrast';
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { darkPalette, lightPalette } from '../../../eddy-ios/src/theme/palette';
@@ -141,3 +142,19 @@ test('condition colours are never redefined in the app', () => {
     }
   }
 });
+
+
+for (const [base, strong] of [[lightPalette, highContrastLightPalette], [darkPalette, highContrastDarkPalette]]) {
+  test(`${base.scheme} increased-contrast roles improve legibility and stay string colors`, () => {
+    for (const surface of [base.bg, base.card, base.cardRaised, base.selectionBg]) {
+      for (const role of ['textMuted', 'textSubtle', 'interactive'] as const) {
+        assert.ok(contrast(strong[role], surface) >= 7, `${role} must meet 7:1 on ${surface}`);
+        assert.ok(contrast(strong[role], surface) >= contrast(base[role], surface));
+      }
+      assert.ok(contrast(strong.border, surface) >= 3, 'control boundaries must reach 3:1');
+    }
+    for (const [role, value] of Object.entries(strong)) {
+      assert.equal(typeof value, 'string', `${role} must remain compatible with Mapbox`);
+    }
+  });
+}

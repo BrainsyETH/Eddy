@@ -11,9 +11,10 @@
 // ("Jacks Fork" becomes "Jacks For"), and returnKeyType "search" is what the
 // on-screen keyboard should say when the field is a search field.
 
+import { FloatingControlSurface } from '@/components/FloatingControlSurface';
 import { memo } from 'react';
 import { Pressable, StyleSheet, TextInput, View } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { ControlIcon } from '@/components/ControlIcon';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
 
@@ -27,6 +28,7 @@ interface Props {
   /** Fires when the field gives up focus so its screen can leave search mode. */
   onBlur?: () => void;
   autoFocus?: boolean;
+  floating?: boolean;
 }
 
 function SearchBarComponent({
@@ -37,12 +39,14 @@ function SearchBarComponent({
   onFocus,
   onBlur,
   autoFocus = false,
+  floating = false,
 }: Props) {
   const { colors } = useTheme();
+  const Surface = floating ? FloatingControlSurface : View;
 
   return (
-    <View style={[styles.field, { backgroundColor: colors.card, borderColor: colors.border }]}>
-      <Ionicons name="search" size={17} color={colors.textSubtle} />
+    <Surface style={[styles.field, floating ? { borderWidth: 0 } : { backgroundColor: colors.card, borderColor: colors.border }]}>
+      <ControlIcon name="search" size={17} color={colors.textSubtle} />
       <TextInput
         value={value}
         onChangeText={onChangeText}
@@ -66,10 +70,10 @@ function SearchBarComponent({
           accessibilityRole="button"
           accessibilityLabel="Clear search"
         >
-          <Ionicons name="close-circle" size={18} color={colors.textSubtle} />
+          <ControlIcon name="close-circle" size={18} color={colors.textSubtle} />
         </Pressable>
       ) : null}
-    </View>
+    </Surface>
   );
 }
 

@@ -1,5 +1,5 @@
 import { StyleSheet, Text, View } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { ControlIcon } from '@/components/ControlIcon';
 import { type CampingDemand } from '@eddy/conditions/camping-demand';
 import { campingPulseHeadline, campingPulseDetail, campingPulseAccessibilityLabel } from '@/lib/campingDemand';
 import { CampingDemandMeter } from './CampingDemandMeter';
@@ -34,7 +34,7 @@ export function CampingDemandGauge({ demand }: { demand: CampingDemand }) {
       {demand.band !== null && demand.checkedDay !== 'today' && checked ? (
         <View style={styles.freshness}>
           {demand.checkedDay === 'earlier' ? (
-            <Ionicons name="alert-circle-outline" size={16} color={colors.text} />
+            <ControlIcon name="alert-circle-outline" size={16} color={colors.text} />
           ) : null}
           <Text style={[textStyles.caption, styles.note, { color: colors.text }]}>{checked}</Text>
         </View>

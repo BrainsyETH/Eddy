@@ -18,7 +18,7 @@
 
 import { memo, useRef } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { ControlIcon } from '@/components/ControlIcon';
 import { EddySymbol, type EddySymbolName } from '@/components/EddySymbol';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
@@ -26,11 +26,11 @@ import { fonts, type as t } from '@/theme/typography';
 export interface FilterChip {
   key: string;
   label: string;
-  icon?: React.ComponentProps<typeof Ionicons>['name'];
+  icon?: React.ComponentProps<typeof ControlIcon>['name'];
   /**
    * Eddy's own mark, where an Ionicon cannot say it.
    *
-   * `icon` is an Ionicons NAME and so can only ever draw from that set. The
+   * `icon` is an ControlIcon NAME and so can only ever draw from that set. The
    * Eddy-rated chip is the case that needs more: the distinction it draws is
    * "did Eddy grade this one", and the honest mark for that is Eddy's face —
    * which is a bundled image, not a glyph. See EddySymbol, where the symbol has
@@ -189,7 +189,7 @@ function FilterChipsComponent({
             {chip.symbol ? (
               <EddySymbol name={chip.symbol} size={15} />
             ) : chip.icon ? (
-              <Ionicons name={chip.icon} size={13} color={on ? tint : colors.textMuted} />
+              <ControlIcon name={chip.icon} size={13} color={on ? tint : colors.textMuted} />
             ) : null}
             <Text style={[styles.label, { color: on ? colors.selectionText : colors.textMuted }]}>
               {chip.label}
@@ -243,5 +243,5 @@ const styles = StyleSheet.create({
   },
   label: { ...t.xs, fontFamily: fonts.semibold },
   count: { minWidth: 18, paddingHorizontal: 5, borderRadius: 999, alignItems: 'center' },
-  countText: { ...t.xs, fontFamily: fonts.semibold, fontSize: 11 },
+  countText: { ...t.xs, fontFamily: fonts.semibold, fontSize: 12 },
 });

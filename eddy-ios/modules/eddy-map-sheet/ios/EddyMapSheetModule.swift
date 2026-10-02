@@ -2,9 +2,32 @@ import ExpoModulesCore
 import UIKit
 
 public final class EddyMapSheetModule: Module {
+  private var contrastObserver: NSObjectProtocol?
+
   public func definition() -> ModuleDefinition {
     Name("EddyMapSheet")
     View(MapSheetScrollBoundaryView.self) {}
+    // Keep resolved palette strings available for Mapbox/SVG as well as UIKit.
+    Events("onContrastChange")
+    AsyncFunction("isIncreaseContrastEnabled") {
+      UIAccessibility.isDarkerSystemColorsEnabled
+    }.runOnQueue(.main)
+    OnStartObserving {
+      self.contrastObserver = NotificationCenter.default.addObserver(
+        forName: UIAccessibility.darkerSystemColorsStatusDidChangeNotification,
+        object: nil, queue: .main
+      ) { [weak self] _ in
+        self?.sendEvent("onContrastChange", ["enabled": UIAccessibility.isDarkerSystemColorsEnabled])
+      }
+    }
+    OnStopObserving {
+      if let observer = self.contrastObserver { NotificationCenter.default.removeObserver(observer) }
+      self.contrastObserver = nil
+    }
+    OnDestroy {
+      if let observer = self.contrastObserver { NotificationCenter.default.removeObserver(observer) }
+      self.contrastObserver = nil
+    }
   }
 }
 

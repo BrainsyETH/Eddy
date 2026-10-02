@@ -32,7 +32,7 @@ import { radii } from '@/theme/layout';
 import { memo } from 'react';
 import { isReadingStale } from '@eddy/conditions/reading-staleness';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { ControlIcon } from '@/components/ControlIcon';
 import type { MapGauge } from '@eddy/types';
 import { conditionColor, conditionLabel, conditionText } from '@/theme/conditions';
 import { useTheme } from '@/theme/ThemeProvider';
@@ -128,7 +128,7 @@ function GaugeRowComponent({ name, riverName, gauge, starred, onPress, onToggleS
         accessibilityRole="button"
         accessibilityLabel={starred ? `Unstar ${name}` : `Star ${name}`}
       >
-        <Ionicons
+        <ControlIcon
           name={starred ? 'star' : 'star-outline'}
           size={21}
           color={starred ? colors.warm : colors.textSubtle}

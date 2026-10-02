@@ -9,7 +9,7 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
+import { ControlIcon } from '@/components/ControlIcon';
 import type { CampsitePhoto } from '@eddy/types';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
@@ -72,7 +72,7 @@ export function CampsitePhotos({
               accessibilityRole="button"
               accessibilityLabel="Close photos"
             >
-              <Ionicons name="close" size={26} color={colors.text} />
+              <ControlIcon name="close" size={26} color={colors.text} />
             </Pressable>
           </View>
           {selected ? (
@@ -122,7 +122,7 @@ export function CampsitePhotos({
                   accessibilityLabel="Previous photo"
                   accessibilityState={{ disabled: index === 0 }}
                 >
-                  <Ionicons
+                  <ControlIcon
                     name="chevron-back"
                     size={24}
                     color={index === 0 ? colors.textSubtle : colors.text}
@@ -139,7 +139,7 @@ export function CampsitePhotos({
                   accessibilityLabel="Next photo"
                   accessibilityState={{ disabled: index === photos.length - 1 }}
                 >
-                  <Ionicons
+                  <ControlIcon
                     name="chevron-forward"
                     size={24}
                     color={

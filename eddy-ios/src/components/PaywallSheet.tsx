@@ -52,7 +52,7 @@ import {
   useWindowDimensions,
 } from 'react-native';
 import * as AppleAuthentication from 'expo-apple-authentication';
-import { Ionicons } from '@expo/vector-icons';
+import { ControlIcon } from '@/components/ControlIcon';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
 import { Otter } from '@/components/Otter';
@@ -381,7 +381,7 @@ export function PaywallSheet({ visible, onClose, riverName, onPurchased }: Props
             accessibilityRole="button"
             accessibilityLabel="Close"
           >
-            <Ionicons name="close" size={26} color={colors.textMuted} />
+            <ControlIcon name="close" size={26} color={colors.textMuted} />
           </Pressable>
         </View>
 
@@ -493,7 +493,7 @@ export function PaywallSheet({ visible, onClose, riverName, onPurchased }: Props
             </>
           ) : blocked || loadError ? (
             <View style={[styles.pending, { backgroundColor: colors.cardRaised }]}>
-              <Ionicons name="time-outline" size={16} color={colors.textMuted} />
+              <ControlIcon name="time-outline" size={16} color={colors.textMuted} />
               <Text style={[styles.pendingText, { color: colors.textMuted }]}>
                 {loadError ?? PREMIUM_UNAVAILABLE_COPY}
               </Text>
@@ -790,7 +790,7 @@ const styles = StyleSheet.create({
   // copy, and tracking it out is what keeps it legible that small. Fredoka
   // because DESIGN.md gives the display face to the brand name and mascot
   // callouts, and a sticker with the otter on it is the second of those.
-  badgeText: { fontSize: 10, lineHeight: 14, letterSpacing: 0.8, fontFamily: fonts.display },
+  badgeText: { fontSize: 12, lineHeight: 17, letterSpacing: 0.8, fontFamily: fonts.display },
   handleRow: { alignItems: 'flex-end', paddingHorizontal: 20, paddingTop: 14 },
   body: { paddingHorizontal: 24, paddingBottom: 24, alignItems: 'center' },
   title: { ...t['2xl'], fontFamily: fonts.displayBold, marginTop: 8, textAlign: 'center' },

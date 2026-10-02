@@ -8,7 +8,7 @@
 
 import { memo } from 'react';
 import { FlatList, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { ControlIcon } from '@/components/ControlIcon';
 import type { SearchResult } from '@eddy/types';
 import { KindMark } from '@/components/KindMark';
 import { useTheme } from '@/theme/ThemeProvider';
@@ -71,7 +71,7 @@ function SearchResultsListComponent({ results, onSelect, emptyMessage, loading }
                 </Text>
               ) : null}
             </View>
-            <Ionicons name="chevron-forward" size={15} color={colors.textSubtle} />
+            <ControlIcon name="chevron-forward" size={15} color={colors.textSubtle} />
           </Pressable>
         )}
       />

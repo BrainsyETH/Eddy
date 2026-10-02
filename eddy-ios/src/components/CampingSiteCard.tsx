@@ -77,8 +77,7 @@ export function CampingSiteCard({
             style={{ width: 44, alignItems: 'center', gap: 6 }}
           >
             <Text
-              maxFontSizeMultiplier={1.3}
-              style={{ color: colors.textMuted, fontSize: 11 }}
+              style={{ color: colors.textMuted, fontSize: 12 }}
             >
               {dateLabel(n.date, true)}
             </Text>

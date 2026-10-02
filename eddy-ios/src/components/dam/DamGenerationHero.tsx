@@ -39,7 +39,7 @@
 import { radii } from '@/theme/layout';
 import type { ReactNode } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { ControlIcon } from '@/components/ControlIcon';
 import type { DamSnapshot } from '@eddy/types';
 import { relativeAge, SCHEDULE_CHANGE_SENTENCE } from '@eddy/conditions/dam-schedule-copy';
 import {
@@ -158,7 +158,7 @@ export function DamGenerationHero({
   return (
     <View style={embedded ? undefined : [styles.card, { backgroundColor: colors.card }, elevation(2)]}>
       <View style={styles.statusRow}>
-        <Ionicons name="flash" size={13} color={colors.interactive} />
+        <ControlIcon name="flash" size={13} color={colors.interactive} />
         <Text style={[styles.status, headerAction ? styles.statusWithAction : null, { color: colors.interactive }]}>{status.toUpperCase()}</Text>
         {headerAction}
       </View>
@@ -239,7 +239,7 @@ export function DamGenerationHero({
           ]}
         >
           <View style={styles.scheduledRow}>
-            <Ionicons name="time-outline" size={13} color={colors.interactive} />
+            <ControlIcon name="time-outline" size={13} color={colors.interactive} />
             <Text style={[styles.blockLabel, { color: colors.interactive }]}>NEXT CHANGE</Text>
           </View>
           <Text style={[styles.nextSentence, { color: colors.text }]}>{clauses.scheduled}</Text>
@@ -283,7 +283,7 @@ const styles = StyleSheet.create({
   age: { ...t.xs },
   note: { ...t.xs },
   blockLabel: { ...t.xs, fontFamily: fonts.heading, letterSpacing: 0.6, flexShrink: 1 },
-  stale: { fontSize: 11, lineHeight: 15, fontFamily: fonts.medium },
+  stale: { fontSize: 12, lineHeight: 17, fontFamily: fonts.medium },
   scheduledRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   // The next-change panel: bordered and tinted so it reads as the answer
   // rather than as another caveat in the stack.

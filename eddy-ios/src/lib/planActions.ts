@@ -45,11 +45,12 @@ export function createPlanActions() {
       // Synchronous guard: two taps can arrive before React disables a button.
       if (stateFor(plan).saving) return;
       update(plan, { saveError: null });
-      if (actions.isSaved(plan)) { actions.forgetPlan(plan); return; }
+      if (actions.isSaved(plan)) { actions.forgetPlan(plan); return 'removed' as const; }
       update(plan, { saving: true });
       try {
         const saved = await actions.savePlan(plan);
         actions.remember(plan, saved);
+        return 'saved' as const;
       } catch {
         update(plan, { saveError: 'Could not save this float. Check your connection and try again.' });
       } finally {
