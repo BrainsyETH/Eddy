@@ -66,6 +66,8 @@ export interface LocalStar {
   provider?: string | null;
   /** ISO. When the USER last changed this entity's state — not when it synced. */
   updatedAt: string;
+  /** Local display position retained by Undo, separate from the sync clock. */
+  orderAt?: string;
   /** false is a tombstone: deliberately unstarred, not merely unknown. */
   starred: boolean;
 }
@@ -173,6 +175,7 @@ export function mergeStars(local: LocalStar[], server: ServerStar[], kind: StarK
       // Preserve the local edit time when this device already had it starred,
       // so a later unstar elsewhere can still be compared meaningfully.
       updatedAt: mine?.starred ? mine.updatedAt : row.starredAt,
+      ...(mine?.starred && mine.orderAt ? { orderAt: mine.orderAt } : {}),
       starred: true,
     });
   }
@@ -199,7 +202,7 @@ export function mergeStars(local: LocalStar[], server: ServerStar[], kind: StarK
 export function visibleStars(local: LocalStar[]): LocalStar[] {
   return local
     .filter((entry) => entry.starred)
-    .sort((a, b) => time(b.updatedAt) - time(a.updatedAt));
+    .sort((a, b) => time(b.orderAt ?? b.updatedAt) - time(a.orderAt ?? a.updatedAt));
 }
 
 /**
@@ -326,6 +329,7 @@ export function migrateStars(raw: unknown): LocalStar[] {
       usgsSiteId: typeof record.usgsSiteId === 'string' ? record.usgsSiteId : null,
       provider: typeof record.provider === 'string' ? record.provider : null,
       updatedAt: record.updatedAt ?? record.starredAt ?? new Date(0).toISOString(),
+      ...(typeof record.orderAt === 'string' && Number.isFinite(Date.parse(record.orderAt)) ? { orderAt: record.orderAt } : {}),
       // Only v1 lacks the field entirely, and in v1 presence meant starred.
       starred: typeof record.starred === 'boolean' ? record.starred : true,
     });
@@ -338,3 +342,13 @@ export function migrateStars(raw: unknown): LocalStar[] {
  * Kept as an alias so the rename lands in one commit without a flag day.
  */
 export const migrateLegacyStars = migrateStars;
+
+/** Restore only a still-removed favorite. Never undo a later re-star. */
+export function restoreStar(local: LocalStar[], original: LocalStar, now: string): LocalStar[] {
+  const key = starKey(original.kind, original.entityId);
+  if (local.some(entry => starKey(entry.kind, entry.entityId) === key && entry.starred)) return local;
+  return [
+    { ...original, starred: true, updatedAt: now, orderAt: original.orderAt ?? original.updatedAt },
+    ...local.filter(entry => starKey(entry.kind, entry.entityId) !== key),
+  ];
+}

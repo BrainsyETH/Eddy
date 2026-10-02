@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 // eddy-ios/src/components/dam/DamRow.tsx
 // One USACE project in a list.
 //
@@ -31,7 +32,9 @@ function DamRowComponent({
   starred = false,
   onToggleStar,
   showSchedule = false,
+  accessory,
 }: {
+  accessory?: ReactNode;
   dam: DamSnapshot;
   onPress: () => void;
   starred?: boolean;
@@ -130,7 +133,7 @@ function DamRowComponent({
             belongs to the dam; the chip and the release describe what the dam is
             doing right now, and stacking the two would tie a standing choice to a
             reading that changes every fifteen minutes. Same shape RiverRow uses. */}
-        {onToggleStar ? (
+        {accessory ?? (onToggleStar ? (
           <Pressable
             onPress={onToggleStar}
             hitSlop={10}
@@ -143,7 +146,7 @@ function DamRowComponent({
               color={starred ? colors.warm : colors.textSubtle}
             />
           </Pressable>
-        ) : null}
+        ) : null)}
       </View>
 
       {/* Today's shape, and the sentence that says what it means.

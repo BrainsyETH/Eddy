@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 // eddy-ios/src/components/GaugeRow.tsx
 // One starred gauge in the Favorites list.
 //
@@ -42,6 +43,7 @@ import { readingAge } from '@/lib/readingCopy';
 import { KindMark } from '@/components/KindMark';
 
 interface Props {
+  accessory?: ReactNode;
   /** Name from the local store, so the row renders before /api/gauges lands. */
   name: string;
   /** The river this gauge rates, when it rates one. */
@@ -61,7 +63,7 @@ interface Props {
   onToggleStar: () => void;
 }
 
-function GaugeRowComponent({ name, riverName, gauge, starred, onPress, onToggleStar }: Props) {
+function GaugeRowComponent({ name, riverName, gauge, starred, onPress, onToggleStar, accessory }: Props) {
   const { colors, elevation, isDark } = useTheme();
 
   const code = gauge && !isReadingStale(gauge.readingAgeHours) ? gaugeConditionCode(gauge) : 'unknown';
@@ -122,7 +124,7 @@ function GaugeRowComponent({ name, riverName, gauge, starred, onPress, onToggleS
 
       {/* A sibling of the navigation Pressable, never a child — the same
           arrangement RiverRow settled on so the two touch areas cannot overlap. */}
-      <Pressable
+      {accessory ?? (<Pressable
         onPress={onToggleStar}
         style={({ pressed }) => [styles.starColumn, { opacity: pressed ? 0.5 : 1 }]}
         accessibilityRole="button"
@@ -133,7 +135,7 @@ function GaugeRowComponent({ name, riverName, gauge, starred, onPress, onToggleS
           size={21}
           color={starred ? colors.warm : colors.textSubtle}
         />
-      </Pressable>
+      </Pressable>)}
     </View>
   );
 }
