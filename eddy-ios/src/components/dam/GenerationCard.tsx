@@ -26,7 +26,7 @@
 // What is shared is everything that qualifies BOTH: who publishes the schedule,
 // when Eddy last checked, that the times are at the dam, that the water arrives
 // downstream later, and that any of it can change without notice. Those are
-// stated once, at the foot, under everything they apply to.
+// available once in the heading's info tip; check time remains on the card.
 //
 // ── Why the lake and the week stay outside ────────────────────────────────
 //
@@ -52,6 +52,7 @@ import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
 import { DamGenerationHero } from '@/components/dam/DamGenerationHero';
 import { GenerationSchedule } from '@/components/dam/GenerationSchedule';
+import { DamInfoTip } from '@/components/dam/DamInfoTip';
 
 /**
  * The standing qualification, said once for both halves.
@@ -59,8 +60,8 @@ import { GenerationSchedule } from '@/components/dam/GenerationSchedule';
  * Three sentences and each is a different subject: whose clock the times are
  * on, what that means where the reader is standing, and how much to trust the
  * plan at all. It used to sit inside the next-change panel, where it explained
- * one sentence and was read as part of it; here it sits under the observation,
- * the plan and the chart alike, which is the scope it always had.
+ * one sentence and was read as part of it; the card's info tip applies to the
+ * observation, the plan and the chart alike.
  */
 const DOWNSTREAM_AND_CHANGE = [
   'Times are at the dam — water reaches a place downstream later, and how much later depends on how far.',
@@ -90,7 +91,19 @@ export function GenerationCard({ dam }: { dam: DamSnapshot }) {
 
   return (
     <View style={[styles.card, { backgroundColor: colors.card }, elevation(2)]}>
-      <DamGenerationHero dam={dam} embedded showNextChange={false} />
+      <DamGenerationHero
+        dam={dam}
+        embedded
+        showNextChange={false}
+        headerAction={
+          <DamInfoTip
+            title="Generation and downstream timing"
+            message={hasSchedule
+              ? `Schedule posted each afternoon by Southwestern Power Administration. ${DOWNSTREAM_AND_CHANGE}`
+              : DOWNSTREAM_AND_CHANGE}
+          />
+        }
+      />
 
       {hasSchedule ? (
         <>
@@ -108,17 +121,9 @@ export function GenerationCard({ dam }: { dam: DamSnapshot }) {
         </>
       ) : null}
 
-      <View style={[styles.footer, { borderTopColor: colors.border }]}>
-        <Text style={[styles.footerText, { color: colors.textSubtle }]}>
-          {hasSchedule
-            ? `Schedule posted each afternoon by Southwestern Power Administration. ${DOWNSTREAM_AND_CHANGE}`
-            : DOWNSTREAM_AND_CHANGE}
-        </Text>
-        {/* Freshness is the one line here that changes, so it keeps its own
-            weight and the brand's teal rather than being buried in the standing
-            text above — and flips to the error colour when the schedule has
-            stopped arriving, because somebody may wade against it. */}
-        {retrieval ? (
+      {/* Keep changing freshness information visible, including stale checks. */}
+      {retrieval ? (
+        <View style={[styles.footer, { borderTopColor: colors.border }]}>
           <Text
             style={[
               styles.retrieval,
@@ -132,8 +137,8 @@ export function GenerationCard({ dam }: { dam: DamSnapshot }) {
           >
             {retrieval}
           </Text>
-        ) : null}
-      </View>
+        </View>
+      ) : null}
     </View>
   );
 }
@@ -142,6 +147,5 @@ const styles = StyleSheet.create({
   card: { borderRadius: radii.card, padding: 16 },
   rule: { borderTopWidth: StyleSheet.hairlineWidth, marginTop: 14, marginBottom: 14 },
   footer: { borderTopWidth: StyleSheet.hairlineWidth, marginTop: 14, paddingTop: 10 },
-  footerText: { ...t.xs, lineHeight: 16 },
-  retrieval: { ...t.xs, fontFamily: fonts.medium, marginTop: 6, textAlign: 'center' },
+  retrieval: { ...t.xs, fontFamily: fonts.medium, textAlign: 'center' },
 });
