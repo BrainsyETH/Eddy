@@ -17,22 +17,39 @@ import { fonts, type as t } from '@/theme/typography';
 function TimeField({ label, minute, onChange }: { label: string; minute: number; onChange: (minute: number) => void }) {
   const { colors, isDark } = useTheme();
   const [open, setOpen] = useState(false);
-  return <View style={styles.timeRow}>
-    <Text style={[t.base, { color: colors.text }]}>{label}</Text>
-    {Platform.OS !== 'ios' ? <Text style={[t.base, { color: colors.textMuted }]}>{hourLabel(minute)}</Text> : null}
-    {Platform.OS === 'ios' || open ? <DateTimePicker
-      accessibilityLabel={label}
-      value={new Date(Date.UTC(2020, 0, 1, Math.floor(minute / 60), minute % 60))}
-      mode="time" display={Platform.OS === 'ios' ? 'compact' : 'default'} timeZoneName="UTC"
-      // Preserve an existing off-grid value until the person actually edits it.
-      minuteInterval={minute % 15 === 0 ? 15 : 1}
-      themeVariant={isDark ? 'dark' : 'light'} accentColor={colors.interactive}
-      onChange={(event, date) => {
-        setOpen(false);
-        if (event.type === 'set' && date) onChange((Math.round((date.getUTCHours() * 60 + date.getUTCMinutes()) / 15) * 15) % 1440);
-      }} /> : <Pressable style={styles.action} accessibilityRole="button" accessibilityLabel={`Change ${label.toLowerCase()}`} onPress={() => setOpen(true)}>
-        <Text style={[t.base, { color: colors.interactive }]}>Change</Text>
-      </Pressable>}
+  const [pickerMinute, setPickerMinute] = useState(minute);
+  const openPicker = () => {
+    // Seed a quarter-hour choice only when editing begins. The row and draft
+    // keep the exact saved value until the person changes the native control.
+    setPickerMinute((Math.round(minute / 15) * 15) % 1440);
+    setOpen(true);
+  };
+  return <View>
+    <Pressable style={styles.timeRow} accessibilityRole="button"
+      accessibilityLabel={`${label}, ${hourLabel(minute)}. Change time`}
+      accessibilityState={{ expanded: open }} onPress={() => open ? setOpen(false) : openPicker()}>
+      <Text style={[t.base, { color: colors.text }]}>{label}</Text>
+      <Text style={[t.base, { color: colors.interactive }]}>{hourLabel(minute)}</Text>
+    </Pressable>
+    {open ? <>
+      <DateTimePicker
+        accessibilityLabel={label}
+        value={new Date(Date.UTC(2020, 0, 1, Math.floor(pickerMinute / 60), pickerMinute % 60))}
+        mode="time" display={Platform.OS === 'ios' ? 'spinner' : 'default'} timeZoneName="UTC"
+        minuteInterval={15}
+        themeVariant={isDark ? 'dark' : 'light'} accentColor={colors.interactive}
+        onChange={(event, date) => {
+          if (Platform.OS !== 'ios') setOpen(false);
+          if (event.type === 'set' && date) {
+            const selected = date.getUTCHours() * 60 + date.getUTCMinutes();
+            setPickerMinute(selected);
+            onChange(selected);
+          }
+        }} />
+      {Platform.OS === 'ios' ? <Pressable style={styles.action} accessibilityRole="button" accessibilityLabel={`Done editing ${label.toLowerCase()}`} onPress={() => setOpen(false)}>
+        <Text style={[t.base, { color: colors.interactive }]}>Done</Text>
+      </Pressable> : null}
+    </> : null}
   </View>;
 }
 
@@ -135,7 +152,7 @@ export default function QuietHoursScreen() {
         </> : <Text style={[t.sm, { color: colors.textMuted }]}>Quiet hours are off. Saving this schedule will not turn them on.</Text>}
         <View style={styles.row}>
           <Text style={[styles.body, t.sm, { color: colors.textMuted }]}>Notifications during quiet hours are skipped, not delivered later.</Text>
-          <Pressable accessibilityRole="button" accessibilityLabel="Why notifications are not delivered later" style={styles.action} onPress={() => Alert.alert('Why notifications are skipped', 'Water conditions can change overnight. Sending an old alert in the morning could describe conditions that no longer apply. Check Current alerts for current high water and agency notices.')}><ControlIcon name="information-circle-outline" size={22} color={colors.textMuted} /></Pressable>
+          <Pressable accessibilityRole="button" accessibilityLabel="Why notifications are not delivered later" style={styles.action} onPress={() => Alert.alert('Why notifications are skipped', 'Water conditions can change overnight. Sending an old alert in the morning could describe conditions that no longer apply. Check Running high and Notices for current conditions.')}><ControlIcon name="information-circle-outline" size={22} color={colors.textMuted} /></Pressable>
         </View>
       </> : null}
     </ScrollView>

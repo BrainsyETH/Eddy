@@ -294,10 +294,15 @@ function AlertsContent() {
       if (shouldRefreshAlerts(lastSuccess.current.notices)) void loadNotices();
     };
     refreshStale();
-    const subscription = AppState.addEventListener('change', state => { if (state === 'active') refreshStale(); });
+    const subscription = AppState.addEventListener('change', state => {
+      if (state === 'active') {
+        refreshStale();
+        void refreshRules();
+      }
+    });
     const timer = setInterval(() => setClock(Date.now()), 60_000);
     return () => { subscription.remove(); clearInterval(timer); };
-  }, [load, loadNotices]));
+  }, [load, loadNotices, refreshRules]));
 
 
   /**
@@ -505,19 +510,13 @@ function AlertsContent() {
         <Text style={[styles.caption, { color: colors.textMuted }]}>{(showingNotices ? checking.notices : checking.high) ? 'Checking…' : alertCheckedLabel(showingNotices ? checked.notices : checked.high, clock)}</Text>
         {showingNotices ? <Pressable accessibilityRole="button" accessibilityLabel="About notice coverage" style={styles.infoButton} onPress={() => Alert.alert('Notice coverage', 'Park Service notices cover rivers within national parks. Weather warnings and park notices do not cover every hazard. Check locally before you drive out.')}><ControlIcon name="information-circle-outline" size={20} color={colors.textMuted} /></Pressable> : null}
       </View> : null}
-      {(!showingRules && (showingNotices ? noticeError : error)) ? <>
-        {(showingNotices ? notices : highWater) !== null ? <Text style={[styles.caption, { color: colors.error }]}>Couldn’t refresh. Previous results may be outdated.</Text> : null}
-        <Pressable accessibilityRole="button" style={styles.emptyRetry} onPress={() => void (showingNotices ? loadNotices() : load())}><Text style={[styles.emptyRetryText, { color: colors.interactive }]}>Try again</Text></Pressable>
+      {!showingRules && (showingNotices ? noticeError && notices?.length : error && highWater?.length) ? <>
+        <Text accessibilityRole="alert" style={[styles.caption, { color: colors.error }]}>Couldn’t refresh. Previous results may be outdated.</Text>
+        <Pressable accessibilityRole="button" style={styles.emptyRetry} onPress={() => void (showingNotices ? loadNotices() : load())}><Text style={[styles.emptyRetryText, { color: colors.interactive }]}>Retry</Text></Pressable>
       </> : null}
 
-      {error && segment === 'high-water' ? (
-        <Text style={[styles.errorText, { color: colors.error }]}>{error}</Text>
-      ) : null}
       {ruleError && showingRules ? (
         <Text style={[styles.errorText, { color: colors.error }]}>{ruleError}</Text>
-      ) : null}
-      {noticeError && showingNotices ? (
-        <Text style={[styles.errorText, { color: colors.error }]}>{noticeError}</Text>
       ) : null}
     </View>
   );
@@ -721,15 +720,16 @@ function AlertsContent() {
             <View style={styles.empty}>
               {!notices && !noticeError ? <ActivityIndicator color={colors.interactive} accessibilityLabel="Loading notices" /> : <>
               <EddyScene name="checkingGauge" size={120} />
-              <Text style={[styles.emptyTitle, { color: colors.text }]}>{noticeError ? 'Notices unavailable' : 'Nothing posted'}</Text>
+              <Text style={[styles.emptyTitle, { color: colors.text }]}>{noticeError ? 'Couldn’t check current notices' : 'Nothing posted'}</Text>
               {/* Says what an empty list DOES NOT mean. "No closures" and "we
                   could not reach the agencies" look identical to a reader and
                   mean opposite things, and only one of them is safe to act on.
                   The Park Service also covers three of Eddy's rivers and no
                   others, which nobody would guess from a blank screen. */}
-              <Text style={[styles.emptyBody, { color: colors.textMuted }]}>
-                {noticeError ? 'Couldn’t check current notices. Pull down to try again.' : 'No agency notices are posted for Eddy’s rivers right now. Check locally before you drive out.'}
-              </Text>
+              {!noticeError ? <Text style={[styles.emptyBody, { color: colors.textMuted }]}>
+                No agency notices are posted for Eddy’s rivers right now. Check locally before you drive out.
+              </Text> : null}
+              {noticeError ? <Pressable accessibilityRole="button" style={styles.emptyRetry} onPress={() => void loadNotices()}><Text style={[styles.emptyRetryText, { color: colors.interactive }]}>Retry</Text></Pressable> : null}
               </>}
             </View>
           }
@@ -769,10 +769,11 @@ function AlertsContent() {
                 the water is where it should be", and the catalog's high-water
                 scene would announce the opposite. */}
             <EddyScene name="checkingGauge" size={120} />
-            <Text style={[styles.emptyTitle, { color: colors.text }]}>{error ? 'High water unavailable' : 'Nothing running high'}</Text>
-            <Text style={[styles.emptyBody, { color: colors.textMuted }]}>
-              {error ? 'Couldn’t check current high water. Try again when connected.' : 'No Eddy-rated river, gauge or dam release is running high right now. Check local conditions before getting on the water.'}
-            </Text>
+            <Text style={[styles.emptyTitle, { color: colors.text }]}>{error ? 'Couldn’t check current high water' : 'Nothing running high'}</Text>
+            {!error ? <Text style={[styles.emptyBody, { color: colors.textMuted }]}>
+              No Eddy-rated river, gauge or dam release is running high right now. Check local conditions before getting on the water.
+            </Text> : null}
+            {error ? <Pressable accessibilityRole="button" style={styles.emptyRetry} onPress={() => void load()}><Text style={[styles.emptyRetryText, { color: colors.interactive }]}>Retry</Text></Pressable> : null}
             </>}
           </View>
         }

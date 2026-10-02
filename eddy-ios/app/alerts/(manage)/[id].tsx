@@ -250,7 +250,7 @@ export default function EditAlertScreen() {
     if (!rule || busyRef.current) return;
     const children = groupAlertRules(rules ?? []).find(group => group.rule.id === rule.id && group.rule.source === rule.source)?.children ?? [];
     Alert.alert(children.length ? `Delete this alert and ${children.length} more?` : 'Delete this alert?',
-      children.length ? `The ${children.length} gauge alerts on ${rule.riverName ?? 'this river'} will also be deleted. This cannot be undone.` : 'You will stop getting notifications for it. This cannot be undone.', [
+      children.length ? `The ${children.length} gauge ${children.length === 1 ? 'alert' : 'alerts'} on ${rule.riverName ?? 'this river'} will also be deleted. This cannot be undone.` : 'You will stop getting notifications for it. This cannot be undone.', [
       { text: 'Cancel', style: 'cancel' },
       { text: 'Delete', style: 'destructive', onPress: async () => {
         if (busyRef.current) return;
@@ -425,12 +425,11 @@ export default function EditAlertScreen() {
             trackColor={{ true: colors.interactive, false: colors.border }}
           />
         </Pressable>
-        <Text style={[styles.hint, { color: colors.textMuted }]}>Status changes save immediately.</Text>
+        <Text style={[styles.hint, { color: colors.textMuted }]}>{statusSaving ? 'Updating status…' : 'Status changes save immediately.'}</Text>
         {enabledError ? (
           <Text style={[styles.errorText, { color: colors.error }]}>{enabledError}</Text>
         ) : null}
 
-        <Text accessibilityRole="header" style={[styles.sectionLabel, { color: colors.textSubtle }]}>Trigger settings</Text>
         {rule.mode === 'condition' ? (
           <>
             <Text style={[styles.sectionLabel, { color: colors.textSubtle }]}>Tell me about</Text>

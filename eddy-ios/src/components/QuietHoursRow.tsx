@@ -4,7 +4,7 @@ import { useFocusEffect, useRouter } from 'expo-router';
 import type { NotificationPreferences } from '@eddy/types';
 import { fetchNotificationPreferences } from '@/api/client';
 import { ControlIcon } from '@/components/ControlIcon';
-import { DEFAULT_END_MINUTE, DEFAULT_START_MINUTE, hourLabel, timezoneLabel } from '@/lib/quietHours';
+import { DEFAULT_END_MINUTE, DEFAULT_START_MINUTE, deviceTimezone, hourLabel, timezoneLabel } from '@/lib/quietHours';
 import { useSession } from '@/hooks/useSession';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
@@ -31,7 +31,7 @@ export function QuietHoursRow() {
   }, [getAccessToken, isAnonymous]));
   if (isAnonymous) return null;
   const summary = failed ? 'Couldn’t check schedule' : !prefs ? 'Loading…' : prefs.quietHoursEnabled
-    ? `${hourLabel(prefs.quietStartMinute ?? DEFAULT_START_MINUTE)}–${hourLabel(prefs.quietEndMinute ?? DEFAULT_END_MINUTE)} · ${timezoneLabel(prefs.timezone)}` : 'Off';
+    ? `${hourLabel(prefs.quietStartMinute ?? DEFAULT_START_MINUTE)}–${hourLabel(prefs.quietEndMinute ?? DEFAULT_END_MINUTE)}${prefs.timezone !== deviceTimezone() ? ` · ${timezoneLabel(prefs.timezone)}` : ''}` : 'Off';
   return <Pressable onPress={() => router.push('/alerts/quiet-hours')} accessibilityRole="button"
     accessibilityLabel={`Quiet hours, ${summary}. Edit schedule`}
     style={({ pressed }) => [styles.row, { borderBottomColor: colors.border, opacity: pressed ? 0.7 : 1 }]}>
