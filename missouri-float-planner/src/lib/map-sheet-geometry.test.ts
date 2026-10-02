@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { tabScrollOffset } from '../../../eddy-ios/src/components/map-sheet/tabScrollOffset';
-import { mapLayout, mapChromeClearance, MAP_CONTROLS_ROOM_MIN } from '../../../eddy-ios/src/map/mapLayout';
+import { mapLayout, mapChromeClearance, measuredMapChromeHeight, MAP_CONTROLS_ROOM_MIN } from '../../../eddy-ios/src/map/mapLayout';
 import {
   CONTENT_BOTTOM_PAD,
   DISMISS_FRACTION,
@@ -18,7 +18,7 @@ import {
   applyRubberBand,
 } from '../../../eddy-ios/src/components/map-sheet/sheetGeometry';
 
-test('live chrome boundaries hide at zero opacity and restore during an unfinished drag', () => {
+test('live chrome boundaries hide at zero clearance and restore during an unfinished drag', () => {
   const available = 700, chromeHeight = 100;
   const topBoundary = available - chromeHeight - ORNAMENT_BAND;
   const controlsBoundary = available - chromeHeight - MAP_CONTROLS_ROOM_MIN;
@@ -51,6 +51,40 @@ const MAP_SCENES = [
   { width: 430, height: 849, safeTop: 59 },
 ];
 const MAP_CHROME = { safeLeft: 0, safeRight: 0, chromeHeight: 46, sheetHeight: 0 };
+
+test('collapsed search controls cannot reopen themselves or reset map readiness and camera padding', () => {
+  for (const scene of MAP_SCENES) {
+    for (const naturalHeight of [46, 100, 180]) {
+      let chromeHeight = measuredMapChromeHeight(0, naturalHeight);
+      const available = scene.height - scene.safeTop - 8;
+      // Just past the hide boundary: treating display:none as a new natural
+      // size used to make this same sheet position show the controls again.
+      const sheetHeight = available - naturalHeight - ORNAMENT_BAND + 1;
+      const before = mapLayout({ ...MAP_CHROME, ...scene, chromeHeight, sheetHeight });
+      for (let frame = 0; frame < 8; frame++) {
+        const hidden = mapChromeClearance(available, sheetHeight, chromeHeight).top <= 0;
+        assert.equal(hidden, true, 'a fixed sheet must not alternate hidden/visible');
+        chromeHeight = measuredMapChromeHeight(chromeHeight, hidden ? 0 : naturalHeight);
+        assert.ok(chromeHeight > 0, 'a loaded map must not return to its loading guard');
+        assert.deepEqual(mapLayout({ ...MAP_CHROME, ...scene, chromeHeight, sheetHeight }), before);
+      }
+      assert.ok(mapChromeClearance(available, sheetHeight - 2, chromeHeight).top > 0,
+        'dragging back below the boundary reveals search');
+    }
+  }
+});
+
+test('search measurements still grow and shrink with real layout changes', () => {
+  let height = measuredMapChromeHeight(0, 0);
+  assert.equal(height, 0, 'initial map readiness still waits for a real measurement');
+  for (const [measured, expected] of [[46.2, 47], [0, 47], [180, 180], [0, 180], [52, 52]]) {
+    height = measuredMapChromeHeight(height, measured);
+    assert.equal(height, expected);
+  }
+  for (const invalid of [-1, NaN, Infinity]) {
+    assert.equal(measuredMapChromeHeight(height, invalid), height);
+  }
+});
 
 test('map camera clears floating search, safe areas, and attribution on small and large phones', () => {
   for (const scene of MAP_SCENES) {
@@ -144,6 +178,31 @@ test('native tabs extend the canvas while preserving the usable map and sheet bu
         assert.equal(native.cameraPadding.paddingBottom, before.cameraPadding.paddingBottom + safeBottom);
         assert.equal(native.cameraPadding.paddingTop, before.cameraPadding.paddingTop);
         assert.equal(native.chromeHidden, before.chromeHidden);
+      }
+    }
+  }
+});
+
+test('iOS Mapbox margins count the native tab/notch insets once and stay below Locate', () => {
+  for (const safeBottom of [0, 49, 83, 100]) {
+    for (const safeLeft of [0, 24, 59]) {
+      const scene = { ...MAP_CHROME, ...MAP_SCENES[1], safeBottom, safeLeft };
+      const initial = mapLayout(scene);
+      const available = scene.height - initial.sheetTop - initial.bottomInset;
+      const detents = resolveDetents(available, 1200);
+      for (const sheetHeight of [0, detents.height.peek, detents.height.half, detents.height.full]) {
+        const input = { ...scene, sheetHeight };
+        const canvas = mapLayout(input);
+        const ios = mapLayout({ ...input, nativeOrnamentSafeArea: { bottom: safeBottom, left: safeLeft } });
+        assert.equal(ios.ornamentMargins.bottom + safeBottom, canvas.ornamentBottom);
+        assert.equal(ios.ornamentMargins.left + safeLeft, safeLeft);
+        assert.ok(ios.ornamentMargins.bottom + safeBottom + 7 + 44 < canvas.ornamentBottom + ORNAMENT_BAND,
+          'the attribution tap frame must sit below Locate');
+        assert.deepEqual(ios.cameraPadding, canvas.cameraPadding, 'SDK margins must not shift the camera');
+        if (sheetHeight === 0) assert.deepEqual(ios.ornamentMargins, { bottom: 0, left: 0 });
+        assert.equal(canvas.ornamentMargins.bottom, canvas.ornamentBottom,
+          'platforms without automatic ornament insets keep canvas-relative margins');
+        assert.equal(canvas.ornamentMargins.left, safeLeft);
       }
     }
   }
