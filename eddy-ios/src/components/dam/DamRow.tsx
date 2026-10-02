@@ -1,4 +1,3 @@
-import type { ReactNode } from 'react';
 // eddy-ios/src/components/dam/DamRow.tsx
 // One USACE project in a list.
 //
@@ -12,6 +11,7 @@ import type { ReactNode } from 'react';
 // floatable, and borrowing that palette would make the app appear to have
 // issued a call it has not.
 
+import type { ReactNode } from 'react';
 import { memo } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { ControlIcon } from '@/components/ControlIcon';

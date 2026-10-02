@@ -1,4 +1,3 @@
-import type { ReactNode } from 'react';
 // eddy-ios/src/components/GaugeRow.tsx
 // One starred gauge in the Favorites list.
 //
@@ -29,6 +28,7 @@ import type { ReactNode } from 'react';
 // Condition and reading come from gaugeCondition.ts, the SAME functions the map
 // pins use, so a gauge cannot read one way here and another as a dot on the map.
 
+import type { ReactNode } from 'react';
 import { radii } from '@/theme/layout';
 import { memo } from 'react';
 import { isReadingStale } from '@eddy/conditions/reading-staleness';
@@ -60,7 +60,7 @@ interface Props {
    */
   starred: boolean;
   onPress: (() => void) | null;
-  onToggleStar: () => void;
+  onToggleStar?: () => void;
 }
 
 function GaugeRowComponent({ name, riverName, gauge, starred, onPress, onToggleStar, accessory }: Props) {
@@ -124,7 +124,7 @@ function GaugeRowComponent({ name, riverName, gauge, starred, onPress, onToggleS
 
       {/* A sibling of the navigation Pressable, never a child — the same
           arrangement RiverRow settled on so the two touch areas cannot overlap. */}
-      {accessory ?? (<Pressable
+      {accessory ?? (onToggleStar ? <Pressable
         onPress={onToggleStar}
         style={({ pressed }) => [styles.starColumn, { opacity: pressed ? 0.5 : 1 }]}
         accessibilityRole="button"
@@ -135,7 +135,7 @@ function GaugeRowComponent({ name, riverName, gauge, starred, onPress, onToggleS
           size={21}
           color={starred ? colors.warm : colors.textSubtle}
         />
-      </Pressable>)}
+      </Pressable> : null)}
     </View>
   );
 }

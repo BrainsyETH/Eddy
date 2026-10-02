@@ -43,7 +43,7 @@
 // after this it is one tap away for everybody rather than for subscribers.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ActionSheetIOS, Platform, Alert, Share, AccessibilityInfo, FlatList, Pressable, RefreshControl, StyleSheet, Text, View } from 'react-native';
+import { ActionSheetIOS, Platform, Alert, AccessibilityInfo, FlatList, Pressable, RefreshControl, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LazyTabScreen } from '@/components/LazyTabScreen';
 import { ControlIcon } from '@/components/ControlIcon';
@@ -61,6 +61,7 @@ import { DamRow } from '@/components/dam/DamRow';
 import { SwipeRow } from '@/components/SwipeRow';
 import { rememberGauge, seedFromMapGauge, seedFromStar } from '@/lib/gaugeSeed';
 import { useAlertRules } from '@/hooks/useAlertRules';
+import { gaugeSharePath, shareLink } from '@/lib/share';
 import { favoriteAlerts } from '@/lib/favoriteAlerts';
 import { alertCheckedLabel } from '@/lib/alertFreshness';
 import { useStarredRivers } from '@/hooks/useStarredRivers';
@@ -157,7 +158,7 @@ function FavoritesContent() {
     const undo = removeStar(item);
     if (undo) {
       setRemoved({ name: item.name, undo });
-      AccessibilityInfo.announceForAccessibility(`Removed ${item.name}. Undo available at the bottom of the screen.`);
+      AccessibilityInfo.announceForAccessibility(`Removed ${item.name}. Undo available at the top of Favorites.`);
     }
   };
   const { floats: savedFloats } = useSavedFloats();
@@ -167,7 +168,8 @@ function FavoritesContent() {
   const [riverSnapshot, setRiverSnapshot] = useState<CacheEnvelope<RiverListItem[]> | null>(null);
   const [gaugeSnapshot, setGaugeSnapshot] = useState<CacheEnvelope<MapGauge[]> | null>(null);
   const [now, setNow] = useState(Date.now);
-  const [refreshFailed, setRefreshFailed] = useState(false);
+  const [failedSources, setFailedSources] = useState<string[]>([]);
+  const [damsCheckedAt, setDamsCheckedAt] = useState<number | null>(null);
   const requests = useRef(createLatestRequest());
   const lastAttempt = useRef(0);
   const rivers = useMemo(() => riverSnapshot ? agedIndex(riverSnapshot, now) : null, [riverSnapshot, now]);
@@ -175,11 +177,8 @@ function FavoritesContent() {
     ...gauge,
     readingAgeHours: effectiveReadingAgeHours(gauge.readingAgeHours, gaugeSnapshot.fetchedAt, now),
   })) ?? null, [gaugeSnapshot, now]);
-  // Not nullable, unlike the two above. fetchDams throws now rather than
-  // answering [] — see its header — but this screen still wants the lenient
-  // reading: the row renders from the store either way, and the enrichment
-  // failing is not a state worth distinguishing here. The `.catch` below is
-  // what keeps that true.
+  // Retain useful dam rows after a failed refresh; report the failed source
+  // separately instead of replacing its conditions with an empty snapshot.
   const [dams, setDams] = useState<DamSnapshot[]>([]);
   const [refreshing, setRefreshing] = useState(false);
   const [filter, setFilter] = useState<FavoriteFilter>('all');
@@ -210,12 +209,12 @@ function FavoritesContent() {
         return false;
       }).catch(() => true),
       getSharedDams().then((live) => {
-        if (request.isCurrent()) setDams(live);
+        if (request.isCurrent()) { setDams(live); setDamsCheckedAt(Date.now()); }
         return false;
       }).catch(() => true),
     ]);
     if (request.isCurrent()) {
-      setRefreshFailed(failures.some(Boolean));
+      setFailedSources(['rivers', 'gauges', 'dams'].filter((_, index) => failures[index]));
       setNow(Date.now());
     }
   }, []);
@@ -306,6 +305,15 @@ function FavoritesContent() {
 
   return (
     <SafeAreaView style={[styles.screen, { backgroundColor: colors.bg }]} edges={['top']}>
+      {removed ? <View style={[styles.undoBar, { backgroundColor: colors.card, borderColor: colors.border }]}>
+        <Text style={[t.sm, styles.undoText, { color: colors.text }]}>Removed {removed.name}</Text>
+        <Pressable accessibilityRole="button" accessibilityLabel={`Undo removing ${removed.name}`} style={styles.smallAction} onPress={() => { removed.undo(); setRemoved(null); }}>
+          <Text style={[t.base, { color: colors.interactive }]}>Undo</Text>
+        </Pressable>
+        <Pressable accessibilityRole="button" accessibilityLabel="Dismiss removal message" style={styles.smallAction} onPress={() => setRemoved(null)}>
+          <ControlIcon name="close" size={20} color={colors.textMuted} />
+        </Pressable>
+      </View> : null}
       <FlatList
         contentInsetAdjustmentBehavior="automatic"
         data={visible}
@@ -326,13 +334,16 @@ function FavoritesContent() {
                 : favoritesSummary}
             </Text>
 
-            {refreshFailed || riversFromCache ? (
+            {failedSources.length > 0 || riversFromCache ? (
               <View style={styles.offlineRow}>
                 <ControlIcon name="cloud-offline-outline" size={14} color={colors.textMuted} />
                 <Text style={[styles.offlineText, { color: colors.textMuted }]}>
-                  {refreshFailed ? 'Couldn’t update all conditions.' : 'Showing saved conditions.'}
-                  {riverSnapshot ? ` Rivers: ${alertCheckedLabel(Date.parse(riverSnapshot.fetchedAt), now)}.` : ''}
-                  {gaugeSnapshot ? ` Gauges: ${alertCheckedLabel(Date.parse(gaugeSnapshot.fetchedAt), now)}.` : ''}
+                  {failedSources.length ? `Couldn’t update ${failedSources.join(', ')}.` : 'Showing saved conditions.'}
+                  {' '}{[
+                    riverSnapshot ? `Rivers checked ${alertCheckedLabel(Date.parse(riverSnapshot.fetchedAt), now)?.replace('Last checked ', '')}` : null,
+                    gaugeSnapshot ? `Gauges checked ${alertCheckedLabel(Date.parse(gaugeSnapshot.fetchedAt), now)?.replace('Last checked ', '')}` : null,
+                    damsCheckedAt ? `Dams checked ${alertCheckedLabel(damsCheckedAt, now)?.replace('Last checked ', '')}` : null,
+                  ].filter(Boolean).join(' · ')}
                 </Text>
                 <Pressable accessibilityRole="button" accessibilityLabel="Retry loading favorite conditions" disabled={refreshing} onPress={() => void onRefresh()} style={styles.smallAction}>
                   <Text style={[t.sm, { color: colors.interactive }]}>{refreshing ? 'Checking…' : 'Retry'}</Text>
@@ -408,15 +419,6 @@ function FavoritesContent() {
           </SwipeRow>
         )}
       />
-      {removed ? <View style={[styles.undoBar, { backgroundColor: colors.card, borderColor: colors.border }]}>
-        <Text style={[t.sm, styles.undoText, { color: colors.text }]}>Removed {removed.name}</Text>
-        <Pressable accessibilityRole="button" accessibilityLabel={`Undo removing ${removed.name}`} style={styles.smallAction} onPress={() => { removed.undo(); setRemoved(null); }}>
-          <Text style={[t.base, { color: colors.interactive }]}>Undo</Text>
-        </Pressable>
-        <Pressable accessibilityRole="button" accessibilityLabel="Dismiss removal message" style={styles.smallAction} onPress={() => setRemoved(null)}>
-          <ControlIcon name="close" size={20} color={colors.textMuted} />
-        </Pressable>
-      </View> : null}
     </SafeAreaView>
   );
 
@@ -424,6 +426,10 @@ function FavoritesContent() {
     const dam = item.kind === 'dam' ? damById.get(item.entityId) : null;
     const rated = item.kind === 'river' ? gaugeForRiver(gauges, item.entityId) : null;
     const siteId = item.kind === 'dam' ? dam?.tailwater?.gaugeSiteId : item.kind === 'gauge' ? item.usgsSiteId : rated?.gauge.usgsSiteId;
+    const gauge = item.kind === 'gauge' ? gaugeById.get(item.entityId) : null;
+    const sharePath = item.kind === 'river' ? byId.get(item.entityId)?.path
+      : item.kind === 'dam' ? `/dams/${encodeURIComponent(item.entityId)}`
+      : gaugeSharePath(gauge?.provider ?? item.provider, siteId);
     const { matches, active } = favoriteAlerts(rules ?? [], item.kind, item.entityId, siteId);
     const open = () => {
       if (item.kind === 'dam') router.push(`/dam/${item.entityId}`);
@@ -435,7 +441,7 @@ function FavoritesContent() {
     };
     const configure = () => router.push({ pathname: '/alerts/configure', params: item.kind === 'river'
       ? { scope: 'river', riverId: item.entityId, riverSlug: item.slug, riverName: item.name }
-      : { scope: 'gauge', siteId: siteId!, gaugeName: item.name, ...(item.kind === 'gauge' ? { gaugeId: item.entityId } : {}) } });
+      : { scope: 'gauge', siteId: siteId!, gaugeName: item.kind === 'dam' ? `Tailwater below ${item.name}` : item.name, ...(item.kind === 'gauge' ? { gaugeId: item.entityId } : {}) } });
     const manage = () => {
       if (matches.length === 1) router.push({ pathname: '/alerts/[id]', params: { id: matches[0].id, source: matches[0].source } });
       else router.navigate({ pathname: '/alerts', params: { segment: 'rules' } });
@@ -445,11 +451,7 @@ function FavoritesContent() {
         ...(item.kind !== 'gauge' || siteId ? [{ text: 'Open', onPress: open }] : []),
         ...(item.kind !== 'gauge' && siteId ? [{ text: 'Open gauge', onPress: () => router.push(`/gauge/${encodeURIComponent(siteId)}`) }] : []),
         ...(matches.length ? [{ text: 'Manage alerts', onPress: manage }] : item.kind === 'river' || siteId ? [{ text: 'Create alert', onPress: configure }] : []),
-        ...(item.kind !== 'gauge' || siteId ? [{ text: 'Share', onPress: () => {
-          const path = item.kind === 'river' ? `rivers/${item.slug}` : item.kind === 'dam' ? `dams/${item.entityId}` : `gauges/${encodeURIComponent(siteId!)}`;
-          const url = item.kind === 'gauge' && !/^\d+$/.test(siteId!) ? `eddy://gauge/${encodeURIComponent(siteId!)}` : `https://eddy.guide/${path}`;
-          void Share.share({ message: `${item.name} — ${url}` }).catch(() => Alert.alert('Couldn’t share', 'Please try again.'));
-        } }] : []),
+        ...(sharePath ? [{ text: 'Share', onPress: () => { void shareLink(item.name, sharePath); } }] : []),
         { text: 'Remove favorite', style: 'destructive' as const, onPress: () => removeFavorite(item) },
         { text: 'Cancel', style: 'cancel' as const },
       ];
@@ -484,10 +486,9 @@ function FavoritesContent() {
         <DamRow
           dam={dam}
           onPress={() => router.push(`/dam/${dam.id}`)}
-          // Everything in this list is starred; the row is what unstars it.
+          // Favorites supplies its own actions menu in place of the star.
           starred
           accessory={actions(item)}
-          onToggleStar={() => removeFavorite(item)}
           // The reason somebody starred a dam. /api/dams already carries
           // today's schedule, so this is a render, not a request.
           showSchedule
@@ -509,7 +510,7 @@ function FavoritesContent() {
           name={item.name}
           riverName={riverName}
           gauge={gauge}
-          // Everything in this list is starred; the row is what unstars it.
+          // Favorites supplies its own actions menu in place of the star.
           starred
           // THE GAUGE, not its river. This used to require `item.slug`
           // and open the river screen, which meant a starred station that
@@ -531,7 +532,6 @@ function FavoritesContent() {
               : null
           }
           accessory={actions(item)}
-          onToggleStar={() => removeFavorite(item)}
         />
       );
     }
@@ -552,7 +552,6 @@ function FavoritesContent() {
           says={selectEddySays(eddyUpdates?.[item.slug])}
           onPress={() => router.push(`/river/${item.slug}`)}
           accessory={actions(item)}
-          onToggleStar={() => removeFavorite(item)}
         />
       );
     }
@@ -577,7 +576,7 @@ const styles = StyleSheet.create({
   screen: { flex: 1 },
   cardActions: { minWidth: 44, minHeight: 44, paddingVertical: 6, gap: 2, alignItems: 'center', justifyContent: 'center' },
   smallAction: { minWidth: 44, minHeight: 44, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 8 },
-  undoBar: { flexDirection: 'row', alignItems: 'center', borderTopWidth: 1, padding: 12, gap: 4 },
+  undoBar: { flexDirection: 'row', alignItems: 'center', borderBottomWidth: 1, padding: 12, gap: 4 },
   undoText: { flex: 1 },
   header: { paddingHorizontal: 20, paddingTop: 12, paddingBottom: 16 },
   title: { ...textStyles.pageTitle },
