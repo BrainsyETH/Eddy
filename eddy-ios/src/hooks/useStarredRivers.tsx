@@ -32,6 +32,7 @@ import {
   mergeStars,
   migrateStars,
   toggleLocal,
+  restoreStar,
   visibleStars,
   type LocalStar,
   type StarKind,
@@ -78,6 +79,7 @@ interface StarredRiversValue {
   ready: boolean;
   isStarred: (kind: StarKind, entityId: string) => boolean;
   toggleStar: (item: Omit<StarredItem, 'starredAt'>) => void;
+  removeStar: (item: Omit<StarredItem, 'starredAt'>) => (() => void) | null;
   /**
    * Stars several entities at once WITHOUT unstarring any of them.
    *
@@ -96,6 +98,7 @@ const StarredRiversContext = createContext<StarredRiversValue>({
   ready: false,
   isStarred: () => false,
   toggleStar: () => {},
+  removeStar: () => null,
   followStars: () => {},
   syncing: false,
   clearForAccountDeletion: async () => {},
@@ -352,6 +355,25 @@ export function StarredRiversProvider({ children }: { children: ReactNode }) {
     [persist, sync],
   );
 
+  const removeStar = useCallback((item: Omit<StarredItem, 'starredAt'>) => {
+    const original = entriesRef.current.find(entry => entry.kind === item.kind && entry.entityId === item.entityId && entry.starred);
+    if (!original) return null;
+    const epoch = deletionEpoch.current;
+    toggleStar(item);
+    return () => {
+      // A deleted account must never be repopulated by an old Undo action.
+      if (deletionEpoch.current !== epoch) return;
+      const next = restoreStar(entriesRef.current, original, new Date().toISOString());
+      if (next === entriesRef.current) return;
+      entriesRef.current = next;
+      mutationGen.current += 1;
+      setEntries(next);
+      persist(next);
+      selectionFeedback();
+      void sync();
+    };
+  }, [toggleStar, persist, sync]);
+
   const followStars = useCallback(
     (items: Omit<StarredItem, 'starredAt'>[]) => {
       if (items.length === 0) return;
@@ -409,9 +431,10 @@ export function StarredRiversProvider({ children }: { children: ReactNode }) {
       clearForAccountDeletion,
       isStarred: (kind: StarKind, entityId: string) => keys.has(`${kind}:${entityId}`),
       toggleStar,
+      removeStar,
       followStars,
     };
-  }, [entries, ready, syncing, toggleStar, followStars, clearForAccountDeletion]);
+  }, [entries, ready, syncing, toggleStar, removeStar, followStars, clearForAccountDeletion]);
 
   return (
     <StarredRiversContext.Provider value={value}>{children}</StarredRiversContext.Provider>

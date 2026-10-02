@@ -1,8 +1,9 @@
 import assert from 'node:assert/strict';
+import { favoriteAlerts } from '../../../eddy-ios/src/lib/favoriteAlerts';
 import test from 'node:test';
 import { alertAnchor, alertDraftChanged, createAlertSaveTask, type AlertDraft } from '../../../eddy-ios/src/lib/alertCreation';
 import { hourLabel, quietDraftChanged, quietWindowValid } from '../../../eddy-ios/src/lib/quietHours';
-import { alertCheckedLabel, shouldRefreshAlerts, ALERT_STALE_MS } from '../../../eddy-ios/src/lib/alertFreshness';
+import { checkedTimeAgo, alertCheckedLabel, shouldRefreshAlerts, ALERT_STALE_MS } from '../../../eddy-ios/src/lib/alertFreshness';
 import type { NotificationPreferences } from '@eddy/types';
 
 const initial: AlertDraft = {
@@ -129,7 +130,24 @@ test('public sources independently expire after 15 minutes, not every focus', ()
   assert.equal(shouldRefreshAlerts(now - ALERT_STALE_MS + 1, now), false);
   assert.equal(shouldRefreshAlerts(now - ALERT_STALE_MS, now), true);
   assert.equal(shouldRefreshAlerts(now, now), false);
+  assert.equal(checkedTimeAgo(null, now), null);
+  assert.equal(checkedTimeAgo(now + 60_000, now), 'just now');
+  assert.equal(checkedTimeAgo(now - 59_999, now), 'just now');
+  assert.equal(checkedTimeAgo(now - 60_000, now), '1m ago');
+  assert.equal(checkedTimeAgo(now - 3_600_000, now), '1h ago');
   assert.equal(alertCheckedLabel(null, now), null);
   assert.equal(alertCheckedLabel(now, now), 'Last checked just now');
   assert.equal(alertCheckedLabel(now - 7_200_000, now), 'Last checked 2h ago');
+});
+
+
+test('Favorites respects station identity, paused parents and spent one-time alerts', () => {
+  const parent = { id: 'parent', source: 'river_condition', scope: 'river', riverId: 'river', enabled: false, parentId: null } as import('@eddy/types').AlertRule;
+  const child = { id: 'child', source: 'gauge', scope: 'gauge', riverId: 'river', gaugeId: 'station', usgsSiteId: '07012345', enabled: true, parentId: 'parent', oneShot: false } as import('@eddy/types').AlertRule;
+  assert.equal(favoriteAlerts([parent, child], 'gauge', 'station').active, false);
+  assert.equal(favoriteAlerts([{ ...parent, enabled: true }, child], 'gauge', 'station').active, true);
+  assert.equal(favoriteAlerts([child], 'gauge', 'other-station').matches.length, 0);
+  assert.equal(favoriteAlerts([parent, child], 'dam', 'dam-slug', '07012345').matches.length, 1);
+  assert.equal(favoriteAlerts([parent, child], 'river', 'river').matches.length, 2);
+  assert.equal(favoriteAlerts([{ ...child, parentId: null, oneShot: true, firedAt: '2026-10-01' }], 'gauge', 'station').active, false);
 });

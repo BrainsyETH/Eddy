@@ -43,7 +43,7 @@
 // after this it is one tap away for everybody rather than for subscribers.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { FlatList, Pressable, RefreshControl, StyleSheet, Text, View } from 'react-native';
+import { ActionSheetIOS, Platform, Alert, AccessibilityInfo, FlatList, Pressable, RefreshControl, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LazyTabScreen } from '@/components/LazyTabScreen';
 import { ControlIcon } from '@/components/ControlIcon';
@@ -60,6 +60,10 @@ import { GaugeRow } from '@/components/GaugeRow';
 import { DamRow } from '@/components/dam/DamRow';
 import { SwipeRow } from '@/components/SwipeRow';
 import { rememberGauge, seedFromMapGauge, seedFromStar } from '@/lib/gaugeSeed';
+import { useAlertRules } from '@/hooks/useAlertRules';
+import { gaugeSharePath, shareLink } from '@/lib/share';
+import { favoriteAlerts } from '@/lib/favoriteAlerts';
+import { checkedTimeAgo } from '@/lib/alertFreshness';
 import { useStarredRivers } from '@/hooks/useStarredRivers';
 import { useEddyUpdates } from '@/hooks/useEddyUpdates';
 import { selectEddySays } from '@/lib/eddySays';
@@ -137,7 +141,26 @@ export default function FavoritesScreen() {
 }
 
 function FavoritesContent() {
-  const { starred, toggleStar, ready } = useStarredRivers();
+  const { starred, removeStar, ready } = useStarredRivers();
+  const { rules } = useAlertRules();
+  const [removed, setRemoved] = useState<{ name: string; undo: () => void } | null>(null);
+  useEffect(() => {
+    if (!removed) return;
+    // Leave Undo available for VoiceOver rather than racing its announcement.
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    let cancelled = false;
+    void AccessibilityInfo.isScreenReaderEnabled().then(enabled => {
+      if (!cancelled && !enabled) timer = setTimeout(() => setRemoved(null), 8000);
+    });
+    return () => { cancelled = true; if (timer) clearTimeout(timer); };
+  }, [removed]);
+  const removeFavorite = (item: (typeof starred)[number]) => {
+    const undo = removeStar(item);
+    if (undo) {
+      setRemoved({ name: item.name, undo });
+      AccessibilityInfo.announceForAccessibility(`Removed ${item.name}. Undo available at the top of Favorites.`);
+    }
+  };
   const { floats: savedFloats } = useSavedFloats();
   const { colors, elevation } = useTheme();
   const router = useRouter();
@@ -145,7 +168,8 @@ function FavoritesContent() {
   const [riverSnapshot, setRiverSnapshot] = useState<CacheEnvelope<RiverListItem[]> | null>(null);
   const [gaugeSnapshot, setGaugeSnapshot] = useState<CacheEnvelope<MapGauge[]> | null>(null);
   const [now, setNow] = useState(Date.now);
-  const [refreshFailed, setRefreshFailed] = useState(false);
+  const [failedSources, setFailedSources] = useState<string[]>([]);
+  const [damsCheckedAt, setDamsCheckedAt] = useState<number | null>(null);
   const requests = useRef(createLatestRequest());
   const lastAttempt = useRef(0);
   const rivers = useMemo(() => riverSnapshot ? agedIndex(riverSnapshot, now) : null, [riverSnapshot, now]);
@@ -153,11 +177,8 @@ function FavoritesContent() {
     ...gauge,
     readingAgeHours: effectiveReadingAgeHours(gauge.readingAgeHours, gaugeSnapshot.fetchedAt, now),
   })) ?? null, [gaugeSnapshot, now]);
-  // Not nullable, unlike the two above. fetchDams throws now rather than
-  // answering [] — see its header — but this screen still wants the lenient
-  // reading: the row renders from the store either way, and the enrichment
-  // failing is not a state worth distinguishing here. The `.catch` below is
-  // what keeps that true.
+  // Retain useful dam rows after a failed refresh; report the failed source
+  // separately instead of replacing its conditions with an empty snapshot.
   const [dams, setDams] = useState<DamSnapshot[]>([]);
   const [refreshing, setRefreshing] = useState(false);
   const [filter, setFilter] = useState<FavoriteFilter>('all');
@@ -188,12 +209,12 @@ function FavoritesContent() {
         return false;
       }).catch(() => true),
       getSharedDams().then((live) => {
-        if (request.isCurrent()) setDams(live);
+        if (request.isCurrent()) { setDams(live); setDamsCheckedAt(Date.now()); }
         return false;
       }).catch(() => true),
     ]);
     if (request.isCurrent()) {
-      setRefreshFailed(failures.some(Boolean));
+      setFailedSources(['rivers', 'gauges', 'dams'].filter((_, index) => failures[index]));
       setNow(Date.now());
     }
   }, []);
@@ -284,6 +305,7 @@ function FavoritesContent() {
 
   return (
     <SafeAreaView style={[styles.screen, { backgroundColor: colors.bg }]} edges={['top']}>
+      <View style={styles.listArea}>
       <FlatList
         contentInsetAdjustmentBehavior="automatic"
         data={visible}
@@ -304,14 +326,20 @@ function FavoritesContent() {
                 : favoritesSummary}
             </Text>
 
-            {refreshFailed || riversFromCache ? (
+            {failedSources.length > 0 || riversFromCache ? (
               <View style={styles.offlineRow}>
                 <ControlIcon name="cloud-offline-outline" size={14} color={colors.textMuted} />
                 <Text style={[styles.offlineText, { color: colors.textMuted }]}>
-                  {refreshFailed ? 'Couldn’t update all conditions.' : 'Showing saved conditions.'}
-                  {riverSnapshot ? ` River readings last checked ${new Date(riverSnapshot.fetchedAt).toLocaleString()}.` : ''}
-                  {' Pull down to retry.'}
+                  {failedSources.length ? `Couldn’t update ${failedSources.join(', ')}.` : 'Showing saved conditions.'}
+                  {' '}{[
+                    riverSnapshot ? `Rivers checked ${checkedTimeAgo(Date.parse(riverSnapshot.fetchedAt), now)}` : null,
+                    gaugeSnapshot ? `Gauges checked ${checkedTimeAgo(Date.parse(gaugeSnapshot.fetchedAt), now)}` : null,
+                    damsCheckedAt ? `Dams checked ${checkedTimeAgo(damsCheckedAt, now)}` : null,
+                  ].filter(Boolean).join(' · ')}
                 </Text>
+                <Pressable accessibilityRole="button" accessibilityLabel="Retry loading favorite conditions" disabled={refreshing} onPress={() => void onRefresh()} style={styles.smallAction}>
+                  <Text style={[t.sm, { color: colors.interactive }]}>{refreshing ? 'Checking…' : 'Retry'}</Text>
+                </Pressable>
               </View>
             ) : null}
 
@@ -357,32 +385,24 @@ function FavoritesContent() {
         ListEmptyComponent={
           ready ? (
             <View style={styles.empty}>
-              {/* "No favorite rivers yet?" — the heart is the screen. */}
               <EddyScene name="heart" size={128} />
               <Text style={[styles.emptyTitle, { color: colors.text }]}>
-                {starred.length > 0 ? 'Nothing of that kind' : 'No favorite rivers yet?'}
+                {starred.length > 0 ? 'Nothing of that kind' : 'No favorites yet'}
               </Text>
               <Text style={[styles.emptyBody, { color: colors.textMuted }]}>
                 {starred.length > 0
                   ? 'Tap the live chip again to see everything you have saved.'
-                  : 'Tap the star on any river or gauge to add it to your favorites. No account needed — favorites are kept on this device and will sync when you sign in.'}
+                  : 'Tap the star on any river, gauge or dam to add it to your favorites. No account needed — favorites are kept on this device and will sync when you sign in.'}
               </Text>
+              {starred.length === 0 ? <Pressable accessibilityRole="button" style={styles.smallAction} onPress={() => router.navigate('/')}>
+                <Text style={[t.base, { color: colors.interactive }]}>Browse rivers and gauges</Text>
+              </Pressable> : null}
             </View>
           ) : null
         }
         renderItem={({ item }) => (
-          /* ── Swipe left to unstar ──────────────────────────────────────
-             The star inside each row already does this, and it is the third
-             control on a card whose first two are "open it" and "open its
-             gauge" — findable, but not the gesture anyone reaches for on a
-             list of saved things. No confirmation: a favourite is local, and
-             putting it back is one tap on the same star.
-
-             bottomInset per kind, because the three row components do not
-             share a bottom margin (8, 9 and 10) and the red must end exactly
-             where the row does rather than two points short of it. */
           <SwipeRow
-            onAction={() => toggleStar(item)}
+            onAction={() => removeFavorite(item)}
             actionLabel="Remove"
             accessibilityActionLabel={`Remove ${item.name} from favorites`}
             bottomInset={item.kind === 'dam' ? 8 : item.kind === 'gauge' ? 9 : 10}
@@ -391,8 +411,67 @@ function FavoritesContent() {
           </SwipeRow>
         )}
       />
+      {removed ? <View pointerEvents="box-none" style={styles.undoOverlay}>
+        <View style={[styles.undoBar, { backgroundColor: colors.card, borderColor: colors.border }, elevation(1)]}>
+          <Text style={[t.sm, styles.undoText, { color: colors.text }]}>Removed {removed.name}</Text>
+          <Pressable accessibilityRole="button" accessibilityLabel={`Undo removing ${removed.name}`} style={styles.smallAction} onPress={() => { removed.undo(); setRemoved(null); }}>
+            <Text style={[t.base, { color: colors.interactive }]}>Undo</Text>
+          </Pressable>
+          <Pressable accessibilityRole="button" accessibilityLabel="Dismiss removal message" style={styles.smallAction} onPress={() => setRemoved(null)}>
+            <ControlIcon name="close" size={20} color={colors.textMuted} />
+          </Pressable>
+        </View>
+      </View> : null}
+      </View>
     </SafeAreaView>
   );
+
+  function actions(item: (typeof starred)[number]) {
+    const dam = item.kind === 'dam' ? damById.get(item.entityId) : null;
+    const rated = item.kind === 'river' ? gaugeForRiver(gauges, item.entityId) : null;
+    const siteId = item.kind === 'dam' ? dam?.tailwater?.gaugeSiteId : item.kind === 'gauge' ? item.usgsSiteId : rated?.gauge.usgsSiteId;
+    const gauge = item.kind === 'gauge' ? gaugeById.get(item.entityId) : null;
+    const sharePath = item.kind === 'river' ? byId.get(item.entityId)?.path
+      : item.kind === 'dam' ? `/dams/${encodeURIComponent(item.entityId)}`
+      : gaugeSharePath(gauge?.provider ?? item.provider, siteId);
+    const { matches, active } = favoriteAlerts(rules ?? [], item.kind, item.entityId, siteId);
+    const open = () => {
+      if (item.kind === 'dam') router.push(`/dam/${item.entityId}`);
+      else if (item.kind === 'river') router.push(`/river/${item.slug}`);
+      else if (siteId) {
+        rememberGauge(gaugeById.get(item.entityId) ? seedFromMapGauge(gaugeById.get(item.entityId)!) : seedFromStar(item));
+        router.push(`/gauge/${encodeURIComponent(siteId)}`);
+      }
+    };
+    const configure = () => router.push({ pathname: '/alerts/configure', params: item.kind === 'river'
+      ? { scope: 'river', riverId: item.entityId, riverSlug: item.slug, riverName: item.name }
+      : { scope: 'gauge', siteId: siteId!, gaugeName: item.kind === 'dam' ? `Tailwater below ${item.name}` : item.name, ...(item.kind === 'gauge' ? { gaugeId: item.entityId } : {}) } });
+    const manage = () => {
+      if (matches.length === 1) router.push({ pathname: '/alerts/[id]', params: { id: matches[0].id, source: matches[0].source } });
+      else router.navigate({ pathname: '/alerts', params: { segment: 'rules' } });
+    };
+    const showMenu = () => {
+      const buttons = [
+        ...(item.kind !== 'gauge' || siteId ? [{ text: 'Open', onPress: open }] : []),
+        ...(item.kind !== 'gauge' && siteId ? [{ text: 'Open gauge', onPress: () => router.push(`/gauge/${encodeURIComponent(siteId)}`) }] : []),
+        ...(matches.length ? [{ text: 'Manage alerts', onPress: manage }] : item.kind === 'river' || siteId ? [{ text: 'Create alert', onPress: configure }] : []),
+        ...(sharePath ? [{ text: 'Share', onPress: () => { void shareLink(item.name, sharePath); } }] : []),
+        { text: 'Remove favorite', style: 'destructive' as const, onPress: () => removeFavorite(item) },
+        { text: 'Cancel', style: 'cancel' as const },
+      ];
+      if (Platform.OS === 'ios') ActionSheetIOS.showActionSheetWithOptions({
+        title: item.name, options: buttons.map(button => button.text),
+        cancelButtonIndex: buttons.length - 1, destructiveButtonIndex: buttons.length - 2,
+      }, index => buttons[index]?.onPress?.());
+      else Alert.alert(item.name, undefined, buttons);
+    };
+    return <Pressable accessibilityRole="button"
+      accessibilityLabel={`Actions for ${item.name}${matches.length ? active ? ', active alerts' : ', alerts inactive' : ''}`}
+      style={styles.cardActions} onPress={showMenu} onLongPress={showMenu}>
+      {matches.length ? <ControlIcon name={active ? 'notifications' : 'notifications-off-outline'} size={16} color={active ? colors.interactive : colors.textMuted} /> : null}
+      <ControlIcon name="ellipsis-horizontal" size={22} color={colors.textMuted} />
+    </Pressable>;
+  }
 
   function favoriteRow(item: (typeof starred)[number]) {
     if (item.kind === 'dam') {
@@ -405,37 +484,15 @@ function FavoritesContent() {
         // The same store-only fallback the river branch ends with, and
         // for the same reason: named, tappable, honest about what is
         // missing. A dam that only exists in the store still opens.
-        return (
-          <View style={[styles.row, { backgroundColor: colors.card }, elevation(1)]}>
-            <Pressable
-              onPress={() => router.push(`/dam/${item.entityId}`)}
-              style={({ pressed }) => [styles.rowBody, { opacity: pressed ? 0.6 : 1 }]}
-              accessibilityRole="button"
-              accessibilityLabel={`${item.name} details, conditions unavailable`}
-            >
-              <Text style={[styles.riverName, { color: colors.text }]}>{item.name}</Text>
-              <Text style={[styles.riverMeta, { color: colors.textSubtle }]}>
-                Conditions unavailable — pull to refresh
-              </Text>
-            </Pressable>
-            <Pressable
-              onPress={() => toggleStar(item)}
-              style={({ pressed }) => [styles.starColumn, { opacity: pressed ? 0.5 : 1 }]}
-              accessibilityRole="button"
-              accessibilityLabel={`Unstar ${item.name}`}
-            >
-              <ControlIcon name="star" size={21} color={colors.warm} />
-            </Pressable>
-          </View>
-        );
+        return <UnavailableFavorite name={item.name} onPress={() => router.push(`/dam/${item.entityId}`)} accessory={actions(item)} />;
       }
       return (
         <DamRow
           dam={dam}
           onPress={() => router.push(`/dam/${dam.id}`)}
-          // Everything in this list is starred; the row is what unstars it.
+          // Favorites supplies its own actions menu in place of the star.
           starred
-          onToggleStar={() => toggleStar(item)}
+          accessory={actions(item)}
           // The reason somebody starred a dam. /api/dams already carries
           // today's schedule, so this is a render, not a request.
           showSchedule
@@ -457,7 +514,7 @@ function FavoritesContent() {
           name={item.name}
           riverName={riverName}
           gauge={gauge}
-          // Everything in this list is starred; the row is what unstars it.
+          // Favorites supplies its own actions menu in place of the star.
           starred
           // THE GAUGE, not its river. This used to require `item.slug`
           // and open the river screen, which meant a starred station that
@@ -478,7 +535,7 @@ function FavoritesContent() {
                 }
               : null
           }
-          onToggleStar={() => toggleStar(item)}
+          accessory={actions(item)}
         />
       );
     }
@@ -498,40 +555,36 @@ function FavoritesContent() {
           gaugeName={rated?.gauge.name ?? null}
           says={selectEddySays(eddyUpdates?.[item.slug])}
           onPress={() => router.push(`/river/${item.slug}`)}
-          onToggleStar={() => toggleStar(item)}
+          accessory={actions(item)}
         />
       );
     }
 
     // Store-only fallback: named, tappable, honest about what's missing.
-    return (
-      <View style={[styles.row, { backgroundColor: colors.card }, elevation(1)]}>
-        <Pressable
-          onPress={() => router.push(`/river/${item.slug}`)}
-          style={({ pressed }) => [styles.rowBody, { opacity: pressed ? 0.6 : 1 }]}
-          accessibilityRole="button"
-          accessibilityLabel={`${item.name} details, conditions unavailable`}
-        >
-          <Text style={[styles.riverName, { color: colors.text }]}>{item.name}</Text>
-          <Text style={[styles.riverMeta, { color: colors.textSubtle }]}>
-            Conditions unavailable — pull to refresh
-          </Text>
-        </Pressable>
-        <Pressable
-          onPress={() => toggleStar(item)}
-          style={({ pressed }) => [styles.starColumn, { opacity: pressed ? 0.5 : 1 }]}
-          accessibilityRole="button"
-          accessibilityLabel={`Unstar ${item.name}`}
-        >
-          <ControlIcon name="star" size={21} color={colors.warm} />
-        </Pressable>
-      </View>
-    );
+    return <UnavailableFavorite name={item.name} onPress={() => router.push(`/river/${item.slug}`)} accessory={actions(item)} />;
   }
+}
+
+function UnavailableFavorite({ name, onPress, accessory }: { name: string; onPress: () => void; accessory: React.ReactNode }) {
+  const { colors, elevation } = useTheme();
+  return <View style={[styles.row, { backgroundColor: colors.card }, elevation(1)]}>
+    <Pressable onPress={onPress} style={styles.rowBody} accessibilityRole="button" accessibilityLabel={`${name} details, conditions unavailable`}>
+      <Text style={[styles.riverName, { color: colors.text }]}>{name}</Text>
+      <Text style={[styles.riverMeta, { color: colors.textSubtle }]}>Conditions unavailable</Text>
+    </Pressable>
+    {accessory}
+  </View>;
 }
 
 const styles = StyleSheet.create({
   screen: { flex: 1 },
+  // Overlay coordinates are relative to content BELOW the top safe-area inset.
+  listArea: { flex: 1 },
+  undoOverlay: { position: 'absolute', top: 8, left: 12, right: 12, zIndex: 1 },
+  cardActions: { minWidth: 44, minHeight: 44, paddingVertical: 6, gap: 2, alignItems: 'center', justifyContent: 'center' },
+  smallAction: { minWidth: 44, minHeight: 44, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 8 },
+  undoBar: { flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderRadius: 12, padding: 12, gap: 4 },
+  undoText: { flex: 1 },
   header: { paddingHorizontal: 20, paddingTop: 12, paddingBottom: 16 },
   title: { ...textStyles.pageTitle },
   subtitle: { ...t.sm, fontFamily: fonts.body, marginTop: 4 },

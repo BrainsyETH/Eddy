@@ -5,6 +5,7 @@ import {
   mergeStars as mergeStarsRaw,
   migrateStars,
   toggleLocal,
+  restoreStar,
   visibleStars,
   type LocalStar,
   type ServerStar,
@@ -444,4 +445,28 @@ test('newly followed stars survive a sync that the server has not seen', () => {
   const plan = mergeStarsRaw(followed, [], 'river');
   assert.deepEqual(plan.toStar, ['r1']);
   assert.equal(visibleStars(plan.merged).length, 1);
+});
+
+
+test('Undo records a new mutation but preserves position and station metadata through sync and disk', () => {
+  const original = { ...local('g', true, EARLY, 'Remote gauge', 'gauge'), usgsSiteId: '07012345', provider: 'usgs' };
+  const newer = local('newer', true, LATE, 'Newer', 'gauge');
+  const removed = toggleLocal([newer, original], original, '2026-07-26T00:00:00Z');
+  const restored = restoreStar(removed, original, '2026-07-27T00:00:00Z');
+  assert.deepEqual(visibleStars(restored).map(entry => entry.entityId), ['newer', 'g']);
+  assert.equal(restored[0].updatedAt, '2026-07-27T00:00:00Z');
+  assert.equal(restored[0].usgsSiteId, '07012345');
+  assert.equal(restored[0].provider, 'usgs');
+  const disk = migrateStars(JSON.parse(JSON.stringify(restored)));
+  const synced = mergeStars(disk, [server('g', '2026-07-27T00:00:00Z', 'Remote gauge', 'gauge')], 'gauge');
+  assert.deepEqual(visibleStars(synced.merged).map(entry => entry.entityId), ['newer', 'g']);
+  assert.equal(restoreStar(restored, original, '2026-07-28T00:00:00Z'), restored);
+});
+
+test('Undo can restore after a confirmed deletion prunes its tombstone', () => {
+  const original = local('river', true, EARLY);
+  const removed = toggleLocal([original], original, LATE);
+  const synced = mergeStars(removed, []).merged;
+  assert.equal(synced.length, 0);
+  assert.equal(restoreStar(synced, original, '2026-07-28T00:00:00Z')[0].starred, true);
 });

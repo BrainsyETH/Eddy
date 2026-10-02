@@ -40,6 +40,7 @@
 // reading and stops, which is exactly what the old row showed. The failure mode
 // is the previous design rather than a hole.
 
+import type { ReactNode } from 'react';
 import { radii } from '@/theme/layout';
 import { memo } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
@@ -72,6 +73,7 @@ import { TREND_ICON } from '@/components/TrendPill';
 export type GaugeThresholds = NonNullable<MapGauge['thresholds']>[number];
 
 interface Props {
+  accessory?: ReactNode;
   river: RiverListItem;
   /**
    * The ladder this river's reading is graded on, from its primary gauge.
@@ -113,7 +115,7 @@ interface Props {
    */
   says?: EddySays | null;
   onPress: () => void;
-  onToggleStar: () => void;
+  onToggleStar?: () => void;
 }
 
 function FavoriteRiverCardComponent({
@@ -123,6 +125,7 @@ function FavoriteRiverCardComponent({
   says = null,
   onPress,
   onToggleStar,
+  accessory,
 }: Props) {
   const { colors, elevation, isDark } = useTheme();
 
@@ -183,14 +186,14 @@ function FavoriteRiverCardComponent({
           {/* A SIBLING of the navigation target, never a child — the same
               arrangement RiverRow settled on so the two touch areas cannot
               overlap and a tap near the star cannot be ambiguous. */}
-          <Pressable
+          {accessory ?? (onToggleStar ? <Pressable
             onPress={onToggleStar}
             style={({ pressed }) => [styles.starColumn, { opacity: pressed ? 0.5 : 1 }]}
             accessibilityRole="button"
             accessibilityLabel={`Unstar ${river.name}`}
           >
             <ControlIcon name="star" size={21} color={colors.warm} />
-          </Pressable>
+          </Pressable> : null)}
         </View>
 
         <Pressable
