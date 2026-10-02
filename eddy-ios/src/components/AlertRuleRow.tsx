@@ -140,11 +140,10 @@ function AlertRuleRowInner({
             nested ? styles.nestedTitle : styles.title,
             { color: dimmed ? colors.textMuted : colors.text },
           ]}
-          numberOfLines={1}
         >
           {title}
         </Text>
-        <Text style={[styles.trigger, { color: colors.textMuted }]} numberOfLines={2}>
+        <Text style={[styles.trigger, { color: colors.textMuted }]}>
           {/* Capitalised here rather than in the shared helper, because the push
               body embeds the same fragment mid-sentence. First character only —
               an earlier version matched the specific openings it expected and
@@ -153,7 +152,7 @@ function AlertRuleRowInner({
           {sentenceCase(describeAlertRule(rule))}
         </Text>
         {subtitle ? (
-          <Text style={[styles.meta, { color: colors.textSubtle }]} numberOfLines={1}>
+          <Text style={[styles.meta, { color: colors.textSubtle }]}>
             {subtitle}
           </Text>
         ) : null}
@@ -167,8 +166,7 @@ function AlertRuleRowInner({
             symmetry would be promising to undo a choice the gate preserves. */}
         {childCount > 0 ? (
           <Text style={[styles.meta, { color: colors.textSubtle }]}>
-            {childCount} {childCount === 1 ? 'gauge' : 'gauges'} on this river · pausing this
-            pauses {childCount === 1 ? 'it' : 'them'} too
+            Includes {childCount} gauge {childCount === 1 ? 'alert' : 'alerts'} · paused together
           </Text>
         ) : null}
         {gated ? (

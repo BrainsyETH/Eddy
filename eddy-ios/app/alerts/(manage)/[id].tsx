@@ -12,10 +12,15 @@
 // alert from one river to another is two operations, not an edit. What is left
 // is the trigger, and that fits on one screen with delete at the bottom.
 
-import { NativeHeaderHome } from '@/components/NativeHeaderHome';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { AlertCreationFrame } from '@/components/AlertCreationFrame';
+import { useAlertEditGuard } from '@/hooks/useAlertEditGuard';
+import { useCloseAlertCreation } from '@/hooks/useCloseAlertCreation';
+import { alertDraftChanged, type AlertDraft } from '@/lib/alertCreation';
+import { groupAlertRules } from '@/lib/alertGroups';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  Keyboard,
   Alert,
   Pressable,
   ScrollView,
@@ -25,9 +30,8 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { ControlIcon } from '@/components/ControlIcon';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import {
   describeAlertRule,
   formatAlertValue,
@@ -41,7 +45,6 @@ import { CONDITION_KINDS, codesForKind } from '@/lib/alertKinds';
 import { useAlertRules } from '@/hooks/useAlertRules';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
-import { goBack } from '@/lib/nav';
 
 const COMPARATORS: { value: AlertComparator; label: string }[] = [
   { value: 'above', label: 'Rises above' },
@@ -52,6 +55,7 @@ const COMPARATORS: { value: AlertComparator; label: string }[] = [
 export default function EditAlertScreen() {
   const { id, source } = useLocalSearchParams<{ id?: string; source?: string }>();
   const router = useRouter();
+  const close = useCloseAlertCreation();
   const { colors, elevation } = useTheme();
   const { rules, ready, update, remove, setEnabled: setRuleEnabled } = useAlertRules();
 
@@ -117,6 +121,10 @@ export default function EditAlertScreen() {
   const [valueMax, setValueMax] = useState('');
   const [oneShot, setOneShot] = useState(false);
   const [saving, setSaving] = useState(false);
+  const busyRef = useRef(false);
+  const [statusSaving, setStatusSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [baseline, setBaseline] = useState<AlertDraft | null>(null);
   const [error, setError] = useState<string | null>(null);
   /** Separate from `error`: the Active switch saves on its own, so it fails on
    *  its own too, and a pause that did not stick must not look like a failed
@@ -142,6 +150,9 @@ export default function EditAlertScreen() {
     setValue(rule.thresholdValue != null ? String(rule.thresholdValue) : '');
     setValueMax(rule.thresholdValueMax != null ? String(rule.thresholdValueMax) : '');
     setOneShot(rule.oneShot);
+    setBaseline({ mode: rule.mode, conditionKind: rule.conditionKind ?? 'all', metric: rule.metric ?? 'gauge_height_ft',
+      comparator: rule.comparator ?? 'above', value: rule.thresholdValue != null ? String(rule.thresholdValue) : '',
+      valueMax: rule.thresholdValueMax != null ? String(rule.thresholdValueMax) : '', oneShot: rule.oneShot });
     // `enabled` is deliberately NOT seeded into local state — see the Active
     // row below. It is the one control here that is not part of the trigger
     // being drafted, so it writes through immediately instead of waiting on
@@ -155,8 +166,15 @@ export default function EditAlertScreen() {
   const maxValid = !isThreshold || comparator !== 'between' || (Number.isFinite(parsedMax) && parsedMax > parsedValue);
   const spent = Boolean(rule?.oneShot && rule.firedAt);
 
-  const onSave = useCallback(async () => {
-    if (!rule) return;
+  const draft: AlertDraft = { mode: rule?.mode ?? 'condition', conditionKind, metric: rule?.metric ?? 'gauge_height_ft', comparator, value, valueMax, oneShot };
+  const dirty = baseline !== null && alertDraftChanged(draft, baseline);
+  const busy = saving || statusSaving || deleting;
+  const allowExitRef = useAlertEditGuard(dirty, busy, busyRef);
+
+  const onSave = async () => {
+    if (!rule || busyRef.current || !valueValid || !maxValid) return;
+    busyRef.current = true;
+    Keyboard.dismiss();
     setError(null);
     setSaving(true);
     try {
@@ -182,17 +200,21 @@ export default function EditAlertScreen() {
       // STAY ON THE SCREEN when the rule saved into a state it cannot fire
       // from. Popping back would hide the one explanation of why nothing is
       // going to happen, and the fix — a different number — is on this screen.
+      setBaseline(draft);
       if (result?.state === 'inside') {
         setSeed(result);
         return;
       }
-      goBack(router);
+      allowExitRef.current = true;
+      busyRef.current = false;
+      close();
     } catch {
       setError('Could not save that change. Try again.');
     } finally {
+      busyRef.current = false;
       setSaving(false);
     }
-  }, [rule, update, oneShot, conditionKind, isThreshold, comparator, parsedValue, parsedMax, spent, router]);
+  };
 
   /**
    * Active writes through on tap, matching the identical switch in the manage
@@ -203,16 +225,13 @@ export default function EditAlertScreen() {
    * out silently discarded the change. Everything else on this screen is a
    * DRAFT of the trigger — pausing is not a draft, it is an instruction.
    */
-  const onToggleActive = useCallback(
-    (next: boolean) => {
-      if (!rule) return;
-      setEnabledError(null);
-      void setRuleEnabled(rule, next).catch(() =>
-        setEnabledError(next ? 'Could not resume that alert.' : 'Could not pause that alert.'),
-      );
-    },
-    [rule, setRuleEnabled],
-  );
+  const onToggleActive = async (next: boolean) => {
+    if (!rule || busyRef.current) return;
+    busyRef.current = true; setStatusSaving(true); setEnabledError(null);
+    try { await setRuleEnabled(rule, next); }
+    catch { setEnabledError(next ? 'Could not resume that alert.' : 'Could not pause that alert.'); }
+    finally { busyRef.current = false; setStatusSaving(false); }
+  };
 
   /**
    * Editing the trigger clears the last verdict — the user is answering it.
@@ -227,44 +246,48 @@ export default function EditAlertScreen() {
     set(next);
   }, []);
 
-  const onDelete = useCallback(() => {
-    if (!rule) return;
-    Alert.alert('Delete this alert?', 'You will stop getting notifications for it.', [
+  const onDelete = () => {
+    if (!rule || busyRef.current) return;
+    const children = groupAlertRules(rules ?? []).find(group => group.rule.id === rule.id && group.rule.source === rule.source)?.children ?? [];
+    Alert.alert(children.length ? `Delete this alert and ${children.length} more?` : 'Delete this alert?',
+      children.length ? `The ${children.length} gauge ${children.length === 1 ? 'alert' : 'alerts'} on ${rule.riverName ?? 'this river'} will also be deleted. This cannot be undone.` : 'You will stop getting notifications for it. This cannot be undone.', [
       { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Delete',
-        style: 'destructive',
-        onPress: () => {
-          void remove(rule)
-            .then(() => goBack(router))
-            .catch(() => setError('Could not delete that alert. Try again.'));
-        },
-      },
+      { text: 'Delete', style: 'destructive', onPress: async () => {
+        if (busyRef.current) return;
+        busyRef.current = true; setDeleting(true);
+        try {
+          await remove(rule, children);
+          allowExitRef.current = true;
+          busyRef.current = false;
+          close();
+        } catch { setError('Could not delete that alert. Try again.'); }
+        finally { busyRef.current = false; setDeleting(false); }
+      } },
     ]);
-  }, [rule, remove, router]);
+  };
 
-  if (!ready) {
+  if (!ready || deleting) {
     return (
-      <SafeAreaView style={[styles.screen, { backgroundColor: colors.bg }]} edges={['left', 'right']}>
-        <NativeHeaderHome />
+      <AlertCreationFrame secondary={{ label: 'Close', onPress: close, disabled: busy }}>
+
         <ScrollView contentInsetAdjustmentBehavior="automatic" contentContainerStyle={styles.centered}>
-          <ActivityIndicator color={colors.interactive} accessibilityLabel="Loading alert" />
+          <ActivityIndicator color={colors.interactive} accessibilityLabel={deleting ? "Deleting alert" : "Loading alert"} />
         </ScrollView>
-      </SafeAreaView>
+      </AlertCreationFrame>
     );
   }
 
   if (!rule) {
     return (
-      <SafeAreaView style={[styles.screen, { backgroundColor: colors.bg }]} edges={['left', 'right']}>
-        <NativeHeaderHome />
+      <AlertCreationFrame secondary={{ label: 'Close', onPress: close, disabled: busy }}>
+
         <ScrollView contentInsetAdjustmentBehavior="automatic" contentContainerStyle={styles.centered}>
           <Text style={[styles.emptyTitle, { color: colors.text }]}>Alert not found</Text>
           <Text style={[styles.emptyBody, { color: colors.textMuted }]}>
             It may have been deleted on another device.
           </Text>
         </ScrollView>
-      </SafeAreaView>
+      </AlertCreationFrame>
     );
   }
 
@@ -284,7 +307,7 @@ export default function EditAlertScreen() {
     rule.scope === 'gauge'
       ? (rule.gaugeName ?? rule.riverName ?? 'this water')
       : (rule.riverName ?? rule.gaugeName ?? 'this water');
-  const canSave = valueValid && maxValid;
+  const canSave = valueValid && maxValid && (dirty || spent);
 
   const chip = (selected: boolean) => [
     styles.chip,
@@ -297,10 +320,11 @@ export default function EditAlertScreen() {
   ];
 
   return (
-    <SafeAreaView style={[styles.screen, { backgroundColor: colors.bg }]} edges={['left', 'right']}>
-      <NativeHeaderHome />
+    <AlertCreationFrame error={error} secondary={{ label: 'Cancel edits', onPress: close, disabled: busy }} primary={{ label: saving ? 'Saving…' : 'Save changes', onPress: () => void onSave(), disabled: !canSave || busy, busy: saving }}>
+      <Stack.Screen options={{ title: 'Edit alert', gestureEnabled: !busy }} />
 
-      <ScrollView contentInsetAdjustmentBehavior="automatic" automaticallyAdjustKeyboardInsets contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+
+      <ScrollView contentInsetAdjustmentBehavior="automatic" pointerEvents={busy ? 'none' : 'auto'} accessibilityElementsHidden={busy} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
         <Text style={[styles.targetName, { color: colors.text }]} accessibilityRole="header">
           {targetName}
         </Text>
@@ -373,7 +397,7 @@ export default function EditAlertScreen() {
           ]}
         >
           <View style={styles.optionBody}>
-            <Text style={[styles.optionTitle, { color: colors.text }]}>Active</Text>
+            <Text style={[styles.optionTitle, { color: colors.text }]}>Alert status</Text>
             <Text style={[styles.optionHint, { color: colors.textMuted }]}>
               {/* THE GATE OUTRANKS THE SWITCH. A child of a paused river alert
                   has `enabled: true` and will not fire, and this row is the one
@@ -395,10 +419,13 @@ export default function EditAlertScreen() {
           </View>
           <Switch
             value={rule.enabled}
-            onValueChange={onToggleActive}
+            onValueChange={next => void onToggleActive(next)}
+            disabled={busy}
+            accessibilityLabel="Alert active"
             trackColor={{ true: colors.interactive, false: colors.border }}
           />
         </Pressable>
+        <Text style={[styles.hint, { color: colors.textMuted }]}>{statusSaving ? 'Updating status…' : 'Status changes save immediately.'}</Text>
         {enabledError ? (
           <Text style={[styles.errorText, { color: colors.error }]}>{enabledError}</Text>
         ) : null}
@@ -536,29 +563,6 @@ export default function EditAlertScreen() {
           />
         </Pressable>
 
-        {error ? <Text style={[styles.errorText, { color: colors.error }]}>{error}</Text> : null}
-
-        <Pressable
-          onPress={() => void onSave()}
-          disabled={!canSave || saving}
-          style={({ pressed }) => [
-            styles.saveButton,
-            {
-              backgroundColor: canSave ? colors.accentFill : colors.cardRaised,
-              opacity: pressed ? 0.7 : 1,
-            },
-          ]}
-          accessibilityRole="button"
-        >
-          {saving ? (
-            <ActivityIndicator color={colors.onAccent} />
-          ) : (
-            <Text style={[styles.saveText, { color: canSave ? colors.onAccent : colors.textSubtle }]}>
-              Save changes
-            </Text>
-          )}
-        </Pressable>
-
         <Pressable
           onPress={onDelete}
           style={({ pressed }) => [styles.deleteButton, { opacity: pressed ? 0.6 : 1 }]}
@@ -567,7 +571,7 @@ export default function EditAlertScreen() {
           <Text style={[styles.deleteText, { color: colors.error }]}>Delete alert</Text>
         </Pressable>
       </ScrollView>
-    </SafeAreaView>
+    </AlertCreationFrame>
   );
 }
 
@@ -615,9 +619,10 @@ const styles = StyleSheet.create({
   optionBody: { flex: 1 },
   optionTitle: { ...t.base, fontFamily: fonts.semibold },
   optionHint: { ...t.xs, fontFamily: fonts.body, marginTop: 2 },
-  valueRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 12 },
+  valueRow: { flexWrap: 'wrap', flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 12 },
   valueInput: {
     flex: 1,
+    minWidth: 100,
     borderWidth: 1,
     borderRadius: 12,
     paddingHorizontal: 14,

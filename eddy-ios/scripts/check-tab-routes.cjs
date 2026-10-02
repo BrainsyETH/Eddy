@@ -157,6 +157,14 @@ for (const [group, initial] of Object.entries(roots)) {
     back();
     assert.deepEqual(activeStack(), river);
   }
+  for (const href of ['/alerts/quiet-hours', '/alerts/rule-1?source=gauge']) {
+    const manage = push(href);
+    assert.equal(manage.target, appState().key, 'Alert management must target the root modal stack');
+    assert.equal(appState().routes.at(-1).name, 'alerts/(manage)');
+    back(appState().key);
+    assert.equal(activeTab(), owner);
+    assert.deepEqual(activeStack(), river, 'Dismissing management lost the source screen');
+  }
   const modal = push('/alerts/new');
   assert.equal(modal.target, appState().key, 'Alert creation must target the root modal stack');
   assert.equal(appState().routes.at(-1).name, 'alerts/(create)');
@@ -168,9 +176,7 @@ for (const [href, group, screen] of [
   ['https://eddy.guide/river/current?gauge=07067000#conditions', 'today', 'river/[slug]'],
   ['eddy://gauge/07067000', 'today', 'gauge/[siteId]'],
   ['/storage', 'settings', 'storage'],
-  ['/alerts/quiet-hours', 'settings', 'alerts/quiet-hours'],
   ['/floats', 'favorites', 'floats'],
-  ['/alerts/rule-1', 'alerts', 'alerts/[id]'],
 ]) {
   launch(redirectSystemPath({ path: href, initial: true }));
   assert.equal(activeTab(), `(${group})`, `Wrong cold-link owner for ${href}`);
@@ -179,3 +185,11 @@ for (const [href, group, screen] of [
   assert.equal(activeStack().routes.at(-1).name, roots[group], 'Cold link has no useful Back destination');
 }
 console.log('Shared pushes, nested Back, independent tab history, notification destinations, cold links, and root modal dismissal verified.');
+
+for (const href of ['/alerts/quiet-hours', '/alerts/rule-1?source=gauge']) {
+  launch(redirectSystemPath({ path: href, initial: true }));
+  assert.equal(appState().routes.at(-1).name, 'alerts/(manage)');
+  const modal = appState().routes.at(-1).state;
+  assert.equal(modal.routes.at(-1).name, href.includes('quiet-hours') ? 'quiet-hours' : '[id]');
+}
+console.log('Quiet hours and edit sheets preserve warm origins and resolve cold URLs.');

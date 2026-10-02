@@ -1,6 +1,9 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { alertAnchor, alertDraftChanged, createAlertSaveTask, type AlertDraft } from '../../../eddy-ios/src/lib/alertCreation';
+import { hourLabel, quietDraftChanged, quietWindowValid } from '../../../eddy-ios/src/lib/quietHours';
+import { alertCheckedLabel, shouldRefreshAlerts, ALERT_STALE_MS } from '../../../eddy-ios/src/lib/alertFreshness';
+import type { NotificationPreferences } from '@eddy/types';
 
 const initial: AlertDraft = {
   mode: 'threshold', conditionKind: 'safety', metric: 'gauge_height_ft',
@@ -90,4 +93,43 @@ test('post-write failure cannot unlock a second create request', async () => {
   let repeated = false;
   assert.equal(await task.run(async () => { repeated = true; }), null);
   assert.equal(repeated, false);
+});
+
+// The management sheet keeps the stored switch state and wall-clock minutes.
+const quiet: NotificationPreferences = {
+  quietHoursEnabled: false, quietStartMinute: 22 * 60 + 7, quietEndMinute: 7 * 60,
+  timezone: 'America/Denver', safetyOverridesQuiet: true,
+};
+test('opening quiet hours preserves off state, zone and off-grid saved minutes', () => {
+  const draft = { ...quiet };
+  assert.equal(quietDraftChanged(draft, quiet), false);
+  assert.equal(draft.quietHoursEnabled, false);
+  assert.equal(draft.quietStartMinute, 1327);
+  assert.equal(quietWindowValid(draft), true);
+  assert.match(hourLabel(1327), /07/);
+  assert.notEqual(hourLabel(1327), hourLabel(1320));
+});
+test('equal times are invalid without mutating either bound, even when disabled', () => {
+  const draft = { ...quiet, quietEndMinute: quiet.quietStartMinute };
+  assert.equal(quietWindowValid(draft), false);
+  assert.equal(draft.quietEndMinute, 1327);
+  assert.equal(quietWindowValid({ ...quiet, quietStartMinute: null }), false);
+  assert.equal(quietWindowValid({ ...quiet, quietStartMinute: 1440 }), false);
+});
+test('quiet edits include timezone and exception; reverting clears dirty state', () => {
+  for (const patch of [{ quietHoursEnabled: true }, { quietStartMinute: 1320 }, { quietEndMinute: 480 }, { timezone: 'America/Chicago' }, { safetyOverridesQuiet: false }]) {
+    assert.equal(quietDraftChanged({ ...quiet, ...patch }, quiet), true);
+  }
+  assert.equal(quietDraftChanged({ ...quiet }, quiet), false);
+  assert.equal(quietDraftChanged(null, quiet), false);
+});
+test('public sources independently expire after 15 minutes, not every focus', () => {
+  const now = 10_000_000;
+  assert.equal(shouldRefreshAlerts(null, now), true);
+  assert.equal(shouldRefreshAlerts(now - ALERT_STALE_MS + 1, now), false);
+  assert.equal(shouldRefreshAlerts(now - ALERT_STALE_MS, now), true);
+  assert.equal(shouldRefreshAlerts(now, now), false);
+  assert.equal(alertCheckedLabel(null, now), null);
+  assert.equal(alertCheckedLabel(now, now), 'Last checked just now');
+  assert.equal(alertCheckedLabel(now - 7_200_000, now), 'Last checked 2h ago');
 });

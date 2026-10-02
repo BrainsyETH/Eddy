@@ -1,24 +1,5 @@
-// eddy-ios/src/lib/quietHours.ts
-// The one place that knows what a quiet-hours window has to look like before
-// the server will accept it.
-//
-// ── The bug this exists to end ──────────────────────────────────────────────
-//
-// PUT /api/me/notification-preferences rejects `quietHoursEnabled: true` unless
-// BOTH bounds are whole minutes in 0–1439 and the two differ. A user who has
-// never opened the settings screen has neither: the route's own DEFAULTS are
-// `{ enabled: false, start: null, end: null }`, so that is what the GET returns
-// and what the app holds.
-//
-// The row on the Alerts tab then sent exactly that back with one field flipped
-// — enabled true, bounds still null — the server answered 400, and the switch's
-// optimistic update reverted. To the user: a toggle that flicks on, flicks off
-// again, and says nothing. It worked for anyone who had set a window on the
-// settings screen first, which is why it read as intermittent rather than as
-// broken.
-//
-// Both surfaces now build their payload here, so neither can send a window the
-// server will refuse, and the defaults cannot drift apart between them.
+// Quiet-hours wall-clock formatting and draft validation. Preferences use the
+// account timezone; opening the editor must not enable or round stored values.
 
 import type { NotificationPreferences } from '@eddy/types';
 
@@ -44,7 +25,7 @@ export function deviceTimezone(): string {
 }
 
 /**
- * A whole hour, written the way THIS PHONE writes hours.
+ * A wall-clock time, retaining any saved minutes.
  *
  * ── Why this stopped being hand-rolled ──────────────────────────────────────
  *
@@ -70,15 +51,16 @@ export function deviceTimezone(): string {
 export function hourLabel(minute: number): string {
   const hour = Math.floor(minute / 60) % 24;
   try {
-    // 1970-01-01, so only the hour field can vary.
+    // Fixed UTC date avoids device-zone and DST conversion.
     return new Intl.DateTimeFormat(undefined, {
       hour: 'numeric',
+      ...(minute % 60 ? { minute: '2-digit' as const } : {}),
       timeZone: 'UTC',
-    }).format(new Date(Date.UTC(1970, 0, 1, hour)));
+    }).format(new Date(Date.UTC(1970, 0, 1, hour, minute % 60)));
   } catch {
     const suffix = hour < 12 ? 'am' : 'pm';
     const display = hour % 12 === 0 ? 12 : hour % 12;
-    return `${display}${suffix}`;
+    return `${display}${minute % 60 ? `:${String(minute % 60).padStart(2, '0')}` : ''}${suffix}`;
   }
 }
 
@@ -138,4 +120,14 @@ export function withUsableWindow(
     quietEndMinute: start === end ? (end + 60) % 1440 : end,
     timezone: prefs.timezone || deviceTimezone(),
   };
+}
+
+/** Draft validation never changes the other time behind the user's back. */
+export function quietWindowValid(prefs: NotificationPreferences): boolean {
+  return usableMinute(prefs.quietStartMinute) && usableMinute(prefs.quietEndMinute) && prefs.quietStartMinute !== prefs.quietEndMinute;
+}
+export function quietDraftChanged(draft: NotificationPreferences | null, initial: NotificationPreferences | null): boolean {
+  if (!draft || !initial) return false;
+  return draft.quietHoursEnabled !== initial.quietHoursEnabled || draft.quietStartMinute !== initial.quietStartMinute ||
+    draft.quietEndMinute !== initial.quietEndMinute || draft.timezone !== initial.timezone || draft.safetyOverridesQuiet !== initial.safetyOverridesQuiet;
 }

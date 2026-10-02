@@ -206,7 +206,7 @@ test('cold shared detail links open Today and preserve parameters', () => {
 
 test('warm detail links preserve the current tab and modal tasks remain global', () => {
   assert.equal(redirectSystemPath({ path: '/river/current', initial: false }), '/river/current');
-  for (const path of ['/reports', '/', '/profile', '/alerts/new', '/alerts/configure?siteId=123', '/not-a-route']) {
+  for (const path of ['/reports', '/', '/profile', '/alerts/new', '/alerts/configure?siteId=123', '/alerts/quiet-hours', '/alerts/rule-123?source=gauge', '/not-a-route']) {
     assert.equal(redirectSystemPath({ path, initial: true }), path);
   }
   assert.equal(redirectSystemPath({ path: 'https://example.com/river/current', initial: true }), 'https://example.com/river/current');
@@ -215,8 +215,8 @@ test('warm detail links preserve the current tab and modal tasks remain global',
 
 test('cold links use the destination tab and retain query/hash while warm links stay unqualified', () => {
   for (const [path, owner] of [
-    ['/storage', 'settings'], ['/alerts/quiet-hours', 'settings'],
-    ['/floats', 'favorites'], ['/alerts/rule-123', 'alerts'],
+    ['/storage', 'settings'],
+    ['/floats', 'favorites'],
     ['/favorite-floats', 'today'], ['/current-alerts', 'today'],
   ]) {
     const withParams = `${path}?source=link#details`;

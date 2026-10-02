@@ -303,7 +303,7 @@ function ThemedShell() {
             return {
               headerShown: false,
               contentStyle: { backgroundColor: colors.bg },
-              ...(route.name === 'alerts/(create)' ? { presentation: 'modal' as const } : {}),
+              ...((route.name === 'alerts/(create)' || route.name === 'alerts/(manage)') ? { presentation: 'modal' as const } : {}),
             };
           }} />
         </NavigationThemeProvider>
