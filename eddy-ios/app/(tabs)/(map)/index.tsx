@@ -1269,14 +1269,14 @@ function MapContent() {
   const mapSearchOpen = searchFocused || search.query.length > 0;
   const clearSearch = search.clear;
   const cancelMapSearch = useCallback(() => {
+    // Clearing the query alone leaves an empty, focused search active and
+    // suppresses the selected pin/river sheet. Every selection exits all three.
     clearSearch();
     setSearchFocused(false);
     Keyboard.dismiss();
   }, [clearSearch]);
   const onSelectResult = useCallback((result: SearchResult) => {
-    Keyboard.dismiss();
-    setSearchFocused(false);
-    clearSearch();
+    cancelMapSearch();
     setSelectedPin(null);
     if (result.kind === 'access_point' && result.riverSlug) {
       // The whole network's put-ins are on the map now, so this no longer has
@@ -1417,7 +1417,7 @@ function MapContent() {
     services,
     damPins,
     selectedSlug,
-    clearSearch,
+    cancelMapSearch,
     selectRiver,
     issueCameraCommand,
     enableLayer,
@@ -2420,18 +2420,14 @@ function MapContent() {
   // river picker name a river without pointing at any part of it.
   const onSelectNetworkRiver = useCallback(
     (slug: string, at?: { lng: number; lat: number }) => {
-      // A map tap is a search dismissal. The results overlay suppresses the
-      // sheets but not the map's own handlers, so a tap through it used to
-      // half-work: the river selected invisibly, and the queued camera flight
-      // fired seconds later when the search was cleared — a jump nobody asked
-      // for at a moment nobody expected. Same three steps as onSelectResult;
-      // clear() is stable and a no-op when the field is already empty.
-      clearSearch();
+      // A map selection also exits focused search, so its sheet can appear
+      // on this tap rather than waiting for a separate Cancel.
+      cancelMapSearch();
       selectRiver(slug, at ? { camera: 'pin', lng: at.lng, lat: at.lat } : { camera: 'fitRiver' });
       setSelectedPin(null);
       pendingAccessSelection.current = null;
     },
-    [clearSearch, selectRiver],
+    [cancelMapSearch, selectRiver],
   );
 
   /**
@@ -2615,10 +2611,9 @@ function MapContent() {
    */
   const onSelectPin = useCallback(
     (pin: MapPin) => {
-      // A map tap is a search dismissal — see onSelectNetworkRiver. Without
-      // this, tapping a pin under the results overlay opened no callout and
-      // left a camera command queued for whenever the search cleared.
-      clearSearch();
+      // Exit search before selecting: an empty query can still have focus,
+      // and mapSearchOpen hides the pin sheet until that focus is cleared.
+      cancelMapSearch();
       // A dot from the zoomed-out index has no name or station uuid to open a
       // callout with — the index leaves both out to stay one request. Treat
       // it the way a cluster is treated: zoom toward it. Past the floor the
@@ -2659,7 +2654,7 @@ function MapContent() {
       }
       setSelectedPin(pin);
     },
-    [accessPointForPin, clearSearch, selectedSlug, selectRiver, issueCameraCommand, onZoomToCluster],
+    [accessPointForPin, cancelMapSearch, selectedSlug, selectRiver, issueCameraCommand, onZoomToCluster],
   );
 
   // The gauge behind a tapped gauge pin. Looked up rather than carried on
