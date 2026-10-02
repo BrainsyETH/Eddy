@@ -1,3 +1,4 @@
+import { serviceContactActions } from '@/lib/serviceContactActions';
 // eddy-ios/src/components/map-sheet/AccessTabs.tsx
 // What an access point says, split four ways.
 //
@@ -134,7 +135,6 @@ export function AccessOverviewTab({
   galleryWidth = 320,
 }: TabProps) {
   const point = detail?.accessPoint;
-  const camping = nearbyCamping(detail);
   const services = servicesByTier(detail);
   const availability = accessAvailability(point ?? null);
   const { colors } = useTheme();
@@ -191,7 +191,7 @@ export function AccessOverviewTab({
     // only fact is its fortnight would otherwise meet "Eddy has no description
     // for this place yet" sitting directly above a populated Campsites card.
     !availability &&
-    camping.length === 0 &&
+    services.camping.length === 0 &&
     !hasGettingIn &&
     !hasParking &&
     !hasFacilities &&
@@ -309,51 +309,27 @@ export function AccessOverviewTab({
           partition — so merging Place in could not reintroduce the duplicate
           that split them in the first place. That property is the reason the
           merge is safe, and it lives in servicesByTier rather than here. */}
-      {camping.length ? (
+      {services.camping.length ? (
         <Section title="Camping nearby">
-          {camping.map((entry) => (
-            <LinkRow
-              key={entry.key}
-              label={entry.name}
-              detail={entry.detail}
-              external={entry.external}
-              onPress={entry.onPress}
-            />
+          {services.camping.map((service) => (
+            <ServiceContactRow key={service.name} service={service} />
           ))}
         </Section>
       ) : null}
 
       {services.rentals.length ? (
         <Section title="Outfitters and shuttles">
-          {services.rentals.map((service) => {
-            const row = serviceRow(service);
-            return (
-              <LinkRow
-                key={row.key}
-                label={row.name}
-                detail={service.phone ?? row.detail}
-                external
-                onPress={row.onPress}
-              />
-            );
-          })}
+          {services.rentals.map((service) => (
+            <ServiceContactRow key={service.name} service={service} />
+          ))}
         </Section>
       ) : null}
 
       {services.lodging.length ? (
         <Section title="Cabins and lodging">
-          {services.lodging.map((service) => {
-            const row = serviceRow(service);
-            return (
-              <LinkRow
-                key={row.key}
-                label={row.name}
-                detail={service.phone ?? row.detail}
-                external
-                onPress={row.onPress}
-              />
-            );
-          })}
+          {services.lodging.map((service) => (
+            <ServiceContactRow key={service.name} service={service} />
+          ))}
         </Section>
       ) : null}
 
@@ -1010,19 +986,9 @@ function present(value: string | null | undefined): boolean {
   return normalised !== '' && normalised !== 'no' && normalised !== 'none' && normalised !== 'unknown';
 }
 
-/**
- * How to reach a service: the phone if there is one, else the website.
- *
- * Phone first, which is the rule the whole app follows — at a put-in on one bar
- * of signal a number you can tap beats a page you have to load. Written once
- * because it was written twice, identically, in the two places that list these
- * services, and a second copy is a second chance to disagree about whether a
- * bare "example.com" needs a scheme.
- */
+/** Legacy single-action callers can still choose the first available method. */
 export function serviceUrl(service: NearbyService): string | null {
-  if (service.phone) return `tel:${service.phone.replace(/[^\d+]/g, '')}`;
-  if (!service.website) return null;
-  return /^https?:\/\//i.test(service.website) ? service.website : `https://${service.website}`;
+  return serviceContactActions(service)[0]?.url ?? null;
 }
 
 /**
@@ -1052,23 +1018,33 @@ function servicesByTier(detail: AccessPointDetailResponse | null) {
   };
 }
 
-/** A service as a row: name, whatever qualifies it, and a way to reach it. */
-function serviceRow(service: NearbyService) {
-  const url = serviceUrl(service);
-  return {
-    key: `service-${service.name}`,
-    name: service.name,
-    detail: [service.distance, service.notes].filter(Boolean).join(' · ') || null,
-    external: true,
-    onPress: () => {
-      if (url) void Linking.openURL(url);
-    },
-  };
-}
-
-/** Places to sleep near this put-in, whoever runs them. Overview's, and only. */
-function nearbyCamping(detail: AccessPointDetailResponse | null) {
-  return servicesByTier(detail).camping.map(serviceRow);
+/** Keep the business context visible alongside every available contact method. */
+function ServiceContactRow({ service }: { service: NearbyService }) {
+  const { colors } = useTheme();
+  const actions = serviceContactActions(service);
+  return (
+    <View>
+      <LinkRow
+        label={service.name}
+        detail={[service.distance, service.notes].filter(Boolean).join(' · ') || null}
+      />
+      {actions.length ? (
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12 }}>
+          {actions.map((action) => (
+            <Pressable
+              key={action.label}
+              accessibilityRole="link"
+              accessibilityLabel={`${action.label}: ${service.name}`}
+              onPress={() => void Linking.openURL(action.url)}
+              style={{ minHeight: 44, minWidth: 44, justifyContent: 'center', paddingHorizontal: 8 }}
+            >
+              <Text style={{ ...t.sm, fontFamily: fonts.body, color: colors.interactive }}>{action.label}</Text>
+            </Pressable>
+          ))}
+        </View>
+      ) : null}
+    </View>
+  );
 }
 
 const styles = StyleSheet.create({
@@ -1118,3 +1094,4 @@ const styles = StyleSheet.create({
   floatMeta: { ...t.sm, fontFamily: fonts.body, marginTop: 1 },
   floatAction: { ...t.sm, fontFamily: fonts.semibold, maxWidth: 88, flexShrink: 0 },
 });
+

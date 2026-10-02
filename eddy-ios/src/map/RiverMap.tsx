@@ -1,3 +1,4 @@
+import { serviceContactActions, type ServiceContactAction } from '@/lib/serviceContactActions';
 // eddy-ios/src/map/RiverMap.tsx
 // The Mapbox view: every curated river drawn in its live condition colour, the
 // selected one drawn brighter on top, plus whichever layers the sheet has
@@ -333,24 +334,6 @@ const COLD_START_CENTER: [number, number] = [-91.5, 37.5];
 const COLD_START_ZOOM = 6.2;
 
 /**
- * The one useful thing you can do with an outfitter from a riverbank.
- *
- * Phone first: at a take-out with a dead shuttle plan, a number you can tap
- * beats a website you have to load. Returns null rather than a dead button when
- * the row has neither — a "Call" that does nothing is worse than no button.
- */
-function serviceLink(service: RiverService): { label: string; url: string } | null {
-  if (service.phone) {
-    return { label: `Call ${service.phone}`, url: `tel:${service.phone.replace(/[^\d+]/g, '')}` };
-  }
-  if (service.website) {
-    const url = /^https?:\/\//i.test(service.website) ? service.website : `https://${service.website}`;
-    return { label: 'Open website', url };
-  }
-  return null;
-}
-
-/**
  * A point the map can draw and hand back when tapped.
  *
  * Everything past `coordinates` exists for the CALLOUT rather than the pin. A
@@ -447,6 +430,7 @@ export interface MapPin {
   updatedAt?: string | null;
   /** Tap-to-call or tap-to-book. Never fabricated: null when there is no number. */
   link?: { label: string; url: string } | null;
+  contactLinks?: ServiceContactAction[];
   /**
    * One photograph of the place, when there is one.
    *
@@ -604,7 +588,7 @@ export function mapServicePin(
       .join(' · '),
     coordinates: { lng: s.longitude as number, lat: s.latitude as number },
     body: s.description,
-    link: serviceLink(s),
+    contactLinks: serviceContactActions(s),
   };
 }
 
@@ -653,7 +637,7 @@ export function mapCampgroundServicePin({
     coordinates: { lng: s.longitude as number, lat: s.latitude as number },
     availability: s.availability ?? null,
     body: s.description ?? null,
-    link: serviceLink(s),
+    contactLinks: serviceContactActions(s),
   };
 }
 
@@ -2896,3 +2880,4 @@ export function RiverMap({
 const styles = StyleSheet.create({
   fill: { flex: 1 },
 });
+

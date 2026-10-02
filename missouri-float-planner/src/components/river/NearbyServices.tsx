@@ -91,6 +91,12 @@ function OutfitterCard({ service }: { service: NearbyServiceDirectory }) {
             })()}
           </a>
         )}
+        {service.reservationUrl && (
+          <a href={service.reservationUrl} target="_blank" rel="noopener noreferrer" aria-label={`Book ${service.name}`} className="inline-flex items-center gap-1 text-xs text-primary-600 hover:text-primary-700 font-medium">
+            <ExternalLink className="w-3 h-3" />
+            Book
+          </a>
+        )}
         {service.email && (
           <a href={`mailto:${service.email}`} className="inline-flex items-center gap-1 text-xs text-primary-600 hover:text-primary-700 font-medium">
             <Mail className="w-3 h-3" />
@@ -248,17 +254,29 @@ function CabinCard({ service }: { service: NearbyServiceDirectory }) {
         {service.feeRange && (
           <p className="text-xs font-semibold text-accent-600 mt-1.5">{service.feeRange}</p>
         )}
-        {service.website && (
-          <a
-            href={service.website}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-1 text-[10px] text-primary-600 hover:text-primary-700 font-medium mt-1"
-          >
-            <Globe className="w-2.5 h-2.5" />
-            Website
-          </a>
-        )}
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1">
+          {service.phone && (
+            <a href={`tel:${service.phone}`} aria-label={`Call ${service.name}`} className="inline-flex items-center gap-1 text-xs text-primary-600 hover:text-primary-700 font-medium min-h-11">
+              <Phone className="w-3 h-3" /> Call
+            </a>
+          )}
+          {service.website && (
+            <a
+              href={service.website}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1 text-[10px] text-primary-600 hover:text-primary-700 font-medium min-h-11"
+            >
+              <Globe className="w-2.5 h-2.5" />
+              Website
+            </a>
+          )}
+          {service.reservationUrl && (
+            <a href={service.reservationUrl} target="_blank" rel="noopener noreferrer" aria-label={`Book ${service.name}`} className="inline-flex items-center gap-1 text-xs text-primary-600 hover:text-primary-700 font-medium min-h-11">
+              <ExternalLink className="w-3 h-3" /> Book
+            </a>
+          )}
+        </div>
       </div>
     </div>
   );
@@ -467,3 +485,4 @@ export default function NearbyServices({ riverSlug, defaultOpen = false }: Nearb
     </CollapsibleSection>
   );
 }
+

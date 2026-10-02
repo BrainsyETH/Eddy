@@ -208,6 +208,15 @@ export function PinCallout({
       accessibilityLabel: `Open ${pin.name}`,
     });
   }
+  for (const action of pin.contactLinks ?? []) {
+    calloutRows.push({
+      key: `contact-${action.label}`,
+      label: action.label,
+      accessibilityLabel: `${action.label}: ${pin.name}`,
+      onPress: () => void Linking.openURL(action.url),
+      external: true,
+    });
+  }
   if (pin.link) {
     calloutRows.push({
       key: 'link',
@@ -560,3 +569,4 @@ const styles = StyleSheet.create({
   calloutLink: { flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 44 },
   calloutLinkText: { ...t.sm, fontFamily: fonts.medium, flex: 1 },
 });
+

@@ -1,0 +1,71 @@
+SNAPSHOT PREVIEW ONLY — NOT APPLIED
+Source: read-only production snapshot (200 services), 2026-10-02.
+Generated using the existing importer buildRows/planRow/renderDiff/fieldSourceRows functions.
+13 updates; 0 inserts; 0 relationship changes. Projected no_contact: 16 -> 3.
+Rerun connected dry-run before approval/import; the production baseline is unchanged.
+
+UPDATE     4j-vacation-rentals  — 4J Vacation Rentals [cabin_lodge]
+             phone                (unset) -> 573-205-9032
+             website              (unset) -> https://4jvacationrentals.com/contact/
+             verified_source      business_database_2026 -> https://4jvacationrentals.com/contact/
+             last_verified_at     2026-08-09 15:30:08.415688+00 -> 2026-10-02T00:00:00.000Z
+UPDATE     driftwood-vacation-rentals  — Driftwood Vacation Rentals [cabin_lodge]
+             phone                (unset) -> 573-205-1961
+             website              (unset) -> https://www.driftwoodvacationrentals.com/
+             verified_source      business_database_2026 -> https://www.driftwoodvacationrentals.com/
+             last_verified_at     (unset) -> 2026-10-02T00:00:00.000Z
+UPDATE     indian-springs-resort  — Indian Springs Family Resort [outfitter]
+             phone                (unset) -> 573-775-2266
+             website              (unset) -> https://indianspringsfamilyresort.com/
+             verified_source      knowledge_base -> https://indianspringsfamilyresort.com/
+             last_verified_at     2026-08-07 18:29:07.205352+00 -> 2026-10-02T00:00:00.000Z
+UPDATE     kickn-k-farmhouse  — Kick'n K Farmhouse [cabin_lodge]
+             phone                (unset) -> 573-259-5597
+             website              (unset) -> https://www.kicknk.com/Accommodations/
+             verified_source      business_database_2026 -> https://www.kicknk.com/Accommodations/
+             last_verified_at     2026-08-09 15:30:08.415688+00 -> 2026-10-02T00:00:00.000Z
+UPDATE     meramec-park-concessions  — Meramec Park Concessions [outfitter]
+             phone                (unset) -> 573-468-6519
+             website              (unset) -> https://www.meramecpark.com/river-float-trips/canoes-kayaks-and-rafts/
+             verified_source      business_database_2026 -> https://www.meramecpark.com/river-float-trips/canoes-kayaks-and-rafts/
+             last_verified_at     2026-08-09 15:30:08.415688+00 -> 2026-10-02T00:00:00.000Z
+UPDATE     patrick-bridge-campground  — Patrick Bridge Campground [campground]
+             phone                (unset) -> 417-746-0291
+             website              (unset) -> https://mdc.mo.gov/discover-nature/places/patrick-bridge-access
+             verified_source      csv_import -> https://mdc.mo.gov/discover-nature/places/patrick-bridge-access
+             last_verified_at     2026-08-07 02:42:33.287838+00 -> 2026-10-02T00:00:00.000Z
+UPDATE     river-ridge-cabins  — River Ridge Cabins [cabin_lodge]
+             phone                (unset) -> 573-840-0360
+             website              (unset) -> https://www.riverridgecabins.com/contact-us
+             verified_source      business_database_2026 -> https://www.riverridgecabins.com/contact-us
+             last_verified_at     2026-08-09 15:30:08.415688+00 -> 2026-10-02T00:00:00.000Z
+UPDATE     rivertime-rv  — RiverTime RV [campground]
+             phone                (unset) -> 417-372-7301
+             website              (unset) -> https://rivertimerv.com/contacts/
+             verified_source      business_database_2026 -> https://rivertimerv.com/contacts/
+             last_verified_at     2026-08-09 15:30:08.415688+00 -> 2026-10-02T00:00:00.000Z
+UPDATE     shady-lane-cabins  — Shady Lane Cabins [cabin_lodge]
+             phone                (unset) -> 573-226-3893
+             reservation_url      (unset) -> https://www.book-it-now.com/shadylanecabins/
+             verified_source      business_database_2026 -> https://www.book-it-now.com/shadylanecabins/
+             last_verified_at     2026-08-07 18:29:07.205352+00 -> 2026-10-02T00:00:00.000Z
+UPDATE     shawnee-creek-cottages  — Shawnee Creek Cottages [cabin_lodge]
+             phone                (unset) -> 573-226-5295
+             website              (unset) -> https://shawneecottages.com/
+             verified_source      business_database_2026 -> https://shawneecottages.com/
+             last_verified_at     2026-08-09 15:30:08.415688+00 -> 2026-10-02T00:00:00.000Z
+UPDATE     storys-creek-campground  — Story's Creek Campground [campground]
+             phone                (unset) -> 573-276-8881
+             website              (unset) -> https://storyscreekcampground.com/
+             verified_source      business_database_2026 -> https://storyscreekcampground.com/
+             last_verified_at     2026-08-09 15:30:08.415688+00 -> 2026-10-02T00:00:00.000Z
+UPDATE     the-rafting-company  — The Rafting Company [outfitter]
+             phone                (unset) -> 800-426-7238
+             website              (unset) -> https://www.theraftingco.com/Floating.html
+             verified_source      knowledge_base -> https://www.theraftingco.com/Floating.html
+             last_verified_at     2026-08-07 18:57:02.588792+00 -> 2026-10-02T00:00:00.000Z
+UPDATE     war-eagle-creek-retreat-cabin-on-the-creek  — War Eagle Creek Retreat - Cabin on the Creek [cabin_lodge]
+             website              (unset) -> https://www.vrbo.com/en-gb/p3938780vb
+             reservation_url      https://www.vrbo.com/3938780 -> https://www.vrbo.com/en-gb/p3938780vb
+             verified_source      csv_import -> https://www.vrbo.com/en-gb/p3938780vb
+             last_verified_at     (unset) -> 2026-10-02T00:00:00.000Z
