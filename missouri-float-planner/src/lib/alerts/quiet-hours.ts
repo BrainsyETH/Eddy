@@ -24,9 +24,9 @@
 // Both passes discard events older than three hours, because "your river is
 // floatable" must never fire about water that has since dropped, and a quiet
 // window is typically eight. Holding an alert until morning would therefore
-// deliver a stale promise or, far more often, nothing at all. The Alerts feed
-// is the durable record and is still there when the user wakes up. The
-// quiet-hours screen in the app says exactly this, on purpose.
+// deliver a stale promise or, far more often, nothing at all. Current alerts
+// shows current high water and agency notices, not skipped notification history.
+// The app explicitly describes suppression rather than promising later delivery.
 
 import type { NotificationPreferences } from '@/types/api';
 

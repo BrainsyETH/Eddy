@@ -1012,8 +1012,10 @@ Each tab now owns its own stack. Shared detail routes use Expo Router group
 arrays; public URLs remain unchanged. `npm run typecheck` also validates the
 actual Expo route tree and exercises shared path resolution, push/Back actions,
 tab-history preservation, notification destinations, and root-modal dismissal.
-Cold storage/quiet-hours links belong to Settings, saved floats to Favorites,
-and alert-edit links to Alerts; warm detail links retain their originating tab.
+Cold storage links belong to Settings and saved floats to Favorites; warm detail
+links retain their originating tab. Quiet hours and alert editing use root modal
+sheets, preserving the tab and detail screen underneath. Cold sheet launches
+close to Settings or Alerts when there is no originating screen.
 
 The control update adds `expo-symbols`, `expo-glass-effect`, and the native
 community date picker. The existing EddyMapSheet module also observes iOS

@@ -5,7 +5,6 @@ export const DETAIL_TITLES: Record<string, string> = {
   weather: 'Weather',
   'current-alerts': 'Current alerts',
   camping: 'Camping',
-  'alerts/quiet-hours': 'Quiet hours',
   'gauge/[siteId]': 'Gauge',
   'river/[slug]': 'River',
   'river/[slug]/access/[accessSlug]': 'Access point',
@@ -14,7 +13,6 @@ export const DETAIL_TITLES: Record<string, string> = {
   floats: 'Saved floats',
   'favorite-floats': 'Favorite floats',
   storage: 'Storage',
-  'alerts/[id]': 'Edit alert',
   'river-conditions': 'River Conditions',
   'eddy-reads': 'Eddy’s Reads',
 };
@@ -22,9 +20,7 @@ export const DETAIL_TITLES: Record<string, string> = {
 // Cold links have no originating tab. Match the destination's place in the app.
 const COLD_TAB_OWNERS: Partial<Record<string, keyof typeof TAB_ROOTS>> = {
   storage: 'settings',
-  'alerts/quiet-hours': 'settings',
   floats: 'favorites',
-  'alerts/[id]': 'alerts',
 };
 
 /** Only known shared details need a tab owner on a cold link. */
@@ -34,7 +30,7 @@ export function coldDetailPath(path: string): string {
     const pattern = route.split('/').map(part => part.startsWith('[') ? '[^/]+' : part).join('/');
     return new RegExp(`^/${pattern}/?$`).test(pathname);
   });
-  // Creation remains a root modal even though /alerts/[id] could match it.
-  return shared && !/^\/alerts\/(new|configure)(?:\/|$)/.test(pathname)
+  // Alert creation and management are root modals, not shared tab details.
+  return shared
     ? `/(tabs)/(${COLD_TAB_OWNERS[shared] ?? 'today'})${path}` : path;
 }

@@ -62,10 +62,13 @@
 // It is also the half that answers a question the other two cannot: a river can
 // be running perfectly and the access still be shut.
 
+import { alertCheckedLabel, shouldRefreshAlerts } from '@/lib/alertFreshness';
 import { HighWaterAlertRow, PublicNoticeRow } from '@/components/CurrentAlertRows';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
+  AppState,
   FlatList,
   Pressable,
   RefreshControl,
@@ -172,7 +175,7 @@ const CAPTION: Record<Segment, string> = {
   'high-water':
     'Every river, gauge and dam Eddy grades that is running high or in flood right now.',
   notices:
-    'Closures from the National Park Service and warnings from the National Weather Service. Not Eddy\u2019s call \u2014 theirs.',
+    'From the National Park Service and National Weather Service.',
 };
 
 export default function AlertsScreen() {
@@ -190,6 +193,11 @@ function AlertsContent() {
   const [segment, setSegment] = useState<Segment>('rules');
   const [ruleError, setRuleError] = useState<string | null>(null);
   const [notices, setNotices] = useState<RiverAlert[] | null>(null);
+  const lastSuccess = useRef<{ high: number | null; notices: number | null }>({ high: null, notices: null });
+  const requests = useRef<{ high: AbortController | null; notices: AbortController | null }>({ high: null, notices: null });
+  const [checked, setChecked] = useState<{ high: number | null; notices: number | null }>({ high: null, notices: null });
+  const [checking, setChecking] = useState({ high: false, notices: false });
+  const [clock, setClock] = useState(() => Date.now());
   const [noticeError, setNoticeError] = useState<string | null>(null);
   const {
     rules,
@@ -218,17 +226,29 @@ function AlertsContent() {
     };
   }, [routeParams.segment, router]);
 
-  const load = useCallback(async (signal?: AbortSignal) => {
+  const load = useCallback(async () => {
+    if (requests.current.high && !requests.current.high.signal.aborted) return;
+    const controller = new AbortController();
+    requests.current.high = controller;
+    const signal = controller.signal;
+    setChecking(current => ({ ...current, high: true }));
     try {
       setError(null);
-      setHighWater(await fetchHighWater(signal));
+      const data = await fetchHighWater(signal);
+      if (signal.aborted) return;
+      setHighWater(data);
+      lastSuccess.current.high = Date.now();
+      setChecked(current => ({ ...current, high: lastSuccess.current.high }));
     } catch (err) {
-      if (err instanceof ApiError && err.message === 'Request cancelled') return;
+      if (signal.aborted || (err instanceof ApiError && err.message === 'Request cancelled')) return;
       setError(
         err instanceof ApiError
           ? err.message
           : 'Couldn’t load high water. Pull down to refresh.',
       );
+    } finally {
+      if (requests.current.high === controller) requests.current.high = null;
+      if (!signal.aborted) setChecking(current => ({ ...current, high: false }));
     }
   }, []);
 
@@ -236,26 +256,49 @@ function AlertsContent() {
   // being unreachable says nothing about the other. A single try/catch would
   // let an NPS outage blank the high-water list, which is the failure mode the
   // route itself is built to avoid.
-  const loadNotices = useCallback(async (signal?: AbortSignal) => {
+  const loadNotices = useCallback(async () => {
+    if (requests.current.notices && !requests.current.notices.signal.aborted) return;
+    const controller = new AbortController();
+    requests.current.notices = controller;
+    const signal = controller.signal;
+    setChecking(current => ({ ...current, notices: true }));
     try {
       setNoticeError(null);
-      setNotices(await fetchRiverAlerts(undefined, signal));
+      const data = await fetchRiverAlerts(undefined, signal);
+      if (signal.aborted) return;
+      setNotices(data);
+      lastSuccess.current.notices = Date.now();
+      setChecked(current => ({ ...current, notices: lastSuccess.current.notices }));
     } catch (err) {
-      if (err instanceof ApiError && err.message === 'Request cancelled') return;
+      if (signal.aborted || (err instanceof ApiError && err.message === 'Request cancelled')) return;
       setNoticeError(
         err instanceof ApiError
           ? err.message
           : 'Couldn’t reach the agencies. Pull down to try again.',
       );
+    } finally {
+      if (requests.current.notices === controller) requests.current.notices = null;
+      if (!signal.aborted) setChecking(current => ({ ...current, notices: false }));
     }
   }, []);
 
   useEffect(() => {
-    const controller = new AbortController();
-    load(controller.signal);
-    loadNotices(controller.signal);
-    return () => controller.abort();
-  }, [load, loadNotices]);
+    const pending = requests.current;
+    return () => { pending.high?.abort(); pending.notices?.abort(); };
+  }, []);
+
+  useFocusEffect(useCallback(() => {
+    const refreshStale = () => {
+      setClock(Date.now());
+      if (shouldRefreshAlerts(lastSuccess.current.high)) void load();
+      if (shouldRefreshAlerts(lastSuccess.current.notices)) void loadNotices();
+    };
+    refreshStale();
+    const subscription = AppState.addEventListener('change', state => { if (state === 'active') refreshStale(); });
+    const timer = setInterval(() => setClock(Date.now()), 60_000);
+    return () => { subscription.remove(); clearInterval(timer); };
+  }, [load, loadNotices]));
+
 
   /**
    * Re-read the rules every time this tab comes forward.
@@ -266,9 +309,7 @@ function AlertsContent() {
    * itself off: the alert fires, the phone buzzes, the user opens the app to
    * look, and the row still says the rule is on.
    *
-   * Only the rules. High water and notices are already refetched on mount and
-   * change on the hour, so putting them on focus would be two wasted requests
-   * every time somebody flicks between tabs.
+   * Public data refreshes separately, only after 15 minutes since success.
    */
   useFocusEffect(
     useCallback(() => {
@@ -348,28 +389,6 @@ function AlertsContent() {
 
   const showingRules = segment === 'rules';
   const showingNotices = segment === 'notices';
-
-  // Only the high-water half waits on a request. Blocking the whole screen on
-  // it would put a spinner over the rules list — which is the default segment
-  // and needs no network at all.
-  // Each network-backed segment blocks only on ITS OWN request. Without the
-  // per-segment guard a spinner would sit over whichever list the user is
-  // actually looking at while a different one loads.
-  if (showingNotices && !notices && !noticeError) {
-    return (
-      <SafeAreaView style={[styles.centered, { backgroundColor: colors.bg }]} edges={['top']}>
-        <ActivityIndicator color={colors.interactive} />
-      </SafeAreaView>
-    );
-  }
-
-  if (!showingRules && !showingNotices && !highWater && !error) {
-    return (
-      <SafeAreaView style={[styles.centered, { backgroundColor: colors.bg }]} edges={['top']}>
-        <ActivityIndicator color={colors.interactive} />
-      </SafeAreaView>
-    );
-  }
 
   // THE HEADER + IS THE ONLY WAY IN, now.
   //
@@ -481,6 +500,15 @@ function AlertsContent() {
       {CAPTION[segment] ? (
         <Text style={[styles.caption, { color: colors.textSubtle }]}>{CAPTION[segment]}</Text>
       ) : null}
+
+      {!showingRules ? <View style={styles.freshnessRow}>
+        <Text style={[styles.caption, { color: colors.textMuted }]}>{(showingNotices ? checking.notices : checking.high) ? 'Checking…' : alertCheckedLabel(showingNotices ? checked.notices : checked.high, clock)}</Text>
+        {showingNotices ? <Pressable accessibilityRole="button" accessibilityLabel="About notice coverage" style={styles.infoButton} onPress={() => Alert.alert('Notice coverage', 'Park Service notices cover rivers within national parks. Weather warnings and park notices do not cover every hazard. Check locally before you drive out.')}><ControlIcon name="information-circle-outline" size={20} color={colors.textMuted} /></Pressable> : null}
+      </View> : null}
+      {(!showingRules && (showingNotices ? noticeError : error)) ? <>
+        {(showingNotices ? notices : highWater) !== null ? <Text style={[styles.caption, { color: colors.error }]}>Couldn’t refresh. Previous results may be outdated.</Text> : null}
+        <Pressable accessibilityRole="button" style={styles.emptyRetry} onPress={() => void (showingNotices ? loadNotices() : load())}><Text style={[styles.emptyRetryText, { color: colors.interactive }]}>Try again</Text></Pressable>
+      </> : null}
 
       {error && segment === 'high-water' ? (
         <Text style={[styles.errorText, { color: colors.error }]}>{error}</Text>
@@ -691,6 +719,7 @@ function AlertsContent() {
           ListHeaderComponent={header}
           ListEmptyComponent={
             <View style={styles.empty}>
+              {!notices && !noticeError ? <ActivityIndicator color={colors.interactive} accessibilityLabel="Loading notices" /> : <>
               <EddyScene name="checkingGauge" size={120} />
               <Text style={[styles.emptyTitle, { color: colors.text }]}>{noticeError ? 'Notices unavailable' : 'Nothing posted'}</Text>
               {/* Says what an empty list DOES NOT mean. "No closures" and "we
@@ -699,8 +728,9 @@ function AlertsContent() {
                   The Park Service also covers three of Eddy's rivers and no
                   others, which nobody would guess from a blank screen. */}
               <Text style={[styles.emptyBody, { color: colors.textMuted }]}>
-                {noticeError ? 'Couldn’t check current notices. Pull down to try again.' : 'No closures or weather warnings are posted for Eddy’s rivers right now. Park closures only cover rivers inside a national park, and neither agency posts everything — check locally before you drive out.'}
+                {noticeError ? 'Couldn’t check current notices. Pull down to try again.' : 'No agency notices are posted for Eddy’s rivers right now. Check locally before you drive out.'}
               </Text>
+              </>}
             </View>
           }
           renderItem={({ item }) => {
@@ -734,14 +764,16 @@ function AlertsContent() {
         ListHeaderComponent={header}
         ListEmptyComponent={
           <View style={styles.empty}>
+            {!highWater && !error ? <ActivityIndicator color={colors.interactive} accessibilityLabel="Loading high water" /> : <>
             {/* Checking, not alarmed. Everything below this says "we looked and
                 the water is where it should be", and the catalog's high-water
                 scene would announce the opposite. */}
             <EddyScene name="checkingGauge" size={120} />
             <Text style={[styles.emptyTitle, { color: colors.text }]}>{error ? 'High water unavailable' : 'Nothing running high'}</Text>
             <Text style={[styles.emptyBody, { color: colors.textMuted }]}>
-              {error ? 'Couldn’t check current high water. Pull down to try again.' : 'No river, gauge or dam release Eddy grades is above its high-water mark right now. That’s usually good news.'}
+              {error ? 'Couldn’t check current high water. Try again when connected.' : 'No Eddy-rated river, gauge or dam release is running high right now. Check local conditions before getting on the water.'}
             </Text>
+            </>}
           </View>
         }
         ListFooterComponent={
@@ -795,6 +827,8 @@ const styles = StyleSheet.create({
   // Same pill the filter chips draw their counts in — see FilterChips.
   toggleCount: { minWidth: 18, paddingHorizontal: 5, borderRadius: 999, alignItems: 'center' },
   toggleCountText: { ...t.xs, fontFamily: fonts.semibold },
+  freshnessRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
+  infoButton: { minWidth: 44, minHeight: 44, alignItems: 'center', justifyContent: 'center' },
   caption: { ...t.xs, fontFamily: fonts.body, marginTop: 10, lineHeight: 16 },
   errorText: { ...t.sm, fontFamily: fonts.body, marginTop: 10 },
   empty: { alignItems: 'center', paddingHorizontal: 40, paddingTop: 30 },
