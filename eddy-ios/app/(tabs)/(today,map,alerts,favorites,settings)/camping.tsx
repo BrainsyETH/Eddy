@@ -280,7 +280,7 @@ function CampingContent() {
           contentInset={{ top: listTopInset, bottom: listBottomInset, left: 0, right: 0 }}
           contentOffset={{ x: 0, y: -listTopInset }}
           scrollIndicatorInsets={{ top: listTopInset, bottom: listBottomInset, left: 0, right: 0 }}
-          // The first data cell is the date row; filters/caption stay in the
+          // The first data cell is the month/date row; filters/caption stay in the
           // scrolling ListHeaderComponent. Index 1 accounts for that header.
           data={[null, ...rows]}
           keyExtractor={(row) => row?.facilityId ?? 'camping-dates'}
@@ -412,7 +412,7 @@ function CampingContent() {
             </View>
           }
           renderItem={({ item }) => item === null ? (
-            <View style={[styles.dateHeader, { backgroundColor: colors.bg }]}>
+            <View style={[display === 'list' && styles.dateHeader, { backgroundColor: colors.bg }]}>
               {display === 'grid' ? <CampingTableHeader overview={grid} now={now} /> :
                 <CampingNightControl nights={data.horizon.nights} selected={night} onSelect={setNightChoice} />}
             </View>

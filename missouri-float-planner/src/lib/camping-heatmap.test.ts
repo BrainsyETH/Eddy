@@ -306,7 +306,37 @@ test('calendar aligns Sunday weeks and handles leap days and year boundaries', (
 });
 
 
-import { createCampingTapGuard } from '../../../eddy-ios/src/lib/campingScroll';
+import { campingVisibleMonthLabel, createCampingTapGuard, visibleCampingColumns } from '../../../eddy-ios/src/lib/campingScroll';
+test('grid month labels follow both visible edges, including partially visible nights', () => {
+  const nights = ['2026-10-29', '2026-10-30', '2026-10-31', '2026-11-01', '2026-11-02'];
+  const labelAt = (offset: number, width: number) => {
+    const { first, last } = visibleCampingColumns(offset, width, 36, nights.length);
+    return campingVisibleMonthLabel(nights[first], nights[last]);
+  };
+  assert.equal(labelAt(0, 108).label, 'Oct 2026', 'November is just outside the viewport');
+  assert.equal(labelAt(1, 108).label, 'Oct–Nov 2026', 'a partially visible November column counts');
+  assert.equal(labelAt(107, 72).label, 'Oct–Nov 2026', 'a partially visible October column counts');
+  assert.equal(labelAt(108, 72).label, 'Nov 2026');
+  assert.equal(labelAt(0, 144).label, 'Oct–Nov 2026', 'resizing updates the trailing month');
+  assert.deepEqual(labelAt(-20, 108), labelAt(0, 108), 'leading bounce cannot change the month');
+  assert.deepEqual(labelAt(999, 72), labelAt(108, 72), 'trailing bounce clamps to the content');
+});
+test('grid month labels retain years and readable VoiceOver month names', () => {
+  assert.deepEqual(campingVisibleMonthLabel('2026-12-31', '2027-01-01'), {
+    label: 'Dec 2026–Jan 2027',
+    accessibilityLabel: 'December 2026 to January 2027',
+  });
+  assert.deepEqual(campingVisibleMonthLabel('2026-10-31', '2026-11-01'), {
+    label: 'Oct–Nov 2026',
+    accessibilityLabel: 'October 2026 to November 2026',
+  });
+  assert.deepEqual(campingVisibleMonthLabel('2026-10-01'), {
+    label: 'Oct 2026', accessibilityLabel: 'October 2026',
+  });
+  assert.deepEqual(visibleCampingColumns(0, 200, 36, 1), { first: 0, last: 0 });
+  assert.deepEqual(visibleCampingColumns(0, 0, 36, 5), { first: 0, last: 0 });
+  assert.deepEqual(campingVisibleMonthLabel(), { label: '', accessibilityLabel: '' });
+});
 test('horizontal and vertical pans cannot open a campground on release', () => {
   const tap = createCampingTapGuard();
   tap.start(20, 20); tap.move(60, 20); tap.move(20, 20);
