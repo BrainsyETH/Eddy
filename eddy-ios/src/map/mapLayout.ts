@@ -5,7 +5,16 @@ export const MAP_CONTROLS_ROOM_MIN = ORNAMENT_BAND + 44 + 12;
 const CAMERA_GAP = 16;
 const MIN_CAMERA_HEIGHT = 120;
 
-/** Opacity and interaction use this same live, UI-thread clearance. */
+/**
+ * Hiding glass controls with display:none emits a zero-height layout. Keep
+ * their last natural height: it controls both visibility and map readiness.
+ * Real positive measurements still update after rotation or Dynamic Type.
+ */
+export function measuredMapChromeHeight(previous: number, measured: number): number {
+  return Number.isFinite(measured) && measured > 0 ? Math.ceil(measured) : previous;
+}
+
+/** Visibility and interaction use this same live, UI-thread clearance. */
 export function mapChromeClearance(available: number, height: number, chromeHeight: number, searchOpen = false) {
   'worklet';
   return {
@@ -31,6 +40,7 @@ export function mapLayout({
   safeBottom = 0,
   chromeHeight,
   sheetHeight,
+  nativeOrnamentSafeArea = { bottom: 0, left: 0 },
 }: {
   width: number;
   height: number;
@@ -41,6 +51,8 @@ export function mapLayout({
   safeBottom?: number;
   chromeHeight: number;
   sheetHeight: number;
+  /** iOS Mapbox adds its own safe area to ornament margins; Android does not. */
+  nativeOrnamentSafeArea?: { bottom: number; left: number };
 }) {
   const sheetTop = safeTop + MAP_EDGE_GAP;
   const bottomInset = Math.min(Math.max(0, safeBottom), Math.max(0, height - sheetTop));
@@ -62,6 +74,12 @@ export function mapLayout({
     bottomInset,
     sheetWidth: Math.max(0, width - safeLeft - safeRight),
     ornamentBottom,
+    // Camera/overlay positions are canvas-relative. SDK ornament margins are
+    // safe-area-relative on iOS, so never add the same tab/notch inset twice.
+    ornamentMargins: {
+      bottom: Math.max(0, ornamentBottom - nativeOrnamentSafeArea.bottom),
+      left: Math.max(0, safeLeft - nativeOrnamentSafeArea.left),
+    },
     chromeHidden,
     cameraPadding: {
       paddingTop: top,

@@ -118,8 +118,8 @@ export const CONTENT_BOTTOM_PAD = 28;
  * exactly the band they sit in, so when the sheet is open they RIDE it, and the
  * tallest detent has to leave enough room above itself for them to land in.
  *
- * 62 is measured, not chosen: the attribution is a 44pt tap frame at bottom 9,
- * so it reaches 53pt up from whatever it is anchored to, and the remaining 9pt
+ * 62 reserves the attribution's 44pt tap frame at bottom 7,
+ * so it reaches 51pt up from whatever it is anchored to, and the remaining 11pt
  * keeps it off the sheet's rounded top edge. The map screen's MAP_CHROME_BOTTOM
  * is this same number for the same reason — it imports it rather than restating
  * it, because two copies of a number this load-bearing is how one of them

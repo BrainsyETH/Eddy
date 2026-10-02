@@ -170,7 +170,7 @@ import { PinSheet } from '@/components/map-sheet/PinSheet';
 import { RiverSheetPanel } from '@/components/map-sheet/RiverSheetPanel';
 import type { SheetMetrics } from '@/components/map-sheet/MapSheet';
 import { ORNAMENT_BAND } from '@/components/map-sheet/sheetGeometry';
-import { MAP_EDGE_GAP, mapChromeClearance, mapLayout } from '@/map/mapLayout';
+import { MAP_EDGE_GAP, mapChromeClearance, mapLayout, measuredMapChromeHeight } from '@/map/mapLayout';
 
 /**
  * How far above the ornament band everything floating has to sit.
@@ -1878,7 +1878,8 @@ function MapContent() {
       // ran it against the previous put-in. See planFloat's header.
       const downstream = nearby.direction === 'downstream';
       planner.planFloat(downstream ? from : other, downstream ? other : from);
-      setSelectedPin(null);
+      // PlanSheet is a modal over this selection. Keep PinSheet mounted so
+      // closing the planner returns to the same access, tab and scroll position.
       setPlanOpen(true);
     },
     [drawnAccessPoints, planner],
@@ -2708,6 +2709,7 @@ function MapContent() {
     safeLeft: insets.left,
     safeRight: insets.right,
     safeBottom: Platform.OS === 'ios' ? insets.bottom : 0,
+    nativeOrnamentSafeArea: Platform.OS === 'ios' ? { bottom: insets.bottom, left: insets.left } : undefined,
     chromeHeight,
     sheetHeight: sheetOpen ? sheet.height : 0,
   }), [mapSize, windowWidth, insets.top, insets.left, insets.right, insets.bottom, chromeHeight, sheetOpen, sheet.height]);
@@ -2758,8 +2760,8 @@ function MapContent() {
             cameraPadding={geometry.cameraPadding}
             sheetReady={sheetOpen && sheet.ready}
             // Attribution clears the full sheet, independently of camera caps.
-            ornamentBottomInset={geometry.ornamentBottom}
-            ornamentLeftInset={insets.left}
+            ornamentBottomInset={geometry.ornamentMargins.bottom}
+            ornamentLeftInset={geometry.ornamentMargins.left}
             river={mapRiver}
             milePosts={riverMilePosts}
             conditionCode={conditionCode}
@@ -2809,8 +2811,10 @@ function MapContent() {
             accessibilityElementsHidden={hiddenChrome.top}
             importantForAccessibility={hiddenChrome.top ? 'no-hide-descendants' : 'auto'}
             onLayout={({ nativeEvent: { layout } }) => {
-              const height = Math.ceil(layout.height);
-              setChromeHeight((current) => current === height ? current : height);
+              // Collapsing hidden controls is not a new natural height. Feeding
+              // that zero back into clearance makes them repeatedly reappear
+              // and also unmounts RiverMap through its readiness guard.
+              setChromeHeight((current) => measuredMapChromeHeight(current, layout.height));
             }}
           >
             <View style={styles.searchRow} pointerEvents="box-none">
@@ -2994,7 +2998,6 @@ function MapContent() {
             <Pressable
               onPress={() => {
                 planner.reset();
-                setSelectedPin(null);
               }}
               style={({ pressed }) => [
                 styles.clearPlanButton,
@@ -3106,13 +3109,11 @@ function MapContent() {
               onSetPutIn={() => {
                 if (!pinAccessPoint) return;
                 planner.choosePutIn(pinAccessPoint);
-                setSelectedPin(null);
                 setPlanOpen(true);
               }}
               onSetTakeOut={() => {
                 if (!pinAccessPoint) return;
                 planner.chooseTakeOut(pinAccessPoint);
-                setSelectedPin(null);
                 setPlanOpen(true);
               }}
               onOpenRiver={(slug) => router.push(`/river/${slug}`)}

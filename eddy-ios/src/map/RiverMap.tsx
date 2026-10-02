@@ -783,7 +783,7 @@ interface Props {
   cameraPadding: MapCameraPadding;
   /** Separate from padding: even a closed sheet has an attribution inset. */
   sheetReady: boolean;
-  /** Full sheet coverage, never the capped camera padding. */
+  /** SDK-relative margins for full sheet coverage, with native safe areas removed. */
   ornamentBottomInset?: number;
   ornamentLeftInset?: number;
   /**
@@ -2369,25 +2369,27 @@ export function RiverMap({
       // outright, at every detent, for as long as the sheet was up — which is
       // most of the time anybody spends on this screen.
       //
-      // So the sheet's settled height comes in as ornamentBottomInset and both
-      // ornaments sit on top of it, keeping the same offsets they have at rest.
+      // The sheet's settled coverage comes in as ornamentBottomInset, with the
+      // safe area already deducted on iOS: Mapbox adds that inset itself. Adding
+      // it again puts the branding above Locate instead of in the corner below.
+      // Both ornaments keep the same offsets above the sheet as at rest.
       // Settled, not per-frame: these are native props, and the tallest detent
       // is capped so the lifted position always fits (ORNAMENT_BAND).
       //
       // THE OFFSETS ARE MEASURED, NOT TASTE. The wordmark is a fixed 85x21
-      // bitmap, so at left:12 its right edge lands at x=97. The (i) is a 44x44
+      // bitmap, so at left:8 its right edge lands at x=93. The (i) is a 44x44
       // .infoLight button with a ~22pt glyph centred in it, so its left:N puts
-      // the visible glyph at N+11 — left:94 is what makes the gap between the
+      // the visible glyph at N+11 — left:90 is what makes the gap between the
       // two read as 8pt, matching the gap the callout's own rows use. Anything
       // larger reads as two unrelated controls rather than one attribution.
       //
-      // bottom:9 centres the glyph against the wordmark (bottom:14 sat it
-      // high) and, more usefully, puts the top of its 44pt tap frame at y=53 —
-      // which is the number MAP_CHROME_BOTTOM has to clear.
+      // An 8pt bottom margin keeps the logo close to the safe edge. The info
+      // button's 7pt margin preserves their alignment; its 44pt tap frame ends
+      // 51pt above the edge, below Locate's 62pt ornament clearance.
       logoEnabled
-      logoPosition={{ bottom: 10 + ornamentBottomInset, left: 12 + ornamentLeftInset }}
+      logoPosition={{ bottom: 8 + ornamentBottomInset, left: 8 + ornamentLeftInset }}
       attributionEnabled
-      attributionPosition={{ bottom: 9 + ornamentBottomInset, left: 94 + ornamentLeftInset }}
+      attributionPosition={{ bottom: 7 + ornamentBottomInset, left: 90 + ornamentLeftInset }}
       // The camera settled. This is the ONLY viewport-driven fetch in the app
       // — everything else loads a bounded set up front — and it is on idle
       // rather than onCameraChanged because idle fires once when motion stops
