@@ -60,6 +60,8 @@ export function CampingMark({ mark, openCount }: { mark: HeatMark; openCount?: n
       {mark.startsWith('open') && openCount != null ? (
         <Text
           numberOfLines={1}
+          // This mark is a miniature chart; its parent announces the full count
+          // and large-text readers get the campsite list instead.
           maxFontSizeMultiplier={1.2}
           adjustsFontSizeToFit
           minimumFontScale={0.9}
@@ -251,11 +253,10 @@ export function CampingGrid({
             {headings ? (
               <>
                 <Text
-                  maxFontSizeMultiplier={1.3}
-                  numberOfLines={1}
+                      numberOfLines={1}
                   adjustsFontSizeToFit
                   minimumFontScale={0.8}
-                  style={{ fontSize: 10, color: colors.textMuted }}
+                  style={{ fontSize: 12, color: colors.textMuted }}
                 >
                   {date === today
                     ? 'Today'
@@ -265,8 +266,7 @@ export function CampingGrid({
                       })}
                 </Text>
                 <Text
-                  maxFontSizeMultiplier={1.3}
-                  style={[
+                      style={[
                     styles.date,
                     {
                       fontFamily: date === today ? fonts.heading : fonts.medium,
@@ -389,7 +389,7 @@ export function CampingTableRow({
             {row.name.replace(/ Campground$/, '')}
           </Text>
           {stale ? (
-            <Text style={{ fontSize: 10, color: colors.textMuted }}>
+            <Text style={{ fontSize: 12, color: colors.textMuted }}>
               Needs update
             </Text>
           ) : null}
@@ -443,8 +443,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  count: { fontFamily: fonts.semibold, fontSize: 11, lineHeight: 13, fontVariant: ['tabular-nums'] },
+  count: { fontFamily: fonts.semibold, fontSize: 12, lineHeight: 13, fontVariant: ['tabular-nums'] },
   dash: { height: 2, width: '75%' },
   unknownDash: { height: 1, width: '50%' },
-  date: { fontSize: 10, fontFamily: fonts.mono },
+  date: { fontSize: 12, fontFamily: fonts.mono },
 });

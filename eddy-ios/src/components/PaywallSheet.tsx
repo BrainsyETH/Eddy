@@ -790,7 +790,7 @@ const styles = StyleSheet.create({
   // copy, and tracking it out is what keeps it legible that small. Fredoka
   // because DESIGN.md gives the display face to the brand name and mascot
   // callouts, and a sticker with the otter on it is the second of those.
-  badgeText: { fontSize: 10, lineHeight: 14, letterSpacing: 0.8, fontFamily: fonts.display },
+  badgeText: { fontSize: 12, lineHeight: 17, letterSpacing: 0.8, fontFamily: fonts.display },
   handleRow: { alignItems: 'flex-end', paddingHorizontal: 20, paddingTop: 14 },
   body: { paddingHorizontal: 24, paddingBottom: 24, alignItems: 'center' },
   title: { ...t['2xl'], fontFamily: fonts.displayBold, marginTop: 8, textAlign: 'center' },

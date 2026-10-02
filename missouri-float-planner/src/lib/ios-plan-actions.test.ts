@@ -36,15 +36,15 @@ test('rapid Save taps produce one request and remember only after success', asyn
   let calls = 0;
   const save = saver(() => { calls++; return pending.promise; });
   const first = actions.toggleSave(plan, save);
-  await actions.toggleSave(plan, save);
+  assert.equal(await actions.toggleSave(plan, save), undefined, 'a repeated tap has no completion feedback');
   assert.equal(calls, 1);
   assert.equal(actions.stateFor(plan).saving, true);
   assert.deepEqual(save.remembered, []);
   pending.resolve(link);
-  await first;
+  assert.equal(await first, 'saved');
   assert.equal(actions.stateFor(plan).saving, false);
   assert.deepEqual(save.remembered, [plan]);
-  await actions.toggleSave(plan, save);
+  assert.equal(await actions.toggleSave(plan, save), 'removed');
   assert.equal(calls, 1, 'removing a saved float must not POST again');
   assert.deepEqual(save.remembered, []);
 });
@@ -53,7 +53,7 @@ test('failed Save remains unsaved and can be retried', async () => {
   const actions = createPlanActions();
   let calls = 0;
   const save = saver(async () => { if (++calls === 1) throw new Error('offline'); return link; });
-  await actions.toggleSave(plan, save);
+  assert.equal(await actions.toggleSave(plan, save), undefined, 'failed saves never produce success feedback');
   assert.equal(actions.stateFor(plan).saving, false);
   assert.match(actions.stateFor(plan).saveError!, /Could not save/);
   assert.deepEqual(save.remembered, []);

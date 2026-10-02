@@ -278,7 +278,7 @@ const styles = StyleSheet.create({
   // The heading is the quiet half and the figure is the loud one: a reader
   // scanning for "how big" should land on the number, not on the label over it.
   peakBlock: { marginTop: 10 },
-  peakHeading: { fontSize: 11, lineHeight: 15, fontFamily: fonts.medium, letterSpacing: 0.3, textTransform: 'uppercase' },
+  peakHeading: { fontSize: 12, lineHeight: 17, fontFamily: fonts.medium, letterSpacing: 0.3, textTransform: 'uppercase' },
   peak: { fontSize: 17, lineHeight: 23, fontFamily: fonts.heading, marginTop: 1 },
   estimate: { ...t.xs },
   footer: { borderTopWidth: 1, marginTop: 12, paddingTop: 10 },

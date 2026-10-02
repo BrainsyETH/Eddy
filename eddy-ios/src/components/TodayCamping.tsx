@@ -1,7 +1,6 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   Pressable,
   StyleSheet,
   Text,
@@ -19,6 +18,7 @@ import { CampingDemandMeter } from './CampingDemandMeter';
 import { EddySymbol } from './EddySymbol';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, textStyles } from '@/theme/typography';
+import { GaugeChartSheet } from '@/components/GaugeChartSheet';
 
 type Props = { revision: number };
 
@@ -45,12 +45,14 @@ function CampingCard({ revision, showDemand }: Props & { showDemand: boolean }) 
     [data, showDemand, now],
   );
   const openCamping = () => router.push({ pathname: '/camping', params: { night: campingDate(now) } });
-  const showInfo = () => {
-    Alert.alert('Camping legend', campingPulseInfo(demand));
-  };
+  const [infoOpen, setInfoOpen] = useState(false);
+  const showInfo = () => setInfoOpen(true);
 
   return (
     <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
+      {infoOpen ? <GaugeChartSheet title="Camping legend" onClose={() => setInfoOpen(false)}>
+        <Text style={[textStyles.body, { color: colors.text }]}>{campingPulseInfo(demand)}</Text>
+      </GaugeChartSheet> : null}
       <View style={styles.heading}>
         <View style={styles.title}>
           <EddySymbol name="campground" size={28} />

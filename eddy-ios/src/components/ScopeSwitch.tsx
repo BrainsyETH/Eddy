@@ -24,6 +24,7 @@ import { memo } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text } from 'react-native';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
+import { selectionFeedback } from '@/lib/haptics';
 
 export interface ScopeOption<K extends string> {
   key: K;
@@ -53,7 +54,7 @@ function ScopeSwitchComponent<K extends string>({ options, value, onChange }: Pr
         return (
           <Pressable
             key={option.key}
-            onPress={() => onChange(option.key)}
+            onPress={() => { if (!active) { onChange(option.key); selectionFeedback(); } }}
             style={[styles.segment, active && { backgroundColor: colors.selectionBg }]}
             accessibilityRole="tab"
             accessibilityState={{ selected: active }}

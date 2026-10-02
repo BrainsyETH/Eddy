@@ -59,6 +59,7 @@ import { useCloseAlertCreation } from '@/hooks/useCloseAlertCreation';
 import { useSession } from '@/hooks/useSession';
 import { usePreventRemove } from 'expo-router/react-navigation';
 import { alertAnchor, alertDraftChanged, createAlertSaveTask } from '@/lib/alertCreation';
+import { successFeedback } from '@/lib/haptics';
 import { ConditionCodeChips } from '@/components/ConditionCodeChips';
 import { Otter } from '@/components/Otter';
 import { CONDITION_KINDS, codesForKind } from '@/lib/alertKinds';
@@ -415,6 +416,7 @@ export default function ConfigureAlertScreen() {
             if (!riverId) throw new ApiError('This river is missing an id', 400);
             await subscribeToRiver(token, riverId, conditionKind);
             commit();
+            successFeedback();
             void refresh().catch(() => {
               setError('Your alert is saved. Pull to refresh the alert list when you are online.');
             });
@@ -445,6 +447,7 @@ export default function ConfigureAlertScreen() {
           });
 
           commit();
+          successFeedback();
           add(rule);
 
           // `inside` means the condition is already true. Saying so is the whole
