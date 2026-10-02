@@ -13,7 +13,7 @@
 
 import { memo } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { ControlIcon } from '@/components/ControlIcon';
 import type { DamSnapshot } from '@eddy/types';
 import {
   centralDayKey,
@@ -104,7 +104,7 @@ function DamRowComponent({
         <View style={styles.right}>
           {dam.generating !== null ? (
             <View style={styles.stateRow}>
-              <Ionicons
+              <ControlIcon
                 name={dam.generating ? 'flash' : 'flash-off-outline'}
                 size={13}
                 color={dam.generating ? colors.interactive : colors.textSubtle}
@@ -137,7 +137,7 @@ function DamRowComponent({
             accessibilityRole="button"
             accessibilityLabel={starred ? `Unstar ${dam.name}` : `Star ${dam.name}`}
           >
-            <Ionicons
+            <ControlIcon
               name={starred ? 'star' : 'star-outline'}
               size={19}
               color={starred ? colors.warm : colors.textSubtle}

@@ -1,7 +1,7 @@
 import { Tabs } from 'expo-router';
 import { NativeTabs } from 'expo-router/unstable-native-tabs';
 import { Platform } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { ControlIcon } from '@/components/ControlIcon';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts } from '@/theme/typography';
 
@@ -28,12 +28,12 @@ import { fonts } from '@/theme/typography';
 export const unstable_settings = { initialRouteName: '(today)' };
 
 export default function TabsLayout() {
-  const { colors } = useTheme();
+  const { colors, nativeColors } = useTheme();
 
   if (Platform.OS === 'ios') {
     return (
       <NativeTabs
-        tintColor={colors.interactive}
+        tintColor={nativeColors.interactive}
         minimizeBehavior="never"
         // FlatList and the map don't reliably report a native scroll edge.
         // Keep the system material visible without supplying a painted backing,
@@ -86,35 +86,35 @@ export default function TabsLayout() {
         name="(today)"
         options={{
           title: 'Today',
-          tabBarIcon: ({ color, size }) => <Ionicons name="home-outline" size={size} color={color} />,
+          tabBarIcon: ({ color, size }) => <ControlIcon name="home-outline" size={size} color={color} />,
         }}
       />
       <Tabs.Screen
         name="(map)"
         options={{
           title: 'Map',
-          tabBarIcon: ({ color, size }) => <Ionicons name="map-outline" size={size} color={color} />,
+          tabBarIcon: ({ color, size }) => <ControlIcon name="map-outline" size={size} color={color} />,
         }}
       />
       <Tabs.Screen
         name="(alerts)"
         options={{
           title: 'Alerts',
-          tabBarIcon: ({ color, size }) => <Ionicons name="notifications-outline" size={size} color={color} />,
+          tabBarIcon: ({ color, size }) => <ControlIcon name="notifications-outline" size={size} color={color} />,
         }}
       />
       <Tabs.Screen
         name="(favorites)"
         options={{
           title: 'Favorites',
-          tabBarIcon: ({ color, size }) => <Ionicons name="star-outline" size={size} color={color} />,
+          tabBarIcon: ({ color, size }) => <ControlIcon name="star-outline" size={size} color={color} />,
         }}
       />
       <Tabs.Screen
         name="(settings)"
         options={{
           title: 'Settings',
-          tabBarIcon: ({ color, size }) => <Ionicons name="settings-outline" size={size} color={color} />,
+          tabBarIcon: ({ color, size }) => <ControlIcon name="settings-outline" size={size} color={color} />,
         }}
       />
     </Tabs>

@@ -7,7 +7,7 @@ import {
   View,
   useWindowDimensions,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { ControlIcon } from '@/components/ControlIcon';
 import { useRouter } from 'expo-router';
 import { useAppConfig } from '@/hooks/useAppConfig';
 import { useCampingOverview } from '@/hooks/useCampingOverview';
@@ -68,7 +68,7 @@ function CampingCard({ revision, showDemand }: Props & { showDemand: boolean }) 
             accessibilityHint="Explains the status bands and booked percentages"
             style={styles.info}
           >
-            <Ionicons name="information-circle-outline" size={22} color={colors.textMuted} />
+            <ControlIcon name="information-circle-outline" size={22} color={colors.textMuted} />
           </Pressable>
         ) : null}
       </View>
@@ -110,14 +110,14 @@ function CampingCard({ revision, showDemand }: Props & { showDemand: boolean }) 
                   </Text>
                 </View>
               </View>
-              <Ionicons name="chevron-forward" size={14} color={colors.textSubtle} />
+              <ControlIcon name="chevron-forward" size={14} color={colors.textSubtle} />
             </Pressable>
           ))}
         </View>
       ) : null}
       {error && showDemand ? (
         <Pressable onPress={refresh} accessibilityRole="button" style={styles.action}>
-          <Ionicons name="alert-circle-outline" size={16} color={colors.text} />
+          <ControlIcon name="alert-circle-outline" size={16} color={colors.text} />
           <Text style={[textStyles.caption, { color: colors.interactive }]}>
             Couldn’t refresh. Retry
           </Text>

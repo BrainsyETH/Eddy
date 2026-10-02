@@ -18,7 +18,7 @@ import type { CampsitePhoto } from '@eddy/types';
 import { useCampsitePhotos } from '@/hooks/useCampsitePhotos';
 import { CampsitePhotos } from './CampsitePhotos';
 import { Alert, Linking, Pressable, StyleSheet, Text, View } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { ControlIcon } from '@/components/ControlIcon';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
 import { siteBooking } from './siteBooking';
@@ -85,7 +85,7 @@ function SiteRow({ entry, date, photos: suppliedPhotos, photoFacilityId, reserva
           ) : null}
         </View>
         {openable ? (
-          <Ionicons name="open-outline" size={16} color={colors.textSubtle} />
+          <ControlIcon name="open-outline" size={16} color={colors.textSubtle} />
         ) : null}
       </Pressable>
     </View>

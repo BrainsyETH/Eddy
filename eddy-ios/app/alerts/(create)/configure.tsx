@@ -40,7 +40,7 @@ import {
   View,
   useWindowDimensions,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { ControlIcon } from '@/components/ControlIcon';
 import { Stack, useLocalSearchParams, useNavigation } from 'expo-router';
 import {
   describeAlertRule,
@@ -695,7 +695,7 @@ export default function ConfigureAlertScreen() {
                       sentence you have to translate; a red Flood chip is not. */}
                   <ConditionCodeChips codes={codesForKind(kind.value)} />
                 </View>
-                <Ionicons
+                <ControlIcon
                   name={conditionKind === kind.value ? 'radio-button-on' : 'radio-button-off'}
                   size={20}
                   color={conditionKind === kind.value ? colors.interactive : colors.textSubtle}

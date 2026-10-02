@@ -13,7 +13,7 @@
 // question, and neither should hold up the tabs themselves.
 import { useMemo, useState } from 'react';
 import { Image, Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { ControlIcon } from '@/components/ControlIcon';
 import { EddySymbol } from '@/components/EddySymbol';
 import type { PlaceSymbolName } from './placeSymbol';
 import type {
@@ -398,7 +398,7 @@ export function AccessOverviewTab({
  * ── The direction glyphs are the section's, not the row's ─────────────────
  * Downstream and upstream are a property of the GROUP — every row under one
  * heading shares it — so drawing an arrow on each row would repeat the heading
- * once per line. Ionicons rather than Eddy art: an arrow is a direction, not a
+ * once per line. ControlIcon rather than Eddy art: an arrow is a direction, not a
  * thing, and the catalog is a catalog of things.
  */
 export function AccessFloatsTab({ accessPoint, detail, onPlanTo, nearbyMarks, status, estimatesStatus }: TabProps) {
@@ -436,7 +436,7 @@ export function AccessFloatsTab({ accessPoint, detail, onPlanTo, nearbyMarks, st
     entries.length ? (
       <View style={styles.group}>
         <View style={styles.groupHead}>
-          <Ionicons name={icon} size={13} color={colors.textMuted} />
+          <ControlIcon name={icon} size={13} color={colors.textMuted} />
           <Text style={[styles.groupTitle, { color: colors.textMuted }]}>{title}</Text>
         </View>
         {entries.map((entry) => {
@@ -539,11 +539,11 @@ function BookButton({ action }: { action: BookingAction }) {
       accessibilityRole="link"
       accessibilityLabel={`${action.label}. Opens in the browser.`}
     >
-      <Ionicons name="calendar-outline" size={16} color={colors.accentFill} />
+      <ControlIcon name="calendar-outline" size={16} color={colors.accentFill} />
       <Text style={[styles.bookText, { color: colors.accentFill }]} numberOfLines={1}>
         {action.label}
       </Text>
-      <Ionicons name="open-outline" size={14} color={colors.accentFill} />
+      <ControlIcon name="open-outline" size={14} color={colors.accentFill} />
     </Pressable>
   );
 }

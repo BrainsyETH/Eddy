@@ -55,8 +55,6 @@ import {
   View,
 } from 'react-native';
 import Animated, {
-  Extrapolation,
-  interpolate,
   useAnimatedStyle,
   useAnimatedReaction,
   runOnJS,
@@ -65,7 +63,7 @@ import Animated, {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LazyTabScreen } from '@/components/LazyTabScreen';
 import { StatusBar } from 'expo-status-bar';
-import { Ionicons } from '@expo/vector-icons';
+import { ControlIcon } from '@/components/ControlIcon';
 import type {
   FloatPlan,
   Hazard,
@@ -151,6 +149,7 @@ import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import * as Location from 'expo-location';
 import { asHref } from '@/lib/href';
 import { Otter } from '@/components/Otter';
+import { FloatingControlSurface } from '@/components/FloatingControlSurface';
 import { SearchBar } from '@/components/SearchBar';
 import { SearchResultsList } from '@/components/SearchResultsList';
 import {
@@ -202,16 +201,6 @@ const MAP_CHROME_BOTTOM = ORNAMENT_BAND;
  * rest — the point of riding the sheet is that the arrangement does not change.
  */
 const PLAN_CLUSTER_BOTTOM = 16;
-
-/**
- * How much map has to be left above the sheet for the floating controls to be
- * worth showing: their own floor, the 44pt button, and a gap above it.
- *
- * They fade out over the 60pt above this rather than vanishing at it, so the
- * last part of a drag to the tallest detent takes them out smoothly instead of
- * blinking them off on settle.
- */
-const CONTROLS_ROOM_FADE = 60;
 
 /**
  * The one array `services ?? …` may fall back to.
@@ -1845,7 +1834,7 @@ function MapContent() {
   const sheetMetrics = useSharedValue<SheetMetrics>({ height: 0, available: 0 });
 
   /**
-   * Lift by exactly what the sheet occupies, and fade when the map runs out of
+   * Lift by exactly what the sheet occupies, and hide when the map runs out of
    * room to hold them.
    *
    * `bottom` stays where it is and this is a TRANSFORM, which is the same rule
@@ -1869,15 +1858,12 @@ function MapContent() {
    */
   const controlsStyle = useAnimatedStyle(() => {
     const { height, available } = sheetMetrics.value;
-    if (available <= 0) return { opacity: 1, transform: [{ translateY: 0 }] };
+    if (available <= 0) return { display: 'flex', transform: [{ translateY: 0 }] };
     const room = mapChromeClearance(available, height, chromeHeight).controls;
     return {
-      opacity: interpolate(
-        room,
-        [0, CONTROLS_ROOM_FADE],
-        [0, 1],
-        Extrapolation.CLAMP,
-      ),
+      // Glass cannot live under an opacity-faded ancestor. Hide at the same
+      // live boundary that disables touch and accessibility.
+      display: room <= 0 ? 'none' : 'flex',
       transform: [{ translateY: -height }],
     };
   });
@@ -2739,7 +2725,7 @@ function MapContent() {
   const topChromeStyle = useAnimatedStyle(() => {
     const { height, available } = sheetMetrics.value;
     const room = mapChromeClearance(available, height, chromeHeight, mapSearchOpen).top;
-    return { opacity: interpolate(room, [0, 24], [0, 1], Extrapolation.CLAMP) };
+    return { display: room <= 0 ? 'none' : 'flex' };
   });
 
   // NOTHING ON THIS SCREEN IS GATED. The offline download was the Map tab's
@@ -2828,8 +2814,9 @@ function MapContent() {
             }}
           >
             <View style={styles.searchRow} pointerEvents="box-none">
-              <View style={[styles.searchField, floating()]}>
+              <View style={styles.searchField}>
                 <SearchBar
+                  floating
                   value={search.query}
                   onChangeText={search.setQuery}
                   placeholder="Search rivers, gauges, dams and more"
@@ -2852,7 +2839,7 @@ function MapContent() {
             </View>
             {network.readingsFailed && !unavailable ? (
               <View style={[styles.readingsNotice, { backgroundColor: colors.cardRaised }]}>
-                <Ionicons name="cloud-offline-outline" size={14} color={colors.textMuted} />
+                <ControlIcon name="cloud-offline-outline" size={14} color={colors.textMuted} />
                 <Text style={[styles.readingsNoticeText, { color: colors.textMuted }]}>
                   Live conditions unavailable — rivers are shown uncoloured.
                 </Text>
@@ -2914,7 +2901,7 @@ function MapContent() {
             too now, so 12 would have landed the locate button on the (i).
 
             When search and the sheet leave too little room, hide controls from
-            hit testing and VoiceOver at the live fade boundary, before settling. */}
+            hit testing and VoiceOver at the live clearance boundary, before settling. */}
         {hiddenChrome.controls ? null : (
         <Animated.View
           style={[styles.bottomStack, { left: insets.left, right: insets.right, bottom: geometry.bottomInset + MAP_CHROME_BOTTOM }, controlsStyle]}
@@ -2926,27 +2913,30 @@ function MapContent() {
               launch. A granted tap recentres; the map keeps the fix for the rest
               of the session and hands it to the planner. */}
           {!unavailable && !mapSearchOpen ? (
-            <Pressable
-              onPress={onLocate}
-              disabled={location.status === 'locating'}
-              style={({ pressed }) => [
-                styles.locateButton,
-                floating(),
-                { backgroundColor: colors.card, opacity: pressed ? 0.7 : 1 },
-              ]}
-              accessibilityRole="button"
-              accessibilityLabel="Show my location"
-            >
-              {location.status === 'locating' ? (
-                <ActivityIndicator size="small" color={colors.interactive} />
-              ) : (
-                <Ionicons
-                  name={location.status === 'ready' ? 'locate' : 'locate-outline'}
-                  size={19}
-                  color={location.status === 'denied' ? colors.textSubtle : colors.interactive}
-                />
+            <FloatingControlSurface style={styles.locateButton} interactive={location.status !== 'locating'}>
+              {glass => (
+                <Pressable
+                  onPress={onLocate}
+                  disabled={location.status === 'locating'}
+                  style={({ pressed }) => [
+                    styles.locateButton,
+                    { opacity: pressed && !glass ? 0.7 : 1 },
+                  ]}
+                  accessibilityRole="button"
+                  accessibilityLabel="Show my location"
+                >
+                  {location.status === 'locating' ? (
+                    <ActivityIndicator size="small" color={colors.interactive} />
+                  ) : (
+                    <ControlIcon
+                      name={location.status === 'ready' ? 'locate' : 'locate-outline'}
+                      size={19}
+                      color={location.status === 'denied' ? colors.textSubtle : colors.interactive}
+                    />
+                  )}
+                </Pressable>
               )}
-            </Pressable>
+            </FloatingControlSurface>
           ) : null}
 
           {/* ── THERE IS NO CONDITION LEGEND HERE ANY MORE ───────────
@@ -3014,7 +3004,7 @@ function MapContent() {
               accessibilityRole="button"
               accessibilityLabel="Clear this float plan"
             >
-              <Ionicons name="close" size={18} color={colors.textMuted} />
+              <ControlIcon name="close" size={18} color={colors.textMuted} />
             </Pressable>
           ) : null}
 
@@ -3040,7 +3030,7 @@ function MapContent() {
               // the reader to infer what tapping it does.
               accessibilityLabel={planner.plan ? 'View your float plan' : 'Plan a float'}
             >
-              <Ionicons
+              <ControlIcon
                 name={planner.plan ? 'map-outline' : 'navigate-outline'}
                 size={17}
                 color={colors.onAccent}

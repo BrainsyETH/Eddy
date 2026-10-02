@@ -41,7 +41,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
+import { ControlIcon } from '@/components/ControlIcon';
 import type {
   GaugeDetail,
   GaugeDetailThreshold,
@@ -833,7 +833,7 @@ export default function GaugeDetailScreen() {
                 {premiumPitch(link?.riverName)}
               </Text>
             </View>
-            <Ionicons name="chevron-forward" size={17} color={colors.textSubtle} />
+            <ControlIcon name="chevron-forward" size={17} color={colors.textSubtle} />
           </Pressable>
         ) : null}
 
@@ -924,7 +924,7 @@ export default function GaugeDetailScreen() {
               accessibilityRole="button"
               accessibilityLabel={`Set an alert for ${gauge.name}`}
             >
-              <Ionicons name="notifications-outline" size={16} color={colors.text} />
+              <ControlIcon name="notifications-outline" size={16} color={colors.text} />
               <Text style={[styles.sourceText, { color: colors.text }]}>Alert me about this gauge</Text>
             </Pressable>
           ) : null}
@@ -966,7 +966,7 @@ export default function GaugeDetailScreen() {
             accessibilityRole="button"
             accessibilityLabel={`Report a problem with ${gauge.name}`}
           >
-            <Ionicons name="flag-outline" size={16} color={colors.textMuted} />
+            <ControlIcon name="flag-outline" size={16} color={colors.textMuted} />
             <Text style={[styles.sourceText, { color: colors.textMuted }]}>
               This reading looks wrong
             </Text>

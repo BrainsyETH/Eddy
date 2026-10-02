@@ -35,7 +35,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Stack, useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useHeaderHeight } from 'expo-router/react-navigation';
-import { Ionicons } from '@expo/vector-icons';
+import { ControlIcon } from '@/components/ControlIcon';
 import type {
   MapAccessPoint,
   MapGauge,
@@ -181,7 +181,7 @@ function UnavailableNote({ text, onRetry }: { text: string; onRetry: () => void 
   const { colors } = useTheme();
   return (
     <View style={[styles.notice, { backgroundColor: colors.cardRaised }]}>
-      <Ionicons name="cloud-offline-outline" size={14} color={colors.textMuted} />
+      <ControlIcon name="cloud-offline-outline" size={14} color={colors.textMuted} />
       <Text style={[styles.noticeText, { color: colors.textMuted }]}>{text}</Text>
       <Pressable onPress={onRetry} hitSlop={8} accessibilityRole="button">
         <Text style={[styles.retryLink, { color: colors.interactive }]}>Try again</Text>
@@ -297,10 +297,10 @@ function AccessRow({ point, riverSlug }: { point: MapAccessPoint; riverSlug: str
           accessibilityRole="button"
           accessibilityLabel={`Directions to ${point.name}`}
         >
-          <Ionicons name="navigate-outline" size={17} color={colors.interactive} />
+          <ControlIcon name="navigate-outline" size={17} color={colors.interactive} />
         </Pressable>
       ) : (
-        <Ionicons name="navigate-outline" size={16} color={colors.interactive} />
+        <ControlIcon name="navigate-outline" size={16} color={colors.interactive} />
       )}
     </Pressable>
   );
@@ -352,7 +352,7 @@ function ServiceRow({ service }: { service: RiverService }) {
           accessibilityRole="button"
           accessibilityLabel={`Call ${service.name}`}
         >
-          <Ionicons name="call-outline" size={19} color={colors.interactive} />
+          <ControlIcon name="call-outline" size={19} color={colors.interactive} />
         </Pressable>
       ) : null}
       {service.website ? (
@@ -362,7 +362,7 @@ function ServiceRow({ service }: { service: RiverService }) {
           accessibilityRole="button"
           accessibilityLabel={`Open ${service.name} website`}
         >
-          <Ionicons name="open-outline" size={19} color={colors.interactive} />
+          <ControlIcon name="open-outline" size={19} color={colors.interactive} />
         </Pressable>
       ) : null}
     </View>
@@ -1465,7 +1465,7 @@ export default function RiverDetailScreen() {
           {(readingAgeHours != null && band !== 'expired') || shownGaugeName ? (
             <View style={styles.updatedRow}>
               {cachedReading ? (
-                <Ionicons name="cloud-offline-outline" size={12} color={colors.textSubtle} />
+                <ControlIcon name="cloud-offline-outline" size={12} color={colors.textSubtle} />
               ) : null}
               <Text style={[styles.updated, { color: colors.textSubtle }]}>
                 {readingAgeHours != null && band !== 'expired'
@@ -1477,7 +1477,7 @@ export default function RiverDetailScreen() {
 
           {caveat ? (
             <View style={[styles.caveat, { backgroundColor: conditionBg('unknown') }]}>
-              <Ionicons name="alert-circle-outline" size={15} color={colors.textMuted} />
+              <ControlIcon name="alert-circle-outline" size={15} color={colors.textMuted} />
               <Text style={[styles.caveatText, { color: colors.textMuted }]}>{caveat}</Text>
             </View>
           ) : null}
@@ -1628,7 +1628,7 @@ export default function RiverDetailScreen() {
           {gate.busy ? (
             <ActivityIndicator color={subscribed ? colors.textMuted : colors.onAccent} size="small" />
           ) : (
-            <Ionicons
+            <ControlIcon
               name={subscribed ? 'notifications' : 'notifications-outline'}
               size={18}
               color={subscribed ? colors.success : colors.onAccent}
@@ -1700,7 +1700,7 @@ export default function RiverDetailScreen() {
             }
             trailing={
               source.hazards === 'missing' ? (
-                <Ionicons name="cloud-offline-outline" size={14} color={colors.textMuted} />
+                <ControlIcon name="cloud-offline-outline" size={14} color={colors.textMuted} />
               ) : (
               <View style={styles.severityCues}>
                 {sortedHazards
@@ -1749,7 +1749,7 @@ export default function RiverDetailScreen() {
                     <View
                       style={[styles.portage, { backgroundColor: conditionBg(hazardCode) }]}
                     >
-                      <Ionicons name="walk-outline" size={14} color={conditionInk(hazardCode)} />
+                      <ControlIcon name="walk-outline" size={14} color={conditionInk(hazardCode)} />
                       <Text style={[styles.portageText, { color: conditionInk(hazardCode) }]}>
                         {portage}
                       </Text>
@@ -1899,7 +1899,7 @@ export default function RiverDetailScreen() {
           accessibilityRole="button"
           accessibilityLabel={`Report a problem with the ${river.name}`}
         >
-          <Ionicons name="flag-outline" size={13} color={colors.textSubtle} />
+          <ControlIcon name="flag-outline" size={13} color={colors.textSubtle} />
           <Text style={[styles.reportText, { color: colors.textSubtle }]}>
             Didn&apos;t match the river? Tell Eddy
           </Text>

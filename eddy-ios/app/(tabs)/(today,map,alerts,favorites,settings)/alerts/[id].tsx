@@ -26,7 +26,7 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
+import { ControlIcon } from '@/components/ControlIcon';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import {
   describeAlertRule,
@@ -334,7 +334,7 @@ export default function EditAlertScreen() {
             accessibilityRole="button"
             accessibilityLabel={`Open the ${parent.riverName ?? 'river'} alert this one belongs to`}
           >
-            <Ionicons
+            <ControlIcon
               name={gatedByParent ? 'pause-circle-outline' : 'git-branch-outline'}
               size={18}
               color={gatedByParent ? colors.error : colors.textMuted}
@@ -352,7 +352,7 @@ export default function EditAlertScreen() {
                   : `Added from there, so it starts on the same setting and goes with it if that alert is paused or deleted. You can change this one on its own.`}
               </Text>
             </View>
-            <Ionicons name="chevron-forward" size={16} color={colors.textSubtle} />
+            <ControlIcon name="chevron-forward" size={16} color={colors.textSubtle} />
           </Pressable>
         ) : null}
 
@@ -423,7 +423,7 @@ export default function EditAlertScreen() {
                   <Text style={[styles.optionHint, { color: colors.textMuted }]}>{kind.hint}</Text>
                   <ConditionCodeChips codes={codesForKind(kind.value)} />
                 </View>
-                <Ionicons
+                <ControlIcon
                   name={conditionKind === kind.value ? 'radio-button-on' : 'radio-button-off'}
                   size={20}
                   color={conditionKind === kind.value ? colors.interactive : colors.textSubtle}
@@ -495,7 +495,7 @@ export default function EditAlertScreen() {
             </Text>
             {seed?.state === 'inside' ? (
               <View style={[styles.seedNotice, { backgroundColor: colors.card }, elevation(1)]}>
-                <Ionicons name="information-circle-outline" size={18} color={colors.textMuted} />
+                <ControlIcon name="information-circle-outline" size={18} color={colors.textMuted} />
                 <Text style={[styles.seedText, { color: colors.text }]}>
                   {seed.value != null
                     ? `${targetName} is already at ${formatAlertValue(seed.value, rule.metric ?? 'gauge_height_ft')}, which is inside this alert. Saved — but it stays quiet until the water leaves that range and comes back.`

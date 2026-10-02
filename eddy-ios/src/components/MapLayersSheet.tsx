@@ -30,6 +30,7 @@
 //   with no campgrounds should say 0, but a layer that has never been fetched
 //   must not claim zero of anything.
 
+import { FloatingControlSurface } from '@/components/FloatingControlSurface';
 import { useLayoutEffect, useMemo, useState } from 'react';
 import {
   AccessibilityInfo,
@@ -51,7 +52,7 @@ import Animated, {
   useSharedValue,
   withTiming,
 } from 'react-native-reanimated';
-import { Ionicons } from '@expo/vector-icons';
+import { ControlIcon } from '@/components/ControlIcon';
 import { EddySymbol } from '@/components/EddySymbol';
 import { useReducedMotion } from '@/hooks/useReducedMotion';
 import { useTheme } from '@/theme/ThemeProvider';
@@ -348,7 +349,7 @@ export function MapLayersSheet({
                       style={{ opacity: on ? 1 : DIMMED }}
                     />
                   ) : (
-                    <Ionicons
+                    <ControlIcon
                       name={layer.icon}
                       size={15}
                       color={on ? tint : colors.textSubtle}
@@ -383,7 +384,7 @@ export function MapLayersSheet({
                         accessible={false}
                         importantForAccessibility="no"
                       >
-                        <Ionicons
+                        <ControlIcon
                           name="information-circle-outline"
                           size={15}
                           color={colors.textSubtle}
@@ -564,21 +565,24 @@ export function MapLayersButton({
   onPress: () => void;
   changed: boolean;
 }) {
-  const { colors, floating } = useTheme();
+  const { colors } = useTheme();
   return (
-    <Pressable
-      onPress={onPress}
-      style={({ pressed }) => [
-        styles.button,
-        floating(),
-        { backgroundColor: colors.card, opacity: pressed ? 0.7 : 1 },
-      ]}
-      accessibilityRole="button"
-      accessibilityLabel="Map layers"
-    >
-      <Ionicons name="layers-outline" size={19} color={colors.interactive} />
-      {changed ? <View style={[styles.dot, { backgroundColor: colors.interactive }]} /> : null}
-    </Pressable>
+    <FloatingControlSurface style={styles.button}>
+      {glass => (
+        <Pressable
+          onPress={onPress}
+          style={({ pressed }) => [
+            styles.button,
+            { opacity: pressed && !glass ? 0.7 : 1 },
+          ]}
+          accessibilityRole="button"
+          accessibilityLabel="Map layers"
+        >
+          <ControlIcon name="layers-outline" size={19} color={colors.interactive} />
+          {changed ? <View style={[styles.dot, { backgroundColor: colors.interactive }]} /> : null}
+        </Pressable>
+      )}
+    </FloatingControlSurface>
   );
 }
 

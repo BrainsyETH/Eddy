@@ -44,7 +44,7 @@
 // the map already colours its line with.
 
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { ControlIcon } from '@/components/ControlIcon';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
 import {
@@ -125,7 +125,7 @@ export function RiverHead({
           accessibilityRole="button"
           accessibilityLabel="Close"
         >
-          <Ionicons name="close" size={19} color={colors.textMuted} />
+          <ControlIcon name="close" size={19} color={colors.textMuted} />
         </Pressable>
       </View>
 

@@ -35,7 +35,7 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
+import { ControlIcon } from '@/components/ControlIcon';
 import type { MapAccessPoint, RiverListItem } from '@eddy/types';
 import { accessTypeLabel } from '@eddy/types';
 import { saveFloatPlan } from '@/api/client';
@@ -154,7 +154,7 @@ export function PlanSheet({
         <View style={[styles.head, stacked && styles.compactHead]}>
           {!stacked ? heading : null}
           <Pressable onPress={close} style={styles.closeButton} accessibilityRole="button" accessibilityLabel="Close planner">
-            <Ionicons name="close" size={26} color={colors.textMuted} />
+            <ControlIcon name="close" size={26} color={colors.textMuted} />
           </Pressable>
         </View>
 
@@ -269,7 +269,7 @@ export function PlanSheet({
                 accessibilityLabel={saving ? 'Saving float' : saved ? 'Remove this float from favorites' : 'Save this float to favorites'}
               >
                 {saving ? <ActivityIndicator color={colors.interactive} size="small" /> : (
-                  <Ionicons name={saved ? 'star' : 'star-outline'} size={17} color={saved ? colors.warm : colors.textMuted} />
+                  <ControlIcon name={saved ? 'star' : 'star-outline'} size={17} color={saved ? colors.warm : colors.textMuted} />
                 )}
                 <Text style={[styles.saveButtonText, { color: saved ? colors.text : colors.textMuted }]}>
                   {saving ? 'Saving…' : saved ? 'Saved' : 'Save'}
@@ -287,7 +287,7 @@ export function PlanSheet({
                 accessibilityState={{ disabled: sharing, busy: sharing }}
               >
                 {sharing ? <ActivityIndicator color={colors.onAccent} size="small" /> : (
-                  <Ionicons name="share-outline" size={17} color={colors.onAccent} />
+                  <ControlIcon name="share-outline" size={17} color={colors.onAccent} />
                 )}
                 <Text style={[styles.primaryButtonText, { color: colors.onAccent }]}>{sharing ? 'Sharing…' : 'Share'}</Text>
               </Pressable>
@@ -409,7 +409,7 @@ function Breadcrumb({
                 {crumb.value ?? (crumb.step === 'put-in' ? 'Where you launch' : 'Where you finish')}
               </Text>
             </View>
-            {stacked && reachable ? <Ionicons name="chevron-forward" size={17} color={ink} /> : null}
+            {stacked && reachable ? <ControlIcon name="chevron-forward" size={17} color={ink} /> : null}
           </Pressable>
         );
       })}
@@ -494,7 +494,7 @@ function RiverList({
                 </Text>
               </View>
             </View>
-            <Ionicons name="chevron-forward" size={17} color={colors.textSubtle} />
+            <ControlIcon name="chevron-forward" size={17} color={colors.textSubtle} />
           </Pressable>
         );
       })}
@@ -586,7 +586,7 @@ function AccessPointList({
               accessibilityRole="button"
               accessibilityState={{ selected: nearestFirst }}
             >
-              <Ionicons
+              <ControlIcon
                 name={nearestFirst ? 'navigate' : 'navigate-outline'}
                 size={14}
                 color={nearestFirst ? colors.interactive : colors.textMuted}
@@ -694,7 +694,7 @@ function AccessPointList({
                           .join(' · ')}
                       </Text>
                     </View>
-                    {selected ? <Ionicons name="checkmark-circle" size={22} color={colors.interactive} /> : null}
+                    {selected ? <ControlIcon name="checkmark-circle" size={22} color={colors.interactive} /> : null}
                   </View>
                 </Pressable>
               </View>

@@ -24,7 +24,7 @@
 
 import { StyleSheet, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
+import { ControlIcon } from '@/components/ControlIcon';
 import type { DamSnapshot } from '@eddy/types';
 import {
   centralDayKey,
@@ -75,7 +75,7 @@ export function RiverDamPanel({ dam }: { dam: DamSnapshot | null }) {
   return (
     <View style={[styles.card, { backgroundColor: colors.card }, elevation(2)]}>
       <View style={styles.header}>
-        <Ionicons name="water-outline" size={16} color={colors.interactive} />
+        <ControlIcon name="water-outline" size={16} color={colors.interactive} />
         <Text style={[styles.title, { color: colors.text }]}>{dam.name}</Text>
       </View>
 
