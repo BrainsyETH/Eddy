@@ -77,6 +77,7 @@ import {
   FlatList,
   Keyboard,
   Linking,
+  Platform,
   Pressable,
   RefreshControl,
   StyleSheet,
@@ -1273,17 +1274,27 @@ export function TodayScreen({ browseMode = 'today', initialRiverFilter = 'all', 
     });
   };
 
-  const nativeChrome = browseMode === 'today' ? null : <>
-    <NativeHeaderHome destination="today" />
+  const nativeToday = browseMode === 'today' && Platform.OS === 'ios';
+  const searchPlaceholder = browseMode === 'today'
+    ? scope === 'all' ? 'Search rivers, gauges, access and dams'
+      : scope === 'rivers' ? 'Search rivers' : scope === 'gauges' ? 'Search gauges by name or site id'
+        : scope === 'dams' ? 'Search dams and lakes' : 'Search access points'
+    : browseMode === 'rivers' ? 'Search rivers' : 'Search reads by river';
+  const nativeChrome = browseMode === 'today' && !nativeToday ? null : <>
+    {browseMode !== 'today' ? <NativeHeaderHome destination="today" /> : null}
     <Stack.SearchBar
       ref={nativeSearch}
-      placeholder={browseMode === 'rivers' ? 'Search rivers' : 'Search reads by river'}
+      placeholder={searchPlaceholder}
       autoCapitalize="none"
       hideNavigationBar={false}
       hideWhenScrolling={false}
       obscureBackground={false}
       onChangeText={(event) => setQuery(event.nativeEvent.text)}
-      onFocus={() => setSearchOpen(true)}
+      onFocus={() => {
+        if (browseMode === 'today' && !searching) setScope('all');
+        setSearchOpen(true);
+        if (browseMode === 'today') void ensureGauges();
+      }}
       onCancelButtonPress={clearSearchState}
       onSearchButtonPress={() => nativeSearch.current?.blur()}
     />
@@ -1291,7 +1302,7 @@ export function TodayScreen({ browseMode = 'today', initialRiverFilter = 'all', 
 
   if (!rivers && !error) {
     return (
-      <SafeAreaView style={[styles.centered, { backgroundColor: colors.bg }]} edges={browseMode === 'today' ? ['top'] : ['left', 'right']}>
+      <SafeAreaView style={[styles.centered, { backgroundColor: colors.bg }]} edges={browseMode === 'today' && !nativeToday ? ['top'] : ['left', 'right']}>
         {nativeChrome}
         <ActivityIndicator color={colors.interactive} accessibilityLabel="Loading rivers" />
       </SafeAreaView>
@@ -1340,11 +1351,11 @@ export function TodayScreen({ browseMode = 'today', initialRiverFilter = 'all', 
   return (
     <SafeAreaView
       style={[styles.screen, { backgroundColor: colors.bg }]}
-      edges={browseMode === 'today' ? ['top'] : ['left', 'right']}
+      edges={browseMode === 'today' && !nativeToday ? ['top'] : ['left', 'right']}
       onAccessibilityEscape={searchActive ? cancelSearch : browseMode !== 'today' ? leaveChild : undefined}
     >
       {nativeChrome}
-      {browseMode === 'today' ? <View style={styles.header}>
+      {browseMode === 'today' && !nativeToday ? <View style={styles.header}>
         <Text style={[styles.title, { color: colors.text }]}>Today</Text>
         {statusNotice}
       </View> : null}
@@ -1352,7 +1363,7 @@ export function TodayScreen({ browseMode = 'today', initialRiverFilter = 'all', 
       {/* Header and controls sit OUTSIDE the FlatList rather than in
           ListHeaderComponent. Inside, the search field is unmounted and
           remounted as the list re-renders, which drops the keyboard mid-word. */}
-      {browseMode === 'today' ? <View style={[styles.searchRow, { backgroundColor: colors.bg, borderBottomColor: colors.border }]}>
+      {browseMode === 'today' && !nativeToday ? <View style={[styles.searchRow, { backgroundColor: colors.bg, borderBottomColor: colors.border }]}>
         <View style={styles.searchField}>
           <SearchBar
             value={query}
@@ -1395,8 +1406,25 @@ export function TodayScreen({ browseMode = 'today', initialRiverFilter = 'all', 
         ) : null}
       </View> : null}
 
-      {searching ? (
-        <>
+      <FlatList
+        // The list is the header's scroll view; UIKit owns both bar insets.
+        contentInsetAdjustmentBehavior="automatic"
+        data={rows}
+        keyExtractor={(item) => item.key}
+        keyboardShouldPersistTaps="handled"
+        // ── Scroll to dismiss ──────────────────────────────────────────
+        // The two props do different halves of one job and only one of them
+        // was here. `handled` keeps a tap on a row from being eaten by the
+        // dismiss, which is why tapping a river always worked. Nothing set
+        // `keyboardDismissMode`, which defaults to 'none' on iOS — so
+        // scrolling the results left the keyboard sitting over them, and the
+        // only way out was the return key, which with returnKeyType="search"
+        // draws as a magnifying glass. That is a dismissal nobody finds by
+        // accident, and it is not how any other iOS search list behaves.
+        keyboardDismissMode="on-drag"
+        contentContainerStyle={styles.listContent}
+        ListHeaderComponent={
+          searching ? <View>
           <ScopeSwitch options={SCOPES} value={scope} onChange={setScope} />
           {riverScope ? (
             <RiverBrowseControls
@@ -1435,31 +1463,9 @@ export function TodayScreen({ browseMode = 'today', initialRiverFilter = 'all', 
               paddingHorizontal={16}
             />
           ) : null}
-        </>
-      ) : null}
-
-      <FlatList
-        // UIKit owns bottom clearance for the floating tab bar. The surrounding
-        // top-only safe area already places Today's fixed title/search correctly.
-        contentInsetAdjustmentBehavior="automatic"
-        data={rows}
-        keyExtractor={(item) => item.key}
-        keyboardShouldPersistTaps="handled"
-        // ── Scroll to dismiss ──────────────────────────────────────────
-        // The two props do different halves of one job and only one of them
-        // was here. `handled` keeps a tap on a row from being eaten by the
-        // dismiss, which is why tapping a river always worked. Nothing set
-        // `keyboardDismissMode`, which defaults to 'none' on iOS — so
-        // scrolling the results left the keyboard sitting over them, and the
-        // only way out was the return key, which with returnKeyType="search"
-        // draws as a magnifying glass. That is a dismissal nobody finds by
-        // accident, and it is not how any other iOS search list behaves.
-        keyboardDismissMode="on-drag"
-        contentContainerStyle={styles.listContent}
-        ListHeaderComponent={
-          !searching ? (
+          </View> : (
             <View>
-              {browseMode !== 'today' && statusNotice ? <View style={styles.header}>{statusNotice}</View> : null}
+              {(nativeToday || browseMode !== 'today') && statusNotice ? <View style={styles.header}>{statusNotice}</View> : null}
               {browseMode === 'today' ? (
                 <TodayHub
                   rivers={rivers ?? []}
@@ -1507,7 +1513,7 @@ export function TodayScreen({ browseMode = 'today', initialRiverFilter = 'all', 
                 </View>
               )}
             </View>
-          ) : null
+          )
         }
         refreshControl={
           <RefreshControl

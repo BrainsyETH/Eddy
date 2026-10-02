@@ -10,7 +10,7 @@
 // It has no static imports of its own for the same reason. See its header.
 import { isLaunchStalled, subscribeToLaunchStall } from '@/lib/bootstrap';
 import { useEffect, useState } from 'react';
-import { Platform, Pressable, StyleSheet, Text, useColorScheme, View } from 'react-native';
+import { Pressable, StyleSheet, Text, useColorScheme, View } from 'react-native';
 import { DarkTheme, DefaultTheme, Stack, ThemeProvider as NavigationThemeProvider } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider, initialWindowMetrics } from 'react-native-safe-area-context';
@@ -59,37 +59,6 @@ import { seedOfflineBundle } from '@/api/client';
  * far inside this and never sees it. It exists for the unhealthy one.
  */
 const FONT_TIMEOUT_MS = 5_000;
-
-// UIKit supplies the iOS 26 scroll-edge material. Older iOS uses its standard
-// translucent material; adding that blur on iOS 26 would stack two effects.
-const detailHeaderOptions = {
-  headerShown: true,
-  headerBackButtonDisplayMode: 'generic' as const,
-  headerTransparent: Platform.OS === 'ios',
-  headerBlurEffect: Platform.OS === 'ios' && Number.parseInt(String(Platform.Version), 10) < 26
-    ? 'systemMaterial' as const
-    : undefined,
-};
-
-// Route options keep the native header visible during loading and failures,
-// without reordering the stack or adding synthetic history for direct links.
-const detailTitles: Record<string, string> = {
-  weather: 'Weather',
-  'current-alerts': 'Current alerts',
-  camping: 'Camping',
-  'alerts/quiet-hours': 'Quiet hours',
-  'gauge/[siteId]': 'Gauge',
-  'river/[slug]': 'River',
-  'river/[slug]/access/[accessSlug]': 'Access point',
-  'dam/[damId]': 'Dam',
-  'float/[shortCode]': 'Float',
-  floats: 'Saved floats',
-  'favorite-floats': 'Favorite floats',
-  storage: 'Storage',
-  'alerts/[id]': 'Edit alert',
-  'river-conditions': 'River Conditions',
-  'eddy-reads': 'Eddy’s Reads',
-};
 
 // Drop cache entries from a previous CACHE_VERSION. Fire and forget at module
 // scope: it touches nothing any screen reads this launch, and a cache sweep
@@ -331,11 +300,9 @@ function ThemedShell() {
             Keep system fonts/materials in navigation and Eddy styling in content. */}
         <NavigationThemeProvider value={navigationTheme}>
           <Stack screenOptions={({ route }) => {
-            const title = detailTitles[route.name];
             return {
               headerShown: false,
               contentStyle: { backgroundColor: colors.bg },
-              ...(title ? { ...detailHeaderOptions, title } : {}),
               ...(route.name === 'alerts/(create)' ? { presentation: 'modal' as const } : {}),
             };
           }} />

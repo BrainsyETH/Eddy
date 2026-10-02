@@ -266,7 +266,7 @@ test('the sheet does not hand-build a representation sentence of its own', () =>
   // would be both a second derivation AND the copy that was just removed. So
   // the guard is that the screen builds no such sentence itself.
   const screen = readFileSync(
-    join(process.cwd(), '../eddy-ios/app/(tabs)/index.tsx'),
+    join(process.cwd(), '../eddy-ios/app/(tabs)/(map)/index.tsx'),
     'utf8',
   );
   // CODE ONLY. The comments in that file explain what was removed and quote

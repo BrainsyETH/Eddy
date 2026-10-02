@@ -151,7 +151,7 @@ test('the outlook effect joins an in-flight request instead of restarting it', (
   // because the first request had not come back, aborted it, and started an
   // identical one — so the reader waited out two serial copies of a one-to-six
   // second request.
-  const source = readFileSync('../eddy-ios/app/river/[slug].tsx', 'utf8');
+  const source = readFileSync('../eddy-ios/app/(tabs)/(today,map,alerts,favorites,settings)/river/[slug].tsx', 'utf8');
 
   assert.match(source, /outlookInFlight/, 'the effect must track its in-flight requests');
   // The join itself is shareInFlight's, and share-in-flight.test.ts executes
@@ -188,7 +188,7 @@ test('the dam screen has exactly one loader', () => {
   // and with a summary seed calling getSharedDams as well, three concurrent
   // requests for one dam. The river screen's loadDam records what the same
   // duplicate cost there.
-  const source = readFileSync('../eddy-ios/app/dam/[damId].tsx', 'utf8');
+  const source = readFileSync('../eddy-ios/app/(tabs)/(today,map,alerts,favorites,settings)/dam/[damId].tsx', 'utf8');
 
   const loads = source.match(/load\(controller\.signal,/g) ?? [];
   assert.equal(loads.length, 1, `the dam screen must have one loader, found ${loads.length}`);

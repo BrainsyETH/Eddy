@@ -311,7 +311,7 @@ test('agedIndex withholds stale verdicts and stamps "Last known"', () => {
 test('Today and Favorites read the cache when the network fails', () => {
   for (const path of [
     '../eddy-ios/src/hooks/useTodayCatalog.ts',
-    '../eddy-ios/app/(tabs)/favorites.tsx',
+    '../eddy-ios/app/(tabs)/(favorites)/favorites.tsx',
   ]) {
     const source = readFileSync(path, 'utf8');
     // readBestIndex is readIndex plus the launch bundle's condition-less seed,
