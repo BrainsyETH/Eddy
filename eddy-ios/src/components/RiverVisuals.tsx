@@ -50,7 +50,7 @@
 
 import { useState } from 'react';
 import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { ControlIcon } from '@/components/ControlIcon';
 import type { ConditionCode, RiverVisual, RiverVisualsResponse } from '@eddy/types';
 import { CONDITION_ORDER } from '@eddy/conditions';
 import { conditionBg, conditionChipBorder, conditionInk, conditionLabel } from '@/theme/conditions';
@@ -120,7 +120,7 @@ function AddPhotoButton({ onPress }: { onPress: () => void }) {
       accessibilityRole="button"
       accessibilityLabel="Add a photo of this river"
     >
-      <Ionicons name="camera-outline" size={16} color={colors.interactive} />
+      <ControlIcon name="camera-outline" size={16} color={colors.interactive} />
       <Text style={[styles.addText, { color: colors.interactive }]}>Add a photo</Text>
     </Pressable>
   );
@@ -266,7 +266,7 @@ export function RiverVisuals({
                     }`}
                     style={({ pressed }) => [styles.report, { opacity: pressed ? 0.5 : 1 }]}
                   >
-                    <Ionicons name="flag-outline" size={12} color={colors.textSubtle} />
+                    <ControlIcon name="flag-outline" size={12} color={colors.textSubtle} />
                     <Text style={[styles.reportText, { color: colors.textSubtle }]}>Report</Text>
                   </Pressable>
                 ) : null}

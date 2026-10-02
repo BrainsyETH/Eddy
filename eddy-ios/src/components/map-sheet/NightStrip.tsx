@@ -205,5 +205,5 @@ const styles = StyleSheet.create({
   },
   fill: { width: '100%', borderRadius: 2 },
   dash: { width: 8, height: 2, borderRadius: 1 },
-  ruler: { ...t.xs, fontSize: 10, lineHeight: 14, marginTop: 3 },
+  ruler: { ...t.xs, fontSize: 12, lineHeight: 17, marginTop: 3 },
 });

@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
+import { ControlIcon } from '@/components/ControlIcon';
 import type { RiverAlert } from '@eddy/types';
 import { recommendationNoticeSummary } from '@/lib/todayRecommendation';
 import { PublicNoticeRow } from './CurrentAlertRows';
@@ -26,14 +26,14 @@ export function BestRiverNotices({ notices, riverName }: { notices: RiverAlert[]
         accessibilityHint="Opens the full notices for this river"
         style={({ pressed }) => [styles.row, { backgroundColor: colors.card, opacity: pressed ? 0.7 : 1 }]}
       >
-        <Ionicons name="warning-outline" size={18} color={colors.text} />
+        <ControlIcon name="warning-outline" size={18} color={colors.text} />
         <Text numberOfLines={fontScale >= 1.3 ? undefined : 1} style={[styles.label, { color: colors.text }]}>
           {summary.label}
         </Text>
         {summary.additionalCount > 0 ? (
           <Text style={[styles.count, { color: colors.textMuted }]}>+{summary.additionalCount}</Text>
         ) : null}
-        <Ionicons name="chevron-forward" size={16} color={colors.textSubtle} />
+        <ControlIcon name="chevron-forward" size={16} color={colors.textSubtle} />
       </Pressable>
       <Modal visible={open} animationType="slide" presentationStyle="pageSheet" allowSwipeDismissal onRequestClose={close}>
         <SafeAreaView
@@ -47,7 +47,7 @@ export function BestRiverNotices({ notices, riverName }: { notices: RiverAlert[]
               <Text style={[t.sm, { color: colors.textMuted }]}>{riverName}</Text>
             </View>
             <Pressable onPress={close} accessibilityRole="button" accessibilityLabel="Close agency notices" style={styles.close}>
-              <Ionicons name="close" size={24} color={colors.text} />
+              <ControlIcon name="close" size={24} color={colors.text} />
             </Pressable>
           </View>
           <ScrollView contentContainerStyle={styles.content}>

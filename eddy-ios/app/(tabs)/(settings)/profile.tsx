@@ -50,7 +50,7 @@ import { LazyTabScreen } from '@/components/LazyTabScreen';
 import { useRouter } from 'expo-router';
 import * as AppleAuthentication from 'expo-apple-authentication';
 import Constants from 'expo-constants';
-import { Ionicons } from '@expo/vector-icons';
+import { ControlIcon } from '@/components/ControlIcon';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, textStyles, type as t } from '@/theme/typography';
 import { Otter } from '@/components/Otter';
@@ -564,7 +564,7 @@ function ProfileContent() {
             <>
               <View style={styles.accountRow}>
                 <View style={[styles.accountIcon, { backgroundColor: colors.selectionBg }]}>
-                  <Ionicons name="person-outline" size={24} color={colors.interactive} />
+                  <ControlIcon name="person-outline" size={24} color={colors.interactive} />
                 </View>
                 <View style={styles.rowBody}>
                   <Text style={[styles.rowTitle, { color: colors.text }]}>
@@ -906,7 +906,7 @@ function NotificationSettingsRow({
         ]}
       >
         <View style={[styles.rowIcon, { backgroundColor: colors.selectionBg }]}>
-          <Ionicons
+          <ControlIcon
             name={checked ? 'notifications' : 'notifications-outline'}
             size={19}
             color={colors.interactive}
@@ -941,7 +941,7 @@ function SettingsRow({
   external = false,
   last = false,
 }: {
-  icon: ComponentProps<typeof Ionicons>['name'];
+  icon: ComponentProps<typeof ControlIcon>['name'];
   title: string;
   detail?: string;
   onPress?: () => void;
@@ -967,7 +967,7 @@ function SettingsRow({
         ]}
       >
         <View style={[styles.rowIcon, { backgroundColor: destructive ? 'transparent' : colors.selectionBg }]}>
-          <Ionicons name={icon} size={19} color={ink} />
+          <ControlIcon name={icon} size={19} color={ink} />
         </View>
         <View style={styles.rowBody}>
           <Text style={[styles.rowTitle, { color: destructive ? colors.error : colors.text }]}>
@@ -976,7 +976,7 @@ function SettingsRow({
           {detail ? <Text style={[styles.rowNote, { color: colors.textMuted }]}>{detail}</Text> : null}
         </View>
         {onPress ? (
-          <Ionicons
+          <ControlIcon
             name={external ? 'open-outline' : 'chevron-forward'}
             size={external ? 17 : 18}
             color={colors.textSubtle}

@@ -13,7 +13,7 @@
 // latter is Android's.
 
 import { Pressable } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { ControlIcon } from '@/components/ControlIcon';
 import { useTheme } from '@/theme/ThemeProvider';
 import { shareLink } from '@/lib/share';
 
@@ -50,7 +50,7 @@ export function ShareButton({
       accessibilityRole="button"
       accessibilityLabel={label}
     >
-      <Ionicons name="share-outline" size={23} color={colors.textSubtle} />
+      <ControlIcon name="share-outline" size={23} color={colors.textSubtle} />
     </Pressable>
   );
 }

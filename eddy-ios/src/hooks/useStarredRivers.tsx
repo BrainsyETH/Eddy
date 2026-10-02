@@ -15,6 +15,7 @@
 // encodes a correctness rule (an unstar must not be resurrected by the server
 // copy), and it needs tests the app has no runner for.
 
+import { selectionFeedback } from '@/lib/haptics';
 import {
   createContext,
   useCallback,
@@ -343,6 +344,7 @@ export function StarredRiversProvider({ children }: { children: ReactNode }) {
       mutationGen.current += 1;
       setEntries(next);
       persist(next);
+      selectionFeedback();
       // Push in the background. If it fails the local tombstone or star stays
       // put and the next sync resolves it — which is the point of tombstones.
       void sync();

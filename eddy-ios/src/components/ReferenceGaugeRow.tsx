@@ -24,7 +24,7 @@ import { gaugeFreshness, gaugeFreshnessLabel, observationAgeHours } from '@eddy/
 
 import { memo } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { ControlIcon } from '@/components/ControlIcon';
 import type { SearchResultGauge } from '@eddy/types';
 import { flowBand } from '@eddy/conditions/flow-band';
 import { flowBandColor, flowBandLabel } from '@/theme/flow';
@@ -130,7 +130,7 @@ function ReferenceGaugeRowComponent({
           accessibilityRole="button"
           accessibilityLabel={starred ? `Unstar ${name}` : `Star ${name}`}
         >
-          <Ionicons
+          <ControlIcon
             name={starred ? 'star' : 'star-outline'}
             size={21}
             color={starred ? colors.warm : colors.textSubtle}

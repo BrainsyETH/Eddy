@@ -46,7 +46,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { FlatList, Pressable, RefreshControl, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LazyTabScreen } from '@/components/LazyTabScreen';
-import { Ionicons } from '@expo/vector-icons';
+import { ControlIcon } from '@/components/ControlIcon';
 import type { DamSnapshot, MapGauge, RiverListItem } from '@eddy/types';
 import { fetchGauges, fetchRivers } from '@/api/client';
 import { getSharedDams } from '@/hooks/useDams';
@@ -306,7 +306,7 @@ function FavoritesContent() {
 
             {refreshFailed || riversFromCache ? (
               <View style={styles.offlineRow}>
-                <Ionicons name="cloud-offline-outline" size={14} color={colors.textMuted} />
+                <ControlIcon name="cloud-offline-outline" size={14} color={colors.textMuted} />
                 <Text style={[styles.offlineText, { color: colors.textMuted }]}>
                   {refreshFailed ? 'Couldn’t update all conditions.' : 'Showing saved conditions.'}
                   {riverSnapshot ? ` River readings last checked ${new Date(riverSnapshot.fetchedAt).toLocaleString()}.` : ''}
@@ -326,12 +326,12 @@ function FavoritesContent() {
               accessibilityRole="button"
               accessibilityLabel={`Saved floats, ${savedFloats.length}`}
             >
-              <Ionicons name="navigate-outline" size={18} color={colors.interactive} />
+              <ControlIcon name="navigate-outline" size={18} color={colors.interactive} />
               <Text style={[styles.floatsText, { color: colors.text }]}>Saved floats</Text>
               <Text style={[styles.floatsCount, { color: colors.textSubtle }]}>
                 {savedFloats.length}
               </Text>
-              <Ionicons name="chevron-forward" size={16} color={colors.textSubtle} />
+              <ControlIcon name="chevron-forward" size={16} color={colors.textSubtle} />
             </Pressable>
 
             {/* Full-bleed rather than inside the header's 20pt gutter: the chip
@@ -424,7 +424,7 @@ function FavoritesContent() {
               accessibilityRole="button"
               accessibilityLabel={`Unstar ${item.name}`}
             >
-              <Ionicons name="star" size={21} color={colors.warm} />
+              <ControlIcon name="star" size={21} color={colors.warm} />
             </Pressable>
           </View>
         );
@@ -523,7 +523,7 @@ function FavoritesContent() {
           accessibilityRole="button"
           accessibilityLabel={`Unstar ${item.name}`}
         >
-          <Ionicons name="star" size={21} color={colors.warm} />
+          <ControlIcon name="star" size={21} color={colors.warm} />
         </Pressable>
       </View>
     );

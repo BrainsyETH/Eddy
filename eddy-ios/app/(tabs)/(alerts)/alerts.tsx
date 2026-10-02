@@ -75,7 +75,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LazyTabScreen } from '@/components/LazyTabScreen';
-import { Ionicons } from '@expo/vector-icons';
+import { ControlIcon } from '@/components/ControlIcon';
 import type {
   AlertRule,
   HighWaterEntry,
@@ -456,7 +456,7 @@ function AlertsContent() {
           accessibilityRole="button"
           accessibilityLabel="Create an alert"
         >
-          <Ionicons name="add" size={22} color={colors.onInteractive} />
+          <ControlIcon name="add" size={22} color={colors.onInteractive} />
         </Pressable>
       </View>
 

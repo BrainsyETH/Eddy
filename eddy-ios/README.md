@@ -273,7 +273,7 @@ label on one scheme only, which is easy to miss). The same tests require at
 least 4.5:1 for supporting text on page, card, raised, and selected surfaces,
 with primary > secondary > tertiary contrast. Warm Stone 550 and 350 fill the
 accessible intermediate steps recorded in DESIGN.md; they are not new brand
-hues. Dynamic high-contrast variants remain a separate follow-up.
+hues. High-contrast variants resolve through ThemeProvider while Mapbox colors remain strings.
 
 ### Translating, not transcribing
 
@@ -1004,3 +1004,42 @@ expire the handoff and cause Today to fetch fresh data. Pending requests remain
 shared until their API deadline, and Nearby reuses the gauge preload without
 consuming Today's copy. Existing launch requests outside onboarding still run
 before acknowledgment; this change only defers the onboarding-specific preload.
+
+
+## Native navigation and control follow-up (October 2026)
+
+Each tab now owns its own stack. Shared detail routes use Expo Router group
+arrays; public URLs remain unchanged. `npm run typecheck` also validates the
+actual Expo route tree and exercises shared path resolution, push/Back actions,
+tab-history preservation, notification destinations, and root-modal dismissal.
+Cold storage/quiet-hours links belong to Settings, saved floats to Favorites,
+and alert-edit links to Alerts; warm detail links retain their originating tab.
+
+The control update adds `expo-symbols`, `expo-glass-effect`, and the native
+community date picker. The existing EddyMapSheet module also observes iOS
+Increase Contrast so the UI can resolve accessible string colors for Mapbox
+and charts. These changes require **one new development/TestFlight binary**;
+a JavaScript reload or OTA alone cannot install them. Keep fingerprint-based
+runtime versioning. Older clients without the contrast observer keep the
+existing palette; UIKit dynamic colors still adapt where supported.
+
+Reduce Transparency is read and subscribed to once in ThemeProvider, so controls
+that remount after a sheet drag reuse the resolved setting. Glass buttons use
+native press feedback; opaque fallbacks retain explicit pressed feedback.
+Common utility glyphs use the explicitly named ControlIcon wrapper.
+
+Device checks before distribution:
+- Open the same river from Today and Favorites; switch tabs and return to each
+  tab's own detail/back history. Open an external river/shared-float link cold.
+- Search Today, dismiss the keyboard by scrolling, open a result and return;
+  preserve the query/results. Check Cancel and VoiceOver escape.
+- Choose custom dates around midnight and March/November daylight-saving
+  changes. The picker shows local calendar days; the API receives ISO instants.
+  End cannot precede Start; moving Start past End moves End to the same day and
+  announces it to VoiceOver. Earliest observation dates are not yet in the API.
+- Toggle Increase Contrast and Reduce Transparency while the app is open.
+  Check text, control boundaries, map controls, and chart labels in both themes.
+- Drag the map sheet quickly in both directions while search/layers/locate
+  controls appear and disappear. No glass ancestor uses opacity to hide.
+- Check large text, VoiceOver information actions, save/favorite haptics, and
+  failed saves (no success feedback).

@@ -85,7 +85,7 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
+import { ControlIcon } from '@/components/ControlIcon';
 import type {
   DamSnapshot,
   MapGauge,
@@ -239,14 +239,14 @@ const RiverBrowseControls = memo(function RiverBrowseControls({
       {locationStatus === 'locating' ? (
         <ActivityIndicator size="small" color={colors.interactive} />
       ) : (
-        <Ionicons
+        <ControlIcon
           name={sort === 'nearest' ? 'navigate' : 'swap-vertical-outline'}
           size={15}
           color={colors.interactive}
         />
       )}
       <Text style={[styles.sortTriggerText, { color: colors.interactive }]}>{sortLabel}</Text>
-      <Ionicons name={sortOpen ? 'chevron-up' : 'chevron-down'} size={14} color={colors.interactive} />
+      <ControlIcon name={sortOpen ? 'chevron-up' : 'chevron-down'} size={14} color={colors.interactive} />
     </Pressable>
   );
 
@@ -266,7 +266,7 @@ const RiverBrowseControls = memo(function RiverBrowseControls({
                 accessibilityState={{ selected }}
               >
                 <Text style={[styles.sortItemText, { color: selected ? colors.interactive : colors.text }]}>{label}</Text>
-                {selected ? <Ionicons name="checkmark" size={16} color={colors.interactive} /> : null}
+                {selected ? <ControlIcon name="checkmark" size={16} color={colors.interactive} /> : null}
               </Pressable>
             );
           })}
@@ -1689,7 +1689,7 @@ export function TodayScreen({ browseMode = 'today', initialRiverFilter = 'all', 
                   ) : null}
                 </View>
                 {target ? (
-                  <Ionicons name="chevron-forward" size={16} color={colors.textSubtle} />
+                  <ControlIcon name="chevron-forward" size={16} color={colors.textSubtle} />
                 ) : null}
               </Pressable>
             );

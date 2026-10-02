@@ -21,7 +21,7 @@
 // opinions and they disagreed — see MAPS_SHEET_SERVICE_MODEL_PLAN.md.
 import { useMemo } from 'react';
 import { Image, Linking, Pressable, StyleSheet, Text, View } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { ControlIcon } from '@/components/ControlIcon';
 import type { MapAccessPoint } from '@eddy/types';
 import type { RiverSheetData } from './riverTabs';
 import { serviceSections } from './riverTabs';
@@ -274,7 +274,7 @@ export function RiverAccessesTab({ river, onSelectAccess, onOpenAccess }: RiverT
               ) : null}
             </View>
 
-            <Ionicons name="chevron-forward" size={16} color={colors.textSubtle} />
+            <ControlIcon name="chevron-forward" size={16} color={colors.textSubtle} />
           </Pressable>
         );
       })}

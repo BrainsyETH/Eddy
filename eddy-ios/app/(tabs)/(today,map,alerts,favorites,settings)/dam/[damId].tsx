@@ -35,7 +35,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Stack, useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
+import { ControlIcon } from '@/components/ControlIcon';
 import type { DamSnapshot } from '@eddy/types';
 import { fetchRivers } from '@/api/client';
 import { getSharedDam, peekSharedDams } from '@/hooks/useDams';
@@ -638,7 +638,7 @@ export default function DamDetailScreen() {
               accessibilityRole="button"
               accessibilityLabel={`Set a release alert for ${dam.name}`}
             >
-              <Ionicons name="notifications-outline" size={16} color={colors.text} />
+              <ControlIcon name="notifications-outline" size={16} color={colors.text} />
               <Text style={[styles.sourceText, { color: colors.text }]}>
                 Alert me about the release
               </Text>
@@ -661,7 +661,7 @@ export default function DamDetailScreen() {
               {/* The icon is what says this DIALS. Without it the row read as
                   another fact about the dam sitting next to a number, rather
                   than the one control on the screen that leaves the app. */}
-              <Ionicons name="call-outline" size={16} color={colors.text} />
+              <ControlIcon name="call-outline" size={16} color={colors.text} />
               <Text style={[styles.sourceText, { color: colors.text }]}>
                 Recorded release line · {dam.infoPhone}
               </Text>
