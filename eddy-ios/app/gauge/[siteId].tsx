@@ -49,7 +49,6 @@ import type {
   RiverOutlookResponse,
 } from '@eddy/types';
 import { classifyReading, hasLadder } from '@eddy/conditions/condition-ladder';
-import { flowBand } from '@eddy/conditions/flow-band';
 import {
   ApiError,
   fetchGaugeDetail,
@@ -63,14 +62,6 @@ import {
   type PremiumReadFailure,
 } from '@/lib/premiumRead';
 import {
-  conditionBg,
-  conditionChipBorder,
-  conditionInk,
-  conditionLongLabel,
-  conditionText,
-} from '@/theme/conditions';
-import { flowBandChip, flowBandLabel, flowBandSentence } from '@/theme/flow';
-import {
   floodStageColor,
   formatStage,
 } from '@/theme/floodStage';
@@ -79,7 +70,7 @@ import { isReadingStale } from '@eddy/conditions/reading-staleness';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
 import { SafetyDisclaimer } from '@/components/SafetyDisclaimer';
-import { formatReading, percentileLabel, readingAge } from '@/lib/readingCopy';
+import { percentileLabel, readingAge } from '@/lib/readingCopy';
 import { usgsGaugeUrl } from '@/lib/directions';
 import { gaugeSharePath, shareLink } from '@/lib/share';
 import {
@@ -100,12 +91,12 @@ import {
 import { readGauge, writeGauge } from '@/lib/gaugeCache';
 import { EddyTake } from '@/components/EddyTake';
 import { GaugeChart } from '@/components/GaugeChart';
-import { ReadingScale } from '@/components/ReadingScale';
+import { ReadingSummaryCard } from '@/components/ReadingSummaryCard';
+import { readingSummarySeason } from '@/lib/readingSummary';
 import { FeedbackSheet } from '@/components/FeedbackSheet';
 import { PaywallSheet } from '@/components/PaywallSheet';
 import { premiumPitch } from '@/lib/premiumCopy';
 import { EddySymbol } from '@/components/EddySymbol';
-import { Otter, otterForCondition } from '@/components/Otter';
 import { useStarredRivers } from '@/hooks/useStarredRivers';
 import { useAccount } from '@/hooks/useAccount';
 import { useSession } from '@/hooks/useSession';
@@ -176,7 +167,7 @@ export default function GaugeDetailScreen() {
     alertSource?: string;
   }>();
   const router = useRouter();
-  const { colors, elevation, isDark } = useTheme();
+  const { colors, elevation } = useTheme();
   const { isStarred, toggleStar } = useStarredRivers();
   const {
     entitlement,
@@ -446,8 +437,8 @@ export default function GaugeDetailScreen() {
       ? classifyReading(gauge.gaugeHeightFt, link, gauge.dischargeCfs, { strictUnit: true })
       : 'unknown';
 
-  const band = gauge.readingSuspect || gaugeFreshness(gauge.readingTimestamp) !== 'live' ? null : flowBand(gauge.flowPercentile);
-  const bandChip = flowBandChip(band, colors);
+  const readingIsCurrent = gaugeFreshness(gauge.readingTimestamp) === 'live';
+  const summaryPercentile = !tierResolving && !gauge.readingSuspect && readingIsCurrent && supportsFlowBand(gauge.provider) ? gauge.flowPercentile : null;
 
   const stages = gauge.floodStages;
   // FEET AGAINST FEET, always — gaugeHeightFt is the only value these
@@ -473,7 +464,7 @@ export default function GaugeDetailScreen() {
   });
 
   const age = readingAge(observationAgeHours(gauge.readingTimestamp));
-  const percentile = percentileLabel(gauge.flowPercentile);
+  const percentile = percentileLabel(summaryPercentile);
   const starred = gauge.id ? isStarred('gauge', gauge.id) : false;
   // The operator's own page. Prefer the server's answer, which knows each
   // provider's URL scheme, and fall back to the USGS template ONLY when the
@@ -604,150 +595,44 @@ export default function GaugeDetailScreen() {
             .join(' · ')}
         </Text>
 
-        {/* ── The reading ──────────────────────────────────────────
-            The otter only appears for a RATED gauge. It is Eddy's reaction to a
-            verdict, and there is no verdict here for a reference station — a
-            cheerful otter beside "much higher than usual" would be the app
-            making a floatability claim it has explicitly declined to make. */}
-        <View style={[styles.card, { backgroundColor: colors.card }, elevation(2)]}>
-          <View style={styles.readingRow}>
-            {rated && !tierResolving ? <Otter mood={otterForCondition(code)} size={56} /> : null}
-            <View style={styles.readingText}>
-              <Text
-                style={[
-                  styles.reading,
-                  {
-                    color: value != null && rated ? conditionText(code, isDark) : colors.text,
-                  },
-                ]}
-                numberOfLines={1}
-              >
-                {value != null && unit ? formatReading(value, unit) : 'No reading'}
-              </Text>
-              {age ? (
-                <Text style={[styles.age, { color: colors.textSubtle }]}>{age}</Text>
-              ) : null}
-            </View>
-
-            {/* A SHAPE, not a sentence, while the tier is unresolved.
-                The reading and its age above are true on the first frame from
-                any seed — that is what seeding is for — and they stay. What
-                cannot be shown yet is the CLAIM about them, because the two
-                available claims contradict each other and the screen has not
-                been told which it is entitled to. An empty chip of the right
-                size holds the layout so nothing jumps when the answer lands. */}
-            {tierResolving ? (
-              <View
-                style={[styles.chip, styles.chipResolving, { backgroundColor: colors.cardRaised }]}
-                accessibilityElementsHidden
-                importantForAccessibility="no-hide-descendants"
-              />
-            ) : rated ? (
-              <View
-                style={[
-                  styles.chip,
-                  { backgroundColor: conditionBg(code), borderColor: conditionChipBorder(code) },
-                ]}
-              >
-                <Text style={[styles.chipText, { color: conditionInk(code) }]}>
-                  {conditionLongLabel(code)}
+        <View style={styles.inset}>
+          <ReadingSummaryCard
+            key={gauge.siteId}
+            reading={value != null && unit ? { value, unit } : null}
+            verdict={rated && !tierResolving ? { code, lastKnown: value != null && !readingIsCurrent } : null}
+            resolving={tierResolving}
+            trend={readingIsCurrent && !gauge.readingSuspect ? publicOutlook?.trend : null}
+            thresholds={rated && !tierResolving ? link : null}
+            context={tierResolving ? null : readingSummarySeason(summaryPercentile, unit) ?? (!rated ? damNote : null)}
+            stationName={gauge.name}
+            age={readingIsCurrent ? age : [gaugeFreshnessLabel(gauge.readingTimestamp), age].filter(Boolean).join(' · ')}
+            ageWarning={!readingIsCurrent}
+            details={[
+              { label: 'Source', value: stationCaption(gauge.provider, gauge.siteId) },
+              { label: 'Observed', value: gauge.readingTimestamp ? new Date(gauge.readingTimestamp).toLocaleString() : null },
+              { label: 'Seasonal comparison', value: percentile ? `${percentile} for flow` : gauge.seasonalContextUnavailableReason ?? 'No current seasonal comparison available' },
+              { label: 'Historical record', value: gauge.seasonalContext?.yearsOfRecord ? `${gauge.seasonalContext.yearsOfRecord} years of discharge records` : null },
+              { label: 'NWS stages', value: stages ? `${stageSummary(stages)}${stages.lid ? ` · NWS ${stages.lid}` : ''}` : null },
+              ...[
+                { label: 'Water temperature', measurement: gauge.waterTemperature, value: `${gauge.waterTemperature?.valueF}°F` },
+                { label: 'Dissolved oxygen', measurement: gauge.dissolvedOxygen, value: `${gauge.dissolvedOxygen?.valueMgL} mg/L` },
+                { label: 'Historical water temperature', measurement: gauge.historicalWaterQuality?.waterTemperature, value: `${gauge.historicalWaterQuality?.waterTemperature?.valueF}°F` },
+                { label: 'Historical dissolved oxygen', measurement: gauge.historicalWaterQuality?.dissolvedOxygen, value: `${gauge.historicalWaterQuality?.dissolvedOxygen?.valueMgL} mg/L` },
+              ].filter(({ measurement }) => measurement).map(({ label, measurement, value: measurementValue }) => ({
+                label: `${!isCurrentWaterMeasurement(measurement) && !label.startsWith('Historical') ? 'Historical ' : ''}${label}`,
+                value: `${measurementValue} · ${new Date(measurement!.observedAt).toLocaleString()}${measurement!.measuredAtName ? ` · ${measurement!.measuredAtName}` : ''}`,
+              })),
+            ]}
+          >
+            {gauge.qualifierNote ? <Text style={[styles.caveat, { color: colors.error }]}>{gauge.qualifierNote}</Text> : null}
+            {stages ? (
+              <View style={[styles.stages, { borderTopColor: colors.border }]}>
+                <Text style={safety.kind === 'current' ? [styles.stagePassed, { color: floodStageColor() }] : [styles.stageSummary, { color: colors.textMuted }]}>
+                  {safetySummarySentence(safety)}
                 </Text>
               </View>
-            ) : (
-              <View
-                style={[
-                  styles.chip,
-                  { backgroundColor: bandChip.bg, borderColor: bandChip.border },
-                ]}
-              >
-                <Text style={[styles.chipText, { color: bandChip.ink }]}>
-                  {flowBandLabel(band)}
-                </Text>
-              </View>
-            )}
-          </View>
-
-          {/* The caveat that explains a grey chip, rather than leaving an
-              ungraded reading looking like a missing one. */}
-          {gauge.qualifierNote ? (
-            <Text style={[styles.caveat, { color: colors.error }]}>{gauge.qualifierNote}</Text>
-          ) : null}
-
-          {/* The ladder, at equal band widths — see ReadingScale's header for
-              why that differs from the chart below, which is not a rescaling of
-              this but a different axis entirely. */}
-          {rated && link && unit ? (
-            <View style={styles.scaleWrap}>
-              <ReadingScale thresholds={link} value={value} unit={unit} />
-            </View>
-          ) : null}
-
-          {/* The comparison, for a station that has one. This is the reference
-              tier's whole answer, so it is stated in words and not left to a
-              chip colour five steps of one hue deep.
-
-              Withheld entirely while the tier is unresolved — this line is the
-              one that actually said the false thing. "No historical comparison
-              published for this gauge", under a rated river, for one frame. */}
-          {tierResolving ? null : !rated && supportsFlowBand(gauge.provider) ? (
-            <Text style={[styles.bandSentence, { color: colors.textMuted }]}>
-              {flowBandSentence(band)}
-              {percentile ? ` — ${percentile}.` : '.'}
-            </Text>
-          ) : !rated && damNote ? (
-            /* A dam release instead of a band. UsaceProvider declines to compute
-               a percentile at all — one on a REGULATED release describes the
-               Corps' schedule, not the river's hydrology — so the band chip here
-               was rendering a comparison against a number that is null by
-               design. The station's own prose says the true thing, and it is
-               already in the database: gauge_stations.threshold_descriptions,
-               written by migration 00198. */
-            <Text style={[styles.bandSentence, { color: colors.textMuted }]}>{damNote}</Text>
-          ) : percentile ? (
-            <Text style={[styles.bandSentence, { color: colors.textMuted }]}>{percentile}.</Text>
-          ) : null}
-
-          {/* ── The NWS lines ──────────────────────────────────────
-              The only safety-adjacent fact an unrated station carries, and it is
-              carried by ATTRIBUTION: these are the Weather Service's published
-              thresholds for this gauge, quoted. Eddy is not grading anything
-              here, which is why the wording stays the NWS's own and why the
-              violet rule is a hue from neither of Eddy's two vocabularies.
-
-              A station past one of its stages says so in a line of its own,
-              above the thresholds themselves — that is the fact, and the
-              numbers behind it are the reference. */}
-          {stages ? (
-            <View style={[styles.stages, { borderTopColor: colors.border }]}>
-              {/* Only the current-category state speaks in the violet and the
-                  present tense; every other state is quiet reference text. */}
-              <Text
-                style={
-                  safety.kind === 'current'
-                    ? [styles.stagePassed, { color: floodStageColor() }]
-                    : [styles.stageSummary, { color: colors.textSubtle }]
-                }
-              >
-                {safetySummarySentence(safety)}
-              </Text>
-              <Text style={[styles.stageSummary, { color: colors.textSubtle }]}>
-                {stageSummary(stages)}
-                {stages.lid ? ` · NWS ${stages.lid}` : ''}
-              </Text>
-            </View>
-          ) : null}
-
-          <Text style={[styles.bandSentence, { color: colors.textMuted }]}>{gaugeFreshnessLabel(gauge.readingTimestamp)}</Text>
-          {[
-            { label: 'Water temperature', measurement: gauge.waterTemperature, value: `${gauge.waterTemperature?.valueF}°F` },
-            { label: 'Dissolved oxygen', measurement: gauge.dissolvedOxygen, value: `${gauge.dissolvedOxygen?.valueMgL} mg/L` },
-            { label: 'Historical water temperature', measurement: gauge.historicalWaterQuality?.waterTemperature, value: `${gauge.historicalWaterQuality?.waterTemperature?.valueF}°F` },
-            { label: 'Historical dissolved oxygen', measurement: gauge.historicalWaterQuality?.dissolvedOxygen, value: `${gauge.historicalWaterQuality?.dissolvedOxygen?.valueMgL} mg/L` },
-          ].map(({ label, measurement, value }) => measurement ? <Text key={label} style={[styles.bandSentence, { color: colors.textMuted }]}>
-            {!isCurrentWaterMeasurement(measurement) && !label.startsWith('Historical') ? 'Historical ' : ''}{label}: {value} · {new Date(measurement.observedAt).toLocaleString()}{measurement.measuredAtName ? ` · ${measurement.measuredAtName}` : ''}
-          </Text> : null)}
-          {gauge.seasonalContext ? <Text style={[styles.bandSentence, { color: colors.textMuted }]}>Seasonal comparison based on {gauge.seasonalContext.yearsOfRecord} years of discharge records.</Text> : gauge.seasonalContextUnavailableReason ? <Text style={[styles.bandSentence, { color: colors.textMuted }]}>{gauge.seasonalContextUnavailableReason}</Text> : null}
-
+            ) : null}
+          </ReadingSummaryCard>
         </View>
 
         {/* ── How it got here ──────────────────────────────────────
@@ -1057,21 +942,8 @@ const styles = StyleSheet.create({
   premiumText: { flex: 1 },
   premiumTitle: { ...t.sm, fontFamily: fonts.semibold },
   premiumBody: { ...t.xs, fontFamily: fonts.body, marginTop: 2 },
-  readingRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  readingText: { flex: 1 },
-  reading: { ...t['3xl'], fontFamily: fonts.mono },
-  age: { ...t.xs, fontFamily: fonts.body, marginTop: 2 },
-  chip: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: 999, borderWidth: 1 },
-  chipText: { ...t.xs, fontFamily: fonts.semibold },
-  // Sized to the labels it stands in for — "Floatable" and "Much lower than
-  // usual" bracket the range — so the card does not resize when the real chip
-  // arrives. Borderless, because a chip outline reads as a chip with its text
-  // failed to load, which is the appearance this whole change is removing.
-  chipResolving: { width: 96, height: 25, borderWidth: 0 },
   caveat: { ...t.xs, fontFamily: fonts.medium, marginTop: 10 },
-  scaleWrap: { marginTop: 14 },
-  bandSentence: { ...t.sm, fontFamily: fonts.body, marginTop: 12 },
-  stages: { marginTop: 14, paddingTop: 12, borderTopWidth: StyleSheet.hairlineWidth },
+  stages: { marginTop: 10, paddingTop: 8, borderTopWidth: StyleSheet.hairlineWidth },
   stagePassed: { ...t.sm, fontFamily: fonts.semibold, marginBottom: 4 },
   stageSummary: { ...t.xs, fontFamily: fonts.body },
   actions: { paddingHorizontal: 16, gap: 10 },

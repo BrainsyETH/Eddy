@@ -290,3 +290,42 @@ test('the substitution exists in the app and reaches every list surface', () => 
     assert.match(readFileSync(path, 'utf8'), /damControlledLabel\(river\.riverType, code\)/);
   }
 });
+
+// The compact cards share display copy; these checks protect the meaning of
+// band boundaries and seasonal comparisons rather than snapshotting layout.
+test('summary verdicts preserve warning vocabulary and label historical readings', async () => {
+  const { readingSummaryVerdict } = await import('../../../eddy-ios/src/lib/readingSummary');
+  assert.equal(readingSummaryVerdict('good'), 'Good to float');
+  assert.equal(readingSummaryVerdict('good', true), 'Last known: Good');
+  assert.match(readingSummaryVerdict('dangerous'), /Do Not Float/);
+  assert.doesNotMatch(readingSummaryVerdict('unknown'), /Good to float/);
+});
+
+test('summary context keeps the discharge qualifier beside a stage reading', async () => {
+  const { readingSummarySeason } = await import('../../../eddy-ios/src/lib/readingSummary');
+  const date = new Date('2026-10-01T18:00:00Z');
+  assert.equal(readingSummarySeason(11, 'cfs', date), 'Lower than usual for early October');
+  assert.equal(readingSummarySeason(11, 'ft', date), 'Flow: lower than usual for early October');
+  assert.equal(readingSummarySeason(null, 'cfs', date), null);
+  assert.equal(readingSummarySeason(NaN, 'cfs', date), null);
+  assert.equal(readingSummarySeason(0, 'cfs', date), 'Much lower than usual for early October');
+  assert.equal(readingSummarySeason(50, 'cfs', new Date('2026-10-16T18:00:00Z')), 'About normal for mid October');
+  assert.equal(readingSummarySeason(95, 'cfs', new Date('2026-10-27T18:00:00Z')), 'Much higher than usual for late October');
+  assert.equal(readingSummarySeason(11, 'cfs', new Date('2026-10-01T02:00:00Z')), 'Lower than usual for late September', 'use the Ozarks calendar date');
+  assert.equal(readingSummarySeason(11, 'cfs', new Date('invalid')), 'Lower than usual for this time of year');
+});
+
+test('summary scale names the real first and last bands, including partial ladders', async () => {
+  const { readingSummaryScaleLabels } = await import('../../../eddy-ios/src/lib/readingSummary');
+  const { buildZones } = await import('@shared/threshold-zones');
+  const full = { levelTooLow: 200, levelLow: 280, levelOptimalMin: 450, levelOptimalMax: 900, levelHigh: 1200, levelDangerous: 1800 };
+  assert.deepEqual(readingSummaryScaleLabels(buildZones(full), 'cfs'), { start: 'Low starts: 200 cfs', end: 'Flood: 1,800+ cfs' });
+  const partial = buildZones({ ...full, levelTooLow: null, levelLow: null, levelDangerous: null });
+  const labels = readingSummaryScaleLabels(partial, 'cfs');
+  assert.equal(labels?.start, 'Good: 0 cfs');
+  assert.equal(labels?.end, 'High: 900 cfs');
+  assert.doesNotMatch(labels?.end ?? '', /Flood/);
+  assert.deepEqual(readingSummaryScaleLabels(buildZones({ ...full, levelTooLow: 1.25, levelLow: 2, levelDangerous: 6.5 }), 'ft'), { start: 'Low starts: 1.25 ft', end: 'Flood: 6.50+ ft' });
+  assert.equal(readingSummaryScaleLabels([], 'cfs'), null);
+  assert.equal(readingSummaryScaleLabels(partial.slice(0, 1), 'cfs'), null);
+});
