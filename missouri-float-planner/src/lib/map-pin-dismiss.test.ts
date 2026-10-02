@@ -31,7 +31,7 @@ import { join } from 'node:path';
 // technique as the map-sheet guards next door.
 
 const SCREEN = readFileSync(
-  join(process.cwd(), '..', 'eddy-ios', 'app', '(tabs)', 'index.tsx'),
+  join(process.cwd(), '..', 'eddy-ios', 'app', '(tabs)', '(map)', 'index.tsx'),
   'utf8',
 );
 

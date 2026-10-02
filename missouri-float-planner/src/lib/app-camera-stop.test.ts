@@ -30,7 +30,7 @@ import type { MapCameraCommand } from '../../../eddy-ios/src/map/cameraBehavior'
 // arrangement as app-worklet-closures.test.ts, which is also a structural
 // invariant read out of the app's source as text.
 const MAP = join(process.cwd(), '../eddy-ios/src/map/RiverMap.tsx');
-const SCREEN = join(process.cwd(), '../eddy-ios/app/(tabs)/index.tsx');
+const SCREEN = join(process.cwd(), '../eddy-ios/app/(tabs)/(map)/index.tsx');
 
 test('all explicit camera moves become immediate when Reduce Motion is enabled at execution', () => {
   const actions: MapCameraAction[] = [

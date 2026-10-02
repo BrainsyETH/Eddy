@@ -26,7 +26,7 @@ REQUIRED = [
     "eddy-ios/app.json",
     "eddy-ios/metro.config.js",
     "eddy-ios/assets/icon.png",
-    "eddy-ios/app/(tabs)/index.tsx",
+    "eddy-ios/app/(tabs)/(map)/index.tsx",
     "eddy-ios/package-lock.json",
     # Local Expo module metadata and native source must survive the broad ios/
     # exclusion. Metro alone cannot detect missing Swift or CocoaPods files.
