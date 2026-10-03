@@ -181,7 +181,7 @@ export default async function RiverGuidePage({ params }: Props) {
   }
 
   // Fetch access points + current condition in parallel (need river.id first)
-  const [{ data: accessPoints }, condRowsResult, riverDam, riverReaches, riverAlerts] = await Promise.all([
+  const [{ data: accessPoints }, condRowsResult, riverDam, riverReaches, { alerts: riverAlerts, unavailable: alertsUnavailable }] = await Promise.all([
     supabase
       .from('access_points')
       .select('id, slug, name, river_mile_downstream, image_urls, type, types')
@@ -202,7 +202,7 @@ export default async function RiverGuidePage({ params }: Props) {
     // Closures and weather warnings, server-side for the same reason the dam is:
     // a closure is the last thing that should wait on hydration, and the section
     // has to exist before HubSectionNav can decide whether to offer the tab.
-    // Context failures reject regeneration; upstream alerts keep per-source fallback.
+    // Optional context failures render an explicit unavailable state.
     pageRiverAlerts(slug),
   ]);
 
@@ -427,7 +427,7 @@ export default async function RiverGuidePage({ params }: Props) {
           planUrl={planUrl}
           hasGuide={!!guidePost}
           hasDam={!!riverDam}
-          hasAlerts={riverAlerts.length > 0}
+          hasAlerts={alertsUnavailable || riverAlerts.length > 0}
         />
 
         <main className="max-w-5xl mx-auto px-4 pb-16">
@@ -438,10 +438,14 @@ export default async function RiverGuidePage({ params }: Props) {
               themselves. Absent entirely when nothing is posted: an empty
               summary reads as an all-clear, and this section cannot tell an
               all-clear from an agency outage. */}
-          {riverAlerts.length > 0 && (
+          {(alertsUnavailable || riverAlerts.length > 0) && (
             <section id="alerts" className="scroll-mt-24 pt-4 md:pt-5">
               <h2 className="sr-only">Alerts</h2>
-              <RiverAlertsPanel alerts={riverAlerts} />
+              {alertsUnavailable ? (
+                <p role="status" className="rounded-lg border border-neutral-200 bg-neutral-50 p-4 text-sm text-neutral-700">
+                  Alerts unavailable. Check official weather and park notices before your trip.
+                </p>
+              ) : <RiverAlertsPanel alerts={riverAlerts} />}
             </section>
           )}
 

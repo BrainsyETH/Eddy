@@ -1,3 +1,4 @@
+import { loadPageAlerts } from './page-alerts';
 import { publicRouteSegment } from '@/lib/calculations/public-segment';
 import { getActiveRiverContextsStrict } from '@/lib/rivers/context';
 import { getRiverAlerts } from '@/lib/alerts/river-alerts';
@@ -29,5 +30,5 @@ const pageRiverContexts = unstable_cache(getActiveRiverContextsStrict, ['page-ri
 
 // Cache successful context reads, not the alert providers' failure fallbacks.
 export async function pageRiverAlerts(slug: string) {
-  return getRiverAlerts(slug, await pageRiverContexts());
+  return loadPageAlerts(async () => getRiverAlerts(slug, await pageRiverContexts()));
 }

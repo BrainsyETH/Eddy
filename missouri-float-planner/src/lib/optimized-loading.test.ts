@@ -170,3 +170,66 @@ test('campsite image resizing is restricted to verified public provider paths', 
   }
   for (const uri of ['https://cdn.recreation.gov/private/site.jpg', 'https://icampmo.usedirect.com/other/site.jpg']) assert.equal(imageUrl(uri, 256), uri);
 });
+
+test('optional page alerts distinguish failure from a successful empty response and recover', async () => {
+  const { loadPageAlerts } = await import('./data/page-alerts');
+  assert.deepEqual(await loadPageAlerts(async () => { throw new Error('database blip'); }), { alerts: [], unavailable: true });
+  assert.deepEqual(await loadPageAlerts(async () => []), { alerts: [], unavailable: false });
+});
+
+test('campground enrichment failure does not reject either access-list representation', async () => {
+  const { createClient } = await import('@supabase/supabase-js');
+  const { loadCampgroundEnrichment } = await import('./access-points/campground-enrichment');
+  for (const compact of [false, true]) {
+    let failed = true;
+    const client = createClient<import('@/types/database').Database>('https://fixture.supabase.co', 'fixture-key', {
+      auth: { persistSession: false, autoRefreshToken: false },
+      global: { fetch: async () => failed
+        ? Response.json({ message: 'temporarily unavailable' }, { status: 503 })
+        : Response.json([{ id: 'camp', images: [] }]) },
+    });
+    assert.equal((await loadCampgroundEnrichment(client, ['camp'], compact)).size, 0);
+    failed = false;
+    assert.equal((await loadCampgroundEnrichment(client, ['camp'], compact)).has('camp'), true);
+  }
+});
+
+test('late saved camping dates extend a fresh short result and survive full-load failures and retry', async () => {
+  const { mergeCampingSnapshots } = await import('../../../eddy-ios/src/lib/mergeCampingSnapshots');
+  const day = (i: number) => new Date(Date.UTC(2026, 9, 3 + i)).toISOString().slice(0, 10);
+  const snapshot = (count: number, generatedAt: string, checkedAt: string, sitesOpen: number) => ({
+    schemaVersion: 1, timeZone: 'America/Chicago', generatedAt, maxObservationAgeSeconds: 3600,
+    horizon: { startDate: day(0), endDateExclusive: day(count), nights: Array.from({ length: count }, (_, i) => day(i)) },
+    tracked: [{ id: 'camp', facilityId: 'camp', source: 'recreation_gov',
+      nights: Array.from({ length: count }, (_, i) => ({ date: day(i), checkedAt, sitesOpen, sitesReservable: 10, status: 'open' })) }],
+    untracked: [],
+  } as unknown as CampingOverview);
+  const short = snapshot(21, '2026-10-03T12:00:00Z', '2026-10-03T11:59:00Z', 2);
+  const saved = snapshot(90, '2026-10-02T12:00:00Z', '2026-10-02T11:00:00Z', 8);
+  saved.tracked.unshift({ ...saved.tracked[0], id: 'removed', facilityId: 'removed' });
+  let shown: CampingOverview | null = null;
+  let disk: CampingOverview | null = null;
+  const publish = (next: CampingOverview) => { shown = mergeCampingSnapshots(shown, next); };
+  const load = () => loadCampingWindow({ nights: 90, hasFullSnapshot: () => disk !== null,
+    fetchWindow: async (nights) => {
+      if (nights === 21) return short;
+      disk = saved;
+      publish(saved); // Slow disk read arrives after the fresh short window.
+      throw new Error('offline');
+    }, publish,
+  });
+  await assert.rejects(load(), /offline/);
+  await assert.rejects(load(), /offline/);
+  const result = shown as unknown as CampingOverview;
+  assert.equal(result.horizon.nights.length, 90);
+  assert.deepEqual(result.tracked.map((row) => row.facilityId), ['camp']);
+  assert.equal(result.generatedAt, short.generatedAt);
+  assert.equal(result.tracked[0].nights[0].sitesOpen, 2);
+  assert.equal(result.tracked[0].nights[0].checkedAt, short.tracked[0].nights[0].checkedAt);
+  assert.equal(result.tracked[0].nights[40].checkedAt, saved.tracked[0].nights[40].checkedAt);
+  const { currentNight } = await import('../../../eddy-ios/src/lib/campingHeatmap');
+  assert.equal(currentNight(result.tracked[0], day(40), 3600, Date.parse(short.generatedAt)), undefined);
+  assert.deepEqual(mergeCampingSnapshots(saved, short), result);
+  const full = snapshot(90, '2026-10-03T12:01:00Z', '2026-10-03T12:00:00Z', 1);
+  assert.equal(mergeCampingSnapshots(result, full), full);
+});

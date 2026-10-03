@@ -1,3 +1,4 @@
+import { mergeCampingSnapshots } from '@/lib/mergeCampingSnapshots';
 import { loadCampingWindow } from '@/lib/loadCampingWindow';
 import { createCampingRollover } from '@/lib/campingRollover';
 import { parseCampingSnapshot } from '@/lib/campingSnapshot';
@@ -50,7 +51,6 @@ export function useCampingOverview(
   useEffect(() => {
     if (!enabled) return;
     let active = true;
-    let publishedNetwork = false;
     const dayChanged = createCampingRollover(campingDate());
     async function load(force = false) {
       if (
@@ -78,8 +78,7 @@ export function useCampingOverview(
           },
           publish: (next) => {
             if (!active) return;
-            publishedNetwork = true;
-            setHeld({ nights, data: next });
+            setHeld((current) => ({ nights, data: mergeCampingSnapshots(current.nights === nights ? current.data : null, next) }));
             setError(false);
           },
         });
@@ -89,8 +88,8 @@ export function useCampingOverview(
         if (active) setLoading(false);
       }
     }
-    // Disk and network race independently; an old disk read never overwrites
-    // a fresh network result. Stored observations retain their checkedAt.
+    // Disk and network can arrive in either order. Saved dates extend a fresh
+    // short window without replacing newer observations or their checkedAt.
     if (!entry.cached) {
       void Promise.all([
         AsyncStorage.getItem(`eddy:camping:v1:${nights}`),
@@ -103,7 +102,7 @@ export function useCampingOverview(
         if (!saved) return;
         if (savedFull) entry.cached = savedFull;
         else if (!windows[21].cached) windows[21].cached = savedPartial;
-        if (!publishedNetwork) setHeld({ nights, data: saved });
+        setHeld((current) => ({ nights, data: mergeCampingSnapshots(current.nights === nights ? current.data : null, saved) }));
       }).catch(() => {});
     }
     void load(revision > 0 || retry > 0);

@@ -1,3 +1,4 @@
+import { loadCampgroundEnrichment } from '@/lib/access-points/campground-enrichment';
 import { compactAccessPoint } from '@/lib/access-points/compact';
 // src/app/api/rivers/[slug]/access-points/route.ts
 // GET /api/rivers/[slug]/access-points - Get access points for a river
@@ -5,13 +6,12 @@ import { compactAccessPoint } from '@/lib/access-points/compact';
 import { NextRequest, NextResponse } from 'next/server';
 import { cdnCacheHeaders } from '@/lib/api-utils';
 import { createClient } from '@/lib/supabase/server';
-import type { AccessPointsResponse, NPSCampgroundInfo } from '@/types/api';
+import type { AccessPointsResponse } from '@/types/api';
 import { withX402Route } from '@/lib/x402-config';
 import { getServiceAreaBounds } from '@/lib/geo/region-bounds';
 // Shared with /api/offline/bundle — see the header of shapes.ts.
 import {
   toAccessPoint,
-  toNpsCampground,
   type AccessPointRow,
 } from '@/lib/offline/shapes';
 import { loadLiveAvailabilityIndex } from '@/lib/camping/live-index';
@@ -86,17 +86,7 @@ async function _GET(
       .map(ap => ap.nps_campground_id)
       .filter((id): id is string => !!id);
 
-    const npsMap = new Map<string, NPSCampgroundInfo>();
-    if (npsIds.length > 0) {
-      const { data: campgrounds, error: campgroundError } = compact
-        ? await supabase.from('nps_campgrounds').select('id, images').in('id', npsIds)
-        : await supabase.from('nps_campgrounds').select('*').in('id', npsIds);
-      if (campgroundError) throw campgroundError;
-
-      for (const cg of campgrounds || []) {
-        npsMap.set(cg.id, toNpsCampground(cg as unknown as Record<string, unknown>));
-      }
-    }
+    const npsMap = await loadCampgroundEnrichment(supabase, npsIds, compact);
 
     // Filter and format access points, excluding those with invalid coordinates
     const serviceBounds = await getServiceAreaBounds();
@@ -118,6 +108,9 @@ async function _GET(
         // and a put-in someone would drive to is the wrong thing to guess at.
         if (!point) {
           console.warn(`Access point ${ap.id} (${ap.name}) has unusable coordinates, skipping`);
+        }
+        if (point && ap.nps_campground_id && !point.types.includes('campground')) {
+          point.types = [...point.types, 'campground'];
         }
         return point;
       })
