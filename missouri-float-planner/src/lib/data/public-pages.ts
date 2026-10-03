@@ -20,4 +20,4 @@ export const pageCondition = unstable_cache(async (id: string) => {
 }, ['page-condition-v1'], { revalidate: 60 });
 export const pageAccess = unstable_cache(async (river: string, access: string) =>
   getAccessPointDetail(createPublicReadClient(), river, access),
-['page-access-v1'], { revalidate: 60 });
+['page-access-v2'], { revalidate: 60 });

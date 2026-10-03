@@ -1,3 +1,7 @@
+import { readFileSync } from 'node:fs';
+import ts from 'typescript';
+import { resolveOutlookGauge } from './outlook-gauge';
+import { createCampingRollover } from '../../../eddy-ios/src/lib/campingRollover';
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { imageUrl } from '../../../eddy-ios/src/lib/imageUrl';
@@ -66,4 +70,49 @@ test('public catalog reads cache explicitly, RPC and admin reads stay fresh', as
       if (value === undefined) delete process.env[key]; else process.env[key] = value;
     }
   }
+});
+
+
+test('invalid gauge IDs skip the UUID query and missing valid IDs use the primary', async () => {
+  const validId = '12345678-1234-1234-1234-123456789abc';
+  for (const id of [null, '', '07067000', 'old-gauge-id', validId]) {
+    const requested: string[] = [];
+    const result = await resolveOutlookGauge(id, async (value) => { requested.push(value); return null; }, async () => 'primary');
+    assert.equal(result, 'primary');
+    assert.deepEqual(requested, id === validId ? [validId] : []);
+  }
+  assert.equal(await resolveOutlookGauge(validId, async () => 'requested', async () => { throw new Error('Unnecessary primary query'); }), 'requested');
+});
+test('real lookup failures never masquerade as a missing gauge', async () => {
+  const unavailable = new Error('Database unavailable');
+  await assert.rejects(resolveOutlookGauge('12345678-1234-1234-1234-123456789abc', async () => { throw unavailable; }, async () => 'primary'), (error) => error === unavailable);
+  await assert.rejects(resolveOutlookGauge('07067000', async () => null, async () => { throw unavailable; }), (error) => error === unavailable);
+});
+test('old camping data cannot trigger repeated offline timer refreshes', () => {
+  // The observer starts with the screen's day, independent of the disk snapshot.
+  const changed = createCampingRollover('2026-10-03');
+  for (let minute = 0; minute < 120; minute++) assert.equal(changed('2026-10-03'), false);
+  assert.equal(changed('2026-10-04'), true);
+  // Failure leaves yesterday's snapshot intact but must not re-arm the timer.
+  for (let minute = 0; minute < 120; minute++) assert.equal(changed('2026-10-04'), false);
+  assert.equal(changed('2026-10-05'), true);
+});
+test('hazards failure and retry are rendered outside all collapsible content', () => {
+  const source = ts.createSourceFile('river.tsx', readFileSync('../eddy-ios/app/(tabs)/(today,map,alerts,favorites,settings)/river/[slug].tsx', 'utf8'), ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+  let found = false;
+  function visit(node: ts.Node) {
+    if (ts.isJsxSelfClosingElement(node) && node.tagName.getText(source) === 'UnavailableNote' && node.getText(source).includes('Hazards unavailable')) {
+      found = true;
+      assert.match(node.getText(source), /onRetry=\{retry\}/);
+      let gatedOnFailure = false;
+      for (let parent = node.parent; parent; parent = parent.parent) {
+        if (ts.isJsxElement(parent)) assert.notEqual(parent.openingElement.tagName.getText(source), 'CollapsibleSection');
+        if (ts.isConditionalExpression(parent) && parent.condition.getText(source) === "source.hazards === 'missing'") gatedOnFailure = true;
+      }
+      assert.equal(gatedOnFailure, true);
+    }
+    ts.forEachChild(node, visit);
+  }
+  visit(source);
+  assert.equal(found, true);
 });

@@ -1,3 +1,4 @@
+import { resolveOutlookGauge } from '@/lib/outlook-gauge';
 import { withinBudget } from '@/lib/within-budget';
 // src/app/api/rivers/[slug]/outlook/route.ts
 // The 72-hour outlook and Eddy's take for one river, computed server-side.
@@ -230,28 +231,25 @@ async function _GET(
     // that sends it is built from this river's own gauges, so a miss means the
     // link was edited out from under an open screen, and the primary is a
     // better answer than none. `gaugeStationId` below discloses which won.
-    const { data: requested, error: requestedError } = requestedGaugeId
-      ? await supabase
-          .from('river_gauges')
-          .select(GAUGE_SELECT)
-          .eq('river_id', river.id)
-          .eq('gauge_station_id', requestedGaugeId)
-          .maybeSingle()
-      : { data: null, error: null };
-
-    if (requestedError) throw requestedError;
-
-    const { data: primaryGauge, error: primaryError } = requested
-      ? { data: null, error: null }
-      : await supabase
-          .from('river_gauges')
-          .select(GAUGE_SELECT)
-          .eq('river_id', river.id)
-          .eq('is_primary', true)
-          .maybeSingle();
-
-    if (primaryError) throw primaryError;
-    const gauge = requested ?? primaryGauge;
+    const gauge = await resolveOutlookGauge(requestedGaugeId, async (id) => {
+      const { data, error } = await supabase
+        .from('river_gauges')
+        .select(GAUGE_SELECT)
+        .eq('river_id', river.id)
+        .eq('gauge_station_id', id)
+        .maybeSingle();
+      if (error) throw error;
+      return data;
+    }, async () => {
+      const { data, error } = await supabase
+        .from('river_gauges')
+        .select(GAUGE_SELECT)
+        .eq('river_id', river.id)
+        .eq('is_primary', true)
+        .maybeSingle();
+      if (error) throw error;
+      return data;
+    });
 
     if (!gauge) {
       // A river with no primary gauge is an ordinary state, not a fault — the

@@ -62,10 +62,12 @@ export async function getAccessPointDetail(
     .from('rivers')
     .select('id, name, slug, state')
     .eq('slug', riverSlug)
-    .single();
+    .maybeSingle();
 
   timed('river');
-  if (riverError || !river) {
+  // A database outage must reject, not become a cached missing-page result.
+  if (riverError) throw riverError;
+  if (!river) {
     return { ok: false, reason: 'river-not-found' };
   }
 
@@ -76,10 +78,11 @@ export async function getAccessPointDetail(
     .eq('river_id', river.id)
     .eq('slug', accessSlug)
     .eq('approved', true)
-    .single();
+    .maybeSingle();
 
   timed('access');
-  if (apError || !ap) {
+  if (apError) throw apError;
+  if (!ap) {
     return { ok: false, reason: 'not-found' };
   }
 

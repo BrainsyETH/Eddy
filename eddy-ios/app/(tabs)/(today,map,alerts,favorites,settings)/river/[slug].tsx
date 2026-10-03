@@ -1617,22 +1617,23 @@ export default function RiverDetailScreen() {
             renders as an ordinary river: a hazard we stored three weeks ago is
             the same hazard, and hedging it would teach people to discount
             hazard copy. Only having nothing to say earns the notice. */}
-        {sortedHazards.length > 0 || source.hazards === 'missing' || source.hazards === 'loading' ? (
+        {/* Failure and Retry stay visible regardless of the disclosure state. */}
+        {source.hazards === 'missing' ? (
+          <UnavailableNote
+            text="Hazards unavailable — this river may have hazards that are not shown."
+            onRetry={retry}
+          />
+        ) : null}
+        {sortedHazards.length > 0 || source.hazards === 'loading' ? (
           <CollapsibleSection
             title="Hazards"
-            defaultExpanded={source.hazards === 'missing'}
             leading={<EddySymbol name="hazard" size={18} />}
             summary={
-              source.hazards === 'loading' ? 'Loading hazards…' : source.hazards === 'missing'
-                ? 'Could not be loaded'
-                : criticalCount > 0
+              source.hazards === 'loading' ? 'Loading hazards…' : criticalCount > 0
                   ? `${criticalCount} need${criticalCount === 1 ? 's' : ''} attention · ${sortedHazards.length} total`
                   : `${sortedHazards.length} noted`
             }
             trailing={
-              source.hazards === 'missing' ? (
-                <ControlIcon name="cloud-offline-outline" size={14} color={colors.textMuted} />
-              ) : (
               <View style={styles.severityCues}>
                 {sortedHazards
                   .filter((h) => hazardConditionCode(h.severity) === 'dangerous')
@@ -1644,15 +1645,8 @@ export default function RiverDetailScreen() {
                     />
                   ))}
               </View>
-              )
             }
           >
-            {source.hazards === 'missing' ? (
-              <UnavailableNote
-                text="Hazards unavailable — this river may have hazards that are not shown."
-                onRetry={retry}
-              />
-            ) : null}
             {shownHazards.map((hazard) => {
               const hazardCode = hazardConditionCode(hazard.severity);
               const portage = portageNote(hazard);

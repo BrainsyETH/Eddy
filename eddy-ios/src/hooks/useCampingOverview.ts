@@ -1,3 +1,4 @@
+import { createCampingRollover } from '@/lib/campingRollover';
 import { parseCampingSnapshot } from '@/lib/campingSnapshot';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useCallback, useEffect, useState } from 'react';
@@ -48,6 +49,7 @@ export function useCampingOverview(
   useEffect(() => {
     if (!enabled) return;
     let active = true;
+    const dayChanged = createCampingRollover(campingDate());
     async function load(force = false) {
       if (
         !force &&
@@ -87,14 +89,15 @@ export function useCampingOverview(
     }
     void load(revision > 0 || retry > 0);
     const off = onForeground(() => {
+      dayChanged(campingDate());
       setNow(Date.now());
       void load();
     });
-    // Aging and midnight rollover only; this does not poll the provider or API.
+    // Age every minute, but refresh only once per observed calendar-day change.
+    // An old disk snapshot or failed refresh must not become a polling loop.
     const timer = setInterval(() => {
       setNow(Date.now());
-      if (entry.cached && entry.cached.horizon.startDate !== campingDate())
-        void load();
+      if (dayChanged(campingDate())) void load();
     }, 60000);
     return () => {
       active = false;
