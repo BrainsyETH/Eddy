@@ -114,5 +114,13 @@ test('activation is atomic, previews validate inactive candidates, and audit dis
     await db.exec('UPDATE river_gauges SET alt_level_too_low = 1, alt_level_low = 2, alt_level_optimal_min = 3, alt_level_optimal_max = 4, alt_level_high = 5, alt_level_dangerous = 6 WHERE is_primary = false');
     audit = await db.query("SELECT * FROM audit_river_readiness(ARRAY['live'])");
     assert.equal(audit.rows.some(r => r.check_name === 'identical_threshold_set'), true, 'alternate-unit ladders are also compared across the catalog');
+    await db.exec("UPDATE rivers SET active = false WHERE slug = 'live'");
+    audit = await db.query('SELECT * FROM audit_river_readiness()');
+    assert.equal(audit.rows.some(r => r.check_name === 'identical_threshold_set'), true, 'live candidates must compare against inactive rivers');
+    await db.exec('UPDATE river_gauges SET alt_level_too_low = 0.5 WHERE is_primary = false');
+    audit = await db.query('SELECT * FROM audit_river_readiness()');
+    assert.equal(audit.rows.some(r => r.check_name === 'identical_threshold_set'), false);
+    assert.equal(audit.rows.some(r => r.check_name === 'identical_optimal_band'), true, 'an equal optimal band with different anchors gets its own finding');
+
   } finally { await db.close(); }
 });

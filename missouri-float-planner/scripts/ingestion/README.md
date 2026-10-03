@@ -262,9 +262,10 @@ RPC checks inactive candidates using the existing validator, the additional
 provenance/freshness audit and the dossier checklist **in one transaction**.
 Previews and failed batches roll back all temporary activation, preserving already
 live rivers. A database failure also rolls back; the CLI never makes a separate
-activation update. Matching full threshold ladders on distinct gauges are warnings
-for review; shared gauges and all-null ladders are excluded. Both main and alternate
-units are checked. Current readings can come from `gauge_latest` or curated history.
+activation update. Matching full threshold ladders or matching optimal bands with differing anchors
+on distinct gauges are separate warnings for review. The comparison includes inactive rivers; shared gauges and all-null ladders are excluded. Both main and alternate
+units are checked. Current readings can come from `gauge_latest` or curated history, using the same
+two-hour freshness limit for every provider.
 
 Missing provenance blocks activation. The source category alone does not prove the
 numbers: review the cited evidence against the station, unit, corridor and each

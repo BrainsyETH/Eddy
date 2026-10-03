@@ -79,7 +79,7 @@ export function useFloatPlan(params: PlanParams | null) {
     placeholderData: (previousData, previousQuery) => {
       // Check if route changed by comparing startId and endId in queryKey
       const prevKey = previousQuery?.queryKey;
-      if (!prevKey || !params) return undefined;
+      if (!prevKey || !params || previousData?.hazardsUnavailable) return undefined;
       const prevStartId = prevKey[2];
       const prevEndId = prevKey[3];
       // Only use placeholder if same route (different vessel type is ok)
@@ -88,8 +88,8 @@ export function useFloatPlan(params: PlanParams | null) {
       }
       return undefined;
     },
-    // Stale time of 5 minutes - conditions don't change that fast
-    staleTime: 5 * 60 * 1000,
+    // Display partial plans now, but retry their missing hazard data on remount/focus.
+    staleTime: query => query.state.data?.hazardsUnavailable ? 0 : 5 * 60 * 1000,
   });
 
   useEffect(() => {

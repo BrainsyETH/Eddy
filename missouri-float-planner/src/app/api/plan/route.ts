@@ -1,3 +1,5 @@
+import { planHazardResult } from '@/lib/plan-hazards';
+import { privateNoStore } from '@/lib/api-utils';
 import { estimateRoute, RouteEstimateError } from '@/lib/calculations/route-estimate';
 // src/app/api/plan/route.ts
 // GET /api/plan - Calculate a float plan with segment-aware gauge selection
@@ -200,15 +202,12 @@ async function _GET(request: NextRequest) {
       .gte('river_mile_downstream', minMile)
       .lte('river_mile_downstream', maxMile)
       .order('river_mile_downstream', { ascending: true });
-    if (hazardError || hazards === null) {
-      console.error('[Plan] Hazard lookup failed:', hazardError);
-      return NextResponse.json({ error: 'Hazard information is temporarily unavailable. Please try again.' }, { status: 503 });
-    }
+    const hazardResult = planHazardResult(hazards, hazardError);
+    if (hazardResult.hazardsUnavailable) console.error('[Plan] Hazard lookup failed:', hazardError);
 
     // Build warnings array
     const warnings: string[] = [];
     warnings.push(...spanWarnings);
-    if (!hazards.length) warnings.push('No mapped hazards are listed for this route. Hazard coverage is incomplete; check current local conditions.');
     // NOT PUSHED INTO `warnings` ANY MORE, deliberately.
     //
     // "This shuttle route looks unusually long" was a warning about a number
@@ -380,7 +379,8 @@ async function _GET(request: NextRequest) {
           ? `https://waterdata.usgs.gov/monitoring-location/${condition.gauge_usgs_id}/`
           : null,
       },
-      hazards: (hazards || []).map(h => ({
+      hazardsUnavailable: hazardResult.hazardsUnavailable,
+      hazards: hazardResult.hazards.map(h => ({
         id: h.id,
         riverId: h.river_id ?? '',
         name: h.name,
@@ -404,7 +404,9 @@ async function _GET(request: NextRequest) {
       warnings,
     };
 
-    return NextResponse.json<PlanResponse>({ plan });
+    return NextResponse.json<PlanResponse>({ plan }, {
+      headers: plan.hazardsUnavailable ? privateNoStore() : undefined,
+    });
   } catch (error) {
     if (error instanceof RouteEstimateError) return NextResponse.json({ error: error.message }, { status: error.status });
     console.error('Error calculating float plan:', error);

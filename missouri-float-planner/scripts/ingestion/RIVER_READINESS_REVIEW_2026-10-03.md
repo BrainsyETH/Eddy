@@ -11,16 +11,17 @@ workstream. Nothing in this review approves a new river or a threshold transfer.
 - **18 river/gauge links** with recreational thresholds lack a source category or
   source URL. This is a provenance backlog, not proof that all 18 ladders are wrong.
   Kings/Berryville and Big River/Richwoods are the missing-source primary gauges.
-- Two matching ladders across distinct physical stations need investigation:
+- Two matching full ladders in the initial live-only audit needed investigation:
   **Mulberry / Current above Powder Mill** and **Big Piney near Houston / Niangua
   at Tunnel Dam** (the latter includes an alternate-unit ladder). Shared gauges,
   different units and entirely empty ladders do not count as duplicates.
 - Structured hazards feed the route planner, MCP hazard/plan tools and Eddy chat
   hazard/plan tools. General `river_characteristics`, access notes and knowledge
   prose do not automatically create route-specific hazard records.
-- Those five reads previously discarded database errors and could turn an outage
-  into an empty hazard list. This branch returns an unavailable response on failure
-  and explains incomplete coverage on successful empty results.
+- Those five reads previously discarded database errors. Agent tools now return
+  an unavailable error. The planner keeps the plan usable with an internal
+  `hazardsUnavailable` flag, excludes partial results from its saved-plan cache,
+  and adds no hazard notes or warnings.
 - Buffalo is included in the homepage guide band. A missing guide links to the
   river report instead of the generic blog index.
 - Every existing JSON dossier has an explicit retrospective readiness checklist.
@@ -30,7 +31,9 @@ workstream. Nothing in this review approves a new river or a threshold transfer.
 Snapshots: `river-readiness-audit-2026-10-03.json` holds the inspected catalog,
 main ladders, characteristics, mapped hazards and selected access rows;
 `river-readiness-findings-2026-10-03.json` holds the executable audit output,
-including alternate ladders. Counts are time-stamped observations, not constants.
+including alternate ladders. The revised comparison side includes inactive rivers.
+Matching optimal bands with differing anchors are reported separately from matching
+full ladders. Counts are time-stamped observations, not constants.
 
 ## Safety work first
 
@@ -194,10 +197,13 @@ workflow; this is not a trigger that restricts every possible database writer.
 PGlite tests exercise preview rollback, inactive-candidate validation, batch
 rollback, thrown validator errors, missing evidence, unknown slugs, missing
 measurement units, provenance, source-specific reading stores, duplicate ladders,
-and anonymous-role denial. The full test run passed 3,020 tests under Node 20.
+and anonymous-role denial. Freshness uses a fixed two-hour limit for all providers,
+checking both latest and historical reading stores; it does not model provider-specific
+reporting intervals. The full test run passed 3,022 tests under Node 20.
 `make check-web` passed TypeScript and ESLint but hit this environment's Unix-socket
 restriction in the `tsx` CLI; the token lint, pretest and full tests passed using
-Node's `--import tsx` entry point. No production data writes or river activation
+Node's `--import tsx` entry point. `make bundle-mobile` passed the production iOS
+export and EAS archive allowlist check. No production data writes or river activation
 were performed. After the migration is approved/applied, record the actual
 production version, regenerate database types, and run `make check-db` plus
 `npm run db:readiness` before any publication attempt.

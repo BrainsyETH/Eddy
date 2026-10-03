@@ -17,7 +17,6 @@ WITH scoped AS (
       ARRAY[rg.alt_level_too_low, rg.alt_level_low, rg.alt_level_optimal_min,
       rg.alt_level_optimal_max, rg.alt_level_high, rg.alt_level_dangerous])
   ) band(unit, ladder)
-  WHERE r.active OR r.slug = ANY(p_slugs)
 )
 SELECT s AS river_slug, 'unknown_river' AS check_name, 'error' AS severity, 'No river matches this slug' AS detail
 FROM unnest(p_slugs) s WHERE NOT EXISTS (SELECT 1 FROM scoped r WHERE r.slug = s)
@@ -39,6 +38,18 @@ FROM ladders a JOIN scoped r ON r.slug = a.slug
 JOIN ladders b ON a.gauge_station_id <> b.gauge_station_id
   AND a.threshold_unit = b.threshold_unit AND a.ladder = b.ladder
 WHERE cardinality(array_remove(a.ladder, NULL)) > 0
+  AND (a.gauge_station_id < b.gauge_station_id OR NOT EXISTS (SELECT 1 FROM scoped s WHERE s.slug = b.slug))
+UNION ALL
+SELECT a.slug, 'identical_optimal_band', 'warning',
+       'Gauge ' || a.gauge_name || ' shares optimal band ' || a.ladder[3] || '-' || a.ladder[4] ||
+       ' ' || a.threshold_unit || ' with distinct station ' || b.gauge_name || ' on ' || b.slug ||
+       '; other anchors differ. Review provenance, do not infer copying'
+FROM ladders a JOIN scoped r ON r.slug = a.slug
+JOIN ladders b ON a.gauge_station_id <> b.gauge_station_id
+  AND a.threshold_unit = b.threshold_unit
+  AND a.ladder[3] = b.ladder[3] AND a.ladder[4] = b.ladder[4]
+  AND a.ladder <> b.ladder
+WHERE a.ladder[3] IS NOT NULL AND a.ladder[4] IS NOT NULL
   AND (a.gauge_station_id < b.gauge_station_id OR NOT EXISTS (SELECT 1 FROM scoped s WHERE s.slug = b.slug))
 UNION ALL
 SELECT r.slug, 'no_structured_hazards', 'warning',

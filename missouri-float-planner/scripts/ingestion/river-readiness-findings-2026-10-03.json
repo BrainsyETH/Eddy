@@ -1,7 +1,7 @@
 {
-  "checked_at": "2026-10-03T22:37:14.770Z",
+  "checked_at": "2026-10-03T23:51:50.828Z",
   "project_ref": "ilefwfpvphadsbptiaur",
-  "scope": "active rivers; main and alternate recreational threshold ladders; latest and historical provider readings",
+  "scope": "active rivers compared against all rivers, including inactive; separate complete-ladder and optimal-band matches; fixed two-hour freshness limit using latest or historical readings",
   "findings": [
     {
       "river_slug": "big-piney",
@@ -128,6 +128,18 @@
       "check_name": "identical_threshold_set",
       "severity": "warning",
       "detail": "Gauge Mulberry River near Mulberry, AR matches distinct station Current River above Powder Mill, MO on current (ft); review provenance, do not infer copying"
+    },
+    {
+      "river_slug": "kings-river",
+      "check_name": "identical_optimal_band",
+      "severity": "warning",
+      "detail": "Gauge Kings River near Berryville, AR shares optimal band 3.50-5.00 ft with distinct station Elk River near Tiff City, Mo on elk; other anchors differ. Review provenance, do not infer copying"
+    },
+    {
+      "river_slug": "niangua",
+      "check_name": "identical_optimal_band",
+      "severity": "warning",
+      "detail": "Gauge Niangua River at Windyville, MO shares optimal band 100.00-400.00 cfs with distinct station Big River near Richwoods, MO on big-river; other anchors differ. Review provenance, do not infer copying"
     },
     {
       "river_slug": "crooked-creek",

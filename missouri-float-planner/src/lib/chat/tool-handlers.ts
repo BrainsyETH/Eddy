@@ -299,7 +299,7 @@ async function handleGetFloatRoute(input: Record<string, unknown>) {
     .order('river_mile_downstream', { ascending: true });
   if (hazardError || hazards === null) {
     console.error('[ChatTool] Hazard lookup failed:', hazardError);
-    return { error: 'Hazard information is unavailable. Do not interpret this as no hazards.' };
+    return { error: 'Hazard information is unavailable.' };
   }
 
   return {
@@ -315,7 +315,6 @@ async function handleGetFloatRoute(input: Record<string, unknown>) {
     floatTimeNote,
     shuttleUrl,
     planUrl: `/rivers/${riverSlug}?putIn=${startAp.id}&takeOut=${endAp.id}`,
-    hazardCoverageNote: 'Mapped hazards are incomplete; an empty list does not mean a hazard-free route.',
     hazards: (hazards || []).map(h => ({
       name: h.name,
       type: h.type,
@@ -351,12 +350,11 @@ async function handleGetRiverHazards(input: Record<string, unknown>) {
     .order('river_mile_downstream', { ascending: true });
   if (hazardError || hazards === null) {
     console.error('[ChatTool] Hazard lookup failed:', hazardError);
-    return { error: 'Hazard information is unavailable. Do not interpret this as no hazards.' };
+    return { error: 'Hazard information is unavailable.' };
   }
 
   return {
     riverName: river.name,
-    hazardCoverageNote: 'Mapped hazards are incomplete; an empty list does not mean a hazard-free route.',
     hazards: (hazards || []).map(h => ({
       name: h.name,
       type: h.type,

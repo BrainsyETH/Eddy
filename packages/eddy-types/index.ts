@@ -1806,6 +1806,8 @@ export interface FloatPlanCondition {
 }
 
 export interface FloatPlan {
+  /** Hazard lookup failed; the rest of the plan remains usable. Never persist as a complete plan. */
+  hazardsUnavailable?: boolean;
   river: River;
   putIn: MapAccessPoint;
   takeOut: MapAccessPoint;
