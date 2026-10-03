@@ -43,26 +43,28 @@ export default async function StateRiversPage({ params }: Props) {
 
   if (!stateCode) {
     // Not a state slug — treat as a legacy /rivers/[riverSlug] URL.
-    const { data: river } = await supabase
+    const { data: river, error } = await supabase
       .from('rivers')
       .select('slug, state')
       .eq('slug', state)
       .eq('active', true)
       .maybeSingle();
 
+    if (error) throw error;
     if (river) {
       permanentRedirect(riverPath(river.state, river.slug));
     }
     notFound();
   }
 
-  const { data: rivers } = await supabase
+  const { data: rivers, error } = await supabase
     .from('rivers')
     .select('slug, name, description, length_miles, difficulty_rating, region, state')
     .eq('active', true)
     .eq('state', stateCode)
     .order('name');
 
+  if (error) throw error;
   if (!rivers || rivers.length === 0) {
     notFound();
   }
@@ -115,3 +117,6 @@ export default async function StateRiversPage({ params }: Props) {
     </main>
   );
 }
+
+// Generate public HTML on the first visit, then revalidate it.
+export async function generateStaticParams() { return []; }

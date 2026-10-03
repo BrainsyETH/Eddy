@@ -1,3 +1,4 @@
+import { compactAccessPoint } from '@/lib/access-points/compact';
 // src/app/api/rivers/[slug]/access-points/route.ts
 // GET /api/rivers/[slug]/access-points - Get access points for a river
 
@@ -24,6 +25,7 @@ async function _GET(
 ) {
   try {
     const { slug } = await params;
+    const compact = request.nextUrl.searchParams.get('view') === 'compact';
     const supabase = await createClient();
 
     // Get river ID
@@ -86,10 +88,10 @@ async function _GET(
 
     const npsMap = new Map<string, NPSCampgroundInfo>();
     if (npsIds.length > 0) {
-      const { data: campgrounds } = await supabase
-        .from('nps_campgrounds')
-        .select('*')
-        .in('id', npsIds);
+      const { data: campgrounds, error: campgroundError } = compact
+        ? await supabase.from('nps_campgrounds').select('id, images').in('id', npsIds)
+        : await supabase.from('nps_campgrounds').select('*').in('id', npsIds);
+      if (campgroundError) throw campgroundError;
 
       for (const cg of campgrounds || []) {
         npsMap.set(cg.id, toNpsCampground(cg as unknown as Record<string, unknown>));
@@ -122,7 +124,7 @@ async function _GET(
       .filter((ap): ap is NonNullable<typeof ap> => ap !== null);
 
     const response: AccessPointsResponse = {
-      accessPoints: formattedPoints,
+      accessPoints: compact ? formattedPoints.map(compactAccessPoint) : formattedPoints,
     };
 
     return NextResponse.json(response, { headers: cdnCacheHeaders(300, 3600) });

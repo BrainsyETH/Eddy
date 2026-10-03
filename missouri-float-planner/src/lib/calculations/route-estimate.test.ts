@@ -118,3 +118,22 @@ test('nearby calculations share metadata but independently verify live water and
   assert.equal(fixture.calls.filter((call) => call === 'access_points').length, 2);
   assert.equal(fixture.calls.filter((call) => call === 'get_river_condition_segment').length, 2);
 });
+
+
+test('cached geometry cannot bypass endpoint verification or live danger withholding', async () => {
+  let geometryReads = 0;
+  const segmentReader = async () => {
+    geometryReads++;
+    return { distance_miles: 8, start_river_mile: 0, end_river_mile: 8,
+      start_name: 'Put in', end_name: 'Take out', segment_geom: null };
+  };
+  const dangerous = routeFixture({ condition: 'dangerous', segmentReader });
+  assert.equal((await dangerous.estimate()).floatTime, null);
+  assert.ok(dangerous.calls.includes('get_river_condition_segment'));
+  assert.ok(dangerous.calls.includes('access_points'));
+  assert.ok(!dangerous.calls.includes('get_float_segment'));
+  assert.equal(geometryReads, 1);
+  const wrongRiver = routeFixture({ wrongRiver: true, segmentReader });
+  await assert.rejects(wrongRiver.estimate(), /not on this river/);
+  assert.equal(geometryReads, 1);
+});

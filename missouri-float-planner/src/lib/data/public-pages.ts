@@ -1,3 +1,6 @@
+import { publicRouteSegment } from '@/lib/calculations/public-segment';
+import { getActiveRiverContextsStrict } from '@/lib/rivers/context';
+import { getRiverAlerts } from '@/lib/alerts/river-alerts';
 import { unstable_cache } from 'next/cache';
 import { createPublicReadClient } from '@/lib/supabase/public-read';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -19,5 +22,12 @@ export const pageCondition = unstable_cache(async (id: string) => {
   return data;
 }, ['page-condition-v1'], { revalidate: 60 });
 export const pageAccess = unstable_cache(async (river: string, access: string) =>
-  getAccessPointDetail(createPublicReadClient(), river, access),
+  getAccessPointDetail(createPublicReadClient(), river, access, { segmentReader: publicRouteSegment }),
 ['page-access-v2'], { revalidate: 60 });
+
+const pageRiverContexts = unstable_cache(getActiveRiverContextsStrict, ['page-river-contexts-v1'], { revalidate: 60 });
+
+// Cache successful context reads, not the alert providers' failure fallbacks.
+export async function pageRiverAlerts(slug: string) {
+  return getRiverAlerts(slug, await pageRiverContexts());
+}

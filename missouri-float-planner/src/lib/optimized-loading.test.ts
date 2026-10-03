@@ -1,3 +1,7 @@
+import { loadCampingWindow } from '../../../eddy-ios/src/lib/loadCampingWindow';
+import { compactAccessPoint } from './access-points/compact';
+import type { CampingOverview } from '@eddy/types';
+import type { AccessPoint } from '@/types/api';
 import { readFileSync } from 'node:fs';
 import ts from 'typescript';
 import { resolveOutlookGauge } from './outlook-gauge';
@@ -115,4 +119,54 @@ test('hazards failure and retry are rendered outside all collapsible content', (
   }
   visit(source);
   assert.equal(found, true);
+});
+
+
+test('camping publishes 21 nights before 90 and retains the partial result on failure', async () => {
+  for (const failFull of [false, true]) {
+    const events: string[] = [];
+    const load = loadCampingWindow({ nights: 90, hasFullSnapshot: () => false,
+      fetchWindow: async (nights) => {
+        events.push(`fetch:${nights}`);
+        if (nights === 90 && failFull) throw new Error('offline');
+        return { horizon: { nights: Array(nights).fill('2026-10-03') } } as CampingOverview;
+      },
+      publish: (value) => events.push(`show:${value.horizon.nights.length}`),
+    });
+    if (failFull) await assert.rejects(load, /offline/); else await load;
+    assert.deepEqual(events, ['fetch:21', 'show:21', 'fetch:90', ...(failFull ? [] : ['show:90'])]);
+  }
+});
+test('camping preserves full disk snapshots and still tries 90 after an initial failure', async () => {
+  for (const fullSnapshot of [false, true]) {
+    const requests: number[] = [], shown: number[] = [];
+    await loadCampingWindow({ nights: 90, hasFullSnapshot: () => fullSnapshot,
+      fetchWindow: async (nights) => {
+        requests.push(nights);
+        if (nights === 21) throw new Error('short window failed');
+        return { horizon: { nights: Array(nights).fill('2026-10-03') } } as CampingOverview;
+      }, publish: (value) => shown.push(value.horizon.nights.length),
+    });
+    assert.deepEqual(requests, fullSnapshot ? [90] : [21, 90]);
+    assert.deepEqual(shown, [90]);
+  }
+});
+test('compact access lists preserve hero, camping classification and endpoint eligibility', () => {
+  const full = { id: 'pin', type: 'boat_ramp', types: ['boat_ramp'], isFloatEndpoint: false,
+    imageUrls: [], npsCampground: { images: [{ url: 'https://www.nps.gov/photo.jpg' }], fees: [{ cost: '20' }] },
+  } as unknown as AccessPoint;
+  const result = compactAccessPoint(full);
+  assert.equal('npsCampground' in result, false);
+  assert.deepEqual(result.imageUrls, ['https://www.nps.gov/photo.jpg']);
+  assert.deepEqual(result.types, ['boat_ramp', 'campground']);
+  assert.equal(result.isFloatEndpoint, false);
+  assert.ok(full.npsCampground);
+  assert.deepEqual(compactAccessPoint({ ...full, imageUrls: ['own.jpg'] }).imageUrls, ['own.jpg']);
+});
+test('campsite image resizing is restricted to verified public provider paths', () => {
+  for (const uri of ['https://cdn.recreation.gov/public/site.jpg', 'https://icampmo.usedirect.com/MSPWeb/images/Missouri/site.jpg']) {
+    assert.match(imageUrl(uri, 256), /_next\/image/);
+    assert.match(imageUrl(uri, 1920), /w=1920/);
+  }
+  for (const uri of ['https://cdn.recreation.gov/private/site.jpg', 'https://icampmo.usedirect.com/other/site.jpg']) assert.equal(imageUrl(uri, 256), uri);
 });

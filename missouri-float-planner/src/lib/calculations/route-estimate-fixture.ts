@@ -5,9 +5,10 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Database } from '@/types/database';
 import type { ConditionCode } from '@/types/api';
 import type { DailyStatistics } from '@/lib/usgs/gauges';
-import { createRouteEstimateContext, estimateRoute } from './route-estimate';
+import { createRouteEstimateContext, estimateRoute, type SegmentReader } from './route-estimate';
 
 export function routeFixture(options: {
+  segmentReader?: SegmentReader;
   miles?: number; vessel?: 'canoe' | 'raft' | 'tube'; condition?: ConditionCode;
   riverType?: string; published?: { min: number; max: number };
   discharge?: number; reference?: number; wrongRiver?: boolean;
@@ -69,7 +70,7 @@ export function routeFixture(options: {
       return options.reference ? { p50: options.reference } as DailyStatistics : null;
     },
   };
-  const context = createRouteEstimateContext(client);
+  const context = createRouteEstimateContext(client, options.segmentReader);
   return { calls, estimate: (mode: 'today' | 'typical' = 'today') => estimateRoute(client, {
     riverId: 'river', startId: 'put-in', endId: 'take-out', mode, vesselTypeId: options.vessel,
   }, providers, context) };

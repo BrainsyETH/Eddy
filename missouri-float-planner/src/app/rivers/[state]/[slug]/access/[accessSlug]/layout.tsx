@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import { createClient } from '@/lib/supabase/server';
+import { createPublicCatalogClient } from '@/lib/supabase/public-read';
 import { riverPath, riverAccessPath } from '@/lib/navigation/river-path';
 import { jsonLdString } from '@/lib/json-ld';
 
@@ -13,7 +13,7 @@ interface Props {
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   try {
     const { slug: riverSlug, accessSlug } = await params;
-    const supabase = await createClient();
+    const supabase = createPublicCatalogClient();
 
     const { data: river } = await supabase
       .from('rivers')
@@ -82,7 +82,7 @@ export default async function AccessPointLayout({ params, children }: Props) {
   let placeJsonLd: Record<string, unknown> | null = null;
 
   try {
-    const supabase = await createClient();
+    const supabase = createPublicCatalogClient();
 
     const { data: river } = await supabase
       .from('rivers')

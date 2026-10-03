@@ -1,3 +1,4 @@
+import { publicRouteSegment } from '@/lib/calculations/public-segment';
 // src/app/api/rivers/[slug]/access/[accessSlug]/route.ts
 // GET /api/rivers/[slug]/access/[accessSlug] - Get access point detail
 
@@ -24,6 +25,7 @@ async function _GET(
       // Opt-in lightweight representation; existing callers retain full estimates.
       includeEstimates: estimatesOnly || request.nextUrl.searchParams.get('includeEstimates') !== '0',
       estimatesOnly,
+      segmentReader: publicRouteSegment,
       onTiming: (phase, durationMs) => timings.push(`${phase};dur=${durationMs.toFixed(1)}`),
     });
 

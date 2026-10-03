@@ -187,8 +187,8 @@ async function _GET(request: NextRequest) {
     }
 
     // Get hazards along the route
-    const startMile = parseFloat(segmentData.start_river_mile);
-    const endMile = parseFloat(segmentData.end_river_mile);
+    const startMile = parseFloat(String(segmentData.start_river_mile));
+    const endMile = parseFloat(String(segmentData.end_river_mile));
     const minMile = Math.min(startMile, endMile);
     const maxMile = Math.max(startMile, endMile);
 
@@ -273,7 +273,7 @@ async function _GET(request: NextRequest) {
         riverId: putIn.river_id ?? '',
         name: putIn.name,
         slug: putIn.slug,
-        riverMile: parseFloat(segmentData.start_river_mile),
+        riverMile: parseFloat(String(segmentData.start_river_mile)),
         type: putIn.type as AccessPointType,
         types: (putIn.types || (putIn.type ? [putIn.type] : [])) as AccessPointType[],
         isPublic: putIn.is_public ?? false,
@@ -297,7 +297,7 @@ async function _GET(request: NextRequest) {
         riverId: takeOut.river_id ?? '',
         name: takeOut.name,
         slug: takeOut.slug,
-        riverMile: parseFloat(segmentData.end_river_mile),
+        riverMile: parseFloat(String(segmentData.end_river_mile)),
         type: takeOut.type as AccessPointType,
         types: (takeOut.types || (takeOut.type ? [takeOut.type] : [])) as AccessPointType[],
         isPublic: takeOut.is_public ?? false,
@@ -393,7 +393,7 @@ async function _GET(request: NextRequest) {
       })),
       route: {
         type: 'Feature',
-        geometry: segmentData.segment_geom,
+        geometry: segmentData.segment_geom as GeoJSON.LineString,
         properties: {},
       },
       warnings,

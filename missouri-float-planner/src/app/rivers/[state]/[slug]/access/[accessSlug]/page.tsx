@@ -162,3 +162,6 @@ function getRoadBadge(surfaces: string[]): { label: string; variant: 'default' |
   if (surfaces.includes('paved')) return { label: 'PAVED', variant: 'success' };
   return { label: 'UNKNOWN', variant: 'default' };
 }
+
+// Generate public HTML on the first visit, then revalidate it.
+export async function generateStaticParams() { return []; }

@@ -3,6 +3,8 @@ export function imageUrl(uri: string, width: number, origin = 'https://eddy.guid
   try {
     const url = new URL(uri, origin);
     const allowed = url.protocol === 'https:' && (
+      (url.hostname === 'cdn.recreation.gov' && url.pathname.startsWith('/public/')) ||
+      (url.hostname === 'icampmo.usedirect.com' && url.pathname.startsWith('/MSPWeb/images/Missouri/')) ||
       url.hostname === 'www.nps.gov' || url.hostname === 'images.unsplash.com' ||
       url.hostname === 'q5skne5bn5nbyxfw.public.blob.vercel-storage.com' ||
       (url.hostname.endsWith('.supabase.co') && url.pathname.startsWith('/storage/v1/object/public/'))

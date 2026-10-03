@@ -95,7 +95,7 @@ function mapRow(row: any): RiverContext {
   };
 }
 
-async function loadAll(): Promise<Map<string, RiverContext>> {
+async function loadAll(strict = false): Promise<Map<string, RiverContext>> {
   if (cache && Date.now() - cache.loadedAt < CACHE_TTL_MS) {
     return cache.contexts;
   }
@@ -114,6 +114,7 @@ async function loadAll(): Promise<Map<string, RiverContext>> {
     .eq('active', true);
 
   if (error || !data) {
+    if (strict) throw error ?? new Error('River contexts unavailable');
     console.error('[RiverContext] Failed to load rivers:', error);
     // Keep serving a stale cache on transient failures rather than nothing.
     if (cache) return cache.contexts;
@@ -156,4 +157,9 @@ export async function getActiveParkCodes(): Promise<string[]> {
 /** Test/ops hook: drop the cache so the next read hits the database. */
 export function invalidateRiverContextCache(): void {
   cache = null;
+}
+
+/** Public page caches must never store a database failure as an empty catalog. */
+export async function getActiveRiverContextsStrict(): Promise<RiverContext[]> {
+  return Array.from((await loadAll(true)).values());
 }

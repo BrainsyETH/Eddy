@@ -1,3 +1,4 @@
+import { ScenicImage } from '@/components/ScenicImage';
 // eddy-ios/src/components/RiverVisuals.tsx
 // What the river looks like — at a level, not in general.
 //
@@ -49,7 +50,7 @@
 // bands, and the queue needs to know which one.
 
 import { useState } from 'react';
-import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { ControlIcon } from '@/components/ControlIcon';
 import type { ConditionCode, RiverVisual, RiverVisualsResponse } from '@eddy/types';
 import { CONDITION_ORDER } from '@eddy/conditions';
@@ -231,11 +232,11 @@ export function RiverVisuals({
           const reading = visualReading(visual);
           return (
             <View key={visual.id} style={styles.photo}>
-              <Image
+              <ScenicImage imageWidth={750}
                 source={{ uri: visual.imageUrl }}
                 style={[styles.image, { backgroundColor: colors.cardRaised }]}
                 accessibilityLabel={visual.description || 'River photo'}
-                resizeMode="cover"
+                contentFit="cover"
               />
               {reading ? (
                 <Text style={[styles.reading, { color: colors.text }]}>{reading}</Text>

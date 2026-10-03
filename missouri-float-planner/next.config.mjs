@@ -4,6 +4,8 @@ import { withSentryConfig } from '@sentry/nextjs';
 const nextConfig = {
   images: {
     remotePatterns: [
+      { protocol: 'https', hostname: 'cdn.recreation.gov', pathname: '/public/**' },
+      { protocol: 'https', hostname: 'icampmo.usedirect.com', pathname: '/MSPWeb/images/Missouri/**' },
       {
         protocol: 'https',
         hostname: 'q5skne5bn5nbyxfw.public.blob.vercel-storage.com',

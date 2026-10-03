@@ -193,8 +193,8 @@ const SEVERITY_RANK: Record<RiverAlertSeverity, number> = { warning: 0, watch: 1
  * legitimate answer — which is exactly why RIVER_ALERT_SOURCE_NOTE exists, so
  * a surface can say that empty does not mean all-clear.
  */
-export async function getRiverAlerts(riverSlug?: string): Promise<RiverAlert[]> {
-  const all = await getActiveRiverContexts();
+export async function getRiverAlerts(riverSlug?: string, contexts?: RiverContext[]): Promise<RiverAlert[]> {
+  const all = contexts ?? await getActiveRiverContexts();
   const rivers = riverSlug ? all.filter((r) => r.slug === riverSlug) : all;
   if (rivers.length === 0) return [];
 
