@@ -9,10 +9,10 @@ import SiteFooter from '@/components/ui/SiteFooter';
 import RiverReportsGrid from '@/components/gauge/RiverReportsGrid';
 import { EDDY_IMAGES } from '@/constants';
 import { buildRiversSummary } from '@/data/eddy-quotes';
-import { getRivers } from '@/lib/data/rivers';
+import { pageRivers } from '@/lib/data/public-pages';
 import { buildRiverFilterMeta } from '@/lib/rivers/filters';
 
-export const revalidate = 300; // ISR every 5 minutes
+export const revalidate = 60; // Public HTML snapshot; live dashboard keeps its own requests
 
 export const metadata: Metadata = {
   title: 'River Reports',
@@ -20,7 +20,7 @@ export const metadata: Metadata = {
 };
 
 export default async function RiversPage() {
-  const rivers = await getRivers();
+  const rivers = await pageRivers();
 
   // Build Eddy's summary across all rivers (server-side, from current conditions)
   const conditionCodes = rivers.map(r => r.currentCondition?.code ?? null);

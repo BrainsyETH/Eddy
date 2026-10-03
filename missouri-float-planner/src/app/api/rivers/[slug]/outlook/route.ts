@@ -1,3 +1,4 @@
+import { withinBudget } from '@/lib/within-budget';
 // src/app/api/rivers/[slug]/outlook/route.ts
 // The 72-hour outlook and Eddy's take for one river, computed server-side.
 //
@@ -207,14 +208,19 @@ async function _GET(
     // gauge_stations.id, which is what /api/gauges hands the app as MapGauge.id
     // — the same key the reading card and the gauge picker are keyed on.
     const requestedGaugeId = request.nextUrl.searchParams.get('gaugeId');
-    const supabase = createAdminClient();
+    // Finish before the mobile client's 15s deadline. Optional providers have
+    // a smaller budget and can degrade without losing the current reading.
+    const budget = AbortSignal.timeout(10_000);
+    const providerBudget = AbortSignal.timeout(6_000);
+    const supabase = createAdminClient(budget);
 
-    const { data: river } = await supabase
+    const { data: river, error: riverError } = await supabase
       .from('rivers')
       .select('id, name')
       .eq('slug', slug)
       .maybeSingle();
 
+    if (riverError) throw riverError;
     if (!river) {
       return NextResponse.json<RiverOutlookApiResponse>(EMPTY, { status: 404, headers: responseHeaders });
     }
@@ -224,17 +230,19 @@ async function _GET(
     // that sends it is built from this river's own gauges, so a miss means the
     // link was edited out from under an open screen, and the primary is a
     // better answer than none. `gaugeStationId` below discloses which won.
-    const { data: requested } = requestedGaugeId
+    const { data: requested, error: requestedError } = requestedGaugeId
       ? await supabase
           .from('river_gauges')
           .select(GAUGE_SELECT)
           .eq('river_id', river.id)
           .eq('gauge_station_id', requestedGaugeId)
           .maybeSingle()
-      : { data: null };
+      : { data: null, error: null };
 
-    const { data: primaryGauge } = requested
-      ? { data: null }
+    if (requestedError) throw requestedError;
+
+    const { data: primaryGauge, error: primaryError } = requested
+      ? { data: null, error: null }
       : await supabase
           .from('river_gauges')
           .select(GAUGE_SELECT)
@@ -242,6 +250,7 @@ async function _GET(
           .eq('is_primary', true)
           .maybeSingle();
 
+    if (primaryError) throw primaryError;
     const gauge = requested ?? primaryGauge;
 
     if (!gauge) {
@@ -300,7 +309,7 @@ async function _GET(
     // line and the await further down would be an unhandled rejection, and the
     // gap did not exist while this was awaited on the spot.
     const weatherPointPromise = usingPrimary
-      ? getWeatherPointForRiver(slug).catch(() => null)
+      ? withinBudget(getWeatherPointForRiver(slug), 2_000, null)
       : Promise.resolve(null);
 
     const primaryUnit = gauge.threshold_unit === 'cfs' ? 'cfs' : 'ft';
@@ -364,10 +373,10 @@ async function _GET(
       weatherKey
         ? weatherPointPromise.then((point) => {
             const coords = point ? { lat: point.lat, lng: point.lon } : gaugeCoords;
-            return coords ? fetchForecast(coords.lat, coords.lng, weatherKey) : null;
+            return coords ? fetchForecast(coords.lat, coords.lng, weatherKey, providerBudget) : null;
           })
         : Promise.resolve(null),
-      station?.nws_lid ? fetchAhpsForecast(station.nws_lid) : Promise.resolve([]),
+      station?.nws_lid ? fetchAhpsForecast(station.nws_lid, providerBudget) : Promise.resolve([]),
       supabase
         .from('eddy_updates')
         .select('eddy_read, quote_text, summary_text, condition_code, gauge_height_ft, discharge_cfs, generated_at')
@@ -600,7 +609,7 @@ async function _GET(
     );
   } catch (error) {
     console.error('[RiverOutlook] Unexpected error:', error);
-    return NextResponse.json<RiverOutlookApiResponse>(EMPTY, { status: 500, headers: responseHeaders });
+    return NextResponse.json<RiverOutlookApiResponse>(EMPTY, { status: 500, headers: { 'Cache-Control': 'private, no-store' } });
   }
 }
 

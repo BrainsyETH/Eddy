@@ -1,3 +1,5 @@
+import { parseCampingSnapshot } from '@/lib/campingSnapshot';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useCallback, useEffect, useState } from 'react';
 import type { CampingOverview } from '@eddy/types';
 import { fetchCampingOverview } from '@/api/client';
@@ -22,6 +24,7 @@ function request(nights: WindowSize): Promise<CampingOverview> {
       .then((data) => {
         entry.cached = data;
         entry.fetchedAt = Date.now();
+        void AsyncStorage.setItem(`eddy:camping:v1:${nights}`, JSON.stringify(data)).catch(() => {});
         return data;
       })
       .finally(() => {
@@ -70,6 +73,17 @@ export function useCampingOverview(
       } finally {
         if (active) setLoading(false);
       }
+    }
+    // Disk and network race independently; an old disk read never overwrites
+    // a fresh network result. Stored observations retain their checkedAt.
+    if (!entry.cached) {
+      void AsyncStorage.getItem(`eddy:camping:v1:${nights}`).then((raw) => {
+        if (!active || entry.cached || !raw) return;
+        const saved = parseCampingSnapshot(raw, nights);
+        if (!saved) return;
+        entry.cached = saved;
+        setHeld({ nights, data: saved });
+      }).catch(() => {});
     }
     void load(revision > 0 || retry > 0);
     const off = onForeground(() => {

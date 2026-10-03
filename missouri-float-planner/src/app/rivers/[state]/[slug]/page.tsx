@@ -15,7 +15,8 @@ import Link from 'next/link';
 import Image from 'next/image';
 import AccessPointPhoto from '@/components/access-point/AccessPointPhoto';
 import { ArrowRight, ChevronDown, MapPin, Ruler, Mountain } from 'lucide-react';
-import { createAdminClient } from '@/lib/supabase/admin';
+import { createPublicCatalogClient } from '@/lib/supabase/public-read';
+import { pageCondition, pageRiverDam, pageRiverReaches } from '@/lib/data/public-pages';
 import { CONDITION_COLORS, CONDITION_LABELS, getEddyImageForCondition } from '@/constants';
 import type { ConditionCode } from '@/types/api';
 import RiverHubMap from './RiverHubMap';
@@ -25,10 +26,8 @@ import RiverAlertsPanel from '@/components/river/RiverAlertsPanel';
 import ReportIssueButton from '@/components/ui/ReportIssueButton';
 import RiverDamPanel from '@/components/dam/RiverDamPanel';
 import TailwaterStatusRow from '@/components/dam/TailwaterStatusRow';
-import { fetchRiverDam } from '@/lib/data/dams';
 import { getRiverAlerts } from '@/lib/alerts/river-alerts';
 import RiverReaches from '@/components/river/RiverReaches';
-import { fetchRiverReaches } from '@/lib/data/river-reaches';
 import type { RiverType } from '@/lib/rivers/context';
 import RiverGaugeDetail from '@/components/gauge/RiverGaugeDetail';
 import SiteFooter from '@/components/ui/SiteFooter';
@@ -36,12 +35,10 @@ import { jsonLdString } from '@/lib/json-ld';
 
 const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://eddy.guide';
 
-// ISR: guide pages are identical for every visitor (live conditions render
-// client-side), so serve them from the CDN and regenerate at most every
-// 5 minutes. Previously this route was fully dynamic — the cookie-bound
-// Supabase server client plus a searchParams read forced no-store, and
-// every visitor paid ~2s of server render before first paint.
-export const revalidate = 300;
+// Public catalog reads cache for five minutes; water-bearing page snapshots
+// use 60 seconds. Alerts retain their own live/provider policy, so a cold
+// alert context may still require dynamic rendering.
+export const revalidate = 60;
 
 interface Props {
   params: Promise<{ state: string; slug: string }>;
@@ -63,7 +60,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       };
     }
 
-    const supabase = createAdminClient();
+    const supabase = createPublicCatalogClient();
     const { data: river, error: riverError } = await supabase
       .from('rivers')
       .select('id, name, slug, state, length_miles, description, difficulty_rating, region')
@@ -76,10 +73,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
     let conditionCode = 'unknown';
     try {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data: condRows } = await (supabase.rpc as any)('get_river_condition', {
-        p_river_id: river.id,
-      });
+      const condRows = await pageCondition(river.id);
       if (condRows && condRows.length > 0) {
         conditionCode = condRows[0].condition_code || 'unknown';
       }
@@ -150,10 +144,10 @@ export default async function RiverGuidePage({ params }: Props) {
   // Note: /rivers/<state>/<slug>?putIn=…&takeOut=… is 308'd to /plan via
   // next.config.mjs redirects() before we reach this handler.
 
-  // Admin client (no cookies()): this page is public and identical for all
+  // Public catalog client (no cookies()): this page is public and identical for all
   // visitors — the cookie-bound server client would force per-request
   // rendering and defeat the ISR above.
-  const supabase = createAdminClient();
+  const supabase = createPublicCatalogClient();
 
   const [riverResult, guideResult] = await Promise.all([
     supabase
@@ -193,18 +187,17 @@ export default async function RiverGuidePage({ params }: Props) {
       .eq('approved', true)
       .eq('river_id', river.id)
       .order('river_mile_downstream', { ascending: true }),
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (supabase.rpc as any)('get_river_condition', { p_river_id: river.id }).then(
-      (res: { data: Array<{ condition_code: string }> | null }) => res,
+    pageCondition(river.id).then(
+      (data) => ({ data }),
       () => ({ data: null }),
     ),
     // Resolved here rather than in a client hook so the dam tab is present in
     // the first paint and the section stays inside this page's ISR window.
     // Null for every river without a tailwater dam, which is most of them.
-    fetchRiverDam(slug).catch(() => null),
+    pageRiverDam(slug).catch(() => null),
     // Same reasoning. Null unless the river has two or more curated reaches —
     // today only the Black, which straddles Clearwater Dam.
-    fetchRiverReaches(river.id, slug, (river.river_type || 'spring_fed_float') as RiverType).catch(() => null),
+    pageRiverReaches(river.id, slug, (river.river_type || 'spring_fed_float') as RiverType).catch(() => null),
     // Closures and weather warnings, server-side for the same reason the dam is:
     // a closure is the last thing that should wait on hydration, and the section
     // has to exist before HubSectionNav can decide whether to offer the tab.

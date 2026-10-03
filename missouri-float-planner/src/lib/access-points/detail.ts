@@ -1,4 +1,4 @@
-import { estimateRoute } from '@/lib/calculations/route-estimate';
+import { createRouteEstimateContext, estimateRoute } from '@/lib/calculations/route-estimate';
 // src/lib/access-points/detail.ts
 // Shared access-point-detail data loader. Extracted from the API route so both
 // the /api/rivers/[slug]/access/[accessSlug] handler and the server-rendered
@@ -207,12 +207,13 @@ export async function getAccessPointDetail(
   }
 
   if (options.includeEstimates !== false) {
+    const estimateContext = createRouteEstimateContext(supabase);
     await Promise.all(nearbyAccessPoints.map(async (point) => {
       if (ap.is_float_endpoint === false || point.isFloatEndpoint === false) return;
       try {
         const estimate = await estimateRoute(supabase, { riverId: river.id,
           startId: point.direction === 'upstream' ? point.id : ap.id,
-          endId: point.direction === 'upstream' ? ap.id : point.id });
+          endId: point.direction === 'upstream' ? ap.id : point.id }, undefined, estimateContext);
         point.estimatedFloatTime = estimate.floatTime?.formatted ?? null;
         point.distanceMiles = Math.round(estimate.distanceMiles * 10) / 10;
       } catch { /* An unavailable route must not invent a time. */ }

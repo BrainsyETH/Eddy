@@ -68,6 +68,9 @@ export interface RiverReadingTrend {
 }
 
 export interface RiverListItem extends River {
+  /** Stable station identity lets clients load charts alongside conditions. */
+  primaryGaugeId?: string | null;
+  primaryGaugeSiteId?: string | null;
   /** River-specific editorial scenery, not a current-condition photograph. */
   photoUrl?: string | null;
   photoCredit?: { text: string; url: string } | null;

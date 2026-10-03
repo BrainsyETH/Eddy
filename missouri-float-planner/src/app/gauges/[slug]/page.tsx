@@ -22,7 +22,9 @@
 
 import type { Metadata } from 'next';
 import { permanentRedirect } from 'next/navigation';
-import { createAdminClient } from '@/lib/supabase/admin';
+import { createPublicCatalogClient } from '@/lib/supabase/public-read';
+
+export const revalidate = 300;
 import GaugeDetailView from '@/components/gauge/GaugeDetailView';
 
 // Local, matching rivers/[state]/[slug]/page.tsx — there is no shared export.
@@ -34,7 +36,7 @@ interface Props {
 
 async function getPrimaryRiverSlugForGauge(siteId: string): Promise<string | null> {
   try {
-    const supabase = createAdminClient();
+    const supabase = createPublicCatalogClient();
     const { data: station } = await supabase
       .from('gauge_stations')
       .select('id')
@@ -63,7 +65,7 @@ async function getPrimaryRiverSlugForGauge(siteId: string): Promise<string | nul
 /** The station's own name, for a site id nobody has curated. */
 async function getStationName(siteId: string): Promise<string | null> {
   try {
-    const supabase = createAdminClient();
+    const supabase = createPublicCatalogClient();
     const { data } = await supabase
       .from('gauge_stations')
       .select('name')

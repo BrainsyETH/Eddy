@@ -59,7 +59,7 @@ export async function fetchWeather(
   apiKey: string
 ): Promise<WeatherData> {
   const url = `https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lon}&appid=${apiKey}&units=imperial`;
-  
+
   const response = await trackedFetch('openweather', 'openweather', url, {
     signal: AbortSignal.timeout(10_000),
     next: { revalidate: 600 }, // Cache current weather for 10 minutes
@@ -122,12 +122,13 @@ export interface ForecastData {
 export async function fetchForecast(
   lat: number,
   lon: number,
-  apiKey: string
+  apiKey: string,
+  signal?: AbortSignal
 ): Promise<ForecastData> {
   const url = `https://api.openweathermap.org/data/2.5/forecast?lat=${lat}&lon=${lon}&appid=${apiKey}&units=imperial`;
 
   const response = await trackedFetch('openweather', 'openweather', url, {
-    signal: AbortSignal.timeout(10_000),
+    signal: signal ?? AbortSignal.timeout(10_000),
     next: { revalidate: 3600 }, // Cache forecast for 1 hour
   });
 

@@ -108,3 +108,13 @@ test('suspect or undated span readings cannot escalate a web plan and mark cover
     assert.equal(result.contributingGauges.length, 0);
   }
 });
+
+
+test('nearby calculations share metadata but independently verify live water and endpoints', async () => {
+  const fixture = routeFixture();
+  await Promise.all([fixture.estimate(), fixture.estimate()]);
+  assert.equal(fixture.calls.filter((call) => call === 'rivers').length, 1);
+  assert.equal(fixture.calls.filter((call) => call === 'vessel_types').length, 1);
+  assert.equal(fixture.calls.filter((call) => call === 'access_points').length, 2);
+  assert.equal(fixture.calls.filter((call) => call === 'get_river_condition_segment').length, 2);
+});

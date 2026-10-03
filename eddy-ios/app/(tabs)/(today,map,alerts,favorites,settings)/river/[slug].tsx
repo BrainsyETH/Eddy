@@ -718,6 +718,11 @@ export default function RiverDetailScreen() {
           return;
         }
         setRiver(match);
+        void networkIndex.then((index) => {
+          if (controller.signal.aborted) return;
+          const refreshed = index?.find((item) => item.slug === slug);
+          if (refreshed) setRiver(refreshed);
+        });
 
         // Each of these degrades on its own. A river with no gauge, no recorded
         // hazards or no access points is an ordinary state, and one failing must
@@ -824,7 +829,7 @@ export default function RiverDetailScreen() {
   // selected before anyone has touched it, so tapping that chip is a no-op the
   // user expects to be instant — without this it would be a cache miss and a
   // cleared panel for a card we were already looking at.
-  const primaryGaugeId = gauges.find((g) => gaugeLink(g, slug)?.isPrimary)?.id ?? null;
+  const primaryGaugeId = gauges.find((g) => gaugeLink(g, slug)?.isPrimary)?.id ?? river?.primaryGaugeId ?? null;
 
   /**
    * The outlook requests currently running, by the same key the cache uses.
@@ -1118,7 +1123,9 @@ export default function RiverDetailScreen() {
   // Resolve the chart's station before the early returns so the detail hook
   // can follow the picker. Capabilities load without blocking 30-day history.
   const pickedGauge = shownGaugeId ? gauges.find((g) => g.id === shownGaugeId) ?? null : null;
-  const shownSiteId = pickedGauge ? pickedGauge.usgsSiteId : (condition?.gaugeUsgsId ?? null);
+  const shownSiteId = shownGaugeId
+    ? pickedGauge?.usgsSiteId ?? null
+    : condition?.gaugeUsgsId ?? river?.primaryGaugeSiteId ?? null;
   const { detail: chartGaugeDetail } = useGaugeDetail(loading || error || !river ? null : shownSiteId);
 
   if (loading) {
@@ -1442,7 +1449,7 @@ export default function RiverDetailScreen() {
           <GaugeChart
             siteId={shownSiteId}
             historyCapabilities={chartGaugeDetail?.historyCapabilities}
-            unit={reading?.unit ?? scaleThresholds?.thresholdUnit ?? 'cfs'}
+            unit={reading?.unit ?? scaleThresholds?.thresholdUnit ?? river.currentCondition?.thresholdUnit ?? 'cfs'}
             thresholds={scaleThresholds}
             // Only when the chart is showing the station the condition was
             // computed from: /api/conditions resolves stages for ITS source
@@ -1610,13 +1617,13 @@ export default function RiverDetailScreen() {
             renders as an ordinary river: a hazard we stored three weeks ago is
             the same hazard, and hedging it would teach people to discount
             hazard copy. Only having nothing to say earns the notice. */}
-        {sortedHazards.length > 0 || source.hazards === 'missing' ? (
+        {sortedHazards.length > 0 || source.hazards === 'missing' || source.hazards === 'loading' ? (
           <CollapsibleSection
             title="Hazards"
             defaultExpanded={source.hazards === 'missing'}
             leading={<EddySymbol name="hazard" size={18} />}
             summary={
-              source.hazards === 'missing'
+              source.hazards === 'loading' ? 'Loading hazards…' : source.hazards === 'missing'
                 ? 'Could not be loaded'
                 : criticalCount > 0
                   ? `${criticalCount} need${criticalCount === 1 ? 's' : ''} attention · ${sortedHazards.length} total`
@@ -1698,6 +1705,7 @@ export default function RiverDetailScreen() {
             section: a missing put-in list is an inconvenience, not a hazard,
             and expanding a section to hold one grey line is noise on an already
             dense screen. */}
+        {source.access === 'loading' ? <Text style={{ color: colors.textMuted }}>Loading access points…</Text> : null}
         {source.access === 'missing' ? (
           <UnavailableNote
             text="Access points unavailable — put-ins for this river are not shown."

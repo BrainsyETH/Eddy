@@ -41,7 +41,7 @@ import {
 } from '@/api/client';
 import { readRiver, type CachedRiver } from '@/lib/riverCache';
 
-export type Source = 'live' | 'cached' | 'missing';
+export type Source = 'loading' | 'live' | 'cached' | 'missing';
 
 export interface RiverDataSources {
   hazards: Source;
@@ -73,7 +73,7 @@ const EMPTY: RiverData = {
   accessPoints: [],
   services: [],
   reaches: [],
-  source: { hazards: 'missing', access: 'missing', services: 'missing', reaches: 'missing' },
+  source: { hazards: 'loading', access: 'loading', services: 'loading', reaches: 'loading' },
   cachedAt: null,
   loading: true,
 };
@@ -104,7 +104,7 @@ async function resolvePart<T>(
 }
 
 export function useRiverData(slug: string | undefined, reloadNonce = 0): RiverData {
-  const [data, setData] = useState<RiverData>(EMPTY);
+  const [data, setData] = useState<RiverData & { slug?: string }>(EMPTY);
   /** The slug the current state describes, so a slug change resets rather than blends. */
   const shownSlug = useRef<string | undefined>(undefined);
 
@@ -114,7 +114,7 @@ export function useRiverData(slug: string | undefined, reloadNonce = 0): RiverDa
     let live = true;
 
     if (shownSlug.current !== slug) {
-      setData(EMPTY);
+      setData({ ...EMPTY, slug });
       shownSlug.current = slug;
     }
 
@@ -150,35 +150,28 @@ export function useRiverData(slug: string | undefined, reloadNonce = 0): RiverDa
         }));
       }
 
-      const [hazards, access, services, reaches] = await Promise.all([
-        resolvePart(fetchHazards(slug, controller.signal), parts.hazards),
-        resolvePart(fetchRiverAccessPoints(slug, controller.signal), parts.accessPoints),
-        resolvePart(fetchRiverServices(slug, controller.signal), parts.services),
-        resolvePart(fetchRiverReaches(slug, controller.signal), parts.reaches),
-      ]);
-
-      if (!live) return;
-
-      setData((prev) => {
-        const next: RiverData = {
-          hazards: hazards?.items ?? prev.hazards,
-          accessPoints: access?.items ?? prev.accessPoints,
-          services: services?.items ?? prev.services,
-          reaches: reaches?.items ?? prev.reaches,
-          source: {
-            hazards: hazards?.source ?? prev.source.hazards,
-            access: access?.source ?? prev.source.access,
-            services: services?.source ?? prev.source.services,
-            reaches: reaches?.source ?? prev.source.reaches,
-          },
-          // Once nothing on screen came off the disk, the age stops being true
-          // of anything and the footnote must go with it.
-          cachedAt: null,
-          loading: false,
-        };
-        const anyCached = Object.values(next.source).some((s) => s === 'cached');
-        return { ...next, cachedAt: anyCached ? prev.cachedAt : null };
-      });
+      // Publish each result as it arrives. A slow outfitter request must not
+      // hold hazards or access points behind the same completion barrier.
+      let remaining = 4;
+      async function publishPart<T>(key: keyof RiverDataSources, field: 'hazards' | 'accessPoints' | 'services' | 'reaches', request: Promise<T[]>, cached: T[] | undefined) {
+        const result = await resolvePart(request, cached);
+        if (!live || !result) return;
+        remaining -= 1;
+        setData((prev) => {
+          const source = { ...prev.source, [key]: result.source };
+          return {
+            ...prev,
+            [field]: result.items,
+            source,
+            loading: remaining > 0,
+            cachedAt: Object.values(source).includes('cached') ? prev.cachedAt : null,
+          };
+        });
+      }
+      void publishPart('hazards', 'hazards', fetchHazards(slug, controller.signal), parts.hazards);
+      void publishPart('access', 'accessPoints', fetchRiverAccessPoints(slug, controller.signal), parts.accessPoints);
+      void publishPart('services', 'services', fetchRiverServices(slug, controller.signal), parts.services);
+      void publishPart('reaches', 'reaches', fetchRiverReaches(slug, controller.signal), parts.reaches);
     })();
 
     return () => {
@@ -187,7 +180,7 @@ export function useRiverData(slug: string | undefined, reloadNonce = 0): RiverDa
     };
   }, [slug, reloadNonce]);
 
-  return data;
+  return data.slug === slug ? data : EMPTY;
 }
 
 /** Whether any part of this screen is being served from disk. */

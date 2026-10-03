@@ -57,10 +57,10 @@ export function parseForecastDatums(xml: string): AhpsForecastDatum[] {
  * third-party service and a river with no official forecast is an ordinary
  * state that the outlook already degrades to weather-only guidance for.
  */
-export async function fetchAhpsForecast(lid: string): Promise<AhpsForecastDatum[]> {
+export async function fetchAhpsForecast(lid: string, signal?: AbortSignal): Promise<AhpsForecastDatum[]> {
   try {
     const res = await trackedFetch('nws', 'ahps-forecast', ahpsUrl(lid), {
-      signal: AbortSignal.timeout(10_000),
+      signal: signal ?? AbortSignal.timeout(10_000),
       next: { revalidate: 3600 },
     });
     if (!res.ok) return [];

@@ -1,6 +1,7 @@
+import { ScenicImage } from '@/components/ScenicImage';
 import { NativeHeaderHome } from '@/components/NativeHeaderHome';
 import { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Image, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ControlIcon } from '@/components/ControlIcon';
 import { useRouter } from 'expo-router';
@@ -83,7 +84,7 @@ export default function FavoriteFloatsScreen() {
               </View>
             ) : floats.map((item) => (
               <View key={item.id} style={[styles.card, { backgroundColor: colors.card }, elevation(1)]}>
-                {item.photoUrl ? <Image source={{ uri: item.photoUrl }} style={styles.photo} /> : null}
+                {item.photoUrl ? <ScenicImage source={{ uri: item.photoUrl }} style={styles.photo} /> : null}
                 <View style={styles.body}>
                   <Text style={[styles.river, { color: colors.accent }]}>{item.riverName.toUpperCase()}</Text>
                   <Text style={[styles.cardTitle, { color: colors.text }]}>{item.putInName} to {item.takeOutName}</Text>

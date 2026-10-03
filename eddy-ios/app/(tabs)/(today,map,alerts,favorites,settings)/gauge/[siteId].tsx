@@ -306,7 +306,7 @@ export default function GaugeDetailScreen() {
   const tierResolving = gauge ? gaugeTier(gauge) === 'unknown' && loading : false;
 
   const reportSlug = rated ? (link?.riverSlug ?? null) : null;
-  const reportGaugeId = gauge?.id ?? null;
+  const reportGaugeId = link?.isPrimary ? null : gauge?.id ?? null;
   /** What a held report has to match to be shown. Null when there is none to ask for. */
   const reportKey = reportSlug ? `${reportSlug}:${reportGaugeId ?? ''}` : null;
 

@@ -1,5 +1,6 @@
+import { ScenicImage } from '@/components/ScenicImage';
 import { useState } from 'react';
-import { Image, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
+import { StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
 import type { MapAccessPoint } from '@eddy/types';
 import { EddySymbol } from '@/components/EddySymbol';
 import { placeSymbol } from '@/components/map-sheet/placeSymbol';
@@ -21,11 +22,11 @@ export function PlanAccessPhoto({ point, style, compactFallback = false }: {
     <View style={[styles.frame, { backgroundColor: colors.cardRaised }, style, compactFallback && !showPhoto && styles.compactFallback]}>
       <EddySymbol name={placeSymbol({ layer: 'access' }, point)} size={28} />
       {showPhoto ? (
-        <Image
+        <ScenicImage
           key={uri}
-          source={{ uri, cache: 'default' }}
+          source={{ uri }}
           style={StyleSheet.absoluteFill}
-          resizeMode="cover"
+
           onError={() => setFailedUri(uri)}
           accessible={false}
           accessibilityIgnoresInvertColors
