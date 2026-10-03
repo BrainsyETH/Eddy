@@ -247,5 +247,49 @@
         "description": "Typical Ozark strainers, logjams and undercut banks; scout blind bends, especially when flows are up."
       }
     ]
+  },
+  "readiness": {
+    "corridor": {
+      "status": "pending",
+      "evidence": [],
+      "reviewedBy": null,
+      "reviewedAt": null,
+      "notes": "Name the supported put-in/take-out corridor and exclusions."
+    },
+    "legalAccess": {
+      "status": "pending",
+      "evidence": [],
+      "reviewedBy": null,
+      "reviewedAt": null,
+      "notes": "Verify legal launch/landing and current restrictions for each offered access pair."
+    },
+    "gauge": {
+      "status": "pending",
+      "evidence": [],
+      "reviewedBy": null,
+      "reviewedAt": null,
+      "notes": "Verify provider, measured parameter, reach representativeness, freshness and history policy."
+    },
+    "conditions": {
+      "status": "pending",
+      "evidence": [],
+      "reviewedBy": null,
+      "reviewedAt": null,
+      "notes": "Record station-specific recreational thresholds and owner approval; tailwaters require separate release presentation review."
+    },
+    "hazards": {
+      "status": "pending",
+      "evidence": [],
+      "reviewedBy": null,
+      "reviewedAt": null,
+      "notes": "Review mapped hazards, prose and access notes. Record known fixed hazards or an evidenced no-fixed-hazards finding; never claim hazard-free."
+    },
+    "routing": {
+      "status": "pending",
+      "evidence": [],
+      "reviewedBy": null,
+      "reviewedAt": null,
+      "notes": "Validate connected downstream geometry, access snaps and trip distances for the corridor."
+    }
   }
 }

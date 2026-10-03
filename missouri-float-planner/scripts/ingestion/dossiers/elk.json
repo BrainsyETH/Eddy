@@ -235,5 +235,52 @@
       "Full MDC / municipal access-point list with coordinates (human places every point) — Pineville, US-71, Mount Shira, Noel/Shadow Lake, Sycamore, Cowskin",
       "NWS TIFM7 flood/action stages — cross-check only; leave to fetch-nws-flood-stages.ts"
     ]
+  },
+  "readiness": {
+    "corridor": {
+      "status": "pending",
+      "evidence": [],
+      "reviewedBy": null,
+      "reviewedAt": null,
+      "notes": "Name the supported put-in/take-out corridor and exclusions."
+    },
+    "legalAccess": {
+      "status": "pending",
+      "evidence": [],
+      "reviewedBy": null,
+      "reviewedAt": null,
+      "notes": "Verify legal launch/landing and current restrictions for each offered access pair."
+    },
+    "gauge": {
+      "status": "blocked",
+      "evidence": [
+        "https://waterdata.usgs.gov/monitoring-location/USGS-07188925/",
+        "https://waterdata.usgs.gov/monitoring-location/USGS-07189000/"
+      ],
+      "reviewedBy": null,
+      "reviewedAt": null,
+      "notes": "Tiff City ends 2026-04-27; Noel begins 2026-06-02 in the inspected continuous record. No concurrent record for transfer. Noel currently has stage but no discharge in gauge_latest. Fresh reference-tier data does not require gauge_readings history."
+    },
+    "conditions": {
+      "status": "blocked",
+      "evidence": [],
+      "reviewedBy": null,
+      "reviewedAt": null,
+      "notes": "Obtain Noel-specific anchors tied to its datum and floated corridor. Neither direct stage transfer nor the proposed overlapping-cfs transfer is supported by inspected data."
+    },
+    "hazards": {
+      "status": "pending",
+      "evidence": [],
+      "reviewedBy": null,
+      "reviewedAt": null,
+      "notes": "Review mapped hazards, prose and access notes. Record known fixed hazards or an evidenced no-fixed-hazards finding; never claim hazard-free."
+    },
+    "routing": {
+      "status": "pending",
+      "evidence": [],
+      "reviewedBy": null,
+      "reviewedAt": null,
+      "notes": "Validate connected downstream geometry, access snaps and trip distances for the corridor."
+    }
   }
 }

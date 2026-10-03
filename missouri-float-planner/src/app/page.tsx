@@ -34,6 +34,7 @@ const FEATURE_RIVER = {
   tagline: 'The Ozarks’ spring-fed classic — clear, cool water and the region’s most popular float.',
 };
 const SIDE_RIVERS = [
+  { slug: 'buffalo', name: 'Buffalo River' },
   { slug: 'eleven-point', name: 'Eleven Point' },
   { slug: 'jacks-fork', name: 'Jacks Fork' },
   { slug: 'huzzah', name: 'Huzzah' },
@@ -45,7 +46,7 @@ export default async function Home() {
   const riverGuides = await getRiverGuides(FEATURED_RIVER_SLUGS);
   const guideHref = (slug: string) => {
     const guide = riverGuides[slug];
-    return guide ? `/blog/${guide.postSlug}` : '/blog';
+    return guide ? `/blog/${guide.postSlug}` : `/rivers/${slug}`;
   };
   const featureImage = riverGuides[FEATURE_RIVER.slug]?.image ?? null;
 
@@ -204,7 +205,7 @@ export default async function Home() {
                       {river.name}
                     </h3>
                     <span className="inline-flex items-center gap-1 text-xs font-semibold text-accent-600">
-                      Read guide <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
+                      {riverGuides[river.slug] ? 'Read guide' : 'River report'} <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
                     </span>
                   </div>
                 </Link>

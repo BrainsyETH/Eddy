@@ -1,0 +1,2262 @@
+{
+  "gauges": [
+    {
+      "url": "https://rivers.moherp.org/gauge/?gauge=06930000",
+      "role": null,
+      "unit": "cfs",
+      "river": "big-piney",
+      "source": "editorial",
+      "primary": true,
+      "station": "06930000",
+      "provider": "usgs",
+      "thresholds": [
+        164,
+        309,
+        519,
+        1013,
+        1014,
+        2049
+      ],
+      "external_id": "06930000",
+      "active_river": true
+    },
+    {
+      "url": null,
+      "role": null,
+      "unit": "ft",
+      "river": "big-piney",
+      "source": "editorial",
+      "primary": false,
+      "station": "06928900",
+      "provider": "usgs",
+      "thresholds": [
+        1.5,
+        2,
+        2.5,
+        5,
+        7,
+        10
+      ],
+      "external_id": "06928900",
+      "active_river": true
+    },
+    {
+      "url": "https://forums.ozarkanglers.com/waters/rivers/big-river/big-river-sections-r318/",
+      "role": null,
+      "unit": "cfs",
+      "river": "big-river",
+      "source": "editorial",
+      "primary": false,
+      "station": "07018500",
+      "provider": "usgs",
+      "thresholds": [
+        90,
+        150,
+        300,
+        600,
+        900,
+        1200
+      ],
+      "external_id": "07018500",
+      "active_river": true
+    },
+    {
+      "url": null,
+      "role": null,
+      "unit": "cfs",
+      "river": "big-river",
+      "source": null,
+      "primary": true,
+      "station": "07018100",
+      "provider": "usgs",
+      "thresholds": [
+        60,
+        90,
+        100,
+        400,
+        600,
+        800
+      ],
+      "external_id": "07018100",
+      "active_river": true
+    },
+    {
+      "url": "https://rivers.moherp.org/gauge/?gauge=07063000",
+      "role": "downstream",
+      "unit": "cfs",
+      "river": "black",
+      "source": "editorial",
+      "primary": false,
+      "station": "07063000",
+      "provider": "usgs",
+      "thresholds": [
+        280,
+        400,
+        550,
+        2060,
+        2060,
+        4100
+      ],
+      "external_id": "07063000",
+      "active_river": true
+    },
+    {
+      "url": "https://water.usace.army.mil/",
+      "role": "release",
+      "unit": "cfs",
+      "river": "black",
+      "source": "editorial",
+      "primary": false,
+      "station": null,
+      "provider": "usace",
+      "thresholds": [
+        150,
+        300,
+        400,
+        2000,
+        2000,
+        4000
+      ],
+      "external_id": "swl-clearwater-dam",
+      "active_river": true
+    },
+    {
+      "url": "https://rivers.moherp.org/gauge/?gauge=07061500",
+      "role": null,
+      "unit": "cfs",
+      "river": "black",
+      "source": "editorial",
+      "primary": true,
+      "station": "07061500",
+      "provider": "usgs",
+      "thresholds": [
+        153,
+        180,
+        286,
+        956,
+        956,
+        2000
+      ],
+      "external_id": "07061500",
+      "active_river": true
+    },
+    {
+      "url": "https://rivers.moherp.org/gauge/?gauge=07016500",
+      "role": null,
+      "unit": "cfs",
+      "river": "bourbeuse",
+      "source": "editorial",
+      "primary": true,
+      "station": "07016500",
+      "provider": "usgs",
+      "thresholds": [
+        70,
+        215,
+        359,
+        964,
+        964,
+        3300
+      ],
+      "external_id": "07016500",
+      "active_river": true
+    },
+    {
+      "url": null,
+      "role": null,
+      "unit": "cfs",
+      "river": "bourbeuse",
+      "source": "editorial",
+      "primary": false,
+      "station": "07015720",
+      "provider": "usgs",
+      "thresholds": [
+        10,
+        null,
+        30,
+        60,
+        120,
+        200
+      ],
+      "external_id": "07015720",
+      "active_river": true
+    },
+    {
+      "url": "https://rivers.moherp.org/gauge/?gauge=07058000",
+      "role": null,
+      "unit": "cfs",
+      "river": "bryant-creek",
+      "source": "editorial",
+      "primary": true,
+      "station": "07058000",
+      "provider": "usgs",
+      "thresholds": [
+        189,
+        300,
+        356,
+        1050,
+        1050,
+        1930
+      ],
+      "external_id": "07058000",
+      "active_river": true
+    },
+    {
+      "url": null,
+      "role": null,
+      "unit": "cfs",
+      "river": "buffalo",
+      "source": "editorial",
+      "primary": false,
+      "station": "07055660",
+      "provider": "usgs",
+      "thresholds": [
+        100,
+        200,
+        430,
+        900,
+        900,
+        1600
+      ],
+      "external_id": "07055660",
+      "active_river": true
+    },
+    {
+      "url": null,
+      "role": null,
+      "unit": "cfs",
+      "river": "buffalo",
+      "source": "editorial",
+      "primary": false,
+      "station": "07055646",
+      "provider": "usgs",
+      "thresholds": [
+        200,
+        350,
+        730,
+        1500,
+        1500,
+        6500
+      ],
+      "external_id": "07055646",
+      "active_river": true
+    },
+    {
+      "url": null,
+      "role": null,
+      "unit": "cfs",
+      "river": "buffalo",
+      "source": "editorial",
+      "primary": false,
+      "station": "07056700",
+      "provider": "usgs",
+      "thresholds": [
+        60,
+        200,
+        1130,
+        3000,
+        3000,
+        9370
+      ],
+      "external_id": "07056700",
+      "active_river": true
+    },
+    {
+      "url": "https://rivers.moherp.org/gauge/?gauge=07056000",
+      "role": null,
+      "unit": "cfs",
+      "river": "buffalo",
+      "source": "editorial",
+      "primary": true,
+      "station": "07056000",
+      "provider": "usgs",
+      "thresholds": [
+        32,
+        127,
+        356,
+        2000,
+        2000,
+        4300
+      ],
+      "external_id": "07056000",
+      "active_river": true
+    },
+    {
+      "url": "https://caddoriver.com/river-conditions",
+      "role": null,
+      "unit": "ft",
+      "river": "caddo-river",
+      "source": "editorial",
+      "primary": true,
+      "station": "07359610",
+      "provider": "usgs",
+      "thresholds": [
+        5.25,
+        5.4,
+        5.5,
+        6.1,
+        6.2,
+        7
+      ],
+      "external_id": "07359610",
+      "active_river": true
+    },
+    {
+      "url": null,
+      "role": null,
+      "unit": "cfs",
+      "river": "courtois",
+      "source": "usgs",
+      "primary": true,
+      "station": "07014000",
+      "provider": "usgs",
+      "thresholds": [
+        56,
+        66,
+        111,
+        260,
+        730,
+        1850
+      ],
+      "external_id": "07014000",
+      "active_river": true
+    },
+    {
+      "url": "https://forums.ozarkanglers.com/topic/44313-first-crooked-creek-float-water-level/",
+      "role": null,
+      "unit": "ft",
+      "river": "crooked-creek",
+      "source": "editorial",
+      "primary": true,
+      "station": "07055607",
+      "provider": "usgs",
+      "thresholds": [
+        10.5,
+        null,
+        10.5,
+        12.5,
+        13,
+        13.5
+      ],
+      "external_id": "07055607",
+      "active_river": true
+    },
+    {
+      "url": "https://rivers.moherp.org/gauge/?gauge=07064533",
+      "role": null,
+      "unit": "cfs",
+      "river": "current",
+      "source": "editorial",
+      "primary": false,
+      "station": "07064533",
+      "provider": "usgs",
+      "thresholds": [
+        110,
+        150,
+        420,
+        1150,
+        1150,
+        2800
+      ],
+      "external_id": "07064533",
+      "active_river": true
+    },
+    {
+      "url": null,
+      "role": null,
+      "unit": "ft",
+      "river": "current",
+      "source": "editorial",
+      "primary": false,
+      "station": "07066510",
+      "provider": "usgs",
+      "thresholds": [
+        1.2,
+        1.5,
+        2,
+        3.5,
+        4,
+        4.5
+      ],
+      "external_id": "07066510",
+      "active_river": true
+    },
+    {
+      "url": "https://rivers.moherp.org/gauge/?gauge=07068000",
+      "role": null,
+      "unit": "cfs",
+      "river": "current",
+      "source": "editorial",
+      "primary": false,
+      "station": "07068000",
+      "provider": "usgs",
+      "thresholds": [
+        950,
+        1250,
+        1600,
+        3350,
+        3350,
+        7800
+      ],
+      "external_id": "07068000",
+      "active_river": true
+    },
+    {
+      "url": null,
+      "role": null,
+      "unit": "ft",
+      "river": "current",
+      "source": "editorial",
+      "primary": false,
+      "station": "07064440",
+      "provider": "usgs",
+      "thresholds": [
+        1,
+        1.3,
+        1.5,
+        2.5,
+        2.5,
+        4
+      ],
+      "external_id": "07064440",
+      "active_river": true
+    },
+    {
+      "url": "https://rivers.moherp.org/gauge/?gauge=07067000",
+      "role": null,
+      "unit": "cfs",
+      "river": "current",
+      "source": "editorial",
+      "primary": true,
+      "station": "07067000",
+      "provider": "usgs",
+      "thresholds": [
+        645,
+        700,
+        1190,
+        2700,
+        3000,
+        3450
+      ],
+      "external_id": "07067000",
+      "active_river": true
+    },
+    {
+      "url": "https://rivers.moherp.org/gauge/?gauge=07071500",
+      "role": null,
+      "unit": "cfs",
+      "river": "eleven-point",
+      "source": "editorial",
+      "primary": true,
+      "station": "07071500",
+      "provider": "usgs",
+      "thresholds": [
+        257,
+        300,
+        577,
+        970,
+        970,
+        2200
+      ],
+      "external_id": "07071500",
+      "active_river": true
+    },
+    {
+      "url": "https://www.elkriverfloats.com/",
+      "role": null,
+      "unit": "ft",
+      "river": "elk",
+      "source": "nws_ahps",
+      "primary": true,
+      "station": "07189000",
+      "provider": "usgs",
+      "thresholds": [
+        2.5,
+        null,
+        3.5,
+        5,
+        null,
+        6
+      ],
+      "external_id": "07189000",
+      "active_river": false
+    },
+    {
+      "url": null,
+      "role": null,
+      "unit": "cfs",
+      "river": "gasconade",
+      "source": "editorial",
+      "primary": false,
+      "station": "06933500",
+      "provider": "usgs",
+      "thresholds": [
+        null,
+        null,
+        400,
+        null,
+        null,
+        null
+      ],
+      "external_id": "06933500",
+      "active_river": true
+    },
+    {
+      "url": null,
+      "role": null,
+      "unit": "cfs",
+      "river": "gasconade",
+      "source": "editorial",
+      "primary": true,
+      "station": "06928000",
+      "provider": "usgs",
+      "thresholds": [
+        70,
+        100,
+        200,
+        1000,
+        1000,
+        3000
+      ],
+      "external_id": "06928000",
+      "active_river": true
+    },
+    {
+      "url": null,
+      "role": null,
+      "unit": "cfs",
+      "river": "huzzah",
+      "source": "usgs",
+      "primary": true,
+      "station": "07014000",
+      "provider": "usgs",
+      "thresholds": [
+        56,
+        66,
+        111,
+        260,
+        730,
+        1850
+      ],
+      "external_id": "07014000",
+      "active_river": true
+    },
+    {
+      "url": "https://rivers.moherp.org/gauge/?gauge=07065495",
+      "role": null,
+      "unit": "cfs",
+      "river": "jacks-fork",
+      "source": "editorial",
+      "primary": true,
+      "station": "07065495",
+      "provider": "usgs",
+      "thresholds": [
+        76,
+        100,
+        159,
+        637,
+        637,
+        1000
+      ],
+      "external_id": "07065495",
+      "active_river": true
+    },
+    {
+      "url": "https://rivers.moherp.org/gauge/?gauge=07066000",
+      "role": null,
+      "unit": "cfs",
+      "river": "jacks-fork",
+      "source": "editorial",
+      "primary": false,
+      "station": "07066000",
+      "provider": "usgs",
+      "thresholds": [
+        100,
+        200,
+        313,
+        900,
+        900,
+        1700
+      ],
+      "external_id": "07066000",
+      "active_river": true
+    },
+    {
+      "url": "https://rivers.moherp.org/gauge/?gauge=07065200",
+      "role": null,
+      "unit": "cfs",
+      "river": "jacks-fork",
+      "source": "editorial",
+      "primary": false,
+      "station": "07065200",
+      "provider": "usgs",
+      "thresholds": [
+        30,
+        100,
+        100,
+        490,
+        490,
+        1200
+      ],
+      "external_id": "07065200",
+      "active_river": true
+    },
+    {
+      "url": "https://rivers.moherp.org/gauge/?gauge=07052500",
+      "role": null,
+      "unit": "cfs",
+      "river": "james",
+      "source": "editorial",
+      "primary": true,
+      "station": "07052500",
+      "provider": "usgs",
+      "thresholds": [
+        97,
+        180,
+        358,
+        921,
+        921,
+        3000
+      ],
+      "external_id": "07052500",
+      "active_river": true
+    },
+    {
+      "url": "https://rivers.moherp.org/gauge/?gauge=07052250):",
+      "role": null,
+      "unit": "cfs",
+      "river": "james",
+      "source": "editorial",
+      "primary": false,
+      "station": "07052250",
+      "provider": "usgs",
+      "thresholds": [
+        80,
+        null,
+        150,
+        null,
+        null,
+        null
+      ],
+      "external_id": "07052250",
+      "active_river": true
+    },
+    {
+      "url": null,
+      "role": null,
+      "unit": "ft",
+      "river": "kings-river",
+      "source": null,
+      "primary": true,
+      "station": "07050500",
+      "provider": "usgs",
+      "thresholds": [
+        3,
+        3.2,
+        3.5,
+        5,
+        5.1,
+        6
+      ],
+      "external_id": "07050500",
+      "active_river": true
+    },
+    {
+      "url": null,
+      "role": null,
+      "unit": "ft",
+      "river": "meramec",
+      "source": "editorial",
+      "primary": false,
+      "station": "07010350",
+      "provider": "usgs",
+      "thresholds": [
+        1,
+        1.5,
+        2,
+        4,
+        4.01,
+        5.5
+      ],
+      "external_id": "07010350",
+      "active_river": true
+    },
+    {
+      "url": null,
+      "role": null,
+      "unit": "ft",
+      "river": "meramec",
+      "source": "editorial",
+      "primary": false,
+      "station": "07019000",
+      "provider": "usgs",
+      "thresholds": [
+        1.5,
+        2.5,
+        3.5,
+        6,
+        8,
+        12
+      ],
+      "external_id": "07019000",
+      "active_river": true
+    },
+    {
+      "url": "https://rivers.moherp.org/gauge/?gauge=07013000",
+      "role": null,
+      "unit": "cfs",
+      "river": "meramec",
+      "source": "editorial",
+      "primary": true,
+      "station": "07013000",
+      "provider": "usgs",
+      "thresholds": [
+        130,
+        145,
+        300,
+        900,
+        2300,
+        5000
+      ],
+      "external_id": "07013000",
+      "active_river": true
+    },
+    {
+      "url": null,
+      "role": null,
+      "unit": "ft",
+      "river": "meramec",
+      "source": "editorial",
+      "primary": false,
+      "station": "07014500",
+      "provider": "usgs",
+      "thresholds": [
+        2,
+        3,
+        4,
+        7,
+        7.01,
+        9
+      ],
+      "external_id": "07014500",
+      "active_river": true
+    },
+    {
+      "url": "https://www.turnerbend.com/WaterLevel.html",
+      "role": null,
+      "unit": "ft",
+      "river": "mulberry",
+      "source": "editorial",
+      "primary": true,
+      "station": "07252000",
+      "provider": "usgs",
+      "thresholds": [
+        1.2,
+        1.5,
+        2,
+        3.5,
+        4,
+        4.5
+      ],
+      "external_id": "07252000",
+      "active_river": true
+    },
+    {
+      "url": null,
+      "role": null,
+      "unit": "cfs",
+      "river": "niangua",
+      "source": "usgs",
+      "primary": false,
+      "station": "06923950",
+      "provider": "usgs",
+      "thresholds": [
+        90,
+        142,
+        234,
+        441,
+        754,
+        1508
+      ],
+      "external_id": "06923950",
+      "active_river": true
+    },
+    {
+      "url": "https://rivers.moherp.org/gauge/?gauge=06923250",
+      "role": null,
+      "unit": "cfs",
+      "river": "niangua",
+      "source": "editorial",
+      "primary": true,
+      "station": "06923250",
+      "provider": "usgs",
+      "thresholds": [
+        23,
+        95,
+        100,
+        400,
+        400,
+        2000
+      ],
+      "external_id": "06923250",
+      "active_river": true
+    },
+    {
+      "url": null,
+      "role": "release",
+      "unit": "cfs",
+      "river": "norfork-tailwater",
+      "source": null,
+      "primary": true,
+      "station": null,
+      "provider": "usace",
+      "thresholds": [
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
+      ],
+      "external_id": "swl-norfork-dam",
+      "active_river": false
+    },
+    {
+      "url": "https://rivers.moherp.org/gauge/?gauge=07057500",
+      "role": null,
+      "unit": "cfs",
+      "river": "north-fork-white",
+      "source": "editorial",
+      "primary": true,
+      "station": "07057500",
+      "provider": "usgs",
+      "thresholds": [
+        285,
+        475,
+        628,
+        1000,
+        1000,
+        2200
+      ],
+      "external_id": "07057500",
+      "active_river": true
+    },
+    {
+      "url": null,
+      "role": null,
+      "unit": "cfs",
+      "river": "spring-river",
+      "source": null,
+      "primary": false,
+      "station": "07069500",
+      "provider": "usgs",
+      "thresholds": [
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
+      ],
+      "external_id": "07069500",
+      "active_river": true
+    },
+    {
+      "url": "https://water.noaa.gov/gauges/hdya4",
+      "role": null,
+      "unit": "cfs",
+      "river": "spring-river",
+      "source": "editorial",
+      "primary": true,
+      "station": "07069305",
+      "provider": "usgs",
+      "thresholds": [
+        200,
+        286,
+        475,
+        694,
+        1000,
+        1800
+      ],
+      "external_id": "07069305",
+      "active_river": true
+    },
+    {
+      "url": "https://rivers.moherp.org/gauge/?gauge=07185765",
+      "role": null,
+      "unit": "cfs",
+      "river": "spring-river-mo",
+      "source": "editorial",
+      "primary": true,
+      "station": "07185765",
+      "provider": "usgs",
+      "thresholds": [
+        47,
+        202,
+        356,
+        477,
+        477,
+        1770
+      ],
+      "external_id": "07185765",
+      "active_river": true
+    },
+    {
+      "url": null,
+      "role": null,
+      "unit": "cfs",
+      "river": "spring-river-mo",
+      "source": null,
+      "primary": false,
+      "station": "07186000",
+      "provider": "usgs",
+      "thresholds": [
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
+      ],
+      "external_id": "07186000",
+      "active_river": true
+    },
+    {
+      "url": null,
+      "role": null,
+      "unit": "cfs",
+      "river": "st-francis",
+      "source": null,
+      "primary": false,
+      "station": "07037500",
+      "provider": "usgs",
+      "thresholds": [
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
+      ],
+      "external_id": "07037500",
+      "active_river": true
+    },
+    {
+      "url": null,
+      "role": null,
+      "unit": "ft",
+      "river": "st-francis",
+      "source": "nws_ahps",
+      "primary": true,
+      "station": "07034000",
+      "provider": "nws",
+      "thresholds": [
+        3,
+        3.5,
+        4,
+        5,
+        5.5,
+        6
+      ],
+      "external_id": "ROZM7",
+      "active_river": true
+    },
+    {
+      "url": null,
+      "role": "release",
+      "unit": "cfs",
+      "river": "taneycomo",
+      "source": null,
+      "primary": true,
+      "station": null,
+      "provider": "usace",
+      "thresholds": [
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
+      ],
+      "external_id": "swl-table-rock-dam",
+      "active_river": false
+    },
+    {
+      "url": "https://www.americanwhitewater.org/content/River/view/river-detail/2875/main",
+      "role": null,
+      "unit": "ft",
+      "river": "war-eagle-creek",
+      "source": "editorial",
+      "primary": true,
+      "station": "07049000",
+      "provider": "usgs",
+      "thresholds": [
+        1.8,
+        2,
+        2.5,
+        3.5,
+        3.8,
+        4
+      ],
+      "external_id": "07049000",
+      "active_river": true
+    },
+    {
+      "url": null,
+      "role": "tributary",
+      "unit": "cfs",
+      "river": "white",
+      "source": null,
+      "primary": false,
+      "station": null,
+      "provider": "usace",
+      "thresholds": [
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
+      ],
+      "external_id": "swl-norfork-dam",
+      "active_river": false
+    },
+    {
+      "url": null,
+      "role": "downstream",
+      "unit": "cfs",
+      "river": "white",
+      "source": null,
+      "primary": false,
+      "station": "07060500",
+      "provider": "usgs",
+      "thresholds": [
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
+      ],
+      "external_id": "07060500",
+      "active_river": false
+    },
+    {
+      "url": null,
+      "role": "release",
+      "unit": "cfs",
+      "river": "white",
+      "source": null,
+      "primary": true,
+      "station": null,
+      "provider": "usace",
+      "thresholds": [
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
+      ],
+      "external_id": "swl-bull-shoals-dam",
+      "active_river": false
+    },
+    {
+      "url": null,
+      "role": "downstream",
+      "unit": "cfs",
+      "river": "white",
+      "source": null,
+      "primary": false,
+      "station": "07057370",
+      "provider": "usgs",
+      "thresholds": [
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
+      ],
+      "external_id": "07057370",
+      "active_river": false
+    }
+  ],
+  "rivers": [
+    {
+      "slug": "big-piney",
+      "type": "spring_fed_float",
+      "active": true,
+      "hazards": 2,
+      "accesses": 18,
+      "endpoints": 18,
+      "hazard_notes": {
+        "rising": null,
+        "primary": [
+          "low_water_dam",
+          "strainer",
+          "flash_flood",
+          "gravel_bar"
+        ]
+      }
+    },
+    {
+      "slug": "big-river",
+      "type": "spring_fed_float",
+      "active": true,
+      "hazards": 4,
+      "accesses": 9,
+      "endpoints": 9,
+      "hazard_notes": {
+        "rising": null,
+        "primary": [
+          "low_water_dam",
+          "strainer",
+          "gravel_bar"
+        ]
+      }
+    },
+    {
+      "slug": "black",
+      "type": "spring_fed_float",
+      "active": true,
+      "hazards": 1,
+      "accesses": 10,
+      "endpoints": 10,
+      "hazard_notes": {
+        "rising": "upper-lesterville: Rain-responsive despite the spring base flow; rises bring stronger current and strainers.",
+        "primary": [
+          "strainer",
+          "gravel_bar",
+          "bluff"
+        ]
+      }
+    },
+    {
+      "slug": "bourbeuse",
+      "type": "rain_flashy",
+      "active": true,
+      "hazards": 1,
+      "accesses": 19,
+      "endpoints": 19,
+      "hazard_notes": {
+        "rising": "upper-mintspring-nosermill: Runoff-fed and flashy from tributaries; over ~120 cfs it is high and muddy, over ~200 cfs probably too high. Low-water bridges (Glaser Ford, Hog Trough Rd) and logjams are the practical hazards. | lower-nosermill-meramec: 500-1000 cfs is very high and probably muddy, with strong currents and willow jungles that may be dangerous; over 1000 cfs is too high.",
+        "primary": [
+          "logjam",
+          "strainer",
+          "low_water_bridge",
+          "dragging_low_water",
+          "willow_jungle_high_water",
+          "strong_current_high_water"
+        ]
+      }
+    },
+    {
+      "slug": "bryant-creek",
+      "type": "spring_fed_float",
+      "active": true,
+      "hazards": 2,
+      "accesses": 8,
+      "endpoints": 8,
+      "hazard_notes": {
+        "rising": null,
+        "primary": [
+          "strainer",
+          "gravel_bar",
+          "flash_flood"
+        ]
+      }
+    },
+    {
+      "slug": "buffalo",
+      "type": "rain_flashy",
+      "active": true,
+      "hazards": 0,
+      "accesses": 23,
+      "endpoints": 22,
+      "hazard_notes": {
+        "rising": "hailstone: Rain-driven flash rises; a committing wilderness run with no easy egress. Treat rising water as a serious hazard. | upper-ponca-pruitt: Rain-driven flash rises; at high water the bluffs become hazardous (nowhere to eddy out). Strong current and debris. Treat rising water with high caution. | middle-pruitt-gilbert: Rain-driven rises; more forgiving than the upper but still flashy. | lower-gilbert-buffalocity: Rises arrive from upstream rain; current and floating debris are the practical hazards on this calmer reach.",
+        "primary": [
+          "flash_flood",
+          "strainer",
+          "committing_wilderness",
+          "bluff_hazard_at_high_water",
+          "debris",
+          "flash_flood_upstream"
+        ]
+      }
+    },
+    {
+      "slug": "caddo-river",
+      "type": "rain_flashy",
+      "active": true,
+      "hazards": 0,
+      "accesses": 4,
+      "endpoints": 4,
+      "hazard_notes": {
+        "rising": null,
+        "primary": [
+          "rapid",
+          "strainer",
+          "flash_flood"
+        ]
+      }
+    },
+    {
+      "slug": "courtois",
+      "type": "spring_fed_float",
+      "active": true,
+      "hazards": 0,
+      "accesses": 6,
+      "endpoints": 6,
+      "hazard_notes": {
+        "rising": "Stronger current, more debris, undercut banks, and strainers that are harder to avoid.",
+        "primary": [
+          "strainer"
+        ]
+      }
+    },
+    {
+      "slug": "crooked-creek",
+      "type": "rain_flashy",
+      "active": true,
+      "hazards": 0,
+      "accesses": 9,
+      "endpoints": 9,
+      "hazard_notes": {
+        "rising": null,
+        "primary": [
+          "strainer",
+          "gravel_bar",
+          "flash_flood"
+        ]
+      }
+    },
+    {
+      "slug": "current",
+      "type": "spring_fed_float",
+      "active": true,
+      "hazards": 0,
+      "accesses": 34,
+      "endpoints": 33,
+      "hazard_notes": {
+        "rising": "Stronger current, more debris, undercut banks, and strainers that are harder to avoid.",
+        "primary": [
+          "strainer"
+        ]
+      }
+    },
+    {
+      "slug": "eleven-point",
+      "type": "spring_fed_float",
+      "active": true,
+      "hazards": 0,
+      "accesses": 17,
+      "endpoints": 11,
+      "hazard_notes": {
+        "rising": "Stronger current, more debris, undercut banks, and strainers that are harder to avoid.",
+        "primary": [
+          "strainer"
+        ]
+      }
+    },
+    {
+      "slug": "elk",
+      "type": "rain_flashy",
+      "active": false,
+      "hazards": 1,
+      "accesses": 5,
+      "endpoints": 5,
+      "hazard_notes": {
+        "rising": "elk-main: rises fast after rain; flash-flood prone; Noel/Shadow Lake dam portage",
+        "primary": [
+          "flash_flood",
+          "low_water_dam",
+          "strainer"
+        ]
+      }
+    },
+    {
+      "slug": "gasconade",
+      "type": "spring_fed_float",
+      "active": true,
+      "hazards": 2,
+      "accesses": 24,
+      "endpoints": 24,
+      "hazard_notes": {
+        "rising": "upper-hazelgreen: Spring-influenced but runoff-responsive; rises bring current, strainers and hazardous low-water bridges. | mid-jerome: Runoff-responsive; low-water bridges and strainers become hazards as water rises. | lower-richfountain: Rises arrive from the large upstream drainage.",
+        "primary": [
+          "losing_reach_low_water",
+          "rockslide_bluff_rapid",
+          "low_water_bridge",
+          "strainer",
+          "gravel_bar"
+        ]
+      }
+    },
+    {
+      "slug": "huzzah",
+      "type": "spring_fed_float",
+      "active": true,
+      "hazards": 0,
+      "accesses": 8,
+      "endpoints": 8,
+      "hazard_notes": {
+        "rising": "Stronger current, more debris, undercut banks, and strainers that are harder to avoid.",
+        "primary": [
+          "strainer"
+        ]
+      }
+    },
+    {
+      "slug": "jacks-fork",
+      "type": "spring_fed_float",
+      "active": true,
+      "hazards": 0,
+      "accesses": 11,
+      "endpoints": 11,
+      "hazard_notes": {
+        "rising": "Stronger current, more debris, undercut banks, and strainers that are harder to avoid.",
+        "primary": [
+          "strainer"
+        ]
+      }
+    },
+    {
+      "slug": "james",
+      "type": "spring_fed_float",
+      "active": true,
+      "hazards": 0,
+      "accesses": 5,
+      "endpoints": 5,
+      "hazard_notes": {
+        "rising": "james-galena: outfitter closes above 8 ft gage height | james-upper: flashy urban runoff; Springfield WWTP water-quality",
+        "primary": [
+          "strainer",
+          "rapid",
+          "low_water_dam"
+        ]
+      }
+    },
+    {
+      "slug": "kings-river",
+      "type": "rain_flashy",
+      "active": true,
+      "hazards": 1,
+      "accesses": 10,
+      "endpoints": 10,
+      "hazard_notes": {
+        "rising": "Rain-driven. Two low-water bridges between the Marble access and Marshall Ford have to be portaged at any runnable level. The lower of the two, about ten miles below Marble and just past a swinging bridge, has had its center blasted out; a hydraulic forms at the base that will hold a swimmer under. Portage it river left. Once water is over either slab the crossing is a drowning hazard rather than an obstacle.",
+        "primary": [
+          "strainer",
+          "gravel_bar",
+          "flash_flood"
+        ]
+      }
+    },
+    {
+      "slug": "meramec",
+      "type": "spring_fed_float",
+      "active": true,
+      "hazards": 1,
+      "accesses": 29,
+      "endpoints": 29,
+      "hazard_notes": {
+        "rising": "Stronger current, more debris, undercut banks, and strainers that are harder to avoid.",
+        "primary": [
+          "strainer"
+        ]
+      }
+    },
+    {
+      "slug": "mulberry",
+      "type": "rain_flashy",
+      "active": true,
+      "hazards": 3,
+      "accesses": 7,
+      "endpoints": 7,
+      "hazard_notes": {
+        "rising": "Rain-driven and flashy - the Mulberry comes up and drops out fast. At the Turner Bend gauge 3.0-3.6 ft is prime whitewater, and above roughly 4.5 ft the river is dangerous. At 4.6-5.0 ft the low-water bridge between Wolf Pen and Turner Bend can no longer be passed under, which is the level that strands a party that put in above it. The named drops - Sacroiliac, Hamm Falls, Hell Roaring Falls - all build with flow.",
+        "primary": [
+          "rapid",
+          "flash_flood",
+          "strainer"
+        ]
+      }
+    },
+    {
+      "slug": "niangua",
+      "type": "spring_fed_float",
+      "active": true,
+      "hazards": 3,
+      "accesses": 19,
+      "endpoints": 19,
+      "hazard_notes": {
+        "rising": "Stronger current, more debris, undercut banks, and strainers that are harder to avoid.",
+        "primary": [
+          "strainer"
+        ]
+      }
+    },
+    {
+      "slug": "norfork-tailwater",
+      "type": "dam_tailwater",
+      "active": false,
+      "hazards": 0,
+      "accesses": 5,
+      "endpoints": 3,
+      "hazard_notes": null
+    },
+    {
+      "slug": "north-fork-white",
+      "type": "spring_fed_float",
+      "active": true,
+      "hazards": 1,
+      "accesses": 8,
+      "endpoints": 8,
+      "hazard_notes": {
+        "rising": "north-fork-main: flash-flood capable despite the spring base flow (2017 flood)",
+        "primary": [
+          "low_water_dam",
+          "rapid",
+          "strainer"
+        ]
+      }
+    },
+    {
+      "slug": "spring-river",
+      "type": "spring_fed_float",
+      "active": true,
+      "hazards": 0,
+      "accesses": 10,
+      "endpoints": 10,
+      "hazard_notes": {
+        "rising": "spring-reach1: portage Saddler Falls & High Falls in high water; cold 58°F water year-round (hypothermia) | spring-reach2: standard river hazards",
+        "primary": [
+          "low_water_dam",
+          "rapid",
+          "strainer",
+          "cold_water"
+        ]
+      }
+    },
+    {
+      "slug": "spring-river-mo",
+      "type": "rain_flashy",
+      "active": true,
+      "hazards": 0,
+      "accesses": 14,
+      "endpoints": 14,
+      "hazard_notes": {
+        "rising": null,
+        "primary": [
+          "strainer",
+          "gravel_bar",
+          "flash_flood"
+        ]
+      }
+    },
+    {
+      "slug": "st-francis",
+      "type": "rain_flashy",
+      "active": true,
+      "hazards": 1,
+      "accesses": 10,
+      "endpoints": 10,
+      "hazard_notes": {
+        "rising": "upper-whitewater: Rain-driven flash rises turn Class II-IV into dangerous high water fast, with pushy hydraulics in the shut-ins; the high end can be lethal. | lower-float: Rises arrive from upstream rain; calmer than the shut-ins but still rain-responsive.",
+        "primary": [
+          "class_iii_iv_rapids",
+          "flash_flood",
+          "cold_spring_water",
+          "strainer",
+          "committing_at_high_water",
+          "debris",
+          "flash_flood_upstream"
+        ]
+      }
+    },
+    {
+      "slug": "taneycomo",
+      "type": "dam_tailwater",
+      "active": false,
+      "hazards": 0,
+      "accesses": 7,
+      "endpoints": 6,
+      "hazard_notes": null
+    },
+    {
+      "slug": "war-eagle-creek",
+      "type": "rain_flashy",
+      "active": true,
+      "hazards": 0,
+      "accesses": 7,
+      "endpoints": 7,
+      "hazard_notes": {
+        "rising": null,
+        "primary": [
+          "strainer",
+          "gravel_bar",
+          "flash_flood"
+        ]
+      }
+    },
+    {
+      "slug": "white",
+      "type": "dam_tailwater",
+      "active": false,
+      "hazards": 0,
+      "accesses": 24,
+      "endpoints": 24,
+      "hazard_notes": null
+    }
+  ],
+  "hazards": [
+    {
+      "mile": 61.8,
+      "name": "Low rock dam at water plant intake",
+      "notes": "Low rock dam at water plant intake. Do not run in boat! Portage.",
+      "river": "big-piney",
+      "portage": true,
+      "location": null
+    },
+    {
+      "mile": 66.2,
+      "name": "Concrete dam backs up  water for about a mile",
+      "notes": "Concrete dam backs up  water for about a mile. Channel cuts around dam to left. Dangerous  obstructions! Portage. Use caution.",
+      "river": "big-piney",
+      "portage": true,
+      "location": null
+    },
+    {
+      "mile": 121.26,
+      "name": "Cedar Hill mill dam",
+      "notes": "Cedar Hill Bridge and mill dam. Portage left; the MDC Cedar Hill Access here is also the best take-out in this stretch.",
+      "river": "big-river",
+      "portage": true,
+      "location": "POINT(-90.64393716328233 38.349811178827146)"
+    },
+    {
+      "mile": 132.95,
+      "name": "Byrnes Mill Dam",
+      "notes": "Byrnes Mill Dam (private). Portage right. Do not attempt to run.",
+      "river": "big-river",
+      "portage": true,
+      "location": "POINT(-90.58377969474421 38.43562683522946)"
+    },
+    {
+      "mile": 127.1,
+      "name": "Private dam (river mile ~127)",
+      "notes": "Private low-head dam. Portage right.",
+      "river": "big-river",
+      "portage": true,
+      "location": "POINT(-90.63842543173965 38.390690026562346)"
+    },
+    {
+      "mile": 110.17,
+      "name": "Morse Mill Dam",
+      "notes": "Morse Mill Dam. Portage right. The break in the dam at left, by the old mill foundation, is dangerous; the concrete sluice just right of it can be used to slide canoes only when the water is low enough to stand on the dam.",
+      "river": "big-river",
+      "portage": true,
+      "location": "POINT(-90.65236596895846 38.27262908367224)"
+    },
+    {
+      "mile": 37.6,
+      "name": "Clearwater Dam",
+      "notes": "Clearwater Dam. Take out or portage left; do not approach the dam. The popular upper float ends at the lake well above here.",
+      "river": "black",
+      "portage": true,
+      "location": "POINT(-90.76686018181817 37.14229568181818)"
+    },
+    {
+      "mile": 103.37,
+      "name": "Guths Mill Dam",
+      "notes": "Guths Mill Dam. Portage.",
+      "river": "bourbeuse",
+      "portage": true,
+      "location": "POINT(-90.96197312333334 38.44166939777778)"
+    },
+    {
+      "mile": 31.15,
+      "name": "Bertha Ford low-water bridge",
+      "notes": "Bertha Ford low-water bridge. Passable at normal levels but may need to be portaged or walked; dangerous in high water.",
+      "river": "bryant-creek",
+      "portage": false,
+      "location": "POINT(-92.38789326031633 36.82594141321142)"
+    },
+    {
+      "mile": 25.47,
+      "name": "Monastery Bridge low-water crossing",
+      "notes": "Monastery Bridge low-water crossing off Hwy OO. May need to be portaged or walked; dangerous in high water.",
+      "river": "bryant-creek",
+      "portage": false,
+      "location": "POINT(-92.45560695562841 36.85043892301584)"
+    },
+    {
+      "mile": 11.61,
+      "name": "Shadow Lake Dam (Noel)",
+      "notes": "Low dam near Noel (Shadow Lake). Portage.",
+      "river": "elk",
+      "portage": true,
+      "location": "POINT(-94.49677006105821 36.552710640160065)"
+    },
+    {
+      "mile": 96.6,
+      "name": "Ozark Springs low-water bridge",
+      "notes": "Low-water bridge on Rochester Road at Ozark Springs. Portage. Do not run at any level.",
+      "river": "gasconade",
+      "portage": true,
+      "location": "POINT(-92.32398856617647 37.831747382352944)"
+    },
+    {
+      "mile": 12.9,
+      "name": "Grimes Mill dam",
+      "notes": "Grimes Mill. The old milldam makes a good rift in medium-to-high water; scout before running.",
+      "river": "gasconade",
+      "portage": false,
+      "location": "POINT(-92.4033556779661 37.323769288135594)"
+    },
+    {
+      "mile": 34.39,
+      "name": "Low-water bridge above Marshall Ford",
+      "notes": "The second and more dangerous of the two low-water bridges between Marble and Marshall Ford, about ten miles below Marble and just past a swinging bridge. The center has been blasted out and a hydraulic forms at the base that will hold a swimmer under. Portage river left; unloading the boat is usually necessary. The first low-water bridge upstream is an easier portage but should not be run either.",
+      "river": "kings-river",
+      "portage": true,
+      "location": "POINT(-93.65502592749553 36.179461701276736)"
+    },
+    {
+      "mile": 13.4,
+      "name": "Low dam",
+      "notes": "Low dam. Portage.",
+      "river": "meramec",
+      "portage": true,
+      "location": null
+    },
+    {
+      "mile": 49.44,
+      "name": "Hell Roaring Falls",
+      "notes": "About three miles below the Campbell Cemetery access. A clean drop at moderate flow that throws a large wave when the river is up.",
+      "river": "mulberry",
+      "portage": false,
+      "location": "POINT(-93.92188733879439 35.61227988380258)"
+    },
+    {
+      "mile": 45.94,
+      "name": "Hamm Falls",
+      "notes": "About half a mile above the Campbell Cemetery access, and one of the biggest drops on the river. Scout it if you have not run this reach before.",
+      "river": "mulberry",
+      "portage": false,
+      "location": "POINT(-93.9065138117548 35.619934817099306)"
+    },
+    {
+      "mile": 34.21,
+      "name": "Sacroiliac Rapid",
+      "notes": "About two miles below Redding Recreation Area and above Turner Bend. A large boulder sits on the outside of a right-hand curve; the usual line is to stay right. Known locally as \"the SAC\".",
+      "river": "mulberry",
+      "portage": false,
+      "location": "POINT(-93.81097120589993 35.685205116934576)"
+    },
+    {
+      "mile": 54.3,
+      "name": "Herrick Ford Access",
+      "notes": "Herrick Ford Access. No ford here, but old mill dam site produces a  fast shoot. Gravel bar provides good access.",
+      "river": "niangua",
+      "portage": false,
+      "location": null
+    },
+    {
+      "mile": 66,
+      "name": "Tunnel Dam",
+      "notes": "Tunnel Dam. Public access and boat ramp  on west side. However, there is often no water running in the river  beteeen the dam and power house, a distance of about 6 miles. At the dam  it is only 0.2 mile across the ridge to the other end of this river  meander, but it is no place to portage. End trip here unless water is  flowing below the dam. The power house is located on the notth side of  the ridge because the original tailrace used a cave that perforated the  ridge. It is now replaced by an artificial tunnel.",
+      "river": "niangua",
+      "portage": true,
+      "location": null
+    },
+    {
+      "mile": 72.2,
+      "name": "Power  house on right",
+      "notes": "Power  house on right. Powerline. Area dangerous when water is coming through  turbines. Use caution.",
+      "river": "niangua",
+      "portage": false,
+      "location": null
+    },
+    {
+      "mile": 57.5,
+      "name": "Dawt Mill Dam",
+      "notes": "Dawt Mill Dam, a low dam just above the Tecumseh take-out that backs water up about a quarter mile and is a known canoe-buster. Portage or slide down the shallow chute at the right end (a rough path also goes around the right). A good rapid runs below the dam.",
+      "river": "north-fork-white",
+      "portage": true,
+      "location": "POINT(-92.23521646428381 36.63337441132105)"
+    },
+    {
+      "mile": 22.7,
+      "name": "Silver Mine Dam",
+      "notes": "Silver Mine Dam, in the whitewater section below Millstream Gardens. A breach is blown in the left side, but in high water it throws a large wave at the base that will swamp an open canoe. Scout; less-experienced paddlers should portage.",
+      "river": "st-francis",
+      "portage": false,
+      "location": "POINT(-90.4428625 37.557676666666666)"
+    }
+  ],
+  "coverage": [
+    {
+      "mile": 13.16,
+      "name": "Bootleg Access",
+      "road": null,
+      "slug": "bootleg-access",
+      "notes": null,
+      "river": "big-river",
+      "photos": 1,
+      "public": true,
+      "source": "https://mdc.mo.gov/discover-nature/places/bootleg-access",
+      "approved": true,
+      "endpoint": true
+    },
+    {
+      "mile": 33.07,
+      "name": "Leadwood Access",
+      "road": null,
+      "slug": "leadwood-access",
+      "notes": null,
+      "river": "big-river",
+      "photos": 1,
+      "public": true,
+      "source": "https://mdc.mo.gov/discover-nature/places/leadwood-access",
+      "approved": true,
+      "endpoint": true
+    },
+    {
+      "mile": 76.97,
+      "name": "Washington State Park Access",
+      "road": null,
+      "slug": "washington-state-park-access",
+      "notes": null,
+      "river": "big-river",
+      "photos": 1,
+      "public": true,
+      "source": "https://mostateparks.com/park/washington-state-park",
+      "approved": true,
+      "endpoint": true
+    },
+    {
+      "mile": 80.2,
+      "name": "Mammoth Access",
+      "road": null,
+      "slug": "mammoth-access",
+      "notes": null,
+      "river": "big-river",
+      "photos": 1,
+      "public": true,
+      "source": "https://mdc.mo.gov/discover-nature/places/mammoth-access",
+      "approved": true,
+      "endpoint": true
+    },
+    {
+      "mile": 86.38,
+      "name": "Merrill Horse Access",
+      "road": null,
+      "slug": "merrill-horse-access",
+      "notes": null,
+      "river": "big-river",
+      "photos": 1,
+      "public": true,
+      "source": "https://mdc.mo.gov/discover-nature/places/merrill-horse-access",
+      "approved": true,
+      "endpoint": true
+    },
+    {
+      "mile": 91.36,
+      "name": "Brown's Ford Access",
+      "road": null,
+      "slug": "brown-s-ford-access",
+      "notes": null,
+      "river": "big-river",
+      "photos": 1,
+      "public": true,
+      "source": "https://mdc.mo.gov/discover-nature/places/browns-ford-access",
+      "approved": true,
+      "endpoint": true
+    },
+    {
+      "mile": 110.25,
+      "name": "Morse Mill Access",
+      "road": null,
+      "slug": "morse-mill-access",
+      "notes": null,
+      "river": "big-river",
+      "photos": 1,
+      "public": true,
+      "source": "https://www.jeffcomo.gov/607/Morse-Mill-Park",
+      "approved": true,
+      "endpoint": true
+    },
+    {
+      "mile": 121.24,
+      "name": "Cedar Hill Access",
+      "road": null,
+      "slug": "cedar-hill-access",
+      "notes": null,
+      "river": "big-river",
+      "photos": 1,
+      "public": true,
+      "source": "https://www.jeffcomo.gov/602/Cedar-Hill-Park",
+      "approved": true,
+      "endpoint": true
+    },
+    {
+      "mile": 131.35,
+      "name": "Rockford Beach Park",
+      "road": null,
+      "slug": "rockford-beach-park",
+      "notes": null,
+      "river": "big-river",
+      "photos": 1,
+      "public": true,
+      "source": "https://www.jeffcomo.gov/610/Rockford-Park",
+      "approved": true,
+      "endpoint": true
+    },
+    {
+      "mile": 8.4,
+      "name": "Parks Bluff Campground",
+      "road": "Just off MO Highway 21 in Lesterville; campground entrance on the river at the West Fork/Middle Fork junction.",
+      "slug": "parks-bluff-campground",
+      "notes": "Private outfitter campground in Lesterville at the West Fork/Middle Fork junction, one of the main commercial put-ins for the upper Black River float reach. Rents canoes, kayaks, rafts, and tubes for floats down to the Lesterville/Mill Creek area and beyond.",
+      "river": "black",
+      "photos": 0,
+      "public": false,
+      "source": "https://www.parksbluff.com/floating.html",
+      "approved": false,
+      "endpoint": false
+    },
+    {
+      "mile": 9.6,
+      "name": "Twin Rivers Landing",
+      "road": "Off MO Highway 21 at Lesterville via Twin Rivers Road; landing is on the Black River near the East Fork junction.",
+      "slug": "twin-rivers-landing",
+      "notes": "Family-run outfitter landing and campground (50+ years) on the Black River at Lesterville, near the East Fork junction - the 'twin rivers'. A major commercial put-in/take-out for upper Black River floats.",
+      "river": "black",
+      "photos": 0,
+      "public": false,
+      "source": "https://twinriversmo-gotoblu.com/",
+      "approved": true,
+      "endpoint": true
+    },
+    {
+      "mile": 10.7,
+      "name": "Mill Creek",
+      "road": "Reached from the Lesterville area via Peola Road (CR 342); the floatmissouri chart notes an iron bridge crossing 0.4 mile upstream (mile 10.3) as the better put-in/take-out spot.",
+      "slug": "mill-creek",
+      "notes": "Informal put-in at the mouth of Mill Creek on the upper Black River below Lesterville (Reynolds County). The floatmissouri chart calls this the best starting point at normal or low water, with an iron-bridge road crossing 0.4 mile upstream at chart mile 10.3. Used as the put-in for documented moherp trips (8.3 mi to the mile-19 bluff, 14.3 mi to Hwy K).",
+      "river": "black",
+      "photos": 0,
+      "public": true,
+      "source": null,
+      "approved": true,
+      "endpoint": true
+    },
+    {
+      "mile": 12.1,
+      "name": "Lesterville Access",
+      "road": "From Lesterville, take Highway 21 east 1 mile, then Peola Road (County Road 342) south to the junction with County Road 364; take County Road 364 south 1.5 miles to the access (MDC directions).",
+      "slug": "lesterville-access",
+      "notes": "53-acre MDC walk-in access on the upper Black River below Lesterville (Reynolds County), the only official public access on the Lesterville-to-Hwy K float reach above the COE Highway K park. The river channel shifted away from the parking area, so canoes must be carried about 1/3 mile along the old gravel channel to the water.",
+      "river": "black",
+      "photos": 1,
+      "public": true,
+      "source": "https://mdc.mo.gov/discover-nature/places/lesterville-access",
+      "approved": true,
+      "endpoint": true
+    },
+    {
+      "mile": 25,
+      "name": "Highway K Recreation Area (Clearwater Lake)",
+      "road": "From Annapolis, follow MO Highway K west for 5 miles; the park is on both sides of the Hwy K bridge over the Black River (address 5347 Co. Rd. 452, Annapolis).",
+      "slug": "highway-k-rec-area",
+      "notes": "COE recreation area at the MO Hwy K bridge west of Annapolis - the standard take-out for the Lesterville float reach and, per the floatmissouri chart (mile 25.0), the last take-out above Clearwater Lake when the lake is at full pool. Campground with 83 sites straddles both banks at the bridge.",
+      "river": "black",
+      "photos": 1,
+      "public": true,
+      "source": "https://www.recreation.gov/camping/campgrounds/232604",
+      "approved": true,
+      "endpoint": true
+    },
+    {
+      "mile": 38.2,
+      "name": "River Road Park (below Clearwater Dam)",
+      "road": "From Piedmont, follow State Highway HH about 6 miles; the campground is immediately below Clearwater Lake Dam on the Black River.",
+      "slug": "river-road-park",
+      "notes": "COE park on the Black River tailwater immediately below Clearwater Dam - the uppermost public put-in for the lower (dam-release) Black River reach that runs down past Markham Springs and Hammer Access. 107-site campground with a boat ramp; trout-like clear releases, year-round access.",
+      "river": "black",
+      "photos": 1,
+      "public": true,
+      "source": "https://www.recreation.gov/camping/campgrounds/232691",
+      "approved": true,
+      "endpoint": true
+    },
+    {
+      "mile": 50.6,
+      "name": "Mill Spring (Hwy 49) City Park",
+      "road": "At the MO Highway 49 bridge over the Black River on the west edge of the village of Mill Spring (Wayne County).",
+      "slug": "mill-spring-city-park",
+      "notes": "City park launch at the Hwy 49 bridge in Mill Spring, between Clearwater Dam and Markham Springs on the lower Black River. MDC's watershed inventory lists it (with Hammer CA) as one of the small-boat/canoe launch points on this reach; the floatmissouri chart (mile 50.6) notes camping available at Mill Spring.",
+      "river": "black",
+      "photos": 0,
+      "public": true,
+      "source": null,
+      "approved": true,
+      "endpoint": true
+    },
+    {
+      "mile": 59.4,
+      "name": "Markham Springs Recreation Area",
+      "road": "From Poplar Bluff take US 67 north ~14 miles, then MO 49 west ~9 miles (past Williamsville); take the first right after crossing the Black River.",
+      "slug": "markham-springs",
+      "notes": "Developed USFS recreation area on the right bank of the lower Black River below Clearwater Dam, 3 miles west of Williamsville. Concrete single-lane boat launch plus campground, picnic area, springs, and trails; the usual put-in for the short float down to Hammer Access (2.7 miles).",
+      "river": "black",
+      "photos": 1,
+      "public": true,
+      "source": "https://www.fs.usda.gov/r09/marktwain/recreation/markham-springs-recreation-area",
+      "approved": true,
+      "endpoint": true
+    },
+    {
+      "mile": 62.1,
+      "name": "Hammer Access (Bradley A. Hammer Memorial CA)",
+      "road": "From Williamsville, take Highway 49 west, then County Road 417 south, County Road 419 west, and County Road 424 north to the river (MDC directions).",
+      "slug": "hammer-access",
+      "notes": "344-acre MDC conservation area on the lower Black River about a half mile south of Williamsville, with 1.4 miles of river frontage. Primitive canoe/small-boat access off County Road 424, commonly used as the take-out 2.7 river miles below Markham Springs; primitive camping allowed.",
+      "river": "black",
+      "photos": 1,
+      "public": true,
+      "source": "https://mdc.mo.gov/discover-nature/places/bradley-hammer-memorial-conservation-area",
+      "approved": true,
+      "endpoint": true
+    },
+    {
+      "mile": 79.1,
+      "name": "Hilliard Access",
+      "road": "From Poplar Bluff, take Highway W north 2.6 miles; turn left into the area immediately after crossing the Black River bridge (MDC directions).",
+      "slug": "hilliard-access",
+      "notes": "1-acre MDC ramp access on the Black River at the Highway W bridge, 2.6 miles north of Poplar Bluff. Take-out for floats coming down from the Williamsville/Hammer area; the floatmissouri chart (mile 79.1, 'Hillard') notes the river flattens from here downstream. Popular walleye water between here and Clearwater Dam.",
+      "river": "black",
+      "photos": 1,
+      "public": true,
+      "source": "https://mdc.mo.gov/discover-nature/places/hilliard-access",
+      "approved": true,
+      "endpoint": true
+    },
+    {
+      "mile": 87.3,
+      "name": "Sportsman's Park Access (Poplar Bluff)",
+      "road": "From the Highway 60 / Business 60 (E. Pine Street) junction in Poplar Bluff, take Business 60 southwest 2 miles; the park is on the right (1301 Black River Industrial Park Rd).",
+      "slug": "sportsmans-park-access",
+      "notes": "Municipal boat ramp in Sportsman's Park on the southwest side of Poplar Bluff (floatmissouri chart mile 87.3, one mile above the US 60 bridge). Downstream limit of the commonly floated Black River in Missouri and a standard take-out/launch for the flatwater below Hilliard Access; excellent walleye and bass water.",
+      "river": "black",
+      "photos": 1,
+      "public": true,
+      "source": "https://mdc.mo.gov/discover-nature/places/sportsmans-park-access-poplar-bluff",
+      "approved": true,
+      "endpoint": true
+    },
+    {
+      "mile": 11.68,
+      "name": "Norman Boating Access",
+      "road": null,
+      "slug": "norman-boating-access",
+      "notes": null,
+      "river": "caddo-river",
+      "photos": 1,
+      "public": true,
+      "source": null,
+      "approved": true,
+      "endpoint": true
+    },
+    {
+      "mile": 17.77,
+      "name": "Swinging Bridge Access (Caddo Gap)",
+      "road": null,
+      "slug": "swinging-bridge-access-caddo-gap",
+      "notes": null,
+      "river": "caddo-river",
+      "photos": 1,
+      "public": true,
+      "source": null,
+      "approved": true,
+      "endpoint": true
+    },
+    {
+      "mile": 27.68,
+      "name": "Glenwood Access (City Park Boat Ramp)",
+      "road": null,
+      "slug": "glenwood-access-city-park-boat-ramp",
+      "notes": null,
+      "river": "caddo-river",
+      "photos": 1,
+      "public": true,
+      "source": null,
+      "approved": true,
+      "endpoint": true
+    },
+    {
+      "mile": 35.81,
+      "name": "Hwy 182 Amity Boat Ramp",
+      "road": null,
+      "slug": "hwy-182-amity-boat-ramp",
+      "notes": null,
+      "river": "caddo-river",
+      "photos": 1,
+      "public": true,
+      "source": null,
+      "approved": true,
+      "endpoint": true
+    },
+    {
+      "mile": 0.26,
+      "name": "City of Pineville Elk River Access",
+      "road": null,
+      "slug": "city-of-pineville-elk-river-access",
+      "notes": "Datum WGS84 (OSM). This is the developed town launch at the Business 71 (old US-71 / Hwy 71B) bridge in Pineville, ~0.7 mi upstream of the main US-71/I-49 bridge.",
+      "river": "elk",
+      "photos": 1,
+      "public": true,
+      "source": "https://mdc.mo.gov/discover-nature/places/city-pineville-elk-river-access",
+      "approved": true,
+      "endpoint": true
+    },
+    {
+      "mile": 0.96,
+      "name": "US-71 Bridge (I-49) Access",
+      "road": null,
+      "slug": "us-71-bridge-i-49-access",
+      "notes": "Datum WGS84 (OSM). US-71 through here is now co-signed I-49; this is the crossing referred to historically as the 'US-71 bridge'. Located ~0.7 mi downstream of the City of Pineville access.",
+      "river": "elk",
+      "photos": 1,
+      "public": true,
+      "source": null,
+      "approved": true,
+      "endpoint": true
+    },
+    {
+      "mile": 6.84,
+      "name": "Lanagan Access",
+      "road": null,
+      "slug": "lanagan-access",
+      "notes": "Datum WGS84 (OSM). Not in the original request list but a legitimate MDC public access; sits between the US-71 bridge (mile ~24.5) and Mount Shira (mile ~32), roughly river mile 28-30 (approximate, not authoritatively measured).",
+      "river": "elk",
+      "photos": 0,
+      "public": true,
+      "source": "https://mdc.mo.gov/discover-nature/places/lanagan-access",
+      "approved": false,
+      "endpoint": false
+    },
+    {
+      "mile": 7.78,
+      "name": "Mount Shira Access",
+      "road": null,
+      "slug": "mount-shira-access",
+      "notes": "Datum WGS84 (OSM). Sources converge on the access location (36.576-36.578, -94.462 to -94.464); exact gravel-ramp point on the bank not individually mapped, so confidence is medium. Do NOT confuse with the private 'Trestle Park / Elk River Floats' launch ~1.1 km NE at the Elk Springs Road bridge (36.5859, -94.4547).",
+      "river": "elk",
+      "photos": 1,
+      "public": true,
+      "source": "https://mdc.mo.gov/discover-nature/places/mount-shira-access",
+      "approved": true,
+      "endpoint": true
+    },
+    {
+      "mile": 11.31,
+      "name": "Noel / Shadow Lake Access (Hwy 59 bridge)",
+      "road": null,
+      "slug": "noel-shadow-lake-access-hwy-59-bridge",
+      "notes": "Datum WGS84 (OSM). The specific Noel City Park boat ramp is NOT authoritatively geocoded in any source found (no MDC/OSM ramp node); the Noel riverfront is otherwise private outfitters (Wayside, River Ranch, Two Sons, etc.). Coordinate given is the verified on-river public Hwy 59 bridge crossing that serves as the public put-in/take-out. Ownership of the bridge itself is MoDOT; the adjacent access frontage is City of Noel.",
+      "river": "elk",
+      "photos": 1,
+      "public": true,
+      "source": null,
+      "approved": true,
+      "endpoint": true
+    },
+    {
+      "mile": 21.17,
+      "name": "Cowskin Access",
+      "road": null,
+      "slug": "cowskin-access",
+      "notes": "Datum WGS84 (OSM) / NAD83 (USGS) — equivalent to <1 m here. Lowermost MO public access before the Oklahoma line / Grand Lake.",
+      "river": "elk",
+      "photos": 1,
+      "public": true,
+      "source": "https://mdc.mo.gov/discover-nature/places/cowskin-access",
+      "approved": true,
+      "endpoint": true
+    },
+    {
+      "mile": 54.98,
+      "name": "Delaware Town Access",
+      "road": null,
+      "slug": "delaware-town-access",
+      "notes": "Uppermost MDC access on the floatable main James. ~1.5 mi upstream of the USGS 'James River near Boaz' gauge 07052250 (37.0066,-93.3647).",
+      "river": "james",
+      "photos": 1,
+      "public": true,
+      "source": "https://mdc.mo.gov/discover-nature/places/delaware-town-access",
+      "approved": true,
+      "endpoint": true
+    },
+    {
+      "mile": 60.68,
+      "name": "Shelvin Rock Access",
+      "road": null,
+      "slug": "shelvin-rock-access",
+      "notes": "2nd of 5 MDC main-stem accesses (N->S: Delaware Town, Shelvin Rock, Hooten Town, H.L. Kerr, Ralph Cox).",
+      "river": "james",
+      "photos": 1,
+      "public": true,
+      "source": "https://mdc.mo.gov/discover-nature/places/shelvin-rock-access",
+      "approved": true,
+      "endpoint": true
+    },
+    {
+      "mile": 66.7,
+      "name": "Hootentown Access",
+      "road": null,
+      "slug": "hootentown-access",
+      "notes": "Popular put-in; classic ~9 mi float Hootentown -> Galena. MDC official name 'Hooten Town Access'.",
+      "river": "james",
+      "photos": 1,
+      "public": true,
+      "source": "https://mdc.mo.gov/discover-nature/places/hooten-town-access",
+      "approved": true,
+      "endpoint": true
+    },
+    {
+      "mile": 83.32,
+      "name": "H.L. Kerr Access",
+      "road": null,
+      "slug": "h-l-kerr-access",
+      "notes": "4th MDC access; ~5 river miles above the Galena/Ralph Cox take-out. Do not confuse with adjacent private outfitter drop-ins.",
+      "river": "james",
+      "photos": 1,
+      "public": true,
+      "source": "https://mdc.mo.gov/discover-nature/places/h-l-kerr-access",
+      "approved": true,
+      "endpoint": true
+    },
+    {
+      "mile": 88.17,
+      "name": "Galena Y-Bridge Access (Ralph Cox Memorial Access)",
+      "road": null,
+      "slug": "galena-y-bridge-access-ralph-cox-memorial-access",
+      "notes": "The confirmed 'Galena Y-Bridge' take-out IS the MDC Ralph Cox Memorial Access ramp, adjacent to the Galena Y-Bridge and the USGS 07052500 gauge. Southernmost/downstream MDC access before Table Rock Lake backwater.",
+      "river": "james",
+      "photos": 1,
+      "public": true,
+      "source": "https://mdc.mo.gov/discover-nature/places/ralph-cox-memorial-access",
+      "approved": true,
+      "endpoint": true
+    },
+    {
+      "mile": 0.25,
+      "name": "Dry Run Creek Access (Norfork National Fish Hatchery)",
+      "road": null,
+      "slug": "dry-run-creek-access-norfork-national-fish-hatchery",
+      "notes": null,
+      "river": "norfork-tailwater",
+      "photos": 0,
+      "public": true,
+      "source": "https://www.fws.gov/fish-hatchery/norfork",
+      "approved": true,
+      "endpoint": false
+    },
+    {
+      "mile": 0.44,
+      "name": "Dam-Quarry Boat Ramp",
+      "road": null,
+      "slug": "dam-quarry-boat-ramp",
+      "notes": null,
+      "river": "norfork-tailwater",
+      "photos": 0,
+      "public": true,
+      "source": "https://www.swl.usace.army.mil/Portals/50/docs/norforklake/nfparkmaps/Dam-Quarry.pdf",
+      "approved": true,
+      "endpoint": true
+    },
+    {
+      "mile": 0.49,
+      "name": "Dam-Quarry Campground",
+      "road": null,
+      "slug": "dam-quarry-campground",
+      "notes": null,
+      "river": "norfork-tailwater",
+      "photos": 0,
+      "public": true,
+      "source": "https://www.recreation.gov/camping/campsites/70628",
+      "approved": true,
+      "endpoint": false
+    },
+    {
+      "mile": 3.61,
+      "name": "Bill Ackerman River Ridge Access",
+      "road": null,
+      "slug": "bill-ackerman-river-ridge-access",
+      "notes": null,
+      "river": "norfork-tailwater",
+      "photos": 0,
+      "public": true,
+      "source": "https://www.agfc.com/en/zone-map/fishing-map/694/",
+      "approved": true,
+      "endpoint": true
+    },
+    {
+      "mile": 4.87,
+      "name": "Norfork Access",
+      "road": null,
+      "slug": "norfork-access",
+      "notes": null,
+      "river": "norfork-tailwater",
+      "photos": 0,
+      "public": true,
+      "source": "https://www.agfc.com/en/zone-map/fishing-map/694/",
+      "approved": true,
+      "endpoint": true
+    },
+    {
+      "river": "caddo-river",
+      "name": "Norman Boating Access",
+      "slug": "norman-boating-access",
+      "mile": 11.68,
+      "approved": true,
+      "endpoint": true,
+      "source": null,
+      "notes": null
+    },
+    {
+      "river": "caddo-river",
+      "name": "Swinging Bridge Access (Caddo Gap)",
+      "slug": "swinging-bridge-access-caddo-gap",
+      "mile": 17.77,
+      "approved": true,
+      "endpoint": true,
+      "source": null,
+      "notes": null
+    },
+    {
+      "river": "caddo-river",
+      "name": "Glenwood Access (City Park Boat Ramp)",
+      "slug": "glenwood-access-city-park-boat-ramp",
+      "mile": 27.68,
+      "approved": true,
+      "endpoint": true,
+      "source": null,
+      "notes": null
+    },
+    {
+      "river": "caddo-river",
+      "name": "Hwy 182 Amity Boat Ramp",
+      "slug": "hwy-182-amity-boat-ramp",
+      "mile": 35.81,
+      "approved": true,
+      "endpoint": true,
+      "source": null,
+      "notes": null
+    }
+  ],
+  "checked_at": "2026-10-03T22:12:22.955868+00:00"
+}

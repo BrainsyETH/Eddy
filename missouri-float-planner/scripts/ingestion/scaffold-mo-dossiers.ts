@@ -18,6 +18,7 @@
  */
 
 import * as fs from 'fs';
+import { pendingReadiness } from './readiness';
 import * as path from 'path';
 
 const MO_ACCESS_LAW =
@@ -178,6 +179,7 @@ function stubFor(r: MoRiverSeed) {
       (r.note ? `River-specific caution: ${r.note}` : ''),
     name: r.name,
     slug: r.slug,
+    readiness: pendingReadiness(),
     state: 'MO',
     country: 'US',
     timezone: 'America/Chicago',

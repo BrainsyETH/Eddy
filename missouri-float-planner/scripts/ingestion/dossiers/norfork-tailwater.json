@@ -1,0 +1,87 @@
+{
+  "_status": "STUB 2026-10-03: research worksheet, not signed off or ingestable. Existing inventory observations are not launch approval.",
+  "name": "Norfork Tailwater",
+  "slug": "norfork-tailwater",
+  "state": "AR",
+  "country": "US",
+  "timezone": "America/Chicago",
+  "region": "Ozarks",
+  "nhdFeatureId": null,
+  "riverType": "dam_tailwater",
+  "description": "Candidate pending corridor review.",
+  "managingAuthority": "VERIFY",
+  "regulations": [],
+  "permits": [],
+  "accessLaw": {
+    "value": "VERIFY",
+    "source": "",
+    "confidence": "low"
+  },
+  "seasonalClosures": [],
+  "gauges": [],
+  "sections": [],
+  "accessPoints": [],
+  "alertSearchTerms": [],
+  "research": {
+    "date": "2026-10-03",
+    "sourcesConsulted": [
+      "../RIVER_READINESS_REVIEW_2026-10-03.md"
+    ],
+    "openQuestions": [
+      "Pilot corridor: Dam-Quarry Boat Ramp to Norfork Access, with Bill Ackerman River Ridge Access as an intermediate candidate. Validate the confluence endpoint geometry.",
+      "Five approved accesses, three float endpoints; all five lack photos. Dry Run Creek and Dam-Quarry Campground are not boat endpoints.",
+      "Review observed release timestamps separately from SWPA scheduled generation; no inferred safe/wading windows or ordinary float-time estimate.",
+      "Complete mapped hazard and river_characteristics review, current access restrictions, and web/iOS/MCP acceptance before enabling."
+    ],
+    "toVerify": [
+      "Pilot corridor: Dam-Quarry Boat Ramp to Norfork Access, with Bill Ackerman River Ridge Access as an intermediate candidate. Validate the confluence endpoint geometry.",
+      "Five approved accesses, three float endpoints; all five lack photos. Dry Run Creek and Dam-Quarry Campground are not boat endpoints.",
+      "Review observed release timestamps separately from SWPA scheduled generation; no inferred safe/wading windows or ordinary float-time estimate.",
+      "Complete mapped hazard and river_characteristics review, current access restrictions, and web/iOS/MCP acceptance before enabling."
+    ]
+  },
+  "readiness": {
+    "corridor": {
+      "status": "pending",
+      "evidence": [],
+      "reviewedBy": null,
+      "reviewedAt": null,
+      "notes": "Name the supported put-in/take-out corridor and exclusions."
+    },
+    "legalAccess": {
+      "status": "pending",
+      "evidence": [],
+      "reviewedBy": null,
+      "reviewedAt": null,
+      "notes": "Verify legal launch/landing and current restrictions for each offered access pair."
+    },
+    "gauge": {
+      "status": "pending",
+      "evidence": [],
+      "reviewedBy": null,
+      "reviewedAt": null,
+      "notes": "Verify the provider data and corridor-specific interpretation before activation."
+    },
+    "conditions": {
+      "status": "pending",
+      "evidence": [],
+      "reviewedBy": null,
+      "reviewedAt": null,
+      "notes": "Verify the provider data and corridor-specific interpretation before activation."
+    },
+    "hazards": {
+      "status": "pending",
+      "evidence": [],
+      "reviewedBy": null,
+      "reviewedAt": null,
+      "notes": "Review mapped hazards, prose and access notes. Record known fixed hazards or an evidenced no-fixed-hazards finding; never claim hazard-free."
+    },
+    "routing": {
+      "status": "pending",
+      "evidence": [],
+      "reviewedBy": null,
+      "reviewedAt": null,
+      "notes": "Validate connected downstream geometry, access snaps and trip distances for the corridor."
+    }
+  }
+}
