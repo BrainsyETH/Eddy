@@ -1,5 +1,6 @@
+import { ScenicImage } from '@/components/ScenicImage';
 import { useState } from 'react';
-import { Image, View } from 'react-native';
+import { View } from 'react-native';
 import { useTheme } from '@/theme/ThemeProvider';
 import { safeExternalUrl } from '@/lib/campingHeatmap';
 import { EddySymbol } from './EddySymbol';
@@ -25,9 +26,9 @@ export function CampgroundThumbnail({ url }: { url?: string | null }) {
       }}
     >
       {source && source !== failedUrl ? (
-        <Image
-          source={{ uri: source, cache: 'force-cache' }}
-          resizeMode="cover"
+        <ScenicImage imageWidth={256}
+          source={{ uri: source }}
+
           style={{ width: 44, height: 44 }}
           onError={() => setFailedUrl(source)}
           accessible={false}

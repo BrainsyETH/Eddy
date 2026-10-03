@@ -6,7 +6,7 @@ import { createClient, SupabaseClient } from '@supabase/supabase-js';
 
 // Use untyped client for admin operations to avoid strict type issues
 // In production, you should regenerate types after running migrations
-export function createAdminClient(): SupabaseClient {
+export function createAdminClient(signal?: AbortSignal): SupabaseClient {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
@@ -32,7 +32,7 @@ export function createAdminClient(): SupabaseClient {
       // blanked every "Eddy Says" quote. Admin reads are real-time by nature,
       // so no-store is both the fix and the correct default here.
       fetch: (input: RequestInfo | URL, init?: RequestInit) =>
-        fetch(input, { ...init, cache: 'no-store' }),
+        fetch(input, { ...init, cache: 'no-store', ...(signal ? { signal } : {}) }),
     },
   });
 }

@@ -22,13 +22,24 @@ function scaleKnownTimeForCondition(minutes: number, code: ConditionCode): numbe
   return Math.round(minutes * factor);
 }
 
-/** Read-only route calculation shared by planners, chat, embeds and social.
- * Resolves the exact endpoints, vessel, segment gauges and published times once.
- * Does not calculate shuttles, write caches or save plans.
- */
-export async function estimateRoute(supabase: SupabaseClient<Database>, {
-  riverId, startId, endId, vesselTypeId, mode = 'today',
-}: { riverId: string; startId: string; endId: string; vesselTypeId?: string | null; mode?: 'today' | 'typical' }, providers = { fetchGaugeReadings, fetchDailyStatistics }) {
+/** Request-scoped only: nearby routes share metadata, never live readings. */
+export function createRouteEstimateContext(supabase: SupabaseClient<Database>) {
+  const rivers = new Map<string, ReturnType<typeof readRiver>>();
+  const vessels = new Map<string, ReturnType<typeof readVessel>>();
+  return {
+    river(id: string) {
+      if (!rivers.has(id)) rivers.set(id, readRiver(supabase, id));
+      return rivers.get(id)!;
+    },
+    vessel(id?: string | null) {
+      const key = id ?? 'default:canoe';
+      if (!vessels.has(key)) vessels.set(key, readVessel(supabase, id));
+      return vessels.get(key)!;
+    },
+  };
+}
+
+async function readRiver(supabase: SupabaseClient<Database>, riverId: string) {
     // Get river details
     const { data: river, error: riverError } = await supabase
       .from('rivers')
@@ -46,27 +57,10 @@ export async function estimateRoute(supabase: SupabaseClient<Database>, {
       throw new RouteEstimateError('River not found', 404);
     }
 
-    // Get access points. The resolver is the only thing that decides whether a
-    // float may be built from these two ids: it requires both to be approved,
-    // both to be float endpoints (so a park with no ramp is refused rather than
-    // merely hidden by the UI), and both to be on THIS river — which this route
-    // never checked, though `riverId` was already in hand above.
-    const endpoints = await resolveFloatEndpoints<AccessPointRow>(supabase, {
-      riverId,
-      putInId: startId,
-      takeOutId: endId,
-    });
+    return river;
+}
 
-    if (!endpoints.ok) {
-      throw new RouteEstimateError(endpoints.detail, endpointFailureStatus(endpoints.reason));
-    }
-
-    const { putIn, takeOut } = endpoints;
-
-    if (!putIn || !takeOut) {
-      throw new RouteEstimateError('Invalid access points', 400);
-    }
-
+async function readVessel(supabase: SupabaseClient<Database>, vesselTypeId?: string | null) {
     // Use an explicit canoe default so editorial and planner requests agree.
     let vesselType;
     if (vesselTypeId) {
@@ -92,6 +86,39 @@ export async function estimateRoute(supabase: SupabaseClient<Database>, {
 
     if (!vesselType) {
       throw new RouteEstimateError('Vessel type not found', 404);
+    }
+
+    return vesselType;
+}
+
+/** Read-only route calculation shared by planners, chat, embeds and social.
+ * Resolves the exact endpoints, vessel, segment gauges and published times once.
+ * Does not calculate shuttles, write caches or save plans.
+ */
+export async function estimateRoute(supabase: SupabaseClient<Database>, {
+  riverId, startId, endId, vesselTypeId, mode = 'today',
+}: { riverId: string; startId: string; endId: string; vesselTypeId?: string | null; mode?: 'today' | 'typical' }, providers = { fetchGaugeReadings, fetchDailyStatistics }, context = createRouteEstimateContext(supabase)) {
+    // Get access points. The resolver is the only thing that decides whether a
+    // float may be built from these two ids: it requires both to be approved,
+    // both to be float endpoints (so a park with no ramp is refused rather than
+    // merely hidden by the UI), and both to be on THIS river — which this route
+    // never checked, though `riverId` was already in hand above.
+    const [river, vesselType, endpoints] = await Promise.all([
+      context.river(riverId),
+      context.vessel(vesselTypeId),
+      resolveFloatEndpoints<AccessPointRow>(supabase, {
+        riverId, putInId: startId, takeOutId: endId,
+      }),
+    ]);
+
+    if (!endpoints.ok) {
+      throw new RouteEstimateError(endpoints.detail, endpointFailureStatus(endpoints.reason));
+    }
+
+    const { putIn, takeOut } = endpoints;
+
+    if (!putIn || !takeOut) {
+      throw new RouteEstimateError('Invalid access points', 400);
     }
 
     // Get float segment using database function

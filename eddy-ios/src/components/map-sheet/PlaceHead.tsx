@@ -1,3 +1,4 @@
+import { ScenicImage } from '@/components/ScenicImage';
 // eddy-ios/src/components/map-sheet/PlaceHead.tsx
 // WHO the sheet is about — one component, both peeks.
 //
@@ -36,7 +37,7 @@
 // starring it. They are laid-out 44x44 boxes now, abutting rather than
 // overlapping, with the last one pulled into the container's padding so the
 // glyph still sits on the optical margin while its target reaches the edge.
-import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { ControlIcon } from '@/components/ControlIcon';
 import type { MapAccessPoint } from '@eddy/types';
 import { useTheme } from '@/theme/ThemeProvider';
@@ -105,10 +106,10 @@ export function PlaceHead({
     <View style={styles.row}>
       <View style={styles.frame}>
         {photo ? (
-          <Image
+          <ScenicImage imageWidth={384}
             source={{ uri: photo }}
             style={styles.photo}
-            resizeMode="cover"
+
             accessibilityElementsHidden
             importantForAccessibility="no"
             accessibilityIgnoresInvertColors

@@ -1,3 +1,4 @@
+import { ScenicImage } from '@/components/ScenicImage';
 import { serviceContactActions } from '@/lib/serviceContactActions';
 // eddy-ios/src/components/map-sheet/AccessTabs.tsx
 // What an access point says, split four ways.
@@ -13,7 +14,7 @@ import { serviceContactActions } from '@/lib/serviceContactActions';
 // screen holds), both are enhancements to a tab that already answers its
 // question, and neither should hold up the tabs themselves.
 import { useMemo, useState } from 'react';
-import { Image, Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { ControlIcon } from '@/components/ControlIcon';
 import { EddySymbol } from '@/components/EddySymbol';
 import type { PlaceSymbolName } from './placeSymbol';
@@ -215,11 +216,11 @@ export function AccessOverviewTab({
           contentContainerStyle={styles.galleryRow}
         >
           {photos.map((url) => (
-            <Image
+            <ScenicImage
               key={url}
               source={{ uri: url }}
               style={[styles.galleryImage, { width: galleryWidth, backgroundColor: colors.cardRaised }]}
-              resizeMode="cover"
+
               accessibilityLabel={`${accessPoint.name} photo`}
               // Required by RN's a11y lint: a photograph must not be
               // colour-inverted by Smart Invert, unlike UI chrome.

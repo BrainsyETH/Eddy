@@ -1,3 +1,4 @@
+import { ScenicImage } from '@/components/ScenicImage';
 // eddy-ios/src/components/map-sheet/RiverSheet.tsx
 // What a river says when you tap its line.
 //
@@ -20,7 +21,7 @@
 // an opinion about what an outfitter is. Six surfaces once held six of those
 // opinions and they disagreed — see MAPS_SHEET_SERVICE_MODEL_PLAN.md.
 import { useMemo } from 'react';
-import { Image, Linking, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Linking, Pressable, StyleSheet, Text, View } from 'react-native';
 import { ControlIcon } from '@/components/ControlIcon';
 import type { MapAccessPoint } from '@eddy/types';
 import type { RiverSheetData } from './riverTabs';
@@ -246,7 +247,7 @@ export function RiverAccessesTab({ river, onSelectAccess, onOpenAccess }: RiverT
                 as it does when you tap it. */}
             <View style={[styles.thumb, { backgroundColor: colors.cardRaised }]}>
               {photo ? (
-                <Image source={{ uri: photo }} style={styles.thumbImage} accessibilityIgnoresInvertColors />
+                <ScenicImage imageWidth={256} source={{ uri: photo }} style={styles.thumbImage} accessibilityIgnoresInvertColors />
               ) : (
                 <EddySymbol name={symbol} size={24} />
               )}

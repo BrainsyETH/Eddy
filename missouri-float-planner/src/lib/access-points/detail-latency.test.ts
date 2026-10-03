@@ -10,7 +10,7 @@ function deferred<T>() {
   const promise = new Promise<T>((yes, no) => { resolve = yes; reject = no; });
   return { promise, resolve, reject };
 }
-function fixture() {
+function fixture(options: { fail?: string; missing?: string } = {}) {
   const tables: string[] = [], rpcs: string[] = [];
   const points = [0, 1].map((i) => ({ id: `point-${i}`, slug: `point-${i}`, name: `Point ${i}`,
     river_id: 'river', approved: true, is_float_endpoint: true, river_mile_downstream: i * 5,
@@ -27,11 +27,14 @@ function fixture() {
       };
       assert.ok(table in rows, `unexpected table ${table}`);
       const result = () => ({ data: rows[table], error: null });
+      const singleResult = () => options.fail === table
+        ? { data: null, error: new Error('Database temporarily unavailable') }
+        : { data: options.missing === table ? null : table === 'access_points' ? points[0] : rows[table], error: null };
       const query = {
         select: () => query, eq: () => query, in: () => query, not: () => query, or: () => query,
         lte: () => query, gte: () => query, order: () => query, limit: () => query,
-        single: async () => table === 'access_points' ? { data: points[0], error: null } : result(),
-        maybeSingle: async () => result(),
+        single: async () => singleResult(),
+        maybeSingle: async () => singleResult(),
         then: (resolve: (value: unknown) => unknown) => Promise.resolve(result()).then(resolve),
       };
       return query;
@@ -170,4 +173,21 @@ test('full access detail retains route mileage while lightweight detail uses riv
   assert.ok(full.ok);
   assert.equal(full.data.nearbyAccessPoints[0].distanceMiles, 5.4);
   assert.equal(full.data.nearbyAccessPoints[0].estimatedFloatTime, null); // dangerous-water withholding remains intact
+});
+
+
+test('database errors reject instead of returning a cacheable missing-page result', async () => {
+  for (const table of ['rivers', 'access_points']) {
+    const options: { fail?: string } = { fail: table };
+    const f = fixture(options);
+    await assert.rejects(getAccessPointDetail(f.client, 'river', 'point-0', { includeEstimates: false }), /temporarily unavailable/);
+    options.fail = undefined;
+    assert.equal((await getAccessPointDetail(f.client, 'river', 'point-0', { includeEstimates: false })).ok, true);
+  }
+});
+test('successful empty lookups still distinguish missing rivers and access points', async () => {
+  for (const [table, reason] of [['rivers', 'river-not-found'], ['access_points', 'not-found']]) {
+    const f = fixture({ missing: table });
+    assert.deepEqual(await getAccessPointDetail(f.client, 'river', 'point-0', { includeEstimates: false }), { ok: false, reason });
+  }
 });

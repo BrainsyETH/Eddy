@@ -1,3 +1,4 @@
+import { ScenicImage } from '@/components/ScenicImage';
 // eddy-ios/app/river/[slug]/access/[accessSlug].tsx
 // One access point: whether you can get down there, and what is waiting.
 //
@@ -41,7 +42,6 @@ import { NativeHeaderHome } from '@/components/NativeHeaderHome';
 import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
-  Image,
   Linking,
   Pressable,
   ScrollView,
@@ -54,14 +54,14 @@ import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import type {
   AccessPointDetail,
-  AccessPointDetailResponse,
   AccessPointGaugeStatus,
   MapAccessPoint,
   NearbyAccessPoint,
   NearbyService,
 } from '@eddy/types';
 import { accessPointTypes, accessTypeLabel } from '@eddy/types';
-import { ApiError, fetchAccessPointDetail } from '@/api/client';
+import { useAccessPointDetail } from '@/hooks/useAccessPointDetail';
+import type { EstimateStatus } from '@/lib/loadAccessDetail';
 import {
   conditionBg,
   conditionChipBorder,
@@ -174,7 +174,7 @@ function SeededAccessPoint({
             contentContainerStyle={styles.gallery}
           >
             {point.imageUrls.map((url) => (
-              <Image
+              <ScenicImage
                 key={url}
                 source={{ uri: url }}
                 style={[styles.galleryImage, { backgroundColor: colors.cardRaised }]}
@@ -372,11 +372,11 @@ function ServiceRow({ service }: { service: NearbyService }) {
   );
 }
 
-function NearbyRow({ point, onPress }: { point: NearbyAccessPoint; onPress: () => void }) {
+function NearbyRow({ point, onPress, estimatesStatus }: { point: NearbyAccessPoint; onPress: () => void; estimatesStatus: EstimateStatus }) {
   const { colors, elevation } = useTheme();
   const meta = [
     `${point.distanceMiles.toFixed(1)} mi ${point.direction}`,
-    point.estimatedFloatTime,
+    point.estimatedFloatTime ?? (point.isFloatEndpoint !== false && estimatesStatus === 'loading' ? 'Calculating…' : point.isFloatEndpoint !== false && estimatesStatus === 'failed' ? 'Estimate unavailable' : null),
   ]
     .filter(Boolean)
     .join(' · ');
@@ -415,9 +415,10 @@ export default function AccessPointDetailScreen() {
   const router = useRouter();
   const { colors, elevation } = useTheme();
 
-  const [data, setData] = useState<AccessPointDetailResponse | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const { detail: data, status, estimatesStatus, error } = useAccessPointDetail(
+    slug && accessSlug ? `/river/${slug}/access/${accessSlug}` : null,
+  );
+  const loading = status === 'loading';
 
   /**
    * The point as the tapped row already knew it, off the disk cache.
@@ -472,32 +473,6 @@ export default function AccessPointDetailScreen() {
   const [navLinks, setNavLinks] = useState<NavLinkSpec[]>([]);
   const [feedbackOpen, setFeedbackOpen] = useState(false);
   const [photoOpen, setPhotoOpen] = useState(false);
-
-  useEffect(() => {
-    if (!slug || !accessSlug) return;
-    const controller = new AbortController();
-
-    void (async () => {
-      try {
-        const result = await fetchAccessPointDetail(slug, accessSlug, controller.signal);
-        if (controller.signal.aborted) return;
-        setData(result);
-        setError(null);
-      } catch (err) {
-        if (controller.signal.aborted) return;
-        if (err instanceof ApiError && err.message === 'Request cancelled') return;
-        setError(
-          err instanceof ApiError && err.status === 404
-            ? 'This access point is no longer published.'
-            : 'Could not load this access point.',
-        );
-      } finally {
-        if (!controller.signal.aborted) setLoading(false);
-      }
-    })();
-
-    return () => controller.abort();
-  }, [slug, accessSlug]);
 
   // Deliberately not named `point` — that name belongs to the non-optional
   // narrowing below the early returns, which the whole render leans on.
@@ -597,7 +572,7 @@ export default function AccessPointDetailScreen() {
             contentContainerStyle={styles.gallery}
           >
             {point.imageUrls.map((url) => (
-              <Image
+              <ScenicImage
                 key={url}
                 source={{ uri: url }}
                 style={[styles.galleryImage, { backgroundColor: colors.cardRaised }]}
@@ -917,6 +892,7 @@ export default function AccessPointDetailScreen() {
           <Section title="Nearby access">
             {data.nearbyAccessPoints.map((nearby) => (
               <NearbyRow
+                estimatesStatus={estimatesStatus}
                 key={nearby.id}
                 point={nearby}
                 onPress={() =>

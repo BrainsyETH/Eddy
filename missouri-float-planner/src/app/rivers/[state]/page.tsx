@@ -8,12 +8,12 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound, permanentRedirect } from 'next/navigation';
-import { createClient } from '@/lib/supabase/server';
+import { createPublicCatalogClient } from '@/lib/supabase/public-read';
 import { stateCodeFromSlug, stateName } from '@/lib/navigation/states';
 import { riverPath } from '@/lib/navigation/river-path';
 import SiteFooter from '@/components/ui/SiteFooter';
 
-export const dynamic = 'force-dynamic';
+export const revalidate = 300;
 
 const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || 'https://eddy.guide';
 
@@ -39,7 +39,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 export default async function StateRiversPage({ params }: Props) {
   const { state } = await params;
   const stateCode = stateCodeFromSlug(state);
-  const supabase = await createClient();
+  const supabase = createPublicCatalogClient();
 
   if (!stateCode) {
     // Not a state slug — treat as a legacy /rivers/[riverSlug] URL.

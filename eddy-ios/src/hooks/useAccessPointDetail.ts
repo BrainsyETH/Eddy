@@ -20,7 +20,7 @@
 
 import { useEffect, useState } from 'react';
 import type { AccessPointDetailResponse } from '@eddy/types';
-import { fetchAccessPointDetail, fetchAccessPointEstimates } from '@/api/client';
+import { ApiError, fetchAccessPointDetail, fetchAccessPointEstimates } from '@/api/client';
 import { loadAccessDetail, type EstimateStatus } from '@/lib/loadAccessDetail';
 import { warn } from '@/lib/monitoring';
 
@@ -50,7 +50,7 @@ function slugsFromRoute(route: string | null | undefined): { river: string; acce
  */
 export type DetailStatus = 'idle' | 'loading' | 'ready' | 'failed';
 
-export function useAccessPointDetail(detailRoute: string | null | undefined): {
+export function useAccessPointDetail(detailRoute: string | null | undefined, revision = 0): {
   detail: AccessPointDetailResponse | null;
   /**
    * Told apart deliberately. A tab that is waiting and a tab that asked and
@@ -59,11 +59,13 @@ export function useAccessPointDetail(detailRoute: string | null | undefined): {
    */
   status: DetailStatus;
   estimatesStatus: EstimateStatus;
+  error: string | null;
 } {
   const [held, setHeld] = useState<{
     route: string;
     detail: AccessPointDetailResponse | null;
     failed: boolean;
+    error?: string;
   } | null>(null);
 
   const [estimates, setEstimates] = useState<{ route: string; status: EstimateStatus } | null>(null);
@@ -94,12 +96,12 @@ export function useAccessPointDetail(detailRoute: string | null | undefined): {
       publish: (response) => setHeld({ route, detail: response, failed: false }),
       failed: (err) => {
         warn('map', 'access point detail failed', err);
-        setHeld({ route, detail: null, failed: true });
+        setHeld({ route, detail: null, failed: true, error: err instanceof ApiError && err.status === 404 ? 'This access point is no longer published.' : 'Could not load this access point.' });
       },
       estimatesFailed: (err) => warn('map', 'nearby float estimates failed', err),
     });
     return () => controller.abort();
-  }, [detailRoute]);
+  }, [detailRoute, revision]);
 
-  return { detail, status, estimatesStatus: estimates && estimates.route === detailRoute ? estimates.status : 'idle' };
+  return { detail, status, error: current?.error ?? null, estimatesStatus: estimates && estimates.route === detailRoute ? estimates.status : 'idle' };
 }

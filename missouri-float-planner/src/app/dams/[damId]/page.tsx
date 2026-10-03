@@ -15,10 +15,12 @@ import DamGenerationHero from '@/components/dam/DamGenerationHero';
 import DamPatternStrip from '@/components/dam/DamPatternStrip';
 import GenerationForecast from '@/components/dam/GenerationForecast';
 import GenerationSchedule from '@/components/dam/GenerationSchedule';
-import { fetchDamDetail, listDamIds } from '@/lib/data/dams';
+import { listDamIds } from '@/lib/data/dams';
 import { getUsaceDam } from '@/lib/flow-providers/usace-registry';
 
-export const revalidate = 300;
+import { pageDam } from '@/lib/data/public-pages';
+
+export const revalidate = 60;
 
 export function generateStaticParams() {
   return listDamIds().map((damId) => ({ damId }));
@@ -42,7 +44,7 @@ export async function generateMetadata({
 
 export default async function DamPage({ params }: { params: Promise<{ damId: string }> }) {
   const { damId } = await params;
-  const dam = await fetchDamDetail(damId);
+  const dam = await pageDam(damId);
   if (!dam) notFound();
 
   // One instant for the whole page, minted here and handed to every client

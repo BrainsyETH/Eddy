@@ -6,8 +6,9 @@
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import { ArrowLeft } from 'lucide-react';
-import { createClient } from '@/lib/supabase/server';
-import { getAccessPointDetail } from '@/lib/access-points/detail';
+import { pageAccess } from '@/lib/data/public-pages';
+
+export const revalidate = 60;
 import AccessPointHeader from '@/components/access-point/AccessPointHeader';
 import RiverVisualGallery from '@/components/river/RiverVisualGallery';
 import AccessPointNav from '@/components/access-point/AccessPointNav';
@@ -42,8 +43,7 @@ export default async function AccessPointDetailPage({ params }: Props) {
   const { state: stateSegment, slug: riverSlug, accessSlug } = await params;
   const riverHref = `/rivers/${stateSegment}/${riverSlug}`;
 
-  const supabase = await createClient();
-  const result = await getAccessPointDetail(supabase, riverSlug, accessSlug);
+  const result = await pageAccess(riverSlug, accessSlug);
 
   if (!result.ok) {
     notFound();

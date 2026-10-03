@@ -29,14 +29,17 @@ const TREND_LOOKBACK_HOURS = 9;
 async function fetchTrendInputs(supabase: ReturnType<typeof createAdminClient>) {
   const { data: primaryGauges } = await supabase
     .from('river_gauges')
-    .select('river_id, gauge_station_id')
+    .select('river_id, gauge_station_id, gauge_stations(usgs_site_id)')
     .eq('is_primary', true);
 
   const stationByRiver = new Map<string, string>();
+  const siteByRiver = new Map<string, string>();
   for (const row of primaryGauges ?? []) {
+    const station = Array.isArray(row.gauge_stations) ? row.gauge_stations[0] : row.gauge_stations;
+    if (station?.usgs_site_id) siteByRiver.set(row.river_id, station.usgs_site_id);
     if (row.river_id && row.gauge_station_id) stationByRiver.set(row.river_id, row.gauge_station_id);
   }
-  if (stationByRiver.size === 0) return { stationByRiver, readingsByStation: new Map() };
+  if (stationByRiver.size === 0) return { stationByRiver, siteByRiver, readingsByStation: new Map() };
 
   const since = new Date(Date.now() - TREND_LOOKBACK_HOURS * 3_600_000).toISOString();
   const { data: rows } = await supabase
@@ -62,7 +65,7 @@ async function fetchTrendInputs(supabase: ReturnType<typeof createAdminClient>) 
     readingsByStation.set(row.gauge_station_id, list);
   }
 
-  return { stationByRiver, readingsByStation };
+  return { stationByRiver, siteByRiver, readingsByStation };
 }
 
 /**
@@ -175,7 +178,7 @@ async function fetchApprovedAccessPointCounts(
 
 export async function getRivers(): Promise<RiverListItem[]> {
   const supabase = createAdminClient();
-  const [{ stationByRiver, readingsByStation }, accessPointCounts, conditionsByRiver] =
+  const [{ stationByRiver, siteByRiver, readingsByStation }, accessPointCounts, conditionsByRiver] =
     await Promise.all([
       fetchTrendInputs(supabase),
       fetchApprovedAccessPointCounts(supabase),
@@ -269,6 +272,8 @@ export async function getRivers(): Promise<RiverListItem[]> {
 
       return {
         id: river.id,
+        primaryGaugeId: stationByRiver.get(river.id) ?? null,
+        primaryGaugeSiteId: siteByRiver.get(river.id) ?? null,
         name: river.name,
         slug: river.slug,
         photoUrl: RIVER_PHOTOS[river.slug] ?? null,
