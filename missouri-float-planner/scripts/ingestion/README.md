@@ -245,16 +245,33 @@ new `services-<slug>.csv`.
 Cold-start prose (`float_summary` + `float_tip`, shown before the first live
 reading) and `weather_lat/lon` go in first — see `set-cold-start.ts` for the shape
 (a gauge-oriented floatability summary + one safety tip, written from the finalized
-thresholds). `validate_river_data()` only evaluates active rivers, so activation is
-also the validation gate:
+thresholds). Complete all six `readiness` entries in the dossier: named corridor,
+legal access, representative fresh gauge, sourced conditions, hazard review, and
+validated routing. Each needs `status: verified`, evidence, reviewer and review
+date. A hazard review may conclude there are no mapped fixed hazards; that is
+different from an unreviewed empty table and never means hazard-free.
 
 ```bash
-npx tsx scripts/ingestion/activate-rivers.ts <slug> [<slug> ...]
+npm run db:readiness                                      # read-only live catalog audit
+npx tsx scripts/ingestion/activate-rivers.ts <slug>          # preview; --dry also accepted
+npx tsx scripts/ingestion/activate-rivers.ts <slug> --apply  # explicit, pinned write
 ```
 
-Flips `active=true`, reads back `validate_river_data()`, and **auto-rolls-back any
-river with an error-severity finding.** Warnings (`no_dangerous` / `no_too_low` on
-spring-fed rivers) are printed and left live — the documented, intentional gaps.
+Requires migration `20261003221648_river_readiness_activation.sql`. The service-role
+RPC checks inactive candidates using the existing validator, the additional
+provenance/freshness audit and the dossier checklist **in one transaction**.
+Previews and failed batches roll back all temporary activation, preserving already
+live rivers. A database failure also rolls back; the CLI never makes a separate
+activation update. Matching full threshold ladders on distinct gauges are warnings
+for review; shared gauges and all-null ladders are excluded. Both main and alternate
+units are checked. Current readings can come from `gauge_latest` or curated history.
+
+Missing provenance blocks activation. The source category alone does not prove the
+numbers: review the cited evidence against the station, unit, corridor and each
+anchor. NWS flood metadata does not establish recreational thresholds. Tailwaters
+remain a separate pilot gate; see `docs/TAILWATER_PLAN.md` and the
+[October readiness review](RIVER_READINESS_REVIEW_2026-10-03.md). Existing live
+rivers are audited, not automatically deactivated by a missing retrospective review.
 
 Then populate Eddy prose immediately instead of waiting for the daily cron:
 

@@ -22,6 +22,8 @@
 //   [manual]   a human places this in the admin UI; research only proposes —
 //              access-point coordinates.
 
+import type { RiverReadiness } from './readiness';
+
 export type RiverType =
   | 'spring_fed_float'
   | 'dam_tailwater'
@@ -170,6 +172,8 @@ export interface RegulationItem {
 
 /** The full research dossier for one river. */
 export interface RiverDossier {
+  /** Reconciled evidence, checked independently from historical _status. */
+  readiness: RiverReadiness;
   // ---- Identity ----
   name: string;
   slug: string; // [verify] no collision with an existing (state, slug)

@@ -12,6 +12,15 @@ the pool as context.
 
 ---
 
+## October 3 launch review
+
+The first proposed river pilot is **Norfork**, scoped to verified boat endpoints.
+The [readiness review](../scripts/ingestion/RIVER_READINESS_REVIEW_2026-10-03.md#one-tailwater-pilot-norfork)
+records its access, hazard, photo and presentation acceptance work. This is a
+separate gate from the dam-layer features already shipped below. Scheduled
+release windows do not establish safe wading or departure times. White and
+Taneycomo follow after the pilot; they remain inactive pending their own reviews.
+
 ## Where this stands
 
 `WATER_REGIMES_STRATEGY.md` sequenced five steps. Steps 1 and 2 are done — the

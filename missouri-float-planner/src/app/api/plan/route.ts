@@ -192,7 +192,7 @@ async function _GET(request: NextRequest) {
     const minMile = Math.min(startMile, endMile);
     const maxMile = Math.max(startMile, endMile);
 
-    const { data: hazards } = await supabase
+    const { data: hazards, error: hazardError } = await supabase
       .from('river_hazards')
       .select('*')
       .eq('river_id', riverId)
@@ -200,10 +200,15 @@ async function _GET(request: NextRequest) {
       .gte('river_mile_downstream', minMile)
       .lte('river_mile_downstream', maxMile)
       .order('river_mile_downstream', { ascending: true });
+    if (hazardError || hazards === null) {
+      console.error('[Plan] Hazard lookup failed:', hazardError);
+      return NextResponse.json({ error: 'Hazard information is temporarily unavailable. Please try again.' }, { status: 503 });
+    }
 
     // Build warnings array
     const warnings: string[] = [];
     warnings.push(...spanWarnings);
+    if (!hazards.length) warnings.push('No mapped hazards are listed for this route. Hazard coverage is incomplete; check current local conditions.');
     // NOT PUSHED INTO `warnings` ANY MORE, deliberately.
     //
     // "This shuttle route looks unusually long" was a warning about a number

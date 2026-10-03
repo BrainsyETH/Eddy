@@ -683,5 +683,49 @@
     "ladderNote2026_07_08": "high=1470/dangerous=3880 cfs added from USGS 07061500 exsa rating x NWS ANNM7 action/flood stages (session claude/rivers-missing-admin). too_low/low/optimal_max left null: no OBSERVED source (moherp estimates rejected); ideal band open-topped 180->1470, sub-180 reads scraping/too_low. Safe to activate.",
     "lowerReachNote2026_07_08": "Lower Black (Markham Springs->Hammer) added as a second section keyed to the LIVE Poplar Bluff gauge 07063000 (Williamsville 07062575 is discontinued). River-level badge stays on the primary Annapolis (upper) gauge; the segment-condition function routes lower put-ins to Poplar Bluff via river_mile (Annapolis rm=25, Poplar Bluff rm=55). Applied directly to prod (session claude/rivers-missing-admin), not via ingest."
   },
-  "_accessPointsNote": "2026-07-09 access-point review: coordinates/types/fields verified against MDC/NPS/USFS/USGS/Recreation.gov and corrected in prod via migrations 00153-00159; retired entries removed."
+  "_accessPointsNote": "2026-07-09 access-point review: coordinates/types/fields verified against MDC/NPS/USFS/USGS/Recreation.gov and corrected in prod via migrations 00153-00159; retired entries removed.",
+  "readiness": {
+    "corridor": {
+      "status": "pending",
+      "evidence": [],
+      "reviewedBy": null,
+      "reviewedAt": null,
+      "notes": "Name the supported put-in/take-out corridor and exclusions."
+    },
+    "legalAccess": {
+      "status": "pending",
+      "evidence": [],
+      "reviewedBy": null,
+      "reviewedAt": null,
+      "notes": "Verify legal launch/landing and current restrictions for each offered access pair."
+    },
+    "gauge": {
+      "status": "pending",
+      "evidence": [],
+      "reviewedBy": null,
+      "reviewedAt": null,
+      "notes": "Verify provider, measured parameter, reach representativeness, freshness and history policy."
+    },
+    "conditions": {
+      "status": "pending",
+      "evidence": [],
+      "reviewedBy": null,
+      "reviewedAt": null,
+      "notes": "Record station-specific recreational thresholds and owner approval; tailwaters require separate release presentation review."
+    },
+    "hazards": {
+      "status": "pending",
+      "evidence": [],
+      "reviewedBy": null,
+      "reviewedAt": null,
+      "notes": "Review mapped hazards, prose and access notes. Record known fixed hazards or an evidenced no-fixed-hazards finding; never claim hazard-free."
+    },
+    "routing": {
+      "status": "pending",
+      "evidence": [],
+      "reviewedBy": null,
+      "reviewedAt": null,
+      "notes": "Validate connected downstream geometry, access snaps and trip distances for the corridor."
+    }
+  }
 }
