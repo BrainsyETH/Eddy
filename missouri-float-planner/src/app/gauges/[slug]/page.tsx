@@ -35,47 +35,42 @@ interface Props {
 }
 
 async function getPrimaryRiverSlugForGauge(siteId: string): Promise<string | null> {
-  try {
-    const supabase = createPublicCatalogClient();
-    const { data: station } = await supabase
-      .from('gauge_stations')
-      .select('id')
-      .eq('usgs_site_id', siteId)
-      .eq('active', true)
-      .single();
+  const supabase = createPublicCatalogClient();
+  const { data: station, error: stationError } = await supabase
+    .from('gauge_stations')
+    .select('id')
+    .eq('usgs_site_id', siteId)
+    .eq('active', true)
+    .maybeSingle();
 
-    if (!station) return null;
+  if (stationError) throw stationError;
+  if (!station) return null;
 
-    const { data: rg } = await supabase
-      .from('river_gauges')
-      .select('rivers!inner(slug)')
-      .eq('gauge_station_id', station.id)
-      .eq('is_primary', true)
-      .limit(1)
-      .maybeSingle();
+  const { data: rg, error: linkError } = await supabase
+    .from('river_gauges')
+    .select('rivers!inner(slug)')
+    .eq('gauge_station_id', station.id)
+    .eq('is_primary', true)
+    .limit(1)
+    .maybeSingle();
 
-    if (!rg) return null;
-    const river = rg.rivers as unknown as { slug: string };
-    return river.slug || null;
-  } catch {
-    return null;
-  }
+  if (linkError) throw linkError;
+  if (!rg) return null;
+  const river = rg.rivers as unknown as { slug: string };
+  return river.slug || null;
 }
 
 /** The station's own name, for a site id nobody has curated. */
 async function getStationName(siteId: string): Promise<string | null> {
-  try {
-    const supabase = createPublicCatalogClient();
-    const { data } = await supabase
-      .from('gauge_stations')
-      .select('name')
-      .eq('usgs_site_id', siteId)
-      .eq('active', true)
-      .maybeSingle();
-    return data?.name || null;
-  } catch {
-    return null;
-  }
+  const supabase = createPublicCatalogClient();
+  const { data, error } = await supabase
+    .from('gauge_stations')
+    .select('name')
+    .eq('usgs_site_id', siteId)
+    .eq('active', true)
+    .maybeSingle();
+  if (error) throw error;
+  return data?.name || null;
 }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
@@ -121,3 +116,6 @@ export default async function GaugeSlugPage({ params }: Props) {
   // River slug → canonical river hub (conditions render inline there)
   permanentRedirect(`/rivers/${slug}`);
 }
+
+// Generate public HTML on the first visit, then revalidate it.
+export async function generateStaticParams() { return []; }

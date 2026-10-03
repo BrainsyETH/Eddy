@@ -1,3 +1,5 @@
+import { createClient } from '@supabase/supabase-js';
+import type { Database } from '@/types/database';
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import type { AccessPointDetailResponse } from '@eddy/types';
@@ -21,13 +23,13 @@ function fixture(options: { fail?: string; missing?: string } = {}) {
     from(table: string) {
       tables.push(table);
       const rows: Record<string, unknown> = {
-        rivers: { id: 'river', slug: 'river', name: 'River', state: 'MO' },
+        rivers: { id: 'river', slug: 'river', name: 'River', state: 'MO', access: options.missing === 'access_points' ? [] : [points[0]], neighbours: points },
         access_points: points, river_gauges: null, access_point_services: [],
         vessel_types: { slug: 'canoe' }, campsite_availability: [], campsite_facilities: [],
       };
       assert.ok(table in rows, `unexpected table ${table}`);
       const result = () => ({ data: rows[table], error: null });
-      const singleResult = () => options.fail === table
+      const singleResult = () => (options.fail === table || (table === 'rivers' && options.fail === 'access_points'))
         ? { data: null, error: new Error('Database temporarily unavailable') }
         : { data: options.missing === table ? null : table === 'access_points' ? points[0] : rows[table], error: null };
       const query = {
@@ -62,7 +64,9 @@ test('core detail retains camping and neighbours without starting route RPCs', a
   assert.ok(f.tables.includes('campsite_availability'));
   assert.ok(f.tables.includes('campsite_facilities'));
   assert.deepEqual(f.rpcs, []);
-  assert.deepEqual(phases, ['river', 'access', 'related', 'estimates', 'camping']);
+  assert.equal(f.tables.filter((table) => table === 'rivers').length, 1);
+  assert.equal(f.tables.includes('access_points'), false);
+  assert.deepEqual(phases, ['identity', 'related', 'estimates', 'camping']);
 });
 test('default detail still waits for route calculations and tolerates unavailable estimates', async () => {
   const f = fixture(); let settled = false;
@@ -190,4 +194,29 @@ test('successful empty lookups still distinguish missing rivers and access point
     const f = fixture({ missing: table });
     assert.deepEqual(await getAccessPointDetail(f.client, 'river', 'point-0', { includeEstimates: false }), { ok: false, reason });
   }
+});
+
+
+test('joined identity query scopes both embedded relations to approved points', async () => {
+  let calls = 0;
+  const client = createClient<Database>('https://fixture.supabase.co', 'fixture-key', {
+    auth: { persistSession: false, autoRefreshToken: false },
+    global: { fetch: async (input) => {
+      calls++;
+      const url = new URL(String(input));
+      assert.equal(url.pathname, '/rest/v1/rivers');
+      assert.equal(url.searchParams.get('slug'), 'eq.river');
+      assert.equal(url.searchParams.get('access.slug'), 'eq.point');
+      assert.equal(url.searchParams.get('access.approved'), 'eq.true');
+      assert.equal(url.searchParams.get('neighbours.approved'), 'eq.true');
+      assert.match(url.searchParams.get('select')!, /neighbours:access_points!access_points_river_id_fkey/);
+      return Response.json([{ id: 'river', slug: 'river', name: 'River', state: 'MO',
+        access: [{ id: 'point', slug: 'point', name: 'Point', river_mile_downstream: 0,
+          location_orig: { coordinates: [-91, 37] }, types: ['boat_ramp'], is_float_endpoint: true }], neighbours: [],
+      }]);
+    } },
+  });
+  const result = await getAccessPointDetail(client, 'river', 'point', { estimatesOnly: true, includeEstimates: false });
+  assert.equal(result.ok, true);
+  assert.equal(calls, 1);
 });

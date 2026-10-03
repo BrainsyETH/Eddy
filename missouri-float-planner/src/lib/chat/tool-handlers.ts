@@ -284,8 +284,8 @@ async function handleGetFloatRoute(input: Record<string, unknown>) {
   }
 
   // Get hazards along route
-  const startMile = parseFloat(segData.start_river_mile || '0');
-  const endMile = parseFloat(segData.end_river_mile || '999');
+  const startMile = parseFloat(String(segData.start_river_mile ?? 0));
+  const endMile = parseFloat(String(segData.end_river_mile ?? 999));
   const minMile = Math.min(startMile, endMile);
   const maxMile = Math.max(startMile, endMile);
 

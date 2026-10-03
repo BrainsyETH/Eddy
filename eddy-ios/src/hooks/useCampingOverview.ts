@@ -1,3 +1,5 @@
+import { mergeCampingSnapshots } from '@/lib/mergeCampingSnapshots';
+import { loadCampingWindow } from '@/lib/loadCampingWindow';
 import { createCampingRollover } from '@/lib/campingRollover';
 import { parseCampingSnapshot } from '@/lib/campingSnapshot';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -65,26 +67,42 @@ export function useCampingOverview(
       }
       if (active) setLoading(true);
       try {
-        const next = await request(nights);
-        if (active) {
-          setHeld({ nights, data: next });
-          setError(false);
-        }
+        await loadCampingWindow({
+          nights,
+          hasFullSnapshot: () => !!entry.cached,
+          fetchWindow: (window) => {
+            const cached = windows[window];
+            return !force && cached.cached && Date.now() - cached.fetchedAt < 300000 &&
+              cached.cached.horizon.startDate === campingDate()
+              ? Promise.resolve(cached.cached) : request(window);
+          },
+          publish: (next) => {
+            if (!active) return;
+            setHeld((current) => ({ nights, data: mergeCampingSnapshots(current.nights === nights ? current.data : null, next) }));
+            setError(false);
+          },
+        });
       } catch {
         if (active) setError(true);
       } finally {
         if (active) setLoading(false);
       }
     }
-    // Disk and network race independently; an old disk read never overwrites
-    // a fresh network result. Stored observations retain their checkedAt.
+    // Disk and network can arrive in either order. Saved dates extend a fresh
+    // short window without replacing newer observations or their checkedAt.
     if (!entry.cached) {
-      void AsyncStorage.getItem(`eddy:camping:v1:${nights}`).then((raw) => {
-        if (!active || entry.cached || !raw) return;
-        const saved = parseCampingSnapshot(raw, nights);
+      void Promise.all([
+        AsyncStorage.getItem(`eddy:camping:v1:${nights}`),
+        nights === 90 ? AsyncStorage.getItem('eddy:camping:v1:21') : Promise.resolve(null),
+      ]).then(([full, partial]) => {
+        if (!active || entry.cached) return;
+        const savedFull = full ? parseCampingSnapshot(full, nights) : null;
+        const savedPartial = partial ? parseCampingSnapshot(partial, 21) : null;
+        const saved = savedFull ?? savedPartial;
         if (!saved) return;
-        entry.cached = saved;
-        setHeld({ nights, data: saved });
+        if (savedFull) entry.cached = savedFull;
+        else if (!windows[21].cached) windows[21].cached = savedPartial;
+        setHeld((current) => ({ nights, data: mergeCampingSnapshots(current.nights === nights ? current.data : null, saved) }));
       }).catch(() => {});
     }
     void load(revision > 0 || retry > 0);
@@ -108,6 +126,7 @@ export function useCampingOverview(
   return {
     data: data ? currentOverview(data, now) : null,
     loading,
+    extending: nights === 90 && !!data && data.horizon.nights.length < 90 && loading,
     error,
     refresh,
     now,

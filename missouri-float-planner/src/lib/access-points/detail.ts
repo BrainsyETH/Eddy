@@ -1,4 +1,4 @@
-import { createRouteEstimateContext, estimateRoute } from '@/lib/calculations/route-estimate';
+import { createRouteEstimateContext, estimateRoute, type SegmentReader } from '@/lib/calculations/route-estimate';
 // src/lib/access-points/detail.ts
 // Shared access-point-detail data loader. Extracted from the API route so both
 // the /api/rivers/[slug]/access/[accessSlug] handler and the server-rendered
@@ -44,6 +44,7 @@ export async function getAccessPointDetail(
   options: {
     /** Map sheets can render core facts before the full route calculations. */
     includeEstimates?: boolean;
+    segmentReader?: SegmentReader;
     /** Skip unrelated detail queries for the float-estimate representation. */
     estimatesOnly?: boolean;
     onTiming?: (phase: string, durationMs: number) => void;
@@ -55,36 +56,24 @@ export async function getAccessPointDetail(
     options.onTiming?.(phase, now - phaseStarted);
     phaseStarted = now;
   };
-  // Get river info
-  // `state` is selected only to build the canonical path below — the /rivers
-  // hierarchy is state-segmented and nothing else in this payload carries it.
-  const { data: river, error: riverError } = await supabase
+  // Left-join the selected point to preserve river-not-found vs point-not-found.
+  // Neighbour summaries travel in the same database round trip for both views.
+  const { data: river, error } = await supabase
     .from('rivers')
-    .select('id, name, slug, state')
+    .select(`id, name, slug, state,
+      access:access_points!access_points_river_id_fkey(*),
+      neighbours:access_points!access_points_river_id_fkey(id, name, slug, river_mile_downstream, is_float_endpoint)`)
     .eq('slug', riverSlug)
+    .eq('access.slug', accessSlug)
+    .eq('access.approved', true)
+    .eq('neighbours.approved', true)
     .maybeSingle();
 
-  timed('river');
-  // A database outage must reject, not become a cached missing-page result.
-  if (riverError) throw riverError;
-  if (!river) {
-    return { ok: false, reason: 'river-not-found' };
-  }
-
-  // Get access point with all detail fields
-  const { data: ap, error: apError } = await supabase
-    .from('access_points')
-    .select('*')
-    .eq('river_id', river.id)
-    .eq('slug', accessSlug)
-    .eq('approved', true)
-    .maybeSingle();
-
-  timed('access');
-  if (apError) throw apError;
-  if (!ap) {
-    return { ok: false, reason: 'not-found' };
-  }
+  timed('identity');
+  if (error) throw error;
+  if (!river) return { ok: false, reason: 'river-not-found' };
+  const ap = river.access[0];
+  if (!ap) return { ok: false, reason: 'not-found' };
 
   // Extract coordinates
   const lng =
@@ -100,33 +89,8 @@ export async function getAccessPointDetail(
 
   const currentMile = ap.river_mile_downstream != null ? parseFloat(String(ap.river_mile_downstream)) : 0;
 
-  // ── THREE INDEPENDENT READS, ONE ROUND TRIP'S WORTH OF WAITING ───────────
-  //
-  // These ran one after another, and each is answerable the moment the access
-  // point row is in hand: the neighbour list needs `river.id`, the gauge status
-  // needs `river.id` and the mile, the service links need `ap.id`. Nothing
-  // among them reads another's answer.
-  //
-  // The waiting was not theoretical. This endpoint is what the map sheet's peek
-  // is waiting on — the reading in the corner of a campground card, the water
-  // line on a put-in — and measured against production it took 2.2–2.9 seconds
-  // at the origin, of which this stretch is the largest serial run: up to five
-  // sequential Supabase round trips, since getGaugeStatus itself walks nearest
-  // gauge → primary gauge → latest reading. Vercel runs in iad1 and the
-  // database is in us-west-2, so every one of them is a continent's width of
-  // latency that nothing was overlapping.
-  //
-  // Availability stays out of this batch deliberately: it is gated on
-  // `campgroundish`, which is not answerable until `linked` lands, and three
-  // quarters of pins are not campgrounds. Paying for it on every put-in to save
-  // a round trip on some would be the trade run backwards.
-  const [neighbourResult, gaugeStatus, linked] = await Promise.all([
-    supabase
-      .from('access_points')
-      .select('id, name, slug, river_mile_downstream, is_float_endpoint')
-      .eq('river_id', river.id)
-      .eq('approved', true)
-      .order('river_mile_downstream', { ascending: true }),
+  // These independent details are unnecessary in the estimates-only response.
+  const [gaugeStatus, linked] = await Promise.all([
     // Uses the access point's own mile, so the reach's gauge is chosen rather
     // than the river's headline one.
     options.estimatesOnly ? null : getGaugeStatus(supabase, river.id, currentMile),
@@ -136,7 +100,7 @@ export async function getAccessPointDetail(
   ]);
 
   timed('related');
-  const allAccessPoints = neighbourResult.data;
+  const allAccessPoints = river.neighbours;
 
   const nearbyAccessPoints: NearbyAccessPoint[] = [];
 
@@ -210,7 +174,7 @@ export async function getAccessPointDetail(
   }
 
   if (options.includeEstimates !== false) {
-    const estimateContext = createRouteEstimateContext(supabase);
+    const estimateContext = createRouteEstimateContext(supabase, options.segmentReader);
     await Promise.all(nearbyAccessPoints.map(async (point) => {
       if (ap.is_float_endpoint === false || point.isFloatEndpoint === false) return;
       try {

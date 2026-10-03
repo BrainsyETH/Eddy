@@ -102,7 +102,7 @@ function CampingContent() {
   const [directory, setDirectory] = useState(false);
   const [linkFailed, setLinkFailed] = useState(false);
   const { coords, status, request } = useLocation();
-  const { data, loading, error, refresh, now } = useCampingOverview();
+  const { data, loading, extending, error, refresh, now } = useCampingOverview();
   const rivers = useMemo(
     () => campingRiverOptions(data?.tracked ?? [], data?.untracked ?? []),
     [data],
@@ -271,7 +271,7 @@ function CampingContent() {
       <CampingScrollGroup
         thumbnails
         dateWidth={36}
-        key={`${river}:${nearby}:${grid.horizon.endDateExclusive}`}
+        key={`${river}:${nearby}:${grid.horizon.startDate}`}
       >
         <FlatList
           contentInsetAdjustmentBehavior="never"
@@ -284,7 +284,7 @@ function CampingContent() {
           // scrolling ListHeaderComponent. Index 1 accounts for that header.
           data={[null, ...rows]}
           keyExtractor={(row) => row?.facilityId ?? 'camping-dates'}
-          refreshing={loading}
+          refreshing={loading && !extending}
           onRefresh={refresh}
           contentContainerStyle={styles.list}
           stickyHeaderIndices={display === 'grid' ? [1] : undefined}
@@ -388,6 +388,7 @@ function CampingContent() {
                     </Text>
                   </Pressable>
                 ) : null}
+                {extending ? <Text style={{ color: colors.textMuted }}>Loading more dates…</Text> : null}
                 {error ? (
                   <Pressable
                     onPress={refresh}
@@ -395,7 +396,7 @@ function CampingContent() {
                     style={styles.notice}
                   >
                     <Text style={{ color: colors.interactive }}>
-                      Couldn’t refresh. Retry
+                      {data.horizon.nights.length < 90 ? 'Couldn’t load more dates. Retry' : 'Couldn’t refresh. Retry'}
                     </Text>
                   </Pressable>
                 ) : null}

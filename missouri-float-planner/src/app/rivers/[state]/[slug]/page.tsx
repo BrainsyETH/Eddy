@@ -26,7 +26,7 @@ import RiverAlertsPanel from '@/components/river/RiverAlertsPanel';
 import ReportIssueButton from '@/components/ui/ReportIssueButton';
 import RiverDamPanel from '@/components/dam/RiverDamPanel';
 import TailwaterStatusRow from '@/components/dam/TailwaterStatusRow';
-import { getRiverAlerts } from '@/lib/alerts/river-alerts';
+import { pageRiverAlerts } from '@/lib/data/public-pages';
 import RiverReaches from '@/components/river/RiverReaches';
 import type { RiverType } from '@/lib/rivers/context';
 import RiverGaugeDetail from '@/components/gauge/RiverGaugeDetail';
@@ -36,8 +36,8 @@ import { jsonLdString } from '@/lib/json-ld';
 const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://eddy.guide';
 
 // Public catalog reads cache for five minutes; water-bearing page snapshots
-// use 60 seconds. Alerts retain their own live/provider policy, so a cold
-// alert context may still require dynamic rendering.
+// use 60 seconds. Public context reads participate in the page cache;
+// alerts retain their own provider policy.
 export const revalidate = 60;
 
 interface Props {
@@ -154,7 +154,7 @@ export default async function RiverGuidePage({ params }: Props) {
       .from('rivers')
       .select('id, name, slug, state, description, length_miles, difficulty_rating, region, geom, river_type')
       .eq('slug', slug)
-      .single(),
+      .maybeSingle(),
     supabase
       .from('blog_posts')
       .select('slug, title, description, featured_image_url')
@@ -166,7 +166,8 @@ export default async function RiverGuidePage({ params }: Props) {
       .maybeSingle(),
   ]);
 
-  if (riverResult.error || !riverResult.data) {
+  if (riverResult.error) throw riverResult.error;
+  if (!riverResult.data) {
     // Render the dedicated not-found boundary with a proper HTTP 404 status.
     notFound();
   }
@@ -180,7 +181,7 @@ export default async function RiverGuidePage({ params }: Props) {
   }
 
   // Fetch access points + current condition in parallel (need river.id first)
-  const [{ data: accessPoints }, condRowsResult, riverDam, riverReaches, riverAlerts] = await Promise.all([
+  const [{ data: accessPoints }, condRowsResult, riverDam, riverReaches, { alerts: riverAlerts, unavailable: alertsUnavailable }] = await Promise.all([
     supabase
       .from('access_points')
       .select('id, slug, name, river_mile_downstream, image_urls, type, types')
@@ -201,8 +202,8 @@ export default async function RiverGuidePage({ params }: Props) {
     // Closures and weather warnings, server-side for the same reason the dam is:
     // a closure is the last thing that should wait on hydration, and the section
     // has to exist before HubSectionNav can decide whether to offer the tab.
-    // The lib never throws; the catch is belt-and-braces on the Promise.all.
-    getRiverAlerts(slug).catch(() => []),
+    // Optional context failures render an explicit unavailable state.
+    pageRiverAlerts(slug),
   ]);
 
   /**
@@ -426,7 +427,7 @@ export default async function RiverGuidePage({ params }: Props) {
           planUrl={planUrl}
           hasGuide={!!guidePost}
           hasDam={!!riverDam}
-          hasAlerts={riverAlerts.length > 0}
+          hasAlerts={alertsUnavailable || riverAlerts.length > 0}
         />
 
         <main className="max-w-5xl mx-auto px-4 pb-16">
@@ -437,10 +438,14 @@ export default async function RiverGuidePage({ params }: Props) {
               themselves. Absent entirely when nothing is posted: an empty
               summary reads as an all-clear, and this section cannot tell an
               all-clear from an agency outage. */}
-          {riverAlerts.length > 0 && (
+          {(alertsUnavailable || riverAlerts.length > 0) && (
             <section id="alerts" className="scroll-mt-24 pt-4 md:pt-5">
               <h2 className="sr-only">Alerts</h2>
-              <RiverAlertsPanel alerts={riverAlerts} />
+              {alertsUnavailable ? (
+                <p role="status" className="rounded-lg border border-neutral-200 bg-neutral-50 p-4 text-sm text-neutral-700">
+                  Alerts unavailable. Check official weather and park notices before your trip.
+                </p>
+              ) : <RiverAlertsPanel alerts={riverAlerts} />}
             </section>
           )}
 
@@ -602,3 +607,6 @@ export default async function RiverGuidePage({ params }: Props) {
     </>
   );
 }
+
+// Generate public HTML on the first visit, then revalidate it.
+export async function generateStaticParams() { return []; }

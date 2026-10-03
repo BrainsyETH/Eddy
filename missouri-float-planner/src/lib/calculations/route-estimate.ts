@@ -22,11 +22,23 @@ function scaleKnownTimeForCondition(minutes: number, code: ConditionCode): numbe
   return Math.round(minutes * factor);
 }
 
+export type RouteSegment = Database['public']['Functions']['get_float_segment']['Returns'][number];
+export type SegmentReader = (startId: string, endId: string) => Promise<RouteSegment>;
+
+export async function readRouteSegment(supabase: SupabaseClient<Database>, startId: string, endId: string): Promise<RouteSegment> {
+  const { data, error } = await supabase.rpc('get_float_segment', {
+    p_start_access_id: startId, p_end_access_id: endId,
+  });
+  if (error || !data?.length) throw new RouteEstimateError('Could not calculate float segment', 500);
+  return data[0];
+}
+
 /** Request-scoped only: nearby routes share metadata, never live readings. */
-export function createRouteEstimateContext(supabase: SupabaseClient<Database>) {
+export function createRouteEstimateContext(supabase: SupabaseClient<Database>, segmentReader?: SegmentReader) {
   const rivers = new Map<string, ReturnType<typeof readRiver>>();
   const vessels = new Map<string, ReturnType<typeof readVessel>>();
   return {
+    segment: segmentReader ?? ((startId: string, endId: string) => readRouteSegment(supabase, startId, endId)),
     river(id: string) {
       if (!rivers.has(id)) rivers.set(id, readRiver(supabase, id));
       return rivers.get(id)!;
@@ -121,23 +133,11 @@ export async function estimateRoute(supabase: SupabaseClient<Database>, {
       throw new RouteEstimateError('Invalid access points', 400);
     }
 
-    // Get float segment using database function
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: segment, error: segmentError } = await (supabase.rpc as any)(
-      'get_float_segment',
-      {
-        p_start_access_id: startId,
-        p_end_access_id: endId,
-      }
-    );
-
-    if (segmentError || !segment || segment.length === 0) {
-      throw new RouteEstimateError('Could not calculate float segment', 500);
-    }
-
-    const segmentData = segment[0];
-    const distanceMiles = segmentData.distance_miles != null ? parseFloat(segmentData.distance_miles) : NaN;
-    const putInMile = segmentData.start_river_mile != null ? parseFloat(segmentData.start_river_mile) : NaN;
+    // Geometry may be cached by public callers; endpoint eligibility and all
+    // flow/safety checks still execute for every estimate.
+    const segmentData = await context.segment(startId, endId);
+    const distanceMiles = segmentData.distance_miles != null ? parseFloat(String(segmentData.distance_miles)) : NaN;
+    const putInMile = segmentData.start_river_mile != null ? parseFloat(String(segmentData.start_river_mile)) : NaN;
 
     if (isNaN(distanceMiles) || distanceMiles <= 0) {
       throw new RouteEstimateError('Could not calculate distance between access points', 500);
@@ -309,8 +309,8 @@ export async function estimateRoute(supabase: SupabaseClient<Database>, {
     // escalate the condition. A too-low in-span gauge gets a scraping warning.
 
     try {
-      const spanMinMile = Math.min(parseFloat(segmentData.start_river_mile), parseFloat(segmentData.end_river_mile));
-      const spanMaxMile = Math.max(parseFloat(segmentData.start_river_mile), parseFloat(segmentData.end_river_mile));
+      const spanMinMile = Math.min(parseFloat(String(segmentData.start_river_mile)), parseFloat(String(segmentData.end_river_mile)));
+      const spanMaxMile = Math.max(parseFloat(String(segmentData.start_river_mile)), parseFloat(String(segmentData.end_river_mile)));
 
       const { data: riverGaugeRows, error: spanGaugeError } = await supabase
         .from('river_gauges')

@@ -604,7 +604,7 @@ export async function fetchRiverAccessPoints(
   signal?: AbortSignal,
 ): Promise<MapAccessPoint[]> {
   const data = await get<AccessPointsResponse>(
-    `/api/rivers/${encodeURIComponent(slug)}/access-points?include=non_endpoints`,
+    `/api/rivers/${encodeURIComponent(slug)}/access-points?include=non_endpoints&view=compact`,
     signal,
   );
   const accessPoints = data.accessPoints ?? [];

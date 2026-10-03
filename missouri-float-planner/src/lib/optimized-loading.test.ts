@@ -1,3 +1,7 @@
+import { loadCampingWindow } from '../../../eddy-ios/src/lib/loadCampingWindow';
+import { compactAccessPoint } from './access-points/compact';
+import type { CampingOverview } from '@eddy/types';
+import type { AccessPoint } from '@/types/api';
 import { readFileSync } from 'node:fs';
 import ts from 'typescript';
 import { resolveOutlookGauge } from './outlook-gauge';
@@ -115,4 +119,117 @@ test('hazards failure and retry are rendered outside all collapsible content', (
   }
   visit(source);
   assert.equal(found, true);
+});
+
+
+test('camping publishes 21 nights before 90 and retains the partial result on failure', async () => {
+  for (const failFull of [false, true]) {
+    const events: string[] = [];
+    const load = loadCampingWindow({ nights: 90, hasFullSnapshot: () => false,
+      fetchWindow: async (nights) => {
+        events.push(`fetch:${nights}`);
+        if (nights === 90 && failFull) throw new Error('offline');
+        return { horizon: { nights: Array(nights).fill('2026-10-03') } } as CampingOverview;
+      },
+      publish: (value) => events.push(`show:${value.horizon.nights.length}`),
+    });
+    if (failFull) await assert.rejects(load, /offline/); else await load;
+    assert.deepEqual(events, ['fetch:21', 'show:21', 'fetch:90', ...(failFull ? [] : ['show:90'])]);
+  }
+});
+test('camping preserves full disk snapshots and still tries 90 after an initial failure', async () => {
+  for (const fullSnapshot of [false, true]) {
+    const requests: number[] = [], shown: number[] = [];
+    await loadCampingWindow({ nights: 90, hasFullSnapshot: () => fullSnapshot,
+      fetchWindow: async (nights) => {
+        requests.push(nights);
+        if (nights === 21) throw new Error('short window failed');
+        return { horizon: { nights: Array(nights).fill('2026-10-03') } } as CampingOverview;
+      }, publish: (value) => shown.push(value.horizon.nights.length),
+    });
+    assert.deepEqual(requests, fullSnapshot ? [90] : [21, 90]);
+    assert.deepEqual(shown, [90]);
+  }
+});
+test('compact access lists preserve hero, camping classification and endpoint eligibility', () => {
+  const full = { id: 'pin', type: 'boat_ramp', types: ['boat_ramp'], isFloatEndpoint: false,
+    imageUrls: [], npsCampground: { images: [{ url: 'https://www.nps.gov/photo.jpg' }], fees: [{ cost: '20' }] },
+  } as unknown as AccessPoint;
+  const result = compactAccessPoint(full);
+  assert.equal('npsCampground' in result, false);
+  assert.deepEqual(result.imageUrls, ['https://www.nps.gov/photo.jpg']);
+  assert.deepEqual(result.types, ['boat_ramp', 'campground']);
+  assert.equal(result.isFloatEndpoint, false);
+  assert.ok(full.npsCampground);
+  assert.deepEqual(compactAccessPoint({ ...full, imageUrls: ['own.jpg'] }).imageUrls, ['own.jpg']);
+});
+test('campsite image resizing is restricted to verified public provider paths', () => {
+  for (const uri of ['https://cdn.recreation.gov/public/site.jpg', 'https://icampmo.usedirect.com/MSPWeb/images/Missouri/site.jpg']) {
+    assert.match(imageUrl(uri, 256), /_next\/image/);
+    assert.match(imageUrl(uri, 1920), /w=1920/);
+  }
+  for (const uri of ['https://cdn.recreation.gov/private/site.jpg', 'https://icampmo.usedirect.com/other/site.jpg']) assert.equal(imageUrl(uri, 256), uri);
+});
+
+test('optional page alerts distinguish failure from a successful empty response and recover', async () => {
+  const { loadPageAlerts } = await import('./data/page-alerts');
+  assert.deepEqual(await loadPageAlerts(async () => { throw new Error('database blip'); }), { alerts: [], unavailable: true });
+  assert.deepEqual(await loadPageAlerts(async () => []), { alerts: [], unavailable: false });
+});
+
+test('campground enrichment failure does not reject either access-list representation', async () => {
+  const { createClient } = await import('@supabase/supabase-js');
+  const { loadCampgroundEnrichment } = await import('./access-points/campground-enrichment');
+  for (const compact of [false, true]) {
+    let failed = true;
+    const client = createClient<import('@/types/database').Database>('https://fixture.supabase.co', 'fixture-key', {
+      auth: { persistSession: false, autoRefreshToken: false },
+      global: { fetch: async () => failed
+        ? Response.json({ message: 'temporarily unavailable' }, { status: 503 })
+        : Response.json([{ id: 'camp', images: [] }]) },
+    });
+    assert.equal((await loadCampgroundEnrichment(client, ['camp'], compact)).size, 0);
+    failed = false;
+    assert.equal((await loadCampgroundEnrichment(client, ['camp'], compact)).has('camp'), true);
+  }
+});
+
+test('late saved camping dates extend a fresh short result and survive full-load failures and retry', async () => {
+  const { mergeCampingSnapshots } = await import('../../../eddy-ios/src/lib/mergeCampingSnapshots');
+  const day = (i: number) => new Date(Date.UTC(2026, 9, 3 + i)).toISOString().slice(0, 10);
+  const snapshot = (count: number, generatedAt: string, checkedAt: string, sitesOpen: number) => ({
+    schemaVersion: 1, timeZone: 'America/Chicago', generatedAt, maxObservationAgeSeconds: 3600,
+    horizon: { startDate: day(0), endDateExclusive: day(count), nights: Array.from({ length: count }, (_, i) => day(i)) },
+    tracked: [{ id: 'camp', facilityId: 'camp', source: 'recreation_gov',
+      nights: Array.from({ length: count }, (_, i) => ({ date: day(i), checkedAt, sitesOpen, sitesReservable: 10, status: 'open' })) }],
+    untracked: [],
+  } as unknown as CampingOverview);
+  const short = snapshot(21, '2026-10-03T12:00:00Z', '2026-10-03T11:59:00Z', 2);
+  const saved = snapshot(90, '2026-10-02T12:00:00Z', '2026-10-02T11:00:00Z', 8);
+  saved.tracked.unshift({ ...saved.tracked[0], id: 'removed', facilityId: 'removed' });
+  let shown: CampingOverview | null = null;
+  let disk: CampingOverview | null = null;
+  const publish = (next: CampingOverview) => { shown = mergeCampingSnapshots(shown, next); };
+  const load = () => loadCampingWindow({ nights: 90, hasFullSnapshot: () => disk !== null,
+    fetchWindow: async (nights) => {
+      if (nights === 21) return short;
+      disk = saved;
+      publish(saved); // Slow disk read arrives after the fresh short window.
+      throw new Error('offline');
+    }, publish,
+  });
+  await assert.rejects(load(), /offline/);
+  await assert.rejects(load(), /offline/);
+  const result = shown as unknown as CampingOverview;
+  assert.equal(result.horizon.nights.length, 90);
+  assert.deepEqual(result.tracked.map((row) => row.facilityId), ['camp']);
+  assert.equal(result.generatedAt, short.generatedAt);
+  assert.equal(result.tracked[0].nights[0].sitesOpen, 2);
+  assert.equal(result.tracked[0].nights[0].checkedAt, short.tracked[0].nights[0].checkedAt);
+  assert.equal(result.tracked[0].nights[40].checkedAt, saved.tracked[0].nights[40].checkedAt);
+  const { currentNight } = await import('../../../eddy-ios/src/lib/campingHeatmap');
+  assert.equal(currentNight(result.tracked[0], day(40), 3600, Date.parse(short.generatedAt)), undefined);
+  assert.deepEqual(mergeCampingSnapshots(saved, short), result);
+  const full = snapshot(90, '2026-10-03T12:01:00Z', '2026-10-03T12:00:00Z', 1);
+  assert.equal(mergeCampingSnapshots(result, full), full);
 });

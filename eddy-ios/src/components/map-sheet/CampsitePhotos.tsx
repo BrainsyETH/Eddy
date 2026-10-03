@@ -1,6 +1,6 @@
+import { ScenicImage } from '@/components/ScenicImage';
 import { useState } from 'react';
 import {
-  Image,
   Modal,
   Pressable,
   ScrollView,
@@ -45,10 +45,11 @@ export function CampsitePhotos({
           accessibilityRole="button"
           accessibilityLabel={`View ${photos.length} ${photos.length === 1 ? 'photo' : 'photos'} of ${label}`}
         >
-          <Image
-            source={{ uri: thumbnail.url, cache: 'force-cache' }}
+          <ScenicImage
+            imageWidth={large ? 1080 : 256}
+            source={{ uri: thumbnail.url }}
             style={large ? styles.large : styles.thumbnail}
-            resizeMode="cover"
+            contentFit="cover"
             onError={() => fail(thumbnail.url)}
             accessible={false}
           />
@@ -93,10 +94,11 @@ export function CampsitePhotos({
                   centerContent
                   onLayout={(event) => setViewport(event.nativeEvent.layout)}
                 >
-                  <Image
-                    source={{ uri: selected.url, cache: 'force-cache' }}
+                  <ScenicImage
+                    imageWidth={1920}
+                    source={{ uri: selected.url }}
                     style={{ width: viewport.width, height: viewport.height }}
-                    resizeMode="contain"
+                    contentFit="contain"
                     accessibilityLabel={selected.title || `Photo of ${label}`}
                     onError={() => fail(selected.url)}
                   />
