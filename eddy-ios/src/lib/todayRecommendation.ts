@@ -1,18 +1,16 @@
-import type { MapGauge, RiverAlert, RiverListItem } from '@eddy/types';
-import { hasCoordinates } from '@eddy/types';
+import type { RiverAlert, RiverListItem } from '@eddy/types';
 import { milesBetween, type Coords } from '@eddy/geo';
 import { isReadingStale } from '@eddy/conditions/reading-staleness';
 import { floatableRank, isFloatableNow } from '../theme/conditions';
 import { primaryReading } from './readingCopy';
 
-export const TODAY_RADIUS_MILES = 75;
+export const TODAY_RADIUS_MILES = 100;
 export const TODAY_SWITCH_MARGIN_MILES = 10;
 
 export type RecommendationMode = 'nearby' | 'statewide';
 
 export interface TodayRecommendation {
   river: RiverListItem;
-  gauge: MapGauge | null;
   distanceMiles: number | null;
   mode: RecommendationMode;
   reason: string;
@@ -34,7 +32,6 @@ export function recommendationNoticeSummary(notices: readonly RiverAlert[]) {
 
 interface Candidate {
   river: RiverListItem;
-  gauge: MapGauge | null;
   distanceMiles: number | null;
   readingAgeHours: number;
   notices: RiverAlert[];
@@ -42,8 +39,6 @@ interface Candidate {
 
 interface RecommendationInput {
   rivers: RiverListItem[];
-  gauges: MapGauge[];
-  favoriteRiverIds: ReadonlySet<string>;
   coords: Coords | null;
   /** Display context only. Agency notices do not determine river-wide eligibility. */
   notices?: RiverAlert[] | null;
@@ -54,21 +49,16 @@ interface RecommendationInput {
 
 function recommendationCandidates({
   rivers,
-  gauges,
-  favoriteRiverIds,
   coords,
   radiusMiles = TODAY_RADIUS_MILES,
   notices = [],
 }: RecommendationInput): Candidate[] {
   const candidates = rivers
-    .filter((river) => !favoriteRiverIds.has(river.id) && isTodayRecommendationEligible(river))
+    .filter(isTodayRecommendationEligible)
     .map<Candidate>((river) => {
-      const gauge = primaryGaugeForRiver(gauges, river.id);
-      const distanceMiles =
-        coords && gauge && hasCoordinates(gauge) ? milesBetween(coords, gauge.coordinates) : null;
+      const distanceMiles = coords ? nearestAccessDistance(river, coords) : null;
       return {
         river,
-        gauge,
         notices: (notices ?? []).filter((notice) => notice.riverSlug === river.slug),
         distanceMiles,
         readingAgeHours: river.currentCondition?.readingAgeHours ?? Infinity,
@@ -84,15 +74,24 @@ function recommendationCandidates({
     .sort(compareCandidates);
 }
 
-function primaryGaugeForRiver(gauges: MapGauge[], riverId: string): MapGauge | null {
-  let fallback: MapGauge | null = null;
-  for (const gauge of gauges) {
-    const link = gauge.thresholds?.find((threshold) => threshold.riverId === riverId);
-    if (!link) continue;
-    if (link.isPrimary) return gauge;
-    fallback ??= gauge;
+/** No gauge fallback: a gauge can be far from every usable launch. */
+export function nearestAccessDistance(river: RiverListItem, coords: Coords): number | null {
+  let nearest = Infinity;
+  for (const point of river.floatAccessCoordinates ?? []) {
+    if (!Number.isFinite(point.lat) || !Number.isFinite(point.lng) ||
+        Math.abs(point.lat) > 90 || Math.abs(point.lng) > 180 ||
+        (point.lat === 0 && point.lng === 0)) continue;
+    nearest = Math.min(nearest, milesBetween(coords, point));
   }
-  return fallback;
+  return Number.isFinite(nearest) ? nearest : null;
+}
+
+export function todayRecommendationEmptyMessage(rivers: RiverListItem[], coords: Coords | null): string {
+  if (!coords) return 'No fresh floatable reading yet';
+  if (rivers.some((river) => isTodayRecommendationEligible(river) && river.floatAccessCoordinates == null)) {
+    return 'Nearby access data unavailable. Pull down to retry.';
+  }
+  return `No rivers with fresh floatable conditions and access within ${TODAY_RADIUS_MILES} miles`;
 }
 
 /** Positive guidance requires a fresh, usable reading in the canonical safe bucket. */
@@ -124,13 +123,13 @@ function reasonFor(candidate: Candidate, mode: RecommendationMode): string {
     const distance = candidate.distanceMiles < 10
       ? candidate.distanceMiles.toFixed(1)
       : Math.round(candidate.distanceMiles);
-    return `≈ ${distance} mi to gauge`;
+    return `≈ ${distance} mi to nearest access`;
   }
   return 'Fresh gauge reading';
 }
 
 /**
- * Picks discovery, not a duplicate favorite. Condition band wins before
+ * Favorites and other rivers are equally eligible. Condition band wins before
  * distance. Within one band an incumbent remains until another river is at
  * least `switchMarginMiles` closer, preventing the card from flapping as a
  * coarse location fix or two readings arrive in a different order.
@@ -172,7 +171,7 @@ function chooseLead(candidates: Candidate[], {
 }
 
 /**
- * Returns a stable lead recommendation followed by the next best discovery
+ * Returns a stable lead recommendation followed by the next best
  * candidates. The lead uses the same anti-flapping rule as the original
  * single-card picker; the rest remain in ranked order so the swipe rail is
  * predictable and never repeats the first card.

@@ -54,7 +54,7 @@ import { formatReading, primaryReading, readingAge } from '@/lib/readingCopy';
 import { dailyFavoriteFloats } from '@/lib/todayFloats';
 import {
   chooseTodayRecommendations,
-  TODAY_RADIUS_MILES,
+  todayRecommendationEmptyMessage,
   type TodayRecommendation,
 } from '@/lib/todayRecommendation';
 import { railSelectionIndex, railIndexAtOffset } from '@/lib/railSelection';
@@ -517,13 +517,11 @@ export function TodayHub({
   const recommendations = useMemo(
     () => incumbentState.ready ? chooseTodayRecommendations({
       rivers,
-      gauges: gauges ?? [],
-      favoriteRiverIds: favoriteIds,
       notices: safety.notices,
       coords: location.coords,
       incumbentRiverId: incumbentState.riverId,
     }) : [],
-    [favoriteIds, gauges, incumbentState, location.coords, rivers, safety.notices],
+    [incumbentState, location.coords, rivers, safety.notices],
   );
   const recommendation = recommendations[0] ?? null;
 
@@ -745,7 +743,7 @@ export function TodayHub({
 
       <View style={styles.section}>
         <SectionHead title={location.coords ? 'Best Near You' : 'Best Right Now'} />
-        {!gauges || !incumbentState.ready ? (
+        {!incumbentState.ready ? (
           <View style={styles.loading}><ActivityIndicator color={colors.interactive} /></View>
         ) : recommendations.length > 1 ? (
           <CardRail label={location.coords ? 'Best Near You' : 'Best Right Now'} cardWidth={300}>
@@ -770,7 +768,7 @@ export function TodayHub({
         ) : (
           <View style={[styles.emptyBest, { backgroundColor: colors.card, borderColor: colors.border }]}>
             <Text style={[styles.emptyTitle, { color: colors.text }]}>
-              {location.coords ? `No fresh floatable pick within ${TODAY_RADIUS_MILES} miles` : 'No fresh floatable reading yet'}
+              {todayRecommendationEmptyMessage(rivers, location.coords)}
             </Text>
           </View>
         )}

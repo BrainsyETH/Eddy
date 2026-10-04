@@ -3,6 +3,8 @@ import { RIVER_PHOTOS, RIVER_PHOTO_CREDITS } from '@shared/river-photos';
 // Shared server-side data fetching for rivers
 // Used by both the API route and server components
 
+import { accessPointCoordinates } from '@/lib/offline/shapes';
+import { getServiceAreaBounds } from '@/lib/geo/region-bounds';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { mapConditionCode } from '@/lib/conditions';
 import { computeTrend, type GaugeUnit } from '@shared/gauge-trend';
@@ -133,8 +135,9 @@ async function fetchConditionsByRiver(
  * answer a question with 312 rows behind it, every one of them waiting on the
  * connection pool alongside the condition RPC beside it.
  *
- * PostgREST has no GROUP BY, so the ids come back and are counted here. One
- * column, one row per access point — 312 of them today.
+ * PostgREST has no GROUP BY, so the ids come back and are counted here. The
+ * same paged read supplies approved float-endpoint coordinates for nearby
+ * recommendations, avoiding one additional request per river.
  *
  * PAGED, because PostgREST caps a response and a cap here would not look like
  * an error: it would look like the rivers at the end of the alphabet lost their
@@ -143,15 +146,17 @@ async function fetchConditionsByRiver(
  */
 const ACCESS_POINT_PAGE = 1000;
 
-async function fetchApprovedAccessPointCounts(
+async function fetchApprovedAccessPoints(
   supabase: ReturnType<typeof createAdminClient>,
-): Promise<Map<string, number>> {
+) {
   const counts = new Map<string, number>();
+  const coordinates = new Map<string, { lat: number; lng: number }[]>();
+  const serviceBounds = await getServiceAreaBounds();
 
   for (let from = 0; ; from += ACCESS_POINT_PAGE) {
     const { data, error } = await supabase
       .from('access_points')
-      .select('river_id')
+      .select('river_id, is_float_endpoint, location_orig, location_snap')
       .eq('approved', true)
       // A total order, or a row can appear on two pages and be counted twice
       // while another is never seen at all.
@@ -163,25 +168,33 @@ async function fetchApprovedAccessPointCounts(
       // number of put-ins still belongs in the list. Callers see 0, which is
       // what the failed per-river count returned too.
       console.error('Error counting access points:', error);
-      return counts;
+      // Never publish partial proximity data as a complete catalog.
+      return { counts, coordinates: null };
     }
 
     const rows = data ?? [];
     for (const row of rows) {
       const riverId = row.river_id as string | null;
-      if (riverId) counts.set(riverId, (counts.get(riverId) ?? 0) + 1);
+      if (!riverId) continue;
+      counts.set(riverId, (counts.get(riverId) ?? 0) + 1);
+      if (row.is_float_endpoint === false) continue;
+      const point = accessPointCoordinates(row, serviceBounds);
+      if (!point) continue;
+      const points = coordinates.get(riverId) ?? [];
+      points.push(point);
+      coordinates.set(riverId, points);
     }
 
-    if (rows.length < ACCESS_POINT_PAGE) return counts;
+    if (rows.length < ACCESS_POINT_PAGE) return { counts, coordinates };
   }
 }
 
 export async function getRivers(): Promise<RiverListItem[]> {
   const supabase = createAdminClient();
-  const [{ stationByRiver, siteByRiver, readingsByStation }, accessPointCounts, conditionsByRiver] =
+  const [{ stationByRiver, siteByRiver, readingsByStation }, accessPoints, conditionsByRiver] =
     await Promise.all([
       fetchTrendInputs(supabase),
-      fetchApprovedAccessPointCounts(supabase),
+      fetchApprovedAccessPoints(supabase),
       fetchConditionsByRiver(supabase),
     ]);
 
@@ -192,7 +205,7 @@ export async function getRivers(): Promise<RiverListItem[]> {
   // from a separate per-river query beside it. A river with zero approved
   // access points still belongs in the list either way, which is what the old
   // LEFT join (not !inner) was protecting, and a Map lookup that misses simply
-  // yields 0. See fetchApprovedAccessPointCounts.
+  // yields 0. See fetchApprovedAccessPoints.
   let rivers;
   let error;
 
@@ -288,7 +301,10 @@ export async function getRivers(): Promise<RiverListItem[]> {
         floatTip: river.float_tip,
         difficultyRating: river.difficulty_rating,
         region: river.region,
-        accessPointCount: accessPointCounts.get(river.id) ?? 0,
+        accessPointCount: accessPoints.counts.get(river.id) ?? 0,
+        ...(accessPoints.coordinates === null ? {} : {
+          floatAccessCoordinates: accessPoints.coordinates.get(river.id) ?? [],
+        }),
         currentCondition: condition
           ? {
               label: condition.condition_label,

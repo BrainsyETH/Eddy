@@ -78,6 +78,10 @@ export interface RiverListItem extends River {
   photoUrl?: string | null;
   photoCredit?: { text: string; url: string } | null;
   accessPointCount: number;
+  /** Approved put-in/take-out positions, using the map's coordinate validation.
+   * Missing means unavailable (older API/cache or failed lookup); [] means none.
+   * Distances to these points are straight-line, never driving distances. */
+  floatAccessCoordinates?: { lat: number; lng: number }[];
   /** rivers.state code, e.g. 'MO' */
   state: string;
   /** rivers.river_type — hydrological archetype, e.g. 'spring_fed_float' */

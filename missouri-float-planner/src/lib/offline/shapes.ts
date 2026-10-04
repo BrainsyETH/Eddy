@@ -326,18 +326,11 @@ export interface LiveAvailabilityRow {
 /** The select both callers run. One string, so they cannot drift. */
 export const LIVE_AVAILABILITY_SELECT = 'access_point_id, nps_campground_id';
 
-export function toAccessPoint(
-  row: AccessPointRow,
-  npsById: ReadonlyMap<string, NPSCampgroundInfo>,
+/** Use the same usable position for map pins and nearby recommendations. */
+export function accessPointCoordinates(
+  row: Pick<AccessPointRow, 'location_orig' | 'location_snap'>,
   serviceBounds: GeoBounds,
-  /**
-   * Required rather than defaulted, deliberately. A caller that forgot it would
-   * report "no availability anywhere", which is indistinguishable from the truth
-   * for three quarters of campgrounds and would put the peek back exactly where
-   * this flag was added to move it from. Pass NO_LIVE_AVAILABILITY to opt out.
-   */
-  liveAvailability: LiveAvailabilityIndex,
-) {
+): { lng: number; lat: number } | null {
   // location_orig before location_snap: the snapped coordinates are snapped to
   // simplified seed geometry and are wrong until NHD import lands.
   //
@@ -350,6 +343,25 @@ export function toAccessPoint(
 
   if (lng == null || lat == null) return null;
   if (!inBounds(lat, lng, serviceBounds)) return null;
+
+  return { lng, lat };
+}
+
+export function toAccessPoint(
+  row: AccessPointRow,
+  npsById: ReadonlyMap<string, NPSCampgroundInfo>,
+  serviceBounds: GeoBounds,
+  /**
+   * Required rather than defaulted, deliberately. A caller that forgot it would
+   * report "no availability anywhere", which is indistinguishable from the truth
+   * for three quarters of campgrounds and would put the peek back exactly where
+   * this flag was added to move it from. Pass NO_LIVE_AVAILABILITY to opt out.
+   */
+  liveAvailability: LiveAvailabilityIndex,
+) {
+  const coordinates = accessPointCoordinates(row, serviceBounds);
+  if (!coordinates) return null;
+  const { lng, lat } = coordinates;
 
   return {
     id: row.id,

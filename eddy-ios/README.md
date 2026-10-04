@@ -702,13 +702,35 @@ requests local weather from Eddy using coordinates rounded to 0.05 degrees.
 The location permission discloses that approximate coordinates are sent for
 the forecast; do not describe location as never leaving the device.
 
-Two things it powers. The planner's put-in list gains a **nearest-first**
-ordering (headwaters-first stays the default — that is the order a river runs
-in). And Search gains a distance sort, which measures to **the river's
-primary gauge**: `/api/rivers` carries no coordinate, and rather than change a
-CDN-cached endpoint the website depends on, the gauge is used as a point known
-to be on the river. Both surfaces say "≈" and "away", never a drive time — an
-Ozark river forty miles off can be ninety minutes of two-lane.
+The planner's put-in list gains a **nearest-first** ordering (headwaters-first
+stays the default — that is the order a river runs in). Search's distance sort
+currently measures to **the river's primary gauge**; Today's recommendations
+use access points as described below. Distances are approximate straight-line
+miles, never drive times — an Ozark river forty miles off can be ninety minutes
+of two-lane.
+
+### Best Near You
+
+Today includes favorite and unfavorited rivers alike, within 100 straight-line
+miles of the nearest approved float endpoint. The river still needs a fresh,
+usable reading rated Good or Flowing. Condition band ranks before distance;
+the existing 10-mile switching margin keeps the lead card stable.
+
+`/api/rivers` supplies `floatAccessCoordinates` from the same paged access-point
+query as its counts, using the map's coordinate validation. Non-launch places
+are excluded; paid/outfitter endpoints remain eligible just as in the planner.
+The card says “to nearest access”; this is not road mileage or a guarantee that
+an individual launch is open. Existing agency notices stay on the card.
+
+Deploy the API addition before testing/distributing the updated app. Older
+clients ignore the optional field. An older API/cache or failed access query
+produces an unavailable/retry message, never a gauge-distance fallback or a
+claim that there are no nearby rivers. Pull to refresh after deployment.
+
+Device QA: from St. Louis, check Meramec and Big River when their readings qualify;
+star/unstar them and confirm they remain eligible. Check the access distance,
+no-location statewide picks, a location outside 100 miles, and an older response
+without access coordinates. Recommendations no longer wait on the gauge feed.
 
 ### There is no offline map download
 

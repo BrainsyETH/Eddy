@@ -1,11 +1,14 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import type { HighWaterEntry, MapGauge, RiverAlert, RiverListItem } from '@eddy/types';
+import type { HighWaterEntry, RiverAlert, RiverListItem } from '@eddy/types';
 import {
   chooseTodayRecommendation,
   chooseTodayRecommendations,
   isTodayRecommendationEligible,
   recommendationNoticeSummary,
+  nearestAccessDistance,
+  TODAY_RADIUS_MILES,
+  todayRecommendationEmptyMessage,
 } from '../../../eddy-ios/src/lib/todayRecommendation';
 import { favoriteFloatMeta } from '../../../eddy-ios/src/lib/favoriteFloatCopy';
 import {
@@ -15,30 +18,16 @@ import {
 } from '../../../eddy-ios/src/lib/todayFloats';
 import { defaultCurrentAlertsFilter, filterCurrentAlerts } from '../../../eddy-ios/src/lib/todaySafety';
 
-function river(id: string, code: 'good' | 'flowing' | 'high' | 'unknown', age = 1): RiverListItem {
+function river(id: string, code: 'good' | 'flowing' | 'high' | 'unknown', age = 1, lng = -93.1): RiverListItem {
   return {
     id, name: `River ${id}`, slug: `river-${id}`, lengthMiles: 10,
     description: null, difficultyRating: null, region: null, accessPointCount: 2,
+    floatAccessCoordinates: [{ lat: 37, lng }],
     state: 'MO', riverType: 'spring_fed_float', path: `/rivers/missouri/river-${id}`,
     currentCondition: {
       label: code, code, thresholdUnit: 'ft', gaugeHeightFt: 2.1,
       dischargeCfs: null, readingAgeHours: age, trend: null,
     },
-  };
-}
-
-function gauge(id: string, riverId: string, lng: number): MapGauge {
-  return {
-    id: `gauge-${id}`, usgsSiteId: id, name: `Gauge ${id}`,
-    coordinates: { lat: 37, lng }, gaugeHeightFt: 2.1, dischargeCfs: null,
-    readingTimestamp: new Date().toISOString(), readingAgeHours: 1,
-    readingSuspect: false, qualifierNote: null,
-    thresholds: [{
-      riverId, riverName: `River ${riverId}`, riverSlug: `river-${riverId}`,
-      isPrimary: true, thresholdUnit: 'ft', levelTooLow: 0.5, levelLow: 1,
-      levelOptimalMin: 1.5, levelOptimalMax: 3, levelHigh: 4,
-      levelDangerous: 5, floodStageFt: null,
-    }],
   };
 }
 
@@ -71,118 +60,116 @@ test('recommendations require positive water and the shared fresh-reading window
   assert.equal(isTodayRecommendationEligible(river('stale', 'good', 7)), false);
 });
 
-test('Best Near You is discovery and excludes favorites', () => {
-  const favorite = river('favorite', 'good');
-  const discovery = river('discovery', 'flowing');
+test('Best Near You includes favorite rivers in the same ranking as other rivers', () => {
+  const favorite = river('favorite', 'good', 1, -93.01);
+  const other = river('other', 'good', 1, -93.2);
   const result = chooseTodayRecommendation({
-    rivers: [favorite, discovery],
-    gauges: [gauge('favorite', favorite.id, -93.01), gauge('discovery', discovery.id, -93.2)],
-    favoriteRiverIds: new Set([favorite.id]), coords: { lat: 37, lng: -93 },
+    rivers: [other, favorite], coords: { lat: 37, lng: -93 },
   });
-  assert.equal(result?.river.id, discovery.id);
-  assert.match(result?.reason ?? '', /^≈ [\d.]+ mi to gauge$/);
+  assert.equal(result?.river.id, favorite.id);
+  assert.match(result?.reason ?? '', /^≈ [\d.]+ mi to nearest access$/);
 });
 
-test('Best Near You rail returns distinct ranked candidates', () => {
-  const favorite = river('favorite', 'flowing');
-  const first = river('first', 'flowing');
-  const second = river('second', 'good');
-  const third = river('third', 'good');
-  const outsideRadius = river('outside', 'flowing');
+test('Best Near You rail returns distinct ranked candidates including favorites', () => {
   const results = chooseTodayRecommendations({
-    rivers: [favorite, third, outsideRadius, second, first],
-    gauges: [
-      gauge('favorite', favorite.id, -93.01),
-      gauge('first', first.id, -93.2),
-      gauge('second', second.id, -93.1),
-      gauge('third', third.id, -93.3),
-      gauge('outside', outsideRadius.id, -96),
-    ],
-    favoriteRiverIds: new Set([favorite.id]),
+    rivers: [river('favorite', 'flowing', 1, -93.01), river('third', 'good', 1, -93.3),
+      river('outside', 'flowing', 1, -96), river('second', 'good', 1, -93.1),
+      river('first', 'flowing', 1, -93.2)],
     coords: { lat: 37, lng: -93 },
   });
-
-  assert.deepEqual(results.map((item) => item.river.id), ['first', 'second', 'third']);
+  assert.deepEqual(results.map((item) => item.river.id), ['favorite', 'first', 'second']);
   assert.equal(new Set(results.map((item) => item.river.id)).size, results.length);
 });
 
 test('Best Near You rail keeps the stabilized recommendation first', () => {
-  const incumbent = river('incumbent', 'good');
-  const challenger = river('challenger', 'good');
+  const incumbent = river('incumbent', 'good', 1, -93.15);
+  const challenger = river('challenger', 'good', 1, -93.1);
   const results = chooseTodayRecommendations({
-    rivers: [challenger, incumbent],
-    gauges: [gauge('challenger', challenger.id, -93.1), gauge('incumbent', incumbent.id, -93.15)],
-    favoriteRiverIds: new Set(),
-    coords: { lat: 37, lng: -93 },
+    rivers: [challenger, incumbent], coords: { lat: 37, lng: -93 },
     incumbentRiverId: incumbent.id,
   });
-
   assert.deepEqual(results.map((item) => item.river.id), ['incumbent', 'challenger']);
 });
 
-test('condition band ranks before distance', () => {
-  const closeGood = river('close', 'good');
-  const fartherFlowing = river('farther', 'flowing');
+test('condition band ranks before access distance', () => {
   const result = chooseTodayRecommendation({
-    rivers: [closeGood, fartherFlowing],
-    gauges: [gauge('close', closeGood.id, -93.03), gauge('farther', fartherFlowing.id, -93.3)],
-    favoriteRiverIds: new Set(), coords: { lat: 37, lng: -93 },
+    rivers: [river('close', 'good', 1, -93.03), river('farther', 'flowing', 1, -93.3)],
+    coords: { lat: 37, lng: -93 },
   });
-  assert.equal(result?.river.id, fartherFlowing.id);
+  assert.equal(result?.river.id, 'farther');
 });
 
-test('same-band incumbent stays until a challenger is meaningfully closer', () => {
-  const incumbent = river('incumbent', 'good');
-  const challenger = river('challenger', 'good');
-  const result = chooseTodayRecommendation({
-    rivers: [challenger, incumbent],
-    gauges: [gauge('challenger', challenger.id, -93.1), gauge('incumbent', incumbent.id, -93.15)],
-    favoriteRiverIds: new Set(), coords: { lat: 37, lng: -93 },
+test('same-band incumbent yields when another access is meaningfully closer', () => {
+  const incumbent = river('incumbent', 'good', 1, -93.5);
+  const challenger = river('challenger', 'good', 1, -93.1);
+  assert.equal(chooseTodayRecommendation({
+    rivers: [challenger, incumbent], coords: { lat: 37, lng: -93 },
     incumbentRiverId: incumbent.id,
-  });
-  assert.equal(result?.river.id, incumbent.id);
+  })?.river.id, challenger.id);
 });
 
-test('known location has no statewide fallback outside the fixed radius', () => {
-  const candidate = river('far', 'good');
-  const result = chooseTodayRecommendation({
-    rivers: [candidate], gauges: [gauge('far', candidate.id, -96)],
-    favoriteRiverIds: new Set(), coords: { lat: 37, lng: -93 },
-  });
-  assert.equal(result, null);
+test('100-mile radius includes launches beyond the former 75-mile cutoff', () => {
+  assert.equal(TODAY_RADIUS_MILES, 100);
+  const candidate = river('between-75-and-100', 'good', 1, -94.6);
+  const coords = { lat: 37, lng: -93 };
+  const distance = nearestAccessDistance(candidate, coords)!;
+  assert.ok(distance > 75 && distance < 100);
+  assert.equal(chooseTodayRecommendation({ rivers: [candidate], coords })?.river.id, candidate.id);
+  assert.equal(chooseTodayRecommendation({ rivers: [candidate], coords, radiusMiles: 75 }), null);
+  assert.ok(chooseTodayRecommendation({ rivers: [candidate], coords, radiusMiles: distance }));
+  assert.equal(chooseTodayRecommendation({ rivers: [candidate], coords, radiusMiles: distance - 0.01 }), null);
+  assert.equal(chooseTodayRecommendation({ rivers: [river('far', 'good', 1, -96)], coords }), null);
+});
+
+test('nearest usable access determines proximity, independent of the primary gauge', () => {
+  const meramec = { ...river('meramec', 'good'),
+    primaryGaugeId: 'steelville',
+    floatAccessCoordinates: [{ lat: 37.957, lng: -91.354 }, { lat: 38.546, lng: -90.453 }],
+  };
+  const coords = { lat: 38.627, lng: -90.1994 };
+  const result = chooseTodayRecommendation({ rivers: [meramec], coords });
+  assert.equal(result?.river.id, 'meramec');
+  assert.ok(result!.distanceMiles! < 20, 'use the nearby launch, not the upstream gauge');
+  assert.equal(nearestAccessDistance(meramec, coords), nearestAccessDistance({
+    ...meramec, floatAccessCoordinates: [...meramec.floatAccessCoordinates].reverse(),
+  }, coords));
+});
+
+test('missing or invalid access positions cannot produce nearby picks or gauge distances', () => {
+  const coords = { lat: 37, lng: -93 };
+  const candidate = river('no-access', 'good');
+  for (const floatAccessCoordinates of [undefined, [], [{ lat: NaN, lng: -93 }],
+    [{ lat: 0, lng: 0 }], [{ lat: 91, lng: -93 }], [{ lat: 37, lng: -181 }]]) {
+    const entry = { ...candidate, floatAccessCoordinates };
+    assert.equal(nearestAccessDistance(entry, coords), null);
+    assert.equal(chooseTodayRecommendation({ rivers: [entry], coords }), null);
+    assert.equal(chooseTodayRecommendation({ rivers: [entry], coords: null })?.river.id, candidate.id);
+  }
+  assert.equal(todayRecommendationEmptyMessage([{ ...candidate, floatAccessCoordinates: undefined }], coords),
+    'Nearby access data unavailable. Pull down to retry.');
+  assert.equal(todayRecommendationEmptyMessage([{ ...candidate, floatAccessCoordinates: [] }], coords),
+    'No rivers with fresh floatable conditions and access within 100 miles');
 });
 
 test('statewide mode falls through null distance to age and name tiebreaks', () => {
   const zulu = river('zulu', 'good', 9);
   const alpha = river('alpha', 'good', 1);
   const mike = river('mike', 'good', 5);
-  const result = chooseTodayRecommendation({
-    rivers: [zulu, alpha, mike], gauges: [], favoriteRiverIds: new Set(), coords: null,
-  });
-  assert.equal(result?.river.id, alpha.id);
-
+  assert.equal(chooseTodayRecommendation({ rivers: [zulu, alpha, mike], coords: null })?.river.id, alpha.id);
   const bravo = river('bravo', 'good', 1);
-  const sameAge = chooseTodayRecommendation({
-    rivers: [bravo, alpha], gauges: [], favoriteRiverIds: new Set(), coords: null,
-  });
-  assert.equal(sameAge?.river.id, alpha.id);
+  assert.equal(chooseTodayRecommendation({ rivers: [bravo, alpha], coords: null })?.river.id, alpha.id);
 });
 
 test('statewide mode keeps a same-band incumbent but yields to a better band', () => {
   const incumbent = river('incumbent', 'good', 5);
   const fresher = river('fresher', 'good', 1);
-  const stable = chooseTodayRecommendation({
-    rivers: [fresher, incumbent], gauges: [], favoriteRiverIds: new Set(), coords: null,
-    incumbentRiverId: incumbent.id,
-  });
-  assert.equal(stable?.river.id, incumbent.id);
-
+  assert.equal(chooseTodayRecommendation({
+    rivers: [fresher, incumbent], coords: null, incumbentRiverId: incumbent.id,
+  })?.river.id, incumbent.id);
   const better = river('better', 'flowing', 4);
-  const improved = chooseTodayRecommendation({
-    rivers: [incumbent, better], gauges: [], favoriteRiverIds: new Set(), coords: null,
-    incumbentRiverId: incumbent.id,
-  });
-  assert.equal(improved?.river.id, better.id);
+  assert.equal(chooseTodayRecommendation({
+    rivers: [incumbent, better], coords: null, incumbentRiverId: incumbent.id,
+  })?.river.id, better.id);
 });
 
 test('favorite float metadata labels the typical trip range', () => {
