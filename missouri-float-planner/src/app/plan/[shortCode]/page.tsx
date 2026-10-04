@@ -13,6 +13,7 @@ import PlanSummary from '@/components/plan/PlanSummary';
 import LoadingSpinner from '@/components/ui/LoadingSpinner';
 import { EDDY_IMAGES } from '@/constants';
 import type { FloatPlan } from '@/types/api';
+import { loadSharedPlan } from '@/lib/shared-plan-load';
 
 const MapContainer = dynamic(() => import('@/components/map/MapContainer'), {
   ssr: false,
@@ -31,32 +32,29 @@ export default function SharedPlanPage() {
 
   const [plan, setPlan] = useState<FloatPlan | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<'not-found' | 'unavailable' | null>(null);
+  const [attempt, setAttempt] = useState(0);
   const [copied, setCopied] = useState(false);
 
   useEffect(() => {
+    const controller = new AbortController();
+    // Reset when navigating to another plan or explicitly retrying.
     async function fetchPlan() {
-      try {
-        const response = await fetch(`/api/plan/${shortCode}`);
-        if (!response.ok) {
-          throw new Error('Plan not found');
-        }
-        const data = await response.json();
-        setPlan(data.plan);
-      } catch {
-        setError('This plan could not be found or has expired.');
-      } finally {
-        setIsLoading(false);
-      }
+      setIsLoading(true);
+      setError(null);
+      setPlan(null);
+      const result = await loadSharedPlan(shortCode, controller.signal);
+      if (controller.signal.aborted) return;
+      if (result.kind === 'loaded') setPlan(result.plan);
+      else setError(result.kind);
+      setIsLoading(false);
     }
-
-    if (shortCode) {
-      fetchPlan();
-    }
-  }, [shortCode]);
+    void fetchPlan();
+    return () => controller.abort();
+  }, [shortCode, attempt]);
 
   const handleShare = async () => {
-    const shareUrl = window.location.href;
+    const shareUrl = `https://eddy.guide/plan/${encodeURIComponent(shortCode)}`;
     const isMobile = window.matchMedia('(pointer: coarse)').matches;
 
     // Mobile: use native share sheet. Desktop: copy to clipboard.
@@ -67,8 +65,9 @@ export default function SharedPlanPage() {
           url: shareUrl,
         });
         return;
-      } catch {
-        // User cancelled or share failed, fall through to clipboard
+      } catch (error) {
+        if (error instanceof Error && error.name === 'AbortError') return;
+        // Only a genuine sharing failure offers a clipboard fallback.
       }
     }
 
@@ -103,8 +102,18 @@ export default function SharedPlanPage() {
             height={80}
             className="mx-auto mb-4 object-contain"
           />
-          <h1 className="text-2xl font-bold text-neutral-900 mb-3" style={{ fontFamily: 'var(--font-display)' }}>Plan Not Found</h1>
-          <p className="text-neutral-600 mb-6">{error}</p>
+          <h1 className="text-2xl font-bold text-neutral-900 mb-3" style={{ fontFamily: 'var(--font-display)' }}>{error === 'not-found' ? 'Plan not found' : 'Couldn’t load this plan'}</h1>
+          <p className="text-neutral-600 mb-6" role="status">
+            {error === 'not-found'
+              ? 'This plan could not be found. Check the link with the person who sent it.'
+              : 'Check your connection and try again. Your saved link may still be valid.'}
+          </p>
+          {error !== 'not-found' && (
+            <button type="button" onClick={() => setAttempt(value => value + 1)}
+              className="block mx-auto mb-4 min-h-11 px-5 py-2.5 rounded-lg bg-primary-700 text-white font-bold">
+              Try again
+            </button>
+          )}
           <Link
             href="/plan"
             className="inline-block px-5 py-2.5 rounded-lg border-2 border-neutral-900 bg-accent-500 text-white text-sm font-bold no-underline shadow-[3px_3px_0_#0F2D35] transition-all hover:-translate-x-0.5 hover:-translate-y-0.5 hover:shadow-[4px_4px_0_#0F2D35] active:translate-x-0.5 active:translate-y-0.5 active:shadow-none"

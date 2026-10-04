@@ -8,6 +8,10 @@ const HTML_LIMITED_BOT_UA_RE = /[\w-]+-Google|Google-[\w-]+|Chrome-Lighthouse|Sl
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // Image routes serve deterministic artwork without fetching live providers.
+  outputFileTracingIncludes: {
+    '/*': ['./public/share/*.png'],
+  },
   // Safari's native app banner reads <head>, not streamed metadata appended
   // to <body>. Keep the crawler defaults above while also blocking
   // metadata for iOS Safari; other browsers retain metadata streaming.

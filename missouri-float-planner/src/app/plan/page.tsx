@@ -21,16 +21,6 @@ interface Props {
   }>;
 }
 
-const CONDITION_LABELS: Record<string, string> = {
-  flowing: 'Flowing',
-  good: 'Good - Floatable',
-  low: 'Very Low',
-  high: 'High Water',
-  too_low: 'Too Low',
-  dangerous: 'Dangerous',
-  unknown: '',
-};
-
 export async function generateMetadata({ searchParams }: Props): Promise<Metadata> {
   try {
     const resolved = await searchParams;
@@ -46,14 +36,14 @@ export async function generateMetadata({ searchParams }: Props): Promise<Metadat
         alternates: { canonical: `${BASE_URL}/plan` },
         openGraph: {
           type: 'website',
-          title: `${title} | Eddy`,
+          title,
           description,
           url: `${BASE_URL}/plan`,
           siteName: 'Eddy',
         },
         twitter: {
           card: 'summary_large_image',
-          title: `${title} | Eddy`,
+          title,
           description,
         },
       };
@@ -74,20 +64,6 @@ export async function generateMetadata({ searchParams }: Props): Promise<Metadat
     const takeOutId = resolved.takeOut;
     const isShare = putInId && takeOutId;
 
-    let conditionCode = 'unknown';
-    try {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data: condRows } = await (supabase.rpc as any)('get_river_condition', {
-        p_river_id: river.id,
-      });
-      if (condRows && condRows.length > 0) {
-        conditionCode = condRows[0].condition_code || 'unknown';
-      }
-    } catch (err) {
-      console.warn('Failed to fetch conditions for plan metadata:', err);
-    }
-    const conditionText = CONDITION_LABELS[conditionCode] || '';
-
     if (isShare) {
       let putInName = '';
       let takeOutName = '';
@@ -103,11 +79,8 @@ export async function generateMetadata({ searchParams }: Props): Promise<Metadat
       }
 
       const title = `${putInName} → ${takeOutName} | ${river.name}`;
-      const description = conditionText
-        ? `Float ${river.name} from ${putInName} to ${takeOutName}. Currently ${conditionText.toLowerCase()}.`
-        : `Float ${river.name} from ${putInName} to ${takeOutName}. Plan your trip on Eddy.`;
+      const description = `Float ${river.name} from ${putInName} to ${takeOutName}. Open for current conditions and trip estimates.`;
 
-      const ogImageUrl = `${BASE_URL}/api/og/float?putIn=${putInId}&takeOut=${takeOutId}`;
       const pageUrl = `${BASE_URL}/plan?river=${slug}&putIn=${putInId}&takeOut=${takeOutId}`;
 
       return {
@@ -120,18 +93,16 @@ export async function generateMetadata({ searchParams }: Props): Promise<Metadat
           description,
           url: pageUrl,
           siteName: 'Eddy',
-          images: [{ url: ogImageUrl, width: 1200, height: 630 }],
         },
         twitter: {
           card: 'summary_large_image',
           title,
           description,
-          images: [ogImageUrl],
         },
       };
     }
 
-    const title = conditionText ? `${river.name} — ${conditionText}` : `Plan a Float on the ${river.name}`;
+    const title = `Plan a Float on the ${river.name}`;
     const ogTitle = `Plan a Float on the ${river.name}`;
     const description = `Plan a float on the ${river.name}. Pick access points and Eddy calculates distance, float time, and live conditions.`;
     const pageUrl = `${BASE_URL}/plan?river=${slug}`;

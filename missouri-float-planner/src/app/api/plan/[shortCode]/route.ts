@@ -4,6 +4,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import type { PlanResponse } from '@/types/api';
+import { savedPlanLookupStatus } from '@/lib/shared-plan-load';
 
 // Force dynamic rendering (uses cookies for Supabase)
 export const dynamic = 'force-dynamic';
@@ -26,13 +27,20 @@ export async function GET(
       { p_short_code: shortCode, p_increment_view: true }
     );
 
-    const savedPlan = Array.isArray(planRows) ? planRows[0] : null;
-    if (planError || !savedPlan) {
+    const status = savedPlanLookupStatus(planRows, planError);
+    if (status === 503) {
+      return NextResponse.json(
+        { error: 'Plan temporarily unavailable' },
+        { status: 503, headers: { 'Retry-After': '30', 'Cache-Control': 'no-store' } }
+      );
+    }
+    if (status === 404) {
       return NextResponse.json(
         { error: 'Plan not found' },
         { status: 404 }
       );
     }
+    const savedPlan = planRows[0];
 
     // Recalculate plan with current data
     const planUrl = new URL('/api/plan', request.nextUrl.origin);

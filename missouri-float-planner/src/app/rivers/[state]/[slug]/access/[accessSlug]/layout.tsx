@@ -27,7 +27,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
     const { data: ap } = await supabase
       .from('access_points')
-      .select('name, description, type, is_public, amenities, image_urls')
+      .select('name, type, is_public')
       .eq('river_id', river.id)
       .eq('slug', accessSlug)
       .eq('approved', true)
@@ -36,8 +36,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     if (!ap) return { title: 'Access Point Not Found' };
 
     const title = `${ap.name} - ${river.name}`;
-    const description = ap.description
-      || `${ap.name} is a ${ap.is_public ? 'public' : 'private'} ${ap.type?.replace('_', ' ') || 'access point'} on the ${river.name}. Plan your float trip on Eddy.`;
+    const description = `${ap.name} is a ${ap.is_public ? 'public' : 'private'} ${ap.type?.replace('_', ' ') || 'access point'} on the ${river.name}. Plan your float trip on Eddy.`;
 
     const pageUrl = `${BASE_URL}${riverAccessPath(river.state, riverSlug, accessSlug)}`;
 
@@ -57,17 +56,12 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
         description,
         url: pageUrl,
         siteName: 'Eddy',
-        ...(ap.image_urls && ap.image_urls.length > 0 && {
-          images: [{ url: ap.image_urls[0] }],
-        }),
+        // Route-specific 1200×630 artwork is discovered from the image files.
       },
       twitter: {
         card: 'summary_large_image',
         title: `${ap.name} | ${river.name}`,
         description,
-        ...(ap.image_urls && ap.image_urls.length > 0 && {
-          images: [ap.image_urls[0]],
-        }),
       },
     };
   } catch {

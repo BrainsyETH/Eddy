@@ -38,12 +38,11 @@ export async function generateMetadata({
   if (!dam) return { title: 'Dam not found' };
   return {
     ...publicPageMetadata(
-      `${dam.name} — Lake Level & Generation Schedule`,
-      `Live lake level, release and hourly generation schedule for ${dam.name}${
+      `${dam.name} — Lake Level & Releases`,
+      `Lake level, release and generation information for ${dam.name}${
         dam.lakeName ? ` on ${dam.lakeName}` : ''
-      }.`,
+      }. Open for current updates.`,
       `/dams/${damId}`,
-      '/opengraph-image',
     ),
     ...appBannerMetadata(`/dam/${encodeURIComponent(damId)}`),
   };
