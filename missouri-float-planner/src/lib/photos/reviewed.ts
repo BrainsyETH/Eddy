@@ -16,6 +16,7 @@ export interface PhotoRow {
   id: string;
   name: string;
   updated_at: string | null;
+  nps_id?: string | null;
   image_urls?: string[] | null;
   images?: unknown;
   details?: unknown;
@@ -33,6 +34,9 @@ export function reviewedPhotoPatch(entry: ReviewedPhoto, row: PhotoRow): Record<
     return row.image_urls?.length ? null : { image_urls: [entry.image.url] };
   }
   if (entry.table === 'points_of_interest') {
+    // NPS owns images on linked rows. This batch targets local POIs only;
+    // require an explicit read of nps_id so an omitted column fails closed.
+    if (row.nps_id !== null) throw new Error(`POI photo ownership must be reviewed: ${entry.name}; nps_id must be null`);
     const current = parseJsonish<unknown>(row.images);
     if (row.images != null && !Array.isArray(current)) throw new Error(`Invalid image record: ${entry.name}`);
     return Array.isArray(current) && current.length ? null : { images: [entry.image] };

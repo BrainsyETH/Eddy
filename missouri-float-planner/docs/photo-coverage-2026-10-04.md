@@ -29,6 +29,22 @@ NPS campground sync cannot replace it with the provider's map-only array.
 Its tracked facility already links this exact service. These are scenery
 images, not current water or campsite-condition evidence.
 
+### NPS place-sync ownership
+
+A read-only production check during PR review confirmed that both exact POI
+targets (Blue Spring `11cbd262-1f88-4551-bc68-a71969c168b9` and Alley Spring
+and Mill `ed86133d-8f23-4386-b5d4-cc10620ad728`) have `nps_id = NULL`.
+`upsertPlace` selects and upserts by `nps_id`, so its images replacement does
+not match these local records. The backfill now reads this field, rejects
+linked POIs or an omitted ownership field before writing, and requires
+`nps_id IS NULL` in the POI update itself to catch concurrent linking.
+If either record is linked to NPS later, review media ownership before doing so;
+the NPS sync still owns images on NPS-linked records.
+
+The unused top-level `images` field added to the river services API was removed.
+Both service types retain the existing `details.images` gallery contract;
+the camping overview keeps its separate filtered hero selection.
+
 ## Rollout
 
 1. Merge/deploy the web code, including `/photo-credits` and optimizer hosts.
@@ -40,7 +56,7 @@ images, not current water or campsite-condition evidence.
    ```
 
    Preview validates all identities first. Apply fills only empty media,
-   retains unrelated service facts, checks each observed `updated_at`, and
+   retains unrelated service facts, confirms local POI ownership, checks each observed `updated_at`, and
    reads each changed row back. A concurrent edit stops the batch; an earlier
    successful row can remain applied. Re-previewing is safe and skips it.
 3. Ship the iOS JS/assets update through the usual release process. No new
@@ -57,7 +73,7 @@ this PR; it depends on the new public credits page being deployed first.
 
 - Web and mobile typechecks passed; lint reported warnings only, and the
   Tailwind token/palette check passed.
-- All 3,051 registered tests and 16 recommendation pretests passed on Node 20
+- All 3,052 registered tests and 16 recommendation pretests passed on Node 20
   after rebasing onto `a890b3f`.
   The local environment blocks the `tsx` CLI's IPC socket, so the same
   registered files ran with `TSX_TSCONFIG_PATH=tsconfig.test.json node --import

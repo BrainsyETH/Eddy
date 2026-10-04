@@ -8,7 +8,6 @@ import { rateLimit, getClientIp } from '@/lib/rate-limit';
 import { withX402Route } from '@/lib/x402-config';
 import { parseNpsImages, parseJsonish } from '@/lib/services/npsCampground';
 import { loadAvailability } from '@/lib/camping/read';
-import { serviceCampgroundImages } from '@/lib/camping/overview';
 
 export const dynamic = 'force-dynamic';
 
@@ -142,7 +141,6 @@ async function _GET(
           seasonOpenMonth: s.season_open_month || null,
           seasonCloseMonth: s.season_close_month || null,
           details: s.details || {},
-          images: parseNpsImages(serviceCampgroundImages(s.details)),
           isPrimary: link.is_primary,
           sectionDescription: link.section_description,
           availability: availability.byNearbyServiceId.get(s.id) ?? null,

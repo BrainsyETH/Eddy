@@ -15,13 +15,24 @@ import { reviewedPhotos, reviewedPhotoPatch, rowHasReviewedPhoto } from './photo
 
 test('reviewed photo backfills accept encoded empty arrays and preserve existing photos', () => {
   const entry = reviewedPhotos.find(photo => photo.table === 'points_of_interest')!;
-  const row = { id: entry.id, name: entry.name, updated_at: null, images: '[]' };
+  const row = { id: entry.id, name: entry.name, updated_at: null, nps_id: null, images: '[]' };
   const patch = reviewedPhotoPatch(entry, row)!;
   assert.deepEqual(patch.images, [entry.image]);
   assert.equal(rowHasReviewedPhoto(entry, { ...row, ...patch }), true);
   assert.equal(reviewedPhotoPatch(entry, { ...row, images: [{ url: 'https://example.com/existing.jpg' }] }), null);
   assert.throws(() => reviewedPhotoPatch(entry, { ...row, name: 'Another Blue Spring' }), /identity/);
   assert.throws(() => reviewedPhotoPatch(entry, { ...row, images: 'malformed' }), /Invalid/);
+});
+
+test('reviewed POI photos require confirmed local ownership before any backfill', () => {
+  for (const entry of reviewedPhotos.filter(photo => photo.table === 'points_of_interest')) {
+    const row = { id: entry.id, name: entry.name, updated_at: null, images: [] };
+    assert.throws(() => reviewedPhotoPatch(entry, row), /ownership/,
+      'forgetting to select nps_id must not bypass the check');
+    assert.throws(() => reviewedPhotoPatch(entry, { ...row, nps_id: 'nps-place-id' }), /ownership/,
+      'NPS sync owns images on linked rows');
+    assert.deepEqual(reviewedPhotoPatch(entry, { ...row, nps_id: null }), { images: [entry.image] });
+  }
 });
 
 test('service photo additions retain unrelated facts and refuse malformed metadata', () => {
