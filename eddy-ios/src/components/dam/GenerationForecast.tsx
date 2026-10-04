@@ -34,7 +34,7 @@ export function GenerationForecast({ forecast }: { forecast: DamGenerationForeca
   if (days.length === 0) return null;
 
   const nextChange = nextForecastChangeSentence(forecast.windows, forecast.timeZone);
-  const retrieval = retrievalSentence(forecast.retrievedAt);
+  const retrieval = retrievalSentence(forecast.retrievedAt, undefined, 'Forecast');
   // How far the PLAN reaches — a different question from when Eddy fetched it,
   // and the only one that can notice a district's writer having died, since
   // CWMS publishes no write time. See forecastPlanStale.
@@ -99,7 +99,7 @@ export function GenerationForecast({ forecast }: { forecast: DamGenerationForeca
 
       {/* Freshness on its own line, in its own weight — see the schedule card
           for why it must not live inside the disclaimer paragraph. The subject
-          stays "Eddy last checked": CWMS says nothing about when the district
+          says "Forecast checked": CWMS says nothing about when the district
           produced the forecast, only Eddy knows when it looked. */}
       {retrieval ? (
         <Text

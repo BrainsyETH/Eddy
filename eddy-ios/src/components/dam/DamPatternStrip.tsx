@@ -1,6 +1,5 @@
 // eddy-ios/src/components/dam/DamPatternStrip.tsx
-// The rhythm: what this powerhouse actually did for the past week, and what it
-// is scheduled to do for the next few days, on one fixed scale.
+// Observed history by default, with the upcoming schedule available for comparison.
 //
 // Ported from the web strip, same rules, same shared arithmetic.
 //
@@ -23,7 +22,7 @@
 
 import { radii } from '@/theme/layout';
 import { useEffect, useMemo, useState } from 'react';
-import { StyleSheet, Text, View, useWindowDimensions } from 'react-native';
+import { Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import type { DamPatternDay, DamScheduleDay } from '@eddy/types';
 // Row construction lives in shared/ because it was written twice, once per
 // platform, and every rule it encodes — the past is measured, the future is
@@ -32,6 +31,7 @@ import {
   patternRowLabel as rowLabel,
   patternRowVoiceOver as rowVoiceOver,
   patternRows,
+  generationHistoryRows,
   patternSpanLabel,
   type GenerationReference,
   type PatternRow as Row,
@@ -70,6 +70,7 @@ export function DamPatternStrip({
   const { colors, elevation } = useTheme();
   const { fontScale, width } = useWindowDimensions();
   const stacked = fontScale >= 1.3 || width < 360;
+  const [showUpcoming, setShowUpcoming] = useState(false);
 
   // ── The strip needs its own clock ────────────────────────────────────────
   // `patternRows` defaults its `now` to Date.now() AT CALL TIME, and the call
@@ -89,10 +90,12 @@ export function DamPatternStrip({
     return () => clearInterval(id);
   }, []);
 
-  const rows = useMemo<Row[]>(
+  const allRows = useMemo<Row[]>(
     () => patternRows(pattern, schedule, reference, generationFloorCfs, now),
     [now, pattern, schedule, reference, generationFloorCfs]
   );
+  const rows = showUpcoming ? allRows : generationHistoryRows(allRows);
+  const canShowUpcoming = allRows.some((row) => row.scheduled);
 
   if (rows.length === 0) return null;
   const span = patternSpanLabel(rows);
@@ -105,10 +108,14 @@ export function DamPatternStrip({
   return (
     <View style={[styles.card, { backgroundColor: colors.card }, elevation(2)]}>
       <View style={styles.header}>
-        <Text style={[styles.title, { color: colors.text }]}>Generation pattern</Text>
+        <Text style={[styles.title, { color: colors.text }]}>
+          {showUpcoming ? 'Generation pattern' : 'Generation history'}
+        </Text>
         <DamInfoTip
-          title="About the generation pattern"
-          message="Central time, at the dam. A pattern is a habit, not a promise — schedules change without notice, and a change at the dam does not reach every downstream location at the same time."
+          title={showUpcoming ? 'About the generation pattern' : 'About generation history'}
+          message={showUpcoming
+            ? 'Central time, at the dam. Solid bars are measured; outlined bars are scheduled. Schedules can change without notice, and water reaches downstream locations later.'
+            : 'Measured generation in Central time, at the dam. Today shows completed hours only. Missing readings are gaps, not evidence that generation stopped. Past generation does not predict future releases.'}
         />
       </View>
       {/* WHICH DAYS, in words. The row labels name each row and never the whole,
@@ -159,110 +166,121 @@ export function DamPatternStrip({
       </View> : null}
 
       <View style={styles.rows}>
-        {rows.map((row, index) => (
-          <View key={row.dayKey}>
-            {/* The line between what happened and what is planned. */}
-            {todayIndex >= 0 && index === todayIndex + 1 ? (
-              <View style={[styles.divider, { borderTopColor: colors.border }]} />
-            ) : null}
-            {stacked ? <Text style={[textStyles.body, { color: colors.text, paddingVertical: 8 }]}>{rowVoiceOver(row)}</Text> : <View style={styles.row}>
-              <Text
-                style={[
-                  styles.rowLabel,
-                  { color: row.today ? colors.text : colors.textSubtle },
-                  row.today && { fontFamily: fonts.heading },
-                ]}
-              >
-                {rowLabel(row.dayKey, row.today)}
-              </Text>
+        {rows.map((row, index) => {
+          // Preserve today's full time axis when future hours are hidden.
+          // This also preserves the shared builder's 23/25-hour DST geometry.
+          const slotCount = allRows.find((entry) => entry.dayKey === row.dayKey)?.cells.length ?? row.cells.length;
+          const description = row.today && row.cells.length === 0
+            ? 'Today: no completed hours yet.'
+            : rowVoiceOver(row);
+          return (
+            <View key={row.dayKey}>
+              {/* The line between what happened and what is planned. */}
+              {todayIndex >= 0 && index === todayIndex + 1 ? (
+                <View style={[styles.divider, { borderTopColor: colors.border }]} />
+              ) : null}
+              {stacked ? <Text style={[textStyles.body, { color: colors.text, paddingVertical: 8 }]}>{description}</Text> : <View style={styles.row}>
+                <Text
+                  style={[
+                    styles.rowLabel,
+                    { color: row.today ? colors.text : colors.textSubtle },
+                    row.today && { fontFamily: fonts.heading },
+                  ]}
+                >
+                  {rowLabel(row.dayKey, row.today)}
+                </Text>
 
-              <View
-                style={styles.bars}
-                accessible
-                accessibilityRole="image"
-                accessibilityLabel={rowVoiceOver(row)}
-              >
-                {/* Each hour is a fixed 1/24 slot with the bar inset inside it,
-                    rather than 24 flexed bars separated by `gap`. The gap
-                    version is one bar-width narrower than it looks — 24 bars
-                    carry 23 gaps — so a marker placed by percentage drifts
-                    across the day. DayBars solves that with markerLeft()
-                    because it already measures its own width; here the slot IS
-                    exactly 1/24, so the marker below needs no correction. */}
-                {row.cells.map((cell, i) => (
-                  <View key={i} style={styles.slot}>
-                    {cell.kind === 'missing' ? (
-                      <View style={[styles.gap, { borderColor: colors.border }]} />
-                    ) : cell.kind === 'future' ? (
-                      // An hour that has not happened, on a dam with no posted
-                      // schedule. NOT the dashed outage box: that says "there
-                      // should be a reading here", and wearing it for the rest
-                      // of today read as a feed failure covering hours nobody
-                      // could have a reading for yet.
-                      <View style={[styles.notYet, { backgroundColor: colors.border }]} />
-                    ) : cell.kind === 'scheduled' ? (
-                      <View
-                        style={[
-                          styles.bar,
-                          {
-                            height: `${Math.max(cell.fraction * 100, 14)}%`,
-                            borderWidth: StyleSheet.hairlineWidth,
-                            // `generating`, not `fraction > 0`: without a
-                            // reference every fraction is 0, and a full-load
-                            // hour would draw in the idle treatment.
-                            borderColor: cell.generating ? colors.generationMid : colors.border,
-                            backgroundColor: 'transparent',
-                          },
-                        ]}
-                      />
-                    ) : (
-                      <View
-                        style={[
-                          styles.bar,
-                          {
-                            height: `${Math.max(cell.fraction * 100, 14)}%`,
-                            backgroundColor: cell.generating
-                              ? colors.generationHigh
-                              : colors.border,
-                          },
-                        ]}
-                      />
-                    )}
-                  </View>
-                ))}
+                <View
+                  style={styles.bars}
+                  accessible
+                  accessibilityRole="image"
+                  accessibilityLabel={description}
+                >
+                  {/* Each hour is a fixed 1/24 slot with the bar inset inside it,
+                      rather than 24 flexed bars separated by `gap`. The gap
+                      version is one bar-width narrower than it looks — 24 bars
+                      carry 23 gaps — so a marker placed by percentage drifts
+                      across the day. DayBars solves that with markerLeft()
+                      because it already measures its own width; here the slot IS
+                      exactly 1/24, so the marker below needs no correction. */}
+                  {Array.from({ length: slotCount }, (_, i) => {
+                    const cell = row.cells[i];
+                    return (
+                      <View key={i} style={styles.slot}>
+                        {!cell ? null : cell.kind === 'missing' ? (
+                          <View style={[styles.gap, { borderColor: colors.border }]} />
+                        ) : cell.kind === 'future' ? (
+                          // An hour that has not happened, on a dam with no posted
+                          // schedule. NOT the dashed outage box: that says "there
+                          // should be a reading here", and wearing it for the rest
+                          // of today read as a feed failure covering hours nobody
+                          // could have a reading for yet.
+                          <View style={[styles.notYet, { backgroundColor: colors.border }]} />
+                        ) : cell.kind === 'scheduled' ? (
+                          <View
+                            style={[
+                              styles.bar,
+                              {
+                                height: `${Math.max(cell.fraction * 100, 14)}%`,
+                                borderWidth: StyleSheet.hairlineWidth,
+                                // `generating`, not `fraction > 0`: without a
+                                // reference every fraction is 0, and a full-load
+                                // hour would draw in the idle treatment.
+                                borderColor: cell.generating ? colors.generationMid : colors.border,
+                                backgroundColor: 'transparent',
+                              },
+                            ]}
+                          />
+                        ) : (
+                          <View
+                            style={[
+                              styles.bar,
+                              {
+                                height: `${Math.max(cell.fraction * 100, 14)}%`,
+                                backgroundColor: cell.generating
+                                  ? colors.generationHigh
+                                  : colors.border,
+                              },
+                            ]}
+                          />
+                        )}
+                      </View>
+                    );
+                  })}
 
-                {/* Now, on today's row only. The solid-to-outlined switch marks
-                    the same instant, but only for someone who can tell the two
-                    fills apart at 18pt tall. */}
-                {/* Drawn from the row's OWN split rather than elapsed/24: on a
-                    23- or 25-hour day the two disagree by a whole bar, and the
-                    boundary between measured and scheduled cells is the instant
-                    the marker is trying to name anyway. */}
-                {row.splitIndex !== null ? (
-                  <View
-                    pointerEvents="none"
-                    style={[
-                      styles.nowLine,
-                      {
-                        backgroundColor: colors.accent,
-                        left: `${(row.splitIndex / row.cells.length) * 100}%`,
-                      },
-                    ]}
-                  />
-                ) : null}
-              </View>
+                  {/* Now, on today's row only. The solid-to-outlined switch marks
+                      the same instant, but only for someone who can tell the two
+                      fills apart at 18pt tall. */}
+                  {/* Drawn from the row's OWN split rather than elapsed/24: on a
+                      23- or 25-hour day the two disagree by a whole bar, and the
+                      boundary between measured and scheduled cells is the instant
+                      the marker is trying to name anyway. */}
+                  {row.splitIndex !== null ? (
+                    <View
+                      pointerEvents="none"
+                      style={[
+                        styles.nowLine,
+                        {
+                          backgroundColor: colors.accent,
+                          left: `${(row.splitIndex / slotCount) * 100}%`,
+                        },
+                      ]}
+                    />
+                  ) : null}
+                </View>
 
-              <Text
-                style={[
-                  styles.rowTag,
-                  { color: row.scheduleStale ? colors.accent : colors.textSubtle },
-                ]}
-              >
-                {row.today ? 'now' : row.scheduled ? (row.scheduleStale ? 'stale' : 'ahead') : ''}
-              </Text>
-            </View>}
-          </View>
-        ))}
+                <Text
+                  style={[
+                    styles.rowTag,
+                    { color: row.scheduleStale ? colors.accent : colors.textSubtle },
+                  ]}
+                >
+                  {row.today ? 'now' : row.scheduled ? (row.scheduleStale ? 'stale' : 'ahead') : ''}
+                </Text>
+              </View>}
+            </View>
+          );
+        })}
 
         {/* ── WHAT A COLUMN IS ────────────────────────────────────────────
             Every row is one Central day cut into hours, and nothing said so:
@@ -293,6 +311,18 @@ export function DamPatternStrip({
           <View style={styles.axisTail} />
         </View> : null}
       </View>
+      {canShowUpcoming ? (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityState={{ expanded: showUpcoming }}
+          onPress={() => setShowUpcoming((value) => !value)}
+          style={({ pressed }) => [styles.scheduleToggle, { opacity: pressed ? 0.6 : 1 }]}
+        >
+          <Text style={[textStyles.body, { color: colors.interactive }]}>
+            {showUpcoming ? 'Show history only' : 'Include upcoming schedule'}
+          </Text>
+        </Pressable>
+      ) : null}
     </View>
   );
 }
@@ -304,6 +334,7 @@ const styles = StyleSheet.create({
   // Directly under the title, above the legend: it says what the card is OF,
   // which is read before what the treatments mean.
   span: { fontFamily: fonts.body, fontSize: 12, lineHeight: 16, marginTop: -4 },
+  scheduleToggle: { minHeight: 44, justifyContent: 'center' },
   legend: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
   legendItem: { flexDirection: 'row', alignItems: 'center', gap: 5 },
   legendSwatch: { width: 10, height: 12, borderRadius: 1 },

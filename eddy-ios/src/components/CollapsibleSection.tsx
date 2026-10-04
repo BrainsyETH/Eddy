@@ -23,8 +23,10 @@ import { fonts, type as t } from '@/theme/typography';
 
 interface Props {
   title: string;
-  /** One line describing what is inside, shown whether open or shut. */
+  /** Describes what is inside, shown whether open or shut. */
   summary?: string | null;
+  /** Place long summaries below the entire header, with unrestricted wrapping. */
+  summaryLayout?: 'inline' | 'below';
   /**
    * A mark before the title. Decorative only — the title already names the
    * section, so the accessibility label below deliberately ignores this.
@@ -42,6 +44,7 @@ interface Props {
 export function CollapsibleSection({
   title,
   summary = null,
+  summaryLayout = 'inline',
   leading = null,
   trailing = null,
   accessibilitySummary,
@@ -57,27 +60,32 @@ export function CollapsibleSection({
     <View style={styles.section}>
       <Pressable
         onPress={() => setExpanded((prev) => !prev)}
-        style={({ pressed }) => [styles.head, { opacity: pressed ? 0.6 : 1 }]}
+        style={({ pressed }) => [styles.trigger, { opacity: pressed ? 0.6 : 1 }]}
         accessibilityRole="button"
         accessibilityState={{ expanded }}
         accessibilityLabel={[title, summary, accessibilitySummary].filter(Boolean).join(', ')}
       >
-        {leading}
-        <View style={styles.headText}>
-          <Text style={[styles.title, { color: colors.text }]}>{title}</Text>
-          {summary ? (
-            <Text style={[styles.summary, { color: colors.textSubtle }]} numberOfLines={stacked ? undefined : 1}>
-              {summary}
-            </Text>
-          ) : null}
-          {stacked && trailing ? <View style={{ alignItems: 'flex-start', marginTop: 8 }}>{trailing}</View> : null}
+        <View style={styles.head}>
+          {leading}
+          <View style={styles.headText}>
+            <Text style={[styles.title, { color: colors.text }]}>{title}</Text>
+            {summary && summaryLayout === 'inline' ? (
+              <Text style={[styles.summary, { color: colors.textSubtle }]} numberOfLines={stacked ? undefined : 1}>
+                {summary}
+              </Text>
+            ) : null}
+            {stacked && trailing ? <View style={{ alignItems: 'flex-start', marginTop: 8 }}>{trailing}</View> : null}
+          </View>
+          {!stacked && trailing ? <View style={{ flexShrink: 1 }}>{trailing}</View> : null}
+          <ControlIcon
+            name={expanded ? 'chevron-up' : 'chevron-down'}
+            size={16}
+            color={colors.textSubtle}
+          />
         </View>
-        {!stacked && trailing ? <View style={{ flexShrink: 1 }}>{trailing}</View> : null}
-        <ControlIcon
-          name={expanded ? 'chevron-up' : 'chevron-down'}
-          size={16}
-          color={colors.textSubtle}
-        />
+        {summary && summaryLayout === 'below' ? (
+          <Text style={[styles.summary, { color: colors.textSubtle }]}>{summary}</Text>
+        ) : null}
       </Pressable>
 
       {expanded ? <View style={styles.body}>{children}</View> : null}
@@ -87,13 +95,11 @@ export function CollapsibleSection({
 
 const styles = StyleSheet.create({
   section: { marginBottom: 18 },
+  trigger: { minHeight: 44, justifyContent: 'center', paddingHorizontal: 4 },
   head: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
-    paddingHorizontal: 4,
-    // 44 is the touch-target floor and this row is the only way in.
-    minHeight: 44,
   },
   headText: { flex: 1, minWidth: 0 },
   title: { ...t.lg, fontFamily: fonts.heading },

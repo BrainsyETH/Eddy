@@ -66,38 +66,23 @@ function DayRow({
   return (
     <CollapsibleSection
       title={scheduleDayLabel(day.scheduleDate)}
-      // ── ONLY WHEN THERE IS A BREAK TO NAME ──────────────────────────────
-      // The summary is the point of collapsing this: a shut section must still
-      // answer "when is the water off", which is what somebody opened the
-      // screen to find out. That is true of a day WITH idle windows.
-      //
-      // On a day scheduled every hour it printed "Generation scheduled every
-      // hour — no break in the schedule.", a sentence that hides nothing and
-      // says nothing the bars below do not, sitting in the row a reader taps to
-      // open. The trailing hour count still carries the same fact in two words.
-      summary={day.idle.length > 0 ? idleWindowSentence(day.idle) : null}
+      // Keep all windows visible when collapsed. All-day generation needs its
+      // own summary now that the redundant duration tally is gone.
+      summary={day.idle.length > 0 ? idleWindowSentence(day.idle) : 'Generation scheduled all day.'}
+      summaryLayout="below"
       accessibilitySummary={[now?.label, scheduledHoursSummary(day.hours), peak ? schedulePeakVoiceOver(peak) : null, 'Central time'].filter(Boolean).join('. ')}
       defaultExpanded={defaultExpanded}
-      trailing={
-        <View style={styles.trailing}>
-          {now ? (
-            <Text
-              style={[
-                styles.nowLabel,
-                // The flag, never the label text: a string comparison here
-                // went permanently false the last time the wording changed,
-                // and the accent silently died. See nowSentence.
-                { color: now.generating ? colors.accent : colors.textSubtle },
-              ]}
-            >
-              {now.label}
-            </Text>
-          ) : null}
-          <Text style={[styles.hoursCount, { color: colors.textSubtle }]}>
-            {scheduledHoursSummary(day.hours, { compact: true })}
-          </Text>
-        </View>
-      }
+      trailing={now ? (
+        <Text
+          style={[
+            styles.nowLabel,
+            // Keep styling tied to the flag rather than the label's wording.
+            { color: now.generating ? colors.accent : colors.textSubtle },
+          ]}
+        >
+          {now.label}
+        </Text>
+      ) : null}
     >
       {/* ── HOW BIG, AND WHEN. Nothing else. ─────────────────────────────
           A technical line used to sit under this — "335 MW · 86% of scheduling
@@ -162,7 +147,7 @@ export function GenerationSchedule({
   // One line for the section rather than one per day: three near-identical
   // timestamps invite the reader to think they differ.
   const oldestRetrieval = oldestRetrievedAt(schedule);
-  const retrieval = retrievalSentence(oldestRetrieval);
+  const retrieval = retrievalSentence(oldestRetrieval, undefined, 'Schedule');
 
   const body = (
     <>
@@ -241,7 +226,7 @@ export function GenerationSchedule({
           gets its own weight and the brand's teal, centred under everything it
           describes.
           Still Eddy's fetch, never SWPA's post: they publish no timestamp of any
-          kind, so the subject stays "Eddy last checked". Unknown renders
+          kind, so the label says "Schedule checked". Unknown renders
           nothing at all. Stale flips it to the error colour, because a schedule
           somebody may wade against should say when it has stopped arriving. */}
       {embedded || !retrieval ? null : (
@@ -272,9 +257,7 @@ const styles = StyleSheet.create({
   blockLabel: { ...t.xs, fontFamily: fonts.semibold, letterSpacing: 0.6 },
   nextSentence: { ...t.base, fontFamily: fonts.heading, marginTop: 3 },
   stale: { ...t.xs, fontFamily: fonts.medium, marginTop: 4 },
-  trailing: { alignItems: 'flex-end', gap: 2 },
   nowLabel: { ...t.xs, fontFamily: fonts.semibold },
-  hoursCount: { ...t.xs },
   // The heading is the quiet half and the figure is the loud one: a reader
   // scanning for "how big" should land on the number, not on the label over it.
   peakBlock: { marginTop: 10 },

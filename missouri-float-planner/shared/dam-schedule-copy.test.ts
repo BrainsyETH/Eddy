@@ -618,6 +618,19 @@ test('an absent trend is null in both forms', () => {
   assert.equal(tailwaterMovementLabel(null), null);
 });
 
+test('named retrieval labels retain unknown and stale-source behavior', () => {
+  const now = Date.parse('2026-07-28T17:00:00Z');
+  const fresh = new Date(now - 16 * 60_000).toISOString();
+  const stale = new Date(now - 5 * 3_600_000).toISOString();
+  assert.equal(retrievalSentence(fresh, now, 'Schedule'), 'Schedule checked 16 minutes ago.');
+  assert.equal(retrievalSentence(fresh, now, 'Forecast'), 'Forecast checked 16 minutes ago.');
+  assert.equal(retrievalSentence(stale, now, 'Schedule'),
+    'Schedule checked 5 hours ago. It may have been revised since.');
+  for (const unknown of [null, undefined, 'not-a-date']) {
+    assert.equal(retrievalSentence(unknown, now, 'Schedule'), null);
+  }
+});
+
 test('prose and label never disagree about sign or magnitude', () => {
   // The failure this prevents: one surface saying the tailwater is flat while
   // another, reading the same trend, says it rose. Both round through the same
