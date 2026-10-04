@@ -1,9 +1,15 @@
 Eddy link preview artwork
 
-Current River photograph: NPS Photo / JoAnn Miller.
+Current River photograph: JoAnn Miller - National Park Service.
 Source: https://www.nps.gov/ozar/index.htm
 Original: https://www.nps.gov/common/uploads/structured_data/3C818ACD-1DD8-B71B-0B91F9B923E1E7A7.jpg
-NPS-created public-domain material, credited on the source page.
+Reuse basis checked 2026-10-04:
+The park photo-gallery page permits website and print reproduction of photos
+without a copyright symbol, with National Park Service and photographer credit:
+https://www.nps.gov/ozar/learn/photosmultimedia/photogallery.htm
+The source homepage labels this exact image "NPS Photo/JoAnn Miller" and shows
+no copyright symbol. This records the park's published reuse guidance; it
+is not an independent verification of the photographer's employment status.
 No claim to original U.S. Government works.
 https://www.nps.gov/aboutus/disclaimer.htm
 

@@ -1,10 +1,14 @@
 import { linkPreviewResponse } from '@/lib/og/link-preview-response';
+import { linkPreviewImageMetadata } from '@/lib/og/link-preview';
 
-export const alt = 'Archival dam scenery or an Eddy illustration, not current releases.';
-export const size = { width: 1200, height: 630 };
-export const contentType = 'image/png';
 export const revalidate = 86400;
 
-export default async function Image({ params }: { params: Promise<{ damId: string }> }) {
+type Props = { params: Promise<{ damId: string }> };
+
+export async function generateImageMetadata({ params }: Props) {
+  return linkPreviewImageMetadata('dam', (await params).damId);
+}
+
+export default async function Image({ params }: Props) {
   return linkPreviewResponse('dam', (await params).damId);
 }

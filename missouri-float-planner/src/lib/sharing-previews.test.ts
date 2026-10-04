@@ -3,12 +3,18 @@ import test, { type TestContext } from 'node:test';
 import { readFile } from 'node:fs/promises';
 import sharp from 'sharp';
 import { NextRequest } from 'next/server';
-import { gaugeShareRedirect } from './gauges/share-redirect';
+import { gaugeShareRedirect, gaugeRedirectPath } from './gauges/share-redirect';
+import { createGaugeRedirectCache } from './gauges/redirect-cache';
 import { loadSharedPlan, savedPlanLookupStatus } from './shared-plan-load';
 import { sharedPlanMetadata } from './og/shared-plan-metadata';
 import { linkPreviewResponse } from './og/link-preview-response';
-import { linkPreviewFile, type LinkPreviewKind } from './og/link-preview';
+import { linkPreviewFile, linkPreviewAsset, type LinkPreviewKind } from './og/link-preview';
 import { generateMetadata as planMetadata } from '../app/plan/[shortCode]/layout';
+import { generateImageMetadata as riverImageMetadata } from '../app/rivers/[state]/[slug]/opengraph-image';
+import { generateImageMetadata as damImageMetadata } from '../app/dams/[damId]/opengraph-image';
+
+// Exercise actual catalog reads in route tests, independent of warm instances.
+const redirect = (url: string) => gaugeShareRedirect(new NextRequest(url), gaugeRedirectPath);
 
 let databaseFixture = 0;
 
@@ -22,7 +28,7 @@ function publicDatabase(t: TestContext, respond: (url: URL, init?: RequestInit) 
     respond(new URL(typeof input === 'string' ? input : input instanceof URL ? input.href : input.url), init));
 }
 
-test('gauge shares return an HTTP 308 to the canonical river, preserving the query', async t => {
+test('gauge shares return a temporary HTTP 307 to the canonical river, preserving the query', async t => {
   const requests: URL[] = [];
   publicDatabase(t, (url, init) => {
     requests.push(url);
@@ -32,8 +38,9 @@ test('gauge shares return an HTTP 308 to the canonical river, preserving the que
     assert.equal(url.searchParams.get('rivers.active'), 'eq.true');
     return Response.json([{ rivers: { slug: 'current', state: 'MO', active: true } }]);
   });
-  const response = await gaugeShareRedirect(new NextRequest('https://eddy.guide/gauges/07067000?from=friend'));
-  assert.equal(response?.status, 308);
+  const response = await redirect('https://eddy.guide/gauges/07067000?from=friend');
+  assert.equal(response?.status, 307);
+  assert.equal(response?.headers.get('cache-control'), 'no-store');
   assert.equal(response?.headers.get('location'), 'https://eddy.guide/rivers/missouri/current?from=friend');
   assert.equal(await response?.text(), '', 'no HTML meta refresh');
   assert.equal(requests.length, 2);
@@ -41,23 +48,23 @@ test('gauge shares return an HTTP 308 to the canonical river, preserving the que
 
 test('legacy river-slug gauges redirect directly to the state-qualified route', async t => {
   publicDatabase(t, () => Response.json([{ slug: 'buffalo', state: 'AR' }]));
-  const response = await gaugeShareRedirect(new NextRequest('https://eddy.guide/gauges/buffalo'));
+  const response = await redirect('https://eddy.guide/gauges/buffalo');
   assert.equal(response?.headers.get('location'), 'https://eddy.guide/rivers/arkansas/buffalo');
 });
 
 test('orphan gauges remain readable and image/index routes never run redirect queries', async t => {
   const fetch = publicDatabase(t, () => Response.json([]));
-  const response = await gaugeShareRedirect(new NextRequest('https://eddy.guide/gauges/12345678'));
+  const response = await redirect('https://eddy.guide/gauges/12345678');
   assert.equal(response?.headers.get('x-middleware-next'), '1');
   for (const path of ['/gauges', '/gauges/12345678/opengraph-image', '/gauges/12345678/twitter-image', '/api/gauges/12345678']) {
-    assert.equal(await gaugeShareRedirect(new NextRequest(`https://eddy.guide${path}`)), null);
+    assert.equal(await redirect(`https://eddy.guide${path}`), null);
   }
   assert.equal(fetch.mock.callCount(), 1);
 });
 
 test('a routing database outage returns retryable 503 rather than a wrong destination', async t => {
   publicDatabase(t, () => Response.json({ message: 'unavailable' }, { status: 503 }));
-  const response = await gaugeShareRedirect(new NextRequest('https://eddy.guide/gauges/07067000'));
+  const response = await redirect('https://eddy.guide/gauges/07067000');
   assert.equal(response?.status, 503);
   assert.equal(response?.headers.get('location'), null);
   assert.equal(response?.headers.get('cache-control'), 'no-store');
@@ -129,17 +136,20 @@ test('a metadata RPC outage yields a retry message rather than Plan Not Found', 
   assert.equal(metadata.title, 'Float plan temporarily unavailable');
 });
 
-test('every published image decodes at 1200×630 and stays under 500KB without any network', async t => {
+test('every published image decodes at 1200×630 and stays under 200KB without any network', async t => {
   const fetch = t.mock.method(globalThis, 'fetch', async () => { throw new Error('image generation must be offline'); });
   const examples: [LinkPreviewKind, string?][] = [['river', 'current'], ['river', 'unknown'], ['gauge'], ['dam', 'ameren-bagnell-dam'], ['dam', 'unknown'], ['access'], ['plan']];
   for (const [kind, slug] of examples) {
     const response = await linkPreviewResponse(kind, slug);
     const bytes = Buffer.from(await response.arrayBuffer());
     const dimensions = await sharp(bytes).metadata();
-    assert.equal(response.headers.get('content-type'), 'image/png');
+    const asset = linkPreviewAsset(kind, slug);
+    assert.equal(response.headers.get('content-type'), asset.contentType);
+    assert.equal(dimensions.format, asset.contentType === 'image/jpeg' ? 'jpeg' : 'png');
+    assert.equal(response.headers.get('cache-control'), 'public, max-age=86400, s-maxage=86400');
     assert.equal(dimensions.width, 1200);
     assert.equal(dimensions.height, 630);
-    assert.ok(bytes.length < 500_000, `${kind}/${slug} exceeds image budget`);
+    assert.ok(bytes.length < 200_000, `${kind}/${slug} exceeds image budget`);
     assert.deepEqual(bytes, await readFile(`public/share/${linkPreviewFile(kind, slug)}`));
   }
   assert.equal(fetch.mock.callCount(), 0);
@@ -149,4 +159,50 @@ test('an unknown place never borrows another named location’s photograph', () 
   assert.equal(linkPreviewFile('river', 'jacks-fork'), 'river-v1.png');
   assert.equal(linkPreviewFile('dam', 'table-rock'), 'dam-v1.png');
   assert.equal(linkPreviewFile('access', 'akers'), 'access-v1.png');
+  assert.equal(linkPreviewFile('river', 'constructor'), 'river-v1.png');
+});
+
+test('image metadata describes the selected photograph or illustration with its actual MIME type', async () => {
+  for (const [slug, photo] of [['current', true], ['jacks-fork', false]] as const) {
+    const [metadata] = await riverImageMetadata({ params: Promise.resolve({ slug }) });
+    assert.match(metadata.alt, photo ? /red canoe beside the Current River/ : /illustration of a river/);
+    assert.equal(metadata.contentType, photo ? 'image/jpeg' : 'image/png');
+    assert.doesNotMatch(metadata.alt, / or /);
+  }
+  for (const [damId, photo] of [['ameren-bagnell-dam', true], ['table-rock', false]] as const) {
+    const [metadata] = await damImageMetadata({ params: Promise.resolve({ damId }) });
+    assert.match(metadata.alt, photo ? /aerial photograph of Bagnell Dam/ : /illustration of a dam/);
+    assert.equal(metadata.contentType, photo ? 'image/jpeg' : 'image/png');
+  }
+});
+
+test('redirect cache coalesces concurrent reads and refreshes changed mappings at the TTL', async () => {
+  let clock = 0;
+  let calls = 0;
+  let destination = '/rivers/missouri/current';
+  const cached = createGaugeRedirectCache(async () => { calls++; return destination; }, { ttlMs: 100, now: () => clock });
+  assert.deepEqual(await Promise.all([cached('1'), cached('1')]), [destination, destination]);
+  assert.equal(calls, 1);
+  destination = '/rivers/missouri/jacks-fork';
+  clock = 99;
+  assert.equal(await cached('1'), '/rivers/missouri/current');
+  clock = 100;
+  assert.equal(await cached('1'), destination);
+  assert.equal(calls, 2);
+});
+
+test('redirect cache bounds entries, caches orphan results, and never retains errors', async () => {
+  const calls: string[] = [];
+  let unavailable = true;
+  const cached = createGaugeRedirectCache(async slug => {
+    calls.push(slug);
+    if (slug === 'error' && unavailable) throw new Error('offline');
+    return null;
+  }, { maxEntries: 2 });
+  await cached('a'); await cached('b'); await cached('a'); await cached('c'); await cached('b');
+  assert.deepEqual(calls, ['a', 'b', 'c', 'b']);
+  await assert.rejects(cached('error'), /offline/);
+  unavailable = false;
+  assert.equal(await cached('error'), null);
+  assert.equal(calls.filter(slug => slug === 'error').length, 2);
 });

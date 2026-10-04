@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { createPublicCatalogClient } from '@/lib/supabase/public-read';
 import { riverPath } from '@/lib/navigation/river-path';
+import { createGaugeRedirectCache } from './redirect-cache';
 
 /** Resolve before React streams HTML: Messages follows HTTP redirects, not
  * the meta-refresh emitted by permanentRedirect inside a streamed page.
@@ -29,15 +30,23 @@ export async function gaugeRedirectPath(slug: string): Promise<string | null> {
   return river ? riverPath(river.state, river.slug) : null;
 }
 
-export async function gaugeShareRedirect(request: NextRequest): Promise<NextResponse | null> {
+const cachedGaugeRedirectPath = createGaugeRedirectCache(gaugeRedirectPath);
+
+export async function gaugeShareRedirect(
+  request: NextRequest,
+  resolvePath = cachedGaugeRedirectPath,
+): Promise<NextResponse | null> {
   const match = /^\/gauges\/([a-zA-Z0-9_-]+)\/?$/.exec(request.nextUrl.pathname);
   if (!match) return null; // Never intercept image routes, the index or APIs.
   try {
-    const path = await gaugeRedirectPath(match[1]);
+    const path = await resolvePath(match[1]);
     if (!path) return NextResponse.next();
     const destination = request.nextUrl.clone();
     destination.pathname = path; // Keep query strings; browsers retain fragments.
-    return NextResponse.redirect(destination, 308);
+    // A gauge can move to another primary river. Keep browser redirects
+    // temporary; only the bounded catalog lookup above is cached. Proxy runs
+    // before the CDN, so a response cache header alone cannot save these reads.
+    return NextResponse.redirect(destination, { status: 307, headers: { 'Cache-Control': 'no-store' } });
   } catch {
     // A provider outage is neither an orphan gauge nor a permanent 404.
     return new NextResponse('Gauge information is temporarily unavailable. Please try again.', {

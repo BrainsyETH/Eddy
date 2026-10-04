@@ -1,11 +1,16 @@
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { linkPreviewFile, type LinkPreviewKind } from './link-preview';
+import { linkPreviewAsset, type LinkPreviewKind } from './link-preview';
 
 /** Pre-rendered artwork needs no database, provider, font or image-host fetch.
  * next.config.mjs explicitly traces these files into the image functions.
  */
 export async function linkPreviewResponse(kind: LinkPreviewKind, slug?: string) {
-  const bytes = await readFile(join(process.cwd(), 'public/share', linkPreviewFile(kind, slug)));
-  return new Response(new Uint8Array(bytes), { headers: { 'Content-Type': 'image/png' } });
+  const asset = linkPreviewAsset(kind, slug);
+  const bytes = await readFile(join(process.cwd(), 'public/share', asset.file));
+  return new Response(new Uint8Array(bytes), { headers: {
+    'Content-Type': asset.contentType,
+    // Route URLs can select new artwork later; do not mark them immutable.
+    'Cache-Control': 'public, max-age=86400, s-maxage=86400',
+  } });
 }

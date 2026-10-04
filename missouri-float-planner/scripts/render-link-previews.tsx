@@ -4,7 +4,7 @@ import { readFile, mkdir, writeFile } from 'node:fs/promises';
 import { ImageResponse } from 'next/og';
 import sharp from 'sharp';
 import { loadFredokaFont } from '../src/lib/og/fonts';
-import { LINK_PREVIEW_SIZE, linkPreviewFile, type LinkPreviewKind } from '../src/lib/og/link-preview';
+import { LINK_PREVIEW_SIZE, LINK_PREVIEW_PHOTOS, linkPreviewAsset, type LinkPreviewKind } from '../src/lib/og/link-preview';
 
 const TEAL = '#123f46';
 const CREAM = '#f7f3e9';
@@ -19,7 +19,8 @@ async function dataUri(file: string) {
 }
 
 async function render(kind: LinkPreviewKind, slug?: string) {
-  const photo = slug ? await dataUri(kind === 'dam' ? 'bagnell.jpg' : 'current.jpg') : null;
+  const asset = linkPreviewAsset(kind, slug);
+  const photo = asset.sourcePhoto ? await dataUri(asset.sourcePhoto) : null;
   const iconFile = {
     plan: 'eddy-route-planning.png', gauge: 'eddy-checking-gauge.png',
     river: 'eddy-river.png', dam: 'eddy-dam.png', access: 'eddy-boat-ramp.png',
@@ -53,14 +54,17 @@ async function render(kind: LinkPreviewKind, slug?: string) {
     </div>,
     { ...LINK_PREVIEW_SIZE, fonts: loadFredokaFont() },
   );
-  const png = await sharp(Buffer.from(await response.arrayBuffer())).png({ palette: true, quality: 90, effort: 10 }).toBuffer();
-  await writeFile(`public/share/${linkPreviewFile(kind, slug)}`, png);
+  const rendered = sharp(Buffer.from(await response.arrayBuffer()));
+  const bytes = await (photo ? rendered.jpeg({ quality: 85, mozjpeg: true })
+    : rendered.png({ palette: true, quality: 90, effort: 10 })).toBuffer();
+  await writeFile(`public/share/${asset.file}`, bytes);
 }
 
 async function main() {
   await mkdir('public/share', { recursive: true });
   for (const kind of ['river', 'gauge', 'dam', 'access', 'plan'] as const) await render(kind);
-  await render('river', 'current');
-  await render('dam', 'ameren-bagnell-dam');
+  for (const kind of Object.keys(LINK_PREVIEW_PHOTOS) as LinkPreviewKind[]) {
+    for (const slug of Object.keys(LINK_PREVIEW_PHOTOS[kind]!)) await render(kind, slug);
+  }
 }
 void main();

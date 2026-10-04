@@ -74,8 +74,8 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
     // Chat clients can retain metadata indefinitely. Do not publish a condition
     // verdict here; the destination supplies timestamped, current readings.
-    const title = river.name;
-    const ogTitle = river.name;
+    const title = `${river.name} · Float guide & access points`;
+    const ogTitle = `${title} | Eddy`;
     const description = `River conditions, access points and float planning for ${river.name}. Open for the latest readings.`;
     const pageUrl = `${BASE_URL}${riverPath(river.state, slug)}`;
 
