@@ -618,7 +618,6 @@ export default function RiverGaugeDetail({ riverSlug, damSlot }: RiverGaugeDetai
           <EddyOutlookFooter
             riverSlug={riverSlug}
             sections={eddyTakeSections}
-            isGuidance={outlook.isGuidance}
             readLoading={selectedEddyReport.isFetching && !activeEddyUpdate}
             readIsGenerated={Boolean(activeEddyUpdate?.summaryText)}
             generatedAt={activeEddyUpdate?.generatedAt}

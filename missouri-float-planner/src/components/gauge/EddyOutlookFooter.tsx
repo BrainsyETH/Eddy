@@ -9,7 +9,6 @@ import { formatAgeFromTimestamp } from '@/lib/utils/reading-age';
 interface EddyOutlookFooterProps {
   riverSlug: string;
   sections: EddyTakeSections;
-  isGuidance: boolean;
   readLoading: boolean;
   /** Only a model-written read earns the attribution line; see below. */
   readIsGenerated: boolean;
@@ -20,7 +19,6 @@ interface EddyOutlookFooterProps {
 export default function EddyOutlookFooter({
   riverSlug,
   sections,
-  isGuidance,
   readLoading,
   readIsGenerated,
   generatedAt,
@@ -75,14 +73,6 @@ export default function EddyOutlookFooter({
               <h4 className="font-sans text-xs font-bold uppercase tracking-wide">Watch for</h4>
             </div>
             <p className="text-sm font-medium leading-relaxed text-neutral-700">{sections.watchFor}</p>
-            {/* `isGuidance` means this river has no official hydrograph, so the
-                strip above is weather and nothing else. Kept because without it a
-                reader can take it for a level forecast. Must stay word for word
-                identical to the iOS twin in EddyTake.tsx — one claim, two
-                platforms, pinned by outlook-guidance-caveat.test.ts. */}
-            {isGuidance && (
-              <p className="mt-1 text-[10px] font-medium text-neutral-500">Weather only — no river-level forecast.</p>
-            )}
           </article>
 
           <article className="min-w-0 border-l-4 border-accent-500 bg-white px-4 py-4 sm:px-5 lg:border-l-0 lg:border-t-4">

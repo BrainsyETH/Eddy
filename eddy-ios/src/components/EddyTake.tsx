@@ -571,22 +571,6 @@ export function EddyTake({
                     {sections.watchFor}
                   </Text>
                 )}
-                {/* Kept sharp even when locked: it is a disclaimer about what
-                    the forecast strip above — which is free — does and does not
-                    predict, not part of the writing being sold.
-
-                    `isGuidance` means this river has no official hydrograph, so
-                    the strip is weather and nothing else. Without this line a
-                    reader can take it for a level forecast, which is the one
-                    claim Eddy must not make by omission — river-guide-style.md
-                    puts it as "a planning input, not the safety authority".
-                    Says the same thing as the sentence it replaced, in the
-                    `[state] — [what it means]` idiom the app already speaks. */}
-                {outlook.isGuidance ? (
-                  <Text style={[styles.caveat, { color: colors.textSubtle }]}>
-                    Weather only — no river-level forecast.
-                  </Text>
-                ) : null}
               </View>
 
               <View style={[styles.section, { borderTopColor: colors.border }]}>
@@ -768,6 +752,5 @@ const styles = StyleSheet.create({
     bottom: 0,
     borderRadius: BLUR_RADIUS,
   },
-  caveat: { ...t.xs, fontFamily: fonts.body, marginTop: 6 },
   attribution: { ...t.xs, fontFamily: fonts.body, marginTop: 12, textAlign: 'right' },
 });
