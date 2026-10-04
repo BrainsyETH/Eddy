@@ -89,31 +89,31 @@ export default function RiverHubMap({ riverSlug }: { riverSlug: string }) {
       className="relative h-[360px] md:h-[440px] rounded-xl overflow-hidden border border-neutral-200"
     >
       <OverviewMapBoundary key={riverSlug}>
-      {near && river ? (
-        <MapContainer initialBounds={river.bounds} showLegend={true} legendRoute={false} cooperativeGestures={true}>
-          {/* Mounted before ConditionRiverLayer so the hero river stacks above. */}
-          <ConditionNetworkLayer excludeRiverId={river.id} />
-          {river.geometry && (
-            <ConditionRiverLayer
-              riverId={river.id}
-              riverName={river.name}
-              riverSlug={riverSlug}
-              geometry={river.geometry}
-            />
-          )}
-          <AccessPointMarkers accessPoints={accessPoints} />
-          <HazardMarkers hazards={hazards} />
-        </MapContainer>
-      ) : isError ? (
-        <div className="flex h-full flex-col items-center justify-center gap-3 bg-neutral-50 p-6 text-sm text-neutral-600">
-          <p>The map couldn&apos;t load. Access points are listed below.</p>
-          <button type="button" onClick={() => void refetch()} className="font-semibold text-primary-600">Try again</button>
-        </div>
-      ) : (
-        <div className="w-full h-full bg-ozark-900 flex items-center justify-center">
-          <LoadingSpinner size="lg" />
-        </div>
-      )}
+        {near && river ? (
+          <MapContainer initialBounds={river.bounds} showLegend={true} legendRoute={false} cooperativeGestures={true}>
+            {/* Mounted before ConditionRiverLayer so the hero river stacks above. */}
+            <ConditionNetworkLayer excludeRiverId={river.id} />
+            {river.geometry && (
+              <ConditionRiverLayer
+                riverId={river.id}
+                riverName={river.name}
+                riverSlug={riverSlug}
+                geometry={river.geometry}
+              />
+            )}
+            <AccessPointMarkers accessPoints={accessPoints} />
+            <HazardMarkers hazards={hazards} />
+          </MapContainer>
+        ) : isError ? (
+          <div className="flex h-full flex-col items-center justify-center gap-3 bg-neutral-50 p-6 text-sm text-neutral-600">
+            <p>The map couldn&apos;t load. Access points are listed below.</p>
+            <button type="button" onClick={() => void refetch()} className="font-semibold text-primary-600">Try again</button>
+          </div>
+        ) : (
+          <div className="w-full h-full bg-ozark-900 flex items-center justify-center">
+            <LoadingSpinner size="lg" />
+          </div>
+        )}
       </OverviewMapBoundary>
     </div>
   );

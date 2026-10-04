@@ -6,6 +6,8 @@ import { etagFor } from './etag';
 import {
   NO_LIVE_AVAILABILITY,
   toAccessPoint,
+  toRiverDetail,
+  toRiverIndexEntry,
   toHazard,
   type AccessPointRow,
   type HazardRow,
@@ -265,4 +267,12 @@ test('hazards preserve unknown, required, and not-required portages separately',
     const wire = JSON.parse(JSON.stringify(toHazard(hazardRow({ portage_required: value }))));
     assert.equal(wire.portageRequired, value);
   }
+});
+
+test('static river guidance reaches both river detail and seeded index', () => {
+  const river = { id: 'elk', name: 'Elk River', slug: 'elk', length_miles: 34.8,
+    description: null, difficulty_rating: null, region: null,
+    float_tip: 'Upper reaches can become shallow in dry weather.' };
+  assert.equal(toRiverIndexEntry(river, 3).floatTip, river.float_tip);
+  assert.equal(toRiverDetail(river, { type: 'LineString', coordinates: [[-94.4, 36.5], [-94.5, 36.6]] }).floatTip, river.float_tip);
 });

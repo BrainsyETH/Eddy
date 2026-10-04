@@ -224,7 +224,7 @@ export async function getRivers(): Promise<RiverListItem[]> {
         river_type,
         length_miles,
         description,
-      float_tip,
+        float_tip,
         difficulty_rating,
         region
       `)

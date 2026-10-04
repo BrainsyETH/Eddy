@@ -116,7 +116,7 @@ test('both call sites read river_type from the query that must already succeed',
   // it in .catch(() => null), and `undefined` reads as "not a tailwater".
   assert.match(
     PLAN_ROUTE,
-    /\.select\('id, name, slug, river_type'\)/,
+    /\.select\('[^']*\briver_type\b[^']*'\)/,
     '/api/plan must select river_type on its rivers query',
   );
   assert.match(
