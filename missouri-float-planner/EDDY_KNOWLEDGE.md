@@ -640,3 +640,15 @@ Twenty-three miles of the White River between Table Rock Dam and Powersite Dam a
 - **Oxygen improves downstream.** Dissolved oxygen measured close to double ten miles down what it did immediately below the dam — the release comes out oxygen-poor and re-aerates as it moves.
 - **The lake level is its own reading.** Because Powersite impounds it, Taneycomo has a surface elevation rather than a stage, and gauges at both ends report it in feet. That is not a river stage and does not mean what a river stage means.
 - Missouri's special regulations apply from Table Rock Dam down to Fall Creek — check MDC's Lake Taneycomo rules before keeping anything.
+
+---
+
+## Elk River {#elk}
+
+- Pineville and Noel are the main bases. The Elk begins where Big Sugar and Little Sugar meet; Indian Creek joins above the Trestle Park area. Upper trips can become shallow before the lower reach does.
+- City of Pineville, Mount Shira and Cowskin are agency-listed accesses. Mount Shira and Cowskin prohibit camping. The highway crossings at I-49 and MO-59 are not verified public launches; Lanagan Access is on Indian Creek.
+- Kozy Kamp to Trestle Park and Trestle Park to Wayside are published operator trips. Private launches need the operator's rental or access arrangements. Campground office coordinates are not launch coordinates.
+- Tent/RV camping is available through the river's operators, including Wayside, Kozy Kamp, Eagles Nest, Trestle Park, River Ranch/Sycamore Landing, Shady Beach, Two Sons and The Spot. Shady Beach requires a float booking for camping from Memorial Day through Labor Day.
+- Shadow Lake Dam separates upper and lower trips. Do not describe a through-float as verified without a confirmed portage and land access. The Trestle Park area also has a low-water crossing.
+- The live Noel gauge is USGS 07188925 and currently supplies stage only. The former Tiff City gauge is inactive. Never apply Tiff City stage thresholds to Noel or infer a discharge from its stage.
+- Bluff Dwellers Cave is a drive-to attraction south of Noel, not a riverside cave stop. Named springs documented on Indian Creek, Big Sugar Creek and Mill Creek are not established Elk mainstem stops.

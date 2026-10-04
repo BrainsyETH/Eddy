@@ -1,95 +1,69 @@
-# Verified Identifiers — Elk River (MO)
+# Elk identifiers — checked 2026-10-04
 
-Primary-source transcription for the Elk River dossier, distilled from
-elk-findings-partial.md (USGS-verified tier). The [verify] gate for
-ingest-dossier.ts: every `gauges[].siteId` in elk.json must appear below.
-Status is AWAITING SIGNOFF — this file clears the identifier gate; the
-threshold/optimal signoff is still open (see elk.json `_status`).
+Elk is held inactive. This file verifies identifiers and provider metadata, not
+thresholds or permission to activate. It supersedes the July assertion that only
+the gauge remained unfinished; the full review also found access and route gaps.
 
-## USGS gauges (transcribed)
+## Candidate primary: USGS 07188925, Noel
 
-### 07189000 — Elk River near Tiff City, MO  ✅ ACTIVE (PRIMARY / only mainstem gauge)
-- dec lat/lon: 36.63146, -94.58689 (NAD83) · drainage 851 sq mi · McDonald Co · HUC 11070208
-- params: uv 00060 (discharge, cfs) + uv 00065 (gage height, ft). POLLABLE.
-- NWS LID TIFM7 (action 13 ft · minor flood 15 ft) — CROSS-CHECK ONLY, not the
-  danger anchor. The dangerous badge is the outfitter recreational ceiling
-  (6.5 ft gage height), deliberately NOT the NWS flood stage.
-- ⚠ BIAS: sits near the OK line (~river mile 45) BELOW the Indian Creek
-  confluence (Indian Creek enters ~mile 30 and roughly doubles the flow), so it
-  OVER-READS the popular upper Pineville–Noel reach. This is the reach's only
-  real-time mainstem gauge, so it is still the representative gauge.
+- Provider name: **Elk Rv at MO-59, Noel, MO**.
+- Coordinate: **36.549703, -94.493144**; USGS reports NAD83 origin.
+- Drainage area: **801 square miles**. Station altitude/datum: **796.22 ft NAVD88**.
+- Published continuous hydrologic parameter: **00065, gage height in feet**.
+  The other returned series is battery voltage; no 00060 discharge series was found.
+- Stage series: `1d9e1029c2414830b5bbe99ba1e834b3`, beginning
+  **2026-06-02 19:15 UTC**. Metadata end at retrieval: 2026-10-03 07:15 UTC;
+  Eddy's reference latest table had a newer 2026-10-04 00:15 UTC reading.
+- Current production station exists, active and reference-tier (`curated=false`),
+  but is not linked as Elk's representative. Curated history is empty; that does
+  not mean its reference polling stopped.
 
-## Gauges deliberately EXCLUDED from gauges[] (not mainstem representatives)
+Sources: [station metadata](https://api.waterdata.usgs.gov/ogcapi/v0/collections/monitoring-locations/items/USGS-07188925?f=json),
+[time-series metadata](https://api.waterdata.usgs.gov/ogcapi/v0/collections/time-series-metadata/items?f=json&monitoring_location_id=USGS-07188925&limit=100),
+[monitoring page](https://waterdata.usgs.gov/monitoring-location/USGS-07188925/).
 
-### 07188653 — Big Sugar Creek near Powell, MO  (tributary / feeder)
-- One of the two forming tributaries above Pineville; NOT the Elk mainstem.
-- Drainage area NOT pinned (toVerify). Do NOT transfer its cfs to the mainstem.
-- Excluded from gauges[] on purpose — kept here for the record only.
+USGS metadata's operational suppression limits describe instrument/data handling;
+they are **not recreational thresholds**. No Noel ladder is signed off.
 
-### Indian Creek gauge — UNRESOLVED (conflicting candidates)
-- 07188885 (near Lanagan) vs 07188870 (at Anderson) — the findings conflict and
-  neither was verified on a monitoring-location page. Resolve before adding
-  Indian Creek as a secondary/context gauge.
+## Historical primary: USGS 07189000, Tiff City
 
-## Other identifiers
-- GNIS feature id: **01092538** (Elk River) — the stable app identifier while
-  the NHD PID is undecided.
-- NHD: NO single Permanent_Identifier — the mainstem is ~100 flowline segments.
-  Representative mainstem PIDs surfaced: 86154849 / 86155179 / 86154487.
-  nhdFeatureId in elk.json left "UNKNOWN" pending a chosen representative reach.
+The inspected continuous stage **and** discharge series both end
+**2026-04-27 16:30 UTC**. The earlier statement that stage history did not exist
+was based on an incomplete legacy response and is superseded by the current
+USGS series catalogue. It does not change the inactive-gauge conclusion.
 
-## Ingest readiness / ACTION
-- Representative gauge = 07189000 (active, mainstem, only real-time option).
-- [verify] gate: CLEARED for 07189000 (the sole gauge in gauges[]).
-- STILL BLOCKING SIGNOFF: no OBSERVED optimal gage-height band exists on the
-  Elk mainstem (only a stale 2010 'Low' at 3.56 ft; the ESTIMATED 'Good' ~482
-  cfs is rejected). Until an observed 'Good' level is captured, the badge reads
-  'low' across the whole 3.5 → 6 ft floatable range. Capture an observed
-  optimal, then flip elk.json `_status` to SIGNED-OFF.
-- Also pending: access-point coordinates (human places every point [manual]);
-  Big Sugar Creek drainage area; Indian Creek gauge id; NHD representative PID.
+- Stage series: `dfd3126b293649b583f4f77ba7174cfa` (begins 2007-10-01).
+- Discharge series: `348b29f569234f46bf24509ebe10a66b` (begins 1990-05-01).
+- Production station: inactive; still Elk's linked primary pending replacement.
+- The historical owner-reviewed Tiff City ladder remains archived in production:
+  too low 2.5 ft, optimal 3.5–5 ft, dangerous 6 ft. These are **not Noel values**.
+  July notes also mention a 6.5-ft operator closure; that inconsistency is another
+  reason not to treat the archive as a current Noel calibration.
+- The [operator's level page](https://www.elkriverfloats.com/river-levels/)
+  still embeds **07189000**, not Noel, as of this review.
 
-## 2026-07-13 — PRIMARY GAUGE IS DEAD; ELK HELD INACTIVE (blocker)
+Source: [Tiff City series catalogue](https://api.waterdata.usgs.gov/ogcapi/v0/collections/time-series-metadata/items?f=json&monitoring_location_id=USGS-07189000&limit=100).
 
-Verified against USGS at go-live: **07189000 (Tiff City) can no longer drive the
-Elk badge.**
-- Its `00065` gage height returns the `-999999` no-data sentinel and the daily-
-  value record has **no gage-height series at all** — only discharge (`00060`),
-  and that stopped **2026-04-27** (301 days 2025-07-01→2026-04-27, then nothing).
-  So the sensor behind the stale-2010 3.56 ft 'Low' is defunct; the reach's
-  ft-based ladder (too_low 2.5 / optimal 3.5–5 / dangerous 6) has no live feet to
-  read. The research note here ("uv 00065 … POLLABLE") is now FALSE.
-- Only live mainstem gauge on the Elk is **07188925 "Elk Rv at MO-59, Noel, MO"**
-  (the research missed it). It reports gage height, but on a **different datum**:
-  6-week record (starts 2026-06-02) min 5.81 / median 6.42 / p90 7.62 / max 11.29,
-  currently 5.84 ft. The Tiff City ladder does NOT transfer — 6 ft "dangerous"
-  sits *below* Noel's normal stage, so keeping the old thresholds would read
-  "Dangerous" almost always. No NWS AHPS flood stages published for Noel.
+There is no overlapping continuous record between Tiff City and Noel in these
+catalogues. No cfs transfer or fixed stage offset is supported. Final gauge
+selection and recreational anchors require owner signoff through the existing
+dossier process.
 
-**Decision:** Elk rolled back to `active=false`. Access points (5 approved),
-services (7), prose, weather, geometry are all in place and correct — only the
-gauge/threshold core is blocked. To finish Elk: pick 07188925 (Noel) as primary,
-then calibrate an OBSERVED floatable ladder on the Noel datum (needs outfitter /
-observed-level guidance — 6 weeks of record is not enough alone), or wait for
-07189000 to resume + confirm it emits real feet. Do NOT ship estimated thresholds.
+## NHD identity and confluence POIs
 
-### Owner review 2026-07-13 — key CONFIRMED, decision = HOLD (option A)
+USGS NHD Large Scale Flowline layer was queried in WGS84 for the upper Elk
+envelope `-94.505,36.545,-94.375,36.605`. It returned 493 flowlines without a
+transfer-limit flag. Elk's GNIS ID is **01092538**. Representative mainstem
+Permanent_Identifier **86154255** starts at its formation; it is not the ID of
+the whole multisegment river.
 
-Owner supplied the Elk River Floats gage-height key + the moherp Tiff City page.
-This CONFIRMS the existing calibration is correct — it is not a mistake, the gauge
-just died:
-- Elk River Floats bands (canoe-floatable ~2.5–5, restricted 5–6.5, don't-float
-  6.5+) are on the **07189000 (Tiff City)** datum, matching the DB ladder
-  (too_low 2.5 / optimal 3.5–5 / dangerous 6). Cross-checks: moherp's observed
-  238 cfs = 3.56 ft float sits in the key's 3.5–4.5 "fully floatable" band;
-  1720 cfs = 5.3 ft = the key's restricted 5–6 band = moherp "High."
-- 07189000 dead since 2026-04-27; the new **07188925 (Noel)** gauge (first data
-  2026-06-02) is almost certainly its replacement, on a datum ~+2.3 ft higher
-  (Noel summer baseline ~5.8 ft vs Tiff City ~3.5 ft). No temporal overlap
-  between the two gauges → no way to derive an exact stage conversion, and a
-  single offset is least reliable at the high/dangerous end.
+| Feature | Shared vertex, latitude / longitude | NHD Permanent_Identifiers |
+| --- | --- | --- |
+| Big Sugar + Little Sugar → Elk | 36.5882863657504, -94.3826795944845 | Big Sugar 86154253; Little Sugar 86154453; Elk 86154255 |
+| Indian Creek → Elk | 36.58150982744679, -94.45037527837668 | Indian 86154681; upstream Elk 86155147; downstream Elk 86154679 |
 
-**Owner decision: HOLD Elk** (do not ship a provisional offset-mapped ladder).
-Reactivate when Elk River Floats republishes their key against 07188925, or a
-proper observed Noel-datum ladder exists (then: set primary 07188925, apply the
-native ladder, run activate-rivers.ts). Everything else for Elk stays staged.
+Source: [USGS NHD query](https://hydro.nationalmap.gov/arcgis/rest/services/nhd/MapServer/6/query?where=permanent_identifier%20IN%20%28%2786154253%27%2C%2786154453%27%2C%2786154255%27%2C%2786154681%27%2C%2786155147%27%2C%2786154679%27%29&outFields=*&outSR=4326&f=pjson).
+
+Both vertices fall within one metre of Eddy's existing line. These are dataset
+coordinates, not surveyed launch points. Proposed POIs identify the confluences
+without adding tributary routes or claiming permission to land.
