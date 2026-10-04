@@ -73,3 +73,9 @@ android/
 /eddy-ios/modules/eddy-map-sheet/ios/*
 !/eddy-ios/modules/eddy-map-sheet/ios/EddyMapSheet.podspec
 !/eddy-ios/modules/eddy-map-sheet/ios/EddyMapSheetModule.swift
+
+# Portrait root controller; admit only its handwritten native source.
+!/eddy-ios/modules/eddy-orientation/ios/
+/eddy-ios/modules/eddy-orientation/ios/*
+!/eddy-ios/modules/eddy-orientation/ios/EddyOrientation.podspec
+!/eddy-ios/modules/eddy-orientation/ios/EddyOrientationReactDelegateHandler.swift

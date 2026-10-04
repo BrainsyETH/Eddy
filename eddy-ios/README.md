@@ -1019,11 +1019,31 @@ page/map pin. Selection stores the reading's timestamp and observed/forecast
 identity; resizing cannot move it to a different reading. In the expanded view,
 the readout has reserved space outside the plot and persists after scrubbing.
 
-The app config now permits native rotation; the root, tab and alert stacks
-explicitly remain portrait. Only `GaugeChartFullscreen` opts into landscape.
+The app config permits native rotation. The local `eddy-orientation` Expo
+module supplies a portrait-only root view controller through a React delegate
+handler, before React mounts. This also covers onboarding/legal, the first-run
+picker, forced upgrade, launch failure and root error screens, which can render
+without a navigation stack. Root, tab and alert stacks retain their portrait
+options. Full-screen chart presentations supply their own landscape-capable
+orientation masks; there is no app-wide runtime lock to race on dismissal.
+
+`GaugeChartSheet` uses full-screen panels when opened from an expanded chart,
+with portrait and both landscape directions enabled. Inline chart panels retain
+their native page-sheet presentation. iOS ignores `supportedOrientations` for
+page sheets, so setting that prop alone would not give expanded panels their
+own rotation policy. Each modal has its own safe-area provider.
+
+The expanded readout separates the condition label from the value and unit.
+Reserved minimum heights keep ordinary readings steady, while unconstrained
+text can wrap and grow at accessibility sizes instead of being clipped. The
+inline chart includes a visible explanation of Expand followed by rotation.
 This changes the native configuration and **requires a new development/TestFlight
 binary**. Keep fingerprint runtime versioning; an OTA alone cannot change the
-installed binary's supported orientations. No new native dependency is added.
+installed binary's supported orientations or add the local root controller.
+There is no new third-party dependency. On Expo upgrades, verify the generated
+modules provider registers `EddyOrientationReactDelegateHandler` and that the
+factory still uses it. The archive check requires the local module's metadata,
+podspec and Swift source, while excluding generated native files and secrets.
 
 Before distribution, verify on an iPhone:
 
@@ -1033,13 +1053,25 @@ Before distribution, verify on an iPhone:
 - Scrub an observed and a forecast reading, lift your finger, and rotate left,
   right and back. Keep the same timestamp, value and source. Try 30d and 1y.
 - Close while in landscape, including with VoiceOver escape. The source returns
-  to portrait. Ordinary Today, Map, planner and alert screens remain portrait.
+  to portrait. Rotate on each tab root (Today, Map, Favorites and Settings),
+  switch tabs while sideways, and test Map with a sheet open, the planner and
+  the alert-creation modal. All remain portrait.
+- Cold-launch sideways into legal/onboarding and the first-run picker; also
+  exercise forced upgrade, the launch-stalled fallback and root error boundary.
+  Each stays portrait before the navigation stack mounts and on retry/reload.
 - With Rotation Lock on, expand and explore in portrait. Check background/resume
   and repeated open/close while the phone is held sideways.
 - Open Compare, Data & details, CSV sharing and Custom dates from the expanded
-  view in both orientations; their dismissal returns to the expanded chart.
+  view in both orientations; rotate while each panel is open. Done (including
+  VoiceOver escape) returns to the expanded chart with its settings intact.
+  Test the keyboard/date picker and the system CSV share sheet in landscape.
+- On a Dynamic Island phone, check the chart and panel Done buttons in both
+  landscape directions. Neither should overlap the side safe-area inset.
 - Check small phones, the largest Dynamic Type sizes, light/dark and Reduce
-  Motion. Large text can scroll; the plot never collapses underneath controls.
+  Motion. Confirm the full value and unit (for example, `12,400 cfs`) and
+  condition label remain readable, including negative/decimal stage readings.
+  Scrub observed and forecast samples with quality flags. Large text can scroll;
+  the plot never collapses underneath controls.
 
 ### Tab navigation
 

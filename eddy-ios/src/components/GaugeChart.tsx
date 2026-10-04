@@ -261,7 +261,7 @@ function GaugeChartInner(props: Props) {
   if (!props.siteId) return null;
   return <>
     <GaugeChartView {...props} controller={controller} active={!expanded} onExpand={() => setExpanded(true)} />
-    {expanded ? <GaugeChartFullscreen title={props.title ?? `USGS ${props.siteId}`} onClose={close}>
+    {expanded ? <GaugeChartFullscreen title={props.title?.trim() || 'Gauge history'} onClose={close}>
       {availableHeight => <GaugeChartView {...props} controller={controller} expanded availableHeight={availableHeight} onClose={close} />}
     </GaugeChartFullscreen> : null}
   </>;
@@ -1063,7 +1063,10 @@ function GaugeChartView({
           <ControlIcon name="expand-outline" size={20} color={colors.interactive} />
         </Pressable> : null}
       </View>
-      {active && sheet ? <GaugeChartSheet title={sheet === 'compare' ? 'Compare' : sheet === 'data' ? 'Data & details' : sheet === 'unit' ? 'Measurement' : sheet === 'range' ? 'History range' : 'Custom dates'} onClose={closeSheet}>
+      {!expanded ? <Text style={[styles.caption, { color: colors.textMuted }]}>
+        Expand, then rotate your phone for a wider view.
+      </Text> : null}
+      {active && sheet ? <GaugeChartSheet expanded={expanded} title={sheet === 'compare' ? 'Compare' : sheet === 'data' ? 'Data & details' : sheet === 'unit' ? 'Measurement' : sheet === 'range' ? 'History range' : 'Custom dates'} onClose={closeSheet}>
         {sheet === 'compare' ? <>
           <ChartComparison label="Typical range" detail={drawnUnit !== 'cfs' ? 'Available for Flow (cfs)' : typical.length ? 'Historical daily flow · 25th–75th percentile' : 'Historical statistics unavailable for this window'} value={showTypical && typical.length > 0} disabled={!typical.length} onChange={setShowTypical} />
           <ChartComparison label="Historical median" detail="50th percentile for each date" value={showMedian && typical.length > 0} disabled={!typical.length} onChange={setShowMedian} />

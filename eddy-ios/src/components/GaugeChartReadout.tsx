@@ -16,18 +16,26 @@ interface Props {
   quality: string | null;
 }
 
-/** The expanded chart reserves space for the readout outside the plot. Fixed
- * line slots keep the plot still as source/quality labels change during a pan. */
+/** Reserve space outside the plot, but let native text layout grow beyond it.
+ * A hard height/line cap can cut off the reading at accessibility text sizes. */
 export function GaugeChartFixedReadout({ value, band, time, source, quality, compact }: Omit<Props, 'width' | 'height' | 'point' | 'finger'> & { compact: boolean }) {
   const { colors } = useTheme();
   const { fontScale } = useWindowDimensions();
+  const largeText = fontScale > 1.5;
+  const valueLine = t.sm.lineHeight * fontScale;
+  const captionLine = t.xs.lineHeight * fontScale;
   return <View style={styles.fixedReadout} pointerEvents="none" accessible={false}
     accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
     <View style={compact ? styles.fixedRow : styles.fixedColumn}>
-      <Text numberOfLines={1} style={[styles.value, compact && styles.fixedValue, { color: colors.text, height: t.sm.lineHeight * fontScale }]}>{value}{band ? ` · ${band}` : ''}</Text>
-      <Text numberOfLines={1} style={[styles.caption, { color: colors.textMuted, height: t.xs.lineHeight * fontScale }]}>{time}</Text>
+      <View style={[styles.fixedColumn, compact && styles.fixedValue]}>
+        <Text style={[styles.value, { color: colors.text, minHeight: valueLine * (largeText ? 2 : 1) }]}>{value}</Text>
+        {/* Keep a slot for the condition even on forecast readings. Separating
+            it lets the number and unit use the full width at large text sizes. */}
+        <Text style={[styles.caption, { color: colors.textMuted, minHeight: captionLine }]}>{band || ' '}</Text>
+      </View>
+      <Text style={[styles.caption, compact && styles.fixedValue, { color: colors.textMuted, minHeight: captionLine * (largeText ? 2 : 1) }]}>{time}</Text>
     </View>
-    <Text numberOfLines={compact ? 1 : 2} style={[styles.caption, { color: colors.textMuted, height: t.xs.lineHeight * fontScale * (compact ? 1 : 2) }]}>{source}{quality ? ` · ${quality}` : ''}</Text>
+    <Text style={[styles.caption, { color: colors.textMuted, minHeight: captionLine * (compact ? 1 : largeText ? 3 : 2) }]}>{source}{quality ? ` · ${quality}` : ''}</Text>
   </View>;
 }
 

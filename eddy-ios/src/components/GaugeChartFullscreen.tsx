@@ -8,8 +8,9 @@ import { fonts, type as t } from '@/theme/typography';
 
 /** A separate native presentation, sharing the inline chart's live controller.
  * The source page stays mounted, including its scroll position and map pin.
- * Only this modal permits landscape; UIKit restores the presenting portrait
- * controller on dismissal. No imperative orientation locks to race on cleanup. */
+ * This modal and its chart panels permit landscape; UIKit restores the
+ * presenting portrait controller on dismissal. No imperative orientation locks
+ * to race on cleanup. */
 export function GaugeChartFullscreen({ title, onClose, children }: {
   title: string;
   onClose: () => void;
