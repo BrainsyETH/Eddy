@@ -1010,6 +1010,14 @@ before acknowledgment; this change only defers the onboarding-specific preload.
 
 ### Expanded gauge charts
 
+History range availability uses the selected station's provider immediately,
+from the same pure `shared/history-capabilities.ts` declaration used by the
+server's provider adapters. Switching between USGS gauges keeps 24h, 7d, 30d,
+90d, 1y and Custom dates available while the separate detail request is pending
+or fails. An explicit server capability declaration takes precedence. NWS,
+USACE and unknown providers retain their supported/conservative limits; do not
+reuse the previous station's capabilities or guess a provider from its site id.
+
 River, gauge and map-history charts have an explicit Expand button. The expanded
 native full-screen modal supports portrait and both landscape directions, with a
 Done action. Rotating an ordinary page does not open it. One controller owns the

@@ -4,6 +4,8 @@
 // shapes; nothing downstream of the provider layer should know which agency
 // a reading came from.
 
+import type { HistoryCapabilities } from '@shared/history-capabilities';
+
 /** A single normalized gauge reading (latest observation per site). */
 export interface GaugeReading {
   /** Provider-native site id (for USGS, the 8-digit site number). */
@@ -138,20 +140,11 @@ export interface HistoryFetchOptions {
 
 /**
  * What a provider's history endpoint can actually serve — declared per
- * provider instead of assumed-USGS-everywhere, which is how a 90-day request
- * used to be clamped to 30 globally while an NWS station silently topped out
- * near 30 and a USGS one could have gone further. Shipped on the wire
- * (GaugeDetail.historyCapabilities): there is no client-side provider
- * registry, so a client-side table would be a second copy waiting to drift.
+ * provider. The pure declaration is shared with chart controls so a picker
+ * doesn't lose longer ranges while waiting for GaugeDetail.historyCapabilities.
+ * An explicit declaration on the wire takes precedence over that fallback.
  */
-export interface HistoryCapabilities {
-  /** Longest window (days ending now) servable at instantaneous resolution. */
-  maxInstantDays: number;
-  /** Whether longer windows can be served from daily values. */
-  supportsDaily: boolean;
-  /** Whether explicit from/to windows are supported at all. */
-  supportsCustomRange: boolean;
-}
+export type { HistoryCapabilities } from '@shared/history-capabilities';
 
 export interface HistoricalData {
   siteId: string;

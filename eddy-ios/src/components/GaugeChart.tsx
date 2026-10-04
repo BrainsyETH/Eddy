@@ -59,6 +59,7 @@ import {
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
 import { formatReading } from '@/lib/readingCopy';
+import { resolveHistoryCapabilities, type HistoryCapabilities } from '@eddy/conditions/history-capabilities';
 import { useGaugeHistory } from '@/hooks/useGaugeHistory';
 import { warn } from '@/lib/monitoring';
 import { ChartDateField } from '@/components/ChartDateField';
@@ -152,7 +153,8 @@ interface Props {
    * has not earned.
    */
   floodStages?: GaugeFloodStages | null;
-  historyCapabilities?: { maxInstantDays: number; supportsDaily: boolean; supportsCustomRange: boolean };
+  provider?: string | null;
+  historyCapabilities?: HistoryCapabilities;
   initialDays?: number;
   initialWindow?: { from: string; to: string };
 }
@@ -268,7 +270,7 @@ function GaugeChartInner(props: Props) {
 }
 
 function GaugeChartView({
-  siteId, unit, thresholds = null, floodStages = null, historyCapabilities,
+  siteId, unit, thresholds = null, floodStages = null, provider, historyCapabilities,
   controller, expanded = false, active = true, availableHeight = 0, onExpand, onClose,
 }: Props & {
   controller: ChartController;
@@ -296,7 +298,8 @@ function GaugeChartView({
     selection, setSelection, unitOverride, setUnitOverride, historyState,
   } = controller;
   const { history, loading, unavailable, failed, retry, historyDays, matchesRequest } = historyState;
-  const ranges = RANGES.filter(r => r.days <= (historyCapabilities?.maxInstantDays ?? 30) || historyCapabilities?.supportsDaily);
+  const capabilities = resolveHistoryCapabilities(provider, historyCapabilities);
+  const ranges = RANGES.filter(r => r.days <= capabilities.maxInstantDays || capabilities.supportsDaily);
   const [width, setWidth] = useState(0);
   const [finger, setFinger] = useState<{ x: number; y: number } | null>(null);
   const clearScrub = useCallback(() => { setSelection(null); setFinger(null); }, [setSelection]);
@@ -888,7 +891,7 @@ function GaugeChartView({
     if (Platform.OS !== 'ios') { setSheet('range'); return; }
     const anchor = Number(target);
     const options = ranges.map(range => range.days === 1 ? '24 hours' : range.days === 365 ? '1 year' : `${range.days} days`);
-    if (historyCapabilities?.supportsCustomRange) options.push('Custom dates');
+    if (capabilities.supportsCustomRange) options.push('Custom dates');
     ActionSheetIOS.showActionSheetWithOptions({
       title: 'History range', anchor: Number.isFinite(anchor) ? anchor : undefined, tintColor: colors.interactive, userInterfaceStyle: isDark ? 'dark' : 'light',
       options: [...options, 'Cancel'], cancelButtonIndex: options.length,
@@ -1078,7 +1081,7 @@ function GaugeChartView({
               <Text style={[styles.choiceText, { color: colors.text }]}>{r.days === 1 ? '24 hours' : r.days === 365 ? '1 year' : `${r.days} days`}</Text>{active ? <ControlIcon name="checkmark" size={20} color={colors.interactive} /> : null}
             </Pressable>;
           })}
-          {historyCapabilities?.supportsCustomRange ? <Pressable accessibilityRole="button" onPress={() => setSheet('dates')} style={[styles.choice, { borderBottomColor: colors.border }]}><Text style={[styles.choiceText, { color: colors.interactive }]}>Custom dates</Text><ControlIcon name="calendar-outline" size={20} color={colors.interactive} /></Pressable> : null}
+          {capabilities.supportsCustomRange ? <Pressable accessibilityRole="button" onPress={() => setSheet('dates')} style={[styles.choice, { borderBottomColor: colors.border }]}><Text style={[styles.choiceText, { color: colors.interactive }]}>Custom dates</Text><ControlIcon name="calendar-outline" size={20} color={colors.interactive} /></Pressable> : null}
         </> : <>
           <Text style={[styles.caption, { color: colors.textMuted }]}>Choose up to 366 days.</Text>
           <ChartDateField label="Start date" value={fromDate} error={dateErrors.from} onChange={chooseStartDate} />
