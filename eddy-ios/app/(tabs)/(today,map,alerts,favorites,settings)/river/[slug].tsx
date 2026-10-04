@@ -1120,12 +1120,16 @@ export default function RiverDetailScreen() {
     );
   }, [subscribed, subscribe, unsubscribe, cascadingAlerts, river?.name]);
 
-  // Resolve the chart's station before the early returns so the detail hook
-  // can follow the picker. Capabilities load without blocking 30-day history.
+  // The picker already knows the provider. Use it for history capabilities
+  // immediately; a slow/failed detail fetch must not shrink a USGS range menu.
   const pickedGauge = shownGaugeId ? gauges.find((g) => g.id === shownGaugeId) ?? null : null;
   const shownSiteId = shownGaugeId
     ? pickedGauge?.usgsSiteId ?? null
     : condition?.gaugeUsgsId ?? river?.primaryGaugeSiteId ?? null;
+  const chartGauge = pickedGauge ?? gauges.find(gauge => gauge.usgsSiteId === shownSiteId);
+  // /api/gauges' legacy MapGauge contract defaults a missing provider to USGS.
+  // No matching gauge is still unknown, never guessed from the station id.
+  const chartProvider = chartGauge ? chartGauge.provider ?? 'usgs' : null;
   const { detail: chartGaugeDetail } = useGaugeDetail(loading || error || !river ? null : shownSiteId);
 
   if (loading) {
@@ -1449,6 +1453,7 @@ export default function RiverDetailScreen() {
           <GaugeChart
             siteId={shownSiteId}
             title={shownGaugeName ?? river.name}
+            provider={chartGaugeDetail?.provider ?? chartProvider}
             historyCapabilities={chartGaugeDetail?.historyCapabilities}
             unit={reading?.unit ?? scaleThresholds?.thresholdUnit ?? river.currentCondition?.thresholdUnit ?? 'cfs'}
             thresholds={scaleThresholds}

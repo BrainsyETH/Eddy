@@ -26,6 +26,7 @@
 // river red. Keeping height null forces threshold_unit='cfs' and makes the
 // alert gate's no-cross-unit-fallback do the right thing.
 
+import { PROVIDER_HISTORY_CAPABILITIES } from '@shared/history-capabilities';
 import { fetchTimeseries, fetchLatestValue } from '@/lib/usace/cda';
 import { getUsaceDam, USACE_RELEASE_SITE_IDS } from './usace-registry';
 import type {
@@ -151,11 +152,7 @@ export class UsaceProvider implements FlowProvider {
   // CWMS takes begin/end and could in principle serve custom ranges, but a
   // release schedule read a year back answers an operations question this
   // product does not ask — declare the minimum that is true and used.
-  readonly historyCapabilities: HistoryCapabilities = {
-    maxInstantDays: 30,
-    supportsDaily: false,
-    supportsCustomRange: false,
-  };
+  readonly historyCapabilities: HistoryCapabilities = PROVIDER_HISTORY_CAPABILITIES.usace;
 
   async fetchHistory(
     siteId: string,

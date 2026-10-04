@@ -244,6 +244,7 @@ export function GaugeHistoryTab({ facts, detail, title }: GaugeTabProps & { titl
     <GaugeChart
       siteId={facts.siteId}
       title={title}
+      provider={detail?.provider}
       unit={primary?.thresholdUnit === 'ft' ? 'ft' : 'cfs'}
       thresholds={primary ? { ...primary, thresholdUnit: primary.thresholdUnit } : null}
       floodStages={detail?.floodStages ?? null}

@@ -6,6 +6,32 @@ import {
 } from '../../../../eddy-ios/src/lib/gaugeChartLayout';
 import { chartEndAfterStartChange, validateChartDates } from '../../../../eddy-ios/src/lib/gaugeChartDates';
 import { chartTimeAtX, expandedChartHeight } from '../../../../eddy-ios/src/lib/gaugeChartExpansion';
+import { resolveHistoryCapabilities } from '../../../shared/history-capabilities';
+
+test('USGS keeps longer and custom ranges before gauge detail arrives or after it fails', () => {
+  for (const detail of [undefined, null]) {
+    const capabilities = resolveHistoryCapabilities('usgs', detail);
+    assert.equal(capabilities.maxInstantDays, 90);
+    assert.equal(capabilities.supportsDaily, true, 'one-year history must remain available');
+    assert.equal(capabilities.supportsCustomRange, true);
+  }
+});
+
+test('switching providers does not carry USGS history options to limited or unknown gauges', () => {
+  for (const provider of ['usgs', 'nws', 'usgs', 'usace', undefined, 'future-provider', 'usgs']) {
+    const capabilities = resolveHistoryCapabilities(provider);
+    assert.equal(capabilities.maxInstantDays, provider === 'usgs' ? 90 : 30);
+    assert.equal(capabilities.supportsDaily, provider === 'usgs');
+    assert.equal(capabilities.supportsCustomRange, provider === 'usgs');
+  }
+});
+
+test('an explicit server capability declaration takes precedence over provider defaults', () => {
+  const restricted = { maxInstantDays: 7, supportsDaily: false, supportsCustomRange: false };
+  assert.deepEqual(resolveHistoryCapabilities('usgs', restricted), restricted);
+  const extended = { maxInstantDays: 90, supportsDaily: true, supportsCustomRange: true };
+  assert.deepEqual(resolveHistoryCapabilities('future-provider', extended), extended);
+});
 
 test('portrait and landscape touches resolve to the same instant, including chart insets', () => {
   const start = Date.parse('2026-09-01T00:00:00Z');

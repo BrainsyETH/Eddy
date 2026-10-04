@@ -18,6 +18,7 @@
 // fact by long enough to reach three other files.)
 
 import { trackedFetch } from '@/lib/telemetry/upstream';
+import { PROVIDER_HISTORY_CAPABILITIES } from '@shared/history-capabilities';
 import { LEGACY_IV_URL, LEGACY_STAT_URL } from './usgs-legacy';
 import { fetchDailyStatisticsRows } from './usgs-statistics';
 import type {
@@ -726,11 +727,7 @@ export class UsgsProvider implements FlowProvider {
   // service serves P90D and returns ZERO rows for P180D or any explicit
   // older window (measured Aug 2026, ceiling ≈120 days). Everything longer
   // comes from daily values.
-  readonly historyCapabilities: HistoryCapabilities = {
-    maxInstantDays: 90,
-    supportsDaily: true,
-    supportsCustomRange: true,
-  };
+  readonly historyCapabilities: HistoryCapabilities = PROVIDER_HISTORY_CAPABILITIES.usgs;
 
   async fetchHistory(
     siteId: string,

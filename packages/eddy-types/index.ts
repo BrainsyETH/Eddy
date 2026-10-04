@@ -1275,9 +1275,9 @@ export interface GaugeDetail {
   } | null;
   /**
    * What this station's provider can serve /history requests from. Optional
-   * for older payloads; absent should be read as the pre-capability world —
-   * up to 30 instantaneous days, nothing custom — so a client never offers a
-   * range the server may not honor.
+   * for older payloads. Clients with a known provider may use the shared
+   * history-capabilities declaration while detail loads; unknown providers
+   * retain the conservative 30-day/no-custom fallback. Explicit values win.
    */
   historyCapabilities?: {
     maxInstantDays: number;

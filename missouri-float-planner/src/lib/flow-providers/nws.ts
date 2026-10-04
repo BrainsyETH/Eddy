@@ -14,6 +14,7 @@
 // secondary Flow (kcfs) — so readings are mapped by unit, not position, and
 // kcfs is normalized to cfs. Missing values use -999/-9999 sentinels.
 
+import { PROVIDER_HISTORY_CAPABILITIES } from '@shared/history-capabilities';
 import { trackedFetch } from '@/lib/telemetry/upstream';
 import type {
   DailyStatistics,
@@ -134,11 +135,7 @@ export class NwsProvider implements FlowProvider {
   // nothing older — measured, not assumed. No daily product, no custom
   // windows; a longer request is truncated by the SOURCE, and the history
   // route reports that rather than fabricating 90-day availability.
-  readonly historyCapabilities: HistoryCapabilities = {
-    maxInstantDays: 30,
-    supportsDaily: false,
-    supportsCustomRange: false,
-  };
+  readonly historyCapabilities: HistoryCapabilities = PROVIDER_HISTORY_CAPABILITIES.nws;
 
   async fetchHistory(
     siteId: string,
