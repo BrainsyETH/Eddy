@@ -167,6 +167,8 @@ export const POST_TYPES: Record<PostKind, PostTypeDef> = {
       riverName: data.riverName || 'Unknown River',
       readingText: data.readingText || data.quoteText || data.summaryText || '',
       dateLabel: data.dateLabel || defaultDate(),
+      conditionCode: data.conditionCode,
+      gaugeHeightFt: data.gaugeHeightFt,
     }),
     outputFilename: (data) => `highlight-${slugify(data.riverName || 'river')}`,
   },

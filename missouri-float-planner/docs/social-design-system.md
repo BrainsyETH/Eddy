@@ -120,6 +120,23 @@ river scrolls, the gauge fills, the line inks in, the rows slide); the chrome
 does not. Where a data post has a CTA, it lands ~70 frames before the end.
 Portrait reels dip toward the loop seam with `reelLoopOpacity`.
 
+### Eddy’s Read
+
+The full report (`quote_text`, falling back to the retained public summary)
+scrolls continuously upward from the bottom of a clipped reading window. Do
+not prepend the separate `eddy_read` interpretation or summarize/truncate the
+full report. The complete reel is capped at 30 seconds, including a three-second
+ending; short reports finish sooner. Long reports therefore move faster, while
+the complete text also remains in the caption for paused reading.
+
+Eddy’s existing condition-mood artwork remains visible beside the reported
+condition and gauge height (when available). Water, weather and launch-advice
+illustrations mark relevant passages; measurements are emphasized verbatim.
+These are topic markers, never invented forecasts or synthetic data charts.
+The masthead, mascot and footer remain fixed while the text moves. Browser
+measurement after font loading determines the complete scroll distance, so
+wrapped names and long reports cannot strand the final lines offscreen.
+
 ## Copy
 
 Series labels and CTAs live in `LABELS` and `CTA`. The Float Pick's label is

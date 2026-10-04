@@ -67,6 +67,9 @@ jobs:
       - name: Route layout collision checks
         run: npm run test:route-browser
 
+      - name: Full Read scroll and layout checks
+        run: npm run test:read-browser
+
       - name: Video health gate tests
         run: npm run test:video-health
 

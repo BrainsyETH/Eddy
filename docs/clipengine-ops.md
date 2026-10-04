@@ -286,3 +286,10 @@ If that image is still building or its build failed, the runtime path renders
 from the workflow checkout. An older image therefore cannot silently keep a
 merged layout fix out of newly generated posts. Existing MP4s remain unchanged;
 use **Render again** after rollout, inspect the new draft, then publish.
+
+Eddy’s Read uses the complete retained report without prepending its short
+interpretation. Its continuous-scroll renderer caps the entire video at 30
+seconds, including the ending, and keeps the existing Eddy mascot visible.
+The caption retains the full text. Existing drafts retain their saved render
+props: create a new Quick Post to pick up the revised report selection as well
+as the layout. Neither a new render nor this change approves a manual draft.

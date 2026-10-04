@@ -1,6 +1,7 @@
 import { EddyReadReel, type EddyReadReelProps } from "./compositions/social/EddyReadReel";
 import { readingDuration, LONG_READING_FIXTURE } from "../../shared/eddy-read-reel";
 import React from "react";
+import currentRead from "./fixtures/current-read.json";
 import akersPulltite from "./fixtures/akers-pulltite.json";
 import grassyBee from "./fixtures/grassy-bee.json";
 import blackRiver from "./fixtures/black-river.json";
@@ -495,6 +496,11 @@ export const RemotionRoot: React.FC = () => {
       <Composition id="social-eddy-read-long" component={EddyReadReel} width={1080} height={1920} fps={FPS}
         durationInFrames={readingDuration(LONG_READING_FIXTURE)}
         defaultProps={{ riverName: 'Little Missouri River', readingText: LONG_READING_FIXTURE, dateLabel: 'Report Sep 16, 9:00 AM CDT · Gauge Sep 16, 8:45 AM CDT' } satisfies EddyReadReelProps}
+        calculateMetadata={({ props }: { props: EddyReadReelProps }) => ({ durationInFrames: readingDuration(props.readingText) })} />
+
+      <Composition id="social-eddy-read-current" component={EddyReadReel} width={1080} height={1920} fps={FPS}
+        durationInFrames={readingDuration(currentRead.readingText)}
+        defaultProps={currentRead satisfies EddyReadReelProps}
         calculateMetadata={({ props }: { props: EddyReadReelProps }) => ({ durationInFrames: readingDuration(props.readingText) })} />
 
       {/* Gauge Animation — portrait for Instagram Stories */}

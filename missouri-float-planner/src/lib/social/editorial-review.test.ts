@@ -52,18 +52,37 @@ test('editorial cover content survives centered square and portrait crops', asyn
  }
 });
 
-test('reading pagination preserves every word and duration scales with the report', async () => {
- const { readingPages, readingTimeline, readingDuration, READ_CTA_FRAMES } = await import('../../../shared/eddy-read-reel');
+test('continuous reading preserves every word and caps the whole reel at 30 seconds', async () => {
+ const { readingBlocks, readingDuration, READ_MAX_FRAMES, READ_FPS } = await import('../../../shared/eddy-read-reel');
  const text='The water is steady. Check shallow crossings before choosing your route. '.repeat(15)+'\n\nFinish at the selected take-out.';
- assert.equal(readingPages(text).join(' '),text.trim().replace(/\s+/g,' '));
- const timeline=readingTimeline(text);
- assert.ok(timeline.every((p,i)=>p.frames>=150 && (i===0 || p.start===timeline[i-1].start+timeline[i-1].frames)));
- assert.equal(readingDuration(text),timeline.at(-1)!.start+timeline.at(-1)!.frames+READ_CTA_FRAMES);
+ assert.equal(readingBlocks(text).map(b=>b.text).join(' '),text.trim().replace(/\s+/g,' '));
+ assert.equal(readingDuration(text),READ_MAX_FRAMES);
+ assert.ok(READ_MAX_FRAMES/READ_FPS<=30);
  assert.ok(readingDuration(text)>readingDuration('Short reading.'));
+ assert.equal(readingDuration(text.repeat(100)),READ_MAX_FRAMES);
 });
-test('full report follows the compact interpretation and stale prose stays withheld', async () => {
+test('full report is preserved without the separate introduction and stale prose stays withheld', async () => {
  const { publishableReading } = await import('../../../shared/eddy-read-reel');
- assert.equal(publishableReading({eddy_read:'Compact interpretation.',quote_text:'The complete report.'}),'Compact interpretation.\n\nThe complete report.');
+ assert.equal(publishableReading({eddy_read:'Compact interpretation.',quote_text:'The complete report.'}),'The complete report.');
  assert.equal(publishableReading({eddy_read:'Stale interpretation.',quote_text:'',summary_text:null}),null);
  assert.equal(publishableReading({quote_text:'Legacy full report.'}),'Legacy full report.');
+ assert.equal(publishableReading({quote_text:'  ',summary_text:'Available summary.'}),'Available summary.');
+});
+test('scroll moves continuously upward and the final line clears before the ending', async () => {
+ const { readingScrollY, READ_CTA_FRAMES } = await import('../../../shared/eddy-read-reel');
+ for (const height of [120, 1400, 5000]) {
+   const positions = Array.from({length:900-READ_CTA_FRAMES},(_,frame)=>readingScrollY(frame,900,680,height));
+   assert.ok(positions[0]>=0);
+   assert.equal(positions.at(-1),-height);
+   const step = positions[1]-positions[0];
+   assert.ok(step<0);
+   positions.slice(1).forEach((position,i)=>assert.ok(Math.abs(position-positions[i]-step)<1e-8));
+ }
+});
+test('visual cues preserve decimal measurements and name topics without asserting a forecast', async () => {
+ const { readingBlocks, readingTopic } = await import('../../../shared/eddy-read-reel');
+ const text='The gauge is at 2.6 ft and 786 cfs. No rain is expected. Scout for strainers before launch.';
+ assert.deepEqual(readingBlocks(text).map(b=>b.text),['The gauge is at 2.6 ft and 786 cfs.','No rain is expected.','Scout for strainers before launch.']);
+ assert.deepEqual(readingBlocks(text).map(b=>b.topic),['water','weather','launch']);
+ assert.equal(readingTopic('A quiet morning in October.'),null);
 });
