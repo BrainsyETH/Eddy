@@ -1,113 +1,90 @@
 {
-  "_status": "HELD-INACTIVE 2026-07-13: primary gauge 07189000 is dead (cfs-only, offline since 2026-04-27; 00065 returns -999999). Access points/services/prose/geometry done. BLOCKER: recalibrate to live Noel gauge 07188925 (datum 5.8-11 ft, thresholds do not transfer) with an OBSERVED floatable ladder before reactivating. See verified-identifiers-elk.md 2026-07-13 note.",
+  "_status": "HELD-INACTIVE 2026-10-04: Noel 07188925 is the candidate primary, but has no verified recreational ladder. Full release also needs private launch placement and separate upper/lower routing at Shadow Lake Dam. See elk-release-review-2026-10-04.md. No activation authorized by this dossier.",
   "name": "Elk River",
   "slug": "elk",
-  "primaryGaugeSiteId": "07189000",
+  "primaryGaugeSiteId": "07188925",
   "state": "MO",
   "country": "US",
   "timezone": "America/Chicago",
   "region": "Ozarks",
-  "nhdFeatureId": "UNKNOWN",
-  "difficultyRating": "Class I",
-  "description": "A warm, popular summer float in Missouri's far southwestern corner around Pineville and Noel. Clear, spring-influenced water over gravel bars and beneath bluffs, with heavy party-float traffic in season — but rain-driven and prone to fast, flashy rises.",
+  "nhdFeatureId": "86154255",
+  "difficultyRating": "Class I\u2013II",
+  "description": "A warm, popular summer float in Missouri's far southwestern corner around Pineville and Noel. Clear, spring-influenced water over gravel bars and beneath bluffs, with heavy party-float traffic in season \u2014 but rain-driven and prone to fast, flashy rises.",
   "riverType": "rain_flashy",
-  "managingAuthority": "Missouri Department of Conservation (state-managed accesses); streambed navigability per Missouri law",
-  "regulations": [],
+  "managingAuthority": "MDC at Mount Shira and Cowskin; City of Pineville at its cooperative access; private operators at their own facilities.",
+  "regulations": [
+    {
+      "text": "Camping is prohibited at Mount Shira and Cowskin accesses.",
+      "authority": "Missouri Department of Conservation",
+      "sourceUrl": "https://mdc.mo.gov/discover-nature/places/mount-shira-access"
+    },
+    {
+      "text": "Private launch and landing passes are offered by Elk River Floats; arrange access with the operator.",
+      "authority": "Elk River Floats / Trestle Park",
+      "sourceUrl": "https://trestlepark.com/rates"
+    }
+  ],
   "permits": [],
   "accessLaw": {
-    "value": "Missouri follows the \"navigable in fact\" doctrine: the public may float and wade streams navigable in fact, but streambeds/banks are frequently privately owned, so access is legal from public road crossings, public land, and established accesses, while portaging or camping on private gravel bars can be trespass. Navigability is decided stream by stream; there is no statewide list. (Shared Missouri paragraph — confirm the AGO/MDC citation once for the state.)",
-    "source": "https://mdc.mo.gov/ (MDC stream access) — confirm AGO citation once for MO",
-    "confidence": "medium"
+    "value": "Use the agency-listed public accesses or an operator landing under its published pass/rental arrangements. This dossier does not infer launch or camping permission from a road crossing, gravel bar, or historical guide.",
+    "source": "https://mdc.mo.gov/discover-nature/places/city-pineville-elk-river-access ; https://trestlepark.com/rates",
+    "confidence": "high"
   },
   "seasonalClosures": [],
   "gauges": [
     {
       "provider": "usgs",
-      "siteId": "07189000",
-      "name": "Elk River near Tiff City, MO",
-      "lat": 36.63146,
-      "lon": -94.58689,
+      "siteId": "07188925",
+      "name": "Elk Rv at MO-59, Noel, MO",
+      "lat": 36.549703,
+      "lon": -94.493144,
       "paramsAvailable": [
-        "00060",
         "00065"
       ],
-      "drainageAreaSqMi": 851,
+      "drainageAreaSqMi": 801,
       "servesSections": [
         "elk-main"
       ],
-      "knownBias": "near the OK line below the Indian Creek confluence; over-reads the popular upper Pineville–Noel reach"
+      "knownBias": "At Noel, below Indian Creek and near Shadow Lake. It does not establish the upper Pineville reach condition without reach-specific observations; no discharge series is published in the inspected metadata."
     }
   ],
   "sections": [
     {
       "slug": "elk-main",
-      "name": "Elk River (Pineville → Noel → Tiff City)",
-      "description": "The full Elk River summer-float run from Pineville down through Noel to the Tiff City / Oklahoma-line area — roughly 20–23 floatable miles, the standard 1- to 2-day trip the Noel and Pineville outfitters shuttle. Formed at Pineville by the junction of Big Sugar Creek and Little Sugar Creek; Indian Creek enters near mile 30 and roughly doubles the flow, so the lower reach runs bigger than the upper Pineville stretch. Clear, spring-influenced base flow over gravel bars and past bluffs, but strongly rain-driven and flash-flood prone. Hazards include the low-head dam at Noel (Shadow Lake, ~mile 35.8, mandatory portage) and a concrete low-water bridge near mile 30.7.",
+      "name": "Elk River: Pineville\u2013Noel and lower Elk to Cowskin",
+      "description": "Release research covers the Elk mainstem from Pineville to Noel and, separately, below Shadow Lake Dam to Cowskin. Upper and lower trips are not a verified continuous route. Indian Creek joins above Trestle Park; operator trips on the upper river can be seasonal. Eddy miles begin at the Big Sugar/Little Sugar confluence; historical combined-creek guide miles use a different origin.",
       "putIn": {
-        "name": "City of Pineville Access",
-        "lat": null,
-        "lon": null
+        "name": "City of Pineville Elk River Access",
+        "lat": 36.58884,
+        "lon": -94.38682
       },
       "takeOut": {
-        "name": "Cowskin Access (MDC, Hwy 43, near the Tiff City gauge)",
-        "lat": null,
-        "lon": null
+        "name": "Cowskin Access (separate lower corridor)",
+        "lat": 36.63092,
+        "lon": -94.58758
       },
       "publishedLengthMiles": null,
       "representativeGauge": {
-        "siteId": "07189000",
-        "rationale": "Elk River near Tiff City (07189000) is the only real-time USGS gauge on the Elk mainstem (00060 discharge + 00065 gage height), sitting near the downstream Tiff City end of the reach. Thresholds are quoted against it in gage-height FEET per the Elk River Floats Gauge Height Key; the current USGS rating disagrees with the historical observed cfs, so the badge keys on feet, not cfs.",
-        "knownBias": "gauge is near the OK line (~mile 45) BELOW the Indian Creek confluence (Indian Creek enters ~mile 30 and roughly doubles the flow), so it OVER-READS the popular upper Pineville–Noel reach; an upper put-in runs lower than the gauge shows"
+        "siteId": "07188925",
+        "rationale": "Live USGS mainstem stage gauge at Noel. Candidate only until Noel-specific recreational observations or operator guidance establish the thresholds.",
+        "knownBias": "At Noel, below Indian Creek and near Shadow Lake. It does not establish the upper Pineville reach condition without reach-specific observations; no discharge series is published in the inspected metadata."
       },
-      "thresholds": [
-        {
-          "level": "too_low",
-          "value": 2.5,
-          "unit": "ft",
-          "referenceGauge": "07189000",
-          "referenceGaugeIsPolled": true,
-          "source": "Elk River Floats Gauge Height Key: below 2.5 ft the lower trip runs canoes/kayaks only (scraping); the upper & full 12-mi trips are closed below 3.5 ft.",
-          "confidence": "high",
-          "corroboratingSources": [
-            "Elk River Floats Gauge Height Key (https://www.elkriverfloats.com/ — per-trip gauge-height table)"
-          ]
-        },
-        {
-          "level": "optimal_min",
-          "value": 3.5,
-          "unit": "ft",
-          "referenceGauge": "07189000",
-          "referenceGaugeIsPolled": true,
-          "source": "Elk River Floats Gauge Height Key: at 3.5–5 ft all trips run all craft (canoes, kayaks, rafts, tubes) — the comfortable all-craft range.",
-          "confidence": "high"
-        },
-        {
-          "level": "optimal_max",
-          "value": 5,
-          "unit": "ft",
-          "referenceGauge": "07189000",
-          "referenceGaugeIsPolled": true,
-          "source": "Elk River Floats Gauge Height Key: above 5 ft tubes and canoes drop out and craft are restricted to experienced kayaks/rafts.",
-          "confidence": "high"
-        },
-        {
-          "level": "dangerous",
-          "value": 6,
-          "unit": "ft",
-          "referenceGauge": "07189000",
-          "referenceGaugeIsPolled": true,
-          "source": "Elk River Floats Gauge Height Key: at 6+ ft the upper & full (12-mi) trips close ('no watercraft — lower trip only') — do not float the main river. Deliberately NOT the NWS flood stage (15 ft).",
-          "confidence": "high",
-          "corroboratingSources": [
-            "Elk River Floats Gauge Height Key (https://www.elkriverfloats.com/ — per-trip gauge-height table)"
-          ]
-        }
-      ],
+      "thresholds": [],
       "publishedFloatTimes": [
         {
-          "reachLabel": "Elk River Floats 'full' trip (upper + lower combined)",
-          "distanceMiles": 12,
-          "source": "Elk River Floats (elkriverfloats.com) trip structure referenced by the Gauge Height Key, which rates the 'upper', 'full', and 'lower' trips by gage height; the full trip is ~12 river miles. Float hours were not published in the findings."
+          "reachLabel": "Trestle Park to Wayside (Noel River Float Trip)",
+          "distanceMiles": 6,
+          "hoursLow": 3,
+          "hoursHigh": 6,
+          "vessel": "canoe / kayak",
+          "source": "https://www.elkriverfloats.com/float-trips/"
+        },
+        {
+          "reachLabel": "Pineville to Shady Beach",
+          "distanceMiles": 8,
+          "hoursLow": 6,
+          "hoursHigh": 8,
+          "source": "https://www.shadybeach.com/river-floats/pineville-to-shady-beach-8-mile-float/"
         }
       ],
       "characteristics": {
@@ -118,86 +95,98 @@
           "low_water_dam",
           "strainer"
         ],
-        "lowWaterMeaning": "below ~3.5 ft rafts/tubes drag and the full trip closes",
-        "risingWaterHazards": "rises fast after rain; flash-flood prone; Noel/Shadow Lake dam portage"
+        "lowWaterMeaning": "Shallow gravel bars can require dragging, especially above Indian Creek; no Noel-stage cutoff is signed off.",
+        "risingWaterHazards": "Rain-driven rises; Shadow Lake Dam separates upper and lower trips."
       },
       "hazards": [
         {
-          "value": "Flash-flood prone: clear spring-influenced base flow but the river rises extremely fast after rain (Big Sugar Creek headwaters swing from ~20 cfs to ~20,000 cfs), so a floatable morning can turn dangerous within hours.",
-          "source": "elk-findings-partial.md hydrology note (rain_flashy classification; Big Sugar swings ~20 → 20,000 cfs)",
-          "confidence": "medium"
+          "value": "Shadow Lake Dam near Noel separates upper and lower trips. A mapped dam is not evidence of a usable legal portage.",
+          "source": "https://rivers.moherp.org/maps/16.pdf",
+          "confidence": "high"
         },
         {
-          "value": "Low-head dam at Noel (Shadow Lake), ~river mile 35.8 — MANDATORY PORTAGE. Low-head dams create dangerous recirculating hydraulics; do not run.",
-          "source": "elk-findings-partial.md access/hazard notes: 'Noel/Shadow Lake (low-head DAM ~mi35.8 — PORTAGE)'",
-          "confidence": "medium"
-        },
-        {
-          "value": "Concrete low-water bridge ~river mile 30.7 — strainer / pin hazard, especially at elevated flows.",
-          "source": "elk-findings-partial.md: 'Concrete low-water bridge ~mi30.7 hazard'",
+          "value": "A low-water crossing is at the Trestle Park area below Indian Creek. Precise structure placement remains to be verified before a structured point is added.",
+          "source": "https://kozykamp.com/",
           "confidence": "medium"
         }
       ],
       "localKnowledge": [
-        "Heavy summer party-float scene: the Pineville → Noel → Tiff City run is one of southwest Missouri's busiest warm-weather float rivers, with big weekend and holiday crowds, tubes, and coolers. At least seven outfitter/campground liveries operate on the reach (Elk River Floats, Kozy Kamp, Eagles Nest, Big Elk Floats & Camping, River Ranch Resort, Shady Beach Campground, Two Sons Floats & Camping), most clustered around Noel and Pineville, offering shuttles, camping, and cabins.",
-        "Warmer and flashier than the deep-Ozark spring rivers; primarily a summer-season float. Formed at Pineville by Big Sugar Creek + Little Sugar Creek; Indian Creek joins near mile 30 and roughly doubles the flow, so the lower reach below the Tiff City gauge runs bigger than the upper Pineville stretch."
+        "Pineville and Noel are the main trip bases. Rentals, shuttles and camping are concentrated along the upper mainstem.",
+        "Published six- and twelve-mile operator routes are rounded product distances; they do not validate unplaced access pins.",
+        "Mount Shira and Cowskin prohibit camping. Book a private campground for an overnight stay.",
+        "Bluff Dwellers Cave is a drive-to attraction south of Noel, not an on-water cave stop."
       ]
     }
   ],
   "accessPoints": [
     {
-      "name": "City of Pineville Access",
-      "type": "access",
-      "riverMile": null,
-      "ownership": "Municipal (City of Pineville)",
-      "notes": "Uppermost put-in for the reach, at Pineville where Big Sugar Creek and Little Sugar Creek join to form the Elk River. River mile not pinned in the findings (upstream of the US-71 bridge at ~mi24.5). Coordinates PENDING human placement [manual] — findings coords approximate and omitted.",
-      "source": "elk-findings-partial.md — 'City of Pineville access (upper)'"
+      "name": "City of Pineville Elk River Access",
+      "type": "boat_ramp",
+      "lat": 36.58884,
+      "lon": -94.38682,
+      "ownership": "City",
+      "notes": "City-maintained Elk River access under an MDC cooperative agreement. Reach the parking area from Rhine Road; use the developed launch, not the highway bridge.",
+      "source": "https://mdc.mo.gov/discover-nature/places/city-pineville-elk-river-access ; https://mdc.mo.gov/sites/default/files/mo_nature/downloads/conservation-areas/200814map.pdf ; https://www.openstreetmap.org/node/13608514810"
     },
     {
-      "name": "US-71 Bridge Access",
+      "name": "US-71 Bridge (I-49) Access",
       "type": "bridge",
-      "riverMile": 24.5,
-      "ownership": "Public road crossing (highway right-of-way)",
-      "notes": "US-71 highway bridge crossing, ~river mile 24.5, near the top of the float reach. River mile approximate; coordinates PENDING human placement [manual].",
-      "source": "elk-findings-partial.md — 'US-71 bridge ~mi24.5'"
+      "lat": null,
+      "lon": null,
+      "ownership": "MoDOT",
+      "notes": "HELD: the previous coordinate identified the I-49/US-71 bridge, not a verified launch. Use the separate City of Pineville access. A public road crossing alone is not evidence of permission to launch.",
+      "source": "https://www.floatmissouri.com/plan/missouri-rivers/elk-river/ ; https://overpass-api.de/api/interpreter"
     },
     {
-      "name": "Mount Shira Access (MDC)",
+      "name": "Mount Shira Access",
       "type": "access",
-      "riverMile": 32,
-      "ownership": "Missouri Department of Conservation (MDC)",
-      "notes": "MDC river access, ~river mile 32, above Noel. River mile approximate; coordinates PENDING human placement [manual].",
-      "source": "elk-findings-partial.md — 'MDC Mount Shira ~mi32'"
+      "lat": 36.57653,
+      "lon": -94.46142,
+      "ownership": "MDC",
+      "notes": "MDC access on the west bank, reached from Highway 59 north of Noel. Existing bank pin retained; the MDC area map confirms the launch layout.",
+      "source": "https://mdc.mo.gov/discover-nature/places/mount-shira-access ; https://mdc.mo.gov/sites/default/files/mo_nature/downloads/conservation-areas/6616map.pdf ; https://www.openstreetmap.org/way/1484166288"
     },
     {
-      "name": "Noel / Shadow Lake Access",
+      "name": "Noel / Shadow Lake Access (Hwy 59 bridge)",
       "type": "access",
-      "riverMile": 35.8,
-      "ownership": "Unknown — Noel area (private/municipal; verify)",
-      "notes": "HAZARD: low-head dam (Shadow Lake) at ~river mile 35.8 — MANDATORY PORTAGE. Popular Noel outfitter hub. River mile approximate; coordinates PENDING human placement [manual].",
-      "source": "elk-findings-partial.md — 'Noel/Shadow Lake (low-head DAM ~mi35.8 — PORTAGE)'"
+      "lat": null,
+      "lon": null,
+      "ownership": "Unverified",
+      "notes": "HELD: the former pin was a bridge coordinate with no established ramp or landing rights. The historical Noel City Park access is on Butler Creek, not this bridge. Verify an operator landing at Wayside or River Ranch/Sycamore separately.",
+      "source": "https://mdc.mo.gov/media/107435 ; https://www.elkriverfloats.com/float-trips/ ; https://riverranchresort.com/plan-your-trip/maps/sycamore-landing-map/"
     },
     {
       "name": "Sycamore Landing",
-      "type": "access",
-      "riverMile": null,
-      "ownership": "Unknown (verify — likely private outfitter landing)",
-      "notes": "Take-out landing on the lower reach between Noel and the Tiff City gauge. River mile not pinned in the findings; coordinates PENDING human placement [manual].",
-      "source": "elk-findings-partial.md — 'Sycamore Landing (take-out)'"
+      "type": "campground",
+      "lat": null,
+      "lon": null,
+      "ownership": "private",
+      "notes": "A distinct campground near River Ranch in Noel. Operator map shows river access and a float landing; launch/landing coordinates and independent-boat arrangements remain to be verified. Campground business coordinates must not be substituted for an endpoint.",
+      "source": "https://riverranchresort.com/lodging/camping/sycamore-landing/ ; https://riverranchresort.com/plan-your-trip/maps/sycamore-landing-map/"
     },
     {
-      "name": "Cowskin Access (MDC)",
+      "name": "Cowskin Access",
       "type": "access",
-      "riverMile": 45,
-      "ownership": "Missouri Department of Conservation (MDC)",
-      "notes": "MDC access on Highway 43, ~river mile 45, at/near the Elk River near Tiff City gauge (07189000) — the downstream take-out for the reach. River mile approximate; coordinates PENDING human placement [manual].",
-      "source": "elk-findings-partial.md — 'MDC Cowskin (Hwy 43 ~mi45, at the gauge)'"
+      "lat": 36.63092,
+      "lon": -94.58758,
+      "ownership": "MDC",
+      "notes": "Public access on the lower Elk near Tiff City. A trip from above Noel crosses Shadow Lake Dam; no through-route portage has been verified.",
+      "source": "https://mdc.mo.gov/discover-nature/places/cowskin-access ; https://mdc.mo.gov/sites/default/files/mo_nature/downloads/conservation-areas/6610map.pdf ; https://www.openstreetmap.org/node/3813247085"
+    },
+    {
+      "name": "Lanagan Access",
+      "type": "access",
+      "lat": null,
+      "lon": null,
+      "ownership": "MDC",
+      "notes": "EXCLUDED from Elk endpoints: MDC identifies this as Indian Creek access. The former Elk snap was over 2.3 km away. Retain for a separate Indian Creek dossier.",
+      "source": "https://mdc.mo.gov/discover-nature/places/lanagan-access"
     }
   ],
   "weatherPoint": {
     "city": "Pineville",
-    "lat": null,
-    "lon": null
+    "lat": 36.5951,
+    "lon": -94.3833
   },
   "alertSearchTerms": [
     "elk river",
@@ -207,80 +196,83 @@
     "lanagan"
   ],
   "research": {
-    "date": "2026-07-12",
+    "date": "2026-10-04",
     "sourcesConsulted": [
-      "scripts/ingestion/dossiers/elk-findings-partial.md (distilled Elk River research, pre-signoff)",
-      "Elk River Floats Gauge Height Key PDF (elkriverfloats.com)",
-      "rivers.moherp.org paddler gauge ratings — Elk River near Tiff City 07189000",
-      "USGS waterdata monitoring location 07189000 (Elk River near Tiff City, MO)",
-      "USGS GNIS feature 01092538 (Elk River); NHD / National Map HUC 11070208"
+      "scripts/ingestion/elk-release-review-2026-10-04.md",
+      "scripts/ingestion/dossiers/verified-identifiers-elk.md",
+      "https://api.waterdata.usgs.gov/ogcapi/v0/collections/time-series-metadata/items?f=json&monitoring_location_id=USGS-07188925&limit=100",
+      "https://www.elkriverfloats.com/river-levels/",
+      "https://mdc.mo.gov/discover-nature/places/city-pineville-elk-river-access",
+      "https://mdc.mo.gov/discover-nature/places/mount-shira-access",
+      "https://mdc.mo.gov/discover-nature/places/cowskin-access",
+      "https://hydro.nationalmap.gov/arcgis/rest/services/nhd/MapServer/6 (GNIS 01092538; representative mainstem Permanent_Identifier 86154255)"
     ],
     "openQuestions": [
-      "CALIBRATION UPDATED 2026-07-12 from the Elk River Floats gauge-height key (owner-provided): added the optimal band (3.5–5 ft all-craft) and set dangerous=6 ft (upper/full trips close). This RESOLVES the earlier 'no optimal → badge reads low everywhere' blocker. moherp confirms no observed cfs Good/High for the Elk mainstem (only an observed Low ~250 cfs), so the ft outfitter key is the calibration source.",
-      "LAUNCH BLOCKER — OPTIMAL WINDOW UNPROVEN: there is NO moherp OBSERVED 'Good' rating anywhere on the Elk mainstem — only a single stale 2010 'Low' point (3.56 ft / ~238 cfs) — so optimal_min/optimal_max are OMITTED and the site's model-ESTIMATED 'Good' (~482 cfs) is REJECTED (same estimated-tier miscalibration seen on the Black). CONSEQUENCE: with no optimal band the condition badge reads 'low' across the ENTIRE floatable range, from the 3.5 ft too_low edge all the way up to the 6 ft high anchor. Elk needs an OBSERVED optimal calibration (a trip-rated 'Good' gage height, or Elk River Floats 'ideal-level' guidance) before it can badge accurately — this is the main launch blocker.",
-      "HYDROLOGY (RESOLVED): reclassified spring_fed_float -> rain_flashy. Clear, spring-influenced base flow but strongly flash-flood prone — Big Sugar Creek headwaters swing from ~20 cfs to ~20,000 cfs. Thresholds are therefore encoded in FEET of gage height (matching the outfitter Gauge Height Key), NOT converted to cfs, because the current USGS stage-discharge rating disagrees with the historical observed cfs.",
-      "REPRESENTATIVE-GAUGE BIAS: Elk River near Tiff City 07189000 sits near the OK line (~mile 45) BELOW the Indian Creek confluence (Indian Creek enters ~mile 30 and roughly doubles the flow), so it OVER-READS the popular upper Pineville–Noel reach. Quantify the over-read so upper-reach put-ins can be corrected.",
-      "ACCESS GPS PENDING: every access point (City of Pineville, US-71 bridge ~mi24.5, MDC Mount Shira ~mi32, Noel/Shadow Lake dam ~mi35.8, Sycamore Landing, MDC Cowskin ~mi45) has APPROXIMATE river miles and NO verified coordinates — a human must place every point in admin [manual].",
-      "BIG SUGAR CREEK drainage area UNKNOWN: tributary gauge Big Sugar Creek near Powell 07188653 is deliberately NOT in gauges[] (feeder, not mainstem); its drainage area was not pinned in the findings, so no drainage-area transfer to the mainstem is possible yet.",
-      "INDIAN CREEK GAUGE ID CONFLICT: candidate ids conflict — 07188885 (near Lanagan) vs 07188870 (at Anderson); neither verified. Resolve before adding Indian Creek as a secondary/context gauge.",
-      "NHD IDENTIFIER: the Elk has NO single NHD Permanent_Identifier (~100 flowline segments; representative mainstem PIDs 86154849 / 86155179 / 86154487). GNIS 01092538 (HUC 11070208) is available as the stable app identifier; nhdFeatureId left 'UNKNOWN' pending a chosen representative reach PID.",
-      "TIFM7 NWS flood stages (action 13 / minor flood 15 ft) are a CROSS-CHECK ONLY — the dangerous anchor is the recreational outfitter 'no watercraft' level (6.5 ft gage height), deliberately NOT the NWS flood stage."
+      "Noel-specific stage anchors for the upper and lower corridors: minimum usable, preferred range, high/restricted and stop-running. No overlap with Tiff City and no Noel discharge series found.",
+      "Place and verify private launch/landing pins, parking entrances and access terms at Kozy Kamp, Trestle Park, Wayside, Shady Beach, River Ranch/Sycamore and The Spot.",
+      "Validate separate upper/lower route choices around Shadow Lake Dam; verify the low-water crossing pin and disposition.",
+      "Confirm reusable access and hero photography. Pineville agency image is restricted to MDC; bridge records used unrelated photographs."
     ],
     "toVerify": [
-      "USGS 07189000 (Elk River near Tiff City): confirm site #, name, lat/lon 36.63146/-94.58689, params 00060+00065, drainage 851 sq mi from the monitoring-location page — captured in verified-identifiers-elk.md",
-      "An OBSERVED optimal gage-height band for the Elk mainstem (moherp trip-rated 'Good', or Elk River Floats 'ideal level' guidance) — the calibration that unblocks accurate badging",
-      "Big Sugar Creek near Powell 07188653 drainage area (for any future tributary scaling)",
-      "Indian Creek gauge site number — resolve 07188885 (Lanagan) vs 07188870 (Anderson)",
-      "NHD Permanent Identifier: pick a representative mainstem flowline PID (86154849 / 86155179 / 86154487) or confirm GNIS 01092538 as the app id",
-      "Full MDC / municipal access-point list with coordinates (human places every point) — Pineville, US-71, Mount Shira, Noel/Shadow Lake, Sycamore, Cowskin",
-      "NWS TIFM7 flood/action stages — cross-check only; leave to fetch-nws-flood-stages.ts"
+      "Fresh Noel reading at activation; primary/link/curation changes only after threshold signoff.",
+      "Connected private-endpoint snaps, distances, shuttle roads and API results on web/iOS after applying the reviewed data.",
+      "Named on-water POIs require a verified location. Basin springs on tributaries are not Elk mainstem stops."
     ]
   },
   "readiness": {
     "corridor": {
-      "status": "pending",
-      "evidence": [],
-      "reviewedBy": null,
-      "reviewedAt": null,
-      "notes": "Name the supported put-in/take-out corridor and exclusions."
+      "status": "verified",
+      "evidence": [
+        "scripts/ingestion/elk-release-review-2026-10-04.md"
+      ],
+      "reviewedBy": "Codex \u2014 primary-source and production review",
+      "reviewedAt": "2026-10-04T00:00:00Z",
+      "notes": "Pineville\u2013Noel plus a separate lower Elk corridor to Cowskin. No Big Sugar/Indian Creek launch expansion or Grand Lake route in this release."
     },
     "legalAccess": {
-      "status": "pending",
-      "evidence": [],
-      "reviewedBy": null,
-      "reviewedAt": null,
-      "notes": "Verify legal launch/landing and current restrictions for each offered access pair."
+      "status": "blocked",
+      "evidence": [
+        "scripts/ingestion/elk-release-review-2026-10-04.md"
+      ],
+      "reviewedBy": "Codex \u2014 primary-source and production review",
+      "reviewedAt": "2026-10-04T00:00:00Z",
+      "notes": "Three agency-backed public accesses verified. Two stored bridge launches need withdrawal; private landing placement/terms are outstanding."
     },
     "gauge": {
       "status": "blocked",
       "evidence": [
-        "https://waterdata.usgs.gov/monitoring-location/USGS-07188925/",
-        "https://waterdata.usgs.gov/monitoring-location/USGS-07189000/"
+        "scripts/ingestion/elk-release-review-2026-10-04.md"
       ],
-      "reviewedBy": null,
-      "reviewedAt": null,
-      "notes": "Tiff City ends 2026-04-27; Noel begins 2026-06-02 in the inspected continuous record. No concurrent record for transfer. Noel currently has stage but no discharge in gauge_latest. Fresh reference-tier data does not require gauge_readings history."
+      "reviewedBy": "Codex \u2014 primary-source and production review",
+      "reviewedAt": "2026-10-04T00:00:00Z",
+      "notes": "Noel is live and stage-only (801 sq mi); production still links inactive Tiff City. Candidate linkage/curation awaits calibrated threshold signoff."
     },
     "conditions": {
       "status": "blocked",
-      "evidence": [],
-      "reviewedBy": null,
-      "reviewedAt": null,
-      "notes": "Obtain Noel-specific anchors tied to its datum and floated corridor. Neither direct stage transfer nor the proposed overlapping-cfs transfer is supported by inspected data."
+      "evidence": [
+        "scripts/ingestion/elk-release-review-2026-10-04.md"
+      ],
+      "reviewedBy": "Codex \u2014 primary-source and production review",
+      "reviewedAt": "2026-10-04T00:00:00Z",
+      "notes": "No Noel-specific recreational thresholds found. Current outfitter level page still embeds 07189000. Neither datum subtraction nor an overlapping-cfs transfer is supported."
     },
     "hazards": {
-      "status": "pending",
-      "evidence": [],
-      "reviewedBy": null,
-      "reviewedAt": null,
-      "notes": "Review mapped hazards, prose and access notes. Record known fixed hazards or an evidenced no-fixed-hazards finding; never claim hazard-free."
+      "status": "blocked",
+      "evidence": [
+        "scripts/ingestion/elk-release-review-2026-10-04.md"
+      ],
+      "reviewedBy": "Codex \u2014 primary-source and production review",
+      "reviewedAt": "2026-10-04T00:00:00Z",
+      "notes": "Existing Shadow Lake Dam row confirmed; through-route portage is unverified and Trestle crossing still needs an exact point. Scope is these fixed features only."
     },
     "routing": {
-      "status": "pending",
-      "evidence": [],
-      "reviewedBy": null,
-      "reviewedAt": null,
-      "notes": "Validate connected downstream geometry, access snaps and trip distances for the corridor."
+      "status": "blocked",
+      "evidence": [
+        "scripts/ingestion/elk-release-review-2026-10-04.md"
+      ],
+      "reviewedBy": "Codex \u2014 primary-source and production review",
+      "reviewedAt": "2026-10-04T00:00:00Z",
+      "notes": "All ten existing approved pairs return valid polylines and plausible lengths, but four cross the dam and some use unsupported bridge launches. Private endpoints and shuttle roads remain unverified."
     }
   }
 }
