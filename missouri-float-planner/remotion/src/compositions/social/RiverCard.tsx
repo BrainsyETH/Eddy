@@ -34,7 +34,7 @@ const RAIN_BLUE = "#2563EB";
 
 /** Simple SVG weather glyph — no emoji, so it renders the same in any Chromium
  *  (the GH Actions render box has no color-emoji font). */
-const WeatherIcon: React.FC<{ condition: string; size?: number }> = ({ condition, size = 58 }) => {
+export const WeatherIcon: React.FC<{ condition: string; size?: number }> = ({ condition, size = 58 }) => {
   const c = (condition || "").toLowerCase();
   const rainy = /rain|drizzle|thunder|storm|shower/.test(c);
   const snowy = /snow|sleet/.test(c);

@@ -21,6 +21,11 @@ on:
       - 'missouri-float-planner/shared/**'
   workflow_dispatch:
     inputs:
+      voice_preview:
+        description: 'Generate the full Current River narration and upload a review-only video (requires OPENAI_API_KEY; never publishes).'
+        required: false
+        type: boolean
+        default: false
       update_baselines:
         description: 'Render the check stills and commit them as the new visual baselines (run from the branch carrying the intended visual change).'
         required: false
@@ -66,6 +71,12 @@ jobs:
 
       - name: Route layout collision checks
         run: npm run test:route-browser
+
+      - name: Full Read scroll and layout checks
+        run: npm run test:read-browser
+
+      - name: Narration preparation and timing
+        run: npm run test:read-narration
 
       - name: Video health gate tests
         run: npm run test:video-health
@@ -115,3 +126,41 @@ jobs:
             /tmp/visual-diffs/
             /tmp/stills/
           if-no-files-found: ignore
+
+  voice-preview:
+    if: github.event_name == 'workflow_dispatch' && inputs.voice_preview
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    defaults:
+      run:
+        working-directory: missouri-float-planner/remotion
+    env:
+      PUPPETEER_SKIP_DOWNLOAD: 'true'
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: '20'
+      - name: Install dependencies
+        run: |
+          sudo apt-get update && sudo apt-get install -y ffmpeg
+          npm ci
+      - name: Render narrated review copy without publishing
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          COMPOSITION_ID: social-eddy-read
+          OUTPUT_FILENAME: eddy-read-voice-preview
+          AUDIO_MODE: social
+          RENDER_MODE: entry
+          RENDER_PREVIEW_ONLY: 'true'
+        run: |
+          cp src/fixtures/current-read.json /tmp/props.json
+          bash scripts/render-core.sh
+      - name: Save the narrated preview
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: eddy-read-voice-preview
+          path: /tmp/out.mp4
+          if-no-files-found: error

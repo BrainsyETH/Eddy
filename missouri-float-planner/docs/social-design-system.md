@@ -120,6 +120,33 @@ river scrolls, the gauge fills, the line inks in, the rows slide); the chrome
 does not. Where a data post has a CTA, it lands ~70 frames before the end.
 Portrait reels dip toward the loop seam with `reelLoopOpacity`.
 
+### Eddy’s Read
+
+The full report (`quote_text`, falling back to the retained public summary)
+starts in view and scrolls continuously upward through a clipped reading window. Do
+not prepend the separate `eddy_read` interpretation or summarize/truncate the
+full report. Soft, friendly, well-paced narration takes priority over a fixed
+runtime. The measured voice audio determines the duration; never speed it up,
+crop it, or shorten the report to hit 30 seconds. Studio/visual fixtures without
+audio estimate 145 words per minute. The complete text also remains in the caption.
+
+Eddy’s existing condition-mood artwork remains visible beside the reported
+condition and gauge height (when available). Water, weather and launch-advice
+illustrations mark relevant passages; measurements are emphasized verbatim. A
+weather tile shows the report-date high/low, actual condition icon, and that day's
+rain chance from its saved weather snapshot. Label its date; omit the tile when
+that day's data is missing. Do not borrow another day's forecast or the window's
+maximum rain chance. Topic markers never substitute for measured weather.
+The masthead, mascot and footer remain fixed while the text moves. Browser
+measurement after font loading determines the complete scroll distance, so
+wrapped names and long reports cannot strand the final lines offscreen. The
+closing card follows the last sentence in the same scrolling flow, then holds
+for at least three seconds, extending for the closing voice and a short tail.
+There is no empty entrance or exit interval. Canoeing Eddy and river strokes
+anchor the closing panel with a bold Geist headline and coral rule. The gapless
+theme bed stays at 3.5% under normalized narration; playback speed is always 1.
+The footer identifies the AI voice. Final audio processing preserves this mix.
+
 ## Copy
 
 Series labels and CTAs live in `LABELS` and `CTA`. The Float Pick's label is

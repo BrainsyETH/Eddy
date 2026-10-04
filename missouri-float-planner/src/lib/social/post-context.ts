@@ -1,4 +1,4 @@
-import { publishableReading } from '@shared/eddy-read-reel';
+import { publishableReading, readingWeather } from '@shared/eddy-read-reel';
 import { estimateRoute } from '@/lib/calculations/route-estimate';
 import { shortSummary, reportStamp } from '@shared/social-editorial';
 import { weekendWeather } from './weekend-weather';
@@ -331,7 +331,7 @@ export async function buildPostContext(
     // Fetch by explicit eddy_update id (cron) or latest for a river (quick-post).
     let query = supabase
       .from('eddy_updates')
-      .select('id, river_slug, condition_code, gauge_height_ft, quote_text, summary_text, eddy_read, generated_at')
+      .select('id, river_slug, condition_code, gauge_height_ft, quote_text, summary_text, eddy_read, generated_at, weather')
       .gt('expires_at', nowIso)
       .is('section_slug', null);
     query = opts.eddyUpdateId
@@ -350,6 +350,7 @@ export async function buildPostContext(
       renderData: {
         riverName: riverDisplayLong(update.river_slug),
         readingText,
+        readWeather: readingWeather(rawUpdate.weather, rawUpdate.generated_at),
         dateLabel: `Report ${reportStamp(new Date(rawUpdate.generated_at))}` + (update.reading_timestamp ? ` · Gauge ${reportStamp(new Date(update.reading_timestamp))}` : " · Gauge time unavailable"),
         conditionCode: update.condition_code,
         gaugeHeightFt: update.gauge_height_ft,
