@@ -72,40 +72,11 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       return { title: 'River Not Found' };
     }
 
-    let conditionCode = 'unknown';
-    try {
-      const condRows = await pageCondition(river.id);
-      if (condRows && condRows.length > 0) {
-        conditionCode = condRows[0].condition_code || 'unknown';
-      }
-    } catch (err) {
-      console.warn('Failed to fetch conditions for river metadata:', err);
-    }
-
-    const conditionLabels: Record<string, string> = {
-      flowing: 'Flowing',
-      good: 'Good - Floatable',
-      low: 'Very Low',
-      high: 'High Water',
-      too_low: 'Too Low',
-      dangerous: 'Dangerous',
-      unknown: '',
-    };
-    const conditionText = conditionLabels[conditionCode] || '';
-
-    const lengthMiles = river.length_miles ? parseFloat(String(river.length_miles)).toFixed(1) : '';
-    const title = conditionText ? `${river.name} — ${conditionText}` : river.name;
-    const ogTitle = `${river.name} | Float Trip Guide`;
-
-    const descParts: string[] = [];
-    if (conditionText) descParts.push(`Currently ${conditionText.toLowerCase()}.`);
-    if (lengthMiles) descParts.push(`${lengthMiles} mi`);
-    if (river.difficulty_rating) descParts.push(river.difficulty_rating);
-    if (river.region) descParts.push(river.region);
-    const descMeta = descParts.length > 1
-      ? descParts.slice(0, 1).join('') + ' ' + descParts.slice(1).join(', ') + '.'
-      : descParts.join(', ') + '.';
-    const description = `${descMeta} Access points, river guide, and live conditions for ${river.name}. Plan your float on Eddy.`;
+    // Chat clients can retain metadata indefinitely. Do not publish a condition
+    // verdict here; the destination supplies timestamped, current readings.
+    const title = `${river.name} · Float guide & access points`;
+    const ogTitle = `${title} | Eddy`;
+    const description = `River conditions, access points and float planning for ${river.name}. Open for the latest readings.`;
     const pageUrl = `${BASE_URL}${riverPath(river.state, slug)}`;
 
     return {

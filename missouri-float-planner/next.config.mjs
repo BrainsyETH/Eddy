@@ -8,6 +8,10 @@ const HTML_LIMITED_BOT_UA_RE = /[\w-]+-Google|Google-[\w-]+|Chrome-Lighthouse|Sl
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // Image routes serve deterministic artwork without fetching live providers.
+  outputFileTracingIncludes: {
+    '/*': ['./public/share/*.png', './public/share/*.jpg'],
+  },
   // Safari's native app banner reads <head>, not streamed metadata appended
   // to <body>. Keep the crawler defaults above while also blocking
   // metadata for iOS Safari; other browsers retain metadata streaming.
@@ -45,6 +49,16 @@ const nextConfig = {
   },
   async rewrites() {
     return [
+      // Keep image URLs already cached in chats working after adopting
+      // generateImageMetadata (which adds an image-id path segment).
+      {
+        source: '/rivers/:state/:slug/:image(opengraph-image|twitter-image)',
+        destination: '/rivers/:state/:slug/:image/preview',
+      },
+      {
+        source: '/dams/:damId/:image(opengraph-image|twitter-image)',
+        destination: '/dams/:damId/:image/preview',
+      },
       {
         // Universal links. A REWRITE, never a redirect: Apple's CDN does not
         // follow redirects when fetching this file, and a 3xx here breaks

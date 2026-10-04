@@ -3,12 +3,12 @@ import { linkPreviewImageMetadata } from '@/lib/og/link-preview';
 
 export const revalidate = 86400;
 
-type Props = { params: Promise<{ slug: string }> };
+type Props = { params: Promise<{ damId: string }> };
 
 export async function generateImageMetadata({ params }: Props) {
-  return linkPreviewImageMetadata('river', (await params).slug);
+  return linkPreviewImageMetadata('dam', (await params).damId);
 }
 
 export default async function Image({ params }: Props) {
-  return linkPreviewResponse('river', (await params).slug);
+  return linkPreviewResponse('dam', (await params).damId);
 }

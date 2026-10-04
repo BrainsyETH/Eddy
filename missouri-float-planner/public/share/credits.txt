@@ -1,0 +1,24 @@
+Eddy link preview artwork
+
+Current River photograph: JoAnn Miller - National Park Service.
+Source: https://www.nps.gov/ozar/index.htm
+Original: https://www.nps.gov/common/uploads/structured_data/3C818ACD-1DD8-B71B-0B91F9B923E1E7A7.jpg
+Reuse basis checked 2026-10-04:
+The park photo-gallery page permits website and print reproduction of photos
+without a copyright symbol, with National Park Service and photographer credit:
+https://www.nps.gov/ozar/learn/photosmultimedia/photogallery.htm
+The source homepage labels this exact image "NPS Photo/JoAnn Miller" and shows
+no copyright symbol. This records the park's published reuse guidance; it
+is not an independent verification of the photographer's employment status.
+No claim to original U.S. Government works.
+https://www.nps.gov/aboutus/disclaimer.htm
+
+Bagnell Dam photograph: KTrimble; contrast adjustment by Bogomolov.PL.
+Source: https://commons.wikimedia.org/wiki/File:UserKTrimble-AP_of_Bagnell_Dam_MO_2011-03-01.jpg
+CC0: https://creativecommons.org/publicdomain/zero/1.0/
+
+Both photographs are archival scenery, not current conditions or releases.
+Eddy derivatives crop/resize the photographs and add a gradient and brand mark.
+Original Eddy illustrations and branding belong to Eddy. The photo licenses
+do not apply to Eddy artwork or application source code. No agency endorsement
+is implied.
