@@ -12,6 +12,9 @@ export function TabStack({ root, title }: { root: string; title: string }) {
     return {
       headerShown: Boolean(detail) || (today && Platform.OS === 'ios'),
       title: detail ?? title,
+      // Secondary guard. EddyPortraitRootViewController enforces the app's
+      // default; changing this alone cannot unlock a tab screen.
+      orientation: 'portrait',
       headerBackButtonDisplayMode: 'generic',
       headerLargeTitle: today,
       headerTransparent: Platform.OS === 'ios',

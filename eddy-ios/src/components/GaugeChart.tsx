@@ -64,7 +64,9 @@ import { warn } from '@/lib/monitoring';
 import { ChartDateField } from '@/components/ChartDateField';
 import { GaugeChartSheet } from '@/components/GaugeChartSheet';
 import { GaugeChartDetails } from '@/components/GaugeChartDetails';
-import { GaugeChartReadout } from '@/components/GaugeChartReadout';
+import { GaugeChartReadout, GaugeChartFixedReadout } from '@/components/GaugeChartReadout';
+import { GaugeChartFullscreen } from '@/components/GaugeChartFullscreen';
+import { chartTimeAtX, expandedChartHeight, type ChartSelection } from '@/lib/gaugeChartExpansion';
 import { chartGutters, chartGridValues, selectChartRailLabels, type ChartRailLabel } from '@/lib/gaugeChartLayout';
 import { validateChartDates, localChartDate, parseLocalChartDate, chartEndAfterStartChange, type ChartDateErrors } from '@/lib/gaugeChartDates';
 
@@ -123,6 +125,8 @@ const SCRUB_FAIL_Y = 8;
 interface Props {
   /** Null renders nothing at all — the caller has no station to chart. */
   siteId: string | null;
+  /** Station identity remains visible when the page is behind the chart. */
+  title?: string;
   /**
    * The unit to OPEN on. Comes from the river's ladder where there is one, so
    * the chart and the reading above it start out saying the same thing.
@@ -210,22 +214,9 @@ function stageRailLabel(key: FloodStageKey): string {
   return category[0].toUpperCase() + category.slice(1);
 }
 
-function GaugeChartInner({
-  siteId,
-  unit,
-  thresholds = null,
-  floodStages = null,
-  historyCapabilities,
-  initialDays = 30,
-  initialWindow,
-}: Props) {
-  const { fontScale } = useWindowDimensions();
-  const chartHeight = CHART_HEIGHT * Math.max(1, fontScale);
-  const axisFont = 11 * fontScale;
-  const padTop = 30 * fontScale;
-  const padBottom = 28 * fontScale;
-  const clipId = `gauge-${useId().replace(/[^a-zA-Z0-9]/g, '')}`;
-  const { colors, isDark } = useTheme();
+/** One controller owns the settings, request and eight-window cache throughout
+ * expansion. Both presentations draw from it; neither fetches on mount. */
+function useGaugeChartController({ siteId, initialDays = 30, initialWindow }: Props) {
   const [sheet, setSheet] = useState<'compare' | 'data' | 'range' | 'unit' | 'dates' | null>(null);
   const [showTypical, setShowTypical] = useState(false);
   const [showMedian, setShowMedian] = useState(false);
@@ -238,12 +229,8 @@ function GaugeChartInner({
   const [toDate, setToDate] = useState(() => localChartDate(initialWindow ? new Date(initialWindow.to) : new Date()));
   const [customWindow, setCustomWindow] = useState<{ from: string; to: string } | undefined>(initialWindow);
   const [dateErrors, setDateErrors] = useState<ChartDateErrors>({});
-  const ranges = RANGES.filter(r => r.days <= (historyCapabilities?.maxInstantDays ?? 30) || historyCapabilities?.supportsDaily);
   const [days, setDays] = useState<number>(initialDays);
-  const [width, setWidth] = useState(0);
-  const [scrubPosition, setScrubPosition] = useState<{ x: number; y?: number } | null>(null);
-  const scrubX = scrubPosition?.x ?? null;
-  const setScrubX = useCallback((x: number | null) => setScrubPosition(x === null ? null : { x }), []);
+  const [selection, setSelection] = useState<ChartSelection | null>(null);
   /**
    * The unit being drawn, once the reader has chosen one.
    *
@@ -255,8 +242,64 @@ function GaugeChartInner({
    */
   const [unitOverride, setUnitOverride] = useState<'ft' | 'cfs' | null>(null);
 
-  const { history, loading, unavailable, failed, retry, historyDays, matchesRequest } =
-    useGaugeHistory(siteId, days, customWindow);
+  const historyState = useGaugeHistory(siteId, days, customWindow);
+
+  return {
+    sheet, setSheet, showTypical, setShowTypical, showMedian, setShowMedian,
+    fullScale, setFullScale, fromDate, setFromDate, toDate, setToDate,
+    customWindow, setCustomWindow, dateErrors, setDateErrors, days, setDays,
+    selection, setSelection, unitOverride, setUnitOverride, historyState,
+  };
+}
+
+type ChartController = ReturnType<typeof useGaugeChartController>;
+
+function GaugeChartInner(props: Props) {
+  const controller = useGaugeChartController(props);
+  const [expanded, setExpanded] = useState(false);
+  const close = useCallback(() => setExpanded(false), []);
+  if (!props.siteId) return null;
+  return <>
+    <GaugeChartView {...props} controller={controller} active={!expanded} onExpand={() => setExpanded(true)} />
+    {expanded ? <GaugeChartFullscreen title={props.title?.trim() || 'Gauge history'} onClose={close}>
+      {availableHeight => <GaugeChartView {...props} controller={controller} expanded availableHeight={availableHeight} onClose={close} />}
+    </GaugeChartFullscreen> : null}
+  </>;
+}
+
+function GaugeChartView({
+  siteId, unit, thresholds = null, floodStages = null, historyCapabilities,
+  controller, expanded = false, active = true, availableHeight = 0, onExpand, onClose,
+}: Props & {
+  controller: ChartController;
+  expanded?: boolean;
+  active?: boolean;
+  availableHeight?: number;
+  onExpand?: () => void;
+  onClose?: () => void;
+}) {
+  const { fontScale } = useWindowDimensions();
+  const [controlsHeight, setControlsHeight] = useState(112 * fontScale);
+  const [actionsHeight, setActionsHeight] = useState(44 * fontScale);
+  const chartHeight = expanded
+    ? expandedChartHeight(availableHeight, controlsHeight, actionsHeight, fontScale)
+    : CHART_HEIGHT * Math.max(1, fontScale);
+  const axisFont = 11 * fontScale;
+  const padTop = 30 * fontScale;
+  const padBottom = 28 * fontScale;
+  const clipId = `gauge-${useId().replace(/[^a-zA-Z0-9]/g, '')}`;
+  const { colors, isDark } = useTheme();
+  const {
+    sheet, setSheet, showTypical, setShowTypical, showMedian, setShowMedian,
+    fullScale, setFullScale, fromDate, setFromDate, toDate, setToDate,
+    customWindow, setCustomWindow, dateErrors, setDateErrors, days, setDays,
+    selection, setSelection, unitOverride, setUnitOverride, historyState,
+  } = controller;
+  const { history, loading, unavailable, failed, retry, historyDays, matchesRequest } = historyState;
+  const ranges = RANGES.filter(r => r.days <= (historyCapabilities?.maxInstantDays ?? 30) || historyCapabilities?.supportsDaily);
+  const [width, setWidth] = useState(0);
+  const [finger, setFinger] = useState<{ x: number; y: number } | null>(null);
+  const clearScrub = useCallback(() => { setSelection(null); setFinger(null); }, [setSelection]);
 
   const drawnUnit = unitOverride ?? unit;
 
@@ -605,64 +648,49 @@ function GaugeChartInner({
     return out;
   }, [history]);
 
-  const scrubbed = useMemo<ScrubbedPoint | null>(() => {
-    if (scrubX === null || !scale || !domain) return null;
-    const spanT = domain.t1 - domain.t0 || 1;
-    const targetT = domain.t0 + (Math.min(Math.max(scrubX - padLeft - 4, 0), plotWidth - 8) / (plotWidth - 8)) * spanT;
-
-    // Binary search from the shared model, replacing a linear scan this file
-    // kept. The reason to share it is not the speed — it is that both charts must
-    // answer "which reading is under this finger" the same way, including the
-    // tie at the exact midpoint between two readings.
+  const selectTime = useCallback((targetT: number) => {
+    // Keep the observed/forecast identity, including when both report at the
+    // same instant. Rotation and expansion must not turn one into the other.
     const observed = nearestChartPoint(points, targetT);
     const forecast = nearestChartPoint(forecastPoints, targetT);
-    if (!observed) return forecast ? { point: forecast, kind: 'forecast' } : null;
-    if (!forecast) return { point: observed, kind: 'observed' };
+    const chooseObserved = observed && (!forecast || Math.abs(observed.t - targetT) <= Math.abs(forecast.t - targetT));
+    const point = chooseObserved ? observed : forecast;
+    setSelection(point ? { time: point.t, kind: chooseObserved ? 'observed' : 'forecast' } : null);
+  }, [points, forecastPoints, setSelection]);
 
-    // Whichever is genuinely nearer. Always preferring the observed series would
-    // read out the last real reading while the finger sits three days into the
-    // forecast — a prediction relabelled as a measurement.
-    return Math.abs(observed.t - targetT) <= Math.abs(forecast.t - targetT)
-      ? { point: observed, kind: 'observed' }
-      : { point: forecast, kind: 'forecast' };
-  }, [scrubX, scale, points, forecastPoints, domain, plotWidth, padLeft]);
+  const scrubbed = useMemo<ScrubbedPoint | null>(() => {
+    if (!selection) return null;
+    const point = nearestChartPoint(selection.kind === 'observed' ? points : forecastPoints, selection.time);
+    // A new range must never silently attach an old selection to another day.
+    return point?.t === selection.time ? { point, kind: selection.kind } : null;
+  }, [selection, points, forecastPoints]);
 
-  /**
-   * The scrub gesture. Gesture.Pan(), so it exists inside the map sheet — the
-   * history of why is in the header.
-   *
-   * It states its axes and no relations, which is the contract every pan in
-   * the sheet already keeps: activate on horizontal travel before the pager's
-   * wider threshold, fail on vertical the moment the sheet's own activation
-   * distance is reached. Whichever crosses first wins, and the others are
-   * cancelled by RNGH's ordinary arbitration — including the page scrollers
-   * and the plain ScrollViews on the gauge and river screens.
-   *
-   * The readout still appears at TOUCH-DOWN, as the PanResponder's did: touch
-   * events fire from the first contact, before arbitration has decided
-   * anything. If the drag then turns out to be vertical this pan fails,
-   * onFinalize clears the readout, and the sheet or the scroll takes over —
-   * a readout that flashed for 8pt of travel is the honest cost of not
-   * freezing every scroll that begins on the plot. onFinalize covers all
-   * three ends: activation ended, failure, and a tap released in place.
-   *
-   * runOnJS, because the readout is React state and with Reanimated installed
-   * RNGH otherwise expects worklets. The empty dep array is as stable as the
-   * old useRef was — setScrubX never changes identity.
-   */
+  const selectTouch = useCallback((x: number, y: number) => {
+    if (!domain) return;
+    const time = chartTimeAtX(x, padLeft, plotWidth, domain.t0, domain.t1);
+    if (time === null) return;
+    setFinger({ x, y });
+    selectTime(time);
+  }, [domain, padLeft, plotWidth, selectTime]);
+
+  // The inline pan still yields vertical drags to the page/map sheet and wins
+  // horizontal drags before the pager. Expanded selections remain after lifting
+  // the finger, so rotating the phone keeps the selected reading in view.
   const scrubGesture = useMemo(
-    () =>
-      Gesture.Pan()
-        .runOnJS(true)
-        .activeOffsetX([-SCRUB_ACTIVATE_X, SCRUB_ACTIVATE_X])
-        .failOffsetY([-SCRUB_FAIL_Y, SCRUB_FAIL_Y])
-        .onTouchesDown((e) => {
-          const touch = e.allTouches[0];
-          if (touch) setScrubPosition({ x: touch.x, y: touch.y });
-        })
-        .onUpdate((e) => setScrubPosition({ x: e.x, y: e.y }))
-        .onFinalize(() => setScrubX(null)),
-    [setScrubX],
+    () => Gesture.Pan()
+      .runOnJS(true)
+      .activeOffsetX([-SCRUB_ACTIVATE_X, SCRUB_ACTIVATE_X])
+      .failOffsetY([-SCRUB_FAIL_Y, SCRUB_FAIL_Y])
+      .onTouchesDown(e => {
+        const touch = e.allTouches[0];
+        if (touch) selectTouch(touch.x, touch.y);
+      })
+      .onUpdate(e => selectTouch(e.x, e.y))
+      .onFinalize(() => {
+        setFinger(null);
+        if (!expanded) setSelection(null);
+      }),
+    [selectTouch, expanded, setSelection],
   );
 
   /**
@@ -728,6 +756,10 @@ function GaugeChartInner({
       : null;
 
   const newest = points.length ? points[points.length - 1] : null;
+  const readoutPoint = scrubbed ?? (newest ? { point: newest, kind: 'observed' as const }
+    : forecastPoints[0] ? { point: forecastPoints[0], kind: 'forecast' as const } : null);
+  const readoutZone = readoutPoint?.kind === 'observed'
+    ? zones.find(zone => readoutPoint.point.v <= zone.max || zone.openEnded) : null;
 
   /**
    * "Now" while the newest reading is still current, "Last reading" once it
@@ -822,7 +854,7 @@ function GaugeChartInner({
     const from = scrubbed?.point.t ?? newest?.t ?? forecastPoints[0]?.t;
     if (from == null) return;
     const next = stepScrubTime(scrubTimes, from, step);
-    if (next != null) setScrubX(scale.x(next));
+    if (next != null) selectTime(next);
   };
 
   const onAccessibilityAction = (event: AccessibilityActionEvent) => {
@@ -839,10 +871,10 @@ function GaugeChartInner({
   const measurementLabel = drawnUnit === 'cfs' ? 'Flow (cfs)' : 'Gauge height (ft)';
   const closeSheet = () => setSheet(null);
   const chooseUnit = (value: 'ft' | 'cfs') => {
-    setUnitOverride(value); setScrubX(null); setShowTypical(false); setShowMedian(false); setFullScale(false); closeSheet();
+    setUnitOverride(value); clearScrub(); setShowTypical(false); setShowMedian(false); setFullScale(false); closeSheet();
   };
   const openMeasurement = (target: string) => {
-    setScrubX(null);
+    clearScrub();
     if (Platform.OS !== 'ios') { setSheet('unit'); return; }
     const anchor = Number(target);
     ActionSheetIOS.showActionSheetWithOptions({
@@ -852,7 +884,7 @@ function GaugeChartInner({
     }, index => { if (availableUnits[index]) chooseUnit(availableUnits[index]); });
   };
   const openRange = (target: string) => {
-    setScrubX(null);
+    clearScrub();
     if (Platform.OS !== 'ios') { setSheet('range'); return; }
     const anchor = Number(target);
     const options = ranges.map(range => range.days === 1 ? '24 hours' : range.days === 365 ? '1 year' : `${range.days} days`);
@@ -862,7 +894,7 @@ function GaugeChartInner({
       options: [...options, 'Cancel'], cancelButtonIndex: options.length,
     }, index => {
       const range = ranges[index];
-      if (range) { setCustomWindow(undefined); setDays(range.days); }
+      if (range) { setCustomWindow(undefined); setDays(range.days); clearScrub(); }
       else if (index < options.length) setSheet('dates');
     });
   };
@@ -878,7 +910,7 @@ function GaugeChartInner({
   const applyDates = () => {
     const result = validateChartDates(fromDate, toDate, Date.now());
     if (result.errors) { setDateErrors(result.errors); return; }
-    setDateErrors({}); setScrubX(null); setDays(result.days);
+    setDateErrors({}); clearScrub(); setDays(result.days);
     setCustomWindow(result.window); closeSheet();
   };
 
@@ -909,39 +941,49 @@ function GaugeChartInner({
   const railLabels = selectChartRailLabels(railCandidates, 0, chartHeight, 4 * fontScale);
 
   return (
-    <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
-      <View style={styles.toolbar}>
-        <Pressable accessibilityRole="button" accessibilityLabel={`Measurement: ${measurementLabel}`}
-          accessibilityHint="Choose the measurement to chart"
-          accessibilityState={{ disabled: !availableUnits.some(value => value !== drawnUnit) }}
-          disabled={!availableUnits.some(value => value !== drawnUnit)} onPress={event => openMeasurement(event.nativeEvent.target)}
-          style={({ pressed }) => [styles.measurement, { opacity: pressed ? 0.65 : 1 }]}>
-          <Text style={[styles.measurementText, { color: colors.text }]}>{measurementLabel}</Text>
-          {availableUnits.some(value => value !== drawnUnit) ? <ControlIcon name="chevron-down" size={14} color={colors.textMuted} /> : null}
-        </Pressable>
-        <Pressable accessibilityRole="button" accessibilityLabel={`History range: ${rangeSummaryLabel}`} onPress={event => openRange(event.nativeEvent.target)}
-          style={({ pressed }) => [styles.rangeButton, { backgroundColor: colors.cardRaised, opacity: pressed ? 0.65 : 1 }]}>
-          {loading && history ? <ActivityIndicator size="small" color={colors.interactive} /> : null}
-          <Text style={[styles.actionText, { color: colors.text }]}>{rangeSummaryLabel}</Text>
-          <ControlIcon name="chevron-down" size={14} color={colors.textMuted} />
-        </Pressable>
+    <View style={[styles.card, expanded && styles.expandedCard, { backgroundColor: colors.card, borderColor: colors.border }]}
+      accessibilityElementsHidden={!active} importantForAccessibility={active ? 'auto' : 'no-hide-descendants'}>
+      <View onLayout={expanded ? event => setControlsHeight(event.nativeEvent.layout.height) : undefined}>
+        <View style={styles.toolbar}>
+          <Pressable accessibilityRole="button" accessibilityLabel={`Measurement: ${measurementLabel}`}
+            accessibilityHint="Choose the measurement to chart"
+            accessibilityState={{ disabled: !availableUnits.some(value => value !== drawnUnit) }}
+            disabled={!availableUnits.some(value => value !== drawnUnit)} onPress={event => openMeasurement(event.nativeEvent.target)}
+            style={({ pressed }) => [styles.measurement, { opacity: pressed ? 0.65 : 1 }]}>
+            <Text style={[styles.measurementText, { color: colors.text }]}>{measurementLabel}</Text>
+            {availableUnits.some(value => value !== drawnUnit) ? <ControlIcon name="chevron-down" size={14} color={colors.textMuted} /> : null}
+          </Pressable>
+          <Pressable accessibilityRole="button" accessibilityLabel={`History range: ${rangeSummaryLabel}`} onPress={event => openRange(event.nativeEvent.target)}
+            style={({ pressed }) => [styles.rangeButton, { backgroundColor: colors.cardRaised, opacity: pressed ? 0.65 : 1 }]}>
+            {loading && history ? <ActivityIndicator size="small" color={colors.interactive} /> : null}
+            <Text style={[styles.actionText, { color: colors.text }]}>{rangeSummaryLabel}</Text>
+            <ControlIcon name="chevron-down" size={14} color={colors.textMuted} />
+          </Pressable>
+        </View>
+        {history && !matchesRequest ? <View style={styles.rangeStatus}>
+          <Text accessibilityLiveRegion="polite" style={[styles.caption, { color: colors.textMuted }]}>
+            {loading ? 'Loading selected range… ' : 'Selected range unavailable. '}
+            Showing {history.requestedWindow ? chartDateRange(history.requestedWindow.from, history.requestedWindow.to) : drawnRangeLabel.toLowerCase()}.
+          </Text>
+          {!loading ? <Pressable accessibilityRole="button" onPress={retry} style={styles.retry}>
+            <Text style={[styles.actionText, { color: colors.interactive }]}>Try again</Text>
+          </Pressable> : null}
+        </View> : null}
+        {expanded ? <GaugeChartFixedReadout
+          compact={width > availableHeight && fontScale <= 1.5}
+          value={readoutPoint ? formatReading(readoutPoint.point.v, drawnUnit) : '—'}
+          band={readoutPoint?.kind === 'observed' ? readoutZone?.label : undefined}
+          time={readoutPoint ? scrubTime(readoutPoint.point.t) : 'Touch the chart to explore'}
+          source={readoutPoint?.kind === 'forecast' ? 'NWS forecast' : observedLabel}
+          quality={readoutPoint?.kind === 'observed' ? qualifierText(readoutPoint.point.qualifiers) : null} /> : null}
       </View>
-      {history && !matchesRequest ? <View style={styles.rangeStatus}>
-        <Text accessibilityLiveRegion="polite" style={[styles.caption, { color: colors.textMuted }]}>
-          {loading ? 'Loading selected range… ' : 'Selected range unavailable. '}
-          Showing {history.requestedWindow ? chartDateRange(history.requestedWindow.from, history.requestedWindow.to) : drawnRangeLabel.toLowerCase()}.
-        </Text>
-        {!loading ? <Pressable accessibilityRole="button" onPress={retry} style={styles.retry}>
-          <Text style={[styles.actionText, { color: colors.interactive }]}>Try again</Text>
-        </Pressable> : null}
-      </View> : null}
       <View style={styles.plotWrap} onLayout={onLayout}>
         {width > 0 && hasPlot ? <GestureDetector gesture={scrubGesture}>
           <View accessible accessibilityRole="adjustable" accessibilityLabel={plotSummary}
             accessibilityHint="Swipe up or down for the next or previous reading. Data and details contains the full table."
             accessibilityValue={spokenValue ? { text: spokenValue } : undefined}
             accessibilityActions={[{ name: 'increment', label: 'Later reading' }, { name: 'decrement', label: 'Earlier reading' }]}
-            onAccessibilityAction={onAccessibilityAction} onAccessibilityEscape={() => setScrubX(null)}>
+            onAccessibilityAction={onAccessibilityAction} onAccessibilityEscape={expanded ? onClose : clearScrub}>
             <Svg width={width} height={chartHeight}>
               <Defs><ClipPath id={clipId}><Rect x={padLeft} y={padTop} width={plotWidth} height={plotHeight} /></ClipPath></Defs>
               <G clipPath={`url(#${clipId})`}>
@@ -994,9 +1036,9 @@ function GaugeChartInner({
               </SvgText> : null}
               {xTicks.map((tick, index) => <SvgText key={`time-${index}`} x={scale.x(tick.value)} y={chartHeight - 6} fill={colors.textMuted} fontSize={axisFont} fontFamily={fonts.body} textAnchor={index === 0 ? 'start' : index === xTicks.length - 1 ? 'end' : 'middle'}>{axisTime(tick.value, drawnDays)}</SvgText>)}
             </Svg>
-            {scrubbed ? <GaugeChartReadout key={`${drawnUnit}-${fontScale}`} width={width} height={chartHeight}
+            {scrubbed && !expanded && active ? <GaugeChartReadout key={`${drawnUnit}-${fontScale}`} width={width} height={chartHeight}
               point={{ x: scale.x(scrubbed.point.t), y: scale.y(scrubbed.point.v) }}
-              finger={scrubPosition?.y != null ? { x: scrubPosition.x, y: scrubPosition.y } : null}
+              finger={finger}
               value={formatReading(scrubbed.point.v, drawnUnit)} band={scrubZone?.label} time={scrubTime(scrubbed.point.t)}
               source={scrubbed.kind === 'forecast' ? 'NWS forecast' : observedLabel} quality={scrubQualifiers} /> : null}
           </View>
@@ -1007,15 +1049,21 @@ function GaugeChartInner({
           </> : <Text style={[styles.placeholderText, { color: colors.textMuted }]}>{unavailable ? 'No recent history published for this gauge.' : points.length >= 2 || forecastPoints.length ? 'Use Data & details to read this history at your current text size.' : points.length === 1 ? 'Only one reading in this window — not enough to chart.' : `No ${drawnUnit === 'cfs' ? 'flow' : 'gauge height'} reported in this window.`}</Text>}
         </View>}
       </View>
-      <View style={[styles.actions, { borderTopColor: colors.border }]}>
-        <Pressable accessibilityRole="button" accessibilityLabel="Compare chart layers" onPress={() => { setScrubX(null); setSheet('compare'); }} style={({ pressed }) => [styles.toolbarAction, { opacity: pressed ? 0.65 : 1 }]}>
+      <View style={[styles.actions, { borderTopColor: colors.border }]}
+        onLayout={expanded ? event => setActionsHeight(event.nativeEvent.layout.height) : undefined}>
+        <Pressable accessibilityRole="button" accessibilityLabel="Compare chart layers" onPress={() => { clearScrub(); setSheet('compare'); }} style={({ pressed }) => [styles.toolbarAction, { opacity: pressed ? 0.65 : 1 }]}>
           <ControlIcon name="options-outline" size={16} color={colors.interactive} /><Text style={[styles.actionText, { color: colors.interactive }]}>Compare{comparisonCount ? ` · ${comparisonCount}` : ''}</Text>
         </Pressable>
-        <Pressable accessibilityRole="button" onPress={() => { setScrubX(null); setSheet('data'); }} style={({ pressed }) => [styles.toolbarAction, { opacity: pressed ? 0.65 : 1 }]}>
+        <Pressable accessibilityRole="button" onPress={() => { clearScrub(); setSheet('data'); }} style={({ pressed }) => [styles.toolbarAction, { opacity: pressed ? 0.65 : 1 }]}>
           <ControlIcon name="grid-outline" size={16} color={colors.interactive} /><Text style={[styles.actionText, { color: colors.interactive }]}>Data & details</Text>
         </Pressable>
+        {!expanded ? <Pressable accessibilityRole="button" accessibilityLabel="Expand chart"
+          accessibilityHint="Open the chart full screen."
+          onPress={onExpand} style={({ pressed }) => [styles.expand, { opacity: pressed ? 0.65 : 1 }]}>
+          <ControlIcon name="expand-outline" size={20} color={colors.interactive} />
+        </Pressable> : null}
       </View>
-      {sheet ? <GaugeChartSheet title={sheet === 'compare' ? 'Compare' : sheet === 'data' ? 'Data & details' : sheet === 'unit' ? 'Measurement' : sheet === 'range' ? 'History range' : 'Custom dates'} onClose={closeSheet}>
+      {active && sheet ? <GaugeChartSheet expanded={expanded} title={sheet === 'compare' ? 'Compare' : sheet === 'data' ? 'Data & details' : sheet === 'unit' ? 'Measurement' : sheet === 'range' ? 'History range' : 'Custom dates'} onClose={closeSheet}>
         {sheet === 'compare' ? <>
           <ChartComparison label="Typical range" detail={drawnUnit !== 'cfs' ? 'Available for Flow (cfs)' : typical.length ? 'Historical daily flow · 25th–75th percentile' : 'Historical statistics unavailable for this window'} value={showTypical && typical.length > 0} disabled={!typical.length} onChange={setShowTypical} />
           <ChartComparison label="Historical median" detail="50th percentile for each date" value={showMedian && typical.length > 0} disabled={!typical.length} onChange={setShowMedian} />
@@ -1026,7 +1074,7 @@ function GaugeChartInner({
         </Pressable>) : sheet === 'range' ? <>
           {ranges.map(r => {
             const active = r.days === days && !customWindow;
-            return <Pressable key={r.days} accessibilityRole="radio" accessibilityState={{ checked: active }} onPress={() => { setCustomWindow(undefined); setDays(r.days); setScrubX(null); closeSheet(); }} style={[styles.choice, { borderBottomColor: colors.border }]}>
+            return <Pressable key={r.days} accessibilityRole="radio" accessibilityState={{ checked: active }} onPress={() => { setCustomWindow(undefined); setDays(r.days); clearScrub(); closeSheet(); }} style={[styles.choice, { borderBottomColor: colors.border }]}>
               <Text style={[styles.choiceText, { color: colors.text }]}>{r.days === 1 ? '24 hours' : r.days === 365 ? '1 year' : `${r.days} days`}</Text>{active ? <ControlIcon name="checkmark" size={20} color={colors.interactive} /> : null}
             </Pressable>;
           })}
@@ -1128,6 +1176,8 @@ const styles = StyleSheet.create({
   // Page summaries own the current value, rating and freshness. This component
   // owns only the chart: ~310pt at default text size, growing with Dynamic Type.
   card: { marginBottom: 14, paddingHorizontal: 12, paddingTop: 8, borderTopWidth: StyleSheet.hairlineWidth, borderBottomWidth: StyleSheet.hairlineWidth },
+  expandedCard: { marginBottom: 0, paddingTop: 0, paddingBottom: 8, borderTopWidth: 0, borderBottomWidth: 0 },
+  expand: { minWidth: 44, minHeight: 44, justifyContent: 'center', alignItems: 'center' },
   toolbar: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginBottom: 4 },
   measurement: { minHeight: 44, flexDirection: 'row', gap: 6, alignItems: 'center', flexShrink: 1, paddingVertical: 8, paddingHorizontal: 4 },
   measurementText: { ...t.sm, fontFamily: fonts.semibold, flexShrink: 1 },

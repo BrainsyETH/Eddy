@@ -5,6 +5,28 @@ import {
   type ChartRailLabel, type ChartRect,
 } from '../../../../eddy-ios/src/lib/gaugeChartLayout';
 import { chartEndAfterStartChange, validateChartDates } from '../../../../eddy-ios/src/lib/gaugeChartDates';
+import { chartTimeAtX, expandedChartHeight } from '../../../../eddy-ios/src/lib/gaugeChartExpansion';
+
+test('portrait and landscape touches resolve to the same instant, including chart insets', () => {
+  const start = Date.parse('2026-09-01T00:00:00Z');
+  const end = Date.parse('2026-10-01T00:00:00Z');
+  for (const width of [264, 334, 720]) {
+    for (const fraction of [0, 0.2, 0.5, 0.9, 1]) {
+      const x = 16 + 4 + fraction * (width - 8);
+      assert.equal(chartTimeAtX(x, 16, width, start, end), start + fraction * (end - start));
+    }
+    assert.equal(chartTimeAtX(-100, 16, width, start, end), start);
+    assert.equal(chartTimeAtX(width + 100, 16, width, start, end), end);
+  }
+  assert.equal(chartTimeAtX(50, 16, 8, start, end), null, 'unmeasured plots must not select a bogus instant');
+  assert.equal(chartTimeAtX(NaN, 16, 334, start, end), null);
+});
+
+test('expanded charts fill usable space and retain a readable plot at accessibility sizes', () => {
+  assert.equal(expandedChartHeight(720, 132, 44, 1), 532);
+  assert.equal(expandedChartHeight(320, 96, 44, 1), 168, 'compact landscape controls leave room without scrolling');
+  assert.equal(expandedChartHeight(250, 290, 110, 3), 480, 'large text scrolls instead of crushing the plot');
+});
 
 function overlaps(a: ChartRect, b: ChartRect) {
   return a.x < b.x + b.width && a.x + a.width > b.x && a.y < b.y + b.height && a.y + a.height > b.y;

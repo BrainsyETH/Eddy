@@ -34,6 +34,9 @@ REQUIRED = [
     "eddy-ios/modules/eddy-map-sheet/expo-module.config.json",
     "eddy-ios/modules/eddy-map-sheet/ios/EddyMapSheet.podspec",
     "eddy-ios/modules/eddy-map-sheet/ios/EddyMapSheetModule.swift",
+    "eddy-ios/modules/eddy-orientation/expo-module.config.json",
+    "eddy-ios/modules/eddy-orientation/ios/EddyOrientation.podspec",
+    "eddy-ios/modules/eddy-orientation/ios/EddyOrientationReactDelegateHandler.swift",
     "packages/eddy-types/index.ts",
     "packages/eddy-geo/index.ts",
     "packages/eddy-sync/index.ts",
@@ -74,6 +77,8 @@ MUST_BE_IGNORED = [
     "eddy-ios/android/app/build/outputs/apk/app.apk",
     "eddy-ios/modules/eddy-map-sheet/ios/.env",
     "eddy-ios/modules/eddy-map-sheet/ios/build/ModuleCache.noindex/SwiftShims.pcm",
+    "eddy-ios/modules/eddy-orientation/ios/.env",
+    "eddy-ios/modules/eddy-orientation/ios/build/ModuleCache.noindex/SwiftShims.pcm",
     # Secrets. .gitignore is not consulted once this file exists, so these are
     # uploaded unless denied HERE.
     "eddy-ios/.env",

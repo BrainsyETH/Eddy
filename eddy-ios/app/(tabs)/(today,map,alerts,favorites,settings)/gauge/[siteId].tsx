@@ -648,6 +648,7 @@ export default function GaugeDetailScreen() {
         <View style={styles.inset}>
           <GaugeChart
             siteId={gauge.siteId}
+            title={gauge.name}
             unit={unit ?? 'cfs'}
             thresholds={rated ? link : null}
             // Passed for BOTH tiers. A rated river gets bands from a human's

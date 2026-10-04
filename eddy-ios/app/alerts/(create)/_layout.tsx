@@ -9,6 +9,9 @@ export default function AlertCreationLayout() {
   return (
     <SafeAreaProvider>
       <Stack screenOptions={{
+        // The native root enforces portrait underneath. Keep this modal
+        // stack's own orientation explicit if UIKit presents it full-screen.
+        orientation: 'portrait',
         headerBackButtonDisplayMode: 'generic',
         contentStyle: { backgroundColor: colors.bg },
       }}>

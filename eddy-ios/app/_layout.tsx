@@ -302,6 +302,11 @@ function ThemedShell() {
           <Stack screenOptions={({ route }) => {
             return {
               headerShown: false,
+              // EddyPortraitRootViewController enforces the app's portrait
+              // default, including gates/errors outside this stack. Keep the
+              // stack's own native presentations portrait too; changing this
+              // option alone cannot unlock a screen beneath the root.
+              orientation: 'portrait',
               contentStyle: { backgroundColor: colors.bg },
               ...((route.name === 'alerts/(create)' || route.name === 'alerts/(manage)') ? { presentation: 'modal' as const } : {}),
             };
