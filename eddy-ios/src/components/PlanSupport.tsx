@@ -8,71 +8,27 @@
 // list sorted from the put-in. The rules are in lib/planSupport.ts; the request
 // choreography is in lib/loadPlanSupport.ts. This file is the rendering.
 //
-// ── Fetched here, not passed in ─────────────────────────────────────────────
-// Inherited from PlanNearby and still right: this works identically in the
-// planning sheet and on the screen that opens a shared float, and the second of
-// those has a plan and no other river data at all. Three small cached calls per
-// river, and a failure is silence — a plan with no outfitter list is still a
-// plan.
+// Endpoint details also supply the camping panels in PlanResult. The shared
+// usePlanSupport hook owns those reads, including their independent failures.
 //
 // ── Phone first ─────────────────────────────────────────────────────────────
 // Same rule the map callout follows: at a put-in on one bar, a number you can
 // tap beats a website you have to load. A row with neither gets no buttons
 // rather than a button that does nothing.
 
-import { useEffect, useState } from 'react';
 import { Linking, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import type { FloatPlan, NearbyService } from '@eddy/types';
-import { fetchAccessPointDetail, fetchRiverServices } from '@/api/client';
+import type { NearbyService } from '@eddy/types';
 import { serviceTypeLabel } from '@/map/serviceLayers';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
-import { milesBetween } from '@/hooks/useLocation';
 import { EddySymbol, type EddySymbolName } from '@/components/EddySymbol';
-import { emptyPlanSupport, loadPlanSupport, type PlanSupportData } from '@/lib/loadPlanSupport';
+import type { PlanSupportData } from '@/lib/loadPlanSupport';
 import { serviceContactUrl } from '@/lib/planSupport';
 
-export function PlanSupport({ plan }: { plan: FloatPlan }) {
+export function PlanSupport({ data }: { data: PlanSupportData }) {
   const { colors, elevation } = useTheme();
-
-  // ── ONE STATE OBJECT, KEYED BY THE PLAN IT DESCRIBES ────────────────────
-  // Not two useStates. The endpoints change while a request is in flight —
-  // picking a different take-out is one tap — and a late response setting data
-  // alone would show the previous float's outfitters under the current float's
-  // headings, with nothing on screen admitting it. Holding the key beside the
-  // payload makes a stale write unrenderable rather than merely unlikely; the
-  // abort below makes it rare. useAccessPointDetail solves the same problem the
-  // same way, for the same reason.
-  const planKey = `${plan.river?.slug ?? ''}:${plan.putIn?.id ?? ''}:${plan.takeOut?.id ?? ''}`;
-  const [state, setState] = useState<{ key: string; data: PlanSupportData }>({
-    key: planKey,
-    data: emptyPlanSupport(),
-  });
-
-  useEffect(() => {
-    const controller = new AbortController();
-    let cancelled = false;
-
-    void loadPlanSupport(plan, {
-      fetchDetail: fetchAccessPointDetail,
-      fetchServices: fetchRiverServices,
-      distance: milesBetween,
-      signal: controller.signal,
-    }).then((data) => {
-      if (!cancelled) setState({ key: planKey, data });
-    });
-
-    return () => {
-      cancelled = true;
-      controller.abort();
-    };
-    // `plan` is excluded deliberately: it is a fresh object every render, and
-    // planKey is the identity that actually decides whether a refetch is owed.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [planKey]);
-
-  const { groups, nearest } = state.key === planKey ? state.data : emptyPlanSupport();
+  const { groups, nearest } = data;
 
   const putInRows = [...groups.putIn.rentals, ...groups.putIn.camping];
   const takeOutRows = [...groups.takeOut.rentals, ...groups.takeOut.camping];

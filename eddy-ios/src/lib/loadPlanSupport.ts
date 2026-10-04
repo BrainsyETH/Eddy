@@ -17,7 +17,7 @@
 //
 // No `@/` imports and no react-native, for the reason in planSupport.ts.
 
-import type { AccessPointDetailResponse, FloatPlan, RiverService } from '@eddy/types';
+import type { AccessPointDetail, AccessPointDetailResponse, FloatPlan, RiverService } from '@eddy/types';
 import {
   groupEndpointServices,
   rankNearbyShuttles,
@@ -29,6 +29,7 @@ import {
 export interface PlanSupportData {
   groups: EndpointGroups;
   nearest: RankedShuttle[];
+  endpoints: { putIn: AccessPointDetail | null; takeOut: AccessPointDetail | null };
 }
 
 export interface PlanSupportDeps {
@@ -46,6 +47,7 @@ export interface PlanSupportDeps {
 const EMPTY: PlanSupportData = {
   groups: { putIn: { camping: [], rentals: [] }, takeOut: { camping: [], rentals: [] } },
   nearest: [],
+  endpoints: { putIn: null, takeOut: null },
 };
 
 export function emptyPlanSupport(): PlanSupportData {
@@ -101,5 +103,12 @@ export async function loadPlanSupport(
     shown,
   );
 
-  return { groups, nearest };
+  return {
+    groups,
+    nearest,
+    endpoints: {
+      putIn: settled(putInResult)?.accessPoint ?? null,
+      takeOut: settled(takeOutResult)?.accessPoint ?? null,
+    },
+  };
 }

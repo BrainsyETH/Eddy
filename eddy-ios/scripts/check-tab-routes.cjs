@@ -122,6 +122,7 @@ for (const extension of ['.ts', '.tsx']) require.extensions[extension] = (module
 };
 const { redirectSystemPath } = require('../app/+native-intent.tsx');
 const { notificationDestination } = require('../src/lib/notificationDestination.ts');
+const { planAccessDestination, planCampingDestination } = require('../src/lib/planDestinations.ts');
 for (const [group, initial] of Object.entries(roots)) {
   launch(`/(tabs)/(${group})/${initial === 'index' ? '' : initial}`);
   const owner = `(${group})`;
@@ -143,6 +144,24 @@ for (const [group, initial] of Object.entries(roots)) {
   assert.equal(activeStack().routes.at(-1).name, 'river/[slug]/access/[accessSlug]');
   back();
   assert.deepEqual(activeStack(), river);
+  // Both the map planner and a saved float keep their stack when opening a
+  // place or a dated campground. Back must restore that exact origin.
+  for (const fromSaved of [false, true]) {
+    if (fromSaved) push('/float/TESTPLAN');
+    const origin = activeStack();
+    for (const destination of [
+      planAccessDestination('current', { slug: 'cedargrove' }),
+      planCampingDestination('current', { slug: 'cedargrove' }, { facilityId: 'cedar-camp' }, '2026-10-03', true),
+    ]) {
+      const action = push(destination);
+      assert.equal(action.target, stackKey, 'Plan details must stay in the originating tab');
+      assert.equal(activeStack().routes.at(-1).params[destination.pathname === '/camping' ? 'night' : 'accessSlug'],
+        destination.pathname === '/camping' ? '2026-10-03' : 'cedargrove');
+      back();
+      assert.deepEqual(activeStack(), origin, 'Back from plan details lost the origin');
+    }
+    if (fromSaved) back();
+  }
   const other = group === 'today' ? 'map' : 'today';
   selectTab(other); selectTab(group);
   assert.deepEqual(activeStack(), river, 'Tab switch lost the detail history');

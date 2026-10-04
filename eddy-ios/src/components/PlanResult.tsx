@@ -27,7 +27,8 @@
 // Float times keep both server-provided range endpoints. Missing estimates
 // retain the existing regulated-water and dangerous-water explanations.
 
-import type { ReactNode } from 'react';
+import { useLayoutEffect, useState, type ReactNode } from 'react';
+import { useIsFocused, useRouter } from 'expo-router';
 import { Linking, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View, type ScrollViewProps } from 'react-native';
 import { ControlIcon } from '@/components/ControlIcon';
 import type { FloatPlan, MapAccessPoint } from '@eddy/types';
@@ -51,6 +52,10 @@ import { PlanAlongRoute } from '@/components/PlanAlongRoute';
 import { PlanSupport } from '@/components/PlanSupport';
 import { EddySymbol } from '@/components/EddySymbol';
 import { SafetyDisclaimer } from '@/components/SafetyDisclaimer';
+import { PlanEndpointCamping } from '@/components/PlanEndpointCamping';
+import { usePlanSupport, type PlanSupportState } from '@/hooks/usePlanSupport';
+import type { PlanDetailDestination } from '@/lib/planDestinations';
+import { createPlanDetailNavigation } from '@/lib/planDetailNavigation';
 
 interface Props {
   plan: FloatPlan;
@@ -62,14 +67,43 @@ interface Props {
   header?: ReactNode;
   /** Opt in only under a native header; the planner sheet keeps its own insets. */
   contentInsetAdjustmentBehavior?: ScrollViewProps['contentInsetAdjustmentBehavior'];
+  /** The planner retains these outside its native Modal while viewing details. */
+  support?: PlanSupportState;
+  initialScrollOffset?: number;
+  onScrollOffsetChange?: (offset: number) => void;
+  onOpenDetail?: (destination: PlanDetailDestination) => void;
 }
 
-export function PlanResult({ plan, actions, accessPoints, header, contentInsetAdjustmentBehavior = 'never' }: Props) {
+export function PlanResult({ plan, actions, accessPoints, header, support, initialScrollOffset, onScrollOffsetChange, onOpenDetail, contentInsetAdjustmentBehavior = 'never' }: Props) {
   const { colors, elevation, isDark } = useTheme();
   const { fontScale } = useWindowDimensions();
+  const router = useRouter();
+  const focused = useIsFocused();
+  const [detailNavigation] = useState(createPlanDetailNavigation);
+  useLayoutEffect(() => { detailNavigation.focus(focused); }, [detailNavigation, focused]);
+  const loadedSupport = usePlanSupport(support ? null : plan);
+  const supportState = support ?? loadedSupport;
+  const openDetail = onOpenDetail ?? ((destination: PlanDetailDestination) => {
+    if (!focused) return;
+    detailNavigation.open(destination);
+    // Saved/shared floats have no modal to dismiss. Consume the destination
+    // immediately, but keep the same repeat-tap guard until Back restores focus.
+    const pending = detailNavigation.dismissed();
+    if (pending) router.push(pending);
+  });
+  // A new native scroll view restores the saved offset once. Subsequent scroll
+  // events must not change this prop and fight the reader's gesture.
+  const [contentOffset] = useState(() => initialScrollOffset === undefined ? undefined : { x: 0, y: initialScrollOffset });
 
   return (
-    <ScrollView style={styles.scroll} contentInsetAdjustmentBehavior={contentInsetAdjustmentBehavior} contentContainerStyle={styles.body}>
+    <ScrollView
+      style={styles.scroll}
+      contentInsetAdjustmentBehavior={contentInsetAdjustmentBehavior}
+      contentContainerStyle={styles.body}
+      contentOffset={contentOffset}
+      scrollEventThrottle={16}
+      onScroll={onScrollOffsetChange ? (event) => onScrollOffsetChange(Math.max(0, event.nativeEvent.contentOffset.y)) : undefined}
+    >
       {header}
       {/* Warnings sit ABOVE the numbers on purpose. Everything below is a plan;
           this is the reason the plan might be wrong, or the reason not to go. */}
@@ -171,7 +205,7 @@ export function PlanResult({ plan, actions, accessPoints, header, contentInsetAd
         <GaugeSourceLink plan={plan} />
       </View>
 
-      <GettingThere plan={plan} />
+      <GettingThere plan={plan} accessPoints={accessPoints} support={supportState} onOpenDetail={openDetail} />
 
       {plan.hazardsUnavailable || plan.hazards.length > 0 ? (
         <View style={styles.section}>
@@ -209,9 +243,9 @@ export function PlanResult({ plan, actions, accessPoints, header, contentInsetAd
         </View>
       ) : null}
 
-      <PlanAlongRoute key={plan.river.slug} plan={plan} accessPoints={accessPoints} />
+      <PlanAlongRoute key={plan.river.slug} plan={plan} accessPoints={accessPoints} onOpenDetail={openDetail} />
 
-      <PlanSupport plan={plan} />
+      <PlanSupport data={supportState.data} />
 
       <SafetyDisclaimer />
 
@@ -227,7 +261,12 @@ export function PlanResult({ plan, actions, accessPoints, header, contentInsetAd
  * to draw itself: turn-by-turn on a gravel county road is a whole product, and
  * the phone already has one.
  */
-function GettingThere({ plan }: { plan: FloatPlan }) {
+function GettingThere({ plan, accessPoints, support, onOpenDetail }: {
+  plan: FloatPlan;
+  accessPoints?: MapAccessPoint[];
+  support: PlanSupportState;
+  onOpenDetail: (destination: PlanDetailDestination) => void;
+}) {
   const { colors, elevation } = useTheme();
 
   return (
@@ -242,12 +281,26 @@ function GettingThere({ plan }: { plan: FloatPlan }) {
         dotColor={colors.success}
         onPress={() => void Linking.openURL(driveToUrl(plan.putIn))}
       />
+      <PlanEndpointCamping
+        point={accessPoints?.find((point) => point.id === plan.putIn.id) ?? plan.putIn}
+        detail={support.data.endpoints.putIn}
+        loading={support.loading}
+        riverSlug={plan.river.slug}
+        onOpenDetail={onOpenDetail}
+      />
       <View style={[styles.endpointRule, { borderLeftColor: colors.border }]} />
       <EndpointRow
         role="Take-out"
         point={plan.takeOut}
         dotColor={colors.accent}
         onPress={() => void Linking.openURL(driveToUrl(plan.takeOut))}
+      />
+      <PlanEndpointCamping
+        point={accessPoints?.find((point) => point.id === plan.takeOut.id) ?? plan.takeOut}
+        detail={support.data.endpoints.takeOut}
+        loading={support.loading}
+        riverSlug={plan.river.slug}
+        onOpenDetail={onOpenDetail}
       />
 
       {/* The shuttle is its own drive, and the one people underestimate. This

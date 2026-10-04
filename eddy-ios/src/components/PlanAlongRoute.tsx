@@ -27,13 +27,16 @@ import { fonts, type as t } from '@/theme/typography';
 import { PlanAccessPhoto } from '@/components/PlanAccessPhoto';
 import { readRiver } from '@/lib/riverCache';
 import { loadPlanAccess } from '@/lib/loadPlanAccess';
+import { ControlIcon } from '@/components/ControlIcon';
+import { planAccessDestination, type PlanDetailDestination } from '@/lib/planDestinations';
 
 /** Enough to plan a bail-out; past this it is a list of the whole river. */
 const MAX_SHOWN = 6;
 
-export function PlanAlongRoute({ plan, accessPoints }: {
+export function PlanAlongRoute({ plan, accessPoints, onOpenDetail }: {
   plan: FloatPlan;
   accessPoints?: MapAccessPoint[];
+  onOpenDetail: (destination: PlanDetailDestination) => void;
 }) {
   const { colors, elevation } = useTheme();
   const [loaded, setLoaded] = useState<MapAccessPoint[]>();
@@ -95,10 +98,16 @@ export function PlanAlongRoute({ plan, accessPoints }: {
 
       {between.map((point) => {
         const into = point.riverMile - plan.putIn.riverMile;
+        const destination = planAccessDestination(slug, point);
         return (
-          <View
+          <Pressable
             key={point.id}
-            style={[styles.row, { backgroundColor: colors.card }, elevation(1)]}
+            disabled={!destination}
+            onPress={destination ? () => onOpenDetail(destination) : undefined}
+            style={({ pressed }) => [styles.row, { backgroundColor: colors.card, opacity: pressed ? 0.7 : 1 }, elevation(1)]}
+            accessibilityRole={destination ? 'button' : undefined}
+            accessibilityLabel={`${point.name}, ${into.toFixed(1)} miles from put-in, ${accessTypeLabel(point.type)}${point.isPublic ? '' : ', Private'}`}
+            accessibilityHint={destination ? 'Opens place details' : undefined}
           >
             <PlanAccessPhoto point={point} style={styles.photo} />
             <View style={styles.body}>
@@ -119,7 +128,8 @@ export function PlanAlongRoute({ plan, accessPoints }: {
                   .join(' · ')}
               </Text>
             </View>
-          </View>
+            {destination ? <ControlIcon name="chevron-forward" size={17} color={colors.textSubtle} /> : null}
+          </Pressable>
         );
       })}
     </View>
