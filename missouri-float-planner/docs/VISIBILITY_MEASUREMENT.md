@@ -23,11 +23,31 @@ launch ads, change App Store categories, or change the database.
   forms and the machine-readable endpoints, includes `/app`, preserves static
   pages and successful query groups during failures, and omits invented dates.
 - Access-point structured data uses the explicit fee flag; unknown fees are
-  omitted. Guides identify Eddy as the organization author and show their
-  stored update/publication dates, without claiming a human review happened.
+  omitted. Guides identify Eddy as the publishing organization and show only
+  publication dates, without claiming a human review happened. `updated_at`
+  changes when social automation writes `last_shared_at`, so it is excluded
+  from visible dates, `dateModified`, `article:modified_time` and sitemap
+  `lastmod`. A separate content-edit timestamp needs a follow-up migration;
+  existing `updated_at` values cannot safely be backfilled as editorial dates.
 - GA4 collection hosts are allowed by CSP and tested against the emitted
   headers, including embed routes. Download events carry placement, page path
   and campaign label.
+
+## Metadata performance before rollout
+
+iOS Safari must wait for `generateMetadata` so its native banner is in the
+initial head. `/app` metadata only reads the campaign query (no data fetch);
+shared plans also perform a plan lookup and parallel river/access lookups.
+Measure iPhone-user-agent TTFB on an authenticated preview versus the base
+revision, for both cold and warm requests to `/app`, a river, and a shared plan.
+Local fixture checks verify placement but do not establish Vercel latency.
+Keep this as a rollout check while preview deployment protection blocks access.
+
+The crawler regex is a snapshot of Next 16.3.8's default list, with an explicit
+upgrade test; review the list when changing Next. Production config does not
+import private framework modules. The Analytics CSP follows Google's current
+non-Ads requirements, which include `*.google.com`; no DoubleClick connection
+allowance is present.
 
 ## Campaign links
 

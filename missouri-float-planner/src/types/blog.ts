@@ -154,7 +154,6 @@ export interface RiverGuidePost {
   meta_keywords: string[] | null;
   read_time_minutes: number | null;
   published_at: string | null;
-  updated_at?: string | null;
   river_slug: string | null;
   guide_data: GuideData;
 }
@@ -246,7 +245,6 @@ export interface ArticleGuidePost {
   meta_keywords: string[] | null;
   read_time_minutes: number | null;
   published_at: string | null;
-  updated_at?: string | null;
   guide_data: ArticleGuideData;
 }
 

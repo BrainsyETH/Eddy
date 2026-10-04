@@ -1,4 +1,3 @@
-import { appBannerMetadata } from '@/lib/app-discovery';
 // src/app/gauges/[slug]/page.tsx
 // Legacy gauge detail route. River conditions now live on the canonical river
 // hub at /rivers/[slug], so this route permanently redirects there:
@@ -21,6 +20,7 @@ import { appBannerMetadata } from '@/lib/app-discovery';
 // beside this file has always drawn a proper card for it; nothing was telling
 // anyone what the card was of.
 
+import { appBannerMetadata } from '@/lib/app-discovery';
 import type { Metadata } from 'next';
 import { permanentRedirect } from 'next/navigation';
 import { createPublicCatalogClient } from '@/lib/supabase/public-read';

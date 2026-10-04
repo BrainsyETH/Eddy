@@ -1,4 +1,3 @@
-import { publicPageMetadata } from '@/lib/seo';
 // src/app/dams/page.tsx
 // Lakes & Dams — every USACE project Eddy tracks, with its current release,
 // lake level and generating state.
@@ -9,6 +8,7 @@ import { publicPageMetadata } from '@/lib/seo';
 // river; they need to know Table Rock is generating and how cold the tailwater
 // is. That is a dam page, and it needs no river content at all.
 
+import { publicPageMetadata } from '@/lib/seo';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import SiteFooter from '@/components/ui/SiteFooter';
@@ -22,6 +22,7 @@ export const metadata: Metadata = publicPageMetadata(
   'Lake Levels & Dam Releases',
   'Live USACE lake levels, dam releases and hourly generation schedules across Missouri, Arkansas, Oklahoma, Texas, Kentucky and Tennessee.',
   '/dams',
+  '/opengraph-image',
 );
 
 export default async function DamsPage() {

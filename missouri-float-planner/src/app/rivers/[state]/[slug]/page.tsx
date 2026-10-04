@@ -1,4 +1,3 @@
-import { appBannerMetadata } from '@/lib/app-discovery';
 // src/app/rivers/[state]/[slug]/page.tsx
 // Server-rendered river guide page at the canonical /rivers/[state]/[slug]
 // URL (e.g. /rivers/missouri/current). Legacy /rivers/[slug] URLs 301 here
@@ -8,6 +7,7 @@ import { appBannerMetadata } from '@/lib/app-discovery';
 // hit with putIn/takeOut params we redirect there so old shared links keep
 // working.
 
+import { appBannerMetadata } from '@/lib/app-discovery';
 import type { Metadata } from 'next';
 import { notFound, permanentRedirect } from 'next/navigation';
 import { stateSlug, stateName } from '@/lib/navigation/states';

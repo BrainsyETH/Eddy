@@ -1,16 +1,15 @@
 import Link from 'next/link';
 
-export default function ArticleByline({ publishedAt, updatedAt }: {
+// blog_posts.updated_at also changes on social shares. Until a dedicated
+// content-edit timestamp exists, publication is the only date we can claim.
+export default function ArticleByline({ publishedAt }: {
   publishedAt: string | null;
-  updatedAt?: string | null;
 }) {
-  const updated = updatedAt && (!publishedAt || new Date(updatedAt) > new Date(publishedAt));
-  const date = updated ? updatedAt : publishedAt;
   return (
     <>
       <span>·</span>
-      <span>By <Link href="/about" className="underline underline-offset-2">Eddy</Link></span>
-      {date && <><span>·</span><time dateTime={date}>{updated ? 'Updated ' : 'Published '}{new Date(date).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric', timeZone: 'UTC' })}</time></>}
+      <span>Published by <Link href="/about" className="underline underline-offset-2">Eddy</Link></span>
+      {publishedAt && <><span>·</span><time dateTime={publishedAt}>Published {new Date(publishedAt).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric', timeZone: 'UTC' })}</time></>}
     </>
   );
 }

@@ -55,7 +55,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       .order('name', { ascending: true }),
     supabase
       .from('blog_posts')
-      .select('slug, published_at, updated_at')
+      .select('slug, published_at')
       .eq('status', 'published')
       .lte('published_at', new Date().toISOString())
       .order('published_at', { ascending: false }),
@@ -63,14 +63,15 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       .from('access_points')
       .select('slug, river_id, updated_at, rivers!inner(slug, state)')
       .eq('approved', true)
+      .eq('rivers.active', true)
       .order('name', { ascending: true }),
   ]);
 
   const riversResult = settled(results[0]);
   const blogResult = settled(results[1]);
   const accessPointsResult = settled(results[2]);
-  for (const [index, result] of [riversResult, blogResult, accessPointsResult].entries()) {
-    if (result.error) console.error(`Sitemap group ${index} unavailable:`, result.error);
+  for (const [name, result] of Object.entries({ rivers: riversResult, blog_posts: blogResult, access_points: accessPointsResult })) {
+    if (result.error) console.error(`Sitemap ${name} unavailable:`, result.error);
   }
 
   // State index pages (one per distinct state with rivers). A state page's
@@ -100,15 +101,11 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     priority: 0.8,
   }));
 
-  // Dynamic blog post pages. Prefer updated_at (reflects later edits) and fall
-  // back to published_at so an edited post signals a recrawl.
+  // updated_at changes on operational writes (including social shares), so it
+  // is not a content modification date. Omit lastModified until the database
+  // records editorial changes separately; published_at isn't a last edit.
   const blogPages: MetadataRoute.Sitemap = (blogResult.data || []).map((post) => ({
     url: `${BASE_URL}/blog/${post.slug}`,
-    lastModified: post.updated_at
-      ? new Date(post.updated_at)
-      : post.published_at
-        ? new Date(post.published_at)
-        : undefined,
     changeFrequency: 'weekly' as const,
     priority: 0.6,
   }));

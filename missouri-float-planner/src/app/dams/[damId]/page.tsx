@@ -1,5 +1,3 @@
-import { publicPageMetadata } from '@/lib/seo';
-import { appBannerMetadata } from '@/lib/app-discovery';
 // src/app/dams/[damId]/page.tsx
 // One dam: current state plus the multi-day hourly generation schedule.
 //
@@ -7,6 +5,8 @@ import { appBannerMetadata } from '@/lib/app-discovery';
 // daily average and cannot say "the units run 7-11 AM"; SWPA's hourly schedule
 // can, and that is what a wading angler plans around.
 
+import { publicPageMetadata } from '@/lib/seo';
+import { appBannerMetadata } from '@/lib/app-discovery';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
@@ -43,6 +43,7 @@ export async function generateMetadata({
         dam.lakeName ? ` on ${dam.lakeName}` : ''
       }.`,
       `/dams/${damId}`,
+      '/opengraph-image',
     ),
     ...appBannerMetadata(`/dam/${encodeURIComponent(damId)}`),
   };
