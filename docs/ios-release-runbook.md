@@ -378,10 +378,11 @@ silently and separately.
 Verify end to end, in sandbox, before submission — this path cannot be exercised
 from a checkout:
 
-- [ ] Apply `20261004032027_apple_revocation_outbox.sql` **before deploying the
-      new deletion route**. Record the actual production version in the migration
-      ledger. This additive migration creates the private outbox and the auth
-      deletion trigger in one transaction; the route refuses deletion if absent.
+- [x] Applied `20261004034340_apple_revocation_outbox.sql` to production on
+      2026-10-04 **before deploying the new deletion route**; the filename and
+      migration ledger match the recorded version. Verified the outbox, enabled
+      auth deletion trigger, RLS and service-only permissions. Other environments
+      must also apply this migration before deploying the new deletion route.
 - [ ] Enable **manual identity linking** in Supabase Auth before shipping the new
       client. Do not silently fall back to a new user if linking is disabled.
 - [ ] Sign in with Apple on device; confirm `/api/me/apple-token` returns

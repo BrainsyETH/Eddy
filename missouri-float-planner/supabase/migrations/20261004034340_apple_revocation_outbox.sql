@@ -1,3 +1,4 @@
+-- Applied to production as 20261004034340 on 2026-10-04 before the API deploy.
 -- Preserve revocation work in the SAME transaction as auth account deletion.
 -- No FK: this credential must survive the deleted user until Apple accepts it.
 BEGIN;
