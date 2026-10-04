@@ -5,6 +5,112 @@ Noel calibration and verified launch-to-landing routes remain release blockers.
 This review covers Elk only. It does not launch Big Sugar, Little Sugar or Indian
 Creek. No production changes were made during this review.
 
+## Researched release options — follow-up, 2026-10-04
+
+The initial review treated three unresolved items as a single reason to hold the
+whole river. They are separate decisions. We can limit the first planner release
+to the established corridor above the dam, and can consider an explicitly
+unrated release while recreational calibration is completed. These are proposed
+product choices, not approval to bypass the existing activation gate.
+
+### Gauge choices
+
+| Option | What users receive | Work / limitation |
+| --- | --- | --- |
+| **Noel in feet, calibrated with local evidence** | Measured mainstem stage plus Eddy condition ratings | Obtain Noel-specific trip observations and operator limits, including craft and reach; match dated observations to USGS history. No discharge conversion is required. Best route to a fully rated launch |
+| **Measured stage, unrated initially** | Live Noel hydrograph, readings/trend, access, camping, POIs and verified trips; no Too Low/Good/Optimal badge until calibrated | Build an explicit unrated mode across DB condition RPCs, web/iOS, planner estimates, recommendations and agent responses; make readiness permit that declared mode. Fastest independent release path, but not a fully rated launch |
+| **Upstream discharge model** | An explicitly modeled flow estimate after validation | Big Sugar, Little Sugar and Indian Creek have continuous discharge histories overlapping both the historical Tiff period and Noel's period. Backtest a tributary model on withheld historical Tiff data, account for timing and ungauged inflow, then assess Noel's stage relationship. This is a research option, not a verified transfer or launch requirement |
+
+Additional USGS checks went beyond the continuous-series catalogue:
+
+- [Noel discharge field measurements](https://api.waterdata.usgs.gov/ogcapi/v0/collections/field-measurements/items?monitoring_location_id=USGS-07188925&parameter_code=00060&limit=100&f=json)
+  returned **zero** features.
+- [Noel field-measurement metadata](https://api.waterdata.usgs.gov/ogcapi/v0/collections/field-measurements-metadata/items?monitoring_location_id=USGS-07188925&limit=100&f=json)
+  returned only reference gage height, dated June 2–August 24, 2026.
+- [Noel expanded rating](https://waterdata.usgs.gov/nwisweb/get_ratings?site_no=07188925&file_type=exsa)
+  returned **zero files**. This establishes no publicly retrievable rating in
+  that endpoint, not that USGS could not have unpublished work.
+- The legacy measurement URL redirects to the modern monitoring page; that
+  redirect was not treated as proof of absent measurements.
+- USGS metadata for **07188653 Big Sugar/Powell**, **07188838 Little Sugar/Pineville**
+  and **07188885 Indian/Lanagan** all contains continuous `00060` series through
+  October 3. Their drainage areas are 141, 195 and 239 square miles: **575 sq mi**
+  combined versus Noel's **801**. A raw sum omits about **28%** of the Noel basin
+  and is not measured Noel discharge. Do not publish the sum as a gauge reading.
+
+Reproduce the tributary checks using the same USGS `monitoring-locations` and
+`time-series-metadata` endpoints in the identifiers file, substituting the three
+site IDs. This model route is possible to investigate despite the lack of direct
+Noel–Tiff overlap; the earlier statement ruled out the direct overlap method,
+not every possible hydrologic model.
+
+Code review found a concrete unrated-mode requirement:
+`shared/condition-ladder.ts::classifyReading` falls through to `too_low` when all
+anchors are null. `src/lib/conditions.ts::computeConditionFromDbRow`, used by the
+planner fallback, does not check `hasLadder`. Simply clearing thresholds would
+therefore be incorrect. Fix the behavior and explicit readiness contract before
+offering the unrated option; do not fill dummy thresholds to satisfy the gate.
+
+For a fully rated release, the shortest external evidence request is to Elk
+River Floats, **417-475-3230**: which gauge now governs operations, low/normal/
+high/closed levels on **07188925**, and dated examples for the upper versus Noel
+trips and different craft. For the provider question, the station's legacy page
+routes to Oklahoma support; the [USGS Oklahoma–Texas center](https://www.usgs.gov/centers/oklahoma-texas-water-science-center/connect)
+lists **otpublicinfo@usgs.gov**. Ask whether discharge is planned, whether a
+rating/measurements are available, and whether Shadow Lake backwater affects
+interpretation at this location. No messages have been sent.
+
+### Access and route choices
+
+| Initial planner scope | What is established | Remaining specific work |
+| --- | --- | --- |
+| **Public-access minimum: Pineville → Mount Shira** | Two agency-listed endpoints; approximately 7.5 Eddy miles, above the Noel dam | Final route/directions review; does not need private launch permission. Narrower than the desired full Noel launch |
+| **Recommended core: Pineville through Noel, ending at Wayside** | Operator publishes Kozy → Trestle (seasonal 6 mi), Trestle → Wayside (6 mi), Kozy → Wayside (12 mi, canoe/kayak only); paid personal-boat access is published | Place/review Kozy, Trestle and Wayside bank pins and separate road entrances. Keep Cowskin and below-dam endpoints out of planner eligibility for this first scope |
+| **Add lower Elk as a separate corridor** | The Spot advertises a paid boat launch and personal-boat shuttle; Cowskin is public | Confirm The Spot → Cowskin service and exact below-dam bank. Enforce corridor separation server-side before approving both upper and lower endpoints |
+
+This removes a portage investigation from the core launch: **do not offer a
+cross-dam trip**. Hiding Cowskin from one picker is insufficient; leave it
+ineligible in the shared endpoint resolver's data until the separate corridor
+rule exists. It can remain an access listing. Full lower-Elk coverage is a later
+increment, not a prerequisite to the popular above-dam routes.
+
+The private locations have better primary-source evidence than the first review
+communicated:
+
+- **Trestle:** the operator's [campground page](https://trestlepark.com/elk-river-campground)
+  and [property map](https://img1.wsimg.com/isteam/ip/4c611e4a-7b28-4d91-afd7-9f1102df1c5e/A03155FD-7BDD-4057-AC0A-4D251F844CB9.jpeg)
+  show the beach beside the Elk Springs Road low-water crossing, office and
+  campground road. Use that beach/access area for bank-pin review, not the
+  website's generic cabin/property coordinate.
+- **Wayside:** the [campground page](https://waysidecamp.com/camping) and
+  [property map](https://img1.wsimg.com/isteam/ip/d1802747-9892-43c9-a0c8-d379822f4274/WS%20Map.jpeg)
+  identify the permitted swim/watercraft beach, office near the highway junction,
+  and downstream no-watercraft boundary before the dam. The site map requires
+  designated beach access; it does not permit launching from every campsite.
+  Verify the landing at that beach, not the downstream tip of the peninsula.
+- **Kozy:** [operator trip descriptions](https://trestlepark.com/float-trips)
+  establish it as the upper put-in. Its exact launch bank is the least resolved
+  of these three; the business address alone does not locate that bank.
+- **Personal boats:** [Trestle's rates page](https://trestlepark.com/rates)
+  publishes a **$20/person single-location drop pass** and **$30/person two-park
+  put-in/take-out pass**, subject to its stated access hours/weekend limits.
+  Permission is therefore not wholly unknown; confirm the selected locations
+  and parking/shuttle arrangements. Prices are page-listed, checked on this
+  review date, not guaranteed future charges.
+- **Below the dam:** [The Spot](https://lowerelkriveradventures.com/) lists a
+  **$10 launch** and **$35 personal-boat shuttle**, but does not name Cowskin as
+  the other endpoint. That pair is a concrete candidate, not an established
+  bookable route yet.
+
+The operator maps were visually inspected. They resolve the intended bank areas
+and trip relationships, but are schematic rather than georeferenced. No
+survey-grade latitude/longitude was inferred from them or marked approved.
+
+**Recommendation:** finish the three core private pins and release only the
+above-dam corridor first. Pursue Noel-in-feet calibration for the complete rating
+experience; offer an explicit unrated initial release if operator evidence is
+not available promptly. Do not make a flow model or a dam portage prerequisites.
+
 ## Coverage and prepared changes
 
 | Area | Production inspected | Prepared in this batch | Still needed |
