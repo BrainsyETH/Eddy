@@ -13,7 +13,7 @@ import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, textStyles, type as t } from '@/theme/typography';
 
 type Row = { kind: 'high'; entry: HighWaterEntry } | { kind: 'notice'; alert: RiverAlert };
-type Section = { key: 'high' | 'notices'; title: string; caption: string; empty: string; data: Row[] };
+type Section = { key: 'high' | 'notices'; title: string; caption?: string; empty: string; data: Row[] };
 
 const FILTERS: ScopeOption<CurrentAlertsFilter>[] = [
   { key: 'favorites', label: 'Favorites', accessibilityLabel: 'Favorites' },
@@ -83,7 +83,7 @@ export default function CurrentAlertsScreen() {
   const noticeRows = [...summary.notices]
     .sort((a, b) => severityOrder[a.severity] - severityOrder[b.severity]);
   const sections: Section[] = [
-    { key: 'high', title: 'Running high', caption: 'Conditions graded by Eddy from gauge readings.',
+    { key: 'high', title: 'Running high',
       empty: 'No Eddy-rated rivers or gauges running high right now.', data: highRows.map((entry) => ({ kind: 'high', entry })) },
     { key: 'notices', title: 'Public notices', caption: 'Closures and weather warnings from the National Park Service and National Weather Service.',
       empty: 'No public notices right now.', data: noticeRows.map((alert) => ({ kind: 'notice', alert })) },
@@ -114,7 +114,7 @@ export default function CurrentAlertsScreen() {
         renderSectionHeader={({ section }) => (
           <View style={styles.sectionHeading}>
             <Text accessibilityRole="header" style={[styles.sectionTitle, { color: colors.text }]}>{section.title}</Text>
-            <Text style={[styles.caption, { color: colors.textMuted }]}>{section.caption}</Text>
+            {section.caption ? <Text style={[styles.caption, { color: colors.textMuted }]}>{section.caption}</Text> : null}
           </View>
         )}
         renderItem={({ item }) => item.kind === 'high' ? <HighWaterAlertRow entry={item.entry} /> : <PublicNoticeRow alert={item.alert} />}
