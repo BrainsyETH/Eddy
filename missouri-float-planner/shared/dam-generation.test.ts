@@ -15,6 +15,8 @@ import {
   generatorEquivalentPhrase,
   generatorRack,
   nowNextClauses,
+  scheduledChangeSummary,
+  generationHistoryRows,
   observedBar,
   OBSERVATION_ALIGNMENT_MINUTES,
   OTHER_RELEASE_FLOOR_CFS,
@@ -252,6 +254,25 @@ test('an idle plant with a start ahead of it says both halves', () => {
 
   assert.equal(clauses.observed, 'No turbine generation observed.');
   assert.equal(clauses.scheduled, 'Generation scheduled to start at 1 PM.');
+});
+
+test('short next-change copy preserves timing, bounded stops and unpublished hours', () => {
+  const summary = (schedule: ReturnType<typeof day>[]) =>
+    scheduledChangeSummary(schedule, BULL_SHOALS, NOON_CENTRAL);
+  assert.equal(summary([day('2026-07-28', { 14: 300 })]), 'Starts at 1 PM.');
+  assert.equal(summary([
+    day('2026-07-28', {}), day('2026-07-29', { 1: 300 }),
+  ]), 'Starts at midnight tonight.');
+  assert.equal(summary([day('2026-07-28', { 13: 300, 14: 300 })]),
+    'Stops at 2 PM. Later hours have not been posted.');
+  assert.equal(summary([
+    day('2026-07-28', { 13: 300, 14: 300 }), day('2026-07-29', { 7: 300 }),
+  ]), 'Stops at 2 PM. Resumes at 6 AM tomorrow.');
+  assert.equal(summary([day('2026-07-28', { 13: 100, 14: 120, 15: 300 })]), 'Increases at 2 PM.');
+  assert.equal(summary([day('2026-07-28', { 13: 300, 14: 300, 15: 100 })]), 'Decreases at 2 PM.');
+  assert.equal(summary([day('2026-07-28', {})]),
+    'No generation scheduled for the rest of the posted schedule.');
+  assert.equal(summary([]), null);
 });
 
 test('an unreadable feed says so instead of borrowing the schedule', () => {
@@ -507,6 +528,41 @@ function observedDay(
     totalReleaseCfs: new Array(hours).fill(null),
   };
 }
+
+test('history removes future schedules without disguising missing observations', () => {
+  const rows = patternRows(
+    [observedDay('2026-07-27', { 0: 0 }), observedDay('2026-07-28', { 0: 19_130, 1: 0 })],
+    [day('2026-07-28', { 15: 391 }), day('2026-07-29', { 7: 391 })],
+    BULL_SHOALS, 100, NOON_CENTRAL,
+  );
+  const original = structuredClone(rows);
+  const history = generationHistoryRows(rows);
+  assert.deepEqual(history.map((row) => row.dayKey), ['2026-07-27', '2026-07-28']);
+  const today = history[1];
+  assert.equal(today.cells.length, 12);
+  assert.equal(today.splitIndex, 12);
+  assert.deepEqual(today.cells.slice(0, 3).map((cell) => cell.kind), ['observed', 'observed', 'missing']);
+  assert.equal(today.scheduled, false);
+  assert.equal(today.scheduleStale, false);
+  assert.doesNotMatch(patternRowVoiceOver(today), /scheduled|still to come|no schedule published/);
+  assert.match(patternRowVoiceOver(today), /10 hours with no observation/);
+  assert.deepEqual(rows, original, 'the full pattern remains intact when the user includes the schedule');
+});
+
+test('history preserves the real elapsed-hour boundary at midnight and on DST days', () => {
+  for (const [date, startUtc, now, hours, elapsed] of [
+    ['2026-07-28', '2026-07-28T05:00:00Z', '2026-07-28T05:00:00Z', 24, 0],
+    ['2026-11-01', '2026-11-01T05:00:00Z', '2026-11-01T21:00:00Z', 25, 16],
+    ['2026-03-08', '2026-03-08T06:00:00Z', '2026-03-08T20:00:00Z', 23, 14],
+  ] as const) {
+    const full = patternRows([observedDay(date, {}, hours, startUtc)], [], BULL_SHOALS, 100, Date.parse(now));
+    const history = generationHistoryRows(full);
+    assert.equal(history[0].cells.length, elapsed);
+    assert.equal(history[0].splitIndex, elapsed);
+    assert.equal(full[0].cells.length, hours, 'the UI retains the full day as its axis denominator');
+    assert.ok(history[0].cells.every((cell) => cell.kind === 'missing'));
+  }
+});
 
 test('a past day is drawn entirely from what was measured', () => {
   // Never from the schedule that was posted for it. A schedule is what was

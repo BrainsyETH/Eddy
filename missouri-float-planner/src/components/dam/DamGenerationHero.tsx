@@ -48,7 +48,7 @@ import {
   generationVoiceOver,
   generatorEquivalentPhrase,
   generatorRack,
-  nowNextClauses,
+  scheduledChangeSummary,
   releaseComparison,
   scheduledClauseProvenance,
   speaksForNow,
@@ -105,7 +105,7 @@ export default function DamGenerationHero({ dam }: { dam: DamSnapshot }) {
   const equivalentPhrase =
     state.kind === 'generating' ? generatorEquivalentPhrase(state.equivalents, ref) : null;
   const percent = state.kind === 'generating' ? generationPercentLabel(state.fraction) : null;
-  const clauses = nowNextClauses(state, dam.schedule, ref);
+  const nextChange = scheduledChangeSummary(dam.schedule, ref);
   const comparison = releaseComparison(dam.metrics.generationFlow, dam.metrics.release, ref, {
     declared: dam.releaseExcludesGeneration,
   });
@@ -151,7 +151,7 @@ export default function DamGenerationHero({ dam }: { dam: DamSnapshot }) {
             <span className="ml-1.5 text-sm font-medium text-neutral-500">through the turbines</span>
           </p>
         )}
-        {observedAt && <p className="text-xs text-neutral-500">Updated {observedAt}</p>}
+        {observedAt && <p className="text-xs text-neutral-500">Last reading {observedAt}</p>}
 
         {/* The capacity bar. Single hue, and the label names the exact
             reference — "31% of published full-generation discharge", never
@@ -193,13 +193,13 @@ export default function DamGenerationHero({ dam }: { dam: DamSnapshot }) {
           observation read as two. The combined sentence still earns its space
           on the compact list card, where there is no rack to have said it
           first. */}
-      {clauses.scheduled && (
+      {nextChange && (
         <div className="mt-4 rounded-lg border-2 border-primary-200 bg-primary-50 p-3">
           <h3 className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-primary-800">
             <Clock className="h-3.5 w-3.5" aria-hidden="true" />
-            Next change
+            Next scheduled change
           </h3>
-          <p className="mt-1 text-base font-bold text-neutral-900">{clauses.scheduled}</p>
+          <p className="mt-1 text-base font-bold text-neutral-900">{nextChange}</p>
           {/* Plain language, and the reason it is three sentences: whose clock
               this is, what it means where the reader is standing, and how much
               to trust it. See SCHEDULE_CHANGE_SENTENCE. */}

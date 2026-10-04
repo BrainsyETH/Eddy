@@ -44,6 +44,7 @@ import type { DamSnapshot } from '@eddy/types';
 import { relativeAge, SCHEDULE_CHANGE_SENTENCE } from '@eddy/conditions/dam-schedule-copy';
 import {
   FULL_GENERATION_SHORT_LABEL,
+  RACK_ESTIMATE_SHORT,
   generationReferenceCitation,
   generationNow,
   generationPercentLabel,
@@ -103,6 +104,7 @@ export function DamGenerationHero({
   dam,
   embedded = false,
   showNextChange = true,
+  showReference = true,
   headerAction,
 }: {
   dam: DamSnapshot;
@@ -124,6 +126,8 @@ export function DamGenerationHero({
    * why it was the piece that read as a duplicate.
    */
   showNextChange?: boolean;
+  /** The merged card puts the full reference in its information tip. */
+  showReference?: boolean;
   headerAction?: ReactNode;
 }) {
   const { colors, elevation } = useTheme();
@@ -150,7 +154,7 @@ export function DamGenerationHero({
   const fraction = state.kind === 'generating' ? state.fraction : null;
   const figureLabel = [
     voiceOver,
-    observedAt ? `Updated ${observedAt}.` : null,
+    observedAt ? `Last reading ${observedAt}.` : null,
     dim ? 'Older reading.' : null,
     percent && ref ? (rack ? generationReferenceLine(ref) : generationReferenceCitation(ref)) : null,
   ].filter(Boolean).join(' ').replace(/\bcfs\b/g, 'cubic feet per second');
@@ -209,16 +213,16 @@ export function DamGenerationHero({
           </Text>
         ) : null}
         {observedAt ? (
-          <Text style={[styles.age, { color: colors.textSubtle }]}>Updated {observedAt}</Text>
+          <Text style={[styles.age, { color: colors.textSubtle }]}>Last reading {observedAt}</Text>
         ) : null}
 
-        {/* The citation, demoted but never dropped: the percentage is only
-            checkable because the denominator is published. The estimate hedge
-            rides on the end of it whenever the rack is drawn — see
-            generationReferenceLine for why it lost its own line. */}
-        {percent && ref ? (
+        {/* The full citation is available in the merged card's info tip.
+            Keep the estimate qualifier beside the graphic in either layout. */}
+        {percent && ref && (showReference || rack) ? (
           <Text style={[styles.note, { color: colors.textSubtle }]}>
-            {rack ? generationReferenceLine(ref) : generationReferenceCitation(ref)}
+            {showReference
+              ? (rack ? generationReferenceLine(ref) : generationReferenceCitation(ref))
+              : RACK_ESTIMATE_SHORT}
           </Text>
         ) : null}
       </View>

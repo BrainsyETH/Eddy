@@ -218,11 +218,7 @@ export function DamStateCard({
             icon="water-outline"
             label={release.dailyMean ? 'Release (daily avg)' : 'Releasing'}
             value={formatCfs(release.value)}
-            sub={
-              release.dailyMean
-                ? ['daily average', relativeAge(release.at)].filter(Boolean).join(', ')
-                : relativeAge(release.at)
-            }
+            sub={relativeAge(release.at)}
             dim={isStale(release)}
           />
         ) : null}
@@ -284,7 +280,7 @@ export function DamStateCard({
             // shipped with only "into the lake" beneath it and no indication of
             // when it was measured, which on the two St. Louis dams is a daily
             // mean about a day in arrears.
-            sub={[inflow.dailyMean ? 'daily average into the lake' : 'into the lake', relativeAge(inflow.at)]
+            sub={['into the lake', relativeAge(inflow.at)]
               .filter(Boolean)
               .join(' · ')}
             dim={isStale(inflow)}
@@ -310,7 +306,7 @@ export function DamStateCard({
           number for the same plant — 340 installed against 391 scheduled at
           Bull Shoals. Two bare megawatt figures on one screen read as a
           contradiction; two labelled ones read as what they are. */}
-      {dam.nameplate ? (
+      {!secondary && dam.nameplate ? (
         <Text style={[styles.plant, { color: colors.textSubtle }]}>
           {dam.nameplate.units} generating {dam.nameplate.units === 1 ? 'unit' : 'units'} ·{' '}
           {dam.nameplate.megawatts} MW nameplate
