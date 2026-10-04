@@ -356,7 +356,7 @@ silently and separately.
 | `NEXT_PUBLIC_SENTRY_DSN` | **browser** errors go nowhere. A separate variable, and it must carry the prefix or it never reaches the page |
 | `SENTRY_AUTH_TOKEN` | stack traces point at minified output — source maps are not uploaded. A **write** credential: never `NEXT_PUBLIC_` |
 | `SENTRY_ORG` / `SENTRY_PROJECT` | as above; source-map upload needs all three or it is skipped |
-| `APPLE_TEAM_ID` | Apple token revocation is skipped — see below |
+| `APPLE_TEAM_ID` | Token exchange fails; queued revocations retry — see below |
 | `APPLE_KEY_ID` | as above |
 | `APPLE_PRIVATE_KEY` | as above |
 | `APPLE_CLIENT_ID` | as above; the value is the bundle id, `eddy.guide.app` |
@@ -371,21 +371,51 @@ silently and separately.
       Vercel cannot hold real newlines, so paste it with literal `\n` — the code
       unescapes them. A key that fails to import produces an opaque Apple `400`
       that names neither the variable nor the cause.
-- [ ] The key is an **App Store Connect key with Sign in with Apple enabled**
+- [ ] The key is an **Apple Developer key with Sign in with Apple enabled**
       (Certificates → Keys), not an APNs key. They look identical on disk.
 - [ ] Migration `00211_apple_refresh_tokens.sql` applied.
 
 Verify end to end, in sandbox, before submission — this path cannot be exercised
 from a checkout:
 
-- [ ] Sign in with Apple on device, then check `apple_refresh_tokens` has a row
-      for that user.
-- [ ] Delete the account in-app; the row goes and the Apple ID no longer lists
-      Eddy under Settings → Sign in with Apple.
-- [ ] Deliberately break `APPLE_TEAM_ID` and delete another account: **the
-      deletion must still succeed.** A revocation failure logs and proceeds by
-      design — a person's ability to delete their account must not depend on
-      Apple's uptime.
+- [x] Applied `20261004034340_apple_revocation_outbox.sql` to production on
+      2026-10-04 **before deploying the new deletion route**; the filename and
+      migration ledger match the recorded version. Verified the outbox, enabled
+      auth deletion trigger, RLS and service-only permissions. Other environments
+      must also apply this migration before deploying the new deletion route.
+- [ ] Enable **manual identity linking** in Supabase Auth before shipping the new
+      client. Do not silently fall back to a new user if linking is disabled.
+- [ ] Sign in with Apple on device; confirm `/api/me/apple-token` returns
+      `{ stored: true }` and a row exists. HTTP 200 alone does not prove storage.
+      Check only row existence/status; never print or copy refresh tokens.
+- [ ] Delete the account in-app. Confirm `appleRevoked: true` and
+      `appleRevocationStatus: "revoked"` in the response or server event, both
+      token tables are clear for the test account, and the Apple authorization
+      is revoked. `missing_token` means exchange/storage needs investigation.
+- [ ] In a **sandbox/preview environment only**, break Apple credentials or
+      simulate a timeout and delete a test account: deletion succeeds with
+      `pending`, and the retry row survives the user/token cascade. Restore the
+      credentials, run `/api/cron/revoke-apple-tokens` with cron authentication,
+      and verify the retry disappears after success. Missing credentials and
+      retry failures must appear in job monitoring. Never test by disrupting
+      production credentials or deleting a real user's account.
+- [ ] Verify guest Delete my data removes server rows and local favorites/floats.
+      With no backend session, verify local cleanup; with a guest session and a
+      network failure, preserve the session/data so deletion can be retried.
+- [ ] Fresh Apple signup preserves the guest user id and selected favorites.
+      Existing Apple-account sign-in restores its id and merges newly selected
+      favorites. Test with Hide My Email, cancellation, offline failure and
+      relaunch at the optional sign-in step. Restored signed-in sessions and
+      completed existing installs must not be asked again.
+- [ ] Location prompts only on “Find rivers near me,” map Locate, or another
+      explicit location action. Verify Allow Once, While Using, approximate
+      location, denial/manual search, and return from Settings. No location or
+      notification prompt is automatically chained to Apple sign-in.
+
+Read-only production check on October 4, 2026: 13 community reports, none with
+`user_id`; `river_photos` has no account column; zero stored Apple refresh tokens.
+This supports the anonymous-submission policy but does **not** verify Apple
+configuration. The device exchange/revocation checks above remain required.
 
 ## 5 · Supabase
 

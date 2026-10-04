@@ -138,7 +138,7 @@ export function FirstRunPicker({ onDone }: Props) {
   const locationLabel = locating ? 'Finding nearby water…'
     : nearbyCoords ? riverDistances?.size ? 'Showing nearby water' : 'Showing nearby dams'
     : location.status === 'denied' ? 'Location off · Search or browse below'
-    : location.status === 'unavailable' ? 'Location unavailable · Try again' : 'Near me';
+    : location.status === 'unavailable' ? 'Location unavailable · Try again' : 'Find rivers near me';
 
   return (
     <SafeAreaView style={[styles.screen, { backgroundColor: colors.bg }]}>
@@ -165,6 +165,9 @@ export function FirstRunPicker({ onDone }: Props) {
                 {locating ? <ActivityIndicator size="small" color={colors.interactive} /> : <ControlIcon name="location-outline" size={17} color={colors.interactive} />}
                 <Text style={[styles.chipText, { color: colors.selectionText }]}>{locationLabel}</Text>
               </Pressable>
+              {!nearbyCoords && location.status !== 'denied' ? <Text style={[styles.copy, { color: colors.textMuted }]}>
+                Use your location for nearby suggestions, or search below. Location is optional.
+              </Text> : null}
               {location.status === 'denied' ? <Pressable accessibilityRole="button" onPress={() => void Linking.openSettings()} style={styles.textButton}>
                 <Text style={[styles.skipText, { color: colors.interactive }]}>Open Settings</Text>
               </Pressable> : null}

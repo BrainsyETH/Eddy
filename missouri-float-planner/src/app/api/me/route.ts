@@ -61,18 +61,25 @@ export async function DELETE(request: NextRequest) {
     // admin operation, and a deletion must not be quietly narrowed by a table
     // whose RLS happens not to grant DELETE. Identity was already verified
     // above from the caller's own JWT, and every statement is scoped to it.
-    const result = await deleteAccount(createAdminClient(), user.id);
+    const result = await deleteAccount(createAdminClient(), user.id, {
+      appleAccount: user.identities?.some(identity => identity.provider === 'apple')
+        || user.app_metadata?.provider === 'apple',
+    });
 
     logger.info('[account] deleted', {
       userId: user.id,
       isAnonymous: user.is_anonymous ?? false,
       hadActiveEntitlement,
       deleted: result.deleted,
+      appleRevoked: result.appleRevoked,
+      appleRevocationStatus: result.appleRevocationStatus,
     });
 
     return jsonPrivate({
       ok: true,
       deleted: result.deleted,
+      appleRevoked: result.appleRevoked,
+      appleRevocationStatus: result.appleRevocationStatus,
       // True means: the account is gone, but Apple will keep billing until
       // they cancel. The client turns this into a specific instruction.
       hadActiveEntitlement,

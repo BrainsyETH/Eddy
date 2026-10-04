@@ -26,7 +26,7 @@ export default function PrivacyPage() {
           >
             Privacy Policy
           </h1>
-          <p className="text-white/80">Last updated: August 3, 2026</p>
+          <p className="text-white/80">Last updated: October 4, 2026</p>
         </div>
       </section>
 
@@ -117,6 +117,9 @@ export default function PrivacyPage() {
               publicly visible if a moderator approves the report; rejected photos are
               deleted from storage. Eddy decodes and re-encodes community photos before
               storage to remove embedded camera metadata, including EXIF location metadata.
+              Reports and photos submitted through our public contribution form are not linked
+              to your Eddy account, even when you are signed in. Any display name is supplied
+              separately and may be published with your contribution.
             </li>
             <li>
               <strong>Location you choose to use.</strong> If you use a “nearest me” feature,
@@ -185,12 +188,17 @@ export default function PrivacyPage() {
             respond, moderate, maintain an audit trail, prevent abuse, and meet legal obligations.
             Shared plans remain available while their links are supported. Approved community
             content and its display name, description, river location, and photo may be public.
-            Anonymous accounts and the rivers saved to them are kept until you ask us to delete
-            them or the account has been inactive long enough that it is no longer useful. Push
+            You can delete a guest account and its saved data using Delete my data in the app.
+            Account deletion does not automatically identify contributions submitted without
+            an account link. To request removal, email eddy@eddy.guide with the report or photo
+            link, or enough detail to locate it, such as the river and submission date. Push
             tokens are removed when a device stops accepting notifications or you disable them.
             Subscription records are kept while a subscription is or was active, and afterwards
             only as long as needed for accounting and dispute handling. Backups may retain
-            deleted information for a limited recovery period.
+            deleted information for a limited recovery period. After account deletion, we may
+            temporarily retain an Apple authorization token and a technical identifier solely
+            to revoke that authorization. Access is restricted to the server; the retry record
+            is removed after successful revocation.
           </p>
         </section>
 
@@ -203,7 +211,7 @@ export default function PrivacyPage() {
             <li>Use the unsubscribe option in an email or contact us to stop email updates.</li>
             <li>
               <strong>Delete your account in the app.</strong> In the iOS app, open Profile and
-              choose Delete account. Deletion happens immediately and removes your account, your
+              choose Delete account, or Delete my data when using Eddy without signing in. Deletion happens immediately and removes your account, your
               saved float plans, favorites, alert rules, and registered devices. It does not
               cancel an active subscription &mdash; Apple manages billing, so cancel there first
               if you want it stopped.

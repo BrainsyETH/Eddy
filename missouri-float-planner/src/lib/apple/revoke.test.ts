@@ -108,7 +108,7 @@ test('a network throw during exchange is caught', async () => {
   });
 
   assert.equal(result.ok, false);
-  assert.equal(result.error, 'ENOTFOUND');
+  assert.equal(result.error, 'request_failed'); // Never expose arbitrary network exception text.
 });
 
 test('revocation names the token type it is sending', async () => {

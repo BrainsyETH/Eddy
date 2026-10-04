@@ -2273,6 +2273,9 @@ export interface MeEntitlementRefreshResponse {
 /** Response from DELETE /api/me. */
 export interface MeDeleteResponse {
   ok: true;
+  /** Optional for apps talking to a backend deployed before the revocation outbox. */
+  appleRevoked?: boolean;
+  appleRevocationStatus?: 'revoked' | 'pending' | 'missing_token' | 'not_applicable';
   /** Rows removed per table — float_plans is deleted explicitly, not cascaded. */
   deleted: Record<string, number>;
   /**

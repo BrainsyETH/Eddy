@@ -119,6 +119,7 @@ export async function exchangeAuthorizationCode(
     const secret = await appleClientSecret(creds, nowSeconds);
     const response = await doFetch(APPLE_TOKEN_URL, {
       method: 'POST',
+      signal: AbortSignal.timeout(5_000),
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       body: new URLSearchParams({
         client_id: creds.clientId,
@@ -137,8 +138,8 @@ export async function exchangeAuthorizationCode(
       return { ok: false, error: body?.error ?? `http_${response.status}` };
     }
     return { ok: true, refreshToken: body.refresh_token };
-  } catch (err) {
-    return { ok: false, error: err instanceof Error ? err.message : 'unknown' };
+  } catch {
+    return { ok: false, error: 'request_failed' };
   }
 }
 
@@ -167,6 +168,7 @@ export async function revokeAppleToken(
     const secret = await appleClientSecret(creds, nowSeconds);
     const response = await doFetch(APPLE_REVOKE_URL, {
       method: 'POST',
+      signal: AbortSignal.timeout(5_000),
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       body: new URLSearchParams({
         client_id: creds.clientId,
@@ -178,7 +180,7 @@ export async function revokeAppleToken(
 
     if (!response.ok) return { ok: false, error: `http_${response.status}` };
     return { ok: true };
-  } catch (err) {
-    return { ok: false, error: err instanceof Error ? err.message : 'unknown' };
+  } catch {
+    return { ok: false, error: 'request_failed' };
   }
 }

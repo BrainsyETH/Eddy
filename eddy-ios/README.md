@@ -995,7 +995,19 @@ On the picker, public river, gauge, featured-float and safety requests warm a
 one-use memory handoff, fresh for 30 seconds after completion; dam data and Eddy's Reads warm their existing
 shared stores. Picker/Today reuse those reads without blocking completion. Failed
 or expired handoffs are discarded, and pull-to-refresh clears the handoff before
-fetching. No new permission, sign-in, or subscription step is introduced.
+fetching. The picker requests location only after an explicit “Find rivers near me” tap;
+manual search and Skip remain available. After the picker, new guests receive an
+optional native Apple sign-in offer to set alerts and sync Favorites. “Not now”
+finishes onboarding; canceling Apple's sheet stays on the offer. It does not
+create alerts or ask for push permission. Completed existing installs and restored
+permanent sessions skip the offer. Interrupted onboarding resumes its pending step.
+
+First-time Apple signup uses native `linkIdentity` to retain the guest's user id.
+Enable manual identity linking in Supabase before shipping the client. Only
+`identity_already_exists` falls back to signing into the existing Apple account;
+configuration/network errors leave the guest intact. Favorites reconcile with
+that restored account. Guest/local-only users can remove saved data in Settings;
+server deletion must succeed before the app clears a guest's session.
 
 The picker labels list expansion “Show all rivers and dams” and its exit “Skip
 for now.” “Review selected (N)” opens a sheet derived from the same live favorites
