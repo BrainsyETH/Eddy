@@ -18,15 +18,14 @@ const notice = (riverSlug: string, severity: RiverAlert['severity'], category = 
   id: `${riverSlug}-${severity}`, source: 'nps', riverSlug, riverName: riverSlug,
   severity, category, title: category, body: '', startsAt: null, endsAt: null, url: null,
 });
-const inputs = { rivers: [river('current'), river('jacks-fork'), river('meramec')], gauges: [],
-  favoriteRiverIds: new Set(['current']), coords: null };
+const inputs = { rivers: [river('current'), river('jacks-fork'), river('meramec')], coords: null };
 
 test('agency warnings and local closures remain visible without excluding an entire river', () => {
   const recommendations = chooseTodayRecommendations({ ...inputs,
     notices: [notice('jacks-fork', 'warning'), notice('meramec', 'notice', 'Closure')] });
-  assert.deepEqual(recommendations.map((pick) => pick.river.id), ['jacks-fork', 'meramec']);
-  assert.equal(recommendations[0].notices[0].severity, 'warning');
-  assert.equal(recommendations[1].notices[0].category, 'Closure');
+  assert.deepEqual(recommendations.map((pick) => pick.river.id), ['current', 'jacks-fork', 'meramec']);
+  assert.equal(recommendations[1].notices[0].severity, 'warning');
+  assert.equal(recommendations[2].notices[0].category, 'Closure');
 });
 
 test('unavailable agency notices do not suppress gauge-based recommendations', () => {
@@ -34,7 +33,7 @@ test('unavailable agency notices do not suppress gauge-based recommendations', (
     chooseTodayRecommendations({ ...inputs, notices: null }),
     chooseTodayRecommendations({ ...inputs, notices: [] }),
   );
-  assert.equal(chooseTodayRecommendations({ ...inputs, notices: [] }).length, 2);
+  assert.equal(chooseTodayRecommendations({ ...inputs, notices: [] }).length, 3);
 });
 
 test('suggested-river notices remain on recommendations without leaking into Favorites alerts', () => {
