@@ -233,7 +233,7 @@ export function GaugeLevelsTab({ facts, detail, status, onOpenRiver }: GaugeTabP
 
 /* ── History ───────────────────────────────────────────────────────────── */
 
-export function GaugeHistoryTab({ facts, detail }: GaugeTabProps) {
+export function GaugeHistoryTab({ facts, detail, title }: GaugeTabProps & { title: string }) {
   if (!facts.siteId) {
     return <Absent>This station publishes no history Eddy can read.</Absent>;
   }
@@ -243,6 +243,7 @@ export function GaugeHistoryTab({ facts, detail }: GaugeTabProps) {
   return (
     <GaugeChart
       siteId={facts.siteId}
+      title={title}
       unit={primary?.thresholdUnit === 'ft' ? 'ft' : 'cfs'}
       thresholds={primary ? { ...primary, thresholdUnit: primary.thresholdUnit } : null}
       floodStages={detail?.floodStages ?? null}

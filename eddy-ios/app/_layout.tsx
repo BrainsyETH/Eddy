@@ -302,6 +302,9 @@ function ThemedShell() {
           <Stack screenOptions={({ route }) => {
             return {
               headerShown: false,
+              // The binary permits landscape for the expanded chart's native
+              // modal. Ordinary screens and their tab stacks stay portrait.
+              orientation: 'portrait',
               contentStyle: { backgroundColor: colors.bg },
               ...((route.name === 'alerts/(create)' || route.name === 'alerts/(manage)') ? { presentation: 'modal' as const } : {}),
             };

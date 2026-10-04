@@ -9,6 +9,7 @@ export default function AlertCreationLayout() {
   return (
     <SafeAreaProvider>
       <Stack screenOptions={{
+        orientation: 'portrait',
         headerBackButtonDisplayMode: 'generic',
         contentStyle: { backgroundColor: colors.bg },
       }}>

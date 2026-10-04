@@ -1008,6 +1008,41 @@ before acknowledgment; this change only defers the onboarding-specific preload.
 
 ## Native navigation and control follow-up (October 2026)
 
+### Expanded gauge charts
+
+River, gauge and map-history charts have an explicit Expand button. The expanded
+native full-screen modal supports portrait and both landscape directions, with a
+Done action. Rotating an ordinary page does not open it. One controller owns the
+range/custom dates, units, comparison layers, selection and history cache for
+both presentations, so opening/closing does not fetch again or reset the source
+page/map pin. Selection stores the reading's timestamp and observed/forecast
+identity; resizing cannot move it to a different reading. In the expanded view,
+the readout has reserved space outside the plot and persists after scrubbing.
+
+The app config now permits native rotation; the root, tab and alert stacks
+explicitly remain portrait. Only `GaugeChartFullscreen` opts into landscape.
+This changes the native configuration and **requires a new development/TestFlight
+binary**. Keep fingerprint runtime versioning; an OTA alone cannot change the
+installed binary's supported orientations. No new native dependency is added.
+
+Before distribution, verify on an iPhone:
+
+- Expand from River, Gauge and a map pin's History tab. Change range, measurement,
+  comparison layers and custom dates; close and reopen. Keep the same settings,
+  cached line, source scroll position, selected pin and sheet tab/detent.
+- Scrub an observed and a forecast reading, lift your finger, and rotate left,
+  right and back. Keep the same timestamp, value and source. Try 30d and 1y.
+- Close while in landscape, including with VoiceOver escape. The source returns
+  to portrait. Ordinary Today, Map, planner and alert screens remain portrait.
+- With Rotation Lock on, expand and explore in portrait. Check background/resume
+  and repeated open/close while the phone is held sideways.
+- Open Compare, Data & details, CSV sharing and Custom dates from the expanded
+  view in both orientations; their dismissal returns to the expanded chart.
+- Check small phones, the largest Dynamic Type sizes, light/dark and Reduce
+  Motion. Large text can scroll; the plot never collapses underneath controls.
+
+### Tab navigation
+
 Each tab now owns its own stack. Shared detail routes use Expo Router group
 arrays; public URLs remain unchanged. `npm run typecheck` also validates the
 actual Expo route tree and exercises shared path resolution, push/Back actions,

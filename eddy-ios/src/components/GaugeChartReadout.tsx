@@ -16,6 +16,21 @@ interface Props {
   quality: string | null;
 }
 
+/** The expanded chart reserves space for the readout outside the plot. Fixed
+ * line slots keep the plot still as source/quality labels change during a pan. */
+export function GaugeChartFixedReadout({ value, band, time, source, quality, compact }: Omit<Props, 'width' | 'height' | 'point' | 'finger'> & { compact: boolean }) {
+  const { colors } = useTheme();
+  const { fontScale } = useWindowDimensions();
+  return <View style={styles.fixedReadout} pointerEvents="none" accessible={false}
+    accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
+    <View style={compact ? styles.fixedRow : styles.fixedColumn}>
+      <Text numberOfLines={1} style={[styles.value, compact && styles.fixedValue, { color: colors.text, height: t.sm.lineHeight * fontScale }]}>{value}{band ? ` · ${band}` : ''}</Text>
+      <Text numberOfLines={1} style={[styles.caption, { color: colors.textMuted, height: t.xs.lineHeight * fontScale }]}>{time}</Text>
+    </View>
+    <Text numberOfLines={compact ? 1 : 2} style={[styles.caption, { color: colors.textMuted, height: t.xs.lineHeight * fontScale * (compact ? 1 : 2) }]}>{source}{quality ? ` · ${quality}` : ''}</Text>
+  </View>;
+}
+
 /** Measure real text before placing it. The absolute readout never changes the
  * chart's height, and a high sample sends it below the line instead of over it. */
 export function GaugeChartReadout({ width, height, point, finger, value, band, time, source, quality }: Props) {
@@ -42,6 +57,10 @@ export function GaugeChartReadout({ width, height, point, finger, value, band, t
 }
 
 const styles = StyleSheet.create({
+  fixedReadout: { paddingHorizontal: 4, paddingVertical: 4, gap: 2 },
+  fixedRow: { flexDirection: 'row', alignItems: 'center', gap: 16 },
+  fixedColumn: { gap: 2 },
+  fixedValue: { flex: 1 },
   readout: { position: 'absolute', borderWidth: StyleSheet.hairlineWidth, borderRadius: 9, paddingHorizontal: 8, paddingVertical: 6, gap: 2 },
   value: { ...t.sm, fontFamily: fonts.monoMedium },
   caption: { ...t.xs },

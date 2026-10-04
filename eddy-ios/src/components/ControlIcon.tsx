@@ -7,6 +7,7 @@ type Props = ComponentProps<typeof Ionicons>;
 const symbols: Partial<Record<NonNullable<Props['name']>, SFSymbol>> = {
   'chevron-forward': 'chevron.right', 'chevron-back': 'chevron.left',
   'chevron-up': 'chevron.up', 'chevron-down': 'chevron.down',
+  'expand-outline': 'arrow.up.left.and.arrow.down.right',
   'share-outline': 'square.and.arrow.up', 'share-social-outline': 'square.and.arrow.up',
   star: 'star.fill', 'star-outline': 'star', close: 'xmark', 'close-outline': 'xmark',
   'close-circle': 'xmark.circle.fill', 'close-circle-outline': 'xmark.circle',

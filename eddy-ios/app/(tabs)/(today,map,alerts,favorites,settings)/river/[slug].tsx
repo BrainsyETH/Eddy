@@ -1448,6 +1448,7 @@ export default function RiverDetailScreen() {
         {shownSiteId ? (
           <GaugeChart
             siteId={shownSiteId}
+            title={shownGaugeName ?? river.name}
             historyCapabilities={chartGaugeDetail?.historyCapabilities}
             unit={reading?.unit ?? scaleThresholds?.thresholdUnit ?? river.currentCondition?.thresholdUnit ?? 'cfs'}
             thresholds={scaleThresholds}

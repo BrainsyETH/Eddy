@@ -12,6 +12,7 @@ export function TabStack({ root, title }: { root: string; title: string }) {
     return {
       headerShown: Boolean(detail) || (today && Platform.OS === 'ios'),
       title: detail ?? title,
+      orientation: 'portrait',
       headerBackButtonDisplayMode: 'generic',
       headerLargeTitle: today,
       headerTransparent: Platform.OS === 'ios',

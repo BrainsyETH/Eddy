@@ -282,7 +282,7 @@ function PinSheetSelection(props: PinSheetProps) {
       onOpenRiver: props.onOpenRiver,
     };
     if (key === 'levels') return <GaugeLevelsTab {...shared} />;
-    if (key === 'history') return <GaugeHistoryTab {...shared} />;
+    if (key === 'history') return <GaugeHistoryTab {...shared} title={pin.name} />;
     return <GaugeAboutTab {...shared} />;
   };
 
