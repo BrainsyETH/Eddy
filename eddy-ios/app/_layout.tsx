@@ -302,8 +302,10 @@ function ThemedShell() {
           <Stack screenOptions={({ route }) => {
             return {
               headerShown: false,
-              // The binary permits landscape for the expanded chart's native
-              // modal. Ordinary screens and their tab stacks stay portrait.
+              // EddyPortraitRootViewController enforces the app's portrait
+              // default, including gates/errors outside this stack. Keep the
+              // stack's own native presentations portrait too; changing this
+              // option alone cannot unlock a screen beneath the root.
               orientation: 'portrait',
               contentStyle: { backgroundColor: colors.bg },
               ...((route.name === 'alerts/(create)' || route.name === 'alerts/(manage)') ? { presentation: 'modal' as const } : {}),

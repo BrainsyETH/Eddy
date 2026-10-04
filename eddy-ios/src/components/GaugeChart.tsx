@@ -1058,14 +1058,11 @@ function GaugeChartView({
           <ControlIcon name="grid-outline" size={16} color={colors.interactive} /><Text style={[styles.actionText, { color: colors.interactive }]}>Data & details</Text>
         </Pressable>
         {!expanded ? <Pressable accessibilityRole="button" accessibilityLabel="Expand chart"
-          accessibilityHint="Open the chart full screen. Rotate your phone for a wider view."
+          accessibilityHint="Open the chart full screen."
           onPress={onExpand} style={({ pressed }) => [styles.expand, { opacity: pressed ? 0.65 : 1 }]}>
           <ControlIcon name="expand-outline" size={20} color={colors.interactive} />
         </Pressable> : null}
       </View>
-      {!expanded ? <Text style={[styles.caption, { color: colors.textMuted }]}>
-        Expand, then rotate your phone for a wider view.
-      </Text> : null}
       {active && sheet ? <GaugeChartSheet expanded={expanded} title={sheet === 'compare' ? 'Compare' : sheet === 'data' ? 'Data & details' : sheet === 'unit' ? 'Measurement' : sheet === 'range' ? 'History range' : 'Custom dates'} onClose={closeSheet}>
         {sheet === 'compare' ? <>
           <ChartComparison label="Typical range" detail={drawnUnit !== 'cfs' ? 'Available for Flow (cfs)' : typical.length ? 'Historical daily flow · 25th–75th percentile' : 'Historical statistics unavailable for this window'} value={showTypical && typical.length > 0} disabled={!typical.length} onChange={setShowTypical} />

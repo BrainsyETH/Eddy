@@ -1024,7 +1024,9 @@ module supplies a portrait-only root view controller through a React delegate
 handler, before React mounts. This also covers onboarding/legal, the first-run
 picker, forced upgrade, launch failure and root error screens, which can render
 without a navigation stack. Root, tab and alert stacks retain their portrait
-options. Full-screen chart presentations supply their own landscape-capable
+options as secondary guards for their own native presentations; changing a
+stack option alone cannot unlock a screen beneath the portrait root.
+Full-screen chart presentations supply their own landscape-capable
 orientation masks; there is no app-wide runtime lock to race on dismissal.
 
 `GaugeChartSheet` uses full-screen panels when opened from an expanded chart,
@@ -1035,8 +1037,7 @@ own rotation policy. Each modal has its own safe-area provider.
 
 The expanded readout separates the condition label from the value and unit.
 Reserved minimum heights keep ordinary readings steady, while unconstrained
-text can wrap and grow at accessibility sizes instead of being clipped. The
-inline chart includes a visible explanation of Expand followed by rotation.
+text can wrap and grow at accessibility sizes instead of being clipped.
 This changes the native configuration and **requires a new development/TestFlight
 binary**. Keep fingerprint runtime versioning; an OTA alone cannot change the
 installed binary's supported orientations or add the local root controller.
@@ -1059,6 +1060,12 @@ Before distribution, verify on an iPhone:
 - Cold-launch sideways into legal/onboarding and the first-run picker; also
   exercise forced upgrade, the launch-stalled fallback and root error boundary.
   Each stays portrait before the navigation stack mounts and on retry/reload.
+- Separately inspect the **system launch screen before the root controller
+  exists**, using a release build launched while sideways (from a landscape app
+  or landscape Home Screen where supported). Watch for a sideways splash or
+  rotation flash during the handoff to the app. Expo already generates
+  `UISupportedInterfaceOrientations` with portrait first; verify that order
+  after SDK/config changes. This configuration check does not replace launch QA.
 - With Rotation Lock on, expand and explore in portrait. Check background/resume
   and repeated open/close while the phone is held sideways.
 - Open Compare, Data & details, CSV sharing and Custom dates from the expanded
@@ -1067,6 +1074,8 @@ Before distribution, verify on an iPhone:
   Test the keyboard/date picker and the system CSV share sheet in landscape.
 - On a Dynamic Island phone, check the chart and panel Done buttons in both
   landscape directions. Neither should overlap the side safe-area inset.
+  Expanded panels do not swipe down to dismiss; confirm Done remains reachable
+  with the keyboard open and at large text sizes, and test VoiceOver escape.
 - Check small phones, the largest Dynamic Type sizes, light/dark and Reduce
   Motion. Confirm the full value and unit (for example, `12,400 cfs`) and
   condition label remain readable, including negative/decimal stage readings.
