@@ -76,6 +76,11 @@ export interface APRow {
   description?: string | null;
   confidence?: string;
   source_urls?: string[];
+  directions_override?: string | null;
+  parking_info?: string | null;
+  road_access?: string | null;
+  fee_required?: boolean;
+  fee_notes?: string | null;
 }
 
 function slugify(t: string): string {
@@ -138,6 +143,9 @@ export function dossierColumns(r: APRow, existing = false): Record<string, unkno
     columns.managing_agency = normalizeAgency(r.managing_agency ?? r.ownership);
   }
 
+  for (const key of ['directions_override', 'parking_info', 'road_access', 'fee_required', 'fee_notes'] as const) {
+    if (owns(r, key)) columns[key] = r[key];
+  }
   return columns;
 }
 

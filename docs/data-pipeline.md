@@ -85,7 +85,7 @@ when running the write phases.
 | --- | --- | --- | --- |
 | `scaffold-mo-dossiers.ts` | 1 — Scaffold | none — emits dossier stub JSON, skips existing files | n/a |
 | `ingest-dossier.ts` | 6 — Ingest | `rivers` update, `gauge_stations` insert, `river_gauges` insert/update, `river_sections` + `river_characteristics` upsert | dry-default, `--apply`; honors `EXPECTED_SUPABASE_REF` |
-| `import-dossier-access-points.ts` | 8 — Access points | `access_points` upsert (lands `approved=false`), miles RPC; `--approve` flips approved | dry-default, `--write` / `--approve` |
+| `import-dossier-access-points.ts` | 8 — Access points | `access_points` upsert (lands `approved=false`), supplied parking/road/pass fields, miles RPC; `--approve` flips approved | dry-default, `--write` / `--approve` |
 | `preload-dossier-access-points.py` | 8 — Access points | `access_points` insert (`approved=false`, `is_public=false`) via PostgREST | dry-default, `--write`; honors `EXPECTED_SUPABASE_REF` |
 | `backfill-imagery-cli.ts` | 8.6 — Imagery | `access_points` update (`image_urls`) | **write-default**, `--dry` to preview |
 | `link-gauges.ts` | (alt to 6) | `gauge_stations` + `river_gauges` upsert from per-river JSON | dry-default, `--write` |

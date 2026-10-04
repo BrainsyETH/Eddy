@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import test from 'node:test';
+import { PGlite } from '@electric-sql/pglite';
 import {
   classifyPoints,
   dossierColumns,
@@ -236,4 +237,82 @@ test('a point with no river mile is never approved', () => {
   );
   assert.deepEqual(validated, []);
   assert.match(problems[0], /NO-MILE/);
+});
+
+
+test('private access handoffs and fees are written only when supplied', () => {
+  const base = { name: 'Private beach', kind: 'gravel_bar' as const, expected_mile: 1, lat: 36, lon: -94 };
+  const fields = { directions_override: 'Operator check-in address', parking_info: 'Check in first',
+    road_access: 'Main entrance', fee_required: true, fee_notes: 'Private access pass' };
+  const withFields = dossierColumns({ ...base, ...fields }, true);
+  for (const [key, value] of Object.entries(fields)) assert.equal(withFields[key], value);
+  const withoutFields = dossierColumns(base, true);
+  for (const key of Object.keys(fields)) assert.equal(Object.hasOwn(withoutFields, key), false);
+  assert.equal(Object.hasOwn(withFields, 'approved'), false);
+  assert.equal(Object.hasOwn(withFields, 'is_float_endpoint'), false);
+});
+
+test('atomic access imports retain private terms without changing review state', async () => {
+  const db = new PGlite();
+  const river = '00000000-0000-0000-0000-000000000001';
+  try {
+    // Geometry is doubled here; the RPC's transaction and presence-aware fields
+    // execute in PostgreSQL. Actual Elk projections were checked in PostGIS.
+    await db.exec(`
+      CREATE ROLE anon; CREATE ROLE authenticated; CREATE ROLE service_role;
+      CREATE SCHEMA extensions;
+      CREATE TABLE rivers(id uuid PRIMARY KEY);
+      CREATE TABLE access_points(
+        id uuid PRIMARY KEY DEFAULT gen_random_uuid(), river_id uuid, slug text UNIQUE,
+        name text, type text, is_public boolean, ownership text, managing_agency text,
+        official_site_url text, facilities text, description text, location_orig text,
+        approved boolean, is_float_endpoint boolean, types text[], updated_at timestamptz,
+        directions_override text, parking_info text, road_access text,
+        fee_required boolean DEFAULT false, fee_notes text
+      );
+      CREATE FUNCTION extensions.st_geomfromgeojson(text) RETURNS text LANGUAGE sql AS 'SELECT $1';
+      CREATE FUNCTION extensions.st_setsrid(text, integer) RETURNS text LANGUAGE sql AS 'SELECT $1';
+      CREATE FUNCTION set_access_point_miles_from_geometry(uuid, boolean) RETURNS integer
+        LANGUAGE sql AS 'SELECT 0';
+      INSERT INTO rivers VALUES ('${river}');
+    `);
+    await db.exec(readFileSync('supabase/migrations/20261004041012_preserve_access_dossier_handoff_fields.sql', 'utf8'));
+    const run = (plan: unknown[]) => db.query('SELECT apply_access_point_dossier($1, $2)', [river, JSON.stringify(plan)]);
+    const source = { name: 'Private beach', kind: 'gravel_bar' as const, expected_mile: 1,
+      lat: 36, lon: -94, is_public: false, directions_override: 'Check-in address',
+      parking_info: 'Guest lot', road_access: 'Camp entrance', fee_required: true, fee_notes: 'Access pass' };
+    const payload = { ...dossierColumns(source), is_float_endpoint: false, types: ['gravel_bar'] };
+    await run([{ action: 'insert', slug: 'private-beach', payload }]);
+    let row = (await db.query<Record<string, unknown>>('SELECT * FROM access_points')).rows[0];
+    for (const key of ['directions_override', 'parking_info', 'road_access', 'fee_required', 'fee_notes'] as const) {
+      assert.equal(row[key], source[key]);
+    }
+    assert.equal(row.approved, false);
+    assert.equal(row.is_float_endpoint, false);
+    const id = row.id;
+    await db.exec('UPDATE access_points SET approved = true, is_float_endpoint = true');
+    await run([{ action: 'update', id, slug: 'private-beach', payload: { name: 'Reviewed beach' } }]);
+    row = (await db.query<Record<string, unknown>>('SELECT * FROM access_points')).rows[0];
+    assert.equal(row.fee_required, true);
+    assert.equal(row.parking_info, 'Guest lot');
+    assert.equal(row.approved, true);
+    assert.equal(row.is_float_endpoint, true);
+    assert.deepEqual(row.types, ['gravel_bar']);
+    await run([{ action: 'update', id, slug: 'private-beach', payload: { fee_required: false, parking_info: null } }]);
+    row = (await db.query<Record<string, unknown>>('SELECT * FROM access_points')).rows[0];
+    assert.equal(row.fee_required, false);
+    assert.equal(row.parking_info, null);
+    await assert.rejects(run([
+      { action: 'update', id, slug: 'private-beach', payload: { name: 'Should roll back' } },
+      { action: 'update', id, slug: 'private-beach', payload: { is_float_endpoint: false } },
+    ]), /carries review state/);
+    assert.equal((await db.query<{ name: string }>('SELECT name FROM access_points')).rows[0].name, 'Reviewed beach');
+    await assert.rejects(run([{ action: 'update', id, slug: 'private-beach', payload: { approved: false } }]), /unsupported payload key/);
+    const grants = await db.query<{ service: boolean; anonymous: boolean; signed_in: boolean }>(`
+      SELECT has_function_privilege('service_role', 'apply_access_point_dossier(uuid,jsonb)', 'EXECUTE') AS service,
+        has_function_privilege('anon', 'apply_access_point_dossier(uuid,jsonb)', 'EXECUTE') AS anonymous,
+        has_function_privilege('authenticated', 'apply_access_point_dossier(uuid,jsonb)', 'EXECUTE') AS signed_in
+    `);
+    assert.deepEqual(grants.rows[0], { service: true, anonymous: false, signed_in: false });
+  } finally { await db.close(); }
 });
