@@ -26,10 +26,10 @@ export function readingBlocks(text: string) {
     .map(text => ({ text, topic: readingTopic(text) }));
 }
 
-/** Constant-speed travel. Every line crosses the viewport before the ending. */
-export function readingScrollY(frame: number, duration: number, viewportHeight: number, contentHeight: number) {
-  const start = Math.max(0, viewportHeight - 180);
-  const end = -contentHeight;
+/** Start with prose in view; the inline ending follows without an empty beat. */
+export function readingScrollY(frame: number, duration: number, endingTop: number) {
+  const start = 24;
+  const end = start - endingTop;
   const progress = Math.max(0, Math.min(1, frame / Math.max(1, duration - READ_CTA_FRAMES - 1)));
   return start + (end - start) * progress;
 }

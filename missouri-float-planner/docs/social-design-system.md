@@ -123,7 +123,7 @@ Portrait reels dip toward the loop seam with `reelLoopOpacity`.
 ### Eddy’s Read
 
 The full report (`quote_text`, falling back to the retained public summary)
-scrolls continuously upward from the bottom of a clipped reading window. Do
+starts in view and scrolls continuously upward through a clipped reading window. Do
 not prepend the separate `eddy_read` interpretation or summarize/truncate the
 full report. The complete reel is capped at 30 seconds, including a three-second
 ending; short reports finish sooner. Long reports therefore move faster, while
@@ -135,7 +135,10 @@ illustrations mark relevant passages; measurements are emphasized verbatim.
 These are topic markers, never invented forecasts or synthetic data charts.
 The masthead, mascot and footer remain fixed while the text moves. Browser
 measurement after font loading determines the complete scroll distance, so
-wrapped names and long reports cannot strand the final lines offscreen.
+wrapped names and long reports cannot strand the final lines offscreen. The
+closing card follows the last sentence in the same scrolling flow, then holds
+for three seconds. There is no empty entrance or exit interval. Its headline
+uses bold Geist Sans on a sand-colored panel, with coral rule and site address.
 
 ## Copy
 

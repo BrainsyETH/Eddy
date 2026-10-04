@@ -46,8 +46,8 @@ export const EddyReadReel: React.FC<EddyReadReelProps> = ({ riverName, readingTe
   const duration = readingDuration(readingText);
   const end = frame >= duration - READ_CTA_FRAMES;
   const viewport = useRef<HTMLDivElement>(null);
-  const content = useRef<HTMLDivElement>(null);
-  const [measure, setMeasure] = useState({ viewport: 0, content: 0 });
+  const ending = useRef<HTMLDivElement>(null);
+  const [measure, setMeasure] = useState({ viewport: 0, endingTop: 0 });
   const [handle] = useState(() => delayRender('Measure full Eddy Read after fonts load'));
 
   // Actual browser heights cover wrapped river names, paragraphs and icons.
@@ -57,7 +57,7 @@ export const EddyReadReel: React.FC<EddyReadReelProps> = ({ riverName, readingTe
     const measureReport = async () => {
       await loadFonts().catch(() => undefined);
       if (disposed) return;
-      setMeasure({ viewport: viewport.current?.clientHeight ?? 0, content: content.current?.scrollHeight ?? 0 });
+      setMeasure({ viewport: viewport.current?.clientHeight ?? 0, endingTop: ending.current?.offsetTop ?? 0 });
     };
     void measureReport().finally(() => continueRender(handle));
     return () => { disposed = true; };
@@ -66,7 +66,7 @@ export const EddyReadReel: React.FC<EddyReadReelProps> = ({ riverName, readingTe
   const chip = conditionCode && conditionCode !== 'unknown' ? conditionChip(conditionCode) : null;
   const mascot = conditionCode && conditionCode !== 'unknown' ? conditionOtterMood(conditionCode) : 'standard';
   const hasHeight = typeof gaugeHeightFt === 'number' && Number.isFinite(gaugeHeightFt);
-  const offset = readingScrollY(frame, duration, measure.viewport, measure.content);
+  const offset = readingScrollY(frame, duration, measure.endingTop);
 
   return <ReelPage>
     <Audio loop src={staticFile('audio/background-music.wav')} volume={f => interpolate(f, [0, 24, duration - 30, duration], [0, 0.16, 0.16, 0], { extrapolateLeft: 'clamp', extrapolateRight: 'clamp' })} />
@@ -85,22 +85,26 @@ export const EddyReadReel: React.FC<EddyReadReelProps> = ({ riverName, readingTe
       </div>
 
       <div ref={viewport} data-read-region="viewport" style={{ ...cardStyle(), flex: 1, minHeight: 0, overflow: 'hidden', position: 'relative' }}>
-        <div ref={content} data-read-region="content" style={{ position: 'absolute', top: 0, left: 24, right: 24, transform: `translateY(${offset}px)`, visibility: end ? 'hidden' : 'visible', paddingBottom: 24 }}>
-          {blocks.map((block, i) => <div key={i} style={{ marginBottom: i < blocks.length - 1 ? 26 : 0 }}>
+        <div data-read-region="content" style={{ position: 'absolute', top: 0, left: 24, right: 24, transform: `translateY(${offset}px)`, paddingBottom: 24 }}>
+          <div data-read-region="report">{blocks.map((block, i) => <div key={i} style={{ marginBottom: i < blocks.length - 1 ? 26 : 0 }}>
             {block.topic && block.topic !== blocks[i - 1]?.topic && <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12, color: colors.primary[700], fontFamily: fontFamilies.display, fontSize: 24, fontWeight: 600 }}>
               <TopicArt topic={block.topic} phase={frame / 18} />{topicLabels[block.topic]}
             </div>}
             <p data-read-text style={{ margin: 0, fontSize: 40, fontWeight: 500, lineHeight: 1.4, overflowWrap: 'anywhere', color: SURFACES.light.ink }}><ReportText text={block.text} /></p>
-          </div>)}
+          </div>)}</div>
+          <div ref={ending} data-read-region="ending" style={{ marginTop: 36, minHeight: Math.max(0, measure.viewport - 48), boxSizing: 'border-box', borderRadius: 16, padding: 32, background: colors.secondary[100], display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 24 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, color: colors.primary[700], fontSize: 22, fontWeight: 750, letterSpacing: 1.5 }}>
+              <TopicArt topic="launch" />YOUR NEXT FLOAT
+            </div>
+            <div data-read-region="closing-title" style={{ fontFamily: fontFamilies.heading, fontSize: 64, fontWeight: 800, letterSpacing: -2, lineHeight: 1.04, textWrap: 'balance', color: colors.primary[900] }}>{CTA.planInApp}</div>
+            <div style={{ fontSize: 30, lineHeight: 1.35, color: colors.primary[800] }}>Check the latest conditions before you launch.</div>
+            <div style={{ borderTop: `3px solid ${colors.accent[500]}`, paddingTop: 20, display: 'flex', justifyContent: 'space-between', fontFamily: fontFamilies.heading, fontSize: 28, fontWeight: 750, color: colors.primary[900] }}>
+              <span>eddy.guide</span><span aria-hidden>↗</span>
+            </div>
+          </div>
         </div>
-        {end ? <div data-read-region="ending" style={{ position: 'absolute', inset: 32, display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 24 }}>
-          <TopicArt topic="launch" />
-          <div style={{ fontFamily: fontFamilies.display, fontSize: 52, lineHeight: 1.1, color: colors.primary[900] }}>{CTA.planInApp}</div>
-          <div style={{ fontSize: 30, lineHeight: 1.35 }}>Check the latest conditions before you launch.</div>
-        </div> : <>
-          <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 28, background: `linear-gradient(${SURFACES.light.surface}, transparent)` }} />
-          <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: 28, background: `linear-gradient(transparent, ${SURFACES.light.surface})` }} />
-        </>}
+        <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 20, background: `linear-gradient(${SURFACES.light.surface}, transparent)` }} />
+        <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: 20, background: `linear-gradient(transparent, ${SURFACES.light.surface})` }} />
       </div>
       <div data-read-region="footer" style={{ flexShrink: 0, fontSize: 24, color: SURFACES.light.inkSecondary }}>
         <div style={{ height: 5, background: colors.neutral[200], marginBottom: 12, borderRadius: 3, overflow: 'hidden' }}>

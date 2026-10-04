@@ -64,7 +64,7 @@ try {
       compositionHeight: composition.height, compositionWidth: composition.width,
     }), { id, composition });
     await page.waitForSelector('[data-read-region="viewport"]');
-    const frames = [0, 1, 120, Math.floor((duration - 90) / 2), duration - 92, duration - 91, duration - 90, duration - 1];
+    const frames = [...new Set([0, 1, ...Array.from({ length: Math.ceil(duration / 15) }, (_, i) => i * 15), duration - 91, duration - 90, duration - 1])].sort((a, b) => a - b);
     let previous;
     for (const frame of frames) {
       await page.evaluate(({ id, frame }) => window.remotion_setFrame(frame, id, 1), { id, frame });
@@ -74,7 +74,7 @@ try {
         await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
       });
       const snapshot = await page.evaluate(() => {
-        const names = ['header', 'host', 'eddy', 'viewport', 'content', 'footer'];
+        const names = ['header', 'host', 'eddy', 'viewport', 'content', 'report', 'ending', 'closing-title', 'footer'];
         const rects = Object.fromEntries(names.map(name => {
           const el = document.querySelector(`[data-read-region="${name}"]`);
           const b = el.getBoundingClientRect();
@@ -84,7 +84,7 @@ try {
         return { rects,
           text: [...document.querySelectorAll('[data-read-text]')].map(p=>p.textContent).join(' '),
           mascotLoaded: img.complete && img.naturalWidth > 0,
-          ending: !!document.querySelector('[data-read-region="ending"]'),
+          closingWeight: Number(getComputedStyle(document.querySelector('[data-read-region="closing-title"]')).fontWeight),
           error: window.remotion_cancelledError,
         };
       });
@@ -100,12 +100,21 @@ try {
       }
       assert.ok(r.viewport.height >= 500, 'text viewport remains usable');
       assert.ok(r.eddy.top >= r.host.top && r.eddy.bottom <= r.host.bottom, 'Eddy is not clipped');
+      const visibleHeight = name => Math.max(0, Math.min(r[name].bottom, r.viewport.bottom) - Math.max(r[name].top, r.viewport.top));
+      assert.ok(visibleHeight('report') + visibleHeight('ending') >= r.viewport.height - 100, `${id} @ ${frame}: no mostly-empty entrance or exit`);
+      assert.ok(r.ending.top - r.report.bottom <= 36.1, 'closing card follows the last sentence');
+      if (frame === 0) assert.ok(r.report.top <= r.viewport.top + 30, 'the report is already in view at the opening');
       if (previous && frame < duration - 90) {
         assert.ok(r.content.top < previous.rects.content.top, 'text never stalls or jumps back down');
         assert.equal(r.viewport.top,previous.rects.viewport.top,'chrome stays fixed');
       }
-      if (frame === duration - 91) assert.ok(r.content.bottom <= r.viewport.top + 6, 'the final words clear before the ending');
-      assert.equal(snapshot.ending, frame >= duration - 90);
+      if (frame >= duration - 91) {
+        assert.ok(r.report.bottom <= r.viewport.top + 6, 'all final words have crossed the viewport');
+        assert.ok(r.ending.top >= r.viewport.top && r.ending.bottom <= r.viewport.bottom, 'the complete closing card fits during the hold');
+        assert.ok(r['closing-title'].left >= r.ending.left && r['closing-title'].right <= r.ending.right, 'closing headline fits');
+        assert.ok(snapshot.closingWeight >= 700, 'closing headline has a bold weight');
+      }
+      if (previous && frame >= duration - 90) assert.equal(r.content.top, previous.rects.content.top, 'ending holds without a jump');
       previous = snapshot;
     }
     console.log(`${id}: all ${frames.length} frame checks passed (${duration / composition.fps}s)`);

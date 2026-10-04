@@ -43,7 +43,7 @@ STILLS=(
   # social-gauge-portrait is the PRODUCTION Eddy Says reel (river_highlight);
   # the square social-gauge and the alert are the other two gauge layouts.
   "social-gauge-portrait:0,120"
-  # Full reading: bottom entrance, continuous travel, and short closing CTA.
+  # Full reading: immediate prose, continuous travel, and inline closing CTA.
   "social-eddy-read:0,120,330"
   # Long names/full text, topic illustrations and the 30-second cap.
   "social-eddy-read-long:0,120,420,780,870"

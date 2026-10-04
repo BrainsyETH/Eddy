@@ -68,12 +68,13 @@ test('full report is preserved without the separate introduction and stale prose
  assert.equal(publishableReading({quote_text:'Legacy full report.'}),'Legacy full report.');
  assert.equal(publishableReading({quote_text:'  ',summary_text:'Available summary.'}),'Available summary.');
 });
-test('scroll moves continuously upward and the final line clears before the ending', async () => {
+test('scroll starts with prose visible and brings the inline ending into place', async () => {
  const { readingScrollY, READ_CTA_FRAMES } = await import('../../../shared/eddy-read-reel');
  for (const height of [120, 1400, 5000]) {
-   const positions = Array.from({length:900-READ_CTA_FRAMES},(_,frame)=>readingScrollY(frame,900,680,height));
-   assert.ok(positions[0]>=0);
-   assert.equal(positions.at(-1),-height);
+   const positions = Array.from({length:900-READ_CTA_FRAMES},(_,frame)=>readingScrollY(frame,900,height));
+   assert.equal(positions[0],24);
+   assert.equal(positions.at(-1)+height,24);
+   assert.equal(readingScrollY(899,900,height),positions.at(-1));
    const step = positions[1]-positions[0];
    assert.ok(step<0);
    positions.slice(1).forEach((position,i)=>assert.ok(Math.abs(position-positions[i]-step)<1e-8));
