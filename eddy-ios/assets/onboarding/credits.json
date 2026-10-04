@@ -1,0 +1,194 @@
+{
+  "swl-table-rock-dam": {
+    "credit": "KTrimble · CC BY-SA 3.0",
+    "url": "https://commons.wikimedia.org/wiki/File:Aerial_photo_of_Table_Rock_Dam,_lake,_and_White_River,_October_2009.jpg",
+    "license": "https://creativecommons.org/licenses/by-sa/3.0/",
+    "asset": "table-rock.jpg",
+    "changes": "Resized and cropped for display"
+  },
+  "swl-bull-shoals-dam": {
+    "credit": "KTrimble · CC BY-SA 3.0",
+    "url": "https://commons.wikimedia.org/wiki/File:Bull_Shoals_Dam_aerial_photo.jpg",
+    "license": "https://creativecommons.org/licenses/by-sa/3.0/",
+    "asset": "bull-shoals.jpg",
+    "changes": "Resized and cropped for display"
+  },
+  "ameren-bagnell-dam": {
+    "credit": "KTrimble / Bogomolov.PL · CC0",
+    "url": "https://commons.wikimedia.org/wiki/File:UserKTrimble-AP_of_Bagnell_Dam_MO_2011-03-01.jpg",
+    "license": "https://creativecommons.org/publicdomain/zero/1.0/",
+    "asset": "bagnell.jpg",
+    "changes": "Resized and cropped for display"
+  },
+  "lrn-center-hill-dam": {
+    "asset": "lrn-center-hill-dam.jpg",
+    "credit": "U.S. Army Corps of Engineers · Public domain",
+    "url": "https://commons.wikimedia.org/wiki/File:USACE_Center_Hill_Dam.jpg",
+    "license": "https://commons.wikimedia.org/wiki/File:USACE_Center_Hill_Dam.jpg",
+    "originalUrl": "https://upload.wikimedia.org/wikipedia/commons/8/85/USACE_Center_Hill_Dam.jpg",
+    "originalSha256": "b41db881243b0e5b193d7cb3427fd92c05b35edb629b51f43833323d62e5315d",
+    "changes": "Resized to 640 × 400 and cropped for display"
+  },
+  "lrn-dale-hollow-dam": {
+    "asset": "lrn-dale-hollow-dam.jpg",
+    "credit": "U.S. Army Corps of Engineers · Public domain",
+    "url": "https://commons.wikimedia.org/wiki/File:USACE_Dale_Hollow_Dam.jpg",
+    "license": "https://commons.wikimedia.org/wiki/File:USACE_Dale_Hollow_Dam.jpg",
+    "originalUrl": "https://upload.wikimedia.org/wikipedia/commons/d/d7/USACE_Dale_Hollow_Dam.jpg",
+    "originalSha256": "4447181fedd2adb32aaeaa1d431e4de12484f76740e03c2953724cfce2aadb3e",
+    "changes": "Resized to 640 × 400 and cropped for display"
+  },
+  "lrn-wolf-creek-dam": {
+    "asset": "lrn-wolf-creek-dam.jpg",
+    "credit": "Christopher Marlow / USACE · CC BY 2.0",
+    "url": "https://commons.wikimedia.org/wiki/File:Wolf_Creek_Dam_(2015).jpg",
+    "license": "https://creativecommons.org/licenses/by/2.0/",
+    "originalUrl": "https://upload.wikimedia.org/wikipedia/commons/9/9c/Wolf_Creek_Dam_%282015%29.jpg",
+    "originalSha256": "c64314dc8e12f8ab17f9233e023fbc8ab6fbbbf721e14055e4611029fbe1c145",
+    "changes": "Resized to 640 × 400 and cropped for display"
+  },
+  "mvs-mark-twain": {
+    "asset": "mvs-mark-twain.jpg",
+    "credit": "U.S. Army Corps of Engineers · Public domain",
+    "url": "https://commons.wikimedia.org/wiki/File:USACE_Mark_Twain_Lake_and_Dam.jpg",
+    "license": "https://commons.wikimedia.org/wiki/File:USACE_Mark_Twain_Lake_and_Dam.jpg",
+    "originalUrl": "https://upload.wikimedia.org/wikipedia/commons/0/09/USACE_Mark_Twain_Lake_and_Dam.jpg",
+    "originalSha256": "f894d103c763813ec391194212d23b26c6925349dad520c37d3018bd5a238ed2",
+    "changes": "Resized to 640 × 400 and cropped for display"
+  },
+  "mvs-wappapello": {
+    "asset": "mvs-wappapello.jpg",
+    "credit": "U.S. Army Corps of Engineers · Public domain",
+    "url": "https://commons.wikimedia.org/wiki/File:Wappapello_Lake_Missouri.jpg",
+    "license": "https://commons.wikimedia.org/wiki/File:Wappapello_Lake_Missouri.jpg",
+    "originalUrl": "https://upload.wikimedia.org/wikipedia/commons/2/2f/Wappapello_Lake_Missouri.jpg",
+    "originalSha256": "af14c619128812c182123bc33a6d1e16120b647e10b54f54573376deaaa59f51",
+    "changes": "Resized to 640 × 400 and cropped for display"
+  },
+  "nwk-stockton-dam": {
+    "asset": "nwk-stockton-dam.jpg",
+    "credit": "U.S. Army Corps of Engineers · Public domain",
+    "url": "https://commons.wikimedia.org/wiki/File:USACE_Stockton_Lake_and_Dam.jpg",
+    "license": "https://commons.wikimedia.org/wiki/File:USACE_Stockton_Lake_and_Dam.jpg",
+    "originalUrl": "https://upload.wikimedia.org/wikipedia/commons/e/e5/USACE_Stockton_Lake_and_Dam.jpg",
+    "originalSha256": "1d96eb35722bef70b4d7aae01ea00648782f2e70c61aebc984fdeb243867cbb5",
+    "changes": "Resized to 640 × 400 and cropped for display"
+  },
+  "nwk-truman-dam": {
+    "asset": "nwk-truman-dam.jpg",
+    "credit": "Samuel Weldin / USACE · Federal photo; DVIDS use terms",
+    "url": "https://www.dvidshub.net/image/8838433/truman-lake-dam",
+    "license": "https://www.dvidshub.net/image/8838433/truman-lake-dam",
+    "originalUrl": "https://d1ldvf68ux039x.cloudfront.net/thumbs/photos/2501/8838433/1000w_q95.jpg",
+    "originalSha256": "8f3a6ab5b0232c6ac1175a8762a26f8e6fdd2d6d86d26066a51bf9457d6ceb87",
+    "changes": "Resized to 640 × 400 and cropped for display"
+  },
+  "swl-beaver-dam": {
+    "asset": "swl-beaver-dam.jpg",
+    "credit": "Christopher Ziemnowicz (CZmarlin) · Public domain",
+    "url": "https://commons.wikimedia.org/wiki/File:Beaver_Dam_in_Arkansas.jpg",
+    "license": "https://commons.wikimedia.org/wiki/File:Beaver_Dam_in_Arkansas.jpg",
+    "originalUrl": "https://upload.wikimedia.org/wikipedia/commons/7/75/Beaver_Dam_in_Arkansas.jpg",
+    "originalSha256": "b9968b9fe9864cf3c5e8c81d93c405f3ffbdc0444219c7994ed2e371894ded06",
+    "changes": "Resized to 640 × 400 and cropped for display"
+  },
+  "swl-dardanelle-dam": {
+    "asset": "swl-dardanelle-dam.jpg",
+    "credit": "Scotty Ashlock / U.S. Army Corps of Engineers · CC BY 2.0",
+    "url": "https://commons.wikimedia.org/wiki/File:Park_Ranger_(9372403422).jpg",
+    "license": "https://creativecommons.org/licenses/by/2.0/",
+    "originalUrl": "https://upload.wikimedia.org/wikipedia/commons/8/80/Park_Ranger_(9372403422).jpg",
+    "originalSha256": "7b7ec1aa26f2c189f553643a874b5373af1ce0aad747b718d09db62cbf1a7bc7",
+    "changes": "Resized to 640 × 400 and cropped for display"
+  },
+  "swl-greers-ferry-dam": {
+    "asset": "swl-greers-ferry-dam.jpg",
+    "credit": "Debbi Brawley (Dkbrawley) · CC BY-SA 3.0",
+    "url": "https://commons.wikimedia.org/wiki/File:Greers_Ferry_Dam,_Heber_Springs,_Arkansas.jpg",
+    "license": "https://creativecommons.org/licenses/by-sa/3.0/",
+    "originalUrl": "https://upload.wikimedia.org/wikipedia/commons/e/e5/Greers_Ferry_Dam%2C_Heber_Springs%2C_Arkansas.jpg",
+    "originalSha256": "ca05b7c04bfa87ebb058c5d8f97c0f03913be8ef8ad7d8a2b65cce1fde915b08",
+    "changes": "Resized to 640 × 400 and cropped for display"
+  },
+  "swl-norfork-dam": {
+    "asset": "swl-norfork-dam.jpg",
+    "credit": "Antares573 · Public domain",
+    "url": "https://commons.wikimedia.org/wiki/File:Norfork_Dam,_Arkansas.jpg",
+    "license": "https://commons.wikimedia.org/wiki/File:Norfork_Dam,_Arkansas.jpg",
+    "originalUrl": "https://upload.wikimedia.org/wikipedia/commons/c/c1/Norfork_Dam%2C_Arkansas.jpg",
+    "originalSha256": "46add6551de05aa44928864a17c5c6c9fc67cf90af6f1d93b5ff17159e84403a",
+    "changes": "Resized to 640 × 400 and cropped for display"
+  },
+  "swl-ozark-dam": {
+    "asset": "swl-ozark-dam.jpg",
+    "credit": "National Weather Service / NOAA · Public domain",
+    "url": "https://commons.wikimedia.org/wiki/File:Ozark-Jeta_Taylor_Lock_and_Dam.jpg",
+    "license": "https://commons.wikimedia.org/wiki/File:Ozark-Jeta_Taylor_Lock_and_Dam.jpg",
+    "originalUrl": "https://upload.wikimedia.org/wikipedia/commons/9/9d/Ozark-Jeta_Taylor_Lock_and_Dam.jpg",
+    "originalSha256": "6e9e31ea531fba1414cee030377d5ecaa1b9af6a19a826fdc78090592765c578",
+    "changes": "Resized to 640 × 400 and cropped for display"
+  },
+  "swt-denison-dam": {
+    "asset": "swt-denison-dam.jpg",
+    "credit": "Robert Nunnally · CC BY 2.0",
+    "url": "https://commons.wikimedia.org/wiki/File:DenisonDam_01-2006.jpg",
+    "license": "https://creativecommons.org/licenses/by/2.0/",
+    "originalUrl": "https://upload.wikimedia.org/wikipedia/commons/2/2a/DenisonDam_01-2006.jpg",
+    "originalSha256": "0d63023b7c8fbe5a74eef4f44bfa5f8db2dd00700df68bbd541de2bec218047b",
+    "changes": "Resized to 640 × 400 and cropped for display"
+  },
+  "swt-eufaula-dam": {
+    "asset": "swt-eufaula-dam.jpg",
+    "credit": "U.S. Army Corps of Engineers · Public domain",
+    "url": "https://commons.wikimedia.org/wiki/File:USACE_Eufaula_Lake_and_Dam_Oklahoma.jpg",
+    "license": "https://commons.wikimedia.org/wiki/File:USACE_Eufaula_Lake_and_Dam_Oklahoma.jpg",
+    "originalUrl": "https://upload.wikimedia.org/wikipedia/commons/c/cc/USACE_Eufaula_Lake_and_Dam_Oklahoma.jpg",
+    "originalSha256": "6897d7009063074a6a64882038295e30bc687f180fda1b13e85131ac16690f1c",
+    "changes": "Resized to 640 × 400 and cropped for display"
+  },
+  "swt-fort-gibson-dam": {
+    "asset": "swt-fort-gibson-dam.jpg",
+    "credit": "U.S. Army Corps of Engineers · Public domain",
+    "url": "https://commons.wikimedia.org/wiki/File:USACE_Fort_Gibson_Lake_and_Dam.jpg",
+    "license": "https://commons.wikimedia.org/wiki/File:USACE_Fort_Gibson_Lake_and_Dam.jpg",
+    "originalUrl": "https://upload.wikimedia.org/wikipedia/commons/5/5a/USACE_Fort_Gibson_Lake_and_Dam.jpg",
+    "originalSha256": "69f884f872d884dc2cae468cf5517a3b0ad11d874487b74f94a9ee9324e1659a",
+    "changes": "Resized to 640 × 400 and cropped for display"
+  },
+  "swt-keystone-dam": {
+    "asset": "swt-keystone-dam.jpg",
+    "credit": "Edward N. Johnson / USACE Tulsa · CC BY 2.0",
+    "url": "https://www.flickr.com/photos/usacetulsa/17001160243",
+    "license": "https://creativecommons.org/licenses/by/2.0/",
+    "originalUrl": "https://live.staticflickr.com/8838/17001160243_971b7655d7.jpg",
+    "originalSha256": "155f0acd858a23fa7f2ad1ab4de298ccbf9166451a8c3eca67dc96b10d4dca29",
+    "changes": "Resized to 640 × 400 and cropped for display"
+  },
+  "swt-robert-s-kerr-dam": {
+    "asset": "swt-robert-s-kerr-dam.jpg",
+    "credit": "U.S. Army Corps of Engineers · Public domain",
+    "url": "https://commons.wikimedia.org/wiki/File:USACE_Robert_S_Kerr_Lock_and_Dam.jpg",
+    "license": "https://commons.wikimedia.org/wiki/File:USACE_Robert_S_Kerr_Lock_and_Dam.jpg",
+    "originalUrl": "https://upload.wikimedia.org/wikipedia/commons/b/b4/USACE_Robert_S_Kerr_Lock_and_Dam.jpg",
+    "originalSha256": "c23c44d7a29eee4d5b6fe371f79600ce25f876e5ace9a572fe05b0e337ddcf46",
+    "changes": "Resized to 640 × 400 and cropped for display"
+  },
+  "swt-tenkiller-dam": {
+    "asset": "swt-tenkiller-dam.jpg",
+    "credit": "U.S. Army Corps of Engineers · Public domain",
+    "url": "https://commons.wikimedia.org/wiki/File:USACE_Tenkiller_Lake_and_Dam.jpg",
+    "license": "https://commons.wikimedia.org/wiki/File:USACE_Tenkiller_Lake_and_Dam.jpg",
+    "originalUrl": "https://upload.wikimedia.org/wikipedia/commons/7/79/USACE_Tenkiller_Lake_and_Dam.jpg",
+    "originalSha256": "32559a919bd206840bc63d7cfc411596f7fe6ecc7cf287536df2c54a47f52e3f",
+    "changes": "Resized to 640 × 400 and cropped for display"
+  },
+  "swt-webbers-falls-dam": {
+    "asset": "swt-webbers-falls-dam.jpg",
+    "credit": "U.S. Army Corps of Engineers · Public domain",
+    "url": "https://commons.wikimedia.org/wiki/File:USACE_Webbers_Falls_Lock_and_Dam.jpg",
+    "license": "https://commons.wikimedia.org/wiki/File:USACE_Webbers_Falls_Lock_and_Dam.jpg",
+    "originalUrl": "https://upload.wikimedia.org/wikipedia/commons/d/d4/USACE_Webbers_Falls_Lock_and_Dam.jpg",
+    "originalSha256": "3e4d970a4c93436a75a87c9916267e95b7f82cf59221775e6891965e160fcc5f",
+    "changes": "Resized to 640 × 400 and cropped for display"
+  }
+}

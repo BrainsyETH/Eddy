@@ -42,6 +42,14 @@ happens *after* the pin check passes. Three values:
 - **NONE** — it writes the moment you run it (the pin is the only gate).
   Treat like a loaded migration.
 
+## Reviewed photo additions
+
+`scripts/backfill-reviewed-photos.ts` previews four exact-identity photo additions;
+`--apply` uses the shared project guard, preserves existing photos and unrelated
+service details, checks concurrent updates, and reads every changed row back.
+Deploy the photo-credits page and image optimizer support first. No schema
+migration is required. See `missouri-float-planner/docs/photo-coverage-2026-10-04.md`.
+
 ## Reviewed spring repairs
 
 `scripts/repair-spring-classifications.ts` previews four reviewed POI type corrections;

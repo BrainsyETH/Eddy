@@ -771,6 +771,12 @@ function ProfileContent() {
               external
             />
             <SettingsRow
+              icon="image-outline"
+              title="Photo credits"
+              onPress={() => void Linking.openURL('https://eddy.guide/photo-credits')}
+              external
+            />
+            <SettingsRow
               icon="shield-checkmark-outline"
               title="Privacy Policy"
               onPress={() => void Linking.openURL(PRIVACY_URL)}

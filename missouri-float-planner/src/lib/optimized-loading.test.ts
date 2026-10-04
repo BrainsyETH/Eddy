@@ -11,6 +11,29 @@ import test from 'node:test';
 import { imageUrl } from '../../../eddy-ios/src/lib/imageUrl';
 import { parseCampingSnapshot } from '../../../eddy-ios/src/lib/campingSnapshot';
 import { withinBudget } from './within-budget';
+import { reviewedPhotos, reviewedPhotoPatch, rowHasReviewedPhoto } from './photos/reviewed';
+
+test('reviewed photo backfills accept encoded empty arrays and preserve existing photos', () => {
+  const entry = reviewedPhotos.find(photo => photo.table === 'points_of_interest')!;
+  const row = { id: entry.id, name: entry.name, updated_at: null, images: '[]' };
+  const patch = reviewedPhotoPatch(entry, row)!;
+  assert.deepEqual(patch.images, [entry.image]);
+  assert.equal(rowHasReviewedPhoto(entry, { ...row, ...patch }), true);
+  assert.equal(reviewedPhotoPatch(entry, { ...row, images: [{ url: 'https://example.com/existing.jpg' }] }), null);
+  assert.throws(() => reviewedPhotoPatch(entry, { ...row, name: 'Another Blue Spring' }), /identity/);
+  assert.throws(() => reviewedPhotoPatch(entry, { ...row, images: 'malformed' }), /Invalid/);
+});
+
+test('service photo additions retain unrelated facts and refuse malformed metadata', () => {
+  const entry = reviewedPhotos.find(photo => photo.table === 'nearby_services')!;
+  const row = { id: entry.id, name: entry.name, updated_at: null, details: { notes: 'Keep me', images: [] } };
+  const patch = reviewedPhotoPatch(entry, row)!;
+  assert.deepEqual(patch.details, { notes: 'Keep me', images: [entry.image] });
+  assert.equal(rowHasReviewedPhoto(entry, { ...row, ...patch }), true);
+  assert.equal(reviewedPhotoPatch(entry, { ...row, ...patch }), null);
+  assert.throws(() => reviewedPhotoPatch(entry, { ...row, details: 'malformed' }), /Invalid/);
+  assert.throws(() => reviewedPhotoPatch(entry, { ...row, details: { images: {} } }), /Invalid/);
+});
 
 test('native thumbnails request a supported pixel width while preserving encoded URLs', () => {
   const original = 'https://www.nps.gov/photo.jpg?x=1&y=2';
@@ -25,6 +48,16 @@ test('image optimizer never becomes an unrestricted remote proxy', () => {
     'http://www.nps.gov/photo.jpg', 'https://project.supabase.co/auth/v1/user',
     'https://unknown.example/photo.jpg']) assert.equal(imageUrl(url, 128), url);
   assert.match(imageUrl('https://project.supabase.co/storage/v1/object/public/photos/a.jpg', 128), /_next\/image/);
+});
+test('reviewed Commons and USFWS photos use bounded thumbnails, not full originals', () => {
+  for (const url of ['https://upload.wikimedia.org/wikipedia/commons/f/f8/Alley_Spring_mill_cfriese1.jpg',
+    'https://www.fws.gov/sites/default/files/images/2024-03-1/645.JPG']) {
+    assert.equal(new URL(imageUrl(url, 128)).searchParams.get('w'), '128');
+  }
+  for (const url of ['https://www.fws.gov/other/path', 'https://upload.wikimedia.org/other/path',
+    'https://user:password@www.nps.gov/photo.jpg', 'https://www.nps.gov:8443/photo.jpg']) {
+    assert.equal(imageUrl(url, 128), url);
+  }
 });
 test('camping restart cache preserves timestamps and rejects expired/wrong-window data', () => {
   const now = Date.parse('2026-10-03T12:00:00Z');

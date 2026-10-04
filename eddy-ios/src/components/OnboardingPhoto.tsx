@@ -1,26 +1,97 @@
 import { useState } from 'react';
 import { Image } from 'expo-image';
 import { StyleSheet, View } from 'react-native';
+import credits from '../../assets/onboarding/credits.json';
 import { useTheme } from '@/theme/ThemeProvider';
 
 export const DAM_PHOTOS: Record<string, { source: number; credit: string; url: string; license: string }> = {
   'swl-table-rock-dam': {
+    ...credits['swl-table-rock-dam'],
     source: require('../../assets/onboarding/table-rock.jpg'),
-    credit: 'KTrimble · CC BY-SA 3.0',
-    url: 'https://commons.wikimedia.org/wiki/File:Aerial_photo_of_Table_Rock_Dam,_lake,_and_White_River,_October_2009.jpg',
-    license: 'https://creativecommons.org/licenses/by-sa/3.0/',
   },
   'swl-bull-shoals-dam': {
+    ...credits['swl-bull-shoals-dam'],
     source: require('../../assets/onboarding/bull-shoals.jpg'),
-    credit: 'KTrimble · CC BY-SA 3.0',
-    url: 'https://commons.wikimedia.org/wiki/File:Bull_Shoals_Dam_aerial_photo.jpg',
-    license: 'https://creativecommons.org/licenses/by-sa/3.0/',
   },
   'ameren-bagnell-dam': {
+    ...credits['ameren-bagnell-dam'],
     source: require('../../assets/onboarding/bagnell.jpg'),
-    credit: 'KTrimble / Bogomolov.PL · CC0',
-    url: 'https://commons.wikimedia.org/wiki/File:UserKTrimble-AP_of_Bagnell_Dam_MO_2011-03-01.jpg',
-    license: 'https://creativecommons.org/publicdomain/zero/1.0/',
+  },
+  'lrn-center-hill-dam': {
+    ...credits['lrn-center-hill-dam'],
+    source: require('../../assets/onboarding/lrn-center-hill-dam.jpg'),
+  },
+  'lrn-dale-hollow-dam': {
+    ...credits['lrn-dale-hollow-dam'],
+    source: require('../../assets/onboarding/lrn-dale-hollow-dam.jpg'),
+  },
+  'lrn-wolf-creek-dam': {
+    ...credits['lrn-wolf-creek-dam'],
+    source: require('../../assets/onboarding/lrn-wolf-creek-dam.jpg'),
+  },
+  'mvs-mark-twain': {
+    ...credits['mvs-mark-twain'],
+    source: require('../../assets/onboarding/mvs-mark-twain.jpg'),
+  },
+  'mvs-wappapello': {
+    ...credits['mvs-wappapello'],
+    source: require('../../assets/onboarding/mvs-wappapello.jpg'),
+  },
+  'nwk-stockton-dam': {
+    ...credits['nwk-stockton-dam'],
+    source: require('../../assets/onboarding/nwk-stockton-dam.jpg'),
+  },
+  'nwk-truman-dam': {
+    ...credits['nwk-truman-dam'],
+    source: require('../../assets/onboarding/nwk-truman-dam.jpg'),
+  },
+  'swl-beaver-dam': {
+    ...credits['swl-beaver-dam'],
+    source: require('../../assets/onboarding/swl-beaver-dam.jpg'),
+  },
+  'swl-dardanelle-dam': {
+    ...credits['swl-dardanelle-dam'],
+    source: require('../../assets/onboarding/swl-dardanelle-dam.jpg'),
+  },
+  'swl-greers-ferry-dam': {
+    ...credits['swl-greers-ferry-dam'],
+    source: require('../../assets/onboarding/swl-greers-ferry-dam.jpg'),
+  },
+  'swl-norfork-dam': {
+    ...credits['swl-norfork-dam'],
+    source: require('../../assets/onboarding/swl-norfork-dam.jpg'),
+  },
+  'swl-ozark-dam': {
+    ...credits['swl-ozark-dam'],
+    source: require('../../assets/onboarding/swl-ozark-dam.jpg'),
+  },
+  'swt-denison-dam': {
+    ...credits['swt-denison-dam'],
+    source: require('../../assets/onboarding/swt-denison-dam.jpg'),
+  },
+  'swt-eufaula-dam': {
+    ...credits['swt-eufaula-dam'],
+    source: require('../../assets/onboarding/swt-eufaula-dam.jpg'),
+  },
+  'swt-fort-gibson-dam': {
+    ...credits['swt-fort-gibson-dam'],
+    source: require('../../assets/onboarding/swt-fort-gibson-dam.jpg'),
+  },
+  'swt-keystone-dam': {
+    ...credits['swt-keystone-dam'],
+    source: require('../../assets/onboarding/swt-keystone-dam.jpg'),
+  },
+  'swt-robert-s-kerr-dam': {
+    ...credits['swt-robert-s-kerr-dam'],
+    source: require('../../assets/onboarding/swt-robert-s-kerr-dam.jpg'),
+  },
+  'swt-tenkiller-dam': {
+    ...credits['swt-tenkiller-dam'],
+    source: require('../../assets/onboarding/swt-tenkiller-dam.jpg'),
+  },
+  'swt-webbers-falls-dam': {
+    ...credits['swt-webbers-falls-dam'],
+    source: require('../../assets/onboarding/swt-webbers-falls-dam.jpg'),
   },
 };
 

@@ -9,6 +9,10 @@ import { ExternalLink } from 'lucide-react';
 import CollapsibleSection from '@/components/ui/CollapsibleSection';
 import LoadingSpinner from '@/components/ui/LoadingSpinner';
 import type { PointOfInterest } from '@/types/nps';
+import Link from 'next/link';
+import { reviewedPhotos } from '@/lib/photos/reviewed';
+
+const reviewedPhotoUrls = new Set(reviewedPhotos.map(photo => photo.image.url));
 
 interface PointsOfInterestProps {
   riverSlug: string;
@@ -82,13 +86,16 @@ export default function PointsOfInterest({ riverSlug, defaultOpen = false }: Poi
                     fill
                     className="rounded-md object-cover"
                     sizes="(max-width: 768px) 100vw, 160px"
-                    unoptimized
+                    unoptimized={!reviewedPhotoUrls.has(poi.images[0].url)}
                   />
                 </div>
               )}
 
               {/* Content */}
               <div className="flex-1 min-w-0">
+                {reviewedPhotos.some(photo => photo.id === poi.id && photo.image.url === poi.images?.[0]?.url) && (
+                  <Link href={`/photo-credits#${poi.id}`} className="text-xs text-neutral-500 underline">Photo credit</Link>
+                )}
                 <div className="flex items-start justify-between mb-1">
                   <div className="flex-1 min-w-0">
                     <p className="font-semibold text-neutral-900 truncate">{poi.name}</p>
