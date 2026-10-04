@@ -509,3 +509,13 @@ will be decommissioned early 2027"; no intentional degradation before Aug 2026).
 March 2024 (`api.water.noaa.gov/nwps/v1`). USACE CWMS Data API is public at
 `cwms-data.usace.army.mil`. AW terms per americanwhitewater.org TOS. Items marked "confirm" were not
 verifiable from primary sources during this audit and must be checked before reliance.*
+
+
+## October 3, 2026 execution update
+
+Use the [river readiness review](../scripts/ingestion/RIVER_READINESS_REVIEW_2026-10-03.md)
+for the current safety audit, corridor coverage gaps, Elk/Noel evidence and Norfork
+pilot gate. Demand-ranking and analytics work are removed. New river activation
+now requires the per-dossier readiness review and transactional validation described
+in `scripts/ingestion/README.md`; existing historical sign-offs do not silently
+satisfy a new review. The implementation migration is pending production approval.

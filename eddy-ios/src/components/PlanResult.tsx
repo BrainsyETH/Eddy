@@ -173,14 +173,19 @@ export function PlanResult({ plan, actions, accessPoints, header, contentInsetAd
 
       <GettingThere plan={plan} />
 
-      {plan.hazards.length > 0 ? (
+      {plan.hazardsUnavailable || plan.hazards.length > 0 ? (
         <View style={styles.section}>
           <View style={styles.sectionTitleRow}>
             <EddySymbol name="hazard" size={18} />
             <Text style={[styles.sectionTitle, { color: colors.text }]}>
-              On this stretch ({plan.hazards.length})
+              On this stretch{plan.hazardsUnavailable ? '' : ` (${plan.hazards.length})`}
             </Text>
           </View>
+          {plan.hazardsUnavailable ? (
+            <Text style={[styles.hazardMeta, { color: colors.textMuted }]}>
+              Hazard information couldn’t be loaded.
+            </Text>
+          ) : null}
           {sortHazards(plan.hazards).map((hazard) => {
             const code = hazardConditionCode(hazard.severity);
             const portage = portageNote(hazard);

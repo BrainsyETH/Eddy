@@ -82,7 +82,8 @@ when running the write phases.
 | `backfill-imagery-cli.ts` | 8.6 — Imagery | `access_points` update (`image_urls`) | **write-default**, `--dry` to preview |
 | `link-gauges.ts` | (alt to 6) | `gauge_stations` + `river_gauges` upsert from per-river JSON | dry-default, `--write` |
 | `update-thresholds.ts` | post-signoff patch | `river_gauges` update (threshold anchors) | dry-default, `--write` |
-| `activate-rivers.ts` | 9 — Activate | `rivers.active=true` (auto-rollback on validation errors) | **write-default**, `--dry` to validate only |
+| `activate-rivers.ts` | 9 — Activate | atomic batch activation after core checks, readiness evidence and freshness/provenance checks | **dry-default**; `--apply` + `EXPECTED_SUPABASE_REF`; `--dry` accepted |
+| `audit-readiness.ts` | prelaunch / live audit | none — missing provenance, identical ladders, hazard coverage and gauge freshness | read-only; `npm run db:readiness` |
 | `set-cold-start.ts` / `set-cold-start-batch3.ts` | 9 — cold-start prose | `rivers` update (`float_summary`, `float_tip`) — one-time, batch-specific, idempotent | **NONE** |
 | `build-dossiers-batch3.ts`, `gen-verified-ids-batch3.ts` | 2–3, batch 3 only | none — local dossier/gate files | n/a |
 | `build-tailwater-geometry.ts` | tailwater onboarding | none — slices an NHD main stem between two named endpoints and emits river SQL | writes nothing, ever |

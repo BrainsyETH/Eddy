@@ -1,5 +1,5 @@
 {
-  "_status": "HELD-INACTIVE 2026-07-13: thin calibration (no published optimal band; danger anchor would be NWS flood stage). too_low/low ingested; complete + activate when an outfitter optimal/danger key exists.",
+  "_status": "LIVE; reconciliation 2026-10-03. Supersedes July 13 hold: see verified-identifiers-kings-river.md July 14 owner sign-off. Historical JSON thresholds are not the production ladder. Primary-source URL and database provenance still need review; do not re-ingest this stale ladder.",
   "name": "Kings River",
   "slug": "kings-river",
   "primaryGaugeSiteId": "07050500",
@@ -199,5 +199,51 @@
       "Table Rock Lake backwater on the lowest reach (US-62->MO-86): slack water, motorboat traffic, and wind extend the paddle.",
       "Access is not recommended at the US-412 bridge east of Marble."
     ]
+  },
+  "readiness": {
+    "corridor": {
+      "status": "pending",
+      "evidence": [],
+      "reviewedBy": null,
+      "reviewedAt": null,
+      "notes": "Name the supported put-in/take-out corridor and exclusions."
+    },
+    "legalAccess": {
+      "status": "pending",
+      "evidence": [],
+      "reviewedBy": null,
+      "reviewedAt": null,
+      "notes": "Verify legal launch/landing and current restrictions for each offered access pair."
+    },
+    "gauge": {
+      "status": "pending",
+      "evidence": [],
+      "reviewedBy": null,
+      "reviewedAt": null,
+      "notes": "Verify provider, measured parameter, reach representativeness, freshness and history policy."
+    },
+    "conditions": {
+      "status": "blocked",
+      "evidence": [
+        "verified-identifiers-kings-river.md#2026-07-14--activated-owner-sign-off"
+      ],
+      "reviewedBy": null,
+      "reviewedAt": null,
+      "notes": "Production ladder is 3.0/3.2/3.5/5.0/5.1/6.0 ft at 07050500. Sign-off attributes operator anchors to Kings Crossing; 5.1 is owner-set. Database source and URL are missing; exact operator evidence remains unresolved."
+    },
+    "hazards": {
+      "status": "pending",
+      "evidence": [],
+      "reviewedBy": null,
+      "reviewedAt": null,
+      "notes": "Review mapped hazards, prose and access notes. Record known fixed hazards or an evidenced no-fixed-hazards finding; never claim hazard-free."
+    },
+    "routing": {
+      "status": "pending",
+      "evidence": [],
+      "reviewedBy": null,
+      "reviewedAt": null,
+      "notes": "Validate connected downstream geometry, access snaps and trip distances for the corridor."
+    }
   }
 }

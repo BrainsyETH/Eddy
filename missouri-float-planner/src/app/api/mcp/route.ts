@@ -254,12 +254,16 @@ function createMcpServer() {
         return { content: [{ type: 'text', text: `River "${slug}" not found.` }], isError: true };
       }
 
-      const { data: hazards } = await supabase
+      const { data: hazards, error: hazardError } = await supabase
         .from('river_hazards')
         .select('id, name, type, river_mile_downstream, description, severity, portage_required, portage_side, seasonal_notes, location')
         .eq('river_id', river.id)
         .eq('active', true)
         .order('river_mile_downstream');
+      if (hazardError || hazards === null) {
+        console.error('[MCP] Hazard lookup failed:', hazardError);
+        return { content: [{ type: 'text', text: 'Hazard information is unavailable.' }], isError: true };
+      }
 
       const formatted = (hazards || []).map((h) => ({
         id: h.id,
@@ -307,13 +311,17 @@ function createMcpServer() {
       const minMile = Math.min(startMile, endMile);
       const maxMile = Math.max(startMile, endMile);
 
-      const { data: hazards } = await supabase
+      const { data: hazards, error: hazardError } = await supabase
         .from('river_hazards')
         .select('name, type, severity, river_mile_downstream, portage_required')
         .eq('river_id', riverId)
         .eq('active', true)
         .gte('river_mile_downstream', minMile)
         .lte('river_mile_downstream', maxMile);
+      if (hazardError || hazards === null) {
+        console.error('[MCP] Hazard lookup failed:', hazardError);
+        return { content: [{ type: 'text', text: 'Hazard information is unavailable.' }], isError: true };
+      }
 
 
 

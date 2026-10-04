@@ -1,61 +1,36 @@
 #!/usr/bin/env npx tsx
-/**
- * Activate river(s) and report validate_river_data() findings for them.
- *
- * validate_river_data() only evaluates active rivers, so we flip active=true
- * first, then read back its findings. If any 'error'-severity finding appears
- * for a river, this script rolls that river back to inactive (errors mean the
- * condition badge / core UX is broken) and reports it. 'warning' findings are
- * printed but left active (they're the documented, intentional gaps).
- *
- * Usage:
- *   npx tsx scripts/ingestion/activate-rivers.ts <slug> [<slug> ...]
- *   npx tsx scripts/ingestion/activate-rivers.ts <slug> --dry   (validate only, no change)
- */
+/** Preview by default. --apply publishes the entire batch atomically or none. */
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { getScriptClient } from '../lib/db';
-
-async function findings(db: ReturnType<typeof getScriptClient>, slugs: string[]) {
-  const { data, error } = await db.rpc('validate_river_data');
-  if (error) throw error;
-  return ((data ?? []) as any[]).filter((r) => slugs.includes(r.river_slug));
-}
+import { readinessProblems } from './readiness';
 
 async function main() {
   const args = process.argv.slice(2);
-  const dry = args.includes('--dry');
-  const slugs = args.filter((a) => !a.startsWith('--'));
-  if (!slugs.length) { console.error('Usage: activate-rivers.ts <slug> [<slug> ...] [--dry]'); process.exit(1); }
-
-  const db = getScriptClient({ script: 'activate-rivers', write: !dry });
-
-  if (!dry) {
-    const { error } = await db.from('rivers').update({ active: true }).in('slug', slugs);
-    if (error) throw error;
-    console.log(`Set active=true for: ${slugs.join(', ')}`);
+  const apply = args.includes('--apply');
+  const slugs = [...new Set(args.filter(a => !a.startsWith('--')))];
+  if (!slugs.length || args.some(a => a.startsWith('--') && !['--dry', '--apply'].includes(a)) || (apply && args.includes('--dry'))) {
+    throw new Error('Usage: activate-rivers.ts <slug> [<slug> ...] [--dry | --apply] (default: preview)');
   }
-
-  const found = await findings(db, slugs);
-  const errors = found.filter((f) => f.severity === 'error');
-  const warnings = found.filter((f) => f.severity === 'warning');
-
-  console.log(`\nvalidate_river_data(): ${errors.length} error(s), ${warnings.length} warning(s) across ${slugs.length} river(s)`);
-  for (const f of found) {
-    console.log(`  ${f.severity === 'error' ? '❌' : '⚠️ '} ${f.river_slug}  ${f.check_name}: ${f.detail}`);
+  const readiness: Record<string, unknown> = {};
+  for (const slug of slugs) {
+    if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug)) throw new Error(`Invalid slug: ${slug}`);
+    const dossier = JSON.parse(readFileSync(join(__dirname, 'dossiers', `${slug}.json`), 'utf8'));
+    if (dossier.slug !== slug) throw new Error(`Dossier slug mismatch: ${slug}`);
+    readiness[slug] = dossier.readiness;
+    for (const problem of readinessProblems(dossier.readiness)) console.log(`${slug}: ${problem}`);
   }
-
-  // Roll back any river that produced an error (unless dry-run).
-  if (!dry && errors.length) {
-    const bad = Array.from(new Set(errors.map((e) => e.river_slug)));
-    const { error } = await db.from('rivers').update({ active: false }).in('slug', bad);
-    if (error) throw error;
-    console.log(`\n❌ Rolled back to inactive (had errors): ${bad.join(', ')}`);
-    process.exit(2);
-  }
-
-  if (!dry) {
-    const active = slugs.filter((s) => !errors.some((e) => e.river_slug === s));
-    console.log(`\n✅ Active & live: ${active.join(', ')}${warnings.length ? '  (with documented warnings above)' : ''}`);
-  }
+  const db = getScriptClient({ script: 'activate-rivers', write: apply });
+  // The database rechecks the evidence. Preview rolls back temporary visibility
+  // inside a subtransaction, including when validation fails.
+  const { data, error } = await db.rpc('review_river_activation', {
+    p_slugs: slugs, p_readiness: readiness, p_apply: apply,
+  });
+  if (error) throw error;
+  const found = (data ?? []) as { river_slug: string; check_name: string; severity: string; detail: string }[];
+  for (const f of found) console.log(`${f.severity}: ${f.river_slug} / ${f.check_name}: ${f.detail}`);
+  const blocked = found.some(f => f.severity === 'error');
+  console.log(blocked ? 'Blocked. No river was activated.' : apply ? `Activated: ${slugs.join(', ')}` : 'Preview passed. No river was activated.');
+  if (blocked) process.exitCode = 2;
 }
-
-main().then(() => process.exit(0)).catch((e) => { console.error(e); process.exit(1); });
+main().catch(error => { console.error(error); process.exitCode = 1; });

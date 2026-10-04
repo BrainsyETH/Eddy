@@ -57,9 +57,12 @@ export function SavedFloatDetails({ saved, loading, error, onRetry, header }: {
         </Text>
         <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
           <Text style={[styles.heading, { color: colors.text }]}>Cautions saved with this trip</Text>
-          <Text style={[styles.body, { color: colors.textMuted }]}>
-            Recorded {new Date(details.savedAt).toLocaleString()}. These may have changed and do not include new hazards or closures.
-          </Text>
+          {!details.hazardsUnavailable || details.hazardsSavedAt ? (
+            <Text style={[styles.body, { color: colors.textMuted }]}>
+              Recorded {new Date(details.hazardsSavedAt ?? details.savedAt).toLocaleString()}. These may have changed and do not include new hazards or closures.
+            </Text>
+          ) : null}
+          {details.hazardsUnavailable ? <Text style={[styles.body, { color: colors.textMuted }]}>Hazard information couldn’t be loaded.</Text> : null}
           {logisticsWarnings(details.warnings, details.putIn.name, details.takeOut.name).map((warning, i) => <Text key={i} style={[styles.body, { color: colors.text }]}>{warning}</Text>)}
           {details.hazards.map((hazard) => (
             <View key={hazard.id} style={styles.hazard}>
@@ -70,7 +73,7 @@ export function SavedFloatDetails({ saved, loading, error, onRetry, header }: {
               {hazard.description ? <Text style={[styles.body, { color: colors.text }]}>{hazard.description}</Text> : null}
             </View>
           ))}
-          {!logisticsWarnings(details.warnings, details.putIn.name, details.takeOut.name).length && !details.hazards.length ? <Text style={[styles.body, { color: colors.textMuted }]}>No cautions were saved. This does not mean the stretch is clear.</Text> : null}
+          {!details.hazardsUnavailable && !logisticsWarnings(details.warnings, details.putIn.name, details.takeOut.name).length && !details.hazards.length ? <Text style={[styles.body, { color: colors.textMuted }]}>No cautions were saved. This does not mean the stretch is clear.</Text> : null}
         </View>
       </> : <Text style={[styles.body, { color: colors.text }]}>
         {saved.putInName} → {saved.takeOutName}. Open this float with a connection once to save its access details for offline use.

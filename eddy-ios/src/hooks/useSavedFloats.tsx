@@ -153,12 +153,13 @@ export function SavedFloatsProvider({ children }: { children: ReactNode }) {
     // An earlier save request may finish after deletion. Its callback belongs
     // to the old revision and must not put that trip back on this device.
     if (epoch.current !== revision) return;
+    const previous = floatsRef.current.find((f) => matchesPlan(f, plan));
     const entry: SavedFloat = {
       ...saved, riverName: plan.river.name, riverSlug: plan.river.slug,
       putInName: plan.putIn.name, takeOutName: plan.takeOut.name,
       putInId: plan.putIn.id, takeOutId: plan.takeOut.id,
       distanceLabel: plan.distance.formatted, savedAt: new Date().toISOString(),
-      logistics: savedFloatLogistics(plan),
+      logistics: savedFloatLogistics(plan, undefined, previous?.logistics),
     };
     persist([entry, ...floatsRef.current.filter((f) => f.shortCode !== entry.shortCode && !matchesPlan(f, plan))].slice(0, MAX_ENTRIES));
   }, [persist, revision]);
@@ -175,7 +176,7 @@ export function SavedFloatsProvider({ children }: { children: ReactNode }) {
   const updateLogistics = useCallback((shortCode: string, plan: FloatPlan) => {
     if (epoch.current !== revision || !floatsRef.current.some((f) => f.shortCode === shortCode)) return;
     persist(floatsRef.current.map((f) => f.shortCode === shortCode ? {
-      ...f, logistics: savedFloatLogistics(plan),
+      ...f, logistics: savedFloatLogistics(plan, undefined, f.logistics),
       riverName: plan.river.name, riverSlug: plan.river.slug,
       putInName: plan.putIn.name, takeOutName: plan.takeOut.name,
       putInId: plan.putIn.id, takeOutId: plan.takeOut.id, distanceLabel: plan.distance.formatted,

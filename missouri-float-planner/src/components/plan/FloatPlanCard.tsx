@@ -11,6 +11,7 @@ import type { AccessPoint, FloatPlan, ConditionCode, NearbyService } from '@/typ
 import { useVesselTypes } from '@/hooks/useVesselTypes';
 import { formatFloatTimeRangeCompact } from '@/lib/calculations/floatTime';
 import PlanFreshnessNotice from '@/components/plan/PlanFreshnessNotice';
+import PlanHazardStatus from '@/components/plan/PlanHazardStatus';
 import { eddyIconUrl } from '@/components/ui/EddyIcon';
 import { POI_TYPES, ACCESS_POINT_TYPE_ORDER, CONDITION_SHORT_LABELS } from '@/constants';
 import {
@@ -1121,6 +1122,7 @@ function JourneyCenter({
       )}
 
       {/* Along Your Route */}
+      {plan.hazardsUnavailable && <div className="mt-3"><PlanHazardStatus unavailable /></div>}
       {pointsAlongRoute.length > 0 && (
         <div className="mt-3">
           <AlongYourRoute items={pointsAlongRoute} />
@@ -1546,6 +1548,7 @@ function MobileBottomSheet({
         )}
 
         {/* Along Your Route */}
+        {plan.hazardsUnavailable && <div className="mb-4"><PlanHazardStatus unavailable /></div>}
         {pointsAlongRoute.length > 0 && (
           <div className="mb-4">
             <AlongYourRoute items={pointsAlongRoute} />

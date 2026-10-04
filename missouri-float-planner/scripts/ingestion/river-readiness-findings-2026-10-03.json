@@ -1,0 +1,217 @@
+{
+  "checked_at": "2026-10-03T23:51:50.828Z",
+  "project_ref": "ilefwfpvphadsbptiaur",
+  "scope": "active rivers compared against all rivers, including inactive; separate complete-ladder and optimal-band matches; fixed two-hour freshness limit using latest or historical readings",
+  "findings": [
+    {
+      "river_slug": "big-piney",
+      "check_name": "threshold_provenance_missing",
+      "severity": "error",
+      "detail": "Gauge Big Piney River near Houston, MO has recreational thresholds missing a source or URL"
+    },
+    {
+      "river_slug": "big-river",
+      "check_name": "threshold_provenance_missing",
+      "severity": "error",
+      "detail": "Gauge Big River near Richwoods, MO has recreational thresholds missing a source or URL"
+    },
+    {
+      "river_slug": "bourbeuse",
+      "check_name": "threshold_provenance_missing",
+      "severity": "error",
+      "detail": "Gauge Bourbeuse River near High Gate, MO has recreational thresholds missing a source or URL"
+    },
+    {
+      "river_slug": "buffalo",
+      "check_name": "threshold_provenance_missing",
+      "severity": "error",
+      "detail": "Gauge Buffalo River at Ponca, AR has recreational thresholds missing a source or URL"
+    },
+    {
+      "river_slug": "buffalo",
+      "check_name": "threshold_provenance_missing",
+      "severity": "error",
+      "detail": "Gauge Buffalo River near Boxley, AR has recreational thresholds missing a source or URL"
+    },
+    {
+      "river_slug": "buffalo",
+      "check_name": "threshold_provenance_missing",
+      "severity": "error",
+      "detail": "Gauge Buffalo River near Harriet, AR has recreational thresholds missing a source or URL"
+    },
+    {
+      "river_slug": "courtois",
+      "check_name": "threshold_provenance_missing",
+      "severity": "error",
+      "detail": "Gauge Huzzah Creek near Steelville, MO has recreational thresholds missing a source or URL"
+    },
+    {
+      "river_slug": "current",
+      "check_name": "threshold_provenance_missing",
+      "severity": "error",
+      "detail": "Gauge Current River above Powder Mill, MO has recreational thresholds missing a source or URL"
+    },
+    {
+      "river_slug": "current",
+      "check_name": "threshold_provenance_missing",
+      "severity": "error",
+      "detail": "Gauge Current River at Montauk State Park, MO has recreational thresholds missing a source or URL"
+    },
+    {
+      "river_slug": "gasconade",
+      "check_name": "threshold_provenance_missing",
+      "severity": "error",
+      "detail": "Gauge Gasconade River at Jerome, MO has recreational thresholds missing a source or URL"
+    },
+    {
+      "river_slug": "gasconade",
+      "check_name": "threshold_provenance_missing",
+      "severity": "error",
+      "detail": "Gauge Gasconade River near Hazelgreen, MO has recreational thresholds missing a source or URL"
+    },
+    {
+      "river_slug": "huzzah",
+      "check_name": "threshold_provenance_missing",
+      "severity": "error",
+      "detail": "Gauge Huzzah Creek near Steelville, MO has recreational thresholds missing a source or URL"
+    },
+    {
+      "river_slug": "kings-river",
+      "check_name": "threshold_provenance_missing",
+      "severity": "error",
+      "detail": "Gauge Kings River near Berryville, AR has recreational thresholds missing a source or URL"
+    },
+    {
+      "river_slug": "meramec",
+      "check_name": "threshold_provenance_missing",
+      "severity": "error",
+      "detail": "Gauge Meramec River at Cook Station, MO has recreational thresholds missing a source or URL"
+    },
+    {
+      "river_slug": "meramec",
+      "check_name": "threshold_provenance_missing",
+      "severity": "error",
+      "detail": "Gauge Meramec River near Eureka, MO has recreational thresholds missing a source or URL"
+    },
+    {
+      "river_slug": "meramec",
+      "check_name": "threshold_provenance_missing",
+      "severity": "error",
+      "detail": "Gauge Meramec River near Sullivan, MO has recreational thresholds missing a source or URL"
+    },
+    {
+      "river_slug": "niangua",
+      "check_name": "threshold_provenance_missing",
+      "severity": "error",
+      "detail": "Gauge Niangua River at Tunnel Dam near Macks Creek, MO has recreational thresholds missing a source or URL"
+    },
+    {
+      "river_slug": "st-francis",
+      "check_name": "threshold_provenance_missing",
+      "severity": "error",
+      "detail": "Gauge St. Francis River near Roselle, MO has recreational thresholds missing a source or URL"
+    },
+    {
+      "river_slug": "st-francis",
+      "check_name": "threshold_flood_source",
+      "severity": "warning",
+      "detail": "Gauge St. Francis River near Roselle, MO: NWS flood metadata does not verify recreational thresholds"
+    },
+    {
+      "river_slug": "big-piney",
+      "check_name": "identical_threshold_set",
+      "severity": "warning",
+      "detail": "Gauge Big Piney River near Houston, MO matches distinct station Niangua River at Tunnel Dam near Macks Creek, MO on niangua (ft); review provenance, do not infer copying"
+    },
+    {
+      "river_slug": "mulberry",
+      "check_name": "identical_threshold_set",
+      "severity": "warning",
+      "detail": "Gauge Mulberry River near Mulberry, AR matches distinct station Current River above Powder Mill, MO on current (ft); review provenance, do not infer copying"
+    },
+    {
+      "river_slug": "kings-river",
+      "check_name": "identical_optimal_band",
+      "severity": "warning",
+      "detail": "Gauge Kings River near Berryville, AR shares optimal band 3.50-5.00 ft with distinct station Elk River near Tiff City, Mo on elk; other anchors differ. Review provenance, do not infer copying"
+    },
+    {
+      "river_slug": "niangua",
+      "check_name": "identical_optimal_band",
+      "severity": "warning",
+      "detail": "Gauge Niangua River at Windyville, MO shares optimal band 100.00-400.00 cfs with distinct station Big River near Richwoods, MO on big-river; other anchors differ. Review provenance, do not infer copying"
+    },
+    {
+      "river_slug": "crooked-creek",
+      "check_name": "no_structured_hazards",
+      "severity": "warning",
+      "detail": "No active mapped hazards; review prose and route coverage. Empty does not mean hazard-free"
+    },
+    {
+      "river_slug": "eleven-point",
+      "check_name": "no_structured_hazards",
+      "severity": "warning",
+      "detail": "No active mapped hazards; review prose and route coverage. Empty does not mean hazard-free"
+    },
+    {
+      "river_slug": "jacks-fork",
+      "check_name": "no_structured_hazards",
+      "severity": "warning",
+      "detail": "No active mapped hazards; review prose and route coverage. Empty does not mean hazard-free"
+    },
+    {
+      "river_slug": "spring-river",
+      "check_name": "no_structured_hazards",
+      "severity": "warning",
+      "detail": "No active mapped hazards; review prose and route coverage. Empty does not mean hazard-free"
+    },
+    {
+      "river_slug": "buffalo",
+      "check_name": "no_structured_hazards",
+      "severity": "warning",
+      "detail": "No active mapped hazards; review prose and route coverage. Empty does not mean hazard-free"
+    },
+    {
+      "river_slug": "current",
+      "check_name": "no_structured_hazards",
+      "severity": "warning",
+      "detail": "No active mapped hazards; review prose and route coverage. Empty does not mean hazard-free"
+    },
+    {
+      "river_slug": "courtois",
+      "check_name": "no_structured_hazards",
+      "severity": "warning",
+      "detail": "No active mapped hazards; review prose and route coverage. Empty does not mean hazard-free"
+    },
+    {
+      "river_slug": "caddo-river",
+      "check_name": "no_structured_hazards",
+      "severity": "warning",
+      "detail": "No active mapped hazards; review prose and route coverage. Empty does not mean hazard-free"
+    },
+    {
+      "river_slug": "spring-river-mo",
+      "check_name": "no_structured_hazards",
+      "severity": "warning",
+      "detail": "No active mapped hazards; review prose and route coverage. Empty does not mean hazard-free"
+    },
+    {
+      "river_slug": "war-eagle-creek",
+      "check_name": "no_structured_hazards",
+      "severity": "warning",
+      "detail": "No active mapped hazards; review prose and route coverage. Empty does not mean hazard-free"
+    },
+    {
+      "river_slug": "james",
+      "check_name": "no_structured_hazards",
+      "severity": "warning",
+      "detail": "No active mapped hazards; review prose and route coverage. Empty does not mean hazard-free"
+    },
+    {
+      "river_slug": "huzzah",
+      "check_name": "no_structured_hazards",
+      "severity": "warning",
+      "detail": "No active mapped hazards; review prose and route coverage. Empty does not mean hazard-free"
+    }
+  ]
+}

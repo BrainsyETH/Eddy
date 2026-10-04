@@ -41,6 +41,7 @@ function isPlanForIdentity(plan: unknown, identity: PlanCacheIdentity): plan is 
   if (!plan || typeof plan !== 'object') return false;
   const candidate = plan as Partial<FloatPlan>;
   return (
+    candidate.hazardsUnavailable !== true &&
     candidate.river?.id === identity.riverId &&
     candidate.putIn?.id === identity.startId &&
     candidate.takeOut?.id === identity.endId &&

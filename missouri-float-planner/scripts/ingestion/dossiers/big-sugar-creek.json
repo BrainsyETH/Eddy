@@ -1,0 +1,83 @@
+{
+  "_status": "STUB 2026-10-03: research worksheet, not signed off or ingestable. Existing inventory observations are not launch approval.",
+  "name": "Big Sugar Creek",
+  "slug": "big-sugar-creek",
+  "state": "MO",
+  "country": "US",
+  "timezone": "America/Chicago",
+  "region": "Ozarks",
+  "nhdFeatureId": null,
+  "riverType": "rain_flashy",
+  "description": "Candidate pending corridor review.",
+  "managingAuthority": "VERIFY",
+  "regulations": [],
+  "permits": [],
+  "accessLaw": {
+    "value": "VERIFY",
+    "source": "",
+    "confidence": "low"
+  },
+  "seasonalClosures": [],
+  "gauges": [],
+  "sections": [],
+  "accessPoints": [],
+  "alertSearchTerms": [],
+  "research": {
+    "date": "2026-10-03",
+    "sourcesConsulted": [
+      "../RIVER_READINESS_REVIEW_2026-10-03.md"
+    ],
+    "openQuestions": [
+      "Gauge 07188653 near Powell has fresh gauge_latest data; July 27 history cutoff is the reference-tier policy, not a dead station. Verify representative reach and thresholds separately.",
+      "Verify legal access pairs and route geometry; do not promise a combined Elk trip without routing across the confluence."
+    ],
+    "toVerify": [
+      "Gauge 07188653 near Powell has fresh gauge_latest data; July 27 history cutoff is the reference-tier policy, not a dead station. Verify representative reach and thresholds separately.",
+      "Verify legal access pairs and route geometry; do not promise a combined Elk trip without routing across the confluence."
+    ]
+  },
+  "readiness": {
+    "corridor": {
+      "status": "pending",
+      "evidence": [],
+      "reviewedBy": null,
+      "reviewedAt": null,
+      "notes": "Name the supported put-in/take-out corridor and exclusions."
+    },
+    "legalAccess": {
+      "status": "pending",
+      "evidence": [],
+      "reviewedBy": null,
+      "reviewedAt": null,
+      "notes": "Verify legal launch/landing and current restrictions for each offered access pair."
+    },
+    "gauge": {
+      "status": "pending",
+      "evidence": [],
+      "reviewedBy": null,
+      "reviewedAt": null,
+      "notes": "Verify the provider data and corridor-specific interpretation before activation."
+    },
+    "conditions": {
+      "status": "pending",
+      "evidence": [],
+      "reviewedBy": null,
+      "reviewedAt": null,
+      "notes": "Verify the provider data and corridor-specific interpretation before activation."
+    },
+    "hazards": {
+      "status": "pending",
+      "evidence": [],
+      "reviewedBy": null,
+      "reviewedAt": null,
+      "notes": "Review mapped hazards, prose and access notes. Record known fixed hazards or an evidenced no-fixed-hazards finding; never claim hazard-free."
+    },
+    "routing": {
+      "status": "pending",
+      "evidence": [],
+      "reviewedBy": null,
+      "reviewedAt": null,
+      "notes": "Validate connected downstream geometry, access snaps and trip distances for the corridor."
+    }
+  }
+}
