@@ -97,6 +97,7 @@ export function friendlyJob(id: string): string {
     'evaluate-gauge-alerts': 'Check river alerts',
     'deliver-push': 'Send push alerts',
     'push-receipts': 'Check push receipts',
+    'revoke-apple-tokens': 'Retry Apple account revocations',
     'generate-eddy-updates': 'Write Eddy Reads',
     'generate-gauge-updates': 'Write gauge Reads',
     'post-social': 'Publish social posts',

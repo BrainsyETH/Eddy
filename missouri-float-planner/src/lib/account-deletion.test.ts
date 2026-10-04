@@ -21,6 +21,15 @@ function fakeAdmin(opts: { failOn?: string } = {}) {
   const client = {
     from(table: string) {
       return {
+        select() {
+          return {
+            limit() {
+              calls.push('check:queue');
+              return Promise.resolve({ error: opts.failOn === 'queue' ? { message: 'missing' } : null });
+            },
+            eq() { return { maybeSingle: async () => ({ data: null, error: null }) }; },
+          };
+        },
         delete() {
           return {
             eq(_column: string, _value: string) {
@@ -115,23 +124,20 @@ test('reports how many rows each table gave up', async () => {
 
 // ── Apple token revocation (Guideline 5.1.1(v)) ───────────────────────────
 
-test('the Apple token is revoked before the auth user is deleted', async () => {
-  // apple_refresh_tokens has ON DELETE CASCADE off auth.users, so deleting the
-  // user first destroys the very token revocation needs. Getting this order
-  // wrong leaves no error and no revoked token — the account disappears, the
-  // API returns 200, and Apple is never told.
+test('immediate revocation reads the durable queue after auth deletion', async () => {
+  // The SQL trigger now queues the token inside the deletion transaction.
   const { client, calls } = fakeAdmin();
 
   await deleteAccount(client as any, USER, {
     revokeApple: async () => {
       calls.push('revoke:apple');
-      return true;
+      return 'revoked';
     },
   });
 
   assert.ok(
-    calls.indexOf('revoke:apple') < calls.indexOf('delete:auth.users'),
-    'revocation must run while the token still exists'
+    calls.indexOf('revoke:apple') > calls.indexOf('delete:auth.users'),
+    'revocation must read the outbox after the deletion transaction commits'
   );
 });
 
@@ -157,9 +163,31 @@ test('an account with no Apple token deletes normally', async () => {
   const { client, calls } = fakeAdmin();
 
   const result = await deleteAccount(client as any, USER, {
-    revokeApple: async () => false,
+    revokeApple: async () => 'not_applicable',
   });
 
   assert.ok(calls.includes('delete:auth.users'));
+  assert.equal(result.appleRevoked, false);
+});
+
+
+test('a missing outbox migration aborts before any destructive operation', async () => {
+  const { client, calls } = fakeAdmin({ failOn: 'queue' });
+  await assert.rejects(deleteAccount(client as any, USER), /temporarily unavailable/);
+  assert.deepEqual(calls, ['check:queue']);
+});
+
+test('an auth deletion failure never starts revocation', async () => {
+  const { client, calls } = fakeAdmin({ failOn: 'auth.users' });
+  await assert.rejects(deleteAccount(client as any, USER, {
+    revokeApple: async () => { calls.push('revoke:apple'); return 'revoked'; },
+  }), /Could not delete auth user/);
+  assert.equal(calls.includes('revoke:apple'), false);
+});
+
+test('an Apple account without a captured token reports the missing prerequisite', async () => {
+  const { client } = fakeAdmin();
+  const result = await deleteAccount(client as any, USER, { appleAccount: true });
+  assert.equal(result.appleRevocationStatus, 'missing_token');
   assert.equal(result.appleRevoked, false);
 });

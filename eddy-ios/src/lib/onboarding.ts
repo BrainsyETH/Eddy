@@ -18,7 +18,7 @@ export const ONBOARDING_VERSION = 1;
 export const ONBOARDING_KEY = `eddy.onboarding.accepted.v${ONBOARDING_VERSION}`;
 
 /**
- * Whether this device has been through the river picker.
+ * Whether this device has finished the picker and optional account offer.
  *
  * SEPARATE FROM THE LEGAL KEY ON PURPOSE, and separately versioned. The two
  * answer different questions and fail in opposite directions: the legal record
@@ -33,7 +33,7 @@ export const PERSONALIZATION_VERSION = 1;
 export const PERSONALIZATION_KEY = `eddy.onboarding.personalized.v${PERSONALIZATION_VERSION}`;
 
 /** What the app should show first, resolved once per launch. */
-export type FirstRunStep = 'legal' | 'picker' | 'app';
+export type FirstRunStep = 'legal' | 'picker' | 'sign-in' | 'app';
 
 export interface OnboardingStorage {
   getItem(key: string): Promise<string | null>;
@@ -78,9 +78,9 @@ export async function acceptTerms(storage?: OnboardingStorage): Promise<void> {
 }
 
 /**
- * Where the picker has got to on this device.
+ * Where personalization has got to on this device.
  *
- * ── Why this is tri-state and not a boolean ────────────────────────────────
+ * ── Why this records a phase rather than a boolean ─────────────────────────
  *
  * With a boolean, "legal accepted + not personalised" is ambiguous, and the two
  * things it can mean need opposite handling:
@@ -99,8 +99,9 @@ export async function acceptTerms(storage?: OnboardingStorage): Promise<void> {
  * crash RESUMES at the picker instead of being lost. `null` then unambiguously
  * means "no record at all" — a pre-picker install — and the gate records the
  * migration so a future legal re-gate does not resurrect the picker.
+ * `sign-in` records a completed picker with the optional account offer pending.
  */
-export type PersonalizationState = 'pending' | 'done' | null;
+export type PersonalizationState = 'pending' | 'sign-in' | 'done' | null;
 
 /** Never throws: an unreadable value answers `null`, which migrates in. */
 export async function readPersonalization(
@@ -109,7 +110,7 @@ export async function readPersonalization(
   try {
     const store = storage ?? deviceStorage();
     const value = await store.getItem(PERSONALIZATION_KEY);
-    return value === 'pending' || value === 'done' ? value : null;
+    return value === 'pending' || value === 'sign-in' || value === 'done' ? value : null;
   } catch {
     return null;
   }
@@ -131,7 +132,7 @@ export async function markPersonalizationPending(storage?: OnboardingStorage): P
   }
 }
 
-/** Record that the picker is finished, followed or skipped. Never throws. */
+/** Record that personalization and the account offer are finished. Never throws. */
 export async function completePersonalization(storage?: OnboardingStorage): Promise<void> {
   try {
     const store = storage ?? deviceStorage();
@@ -139,6 +140,20 @@ export async function completePersonalization(storage?: OnboardingStorage): Prom
   } catch {
     // Intentionally swallowed — see above.
   }
+}
+
+/** Resume the optional account offer after a restart without repeating the picker. */
+export async function markSignInPending(storage?: OnboardingStorage): Promise<void> {
+  try {
+    const store = storage ?? deviceStorage();
+    await store.setItem(PERSONALIZATION_KEY, 'sign-in');
+  } catch {
+    // Optional onboarding must never block access because storage failed.
+  }
+}
+
+export function stepAfterPicker(accountsConfigured: boolean, signedIn: boolean): FirstRunStep {
+  return accountsConfigured && !signedIn ? 'sign-in' : 'app';
 }
 
 export interface FirstRunSnapshot {
@@ -155,6 +170,7 @@ export interface FirstRunSnapshot {
 export function resolveFirstRun(snapshot: FirstRunSnapshot): FirstRunStep {
   if (!snapshot.legalAccepted) return 'legal';
   if (snapshot.personalization === 'pending') return 'picker';
+  if (snapshot.personalization === 'sign-in') return 'sign-in';
   // 'done', or null for an install that predates the picker entirely.
   return 'app';
 }
@@ -172,7 +188,8 @@ export function resolveFirstRun(snapshot: FirstRunSnapshot): FirstRunStep {
  * without being asked to pick rivers a second time.
  */
 export function stepAfterLegal(snapshot: FirstRunSnapshot): FirstRunStep {
-  return snapshot.personalization == null ? 'picker' : 'app';
+  if (snapshot.personalization === 'sign-in') return 'sign-in';
+  return snapshot.personalization == null || snapshot.personalization === 'pending' ? 'picker' : 'app';
 }
 
 /**

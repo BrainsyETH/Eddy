@@ -6,6 +6,7 @@ import {
   completePersonalization,
   hasAcceptedTerms,
   markPersonalizationPending,
+  markSignInPending,
   needsMigrationRecord,
   ONBOARDING_KEY,
   ONBOARDING_VERSION,
@@ -14,6 +15,7 @@ import {
   readPersonalization,
   resolveFirstRun,
   stepAfterLegal,
+  stepAfterPicker,
   type OnboardingStorage,
 } from '../../../eddy-ios/src/lib/onboarding';
 
@@ -76,7 +78,7 @@ test('the gate never awaits an uncaught promise before its first render', () => 
 
 // ── First-run routing ───────────────────────────────────────────────────────
 //
-// The picker is pane 2 of a two-pane first run, and the whole routing problem is
+// The picker follows the legal pane, and the original routing problem is
 // that ONE stored state — "legal accepted, nothing personalised" — is reached by
 // two populations who need opposite treatment:
 //
@@ -84,7 +86,7 @@ test('the gate never awaits an uncaught promise before its first render', () => 
 //   • everyone who just tapped "I understand" → the picker
 //
 // A boolean cannot tell them apart, and the failure is silent: every new install
-// skips the picker, on device only. The tri-state below is what separates them,
+// skips the picker, on device only. The stored phase is what separates them,
 // and these tests are the reason it is not simplified back to a flag.
 
 test('a brand new install is routed to the legal pane, then the picker', () => {
@@ -148,7 +150,7 @@ test('personalization is stored under its own versioned key', () => {
   assert.notEqual(PERSONALIZATION_KEY, ONBOARDING_KEY);
 });
 
-test('personalization round-trips through both of its writers', async () => {
+test('personalization round-trips through picker completion', async () => {
   const storage = memoryStorage();
   assert.equal(await readPersonalization(storage), null);
   await markPersonalizationPending(storage);
@@ -183,4 +185,26 @@ test('personalization writes never throw at the caller', async () => {
   };
   await markPersonalizationPending(failing);
   await completePersonalization(failing);
+  await markSignInPending(failing);
+});
+
+test('only configured guests are offered sign-in after the picker', () => {
+  assert.equal(stepAfterPicker(true, false), 'sign-in');
+  assert.equal(stepAfterPicker(true, true), 'app');
+  assert.equal(stepAfterPicker(false, false), 'app');
+});
+
+test('interrupted account offer resumes without redoing the picker; skip settles it', async () => {
+  const storage = memoryStorage();
+  await acceptTerms(storage);
+  await markSignInPending(storage);
+  const snapshot = { legalAccepted: true, personalization: await readPersonalization(storage) };
+  assert.equal(resolveFirstRun(snapshot), 'sign-in');
+  assert.equal(stepAfterLegal({ ...snapshot, legalAccepted: false }), 'sign-in');
+  await completePersonalization(storage);
+  assert.equal(resolveFirstRun({ ...snapshot, personalization: await readPersonalization(storage) }), 'app');
+});
+
+test('a legal re-gate during an unfinished picker keeps that pending step', () => {
+  assert.equal(stepAfterLegal({ legalAccepted: false, personalization: 'pending' }), 'picker');
 });
