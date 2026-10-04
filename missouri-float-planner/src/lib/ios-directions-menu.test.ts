@@ -52,6 +52,25 @@ test('a subsequent opening discovers an app installed since the previous opening
   assert.equal((await installedDirectionsChoices(point, async () => true)).length, 5);
 });
 
+test('Apple-only availability is decided only after the last optional app responds', async () => {
+  for (const gaiaInstalled of [false, true]) {
+    const pending = new Map<string, (installed: boolean) => void>();
+    let finished = false;
+    const result = installedDirectionsChoices(point, (url) => new Promise<boolean>((resolve) => {
+      pending.set(url, resolve);
+    })).then((choices) => { finished = true; return choices; });
+
+    for (const [url, resolve] of pending) {
+      if (url !== 'gaiagps://') resolve(false);
+    }
+    await new Promise<void>((resolve) => setImmediate(resolve));
+    assert.equal(finished, false, 'a pending outdoor app must prevent an Apple-only shortcut');
+
+    pending.get('gaiagps://')!(gaiaInstalled);
+    assert.deepEqual((await result).map((choice) => choice.app), gaiaInstalled ? ['apple', 'gaia'] : ['apple']);
+  }
+});
+
 test('every probed iOS scheme is declared in the native configuration', () => {
   const config = JSON.parse(readFileSync(new URL('../../../eddy-ios/app.json', import.meta.url), 'utf8'));
   for (const choice of directionsChoices(point)) {
@@ -77,10 +96,26 @@ test('a successful native open does not open a second URL', async () => {
   assert.deepEqual(opened, [choice.deepLink]);
 });
 
-test('the shuttle still runs from take-out to put-in with both destinations intact', () => {
-  const takeOut = { name: 'Take-out', coordinates: { lat: 37.2, lng: -91.4 } };
+test('a failed Apple Maps handoff reports the error and can be retried', async () => {
+  const [apple] = await installedDirectionsChoices(point, async () => false);
+  const opened: string[] = [];
+  const openURL = async (url: string) => {
+    opened.push(url);
+    if (opened.length === 1) throw new Error('Could not open Maps');
+  };
+  await assert.rejects(openDirectionsChoice(apple, openURL), /Could not open Maps/);
+  assert.deepEqual(opened, [apple.deepLink], 'do not retry the identical fallback URL');
+  await openDirectionsChoice(apple, openURL);
+  assert.deepEqual(opened, [apple.deepLink, apple.deepLink]);
+});
+
+test('the shuttle runs from take-out parking to put-in parking', () => {
+  const takeOut = {
+    name: 'Take-out', coordinates: { lat: 37.2, lng: -91.4 },
+    drivingLat: 37.21, drivingLng: -91.41,
+  };
   const url = new URL(driveBetweenUrl(takeOut, point));
-  assert.equal(url.searchParams.get('saddr'), '37.2,-91.4');
+  assert.equal(url.searchParams.get('saddr'), '37.21,-91.41');
   assert.equal(url.searchParams.get('daddr'), '37.31,-91.51');
   assert.equal(url.searchParams.get('dirflg'), 'd');
 });

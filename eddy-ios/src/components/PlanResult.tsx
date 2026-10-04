@@ -314,7 +314,7 @@ function GettingThere({ plan, accessPoints, support, onOpenDetail }: {
           honestly — see the note on driveBack in the plan route for why we no
           longer print a number of our own. */}
       <Pressable
-        onPress={() => void Linking.openURL(driveBetweenUrl(plan.takeOut, plan.putIn))}
+        onPress={() => void Linking.openURL(driveBetweenUrl(takeOutDestination, putInDestination))}
         style={({ pressed }) => [
           styles.shuttleRow,
           { borderColor: colors.border, opacity: pressed ? 0.6 : 1 },

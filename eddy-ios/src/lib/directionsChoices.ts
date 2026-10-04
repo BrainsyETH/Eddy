@@ -1,3 +1,10 @@
+/**
+ * Route to coordinates, never names: "Akers Ferry" is ambiguous to a geocoder.
+ * Prefer a complete curated parking pair; never mix it with waterline coordinates.
+ * The shuttle runs take-out → put-in, matching the plan's driveBack direction.
+ * Outdoor URLs come from @eddy/geo and stay in parity with the website's
+ * navigation/deepLinks.ts through its deep-links-parity.test.ts coverage.
+ */
 import { navCoordinatesFor, navLinksFor, type NavApp } from '@eddy/geo';
 
 /** A destination, optionally with a curated road/parking approach. */

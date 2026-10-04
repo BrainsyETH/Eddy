@@ -1,12 +1,12 @@
-import { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Linking, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { Linking, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { ControlIcon } from '@/components/ControlIcon';
 import { useReducedMotion } from '@/hooks/useReducedMotion';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
 import {
-  directionsChoices, installedDirectionsChoices, openDirectionsChoice,
+  installedDirectionsChoices, openDirectionsChoice,
   type DirectionsChoice, type DrivePoint,
 } from '@/lib/directionsChoices';
 
@@ -20,12 +20,12 @@ export function useDirectionsMenu() {
     active.current = next;
     setRequest(next);
   };
-  const close = () => {
+  const close = useCallback(() => {
     // An older handoff finishing must not close a newly opened destination.
     if (active.current !== request) return;
     active.current = null;
     setRequest(null);
-  };
+  }, [request]);
   return {
     showDirections,
     directionsMenu: request ? <DirectionsMenu point={request.point} onClose={close} /> : null,
@@ -35,21 +35,13 @@ export function useDirectionsMenu() {
 function DirectionsMenu({ point, onClose }: { point: DrivePoint; onClose: () => void }) {
   const { colors } = useTheme();
   const reducedMotion = useReducedMotion(true);
-  const [choices, setChoices] = useState(() => directionsChoices(point).filter((choice) => choice.app === 'apple'));
-  const [loading, setLoading] = useState(true);
+  const [choices, setChoices] = useState<DirectionsChoice[]>([]);
+  const [showChooser, setShowChooser] = useState(false);
   const [opening, setOpening] = useState(false);
   const openingRef = useRef(false);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    let live = true;
-    void installedDirectionsChoices(point, (url) => Linking.canOpenURL(url)).then((installed) => {
-      if (live) { setChoices(installed); setLoading(false); }
-    });
-    return () => { live = false; };
-  }, [point]);
-
-  const choose = async (choice: DirectionsChoice) => {
+  const choose = useCallback(async (choice: DirectionsChoice) => {
     if (openingRef.current) return;
     openingRef.current = true;
     setOpening(true);
@@ -59,11 +51,27 @@ function DirectionsMenu({ point, onClose }: { point: DrivePoint; onClose: () => 
       onClose();
     } catch {
       setError(`Could not open ${choice.label}. Please try again.`);
+      setShowChooser(true);
     } finally {
       openingRef.current = false;
       setOpening(false);
     }
-  };
+  }, [onClose]);
+
+  useEffect(() => {
+    let live = true;
+    void installedDirectionsChoices(point, (url) => Linking.canOpenURL(url)).then((installed) => {
+      if (!live) return;
+      setChoices(installed);
+      // Do not infer Apple-only availability while optional probes are pending.
+      // Keep the Modal unmounted for a direct handoff, avoiding a chooser flash.
+      if (installed.length === 1 && installed[0].app === 'apple') void choose(installed[0]);
+      else setShowChooser(true);
+    });
+    return () => { live = false; };
+  }, [point, choose]);
+
+  if (!showChooser) return null;
 
   return (
     <Modal visible transparent animationType={reducedMotion ? 'none' : 'fade'} onRequestClose={onClose}>
@@ -98,10 +106,6 @@ function DirectionsMenu({ point, onClose }: { point: DrivePoint; onClose: () => 
                     </View>
                   );
                 })}
-                {loading ? <View style={styles.loading} accessibilityLiveRegion="polite">
-                  <ActivityIndicator color={colors.textMuted} />
-                  <Text style={[t.sm, { color: colors.textMuted }]}>Finding map apps…</Text>
-                </View> : null}
                 {error ? <Text accessibilityRole="alert" style={[styles.error, { color: colors.text }]}>{error}</Text> : null}
               </ScrollView>
               <Pressable onPress={onClose} accessibilityRole="button" style={[styles.cancel, { borderTopColor: colors.border }]}>
@@ -126,7 +130,6 @@ const styles = StyleSheet.create({
   row: { minHeight: 52, paddingHorizontal: 20, paddingVertical: 12, flexDirection: 'row', alignItems: 'center', gap: 12 },
   label: { ...t.base, flex: 1 },
   outdoor: { borderTopWidth: StyleSheet.hairlineWidth, paddingTop: 8, marginTop: 8 },
-  loading: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 20, paddingVertical: 12 },
   error: { ...t.sm, paddingHorizontal: 20, paddingVertical: 12 },
   cancel: { minHeight: 52, padding: 14, alignItems: 'center', borderTopWidth: StyleSheet.hairlineWidth },
   cancelText: { ...t.base, fontFamily: fonts.semibold },
