@@ -27,8 +27,8 @@
 // Float times keep both server-provided range endpoints. Missing estimates
 // retain the existing regulated-water and dangerous-water explanations.
 
-import { useState, type ReactNode } from 'react';
-import { useRouter } from 'expo-router';
+import { useLayoutEffect, useState, type ReactNode } from 'react';
+import { useIsFocused, useRouter } from 'expo-router';
 import { Linking, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View, type ScrollViewProps } from 'react-native';
 import { ControlIcon } from '@/components/ControlIcon';
 import type { FloatPlan, MapAccessPoint } from '@eddy/types';
@@ -55,6 +55,7 @@ import { SafetyDisclaimer } from '@/components/SafetyDisclaimer';
 import { PlanEndpointCamping } from '@/components/PlanEndpointCamping';
 import { usePlanSupport, type PlanSupportState } from '@/hooks/usePlanSupport';
 import type { PlanDetailDestination } from '@/lib/planDestinations';
+import { createPlanDetailNavigation } from '@/lib/planDetailNavigation';
 
 interface Props {
   plan: FloatPlan;
@@ -77,9 +78,19 @@ export function PlanResult({ plan, actions, accessPoints, header, support, initi
   const { colors, elevation, isDark } = useTheme();
   const { fontScale } = useWindowDimensions();
   const router = useRouter();
+  const focused = useIsFocused();
+  const [detailNavigation] = useState(createPlanDetailNavigation);
+  useLayoutEffect(() => { detailNavigation.focus(focused); }, [detailNavigation, focused]);
   const loadedSupport = usePlanSupport(support ? null : plan);
   const supportState = support ?? loadedSupport;
-  const openDetail = onOpenDetail ?? ((destination: PlanDetailDestination) => router.push(destination));
+  const openDetail = onOpenDetail ?? ((destination: PlanDetailDestination) => {
+    if (!focused) return;
+    detailNavigation.open(destination);
+    // Saved/shared floats have no modal to dismiss. Consume the destination
+    // immediately, but keep the same repeat-tap guard until Back restores focus.
+    const pending = detailNavigation.dismissed();
+    if (pending) router.push(pending);
+  });
   // A new native scroll view restores the saved offset once. Subsequent scroll
   // events must not change this prop and fight the reader's gesture.
   const [contentOffset] = useState(() => initialScrollOffset === undefined ? undefined : { x: 0, y: initialScrollOffset });
