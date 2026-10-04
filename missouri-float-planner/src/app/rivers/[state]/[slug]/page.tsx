@@ -11,7 +11,8 @@ import { appBannerMetadata } from '@/lib/app-discovery';
 import type { Metadata } from 'next';
 import { notFound, permanentRedirect } from 'next/navigation';
 import { stateSlug, stateName } from '@/lib/navigation/states';
-import { riverPath, statePath } from '@/lib/navigation/river-path';
+import NearbyServices from '@/components/river/NearbyServices';
+import { riverPath, riverAccessPath, statePath } from '@/lib/navigation/river-path';
 import Link from 'next/link';
 import Image from 'next/image';
 import AccessPointPhoto from '@/components/access-point/AccessPointPhoto';
@@ -125,7 +126,7 @@ export default async function RiverGuidePage({ params }: Props) {
   const [riverResult, guideResult] = await Promise.all([
     supabase
       .from('rivers')
-      .select('id, name, slug, state, description, length_miles, difficulty_rating, region, geom, river_type')
+      .select('id, name, slug, state, description, float_tip, length_miles, difficulty_rating, region, geom, river_type')
       .eq('slug', slug)
       .maybeSingle(),
     supabase
@@ -494,7 +495,7 @@ export default async function RiverGuidePage({ params }: Props) {
               Access points
             </h2>
             <p className="text-sm text-neutral-600 mb-5">
-              Ordered upstream → downstream. Pick a stop on the map or from the list to start a float plan from there.
+              Ordered upstream → downstream. Open a place for access details or choose an eligible put-in in the planner.
             </p>
 
             <div className="mb-4">
@@ -509,7 +510,7 @@ export default async function RiverGuidePage({ params }: Props) {
                 {accessPoints.map((ap) => (
                   <li key={ap.id}>
                     <Link
-                      href={`/plan?river=${slug}&putIn=${ap.id}`}
+                      href={riverAccessPath(river.state, slug, ap.slug)}
                       className="flex items-center gap-3 rounded-lg border border-neutral-200 bg-white px-3 py-2.5 no-underline transition-colors hover:border-primary-300 hover:bg-primary-50"
                     >
                       <span className="w-11 flex-shrink-0 font-mono text-xs font-medium text-primary-600">
@@ -517,7 +518,7 @@ export default async function RiverGuidePage({ params }: Props) {
                       </span>
                       <span className="min-w-0 flex-1 truncate text-sm font-semibold text-neutral-900">{ap.name}</span>
                       <ArrowRight className="w-4 h-4 flex-shrink-0 text-primary-600" aria-hidden="true" />
-                      <span className="sr-only">Set as put-in and plan a float</span>
+                      <span className="sr-only">View access details</span>
                     </Link>
                   </li>
                 ))}
@@ -525,6 +526,11 @@ export default async function RiverGuidePage({ params }: Props) {
             ) : (
               <p className="text-sm text-neutral-500">Access points coming soon for this river.</p>
             )}
+          </section>
+
+          {river.float_tip && <p className="mt-5 text-sm text-neutral-600">{river.float_tip}</p>}
+          <section className="mt-8" aria-label="Campgrounds and nearby services">
+            <NearbyServices riverSlug={slug} defaultOpen />
           </section>
 
           {/* ===== River guide (blog) ===== */}

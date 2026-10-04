@@ -152,7 +152,7 @@ export async function buildOfflineBundle(): Promise<OfflineBundle> {
     // share sheet on a seeded river produces the same URL as one on a loaded
     // river.
     .select(
-      'id, name, slug, state, length_miles, description, difficulty_rating, region, river_type',
+      'id, name, slug, state, length_miles, description, float_tip, difficulty_rating, region, river_type',
     )
     // Sorted by slug, not by name. The ETag is a hash of this body, so row
     // order has to be a function of the data and nothing else — `name` is

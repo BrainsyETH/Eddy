@@ -53,6 +53,7 @@ export interface RiverRow {
   name: string;
   slug: string;
   length_miles: number | string | null;
+  float_tip?: string | null;
   description: string | null;
   difficulty_rating: string | null;
   region: string | null;
@@ -151,6 +152,7 @@ export function toRiverIndexEntry(row: RiverRow, accessPointCount: number) {
     path: riverPath(state, row.slug),
     lengthMiles: row.length_miles != null ? parseFloat(String(row.length_miles)) : 0,
     description: row.description,
+    floatTip: row.float_tip ?? null,
     difficultyRating: row.difficulty_rating,
     region: row.region,
     accessPointCount,
@@ -165,6 +167,7 @@ export function toRiverDetail(row: RiverRow, geometry: GeoJSON.LineString) {
     slug: row.slug,
     lengthMiles: row.length_miles != null ? parseFloat(String(row.length_miles)) : 0,
     description: row.description,
+    floatTip: row.float_tip ?? null,
     difficultyRating: row.difficulty_rating,
     region: row.region,
     geometry,
@@ -190,7 +193,7 @@ export function toHazard(row: HazardRow) {
       row.river_mile_downstream != null ? parseFloat(String(row.river_mile_downstream)) : 0,
     description: row.description,
     severity: row.severity as HazardSeverity,
-    portageRequired: row.portage_required ?? false,
+    portageRequired: row.portage_required,
     portageSide: row.portage_side as 'left' | 'right' | 'either' | null,
     seasonalNotes: row.seasonal_notes,
     coordinates: {

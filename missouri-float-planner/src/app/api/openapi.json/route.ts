@@ -519,7 +519,7 @@ const spec = {
           riverMile: { type: 'number' },
           description: { type: ['string', 'null'] },
           severity: { type: 'string', enum: ['info', 'caution', 'warning', 'danger'] },
-          portageRequired: { type: 'boolean' },
+          portageRequired: { type: 'boolean', nullable: true, description: 'null means unknown; false means a portage is not required.' },
           portageSide: { type: ['string', 'null'], enum: ['left', 'right', 'either', null] },
           coordinates: {
             type: 'object',

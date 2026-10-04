@@ -45,6 +45,8 @@ export interface River {
   name: string;
   slug: string;
   lengthMiles: number;
+  /** Static river guidance, independent of the current condition rating. */
+  floatTip?: string | null;
   description: string | null;
   difficultyRating: string | null;
   region: string | null;
@@ -844,7 +846,8 @@ export interface Hazard {
   riverMile: number;
   description: string | null;
   severity: HazardSeverity;
-  portageRequired: boolean;
+  /** null means the need to portage has not been established. */
+  portageRequired: boolean | null;
   portageSide: 'left' | 'right' | 'either' | null;
   seasonalNotes: string | null;
   coordinates: { lng: number; lat: number };

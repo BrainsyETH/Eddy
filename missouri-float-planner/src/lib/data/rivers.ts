@@ -206,6 +206,7 @@ export async function getRivers(): Promise<RiverListItem[]> {
       river_type,
       length_miles,
       description,
+      float_tip,
       difficulty_rating,
       region
     `)
@@ -223,6 +224,7 @@ export async function getRivers(): Promise<RiverListItem[]> {
         river_type,
         length_miles,
         description,
+        float_tip,
         difficulty_rating,
         region
       `)
@@ -283,6 +285,7 @@ export async function getRivers(): Promise<RiverListItem[]> {
         path: riverPath(river.state || 'MO', river.slug),
         lengthMiles: parseFloat(river.length_miles),
         description: river.description,
+        floatTip: river.float_tip,
         difficultyRating: river.difficulty_rating,
         region: river.region,
         accessPointCount: accessPointCounts.get(river.id) ?? 0,

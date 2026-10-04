@@ -23,7 +23,7 @@ async function _GET(
     // Get river details
     const { data: river, error: riverError } = await supabase
       .from('rivers')
-      .select('id, name, slug, length_miles, description, difficulty_rating, region, nhd_feature_id')
+      .select('id, name, slug, length_miles, description, float_tip, difficulty_rating, region, nhd_feature_id')
       .eq('slug', slug)
       .single();
 
