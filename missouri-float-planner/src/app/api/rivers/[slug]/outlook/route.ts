@@ -140,6 +140,7 @@ export interface RiverOutlookApiResponse {
    * is not a weather station.
    */
   weatherLocation: string | null;
+  weatherCoordinates?: { lat: number; lng: number } | null;
   /**
    * The Premium long-form read, as opposed to `sections.eddyRead`, which is
    * the shorter derived interpretation included in the public outlook.
@@ -590,6 +591,7 @@ async function _GET(
         gaugeName: station?.name ?? null,
         gaugeStationId: gauge.gauge_station_id ?? null,
         weatherLocation,
+        weatherCoordinates: weatherPoint ? { lat: weatherPoint.lat, lng: weatherPoint.lon } : gaugeCoords,
         fullRead: premiumText(entitled, fullRead),
         generatedAt:
           update?.eddy_read

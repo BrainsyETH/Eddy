@@ -14,6 +14,16 @@ export function visibleCampingColumns(
   return { first, last };
 }
 
+/** Render a week beyond each edge; update React only when crossing a week. */
+export function campingRenderWindow(offset: number, viewportWidth: number, dateWidth: number, count: number) {
+  'worklet';
+  const visible = visibleCampingColumns(offset, viewportWidth, dateWidth, count);
+  return {
+    first: Math.max(0, Math.floor(visible.first / 7) * 7 - 7),
+    end: Math.min(count, (Math.floor(visible.last / 7) + 2) * 7),
+  };
+}
+
 /** Calendar dates stay in UTC for formatting; device time zones must not shift a month. */
 export function campingVisibleMonthLabel(first?: string, last = first) {
   if (!first || !last) return { label: '', accessibilityLabel: '' };
@@ -34,27 +44,5 @@ export function campingVisibleMonthLabel(first?: string, last = first) {
     accessibilityLabel: sameMonth
       ? format(start, 'long')
       : `${format(start, 'long')} to ${format(end, 'long')}`,
-  };
-}
-
-/** A pan ending over a row must never activate its detail sheet. */
-export function createCampingTapGuard() {
-  let origin = { x: 0, y: 0 };
-  let moved = false;
-  return {
-    start(x: number, y: number) {
-      origin = { x, y };
-      moved = false;
-    },
-    move(x: number, y: number) {
-      if (Math.abs(x - origin.x) > 8 || Math.abs(y - origin.y) > 8)
-        moved = true;
-    },
-    cancel() {
-      moved = true;
-    },
-    allowed() {
-      return !moved;
-    },
   };
 }

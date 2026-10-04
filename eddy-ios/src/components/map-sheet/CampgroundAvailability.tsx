@@ -63,7 +63,7 @@
 //     columns make a claim ("we looked and found nothing") that blank space
 //     does not. See NightStrip's header.
 
-import { Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
+import { Pressable, StyleSheet, Text, View, useWindowDimensions, type StyleProp, type ViewStyle } from 'react-native';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
 import { EddySymbol } from '@/components/EddySymbol';
@@ -86,8 +86,10 @@ export function CampgroundAvailability({
   water = null,
   pending = false,
   pendingLabel,
+  style,
 }: {
   availability: CampsiteAvailabilitySummary | null | undefined;
+  style?: StyleProp<ViewStyle>;
   name?: string;
   /** `YYYY-MM-DD` in the reader's own day. Passed in so this stays testable. */
   today: string;
@@ -167,7 +169,7 @@ export function CampgroundAvailability({
   const spoken = pending ? null : availabilityVoiceOver(availability, today, name);
 
   const body = (
-    <View style={[styles.card, { backgroundColor: colors.cardRaised }]}>
+    <View style={[styles.card, { backgroundColor: colors.cardRaised }, style]}>
       {/* A rail rather than a filled card: the art inside is fixed-colour and
           three-tone, and a same-hue fill behind it flattens it. Same reasoning
           as MapLayersSheet's outlined icon wells. */}

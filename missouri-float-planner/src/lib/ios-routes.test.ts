@@ -204,9 +204,21 @@ test('cold shared detail links open Today and preserve parameters', () => {
   assert.equal(redirectSystemPath({ path: 'https://eddy.guide/plan/abc?view=details', initial: true }), '/(tabs)/(today)/float/abc?view=details');
 });
 
+test('plain cold launches open Today while explicit Map navigation remains available', () => {
+  for (const path of ['', '/', 'eddy:///', 'https://eddy.guide/']) {
+    assert.equal(redirectSystemPath({ path, initial: true }), '/(tabs)/(today)/reports');
+  }
+  assert.equal(redirectSystemPath({ path: '/?source=home#top', initial: true }), '/(tabs)/(today)/reports?source=home#top');
+  assert.equal(redirectSystemPath({ path: '/', initial: false }), '/');
+  for (const path of ['/?focusRiver=current&focusAccess=akers', '/?openPlan=1&planPutIn=akers&planTakeOut=pulltite']) {
+    assert.equal(redirectSystemPath({ path, initial: true }), path);
+  }
+  assert.equal(redirectSystemPath({ path: '/(tabs)/(map)', initial: true }), '/(tabs)/(map)');
+});
+
 test('warm detail links preserve the current tab and modal tasks remain global', () => {
   assert.equal(redirectSystemPath({ path: '/river/current', initial: false }), '/river/current');
-  for (const path of ['/reports', '/', '/profile', '/alerts/new', '/alerts/configure?siteId=123', '/alerts/quiet-hours', '/alerts/rule-123?source=gauge', '/not-a-route']) {
+  for (const path of ['/reports', '/profile', '/alerts/new', '/alerts/configure?siteId=123', '/alerts/quiet-hours', '/alerts/rule-123?source=gauge', '/not-a-route']) {
     assert.equal(redirectSystemPath({ path, initial: true }), path);
   }
   assert.equal(redirectSystemPath({ path: 'https://example.com/river/current', initial: true }), 'https://example.com/river/current');

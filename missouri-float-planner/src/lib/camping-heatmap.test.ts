@@ -380,7 +380,7 @@ test('calendar aligns Sunday weeks and handles leap days and year boundaries', (
 });
 
 
-import { campingVisibleMonthLabel, createCampingTapGuard, visibleCampingColumns } from '../../../eddy-ios/src/lib/campingScroll';
+import { campingVisibleMonthLabel, campingRenderWindow, visibleCampingColumns } from '../../../eddy-ios/src/lib/campingScroll';
 test('grid month labels follow both visible edges, including partially visible nights', () => {
   const nights = ['2026-10-29', '2026-10-30', '2026-10-31', '2026-11-01', '2026-11-02'];
   const labelAt = (offset: number, width: number) => {
@@ -411,15 +411,20 @@ test('grid month labels retain years and readable VoiceOver month names', () => 
   assert.deepEqual(visibleCampingColumns(0, 0, 36, 5), { first: 0, last: 0 });
   assert.deepEqual(campingVisibleMonthLabel(), { label: '', accessibilityLabel: '' });
 });
-test('horizontal and vertical pans cannot open a campground on release', () => {
-  const tap = createCampingTapGuard();
-  tap.start(20, 20); tap.move(60, 20); tap.move(20, 20);
-  assert.equal(tap.allowed(), false, 'returning to the starting point is still a pan');
-  tap.start(20, 20); tap.move(20, 60);
-  assert.equal(tap.allowed(), false);
-  tap.start(20, 20); tap.move(22, 23);
-  assert.equal(tap.allowed(), true);
-  tap.cancel(); assert.equal(tap.allowed(), false);
+test('horizontal rendering covers every visible night without mounting the full schedule', () => {
+  for (const count of [1, 21, 90]) for (const width of [0, 180, 320, 1000]) {
+    for (let offset = -30; offset <= count * 36 + 30; offset += 17) {
+      const visible = visibleCampingColumns(offset, width, 36, count);
+      const range = campingRenderWindow(offset, width, 36, count);
+      assert.ok(range.first >= 0 && range.first <= visible.first);
+      assert.ok(range.end > visible.last && range.end <= count);
+      assert.ok(range.end - range.first <= Math.ceil(width / 36) + 28);
+      if (count === 90 && width <= 320) assert.ok(range.end - range.first < 40);
+    }
+  }
+  assert.deepEqual(campingRenderWindow(0, 320, 36, 0), { first: 0, end: 0 });
+  assert.deepEqual(campingRenderWindow(36, 180, 36, 90), campingRenderWindow(40, 180, 36, 90),
+    'Small movement within a week must not update React on every frame');
 });
 
 import { observedCampingOverview, campingCoverageLabel, campingRowSummary } from '../../../eddy-ios/src/lib/campingHeatmap';

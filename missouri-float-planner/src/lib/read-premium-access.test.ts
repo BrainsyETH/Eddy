@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { canOfferReadPremium } from '../../../eddy-ios/src/lib/readPremiumAccess';
+import { canOfferReadPremium, premiumReadUserId } from '../../../eddy-ios/src/lib/readPremiumAccess';
 
 const free = {
   sessionReady: true,
@@ -10,6 +10,16 @@ const free = {
   profileId: 'free-user',
   isActive: false,
 };
+
+test('read previews use only the current account’s verified Premium entitlement', () => {
+  const member = { ...free, isActive: true };
+  assert.equal(premiumReadUserId(member), 'free-user');
+  for (const state of [free, { ...member, sessionReady: false }, { ...member, loaded: false },
+    { ...member, error: 'Offline' }, { ...member, userId: 'new-user' },
+    { ...member, userId: null }, { ...member, profileId: null }]) {
+    assert.equal(premiumReadUserId(state), null);
+  }
+});
 
 test('confirmed free and anonymous accounts can open Premium', () => {
   assert.equal(canOfferReadPremium(free), true);

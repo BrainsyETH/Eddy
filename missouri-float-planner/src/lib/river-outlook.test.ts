@@ -1,6 +1,31 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { buildEddyTakeSections, buildRiverOutlookState, getRainPresentation, groupForecastByDay } from './river-outlook';
+import { weatherDestination } from '../../../eddy-ios/src/lib/weatherDestination';
+import { weatherSymbol } from '../../../eddy-ios/src/theme/weather';
+
+test('full weather uses the forecast location and rejects missing or invalid coordinates', () => {
+  assert.deepEqual(weatherDestination({ lat: 37.42, lng: -91.26 }), {
+    pathname: '/weather', params: { lat: '37.42', lng: '-91.26' },
+  });
+  for (const point of [undefined, null, { lat: 0, lng: 0 }, { lat: NaN, lng: -91 },
+    { lat: 37, lng: Infinity }, { lat: 91, lng: 0 }, { lat: 37, lng: -181 }]) {
+    assert.equal(weatherDestination(point), null);
+  }
+});
+
+test('weather artwork distinguishes night, mixed skies, and precipitation', () => {
+  assert.equal(weatherSymbol('01d').sun, true);
+  assert.equal(weatherSymbol('01d').cloud, false);
+  assert.equal(weatherSymbol('01n').sun, false);
+  assert.equal(weatherSymbol('01n').moon, true);
+  assert.equal(weatherSymbol('02d').cloud, true);
+  assert.equal(weatherSymbol('10n').moon, true);
+  assert.equal(weatherSymbol('10n').rain, true);
+  assert.equal(weatherSymbol('11d').storm, true);
+  assert.equal(weatherSymbol('13d').snow, true);
+  assert.equal(weatherSymbol('50d').mist, true);
+});
 
 const stageThresholds = {
   levelTooLow: 1,

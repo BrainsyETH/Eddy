@@ -2121,6 +2121,8 @@ export interface RiverOutlookResponse {
    * a forecast comes from.
    */
   weatherLocation?: string | null;
+  /** Exact public forecast point; optional for apps talking to older servers. */
+  weatherCoordinates?: { lat: number; lng: number } | null;
   /**
    * The long read: the same multi-paragraph prose /rivers shows on the web, as
    * against `sections.eddyRead`, which is one line.

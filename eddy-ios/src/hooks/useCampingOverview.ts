@@ -3,7 +3,7 @@ import { loadCampingWindow } from '@/lib/loadCampingWindow';
 import { createCampingRollover } from '@/lib/campingRollover';
 import { parseCampingSnapshot } from '@/lib/campingSnapshot';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { CampingOverview } from '@eddy/types';
 import { fetchCampingOverview } from '@/api/client';
 import { onForeground } from '@/lib/foreground';
@@ -41,8 +41,11 @@ export function useCampingOverview(
   nights: WindowSize = 90,
 ) {
   const entry = windows[nights];
-  const [held, setHeld] = useState({ nights, data: entry.cached });
-  const data = held.nights === nights ? held.data : entry.cached;
+  // Today already holds the short window. Use it on the very first render,
+  // instead of flashing an empty screen until this hook's effect publishes it.
+  const initial = entry.cached ?? (nights === 90 ? windows[21].cached : null);
+  const [held, setHeld] = useState({ nights, data: initial });
+  const data = held.nights === nights ? held.data : initial;
   const [loading, setLoading] = useState(enabled && !entry.cached);
   const [error, setError] = useState(false);
   const [retry, setRetry] = useState(0);
@@ -123,8 +126,9 @@ export function useCampingOverview(
       clearInterval(timer);
     };
   }, [enabled, revision, retry, nights, entry]);
+  const current = useMemo(() => data ? currentOverview(data, now) : null, [data, now]);
   return {
-    data: data ? currentOverview(data, now) : null,
+    data: current,
     loading,
     extending: nights === 90 && !!data && data.horizon.nights.length < 90 && loading,
     error,

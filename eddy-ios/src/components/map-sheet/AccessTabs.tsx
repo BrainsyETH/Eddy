@@ -659,6 +659,7 @@ export function AccessCampingTab({ accessPoint, detail, status, active = false, 
   // The timeline stays first whether the detail request is pending or ready.
   const timeline = availability || accessPoint.hasLiveAvailability ? (
     <CampgroundAvailability
+      style={styles.availabilityInset}
       availability={availability ?? null}
       name={accessAvailabilityName(point ?? null, accessPoint.name)}
       today={today}
@@ -1049,6 +1050,7 @@ function ServiceContactRow({ service }: { service: NearbyService }) {
 }
 
 const styles = StyleSheet.create({
+  availabilityInset: { marginHorizontal: 16, marginTop: 12, marginBottom: 14 },
   // flexGrow: 0 is load-bearing, not tidiness — a horizontal ScrollView in a
   // column stretches to fill the cross axis and would squeeze everything below
   // it. FilterChips carries the same line for the same reason.
@@ -1095,4 +1097,3 @@ const styles = StyleSheet.create({
   floatMeta: { ...t.sm, fontFamily: fonts.body, marginTop: 1 },
   floatAction: { ...t.sm, fontFamily: fonts.semibold, maxWidth: 88, flexShrink: 0 },
 });
-

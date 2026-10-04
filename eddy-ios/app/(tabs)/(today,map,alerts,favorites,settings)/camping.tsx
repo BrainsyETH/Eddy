@@ -15,7 +15,7 @@ import {
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useHeaderHeight } from 'expo-router/react-navigation';
-import { useLocalSearchParams } from 'expo-router';
+import { Stack, useLocalSearchParams } from 'expo-router';
 import { NativeHeaderHome } from '@/components/NativeHeaderHome';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, textStyles } from '@/theme/typography';
@@ -56,6 +56,8 @@ export default function CampingScreen() {
       edges={['left', 'right']}
     >
       <NativeHeaderHome destination="today" />
+      {/* Horizontal dates must never be interpreted as the native back swipe. */}
+      <Stack.Screen options={{ gestureEnabled: false }} />
       {features.campingHeatmap ? (
         <CampingContent />
       ) : (
@@ -149,7 +151,8 @@ function CampingContent() {
   const linkedNight = data ? linkedCampingNight(data, params.night) : undefined;
   const night = data ? linkedCampingNight(data, nightChoice) ?? linkedNight ?? data.horizon.startDate : '';
   const detailNight = data ? linkedCampingNight(data, openedNight) ?? linkedNight : undefined;
-  if (!data)
+  const grid = useMemo(() => data ? observedCampingOverview(data.tracked, data, now) : null, [data, now]);
+  if (!data || !grid)
     return <ScrollView contentInsetAdjustmentBehavior="automatic" contentContainerStyle={styles.empty}>{loading ? (
       <ActivityIndicator color={colors.interactive} />
     ) : (
@@ -165,7 +168,6 @@ function CampingContent() {
     )}</ScrollView>;
   // Keep the same date columns and horizontal position across every scope.
   // Missing observations in a filtered river remain explicit unknown cells.
-  const grid = observedCampingOverview(data.tracked, data, now);
 
   return (
     <>
@@ -246,10 +248,14 @@ function CampingContent() {
       <CampingScrollGroup
         thumbnails
         dateWidth={36}
+        columnCount={grid.horizon.nights.length}
         // Only a new calendar horizon resets the date offset, never a filter.
         key={grid.horizon.startDate}
       >
         <FlatList
+          initialNumToRender={8}
+          maxToRenderPerBatch={4}
+          windowSize={5}
           contentInsetAdjustmentBehavior="never"
           automaticallyAdjustContentInsets={false}
           automaticallyAdjustsScrollIndicatorInsets={false}

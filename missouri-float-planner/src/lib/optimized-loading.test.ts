@@ -178,8 +178,22 @@ test('camping publishes 21 nights before 90 and retains the partial result on fa
       publish: (value) => events.push(`show:${value.horizon.nights.length}`),
     });
     if (failFull) await assert.rejects(load, /offline/); else await load;
-    assert.deepEqual(events, ['fetch:21', 'show:21', 'fetch:90', ...(failFull ? [] : ['show:90'])]);
+    assert.deepEqual(events, ['fetch:21', 'fetch:90', 'show:21', ...(failFull ? [] : ['show:90'])]);
   }
+});
+test('a slow short window does not delay or replace the full camping schedule', async () => {
+  let finishShort!: (data: CampingOverview) => void;
+  const short = new Promise<CampingOverview>(resolve => { finishShort = resolve; });
+  const shown: number[] = [];
+  const snapshot = (nights: number) => ({ horizon: { nights: Array(nights).fill('2026-10-03') } }) as CampingOverview;
+  await loadCampingWindow({ nights: 90, hasFullSnapshot: () => false,
+    fetchWindow: nights => nights === 21 ? short : Promise.resolve(snapshot(90)),
+    publish: value => shown.push(value.horizon.nights.length),
+  });
+  assert.deepEqual(shown, [90], 'full schedule must finish without waiting for 21 nights');
+  finishShort(snapshot(21));
+  await short;
+  assert.deepEqual(shown, [90], 'late partial data must not shorten the full schedule');
 });
 test('camping preserves full disk snapshots and still tries 90 after an initial failure', async () => {
   for (const fullSnapshot of [false, true]) {

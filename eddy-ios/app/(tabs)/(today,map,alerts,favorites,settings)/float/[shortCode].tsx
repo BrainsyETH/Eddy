@@ -2,7 +2,7 @@
 // One saved float, re-read against today's river.
 //
 // Current conditions always come from the server. The saved logistics view is
-// available immediately and after a failed refresh, with historical cautions
+// available after a failed refresh, with historical cautions
 // explicitly dated. It never presents an old water verdict as current.
 
 import { NativeHeaderHome } from '@/components/NativeHeaderHome';
@@ -138,16 +138,16 @@ export default function SavedFloatScreen() {
         ) : null}
       </Stack.Toolbar>
 
-      {stub && (loading || error || !plan) ? (
+      {stub && !loading && (error || !plan) ? (
         <SavedFloatDetails header={heading} saved={stub} loading={loading} error={error} onRetry={() => void load()} />
       ) : loading ? (
         <ScrollView contentInsetAdjustmentBehavior="automatic" contentContainerStyle={styles.emptyContent}>
           {heading}
-          <View style={styles.centered}>
-            <ActivityIndicator color={colors.interactive} accessibilityLabel="Loading float" />
-            <Text style={[styles.centeredText, { color: colors.textMuted }]}>
-              Reading the gauge and driving the shuttle…
-            </Text>
+          <View accessible accessibilityLabel="Loading current float plan" accessibilityState={{ busy: true }} style={styles.loadingPlan}>
+            <View style={styles.loadingLabel}><ActivityIndicator color={colors.interactive} /><Text style={[styles.centeredText, { color: colors.textMuted }]}>Checking current conditions…</Text></View>
+            <View accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={styles.loadingPlan}>
+              {[112, 70, 190].map((height, index) => <View key={index} style={{ height, borderRadius: 14, backgroundColor: colors.card }} />)}
+            </View>
           </View>
         </ScrollView>
       ) : error || !plan ? (
@@ -174,6 +174,8 @@ const styles = StyleSheet.create({
   screen: { flex: 1 },
   header: { paddingBottom: 12 },
   emptyContent: { flexGrow: 1, padding: 20 },
+  loadingPlan: { gap: 16 },
+  loadingLabel: { flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 44 },
   retryButton: { minWidth: 44, minHeight: 44, justifyContent: 'center' },
   title: { ...t['2xl'], fontFamily: fonts.display },
   subtitle: { ...t.sm, fontFamily: fonts.body, marginTop: 2 },

@@ -740,6 +740,7 @@ export default function AccessPointDetailScreen() {
                 sheet — "Open the full details screen" is one row down from it —
                 and the flagship fact must not change costume on the way. */}
             <CampgroundAvailability
+              style={styles.availabilityInset}
               availability={accessAvailability(point)}
               name={accessAvailabilityName(point)}
               today={localToday()}
@@ -927,6 +928,7 @@ function AccessRiverLink({ name, slug }: { name: string; slug: string }) {
 }
 
 const styles = StyleSheet.create({
+  availabilityInset: { marginHorizontal: 16, marginTop: 16, marginBottom: 12 },
   screen: { flex: 1 },
   centre: { alignItems: 'center', justifyContent: 'center' },
   emptyBody: { flexGrow: 1, padding: 32, gap: 10 },
