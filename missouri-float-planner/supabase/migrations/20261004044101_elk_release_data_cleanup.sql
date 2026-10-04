@@ -1,4 +1,4 @@
--- Elk release preparation only. NOT APPLIED; Elk remains inactive.
+-- Applied to production as 20261004044101 on 2026-10-04. Elk remains inactive.
 -- Sources, coordinates, and remaining launch work:
 -- scripts/ingestion/elk-release-review-2026-10-04.md
 -- Service changes use the existing CSV importer, separately from this migration.

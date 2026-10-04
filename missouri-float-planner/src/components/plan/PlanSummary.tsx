@@ -1,5 +1,7 @@
 'use client';
 
+import PlanDownstreamDams from '@/components/plan/PlanDownstreamDams';
+
 import { unknownConditionLabel } from '@shared/condition-availability';
 
 
@@ -419,6 +421,7 @@ export default function PlanSummary({
           </div>
         </div>
 
+        <PlanDownstreamDams dams={displayPlan.damsBelowTakeOut} />
         {/* Hazards below main row */}
         {displayPlan.hazardsUnavailable && (
           <div className="mt-4"><PlanHazardStatus unavailable /></div>

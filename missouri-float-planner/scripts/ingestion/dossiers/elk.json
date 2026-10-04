@@ -1,5 +1,5 @@
 {
-  "_status": "HELD-INACTIVE 2026-10-04: Noel 07188925 is the candidate primary, but has no verified recreational ladder. Full release also needs private launch placement and separate upper/lower routing at Shadow Lake Dam. See elk-release-review-2026-10-04.md. No activation authorized by this dossier.",
+  "_status": "HELD-INACTIVE: owner confirmed readings-only publication and access/campground/POI scope. Prepared inventory release uses reviewed public access points; private candidates remain pending individually. No outfitter package, advertised mileage or operator duration is a release prerequisite. Awaiting application deployment and final activation preview.",
   "name": "Elk River",
   "slug": "elk",
   "primaryGaugeSiteId": "07188925",
@@ -8,8 +8,8 @@
   "timezone": "America/Chicago",
   "region": "Ozarks",
   "nhdFeatureId": "86154255",
-  "difficultyRating": "Class I\u2013II",
-  "description": "A warm, popular summer float in Missouri's far southwestern corner around Pineville and Noel. Clear, spring-influenced water over gravel bars and beneath bluffs, with heavy party-float traffic in season \u2014 but rain-driven and prone to fast, flashy rises.",
+  "difficultyRating": "Class I–II",
+  "description": "A warm, popular summer float in Missouri's far southwestern corner around Pineville and Noel. Clear, spring-influenced water over gravel bars and beneath bluffs, with heavy party-float traffic in season — but rain-driven and prone to fast, flashy rises.",
   "riverType": "rain_flashy",
   "managingAuthority": "MDC at Mount Shira and Cowskin; City of Pineville at its cooperative access; private operators at their own facilities.",
   "regulations": [
@@ -45,48 +45,34 @@
       "servesSections": [
         "elk-main"
       ],
-      "knownBias": "At Noel, below Indian Creek and near Shadow Lake. It does not establish the upper Pineville reach condition without reach-specific observations; no discharge series is published in the inspected metadata."
+      "knownBias": "At Noel, below Indian Creek and near Shadow Lake. It does not establish the upper Pineville reach condition without reach-specific observations; no discharge series is published in the inspected metadata.",
+      "measurementUnit": "ft",
+      "positionRiverMile": 11.32
     }
   ],
   "sections": [
     {
       "slug": "elk-main",
-      "name": "Elk River: Pineville\u2013Noel and lower Elk to Cowskin",
-      "description": "Release research covers the Elk mainstem from Pineville to Noel and, separately, below Shadow Lake Dam to Cowskin. Upper and lower trips are not a verified continuous route. Indian Creek joins above Trestle Park; operator trips on the upper river can be seasonal. Eddy miles begin at the Big Sugar/Little Sugar confluence; historical combined-creek guide miles use a different origin.",
+      "name": "Elk River: Pineville–Noel above Shadow Lake Dam",
+      "description": "Upper Elk from Pineville through Noel above Shadow Lake Dam. Eddy plans between approved access points using river geometry and its normal typical-time model. Cowskin remains a public lower-river listing outside initial planner eligibility.",
       "putIn": {
         "name": "City of Pineville Elk River Access",
         "lat": 36.58884,
         "lon": -94.38682
       },
       "takeOut": {
-        "name": "Cowskin Access (separate lower corridor)",
-        "lat": 36.63092,
-        "lon": -94.58758
+        "name": "Mount Shira Access",
+        "lat": 36.57653,
+        "lon": -94.46142
       },
       "publishedLengthMiles": null,
       "representativeGauge": {
         "siteId": "07188925",
-        "rationale": "Live USGS mainstem stage gauge at Noel. Candidate only until Noel-specific recreational observations or operator guidance establish the thresholds.",
+        "rationale": "Measured stage in feet only, without a recreational rating. No discharge or transferred Tiff thresholds.",
         "knownBias": "At Noel, below Indian Creek and near Shadow Lake. It does not establish the upper Pineville reach condition without reach-specific observations; no discharge series is published in the inspected metadata."
       },
       "thresholds": [],
-      "publishedFloatTimes": [
-        {
-          "reachLabel": "Trestle Park to Wayside (Noel River Float Trip)",
-          "distanceMiles": 6,
-          "hoursLow": 3,
-          "hoursHigh": 6,
-          "vessel": "canoe / kayak",
-          "source": "https://www.elkriverfloats.com/float-trips/"
-        },
-        {
-          "reachLabel": "Pineville to Shady Beach",
-          "distanceMiles": 8,
-          "hoursLow": 6,
-          "hoursHigh": 8,
-          "source": "https://www.shadybeach.com/river-floats/pineville-to-shady-beach-8-mile-float/"
-        }
-      ],
+      "publishedFloatTimes": [],
       "characteristics": {
         "isSpringFed": false,
         "hydroType": "rain_flashy",
@@ -105,14 +91,13 @@
           "confidence": "high"
         },
         {
-          "value": "A low-water crossing is at the Trestle Park area below Indian Creek. Precise structure placement remains to be verified before a structured point is added.",
-          "source": "https://kozykamp.com/",
-          "confidence": "medium"
+          "value": "Elk Springs Road low-water crossing beside Trestle Park, mapped at approximately Eddy mile 6.52. No passage, portage side or safe water-level claim is supplied.",
+          "source": "https://kozykamp.com/ ; scripts/ingestion/elk-trestle-crossing.json",
+          "confidence": "medium — imagery-derived position; operator confirms structure, not passage"
         }
       ],
       "localKnowledge": [
         "Pineville and Noel are the main trip bases. Rentals, shuttles and camping are concentrated along the upper mainstem.",
-        "Published six- and twelve-mile operator routes are rounded product distances; they do not validate unplaced access pins.",
         "Mount Shira and Cowskin prohibit camping. Book a private campground for an overnight stay.",
         "Bluff Dwellers Cave is a drive-to attraction south of Noel, not an on-water cave stop."
       ]
@@ -208,71 +193,75 @@
       "https://hydro.nationalmap.gov/arcgis/rest/services/nhd/MapServer/6 (GNIS 01092538; representative mainstem Permanent_Identifier 86154255)"
     ],
     "openQuestions": [
-      "Noel-specific stage anchors for the upper and lower corridors: minimum usable, preferred range, high/restricted and stop-running. No overlap with Tiff City and no Noel discharge series found.",
-      "Place and verify private launch/landing pins, parking entrances and access terms at Kozy Kamp, Trestle Park, Wayside, Shady Beach, River Ranch/Sycamore and The Spot.",
-      "Validate separate upper/lower route choices around Shadow Lake Dam; verify the low-water crossing pin and disposition.",
-      "Confirm reusable access and hero photography. Pineville agency image is restricted to MDC; bridge records used unrelated photographs."
+      "Optional private-access additions: review each bank coordinate, road entrance and published access terms independently.",
+      "Future rated release only: Noel-specific thresholds and Shadow Lake pool influence.",
+      "Additional photos and on-water POIs may be added as verified sources become available."
     ],
     "toVerify": [
-      "Fresh Noel reading at activation; primary/link/curation changes only after threshold signoff.",
-      "Connected private-endpoint snaps, distances, shuttle roads and API results on web/iOS after applying the reviewed data.",
-      "Named on-water POIs require a verified location. Basin springs on tributaries are not Elk mainstem stops."
+      "Fresh Noel observation at activation.",
+      "Application deployment of the unrated presentation.",
+      "Planner geometry, normal time estimation, mapped crossing and excluded endpoints for the currently approved public inventory."
     ]
   },
   "readiness": {
     "corridor": {
       "status": "verified",
       "evidence": [
-        "scripts/ingestion/elk-release-review-2026-10-04.md"
+        "scripts/ingestion/elk-above-dam-release-2026-10-04.md"
       ],
-      "reviewedBy": "Codex \u2014 primary-source and production review",
-      "reviewedAt": "2026-10-04T00:00:00Z",
-      "notes": "Pineville\u2013Noel plus a separate lower Elk corridor to Cowskin. No Big Sugar/Indian Creek launch expansion or Grand Lake route in this release."
+      "reviewedBy": "Codex — production inventory, source and application-code review",
+      "reviewedAt": "2026-10-04T15:20:00Z",
+      "notes": "Elk river inventory with public accesses, camping/services and POIs. Initial planner endpoints are Pineville and Mount Shira above Shadow Lake Dam; Cowskin remains a published lower-river listing."
     },
     "legalAccess": {
-      "status": "blocked",
+      "status": "verified",
       "evidence": [
-        "scripts/ingestion/elk-release-review-2026-10-04.md"
+        "scripts/ingestion/elk-above-dam-release-2026-10-04.md",
+        "https://mdc.mo.gov/discover-nature/places/city-pineville-elk-river-access",
+        "https://mdc.mo.gov/discover-nature/places/mount-shira-access",
+        "https://mdc.mo.gov/discover-nature/places/cowskin-access"
       ],
-      "reviewedBy": "Codex \u2014 primary-source and production review",
-      "reviewedAt": "2026-10-04T00:00:00Z",
-      "notes": "Three agency-backed public accesses verified. Two stored bridge launches need withdrawal; private landing placement/terms are outstanding."
+      "reviewedBy": "Codex — production inventory, source and application-code review",
+      "reviewedAt": "2026-10-04T15:20:00Z",
+      "notes": "MDC sources independently establish Pineville, Mount Shira and Cowskin as public accesses. Only Pineville and Mount Shira are planner endpoints. Private candidates remain unapproved and are not release prerequisites."
     },
     "gauge": {
-      "status": "blocked",
+      "status": "verified",
       "evidence": [
-        "scripts/ingestion/elk-release-review-2026-10-04.md"
+        "scripts/ingestion/elk-above-dam-release-2026-10-04.md"
       ],
-      "reviewedBy": "Codex \u2014 primary-source and production review",
-      "reviewedAt": "2026-10-04T00:00:00Z",
-      "notes": "Noel is live and stage-only (801 sq mi); production still links inactive Tiff City. Candidate linkage/curation awaits calibrated threshold signoff."
+      "reviewedBy": "Codex — production inventory, source and application-code review",
+      "reviewedAt": "2026-10-04T15:20:00Z",
+      "notes": "Noel primary in feet, all twelve recreational anchors null, curated=true. Eleven gauge_readings rows verified on 2026-10-04, latest observation 14:15 UTC; check freshness again at activation."
     },
     "conditions": {
-      "status": "blocked",
+      "status": "verified",
       "evidence": [
-        "scripts/ingestion/elk-release-review-2026-10-04.md"
+        "scripts/ingestion/elk-above-dam-release-2026-10-04.md"
       ],
-      "reviewedBy": "Codex \u2014 primary-source and production review",
-      "reviewedAt": "2026-10-04T00:00:00Z",
-      "notes": "No Noel-specific recreational thresholds found. Current outfitter level page still embeds 07189000. Neither datum subtraction nor an overlapping-cfs transfer is supported."
+      "reviewedBy": "Codex — production inventory, source and application-code review",
+      "reviewedAt": "2026-10-04T15:20:00Z",
+      "notes": "Owner accepted readings-only publication. No Noel recreational thresholds; #1418 provides unrated presentation. Verify web deployment before activation.",
+      "ratingMode": "unrated"
     },
     "hazards": {
-      "status": "blocked",
+      "status": "verified",
       "evidence": [
-        "scripts/ingestion/elk-release-review-2026-10-04.md"
+        "scripts/ingestion/elk-above-dam-release-2026-10-04.md"
       ],
-      "reviewedBy": "Codex \u2014 primary-source and production review",
-      "reviewedAt": "2026-10-04T00:00:00Z",
-      "notes": "Existing Shadow Lake Dam row confirmed; through-route portage is unverified and Trestle crossing still needs an exact point. Scope is these fixed features only."
+      "reviewedBy": "Codex — production inventory, source and application-code review",
+      "reviewedAt": "2026-10-04T15:20:00Z",
+      "notes": "Elk Springs Road crossing and Shadow Lake Dam are mapped. Public Pineville–Mount Shira plans include the crossing using the existing hazard section. No crossing procedure, safe level or legal portage is claimed; Cowskin remains excluded as a planner endpoint."
     },
     "routing": {
-      "status": "blocked",
+      "status": "verified",
       "evidence": [
-        "scripts/ingestion/elk-release-review-2026-10-04.md"
+        "scripts/ingestion/elk-above-dam-release-2026-10-04.md"
       ],
-      "reviewedBy": "Codex \u2014 primary-source and production review",
-      "reviewedAt": "2026-10-04T00:00:00Z",
-      "notes": "All ten existing approved pairs return valid polylines and plausible lengths, but four cross the dam and some use unsupported bridge launches. Private endpoints and shuttle roads remain unverified."
+      "reviewedBy": "Codex — production inventory, source and application-code review",
+      "reviewedAt": "2026-10-04T15:20:00Z",
+      "notes": "Production get_float_segment validated at 15:20 UTC: Pineville–Mount Shira is 7.52 miles with valid 34-vertex geometry. Public roads and parking are sourced from MDC. The shared endpoint resolver rejects excluded/pending pins; the unrated fallback provides a normal typical-time estimate. Outfitter packages and durations are not prerequisites."
     }
-  }
+  },
+  "conditionRatingMode": "unrated"
 }

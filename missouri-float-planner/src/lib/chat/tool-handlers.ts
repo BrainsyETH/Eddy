@@ -1,3 +1,4 @@
+import { DOWNSTREAM_DAM_BUFFER_MILES, splitRouteHazards } from '@shared/route-hazards';
 import { estimateRoute } from '@/lib/calculations/route-estimate';
 // src/lib/chat/tool-handlers.ts
 // Executes tool calls by querying existing DB/API functions directly.
@@ -293,16 +294,18 @@ async function handleGetFloatRoute(input: Record<string, unknown>) {
 
   const { data: hazards, error: hazardError } = await supabase
     .from('river_hazards')
-    .select('name, type, severity, river_mile_downstream, description, portage_required')
+    .select('id, name, type, severity, river_mile_downstream, description, portage_required')
     .eq('river_id', river.id)
     .eq('active', true)
     .gte('river_mile_downstream', minMile)
-    .lte('river_mile_downstream', maxMile)
+    .lte('river_mile_downstream', maxMile + DOWNSTREAM_DAM_BUFFER_MILES)
     .order('river_mile_downstream', { ascending: true });
   if (hazardError || hazards === null) {
     console.error('[ChatTool] Hazard lookup failed:', hazardError);
     return { error: 'Hazard information is unavailable.' };
   }
+
+  const routeHazards = splitRouteHazards(hazards, minMile, maxMile);
 
   return {
     riverName: river.name,
@@ -320,7 +323,8 @@ async function handleGetFloatRoute(input: Record<string, unknown>) {
     floatTimeNote,
     shuttleUrl,
     planUrl: `/rivers/${riverSlug}?putIn=${startAp.id}&takeOut=${endAp.id}`,
-    hazards: (hazards || []).map(h => ({
+    damsBelowTakeOut: routeHazards.damsBelowTakeOut,
+    hazards: routeHazards.hazards.map(h => ({
       name: h.name,
       type: h.type,
       severity: h.severity,

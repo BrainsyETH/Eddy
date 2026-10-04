@@ -1,5 +1,7 @@
 'use client';
 
+import PlanDownstreamDams from '@/components/plan/PlanDownstreamDams';
+
 import { unknownConditionLabel } from '@shared/condition-availability';
 
 
@@ -1124,6 +1126,7 @@ function JourneyCenter({
         </div>
       )}
 
+      <PlanDownstreamDams dams={plan.damsBelowTakeOut} />
       {/* Along Your Route */}
       {plan.hazardsUnavailable && <div className="mt-3"><PlanHazardStatus unavailable /></div>}
       {pointsAlongRoute.length > 0 && (
@@ -1550,6 +1553,7 @@ function MobileBottomSheet({
           </div>
         )}
 
+        <PlanDownstreamDams dams={plan.damsBelowTakeOut} />
         {/* Along Your Route */}
         {plan.hazardsUnavailable && <div className="mb-4"><PlanHazardStatus unavailable /></div>}
         {pointsAlongRoute.length > 0 && (

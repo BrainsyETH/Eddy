@@ -87,3 +87,12 @@ test('a failed hazard lookup preserves plan details without adding warnings or n
   const hazard = { id: 'mapped-hazard' };
   assert.deepEqual(planHazardResult([hazard], null), { hazards: [hazard], hazardsUnavailable: false });
 });
+
+test('old plan caches are refreshed for downstream dam coverage', () => {
+  const storage = new MemoryStorage();
+  writeLastValidPlan(storage, identity, plan, 1_000);
+  const old = JSON.parse(storage.value!);
+  old.version = 1;
+  storage.value = JSON.stringify(old);
+  assert.equal(readLastValidPlan(storage, identity, 2_000), null);
+});

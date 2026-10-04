@@ -1,3 +1,4 @@
+import { DOWNSTREAM_DAM_BUFFER_MILES, splitRouteHazards } from '@shared/route-hazards';
 import { planHazardResult } from '@/lib/plan-hazards';
 import { privateNoStore } from '@/lib/api-utils';
 import { estimateRoute, RouteEstimateError } from '@/lib/calculations/route-estimate';
@@ -200,10 +201,12 @@ async function _GET(request: NextRequest) {
       .eq('river_id', riverId)
       .eq('active', true)
       .gte('river_mile_downstream', minMile)
-      .lte('river_mile_downstream', maxMile)
+      .lte('river_mile_downstream', maxMile + DOWNSTREAM_DAM_BUFFER_MILES)
       .order('river_mile_downstream', { ascending: true });
     const hazardResult = planHazardResult(hazards, hazardError);
     if (hazardResult.hazardsUnavailable) console.error('[Plan] Hazard lookup failed:', hazardError);
+
+    const routeHazards = splitRouteHazards(hazardResult.hazards, minMile, maxMile);
 
     // Build warnings array
     const warnings: string[] = [];
@@ -382,7 +385,8 @@ async function _GET(request: NextRequest) {
           : null,
       },
       hazardsUnavailable: hazardResult.hazardsUnavailable,
-      hazards: hazardResult.hazards.map(h => ({
+      damsBelowTakeOut: routeHazards.damsBelowTakeOut,
+      hazards: routeHazards.hazards.map(h => ({
         id: h.id,
         riverId: h.river_id ?? '',
         name: h.name,

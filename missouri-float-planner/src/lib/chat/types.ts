@@ -1,3 +1,4 @@
+import type { DamBelowTakeOut } from '@shared/route-hazards';
 // src/lib/chat/types.ts
 // TypeScript types for the Eddy chat feature
 
@@ -83,6 +84,7 @@ export interface AccessPointResult {
 }
 
 export interface FloatRouteResult {
+  damsBelowTakeOut?: DamBelowTakeOut[];
   startPoint: string;
   endPoint: string;
   distanceMiles: number;

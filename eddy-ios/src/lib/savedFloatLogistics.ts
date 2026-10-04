@@ -6,6 +6,7 @@ export interface SavedFloatLogistics {
   putIn: Pick<MapAccessPoint, 'id' | 'name' | 'riverMile' | 'coordinates' | 'isPublic' | 'feeRequired' | 'description'>;
   takeOut: SavedFloatLogistics['putIn'];
   hazards: Hazard[];
+  damsBelowTakeOut?: FloatPlan['damsBelowTakeOut'];
   hazardsUnavailable?: boolean;
   /** When the retained hazard list was last loaded successfully. */
   hazardsSavedAt?: string;
@@ -25,6 +26,7 @@ export function savedFloatLogistics(plan: FloatPlan, now = new Date().toISOStrin
     savedAt: now,
     putIn: point(plan.putIn), takeOut: point(plan.takeOut),
     hazards: (hazardsUnavailable ? retained?.hazards ?? [] : plan.hazards).map((hazard) => ({ ...hazard })),
+    damsBelowTakeOut: (hazardsUnavailable ? retained?.damsBelowTakeOut ?? [] : plan.damsBelowTakeOut ?? []).map(dam => ({ ...dam })),
     hazardsUnavailable,
     hazardsSavedAt: hazardsUnavailable
       ? retained?.hazardsSavedAt ?? (retained && !retained.hazardsUnavailable ? retained.savedAt : undefined)
