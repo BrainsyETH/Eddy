@@ -134,5 +134,9 @@
   {
     "path": "/api/cron/rollup-telemetry",
     "schedule": "50 6 * * *"
+  },
+  {
+    "path": "/api/cron/revoke-apple-tokens",
+    "schedule": "12,27,42,57 * * * *"
   }
 ]

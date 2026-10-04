@@ -5,8 +5,8 @@
 // comes BEFORE any paywall ask, so it has to cost nothing — no account, no
 // email, no interruption. An anonymous Supabase user gives stars somewhere to
 // live server-side without the user ever seeing a login screen, and Sign in with
-// Apple later UPGRADES that same user id, so nothing needs re-syncing at the
-// point they convert.
+// Apple later links to that user for first-time signup. Returning Apple
+// accounts restore their own identity; local Favorites reconcile separately.
 //
 // Every failure here is non-fatal. The app is fully usable with no session at
 // all — Favorites simply stays on-device — so no error from this hook should
@@ -27,6 +27,7 @@ import type { Session } from '@supabase/supabase-js';
 import { getSupabase, isSupabaseConfigured } from '@/lib/supabase';
 import { clearNavigationCache, storeAppleAuthorizationCode, updateDisplayName } from '@/api/client';
 import { warn } from '@/lib/monitoring';
+import { resolveAppleIdentity } from '@/lib/appleIdentity';
 
 interface SessionValue {
   session: Session | null;
@@ -93,6 +94,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   // Guards against a second sign-in racing the first and creating two anonymous
   // users for one device — each would own a different half of the stars.
   const signingIn = useRef(false);
+  const bootstrap = useRef<Promise<void> | null>(null);
 
   useEffect(() => {
     const supabase = getSupabase();
@@ -111,7 +113,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       }
     });
 
-    (async () => {
+    bootstrap.current = (async () => {
       try {
         const { data } = await supabase.auth.getSession();
         if (cancelled) return;
@@ -168,21 +170,12 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  /**
-   * Sign in with Apple, UPGRADING the current anonymous user rather than
-   * replacing it.
-   *
-   * This is the whole reason the app starts anonymous. `signInWithIdToken`
-   * against an existing anonymous session links the Apple identity to that same
-   * user id, so the stars someone accumulated before converting are already
-   * theirs — nothing is migrated, because nothing moved. It is also why the
-   * purchase flow must run AFTER this: RevenueCat is keyed on the Supabase user
-   * id, and an entitlement bought under an anonymous id would be stranded the
-   * first time that id was replaced.
-   */
+  /** Link new Apple identities; restore existing accounts on identity conflict. */
   const signInWithApple = useCallback(async () => {
     const supabase = getSupabase();
     if (!supabase) throw new Error('Accounts are unavailable right now.');
+    // The guest bootstrap must settle before Apple auth can replace its session.
+    await bootstrap.current;
 
     let credential: AppleAuthentication.AppleAuthenticationCredential;
     try {
@@ -210,42 +203,17 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     const previousId = before.session?.user?.id ?? null;
     const previousWasAnonymous = before.session?.user?.is_anonymous ?? null;
 
-    const { data, error } = await supabase.auth.signInWithIdToken({
-      provider: 'apple',
-      token: credential.identityToken,
+    const appleCredentials = { provider: 'apple' as const, token: credential.identityToken };
+    const appleSession = await resolveAppleIdentity({
+      anonymous: previousWasAnonymous === true,
+      link: () => supabase.auth.linkIdentity({ provider: 'apple', token: appleCredentials.token }),
+      signIn: () => supabase.auth.signInWithIdToken(appleCredentials),
     });
+    setSession(appleSession);
 
-    if (error) throw new Error(error.message);
-    if (data.session) setSession(data.session);
-
-    // ── Does the upgrade actually preserve the user id? ──────────────────
-    //
-    // The docblock above asserts it does, and three separate things are built
-    // on that assertion: the stars story here, RevenueCat's appUserID in
-    // purchases.ts, and push identity in usePush. Nothing anywhere verifies it,
-    // so this makes the assumption observable instead of assumed. It is
-    // instrumentation, not a fix — there is nothing to repair unless it fires.
-    //
-    // A MISMATCH IS NOT AUTOMATICALLY A BUG, which is why this reports rather
-    // than throws. On reinstall the app mints a fresh anonymous user, and
-    // signing in with an Apple ID that already has an account correctly returns
-    // THAT account — a different id and the right answer. The case that would
-    // matter is a FIRST conversion, where an anonymous user with accumulated
-    // state signs in and Supabase mints a new user instead of linking; the
-    // remedy there is Supabase's documented linkIdentity() flow, and it would
-    // be a P0 before any purchase ships.
-    //
-    // The two are told apart by whether the abandoned id had server-side rows,
-    // which only the backend can answer — hence both ids in the report.
-    //
-    // TRUNCATED to eight characters, deliberately. The full UUIDs slipped past
-    // redact.ts — its hex rule wants 32+ CONTIGUOUS chars, which a dashed
-    // UUID never is — so two account ids reached Sentry on every ordinary
-    // reinstall-then-sign-in, while app-privacy-labels.md declares crash data
-    // "not linked to identity" and flags this exact breadcrumb. Eight chars
-    // still say whether the two ids differ and give the backend a prefix to
-    // search on, without being an account identifier.
-    const nextId = data.session?.user?.id ?? null;
+    // A changed id is expected for a returning Apple account. Favorites merge
+    // on session change; do not log complete account identifiers.
+    const nextId = appleSession.user.id;
     if (previousId && nextId && previousId !== nextId) {
       warn('auth', 'Apple sign-in changed the user id', {
         previousId: previousId.slice(0, 8),
@@ -270,9 +238,9 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     // not report itself as broken because a compliance side-effect did not
     // land; the cost is a token we cannot revoke later, which is ours to carry
     // and not something the person signing in can act on.
-    if (credential.authorizationCode && data.session) {
+    if (credential.authorizationCode) {
       try {
-        await storeAppleAuthorizationCode(data.session.access_token, credential.authorizationCode);
+        await storeAppleAuthorizationCode(appleSession.access_token, credential.authorizationCode);
       } catch (err) {
         warn('auth', 'could not hand the Apple authorization code to the server', err);
       }
@@ -289,9 +257,9 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       .join(' ')
       .trim();
 
-    if (fullName && data.session) {
+    if (fullName) {
       try {
-        await updateDisplayName(data.session.access_token, fullName);
+        await updateDisplayName(appleSession.access_token, fullName);
       } catch {
         // ignored on purpose — see above
       }
