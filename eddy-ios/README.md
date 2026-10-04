@@ -659,6 +659,15 @@ distance from the preceding access. Take-out choices start at the selected
 put-in and also show total miles from it. Timeline spacing is not to scale.
 Nearest-first ordering hides the connector so proximity cannot imply river order.
 
+The result reuses the map sheet's campsite availability panel below each tracked
+endpoint. A tap opens that facility on Camping with the displayed night; older
+payloads without a facility ID open the access page. Along-the-way cards open
+their existing place pages when a slug is available. The native planner waits
+for dismissal before navigating and restores its result and scroll position on
+Back; saved floats use their existing stack. Device QA: try each endpoint's
+camping panel, multiple along-the-way cards, rapid repeat taps, Back, and changing
+the stretch, from both a new plan and a saved float.
+
 **Saved floats** are local (`useSavedFloats`) because the server has no notion of
 "mine": `float_plans` is keyed by share code, and most users are anonymous. The saved collection stays on this device; signing in syncs favorites, not
 saved floats. Saved trips retain endpoint coordinates, access details, distance,

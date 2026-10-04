@@ -21,11 +21,13 @@
 // produced it would be a plan nobody trusts.
 
 import { radii } from '@/theme/layout';
-import { useCallback, useLayoutEffect, useMemo, useState, useSyncExternalStore, type ReactNode } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useState, useSyncExternalStore, type ReactNode } from 'react';
+import { useIsFocused, useRouter } from 'expo-router';
 import {
   ActivityIndicator,
   FlatList,
   Modal,
+  Platform,
   Pressable,
   ScrollView,
   Share,
@@ -36,7 +38,7 @@ import {
 } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { ControlIcon } from '@/components/ControlIcon';
-import type { MapAccessPoint, RiverListItem } from '@eddy/types';
+import type { FloatPlan, MapAccessPoint, RiverListItem } from '@eddy/types';
 import { accessTypeLabel } from '@eddy/types';
 import { saveFloatPlan } from '@/api/client';
 import { selectionFeedback, successFeedback } from '@/lib/haptics';
@@ -53,6 +55,9 @@ import { milesBetween, type Coords } from '@/hooks/useLocation';
 import { damControlledLabel } from '@/lib/readingCopy';
 import { conditionColor } from '@/theme/conditions';
 import { createPlanActions } from '@/lib/planActions';
+import { createPlanDetailNavigation } from '@/lib/planDetailNavigation';
+import type { PlanDetailDestination } from '@/lib/planDestinations';
+import { usePlanSupport } from '@/hooks/usePlanSupport';
 
 interface Props {
   visible: boolean;
@@ -101,6 +106,33 @@ export function PlanSheet({
   useSyncExternalStore(actions.subscribe, actions.getSnapshot, actions.getSnapshot);
   const { step, putIn, takeOut, plan, calculating, error } = state;
   const resultReady = Boolean(river && !riverLoading && step === 'result' && !calculating && !error && plan && plan.river.id === river.id);
+  const router = useRouter();
+  const focused = useIsFocused();
+  const [detailNavigation] = useState(createPlanDetailNavigation);
+  const suspended = useSyncExternalStore(detailNavigation.subscribe, detailNavigation.getSnapshot, detailNavigation.getSnapshot);
+  // A dismissed native Modal unmounts its children. Keep logistics and the
+  // scroll position here so Back restores the same result without a reload.
+  const support = usePlanSupport(resultReady ? plan : null);
+  const [scrollPositions] = useState(() => new WeakMap<FloatPlan, number>());
+  useLayoutEffect(() => { detailNavigation.focus(focused); }, [detailNavigation, focused]);
+  useLayoutEffect(() => { if (!visible) detailNavigation.reset(); }, [detailNavigation, visible]);
+  useLayoutEffect(() => () => detailNavigation.reset(), [detailNavigation, plan]);
+  const openDetail = useCallback((destination: PlanDetailDestination) => {
+    if (!visible || !resultReady || !focused) return;
+    actions.cancelShare();
+    detailNavigation.open(destination);
+  }, [actions, detailNavigation, visible, resultReady, focused]);
+  const presentDetail = useCallback(() => {
+    const destination = detailNavigation.dismissed();
+    if (!destination) return;
+    if (!visible || !resultReady || !focused) { detailNavigation.reset(); return; }
+    router.push(destination);
+  }, [detailNavigation, router, visible, resultReady, focused]);
+  // iOS waits for the native dismissal callback. Other platforms remove the
+  // modal when visible becomes false and do not emit that callback.
+  useEffect(() => {
+    if (Platform.OS !== 'ios' && suspended) presentDetail();
+  }, [suspended, presentDetail]);
   const saved = plan ? isSaved(plan) : false;
   const actionState = plan ? actions.stateFor(plan) : null;
   const saving = actionState?.saving ?? false;
@@ -112,8 +144,9 @@ export function PlanSheet({
   useLayoutEffect(() => () => actions.cancelShare(), [actions, visible, plan, resultReady]);
   const close = useCallback(() => {
     actions.cancelShare();
+    detailNavigation.reset();
     onClose();
-  }, [actions, onClose]);
+  }, [actions, detailNavigation, onClose]);
   const onShare = useCallback(() => {
     if (!plan || !visible || !resultReady) return;
     return actions.share(plan, {
@@ -144,10 +177,11 @@ export function PlanSheet({
 
   return (
     <Modal
-      visible={visible}
+      visible={visible && focused && !suspended}
       animationType="slide"
       presentationStyle="pageSheet"
       onRequestClose={close}
+      onDismiss={presentDetail}
     >
       <SafeAreaProvider>
       <SafeAreaView edges={resultReady ? ['top', 'left', 'right'] : ['top', 'left', 'right', 'bottom']} style={[styles.sheet, { backgroundColor: colors.bg }]} onAccessibilityEscape={close}>
@@ -233,6 +267,10 @@ export function PlanSheet({
         ) : (
           <PlanResult
             plan={plan}
+            support={support}
+            initialScrollOffset={scrollPositions.get(plan) ?? 0}
+            onScrollOffsetChange={(offset) => { scrollPositions.set(plan, offset); }}
+            onOpenDetail={openDetail}
             accessPoints={plan.river.id === river?.id ? accessPoints : undefined}
             header={contentHeader}
             actions={
