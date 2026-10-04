@@ -6,11 +6,20 @@
 # Run from the Remotion project root (so `public/` and node_modules resolve).
 #
 # Env: COMPOSITION_ID, OUTPUT_FILENAME, BLOB_PREFIX, AUDIO_MODE (clip|social),
-#      RENDER_MODE (bundle|entry), BLOB_READ_WRITE_TOKEN.
+#      RENDER_MODE (bundle|entry), BLOB_READ_WRITE_TOKEN,
+#      OPENAI_API_KEY (Eddy Reads), RENDER_PREVIEW_ONLY (optional, no upload).
 # Reads /tmp/props.json. Appends clip_url + audio_* to $GITHUB_OUTPUT.
 set -euo pipefail
 
 OUTFILE=/tmp/out.mp4
+
+# Generate fresh report speech (or reuse the content-addressed audio cache).
+# The container serves copied assets from build/public; the entry render uses public.
+if [ "$COMPOSITION_ID" = "social-eddy-read" ]; then
+  READ_ASSETS=public
+  if [ "$RENDER_MODE" = "bundle" ]; then READ_ASSETS=build/public; fi
+  node scripts/prepare-read-narration.mjs /tmp/props.json "$READ_ASSETS"
+fi
 
 # Render: from the prebuilt bundle (container) or via the entry point (runtime).
 if [ "$RENDER_MODE" = "bundle" ]; then
@@ -23,22 +32,15 @@ else
 fi
 echo "Rendered: $(stat -c%s "$OUTFILE") bytes"
 
-# Audio: social muxes + validates the looped background music; clip keeps the
-# clip's own track. Remotion ships a stripped ffmpeg without afade — rely on
-# plain volume scaling; -stream_loop -1 covers a video longer than the source.
+# Audio: Reads retain narration + the quiet theme mix. Other social layouts
+# receive the legacy music loop. Clip renders keep the clip's own track.
 if [ "$AUDIO_MODE" = "social" ]; then
-  AUDIO_SRC="public/audio/background-music.wav"
-  AUDIO_GAIN="0.9"
-  if [ "$COMPOSITION_ID" = "social-eddy-read" ]; then AUDIO_GAIN="0.16"; fi
   DURATION=$(npx remotion ffprobe -v error -show_entries format=duration \
     -of default=noprint_wrappers=1:nokey=1 "$OUTFILE")
   echo "Video duration: ${DURATION}s"
   [ -n "$DURATION" ] || { echo "::error::Could not read video duration"; exit 1; }
 
-  npx remotion ffmpeg -y -stream_loop -1 -i "$AUDIO_SRC" -i "$OUTFILE" \
-    -c:v copy -c:a aac -b:a 192k -ar 48000 -ac 2 -t "$DURATION" -af "volume=$AUDIO_GAIN" \
-    -map 1:v:0 -map 0:a:0 -movflags +faststart /tmp/normalized.mp4
-  mv /tmp/normalized.mp4 "$OUTFILE"
+  bash scripts/mux-social-audio.sh "$OUTFILE" "$COMPOSITION_ID"
   echo "Audio normalized: $(stat -c%s "$OUTFILE") bytes"
 
   # Bitrate gate — floor at 64 kb/s, high enough to fail silent placeholders.
@@ -90,6 +92,9 @@ if [ "$AUDIO_MODE" = "clip" ]; then
 else
   bash scripts/video-health.sh "$OUTFILE" 4 off
 fi
+
+# Optional review-only run: leave the validated local movie for an artifact.
+if [ "${RENDER_PREVIEW_ONLY:-false}" = "true" ]; then exit 0; fi
 
 # Upload to Vercel Blob.
 DATE_PREFIX=$(date -u +%Y-%m-%d)

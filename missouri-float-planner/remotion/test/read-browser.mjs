@@ -56,7 +56,8 @@ try {
     const composition = await page.evaluate(id => window.remotion_calculateComposition(id), id);
     const props = JSON.parse(composition.serializedResolvedPropsWithCustomSchema);
     const duration = composition.durationInFrames;
-    assert.ok(duration <= 900, 'whole reel must stay within 30 seconds');
+    assert.ok(duration >= 360, 'full report receives a usable reading duration');
+    const endingStart = duration - Math.max(90, (props.voiceover?.closing.durationFrames ?? 0) + 24);
     await page.evaluate(({ id, composition }) => window.remotion_setBundleMode({
       type: 'composition', compositionName: id,
       serializedResolvedPropsWithSchema: composition.serializedResolvedPropsWithCustomSchema,
@@ -64,7 +65,7 @@ try {
       compositionHeight: composition.height, compositionWidth: composition.width,
     }), { id, composition });
     await page.waitForSelector('[data-read-region="viewport"]');
-    const frames = [...new Set([0, 1, ...Array.from({ length: Math.ceil(duration / 15) }, (_, i) => i * 15), duration - 91, duration - 90, duration - 1])].sort((a, b) => a - b);
+    const frames = [...new Set([0, 1, ...Array.from({ length: Math.ceil(duration / 30) }, (_, i) => i * 30), endingStart - 1, endingStart, duration - 1])].sort((a, b) => a - b);
     let previous;
     for (const frame of frames) {
       await page.evaluate(({ id, frame }) => window.remotion_setFrame(frame, id, 1), { id, frame });
@@ -84,6 +85,8 @@ try {
         return { rects,
           text: [...document.querySelectorAll('[data-read-text]')].map(p=>p.textContent).join(' '),
           mascotLoaded: img.complete && img.naturalWidth > 0,
+          closingEddyLoaded: document.querySelector('[data-read-region="closing-eddy"]').naturalWidth > 0,
+          weather: document.querySelector('[data-read-region="weather"]')?.textContent ?? null,
           closingWeight: Number(getComputedStyle(document.querySelector('[data-read-region="closing-title"]')).fontWeight),
           error: window.remotion_cancelledError,
         };
@@ -91,6 +94,11 @@ try {
       assert.ok(!snapshot.error, snapshot.error);
       assert.equal(snapshot.text.replace(/\s+/g,' ').trim(), props.readingText.replace(/\s+/g,' ').trim(), 'every word retained');
       assert.ok(snapshot.mascotLoaded, 'Eddy is loaded on every frame');
+      assert.ok(snapshot.closingEddyLoaded, 'the closing card includes Eddy');
+      if (props.weather) {
+        assert.ok(snapshot.weather.includes(`${props.weather.highF}°`), 'actual forecast high is present');
+        assert.ok(snapshot.weather.includes(`${props.weather.precipChance}% rain`), 'report-day rain chance is present');
+      } else assert.equal(snapshot.weather, null, 'no invented weather');
       const r = snapshot.rects;
       for (const name of ['header', 'host', 'viewport', 'footer']) {
         assert.ok(r[name].left >= 120 && r[name].right <= 810 && r[name].top >= 250 && r[name].bottom <= 1501, `${id}: ${name} outside safe area`);
@@ -104,17 +112,17 @@ try {
       assert.ok(visibleHeight('report') + visibleHeight('ending') >= r.viewport.height - 100, `${id} @ ${frame}: no mostly-empty entrance or exit`);
       assert.ok(r.ending.top - r.report.bottom <= 36.1, 'closing card follows the last sentence');
       if (frame === 0) assert.ok(r.report.top <= r.viewport.top + 30, 'the report is already in view at the opening');
-      if (previous && frame < duration - 90) {
+      if (previous && frame < endingStart) {
         assert.ok(r.content.top < previous.rects.content.top, 'text never stalls or jumps back down');
         assert.equal(r.viewport.top,previous.rects.viewport.top,'chrome stays fixed');
       }
-      if (frame >= duration - 91) {
+      if (frame >= endingStart - 1) {
         assert.ok(r.report.bottom <= r.viewport.top + 6, 'all final words have crossed the viewport');
         assert.ok(r.ending.top >= r.viewport.top && r.ending.bottom <= r.viewport.bottom, 'the complete closing card fits during the hold');
         assert.ok(r['closing-title'].left >= r.ending.left && r['closing-title'].right <= r.ending.right, 'closing headline fits');
         assert.ok(snapshot.closingWeight >= 700, 'closing headline has a bold weight');
       }
-      if (previous && frame >= duration - 90) assert.equal(r.content.top, previous.rects.content.top, 'ending holds without a jump');
+      if (previous && frame >= endingStart) assert.equal(r.content.top, previous.rects.content.top, 'ending holds without a jump');
       previous = snapshot;
     }
     console.log(`${id}: all ${frames.length} frame checks passed (${duration / composition.fps}s)`);

@@ -44,12 +44,12 @@ STILLS=(
   # the square social-gauge and the alert are the other two gauge layouts.
   "social-gauge-portrait:0,120"
   # Full reading: immediate prose, continuous travel, and inline closing CTA.
-  "social-eddy-read:0,120,330"
-  # Long names/full text, topic illustrations and the 30-second cap.
-  "social-eddy-read-long:0,120,420,780,870"
+  "social-eddy-read:0,120,360"
+  # Long names/full text, topic illustrations and the natural reading duration.
+  "social-eddy-read-long:0,540,1158"
   # The exact Current River full report that previously rendered to 89 seconds
   # after a redundant short interpretation was prepended.
-  "social-eddy-read-current:0,120,420,780,870"
+  "social-eddy-read-current:0,600,1742"
   "social-gauge:0,120"
   "social-gauge-alert:0,120"
   "social-trend-portrait:0,120"

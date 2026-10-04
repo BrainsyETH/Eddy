@@ -288,8 +288,24 @@ merged layout fix out of newly generated posts. Existing MP4s remain unchanged;
 use **Render again** after rollout, inspect the new draft, then publish.
 
 Eddy’s Read uses the complete retained report without prepending its short
-interpretation. Its continuous-scroll renderer caps the entire video at 30
-seconds, including the ending, and keeps the existing Eddy mascot visible.
+interpretation. Its continuous-scroll renderer follows the measured full
+narration at a soft, natural pace, and keeps Eddy visible. The earlier 30-second
+cap was removed in favor of understandable speech. It includes the saved report
+date's weather temperatures and a canoeing Eddy closing card.
 The caption retains the full text. Existing drafts retain their saved render
 props: create a new Quick Post to pick up the revised report selection as well
 as the layout. Neither a new render nor this change approves a manual draft.
+
+Eddy Read renders require the GitHub Actions `OPENAI_API_KEY` secret. Before
+rendering, `prepare-read-narration.mjs` creates the full Read and closing audio
+using the pinned speech model and friendly delivery instructions. Audio is
+normalized, measured, and cached by text/model/voice/instructions. No key enters
+render props. A missing key or failed synthesis fails the render rather than
+publishing a silent substitute. Other social formats retain their music path.
+The Read's final mux preserves its mixed audio, including the quiet theme bed.
+
+For a voice review without any Blob upload, DB callback or social publication:
+run **Remotion Check** on the PR branch with **voice_preview** enabled. Download
+the **eddy-read-voice-preview** artifact. It uses the fixed October 3 Current
+River report and weather snapshot. This manual job is never run by ordinary PR
+checks, and it must be listened to before approving voice quality or level.

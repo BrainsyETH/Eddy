@@ -1,4 +1,5 @@
 import { LABELS } from '@shared/social-brand';
+import type { ReadWeather } from '@shared/eddy-read-reel';
 import { reportStamp, shortSummary } from '@shared/social-editorial';
 // src/lib/social/post-types.ts
 //
@@ -36,6 +37,7 @@ export type VideoPostKind = Exclude<PostKind, 'tip'>;
 export interface RenderData {
   riverName?: string;
   readingText?: string;
+  readWeather?: ReadWeather | null;
   riverSlug?: string;
   conditionCode?: string;
   gaugeHeightFt?: number | null;
@@ -166,6 +168,7 @@ export const POST_TYPES: Record<PostKind, PostTypeDef> = {
     renderProps: (data) => ({
       riverName: data.riverName || 'Unknown River',
       readingText: data.readingText || data.quoteText || data.summaryText || '',
+      weather: data.readWeather ?? null,
       dateLabel: data.dateLabel || defaultDate(),
       conditionCode: data.conditionCode,
       gaugeHeightFt: data.gaugeHeightFt,

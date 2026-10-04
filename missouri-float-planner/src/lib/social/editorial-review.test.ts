@@ -52,14 +52,30 @@ test('editorial cover content survives centered square and portrait crops', asyn
  }
 });
 
-test('continuous reading preserves every word and caps the whole reel at 30 seconds', async () => {
- const { readingBlocks, readingDuration, READ_MAX_FRAMES, READ_FPS } = await import('../../../shared/eddy-read-reel');
+test('continuous reading preserves every word and gives the full Read a relaxed pace', async () => {
+ const { readingBlocks, readingDuration, READ_FPS } = await import('../../../shared/eddy-read-reel');
  const text='The water is steady. Check shallow crossings before choosing your route. '.repeat(15)+'\n\nFinish at the selected take-out.';
  assert.equal(readingBlocks(text).map(b=>b.text).join(' '),text.trim().replace(/\s+/g,' '));
- assert.equal(readingDuration(text),READ_MAX_FRAMES);
- assert.ok(READ_MAX_FRAMES/READ_FPS<=30);
+ assert.ok(readingDuration(text)/READ_FPS>30);
  assert.ok(readingDuration(text)>readingDuration('Short reading.'));
- assert.equal(readingDuration(text.repeat(100)),READ_MAX_FRAMES);
+ assert.ok(readingDuration(text.repeat(2))>readingDuration(text));
+});
+test('measured speech controls duration without cropping the closing narration', async () => {
+ const { readingTiming, READ_VOICE_LEAD, READ_VOICE_GAP } = await import('../../../shared/eddy-read-reel');
+ const voiceover={clips:[{src:'one.mp3',durationFrames:1000},{src:'two.mp3',durationFrames:400}],closing:{src:'end.mp3',durationFrames:140}};
+ const timing=readingTiming('A short-looking but deliberately slow spoken report.',voiceover);
+ assert.equal(timing.endingStart,READ_VOICE_LEAD+1400+READ_VOICE_GAP+12);
+ assert.equal(timing.endingFrames,164);
+ assert.equal(timing.duration,timing.endingStart+164);
+});
+test('Read weather shows the report date and its rain chance without borrowing another day', async () => {
+ const { readingWeather } = await import('../../../shared/eddy-read-reel');
+ const day={date:'2026-10-03',highF:74,lowF:58,condition:'Clouds',precipChance:13};
+ const weather={forecast:[day,{...day,date:'2026-10-04',precipChance:90}]};
+ assert.deepEqual(readingWeather(weather,'2026-10-04T01:00:00Z'),day);
+ assert.equal(readingWeather(weather,'2026-10-05T18:00:00Z'),null);
+ assert.equal(readingWeather(null,'2026-10-03T18:00:00Z'),null);
+ assert.equal(readingWeather(weather,'invalid'),null);
 });
 test('full report is preserved without the separate introduction and stale prose stays withheld', async () => {
  const { publishableReading } = await import('../../../shared/eddy-read-reel');
@@ -73,7 +89,7 @@ test('scroll starts with prose visible and brings the inline ending into place',
  for (const height of [120, 1400, 5000]) {
    const positions = Array.from({length:900-READ_CTA_FRAMES},(_,frame)=>readingScrollY(frame,900,height));
    assert.equal(positions[0],24);
-   assert.equal(positions.at(-1)+height,24);
+   assert.equal(positions.at(-1)!+height,24);
    assert.equal(readingScrollY(899,900,height),positions.at(-1));
    const step = positions[1]-positions[0];
    assert.ok(step<0);
