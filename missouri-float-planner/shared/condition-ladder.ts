@@ -98,6 +98,10 @@ export function classifyReading(
   }
 
   if (compareValue == null) return "unknown";
+  // Measurements alone are not a recreational rating. Keep this invariant in
+  // the shared classifier so every API/mobile fallback agrees with the RPCs.
+  // The official flood-stage override above still takes precedence.
+  if (!hasLadder(thresholds)) return "unknown";
 
   // Check thresholds from highest to lowest (most dangerous first)
   if (thresholds.levelDangerous !== null && compareValue >= thresholds.levelDangerous) {
@@ -140,10 +144,8 @@ export function classifyReading(
  * True when a ladder has enough anchors to grade anything at all.
  *
  * A gauge station wired to no river, or to one nobody has rated yet, carries a
- * row of nulls. classifyReading would answer `too_low` for it — every band is
- * skipped and the fall-through wins — which would paint a perfectly healthy
- * river brown on a map. Callers that DISPLAY a computed condition must check
- * this first; callers comparing a known-rated gauge need not.
+ * row of nulls. classifyReading returns `unknown` for it. Display callers can
+ * use this helper to show measurements without a recreational verdict.
  */
 export function hasLadder(thresholds: ConditionThresholds): boolean {
   return (

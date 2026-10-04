@@ -35,6 +35,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { getScriptClient } from '../lib/db';
+import { unratedGaugePlan } from './unrated-gauges';
 
 type Level = 'too_low' | 'low' | 'optimal_min' | 'optimal_max' | 'high' | 'dangerous';
 
@@ -154,12 +155,19 @@ for (const [siteId, b] of perGauge) {
 }
 
 // ---------- [signoff] primary-gauge gate ----------
-// is_primary lives on the river_gauges row, so the primary must be a calibrated
-// (thresholded) gauge. Explicit-only: we never guess a primary — it's a
+// is_primary lives on the river_gauges row. Rated dossiers need calibrated
+// anchors; explicitly reviewed unrated dossiers create measurement-only links.
+// Explicit-only: we never guess a primary — it's a
 // safety-relevant, river-level choice — so an unset dossier just warns and
 // leaves is_primary untouched (validate_river_data() will still flag
 // no_primary_gauge, which is the intended launch block).
 const primarySiteId: string | undefined = dossier.primaryGaugeSiteId;
+const unrated = dossier.conditionRatingMode === 'unrated';
+const measurementPlan = unratedGaugePlan({ ...dossier, gauges, sections: dossier.sections ?? [] });
+problems.push(...measurementPlan.problems.map(p => `[unrated] ${p}`));
+for (const { siteId, unit } of measurementPlan.links) {
+  perGauge.set(siteId, { unit, values: {}, sources: new Set(), urls: new Set(), sections: [] });
+}
 if (primarySiteId && !perGauge.has(primarySiteId)) {
   problems.push(
     `[auto] primaryGaugeSiteId '${primarySiteId}' is not a calibrated gauge ` +
@@ -183,7 +191,7 @@ if (problems.length) {
   console.error('\nNothing written. Fix the dossier (or complete the verify/signoff passes) and re-run.');
   process.exit(1);
 }
-console.log(`  ✓ gates passed: signoff, ${gauges.length} verified gauge ids, ${perGauge.size} calibrated gauges`);
+console.log(`  ✓ gates passed: signoff, ${gauges.length} verified gauge ids, ${perGauge.size} gauge links (${unrated ? 'unrated' : 'rated'})`);
 
 // ---------- build the write plan ----------
 const riverUpdate: Record<string, unknown> = {
@@ -236,8 +244,28 @@ if (!apply) { console.log('\nDry run complete — re-run with --apply to write.'
   // Prod is `ilefwfpvphadsbptiaur`. Dry runs exit above and never get here.
   const db = getScriptClient({ script: 'ingest-dossier', write: true });
 
-  const { data: river, error: riverErr } = await db.from('rivers').select('id').eq('slug', dossier.slug).single();
+  const { data: river, error: riverErr } = await db.from('rivers').select('id, active').eq('slug', dossier.slug).single();
   if (riverErr || !river) throw new Error(`rivers row for slug '${dossier.slug}' not found — import geometry first (import-nhd-rivers.ts or seed path).`);
+
+  if (dossier.conditionRatingMode && river.active) throw new Error('Stage a rating-mode change on an inactive river; active rivers need a separate reviewed migration.');
+  if (dossier.conditionRatingMode) {
+    // Fail before any writes if the release-policy migration is not deployed.
+    const { error } = await db.from('rivers').select('condition_rating_mode').eq('id', river.id).single();
+    if (error) throw error;
+  }
+  if (unrated) {
+    const { data: linked, error } = await db.from('river_gauges')
+      .select('gauge_stations(usgs_site_id), level_too_low, level_low, level_optimal_min, level_optimal_max, level_high, level_dangerous, alt_level_too_low, alt_level_low, alt_level_optimal_min, alt_level_optimal_max, alt_level_high, alt_level_dangerous')
+      .eq('river_id', river.id);
+    if (error) throw error;
+    for (const row of linked ?? []) {
+      const station = Array.isArray(row.gauge_stations) ? row.gauge_stations[0] : row.gauge_stations;
+      const hasAnchors = Object.entries(row).some(([key, value]) => /^(alt_)?level_/.test(key) && value != null);
+      if (hasAnchors && !perGauge.has(station?.usgs_site_id ?? '')) {
+        throw new Error('An existing gauge outside this unrated write plan retains thresholds; review that link before ingesting.');
+      }
+    }
+  }
 
   const { error: upErr } = await db.from('rivers').update(riverUpdate).eq('id', river.id);
   if (upErr) throw new Error(`rivers update failed: ${upErr.message}`);
@@ -266,7 +294,7 @@ if (!apply) { console.log('\nDry run complete — re-run with --apply to write.'
     const row: Record<string, unknown> = {
       river_id: river.id, gauge_station_id: stationId,
       threshold_unit: b.unit,
-      threshold_source: classifySource([...b.sources].join(' ')),
+      threshold_source: unrated ? null : classifySource([...b.sources].join(' ')),
       threshold_source_url: [...b.urls][0] ?? null,
       threshold_updated_at: new Date().toISOString(),
       ...(gauge?.positionRiverMile != null ? { river_mile: gauge.positionRiverMile } : {}),
@@ -275,6 +303,7 @@ if (!apply) { console.log('\nDry run complete — re-run with --apply to write.'
     // re-ingests are idempotent — an anchor dropped from the dossier must not
     // survive in the DB from an earlier run.
     for (const l of LEVEL_ORDER) row[LEVEL_COL[l]] = b.values[l] ?? null;
+    if (unrated) for (const l of LEVEL_ORDER) row[`alt_${LEVEL_COL[l]}`] = null;
     const { data: existing } = await db.from('river_gauges').select('id').eq('river_id', river.id).eq('gauge_station_id', stationId).maybeSingle();
     const { error } = existing
       ? await db.from('river_gauges').update(row).eq('id', existing.id)
@@ -301,6 +330,13 @@ if (!apply) { console.log('\nDry run complete — re-run with --apply to write.'
     }
   } else {
     console.log('  ⚠️  no primary gauge designated (primaryGaugeSiteId unset) — is_primary untouched.');
+  }
+
+  // Persist the explicit policy after staging links. No activation occurs here;
+  // the database gate rechecks empty ladders and matching reviewed evidence.
+  if (dossier.conditionRatingMode) {
+    const { error } = await db.from('rivers').update({ condition_rating_mode: dossier.conditionRatingMode }).eq('id', river.id);
+    if (error) throw error;
   }
 
   for (const s of sectionsRows) {

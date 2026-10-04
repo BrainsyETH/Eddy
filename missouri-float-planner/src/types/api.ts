@@ -521,6 +521,8 @@ export type HazardType =
 export type HazardSeverity = 'info' | 'caution' | 'warning' | 'danger';
 
 export interface FloatPlan {
+  /** Typical times are not adjusted to the current gauge reading. */
+  estimateBasis?: 'today' | 'typical';
   /** Hazard lookup failed; the rest of the plan remains usable. Never persist as a complete plan. */
   hazardsUnavailable?: boolean;
   river: River;

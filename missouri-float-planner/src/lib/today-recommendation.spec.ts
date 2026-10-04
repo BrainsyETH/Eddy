@@ -15,7 +15,7 @@ import {
 } from '../../../eddy-ios/src/lib/todayFloats';
 import { defaultCurrentAlertsFilter, filterCurrentAlerts } from '../../../eddy-ios/src/lib/todaySafety';
 
-function river(id: string, code: 'good' | 'flowing' | 'high', age = 1): RiverListItem {
+function river(id: string, code: 'good' | 'flowing' | 'high' | 'unknown', age = 1): RiverListItem {
   return {
     id, name: `River ${id}`, slug: `river-${id}`, lengthMiles: 10,
     description: null, difficultyRating: null, region: null, accessPointCount: 2,
@@ -67,6 +67,7 @@ test('Best River notice summary keeps the urgent category compact and preserves 
 test('recommendations require positive water and the shared fresh-reading window', () => {
   assert.equal(isTodayRecommendationEligible(river('good', 'good')), true);
   assert.equal(isTodayRecommendationEligible(river('high', 'high')), false);
+  assert.equal(isTodayRecommendationEligible(river('unrated', 'unknown')), false);
   assert.equal(isTodayRecommendationEligible(river('stale', 'good', 7)), false);
 });
 

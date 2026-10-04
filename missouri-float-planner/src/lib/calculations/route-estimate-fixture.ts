@@ -12,6 +12,7 @@ export function routeFixture(options: {
   miles?: number; vessel?: 'canoe' | 'raft' | 'tube'; condition?: ConditionCode;
   riverType?: string; published?: { min: number; max: number };
   discharge?: number; reference?: number; wrongRiver?: boolean;
+  unratedFallback?: boolean;
   speedCurve?: { low: number; too_low: number };
   spanReading?: { height: number; qualifiers?: string[]; timestamp?: string; floodStage?: number };
 } = {}) {
@@ -25,7 +26,10 @@ export function routeFixture(options: {
     rivers: { id: 'river', slug: 'fixture', name: 'Fixture river', river_type: options.riverType ?? 'spring_fed_float' },
     access_points: endpoints,
     vessel_types: { id: slug, slug, name: slug, speed_low_water: speeds[0], speed_normal: speeds[1], speed_high_water: speeds[2] },
-    river_gauges: options.spanReading ? [{
+    river_gauges: options.unratedFallback ? [{
+      threshold_unit: 'ft', level_too_low: null, level_low: null,
+      level_optimal_min: null, level_optimal_max: null, level_high: null, level_dangerous: null,
+    }] : options.spanReading ? [{
       river_mile: 4, threshold_unit: 'ft', level_too_low: 1, level_low: 2,
       level_optimal_min: 3, level_optimal_max: 7, level_high: 8, level_dangerous: 10,
       flood_stage_ft: options.spanReading.floodStage ?? 5,
@@ -47,7 +51,7 @@ export function routeFixture(options: {
         }, in: () => query,
         order: () => query, limit: () => query, not: () => query,
         single: () => Promise.resolve({ data: rows[table], error: null }),
-        maybeSingle: () => Promise.resolve({ data: rows[table], error: null }),
+        maybeSingle: () => Promise.resolve({ data: table === 'river_gauges' && Array.isArray(rows[table]) ? rows[table][0] : rows[table], error: null }),
         then: (resolve: (value: unknown) => unknown) => Promise.resolve({ data: rows[table], error: null }).then(resolve),
       };
       return query;
@@ -64,7 +68,12 @@ export function routeFixture(options: {
     },
   } as unknown as SupabaseClient<Database>;
   const providers = {
-    fetchGaugeReadings: async () => { throw new Error('Unexpected live reading fallback'); },
+    fetchGaugeReadings: async () => {
+      calls.push('liveFallback');
+      if (!options.unratedFallback) throw new Error('Unexpected live reading fallback');
+      return [{ siteId: 'fixture-gauge', siteName: 'Fixture gauge', gaugeHeightFt: 5.8, dischargeCfs: options.discharge ?? null,
+        readingTimestamp: new Date().toISOString(), qualifiers: [] }];
+    },
     fetchDailyStatistics: async () => {
       calls.push('statistics');
       return options.reference ? { p50: options.reference } as DailyStatistics : null;

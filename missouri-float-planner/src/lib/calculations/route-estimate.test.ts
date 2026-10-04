@@ -137,3 +137,17 @@ test('cached geometry cannot bypass endpoint verification or live danger withhol
   await assert.rejects(wrongRiver.estimate(), /not on this river/);
   assert.equal(geometryReads, 1);
 });
+
+
+test('unrated live fallback retains readings and quotes only typical times', async () => {
+  for (const published of [undefined, { min: 180, max: 300 }]) {
+    const result = await routeFixture({ condition: 'unknown', unratedFallback: true,
+      published, discharge: 4000, reference: 100 }).estimate();
+    const typical = await routeFixture({ published }).estimate('typical');
+    assert.equal(result.conditionCode, 'unknown');
+    assert.equal(result.condition.gauge_height_ft, 5.8);
+    assert.equal(result.estimateBasis, 'typical');
+    assert.deepEqual(result.floatTime?.timeRange, typical.floatTime?.timeRange);
+    assert.equal(result.withholdReason, null);
+  }
+});

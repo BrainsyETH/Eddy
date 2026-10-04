@@ -49,7 +49,7 @@ async function _GET(request: NextRequest) {
     const supabase = await createClient();
 
     const { river, putIn, takeOut, vesselType, segmentData, distanceMiles,
-      condition, conditionCode, dailyStats, spanWarnings, floatTimeResult, withholdReason,
+      condition, conditionCode, dailyStats, spanWarnings, floatTimeResult, withholdReason, estimateBasis,
     } = await estimateRoute(supabase, { riverId, startId, endId, vesselTypeId });
 
     // Get shuttle drive time. Check drive_time_cache first (shared with
@@ -263,6 +263,7 @@ async function _GET(request: NextRequest) {
 
     // Build plan response
     const plan: FloatPlan = {
+      estimateBasis,
       river: {
         id: river.id,
         name: river.name,

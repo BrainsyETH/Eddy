@@ -180,7 +180,7 @@ export default function GaugeOverview({
                   )}
                 </div>
                 <div className="flex items-center gap-2 flex-shrink-0">
-                  <ConditionBadge code={condition.code} label={condition.label} size="sm" showDot={false} />
+                  {condition.code !== 'unknown' && <ConditionBadge code={condition.code} label={condition.label} size="sm" showDot={false} />}
                   <a
                     href={`https://waterdata.usgs.gov/monitoring-location/${gauge.usgsSiteId}/`}
                     target="_blank"

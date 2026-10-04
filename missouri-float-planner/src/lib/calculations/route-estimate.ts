@@ -172,7 +172,8 @@ export async function estimateRoute(supabase: SupabaseClient<Database>, {
     condition = conditionData?.[0];
     conditionCode = condition?.condition_code || 'unknown';
 
-    // If database returns unknown (no gauge readings), fall back to live USGS data
+    // Unknown can mean an unrated gauge or missing readings. The shared
+    // classifier must preserve unknown when a fresh reading has no ladder.
     if (conditionCode === 'unknown' || !condition?.gauge_height_ft) {
       // Get gauge info for this river (segment-aware or primary)
       const gaugeUsgsSiteId = condition?.gauge_usgs_id;
@@ -445,11 +446,13 @@ export async function estimateRoute(supabase: SupabaseClient<Database>, {
       river.river_type as ReachRiverType | null,
     );
     const withholdFloatTime = withholdReason !== null;
+    const estimateBasis: 'today' | 'typical' = mode === 'typical' || conditionCode === 'unknown' ? 'typical' : 'today';
 
     if (!withholdFloatTime && segmentTime && segmentTime.length > 0 && segmentTime[0].time_avg_minutes > 0
       && segmentTime[0].time_min_minutes > 0
       && segmentTime[0].time_max_minutes >= segmentTime[0].time_min_minutes) {
-      // Known, published (trip-basis) times — scale by current flow, never serve raw.
+      // Without a rating, quote the published typical range without implying
+      // that today's reading supports a flow adjustment.
       const st = segmentTime[0];
       const avg = scaleKnownTimeForCondition(st.time_avg_minutes, conditionCode);
       const rMin = st.time_min_minutes ? scaleKnownTimeForCondition(st.time_min_minutes, conditionCode) : undefined;
@@ -472,8 +475,8 @@ export async function estimateRoute(supabase: SupabaseClient<Database>, {
         { speedLowWater, speedNormal, speedHighWater },
         conditionCode,
         {
-          dischargeCfs,
-          refCfs,
+          dischargeCfs: estimateBasis === 'today' ? dischargeCfs : null,
+          refCfs: estimateBasis === 'today' ? refCfs : null,
           basis: 'trip',
           speedCurve: characteristics?.speed_curve as SpeedCurve | null,
           // Belt and braces behind withholdFloatTime above, and from the river
@@ -503,5 +506,5 @@ export async function estimateRoute(supabase: SupabaseClient<Database>, {
     } : null;
     return { river, putIn, takeOut, vesselType, segmentData, distanceMiles,
       condition, anchorCondition, contributingGauges, spanCheckComplete, conditionCode, dailyStats, spanWarnings, floatTimeResult, floatTime,
-      withholdReason, estimateBasis: mode, estimatedAt: new Date().toISOString() };
+      withholdReason, estimateBasis, estimatedAt: new Date().toISOString() };
 }
