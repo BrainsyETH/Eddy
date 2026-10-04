@@ -682,7 +682,10 @@ keeps an open result mounted and its scroll position intact, but hides its previ
 and float-time estimate from sight and VoiceOver until revalidation succeeds.
 If refresh fails, logistics and dated cautions remain available with a retry.
 Connectivity uses `expo-network`, so adding this dependency requires a new
-native build, not only a JavaScript refresh.
+native build, not only a JavaScript refresh. Its lookup is optional so an older
+development client can still open Saved Floats: missing native support uses the
+1.2-second grace period instead of crashing on import. Rebuild to test the
+immediate offline hint; this fallback does not change EAS runtime compatibility.
 Account deletion clears both the current and legacy local favorites stores and
 the saved-float collection, including queued writes and in-flight sync results.
 

@@ -7,7 +7,6 @@
 
 import { NativeHeaderHome } from '@/components/NativeHeaderHome';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import * as Network from 'expo-network';
 import { ActivityIndicator, Pressable, ScrollView, Share, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Stack, useLocalSearchParams } from 'expo-router';
@@ -21,6 +20,7 @@ import { useSavedFloats } from '@/hooks/useSavedFloats';
 import { SavedFloatDetails } from '@/components/SavedFloatDetails';
 import { createSavedFloatLoader, emptySavedFloatState } from '@/lib/savedFloatLoader';
 import { onForeground } from '@/lib/foreground';
+import { networkHintsOffline } from '@/lib/networkHint';
 
 export default function SavedFloatScreen() {
   const { shortCode } = useLocalSearchParams<{ shortCode: string }>();
@@ -35,10 +35,7 @@ export default function SavedFloatScreen() {
 
   const loader = useMemo(() => createSavedFloatLoader({
     fetchPlan: fetchSavedPlan,
-    isOffline: async () => {
-      const network = await Network.getNetworkStateAsync();
-      return network.isConnected === false || network.isInternetReachable === false;
-    },
+    isOffline: networkHintsOffline,
     publish: setState,
     onSuccess: updateLogistics,
     errorMessage: err => err instanceof ApiError && err.status === 404
