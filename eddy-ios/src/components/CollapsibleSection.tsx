@@ -95,6 +95,7 @@ export function CollapsibleSection({
 
 const styles = StyleSheet.create({
   section: { marginBottom: 18 },
+  // The whole trigger, including a below-header summary, is a 44pt touch target.
   trigger: { minHeight: 44, justifyContent: 'center', paddingHorizontal: 4 },
   head: {
     flexDirection: 'row',

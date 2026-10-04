@@ -66,8 +66,10 @@ function DayRow({
   return (
     <CollapsibleSection
       title={scheduleDayLabel(day.scheduleDate)}
-      // Keep all windows visible when collapsed. All-day generation needs its
-      // own summary now that the redundant duration tally is gone.
+      // The old layout omitted an all-day summary because its 24/24 h tally
+      // already said the same thing. Without that tally, an empty summary
+      // would hide all-day generation until expanded, so name it explicitly.
+      // Keep every no-generation window visible when collapsed as well.
       summary={day.idle.length > 0 ? idleWindowSentence(day.idle) : 'Generation scheduled all day.'}
       summaryLayout="below"
       accessibilitySummary={[now?.label, scheduledHoursSummary(day.hours), peak ? schedulePeakVoiceOver(peak) : null, 'Central time'].filter(Boolean).join('. ')}

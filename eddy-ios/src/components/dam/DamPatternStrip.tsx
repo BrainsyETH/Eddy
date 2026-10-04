@@ -70,6 +70,8 @@ export function DamPatternStrip({
   const { colors, elevation } = useTheme();
   const { fontScale, width } = useWindowDimensions();
   const stacked = fontScale >= 1.3 || width < 360;
+  // Deliberate per-visit default: the schedule card above already shows the
+  // upcoming hours. This local comparison toggle is not a saved preference.
   const [showUpcoming, setShowUpcoming] = useState(false);
 
   // ── The strip needs its own clock ────────────────────────────────────────
@@ -94,6 +96,7 @@ export function DamPatternStrip({
     () => patternRows(pattern, schedule, reference, generationFloorCfs, now),
     [now, pattern, schedule, reference, generationFloorCfs]
   );
+  const slotCountByDay = new Map(allRows.map((row) => [row.dayKey, row.cells.length]));
   const rows = showUpcoming ? allRows : generationHistoryRows(allRows);
   const canShowUpcoming = allRows.some((row) => row.scheduled);
 
@@ -169,7 +172,7 @@ export function DamPatternStrip({
         {rows.map((row, index) => {
           // Preserve today's full time axis when future hours are hidden.
           // This also preserves the shared builder's 23/25-hour DST geometry.
-          const slotCount = allRows.find((entry) => entry.dayKey === row.dayKey)?.cells.length ?? row.cells.length;
+          const slotCount = slotCountByDay.get(row.dayKey) ?? row.cells.length;
           const description = row.today && row.cells.length === 0
             ? 'Today: no completed hours yet.'
             : rowVoiceOver(row);
