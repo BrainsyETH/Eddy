@@ -19,6 +19,10 @@
 
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { readFileSync, statSync } from 'node:fs';
+import { join } from 'node:path';
+import damPhotoCredits from '../../../eddy-ios/assets/onboarding/credits.json';
+import heldDamPhotos from '../../../eddy-ios/assets/onboarding/held.json';
 import { USACE_DAMS } from './flow-providers/usace-registry';
 import { DAM_CATALOG, damPins, damSubtitle } from '../../../eddy-ios/src/lib/damCatalog';
 
@@ -27,6 +31,23 @@ const registry = Object.values(USACE_DAMS)
   .sort((a, b) => a.id.localeCompare(b.id));
 
 const shipped = [...DAM_CATALOG].sort((a, b) => a.id.localeCompare(b.id));
+
+test('every onboarding dam has an attributed bundled photo or a documented source hold', () => {
+  const photos = Object.keys(damPhotoCredits);
+  const held = Object.keys(heldDamPhotos);
+  assert.deepEqual([...photos, ...held].sort(), shipped.map(dam => dam.id).sort());
+  assert.ok(photos.length >= 22, 'reviewed photo coverage must not regress');
+  const component = readFileSync('../eddy-ios/src/components/OnboardingPhoto.tsx', 'utf8');
+  for (const [id, photo] of Object.entries(damPhotoCredits)) {
+    assert.ok(component.includes(`...credits['${id}']`), `${id} attribution is exposed`);
+    assert.ok(component.includes(`require('../../assets/onboarding/${photo.asset}')`), `${id} is bundled by Metro`);
+    const path = join('../eddy-ios/assets/onboarding', photo.asset);
+    assert.ok(statSync(path).size < 150_000, `${id} remains a thumbnail`);
+    assert.equal(readFileSync(path).subarray(0, 2).toString('hex'), 'ffd8', `${id} is a JPEG`);
+    assert.ok(photo.credit && photo.changes);
+    for (const url of [photo.url, photo.license]) assert.equal(new URL(url).protocol, 'https:');
+  }
+});
 
 test('the app ships every dam the registry carries, and no others', () => {
   // A dam added to the registry and not to the catalog is a pin that only

@@ -1,5 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { parseNpsImages } from '../services/npsCampground';
+import { parseNpsImages, parseJsonish } from '../services/npsCampground';
 import { bookingUrlFor } from './booking';
 import { MAX_AGE_MS } from './read';
 import { HORIZON_NIGHTS, resolveHorizon, resolveWeekend } from './window';
@@ -46,6 +46,8 @@ export interface PlaceRow {
   managing_agency?: string | null;
   sites_first_come?: number | null;
   images?: unknown;
+  /** Reviewed campground-level media lives in details.images for non-NPS sources. */
+  details?: unknown;
 }
 export interface AccessRow {
   location_orig?: { coordinates?: number[] } | null;
@@ -88,6 +90,10 @@ export function campgroundImage(raw: unknown): string | null {
     !/\bmap\b|\b(?:campsite|site)\s*#?\s*\d/i.test(`${image.title ?? ''} ${image.altText ?? ''}`)
     && safeCampingUrl(image.url));
   return photo ? safeCampingUrl(photo.url) : null;
+}
+export function serviceCampgroundImages(details: unknown): unknown {
+  const value = parseJsonish<Record<string, unknown>>(details);
+  return value && typeof value === 'object' && !Array.isArray(value) ? value.images : null;
 }
 function location(p: PlaceRow | undefined): CampingPlace['location'] {
   if (p?.latitude == null || p.longitude == null) return null;
@@ -163,7 +169,9 @@ export function buildCampingOverview(
     return {
       id: s?.id ?? n?.id ?? a?.id ?? '',
       name: s?.name ?? n?.name ?? 'Campground',
-      imageUrl: campgroundImage(n?.images),
+      // Only exact campground records contribute media. Access-point photos
+      // may show a nearby ramp, map, or river; they are not a campground hero.
+      imageUrl: campgroundImage(n?.images) ?? campgroundImage(serviceCampgroundImages(s?.details)),
       place: a
         ? { type: 'access_point', id: a.id }
         : n
@@ -437,7 +445,7 @@ export async function loadCampingOverview(
       db
         .from('nearby_services')
         .select(
-          'id,name,type,status,latitude,longitude,website,reservation_url,managing_agency',
+          'id,name,type,status,latitude,longitude,website,reservation_url,managing_agency,details',
         )
         .order('id')
         .range(a, b),

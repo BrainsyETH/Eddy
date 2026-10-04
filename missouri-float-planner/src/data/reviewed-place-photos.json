@@ -1,0 +1,62 @@
+[
+  {
+    "table": "access_points",
+    "id": "45894ef8-8dc6-459b-8277-193463ce2fd1",
+    "name": "Dry Run Creek Access (Norfork National Fish Hatchery)",
+    "image": {
+      "url": "https://www.fws.gov/sites/default/files/images/2024-03-1/645.JPG",
+      "title": "Dry Run Creek Access (Norfork National Fish Hatchery)",
+      "altText": "Fly fishing in Dry Run Creek near Norfork National Fish Hatchery",
+      "caption": "Location photograph; not current conditions.",
+      "credit": "Robert Pos / USFWS",
+      "sourceUrl": "https://www.fws.gov/media/fly-fishing-dry-run-creek-arkansas",
+      "license": "Public domain",
+      "licenseUrl": "https://www.fws.gov/media/fly-fishing-dry-run-creek-arkansas"
+    }
+  },
+  {
+    "table": "points_of_interest",
+    "id": "11cbd262-1f88-4551-bc68-a71969c168b9",
+    "name": "Blue Spring",
+    "image": {
+      "url": "https://www.nps.gov/common/uploads/structured_data/FC81858D-AFE8-773D-E2CA4BC835CC91C3.jpg",
+      "title": "Blue Spring",
+      "altText": "Blue Spring across the Jacks Fork River",
+      "caption": "Location photograph; not current conditions.",
+      "credit": "NPS Photo / Jessica Poppa",
+      "sourceUrl": "https://www.nps.gov/ozar/planyourvisit/blue-spring-campground.htm",
+      "license": "Public domain",
+      "licenseUrl": "https://www.nps.gov/aboutus/disclaimer.htm"
+    }
+  },
+  {
+    "table": "points_of_interest",
+    "id": "ed86133d-8f23-4386-b5d4-cc10620ad728",
+    "name": "Alley Spring and Mill",
+    "image": {
+      "url": "https://upload.wikimedia.org/wikipedia/commons/f/f8/Alley_Spring_mill_cfriese1.jpg",
+      "title": "Alley Spring and Mill",
+      "altText": "Alley Mill beside the spring",
+      "caption": "Location photograph; not current conditions.",
+      "credit": "christopher friese",
+      "sourceUrl": "https://commons.wikimedia.org/wiki/File:Alley_Spring_mill_cfriese1.jpg",
+      "license": "CC BY 2.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by/2.0/"
+    }
+  },
+  {
+    "table": "nearby_services",
+    "id": "00d9c0e1-c37b-4261-aba4-f15fd0b63dc1",
+    "name": "Pulltite Campground",
+    "image": {
+      "url": "https://www.nps.gov/ozar/images/OZAR_CampgroundPulltite_cropped_WilMarischen.jpg?autorotate=false&maxwidth=650",
+      "title": "Pulltite Campground",
+      "altText": "A camper among trees and grass at Pulltite Campground",
+      "caption": "Campground overview; not a particular numbered campsite.",
+      "credit": "NPS Photo / Wil Marischen",
+      "sourceUrl": "https://www.nps.gov/ozar/summer-visitor-information.htm",
+      "license": "Public domain",
+      "licenseUrl": "https://www.nps.gov/aboutus/disclaimer.htm"
+    }
+  }
+]

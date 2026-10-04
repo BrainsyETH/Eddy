@@ -2,10 +2,12 @@
 export function imageUrl(uri: string, width: number, origin = 'https://eddy.guide'): string {
   try {
     const url = new URL(uri, origin);
-    const allowed = url.protocol === 'https:' && (
+    const allowed = url.protocol === 'https:' && !url.username && !url.password && !url.port && (
       (url.hostname === 'cdn.recreation.gov' && url.pathname.startsWith('/public/')) ||
       (url.hostname === 'icampmo.usedirect.com' && url.pathname.startsWith('/MSPWeb/images/Missouri/')) ||
       url.hostname === 'www.nps.gov' || url.hostname === 'images.unsplash.com' ||
+      (url.hostname === 'upload.wikimedia.org' && url.pathname.startsWith('/wikipedia/commons/')) ||
+      (url.hostname === 'www.fws.gov' && url.pathname.startsWith('/sites/default/files/')) ||
       url.hostname === 'q5skne5bn5nbyxfw.public.blob.vercel-storage.com' ||
       (url.hostname.endsWith('.supabase.co') && url.pathname.startsWith('/storage/v1/object/public/'))
     );

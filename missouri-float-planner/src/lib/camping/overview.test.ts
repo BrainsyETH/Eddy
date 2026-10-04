@@ -311,3 +311,38 @@ test('overview carries campground photos for linked NPS places and leaves missin
   data.nps = [{ id: 'nps', name: 'Park', images: JSON.stringify([{ url: 'https://example.com/park.jpg', title: 'Campground' }]) }];
   assert.equal(buildCampingOverview(data, now).tracked[0].imageUrl, 'https://example.com/park.jpg');
 });
+
+test('non-NPS campground media works for both tracked and untracked places', () => {
+  const data = input();
+  data.services[0].details = JSON.stringify({ images: [
+    { url: 'https://example.com/map.jpg', title: 'Campground map' },
+    { url: 'https://example.com/camping.jpg', title: 'Shaded campground' },
+  ] });
+  assert.equal(buildCampingOverview(data, now).tracked[0].imageUrl, 'https://example.com/camping.jpg');
+  data.facilities = [];
+  assert.equal(buildCampingOverview(data, now).untracked[0].imageUrl, 'https://example.com/camping.jpg');
+});
+
+test('a map-only NPS record falls back to the linked service, never to another campground', () => {
+  const data = input();
+  data.facilities[0].nps_campground_id = 'nps';
+  data.nps = [{ id: 'nps', name: 'Park', images: [{ url: 'https://example.com/map.jpg', title: 'Map' }] }];
+  data.services[0].details = { images: [{ url: 'https://example.com/camping.jpg', title: 'Campground' }] };
+  assert.equal(buildCampingOverview(data, now).tracked[0].imageUrl, 'https://example.com/camping.jpg');
+  data.facilities[0].nearby_service_id = null;
+  assert.equal(buildCampingOverview(data, now).tracked[0].imageUrl, null);
+});
+
+test('service media preserves numbered-site and URL safeguards; valid NPS media wins', () => {
+  const data = input();
+  data.services[0].details = { images: [
+    { url: 'https://example.com/site.jpg', title: 'Campsite #127' },
+    { url: 'http://example.com/camp.jpg', title: 'Campground' },
+    { url: 'https://user:password@example.com/camp.jpg' },
+  ] };
+  assert.equal(buildCampingOverview(data, now).tracked[0].imageUrl, null);
+  data.services[0].details = { images: [{ url: 'https://example.com/service.jpg' }] };
+  data.facilities[0].nps_campground_id = 'nps';
+  data.nps = [{ id: 'nps', name: 'Park', images: [{ url: 'https://example.com/nps.jpg' }] }];
+  assert.equal(buildCampingOverview(data, now).tracked[0].imageUrl, 'https://example.com/nps.jpg');
+});
