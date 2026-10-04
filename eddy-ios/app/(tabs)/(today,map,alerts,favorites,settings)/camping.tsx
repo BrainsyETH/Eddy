@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useReducer, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Modal,
@@ -35,12 +35,12 @@ import {
   observedCampingOverview,
   campingCoverageLabel,
   campingFreshness,
-  filterCamping,
   safeExternalUrl,
   campingRiverGroups,
   linkedCampingNight,
 } from '@/lib/campingHeatmap';
 import { nextCampingDate } from '@/lib/campingStay';
+import { campingFilterReducer, filterCampingScope, initialCampingFilters, type CampingScope } from '@/lib/campingFilters';
 import { ScopeSwitch } from '@/components/ScopeSwitch';
 import { CampingNightControl } from '@/components/CampingNightControl';
 import { CampingAvailabilityRow } from '@/components/CampingAvailabilityRow';
@@ -87,18 +87,12 @@ function CampingContent() {
   const [selected, setSelected] = useState<string | null>(
     params.facility ?? null,
   );
-  const [saved, setSaved] = useState(false);
   const [riverPicker, setRiverPicker] = useState(false);
   const [query, setQuery] = useState('');
   const { starred } = useStarredRivers();
-  // A river deep link (e.g. from Today's camping demand card) preselects the
-  // filter; an unknown slug falls back to all rivers once the catalog loads.
-  const [riverChoice, setRiver] = useState<string | null>(
-    typeof params.river === 'string' && /^[a-z0-9-]{1,80}$/.test(params.river)
-      ? params.river
-      : null,
-  );
-  const [nearby, setNearby] = useState(false);
+  // Today's river link seeds the scope; changing filters never remounts the list.
+  const [filters, dispatchFilter] = useReducer(campingFilterReducer, params.river, initialCampingFilters);
+  const locationRequest = useRef(0);
   const [directory, setDirectory] = useState(false);
   const [linkFailed, setLinkFailed] = useState(false);
   const { coords, status, request } = useLocation();
@@ -107,35 +101,41 @@ function CampingContent() {
     () => campingRiverOptions(data?.tracked ?? [], data?.untracked ?? []),
     [data],
   );
-  const river =
-    data && riverChoice && !rivers.some((r) => r.slug === riverChoice)
-      ? null
-      : riverChoice;
-  const rows = useMemo(() => {
-    const slugs = new Set(
-      starred.filter((s) => s.kind === 'river').map((s) => s.slug),
-    );
-    const filtered = filterCamping(
-      data?.tracked ?? [],
-      river,
-      nearby,
-      coords,
-    ).filter((row) => !saved || row.riverSlugs.some((slug) => slugs.has(slug)));
-    return campingRiverGroups(filtered).flatMap((group) => group.data);
-  }, [data, river, nearby, coords, starred, saved]);
-  const other = useMemo(
-    () =>
-      campingRiverGroups(
-        filterCamping(data?.untracked ?? [], river, nearby, coords).filter(
-          (row) =>
-            !saved ||
-            row.riverSlugs.some((slug) =>
-              starred.some((s) => s.kind === 'river' && s.slug === slug),
-            ),
-        ),
-      ).flatMap((group) => group.data),
-    [data, river, nearby, coords, saved, starred],
-  );
+  const scope = useMemo<CampingScope>(() => {
+    const choice = filters.scope;
+    return data && choice.kind === 'river' && !rivers.some((r) => r.slug === choice.slug)
+      ? { kind: 'all' }
+      : choice;
+  }, [data, filters.scope, rivers]);
+  const river = scope.kind === 'river' ? scope.slug : null;
+  const saved = scope.kind === 'favorites';
+  const nearby = scope.kind === 'nearby';
+  const locating = filters.locationRequest !== null;
+  const favoriteRivers = useMemo(() => new Set(
+    starred.filter((s) => s.kind === 'river').map((s) => s.slug),
+  ), [starred]);
+  const rows = useMemo(() => campingRiverGroups(
+    filterCampingScope(data?.tracked ?? [], scope, coords, favoriteRivers),
+  ).flatMap((group) => group.data), [data, scope, coords, favoriteRivers]);
+  const other = useMemo(() => campingRiverGroups(
+    filterCampingScope(data?.untracked ?? [], scope, coords, favoriteRivers),
+  ).flatMap((group) => group.data), [data, scope, coords, favoriteRivers]);
+  function selectScope(next: CampingScope) {
+    dispatchFilter({ type: 'select', scope: next });
+    setLinkFailed(false);
+  }
+  function locateNearby() {
+    setLinkFailed(false);
+    if (coords) {
+      selectScope({ kind: 'nearby' });
+      return;
+    }
+    const id = ++locationRequest.current;
+    dispatchFilter({ type: 'locate', request: id });
+    void request().then((fix) => {
+      dispatchFilter({ type: 'located', request: id, found: fix !== null });
+    });
+  }
   const riverHeaders = new Map(
     campingRiverGroups(rows).map((group) => [
       group.data[0].facilityId,
@@ -163,33 +163,10 @@ function CampingContent() {
         </Text>
       </Pressable>
     )}</ScrollView>;
-  const grid = observedCampingOverview(rows, data, now);
-  function chip(label: string, active: boolean, onPress: () => void) {
-    return (
-      <Pressable
-        key={label}
-        accessibilityRole="button"
-        accessibilityState={{ selected: active }}
-        onPress={onPress}
-        style={[
-          styles.chip,
-          {
-            backgroundColor: active ? colors.selectionBg : colors.card,
-            borderColor: active ? colors.interactive : colors.border,
-          },
-        ]}
-      >
-        <Text
-          style={{
-            color: active ? colors.interactive : colors.text,
-            fontFamily: fonts.medium,
-          }}
-        >
-          {label}
-        </Text>
-      </Pressable>
-    );
-  }
+  // Keep the same date columns and horizontal position across every scope.
+  // Missing observations in a filtered river remain explicit unknown cells.
+  const grid = observedCampingOverview(data.tracked, data, now);
+
   return (
     <>
       <Modal
@@ -247,9 +224,7 @@ function CampingContent() {
                 accessibilityState={{ selected: (river ?? '') === item.slug }}
                 style={styles.action}
                 onPress={() => {
-                  setRiver(item.slug || null);
-                  setNearby(false);
-                  setSaved(false);
+                  selectScope(item.slug ? { kind: 'river', slug: item.slug } : { kind: 'all' });
                   setRiverPicker(false);
                 }}
               >
@@ -271,7 +246,8 @@ function CampingContent() {
       <CampingScrollGroup
         thumbnails
         dateWidth={36}
-        key={`${river}:${nearby}:${grid.horizon.startDate}`}
+        // Only a new calendar horizon resets the date offset, never a filter.
+        key={grid.horizon.startDate}
       >
         <FlatList
           contentInsetAdjustmentBehavior="never"
@@ -297,34 +273,25 @@ function CampingContent() {
                   showsHorizontalScrollIndicator={false}
                   contentContainerStyle={styles.filters}
                 >
-                  {chip(
-                    rivers.find((r) => r.slug === river)?.label ?? 'All rivers',
-                    !nearby && !saved,
-                    () => {
-                      if (nearby || saved) {
-                        setNearby(false);
-                        setSaved(false);
-                        setRiver(null);
+                  <CampingFilterChip
+                    label={rivers.find((r) => r.slug === river)?.label ?? 'All rivers'}
+                    active={!nearby && !saved}
+                    onPress={() => {
+                      if (nearby || saved || locating || filters.locationFailed) {
+                        selectScope({ kind: 'all' });
                       } else {
                         setQuery('');
                         setRiverPicker(true);
                       }
-                    },
-                  )}
-                  {chip('Favorites', saved, () => {
-                    setSaved((v) => !v);
-                    setNearby(false);
-                    setRiver(null);
-                  })}
-                  {chip(status === 'locating' ? 'Locating…' : 'Nearby', nearby, () => {
-                    setSaved(false);
-                    setRiver(null);
-                    if (nearby) setNearby(false);
-                    else {
-                      setNearby(true);
-                      if (!coords) void request();
-                    }
-                  })}
+                    }}
+                  />
+                  <CampingFilterChip label="Favorites" active={saved} onPress={() => {
+                    selectScope({ kind: saved ? 'all' : 'favorites' });
+                  }} />
+                  <CampingFilterChip label={locating ? 'Locating…' : 'Nearby'} active={nearby} busy={locating} onPress={() => {
+                    if (nearby || locating) selectScope({ kind: 'all' });
+                    else locateNearby();
+                  }} />
                 </ScrollView>
                 <ScopeSwitch
                   options={[
@@ -334,7 +301,7 @@ function CampingContent() {
                   value={display}
                   onChange={setDisplayChoice}
                 />
-                {nearby && !coords && status !== 'locating' ? (
+                {filters.locationFailed ? (
                   <View style={styles.notice}>
                     <Text style={{ color: colors.textMuted }}>
                       {status === 'denied'
@@ -348,7 +315,7 @@ function CampingContent() {
                         onPress={() => {
                           if (status === 'denied')
                             void Linking.openSettings().catch(() => setLinkFailed(true));
-                          else void request();
+                          else locateNearby();
                         }}
                       >
                         <Text style={{ color: colors.interactive }}>
@@ -359,9 +326,7 @@ function CampingContent() {
                         accessibilityRole="button"
                         style={styles.action}
                         onPress={() => {
-                          setNearby(false);
-                          setSaved(false);
-                          setRiver(null);
+                          selectScope({ kind: 'all' });
                         }}
                       >
                         <Text style={{ color: colors.interactive }}>Show all</Text>
@@ -376,9 +341,7 @@ function CampingContent() {
                 ) : nearby && coords ? (
                   <Pressable
                     onPress={() => {
-                      setNearby(false);
-                      setSaved(false);
-                      setRiver(null);
+                      selectScope({ kind: 'all' });
                     }}
                     accessibilityRole="button"
                     style={styles.notice}
@@ -561,6 +524,33 @@ function CampingContent() {
     </>
   );
 }
+function CampingFilterChip({ label, active, onPress, busy = false }: {
+  label: string;
+  active: boolean;
+  onPress: () => void;
+  busy?: boolean;
+}) {
+  const { colors } = useTheme();
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityState={{ selected: active, busy }}
+      onPress={onPress}
+      style={[
+        styles.chip,
+        {
+          backgroundColor: active ? colors.selectionBg : colors.card,
+          borderColor: active ? colors.interactive : colors.border,
+        },
+      ]}
+    >
+      <Text style={{ color: active ? colors.interactive : colors.text, fontFamily: fonts.medium }}>
+        {label}
+      </Text>
+    </Pressable>
+  );
+}
+
 const styles = StyleSheet.create({
   empty: { flexGrow: 1, justifyContent: 'center', alignItems: 'center' },
   action: { minHeight: 44, minWidth: 44, justifyContent: 'center' },

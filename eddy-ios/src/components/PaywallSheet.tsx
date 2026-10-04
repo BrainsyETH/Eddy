@@ -473,7 +473,7 @@ export function PaywallSheet({ visible, onClose, riverName, onPurchased }: Props
           {!signedIn ? (
             <>
               <Text style={[styles.signInNote, { color: colors.textMuted }]}>
-                Sign in first so your subscription follows you to a new phone.
+                Sign in to sync favorites and save alerts.
               </Text>
               {busy === 'apple' ? (
                 <ActivityIndicator color={colors.interactive} style={styles.footerBusy} />

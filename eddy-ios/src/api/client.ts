@@ -1949,10 +1949,14 @@ export async function storeAppleAuthorizationCode(
   token: string,
   authorizationCode: string,
 ): Promise<void> {
-  await authed('/api/me/apple-token', token, {
+  const result = await authed<{ stored: boolean; reason?: string }>('/api/me/apple-token', token, {
     method: 'POST',
     body: { authorizationCode },
   });
+  if (!result?.stored) {
+    // The caller records this without failing an otherwise successful sign-in.
+    throw new Error('Apple authorization could not be saved for account deletion.');
+  }
 }
 
 /**

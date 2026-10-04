@@ -1,10 +1,12 @@
 # Elk release review — 2026-10-04 UTC
 
-**Current decision: keep Elk inactive for endpoint/passage review.** Cleanup and
-the readings-only Noel transition were applied on 2026-10-04. Calibration is
-future work for a rated release. See [the current release checklist](elk-above-dam-release-2026-10-04.md).
-The research below records the earlier calibration investigation; no operator
-contact or field visit is claimed.
+**Historical research; release scope superseded by the owner's October 4 clarification.**
+Publish verified access points, campground/services, POIs and Noel readings using
+Eddy's existing features. Outfitter packages, advertised distances and durations
+are not prerequisites. See [the current inventory checklist](elk-above-dam-release-2026-10-04.md).
+Cleanup, the readings-only Noel transition and the ten-listing service inventory
+are applied. No operator contact or field visit is claimed. The material below
+preserves the earlier investigation; its old release blockers are not current.
 
 ## Tiff chart and Noel transfer pilot — owner evidence follow-up
 

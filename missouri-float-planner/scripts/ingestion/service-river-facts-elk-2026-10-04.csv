@@ -1,6 +1,6 @@
 service_slug,river_slug,services_offered,routes,seasonal_notes,verified_source,source_checked_at
-elk-river-floats,elk,canoe_rental|kayak_rental|raft_rental|tube_rental|shuttle,"Noel River Float Trip,6,Trestle Park,Wayside Campground|The 12 Mile,12,Kozy Kamp,Wayside Campground|Trestle Bridge Float,6,Kozy Kamp,Trestle Park,seasonal",The upper Trestle Bridge route is seasonal; the 12-mile trip is for canoes and kayaks. Times vary by craft and stops.,https://www.elkriverfloats.com/float-trips/,2026-10-04
-kozy-kamp-elk-river-floats,elk,,"Trestle Bridge Float,6,Kozy Kamp,Trestle Park,seasonal|The 12 Mile,12,Kozy Kamp,Wayside Campground",Upper route depends on water; 12-mile option is canoe/kayak only.,https://kozykamp.com/,2026-10-04
-river-ranch-resort,elk,,"Short float,5,,|Long float,8,,",Current landing pages advertise 5 and 8 miles; the older operator map says 4 miles. Exact endpoints require confirmation before planner placement.,https://riverranchresort.com/,2026-10-04
-shady-beach-campground,elk,canoe_rental|kayak_rental|raft_rental|shuttle,"Pineville to Shady Beach,8,Pineville,Shady Beach|Short float to Shady Beach,4,,Shady Beach|Float to Sycamore Landing,4,,Sycamore Landing",Published product distances; confirm the assigned launch when booking.,https://www.shadybeach.com/,2026-10-04
-two-sons-floats-camping,elk,canoe_rental|kayak_rental|raft_rental|tube_rental|shuttle,"Short float,4,,|Long float,8,,",Open May–September. Longer floats weekdays only; tubes normally take the four-mile trip. Exact launch and landing depend on the booking.,https://twosonsfloats.com/floating/,2026-10-04
+elk-river-floats,elk,canoe_rental|kayak_rental|raft_rental|tube_rental|shuttle,,,https://www.elkriverfloats.com/float-trips/,2026-10-04
+kozy-kamp-elk-river-floats,elk,,,,https://kozykamp.com/,2026-10-04
+river-ranch-resort,elk,,,,https://riverranchresort.com/,2026-10-04
+shady-beach-campground,elk,canoe_rental|kayak_rental|raft_rental|shuttle,,,https://www.shadybeach.com/,2026-10-04
+two-sons-floats-camping,elk,canoe_rental|kayak_rental|raft_rental|tube_rental|shuttle,,Open May through September.,https://twosonsfloats.com/floating/,2026-10-04

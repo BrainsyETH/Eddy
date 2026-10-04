@@ -1,155 +1,92 @@
-# Elk: concrete above-dam release preparation
+# Elk inventory release — 2026-10-04
 
-Status: **database changes applied; Elk inactive; private pins unapproved**.
-Presentation depends on #1418 and this PR being deployed. The accepted
-product choice is measured Noel stage in feet without recreational ratings.
-No operator contact or field visit is claimed.
+The owner clarified the scope on October 4: publish Elk using Eddy's existing
+river, access-point, campground/service, POI and gauge features. Outfitter
+packages, their advertised distances and their craft-specific durations are
+**not release requirements**. This replaces the earlier three-private-trip
+release definition. No activation rule or review control has been removed.
 
-## Applied database changes and prepared presentation
+## Production inventory
 
-- Applied migration `20261004044139_stage_elk_noel_unrated_release.sql` switched the exact
-  reviewed Tiff link to an empty-ladder Noel primary and curated Noel. Tiff's
-  station, history and stars remain; its six historical anchors/provenance are
-  archived in `elk-tiff-threshold-archive.json`.
-- Cowskin stays an approved public listing but is no longer a float endpoint.
-  Existing server endpoint validation rejects it, including direct ID requests.
-- The river stays inactive. The section description/bounds now name the initial
-  above-dam corridor. The migration refuses an active river, missing cleanup,
-  unexpected gauge changes or any remaining eligible endpoint at/below the dam.
-- The access dossier carries three **pending, non-endpoint** bank candidates,
-  private-access terms, address handoffs and parking instructions. Its importer
-  now preserves these supplied fields without changing approval/endpoint intent.
-- The Trestle low-water road crossing is mapped at mile 6.52 by applied migration
-  `20261004045234`. Its position is imagery-derived; passage/portage remains
-  unspecified. `elk-trestle-crossing.json` records the sources and placement.
-- Planner, chat and MCP include only low-water dams within 0.5 miles below the
-  take-out in a separate `damsBelowTakeOut` field. Web, iOS and saved iOS details
-  render “Below your take-out.” These do not affect trip distances, times,
-  warnings or in-route portage counts. Old browser plan caches refresh.
-- The dossier has an explicit `unrated` conditions review; operational evidence
-  remains blocked where deployment or exact endpoint review is outstanding.
+The data-only batch in `elk-inventory-2026-10-04.sql` was previewed with rollback,
+then applied to `ilefwfpvphadsbptiaur`. The existing importer supplied its merge,
+collision and field-provenance decisions; the existing atomic database RPCs
+applied them. Expected-row and concurrent-update checks were included.
 
-## Bank candidates to review
+| App feature | Verified inventory | Publication behavior |
+|---|---|---|
+| Public access | Pineville 0.26, Mount Shira 7.78, Cowskin 21.17 | All three approved listings; Pineville and Mount Shira are planner endpoints. Cowskin keeps its existing endpoint exclusion across Shadow Lake Dam. Road and parking information populated from MDC. |
+| Camping/services | Ten active linked listings with coordinates and contact details | Seven updated; Trestle Park, Sycamore Landing and The Spot added. All ten carry camping offerings. Existing slugs/links preserved; 95 field-source records recorded. |
+| Private access research | Kozy 0.43, Trestle 6.55, Wayside 11.33 | Now present in the database as unapproved, non-endpoint candidates. Each can be reviewed independently; none blocks the public inventory. |
+| POIs | Sugar-creek headwater confluence and Indian Creek confluence | Two active on-water markers. |
+| Springs | No verified mainstem visitor stop established by the research | No invented spring marker. Additional verified stops are normal enrichment. |
+| Gauge | USGS Noel 07188925, primary, curated, stage in feet | Measurements/history with `condition_rating_mode=unrated`; twelve recreational anchors remain null. Eleven stored readings verified, latest 14:15 UTC. |
+| Mapped obstructions | Elk Springs Road crossing 6.52; Shadow Lake Dam 11.61 | Existing route hazard presentation; no inferred crossing procedure or water-level cutoff. |
 
-Coordinates are imagery-derived candidates, not surveyed or operator-confirmed
-pins. USGS georeferenced imagery was compared with the owner's October 3 maps,
-operator property maps and the operator's linked location addresses. The USGS
-service contains older NAIP imagery; agreement with a river line is a placement
-check, not proof of the current launch. `elk-access-candidates.geojson` retains
-image extents, selected pixels, coordinates, approximate uncertainty and notes.
+The ten services are Wayside/Elk River Floats, Kozy Kamp, Eagles Nest,
+River Ranch Resort, Shady Beach, Big Elk, Two Sons, Trestle Park,
+Sycamore Landing and The Spot. Campground business pins do not become launch
+pins. The private campground listings do not claim live booking availability.
 
-| Candidate | Bank coordinate (lat, lon) | Eddy mile / distance to line | Address for road handoff | Specific remaining check |
-|---|---|---|---|---|
-| Kozy Kamp | 36.58841, -94.38950 | 0.43 / 28.6 m | 71 Elk River Road, Pineville | Verify the track's water-entry point and designated parking; owner's 36.588894, -94.389059 pin is a land approach |
-| Trestle Park | 36.58521, -94.45495 | 6.55 / 28.3 m | 435 Elk Springs Road, Noel | Candidate is the downstream beach beside the low-water crossing. Confirm which side each trip uses and the passage/walk between them |
-| Wayside | 36.54897, -94.49429 | 11.33 / 47.8 m | 201 Minnow Springs Ave, Noel | Verify the current landing and parking path within the designated beach, before the operator's no-watercraft boundary |
+## Readiness in the actual app
 
-All three candidates project above the stored dam at mile 11.61. Candidate route
-lengths are 6.12, 4.78 and 10.90 Eddy miles. Do not replace those geometry-derived
-lengths with the operator's advertised 6/6/12-mile names. Verify actual endpoint
-routing once pins are approved. Noel's stored location projects to mile 11.32.
+- **Corridor:** the full river is listed; initial planner endpoints are above
+  Shadow Lake Dam. The lower-river Cowskin listing stays available independently.
+- **Legal access:** the published inventory uses the three agency-listed public
+  accesses. The I-49/MO-59 bridge pins and Lanagan remain excluded. Private
+  candidates remain pending; their property review is not this release's gate.
+- **Gauge/conditions:** Noel polling is working. Readings-only presentation is
+  provided by #1418; no transfer calibration or outfitter opening decision is used.
+- **Hazards:** the known crossing and dam are structured records. Pineville to
+  Mount Shira includes the crossing in the planner's normal hazard section.
+  This is a mapped feature, not a claim about a permitted carry or safe passage.
+- **Routing:** production `get_float_segment` returns a valid 34-vertex,
+  7.52-mile Pineville–Mount Shira segment (checked 15:20 UTC). Approved/endpoint
+  checks reject Cowskin and the pending private pins. With no published pair
+  duration, the unrated planner uses its normal **typical-time estimate**.
 
-Operator evidence:
+The old requirements to validate three private pairs, reconcile advertised
+6/6/12-mile products, attach craft-specific times or obtain an operator trip
+approval are withdrawn. `publishedFloatTimes` and this batch's service-route
+entries are empty. Historical research remains in Git history and the earlier
+research review; it is not the activation checklist.
 
-- [Trips and durations](https://www.elkriverfloats.com/float-trips/)
-- [Kozy trips/check-in](https://kozykamp.com/float-trips)
-- [Trestle campground](https://trestlepark.com/elk-river-campground) and
-  [property map](https://img1.wsimg.com/isteam/ip/4c611e4a-7b28-4d91-afd7-9f1102df1c5e/A03155FD-7BDD-4057-AC0A-4D251F844CB9.jpeg)
-- [Wayside camping](https://waysidecamp.com/camping) and
-  [property map](https://img1.wsimg.com/isteam/ip/d1802747-9892-43c9-a0c8-d379822f4274/WS%20Map.jpeg)
-- [Paid personal-boat access terms](https://waysidecamp.com/rates): one-location
-  and two-location passes are published; availability/prices must be checked.
-- [USGS imagery service](https://basemap.nationalmap.gov/arcgis/rest/services/USGSImageryOnly/MapServer)
+## Deployment
 
-## Sourced typical times, ready for endpoint linking
+Merge #1418, then integrate #1424 into main and verify the web/API deployment.
+Run the ordinary activation preview with this dossier and a fresh Noel reading,
+then use the same atomic activation RPC. Do not bypass its findings.
 
-These are operator trip ranges, not modeled current-water times. They are now
-recorded in the dossier. The generic speed estimate should be replaced by these
-exact-pair records once the corresponding endpoints are approved and linked.
-No numerical range was widened by guesswork.
+The next iOS build carries the improved unrated labels and downstream-dam
+presentation. Existing iOS builds already decline to grade empty ladders and
+show in-route hazards. This inventory release introduces no approved Wayside
+endpoint, so it does not depend on an old client displaying the new downstream
+dam field. iOS distribution is not an outfitter-data prerequisite.
 
-| Advertised trip | Canoe/kayak | Raft | Tube |
-|---|---|---|---|
-| Trestle → Wayside (Noel, 6 miles) | 3–6 h | 4–8 h | 6–8 h |
-| Kozy → Trestle (upper, 6 miles) | 4–6 h | 4–6 h | No duration sourced |
-| Kozy → Wayside (12 miles) | 6–8 h | Not offered in this product | Not offered in this product |
+The four earlier migrations and crossing migration are already applied:
+`20261004044101`, `20261004044114`, `20261004044139`,
+`20261004044150`, `20261004045234`. This inventory update is data only.
 
-The [operator trip page](https://www.elkriverfloats.com/float-trips/) publishes
-these ranges/products. Upper-trip seasonality remains operator-managed; Noel
-stage does not make an opening or closure decision for these trips.
+## Verification and remaining enrichment
 
-## Remaining release sequence
+Service read-back matches all planned fields at the database's six-decimal
+coordinate precision. No new service-quality debt or duplicate-contact findings.
+Public endpoint approval and private candidate exclusion are preserved. The
+excluded Lanagan record retains null Elk miles. Database batch leaves Elk inactive.
 
-1. Review/merge #1418 and this preparation PR. Deploy the web/API status behavior;
-   include iOS presentation in the next app build/update.
-2. Completed: cleanup `20261004044101`, policy `20261004044114`, transition
-   `20261004044139`, access-field support `20261004044150`, and crossing
-   `20261004045234` are applied. Filenames/ledger match production; types are
-   regenerated. `make check-db` is blocked by the workspace tsx IPC/CLI setup
-   and unlinked CLI checkout. The same repository ledger functions were run
-   against connector-fetched production history with no drift. The already
-   merged Apple migration `20261004034340` is copied unchanged from main so this
-   stacked branch includes the full applied history.
-3. Completed: Noel has nine `gauge_readings` rows at 2026-10-04 13:40 UTC,
-   latest observation 12:15 UTC. The curated hourly history poll is working.
-   Recheck freshness at actual activation. No recreational condition-change
-   alert or condition-driven Eddy update is promised for an unrated gauge.
-4. Review the concrete bank/road candidates under the existing
-   `scripts/ingestion/README.md` coordinate-review process. Import pending rows;
-   approve endpoint intent only after review. Then link exact-pair trip times.
-5. Apply the already-prepared campground/service CSVs from #1412; inspect their
-   previews and read-back. The confluence POIs were applied with cleanup. The service batch has
-   seven existing listings and three additions. Business pins are not launch pins.
-   No verified mainstem spring stop was found; do not create one from a tributary
-   name. Photos without reuse rights stay excluded; booking availability feeds
-   are not asserted for private campgrounds.
-6. Test the actual three private route pairs and road handoffs. Check Cowskin
-   rejection via plan, shuttle and save paths, then complete the remaining
-   dossier reviews, owner signoff and atomic activation preview before release.
+Web and test TypeScript checks and ESLint passed; design-token checks and all
+3,087 tests passed using `node --import tsx` because the workspace disallows the
+`tsx` CLI's IPC socket. No application code changed in this inventory correction. The deployed shuttle endpoint
+returns a plausible 6.46-mile / 15-minute drive for Pineville–Mount Shira and
+rejects Cowskin. The atomic database activation preview returned no findings
+after this scope correction; Elk remained inactive during the preview.
 
-The operator's Noel thresholds and pool-influence answers are needed for a
-future **rated** release. They are not prerequisites for publishing raw readings.
-The specific Trestle passage/landing question remains an endpoint-routing item.
-The full launch requires the three private route pairs. A public-only fallback
-is not the chosen release: Pineville (0.26) → Mount Shira (7.78) also passes the
-crossing.
+Additional private launch approvals, permitted photos and further documented
+POIs are incremental data work. They are not prerequisites for publishing the
+verified inventory. No phone call or field inspection is claimed.
 
-### Endpoint questions for the operator
-
-1. Does Trestle use the downstream/right-bank beach candidate for both upper-trip
-   landings and Noel-trip launches? How do upper/12-mile guests pass or carry at
-   the crossing, and where is any permitted carry route?
-2. Confirm Wayside’s exact landing, parking path and no-watercraft boundary;
-   confirm Kozy’s water-entry track and check-in/parking location.
-3. Confirm the Noel trip’s actual start/end points behind its advertised six
-   miles. Current Eddy miles differ by 4.78; check both the pins and line/mileage
-   before linking its operator times. Do not force the measured distance to six.
-
-**Correction from the first draft:** river direction and PostGIS projections put
-Trestle’s bank candidate at 6.554, just downstream of the crossing at 6.525
-(unrounded), on the right bank. The earlier upstream/left-bank description was
-wrong. The existence of the crossing is confirmed by the operator; a legal or
-usable passage has not been asserted.
-
-## Verification
-
-PostGIS placement queries were read-only; the listed migrations were subsequently
-applied with user authorization. The migration is tested in PGlite with
-spatial-function doubles: precondition failures and late failures roll back;
-Noel becomes primary/curated, Cowskin loses only endpoint eligibility, Tiff
-history survives, and Elk remains inactive. Production read-back confirms these
-results, the new crossing, and service-role-only access to the import RPC.
-Tiff retains 1,438 history rows. Noel has nine history rows, verified separately
-from `gauge_latest`, with the latest observation at 12:15 UTC on October 4.
-
-The access-field RPC migration is exercised with insert/update, omitted-field
-preservation, review-state rejection and atomic rollback tests. The CLI access
-dry run could not connect because this workspace has no script credentials;
-production reads used the connector. Dossier ingestion preview correctly refuses
-the unsigned Elk dossier. No guarded client or signoff requirement was bypassed.
-
-Web/test type checks and lint passed; 3,087 tests passed. iOS type checking,
-lint, production bundle and archive validation passed. The initial activation
-preview returned the outstanding review criteria and a pre-poll missing-history
-warning. After polling, the repeat preview leaves only legal access, passage and
-routing reviews outstanding. Both previews left Elk inactive.
+Sources: MDC [Pineville](https://mdc.mo.gov/discover-nature/places/city-pineville-elk-river-access),
+[Mount Shira](https://mdc.mo.gov/discover-nature/places/mount-shira-access),
+[Cowskin](https://mdc.mo.gov/discover-nature/places/cowskin-access);
+operator sources and per-field attribution in `services-elk-release-2026-10-04.csv`;
+`elk-trestle-crossing.json` for the mapped structure.

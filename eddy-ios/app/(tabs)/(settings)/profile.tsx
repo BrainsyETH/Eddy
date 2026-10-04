@@ -419,8 +419,8 @@ function ProfileContent() {
     setBusy('delete');
     try {
       const token = await getAccessToken();
-      if (!token) {
-        Alert.alert('Could not delete', 'You are not signed in on this device.');
+      if (session && !token) {
+        Alert.alert('Could not delete', 'Could not reach your account. Please reconnect and try again.');
         return;
       }
 
@@ -429,22 +429,23 @@ function ProfileContent() {
       // covers the case where deletion fails partway.
       await disable().catch(() => {});
 
-      const result = await deleteAccount(token);
+      const result = token ? await deleteAccount(token) : null;
 
       // Server deletion succeeded. Local cleanup has its own retry so it can
       // never be reported as an account-deletion failure or silently skipped.
       const finish = async () => {
         const cleanup = await Promise.allSettled([clearStars(), clearSavedFloats(), forgetSession()]);
-        const subscriptionNote = result.hadActiveEntitlement
+        const subscriptionNote = result?.hadActiveEntitlement
           ? ' Your Apple subscription is still active — cancel it in Settings › Apple ID › Subscriptions to stop being billed.'
           : '';
         if (cleanup.some((entry) => entry.status === 'rejected')) {
-          Alert.alert('Account deleted',
+          Alert.alert(signedIn ? 'Account deleted' : 'Data deleted',
             'Some saved data could not be removed from this device. Retry to finish clearing it.' + subscriptionNote,
             [{ text: 'Retry cleanup', onPress: () => void finish() }]);
           return;
         }
-        Alert.alert('Account deleted', 'Your account, favorites and saved floats have been removed.' + subscriptionNote);
+        Alert.alert(signedIn ? 'Account deleted' : 'Data deleted',
+          (session ? 'Your account, favorites and saved floats have been removed.' : 'Your favorites and saved floats have been removed from this device.') + subscriptionNote);
       };
       await finish();
     } catch (err) {
@@ -452,30 +453,34 @@ function ProfileContent() {
     } finally {
       setBusy(null);
     }
-  }, [getAccessToken, forgetSession, disable, clearStars, clearSavedFloats]);
+  }, [getAccessToken, forgetSession, disable, clearStars, clearSavedFloats, session, signedIn]);
 
   const handleDelete = useCallback(() => {
     // Two steps, and the first names what is lost. This is the only
     // irreversible action in the app.
     Alert.alert(
-      'Delete your account?',
+      signedIn ? 'Delete your account?' : 'Delete your data?',
       entitlement?.isActive
         ? 'This permanently deletes your account, saved floats and favorites.\n\nIt does NOT cancel your subscription — only you can do that, in your Apple ID settings. Cancel there first, or you will keep being billed.'
-        : 'This permanently deletes your account, saved floats and favorites. It cannot be undone.',
+        : signedIn
+          ? 'This permanently deletes your account, saved floats and favorites. It cannot be undone.'
+          : session
+            ? 'This permanently deletes your Eddy data, including your guest account, saved floats and favorites. It cannot be undone.'
+            : 'This permanently deletes saved floats and favorites from this device. It cannot be undone.',
       [
         { text: 'Cancel', style: 'cancel' },
         {
           text: 'Delete',
           style: 'destructive',
           onPress: () =>
-            Alert.alert('This cannot be undone', 'Delete your Eddy account permanently?', [
-              { text: 'Keep my account', style: 'cancel' },
+            Alert.alert('This cannot be undone', 'Permanently delete your Eddy data?', [
+              { text: 'Keep my data', style: 'cancel' },
               { text: 'Delete permanently', style: 'destructive', onPress: () => void runDelete() },
             ]),
         },
       ],
     );
-  }, [entitlement, runDelete]);
+  }, [entitlement, runDelete, session, signedIn]);
 
   const handleSignOut = useCallback(() => {
     Alert.alert('Sign out?', 'Your favorites stay on this device.', [
@@ -797,19 +802,19 @@ function ProfileContent() {
           </View>
         </Section>
 
-        {signedIn && (
-          <Section title="Account" muted={colors.textMuted}>
+        {ready && (
+          <Section title={signedIn ? "Account" : "Your data"} muted={colors.textMuted}>
             <View style={[styles.group, { backgroundColor: colors.card }, elevation(1)]}>
-              <SettingsRow
+              {signedIn && <SettingsRow
                 icon="log-out-outline"
                 title="Sign out"
                 onPress={handleSignOut}
                 disabled={busy !== null}
-              />
+              />}
               <SettingsRow
                 icon="trash-outline"
-                title={busy === 'delete' ? 'Deleting…' : 'Delete account'}
-                detail="Permanently removes your Eddy account"
+                title={busy === 'delete' ? 'Deleting…' : signedIn ? 'Delete account' : 'Delete my data'}
+                detail={signedIn ? "Permanently removes your Eddy account" : "Remove your saved floats and favorites"}
                 onPress={handleDelete}
                 disabled={busy !== null}
                 busy={busy === 'delete'}

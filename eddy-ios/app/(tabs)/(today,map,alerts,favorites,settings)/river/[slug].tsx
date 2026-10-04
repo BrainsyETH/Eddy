@@ -125,7 +125,7 @@ import { PaywallSheet } from '@/components/PaywallSheet';
 import { PushPrimer } from '@/components/PushPrimer';
 import { AlertSignInSheet } from '@/components/AlertSignInSheet';
 import { gaugePlaceLabel, gaugeConditionCode, gaugeLink, gaugesForRiver } from '@/lib/gaugeCondition';
-import { driveToUrl } from '@/lib/directions';
+import { useDirectionsMenu } from '@/components/DirectionsMenu';
 import { useAccount } from '@/hooks/useAccount';
 import { useEddyUpdates } from '@/hooks/useEddyUpdates';
 import { useAlertGate } from '@/hooks/useAlertGate';
@@ -197,33 +197,17 @@ function UnavailableNote({ text, onRetry }: { text: string; onRetry: () => void 
  * lines of JSX is how that stops being true.
  */
 function AccessRow({ point, riverSlug }: { point: MapAccessPoint; riverSlug: string }) {
+  const { showDirections, directionsMenu } = useDirectionsMenu();
   const router = useRouter();
   const { colors, elevation } = useTheme();
 
   return (
-    /* THE ROW OPENS THE PLACE; the arrow still opens Maps.
-
-       These rows went straight to Apple Maps, which answered "how do I get
-       there" and foreclosed every other question a put-in raises — is the last
-       mile gravel, is there room for a trailer, is there a toilet, who runs a
-       shuttle. All of that was already in the database and on the website, and
-       the app had no screen for it.
-
-       So the row is a destination and directions is a control ON the row,
-       rather than the row being the control. Nothing that worked before stopped
-       working: the navigate arrow to the right is the same one-tap handoff,
-       still by coordinate and never by name — "Akers Ferry" is ambiguous to a
-       geocoder and most Ozark access points are not in one at all. See
-       src/lib/directions.ts.
-
-       A point with no slug cannot be addressed, so it keeps the old behaviour
-       of opening Maps directly rather than offering a destination that 404s.
-       `slug` is optional on MapAccessPoint for exactly this reason. */
+    <>
     <Pressable
       onPress={() =>
         point.slug
           ? router.push(`/river/${riverSlug}/access/${encodeURIComponent(point.slug)}`)
-          : void Linking.openURL(driveToUrl(point))
+          : showDirections(point)
       }
       style={({ pressed }) => [
         styles.accessRow,
@@ -289,7 +273,7 @@ function AccessRow({ point, riverSlug }: { point: MapAccessPoint; riverSlug: str
           handoff. */}
       {point.slug ? (
         <Pressable
-          onPress={() => void Linking.openURL(driveToUrl(point))}
+          onPress={(event) => { event.stopPropagation(); showDirections(point); }}
           hitSlop={10}
           accessibilityRole="button"
           accessibilityLabel={`Directions to ${point.name}`}
@@ -300,6 +284,8 @@ function AccessRow({ point, riverSlug }: { point: MapAccessPoint; riverSlug: str
         <ControlIcon name="navigate-outline" size={16} color={colors.interactive} />
       )}
     </Pressable>
+    {directionsMenu}
+    </>
   );
 }
 

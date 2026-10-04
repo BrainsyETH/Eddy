@@ -4,16 +4,20 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { EddyScene } from '@/components/EddyScene';
 import { preloadTodayData } from '@/lib/firstRunPreload';
 import { FirstRunPicker } from '@/components/FirstRunPicker';
+import { OnboardingSignIn } from '@/components/OnboardingSignIn';
+import { useSession } from '@/hooks/useSession';
 import { SafetyDisclaimer } from '@/components/SafetyDisclaimer';
 import {
   acceptTerms,
   completePersonalization,
   hasAcceptedTerms,
   markPersonalizationPending,
+  markSignInPending,
   needsMigrationRecord,
   readPersonalization,
   resolveFirstRun,
   stepAfterLegal,
+  stepAfterPicker,
   type FirstRunSnapshot,
   type FirstRunStep,
 } from '@/lib/onboarding';
@@ -24,6 +28,7 @@ import { fonts, type as t } from '@/theme/typography';
 
 export function OnboardingGate({ children }: { children: ReactNode }) {
   const { colors } = useTheme();
+  const { accountsConfigured, ready, isAnonymous } = useSession();
   const [step, setStep] = useState<FirstRunStep | null>(null);
   const [saving, setSaving] = useState(false);
 
@@ -88,14 +93,31 @@ export function OnboardingGate({ children }: { children: ReactNode }) {
     if (step === 'picker') preloadTodayData();
   }, [step]);
 
-  /** Followed or skipped — either way the question has been asked. */
-  const finishPicker = useCallback(() => {
-    void completePersonalization();
+  const finishOnboarding = useCallback(async () => {
+    await completePersonalization();
     setStep('app');
   }, []);
 
+  /** Followed or skipped — offer an account only after the picker is finished. */
+  const finishPicker = useCallback(async () => {
+    const next = stepAfterPicker(accountsConfigured, ready && !isAnonymous);
+    if (next === 'sign-in') await markSignInPending();
+    else await completePersonalization();
+    setStep(next);
+  }, [accountsConfigured, ready, isAnonymous]);
+
+  useEffect(() => {
+    // Keychain can restore a permanent session on reinstall. Never ask again.
+    if (step === 'sign-in' && (!accountsConfigured || (ready && !isAnonymous))) {
+      void finishOnboarding();
+    }
+  }, [step, accountsConfigured, ready, isAnonymous, finishOnboarding]);
+
   if (step === 'app') return <>{children}</>;
   if (step === null) return <View style={{ flex: 1, backgroundColor: colors.bg }} />;
+  if (step === 'sign-in') {
+    return <OnboardingSignIn onDone={() => void finishOnboarding()} />;
+  }
   if (step === 'picker') {
     return <FirstRunPicker onDone={finishPicker} />;
   }

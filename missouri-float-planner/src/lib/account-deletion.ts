@@ -34,17 +34,15 @@
 //
 // So owned plans are deleted EXPLICITLY, before the auth user goes.
 //
-// ── What deliberately survives ────────────────────────────────────────────
-//
-// community_reports.user_id and river_photos are also SET NULL, and that is
-// left alone on purpose. Those are published contributions other people rely
-// on — gauge ground-truth and by-level imagery — and anonymising authorship is
-// the standard, defensible reading of "delete my account" for public UGC. It
-// is a different decision from the float_plans one because the data is already
-// public by intent; nothing becomes newly visible.
+// Community submissions currently use the public reports endpoint without an
+// account id. river_photos is an editorial library with no account column.
+// These cannot be located by account deletion; the privacy policy explains
+// submission removal requests. Do not infer ownership from submitter_name.
+// If account-linked submissions are introduced, add their rows AND stored
+// images to this deletion workflow before shipping that write path.
 
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { appleCredentialsFromEnv, revokeAppleToken } from '@/lib/apple/revoke';
+import { revokeDeletedAccount, type AppleRevocationStatus } from '@/lib/apple/revocation-queue';
 
 /**
  * Tables that must be deleted by hand because their FK to auth.users does NOT
@@ -65,114 +63,50 @@ export const EXPLICIT_DELETE_TABLES = [
 ] as const;
 
 export interface AccountDeletionResult {
-  /** Rows removed per table, for the audit log. */
   deleted: Record<string, number>;
-  /** Whether an Apple token was found and successfully revoked. */
   appleRevoked: boolean;
-}
-
-/**
- * Revoke this user's Apple token, if there is one and Apple is configured.
- *
- * ── Failures are logged and swallowed, deliberately ───────────────────────
- *
- * A person's ability to delete their account must not depend on Apple's
- * uptime. Aborting here would leave a half-deleted account — owned float plans
- * already gone, auth user still present — which is strictly worse than an
- * unrevoked token, and it would put the button behind a third party on the one
- * flow App Review checks by hand.
- *
- * Returns false for "nothing revoked", which covers three ordinary cases and
- * one real failure, none of which the caller treats differently: an anonymous
- * user (the deletion route uses requireUser, not requirePermanentUser, so they
- * can delete too and revocation is a no-op), a deployment with no APPLE_* vars,
- * a user who signed in before this shipped, and Apple returning an error.
- */
-export async function revokeAppleTokensForUser(
-  admin: SupabaseClient,
-  userId: string,
-): Promise<boolean> {
-  const creds = appleCredentialsFromEnv();
-  if (!creds) return false;
-
-  const { data, error } = await admin
-    .from('apple_refresh_tokens')
-    .select('refresh_token')
-    .eq('user_id', userId)
-    .maybeSingle();
-
-  if (error || !data?.refresh_token) return false;
-
-  const result = await revokeAppleToken(data.refresh_token, creds);
-  if (!result.ok) {
-    console.error('[account-deletion] Apple token revocation failed:', result.error);
-    return false;
-  }
-  return true;
+  appleRevocationStatus: AppleRevocationStatus;
 }
 
 export interface AccountDeletionDeps {
-  /**
-   * Injectable so the ordering and the does-not-block rule are testable without
-   * reaching Apple — the same reason src/lib/push/expo.ts injects fetch.
-   */
-  revokeApple?: (admin: SupabaseClient, userId: string) => Promise<boolean>;
+  appleAccount?: boolean;
+  revokeApple?: (admin: SupabaseClient, userId: string, appleAccount: boolean) => Promise<AppleRevocationStatus>;
 }
 
 /**
- * Delete a user and their owned data.
- *
- * Takes a SERVICE-ROLE client. The caller has already verified the requester's
- * identity from their own JWT (requireUser), and every statement below is
- * scoped by that verified id — but the work itself has to bypass RLS, because
- * removing the auth user requires the admin API and because a deletion must not
- * be silently narrowed by a policy that happens not to grant DELETE.
- *
- * NOT ATOMIC, and ordered accordingly. Postgres cannot roll back the auth
- * admin call, so the owned-data deletes run FIRST: if the run dies halfway, the
- * sensitive rows are already gone and the account still exists, which leaves
- * the user able to retry. The reverse order could orphan private data behind a
- * deleted account with nobody able to reach it.
+ * Owned floats must disappear before auth deletion can make their owner NULL.
+ * The auth.users trigger copies the Apple token to a durable outbox atomically
+ * with deletion. Apple's availability never determines whether deletion works.
  */
 export async function deleteAccount(
   admin: SupabaseClient,
   userId: string,
-  deps: AccountDeletionDeps = {}
+  deps: AccountDeletionDeps = {},
 ): Promise<AccountDeletionResult> {
+  // Fail before deleting anything if the required migration has not landed.
+  // The migration creates both this table and the trigger in one transaction.
+  const { error: queueError } = await admin.from('apple_token_revocations').select('id').limit(0);
+  if (queueError) throw new Error('Account deletion is temporarily unavailable. Please try again later.');
+
   const deleted: Record<string, number> = {};
-
   for (const { table, column } of EXPLICIT_DELETE_TABLES) {
-    const { data, error } = await admin
-      .from(table)
-      .delete()
-      .eq(column, userId)
-      .select('id');
-
-    if (error) {
-      throw new Error(`Could not delete ${table}: ${error.message}`);
-    }
+    const { data, error } = await admin.from(table).delete().eq(column, userId).select('id');
+    if (error) throw new Error(`Could not delete ${table}: ${error.message}`);
     deleted[table] = data?.length ?? 0;
   }
 
-  // BEFORE the auth user goes, because apple_refresh_tokens cascades off it —
-  // delete the user first and the token needed to revoke is gone with it.
-  // Guideline 5.1.1(v): an app offering Sign in with Apple and account deletion
-  // must call Apple's revocation endpoint.
-  const revoke = deps.revokeApple ?? revokeAppleTokensForUser;
-  let appleRevoked = false;
-  try {
-    appleRevoked = await revoke(admin, userId);
-  } catch (err) {
-    // Belt and braces — revokeAppleTokensForUser already swallows. See its
-    // docblock for why a revocation failure must not block a deletion.
-    console.error('[account-deletion] Apple token revocation threw:', err);
-  }
-
-  // Cascades the rest. Must be last — see the ordering note above.
+  // The trigger queues the latest token before its FK cascades. A failed queue
+  // insert aborts this transaction, leaving the account and original token.
   const { error } = await admin.auth.admin.deleteUser(userId);
-  if (error) {
-    throw new Error(`Could not delete auth user: ${error.message}`);
-  }
+  if (error) throw new Error(`Could not delete auth user: ${error.message}`);
 
-  return { deleted, appleRevoked };
+  let appleRevocationStatus: AppleRevocationStatus = 'pending';
+  try {
+    appleRevocationStatus = await (deps.revokeApple ?? revokeDeletedAccount)(admin, userId, deps.appleAccount ?? false);
+  } catch {
+    // The account is already deleted. Cron can retry the durable row; never
+    // report a successful deletion as failed or emit credential-bearing errors.
+    console.error('[account-deletion] Apple revocation deferred to retry');
+  }
+  return { deleted, appleRevoked: appleRevocationStatus === 'revoked', appleRevocationStatus };
 }

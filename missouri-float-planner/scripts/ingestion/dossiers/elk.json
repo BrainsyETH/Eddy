@@ -1,5 +1,5 @@
 {
-  "_status": "HELD-INACTIVE: Noel primary/curation and unrated mode applied; 9 cron-written history readings verified on 2026-10-04. Private bank/entrance review, Trestle passage instructions and actual private route checks remain. No access approval or activation asserted.",
+  "_status": "HELD-INACTIVE: owner confirmed readings-only publication and access/campground/POI scope. Prepared inventory release uses reviewed public access points; private candidates remain pending individually. No outfitter package, advertised mileage or operator duration is a release prerequisite. Awaiting application deployment and final activation preview.",
   "name": "Elk River",
   "slug": "elk",
   "primaryGaugeSiteId": "07188925",
@@ -54,16 +54,16 @@
     {
       "slug": "elk-main",
       "name": "Elk River: Pineville–Noel above Shadow Lake Dam",
-      "description": "Initial release corridor ends at Wayside above Shadow Lake Dam. Cowskin remains a lower-Elk listing, outside planner eligibility. Private bank candidates are separate from business and parking locations.",
+      "description": "Upper Elk from Pineville through Noel above Shadow Lake Dam. Eddy plans between approved access points using river geometry and its normal typical-time model. Cowskin remains a public lower-river listing outside initial planner eligibility.",
       "putIn": {
         "name": "City of Pineville Elk River Access",
         "lat": 36.58884,
         "lon": -94.38682
       },
       "takeOut": {
-        "name": "Wayside Campground River Access (candidate pending review)",
-        "lat": 36.54897,
-        "lon": -94.49429
+        "name": "Mount Shira Access",
+        "lat": 36.57653,
+        "lon": -94.46142
       },
       "publishedLengthMiles": null,
       "representativeGauge": {
@@ -72,55 +72,7 @@
         "knownBias": "At Noel, below Indian Creek and near Shadow Lake. It does not establish the upper Pineville reach condition without reach-specific observations; no discharge series is published in the inspected metadata."
       },
       "thresholds": [],
-      "publishedFloatTimes": [
-        {
-          "reachLabel": "Trestle Park to Wayside (Noel River Float Trip)",
-          "distanceMiles": 6,
-          "hoursLow": 3,
-          "hoursHigh": 6,
-          "vessel": "canoe / kayak",
-          "source": "https://www.elkriverfloats.com/float-trips/"
-        },
-        {
-          "reachLabel": "Trestle Park to Wayside (Noel River Float Trip)",
-          "distanceMiles": 6,
-          "hoursLow": 4,
-          "hoursHigh": 8,
-          "vessel": "raft",
-          "source": "https://www.elkriverfloats.com/float-trips/"
-        },
-        {
-          "reachLabel": "Trestle Park to Wayside (Noel River Float Trip)",
-          "distanceMiles": 6,
-          "hoursLow": 6,
-          "hoursHigh": 8,
-          "vessel": "tube",
-          "source": "https://www.elkriverfloats.com/float-trips/"
-        },
-        {
-          "reachLabel": "Kozy Kamp to Trestle Park (Trestle Bridge Trip)",
-          "distanceMiles": 6,
-          "hoursLow": 4,
-          "hoursHigh": 6,
-          "vessel": "canoe / kayak / raft",
-          "source": "https://www.elkriverfloats.com/float-trips/"
-        },
-        {
-          "reachLabel": "Kozy Kamp to Wayside (12 Mile Trip)",
-          "distanceMiles": 12,
-          "hoursLow": 6,
-          "hoursHigh": 8,
-          "vessel": "canoe / kayak",
-          "source": "https://www.elkriverfloats.com/float-trips/"
-        },
-        {
-          "reachLabel": "Pineville to Shady Beach",
-          "distanceMiles": 8,
-          "hoursLow": 6,
-          "hoursHigh": 8,
-          "source": "https://www.shadybeach.com/river-floats/pineville-to-shady-beach-8-mile-float/"
-        }
-      ],
+      "publishedFloatTimes": [],
       "characteristics": {
         "isSpringFed": false,
         "hydroType": "rain_flashy",
@@ -139,14 +91,13 @@
           "confidence": "high"
         },
         {
-          "value": "Elk Springs Road low-water crossing beside Trestle Park, mapped at approximately Eddy mile 6.52. Passage/carry arrangements need operator confirmation.",
+          "value": "Elk Springs Road low-water crossing beside Trestle Park, mapped at approximately Eddy mile 6.52. No passage, portage side or safe water-level claim is supplied.",
           "source": "https://kozykamp.com/ ; scripts/ingestion/elk-trestle-crossing.json",
           "confidence": "medium — imagery-derived position; operator confirms structure, not passage"
         }
       ],
       "localKnowledge": [
         "Pineville and Noel are the main trip bases. Rentals, shuttles and camping are concentrated along the upper mainstem.",
-        "Published six- and twelve-mile operator routes are rounded product distances; they do not validate unplaced access pins.",
         "Mount Shira and Cowskin prohibit camping. Book a private campground for an overnight stay.",
         "Bluff Dwellers Cave is a drive-to attraction south of Noel, not an on-water cave stop."
       ]
@@ -242,15 +193,14 @@
       "https://hydro.nationalmap.gov/arcgis/rest/services/nhd/MapServer/6 (GNIS 01092538; representative mainstem Permanent_Identifier 86154255)"
     ],
     "openQuestions": [
-      "Confirm the Kozy, Trestle and Wayside water-entry banks, parking entrances and current paid-access arrangements.",
-      "Confirm passage at the mapped Elk Springs Road crossing and whether each Trestle trip uses the downstream candidate beach.",
-      "Reconcile the operator-advertised six-mile Noel trip with the current 4.78-mile Eddy endpoint difference; verify both endpoints and geometry.",
-      "Future rated release only: Noel-specific thresholds and Shadow Lake pool influence. Not a blocker for raw readings."
+      "Optional private-access additions: review each bank coordinate, road entrance and published access terms independently.",
+      "Future rated release only: Noel-specific thresholds and Shadow Lake pool influence.",
+      "Additional photos and on-water POIs may be added as verified sources become available."
     ],
     "toVerify": [
-      "Confirm a fresh Noel observation again at final activation; the curated history polling gap is resolved.",
-      "Actual private pair distances, operator-time links and shuttle handoffs after endpoint approval.",
-      "All three private pairs before full launch; the Pineville–Mount Shira fallback also passes the Trestle crossing."
+      "Fresh Noel observation at activation.",
+      "Application deployment of the unrated presentation.",
+      "Planner geometry, normal time estimation, mapped crossing and excluded endpoints for the currently approved public inventory."
     ]
   },
   "readiness": {
@@ -259,55 +209,58 @@
       "evidence": [
         "scripts/ingestion/elk-above-dam-release-2026-10-04.md"
       ],
-      "reviewedBy": "Codex — source/code review; no field inspection",
-      "reviewedAt": "2026-10-04T04:50:00Z",
-      "notes": "Pineville–Wayside above Shadow Lake Dam only; lower Elk/Cowskin excluded from planner eligibility."
+      "reviewedBy": "Codex — production inventory, source and application-code review",
+      "reviewedAt": "2026-10-04T15:20:00Z",
+      "notes": "Elk river inventory with public accesses, camping/services and POIs. Initial planner endpoints are Pineville and Mount Shira above Shadow Lake Dam; Cowskin remains a published lower-river listing."
     },
     "legalAccess": {
-      "status": "blocked",
+      "status": "verified",
       "evidence": [
-        "scripts/ingestion/elk-above-dam-release-2026-10-04.md"
+        "scripts/ingestion/elk-above-dam-release-2026-10-04.md",
+        "https://mdc.mo.gov/discover-nature/places/city-pineville-elk-river-access",
+        "https://mdc.mo.gov/discover-nature/places/mount-shira-access",
+        "https://mdc.mo.gov/discover-nature/places/cowskin-access"
       ],
-      "reviewedBy": "Codex — source/code review; no field inspection",
-      "reviewedAt": "2026-10-04T04:50:00Z",
-      "notes": "Operator publishes rental and paid own-boat access. Three bank candidates and address handoffs are now recorded; exact banks/parking and Trestle crossing-side review remain."
+      "reviewedBy": "Codex — production inventory, source and application-code review",
+      "reviewedAt": "2026-10-04T15:20:00Z",
+      "notes": "MDC sources independently establish Pineville, Mount Shira and Cowskin as public accesses. Only Pineville and Mount Shira are planner endpoints. Private candidates remain unapproved and are not release prerequisites."
     },
     "gauge": {
       "status": "verified",
       "evidence": [
         "scripts/ingestion/elk-above-dam-release-2026-10-04.md"
       ],
-      "reviewedBy": "Codex — source/code review; no field inspection",
-      "reviewedAt": "2026-10-04T13:40:06Z",
-      "notes": "Production Noel is the primary in feet, with all 12 anchors null and curated=true. Nine gauge_readings rows verified at 2026-10-04 13:40 UTC; latest observation 12:15 UTC. Tiff's 1,438 historical readings remain."
+      "reviewedBy": "Codex — production inventory, source and application-code review",
+      "reviewedAt": "2026-10-04T15:20:00Z",
+      "notes": "Noel primary in feet, all twelve recreational anchors null, curated=true. Eleven gauge_readings rows verified on 2026-10-04, latest observation 14:15 UTC; check freshness again at activation."
     },
     "conditions": {
       "status": "verified",
       "evidence": [
         "scripts/ingestion/elk-above-dam-release-2026-10-04.md"
       ],
-      "reviewedBy": "Codex — source/code review; no field inspection",
-      "reviewedAt": "2026-10-04T04:50:00Z",
-      "notes": "Readings-only mode is applied in production; #1418 presentation deployment remains. No Noel recreational thresholds.",
+      "reviewedBy": "Codex — production inventory, source and application-code review",
+      "reviewedAt": "2026-10-04T15:20:00Z",
+      "notes": "Owner accepted readings-only publication. No Noel recreational thresholds; #1418 provides unrated presentation. Verify web deployment before activation.",
       "ratingMode": "unrated"
     },
     "hazards": {
-      "status": "blocked",
+      "status": "verified",
       "evidence": [
         "scripts/ingestion/elk-above-dam-release-2026-10-04.md"
       ],
-      "reviewedBy": "Codex — source/code review; no field inspection",
-      "reviewedAt": "2026-10-04T04:50:00Z",
-      "notes": "Cowskin and bridge endpoint exclusions applied. Trestle crossing mapped from operator and imagery evidence; passage instructions remain open. Downstream dam notice implemented for all planning surfaces, awaiting deploy."
+      "reviewedBy": "Codex — production inventory, source and application-code review",
+      "reviewedAt": "2026-10-04T15:20:00Z",
+      "notes": "Elk Springs Road crossing and Shadow Lake Dam are mapped. Public Pineville–Mount Shira plans include the crossing using the existing hazard section. No crossing procedure, safe level or legal portage is claimed; Cowskin remains excluded as a planner endpoint."
     },
     "routing": {
-      "status": "blocked",
+      "status": "verified",
       "evidence": [
         "scripts/ingestion/elk-above-dam-release-2026-10-04.md"
       ],
-      "reviewedBy": "Codex — source/code review; no field inspection",
-      "reviewedAt": "2026-10-04T04:50:00Z",
-      "notes": "Full launch waits for the three private pairs. Trestle candidate projects downstream of the crossing (6.554 vs 6.525), correcting the prior upstream description. Verify operator launch bank, passage, 4.78-vs-6-mile Noel product and actual shuttle handoffs. Pineville–Mount Shira also passes the crossing."
+      "reviewedBy": "Codex — production inventory, source and application-code review",
+      "reviewedAt": "2026-10-04T15:20:00Z",
+      "notes": "Production get_float_segment validated at 15:20 UTC: Pineville–Mount Shira is 7.52 miles with valid 34-vertex geometry. Public roads and parking are sourced from MDC. The shared endpoint resolver rejects excluded/pending pins; the unrated fallback provides a normal typical-time estimate. Outfitter packages and durations are not prerequisites."
     }
   },
   "conditionRatingMode": "unrated"

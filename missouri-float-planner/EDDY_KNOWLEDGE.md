@@ -647,7 +647,7 @@ Twenty-three miles of the White River between Table Rock Dam and Powersite Dam a
 
 - Pineville and Noel are the main bases. The Elk begins where Big Sugar and Little Sugar meet; Indian Creek joins above the Trestle Park area. Upper trips can become shallow before the lower reach does.
 - City of Pineville, Mount Shira and Cowskin are agency-listed accesses. Mount Shira and Cowskin prohibit camping. The highway crossings at I-49 and MO-59 are not verified public launches; Lanagan Access is on Indian Creek.
-- Kozy Kamp to Trestle Park and Trestle Park to Wayside are published operator trips. Private launches need the operator's rental or access arrangements. Campground office coordinates are not launch coordinates.
+- Eddy plans between approved access points using its river geometry. Private campgrounds and businesses can be listed without being approved launches; use the actual access inventory for planner endpoints.
 - Tent/RV camping is available through the river's operators, including Wayside, Kozy Kamp, Eagles Nest, Trestle Park, River Ranch/Sycamore Landing, Shady Beach, Two Sons and The Spot. Shady Beach requires a float booking for camping from Memorial Day through Labor Day.
 - Shadow Lake Dam separates upper and lower trips. Do not describe a through-float as verified without a confirmed portage and land access. The Trestle Park area also has a low-water crossing.
 - The live Noel gauge is USGS 07188925 and currently supplies stage only. The former Tiff City gauge is inactive. Never apply Tiff City stage thresholds to Noel or infer a discharge from its stage.

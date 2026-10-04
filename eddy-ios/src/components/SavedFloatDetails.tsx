@@ -6,7 +6,8 @@ import { hazardTypeLabel, portageNote } from '@eddy/hazards';
 import type { SavedFloat } from '@/hooks/useSavedFloats';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
-import { driveToUrl, driveBetweenUrl } from '@/lib/directions';
+import { driveBetweenUrl } from '@/lib/directions';
+import { useDirectionsMenu } from '@/components/DirectionsMenu';
 
 /** Useful without service; never renders a saved water verdict or time estimate. */
 export function SavedFloatDetails({ saved, loading, error, onRetry, header }: {
@@ -14,6 +15,7 @@ export function SavedFloatDetails({ saved, loading, error, onRetry, header }: {
   header?: ReactNode;
 }) {
   const { colors } = useTheme();
+  const { showDirections, directionsMenu } = useDirectionsMenu();
   const details = saved.logistics;
   const open = (url: string) => void Linking.openURL(url).catch(() => {
     Alert.alert('Could not open Maps', 'The access coordinates are shown here so you can still use your saved maps.');
@@ -26,6 +28,7 @@ export function SavedFloatDetails({ saved, loading, error, onRetry, header }: {
   return (
     <ScrollView contentInsetAdjustmentBehavior="automatic" contentContainerStyle={styles.content}>
       {header}
+      {directionsMenu}
       <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
         <Text style={[styles.heading, { color: colors.text }]}>Saved trip details</Text>
         <Text style={[styles.body, { color: colors.textMuted }]}>
@@ -49,7 +52,7 @@ export function SavedFloatDetails({ saved, loading, error, onRetry, header }: {
             <Text selectable style={[styles.body, { color: colors.textMuted }]}>
               {point.coordinates.lat.toFixed(5)}, {point.coordinates.lng.toFixed(5)} · River mile {point.riverMile}
             </Text>
-            {button(`Open ${role.toLowerCase()} in Maps`, () => open(driveToUrl(point)))}
+            {button(`Directions to ${role.toLowerCase()}`, () => showDirections(point))}
           </View>
         ))}
         {button('Open shuttle in Maps', () => open(driveBetweenUrl(details.takeOut, details.putIn)))}
