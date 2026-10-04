@@ -46,7 +46,8 @@ import { accessTabs, initialTabKey, type TabKey } from './tabs';
 import type { PlaceSymbolName } from './placeSymbol';
 import type { DetailStatus } from '@/hooks/useAccessPointDetail';
 import type { Detent } from './sheetGeometry';
-import { confirmPlanAction, isDriveable, openDirections } from './sheetActions';
+import { confirmPlanAction, isDriveable } from './sheetActions';
+import { useDirectionsMenu } from '@/components/DirectionsMenu';
 import { AccessCampingTab, AccessFloatsTab, AccessOverviewTab } from './AccessTabs';
 import {
   GaugeAboutTab,
@@ -379,6 +380,7 @@ function PinSheetHeader({
   backLabel?: string | null;
 }) {
   const { colors } = useTheme();
+  const { showDirections, directionsMenu } = useDirectionsMenu();
   const slot = peekSlot;
   // 'ready' means the question has been ANSWERED, not that the answer is
   // non-empty — a resolved-empty slot draws its terminal line rather than
@@ -401,6 +403,7 @@ function PinSheetHeader({
 
   return (
     <View style={styles.header}>
+      {directionsMenu}
       {part !== 'summary' ? <>
       {/* ── BACK, and only when there is somewhere to go back TO ───────────
           Present only when a river sheet was genuinely on screen before this
@@ -505,7 +508,7 @@ function PinSheetHeader({
         ) : null}
         {isDriveable(pin) ? (
           <Pressable
-            onPress={() => openDirections(pin)}
+            onPress={() => showDirections(detail && detail.accessPoint.id === accessPoint?.id ? detail.accessPoint : accessPoint ?? pin)}
             style={({ pressed }) => [
               styles.primary,
               { borderColor: colors.border, opacity: pressed ? 0.6 : 1 },

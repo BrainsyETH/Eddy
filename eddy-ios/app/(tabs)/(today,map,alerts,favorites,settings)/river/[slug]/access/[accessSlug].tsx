@@ -21,7 +21,8 @@ import { ScenicImage } from '@/components/ScenicImage';
 // ── Directions go to drivingLat/Lng when there is one ──────────────────────
 // A gravel bar's coordinate is on the water. The parking area can be a quarter
 // mile up a track, and routing a car to the waterline is how people end up
-// driving down something they cannot reverse out of. See driveTarget below.
+// driving down something they cannot reverse out of. The shared Directions
+// chooser preserves this approach.
 //
 // ── It opens on what the phone already knew ────────────────────────────────
 // This screen is reached by tapping a row that was already drawing this place's
@@ -79,12 +80,7 @@ import { shareLink } from '@/lib/share';
 import { PhotoSubmitSheetLazy } from '@/components/PhotoSubmitSheetLazy';
 import { FeedbackSheet } from '@/components/FeedbackSheet';
 import { readRiver } from '@/lib/riverCache';
-import {
-  driveToUrl,
-  installedNavLinks,
-  openNavLink,
-  type NavLinkSpec,
-} from '@/lib/directions';
+import { useDirectionsMenu } from '@/components/DirectionsMenu';
 import {
   agencyLabel,
   isDemandingSurface,
@@ -109,20 +105,6 @@ const SERVICE_ICON: Record<string, keyof typeof Ionicons.glyphMap> = {
 };
 
 /**
- * Where to actually drive.
- *
- * `drivingLat/Lng` when the curator recorded one, the access point's own
- * coordinate otherwise. Never a name — "Akers Ferry" is ambiguous to a geocoder
- * and most Ozark access points are not in one at all, which is the rule the
- * whole of directions.ts is built on.
- */
-function driveTarget(point: AccessPointDetail) {
-  const lat = point.drivingLat ?? point.coordinates.lat;
-  const lng = point.drivingLng ?? point.coordinates.lng;
-  return { name: point.name, coordinates: { lng, lat } };
-}
-
-/**
  * The place, drawn from what the phone already had.
  *
  * Serves two states that are the same page: the request is still in flight, and
@@ -135,7 +117,7 @@ function driveTarget(point: AccessPointDetail) {
  *
  * Directions. A cached MapAccessPoint has no `drivingLat/Lng`, so a button here
  * would route to the point's own coordinate — for a gravel bar, the waterline.
- * That is exactly the mistake driveTarget exists to prevent, and offering it
+ * The curated driving coordinate prevents that mistake. Offering Directions
  * half a second sooner is not worth sending somebody down a track they cannot
  * reverse out of. It appears with the coordinate that makes it correct.
  *
@@ -414,6 +396,7 @@ export default function AccessPointDetailScreen() {
   const { slug, accessSlug } = useLocalSearchParams<{ slug: string; accessSlug: string }>();
   const router = useRouter();
   const { colors, elevation } = useTheme();
+  const { showDirections, directionsMenu } = useDirectionsMenu();
 
   const { detail: data, status, estimatesStatus, error } = useAccessPointDetail(
     slug && accessSlug ? `/river/${slug}/access/${accessSlug}` : null,
@@ -462,31 +445,8 @@ export default function AccessPointDetailScreen() {
       live = false;
     };
   }, [slug, accessSlug]);
-  /**
-   * Which offroad map apps this phone actually has.
-   *
-   * Starts empty and stays empty for most people, which is the correct default:
-   * the row is drawn only for what came back, so a phone with none of them
-   * never sees it. Probed after the access point loads because the links need
-   * its coordinates.
-   */
-  const [navLinks, setNavLinks] = useState<NavLinkSpec[]>([]);
   const [feedbackOpen, setFeedbackOpen] = useState(false);
   const [photoOpen, setPhotoOpen] = useState(false);
-
-  // Deliberately not named `point` — that name belongs to the non-optional
-  // narrowing below the early returns, which the whole render leans on.
-  const loadedPoint = data?.accessPoint;
-  useEffect(() => {
-    if (!loadedPoint) return;
-    let live = true;
-    void installedNavLinks(loadedPoint).then((links) => {
-      if (live) setNavLinks(links);
-    });
-    return () => {
-      live = false;
-    };
-  }, [loadedPoint]);
 
   if (seed && (loading || error || !data)) {
     return (
@@ -612,7 +572,7 @@ export default function AccessPointDetailScreen() {
             this screen from a list already decided they are interested. */}
         <View style={styles.actions}>
           <Pressable
-            onPress={() => void Linking.openURL(driveToUrl(driveTarget(point)))}
+            onPress={() => showDirections(point)}
             style={({ pressed }) => [
               styles.primaryAction,
               {
@@ -635,8 +595,8 @@ export default function AccessPointDetailScreen() {
 
               It carries the point's identity as params rather than merely
               switching tabs, and the map re-selects it — see the Map screen's
-              `focus` handling. Beside Directions rather than in the nav-app row
-              below: those leave the app, this stays in it.
+              `focus` handling. Beside Directions: that chooser leaves the app,
+              this stays in it.
 
               Unconditional, unlike Official site. Every access point is on the
               map by definition — it has coordinates or it would not be an
@@ -676,37 +636,6 @@ export default function AccessPointDetailScreen() {
             </Pressable>
           ) : null}
         </View>
-
-        {/* ── The last half mile ──────────────────────────────────
-            Apple Maps above will get you to the area. What it will not do is
-            draw the unnamed track that the final half mile to an Ozark put-in
-            usually is, or route down it. onX and Gaia will, and anyone who owns
-            them owns them for this.
-
-            Only what the phone actually has, so this row is absent for most
-            people rather than being three buttons that bounce to the App Store.
-            See installedNavLinks. */}
-        {navLinks.length > 0 ? (
-          <View style={styles.navApps}>
-            <Text style={[styles.navAppsLabel, { color: colors.textSubtle }]}>Open in</Text>
-            <View style={styles.navAppsRow}>
-              {navLinks.map((link) => (
-                <Pressable
-                  key={link.app}
-                  onPress={() => void openNavLink(link)}
-                  style={({ pressed }) => [
-                    styles.navApp,
-                    { borderColor: colors.border, opacity: pressed ? 0.6 : 1 },
-                  ]}
-                  accessibilityRole="button"
-                  accessibilityLabel={`Open ${point.name} in ${link.label} ${link.subtitle}`}
-                >
-                  <Text style={[styles.navAppText, { color: colors.text }]}>{link.label}</Text>
-                </Pressable>
-              ))}
-            </View>
-          </View>
-        ) : null}
 
         {/* ── The water ──────────────────────────────────────────
             Pre-graded by the server, so this access point and its river cannot
@@ -975,6 +904,7 @@ export default function AccessPointDetailScreen() {
           name: `${point.name} (${point.river.name})`,
         }}
       />
+      {directionsMenu}
     </SafeAreaView>
   );
 }
@@ -1059,18 +989,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   secondaryActionText: { ...t.sm, fontFamily: fonts.medium },
-  // Tighter to the actions above than a Section would be: these are the same
-  // question as Directions, asked of a different app, not a new topic.
-  navApps: { paddingHorizontal: 16, marginTop: 12 },
-  navAppsLabel: { ...t.xs, fontFamily: fonts.medium, marginBottom: 6 },
-  navAppsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  navApp: {
-    paddingHorizontal: 14,
-    paddingVertical: 9,
-    borderRadius: 999,
-    borderWidth: 1,
-  },
-  navAppText: { ...t.sm, fontFamily: fonts.medium },
   section: { marginTop: 22 },
   // The padding that used to sit on sectionTitle lives here now, so a mark and
   // its heading share one baseline and one left edge with the prose below.

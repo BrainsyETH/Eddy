@@ -21,7 +21,8 @@ import type { MapPin } from '@/map/RiverMap';
 import { accessRoleForLayer } from '@/map/accessLayers';
 import { PlaceHead } from './PlaceHead';
 import { AccessTypeBadges } from './sections';
-import { confirmPlanAction, isDriveable, openDirections } from './sheetActions';
+import { confirmPlanAction, isDriveable } from './sheetActions';
+import { useDirectionsMenu } from '@/components/DirectionsMenu';
 import { CampgroundAvailability } from './CampgroundAvailability';
 import { localToday } from './availability';
 import { AIRBNB_LINK_COLOR, airbnbSearchUrl, STAY_SEARCH_LABEL } from '@/lib/stays';
@@ -65,6 +66,7 @@ export function PinCallout({
   onToggleStar?: (() => void) | null;
 }) {
   const { colors, isDark } = useTheme();
+  const { showDirections, directionsMenu } = useDirectionsMenu();
   const planAsTakeOut = canSetTakeOut;
   const planActionLabel = planAsTakeOut ? 'Use as take-out' : 'Use as put-in';
   const performPlanAction = planAsTakeOut ? onSetTakeOut : onSetPutIn;
@@ -149,7 +151,7 @@ export function PinCallout({
       label: 'Directions',
       icon: 'navigate-outline',
       tone: 'interactive',
-      onPress: () => openDirections(pin),
+      onPress: () => showDirections(accessPoint ?? pin),
       accessibilityLabel: `Directions to ${pin.name}`,
     });
   }
@@ -160,7 +162,7 @@ export function PinCallout({
       label: 'Directions',
       icon: 'navigate-outline',
       tone: 'neutral',
-      onPress: () => openDirections(pin),
+      onPress: () => showDirections(accessPoint ?? pin),
       accessibilityLabel: `Directions to ${pin.name}`,
     });
   }
@@ -424,6 +426,7 @@ export function PinCallout({
   );
 
   return (
+    <>
     <MapSheet
       resetKey={pin.id}
       label={`${pin.name} sheet`}
@@ -511,6 +514,8 @@ export function PinCallout({
         </View>
       </SheetBody>
     </MapSheet>
+    {directionsMenu}
+    </>
   );
 }
 
