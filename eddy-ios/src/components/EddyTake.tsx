@@ -94,6 +94,9 @@
 // On the web these are three columns; on a phone they stack.
 
 import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { useRouter } from 'expo-router';
+import { WeatherIcon } from '@/components/WeatherIcon';
+import { weatherDestination } from '@/lib/weatherDestination';
 import { BlurView } from 'expo-blur';
 import { Ionicons } from '@expo/vector-icons';
 import type { RiverOutlookResponse } from '@eddy/types';
@@ -239,18 +242,6 @@ function BlurredProse({
   );
 }
 
-/** OpenWeather icon code → Ionicons glyph. Same buckets the website maps. */
-function weatherGlyph(code: string): keyof typeof Ionicons.glyphMap {
-  if (code.startsWith('01')) return 'sunny-outline';
-  if (code.startsWith('02')) return 'partly-sunny-outline';
-  if (code.startsWith('03') || code.startsWith('04')) return 'cloud-outline';
-  if (code.startsWith('09') || code.startsWith('10')) return 'rainy-outline';
-  if (code.startsWith('11')) return 'thunderstorm-outline';
-  if (code.startsWith('13')) return 'snow-outline';
-  if (code.startsWith('50')) return 'reorder-four-outline';
-  return 'partly-sunny-outline';
-}
-
 function dayLabel(date: string, index: number): string {
   if (index === 0) return 'Today';
   // Noon UTC keeps the weekday stable regardless of the device's zone.
@@ -298,6 +289,8 @@ export function EddyTake({
 }: EddyTakeProps) {
   const { colors, elevation } = useTheme();
   const { sections, days } = outlook;
+  const router = useRouter();
+  const forecastDestination = weatherDestination(outlook.weatherCoordinates);
 
   // The long report when the server sent one, the single deterministic line
   // otherwise. `fullRead` is withheld server-side when the live river has moved
@@ -312,8 +305,14 @@ export function EddyTake({
     <View style={styles.wrapper}>
       {/* ── The 72-hour strip ───────────────────────────────── */}
       {days.length > 0 ? (
-        <View style={[styles.card, { backgroundColor: colors.card }, elevation(1)]}>
-          <View style={styles.stripHead}>
+        <Pressable onPress={forecastDestination ? () => router.push(forecastDestination) : undefined}
+          disabled={!forecastDestination} accessible={false}
+          style={[styles.card, { backgroundColor: colors.card }, elevation(1)]}>
+          <Pressable onPress={forecastDestination ? () => router.push(forecastDestination) : undefined}
+            disabled={!forecastDestination} accessibilityRole={forecastDestination ? 'button' : undefined}
+            accessibilityLabel={`Will it hold? Next 72 hours${outlook.weatherLocation ? ` near ${outlook.weatherLocation}` : ''}`}
+            accessibilityHint={forecastDestination ? 'Opens the full weather forecast for this location' : undefined}
+            style={styles.stripHead}>
             <View style={styles.stripHeadText}>
               <Text style={[styles.stripTitle, { color: colors.text }]}>Will it hold?</Text>
               <Text style={[styles.stripSub, { color: colors.textSubtle }]}>Next 72 hours</Text>
@@ -339,7 +338,8 @@ export function EddyTake({
                 </Text>
               </View>
             ) : null}
-          </View>
+            {forecastDestination ? <Ionicons name="chevron-forward" size={16} color={colors.interactive} /> : null}
+          </Pressable>
 
           <View style={[styles.dayRow, { borderTopColor: colors.border }]}>
             {days.map((day, index) => (
@@ -361,12 +361,7 @@ export function EddyTake({
 
                 {day.weather ? (
                   <>
-                    <Ionicons
-                      name={weatherGlyph(day.weather.conditionIcon)}
-                      size={22}
-                      color={colors.textMuted}
-                      style={styles.dayGlyph}
-                    />
+                    <WeatherIcon code={day.weather.conditionIcon} size={30} style={styles.dayGlyph} />
                     <Text style={[styles.temp, { color: colors.text }]}>
                       {day.weather.tempHigh}°{' '}
                       <Text style={{ color: colors.textSubtle }}>{day.weather.tempLow}°</Text>
@@ -469,7 +464,7 @@ export function EddyTake({
                 : 'Forecast is river stage in feet.'}
             </Text>
           ) : null}
-        </View>
+        </Pressable>
       ) : null}
 
       {/* ── Eddy's take ─────────────────────────────────────── */}

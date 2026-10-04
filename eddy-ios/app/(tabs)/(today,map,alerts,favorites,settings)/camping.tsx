@@ -1,4 +1,4 @@
-import { useMemo, useReducer, useRef, useState } from 'react';
+import { useCallback, useMemo, useReducer, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Modal,
@@ -15,7 +15,7 @@ import {
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useHeaderHeight } from 'expo-router/react-navigation';
-import { useLocalSearchParams } from 'expo-router';
+import { Stack, useLocalSearchParams } from 'expo-router';
 import { NativeHeaderHome } from '@/components/NativeHeaderHome';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, textStyles } from '@/theme/typography';
@@ -24,6 +24,7 @@ import { useCampingOverview } from '@/hooks/useCampingOverview';
 import { useLocation } from '@/hooks/useLocation';
 import {
   CampingScrollGroup,
+  CampingVerticalScrollView,
   CampingTableHeader,
   CampingTableRow,
 } from '@/components/CampingGrid';
@@ -60,6 +61,7 @@ export default function CampingScreen() {
         <CampingContent />
       ) : (
         <ScrollView contentInsetAdjustmentBehavior="automatic" contentContainerStyle={styles.empty}>
+          <Stack.Screen options={{ gestureEnabled: true }} />
           {loading ? <ActivityIndicator color={colors.interactive} /> :
             <Text style={[styles.message, { color: colors.textMuted }]}>Camping availability is unavailable.</Text>}
         </ScrollView>
@@ -149,8 +151,15 @@ function CampingContent() {
   const linkedNight = data ? linkedCampingNight(data, params.night) : undefined;
   const night = data ? linkedCampingNight(data, nightChoice) ?? linkedNight ?? data.horizon.startDate : '';
   const detailNight = data ? linkedCampingNight(data, openedNight) ?? linkedNight : undefined;
-  if (!data)
-    return <ScrollView contentInsetAdjustmentBehavior="automatic" contentContainerStyle={styles.empty}>{loading ? (
+  const grid = useMemo(() => data ? observedCampingOverview(data.tracked, data, now) : null, [data, now]);
+  const openGridCampground = useCallback((facilityId: string) => {
+    setOpenedNight(linkedNight);
+    setSelected(facilityId);
+  }, [linkedNight]);
+  if (!data || !grid)
+    return <ScrollView contentInsetAdjustmentBehavior="automatic" contentContainerStyle={styles.empty}>
+      <Stack.Screen options={{ gestureEnabled: true }} />
+      {loading ? (
       <ActivityIndicator color={colors.interactive} />
     ) : (
       <Pressable
@@ -165,10 +174,11 @@ function CampingContent() {
     )}</ScrollView>;
   // Keep the same date columns and horizontal position across every scope.
   // Missing observations in a filtered river remain explicit unknown cells.
-  const grid = observedCampingOverview(data.tracked, data, now);
 
   return (
     <>
+      {/* Horizontal date gestures own Grid mode; ordinary List keeps swipe-back. */}
+      <Stack.Screen options={{ gestureEnabled: display !== 'grid' }} />
       <Modal
         visible={riverPicker}
         animationType={reducedMotion ? 'none' : 'slide'}
@@ -246,10 +256,15 @@ function CampingContent() {
       <CampingScrollGroup
         thumbnails
         dateWidth={36}
+        columnCount={grid.horizon.nights.length}
         // Only a new calendar horizon resets the date offset, never a filter.
         key={grid.horizon.startDate}
       >
         <FlatList
+          renderScrollComponent={props => <CampingVerticalScrollView {...props} />}
+          initialNumToRender={8}
+          maxToRenderPerBatch={4}
+          windowSize={5}
           contentInsetAdjustmentBehavior="never"
           automaticallyAdjustContentInsets={false}
           automaticallyAdjustsScrollIndicatorInsets={false}
@@ -400,7 +415,7 @@ function CampingContent() {
                 row={item}
                 overview={grid}
                 now={now}
-                onPress={() => { setOpenedNight(linkedNight); setSelected(item.facilityId); }}
+                onOpen={openGridCampground}
               />}
             </View>
           )}

@@ -31,7 +31,7 @@ import { unknownConditionLabel } from '@eddy/conditions/condition-availability';
 
 import { useLayoutEffect, useState, type ReactNode } from 'react';
 import { useIsFocused, useRouter } from 'expo-router';
-import { Linking, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View, type ScrollViewProps } from 'react-native';
+import { ActivityIndicator, Linking, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View, type ScrollViewProps } from 'react-native';
 import { ControlIcon } from '@/components/ControlIcon';
 import type { FloatPlan, MapAccessPoint } from '@eddy/types';
 import { hazardConditionCode, hazardTypeLabel, portageNote, sortHazards } from '@eddy/hazards';
@@ -62,6 +62,13 @@ import { createPlanDetailNavigation } from '@/lib/planDetailNavigation';
 
 interface Props {
   plan: FloatPlan;
+  /** Saved plans retain logistics while their water-dependent values refresh. */
+  verification?: {
+    state: 'checking' | 'current' | 'unavailable';
+    checkedAt: string | null;
+    error: string | null;
+    onRetry: () => void;
+  };
   /** The planner already holds these; shared plans can load them independently. */
   accessPoints?: MapAccessPoint[];
   /** Share, start over — whatever the host screen offers. */
@@ -77,7 +84,7 @@ interface Props {
   onOpenDetail?: (destination: PlanDetailDestination) => void;
 }
 
-export function PlanResult({ plan, actions, accessPoints, header, support, initialScrollOffset, onScrollOffsetChange, onOpenDetail, contentInsetAdjustmentBehavior = 'never' }: Props) {
+export function PlanResult({ plan, verification, actions, accessPoints, header, support, initialScrollOffset, onScrollOffsetChange, onOpenDetail, contentInsetAdjustmentBehavior = 'never' }: Props) {
   const { colors, elevation, isDark } = useTheme();
   const { fontScale } = useWindowDimensions();
   const router = useRouter();
@@ -97,6 +104,9 @@ export function PlanResult({ plan, actions, accessPoints, header, support, initi
   // A new native scroll view restores the saved offset once. Subsequent scroll
   // events must not change this prop and fight the reader's gesture.
   const [contentOffset] = useState(() => initialScrollOffset === undefined ? undefined : { x: 0, y: initialScrollOffset });
+  const unverified = !!verification && verification.state !== 'current';
+  const checked = verification?.checkedAt ? new Date(verification.checkedAt).toLocaleString() : null;
+  const warningInk = unverified ? colors.textMuted : conditionInk(plan.condition.code);
 
   return (
     <ScrollView
@@ -108,6 +118,20 @@ export function PlanResult({ plan, actions, accessPoints, header, support, initi
       onScroll={onScrollOffsetChange ? (event) => onScrollOffsetChange(Math.max(0, event.nativeEvent.contentOffset.y)) : undefined}
     >
       {header}
+      {verification ? <View style={styles.verification} accessibilityLiveRegion="polite">
+        <View style={styles.verificationLabel}>
+          {verification.state === 'checking' ? <ActivityIndicator color={colors.interactive} /> : null}
+          <Text style={[styles.verificationText, { color: colors.textMuted }]}>
+            {verification.state === 'checking' ? 'Checking current conditions…'
+              : verification.state === 'unavailable' ? verification.error ?? 'Current conditions are unavailable.'
+              : 'Current conditions checked.'}
+            {checked ? ` Last checked ${checked}.` : ''}
+          </Text>
+        </View>
+        {verification.state === 'unavailable' ? <Pressable onPress={verification.onRetry} accessibilityRole="button" style={styles.retry}>
+          <Text style={[styles.verificationText, { color: colors.interactive }]}>Check again</Text>
+        </Pressable> : null}
+      </View> : null}
       {/* Warnings sit ABOVE the numbers on purpose. Everything below is a plan;
           this is the reason the plan might be wrong, or the reason not to go. */}
       {plan.warnings.length > 0 ? (
@@ -115,15 +139,18 @@ export function PlanResult({ plan, actions, accessPoints, header, support, initi
           style={[
             styles.warnings,
             {
-              backgroundColor: conditionBg(plan.condition.code),
-              borderColor: conditionChipBorder(plan.condition.code),
+              backgroundColor: unverified ? colors.card : conditionBg(plan.condition.code),
+              borderColor: unverified ? colors.border : conditionChipBorder(plan.condition.code),
             },
           ]}
         >
+          {verification ? <Text style={[styles.warningText, { color: warningInk }]}>
+            {unverified ? 'Earlier cautions' : 'Cautions'}{checked ? ` · ${checked}` : ''}
+          </Text> : null}
           {plan.warnings.map((warning) => (
             <View key={warning} style={styles.warningRow}>
-              <ControlIcon name="alert-circle" size={15} color={conditionInk(plan.condition.code)} />
-              <Text style={[styles.warningText, { color: conditionInk(plan.condition.code) }]}>
+              <ControlIcon name="alert-circle" size={15} color={warningInk} />
+              <Text style={[styles.warningText, { color: warningInk }]}>
                 {warning}
               </Text>
             </View>
@@ -153,6 +180,7 @@ export function PlanResult({ plan, actions, accessPoints, header, support, initi
           </Text>
         </View>
 
+        <CurrentPlanValue unverified={unverified} label={verification?.state === 'checking' ? 'Updating float time…' : 'Float time needs current conditions.'}>
         {plan.floatTime ? (
           <FloatTimeEstimate
             timeRange={plan.floatTime.timeRange}
@@ -189,6 +217,7 @@ export function PlanResult({ plan, actions, accessPoints, header, support, initi
             </Text>
           </>
         )}
+        </CurrentPlanValue>
 
         {plan.river.floatTip ? <Text style={[styles.headlineNote, { color: colors.textSubtle }]}>{plan.river.floatTip}</Text> : null}
       </View>
@@ -197,6 +226,7 @@ export function PlanResult({ plan, actions, accessPoints, header, support, initi
           flow, so the reading belongs with the plan rather than only on the
           river screen. */}
       <View style={[styles.card, { backgroundColor: colors.card }, elevation(1)]}>
+        <CurrentPlanValue unverified={unverified} label={verification?.state === 'checking' ? 'Checking current water conditions…' : 'Current water conditions are unavailable.'}>
         <View style={styles.conditionHead}>
           {plan.condition.code !== 'unknown' ? <Otter mood={otterForCondition(plan.condition.code)} size={52} /> : null}
           <View style={styles.conditionText}>
@@ -208,6 +238,7 @@ export function PlanResult({ plan, actions, accessPoints, header, support, initi
             <PlanReading plan={plan} />
           </View>
         </View>
+        </CurrentPlanValue>
 
         <GaugeSourceLink plan={plan} />
       </View>
@@ -224,6 +255,9 @@ export function PlanResult({ plan, actions, accessPoints, header, support, initi
               On this stretch{plan.hazardsUnavailable ? '' : ` (${plan.hazards.length})`}
             </Text>
           </View>
+          {unverified ? <Text style={[styles.hazardMeta, { color: colors.textMuted }]}>
+            Earlier observations{checked ? ` · ${checked}` : ''}. New hazards and closures have not been checked.
+          </Text> : null}
           {plan.hazardsUnavailable ? (
             <Text style={[styles.hazardMeta, { color: colors.textMuted }]}>
               Hazard information couldn’t be loaded.
@@ -261,6 +295,21 @@ export function PlanResult({ plan, actions, accessPoints, header, support, initi
       {actions}
     </ScrollView>
   );
+}
+
+/** Keep measured space and the parent scroll view, but hide stale verdicts
+ * from sight, touch and VoiceOver until revalidation succeeds. */
+function CurrentPlanValue({ unverified, label, children }: { unverified: boolean; label: string; children: ReactNode }) {
+  const { colors } = useTheme();
+  return <View>
+    <View style={unverified ? { opacity: 0 } : undefined} pointerEvents={unverified ? 'none' : 'auto'}
+      accessibilityElementsHidden={unverified} importantForAccessibility={unverified ? 'no-hide-descendants' : 'auto'}>
+      {children}
+    </View>
+    {unverified ? <View style={[StyleSheet.absoluteFill, { justifyContent: 'center' }]}>
+      <Text style={[styles.verificationText, { color: colors.textMuted }]}>{label}</Text>
+    </View> : null}
+  </View>;
 }
 
 /**
@@ -435,6 +484,10 @@ function GaugeSourceLink({ plan }: { plan: FloatPlan }) {
 }
 
 const styles = StyleSheet.create({
+  verification: { marginBottom: 12, minHeight: 48 },
+  verificationLabel: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  verificationText: { ...t.sm, fontFamily: fonts.body, flexShrink: 1 },
+  retry: { minHeight: 44, justifyContent: 'center' },
   scroll: { flex: 1 },
   body: { padding: 16, paddingBottom: 40 },
   warnings: { borderRadius: 12, borderWidth: 1, padding: 12, marginBottom: 10, gap: 8 },

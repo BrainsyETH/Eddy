@@ -530,10 +530,16 @@ const TodayDataRow = memo(function TodayDataRow({
   );
 });
 
-export function TodayScreen({ browseMode = 'today', initialRiverFilter = 'all', initialReadFilter = 'for-you' }: {
+export function TodayScreen({ browseMode = 'today', initialRiverFilter = 'all', initialReadFilter = 'for-you', readAccess }: {
   browseMode?: BrowseMode;
   initialRiverFilter?: FilterKey;
   initialReadFilter?: ReadFilter;
+  readAccess?: {
+    premiumUserId: string | null;
+    error: string | null;
+    refresh: () => Promise<void>;
+    onUnlock?: (riverName: string) => void;
+  };
 }) {
   const { rivers, gauges, error, awaitingConditions, load, ensureGauges } = useTodayCatalog();
   const [refreshing, setRefreshing] = useState(false);
@@ -689,10 +695,10 @@ export function TodayScreen({ browseMode = 'today', initialRiverFilter = 'all', 
     // governs mounting, not refreshing — and it does not clear what is on
     // screen first, so pulling down with no signal costs the reader nothing.
     // See clauses 3 and 4 in src/hooks/useEddyUpdates.ts.
-    await Promise.all([load(true), refreshEddyUpdates()]);
+    await Promise.all([load(true), refreshEddyUpdates(), readAccess?.refresh()]);
     setHubRefreshRevision((revision) => revision + 1);
     setRefreshing(false);
-  }, [load, refreshEddyUpdates]);
+  }, [load, refreshEddyUpdates, readAccess]);
 
   // Floatable first, then by canonical rank, then by name. A paddler opening
   // this screen wants somewhere to go, not an index — so this stays the
@@ -1527,6 +1533,9 @@ export function TodayScreen({ browseMode = 'today', initialRiverFilter = 'all', 
                     onToggle={(key) => pickReadFilter(key as ReadFilter)}
                     paddingHorizontal={16}
                   />
+                  {readAccess?.error ? <Pressable accessibilityRole="button" onPress={() => void readAccess.refresh()} style={styles.readsIntro}>
+                    <Text style={[styles.readsIntroText, { color: colors.interactive }]}>Couldn’t check Premium. Tap to retry.</Text>
+                  </Pressable> : null}
                 </View>
               )}
             </View>
@@ -1647,6 +1656,9 @@ export function TodayScreen({ browseMode = 'today', initialRiverFilter = 'all', 
               <EddyReadCard
                 river={item.read.river}
                 says={{ generatedAt: item.read.says.generatedAt }}
+                premiumUserId={readAccess?.premiumUserId}
+                onUnlock={readAccess?.onUnlock ? () => readAccess.onUnlock?.(item.read.river.name) : undefined}
+                refreshRevision={hubRefreshRevision}
                 onPress={() => router.push({ pathname: '/river/[slug]', params: { slug: item.read.river.slug, focus: 'read' } })}
               />
             );

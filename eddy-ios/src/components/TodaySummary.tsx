@@ -44,6 +44,7 @@
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 import { ControlIcon } from '@/components/ControlIcon';
+import { WeatherIcon } from '@/components/WeatherIcon';
 import type { OutlookWeatherDay } from '@eddy/types';
 import { EddySymbol } from '@/components/EddySymbol';
 import { useTheme } from '@/theme/ThemeProvider';
@@ -83,16 +84,6 @@ interface TodayWeatherProps {
   locationActionLabel?: string | null;
   weatherLoading?: boolean;
   onOpen?: () => void;
-}
-
-function weatherGlyph(code: string): React.ComponentProps<typeof ControlIcon>['name'] {
-  if (code.startsWith('01')) return 'sunny-outline';
-  if (code.startsWith('02') || code.startsWith('03') || code.startsWith('04')) return 'cloud-outline';
-  if (code.startsWith('09') || code.startsWith('10')) return 'rainy-outline';
-  if (code.startsWith('11')) return 'thunderstorm-outline';
-  if (code.startsWith('13')) return 'snow-outline';
-  if (code.startsWith('50')) return 'cloudy-outline';
-  return 'partly-sunny-outline';
 }
 
 function localDateKey(now = new Date()): string {
@@ -222,7 +213,7 @@ export function TodayWeather({
       onPress={weather ? onOpen : onRequestLocation ?? undefined}
       style={[styles.compactWeather, { backgroundColor: colors.card, borderColor: colors.border }, elevation(1)]}>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap', justifyContent: 'center', minHeight: 29 }}>
-        <ControlIcon name={weather ? weatherGlyph(weather.conditionIcon) : 'partly-sunny-outline'} size={28} color={colors.interactive} />
+        {weather ? <WeatherIcon code={weather.conditionIcon} size={32} /> : <ControlIcon name="partly-sunny-outline" size={28} color={colors.interactive} />}
         {!locationEnabled && !weather ? <Text style={{ ...t.lg, fontFamily: fonts.semibold, color: colors.text }}>Weather</Text> : null}
       </View>
       {weather ? <>
@@ -249,7 +240,7 @@ export function TodayWeather({
       {weather ? (
         <Pressable onPress={onOpen} accessibilityRole="button" accessibilityLabel="View detailed local forecast" style={styles.weather}>
           <View style={[styles.weatherIcon, { backgroundColor: colors.selectionBg }]}>
-            <ControlIcon name={weatherGlyph(weather.conditionIcon)} size={22} color={colors.interactive} />
+            <WeatherIcon code={weather.conditionIcon} size={28} />
           </View>
           <View style={styles.copy}>
             <Text style={[styles.weatherPlace, { color: colors.textSubtle }]} numberOfLines={1}>

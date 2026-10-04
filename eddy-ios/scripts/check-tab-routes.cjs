@@ -122,7 +122,19 @@ for (const extension of ['.ts', '.tsx']) require.extensions[extension] = (module
 };
 const { redirectSystemPath } = require('../app/+native-intent.tsx');
 const { notificationDestination } = require('../src/lib/notificationDestination.ts');
+const { weatherDestination } = require('../src/lib/weatherDestination.ts');
 const { planAccessDestination, planCampingDestination } = require('../src/lib/planDestinations.ts');
+for (const href of ['/', 'eddy:///', 'https://eddy.guide/']) {
+  launch(redirectSystemPath({ path: href, initial: true }));
+  assert.equal(activeTab(), '(today)', 'Plain launches must start on Today');
+  assert.equal(activeStack().routes.at(-1).name, 'reports');
+  selectTab('map');
+  assert.equal(activeTab(), '(map)');
+  assert.equal(activeStack().routes.at(-1).name, 'index');
+}
+launch(redirectSystemPath({ path: '/?focusRiver=current&focusAccess=akers', initial: true }));
+assert.equal(activeTab(), '(map)', 'Explicit map links must survive the Today launch default');
+assert.equal(activeStack().routes.at(-1).params.focusAccess, 'akers');
 for (const [group, initial] of Object.entries(roots)) {
   launch(`/(tabs)/(${group})/${initial === 'index' ? '' : initial}`);
   const owner = `(${group})`;
@@ -144,6 +156,12 @@ for (const [group, initial] of Object.entries(roots)) {
   assert.equal(activeStack().routes.at(-1).name, 'river/[slug]/access/[accessSlug]');
   back();
   assert.deepEqual(activeStack(), river);
+  push(weatherDestination({ lat: 37.42, lng: -91.26 }));
+  assert.equal(activeTab(), owner, 'Weather must stay in the river’s tab');
+  assert.equal(activeStack().routes.at(-1).name, 'weather');
+  assert.equal(activeStack().routes.at(-1).params.lat, '37.42');
+  back();
+  assert.deepEqual(activeStack(), river, 'Back from weather lost the river');
   // Both the map planner and a saved float keep their stack when opening a
   // place or a dated campground. Back must restore that exact origin.
   for (const fromSaved of [false, true]) {

@@ -10,8 +10,8 @@ import { driveBetweenUrl } from '@/lib/directions';
 import { useDirectionsMenu } from '@/components/DirectionsMenu';
 
 /** Useful without service; never renders a saved water verdict or time estimate. */
-export function SavedFloatDetails({ saved, loading, error, onRetry, header }: {
-  saved: SavedFloat; loading: boolean; error: string | null; onRetry: () => void;
+export function SavedFloatDetails({ saved, refreshing, error, onRetry, header }: {
+  saved: SavedFloat; refreshing: boolean; error: string | null; onRetry: () => void;
   header?: ReactNode;
 }) {
   const { colors } = useTheme();
@@ -32,13 +32,13 @@ export function SavedFloatDetails({ saved, loading, error, onRetry, header }: {
       <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
         <Text style={[styles.heading, { color: colors.text }]}>Saved trip details</Text>
         <Text style={[styles.body, { color: colors.textMuted }]}>
-          {loading ? 'Checking current conditions…' : error ?? 'Current conditions have not been checked.'}
+          {refreshing ? 'Checking current conditions…' : error ?? 'Current conditions have not been checked.'}
           {' Water conditions, closures and float times are not verified here.'}
         </Text>
         <Text style={[styles.body, { color: colors.textMuted }]}>
           Saved {new Date(details?.savedAt ?? saved.savedAt).toLocaleString()} · {saved.distanceLabel}
         </Text>
-        {!loading ? button('Check current conditions', onRetry) : null}
+        {!refreshing ? button('Check current conditions', onRetry) : null}
       </View>
       {details ? <>
         {([['Put-in', details.putIn], ['Take-out', details.takeOut]] as const).map(([role, point]) => (

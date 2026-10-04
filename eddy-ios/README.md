@@ -674,6 +674,15 @@ saved floats. Saved trips retain endpoint coordinates, access details, distance,
 and dated cautions for offline use. Live conditions and time estimates are not
 stored in that record. Opening a trip online recalculates the plan and updates
 its saved details; older stubs gain details on their next successful open.
+Fast opens show a loading placeholder until the live plan arrives. An offline
+connectivity hint exposes saved logistics immediately, but never cancels the live
+request or sets an error; network transitions can make that hint inaccurate.
+Otherwise a slow request reveals logistics after 1.2 seconds. Foreground refresh
+keeps an open result mounted and its scroll position intact, but hides its previous water verdict, readings
+and float-time estimate from sight and VoiceOver until revalidation succeeds.
+If refresh fails, logistics and dated cautions remain available with a retry.
+Connectivity uses `expo-network`, so adding this dependency requires a new
+native build, not only a JavaScript refresh.
 Account deletion clears both the current and legacy local favorites stores and
 the saved-float collection, including queued writes and in-flight sync results.
 

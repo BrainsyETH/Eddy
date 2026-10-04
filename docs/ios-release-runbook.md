@@ -27,11 +27,11 @@ checklist.
       `/api/conditions/[riverId]`, `historyCapabilities` on gauge detail, the
       server-derived visual gauge). Restore breaks loudly; the fields degrade
       quietly, which is worse.
-- [ ] **Do not publish an EAS Update during this release.** No native
-      dependency or config plugin changed since 1.1, so the fingerprint
-      runtime version is unchanged — an update on the `production` channel
-      would be offered to 1.1 binaries in the store, putting 1.2's JavaScript
-      behind 1.1's version string. Cut the build; do not patch 1.1.
+- [ ] **Cut a new binary for this release.** The September 3 delta had no
+      native changes and could otherwise put 1.2 JavaScript into a 1.1 binary
+      through EAS Update. The October 4 follow-up adds `expo-network`, changing
+      the fingerprint runtime: its native module requires a rebuilt client.
+      An OTA update cannot add it to an already installed build.
 - [ ] **Trust Ledger critical — Jacks Fork, still open, no longer snoozed.**
       07065200 (near Mountain View) has `level_low = level_optimal_min = 100`
       cfs, untouched since 2026-07-21. The September 1 recalibration fixed
@@ -66,6 +66,58 @@ Expect and do not chase: the three Cumberland dams (Wolf Creek, Center Hill,
 Dale Hollow) read 4.7–9.7 hours stale against 1.7–2.7 for the other fifteen.
 That is an upstream LRN feed lag, the strip renders those hours as honest
 nulls by design, and a tester will report it as a bug.
+
+### 1.4.0 device QA follow-up gates — October 4, 2026 (#1425)
+
+These are pending device and release checks, not evidence of a device pass.
+
+- [ ] **Deploy the outlook API before testing this binary's weather links.**
+      `/api/rivers/[slug]/outlook` must return `weatherCoordinates` for the
+      exact point used to fetch the forecast. Confirm both the primary and
+      selected-gauge paths. Older servers remain compatible, but the new
+      “Will it hold?” weather link cannot be verified against them.
+- [ ] **Include `expo-network` in the new 1.4.0 binary.** Test a rebuilt client;
+      refreshing JavaScript in the old device build is insufficient. Do not
+      ship this PR's bundle as an OTA hotfix to the current store binary.
+- [ ] **Camping grid:** fling hard in both directions across the full horizon;
+      check for blank columns, frame drops and header/row misalignment. Try
+      diagonal drags, change direction mid-drag, and start a vertical scroll
+      while horizontal momentum is still running. Horizontal pans should not
+      scroll the list or navigate back; vertical drags should scroll normally.
+- [ ] **Camping controls:** verify the header scrollbar and row tap feedback,
+      open several campgrounds after scrolling, and change river filters
+      without losing the date position. Grid mode keeps swipe-back disabled;
+      List mode, initial loading and unavailable states keep native swipe-back.
+      Starting a vertical drag on dates should cancel the delayed highlight.
+      Check camping-panel padding on both map sheets and access pages.
+- [ ] **Saved Floats:** a fast online open has no saved-details flash; airplane
+      mode shows saved logistics as soon as connectivity reports offline; a
+      stalled connection exposes them after the 1.2-second grace period while
+      the request continues. Foreground immediately after toggling Wi-Fi or
+      cellular: an offline hint must not cancel a request or show an error;
+      successful responses should restore current conditions without a retry tap.
+      A foreground refresh keeps an already loaded result mounted and preserves
+      its scroll position. Old water verdicts, readings and float times must
+      be hidden visually and from VoiceOver until the refresh succeeds. On
+      failure, logistics and dated cautions remain usable and Check again
+      recovers after service returns. Also open an older saved stub with no
+      offline details and switch between two saved floats during loading.
+- [ ] **Premium Reads:** See all stays unlocked after cold launch, foreground,
+      account refresh and pull-to-refresh. Confirm Free still sees the paywall.
+- [ ] **Launch/onboarding:** a plain cold launch opens Today; explicit map
+      links still open Map. Location requests follow an explicit location
+      action, and the removed onboarding sentence stays absent.
+- [ ] **Weather:** “Will it hold?” opens weather for the forecast location and
+      Back returns to the river. Check day/night icons, light/dark appearances,
+      sunny yellow/orange symbols, and the VoiceOver weather action.
+
+The camping list intentionally uses a plain React Native `ScrollView` directly
+inside `GestureDetector`, following the [Native gesture example](https://docs.swmansion.com/react-native-gesture-handler/docs/2.x/gestures/native-gesture/).
+Do not simply swap it for RNGH's `ScrollView` while keeping that wrapper:
+RNGH's component already has a native handler. Device arbitration checks above
+remain necessary. The plan-status line's automatic announcements still use the
+Android-only `accessibilityLiveRegion`; explicit VoiceOver status announcements
+remain a non-blocking follow-up.
 
 ### 1.1 delta gates found in the August 11 repository audit
 

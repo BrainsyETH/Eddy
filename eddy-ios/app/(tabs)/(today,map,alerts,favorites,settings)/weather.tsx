@@ -1,6 +1,6 @@
-import { rainChanceColor, weatherAtmosphere } from '@/theme/weather';
+import { rainChanceColor, weatherAtmosphere, weatherDescription } from '@/theme/weather';
 import { useTheme } from '@/theme/ThemeProvider';
-import { EddySymbol } from '@/components/EddySymbol';
+import { WeatherIcon } from '@/components/WeatherIcon';
 import { NativeHeaderHome } from '@/components/NativeHeaderHome';
 import { useCallback, useState } from 'react';
 import { ActivityIndicator, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
@@ -75,7 +75,7 @@ export default function WeatherScreen() {
     return <View key={period.timestamp} style={stacked ? [layout.hourDetail, { borderColor: colors.border }] : styles.hour}
       accessible accessibilityLabel={`${hour}. ${weatherDescription(period.conditionIcon)}. ${period.temp} degrees Fahrenheit. Chance of rain ${period.precipitation} percent.`}>
       <Text style={styles.bodyText}>{hour}</Text>
-      <ControlIcon name={weatherIcon(period.conditionIcon)} size={27} color={colors.interactive} accessible={false} />
+      <WeatherIcon code={period.conditionIcon} size={30} />
       <Text style={styles.hourTemp}>{period.temp}°{stacked ? ' F' : ''}</Text>
       <Text style={[styles.rain, { color: rainChanceColor(period.precipitation, colors) }]}>{stacked ? 'Rain ' : ''}{period.precipitation}%</Text>
     </View>;
@@ -100,14 +100,14 @@ export default function WeatherScreen() {
           </View>
           <Text style={styles.city}>{data?.city ?? 'Local weather'}</Text>
           <View style={styles.currentReading} accessible={Boolean(current)} accessibilityLabel={current ? `${Math.round(current.temp)} degrees Fahrenheit` : undefined}>
-            <EddySymbol name="weather" size={52} />
+            {current || today ? <WeatherIcon code={icon} size={64} /> : null}
             {current ? <Text style={[styles.temperature, stacked && { ...t['3xl'], fontFamily: fonts.monoMedium, letterSpacing: 0 }]}>{Math.round(current.temp)}°</Text> : null}
           </View>
           <Text style={styles.condition}>{current?.condition ?? today?.condition ?? ''}</Text>
           {today ? <Text style={styles.highLow} accessibilityLabel={`High ${Math.round(today.tempHigh)} degrees Fahrenheit. Low ${Math.round(today.tempLow)} degrees Fahrenheit.`}>H:{Math.round(today.tempHigh)}°  L:{Math.round(today.tempLow)}°</Text> : null}
           {!current && today ? <Text style={styles.muted}>Today’s forecast</Text> : null}
         </View>
-        {!valid ? <Text style={styles.message}>Open weather from Today to choose your area.</Text> : null}
+        {!valid ? <Text style={styles.message}>Open weather from Today or a river’s forecast.</Text> : null}
         {loading && !data ? <ActivityIndicator color={colors.text} accessibilityLabel="Loading forecast" /> : null}
         {failed === key ? <Pressable onPress={() => setRetry(n => n + 1)} style={styles.message} accessibilityRole="button"><Text style={styles.bodyText}>{data ? 'Couldn’t refresh · Tap to retry' : 'Couldn’t load weather · Tap to retry'}</Text></Pressable> : null}
         {data?.periods?.length ? <View style={styles.panel}>
@@ -119,7 +119,7 @@ export default function WeatherScreen() {
           {data.days.map((day) => <View key={day.date} style={[styles.dayRow, stacked && layout.stackedDay]} accessible accessibilityLabel={`${day.date === data.localDate ? 'Today' : day.dayOfWeek}, ${day.condition}, high ${Math.round(day.tempHigh)} degrees Fahrenheit, low ${Math.round(day.tempLow)} degrees Fahrenheit, rain chance ${day.precipitation} percent`}>
             <View style={[styles.daySummary, stacked && { flexWrap: 'wrap' }]}>
               <Text style={styles.day}>{day.date === data.localDate ? 'Today' : day.dayOfWeek}</Text>
-              <View style={stacked ? layout.largeDayIcon : styles.dayIcon}><ControlIcon name={weatherIcon(day.conditionIcon)} size={24} color={colors.interactive} /><Text style={[styles.rain, { color: rainChanceColor(day.precipitation, colors) }]}>{stacked ? 'Rain ' : ''}{day.precipitation}%</Text></View>
+              <View style={stacked ? layout.largeDayIcon : styles.dayIcon}><WeatherIcon code={day.conditionIcon} size={28} /><Text style={[styles.rain, { color: rainChanceColor(day.precipitation, colors) }]}>{stacked ? 'Rain ' : ''}{day.precipitation}%</Text></View>
             </View>
             {stacked ? <View style={{ gap: 4 }}>
               <Text style={styles.bodyText}>{day.condition}</Text>
@@ -141,23 +141,6 @@ Today’s range covers the remaining forecast.</Text> : null}
       </ScrollView>
     </SafeAreaView>
   </View>;
-}
-function weatherDescription(code: string): string {
-  if (code.startsWith('01')) return 'Clear';
-  if (code.startsWith('02')) return 'Partly cloudy';
-  if (/^(09|10)/.test(code)) return 'Rain';
-  if (code.startsWith('11')) return 'Thunderstorms';
-  if (code.startsWith('13')) return 'Snow';
-  if (code.startsWith('50')) return 'Mist';
-  return 'Cloudy';
-}
-function weatherIcon(code: string): React.ComponentProps<typeof ControlIcon>['name'] {
-  if (code.startsWith('01')) return code.endsWith('n') ? 'moon' : 'sunny';
-  if (code.startsWith('02')) return code.endsWith('n') ? 'cloudy-night' : 'partly-sunny';
-  if (/^(09|10)/.test(code)) return 'rainy';
-  if (code.startsWith('11')) return 'thunderstorm';
-  if (code.startsWith('13')) return 'snow';
-  return 'cloudy';
 }
 const layout = StyleSheet.create({
   body: { padding: 20, gap: 14, paddingBottom: 36 },

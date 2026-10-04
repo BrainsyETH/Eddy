@@ -41,7 +41,7 @@ import { onForeground } from '@/lib/foreground';
 import { seedLocationForecast } from '@/lib/locationForecast';
 import { TodayRiverPhoto } from '@/components/TodayRiverPhoto';
 import { PaywallSheet } from '@/components/PaywallSheet';
-import { canOfferReadPremium } from '@/lib/readPremiumAccess';
+import { canOfferReadPremium, premiumReadUserId } from '@/lib/readPremiumAccess';
 import { EddyScene } from '@/components/EddyScene';
 import { Otter, otterForCondition } from '@/components/Otter';
 import { TodaySummary, TodayWeather } from '@/components/TodaySummary';
@@ -388,16 +388,16 @@ export function TodayHub({
   const { starred, ready: starsReady } = useStarredRivers();
   const { session, ready: sessionReady } = useSession();
   const account = useAccount();
-  const premiumUserId = account.loaded && !account.error && account.entitlement?.isActive && account.profile?.id === session?.user.id
-    ? session?.user.id ?? null : null;
-  const canUnlockRead = canOfferReadPremium({
+  const readAccess = {
     sessionReady,
     userId: session?.user.id ?? null,
     loaded: account.loaded,
     error: account.error,
     profileId: account.profile?.id ?? null,
     isActive: account.entitlement?.isActive ?? false,
-  });
+  };
+  const premiumUserId = premiumReadUserId(readAccess);
+  const canUnlockRead = canOfferReadPremium(readAccess);
   const [paywallRiver, setPaywallRiver] = useState<string | null>(null);
   // Clear the intent as well as hiding the sheet so a later account error or
   // sign-out cannot resurrect a purchase offer the subscriber already passed.

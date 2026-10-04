@@ -2,11 +2,12 @@
 // One saved float, re-read against today's river.
 //
 // Current conditions always come from the server. The saved logistics view is
-// available immediately and after a failed refresh, with historical cautions
-// explicitly dated. It never presents an old water verdict as current.
+// available offline or during slow requests, with historical cautions dated.
+// Foreground refresh keeps the plan mounted without claiming old water is current.
 
 import { NativeHeaderHome } from '@/components/NativeHeaderHome';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import * as Network from 'expo-network';
 import { ActivityIndicator, Pressable, ScrollView, Share, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Stack, useLocalSearchParams } from 'expo-router';
@@ -18,7 +19,7 @@ import { Otter } from '@/components/Otter';
 import { PlanResult } from '@/components/PlanResult';
 import { useSavedFloats } from '@/hooks/useSavedFloats';
 import { SavedFloatDetails } from '@/components/SavedFloatDetails';
-import { createLatestRequest } from '@/lib/latestRequest';
+import { createSavedFloatLoader, emptySavedFloatState } from '@/lib/savedFloatLoader';
 import { onForeground } from '@/lib/foreground';
 
 export default function SavedFloatScreen() {
@@ -26,45 +27,31 @@ export default function SavedFloatScreen() {
   const { colors } = useTheme();
   const { floats, isSaved, remember, forgetPlan, updateLogistics } = useSavedFloats();
 
-  const [plan, setPlan] = useState<FloatPlan | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const requests = useRef(createLatestRequest());
+  const [state, setState] = useState(emptySavedFloatState<FloatPlan>);
+  const { plan, loading, error, checkedAt, showSaved } = state.shortCode === shortCode
+    ? state : emptySavedFloatState<FloatPlan>();
 
   const stub = floats.find((f) => f.shortCode === shortCode) ?? null;
 
-  const load = useCallback(
-    async () => {
-      if (!shortCode) return;
-      const request = requests.current.start();
-      setLoading(true);
-      setPlan(null);
-      try {
-        const live = await fetchSavedPlan(shortCode, request.signal);
-        if (!request.isCurrent()) return;
-        setPlan(live);
-        updateLogistics(shortCode, live);
-        setError(null);
-      } catch (err) {
-        if (!request.isCurrent()) return;
-        setError(
-          err instanceof ApiError && err.status === 404
-            ? 'This float is no longer available. The link may have expired.'
-            : 'Eddy needs a connection to read this float against today’s river.',
-        );
-      } finally {
-        if (request.isCurrent()) setLoading(false);
-      }
+  const loader = useMemo(() => createSavedFloatLoader({
+    fetchPlan: fetchSavedPlan,
+    isOffline: async () => {
+      const network = await Network.getNetworkStateAsync();
+      return network.isConnected === false || network.isInternetReachable === false;
     },
-    [shortCode, updateLogistics],
-  );
+    publish: setState,
+    onSuccess: updateLogistics,
+    errorMessage: err => err instanceof ApiError && err.status === 404
+      ? 'This float is no longer available. The link may have expired.'
+      : 'Eddy needs a connection to read this float against today’s river.',
+  }), [updateLogistics]);
+  const load = useCallback(() => shortCode ? loader.load(shortCode) : Promise.resolve(), [loader, shortCode]);
 
   useEffect(() => {
-    const activeRequests = requests.current;
     void load();
     const unsubscribe = onForeground(() => void load());
-    return () => { activeRequests.invalidate(); unsubscribe(); };
-  }, [load]);
+    return () => { loader.dispose(); unsubscribe(); };
+  }, [load, loader]);
 
   const onShare = useCallback(async () => {
     const url = stub?.url ?? `https://eddy.guide/plan/${shortCode}`;
@@ -104,9 +91,9 @@ export default function SavedFloatScreen() {
         {plan?.river.name ?? stub?.riverName ?? 'Saved float'}
       </Text>
       <Text style={[styles.subtitle, { color: colors.textMuted }]}>
-        {plan
+        {plan && !loading && !error
           ? 'Re-read against the river right now'
-          : stub
+          : plan ? `${plan.putIn.name} → ${plan.takeOut.name}` : stub
             ? `${stub.putInName} → ${stub.takeOutName}`
             : ' '}
       </Text>
@@ -138,19 +125,23 @@ export default function SavedFloatScreen() {
         ) : null}
       </Stack.Toolbar>
 
-      {stub && (loading || error || !plan) ? (
-        <SavedFloatDetails header={heading} saved={stub} loading={loading} error={error} onRetry={() => void load()} />
+      {plan ? (
+        <PlanResult plan={plan} header={heading} contentInsetAdjustmentBehavior="automatic"
+          verification={{ state: loading ? 'checking' : error ? 'unavailable' : 'current', checkedAt,
+            error, onRetry: () => void load() }} />
+      ) : stub && showSaved ? (
+        <SavedFloatDetails header={heading} saved={stub} refreshing={loading} error={error} onRetry={() => void load()} />
       ) : loading ? (
         <ScrollView contentInsetAdjustmentBehavior="automatic" contentContainerStyle={styles.emptyContent}>
           {heading}
-          <View style={styles.centered}>
-            <ActivityIndicator color={colors.interactive} accessibilityLabel="Loading float" />
-            <Text style={[styles.centeredText, { color: colors.textMuted }]}>
-              Reading the gauge and driving the shuttle…
-            </Text>
+          <View accessible accessibilityLabel="Loading current float plan" accessibilityState={{ busy: true }} style={styles.loadingPlan}>
+            <View style={styles.loadingLabel}><ActivityIndicator color={colors.interactive} /><Text style={[styles.centeredText, { color: colors.textMuted }]}>Checking current conditions…</Text></View>
+            <View accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={styles.loadingPlan}>
+              {[112, 70, 190].map((height, index) => <View key={index} style={{ height, borderRadius: 14, backgroundColor: colors.card }} />)}
+            </View>
           </View>
         </ScrollView>
-      ) : error || !plan ? (
+      ) : (
         <ScrollView contentInsetAdjustmentBehavior="automatic" contentContainerStyle={styles.emptyContent}>
           {heading}
           <View style={styles.centered}>
@@ -163,8 +154,6 @@ export default function SavedFloatScreen() {
             </Pressable>
           </View>
         </ScrollView>
-      ) : (
-        <PlanResult plan={plan} header={heading} contentInsetAdjustmentBehavior="automatic" />
       )}
     </SafeAreaView>
   );
@@ -174,6 +163,8 @@ const styles = StyleSheet.create({
   screen: { flex: 1 },
   header: { paddingBottom: 12 },
   emptyContent: { flexGrow: 1, padding: 20 },
+  loadingPlan: { gap: 16 },
+  loadingLabel: { flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 44 },
   retryButton: { minWidth: 44, minHeight: 44, justifyContent: 'center' },
   title: { ...t['2xl'], fontFamily: fonts.display },
   subtitle: { ...t.sm, fontFamily: fonts.body, marginTop: 2 },
