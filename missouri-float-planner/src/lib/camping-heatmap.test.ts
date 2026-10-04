@@ -241,6 +241,80 @@ test('river and nearby filters intersect and do not invent a location', () => {
 });
 
 import {
+  campingFilterReducer,
+  filterCampingScope,
+  initialCampingFilters,
+  type CampingScope,
+} from '../../../eddy-ios/src/lib/campingFilters';
+
+test('Nearby keeps the current river results while locating and after location fails', () => {
+  const current = row('current');
+  const meramec = { ...row('meramec'), riverSlugs: ['meramec'] };
+  const catalog = [current, meramec];
+  const initial = initialCampingFilters('current');
+  const pending = campingFilterReducer(initial, { type: 'locate', request: 1 });
+  assert.deepEqual(filterCampingScope(catalog, pending.scope, null, new Set()), [current]);
+  const denied = campingFilterReducer(pending, { type: 'located', request: 1, found: false });
+  assert.equal(denied.locationFailed, true);
+  assert.equal(denied.locationRequest, null);
+  assert.deepEqual(filterCampingScope(catalog, denied.scope, null, new Set()), [current]);
+});
+
+test('a successful location switches to Nearby and clearing it restores the full catalog', () => {
+  const near = row('near');
+  const far = { ...row('far'), location: { lat: 44, lng: -100 } };
+  const noLocation = { ...row('unknown'), location: null };
+  const catalog = [near, far, noLocation];
+  const pending = campingFilterReducer(initialCampingFilters(null), { type: 'locate', request: 1 });
+  const ready = campingFilterReducer(pending, { type: 'located', request: 1, found: true });
+  assert.equal(ready.locationFailed, false);
+  assert.equal(ready.locationRequest, null);
+  assert.deepEqual(filterCampingScope(catalog, ready.scope, near.location, new Set()), [near]);
+  const all = campingFilterReducer(ready, { type: 'select', scope: { kind: 'all' } });
+  assert.deepEqual(filterCampingScope(catalog, all.scope, near.location, new Set()), catalog);
+});
+
+test('All rivers, Favorites, and river selection cancel an outstanding Nearby result', () => {
+  const choices: CampingScope[] = [{ kind: 'all' }, { kind: 'favorites' }, { kind: 'river', slug: 'meramec' }];
+  for (const scope of choices) {
+    const pending = campingFilterReducer(initialCampingFilters(null), { type: 'locate', request: 1 });
+    const changed = campingFilterReducer(pending, { type: 'select', scope });
+    for (const found of [true, false]) {
+      assert.deepEqual(campingFilterReducer(changed, { type: 'located', request: 1, found }), changed);
+    }
+  }
+});
+
+test('canceling and retrying Nearby ignores the old request and accepts the new one', () => {
+  let state = campingFilterReducer(initialCampingFilters(null), { type: 'locate', request: 1 });
+  state = campingFilterReducer(state, { type: 'select', scope: { kind: 'all' } });
+  state = campingFilterReducer(state, { type: 'locate', request: 2 });
+  assert.equal(campingFilterReducer(state, { type: 'located', request: 1, found: true }), state);
+  const ready = campingFilterReducer(state, { type: 'located', request: 2, found: true });
+  assert.deepEqual(ready.scope, { kind: 'nearby' });
+});
+
+test('Favorites and river scopes replace Nearby rather than retaining its distance filter', () => {
+  const near = row('near');
+  const favorite = { ...row('favorite'), riverSlugs: ['meramec'], location: { lat: 44, lng: -100 } };
+  const catalog = [near, favorite];
+  const favorites = new Set(['meramec']);
+  let state = campingFilterReducer(initialCampingFilters(null), { type: 'select', scope: { kind: 'nearby' } });
+  state = campingFilterReducer(state, { type: 'select', scope: { kind: 'favorites' } });
+  assert.deepEqual(filterCampingScope(catalog, state.scope, near.location, favorites), [favorite]);
+  assert.deepEqual(filterCampingScope(catalog, state.scope, near.location, new Set()), []);
+  state = campingFilterReducer(state, { type: 'select', scope: { kind: 'river', slug: 'current' } });
+  assert.deepEqual(filterCampingScope(catalog, state.scope, near.location, favorites), [near]);
+});
+
+test('Today river links seed the camping scope without accepting malformed route values', () => {
+  assert.deepEqual(initialCampingFilters('current').scope, { kind: 'river', slug: 'current' });
+  for (const river of [undefined, null, '', ['current'], '../current']) {
+    assert.deepEqual(initialCampingFilters(river).scope, { kind: 'all' });
+  }
+});
+
+import {
   initialCampingNight,
   campingRiverOptions,
   checkedLabel,
