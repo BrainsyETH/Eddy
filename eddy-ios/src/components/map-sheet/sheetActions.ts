@@ -2,12 +2,11 @@
 // The rules about what a pin lets you DO, in one place because two of them are
 // safety rules and a second copy of a safety rule is a second answer.
 
-import { Alert, Linking } from 'react-native';
+import { Alert } from 'react-native';
 import type { MapAccessPoint } from '@eddy/types';
 import type { MapPin } from '@/map/RiverMap';
 import type { LayerKey } from '@/map/layers';
 import { accessRoleForLayer } from '@/map/accessLayers';
-import { driveToUrl } from '@/lib/directions';
 
 /**
  * Layers OUTSIDE the access family whose pins are somewhere you drive to.
@@ -42,11 +41,6 @@ export const DRIVEABLE_SERVICE_LAYERS = new Set<LayerKey>(['outfitters', 'lodgin
 
 export function isDriveable(pin: MapPin): boolean {
   return accessRoleForLayer(pin.layer) !== null || DRIVEABLE_SERVICE_LAYERS.has(pin.layer);
-}
-
-/** Coordinates, never the name: see src/lib/directions.ts. */
-export function openDirections(pin: MapPin): void {
-  void Linking.openURL(driveToUrl({ name: pin.name, coordinates: pin.coordinates }));
 }
 
 /**

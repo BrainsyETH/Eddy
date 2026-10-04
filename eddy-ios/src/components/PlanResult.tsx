@@ -11,7 +11,7 @@
 //                                    stale reading. Before the numbers, always.
 //   2. how long, how far, shuttle  — the questions people came with
 //   3. the water it was built from — a plan is only as good as its reading
-//   4. getting there               — the drives, handed to Apple Maps
+//   4. getting there               — destinations handed to a chosen map app
 //   5. hazards along the route     — free, and never summarised away
 //   6. bail-outs along the way     — where a car can meet you
 //   7. shuttles near the put-in    — who can move your car
@@ -46,7 +46,8 @@ import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
 import { FloatTimeEstimate } from './FloatTimeEstimate';
 import { formatReading, primaryReading, readingAge } from '@/lib/readingCopy';
-import { driveBetweenUrl, driveToUrl, usgsGaugeUrl } from '@/lib/directions';
+import { driveBetweenUrl, usgsGaugeUrl } from '@/lib/directions';
+import { useDirectionsMenu } from '@/components/DirectionsMenu';
 import { Otter, otterForCondition } from '@/components/Otter';
 import { PlanAlongRoute } from '@/components/PlanAlongRoute';
 import { PlanSupport } from '@/components/PlanSupport';
@@ -257,9 +258,8 @@ export function PlanResult({ plan, actions, accessPoints, header, support, initi
 /**
  * The drives, in the order they happen.
  *
- * Every one of these is a handoff to Apple Maps rather than something Eddy tries
- * to draw itself: turn-by-turn on a gravel county road is a whole product, and
- * the phone already has one.
+ * Endpoints use the shared app chooser. The shuttle keeps its explicit
+ * take-out → put-in route instead of becoming a single-location handoff.
  */
 function GettingThere({ plan, accessPoints, support, onOpenDetail }: {
   plan: FloatPlan;
@@ -268,10 +268,16 @@ function GettingThere({ plan, accessPoints, support, onOpenDetail }: {
   onOpenDetail: (destination: PlanDetailDestination) => void;
 }) {
   const { colors, elevation } = useTheme();
+  const { showDirections, directionsMenu } = useDirectionsMenu();
+  const putInDestination = support.data.endpoints.putIn?.id === plan.putIn.id
+    ? support.data.endpoints.putIn : plan.putIn;
+  const takeOutDestination = support.data.endpoints.takeOut?.id === plan.takeOut.id
+    ? support.data.endpoints.takeOut : plan.takeOut;
 
   return (
     <View style={[styles.card, { backgroundColor: colors.card }, elevation(1)]}>
       <Text style={[styles.cardTitle, { color: colors.text }]}>Getting there</Text>
+      {directionsMenu}
 
       {/* Put-in and take-out wear the same two colours they wear on the map, so
           the card and the pins are obviously the same two places. */}
@@ -279,7 +285,7 @@ function GettingThere({ plan, accessPoints, support, onOpenDetail }: {
         role="Put-in"
         point={plan.putIn}
         dotColor={colors.success}
-        onPress={() => void Linking.openURL(driveToUrl(plan.putIn))}
+        onPress={() => showDirections(putInDestination)}
       />
       <PlanEndpointCamping
         point={accessPoints?.find((point) => point.id === plan.putIn.id) ?? plan.putIn}
@@ -293,7 +299,7 @@ function GettingThere({ plan, accessPoints, support, onOpenDetail }: {
         role="Take-out"
         point={plan.takeOut}
         dotColor={colors.accent}
-        onPress={() => void Linking.openURL(driveToUrl(plan.takeOut))}
+        onPress={() => showDirections(takeOutDestination)}
       />
       <PlanEndpointCamping
         point={accessPoints?.find((point) => point.id === plan.takeOut.id) ?? plan.takeOut}

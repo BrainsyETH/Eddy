@@ -25,7 +25,8 @@
         "LSApplicationQueriesSchemes": [
           "onxoffroad",
           "gaiagps",
-          "comgooglemaps"
+          "comgooglemaps",
+          "waze"
         ]
       },
       "runtimeVersion": {

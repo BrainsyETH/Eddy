@@ -1138,3 +1138,30 @@ Device checks before distribution:
   controls appear and disappear. No glass ancestor uses opacity to hide.
 - Check large text, VoiceOver information actions, save/favorite haptics, and
   failed saves (no success feedback).
+
+### Directions app chooser
+
+Single-destination Directions actions share `DirectionsMenu`: access details,
+river access/campground rows, map pin sheets, planner endpoints and saved/shared
+floats (including saved logistics offline). Driving directions lists Apple Maps
+and installed Google Maps/Waze; Outdoor maps lists installed onX Offroad/Gaia
+GPS. Empty groups are omitted. The chooser uses plain app names and generic
+icons. Installation checks run on opening it, so installing another app does not
+require restarting Eddy. The separate take-out → put-in shuttle action remains
+an Apple Maps route.
+
+Coordinate/link generation lives in `directionsChoices.ts`. Complete curated
+parking coordinates take precedence when the destination supplies them. A
+partial override never mixes a parking latitude with a waterline longitude.
+Outdoor links continue using `@eddy/geo`; this change does not verify their URL
+formats against an installed provider app. Failed native opens try the same
+provider's web destination; if both fail, the chooser displays an error.
+
+The added `waze` entry in `LSApplicationQueriesSchemes` requires a new native
+build for Waze detection. Keep the existing fingerprint runtime policy.
+
+Device QA: check the chooser with no optional apps and with each installed;
+verify the **destination pin**, not just that onX/Gaia launch. Test each float
+endpoint and the shuttle direction, a curated parking override, Cancel/backdrop
+and VoiceOver escape, double taps, return to the planner, offline saved trips,
+large text on a small phone, both appearances, and Reduce Motion.
