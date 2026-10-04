@@ -1,5 +1,8 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { readFileSync } from 'node:fs';
+import { runInNewContext } from 'node:vm';
+import ts from 'typescript';
 import type { FloatPlan } from '@eddy/types';
 import { createPlanActions, planShareMessage } from '../../../eddy-ios/src/lib/planActions';
 import { createSavedFloatLoader, type SavedFloatLoadState } from '../../../eddy-ios/src/lib/savedFloatLoader';
@@ -416,4 +419,64 @@ test('disposing a saved float cancels its timer and prevents late publications',
   await loading;
   assert.equal(loader.states.length, publications);
   assert.deepEqual(loader.saved, []);
+});
+
+// Execute the shipped adapter's module initialization with the native capability
+// present or absent. Only Expo itself may load: a runtime expo-network import
+// would throw in an older client before any request or fallback could start.
+function networkHintFor(native: unknown): () => Promise<boolean> {
+  const source = readFileSync(new URL('../../../eddy-ios/src/lib/networkHint.ts', import.meta.url), 'utf8');
+  const compiled = ts.transpileModule(source, {
+    compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
+  });
+  const exports: { networkHintsOffline?: () => Promise<boolean> } = {};
+  runInNewContext(compiled.outputText, {
+    exports,
+    require: (name: string) => {
+      assert.equal(name, 'expo', 'the adapter must not eagerly import expo-network');
+      return { requireOptionalNativeModule: (moduleName: string) => {
+        assert.equal(moduleName, 'ExpoNetwork');
+        return native;
+      } };
+    },
+  });
+  assert.ok(exports.networkHintsOffline);
+  return exports.networkHintsOffline;
+}
+
+test('an older binary without ExpoNetwork loads the adapter and retains the timed logistics fallback', async t => {
+  t.mock.timers.enable({ apis: ['setTimeout'] });
+  const isOffline = networkHintFor(null);
+  assert.equal(await isOffline(), false, 'missing support is unknown connectivity');
+  const pending = deferred<FloatPlan>();
+  const loader = savedLoader(() => pending.promise, isOffline);
+  const loading = loader.load('float1');
+  await Promise.resolve();
+  assert.equal(loader.latest().showSaved, false);
+  t.mock.timers.tick(1200);
+  assert.equal(loader.latest().showSaved, true);
+  assert.equal(loader.latest().loading, true);
+  assert.equal(loader.latest().error, null);
+  pending.resolve(plan);
+  await loading;
+  assert.equal(loader.latest().plan, plan);
+  loader.dispose();
+});
+
+test('the optional native network adapter recognizes only explicit offline readings', async () => {
+  for (const [state, expected] of [
+    [{ isConnected: false }, true],
+    [{ isInternetReachable: false }, true],
+    [{ isConnected: true, isInternetReachable: true }, false],
+    [{}, false],
+  ] as const) {
+    const native = { getNetworkStateAsync: async () => state };
+    assert.equal(await networkHintFor(native)(), expected);
+  }
+});
+
+test('missing network methods and failed native queries are unknown connectivity', async () => {
+  assert.equal(await networkHintFor({})(), false);
+  assert.equal(await networkHintFor({ getNetworkStateAsync: async () => { throw new Error('Network query failed'); } })(), false);
+  assert.equal(await networkHintFor({ getNetworkStateAsync: () => { throw new Error('Native method unavailable'); } })(), false);
 });
