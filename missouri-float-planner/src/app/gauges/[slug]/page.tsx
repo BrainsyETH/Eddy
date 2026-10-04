@@ -20,6 +20,7 @@
 // beside this file has always drawn a proper card for it; nothing was telling
 // anyone what the card was of.
 
+import { appBannerMetadata } from '@/lib/app-discovery';
 import type { Metadata } from 'next';
 import { permanentRedirect } from 'next/navigation';
 import { createPublicCatalogClient } from '@/lib/supabase/public-read';
@@ -95,6 +96,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
   return {
     title,
+    ...appBannerMetadata(`/gauge/${encodeURIComponent(slug)}`),
     description,
     alternates: { canonical: pageUrl },
     openGraph: { type: 'website', title, description, url: pageUrl, siteName: 'Eddy' },

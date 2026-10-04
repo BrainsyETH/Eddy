@@ -5,6 +5,7 @@
 // flexible, river-agnostic list of content blocks from blog_posts.guide_data
 // (ArticleGuideData, kind:'article').
 
+import ArticleByline from './ArticleByline';
 import Link from 'next/link';
 import Image from 'next/image';
 import type {
@@ -467,14 +468,7 @@ export default function GuideArticleLayout({ post }: Props) {
             <span>{post.read_time_minutes} min read</span>
           </>
         )}
-        {post.published_at && (
-          <>
-            <span>·</span>
-            <time dateTime={post.published_at}>
-              {new Date(post.published_at).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
-            </time>
-          </>
-        )}
+        <ArticleByline publishedAt={post.published_at} />
         <span
           style={{
             marginLeft: 'auto',

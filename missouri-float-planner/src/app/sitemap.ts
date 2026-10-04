@@ -8,32 +8,34 @@ import { listDamIds } from '@/lib/data/dams';
 
 const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://eddy.guide';
 
+function settled<T>(result: PromiseSettledResult<T>): T | { data: null; error: unknown } {
+  return result.status === 'fulfilled' ? result.value : { data: null, error: result.reason };
+}
+
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   // Static pages remain discoverable even when a local/preview build
   // intentionally has no production database credentials.
   const staticPages: MetadataRoute.Sitemap = [
-    { url: BASE_URL, lastModified: new Date(), changeFrequency: 'daily', priority: 1 },
-    { url: `${BASE_URL}/plan`, lastModified: new Date(), changeFrequency: 'daily', priority: 0.9 },
-    { url: `${BASE_URL}/rivers`, lastModified: new Date(), changeFrequency: 'daily', priority: 0.8 },
-    { url: `${BASE_URL}/river-map`, lastModified: new Date(), changeFrequency: 'daily', priority: 0.7 },
-    { url: `${BASE_URL}/dams`, lastModified: new Date(), changeFrequency: 'daily', priority: 0.7 },
+    { url: BASE_URL, changeFrequency: 'daily', priority: 1 },
+    { url: `${BASE_URL}/app`, changeFrequency: 'monthly', priority: 0.8 },
+    { url: `${BASE_URL}/plan`, changeFrequency: 'daily', priority: 0.9 },
+    { url: `${BASE_URL}/rivers`, changeFrequency: 'daily', priority: 0.8 },
+    { url: `${BASE_URL}/river-map`, changeFrequency: 'daily', priority: 0.7 },
+    { url: `${BASE_URL}/dams`, changeFrequency: 'daily', priority: 0.7 },
     // Dam detail pages come from a static registry, so they're listed here
     // rather than in the DB-driven expansion below — the sitemap still builds
     // when Supabase is unreachable.
     ...listDamIds().map((damId) => ({
       url: `${BASE_URL}/dams/${damId}`,
-      lastModified: new Date(),
       changeFrequency: 'daily' as const,
       priority: 0.6,
     })),
-    { url: `${BASE_URL}/blog`, lastModified: new Date(), changeFrequency: 'weekly', priority: 0.7 },
-    { url: `${BASE_URL}/about`, lastModified: new Date(), changeFrequency: 'monthly', priority: 0.6 },
-    { url: `${BASE_URL}/coverage`, lastModified: new Date(), changeFrequency: 'monthly', priority: 0.5 },
-    { url: `${BASE_URL}/embed`, lastModified: new Date(), changeFrequency: 'monthly', priority: 0.6 },
-    { url: `${BASE_URL}/privacy`, lastModified: new Date(), changeFrequency: 'monthly', priority: 0.3 },
-    { url: `${BASE_URL}/support`, lastModified: new Date(), changeFrequency: 'monthly', priority: 0.3 },
-    { url: `${BASE_URL}/llms.txt`, lastModified: new Date(), changeFrequency: 'monthly', priority: 0.4 },
-    { url: `${BASE_URL}/api/openapi.json`, lastModified: new Date(), changeFrequency: 'monthly', priority: 0.4 },
+    { url: `${BASE_URL}/blog`, changeFrequency: 'weekly', priority: 0.7 },
+    { url: `${BASE_URL}/about`, changeFrequency: 'monthly', priority: 0.6 },
+    { url: `${BASE_URL}/coverage`, changeFrequency: 'monthly', priority: 0.5 },
+    { url: `${BASE_URL}/embed`, changeFrequency: 'monthly', priority: 0.6 },
+    { url: `${BASE_URL}/privacy`, changeFrequency: 'monthly', priority: 0.3 },
+    { url: `${BASE_URL}/support`, changeFrequency: 'monthly', priority: 0.3 },
   ];
 
   let supabase;
@@ -45,14 +47,15 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   }
 
   // Fetch rivers, blog posts, and access points in parallel
-  const [riversResult, blogResult, accessPointsResult] = await Promise.all([
+  const results = await Promise.allSettled([
     supabase
       .from('rivers')
       .select('slug, state, updated_at')
+      .eq('active', true)
       .order('name', { ascending: true }),
     supabase
       .from('blog_posts')
-      .select('slug, published_at, updated_at')
+      .select('slug, published_at')
       .eq('status', 'published')
       .lte('published_at', new Date().toISOString())
       .order('published_at', { ascending: false }),
@@ -60,12 +63,15 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       .from('access_points')
       .select('slug, river_id, updated_at, rivers!inner(slug, state)')
       .eq('approved', true)
+      .eq('rivers.active', true)
       .order('name', { ascending: true }),
   ]);
 
-  if (riversResult.error) {
-    console.error('Error fetching rivers for sitemap:', riversResult.error);
-    return [{ url: BASE_URL, lastModified: new Date(), changeFrequency: 'daily', priority: 1 }];
+  const riversResult = settled(results[0]);
+  const blogResult = settled(results[1]);
+  const accessPointsResult = settled(results[2]);
+  for (const [name, result] of Object.entries({ rivers: riversResult, blog_posts: blogResult, access_points: accessPointsResult })) {
+    if (result.error) console.error(`Sitemap ${name} unavailable:`, result.error);
   }
 
   // State index pages (one per distinct state with rivers). A state page's
@@ -75,14 +81,14 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   for (const river of riversResult.data || []) {
     if (!river.state) continue;
     const updatedMs = river.updated_at ? new Date(river.updated_at).getTime() : 0;
-    if (updatedMs > (stateLastModified.get(river.state) ?? 0)) {
+    if (!stateLastModified.has(river.state) || updatedMs > (stateLastModified.get(river.state) ?? 0)) {
       stateLastModified.set(river.state, updatedMs);
     }
   }
   const stateCodes = Array.from(stateLastModified.keys());
   const statePages: MetadataRoute.Sitemap = stateCodes.map((code) => ({
     url: `${BASE_URL}${statePath(code)}`,
-    lastModified: stateLastModified.get(code) ? new Date(stateLastModified.get(code)!) : new Date(),
+    lastModified: stateLastModified.get(code) ? new Date(stateLastModified.get(code)!) : undefined,
     changeFrequency: 'daily' as const,
     priority: 0.7,
   }));
@@ -90,29 +96,16 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   // Dynamic river pages (canonical /rivers/<state>/<slug>)
   const riverPages: MetadataRoute.Sitemap = (riversResult.data || []).map((river) => ({
     url: `${BASE_URL}${riverPath(river.state, river.slug)}`,
-    lastModified: river.updated_at ? new Date(river.updated_at) : new Date(),
+    lastModified: river.updated_at ? new Date(river.updated_at) : undefined,
     changeFrequency: 'daily' as const,
     priority: 0.8,
   }));
 
-  // Dynamic add-a-photo pages (one per river) — the shareable, crawlable entry
-  // point for community photo submissions.
-  const addPhotoPages: MetadataRoute.Sitemap = (riversResult.data || []).map((river) => ({
-    url: `${BASE_URL}${riverPath(river.state, river.slug)}/add-photo`,
-    lastModified: river.updated_at ? new Date(river.updated_at) : new Date(),
-    changeFrequency: 'monthly' as const,
-    priority: 0.4,
-  }));
-
-  // Dynamic blog post pages. Prefer updated_at (reflects later edits) and fall
-  // back to published_at so an edited post signals a recrawl.
+  // updated_at changes on operational writes (including social shares), so it
+  // is not a content modification date. Omit lastModified until the database
+  // records editorial changes separately; published_at isn't a last edit.
   const blogPages: MetadataRoute.Sitemap = (blogResult.data || []).map((post) => ({
     url: `${BASE_URL}/blog/${post.slug}`,
-    lastModified: post.updated_at
-      ? new Date(post.updated_at)
-      : post.published_at
-        ? new Date(post.published_at)
-        : new Date(),
     changeFrequency: 'weekly' as const,
     priority: 0.6,
   }));
@@ -124,11 +117,11 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       const river = ap.rivers as Record<string, string>;
       return {
         url: `${BASE_URL}${riverAccessPath(river.state, river.slug, ap.slug as string)}`,
-        lastModified: ap.updated_at ? new Date(ap.updated_at as string) : new Date(),
+        lastModified: ap.updated_at ? new Date(ap.updated_at as string) : undefined,
         changeFrequency: 'weekly' as const,
         priority: 0.5,
       };
     });
 
-  return [...staticPages, ...statePages, ...riverPages, ...addPhotoPages, ...blogPages, ...accessPointPages];
+  return [...staticPages, ...statePages, ...riverPages, ...blogPages, ...accessPointPages];
 }

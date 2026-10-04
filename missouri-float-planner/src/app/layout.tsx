@@ -7,6 +7,7 @@ import SiteHeader from "@/components/layout/SiteHeader";
 import OfflineBanner from "@/components/ui/OfflineBanner";
 import AnalyticsListener from "@/components/AnalyticsListener";
 import { SOCIAL_SAME_AS } from "@/constants/social";
+import { appBannerMetadata } from '@/lib/app-discovery';
 import { jsonLdString } from '@/lib/json-ld';
 
 import "./globals.css";
@@ -49,6 +50,7 @@ export const viewport: Viewport = {
 
 export const metadata: Metadata = {
   metadataBase: new URL(BASE_URL),
+  ...appBannerMetadata(),
   icons: {
     icon: EDDY_FAVICON_URL,
     apple: EDDY_FAVICON_URL,

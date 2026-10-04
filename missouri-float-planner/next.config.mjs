@@ -1,7 +1,17 @@
 import { withSentryConfig } from '@sentry/nextjs';
 
+// Snapshot of Next 16.3.8's default HTML-limited crawler list. Keep config
+// loading independent of private Next module paths. visibility-seo.test.ts
+// flags upgrades so this list is checked against the newly installed version.
+// Source: packages/next/src/shared/lib/router/utils/html-bots.ts in vercel/next.js.
+const HTML_LIMITED_BOT_UA_RE = /[\w-]+-Google|Google-[\w-]+|Chrome-Lighthouse|Slurp|DuckDuckBot|baiduspider|yandex|sogou|bitlybot|tumblr|vkShare|quora link preview|redditbot|ia_archiver|Bingbot|BingPreview|applebot|facebookexternalhit|facebookcatalog|Twitterbot|LinkedInBot|Slackbot|Discordbot|WhatsApp|SkypeUriPreview|Yeti|googleweblight/i;
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // Safari's native app banner reads <head>, not streamed metadata appended
+  // to <body>. Keep the crawler defaults above while also blocking
+  // metadata for iOS Safari; other browsers retain metadata streaming.
+  htmlLimitedBots: new RegExp(`${HTML_LIMITED_BOT_UA_RE.source}|(?:iPhone|iPad|iPod).*Safari`, 'i'),
   images: {
     remotePatterns: [
       { protocol: 'https', hostname: 'cdn.recreation.gov', pathname: '/public/**' },
@@ -142,7 +152,11 @@ const nextConfig = {
       // Wildcarded on purpose: the ingest subdomain encodes the Sentry org id
       // (o<id>.ingest.us.sentry.io), which is not knowable from this file and
       // would otherwise have to be duplicated wherever the DSN is set.
-      "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://waterservices.usgs.gov https://tilecache.rainviewer.com https://api.rainviewer.com https://www.googletagmanager.com https://tiles.openfreemap.org https://basemaps.cartocdn.com https://*.basemaps.cartocdn.com https://server.arcgisonline.com https://*.tile.openstreetmap.org https://*.ingest.sentry.io https://*.ingest.us.sentry.io https://*.ingest.de.sentry.io",
+      // GA4 uses collection hosts beyond the gtag script host, including
+      // regional endpoints. Loading gtag alone does not mean events can leave.
+      // Google's current non-Ads GA CSP also lists *.google.com:
+      // https://developers.google.com/tag-platform/security/guides/csp
+      "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://waterservices.usgs.gov https://tilecache.rainviewer.com https://api.rainviewer.com https://*.google-analytics.com https://*.analytics.google.com https://*.googletagmanager.com https://*.google.com https://tiles.openfreemap.org https://basemaps.cartocdn.com https://*.basemaps.cartocdn.com https://server.arcgisonline.com https://*.tile.openstreetmap.org https://*.ingest.sentry.io https://*.ingest.us.sentry.io https://*.ingest.de.sentry.io",
       "worker-src 'self' blob:",
       "font-src 'self' https://fonts.gstatic.com",
     ];

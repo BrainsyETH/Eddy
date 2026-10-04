@@ -8,6 +8,7 @@
 // river; they need to know Table Rock is generating and how cold the tailwater
 // is. That is a dam page, and it needs no river content at all.
 
+import { publicPageMetadata } from '@/lib/seo';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import SiteFooter from '@/components/ui/SiteFooter';
@@ -17,15 +18,12 @@ import { groupDamsForIndex } from '@/lib/data/dam-grouping';
 
 export const revalidate = 300; // ISR every 5 minutes
 
-export const metadata: Metadata = {
-  title: 'Lake Levels & Dam Releases',
-  // Deliberately not a list of dam names. The previous description enumerated
-  // all nine and was already wrong the moment a tenth was added; a description
-  // that cannot go stale beats one that has to be maintained in step with the
-  // registry.
-  description:
-    'Live USACE lake levels, dam releases and hourly generation schedules for federal hydropower and flood-control projects across Missouri, Arkansas, Oklahoma, Texas, Kentucky and Tennessee.',
-};
+export const metadata: Metadata = publicPageMetadata(
+  'Lake Levels & Dam Releases',
+  'Live USACE lake levels, dam releases and hourly generation schedules across Missouri, Arkansas, Oklahoma, Texas, Kentucky and Tennessee.',
+  '/dams',
+  '/opengraph-image',
+);
 
 export default async function DamsPage() {
   const dams = await fetchAllDamSummaries();

@@ -1,51 +1,15 @@
 import type { Metadata } from 'next';
 import Image from 'next/image';
 import Link from 'next/link';
-import { Apple, ArrowRight, BellRing, MapPin, Signal, Waves } from 'lucide-react';
+import { ArrowRight, BellRing, MapPin, Signal, Waves } from 'lucide-react';
 import SiteFooter from '@/components/ui/SiteFooter';
 import styles from './page.module.css';
+import AppLink from '@/components/AppLink';
+import { appBannerMetadata, campaignToken } from '@/lib/app-discovery';
 
-const APP_STORE_URL = validAppStoreUrl(process.env.NEXT_PUBLIC_APP_STORE_URL);
-const APP_STORE_CAMPAIGN_URL =
-  validAppStoreUrl(process.env.NEXT_PUBLIC_APP_STORE_CAMPAIGN_URL) ?? APP_STORE_URL;
-const APPLE_APP_ID = process.env.NEXT_PUBLIC_APPLE_APP_ID?.trim();
+type Props = { searchParams: Promise<{ ct?: string | string[] }> };
 
-function validAppStoreUrl(value: string | undefined): string | null {
-  if (!value) return null;
-
-  try {
-    const url = new URL(value);
-    return url.protocol === 'https:' && url.hostname === 'apps.apple.com' ? url.toString() : null;
-  } catch {
-    return null;
-  }
-}
-
-function smartBannerContent(): string | null {
-  if (!APPLE_APP_ID) return null;
-
-  const parts = [`app-id=${APPLE_APP_ID}`];
-
-  if (APP_STORE_CAMPAIGN_URL) {
-    const campaignUrl = new URL(APP_STORE_CAMPAIGN_URL);
-    const attribution = new URLSearchParams();
-
-    for (const token of ['pt', 'ct'] as const) {
-      const value = campaignUrl.searchParams.get(token);
-      if (value) attribution.set(token, value);
-    }
-
-    if (attribution.size > 0) {
-      parts.push(`affiliate-data=${attribution.toString()}`);
-    }
-  }
-
-  return parts.join(', ');
-}
-
-const SMART_BANNER_CONTENT = smartBannerContent();
-
-export const metadata: Metadata = {
+const pageMetadata: Metadata = {
   title: 'Eddy for iPhone — Find Floatable Water',
   description:
     'Get live river conditions, float plans, access-point details, gauge trends, and alerts with Eddy for iPhone.',
@@ -71,9 +35,6 @@ export const metadata: Metadata = {
     description: 'Know what’s running well before you make the drive.',
     images: ['/og/eddy-app-store.png'],
   },
-  ...(SMART_BANNER_CONTENT
-    ? { other: { 'apple-itunes-app': SMART_BANNER_CONTENT } }
-    : {}),
 };
 
 const features = [
@@ -103,7 +64,13 @@ const features = [
   },
 ] as const;
 
-export default function AppLandingPage() {
+export async function generateMetadata({ searchParams }: Props): Promise<Metadata> {
+  const campaign = campaignToken((await searchParams).ct);
+  return { ...pageMetadata, ...appBannerMetadata('/reports', campaign) };
+}
+
+export default async function AppLandingPage({ searchParams }: Props) {
+  const campaign = campaignToken((await searchParams).ct);
   return (
     <div className={styles.page}>
       <section className={styles.hero}>
@@ -118,31 +85,22 @@ export default function AppLandingPage() {
             </p>
 
             <div className={styles.actions}>
-              {APP_STORE_CAMPAIGN_URL ? (
-                <a
-                  className={styles.appStoreBadge}
-                  href={APP_STORE_CAMPAIGN_URL}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  data-ga-event="app_store_click"
-                  data-ga-label="app_landing_hero"
-                >
-                  <Image
-                    src="/app-store/download-on-app-store.svg"
-                    alt="Download Eddy on the App Store"
-                    width={180}
-                    height={60}
-                  />
-                </a>
-              ) : (
-                <span className={`${styles.storeButton} ${styles.storeButtonPending}`}>
-                  <Apple aria-hidden="true" />
-                  <span>
-                    <small>Coming soon to the</small>
-                    App Store
-                  </span>
-                </span>
-              )}
+              <AppLink
+                store
+                campaign={campaign}
+                className={styles.appStoreBadge}
+                target="_blank"
+                rel="noopener noreferrer"
+                data-ga-event="app_store_click"
+                data-ga-label="app_landing_hero"
+              >
+                <Image
+                  src="/app-store/download-on-app-store.svg"
+                  alt="Download Eddy on the App Store"
+                  width={180}
+                  height={60}
+                />
+              </AppLink>
 
               <Link className={styles.secondaryButton} href="/rivers">
                 Explore Eddy now <ArrowRight aria-hidden="true" />
@@ -221,27 +179,22 @@ export default function AppLandingPage() {
           <p className={styles.eyebrow}>YOUR RIVER GUIDE, IN YOUR POCKET</p>
           <h2>Check the water. Make the plan. Go float.</h2>
         </div>
-        {APP_STORE_CAMPAIGN_URL ? (
-          <a
-            className={styles.bottomBadge}
-            href={APP_STORE_CAMPAIGN_URL}
-            target="_blank"
-            rel="noopener noreferrer"
-            data-ga-event="app_store_click"
-            data-ga-label="app_landing_footer"
-          >
-            <Image
-              src="/app-store/download-on-app-store.svg"
-              alt="Download Eddy on the App Store"
-              width={180}
-              height={60}
-            />
-          </a>
-        ) : (
-          <Link className={styles.bottomLink} href="/rivers">
-            Explore current conditions <ArrowRight aria-hidden="true" />
-          </Link>
-        )}
+        <AppLink
+          store
+          campaign={campaign}
+          className={styles.bottomBadge}
+          target="_blank"
+          rel="noopener noreferrer"
+          data-ga-event="app_store_click"
+          data-ga-label="app_landing_footer"
+        >
+          <Image
+            src="/app-store/download-on-app-store.svg"
+            alt="Download Eddy on the App Store"
+            width={180}
+            height={60}
+          />
+        </AppLink>
       </section>
 
       <SiteFooter />

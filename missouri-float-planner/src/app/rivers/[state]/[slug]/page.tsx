@@ -7,6 +7,7 @@
 // hit with putIn/takeOut params we redirect there so old shared links keep
 // working.
 
+import { appBannerMetadata } from '@/lib/app-discovery';
 import type { Metadata } from 'next';
 import { notFound, permanentRedirect } from 'next/navigation';
 import { stateSlug, stateName } from '@/lib/navigation/states';
@@ -109,6 +110,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
     return {
       title,
+      ...appBannerMetadata(`/river/${encodeURIComponent(slug)}`),
       description,
       alternates: {
         canonical: pageUrl,
@@ -272,7 +274,6 @@ export default async function RiverGuidePage({ params }: Props) {
     name: river.name,
     description: fullDescription,
     touristType: ['Float trip', 'Canoeing', 'Kayaking', 'Tubing'],
-    isAccessibleForFree: true,
     publicAccess: true,
     url: `${BASE_URL}${riverPath(river.state, slug)}`,
     ...(centroid && {

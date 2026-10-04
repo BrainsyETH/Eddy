@@ -6,6 +6,8 @@ import type { Metadata } from 'next';
 import Image from 'next/image';
 import { Suspense } from 'react';
 import SiteFooter from '@/components/ui/SiteFooter';
+import RiverReportsSnapshot from '@/components/gauge/RiverReportsSnapshot';
+import { publicPageMetadata } from '@/lib/seo';
 import RiverReportsGrid from '@/components/gauge/RiverReportsGrid';
 import { EDDY_IMAGES } from '@/constants';
 import { buildRiversSummary } from '@/data/eddy-quotes';
@@ -14,10 +16,11 @@ import { buildRiverFilterMeta } from '@/lib/rivers/filters';
 
 export const revalidate = 60; // Public HTML snapshot; live dashboard keeps its own requests
 
-export const metadata: Metadata = {
-  title: 'River Reports',
-  description: 'Live USGS conditions for every Ozark float river — water levels, flow trends, and Eddy\'s float report. Check real-time levels before your next float.',
-};
+export const metadata: Metadata = publicPageMetadata(
+  'Ozark River Levels & Float Reports',
+  'Live river levels, float conditions and access points for Ozark rivers in Missouri and Arkansas. Find your river and check conditions before you go.',
+  '/rivers',
+);
 
 export default async function RiversPage() {
   const rivers = await pageRivers();
@@ -70,8 +73,8 @@ export default async function RiversPage() {
 
       {/* Live conditions dashboard (filter + search + per-river cards) */}
       <div className="max-w-5xl mx-auto px-4 py-6 md:py-8">
-        <Suspense fallback={<div className="h-48 rounded-xl bg-white border border-neutral-200 animate-pulse" />}>
-          <RiverReportsGrid riverMeta={riverMeta} />
+        <Suspense fallback={<RiverReportsSnapshot rivers={rivers} />}>
+          <RiverReportsGrid riverMeta={riverMeta} initialRivers={rivers} />
         </Suspense>
 
         {/* Data attribution */}

@@ -9,6 +9,7 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import Image from 'next/image';
+import AppLink from '@/components/AppLink';
 import { Menu, X } from 'lucide-react';
 
 interface NavItem {
@@ -52,6 +53,7 @@ const NAV_ITEMS: NavItem[] = [
     label: 'Guides',
     matches: (p) => p === '/blog' || p.startsWith('/blog/'),
   },
+  { href: '/app', label: 'Get the App', matches: (p) => p === '/app' },
   {
     href: '/about',
     label: 'About',
@@ -103,13 +105,16 @@ export default function SiteHeader() {
           </Link>
 
           {/* Desktop nav */}
-          <nav className="hidden md:flex items-center gap-1 ml-8">
+          <nav className="hidden lg:flex items-center gap-1 ml-8">
             {NAV_ITEMS.map((item) => {
               const active = item.matches(pathname);
+              const NavLink = item.href === '/app' ? AppLink : Link;
               return (
-                <Link
+                <NavLink
                   key={item.href}
                   href={item.href}
+                  data-ga-event={item.href === '/app' ? 'app_landing_click' : undefined}
+                  data-ga-label={item.href === '/app' ? 'header' : undefined}
                   aria-current={active ? 'page' : undefined}
                   className={`px-3 py-2 rounded-md text-sm font-semibold transition-colors ${
                     active
@@ -118,7 +123,7 @@ export default function SiteHeader() {
                   }`}
                 >
                   {item.label}
-                </Link>
+                </NavLink>
               );
             })}
           </nav>
@@ -129,7 +134,7 @@ export default function SiteHeader() {
           {/* Mobile hamburger */}
           <button
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-            className="md:hidden p-2 rounded-md text-primary-100 hover:text-white hover:bg-white/10 transition-colors"
+            className="lg:hidden p-2 rounded-md text-primary-100 hover:text-white hover:bg-white/10 transition-colors"
             aria-label={mobileMenuOpen ? 'Close menu' : 'Open menu'}
             aria-expanded={mobileMenuOpen}
             aria-controls="mobile-menu"
@@ -141,14 +146,17 @@ export default function SiteHeader() {
 
       {/* Mobile menu */}
       {mobileMenuOpen && (
-        <div id="mobile-menu" className="md:hidden border-t border-white/10" style={{ backgroundColor: '#0F2D35' }}>
+        <div id="mobile-menu" className="lg:hidden border-t border-white/10" style={{ backgroundColor: '#0F2D35' }}>
           <div className="px-4 py-3 space-y-1">
             {NAV_ITEMS.map((item) => {
               const active = item.matches(pathname);
+              const NavLink = item.href === '/app' ? AppLink : Link;
               return (
-                <Link
+                <NavLink
                   key={item.href}
                   href={item.href}
+                  data-ga-event={item.href === '/app' ? 'app_landing_click' : undefined}
+                  data-ga-label={item.href === '/app' ? 'header' : undefined}
                   aria-current={active ? 'page' : undefined}
                   className={`block px-3 py-3 rounded-md no-underline transition-colors font-medium ${
                     active
@@ -157,7 +165,7 @@ export default function SiteHeader() {
                   }`}
                 >
                   {item.label}
-                </Link>
+                </NavLink>
               );
             })}
           </div>

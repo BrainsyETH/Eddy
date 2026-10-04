@@ -7,9 +7,12 @@
 // client handlers. Mounted once in the root layout; renders nothing.
 
 import { useEffect } from 'react';
+import { useAppCampaign } from '@/components/AppLink';
+import { APP_STORE } from '@/lib/app-discovery';
 import { trackEvent } from '@/lib/analytics';
 
 export default function AnalyticsListener() {
+  const campaign = useAppCampaign();
   useEffect(() => {
     function onClick(e: MouseEvent) {
       const start = e.target as Element | null;
@@ -18,11 +21,18 @@ export default function AnalyticsListener() {
       const action = el.dataset.gaEvent;
       if (!action) return;
       const label = el.dataset.gaLabel;
-      trackEvent(action, label ? { label } : undefined);
+      trackEvent(action, {
+        ...(label ? { label } : {}),
+        ...(action === 'app_store_click' ? {
+          page_path: window.location.pathname,
+          app_campaign: campaign ?? APP_STORE.campaign ?? 'website_download',
+          transport_type: 'beacon',
+        } : {}),
+      });
     }
     document.addEventListener('click', onClick, true);
     return () => document.removeEventListener('click', onClick, true);
-  }, []);
+  }, [campaign]);
 
   return null;
 }

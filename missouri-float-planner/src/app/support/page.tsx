@@ -14,7 +14,7 @@ import type { Metadata } from 'next';
 import SiteFooter from '@/components/ui/SiteFooter';
 
 export const metadata: Metadata = {
-  title: 'Support | Eddy',
+  title: 'Support',
   description: 'Get help with Eddy — report a wrong reading, a missing access point, or a problem with your subscription.',
   alternates: { canonical: '/support' },
 };

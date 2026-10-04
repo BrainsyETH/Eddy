@@ -3,6 +3,7 @@
 // from blog_posts.guide_data and renders the design from variation-a.jsx in
 // the bundled handoff.
 
+import ArticleByline from './ArticleByline';
 import Link from 'next/link';
 import Image from 'next/image';
 import type { RiverGuidePost, FloatSection, GuideSegment } from '@/types/blog';
@@ -248,14 +249,7 @@ export default async function RiverGuideLayout({ post }: Props) {
             <span>{post.read_time_minutes} min read</span>
           </>
         )}
-        {post.published_at && (
-          <>
-            <span>·</span>
-            <time dateTime={post.published_at}>
-              {new Date(post.published_at).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
-            </time>
-          </>
-        )}
+        <ArticleByline publishedAt={post.published_at} />
         <span
           style={{
             marginLeft: 'auto',

@@ -63,19 +63,27 @@ The public share URL is `/app`. It owns the 1200 × 630 Open Graph image and
 links onward to Apple rather than redirecting immediately, so link unfurlers
 and visitors both receive useful Eddy context.
 
-Set these deployment values after App Store Connect assigns the listing:
+The App Store URL and app ID default to the published Eddy listing (6794933267).
+Deployment configuration is optional; missing or invalid values must never hide
+the download action. Optional overrides:
 
-- `NEXT_PUBLIC_APP_STORE_URL` — the full `https://apps.apple.com/...` listing URL.
-- `NEXT_PUBLIC_APP_STORE_CAMPAIGN_URL` — optional Apple-generated campaign link
-  for the landing page. When set, it takes precedence over the plain listing URL
-  and passes its provider and campaign tokens into the iOS Smart App Banner.
-- `NEXT_PUBLIC_APPLE_APP_ID` — the numeric Apple app ID used by the iOS Smart
-  App Banner.
+- `NEXT_PUBLIC_APP_STORE_URL` — a valid Apple listing URL; the banner ID follows it.
+- `NEXT_PUBLIC_APPLE_APP_ID` — an alternative numeric ID when no URL is set.
+- `NEXT_PUBLIC_APP_STORE_CAMPAIGN_URL` — an Apple-generated campaign link for the
+  same app. Its `pt` identifies the developer account; its `ct` is the default
+  campaign. Create it in App Store Connect, then rebuild the website.
 
-The page uses Apple's unmodified preferred black App Store badge and includes a
-QR code pointing to `https://eddy.guide/app`, so printed and desktop placements
-still lead through Eddy's owned landing page. Generate the campaign URL in App
-Store Connect Analytics after the listing is live; do not hand-build its tokens.
+The page uses Apple's unmodified black App Store badge and a QR code pointing
+to `https://eddy.guide/app`. Partner links can use `/app?ct=partner_name` (letters,
+digits, underscores and hyphens, up to 30 characters). The same campaign reaches
+the download buttons and that page's server-rendered Smart App Banner. Campaign
+labels contain no personal information.
 
-Until those values exist, `/app` renders a deliberate “Coming soon” state and
-keeps the web river guide available as the secondary action.
+Other public pages carry a generic banner; river, access point, gauge, dam and
+shared-plan pages pass their existing native screen as the banner destination.
+Those cached pages retain a shared banner campaign; they do not claim per-visitor
+native-banner attribution. Website download buttons retain an incoming `ct` for
+the tab's visit, including after browsing other pages. Apple campaign attribution
+requires the configured provider token; downloads still work without it.
+
+See `missouri-float-planner/docs/VISIBILITY_MEASUREMENT.md` for rollout and checks.

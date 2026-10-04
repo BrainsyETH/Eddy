@@ -29,14 +29,15 @@ async function getRiver(slug: string) {
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params;
   const river = await getRiver(slug);
-  if (!river) return { title: 'Add a River Photo | Eddy' };
+  if (!river) return { title: 'Add a River Photo', robots: { index: false, follow: true } };
 
-  const title = `Add a Photo of the ${river.name} | Eddy`;
+  const title = `Add a Photo of the ${river.name}`;
   const description = `Share what the ${river.name} looks like right now and help fellow floaters read the river. Your photo is tagged with the day's gauge level.`;
   const url = `${riverPath(river.state, slug)}/add-photo`;
 
   return {
     title,
+    robots: { index: false, follow: true },
     description,
     alternates: { canonical: url },
     openGraph: { title, description, url, type: 'website' },

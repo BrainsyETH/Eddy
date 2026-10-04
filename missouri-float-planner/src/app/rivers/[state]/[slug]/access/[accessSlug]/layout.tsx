@@ -1,3 +1,5 @@
+import { accessFeeSchema } from '@/lib/seo';
+import { appBannerMetadata } from '@/lib/app-discovery';
 import type { Metadata } from 'next';
 import { createPublicCatalogClient } from '@/lib/supabase/public-read';
 import { riverPath, riverAccessPath } from '@/lib/navigation/river-path';
@@ -41,6 +43,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
     return {
       title,
+      ...appBannerMetadata(`/river/${encodeURIComponent(riverSlug)}/access/${encodeURIComponent(accessSlug)}`),
       description,
       alternates: {
         canonical: pageUrl,
@@ -93,7 +96,7 @@ export default async function AccessPointLayout({ params, children }: Props) {
     if (river) {
       const { data: ap } = await supabase
         .from('access_points')
-        .select('name, description, type, is_public, amenities, location_snap, location_orig')
+        .select('name, description, type, is_public, fee_required, amenities, location_snap, location_orig')
         .eq('river_id', river.id)
         .eq('slug', accessSlug)
         .eq('approved', true)
@@ -116,7 +119,7 @@ export default async function AccessPointLayout({ params, children }: Props) {
             },
           }),
           publicAccess: ap.is_public,
-          isAccessibleForFree: true,
+          ...accessFeeSchema(ap.fee_required),
           amenityFeature: (ap.amenities || []).map((a: string) => ({
             '@type': 'LocationFeatureSpecification',
             name: a,
