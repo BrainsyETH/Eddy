@@ -90,9 +90,10 @@ stage does not make an opening or closure decision for these trips.
    against connector-fetched production history with no drift. The already
    merged Apple migration `20261004034340` is copied unchanged from main so this
    stacked branch includes the full applied history.
-3. Confirm Noel's curated poll writes `gauge_readings` (not just `gauge_latest`),
-   including the observation timestamp. No recreational condition-change alert
-   or condition-driven Eddy update is promised for an unrated gauge.
+3. Completed: Noel has nine `gauge_readings` rows at 2026-10-04 13:40 UTC,
+   latest observation 12:15 UTC. The curated hourly history poll is working.
+   Recheck freshness at actual activation. No recreational condition-change
+   alert or condition-driven Eddy update is promised for an unrated gauge.
 4. Review the concrete bank/road candidates under the existing
    `scripts/ingestion/README.md` coordinate-review process. Import pending rows;
    approve endpoint intent only after review. Then link exact-pair trip times.
@@ -138,8 +139,8 @@ spatial-function doubles: precondition failures and late failures roll back;
 Noel becomes primary/curated, Cowskin loses only endpoint eligibility, Tiff
 history survives, and Elk remains inactive. Production read-back confirms these
 results, the new crossing, and service-role-only access to the import RPC.
-Tiff retains 1,438 history rows. Noel’s first cron-written observation is checked
-separately; merely curating a gauge does not prove the job has run.
+Tiff retains 1,438 history rows. Noel has nine history rows, verified separately
+from `gauge_latest`, with the latest observation at 12:15 UTC on October 4.
 
 The access-field RPC migration is exercised with insert/update, omitted-field
 preservation, review-state rejection and atomic rollback tests. The CLI access
@@ -148,6 +149,7 @@ production reads used the connector. Dossier ingestion preview correctly refuses
 the unsigned Elk dossier. No guarded client or signoff requirement was bypassed.
 
 Web/test type checks and lint passed; 3,087 tests passed. iOS type checking,
-lint, production bundle and archive validation passed. The explicit activation
-preview returned only the expected outstanding review criteria and the
-pre-poll missing-history warning; it left Elk inactive.
+lint, production bundle and archive validation passed. The initial activation
+preview returned the outstanding review criteria and a pre-poll missing-history
+warning. After polling, the repeat preview leaves only legal access, passage and
+routing reviews outstanding. Both previews left Elk inactive.

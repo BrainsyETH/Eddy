@@ -1,5 +1,5 @@
 {
-  "_status": "HELD-INACTIVE: Noel primary/curation and unrated mode applied in 20261004044139. Private bank/entrance review, Trestle passage instructions, polling and route read-back remain. No access approval or activation asserted.",
+  "_status": "HELD-INACTIVE: Noel primary/curation and unrated mode applied; 9 cron-written history readings verified on 2026-10-04. Private bank/entrance review, Trestle passage instructions and actual private route checks remain. No access approval or activation asserted.",
   "name": "Elk River",
   "slug": "elk",
   "primaryGaugeSiteId": "07188925",
@@ -248,7 +248,7 @@
       "Future rated release only: Noel-specific thresholds and Shadow Lake pool influence. Not a blocker for raw readings."
     ],
     "toVerify": [
-      "Fresh Noel observations written by the curated cron to gauge_readings, not only gauge_latest.",
+      "Confirm a fresh Noel observation again at final activation; the curated history polling gap is resolved.",
       "Actual private pair distances, operator-time links and shuttle handoffs after endpoint approval.",
       "All three private pairs before full launch; the Pineville–Mount Shira fallback also passes the Trestle crossing."
     ]
@@ -273,13 +273,13 @@
       "notes": "Operator publishes rental and paid own-boat access. Three bank candidates and address handoffs are now recorded; exact banks/parking and Trestle crossing-side review remain."
     },
     "gauge": {
-      "status": "blocked",
+      "status": "verified",
       "evidence": [
         "scripts/ingestion/elk-above-dam-release-2026-10-04.md"
       ],
       "reviewedBy": "Codex — source/code review; no field inspection",
-      "reviewedAt": "2026-10-04T04:50:00Z",
-      "notes": "Production: Noel primary in feet, all 12 anchors null, curated=true; Tiff history retained. Await a cron-written gauge_readings observation."
+      "reviewedAt": "2026-10-04T13:40:06Z",
+      "notes": "Production Noel is the primary in feet, with all 12 anchors null and curated=true. Nine gauge_readings rows verified at 2026-10-04 13:40 UTC; latest observation 12:15 UTC. Tiff's 1,438 historical readings remain."
     },
     "conditions": {
       "status": "verified",
