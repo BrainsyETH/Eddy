@@ -1,3 +1,4 @@
+import { PlanDownstreamDams } from '@/components/PlanDownstreamDams';
 import type { ReactNode } from 'react';
 import { logisticsWarnings } from '@/lib/savedFloatLogistics';
 import { Alert, Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
@@ -55,6 +56,7 @@ export function SavedFloatDetails({ saved, loading, error, onRetry, header }: {
         <Text style={[styles.body, { color: colors.textMuted }]}>
           Maps may need a connection or maps downloaded in advance. Access details can change; confirm permission before entering private land.
         </Text>
+        <PlanDownstreamDams dams={details.damsBelowTakeOut} />
         <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
           <Text style={[styles.heading, { color: colors.text }]}>Cautions saved with this trip</Text>
           {!details.hazardsUnavailable || details.hazardsSavedAt ? (
@@ -73,7 +75,7 @@ export function SavedFloatDetails({ saved, loading, error, onRetry, header }: {
               {hazard.description ? <Text style={[styles.body, { color: colors.text }]}>{hazard.description}</Text> : null}
             </View>
           ))}
-          {!details.hazardsUnavailable && !logisticsWarnings(details.warnings, details.putIn.name, details.takeOut.name).length && !details.hazards.length ? <Text style={[styles.body, { color: colors.textMuted }]}>No cautions were saved. This does not mean the stretch is clear.</Text> : null}
+          {!details.hazardsUnavailable && !logisticsWarnings(details.warnings, details.putIn.name, details.takeOut.name).length && !details.hazards.length && !details.damsBelowTakeOut?.length ? <Text style={[styles.body, { color: colors.textMuted }]}>No cautions were saved. This does not mean the stretch is clear.</Text> : null}
         </View>
       </> : <Text style={[styles.body, { color: colors.text }]}>
         {saved.putInName} → {saved.takeOutName}. Open this float with a connection once to save its access details for offline use.

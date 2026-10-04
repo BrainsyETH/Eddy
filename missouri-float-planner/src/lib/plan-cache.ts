@@ -1,7 +1,7 @@
 import type { FloatPlan } from '@/types/api';
 
-const STORAGE_KEY = 'eddy-last-valid-float-plan-v1';
-const CACHE_VERSION = 1;
+const STORAGE_KEY = 'eddy-last-valid-float-plan-v2';
+const CACHE_VERSION = 2;
 export const LAST_VALID_PLAN_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
 
 export interface PlanCacheIdentity {
@@ -13,7 +13,7 @@ export interface PlanCacheIdentity {
 }
 
 export interface CachedFloatPlan {
-  version: 1;
+  version: 2;
   savedAt: number;
   identity: PlanCacheIdentity;
   plan: FloatPlan;

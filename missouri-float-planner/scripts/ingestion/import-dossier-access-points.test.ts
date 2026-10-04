@@ -276,7 +276,7 @@ test('atomic access imports retain private terms without changing review state',
         LANGUAGE sql AS 'SELECT 0';
       INSERT INTO rivers VALUES ('${river}');
     `);
-    await db.exec(readFileSync('supabase/migrations/20261004041012_preserve_access_dossier_handoff_fields.sql', 'utf8'));
+    await db.exec(readFileSync('supabase/migrations/20261004044150_preserve_access_dossier_handoff_fields.sql', 'utf8'));
     const run = (plan: unknown[]) => db.query('SELECT apply_access_point_dossier($1, $2)', [river, JSON.stringify(plan)]);
     const source = { name: 'Private beach', kind: 'gravel_bar' as const, expected_mile: 1,
       lat: 36, lon: -94, is_public: false, directions_override: 'Check-in address',

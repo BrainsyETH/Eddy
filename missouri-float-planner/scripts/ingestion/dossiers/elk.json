@@ -1,5 +1,5 @@
 {
-  "_status": "HELD-INACTIVE: above-dam unrated release selected. Gauge transition and curation are prepared in 20261004035848; private bank/entrance review and production verification remain. No activation or pin approvals asserted.",
+  "_status": "HELD-INACTIVE: Noel primary/curation and unrated mode applied in 20261004044139. Private bank/entrance review, Trestle passage instructions, polling and route read-back remain. No access approval or activation asserted.",
   "name": "Elk River",
   "slug": "elk",
   "primaryGaugeSiteId": "07188925",
@@ -139,9 +139,9 @@
           "confidence": "high"
         },
         {
-          "value": "A low-water crossing is at the Trestle Park area below Indian Creek. Precise structure placement remains to be verified before a structured point is added.",
-          "source": "https://kozykamp.com/",
-          "confidence": "medium"
+          "value": "Elk Springs Road low-water crossing beside Trestle Park, mapped at approximately Eddy mile 6.52. Passage/carry arrangements need operator confirmation.",
+          "source": "https://kozykamp.com/ ; scripts/ingestion/elk-trestle-crossing.json",
+          "confidence": "medium — imagery-derived position; operator confirms structure, not passage"
         }
       ],
       "localKnowledge": [
@@ -242,15 +242,15 @@
       "https://hydro.nationalmap.gov/arcgis/rest/services/nhd/MapServer/6 (GNIS 01092538; representative mainstem Permanent_Identifier 86154255)"
     ],
     "openQuestions": [
-      "Noel-specific stage anchors for the upper and lower corridors: minimum usable, preferred range, high/restricted and stop-running. No overlap with Tiff City and no Noel discharge series found.",
-      "Place and verify private launch/landing pins, parking entrances and access terms at Kozy Kamp, Trestle Park, Wayside, Shady Beach, River Ranch/Sycamore and The Spot.",
-      "Validate separate upper/lower route choices around Shadow Lake Dam; verify the low-water crossing pin and disposition.",
-      "Confirm reusable access and hero photography. Pineville agency image is restricted to MDC; bridge records used unrelated photographs."
+      "Confirm the Kozy, Trestle and Wayside water-entry banks, parking entrances and current paid-access arrangements.",
+      "Confirm passage at the mapped Elk Springs Road crossing and whether each Trestle trip uses the downstream candidate beach.",
+      "Reconcile the operator-advertised six-mile Noel trip with the current 4.78-mile Eddy endpoint difference; verify both endpoints and geometry.",
+      "Future rated release only: Noel-specific thresholds and Shadow Lake pool influence. Not a blocker for raw readings."
     ],
     "toVerify": [
-      "Fresh Noel reading at activation; primary/link/curation changes only after threshold signoff.",
-      "Connected private-endpoint snaps, distances, shuttle roads and API results on web/iOS after applying the reviewed data.",
-      "Named on-water POIs require a verified location. Basin springs on tributaries are not Elk mainstem stops."
+      "Fresh Noel observations written by the curated cron to gauge_readings, not only gauge_latest.",
+      "Actual private pair distances, operator-time links and shuttle handoffs after endpoint approval.",
+      "All three private pairs before full launch; the Pineville–Mount Shira fallback also passes the Trestle crossing."
     ]
   },
   "readiness": {
@@ -260,7 +260,7 @@
         "scripts/ingestion/elk-above-dam-release-2026-10-04.md"
       ],
       "reviewedBy": "Codex — source/code review; no field inspection",
-      "reviewedAt": "2026-10-04T04:00:00Z",
+      "reviewedAt": "2026-10-04T04:50:00Z",
       "notes": "Pineville–Wayside above Shadow Lake Dam only; lower Elk/Cowskin excluded from planner eligibility."
     },
     "legalAccess": {
@@ -269,7 +269,7 @@
         "scripts/ingestion/elk-above-dam-release-2026-10-04.md"
       ],
       "reviewedBy": "Codex — source/code review; no field inspection",
-      "reviewedAt": "2026-10-04T04:00:00Z",
+      "reviewedAt": "2026-10-04T04:50:00Z",
       "notes": "Operator publishes rental and paid own-boat access. Three bank candidates and address handoffs are now recorded; exact banks/parking and Trestle crossing-side review remain."
     },
     "gauge": {
@@ -278,8 +278,8 @@
         "scripts/ingestion/elk-above-dam-release-2026-10-04.md"
       ],
       "reviewedBy": "Codex — source/code review; no field inspection",
-      "reviewedAt": "2026-10-04T04:00:00Z",
-      "notes": "Noel identity, stage parameter and location verified. Await application of migration, cron history write and current-reading read-back."
+      "reviewedAt": "2026-10-04T04:50:00Z",
+      "notes": "Production: Noel primary in feet, all 12 anchors null, curated=true; Tiff history retained. Await a cron-written gauge_readings observation."
     },
     "conditions": {
       "status": "verified",
@@ -287,8 +287,8 @@
         "scripts/ingestion/elk-above-dam-release-2026-10-04.md"
       ],
       "reviewedBy": "Codex — source/code review; no field inspection",
-      "reviewedAt": "2026-10-04T04:00:00Z",
-      "notes": "User approved proceeding with the readings-only option. #1418 separates unrated from unavailable; no Noel floatability thresholds. App deployment and migration still pending.",
+      "reviewedAt": "2026-10-04T04:50:00Z",
+      "notes": "Readings-only mode is applied in production; #1418 presentation deployment remains. No Noel recreational thresholds.",
       "ratingMode": "unrated"
     },
     "hazards": {
@@ -297,8 +297,8 @@
         "scripts/ingestion/elk-above-dam-release-2026-10-04.md"
       ],
       "reviewedBy": "Codex — source/code review; no field inspection",
-      "reviewedAt": "2026-10-04T04:00:00Z",
-      "notes": "Known dam boundary retained. Await deployment/read-back of Cowskin and bridge endpoint withdrawal; review Trestle crossing handling with the bank selection. No requirement to invent additional hazards."
+      "reviewedAt": "2026-10-04T04:50:00Z",
+      "notes": "Cowskin and bridge endpoint exclusions applied. Trestle crossing mapped from operator and imagery evidence; passage instructions remain open. Downstream dam notice implemented for all planning surfaces, awaiting deploy."
     },
     "routing": {
       "status": "blocked",
@@ -306,8 +306,8 @@
         "scripts/ingestion/elk-above-dam-release-2026-10-04.md"
       ],
       "reviewedBy": "Codex — source/code review; no field inspection",
-      "reviewedAt": "2026-10-04T04:00:00Z",
-      "notes": "Candidate points project at miles 0.43, 6.55 and 11.33, above dam 11.61. Await approved endpoints and actual pair/shuttle checks; do not treat advertised 6/12 miles as geometry."
+      "reviewedAt": "2026-10-04T04:50:00Z",
+      "notes": "Full launch waits for the three private pairs. Trestle candidate projects downstream of the crossing (6.554 vs 6.525), correcting the prior upstream description. Verify operator launch bank, passage, 4.78-vs-6-mile Noel product and actual shuttle handoffs. Pineville–Mount Shira also passes the crossing."
     }
   },
   "conditionRatingMode": "unrated"

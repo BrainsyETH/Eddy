@@ -151,7 +151,7 @@
     "official_site_url": "https://kozykamp.com/float-trips",
     "facilities": "Private campground river access. Check in with the operator for parking and access arrangements.",
     "description": "North/right bank; campground track to the water west of the highway bridge. Confirm operator-designated launch at the selected track and parking/check-in entrance. Owner screenshot approach pin is 36.588894,-94.389059, not a water-entry pin.",
-    "confidence": "medium — imagery candidate; final bank/entrance review pending",
+    "confidence": "medium \u2014 imagery candidate; final bank/entrance review pending",
     "source_urls": [
       "https://kozykamp.com/float-trips",
       "https://www.elkriverfloats.com/float-trips/",
@@ -180,8 +180,8 @@
     "managing_agency": "Private",
     "official_site_url": "https://trestlepark.com/elk-river-campground",
     "facilities": "Private campground river access. Check in with the operator for parking and access arrangements.",
-    "description": "Northeast/left bank beach, immediately upstream/west of the Elk Springs Road low-water crossing. Confirm whether the upper-trip take-out and Noel-trip put-in use different sides of the crossing, and the operator-approved passage/walk between them. Candidate is the beach, not the cabins.",
-    "confidence": "medium — imagery candidate; final bank/entrance review pending",
+    "description": "Northeast/right bank beach, immediately downstream/northwest of the Elk Springs Road low-water crossing. Confirm whether the upper-trip take-out and Noel-trip put-in use different sides of the crossing, and the operator-approved passage/walk between them. Candidate is the beach, not the cabins.",
+    "confidence": "medium \u2014 imagery candidate; final bank/entrance review pending",
     "source_urls": [
       "https://trestlepark.com/elk-river-campground",
       "https://www.elkriverfloats.com/float-trips/",
@@ -210,8 +210,8 @@
     "managing_agency": "Private",
     "official_site_url": "https://waysidecamp.com/camping",
     "facilities": "Private campground river access. Check in with the operator for parking and access arrangements.",
-    "description": "Southwest/left bank designated beach near the office/highway junction, upstream of the campground no-watercraft boundary. Confirm this part of the designated beach is the current trip landing and check-in parking route; do not use the peninsula tip.",
-    "confidence": "medium — imagery candidate; final bank/entrance review pending",
+    "description": "Southwest/left bank designated beach near the office/highway junction, upstream of the campground no-watercraft boundary. Confirm this part of the designated beach is the current trip landing and check-in parking route; do not use the peninsula tip. Shadow Lake Dam is approximately 0.3 river miles downstream of this landing candidate.",
+    "confidence": "medium \u2014 imagery candidate; final bank/entrance review pending",
     "source_urls": [
       "https://waysidecamp.com/camping",
       "https://www.elkriverfloats.com/float-trips/",

@@ -1,3 +1,4 @@
+import { DOWNSTREAM_DAM_BUFFER_MILES, splitRouteHazards } from '@shared/route-hazards';
 // MCP Server for eddy.guide
 // Exposes river data, conditions, access points, hazards, and float planning as MCP tools.
 // Free access (no x402 gating) to encourage AI agent adoption.
@@ -313,17 +314,19 @@ function createMcpServer() {
 
       const { data: hazards, error: hazardError } = await supabase
         .from('river_hazards')
-        .select('name, type, severity, river_mile_downstream, portage_required')
+        .select('id, name, type, severity, river_mile_downstream, portage_required')
         .eq('river_id', riverId)
         .eq('active', true)
         .gte('river_mile_downstream', minMile)
-        .lte('river_mile_downstream', maxMile);
+        .lte('river_mile_downstream', maxMile + DOWNSTREAM_DAM_BUFFER_MILES);
       if (hazardError || hazards === null) {
         console.error('[MCP] Hazard lookup failed:', hazardError);
         return { content: [{ type: 'text', text: 'Hazard information is unavailable.' }], isError: true };
       }
 
 
+
+      const routeHazards = splitRouteHazards(hazards, minMile, maxMile);
 
       return {
         content: [{
@@ -339,7 +342,8 @@ function createMcpServer() {
             conditionAvailability: estimate.availability,
             conditionNote: estimate.conditionCode === 'unknown'
               ? `${estimate.conditionStatusLabel}. Any time shown is a typical estimate, not adjusted to current water.` : null,
-            hazardsAlongRoute: (hazards || []).map((h) => ({
+            damsBelowTakeOut: routeHazards.damsBelowTakeOut,
+            hazardsAlongRoute: routeHazards.hazards.map((h) => ({
               name: h.name,
               type: h.type,
               severity: h.severity,

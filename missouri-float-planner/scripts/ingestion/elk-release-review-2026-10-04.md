@@ -1,9 +1,10 @@
 # Elk release review — 2026-10-04 UTC
 
-**Decision: keep Elk inactive.** The listing and geography cleanup is prepared;
-Noel calibration and verified launch-to-landing routes remain release blockers.
-This review covers Elk only. It does not launch Big Sugar, Little Sugar or Indian
-Creek. No production changes were made during this review.
+**Current decision: keep Elk inactive for endpoint/passage review.** Cleanup and
+the readings-only Noel transition were applied on 2026-10-04. Calibration is
+future work for a rated release. See [the current release checklist](elk-above-dam-release-2026-10-04.md).
+The research below records the earlier calibration investigation; no operator
+contact or field visit is claimed.
 
 ## Tiff chart and Noel transfer pilot — owner evidence follow-up
 
@@ -61,8 +62,7 @@ USGS follow-up should confirm the station's hydraulic control/backwater
 setting and whether discharge measurements or a rating are planned. Operator
 practice is practical trip evidence, not a substitute for that station record.
 No additional model complexity or production threshold changes are warranted
-before this evidence is available. Cleanup can merge independently; its
-migration is now explicitly listed under `[pending]` in the ledger.
+before this evidence is available. The cleanup was applied as `20261004044101`; its production version is in the ledger.
 
 The supplied chart is the operator's [Tiff gauge key](https://www.elkriverfloats.com/wp-content/uploads/sites/3100/2023/02/Elk-River-Gauge-Key.pdf).
 Its limits depend on **trip and craft**, rather than defining a single optimal
@@ -281,7 +281,7 @@ not available promptly. Do not make a flow model or a dam portage prerequisites.
 Prepared files: `services-elk-release-2026-10-04.csv`, its `.diff.txt` preview,
 `service-river-facts-elk-2026-10-04.csv`, `access-points/elk.json`,
 `dossiers/elk.json`, `dossiers/verified-identifiers-elk.md`, `EDDY_KNOWLEDGE.md`,
-and migration `20261004013052_elk_release_data_cleanup.sql`.
+and migration `20261004044101_elk_release_data_cleanup.sql`.
 
 ## Gauge: the earlier cfs proposal is not supported
 

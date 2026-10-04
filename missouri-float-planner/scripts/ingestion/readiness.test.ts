@@ -173,7 +173,7 @@ test('explicit unrated activation keeps freshness, review and threshold-conflict
       INSERT INTO gauge_latest VALUES ('10000000-0000-0000-0000-000000000001',now(),5.8,NULL);
     `);
     await db.exec(readFileSync('supabase/migrations/20261004002112_river_readiness_activation.sql', 'utf8'));
-    await db.exec(readFileSync('supabase/migrations/20261004030128_explicit_unrated_river_release.sql', 'utf8'));
+    await db.exec(readFileSync('supabase/migrations/20261004044114_explicit_unrated_river_release.sql', 'utf8'));
     const evidence = { ...reviews, conditions: { ...reviews.conditions, ratingMode: 'unrated' } };
     const run = (apply = false, review: unknown = evidence) => db.query<{ check_name: string; severity: string }>(
       "SELECT * FROM review_river_activation(ARRAY['unrated'], $1::jsonb, $2)", [JSON.stringify({ unrated: review }), apply]);
@@ -230,7 +230,7 @@ test('unrated ingestion requires a reviewed mode and an available explicit measu
 
 test('Elk staging switches polling and retires cross-dam endpoints without activating or deleting history', async () => {
   const db = new PGlite();
-  const migration = readFileSync('supabase/migrations/20261004035848_stage_elk_noel_unrated_release.sql', 'utf8');
+  const migration = readFileSync('supabase/migrations/20261004044139_stage_elk_noel_unrated_release.sql', 'utf8');
   try {
     await db.exec(`
       CREATE SCHEMA extensions;

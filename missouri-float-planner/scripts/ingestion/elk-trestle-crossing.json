@@ -1,0 +1,36 @@
+{
+  "name": "Elk Springs Road low-water crossing",
+  "riverSlug": "elk",
+  "latitude": 36.58491,
+  "longitude": -94.454712,
+  "riverMile": 6.52,
+  "snapMetres": 11.0,
+  "estimatedPositionAccuracyMetres": 15,
+  "type": "other",
+  "severity": "warning",
+  "portageRequired": null,
+  "portageSide": null,
+  "sources": [
+    "https://kozykamp.com/",
+    "https://trestlepark.com/elk-river-campground",
+    "https://img1.wsimg.com/isteam/ip/4c611e4a-7b28-4d91-afd7-9f1102df1c5e/A03155FD-7BDD-4057-AC0A-4D251F844CB9.jpeg",
+    "https://basemap.nationalmap.gov/arcgis/rest/services/USGSImageryOnly/MapServer"
+  ],
+  "imageryExtent": [
+    -94.458,
+    36.5835,
+    -94.452,
+    36.5883
+  ],
+  "imagerySize": [
+    1000,
+    800
+  ],
+  "selectedPixel": [
+    548,
+    565
+  ],
+  "reviewedAt": "2026-10-04",
+  "reviewedBy": "Codex \u2014 source, imagery and geometry review; no operator contact or field survey",
+  "remaining": "Confirm actual passage/carry arrangements and each trip bank with the operator. Existing Trestle access candidate projects just downstream (6.554 vs 6.525 unrounded)."
+}

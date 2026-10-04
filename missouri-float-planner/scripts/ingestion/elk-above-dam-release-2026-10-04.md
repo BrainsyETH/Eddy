@@ -1,13 +1,14 @@
 # Elk: concrete above-dam release preparation
 
-Status: **prepared, not applied or activated**. Depends on #1418. The accepted
+Status: **database changes applied; Elk inactive; private pins unapproved**.
+Presentation depends on #1418 and this PR being deployed. The accepted
 product choice is measured Noel stage in feet without recreational ratings.
 No operator contact or field visit is claimed.
 
-## Prepared changes
+## Applied database changes and prepared presentation
 
-- Migration `20261004035848_stage_elk_noel_unrated_release.sql` switches the exact
-  reviewed Tiff link to an empty-ladder Noel primary and curates Noel. Tiff's
+- Applied migration `20261004044139_stage_elk_noel_unrated_release.sql` switched the exact
+  reviewed Tiff link to an empty-ladder Noel primary and curated Noel. Tiff's
   station, history and stars remain; its six historical anchors/provenance are
   archived in `elk-tiff-threshold-archive.json`.
 - Cowskin stays an approved public listing but is no longer a float endpoint.
@@ -18,6 +19,13 @@ No operator contact or field visit is claimed.
 - The access dossier carries three **pending, non-endpoint** bank candidates,
   private-access terms, address handoffs and parking instructions. Its importer
   now preserves these supplied fields without changing approval/endpoint intent.
+- The Trestle low-water road crossing is mapped at mile 6.52 by applied migration
+  `20261004045234`. Its position is imagery-derived; passage/portage remains
+  unspecified. `elk-trestle-crossing.json` records the sources and placement.
+- Planner, chat and MCP include only low-water dams within 0.5 miles below the
+  take-out in a separate `damsBelowTakeOut` field. Web, iOS and saved iOS details
+  render “Below your take-out.” These do not affect trip distances, times,
+  warnings or in-route portage counts. Old browser plan caches refresh.
 - The dossier has an explicit `unrated` conditions review; operational evidence
   remains blocked where deployment or exact endpoint review is outstanding.
 
@@ -33,7 +41,7 @@ image extents, selected pixels, coordinates, approximate uncertainty and notes.
 | Candidate | Bank coordinate (lat, lon) | Eddy mile / distance to line | Address for road handoff | Specific remaining check |
 |---|---|---|---|---|
 | Kozy Kamp | 36.58841, -94.38950 | 0.43 / 28.6 m | 71 Elk River Road, Pineville | Verify the track's water-entry point and designated parking; owner's 36.588894, -94.389059 pin is a land approach |
-| Trestle Park | 36.58521, -94.45495 | 6.55 / 28.3 m | 435 Elk Springs Road, Noel | Candidate is the upstream beach beside the low-water crossing. Confirm which side each trip uses and the passage/walk between them |
+| Trestle Park | 36.58521, -94.45495 | 6.55 / 28.3 m | 435 Elk Springs Road, Noel | Candidate is the downstream beach beside the low-water crossing. Confirm which side each trip uses and the passage/walk between them |
 | Wayside | 36.54897, -94.49429 | 11.33 / 47.8 m | 201 Minnow Springs Ave, Noel | Verify the current landing and parking path within the designated beach, before the operator's no-watercraft boundary |
 
 All three candidates project above the stored dam at mile 11.61. Candidate route
@@ -74,20 +82,23 @@ stage does not make an opening or closure decision for these trips.
 
 1. Review/merge #1418 and this preparation PR. Deploy the web/API status behavior;
    include iOS presentation in the next app build/update.
-2. Apply only these Elk-related pending migrations in order: cleanup
-   `20261004013052`, policy `20261004030128`, transition `20261004035848`,
-   access-field support `20261004041012`.
-   Reconcile actual production versions/filenames and ledger, regenerate types,
-   and run `make check-db`. No blanket push of unrelated pending migrations.
+2. Completed: cleanup `20261004044101`, policy `20261004044114`, transition
+   `20261004044139`, access-field support `20261004044150`, and crossing
+   `20261004045234` are applied. Filenames/ledger match production; types are
+   regenerated. `make check-db` is blocked by the workspace tsx IPC/CLI setup
+   and unlinked CLI checkout. The same repository ledger functions were run
+   against connector-fetched production history with no drift. The already
+   merged Apple migration `20261004034340` is copied unchanged from main so this
+   stacked branch includes the full applied history.
 3. Confirm Noel's curated poll writes `gauge_readings` (not just `gauge_latest`),
    including the observation timestamp. No recreational condition-change alert
    or condition-driven Eddy update is promised for an unrated gauge.
 4. Review the concrete bank/road candidates under the existing
    `scripts/ingestion/README.md` coordinate-review process. Import pending rows;
    approve endpoint intent only after review. Then link exact-pair trip times.
-5. Apply the already-prepared campground/service CSVs and confluence POIs from
-   #1412; inspect their previews and read-back. The service batch has seven
-   existing listings and three additions. Business pins are not launch pins.
+5. Apply the already-prepared campground/service CSVs from #1412; inspect their
+   previews and read-back. The confluence POIs were applied with cleanup. The service batch has
+   seven existing listings and three additions. Business pins are not launch pins.
    No verified mainstem spring stop was found; do not create one from a tributary
    name. Photos without reuse rights stay excluded; booking availability feeds
    are not asserted for private campgrounds.
@@ -97,18 +108,46 @@ stage does not make an opening or closure decision for these trips.
 
 The operator's Noel thresholds and pool-influence answers are needed for a
 future **rated** release. They are not prerequisites for publishing raw readings.
-The specific Trestle crossing/landing question remains an endpoint-routing item.
+The specific Trestle passage/landing question remains an endpoint-routing item.
+The full launch requires the three private route pairs. A public-only fallback
+is not the chosen release: Pineville (0.26) → Mount Shira (7.78) also passes the
+crossing.
+
+### Endpoint questions for the operator
+
+1. Does Trestle use the downstream/right-bank beach candidate for both upper-trip
+   landings and Noel-trip launches? How do upper/12-mile guests pass or carry at
+   the crossing, and where is any permitted carry route?
+2. Confirm Wayside’s exact landing, parking path and no-watercraft boundary;
+   confirm Kozy’s water-entry track and check-in/parking location.
+3. Confirm the Noel trip’s actual start/end points behind its advertised six
+   miles. Current Eddy miles differ by 4.78; check both the pins and line/mileage
+   before linking its operator times. Do not force the measured distance to six.
+
+**Correction from the first draft:** river direction and PostGIS projections put
+Trestle’s bank candidate at 6.554, just downstream of the crossing at 6.525
+(unrounded), on the right bank. The earlier upstream/left-bank description was
+wrong. The existence of the crossing is confirmed by the operator; a legal or
+usable passage has not been asserted.
 
 ## Verification
 
-PostGIS queries against production were read-only: three candidate projections,
-snap distances and Noel's position. The migration is tested in PGlite with
+PostGIS placement queries were read-only; the listed migrations were subsequently
+applied with user authorization. The migration is tested in PGlite with
 spatial-function doubles: precondition failures and late failures roll back;
 Noel becomes primary/curated, Cowskin loses only endpoint eligibility, Tiff
-history survives, and Elk remains inactive. This is not a production apply test.
+history survives, and Elk remains inactive. Production read-back confirms these
+results, the new crossing, and service-role-only access to the import RPC.
+Tiff retains 1,438 history rows. Noel’s first cron-written observation is checked
+separately; merely curating a gauge does not prove the job has run.
 
 The access-field RPC migration is exercised with insert/update, omitted-field
 preservation, review-state rejection and atomic rollback tests. The CLI access
 dry run could not connect because this workspace has no script credentials;
 production reads used the connector. Dossier ingestion preview correctly refuses
 the unsigned Elk dossier. No guarded client or signoff requirement was bypassed.
+
+Web/test type checks and lint passed; 3,087 tests passed. iOS type checking,
+lint, production bundle and archive validation passed. The explicit activation
+preview returned only the expected outstanding review criteria and the
+pre-poll missing-history warning; it left Elk inactive.

@@ -1,3 +1,4 @@
+import { PlanDownstreamDams } from '@/components/PlanDownstreamDams';
 import { unknownConditionLabel } from '@eddy/conditions/condition-availability';
 // eddy-ios/src/components/PlanResult.tsx
 // A finished float plan, rendered.
@@ -210,6 +211,8 @@ export function PlanResult({ plan, actions, accessPoints, header, support, initi
       </View>
 
       <GettingThere plan={plan} accessPoints={accessPoints} support={supportState} onOpenDetail={openDetail} />
+
+      <PlanDownstreamDams dams={plan.damsBelowTakeOut} />
 
       {plan.hazardsUnavailable || plan.hazards.length > 0 ? (
         <View style={styles.section}>
