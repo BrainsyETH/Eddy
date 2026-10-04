@@ -1,3 +1,4 @@
+import { appBannerMetadata } from '@/lib/app-discovery';
 // src/app/gauges/[slug]/page.tsx
 // Legacy gauge detail route. River conditions now live on the canonical river
 // hub at /rivers/[slug], so this route permanently redirects there:
@@ -95,6 +96,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
   return {
     title,
+    ...appBannerMetadata(`/gauge/${encodeURIComponent(slug)}`),
     description,
     alternates: { canonical: pageUrl },
     openGraph: { type: 'website', title, description, url: pageUrl, siteName: 'Eddy' },

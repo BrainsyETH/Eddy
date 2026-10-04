@@ -1,3 +1,4 @@
+import ArticleByline from './ArticleByline';
 // src/components/blog/RiverGuideLayout.tsx
 // Field Notebook layout for River Guide blog posts. Pulls structured data
 // from blog_posts.guide_data and renders the design from variation-a.jsx in
@@ -248,14 +249,7 @@ export default async function RiverGuideLayout({ post }: Props) {
             <span>{post.read_time_minutes} min read</span>
           </>
         )}
-        {post.published_at && (
-          <>
-            <span>·</span>
-            <time dateTime={post.published_at}>
-              {new Date(post.published_at).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
-            </time>
-          </>
-        )}
+        <ArticleByline publishedAt={post.published_at} updatedAt={post.updated_at} />
         <span
           style={{
             marginLeft: 'auto',

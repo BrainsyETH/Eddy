@@ -1,3 +1,4 @@
+import { appBannerMetadata } from '@/lib/app-discovery';
 import { savedTimeRangeLabel } from '@/lib/calculations/saved-time-range';
 // src/app/plan/[shortCode]/layout.tsx
 // Layout for shared plan pages
@@ -103,6 +104,7 @@ export async function generateMetadata({ params }: PlanLayoutProps): Promise<Met
     const pageUrl = `${BASE_URL}/plan/${shortCode}`;
 
     return {
+      ...appBannerMetadata(`/float/${encodeURIComponent(shortCode)}`),
       title,
       description,
       alternates: { canonical: pageUrl },

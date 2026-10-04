@@ -1,7 +1,12 @@
 import { withSentryConfig } from '@sentry/nextjs';
+import { HTML_LIMITED_BOT_UA_RE } from 'next/dist/shared/lib/router/utils/html-bots.js';
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // Safari's native app banner reads <head>, not streamed metadata appended
+  // to <body>. Keep Next's installed crawler defaults while also blocking
+  // metadata for iOS Safari; other browsers retain metadata streaming.
+  htmlLimitedBots: new RegExp(`${HTML_LIMITED_BOT_UA_RE.source}|(?:iPhone|iPad|iPod).*Safari`, 'i'),
   images: {
     remotePatterns: [
       { protocol: 'https', hostname: 'cdn.recreation.gov', pathname: '/public/**' },
@@ -142,7 +147,9 @@ const nextConfig = {
       // Wildcarded on purpose: the ingest subdomain encodes the Sentry org id
       // (o<id>.ingest.us.sentry.io), which is not knowable from this file and
       // would otherwise have to be duplicated wherever the DSN is set.
-      "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://waterservices.usgs.gov https://tilecache.rainviewer.com https://api.rainviewer.com https://www.googletagmanager.com https://tiles.openfreemap.org https://basemaps.cartocdn.com https://*.basemaps.cartocdn.com https://server.arcgisonline.com https://*.tile.openstreetmap.org https://*.ingest.sentry.io https://*.ingest.us.sentry.io https://*.ingest.de.sentry.io",
+      // GA4 uses collection hosts beyond the gtag script host, including
+      // regional endpoints. Loading gtag alone does not mean events can leave.
+      "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://waterservices.usgs.gov https://tilecache.rainviewer.com https://api.rainviewer.com https://www.googletagmanager.com https://*.google-analytics.com https://*.analytics.google.com https://*.googletagmanager.com https://*.google.com https://tiles.openfreemap.org https://basemaps.cartocdn.com https://*.basemaps.cartocdn.com https://server.arcgisonline.com https://*.tile.openstreetmap.org https://*.ingest.sentry.io https://*.ingest.us.sentry.io https://*.ingest.de.sentry.io",
       "worker-src 'self' blob:",
       "font-src 'self' https://fonts.gstatic.com",
     ];

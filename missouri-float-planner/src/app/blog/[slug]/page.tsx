@@ -1,3 +1,4 @@
+import ArticleByline from '@/components/blog/ArticleByline';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import type { Metadata } from 'next';
@@ -29,6 +30,7 @@ interface BlogPost {
   meta_keywords: string[] | null;
   read_time_minutes: number | null;
   published_at: string | null;
+  updated_at: string | null;
   river_slug: string | null;
   guide_data: GuideData | null;
 }
@@ -78,6 +80,9 @@ export async function generateMetadata(
       title: post.title,
       description: post.description || undefined,
       type: 'article',
+      url: `${BASE_URL}/blog/${slug}`,
+      publishedTime: post.published_at || undefined,
+      modifiedTime: post.updated_at || post.published_at || undefined,
       // Share image comes from the branded opengraph-image.tsx in this segment.
     },
     twitter: {
@@ -107,6 +112,8 @@ export default async function BlogPostPage({
     headline: post.title,
     description: post.description || undefined,
     datePublished: post.published_at || undefined,
+    dateModified: post.updated_at || post.published_at || undefined,
+    author: { '@type': 'Organization', name: 'Eddy', url: `${BASE_URL}/about` },
     image: post.featured_image_url || undefined,
     url: `${BASE_URL}/blog/${post.slug}`,
     publisher: {
@@ -187,6 +194,7 @@ export default async function BlogPostPage({
       meta_keywords: post.meta_keywords,
       read_time_minutes: post.read_time_minutes,
       published_at: post.published_at,
+      updated_at: post.updated_at,
       guide_data: articleGuide,
     };
     return (
@@ -216,6 +224,7 @@ export default async function BlogPostPage({
       meta_keywords: post.meta_keywords,
       read_time_minutes: post.read_time_minutes,
       published_at: post.published_at,
+      updated_at: post.updated_at,
       river_slug: post.river_slug,
       guide_data: post.guide_data,
     };
@@ -261,14 +270,7 @@ export default async function BlogPostPage({
                 </span>
               </>
             )}
-            {post.published_at && (
-              <>
-                <span>•</span>
-                <time dateTime={post.published_at}>
-                  {new Date(post.published_at).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
-                </time>
-              </>
-            )}
+            <ArticleByline publishedAt={post.published_at} updatedAt={post.updated_at} />
           </div>
 
           <div className="mb-4">

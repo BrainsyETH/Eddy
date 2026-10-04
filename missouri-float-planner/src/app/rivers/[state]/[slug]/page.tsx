@@ -1,3 +1,4 @@
+import { appBannerMetadata } from '@/lib/app-discovery';
 // src/app/rivers/[state]/[slug]/page.tsx
 // Server-rendered river guide page at the canonical /rivers/[state]/[slug]
 // URL (e.g. /rivers/missouri/current). Legacy /rivers/[slug] URLs 301 here
@@ -109,6 +110,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
     return {
       title,
+      ...appBannerMetadata(`/river/${encodeURIComponent(slug)}`),
       description,
       alternates: {
         canonical: pageUrl,
@@ -272,7 +274,6 @@ export default async function RiverGuidePage({ params }: Props) {
     name: river.name,
     description: fullDescription,
     touristType: ['Float trip', 'Canoeing', 'Kayaking', 'Tubing'],
-    isAccessibleForFree: true,
     publicAccess: true,
     url: `${BASE_URL}${riverPath(river.state, slug)}`,
     ...(centroid && {

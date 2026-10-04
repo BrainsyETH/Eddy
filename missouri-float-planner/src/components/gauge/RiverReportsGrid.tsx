@@ -3,14 +3,16 @@
 // src/components/gauge/RiverReportsGrid.tsx
 // Status-first river index: condition + facet filters, search, and sort over
 // live river cards. This is the body of the River Reports dashboard, rendered on
-// /rivers. Gauge data is fetched client-side; per-river metadata (state, type,
-// difficulty, length) arrives as a prop from the server page and drives the
-// facet filters. All filter/sort state is mirrored in the URL.
+// /rivers. The server's river directory stays visible until the live gauges
+// arrive, including on failure. Metadata drives the facet filters once loaded.
+// All filter/sort state is mirrored in the URL.
 
 import React, { useEffect, useState, useMemo, useCallback } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { Search, X, ChevronDown, MapPin } from 'lucide-react';
 
+import RiverReportsSnapshot from './RiverReportsSnapshot';
+import type { RiverListItem } from '@/types/api';
 import type { ConditionCode } from '@/types/api';
 import { useGaugeHistoryPrefetch } from '@/hooks/useGaugeHistory';
 import { useRiverGroups } from '@/hooks/useRiverGroups';
@@ -53,6 +55,7 @@ const STATE_NAMES: Record<string, string> = {
 };
 
 interface RiverReportsGridProps {
+  initialRivers: RiverListItem[];
   /** id → metadata map for facet filtering. Absent keys just skip meta filters. */
   riverMeta?: Record<string, RiverFilterMeta>;
 }
@@ -101,10 +104,10 @@ function FacetSelect({
   );
 }
 
-export default function RiverReportsGrid({ riverMeta = {} }: RiverReportsGridProps) {
+export default function RiverReportsGrid({ riverMeta = {}, initialRivers }: RiverReportsGridProps) {
   const searchParams = useSearchParams();
   const router = useRouter();
-  const { riverGroups, isLoading } = useRiverGroups();
+  const { riverGroups, isLoading, error } = useRiverGroups();
   const prefetchHistory = useGaugeHistoryPrefetch();
 
   const initialFloatable = searchParams.get('floatable') === '1';
@@ -325,26 +328,8 @@ export default function RiverReportsGrid({ riverMeta = {} }: RiverReportsGridPro
     selectedDifficulty !== 'all' ||
     selectedLength !== 'all';
 
-  if (isLoading) {
-    return (
-      <div className="space-y-6">
-        <div className="bg-white border border-neutral-200 rounded-xl p-4 space-y-3">
-          <div className="flex gap-3">
-            <div className="skeleton h-10 flex-1 max-w-xs rounded-lg" />
-          </div>
-          <div className="flex gap-2">
-            {Array.from({ length: 6 }).map((_, i) => (
-              <div key={i} className="skeleton h-7 w-20 rounded-full" />
-            ))}
-          </div>
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {Array.from({ length: 6 }).map((_, i) => (
-            <div key={i} className="bg-white rounded-xl border border-neutral-200 p-5 h-48" />
-          ))}
-        </div>
-      </div>
-    );
+  if (isLoading || (riverGroups.length === 0 && (error || initialRivers.length > 0))) {
+    return <RiverReportsSnapshot rivers={initialRivers} unavailable={!isLoading} />;
   }
 
   const hasFacets =

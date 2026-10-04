@@ -1,3 +1,4 @@
+import ArticleByline from './ArticleByline';
 // src/components/blog/GuideArticleLayout.tsx
 // Field Notebook layout for general "Guides" articles (non-river). Shares the
 // look of RiverGuideLayout — progress bar, eyebrow section titles, sticky TOC,
@@ -467,14 +468,7 @@ export default function GuideArticleLayout({ post }: Props) {
             <span>{post.read_time_minutes} min read</span>
           </>
         )}
-        {post.published_at && (
-          <>
-            <span>·</span>
-            <time dateTime={post.published_at}>
-              {new Date(post.published_at).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
-            </time>
-          </>
-        )}
+        <ArticleByline publishedAt={post.published_at} updatedAt={post.updated_at} />
         <span
           style={{
             marginLeft: 'auto',

@@ -4,25 +4,27 @@ const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://eddy.guide';
 
 export async function GET() {
   const content = `# eddy.guide
-> Missouri Ozarks float trip planning platform with real-time river conditions, access points, float times, and weather.
-> For a version with live river data and conditions, see: \${BASE_URL}/llms-full.txt
+> Ozarks river guide with live conditions, access points, float planning, and weather.
+> For a version with live river data and conditions, see: ${BASE_URL}/llms-full.txt
 
 ## About
-Eddy is a free river guide for planning float trips on Missouri's Ozark rivers. It provides live water conditions from USGS gauge stations, detailed access point information, float time calculations based on vessel type and water level, hazard warnings, and weather forecasts. Data is sourced from USGS, NPS, and community reports.
+Eddy helps people plan float trips on Ozark rivers in Missouri and Arkansas. Conditions, access information and float planning are free; Eddy's written Reads are a premium feature. Data includes USGS gauge readings, NPS information and community reports. Eddy is a planning guide: check local conditions before going on the water.
 
 ## Rivers Covered
-Eddy covers float rivers in Missouri's Ozarks region including the Current River, Jacks Fork, Eleven Point, Meramec, Huzzah Creek, Courtois Creek, Big Piney, Niangua, and Beaver Creek. Each river has detailed access points, hazards, points of interest, and real-time gauge data.
+The active river catalog is available at ${BASE_URL}/api/rivers. Examples include the Current, Jacks Fork, Eleven Point, Meramec, Huzzah, Courtois, Niangua and Buffalo. Coverage and available details vary by river; use the catalog rather than assuming this list is complete.
 
 ## Key Content Pages
 - ${BASE_URL}/rivers — Browse all rivers with current conditions
-- ${BASE_URL}/rivers/{slug} — Individual river page with conditions, access points, float planning
-- ${BASE_URL}/rivers/{slug}/access/{accessSlug} — Access point details (coordinates, amenities, parking, facilities)
+- ${BASE_URL}/rivers/{state}/{slug} — Canonical river page (for example /rivers/missouri/current)
+- ${BASE_URL}/rivers/{state}/{slug}/access/{accessSlug} — Access point details (coordinates, amenities, parking, facilities)
+- ${BASE_URL}/app — Eddy for iPhone and App Store download
+- ${BASE_URL}/dams — Lake levels, dam releases and generation schedules
 - ${BASE_URL}/river-map — Live statewide map: every curated river painted by its USGS gauges, with 30-day trends, gauge detail, forecast-aware flood warnings, and a drag-to-replay timeline
 - ${BASE_URL}/blog — Float trip guides, safety tips, gear reviews, and river profiles
 - ${BASE_URL}/about — How Eddy works, FAQ about river conditions and float planning
 
 ## Public API
-All API endpoints return JSON. AI agents accessing the API programmatically should use the x402 payment protocol (see below).
+REST endpoints return JSON; applicable paid REST requests use x402 as described below. The separate public MCP endpoint at ${BASE_URL}/api/mcp provides free agent tools for river discovery, conditions and float planning, subject to rate limits. Do not treat an unavailable or stale reading as a safe-water assessment.
 
 - GET ${BASE_URL}/api/rivers — List all active rivers with current conditions
 - GET ${BASE_URL}/api/rivers/{slug} — River details with GeoJSON geometry

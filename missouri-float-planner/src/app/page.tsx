@@ -7,6 +7,7 @@
 import type { Metadata } from 'next';
 import Image from 'next/image';
 import Link from 'next/link';
+import AppLink from '@/components/AppLink';
 import { ArrowRight } from 'lucide-react';
 import { getRiverGuides } from '@/lib/data/rivers';
 import EddySaysReport from '@/components/home/EddySaysReport';
@@ -95,6 +96,7 @@ export default async function Home() {
                   River Reports
                 </Link>
               </div>
+              <AppLink data-ga-event="app_landing_click" data-ga-label="homepage_hero" className="inline-flex items-center gap-2 mt-5 text-sm font-semibold text-white underline underline-offset-4">Take Eddy with you — get the iPhone app <ArrowRight className="h-4 w-4" aria-hidden="true" /></AppLink>
             </div>
 
             {/* Eddy mascot + live quote bubble */}

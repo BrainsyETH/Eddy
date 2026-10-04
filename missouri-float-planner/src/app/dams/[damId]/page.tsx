@@ -1,3 +1,5 @@
+import { publicPageMetadata } from '@/lib/seo';
+import { appBannerMetadata } from '@/lib/app-discovery';
 // src/app/dams/[damId]/page.tsx
 // One dam: current state plus the multi-day hourly generation schedule.
 //
@@ -35,10 +37,14 @@ export async function generateMetadata({
   const dam = getUsaceDam(damId);
   if (!dam) return { title: 'Dam not found' };
   return {
-    title: `${dam.name} — Lake Level & Generation Schedule`,
-    description: `Live lake level, release and hourly generation schedule for ${dam.name}${
-      dam.lakeName ? ` on ${dam.lakeName}` : ''
-    }.`,
+    ...publicPageMetadata(
+      `${dam.name} — Lake Level & Generation Schedule`,
+      `Live lake level, release and hourly generation schedule for ${dam.name}${
+        dam.lakeName ? ` on ${dam.lakeName}` : ''
+      }.`,
+      `/dams/${damId}`,
+    ),
+    ...appBannerMetadata(`/dam/${encodeURIComponent(damId)}`),
   };
 }
 
