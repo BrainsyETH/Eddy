@@ -5,6 +5,104 @@ Noel calibration and verified launch-to-landing routes remain release blockers.
 This review covers Elk only. It does not launch Big Sugar, Little Sugar or Indian
 Creek. No production changes were made during this review.
 
+## Tiff chart and Noel transfer pilot — owner evidence follow-up
+
+The supplied chart is the operator's [Tiff gauge key](https://www.elkriverfloats.com/wp-content/uploads/sites/3100/2023/02/Elk-River-Gauge-Key.pdf).
+Its limits depend on **trip and craft**, rather than defining a single optimal
+or dangerous band for the entire Elk. The operator's “lower” trip means
+**Trestle Park → Wayside**, still above the Noel dam; it does not mean below-dam
+Elk. The supplied descriptions establish Kozy → Trestle, Trestle → Wayside and
+the combined Kozy → Wayside trip. The lower reach's advertised year-round
+availability is an operator description, not proof of every day's floatability.
+
+We tested an indirect transfer despite there being no direct Noel/Tiff overlap.
+These are **research estimates of daily mean Noel stage**, not approved live
+thresholds, measured Noel discharge, or a USGS Noel rating:
+
+| Tiff chart mark (ft) | Tiff archived rating (cfs) | Modeled Noel daily mean (ft) | Meaning on the operator chart |
+| --- | --- | --- | --- |
+| 2.5 | 93.07 | Not estimated: outside the observed model range | Lower trip adds rafting above this mark; canoe/kayak listed below it |
+| 3.5 | 409.51 | 5.83 | Upper and full-length trips become available; lower trip adds tubing |
+| 4.5 | 1,018.71 | 6.28 | Canoe participation becomes adults-only |
+| 5.0 | 1,445.43 | 6.58 | Canoeing stops; upper/full kayaks limited to experienced adults; lower kayaks adults-only |
+| 6.0 | 2,433.72 | 7.17 | Upper and full-length trips close; lower kayaks limited to experienced adults, rafting listed |
+| 6.5 | 3,025.68 | 7.42 | Lower trip lists adults-only rafting; no all-river maximum is stated |
+
+The full-length trip only lists canoes/kayaks throughout; shorter-trip raft or
+tube availability must not be applied to it. Chart band edges are transcribed
+operating guidance, not a formal specification of inclusive/exclusive bounds.
+
+### Reproducible calculation and its limits
+
+Run the read-only [research script](research-elk-gauge-transfer.py) with Python,
+NumPy, pandas and scikit-learn:
+
+```sh
+python scripts/ingestion/research-elk-gauge-transfer.py --cache-dir /tmp/elk-transfer
+```
+
+1. Use USGS daily mean discharge at Tiff, Big Sugar/Powell, Little
+   Sugar/Pineville and Indian/Lanagan. Exclude qualified records (including
+   estimates); retain unqualified provisional records without treating them as
+   approved. Fit log Tiff flow from the three log tributary flows on **727 days
+   in 2023–2024**. Keep the model fixed for the later work.
+2. Test against **383 withheld days in 2025–April 2026**. Median absolute flow
+   error is **10.03%**; the 90th percentile is **21.88%**. This tests the
+   historical Tiff flow prediction, not the Noel stage conversion.
+3. Apply that model during Noel's record to obtain a **modeled Tiff-equivalent
+   flow**. Join **91 local calendar days** of Noel stage with at least 90
+   unqualified observations per day, then fit a monotonic stage relationship.
+   This is an indirect proxy across periods and locations; the raw tributary
+   sum would omit 28% of Noel's drainage area.
+4. A chronological Noel test (June–July fit; August–October holdout) has
+   **zero of 41 test days within the training flow range**. It therefore does
+   not establish future-season performance. A separate leave-14-day-block-out
+   interpolation check scores 86 days, excludes five outside each fit range,
+   and gives **0.102 ft mean absolute error**, **0.143 ft 90th-percentile error**.
+   It includes a **1.52 ft overprediction** on June 8 and a **1.20 ft
+   underprediction** on June 23. Small typical errors do not bound event errors.
+5. Convert the chart's Tiff stages using the retrieved [Tiff expanded rating](https://waterdata.usgs.gov/nwisweb/get_ratings?site_no=07189000&file_type=exsa),
+   then evaluate the final Noel curve to generate the table. The retrieved
+   rating is **31.0**, with a shift beginning **2026-04-14**, rather than a
+   confirmed rating from the chart's 2023 publication. Changes in the Tiff
+   stage/discharge relationship are an additional transfer uncertainty.
+
+Inputs come from the public [USGS OGC API](https://api.waterdata.usgs.gov/ogcapi/v0/collections/).
+The script records the exact series IDs and date ranges, rejects incomplete
+pagination and duplicate timestamps, and emits JSON without writing to Eddy.
+Raw responses are cached outside the repository. Retrieval and analysis date:
+2026-10-04; source ranges end 2026-10-03 and include provisional observations.
+
+**Next calibration check:** compare these candidate marks with dated operator
+trip/craft decisions at Noel, and assess subdaily rising/falling events and
+travel time using the tributary series. Daily averaging cannot validate
+instantaneous opening/closure levels. Do not insert these candidates into
+`river_gauges` or collapse the trip-specific chart into one river-wide ladder.
+
+### What the supplied maps resolve
+
+The owner's six supplied images were visually inspected, including the final
+satellite overview with trip endpoint markers. They corroborate the three
+advertised route relationships and narrow the bank locations:
+
+- **Kozy:** the Google Maps card displays **36.588894, -94.389059** at the land
+  approach. The image shows the track toward the river. Record this as supplied
+  approach evidence; it is not yet an exact water-entry coordinate.
+- **Trestle:** the selected cabins/property pin is distinct from the float
+  launch beach beside the Elk Springs Road low-water crossing. The satellite
+  route marker and operator campground map identify that beach as the intended
+  trip interchange. Do not reuse the cabins pin as the planner endpoint.
+- **Wayside:** the route ends by the campground beach near the highway junction,
+  corroborating the operator's designated watercraft beach above the dam. Use
+  that bank, not the downstream peninsula tip or The Spot's below-dam location.
+- **Combined trip:** the marked overview agrees with Kozy → Trestle → Wayside.
+  It supplies practical route evidence; it does not establish a route through
+  Shadow Lake Dam. Exact Trestle/Wayside bank coordinates and road entrances
+  still need to be placed and reviewed against the river geometry.
+
+No private endpoint approvals, live thresholds or river activation were changed
+on the strength of these research estimates or screenshot coordinates.
+
 ## Researched release options — follow-up, 2026-10-04
 
 The initial review treated three unresolved items as a single reason to hold the
@@ -19,7 +117,7 @@ product choices, not approval to bypass the existing activation gate.
 | --- | --- | --- |
 | **Noel in feet, calibrated with local evidence** | Measured mainstem stage plus Eddy condition ratings | Obtain Noel-specific trip observations and operator limits, including craft and reach; match dated observations to USGS history. No discharge conversion is required. Best route to a fully rated launch |
 | **Measured stage, unrated initially** | Live Noel hydrograph, readings/trend, access, camping, POIs and verified trips; no Too Low/Good/Optimal badge until calibrated | Build an explicit unrated mode across DB condition RPCs, web/iOS, planner estimates, recommendations and agent responses; make readiness permit that declared mode. Fastest independent release path, but not a fully rated launch |
-| **Upstream discharge model** | An explicitly modeled flow estimate after validation | Big Sugar, Little Sugar and Indian Creek have continuous discharge histories overlapping both the historical Tiff period and Noel's period. Backtest a tributary model on withheld historical Tiff data, account for timing and ungauged inflow, then assess Noel's stage relationship. This is a research option, not a verified transfer or launch requirement |
+| **Upstream discharge model** | An explicitly modeled flow estimate after validation | The pilot above yields candidate Noel stage marks from overlapping tributary histories. Historical flow backtesting is promising, but event errors, limited seasonal coverage and daily averaging prevent using it as an approved instantaneous ladder |
 
 Additional USGS checks went beyond the continuous-series catalogue:
 
