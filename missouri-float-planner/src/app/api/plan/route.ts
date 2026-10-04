@@ -16,8 +16,9 @@ import {
 } from '@/lib/usgs/gauges';
 import { conditionCodeToFlowRating, FLOW_DESCRIPTIONS, type FlowRating } from '@/lib/calculations/conditions';
 import { rateLimit, getClientIp } from '@/lib/rate-limit';
-import type { PlanResponse, FloatPlan, AccessPointType, HazardType, HazardSeverity } from '@/types/api';
+import type { PlanResponse, FloatPlan, AccessPointType } from '@/types/api';
 import { withX402Route } from '@/lib/x402-config';
+import { toHazard } from '@/lib/offline/shapes';
 import { toNum } from '@/lib/utils/num';
 
 // Force dynamic rendering (uses cookies and searchParams)
@@ -273,6 +274,7 @@ async function _GET(request: NextRequest) {
         slug: river.slug,
         lengthMiles: 0, // Not needed in plan
         description: null,
+        floatTip: river.float_tip,
         difficultyRating: null,
         region: null,
       },
@@ -386,22 +388,7 @@ async function _GET(request: NextRequest) {
       },
       hazardsUnavailable: hazardResult.hazardsUnavailable,
       damsBelowTakeOut: routeHazards.damsBelowTakeOut,
-      hazards: routeHazards.hazards.map(h => ({
-        id: h.id,
-        riverId: h.river_id ?? '',
-        name: h.name,
-        type: h.type as HazardType,
-        riverMile: h.river_mile_downstream != null ? parseFloat(String(h.river_mile_downstream)) : 0,
-        description: h.description,
-        severity: h.severity as HazardSeverity,
-        portageRequired: h.portage_required ?? false,
-        portageSide: h.portage_side as 'left' | 'right' | 'either' | null,
-        seasonalNotes: h.seasonal_notes,
-        coordinates: {
-          lng: (h.location as { coordinates?: number[] } | null)?.coordinates?.[0] || 0,
-          lat: (h.location as { coordinates?: number[] } | null)?.coordinates?.[1] || 0,
-        },
-      })),
+      hazards: routeHazards.hazards.map(toHazard),
       route: {
         type: 'Feature',
         geometry: segmentData.segment_geom as GeoJSON.LineString,

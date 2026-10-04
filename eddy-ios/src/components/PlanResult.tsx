@@ -190,6 +190,7 @@ export function PlanResult({ plan, actions, accessPoints, header, support, initi
           </>
         )}
 
+        {plan.river.floatTip ? <Text style={[styles.headlineNote, { color: colors.textSubtle }]}>{plan.river.floatTip}</Text> : null}
       </View>
 
       {/* The water the plan was built from. A float time is a function of the

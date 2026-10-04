@@ -66,7 +66,7 @@ async function readRiver(supabase: SupabaseClient<Database>, riverId: string) {
       // behind a swallowed catch) meant the tailwater float-time refusal
       // failed OPEN on a cache miss or a transient error — the wrong
       // direction for a guard whose whole job is to withhold a number.
-      .select('id, name, slug, river_type')
+      .select('id, name, slug, river_type, float_tip')
       .eq('id', riverId)
       .maybeSingle();
 

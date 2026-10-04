@@ -1362,6 +1362,8 @@ export default function RiverDetailScreen() {
           {river.lengthMiles ? ` · ${Math.round(river.lengthMiles)} river miles` : ''}
         </Text>
 
+        {river.floatTip ? <Text style={[styles.hazardBody, { color: colors.textMuted, marginBottom: 16 }]}>{river.floatTip}</Text> : null}
+
         {/* ── Which gauge everything below is about ─────────────
             ABOVE THE CARD, not buried inside it. It used to sit under the
             reading scale, on the reasoning that the primary gauge's number is
@@ -1706,7 +1708,7 @@ export default function RiverDetailScreen() {
           <CollapsibleSection
             title="Access points"
             leading={<EddySymbol name="accessPoint" size={18} />}
-            summary={`${accessPoints.length} put-in${accessPoints.length === 1 ? '' : 's'} and take-out${accessPoints.length === 1 ? '' : 's'}`}
+            summary={`${accessPoints.length} places on the river`}
           >
             {/* THE ROW NOW OPENS THE PLACE; the arrow still opens Maps.
 

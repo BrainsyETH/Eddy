@@ -99,7 +99,8 @@ export interface HazardResult {
   severity: string;
   riverMile: number;
   description: string | null;
-  portageRequired: boolean;
+  /** null means the need to portage has not been established. */
+  portageRequired: boolean | null;
 }
 
 export interface WeatherResult {

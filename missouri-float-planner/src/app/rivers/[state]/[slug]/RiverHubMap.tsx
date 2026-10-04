@@ -16,7 +16,7 @@
 // slot is a stable placeholder, so nothing shifts.
 
 import dynamic from 'next/dynamic';
-import { useEffect, useRef, useState } from 'react';
+import { Component, type ReactNode, useEffect, useRef, useState } from 'react';
 import { useRiver } from '@/hooks/useRivers';
 import { useAccessPoints } from '@/hooks/useAccessPoints';
 import { useHazards } from '@/hooks/useHazards';
@@ -34,6 +34,19 @@ const AccessPointMarkers = dynamic(() => import('@/components/map/AccessPointMar
 const HazardMarkers = dynamic(() => import('@/components/map/HazardMarkers'), { ssr: false });
 const ConditionRiverLayer = dynamic(() => import('@/components/map/ConditionRiverLayer'), { ssr: false });
 const ConditionNetworkLayer = dynamic(() => import('@/components/map/ConditionNetworkLayer'), { ssr: false });
+
+// A map-engine failure must not replace the report and access list with the route error page.
+class OverviewMapBoundary extends Component<{ children: ReactNode }, { failed: boolean }> {
+  state = { failed: false };
+  static getDerivedStateFromError() { return { failed: true }; }
+  render() {
+    return this.state.failed ? (
+      <div className="flex h-full items-center justify-center bg-neutral-50 p-6 text-center text-sm text-neutral-600">
+        The map couldn&apos;t load. Access points are listed below.
+      </div>
+    ) : this.props.children;
+  }
+}
 
 /** True once the element has come within `rootMargin` of the viewport —
  *  sticky, so the map never unmounts after the user scrolls past. */
@@ -66,7 +79,7 @@ export default function RiverHubMap({ riverSlug }: { riverSlug: string }) {
   // Data hooks also wait for approach — no reason to hit the API for a map
   // the user never scrolls to. (React Query dedupes with the page's other
   // consumers, so this costs nothing when they're already fetched.)
-  const { data: river } = useRiver(near ? riverSlug : '');
+  const { data: river, isError, refetch } = useRiver(near ? riverSlug : '');
   const { data: accessPoints = [] } = useAccessPoints(near ? riverSlug : '');
   const { data: hazards = [] } = useHazards(near ? riverSlug : '');
 
@@ -75,6 +88,7 @@ export default function RiverHubMap({ riverSlug }: { riverSlug: string }) {
       ref={ref}
       className="relative h-[360px] md:h-[440px] rounded-xl overflow-hidden border border-neutral-200"
     >
+      <OverviewMapBoundary key={riverSlug}>
       {near && river ? (
         <MapContainer initialBounds={river.bounds} showLegend={true} legendRoute={false} cooperativeGestures={true}>
           {/* Mounted before ConditionRiverLayer so the hero river stacks above. */}
@@ -90,11 +104,17 @@ export default function RiverHubMap({ riverSlug }: { riverSlug: string }) {
           <AccessPointMarkers accessPoints={accessPoints} />
           <HazardMarkers hazards={hazards} />
         </MapContainer>
+      ) : isError ? (
+        <div className="flex h-full flex-col items-center justify-center gap-3 bg-neutral-50 p-6 text-sm text-neutral-600">
+          <p>The map couldn&apos;t load. Access points are listed below.</p>
+          <button type="button" onClick={() => void refetch()} className="font-semibold text-primary-600">Try again</button>
+        </div>
       ) : (
         <div className="w-full h-full bg-ozark-900 flex items-center justify-center">
           <LoadingSpinner size="lg" />
         </div>
       )}
+      </OverviewMapBoundary>
     </div>
   );
 }

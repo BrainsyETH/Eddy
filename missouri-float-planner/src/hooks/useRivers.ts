@@ -7,8 +7,8 @@ import type { RiversResponse, RiverDetailResponse } from '@/types/api';
 export function useRivers() {
   return useQuery({
     queryKey: ['rivers'],
-    queryFn: async () => {
-      const response = await fetch('/api/rivers');
+    queryFn: async ({ signal }) => {
+      const response = await fetch('/api/rivers', { signal: AbortSignal.any([signal, AbortSignal.timeout(15_000)]) });
       if (!response.ok) {
         throw new Error('Failed to fetch rivers');
       }
@@ -22,8 +22,8 @@ export function useRivers() {
 export function useRiver(slug: string) {
   return useQuery({
     queryKey: ['river', slug],
-    queryFn: async () => {
-      const response = await fetch(`/api/rivers/${slug}`);
+    queryFn: async ({ signal }) => {
+      const response = await fetch(`/api/rivers/${slug}`, { signal: AbortSignal.any([signal, AbortSignal.timeout(15_000)]) });
       if (!response.ok) {
         throw new Error('Failed to fetch river');
       }

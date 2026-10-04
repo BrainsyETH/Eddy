@@ -87,6 +87,7 @@ test('the per-river routes and the bundle map rows with the same functions', () 
   const users = [
     ['src/app/api/rivers/[slug]/route.ts', 'toRiverDetail'],
     ['src/app/api/rivers/[slug]/hazards/route.ts', 'toHazard'],
+    ['src/app/api/plan/route.ts', 'toHazard'],
     ['src/app/api/rivers/[slug]/access-points/route.ts', 'toAccessPoint'],
     [BUNDLE_LIB, 'toRiverDetail'],
     [BUNDLE_LIB, 'toHazard'],
@@ -257,4 +258,11 @@ test('the bundle emits an index and the app writes it to its own key', () => {
     /export async function readBestIndex/,
     'callers need one reader that prefers the live index over the seed',
   );
+});
+
+test('hazards preserve unknown, required, and not-required portages separately', () => {
+  for (const value of [null, true, false]) {
+    const wire = JSON.parse(JSON.stringify(toHazard(hazardRow({ portage_required: value }))));
+    assert.equal(wire.portageRequired, value);
+  }
 });
