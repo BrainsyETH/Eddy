@@ -7,7 +7,6 @@ import {
   NO_LIVE_AVAILABILITY,
   toAccessPoint,
   toRiverDetail,
-  toRiverIndexEntry,
   toHazard,
   type AccessPointRow,
   type HazardRow,
