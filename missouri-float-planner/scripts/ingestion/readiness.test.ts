@@ -27,6 +27,8 @@ test('activation is atomic, previews validate inactive candidates, and audit dis
   try {
     await db.exec(`
       CREATE ROLE anon; CREATE ROLE authenticated; CREATE ROLE service_role;
+      CREATE SCHEMA extensions;
+      CREATE DOMAIN extensions.geography AS text;
       CREATE TABLE rivers(id uuid PRIMARY KEY, slug text UNIQUE, active boolean, river_type text);
       CREATE TABLE gauge_stations(id uuid PRIMARY KEY, name text, active boolean);
       CREATE TABLE river_gauges(id uuid PRIMARY KEY, river_id uuid, gauge_station_id uuid, is_primary boolean,
@@ -42,6 +44,7 @@ test('activation is atomic, previews validate inactive candidates, and audit dis
       INSERT INTO validator_state(fail) VALUES(false);
       CREATE FUNCTION validate_river_data() RETURNS TABLE(river_slug text,check_name text,severity text,detail text)
       LANGUAGE plpgsql AS $$ BEGIN
+        PERFORM NULL::geography;
         IF (SELECT fail FROM validator_state) THEN RAISE EXCEPTION 'validator unavailable'; END IF;
         RETURN QUERY SELECT slug, 'core_error', 'error', 'fixture defect' FROM rivers WHERE active AND slug = 'bad';
         IF (SELECT missing_id FROM validator_state) THEN
@@ -58,10 +61,13 @@ test('activation is atomic, previews validate inactive candidates, and audit dis
         'cfs',1,2,3,4,5,6,'operator','https://example.org/key',NULL,NULL,NULL,NULL,NULL,NULL);
       INSERT INTO gauge_latest VALUES ('10000000-0000-0000-0000-000000000001',now(),5,100);
     `);
-    await db.exec(readFileSync('supabase/migrations/20261003221648_river_readiness_activation.sql', 'utf8'));
+    await db.exec(readFileSync('supabase/migrations/20261004002112_river_readiness_activation.sql', 'utf8'));
     const run = (slugs: string[], apply: boolean, evidence: unknown = Object.fromEntries(slugs.map(s => [s, reviews]))) =>
       db.query<{ check_name: string; severity: string }>('SELECT * FROM review_river_activation($1::text[], $2::jsonb, $3)', [slugs, JSON.stringify(evidence), apply]);
     const active = async (slug = 'candidate') => (await db.query<{ active: boolean }>('SELECT active FROM rivers WHERE slug = $1', [slug])).rows[0].active;
+    await assert.rejects(run(['candidate'], false), /type "geography" does not exist/);
+    assert.equal(await active(), false, 'a missing extension type must also roll back activation');
+    await db.exec(readFileSync('supabase/migrations/20261004002532_river_activation_postgis_search_path.sql', 'utf8'));
     let result = await run(['candidate', 'live'], false);
     assert.equal(result.rows.some(r => r.severity === 'error'), false);
     assert.equal(await active(), false, 'preview must restore inactive status');

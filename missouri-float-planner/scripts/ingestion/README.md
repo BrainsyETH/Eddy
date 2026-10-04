@@ -257,7 +257,8 @@ npx tsx scripts/ingestion/activate-rivers.ts <slug>          # preview; --dry al
 npx tsx scripts/ingestion/activate-rivers.ts <slug> --apply  # explicit, pinned write
 ```
 
-Requires migration `20261003221648_river_readiness_activation.sql`. The service-role
+Requires migrations `20261004002112_river_readiness_activation.sql` and
+`20261004002532_river_activation_postgis_search_path.sql`. The service-role
 RPC checks inactive candidates using the existing validator, the additional
 provenance/freshness audit and the dossier checklist **in one transaction**.
 Previews and failed batches roll back all temporary activation, preserving already

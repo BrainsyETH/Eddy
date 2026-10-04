@@ -189,8 +189,12 @@ release modeling. Every candidate uses the same evidence gate.
 
 ## Rollout and validation
 
-The migration is additive and **pending** in `production-migrations.txt`. Installing
-it changes no river visibility or numerical thresholds. It adds a service-role-only
+The migration is additive and **applied** as `20261004002112` in
+`production-migrations.txt`. Follow-up `20261004002532` adds the PostGIS
+`extensions` schema to the activation function's fixed search path so the existing
+validator resolves its geography types and spatial functions. Both were applied
+with user approval on October 3, 2026 (October 4 UTC). Installation changed no river
+visibility or numerical thresholds. They add a service-role-only
 readiness audit and transactional activation RPC. Database errors, failed checks and
 previews cannot leave a newly activated row behind. Existing live rows are not
 retroactively deactivated. Direct administrator SQL can still bypass this operator
@@ -207,7 +211,19 @@ iOS hazard retention, first-save, recovery and route-isolation regression tests.
 restriction in the `tsx` CLI; the token lint, pretest and full tests passed using
 Node's `--import tsx` entry point. `make check-mobile` passed typechecking and lint;
 `make bundle-mobile` passed the production iOS
-export and EAS archive allowlist check. No production data writes or river activation
-were performed. After the migration is approved/applied, record the actual
-production version, regenerate database types, and run `make check-db` plus
-`npm run db:readiness` before any publication attempt.
+export and EAS archive allowlist check.
+
+Production verification: the installed audit returns the existing data backlog;
+an Elk activation preview returns findings and leaves Elk inactive. Hashes of
+all river and river-gauge rows match before installation and after the preview.
+Anonymous/authenticated execution is denied and service-role execution is allowed.
+Database types were regenerated from production, including schema additions that
+predated this PR. The search-path regression is covered by the PGlite test.
+
+`make check-db` cannot start the `tsx` IPC socket in this environment, and the
+readiness CLI has no local service-role credentials. The installed audit was run
+through the authenticated Supabase connector; the repository's ledger and access
+slug comparison helpers passed against a production snapshot. The only unmatched
+migration is the already-declared pending `20260914205500`, unrelated to this PR.
+All 19 dossier readiness reviews remain outstanding; this installation activates
+no rivers and clears none of that evidence backlog.
