@@ -12,7 +12,7 @@ export function routeFixture(options: {
   miles?: number; vessel?: 'canoe' | 'raft' | 'tube'; condition?: ConditionCode;
   riverType?: string; published?: { min: number; max: number };
   discharge?: number; reference?: number; wrongRiver?: boolean;
-  unratedFallback?: boolean;
+  unratedFallback?: boolean; missingReading?: boolean; ratedFallback?: boolean;
   speedCurve?: { low: number; too_low: number };
   spanReading?: { height: number; qualifiers?: string[]; timestamp?: string; floodStage?: number };
 } = {}) {
@@ -26,8 +26,8 @@ export function routeFixture(options: {
     rivers: { id: 'river', slug: 'fixture', name: 'Fixture river', river_type: options.riverType ?? 'spring_fed_float' },
     access_points: endpoints,
     vessel_types: { id: slug, slug, name: slug, speed_low_water: speeds[0], speed_normal: speeds[1], speed_high_water: speeds[2] },
-    river_gauges: options.unratedFallback ? [{
-      threshold_unit: 'ft', level_too_low: null, level_low: null,
+    river_gauges: options.unratedFallback || options.ratedFallback ? [{
+      threshold_unit: 'ft', level_too_low: null, level_low: options.ratedFallback ? 4 : null,
       level_optimal_min: null, level_optimal_max: null, level_high: null, level_dangerous: null,
     }] : options.spanReading ? [{
       river_mile: 4, threshold_unit: 'ft', level_too_low: 1, level_low: 2,
@@ -59,7 +59,7 @@ export function routeFixture(options: {
     async rpc(name: string, args: Record<string, unknown>) {
       calls.push(name);
       if (name === 'get_float_segment') return { data: [{ distance_miles: String(options.miles ?? 8), start_river_mile: '0', end_river_mile: String(options.miles ?? 8) }] };
-      if (name === 'get_river_condition_segment') return { data: [{ condition_code: options.condition ?? 'flowing', gauge_height_ft: 3, discharge_cfs: options.discharge ?? null, gauge_usgs_id: 'fixture-gauge' }] };
+      if (name === 'get_river_condition_segment') return { data: [{ condition_code: options.condition ?? 'flowing', gauge_height_ft: options.missingReading ? null : 3, discharge_cfs: options.discharge ?? null, gauge_usgs_id: 'fixture-gauge' }] };
       if (name === 'get_segment_float_time') {
         if (args.p_vessel_type !== slug) throw new Error('Wrong vessel sent to published-time lookup');
         return { data: options.published ? [{ time_min_minutes: options.published.min, time_max_minutes: options.published.max, time_avg_minutes: (options.published.min + options.published.max) / 2 }] : [] };
@@ -70,7 +70,8 @@ export function routeFixture(options: {
   const providers = {
     fetchGaugeReadings: async () => {
       calls.push('liveFallback');
-      if (!options.unratedFallback) throw new Error('Unexpected live reading fallback');
+      if (options.missingReading) return [];
+      if (!options.unratedFallback && !options.ratedFallback) throw new Error('Unexpected live reading fallback');
       return [{ siteId: 'fixture-gauge', siteName: 'Fixture gauge', gaugeHeightFt: 5.8, dischargeCfs: options.discharge ?? null,
         readingTimestamp: new Date().toISOString(), qualifiers: [] }];
     },

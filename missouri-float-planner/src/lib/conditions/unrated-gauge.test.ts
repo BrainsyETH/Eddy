@@ -1,3 +1,4 @@
+import { conditionAvailability, unknownConditionLabel } from '@shared/condition-availability';
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { readFileSync, readdirSync } from 'node:fs';
@@ -171,4 +172,21 @@ test('both condition RPCs return unknown for a gauge with no ladder', () => {
     const guardAt = body.indexOf("WHEN cv.has_ladder IS NOT TRUE THEN 'Unknown'");
     assert.ok(floodAt > 0 && floodAt < guardAt, `${latest}: flood stage must be checked first`);
   }
+});
+
+
+test('rating and reading availability stay independent, including old saved observations', () => {
+  const fresh = new Date().toISOString();
+  const stale = new Date(Date.now() - 8 * 3_600_000).toISOString();
+  const base = { thresholds: { ...EMPTY_LADDER, thresholdUnit: 'ft' as const }, gaugeHeightFt: 5.8, readingTimestamp: fresh };
+  assert.deepEqual(conditionAvailability(base), { ratingStatus: 'unrated', readingStatus: 'current' });
+  assert.equal(unknownConditionLabel(base), 'Not rated — readings only');
+  assert.equal(unknownConditionLabel({ ...base, gaugeHeightFt: null }), 'Not rated · Gauge data unavailable');
+  assert.equal(unknownConditionLabel({ ...base, readingTimestamp: stale }), 'Not rated · Reading out of date');
+  assert.equal(unknownConditionLabel({ ...base, thresholds: { ...base.thresholds, levelLow: 4 }, gaugeHeightFt: null }), 'Gauge data unavailable');
+  assert.equal(conditionAvailability({ ...base, thresholds: null }).ratingStatus, 'unknown', 'missing metadata is not an unrated decision');
+  assert.equal(conditionAvailability({ ...base, gaugeHeightFt: 0 }).readingStatus, 'current');
+  assert.equal(conditionAvailability({ ...base, thresholds: EMPTY_LADDER }).readingStatus, 'unavailable', 'wrong-unit observation does not prove availability');
+  assert.equal(conditionAvailability({ ...base, readingTimestamp: 'invalid' }).readingStatus, 'stale');
+  assert.equal(conditionAvailability({ ...base, readingTimestamp: stale, availability: { ratingStatus: 'unrated', readingStatus: 'current' } }).readingStatus, 'stale', 'saved freshness ages');
 });

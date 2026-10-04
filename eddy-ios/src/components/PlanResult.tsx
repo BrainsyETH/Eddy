@@ -1,3 +1,4 @@
+import { unknownConditionLabel } from '@eddy/conditions/condition-availability';
 // eddy-ios/src/components/PlanResult.tsx
 // A finished float plan, rendered.
 //
@@ -199,7 +200,7 @@ export function PlanResult({ plan, actions, accessPoints, header, support, initi
             <Text
               style={[styles.conditionLabel, { color: conditionText(plan.condition.code, isDark) }]}
             >
-              {plan.condition.code === 'unknown' ? 'River reading' : conditionLongLabel(plan.condition.code)}
+              {plan.condition.code === 'unknown' ? unknownConditionLabel(plan.condition) : conditionLongLabel(plan.condition.code)}
             </Text>
             <PlanReading plan={plan} />
           </View>

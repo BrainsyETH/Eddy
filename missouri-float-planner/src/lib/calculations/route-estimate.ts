@@ -2,12 +2,18 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Database } from '@/types/database';
 import type { ConditionCode } from '@/types/api';
 import type { ReachRiverType } from '@shared/reach-types';
+import { conditionAvailability, unknownConditionLabel, type ConditionAvailability } from '@shared/condition-availability';
 import { STALE_READING_HOURS } from '@shared/reading-staleness';
 import { resolveFloatEndpoints, endpointFailureStatus } from '@/lib/access-points/endpoint-resolver';
 import { fetchGaugeReadings, fetchDailyStatistics, classifyQualifiers } from '@/lib/usgs/gauges';
 import { applyFloodStageOverride, computeConditionFromDbRow, getConditionShortLabel } from '@/lib/conditions';
 import { calculateFloatTime, floatTimeWithholding, formatFloatTime, formatFloatTimeRange, formatFloatTimeRangeCompact, type SpeedCurve } from './floatTime';
 import { toNum } from '@/lib/utils/num';
+
+function dbRatingStatus(row: Record<string, unknown>): 'rated' | 'unrated' {
+  return ['level_too_low', 'level_low', 'level_optimal_min', 'level_optimal_max', 'level_high', 'level_dangerous']
+    .some(key => row[key] != null) ? 'rated' : 'unrated';
+}
 
 type AccessPointRow = Database['public']['Tables']['access_points']['Row'];
 export class RouteEstimateError extends Error {
@@ -152,6 +158,8 @@ export async function estimateRoute(supabase: SupabaseClient<Database>, {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     let condition: any;
     let conditionCode: ConditionCode = 'flowing';
+    let ratingStatus: ConditionAvailability['ratingStatus'] = 'unknown';
+    let measurementUnit: 'ft' | 'cfs' | undefined;
     const spanWarnings: string[] = [];
     let anchorCondition: Record<string, unknown> | null = null;
     const contributingGauges: Array<{ name: string; usgsSiteId: string; riverMile: number; conditionCode: string; gaugeHeightFt: number | null; dischargeCfs: number | null; observedAt: string | null; effect: 'escalated' | 'low_water' }> = [];
@@ -171,6 +179,8 @@ export async function estimateRoute(supabase: SupabaseClient<Database>, {
 
     condition = conditionData?.[0];
     conditionCode = condition?.condition_code || 'unknown';
+    if (conditionCode !== 'unknown' && conditionCode !== 'dangerous') ratingStatus = 'rated';
+    measurementUnit = condition?.threshold_unit;
 
     // Unknown can mean an unrated gauge or missing readings. The shared
     // classifier must preserve unknown when a fresh reading has no ladder.
@@ -183,55 +193,58 @@ export async function estimateRoute(supabase: SupabaseClient<Database>, {
         const usgsReadings = await providers.fetchGaugeReadings([gaugeUsgsSiteId]);
         const usgsReading = usgsReadings.find(r => r.siteId === gaugeUsgsSiteId);
 
-        if (usgsReading && usgsReading.gaugeHeightFt !== null) {
-          // Get thresholds for this gauge
-          const { data: gaugeThresholds } = await supabase
-            .from('river_gauges')
-            .select(`
-              level_too_low,
-              level_low,
-              level_optimal_min,
-              level_optimal_max,
-              level_high,
-              level_dangerous,
-              threshold_unit,
-              gauge_stations!inner (usgs_site_id)
-            `)
-            .eq('river_id', riverId)
-            .eq('gauge_stations.usgs_site_id', gaugeUsgsSiteId)
-            .limit(1)
-            .maybeSingle();
+        // Rating metadata is needed even when the gauge has no observation.
+        const { data: gaugeThresholds } = await supabase
+          .from('river_gauges')
+          .select(`
+            level_too_low,
+            level_low,
+            level_optimal_min,
+            level_optimal_max,
+            level_high,
+            level_dangerous,
+            threshold_unit,
+            gauge_stations!inner (usgs_site_id)
+          `)
+          .eq('river_id', riverId)
+          .eq('gauge_stations.usgs_site_id', gaugeUsgsSiteId)
+          .limit(1)
+          .maybeSingle();
 
-          if (gaugeThresholds) {
-            // Thread threshold_unit + discharge so stage/CFS are never conflated (F7).
-            const computed = computeConditionFromDbRow(
-              usgsReading.gaugeHeightFt,
-              gaugeThresholds,
-              usgsReading.dischargeCfs
-            );
+        if (gaugeThresholds) {
+          ratingStatus = dbRatingStatus(gaugeThresholds);
+          measurementUnit = gaugeThresholds.threshold_unit === 'cfs' ? 'cfs' : 'ft';
+        }
+        if (gaugeThresholds && usgsReading && (usgsReading.gaugeHeightFt != null || usgsReading.dischargeCfs != null)) {
+          // Thread threshold_unit + discharge so stage/CFS are never conflated (F7).
+          const computed = computeConditionFromDbRow(
+            usgsReading.gaugeHeightFt,
+            gaugeThresholds,
+            usgsReading.dischargeCfs
+          );
 
-            const readingAgeHours = usgsReading.readingTimestamp
-              ? (Date.now() - new Date(usgsReading.readingTimestamp).getTime()) / (1000 * 60 * 60)
-              : null;
-            const stale = readingAgeHours != null && readingAgeHours > STALE_READING_HOURS;
-            const qual = classifyQualifiers(usgsReading.qualifiers);
+          const readingAgeHours = usgsReading.readingTimestamp
+            ? (Date.now() - new Date(usgsReading.readingTimestamp).getTime()) / (1000 * 60 * 60)
+            : null;
+          const stale = readingAgeHours != null && readingAgeHours > STALE_READING_HOURS;
+          const qual = classifyQualifiers(usgsReading.qualifiers);
 
-            // Update condition with live USGS data
-            condition = {
-              ...condition,
-              condition_label: computed.label,
-              condition_code: computed.code,
-              gauge_height_ft: usgsReading.gaugeHeightFt,
-              discharge_cfs: usgsReading.dischargeCfs,
-              reading_timestamp: usgsReading.readingTimestamp,
-              reading_age_hours: readingAgeHours,
-              accuracy_warning: stale || qual.suspect,
-              accuracy_warning_reason: qual.suspect
-                ? qual.note
-                : stale ? `Reading is ${Math.round(readingAgeHours!)} hours old` : null,
-            };
-            conditionCode = computed.code;
-          }
+          // Update condition with live USGS data
+          condition = {
+            ...condition,
+            condition_label: computed.label,
+            condition_code: computed.code,
+            gauge_height_ft: usgsReading.gaugeHeightFt,
+            discharge_cfs: usgsReading.dischargeCfs,
+            threshold_unit: measurementUnit,
+            reading_timestamp: usgsReading.readingTimestamp,
+            reading_age_hours: readingAgeHours,
+            accuracy_warning: stale || qual.suspect,
+            accuracy_warning_reason: qual.suspect
+              ? qual.note
+              : stale ? `Reading is ${Math.round(readingAgeHours!)} hours old` : null,
+          };
+          conditionCode = computed.code;
         }
       } else {
         // No gauge from segment-aware lookup, try primary gauge
@@ -257,6 +270,8 @@ export async function estimateRoute(supabase: SupabaseClient<Database>, {
           .maybeSingle();
 
         if (primaryGauge) {
+          ratingStatus = dbRatingStatus(primaryGauge);
+          measurementUnit = primaryGauge.threshold_unit === 'cfs' ? 'cfs' : 'ft';
           const gaugeStation = Array.isArray(primaryGauge.gauge_stations)
             ? primaryGauge.gauge_stations[0]
             : primaryGauge.gauge_stations;
@@ -266,7 +281,7 @@ export async function estimateRoute(supabase: SupabaseClient<Database>, {
             const usgsReadings = await providers.fetchGaugeReadings([usgsSiteId]);
             const usgsReading = usgsReadings.find(r => r.siteId === usgsSiteId);
 
-            if (usgsReading && usgsReading.gaugeHeightFt !== null) {
+            if (usgsReading && (usgsReading.gaugeHeightFt != null || usgsReading.dischargeCfs != null)) {
               const computed = computeConditionFromDbRow(
                 usgsReading.gaugeHeightFt,
                 primaryGauge,
@@ -284,6 +299,7 @@ export async function estimateRoute(supabase: SupabaseClient<Database>, {
                 condition_code: computed.code,
                 gauge_height_ft: usgsReading.gaugeHeightFt,
                 discharge_cfs: usgsReading.dischargeCfs,
+                threshold_unit: measurementUnit,
                 reading_timestamp: usgsReading.readingTimestamp,
                 reading_age_hours: readingAgeHours,
                 gauge_name: gaugeStation?.name,
@@ -504,7 +520,14 @@ export async function estimateRoute(supabase: SupabaseClient<Database>, {
         ? formatFloatTimeRange(floatTimeResult.timeRange.min, floatTimeResult.timeRange.max)
         : formatFloatTime(floatTimeResult.minutes),
     } : null;
-    return { river, putIn, takeOut, vesselType, segmentData, distanceMiles,
+    const observation = {
+      gaugeHeightFt: toNum(condition?.gauge_height_ft), dischargeCfs: toNum(condition?.discharge_cfs),
+      thresholdUnit: measurementUnit, readingTimestamp: condition?.reading_timestamp,
+      readingAgeHours: condition?.reading_age_hours,
+    };
+    const availability = conditionAvailability({ ...observation, availability: { ratingStatus, readingStatus: 'unavailable' } });
+    const conditionStatusLabel = unknownConditionLabel({ ...observation, availability });
+    return { river, putIn, takeOut, vesselType, segmentData, distanceMiles, availability, conditionStatusLabel,
       condition, anchorCondition, contributingGauges, spanCheckComplete, conditionCode, dailyStats, spanWarnings, floatTimeResult, floatTime,
       withholdReason, estimateBasis, estimatedAt: new Date().toISOString() };
 }

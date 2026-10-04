@@ -1397,6 +1397,7 @@ export default function RiverDetailScreen() {
         <ReadingSummaryCard
           key={shownSiteId ?? slug}
           reading={reading}
+          readingTimestamp={pickedGauge?.readingTimestamp ?? condition?.readingTimestamp}
           verdict={code === 'dangerous' || (scaleThresholds && hasLadder(scaleThresholds))
             ? { code: reading ? code : 'unknown', lastKnown: summaryLastKnown } : undefined}
           trend={summaryLastKnown ? null : shownTrend}

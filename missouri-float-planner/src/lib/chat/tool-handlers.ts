@@ -314,8 +314,9 @@ async function handleGetFloatRoute(input: Record<string, unknown>) {
     estimatedFloatTime: floatTime?.formatted ?? null,
     estimateBasis: estimate.estimateBasis,
     conditionCode: currentCondition,
+    conditionAvailability: estimate.availability,
     conditionNote: currentCondition === 'unknown'
-      ? 'No floating-condition rating; any time shown is a typical estimate, not adjusted to current water.' : null,
+      ? `${estimate.conditionStatusLabel}. Any time shown is a typical estimate, not adjusted to current water.` : null,
     floatTimeNote,
     shuttleUrl,
     planUrl: `/rivers/${riverSlug}?putIn=${startAp.id}&takeOut=${endAp.id}`,

@@ -336,8 +336,9 @@ function createMcpServer() {
             floatTimeWithheldReason: estimate.withholdReason,
             estimateBasis: estimate.estimateBasis,
             conditionCode: estimate.conditionCode,
+            conditionAvailability: estimate.availability,
             conditionNote: estimate.conditionCode === 'unknown'
-              ? 'No floating-condition rating; any time shown is a typical estimate, not adjusted to current water.' : null,
+              ? `${estimate.conditionStatusLabel}. Any time shown is a typical estimate, not adjusted to current water.` : null,
             hazardsAlongRoute: (hazards || []).map((h) => ({
               name: h.name,
               type: h.type,

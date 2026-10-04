@@ -3,6 +3,7 @@
 // src/components/river/GaugeOverview.tsx
 // Compact river conditions summary with links to full gauge report
 
+import { unknownConditionLabel } from '@shared/condition-availability';
 import { useMemo } from 'react';
 import Link from 'next/link';
 import CollapsibleSection from '@/components/ui/CollapsibleSection';
@@ -37,7 +38,7 @@ function getGaugeCondition(gauge: GaugeStation, riverId: string): {
     || gauge.thresholds?.find(t => t.riverId === riverId);
 
   if (!threshold) {
-    return { code: 'unknown', label: 'Unknown', color: 'bg-neutral-400' };
+    return { code: 'unknown', label: unknownConditionLabel({ ...gauge, thresholds: null }), color: 'bg-neutral-400' };
   }
 
   const thresholdsForCompute: ConditionThresholds = {
@@ -54,7 +55,7 @@ function getGaugeCondition(gauge: GaugeStation, riverId: string): {
 
   return {
     code: result.code,
-    label: getConditionShortLabel(result.code),
+    label: result.code === 'unknown' ? unknownConditionLabel({ ...gauge, thresholds: thresholdsForCompute }) : getConditionShortLabel(result.code),
     color: getConditionTailwindColor(result.code),
   };
 }
@@ -180,7 +181,7 @@ export default function GaugeOverview({
                   )}
                 </div>
                 <div className="flex items-center gap-2 flex-shrink-0">
-                  {condition.code !== 'unknown' && <ConditionBadge code={condition.code} label={condition.label} size="sm" showDot={false} />}
+                  {condition.code === 'unknown' ? <span className="text-xs text-neutral-500">{condition.label}</span> : <ConditionBadge code={condition.code} label={condition.label} size="sm" showDot={false} />}
                   <a
                     href={`https://waterdata.usgs.gov/monitoring-location/${gauge.usgsSiteId}/`}
                     target="_blank"

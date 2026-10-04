@@ -1,7 +1,11 @@
 # Releasing a river with measurements but no recreational rating
 
 An unrated river shows its measured stage/discharge, timestamp and hydrograph.
-It has no recreational condition bands. Plans still include distance, access
+It has no recreational condition bands. Rating status and observation availability
+travel separately on plan payloads. Empty ladders with current readings show
+"Not rated"; missing/stale observations retain their own visible status, including
+on unrated rivers. Missing threshold metadata is not treated as an unrated decision.
+The display uses existing ladder evidence, so it can deploy before the policy migration. Plans still include distance, access
 and shuttle information; any float time is labeled **Typical float time** and
 uses published typical times or normal vessel speeds, without a live-flow
 adjustment. Unknown conditions do not qualify for the current floatable filter

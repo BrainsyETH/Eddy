@@ -409,6 +409,11 @@ export interface GaugeFloodStages {
 }
 
 export interface RiverCondition {
+  /** Optional for older clients/saved plans. Independent of the condition code. */
+  availability?: {
+    ratingStatus: 'rated' | 'unrated' | 'unknown';
+    readingStatus: 'current' | 'stale' | 'unavailable';
+  };
   label: string;
   code: ConditionCode;
   gaugeHeightFt: number | null;

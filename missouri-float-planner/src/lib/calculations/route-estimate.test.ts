@@ -151,3 +151,14 @@ test('unrated live fallback retains readings and quotes only typical times', asy
     assert.equal(result.withholdReason, null);
   }
 });
+
+
+test('route status distinguishes missing observations on rated and unrated gauges', async () => {
+  for (const rated of [false, true]) {
+    const result = await routeFixture({ condition: 'unknown', missingReading: true,
+      unratedFallback: !rated, ratedFallback: rated }).estimate();
+    assert.deepEqual(result.availability, { ratingStatus: rated ? 'rated' : 'unrated', readingStatus: 'unavailable' });
+    assert.equal(result.conditionStatusLabel, rated ? 'Gauge data unavailable' : 'Not rated · Gauge data unavailable');
+    assert.equal(result.estimateBasis, 'typical');
+  }
+});

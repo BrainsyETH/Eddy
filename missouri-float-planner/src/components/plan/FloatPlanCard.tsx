@@ -1,5 +1,8 @@
 'use client';
 
+import { unknownConditionLabel } from '@shared/condition-availability';
+
+
 // src/components/plan/FloatPlanCard.tsx
 // Merged journey card showing put-in and take-out side by side with float details
 
@@ -325,7 +328,7 @@ export function ShareableFloatCard({
           </div>
           <div style={{ padding: '6px 12px', background: condStyle.bg, border: `2px solid ${INK}`, borderRadius: 8 }}>
             <span style={{ fontSize: 14, fontWeight: 800, color: condStyle.text, textTransform: 'uppercase', letterSpacing: 0.3 }}>
-              {conditionCode === 'unknown' ? 'River reading' : conditionConfig.label}
+              {conditionCode === 'unknown' ? unknownConditionLabel(plan.condition) : conditionConfig.label}
             </span>
           </div>
         </div>
@@ -1047,13 +1050,13 @@ function JourneyCenter({
       <div className={`rounded-xl ${conditionConfig.bgClass} px-3 py-2.5 mb-3 flex items-center gap-2.5`}>
         <Image
           src={getEddyImageForCondition(conditionCode)}
-          alt={conditionCode === 'unknown' ? 'River reading' : conditionConfig.label}
+          alt={conditionCode === 'unknown' ? unknownConditionLabel(plan.condition) : conditionConfig.label}
           width={40}
           height={40}
           className="flex-shrink-0"
         />
         <div className="min-w-0 flex-1">
-          <p className={`text-sm font-bold ${conditionConfig.textClass}`}>{conditionCode === 'unknown' ? 'River reading' : conditionConfig.label}</p>
+          <p className={`text-sm font-bold ${conditionConfig.textClass}`}>{conditionCode === 'unknown' ? unknownConditionLabel(plan.condition) : conditionConfig.label}</p>
           <p className={`text-[11px] ${conditionConfig.textClass} opacity-80 truncate`}>
             {[
               plan.condition.gaugeHeightFt != null ? `${plan.condition.gaugeHeightFt.toFixed(1)} ft` : null,
@@ -1352,7 +1355,7 @@ function MobileBottomSheet({
               <h2 id="mobile-float-plan-title" className="text-xs font-bold uppercase tracking-wider text-neutral-500">Float Plan</h2>
               <div className="flex items-center gap-2 flex-shrink-0">
                 <span className={`px-2 py-1 rounded text-xs font-bold ${conditionConfig.bgClass} ${conditionConfig.textClass}`}>
-                  {conditionCode === 'unknown' ? 'River reading' : conditionConfig.label}
+                  {conditionCode === 'unknown' ? unknownConditionLabel(plan.condition) : conditionConfig.label}
                 </span>
                 <button
                   onClick={(e) => {
@@ -1563,13 +1566,13 @@ function MobileBottomSheet({
           <div className={`rounded-xl ${conditionConfig.bgClass} px-3 py-3 flex items-center gap-3`}>
             <Image
               src={getEddyImageForCondition(conditionCode)}
-              alt={conditionCode === 'unknown' ? 'River reading' : conditionConfig.label}
+              alt={conditionCode === 'unknown' ? unknownConditionLabel(plan.condition) : conditionConfig.label}
               width={44}
               height={44}
               className="flex-shrink-0"
             />
             <div className="min-w-0 flex-1">
-              <p className={`text-base font-bold ${conditionConfig.textClass}`}>{conditionCode === 'unknown' ? 'River reading' : conditionConfig.label}</p>
+              <p className={`text-base font-bold ${conditionConfig.textClass}`}>{conditionCode === 'unknown' ? unknownConditionLabel(plan.condition) : conditionConfig.label}</p>
               <p className={`text-xs ${conditionConfig.textClass} opacity-80 truncate`}>
                 {[
                   plan.condition.gaugeHeightFt != null ? `${plan.condition.gaugeHeightFt.toFixed(1)} ft` : null,

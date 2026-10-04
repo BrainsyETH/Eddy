@@ -1,5 +1,8 @@
 'use client';
 
+import { unknownConditionLabel } from '@shared/condition-availability';
+
+
 // src/components/plan/PlanSummary.tsx
 // Themed float plan summary panel — neo-brutalist (chunky borders, hard offset
 // shadows, warm palette, display headings) to match the rest of the site.
@@ -128,7 +131,7 @@ function ConditionStrip({ condition }: { condition: FloatPlan['condition'] }) {
         className="flex-shrink-0"
       />
       <div className="min-w-0 flex-1">
-        <p className={`text-sm font-bold ${config.textClass}`}>{code === 'unknown' ? 'River reading' : config.label}</p>
+        <p className={`text-sm font-bold ${config.textClass}`}>{code === 'unknown' ? unknownConditionLabel(condition) : config.label}</p>
         <p className={`text-[11px] ${config.textClass} opacity-80 truncate`}>{gaugeLine}</p>
       </div>
       {condition.usgsUrl && (
