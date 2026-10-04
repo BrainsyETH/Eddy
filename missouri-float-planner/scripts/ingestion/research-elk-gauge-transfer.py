@@ -4,6 +4,7 @@ Requires numpy, pandas and scikit-learn. All inputs are public USGS records.
 Run: python research-elk-gauge-transfer.py --cache-dir /tmp/elk-transfer
 Outputs JSON to stdout; raw responses stay in the disposable cache directory.
 Uses daily means: this does not validate instantaneous recreational cutoffs.
+Optional --plot PATH writes an observed-stage diagnostic (requires matplotlib).
 """
 
 import argparse
@@ -31,6 +32,7 @@ PREDICTORS = ["big", "little", "indian"]
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--cache-dir", type=Path, default=Path("/tmp/elk-transfer"))
+    parser.add_argument("--plot", type=Path, help="Write a PNG/SVG scatter diagnostic")
     args = parser.parse_args()
     args.cache_dir.mkdir(parents=True, exist_ok=True)
 
@@ -108,8 +110,48 @@ def main():
     for stage in [2.5, 3.5, 4.5, 5.0, 6.0, 6.5]:
         flow = float(np.interp(stage, rating.INDEP, rating.DEP))
         value = float(curve.predict(np.log([flow]))[0])
+        nearby = joined[joined.equivalent_cfs.between(flow * .9, flow * 1.1)]
         candidates.append(dict(tiff_stage_ft=stage, archived_rating_cfs=flow,
-                               candidate_noel_daily_mean_ft=round(value, 2) if np.isfinite(value) else None))
+                               candidate_noel_daily_mean_ft=round(value, 2) if np.isfinite(value) else None,
+                               support_within_10pct=dict(
+                                   days=len(nearby), dates=list(nearby.index.strftime("%Y-%m-%d")),
+                                   observed_stage_range_ft=[float(nearby["mean"].min()), float(nearby["mean"].max())]
+                                   if len(nearby) else None)))
+
+    # Summarize OBSERVATIONS, not isotonic plateaus. These counts/ranges describe
+    # sampling support, not confidence intervals or independent storm events.
+    bins = [0, 150, 250, 350, 450, 600]
+    low_flow = []
+    for lower, upper in zip(bins, bins[1:]):
+        group = joined[(joined.equivalent_cfs > lower) & (joined.equivalent_cfs <= upper)]
+        low_flow.append(dict(modeled_flow_range_cfs=[lower, upper], days=len(group),
+                             observed_stage_min_ft=float(group["mean"].min()) if len(group) else None,
+                             observed_stage_median_ft=float(group["mean"].median()) if len(group) else None,
+                             observed_stage_max_ft=float(group["mean"].max()) if len(group) else None))
+    if args.plot:
+        import matplotlib.pyplot as plt
+        import matplotlib.dates as mdates
+        fig, axes = plt.subplots(1, 2, figsize=(11, 4.5), layout="constrained")
+        for ax in axes:
+            points = ax.scatter(joined.equivalent_cfs, joined["mean"],
+                                c=mdates.date2num(joined.index), cmap="viridis", s=26, alpha=.85)
+            ax.set_xlabel("Modeled Tiff-equivalent discharge (cfs)")
+            ax.set_ylabel("Observed Noel daily mean stage (ft)")
+            ax.grid(alpha=.2)
+        axes[0].set_xscale("log")
+        axes[0].set_title("All 91 paired days")
+        axes[1].set_xlim(0, 650)
+        axes[1].set_ylim(5.1, 6.2)
+        axes[1].set_title("Low-flow observations (linear scale)")
+        axes[1].axvline(candidates[1]["archived_rating_cfs"], color="0.45", linestyle="--", linewidth=1)
+        axes[1].text(420, 5.13, "Tiff 3.5 ft proxy", fontsize=8, color="0.35")
+        bar = fig.colorbar(points, ax=axes, pad=.02)
+        bar.ax.yaxis.set_major_formatter(mdates.DateFormatter("%b %d"))
+        bar.set_label("Observation date, 2026")
+        fig.suptitle("Elk research: raw paired observations, not a Noel rating")
+        args.plot.parent.mkdir(parents=True, exist_ok=True)
+        fig.savefig(args.plot, dpi=160)
+        plt.close(fig)
     print(json.dumps(dict(
         status="research_only_not_live_thresholds",
         historical=dict(train_days=len(train), test_days=len(test),
@@ -122,6 +164,7 @@ def main():
                   blocked_p90_error_ft=float(np.percentile([r["error_ft"] for r in errors_ft], 90)),
                   largest_errors=sorted(errors_ft, key=lambda r: r["error_ft"], reverse=True)[:4]),
         candidates=candidates,
+        low_flow_observations=low_flow,
     ), indent=2, allow_nan=False))
 
 

@@ -7,6 +7,63 @@ Creek. No production changes were made during this review.
 
 ## Tiff chart and Noel transfer pilot — owner evidence follow-up
 
+### Review follow-up: observational support and next evidence
+
+![Observed Noel stage against modeled flow, including low-flow detail](elk-noel-flow-diagnostic-2026-10-04.svg)
+
+The plot uses raw paired daily observations, with color showing date; it does
+not plot the fitted isotonic curve as evidence of a physical pool. Reproduce
+with `--plot scripts/ingestion/elk-noel-flow-diagnostic-2026-10-04.svg` appended
+to the research command below (requires matplotlib). The script now emits the
+dates, count and observed stage range within ±10% of each candidate flow:
+
+| Tiff mark (ft) | Nearby days | Observed Noel daily stage range (ft) |
+| --- | --- | --- |
+| 2.5 | 0 | None |
+| 3.5 | 3 | 5.790–5.854 |
+| 4.5 | 3 | 6.205–6.295 |
+| 5.0 | 3 | 6.511–6.759 |
+| 6.0 | 2 | 6.994–7.161 |
+| 6.5 | 3 | 7.454–7.610 |
+
+These ranges describe observations in a flow neighborhood, not confidence or
+prediction intervals. Days from one hydrograph are not independent events;
+event identities still need review before describing independent support.
+The lowest paired daily mean is **5.243 ft**. Median stages in modeled-flow
+bins 0–150, 150–250, 250–350 and 350–450 cfs are **5.305, 5.498, 5.653 and
+5.838 ft**, respectively. This does not show the proposed fixed floor at
+5.5–6 ft or establish that Noel cannot resolve the opening region. It also
+does not rule out dam/backwater influence or establish recreational cutoffs.
+High-water thresholds remain unvalidated too.
+
+**Scope correction:** Trestle → Wayside IS the Noel/lower trip and remains
+part of the proposed above-dam release. Only Kozy → Trestle and Kozy → Wayside
+share the chart's 3.5–6 ft outer limits; craft restrictions still differ.
+Do not apply that band to all three trips on the premise that Noel is excluded.
+
+**Operator call checklist — prepared, no contact made:** Elk River Floats,
+417-475-3230, as listed on its river-levels page. Ask:
+
+1. Since Tiff stopped reporting in April, what gauge or on-site observation
+   determines each trip's launch choice and craft restrictions?
+2. When were the published Tiff limits established, and have they changed?
+   Does the chart's 2023 upload reflect the original calibration date?
+3. Can they supply dated decisions for low-water upper-trip closure/reopening,
+   normal operations and high-water restrictions, with trip, craft, time and
+   gauge/observation used? Record the decision reason; a weather/business
+   closure is not evidence of a river-level cutoff.
+4. Does Noel's bridge reading vary meaningfully during low water, and do they
+   observe effects from Shadow Lake pool level or dam changes?
+5. Confirm the actual Kozy, Trestle and Wayside water-entry banks, road
+   entrances and current personal-boat access/parking arrangements.
+
+USGS follow-up should confirm the station's hydraulic control/backwater
+setting and whether discharge measurements or a rating are planned. Operator
+practice is practical trip evidence, not a substitute for that station record.
+No additional model complexity or production threshold changes are warranted
+before this evidence is available. Cleanup can merge independently; its
+migration is now explicitly listed under `[pending]` in the ledger.
+
 The supplied chart is the operator's [Tiff gauge key](https://www.elkriverfloats.com/wp-content/uploads/sites/3100/2023/02/Elk-River-Gauge-Key.pdf).
 Its limits depend on **trip and craft**, rather than defining a single optimal
 or dangerous band for the entire Elk. The operator's “lower” trip means
