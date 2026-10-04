@@ -1,3 +1,4 @@
+import { DOWNSTREAM_DAM_BUFFER_MILES, splitRouteHazards } from '@shared/route-hazards';
 import { estimateRoute } from '@/lib/calculations/route-estimate';
 // src/lib/chat/tool-handlers.ts
 // Executes tool calls by querying existing DB/API functions directly.
@@ -261,7 +262,9 @@ async function handleGetFloatRoute(input: Record<string, unknown>) {
       ? 'No float time on a dam-controlled river: the release can change mid-float, ' +
         'so any single estimate would be wrong as soon as the units start or stop. ' +
         'Check the generation schedule for the controlling dam before launching.'
-      : 'Conditions are dangerous — no float time is provided; do not float.';
+      : withholdReason === 'dangerous'
+        ? 'Conditions are dangerous — no float time is provided; do not float.'
+        : 'Float time is unavailable.';
 
   // Build Google Maps shuttle directions URL (take-out → put-in)
   // Uses directions_override if available, otherwise lat/lng coordinates
@@ -291,16 +294,18 @@ async function handleGetFloatRoute(input: Record<string, unknown>) {
 
   const { data: hazards, error: hazardError } = await supabase
     .from('river_hazards')
-    .select('name, type, severity, river_mile_downstream, description, portage_required')
+    .select('id, name, type, severity, river_mile_downstream, description, portage_required')
     .eq('river_id', river.id)
     .eq('active', true)
     .gte('river_mile_downstream', minMile)
-    .lte('river_mile_downstream', maxMile)
+    .lte('river_mile_downstream', maxMile + DOWNSTREAM_DAM_BUFFER_MILES)
     .order('river_mile_downstream', { ascending: true });
   if (hazardError || hazards === null) {
     console.error('[ChatTool] Hazard lookup failed:', hazardError);
     return { error: 'Hazard information is unavailable.' };
   }
+
+  const routeHazards = splitRouteHazards(hazards, minMile, maxMile);
 
   return {
     riverName: river.name,
@@ -312,10 +317,14 @@ async function handleGetFloatRoute(input: Record<string, unknown>) {
     estimatedFloatTime: floatTime?.formatted ?? null,
     estimateBasis: estimate.estimateBasis,
     conditionCode: currentCondition,
+    conditionAvailability: estimate.availability,
+    conditionNote: currentCondition === 'unknown'
+      ? `${estimate.conditionStatusLabel}. Any time shown is a typical estimate, not adjusted to current water.` : null,
     floatTimeNote,
     shuttleUrl,
     planUrl: `/rivers/${riverSlug}?putIn=${startAp.id}&takeOut=${endAp.id}`,
-    hazards: (hazards || []).map(h => ({
+    damsBelowTakeOut: routeHazards.damsBelowTakeOut,
+    hazards: routeHazards.hazards.map(h => ({
       name: h.name,
       type: h.type,
       severity: h.severity,

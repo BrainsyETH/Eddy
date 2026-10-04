@@ -1,3 +1,4 @@
+import type { DamBelowTakeOut } from '../../missouri-float-planner/shared/route-hazards';
 // packages/eddy-types/index.ts
 // Shared API contracts between the Next.js backend and the Expo app.
 //
@@ -1790,6 +1791,11 @@ export interface VesselTypesResponse {
 }
 
 export interface FloatPlanCondition {
+  /** Optional for older clients/saved plans. Independent of the condition code. */
+  availability?: {
+    ratingStatus: 'rated' | 'unrated' | 'unknown';
+    readingStatus: 'current' | 'stale' | 'unavailable';
+  };
   label: string;
   code: ConditionCode;
   gaugeHeightFt: number | null;
@@ -1806,6 +1812,10 @@ export interface FloatPlanCondition {
 }
 
 export interface FloatPlan {
+  /** Dams within 0.5 river miles below the landing; excluded from in-route hazards. */
+  damsBelowTakeOut?: DamBelowTakeOut[];
+  /** Typical times are not adjusted to the current gauge reading. */
+  estimateBasis?: 'today' | 'typical';
   /** Hazard lookup failed; the rest of the plan remains usable. Never persist as a complete plan. */
   hazardsUnavailable?: boolean;
   river: River;

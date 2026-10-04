@@ -1,4 +1,4 @@
-import { useMemo, useReducer, useRef, useState } from 'react';
+import { useCallback, useMemo, useReducer, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Modal,
@@ -24,6 +24,7 @@ import { useCampingOverview } from '@/hooks/useCampingOverview';
 import { useLocation } from '@/hooks/useLocation';
 import {
   CampingScrollGroup,
+  CampingVerticalScrollView,
   CampingTableHeader,
   CampingTableRow,
 } from '@/components/CampingGrid';
@@ -56,12 +57,11 @@ export default function CampingScreen() {
       edges={['left', 'right']}
     >
       <NativeHeaderHome destination="today" />
-      {/* Horizontal dates must never be interpreted as the native back swipe. */}
-      <Stack.Screen options={{ gestureEnabled: false }} />
       {features.campingHeatmap ? (
         <CampingContent />
       ) : (
         <ScrollView contentInsetAdjustmentBehavior="automatic" contentContainerStyle={styles.empty}>
+          <Stack.Screen options={{ gestureEnabled: true }} />
           {loading ? <ActivityIndicator color={colors.interactive} /> :
             <Text style={[styles.message, { color: colors.textMuted }]}>Camping availability is unavailable.</Text>}
         </ScrollView>
@@ -152,8 +152,14 @@ function CampingContent() {
   const night = data ? linkedCampingNight(data, nightChoice) ?? linkedNight ?? data.horizon.startDate : '';
   const detailNight = data ? linkedCampingNight(data, openedNight) ?? linkedNight : undefined;
   const grid = useMemo(() => data ? observedCampingOverview(data.tracked, data, now) : null, [data, now]);
+  const openGridCampground = useCallback((facilityId: string) => {
+    setOpenedNight(linkedNight);
+    setSelected(facilityId);
+  }, [linkedNight]);
   if (!data || !grid)
-    return <ScrollView contentInsetAdjustmentBehavior="automatic" contentContainerStyle={styles.empty}>{loading ? (
+    return <ScrollView contentInsetAdjustmentBehavior="automatic" contentContainerStyle={styles.empty}>
+      <Stack.Screen options={{ gestureEnabled: true }} />
+      {loading ? (
       <ActivityIndicator color={colors.interactive} />
     ) : (
       <Pressable
@@ -171,6 +177,8 @@ function CampingContent() {
 
   return (
     <>
+      {/* Horizontal date gestures own Grid mode; ordinary List keeps swipe-back. */}
+      <Stack.Screen options={{ gestureEnabled: display !== 'grid' }} />
       <Modal
         visible={riverPicker}
         animationType={reducedMotion ? 'none' : 'slide'}
@@ -253,6 +261,7 @@ function CampingContent() {
         key={grid.horizon.startDate}
       >
         <FlatList
+          renderScrollComponent={props => <CampingVerticalScrollView {...props} />}
           initialNumToRender={8}
           maxToRenderPerBatch={4}
           windowSize={5}
@@ -406,7 +415,7 @@ function CampingContent() {
                 row={item}
                 overview={grid}
                 now={now}
-                onPress={() => { setOpenedNight(linkedNight); setSelected(item.facilityId); }}
+                onOpen={openGridCampground}
               />}
             </View>
           )}

@@ -1,3 +1,4 @@
+import { PlanDownstreamDams } from '@/components/PlanDownstreamDams';
 import type { ReactNode } from 'react';
 import { logisticsWarnings } from '@/lib/savedFloatLogistics';
 import { Alert, Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
@@ -9,8 +10,8 @@ import { driveBetweenUrl } from '@/lib/directions';
 import { useDirectionsMenu } from '@/components/DirectionsMenu';
 
 /** Useful without service; never renders a saved water verdict or time estimate. */
-export function SavedFloatDetails({ saved, loading, error, onRetry, header }: {
-  saved: SavedFloat; loading: boolean; error: string | null; onRetry: () => void;
+export function SavedFloatDetails({ saved, refreshing, error, onRetry, header }: {
+  saved: SavedFloat; refreshing: boolean; error: string | null; onRetry: () => void;
   header?: ReactNode;
 }) {
   const { colors } = useTheme();
@@ -31,13 +32,13 @@ export function SavedFloatDetails({ saved, loading, error, onRetry, header }: {
       <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
         <Text style={[styles.heading, { color: colors.text }]}>Saved trip details</Text>
         <Text style={[styles.body, { color: colors.textMuted }]}>
-          {loading ? 'Checking current conditions…' : error ?? 'Current conditions have not been checked.'}
+          {refreshing ? 'Checking current conditions…' : error ?? 'Current conditions have not been checked.'}
           {' Water conditions, closures and float times are not verified here.'}
         </Text>
         <Text style={[styles.body, { color: colors.textMuted }]}>
           Saved {new Date(details?.savedAt ?? saved.savedAt).toLocaleString()} · {saved.distanceLabel}
         </Text>
-        {!loading ? button('Check current conditions', onRetry) : null}
+        {!refreshing ? button('Check current conditions', onRetry) : null}
       </View>
       {details ? <>
         {([['Put-in', details.putIn], ['Take-out', details.takeOut]] as const).map(([role, point]) => (
@@ -58,6 +59,7 @@ export function SavedFloatDetails({ saved, loading, error, onRetry, header }: {
         <Text style={[styles.body, { color: colors.textMuted }]}>
           Maps may need a connection or maps downloaded in advance. Access details can change; confirm permission before entering private land.
         </Text>
+        <PlanDownstreamDams dams={details.damsBelowTakeOut} />
         <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
           <Text style={[styles.heading, { color: colors.text }]}>Cautions saved with this trip</Text>
           {!details.hazardsUnavailable || details.hazardsSavedAt ? (
@@ -76,7 +78,7 @@ export function SavedFloatDetails({ saved, loading, error, onRetry, header }: {
               {hazard.description ? <Text style={[styles.body, { color: colors.text }]}>{hazard.description}</Text> : null}
             </View>
           ))}
-          {!details.hazardsUnavailable && !logisticsWarnings(details.warnings, details.putIn.name, details.takeOut.name).length && !details.hazards.length ? <Text style={[styles.body, { color: colors.textMuted }]}>No cautions were saved. This does not mean the stretch is clear.</Text> : null}
+          {!details.hazardsUnavailable && !logisticsWarnings(details.warnings, details.putIn.name, details.takeOut.name).length && !details.hazards.length && !details.damsBelowTakeOut?.length ? <Text style={[styles.body, { color: colors.textMuted }]}>No cautions were saved. This does not mean the stretch is clear.</Text> : null}
         </View>
       </> : <Text style={[styles.body, { color: colors.text }]}>
         {saved.putInName} → {saved.takeOutName}. Open this float with a connection once to save its access details for offline use.

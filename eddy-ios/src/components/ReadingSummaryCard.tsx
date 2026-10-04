@@ -1,3 +1,5 @@
+import { hasLadder } from '@eddy/conditions/condition-ladder';
+import { unknownConditionLabel } from '@eddy/conditions/condition-availability';
 import { useState, type ReactNode } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -23,6 +25,7 @@ interface Props {
   thresholds?: (ThresholdValues & { thresholdUnit?: 'ft' | 'cfs' }) | null;
   context?: string | null;
   age: string | null;
+  readingTimestamp?: string | null;
   ageWarning?: boolean;
   offline?: boolean;
   stationName?: string | null;
@@ -33,7 +36,7 @@ interface Props {
   children?: ReactNode;
 }
 
-export function ReadingSummaryCard({ reading, verdict, resolving, trend, thresholds, context, age, ageWarning, offline, stationName, stationLabel, details = [], children }: Props) {
+export function ReadingSummaryCard({ reading, verdict, resolving, trend, thresholds, context, age, readingTimestamp, ageWarning, offline, stationName, stationLabel, details = [], children }: Props) {
   const { colors, elevation, isDark } = useTheme();
   const [infoOpen, setInfoOpen] = useState(false);
   const close = () => setInfoOpen(false);
@@ -42,6 +45,11 @@ export function ReadingSummaryCard({ reading, verdict, resolving, trend, thresho
   const hasScale = Boolean(reading && thresholds
     && (!thresholds.thresholdUnit || thresholds.thresholdUnit === reading.unit)
     && buildZones(thresholds).length >= 2);
+  const statusLabel = unknownConditionLabel({
+    thresholds, thresholdUnit: reading?.unit, readingTimestamp,
+    gaugeHeightFt: reading?.unit === 'ft' ? reading.value : null,
+    dischargeCfs: reading?.unit === 'cfs' ? reading.value : null,
+  });
   const rows: ReadingInfoItem[] = [
     { label: 'Station', value: stationName },
     { label: 'Reading', value: reading ? formatReading(reading.value, reading.unit) : 'No reading available' },
@@ -58,11 +66,12 @@ export function ReadingSummaryCard({ reading, verdict, resolving, trend, thresho
           <View style={styles.headerCopy}>
             {verdict ? (
               <Text accessibilityRole="header" style={[styles.verdict, { color: verdict.lastKnown ? colors.textMuted : conditionText(code ?? 'unknown', isDark) }]}>
-                {readingSummaryVerdict(verdict.code, verdict.lastKnown)}
+                {verdict.code === 'unknown' ? statusLabel : readingSummaryVerdict(verdict.code, verdict.lastKnown)}
               </Text>
             ) : resolving ? (
               <View accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={[styles.resolving, { backgroundColor: colors.cardRaised }]} />
             ) : null}
+            {!verdict && !resolving && thresholds && !hasLadder(thresholds) ? <Text style={[styles.station, { color: colors.textMuted }]}>Not rated</Text> : null}
             <View style={styles.readingRow}>
               <Text style={[reading ? styles.reading : styles.noReading, { color: reading ? colors.text : colors.textMuted }]}>
                 {reading ? formatReading(reading.value, reading.unit) : 'No reading available'}

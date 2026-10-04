@@ -36,7 +36,7 @@ export default function GenerationForecast({
   if (days.length === 0) return null;
 
   const nextChange = nextForecastChangeSentence(forecast.windows, forecast.timeZone, renderedAt);
-  const retrieval = retrievalSentence(forecast.retrievedAt, renderedAt);
+  const retrieval = retrievalSentence(forecast.retrievedAt, renderedAt, 'Forecast');
   // How far the PLAN reaches, which is a different question from when Eddy
   // fetched it — and the only one that can catch a district's writer dying,
   // since CWMS publishes no write time. See forecastPlanStale.

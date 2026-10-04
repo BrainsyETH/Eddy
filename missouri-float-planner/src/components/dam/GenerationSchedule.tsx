@@ -114,7 +114,7 @@ export default function GenerationSchedule({
   // One line for the section rather than one per day: three near-identical
   // timestamps would invite the reader to think they differ meaningfully.
   const oldestRetrieval = oldestRetrievedAt(schedule);
-  const retrieval = retrievalSentence(oldestRetrieval);
+  const retrieval = retrievalSentence(oldestRetrieval, renderedAt, 'Schedule');
 
   return (
     <section className="rounded-xl border-2 border-neutral-300 bg-white p-5">

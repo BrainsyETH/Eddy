@@ -667,17 +667,19 @@ export function oldestRetrievedAt(
 /**
  * The retrieval line itself.
  *
- * The subject is EDDY, deliberately. SWPA publishes no timestamp of any kind
+ * This describes Eddy's retrieval. SWPA publishes no timestamp of any kind
  * (verified against the live page and its headers), so "last updated" would
  * attribute a freshness claim to a source that never made one. Null in, null
- * out — an unknown retrieval renders nothing.
+ * out — an unknown retrieval renders nothing. Named subjects distinguish
+ * schedule/forecast retrieval from observation age on cards containing both.
  */
 export function retrievalSentence(
   iso: string | null | undefined,
-  now = Date.now()
+  now = Date.now(),
+  subject: 'Eddy' | 'Schedule' | 'Forecast' = 'Eddy'
 ): string | null {
   const age = relativeAge(iso, now);
   if (!age) return null;
-  const base = `Eddy last checked ${age}.`;
+  const base = `${subject === 'Eddy' ? 'Eddy last checked' : `${subject} checked`} ${age}.`;
   return scheduleIsStale(iso, now) ? `${base} It may have been revised since.` : base;
 }

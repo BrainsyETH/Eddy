@@ -454,6 +454,33 @@ export type Database = {
         }
         Relationships: []
       }
+      apple_token_revocations: {
+        Row: {
+          attempts: number
+          created_at: string
+          id: string
+          last_error: string | null
+          next_attempt_at: string
+          refresh_token: string
+        }
+        Insert: {
+          attempts?: number
+          created_at?: string
+          id: string
+          last_error?: string | null
+          next_attempt_at?: string
+          refresh_token: string
+        }
+        Update: {
+          attempts?: number
+          created_at?: string
+          id?: string
+          last_error?: string | null
+          next_attempt_at?: string
+          refresh_token?: string
+        }
+        Relationships: []
+      }
       blog_posts: {
         Row: {
           category: string
@@ -3280,6 +3307,7 @@ export type Database = {
         Row: {
           active: boolean | null
           alert_search_terms: string[] | null
+          condition_rating_mode: string
           controlling_dam_id: string | null
           country: string
           created_at: string | null
@@ -3309,6 +3337,7 @@ export type Database = {
         Insert: {
           active?: boolean | null
           alert_search_terms?: string[] | null
+          condition_rating_mode?: string
           controlling_dam_id?: string | null
           country?: string
           created_at?: string | null
@@ -3338,6 +3367,7 @@ export type Database = {
         Update: {
           active?: boolean | null
           alert_search_terms?: string[] | null
+          condition_rating_mode?: string
           controlling_dam_id?: string | null
           country?: string
           created_at?: string | null

@@ -39,8 +39,9 @@ import { radii } from '@/theme/layout';
 import { StyleSheet, Text, View } from 'react-native';
 import type { DamSnapshot } from '@eddy/types';
 import {
-  nowNextClauses,
-  generationNow,
+  generationReferenceCitation,
+  RACK_ESTIMATE_NOTE,
+  scheduledChangeSummary,
   scheduledClauseProvenance,
 } from '@eddy/conditions/dam-generation';
 import {
@@ -72,22 +73,29 @@ const DOWNSTREAM_AND_CHANGE = [
 export function GenerationCard({ dam }: { dam: DamSnapshot }) {
   const { colors, elevation } = useTheme();
 
-  const state = generationNow(dam);
   const ref = dam.generationReference;
   // The scheduled half of the pair the hero used to draw itself. Read here so
   // the panel can move down into the section it describes while the observed
   // half stays where it is measured.
-  const clauses = nowNextClauses(state, dam.schedule, ref);
-  const nextChange = clauses.scheduled
-    ? { sentence: clauses.scheduled, provenance: scheduledClauseProvenance(dam.schedule, ref) }
+  const scheduled = scheduledChangeSummary(dam.schedule, ref);
+  const nextChange = scheduled
+    ? { sentence: scheduled, provenance: scheduledClauseProvenance(dam.schedule, ref) }
     : null;
 
   const hasSchedule = dam.schedule.length > 0;
   // Eddy's fetch, never SWPA's post — they publish no timestamp of any kind, so
-  // the subject stays "Eddy last checked". As old as the OLDEST day, because a
+  // the label says "Schedule checked". As old as the OLDEST day, because a
   // section is only as fresh as its weakest part.
   const oldestRetrieval = hasSchedule ? oldestRetrievedAt(dam.schedule) : null;
-  const retrieval = retrievalSentence(oldestRetrieval);
+  const retrieval = retrievalSentence(oldestRetrieval, undefined, 'Schedule');
+  const details = [
+    ref ? `${generationReferenceCitation(ref)}. ${RACK_ESTIMATE_NOTE}` : null,
+    dam.nameplate
+      ? `${dam.nameplate.units} generating ${dam.nameplate.units === 1 ? 'unit' : 'units'} · ${dam.nameplate.megawatts} MW nameplate capacity.`
+      : null,
+    hasSchedule ? 'Schedule posted each afternoon by Southwestern Power Administration.' : null,
+    DOWNSTREAM_AND_CHANGE,
+  ].filter(Boolean).join('\n\n');
 
   return (
     <View style={[styles.card, { backgroundColor: colors.card }, elevation(2)]}>
@@ -95,12 +103,11 @@ export function GenerationCard({ dam }: { dam: DamSnapshot }) {
         dam={dam}
         embedded
         showNextChange={false}
+        showReference={false}
         headerAction={
           <DamInfoTip
             title="Generation and downstream timing"
-            message={hasSchedule
-              ? `Schedule posted each afternoon by Southwestern Power Administration. ${DOWNSTREAM_AND_CHANGE}`
-              : DOWNSTREAM_AND_CHANGE}
+            message={details}
           />
         }
       />

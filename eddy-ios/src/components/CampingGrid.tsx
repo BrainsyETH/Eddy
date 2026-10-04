@@ -2,8 +2,10 @@ import {
   createContext,
   useContext,
   useMemo,
+  useCallback,
   useState,
   memo,
+  forwardRef,
   type ReactNode,
 } from 'react';
 import Animated, {
@@ -19,8 +21,8 @@ import { CampgroundThumbnail } from './CampgroundThumbnail';
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
 import { campingVisibleMonthLabel, campingRenderWindow, visibleCampingColumns } from '@/lib/campingScroll';
 import { support } from '@/theme/palette';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { Gesture, GestureDetector } from 'react-native-gesture-handler';
+import { Pressable, ScrollView, StyleSheet, Text, View, type ScrollViewProps } from 'react-native';
+import { Gesture, GestureDetector, type NativeGesture } from 'react-native-gesture-handler';
 import type { CampingOverview, TrackedCampground } from '@eddy/types';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts } from '@/theme/typography';
@@ -129,8 +131,10 @@ const DateScrollContext = createContext<{
   columnCount: number;
   offset: SharedValue<number>;
   viewportWidth: SharedValue<number>;
-  renderWindow: { first: number; end: number };
+  verticalGesture: NativeGesture;
 } | null>(null);
+// Only date cells subscribe to window changes, not labels, thumbnails or gestures.
+const DateRenderWindowContext = createContext<{ first: number; end: number } | null>(null);
 
 /** One UI-thread position drives every row; no per-row scrollTo fan-out. */
 export function CampingScrollGroup({ children, dateWidth = DATE_WIDTH, thumbnails = false, columnCount }: {
@@ -141,6 +145,7 @@ export function CampingScrollGroup({ children, dateWidth = DATE_WIDTH, thumbnail
 }) {
   const offset = useSharedValue(0);
   const viewportWidth = useSharedValue(0);
+  const verticalGesture = useMemo(() => Gesture.Native(), []);
   const [renderWindow, setRenderWindow] = useState(() => campingRenderWindow(0, 0, dateWidth, columnCount));
   useAnimatedReaction(
     () => campingRenderWindow(offset.get(), viewportWidth.get(), dateWidth, columnCount),
@@ -153,20 +158,34 @@ export function CampingScrollGroup({ children, dateWidth = DATE_WIDTH, thumbnail
     () => Math.max(0, columnCount * dateWidth - viewportWidth.get()),
     (max) => { if (offset.get() > max) { cancelAnimation(offset); offset.set(max); } },
   );
-  const group = useMemo(() => ({ offset, viewportWidth, dateWidth, thumbnails, columnCount, renderWindow }),
-    [offset, viewportWidth, dateWidth, thumbnails, columnCount, renderWindow]);
-  return <DateScrollContext.Provider value={group}>{children}</DateScrollContext.Provider>;
+  const group = useMemo(() => ({ offset, viewportWidth, dateWidth, thumbnails, columnCount, verticalGesture }),
+    [offset, viewportWidth, dateWidth, thumbnails, columnCount, verticalGesture]);
+  return <DateScrollContext.Provider value={group}>
+    <DateRenderWindowContext.Provider value={renderWindow}>
+      {children}
+    </DateRenderWindowContext.Provider>
+  </DateScrollContext.Provider>;
 }
 
-function DateScroller({ children, onPress }: { children: ReactNode; onPress?: () => void }) {
-  const { offset, viewportWidth, dateWidth, columnCount } = useContext(DateScrollContext)!;
+/** The RN ScrollView supplied through FlatList.renderScrollComponent is the
+ * detector's direct child, so date pans can explicitly arbitrate its gesture. */
+export const CampingVerticalScrollView = forwardRef<ScrollView, ScrollViewProps>(function CampingVerticalScrollView(props, ref) {
+  const { verticalGesture } = useContext(DateScrollContext)!;
+  return <GestureDetector gesture={verticalGesture}><ScrollView {...props} ref={ref} /></GestureDetector>;
+});
+
+function DateScroller({ children, onPress, indicator = false }: { children: ReactNode; onPress?: () => void; indicator?: boolean }) {
+  const { offset, viewportWidth, dateWidth, columnCount, verticalGesture } = useContext(DateScrollContext)!;
+  const { colors } = useTheme();
   const start = useSharedValue(0);
+  const pressed = useSharedValue(false);
   const gesture = useMemo(() => {
     const pan = Gesture.Pan()
       .activeOffsetX([-8, 8])
       .failOffsetY([-8, 8])
+      .blocksExternalGesture(verticalGesture)
       .onBegin(() => { cancelAnimation(offset); })
-      .onStart(() => { start.set(offset.get()); })
+      .onStart(() => { pressed.set(false); start.set(offset.get()); })
       .onUpdate(event => {
         const max = Math.max(0, columnCount * dateWidth - viewportWidth.get());
         offset.set(Math.min(max, Math.max(0, start.get() - event.translationX)));
@@ -175,17 +194,31 @@ function DateScroller({ children, onPress }: { children: ReactNode; onPress?: ()
         offset.set(withDecay({ velocity: -event.velocityX,
           clamp: [0, Math.max(0, columnCount * dateWidth - viewportWidth.get())] }));
       });
-    const tap = Gesture.Tap().maxDistance(8).onEnd((_event, success) => {
-      if (success && onPress) runOnJS(onPress)();
-    });
+    const tap = Gesture.Tap().maxDistance(8)
+      .onBegin(() => { pressed.set(!!onPress); })
+      .onEnd((_event, success) => { if (success && onPress) runOnJS(onPress)(); })
+      .onFinalize(() => { pressed.set(false); });
     return Gesture.Exclusive(pan, tap);
-  }, [offset, viewportWidth, dateWidth, columnCount, start, onPress]);
+  }, [offset, viewportWidth, dateWidth, columnCount, start, onPress, pressed, verticalGesture]);
   const translate = useAnimatedStyle(() => ({ transform: [{ translateX: -offset.get() }] }));
+  const feedback = useAnimatedStyle(() => ({ opacity: pressed.get() ? 0.16 : 0 }));
+  const thumb = useAnimatedStyle(() => {
+    const viewport = viewportWidth.get();
+    const content = columnCount * dateWidth;
+    const width = content > 0 ? Math.min(viewport, Math.max(18, viewport * viewport / content)) : 0;
+    const maxOffset = Math.max(0, content - viewport);
+    const x = maxOffset ? Math.min(maxOffset, Math.max(0, offset.get())) / maxOffset * (viewport - width) : 0;
+    return { width, opacity: maxOffset > 0 ? 1 : 0, transform: [{ translateX: x }] };
+  });
   return <GestureDetector gesture={gesture}>
-    <View style={{ flex: 1, minWidth: 0, overflow: 'hidden', minHeight: 44, justifyContent: 'center' }}
+    <View style={{ flex: 1, minWidth: 0, overflow: 'hidden', minHeight: 44, justifyContent: 'center', paddingBottom: indicator ? 6 : 0 }}
       onLayout={event => viewportWidth.set(event.nativeEvent.layout.width)}
       accessible={false}>
       <Animated.View style={[{ width: columnCount * dateWidth }, translate]}>{children}</Animated.View>
+      <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFill, { backgroundColor: colors.interactive }, feedback]} />
+      {indicator ? <View pointerEvents="none" style={styles.scrollTrack}>
+        <Animated.View style={[styles.scrollThumb, { backgroundColor: colors.textSubtle }, thumb]} />
+      </View> : null}
     </View>
   </GestureDetector>;
 }
@@ -203,7 +236,8 @@ export const CampingGrid = memo(function CampingGrid({
   const { colors } = useTheme();
   const group = useContext(DateScrollContext);
   const dateWidth = group?.dateWidth ?? DATE_WIDTH;
-  const range = group?.renderWindow ?? { first: 0, end: overview.horizon.nights.length };
+  const window = useContext(DateRenderWindowContext);
+  const range = window ?? { first: 0, end: overview.horizon.nights.length };
   const today = campingDate(now);
 
   return (
@@ -316,32 +350,34 @@ export function CampingTableHeader({
       <View style={[table.name, thumbnails && { width: '44%' }]}>
         <Text style={[table.month, { color: colors.text }]}>{month.label}</Text>
       </View>
-      <DateScroller>
+      <DateScroller indicator>
         <CampingGrid overview={overview} now={now} headings />
       </DateScroller>
     </View>
   );
 }
 
-export function CampingTableRow({
+export const CampingTableRow = memo(function CampingTableRow({
   row,
   overview,
   now,
-  onPress,
+  onOpen,
 }: {
   row: TrackedCampground;
   overview: CampingOverview;
   now: number;
-  onPress: () => void;
+  onOpen: (facilityId: string) => void;
 }) {
   const { colors } = useTheme();
   const thumbnails = useContext(DateScrollContext)?.thumbnails ?? false;
   const stale = campingRowNeedsUpdate(row, overview, now);
+  const onPress = useCallback(() => onOpen(row.facilityId), [onOpen, row.facilityId]);
   return (
     <View style={[table.row, table.item, { borderColor: colors.border }]}>
       <Pressable
-        style={[
+        style={({ pressed }) => [
           table.name,
+          { opacity: pressed ? 0.6 : 1 },
           { minHeight: 44, justifyContent: 'center' },
           thumbnails && {
             width: '44%',
@@ -378,7 +414,7 @@ export function CampingTableRow({
       </DateScroller>
     </View>
   );
-}
+});
 
 const table = StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center', gap: 8 },
@@ -392,6 +428,8 @@ const table = StyleSheet.create({
   name: { width: '32%', flexShrink: 0 },
 });
 const styles = StyleSheet.create({
+  scrollTrack: { position: 'absolute', left: 0, right: 0, bottom: 0, height: 3 },
+  scrollThumb: { height: 3, borderRadius: 2 },
   grid: { flexDirection: 'row' },
   column: {
     width: DATE_WIDTH,

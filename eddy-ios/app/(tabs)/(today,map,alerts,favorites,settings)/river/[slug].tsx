@@ -117,6 +117,7 @@ import { RiverVisuals } from '@/components/RiverVisuals';
 import { PhotoSubmitSheetLazy } from '@/components/PhotoSubmitSheetLazy';
 import { shareLink } from '@/lib/share';
 import { FeedbackSheet } from '@/components/FeedbackSheet';
+import { hasLadder } from '@eddy/conditions/condition-ladder';
 import { ReadingSummaryCard } from '@/components/ReadingSummaryCard';
 import { readingSummarySeason } from '@/lib/readingSummary';
 import { isReadingStale } from '@eddy/conditions/reading-staleness';
@@ -1382,7 +1383,9 @@ export default function RiverDetailScreen() {
         <ReadingSummaryCard
           key={shownSiteId ?? slug}
           reading={reading}
-          verdict={{ code: reading ? code : 'unknown', lastKnown: summaryLastKnown }}
+          readingTimestamp={pickedGauge?.readingTimestamp ?? condition?.readingTimestamp}
+          verdict={code === 'dangerous' || (scaleThresholds && hasLadder(scaleThresholds))
+            ? { code: reading ? code : 'unknown', lastKnown: summaryLastKnown } : undefined}
           trend={summaryLastKnown ? null : shownTrend}
           thresholds={scaleThresholds}
           context={percentileText}

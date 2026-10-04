@@ -572,6 +572,15 @@ const spec = {
           },
           condition: { $ref: '#/components/schemas/RiverCondition' },
           hazards: { type: 'array', items: { $ref: '#/components/schemas/Hazard' } },
+          damsBelowTakeOut: {
+            type: 'array',
+            description: 'Dams within 0.5 river miles below the take-out, separate from hazards along the route. No in-route portage is implied.',
+            items: { type: 'object', required: ['id', 'name', 'type', 'riverMile', 'distanceBelowTakeOutMiles'], properties: {
+              id: { type: 'string', format: 'uuid' }, name: { type: 'string' },
+              type: { type: 'string', enum: ['low_water_dam'] }, riverMile: { type: 'number' },
+              distanceBelowTakeOutMiles: { type: 'number', minimum: 0, maximum: 0.5 },
+            } },
+          },
           warnings: { type: 'array', items: { type: 'string' } },
         },
       },

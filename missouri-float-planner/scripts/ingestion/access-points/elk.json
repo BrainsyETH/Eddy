@@ -17,7 +17,9 @@
       "https://mdc.mo.gov/sites/default/files/mo_nature/downloads/conservation-areas/200814map.pdf",
       "https://www.openstreetmap.org/node/13608514810"
     ],
-    "is_float_endpoint": true
+    "is_float_endpoint": true,
+    "road_access": "Reach the access via Route W and Rhine Road in Pineville.",
+    "parking_info": "Use the developed parking area beside the city boat ramp, reached from Rhine Road."
   },
   {
     "name": "US-71 Bridge (I-49) Access",
@@ -49,14 +51,16 @@
     "managing_agency": "MDC",
     "official_site_url": "https://mdc.mo.gov/discover-nature/places/mount-shira-access",
     "facilities": "Gravel boat launch and large parking area. Camping is prohibited. Restrooms and an accessible trail were not verified.",
-    "description": "MDC access on the west bank, reached from Highway 59 north of Noel. Existing bank pin retained; the MDC area map confirms the launch layout.",
+    "description": "MDC public access on the west bank of the Elk River, with a gravel boat launch and bank fishing. Camping is prohibited.",
     "confidence": "medium",
     "source_urls": [
       "https://mdc.mo.gov/discover-nature/places/mount-shira-access",
       "https://mdc.mo.gov/sites/default/files/mo_nature/downloads/conservation-areas/6616map.pdf",
       "https://www.openstreetmap.org/way/1484166288"
     ],
-    "is_float_endpoint": true
+    "is_float_endpoint": true,
+    "road_access": "Highway 59, approximately 2 miles north of Noel.",
+    "parking_info": "Large parking lot beside the gravel launch."
   },
   {
     "name": "Noel / Shadow Lake Access (Hwy 59 bridge)",
@@ -108,14 +112,16 @@
     "managing_agency": "MDC",
     "official_site_url": "https://mdc.mo.gov/discover-nature/places/cowskin-access",
     "facilities": "MDC boat ramp and parking at Highway 43. Camping is prohibited.",
-    "description": "Public access on the lower Elk near Tiff City. A trip from above Noel crosses Shadow Lake Dam; no through-route portage has been verified.",
+    "description": "MDC public access on the lower Elk at Highway 43, with a concrete boat ramp and parking. Camping is prohibited.",
     "confidence": "high",
     "source_urls": [
       "https://mdc.mo.gov/discover-nature/places/cowskin-access",
       "https://mdc.mo.gov/sites/default/files/mo_nature/downloads/conservation-areas/6610map.pdf",
       "https://www.openstreetmap.org/node/3813247085"
     ],
-    "is_float_endpoint": true
+    "is_float_endpoint": false,
+    "road_access": "Highway 43, approximately 8 miles north of Southwest City.",
+    "parking_info": "Parking lot at the concrete boat ramp."
   },
   {
     "name": "Lanagan Access",
@@ -134,5 +140,95 @@
       "https://mdc.mo.gov/discover-nature/places/lanagan-access"
     ],
     "is_float_endpoint": false
+  },
+  {
+    "name": "Kozy Kamp River Access",
+    "kind": "gravel_bar",
+    "roles": [
+      "gravel_bar",
+      "campground"
+    ],
+    "expected_mile": 0.43,
+    "lat": 36.58841,
+    "lon": -94.3895,
+    "is_public": false,
+    "ownership": "Elk River Floats (private)",
+    "managing_agency": "Private",
+    "official_site_url": "https://kozykamp.com/float-trips",
+    "facilities": "Private campground river access. Check in with the operator for parking and access arrangements.",
+    "description": "North/right bank; campground track to the water west of the highway bridge. Confirm operator-designated launch at the selected track and parking/check-in entrance. Owner screenshot approach pin is 36.588894,-94.389059, not a water-entry pin.",
+    "confidence": "medium — imagery candidate; final bank/entrance review pending",
+    "source_urls": [
+      "https://kozykamp.com/float-trips",
+      "https://www.elkriverfloats.com/float-trips/",
+      "https://waysidecamp.com/rates",
+      "https://basemap.nationalmap.gov/arcgis/rest/services/USGSImageryOnly/MapServer"
+    ],
+    "is_float_endpoint": false,
+    "fee_required": true,
+    "fee_notes": "Operator rental or paid river-access pass required; confirm current availability and terms.",
+    "directions_override": "71 Elk River Road, Pineville, MO 64856",
+    "parking_info": "Check in with the operator. Noel and 12-mile day floaters park at Wayside; guests may have different shuttle arrangements.",
+    "road_access": "71 Elk River Road, Pineville, MO 64856"
+  },
+  {
+    "name": "Trestle Park River Access",
+    "kind": "gravel_bar",
+    "roles": [
+      "gravel_bar",
+      "campground"
+    ],
+    "expected_mile": 6.55,
+    "lat": 36.58521,
+    "lon": -94.45495,
+    "is_public": false,
+    "ownership": "Elk River Floats (private)",
+    "managing_agency": "Private",
+    "official_site_url": "https://trestlepark.com/elk-river-campground",
+    "facilities": "Private campground river access. Check in with the operator for parking and access arrangements.",
+    "description": "Northeast/right bank beach, immediately downstream/northwest of the Elk Springs Road low-water crossing. Confirm whether the upper-trip take-out and Noel-trip put-in use different sides of the crossing, and the operator-approved passage/walk between them. Candidate is the beach, not the cabins.",
+    "confidence": "medium — imagery candidate; final bank/entrance review pending",
+    "source_urls": [
+      "https://trestlepark.com/elk-river-campground",
+      "https://www.elkriverfloats.com/float-trips/",
+      "https://waysidecamp.com/rates",
+      "https://basemap.nationalmap.gov/arcgis/rest/services/USGSImageryOnly/MapServer"
+    ],
+    "is_float_endpoint": false,
+    "fee_required": true,
+    "fee_notes": "Operator rental or paid river-access pass required; confirm current availability and terms.",
+    "directions_override": "435 Elk Springs Road, Noel, MO 64854",
+    "parking_info": "Check in with the operator. Noel and 12-mile day floaters park at Wayside; guests may have different shuttle arrangements.",
+    "road_access": "435 Elk Springs Road, Noel, MO 64854"
+  },
+  {
+    "name": "Wayside Campground River Access",
+    "kind": "gravel_bar",
+    "roles": [
+      "gravel_bar",
+      "campground"
+    ],
+    "expected_mile": 11.33,
+    "lat": 36.54897,
+    "lon": -94.49429,
+    "is_public": false,
+    "ownership": "Elk River Floats (private)",
+    "managing_agency": "Private",
+    "official_site_url": "https://waysidecamp.com/camping",
+    "facilities": "Private campground river access. Check in with the operator for parking and access arrangements.",
+    "description": "Southwest/left bank designated beach near the office/highway junction, upstream of the campground no-watercraft boundary. Confirm this part of the designated beach is the current trip landing and check-in parking route; do not use the peninsula tip. Shadow Lake Dam is approximately 0.3 river miles downstream of this landing candidate.",
+    "confidence": "medium — imagery candidate; final bank/entrance review pending",
+    "source_urls": [
+      "https://waysidecamp.com/camping",
+      "https://www.elkriverfloats.com/float-trips/",
+      "https://waysidecamp.com/rates",
+      "https://basemap.nationalmap.gov/arcgis/rest/services/USGSImageryOnly/MapServer"
+    ],
+    "is_float_endpoint": false,
+    "fee_required": true,
+    "fee_notes": "Operator rental or paid river-access pass required; confirm current availability and terms.",
+    "directions_override": "201 Minnow Springs Ave, Noel, MO 64854",
+    "parking_info": "Check in with the operator. Noel and 12-mile day floaters park at Wayside; guests may have different shuttle arrangements.",
+    "road_access": "201 Minnow Springs Ave, Noel, MO 64854"
   }
 ]

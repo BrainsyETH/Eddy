@@ -7,22 +7,25 @@ import { fonts, type as t } from '@/theme/typography';
 export function FloatTimeEstimate({
   timeRange,
   formatted,
+  typical = false,
 }: {
   timeRange?: { min: number; max: number };
   formatted: string;
+  typical?: boolean;
 }) {
   const { colors } = useTheme();
+  const label = typical ? 'Typical float time' : 'Estimated float time';
   const low = timeRange ? roundToQuarterHour(timeRange.min) : null;
   const high = timeRange ? roundToQuarterHour(timeRange.max) : null;
   return (
     <View style={styles.estimate}>
-      <Text style={[styles.label, { color: colors.textMuted }]}>Estimated float time</Text>
+      <Text style={[styles.label, { color: colors.textMuted }]}>{label}</Text>
       <View
         style={styles.range}
         accessible
         accessibilityLabel={timeRange
-          ? `Estimated float time, ${formatFloatTimeRange(timeRange.min, timeRange.max)}`
-          : `Estimated float time, ${formatted}`}
+          ? `${label}, ${formatFloatTimeRange(timeRange.min, timeRange.max)}`
+          : `${label}, ${formatted}`}
       >
         {low !== null ? (
           <>
@@ -39,7 +42,7 @@ export function FloatTimeEstimate({
         )}
       </View>
       <Text style={[styles.note, { color: colors.textMuted }]}>
-        Allow extra time for long stops or fishing.
+        {typical ? 'Not adjusted to current water.' : 'Allow extra time for long stops or fishing.'}
       </Text>
     </View>
   );

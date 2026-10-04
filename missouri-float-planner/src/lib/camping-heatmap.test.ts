@@ -418,8 +418,10 @@ test('horizontal rendering covers every visible night without mounting the full 
       const range = campingRenderWindow(offset, width, 36, count);
       assert.ok(range.first >= 0 && range.first <= visible.first);
       assert.ok(range.end > visible.last && range.end <= count);
-      assert.ok(range.end - range.first <= Math.ceil(width / 36) + 28);
-      if (count === 90 && width <= 320) assert.ok(range.end - range.first < 40);
+      assert.ok(range.first <= Math.max(0, visible.first - 14), 'keep two weeks ready before the viewport');
+      assert.ok(range.end >= Math.min(count, visible.last + 15), 'keep two weeks ready after the viewport');
+      assert.ok(range.end - range.first <= Math.ceil(width / 36) + 42);
+      if (count === 90 && width <= 320) assert.ok(range.end - range.first < 55);
     }
   }
   assert.deepEqual(campingRenderWindow(0, 320, 36, 0), { first: 0, end: 0 });

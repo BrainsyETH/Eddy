@@ -1,0 +1,21 @@
+{
+  "status": "historical_only_not_a_Noel_rating",
+  "archivedAt": "2026-10-04T04:00:00Z",
+  "riverSlug": "elk",
+  "siteId": "07189000",
+  "linkId": "30b8d27f-ab4b-441a-bcf2-5b8fc5d188b7",
+  "unit": "ft",
+  "thresholds": {
+    "too_low": 2.5,
+    "low": null,
+    "optimal_min": 3.5,
+    "optimal_max": 5.0,
+    "high": null,
+    "dangerous": 6.0
+  },
+  "alternateThresholds": null,
+  "source": "outfitter",
+  "sourceUrl": "https://www.elkriverfloats.com/river-levels/",
+  "provenanceCorrection": "Original stored category nws_ahps was incorrect; #1412 corrects it to outfitter. Numbers retained here for historical research, not transferred to Noel.",
+  "migration": "20261004044139_stage_elk_noel_unrated_release.sql"
+}

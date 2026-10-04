@@ -27,11 +27,11 @@ checklist.
       `/api/conditions/[riverId]`, `historyCapabilities` on gauge detail, the
       server-derived visual gauge). Restore breaks loudly; the fields degrade
       quietly, which is worse.
-- [ ] **Do not publish an EAS Update during this release.** No native
-      dependency or config plugin changed since 1.1, so the fingerprint
-      runtime version is unchanged — an update on the `production` channel
-      would be offered to 1.1 binaries in the store, putting 1.2's JavaScript
-      behind 1.1's version string. Cut the build; do not patch 1.1.
+- [ ] **Cut a new binary for this release.** The September 3 delta had no
+      native changes and could otherwise put 1.2 JavaScript into a 1.1 binary
+      through EAS Update. The October 4 follow-up adds `expo-network`, changing
+      the fingerprint runtime: its native module requires a rebuilt client.
+      An OTA update cannot add it to an already installed build.
 - [ ] **Trust Ledger critical — Jacks Fork, still open, no longer snoozed.**
       07065200 (near Mountain View) has `level_low = level_optimal_min = 100`
       cfs, untouched since 2026-07-21. The September 1 recalibration fixed
@@ -66,6 +66,45 @@ Expect and do not chase: the three Cumberland dams (Wolf Creek, Center Hill,
 Dale Hollow) read 4.7–9.7 hours stale against 1.7–2.7 for the other fifteen.
 That is an upstream LRN feed lag, the strip renders those hours as honest
 nulls by design, and a tester will report it as a bug.
+
+### Device QA follow-up gates — October 4, 2026 (#1425)
+
+These are pending device and release checks, not evidence of a device pass.
+
+- [ ] **Deploy the outlook API before testing this binary's weather links.**
+      `/api/rivers/[slug]/outlook` must return `weatherCoordinates` for the
+      exact point used to fetch the forecast. Confirm both the primary and
+      selected-gauge paths. Older servers remain compatible, but the new
+      “Will it hold?” weather link cannot be verified against them.
+- [ ] **Rebuild the device client with `expo-network`.** Test a new binary;
+      refreshing JavaScript in the old device build is insufficient.
+- [ ] **Camping grid:** fling hard in both directions across the full horizon;
+      check for blank columns, frame drops and header/row misalignment. Try
+      diagonal drags, change direction mid-drag, and start a vertical scroll
+      while horizontal momentum is still running. Horizontal pans should not
+      scroll the list or navigate back; vertical drags should scroll normally.
+- [ ] **Camping controls:** verify the header scrollbar and row tap feedback,
+      open several campgrounds after scrolling, and change river filters
+      without losing the date position. Grid mode keeps swipe-back disabled;
+      List mode, initial loading and unavailable states keep native swipe-back.
+      Check camping-panel padding on both map sheets and access pages.
+- [ ] **Saved Floats:** a fast online open has no saved-details flash; airplane
+      mode shows saved logistics as soon as connectivity is known; a stalled
+      connection exposes them after the 1.2-second grace period while retrying.
+      A foreground refresh keeps an already loaded result mounted and preserves
+      its scroll position. Old water verdicts, readings and float times must
+      be hidden visually and from VoiceOver until the refresh succeeds. On
+      failure, logistics and dated cautions remain usable and Check again
+      recovers after service returns. Also open an older saved stub with no
+      offline details and switch between two saved floats during loading.
+- [ ] **Premium Reads:** See all stays unlocked after cold launch, foreground,
+      account refresh and pull-to-refresh. Confirm Free still sees the paywall.
+- [ ] **Launch/onboarding:** a plain cold launch opens Today; explicit map
+      links still open Map. Location requests follow an explicit location
+      action, and the removed onboarding sentence stays absent.
+- [ ] **Weather:** “Will it hold?” opens weather for the forecast location and
+      Back returns to the river. Check day/night icons, light/dark appearances,
+      sunny yellow/orange symbols, and the VoiceOver weather action.
 
 ### 1.1 delta gates found in the August 11 repository audit
 

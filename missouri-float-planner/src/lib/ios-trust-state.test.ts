@@ -166,3 +166,19 @@ test('a first save records unavailable hazards without borrowing cautions from a
   const otherRoute = savedFloatLogistics({ ...plan, takeOut: { ...plan.takeOut, id: 'round-spring' } });
   assert.deepEqual(savedFloatLogistics(partial, '2026-10-02T08:00:00Z', otherRoute), first);
 });
+
+test('saved downstream dams survive a failed refresh without becoming in-route hazards', () => {
+  const plan = logisticsPlan();
+  plan.damsBelowTakeOut = [{ id: 'dam', name: 'Shadow Lake Dam', type: 'low_water_dam',
+    riverMile: 11.61, distanceBelowTakeOutMiles: 0.28 }];
+  const saved = savedFloatLogistics(plan);
+  const partial = { ...plan, hazards: [], damsBelowTakeOut: [], hazardsUnavailable: true };
+  const refreshed = savedFloatLogistics(partial, undefined, saved);
+  assert.deepEqual(refreshed.damsBelowTakeOut, plan.damsBelowTakeOut);
+  assert.notEqual(refreshed.damsBelowTakeOut?.[0], saved.damsBelowTakeOut?.[0]);
+  assert.deepEqual(refreshed.hazards, plan.hazards);
+  assert.deepEqual(savedFloatLogistics(partial).damsBelowTakeOut, []);
+  const different = { ...partial, takeOut: { ...partial.takeOut, id: 'elsewhere' } };
+  assert.deepEqual(savedFloatLogistics(different, undefined, saved).damsBelowTakeOut, []);
+  assert.deepEqual(savedFloatLogistics({ ...plan, damsBelowTakeOut: [] }, undefined, saved).damsBelowTakeOut, []);
+});

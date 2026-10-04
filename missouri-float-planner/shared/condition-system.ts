@@ -159,7 +159,7 @@ export const CONDITION_SYSTEM: Record<ConditionCode, ConditionDef> = {
     chipBorder: "#D1D5DB", // gray-300
     label: "Unknown",
     longLabel: "Unknown",
-    description: "No gauge data available.",
+    description: "Floating conditions unavailable.",
     otter: "flag",
     severity: 6,
   },

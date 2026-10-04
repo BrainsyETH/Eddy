@@ -78,6 +78,7 @@ function buildStaticPrompt(contexts: RiverContext[]): string {
 
 CORE RULES:
 - ALWAYS check river conditions via tools before recommending floating. Never guess at water levels.
+- An unknown condition is not a floatability rating, even when a live gauge reading exists. Describe measurements without inferring Good/Low/High or trip availability. A typical time estimate is not adjusted to current water.
 - If a tool returns "high" or "dangerous" conditions, LEAD with a clear safety warning. No hedging.
 - Only state river-specific facts that come from tool results or LOCAL KNOWLEDGE. If a tool doesn't have data, say so.
 - NEVER guess driving distances, directions, or travel times between locations. Use the nearest-town info from LOCAL KNOWLEDGE. If you don't know, don't state it.

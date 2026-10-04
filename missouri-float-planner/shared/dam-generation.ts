@@ -647,10 +647,20 @@ function observedClause(
     : `${phrase} now.`;
 }
 
+/** Short copy for a panel already headed "Next scheduled change". */
+export function scheduledChangeSummary(
+  schedule: Array<Pick<DamScheduleDay, 'scheduleDate' | 'hours' | 'retrievedAt'>>,
+  ref: GenerationReference | null | undefined,
+  now = Date.now()
+): string | null {
+  return scheduledClause(schedule, ref, now, true);
+}
+
 function scheduledClause(
   schedule: Array<Pick<DamScheduleDay, 'scheduleDate' | 'hours' | 'retrievedAt'>>,
   ref: GenerationReference | null | undefined,
-  now: number
+  now: number,
+  underScheduleHeading = false
 ): string | null {
   const outlook = scheduleOutlook(schedule, ref, now);
   if (!outlook) return null;
@@ -667,7 +677,7 @@ function scheduledClause(
   const when = moveClock(outlook.move);
   switch (outlook.move.kind) {
     case 'start':
-      return `Generation scheduled to start at ${when}.`;
+      return underScheduleHeading ? `Starts at ${when}.` : `Generation scheduled to start at ${when}.`;
     case 'stop':
       // ── Why this is bounded ────────────────────────────────────────────────
       // "No generation scheduled after 10 PM" reads as open-ended, and stays
@@ -676,13 +686,17 @@ function scheduledClause(
       // be able to tell them apart. When the posted schedule does not reach the
       // restart, it says so rather than implying there is not one.
       if (outlook.resumesAt) {
-        return `No generation scheduled from ${when} to ${moveClock(outlook.resumesAt)}.`;
+        return underScheduleHeading
+          ? `Stops at ${when}. Resumes at ${moveClock(outlook.resumesAt)}.`
+          : `No generation scheduled from ${when} to ${moveClock(outlook.resumesAt)}.`;
       }
-      return `Generation scheduled to stop at ${when}. Later hours have not been posted.`;
+      return underScheduleHeading
+        ? `Stops at ${when}. Later hours have not been posted.`
+        : `Generation scheduled to stop at ${when}. Later hours have not been posted.`;
     case 'increase':
-      return `Generation scheduled to increase at ${when}.`;
+      return underScheduleHeading ? `Increases at ${when}.` : `Generation scheduled to increase at ${when}.`;
     case 'decrease':
-      return `Generation scheduled to decrease at ${when}.`;
+      return underScheduleHeading ? `Decreases at ${when}.` : `Generation scheduled to decrease at ${when}.`;
   }
 }
 
@@ -1346,6 +1360,18 @@ export function patternRows(
     });
 
   return [...past, ...future];
+}
+
+/** Observed history only; elapsed missing readings stay gaps, never idle hours.
+ * Keep splitIndex so the UI can reserve the unelapsed part of today's axis.
+ */
+export function generationHistoryRows(rows: PatternRow[]): PatternRow[] {
+  return rows.filter((row) => row.today || !row.scheduled).map((row) => ({
+    ...row,
+    cells: row.splitIndex === null ? row.cells : row.cells.slice(0, row.splitIndex),
+    scheduled: false,
+    scheduleStale: false,
+  }));
 }
 
 /**

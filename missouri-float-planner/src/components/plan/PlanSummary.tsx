@@ -1,5 +1,10 @@
 'use client';
 
+import PlanDownstreamDams from '@/components/plan/PlanDownstreamDams';
+
+import { unknownConditionLabel } from '@shared/condition-availability';
+
+
 // src/components/plan/PlanSummary.tsx
 // Themed float plan summary panel — neo-brutalist (chunky borders, hard offset
 // shadows, warm palette, display headings) to match the rest of the site.
@@ -107,23 +112,6 @@ function DangerousWarning() {
   );
 }
 
-// Unknown Conditions Warning
-function UnknownConditionsWarning() {
-  return (
-    <div className="rounded-xl border-2 border-amber-500 bg-amber-50 p-3 shadow-[3px_3px_0_#E5A000]">
-      <div className="flex items-start gap-2">
-        <span className="text-lg flex-shrink-0">❓</span>
-        <div>
-          <h4 className="font-bold text-amber-800 text-sm">Conditions Unknown</h4>
-          <p className="text-xs text-amber-700 mt-0.5">
-            Verify current conditions locally before launching.
-          </p>
-        </div>
-      </div>
-    </div>
-  );
-}
-
 // River conditions strip — solid condition fill + Eddy otter, matching the
 // planner's FloatPlanCard so the shared view reads the same at a glance.
 function ConditionStrip({ condition }: { condition: FloatPlan['condition'] }) {
@@ -145,7 +133,7 @@ function ConditionStrip({ condition }: { condition: FloatPlan['condition'] }) {
         className="flex-shrink-0"
       />
       <div className="min-w-0 flex-1">
-        <p className={`text-sm font-bold ${config.textClass}`}>{config.label}</p>
+        <p className={`text-sm font-bold ${config.textClass}`}>{code === 'unknown' ? unknownConditionLabel(condition) : config.label}</p>
         <p className={`text-[11px] ${config.textClass} opacity-80 truncate`}>{gaugeLine}</p>
       </div>
       {condition.usgsUrl && (
@@ -375,7 +363,7 @@ export default function PlanSummary({
                 value={displayPlan.floatTime
                   ? displayPlan.floatTime.formatted
                   : conditionCode === 'dangerous' ? 'N/A' : '--'}
-                label="Time"
+                label={displayPlan.estimateBasis === 'typical' || conditionCode === 'unknown' ? 'Typical time' : 'Time'}
               />
               <StatTile value={displayPlan.distance.formatted} label="Distance" />
             </div>
@@ -388,8 +376,6 @@ export default function PlanSummary({
                 <DangerousWarning />
                 <ConditionStrip condition={displayPlan.condition} />
               </div>
-            ) : conditionCode === 'unknown' ? (
-              <UnknownConditionsWarning />
             ) : (
               <ConditionStrip condition={displayPlan.condition} />
             )}
@@ -435,6 +421,7 @@ export default function PlanSummary({
           </div>
         </div>
 
+        <PlanDownstreamDams dams={displayPlan.damsBelowTakeOut} />
         {/* Hazards below main row */}
         {displayPlan.hazardsUnavailable && (
           <div className="mt-4"><PlanHazardStatus unavailable /></div>

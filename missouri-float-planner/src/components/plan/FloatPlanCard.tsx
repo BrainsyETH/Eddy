@@ -1,5 +1,10 @@
 'use client';
 
+import PlanDownstreamDams from '@/components/plan/PlanDownstreamDams';
+
+import { unknownConditionLabel } from '@shared/condition-availability';
+
+
 // src/components/plan/FloatPlanCard.tsx
 // Merged journey card showing put-in and take-out side by side with float details
 
@@ -325,7 +330,7 @@ export function ShareableFloatCard({
           </div>
           <div style={{ padding: '6px 12px', background: condStyle.bg, border: `2px solid ${INK}`, borderRadius: 8 }}>
             <span style={{ fontSize: 14, fontWeight: 800, color: condStyle.text, textTransform: 'uppercase', letterSpacing: 0.3 }}>
-              {conditionConfig.label}
+              {conditionCode === 'unknown' ? unknownConditionLabel(plan.condition) : conditionConfig.label}
             </span>
           </div>
         </div>
@@ -335,7 +340,7 @@ export function ShareableFloatCard({
           {/* Stats row */}
           <div style={{ display: 'flex', gap: 10, marginBottom: 16 }}>
             {statTile(plan.distance.formatted, null, 'Distance')}
-            {statTile(plan.floatTime?.formatted || '--', null, 'Est. Time')}
+            {statTile(plan.floatTime?.formatted || '--', null, plan.estimateBasis === 'typical' || conditionCode === 'unknown' ? 'Typical time' : 'Est. Time')}
             {statTile(flowValue, flowUnit, flowLabel)}
           </div>
 
@@ -1018,7 +1023,7 @@ function JourneyCenter({
           </p>
         )}
         <p className="text-xs text-neutral-500 mt-1 flex items-center justify-center gap-1">
-          {plan.distance.formatted} on the water
+          {plan.estimateBasis === 'typical' || conditionCode === 'unknown' ? 'Typical time · ' : ''}{plan.distance.formatted} on the water
           <span
             className="relative group/tip inline-flex rounded-full focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-400"
             tabIndex={0}
@@ -1047,13 +1052,13 @@ function JourneyCenter({
       <div className={`rounded-xl ${conditionConfig.bgClass} px-3 py-2.5 mb-3 flex items-center gap-2.5`}>
         <Image
           src={getEddyImageForCondition(conditionCode)}
-          alt={conditionConfig.label}
+          alt={conditionCode === 'unknown' ? unknownConditionLabel(plan.condition) : conditionConfig.label}
           width={40}
           height={40}
           className="flex-shrink-0"
         />
         <div className="min-w-0 flex-1">
-          <p className={`text-sm font-bold ${conditionConfig.textClass}`}>{conditionConfig.label}</p>
+          <p className={`text-sm font-bold ${conditionConfig.textClass}`}>{conditionCode === 'unknown' ? unknownConditionLabel(plan.condition) : conditionConfig.label}</p>
           <p className={`text-[11px] ${conditionConfig.textClass} opacity-80 truncate`}>
             {[
               plan.condition.gaugeHeightFt != null ? `${plan.condition.gaugeHeightFt.toFixed(1)} ft` : null,
@@ -1121,6 +1126,7 @@ function JourneyCenter({
         </div>
       )}
 
+      <PlanDownstreamDams dams={plan.damsBelowTakeOut} />
       {/* Along Your Route */}
       {plan.hazardsUnavailable && <div className="mt-3"><PlanHazardStatus unavailable /></div>}
       {pointsAlongRoute.length > 0 && (
@@ -1352,7 +1358,7 @@ function MobileBottomSheet({
               <h2 id="mobile-float-plan-title" className="text-xs font-bold uppercase tracking-wider text-neutral-500">Float Plan</h2>
               <div className="flex items-center gap-2 flex-shrink-0">
                 <span className={`px-2 py-1 rounded text-xs font-bold ${conditionConfig.bgClass} ${conditionConfig.textClass}`}>
-                  {conditionConfig.label}
+                  {conditionCode === 'unknown' ? unknownConditionLabel(plan.condition) : conditionConfig.label}
                 </span>
                 <button
                   onClick={(e) => {
@@ -1435,7 +1441,7 @@ function MobileBottomSheet({
             <div className="text-right">
               {/* Time leads — it's the number a paddler is here for. */}
               <p className="text-lg font-bold text-neutral-900 tabular-nums">{compactTime || '--'}</p>
-              <p className="text-xs text-neutral-600">{plan.distance.formatted}</p>
+              <p className="text-xs text-neutral-600">{plan.estimateBasis === 'typical' || conditionCode === 'unknown' ? 'Typical time · ' : ''}{plan.distance.formatted}</p>
             </div>
           </div>
 
@@ -1547,6 +1553,7 @@ function MobileBottomSheet({
           </div>
         )}
 
+        <PlanDownstreamDams dams={plan.damsBelowTakeOut} />
         {/* Along Your Route */}
         {plan.hazardsUnavailable && <div className="mb-4"><PlanHazardStatus unavailable /></div>}
         {pointsAlongRoute.length > 0 && (
@@ -1563,13 +1570,13 @@ function MobileBottomSheet({
           <div className={`rounded-xl ${conditionConfig.bgClass} px-3 py-3 flex items-center gap-3`}>
             <Image
               src={getEddyImageForCondition(conditionCode)}
-              alt={conditionConfig.label}
+              alt={conditionCode === 'unknown' ? unknownConditionLabel(plan.condition) : conditionConfig.label}
               width={44}
               height={44}
               className="flex-shrink-0"
             />
             <div className="min-w-0 flex-1">
-              <p className={`text-base font-bold ${conditionConfig.textClass}`}>{conditionConfig.label}</p>
+              <p className={`text-base font-bold ${conditionConfig.textClass}`}>{conditionCode === 'unknown' ? unknownConditionLabel(plan.condition) : conditionConfig.label}</p>
               <p className={`text-xs ${conditionConfig.textClass} opacity-80 truncate`}>
                 {[
                   plan.condition.gaugeHeightFt != null ? `${plan.condition.gaugeHeightFt.toFixed(1)} ft` : null,

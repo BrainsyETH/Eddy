@@ -14,13 +14,13 @@ export function visibleCampingColumns(
   return { first, last };
 }
 
-/** Render a week beyond each edge; update React only when crossing a week. */
+/** Two weeks of buffer absorb fling latency; React updates only at week edges. */
 export function campingRenderWindow(offset: number, viewportWidth: number, dateWidth: number, count: number) {
   'worklet';
   const visible = visibleCampingColumns(offset, viewportWidth, dateWidth, count);
   return {
-    first: Math.max(0, Math.floor(visible.first / 7) * 7 - 7),
-    end: Math.min(count, (Math.floor(visible.last / 7) + 2) * 7),
+    first: Math.max(0, Math.floor(visible.first / 7) * 7 - 14),
+    end: Math.min(count, (Math.floor(visible.last / 7) + 3) * 7),
   };
 }
 

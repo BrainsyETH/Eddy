@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import type { FloatPlan } from '@eddy/types';
 import { createPlanActions, planShareMessage } from '../../../eddy-ios/src/lib/planActions';
+import { createSavedFloatLoader, type SavedFloatLoadState } from '../../../eddy-ios/src/lib/savedFloatLoader';
 
 const link = { shortCode: 'float1', url: 'https://eddy.guide/float/float1' };
 const plan = {
@@ -198,4 +199,172 @@ test('shared details retain regulated-water and withheld-time wording', () => {
   assert.match(planShareMessage({ ...plan, floatTime: null, floatTimeWithheldReason: 'regulated' }), /time depends on dam releases/);
   assert.match(planShareMessage({ ...plan, floatTime: null, floatTimeWithheldReason: undefined }), /no estimate in this water/);
   assert.match(planShareMessage(plan), /Akers → Pulltite.*9.5 mi.*3–5 hours/);
+});
+
+function savedLoader(fetchPlan: (code: string, signal: AbortSignal) => Promise<FloatPlan>, isOffline = async () => false) {
+  const states: SavedFloatLoadState<FloatPlan>[] = [];
+  const saved: { code: string; plan: FloatPlan }[] = [];
+  const loader = createSavedFloatLoader({
+    fetchPlan, isOffline,
+    publish: state => states.push(state),
+    onSuccess: (code, plan) => saved.push({ code, plan }),
+    errorMessage: error => (error as Error).message,
+  });
+  return { ...loader, states, saved, latest: () => states.at(-1)! };
+}
+
+test('a fast saved float open never publishes fallback details', async () => {
+  const loader = savedLoader(async () => plan);
+  await loader.load('float1');
+  assert.equal(loader.latest().plan, plan);
+  assert.equal(loader.latest().loading, false);
+  assert.ok(loader.latest().checkedAt);
+  assert.ok(loader.states.every(state => !state.showSaved));
+  assert.deepEqual(loader.saved, [{ code: 'float1', plan }]);
+  loader.dispose();
+});
+
+test('a slow saved float reveals logistics after the grace period while continuing the request', async t => {
+  t.mock.timers.enable({ apis: ['setTimeout'] });
+  const pending = deferred<FloatPlan>();
+  const loader = savedLoader(() => pending.promise);
+  const loading = loader.load('float1');
+  t.mock.timers.tick(1199);
+  assert.equal(loader.latest().showSaved, false);
+  t.mock.timers.tick(1);
+  assert.equal(loader.latest().showSaved, true);
+  assert.equal(loader.latest().loading, true);
+  pending.resolve(plan);
+  await loading;
+  assert.equal(loader.latest().plan, plan);
+  assert.equal(loader.latest().showSaved, false);
+  assert.equal(loader.latest().loading, false);
+  loader.dispose();
+});
+
+test('known offline opens expose saved details immediately and reject a late transport success', async () => {
+  const pending = deferred<FloatPlan>();
+  let signal!: AbortSignal;
+  const loader = savedLoader((_code, requestSignal) => { signal = requestSignal; return pending.promise; }, async () => true);
+  const loading = loader.load('float1');
+  await Promise.resolve();
+  assert.equal(loader.latest().showSaved, true);
+  assert.equal(loader.latest().loading, false);
+  assert.match(loader.latest().error!, /offline/);
+  assert.equal(signal.aborted, true);
+  pending.resolve(plan);
+  await loading;
+  assert.equal(loader.latest().plan, null);
+  assert.deepEqual(loader.saved, []);
+  loader.dispose();
+});
+
+test('foreground refresh keeps the loaded plan and its checked time through failure and retry', async () => {
+  const refresh = deferred<FloatPlan>();
+  const updated = { ...plan, distance: { ...plan.distance, formatted: '9.6 mi' } };
+  let calls = 0;
+  const loader = savedLoader(() => ++calls === 1 ? Promise.resolve(plan) : calls === 2 ? refresh.promise : Promise.resolve(updated));
+  await loader.load('float1');
+  const checkedAt = loader.latest().checkedAt;
+  const refreshing = loader.load('float1');
+  assert.equal(loader.latest().plan, plan);
+  assert.equal(loader.latest().loading, true);
+  assert.equal(loader.latest().checkedAt, checkedAt);
+  refresh.reject(new Error('No connection'));
+  await refreshing;
+  assert.equal(loader.latest().plan, plan);
+  assert.equal(loader.latest().loading, false);
+  assert.equal(loader.latest().error, 'No connection');
+  assert.equal(loader.latest().checkedAt, checkedAt);
+  await loader.load('float1');
+  assert.equal(loader.latest().plan, updated);
+  assert.equal(loader.latest().error, null);
+  loader.dispose();
+});
+
+test('an offline answer that arrives after success cannot replace the current plan', async () => {
+  const offline = deferred<boolean>();
+  const loader = savedLoader(async () => plan, () => offline.promise);
+  await loader.load('float1');
+  const before = loader.latest();
+  offline.resolve(true);
+  await Promise.resolve();
+  assert.equal(loader.latest(), before);
+  assert.equal(loader.latest().error, null);
+  loader.dispose();
+});
+
+test('switching saved floats cancels old requests and ignores their connectivity checks', async t => {
+  t.mock.timers.enable({ apis: ['setTimeout'] });
+  const first = deferred<FloatPlan>(), second = deferred<FloatPlan>(), offline = deferred<boolean>();
+  const signals: AbortSignal[] = [];
+  const loader = savedLoader((code, signal) => {
+    signals.push(signal);
+    return code === 'float1' ? first.promise : second.promise;
+  }, () => signals.length === 0 ? offline.promise : Promise.resolve(false));
+  const a = loader.load('float1');
+  t.mock.timers.tick(1000);
+  const b = loader.load('float2');
+  assert.equal(signals[0].aborted, true);
+  t.mock.timers.tick(200);
+  assert.equal(loader.latest().showSaved, false, 'the first float’s timer must not expose the next fallback early');
+  offline.resolve(true);
+  first.resolve(plan);
+  await a;
+  assert.equal(loader.latest().shortCode, 'float2');
+  assert.equal(loader.latest().plan, null);
+  assert.equal(loader.latest().loading, true);
+  const next = { ...plan, putIn: { ...plan.putIn, id: 'next' } };
+  second.resolve(next);
+  await b;
+  assert.equal(loader.latest().plan, next);
+  assert.deepEqual(loader.saved, [{ code: 'float2', plan: next }]);
+  loader.dispose();
+});
+
+test('navigation to another saved float clears the previous float’s plan', async () => {
+  const pending = deferred<FloatPlan>();
+  const loader = savedLoader(code => code === 'float1' ? Promise.resolve(plan) : pending.promise);
+  await loader.load('float1');
+  const loading = loader.load('float2');
+  assert.equal(loader.latest().plan, null);
+  assert.equal(loader.latest().checkedAt, null);
+  assert.equal(loader.latest().shortCode, 'float2');
+  pending.reject(new Error('Missing float'));
+  await loading;
+  assert.equal(loader.latest().plan, null);
+  loader.dispose();
+});
+
+test('unknown connectivity falls back to the grace period and a failed request stays retryable', async t => {
+  t.mock.timers.enable({ apis: ['setTimeout'] });
+  const pending = deferred<FloatPlan>();
+  const loader = savedLoader(() => pending.promise, async () => { throw new Error('Unknown network'); });
+  const loading = loader.load('float1');
+  await Promise.resolve();
+  t.mock.timers.tick(1200);
+  assert.equal(loader.latest().showSaved, true);
+  assert.equal(loader.latest().loading, true);
+  pending.reject(new Error('Timed out'));
+  await loading;
+  assert.equal(loader.latest().loading, false);
+  assert.equal(loader.latest().error, 'Timed out');
+  loader.dispose();
+});
+
+test('disposing a saved float cancels its timer and prevents late publications', async t => {
+  t.mock.timers.enable({ apis: ['setTimeout'] });
+  const pending = deferred<FloatPlan>(), offline = deferred<boolean>();
+  let signal!: AbortSignal;
+  const loader = savedLoader((_code, requestSignal) => { signal = requestSignal; return pending.promise; }, () => offline.promise);
+  const loading = loader.load('float1');
+  const publications = loader.states.length;
+  loader.dispose();
+  assert.equal(signal.aborted, true);
+  t.mock.timers.tick(2000);
+  offline.resolve(true);
+  pending.reject(new Error('Aborted'));
+  await loading;
+  assert.equal(loader.states.length, publications);
+  assert.deepEqual(loader.saved, []);
 });
