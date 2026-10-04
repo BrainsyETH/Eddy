@@ -1,31 +1,13 @@
+import { conditionAvailability, unknownConditionLabel } from '@shared/condition-availability';
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
+import { computeConditionFromDbRow } from '@/lib/conditions';
 import { classifyReading, hasLadder, type ConditionThresholds } from '@shared/condition-ladder';
 
-// An UNRATED gauge must not be given an opinion.
-//
-// classifyReading() grades from the top of the ladder down and ends in a bare
-// fall-through, so a gauge with six null levels skips every band and lands on
-// `too_low`. That is not a bug in the ladder — it is why hasLadder() exists —
-// but it means EVERY path that grades a reading has to call the guard, and two
-// of them did not:
-//
-//   * both condition RPCs (SQL), which the river hub page, both OG image
-//     routes, /plan, /api/conditions, /api/rivers/[slug]/visuals,
-//     /api/rivers/[slug]/outlook and /api/og/float all call
-//   * /api/cron/update-gauges, which PERSISTS its answer
-//
-// It cost the three tailwaters that 20260824232949 landed with a null ladder on
-// purpose, because no agency publishes a rating for them. Measured on
-// production 2026-08-26, before the fix: the White read "Too Low - Not
-// Recommended" at 9,100 cfs, and the Norfork tailwater read it at 3,310 cfs —
-// a generating unit in a channel that wades at 204.
-//
-// These tests pin the two guards. The SQL one is checked by reading the
-// migration, because there is no Postgres in this suite — and the absence of
-// one is exactly how the fall-through survived every test in the repo.
+// Unrated gauges retain readings but have no recreational verdict. The shared
+// classifier, SQL RPCs and polling path must agree, preserving flood overrides.
 
 const REPO = join(__dirname, '..', '..', '..');
 
@@ -39,13 +21,15 @@ const EMPTY_LADDER: ConditionThresholds = {
   thresholdUnit: 'cfs',
 };
 
-test('the trap itself: a null ladder grades a flooding river as too_low', () => {
-  // Pinned so nobody "fixes" this in the ladder instead of at the call sites.
-  // classifyReading is deliberately total — it answers for any input — and the
-  // decision about what an unrated gauge SHOWS belongs to the caller.
+test('empty ladders stay unknown through both units and the database fallback', () => {
   assert.equal(hasLadder(EMPTY_LADDER), false);
-  assert.equal(classifyReading(null, EMPTY_LADDER, 9100), 'too_low');
-  assert.equal(classifyReading(null, EMPTY_LADDER, 20707), 'too_low');
+  assert.equal(classifyReading(null, EMPTY_LADDER, 9100), 'unknown');
+  assert.equal(classifyReading(5.8, { ...EMPTY_LADDER, thresholdUnit: 'ft' }), 'unknown');
+  assert.equal(computeConditionFromDbRow(5.8, {
+    level_too_low: null, level_low: null, level_optimal_min: null,
+    level_optimal_max: null, level_high: null, level_dangerous: null,
+    threshold_unit: 'ft',
+  }).code, 'unknown');
 });
 
 test('a single level is enough to grade — the guard must not swallow 00150 ladders', () => {
@@ -69,9 +53,7 @@ test('an empty ladder above NWS flood stage is still dangerous', () => {
   assert.equal(classifyReading(14, withFloodStage, 9100), 'dangerous');
   assert.equal(classifyReading(12, withFloodStage, 9100), 'dangerous', 'at stage counts');
 
-  // Below it, the ladder has nothing to say and the fall-through is a lie —
-  // which is why the cron skips this case rather than trusting the answer.
-  assert.equal(classifyReading(4, withFloodStage, 9100), 'too_low');
+  assert.equal(classifyReading(4, withFloodStage, 9100), 'unknown');
 });
 
 test('the cron decides the flood case with the shared override, not by hand', () => {
@@ -190,4 +172,21 @@ test('both condition RPCs return unknown for a gauge with no ladder', () => {
     const guardAt = body.indexOf("WHEN cv.has_ladder IS NOT TRUE THEN 'Unknown'");
     assert.ok(floodAt > 0 && floodAt < guardAt, `${latest}: flood stage must be checked first`);
   }
+});
+
+
+test('rating and reading availability stay independent, including old saved observations', () => {
+  const fresh = new Date().toISOString();
+  const stale = new Date(Date.now() - 8 * 3_600_000).toISOString();
+  const base = { thresholds: { ...EMPTY_LADDER, thresholdUnit: 'ft' as const }, gaugeHeightFt: 5.8, readingTimestamp: fresh };
+  assert.deepEqual(conditionAvailability(base), { ratingStatus: 'unrated', readingStatus: 'current' });
+  assert.equal(unknownConditionLabel(base), 'Not rated — readings only');
+  assert.equal(unknownConditionLabel({ ...base, gaugeHeightFt: null }), 'Not rated · Gauge data unavailable');
+  assert.equal(unknownConditionLabel({ ...base, readingTimestamp: stale }), 'Not rated · Reading out of date');
+  assert.equal(unknownConditionLabel({ ...base, thresholds: { ...base.thresholds, levelLow: 4 }, gaugeHeightFt: null }), 'Gauge data unavailable');
+  assert.equal(conditionAvailability({ ...base, thresholds: null }).ratingStatus, 'unknown', 'missing metadata is not an unrated decision');
+  assert.equal(conditionAvailability({ ...base, gaugeHeightFt: 0 }).readingStatus, 'current');
+  assert.equal(conditionAvailability({ ...base, thresholds: EMPTY_LADDER }).readingStatus, 'unavailable', 'wrong-unit observation does not prove availability');
+  assert.equal(conditionAvailability({ ...base, readingTimestamp: 'invalid' }).readingStatus, 'stale');
+  assert.equal(conditionAvailability({ ...base, readingTimestamp: stale, availability: { ratingStatus: 'unrated', readingStatus: 'current' } }).readingStatus, 'stale', 'saved freshness ages');
 });

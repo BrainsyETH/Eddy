@@ -261,7 +261,9 @@ async function handleGetFloatRoute(input: Record<string, unknown>) {
       ? 'No float time on a dam-controlled river: the release can change mid-float, ' +
         'so any single estimate would be wrong as soon as the units start or stop. ' +
         'Check the generation schedule for the controlling dam before launching.'
-      : 'Conditions are dangerous — no float time is provided; do not float.';
+      : withholdReason === 'dangerous'
+        ? 'Conditions are dangerous — no float time is provided; do not float.'
+        : 'Float time is unavailable.';
 
   // Build Google Maps shuttle directions URL (take-out → put-in)
   // Uses directions_override if available, otherwise lat/lng coordinates
@@ -312,6 +314,9 @@ async function handleGetFloatRoute(input: Record<string, unknown>) {
     estimatedFloatTime: floatTime?.formatted ?? null,
     estimateBasis: estimate.estimateBasis,
     conditionCode: currentCondition,
+    conditionAvailability: estimate.availability,
+    conditionNote: currentCondition === 'unknown'
+      ? `${estimate.conditionStatusLabel}. Any time shown is a typical estimate, not adjusted to current water.` : null,
     floatTimeNote,
     shuttleUrl,
     planUrl: `/rivers/${riverSlug}?putIn=${startAp.id}&takeOut=${endAp.id}`,

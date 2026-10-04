@@ -598,11 +598,12 @@ export default function GaugeDetailScreen() {
         <View style={styles.inset}>
           <ReadingSummaryCard
             key={gauge.siteId}
+            readingTimestamp={gauge.readingTimestamp}
             reading={value != null && unit ? { value, unit } : null}
             verdict={rated && !tierResolving ? { code, lastKnown: value != null && !readingIsCurrent } : null}
             resolving={tierResolving}
             trend={readingIsCurrent && !gauge.readingSuspect ? publicOutlook?.trend : null}
-            thresholds={rated && !tierResolving ? link : null}
+            thresholds={!tierResolving ? link : null}
             context={tierResolving ? null : readingSummarySeason(summaryPercentile, unit) ?? (!rated ? damNote : null)}
             stationName={gauge.name}
             age={readingIsCurrent ? age : [gaugeFreshnessLabel(gauge.readingTimestamp), age].filter(Boolean).join(' · ')}

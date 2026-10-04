@@ -2,6 +2,9 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { readFileSync, readdirSync } from 'node:fs';
 import { PGlite } from '@electric-sql/pglite';
+import { unratedGaugePlan } from './unrated-gauges';
+import type { RiverReadiness } from './readiness';
+import type { GaugeCandidate, RiverSectionDossier } from './dossier';
 import { READINESS_CRITERIA, readinessProblems } from './readiness';
 
 const reviews = Object.fromEntries(READINESS_CRITERIA.map(key => [key, {
@@ -129,4 +132,97 @@ test('activation is atomic, previews validate inactive candidates, and audit dis
     assert.equal(audit.rows.some(r => r.check_name === 'identical_optimal_band'), true, 'an equal optimal band with different anchors gets its own finding');
 
   } finally { await db.close(); }
+});
+
+test('explicit unrated activation keeps freshness, review and threshold-conflict gates', async () => {
+  const db = new PGlite();
+  try {
+    // Spatial functions are test doubles; these assertions cover the rating
+    // policy and real activation transaction, not PostGIS route correctness.
+    await db.exec(`
+      CREATE ROLE anon; CREATE ROLE authenticated; CREATE ROLE service_role;
+      CREATE DOMAIN geography AS text; CREATE DOMAIN geometry AS text;
+      CREATE FUNCTION st_distance(text,text) RETURNS float LANGUAGE sql AS 'SELECT 0::float';
+      CREATE FUNCTION st_linemerge(text) RETURNS text LANGUAGE sql AS 'SELECT $1';
+      CREATE FUNCTION st_linelocatepoint(text,text) RETURNS float LANGUAGE sql AS 'SELECT 0::float';
+      CREATE FUNCTION geometrytype(text) RETURNS text LANGUAGE sql AS 'SELECT ''LINESTRING''::text';
+      CREATE TABLE rivers(id uuid PRIMARY KEY, slug text UNIQUE, active boolean, river_type text,
+        timezone text DEFAULT 'America/Chicago', state text DEFAULT 'MO', geom text DEFAULT 'line',
+        weather_lat numeric, weather_lon numeric, alert_search_terms text[], length_miles numeric);
+      CREATE TABLE river_characteristics(river_id uuid);
+      CREATE TABLE access_points(river_id uuid, name text, approved boolean, is_float_endpoint boolean,
+        off_channel_reason text, location_snap text, location_orig text, river_mile_downstream numeric);
+      CREATE TABLE gauge_stations(id uuid PRIMARY KEY, name text, active boolean, usgs_site_id text, site_id_external text);
+      CREATE TABLE river_gauges(id uuid PRIMARY KEY, river_id uuid, gauge_station_id uuid, is_primary boolean,
+        threshold_unit text, level_too_low numeric, level_low numeric, level_optimal_min numeric,
+        level_optimal_max numeric, level_high numeric, level_dangerous numeric,
+        threshold_source text, threshold_source_url text,
+        alt_level_too_low numeric, alt_level_low numeric, alt_level_optimal_min numeric,
+        alt_level_optimal_max numeric, alt_level_high numeric, alt_level_dangerous numeric);
+      CREATE TABLE river_hazards(river_id uuid, active boolean);
+      CREATE TABLE gauge_latest(gauge_station_id uuid, reading_timestamp timestamptz, gauge_height_ft numeric, discharge_cfs numeric);
+      CREATE TABLE gauge_readings(LIKE gauge_latest);
+      CREATE FUNCTION validate_river_data() RETURNS TABLE(river_slug text,check_name text,severity text,detail text)
+        LANGUAGE sql AS 'SELECT NULL::text,NULL::text,NULL::text,NULL::text WHERE false';
+      INSERT INTO rivers(id,slug,active,river_type) VALUES
+        ('00000000-0000-0000-0000-000000000001','unrated',false,'rain_flashy');
+      INSERT INTO gauge_stations VALUES ('10000000-0000-0000-0000-000000000001','Noel fixture',true,'fixture','fixture');
+      INSERT INTO river_gauges(id,river_id,gauge_station_id,is_primary,threshold_unit) VALUES
+        ('20000000-0000-0000-0000-000000000001','00000000-0000-0000-0000-000000000001',
+         '10000000-0000-0000-0000-000000000001',true,'ft');
+      INSERT INTO gauge_latest VALUES ('10000000-0000-0000-0000-000000000001',now(),5.8,NULL);
+    `);
+    await db.exec(readFileSync('supabase/migrations/20261004002112_river_readiness_activation.sql', 'utf8'));
+    await db.exec(readFileSync('supabase/migrations/20261004030128_explicit_unrated_river_release.sql', 'utf8'));
+    const evidence = { ...reviews, conditions: { ...reviews.conditions, ratingMode: 'unrated' } };
+    const run = (apply = false, review: unknown = evidence) => db.query<{ check_name: string; severity: string }>(
+      "SELECT * FROM review_river_activation(ARRAY['unrated'], $1::jsonb, $2)", [JSON.stringify({ unrated: review }), apply]);
+    const active = async () => (await db.query<{ active: boolean }>('SELECT active FROM rivers')).rows[0].active;
+    let result = await run();
+    assert.ok(result.rows.some(r => r.check_name === 'missing_thresholds'), 'empty ladder alone cannot opt in');
+    await db.exec("UPDATE rivers SET condition_rating_mode = 'unrated'");
+    result = await run(false, reviews);
+    assert.ok(result.rows.some(r => r.check_name === 'condition_mode_review_mismatch'));
+    result = await run();
+    assert.equal(result.rows.some(r => r.severity === 'error'), false);
+    assert.equal(await active(), false, 'successful preview stays private');
+    for (const column of ['level_dangerous', 'alt_level_low']) {
+      await db.exec(`UPDATE river_gauges SET ${column} = 10`);
+      result = await run(true);
+      assert.ok(result.rows.some(r => r.check_name === 'unrated_has_thresholds'));
+      assert.equal(await active(), false);
+      await db.exec(`UPDATE river_gauges SET ${column} = NULL`);
+    }
+    await db.exec("UPDATE gauge_latest SET reading_timestamp = now() - interval '3 hours'");
+    result = await run(true);
+    assert.ok(result.rows.some(r => r.check_name === 'primary_gauge_unavailable'));
+    assert.equal(await active(), false);
+    await db.exec('UPDATE gauge_latest SET reading_timestamp = now()');
+    result = await run(true, { ...evidence, routing: { ...reviews.routing, status: 'pending' } });
+    assert.ok(result.rows.some(r => r.check_name === 'readiness_incomplete'));
+    await db.exec("UPDATE rivers SET river_type = 'dam_tailwater'");
+    result = await run(true);
+    assert.ok(result.rows.some(r => r.check_name === 'tailwater_pilot_review'));
+    await db.exec("UPDATE rivers SET river_type = 'rain_flashy'");
+    result = await run(true);
+    assert.equal(result.rows.some(r => r.severity === 'error'), false);
+    assert.equal(await active(), true);
+    assert.equal((await db.query<{ allowed: boolean }>("SELECT has_function_privilege('anon','review_river_activation(text[],jsonb,boolean)','EXECUTE') AS allowed")).rows[0].allowed, false);
+  } finally { await db.close(); }
+});
+
+
+test('unrated ingestion requires a reviewed mode and an available explicit measurement unit', () => {
+  const fixture = {
+    conditionRatingMode: 'unrated', primaryGaugeSiteId: 'noel',
+    readiness: { ...reviews, conditions: { ...reviews.conditions, ratingMode: 'unrated' } } as RiverReadiness,
+    gauges: [{ siteId: 'noel', lat: 36.5, lon: -94.4, measurementUnit: 'ft', paramsAvailable: ['00065'] }] as GaugeCandidate[],
+    sections: [{ representativeGauge: { siteId: 'noel' }, thresholds: [] }] as unknown as RiverSectionDossier[],
+  };
+  assert.deepEqual(unratedGaugePlan(fixture), { problems: [], links: [{ siteId: 'noel', unit: 'ft' }] });
+  assert.ok(unratedGaugePlan({ ...fixture, primaryGaugeSiteId: undefined }).problems.length);
+  assert.ok(unratedGaugePlan({ ...fixture, readiness: undefined }).problems.length);
+  assert.ok(unratedGaugePlan({ ...fixture, gauges: [{ ...fixture.gauges[0], measurementUnit: 'cfs' }] }).problems.length);
+  assert.ok(unratedGaugePlan({ ...fixture, sections: [{ ...fixture.sections[0], thresholds: [{}] } as RiverSectionDossier] }).problems.length);
+  assert.deepEqual(unratedGaugePlan({ ...fixture, conditionRatingMode: undefined }), { problems: [], links: [] });
 });

@@ -1,3 +1,4 @@
+import { unknownConditionLabel } from '@eddy/conditions/condition-availability';
 // eddy-ios/src/components/PlanResult.tsx
 // A finished float plan, rendered.
 //
@@ -155,6 +156,7 @@ export function PlanResult({ plan, actions, accessPoints, header, support, initi
           <FloatTimeEstimate
             timeRange={plan.floatTime.timeRange}
             formatted={plan.floatTime.formatted}
+            typical={plan.estimateBasis === 'typical' || plan.condition.code === 'unknown'}
           />
         ) : plan.floatTimeWithheldReason === 'regulated' ? (
           <>
@@ -180,7 +182,9 @@ export function PlanResult({ plan, actions, accessPoints, header, support, initi
               No float time
             </Text>
             <Text style={[styles.headlineNote, { color: colors.textSubtle }]}>
-              Eddy does not estimate a time in this water. Wait for it to drop.
+              {plan.condition.code === 'dangerous'
+                ? 'Eddy does not estimate a time in this water. Wait for it to drop.'
+                : 'A float-time estimate is unavailable for this route.'}
             </Text>
           </>
         )}
@@ -192,12 +196,12 @@ export function PlanResult({ plan, actions, accessPoints, header, support, initi
           river screen. */}
       <View style={[styles.card, { backgroundColor: colors.card }, elevation(1)]}>
         <View style={styles.conditionHead}>
-          <Otter mood={otterForCondition(plan.condition.code)} size={52} />
+          {plan.condition.code !== 'unknown' ? <Otter mood={otterForCondition(plan.condition.code)} size={52} /> : null}
           <View style={styles.conditionText}>
             <Text
               style={[styles.conditionLabel, { color: conditionText(plan.condition.code, isDark) }]}
             >
-              {conditionLongLabel(plan.condition.code)}
+              {plan.condition.code === 'unknown' ? unknownConditionLabel(plan.condition) : conditionLongLabel(plan.condition.code)}
             </Text>
             <PlanReading plan={plan} />
           </View>

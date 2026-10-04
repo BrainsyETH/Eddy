@@ -74,6 +74,8 @@ export interface ThresholdAnchor {
 
 /** A candidate gauge. Every id and coordinate is [verify] against the provider API. */
 export interface GaugeCandidate {
+  /** Explicit display/freshness unit when this gauge has no condition ladder. */
+  measurementUnit?: ThresholdUnit;
   provider: 'usgs' | 'usace' | string;
   siteId: string; // [verify]
   name: string;
@@ -172,6 +174,8 @@ export interface RegulationItem {
 
 /** The full research dossier for one river. */
 export interface RiverDossier {
+  /** An unrated release still needs owner signoff, a live gauge and all reviews. */
+  conditionRatingMode?: 'rated' | 'unrated';
   /** Reconciled evidence, checked independently from historical _status. */
   readiness: RiverReadiness;
   // ---- Identity ----
@@ -198,7 +202,8 @@ export interface RiverDossier {
   // ---- Data sources ----
   /**
    * [signoff] The river-level primary gauge (a usgsSiteId from gauges[], and one
-   * that carries thresholds). Drives the river condition badge and the Sonnet
+   * that carries thresholds, or an explicitly reviewed unrated measurement link).
+   * Drives the river condition badge when rated and the Sonnet
    * river-level update, and is what validate_river_data() requires before a
    * river can go active. Ingest sets river_gauges.is_primary from this; it is
    * never guessed, so leaving it unset blocks the launch gate on purpose.
