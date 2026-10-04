@@ -13,6 +13,9 @@ import Animated, {
   useAnimatedStyle,
   cancelAnimation,
   withDecay,
+  withDelay,
+  withTiming,
+  ReduceMotion,
   useAnimatedReaction,
   runOnJS,
   type SharedValue,
@@ -168,7 +171,9 @@ export function CampingScrollGroup({ children, dateWidth = DATE_WIDTH, thumbnail
 }
 
 /** The RN ScrollView supplied through FlatList.renderScrollComponent is the
- * detector's direct child, so date pans can explicitly arbitrate its gesture. */
+ * detector's direct child, so date pans can explicitly arbitrate its gesture.
+ * Keep the plain RN component: RNGH's ScrollView already has a native handler.
+ * https://docs.swmansion.com/react-native-gesture-handler/docs/2.x/gestures/native-gesture/ */
 export const CampingVerticalScrollView = forwardRef<ScrollView, ScrollViewProps>(function CampingVerticalScrollView(props, ref) {
   const { verticalGesture } = useContext(DateScrollContext)!;
   return <GestureDetector gesture={verticalGesture}><ScrollView {...props} ref={ref} /></GestureDetector>;
@@ -178,14 +183,14 @@ function DateScroller({ children, onPress, indicator = false }: { children: Reac
   const { offset, viewportWidth, dateWidth, columnCount, verticalGesture } = useContext(DateScrollContext)!;
   const { colors } = useTheme();
   const start = useSharedValue(0);
-  const pressed = useSharedValue(false);
+  const pressed = useSharedValue(0);
   const gesture = useMemo(() => {
     const pan = Gesture.Pan()
       .activeOffsetX([-8, 8])
       .failOffsetY([-8, 8])
       .blocksExternalGesture(verticalGesture)
       .onBegin(() => { cancelAnimation(offset); })
-      .onStart(() => { pressed.set(false); start.set(offset.get()); })
+      .onStart(() => { cancelAnimation(pressed); pressed.set(0); start.set(offset.get()); })
       .onUpdate(event => {
         const max = Math.max(0, columnCount * dateWidth - viewportWidth.get());
         offset.set(Math.min(max, Math.max(0, start.get() - event.translationX)));
@@ -195,13 +200,14 @@ function DateScroller({ children, onPress, indicator = false }: { children: Reac
           clamp: [0, Math.max(0, columnCount * dateWidth - viewportWidth.get())] }));
       });
     const tap = Gesture.Tap().maxDistance(8)
-      .onBegin(() => { pressed.set(!!onPress); })
+      // This delay disambiguates touch intent, even with Reduce Motion enabled.
+      .onBegin(() => { if (onPress) pressed.set(withDelay(130, withTiming(0.16, { duration: 0 }), ReduceMotion.Never)); })
       .onEnd((_event, success) => { if (success && onPress) runOnJS(onPress)(); })
-      .onFinalize(() => { pressed.set(false); });
+      .onFinalize(() => { cancelAnimation(pressed); pressed.set(0); });
     return Gesture.Exclusive(pan, tap);
   }, [offset, viewportWidth, dateWidth, columnCount, start, onPress, pressed, verticalGesture]);
   const translate = useAnimatedStyle(() => ({ transform: [{ translateX: -offset.get() }] }));
-  const feedback = useAnimatedStyle(() => ({ opacity: pressed.get() ? 0.16 : 0 }));
+  const feedback = useAnimatedStyle(() => ({ opacity: pressed.get() }));
   const thumb = useAnimatedStyle(() => {
     const viewport = viewportWidth.get();
     const content = columnCount * dateWidth;

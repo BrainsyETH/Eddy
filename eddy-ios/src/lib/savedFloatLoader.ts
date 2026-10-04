@@ -37,15 +37,13 @@ export function createSavedFloatLoader<T>({ fetchPlan, isOffline, publish, onSuc
         if (active() && !state.plan) update({ ...state, showSaved: true });
       }, 1200);
       cancelDelay = () => clearTimeout(timer);
-      // Connectivity must never delay the request; unknown connectivity falls
-      // through to the grace period. A late offline answer cannot erase success.
+      // Reachability is only a hint: it can lag foreground/network changes.
+      // Reveal logistics early without cancelling a request that may succeed.
+      // Unknown connectivity uses the grace period; late hints cannot erase success.
       void isOffline().then(offline => {
         if (!offline || !active()) return;
-        settled = true;
         clearTimeout(timer);
-        requests.invalidate();
-        update({ ...state, loading: false, showSaved: true,
-          error: 'You’re offline. Current conditions have not been checked.' });
+        if (!state.plan) update({ ...state, showSaved: true });
       }).catch(() => {});
       try {
         const plan = await fetchPlan(shortCode, request.signal);

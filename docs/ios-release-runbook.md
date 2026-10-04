@@ -67,7 +67,7 @@ Dale Hollow) read 4.7–9.7 hours stale against 1.7–2.7 for the other fifteen.
 That is an upstream LRN feed lag, the strip renders those hours as honest
 nulls by design, and a tester will report it as a bug.
 
-### Device QA follow-up gates — October 4, 2026 (#1425)
+### 1.4.0 device QA follow-up gates — October 4, 2026 (#1425)
 
 These are pending device and release checks, not evidence of a device pass.
 
@@ -76,8 +76,9 @@ These are pending device and release checks, not evidence of a device pass.
       exact point used to fetch the forecast. Confirm both the primary and
       selected-gauge paths. Older servers remain compatible, but the new
       “Will it hold?” weather link cannot be verified against them.
-- [ ] **Rebuild the device client with `expo-network`.** Test a new binary;
-      refreshing JavaScript in the old device build is insufficient.
+- [ ] **Include `expo-network` in the new 1.4.0 binary.** Test a rebuilt client;
+      refreshing JavaScript in the old device build is insufficient. Do not
+      ship this PR's bundle as an OTA hotfix to the current store binary.
 - [ ] **Camping grid:** fling hard in both directions across the full horizon;
       check for blank columns, frame drops and header/row misalignment. Try
       diagonal drags, change direction mid-drag, and start a vertical scroll
@@ -87,10 +88,14 @@ These are pending device and release checks, not evidence of a device pass.
       open several campgrounds after scrolling, and change river filters
       without losing the date position. Grid mode keeps swipe-back disabled;
       List mode, initial loading and unavailable states keep native swipe-back.
+      Starting a vertical drag on dates should cancel the delayed highlight.
       Check camping-panel padding on both map sheets and access pages.
 - [ ] **Saved Floats:** a fast online open has no saved-details flash; airplane
-      mode shows saved logistics as soon as connectivity is known; a stalled
-      connection exposes them after the 1.2-second grace period while retrying.
+      mode shows saved logistics as soon as connectivity reports offline; a
+      stalled connection exposes them after the 1.2-second grace period while
+      the request continues. Foreground immediately after toggling Wi-Fi or
+      cellular: an offline hint must not cancel a request or show an error;
+      successful responses should restore current conditions without a retry tap.
       A foreground refresh keeps an already loaded result mounted and preserves
       its scroll position. Old water verdicts, readings and float times must
       be hidden visually and from VoiceOver until the refresh succeeds. On
@@ -105,6 +110,14 @@ These are pending device and release checks, not evidence of a device pass.
 - [ ] **Weather:** “Will it hold?” opens weather for the forecast location and
       Back returns to the river. Check day/night icons, light/dark appearances,
       sunny yellow/orange symbols, and the VoiceOver weather action.
+
+The camping list intentionally uses a plain React Native `ScrollView` directly
+inside `GestureDetector`, following the [Native gesture example](https://docs.swmansion.com/react-native-gesture-handler/docs/2.x/gestures/native-gesture/).
+Do not simply swap it for RNGH's `ScrollView` while keeping that wrapper:
+RNGH's component already has a native handler. Device arbitration checks above
+remain necessary. The plan-status line's automatic announcements still use the
+Android-only `accessibilityLiveRegion`; explicit VoiceOver status announcements
+remain a non-blocking follow-up.
 
 ### 1.1 delta gates found in the August 11 repository audit
 

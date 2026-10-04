@@ -242,20 +242,69 @@ test('a slow saved float reveals logistics after the grace period while continui
   loader.dispose();
 });
 
-test('known offline opens expose saved details immediately and reject a late transport success', async () => {
+test('an offline hint exposes saved details immediately without cancelling a successful request', async () => {
   const pending = deferred<FloatPlan>();
   let signal!: AbortSignal;
   const loader = savedLoader((_code, requestSignal) => { signal = requestSignal; return pending.promise; }, async () => true);
   const loading = loader.load('float1');
   await Promise.resolve();
   assert.equal(loader.latest().showSaved, true);
-  assert.equal(loader.latest().loading, false);
-  assert.match(loader.latest().error!, /offline/);
-  assert.equal(signal.aborted, true);
+  assert.equal(loader.latest().loading, true);
+  assert.equal(loader.latest().error, null, 'reachability alone must not claim the request failed');
+  assert.equal(signal.aborted, false);
   pending.resolve(plan);
   await loading;
-  assert.equal(loader.latest().plan, null);
+  assert.equal(loader.latest().plan, plan);
+  assert.equal(loader.latest().loading, false);
+  assert.equal(loader.latest().showSaved, false);
+  assert.deepEqual(loader.saved, [{ code: 'float1', plan }]);
+  loader.dispose();
+});
+
+test('a truly offline request keeps logistics visible and permits retry after the transport fails', async () => {
+  const pending = deferred<FloatPlan>();
+  let calls = 0;
+  const loader = savedLoader(() => ++calls === 1 ? pending.promise : Promise.resolve(plan), async () => true);
+  const loading = loader.load('float1');
+  await Promise.resolve();
+  assert.equal(loader.latest().showSaved, true);
+  assert.equal(loader.latest().loading, true);
+  pending.reject(new Error('No connection'));
+  await loading;
+  assert.equal(loader.latest().showSaved, true);
+  assert.equal(loader.latest().loading, false);
+  assert.equal(loader.latest().error, 'No connection');
   assert.deepEqual(loader.saved, []);
+  await loader.load('float1');
+  assert.equal(loader.latest().plan, plan);
+  assert.equal(loader.latest().error, null);
+  assert.equal(loader.latest().showSaved, false);
+  loader.dispose();
+});
+
+test('a transient offline hint during foreground refresh preserves the plan and accepts recovery', async () => {
+  const pending = deferred<FloatPlan>();
+  let calls = 0;
+  let signal!: AbortSignal;
+  const loader = savedLoader((_code, requestSignal) => {
+    signal = requestSignal;
+    return ++calls === 1 ? Promise.resolve(plan) : pending.promise;
+  }, async () => true);
+  await loader.load('float1');
+  const checkedAt = loader.latest().checkedAt;
+  const refreshing = loader.load('float1');
+  await Promise.resolve();
+  assert.equal(loader.latest().plan, plan);
+  assert.equal(loader.latest().checkedAt, checkedAt);
+  assert.equal(loader.latest().loading, true);
+  assert.equal(loader.latest().error, null);
+  assert.equal(signal.aborted, false);
+  const updated = { ...plan, distance: { ...plan.distance, formatted: '9.6 mi' } };
+  pending.resolve(updated);
+  await refreshing;
+  assert.equal(loader.latest().plan, updated);
+  assert.equal(loader.latest().loading, false);
+  assert.equal(loader.latest().error, null);
   loader.dispose();
 });
 
