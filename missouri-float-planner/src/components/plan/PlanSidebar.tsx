@@ -20,6 +20,7 @@ import CompactAccessCard from './CompactAccessCard';
 import { AlongYourRoute, type RouteItem } from './FloatPlanCard';
 import Breadcrumbs from '@/components/ui/Breadcrumbs';
 import PlanFreshnessNotice from './PlanFreshnessNotice';
+import PlanHazardStatus from './PlanHazardStatus';
 
 
 
@@ -283,6 +284,7 @@ export default function PlanSidebar({
         )}
 
         {/* Along your route */}
+        <PlanHazardStatus unavailable={plan?.hazardsUnavailable} />
         {pointsAlongRoute.length > 0 && (
           <AlongYourRoute items={pointsAlongRoute} />
         )}

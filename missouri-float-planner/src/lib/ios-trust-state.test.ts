@@ -122,3 +122,47 @@ test('nearby suggestions retain selected rivers outside the new six without dupl
   assert.equal(visible.filter((r) => selected.has(r.id)).length, 2);
   assert.equal(new Set(visible.map((r) => r.id)).size, visible.length);
 });
+
+function logisticsPlan(): FloatPlan {
+  const point = { id: 'akers', name: 'Akers', riverMile: 16,
+    coordinates: { lat: 37.3, lng: -91.5 }, isPublic: true, feeRequired: false };
+  return { putIn: point, takeOut: { ...point, id: 'pulltite', name: 'Pulltite' },
+    warnings: [], hazards: [{ id: 'hazard-1', name: 'Low bridge', riverMile: 18 }],
+  } as unknown as FloatPlan;
+}
+
+test('failed hazard refreshes preserve saved cautions and their original timestamp', () => {
+  const plan = logisticsPlan();
+  const saved = savedFloatLogistics(plan, '2026-10-01T08:00:00Z');
+  const partial = { ...plan, hazards: [], hazardsUnavailable: true,
+    putIn: { ...plan.putIn, description: 'Updated access directions' } };
+  const refreshed = savedFloatLogistics(partial, '2026-10-02T08:00:00Z', saved);
+  assert.deepEqual(refreshed.hazards, saved.hazards);
+  assert.notEqual(refreshed.hazards[0], saved.hazards[0]);
+  assert.equal(refreshed.hazardsUnavailable, true);
+  assert.equal(refreshed.hazardsSavedAt, saved.savedAt);
+  assert.equal(refreshed.putIn.description, 'Updated access directions');
+  assert.equal(refreshed.savedAt, '2026-10-02T08:00:00Z');
+  const repeated = savedFloatLogistics(partial, '2026-10-03T08:00:00Z', refreshed);
+  assert.deepEqual(repeated.hazards, saved.hazards);
+  assert.equal(repeated.hazardsSavedAt, saved.savedAt);
+
+  const legacy = { ...saved, hazardsSavedAt: undefined, hazardsUnavailable: undefined };
+  assert.equal(savedFloatLogistics(partial, '2026-10-03T08:00:00Z', legacy).hazardsSavedAt, saved.savedAt);
+  const recovered = savedFloatLogistics({ ...plan, hazards: [] }, '2026-10-04T08:00:00Z', repeated);
+  assert.deepEqual(recovered.hazards, [], 'a successful empty lookup replaces the old inventory');
+  assert.equal(recovered.hazardsUnavailable, false);
+  assert.equal(recovered.hazardsSavedAt, '2026-10-04T08:00:00Z');
+});
+
+test('a first save records unavailable hazards without borrowing cautions from another stretch', () => {
+  const plan = logisticsPlan();
+  const partial = { ...plan, hazards: [], hazardsUnavailable: true };
+  const first = savedFloatLogistics(partial, '2026-10-02T08:00:00Z');
+  assert.deepEqual(first.hazards, []);
+  assert.equal(first.hazardsUnavailable, true);
+  assert.equal(first.hazardsSavedAt, undefined);
+  assert.equal(first.putIn.id, plan.putIn.id);
+  const otherRoute = savedFloatLogistics({ ...plan, takeOut: { ...plan.takeOut, id: 'round-spring' } });
+  assert.deepEqual(savedFloatLogistics(partial, '2026-10-02T08:00:00Z', otherRoute), first);
+});

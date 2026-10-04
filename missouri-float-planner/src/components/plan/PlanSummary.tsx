@@ -11,6 +11,7 @@ import type { FloatPlan, ConditionCode } from '@/types/api';
 import { useVesselTypes } from '@/hooks/useVesselTypes';
 import { useFloatPlan } from '@/hooks/useFloatPlan';
 import { getEddyImageForCondition } from '@/constants';
+import PlanHazardStatus from './PlanHazardStatus';
 
 // Condition display config — matches GaugeOverview labels and colors
 const CONDITION_CONFIG: Record<ConditionCode, {
@@ -435,6 +436,9 @@ export default function PlanSummary({
         </div>
 
         {/* Hazards below main row */}
+        {displayPlan.hazardsUnavailable && (
+          <div className="mt-4"><PlanHazardStatus unavailable /></div>
+        )}
         {displayPlan.hazards.length > 0 && (
           <div className="mt-4">
             <div className="rounded-xl border-2 border-amber-500 bg-amber-50 p-3 shadow-[3px_3px_0_#E5A000]">

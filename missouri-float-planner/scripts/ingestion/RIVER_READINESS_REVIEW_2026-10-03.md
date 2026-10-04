@@ -20,8 +20,10 @@ workstream. Nothing in this review approves a new river or a threshold transfer.
   prose do not automatically create route-specific hazard records.
 - Those five reads previously discarded database errors. Agent tools now return
   an unavailable error. The planner keeps the plan usable with an internal
-  `hazardsUnavailable` flag, excludes partial results from its saved-plan cache,
-  and adds no hazard notes or warnings.
+  `hazardsUnavailable` flag and excludes partial results from its saved-plan cache.
+  Web and iOS show a short lookup-failed line in the hazards section only when
+  unavailable, outside `warnings`; successful empty results add no note. iOS
+  retains previously saved hazards and their recorded date during failed refreshes.
 - Buffalo is included in the homepage guide band. A missing guide links to the
   river report instead of the generic blog index.
 - Every existing JSON dossier has an explicit retrospective readiness checklist.
@@ -199,10 +201,12 @@ rollback, thrown validator errors, missing evidence, unknown slugs, missing
 measurement units, provenance, source-specific reading stores, duplicate ladders,
 and anonymous-role denial. Freshness uses a fixed two-hour limit for all providers,
 checking both latest and historical reading stores; it does not model provider-specific
-reporting intervals. The full test run passed 3,022 tests under Node 20.
+reporting intervals. The full test run passed 3,024 tests under Node 20, including
+iOS hazard retention, first-save, recovery and route-isolation regression tests.
 `make check-web` passed TypeScript and ESLint but hit this environment's Unix-socket
 restriction in the `tsx` CLI; the token lint, pretest and full tests passed using
-Node's `--import tsx` entry point. `make bundle-mobile` passed the production iOS
+Node's `--import tsx` entry point. `make check-mobile` passed typechecking and lint;
+`make bundle-mobile` passed the production iOS
 export and EAS archive allowlist check. No production data writes or river activation
 were performed. After the migration is approved/applied, record the actual
 production version, regenerate database types, and run `make check-db` plus
