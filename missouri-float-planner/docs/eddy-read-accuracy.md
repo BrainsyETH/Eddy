@@ -29,3 +29,14 @@ requirements, or disable section generation. After deployment, inspect newly
 generated samples, especially the Current at Van Buren. The October 5 incident
 (2.57 ft, 756 cfs; optimal 1190–2700 cfs) must be Good and below optimal, without
 current Montauk/Akers claims. Review both the full Read and its compact versions.
+
+Unknown ratings and unresolved section gauges return their fallback before any
+model request; their usage is null. Database thresholds are normalized to numbers
+in both loading paths, including secondary and primary-gauge thresholds.
+
+Reading checks compare only explicit present gauge readings with the current
+snapshot. Historical peaks and flood stages are not assumed to be current.
+Condition predicates require a river, gauge, flow or water-level subject (or an
+explicit rating label). Weather predicates such as “chance of rain is low” do
+not change the river rating. A sentence may cite both feet and cfs; only a direct
+comparison in the wrong dimension or an incorrectly quoted band is rejected.

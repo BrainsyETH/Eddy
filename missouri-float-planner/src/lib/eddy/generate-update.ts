@@ -18,7 +18,7 @@ import { getRiverContext, DEFAULT_TIMEZONE, type RiverContext } from '@/lib/rive
 import { getLocalDateStrings } from '@/lib/social/local-time';
 import { parseEddyResponse, stripEddyMarkers } from '@/lib/eddy/parse-response';
 import { RIVER_TYPE_GUIDANCE, buildConditionSemantics } from '@/lib/eddy/condition-semantics';
-import { buildReportFacts, reportFactsPrompt, guardReport, type ReportFacts } from './report-facts';
+import { buildReportFacts, reportFactsPrompt, guardReport, preflightReportFallback, type ReportFacts } from './report-facts';
 import type { ResolvedModel } from '@/lib/ai/resolve-models';
 
 
@@ -210,6 +210,19 @@ export async function generateEddyUpdate(
 
   // No station means there is no geographical or measurement basis for a Read.
   if (!facts) return null;
+
+  const fallback = preflightReportFallback(facts);
+  if (fallback) return {
+    riverSlug: target.riverSlug,
+    sectionSlug: target.sectionSlug,
+    conditionCode: facts.conditionCode,
+    gaugeHeightFt: facts.gaugeHeightFt,
+    dischargeCfs: facts.dischargeCfs,
+    ...fallback,
+    sourcesUsed,
+    weather: buildWeatherSummary(weather, forecast),
+    usage: null,
+  };
 
   // --- 7. Build the prompt ---
   const prompt = buildPrompt(target, gaugeContext, weather, forecast, alerts, localKnowledge, trajectory, precipitation, rainLag, riverCtx);

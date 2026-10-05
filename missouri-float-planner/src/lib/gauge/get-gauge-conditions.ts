@@ -187,12 +187,12 @@ export async function getGaugeConditions(
 
   // Compute condition
   const thresholds: ConditionThresholds = {
-    levelTooLow: gaugeLink.level_too_low,
-    levelLow: gaugeLink.level_low,
-    levelOptimalMin: gaugeLink.level_optimal_min,
-    levelOptimalMax: gaugeLink.level_optimal_max,
-    levelHigh: gaugeLink.level_high,
-    levelDangerous: gaugeLink.level_dangerous,
+    levelTooLow: toNum(gaugeLink.level_too_low),
+    levelLow: toNum(gaugeLink.level_low),
+    levelOptimalMin: toNum(gaugeLink.level_optimal_min),
+    levelOptimalMax: toNum(gaugeLink.level_optimal_max),
+    levelHigh: toNum(gaugeLink.level_high),
+    levelDangerous: toNum(gaugeLink.level_dangerous),
     floodStageFt: toNum(gaugeLink.flood_stage_ft),
     thresholdUnit: (gaugeLink.threshold_unit ?? undefined) as 'ft' | 'cfs' | undefined,
   };
@@ -201,8 +201,8 @@ export async function getGaugeConditions(
 
   // Build optimal range string
   const unit = gaugeLink.threshold_unit === 'cfs' ? 'cfs' : 'ft';
-  const optMin = gaugeLink.level_optimal_min;
-  const optMax = gaugeLink.level_optimal_max;
+  const optMin = thresholds.levelOptimalMin;
+  const optMax = thresholds.levelOptimalMax;
   const optimalRange = (optMin != null && optMax != null)
     ? `${optMin}-${optMax} ${unit}`
     : 'unknown';
@@ -222,7 +222,7 @@ export async function getGaugeConditions(
     conditionLabel: condition.label,
     readingTimestamp,
     optimalRange,
-    closureLevel: gaugeLink.level_dangerous ?? null,
+    closureLevel: thresholds.levelDangerous ?? null,
     thresholds,
     // Only the "suspect" qualifiers (estimated/ice/equipment) get a note —
     // 'P' (provisional) is normal for all USGS real-time data.

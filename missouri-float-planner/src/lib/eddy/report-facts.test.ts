@@ -1,6 +1,7 @@
+import { toNum } from '../utils/num';
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { buildReportFacts, reportFactsPrompt, reportContradictions, guardReport, factualReportFallback } from './report-facts';
+import { buildReportFacts, reportFactsPrompt, reportContradictions, guardReport, factualReportFallback, preflightReportFallback } from './report-facts';
 import type { ParsedEddyResponse } from './parse-response';
 
 const input = {
@@ -81,4 +82,52 @@ test('missing rating uses a factual unavailable fallback, not confident floatabi
 test('compact rating claims are checked without confusing ordinary flowing water with a rating', () => {
   assert.ok(reportContradictions(report('Flowing at 2.6 ft.'), facts).includes('condition'));
   assert.deepEqual(reportContradictions(report('Water is flowing through the channel.'), facts), []);
+});
+
+test('unrelated weather subjects and historical readings survive in every saved field', () => {
+  for (const text of [
+    'The chance of rain is low today.',
+    'Water temperature is high.',
+    'The 10-day peak was a reading of 4.8 ft.',
+    'The gauge read 4.8 ft yesterday.',
+    'The flood stage is a height of 20 ft.',
+    'The gauge reads 2.6 ft and 756 cfs, below the optimal band of 1,190 to 2,700 cfs.',
+  ]) {
+    for (const field of ['summaryText', 'eddyRead', 'quoteText'] as const) {
+      const valid = { ...report('Good conditions at Van Buren.'), [field]: text };
+      assert.deepEqual(reportContradictions(valid, facts), [], text);
+      assert.deepEqual(guardReport(valid, facts), valid);
+    }
+  }
+});
+
+test('explicit current readings and directly incompatible comparisons still fail', () => {
+  for (const text of [
+    'The current reading is 4.8 ft.',
+    'Current discharge of 900 cfs.',
+    'The water level is High today.',
+    'The flow is Low.',
+    '2.6 ft is below the optimal band of 1190 to 2700 cfs.',
+    'The optimal band is 1190 ft to 2700 cfs.',
+  ]) assert.ok(reportContradictions(report(text), facts).length, text);
+  const feet = buildReportFacts({ ...input, thresholds: { ...input.thresholds, thresholdUnit: 'ft', levelOptimalMin: 3, levelOptimalMax: 4 } });
+  assert.ok(reportContradictions(report('756 cfs is below the optimal band of 3 to 4 ft.'), feet).includes('mixed-unit-comparison'));
+});
+
+
+test('numeric database thresholds preserve numeric ordering and range validation', () => {
+  const numeric = buildReportFacts({ ...input, dischargeCfs: 900, thresholds: {
+    ...input.thresholds, levelOptimalMin: toNum('800'), levelOptimalMax: toNum('1500'),
+  } });
+  assert.equal(numeric.relation, 'within');
+  assert.deepEqual(reportContradictions(report('900 cfs is within the optimal band of 800 to 1500 cfs.'), numeric), []);
+});
+
+test('preflight supplies guaranteed fallbacks and permits supported assessments', () => {
+  for (const unavailable of [
+    buildReportFacts({ ...input, dischargeCfs: null }),
+    buildReportFacts({ ...input, requestedSection: 'Upper Current' }),
+  ]) assert.deepEqual(preflightReportFallback(unavailable), factualReportFallback(unavailable));
+  assert.equal(preflightReportFallback(facts), null);
+  assert.equal(preflightReportFallback(buildReportFacts({ ...input, requestedSection: 'Reach', supportedSection: 'Reach' })), null);
 });

@@ -23,7 +23,7 @@ import { toNum } from '@/lib/utils/num';
 import { getCoordinates } from '@/lib/api-utils';
 import { fetchForecast, getWeatherPointForRiver, type ForecastData } from '@/lib/weather/openweather';
 import type { RiverContext } from '@/lib/rivers/context';
-import { buildReportFacts, reportFactsPrompt, guardReport, type ReportFacts } from './report-facts';
+import { buildReportFacts, reportFactsPrompt, guardReport, preflightReportFallback, type ReportFacts } from './report-facts';
 import type { ResolvedModel } from '@/lib/ai/resolve-models';
 
 // The model is resolved once per pass from llm_config and threaded in, so a
@@ -178,12 +178,12 @@ export async function getSecondaryGaugeTargets(): Promise<SecondaryGaugeTarget[]
     if (!river || !station?.usgs_site_id) continue;
 
     const thresholds: ConditionThresholds = {
-      levelTooLow: row.level_too_low,
-      levelLow: row.level_low,
-      levelOptimalMin: row.level_optimal_min,
-      levelOptimalMax: row.level_optimal_max,
-      levelHigh: row.level_high,
-      levelDangerous: row.level_dangerous,
+      levelTooLow: toNum(row.level_too_low),
+      levelLow: toNum(row.level_low),
+      levelOptimalMin: toNum(row.level_optimal_min),
+      levelOptimalMax: toNum(row.level_optimal_max),
+      levelHigh: toNum(row.level_high),
+      levelDangerous: toNum(row.level_dangerous),
       thresholdUnit: row.threshold_unit ?? 'ft',
       floodStageFt: toNum(row.flood_stage_ft),
     };
@@ -194,12 +194,12 @@ export async function getSecondaryGaugeTargets(): Promise<SecondaryGaugeTarget[]
     if (primaryEntry) {
       const primaryStation = Array.isArray(primaryEntry.row.gauge_stations) ? primaryEntry.row.gauge_stations[0] : primaryEntry.row.gauge_stations;
       const primaryThresholds: ConditionThresholds = {
-        levelTooLow: primaryEntry.row.level_too_low,
-        levelLow: primaryEntry.row.level_low,
-        levelOptimalMin: primaryEntry.row.level_optimal_min,
-        levelOptimalMax: primaryEntry.row.level_optimal_max,
-        levelHigh: primaryEntry.row.level_high,
-        levelDangerous: primaryEntry.row.level_dangerous,
+        levelTooLow: toNum(primaryEntry.row.level_too_low),
+        levelLow: toNum(primaryEntry.row.level_low),
+        levelOptimalMin: toNum(primaryEntry.row.level_optimal_min),
+        levelOptimalMax: toNum(primaryEntry.row.level_optimal_max),
+        levelHigh: toNum(primaryEntry.row.level_high),
+        levelDangerous: toNum(primaryEntry.row.level_dangerous),
         thresholdUnit: primaryEntry.row.threshold_unit ?? 'ft',
         floodStageFt: toNum(primaryEntry.row.flood_stage_ft),
       };
@@ -282,6 +282,19 @@ export async function generateGaugeUpdate(
   // 2. Compute condition.
   const facts = buildReportFacts({ gaugeName: target.gaugeName, gaugeHeightFt, dischargeCfs, thresholds: target.thresholds });
   const conditionCode = facts.conditionCode;
+
+  const fallback = preflightReportFallback(facts);
+  if (fallback) return {
+    gaugeStationId: target.gaugeStationId,
+    usgsSiteId: target.usgsSiteId,
+    riverSlug: target.riverSlug,
+    conditionCode,
+    gaugeHeightFt,
+    dischargeCfs,
+    ...fallback,
+    sourcesUsed,
+    usage: null,
+  };
 
   // 3. Trajectory (10d + percentile).
   let trajectory: GaugeTrajectory | null = null;

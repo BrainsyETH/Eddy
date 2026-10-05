@@ -47,6 +47,11 @@ export function reportFactsPrompt(f: ReportFacts): string {
   ].join('\n');
 }
 
+export function preflightReportFallback(f: ReportFacts): ParsedEddyResponse | null {
+  return f.conditionCode === 'unknown' || (f.requestedSection && !f.supportedSection)
+    ? factualReportFallback(f) : null;
+}
+
 /** Narrow contradiction guard, not a general natural-language fact checker.
  * Checks explicit rating and band assertions in ALL saved prose fields. A
  * rejected response is replaced as a whole so its short version cannot leak.
@@ -59,15 +64,18 @@ export function reportContradictions(report: ParsedEddyResponse, f: ReportFacts)
   if (f.requestedSection && !f.supportedSection) errors.add('unsupported-section');
   for (const text of [report.summaryText, report.eddyRead, report.quoteText]) {
     if (!text) continue;
-    for (const match of text.matchAll(/\b(reads?|reading(?:\s+of)?|discharge(?:\s+of)?|height(?:\s+of)?)\s*(?:is|at|:)?\s*([\d,.]+)\s*(ft|feet|cfs)\b/gi)) {
-      const unit = match[3].toLowerCase() === 'feet' ? 'ft' : match[3].toLowerCase();
+    // Only compare explicit present readings with today's snapshot. Historical
+    // peaks and flood-stage references may legitimately contain other values.
+    const currentReading = /\b(?:the\s+)?(?:gauge\s+(?:currently\s+)?reads|(?:current|latest)\s+(?:reading|discharge|height|gauge height|flow)(?:\s+of)?|(?:discharge|gauge height)\s+is(?:\s+currently)?)\s*(?:is|at|:)?\s*([\d,.]+)\s*(ft|feet|cfs)\b/gi;
+    for (const match of text.matchAll(currentReading)) {
+      const unit = match[2].toLowerCase() === 'feet' ? 'ft' : match[2].toLowerCase();
       const expected = unit === 'cfs' ? f.dischargeCfs : f.gaugeHeightFt;
-      const quoted = Number(match[2].replaceAll(',', ''));
-      // The prompt historically rounds stage to tenths. Accept either the
-      // raw reading or that display rounding, not arbitrary near values.
+      const quoted = Number(match[1].replaceAll(',', ''));
       const allowed = expected == null ? [] : [expected, unit === 'ft' ? Number(expected.toFixed(1)) : Math.round(expected)];
-      if (!allowed.includes(quoted) || (/discharge/i.test(match[1]) && unit !== 'cfs') || (/height/i.test(match[1]) && unit !== 'ft')) errors.add('reading-units');
+      if (!allowed.includes(quoted) || (/discharge/i.test(match[0]) && unit !== 'cfs') || (/height/i.test(match[0]) && unit !== 'ft')) errors.add('reading-units');
     }
+    // Measurement names have fixed dimensions even in historical references.
+    if (/\bdischarge\s*(?:of|is|at|:)?\s*[\d,.]+\s*(?:ft|feet)\b|\bheight\s*(?:of|is|at|:)?\s*[\d,.]+\s*cfs\b/i.test(text)) errors.add('reading-units');
     const labels = /\b(too low|low|good|flowing|high|flood|dangerous|unknown)\s+(?:condition(?:s)?|band|range|zone)\b/gi;
     for (const match of text.matchAll(labels)) {
       const label = match[1].toLowerCase().replace('too low', 'too_low');
@@ -75,7 +83,7 @@ export function reportContradictions(report: ParsedEddyResponse, f: ReportFacts)
       if (code !== f.conditionCode) errors.add('condition');
     }
     // Also catch the common sentence "The river is Flowing/Good/High".
-    for (const match of text.matchAll(/(?:^|\b(?:is|running|rated|rating[: ]|condition[: ]))\s*(?:currently\s+|solidly\s+)?(too low|low|good|flowing|high|flood|dangerous|unknown)(?=[.,;!?]|$|\s+(?:at|today|conditions?|band)\b)/gi)) {
+    for (const match of text.matchAll(/(?:^|\b(?:river|gauge|water level|flow)\s+(?:is|is running|is rated)|\b(?:rating|condition)\s*:)\s*(?:currently\s+|solidly\s+)?(too low|low|good|flowing|high|flood|dangerous|unknown)(?=[.,;!?]|$|\s+(?:at|today|conditions?|band)\b)/gi)) {
       const label = match[1].toLowerCase().replace('too low', 'too_low');
       if ((label === 'flood' ? 'dangerous' : label) !== f.conditionCode) errors.add('condition');
     }
@@ -85,13 +93,15 @@ export function reportContradictions(report: ParsedEddyResponse, f: ReportFacts)
     }
     // Threshold units are not a model decision. Catch a quoted optimal range
     // with the wrong units or endpoints, including the prior 1.19–2.70 ft error.
-    for (const match of text.matchAll(/optimal\s+(?:range|band)(?:\s+of|\s+is|:)?\s*([\d,.]+)\s*(?:ft|feet|cfs)?\s*(?:to|[-–])\s*([\d,.]+)\s*(ft|feet|cfs)\b/gi)) {
-      const unit = match[3].toLowerCase() === 'feet' ? 'ft' : match[3].toLowerCase();
-      if (unit !== f.unit || Number(match[1].replaceAll(',', '')) !== f.min || Number(match[2].replaceAll(',', '')) !== f.max) errors.add('range-units');
+    for (const match of text.matchAll(/optimal\s+(?:range|band)(?:\s+of|\s+is|:)?\s*([\d,.]+)\s*(ft|feet|cfs)?\s*(?:to|[-–])\s*([\d,.]+)\s*(ft|feet|cfs)\b/gi)) {
+      const unit = match[4].toLowerCase() === 'feet' ? 'ft' : match[4].toLowerCase();
+      const firstUnit = match[2]?.toLowerCase().replace('feet', 'ft');
+      if (unit !== f.unit || (firstUnit && firstUnit !== f.unit) || Number(match[1].replaceAll(',', '')) !== f.min || Number(match[3].replaceAll(',', '')) !== f.max) errors.add('range-units');
     }
-    // A mixed-unit statement such as "2.6 ft ... within the optimal range ... cfs".
-    for (const sentence of text.split(/(?<=[.!?])\s+/)) {
-      if (/\b(?:within|inside|in|below|above|outside)\s+(?:the\s+)?optimal\s+(?:range|band)\b/i.test(sentence) && /\d\s*(?:ft|feet)\b/i.test(sentence) && /\d\s*cfs\b/i.test(sentence)) errors.add('mixed-unit-comparison');
+    // Bind a comparison to the immediately preceding measurement. Merely
+    // mentioning stage and discharge in one sentence is valid.
+    for (const match of text.matchAll(/[\d,.]+\s*(ft|feet|cfs)\s*(?:,\s*|\s+)(?:which\s+is\s+|is\s+)?(?:well\s+)?(?:within|inside|in|below|above|outside)\s+(?:the\s+)?optimal\s+(?:range|band)\b/gi)) {
+      if (match[1].toLowerCase().replace('feet', 'ft') !== f.unit) errors.add('mixed-unit-comparison');
     }
   }
   return [...errors];
