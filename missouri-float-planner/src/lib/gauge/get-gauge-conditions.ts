@@ -19,6 +19,7 @@ export interface GaugeConditionResult {
   gaugeHeightFt: number | null;
   dischargeCfs: number | null;
   thresholdUnit: 'ft' | 'cfs';
+  sectionGaugeMatched: boolean;
   conditionCode: ConditionCode;
   conditionLabel: string;
   readingTimestamp: string | null;
@@ -31,7 +32,7 @@ export interface GaugeConditionResult {
 
 const GAUGE_LINK_SELECT = `
   level_too_low, level_low, level_optimal_min, level_optimal_max,
-  level_high, level_dangerous, threshold_unit,
+  level_high, level_dangerous, threshold_unit, flood_stage_ft,
   gauge_stations (id, name, usgs_site_id)
 `;
 
@@ -44,6 +45,7 @@ interface GaugeLinkRow {
   level_high: number | null;
   level_dangerous: number | null;
   threshold_unit: string | null;
+  flood_stage_ft: number | null;
   gauge_stations:
     | { id: string; name: string | null; usgs_site_id: string | null }
     | Array<{ id: string; name: string | null; usgs_site_id: string | null }>
@@ -191,6 +193,7 @@ export async function getGaugeConditions(
     levelOptimalMax: gaugeLink.level_optimal_max,
     levelHigh: gaugeLink.level_high,
     levelDangerous: gaugeLink.level_dangerous,
+    floodStageFt: toNum(gaugeLink.flood_stage_ft),
     thresholdUnit: (gaugeLink.threshold_unit ?? undefined) as 'ft' | 'cfs' | undefined,
   };
 
@@ -214,6 +217,7 @@ export async function getGaugeConditions(
     gaugeHeightFt,
     dischargeCfs,
     thresholdUnit: unit,
+    sectionGaugeMatched: sectionStationId != null && sectionStationId === station.id,
     conditionCode: condition.code as ConditionCode,
     conditionLabel: condition.label,
     readingTimestamp,

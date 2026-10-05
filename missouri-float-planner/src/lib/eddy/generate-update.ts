@@ -18,11 +18,13 @@ import { getRiverContext, DEFAULT_TIMEZONE, type RiverContext } from '@/lib/rive
 import { getLocalDateStrings } from '@/lib/social/local-time';
 import { parseEddyResponse, stripEddyMarkers } from '@/lib/eddy/parse-response';
 import { RIVER_TYPE_GUIDANCE, buildConditionSemantics } from '@/lib/eddy/condition-semantics';
+import { buildReportFacts, reportFactsPrompt, guardReport, type ReportFacts } from './report-facts';
 import type { ResolvedModel } from '@/lib/ai/resolve-models';
 
 
 export interface GaugeContext {
   gaugeName: string;
+  facts: ReportFacts;
   gaugeHeightFt: number | null;
   dischargeCfs: number | null;
   conditionCode: ConditionCode;
@@ -128,12 +130,21 @@ export async function generateEddyUpdate(
   // otherwise. Without the section, a tailwater update is built from the gauge
   // above its dam.
   const gaugeResult = await getGaugeConditions(target.riverSlug, target.sectionSlug);
-  const gaugeContext: GaugeContext | null = gaugeResult ? {
+  const facts = gaugeResult ? buildReportFacts({
     gaugeName: gaugeResult.gaugeName,
     gaugeHeightFt: gaugeResult.gaugeHeightFt,
     dischargeCfs: gaugeResult.dischargeCfs,
-    conditionCode: gaugeResult.conditionCode,
-    conditionLabel: gaugeResult.conditionLabel,
+    thresholds: gaugeResult.thresholds,
+    requestedSection: target.sectionName,
+    supportedSection: gaugeResult.sectionGaugeMatched ? target.sectionName : null,
+  }) : null;
+  const gaugeContext: GaugeContext | null = gaugeResult && facts ? {
+    facts,
+    gaugeName: gaugeResult.gaugeName,
+    gaugeHeightFt: gaugeResult.gaugeHeightFt,
+    dischargeCfs: gaugeResult.dischargeCfs,
+    conditionCode: facts.conditionCode,
+    conditionLabel: facts.conditionLabel,
     readingTimestamp: gaugeResult.readingTimestamp,
     optimalRange: gaugeResult.optimalRange,
     closureLevel: gaugeResult.closureLevel,
@@ -197,6 +208,9 @@ export async function generateEddyUpdate(
         }
       : RAIN_LAG[target.riverSlug] ?? null;
 
+  // No station means there is no geographical or measurement basis for a Read.
+  if (!facts) return null;
+
   // --- 7. Build the prompt ---
   const prompt = buildPrompt(target, gaugeContext, weather, forecast, alerts, localKnowledge, trajectory, precipitation, rainLag, riverCtx);
 
@@ -236,7 +250,8 @@ export async function generateEddyUpdate(
     }
 
     // Parse summary and full text from the model output
-    const { summaryText, eddyRead, quoteText } = parseEddyResponse(rawText);
+    const parsed = parseEddyResponse(rawText);
+    const { summaryText, eddyRead, quoteText } = guardReport(parsed, facts);
 
     return {
       riverSlug: target.riverSlug,
@@ -292,19 +307,19 @@ One or two concise sentences, under 240 characters total. Synthesize the river's
 [FULL]
 4-6 sentences with details, trends, and context. Do not exceed 6 sentences. Pick the 2-3 most important points, not everything.
 
-Example response:
+Example response (illustrative wording only; use the actual facts supplied):
 
 [SUMMARY]
-Flowing at 2.5 ft with a steady gauge, making today a strong float window.
+Good conditions at the reporting gauge, with little measured change over the past day.
 
 [EDDY_READ]
 Spring inputs make this reach more predictable than most after a dry stretch, and the steady trend supports a straightforward float today.
 
 [FULL]
-The Akers gauge reads 2.5 ft, in the optimal range of 2.0 to 3.0 ft. It has held steady over the past 24 hours, which makes today's conditions more predictable. If the dry forecast holds, the river has no obvious weather-driven change signal through Friday, but exact future readings are uncertain. Recheck the gauge before launch.
+The reporting gauge is in Good condition, below its optimal band. It has held steady over the past 24 hours. If the dry forecast holds, the river has no obvious weather-driven change signal through Friday, but exact future readings are uncertain. Recheck the gauge before launch.
 
 CONDITION ASSESSMENT:
-- Match your language to the condition code provided. If the code is "high", say it IS high water, not "approaching high." If "dangerous", say "stay off the water" with zero hedging.
+- The AUTHORITATIVE GAUGE FACTS take precedence over examples and local knowledge. Good and Flowing are distinct ratings. Never change the computed condition or optimal-band comparison. Match your language to the condition code provided. If the code is "high", say it IS high water, not "approaching high." If "dangerous", say "stay off the water" with zero hedging.
 - State the condition clearly in the first sentence of both the summary and the full text.
 - If there are active NWS flood alerts, lead with safety first.
 - Cite the actual gauge reading and what it means for floating.
@@ -355,8 +370,8 @@ TRAJECTORY:
 - When percentile context is available, use it to note whether conditions are typical or unusual for the time of year.
 
 SECTION-SPECIFIC:
-- When writing about a specific section, describe what the current gauge reading means for that section specifically.
-- Do NOT guess at section behavior you were not given knowledge about.
+- Only make current section-specific claims when AUTHORITATIVE GAUGE FACTS explicitly identifies that section as supported. Otherwise name the fallback gauge and say the requested section is not assessed.
+- Background knowledge about a named place does not establish its current water conditions. Do not infer current scraping or floatability upstream or downstream without supporting readings. Do not compare station heights or treat a snapshot comparison as a trend.
 
 RECOVERY CONTEXT:
 - Do not cite specific drop rates or recovery timelines in your output.
@@ -435,13 +450,7 @@ function buildPrompt(
 
   // Gauge data
   if (gauge) {
-    lines.push(`Gauge: ${gauge.gaugeName}`);
-    lines.push(`Height: ${gauge.gaugeHeightFt !== null ? gauge.gaugeHeightFt.toFixed(1) + ' ft' : 'unavailable'}`);
-    if (gauge.dischargeCfs !== null) {
-      lines.push(`Discharge: ${gauge.dischargeCfs.toLocaleString()} cfs`);
-    }
-    lines.push(`Condition: ${gauge.conditionLabel} (${gauge.conditionCode})`);
-    lines.push(`Optimal range: ${gauge.optimalRange}`);
+    lines.push(reportFactsPrompt(gauge.facts));
     if (gauge.readingTimestamp) {
       const ageHours = (Date.now() - new Date(gauge.readingTimestamp).getTime()) / (1000 * 60 * 60);
       if (ageHours > 6) {
@@ -458,20 +467,6 @@ function buildPrompt(
   } else if (riverNotes) {
     lines.push(`Gauge notes: ${riverNotes}`);
   }
-  if (gauge?.closureLevel != null) {
-    lines.push(`Closure level: ${gauge.closureLevel} ft`);
-    if (gauge.gaugeHeightFt != null) {
-      const margin = gauge.closureLevel - gauge.gaugeHeightFt;
-      if (margin > 0) {
-        lines.push(`Margin to closure: ${margin.toFixed(1)} ft below closure`);
-      } else if (margin === 0) {
-        lines.push(`Margin to closure: AT closure level`);
-      } else {
-        lines.push(`Margin to closure: ${Math.abs(margin).toFixed(1)} ft ABOVE closure`);
-      }
-    }
-  }
-
   // 5-day gauge trajectory
   if (trajectory) {
     lines.push('');
