@@ -1,0 +1,56 @@
+{
+  "id": "fall-camping-2026",
+  "title": "Your fall weekend by the river",
+  "format": { "width": 1080, "height": 1920, "fps": 30 },
+  "voice": {
+    "model": "gpt-4o-mini-tts-2025-12-15",
+    "voice": "marin",
+    "response_format": "wav",
+    "speed": 1,
+    "instructions": "Read the supplied script verbatim, like a friendly outdoor creator telling a friend about a useful camping app. Warm, casual, lightly enthusiastic, confident and unhurried. Aim for 145 to 155 words per minute. Let the opening question breathe. The reservation sentence is a helpful heads-up, not a warning. Give gentle emphasis to campsites, your dates, and same app. Use natural contractions as written, brief breaths between ideas, and a relaxed final sentence. Eddy sounds like Eddie; Current is the river name; Jacks Fork is two words; Recreation.gov is recreation dot gov. No announcer voice, exaggerated accent, whispering, fake testimonial, additional words, or rushed ending. No music or sound effects."
+  },
+  "scenes": [
+    {
+      "id": "opening",
+      "text": "Thinking about a fall camping weekend on the Current or Jacks Fork?",
+      "visual": "Authentic Current or Jacks Fork river/campsite footage; lead with the water and autumn atmosphere.",
+      "asset": "river-opening.mov"
+    },
+    {
+      "id": "reservations",
+      "text": "Here’s something to know: developed campgrounds in Ozark National Scenic Riverways now require reservations.",
+      "visual": "Continue river/campground footage. Caption the full claim; small context label: Ozark National Scenic Riverways • Developed campgrounds.",
+      "asset": "campsite.mov"
+    },
+    {
+      "id": "browse",
+      "text": "Eddy helps you put the weekend together. You can browse campgrounds by river, check photos, and see which campsites have openings for your dates.",
+      "visual": "Real iPhone capture: camping grouped by river, open campground, browse photos, show individual site availability. Cut across these actions within this passage.",
+      "asset": "camping-browse.mov"
+    },
+    {
+      "id": "calendar",
+      "text": "There’s a calendar view, too, so if your weekend’s flexible, you can look ahead.",
+      "visual": "Slow horizontal scroll through the availability calendar. Keep dates and availability legend legible.",
+      "asset": "camping-calendar.mov"
+    },
+    {
+      "id": "conditions",
+      "text": "And you can check river levels and the weather in the same app, so you’ve got a better idea of what to expect before you leave.",
+      "visual": "Show the relevant river's gauge/condition and reading timestamp, then the weather. Do not imply a gauge certifies campsite safety.",
+      "asset": "river-weather.mov"
+    },
+    {
+      "id": "booking",
+      "text": "Once you find your spot, Eddy takes you to Recreation.gov to book.",
+      "visual": "Tap Book campsite for the same supported NPS campground; hold on the matching Recreation.gov destination before checkout.",
+      "asset": "booking-handoff.mov"
+    },
+    {
+      "id": "closing",
+      "text": "Pick your weekend. Find your campsite. Get outside with Eddy.",
+      "visual": "Return to authentic river/camp footage, then Eddy mascot and an iOS download end card with eddy.guide/app.",
+      "asset": "river-closing.mov"
+    }
+  ]
+}
