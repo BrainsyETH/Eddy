@@ -1,0 +1,47 @@
+name: Camping Campaign Voice Preview
+
+on:
+  workflow_dispatch:
+    inputs:
+      generate_voice:
+        description: 'Generate a dry voice audition using OPENAI_API_KEY (no social publication).'
+        type: boolean
+        required: false
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  preview:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '20'
+      - name: Check and print the approved script
+        run: |
+          node --check marketing/campaigns/fall-camping/prepare-voice.mjs
+          node marketing/campaigns/fall-camping/prepare-voice.mjs
+      - name: Install audio tools
+        if: inputs.generate_voice
+        run: sudo apt-get update && sudo apt-get install -y ffmpeg
+      - name: Generate dry narration for listening review
+        if: inputs.generate_voice
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: node marketing/campaigns/fall-camping/prepare-voice.mjs --generate
+      - name: Upload audition
+        if: inputs.generate_voice
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: fall-camping-voice-audition
+          path: |
+            marketing/campaigns/fall-camping/out/*/narration.wav
+            marketing/campaigns/fall-camping/out/*/source.wav
+            marketing/campaigns/fall-camping/out/*/script.txt
+            marketing/campaigns/fall-camping/out/*/review.json
+          if-no-files-found: error
+          retention-days: 14
