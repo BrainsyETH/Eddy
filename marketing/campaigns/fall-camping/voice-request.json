@@ -1,5 +1,5 @@
 {
   "requested": "2026-10-06",
-  "purpose": "Align the approved-script take to actual audio without regenerating speech.",
-  "reuseRun": 37524686340
+  "purpose": "Regenerate the complete closing CTA; the first take omitted link in bio.",
+  "revision": 3
 }

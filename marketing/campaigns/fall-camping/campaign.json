@@ -11,7 +11,7 @@
     "voice": "marin",
     "response_format": "wav",
     "speed": 1,
-    "instructions": "Read the supplied script verbatim in a warm, casual, conversational brand voice. Sound clear and lightly enthusiastic. Deliver the opening directly as a helpful heads-up, not an alarm. Use natural contractions and brief breaths between ideas. Eddy sounds like Eddie; Pulltite sounds like pull tight; Recreation.gov is recreation dot gov. No announcer voice, fake personal testimonial, added words, music or sound effects."
+    "instructions": "Read the supplied script verbatim in a warm, casual, conversational brand voice. Sound clear and lightly enthusiastic. Deliver the opening directly as a helpful heads-up, not an alarm. Use natural contractions and brief breaths between ideas. Eddy sounds like Eddie; Pulltite sounds like pull tight; Recreation.gov is recreation dot gov. No announcer voice, fake personal testimonial, added words, music or sound effects. Read every sentence completely, including the closing instruction to use the link in our bio."
   },
   "scenes": [
     {
@@ -41,7 +41,7 @@
     },
     {
       "id": "closing",
-      "text": "Find your campsite in Eddy. Link in bio.",
+      "text": "Find your campsite in Eddy using the link in our bio.",
       "asset": "river-closing.mov",
       "visual": "Use the supplied riverside camping clip with Eddy and Link in bio. This is camping atmosphere, not an identified Pulltite campsite. Verify the profile link before posting."
     }
