@@ -20,6 +20,7 @@ import { parseEddyResponse, stripEddyMarkers } from '@/lib/eddy/parse-response';
 import { RIVER_TYPE_GUIDANCE, buildConditionSemantics } from '@/lib/eddy/condition-semantics';
 import { buildReportFacts, reportFactsPrompt, prepareGeneratedReport, preflightReportFallback, activeReportFloodAlerts, type ReportFacts } from './report-facts';
 import type { ResolvedModel } from '@/lib/ai/resolve-models';
+import { getOutlookDates } from '@/lib/river-outlook';
 
 
 export interface GaugeContext {
@@ -316,17 +317,17 @@ Example response (illustrative wording only; use the actual facts supplied):
 
 [CLAIMS] condition=good relation=below
 [SUMMARY]
-Good at the Van Buren gauge and a little below its optimal range, with a steady trend.
+At Van Buren, Good and a little below the optimal range, with a steady gauge.
 
 [EDDY_READ]
-Spring inputs make this reach more predictable than most after a dry stretch, and the steady trend supports a straightforward float today.
+Spring inputs keep the base flow steady after a dry stretch, and the gauge has barely moved in the past day.
 
 [FULL]
-The reporting gauge has held steady over the past 24 hours. If the dry forecast holds, the river has no obvious weather-driven change signal through Friday, but exact future readings are uncertain. Recheck the gauge before launch.
+At Van Buren, the gauge has held steady over the past 24 hours. If the dry forecast holds, there is no obvious weather-driven change signal over the next couple of days, but exact future readings are uncertain. Recheck the gauge before launch.
 
 CONDITION ASSESSMENT:
-- The AUTHORITATIVE GAUGE FACTS take precedence over examples and local knowledge. Good and Flowing are distinct ratings. Never change the computed condition or optimal-band comparison. Match your language to the condition code provided. If the code is "high", say it IS high water, not "approaching high." If "dangerous", say "stay off the water" with zero hedging.
-- State the condition clearly in the first sentence of both the summary and the full text, using the computed condition and band comparison exactly.
+- The AUTHORITATIVE GAUGE FACTS take precedence over examples and local knowledge. Good and Flowing are distinct ratings. Never change the computed condition or optimal-range comparison. Match your language to the condition code provided. If the code is "high", say it IS high water, not "approaching high." If "dangerous", say "stay off the water" with zero hedging.
+- State the condition clearly in the first sentence of both the summary and the full text, using the computed condition and optimal-range comparison exactly.
 - If there are active NWS flood alerts, lead with safety first.
 - Cite the actual gauge reading and what it means for floating.
 - For high water: use "use caution" language rather than "experienced paddlers only." High water deserves a clear warning but not a blanket restriction unless conditions are solidly high or approaching dangerous.
@@ -349,7 +350,7 @@ WATER TRENDS:
 - Lead with the water trend: is the river rising, falling, or stable? What does that mean for someone floating today vs this weekend?
 - If rising: apply the RISING WATER GUIDANCE from the [CONDITION SEMANTICS] block of the user message.
 - If falling: explain that conditions are improving. Note how quickly this river typically drops if rain-lag data is provided. Falling water after a flood event means things are getting better.
-- If stable: note that conditions are predictable and reference how long the gauge has held steady.
+- If stable: say how long the gauge has held steady. Do not call conditions predictable or the river reliable; a steady gauge describes the past, not the coming days.
 - Do NOT classify the river as "spring-fed" or "rain-fed" in your output. Use behavioral descriptors instead (e.g., "this river responds quickly to rain" or "spring inputs keep the base flow steady").
 
 ACCURACY:
@@ -364,16 +365,18 @@ FORWARD-LOOKING:
 - Always qualify with forecast dependency: "if the forecast holds dry" or "assuming no additional rain."
 - When rain is in the forecast and rain-to-river lag data is provided, explain what it means for this specific river.
 - When conditions are volatile or uncertain, say so honestly rather than guessing.
+- Every statement about later days must be conditional (if, should, likely). Never state that conditions will stay, remain or be a certain way.
 
 WEATHER:
 - When weather and forecast data are provided, use them to serve the forward-looking narrative, not just describe today.
 - When rain is forecast, connect it to what the river will likely do using lag and recovery data if available.
 - When the forecast is dry and the gauge is elevated, note that as good news for recovery.
 - Temperature and wind matter for float comfort. Mention them when relevant but do not lead with them.
+- Only describe weather for the days listed in [3-DAY FORECAST]. They are the same days the app's Weather section shows, so do not extend a claim past the last listed day.
 
 TRAJECTORY:
 - When a gauge trajectory is provided, describe the trend direction and whether the change is accelerating or slowing.
-- When percentile context is available, use it to note whether conditions are typical or unusual for the time of year.
+- When percentile context is available, use it to note whether conditions are typical or unusual for the time of year, in plain words such as "lower than usual for early October". Never print a percentile number or the word percentile.
 
 SECTION-SPECIFIC:
 - Only make current section-specific claims when AUTHORITATIVE GAUGE FACTS explicitly identifies that section as supported. Otherwise name the fallback gauge and say the requested section is not assessed.
@@ -532,8 +535,12 @@ function buildPrompt(
 
   // 3-day forecast
   if (forecast && forecast.days.length > 0) {
-    // Skip today (index 0) and show next 3 days
-    const upcoming = forecast.days.slice(1, 4);
+    // The same local days the app's Weather section shows (today and the next
+    // two), matched by date rather than sliced, so the Read cannot describe a
+    // day the Weather section beside it does not.
+    const [today, ...rest] = getOutlookDates();
+    const outlookDates = new Set([today, ...rest]);
+    const upcoming = forecast.days.filter((day) => outlookDates.has(day.date));
     if (upcoming.length > 0) {
       lines.push('');
       lines.push('[3-DAY FORECAST]');
@@ -541,7 +548,8 @@ function buildPrompt(
         const rainNote = day.precipitation >= 20
           ? ` (${day.precipitation}% chance of rain)`
           : '';
-        lines.push(`${day.dayOfWeek}: ${day.condition}, ${day.tempLow}-${day.tempHigh}°F, wind ${day.windSpeed} mph${rainNote}`);
+        const label = day.date === today ? `Today (${day.dayOfWeek})` : day.dayOfWeek;
+        lines.push(`${label}: ${day.condition}, ${day.tempLow}-${day.tempHigh}°F, wind ${day.windSpeed} mph${rainNote}`);
       }
     }
   }
