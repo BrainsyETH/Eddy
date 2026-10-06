@@ -9,12 +9,23 @@ import { createHash } from 'node:crypto';
 const root = dirname(fileURLToPath(import.meta.url));
 const config = JSON.parse(await readFile(join(root, 'campaign.json'), 'utf8'));
 const args = process.argv.slice(2);
-if (args.some(arg => arg !== '--generate')) throw new Error('Usage: node prepare-voice.mjs [--generate]');
-const script = config.scenes.map(scene => scene.text).join('\n\n');
+const allowed = ['--generate', '--cut=long', '--cut=short', '--pace=relaxed', '--pace=brisk'];
+if (args.some(arg => !allowed.includes(arg)) ||
+    args.filter(arg => arg.startsWith('--cut=')).length > 1 ||
+    args.filter(arg => arg.startsWith('--pace=')).length > 1) {
+  throw new Error('Usage: node prepare-voice.mjs [--generate] [--cut=long|short] [--pace=relaxed|brisk]');
+}
+const cut = args.find(arg => arg.startsWith('--cut='))?.split('=')[1] || 'long';
+const pace = args.find(arg => arg.startsWith('--pace='))?.split('=')[1] || 'relaxed';
+const preset = config.pacePresets[pace];
+const voice = { ...config.voice, instructions: config.voice.instructions +
+  ` Aim for ${preset.minWpm} to ${preset.maxWpm} words per minute, with clear words and natural pauses. Never accelerate playback to meet a cut length.` };
+const scenes = cut === 'short' ? config.shortScenes : config.scenes;
+const script = scenes.map(scene => scene.text).join('\n\n');
 const words = script.trim().split(/\s+/).length;
 if (!words || script.length > 3500) throw new Error('Campaign must fit one speech request; do not truncate or split the approved script.');
-const hash = createHash('sha256').update(JSON.stringify({ script, voice: config.voice, normalization: 1 })).digest('hex').slice(0, 16);
-console.log(`${words} words; estimated ${(words / 155 * 60).toFixed(0)}–${(words / 145 * 60).toFixed(0)} seconds before edit holds. Timing follows the actual audition.`);
+const hash = createHash('sha256').update(JSON.stringify({ script, voice, cut, pace, normalization: 1 })).digest('hex').slice(0, 16);
+console.log(`${cut}/${pace}: ${words} words; estimated ${(words / preset.maxWpm * 60).toFixed(0)}–${(words / preset.minWpm * 60).toFixed(0)} seconds before edit holds. Timing follows the actual audition.`);
 if (!args.includes('--generate')) {
   console.log(script);
   console.log('\nOffline plan only. To create dry narration: OPENAI_API_KEY must be set, then pass --generate.');
@@ -37,7 +48,7 @@ if (!args.includes('--generate')) {
     const response = await fetch('https://api.openai.com/v1/audio/speech', {
       method: 'POST',
       headers: { Authorization: `Bearer ${process.env.OPENAI_API_KEY}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ...config.voice, input: script }),
+      body: JSON.stringify({ ...voice, input: script }),
       signal: AbortSignal.timeout(120000),
     });
     if (!response.ok) throw new Error(`Speech request failed (HTTP ${response.status}); no completed audition was saved.`);
@@ -53,10 +64,11 @@ if (!args.includes('--generate')) {
     const wpm = words / seconds * 60;
     await writeFile(join(work, 'script.txt'), script + '\n');
     await writeFile(join(work, 'review.json'), JSON.stringify({
-      campaign: config.id, hash, voice: config.voice, words, seconds, wordsPerMinute: wpm,
+      campaign: config.id, hash, cut, pace, voice, words, seconds, wordsPerMinute: wpm,
+      requiresVerifiedBioLink: config.publication.requiresVerifiedBioLink,
       requiresListeningReview: true,
-      paceWarning: wpm > 165 ? 'Potentially rushed: audition and revise instructions; do not speed-match the edit.' :
-        wpm < 130 ? 'Potentially slow: audition and revise instructions if needed.' : null,
+      paceWarning: wpm > preset.reviewAbove ? 'Above audition review range; listen for clarity and screen readability. This is not a rejection.' :
+        wpm < preset.reviewBelow ? 'Below audition review range; listen for energy and natural pauses. This is not a rejection.' : null,
       captionTiming: 'Not generated. Align captions and scene cuts to the approved audio; word-count estimates are not forced alignment.',
       nextStep: 'Review naturalness, pronunciation, word preservation and cadence before editing real app recordings.',
     }, null, 2) + '\n');
