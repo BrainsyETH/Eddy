@@ -15,12 +15,17 @@ if (args.some(arg => !allowed.includes(arg)) ||
     args.filter(arg => arg.startsWith('--pace=')).length > 1) {
   throw new Error('Usage: node prepare-voice.mjs [--generate] [--cut=long|short] [--pace=relaxed|brisk]');
 }
-const cut = args.find(arg => arg.startsWith('--cut='))?.split('=')[1] || 'long';
-const pace = args.find(arg => arg.startsWith('--pace='))?.split('=')[1] || 'relaxed';
+const cut = args.find(arg => arg.startsWith('--cut='))?.split('=')[1] || 'short';
+const pace = args.find(arg => arg.startsWith('--pace='))?.split('=')[1] || 'brisk';
 const preset = config.pacePresets[pace];
-const voice = { ...config.voice, instructions: config.voice.instructions +
+const voice = { ...config.voice, instructions: config.voice.instructions + ` ${preset.instructions}` +
   ` Aim for ${preset.minWpm} to ${preset.maxWpm} words per minute, with clear words and natural pauses. Never accelerate playback to meet a cut length.` };
-const scenes = cut === 'short' ? config.shortScenes : config.scenes;
+// Both legacy cut options select the same highlight; keep scene copy in one place.
+const scenes = cut === 'short' ? config.shortScenes.map(id => {
+  const scene = config.scenes.find(scene => scene.id === id);
+  if (!scene) throw new Error(`Unknown campaign scene: ${id}`);
+  return scene;
+}) : config.scenes;
 const script = scenes.map(scene => scene.text).join('\n\n');
 const words = script.trim().split(/\s+/).length;
 if (!words || script.length > 3500) throw new Error('Campaign must fit one speech request; do not truncate or split the approved script.');

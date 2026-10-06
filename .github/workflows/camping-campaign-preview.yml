@@ -7,12 +7,12 @@ on:
         description: 'Campaign script'
         type: choice
         options: [long, short]
-        default: long
+        default: short
       pace:
         description: 'Delivery audition (normal playback speed)'
         type: choice
         options: [relaxed, brisk]
-        default: relaxed
+        default: brisk
       generate_voice:
         description: 'Generate a dry voice audition using OPENAI_API_KEY (no social publication).'
         type: boolean
