@@ -1,5 +1,8 @@
 # Eddy widget outreach emails
 
+> Creator / influencer outreach (free year of Premium for feedback) lives in
+> [`influencers/`](influencers/README.md).
+
 Rich, paste-ready HTML emails that showcase the eddy.guide embed widgets, split by audience so each send leads with the one widget that fits.
 
 | Send to | File | Leads with |
