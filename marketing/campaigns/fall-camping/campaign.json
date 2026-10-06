@@ -1,24 +1,30 @@
 {
   "id": "fall-camping-2026",
   "title": "Your fall weekend by the river",
-  "format": { "width": 1080, "height": 1920, "fps": 30 },
+  "format": {
+    "width": 1080,
+    "height": 1920,
+    "fps": 30
+  },
   "voice": {
     "model": "gpt-4o-mini-tts-2025-12-15",
     "voice": "marin",
     "response_format": "wav",
     "speed": 1,
-    "instructions": "Read the supplied script verbatim, like a friendly outdoor creator telling a friend about a useful camping app. Warm, casual, lightly enthusiastic, confident and unhurried. Aim for 145 to 155 words per minute. Let the opening question breathe. The reservation sentence is a helpful heads-up, not a warning. Give gentle emphasis to campsites, your dates, and same app. Use natural contractions as written, brief breaths between ideas, and a relaxed final sentence. Eddy sounds like Eddie; Current is the river name; Jacks Fork is two words; Recreation.gov is recreation dot gov. No announcer voice, exaggerated accent, whispering, fake testimonial, additional words, or rushed ending. No music or sound effects."
+    "instructions": "Read the supplied script verbatim, in a friendly conversational brand voice telling a listener about a useful camping app. Warm, casual, lightly enthusiastic, confident and unhurried. Deliver the opening directly, then explain the reservation scope immediately. The reservation sentence is a helpful heads-up, not an alarm. Give gentle emphasis to campsites, your dates, and same app. Use natural contractions as written, brief breaths between ideas, and a relaxed final sentence. Eddy sounds like Eddie; Current is the river name; Jacks Fork is two words; Recreation.gov is recreation dot gov. No announcer voice, exaggerated accent, whispering, fake testimonial, additional words, or rushed ending. No music or sound effects."
   },
   "scenes": [
     {
       "id": "opening",
-      "text": "Thinking about a fall camping weekend on the Current or Jacks Fork?",
-      "visual": "Authentic Current or Jacks Fork river/campsite footage; lead with the water and autumn atmosphere.",
-      "asset": "river-opening.mov"
+      "text": "You can't just show up and camp on the Current anymore.",
+      "visual": "Authentic Current River footage with hook AND readable scope label visible from the first frame, held through the next sentence. The scope label must never be cropped or reduced to fine print.",
+      "asset": "river-opening.mov",
+      "onScreenText": "You can't just show up and camp on the Current anymore.",
+      "scopeLabel": "Ozark National Scenic Riverways • Developed campgrounds"
     },
     {
       "id": "reservations",
-      "text": "Here’s something to know: developed campgrounds in Ozark National Scenic Riverways now require reservations.",
+      "text": "At developed campgrounds in Ozark National Scenic Riverways, you need a reservation.",
       "visual": "Continue river/campground footage. Caption the full claim; small context label: Ozark National Scenic Riverways • Developed campgrounds.",
       "asset": "campsite.mov"
     },
@@ -48,9 +54,56 @@
     },
     {
       "id": "closing",
-      "text": "Pick your weekend. Find your campsite. Get outside with Eddy.",
-      "visual": "Return to authentic river/camp footage, then Eddy mascot and an iOS download end card with eddy.guide/app.",
+      "text": "Find your campsite in Eddy—link in bio.",
+      "visual": "Return to the opening river shot with Eddy and Link in bio. Verify the profile link reaches the app landing page before publication. Loop the scenery without obscuring the completed booking handoff.",
       "asset": "river-closing.mov"
     }
-  ]
+  ],
+  "pacePresets": {
+    "relaxed": {
+      "minWpm": 145,
+      "maxWpm": 155,
+      "reviewBelow": 130,
+      "reviewAbove": 180
+    },
+    "brisk": {
+      "minWpm": 160,
+      "maxWpm": 175,
+      "reviewBelow": 145,
+      "reviewAbove": 190
+    }
+  },
+  "shortScenes": [
+    {
+      "id": "opening",
+      "text": "You can't just show up and camp on the Current anymore.",
+      "visual": "Authentic Current River footage with hook AND readable scope label visible from the first frame, held through the next sentence. The scope label must never be cropped or reduced to fine print.",
+      "asset": "river-opening.mov",
+      "onScreenText": "You can't just show up and camp on the Current anymore.",
+      "scopeLabel": "Ozark National Scenic Riverways • Developed campgrounds"
+    },
+    {
+      "id": "reservations",
+      "text": "At developed campgrounds in Ozark National Scenic Riverways, you need a reservation.",
+      "visual": "Continue river/campground footage. Caption the full claim; small context label: Ozark National Scenic Riverways • Developed campgrounds.",
+      "asset": "campsite.mov"
+    },
+    {
+      "id": "search",
+      "text": "Use Eddy to check Pulltite for your dates and see river levels in the same app. Then head to Recreation.gov to book.",
+      "asset": "pulltite-search-booking.mov",
+      "visual": "Show an actual Pulltite search, a specific site open for the entire stay, and the matching booking handoff. Display dates, site number and checked time from the capture; never invent a count or scarcity. Briefly show the relevant river level and reading timestamp before the booking handoff."
+    },
+    {
+      "id": "closing",
+      "text": "Find your campsite in Eddy—link in bio.",
+      "visual": "Return to the opening river shot with Eddy and Link in bio. Verify the profile link reaches the app landing page before publication. Loop the scenery without obscuring the completed booking handoff.",
+      "asset": "river-closing.mov"
+    }
+  ],
+  "publication": {
+    "requiresVerifiedBioLink": true,
+    "commentPrompt": "Which campground's your fall pick: Pulltite, Alley Spring, or Two Rivers?",
+    "aiVoiceDisclosureRequired": true
+  }
 }
