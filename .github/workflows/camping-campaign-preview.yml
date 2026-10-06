@@ -1,7 +1,7 @@
 name: Camping Campaign Voice Preview
 
 on:
-  # A deliberate request-file change runs the authorized audition on this PR branch.
+  # Only a deliberate request-file change on this campaign branch requests paid audio.
   push:
     branches: [codex/fall-camping-campaign]
     paths: [marketing/campaigns/fall-camping/voice-request.json]
@@ -25,6 +25,7 @@ on:
 
 permissions:
   contents: read
+  actions: read
 
 jobs:
   preview:
@@ -45,20 +46,41 @@ jobs:
       - name: Install audio tools
         if: github.event_name == 'push' || inputs.generate_voice
         run: sudo apt-get update && sudo apt-get install -y ffmpeg
+      - name: Reuse the requested existing take
+        if: github.event_name == 'push'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          node --input-type=module <<'JS'
+          import { readFileSync } from 'node:fs';
+          import { execFileSync } from 'node:child_process';
+          const request = JSON.parse(readFileSync('marketing/campaigns/fall-camping/voice-request.json', 'utf8'));
+          if (request.reuseRun) {
+            if (!Number.isSafeInteger(request.reuseRun) || request.reuseRun <= 0) throw new Error('Invalid source run');
+            execFileSync('gh', ['run', 'download', String(request.reuseRun), '--name', 'fall-camping-short-brisk-voice-audition', '--dir', 'marketing/campaigns/fall-camping/out'], { stdio: 'inherit' });
+          }
+          JS
       - name: Generate dry narration for listening review
         if: github.event_name == 'push' || inputs.generate_voice
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
         run: node marketing/campaigns/fall-camping/prepare-voice.mjs "--cut=$CAMPAIGN_CUT" "--pace=$CAMPAIGN_PACE" --generate
+      - name: Align captions to the generated audio
+        if: github.event_name == 'push' || inputs.generate_voice
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: node marketing/campaigns/fall-camping/align-voice.mjs
       - name: Upload audition
         if: github.event_name == 'push' || inputs.generate_voice
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
-          name: fall-camping-${{ env.CAMPAIGN_CUT }}-${{ env.CAMPAIGN_PACE }}-voice-audition
+          name: fall-camping-${{ inputs.cut || 'short' }}-${{ inputs.pace || 'brisk' }}-voice-audition
           path: |
             marketing/campaigns/fall-camping/out/*/narration.wav
             marketing/campaigns/fall-camping/out/*/source.wav
             marketing/campaigns/fall-camping/out/*/script.txt
             marketing/campaigns/fall-camping/out/*/review.json
+            marketing/campaigns/fall-camping/out/*/alignment.json
           if-no-files-found: error
           retention-days: 14
