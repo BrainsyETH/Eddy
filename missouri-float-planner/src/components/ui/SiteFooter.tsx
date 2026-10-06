@@ -56,6 +56,7 @@ export default function SiteFooter({
             <h3 className="text-white font-semibold mb-2">Connect</h3>
             <ul className="space-y-1.5">
               <li><AppLink data-ga-event="app_landing_click" data-ga-label="footer" className="text-primary-200 hover:text-white transition-colors">Eddy for iPhone</AppLink></li>
+              <li><Link href="/developers" className="text-primary-200 hover:text-white transition-colors">Developers &amp; MCP</Link></li>
               <li><Link href="/embed" className="text-primary-200 hover:text-white transition-colors">Widgets</Link></li>
               {SOCIAL_LINKS.map((s) => {
                 const Icon = SOCIAL_ICONS[s.icon];

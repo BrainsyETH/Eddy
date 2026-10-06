@@ -9,6 +9,7 @@ import {
 } from './model';
 import { readHash, telemetryConfig } from './redis';
 import { estimatedCost, PRICE_VERSION } from './pricing';
+import { mcpLimits } from '@/lib/agent-tools/limits';
 const providers = ['usgs', 'nws', 'openweather', 'mapbox', 'anthropic', 'mcp'];
 function metric(
   key: string,
@@ -31,14 +32,15 @@ function metric(
 }
 export async function usageMetrics(): Promise<Metric[]> {
   const config = telemetryConfig();
+  const limits = mcpLimits();
   const result: Metric[] = [
     metric(
       'mcp_limit',
       'MCP request limiting',
       process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN
         ? 'Global store configured'
-        : 'Per-instance fallback',
-      '120 requests per IP per minute. Configuration is not a live dependency-health check.',
+        : process.env.NODE_ENV === 'production' ? 'Unavailable: global store missing' : 'Development memory limits',
+      `${limits.requestsPerIp} requests/IP/minute; ${limits.heavyPerIp} heavy calls/IP/minute and ${limits.heavyGlobal} heavy calls/minute globally. Search and detail each receive at most half the global budget. Production fails closed without Redis. Configuration is not a live dependency-health check.`,
     ),
   ];
   if (!config.enabled)

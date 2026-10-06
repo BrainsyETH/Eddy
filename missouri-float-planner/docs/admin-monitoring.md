@@ -131,10 +131,11 @@ until UTC midnight. New instances can still incur rejected budget probes.
   Recorded tokens and standard-model cost estimates are not an invoice. The
   versioned price table excludes discounts/region modifiers and assumes the
   five-minute cache TTL used by current call sites. Unknown models are unpriced.
-- MCP: all eight registered tools, including tool-level `isError` results. HTTP
-  handshake requests are not tool calls. Transport is limited to 120 requests/IP
-  per minute using the existing limiter. Without global Redis configuration this
-  is only a per-instance fallback, explicitly shown in admin.
+- MCP: all 13 registered tools, including tool-level `isError` results. HTTP
+  handshake requests are not tool calls. Defaults are 600 requests/IP/minute,
+  60 heavy calls/IP/minute and 120 heavy calls/minute globally, with separate
+  60-call search and detail allocations. Production fails closed when global
+  Redis is absent or unavailable. Overrides and release checks are in `mcp.md`.
 - No URL, coordinates, search text, tool argument, credential, user ID, or body
   is recorded. Dimensions are operation names and configured model names.
 - Histograms are retained and merged before deriving approximate percentiles;
