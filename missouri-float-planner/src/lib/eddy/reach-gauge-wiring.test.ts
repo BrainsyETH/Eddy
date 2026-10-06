@@ -73,7 +73,7 @@ test('both generators preserve alerts before fallback and skip unused trajectory
   for (const generator of [generateUpdate, src('src/lib/eddy/generate-gauge-update.ts')]) {
     const fallback = generator.indexOf('const fallback = preflightReportFallback(facts)');
     assert.ok(fallback > generator.indexOf('await fetchNWSAlerts('));
-    assert.ok(fallback < generator.indexOf('trajectory = await buildGaugeTrajectoryForSite('));
+    assert.ok(fallback < generator.indexOf('await buildGaugeTrajectoryForSite('));
     assert.ok(fallback < generator.indexOf('const client = new Anthropic('));
     assert.match(generator.slice(fallback), /if \(fallback\) return \{[\s\S]*?usage: null/);
     assert.match(generator, /sourcesUsed: publishedSources/);
@@ -84,9 +84,9 @@ test('both generators preserve alerts before fallback and skip unused trajectory
 
 test('section reports use the website RPC for positional gauge resolution', () => {
   assert.match(getGaugeConditions, /rpc\('get_river_condition_segment'/);
-  assert.match(getGaugeConditions, /p_put_in_mile: sectionMile/);
+  assert.match(getGaugeConditions, /p_put_in_mile: sectionStartMile/);
   assert.match(getGaugeConditions, /\.eq\('gauge_stations.usgs_site_id', resolvedSectionUsgsId\)/);
-  assert.match(getGaugeConditions, /resolvedSectionUsgsId === station.usgs_site_id/);
+  assert.match(getGaugeConditions, /sectionGaugeSupportsReport\(/);
 });
 
 test('secondary target loading does not hydrate unused primary readings', () => {
@@ -94,4 +94,32 @@ test('secondary target loading does not hydrate unused primary readings', () => 
   const loader = generator.slice(generator.indexOf('export async function getSecondaryGaugeTargets'), generator.indexOf('export async function generateGaugeUpdate'));
   assert.doesNotMatch(loader, /from\('gauge_readings'\)|primaryBySlug|primaryStationIds/);
   assert.match(loader, /is_primary.eq.false,is_primary.is.null/);
+});
+
+test('curated selection happens before RPC and is never erased on RPC failure', () => {
+  assert.ok(getGaugeConditions.indexOf(".eq('gauge_station_id', sectionStationId)") < getGaugeConditions.indexOf("rpc('get_river_condition_segment'"));
+  assert.doesNotMatch(getGaugeConditions, /sectionStationId = null;/);
+  assert.match(getGaugeConditions, /if \(!gaugeLink && sectionStartMile != null\)/);
+});
+
+test('missing gauge does not bypass alert gathering or fallback publication', () => {
+  assert.doesNotMatch(generateUpdate, /if \(!gaugeResult\) return null/);
+  assert.match(generateUpdate, /conditionCode: gaugeResult\?\.conditionCode \?\? 'unknown'/);
+  assert.match(generateUpdate, /gaugeName: gaugeResult\?\.gaugeName \?\? null/);
+  for (const generator of [generateUpdate, src('src/lib/eddy/generate-gauge-update.ts')]) {
+    assert.match(generator, /prepareGeneratedReport\(rawText, facts\)/);
+    assert.doesNotMatch(generator, /guardReport\(parsed/);
+  }
+});
+
+test('unavailable alert coverage is logged and yields no locally attributed alerts', () => {
+  const alerts = src('src/lib/nws/alerts.ts');
+  assert.match(alerts, /if \(matched == null\) \{[\s\S]*?console.warn[\s\S]*?return \[\]/);
+});
+
+test('both model system prompts allow the required claims header', () => {
+  for (const generator of [generateUpdate, src('src/lib/eddy/generate-gauge-update.ts')]) {
+    assert.match(generator, /MUST begin with the exact \[CLAIMS\] line/);
+    assert.doesNotMatch(generator, /ONLY the \[SUMMARY\]/);
+  }
 });

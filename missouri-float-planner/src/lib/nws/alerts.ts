@@ -3,6 +3,7 @@
 // Free API, no key required. Used to give Eddy context about flood warnings,
 // flash flood watches, and other river-relevant weather alerts.
 
+import { matchAlertsByTerms } from './alert-matching';
 import { trackedFetch } from '@/lib/telemetry/upstream';
 export interface NWSAlert {
   id: string;
@@ -95,12 +96,12 @@ export function filterAlertsForRiver(
   searchTerms?: string[] | null
 ): NWSAlert[] {
   const riverTerms = searchTerms?.length ? searchTerms : LEGACY_RIVER_SEARCH_TERMS[riverSlug];
-  if (!riverTerms) return alerts; // Return all if no specific terms
-
-  return alerts.filter((alert) => {
-    const searchText = `${alert.headline} ${alert.description} ${alert.areaDesc}`.toLowerCase();
-    return riverTerms.some((term) => searchText.includes(term.toLowerCase()));
-  });
+  const matched = matchAlertsByTerms(alerts, riverTerms);
+  if (matched == null) {
+    console.warn(`[NWS] Alert matching unavailable for ${riverSlug}: no usable search terms`);
+    return [];
+  }
+  return matched;
 }
 
 /**

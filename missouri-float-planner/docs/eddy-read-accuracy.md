@@ -1,68 +1,78 @@
 # Eddy Read accuracy boundary
 
-Both report generators use `report-facts.ts` for the authoritative condition,
-matching-unit optimal-band comparison, prompt facts and post-generation checks.
+Both generators use `report-facts.ts` for authoritative report facts and rendering.
 
 ## Classification and units
 
-The condition uses the shared website-compatible classifier, including its
-existing missing-measurement fallback. This is a deliberate compatibility choice:
-we are not changing the SQL classifiers or introducing a migration in this PR.
-The Read's numeric optimal-band comparison is stricter: missing discharge for a
-cfs band, or missing stage for a feet band, makes the comparison unavailable.
-Never use the other measurement to claim below/within/above that band.
+River facts take the existing loader condition; they do not classify again.
+Secondary gauges classify once using the same website-compatible classifier,
+including its existing missing-measurement fallback. This PR does not change SQL
+classification. Numeric band comparisons require the matching measurement: no
+cfs means no cfs-band comparison, even if the shared classifier returned a rating.
 Official flood-stage overrides remain independent of recreational thresholds.
-A Dangerous fallback omits the optimal-band sentence even if discharge is within
-that band. An editorial danger threshold is not an official closure order.
+A Dangerous fallback omits its optimal-band sentence. An editorial danger
+threshold is not an official closure order.
 
-## Geographic scope
+## Geographic scope and missing gauges
 
-For sections with a start river mile, the loader delegates gauge selection to
-`get_river_condition_segment`, the same database resolver used by the website.
-That resolver handles reach overrides, upstream selection and downstream/primary
-fallbacks. Without a mile, an explicit assigned station can still be resolved.
-A failed or unresolved lookup never establishes a section assessment: its Read
-uses a station-specific fallback saying that the section is not assessed.
-Static local knowledge does not establish current conditions elsewhere.
-Section targets and row persistence are unchanged; sections resolved by the RPC
-can receive normal generated Reads. Unused primary-gauge snapshot loading has
-been removed from secondary-gauge target discovery.
+Explicit curated station assignments take priority and are never erased by an
+RPC failure or empty result. Without a usable curated link, positional selection
+uses the website's `get_river_condition_segment` RPC. Selection and reach support
+are separate: a non-curated station supports a section only with known section
+start/end and gauge river miles inside [start, end). No proximity buffer is used.
+If curation exists but its station cannot be loaded, a substitute does not inherit
+curated support, even if it lies within the section.
 
-## Validation and formatting
+An unsupported section gets a named station observation, explicitly saying the
+section is not assessed. A river with no usable gauge still gets a location-based
+unavailable fallback with relevant alerts and the separate weather summary. It
+never invents a station or pays for a model call. Section-generation target
+selection and row persistence are unchanged; disabling unused targets is separate.
 
-The guard checks all three prose fields and replaces a rejected response as a
-whole. Explicit condition labels and capitalized canonical rating names are
-checked; ordinary lowercase “flowing,” “good conditions for a float,” and NWS
-“flood conditions” are not treated as assignments of an Eddy rating. The prompt
-asks for explicit condition labels when naming the computed rating.
+## Structured claims and prose
 
-Negation and modal qualifiers must govern the assertion; incidental weather
-phrases such as “with no rain in sight” cannot exempt a present assertion.
-This is a deliberately narrow guard, not a general English/geographic parser.
-Arbitrary paraphrases are not guaranteed to be validated.
+Both system prompts require the exact first line supplied in the facts:
 
-Prompts format stage to at most two decimals and discharge to whole cfs, with
-thousands separators. The guard accepts raw readings, stage rounded to one or
-two decimals, and discharge rounded to whole cfs or the nearest ten. Classification
-and band relation always use the unrounded data. Bounds retain their precision.
+    [CLAIMS] condition=good relation=below
 
-## Alerts and fallback work
+The generator rejects missing, malformed, duplicate or mismatched claims and
+removes the line before parsing prose. Code renders the public summary and the
+condition/range statement; the model supplies forecast and local context. All
+three prose fields still pass a narrow backstop for explicit condition labels,
+literal present assertions, numeric reading/unit errors and the original screenshot
+pattern. `Condition: Flood` maps to Dangerous in that backstop; a structured
+condition must use the exact canonical code. Direct negated band assertions are
+checked against the computed relation rather than skipped.
 
-Both generators fetch relevant active NWS flood alerts before choosing a fallback.
-Expired alerts are removed. Fallbacks lead with a bounded alert summary; warnings
-precede watches, repeated event types are collapsed, and overlapping/long county
-lists become “the river area.” A gauge rating does not cancel an alert. Alert
-lookup failures are logged, never described as an all-clear. River-area matching
-uses the existing filter, not station-level flood-boundary verification.
+There is no general English tense parser or growing forecast-verb whitelist.
+Forecasts such as “could climb” or “if the river drops” are not current assertions.
+A valid claims header is not proof of correct prose: arbitrary paraphrases and
+geographic inferences remain outside the narrow check. The prompt prohibits
+repeating current classifications and numeric band comparisons in prose. Real
+sentence regression cases live in `report-facts.test.ts`.
 
-Unavailable ratings and unresolved sections skip the paid model call. River
-fallbacks also skip local knowledge, trajectory and precipitation processing.
-Weather fetching remains because it supplies the separate returned weather
-summary. Published fallback sources exclude discarded model context.
+Stage uses at most two decimals and discharge whole cfs in prompt/display text.
+Validation accepts raw values, stage to one/two decimals and discharge to whole
+cfs/nearest ten, using the same rounding conventions. Classification and band
+relation use unrounded data; bounds retain their precision.
+
+## Alerts and costs
+
+Both generators gather relevant active flood alerts before selecting fallbacks.
+Expired alerts are removed. Warnings precede watches; duplicate event types and
+long/overlapping county lists are summarized to bound fallback text. A gauge
+rating never cancels an alert. Missing/blank matching terms return no attributed
+local alerts and log unavailable coverage; they never return all statewide alerts.
+An empty list is not presented as an all-clear. Matching still uses the existing
+river-area terms, not station-level flood-boundary verification.
+
+Guaranteed fallbacks skip paid model calls, knowledge and trajectory work.
+Weather fetching remains for the separate weather summary. Published fallback
+sources exclude discarded model context. Unused primary snapshot queries are gone.
 
 ## Rollout
 
-No production data, SQL functions, model settings, or saved reports are changed.
-After deployment, inspect fresh Current/Van Buren Reads and compact/social text.
-The October 5 example (2.57 ft, 756 cfs; band 1,190–2,700 cfs) must remain Good
-and below optimal, with no unsupported current Montauk/Akers claims.
+No production data, SQL migration, model switch or saved-report regeneration.
+After deployment, inspect fresh Van Buren and Black tailwater Reads, their compact
+versions, missing-gauge reports and alert attribution. The original 2.57 ft /
+756 cfs example must remain Good and below its 1,190–2,700 cfs optimal band.

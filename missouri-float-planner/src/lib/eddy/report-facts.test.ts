@@ -1,7 +1,9 @@
+import { sectionGaugeSupportsReport } from '../gauge/section-gauge-support';
+import { matchAlertsByTerms } from '../nws/alert-matching';
 import { toNum } from '../utils/num';
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { buildReportFacts, reportFactsPrompt, reportContradictions, guardReport, factualReportFallback, preflightReportFallback, activeReportFloodAlerts } from './report-facts';
+import { buildReportFacts, reportFactsPrompt, reportContradictions, guardReport, factualReportFallback, preflightReportFallback, activeReportFloodAlerts, prepareGeneratedReport, reportClaimsLine } from './report-facts';
 import type { ParsedEddyResponse } from './parse-response';
 
 const input = {
@@ -152,10 +154,10 @@ test('future, conditional and negated condition/band prose is not a current rati
     }
   }
   for (const text of [
-    'Flowing conditions at Van Buren today.',
+    'Condition: Flowing.',
     'The gauge is within the optimal band.',
     'Rain could arrive tomorrow, but the river is Flowing today.',
-    'The gauge is not High, but it is within the optimal band.',
+    'The gauge is not High, but the gauge is within the optimal band.',
   ]) assert.ok(reportContradictions(report(text), facts).length, text);
 });
 
@@ -166,7 +168,7 @@ test('active flood alerts lead both preflight and rejected-report fallbacks in e
   const unsupported = buildReportFacts({ ...input, requestedSection: 'Upper Current', floodAlerts });
   assert.equal(good.conditionCode, 'good');
   assert.match(reportFactsPrompt(good), /Good or unavailable gauge rating does not cancel an NWS alert/);
-  for (const fallback of [preflightReportFallback(unknown), preflightReportFallback(unsupported), guardReport(report('Flowing conditions today.'), good)]) {
+  for (const fallback of [preflightReportFallback(unknown), preflightReportFallback(unsupported), guardReport(report('Condition: Flowing.'), good)]) {
     assert.ok(fallback);
     for (const field of ['summaryText', 'eddyRead', 'quoteText'] as const) {
       assert.match(fallback[field] ?? '', /^NWS Flood Warning for Carter County\./);
@@ -197,7 +199,7 @@ test('unrelated weather modifiers cannot bypass the screenshot contradictions', 
       for (const field of ['summaryText', 'eddyRead', 'quoteText'] as const) {
         const broken = { ...report('Condition: Good.'), [field]: text };
         assert.ok(reportContradictions(broken, facts).includes('condition'), text);
-        assert.ok(reportContradictions(broken, facts).includes('range'), text);
+        if (text.startsWith('The Current River')) assert.ok(reportContradictions(broken, facts).includes('range'), text);
         assert.deepEqual(guardReport(broken, facts), factualReportFallback(facts));
       }
     }
@@ -252,6 +254,83 @@ test('website-compatible legacy rating does not permit a cross-unit range compar
   const missingFlow = buildReportFacts({ ...input, gaugeHeightFt: 1500, dischargeCfs: null });
   assert.equal(missingFlow.conditionCode, 'flowing');
   assert.equal(missingFlow.relation, 'unavailable');
-  assert.ok(reportContradictions(report('Within the optimal range.'), missingFlow).includes('range'));
+  assert.ok(reportContradictions(report('The gauge is within the optimal range.'), missingFlow).includes('range'));
   assert.doesNotMatch(factualReportFallback(missingFlow).quoteText, /optimal band/);
+});
+
+const modelOutput = (f: typeof facts, text: string) => `${reportClaimsLine(f)}\n[SUMMARY]\n${text}\n[EDDY_READ]\n${text}\n[FULL]\n${text}`;
+
+test('structured claims are mandatory, exact, single and never published', () => {
+  const raw = modelOutput(facts, 'Clear weather through Thursday.');
+  for (const invalid of [
+    raw.replace(reportClaimsLine(facts), ''),
+    raw.replace('condition=good', 'condition=flowing'),
+    raw.replace('relation=below', 'relation=within'),
+    raw.replace('condition=good', 'condition=Flood'),
+    `${raw}\n${reportClaimsLine(facts)}`,
+    raw.replace('relation=below', 'relation=below extra=true'),
+  ]) {
+    const result = prepareGeneratedReport(invalid, facts);
+    assert.equal(result.usedFallback, true);
+    assert.deepEqual(result.report, factualReportFallback(facts));
+  }
+  const result = prepareGeneratedReport(raw, facts);
+  assert.equal(result.usedFallback, false);
+  assert.match(result.report.summaryText ?? '', /^Good at Current River at Van Buren/);
+  assert.match(result.report.quoteText, /756 cfs is below the optimal band/);
+  assert.match(result.report.eddyRead ?? '', /^Good at Current River/);
+  assert.match(result.report.quoteText, /Clear weather through Thursday/);
+  assert.doesNotMatch(JSON.stringify(result.report), /CLAIMS|condition=|relation=/);
+});
+
+test('real forecast sentences pass without a verb whitelist; explicit false negation fails', () => {
+  const within = buildReportFacts({ ...input, dischargeCfs: 1500 });
+  for (const text of [
+    'Rain could climb it above the optimal band.',
+    'If the river drops below the optimal range, check again before leaving.',
+    'Rain could lift it above the range.',
+    'If the river drops below the range, conditions may change.',
+  ]) assert.equal(prepareGeneratedReport(modelOutput(within, text), within).usedFallback, false, text);
+  for (const text of ['1500 cfs is not within the band.', 'The gauge is not within the optimal band.', 'Condition: Flood.']) {
+    assert.equal(prepareGeneratedReport(modelOutput(within, text), within).usedFallback, true, text);
+  }
+  assert.equal(prepareGeneratedReport(modelOutput(facts, '756 cfs is not within the band.'), facts).usedFallback, false);
+  assert.equal(prepareGeneratedReport(modelOutput(facts, 'The river is Flowing within the optimal range with no rain in sight.'), facts).usedFallback, true);
+});
+
+test('missing gauge still produces an alert-led location fallback without inventing a station', () => {
+  const missing = buildReportFacts({ ...input, gaugeName: null, locationName: 'Example River', conditionCode: 'unknown', gaugeHeightFt: null, dischargeCfs: null, floodAlerts: [{ event: 'Flood Warning', areaDesc: 'Example County' }] });
+  const fallback = preflightReportFallback(missing);
+  assert.ok(fallback);
+  for (const field of ['summaryText', 'eddyRead', 'quoteText'] as const) {
+    assert.match(fallback[field] ?? '', /^NWS Flood Warning for Example County/);
+    assert.match(fallback[field] ?? '', /Gauge assessment unavailable for Example River/);
+    assert.doesNotMatch(fallback[field] ?? '', /Unknown at|at null|USGS/);
+  }
+});
+
+test('river facts preserve the loader classification instead of recomputing it', () => {
+  assert.equal(buildReportFacts({ ...input, conditionCode: 'high' }).conditionCode, 'high');
+  assert.equal(buildReportFacts({ ...input, conditionCode: 'unknown' }).conditionCode, 'unknown');
+});
+
+test('section support requires explicit curation or a gauge inside known section miles', () => {
+  const reach = { curatedStationId: null, selectedStationId: 'van-buren', startMile: 0, endMile: 20, gaugeMile: 90 };
+  assert.equal(sectionGaugeSupportsReport(reach), false);
+  for (const gaugeMile of [-1, 20, 21, null]) assert.equal(sectionGaugeSupportsReport({ ...reach, gaugeMile }), false);
+  for (const gaugeMile of [0, 10, 19.9]) assert.equal(sectionGaugeSupportsReport({ ...reach, gaugeMile }), true);
+  assert.equal(sectionGaugeSupportsReport({ ...reach, gaugeMile: 10, endMile: null }), false);
+  assert.equal(sectionGaugeSupportsReport({ ...reach, gaugeMile: 10, startMile: null }), false);
+  assert.equal(sectionGaugeSupportsReport({ ...reach, curatedStationId: 'tailwater', selectedStationId: 'tailwater' }), true);
+  assert.equal(sectionGaugeSupportsReport({ ...reach, curatedStationId: 'tailwater', selectedStationId: 'above-dam', gaugeMile: 10 }), false);
+});
+
+test('missing alert matching coverage never returns statewide alerts as local', () => {
+  const alerts = [
+    { headline: 'Flood Warning', description: 'Distant River', areaDesc: 'Distant County' },
+    { headline: 'Flood Watch', description: 'Current River', areaDesc: 'Carter County' },
+  ];
+  for (const terms of [undefined, [], [' ', '']]) assert.equal(matchAlertsByTerms(alerts, terms), null);
+  assert.deepEqual(matchAlertsByTerms(alerts, [' Carter County ']), [alerts[1]]);
+  assert.deepEqual(matchAlertsByTerms(alerts, ['Unmatched River']), []);
 });

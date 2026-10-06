@@ -7,6 +7,7 @@ import type { ConditionCode } from '@/types/api';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { fetchGaugeReadings, classifyQualifiers } from '@/lib/usgs/gauges';
 import { computeCondition, type ConditionThresholds } from '@/lib/conditions';
+import { sectionGaugeSupportsReport } from './section-gauge-support';
 import { toNum } from '@/lib/utils/num';
 
 export interface GaugeConditionResult {
@@ -32,12 +33,13 @@ export interface GaugeConditionResult {
 
 const GAUGE_LINK_SELECT = `
   level_too_low, level_low, level_optimal_min, level_optimal_max,
-  level_high, level_dangerous, threshold_unit, flood_stage_ft,
+  level_high, level_dangerous, threshold_unit, flood_stage_ft, river_mile,
   gauge_stations!inner (id, name, usgs_site_id)
 `;
 
 /** Shape of GAUGE_LINK_SELECT. Named so both lookups below stay typed. */
 interface GaugeLinkRow {
+  river_mile: number | null;
   level_too_low: number | null;
   level_low: number | null;
   level_optimal_min: number | null;
@@ -56,9 +58,9 @@ interface GaugeLinkRow {
  * Fetches the latest gauge reading and computes condition for a river, or for
  * one reach of it.
  *
- * `sectionSlug` delegates selection at the section start mile to the website
- * RPC (reach override, then upstream/downstream fallback). A section without
- * a mile can still name an explicit primary_gauge_station_id. Omit it — as the
+ * `sectionSlug` first honors explicit curation, then delegates positional
+ * selection at the section start mile to the website RPC. Selection alone
+ * does not establish reach support; see sectionGaugeSupportsReport. Omit it — as the
  * chat handlers and every whole-river caller do — and behaviour is unchanged:
  * the river's is_primary gauge.
  *
@@ -91,45 +93,26 @@ export async function getGaugeConditions(
     return null;
   }
 
-  // A reach may name the gauge that reads it; resolve that first.
   let sectionStationId: string | null = null;
-  let resolvedSectionUsgsId: string | null = null;
+  let sectionStartMile: number | null = null;
+  let sectionEndMile: number | null = null;
   if (sectionSlug) {
     const { data: section } = await supabase
       .from('river_sections')
-      .select('primary_gauge_station_id, river_mile_start')
+      .select('primary_gauge_station_id, river_mile_start, river_mile_end')
       .eq('river_id', riverData.id)
       .eq('section_slug', sectionSlug)
       .maybeSingle();
     sectionStationId = section?.primary_gauge_station_id ?? null;
-    const sectionMile = toNum(section?.river_mile_start);
-    if (sectionMile != null) {
-      // Delegate reach overrides, nearest-upstream and downstream/primary
-      // fallback selection to the same RPC the website uses.
-      const { data: resolved, error } = await supabase.rpc('get_river_condition_segment', {
-        p_river_id: riverData.id,
-        p_put_in_mile: sectionMile,
-      });
-      if (error) console.warn('[GaugeConditions] Section gauge resolution failed:', error.message);
-      resolvedSectionUsgsId = resolved?.[0]?.gauge_usgs_id ?? null;
-      // A failed positional lookup must not claim a supported section.
-      sectionStationId = null;
-    }
+    sectionStartMile = toNum(section?.river_mile_start);
+    sectionEndMile = toNum(section?.river_mile_end);
   }
 
   let gaugeLink: GaugeLinkRow | null = null;
-
-  if (resolvedSectionUsgsId) {
-    const { data } = await supabase
-      .from('river_gauges')
-      .select(GAUGE_LINK_SELECT)
-      .eq('river_id', riverData.id)
-      .eq('gauge_stations.usgs_site_id', resolvedSectionUsgsId)
-      .maybeSingle();
-    gaugeLink = data as GaugeLinkRow | null;
-  }
-
-  if (!gaugeLink && sectionStationId) {
+  // Explicit curation wins, including on RPC errors or missing RPC results.
+  // Never clear this assignment: if its link fails, any substitute remains
+  // an unsupported station observation rather than a curated reach assessment.
+  if (sectionStationId) {
     const { data } = await supabase
       .from('river_gauges')
       .select(GAUGE_LINK_SELECT)
@@ -137,14 +120,22 @@ export async function getGaugeConditions(
       .eq('gauge_station_id', sectionStationId)
       .maybeSingle();
     gaugeLink = data as GaugeLinkRow | null;
-    if (!gaugeLink) {
-      // The section names a station with no river_gauges link, so there are no
-      // thresholds to classify against. Fall through to the river's primary
-      // rather than returning nothing — a whole-river report is wrong for the
-      // reach, but silence is worse, and this is a curation bug worth shouting about.
-      console.warn(
-        `[GaugeConditions] Section "${sectionSlug}" on "${riverSlug}" names a gauge station with no river_gauges row; falling back to the river's primary gauge.`,
-      );
+  }
+  if (!gaugeLink && sectionStartMile != null) {
+    const { data: resolved, error } = await supabase.rpc('get_river_condition_segment', {
+      p_river_id: riverData.id,
+      p_put_in_mile: sectionStartMile,
+    });
+    if (error) console.warn('[GaugeConditions] Section gauge resolution failed:', error.message);
+    const resolvedSectionUsgsId = error ? null : resolved?.[0]?.gauge_usgs_id ?? null;
+    if (resolvedSectionUsgsId) {
+      const { data } = await supabase
+        .from('river_gauges')
+        .select(GAUGE_LINK_SELECT)
+        .eq('river_id', riverData.id)
+        .eq('gauge_stations.usgs_site_id', resolvedSectionUsgsId)
+        .maybeSingle();
+      gaugeLink = data as GaugeLinkRow | null;
     }
   }
 
@@ -241,8 +232,13 @@ export async function getGaugeConditions(
     gaugeHeightFt,
     dischargeCfs,
     thresholdUnit: unit,
-    sectionGaugeMatched: (resolvedSectionUsgsId != null && resolvedSectionUsgsId === station.usgs_site_id)
-      || (sectionStationId != null && sectionStationId === station.id),
+    sectionGaugeMatched: !!sectionSlug && sectionGaugeSupportsReport({
+      curatedStationId: sectionStationId,
+      selectedStationId: station.id,
+      startMile: sectionStartMile,
+      endMile: sectionEndMile,
+      gaugeMile: toNum(gaugeLink.river_mile),
+    }),
     conditionCode: condition.code as ConditionCode,
     conditionLabel: condition.label,
     readingTimestamp,

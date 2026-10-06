@@ -1,4 +1,3 @@
-import { fetchNWSAlerts, filterAlertsForRiver, type NWSAlert } from '@/lib/nws/alerts';
 // src/lib/eddy/generate-gauge-update.ts
 // Per-gauge AI commentary using Haiku 4.5. Targeted at secondary gauges on
 // active rivers (the primary gauge is covered by the Sonnet-powered
@@ -8,6 +7,7 @@ import { fetchNWSAlerts, filterAlertsForRiver, type NWSAlert } from '@/lib/nws/a
 // river. Its update is narrower in scope: what does THIS gauge's reading
 // tell a paddler about the segment of river around it?
 
+import { fetchNWSAlerts, filterAlertsForRiver, type NWSAlert } from '@/lib/nws/alerts';
 import { trackedAnthropic } from '@/lib/telemetry/upstream';
 import Anthropic from '@anthropic-ai/sdk';
 import type { ConditionCode } from '@/types/api';
@@ -18,12 +18,12 @@ import type { ConditionThresholds } from '@/lib/conditions';
 import { fetchGaugeReadings } from '@/lib/usgs/gauges';
 import { buildGaugeTrajectoryForSite, type GaugeTrajectory } from '@/lib/eddy/gauge-trajectory';
 import { extractUsage, type UsageStats } from '@/lib/eddy/generate-update';
-import { parseEddyResponse, stripEddyMarkers } from '@/lib/eddy/parse-response';
+import { stripEddyMarkers } from '@/lib/eddy/parse-response';
 import { toNum } from '@/lib/utils/num';
 import { getCoordinates } from '@/lib/api-utils';
 import { fetchForecast, getWeatherPointForRiver, type ForecastData } from '@/lib/weather/openweather';
 import type { RiverContext } from '@/lib/rivers/context';
-import { buildReportFacts, reportFactsPrompt, guardReport, preflightReportFallback, activeReportFloodAlerts, type ReportFacts } from './report-facts';
+import { buildReportFacts, reportFactsPrompt, prepareGeneratedReport, preflightReportFallback, activeReportFloodAlerts, type ReportFacts } from './report-facts';
 import type { ResolvedModel } from '@/lib/ai/resolve-models';
 
 // The model is resolved once per pass from llm_config and threaded in, so a
@@ -40,7 +40,6 @@ export interface SecondaryGaugeTarget {
   /** Optional river-mile position for spatial context in the prompt. */
   distanceFromSectionMiles: number | null;
   thresholds: ConditionThresholds;
-
 }
 
 export interface GeneratedGaugeUpdate {
@@ -115,8 +114,6 @@ export async function getSecondaryGaugeTargets(): Promise<SecondaryGaugeTarget[]
   const targets: SecondaryGaugeTarget[] = [];
 
   for (const row of rows) {
-    if (row.is_primary) continue;
-
     const river = Array.isArray(row.rivers) ? row.rivers[0] : row.rivers;
     const station = Array.isArray(row.gauge_stations) ? row.gauge_stations[0] : row.gauge_stations;
     if (!river || !station?.usgs_site_id) continue;
@@ -276,10 +273,9 @@ export async function generateGaugeUpdate(
       return null;
     }
 
-    const parsed = parseEddyResponse(rawText);
-    const guarded = guardReport(parsed, facts);
-    const { summaryText, eddyRead, quoteText } = guarded;
-    const publishedSources = guarded === parsed ? sourcesUsed
+    const { report, usedFallback } = prepareGeneratedReport(rawText, facts);
+    const { summaryText, eddyRead, quoteText } = report;
+    const publishedSources = !usedFallback ? sourcesUsed
       : sourcesUsed.filter(source => ['USGS gauge', 'NWS alerts'].includes(source));
 
     return {
@@ -312,7 +308,7 @@ VOICE: Friendly, local-outfitter tone. Tight, no fluff. Use river terminology na
 SCOPE: You are commenting on ONE gauge, not the whole river. Name that station and limit current condition claims to its supported location. Local river knowledge is background, not evidence of today's scraping, depth or floatability at other places. Never compare raw heights across stations or infer relative trends from snapshots.
 
 OUTPUT FORMAT (strict):
-Your response MUST contain exactly three labeled blocks. Use the markers [SUMMARY], [EDDY_READ], and [FULL] on their own lines, each followed by the text for that section. No other formatting, labels, or wrapping. Do NOT repeat the markers anywhere else.
+Your response MUST begin with the exact [CLAIMS] line supplied in the authoritative facts, followed by exactly three labeled blocks. Use the markers [SUMMARY], [EDDY_READ], and [FULL] on their own lines, each followed by the text for that section. No other formatting, labels, or wrapping. Do NOT repeat the markers anywhere else.
 
 [SUMMARY]
 A single sentence, under 120 characters. For chips and share cards.
@@ -324,14 +320,14 @@ One or two concise sentences, under 240 characters total. Explain the useful loc
 3-5 sentences. Pick the 2-3 most important points. Do not exceed 5 sentences.
 
 RULES:
-- State the condition clearly in the first sentence.
-- Cite the actual reading; never invent numbers or predict gauge heights.
+- Code renders the current condition and band comparison. Do not repeat or reinterpret them in prose.
+- Code renders the actual reading. Use prose for measured trends and forecast context; never invent numbers or predict gauge heights.
 - For "low": floatable, expect scraping. For "too_low": recommend waiting. For "high": use caution. For "dangerous": stay off the water.
 - AUTHORITATIVE GAUGE FACTS control the condition and optimal-band comparison. Good is not Flowing. Do not reclassify, mix feet with cfs, or make current condition claims at other locations.
 - Do NOT recommend a different river as an alternative.
 - Do NOT use em dashes, emojis, hashtags, or exclamation marks.
 - Do NOT greet, sign off, or refer to yourself.
-- Output ONLY the [SUMMARY], [EDDY_READ], and [FULL] blocks.`;
+- Output ONLY the supplied [CLAIMS] line and the [SUMMARY], [EDDY_READ], and [FULL] blocks.`;
 
 function buildGaugePrompt(
   target: SecondaryGaugeTarget,
