@@ -255,7 +255,7 @@ test('website-compatible legacy rating does not permit a cross-unit range compar
   assert.equal(missingFlow.conditionCode, 'flowing');
   assert.equal(missingFlow.relation, 'unavailable');
   assert.ok(reportContradictions(report('The gauge is within the optimal range.'), missingFlow).includes('range'));
-  assert.doesNotMatch(factualReportFallback(missingFlow).quoteText, /optimal band/);
+  assert.doesNotMatch(factualReportFallback(missingFlow).quoteText, /optimal (?:range|band)/);
 });
 
 const modelOutput = (f: typeof facts, text: string) => `${reportClaimsLine(f)}\n[SUMMARY]\n${text}\n[EDDY_READ]\n${text}\n[FULL]\n${text}`;

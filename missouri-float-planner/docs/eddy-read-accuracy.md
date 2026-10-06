@@ -76,4 +76,4 @@ sources exclude discarded model context. Unused primary snapshot queries are gon
 No production data, SQL migration, model switch or saved-report regeneration.
 After deployment, inspect fresh Van Buren and Black tailwater Reads, their compact
 versions, missing-gauge reports and alert attribution. The original 2.57 ft /
-756 cfs example must remain Good and below its 1,190–2,700 cfs optimal band.
+756 cfs example must remain Good and below its 1,190–2,700 cfs optimal range.

@@ -322,6 +322,9 @@ One or two concise sentences, under 240 characters total. Explain the useful loc
 RULES:
 - State this gauge's condition in the summary, using the computed condition and band comparison exactly.
 - Cite only the readings supplied. Never invent numbers or predict gauge heights.
+- Every statement about later days must be conditional (if, should, likely). Never state that conditions will stay, remain or be a certain way, and do not call conditions predictable or reliable.
+- Describe percentile context in plain words such as "lower than usual for early October". Never print a percentile number or the word percentile.
+- In prose, call the optimal range the optimal range, never a band.
 - For "low": floatable, expect scraping. For "too_low": recommend waiting. For "high": use caution. For "dangerous": stay off the water.
 - AUTHORITATIVE GAUGE FACTS control the condition and optimal-band comparison. Good is not Flowing. Do not reclassify, mix feet with cfs, or make current condition claims at other locations.
 - Do NOT recommend a different river as an alternative.

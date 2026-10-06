@@ -61,27 +61,27 @@ export function reportFactsPrompt(f: ReportFacts): string {
   return [
     '[AUTHORITATIVE GAUGE FACTS — override examples and background knowledge]',
     `Begin your response with exactly this single line: ${reportClaimsLine(f)}`,
-    'Then write [SUMMARY], [EDDY_READ], and [FULL] as usual. Whenever you state the current condition, band comparison or a gauge measurement, use exactly the facts below.',
+    'Then write [SUMMARY], [EDDY_READ], and [FULL] as usual. Whenever you state the current condition, the optimal-range comparison or a gauge measurement, use exactly the facts below.',
     `Reporting gauge: ${f.gaugeName}`,
     'If no alerts are supplied, do not claim that no alerts are active: lookup or matching coverage may be unavailable.',
     ...(f.floodAlerts?.length ? [
       `Active NWS flood alerts for the surrounding river area: ${f.floodAlerts.map(a => `${a.event}${a.areaDesc ? ` (${a.areaDesc})` : ''}`).join('; ')}.`,
-      'Code leads with the active flood alert and its affected area. A Good or unavailable gauge rating does not cancel an NWS alert; the alert is not a new gauge condition label.',
+      'Lead the summary and the full text with the active flood alert and its affected area. A Good or unavailable gauge rating does not cancel an NWS alert; the alert is not a new gauge condition label.',
     ] : []),
     `Computed condition: ${f.conditionLabel} (${f.conditionCode}). Do not upgrade, downgrade, or reinterpret this label.`,
     `Rating measurement: ${f.unit === 'cfs' ? 'discharge' : 'gauge height'}; value: ${formatReportMeasurement(f.value, f.unit)}.`,
     `Separate measurements: height ${formatReportMeasurement(f.gaugeHeightFt, 'ft')}; discharge ${formatReportMeasurement(f.dischargeCfs, 'cfs')}. These are not interchangeable.`,
-    'Use these displayed readings. The condition follows the shared website classifier, including its legacy missing-measurement fallback; the numeric optimal-band comparison always requires the matching unit.',
+    'Use these displayed readings. The condition follows the shared website classifier, including its legacy missing-measurement fallback; the numeric optimal-range comparison always requires the matching unit.',
     'When naming the computed rating, use an explicit label such as condition: Good. Ordinary lowercase good or flowing prose is not a rating label.',
-    `Optimal band: ${formatBound(f.min)} to ${formatBound(f.max)} ${f.unit}. Computed comparison: ${f.relation}.`,
-    'Good and below the optimal band can both be correct. Below optimal does not mean Low. If the comparison is unavailable, do not claim to be inside or outside the band.',
+    `Optimal range: ${formatBound(f.min)} to ${formatBound(f.max)} ${f.unit}. Computed comparison: ${f.relation}.`,
+    'Good and below the optimal range can both be correct. Below optimal does not mean Low. If the comparison is unavailable, do not claim to be inside or outside the range. In prose, always call it the optimal range, never a band.',
     ...(danger == null ? [] : [`Editorial danger threshold: ${danger} ${f.unit}. This is NOT an official closure order. Do not call it a closure level.`]),
-    ...(f.thresholds.floodStageFt == null ? [] : [`Official flood stage: ${f.thresholds.floodStageFt} ft, assessed separately from the recreational band.`]),
+    ...(f.thresholds.floodStageFt == null ? [] : [`Official flood stage: ${f.thresholds.floodStageFt} ft, assessed separately from the recreational optimal range.`]),
     `Supported location: ${f.supportedSection ?? f.gaugeName}.`,
     ...(f.requestedSection && !f.supportedSection ? [`The requested section (${f.requestedSection}) has no resolved gauge of its own. This is a fallback station observation, NOT a condition assessment of that section.`] : []),
     'Do not infer current scraping, floatability, depth, or boat suitability at other places from this station. General local knowledge is background, not a current reading for those places.',
-    'Name the reporting gauge when describing the current assessment. Do not turn a station assessment into a claim about the entire river.',
-    'Keep condition and optimal-band claims about this station only. Do not compare raw gauge heights across stations; each uses its own datum. Do not infer a relative trend from two snapshots.',
+    'In the first sentence of the summary and the full text, say where this reading is taken in plain words, using the town or landmark from the gauge name (for example "At Van Buren"), not the full station name. Do not turn a station assessment into a claim about the entire river.',
+    'Keep condition and optimal-range claims about this station only. Do not compare raw gauge heights across stations; each uses its own datum. Do not infer a relative trend from two snapshots.',
   ].join('\n');
 }
 
@@ -163,7 +163,7 @@ export function factualReportFallback(f: ReportFacts): ParsedEddyResponse {
     ? 'A condition assessment is unavailable from the matching measurement and thresholds.'
     : f.conditionCode === 'dangerous' ? 'Stay off the water.'
       : f.conditionCode === 'high' ? 'High water: use caution.' : '';
-  const band = f.relation === 'unavailable' || f.conditionCode === 'dangerous' ? '' : `${formatReportMeasurement(f.value, f.unit)} is ${f.relation} the optimal band of ${formatBound(f.min)} to ${formatBound(f.max)} ${f.unit}.`;
+  const band = f.relation === 'unavailable' || f.conditionCode === 'dangerous' ? '' : `${formatReportMeasurement(f.value, f.unit)} is ${f.relation} the optimal range of ${formatBound(f.min)} to ${formatBound(f.max)} ${f.unit}.`;
   const scope = !f.gaugeName ? 'No usable reporting gauge is available.' : f.requestedSection && !f.supportedSection
     ? `This gauge does not establish current conditions for ${f.requestedSection}.`
     : 'Conditions elsewhere on the river may differ.';
