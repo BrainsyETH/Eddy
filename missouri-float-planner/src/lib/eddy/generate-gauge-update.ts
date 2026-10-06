@@ -5,24 +5,25 @@
 //
 // A "secondary" gauge sits up- or down-stream of the primary on the same
 // river. Its update is narrower in scope: what does THIS gauge's reading
-// tell a paddler about the segment of river around it, and how does it
-// compare to the primary reading?
+// tell a paddler about the segment of river around it?
 
+import { fetchNWSAlerts, filterAlertsForRiver, type NWSAlert } from '@/lib/nws/alerts';
 import { trackedAnthropic } from '@/lib/telemetry/upstream';
 import Anthropic from '@anthropic-ai/sdk';
 import type { ConditionCode } from '@/types/api';
 import { getRiverContext, DEFAULT_TIMEZONE } from '@/lib/rivers/context';
 import { getLocalDateStrings } from '@/lib/social/local-time';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { computeCondition, type ConditionThresholds } from '@/lib/conditions';
+import type { ConditionThresholds } from '@/lib/conditions';
 import { fetchGaugeReadings } from '@/lib/usgs/gauges';
 import { buildGaugeTrajectoryForSite, type GaugeTrajectory } from '@/lib/eddy/gauge-trajectory';
 import { extractUsage, type UsageStats } from '@/lib/eddy/generate-update';
-import { parseEddyResponse, stripEddyMarkers } from '@/lib/eddy/parse-response';
+import { stripEddyMarkers } from '@/lib/eddy/parse-response';
 import { toNum } from '@/lib/utils/num';
 import { getCoordinates } from '@/lib/api-utils';
 import { fetchForecast, getWeatherPointForRiver, type ForecastData } from '@/lib/weather/openweather';
 import type { RiverContext } from '@/lib/rivers/context';
+import { buildReportFacts, reportFactsPrompt, prepareGeneratedReport, preflightReportFallback, activeReportFloodAlerts, type ReportFacts } from './report-facts';
 import type { ResolvedModel } from '@/lib/ai/resolve-models';
 
 // The model is resolved once per pass from llm_config and threaded in, so a
@@ -39,14 +40,6 @@ export interface SecondaryGaugeTarget {
   /** Optional river-mile position for spatial context in the prompt. */
   distanceFromSectionMiles: number | null;
   thresholds: ConditionThresholds;
-  /** Snapshot of the river's primary gauge for comparison framing. */
-  primary: {
-    usgsSiteId: string;
-    gaugeName: string;
-    gaugeHeightFt: number | null;
-    dischargeCfs: number | null;
-    conditionCode: ConditionCode;
-  } | null;
 }
 
 export interface GeneratedGaugeUpdate {
@@ -75,19 +68,18 @@ export interface GeneratedGaugeUpdate {
 export async function getSecondaryGaugeTargets(): Promise<SecondaryGaugeTarget[]> {
   const supabase = createAdminClient();
 
-  // Pull every river_gauges row on active rivers + active stations.
-  // We fetch primaries too so each secondary can be paired with its river's
-  // primary for comparison context, then filter primaries out of the result.
+  // Pull only non-primary gauges on active rivers and active stations.
   const { data, error } = await supabase
     .from('river_gauges')
     .select(`
       is_primary,
       distance_from_section_miles,
       level_too_low, level_low, level_optimal_min, level_optimal_max,
-      level_high, level_dangerous, threshold_unit,
+      level_high, level_dangerous, threshold_unit, flood_stage_ft,
       rivers!inner (id, slug, name, active),
       gauge_stations!inner (id, name, usgs_site_id, provider, location, active)
     `)
+    .or('is_primary.eq.false,is_primary.is.null')
     .eq('rivers.active', true)
     .eq('gauge_stations.active', true)
     // USGS-provided stations only. A USACE dam row has a null usgs_site_id and
@@ -112,106 +104,30 @@ export async function getSecondaryGaugeTargets(): Promise<SecondaryGaugeTarget[]
     level_high: number | null;
     level_dangerous: number | null;
     threshold_unit: 'ft' | 'cfs' | null;
+    flood_stage_ft: number | null;
     rivers: { id: string; slug: string; name: string } | { id: string; slug: string; name: string }[];
     gauge_stations: { id: string; name: string; usgs_site_id: string; location: unknown } | { id: string; name: string; usgs_site_id: string; location: unknown }[];
   };
 
   const rows = data as unknown as Row[];
 
-  // Index primaries by river slug so each secondary can find its sibling.
-  const primaryBySlug = new Map<string, { row: Row; reading: { gaugeHeightFt: number | null; dischargeCfs: number | null } | null }>();
-  for (const row of rows) {
-    if (!row.is_primary) continue;
-    const river = Array.isArray(row.rivers) ? row.rivers[0] : row.rivers;
-    if (river?.slug) primaryBySlug.set(river.slug, { row, reading: null });
-  }
-
-  // Hydrate primary readings in a single batch (DB-first, no live fallback
-  // here — the post-cron USGS sync runs hourly).
-  const primaryEntries = Array.from(primaryBySlug.entries());
-  const primaryStationIds = primaryEntries
-    .map(([, entry]) => {
-      const s = Array.isArray(entry.row.gauge_stations) ? entry.row.gauge_stations[0] : entry.row.gauge_stations;
-      return s?.id;
-    })
-    .filter((id): id is string => Boolean(id));
-
-  if (primaryStationIds.length > 0) {
-    const { data: readings } = await supabase
-      .from('gauge_readings')
-      .select('gauge_station_id, gauge_height_ft, discharge_cfs, reading_timestamp')
-      .in('gauge_station_id', primaryStationIds)
-      .order('reading_timestamp', { ascending: false });
-
-    if (readings) {
-      const latestByStation = new Map<string, { gauge_height_ft: number | null; discharge_cfs: number | null }>();
-      for (const r of readings) {
-        if (!latestByStation.has(r.gauge_station_id)) {
-          latestByStation.set(r.gauge_station_id, {
-            gauge_height_ft: r.gauge_height_ft,
-            discharge_cfs: r.discharge_cfs,
-          });
-        }
-      }
-      for (const [slug, entry] of primaryEntries) {
-        const station = Array.isArray(entry.row.gauge_stations) ? entry.row.gauge_stations[0] : entry.row.gauge_stations;
-        const latest = latestByStation.get(station.id);
-        if (latest) {
-          primaryBySlug.set(slug, {
-            row: entry.row,
-            reading: { gaugeHeightFt: toNum(latest.gauge_height_ft), dischargeCfs: toNum(latest.discharge_cfs) },
-          });
-        }
-      }
-    }
-  }
-
   const targets: SecondaryGaugeTarget[] = [];
 
   for (const row of rows) {
-    if (row.is_primary) continue;
-
     const river = Array.isArray(row.rivers) ? row.rivers[0] : row.rivers;
     const station = Array.isArray(row.gauge_stations) ? row.gauge_stations[0] : row.gauge_stations;
     if (!river || !station?.usgs_site_id) continue;
 
     const thresholds: ConditionThresholds = {
-      levelTooLow: row.level_too_low,
-      levelLow: row.level_low,
-      levelOptimalMin: row.level_optimal_min,
-      levelOptimalMax: row.level_optimal_max,
-      levelHigh: row.level_high,
-      levelDangerous: row.level_dangerous,
+      levelTooLow: toNum(row.level_too_low),
+      levelLow: toNum(row.level_low),
+      levelOptimalMin: toNum(row.level_optimal_min),
+      levelOptimalMax: toNum(row.level_optimal_max),
+      levelHigh: toNum(row.level_high),
+      levelDangerous: toNum(row.level_dangerous),
       thresholdUnit: row.threshold_unit ?? 'ft',
+      floodStageFt: toNum(row.flood_stage_ft),
     };
-
-    // Build primary snapshot if available.
-    let primary: SecondaryGaugeTarget['primary'] = null;
-    const primaryEntry = primaryBySlug.get(river.slug);
-    if (primaryEntry) {
-      const primaryStation = Array.isArray(primaryEntry.row.gauge_stations) ? primaryEntry.row.gauge_stations[0] : primaryEntry.row.gauge_stations;
-      const primaryThresholds: ConditionThresholds = {
-        levelTooLow: primaryEntry.row.level_too_low,
-        levelLow: primaryEntry.row.level_low,
-        levelOptimalMin: primaryEntry.row.level_optimal_min,
-        levelOptimalMax: primaryEntry.row.level_optimal_max,
-        levelHigh: primaryEntry.row.level_high,
-        levelDangerous: primaryEntry.row.level_dangerous,
-        thresholdUnit: primaryEntry.row.threshold_unit ?? 'ft',
-      };
-      const primaryCondition = computeCondition(
-        primaryEntry.reading?.gaugeHeightFt ?? null,
-        primaryThresholds,
-        primaryEntry.reading?.dischargeCfs ?? null,
-      );
-      primary = {
-        usgsSiteId: primaryStation.usgs_site_id,
-        gaugeName: primaryStation.name,
-        gaugeHeightFt: primaryEntry.reading?.gaugeHeightFt ?? null,
-        dischargeCfs: primaryEntry.reading?.dischargeCfs ?? null,
-        conditionCode: primaryCondition.code as ConditionCode,
-      };
-    }
 
     targets.push({
       gaugeStationId: station.id,
@@ -225,7 +141,6 @@ export async function getSecondaryGaugeTargets(): Promise<SecondaryGaugeTarget[]
       })(),
       distanceFromSectionMiles: toNum(row.distance_from_section_miles),
       thresholds,
-      primary,
     });
   }
 
@@ -274,9 +189,34 @@ export async function generateGaugeUpdate(
   }
   if (gaugeHeightFt != null || dischargeCfs != null) sourcesUsed.push('USGS gauge');
 
+  // Alerts must survive both unavailable-gauge and post-validation fallbacks.
+  const riverCtx = await getRiverContext(target.riverSlug);
+  let alerts: NWSAlert[] = [];
+  try {
+    alerts = activeReportFloodAlerts(filterAlertsForRiver(
+      await fetchNWSAlerts(riverCtx?.state ?? 'MO'), target.riverSlug, riverCtx?.alertSearchTerms,
+    ));
+    if (alerts.length) sourcesUsed.push('NWS alerts');
+  } catch (e) {
+    console.warn('[GaugeUpdates] NWS alert fetch failed:', e);
+  }
+
   // 2. Compute condition.
-  const condition = computeCondition(gaugeHeightFt, target.thresholds, dischargeCfs);
-  const conditionCode = condition.code as ConditionCode;
+  const facts = buildReportFacts({ gaugeName: target.gaugeName, gaugeHeightFt, dischargeCfs, thresholds: target.thresholds, floodAlerts: alerts });
+  const conditionCode = facts.conditionCode;
+
+  const fallback = preflightReportFallback(facts);
+  if (fallback) return {
+    gaugeStationId: target.gaugeStationId,
+    usgsSiteId: target.usgsSiteId,
+    riverSlug: target.riverSlug,
+    conditionCode,
+    gaugeHeightFt,
+    dischargeCfs,
+    ...fallback,
+    sourcesUsed,
+    usage: null,
+  };
 
   // 3. Trajectory (10d + percentile).
   let trajectory: GaugeTrajectory | null = null;
@@ -290,7 +230,6 @@ export async function generateGaugeUpdate(
   // 4. Add local weather and hydrology context, then call Haiku. This uses
   // the selected gauge point when available and the river weather point as a
   // fallback. Next's fetch cache prevents duplicate upstream weather calls.
-  const riverCtx = await getRiverContext(target.riverSlug);
   let forecast: ForecastData | null = null;
   const apiKey = process.env.OPENWEATHER_API_KEY;
   if (apiKey) {
@@ -306,7 +245,7 @@ export async function generateGaugeUpdate(
       console.warn(`[GaugeUpdates] Forecast failed for ${target.usgsSiteId}:`, e);
     }
   }
-  const prompt = buildGaugePrompt(target, gaugeHeightFt, dischargeCfs, conditionCode, readingTimestamp, trajectory, forecast, riverCtx);
+  const prompt = buildGaugePrompt(target, facts, readingTimestamp, trajectory, forecast, riverCtx);
 
   const anthropicKey = process.env.ANTHROPIC_API_KEY;
   if (!anthropicKey) {
@@ -334,7 +273,10 @@ export async function generateGaugeUpdate(
       return null;
     }
 
-    const { summaryText, eddyRead, quoteText } = parseEddyResponse(rawText);
+    const { report, usedFallback } = prepareGeneratedReport(rawText, facts);
+    const { summaryText, eddyRead, quoteText } = report;
+    const publishedSources = !usedFallback ? sourcesUsed
+      : sourcesUsed.filter(source => ['USGS gauge', 'NWS alerts'].includes(source));
 
     return {
       gaugeStationId: target.gaugeStationId,
@@ -346,7 +288,7 @@ export async function generateGaugeUpdate(
       quoteText: stripEddyMarkers(quoteText),
       summaryText: summaryText ? stripEddyMarkers(summaryText) : null,
       eddyRead: eddyRead ? stripEddyMarkers(eddyRead) : null,
-      sourcesUsed,
+      sourcesUsed: publishedSources,
       usage: extractUsage(model.id, message.usage),
     };
   } catch (e) {
@@ -363,10 +305,10 @@ const GAUGE_SYSTEM_PROMPT = `You are Eddy, an AI otter mascot for a float trip p
 
 VOICE: Friendly, local-outfitter tone. Tight, no fluff. Use river terminology naturally: put-in, take-out, gauge, riffle, gravel bar.
 
-SCOPE: You are commenting on ONE gauge, not the whole river. Focus on what this specific reading means for the segment of river around it. When a primary-gauge snapshot is provided, frame this gauge in comparison: "running slightly higher than the primary," "tracking with the main gauge," "lagging behind upstream," etc. The primary gauge is the canonical reading for the river; your job is to add segment-level color, not contradict it.
+SCOPE: You are commenting on ONE gauge, not the whole river. Name that station and limit current condition claims to its supported location. Local river knowledge is background, not evidence of today's scraping, depth or floatability at other places. Never compare raw heights across stations or infer relative trends from snapshots.
 
 OUTPUT FORMAT (strict):
-Your response MUST contain exactly three labeled blocks. Use the markers [SUMMARY], [EDDY_READ], and [FULL] on their own lines, each followed by the text for that section. No other formatting, labels, or wrapping. Do NOT repeat the markers anywhere else.
+Your response MUST begin with the exact [CLAIMS] line supplied in the authoritative facts, followed by exactly three labeled blocks. Use the markers [SUMMARY], [EDDY_READ], and [FULL] on their own lines, each followed by the text for that section. No other formatting, labels, or wrapping. Do NOT repeat the markers anywhere else.
 
 [SUMMARY]
 A single sentence, under 120 characters. For chips and share cards.
@@ -378,20 +320,18 @@ One or two concise sentences, under 240 characters total. Explain the useful loc
 3-5 sentences. Pick the 2-3 most important points. Do not exceed 5 sentences.
 
 RULES:
-- State the condition clearly in the first sentence.
-- Cite the actual reading; never invent numbers or predict gauge heights.
+- State this gauge's condition in the summary, using the computed condition and band comparison exactly.
+- Cite only the readings supplied. Never invent numbers or predict gauge heights.
 - For "low": floatable, expect scraping. For "too_low": recommend waiting. For "high": use caution. For "dangerous": stay off the water.
-- When a primary-gauge snapshot is provided, draw a clean comparison in one sentence. Don't lecture, just place this gauge in context.
+- AUTHORITATIVE GAUGE FACTS control the condition and optimal-band comparison. Good is not Flowing. Do not reclassify, mix feet with cfs, or make current condition claims at other locations.
 - Do NOT recommend a different river as an alternative.
 - Do NOT use em dashes, emojis, hashtags, or exclamation marks.
 - Do NOT greet, sign off, or refer to yourself.
-- Output ONLY the [SUMMARY], [EDDY_READ], and [FULL] blocks.`;
+- Output ONLY the supplied [CLAIMS] line and the [SUMMARY], [EDDY_READ], and [FULL] blocks.`;
 
 function buildGaugePrompt(
   target: SecondaryGaugeTarget,
-  gaugeHeightFt: number | null,
-  dischargeCfs: number | null,
-  conditionCode: ConditionCode,
+  facts: ReportFacts,
   readingTimestamp: string | null,
   trajectory: GaugeTrajectory | null,
   forecast: ForecastData | null,
@@ -409,27 +349,12 @@ function buildGaugePrompt(
 
   lines.push('');
   lines.push('[THIS GAUGE]');
-  lines.push(`Height: ${gaugeHeightFt != null ? gaugeHeightFt.toFixed(1) + ' ft' : 'unavailable'}`);
-  if (dischargeCfs != null) lines.push(`Discharge: ${dischargeCfs.toLocaleString()} cfs`);
-  lines.push(`Condition: ${conditionCode}`);
-  const t = target.thresholds;
-  if (t.levelOptimalMin != null && t.levelOptimalMax != null) {
-    lines.push(`Optimal: ${t.levelOptimalMin}-${t.levelOptimalMax} ${t.thresholdUnit ?? 'ft'}`);
-  }
+  lines.push(reportFactsPrompt(facts));
   if (readingTimestamp) {
     const ageHours = (Date.now() - new Date(readingTimestamp).getTime()) / (1000 * 60 * 60);
     if (ageHours > 6) {
       lines.push(`WARNING: Reading is ${Math.round(ageHours)} hours old, data may be stale.`);
     }
-  }
-
-  if (target.primary && target.primary.usgsSiteId !== target.usgsSiteId) {
-    lines.push('');
-    lines.push('[PRIMARY GAUGE on the same river, for comparison]');
-    lines.push(`Name: ${target.primary.gaugeName}`);
-    if (target.primary.gaugeHeightFt != null) lines.push(`Height: ${target.primary.gaugeHeightFt.toFixed(1)} ft`);
-    if (target.primary.dischargeCfs != null) lines.push(`Discharge: ${target.primary.dischargeCfs.toLocaleString()} cfs`);
-    lines.push(`Condition: ${target.primary.conditionCode}`);
   }
 
   if (trajectory) {

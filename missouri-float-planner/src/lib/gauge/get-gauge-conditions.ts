@@ -7,6 +7,7 @@ import type { ConditionCode } from '@/types/api';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { fetchGaugeReadings, classifyQualifiers } from '@/lib/usgs/gauges';
 import { computeCondition, type ConditionThresholds } from '@/lib/conditions';
+import { sectionGaugeSupportsReport } from './section-gauge-support';
 import { toNum } from '@/lib/utils/num';
 
 export interface GaugeConditionResult {
@@ -19,6 +20,7 @@ export interface GaugeConditionResult {
   gaugeHeightFt: number | null;
   dischargeCfs: number | null;
   thresholdUnit: 'ft' | 'cfs';
+  sectionGaugeMatched: boolean;
   conditionCode: ConditionCode;
   conditionLabel: string;
   readingTimestamp: string | null;
@@ -31,12 +33,13 @@ export interface GaugeConditionResult {
 
 const GAUGE_LINK_SELECT = `
   level_too_low, level_low, level_optimal_min, level_optimal_max,
-  level_high, level_dangerous, threshold_unit,
-  gauge_stations (id, name, usgs_site_id)
+  level_high, level_dangerous, threshold_unit, flood_stage_ft, river_mile,
+  gauge_stations!inner (id, name, usgs_site_id)
 `;
 
 /** Shape of GAUGE_LINK_SELECT. Named so both lookups below stay typed. */
 interface GaugeLinkRow {
+  river_mile: number | null;
   level_too_low: number | null;
   level_low: number | null;
   level_optimal_min: number | null;
@@ -44,6 +47,7 @@ interface GaugeLinkRow {
   level_high: number | null;
   level_dangerous: number | null;
   threshold_unit: string | null;
+  flood_stage_ft: number | null;
   gauge_stations:
     | { id: string; name: string | null; usgs_site_id: string | null }
     | Array<{ id: string; name: string | null; usgs_site_id: string | null }>
@@ -54,8 +58,9 @@ interface GaugeLinkRow {
  * Fetches the latest gauge reading and computes condition for a river, or for
  * one reach of it.
  *
- * `sectionSlug` selects the gauge that actually reads that reach, via
- * river_sections.primary_gauge_station_id (migration 00204). Omit it — as the
+ * `sectionSlug` first honors explicit curation, then delegates positional
+ * selection at the section start mile to the website RPC. Selection alone
+ * does not establish reach support; see sectionGaugeSupportsReport. Omit it — as the
  * chat handlers and every whole-river caller do — and behaviour is unchanged:
  * the river's is_primary gauge.
  *
@@ -88,21 +93,25 @@ export async function getGaugeConditions(
     return null;
   }
 
-  // A reach may name the gauge that reads it; resolve that first.
   let sectionStationId: string | null = null;
+  let sectionStartMile: number | null = null;
+  let sectionEndMile: number | null = null;
   if (sectionSlug) {
     const { data: section } = await supabase
       .from('river_sections')
-      .select('primary_gauge_station_id')
+      .select('primary_gauge_station_id, river_mile_start, river_mile_end')
       .eq('river_id', riverData.id)
       .eq('section_slug', sectionSlug)
       .maybeSingle();
-    sectionStationId =
-      (section as { primary_gauge_station_id?: string | null } | null)?.primary_gauge_station_id ?? null;
+    sectionStationId = section?.primary_gauge_station_id ?? null;
+    sectionStartMile = toNum(section?.river_mile_start);
+    sectionEndMile = toNum(section?.river_mile_end);
   }
 
   let gaugeLink: GaugeLinkRow | null = null;
-
+  // Explicit curation wins, including on RPC errors or missing RPC results.
+  // Never clear this assignment: if its link fails, any substitute remains
+  // an unsupported station observation rather than a curated reach assessment.
   if (sectionStationId) {
     const { data } = await supabase
       .from('river_gauges')
@@ -111,14 +120,22 @@ export async function getGaugeConditions(
       .eq('gauge_station_id', sectionStationId)
       .maybeSingle();
     gaugeLink = data as GaugeLinkRow | null;
-    if (!gaugeLink) {
-      // The section names a station with no river_gauges link, so there are no
-      // thresholds to classify against. Fall through to the river's primary
-      // rather than returning nothing — a whole-river report is wrong for the
-      // reach, but silence is worse, and this is a curation bug worth shouting about.
-      console.warn(
-        `[GaugeConditions] Section "${sectionSlug}" on "${riverSlug}" names a gauge station with no river_gauges row; falling back to the river's primary gauge.`,
-      );
+  }
+  if (!gaugeLink && sectionStartMile != null) {
+    const { data: resolved, error } = await supabase.rpc('get_river_condition_segment', {
+      p_river_id: riverData.id,
+      p_put_in_mile: sectionStartMile,
+    });
+    if (error) console.warn('[GaugeConditions] Section gauge resolution failed:', error.message);
+    const resolvedSectionUsgsId = error ? null : resolved?.[0]?.gauge_usgs_id ?? null;
+    if (resolvedSectionUsgsId) {
+      const { data } = await supabase
+        .from('river_gauges')
+        .select(GAUGE_LINK_SELECT)
+        .eq('river_id', riverData.id)
+        .eq('gauge_stations.usgs_site_id', resolvedSectionUsgsId)
+        .maybeSingle();
+      gaugeLink = data as GaugeLinkRow | null;
     }
   }
 
@@ -185,12 +202,13 @@ export async function getGaugeConditions(
 
   // Compute condition
   const thresholds: ConditionThresholds = {
-    levelTooLow: gaugeLink.level_too_low,
-    levelLow: gaugeLink.level_low,
-    levelOptimalMin: gaugeLink.level_optimal_min,
-    levelOptimalMax: gaugeLink.level_optimal_max,
-    levelHigh: gaugeLink.level_high,
-    levelDangerous: gaugeLink.level_dangerous,
+    levelTooLow: toNum(gaugeLink.level_too_low),
+    levelLow: toNum(gaugeLink.level_low),
+    levelOptimalMin: toNum(gaugeLink.level_optimal_min),
+    levelOptimalMax: toNum(gaugeLink.level_optimal_max),
+    levelHigh: toNum(gaugeLink.level_high),
+    levelDangerous: toNum(gaugeLink.level_dangerous),
+    floodStageFt: toNum(gaugeLink.flood_stage_ft),
     thresholdUnit: (gaugeLink.threshold_unit ?? undefined) as 'ft' | 'cfs' | undefined,
   };
 
@@ -198,8 +216,8 @@ export async function getGaugeConditions(
 
   // Build optimal range string
   const unit = gaugeLink.threshold_unit === 'cfs' ? 'cfs' : 'ft';
-  const optMin = gaugeLink.level_optimal_min;
-  const optMax = gaugeLink.level_optimal_max;
+  const optMin = thresholds.levelOptimalMin;
+  const optMax = thresholds.levelOptimalMax;
   const optimalRange = (optMin != null && optMax != null)
     ? `${optMin}-${optMax} ${unit}`
     : 'unknown';
@@ -214,11 +232,18 @@ export async function getGaugeConditions(
     gaugeHeightFt,
     dischargeCfs,
     thresholdUnit: unit,
+    sectionGaugeMatched: !!sectionSlug && sectionGaugeSupportsReport({
+      curatedStationId: sectionStationId,
+      selectedStationId: station.id,
+      startMile: sectionStartMile,
+      endMile: sectionEndMile,
+      gaugeMile: toNum(gaugeLink.river_mile),
+    }),
     conditionCode: condition.code as ConditionCode,
     conditionLabel: condition.label,
     readingTimestamp,
     optimalRange,
-    closureLevel: gaugeLink.level_dangerous ?? null,
+    closureLevel: thresholds.levelDangerous ?? null,
     thresholds,
     // Only the "suspect" qualifiers (estimated/ice/equipment) get a note —
     // 'P' (provisional) is normal for all USGS real-time data.

@@ -18,18 +18,13 @@ import { getRiverContext, DEFAULT_TIMEZONE, type RiverContext } from '@/lib/rive
 import { getLocalDateStrings } from '@/lib/social/local-time';
 import { parseEddyResponse, stripEddyMarkers } from '@/lib/eddy/parse-response';
 import { RIVER_TYPE_GUIDANCE, buildConditionSemantics } from '@/lib/eddy/condition-semantics';
+import { buildReportFacts, reportFactsPrompt, prepareGeneratedReport, preflightReportFallback, activeReportFloodAlerts, type ReportFacts } from './report-facts';
 import type { ResolvedModel } from '@/lib/ai/resolve-models';
 
 
 export interface GaugeContext {
-  gaugeName: string;
-  gaugeHeightFt: number | null;
-  dischargeCfs: number | null;
-  conditionCode: ConditionCode;
-  conditionLabel: string;
+  facts: ReportFacts;
   readingTimestamp: string | null;
-  optimalRange: string;
-  closureLevel: number | null;
   notes: string | null;
 }
 
@@ -128,20 +123,39 @@ export async function generateEddyUpdate(
   // otherwise. Without the section, a tailwater update is built from the gauge
   // above its dam.
   const gaugeResult = await getGaugeConditions(target.riverSlug, target.sectionSlug);
-  const gaugeContext: GaugeContext | null = gaugeResult ? {
-    gaugeName: gaugeResult.gaugeName,
-    gaugeHeightFt: gaugeResult.gaugeHeightFt,
-    dischargeCfs: gaugeResult.dischargeCfs,
-    conditionCode: gaugeResult.conditionCode,
-    conditionLabel: gaugeResult.conditionLabel,
-    readingTimestamp: gaugeResult.readingTimestamp,
-    optimalRange: gaugeResult.optimalRange,
-    closureLevel: gaugeResult.closureLevel,
-    notes: riverCtx?.characteristics?.riverNote ?? RIVER_NOTES[target.riverSlug] ?? null,
-  } : null;
-  if (gaugeContext) sourcesUsed.push('USGS gauge');
 
-  // --- 2. Fetch weather (current + 3-day forecast) ---
+  // --- 2. Fetch NWS alerts (state from river data; NWS is US-only) ---
+  let alerts: NWSAlert[] = [];
+  try {
+    const allAlerts = await fetchNWSAlerts(riverCtx?.state ?? 'MO');
+    alerts = filterAlertsForRiver(allAlerts, target.riverSlug, riverCtx?.alertSearchTerms);
+  } catch (e) {
+    console.warn('[EddyGen] NWS alert fetch failed:', e);
+  }
+
+  const floodAlerts = activeReportFloodAlerts(alerts);
+  if (floodAlerts.length) sourcesUsed.push('NWS alerts');
+  const facts = buildReportFacts({
+    gaugeName: gaugeResult?.gaugeName ?? null,
+    locationName: target.riverName,
+    conditionCode: gaugeResult?.conditionCode ?? 'unknown',
+    gaugeHeightFt: gaugeResult?.gaugeHeightFt ?? null,
+    dischargeCfs: gaugeResult?.dischargeCfs ?? null,
+    thresholds: gaugeResult?.thresholds ?? { levelTooLow: null, levelLow: null, levelOptimalMin: null, levelOptimalMax: null, levelHigh: null, levelDangerous: null },
+    floodAlerts,
+    requestedSection: target.sectionName,
+    supportedSection: gaugeResult?.sectionGaugeMatched ? target.sectionName : null,
+  });
+  const fallback = preflightReportFallback(facts);
+
+  const gaugeContext: GaugeContext = {
+    facts,
+    readingTimestamp: gaugeResult?.readingTimestamp ?? null,
+    notes: riverCtx?.characteristics?.riverNote ?? RIVER_NOTES[target.riverSlug] ?? null,
+  };
+  if (facts.gaugeHeightFt != null || facts.dischargeCfs != null) sourcesUsed.push('USGS gauge');
+
+  // --- 3. Fetch weather (current + 3-day forecast) ---
   let weather: WeatherData | null = null;
   let forecast: ForecastData | null = null;
   let precipitation: PrecipitationSummary | null = null;
@@ -155,21 +169,26 @@ export async function generateEddyUpdate(
       ]);
       sourcesUsed.push('OpenWeather');
       // Extract precipitation data from already-fetched responses
-      precipitation = fetchPrecipitationFromWeather(weather, forecast);
+      if (!fallback) precipitation = fetchPrecipitationFromWeather(weather, forecast);
     } catch (e) {
       console.warn(`[EddyGen] Weather fetch failed for ${target.riverSlug}:`, e);
     }
   }
 
-  // --- 3. Fetch NWS alerts (state from river data; NWS is US-only) ---
-  let alerts: NWSAlert[] = [];
-  try {
-    const allAlerts = await fetchNWSAlerts(riverCtx?.state ?? 'MO');
-    alerts = filterAlertsForRiver(allAlerts, target.riverSlug, riverCtx?.alertSearchTerms);
-    if (alerts.length > 0) sourcesUsed.push('NWS alerts');
-  } catch (e) {
-    console.warn('[EddyGen] NWS alert fetch failed:', e);
-  }
+  if (fallback) return {
+    riverSlug: target.riverSlug,
+    sectionSlug: target.sectionSlug,
+    conditionCode: facts.conditionCode,
+    gaugeHeightFt: facts.gaugeHeightFt,
+    dischargeCfs: facts.dischargeCfs,
+    ...fallback,
+    sourcesUsed,
+    weather: buildWeatherSummary(weather, forecast),
+    usage: null,
+  };
+
+  // Non-flood outlooks can inform model prose, but are not fallback sources.
+  if (alerts.length && !facts.floodAlerts?.length) sourcesUsed.push('NWS alerts');
 
   // --- 4. Load local knowledge ---
   const localKnowledge = getKnowledgeForTarget(target.riverSlug, target.sectionSlug);
@@ -180,11 +199,8 @@ export async function generateEddyUpdate(
   // gauge the readings above came from. Keyed off the river it would otherwise
   // report the tailwater's movement from the gauge above the dam — the reading
   // and the trend would describe two different rivers in one paragraph.
-  let trajectory: GaugeTrajectory | null = null;
-  if (gaugeContext && gaugeResult) {
-    trajectory = await buildGaugeTrajectoryForSite(gaugeResult.usgsSiteId);
-    if (trajectory) sourcesUsed.push('gauge trajectory');
-  }
+  const trajectory = gaugeResult ? await buildGaugeTrajectoryForSite(gaugeResult.usgsSiteId) : null;
+  if (trajectory) sourcesUsed.push('gauge trajectory');
 
   // --- 6. Load rain-lag info (river_characteristics first, legacy map fallback) ---
   const rc = riverCtx?.characteristics;
@@ -236,18 +252,22 @@ export async function generateEddyUpdate(
     }
 
     // Parse summary and full text from the model output
-    const { summaryText, eddyRead, quoteText } = parseEddyResponse(rawText);
+    const { report, usedFallback } = prepareGeneratedReport(rawText, facts);
+    const { summaryText, eddyRead, quoteText } = report;
+    const publishedSources = !usedFallback ? sourcesUsed
+      : sourcesUsed.filter(source => source === 'USGS gauge' || source === 'OpenWeather'
+        || (source === 'NWS alerts' && !!facts.floodAlerts?.length));
 
     return {
       riverSlug: target.riverSlug,
       sectionSlug: target.sectionSlug,
-      conditionCode: gaugeContext?.conditionCode ?? 'unknown',
-      gaugeHeightFt: gaugeContext?.gaugeHeightFt ?? null,
-      dischargeCfs: gaugeContext?.dischargeCfs ?? null,
+      conditionCode: facts.conditionCode,
+      gaugeHeightFt: facts.gaugeHeightFt,
+      dischargeCfs: facts.dischargeCfs,
       quoteText: stripEddyMarkers(quoteText),
       summaryText: summaryText ? stripEddyMarkers(summaryText) : null,
       eddyRead: eddyRead ? stripEddyMarkers(eddyRead) : null,
-      sourcesUsed,
+      sourcesUsed: publishedSources,
       weather: buildWeatherSummary(weather, forecast),
       usage: extractUsage(model.id, message.usage),
     };
@@ -277,10 +297,10 @@ const EDDY_SYSTEM_PROMPT = `You are Eddy, an AI otter mascot for a float trip pl
 
 VOICE: Friendly, knowledgeable, concise. Like a local outfitter who checks gauges every morning. Not overly casual, not corporate. Use river terminology naturally: put-in, take-out, gauge, riffle, gravel bar.
 
-VOCABULARY: The condition levels are named Too Low, Low, Good, Flowing, High, and Flood. Never call a level "ideal" — the green level is "Flowing". Say "optimal range" when referring to the gauge's optimal_min/optimal_max band.
+VOCABULARY: The condition levels are named Too Low, Low, Good, Flowing, High, and Dangerous. Never call a level "ideal" — the green level is "Flowing". Say "optimal range" when referring to the gauge's optimal_min/optimal_max band.
 
 OUTPUT FORMAT (strict):
-Your response MUST contain exactly three labeled blocks. Use the markers [SUMMARY], [EDDY_READ], and [FULL] on their own lines, each followed by the text for that section. No other formatting, labels, or wrapping.
+Your response MUST begin with the exact [CLAIMS] line supplied in the authoritative facts, followed by exactly three labeled blocks. Use the markers [SUMMARY], [EDDY_READ], and [FULL] on their own lines, each followed by the text for that section. No other formatting, labels, or wrapping.
 IMPORTANT: The markers are one-time section headers, not tags. Use each exactly once at the start of its section. Do NOT repeat them, use them as closing markers, or include the literal marker text anywhere in your prose.
 
 [SUMMARY]
@@ -292,20 +312,21 @@ One or two concise sentences, under 240 characters total. Synthesize the river's
 [FULL]
 4-6 sentences with details, trends, and context. Do not exceed 6 sentences. Pick the 2-3 most important points, not everything.
 
-Example response:
+Example response (illustrative wording only; use the actual facts supplied):
 
+[CLAIMS] condition=good relation=below
 [SUMMARY]
-Flowing at 2.5 ft with a steady gauge, making today a strong float window.
+Good at the Van Buren gauge and a little below its optimal range, with a steady trend.
 
 [EDDY_READ]
 Spring inputs make this reach more predictable than most after a dry stretch, and the steady trend supports a straightforward float today.
 
 [FULL]
-The Akers gauge reads 2.5 ft, in the optimal range of 2.0 to 3.0 ft. It has held steady over the past 24 hours, which makes today's conditions more predictable. If the dry forecast holds, the river has no obvious weather-driven change signal through Friday, but exact future readings are uncertain. Recheck the gauge before launch.
+The reporting gauge has held steady over the past 24 hours. If the dry forecast holds, the river has no obvious weather-driven change signal through Friday, but exact future readings are uncertain. Recheck the gauge before launch.
 
 CONDITION ASSESSMENT:
-- Match your language to the condition code provided. If the code is "high", say it IS high water, not "approaching high." If "dangerous", say "stay off the water" with zero hedging.
-- State the condition clearly in the first sentence of both the summary and the full text.
+- The AUTHORITATIVE GAUGE FACTS take precedence over examples and local knowledge. Good and Flowing are distinct ratings. Never change the computed condition or optimal-band comparison. Match your language to the condition code provided. If the code is "high", say it IS high water, not "approaching high." If "dangerous", say "stay off the water" with zero hedging.
+- State the condition clearly in the first sentence of both the summary and the full text, using the computed condition and band comparison exactly.
 - If there are active NWS flood alerts, lead with safety first.
 - Cite the actual gauge reading and what it means for floating.
 - For high water: use "use caution" language rather than "experienced paddlers only." High water deserves a clear warning but not a blanket restriction unless conditions are solidly high or approaching dangerous.
@@ -355,8 +376,8 @@ TRAJECTORY:
 - When percentile context is available, use it to note whether conditions are typical or unusual for the time of year.
 
 SECTION-SPECIFIC:
-- When writing about a specific section, describe what the current gauge reading means for that section specifically.
-- Do NOT guess at section behavior you were not given knowledge about.
+- Only make current section-specific claims when AUTHORITATIVE GAUGE FACTS explicitly identifies that section as supported. Otherwise name the fallback gauge and say the requested section is not assessed.
+- Background knowledge about a named place does not establish its current water conditions. Do not infer current scraping or floatability upstream or downstream without supporting readings. Do not compare station heights or treat a snapshot comparison as a trend.
 
 RECOVERY CONTEXT:
 - Do not cite specific drop rates or recovery timelines in your output.
@@ -369,7 +390,7 @@ STYLE:
 - Do NOT use emojis, hashtags, or exclamation marks.
 - Do NOT include a greeting or sign-off.
 - Do NOT say "I" or refer to yourself.
-- Your entire output must be ONLY the [SUMMARY], [EDDY_READ], and [FULL] blocks. Nothing else.`;
+- Your entire output must be ONLY the supplied [CLAIMS] line and the [SUMMARY], [EDDY_READ], and [FULL] blocks. Nothing else.`;
 
 // ---------------------------------------------------------------------------
 // Prompt assembly
@@ -377,7 +398,7 @@ STYLE:
 
 function buildPrompt(
   target: UpdateTarget,
-  gauge: GaugeContext | null,
+  gauge: GaugeContext,
   weather: WeatherData | null,
   forecast: ForecastData | null,
   alerts: NWSAlert[],
@@ -433,45 +454,18 @@ function buildPrompt(
   lines.push('');
   lines.push('[CURRENT GAUGE DATA]');
 
-  // Gauge data
-  if (gauge) {
-    lines.push(`Gauge: ${gauge.gaugeName}`);
-    lines.push(`Height: ${gauge.gaugeHeightFt !== null ? gauge.gaugeHeightFt.toFixed(1) + ' ft' : 'unavailable'}`);
-    if (gauge.dischargeCfs !== null) {
-      lines.push(`Discharge: ${gauge.dischargeCfs.toLocaleString()} cfs`);
-    }
-    lines.push(`Condition: ${gauge.conditionLabel} (${gauge.conditionCode})`);
-    lines.push(`Optimal range: ${gauge.optimalRange}`);
-    if (gauge.readingTimestamp) {
-      const ageHours = (Date.now() - new Date(gauge.readingTimestamp).getTime()) / (1000 * 60 * 60);
-      if (ageHours > 6) {
-        lines.push(`WARNING: Reading is ${Math.round(ageHours)} hours old, data may be stale.`);
-      }
-    }
-  } else {
-    lines.push('Gauge data: unavailable');
+  lines.push(reportFactsPrompt(gauge.facts));
+  if (gauge.readingTimestamp) {
+    const ageHours = (Date.now() - new Date(gauge.readingTimestamp).getTime()) / (1000 * 60 * 60);
+    if (ageHours > 6) lines.push(`WARNING: Reading is ${Math.round(ageHours)} hours old, data may be stale.`);
   }
 
   // Gauge threshold knowledge
-  if (gauge?.notes) {
+  if (gauge.notes) {
     lines.push(`Gauge notes: ${gauge.notes}`);
   } else if (riverNotes) {
     lines.push(`Gauge notes: ${riverNotes}`);
   }
-  if (gauge?.closureLevel != null) {
-    lines.push(`Closure level: ${gauge.closureLevel} ft`);
-    if (gauge.gaugeHeightFt != null) {
-      const margin = gauge.closureLevel - gauge.gaugeHeightFt;
-      if (margin > 0) {
-        lines.push(`Margin to closure: ${margin.toFixed(1)} ft below closure`);
-      } else if (margin === 0) {
-        lines.push(`Margin to closure: AT closure level`);
-      } else {
-        lines.push(`Margin to closure: ${Math.abs(margin).toFixed(1)} ft ABOVE closure`);
-      }
-    }
-  }
-
   // 5-day gauge trajectory
   if (trajectory) {
     lines.push('');
