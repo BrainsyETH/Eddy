@@ -3,6 +3,16 @@ name: Camping Campaign Voice Preview
 on:
   workflow_dispatch:
     inputs:
+      cut:
+        description: 'Campaign script'
+        type: choice
+        options: [long, short]
+        default: long
+      pace:
+        description: 'Delivery audition (normal playback speed)'
+        type: choice
+        options: [relaxed, brisk]
+        default: relaxed
       generate_voice:
         description: 'Generate a dry voice audition using OPENAI_API_KEY (no social publication).'
         type: boolean
@@ -16,6 +26,9 @@ jobs:
   preview:
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    env:
+      CAMPAIGN_CUT: ${{ inputs.cut }}
+      CAMPAIGN_PACE: ${{ inputs.pace }}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
@@ -24,7 +37,7 @@ jobs:
       - name: Check and print the approved script
         run: |
           node --check marketing/campaigns/fall-camping/prepare-voice.mjs
-          node marketing/campaigns/fall-camping/prepare-voice.mjs
+          node marketing/campaigns/fall-camping/prepare-voice.mjs "--cut=$CAMPAIGN_CUT" "--pace=$CAMPAIGN_PACE"
       - name: Install audio tools
         if: inputs.generate_voice
         run: sudo apt-get update && sudo apt-get install -y ffmpeg
@@ -32,12 +45,12 @@ jobs:
         if: inputs.generate_voice
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-        run: node marketing/campaigns/fall-camping/prepare-voice.mjs --generate
+        run: node marketing/campaigns/fall-camping/prepare-voice.mjs "--cut=$CAMPAIGN_CUT" "--pace=$CAMPAIGN_PACE" --generate
       - name: Upload audition
         if: inputs.generate_voice
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
-          name: fall-camping-voice-audition
+          name: fall-camping-${{ inputs.cut }}-${{ inputs.pace }}-voice-audition
           path: |
             marketing/campaigns/fall-camping/out/*/narration.wav
             marketing/campaigns/fall-camping/out/*/source.wav
