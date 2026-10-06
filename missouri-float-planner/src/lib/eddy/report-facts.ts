@@ -61,7 +61,7 @@ export function reportFactsPrompt(f: ReportFacts): string {
   return [
     '[AUTHORITATIVE GAUGE FACTS — override examples and background knowledge]',
     `Begin your response with exactly this single line: ${reportClaimsLine(f)}`,
-    'Then write [SUMMARY], [EDDY_READ], and [FULL] as usual. Do not repeat the current condition, current band comparison or gauge measurements in those prose fields: code will render those facts. Use the prose for weather, forecasts and locally supported context.',
+    'Then write [SUMMARY], [EDDY_READ], and [FULL] as usual. Whenever you state the current condition, band comparison or a gauge measurement, use exactly the facts below.',
     `Reporting gauge: ${f.gaugeName}`,
     'If no alerts are supplied, do not claim that no alerts are active: lookup or matching coverage may be unavailable.',
     ...(f.floodAlerts?.length ? [
@@ -181,24 +181,19 @@ export function reportClaimsLine(f: ReportFacts): string {
   return `[CLAIMS] condition=${f.conditionCode} relation=${f.relation}`;
 }
 
-/** Only this entry point publishes generated prose. Claims are mandatory,
- * exact, single and removed before parsing; model claims are never rendered. */
+/** Only this entry point publishes generated prose. The model's own text is
+ * published as written once it passes the contradiction guard; the factual
+ * fallback is used only when the guard rejects it. The claims line is
+ * optional: a missing one is not a failure, a wrong one is, and it is always
+ * removed before parsing so it can never be published. */
 export function prepareGeneratedReport(raw: string, f: ReportFacts): { report: ParsedEddyResponse; usedFallback: boolean } {
   const lines = raw.trim().split(/\r?\n/);
-  if (lines[0] !== reportClaimsLine(f) || lines.slice(1).some(line => /\[CLAIMS\]/i.test(line))) {
-    console.warn(`[EddyFacts] Invalid or missing claims for ${f.gaugeName ?? f.locationName}`);
+  const claims = lines.filter(line => /\[CLAIMS\]/i.test(line));
+  if (claims.some(line => line.trim() !== reportClaimsLine(f))) {
+    console.warn(`[EddyFacts] Mismatched claims for ${f.gaugeName ?? f.locationName}`);
     return { report: factualReportFallback(f), usedFallback: true };
   }
-  const parsed = parseEddyResponse(lines.slice(1).join('\n'));
+  const parsed = parseEddyResponse(lines.filter(line => !/\[CLAIMS\]/i.test(line)).join('\n'));
   const checked = guardReport(parsed, f);
-  if (checked !== parsed) return { report: checked, usedFallback: true };
-  const authoritative = factualReportFallback(f);
-  return {
-    usedFallback: false,
-    report: {
-      summaryText: authoritative.summaryText,
-      eddyRead: [f.conditionCode === 'dangerous' || f.conditionCode === 'high' ? authoritative.eddyRead : authoritative.summaryText, parsed.eddyRead].filter(Boolean).join(' '),
-      quoteText: [authoritative.quoteText, parsed.quoteText].filter(Boolean).join('\n\n'),
-    },
-  };
+  return { report: checked, usedFallback: checked !== parsed };
 }

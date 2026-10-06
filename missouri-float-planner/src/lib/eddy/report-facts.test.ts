@@ -260,27 +260,28 @@ test('website-compatible legacy rating does not permit a cross-unit range compar
 
 const modelOutput = (f: typeof facts, text: string) => `${reportClaimsLine(f)}\n[SUMMARY]\n${text}\n[EDDY_READ]\n${text}\n[FULL]\n${text}`;
 
-test('structured claims are mandatory, exact, single and never published', () => {
-  const raw = modelOutput(facts, 'Clear weather through Thursday.');
+test('model prose is published as written; wrong claims select the fallback', () => {
+  const raw = modelOutput(facts, 'Good at Van Buren, a little below the optimal band. Clear weather through Thursday.');
   for (const invalid of [
-    raw.replace(reportClaimsLine(facts), ''),
     raw.replace('condition=good', 'condition=flowing'),
     raw.replace('relation=below', 'relation=within'),
     raw.replace('condition=good', 'condition=Flood'),
-    `${raw}\n${reportClaimsLine(facts)}`,
     raw.replace('relation=below', 'relation=below extra=true'),
   ]) {
     const result = prepareGeneratedReport(invalid, facts);
     assert.equal(result.usedFallback, true);
     assert.deepEqual(result.report, factualReportFallback(facts));
   }
-  const result = prepareGeneratedReport(raw, facts);
-  assert.equal(result.usedFallback, false);
-  assert.match(result.report.summaryText ?? '', /^Good at Current River at Van Buren/);
-  assert.match(result.report.quoteText, /756 cfs is below the optimal band/);
-  assert.match(result.report.eddyRead ?? '', /^Good at Current River/);
-  assert.match(result.report.quoteText, /Clear weather through Thursday/);
-  assert.doesNotMatch(JSON.stringify(result.report), /CLAIMS|condition=|relation=/);
+  const prose = 'Good at Van Buren, a little below the optimal band. Clear weather through Thursday.';
+  for (const valid of [raw, raw.replace(reportClaimsLine(facts), ''), `${raw}\n${reportClaimsLine(facts)}`]) {
+    const result = prepareGeneratedReport(valid, facts);
+    assert.equal(result.usedFallback, false);
+    // Nothing is prepended: the saved fields are the model's own text.
+    assert.equal(result.report.summaryText, prose);
+    assert.equal(result.report.eddyRead, prose);
+    assert.equal(result.report.quoteText, prose);
+    assert.doesNotMatch(JSON.stringify(result.report), /CLAIMS|condition=|relation=/);
+  }
 });
 
 test('real forecast sentences pass without a verb whitelist; explicit false negation fails', () => {

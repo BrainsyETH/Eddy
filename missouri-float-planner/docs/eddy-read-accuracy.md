@@ -31,14 +31,15 @@ selection and row persistence are unchanged; disabling unused targets is separat
 
 ## Structured claims and prose
 
-Both system prompts require the exact first line supplied in the facts:
+Both system prompts ask for the first line supplied in the facts:
 
     [CLAIMS] condition=good relation=below
 
-The generator rejects missing, malformed, duplicate or mismatched claims and
-removes the line before parsing prose. Code renders the public summary and the
-condition/range statement; the model supplies forecast and local context. All
-three prose fields still pass a narrow backstop for explicit condition labels,
+A missing line is not a failure; a line that disagrees with the facts selects the
+factual fallback. The line is removed before parsing and never published. The
+model writes all three prose fields, including the condition statement, and they
+are published as written. Code adds nothing in front of them; the factual text is
+used only as the fallback. All three prose fields pass a narrow backstop for explicit condition labels,
 literal present assertions, numeric reading/unit errors and the original screenshot
 pattern. `Condition: Flood` maps to Dangerous in that backstop; a structured
 condition must use the exact canonical code. Direct negated band assertions are
@@ -47,8 +48,8 @@ checked against the computed relation rather than skipped.
 There is no general English tense parser or growing forecast-verb whitelist.
 Forecasts such as “could climb” or “if the river drops” are not current assertions.
 A valid claims header is not proof of correct prose: arbitrary paraphrases and
-geographic inferences remain outside the narrow check. The prompt prohibits
-repeating current classifications and numeric band comparisons in prose. Real
+geographic inferences remain outside the narrow check. The prompt requires any
+stated condition or band comparison to match the computed facts exactly. Real
 sentence regression cases live in `report-facts.test.ts`.
 
 Stage uses at most two decimals and discharge whole cfs in prompt/display text.

@@ -320,8 +320,8 @@ One or two concise sentences, under 240 characters total. Explain the useful loc
 3-5 sentences. Pick the 2-3 most important points. Do not exceed 5 sentences.
 
 RULES:
-- Code renders the current condition and band comparison. Do not repeat or reinterpret them in prose.
-- Code renders the actual reading. Use prose for measured trends and forecast context; never invent numbers or predict gauge heights.
+- State this gauge's condition in the summary, using the computed condition and band comparison exactly.
+- Cite only the readings supplied. Never invent numbers or predict gauge heights.
 - For "low": floatable, expect scraping. For "too_low": recommend waiting. For "high": use caution. For "dangerous": stay off the water.
 - AUTHORITATIVE GAUGE FACTS control the condition and optimal-band comparison. Good is not Flowing. Do not reclassify, mix feet with cfs, or make current condition claims at other locations.
 - Do NOT recommend a different river as an alternative.
