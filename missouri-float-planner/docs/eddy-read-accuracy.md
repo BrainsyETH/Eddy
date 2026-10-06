@@ -1,60 +1,68 @@
 # Eddy Read accuracy boundary
 
-Both `generate-update.ts` and `generate-gauge-update.ts` use `report-facts.ts`
-for the condition, matching-unit optimal-band comparison, prompt facts, and
-post-generation checks. The shared condition ladder remains authoritative.
+Both report generators use `report-facts.ts` for the authoritative condition,
+matching-unit optimal-band comparison, prompt facts and post-generation checks.
 
-A cfs rating with no discharge (or a feet rating with no stage) is unknown;
-there is no cross-unit fallback in generated reports. An available official
-flood stage can still classify a reading as dangerous independently. Editorial
-`level_dangerous` is not an official closure order.
+## Classification and units
 
-A requested section is supported only if its assigned station actually resolved.
-Otherwise its report is replaced with a factual station observation explicitly
-saying the section is not assessed. Whole-river and secondary-gauge prompts
-restrict claims to the reporting station; static local knowledge is not evidence
-of current water at other locations. Secondary prompts no longer compare raw
-heights at different stations.
+The condition uses the shared website-compatible classifier, including its
+existing missing-measurement fallback. This is a deliberate compatibility choice:
+we are not changing the SQL classifiers or introducing a migration in this PR.
+The Read's numeric optimal-band comparison is stricter: missing discharge for a
+cfs band, or missing stage for a feet band, makes the comparison unavailable.
+Never use the other measurement to claim below/within/above that band.
+Official flood-stage overrides remain independent of recreational thresholds.
+A Dangerous fallback omits the optimal-band sentence even if discharge is within
+that band. An editorial danger threshold is not an official closure order.
 
-The post-generation guard checks all three prose fields for explicit condition,
-reading and optimal-band contradictions. It replaces the entire response with a
-factual fallback on rejection and logs the station and rejection reasons (not the
-full prompt). It does not attempt general semantic validation: arbitrary
-paraphrases, geographic claims in whole-river prose, negation and hypothetical
-phrasing are not fully understood. Conservative false positives can produce the
-fallback. Prompt restrictions and review of generated samples remain necessary.
+## Geographic scope
 
-This change does not rewrite saved reports, change models, alter report-length
-requirements, or disable section generation. After deployment, inspect newly
-generated samples, especially the Current at Van Buren. The October 5 incident
-(2.57 ft, 756 cfs; optimal 1190–2700 cfs) must be Good and below optimal, without
-current Montauk/Akers claims. Review both the full Read and its compact versions.
+For sections with a start river mile, the loader delegates gauge selection to
+`get_river_condition_segment`, the same database resolver used by the website.
+That resolver handles reach overrides, upstream selection and downstream/primary
+fallbacks. Without a mile, an explicit assigned station can still be resolved.
+A failed or unresolved lookup never establishes a section assessment: its Read
+uses a station-specific fallback saying that the section is not assessed.
+Static local knowledge does not establish current conditions elsewhere.
+Section targets and row persistence are unchanged; sections resolved by the RPC
+can receive normal generated Reads. Unused primary-gauge snapshot loading has
+been removed from secondary-gauge target discovery.
 
-Unknown ratings and unresolved section gauges return their fallback before any
-model request; their usage is null. Database thresholds are normalized to numbers
-in both loading paths, including secondary and primary-gauge thresholds.
+## Validation and formatting
 
-Reading checks compare only explicit present gauge readings with the current
-snapshot. Historical peaks and flood stages are not assumed to be current.
-Condition predicates require a river, gauge, flow or water-level subject (or an
-explicit rating label). Weather predicates such as “chance of rain is low” do
-not change the river rating. A sentence may cite both feet and cfs; only a direct
-comparison in the wrong dimension or an incorrectly quoted band is rejected.
+The guard checks all three prose fields and replaces a rejected response as a
+whole. Explicit condition labels and capitalized canonical rating names are
+checked; ordinary lowercase “flowing,” “good conditions for a float,” and NWS
+“flood conditions” are not treated as assignments of an Eddy rating. The prompt
+asks for explicit condition labels when naming the computed rating.
 
-Review follow-up (items 1–4 and 6): both generators fetch relevant active NWS
-flood alerts before selecting a fallback. Fallbacks lead with the event and its
-reported area in all three prose fields; the gauge rating remains independent.
-Expired alerts are removed. Alert lookup failures are logged, not described as
-an all-clear. Matching is the existing river/area filter, not station-level
-flood-boundary verification.
+Negation and modal qualifiers must govern the assertion; incidental weather
+phrases such as “with no rain in sight” cannot exempt a present assertion.
+This is a deliberately narrow guard, not a general English/geographic parser.
+Arbitrary paraphrases are not guaranteed to be validated.
 
-Negated, forecast, conditional and historical clauses are not treated as current
-rating/band assertions. This is still a deliberately narrow check, not a general
-English parser. Separate unqualified present clauses remain checked.
+Prompts format stage to at most two decimals and discharge to whole cfs, with
+thousands separators. The guard accepts raw readings, stage rounded to one or
+two decimals, and discharge rounded to whole cfs or the nearest ten. Classification
+and band relation always use the unrounded data. Bounds retain their precision.
 
-The shared getGaugeConditions loader now uses strictUnit, so chat and Reads agree
-when the matching measurement is missing; official flood-stage overrides remain.
-River fallbacks skip local knowledge and trajectory work. Weather is retained
-because it supplies the returned weather summary, and NWS supplies warning text.
-Post-validation fallbacks list only the sources used in the published fallback
-and weather summary. Section target selection and row persistence are unchanged.
+## Alerts and fallback work
+
+Both generators fetch relevant active NWS flood alerts before choosing a fallback.
+Expired alerts are removed. Fallbacks lead with a bounded alert summary; warnings
+precede watches, repeated event types are collapsed, and overlapping/long county
+lists become “the river area.” A gauge rating does not cancel an alert. Alert
+lookup failures are logged, never described as an all-clear. River-area matching
+uses the existing filter, not station-level flood-boundary verification.
+
+Unavailable ratings and unresolved sections skip the paid model call. River
+fallbacks also skip local knowledge, trajectory and precipitation processing.
+Weather fetching remains because it supplies the separate returned weather
+summary. Published fallback sources exclude discarded model context.
+
+## Rollout
+
+No production data, SQL functions, model settings, or saved reports are changed.
+After deployment, inspect fresh Current/Van Buren Reads and compact/social text.
+The October 5 example (2.57 ft, 756 cfs; band 1,190–2,700 cfs) must remain Good
+and below optimal, with no unsupported current Montauk/Akers claims.

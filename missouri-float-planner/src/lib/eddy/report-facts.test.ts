@@ -27,11 +27,11 @@ test('Current incident: Good is below optimal, not Flowing; stage is not compare
   assert.deepEqual(guardReport(broken, facts), factualReportFallback(facts));
 });
 
-test('matching units are required in both directions, including zero readings', () => {
-  assert.equal(buildReportFacts({ ...input, dischargeCfs: null }).conditionCode, 'unknown');
+test('matching units are required for band comparisons, including zero readings', () => {
+  assert.equal(buildReportFacts({ ...input, dischargeCfs: null }).relation, 'unavailable');
   const feet = { ...input, thresholds: { ...input.thresholds, thresholdUnit: 'ft' as const, levelOptimalMin: 2, levelOptimalMax: 3, levelLow: 1, levelTooLow: 0.5 } };
   assert.equal(buildReportFacts(feet).relation, 'within');
-  assert.equal(buildReportFacts({ ...feet, gaugeHeightFt: null }).conditionCode, 'unknown');
+  assert.equal(buildReportFacts({ ...feet, gaugeHeightFt: null }).relation, 'unavailable');
   assert.equal(buildReportFacts({ ...input, dischargeCfs: 0 }).relation, 'below');
   const flood = buildReportFacts({ ...input, dischargeCfs: null, thresholds: { ...input.thresholds, floodStageFt: 2.5 } });
   assert.equal(flood.conditionCode, 'dangerous');
@@ -74,7 +74,7 @@ test('section fallback cannot turn Van Buren into a Montauk/Akers assessment', (
 });
 
 test('missing rating uses a factual unavailable fallback, not confident floatability', () => {
-  const unknown = buildReportFacts({ ...input, dischargeCfs: null });
+  const unknown = buildReportFacts({ ...input, gaugeHeightFt: null, dischargeCfs: null });
   assert.match(guardReport(report('Dependable floating today.'), unknown).quoteText, /assessment is unavailable/);
 });
 
@@ -125,7 +125,7 @@ test('numeric database thresholds preserve numeric ordering and range validation
 
 test('preflight supplies guaranteed fallbacks and permits supported assessments', () => {
   for (const unavailable of [
-    buildReportFacts({ ...input, dischargeCfs: null }),
+    buildReportFacts({ ...input, gaugeHeightFt: null, dischargeCfs: null }),
     buildReportFacts({ ...input, requestedSection: 'Upper Current' }),
   ]) assert.deepEqual(preflightReportFallback(unavailable), factualReportFallback(unavailable));
   assert.equal(preflightReportFallback(facts), null);
@@ -140,6 +140,7 @@ test('future, conditional and negated condition/band prose is not a current rati
     'The gauge is not Flowing.',
     'Rain could push it back into the optimal range.',
     'Rain could bring it within the optimal range.',
+    'The river could be Flowing within the optimal range.',
     'The river may be High tomorrow.',
     'Flood Warning in effect.',
     'The gauge was within the optimal band yesterday.',
@@ -161,7 +162,7 @@ test('future, conditional and negated condition/band prose is not a current rati
 test('active flood alerts lead both preflight and rejected-report fallbacks in every field', () => {
   const floodAlerts = [{ event: 'Flood Warning', areaDesc: 'Carter County' }];
   const good = buildReportFacts({ ...input, floodAlerts });
-  const unknown = buildReportFacts({ ...input, dischargeCfs: null, floodAlerts });
+  const unknown = buildReportFacts({ ...input, gaugeHeightFt: null, dischargeCfs: null, floodAlerts });
   const unsupported = buildReportFacts({ ...input, requestedSection: 'Upper Current', floodAlerts });
   assert.equal(good.conditionCode, 'good');
   assert.match(reportFactsPrompt(good), /Good or unavailable gauge rating does not cancel an NWS alert/);
@@ -185,6 +186,72 @@ test('expired and unrelated alerts are excluded; watches retain their event and 
   ], Date.parse('2026-10-06T12:00:00Z'));
   assert.deepEqual(alerts.map(a => a.event), ['Flood Watch', 'Flash Flood Warning']);
   const fallback = factualReportFallback(buildReportFacts({ ...input, floodAlerts: alerts }));
-  assert.match(fallback.summaryText ?? '', /^NWS Flood Watch for Carter County/);
-  assert.match(fallback.summaryText ?? '', /NWS Flash Flood Warning for Carter County/);
+  assert.match(fallback.summaryText ?? '', /^NWS Flash Flood Warning for the river area/);
+  assert.match(fallback.summaryText ?? '', /1 other flood alert type/);
+});
+
+test('unrelated weather modifiers cannot bypass the screenshot contradictions', () => {
+  const screenshot = 'The Current River gauge reads 2.6 ft, solidly in the Flowing condition and well within the optimal range of 1,190 to 2,700 cfs';
+  for (const suffix of ['with no rain in sight.', 'with rain that may arrive tomorrow.', 'with clear skies next week.', 'with weather that will stay dry.', 'where you can expect sunshine.']) {
+    for (const text of [`${screenshot} ${suffix}`, `The river is Flowing within the optimal range ${suffix}`]) {
+      for (const field of ['summaryText', 'eddyRead', 'quoteText'] as const) {
+        const broken = { ...report('Condition: Good.'), [field]: text };
+        assert.ok(reportContradictions(broken, facts).includes('condition'), text);
+        assert.ok(reportContradictions(broken, facts).includes('range'), text);
+        assert.deepEqual(guardReport(broken, facts), factualReportFallback(facts));
+      }
+    }
+  }
+});
+
+test('ordinary good/flowing and flood-alert prose are not condition labels', () => {
+  const flowing = buildReportFacts({ ...input, dischargeCfs: 1500 });
+  for (const text of ['good conditions for a float.', 'Good conditions for a float.']) {
+    assert.deepEqual(reportContradictions(report(text), flowing), []);
+  }
+  for (const text of ['The river is flowing at 756 cfs.', 'Expect flood conditions on tributaries.', 'Flood conditions are possible on tributaries.']) {
+    assert.deepEqual(reportContradictions(report(text), facts), []);
+  }
+  assert.ok(reportContradictions(report('Condition: Flowing.'), facts).includes('condition'));
+  assert.ok(reportContradictions(report('The rating is good.'), flowing).includes('condition'));
+});
+
+test('readings accept documented rounding without changing the computed band relation', () => {
+  const rounded = buildReportFacts({ ...input, gaugeHeightFt: 2.456, dischargeCfs: 1187 });
+  assert.equal(rounded.relation, 'below');
+  for (const text of ['Reads 1,190 cfs.', 'The gauge reads 2.46 ft.', 'The gauge reads 2.5 ft.']) {
+    assert.deepEqual(reportContradictions(report(text), rounded), [], text);
+  }
+  for (const text of ['Reads 1,200 cfs.', 'The gauge reads 2.47 ft.', 'Reads 1,190 cfs within the optimal range.']) {
+    assert.ok(reportContradictions(report(text), rounded).length, text);
+  }
+  assert.match(reportFactsPrompt(rounded), /height 2.46 ft; discharge 1,187 cfs/);
+  const decimalTie = buildReportFacts({ ...input, gaugeHeightFt: 1.005 });
+  assert.match(reportFactsPrompt(decimalTie), /height 1.01 ft/);
+  assert.deepEqual(reportContradictions(report('Reads 1.01 ft.'), decimalTie), []);
+});
+
+test('overlapping alerts keep summaries compact and deduplicate event names', () => {
+  const floodAlerts = Array.from({ length: 3 }, () => ({ event: 'Flood Warning', areaDesc: 'A very long county name; '.repeat(30) }));
+  const fallback = factualReportFallback(buildReportFacts({ ...input, floodAlerts }));
+  assert.ok((fallback.summaryText?.length ?? 0) < 200);
+  assert.equal(fallback.summaryText?.match(/Flood Warning/g)?.length, 1);
+  assert.match(fallback.summaryText ?? '', /^NWS Flood Warning for the river area/);
+});
+
+test('a flood-stage override never advertises an optimal discharge band in fallback prose', () => {
+  const flood = buildReportFacts({ ...input, dischargeCfs: 1500, thresholds: { ...input.thresholds, floodStageFt: 2.5 } });
+  assert.equal(flood.conditionCode, 'dangerous');
+  assert.equal(flood.relation, 'within');
+  const fallback = factualReportFallback(flood);
+  assert.match(fallback.quoteText, /Stay off the water/);
+  for (const field of ['summaryText', 'eddyRead', 'quoteText'] as const) assert.doesNotMatch(fallback[field] ?? '', /optimal|1500|1,500/);
+});
+
+test('website-compatible legacy rating does not permit a cross-unit range comparison', () => {
+  const missingFlow = buildReportFacts({ ...input, gaugeHeightFt: 1500, dischargeCfs: null });
+  assert.equal(missingFlow.conditionCode, 'flowing');
+  assert.equal(missingFlow.relation, 'unavailable');
+  assert.ok(reportContradictions(report('Within the optimal range.'), missingFlow).includes('range'));
+  assert.doesNotMatch(factualReportFallback(missingFlow).quoteText, /optimal band/);
 });

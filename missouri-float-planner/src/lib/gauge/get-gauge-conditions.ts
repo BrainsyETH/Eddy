@@ -33,7 +33,7 @@ export interface GaugeConditionResult {
 const GAUGE_LINK_SELECT = `
   level_too_low, level_low, level_optimal_min, level_optimal_max,
   level_high, level_dangerous, threshold_unit, flood_stage_ft,
-  gauge_stations (id, name, usgs_site_id)
+  gauge_stations!inner (id, name, usgs_site_id)
 `;
 
 /** Shape of GAUGE_LINK_SELECT. Named so both lookups below stay typed. */
@@ -56,8 +56,9 @@ interface GaugeLinkRow {
  * Fetches the latest gauge reading and computes condition for a river, or for
  * one reach of it.
  *
- * `sectionSlug` selects the gauge that actually reads that reach, via
- * river_sections.primary_gauge_station_id (migration 00204). Omit it — as the
+ * `sectionSlug` delegates selection at the section start mile to the website
+ * RPC (reach override, then upstream/downstream fallback). A section without
+ * a mile can still name an explicit primary_gauge_station_id. Omit it — as the
  * chat handlers and every whole-river caller do — and behaviour is unchanged:
  * the river's is_primary gauge.
  *
@@ -92,20 +93,43 @@ export async function getGaugeConditions(
 
   // A reach may name the gauge that reads it; resolve that first.
   let sectionStationId: string | null = null;
+  let resolvedSectionUsgsId: string | null = null;
   if (sectionSlug) {
     const { data: section } = await supabase
       .from('river_sections')
-      .select('primary_gauge_station_id')
+      .select('primary_gauge_station_id, river_mile_start')
       .eq('river_id', riverData.id)
       .eq('section_slug', sectionSlug)
       .maybeSingle();
-    sectionStationId =
-      (section as { primary_gauge_station_id?: string | null } | null)?.primary_gauge_station_id ?? null;
+    sectionStationId = section?.primary_gauge_station_id ?? null;
+    const sectionMile = toNum(section?.river_mile_start);
+    if (sectionMile != null) {
+      // Delegate reach overrides, nearest-upstream and downstream/primary
+      // fallback selection to the same RPC the website uses.
+      const { data: resolved, error } = await supabase.rpc('get_river_condition_segment', {
+        p_river_id: riverData.id,
+        p_put_in_mile: sectionMile,
+      });
+      if (error) console.warn('[GaugeConditions] Section gauge resolution failed:', error.message);
+      resolvedSectionUsgsId = resolved?.[0]?.gauge_usgs_id ?? null;
+      // A failed positional lookup must not claim a supported section.
+      sectionStationId = null;
+    }
   }
 
   let gaugeLink: GaugeLinkRow | null = null;
 
-  if (sectionStationId) {
+  if (resolvedSectionUsgsId) {
+    const { data } = await supabase
+      .from('river_gauges')
+      .select(GAUGE_LINK_SELECT)
+      .eq('river_id', riverData.id)
+      .eq('gauge_stations.usgs_site_id', resolvedSectionUsgsId)
+      .maybeSingle();
+    gaugeLink = data as GaugeLinkRow | null;
+  }
+
+  if (!gaugeLink && sectionStationId) {
     const { data } = await supabase
       .from('river_gauges')
       .select(GAUGE_LINK_SELECT)
@@ -197,7 +221,7 @@ export async function getGaugeConditions(
     thresholdUnit: (gaugeLink.threshold_unit ?? undefined) as 'ft' | 'cfs' | undefined,
   };
 
-  const condition = computeCondition(gaugeHeightFt, thresholds, dischargeCfs, { strictUnit: true });
+  const condition = computeCondition(gaugeHeightFt, thresholds, dischargeCfs);
 
   // Build optimal range string
   const unit = gaugeLink.threshold_unit === 'cfs' ? 'cfs' : 'ft';
@@ -217,7 +241,8 @@ export async function getGaugeConditions(
     gaugeHeightFt,
     dischargeCfs,
     thresholdUnit: unit,
-    sectionGaugeMatched: sectionStationId != null && sectionStationId === station.id,
+    sectionGaugeMatched: (resolvedSectionUsgsId != null && resolvedSectionUsgsId === station.usgs_site_id)
+      || (sectionStationId != null && sectionStationId === station.id),
     conditionCode: condition.code as ConditionCode,
     conditionLabel: condition.label,
     readingTimestamp,

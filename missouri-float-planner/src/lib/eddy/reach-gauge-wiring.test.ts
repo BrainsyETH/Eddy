@@ -65,8 +65,8 @@ test('the trajectory is read from the same site as the reading', () => {
   );
 });
 
-test('the shared loader gives chat and Reads the same strict-unit assessment', () => {
-  assert.match(getGaugeConditions, /computeCondition\(gaugeHeightFt, thresholds, dischargeCfs, \{ strictUnit: true \}\)/);
+test('the shared loader keeps the website-compatible classification', () => {
+  assert.match(getGaugeConditions, /computeCondition\(gaugeHeightFt, thresholds, dischargeCfs\)/);
 });
 
 test('both generators preserve alerts before fallback and skip unused trajectory/model work', () => {
@@ -79,4 +79,19 @@ test('both generators preserve alerts before fallback and skip unused trajectory
     assert.match(generator, /sourcesUsed: publishedSources/);
   }
   assert.ok(generateUpdate.indexOf('const fallback = preflightReportFallback(facts)') < generateUpdate.indexOf('const localKnowledge = getKnowledgeForTarget('));
+});
+
+
+test('section reports use the website RPC for positional gauge resolution', () => {
+  assert.match(getGaugeConditions, /rpc\('get_river_condition_segment'/);
+  assert.match(getGaugeConditions, /p_put_in_mile: sectionMile/);
+  assert.match(getGaugeConditions, /\.eq\('gauge_stations.usgs_site_id', resolvedSectionUsgsId\)/);
+  assert.match(getGaugeConditions, /resolvedSectionUsgsId === station.usgs_site_id/);
+});
+
+test('secondary target loading does not hydrate unused primary readings', () => {
+  const generator = src('src/lib/eddy/generate-gauge-update.ts');
+  const loader = generator.slice(generator.indexOf('export async function getSecondaryGaugeTargets'), generator.indexOf('export async function generateGaugeUpdate'));
+  assert.doesNotMatch(loader, /from\('gauge_readings'\)|primaryBySlug|primaryStationIds/);
+  assert.match(loader, /is_primary.eq.false,is_primary.is.null/);
 });

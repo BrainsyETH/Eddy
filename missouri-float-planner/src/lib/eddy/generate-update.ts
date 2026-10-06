@@ -23,15 +23,8 @@ import type { ResolvedModel } from '@/lib/ai/resolve-models';
 
 
 export interface GaugeContext {
-  gaugeName: string;
   facts: ReportFacts;
-  gaugeHeightFt: number | null;
-  dischargeCfs: number | null;
-  conditionCode: ConditionCode;
-  conditionLabel: string;
   readingTimestamp: string | null;
-  optimalRange: string;
-  closureLevel: number | null;
   notes: string | null;
 }
 
@@ -138,36 +131,29 @@ export async function generateEddyUpdate(
   try {
     const allAlerts = await fetchNWSAlerts(riverCtx?.state ?? 'MO');
     alerts = filterAlertsForRiver(allAlerts, target.riverSlug, riverCtx?.alertSearchTerms);
-    if (activeReportFloodAlerts(alerts).length > 0) sourcesUsed.push('NWS alerts');
   } catch (e) {
     console.warn('[EddyGen] NWS alert fetch failed:', e);
   }
 
-  const facts = gaugeResult ? buildReportFacts({
+  const floodAlerts = activeReportFloodAlerts(alerts);
+  if (floodAlerts.length) sourcesUsed.push('NWS alerts');
+  const facts = buildReportFacts({
     gaugeName: gaugeResult.gaugeName,
     gaugeHeightFt: gaugeResult.gaugeHeightFt,
     dischargeCfs: gaugeResult.dischargeCfs,
     thresholds: gaugeResult.thresholds,
-    floodAlerts: activeReportFloodAlerts(alerts),
+    floodAlerts,
     requestedSection: target.sectionName,
     supportedSection: gaugeResult.sectionGaugeMatched ? target.sectionName : null,
-  }) : null;
-  if (!facts) return null;
+  });
   const fallback = preflightReportFallback(facts);
 
-  const gaugeContext: GaugeContext | null = gaugeResult && facts ? {
+  const gaugeContext: GaugeContext = {
     facts,
-    gaugeName: gaugeResult.gaugeName,
-    gaugeHeightFt: gaugeResult.gaugeHeightFt,
-    dischargeCfs: gaugeResult.dischargeCfs,
-    conditionCode: facts.conditionCode,
-    conditionLabel: facts.conditionLabel,
     readingTimestamp: gaugeResult.readingTimestamp,
-    optimalRange: gaugeResult.optimalRange,
-    closureLevel: gaugeResult.closureLevel,
     notes: riverCtx?.characteristics?.riverNote ?? RIVER_NOTES[target.riverSlug] ?? null,
-  } : null;
-  if (gaugeContext && (gaugeContext.gaugeHeightFt != null || gaugeContext.dischargeCfs != null)) sourcesUsed.push('USGS gauge');
+  };
+  if (facts.gaugeHeightFt != null || facts.dischargeCfs != null) sourcesUsed.push('USGS gauge');
 
   // --- 3. Fetch weather (current + 3-day forecast) ---
   let weather: WeatherData | null = null;
@@ -213,11 +199,8 @@ export async function generateEddyUpdate(
   // gauge the readings above came from. Keyed off the river it would otherwise
   // report the tailwater's movement from the gauge above the dam — the reading
   // and the trend would describe two different rivers in one paragraph.
-  let trajectory: GaugeTrajectory | null = null;
-  if (gaugeContext && gaugeResult) {
-    trajectory = await buildGaugeTrajectoryForSite(gaugeResult.usgsSiteId);
-    if (trajectory) sourcesUsed.push('gauge trajectory');
-  }
+  const trajectory = await buildGaugeTrajectoryForSite(gaugeResult.usgsSiteId);
+  if (trajectory) sourcesUsed.push('gauge trajectory');
 
   // --- 6. Load rain-lag info (river_characteristics first, legacy map fallback) ---
   const rc = riverCtx?.characteristics;
@@ -279,9 +262,9 @@ export async function generateEddyUpdate(
     return {
       riverSlug: target.riverSlug,
       sectionSlug: target.sectionSlug,
-      conditionCode: gaugeContext?.conditionCode ?? 'unknown',
-      gaugeHeightFt: gaugeContext?.gaugeHeightFt ?? null,
-      dischargeCfs: gaugeContext?.dischargeCfs ?? null,
+      conditionCode: facts.conditionCode,
+      gaugeHeightFt: facts.gaugeHeightFt,
+      dischargeCfs: facts.dischargeCfs,
       quoteText: stripEddyMarkers(quoteText),
       summaryText: summaryText ? stripEddyMarkers(summaryText) : null,
       eddyRead: eddyRead ? stripEddyMarkers(eddyRead) : null,
@@ -415,7 +398,7 @@ STYLE:
 
 function buildPrompt(
   target: UpdateTarget,
-  gauge: GaugeContext | null,
+  gauge: GaugeContext,
   weather: WeatherData | null,
   forecast: ForecastData | null,
   alerts: NWSAlert[],
@@ -471,21 +454,14 @@ function buildPrompt(
   lines.push('');
   lines.push('[CURRENT GAUGE DATA]');
 
-  // Gauge data
-  if (gauge) {
-    lines.push(reportFactsPrompt(gauge.facts));
-    if (gauge.readingTimestamp) {
-      const ageHours = (Date.now() - new Date(gauge.readingTimestamp).getTime()) / (1000 * 60 * 60);
-      if (ageHours > 6) {
-        lines.push(`WARNING: Reading is ${Math.round(ageHours)} hours old, data may be stale.`);
-      }
-    }
-  } else {
-    lines.push('Gauge data: unavailable');
+  lines.push(reportFactsPrompt(gauge.facts));
+  if (gauge.readingTimestamp) {
+    const ageHours = (Date.now() - new Date(gauge.readingTimestamp).getTime()) / (1000 * 60 * 60);
+    if (ageHours > 6) lines.push(`WARNING: Reading is ${Math.round(ageHours)} hours old, data may be stale.`);
   }
 
   // Gauge threshold knowledge
-  if (gauge?.notes) {
+  if (gauge.notes) {
     lines.push(`Gauge notes: ${gauge.notes}`);
   } else if (riverNotes) {
     lines.push(`Gauge notes: ${riverNotes}`);

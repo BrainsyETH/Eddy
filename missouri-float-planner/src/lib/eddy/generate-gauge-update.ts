@@ -6,8 +6,7 @@ import { fetchNWSAlerts, filterAlertsForRiver, type NWSAlert } from '@/lib/nws/a
 //
 // A "secondary" gauge sits up- or down-stream of the primary on the same
 // river. Its update is narrower in scope: what does THIS gauge's reading
-// tell a paddler about the segment of river around it, and how does it
-// compare to the primary reading?
+// tell a paddler about the segment of river around it?
 
 import { trackedAnthropic } from '@/lib/telemetry/upstream';
 import Anthropic from '@anthropic-ai/sdk';
@@ -15,7 +14,7 @@ import type { ConditionCode } from '@/types/api';
 import { getRiverContext, DEFAULT_TIMEZONE } from '@/lib/rivers/context';
 import { getLocalDateStrings } from '@/lib/social/local-time';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { computeCondition, type ConditionThresholds } from '@/lib/conditions';
+import type { ConditionThresholds } from '@/lib/conditions';
 import { fetchGaugeReadings } from '@/lib/usgs/gauges';
 import { buildGaugeTrajectoryForSite, type GaugeTrajectory } from '@/lib/eddy/gauge-trajectory';
 import { extractUsage, type UsageStats } from '@/lib/eddy/generate-update';
@@ -41,14 +40,7 @@ export interface SecondaryGaugeTarget {
   /** Optional river-mile position for spatial context in the prompt. */
   distanceFromSectionMiles: number | null;
   thresholds: ConditionThresholds;
-  /** Snapshot of the river's primary gauge for comparison framing. */
-  primary: {
-    usgsSiteId: string;
-    gaugeName: string;
-    gaugeHeightFt: number | null;
-    dischargeCfs: number | null;
-    conditionCode: ConditionCode;
-  } | null;
+
 }
 
 export interface GeneratedGaugeUpdate {
@@ -77,9 +69,7 @@ export interface GeneratedGaugeUpdate {
 export async function getSecondaryGaugeTargets(): Promise<SecondaryGaugeTarget[]> {
   const supabase = createAdminClient();
 
-  // Pull every river_gauges row on active rivers + active stations.
-  // We fetch primaries too so each secondary can be paired with its river's
-  // primary for comparison context, then filter primaries out of the result.
+  // Pull only non-primary gauges on active rivers and active stations.
   const { data, error } = await supabase
     .from('river_gauges')
     .select(`
@@ -90,6 +80,7 @@ export async function getSecondaryGaugeTargets(): Promise<SecondaryGaugeTarget[]
       rivers!inner (id, slug, name, active),
       gauge_stations!inner (id, name, usgs_site_id, provider, location, active)
     `)
+    .or('is_primary.eq.false,is_primary.is.null')
     .eq('rivers.active', true)
     .eq('gauge_stations.active', true)
     // USGS-provided stations only. A USACE dam row has a null usgs_site_id and
@@ -121,54 +112,6 @@ export async function getSecondaryGaugeTargets(): Promise<SecondaryGaugeTarget[]
 
   const rows = data as unknown as Row[];
 
-  // Index primaries by river slug so each secondary can find its sibling.
-  const primaryBySlug = new Map<string, { row: Row; reading: { gaugeHeightFt: number | null; dischargeCfs: number | null } | null }>();
-  for (const row of rows) {
-    if (!row.is_primary) continue;
-    const river = Array.isArray(row.rivers) ? row.rivers[0] : row.rivers;
-    if (river?.slug) primaryBySlug.set(river.slug, { row, reading: null });
-  }
-
-  // Hydrate primary readings in a single batch (DB-first, no live fallback
-  // here — the post-cron USGS sync runs hourly).
-  const primaryEntries = Array.from(primaryBySlug.entries());
-  const primaryStationIds = primaryEntries
-    .map(([, entry]) => {
-      const s = Array.isArray(entry.row.gauge_stations) ? entry.row.gauge_stations[0] : entry.row.gauge_stations;
-      return s?.id;
-    })
-    .filter((id): id is string => Boolean(id));
-
-  if (primaryStationIds.length > 0) {
-    const { data: readings } = await supabase
-      .from('gauge_readings')
-      .select('gauge_station_id, gauge_height_ft, discharge_cfs, reading_timestamp')
-      .in('gauge_station_id', primaryStationIds)
-      .order('reading_timestamp', { ascending: false });
-
-    if (readings) {
-      const latestByStation = new Map<string, { gauge_height_ft: number | null; discharge_cfs: number | null }>();
-      for (const r of readings) {
-        if (!latestByStation.has(r.gauge_station_id)) {
-          latestByStation.set(r.gauge_station_id, {
-            gauge_height_ft: r.gauge_height_ft,
-            discharge_cfs: r.discharge_cfs,
-          });
-        }
-      }
-      for (const [slug, entry] of primaryEntries) {
-        const station = Array.isArray(entry.row.gauge_stations) ? entry.row.gauge_stations[0] : entry.row.gauge_stations;
-        const latest = latestByStation.get(station.id);
-        if (latest) {
-          primaryBySlug.set(slug, {
-            row: entry.row,
-            reading: { gaugeHeightFt: toNum(latest.gauge_height_ft), dischargeCfs: toNum(latest.discharge_cfs) },
-          });
-        }
-      }
-    }
-  }
-
   const targets: SecondaryGaugeTarget[] = [];
 
   for (const row of rows) {
@@ -189,36 +132,6 @@ export async function getSecondaryGaugeTargets(): Promise<SecondaryGaugeTarget[]
       floodStageFt: toNum(row.flood_stage_ft),
     };
 
-    // Build primary snapshot if available.
-    let primary: SecondaryGaugeTarget['primary'] = null;
-    const primaryEntry = primaryBySlug.get(river.slug);
-    if (primaryEntry) {
-      const primaryStation = Array.isArray(primaryEntry.row.gauge_stations) ? primaryEntry.row.gauge_stations[0] : primaryEntry.row.gauge_stations;
-      const primaryThresholds: ConditionThresholds = {
-        levelTooLow: toNum(primaryEntry.row.level_too_low),
-        levelLow: toNum(primaryEntry.row.level_low),
-        levelOptimalMin: toNum(primaryEntry.row.level_optimal_min),
-        levelOptimalMax: toNum(primaryEntry.row.level_optimal_max),
-        levelHigh: toNum(primaryEntry.row.level_high),
-        levelDangerous: toNum(primaryEntry.row.level_dangerous),
-        thresholdUnit: primaryEntry.row.threshold_unit ?? 'ft',
-        floodStageFt: toNum(primaryEntry.row.flood_stage_ft),
-      };
-      const primaryCondition = computeCondition(
-        primaryEntry.reading?.gaugeHeightFt ?? null,
-        primaryThresholds,
-        primaryEntry.reading?.dischargeCfs ?? null,
-        { strictUnit: true },
-      );
-      primary = {
-        usgsSiteId: primaryStation.usgs_site_id,
-        gaugeName: primaryStation.name,
-        gaugeHeightFt: primaryEntry.reading?.gaugeHeightFt ?? null,
-        dischargeCfs: primaryEntry.reading?.dischargeCfs ?? null,
-        conditionCode: primaryCondition.code as ConditionCode,
-      };
-    }
-
     targets.push({
       gaugeStationId: station.id,
       usgsSiteId: station.usgs_site_id,
@@ -231,7 +144,6 @@ export async function getSecondaryGaugeTargets(): Promise<SecondaryGaugeTarget[]
       })(),
       distanceFromSectionMiles: toNum(row.distance_from_section_miles),
       thresholds,
-      primary,
     });
   }
 
@@ -397,7 +309,7 @@ const GAUGE_SYSTEM_PROMPT = `You are Eddy, an AI otter mascot for a float trip p
 
 VOICE: Friendly, local-outfitter tone. Tight, no fluff. Use river terminology naturally: put-in, take-out, gauge, riffle, gravel bar.
 
-SCOPE: You are commenting on ONE gauge, not the whole river. Name that station and limit current condition claims to its supported location. Local river knowledge is background, not evidence of today's scraping, depth or floatability at other places. The primary gauge does not overrule this station's independently computed condition. Never compare raw heights across stations or infer relative trends from snapshots.
+SCOPE: You are commenting on ONE gauge, not the whole river. Name that station and limit current condition claims to its supported location. Local river knowledge is background, not evidence of today's scraping, depth or floatability at other places. Never compare raw heights across stations or infer relative trends from snapshots.
 
 OUTPUT FORMAT (strict):
 Your response MUST contain exactly three labeled blocks. Use the markers [SUMMARY], [EDDY_READ], and [FULL] on their own lines, each followed by the text for that section. No other formatting, labels, or wrapping. Do NOT repeat the markers anywhere else.
