@@ -1,28 +1,21 @@
 # Fall camping highlight
 
-One conversational camping highlight, about 20 seconds: Pulltite reservation
-hook → available campsite in Eddy → river level → Recreation.gov → link in bio.
-The spoken hook and matching first-frame text are accurate on their own:
-"Camping at Pulltite? You need a reservation."
+One conversational highlight, about 20 seconds: Pulltite reservation hook over
+Eddy → campsite availability → river reading → Recreation.gov → riverside CTA.
 
-## Capture, then voice, then edit
+## Supplied footage
 
-Supply one portrait iPhone recording:
-1. Open Pulltite in Eddy and show a campsite open for every night of a real stay.
-   Hold the dates, site number and checked time long enough to read.
-2. Show the relevant Current River level and reading timestamp.
-3. Tap Book campsite and show the matching Recreation.gov destination. Stop
-   before sign-in or checkout.
+Evan supplied these on October 6, 2026:
+- ScreenRecording_10-06-2026 14-56-25_1.MP4: Pulltite, Tonight/Tomorrow availability,
+  Current River reading and booking handoff to site 004.
+- IMG_9185.mov: portrait riverside camping footage for the closing atmosphere.
 
-Also supply one owned or permission-cleared river/camping clip for the opening
-and closing. Record the app without added music or captions.
+Use the app footage for the reservation hook. The scenery shows gravel-bar
+camping and must not illustrate a claim that this camping requires reservations.
+The narration now says "See which campsites are open, right in Eddy." Do not
+claim the recording demonstrates an entire weekend stay. Trim loading screens.
 
-After capture, confirm the search sentence in `campaign.json` matches what is
-shown; adjust it to the actual result before generating voice. Availability is
-a dated example, not a guarantee. Then generate one continuous narration take,
-listen, and edit the footage to that take.
-
-## Voice preparation
+## Voice and final edit
 
 Requires Node 20, ffmpeg and ffprobe; no npm install.
 
@@ -32,32 +25,25 @@ node marketing/campaigns/fall-camping/prepare-voice.mjs
 node marketing/campaigns/fall-camping/prepare-voice.mjs --generate
 ```
 
-Default: short/brisk, 160–175 words per minute. Relaxed delivery remains available
-with `--pace=relaxed`; only that preset requests an unhurried delivery.
-Pace warnings prompt a listening review, not automatic rejection.
-Both existing cut options select this same highlight for workflow compatibility;
-`shortScenes` references scene IDs so shared copy cannot drift.
+Default: short/brisk, 160–175 words per minute. The relaxed preset alone asks
+for unhurried delivery. Both legacy cut choices use the same highlight;
+shortScenes references scene IDs to avoid duplicated copy.
 
-The default run is offline. `--generate` makes one speech request and saves the
-source, normalized WAV, script and review manifest in ignored `out/<hash>/`.
-Identical inputs reuse the completed take. No social publication occurs.
-The existing Camping Campaign Voice Preview workflow can generate the audition
-once available on the default branch; choose short/brisk.
+The default run is offline. Generation saves a cached continuous voice take,
+script and listening-review manifest under ignored out/. The existing Camping
+Campaign Voice Preview workflow can generate it once available on the default
+branch. No social publication occurs.
 
-## Edit and publish
+The visual preview is silent, with provisional scene timing. Generate and
+listen to the voice, then align the final cuts and captions to the actual take.
+Keep the 1080×1920 app views readable and clear of platform controls. Use existing
+Eddy branding. Verify the bio link before posting. Apply the platform AI audio
+disclosure for synthetic narration. Any music needs appropriate commercial
+rights for the destination platform.
 
-- 1080×1920, 30 fps. Hook text from frame one, readable app footage, captions
-  aligned to the actual voice. Keep text clear of the right-side buttons and
-  bottom 20%; check the platform preview.
-- Use the existing Eddy branding. Keep the river-level benefit brief.
-- Show booking finishing on Recreation.gov. Verify the bio link.
-- Add quiet commercially cleared audio only after the voice is approved.
-  Check music rights separately for TikTok and Instagram. Apply the platform
-  AI narration disclosure for synthetic voice.
-- Review pronunciation, captions, mobile crop and full video playback.
-
-Status: script and voice preparation updated. App capture, scenery, narration
-and final video are still outstanding.
+Status: footage received and narration matched to it. Voice generation and the
+final audio/video review remain outstanding; no OPENAI_API_KEY was available in
+the editing workspace. Source footage is not committed to the repository.
 
 Fact check, October 6, 2026: NPS lists Pulltite as a developed campground and
 requires developed campsite reservations in both summer and winter.
