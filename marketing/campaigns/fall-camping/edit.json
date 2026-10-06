@@ -1,0 +1,101 @@
+{
+  "voiceHash": "2e78210383b7b098",
+  "voiceSha256": "7a20d8ea2cbdece270ca942b4ed07b4e5b18eb101a2100a6586f8275503a410d",
+  "scenes": [
+    {
+      "start": 0,
+      "end": 3.1,
+      "title": [
+        "Camping at",
+        "Pulltite?"
+      ],
+      "caption": [
+        "You need a reservation."
+      ],
+      "sourceStart": 4.5,
+      "sourceDuration": 1.2,
+      "crop": [
+        0,
+        390,
+        1290,
+        1400
+      ]
+    },
+    {
+      "start": 3.1,
+      "end": 5.6,
+      "title": [
+        "Find an",
+        "open campsite."
+      ],
+      "caption": [
+        "See which campsites are open,",
+        "right in Eddy."
+      ],
+      "sourceStart": 6.4,
+      "sourceDuration": 2.6,
+      "crop": [
+        0,
+        960,
+        1290,
+        1400
+      ]
+    },
+    {
+      "start": 5.6,
+      "end": 8.2,
+      "title": [
+        "Check the",
+        "river level."
+      ],
+      "caption": [
+        "You can check river levels",
+        "in the same app."
+      ],
+      "sourceStart": 4.5,
+      "sourceDuration": 1.0,
+      "crop": [
+        0,
+        390,
+        1290,
+        1100
+      ]
+    },
+    {
+      "start": 8.2,
+      "end": 10.9,
+      "title": [
+        "Book on",
+        "Recreation.gov."
+      ],
+      "caption": [
+        "Then head to",
+        "Recreation.gov to book."
+      ],
+      "sourceStart": 17.2,
+      "sourceDuration": 1.6,
+      "crop": [
+        0,
+        300,
+        1290,
+        1920
+      ]
+    },
+    {
+      "start": 10.9,
+      "end": 15.6,
+      "title": [
+        "Find your",
+        "campsite."
+      ],
+      "caption": [
+        "Find your campsite in Eddy",
+        "using the link in our bio."
+      ],
+      "sourceStart": 0,
+      "sourceDuration": 5,
+      "crop": null
+    }
+  ],
+  "alignmentSource": "Whisper word timestamps from the generated narration, checked against the complete script."
+}
