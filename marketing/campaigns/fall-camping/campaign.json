@@ -18,20 +18,20 @@
       "id": "opening",
       "text": "Camping at Pulltite? You need a reservation.",
       "onScreenText": "Camping at Pulltite? You need a reservation.",
-      "asset": "river-opening.mov",
-      "visual": "Real Current River or Pulltite footage. Show the hook from the first frame."
+      "asset": "pulltite-opening.mov",
+      "visual": "Use the supplied Eddy Pulltite screen recording with the hook visible from frame one. Do not place the reservation claim over the supplied gravel-bar camping footage."
     },
     {
       "id": "search",
-      "text": "Here's an open campsite for the weekend, right in Eddy.",
+      "text": "See which campsites are open, right in Eddy.",
       "asset": "pulltite-search.mov",
-      "visual": "Real Eddy capture showing a Pulltite site available for the full stay. Show dates, site number and checked time. Capture first; adjust this sentence to the actual result before generating narration."
+      "visual": "Use the supplied Pulltite availability capture showing Tonight and Tomorrow. Preserve the selected day; do not imply a weekend or multi-night stay."
     },
     {
       "id": "conditions",
       "text": "You can check river levels in the same app.",
       "asset": "river-level.mov",
-      "visual": "Show the relevant Current River level and reading timestamp."
+      "visual": "Show the Current River reading visible in the Pulltite header. This is a captured reading, not a live claim."
     },
     {
       "id": "booking",
@@ -43,7 +43,7 @@
       "id": "closing",
       "text": "Find your campsite in Eddy. Link in bio.",
       "asset": "river-closing.mov",
-      "visual": "Return to opening scenery with Eddy and Link in bio. Verify the profile link before posting."
+      "visual": "Use the supplied riverside camping clip with Eddy and Link in bio. This is camping atmosphere, not an identified Pulltite campsite. Verify the profile link before posting."
     }
   ],
   "pacePresets": {
