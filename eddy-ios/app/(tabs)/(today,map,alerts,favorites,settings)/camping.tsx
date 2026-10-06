@@ -1,5 +1,6 @@
 import { useCallback, useMemo, useReducer, useRef, useState } from 'react';
 import {
+  ActionSheetIOS,
   ActivityIndicator,
   Modal,
   Platform,
@@ -39,8 +40,13 @@ import {
   safeExternalUrl,
   campingRiverGroups,
   linkedCampingNight,
+  dateLabel,
+  campingMilesLabel,
+  campingOpenings,
+  campingSortLabel,
+  orderCampingRows,
 } from '@/lib/campingHeatmap';
-import { nextCampingDate } from '@/lib/campingStay';
+import { nextCampingDate, resolveCampingSort, type CampingSort } from '@/lib/campingStay';
 import { campingFilterReducer, filterCampingScope, initialCampingFilters, type CampingScope } from '@/lib/campingFilters';
 import { ScopeSwitch } from '@/components/ScopeSwitch';
 import { CampingNightControl } from '@/components/CampingNightControl';
@@ -70,7 +76,7 @@ export default function CampingScreen() {
   );
 }
 function CampingContent() {
-  const { colors } = useTheme();
+  const { colors, isDark } = useTheme();
   const headerHeight = useHeaderHeight();
   const insets = useSafeAreaInsets();
   // RN's sticky-header animation includes explicit contentInset.top, not the
@@ -84,6 +90,7 @@ function CampingContent() {
   const [displayChoice, setDisplayChoice] = useState<'grid' | 'list' | null>(null);
   const display = displayChoice ?? (screenReader || fontScale >= 1.3 ? 'list' : 'grid');
   const [nightChoice, setNightChoice] = useState<string | null>(null);
+  const [sortChoice, setSortChoice] = useState<CampingSort | null>(null);
   const [openedNight, setOpenedNight] = useState<string | undefined>();
   const params = useLocalSearchParams<{ facility?: string; river?: string; night?: string }>();
   const [selected, setSelected] = useState<string | null>(
@@ -116,12 +123,54 @@ function CampingContent() {
   const favoriteRivers = useMemo(() => new Set(
     starred.filter((s) => s.kind === 'river').map((s) => s.slug),
   ), [starred]);
-  const rows = useMemo(() => campingRiverGroups(
+  const linkedNight = data ? linkedCampingNight(data, params.night) : undefined;
+  const night = data ? linkedCampingNight(data, nightChoice) ?? linkedNight ?? data.horizon.startDate : '';
+  // Nearby means "closest first" until someone picks another order.
+  const sort = resolveCampingSort(sortChoice, nearby && coords !== null);
+  // "Most open" ranks the night List shows; Grid has no single night, so the weekend.
+  const openingNights = useMemo(
+    () => data ? display === 'list' ? [night] : data.weekend.nights.filter((d) => data.horizon.nights.includes(d)) : [],
+    [data, display, night],
+  );
+  const ordered = useMemo(() => orderCampingRows(
     filterCampingScope(data?.tracked ?? [], scope, coords, favoriteRivers),
-  ).flatMap((group) => group.data), [data, scope, coords, favoriteRivers]);
-  const other = useMemo(() => campingRiverGroups(
+    sort,
+    coords,
+    (row) => data ? campingOpenings(row, openingNights, data, now) : 0,
+  ), [data, scope, coords, favoriteRivers, sort, openingNights, now]);
+  const rows = ordered.rows;
+  // The directory has no observations to rank, so "Most open" keeps its river groups.
+  const orderedOther = useMemo(() => orderCampingRows(
     filterCampingScope(data?.untracked ?? [], scope, coords, favoriteRivers),
-  ).flatMap((group) => group.data), [data, scope, coords, favoriteRivers]);
+    sort === 'openings' ? 'name' : sort,
+    coords,
+  ), [data, scope, coords, favoriteRivers, sort]);
+  const other = orderedOther.rows;
+  function chooseSort() {
+    const options: CampingSort[] = ['name', 'nearest', 'openings'];
+    const labels = options.map((option) =>
+      option === 'openings'
+        ? `${campingSortLabel.openings} · ${display === 'list' ? dateLabel(night) : 'this weekend'}`
+        : option === 'nearest' && !coords ? `${campingSortLabel.nearest} (uses your location)` : campingSortLabel[option]);
+    const pick = (index: number) => {
+      const option = options[index];
+      if (!option) return;
+      if (option !== 'nearest' || coords) { setSortChoice(option); return; }
+      // Without a fix the order would silently stay by river, so ask first.
+      void request().then((fix) => { if (fix) setSortChoice('nearest'); });
+    };
+    if (Platform.OS !== 'ios') {
+      pick((options.indexOf(sort) + 1) % options.length);
+      return;
+    }
+    ActionSheetIOS.showActionSheetWithOptions({
+      title: 'Sort campgrounds',
+      options: [...labels.map((label, i) => options[i] === sort ? `${label} ✓` : label), 'Cancel'],
+      cancelButtonIndex: options.length,
+      tintColor: colors.interactive,
+      userInterfaceStyle: isDark ? 'dark' : 'light',
+    }, pick);
+  }
   function selectScope(next: CampingScope) {
     dispatchFilter({ type: 'select', scope: next });
     setLinkFailed(false);
@@ -139,17 +188,15 @@ function CampingContent() {
     });
   }
   const riverHeaders = new Map(
-    campingRiverGroups(rows).map((group) => [
+    (ordered.grouped ? campingRiverGroups(rows) : []).map((group) => [
       group.data[0].facilityId,
       group.title,
     ]),
   );
   const directoryHeaders = new Map(
-    campingRiverGroups(other).map((group) => [group.data[0].id, group.title]),
+    (orderedOther.grouped ? campingRiverGroups(other) : []).map((group) => [group.data[0].id, group.title]),
   );
   const detail = data?.tracked.find((r) => r.facilityId === selected);
-  const linkedNight = data ? linkedCampingNight(data, params.night) : undefined;
-  const night = data ? linkedCampingNight(data, nightChoice) ?? linkedNight ?? data.horizon.startDate : '';
   const detailNight = data ? linkedCampingNight(data, openedNight) ?? linkedNight : undefined;
   const grid = useMemo(() => data ? observedCampingOverview(data.tracked, data, now) : null, [data, now]);
   const openGridCampground = useCallback((facilityId: string) => {
@@ -307,6 +354,12 @@ function CampingContent() {
                     if (nearby || locating) selectScope({ kind: 'all' });
                     else locateNearby();
                   }} />
+                  <CampingFilterChip
+                    label={`Sort: ${campingSortLabel[sort]}`}
+                    active={false}
+                    accessibilityHint="Choose how campgrounds are ordered"
+                    onPress={chooseSort}
+                  />
                 </ScrollView>
                 <ScopeSwitch
                   options={[
@@ -410,11 +463,13 @@ function CampingContent() {
               ) : null}
               {display === 'list' ? <CampingAvailabilityRow
                 row={item} overview={data} now={now} night={night}
+                distanceLabel={campingMilesLabel(item, coords)}
                 onPress={() => { setOpenedNight(night); setSelected(item.facilityId); }}
               /> : <CampingTableRow
                 row={item}
                 overview={grid}
                 now={now}
+                distanceLabel={campingMilesLabel(item, coords)}
                 onOpen={openGridCampground}
               />}
             </View>
@@ -486,14 +541,16 @@ function CampingContent() {
                           ]}
                         >
                           <CampgroundThumbnail url={row.imageUrl} />
-                          <Text
-                            style={[
-                              textStyles.body,
-                              { color: colors.text, flex: 1 },
-                            ]}
-                          >
-                            {row.name}
-                          </Text>
+                          <View style={{ flex: 1 }}>
+                            <Text style={[textStyles.body, { color: colors.text }]}>
+                              {row.name}
+                            </Text>
+                            {campingMilesLabel(row, coords) ? (
+                              <Text style={[textStyles.caption, { color: colors.textMuted }]}>
+                                {campingMilesLabel(row, coords)}
+                              </Text>
+                            ) : null}
+                          </View>
                           {url ? (
                             <Pressable
                               accessibilityRole="link"
@@ -539,17 +596,19 @@ function CampingContent() {
     </>
   );
 }
-function CampingFilterChip({ label, active, onPress, busy = false }: {
+function CampingFilterChip({ label, active, onPress, busy = false, accessibilityHint }: {
   label: string;
   active: boolean;
   onPress: () => void;
   busy?: boolean;
+  accessibilityHint?: string;
 }) {
   const { colors } = useTheme();
   return (
     <Pressable
       accessibilityRole="button"
       accessibilityState={{ selected: active, busy }}
+      accessibilityHint={accessibilityHint}
       onPress={onPress}
       style={[
         styles.chip,

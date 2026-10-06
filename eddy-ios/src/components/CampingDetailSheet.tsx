@@ -21,9 +21,13 @@ import {
 } from '@/lib/campingHeatmap';
 import {
   campsiteStays,
+  campsiteStayFilterCounts,
+  filterCampsiteStays,
   nextCampingDate,
   type CampingStay,
 } from '@/lib/campingStay';
+import { SITE_FILTERS, type SiteFilter } from './map-sheet/siteList';
+import { FilterChips } from './FilterChips';
 import { useCampsiteStay } from '@/hooks/useCampsiteStay';
 import { CampingStayPicker } from './CampingStayPicker';
 import { CampingSiteCard } from './CampingSiteCard';
@@ -55,18 +59,29 @@ export function CampingDetailSheet({
   const [failed, setFailed] = useState(false);
   const [showUnavailable, setShowUnavailable] = useState(false);
   const [showUnknown, setShowUnknown] = useState(false);
+  const [filters, setFilters] = useState<SiteFilter[]>([]);
   const {
     responses,
     loading,
     failed: loadFailed,
     refresh,
   } = useCampsiteStay(row.facilityId, stay);
-  const entries = campsiteStays(
+  const allEntries = campsiteStays(
     responses,
     stay,
     overview.maxObservationAgeSeconds,
     now,
   );
+  const counts = campsiteStayFilterCounts(allEntries);
+  const chips = SITE_FILTERS.filter((f) => counts[f] > 0);
+  // A chip that is no longer drawn (new dates, nothing of that kind open) must
+  // not keep narrowing a list whose control the reader can't see. The choice
+  // survives, so dates that bring the kind back restore it.
+  const activeFilters = filters.filter((f) => chips.includes(f));
+  // A chip matching every takeable site narrows nothing; one alone is noise.
+  const takeable = allEntries.filter((e) => e.state === 'available' || e.state === 'first_come').length;
+  const showChips = activeFilters.length > 0 || chips.some((f) => counts[f] < takeable);
+  const entries = filterCampsiteStays(allEntries, activeFilters);
   const available = entries.filter((e) => e.state === 'available');
   const firstCome = entries.filter((e) => e.state === 'first_come');
   const unknown = entries.filter((e) => e.state === 'unknown');
@@ -160,6 +175,20 @@ export function CampingDetailSheet({
                   setShowUnknown(false);
                 }}
               />
+              {showChips ? (
+                <FilterChips
+                  chips={chips.map((f) => ({ key: f, label: f, count: counts[f] }))}
+                  active={activeFilters}
+                  onToggle={(key) =>
+                    setFilters((current) =>
+                      current.includes(key as SiteFilter)
+                        ? current.filter((f) => f !== key)
+                        : [...current, key as SiteFilter],
+                    )
+                  }
+                  paddingHorizontal={0}
+                />
+              ) : null}
               <View style={styles.links}>
                 {row.accessDestination ? (
                   <Pressable
