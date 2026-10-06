@@ -36,11 +36,11 @@ const RIVER_ALERT_EVENTS = [
  *
  * @param stateCode Two-letter state/territory code (from rivers.state)
  */
-export async function fetchNWSAlerts(stateCode: string = 'MO'): Promise<NWSAlert[]> {
+export async function fetchNWSAlerts(stateCode: string = 'MO', options: { strict?: boolean; signal?: AbortSignal } = {}): Promise<NWSAlert[]> {
   const url = `https://api.weather.gov/alerts/active?area=${encodeURIComponent(stateCode)}`;
 
   const response = await trackedFetch('nws', 'alerts', url, {
-    signal: AbortSignal.timeout(10_000),
+    signal: options.signal ? AbortSignal.any([options.signal, AbortSignal.timeout(10_000)]) : AbortSignal.timeout(10_000),
     headers: {
       'User-Agent': '(Eddy Float Planner, contact@eddyfloat.com)',
       Accept: 'application/geo+json',
@@ -49,11 +49,13 @@ export async function fetchNWSAlerts(stateCode: string = 'MO'): Promise<NWSAlert
   });
 
   if (!response.ok) {
+    if (options.strict) throw new Error('NWS alert lookup failed');
     console.warn(`[NWS] Alert fetch failed: ${response.status} ${response.statusText}`);
     return [];
   }
 
   const data = await response.json();
+  if (options.strict && !Array.isArray(data.features)) throw new Error('Invalid NWS alert response');
   const features = data.features || [];
 
   const alerts: NWSAlert[] = [];

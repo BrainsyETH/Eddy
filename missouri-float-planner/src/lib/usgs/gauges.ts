@@ -62,7 +62,7 @@ export function classifyQualifiers(
  */
 export async function fetchGaugeReadings(
   siteIds: string[],
-  options?: { skipCache?: boolean }
+  options?: { skipCache?: boolean; signal?: AbortSignal }
 ): Promise<GaugeReading[]> {
   return usgs().fetchLatest(siteIds, options);
 }

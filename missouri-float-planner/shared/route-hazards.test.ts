@@ -52,12 +52,18 @@ test('web notices are conditional and explicitly place the dam below the landing
   assert.doesNotMatch(html, /Portage|Hazards on Route/);
 });
 
-test('planner, chat and MCP all expand the query and partition its results', () => {
-  for (const path of ['src/app/api/plan/route.ts', 'src/lib/chat/tool-handlers.ts', 'src/app/api/mcp/route.ts']) {
+test('web planner expands its query and agent adapters share the full-catalog partition', () => {
+  for (const path of ['src/app/api/plan/route.ts']) {
     const source = readFileSync(path, 'utf8');
     assert.match(source, /\.lte\('river_mile_downstream', maxMile \+ DOWNSTREAM_DAM_BUFFER_MILES\)/, path);
     assert.match(source, /splitRouteHazards\(/, path);
     assert.match(source, /damsBelowTakeOut: routeHazards\.damsBelowTakeOut/, path);
     assert.match(source, /routeHazards\.hazards\.map/, path);
   }
+  for (const path of ['src/lib/chat/tool-handlers.ts', 'src/app/api/mcp/route.ts']) {
+    assert.match(readFileSync(path, 'utf8'), /createAgentExecutor\(/, path);
+  }
+  const planning = readFileSync('src/lib/agent-tools/planning.ts', 'utf8');
+  assert.match(planning, /splitRouteHazards\(/);
+  assert.match(planning, /damsBelowTakeOut: routeHazards\.damsBelowTakeOut/);
 });

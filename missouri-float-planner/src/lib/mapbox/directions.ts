@@ -158,7 +158,8 @@ export async function getDriveTime(
   startLat: number,
   endLng: number,
   endLat: number,
-  conditionCode?: ConditionCode
+  conditionCode?: ConditionCode,
+  options: { signal?: AbortSignal } = {}
 ): Promise<DriveTimeResult> {
   const accessToken = process.env.MAPBOX_ACCESS_TOKEN;
 
@@ -182,7 +183,7 @@ export async function getDriveTime(
 
   try {
     const response = await trackedFetch('mapbox', 'directions', url.toString(), {
-      signal: AbortSignal.timeout(10_000),
+      signal: options.signal ? AbortSignal.any([options.signal, AbortSignal.timeout(10_000)]) : AbortSignal.timeout(10_000),
       next: { revalidate: revalidateTime },
     });
 

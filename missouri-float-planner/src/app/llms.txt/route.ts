@@ -1,7 +1,9 @@
+import { X402_ENABLED } from '@/lib/x402/config';
 import { NextResponse } from 'next/server';
 
 const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://eddy.guide';
 
+export const revalidate = 300;
 export async function GET() {
   const content = `# eddy.guide
 > Ozarks river guide with live conditions, access points, float planning, and weather.
@@ -43,13 +45,21 @@ REST endpoints return JSON; applicable paid REST requests use x402 as described 
 - GET ${BASE_URL}/api/blog — Published blog posts
 - GET ${BASE_URL}/api/blog/{slug} — Full blog post content
 
+## Agent Tools
+- Developer setup and tool guide: ${BASE_URL}/developers
+- MCP access is free, without authentication or x402 payment, within request limits.
+- Use list_rivers for authoritative curated coverage and slugs; plan_float accepts slugs/UUIDs and vesselType.
+- find_floats returns a bounded shortlist, not an exhaustive ranking.
+- Preserve component statuses and source timestamps. Current observations are not future forecasts.
+- Include returned plan/river URLs when useful. No closure records does not mean all-clear.
+
 ## Machine-Readable Specifications
 - OpenAPI 3.1 spec: ${BASE_URL}/api/openapi.json
-- MCP Server: ${BASE_URL}/api/mcp (Model Context Protocol for AI agent tool use)
+- MCP Server: ${BASE_URL}/api/mcp (Model Context Protocol for AI agent tool use — free, rate-limited)
 - Data Export: ${BASE_URL}/api/export/rivers.json (complete dataset for RAG pipelines)
 
 ## x402 Payment Protocol
-API endpoints are metered for AI agents via the x402 payment protocol (V2), settled in USDC on Base (and optionally Solana). Agents that call the API receive an HTTP 402 with payment requirements (the \`accepts\` list) and pay per request; regular browsers and crawlers are never charged. Endpoints are discoverable via the x402 Bazaar. See the discovery manifest for networks, facilitator, and the per-route price table:
+REST x402 enforcement is ${X402_ENABLED ? "enabled" : "disabled"} in this deployment. When enabled, applicable REST requests may receive HTTP 402 with payment requirements. MCP /api/mcp remains free. See the manifest for the actual enabled state, networks and per-route pricing:
 - ${BASE_URL}/.well-known/x402
 
 Content pages (rivers, blog, gauges, about) are freely accessible to AI crawlers for indexing and grounding.
@@ -67,7 +77,7 @@ Eddy is a community project. Submit feedback or corrections at ${BASE_URL} via t
   return new NextResponse(content.trim(), {
     headers: {
       'Content-Type': 'text/plain; charset=utf-8',
-      'Cache-Control': 'public, max-age=86400, s-maxage=86400',
+      'Cache-Control': 'public, max-age=300, s-maxage=300',
     },
   });
 }

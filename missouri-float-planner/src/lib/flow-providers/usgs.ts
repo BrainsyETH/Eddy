@@ -218,7 +218,7 @@ export function foldOgcFeatures(features: OgcFeature[]): Map<string, GaugeReadin
 
 async function fetchLatestModern(
   siteIds: string[],
-  options?: { skipCache?: boolean }
+  options?: { skipCache?: boolean; signal?: AbortSignal }
 ): Promise<GaugeReading[]> {
   const url = new URL(`${MODERN_BASE}/latest-continuous/items`);
   url.searchParams.set('f', 'json');
@@ -237,7 +237,7 @@ async function fetchLatestModern(
     if (visited.has(next) || visited.size >= 100) throw new Error('USGS latest pagination did not finish');
     if (new URL(next).origin !== url.origin) throw new Error('Unexpected USGS pagination host');
     visited.add(next);
-    const response = await trackedFetch('usgs', 'usgs', next, { ...fetchOptions, signal: AbortSignal.timeout(15_000) });
+    const response = await trackedFetch('usgs', 'usgs', next, { ...fetchOptions, signal: options?.signal ? AbortSignal.any([options.signal, AbortSignal.timeout(15_000)]) : AbortSignal.timeout(15_000) });
     if (!response.ok) throw new Error(`USGS modern API error: ${response.status} ${response.statusText}`);
     const data = (await response.json()) as OgcFeatureCollection;
     features.push(...(data.features ?? []));
@@ -410,7 +410,7 @@ interface LegacyResponse {
 
 async function fetchLatestLegacy(
   siteIds: string[],
-  options?: { skipCache?: boolean }
+  options?: { skipCache?: boolean; signal?: AbortSignal }
 ): Promise<GaugeReading[]> {
   const url = new URL(LEGACY_IV_URL);
   url.searchParams.set('format', 'json');
@@ -422,7 +422,7 @@ async function fetchLatestLegacy(
     ? { cache: 'no-store' }
     : { next: { revalidate: 3600 } };
 
-  const response = await trackedFetch('usgs', 'usgs', url.toString(), fetchOptions);
+  const response = await trackedFetch('usgs', 'usgs', url.toString(), { ...fetchOptions, signal: options?.signal });
   if (!response.ok) {
     throw new Error(`USGS legacy API error: ${response.status} ${response.statusText}`);
   }
@@ -701,7 +701,7 @@ export class UsgsProvider implements FlowProvider {
 
   async fetchLatest(
     rawSiteIds: string[],
-    options?: { skipCache?: boolean }
+    options?: { skipCache?: boolean; signal?: AbortSignal }
   ): Promise<GaugeReading[]> {
     const siteIds = usgsSiteIds(rawSiteIds);
     if (siteIds.length === 0) return [];
@@ -717,9 +717,11 @@ export class UsgsProvider implements FlowProvider {
       if (readings.length > 0 || mode === 'modern-only') return readings;
       console.warn('[USGS] Modern API returned no readings; falling back to legacy');
     } catch (error) {
+      options?.signal?.throwIfAborted();
       if (mode === 'modern-only') throw error;
       console.warn('[USGS] Modern API failed; falling back to legacy:', error);
     }
+    options?.signal?.throwIfAborted();
     return fetchLatestLegacy(siteIds, options);
   }
 

@@ -174,7 +174,7 @@ export interface FlowProvider {
   /** Latest observation for each site. Missing/failed sites are omitted. */
   fetchLatest(
     siteIds: string[],
-    options?: { skipCache?: boolean }
+    options?: { skipCache?: boolean; signal?: AbortSignal }
   ): Promise<GaugeReading[]>;
 
   /** What fetchHistory can serve for this provider's stations. */

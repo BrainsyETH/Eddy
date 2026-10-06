@@ -111,7 +111,9 @@ const CHAT_HANDLERS = readFileSync(
   'utf-8',
 );
 
-test('both call sites read river_type from the query that must already succeed', () => {
+const AGENT_PLANNING = readFileSync(join(process.cwd(), 'src/lib/agent-tools/planning.ts'), 'utf8');
+
+test('chat delegates to the shared estimator that reads river_type from the required river query', () => {
   // Not from getRiverContext: it is a 5-minute TTL cache, both sites wrapped
   // it in .catch(() => null), and `undefined` reads as "not a tailwater".
   assert.match(
@@ -121,9 +123,10 @@ test('both call sites read river_type from the query that must already succeed',
   );
   assert.match(
     CHAT_HANDLERS,
-    /\.select\('id, name, river_type'\)/,
-    'chat get_float_route must select river_type on its rivers query',
+    /createAgentExecutor/,
+    'chat must use the shared agent executor',
   );
+  assert.match(AGENT_PLANNING, /await estimateRoute\(/);
 });
 
 test('the published float_segments branch is gated, not just the estimate branch', () => {
@@ -165,12 +168,12 @@ test('chat does not report every withheld float time as dangerous water', () => 
   // dangerous", which is false and spends the credibility of the one sentence
   // that has to mean something when a river really is in flood.
   assert.match(
-    CHAT_HANDLERS,
+    AGENT_PLANNING,
     /withholdReason === 'regulated'/,
     'chat must branch its note on the withholding reason',
   );
   assert.match(
-    CHAT_HANDLERS,
+    AGENT_PLANNING,
     /dam-controlled river/,
     'chat must have distinct copy for regulated water',
   );
