@@ -18,7 +18,7 @@ import { getRiverContext, DEFAULT_TIMEZONE, type RiverContext } from '@/lib/rive
 import { getLocalDateStrings } from '@/lib/social/local-time';
 import { parseEddyResponse, stripEddyMarkers } from '@/lib/eddy/parse-response';
 import { RIVER_TYPE_GUIDANCE, buildConditionSemantics } from '@/lib/eddy/condition-semantics';
-import { buildReportFacts, reportFactsPrompt, guardReport, preflightReportFallback, type ReportFacts } from './report-facts';
+import { buildReportFacts, reportFactsPrompt, guardReport, preflightReportFallback, activeReportFloodAlerts, type ReportFacts } from './report-facts';
 import type { ResolvedModel } from '@/lib/ai/resolve-models';
 
 
@@ -130,14 +130,31 @@ export async function generateEddyUpdate(
   // otherwise. Without the section, a tailwater update is built from the gauge
   // above its dam.
   const gaugeResult = await getGaugeConditions(target.riverSlug, target.sectionSlug);
+  // Without a station there is no report target to assess.
+  if (!gaugeResult) return null;
+
+  // --- 2. Fetch NWS alerts (state from river data; NWS is US-only) ---
+  let alerts: NWSAlert[] = [];
+  try {
+    const allAlerts = await fetchNWSAlerts(riverCtx?.state ?? 'MO');
+    alerts = filterAlertsForRiver(allAlerts, target.riverSlug, riverCtx?.alertSearchTerms);
+    if (activeReportFloodAlerts(alerts).length > 0) sourcesUsed.push('NWS alerts');
+  } catch (e) {
+    console.warn('[EddyGen] NWS alert fetch failed:', e);
+  }
+
   const facts = gaugeResult ? buildReportFacts({
     gaugeName: gaugeResult.gaugeName,
     gaugeHeightFt: gaugeResult.gaugeHeightFt,
     dischargeCfs: gaugeResult.dischargeCfs,
     thresholds: gaugeResult.thresholds,
+    floodAlerts: activeReportFloodAlerts(alerts),
     requestedSection: target.sectionName,
     supportedSection: gaugeResult.sectionGaugeMatched ? target.sectionName : null,
   }) : null;
+  if (!facts) return null;
+  const fallback = preflightReportFallback(facts);
+
   const gaugeContext: GaugeContext | null = gaugeResult && facts ? {
     facts,
     gaugeName: gaugeResult.gaugeName,
@@ -150,9 +167,9 @@ export async function generateEddyUpdate(
     closureLevel: gaugeResult.closureLevel,
     notes: riverCtx?.characteristics?.riverNote ?? RIVER_NOTES[target.riverSlug] ?? null,
   } : null;
-  if (gaugeContext) sourcesUsed.push('USGS gauge');
+  if (gaugeContext && (gaugeContext.gaugeHeightFt != null || gaugeContext.dischargeCfs != null)) sourcesUsed.push('USGS gauge');
 
-  // --- 2. Fetch weather (current + 3-day forecast) ---
+  // --- 3. Fetch weather (current + 3-day forecast) ---
   let weather: WeatherData | null = null;
   let forecast: ForecastData | null = null;
   let precipitation: PrecipitationSummary | null = null;
@@ -166,21 +183,26 @@ export async function generateEddyUpdate(
       ]);
       sourcesUsed.push('OpenWeather');
       // Extract precipitation data from already-fetched responses
-      precipitation = fetchPrecipitationFromWeather(weather, forecast);
+      if (!fallback) precipitation = fetchPrecipitationFromWeather(weather, forecast);
     } catch (e) {
       console.warn(`[EddyGen] Weather fetch failed for ${target.riverSlug}:`, e);
     }
   }
 
-  // --- 3. Fetch NWS alerts (state from river data; NWS is US-only) ---
-  let alerts: NWSAlert[] = [];
-  try {
-    const allAlerts = await fetchNWSAlerts(riverCtx?.state ?? 'MO');
-    alerts = filterAlertsForRiver(allAlerts, target.riverSlug, riverCtx?.alertSearchTerms);
-    if (alerts.length > 0) sourcesUsed.push('NWS alerts');
-  } catch (e) {
-    console.warn('[EddyGen] NWS alert fetch failed:', e);
-  }
+  if (fallback) return {
+    riverSlug: target.riverSlug,
+    sectionSlug: target.sectionSlug,
+    conditionCode: facts.conditionCode,
+    gaugeHeightFt: facts.gaugeHeightFt,
+    dischargeCfs: facts.dischargeCfs,
+    ...fallback,
+    sourcesUsed,
+    weather: buildWeatherSummary(weather, forecast),
+    usage: null,
+  };
+
+  // Non-flood outlooks can inform model prose, but are not fallback sources.
+  if (alerts.length && !facts.floodAlerts?.length) sourcesUsed.push('NWS alerts');
 
   // --- 4. Load local knowledge ---
   const localKnowledge = getKnowledgeForTarget(target.riverSlug, target.sectionSlug);
@@ -207,22 +229,6 @@ export async function generateEddyUpdate(
           dropRateFtPerDay: rc.dropRateNote ?? '',
         }
       : RAIN_LAG[target.riverSlug] ?? null;
-
-  // No station means there is no geographical or measurement basis for a Read.
-  if (!facts) return null;
-
-  const fallback = preflightReportFallback(facts);
-  if (fallback) return {
-    riverSlug: target.riverSlug,
-    sectionSlug: target.sectionSlug,
-    conditionCode: facts.conditionCode,
-    gaugeHeightFt: facts.gaugeHeightFt,
-    dischargeCfs: facts.dischargeCfs,
-    ...fallback,
-    sourcesUsed,
-    weather: buildWeatherSummary(weather, forecast),
-    usage: null,
-  };
 
   // --- 7. Build the prompt ---
   const prompt = buildPrompt(target, gaugeContext, weather, forecast, alerts, localKnowledge, trajectory, precipitation, rainLag, riverCtx);
@@ -264,7 +270,11 @@ export async function generateEddyUpdate(
 
     // Parse summary and full text from the model output
     const parsed = parseEddyResponse(rawText);
-    const { summaryText, eddyRead, quoteText } = guardReport(parsed, facts);
+    const guarded = guardReport(parsed, facts);
+    const { summaryText, eddyRead, quoteText } = guarded;
+    const publishedSources = guarded === parsed ? sourcesUsed
+      : sourcesUsed.filter(source => source === 'USGS gauge' || source === 'OpenWeather'
+        || (source === 'NWS alerts' && !!facts.floodAlerts?.length));
 
     return {
       riverSlug: target.riverSlug,
@@ -275,7 +285,7 @@ export async function generateEddyUpdate(
       quoteText: stripEddyMarkers(quoteText),
       summaryText: summaryText ? stripEddyMarkers(summaryText) : null,
       eddyRead: eddyRead ? stripEddyMarkers(eddyRead) : null,
-      sourcesUsed,
+      sourcesUsed: publishedSources,
       weather: buildWeatherSummary(weather, forecast),
       usage: extractUsage(model.id, message.usage),
     };

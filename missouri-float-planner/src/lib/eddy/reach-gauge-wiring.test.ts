@@ -64,3 +64,19 @@ test('the trajectory is read from the same site as the reading', () => {
     'generate-update.ts must not fall back to the river-level trajectory',
   );
 });
+
+test('the shared loader gives chat and Reads the same strict-unit assessment', () => {
+  assert.match(getGaugeConditions, /computeCondition\(gaugeHeightFt, thresholds, dischargeCfs, \{ strictUnit: true \}\)/);
+});
+
+test('both generators preserve alerts before fallback and skip unused trajectory/model work', () => {
+  for (const generator of [generateUpdate, src('src/lib/eddy/generate-gauge-update.ts')]) {
+    const fallback = generator.indexOf('const fallback = preflightReportFallback(facts)');
+    assert.ok(fallback > generator.indexOf('await fetchNWSAlerts('));
+    assert.ok(fallback < generator.indexOf('trajectory = await buildGaugeTrajectoryForSite('));
+    assert.ok(fallback < generator.indexOf('const client = new Anthropic('));
+    assert.match(generator.slice(fallback), /if \(fallback\) return \{[\s\S]*?usage: null/);
+    assert.match(generator, /sourcesUsed: publishedSources/);
+  }
+  assert.ok(generateUpdate.indexOf('const fallback = preflightReportFallback(facts)') < generateUpdate.indexOf('const localKnowledge = getKnowledgeForTarget('));
+});

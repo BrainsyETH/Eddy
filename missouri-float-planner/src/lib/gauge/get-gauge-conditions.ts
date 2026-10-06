@@ -197,7 +197,7 @@ export async function getGaugeConditions(
     thresholdUnit: (gaugeLink.threshold_unit ?? undefined) as 'ft' | 'cfs' | undefined,
   };
 
-  const condition = computeCondition(gaugeHeightFt, thresholds, dischargeCfs);
+  const condition = computeCondition(gaugeHeightFt, thresholds, dischargeCfs, { strictUnit: true });
 
   // Build optimal range string
   const unit = gaugeLink.threshold_unit === 'cfs' ? 'cfs' : 'ft';

@@ -1,7 +1,7 @@
 import { toNum } from '../utils/num';
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { buildReportFacts, reportFactsPrompt, reportContradictions, guardReport, factualReportFallback, preflightReportFallback } from './report-facts';
+import { buildReportFacts, reportFactsPrompt, reportContradictions, guardReport, factualReportFallback, preflightReportFallback, activeReportFloodAlerts } from './report-facts';
 import type { ParsedEddyResponse } from './parse-response';
 
 const input = {
@@ -130,4 +130,61 @@ test('preflight supplies guaranteed fallbacks and permits supported assessments'
   ]) assert.deepEqual(preflightReportFallback(unavailable), factualReportFallback(unavailable));
   assert.equal(preflightReportFallback(facts), null);
   assert.equal(preflightReportFallback(buildReportFacts({ ...input, requestedSection: 'Reach', supportedSection: 'Reach' })), null);
+});
+
+test('future, conditional and negated condition/band prose is not a current rating', () => {
+  for (const text of [
+    'Flash flood conditions possible Thursday.',
+    'Expect low conditions next week if it stays dry.',
+    'The gauge is not within the optimal band.',
+    'The gauge is not Flowing.',
+    'Rain could push it back into the optimal range.',
+    'Rain could bring it within the optimal range.',
+    'The river may be High tomorrow.',
+    'Flood Warning in effect.',
+    'The gauge was within the optimal band yesterday.',
+  ]) {
+    for (const field of ['summaryText', 'eddyRead', 'quoteText'] as const) {
+      const valid = { ...report('Good conditions at Van Buren.'), [field]: text };
+      assert.deepEqual(reportContradictions(valid, facts), [], text);
+      assert.deepEqual(guardReport(valid, facts), valid);
+    }
+  }
+  for (const text of [
+    'Flowing conditions at Van Buren today.',
+    'The gauge is within the optimal band.',
+    'Rain could arrive tomorrow, but the river is Flowing today.',
+    'The gauge is not High, but it is within the optimal band.',
+  ]) assert.ok(reportContradictions(report(text), facts).length, text);
+});
+
+test('active flood alerts lead both preflight and rejected-report fallbacks in every field', () => {
+  const floodAlerts = [{ event: 'Flood Warning', areaDesc: 'Carter County' }];
+  const good = buildReportFacts({ ...input, floodAlerts });
+  const unknown = buildReportFacts({ ...input, dischargeCfs: null, floodAlerts });
+  const unsupported = buildReportFacts({ ...input, requestedSection: 'Upper Current', floodAlerts });
+  assert.equal(good.conditionCode, 'good');
+  assert.match(reportFactsPrompt(good), /Good or unavailable gauge rating does not cancel an NWS alert/);
+  for (const fallback of [preflightReportFallback(unknown), preflightReportFallback(unsupported), guardReport(report('Flowing conditions today.'), good)]) {
+    assert.ok(fallback);
+    for (const field of ['summaryText', 'eddyRead', 'quoteText'] as const) {
+      assert.match(fallback[field] ?? '', /^NWS Flood Warning for Carter County\./);
+    }
+  }
+  const valid = report('Flood Warning in effect. Good conditions at Van Buren.');
+  assert.deepEqual(guardReport(valid, good), valid);
+});
+
+test('expired and unrelated alerts are excluded; watches retain their event and area', () => {
+  const base = { id: '1', headline: '', description: '', severity: 'Moderate', urgency: 'Expected', onset: '', areaDesc: 'Carter County' };
+  const alerts = activeReportFloodAlerts([
+    { ...base, event: 'Flood Warning', expires: '2026-10-06T11:00:00Z' },
+    { ...base, event: 'Wind Advisory', expires: '2026-10-07T00:00:00Z' },
+    { ...base, event: 'Flood Watch', expires: '2026-10-07T00:00:00Z' },
+    { ...base, event: 'Flash Flood Warning', expires: '' },
+  ], Date.parse('2026-10-06T12:00:00Z'));
+  assert.deepEqual(alerts.map(a => a.event), ['Flood Watch', 'Flash Flood Warning']);
+  const fallback = factualReportFallback(buildReportFacts({ ...input, floodAlerts: alerts }));
+  assert.match(fallback.summaryText ?? '', /^NWS Flood Watch for Carter County/);
+  assert.match(fallback.summaryText ?? '', /NWS Flash Flood Warning for Carter County/);
 });

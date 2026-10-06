@@ -1,3 +1,4 @@
+import { fetchNWSAlerts, filterAlertsForRiver, type NWSAlert } from '@/lib/nws/alerts';
 // src/lib/eddy/generate-gauge-update.ts
 // Per-gauge AI commentary using Haiku 4.5. Targeted at secondary gauges on
 // active rivers (the primary gauge is covered by the Sonnet-powered
@@ -23,7 +24,7 @@ import { toNum } from '@/lib/utils/num';
 import { getCoordinates } from '@/lib/api-utils';
 import { fetchForecast, getWeatherPointForRiver, type ForecastData } from '@/lib/weather/openweather';
 import type { RiverContext } from '@/lib/rivers/context';
-import { buildReportFacts, reportFactsPrompt, guardReport, preflightReportFallback, type ReportFacts } from './report-facts';
+import { buildReportFacts, reportFactsPrompt, guardReport, preflightReportFallback, activeReportFloodAlerts, type ReportFacts } from './report-facts';
 import type { ResolvedModel } from '@/lib/ai/resolve-models';
 
 // The model is resolved once per pass from llm_config and threaded in, so a
@@ -279,8 +280,20 @@ export async function generateGaugeUpdate(
   }
   if (gaugeHeightFt != null || dischargeCfs != null) sourcesUsed.push('USGS gauge');
 
+  // Alerts must survive both unavailable-gauge and post-validation fallbacks.
+  const riverCtx = await getRiverContext(target.riverSlug);
+  let alerts: NWSAlert[] = [];
+  try {
+    alerts = activeReportFloodAlerts(filterAlertsForRiver(
+      await fetchNWSAlerts(riverCtx?.state ?? 'MO'), target.riverSlug, riverCtx?.alertSearchTerms,
+    ));
+    if (alerts.length) sourcesUsed.push('NWS alerts');
+  } catch (e) {
+    console.warn('[GaugeUpdates] NWS alert fetch failed:', e);
+  }
+
   // 2. Compute condition.
-  const facts = buildReportFacts({ gaugeName: target.gaugeName, gaugeHeightFt, dischargeCfs, thresholds: target.thresholds });
+  const facts = buildReportFacts({ gaugeName: target.gaugeName, gaugeHeightFt, dischargeCfs, thresholds: target.thresholds, floodAlerts: alerts });
   const conditionCode = facts.conditionCode;
 
   const fallback = preflightReportFallback(facts);
@@ -308,7 +321,6 @@ export async function generateGaugeUpdate(
   // 4. Add local weather and hydrology context, then call Haiku. This uses
   // the selected gauge point when available and the river weather point as a
   // fallback. Next's fetch cache prevents duplicate upstream weather calls.
-  const riverCtx = await getRiverContext(target.riverSlug);
   let forecast: ForecastData | null = null;
   const apiKey = process.env.OPENWEATHER_API_KEY;
   if (apiKey) {
@@ -352,7 +364,11 @@ export async function generateGaugeUpdate(
       return null;
     }
 
-    const { summaryText, eddyRead, quoteText } = guardReport(parseEddyResponse(rawText), facts);
+    const parsed = parseEddyResponse(rawText);
+    const guarded = guardReport(parsed, facts);
+    const { summaryText, eddyRead, quoteText } = guarded;
+    const publishedSources = guarded === parsed ? sourcesUsed
+      : sourcesUsed.filter(source => ['USGS gauge', 'NWS alerts'].includes(source));
 
     return {
       gaugeStationId: target.gaugeStationId,
@@ -364,7 +380,7 @@ export async function generateGaugeUpdate(
       quoteText: stripEddyMarkers(quoteText),
       summaryText: summaryText ? stripEddyMarkers(summaryText) : null,
       eddyRead: eddyRead ? stripEddyMarkers(eddyRead) : null,
-      sourcesUsed,
+      sourcesUsed: publishedSources,
       usage: extractUsage(model.id, message.usage),
     };
   } catch (e) {

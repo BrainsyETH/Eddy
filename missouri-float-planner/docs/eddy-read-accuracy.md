@@ -40,3 +40,21 @@ Condition predicates require a river, gauge, flow or water-level subject (or an
 explicit rating label). Weather predicates such as “chance of rain is low” do
 not change the river rating. A sentence may cite both feet and cfs; only a direct
 comparison in the wrong dimension or an incorrectly quoted band is rejected.
+
+Review follow-up (items 1–4 and 6): both generators fetch relevant active NWS
+flood alerts before selecting a fallback. Fallbacks lead with the event and its
+reported area in all three prose fields; the gauge rating remains independent.
+Expired alerts are removed. Alert lookup failures are logged, not described as
+an all-clear. Matching is the existing river/area filter, not station-level
+flood-boundary verification.
+
+Negated, forecast, conditional and historical clauses are not treated as current
+rating/band assertions. This is still a deliberately narrow check, not a general
+English parser. Separate unqualified present clauses remain checked.
+
+The shared getGaugeConditions loader now uses strictUnit, so chat and Reads agree
+when the matching measurement is missing; official flood-stage overrides remain.
+River fallbacks skip local knowledge and trajectory work. Weather is retained
+because it supplies the returned weather summary, and NWS supplies warning text.
+Post-validation fallbacks list only the sources used in the published fallback
+and weather summary. Section target selection and row persistence are unchanged.

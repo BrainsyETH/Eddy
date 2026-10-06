@@ -2,16 +2,36 @@
 // This is deliberately SDK/DB-free so the production failure can be replayed.
 import { classifyReading, type ConditionThresholds } from '@shared/condition-ladder';
 import { CONDITION_SYSTEM } from '@shared/condition-system';
+import type { NWSAlert } from '../nws/alerts';
 import type { ParsedEddyResponse } from './parse-response';
 
 export interface ReportFactsInput {
   gaugeName: string;
+  /** Relevant active NWS flood alerts, independently of the gauge rating. */
+  floodAlerts?: readonly Pick<NWSAlert, 'event' | 'areaDesc'>[];
   gaugeHeightFt: number | null;
   dischargeCfs: number | null;
   thresholds: ConditionThresholds;
   /** Set only when the lookup actually resolved the section's assigned station. */
   supportedSection?: string | null;
   requestedSection?: string | null;
+}
+
+/** Input comes from the active-alert endpoint and the river-area filter.
+ * Recheck expiry because cached alerts can expire between requests. */
+export function activeReportFloodAlerts(alerts: readonly NWSAlert[], now = Date.now()) {
+  return alerts.filter(alert => /\bflood\b/i.test(alert.event)
+    && (!alert.expires || Date.parse(alert.expires) > now));
+}
+
+// Only assert contradictions for unqualified present clauses. A forecast,
+// negation or historical comparison is not today's computed assessment.
+// This deliberately declines ambiguous prose rather than parsing general English.
+function isPresentClaim(text: string, index: number): boolean {
+  const boundary = /(?<!\d)[,.;!?]|[,.;!?](?!\d)|\b(?:but|and|while|whereas)\b/gi;
+  const before = text.slice(0, index).split(boundary).at(-1) ?? '';
+  const after = text.slice(index).split(boundary)[0];
+  return !/\b(?:not|no|never|isn't|isn’t|aren't|aren’t|wasn't|wasn’t|weren't|weren’t|could|would|should|may|might|will|won't|won’t|can|possible|possibly|potential|potentially|expect|expected|forecast|if|unless|tomorrow|yesterday|previously|formerly|was|were|had|last|next|monday|tuesday|wednesday|thursday|friday|saturday|sunday)\b/i.test(`${before}${after}`);
 }
 
 export function buildReportFacts(input: ReportFactsInput) {
@@ -32,6 +52,10 @@ export function reportFactsPrompt(f: ReportFacts): string {
   return [
     '[AUTHORITATIVE GAUGE FACTS — override examples and background knowledge]',
     `Reporting gauge: ${f.gaugeName}`,
+    ...(f.floodAlerts?.length ? [
+      `Active NWS flood alerts for the surrounding river area: ${f.floodAlerts.map(a => `${a.event}${a.areaDesc ? ` (${a.areaDesc})` : ''}`).join('; ')}.`,
+      'Lead with the active flood alert and its affected area. A Good or unavailable gauge rating does not cancel an NWS alert; the alert is not a new gauge condition label.',
+    ] : []),
     `Computed condition: ${f.conditionLabel} (${f.conditionCode}). Do not upgrade, downgrade, or reinterpret this label.`,
     `Rating measurement: ${f.unit === 'cfs' ? 'discharge' : 'gauge height'}; value: ${f.value ?? 'unavailable'} ${f.unit}.`,
     `Separate measurements: height ${f.gaugeHeightFt ?? 'unavailable'} ft; discharge ${f.dischargeCfs ?? 'unavailable'} cfs. These are not interchangeable.`,
@@ -68,6 +92,7 @@ export function reportContradictions(report: ParsedEddyResponse, f: ReportFacts)
     // peaks and flood-stage references may legitimately contain other values.
     const currentReading = /\b(?:the\s+)?(?:gauge\s+(?:currently\s+)?reads|(?:current|latest)\s+(?:reading|discharge|height|gauge height|flow)(?:\s+of)?|(?:discharge|gauge height)\s+is(?:\s+currently)?)\s*(?:is|at|:)?\s*([\d,.]+)\s*(ft|feet|cfs)\b/gi;
     for (const match of text.matchAll(currentReading)) {
+      if (!isPresentClaim(text, match.index)) continue;
       const unit = match[2].toLowerCase() === 'feet' ? 'ft' : match[2].toLowerCase();
       const expected = unit === 'cfs' ? f.dischargeCfs : f.gaugeHeightFt;
       const quoted = Number(match[1].replaceAll(',', ''));
@@ -78,16 +103,19 @@ export function reportContradictions(report: ParsedEddyResponse, f: ReportFacts)
     if (/\bdischarge\s*(?:of|is|at|:)?\s*[\d,.]+\s*(?:ft|feet)\b|\bheight\s*(?:of|is|at|:)?\s*[\d,.]+\s*cfs\b/i.test(text)) errors.add('reading-units');
     const labels = /\b(too low|low|good|flowing|high|flood|dangerous|unknown)\s+(?:condition(?:s)?|band|range|zone)\b/gi;
     for (const match of text.matchAll(labels)) {
+      if (!isPresentClaim(text, match.index)) continue;
       const label = match[1].toLowerCase().replace('too low', 'too_low');
       const code = label === 'flood' ? 'dangerous' : label;
       if (code !== f.conditionCode) errors.add('condition');
     }
     // Also catch the common sentence "The river is Flowing/Good/High".
     for (const match of text.matchAll(/(?:^|\b(?:river|gauge|water level|flow)\s+(?:is|is running|is rated)|\b(?:rating|condition)\s*:)\s*(?:currently\s+|solidly\s+)?(too low|low|good|flowing|high|flood|dangerous|unknown)(?=[.,;!?]|$|\s+(?:at|today|conditions?|band)\b)/gi)) {
+      if (!isPresentClaim(text, match.index)) continue;
       const label = match[1].toLowerCase().replace('too low', 'too_low');
       if ((label === 'flood' ? 'dangerous' : label) !== f.conditionCode) errors.add('condition');
     }
     for (const match of text.matchAll(/\b(within|inside|in|below|above|outside)\s+(?:the\s+)?optimal\s+(?:range|band)\b/gi)) {
+      if (!isPresentClaim(text, match.index)) continue;
       const relation = ['within', 'inside', 'in'].includes(match[1].toLowerCase()) ? 'within' : match[1].toLowerCase();
       if (relation === 'outside' ? !['below', 'above'].includes(f.relation) : relation !== f.relation) errors.add('range');
     }
@@ -101,6 +129,7 @@ export function reportContradictions(report: ParsedEddyResponse, f: ReportFacts)
     // Bind a comparison to the immediately preceding measurement. Merely
     // mentioning stage and discharge in one sentence is valid.
     for (const match of text.matchAll(/[\d,.]+\s*(ft|feet|cfs)\s*(?:,\s*|\s+)(?:which\s+is\s+|is\s+)?(?:well\s+)?(?:within|inside|in|below|above|outside)\s+(?:the\s+)?optimal\s+(?:range|band)\b/gi)) {
+      if (!isPresentClaim(text, match.index)) continue;
       if (match[1].toLowerCase().replace('feet', 'ft') !== f.unit) errors.add('mixed-unit-comparison');
     }
   }
@@ -108,7 +137,8 @@ export function reportContradictions(report: ParsedEddyResponse, f: ReportFacts)
 }
 
 export function factualReportFallback(f: ReportFacts): ParsedEddyResponse {
-  const summaryText = `${f.conditionLabel} at ${f.gaugeName}.`;
+  const alertLead = f.floodAlerts?.map(a => `NWS ${a.event}${a.areaDesc ? ` for ${a.areaDesc}` : ' for the surrounding river area'}. Follow NWS instructions.`).join(' ') ?? '';
+  const summaryText = [alertLead, `${f.conditionLabel} at ${f.gaugeName}.`].filter(Boolean).join(' ');
   const assessment = f.conditionCode === 'unknown'
     ? 'A condition assessment is unavailable from the matching measurement and thresholds.'
     : f.conditionCode === 'dangerous' ? 'Stay off the water.'
