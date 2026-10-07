@@ -105,7 +105,7 @@ Adding a new river to Eddy follows a 5-phase process using existing scripts and 
 
 Current rivers: Meramec, Current, Eleven Point, Jacks Fork, Niangua, Big Piney, Huzzah Creek, Courtois Creek (8 total).
 
-Expansion pool: 28+ rivers documented in `floatmissouri_rivers.json`.
+Expansion pool: see the river dossiers under `scripts/ingestion/dossiers/`.
 
 ---
 
