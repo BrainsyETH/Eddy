@@ -49,7 +49,7 @@ import { useCampsiteSites } from '@/hooks/useCampsiteSites';
 import {
   filterCounts,
   listsRows,
-  SITE_FILTERS,
+  siteFilterChips,
   sitesOnNight,
   type SiteFilter,
 } from './siteList';
@@ -652,6 +652,9 @@ export function AccessCampingTab({ accessPoint, detail, status, active = false, 
   // The filters are therefore spent only while their row is on screen. The state
   // survives, so stepping back to a night with rows restores the selection
   // rather than silently dropping it.
+  //
+  // Within a drawn row, a SELECTED chip stays drawn even at zero (see
+  // siteFilterChips) — it used to vanish while still filtering.
   const individualSites = sites?.facility.source === 'mo_state_parks';
   const showFilters = useMemo(() => listsRows(entries, individualSites), [entries, individualSites]);
   const activeFilters = showFilters ? filters : [];
@@ -821,7 +824,7 @@ export function AccessCampingTab({ accessPoint, detail, status, active = false, 
                   which only this one has to be operated. See listsRows. */}
               {showFilters ? (
                 <FilterChips
-                  chips={SITE_FILTERS.filter((f) => counts[f] > 0).map((f) => ({
+                  chips={siteFilterChips(counts, filters).map((f) => ({
                     key: f,
                     label: f,
                     count: counts[f],

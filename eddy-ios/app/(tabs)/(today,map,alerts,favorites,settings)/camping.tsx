@@ -47,7 +47,13 @@ import {
   orderCampingRows,
 } from '@/lib/campingHeatmap';
 import { nextCampingDate, resolveCampingSort, type CampingSort } from '@/lib/campingStay';
-import { campingFilterReducer, filterCampingScope, initialCampingFilters, type CampingScope } from '@/lib/campingFilters';
+import {
+  campingFilterReducer,
+  filterCampingScope,
+  initialCampingFilters,
+  type CampingScope,
+  type LocationPurpose,
+} from '@/lib/campingFilters';
 import { ScopeSwitch } from '@/components/ScopeSwitch';
 import { CampingNightControl } from '@/components/CampingNightControl';
 import { CampingAvailabilityRow } from '@/components/CampingAvailabilityRow';
@@ -90,7 +96,6 @@ function CampingContent() {
   const [displayChoice, setDisplayChoice] = useState<'grid' | 'list' | null>(null);
   const display = displayChoice ?? (screenReader || fontScale >= 1.3 ? 'list' : 'grid');
   const [nightChoice, setNightChoice] = useState<string | null>(null);
-  const [sortChoice, setSortChoice] = useState<CampingSort | null>(null);
   const [openedNight, setOpenedNight] = useState<string | undefined>();
   const params = useLocalSearchParams<{ facility?: string; river?: string; night?: string }>();
   const [selected, setSelected] = useState<string | null>(
@@ -119,19 +124,24 @@ function CampingContent() {
   const river = scope.kind === 'river' ? scope.slug : null;
   const saved = scope.kind === 'favorites';
   const nearby = scope.kind === 'nearby';
-  const locating = filters.locationRequest !== null;
+  // One location request at a time, owned by whichever control asked for it.
+  const locating = filters.locationRequest !== null && filters.locationPurpose === 'nearby';
+  const sortLocating = filters.locationRequest !== null && filters.locationPurpose === 'nearest';
+  const nearbyFailed = filters.locationFailed && filters.locationPurpose === 'nearby';
   const favoriteRivers = useMemo(() => new Set(
     starred.filter((s) => s.kind === 'river').map((s) => s.slug),
   ), [starred]);
   const linkedNight = data ? linkedCampingNight(data, params.night) : undefined;
   const night = data ? linkedCampingNight(data, nightChoice) ?? linkedNight ?? data.horizon.startDate : '';
   // Nearby means "closest first" until someone picks another order.
-  const sort = resolveCampingSort(sortChoice, nearby && coords !== null);
-  // "Most open" ranks the night List shows; Grid has no single night, so the weekend.
-  const openingNights = useMemo(
-    () => data ? display === 'list' ? [night] : data.weekend.nights.filter((d) => data.horizon.nights.includes(d)) : [],
-    [data, display, night],
-  );
+  const sort = resolveCampingSort(filters.sort, nearby && coords !== null);
+  // "Most open" ranks ONE named night in both views. Summing a weekend lets 20
+  // Friday-only openings outrank 5 on both nights; whole-stay ranking waits for
+  // same-site matching (docs/camping-ux-plan.md, #2).
+  const openingNights = useMemo(() => (night ? [night] : []), [night]);
+  const sortLabel = sort === 'openings' && night
+    ? `${campingSortLabel.openings} · ${dateLabel(night)}`
+    : campingSortLabel[sort];
   const ordered = useMemo(() => orderCampingRows(
     filterCampingScope(data?.tracked ?? [], scope, coords, favoriteRivers),
     sort,
@@ -150,14 +160,16 @@ function CampingContent() {
     const options: CampingSort[] = ['name', 'nearest', 'openings'];
     const labels = options.map((option) =>
       option === 'openings'
-        ? `${campingSortLabel.openings} · ${display === 'list' ? dateLabel(night) : 'this weekend'}`
+        ? `${campingSortLabel.openings} · ${dateLabel(night)}`
         : option === 'nearest' && !coords ? `${campingSortLabel.nearest} (uses your location)` : campingSortLabel[option]);
     const pick = (index: number) => {
       const option = options[index];
       if (!option) return;
-      if (option !== 'nearest' || coords) { setSortChoice(option); return; }
-      // Without a fix the order would silently stay by river, so ask first.
-      void request().then((fix) => { if (fix) setSortChoice('nearest'); });
+      setLinkFailed(false);
+      if (option !== 'nearest' || coords) dispatchFilter({ type: 'sort', sort: option });
+      // Without a fix the order would silently stay by river: ask, with the
+      // same pending, failure and retry handling as Nearby.
+      else locate('nearest');
     };
     if (Platform.OS !== 'ios') {
       pick((options.indexOf(sort) + 1) % options.length);
@@ -165,6 +177,8 @@ function CampingContent() {
     }
     ActionSheetIOS.showActionSheetWithOptions({
       title: 'Sort campgrounds',
+      // Grid has no night control, so name where the ranked night is chosen.
+      message: display === 'grid' ? `Most open ranks ${dateLabel(night)}. Choose another night in List.` : undefined,
       options: [...labels.map((label, i) => options[i] === sort ? `${label} ✓` : label), 'Cancel'],
       cancelButtonIndex: options.length,
       tintColor: colors.interactive,
@@ -175,18 +189,21 @@ function CampingContent() {
     dispatchFilter({ type: 'select', scope: next });
     setLinkFailed(false);
   }
-  function locateNearby() {
+  function locate(purpose: LocationPurpose) {
     setLinkFailed(false);
     if (coords) {
-      selectScope({ kind: 'nearby' });
+      if (purpose === 'nearby') selectScope({ kind: 'nearby' });
+      else dispatchFilter({ type: 'sort', sort: 'nearest' });
       return;
     }
     const id = ++locationRequest.current;
-    dispatchFilter({ type: 'locate', request: id });
+    dispatchFilter({ type: 'locate', request: id, purpose });
+    // The reducer drops this result if any later choice superseded the request.
     void request().then((fix) => {
       dispatchFilter({ type: 'located', request: id, found: fix !== null });
     });
   }
+  const locateNearby = () => locate('nearby');
   const riverHeaders = new Map(
     (ordered.grouped ? campingRiverGroups(rows) : []).map((group) => [
       group.data[0].facilityId,
@@ -339,7 +356,7 @@ function CampingContent() {
                     label={rivers.find((r) => r.slug === river)?.label ?? 'All rivers'}
                     active={!nearby && !saved}
                     onPress={() => {
-                      if (nearby || saved || locating || filters.locationFailed) {
+                      if (nearby || saved || locating || nearbyFailed) {
                         selectScope({ kind: 'all' });
                       } else {
                         setQuery('');
@@ -355,8 +372,9 @@ function CampingContent() {
                     else locateNearby();
                   }} />
                   <CampingFilterChip
-                    label={`Sort: ${campingSortLabel[sort]}`}
+                    label={sortLocating ? 'Locating…' : `Sort: ${sortLabel}`}
                     active={false}
+                    busy={sortLocating}
                     accessibilityHint="Choose how campgrounds are ordered"
                     onPress={chooseSort}
                   />
@@ -375,6 +393,7 @@ function CampingContent() {
                       {status === 'denied'
                         ? 'Location access is off.'
                         : 'Couldn’t find your location.'}
+                      {nearbyFailed ? '' : ' Campgrounds stay in their current order.'}
                     </Text>
                     <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 20 }}>
                       <Pressable
@@ -383,7 +402,7 @@ function CampingContent() {
                         onPress={() => {
                           if (status === 'denied')
                             void Linking.openSettings().catch(() => setLinkFailed(true));
-                          else locateNearby();
+                          else locate(filters.locationPurpose ?? 'nearby');
                         }}
                       >
                         <Text style={{ color: colors.interactive }}>
@@ -394,10 +413,13 @@ function CampingContent() {
                         accessibilityRole="button"
                         style={styles.action}
                         onPress={() => {
-                          selectScope({ kind: 'all' });
+                          if (nearbyFailed) selectScope({ kind: 'all' });
+                          else dispatchFilter({ type: 'dismiss' });
                         }}
                       >
-                        <Text style={{ color: colors.interactive }}>Show all</Text>
+                        <Text style={{ color: colors.interactive }}>
+                          {nearbyFailed ? 'Show all' : 'Keep current order'}
+                        </Text>
                       </Pressable>
                     </View>
                     {linkFailed ? (

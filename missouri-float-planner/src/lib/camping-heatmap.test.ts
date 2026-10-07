@@ -585,3 +585,51 @@ test('stay site filters work for typed federal sites and name-typed state-park s
   assert.deepEqual(filterCampsiteStays(entries, ['Tent', 'Electric']).map((e) => e.site.id), ['tent', 'fed-electric', 'state-electric']);
   assert.equal(filterCampsiteStays(entries, []).length, 4);
 });
+
+test('Nearest sort shares Nearby location handling: pending, failure, and success', () => {
+  const pending = campingFilterReducer(initialCampingFilters('current'), { type: 'locate', request: 1, purpose: 'nearest' });
+  assert.equal(pending.locationPurpose, 'nearest');
+  assert.equal(pending.sort, null);
+  const failed = campingFilterReducer(pending, { type: 'located', request: 1, found: false });
+  assert.equal(failed.locationFailed, true);
+  assert.equal(failed.locationPurpose, 'nearest');
+  assert.equal(failed.sort, null);
+  assert.deepEqual(failed.scope, { kind: 'river', slug: 'current' });
+  const dismissed = campingFilterReducer(failed, { type: 'dismiss' });
+  assert.equal(dismissed.locationFailed, false);
+  assert.equal(dismissed.sort, null);
+  const ready = campingFilterReducer(pending, { type: 'located', request: 1, found: true });
+  assert.equal(ready.sort, 'nearest');
+  // A Nearest fix sorts; it never narrows the scope to Nearby.
+  assert.deepEqual(ready.scope, { kind: 'river', slug: 'current' });
+});
+
+test('a later sort or scope supersedes a pending Nearest request', () => {
+  const pending = campingFilterReducer(initialCampingFilters(null), { type: 'locate', request: 1, purpose: 'nearest' });
+  const resorted = campingFilterReducer(pending, { type: 'sort', sort: 'openings' });
+  assert.equal(campingFilterReducer(resorted, { type: 'located', request: 1, found: true }), resorted);
+  assert.equal(resorted.sort, 'openings');
+  const rescoped = campingFilterReducer(pending, { type: 'select', scope: { kind: 'favorites' } });
+  assert.equal(campingFilterReducer(rescoped, { type: 'located', request: 1, found: true }), rescoped);
+  assert.equal(rescoped.sort, null);
+});
+
+test('choosing a scope keeps an explicit sort', () => {
+  const sorted = campingFilterReducer(initialCampingFilters(null), { type: 'sort', sort: 'openings' });
+  assert.equal(campingFilterReducer(sorted, { type: 'select', scope: { kind: 'favorites' } }).sort, 'openings');
+});
+
+import { noFilteredSitesLine, siteFilterChips, SITE_FILTERS } from '../../../eddy-ios/src/components/map-sheet/siteList';
+test('a selected site filter stays drawn at zero; unselected zero chips do not', () => {
+  const counts = Object.fromEntries(SITE_FILTERS.map((f) => [f, 0])) as Record<(typeof SITE_FILTERS)[number], number>;
+  counts.Tent = 3;
+  assert.deepEqual(siteFilterChips(counts, []), ['Tent']);
+  assert.deepEqual(siteFilterChips(counts, ['Electric']), ['Tent', 'Electric']);
+});
+
+test('the no-match line names the selected kinds in chip order', () => {
+  assert.equal(noFilteredSitesLine(['Electric']), 'No electric sites');
+  assert.equal(noFilteredSitesLine(['Electric', 'Tent']), 'No tent or electric sites');
+  assert.equal(noFilteredSitesLine(['Group', 'RV', 'Tent']), 'No tent, RV or group sites');
+  assert.equal(noFilteredSitesLine(['No hookup']), 'No non-hookup sites');
+});

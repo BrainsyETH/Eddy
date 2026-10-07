@@ -8,14 +8,22 @@ campground sheet in `CampingDetailSheet.tsx`, and the map sheet's camping tab in
 Two review items already shipped on `claude/sharp-lamport-yid38c`:
 
 - **Sort and distance (review #3).** The Camping tab has a Sort chip with three
-  options: By river, Nearest, and Most open. "Most open" ranks by the night shown
-  in List view, or by this weekend in Grid view. Nearby defaults to Nearest.
+  options: By river, Nearest, and Most open. "Most open" ranks by one named
+  night (the night List view shows), and the chip says which: "Sort: Most open
+  · Sat, Oct 10". It never sums a weekend, because 20 Friday-only openings would
+  outrank 5 on both nights. Ranking by a whole stay waits for #2's same-site
+  matching. Nearby defaults to Nearest. Choosing Nearest without location uses
+  the same pending, failure (Open Settings / Retry) and superseded-request
+  handling as Nearby, in `campingFilterReducer`.
   Each row shows "≈ 18 mi", or "Under 1 mi" when it's that close. The logic is
   `orderCampingRows`, `campingOpenings` and `campingMilesLabel` in
   `src/lib/campingHeatmap.ts`.
 - **Site-type filters in the Camping tab's campground sheet (review #4).** These
   are the map sheet's Tent / RV / Electric / No hookup / Walk-in / Group chips,
-  applied to the whole stay. The logic is `filterCampsiteStays` and
+  applied to the whole stay. A selected chip stays visible at zero when dates
+  change, with "No electric sites available for these dates" and Clear
+  filters, so the user's requirement is never silently dropped. The map sheet
+  uses the same rule (`siteFilterChips`). The logic is `filterCampsiteStays` and
   `campsiteStayFilterCounts` in `src/lib/campingStay.ts`.
 
 The rest of this document plans review items 1, 2, 5, 6, 7 and 8.
@@ -103,8 +111,9 @@ to win on raw speed against Recreation.gov's crawl-delay. Eddy's edge is
   those dates applied and the matching sites first. The **Book site** button
   deep-links to the exact site on Recreation.gov, or to the park page for state
   parks.
-- **Honest copy:** "Eddy checks about every 20 minutes. Openings often go
-  within minutes, so book right away." Never promise a booking.
+- **Honest copy:** state the cadence Eddy has actually measured ("Eddy checks
+  about every N minutes"), never a target. Openings often go within minutes,
+  so say "book right away". Never promise a booking.
 - **For federal campgrounds:** add a secondary link, "Also set a Recreation.gov
   alert", that opens that campground's page. It's free redundancy and
   acknowledges their official tool.
@@ -122,23 +131,31 @@ to win on raw speed against Recreation.gov's crawl-delay. Eddy's edge is
   - Reads only the facility and month pairs that have active watches.
   - Fetches them through the existing limiter, serially at 10 seconds per
     federal request.
-  - At 360 requests an hour, a 20-minute cycle can cover about 120
-    facility-months. That's well above Eddy's 30 federal and 6 state
-    facilities, even with 2–3 months each.
+  - 360 requests an hour is a theoretical ceiling, not a budget. It leaves no
+    room for request duration, retries, backoff, the nightly sync and growth.
+    Before committing to a cadence or watch limits, run a complete polling
+    cycle against the real watched set, measure its wall-clock time and
+    failure rate, and set the cadence and caps with headroom from that
+    measurement. Eddy tracks 30 federal and 6 state facilities today.
   - Writes into `campsite_site_availability` (which also keeps the per-site
     sheet fresher), then diffs against the previous state for each watch.
   - Fires through `alerts/fanout.ts` and `deliver-push`.
 - **Dedupe:** fire once per watch per "new opening set". Don't re-fire when the
-  same site stays open across cycles. Respect quiet hours, but override them
-  when the arrival date is within 48 hours.
+  same site stays open across cycles.
+- **Quiet hours:** always respected by default. A watch can carry an explicit,
+  user-chosen "notify me even during quiet hours" switch (off by default),
+  offered in the setup sheet. Nothing overrides quiet hours automatically,
+  including an arrival date that is close.
 - **Kill switch:** use the `push/kill-switch.ts` pattern, plus a per-source
   circuit breaker. The limiter already self-silences on repeated failures.
 
 ### Product and gating
 
-- A free tier gets **one active watch**. Premium gets unlimited watches,
-  multi-campground and river-wide watches, and the river-condition combo. This
-  fits the "notify me" funnel `alert_subscriptions` was built for.
+- A free tier gets **one active watch**. Premium gets a higher, bounded number
+  of watches, plus multi-campground and river-wide watches and the
+  river-condition combo. Set both limits from the measured polling cycle
+  (above), and don't advertise "unlimited". This fits the "notify me" funnel
+  `alert_subscriptions` was built for.
 - **Telemetry:** watches created, fired, and opened-to-booking tap-through
   (push open → Book tap).
 
@@ -153,7 +170,8 @@ to win on raw speed against Recreation.gov's crawl-delay. Eddy's edge is
 
 ### Risks
 
-- **Rate budget.** Mitigated by watch-driven fetching and the existing limiter.
+- **Rate budget.** Mitigated by watch-driven fetching, the existing limiter,
+  and caps set from a measured cycle rather than the theoretical ceiling.
 - **Expectations.** Mitigated by honest latency copy.
 - **Recreation.gov's API is undocumented.** It's the same exposure the nightly
   sync already carries.
@@ -302,11 +320,20 @@ tracks reservable inventory. Untracked campgrounds sit in a collapsed "More
 campgrounds" footer with a name and a "Check ↗" link. Gravel bars appear only
 as map pins (`access_points.types` includes `gravel_bar`).
 
+**Untracked does not mean "no reservation needed".** It only means Eddy has no
+availability feed for that campground. Many untracked campgrounds still take
+reservations. First-come is a separate, verified fact: `firstCome: 'present'`
+on the row.
+
 ### UX
 
-- **Turn the footer into a real section, "No reservation needed".** Each row
-  shows a photo, name, miles (now available), "First-come", the fee if known,
-  and Directions.
+- **Split the footer by what Eddy actually knows:**
+  - **"First-come campgrounds"**: only rows with `firstCome: 'present'`. Each
+    shows a photo, name, miles, "First-come", the fee if known, and
+    Directions.
+  - **"More campgrounds · Check with campground"**: every other untracked
+    row, as today, with miles and Directions added. No claim about how to get
+    a site.
 - **A "Gravel bars" subsection per river:** named gravel-bar access points with
   river mile and nearest access. Tapping one opens it on the map.
 - **A short guidance card per river, from editorial data:** typical fill times
@@ -330,7 +357,8 @@ as map pins (`access_points.types` includes `gravel_bar`).
 
 ### Phases
 
-1. The "No reservation needed" section with distance and directions.
+1. The verified first-come section and the "Check with campground" list,
+   with distance and directions.
 2. Gravel bars per river.
 3. Sourced guidance cards.
 
@@ -346,7 +374,7 @@ as map pins (`access_points.types` includes `gravel_bar`).
 | Reservable-only disclosure | Move "Reservable sites only" from the footer into the coverage caption at the top | `camping.tsx` header |
 | Dead ends | When a stay has no openings: "3 other campgrounds on this river have sites" (from #2's endpoint) plus Watch (#1) | `CampingDetailSheet` empty state |
 | Empty filters | "No campgrounds match these filters" gains a "Clear filters" action | `camping.tsx` footer |
-| Full hookup | State parks list 178 "Sewer/Electric/Water" and "Electric/Water" sites. Today they only tag Electric. Add a "Full hookup" tag and chip for RV campers. | `siteList.ts` `TYPE_TAGS`, `SITE_FILTERS` |
+| Hookup detail | State parks list 102 "Sewer/Electric/Water" and 76 "Electric/Water" sites; today both tag only Electric. Add two distinct tags and chips: **Full hookup** (sewer, electric and water) and **Water + electric** (no sewer). Never give Electric/Water the Full hookup label. Both keep the Electric tag so the Electric filter still matches them. | `siteList.ts` `TYPE_TAGS`, `SITE_FILTERS` |
 
 All of these are small and independent, so ship them as one PR, or fold each
 into the plan item it touches.
