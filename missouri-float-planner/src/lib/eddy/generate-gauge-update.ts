@@ -18,7 +18,7 @@ import type { ConditionThresholds } from '@/lib/conditions';
 import { fetchGaugeReadings } from '@/lib/usgs/gauges';
 import { buildGaugeTrajectoryForSite, type GaugeTrajectory } from '@/lib/eddy/gauge-trajectory';
 import { extractUsage, type UsageStats } from '@/lib/eddy/generate-update';
-import { stripEddyMarkers } from '@/lib/eddy/parse-response';
+import { stripEddyMarkers, replaceEmDashes } from '@/lib/eddy/parse-response';
 import { toNum } from '@/lib/utils/num';
 import { getCoordinates } from '@/lib/api-utils';
 import { fetchForecast, getWeatherPointForRiver, type ForecastData } from '@/lib/weather/openweather';
@@ -267,7 +267,7 @@ export async function generateGaugeUpdate(
     }));
 
     const textBlock = message.content.find((b) => b.type === 'text');
-    const rawText = textBlock?.text?.trim().replace(/—/g, ',') ?? null;
+    const rawText = textBlock?.text ? replaceEmDashes(textBlock.text.trim()) || null : null;
     if (!rawText) {
       console.error(`[GaugeUpdates] Empty ${model.id} response for ${target.usgsSiteId}`);
       return null;
@@ -319,7 +319,7 @@ One sentence, under 120 characters, for chips and share cards. Answer "can I flo
 One or two sentences, under 240 characters. Why the water here is doing what it is doing and what that means on the water. Leave out readings, temperatures and rain percentages, and do not restate the summary. Never invent a future river level.
 
 [FULL]
-3 to 5 sentences: what the water is like, the measured trend, and what the forecast could mean. Cite the reading or the optimal range only here, and only when it helps.
+3 to 5 sentences: what the water is like, the measured trend, and what the forecast could mean. Open with what the water is like in plain words; cite the reading or the optimal range later, only here, and only when it helps.
 
 RULES:
 - You do not have to name the condition level. If you do, use the exact capitalized label from the facts, never as a field like "condition: Good". Good is not Flowing; Flowing is the best float level.

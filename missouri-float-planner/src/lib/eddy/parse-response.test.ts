@@ -25,3 +25,10 @@ The gauge is in its optimal range. Recheck before launch.`);
   assert.equal(parsed.eddyRead, null);
   assert.match(parsed.quoteText, /^The gauge is in its optimal range/);
 });
+
+test('em dashes become a clean comma without a stray space', async () => {
+  const { replaceEmDashes } = await import('./parse-response');
+  assert.equal(replaceEmDashes('sitting at 15 cfs — well short'), 'sitting at 15 cfs, well short');
+  assert.equal(replaceEmDashes('reflects that—holding steady'), 'reflects that, holding steady');
+  assert.equal(replaceEmDashes('no dash here'), 'no dash here');
+});
