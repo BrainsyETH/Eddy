@@ -9,6 +9,7 @@ import { getActiveRiverContexts, DEFAULT_TIMEZONE } from '@/lib/rivers/context';
 import { getLocalDateStrings } from '@/lib/social/local-time';
 import { extractUsage, type UsageStats } from '@/lib/eddy/generate-update';
 import type { ResolvedModel } from '@/lib/ai/resolve-models';
+import { replaceEmDashes } from '@/lib/eddy/parse-response';
 
 export interface GlobalUpdate {
   quoteText: string;
@@ -170,7 +171,7 @@ export async function generateGlobalUpdate(
     }));
 
     const textBlock = message.content.find((block) => block.type === 'text');
-    const quoteText = textBlock?.text?.trim().replace(/\u2014/g, ',') || null;
+    const quoteText = textBlock?.text ? replaceEmDashes(textBlock.text.trim()) || null : null;
 
     if (!quoteText) {
       console.error('[EddyGlobal] Empty response from model');

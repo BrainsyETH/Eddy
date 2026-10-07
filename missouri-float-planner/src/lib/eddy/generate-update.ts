@@ -16,7 +16,7 @@ import { RAIN_LAG, type RainLagInfo } from '@/lib/eddy/rain-lag';
 import { getGaugeConditions } from '@/lib/gauge/get-gauge-conditions';
 import { getRiverContext, DEFAULT_TIMEZONE, type RiverContext } from '@/lib/rivers/context';
 import { getLocalDateStrings } from '@/lib/social/local-time';
-import { parseEddyResponse, stripEddyMarkers } from '@/lib/eddy/parse-response';
+import { parseEddyResponse, stripEddyMarkers, replaceEmDashes } from '@/lib/eddy/parse-response';
 import { RIVER_TYPE_GUIDANCE, buildConditionSemantics } from '@/lib/eddy/condition-semantics';
 import { buildReportFacts, reportFactsPrompt, prepareGeneratedReport, preflightReportFallback, activeReportFloodAlerts, type ReportFacts } from './report-facts';
 import type { ResolvedModel } from '@/lib/ai/resolve-models';
@@ -245,7 +245,7 @@ export async function generateEddyUpdate(
 
     const textBlock = message.content.find((block) => block.type === 'text');
     // Strip em dashes that slip through despite prompt instructions
-    const rawText = textBlock?.text?.trim().replace(/\u2014/g, ',') || null;
+    const rawText = textBlock?.text ? replaceEmDashes(textBlock.text.trim()) || null : null;
 
     if (!rawText) {
       console.error(`[EddyGen] Empty response for ${target.riverSlug}/${target.sectionSlug}`);
@@ -310,7 +310,7 @@ One sentence, under 120 characters, for cards and share images. Answer "can I fl
 One or two sentences, under 240 characters. The local read: why the river is doing what it is doing and what that means on the water. Draw on river behavior and local knowledge. Leave out gauge readings, temperatures and rain percentages. Leave the forecast to the Watch for panel unless rain is already on its way to this gauge. Do not restate the summary.
 
 [FULL]
-3 to 5 sentences. The complete picture: where the reading is taken, what the water is like, the measured trend, and what the forecast could mean for the next few days. This is the place to cite the gauge reading or the optimal range when they help. Pick the 2 or 3 points that matter most.
+3 to 5 sentences. The complete picture: where the reading is taken, what the water is like, the measured trend, and what the forecast could mean for the next few days. The app shows its first two sentences as a preview on cards, so open with what the water is like and what to do about it, in plain words. Cite the gauge reading or the optimal range later in the block, and only when they help. Pick the 2 or 3 points that matter most.
 
 Two examples with different shapes (illustrative only; always use the facts you are given):
 
@@ -322,7 +322,7 @@ The Current floats fine near Van Buren, just on the thin side, so pick your line
 Big springs upstream keep this stretch from dropping fast, which is why it has barely moved through a dry week.
 
 [FULL]
-The Van Buren gauge reads Good, a little below the optimal range, and held level over the past day. Expect easy floating in the pools and a few shallow riffles where a loaded canoe may touch. If the dry forecast holds, nothing obvious should change that over the next couple of days. Check the gauge again the morning you launch.
+Expect easy floating in the pools near Van Buren and a few shallow riffles where a loaded canoe may touch. The gauge reads Good, a little below the optimal range, and held level over the past day. If the dry forecast holds, nothing obvious should change that over the next couple of days. Check the gauge again the morning you launch.
 
 [CLAIMS] condition=too_low relation=below
 [SUMMARY]
@@ -332,7 +332,7 @@ Not worth floating near Steelville right now; the creek needs a good rain first.
 A small, fast-draining watershed like this one gives back what it gets quickly, so a dry spell leaves long gravel bars and more walking than paddling.
 
 [FULL]
-Near Steelville the gauge reads Too Low and has not moved over the past day. At this level expect to drag boats across most riffles. Rain could bring it up fast on a creek this size, but nothing in the outlook points that way yet. Waiting for rain is the better plan.
+Near Steelville you would be dragging boats across most riffles, and the gauge reads Too Low with no movement over the past day. Rain could bring it up fast on a creek this size, but nothing in the outlook points that way yet. Waiting for rain is the better plan.
 
 CONDITION LEVELS:
 The levels are Too Low, Low, Good, Flowing, High and Dangerous. Flowing is the best float level; Good floats fine but is not quite there. Never call a level "ideal". You do not have to name the level; if you do, use the exact capitalized label from the facts, and never write it as a field like "condition: Good".

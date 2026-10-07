@@ -71,6 +71,13 @@ export function parseEddyResponse(rawText: string): ParsedEddyResponse {
   return { summaryText: null, eddyRead: null, quoteText: rawText };
 }
 
+/** The prompts forbid em dashes and models still write them. Swallow the
+ * spacing around one so "15 cfs — well short" becomes "15 cfs, well short"
+ * rather than "15 cfs , well short". */
+export function replaceEmDashes(text: string): string {
+  return text.replace(/\s*\u2014\s*/g, ', ');
+}
+
 /** Strip any stray section markers that leaked into parsed prose. */
 export function stripEddyMarkers(text: string): string {
   return text.replace(/\[(?:FULL|SUMMARY|EDDY_READ)\]/gi, '').trim();
