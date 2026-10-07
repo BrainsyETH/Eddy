@@ -72,18 +72,48 @@ export function reportFactsPrompt(f: ReportFacts): string {
     `Rating measurement: ${f.unit === 'cfs' ? 'discharge' : 'gauge height'}; value: ${formatReportMeasurement(f.value, f.unit)}.`,
     `Separate measurements: height ${formatReportMeasurement(f.gaugeHeightFt, 'ft')}; discharge ${formatReportMeasurement(f.dischargeCfs, 'cfs')}. These are not interchangeable.`,
     'Use these displayed readings. The condition follows the shared website classifier, including its legacy missing-measurement fallback; the numeric optimal-range comparison always requires the matching unit.',
-    'When naming the computed rating, use an explicit label such as condition: Good. Ordinary lowercase good or flowing prose is not a rating label.',
+    'You do not have to name the rating. When you do, use its capitalized label in a natural sentence, for example "the gauge reads Good" or "running Too Low". Never write it as a field such as "condition: Good"; the [CLAIMS] line already carries the structured claim. Ordinary lowercase good or flowing prose is not a rating label.',
     `Optimal range: ${formatBound(f.min)} to ${formatBound(f.max)} ${f.unit}. Computed comparison: ${f.relation}.`,
+    ...(plainRelation(f) ? [`In plain words for the reader: ${plainRelation(f)}`] : []),
     'Good and below the optimal range can both be correct. Below optimal does not mean Low. If the comparison is unavailable, do not claim to be inside or outside the range. In prose, always call it the optimal range, never a band.',
     ...(danger == null ? [] : [`Editorial danger threshold: ${danger} ${f.unit}. This is NOT an official closure order. Do not call it a closure level.`]),
     ...(f.thresholds.floodStageFt == null ? [] : [`Official flood stage: ${f.thresholds.floodStageFt} ft, assessed separately from the recreational optimal range.`]),
     `Supported location: ${f.supportedSection ?? f.gaugeName}.`,
     ...(f.requestedSection && !f.supportedSection ? [`The requested section (${f.requestedSection}) has no resolved gauge of its own. This is a fallback station observation, NOT a condition assessment of that section.`] : []),
     'Do not infer current scraping, floatability, depth, or boat suitability at other places from this station. General local knowledge is background, not a current reading for those places.',
-    'In the first sentence of the summary and the full text, say where this reading is taken in plain words, using the town or landmark from the gauge name (for example "At Van Buren"), not the full station name. Do not turn a station assessment into a claim about the entire river.',
+    'Say where this reading is taken once in the summary and once in the full text, using the town or landmark from the gauge name (for example "near Van Buren"), not the full station name. Put it wherever it reads naturally; do not open every block with "At Town,". Do not turn a station assessment into a claim about the entire river.',
     'Keep condition and optimal-range claims about this station only. Do not compare raw gauge heights across stations; each uses its own datum. Do not infer a relative trend from two snapshots.',
   ].join('\n');
 }
+
+/** What the optimal-range comparison means on the water, for the ratings where
+ * it adds anything. Too Low/Low already imply "below" and High/Dangerous
+ * "above", so restating the comparison there is noise. */
+export function plainRelation(f: ReportFacts): string | null {
+  if (f.conditionCode !== 'good' && f.conditionCode !== 'flowing') return null;
+  if (f.relation === 'below') return 'floatable, but on the thin side of the sweet spot for this gauge, so expect some shallow riffles.';
+  if (f.relation === 'above') return 'floatable, with more water and a quicker current than the sweet spot for this gauge.';
+  if (f.relation === 'within') return 'right in the sweet spot for this gauge.';
+  return null;
+}
+
+/** "near Big Piney, MO" from "Big Piney River near Big Piney, MO": the last
+ * place phrase, so "Crooked Creek at Kelly Crossing at Yellville, AR" gives
+ * "at Yellville, AR". Null when the name has no such phrase. */
+export function gaugePlace(gaugeName: string | null): string | null {
+  const match = gaugeName?.match(/.*\b(near|at|above|below)\s+(.+)$/i);
+  return match ? `${match[1].toLowerCase()} ${match[2].trim()}` : null;
+}
+
+const FALLBACK_MEANING: Record<ConditionCode, string> = {
+  too_low: 'That is too low to float comfortably.',
+  low: 'Floatable, but expect shallow riffles.',
+  good: 'Floatable.',
+  flowing: 'A good level for floating.',
+  high: 'High water: use caution.',
+  dangerous: 'Stay off the water.',
+  unknown: '',
+};
 
 export function preflightReportFallback(f: ReportFacts): ParsedEddyResponse | null {
   return f.conditionCode === 'unknown' || (f.requestedSection && !f.supportedSection)
@@ -122,6 +152,9 @@ export function reportContradictions(report: ParsedEddyResponse, f: ReportFacts)
       /(?:^|[.!?]\s+|[,;]\s*(?:but\s+)?)(?:the\s+)?(?:condition|rating)\s*(?::|is)\s*(Too Low|Low|Good|Flowing|High|Dangerous|Unknown|Flood)\b/gi,
       /(?:^|[.!?]\s+|[,;]\s*(?:but\s+)?)(?:The |the )?(?:river|gauge|water level|flow) is (Too Low|Low|Good|Flowing|High|Dangerous|Unknown|Flood)(?=[.,;!?]|$|\s+(?:at|today|within|with)\b)/g,
       /\bgauge reads [\d,.]+ (?:ft|feet|cfs),[^.!?]*?in the (Too Low|Low|Good|Flowing|High|Dangerous|Unknown) condition\b/g,
+      // The prompt's suggested phrasings ("reads Good", "running Too Low").
+      // Capitalized labels only; modal or negated forms are not present claims.
+      /(?<!(?:\b(?:could|may|might|would|will|should|not|never)|n't)\s+(?:be\s+)?)\b(?:reads|reading|running) (Too Low|Low|Good|Flowing|High|Dangerous)\b(?!\s+(?:tomorrow|later|next|by|if|again)\b)/g,
     ];
     for (const pattern of labels) for (const match of text.matchAll(pattern)) {
       const label = match[1].toLowerCase().replace('too low', 'too_low');
@@ -158,14 +191,20 @@ export function factualReportFallback(f: ReportFacts): ParsedEddyResponse {
   const events = [...new Set(alerts.map(a => a.event))];
   const area = alerts.length === 1 && alerts[0].areaDesc.length <= 60 ? ` for ${alerts[0].areaDesc}` : ' for the river area';
   const alertLead = events.length ? `NWS ${events[0]}${area}${events.length > 1 ? `; ${events.length - 1} other flood alert type${events.length > 2 ? 's' : ''}` : ''}. Follow NWS instructions.` : '';
-  const summaryText = [alertLead, f.gaugeName ? `${f.conditionLabel} at ${f.gaugeName}.` : `Gauge assessment unavailable for ${f.locationName ?? 'this river'}.`].filter(Boolean).join(' ');
+  // Code-written, so it must stay strictly factual, but it is still read by
+  // people: one plain sentence per fact, the station named by its town.
+  const place = gaugePlace(f.gaugeName);
+  const gauge = place ? `The gauge ${place}` : `The ${f.gaugeName} gauge`;
+  const reading = !f.gaugeName ? `Gauge assessment unavailable for ${f.locationName ?? 'this river'}.`
+    : f.conditionCode === 'unknown' ? `${gauge} has no usable condition reading right now.`
+      : `${gauge} reads ${f.conditionLabel}.`;
+  const summaryText = [alertLead, reading].filter(Boolean).join(' ');
   const assessment = f.conditionCode === 'unknown'
     ? 'A condition assessment is unavailable from the matching measurement and thresholds.'
-    : f.conditionCode === 'dangerous' ? 'Stay off the water.'
-      : f.conditionCode === 'high' ? 'High water: use caution.' : '';
-  const band = f.relation === 'unavailable' || f.conditionCode === 'dangerous' ? '' : `${formatReportMeasurement(f.value, f.unit)} is ${f.relation} the optimal range of ${formatBound(f.min)} to ${formatBound(f.max)} ${f.unit}.`;
+    : FALLBACK_MEANING[f.conditionCode];
+  const band = f.relation === 'unavailable' || f.conditionCode === 'dangerous' ? '' : `It is at ${formatReportMeasurement(f.value, f.unit)}, ${f.relation} the optimal range of ${formatBound(f.min)} to ${formatBound(f.max)} ${f.unit}.`;
   const scope = !f.gaugeName ? 'No usable reporting gauge is available.' : f.requestedSection && !f.supportedSection
-    ? `This gauge does not establish current conditions for ${f.requestedSection}.`
+    ? `Eddy has no gauge reading for ${f.requestedSection} itself, so conditions on that stretch may differ.`
     : 'Conditions elsewhere on the river may differ.';
   return { summaryText, eddyRead: `${summaryText} ${assessment} ${scope}`.replace(/\s+/g, ' ').trim(), quoteText: [summaryText, assessment, band, scope].filter(Boolean).join(' ') };
 }
