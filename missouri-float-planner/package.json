@@ -34,7 +34,6 @@
     "db:import-rivers-tnm": "tsx scripts/import-nhd-rivers-from-tnm.ts",
     "data:build-outline": "tsx scripts/build-mo-outline.ts",
     "db:import-segments": "tsx scripts/import-float-segments.ts",
-    "db:import-floatmissouri": "tsx scripts/import-floatmissouri.ts",
     "db:seed": "echo 'Run seed SQL files via Supabase CLI or SQL Editor. See scripts/run-seeds.ts for details.'",
     "db:setup": "npm run db:seed && npm run db:snap-access-points",
     "db:fix-geometry": "npm run db:import-rivers && npm run db:verify-directions && npm run db:snap-access-points",
