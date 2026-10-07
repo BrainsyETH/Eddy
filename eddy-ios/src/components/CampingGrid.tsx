@@ -368,11 +368,14 @@ export const CampingTableRow = memo(function CampingTableRow({
   overview,
   now,
   onOpen,
+  distanceLabel,
 }: {
   row: TrackedCampground;
   overview: CampingOverview;
   now: number;
   onOpen: (facilityId: string) => void;
+  /** Straight-line miles from the reader, when both ends are known. */
+  distanceLabel?: string | null;
 }) {
   const { colors } = useTheme();
   const thumbnails = useContext(DateScrollContext)?.thumbnails ?? false;
@@ -394,7 +397,7 @@ export const CampingTableRow = memo(function CampingTableRow({
         ]}
         onPress={onPress}
         accessibilityRole="button"
-        accessibilityLabel={`${row.name}. ${campingRowSummary(row, overview, now)} Open campground and individual sites.${stale ? ' Needs an update.' : ''}`}
+        accessibilityLabel={`${row.name}.${distanceLabel ? ` ${distanceLabel} away.` : ''} ${campingRowSummary(row, overview, now)} Open campground and individual sites.${stale ? ' Needs an update.' : ''}`}
       >
         {thumbnails ? <CampgroundThumbnail url={row.imageUrl} /> : null}
         <View style={{ flex: 1 }}>
@@ -408,9 +411,9 @@ export const CampingTableRow = memo(function CampingTableRow({
           >
             {row.name.replace(/ Campground$/, '')}
           </Text>
-          {stale ? (
-            <Text style={{ fontSize: 12, color: colors.textMuted }}>
-              Needs update
+          {distanceLabel || stale ? (
+            <Text numberOfLines={1} style={{ fontSize: 12, color: colors.textMuted }}>
+              {[distanceLabel, stale ? 'Needs update' : null].filter(Boolean).join(' · ')}
             </Text>
           ) : null}
         </View>

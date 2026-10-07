@@ -4,6 +4,7 @@ import {
   type CampsiteSite,
   type CampsiteSitesResponse,
 } from '@eddy/types';
+import { campsiteTags, SITE_FILTERS, type SiteFilter } from '../components/map-sheet/siteList';
 
 export interface CampingStay {
   arrival: string;
@@ -102,4 +103,28 @@ export function resolveCampingSort(
   hasLocation: boolean,
 ): CampingSort {
   return choice ?? (hasLocation ? 'nearest' : 'name');
+}
+
+/**
+ * The map sheet's site-type chips, for a stay instead of one night. OR within
+ * the chips, as there. Every state is filtered, so the "Show unavailable (n)"
+ * toggles count the same kinds of site the list shows.
+ */
+export function filterCampsiteStays(entries: CampsiteStay[], filters: SiteFilter[]): CampsiteStay[] {
+  if (!filters.length) return entries;
+  return entries.filter((entry) => {
+    const tags = campsiteTags(entry.site);
+    return filters.some((filter) => tags.includes(filter));
+  });
+}
+
+/** Chip counts are sites a reader can take for the whole stay: bookable or walk-up. */
+export function campsiteStayFilterCounts(entries: CampsiteStay[]): Record<SiteFilter, number> {
+  const counts = Object.fromEntries(SITE_FILTERS.map((f) => [f, 0])) as Record<SiteFilter, number>;
+  for (const entry of entries) {
+    if (entry.state !== 'available' && entry.state !== 'first_come') continue;
+    const tags = campsiteTags(entry.site);
+    for (const filter of SITE_FILTERS) if (tags.includes(filter)) counts[filter]++;
+  }
+  return counts;
 }

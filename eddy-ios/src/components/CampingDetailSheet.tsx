@@ -21,9 +21,13 @@ import {
 } from '@/lib/campingHeatmap';
 import {
   campsiteStays,
+  campsiteStayFilterCounts,
+  filterCampsiteStays,
   nextCampingDate,
   type CampingStay,
 } from '@/lib/campingStay';
+import { noFilteredSitesLine, siteFilterChips, type SiteFilter } from './map-sheet/siteList';
+import { FilterChips } from './FilterChips';
 import { useCampsiteStay } from '@/hooks/useCampsiteStay';
 import { CampingStayPicker } from './CampingStayPicker';
 import { CampingSiteCard } from './CampingSiteCard';
@@ -55,18 +59,30 @@ export function CampingDetailSheet({
   const [failed, setFailed] = useState(false);
   const [showUnavailable, setShowUnavailable] = useState(false);
   const [showUnknown, setShowUnknown] = useState(false);
+  const [filters, setFilters] = useState<SiteFilter[]>([]);
   const {
     responses,
     loading,
     failed: loadFailed,
     refresh,
   } = useCampsiteStay(row.facilityId, stay);
-  const entries = campsiteStays(
+  const allEntries = campsiteStays(
     responses,
     stay,
     overview.maxObservationAgeSeconds,
     now,
   );
+  const counts = campsiteStayFilterCounts(allEntries);
+  // A selected kind stays selected, and visible at zero, across date changes:
+  // it is the reader's requirement, not a suggestion. See siteFilterChips.
+  const chips = siteFilterChips(counts, filters);
+  // An unselected chip matching every takeable site narrows nothing.
+  const takeable = allEntries.filter((e) => e.state === 'available' || e.state === 'first_come').length;
+  const showChips = filters.length > 0 || chips.some((f) => counts[f] < takeable);
+  const entries = filterCampsiteStays(allEntries, filters);
+  // The filters, not the campground, are why nothing is listed.
+  const filteredOut = filters.length > 0 && allEntries.length > 0 &&
+    !entries.some((e) => e.state === 'available' || e.state === 'first_come');
   const available = entries.filter((e) => e.state === 'available');
   const firstCome = entries.filter((e) => e.state === 'first_come');
   const unknown = entries.filter((e) => e.state === 'unknown');
@@ -160,6 +176,20 @@ export function CampingDetailSheet({
                   setShowUnknown(false);
                 }}
               />
+              {showChips ? (
+                <FilterChips
+                  chips={chips.map((f) => ({ key: f, label: f, count: counts[f] }))}
+                  active={filters}
+                  onToggle={(key) =>
+                    setFilters((current) =>
+                      current.includes(key as SiteFilter)
+                        ? current.filter((f) => f !== key)
+                        : [...current, key as SiteFilter],
+                    )
+                  }
+                  paddingHorizontal={0}
+                />
+              ) : null}
               <View style={styles.links}>
                 {row.accessDestination ? (
                   <Pressable
@@ -206,6 +236,19 @@ export function CampingDetailSheet({
                     Couldn’t load sites. Retry
                   </Text>
                 </Pressable>
+              ) : filteredOut ? (
+                <View style={{ gap: 4 }}>
+                  <Text style={[textStyles.cardTitle, { color: colors.text }]}>
+                    {noFilteredSitesLine(filters)} available for these dates
+                  </Text>
+                  <Pressable
+                    accessibilityRole="button"
+                    style={styles.action}
+                    onPress={() => setFilters([])}
+                  >
+                    <Text style={{ color: colors.interactive }}>Clear filters</Text>
+                  </Pressable>
+                </View>
               ) : (
                 <>
                   {available.length || !firstCome.length ? (

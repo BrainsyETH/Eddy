@@ -366,3 +366,38 @@ export function listOutcome(
 export function listsRows(entries: SiteOnNight[], individualSites = false): boolean {
   return entries.some((entry) => isBookable(entry) && (individualSites || Boolean(entry.site.bookingUrl)));
 }
+
+/**
+ * The chips to draw: every kind with something takeable, plus every SELECTED
+ * kind even at zero.
+ *
+ * Hiding a selected chip when its count drops to zero either drops the filter
+ * silently (other kinds flood in and the reader's requirement is gone) or keeps
+ * applying it with no control left on screen to undo it. A visible "Electric 0"
+ * is the honest state: the requirement stands and nothing currently meets it.
+ */
+export function siteFilterChips(
+  counts: Record<SiteFilter, number>,
+  selected: readonly SiteFilter[],
+): SiteFilter[] {
+  return SITE_FILTERS.filter((f) => counts[f] > 0 || selected.includes(f));
+}
+
+/** Each filter as the noun phrase a sentence needs: "electric", "tent". */
+const FILTER_NOUNS: Record<SiteFilter, string> = {
+  Tent: 'tent',
+  RV: 'RV',
+  Electric: 'electric',
+  'No hookup': 'non-hookup',
+  'Walk-in': 'walk-in',
+  Group: 'group',
+};
+
+/** "No electric sites" · "No tent or electric sites", in chip order. */
+export function noFilteredSitesLine(filters: readonly SiteFilter[]): string {
+  const nouns = SITE_FILTERS.filter((f) => filters.includes(f)).map((f) => FILTER_NOUNS[f]);
+  const joined = nouns.length <= 2
+    ? nouns.join(' or ')
+    : `${nouns.slice(0, -1).join(', ')} or ${nouns[nouns.length - 1]}`;
+  return `No ${joined} sites`;
+}

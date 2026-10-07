@@ -525,3 +525,111 @@ test('river headings and campgrounds sort alphabetically with unlinked parks las
   assert.equal(groups.flatMap(g => g.data).filter(r => r.id === 'alpha').length, 1);
   assert.deepEqual(campingRiverGroups([]), []);
 });
+
+import { campingMilesLabel, campingOpenings, orderCampingRows } from '../../../eddy-ios/src/lib/campingHeatmap';
+test('sorting by distance flattens river groups; without a fix it keeps them', () => {
+  const coords = { lat: 37, lng: -91 };
+  const far = { ...row('far'), name: 'Far', location: { lat: 37.5, lng: -91 } };
+  const near = { ...row('near'), name: 'Near', location: { lat: 37.05, lng: -91 }, riverSlugs: ['buffalo'], displayGroup: { key: 'buffalo', label: 'Buffalo River' } };
+  const unplaced = { ...row('unplaced'), name: 'Aardvark', location: null };
+  const nearest = orderCampingRows([unplaced, far, near], 'nearest', coords);
+  assert.equal(nearest.grouped, false);
+  assert.deepEqual(nearest.rows.map((r) => r.id), ['near', 'far', 'unplaced']);
+  const fallback = orderCampingRows([unplaced, far, near], 'nearest', null);
+  assert.equal(fallback.grouped, true);
+  assert.deepEqual(fallback.rows.map((r) => r.id), ['near', 'unplaced', 'far']);
+});
+test('most open ranks by openings on the chosen nights, never by unknown or booked', () => {
+  const nights = ['2026-09-28'];
+  const busy = { ...row('busy'), name: 'Busy', nights: [night(0)] };
+  const open = { ...row('open'), name: 'Open', nights: [night(12)] };
+  const unchecked = { ...row('unchecked'), name: 'Aardvark' };
+  assert.equal(campingOpenings(open, nights, overview, now), 12);
+  assert.equal(campingOpenings(busy, nights, overview, now), 0);
+  const ranked = orderCampingRows([busy, unchecked, open], 'openings', null, (r) => campingOpenings(r, nights, overview, now));
+  assert.equal(ranked.grouped, false);
+  assert.deepEqual(ranked.rows.map((r) => r.id), ['open', 'unchecked', 'busy']);
+});
+test('miles are approximate and absent when either end is unknown', () => {
+  const coords = { lat: 37, lng: -91 };
+  assert.equal(campingMilesLabel(row(), coords), 'Under 1 mi');
+  assert.match(campingMilesLabel({ ...row(), location: { lat: 37.05, lng: -91 } }, coords)!, /^≈ 3\.\d mi$/);
+  assert.match(campingMilesLabel({ ...row(), location: { lat: 37.5, lng: -91 } }, coords)!, /^≈ \d+ mi$/);
+  assert.equal(campingMilesLabel(row(), null), null);
+  assert.equal(campingMilesLabel({ ...row(), location: null }, coords), null);
+});
+
+import { campsiteStayFilterCounts, filterCampsiteStays } from '../../../eddy-ios/src/lib/campingStay';
+test('stay site filters work for typed federal sites and name-typed state-park sites', () => {
+  const dates = ['2026-09-29', '2026-09-30'];
+  const site = (id: string, name: string, siteType: string | null, codes: string) => ({
+    id, name, loop: null, siteType, maxOccupancy: null, bookingUrl: null, nights: codes,
+  });
+  const response: CampsiteSitesResponse = {
+    ...siteMonth(dates, 'AA'),
+    sites: [
+      site('tent', '012', 'TENT ONLY NONELECTRIC', 'AA'),
+      site('fed-electric', '044', 'STANDARD ELECTRIC', 'AR'),
+      site('state-electric', 'Sewer/Electric/Water #102', null, 'AA'),
+      site('state-basic', 'Basic #001', null, 'WW'),
+    ],
+  };
+  const entries = campsiteStays([response], { arrival: dates[0], departure: '2026-10-01' }, 259200, now);
+  const counts = campsiteStayFilterCounts(entries);
+  // Takeable for the whole stay only: the booked-Saturday federal electric site is not counted.
+  assert.equal(counts.Electric, 1);
+  assert.equal(counts.Tent, 1);
+  assert.equal(counts['No hookup'], 2);
+  assert.equal(counts.RV, 0);
+  assert.deepEqual(filterCampsiteStays(entries, ['Electric']).map((e) => e.site.id), ['fed-electric', 'state-electric']);
+  assert.deepEqual(filterCampsiteStays(entries, ['Tent', 'Electric']).map((e) => e.site.id), ['tent', 'fed-electric', 'state-electric']);
+  assert.equal(filterCampsiteStays(entries, []).length, 4);
+});
+
+test('Nearest sort shares Nearby location handling: pending, failure, and success', () => {
+  const pending = campingFilterReducer(initialCampingFilters('current'), { type: 'locate', request: 1, purpose: 'nearest' });
+  assert.equal(pending.locationPurpose, 'nearest');
+  assert.equal(pending.sort, null);
+  const failed = campingFilterReducer(pending, { type: 'located', request: 1, found: false });
+  assert.equal(failed.locationFailed, true);
+  assert.equal(failed.locationPurpose, 'nearest');
+  assert.equal(failed.sort, null);
+  assert.deepEqual(failed.scope, { kind: 'river', slug: 'current' });
+  const dismissed = campingFilterReducer(failed, { type: 'dismiss' });
+  assert.equal(dismissed.locationFailed, false);
+  assert.equal(dismissed.sort, null);
+  const ready = campingFilterReducer(pending, { type: 'located', request: 1, found: true });
+  assert.equal(ready.sort, 'nearest');
+  // A Nearest fix sorts; it never narrows the scope to Nearby.
+  assert.deepEqual(ready.scope, { kind: 'river', slug: 'current' });
+});
+
+test('a later sort or scope supersedes a pending Nearest request', () => {
+  const pending = campingFilterReducer(initialCampingFilters(null), { type: 'locate', request: 1, purpose: 'nearest' });
+  const resorted = campingFilterReducer(pending, { type: 'sort', sort: 'openings' });
+  assert.equal(campingFilterReducer(resorted, { type: 'located', request: 1, found: true }), resorted);
+  assert.equal(resorted.sort, 'openings');
+  const rescoped = campingFilterReducer(pending, { type: 'select', scope: { kind: 'favorites' } });
+  assert.equal(campingFilterReducer(rescoped, { type: 'located', request: 1, found: true }), rescoped);
+  assert.equal(rescoped.sort, null);
+});
+
+test('choosing a scope keeps an explicit sort', () => {
+  const sorted = campingFilterReducer(initialCampingFilters(null), { type: 'sort', sort: 'openings' });
+  assert.equal(campingFilterReducer(sorted, { type: 'select', scope: { kind: 'favorites' } }).sort, 'openings');
+});
+
+import { noFilteredSitesLine, siteFilterChips, SITE_FILTERS } from '../../../eddy-ios/src/components/map-sheet/siteList';
+test('a selected site filter stays drawn at zero; unselected zero chips do not', () => {
+  const counts = Object.fromEntries(SITE_FILTERS.map((f) => [f, 0])) as Record<(typeof SITE_FILTERS)[number], number>;
+  counts.Tent = 3;
+  assert.deepEqual(siteFilterChips(counts, []), ['Tent']);
+  assert.deepEqual(siteFilterChips(counts, ['Electric']), ['Tent', 'Electric']);
+});
+
+test('the no-match line names the selected kinds in chip order', () => {
+  assert.equal(noFilteredSitesLine(['Electric']), 'No electric sites');
+  assert.equal(noFilteredSitesLine(['Electric', 'Tent']), 'No tent or electric sites');
+  assert.equal(noFilteredSitesLine(['Group', 'RV', 'Tent']), 'No tent, RV or group sites');
+  assert.equal(noFilteredSitesLine(['No hookup']), 'No non-hookup sites');
+});

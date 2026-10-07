@@ -10,6 +10,7 @@ import type {
   CampingPlace,
 } from '@eddy/types';
 import { milesBetween, type Coords } from '@eddy/geo';
+import type { CampingSort } from './campingStay';
 export type HeatMark =
   | 'open-1'
   | 'open-2'
@@ -394,3 +395,65 @@ export function campingRiverGroups<T extends CampingPlace>(rows: T[]) {
       ),
     }));
 }
+
+/**
+ * A campground's own coordinate is a real point, unlike a river's gauge, but
+ * this is still a straight line, so "≈" and never a drive. Null when either end
+ * is unknown: "we don't know" and "far away" are different claims.
+ */
+export function campingMilesLabel(row: CampingPlace, coords: Coords | null): string | null {
+  const miles = distance(row, coords);
+  if (!Number.isFinite(miles)) return null;
+  return miles < 1 ? 'Under 1 mi' : `≈ ${miles < 10 ? miles.toFixed(1) : Math.round(miles)} mi`;
+}
+
+/** Reservable openings summed over `nights`; unknown, booked and closed add nothing. */
+export function campingOpenings(
+  row: TrackedCampground,
+  nights: string[],
+  overview: CampingOverview,
+  now: number,
+): number {
+  return nights.reduce(
+    (sum, date) => sum + (campingOpenCount(currentNight(row, date, overview.maxObservationAgeSeconds, now)) ?? 0),
+    0,
+  );
+}
+
+/**
+ * The row order for a sort, and whether river headings still describe it.
+ * Only `name` keeps the river groups: a distance or openings order interleaves
+ * rivers, and a heading above each run would claim a grouping that isn't there.
+ * `nearest` without a fix falls back to river groups rather than to Infinity ties.
+ */
+export function orderCampingRows<T extends CampingPlace>(
+  rows: T[],
+  sort: CampingSort,
+  coords: Coords | null,
+  openings?: (row: T) => number,
+): { rows: T[]; grouped: boolean } {
+  const byName = (a: T, b: T) => a.name.localeCompare(b.name) || a.id.localeCompare(b.id);
+  if (sort === 'nearest' && coords) {
+    return {
+      rows: [...rows].sort((a, b) => {
+        const da = distance(a, coords), db = distance(b, coords);
+        return da === db ? byName(a, b) : da < db ? -1 : 1;
+      }),
+      grouped: false,
+    };
+  }
+  if (sort === 'openings' && openings) {
+    const counts = new Map(rows.map((row) => [row, openings(row)]));
+    return {
+      rows: [...rows].sort((a, b) => counts.get(b)! - counts.get(a)! || byName(a, b)),
+      grouped: false,
+    };
+  }
+  return { rows: campingRiverGroups(rows).flatMap((group) => group.data), grouped: true };
+}
+
+export const campingSortLabel: Record<CampingSort, string> = {
+  name: 'By river',
+  nearest: 'Nearest',
+  openings: 'Most open',
+};
