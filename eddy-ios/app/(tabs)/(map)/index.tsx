@@ -1727,6 +1727,20 @@ function MapContent() {
         code: gradeGauge(river, gauge, index),
         reading: value != null && unit ? formatReading(value, unit) : null,
         isPrimary: gauge.is_primary,
+        value,
+        // The ladder rides along so the Conditions tab can draw each station's
+        // band track — already on the wire, so it costs nothing.
+        ladder: unit
+          ? {
+              levelTooLow: gauge.level_too_low,
+              levelLow: gauge.level_low,
+              levelOptimalMin: gauge.level_optimal_min,
+              levelOptimalMax: gauge.level_optimal_max,
+              levelHigh: gauge.level_high,
+              levelDangerous: gauge.level_dangerous,
+              thresholdUnit: unit,
+            }
+          : null,
       };
     });
 
