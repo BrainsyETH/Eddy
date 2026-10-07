@@ -23,6 +23,10 @@ test('Current incident: Good is below optimal, not Flowing; stage is not compare
   assert.match(prompt, /Rating measurement: discharge; value: 756 cfs/);
   assert.match(prompt, /Editorial danger threshold: 5000 cfs/);
   assert.doesNotMatch(prompt, /Margin to closure|Closure level/);
+  // Sonnet 4.6 copied a "use a label such as condition: Good" instruction
+  // verbatim into every summary. The prompt must ask for natural prose.
+  assert.doesNotMatch(prompt, /label such as condition:/);
+  assert.match(prompt, /Never write it as a field such as "condition: Good"/);
   const broken = report('The Current River gauge reads 2.6 ft, solidly in the Flowing condition and well within the optimal range of 1,190 to 2,700 cfs.');
   assert.ok(reportContradictions(broken, facts).includes('condition'));
   assert.ok(reportContradictions(broken, facts).includes('range'));

@@ -72,7 +72,7 @@ export function reportFactsPrompt(f: ReportFacts): string {
     `Rating measurement: ${f.unit === 'cfs' ? 'discharge' : 'gauge height'}; value: ${formatReportMeasurement(f.value, f.unit)}.`,
     `Separate measurements: height ${formatReportMeasurement(f.gaugeHeightFt, 'ft')}; discharge ${formatReportMeasurement(f.dischargeCfs, 'cfs')}. These are not interchangeable.`,
     'Use these displayed readings. The condition follows the shared website classifier, including its legacy missing-measurement fallback; the numeric optimal-range comparison always requires the matching unit.',
-    'When naming the computed rating, use an explicit label such as condition: Good. Ordinary lowercase good or flowing prose is not a rating label.',
+    'When naming the computed rating in prose, use its capitalized label in a natural sentence, for example "the Current is Good" or "running Too Low". Never write it as a field such as "condition: Good"; the [CLAIMS] line already carries the structured claim. Ordinary lowercase good or flowing prose is not a rating label.',
     `Optimal range: ${formatBound(f.min)} to ${formatBound(f.max)} ${f.unit}. Computed comparison: ${f.relation}.`,
     'Good and below the optimal range can both be correct. Below optimal does not mean Low. If the comparison is unavailable, do not claim to be inside or outside the range. In prose, always call it the optimal range, never a band.',
     ...(danger == null ? [] : [`Editorial danger threshold: ${danger} ${f.unit}. This is NOT an official closure order. Do not call it a closure level.`]),
