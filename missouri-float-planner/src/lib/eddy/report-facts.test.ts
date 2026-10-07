@@ -3,7 +3,7 @@ import { matchAlertsByTerms } from '../nws/alert-matching';
 import { toNum } from '../utils/num';
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { buildReportFacts, reportFactsPrompt, reportContradictions, guardReport, factualReportFallback, preflightReportFallback, activeReportFloodAlerts, prepareGeneratedReport, reportClaimsLine } from './report-facts';
+import { buildReportFacts, reportFactsPrompt, plainRelation, gaugePlace, reportContradictions, guardReport, factualReportFallback, preflightReportFallback, activeReportFloodAlerts, prepareGeneratedReport, reportClaimsLine } from './report-facts';
 import type { ParsedEddyResponse } from './parse-response';
 
 const input = {
@@ -73,7 +73,7 @@ test('section fallback cannot turn Van Buren into a Montauk/Akers assessment', (
   const unsupported = buildReportFacts({ ...input, requestedSection: 'Upper Current (Montauk to Akers)' });
   assert.match(reportFactsPrompt(unsupported), /fallback station observation, NOT a condition assessment/);
   assert.match(reportFactsPrompt(unsupported), /General local knowledge is background/);
-  assert.match(guardReport(report('Expect scraping between Montauk and Akers.'), unsupported).quoteText, /does not establish current conditions for Upper Current/);
+  assert.match(guardReport(report('Expect scraping between Montauk and Akers.'), unsupported).quoteText, /no gauge reading for Upper Current \(Montauk to Akers\) itself/);
   const supported = buildReportFacts({ ...input, requestedSection: 'Assigned reach', supportedSection: 'Assigned reach' });
   assert.match(reportFactsPrompt(supported), /Supported location: Assigned reach/);
   assert.deepEqual(reportContradictions(report('Good conditions at the reporting station.'), supported), []);
@@ -338,4 +338,44 @@ test('missing alert matching coverage never returns statewide alerts as local', 
   for (const terms of [undefined, [], [' ', '']]) assert.equal(matchAlertsByTerms(alerts, terms), null);
   assert.deepEqual(matchAlertsByTerms(alerts, [' Carter County ']), [alerts[1]]);
   assert.deepEqual(matchAlertsByTerms(alerts, ['Unmatched River']), []);
+});
+
+test('plain-language phrasing is still checked against the computed rating', () => {
+  // The prompt suggests "reads Good" / "running Too Low"; a wrong label in
+  // that form must still select the fallback.
+  for (const text of ['The Van Buren gauge reads Flowing.', 'Near Van Buren it is running High.', 'The gauge is reading Too Low today.']) {
+    assert.ok(reportContradictions(report(text), facts).includes('condition'), text);
+  }
+  for (const text of [
+    'The Van Buren gauge reads Good, a little below the optimal range.',
+    'The Current floats fine near Van Buren, just on the thin side.',
+    'Rain could have it running High by Friday.',
+    'It may be running Flowing again after rain.',
+    "It isn't reading High yet.",
+    'Water is running low in the side channels.',
+  ]) assert.deepEqual(reportContradictions(report(text), facts), [], text);
+});
+
+test('the comparison is translated into plain words only where it adds meaning', () => {
+  assert.match(plainRelation(facts) ?? '', /thin side of the sweet spot/);
+  assert.match(plainRelation(buildReportFacts({ ...input, dischargeCfs: 1500 })) ?? '', /sweet spot/);
+  assert.equal(plainRelation(buildReportFacts({ ...input, dischargeCfs: 300 })), null);
+  assert.match(reportFactsPrompt(facts), /In plain words for the reader: floatable, but on the thin side/);
+  assert.match(reportFactsPrompt(facts), /do not open every block with "At Town,"/);
+});
+
+test('fallback prose names the station by its town and reads as sentences', () => {
+  assert.equal(gaugePlace('Big Piney River near Big Piney, MO'), 'near Big Piney, MO');
+  assert.equal(gaugePlace('Crooked Creek at Kelly Crossing at Yellville, AR'), 'at Yellville, AR');
+  assert.equal(gaugePlace('Mystery Station'), null);
+  const tooLow = buildReportFacts({ ...input, gaugeName: 'Big Piney River near Big Piney, MO', dischargeCfs: 105, requestedSection: 'Slabtown to Ross',
+    thresholds: { ...input.thresholds, levelTooLow: 200, levelLow: 300, levelOptimalMin: 519, levelOptimalMax: 1013 } });
+  const fallback = factualReportFallback(tooLow);
+  assert.equal(fallback.summaryText, 'The gauge near Big Piney, MO reads Too Low.');
+  assert.equal(fallback.quoteText, 'The gauge near Big Piney, MO reads Too Low. That is too low to float comfortably. It is at 105 cfs, below the optimal range of 519 to 1,013 cfs. Eddy has no gauge reading for Slabtown to Ross itself, so conditions on that stretch may differ.');
+  // Its own label phrasing passes the guard it would otherwise trip.
+  assert.deepEqual(reportContradictions(fallback, tooLow), ['unsupported-section']);
+  const unknown = factualReportFallback(buildReportFacts({ ...input, gaugeName: 'Spring River at Imboden, AR', conditionCode: 'unknown', gaugeHeightFt: null, dischargeCfs: null }));
+  assert.equal(unknown.summaryText, 'The gauge at Imboden, AR has no usable condition reading right now.');
+  assert.match(factualReportFallback(buildReportFacts({ ...input, gaugeName: 'Mystery Station' })).summaryText ?? '', /^The Mystery Station gauge reads Good\.$/);
 });

@@ -124,7 +124,7 @@ export const WORKLOAD_SPECS: Record<Workload, WorkloadSpec> = {
     label: 'River and section updates',
     description: 'The per-river condition report, generated daily and on condition changes.',
     default: 'claude-sonnet-4-6',
-    // Haiku cannot cache this workload's ~1.9k-token system prompt because its
+    // Haiku cannot cache this workload's ~1.6k-token system prompt because its
     // cache floor is 4096 tokens. resolve-models disables the breakpoint for
     // that pairing while preserving prompt caching for Sonnet.
     approved: ['claude-sonnet-4-6', 'claude-sonnet-5', 'claude-haiku-4-5-20251001'],
