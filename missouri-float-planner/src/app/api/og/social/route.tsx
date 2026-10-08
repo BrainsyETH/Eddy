@@ -1,4 +1,3 @@
-import { reportStamp } from '@shared/social-editorial';
 // src/app/api/og/social/route.tsx
 // Generates square (1080x1080) or portrait (1080x1920) covers for social posts.
 //
@@ -28,6 +27,8 @@ import { reportStamp } from '@shared/social-editorial';
 //                                        live pick of the river with the biggest gauge move)
 //   ?type=warning&river=slug&from=...  — condition-change warning (flowing → high/dangerous)
 //   ?type=storm&rivers=slug:cond,...   — batch "rivers rising" alert
+//   ?type=weekend-read&rivers=slug:cond:ft,...&at=
+//                                      — weekly multi-river Eddy’s Read cover (2–3 pinned rivers)
 
 import { ImageResponse } from 'next/og';
 import { NextRequest, NextResponse } from 'next/server';
@@ -54,6 +55,7 @@ import { warningCopy, recoveryCopy } from '@shared/condition-copy';
 // never the raw slug ("big-river"), which briefly shipped on live covers.
 import { riverDisplayLong, riverDisplayShort } from '@/lib/social/river-display';
 import { trendMeta } from '@shared/trend-meta';
+import { reportStamp } from '@shared/social-editorial';
 import { CTA, LABELS, MEDIA_SCRIM, SURFACES, colors, conditionInk, hexAlpha } from '@shared/social-brand';
 import {
   CoverCard,

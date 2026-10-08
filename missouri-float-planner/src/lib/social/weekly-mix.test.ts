@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { blogHighlights } from './blog-highlights';
 import { buildBlogCaption } from './blog-poster';
-import { selectWeekendReads, weekendReadDue, weekendReadCaption, weekendReadText, type WeekendReadSource } from './weekend-read';
+import { selectWeekendReads, weekendReadDue, weekendReadExclusion, weekendReadCaption, weekendReadText, type WeekendReadSource } from './weekend-read';
 import { buildPostContext } from './post-context';
 import { POST_TYPES } from './post-types';
 
@@ -39,13 +39,22 @@ test('Blog highlights support general articles and skip malformed or oversized p
 test('weekly Read needs 2–3 distinct reconciled fresh rivers and never revives blanked prose', () => {
   const valid = [river('current'), river('meramec'), river('eleven-point'), river('jacks-fork')];
   const invalid = [river('stale', { reading_timestamp: '2026-10-08T12:00:00Z' }),
-    river('missing', { snapshot_id: null }), river('unknown', { condition_code: 'unknown' }),
+    river('missing', { reading_timestamp: null }), river('unknown', { condition_code: 'unknown' }),
+    river('dangerous', { condition_code: 'dangerous' }),
+    river('drifted', { condition_code: 'good', stored_condition_code: 'low' }),
     river('blanked', { summary_text: null, quote_text: 'Old favorable report.' })];
   const selected = selectWeekendReads([...invalid, ...valid, valid[0]], now);
   assert.equal(selected.length, 3);
   assert.equal(new Set(selected.map(r => r.river_slug)).size, 3);
   assert.ok(selected.every(r => valid.includes(r)));
   assert.deepEqual(selectWeekendReads([valid[0], ...invalid], now), []);
+});
+
+test('a summary written for another condition is excluded with a logged reason', () => {
+  assert.equal(weekendReadExclusion(river('a', { stored_condition_code: 'low' }), now), 'condition drift low→good');
+  assert.equal(weekendReadExclusion(river('a', { stored_condition_code: 'good' }), now), null);
+  assert.equal(weekendReadExclusion(river('a', { condition_code: 'dangerous' }), now), 'dangerous');
+  assert.equal(weekendReadExclusion(river('a', { reading_timestamp: null }), now), 'stale gauge');
 });
 
 test('equal candidates rotate weekly while floatable options stay ahead of high water', () => {

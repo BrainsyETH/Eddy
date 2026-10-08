@@ -28,6 +28,10 @@ export interface WeekendReadSource {
   reading_timestamp?: string | null;
   snapshot_id?: string | null;
   weather?: WeatherSummary | null;
+  /** The report's own condition before the live overlay. The overlay keeps
+   * prose across good↔low, so a mismatch means the summary may contradict
+   * the live label. */
+  stored_condition_code?: string | null;
 }
 
 /** Compact prose stays intact: prefer a complete saved summary, never an
@@ -38,20 +42,31 @@ export function weekendReadSummary(row: WeekendReadSource): string | null {
   return null;
 }
 
+/** Why a row can't appear in the weekend Read, or null when it can. A fresh
+ * reconciled gauge, retained prose that still matches the live condition, and
+ * a non-dangerous condition are required; no stale-read revival. */
+export function weekendReadExclusion(row: WeekendReadSource, now = new Date()): string | null {
+  const age = now.getTime() - Date.parse(row.reading_timestamp ?? '');
+  if (!Number.isFinite(age) || age < 0 || age > STALE_READING_HOURS * 3_600_000) return 'stale gauge';
+  if (row.condition_code === 'unknown' || row.condition_code === 'dangerous') return row.condition_code;
+  if (row.stored_condition_code && row.stored_condition_code !== row.condition_code) {
+    return `condition drift ${row.stored_condition_code}→${row.condition_code}`;
+  }
+  if (!weekendReadSummary(row)) return 'no short summary';
+  return null;
+}
+
 /** Prefer useful float options but allow a factual low/high-water comparison.
- * Rotate equally suitable rivers by week, so ties don't always pick Current.
- * Require a reconciled fresh gauge and retained prose; no stale-read revival. */
-export function selectWeekendReads<T extends WeekendReadSource>(rows: T[], now = new Date()): T[] {
+ * Rotate equally suitable rivers by week, so ties don't always pick Current. */
+export function selectWeekendReads<T extends WeekendReadSource>(rows: T[], now = new Date(), zone = 'America/Chicago'): T[] {
   const seen = new Set<string>();
   const eligible = rows.filter(row => {
-    const age = now.getTime() - Date.parse(row.reading_timestamp ?? '');
-    if (seen.has(row.river_slug) || !row.snapshot_id || !Number.isFinite(age) || age < 0 ||
-      age > STALE_READING_HOURS * 3_600_000 || row.condition_code === 'unknown' || !weekendReadSummary(row)) return false;
+    if (seen.has(row.river_slug) || weekendReadExclusion(row, now)) return false;
     seen.add(row.river_slug);
     return true;
   }).sort((a, b) => a.river_slug.localeCompare(b.river_slug));
   if (eligible.length < 2) return [];
-  const day = Date.parse(`${getLocalDateKey('America/Chicago', now)}T12:00:00Z`);
+  const day = Date.parse(`${getLocalDateKey(zone, now)}T12:00:00Z`);
   const week = Math.floor(day / (7 * 86_400_000));
   const rank = (row: T) => ['flowing', 'good'].includes(row.condition_code) ? 0 : row.condition_code === 'low' ? 1 : 2;
   const ranked = [0, 1, 2].flatMap(priority => {
@@ -65,9 +80,9 @@ export function selectWeekendReads<T extends WeekendReadSource>(rows: T[], now =
 
 /** This is explicitly today's Read plus weekend WEATHER, not a prediction of
  * weekend water levels. The same text goes to narration and the caption. */
-export function weekendReadText(rows: WeekendReadSource[], now = new Date()): string {
+export function weekendReadText(rows: WeekendReadSource[], now = new Date(), zone = 'America/Chicago'): string {
   return rows.map(row => {
-    const forecast = weekendWeather(row.weather, now);
+    const forecast = weekendWeather(row.weather, now, zone);
     const wx = formatWeatherChip(weatherChip(forecast));
     return `${riverDisplayLong(row.river_slug)} — ${conditionChip(row.condition_code).label} now.\n` +
       `Latest Read: ${weekendReadSummary(row)}\n` +
@@ -75,11 +90,11 @@ export function weekendReadText(rows: WeekendReadSource[], now = new Date()): st
   }).join('\n\n');
 }
 
-export function weekendReadCaption(rows: WeekendReadSource[], now = new Date()) {
+export function weekendReadCaption(rows: WeekendReadSource[], now = new Date(), zone = 'America/Chicago') {
   return [
     'Eddy’s Read — this weekend',
     `Prepared ${reportStamp(now)}. Current water conditions; weekend weather is a forecast.`,
-    weekendReadText(rows, now),
+    weekendReadText(rows, now, zone),
     ...rows.map(row => `${riverDisplayLong(row.river_slug)} · Read ${reportStamp(new Date(row.generated_at))} · Gauge ${reportStamp(new Date(row.reading_timestamp!))}`),
     'Check your stretch’s latest conditions before you launch. Plan it on Eddy: https://eddy.guide',
   ].join('\n\n');

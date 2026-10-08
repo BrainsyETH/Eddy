@@ -340,8 +340,10 @@ export async function getScheduledPosts(options?: { skipTimeCheck?: boolean }): 
   // Legacy per-river schedules no longer emit separate social Reads.
   if (weekendReadDue(config.media_schedule?.river_highlight?.thu, new Date(), skipTimeCheck, schedulerZone)) {
     if (skipTimeCheck || !await hasPostedToday('river_highlight', null, supabase)) {
-      const ctx = await buildPostContext(supabase, { postType: 'river_highlight' });
+      const ctx = await buildPostContext(supabase, { postType: 'river_highlight', config: { ...config, timezone: schedulerZone } });
       if (ctx) {
+        diag.eligible_rivers.push(...(ctx.riverSlugs ?? []));
+        diag.due_rivers.push(...(ctx.riverSlugs ?? []));
         for (const platform of platformsForPost()) {
           const { caption, hashtags } = ctx.caption(platform, customContent);
           posts.push({ postType: 'river_highlight', platform, riverSlug: null,

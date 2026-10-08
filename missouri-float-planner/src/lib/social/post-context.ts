@@ -1,4 +1,4 @@
-import { selectWeekendReads, weekendReadText, weekendReadCaption } from './weekend-read';
+import { selectWeekendReads, weekendReadExclusion, weekendReadText, weekendReadCaption } from './weekend-read';
 import { estimateRoute } from '@/lib/calculations/route-estimate';
 import { shortSummary, reportStamp } from '@shared/social-editorial';
 import { weekendWeather } from './weekend-weather';
@@ -99,12 +99,24 @@ export interface PostContext {
   caption: (platform: SocialPlatform, custom: SocialCustomContent[]) => { caption: string; hashtags: string[] };
   /** OG image (image post) / video cover thumbnail. */
   imageUrl: (platform: SocialPlatform) => string;
+  /** Rivers a multi-river post features, for scheduler diagnostics. */
+  riverSlugs?: string[];
+}
+
+/** The social_config fields the weekend Read uses. */
+export interface ReadConfig {
+  enabled_rivers?: string[] | null;
+  disabled_rivers?: string[] | null;
+  highlight_conditions?: string[] | null;
+  timezone?: string | null;
 }
 
 interface BuildOpts {
   postType: PostKind;
   riverSlug?: string;
   eddyUpdateId?: string;
+  /** Already-loaded social_config; skips a reload when the caller has it. */
+  config?: ReadConfig;
 }
 
 /**
@@ -135,7 +147,7 @@ export async function buildPostContext(
       if (seen.has(u.river_slug)) return false;
       seen.add(u.river_slug);
       return true;
-    });
+    }).map((u) => ({ ...u, stored_condition_code: u.condition_code }));
     return overlayLiveConditions(supabase, dedupedRaw);
   }
 
@@ -329,26 +341,35 @@ export async function buildPostContext(
   if (postType === 'river_highlight') {
     // The social Read is one weekend comparison. App/website Reads and their
     // generation stay untouched. Honor the existing river exclusions.
-    const { data: config, error } = await supabase.from('social_config')
-      .select('enabled_rivers, disabled_rivers, highlight_conditions').limit(1).maybeSingle();
-    if (error) throw new Error(`Cannot load Eddy’s Read river filters: ${error.message}`);
+    let config = opts.config;
+    if (!config) {
+      // `*` so an optional timezone column is picked up without erroring when absent.
+      const { data, error } = await supabase.from('social_config').select('*').limit(1).maybeSingle();
+      if (error) throw new Error(`Cannot load Eddy’s Read river filters: ${error.message}`);
+      config = (data ?? {}) as ReadConfig;
+    }
+    const zone = config.timezone || 'America/Chicago';
     const eligible = (await freshRivers()).filter(u =>
-      !config?.disabled_rivers?.includes(u.river_slug) &&
-      (!config?.enabled_rivers?.length || config.enabled_rivers.includes(u.river_slug)) &&
-      (!Array.isArray(config?.highlight_conditions) || config.highlight_conditions.includes(u.condition_code)));
+      !config.disabled_rivers?.includes(u.river_slug) &&
+      (!config.enabled_rivers?.length || config.enabled_rivers.includes(u.river_slug)) &&
+      (!Array.isArray(config.highlight_conditions) || config.highlight_conditions.includes(u.condition_code)));
     const now = new Date(nowIso);
-    const rows = selectWeekendReads(eligible, now);
+    const rows = selectWeekendReads(eligible, now, zone);
+    const excluded = eligible.map(u => [u.river_slug, weekendReadExclusion(u, now)]).filter(([, why]) => why);
+    console.log(`[SocialRead] picked: ${rows.map(u => u.river_slug).join(',') || 'none'}; ` +
+      `excluded: ${excluded.map(([slug, why]) => `${slug}(${why})`).join(', ') || 'none'}`);
     if (rows.length < 2) return null;
     const pinned = rows.map(u => `${u.river_slug}:${u.condition_code}:${u.gauge_height_ft ?? ''}`).join(',');
     return {
       postType,
       riverSlug: null,
+      riverSlugs: rows.map(u => u.river_slug),
       renderData: {
         riverName: 'This weekend',
-        readingText: weekendReadText(rows, now),
+        readingText: weekendReadText(rows, now, zone),
         dateLabel: `Prepared ${reportStamp(now)} · Current water`,
       },
-      caption: () => ({ caption: weekendReadCaption(rows, now), hashtags: [] }),
+      caption: () => ({ caption: weekendReadCaption(rows, now, zone), hashtags: [] }),
       imageUrl: platform => og('weekend-read', platform,
         `&rivers=${encodeURIComponent(pinned)}&at=${encodeURIComponent(nowIso)}`),
     };

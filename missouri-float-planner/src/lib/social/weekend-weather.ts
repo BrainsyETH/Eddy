@@ -2,9 +2,9 @@ import type { WeatherSummary } from '@/lib/weather/openweather';
 import { getLocalDateKey } from './local-time';
 
 /** Require the actual upcoming weekend dates; absent coverage is unknown. */
-export function weekendWeather(weather: WeatherSummary | null | undefined, now = new Date()): WeatherSummary | null {
+export function weekendWeather(weather: WeatherSummary | null | undefined, now = new Date(), zone = 'America/Chicago'): WeatherSummary | null {
   if (!weather) return null;
-  const local = new Date(`${getLocalDateKey('America/Chicago', now)}T12:00:00Z`);
+  const local = new Date(`${getLocalDateKey(zone, now)}T12:00:00Z`);
   const day = local.getUTCDay();
   const first = new Date(local);
   if (day !== 0) first.setUTCDate(first.getUTCDate() + (6 - day));
