@@ -129,6 +129,9 @@ export interface RiverSectionDossier {
   putIn: { name: string; lat?: number; lon?: number };
   takeOut: { name: string; lat?: number; lon?: number };
   publishedLengthMiles?: number;
+  /** Reviewed bounds on the same downstream-mile scale as access points. */
+  riverMileStart?: number | null;
+  riverMileEnd?: number | null;
   representativeGauge: {
     siteId: string; // [signoff] — choosing the reach's gauge is a judgment call
     rationale: string;

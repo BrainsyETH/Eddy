@@ -32,6 +32,7 @@
  * after validate_river_data() runs clean.
  */
 
+import { sectionGaugeAssignment } from './section-gauges';
 import * as fs from 'fs';
 import * as path from 'path';
 import { getScriptClient } from '../lib/db';
@@ -181,6 +182,16 @@ if (primarySiteId && !perGauge.has(primarySiteId)) {
   );
 }
 
+// Validate bounded reach assignments during dry runs, before any database writes.
+const plannedStations = new Map<string, string>([...perGauge.keys()].map(siteId => [siteId, siteId]));
+for (const section of dossier.sections ?? []) {
+  try {
+    sectionGaugeAssignment(section, plannedStations);
+  } catch (error) {
+    problems.push(`[auto] section ${section.slug}: ${error instanceof Error ? error.message : String(error)}`);
+  }
+}
+
 // ---------- report gate results ----------
 console.log(`\nIngest ${dossier.slug} (${dossier.name}) — ${apply ? 'APPLY' : 'dry run'}`);
 console.log('='.repeat(60));
@@ -267,6 +278,20 @@ if (!apply) { console.log('\nDry run complete — re-run with --apply to write.'
     }
   }
 
+  // Every bounded section's gauge must resolve to a station before anything is
+  // written. The dry run can only check the plan: a gauge with no coordinates
+  // and no existing row is skipped by the station loop below, and finding that
+  // out in the river_sections loop would leave the river half-ingested.
+  for (const section of dossier.sections ?? []) {
+    const siteId = section.representativeGauge?.siteId;
+    if (!siteId || !('primary_gauge_station_id' in sectionGaugeAssignment(section, plannedStations))) continue;
+    const g = gauges.find((candidate: { siteId: string }) => candidate.siteId === siteId);
+    if (g?.lat != null && g?.lon != null) continue;
+    const { data: existing, error } = await db.from('gauge_stations').select('id').eq('usgs_site_id', siteId).maybeSingle();
+    if (error) throw error;
+    if (!existing) throw new Error(`section ${section.slug}: gauge ${siteId} has no gauge_stations row and no lat/lon to create one — nothing was written.`);
+  }
+
   const { error: upErr } = await db.from('rivers').update(riverUpdate).eq('id', river.id);
   if (upErr) throw new Error(`rivers update failed: ${upErr.message}`);
   console.log('  ✅ rivers updated');
@@ -340,7 +365,9 @@ if (!apply) { console.log('\nDry run complete — re-run with --apply to write.'
   }
 
   for (const s of sectionsRows) {
-    const { error } = await db.from('river_sections').upsert({ river_id: river.id, ...s }, { onConflict: 'river_id,section_slug' });
+    const source = dossier.sections.find((section: { slug: string }) => section.slug === s.section_slug);
+    const assignment = sectionGaugeAssignment(source, stationIdBySite);
+    const { error } = await db.from('river_sections').upsert({ river_id: river.id, ...s, ...assignment }, { onConflict: 'river_id,section_slug' });
     if (error) throw new Error(`river_sections ${s.section_slug}: ${error.message}`);
   }
   if (sectionsRows.length) console.log(`  ✅ ${sectionsRows.length} river_sections`);
