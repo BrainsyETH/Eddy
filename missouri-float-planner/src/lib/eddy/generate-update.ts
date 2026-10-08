@@ -319,7 +319,7 @@ Two examples with different shapes (illustrative only; always use the facts you 
 The Current floats fine near Van Buren, just on the thin side, so pick your line through the riffles.
 
 [EDDY_READ]
-Springs support this stretch's base flow. The reading has barely moved over the past day, but that does not rule out shallow riffles.
+Springs feed this stretch even between rains. At this level, picking a deeper line through the riffles can save you a scrape.
 
 [FULL]
 Expect easy floating in the pools near Van Buren and a few shallow riffles where a loaded canoe may touch. The water has held level over the past day.
@@ -329,7 +329,7 @@ Expect easy floating in the pools near Van Buren and a few shallow riffles where
 Not worth floating near Steelville right now; the creek needs a good rain first.
 
 [EDDY_READ]
-This creek can rise quickly after rain and drain quickly afterward. The past day's readings show little movement toward a usable float level.
+This creek can come up fast after rain, then drop back just as quickly. It hasn't come up enough to make a float worthwhile.
 
 [FULL]
 Near Steelville you would be dragging boats across most riffles, with no improvement in the reading over the past day. Rain could bring it up fast on a creek this size, but nothing in the outlook points that way yet. Waiting for rain is the better plan.

@@ -12,7 +12,7 @@ import { trackedAnthropic } from '@/lib/telemetry/upstream';
 import Anthropic from '@anthropic-ai/sdk';
 import type { ConditionCode } from '@/types/api';
 import { getRiverContext, DEFAULT_TIMEZONE } from '@/lib/rivers/context';
-import { buildConditionSemantics } from '@/lib/eddy/condition-semantics';
+import { buildSecondaryGaugeSemantics } from '@/lib/eddy/condition-semantics';
 import { getLocalDateStrings } from '@/lib/social/local-time';
 import { createAdminClient } from '@/lib/supabase/admin';
 import type { ConditionThresholds } from '@/lib/conditions';
@@ -246,7 +246,25 @@ export async function generateGaugeUpdate(
       console.warn(`[GaugeUpdates] Forecast failed for ${target.usgsSiteId}:`, e);
     }
   }
-  const prompt = buildGaugePrompt(target, facts, readingTimestamp, trajectory, forecast, riverCtx);
+  // A station is not resolved to a reach here. If any reach overrides the
+  // river type (e.g. the Black below Clearwater), omit ALL river-wide behavior.
+  // Failed or unavailable section checks must also use neutral guidance.
+  let riverBehaviorApplies = false;
+  if (riverCtx) {
+    try {
+      const { data: overrides, error } = await supabase
+        .from('river_sections')
+        .select('id')
+        .eq('river_id', riverCtx.id)
+        .not('river_type', 'is', null)
+        .limit(1);
+      riverBehaviorApplies = !error && overrides != null && overrides.length === 0;
+      if (error) console.warn('[GaugeUpdates] Section hydrology check failed:', error);
+    } catch (e) {
+      console.warn('[GaugeUpdates] Section hydrology check failed:', e);
+    }
+  }
+  const prompt = buildGaugePrompt(target, facts, readingTimestamp, trajectory, forecast, riverCtx, riverBehaviorApplies);
 
   const anthropicKey = process.env.ANTHROPIC_API_KEY;
   if (!anthropicKey) {
@@ -343,6 +361,7 @@ function buildGaugePrompt(
   trajectory: GaugeTrajectory | null,
   forecast: ForecastData | null,
   riverCtx: RiverContext | null,
+  riverBehaviorApplies: boolean,
 ): string {
   const lines: string[] = [];
 
@@ -356,7 +375,7 @@ function buildGaugePrompt(
 
   lines.push('');
   lines.push('[CONDITION SEMANTICS — how to interpret conditions on THIS river]');
-  lines.push(buildConditionSemantics(riverCtx));
+  lines.push(buildSecondaryGaugeSemantics(riverCtx, riverBehaviorApplies));
   lines.push('');
   lines.push('[THIS GAUGE]');
   lines.push(reportFactsPrompt(facts));
@@ -390,21 +409,6 @@ function buildGaugePrompt(
     lines.push('[3-DAY WEATHER OUTLOOK]');
     for (const day of forecast.days.slice(0, 3)) {
       lines.push(`${day.dayOfWeek}: ${day.condition}, ${day.tempLow}-${day.tempHigh}°F, ${day.precipitation}% rain`);
-    }
-  }
-
-  const characteristics = riverCtx?.characteristics;
-  if (characteristics) {
-    const behavior = [
-      characteristics.riverNote,
-      characteristics.lowWaterMeaning,
-      characteristics.risingWaterHazards,
-      characteristics.rainLagNote,
-    ].filter((value): value is string => Boolean(value));
-    if (behavior.length > 0) {
-      lines.push('');
-      lines.push('[LOCAL RIVER BEHAVIOR — use for interpretation, do not recite]');
-      lines.push(...behavior);
     }
   }
 

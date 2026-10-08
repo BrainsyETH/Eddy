@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { buildConditionSemantics } from './condition-semantics';
+import { buildConditionSemantics, buildSecondaryGaugeSemantics } from './condition-semantics';
 import type { RiverContext } from '@/lib/rivers/context';
 import type { SectionCharacter } from './condition-semantics';
 
@@ -141,4 +141,30 @@ test('a reach may carry prose for one field and inherit the type default for the
   // Rising water falls back to the dam_tailwater default, not the river's prose.
   assert.match(out, /scheduled release arriving as a fast-moving rise/);
   assert.doesNotMatch(out, /strainers in the shut-ins/);
+});
+
+const SECONDARY_CONTEXT: RiverContext = {
+  ...BLACK,
+  characteristics: {
+    ...BLACK.characteristics!,
+    riverNote: 'UPPER_REACH_SPRING_NOTE',
+    rainLagNote: 'UPPER_REACH_RAIN_LAG',
+  },
+};
+
+test('secondary gauge on a mixed-hydrology river gets neutral guidance only', () => {
+  const out = buildSecondaryGaugeSemantics(SECONDARY_CONTEXT, false);
+  assert.match(out, /Local hydrology is not established/);
+  assert.doesNotMatch(out, /river IS floatable|scraping over the gravel bars|strainers in the shut-ins|UPPER_REACH/);
+});
+
+test('verified ordinary river gets low and rising guidance exactly once', () => {
+  const out = buildSecondaryGaugeSemantics(SECONDARY_CONTEXT, true);
+  for (const phrase of ['scraping over the gravel bars', 'strainers in the shut-ins', 'UPPER_REACH_SPRING_NOTE', 'UPPER_REACH_RAIN_LAG']) {
+    assert.equal(out.split(phrase).length - 1, 1, phrase);
+  }
+});
+
+test('missing river context cannot default a secondary station to spring-fed advice', () => {
+  assert.match(buildSecondaryGaugeSemantics(null, true), /Local hydrology is not established/);
 });

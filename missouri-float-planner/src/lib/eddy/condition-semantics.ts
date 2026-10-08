@@ -111,3 +111,25 @@ export function buildConditionSemantics(
     `RISING WATER GUIDANCE: ${risingWater}`,
   ].join('\n');
 }
+
+/** Secondary stations have no resolved reach. Only use river-wide background
+ * after a successful check proves there are no section hydrology overrides.
+ * Keep all behavior here so a second background block cannot bypass the guard.
+ */
+export function buildSecondaryGaugeSemantics(
+  riverCtx: RiverContext | null,
+  riverBehaviorApplies: boolean,
+): string {
+  if (!riverCtx || !riverBehaviorApplies) {
+    return [
+      'Local hydrology is not established for this station. River-wide behavior may not apply here.',
+      'LOW WATER GUIDANCE: Describe the supplied Low rating without assuming scraping, floatability, drought, or a release schedule. Do not infer the cause.',
+      'RISING WATER GUIDANCE: Describe the measured rise and condition-based caution without attributing it to rain, springs, or dam releases.',
+    ].join('\n');
+  }
+  return [
+    buildConditionSemantics(riverCtx),
+    riverCtx.characteristics?.riverNote,
+    riverCtx.characteristics?.rainLagNote,
+  ].filter(Boolean).join('\n');
+}

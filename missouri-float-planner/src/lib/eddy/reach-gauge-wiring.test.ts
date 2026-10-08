@@ -123,3 +123,14 @@ test('both model system prompts allow the required claims header', () => {
     assert.doesNotMatch(generator, /ONLY the \[SUMMARY\]/);
   }
 });
+
+
+test('secondary prompts require a successful section check before using river behavior', () => {
+  const gauge = src('src/lib/eddy/generate-gauge-update.ts');
+  assert.match(gauge, /let riverBehaviorApplies = false/);
+  assert.match(gauge, /\.from\('river_sections'\)[\s\S]*?\.eq\('river_id', riverCtx\.id\)[\s\S]*?\.not\('river_type', 'is', null\)/);
+  assert.match(gauge, /riverBehaviorApplies = !error && overrides != null && overrides\.length === 0/);
+  assert.match(gauge, /buildGaugePrompt\(target, facts, readingTimestamp, trajectory, forecast, riverCtx, riverBehaviorApplies\)/);
+  assert.match(gauge, /buildSecondaryGaugeSemantics\(riverCtx, riverBehaviorApplies\)/);
+  assert.doesNotMatch(gauge, /LOCAL RIVER BEHAVIOR|characteristics\.(lowWaterMeaning|risingWaterHazards|riverNote|rainLagNote)/);
+});
