@@ -134,3 +134,10 @@ test('secondary prompts require a successful section check before using river be
   assert.match(gauge, /buildSecondaryGaugeSemantics\(riverCtx, riverBehaviorApplies\)/);
   assert.doesNotMatch(gauge, /LOCAL RIVER BEHAVIOR|characteristics\.(lowWaterMeaning|risingWaterHazards|riverNote|rainLagNote)/);
 });
+
+test('river prompt asks Eddy to know which stretch a gauge speaks for, without invented local facts', () => {
+  assert.match(generateUpdate, /KNOW YOUR STRETCH: A good guide knows which water a gauge speaks for/);
+  assert.match(generateUpdate, /Never describe another stretch's conditions today, and never invent where the river changes/);
+  // The worked example must only use details the knowledge file actually holds.
+  assert.doesNotMatch(generateUpdate, /jetboat/i);
+});
