@@ -12,8 +12,12 @@ export function GaugeMenu({ options, selectedId, onSelect }: {
   onSelect: (id: string) => void;
 }) {
   const { colors, isDark } = useTheme();
+  // A selection outside the list (no primary flagged for this river, or an
+  // arrival gauge from elsewhere) still gets the menu, with nothing checked:
+  // hiding it would take away the only way to switch gauges.
   const selected = options.find(option => option.id === selectedId);
-  if (!selected || options.length < 2) return null;
+  if (options.length < 2) return null;
+  const label = selected ? `Gauge: ${selected.name}` : 'Choose a gauge';
   return (
     <MenuView
       title="Gauges on this river"
@@ -31,10 +35,10 @@ export function GaugeMenu({ options, selectedId, onSelect }: {
       <View
         style={styles.control}
         accessible accessibilityRole="button"
-        accessibilityLabel={`Gauge: ${selected.name}. ${options.length} gauges`}
+        accessibilityLabel={`${label}. ${options.length} gauges`}
         accessibilityHint="Opens gauge choices. Selecting updates the reading here."
       >
-        <Text style={[styles.name, { color: colors.interactive }]} numberOfLines={1}>Gauge: {selected.name}</Text>
+        <Text style={[styles.name, { color: colors.interactive }]} numberOfLines={1}>{label}</Text>
         <ControlIcon name="chevron-down" size={14} color={colors.interactive} />
         <Text style={[styles.count, { color: colors.textMuted }]}>{options.length} gauges</Text>
       </View>

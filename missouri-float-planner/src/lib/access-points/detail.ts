@@ -93,7 +93,7 @@ export async function getAccessPointDetail(
   const [gaugeStatus, linked] = await Promise.all([
     // Uses the access point's own mile, so the reach's gauge is chosen rather
     // than the river's headline one.
-    options.estimatesOnly ? null : getGaugeStatus(supabase, river.id, currentMile),
+    options.estimatesOnly ? null : getGaugeStatus(supabase, river.id, ap.river_mile_downstream != null ? currentMile : null),
     // Read unconditionally and first — see the long note below on why the gate
     // cannot come before the query it gates.
     options.estimatesOnly ? [] : loadLinkedServices(supabase, ap.id),
@@ -349,32 +349,72 @@ export async function getAccessPointDetail(
   };
 }
 
+// One river_gauges row with its station, as every gauge lookup below reads it.
+const RIVER_GAUGE_SELECT = `
+  gauge_station_id,
+  is_primary,
+  river_mile,
+  threshold_unit,
+  level_too_low,
+  level_low,
+  level_optimal_min,
+  level_optimal_max,
+  level_high,
+  level_dangerous,
+  flood_stage_ft,
+  gauge_stations!inner (
+    id,
+    usgs_site_id,
+    site_id_external,
+    provider,
+    name
+  )
+`;
+
 // Helper to get gauge status for the river (segment-aware based on access point river mile)
 export async function getGaugeStatus(
   supabase: SupabaseServerClient,
   riverId: string,
-  accessPointRiverMile: number
+  // null when the access point has no recorded mile. It must not be read as
+  // mile 0: that would place it in the headwater reach (Boxley on the Buffalo,
+  // above Clearwater Dam on the Black) instead of rating it by the primary —
+  // and get_river_condition_segment skips sections for a NULL mile too.
+  accessPointRiverMile: number | null
 ): Promise<AccessPointGaugeStatus | null> {
   try {
+    const mile = accessPointRiverMile;
+    // Both reads depend only on the mile, so they run together rather than
+    // adding a serial round-trip to every access-point open.
+    const [sectionResult, nearestResult] = mile == null ? [null, null] : await Promise.all([
+      supabase
+        .from('river_sections')
+        .select('primary_gauge_station_id, river_mile_start, river_mile_end, sort_order')
+        .eq('river_id', riverId)
+        .order('sort_order'),
+      // The nearest gauge at or upstream of the access point.
+      supabase
+        .from('river_gauges')
+        .select(RIVER_GAUGE_SELECT)
+        .eq('river_id', riverId)
+        .eq('gauge_stations.active', true)
+        .not('river_mile', 'is', null)
+        .lte('river_mile', mile)
+        .order('river_mile', { ascending: false })
+        .limit(1)
+        .single(),
+    ]);
+
     // A curated reach wins over proximity, just as in the planner RPC.
     // Query errors and broken explicit assignments must not silently rate a
     // stretch using the river-wide primary (possibly across a dam).
-    const { data: sections, error: sectionError } = await supabase
-      .from('river_sections')
-      .select('primary_gauge_station_id, river_mile_start, river_mile_end, sort_order')
-      .eq('river_id', riverId)
-      .order('sort_order');
-    if (sectionError) return null;
-    const section = sections?.find((s) => s.primary_gauge_station_id
-      && (s.river_mile_start == null || accessPointRiverMile >= Number(s.river_mile_start))
-      && (s.river_mile_end == null || accessPointRiverMile < Number(s.river_mile_end)));
+    if (sectionResult?.error) return null;
+    const section = mile == null ? undefined : sectionResult?.data?.find((s) => s.primary_gauge_station_id
+      && (s.river_mile_start == null || mile >= Number(s.river_mile_start))
+      && (s.river_mile_end == null || mile < Number(s.river_mile_end)));
     let riverGauge = null;
     if (section?.primary_gauge_station_id) {
       const { data, error } = await supabase.from('river_gauges')
-        .select(`gauge_station_id, is_primary, river_mile, threshold_unit,
-          level_too_low, level_low, level_optimal_min, level_optimal_max,
-          level_high, level_dangerous, flood_stage_ft,
-          gauge_stations!inner(id, usgs_site_id, site_id_external, provider, name, active)`)
+        .select(RIVER_GAUGE_SELECT)
         .eq('river_id', riverId)
         .eq('gauge_station_id', section.primary_gauge_station_id)
         .eq('gauge_stations.active', true)
@@ -383,70 +423,15 @@ export async function getGaugeStatus(
       riverGauge = data;
     }
 
-    if (!riverGauge && accessPointRiverMile >= 0) {
-      const { data: nearestGauge } = await supabase
-        .from('river_gauges')
-        .select(
-          `
-          gauge_station_id,
-          is_primary,
-          river_mile,
-          threshold_unit,
-          level_too_low,
-          level_low,
-          level_optimal_min,
-          level_optimal_max,
-          level_high,
-          level_dangerous,
-          flood_stage_ft,
-          gauge_stations!inner (
-            id,
-            usgs_site_id,
-            site_id_external,
-            provider,
-            name
-          )
-        `
-        )
-        .eq('river_id', riverId)
-        .eq('gauge_stations.active', true)
-        .not('river_mile', 'is', null)
-        .lte('river_mile', accessPointRiverMile)
-        .order('river_mile', { ascending: false })
-        .limit(1)
-        .single();
-
-      if (nearestGauge) {
-        riverGauge = nearestGauge;
-      }
+    if (!riverGauge && nearestResult?.data) {
+      riverGauge = nearestResult.data;
     }
 
     // Fall back to primary gauge if no segment-specific gauge found
     if (!riverGauge) {
       const { data: primaryGauge } = await supabase
         .from('river_gauges')
-        .select(
-          `
-          gauge_station_id,
-          is_primary,
-          river_mile,
-          threshold_unit,
-          level_too_low,
-          level_low,
-          level_optimal_min,
-          level_optimal_max,
-          level_high,
-          level_dangerous,
-          flood_stage_ft,
-          gauge_stations!inner (
-            id,
-            usgs_site_id,
-            site_id_external,
-            provider,
-            name
-          )
-        `
-        )
+        .select(RIVER_GAUGE_SELECT)
         .eq('river_id', riverId)
         .eq('is_primary', true)
         .eq('gauge_stations.active', true)

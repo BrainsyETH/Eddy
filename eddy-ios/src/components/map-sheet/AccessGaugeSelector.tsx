@@ -34,7 +34,6 @@ export function AccessGaugeSelector({ status, gauges, riverSlug, onOpenGauge, ga
       <GaugePicker gauges={choices} riverSlug={riverSlug} selectedId={shown.gaugeId} onSelect={setPickedId} />
     ) : <View style={{ minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 6 }}>
       <Text numberOfLines={1} style={{ ...t.sm, fontFamily: fonts.semibold, color: colors.textMuted, flexShrink: 1 }}>Gauge: {shown ? gaugePlaceLabel(shown.gaugeName) : pending ? 'Loading…' : 'Unavailable'}</Text>
-      <Text style={{ ...t.xs, fontFamily: fonts.body, color: colors.textMuted }}>{gaugeCount} gauges</Text>
     </View> : null}
     <AccessGaugeReading status={shown} onOpenGauge={onOpenGauge} compact pending={pending || !shown} pendingLabel={pending ? undefined : unavailableLabel} />
   </View>;

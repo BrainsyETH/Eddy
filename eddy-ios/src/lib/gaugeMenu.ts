@@ -1,7 +1,7 @@
 import type { ConditionCode, MapGauge } from '@eddy/types';
 import { gaugeFreshness } from '@eddy/conditions/gauge-freshness';
 import { conditionLabel } from '../theme/conditions';
-import { gaugeConditionCode, gaugePlaceLabel, gaugeReadingText, gaugesForRiver } from './gaugeCondition';
+import { gaugeConditionCode, gaugeLink, gaugePlaceLabel, gaugeReadingText, gaugesForRiver } from './gaugeCondition';
 
 export interface GaugeMenuOption {
   id: string;
@@ -11,6 +11,8 @@ export interface GaugeMenuOption {
   timestamp?: string | null;
   suspect?: boolean;
   disabled?: boolean;
+  /** The gauge the river's verdict, alerts and rivers-list chip follow. */
+  isPrimary?: boolean;
 }
 
 /** The default overview agrees with the map; alternates need usable observations. */
@@ -31,7 +33,8 @@ export function gaugeMenuSubtitle(option: GaugeMenuOption, now = Date.now()): st
     : freshness === 'delayed' ? 'Reporting delayed'
     : freshness === 'historical' ? 'Historical reading'
     : 'Observation time unavailable';
-  return `${option.reading} · ${status}`;
+  const line = `${option.reading} · ${status}`;
+  return option.isPrimary ? `${line} · Rates river` : line;
 }
 
 export function gaugeMenuOptions(gauges: MapGauge[], riverSlug: string): GaugeMenuOption[] {
@@ -43,5 +46,6 @@ export function gaugeMenuOptions(gauges: MapGauge[], riverSlug: string): GaugeMe
     timestamp: gauge.readingTimestamp,
     suspect: gauge.readingSuspect,
     disabled: !gauge.usgsSiteId,
+    isPrimary: gaugeLink(gauge, riverSlug)?.isPrimary ?? false,
   }));
 }

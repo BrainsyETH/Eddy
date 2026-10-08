@@ -13,6 +13,7 @@ test('menu distinguishes current, stale, suspect, missing and future observation
   assert.match(gaugeMenuSubtitle({ ...option, timestamp: null }, now), /time unavailable/);
   assert.match(gaugeMenuSubtitle({ ...option, timestamp: '2026-10-09T00:00:00Z' }, now), /time unavailable/);
   assert.equal(gaugeMenuSubtitle({ ...option, reading: null }, now), 'Reading unavailable');
+  assert.equal(gaugeMenuSubtitle({ ...option, isPrimary: true }, now), '312 cfs · Good · Rates river');
 });
 function gauge(id: string, mile: number | null, primary = false, riverSlug = 'buffalo') {
   return { id, name: `Buffalo River at ${id}, AR`, dischargeCfs: 300, gaugeHeightFt: 3,
@@ -26,6 +27,7 @@ test('menu count and upstream order use only this river, with a stable old-paylo
   assert.deepEqual(options.map(o => o.id),['Ponca','Pruitt','St. Joe']);
   assert.equal(options[0].reading,'300 cfs');
   assert.equal(options[0].code,'good');
+  assert.deepEqual(options.map(o => o.isPrimary),[false,false,true]);
   assert.deepEqual(gaugesForRiver([gauge('Pruitt',null),gauge('St. Joe',null,true)],'buffalo').map(g => g.id),['St. Joe','Pruitt']);
 });
 

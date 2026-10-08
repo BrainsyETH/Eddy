@@ -1145,8 +1145,13 @@ function MapContent() {
   // The fetch behaviour lives in each hook, moved verbatim from this screen —
   // latch-on-success and one retry for dams, release-on-failure for services,
   // fire-once-and-reuse for gauges — so the screen states only WHO wants WHAT.
+  // The river sheet and an access pin on a multi-gauge river both offer a
+  // gauge menu built from this catalog; no other pin needs it.
+  const pinNeedsGaugeMenu =
+    selectedPin?.layer === 'access' &&
+    (network.bySlug.get(selectedPin.riverSlug ?? '')?.gauges?.length ?? 0) > 1;
   const { gauges, ensureGauges } = useCuratedGauges(
-    layers.includes('gauges') || selectedSlug !== null || selectedPin !== null,
+    layers.includes('gauges') || selectedSlug !== null || pinNeedsGaugeMenu,
   );
 
   // Every USACE project's LIVE state, statewide — an enrichment, not the
@@ -1694,12 +1699,16 @@ function MapContent() {
    * draws. Tapping a river is the cheapest thing you can do on this map and it
    * stays that way.
    */
+  const gaugeBySite = useMemo(
+    () => new Map((gauges ?? []).flatMap((g) => (g.usgsSiteId ? [[g.usgsSiteId, g] as const] : []))),
+    [gauges],
+  );
   const gaugeNameFor = useCallback(
     (siteId: string) => {
-      const known = (gauges ?? []).find((g) => g.usgsSiteId === siteId);
+      const known = gaugeBySite.get(siteId);
       return known ? gaugePlaceLabel(known.name) : `USGS ${siteId}`;
     },
-    [gauges],
+    [gaugeBySite],
   );
 
   const riverSheetData = useMemo(() => {
@@ -1710,7 +1719,7 @@ function MapContent() {
     const index = readingIndex(network.readings ?? []);
     const gaugeRows = (river.gauges ?? []).map((gauge) => {
       const reading = index.get(`${river.id}:${gauge.site_id}`) ?? index.get(gauge.site_id) ?? null;
-      const known = gauges?.find(candidate => candidate.usgsSiteId === gauge.site_id);
+      const known = gaugeBySite.get(gauge.site_id);
       const unit = gauge.threshold_unit;
       const value =
         unit === 'ft'
@@ -1734,7 +1743,11 @@ function MapContent() {
         riverMile: known?.thresholds?.find(link => link.riverSlug === selectedSlug)?.riverMile ?? null,
         timestamp: known?.readingTimestamp ?? null,
       };
-    }).sort((a, b) => (a.riverMile ?? Infinity) - (b.riverMile ?? Infinity) || a.name.localeCompare(b.name));
+    // Upstream first; with no miles (catalog unloaded, old payload) the
+    // primary leads, as gaugesForRiver orders it. Infinity - Infinity is NaN,
+    // which falls through to the tiebreaks.
+    }).sort((a, b) => (a.riverMile ?? Infinity) - (b.riverMile ?? Infinity)
+      || Number(b.isPrimary) - Number(a.isPrimary) || a.name.localeCompare(b.name));
 
     return {
       slug: river.slug,
@@ -1782,8 +1795,8 @@ function MapContent() {
     drawnAccessPoints,
     drawnHazards,
     drawnSlug,
+    gaugeBySite,
     gaugeNameFor,
-    gauges,
     services,
   ]);
 

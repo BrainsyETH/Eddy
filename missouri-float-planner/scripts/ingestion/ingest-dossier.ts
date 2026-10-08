@@ -278,6 +278,20 @@ if (!apply) { console.log('\nDry run complete — re-run with --apply to write.'
     }
   }
 
+  // Every bounded section's gauge must resolve to a station before anything is
+  // written. The dry run can only check the plan: a gauge with no coordinates
+  // and no existing row is skipped by the station loop below, and finding that
+  // out in the river_sections loop would leave the river half-ingested.
+  for (const section of dossier.sections ?? []) {
+    const siteId = section.representativeGauge?.siteId;
+    if (!siteId || !('primary_gauge_station_id' in sectionGaugeAssignment(section, plannedStations))) continue;
+    const g = gauges.find((candidate: { siteId: string }) => candidate.siteId === siteId);
+    if (g?.lat != null && g?.lon != null) continue;
+    const { data: existing, error } = await db.from('gauge_stations').select('id').eq('usgs_site_id', siteId).maybeSingle();
+    if (error) throw error;
+    if (!existing) throw new Error(`section ${section.slug}: gauge ${siteId} has no gauge_stations row and no lat/lon to create one — nothing was written.`);
+  }
+
   const { error: upErr } = await db.from('rivers').update(riverUpdate).eq('id', river.id);
   if (upErr) throw new Error(`rivers update failed: ${upErr.message}`);
   console.log('  ✅ rivers updated');

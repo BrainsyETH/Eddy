@@ -40,6 +40,11 @@ test('access overview honors reach boundaries, including Boxley mile zero and Pr
     assert.equal(result?.level, 'good');
   }
 });
+test('an access point with no recorded mile is rated by the primary, not the mile-0 headwater reach', async () => {
+  const f = db(); const result = await getGaugeStatus(f.client, 'buffalo', null);
+  assert.equal(result?.gaugeId, 'st-joe');
+  assert.deepEqual(f.selected, []);
+});
 test('a failed section read or missing curated gauge never silently falls back to St. Joe', async () => {
   for (const options of [{ error: true }, { missing: true }]) {
     assert.equal(await getGaugeStatus(db(options).client, 'buffalo', 8.7), null);
