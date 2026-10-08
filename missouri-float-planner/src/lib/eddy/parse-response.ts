@@ -75,7 +75,7 @@ export function parseEddyResponse(rawText: string): ParsedEddyResponse {
  * spacing around one so "15 cfs — well short" becomes "15 cfs, well short"
  * rather than "15 cfs , well short". */
 export function replaceEmDashes(text: string): string {
-  return text.replace(/\s*\u2014\s*/g, ', ');
+  return text.replace(/\s*(?:\u2014|(?<!-)--(?!-))\s*/g, ', ');
 }
 
 /** Strip any stray section markers that leaked into parsed prose. */

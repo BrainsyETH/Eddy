@@ -129,7 +129,7 @@ import { useRiverHazards } from '@/hooks/useRiverHazards';
 import { usePublicLands } from '@/hooks/usePublicLands';
 import { flowBandColor, flowBandLabel } from '@/theme/flow';
 import { flowBandFor, flowMagnitude, flowReadingText } from '@/lib/gaugeFlow';
-import { gaugePlaceLabel } from '@/lib/gaugeCondition';
+import { gaugeLink, gaugePlaceLabel, gaugeConditionCode, gaugeReadingText } from '@/lib/gaugeCondition';
 import { formatReading, readingAge } from '@/lib/readingCopy';
 import { readRiver } from '@/lib/riverCache';
 import { relativeAge } from '@eddy/conditions/dam-schedule-copy';
@@ -140,7 +140,8 @@ import { useEddySearch } from '@/hooks/useEddySearch';
 import { useFloatPlan } from '@/hooks/useFloatPlan';
 import { milesBetween, useLocation } from '@/hooks/useLocation';
 import { useStatewideNetwork } from '@/hooks/useStatewideNetwork';
-import { gradeGauge, readingIndex, riverBounds } from '@/lib/statewideNetwork';
+import { gradeGauge, readingIndex, riverBounds, type StatewideRiverGauge } from '@/lib/statewideNetwork';
+import type { RiverGaugeRow } from '@/components/map-sheet/riverTabs';
 import { damPins as damPinFacts } from '@/lib/damCatalog';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 // The GETTER only, for onLocate's no-fix alert. Never the asker: useLocation
@@ -378,6 +379,49 @@ function serviceResultPin(s: RiverService): { pin: MapPin; layer: LayerKey } | n
 
 export default function MapScreen() {
   return <LazyTabScreen><MapContent /></LazyTabScreen>;
+}
+
+/**
+ * What a river sheet's Conditions tab needs to draw one station's band track:
+ * the ladder this river grades it on, and the reading in that ladder's unit.
+ */
+function bandTrack(
+  known: MapGauge | undefined,
+  riverSlug: string,
+  gauge: StatewideRiverGauge,
+  statewideValue: number | null,
+): Pick<RiverGaugeRow, 'value' | 'ladder'> {
+  const link = known ? gaugeLink(known, riverSlug) : null;
+  if (known && link) {
+    const value = link.thresholdUnit === 'ft' ? known.gaugeHeightFt : known.dischargeCfs;
+    return {
+      value: value ?? null,
+      ladder: {
+        levelTooLow: link.levelTooLow,
+        levelLow: link.levelLow,
+        levelOptimalMin: link.levelOptimalMin,
+        levelOptimalMax: link.levelOptimalMax,
+        levelHigh: link.levelHigh,
+        levelDangerous: link.levelDangerous,
+        thresholdUnit: link.thresholdUnit,
+      },
+    };
+  }
+  const unit = gauge.threshold_unit;
+  return {
+    value: statewideValue,
+    ladder: unit
+      ? {
+          levelTooLow: gauge.level_too_low,
+          levelLow: gauge.level_low,
+          levelOptimalMin: gauge.level_optimal_min,
+          levelOptimalMax: gauge.level_optimal_max,
+          levelHigh: gauge.level_high,
+          levelDangerous: gauge.level_dangerous,
+          thresholdUnit: unit,
+        }
+      : null,
+  };
 }
 
 function MapContent() {
@@ -1145,7 +1189,14 @@ function MapContent() {
   // The fetch behaviour lives in each hook, moved verbatim from this screen —
   // latch-on-success and one retry for dams, release-on-failure for services,
   // fire-once-and-reuse for gauges — so the screen states only WHO wants WHAT.
-  const { gauges, ensureGauges } = useCuratedGauges(layers.includes('gauges'));
+  // The river sheet and an access pin on a multi-gauge river both offer a
+  // gauge menu built from this catalog; no other pin needs it.
+  const pinNeedsGaugeMenu =
+    selectedPin?.layer === 'access' &&
+    (network.bySlug.get(selectedPin.riverSlug ?? '')?.gauges?.length ?? 0) > 1;
+  const { gauges, ensureGauges } = useCuratedGauges(
+    layers.includes('gauges') || selectedSlug !== null || pinNeedsGaugeMenu,
+  );
 
   // Every USACE project's LIVE state, statewide — an enrichment, not the
   // layer: the pins ship in the binary (DAM_CATALOG) and draw with no answer
@@ -1692,12 +1743,16 @@ function MapContent() {
    * draws. Tapping a river is the cheapest thing you can do on this map and it
    * stays that way.
    */
+  const gaugeBySite = useMemo(
+    () => new Map((gauges ?? []).flatMap((g) => (g.usgsSiteId ? [[g.usgsSiteId, g] as const] : []))),
+    [gauges],
+  );
   const gaugeNameFor = useCallback(
     (siteId: string) => {
-      const known = (gauges ?? []).find((g) => g.usgsSiteId === siteId);
+      const known = gaugeBySite.get(siteId);
       return known ? gaugePlaceLabel(known.name) : `USGS ${siteId}`;
     },
-    [gauges],
+    [gaugeBySite],
   );
 
   const riverSheetData = useMemo(() => {
@@ -1706,8 +1761,9 @@ function MapContent() {
     if (!river) return null;
 
     const index = readingIndex(network.readings ?? []);
-    const gauges = (river.gauges ?? []).map((gauge) => {
+    const gaugeRows = (river.gauges ?? []).map((gauge) => {
       const reading = index.get(`${river.id}:${gauge.site_id}`) ?? index.get(gauge.site_id) ?? null;
+      const known = gaugeBySite.get(gauge.site_id);
       const unit = gauge.threshold_unit;
       const value =
         unit === 'ft'
@@ -1724,25 +1780,23 @@ function MapContent() {
         // Graded against THIS river's ladder — one physical gauge can be
         // primary for two rivers with different thresholds, and the same
         // number is a different verdict on each.
-        code: gradeGauge(river, gauge, index),
-        reading: value != null && unit ? formatReading(value, unit) : null,
+        code: known ? gaugeConditionCode(known, selectedSlug) : gradeGauge(river, gauge, index),
+        reading: known ? gaugeReadingText(known, selectedSlug) : value != null && unit ? formatReading(value, unit) : null,
         isPrimary: gauge.is_primary,
-        value,
-        // The ladder rides along so the Conditions tab can draw each station's
-        // band track — already on the wire, so it costs nothing.
-        ladder: unit
-          ? {
-              levelTooLow: gauge.level_too_low,
-              levelLow: gauge.level_low,
-              levelOptimalMin: gauge.level_optimal_min,
-              levelOptimalMax: gauge.level_optimal_max,
-              levelHigh: gauge.level_high,
-              levelDangerous: gauge.level_dangerous,
-              thresholdUnit: unit,
-            }
-          : null,
+        suspect: known?.readingSuspect ?? false,
+        riverMile: known?.thresholds?.find(link => link.riverSlug === selectedSlug)?.riverMile ?? null,
+        timestamp: known?.readingTimestamp ?? null,
+        // The band track's inputs, from the SAME source the chip above was
+        // graded on — the curated gauge's link for this river when it is
+        // known, else the statewide row — so the marker cannot sit in a band
+        // the chip disagrees with.
+        ...bandTrack(known, selectedSlug, gauge, value),
       };
-    });
+    // Upstream first; with no miles (catalog unloaded, old payload) the
+    // primary leads, as gaugesForRiver orders it. Infinity - Infinity is NaN,
+    // which falls through to the tiebreaks.
+    }).sort((a, b) => (a.riverMile ?? Infinity) - (b.riverMile ?? Infinity)
+      || Number(b.isPrimary) - Number(a.isPrimary) || a.name.localeCompare(b.name));
 
     return {
       slug: river.slug,
@@ -1763,7 +1817,7 @@ function MapContent() {
         network.collection.features.find((feature) => feature.properties.slug === selectedSlug)
           ?.properties.code ??
         'unknown',
-      gauges,
+      gauges: gaugeRows,
       accesses: drawnAccessPoints
         .filter((entry) => (entry.riverSlug ?? drawnSlug) === selectedSlug)
         .map((entry) => entry.point),
@@ -1790,6 +1844,7 @@ function MapContent() {
     drawnAccessPoints,
     drawnHazards,
     drawnSlug,
+    gaugeBySite,
     gaugeNameFor,
     services,
   ]);
@@ -3115,6 +3170,8 @@ function MapContent() {
                 pinAccessPoint.riverMile > (planner.putIn?.riverMile ?? Infinity)
               }
               riverHasGauges={riverHasGauges}
+              gauges={gauges ?? []}
+              riverGaugeCount={network.bySlug.get(selectedPin.riverSlug ?? '')?.gauges?.length ?? 0}
               onSetPutIn={() => {
                 if (!pinAccessPoint) return;
                 planner.choosePutIn(pinAccessPoint);

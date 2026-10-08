@@ -49,3 +49,11 @@ Sources:
 - Parameters available per gauge (00060/00065), drainage areas, periods of
   record — pull from each monitoring-location page or the site inventory
   during the ingest verification pass
+
+## Pruitt verified 2026-10-08
+
+USGS **07055680**, Buffalo River at Pruitt, AR. Coordinates
+36.0591666667, -93.1377777778; drainage 190 square miles. Production national
+catalog already has active discharge (00060) and stage (00065) data.
+Source: https://waterdata.usgs.gov/monitoring-location/USGS-07055680/
+Coverage evidence: https://www.nps.gov/thingstodo/paddle-pruitt-to-hasty.htm

@@ -91,7 +91,7 @@ export function reportFactsPrompt(f: ReportFacts): string {
  * "above", so restating the comparison there is noise. */
 export function plainRelation(f: ReportFacts): string | null {
   if (f.conditionCode !== 'good' && f.conditionCode !== 'flowing') return null;
-  if (f.relation === 'below') return 'floatable, but on the thin side of the sweet spot for this gauge, so expect some shallow riffles.';
+  if (f.relation === 'below') return 'floatable, with a reading below the optimal range for this gauge. This comparison alone does not establish shallow water or scraping.';
   if (f.relation === 'above') return 'floatable, with more water and a quicker current than the sweet spot for this gauge.';
   if (f.relation === 'within') return 'right in the sweet spot for this gauge.';
   return null;

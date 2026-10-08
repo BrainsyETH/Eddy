@@ -106,7 +106,6 @@ when running the write phases.
 | `import-nwps-gauges.ts` | direct | `gauge_stations` update (NWS flood/action stages) | dry-default, `--apply`; honors `EXPECTED_SUPABASE_REF` |
 | `import-nhd-rivers-from-tnm.ts` | `npm run db:import-rivers-tnm` | `rivers` geometry insert/update (or SQL to `--out`) | dry-default, `--apply`; honors `EXPECTED_SUPABASE_REF` (migrated off the legacy allowlist 2026-08-25) |
 | `import-services-csv.ts` | `npm run db:import-services <csv>` | `nearby_services` + `service_rivers` upsert | dry-default, `--import` |
-| `import-floatmissouri.ts` | `npm run db:import-floatmissouri` | `access_points` + `river_hazards` insert/update. **Legacy — header warns it duplicates and mislocates; superseded by migration 00173** | dry-default, `--import` |
 | `fetch-drainage-areas.ts` | direct | `gauge_stations.drainage_area_sqmi` update | dry-default, `--write` |
 | `fetch-nws-flood-stages.ts` | direct | `gauge_stations.nws_lid`, `river_gauges` flood/action stages (never curated bands) | dry-default, `--write` |
 | `import-outfitters-osm.ts` | direct | `points_of_interest` insert from Overpass | **write-default**, `--dry-run` |
@@ -127,7 +126,6 @@ when running the write phases.
 | Script | Run | Writes (Supabase) | Guard |
 | --- | --- | --- | --- |
 | `fix-gauge-associations.ts` | `npm run db:fix-gauges` | `river_gauges.river_id` repoint per hardcoded map | dry-default, `--fix` |
-| `fix-niangua-gauge.ts` | direct — one-time (Bennett Spring → Windyville swap) | `gauge_stations` insert/deactivate, `river_gauges` rewire | dry-default, `--fix` |
 | `correct-access-point-miles.ts` | `npm run db:correct-miles` | mutating RPC `correct_all_access_point_miles` (accepts `--river-slug=`, `--tolerance=`) | **NONE** — RPC fires on run |
 | `snap-access-points.ts` | `npm run db:snap-access-points` | touches **every** `access_points` row to re-fire the snap trigger | **NONE** |
 | `data/finalize-buffalo-access-points.ts` | direct — Buffalo-specific, idempotent | `access_points` coordinate + NPS-mile reconciliation. Env must be pre-exported | **NONE** |

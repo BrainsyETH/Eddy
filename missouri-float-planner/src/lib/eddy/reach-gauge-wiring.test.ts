@@ -123,3 +123,28 @@ test('both model system prompts allow the required claims header', () => {
     assert.doesNotMatch(generator, /ONLY the \[SUMMARY\]/);
   }
 });
+
+
+test('secondary prompts require a successful section check before using river behavior', () => {
+  const gauge = src('src/lib/eddy/generate-gauge-update.ts');
+  assert.match(gauge, /let riverBehaviorApplies = false/);
+  assert.match(gauge, /\.from\('river_sections'\)[\s\S]*?\.eq\('river_id', riverCtx\.id\)[\s\S]*?\.not\('river_type', 'is', null\)/);
+  assert.match(gauge, /riverBehaviorApplies = !error && overrides != null && overrides\.length === 0/);
+  assert.match(gauge, /buildGaugePrompt\(target, facts, readingTimestamp, trajectory, forecast, riverCtx, riverBehaviorApplies\)/);
+  assert.match(gauge, /buildSecondaryGaugeSemantics\(riverCtx, riverBehaviorApplies\)/);
+  assert.doesNotMatch(gauge, /LOCAL RIVER BEHAVIOR|characteristics\.(lowWaterMeaning|risingWaterHazards|riverNote|rainLagNote)/);
+});
+
+test('river prompt asks Eddy to know which stretch a gauge speaks for, without invented local facts', () => {
+  assert.match(generateUpdate, /KNOW YOUR STRETCH: A good guide knows which water a gauge speaks for/);
+  assert.match(generateUpdate, /Never describe another stretch's conditions today, and never invent where the river changes/);
+  // The worked example must only use details the knowledge file actually holds.
+  assert.doesNotMatch(generateUpdate, /jetboat/i);
+});
+
+test('secondary prompts carry river knowledge and never a mislabelled river mile', () => {
+  const gauge = src('src/lib/eddy/generate-gauge-update.ts');
+  assert.doesNotMatch(gauge, /lines\.push\(`Position: river mile/);
+  assert.match(gauge, /getRiverKnowledgeForGauge\(target\.riverSlug, target\.gaugeName\)/);
+  assert.match(gauge, /a detail about the upper river, another town or another section is not a detail about this station/);
+});

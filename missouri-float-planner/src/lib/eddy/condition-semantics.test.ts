@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { buildConditionSemantics } from './condition-semantics';
+import { buildConditionSemantics, buildSecondaryGaugeSemantics } from './condition-semantics';
 import type { RiverContext } from '@/lib/rivers/context';
 import type { SectionCharacter } from './condition-semantics';
 
@@ -141,4 +141,41 @@ test('a reach may carry prose for one field and inherit the type default for the
   // Rising water falls back to the dam_tailwater default, not the river's prose.
   assert.match(out, /scheduled release arriving as a fast-moving rise/);
   assert.doesNotMatch(out, /strainers in the shut-ins/);
+});
+
+const SECONDARY_CONTEXT: RiverContext = {
+  ...BLACK,
+  characteristics: {
+    ...BLACK.characteristics!,
+    riverNote: 'UPPER_REACH_SPRING_NOTE',
+    rainLagNote: 'UPPER_REACH_RAIN_LAG',
+  },
+};
+
+test('secondary gauge on a mixed-hydrology river gets neutral guidance only', () => {
+  const out = buildSecondaryGaugeSemantics(SECONDARY_CONTEXT, false);
+  assert.match(out, /Local hydrology is not established/);
+  assert.doesNotMatch(out, /river IS floatable|scraping over the gravel bars|strainers in the shut-ins|UPPER_REACH/);
+});
+
+test('verified ordinary river gets rising guidance and notes exactly once', () => {
+  const out = buildSecondaryGaugeSemantics(SECONDARY_CONTEXT, true);
+  for (const phrase of ['strainers in the shut-ins', 'UPPER_REACH_SPRING_NOTE', 'UPPER_REACH_RAIN_LAG']) {
+    assert.equal(out.split(phrase).length - 1, 1, phrase);
+  }
+});
+
+test('a secondary station never inherits the main stretch low-water description', () => {
+  // The Meramec's low-water text is the upper river's riffles and gravel bars;
+  // it had Eddy describing riffles at Eureka on the wide lower river.
+  for (const applies of [true, false]) {
+    const out = buildSecondaryGaugeSemantics(SECONDARY_CONTEXT, applies);
+    assert.doesNotMatch(out, /scraping over the gravel bars|river IS floatable/);
+    assert.equal(out.match(/LOW WATER GUIDANCE:/g)?.length, 1);
+    assert.match(out, /without assuming scraping, riffles, floatability/);
+  }
+});
+
+test('missing river context cannot default a secondary station to spring-fed advice', () => {
+  assert.match(buildSecondaryGaugeSemantics(null, true), /Local hydrology is not established/);
 });

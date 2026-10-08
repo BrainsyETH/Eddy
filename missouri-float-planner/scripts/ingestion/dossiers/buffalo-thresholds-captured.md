@@ -16,7 +16,7 @@
 |------------------------|----------|----------|------------|-------------|---------|
 | Boxley (07055646)      | < 200    | 200–350  | 350–1500   | 1500–6500   | > 6500  |
 | Ponca (07055660)       | < 100    | 100–200  | 200–900    | 900–1600    | > 1600  |
-| Pruitt (USGS # TBD)    | < 100    | 100–200  | 200–1000   | 1000–2000   | > 2000  |
+| Pruitt (07055680)    | < 100    | 100–200  | 200–1000   | 1000–2000   | > 2000  |
 | St. Joe (07056000)     | < 40     | 40–200   | 200–3000   | 3000–8000   | > 8000  |
 | Harriet (07056700)     | < 60     | 60–200   | 200–3000   | 3000–9370   | > 9370  |
 
@@ -53,9 +53,8 @@ separate: **good = lower third of Moderate, flowing (ideal) = upper two-thirds**
   good/flowing split (lower-third point); optimal_max = high = start of NPS
   High; dangerous = NPS Flood (a real "River Closed" closure — strongest
   possible dangerous anchor).
-- Pruitt (200–1000 Moderate) is the upper–middle boundary gauge; recorded here
-  but the 4 reaches map to Boxley/Ponca/St.Joe/Harriet. Pruitt's USGS number
-  still to confirm (not in the verified-7 list).
+- At the original July capture, Pruitt was recorded but not linked. The
+  October repair below verifies 07055680 and adds the Pruitt–Hasty reach.
 
 ## Reconciliation: why we dropped the stage (ft) chart
 
@@ -71,3 +70,14 @@ chart only as a rough stage cross-reference; do not drive the badge from it.)
   provider fetches 00060 + 00065). threshold_unit = cfs.
 - Find the Pruitt gauge USGS number if a finer upper/middle split is wanted.
 - good/flowing split is best-effort — flag for a local-knowledge pass.
+
+## October 8 repair
+
+Pruitt is now curated with 100 / 200 / null / 1000 / 1000 / 2000 cfs.
+No Good/Flowing sub-band has been added: NPS Moderate maps to Good throughout
+200–1000 cfs, preserving the measured source boundaries. The earlier lower-third
+policy is an editorial convention, not a separate NPS threshold.
+Pruitt represents the documented Pruitt–Hasty float (guide miles 29.9–36.7).
+An Ozark upstream extension remains unverified. Historical notes above are
+retained as capture provenance; St. Joe's live calibration has since changed
+and is deliberately untouched by this repair.

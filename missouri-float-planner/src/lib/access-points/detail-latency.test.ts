@@ -24,7 +24,7 @@ function fixture(options: { fail?: string; missing?: string } = {}) {
       tables.push(table);
       const rows: Record<string, unknown> = {
         rivers: { id: 'river', slug: 'river', name: 'River', state: 'MO', access: options.missing === 'access_points' ? [] : [points[0]], neighbours: points },
-        access_points: points, river_gauges: null, access_point_services: [],
+        access_points: points, river_sections: [], river_gauges: null, access_point_services: [],
         vessel_types: { slug: 'canoe' }, campsite_availability: [], campsite_facilities: [],
       };
       assert.ok(table in rows, `unexpected table ${table}`);

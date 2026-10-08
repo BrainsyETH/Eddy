@@ -41,6 +41,8 @@ export interface RiverGaugeRow {
    * favourite carries, so the whole river reads at a glance.
    */
   ladder: RiverGaugeLadder | null;
+  timestamp?: string | null;
+  suspect?: boolean;
 }
 
 /** One station's editorial bands, in the shape ReadingScale takes. */
