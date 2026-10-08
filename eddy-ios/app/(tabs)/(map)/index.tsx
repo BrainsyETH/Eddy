@@ -3135,6 +3135,7 @@ function MapContent() {
               onClose={clearRiver}
               onOpenGauge={onOpenGauge}
               onOpenRiver={(slug) => router.push(`/river/${slug}`)}
+              onOpenCamping={(params) => router.push({ pathname: '/camping', params })}
               // No source argument any more. This selection is on the river
               // already showing, so onSelectPin's own check — "did this tap pick
               // a new river" — answers false and records that × returns here.

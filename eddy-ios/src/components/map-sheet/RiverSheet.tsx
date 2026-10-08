@@ -20,7 +20,7 @@ import { ScenicImage } from '@/components/ScenicImage';
 // serviceTiers predicate in @eddy/types. This file draws rows; it does not hold
 // an opinion about what an outfitter is. Six surfaces once held six of those
 // opinions and they disagreed — see MAPS_SHEET_SERVICE_MODEL_PLAN.md.
-import { useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
 import { Linking, Pressable, StyleSheet, Text, View } from 'react-native';
 import { ControlIcon } from '@/components/ControlIcon';
 import type { MapAccessPoint } from '@eddy/types';
@@ -33,6 +33,10 @@ import { fonts, type as t } from '@/theme/typography';
 import { conditionBg, conditionChipBorder, conditionInk, conditionLabel } from '@/theme/conditions';
 import { Absent, Fact, LinkRow, Prose, Section } from './sections';
 import { RiverHead } from './RiverHead';
+import { CampingScrollGroup, CampingTableHeader, CampingTableRow } from '../CampingGrid';
+import { useAppConfig } from '@/hooks/useAppConfig';
+import { useCampingOverview } from '@/hooks/useCampingOverview';
+import { observedCampingOverview } from '@/lib/campingHeatmap';
 import { ReadingScale } from '../ReadingScale';
 import { EddySymbol } from '../EddySymbol';
 import { placeSymbol } from './placeSymbol';
@@ -58,6 +62,11 @@ export interface RiverTabProps {
    */
   onOpenAccess: (point: MapAccessPoint) => void;
   onOpenRiver: (slug: string) => void;
+  /**
+   * Open the camping screen scoped to this river — at one campground and night
+   * when a row was tapped. The map screen owns the route, as with the others.
+   */
+  onOpenCamping: (target: { river: string; facility?: string; night?: string }) => void;
 }
 
 /* ── Conditions ─────────────────────────────────────────────────────────── */
@@ -169,18 +178,93 @@ export function RiverConditionsTab({ river, onOpenGauge }: RiverTabProps) {
  * A service you cannot contact is a name. Phone first, then the town, which is
  * what tells you whether "Riverside Canoe" is the one twenty miles upstream.
  */
-export function RiverServicesTab({ river }: RiverTabProps) {
-  const sections = useMemo(() => serviceSections(river.services), [river.services]);
+export function RiverServicesTab({ river, onOpenCamping }: RiverTabProps) {
+  const { features } = useAppConfig();
+  const campingOn = features.campingHeatmap === true;
+  // The SAME cached overview the Today card and the camping screen read — the
+  // 21-night window Today already holds, so opening this tab after Today costs
+  // no request at all.
+  const { data: overview, now } = useCampingOverview(campingOn, 0, 21);
 
-  // Unreachable through the tab bar — riverTabs qualifies this tab on exactly
-  // this call — but the component is exported and must not render a bare gap if
-  // it is ever mounted directly.
-  if (!sections.length) {
+  // Campgrounds whose availability Eddy actually tracks, on this river.
+  const tracked = useMemo(
+    () =>
+      campingOn && overview
+        ? overview.tracked
+            .filter((row) => row.riverSlugs.includes(river.slug))
+            .sort((a, b) => a.name.localeCompare(b.name))
+        : [],
+    [campingOn, overview, river.slug],
+  );
+  // Trimmed to the nights that have observations, exactly as the camping
+  // screen trims its grid, so neither shows a run of empty trailing columns.
+  const grid = useMemo(
+    () => (overview && tracked.length ? observedCampingOverview(tracked, overview, now) : null),
+    [overview, tracked, now],
+  );
+  const openCampground = useCallback(
+    (facilityId: string) => onOpenCamping({ river: river.slug, facility: facilityId }),
+    [onOpenCamping, river.slug],
+  );
+
+  // A campground drawn with tonight's availability is not repeated underneath
+  // as a bare phone number. Only the Campgrounds group: an outfitter that also
+  // runs the campground still belongs under Rentals.
+  const sections = useMemo(() => {
+    const shown = new Set(tracked.map((row) => row.serviceId).filter(Boolean));
+    return serviceSections(river.services)
+      .map((section) =>
+        section.tier === 'camping'
+          ? { ...section, rows: section.rows.filter((service) => !shown.has(service.id)) }
+          : section,
+      )
+      .filter((section) => section.rows.length > 0);
+  }, [river.services, tracked]);
+
+  // Unreachable through the tab bar — riverTabs qualifies this tab on
+  // serviceSections — but the component is exported and must not render a bare
+  // gap if it is ever mounted directly.
+  if (!sections.length && !tracked.length) {
     return <Absent>Eddy lists no campgrounds or outfitters on this river yet.</Absent>;
   }
 
   return (
     <View>
+      {/* ── Can I get a site, and when ──────────────────────────────
+          The camping screen's grid, unchanged: nights across, one row per
+          campground, open-site counts in each cell and the weekend columns
+          marked. The same components and the same trimmed horizon, so a
+          campground reads identically here and one tap away. Tapping a row
+          opens its sites; the link under the grid opens the full screen. */}
+      {tracked.length && grid ? (
+        <Section title="Campsite availability">
+          <CampingScrollGroup
+            thumbnails
+            dateWidth={36}
+            columnCount={grid.horizon.nights.length}
+            // Only a new calendar horizon resets the date offset.
+            key={grid.horizon.startDate}
+          >
+            <CampingTableHeader overview={grid} now={now} />
+            {tracked.map((row) => (
+              <CampingTableRow
+                key={row.facilityId}
+                row={row}
+                overview={grid}
+                now={now}
+                onOpen={openCampground}
+              />
+            ))}
+          </CampingScrollGroup>
+          <LinkRow
+            label="See all camping"
+            detail={`Every night for campgrounds on the ${river.name}`}
+            symbol="campground"
+            onPress={() => onOpenCamping({ river: river.slug })}
+          />
+        </Section>
+      ) : null}
+
       {sections.map((section) => (
         <Section key={section.tier} title={section.title}>
           {section.rows.map((service) => {

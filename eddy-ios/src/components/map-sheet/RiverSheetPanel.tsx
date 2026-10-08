@@ -26,6 +26,7 @@ interface Props {
   onClose: () => void;
   onOpenGauge: (siteId: string) => void;
   onOpenRiver: (slug: string) => void;
+  onOpenCamping: (target: { river: string; facility?: string; night?: string }) => void;
   onSelectAccess: (point: MapAccessPoint) => void;
   onOpenAccess: (point: MapAccessPoint) => void;
   width: number;
