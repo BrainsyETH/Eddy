@@ -160,6 +160,32 @@ export function getKnowledgeForTarget(
 }
 
 /**
+ * River knowledge for a secondary gauge: the river's main section plus any
+ * subsection that names the gauge's town. No General primer and no blanket
+ * subsections, so a station is not handed upper-river detail as its own.
+ * Empty when the river has no section.
+ */
+export function getRiverKnowledgeForGauge(riverSlug: string, gaugeName: string | null): string {
+  const river = parseKnowledgeFile().rivers[riverSlug];
+  if (!river) return '';
+  const parts = river.main ? [river.main] : [];
+  const town = gaugeTown(gaugeName);
+  if (town) {
+    const pattern = new RegExp(`\\b${town.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i');
+    for (const [slug, text] of Object.entries(river.subsections)) {
+      if (pattern.test(text)) parts.push(`Section ${slug}:\n${text}`);
+    }
+  }
+  return parts.join('\n\n');
+}
+
+/** "Eureka" from "Meramec River near Eureka, MO": the last place phrase, without its state. */
+export function gaugeTown(gaugeName: string | null): string | null {
+  const place = gaugeName?.match(/.*\b(?:near|at|above|below)\s+(.+)$/i)?.[1];
+  return place?.replace(/,\s*[A-Z]{2}\.?$/, '').trim() || null;
+}
+
+/**
  * River slugs that have a `## <River>` section in EDDY_KNOWLEDGE.md. Used by the
  * onboarding-gate check to verify every active river has knowledge.
  */

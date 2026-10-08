@@ -112,9 +112,17 @@ export function buildConditionSemantics(
   ].join('\n');
 }
 
+const NEUTRAL_SECONDARY_LOW_WATER =
+  'LOW WATER GUIDANCE: Describe the supplied Low rating without assuming scraping, riffles, floatability, drought, or a release schedule unless the river knowledge describes this station\'s own stretch. Do not infer the cause.';
+
 /** Secondary stations have no resolved reach. Only use river-wide background
  * after a successful check proves there are no section hydrology overrides.
  * Keep all behavior here so a second background block cannot bypass the guard.
+ *
+ * Low-water guidance is neutral even then. A river's curated and type-default
+ * low-water text describes its main float stretch: the Meramec's "scraping on
+ * gravel bars, picking your line through riffles" is the upper river, and it
+ * had Eddy describing riffles at Eureka, far down the wide lower river.
  */
 export function buildSecondaryGaugeSemantics(
   riverCtx: RiverContext | null,
@@ -123,12 +131,15 @@ export function buildSecondaryGaugeSemantics(
   if (!riverCtx || !riverBehaviorApplies) {
     return [
       'Local hydrology is not established for this station. River-wide behavior may not apply here.',
-      'LOW WATER GUIDANCE: Describe the supplied Low rating without assuming scraping, floatability, drought, or a release schedule. Do not infer the cause.',
+      NEUTRAL_SECONDARY_LOW_WATER,
       'RISING WATER GUIDANCE: Describe the measured rise and condition-based caution without attributing it to rain, springs, or dam releases.',
     ].join('\n');
   }
+  const riverWide = buildConditionSemantics(riverCtx)
+    .split('\n')
+    .map(line => line.startsWith('LOW WATER GUIDANCE:') ? NEUTRAL_SECONDARY_LOW_WATER : line);
   return [
-    buildConditionSemantics(riverCtx),
+    ...riverWide,
     riverCtx.characteristics?.riverNote,
     riverCtx.characteristics?.rainLagNote,
   ].filter(Boolean).join('\n');

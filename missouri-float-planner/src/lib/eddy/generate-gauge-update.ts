@@ -13,6 +13,7 @@ import Anthropic from '@anthropic-ai/sdk';
 import type { ConditionCode } from '@/types/api';
 import { getRiverContext, DEFAULT_TIMEZONE } from '@/lib/rivers/context';
 import { buildSecondaryGaugeSemantics } from '@/lib/eddy/condition-semantics';
+import { getRiverKnowledgeForGauge } from '@/lib/eddy/knowledge';
 import { getLocalDateStrings } from '@/lib/social/local-time';
 import { createAdminClient } from '@/lib/supabase/admin';
 import type { ConditionThresholds } from '@/lib/conditions';
@@ -326,7 +327,7 @@ WHO READS THIS: a floater checking this stretch. The app already shows this gaug
 
 VOICE: A local outfitter talking to a customer. Warm, lively, and a little playful when conditions allow, with the feel of someone who enjoys this river. Use concrete imagery and natural turns of phrase, not forced jokes, otter puns, or stock catchphrases. Keep warnings direct. Plain words, tight, no fluff. Use river terms naturally: put-in, take-out, riffle, gravel bar.
 
-SCOPE: You are commenting on ONE gauge, not the whole river. Name its town once in the summary and once in the full text, wherever it reads naturally, and keep current condition claims to that location. Local river knowledge is background, not evidence of today's scraping, depth or floatability at other places. Never compare raw heights across stations or infer relative trends from snapshots. When the supplied notes say the river changes character above or below this station (a big spring, tributary or dam), make clear this station speaks only for its own stretch.
+SCOPE: You are commenting on ONE gauge, not the whole river. Name its town once in the summary and once in the full text, wherever it reads naturally, and keep current condition claims to that location. Local river knowledge is background, not evidence of today's scraping, depth or floatability at other places. Never compare raw heights across stations or infer relative trends from snapshots. When the supplied notes say the river changes character above or below this station (a big spring, tributary or dam), make clear this station speaks only for its own stretch. [RIVER KNOWLEDGE] covers the whole river: a detail about the upper river, another town or another section is not a detail about this station. Use what the knowledge says about this station's part of the river, and when it says nothing specific, describe only what the supplied facts support.
 
 OUTPUT FORMAT (strict):
 Your response MUST begin with the exact [CLAIMS] line supplied in the authoritative facts. Then write three blocks, each starting with its marker on its own line: [SUMMARY], [EDDY_READ], [FULL]. Use each marker once, as a header only. Output nothing else.
@@ -369,13 +370,20 @@ function buildGaugePrompt(
   lines.push(`Date: ${dayOfWeek}, ${dateStr}`);
   lines.push('');
   lines.push(`Generate a secondary-gauge update for: ${target.gaugeName} on the ${target.riverName}.`);
-  if (target.distanceFromSectionMiles != null) {
-    lines.push(`Position: river mile ${target.distanceFromSectionMiles.toFixed(1)} downstream.`);
-  }
+  // distanceFromSectionMiles is deliberately not in the prompt. It is the
+  // gauge's distance from its assigned reach (accuracy warnings), not a river
+  // mile, and labelled as one it had Eddy put Eureka "at river mile 5.0 this
+  // close to the Missouri confluence".
 
   lines.push('');
   lines.push('[CONDITION SEMANTICS — how to interpret conditions on THIS river]');
   lines.push(buildSecondaryGaugeSemantics(riverCtx, riverBehaviorApplies));
+  const riverKnowledge = getRiverKnowledgeForGauge(target.riverSlug, target.gaugeName);
+  if (riverKnowledge) {
+    lines.push('');
+    lines.push('[RIVER KNOWLEDGE — about the whole river; use only what fits this station\'s stretch, do not recite]');
+    lines.push(riverKnowledge);
+  }
   lines.push('');
   lines.push('[THIS GAUGE]');
   lines.push(reportFactsPrompt(facts));
