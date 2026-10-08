@@ -75,6 +75,22 @@
     },
     {
       "provider": "usgs",
+      "siteId": "07055680",
+      "name": "Buffalo River at Pruitt, AR",
+      "lat": 36.0591666667,
+      "lon": -93.1377777778,
+      "paramsAvailable": [
+        "00060",
+        "00065"
+      ],
+      "drainageAreaSqMi": 190,
+      "servesSections": [
+        "pruitt-hasty"
+      ],
+      "knownBias": "Pruitt–Hasty reference. Little Buffalo joins downstream of the gauge; do not extrapolate upstream to Ozark without review."
+    },
+    {
+      "provider": "usgs",
       "siteId": "07055780",
       "name": "Buffalo River at Carver Access near Hasty, AR",
       "lat": 35.98313889,
@@ -237,7 +253,9 @@
         "dropRateNote": "UNKNOWN — capture"
       },
       "hazards": [],
-      "localKnowledge": []
+      "localKnowledge": [],
+      "riverMileStart": null,
+      "riverMileEnd": 6
     },
     {
       "slug": "upper-ponca-pruitt",
@@ -344,14 +362,104 @@
       "localKnowledge": [
         "Floatable season is typically March through June, occasionally into July with rainfall (Buffalo Outdoor Center).",
         "The most level-sensitive reach on the river: too low and you drag, too high and the bluffs are hazardous."
-      ]
+      ],
+      "riverMileStart": 6,
+      "riverMileEnd": 29.9
+    },
+    {
+      "slug": "pruitt-hasty",
+      "name": "Pruitt to Hasty",
+      "description": "NPS identifies this float as an alternative when conditions upriver are too low. Little Buffalo joins before Hasty.",
+      "putIn": {
+        "name": "Pruitt"
+      },
+      "takeOut": {
+        "name": "Hasty"
+      },
+      "publishedLengthMiles": 7,
+      "representativeGauge": {
+        "siteId": "07055680",
+        "rationale": "Pruitt/Hwy 7 gauge at the launch; NPS Paddle Pruitt to Hasty documents this distinct low-water option."
+      },
+      "thresholds": [
+        {
+          "level": "too_low",
+          "value": 100,
+          "unit": "cfs",
+          "referenceGauge": "07055680",
+          "referenceGaugeIsPolled": true,
+          "source": "NPS BUFF Float Guide captured chart; paddling page confirms 2000 cfs ceiling",
+          "sourceUrl": "https://www.nps.gov/buff/planyourvisit/paddling.htm",
+          "confidence": "high"
+        },
+        {
+          "level": "low",
+          "value": 200,
+          "unit": "cfs",
+          "referenceGauge": "07055680",
+          "referenceGaugeIsPolled": true,
+          "source": "NPS BUFF Float Guide captured chart; paddling page confirms 2000 cfs ceiling",
+          "sourceUrl": "https://www.nps.gov/buff/planyourvisit/paddling.htm",
+          "confidence": "high"
+        },
+        {
+          "level": "optimal_max",
+          "value": 1000,
+          "unit": "cfs",
+          "referenceGauge": "07055680",
+          "referenceGaugeIsPolled": true,
+          "source": "NPS BUFF Float Guide captured chart; paddling page confirms 2000 cfs ceiling",
+          "sourceUrl": "https://www.nps.gov/buff/planyourvisit/paddling.htm",
+          "confidence": "high"
+        },
+        {
+          "level": "high",
+          "value": 1000,
+          "unit": "cfs",
+          "referenceGauge": "07055680",
+          "referenceGaugeIsPolled": true,
+          "source": "NPS BUFF Float Guide captured chart; paddling page confirms 2000 cfs ceiling",
+          "sourceUrl": "https://www.nps.gov/buff/planyourvisit/paddling.htm",
+          "confidence": "high"
+        },
+        {
+          "level": "dangerous",
+          "value": 2000,
+          "unit": "cfs",
+          "referenceGauge": "07055680",
+          "referenceGaugeIsPolled": true,
+          "source": "NPS BUFF Float Guide captured chart; paddling page confirms 2000 cfs ceiling",
+          "sourceUrl": "https://www.nps.gov/buff/planyourvisit/paddling.htm",
+          "confidence": "high"
+        }
+      ],
+      "publishedFloatTimes": [],
+      "characteristics": {
+        "isSpringFed": false,
+        "hydroType": "rain_flashy",
+        "primaryHazards": [
+          "flash_flood",
+          "strainer"
+        ],
+        "lowWaterMeaning": "Can remain floatable when upstream sections are too low; judge from Pruitt readings.",
+        "risingWaterHazards": "Rain-driven rises; tributary inflow changes conditions downstream.",
+        "rainLagHours": null,
+        "rainLagNote": "Unknown",
+        "dropRateNote": "NPS documents longer low-water usability than upriver; no measured recession rate."
+      },
+      "hazards": [],
+      "localKnowledge": [
+        "The Pruitt-to-Hasty float can remain an option when upriver conditions are too low, per NPS."
+      ],
+      "riverMileStart": 29.9,
+      "riverMileEnd": 36.7
     },
     {
       "slug": "middle-pruitt-gilbert",
-      "name": "Middle (Pruitt to Gilbert / Tyler Bend)",
+      "name": "Middle (Hasty to Gilbert / Tyler Bend)",
       "description": "Longer float season, mellower than the upper. Carver, Hasty, Mt. Hersey, Woolum, Tyler Bend, Gilbert.",
       "putIn": {
-        "name": "Pruitt",
+        "name": "Hasty",
         "lat": null,
         "lon": null
       },
@@ -437,7 +545,9 @@
         "dropRateNote": "UNKNOWN — capture"
       },
       "hazards": [],
-      "localKnowledge": []
+      "localKnowledge": [],
+      "riverMileStart": 36.7,
+      "riverMileEnd": 76.9
     },
     {
       "slug": "lower-gilbert-buffalocity",
@@ -532,7 +642,9 @@
       "hazards": [],
       "localKnowledge": [
         "Note: this reach reads more as flatwater than the flashy upper — a candidate for per-section river_type divergence if the uniform rain_flashy framing proves too conservative here."
-      ]
+      ],
+      "riverMileStart": 76.9,
+      "riverMileEnd": null
     }
   ],
   "accessPoints": [
@@ -1330,5 +1442,6 @@
       "reviewedAt": null,
       "notes": "Validate connected downstream geometry, access snaps and trip distances for the corridor."
     }
-  }
+  },
+  "_gaugeRepair": "2026-10-08: owner authorized Buffalo repair. Section gauge assignments and guide-mile bounds recorded below. Pruitt added (07055680); NPS Pruitt–Hasty reach separated. Ozark extension unverified. Migration is authoritative for existing calibrations; do not re-ingest historical St. Joe thresholds."
 }

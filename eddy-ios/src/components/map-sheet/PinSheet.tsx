@@ -27,6 +27,7 @@ import { useSharedValue, type SharedValue } from 'react-native-reanimated';
 import type {
   AccessPointDetailResponse,
   MapAccessPoint,
+  MapGauge,
   NearbyAccessPoint,
 } from '@eddy/types';
 import { useTheme } from '@/theme/ThemeProvider';
@@ -39,7 +40,8 @@ import { GlanceSlot } from './GlanceSlot';
 import { MapSheet, SheetPresentation, type SheetMetrics } from './MapSheet';
 import { PinCallout } from './PinCallout';
 import { PlaceHead } from './PlaceHead';
-import { AccessGaugeReading, LinkRow } from './sections';
+import { AccessGaugeSelector } from './AccessGaugeSelector';
+import { LinkRow } from './sections';
 import { SheetTabBar } from './SheetTabBar';
 import { SheetPager, mountedPages } from './SheetPager';
 import { accessTabs, initialTabKey, type TabKey } from './tabs';
@@ -70,6 +72,8 @@ export interface PinSheetProps {
    * movement the reservation exists to prevent. See peekSlot.ts.
    */
   riverHasGauges: boolean;
+  gauges?: MapGauge[];
+  riverGaugeCount?: number;
   onSetPutIn: () => void;
   onSetTakeOut: () => void;
   onOpenRiver: (slug: string) => void;
@@ -366,6 +370,8 @@ function PinSheetHeader({
   detail,
   status,
   gaugeFacts,
+  gauges,
+  riverGaugeCount,
   part = 'all',
   peekSlot,
   backLabel,
@@ -447,31 +453,16 @@ function PinSheetHeader({
       {/* A stable water row above the initial actions; both scroll with the tab. */}
       {slot === 'water' ? (
         <GlanceSlot slot={slot} ready={detailSettled}>
-          {/* Three states, ONE component, so the box cannot change size between
-              them: a chip-shaped placeholder, the reading, or — when the request
-              settled with nothing — the terminal line. */}
-          {!detailSettled ? (
-            <AccessGaugeReading status={null} onOpenGauge={onOpenGauge} compact pending />
-          ) : detail?.gaugeStatus ? (
-            <AccessGaugeReading status={detail.gaugeStatus} onOpenGauge={onOpenGauge} compact />
-          ) : (
-            <AccessGaugeReading
-              status={null}
-              onOpenGauge={onOpenGauge}
-              compact
-              pending
-              // ── A FAILED REQUEST IS NOT A FACT ABOUT THE RIVER ──────────
-              // "No gauge grades this stretch" is a claim about Eddy's data and
-              // may only be made from Eddy's data. The request that failed
-              // never said anything, and reporting silence as an answer is the
-              // same mistake the Levels tab was making one sheet over — there
-              // it told a station wearing its own verdict that it had never
-              // been rated. Same height either way, so the slot is unaffected.
-              pendingLabel={
-                detailFailed ? 'Conditions unavailable right now' : 'No gauge grades this stretch'
-              }
-            />
-          )}
+          <AccessGaugeSelector
+            key={pin.id}
+            status={detail?.gaugeStatus ?? null}
+            gauges={gauges ?? []}
+            gaugeCount={riverGaugeCount ?? 0}
+            riverSlug={pin.riverSlug ?? ''}
+            onOpenGauge={onOpenGauge}
+            pending={!detailSettled}
+            unavailableLabel={detailFailed ? 'Conditions unavailable right now' : 'No gauge grades this stretch'}
+          />
         </GlanceSlot>
       ) : gaugeFacts ? (
         // A gauge needs no reservation: every word of this row is on the pin

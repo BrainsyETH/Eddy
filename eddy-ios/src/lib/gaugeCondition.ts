@@ -17,7 +17,7 @@
 import type { MapGauge } from '@eddy/types';
 import { classifyReading, hasLadder } from '@eddy/conditions/condition-ladder';
 import type { ConditionCode } from '@eddy/conditions';
-import { formatReading } from '@/lib/readingCopy';
+import { formatReading } from './readingCopy';
 
 /**
  * The association to grade and navigate by.
@@ -41,11 +41,14 @@ export function gaugeLink(gauge: MapGauge, riverSlug?: string | null) {
   return links?.find((t) => t.isPrimary) ?? links?.[0] ?? null;
 }
 
-/** Every gauge that rates this river, primary first. */
+/** Every gauge that rates this river, upstream first when miles are known. */
 export function gaugesForRiver(gauges: MapGauge[], riverSlug: string): MapGauge[] {
   return gauges
     .filter((g) => g.thresholds?.some((t) => t.riverSlug === riverSlug))
     .sort((a, b) => {
+      const am = gaugeLink(a, riverSlug)?.riverMile;
+      const bm = gaugeLink(b, riverSlug)?.riverMile;
+      if (am != null || bm != null) return (am ?? Infinity) - (bm ?? Infinity) || a.name.localeCompare(b.name);
       const ap = gaugeLink(a, riverSlug)?.isPrimary ? 0 : 1;
       const bp = gaugeLink(b, riverSlug)?.isPrimary ? 0 : 1;
       return ap - bp || a.name.localeCompare(b.name);

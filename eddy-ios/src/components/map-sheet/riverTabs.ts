@@ -29,6 +29,8 @@ export interface RiverGaugeRow {
   code: ConditionCode;
   reading: string | null;
   isPrimary: boolean;
+  timestamp?: string | null;
+  suspect?: boolean;
 }
 
 export interface RiverSheetData {

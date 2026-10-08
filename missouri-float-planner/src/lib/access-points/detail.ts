@@ -350,17 +350,40 @@ export async function getAccessPointDetail(
 }
 
 // Helper to get gauge status for the river (segment-aware based on access point river mile)
-async function getGaugeStatus(
+export async function getGaugeStatus(
   supabase: SupabaseServerClient,
   riverId: string,
   accessPointRiverMile: number
 ): Promise<AccessPointGaugeStatus | null> {
   try {
-    // First, try to find the nearest gauge at or upstream of the access point
-    // (largest river_mile that is <= access point's river mile)
+    // A curated reach wins over proximity, just as in the planner RPC.
+    // Query errors and broken explicit assignments must not silently rate a
+    // stretch using the river-wide primary (possibly across a dam).
+    const { data: sections, error: sectionError } = await supabase
+      .from('river_sections')
+      .select('primary_gauge_station_id, river_mile_start, river_mile_end, sort_order')
+      .eq('river_id', riverId)
+      .order('sort_order');
+    if (sectionError) return null;
+    const section = sections?.find((s) => s.primary_gauge_station_id
+      && (s.river_mile_start == null || accessPointRiverMile >= Number(s.river_mile_start))
+      && (s.river_mile_end == null || accessPointRiverMile < Number(s.river_mile_end)));
     let riverGauge = null;
+    if (section?.primary_gauge_station_id) {
+      const { data, error } = await supabase.from('river_gauges')
+        .select(`gauge_station_id, is_primary, river_mile, threshold_unit,
+          level_too_low, level_low, level_optimal_min, level_optimal_max,
+          level_high, level_dangerous, flood_stage_ft,
+          gauge_stations!inner(id, usgs_site_id, site_id_external, provider, name, active)`)
+        .eq('river_id', riverId)
+        .eq('gauge_station_id', section.primary_gauge_station_id)
+        .eq('gauge_stations.active', true)
+        .maybeSingle();
+      if (error || !data) return null;
+      riverGauge = data;
+    }
 
-    if (accessPointRiverMile > 0) {
+    if (!riverGauge && accessPointRiverMile >= 0) {
       const { data: nearestGauge } = await supabase
         .from('river_gauges')
         .select(
@@ -375,7 +398,8 @@ async function getGaugeStatus(
           level_optimal_max,
           level_high,
           level_dangerous,
-          gauge_stations (
+          flood_stage_ft,
+          gauge_stations!inner (
             id,
             usgs_site_id,
             site_id_external,
@@ -385,6 +409,7 @@ async function getGaugeStatus(
         `
         )
         .eq('river_id', riverId)
+        .eq('gauge_stations.active', true)
         .not('river_mile', 'is', null)
         .lte('river_mile', accessPointRiverMile)
         .order('river_mile', { ascending: false })
@@ -412,7 +437,8 @@ async function getGaugeStatus(
           level_optimal_max,
           level_high,
           level_dangerous,
-          gauge_stations (
+          flood_stage_ft,
+          gauge_stations!inner (
             id,
             usgs_site_id,
             site_id_external,
@@ -423,6 +449,7 @@ async function getGaugeStatus(
         )
         .eq('river_id', riverId)
         .eq('is_primary', true)
+        .eq('gauge_stations.active', true)
         .single();
 
       riverGauge = primaryGauge;
@@ -469,6 +496,7 @@ async function getGaugeStatus(
       levelOptimalMax: riverGauge.level_optimal_max,
       levelHigh: riverGauge.level_high,
       levelDangerous: riverGauge.level_dangerous,
+      floodStageFt: riverGauge.flood_stage_ft,
       thresholdUnit: (riverGauge.threshold_unit || 'ft') as 'ft' | 'cfs',
     };
 

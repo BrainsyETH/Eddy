@@ -129,7 +129,7 @@ import { useRiverHazards } from '@/hooks/useRiverHazards';
 import { usePublicLands } from '@/hooks/usePublicLands';
 import { flowBandColor, flowBandLabel } from '@/theme/flow';
 import { flowBandFor, flowMagnitude, flowReadingText } from '@/lib/gaugeFlow';
-import { gaugePlaceLabel } from '@/lib/gaugeCondition';
+import { gaugePlaceLabel, gaugeConditionCode, gaugeReadingText } from '@/lib/gaugeCondition';
 import { formatReading, readingAge } from '@/lib/readingCopy';
 import { readRiver } from '@/lib/riverCache';
 import { relativeAge } from '@eddy/conditions/dam-schedule-copy';
@@ -1706,8 +1706,9 @@ function MapContent() {
     if (!river) return null;
 
     const index = readingIndex(network.readings ?? []);
-    const gauges = (river.gauges ?? []).map((gauge) => {
+    const gaugeRows = (river.gauges ?? []).map((gauge) => {
       const reading = index.get(`${river.id}:${gauge.site_id}`) ?? index.get(gauge.site_id) ?? null;
+      const known = gauges?.find(candidate => candidate.usgsSiteId === gauge.site_id);
       const unit = gauge.threshold_unit;
       const value =
         unit === 'ft'
@@ -1724,11 +1725,14 @@ function MapContent() {
         // Graded against THIS river's ladder — one physical gauge can be
         // primary for two rivers with different thresholds, and the same
         // number is a different verdict on each.
-        code: gradeGauge(river, gauge, index),
-        reading: value != null && unit ? formatReading(value, unit) : null,
+        code: known ? gaugeConditionCode(known, selectedSlug) : gradeGauge(river, gauge, index),
+        reading: known ? gaugeReadingText(known, selectedSlug) : value != null && unit ? formatReading(value, unit) : null,
         isPrimary: gauge.is_primary,
+        suspect: known?.readingSuspect ?? false,
+        riverMile: known?.thresholds?.find(link => link.riverSlug === selectedSlug)?.riverMile ?? null,
+        timestamp: known?.readingTimestamp ?? null,
       };
-    });
+    }).sort((a, b) => (a.riverMile ?? Infinity) - (b.riverMile ?? Infinity) || a.name.localeCompare(b.name));
 
     return {
       slug: river.slug,
@@ -1749,7 +1753,7 @@ function MapContent() {
         network.collection.features.find((feature) => feature.properties.slug === selectedSlug)
           ?.properties.code ??
         'unknown',
-      gauges,
+      gauges: gaugeRows,
       accesses: drawnAccessPoints
         .filter((entry) => (entry.riverSlug ?? drawnSlug) === selectedSlug)
         .map((entry) => entry.point),
@@ -3101,6 +3105,8 @@ function MapContent() {
                 pinAccessPoint.riverMile > (planner.putIn?.riverMile ?? Infinity)
               }
               riverHasGauges={riverHasGauges}
+              gauges={gauges ?? []}
+              riverGaugeCount={network.bySlug.get(selectedPin.riverSlug ?? '')?.gauges?.length ?? 0}
               onSetPutIn={() => {
                 if (!pinAccessPoint) return;
                 planner.choosePutIn(pinAccessPoint);

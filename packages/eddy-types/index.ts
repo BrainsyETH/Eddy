@@ -981,6 +981,8 @@ export interface MapGauge {
         riverName: string;
         riverSlug: string | null;
         isPrimary: boolean;
+        /** Upstream-to-downstream ordering; absent on older cached responses. */
+        riverMile?: number | null;
         thresholdUnit: 'ft' | 'cfs';
         levelTooLow: number | null;
         levelLow: number | null;

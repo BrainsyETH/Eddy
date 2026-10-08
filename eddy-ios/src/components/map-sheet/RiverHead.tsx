@@ -43,6 +43,9 @@
 // a sheet about one river. A river's own verdict is its condition, which is what
 // the map already colours its line with.
 
+import { useState } from 'react';
+import { gaugeFreshness } from '@eddy/conditions/gauge-freshness';
+import { GaugeMenu } from '../GaugeMenu';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { ControlIcon } from '@/components/ControlIcon';
 import { useTheme } from '@/theme/ThemeProvider';
@@ -76,11 +79,15 @@ export function RiverHead({
 }) {
   const { colors } = useTheme();
   const says = selectEddySays(useCachedEddyUpdate(river.slug));
+  const [selectedSiteId, setSelectedSiteId] = useState<string | null>(null);
 
   // The station the river is graded on. Falls back to the first, because a river
   // with gauges but none flagged primary still has a reading worth showing and
   // an empty row would be a worse answer than an unflagged one.
-  const primary = river.gauges.find((gauge) => gauge.isPrimary) ?? river.gauges[0] ?? null;
+  const defaultGauge = river.gauges.find((gauge) => gauge.isPrimary) ?? river.gauges[0] ?? null;
+  const primary = river.gauges.find(gauge => gauge.siteId === selectedSiteId) ?? defaultGauge;
+  const shownCode = primary && (primary.suspect || gaugeFreshness(primary.timestamp) !== 'live')
+    ? 'unknown' : primary?.code ?? river.code;
 
   return (
     <View style={styles.header}>
@@ -97,7 +104,7 @@ export function RiverHead({
           <View
             style={[
               styles.badge,
-              { backgroundColor: conditionColor(river.code), borderColor: '#FFFFFF' },
+              { backgroundColor: conditionColor(shownCode), borderColor: '#FFFFFF' },
             ]}
           />
         </View>
@@ -133,24 +140,29 @@ export function RiverHead({
           target — the same shape AccessGaugeReading takes in the pin sheet's
           peek, because a reader meets both within seconds and they are the same
           kind of claim about the same water. */}
+      {primary ? <GaugeMenu
+        options={river.gauges.map(gauge => ({ ...gauge, id: gauge.siteId }))}
+        selectedId={primary.siteId}
+        onSelect={setSelectedSiteId}
+      /> : null}
       {primary ? (
         <Pressable
           onPress={() => onOpenGauge(primary.siteId)}
           style={({ pressed }) => [styles.state, { opacity: pressed ? 0.6 : 1 }]}
           accessibilityRole="button"
-          accessibilityLabel={`${river.name}, ${conditionLongLabel(river.code)}. Open ${primary.name}`}
+          accessibilityLabel={`${river.name}, ${conditionLongLabel(shownCode)}. Open ${primary.name}`}
         >
           <View
             style={[
               styles.chip,
               {
-                backgroundColor: conditionBg(river.code),
-                borderColor: conditionChipBorder(river.code),
+                backgroundColor: conditionBg(shownCode),
+                borderColor: conditionChipBorder(shownCode),
               },
             ]}
           >
-            <Text style={[styles.chipText, { color: conditionInk(river.code) }]}>
-              {conditionLongLabel(river.code)}
+            <Text style={[styles.chipText, { color: conditionInk(shownCode) }]}>
+              {conditionLongLabel(shownCode)}
             </Text>
           </View>
           {primary.reading ? (
@@ -174,7 +186,7 @@ export function RiverHead({
           most: this is a glance above a collapsed detent, and a paragraph here
           would push the tabs off the peek. Absent whenever the app has not
           already fetched — see the header on why this sheet does not ask. */}
-      {says ? (
+      {says && primary?.siteId === defaultGauge?.siteId ? (
         <Text style={[styles.says, { color: colors.textMuted }]} numberOfLines={2}>
           {says.text}
         </Text>

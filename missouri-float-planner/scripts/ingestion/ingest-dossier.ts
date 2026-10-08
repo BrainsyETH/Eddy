@@ -32,6 +32,7 @@
  * after validate_river_data() runs clean.
  */
 
+import { sectionGaugeAssignment } from './section-gauges';
 import * as fs from 'fs';
 import * as path from 'path';
 import { getScriptClient } from '../lib/db';
@@ -179,6 +180,16 @@ if (primarySiteId && !perGauge.has(primarySiteId)) {
     'will report no_primary_gauge until a primary is designated. Add primaryGaugeSiteId ' +
     '(one of the calibrated gauges) to the dossier before launch.'
   );
+}
+
+// Validate bounded reach assignments during dry runs, before any database writes.
+const plannedStations = new Map<string, string>([...perGauge.keys()].map(siteId => [siteId, siteId]));
+for (const section of dossier.sections ?? []) {
+  try {
+    sectionGaugeAssignment(section, plannedStations);
+  } catch (error) {
+    problems.push(`[auto] section ${section.slug}: ${error instanceof Error ? error.message : String(error)}`);
+  }
 }
 
 // ---------- report gate results ----------
@@ -340,7 +351,9 @@ if (!apply) { console.log('\nDry run complete — re-run with --apply to write.'
   }
 
   for (const s of sectionsRows) {
-    const { error } = await db.from('river_sections').upsert({ river_id: river.id, ...s }, { onConflict: 'river_id,section_slug' });
+    const source = dossier.sections.find((section: { slug: string }) => section.slug === s.section_slug);
+    const assignment = sectionGaugeAssignment(source, stationIdBySite);
+    const { error } = await db.from('river_sections').upsert({ river_id: river.id, ...s, ...assignment }, { onConflict: 'river_id,section_slug' });
     if (error) throw new Error(`river_sections ${s.section_slug}: ${error.message}`);
   }
   if (sectionsRows.length) console.log(`  ✅ ${sectionsRows.length} river_sections`);
