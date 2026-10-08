@@ -33,6 +33,7 @@ import { fonts, type as t } from '@/theme/typography';
 import { conditionBg, conditionChipBorder, conditionInk, conditionLabel } from '@/theme/conditions';
 import { Absent, Fact, LinkRow, Prose, Section } from './sections';
 import { RiverHead } from './RiverHead';
+import { ReadingScale } from '../ReadingScale';
 import { EddySymbol } from '../EddySymbol';
 import { placeSymbol } from './placeSymbol';
 import { accessAmenityLabelFor, drawableAmenitiesFor } from './accessAmenities';
@@ -90,38 +91,61 @@ export function RiverConditionsTab({ river, onOpenGauge }: RiverTabProps) {
   return (
     <View>
       <Section title="Gauges">
-        {river.gauges.map((gauge) => (
+        {river.gauges.map((gauge, index) => (
           <Pressable
             key={gauge.siteId}
             onPress={() => onOpenGauge(gauge.siteId)}
-            style={({ pressed }) => [styles.gaugeRow, { opacity: pressed ? 0.6 : 1 }]}
+            style={({ pressed }) => [
+              styles.gaugeBlock,
+              index > 0 && [styles.gaugeDivider, { borderTopColor: colors.border }],
+              { opacity: pressed ? 0.6 : 1 },
+            ]}
             accessibilityRole="button"
-            accessibilityLabel={`${gauge.name}, ${conditionLabel(gauge.code)}. Open the gauge`}
+            accessibilityLabel={`${gauge.name}, ${conditionLabel(gauge.code)}${gauge.reading ? `, ${gauge.reading}` : ''}. Open the gauge`}
           >
-            <View style={styles.gaugeText}>
-              <Text style={[styles.rowName, { color: colors.text }]} numberOfLines={1}>
-                {gauge.name}
-              </Text>
-              {gauge.reading ? (
-                <Text style={[styles.rowMeta, { color: colors.textMuted }]} numberOfLines={1}>
-                  {gauge.reading}
-                  {gauge.isPrimary && river.gauges.length > 1 ? ' · primary' : ''}
+            <View style={styles.gaugeRow}>
+              <View style={styles.gaugeText}>
+                <Text style={[styles.rowName, { color: colors.text }]} numberOfLines={1}>
+                  {gauge.name}
                 </Text>
-              ) : null}
+                {gauge.reading ? (
+                  <Text style={[styles.rowMeta, { color: colors.textMuted }]} numberOfLines={1}>
+                    {gauge.reading}
+                    {gauge.isPrimary && river.gauges.length > 1 ? ' · primary' : ''}
+                  </Text>
+                ) : null}
+              </View>
+              <View
+                style={[
+                  styles.chip,
+                  {
+                    backgroundColor: conditionBg(gauge.code),
+                    borderColor: conditionChipBorder(gauge.code),
+                  },
+                ]}
+              >
+                <Text style={[styles.chipText, { color: conditionInk(gauge.code) }]}>
+                  {conditionLabel(gauge.code)}
+                </Text>
+              </View>
             </View>
-            <View
-              style={[
-                styles.chip,
-                {
-                  backgroundColor: conditionBg(gauge.code),
-                  borderColor: conditionChipBorder(gauge.code),
-                },
-              ]}
-            >
-              <Text style={[styles.chipText, { color: conditionInk(gauge.code) }]}>
-                {conditionLabel(gauge.code)}
-              </Text>
-            </View>
+
+            {/* ── The whole river at a glance ─────────────────────────
+                The same band track a favourite carries, once per station, so
+                where each gauge sits between too low and flood reads down the
+                column without opening any of them. A station whose reading is
+                missing still draws its ladder — the bands are the legend for
+                that stretch even when today's marker cannot be placed. A gauge
+                with no ladder draws nothing, and ReadingScale declines a ladder
+                of fewer than two bands on its own. */}
+            {gauge.ladder ? (
+              <ReadingScale
+                thresholds={gauge.ladder}
+                value={gauge.value}
+                unit={gauge.ladder.thresholdUnit}
+                muted={gauge.code === 'unknown' && gauge.value != null}
+              />
+            ) : null}
           </Pressable>
         ))}
       </Section>
@@ -368,6 +392,10 @@ const styles = StyleSheet.create({
   // 44pt frame, the heading scale and the close this file used to declare.
   headerLink: { marginTop: 2 },
   gaugeRow: { flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 44 },
+  // Each station is a block — its row, then its track — so the column reads as
+  // one legend per gauge rather than a list with bars between the rows.
+  gaugeBlock: { paddingVertical: 10 },
+  gaugeDivider: { borderTopWidth: StyleSheet.hairlineWidth },
   gaugeText: { flex: 1, minWidth: 0 },
   // Taller than the other rows because it carries a 44pt thumbnail, and the
   // vertical padding is what keeps two photographs from touching in a list of

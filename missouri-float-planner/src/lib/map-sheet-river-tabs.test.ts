@@ -42,7 +42,7 @@ function hazard(id: string): Hazard {
 }
 
 function gauge(siteId: string, isPrimary = false): RiverSheetData['gauges'][number] {
-  return { siteId, name: `Gauge ${siteId}`, code: 'good', reading: '385 cfs', isPrimary };
+  return { siteId, name: `Gauge ${siteId}`, code: 'good', reading: '385 cfs', isPrimary, value: 385, ladder: null };
 }
 
 function service(id: string, over: Partial<RiverService> = {}): RiverService {

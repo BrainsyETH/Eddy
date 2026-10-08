@@ -29,8 +29,31 @@ export interface RiverGaugeRow {
   code: ConditionCode;
   reading: string | null;
   isPrimary: boolean;
+  /**
+   * The raw number `reading` was formatted from, in `ladder.thresholdUnit`.
+   * Kept beside the string because the band track places its marker by
+   * comparing numbers, and parsing "1,240 cfs" back out would be absurd.
+   */
+  value: number | null;
+  /**
+   * THIS river's ladder for this station, or null when it has none. What the
+   * Conditions tab draws each gauge's band track from — the same track a
+   * favourite carries, so the whole river reads at a glance.
+   */
+  ladder: RiverGaugeLadder | null;
   timestamp?: string | null;
   suspect?: boolean;
+}
+
+/** One station's editorial bands, in the shape ReadingScale takes. */
+export interface RiverGaugeLadder {
+  levelTooLow: number | null;
+  levelLow: number | null;
+  levelOptimalMin: number | null;
+  levelOptimalMax: number | null;
+  levelHigh: number | null;
+  levelDangerous: number | null;
+  thresholdUnit: 'ft' | 'cfs';
 }
 
 export interface RiverSheetData {
