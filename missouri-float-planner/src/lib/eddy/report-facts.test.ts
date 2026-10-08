@@ -357,10 +357,10 @@ test('plain-language phrasing is still checked against the computed rating', () 
 });
 
 test('the comparison is translated into plain words only where it adds meaning', () => {
-  assert.match(plainRelation(facts) ?? '', /thin side of the sweet spot/);
+  assert.match(plainRelation(facts) ?? '', /reading below the optimal range/);
   assert.match(plainRelation(buildReportFacts({ ...input, dischargeCfs: 1500 })) ?? '', /sweet spot/);
   assert.equal(plainRelation(buildReportFacts({ ...input, dischargeCfs: 300 })), null);
-  assert.match(reportFactsPrompt(facts), /In plain words for the reader: floatable, but on the thin side/);
+  assert.match(reportFactsPrompt(facts), /In plain words for the reader: floatable, with a reading below the optimal range/);
   assert.match(reportFactsPrompt(facts), /do not open every block with "At Town,"/);
 });
 
@@ -378,4 +378,16 @@ test('fallback prose names the station by its town and reads as sentences', () =
   const unknown = factualReportFallback(buildReportFacts({ ...input, gaugeName: 'Spring River at Imboden, AR', conditionCode: 'unknown', gaugeHeightFt: null, dischargeCfs: null }));
   assert.equal(unknown.summaryText, 'The gauge at Imboden, AR has no usable condition reading right now.');
   assert.match(factualReportFallback(buildReportFacts({ ...input, gaugeName: 'Mystery Station' })).summaryText ?? '', /^The Mystery Station gauge reads Good\.$/);
+});
+
+
+test('below-optimal guidance does not turn a range comparison into scraping advice', () => {
+  for (const conditionCode of ['good', 'flowing'] as const) {
+    const snapshot = buildReportFacts({ ...input, conditionCode });
+    assert.equal(snapshot.relation, 'below');
+    const comparison = plainRelation(snapshot)!;
+    assert.match(comparison, /comparison alone does not establish shallow water or scraping/);
+    assert.doesNotMatch(comparison, /expect.*riffles|thin side|pick.*line|may.*touch/);
+    assert.ok(reportFactsPrompt(snapshot).includes(comparison));
+  }
 });

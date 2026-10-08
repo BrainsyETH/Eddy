@@ -312,17 +312,17 @@ One or two sentences, under 240 characters. Give the local insight: what makes T
 [FULL]
 3 to 5 concise sentences. Each sentence must add useful information; do not pad the report to reach the minimum. Say where the reading is taken and what the water is like. Include the measured trend and forecast only when they add useful information for the decision. Premium cards show its first two sentences as an excerpt for subscribers, so open with what the water is like and what to do about it, in plain words. Cite the gauge reading or the optimal range later in the block, and only when they help. Pick the 2 or 3 points that matter most.
 
-Two examples with different shapes (illustrative only; always use the facts you are given). The first assumes local notes describing wide gravel riffles between deeper pools at the reporting stretch. That is example input, not a new fact about the Current; do not use that detail elsewhere unless the supplied notes support it:
+Two examples with different shapes (illustrative only; always use the facts you are given). The Van Buren local detail draws on the documented increase in jetboat use below Two Rivers; it is general river character, not a report of boats seen today:
 
 [CLAIMS] condition=good relation=below
 [SUMMARY]
-The Current floats fine near Van Buren, just on the thin side, so pick your line through the riffles.
+The Current is floatable near Van Buren, with a steady level over the past day.
 
 [EDDY_READ]
-This stretch tends to save its skinny water for the wide gravel riffles, with deeper pools in between. The riffles are where picking your line pays off.
+By Van Buren, you're sharing the Current with more jetboats than on the upper river. Leave room for passing boats as you settle into the float.
 
 [FULL]
-The pools near Van Buren have enough water for an easy float. A loaded canoe may still touch in the shallow riffles, so pick the deeper line. The level has barely moved over the past day.
+The Current is floatable near Van Buren, though the gauge sits below its optimal range. The level has barely moved over the past day. If you're putting in farther upstream, check that stretch's gauge before using this report to plan your day.
 
 [CLAIMS] condition=too_low relation=below
 [SUMMARY]
@@ -338,7 +338,7 @@ CONDITION LEVELS:
 The levels are Too Low, Low, Good, Flowing, High and Dangerous. Flowing is the best float level; Good floats fine but is not quite there. Never call a level "ideal". Prefer the practical meaning over repeating the badge. Name the level only when it clarifies the advice; if you do, use the exact capitalized label from the facts, and never write it as a field like "condition: Good".
 - Too Low: not worth floating. Recommend waiting for more water; do not assume rain is the source on a dam-controlled river.
 - Low: apply the LOW WATER GUIDANCE from [CONDITION SEMANTICS].
-- Good: floats fine. Use the plain-words comparison in the facts to say whether it is on the thin or the full side.
+- Good: floats fine. Use the supplied optimal-range comparison only when useful in [FULL]. Being below optimal does not by itself establish shallow riffles or scraping; those details need local evidence.
 - Flowing: the sweet spot.
 - High: a clear warning to use caution, with faster, pushier water. Not a blanket "experienced paddlers only" unless it is approaching Dangerous.
 - Dangerous: "stay off the water", with no hedging, and say it first. Recommend postponing the float.
