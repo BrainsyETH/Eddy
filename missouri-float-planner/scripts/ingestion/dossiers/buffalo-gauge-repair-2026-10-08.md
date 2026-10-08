@@ -81,3 +81,18 @@ The extra sequential section lookup and duplicated section-boundary rule are
 acknowledged maintenance concerns. They remain unchanged in this focused pass;
 existing boundary regressions cover the present policy. Dependency audit
 remediation and broader query refactoring are outside this review's scope.
+
+## Ozark moved to Pruitt (later 2026-10-08)
+
+Owner decision after the reporting paddler's feedback that Pruitt holds water
+after the upper river drops: Ozark (mile 27.8) is now rated by Pruitt. Migration
+`20261008160000_buffalo_ozark_on_pruitt` moves the shared boundary from 29.9 to
+27.8 and renames the sections "Upper (Ponca to Ozark)" and "Ozark to Hasty";
+slugs are unchanged. Ponca still rates Steel Creek, Kyles and Erbie.
+
+Pruitt's NPS cfs thresholds (100 / 200 / 1000 / 2000) were cross-checked against
+independent outfitter readings: 79 cfs Very Low (<100), ~500 cfs "medium"
+(Moderate), 2,130 cfs flood stage (>2000). A 208 cfs reading labelled "Low but
+Floatable" by an outfitter grades Good here, 8 cfs above the 200 boundary;
+outfitter labels then came from a stage chart, so that is a boundary
+disagreement, not a contradiction.
