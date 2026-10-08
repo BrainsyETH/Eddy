@@ -7,8 +7,8 @@ import { sectionGaugeAssignment } from '../../../scripts/ingestion/section-gauge
 
 const reaches = [
   { primary_gauge_station_id: 'boxley', river_mile_start: null, river_mile_end: 6 },
-  { primary_gauge_station_id: 'ponca', river_mile_start: 6, river_mile_end: 29.9 },
-  { primary_gauge_station_id: 'pruitt', river_mile_start: 29.9, river_mile_end: 36.7 },
+  { primary_gauge_station_id: 'ponca', river_mile_start: 6, river_mile_end: 27.8 },
+  { primary_gauge_station_id: 'pruitt', river_mile_start: 27.8, river_mile_end: 36.7 },
   { primary_gauge_station_id: 'st-joe', river_mile_start: 36.7, river_mile_end: 76.9 },
   { primary_gauge_station_id: 'harriet', river_mile_start: 76.9, river_mile_end: null },
 ];
@@ -32,8 +32,8 @@ function db(options: { error?: boolean; missing?: boolean } = {}) {
   }} as unknown as Parameters<typeof getGaugeStatus>[0];
   return { client, selected };
 }
-test('access overview honors reach boundaries, including Boxley mile zero and Pruitt', async () => {
-  for (const [mile, expected] of [[0,'boxley'],[6,'ponca'],[8.7,'ponca'],[16.7,'ponca'],[22.3,'ponca'],[27.8,'ponca'],[29.9,'pruitt'],[36.69,'pruitt'],[36.7,'st-joe'],[71.5,'st-joe'],[76.9,'harriet'],[131.4,'harriet']] as const) {
+test('access overview honors reach boundaries, including Boxley mile zero and Ozark on Pruitt', async () => {
+  for (const [mile, expected] of [[0,'boxley'],[6,'ponca'],[8.7,'ponca'],[16.7,'ponca'],[22.3,'ponca'],[27.79,'ponca'],[27.8,'pruitt'],[29.9,'pruitt'],[36.69,'pruitt'],[36.7,'st-joe'],[71.5,'st-joe'],[76.9,'harriet'],[131.4,'harriet']] as const) {
     const f = db(); const result = await getGaugeStatus(f.client, 'buffalo', mile);
     assert.equal(result?.gaugeId, expected, `mile ${mile}`);
     assert.deepEqual(f.selected, [expected]);
@@ -74,5 +74,15 @@ test('Buffalo migration skips an unseeded database but still rejects incorrect p
     `);
     const assertion = sql.slice(sql.lastIndexOf('DO $$'), sql.lastIndexOf('COMMIT;'));
     await assert.rejects(pg.exec(assertion), /Buffalo gauge boundary regression: 9/);
+  } finally { await pg.close(); }
+});
+
+test('Ozark-on-Pruitt migration skips an unseeded database and asserts the new boundary', async () => {
+  const pg = new PGlite();
+  try {
+    await pg.exec('create table public.rivers(id uuid primary key, slug text);');
+    const sql = readFileSync('supabase/migrations/20261008160000_buffalo_ozark_on_pruitt.sql', 'utf8');
+    await pg.exec(sql);
+    assert.match(sql, /\(27\.79,'07055660'\),\(27\.8,'07055680'\)/);
   } finally { await pg.close(); }
 });

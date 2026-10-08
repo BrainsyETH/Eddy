@@ -259,7 +259,7 @@
     },
     {
       "slug": "upper-ponca-pruitt",
-      "name": "Upper (Ponca to Pruitt)",
+      "name": "Upper (Ponca to Ozark)",
       "description": "The classic upper Buffalo: Ponca to Kyle's Landing / Erbie / Ozark / Pruitt. Class I–II, flashy, spring-season float; Big Bluff and Hemmed-in Hollow scenery. The most level-sensitive reach.",
       "putIn": {
         "name": "Ponca (Steel Creek when too low to launch at Ponca)",
@@ -364,11 +364,11 @@
         "The most level-sensitive reach on the river: too low and you drag, too high and the bluffs are hazardous."
       ],
       "riverMileStart": 6,
-      "riverMileEnd": 29.9
+      "riverMileEnd": 27.8
     },
     {
       "slug": "pruitt-hasty",
-      "name": "Pruitt to Hasty",
+      "name": "Ozark to Hasty",
       "description": "NPS identifies this float as an alternative when conditions upriver are too low. Little Buffalo joins before Hasty.",
       "putIn": {
         "name": "Pruitt"
@@ -449,9 +449,10 @@
       },
       "hazards": [],
       "localKnowledge": [
-        "The Pruitt-to-Hasty float can remain an option when upriver conditions are too low, per NPS."
+        "The Pruitt-to-Hasty float can remain an option when upriver conditions are too low, per NPS.",
+        "Ozark (mile 27.8) is rated by Pruitt, not Ponca: Ozark-to-Pruitt is a 2.1-mile run onto this gauge, and owner/local-paddler review (2026-10-08) holds that Pruitt keeps water after the upper river drops."
       ],
-      "riverMileStart": 29.9,
+      "riverMileStart": 27.8,
       "riverMileEnd": 36.7
     },
     {
