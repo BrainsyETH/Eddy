@@ -81,7 +81,7 @@ test('Ozark-on-Pruitt migration skips an unseeded database and asserts the new b
   const pg = new PGlite();
   try {
     await pg.exec('create table public.rivers(id uuid primary key, slug text);');
-    const sql = readFileSync('supabase/migrations/20261008160000_buffalo_ozark_on_pruitt.sql', 'utf8');
+    const sql = readFileSync('supabase/migrations/20261008033623_buffalo_ozark_on_pruitt.sql', 'utf8');
     await pg.exec(sql);
     assert.match(sql, /\(27\.79,'07055660'\),\(27\.8,'07055680'\)/);
   } finally { await pg.close(); }
