@@ -1145,7 +1145,9 @@ function MapContent() {
   // The fetch behaviour lives in each hook, moved verbatim from this screen —
   // latch-on-success and one retry for dams, release-on-failure for services,
   // fire-once-and-reuse for gauges — so the screen states only WHO wants WHAT.
-  const { gauges, ensureGauges } = useCuratedGauges(layers.includes('gauges'));
+  const { gauges, ensureGauges } = useCuratedGauges(
+    layers.includes('gauges') || selectedSlug !== null || selectedPin !== null,
+  );
 
   // Every USACE project's LIVE state, statewide — an enrichment, not the
   // layer: the pins ship in the binary (DAM_CATALOG) and draw with no answer
@@ -1781,6 +1783,7 @@ function MapContent() {
     drawnHazards,
     drawnSlug,
     gaugeNameFor,
+    gauges,
     services,
   ]);
 

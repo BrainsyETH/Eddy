@@ -10,10 +10,20 @@ export interface GaugeMenuOption {
   code: ConditionCode;
   timestamp?: string | null;
   suspect?: boolean;
+  disabled?: boolean;
+}
+
+/** The default overview agrees with the map; alternates need usable observations. */
+export function riverOverviewCondition(riverCode: ConditionCode, defaultSiteId: string | undefined,
+  selected: { siteId: string; code: ConditionCode; timestamp?: string | null; suspect?: boolean } | null,
+  now = Date.now()): ConditionCode {
+  if (!selected || selected.siteId === defaultSiteId) return riverCode;
+  return selected.suspect || gaugeFreshness(selected.timestamp, now) !== 'live' ? 'unknown' : selected.code;
 }
 
 /** Never present an old or suspect observation as today's floatability. */
 export function gaugeMenuSubtitle(option: GaugeMenuOption, now = Date.now()): string {
+  if (option.disabled) return 'Station link unavailable';
   if (!option.reading) return 'Reading unavailable';
   const freshness = gaugeFreshness(option.timestamp, now);
   const status = option.suspect ? 'Check reading'
@@ -32,5 +42,6 @@ export function gaugeMenuOptions(gauges: MapGauge[], riverSlug: string): GaugeMe
     code: gaugeConditionCode(gauge, riverSlug),
     timestamp: gauge.readingTimestamp,
     suspect: gauge.readingSuspect,
+    disabled: !gauge.usgsSiteId,
   }));
 }

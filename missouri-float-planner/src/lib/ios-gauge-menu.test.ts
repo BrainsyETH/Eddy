@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { gaugeMenuSubtitle, gaugeMenuOptions } from '../../../eddy-ios/src/lib/gaugeMenu';
-import { gaugesForRiver } from '../../../eddy-ios/src/lib/gaugeCondition';
+import { gaugeMenuSubtitle, gaugeMenuOptions, riverOverviewCondition } from '../../../eddy-ios/src/lib/gaugeMenu';
+import { gaugesForRiver, gaugeConditionCode } from '../../../eddy-ios/src/lib/gaugeCondition';
 import type { MapGauge } from '@eddy/types';
 const now = Date.parse('2026-10-08T02:00:00Z');
 const option = { id: 'pruitt', name: 'Pruitt', reading: '312 cfs', code: 'good' as const, timestamp: '2026-10-08T01:00:00Z' };
@@ -27,4 +27,23 @@ test('menu count and upstream order use only this river, with a stable old-paylo
   assert.equal(options[0].reading,'300 cfs');
   assert.equal(options[0].code,'good');
   assert.deepEqual(gaugesForRiver([gauge('Pruitt',null),gauge('St. Joe',null,true)],'buffalo').map(g => g.id),['St. Joe','Pruitt']);
+});
+
+test('default river verdict survives an unloaded catalog; alternates require fresh trusted readings', () => {
+  const selected = { siteId: 'ponca', code: 'good' as const, timestamp: option.timestamp };
+  assert.equal(riverOverviewCondition('flowing', 'ponca', { ...selected, timestamp: null }, now), 'flowing');
+  assert.equal(riverOverviewCondition('flowing', undefined, null, now), 'flowing');
+  assert.equal(riverOverviewCondition('flowing', 'st-joe', selected, now), 'good');
+  assert.equal(riverOverviewCondition('flowing', 'st-joe', { ...selected, suspect: true }, now), 'unknown');
+  assert.equal(riverOverviewCondition('flowing', 'st-joe', { ...selected, timestamp: null }, now), 'unknown');
+});
+
+test('suspect selections are ungraded; provider-native IDs work and missing IDs are disabled', () => {
+  const station = { ...gauge('dam', 0), usgsSiteId: 'swl-clearwater-dam', provider: 'usace', readingSuspect: true };
+  assert.equal(gaugeConditionCode(station, 'buffalo'), 'unknown');
+  const [available] = gaugeMenuOptions([station], 'buffalo');
+  assert.equal(available.disabled, false);
+  const [unavailable] = gaugeMenuOptions([{ ...station, usgsSiteId: null }], 'buffalo');
+  assert.equal(unavailable.disabled, true);
+  assert.equal(gaugeMenuSubtitle(unavailable, now), 'Station link unavailable');
 });

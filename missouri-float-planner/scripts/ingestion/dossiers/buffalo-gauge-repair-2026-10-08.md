@@ -55,3 +55,29 @@ history was seeded from that observation with its original timestamp.
 Sources: [USGS Pruitt](https://waterdata.usgs.gov/monitoring-location/USGS-07055680/),
 [NPS Pruitt–Hasty](https://www.nps.gov/thingstodo/paddle-pruitt-to-hasty.htm),
 and the existing `buffalo-thresholds-captured.md` source capture.
+
+## Focused follow-up review
+
+The gauge catalog now loads for an open river or pin sheet even with the gauge
+layer off. While that catalog loads, an access keeps its server-provided gauge
+name, and a river's default verdict retains the map's river condition. Only a
+selected alternate uses that station's freshness and grade.
+
+Missing provider-native identifiers are disabled menu choices with an explicit
+label. USACE stations already use their external identifier through the legacy
+`usgsSiteId` field. Selected suspect readings already grade Unknown; regression
+coverage now confirms it. River changes already remount the selection through
+`RiverSheetSelection key={river.slug}`, so shared stations cannot carry selection
+between rivers.
+
+The migration's assertion block now skips databases without Buffalo, matching
+the write block. This is a replay-only correction to the recorded migration;
+no production data or history was rewritten. An executable PGlite test covers
+both an unseeded database and rejection of incorrect populated routing.
+The ledger version was already parsed as applied; it is now visually above the
+pending-section comment as well.
+
+The extra sequential section lookup and duplicated section-boundary rule are
+acknowledged maintenance concerns. They remain unchanged in this focused pass;
+existing boundary regressions cover the present policy. Dependency audit
+remediation and broader query refactoring are outside this review's scope.

@@ -44,7 +44,7 @@
 // the map already colours its line with.
 
 import { useState } from 'react';
-import { gaugeFreshness } from '@eddy/conditions/gauge-freshness';
+import { riverOverviewCondition } from '@/lib/gaugeMenu';
 import { GaugeMenu } from '../GaugeMenu';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { ControlIcon } from '@/components/ControlIcon';
@@ -86,8 +86,9 @@ export function RiverHead({
   // an empty row would be a worse answer than an unflagged one.
   const defaultGauge = river.gauges.find((gauge) => gauge.isPrimary) ?? river.gauges[0] ?? null;
   const primary = river.gauges.find(gauge => gauge.siteId === selectedSiteId) ?? defaultGauge;
-  const shownCode = primary && (primary.suspect || gaugeFreshness(primary.timestamp) !== 'live')
-    ? 'unknown' : primary?.code ?? river.code;
+  // The default verdict must agree with the river line, even while the
+  // separate gauge catalog is loading. Only an explicit alternate is graded.
+  const shownCode = riverOverviewCondition(river.code, defaultGauge?.siteId, primary);
 
   return (
     <View style={styles.header}>

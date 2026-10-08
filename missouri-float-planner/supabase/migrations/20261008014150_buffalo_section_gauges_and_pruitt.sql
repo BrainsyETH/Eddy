@@ -75,6 +75,7 @@ BEGIN
     AND NOT EXISTS (SELECT 1 FROM public.gauge_readings old WHERE old.gauge_station_id=l.gauge_station_id AND old.reading_timestamp=l.reading_timestamp);
 END $$;
 DO $$ DECLARE wrong integer; BEGIN
+if not exists (select 1 from public.rivers where slug='buffalo') then return; end if;
 select count(*) into wrong from (values (0.0,'07055646'),(6.0,'07055660'),(8.7,'07055660'),(27.8,'07055660'),(29.9,'07055680'),(36.69,'07055680'),(36.7,'07056000'),(76.9,'07056700'),(131.4,'07056700')) v(mile,site)
 left join lateral get_river_condition_segment((select id from rivers where slug='buffalo'),p_put_in_mile=>v.mile) c on true where c.gauge_usgs_id is distinct from v.site;
 if wrong>0 then raise exception 'Buffalo gauge boundary regression: %', wrong; end if;

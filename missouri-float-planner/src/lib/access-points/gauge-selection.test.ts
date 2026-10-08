@@ -1,5 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { readFileSync } from 'node:fs';
+import { PGlite } from '@electric-sql/pglite';
 import { getGaugeStatus } from './detail';
 import { sectionGaugeAssignment } from '../../../scripts/ingestion/section-gauges';
 
@@ -51,4 +53,21 @@ test('ingestion persists verified gauge AND bounds; unbounded legacy sections ca
   });
   assert.throws(() => sectionGaugeAssignment({ riverMileStart: 6 }, stations));
   assert.throws(() => sectionGaugeAssignment({ riverMileStart: 8, riverMileEnd: 6 }, stations));
+});
+
+test('Buffalo migration skips an unseeded database but still rejects incorrect populated routing', async () => {
+  const pg = new PGlite();
+  try {
+    await pg.exec('create table public.rivers(id uuid primary key, slug text);');
+    const sql = readFileSync('supabase/migrations/20261008014150_buffalo_section_gauges_and_pruitt.sql', 'utf8');
+    await pg.exec(sql);
+    assert.deepEqual((await pg.query('select * from public.rivers')).rows, []);
+    await pg.exec(`
+      insert into public.rivers values ('11111111-1111-1111-1111-111111111111', 'buffalo');
+      create function get_river_condition_segment(uuid, p_put_in_mile numeric)
+        returns table(gauge_usgs_id text) language sql as 'select null::text';
+    `);
+    const assertion = sql.slice(sql.lastIndexOf('DO $$'), sql.lastIndexOf('COMMIT;'));
+    await assert.rejects(pg.exec(assertion), /Buffalo gauge boundary regression: 9/);
+  } finally { await pg.close(); }
 });

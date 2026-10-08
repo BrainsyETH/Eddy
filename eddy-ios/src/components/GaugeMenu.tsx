@@ -22,9 +22,10 @@ export function GaugeMenu({ options, selectedId, onSelect }: {
       actions={options.map(option => ({
         id: option.id, title: option.name, subtitle: gaugeMenuSubtitle(option),
         state: option.id === selectedId ? 'on' : 'off',
+        attributes: { disabled: option.disabled === true },
       }))}
       onPressAction={({ nativeEvent }) => {
-        if (options.some(option => option.id === nativeEvent.event)) onSelect(nativeEvent.event);
+        if (options.some(option => option.id === nativeEvent.event && !option.disabled)) onSelect(nativeEvent.event);
       }}
     >
       <View
