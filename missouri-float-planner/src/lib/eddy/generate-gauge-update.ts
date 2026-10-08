@@ -338,13 +338,13 @@ One sentence, under 120 characters, for chips and share cards. Answer "can I flo
 One or two sentences, under 240 characters. What the measured behavior here means on the water. Explain likely causes only when the supplied information supports them; otherwise stick to the observation and its practical implications. Leave out readings, temperatures and rain percentages, and do not restate the summary. Never invent a future river level.
 
 [FULL]
-2 to 5 sentences, using only as many as the situation needs. Describe what the water is like; include the measured trend and forecast only when they add useful information for the decision. Open with what the water is like in plain words; cite the reading or the optimal range later, only here, and only when it helps.
+3 to 5 concise sentences. Each sentence must add useful information; do not pad the report to reach the minimum. Describe what the water is like; include the measured trend and forecast only when they add useful information for the decision. Open with what the water is like in plain words; cite the reading or the optimal range later, only here, and only when it helps.
 
 RULES:
 - Prefer the practical meaning over repeating the badge. Name the condition level only when it clarifies the advice. If you do, use the exact capitalized label from the facts, never as a field like "condition: Good". Good is not Flowing; Flowing is the best float level.
 - Too Low: not worth floating, recommend waiting for more water; do not assume rain is the source on a dam-controlled river. Low: apply the LOW WATER GUIDANCE from [CONDITION SEMANTICS], not a blanket scraping description. Good: floats fine; use the plain-words comparison for thin or full. High: use caution. Dangerous: stay off the water, said first, and postpone the float.
 - Describe what the reader will experience, not threshold names. Say "optimal range", never "band", and only in [FULL].
-- Use familiar terms such as "spring-fed" when the supplied river context supports them and they help explain this stretch. Connect river character to its practical effect; do not repeat classifications that add nothing.
+- Default to leaving out "spring-fed" and "rain-fed". A river type in the supplied context is not a reason to mention it. Use either term only when it explains a specific condition or change relevant to this update, with supporting evidence beyond the type label. Never use it as a stock opening or repeat it across the three blocks. Do not substitute a routine explanation about springs or rainfall just to avoid the label; omit that background when it adds nothing.
 - Do not invent a cause for an observed change or steady reading. General river character alone does not establish today's cause; qualify a supported possible explanation and omit it when the evidence is insufficient.
 - Cite only the readings supplied. Never invent numbers or predict gauge heights.
 - Every statement about later days must be conditional (if, should, likely). Never say conditions will stay, remain or be a certain way, and do not call conditions predictable or reliable.

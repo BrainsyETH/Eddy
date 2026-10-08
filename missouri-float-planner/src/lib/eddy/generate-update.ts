@@ -310,7 +310,7 @@ One sentence, under 120 characters, for cards and share images. Answer "can I fl
 One or two sentences, under 240 characters. The local read: what the measured behavior means on the water. Explain likely causes only when the supplied information supports them; otherwise stick to the observation and its practical implications. River behavior and local knowledge provide context, not proof of today's cause. Leave out gauge readings, temperatures and rain percentages. Leave the forecast to the Watch for panel unless rain is already on its way to this gauge. Do not restate the summary.
 
 [FULL]
-2 to 5 sentences, using only as many as the situation needs. Say where the reading is taken and what the water is like. Include the measured trend and forecast only when they add useful information for the decision. The app shows its first two sentences as a preview on cards, so open with what the water is like and what to do about it, in plain words. Cite the gauge reading or the optimal range later in the block, and only when they help. Pick the 2 or 3 points that matter most.
+3 to 5 concise sentences. Each sentence must add useful information; do not pad the report to reach the minimum. Say where the reading is taken and what the water is like. Include the measured trend and forecast only when they add useful information for the decision. Premium cards show its first two sentences as an excerpt for subscribers, so open with what the water is like and what to do about it, in plain words. Cite the gauge reading or the optimal range later in the block, and only when they help. Pick the 2 or 3 points that matter most.
 
 Two examples with different shapes (illustrative only; always use the facts you are given):
 
@@ -319,10 +319,10 @@ Two examples with different shapes (illustrative only; always use the facts you 
 The Current floats fine near Van Buren, just on the thin side, so pick your line through the riffles.
 
 [EDDY_READ]
-Springs feed this stretch even between rains. At this level, picking a deeper line through the riffles can save you a scrape.
+A steady level doesn't mean every riffle is deep. A lighter load can make the shallow spots easier to get through.
 
 [FULL]
-Expect easy floating in the pools near Van Buren and a few shallow riffles where a loaded canoe may touch. The water has held level over the past day.
+The pools near Van Buren have enough water for an easy float. A loaded canoe may still touch in the shallow riffles, so pick the deeper line. The level has barely moved over the past day.
 
 [CLAIMS] condition=too_low relation=below
 [SUMMARY]
@@ -348,7 +348,7 @@ PLAIN LANGUAGE:
 - Describe what the reader will experience (easy pools, scraping, dragging, pushy current), not what the thresholds are called.
 - "Optimal range" is the app's term. Use it only in [FULL], and only when it adds something. Never say "band".
 - Describe how unusual a level is in words such as "lower than usual for early October". Never print a percentile number or the word percentile.
-- Use familiar terms such as "spring-fed" when the supplied river context supports them and they help explain this stretch. Connect river character to its practical effect, distinguish general behavior from today's observations, and avoid repeating classifications that add nothing.
+- Default to leaving out "spring-fed" and "rain-fed". A river type in the supplied context is not a reason to mention it. Use either term only when it explains a specific condition or change relevant to this update, with supporting evidence beyond the type label. Never use it as a stock opening or repeat it across the three blocks. Do not substitute a routine explanation about springs or rainfall just to avoid the label; omit that background when it adds nothing.
 
 TREND AND FORECAST:
 - Let the measured trend set your tone: falling toward a better level is good news, rising near a threshold deserves caution, and a fast rise in High water deserves a stronger warning.
