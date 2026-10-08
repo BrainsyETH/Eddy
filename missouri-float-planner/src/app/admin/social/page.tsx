@@ -187,13 +187,13 @@ const STATUS_BADGES: Record<string, { label: string; className: string }> = {
 };
 
 // Post types that can be triggered from the Posting Schedule row's "Post Now" button.
-type PostNowType = 'digest' | 'weekly_forecast' | 'section_guide' | 'weekly_trend';
+type PostNowType = 'highlight' | 'digest' | 'weekly_forecast' | 'section_guide' | 'weekly_trend';
 
 // Declarative config for each row in the unified Posting Schedule matrix.
 // `time` is either a getter/setter pair into SocialConfig, or the literal
-// 'per_river' sentinel (which renders "per-river" text). `action` is either
+// 'thursday_read' sentinel for the weekly Read’s fixed time. `action` is either
 // a PostNowType or 'none' (row has no manual trigger).
-type RowTimeField = 'per_river' | {
+type RowTimeField = 'thursday_read' | {
   get: (c: SocialConfig) => string;
   set: (c: SocialConfig, value: string, setConfig: (next: SocialConfig) => void) => void;
 };
@@ -208,9 +208,9 @@ interface ScheduleRow {
 const SCHEDULE_ROWS: ScheduleRow[] = [
   {
     key: 'river_highlight',
-    label: 'River Highlight',
-    time: 'per_river',
-    action: 'none',
+    label: 'Eddy’s Read',
+    time: 'thursday_read',
+    action: 'highlight',
   },
   {
     key: 'daily_digest',
@@ -310,7 +310,6 @@ export default function SocialAdminPage() {
   const [quickPostType, setQuickPostType] = useState<
     'digest' | 'highlight' | 'weekly_forecast' | 'section_guide' | 'weekly_trend' | 'tip'
   >('digest');
-  const [quickPostRiver, setQuickPostRiver] = useState('');
   const [quickPostContentId, setQuickPostContentId] = useState('');
   const [quickPostPlatforms, setQuickPostPlatforms] = useState<string[]>(['facebook', 'instagram']);
   const [quickPosting, setQuickPosting] = useState(false);
@@ -745,7 +744,6 @@ export default function SocialAdminPage() {
   };
 
   const publishQuickPost = async () => {
-    if (quickPostType === 'highlight' && !quickPostRiver) return;
     if (quickPostType === 'tip' && !quickPostContentId) return;
     if (quickPostPlatforms.length === 0) return;
 
@@ -756,7 +754,6 @@ export default function SocialAdminPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           type: quickPostType,
-          riverSlug: quickPostType === 'highlight' ? quickPostRiver : undefined,
           contentId: quickPostType === 'tip' ? quickPostContentId : undefined,
           platforms: quickPostPlatforms,
         }),
@@ -859,7 +856,7 @@ export default function SocialAdminPage() {
                             {post.platform}
                           </span>
                           <span className="text-xs font-medium px-2 py-0.5 rounded bg-neutral-600 text-neutral-300 uppercase">
-                            {post.postType === 'daily_digest' ? 'Digest' : post.postType === 'river_highlight' ? 'Highlight' : post.postType}
+                            {post.postType === 'daily_digest' ? 'Digest' : post.postType === 'river_highlight' ? 'Eddy’s Read' : post.postType}
                           </span>
                           {post.mediaType === 'video' && (
                             <span className="text-xs font-medium px-2 py-0.5 rounded bg-purple-500/20 text-purple-400 border border-purple-500/30">
@@ -991,36 +988,18 @@ export default function SocialAdminPage() {
                 value={quickPostType}
                 onChange={(e) => {
                   setQuickPostType(e.target.value as typeof quickPostType);
-                  setQuickPostRiver('');
                   setQuickPostContentId('');
                 }}
                 className="w-full px-3 py-2 bg-neutral-900 border border-neutral-600 rounded-lg text-white"
               >
                 <option value="digest">Daily Digest (all rivers)</option>
-                <option value="highlight">Eddy’s Read (per river)</option>
+                <option value="highlight">Eddy’s Read (2–3 rivers for the weekend)</option>
                 <option value="weekly_forecast">Weekend Forecast</option>
                 <option value="section_guide">Float Pick</option>
 
                 <option value="tip">Tip / Seasonal Quote</option>
               </select>
             </div>
-
-            {/* River selector — required for the per-river report. */}
-            {quickPostType === 'highlight' && (
-              <div>
-                <label className="block text-sm text-neutral-300 mb-1">River</label>
-                <select
-                  value={quickPostRiver}
-                  onChange={(e) => setQuickPostRiver(e.target.value)}
-                  className="w-full px-3 py-2 bg-neutral-900 border border-neutral-600 rounded-lg text-white"
-                >
-                  <option value="">Select a river...</option>
-                  {rivers.map((r) => (
-                    <option key={r.slug} value={r.slug}>{r.name}</option>
-                  ))}
-                </select>
-              </div>
-            )}
 
             {/* Content selector (for tips) */}
             {quickPostType === 'tip' && (
@@ -1100,7 +1079,6 @@ export default function SocialAdminPage() {
                 disabled={
                   quickPosting ||
                   quickPostPlatforms.length === 0 ||
-                  (quickPostType === 'highlight' && !quickPostRiver) ||
                   (quickPostType === 'tip' && !quickPostContentId)
                 }
                 className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 transition-colors disabled:opacity-50"
@@ -1413,6 +1391,7 @@ export default function SocialAdminPage() {
                               {MEDIA_DAYS.map((day) => {
                                 // Two-state: Off ↔ Video. Legacy 'image' cells
                                 // read as Video (posts are video-only now).
+                                if (row.key === 'river_highlight' && day !== 'thu') return <td key={day} className="text-center text-neutral-600">—</td>;
                                 const raw = cells?.[day] ?? null;
                                 const current: 'video' | null = raw ? 'video' : null;
                                 const next: 'video' | null = current === 'video' ? null : 'video';
@@ -1443,8 +1422,8 @@ export default function SocialAdminPage() {
                               })}
                               <td className="px-2 py-2 text-center">
                                 {(() => {
-                                  if (row.time === 'per_river') {
-                                    return <span className="text-xs text-neutral-500 italic">per-river</span>;
+                                  if (row.time === 'thursday_read') {
+                                    return <span className="text-xs text-neutral-300">Thursday · 5:00 PM</span>;
                                   }
                                   const timeField = row.time;
                                   return (
@@ -1477,13 +1456,11 @@ export default function SocialAdminPage() {
                         {/* Visual separator between format rows and river rows */}
                         <tr>
                           <td colSpan={11} className="px-2 pt-4 pb-1 text-[10px] uppercase tracking-wider text-neutral-500">
-                            Per-river posting times (Central) — controls when river highlights fire for each river
+                            Rivers eligible for Eddy’s Read — enable at least two with fresh reports
                           </td>
                         </tr>
                         {rivers.map((river) => {
                           const isDisabled = (config.disabled_rivers || []).includes(river.slug);
-                          const riverSched = (config.river_schedules || {})[river.slug] || {};
-                          const DAY_KEYS = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'] as const;
                           return (
                             <tr
                               key={river.slug}
@@ -1519,60 +1496,9 @@ export default function SocialAdminPage() {
                               <td className={`px-2 py-2 font-medium whitespace-nowrap ${isDisabled ? 'text-neutral-500' : 'text-neutral-200'}`}>
                                 {river.name}
                               </td>
-                              {DAY_KEYS.map((dayKey) => {
-                                // Handle both nested (new) and flat (legacy) formats
-                                const timeVal = typeof riverSched === 'string'
-                                  ? riverSched
-                                  : (riverSched as Record<string, string | null>)?.[dayKey] ?? '';
-                                const isSkipped = timeVal === '' || timeVal === null;
-                                const updateDay = (value: string | null) => {
-                                  const currentSched = typeof riverSched === 'string'
-                                    ? DAY_KEYS.reduce((acc, d) => ({ ...acc, [d]: riverSched }), {} as Record<string, string | null>)
-                                    : { ...riverSched as Record<string, string | null> };
-                                  currentSched[dayKey] = value;
-                                  setConfig({
-                                    ...config,
-                                    river_schedules: {
-                                      ...(config.river_schedules || {}),
-                                      [river.slug]: currentSched,
-                                    },
-                                  });
-                                };
-                                return (
-                                  <td key={dayKey} className="px-1 py-2 text-center">
-                                    {isSkipped && !isDisabled ? (
-                                      <button
-                                        onClick={() => updateDay('08:00')}
-                                        className="w-[74px] px-1 py-1 bg-neutral-800 border border-dashed border-neutral-600 rounded text-xs text-neutral-500 hover:border-neutral-400 hover:text-neutral-300 transition-colors"
-                                        title="Click to enable this day"
-                                      >
-                                        skip
-                                      </button>
-                                    ) : (
-                                      <div className="relative inline-flex items-center">
-                                        <input
-                                          type="time"
-                                          value={timeVal || ''}
-                                          onChange={(e) => updateDay(e.target.value || null)}
-                                          disabled={isDisabled}
-                                          className={`w-[74px] px-1 py-0.5 bg-neutral-900 border border-neutral-700 rounded text-xs text-center ${
-                                            isDisabled ? 'text-neutral-600' : 'text-white'
-                                          }`}
-                                        />
-                                        {!isDisabled && (
-                                          <button
-                                            onClick={() => updateDay(null)}
-                                            className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-neutral-700 text-neutral-400 hover:bg-red-600 hover:text-white text-[10px] leading-none flex items-center justify-center transition-colors"
-                                            title="Skip this day"
-                                          >
-                                            x
-                                          </button>
-                                        )}
-                                      </div>
-                                    )}
-                                  </td>
-                                );
-                              })}
+                              <td colSpan={7} className="px-2 py-2 text-xs text-neutral-400">
+                                {isDisabled ? 'Excluded from the weekly Read' : 'Available for the weekly Read'}
+                              </td>
                               <td colSpan={2}></td>
                             </tr>
                           );
@@ -1581,7 +1507,7 @@ export default function SocialAdminPage() {
                     </table>
                   </div>
                   <p className="text-xs text-neutral-500 mt-3">
-                    All times are Central (CST/CDT). Click &quot;skip&quot; to enable a day or the x to disable it.
+                    All times are Central (CST/CDT). Eddy’s Read runs once on Thursday at 5:00 PM when its Thursday cell is enabled. Float Pick keeps its own schedule.
                   </p>
                 </div>
 
@@ -1639,7 +1565,7 @@ export default function SocialAdminPage() {
                 <div className="bg-neutral-800 border border-neutral-700 rounded-xl p-6">
                   <h3 className="text-lg font-semibold text-white mb-2">River Selection</h3>
                   <p className="text-sm text-neutral-400 mb-4">
-                    Select which rivers can appear in highlight posts. Unchecked rivers will be excluded.
+                    Select which rivers can appear in Eddy’s Read. Unchecked rivers will be excluded.
                   </p>
                   <div className="grid gap-2 md:grid-cols-2">
                     {rivers.map((river) => {
@@ -1679,7 +1605,7 @@ export default function SocialAdminPage() {
                 <div className="bg-neutral-800 border border-neutral-700 rounded-xl p-6">
                   <h3 className="text-lg font-semibold text-white mb-2">Condition Triggers</h3>
                   <p className="text-sm text-neutral-400 mb-4">
-                    Only post river highlights when the condition matches one of these:
+                    Include rivers in Eddy’s Read only when their current condition matches one of these:
                   </p>
                   <div className="grid gap-2 md:grid-cols-3">
                     {ALL_CONDITIONS.map((condition) => {

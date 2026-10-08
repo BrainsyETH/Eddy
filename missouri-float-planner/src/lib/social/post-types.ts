@@ -126,7 +126,6 @@ const FORMAT = 'portrait' as const;
 function defaultDate() { return `Prepared ${reportStamp()}`; }
 
 const isoDay = () => new Date().toISOString().slice(0, 10);
-const slugify = (s: string) => s.toLowerCase().replace(/\s+/g, '-');
 
 /** Shared section/route inputProps (both use SectionGuideProps + float-time hero). */
 function sectionRouteProps(data: RenderData): Record<string, unknown> {
@@ -156,15 +155,14 @@ function sectionRouteProps(data: RenderData): Record<string, unknown> {
 }
 
 export const POST_TYPES: Record<PostKind, PostTypeDef> = {
-  // Text-first full reading. Keep the persisted river_highlight key so
-  // existing per-river schedules continue to work.
+  // Weekly multi-river social Read. Keep the persisted key for post history.
   river_highlight: {
     id: 'river_highlight',
     label: 'Eddy’s Read',
-    needs: 'river',
+    needs: 'none',
     media: ['video'],
     composition: 'social-eddy-read',
-    ogType: 'highlight',
+    ogType: 'weekend-read',
     renderProps: (data) => ({
       riverName: data.riverName || 'Unknown River',
       readingText: data.readingText || data.quoteText || data.summaryText || '',
@@ -173,7 +171,7 @@ export const POST_TYPES: Record<PostKind, PostTypeDef> = {
       conditionCode: data.conditionCode,
       gaugeHeightFt: data.gaugeHeightFt,
     }),
-    outputFilename: (data) => `highlight-${slugify(data.riverName || 'river')}`,
+    outputFilename: () => `weekend-read-${isoDay()}`,
   },
 
   daily_digest: {

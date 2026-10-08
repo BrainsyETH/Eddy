@@ -287,8 +287,9 @@ from the workflow checkout. An older image therefore cannot silently keep a
 merged layout fix out of newly generated posts. Existing MP4s remain unchanged;
 use **Render again** after rollout, inspect the new draft, then publish.
 
-Eddy’s Read uses the complete retained report without prepending its short
-interpretation. Its continuous-scroll renderer follows the measured full
+Saved single-river Eddy’s Read drafts use the complete retained report without
+prepending its short interpretation. New weekly social Reads use the compact
+comparison described below. Its continuous-scroll renderer follows the measured full
 narration at a soft, natural pace, and keeps Eddy visible. The earlier 30-second
 cap was removed in favor of understandable speech. It includes the saved report
 date's weather temperatures and a canoeing Eddy closing card.
@@ -309,3 +310,38 @@ run **Remotion Check** on the PR branch with **voice_preview** enabled. Download
 the **eddy-read-voice-preview** artifact. It uses the fixed October 3 Current
 River report and weather snapshot. This manual job is never run by ordinary PR
 checks, and it must be listened to before approving voice quality or level.
+
+
+### Weekly social mix (Blog posts, Float Pick, Eddy’s Read)
+
+- **Blog posts:** Tuesday's existing Facebook link post now includes up to three
+  complete highlights from the published `guide_data` (local details, pro tips,
+  pre-launch notes, or article bullets/steps). Oversized/malformed points are
+  skipped, not cut mid-advice. Legacy blogs without structured highlights keep
+  their description. The clickable guide card, rotation and Tuesday cron stay
+  unchanged; this does not add an Instagram carousel publisher.
+- **Float Pick:** no selection, schedule, caption, or rendering changes.
+- **Eddy’s Read:** newly generated social Reads compare two or three rivers.
+  They reuse the narrated scrolling Read composition, with retained short
+  summaries and explicitly labeled weekend weather. Current water is never
+  labeled a weekend water forecast. Caption, narration and pinned cover use the
+  same selection. A reconciled gauge no older than six hours and retained
+  summary are required. Fewer than two eligible rivers means skip, not filler.
+  Equally suitable rivers rotate weekly. Existing river inclusion/exclusion
+  and condition filters still apply; old per-river times no longer control
+  this format. Website/iOS Reads and their generation are untouched.
+
+The social Read's existing `media_schedule.river_highlight.thu` cell controls
+one Thursday **17:00** post (in the configured scheduling zone, normally
+America/Chicago). Other Read day cells and per-river times are retired.
+Existing saved schedules are not silently enabled on deploy. After merging,
+turn on Thursday for **Eddy’s Read** in Admin → Social and enable at least two
+rivers with fresh reports in its river list; generate and review a draft first.
+On October 8 the production Read cells were all off, with the original eight
+rivers excluded. Float Pick's existing schedule must remain unchanged.
+
+Manual Generate draft uses the same multi-river builder. Existing saved
+single-river drafts keep their render request; create a new draft for this
+format. ClipEngine also uses the historical `river_highlight` post key, so the
+Read's dedup and failed-row cleanup additionally match `type=weekend-read` in
+its cover URL. Clip posts do not consume the Thursday slot.

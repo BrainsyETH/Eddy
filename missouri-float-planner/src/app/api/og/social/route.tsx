@@ -1,3 +1,4 @@
+import { reportStamp } from '@shared/social-editorial';
 // src/app/api/og/social/route.tsx
 // Generates square (1080x1080) or portrait (1080x1920) covers for social posts.
 //
@@ -212,6 +213,14 @@ export async function GET(request: NextRequest) {
       return await generateHighlightImage(riverSlug, size, highlightPins);
     }
 
+    if (type === 'weekend-read') {
+      const at = new Date(searchParams.get('at') || '');
+      if (!Number.isFinite(at.getTime()) || parsePinnedDigestRivers(searchParams.get('rivers')).length < 2) {
+        return new Response('A weekend Read requires pinned rivers and a date', { status: 400 });
+      }
+      return await generateDigestImage(size, searchParams.get('rivers'), at);
+    }
+
     if (type === 'tip' && contentId) {
       return await generateTipImage(contentId, size);
     }
@@ -327,7 +336,7 @@ function digestHeadline(codes: string[]): string {
 
 // ─── Digest ─────────────────────────────────────────────────────────────────
 
-async function generateDigestImage(size: Size, pinned?: string | null) {
+async function generateDigestImage(size: Size, pinned?: string | null, weekendReadAt?: Date) {
   const supabase = createAdminClient();
   const cover = coverGeometry(size, 'light', 'instagram', true);
 
@@ -348,7 +357,7 @@ async function generateDigestImage(size: Size, pinned?: string | null) {
     ]);
   }
   // Most notable first, like the reel.
-  rivers.sort((a, b) => cond(a[1].condition_code).severity - cond(b[1].condition_code).severity);
+  if (!weekendReadAt) rivers.sort((a, b) => cond(a[1].condition_code).severity - cond(b[1].condition_code).severity);
   const today = new Date().toLocaleDateString('en-US', {
     weekday: 'long',
     month: 'long',
@@ -356,7 +365,7 @@ async function generateDigestImage(size: Size, pinned?: string | null) {
   });
 
   const otter = await loadOtter('flowing');
-  const headline = digestHeadline(rivers.map(([, r]) => r.condition_code));
+  const headline = weekendReadAt ? 'This weekend' : digestHeadline(rivers.map(([, r]) => r.condition_code));
 
   const featured = rivers.slice(0, 3);
   const gap = 16;
@@ -364,7 +373,7 @@ async function generateDigestImage(size: Size, pinned?: string | null) {
 
   return render(
     <CoverPage cover={cover}>
-      <CoverMasthead cover={cover} label={LABELS.riverReport} title={headline} subtitle={today} otter={otter} />
+      <CoverMasthead cover={cover} label={weekendReadAt ? LABELS.eddyRead : LABELS.riverReport} title={headline} subtitle={weekendReadAt ? `Current water · ${reportStamp(weekendReadAt)}` : today} otter={otter} />
       <div style={{ display: 'flex', flexDirection: 'column', gap, width: '100%' }}>
         {featured.map(([slug, data]) => (
           <CoverRiverRow

@@ -1,15 +1,14 @@
 // src/lib/social/post-scheduler.ts
-// Determines what posts to create each cron run based on per-river schedules.
-// Each river has a fixed daily posting time (CST). The cron runs every 30 min
-// and posts any river whose scheduled time falls within the current window.
+// Determines scheduled social posts. Eddy’s Read is one Thursday comparison;
+// Float Pick and other format schedules retain their existing behavior.
 
 import { createAdminClient } from '@/lib/supabase/admin';
 import {
   formatDailyDigestCaption,
-  formatRiverHighlightCaption,
   formatWeeklyForecastCaption,
 } from './content-formatter';
 import { overlayLiveConditions } from './live-conditions';
+import { weekendReadDue } from './weekend-read';
 import { buildPostContext } from './post-context';
 import { getEnabledPlatforms } from './adapters';
 import { tiktokRemainingBudget } from './tiktok-cap';
@@ -337,102 +336,23 @@ export async function getScheduledPosts(options?: { skipTimeCheck?: boolean }): 
     }
   }
 
-  // --- River Highlights (per-river weekly schedule) ---
-  // Matrix cell gates the whole day: null => no highlight posts regardless
-  // of any river's individual time. A single click turns off ALL river
-  // highlights for that day.
-  const highlightMediaType = resolveMedia(config.media_schedule, 'river_highlight', cstDay);
-  const schedules = config.river_schedules || {};
-  const scheduledRivers = highlightMediaType ? Object.keys(schedules) : [];
-
-  if (!highlightMediaType) {
-    console.log(`${LOG_PREFIX} River highlights: today's matrix cell is off — skipping all rivers`);
-    diag.skipped_reasons.push('highlight_matrix_off');
-  } else if (scheduledRivers.length === 0) {
-    console.log(`${LOG_PREFIX} No river schedules configured`);
-    diag.skipped_reasons.push('no_river_schedules');
-  }
-
-  for (const riverSlug of scheduledRivers) {
-    const riverSchedule = schedules[riverSlug];
-
-    // Check if river is disabled
-    if (config.disabled_rivers && config.disabled_rivers.includes(riverSlug)) {
-      console.log(`${LOG_PREFIX} Skipping ${riverSlug}: disabled`);
-      continue;
-    }
-    if (config.enabled_rivers && config.enabled_rivers.length > 0) {
-      if (!config.enabled_rivers.includes(riverSlug)) {
-        console.log(`${LOG_PREFIX} Skipping ${riverSlug}: not in enabled_rivers`);
-        continue;
+  // One Eddy’s Read each Thursday, using the existing format on/off cell.
+  // Legacy per-river schedules no longer emit separate social Reads.
+  if (weekendReadDue(config.media_schedule?.river_highlight?.thu, new Date(), skipTimeCheck, schedulerZone)) {
+    if (skipTimeCheck || !await hasPostedToday('river_highlight', null, supabase)) {
+      const ctx = await buildPostContext(supabase, { postType: 'river_highlight' });
+      if (ctx) {
+        for (const platform of platformsForPost()) {
+          const { caption, hashtags } = ctx.caption(platform, customContent);
+          posts.push({ postType: 'river_highlight', platform, riverSlug: null,
+            caption, hashtags, imageUrl: ctx.imageUrl(platform), mediaType: 'video', eddyUpdateId: null });
+        }
+      } else {
+        diag.skipped_reasons.push('weekend_read_needs_two_fresh_rivers');
       }
     }
-
-    // Get today's scheduled time (null = skip this day)
-    const scheduledTime = typeof riverSchedule === 'string'
-      ? riverSchedule // backward compat with flat format
-      : riverSchedule?.[todayKey];
-
-    if (!scheduledTime) {
-      console.log(`${LOG_PREFIX} Skipping ${riverSlug}: no schedule for ${todayKey}`);
-      continue;
-    }
-
-    // Check if we have a fresh update for this river
-    const update = latestByRiver.get(riverSlug);
-    if (!update) {
-      console.log(`${LOG_PREFIX} Skipping ${riverSlug}: no fresh eddy update`);
-      continue;
-    }
-
-    // Check condition filter
-    if (!config.highlight_conditions.includes(update.condition_code)) {
-      console.log(`${LOG_PREFIX} Skipping ${riverSlug}: condition '${update.condition_code}' not in [${config.highlight_conditions.join(',')}]`);
-      continue;
-    }
-
-    diag.eligible_rivers.push(riverSlug);
-
-    // Check if this river's time window is now (or skip if previewing)
-    if (!skipTimeCheck && !isDueNow(scheduledTime)) {
-      console.log(`${LOG_PREFIX} Skipping ${riverSlug}: not due yet (scheduled ${scheduledTime} CST on ${todayKey})`);
-      continue;
-    }
-
-    // Check if already posted today
-    if (!skipTimeCheck) {
-      const alreadyPosted = await hasPostedToday('river_highlight', riverSlug, supabase);
-      if (alreadyPosted) {
-        console.log(`${LOG_PREFIX} Skipping ${riverSlug}: already posted today`);
-        continue;
-      }
-    }
-
-    diag.due_rivers.push(riverSlug);
-
-    // Create posts for both platforms
-    const platforms = platformsForPost();
-    // highlightMediaType computed above; non-null here (else loop is empty).
-    for (const platform of platforms) {
-      const { caption, hashtags } = formatRiverHighlightCaption(
-        update,
-        customContent,
-        platform
-      );
-
-      posts.push({
-        postType: 'river_highlight',
-        platform,
-        riverSlug: update.river_slug,
-        caption,
-        imageUrl: `${baseUrl}/api/og/social?type=highlight&river=${update.river_slug}&platform=${platform}`,
-        mediaType: 'video', // video-only; highlight matrix cell is the on/off gate
-        hashtags,
-        eddyUpdateId: update.id,
-      });
-    }
-
-    console.log(`${LOG_PREFIX} Scheduling ${riverSlug} (${todayKey} ${scheduledTime} CST)`);
+  } else {
+    diag.skipped_reasons.push('weekend_read_not_due_or_disabled');
   }
 
   console.log(`${LOG_PREFIX} Scheduled ${posts.length} posts (${diag.due_rivers.length} river highlights)`);
@@ -477,6 +397,10 @@ async function hasPostedToday(
 
   if (riverSlug) {
     query = query.eq('river_slug', riverSlug);
+  } else if (postType === 'river_highlight') {
+    // ClipEngine also uses river_highlight, including clips without a river.
+    // Only a weekend Read should consume the weekly Read's slot.
+    query = query.like('image_url', '%type=weekend-read&%');
   }
   // When riverSlug is null we dedup by post_type + day alone. These types post
   // once per day regardless of which river they feature — and section_guide /
