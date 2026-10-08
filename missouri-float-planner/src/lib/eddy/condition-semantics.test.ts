@@ -158,10 +158,21 @@ test('secondary gauge on a mixed-hydrology river gets neutral guidance only', ()
   assert.doesNotMatch(out, /river IS floatable|scraping over the gravel bars|strainers in the shut-ins|UPPER_REACH/);
 });
 
-test('verified ordinary river gets low and rising guidance exactly once', () => {
+test('verified ordinary river gets rising guidance and notes exactly once', () => {
   const out = buildSecondaryGaugeSemantics(SECONDARY_CONTEXT, true);
-  for (const phrase of ['scraping over the gravel bars', 'strainers in the shut-ins', 'UPPER_REACH_SPRING_NOTE', 'UPPER_REACH_RAIN_LAG']) {
+  for (const phrase of ['strainers in the shut-ins', 'UPPER_REACH_SPRING_NOTE', 'UPPER_REACH_RAIN_LAG']) {
     assert.equal(out.split(phrase).length - 1, 1, phrase);
+  }
+});
+
+test('a secondary station never inherits the main stretch low-water description', () => {
+  // The Meramec's low-water text is the upper river's riffles and gravel bars;
+  // it had Eddy describing riffles at Eureka on the wide lower river.
+  for (const applies of [true, false]) {
+    const out = buildSecondaryGaugeSemantics(SECONDARY_CONTEXT, applies);
+    assert.doesNotMatch(out, /scraping over the gravel bars|river IS floatable/);
+    assert.equal(out.match(/LOW WATER GUIDANCE:/g)?.length, 1);
+    assert.match(out, /without assuming scraping, riffles, floatability/);
   }
 });
 

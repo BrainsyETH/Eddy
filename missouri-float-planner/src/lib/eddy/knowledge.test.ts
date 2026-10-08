@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { getGeneralKnowledge, getKnowledgeForTarget, listKnowledgeRiverSlugs } from './knowledge';
+import { getGeneralKnowledge, getKnowledgeForTarget, getRiverKnowledgeForGauge, gaugeTown, listKnowledgeRiverSlugs } from './knowledge';
 
 // These run against the REAL EDDY_KNOWLEDGE.md (parseKnowledgeFile reads
 // cwd/EDDY_KNOWLEDGE.md, and the test runner's cwd is the web root). That is
@@ -114,4 +114,17 @@ test('no heading anchor leaks into the injected text', () => {
       `an anchor leaked into the knowledge text for "${slug}"`,
     );
   }
+});
+
+test('a downstream gauge gets the river overview, not the upper river as its own', () => {
+  assert.equal(gaugeTown('Meramec River near Eureka, MO'), 'Eureka');
+  assert.equal(gaugeTown('Crooked Creek at Kelly Crossing at Yellville, AR'), 'Yellville');
+  assert.equal(gaugeTown('Mystery Station'), null);
+  const eureka = getRiverKnowledgeForGauge('meramec', 'Meramec River near Eureka, MO');
+  assert.match(eureka, /Lower Meramec is wider, calmer/);
+  assert.match(eureka, /different river from the Meramec at Eureka/);
+  // The upper-river subsection is not handed to a lower-river station.
+  assert.doesNotMatch(eureka, /More rapids, narrower channel/);
+  assert.doesNotMatch(eureka, /General Ozarks Knowledge/);
+  assert.equal(getRiverKnowledgeForGauge('no-such-river', 'Somewhere near Nowhere, MO'), '');
 });

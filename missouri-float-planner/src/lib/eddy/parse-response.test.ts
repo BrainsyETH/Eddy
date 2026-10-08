@@ -31,4 +31,7 @@ test('em dashes become a clean comma without a stray space', async () => {
   assert.equal(replaceEmDashes('sitting at 15 cfs — well short'), 'sitting at 15 cfs, well short');
   assert.equal(replaceEmDashes('reflects that—holding steady'), 'reflects that, holding steady');
   assert.equal(replaceEmDashes('no dash here'), 'no dash here');
+  // Models dodge the em-dash ban with a double hyphen.
+  assert.equal(replaceEmDashes('reads Good and steady -- floatable'), 'reads Good and steady, floatable');
+  assert.equal(replaceEmDashes('a --- rule stays'), 'a --- rule stays');
 });
