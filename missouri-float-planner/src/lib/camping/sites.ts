@@ -99,7 +99,8 @@ function bookingUrl(source: string, sourceSiteId: string): string | null {
 /**
  * Every site at one facility, with its fortnight.
  *
- * Two queries regardless of how many sites there are. Returns null when the
+ * A fixed number of queries regardless of how many sites there are (the
+ * per-site read pages, below). Returns null when the
  * facility is unknown or disabled, which the route renders as a 404 — a
  * campground Eddy does not track is not an error, it is a different question.
  */
@@ -166,6 +167,26 @@ export async function loadFacilitySites(
     if (page.length < PAGE) break;
   }
 
+  // ── ONE OBSERVATION PER NIGHT ─────────────────────────────────────────────
+  //
+  // The sync writes the facility's total and its per-site rows from one payload
+  // with one timestamp, but the per-site upsert never deletes: a site missing
+  // from today's payload keeps yesterday's row. On 2026-10-09 that was 17 of
+  // Meramec's sites still "open" beside a total that no longer counted them.
+  // A site row is shown only when it belongs to the same observation as the
+  // number on the card; anything else is unknown, which renders as a gap.
+  const { data: totals, error: totalsError } = await supabase
+    .from('campsite_availability')
+    .select('date, fetched_at')
+    .eq('facility_id', facilityId)
+    .in('date', window.nights);
+
+  if (totalsError) throw new Error(`campsite_availability: ${totalsError.message}`);
+  const observedAt = new Map<string, number>();
+  for (const row of (totals ?? []) as { date: string; fetched_at: string }[]) {
+    observedAt.set(row.date, Date.parse(row.fetched_at));
+  }
+
   const bySite = new Map<string, Map<string, UnitStatus>>();
   let fetchedAt: string | null = null;
 
@@ -173,6 +194,7 @@ export async function loadFacilitySites(
     // One expired date cannot invalidate current observations elsewhere in a month.
     const age = now.getTime() - Date.parse(row.fetched_at);
     if (!Number.isFinite(age) || age < 0 || age >= MAX_AGE_MS) continue;
+    if (observedAt.get(row.date) !== Date.parse(row.fetched_at)) continue;
     const nights = bySite.get(row.site_id) ?? new Map<string, UnitStatus>();
     nights.set(row.date, row.status as UnitStatus);
     bySite.set(row.site_id, nights);

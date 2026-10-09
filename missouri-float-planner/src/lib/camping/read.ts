@@ -54,6 +54,13 @@ export interface CampsiteNight {
   sitesOpen: number;
   sitesReservable: number;
   status: AvailabilityStatus;
+  /**
+   * First-come sites the same observation recorded — inventory, never a claim
+   * that any is free on arrival. Null is UNKNOWN, not zero: state parks (whose
+   * feed cannot say walk-up), and any night whose per-site rows do not match
+   * this observation. See 20261009120000_campsite_walk_up_counts.sql.
+   */
+  sitesWalkUp: number | null;
 }
 
 /** What a card needs to render one availability line. */
@@ -63,6 +70,8 @@ export interface CampsiteAvailability {
   sitesOpen: number;
   sitesReservable: number;
   status: AvailabilityStatus;
+  /** First-come sites on every night of `window` (the fewest); null when any is unknown. */
+  sitesWalkUp: number | null;
   kind: FacilityKind;
   source: CampingSource;
   fetchedAt: string;
@@ -115,6 +124,63 @@ interface JoinedRow {
   } | null;
 }
 
+/** Walk-up counts keyed `${facilityId}|${date}`, with the observation they came from. */
+type WalkUpIndex = Map<string, { fetchedAt: string; sites: number | null }>;
+
+/**
+ * First-come inventory per facility-night, from campsite_walk_up_counts.
+ *
+ * Its own query, run beside the aggregate read rather than after it, and
+ * failure-tolerant on its own terms: a missing view (code deployed before the
+ * migration) or any error leaves every night UNKNOWN, never zero, and never
+ * costs the card its main number.
+ */
+async function loadWalkUp(supabase: SupabaseClient, nights: string[]): Promise<WalkUpIndex> {
+  const index: WalkUpIndex = new Map();
+  try {
+    const { data, error } = await supabase
+      .from('campsite_walk_up_counts')
+      .select('facility_id, date, fetched_at, walk_up_sites')
+      .in('date', nights);
+    if (error) {
+      console.error('[camping] walk-up read failed:', error.message);
+      return index;
+    }
+    for (const row of (data ?? []) as {
+      facility_id: string;
+      date: string;
+      fetched_at: string;
+      walk_up_sites: number | null;
+    }[]) {
+      index.set(`${row.facility_id}|${row.date}`, {
+        fetchedAt: row.fetched_at,
+        sites: row.walk_up_sites,
+      });
+    }
+  } catch (err) {
+    console.error('[camping] walk-up read failed:', err instanceof Error ? err.message : err);
+  }
+  return index;
+}
+
+/**
+ * The walk-up count for one aggregate row, or null.
+ *
+ * The view already counts only per-site rows of the aggregate's observation.
+ * Matching fetched_at again here covers a sync landing between the two reads:
+ * a count from a different observation than the number beside it is unknown.
+ */
+function walkUpFor(
+  index: WalkUpIndex,
+  facilityId: string,
+  date: string,
+  fetchedAt: string,
+): number | null {
+  const hit = index.get(`${facilityId}|${date}`);
+  if (!hit || Date.parse(hit.fetchedAt) !== Date.parse(fetchedAt)) return null;
+  return hit.sites;
+}
+
 /**
  * Every enabled facility's availability for the coming weekend, indexed both
  * ways so a caller can look up by whichever id it happens to hold.
@@ -132,14 +198,17 @@ export async function loadAvailability(
   // below for why these must never be the same set of nights.
   const window = resolveWeekend(now);
 
-  const { data, error } = await supabase
-    .from('campsite_availability')
-    .select(
-      'date, sites_open, sites_reservable, status, fetched_at, ' +
-        'campsite_facilities!inner(id, source, kind, enabled, access_point_id, nps_campground_id, nearby_service_id)',
-    )
-    .in('date', horizon.nights)
-    .eq('campsite_facilities.enabled', true);
+  const [{ data, error }, walkUp] = await Promise.all([
+    supabase
+      .from('campsite_availability')
+      .select(
+        'date, sites_open, sites_reservable, status, fetched_at, ' +
+          'campsite_facilities!inner(id, source, kind, enabled, access_point_id, nps_campground_id, nearby_service_id)',
+      )
+      .in('date', horizon.nights)
+      .eq('campsite_facilities.enabled', true),
+    loadWalkUp(supabase, horizon.nights),
+  ]);
 
   if (error) {
     // Availability is an enhancement. A page that cannot read it should render
@@ -150,7 +219,11 @@ export async function loadAvailability(
 
   const nightsByFacility = new Map<
     string,
-    { rows: DailyAggregate[]; meta: NonNullable<JoinedRow['campsite_facilities']>; fetchedAt: string }
+    {
+      rows: (DailyAggregate & { sitesWalkUp: number | null })[];
+      meta: NonNullable<JoinedRow['campsite_facilities']>;
+      fetchedAt: string;
+    }
   >();
 
   const freshEnough = now.getTime() - MAX_AGE_MS;
@@ -170,6 +243,7 @@ export async function loadAvailability(
       sitesOpen: row.sites_open,
       sitesReservable: row.sites_reservable,
       status: row.status as AvailabilityStatus,
+      sitesWalkUp: walkUpFor(walkUp, facility.id, row.date, row.fetched_at),
     });
     // Report the oldest night's timestamp: the weakest part of the answer.
     if (row.fetched_at < entry.fetchedAt) entry.fetchedAt = row.fetched_at;
@@ -209,6 +283,11 @@ export async function loadAvailability(
       sitesOpen: summary.sitesOpen,
       sitesReservable: summary.sitesReservable,
       status: summary.status,
+      // The fewest across the stay, like sitesOpen; one unknown night makes
+      // the whole stay unknown rather than quietly zero.
+      sitesWalkUp: weekend.some((night) => night.sitesWalkUp === null)
+        ? null
+        : Math.min(...weekend.map((night) => night.sitesWalkUp as number)),
       kind: meta.kind as FacilityKind,
       source: meta.source as CampingSource,
       fetchedAt,
@@ -223,6 +302,7 @@ export async function loadAvailability(
               sitesOpen: night.sitesOpen,
               sitesReservable: night.sitesReservable,
               status: night.status,
+              sitesWalkUp: night.sitesWalkUp,
             }))
           : [],
     };

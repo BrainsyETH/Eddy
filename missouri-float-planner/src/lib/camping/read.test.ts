@@ -24,14 +24,31 @@ const FACILITY = {
   nearby_service_id: null,
 };
 
-/** Just enough of the client for the one query loadAvailability makes. */
-function supabaseReturning(rows: unknown[]) {
+/**
+ * Just enough of the client for the two queries loadAvailability makes: the
+ * aggregate read, and the walk-up view beside it. `walkUp` as a string is
+ * that view failing — the state before the migration is applied.
+ */
+function supabaseReturning(rows: unknown[], walkUp: unknown[] | string = []) {
   const builder = {
     select: () => builder,
     in: () => builder,
     eq: () => Promise.resolve({ data: rows, error: null }),
   };
-  return { from: () => builder } as never;
+  const walkUpResult =
+    typeof walkUp === 'string'
+      ? { data: null, error: { message: walkUp } }
+      : { data: walkUp, error: null };
+  return {
+    from: (table: string) =>
+      table === 'campsite_walk_up_counts'
+        ? { select: () => ({ in: () => Promise.resolve(walkUpResult) }) }
+        : builder,
+  } as never;
+}
+
+function walkUpRow(date: string, sites: number | null, fetchedAt = '2026-08-06T09:00:00Z') {
+  return { facility_id: 'fac-1', date, fetched_at: fetchedAt, walk_up_sites: sites };
 }
 
 function night(
@@ -274,6 +291,7 @@ test('the per-site read pages past the silent row cap', async () => {
   }
 
   let ranges = 0;
+  let totalsAt = '2026-08-06T09:00:00Z';
   const client = {
     from(table: string) {
       if (table === 'campsite_facilities') {
@@ -308,6 +326,21 @@ test('the per-site read pages past the silent row cap', async () => {
                 source_site_id: String(i),
               })),
               error: null,
+            }),
+          }),
+        };
+      }
+      if (table === 'campsite_availability') {
+        // One aggregate per measured night, from the same observation as the
+        // per-site rows — the sync writes both with one timestamp.
+        const dates = [...new Set(all.map((row) => row.date))];
+        return {
+          select: () => ({
+            eq: () => ({
+              in: async () => ({
+                data: dates.map((date) => ({ date, fetched_at: totalsAt })),
+                error: null,
+              }),
             }),
           }),
         };
@@ -350,6 +383,21 @@ test('the per-site read pages past the silent row cap', async () => {
   assert.equal(month?.sites[0].nights[25], '-', 'missing future data is not full');
   assert.equal(month?.fetchedAt, '2026-08-06T09:00:00Z');
   assert.equal(await loadFacilitySites(client, 'f1', new Date('2026-08-06T17:00:00Z'), '2028-01'), null);
+
+  // A per-site row from an older observation than the facility's total is
+  // unknown, not "open": the per-site upsert never deletes, so a site missing
+  // from today's payload keeps yesterday's row. Within MAX_AGE, so only the
+  // observation rule can drop it.
+  all[1].fetched_at = '2026-08-05T09:00:00Z';
+  const stale = await loadFacilitySites(client, 'f1', new Date('2026-08-06T17:00:00Z'));
+  assert.equal(stale?.sites[0].nights[1], '-', 'yesterday\'s row beside today\'s total');
+  assert.equal(stale?.sites[0].nights[2], 'A');
+
+  // And a newer total than every site row (the per-site write failed) leaves
+  // the list unmeasured rather than describing the previous observation.
+  totalsAt = '2026-08-06T10:00:00Z';
+  const failedWrite = await loadFacilitySites(client, 'f1', new Date('2026-08-06T17:00:00Z'));
+  assert.equal(failedWrite?.sites.length, 0);
 });
 
 
@@ -364,4 +412,53 @@ test('standalone services receive inventory without access-point or NPS identiti
   assert.equal(index.byNpsCampgroundId.size, 0);
   const missing = await loadAvailability(supabaseReturning([]), NOW);
   assert.equal(missing.byNearbyServiceId.get('standalone-1') ?? null, null);
+});
+
+/* ── First-come inventory ─────────────────────────────────────────────────── */
+//
+// campsite_walk_up_counts counts walk-up rows of the aggregate's own
+// observation. Null is unknown, and must never be folded into zero.
+
+test('walk-up counts ride each night, and the weekend takes the fewest', async () => {
+  const rows = HORIZON.map((date) => night(date, 0, 20, 'full'));
+  const walkUp = HORIZON.map((date) => walkUpRow(date, date === WEEKEND[1] ? 38 : 40));
+  const availability = (await loadAvailability(supabaseReturning(rows, walkUp), NOW)).byNpsCampgroundId.get('cg-1')!;
+
+  assert.equal(availability.nights[0].sitesWalkUp, 40);
+  assert.equal(availability.sitesWalkUp, 38, 'first-come on every night of the stay');
+});
+
+test('a missing view row is unknown, never zero', async () => {
+  const rows = HORIZON.map((date) => night(date, 0, 20, 'full'));
+  const walkUp = HORIZON.filter((date) => date !== WEEKEND[0]).map((date) => walkUpRow(date, 40));
+  const availability = (await loadAvailability(supabaseReturning(rows, walkUp), NOW)).byNpsCampgroundId.get('cg-1')!;
+
+  const friday = availability.nights.find((n) => n.date === WEEKEND[0])!;
+  assert.equal(friday.sitesWalkUp, null);
+  assert.equal(availability.sitesWalkUp, null, 'one unknown night makes the stay unknown');
+  // A view row saying "no walk-up rows matched" is also unknown.
+  const nullRow = await loadAvailability(
+    supabaseReturning(rows, HORIZON.map((date) => walkUpRow(date, null))),
+    NOW,
+  );
+  assert.equal(nullRow.byNpsCampgroundId.get('cg-1')!.sitesWalkUp, null);
+});
+
+test('a walk-up count from a different observation is not used', async () => {
+  // A sync landing between the two reads: the count beside the number must
+  // describe the same observation as the number.
+  const rows = HORIZON.map((date) => night(date, 0, 20, 'full'));
+  const walkUp = HORIZON.map((date) => walkUpRow(date, 40, '2026-08-05T09:00:00Z'));
+  const availability = (await loadAvailability(supabaseReturning(rows, walkUp), NOW)).byNpsCampgroundId.get('cg-1')!;
+  assert.equal(availability.nights[0].sitesWalkUp, null);
+});
+
+test('a failing walk-up view never costs the card its number', async () => {
+  // The state between deploying this code and applying the migration.
+  const rows = HORIZON.map((date) => night(date, 8));
+  const availability = (
+    await loadAvailability(supabaseReturning(rows, 'relation "campsite_walk_up_counts" does not exist'), NOW)
+  ).byNpsCampgroundId.get('cg-1')!;
+  assert.equal(availability.sitesOpen, 8);
+  assert.equal(availability.sitesWalkUp, null);
 });

@@ -309,6 +309,12 @@ export interface CampsiteAvailabilityInfo {
   sitesReservable: number;
   /** `closed` is seasonal and must not be worded as "fully booked". */
   status: 'open' | 'full' | 'closed' | 'not_yet_released';
+  /**
+   * First-come sites on every night of `window` — inventory, never a promise
+   * any is free on arrival. Null or absent is UNKNOWN, not zero: always for
+   * state parks, whose feed cannot express walk-up at all.
+   */
+  sitesWalkUp?: number | null;
   kind: 'campground' | 'backcountry_district';
   source: 'recreation_gov' | 'mo_state_parks';
   fetchedAt: string;
@@ -335,6 +341,8 @@ export interface CampsiteNightInfo {
   sitesOpen: number;
   sitesReservable: number;
   status: 'open' | 'full' | 'closed' | 'not_yet_released';
+  /** First-come sites this observation recorded. Null or absent = unknown. */
+  sitesWalkUp?: number | null;
 }
 
 /** NPS campground data enrichment for access point detail */

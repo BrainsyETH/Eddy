@@ -39,6 +39,10 @@ const CASES: Array<{ label: string; value: CampsiteAvailabilityInfo; name?: stri
   { label: 'open', value: info({ status: 'open', sitesOpen: 8, sitesReservable: 54 }) },
   { label: 'one site left', value: info({ status: 'open', sitesOpen: 1, sitesReservable: 72 }) },
   { label: 'full', value: info({ status: 'full', sitesReservable: 54 }) },
+  { label: 'full with walk-up', value: info({ status: 'full', sitesReservable: 20, sitesWalkUp: 40 }) },
+  { label: 'full with one walk-up', value: info({ status: 'full', sitesReservable: 20, sitesWalkUp: 1 }) },
+  { label: 'full, walk-up unknown', value: info({ status: 'full', sitesReservable: 20, sitesWalkUp: null }) },
+  { label: 'full state park', value: info({ status: 'full', sitesReservable: 179, source: 'mo_state_parks' }) },
   { label: 'closed', value: info({ status: 'closed' }) },
   { label: 'not yet released', value: info({ status: 'not_yet_released' }) },
   {
@@ -83,6 +87,25 @@ test('the full wording never claims sites are open', () => {
   const full = availabilityLabel(info({ status: 'full', sitesReservable: 54 }));
   assert.ok(full);
   assert.doesNotMatch(full, /\bopen\b/i);
+});
+
+test('a full Recreation.gov weekend says which sites are full, and names walk-up', () => {
+  assert.equal(
+    availabilityLabel(info({ status: 'full', sitesReservable: 20, sitesWalkUp: 40 })),
+    'Reservable sites full · 40 first-come sites · Fri–Sun, Aug 7–9',
+  );
+  assert.equal(
+    availabilityLabel(info({ status: 'full', sitesReservable: 20, sitesWalkUp: null })),
+    'Reservable sites full · Fri–Sun, Aug 7–9',
+    'unknown walk-up inventory is left unsaid, never printed as zero',
+  );
+});
+
+test('a state park never claims its sites are booked or full', () => {
+  // UseDirect's IsFree boolean cannot tell booked from held or closed.
+  const label = availabilityLabel(info({ status: 'full', sitesReservable: 179, source: 'mo_state_parks' }));
+  assert.equal(label, 'No sites available to book · Fri–Sun, Aug 7–9');
+  assert.doesNotMatch(label!, /booked|full/i);
 });
 
 test('an open window names both the count and the weekend', () => {
