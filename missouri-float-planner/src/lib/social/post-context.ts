@@ -1,4 +1,4 @@
-import { publishableReading, readingWeather } from '@shared/eddy-read-reel';
+import { selectWeekendReads, weekendReadExclusion, weekendReadText, weekendReadCaption } from './weekend-read';
 import { estimateRoute } from '@/lib/calculations/route-estimate';
 import { shortSummary, reportStamp } from '@shared/social-editorial';
 import { weekendWeather } from './weekend-weather';
@@ -18,7 +18,7 @@ import { weekendWeather } from './weekend-weather';
 import type { SocialPlatform, SocialCustomContent } from './types';
 import type { PostKind, RenderData } from './post-types';
 import { overlayLiveConditions } from './live-conditions';
-import { riverDisplayLong, riverDisplayShort } from './river-display';
+import { riverDisplayShort } from './river-display';
 import { pickSectionForRivers } from './section-picker';
 import { buildSocialRouteScene } from './route-scene';
 import { pickFavoriteFloat } from './favorite-floats';
@@ -28,7 +28,6 @@ import { WEEKEND_FLOATABLE, WEEKEND_SEVERITY } from '@shared/condition-system';
 import { upcomingHolidayWeekend } from './holiday-weekends';
 import {
   formatDailyDigestCaption,
-  formatRiverHighlightCaption,
   formatWeeklyForecastCaption,
   formatSectionGuideCaption,
   formatFavoriteFloatCaption,
@@ -100,12 +99,24 @@ export interface PostContext {
   caption: (platform: SocialPlatform, custom: SocialCustomContent[]) => { caption: string; hashtags: string[] };
   /** OG image (image post) / video cover thumbnail. */
   imageUrl: (platform: SocialPlatform) => string;
+  /** Rivers a multi-river post features, for scheduler diagnostics. */
+  riverSlugs?: string[];
+}
+
+/** The social_config fields the weekend Read uses. */
+export interface ReadConfig {
+  enabled_rivers?: string[] | null;
+  disabled_rivers?: string[] | null;
+  highlight_conditions?: string[] | null;
+  timezone?: string | null;
 }
 
 interface BuildOpts {
   postType: PostKind;
   riverSlug?: string;
   eddyUpdateId?: string;
+  /** Already-loaded social_config; skips a reload when the caller has it. */
+  config?: ReadConfig;
 }
 
 /**
@@ -125,7 +136,7 @@ export async function buildPostContext(
   async function freshRivers() {
     const { data: updates } = await supabase
       .from('eddy_updates')
-      .select('id, river_slug, condition_code, gauge_height_ft, quote_text, summary_text, weather')
+      .select('id, river_slug, condition_code, gauge_height_ft, quote_text, summary_text, generated_at, weather')
       .neq('river_slug', 'global')
       .is('section_slug', null)
       .gt('expires_at', nowIso)
@@ -136,7 +147,7 @@ export async function buildPostContext(
       if (seen.has(u.river_slug)) return false;
       seen.add(u.river_slug);
       return true;
-    });
+    }).map((u) => ({ ...u, stored_condition_code: u.condition_code }));
     return overlayLiveConditions(supabase, dedupedRaw);
   }
 
@@ -328,46 +339,39 @@ export async function buildPostContext(
   }
 
   if (postType === 'river_highlight') {
-    // Fetch by explicit eddy_update id (cron) or latest for a river (quick-post).
-    let query = supabase
-      .from('eddy_updates')
-      .select('id, river_slug, condition_code, gauge_height_ft, quote_text, summary_text, eddy_read, generated_at, weather')
-      .gt('expires_at', nowIso)
-      .is('section_slug', null);
-    query = opts.eddyUpdateId
-      ? query.eq('id', opts.eddyUpdateId)
-      : query.eq('river_slug', opts.riverSlug).gt('expires_at', nowIso)
-          .order('generated_at', { ascending: false }).limit(1);
-    const { data: rawUpdate } = await query.maybeSingle();
-    if (!rawUpdate) return null;
-    const [update] = await overlayLiveConditions(supabase, [rawUpdate]);
-    const readingText = publishableReading(update);
-    if (!readingText) return null;
-
+    // The social Read is one weekend comparison. App/website Reads and their
+    // generation stay untouched. Honor the existing river exclusions.
+    let config = opts.config;
+    if (!config) {
+      // `*` so an optional timezone column is picked up without erroring when absent.
+      const { data, error } = await supabase.from('social_config').select('*').limit(1).maybeSingle();
+      if (error) throw new Error(`Cannot load Eddy’s Read river filters: ${error.message}`);
+      config = (data ?? {}) as ReadConfig;
+    }
+    const zone = config.timezone || 'America/Chicago';
+    const eligible = (await freshRivers()).filter(u =>
+      !config.disabled_rivers?.includes(u.river_slug) &&
+      (!config.enabled_rivers?.length || config.enabled_rivers.includes(u.river_slug)) &&
+      (!Array.isArray(config.highlight_conditions) || config.highlight_conditions.includes(u.condition_code)));
+    const now = new Date(nowIso);
+    const rows = selectWeekendReads(eligible, now, zone);
+    const excluded = eligible.map(u => [u.river_slug, weekendReadExclusion(u, now)]).filter(([, why]) => why);
+    console.log(`[SocialRead] picked: ${rows.map(u => u.river_slug).join(',') || 'none'}; ` +
+      `excluded: ${excluded.map(([slug, why]) => `${slug}(${why})`).join(', ') || 'none'}`);
+    if (rows.length < 2) return null;
+    const pinned = rows.map(u => `${u.river_slug}:${u.condition_code}:${u.gauge_height_ft ?? ''}`).join(',');
     return {
       postType,
-      riverSlug: update.river_slug,
+      riverSlug: null,
+      riverSlugs: rows.map(u => u.river_slug),
       renderData: {
-        riverName: riverDisplayLong(update.river_slug),
-        readingText,
-        readWeather: readingWeather(rawUpdate.weather, rawUpdate.generated_at),
-        dateLabel: `Report ${reportStamp(new Date(rawUpdate.generated_at))}` + (update.reading_timestamp ? ` · Gauge ${reportStamp(new Date(update.reading_timestamp))}` : " · Gauge time unavailable"),
-        conditionCode: update.condition_code,
-        gaugeHeightFt: update.gauge_height_ft,
+        riverName: 'This weekend',
+        readingText: weekendReadText(rows, now, zone),
+        dateLabel: `Prepared ${reportStamp(now)} · Current water`,
       },
-      caption: (platform, custom) => formatRiverHighlightCaption({ ...update, quote_text: readingText }, custom, platform),
-      // Pin the exact eddy_update row plus the reading and condition the reel
-      // shows (the live-conditions overlay can move both), and the post's own
-      // timestamp for the cover's subtitle — so the cover Meta renders at crawl
-      // time is this report, not a later one, and the URL is unique per post.
-      imageUrl: (platform) =>
-        og(
-          'highlight',
-          platform,
-          `&river=${update.river_slug}&id=${encodeURIComponent(String(rawUpdate.id))}` +
-            `&ft=${update.gauge_height_ft ?? ''}&condition=${update.condition_code}` +
-            `&at=${encodeURIComponent(nowIso)}`,
-        ),
+      caption: () => ({ caption: weekendReadCaption(rows, now, zone), hashtags: [] }),
+      imageUrl: platform => og('weekend-read', platform,
+        `&rivers=${encodeURIComponent(pinned)}&at=${encodeURIComponent(nowIso)}`),
     };
   }
 

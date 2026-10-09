@@ -198,7 +198,7 @@ async function runSocialPosting(request: NextRequest) {
         }
 
         // Clear conflicting records
-        await supabase
+        let cleanup = supabase
           .from('social_posts')
           .delete()
           .eq('post_type', post.postType)
@@ -206,6 +206,8 @@ async function runSocialPosting(request: NextRequest) {
           .eq('auto_publish', true)
           .in('status', ['failed', 'publishing', 'pending'])
           .gte('created_at', todayStart.toISOString());
+        if (post.postType === 'river_highlight') cleanup = cleanup.like('image_url', '%type=weekend-read&%');
+        await cleanup;
 
         const { data: record, error: insertError } = await supabase
           .from('social_posts')

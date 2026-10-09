@@ -67,10 +67,6 @@ export async function POST(request: NextRequest) {
       return await postTip(supabase, validPlatforms, contentId);
     }
 
-    if (type === 'highlight' && !riverSlug) {
-      return NextResponse.json({ error: 'riverSlug is required for highlight posts' }, { status: 400 });
-    }
-
     // Map the admin "type" to a canonical PostKind.
     const kind: VideoPostKind =
       type === 'digest' ? 'daily_digest'

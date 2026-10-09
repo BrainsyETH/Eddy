@@ -31,13 +31,12 @@ export const DEFAULT_WEEKLY_TREND: WeeklyReelConfig = {
   media: 'video',
 };
 
-// Matches the 00092 migration default — Mon/Wed/Fri = video, rest = image.
-// Users can edit this matrix from the admin UI; the scheduler reads from
-// config, not this constant.
+// New configs use one Thursday Read. Persisted cells (including explicit off)
+// win over these defaults; the scheduler reads the saved admin settings.
 export const DEFAULT_MEDIA_SCHEDULE: MediaSchedule = {
   river_highlight: {
-    mon: 'video', tue: 'image', wed: 'video',
-    thu: 'image', fri: 'video', sat: 'image', sun: 'image',
+    mon: null, tue: null, wed: null,
+    thu: 'video', fri: null, sat: null, sun: null,
   },
   daily_digest: {
     mon: 'video', tue: 'image', wed: 'video',

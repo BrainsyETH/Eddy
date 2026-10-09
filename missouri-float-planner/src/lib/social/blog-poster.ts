@@ -8,6 +8,7 @@
 // (blog_posts.last_shared_at; NULL = never shared → first). Shared with the
 // post-blog cron and the admin "post blog now" button.
 
+import { blogHighlights } from './blog-highlights';
 import { hasMetaCredentials, publishLinkToFacebook } from './meta-client';
 
 const SITE = 'https://eddy.guide';
@@ -21,6 +22,7 @@ export interface BlogRow {
   featured_image_url: string | null;
   river_slug: string | null;
   last_shared_at: string | null;
+  guide_data?: unknown;
 }
 
 export interface BlogPostResult {
@@ -32,13 +34,18 @@ export interface BlogPostResult {
   error?: string;
 }
 
-// Facebook caption for a guide link post. Kept short: the OG card already
-// carries the title + image, so the message is just a hook and a nudge. The URL
+// Facebook caption delivers up to three useful points from the published
+// guide before inviting readers to open the full article. The URL
 // is NOT put in the message — the `link` param generates the clickable card.
 export function buildBlogCaption(blog: BlogRow): string {
   const hook = (blog.description || '').trim();
   const lines: string[] = [`📖 ${blog.title}`];
-  if (hook) lines.push('', hook);
+  const highlights = blogHighlights(blog.guide_data);
+  if (highlights.length) {
+    lines.push('', ...highlights.map(point => `• ${point}`));
+  } else if (hook) {
+    lines.push('', hook);
+  }
   lines.push('', 'Read the full guide 👇');
   return lines.join('\n');
 }
@@ -55,7 +62,7 @@ export async function publishBlogFeature(supabase: any): Promise<BlogPostResult>
   // tie-broken by oldest published.
   const { data: blogs, error } = await supabase
     .from('blog_posts')
-    .select('id, slug, title, description, og_image_url, featured_image_url, river_slug, last_shared_at')
+    .select('id, slug, title, description, og_image_url, featured_image_url, river_slug, last_shared_at, guide_data')
     .eq('status', 'published')
     .order('last_shared_at', { ascending: true, nullsFirst: true })
     .order('published_at', { ascending: true })
