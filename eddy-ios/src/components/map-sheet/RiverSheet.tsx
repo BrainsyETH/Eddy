@@ -33,7 +33,7 @@ import { fonts, type as t } from '@/theme/typography';
 import { conditionBg, conditionChipBorder, conditionInk, conditionLabel } from '@/theme/conditions';
 import { Absent, Fact, LinkRow, Prose, Section } from './sections';
 import { RiverHead } from './RiverHead';
-import { CampingScrollGroup, CampingTableHeader, CampingTableRow } from '../CampingGrid';
+import { RiverCampingWeek } from './RiverCampingWeek';
 import { useAppConfig } from '@/hooks/useAppConfig';
 import { useCampingOverview } from '@/hooks/useCampingOverview';
 import { observedCampingOverview } from '@/lib/campingHeatmap';
@@ -230,32 +230,14 @@ export function RiverServicesTab({ river, onOpenCamping }: RiverTabProps) {
 
   return (
     <View>
-      {/* ── Can I get a site, and when ──────────────────────────────
-          The camping screen's grid, unchanged: nights across, one row per
-          campground, open-site counts in each cell and the weekend columns
-          marked. The same components and the same trimmed horizon, so a
-          campground reads identically here and one tap away. Tapping a row
-          opens its sites; the link under the grid opens the full screen. */}
+      {/* ── Can I get a site this week ──────────────────────────────
+          The camping screen's cells and marks for the next seven nights, one
+          row per tracked campground. Fixed, not the scrolling grid: see
+          RiverCampingWeek for why the grid could not live inside this sheet.
+          Tapping a row opens its sites; the link opens the full horizon. */}
       {tracked.length && grid ? (
         <Section title="Campsite availability">
-          <CampingScrollGroup
-            thumbnails
-            dateWidth={36}
-            columnCount={grid.horizon.nights.length}
-            // Only a new calendar horizon resets the date offset.
-            key={grid.horizon.startDate}
-          >
-            <CampingTableHeader overview={grid} now={now} />
-            {tracked.map((row) => (
-              <CampingTableRow
-                key={row.facilityId}
-                row={row}
-                overview={grid}
-                now={now}
-                onOpen={openCampground}
-              />
-            ))}
-          </CampingScrollGroup>
+          <RiverCampingWeek rows={tracked} overview={grid} now={now} onOpen={openCampground} />
           <LinkRow
             label="See all camping"
             detail={`Every night for campgrounds on the ${river.name}`}
