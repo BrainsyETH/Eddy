@@ -622,6 +622,170 @@ export function nowLabel(latestAt: number, now: number = Date.now()): 'Now' | 'L
   return isReadingStale(Number.isFinite(ageHours) ? ageHours : null) ? 'Last reading' : 'Now';
 }
 
+// ── Last-year comparison ────────────────────────────────────────────────────
+//
+// THE CALENDAR-DATE CONVENTION, used by both renderers:
+//   · A daily value's date is the YYYY-MM-DD its publisher wrote. It is never
+//     re-derived through a timezone — USGS daily values are station days.
+//   · An instantaneous reading's date is its device-local calendar date.
+//   · A selected window is a pair of calendar dates. Where the reader picked
+//     them, those dates are used as picked; otherwise they are the device-local
+//     dates of the window's instants (windowCalendarDates).
+//   · A daily value is drawn at local noon of its date, the same placement the
+//     typical band uses, clamped to the plotted window.
+
+/** Windows shorter than this offer no comparison: a week of daily averages
+ *  is seven points against hundreds of readings. */
+export const LAST_YEAR_MIN_DAYS = 30;
+
+/** A prior-year daily value, drawn on the matching date of the selected year. */
+export interface PriorYearPoint extends ChartPoint {
+  /** The day the value was recorded. Readouts print this one. */
+  sourceDate: string;
+  /** The selected-year day it is drawn on. */
+  alignedDate: string;
+}
+
+const DATE_PREFIX = /^(\d{4})-(\d{2})-(\d{2})/;
+const DATE_ONLY = /^\d{4}-\d{2}-\d{2}$/;
+
+/** USGS flow, with daily values and explicit windows, over a long enough window. */
+export function lastYearAvailable(
+  unit: ReadingUnit,
+  capabilities: { supportsDaily: boolean; supportsCustomRange: boolean } | null | undefined,
+  windowDays: number,
+): boolean {
+  return unit === 'cfs' && !!capabilities?.supportsDaily && !!capabilities.supportsCustomRange
+    && windowDays >= LAST_YEAR_MIN_DAYS;
+}
+
+/** The date a publisher wrote at the start of a timestamp, or null. */
+export function calendarDateOf(timestamp: string): string | null {
+  const match = DATE_PREFIX.exec(timestamp);
+  return match ? `${match[1]}-${match[2]}-${match[3]}` : null;
+}
+
+/** Device-local YYYY-MM-DD of an instant. */
+export function localCalendarDate(ms: number): string {
+  const d = new Date(ms);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+/** Local noon of a calendar date, in epoch ms. */
+export function calendarDateTime(date: string): number {
+  const [year, month, day] = date.split('-').map(Number);
+  return new Date(year, month - 1, day, 12).getTime();
+}
+
+/** The same month and day `years` away, or null when that day does not exist
+ *  (February 29 into a non-leap year). Calendar arithmetic only. */
+export function shiftCalendarYear(date: string, years: number): string | null {
+  const match = DATE_PREFIX.exec(date);
+  if (!match) return null;
+  const year = Number(match[1]) + years;
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  const check = new Date(Date.UTC(year, month - 1, day));
+  if (check.getUTCMonth() !== month - 1 || check.getUTCDate() !== day) return null;
+  return `${String(year).padStart(4, '0')}-${match[2]}-${match[3]}`;
+}
+
+/** A selected window as inclusive calendar dates (YYYY-MM-DD). */
+export interface CalendarDates {
+  from: string;
+  to: string;
+}
+
+/** The device-local calendar dates an instant window covers. Callers that
+ *  know the dates the reader picked pass those instead. */
+export function windowCalendarDates(window: { from: string; to: string }): CalendarDates | null {
+  const start = Date.parse(window.from);
+  const end = Date.parse(window.to);
+  if (!Number.isFinite(start) || !Number.isFinite(end) || end < start) return null;
+  return { from: localCalendarDate(start), to: localCalendarDate(end) };
+}
+
+/** The same calendar dates one year back, as the history endpoint's
+ *  `from`/`to` (whole days, daily resolution). A bound on February 29
+ *  becomes February 28; alignment drops whatever falls outside the dates. */
+export function priorYearWindow(dates: CalendarDates): { from: string; to: string } | null {
+  const back = (date: string) => shiftCalendarYear(date, -1) ?? shiftCalendarYear(date.replace(/-02-29$/, '-02-28'), -1);
+  const from = back(dates.from);
+  const to = back(dates.to);
+  return from && to && from <= to ? { from: `${from}T00:00:00Z`, to: `${to}T23:59:59Z` } : null;
+}
+
+/**
+ * Prior-year daily values moved onto the selected year's calendar, in time
+ * order.
+ *
+ * WHICH DAYS is decided by calendar date against `dates`; WHERE each is drawn
+ * is local noon, clamped into `bounds` (the plotted window's instants) so the
+ * first and current day stay inside the axis. The two used to be one test on
+ * the drawn instant, which dropped today's value every morning — noon had not
+ * happened yet — and left the latest reading's readout empty until it had.
+ *
+ * February 29 of a prior leap year has no counterpart and is dropped; February
+ * 29 of a selected leap year simply has no prior value. A dropped day never
+ * opens a gap, and a gap the endpoint marked (gapBefore) is never closed: a
+ * break on the dropped day passes to the next value.
+ */
+export function alignPriorYear(
+  readings: readonly ChartReadingLike[],
+  unit: ReadingUnit,
+  dates: CalendarDates,
+  bounds?: { from: string; to: string } | null,
+): PriorYearPoint[] {
+  const low = bounds ? Date.parse(bounds.from) : -Infinity;
+  const high = bounds ? Date.parse(bounds.to) : Infinity;
+  const ordered = readings
+    .flatMap(reading => {
+      const sourceDate = calendarDateOf(reading.timestamp);
+      const v = valueForUnit(reading, unit);
+      return sourceDate && v !== null ? [{ reading, sourceDate, v }] : [];
+    })
+    .sort((a, b) => a.sourceDate.localeCompare(b.sourceDate));
+
+  const out: PriorYearPoint[] = [];
+  let carriedBreak = false;
+  for (const { reading, sourceDate, v } of ordered) {
+    const breakBefore: boolean = carriedBreak || !!reading.gapBefore?.includes(unit);
+    const alignedDate = shiftCalendarYear(sourceDate, 1);
+    if (!alignedDate) {
+      carriedBreak = breakBefore;
+      continue;
+    }
+    carriedBreak = false;
+    if (alignedDate < dates.from || alignedDate > dates.to) continue;
+    const noon = calendarDateTime(alignedDate);
+    const t = Math.min(Math.max(noon, Number.isFinite(low) ? low : noon), Number.isFinite(high) ? high : noon);
+    out.push({ t, v, timestamp: reading.timestamp, qualifiers: reading.qualifiers ?? [], breakBefore, sourceDate, alignedDate });
+  }
+  return out;
+}
+
+/**
+ * The prior-year value for the same calendar date as a primary point, or null.
+ *
+ * EXACT DATE OR NOTHING. A nearest-neighbour search would answer a missing day
+ * with a neighbouring one, which is a different day's water. The primary
+ * point's date follows the convention above: as written for a daily value,
+ * device-local for an instantaneous one.
+ */
+export function priorYearPointFor(points: readonly PriorYearPoint[], primary: ChartPoint): PriorYearPoint | null {
+  const date = DATE_ONLY.test(primary.timestamp) ? primary.timestamp : localCalendarDate(primary.t);
+  let low = 0;
+  let high = points.length - 1;
+  while (low <= high) {
+    const mid = (low + high) >> 1;
+    const candidate = points[mid].alignedDate;
+    if (candidate === date) return points[mid];
+    if (candidate < date) low = mid + 1;
+    else high = mid - 1;
+  }
+  return null;
+}
+
 /** Detect outages in original telemetry before extrema sampling changes its cadence. */
 export function sampleChartReadings<T extends ChartReadingLike>(readings: T[], maxPoints: number): T[] {
   readings = readings.map(reading => ({ ...reading, gapBefore: [] }));

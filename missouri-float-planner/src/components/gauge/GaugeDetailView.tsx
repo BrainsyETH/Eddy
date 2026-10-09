@@ -36,6 +36,10 @@ import { pickPrimaryRiverLink } from '@shared/primary-river-link';
 import { stationTier } from '@shared/station-tier';
 import GaugeSummary from '@/components/gauge/GaugeSummary';
 import ExpandedGaugeChart from '@/components/gauge/ExpandedGaugeChart';
+import ChartCompare from '@/components/gauge/ChartCompare';
+import { useLastYearComparison } from '@/hooks/useLastYearComparison';
+import { resolveHistoryCapabilities } from '@shared/history-capabilities';
+import { lastYearAvailable } from '@shared/chart-model';
 import { ageHoursOf } from '@/lib/utils/reading-age';
 import {
   rangeLabelForDays,
@@ -54,6 +58,7 @@ export default function GaugeDetailView({ siteId }: GaugeDetailViewProps) {
   const [dateRange, setDateRange] = useState(7);
   const [shareStatus, setShareStatus] = useState<'idle' | 'copied'>('idle');
   const [expandedOpen, setExpandedOpen] = useState(false);
+  const [lastYearFor, setLastYearFor] = useState<string | null>(null);
   const [displayUnit, setDisplayUnit] = useState<'ft' | 'cfs' | null>(null);
 
   // Eddy AI update
@@ -113,6 +118,7 @@ export default function GaugeDetailView({ siteId }: GaugeDetailViewProps) {
 
   const handleUnitToggle = useCallback((unit: 'ft' | 'cfs') => {
     setDisplayUnit(unit);
+    if (unit !== 'cfs') setLastYearFor(null);
     localStorage.setItem(`gauge-unit-${siteId}`, unit);
     trackGaugeContextChanged({ provider: gaugeDetail?.provider ?? 'usgs', tier }, unit);
   }, [siteId, gaugeDetail?.provider, tier]);
@@ -279,6 +285,20 @@ export default function GaugeDetailView({ siteId }: GaugeDetailViewProps) {
 
   const eddyDisplayText = eddyUpdate?.summaryText ?? buildStaticText();
 
+  // One setting for this page and its expanded chart, held per station so a
+  // gauge switch starts with the layer off.
+  const lastYearSite = gauge?.usgsSiteId ?? null;
+  const lastYearCapabilities = gaugeDetail ? resolveHistoryCapabilities(gaugeDetail.provider, gaugeDetail.historyCapabilities) : null;
+  const lastYearOn = lastYearFor !== null && lastYearFor === lastYearSite;
+  const setLastYearOn = (on: boolean) => setLastYearFor(on ? lastYearSite : null);
+  const lastYear = useLastYearComparison({
+    siteId: lastYearSite,
+    days: dateRange,
+    unit: effectiveUnit,
+    capabilities: lastYearCapabilities,
+    on: lastYearOn,
+  });
+
   if (loading) {
     return (
       <div className="min-h-screen bg-neutral-50">
@@ -435,9 +455,18 @@ export default function GaugeDetailView({ siteId }: GaugeDetailViewProps) {
                   value={dateRange}
                   onChange={(days) => {
                     setDateRange(days);
+                    if (!lastYearAvailable(effectiveUnit, lastYearCapabilities, days)) setLastYearFor(null);
                     trackGaugeRangeChanged({ provider: gaugeDetail?.provider ?? 'usgs', tier }, rangeLabelForDays(days));
                   }}
                 />
+                {lastYear.eligible && (
+                  <ChartCompare
+                    on={lastYearOn}
+                    onChange={setLastYearOn}
+                    status={lastYear.status}
+                    onRetry={lastYear.retry}
+                  />
+                )}
                 <Button
                   variant="outline"
                   size="sm"
@@ -463,6 +492,7 @@ export default function GaugeDetailView({ siteId }: GaugeDetailViewProps) {
               // Observed data and the official forecast stay visible in both.
               showTypical={tier !== 'rated'}
               showProvenance
+              lastYear={lastYear.comparison}
             />
           </Card>
 
@@ -476,6 +506,8 @@ export default function GaugeDetailView({ siteId }: GaugeDetailViewProps) {
             displayUnit={effectiveUnit}
             showTypical={tier !== 'rated'}
             capabilities={gaugeDetail?.historyCapabilities ?? null}
+            lastYearOn={lastYearOn}
+            onLastYearChange={setLastYearOn}
           />
 
           {/* Right column: Current Reading + Weather */}

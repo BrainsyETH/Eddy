@@ -39,6 +39,11 @@ import {
   chartPoints,
   chartSegments,
   splitAtGaps,
+  alignPriorYear,
+  lastYearAvailable,
+  priorYearPointFor,
+  priorYearWindow,
+  windowCalendarDates,
   nearestChartPoint,
   niceValueTicks,
   nowLabel,
@@ -46,6 +51,7 @@ import {
   stepScrubTime,
   timeTicks,
   type ChartPoint,
+  type PriorYearPoint,
 } from '@eddy/conditions/chart-model';
 import { buildZones, type ThresholdValues } from '@eddy/conditions/threshold-zones';
 import { computeTrend } from '@eddy/conditions/gauge-trend';
@@ -61,6 +67,7 @@ import { fonts, type as t } from '@/theme/typography';
 import { formatReading } from '@/lib/readingCopy';
 import { resolveHistoryCapabilities, type HistoryCapabilities } from '@eddy/conditions/history-capabilities';
 import { useGaugeHistory } from '@/hooks/useGaugeHistory';
+import { useLastYearHistory } from '@/hooks/useLastYearHistory';
 import { warn } from '@/lib/monitoring';
 import { ChartDateField } from '@/components/ChartDateField';
 import { GaugeChartSheet } from '@/components/GaugeChartSheet';
@@ -201,6 +208,12 @@ function axisValue(value: number, unit: 'ft' | 'cfs'): string {
   return formatReading(value, unit).replace(` ${unit}`, '');
 }
 
+/** "Oct 9, 2024" for a prior-year value's own date. */
+function priorDate(date: string): string {
+  const [year, month, day] = date.split('-').map(Number);
+  return new Date(year, month - 1, day).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+}
+
 /** The scrub readout wants the full moment, not an axis tick. */
 function scrubTime(ms: number): string {
   const d = new Date(ms);
@@ -218,10 +231,11 @@ function stageRailLabel(key: FloodStageKey): string {
 
 /** One controller owns the settings, request and eight-window cache throughout
  * expansion. Both presentations draw from it; neither fetches on mount. */
-function useGaugeChartController({ siteId, initialDays = 30, initialWindow }: Props) {
+function useGaugeChartController({ siteId, unit, provider, historyCapabilities, initialDays = 30, initialWindow }: Props) {
   const [sheet, setSheet] = useState<'compare' | 'data' | 'range' | 'unit' | 'dates' | null>(null);
   const [showTypical, setShowTypical] = useState(false);
   const [showMedian, setShowMedian] = useState(false);
+  const [showLastYear, setShowLastYear] = useState(false);
   const [fullScale, setFullScale] = useState(false);
   const [fromDate, setFromDate] = useState(() => {
     const date = initialWindow ? new Date(initialWindow.from) : new Date();
@@ -246,8 +260,20 @@ function useGaugeChartController({ siteId, initialDays = 30, initialWindow }: Pr
 
   const historyState = useGaugeHistory(siteId, days, customWindow);
 
+  // Fetched here so expansion and rotation keep the layer and its data.
+  const lastYearEligible = lastYearAvailable(unitOverride ?? unit, resolveHistoryCapabilities(provider, historyCapabilities), days);
+  const selectedWindow = historyState.matchesRequest ? historyState.history?.requestedWindow ?? null : null;
+  // Custom windows are sent as local midnight, so local dates are the picked dates.
+  const lastYearDates = useMemo(() => selectedWindow ? windowCalendarDates(selectedWindow) : null, [selectedWindow]);
+  const lastYearWindow = useMemo(
+    () => showLastYear && lastYearEligible && lastYearDates ? priorYearWindow(lastYearDates) : null,
+    [showLastYear, lastYearEligible, lastYearDates],
+  );
+  const lastYear = useLastYearHistory(siteId, lastYearWindow);
+
   return {
     sheet, setSheet, showTypical, setShowTypical, showMedian, setShowMedian,
+    showLastYear, setShowLastYear, lastYearEligible, lastYear, lastYearDates,
     fullScale, setFullScale, fromDate, setFromDate, toDate, setToDate,
     customWindow, setCustomWindow, dateErrors, setDateErrors, days, setDays,
     selection, setSelection, unitOverride, setUnitOverride, historyState,
@@ -293,6 +319,7 @@ function GaugeChartView({
   const { colors, isDark } = useTheme();
   const {
     sheet, setSheet, showTypical, setShowTypical, showMedian, setShowMedian,
+    showLastYear, setShowLastYear, lastYearEligible, lastYear, lastYearDates,
     fullScale, setFullScale, fromDate, setFromDate, toDate, setToDate,
     customWindow, setCustomWindow, dateErrors, setDateErrors, days, setDays,
     selection, setSelection, unitOverride, setUnitOverride, historyState,
@@ -476,6 +503,14 @@ function GaugeChartView({
     });
   }, [history, drawnUnit]);
 
+  /** Last year's daily averages on this year's calendar, for this window only. */
+  const lastYearShown = showLastYear && lastYearEligible;
+  const priorPoints = useMemo<PriorYearPoint[]>(
+    () => lastYearShown && matchesRequest && lastYear.readings && lastYearDates
+      ? alignPriorYear(lastYear.readings, 'cfs', lastYearDates, history?.requestedWindow) : [],
+    [lastYearShown, matchesRequest, lastYear.readings, lastYearDates, history],
+  );
+
   /**
    * The axis, from shared/chart-model.ts rather than from a loop in this file.
    *
@@ -491,6 +526,7 @@ function GaugeChartView({
     const spanning = [
       ...points,
       ...forecastPoints,
+      ...priorPoints,
       ...typical.flatMap((row) =>
         [showTypical ? row.low : null, showMedian ? row.median : null, showTypical ? row.high : null].flatMap((value) =>
           value === null ? [] : [{ t: row.t, v: value, timestamp: '', qualifiers: [] }],
@@ -510,7 +546,7 @@ function GaugeChartView({
       minimumSpanFraction: drawnUnit === 'cfs' ? 0.18 : 0.08,
       includeAllContext: fullScale,
     });
-  }, [points, forecastPoints, typical, zones, stageLines, drawnUnit, showTypical, showMedian, fullScale]);
+  }, [points, forecastPoints, priorPoints, typical, zones, stageLines, drawnUnit, showTypical, showMedian, fullScale]);
 
   /**
    * Round numbers down the left edge, from the same tick function the web axis
@@ -581,6 +617,8 @@ function GaugeChartView({
       forecastDots: [] as ChartPoint[],
       typicalArea: '',
       typicalPath: '',
+      priorPaths: [] as string[],
+      priorDots: [] as ChartPoint[],
     };
     if (!scale) return empty;
     const toPath = (segment: ChartPoint[]) =>
@@ -590,7 +628,10 @@ function GaugeChartView({
 
     const { lines, isolated } = chartSegments(points, GAP_BREAK_MULTIPLE);
     const forecastSplit = chartSegments(forecastPoints, GAP_BREAK_MULTIPLE);
+    const priorSplit = chartSegments(priorPoints, GAP_BREAK_MULTIPLE);
     return {
+      priorPaths: priorSplit.lines.map(toPath),
+      priorDots: priorSplit.isolated,
       paths: lines.map(toPath),
       gapPaths: splitAtGaps(points, GAP_BREAK_MULTIPLE).flatMap((segment, index, segments) =>
         index === 0 ? [] : [toPath([segments[index - 1][segments[index - 1].length - 1], segment[0]])],
@@ -624,7 +665,7 @@ function GaugeChartView({
               .join(' ')
           : '',
     };
-  }, [points, forecastPoints, typical, scale]);
+  }, [points, forecastPoints, priorPoints, typical, scale]);
 
   /** Three instants across the window, so the middle of the plot is placeable. */
   const xTicks = useMemo(
@@ -763,6 +804,12 @@ function GaugeChartView({
     : forecastPoints[0] ? { point: forecastPoints[0], kind: 'forecast' as const } : null);
   const readoutZone = readoutPoint?.kind === 'observed'
     ? zones.find(zone => readoutPoint.point.v <= zone.max || zone.openEnded) : null;
+  /** The same date last year, or nothing — never a neighbouring day. */
+  const priorFor = (at: ScrubbedPoint | null) => at?.kind === 'observed' ? priorYearPointFor(priorPoints, at.point) : null;
+  const priorText = (at: ScrubbedPoint | null) => {
+    const prior = priorFor(at);
+    return prior ? `Last year · ${formatReading(prior.v, 'cfs')} · ${priorDate(prior.sourceDate)}` : 'Last year · —';
+  };
 
   /**
    * "Now" while the newest reading is still current, "Last reading" once it
@@ -817,6 +864,7 @@ function GaugeChartView({
     }
     if (showTypical && series.typicalArea) bits.push('Historical 25th–75th percentile range shown.');
     if (showMedian && series.typicalPath) bits.push('Historical median shown.');
+    if (priorPoints.length) bits.push('Last year daily average shown.');
     if (history?.resolution === 'daily') bits.push(`${observedLabel} history.`);
     if (series.gapPaths.length) bits.push('Dotted connectors indicate missing readings.');
     if (newest && nowLabelText === 'Last reading') bits.push('Last reading is stale.');
@@ -842,6 +890,8 @@ function GaugeChartView({
       if (history?.resolution === 'daily') bits.push(observedLabel);
       const spokenQualifiers = qualifierText(at.point.qualifiers);
       if (spokenQualifiers) bits.push(spokenQualifiers);
+      const prior = priorFor(at);
+      if (prior) bits.push(`last year ${formatReading(prior.v, 'cfs')} daily average, ${priorDate(prior.sourceDate)}`);
     }
     return bits.join(', ');
   })();
@@ -867,14 +917,19 @@ function GaugeChartView({
   };
 
   const currentZone = newest ? zones.find(zone => newest.v <= zone.max || zone.openEnded) : null;
-  const comparisonCount = Number(showTypical && typical.length > 0) + Number(showMedian && typical.length > 0) + Number(fullScale);
+  const comparisonCount = Number(showTypical && typical.length > 0) + Number(showMedian && typical.length > 0) + Number(lastYearShown) + Number(fullScale);
   const drawnRangeLabel = drawnDays === 1 ? 'Past 24 hours' : `Past ${drawnDays} days`;
   const rangeLabel = customWindow ? 'Custom dates' : RANGES.find(r => r.days === days)?.label ?? `${days}d`;
   const rangeSummaryLabel = matchesRequest && history?.resolution === 'daily' ? `${rangeLabel} · daily` : rangeLabel;
   const measurementLabel = drawnUnit === 'cfs' ? 'Flow (cfs)' : 'Gauge height (ft)';
   const closeSheet = () => setSheet(null);
   const chooseUnit = (value: 'ft' | 'cfs') => {
-    setUnitOverride(value); clearScrub(); setShowTypical(false); setShowMedian(false); setFullScale(false); closeSheet();
+    setUnitOverride(value); clearScrub(); setShowTypical(false); setShowMedian(false); setShowLastYear(false); setFullScale(false); closeSheet();
+  };
+  /** A range the layer cannot use turns it off rather than leaving it pending. */
+  const chooseDays = (value: number) => {
+    setDays(value);
+    if (!lastYearAvailable(drawnUnit, capabilities, value)) setShowLastYear(false);
   };
   const openMeasurement = (target: string) => {
     clearScrub();
@@ -897,7 +952,7 @@ function GaugeChartView({
       options: [...options, 'Cancel'], cancelButtonIndex: options.length,
     }, index => {
       const range = ranges[index];
-      if (range) { setCustomWindow(undefined); setDays(range.days); clearScrub(); }
+      if (range) { setCustomWindow(undefined); chooseDays(range.days); clearScrub(); }
       else if (index < options.length) setSheet('dates');
     });
   };
@@ -913,7 +968,7 @@ function GaugeChartView({
   const applyDates = () => {
     const result = validateChartDates(fromDate, toDate, Date.now());
     if (result.errors) { setDateErrors(result.errors); return; }
-    setDateErrors({}); clearScrub(); setDays(result.days);
+    setDateErrors({}); clearScrub(); chooseDays(result.days);
     setCustomWindow(result.window); closeSheet();
   };
 
@@ -978,7 +1033,8 @@ function GaugeChartView({
           band={readoutPoint?.kind === 'observed' ? readoutZone?.label : undefined}
           time={readoutPoint ? scrubTime(readoutPoint.point.t) : 'Touch the chart to explore'}
           source={readoutPoint?.kind === 'forecast' ? 'NWS forecast' : observedLabel}
-          quality={readoutPoint?.kind === 'observed' ? qualifierText(readoutPoint.point.qualifiers) : null} /> : null}
+          quality={readoutPoint?.kind === 'observed' ? qualifierText(readoutPoint.point.qualifiers) : null}
+          comparison={priorPoints.length ? priorText(readoutPoint) : null} /> : null}
       </View>
       <View style={styles.plotWrap} onLayout={onLayout}>
         {width > 0 && hasPlot ? <GestureDetector gesture={scrubGesture}>
@@ -998,6 +1054,8 @@ function GaugeChartView({
                 {showMedian && series.typicalPath ? <Path d={series.typicalPath} stroke={colors.textMuted} strokeWidth={1} strokeDasharray="2 4" fill="none" /> : null}
                 {zones.filter(zone => !zone.openEnded).map(zone => <Line key={`edge-${zone.key}`} x1={padLeft} x2={padLeft + plotWidth} y1={scale.y(zone.max)} y2={scale.y(zone.max)} stroke={conditionColor(zone.key)} strokeWidth={0.75} opacity={0.5} />)}
                 {stageLines.map(line => <Line key={`stage-${line.key}`} x1={padLeft} x2={padLeft + plotWidth} y1={scale.y(line.value)} y2={scale.y(line.value)} stroke={floodStageColor()} strokeWidth={1} strokeDasharray={FLOOD_STAGE_SYSTEM[line.key].dash} opacity={0.65} />)}
+                {series.priorPaths.map((d, i) => <Path key={`prior-${i}`} d={d} stroke={colors.textSubtle} strokeWidth={1.6} strokeDasharray="5 4" fill="none" strokeLinejoin="round" />)}
+                {series.priorDots.map(point => <Circle key={`prior-dot-${point.t}`} cx={scale.x(point.t)} cy={scale.y(point.v)} r={2} fill={colors.textSubtle} />)}
                 {series.gapPaths.map((d, i) => <Path key={`gap-${i}`} d={d} stroke={colors.textSubtle} strokeWidth={1} strokeDasharray="1 5" fill="none" />)}
                 {series.paths.map((d, i) => <Path key={`observed-${i}`} d={d} stroke={lineColor} strokeWidth={2.8} fill="none" strokeLinejoin="round" strokeLinecap="round" />)}
                 {series.dots.map(point => <Circle key={`dot-${point.t}`} cx={scale.x(point.t)} cy={scale.y(point.v)} r={2.5} fill={lineColor} />)}
@@ -1035,7 +1093,8 @@ function GaugeChartView({
                 fill={label.kind === 'name' ? colors.text : colors.textMuted} fontFamily={label.kind === 'name' ? fonts.medium : fonts.mono}>{label.text}</SvgText>)}
               {plotWidth >= axisFont * 7 && (forecastPoints.length > 0 || stageLines.length > 0) ? <SvgText x={padLeft + plotWidth - 3} y={axisFont * 1.8} textAnchor="end" fill={colors.textMuted} fontSize={axisFont} fontFamily={fonts.body}>{forecastPoints.length ? 'NWS forecast' : 'NWS stages'}</SvgText> : null}
               {plotWidth > axisFont * (forecastPoints.length || stageLines.length ? 18 : 8) ? <SvgText x={padLeft + 3} y={axisFont * 1.8} fill={colors.textMuted} fontSize={axisFont} fontFamily={fonts.body}>
-                {showTypical && series.typicalArea ? 'Typical' : showMedian && series.typicalPath ? 'Median' : nowLabelText === 'Last reading' ? 'Last reading' : ''}
+                {priorPoints.length ? (plotWidth > axisFont * (forecastPoints.length || stageLines.length ? 30 : 16) ? 'Last year · daily average' : 'Last year')
+                  : showTypical && series.typicalArea ? 'Typical' : showMedian && series.typicalPath ? 'Median' : nowLabelText === 'Last reading' ? 'Last reading' : ''}
               </SvgText> : null}
               {xTicks.map((tick, index) => <SvgText key={`time-${index}`} x={scale.x(tick.value)} y={chartHeight - 6} fill={colors.textMuted} fontSize={axisFont} fontFamily={fonts.body} textAnchor={index === 0 ? 'start' : index === xTicks.length - 1 ? 'end' : 'middle'}>{axisTime(tick.value, drawnDays)}</SvgText>)}
             </Svg>
@@ -1043,7 +1102,8 @@ function GaugeChartView({
               point={{ x: scale.x(scrubbed.point.t), y: scale.y(scrubbed.point.v) }}
               finger={finger}
               value={formatReading(scrubbed.point.v, drawnUnit)} band={scrubZone?.label} time={scrubTime(scrubbed.point.t)}
-              source={scrubbed.kind === 'forecast' ? 'NWS forecast' : observedLabel} quality={scrubQualifiers} /> : null}
+              source={scrubbed.kind === 'forecast' ? 'NWS forecast' : observedLabel} quality={scrubQualifiers}
+              comparison={priorPoints.length && scrubbed.kind === 'observed' ? priorText(scrubbed) : null} /> : null}
           </View>
         </GestureDetector> : <View style={[styles.placeholder, { height: chartHeight }]}>
           {loading ? <ActivityIndicator accessibilityLabel="Loading gauge history" color={colors.interactive} /> : failed ? <>
@@ -1070,6 +1130,14 @@ function GaugeChartView({
         {sheet === 'compare' ? <>
           <ChartComparison label="Typical range" detail={drawnUnit !== 'cfs' ? 'Available for Flow (cfs)' : typical.length ? 'Historical daily flow · 25th–75th percentile' : 'Historical statistics unavailable for this window'} value={showTypical && typical.length > 0} disabled={!typical.length} onChange={setShowTypical} />
           <ChartComparison label="Historical median" detail="50th percentile for each date" value={showMedian && typical.length > 0} disabled={!typical.length} onChange={setShowMedian} />
+          {lastYearEligible ? <ChartComparison label="Last year"
+            detail={!showLastYear ? 'Daily average' : lastYear.status === 'failed' ? "Couldn't load last year"
+              : lastYear.status === 'empty' || (lastYear.status === 'ready' && !priorPoints.length) ? 'No data for last year'
+              : lastYear.status === 'ready' ? 'Daily average' : 'Loading…'}
+            value={showLastYear} disabled={false} onChange={setShowLastYear}
+            action={showLastYear && lastYear.status === 'failed' ? <Pressable accessibilityRole="button" accessibilityLabel="Retry last year" onPress={lastYear.retry} style={[styles.retry, styles.inlineRetry]}>
+              <Text style={[styles.actionText, { color: colors.interactive }]}>Retry</Text>
+            </Pressable> : null} /> : null}
           <ChartComparison label={zones.length ? 'Full Eddy scale' : 'Full stage references'} detail={zones.length ? 'Show every condition threshold' : stageLines.length ? 'NWS references in feet' : 'No thresholds for this measurement'} value={fullScale} disabled={!zones.length && !stageLines.length} onChange={setFullScale} />
           <Text style={[styles.caption, { color: colors.textMuted }]}>Historical context describes past daily flow, not forecast uncertainty. Values appear only for dates provided by USGS.</Text>
         </> : sheet === 'data' ? <GaugeChartDetails siteId={siteId} history={history} thresholds={thresholds} floodStages={floodStages} defaultUnit={unit} /> : sheet === 'unit' ? availableUnits.map(value => <Pressable key={value} accessibilityRole="radio" accessibilityState={{ checked: value === drawnUnit }} onPress={() => chooseUnit(value)} style={[styles.choice, { borderBottomColor: colors.border }]}>
@@ -1077,7 +1145,7 @@ function GaugeChartView({
         </Pressable>) : sheet === 'range' ? <>
           {ranges.map(r => {
             const active = r.days === days && !customWindow;
-            return <Pressable key={r.days} accessibilityRole="radio" accessibilityState={{ checked: active }} onPress={() => { setCustomWindow(undefined); setDays(r.days); clearScrub(); closeSheet(); }} style={[styles.choice, { borderBottomColor: colors.border }]}>
+            return <Pressable key={r.days} accessibilityRole="radio" accessibilityState={{ checked: active }} onPress={() => { setCustomWindow(undefined); chooseDays(r.days); clearScrub(); closeSheet(); }} style={[styles.choice, { borderBottomColor: colors.border }]}>
               <Text style={[styles.choiceText, { color: colors.text }]}>{r.days === 1 ? '24 hours' : r.days === 365 ? '1 year' : `${r.days} days`}</Text>{active ? <ControlIcon name="checkmark" size={20} color={colors.interactive} /> : null}
             </Pressable>;
           })}
@@ -1093,10 +1161,10 @@ function GaugeChartView({
   );
 }
 
-function ChartComparison({ label, detail, value, disabled, onChange }: { label: string; detail: string; value: boolean; disabled: boolean; onChange: (value: boolean) => void }) {
+function ChartComparison({ label, detail, value, disabled, onChange, action }: { label: string; detail: string; value: boolean; disabled: boolean; onChange: (value: boolean) => void; action?: ReactNode }) {
   const { colors } = useTheme();
   return <View style={[styles.comparison, { borderBottomColor: colors.border }]}>
-    <View style={styles.comparisonCopy}><Text style={[styles.choiceText, { color: colors.text }]}>{label}</Text><Text style={[styles.caption, { color: colors.textMuted }]}>{detail}</Text></View>
+    <View style={styles.comparisonCopy}><Text style={[styles.choiceText, { color: colors.text }]}>{label}</Text><Text style={[styles.caption, { color: colors.textMuted }]}>{detail}</Text>{action}</View>
     <Switch accessibilityLabel={`${label}. ${detail}`} value={value} disabled={disabled} onValueChange={onChange} trackColor={{ true: colors.interactive }} />
   </View>;
 }
@@ -1194,6 +1262,7 @@ const styles = StyleSheet.create({
   placeholder: { alignItems: 'center', justifyContent: 'center', paddingHorizontal: 16 },
   placeholderText: { ...t.sm, textAlign: 'center' },
   retry: { minHeight: 44, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 8 },
+  inlineRetry: { alignSelf: 'flex-start', paddingHorizontal: 0 },
   choice: { minHeight: 52, paddingVertical: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8, borderBottomWidth: StyleSheet.hairlineWidth },
   choiceText: { ...t.base, fontFamily: fonts.medium, flexShrink: 1 },
   comparison: { minHeight: 68, paddingVertical: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12, borderBottomWidth: StyleSheet.hairlineWidth },

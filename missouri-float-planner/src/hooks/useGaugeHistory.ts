@@ -31,10 +31,11 @@ export interface HistoryWindowRequest {
   resolution?: 'auto' | 'instant' | 'daily';
 }
 
-async function fetchHistory(
+export async function fetchHistory(
   siteId: string,
   days: number,
   window?: HistoryWindowRequest | null,
+  signal?: AbortSignal,
 ): Promise<NormalizedGaugeHistory | null> {
   const params = new URLSearchParams({ days: String(days) });
   if (window?.from) params.set('from', window.from);
@@ -42,7 +43,7 @@ async function fetchHistory(
   if (window?.resolution && window.resolution !== 'auto') {
     params.set('resolution', window.resolution);
   }
-  const response = await fetch(`/api/gauges/${siteId}/history?${params.toString()}`);
+  const response = await fetch(`/api/gauges/${siteId}/history?${params.toString()}`, { signal });
   if (!response.ok) {
     if (response.status === 404) return null;
     throw new Error('Failed to fetch gauge history');

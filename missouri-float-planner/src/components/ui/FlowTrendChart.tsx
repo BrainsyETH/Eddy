@@ -44,6 +44,7 @@
 import { useEffect, useMemo, useState, useRef, useCallback, type ReactNode } from 'react';
 import { useGaugeHistory, type HistoryWindowRequest } from '@/hooks/useGaugeHistory';
 import {
+  alignPriorYear,
   chartDomain,
   chartPoints,
   chartSegments,
@@ -51,10 +52,13 @@ import {
   nearestChartPoint,
   niceValueTicks,
   nowLabel,
+  priorYearPointFor,
   qualifierText,
   stepScrubTime,
   timeTicks,
+  type CalendarDates,
   type ChartPoint,
+  type ChartReadingLike,
 } from '@shared/chart-model';
 import {
   FLOOD_STAGE_ORDER,
@@ -144,6 +148,8 @@ const SERIES_COLOR = 'rgb(45, 120, 137)';
  *  app's chart uses for NWS stages. */
 const FORECAST_COLOR = '#7c3aed';
 const TYPICAL_COLOR = '#0f766e';
+/** Theme-aware and neutral: last year is context, not a second reading. */
+const LAST_YEAR_COLOR = 'var(--color-text-muted)';
 
 /**
  * How close to the top edge (in the plot's 0–100 percentage space) an NWS
@@ -256,6 +262,12 @@ interface FlowTrendChartProps {
    * taps away is where the numbers are.
    */
   interactive?: boolean;
+  /**
+   * Prior-year daily values for the Last year layer, fetched by the caller
+   * for this chart's window, with the selected dates they align to. Drawn
+   * only on a cfs axis.
+   */
+  lastYear?: { readings: ChartReadingLike[]; dates: CalendarDates } | null;
 }
 
 type HoverPoint = { point: ChartPoint; kind: 'observed' | 'forecast' };
@@ -275,6 +287,7 @@ export default function FlowTrendChart({
   zoomWindow,
   onBrushZoom,
   showGridlines = false,
+  lastYear = null,
 }: FlowTrendChartProps) {
   const { data: history, isLoading, error } = useGaugeHistory(gaugeSiteId, days, requestWindow);
   const isFt = displayUnit === 'ft';
@@ -359,6 +372,11 @@ export default function FlowTrendChart({
         })
       : [];
 
+    const priorPoints =
+      lastYear && !isFt
+        ? alignPriorYear(lastYear.readings, displayUnit, lastYear.dates, history.requestedWindow).filter(inZoom)
+        : [];
+
     const thresholdValues = activeThresholds
       ? THRESHOLD_LINE_CONFIG.map((config) => activeThresholds[config.key]).filter(
           (value): value is number => value !== null
@@ -387,7 +405,7 @@ export default function FlowTrendChart({
       )
     );
 
-    const spanning = [...observed, ...forecast, ...typicalPoints].sort((a, b) => a.t - b.t);
+    const spanning = [...observed, ...forecast, ...priorPoints, ...typicalPoints].sort((a, b) => a.t - b.t);
     // Stage values ride along as domain context the same way thresholds do:
     // chartDomain only stretches toward a context value within reach of the
     // data, so a 25ft major-flood line cannot flatten a 3ft series.
@@ -410,6 +428,7 @@ export default function FlowTrendChart({
     // neighbour to be joined to, which get a dot instead of being discarded.
     const observedSplit = chartSegments(observed);
     const forecastSplit = chartSegments(forecast);
+    const priorSplit = chartSegments(priorPoints);
 
     const areaFor = (segment: ChartPoint[]) =>
       `${pathFor(segment)} L ${x(segment[segment.length - 1].t).toFixed(3)} 100 L ${x(segment[0].t).toFixed(3)} 100 Z`;
@@ -500,6 +519,9 @@ export default function FlowTrendChart({
       // while the legend went on naming a series that was not on the plot.
       forecastPaths: forecastSplit.lines.map(pathFor),
       forecastDots: forecastSplit.isolated,
+      priorPoints,
+      priorPaths: priorSplit.lines.map(pathFor),
+      priorDots: priorSplit.isolated,
       typicalArea,
       typicalPath:
         typical.length > 1 ? pathFor(typical.map((row) => ({ t: row.t, v: row.median }))) : '',
@@ -519,7 +541,7 @@ export default function FlowTrendChart({
       thresholdLabels,
       stageLineData,
     };
-  }, [history, activeThresholds, floodStages, displayUnit, isFt, showTypical, days, zoomWindow, showGridlines, plotHeightPx]);
+  }, [history, activeThresholds, floodStages, displayUnit, isFt, showTypical, days, zoomWindow, showGridlines, plotHeightPx, lastYear]);
 
   const hovered = useMemo<HoverPoint | null>(() => {
     if (hoverFraction === null || !chartData) return null;
@@ -666,6 +688,17 @@ export default function FlowTrendChart({
   const nowLabelDropped =
     nowX !== null && nowX < 25 && chartData.stageLineData.some((line) => line.y < STAGE_LABEL_TOP_BAND);
   const hoveredQualifiers = hovered?.kind === 'observed' ? qualifierText(hovered.point.qualifiers) : null;
+  // The same date last year, or nothing — never a neighbouring day.
+  const showsLastYear = chartData.priorPoints.length > 0;
+  const hoveredPrior =
+    showsLastYear && hovered?.kind === 'observed' ? priorYearPointFor(chartData.priorPoints, hovered.point) : null;
+  const formatPriorDate = (date: string) => {
+    const [year, month, day] = date.split('-').map(Number);
+    return new Date(year, month - 1, day).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  };
+  const hoveredPriorText = hoveredPrior
+    ? `${formatTooltipVal(hoveredPrior.v)} ${unitLabel} · ${formatPriorDate(hoveredPrior.sourceDate)}`
+    : '—';
 
   /**
    * The scrubbed reading as one sentence — the tooltip's content, for a reader
@@ -681,6 +714,7 @@ export default function FlowTrendChart({
         hovered.kind === 'forecast' ? 'NWS forecast' : getZoneLabel(hovered.point.v),
         formatTooltipDate(hovered.point.t),
         hoveredQualifiers,
+        hoveredPrior ? `last year ${hoveredPriorText}, daily average` : null,
       ]
         .filter(Boolean)
         .join(', ')
@@ -843,6 +877,15 @@ export default function FlowTrendChart({
                 style={{ borderTop: `2px dashed ${FORECAST_COLOR}` }}
               />
               NWS forecast
+            </span>
+          )}
+          {showsLastYear && (
+            <span
+              className="flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wide"
+              style={{ color: LAST_YEAR_COLOR }}
+            >
+              <span aria-hidden className="inline-block w-3.5" style={{ borderTop: `2px dashed ${LAST_YEAR_COLOR}` }} />
+              Last year · daily average
             </span>
           )}
           {chartData.typicalPath && (
@@ -1044,6 +1087,19 @@ export default function FlowTrendChart({
               );
             })}
 
+            {chartData.priorPaths.map((d, i) => (
+              <path
+                key={`prior-${i}`}
+                d={d}
+                fill="none"
+                style={{ stroke: LAST_YEAR_COLOR }}
+                strokeWidth="1.5"
+                strokeDasharray="5,4"
+                strokeLinejoin="round"
+                vectorEffect="non-scaling-stroke"
+              />
+            ))}
+
             {chartData.observedPaths.map((d, i) => (
               <path
                 key={`line-${i}`}
@@ -1118,6 +1174,15 @@ export default function FlowTrendChart({
               too (see the note at the top of this file). `left`/`top` in percent
               take the identical coordinates the SVG did, so nothing about their
               placement changes; only their shape does. */}
+          {chartData.priorDots.map((point) => (
+            <PlotDot
+              key={`prior-dot-${point.t}`}
+              xPercent={chartData.x(point.t)}
+              yPercent={chartData.y(point.v)}
+              size={4}
+              color={LAST_YEAR_COLOR}
+            />
+          ))}
           {chartData.observedDots.map((point) => (
             <PlotDot
               key={`dot-${point.t}`}
@@ -1255,6 +1320,9 @@ export default function FlowTrendChart({
               <div className="text-neutral-400 text-[10px]">{formatTooltipDate(hovered.point.t)}</div>
               {hoveredQualifiers && (
                 <div className="text-amber-300 text-[10px]">{hoveredQualifiers}</div>
+              )}
+              {showsLastYear && hovered.kind === 'observed' && (
+                <div className="text-neutral-300 text-[10px] tabular-nums">Last year: {hoveredPriorText}</div>
               )}
             </div>
           )}

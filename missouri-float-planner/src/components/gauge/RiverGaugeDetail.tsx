@@ -27,6 +27,10 @@ import { useSelectedEddyReport } from '@/hooks/useSelectedEddyReport';
 import FlowTrendChart from '@/components/ui/FlowTrendChart';
 import GaugeSummary from '@/components/gauge/GaugeSummary';
 import ExpandedGaugeChart from '@/components/gauge/ExpandedGaugeChart';
+import ChartCompare from '@/components/gauge/ChartCompare';
+import { useLastYearComparison } from '@/hooks/useLastYearComparison';
+import { resolveHistoryCapabilities } from '@shared/history-capabilities';
+import { lastYearAvailable } from '@shared/chart-model';
 import GaugeWeather from '@/components/ui/GaugeWeather';
 import HistoricalWaterQuality from './HistoricalWaterQuality';
 import CurrentReadingCard from '@/components/gauge/CurrentReadingCard';
@@ -81,6 +85,7 @@ export default function RiverGaugeDetail({ riverSlug, damSlot }: RiverGaugeDetai
   // Seven days, and not restored from another gauge's prior selection.
   const [dateRange, setDateRange] = useState(7);
   const [expandedOpen, setExpandedOpen] = useState(false);
+  const [lastYearFor, setLastYearFor] = useState<string | null>(null);
   const [displayUnit, setDisplayUnit] = useState<'ft' | 'cfs' | null>(null);
   const [gaugeNavTarget, setGaugeNavTarget] = useState<HTMLElement | null>(null);
 
@@ -161,6 +166,7 @@ export default function RiverGaugeDetail({ riverSlug, damSlot }: RiverGaugeDetai
   // Persist unit toggle
   const handleUnitToggle = useCallback((unit: 'ft' | 'cfs') => {
     setDisplayUnit(unit);
+    if (unit !== 'cfs') setLastYearFor(null);
     localStorage.setItem(`gauge-unit-${riverSlug}`, unit);
     trackGaugeContextChanged({ provider: gaugeDetail?.provider ?? 'usgs', tier }, unit);
   }, [riverSlug, gaugeDetail?.provider, tier]);
@@ -376,6 +382,20 @@ export default function RiverGaugeDetail({ riverSlug, damSlot }: RiverGaugeDetai
   // there, the row never reaches the server HTML at all, which is the opposite
   // of what the page comment above fetchRiverDam promises.
 
+  // One setting for this page and its expanded chart, held per station so a
+  // gauge switch starts with the layer off.
+  const lastYearSite = activeGauge?.usgsSiteId ?? null;
+  const lastYearCapabilities = gaugeDetail ? resolveHistoryCapabilities(gaugeDetail.provider, gaugeDetail.historyCapabilities) : null;
+  const lastYearOn = lastYearFor !== null && lastYearFor === lastYearSite;
+  const setLastYearOn = (on: boolean) => setLastYearFor(on ? lastYearSite : null);
+  const lastYear = useLastYearComparison({
+    siteId: lastYearSite,
+    days: dateRange,
+    unit: effectiveUnit,
+    capabilities: lastYearCapabilities,
+    on: lastYearOn,
+  });
+
   // Loading state
   if (isLoading) {
     return (
@@ -522,9 +542,18 @@ export default function RiverGaugeDetail({ riverSlug, damSlot }: RiverGaugeDetai
                   value={dateRange}
                   onChange={(days) => {
                     setDateRange(days);
+                    if (!lastYearAvailable(effectiveUnit, lastYearCapabilities, days)) setLastYearFor(null);
                     trackGaugeRangeChanged({ provider: gaugeDetail?.provider ?? 'usgs', tier }, rangeLabelForDays(days));
                   }}
                 />
+                {lastYear.eligible && (
+                  <ChartCompare
+                    on={lastYearOn}
+                    onChange={setLastYearOn}
+                    status={lastYear.status}
+                    onRetry={lastYear.retry}
+                  />
+                )}
                 <Button
                   variant="outline"
                   size="sm"
@@ -551,6 +580,7 @@ export default function RiverGaugeDetail({ riverSlug, damSlot }: RiverGaugeDetai
               // Observed data and the official forecast stay visible in both.
               showTypical={tier !== 'rated'}
               showProvenance
+              lastYear={lastYear.comparison}
             />
           </Card>
 
@@ -564,6 +594,8 @@ export default function RiverGaugeDetail({ riverSlug, damSlot }: RiverGaugeDetai
           displayUnit={effectiveUnit}
           showTypical={tier !== 'rated'}
           capabilities={gaugeDetail?.historyCapabilities ?? null}
+          lastYearOn={lastYearOn}
+          onLastYearChange={setLastYearOn}
         />
         {/* Outdoor conditions, after the hydrograph and before the deeper
             interpretation below. */}
