@@ -30,6 +30,7 @@ import ExpandedGaugeChart from '@/components/gauge/ExpandedGaugeChart';
 import ChartCompare from '@/components/gauge/ChartCompare';
 import { useLastYearComparison } from '@/hooks/useLastYearComparison';
 import { resolveHistoryCapabilities } from '@shared/history-capabilities';
+import { lastYearAvailable } from '@shared/chart-model';
 import GaugeWeather from '@/components/ui/GaugeWeather';
 import HistoricalWaterQuality from './HistoricalWaterQuality';
 import CurrentReadingCard from '@/components/gauge/CurrentReadingCard';
@@ -84,6 +85,7 @@ export default function RiverGaugeDetail({ riverSlug, damSlot }: RiverGaugeDetai
   // Seven days, and not restored from another gauge's prior selection.
   const [dateRange, setDateRange] = useState(7);
   const [expandedOpen, setExpandedOpen] = useState(false);
+  const [lastYearFor, setLastYearFor] = useState<string | null>(null);
   const [displayUnit, setDisplayUnit] = useState<'ft' | 'cfs' | null>(null);
   const [gaugeNavTarget, setGaugeNavTarget] = useState<HTMLElement | null>(null);
 
@@ -164,6 +166,7 @@ export default function RiverGaugeDetail({ riverSlug, damSlot }: RiverGaugeDetai
   // Persist unit toggle
   const handleUnitToggle = useCallback((unit: 'ft' | 'cfs') => {
     setDisplayUnit(unit);
+    if (unit !== 'cfs') setLastYearFor(null);
     localStorage.setItem(`gauge-unit-${riverSlug}`, unit);
     trackGaugeContextChanged({ provider: gaugeDetail?.provider ?? 'usgs', tier }, unit);
   }, [riverSlug, gaugeDetail?.provider, tier]);
@@ -379,15 +382,19 @@ export default function RiverGaugeDetail({ riverSlug, damSlot }: RiverGaugeDetai
   // there, the row never reaches the server HTML at all, which is the opposite
   // of what the page comment above fetchRiverDam promises.
 
-  const [lastYearOn, setLastYearOn] = useState(false);
+  // One setting for this page and its expanded chart, held per station so a
+  // gauge switch starts with the layer off.
+  const lastYearSite = activeGauge?.usgsSiteId ?? null;
+  const lastYearCapabilities = gaugeDetail ? resolveHistoryCapabilities(gaugeDetail.provider, gaugeDetail.historyCapabilities) : null;
+  const lastYearOn = lastYearFor !== null && lastYearFor === lastYearSite;
+  const setLastYearOn = (on: boolean) => setLastYearFor(on ? lastYearSite : null);
   const lastYear = useLastYearComparison({
-    siteId: activeGauge?.usgsSiteId ?? null,
+    siteId: lastYearSite,
     days: dateRange,
     unit: effectiveUnit,
-    capabilities: gaugeDetail ? resolveHistoryCapabilities(gaugeDetail.provider, gaugeDetail.historyCapabilities) : null,
+    capabilities: lastYearCapabilities,
     on: lastYearOn,
   });
-  if (lastYearOn && !lastYear.eligible) setLastYearOn(false);
 
   // Loading state
   if (isLoading) {
@@ -535,6 +542,7 @@ export default function RiverGaugeDetail({ riverSlug, damSlot }: RiverGaugeDetai
                   value={dateRange}
                   onChange={(days) => {
                     setDateRange(days);
+                    if (!lastYearAvailable(effectiveUnit, lastYearCapabilities, days)) setLastYearFor(null);
                     trackGaugeRangeChanged({ provider: gaugeDetail?.provider ?? 'usgs', tier }, rangeLabelForDays(days));
                   }}
                 />
@@ -572,7 +580,7 @@ export default function RiverGaugeDetail({ riverSlug, damSlot }: RiverGaugeDetai
               // Observed data and the official forecast stay visible in both.
               showTypical={tier !== 'rated'}
               showProvenance
-              lastYear={lastYear.readings}
+              lastYear={lastYear.comparison}
             />
           </Card>
 
@@ -586,6 +594,8 @@ export default function RiverGaugeDetail({ riverSlug, damSlot }: RiverGaugeDetai
           displayUnit={effectiveUnit}
           showTypical={tier !== 'rated'}
           capabilities={gaugeDetail?.historyCapabilities ?? null}
+          lastYearOn={lastYearOn}
+          onLastYearChange={setLastYearOn}
         />
         {/* Outdoor conditions, after the hydrograph and before the deeper
             interpretation below. */}

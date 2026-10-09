@@ -33,7 +33,8 @@ import FlowTrendChart, {
 } from '@/components/ui/FlowTrendChart';
 import { useFocusTrap } from '@/hooks/useFocusTrap';
 import { useGaugeHistory, type HistoryWindowRequest } from '@/hooks/useGaugeHistory';
-import { useLastYearComparison } from '@/hooks/useLastYearComparison';
+import { selectedWindowDays, useLastYearComparison } from '@/hooks/useLastYearComparison';
+import { lastYearAvailable } from '@shared/chart-model';
 import ChartCompare from '@/components/gauge/ChartCompare';
 
 interface HistoryCapabilitiesLike {
@@ -57,6 +58,9 @@ interface ExpandedGaugeChartProps {
    * surface never offers a range the server may not honor.
    */
   capabilities?: HistoryCapabilitiesLike | null;
+  /** The page's Last year setting, shared so expanding keeps it. */
+  lastYearOn: boolean;
+  onLastYearChange: (on: boolean) => void;
 }
 
 const FALLBACK_CAPABILITIES: HistoryCapabilitiesLike = {
@@ -81,6 +85,8 @@ export default function ExpandedGaugeChart({
   displayUnit,
   showTypical,
   capabilities,
+  lastYearOn,
+  onLastYearChange,
 }: ExpandedGaugeChartProps) {
   const caps = capabilities ?? FALLBACK_CAPABILITIES;
   const dialogRef = useFocusTrap<HTMLDivElement>(open, onClose);
@@ -90,11 +96,16 @@ export default function ExpandedGaugeChart({
   const [customTo, setCustomTo] = useState('');
   const [zoom, setZoom] = useState<{ t0: number; t1: number } | null>(null);
 
-  // A new range is a new question; a zoom into the old one must not survive it.
+  // A new range is a new question; a zoom into the old one must not survive it,
+  // and neither does a Last year layer the new range cannot carry.
   const chooseRange = useCallback((choice: RangeChoice) => {
     setRange(choice);
     setZoom(null);
-  }, []);
+    const days = choice.kind === 'days'
+      ? choice.days
+      : selectedWindowDays(30, { from: `${choice.from}T00:00:00Z`, to: `${choice.to}T23:59:59Z` });
+    if (!lastYearAvailable(displayUnit, capabilities ?? null, days)) onLastYearChange(false);
+  }, [displayUnit, capabilities, onLastYearChange]);
 
   useEffect(() => {
     if (!open) setZoom(null);
@@ -124,16 +135,17 @@ export default function ExpandedGaugeChart({
   // could disagree with it.
   const { data: history } = useGaugeHistory(open ? siteId : null, requestDays, requestWindow);
 
-  const [lastYearOn, setLastYearOn] = useState(false);
   const lastYear = useLastYearComparison({
     siteId: open ? siteId : null,
     days: requestDays,
     window: requestWindow,
+    // The dates as picked. The request sends them as UTC midnight, which reads
+    // back as the previous day west of Greenwich.
+    dates: range.kind === 'custom' ? { from: range.from, to: range.to } : null,
     unit: displayUnit,
     capabilities: capabilities ?? null,
     on: lastYearOn,
   });
-  if (lastYearOn && !lastYear.eligible) setLastYearOn(false);
 
   const applyCustom = useCallback(() => {
     if (!customFrom || !customTo) return;
@@ -295,7 +307,7 @@ export default function ExpandedGaugeChart({
             {lastYear.eligible && (
               <ChartCompare
                 on={lastYearOn}
-                onChange={setLastYearOn}
+                onChange={onLastYearChange}
                 status={lastYear.status}
                 onRetry={lastYear.retry}
               />
@@ -340,7 +352,7 @@ export default function ExpandedGaugeChart({
             showTypical={showTypical}
             showProvenance
             showGridlines
-            lastYear={lastYear.readings}
+            lastYear={lastYear.comparison}
           />
         </div>
 

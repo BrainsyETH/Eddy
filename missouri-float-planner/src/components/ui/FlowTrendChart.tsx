@@ -56,6 +56,7 @@ import {
   qualifierText,
   stepScrubTime,
   timeTicks,
+  type CalendarDates,
   type ChartPoint,
   type ChartReadingLike,
 } from '@shared/chart-model';
@@ -263,9 +264,10 @@ interface FlowTrendChartProps {
   interactive?: boolean;
   /**
    * Prior-year daily values for the Last year layer, fetched by the caller
-   * for this chart's window. Drawn only on a cfs axis.
+   * for this chart's window, with the selected dates they align to. Drawn
+   * only on a cfs axis.
    */
-  lastYear?: ChartReadingLike[] | null;
+  lastYear?: { readings: ChartReadingLike[]; dates: CalendarDates } | null;
 }
 
 type HoverPoint = { point: ChartPoint; kind: 'observed' | 'forecast' };
@@ -371,8 +373,8 @@ export default function FlowTrendChart({
       : [];
 
     const priorPoints =
-      lastYear && !isFt && history.requestedWindow
-        ? alignPriorYear(lastYear, displayUnit, history.requestedWindow).filter(inZoom)
+      lastYear && !isFt
+        ? alignPriorYear(lastYear.readings, displayUnit, lastYear.dates, history.requestedWindow).filter(inZoom)
         : [];
 
     const thresholdValues = activeThresholds

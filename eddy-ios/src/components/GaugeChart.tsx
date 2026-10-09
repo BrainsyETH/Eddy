@@ -43,6 +43,7 @@ import {
   lastYearAvailable,
   priorYearPointFor,
   priorYearWindow,
+  windowCalendarDates,
   nearestChartPoint,
   niceValueTicks,
   nowLabel,
@@ -262,15 +263,17 @@ function useGaugeChartController({ siteId, unit, provider, historyCapabilities, 
   // Fetched here so expansion and rotation keep the layer and its data.
   const lastYearEligible = lastYearAvailable(unitOverride ?? unit, resolveHistoryCapabilities(provider, historyCapabilities), days);
   const selectedWindow = historyState.matchesRequest ? historyState.history?.requestedWindow ?? null : null;
+  // Custom windows are sent as local midnight, so local dates are the picked dates.
+  const lastYearDates = useMemo(() => selectedWindow ? windowCalendarDates(selectedWindow) : null, [selectedWindow]);
   const lastYearWindow = useMemo(
-    () => showLastYear && lastYearEligible && selectedWindow ? priorYearWindow(selectedWindow) : null,
-    [showLastYear, lastYearEligible, selectedWindow],
+    () => showLastYear && lastYearEligible && lastYearDates ? priorYearWindow(lastYearDates) : null,
+    [showLastYear, lastYearEligible, lastYearDates],
   );
   const lastYear = useLastYearHistory(siteId, lastYearWindow);
 
   return {
     sheet, setSheet, showTypical, setShowTypical, showMedian, setShowMedian,
-    showLastYear, setShowLastYear, lastYearEligible, lastYear,
+    showLastYear, setShowLastYear, lastYearEligible, lastYear, lastYearDates,
     fullScale, setFullScale, fromDate, setFromDate, toDate, setToDate,
     customWindow, setCustomWindow, dateErrors, setDateErrors, days, setDays,
     selection, setSelection, unitOverride, setUnitOverride, historyState,
@@ -316,7 +319,7 @@ function GaugeChartView({
   const { colors, isDark } = useTheme();
   const {
     sheet, setSheet, showTypical, setShowTypical, showMedian, setShowMedian,
-    showLastYear, setShowLastYear, lastYearEligible, lastYear,
+    showLastYear, setShowLastYear, lastYearEligible, lastYear, lastYearDates,
     fullScale, setFullScale, fromDate, setFromDate, toDate, setToDate,
     customWindow, setCustomWindow, dateErrors, setDateErrors, days, setDays,
     selection, setSelection, unitOverride, setUnitOverride, historyState,
@@ -503,9 +506,9 @@ function GaugeChartView({
   /** Last year's daily averages on this year's calendar, for this window only. */
   const lastYearShown = showLastYear && lastYearEligible;
   const priorPoints = useMemo<PriorYearPoint[]>(
-    () => lastYearShown && matchesRequest && lastYear.readings && history?.requestedWindow
-      ? alignPriorYear(lastYear.readings, 'cfs', history.requestedWindow) : [],
-    [lastYearShown, matchesRequest, lastYear.readings, history],
+    () => lastYearShown && matchesRequest && lastYear.readings && lastYearDates
+      ? alignPriorYear(lastYear.readings, 'cfs', lastYearDates, history?.requestedWindow) : [],
+    [lastYearShown, matchesRequest, lastYear.readings, lastYearDates, history],
   );
 
   /**
