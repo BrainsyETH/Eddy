@@ -9,6 +9,8 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
+  alignPriorYear,
+  calendarDateTime,
   chartDomain,
   chartDataCsv,
   chartDataRows,
@@ -22,6 +24,11 @@ import {
   samplePreservingExtrema,
   sampleChartReadings,
   splitAtGaps,
+  lastYearAvailable,
+  localCalendarDate,
+  priorYearPointFor,
+  priorYearWindow,
+  shiftCalendarYear,
   stepScrubTime,
   timeTicks,
   valueForUnit,
@@ -467,4 +474,130 @@ test('API sampling keeps a continuous hydrograph together and preserves a real o
   assert.equal(chartSegments(chartPoints(sampled, 'cfs')).lines.length, 1);
   const outage = raw.filter((_, i) => i < 300 || i > 400);
   assert.equal(chartSegments(chartPoints(sampleChartReadings(outage, 60), 'cfs')).lines.length, 2);
+});
+
+
+// ── Last-year comparison ─────────────────────────────────────────────────────
+
+const daily = (date: string, cfs: number | null, gap = false): ChartReadingLike => ({
+  timestamp: date, gaugeHeightFt: null, dischargeCfs: cfs, gapBefore: gap ? ['cfs'] : [],
+});
+const windowOf = (from: string, to: string) => ({
+  from: new Date(calendarDateTime(from) - 12 * 3_600_000).toISOString(),
+  to: new Date(calendarDateTime(to) + 11 * 3_600_000).toISOString(),
+});
+
+test('last year is offered only for daily-capable flow over 30 days or more', () => {
+  const usgs = { supportsDaily: true, supportsCustomRange: true };
+  assert.equal(lastYearAvailable('cfs', usgs, 30), true);
+  assert.equal(lastYearAvailable('cfs', usgs, 29), false);
+  assert.equal(lastYearAvailable('ft', usgs, 365), false);
+  assert.equal(lastYearAvailable('cfs', { supportsDaily: true, supportsCustomRange: false }, 90), false);
+  assert.equal(lastYearAvailable('cfs', { supportsDaily: false, supportsCustomRange: true }, 90), false);
+  assert.equal(lastYearAvailable('cfs', null, 90), false);
+});
+
+test('calendar years shift by month and day, and February 29 has no counterpart', () => {
+  assert.equal(shiftCalendarYear('2025-03-01', 1), '2026-03-01');
+  assert.equal(shiftCalendarYear('2024-02-29', 1), null);
+  assert.equal(shiftCalendarYear('2024-02-29', -1), null);
+  assert.equal(shiftCalendarYear('2025-02-28', -1), '2024-02-28');
+});
+
+test('the prior window is the same calendar dates one year back, in whole days', () => {
+  assert.deepEqual(priorYearWindow(windowOf('2025-09-10', '2025-10-09')), {
+    from: '2024-09-10T00:00:00Z', to: '2024-10-09T23:59:59Z',
+  });
+  // A leap-day bound falls back to February 28 rather than failing.
+  assert.deepEqual(priorYearWindow(windowOf('2024-02-29', '2024-03-30')), {
+    from: '2023-02-28T00:00:00Z', to: '2023-03-30T23:59:59Z',
+  });
+  assert.equal(priorYearWindow({ from: 'nope', to: '2025-01-01' }), null);
+});
+
+test('alignment moves each value onto the same date of the selected year and keeps its own date', () => {
+  const points = alignPriorYear(
+    [daily('2024-10-02', 300), daily('2024-10-01', 280), daily('2024-09-30', 270)],
+    'cfs',
+    windowOf('2025-10-01', '2025-10-31'),
+  );
+  assert.deepEqual(points.map(p => [p.alignedDate, p.sourceDate, p.v]), [
+    ['2025-10-01', '2024-10-01', 280],
+    ['2025-10-02', '2024-10-02', 300],
+  ]);
+  assert.equal(points[0].t, calendarDateTime('2025-10-01'));
+});
+
+test('a prior leap day is dropped without opening a gap', () => {
+  const points = alignPriorYear(
+    [daily('2024-02-28', 100), daily('2024-02-29', 999), daily('2024-03-01', 110)],
+    'cfs',
+    windowOf('2025-02-01', '2025-03-31'),
+  );
+  assert.deepEqual(points.map(p => p.alignedDate), ['2025-02-28', '2025-03-01']);
+  assert.equal(points.some(p => p.v === 999), false);
+  assert.equal(points[1].breakBefore, false);
+  assert.equal(splitAtGaps(points).length, 1);
+});
+
+test('a selected leap day has no prior value, and the readout does not borrow a neighbour', () => {
+  const points = alignPriorYear(
+    [daily('2023-02-28', 100), daily('2023-03-01', 110)],
+    'cfs',
+    windowOf('2024-02-01', '2024-03-31'),
+  );
+  const afternoon = new Date(2024, 1, 29, 15).getTime();
+  const leapDay = { t: afternoon, v: 1, timestamp: new Date(afternoon).toISOString(), qualifiers: [] };
+  assert.equal(localCalendarDate(afternoon), '2024-02-29');
+  assert.equal(priorYearPointFor(points, leapDay), null);
+  assert.equal(priorYearPointFor(points, { ...leapDay, timestamp: '2024-02-29' }), null);
+  assert.equal(priorYearPointFor(points, { ...leapDay, timestamp: '2024-03-01' })?.sourceDate, '2023-03-01');
+});
+
+test('a marked outage survives alignment, including one marked on a dropped leap day', () => {
+  const marked = alignPriorYear(
+    [daily('2024-10-01', 1), daily('2024-10-09', 2, true)],
+    'cfs',
+    windowOf('2025-10-01', '2025-10-31'),
+  );
+  assert.equal(marked[1].breakBefore, true);
+  assert.equal(splitAtGaps(marked).length, 2);
+
+  const carried = alignPriorYear(
+    [daily('2024-02-20', 1), daily('2024-02-29', 2, true), daily('2024-03-01', 3)],
+    'cfs',
+    windowOf('2025-02-01', '2025-03-31'),
+  );
+  assert.deepEqual(carried.map(p => [p.sourceDate, p.breakBefore]), [['2024-02-20', false], ['2024-03-01', true]]);
+});
+
+test('missing values and partial coverage stay missing', () => {
+  const points = alignPriorYear(
+    [daily('2024-10-05', null), daily('2024-10-06', 50), { ...daily('2024-10-07', 60), dischargeCfs: Number.NaN }],
+    'cfs',
+    windowOf('2025-10-01', '2025-10-31'),
+  );
+  assert.deepEqual(points.map(p => p.sourceDate), ['2024-10-06']);
+  assert.equal(alignPriorYear([daily('2024-10-06', 50)], 'ft', windowOf('2025-10-01', '2025-10-31')).length, 0);
+  // Coverage that starts late is drawn where it starts; days before it read as absent.
+  const primary = { t: calendarDateTime('2025-10-02'), v: 1, timestamp: '2025-10-02', qualifiers: [] };
+  assert.equal(priorYearPointFor(points, primary), null);
+});
+
+test('values outside the selected window are not drawn', () => {
+  const points = alignPriorYear(
+    [daily('2024-09-30', 1), daily('2024-10-01', 2), daily('2024-10-31', 3), daily('2024-11-01', 4)],
+    'cfs',
+    windowOf('2025-10-01', '2025-10-31'),
+  );
+  assert.deepEqual(points.map(p => p.v), [2, 3]);
+});
+
+test('an instantaneous reading finds the prior value for its local date', () => {
+  const points = alignPriorYear([daily('2024-10-06', 50), daily('2024-10-07', 60)], 'cfs',
+    windowOf('2025-10-01', '2025-10-31'));
+  const afternoon = new Date(2025, 9, 7, 15, 30).getTime();
+  const reading = { t: afternoon, v: 70, timestamp: new Date(afternoon).toISOString(), qualifiers: [] };
+  assert.equal(priorYearPointFor(points, reading)?.v, 60);
+  assert.equal(priorYearPointFor(points, { ...reading, timestamp: '2025-10-06' })?.v, 50);
 });

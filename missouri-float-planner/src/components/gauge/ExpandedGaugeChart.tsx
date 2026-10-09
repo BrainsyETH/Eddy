@@ -33,6 +33,8 @@ import FlowTrendChart, {
 } from '@/components/ui/FlowTrendChart';
 import { useFocusTrap } from '@/hooks/useFocusTrap';
 import { useGaugeHistory, type HistoryWindowRequest } from '@/hooks/useGaugeHistory';
+import { useLastYearComparison } from '@/hooks/useLastYearComparison';
+import ChartCompare from '@/components/gauge/ChartCompare';
 
 interface HistoryCapabilitiesLike {
   maxInstantDays: number;
@@ -121,6 +123,17 @@ export default function ExpandedGaugeChart({
   // export writes exactly the series on screen, never a second fetch that
   // could disagree with it.
   const { data: history } = useGaugeHistory(open ? siteId : null, requestDays, requestWindow);
+
+  const [lastYearOn, setLastYearOn] = useState(false);
+  const lastYear = useLastYearComparison({
+    siteId: open ? siteId : null,
+    days: requestDays,
+    window: requestWindow,
+    unit: displayUnit,
+    capabilities: capabilities ?? null,
+    on: lastYearOn,
+  });
+  if (lastYearOn && !lastYear.eligible) setLastYearOn(false);
 
   const applyCustom = useCallback(() => {
     if (!customFrom || !customTo) return;
@@ -279,6 +292,14 @@ export default function ExpandedGaugeChart({
           )}
 
           <div className="ml-auto flex items-center gap-2">
+            {lastYear.eligible && (
+              <ChartCompare
+                on={lastYearOn}
+                onChange={setLastYearOn}
+                status={lastYear.status}
+                onRetry={lastYear.retry}
+              />
+            )}
             {/* Zoom keeps its own labeled controls — the arrow keys stay
                 bound to scrubbing, always. */}
             <Button variant="outline" size="sm" onClick={zoomIn}>
@@ -319,6 +340,7 @@ export default function ExpandedGaugeChart({
             showTypical={showTypical}
             showProvenance
             showGridlines
+            lastYear={lastYear.readings}
           />
         </div>
 

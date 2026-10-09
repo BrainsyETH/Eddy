@@ -36,6 +36,9 @@ import { pickPrimaryRiverLink } from '@shared/primary-river-link';
 import { stationTier } from '@shared/station-tier';
 import GaugeSummary from '@/components/gauge/GaugeSummary';
 import ExpandedGaugeChart from '@/components/gauge/ExpandedGaugeChart';
+import ChartCompare from '@/components/gauge/ChartCompare';
+import { useLastYearComparison } from '@/hooks/useLastYearComparison';
+import { resolveHistoryCapabilities } from '@shared/history-capabilities';
 import { ageHoursOf } from '@/lib/utils/reading-age';
 import {
   rangeLabelForDays,
@@ -279,6 +282,16 @@ export default function GaugeDetailView({ siteId }: GaugeDetailViewProps) {
 
   const eddyDisplayText = eddyUpdate?.summaryText ?? buildStaticText();
 
+  const [lastYearOn, setLastYearOn] = useState(false);
+  const lastYear = useLastYearComparison({
+    siteId: gauge?.usgsSiteId ?? null,
+    days: dateRange,
+    unit: effectiveUnit,
+    capabilities: gaugeDetail ? resolveHistoryCapabilities(gaugeDetail.provider, gaugeDetail.historyCapabilities) : null,
+    on: lastYearOn,
+  });
+  if (lastYearOn && !lastYear.eligible) setLastYearOn(false);
+
   if (loading) {
     return (
       <div className="min-h-screen bg-neutral-50">
@@ -438,6 +451,14 @@ export default function GaugeDetailView({ siteId }: GaugeDetailViewProps) {
                     trackGaugeRangeChanged({ provider: gaugeDetail?.provider ?? 'usgs', tier }, rangeLabelForDays(days));
                   }}
                 />
+                {lastYear.eligible && (
+                  <ChartCompare
+                    on={lastYearOn}
+                    onChange={setLastYearOn}
+                    status={lastYear.status}
+                    onRetry={lastYear.retry}
+                  />
+                )}
                 <Button
                   variant="outline"
                   size="sm"
@@ -463,6 +484,7 @@ export default function GaugeDetailView({ siteId }: GaugeDetailViewProps) {
               // Observed data and the official forecast stay visible in both.
               showTypical={tier !== 'rated'}
               showProvenance
+              lastYear={lastYear.readings}
             />
           </Card>
 

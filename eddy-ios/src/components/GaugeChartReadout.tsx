@@ -14,11 +14,13 @@ interface Props {
   time: string;
   source: string;
   quality: string | null;
+  /** The Last year line, when that layer is drawn. */
+  comparison?: string | null;
 }
 
 /** Reserve space outside the plot, but let native text layout grow beyond it.
  * A hard height/line cap can cut off the reading at accessibility text sizes. */
-export function GaugeChartFixedReadout({ value, band, time, source, quality, compact }: Omit<Props, 'width' | 'height' | 'point' | 'finger'> & { compact: boolean }) {
+export function GaugeChartFixedReadout({ value, band, time, source, quality, comparison, compact }: Omit<Props, 'width' | 'height' | 'point' | 'finger'> & { compact: boolean }) {
   const { colors } = useTheme();
   const { fontScale } = useWindowDimensions();
   const largeText = fontScale > 1.5;
@@ -36,12 +38,13 @@ export function GaugeChartFixedReadout({ value, band, time, source, quality, com
       <Text style={[styles.caption, compact && styles.fixedValue, { color: colors.textMuted, minHeight: captionLine * (largeText ? 2 : 1) }]}>{time}</Text>
     </View>
     <Text style={[styles.caption, { color: colors.textMuted, minHeight: captionLine * (compact ? 1 : largeText ? 3 : 2) }]}>{source}{quality ? ` · ${quality}` : ''}</Text>
+    {comparison ? <Text style={[styles.caption, { color: colors.textMuted, minHeight: captionLine * (largeText ? 2 : 1) }]}>{comparison}</Text> : null}
   </View>;
 }
 
 /** Measure real text before placing it. The absolute readout never changes the
  * chart's height, and a high sample sends it below the line instead of over it. */
-export function GaugeChartReadout({ width, height, point, finger, value, band, time, source, quality }: Props) {
+export function GaugeChartReadout({ width, height, point, finger, value, band, time, source, quality, comparison }: Props) {
   const { colors } = useTheme();
   const { fontScale } = useWindowDimensions();
   const [measured, setMeasured] = useState({ width: 0, height: 0 });
@@ -61,6 +64,7 @@ export function GaugeChartReadout({ width, height, point, finger, value, band, t
     <Text style={[styles.value, { color: colors.text }]}>{value}{showBand ? ` · ${band}` : ''}</Text>
     <Text style={[styles.caption, { color: colors.textMuted }]}>{time}</Text>
     <Text numberOfLines={2} style={[styles.caption, { color: colors.textMuted }]}>{sourceLabel}{quality && !compact ? ` · ${quality}` : ''}</Text>
+    {comparison ? <Text style={[styles.caption, { color: colors.textMuted }]}>{comparison}</Text> : null}
   </View>;
 }
 

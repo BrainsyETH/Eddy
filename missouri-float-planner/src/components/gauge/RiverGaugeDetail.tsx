@@ -27,6 +27,9 @@ import { useSelectedEddyReport } from '@/hooks/useSelectedEddyReport';
 import FlowTrendChart from '@/components/ui/FlowTrendChart';
 import GaugeSummary from '@/components/gauge/GaugeSummary';
 import ExpandedGaugeChart from '@/components/gauge/ExpandedGaugeChart';
+import ChartCompare from '@/components/gauge/ChartCompare';
+import { useLastYearComparison } from '@/hooks/useLastYearComparison';
+import { resolveHistoryCapabilities } from '@shared/history-capabilities';
 import GaugeWeather from '@/components/ui/GaugeWeather';
 import HistoricalWaterQuality from './HistoricalWaterQuality';
 import CurrentReadingCard from '@/components/gauge/CurrentReadingCard';
@@ -376,6 +379,16 @@ export default function RiverGaugeDetail({ riverSlug, damSlot }: RiverGaugeDetai
   // there, the row never reaches the server HTML at all, which is the opposite
   // of what the page comment above fetchRiverDam promises.
 
+  const [lastYearOn, setLastYearOn] = useState(false);
+  const lastYear = useLastYearComparison({
+    siteId: activeGauge?.usgsSiteId ?? null,
+    days: dateRange,
+    unit: effectiveUnit,
+    capabilities: gaugeDetail ? resolveHistoryCapabilities(gaugeDetail.provider, gaugeDetail.historyCapabilities) : null,
+    on: lastYearOn,
+  });
+  if (lastYearOn && !lastYear.eligible) setLastYearOn(false);
+
   // Loading state
   if (isLoading) {
     return (
@@ -525,6 +538,14 @@ export default function RiverGaugeDetail({ riverSlug, damSlot }: RiverGaugeDetai
                     trackGaugeRangeChanged({ provider: gaugeDetail?.provider ?? 'usgs', tier }, rangeLabelForDays(days));
                   }}
                 />
+                {lastYear.eligible && (
+                  <ChartCompare
+                    on={lastYearOn}
+                    onChange={setLastYearOn}
+                    status={lastYear.status}
+                    onRetry={lastYear.retry}
+                  />
+                )}
                 <Button
                   variant="outline"
                   size="sm"
@@ -551,6 +572,7 @@ export default function RiverGaugeDetail({ riverSlug, damSlot }: RiverGaugeDetai
               // Observed data and the official forecast stay visible in both.
               showTypical={tier !== 'rated'}
               showProvenance
+              lastYear={lastYear.readings}
             />
           </Card>
 
