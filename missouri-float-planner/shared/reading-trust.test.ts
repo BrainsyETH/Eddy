@@ -94,11 +94,11 @@ test('every suspect code has its own explanation, and nothing else does', () => 
 });
 
 test('the most serious code explains a reading that carries several', () => {
-  assert.equal(suspectQualifierNote(['P', 'e', 'Eqp'], 'USGS'), 'Sensor malfunction — reading suspect');
-  assert.equal(suspectQualifierNote(['Ice', 'e'], 'USGS'), 'Ice-affected reading — may be inaccurate');
+  assert.equal(suspectQualifierNote(['P', 'e', 'Eqp'], 'USGS'), 'Gauge equipment problem. This reading may be wrong.');
+  assert.equal(suspectQualifierNote(['Ice', 'e'], 'USGS'), 'Ice at the gauge. This reading may be off.');
   assert.equal(
     suspectQualifierNote(['Rat'], 'USGS'),
-    "Beyond the gauge's measured range — flow is extrapolated",
+    'Higher or lower than USGS has measured here. The flow number is a rough estimate.',
   );
 });
 
@@ -109,5 +109,5 @@ test('provisional and clean readings get no suspect note', () => {
 });
 
 test('the station agency is named, never assumed', () => {
-  assert.equal(suspectQualifierNote(['***'], 'USACE'), 'Value unavailable from USACE — reading suspect');
+  assert.equal(suspectQualifierNote(['***'], 'USACE'), "USACE hasn't confirmed this number. Don't rely on it.");
 });

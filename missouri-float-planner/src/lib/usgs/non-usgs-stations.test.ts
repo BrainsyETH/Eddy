@@ -109,10 +109,10 @@ test('unknown provider copy does not guess USGS', () => {
   assert.equal(classifyQualifiers(['P'], null).note, 'Provisional provider data');
   assert.equal(
     classifyQualifiers(['***'], null).note,
-    'Value unavailable from provider — reading suspect',
+    "The source hasn't confirmed this number. Don't rely on it.",
   );
   assert.equal(
     classifyQualifiers(['***'], 'usace').note,
-    'Value unavailable from USACE — reading suspect',
+    "USACE hasn't confirmed this number. Don't rely on it.",
   );
 });

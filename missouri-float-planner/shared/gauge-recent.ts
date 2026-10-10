@@ -265,10 +265,10 @@ export function recentRecord(
   return null;
 }
 
-/** "Highest reading in the last 30 days". */
+/** "Highest in 30 days: 4,200 cfs". */
 export function recentRecordSentence(record: RecentRecord | null): string | null {
   if (!record) return null;
-  return `${record.kind === 'highest' ? 'Highest' : 'Lowest'} reading in the last ${record.windowDays} days`;
+  return `${record.kind === 'highest' ? 'Highest' : 'Lowest'} in ${record.windowDays} days: ${formatValue(record.value, record.unit)}`;
 }
 
 /* ── Cold water ──────────────────────────────────────────────────────────── */
@@ -300,7 +300,7 @@ export function coldWaterNote(
   const ageHours = (now - Date.parse(temperature.observedAt)) / HOUR_MS;
   if (!Number.isFinite(ageHours) || ageHours < 0 || ageHours > COLD_WATER_MAX_AGE_HOURS) return null;
   if (temperature.valueF >= COLD_WATER_F) return null;
-  return `Cold water: ${Math.round(temperature.valueF)}°F. A capsize is dangerous at this temperature — dress for immersion.`;
+  return `Cold water: ${Math.round(temperature.valueF)}°F. A capsize is dangerous at this temperature. Wear clothing that stays warm when wet.`;
 }
 
 /* ── The official forecast, in words ─────────────────────────────────────── */

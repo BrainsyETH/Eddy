@@ -218,14 +218,14 @@ function month(
 test('a reading above everything in a complete month is the highest in 30 days', () => {
   const record = recentRecord(month((h) => (h === 0 ? 900 : 400 + (h % 24))), 'cfs', NOW);
   assert.deepEqual(record, { kind: 'highest', value: 900, unit: 'cfs', windowDays: 30 });
-  assert.equal(recentRecordSentence(record), 'Highest reading in the last 30 days');
+  assert.equal(recentRecordSentence(record), 'Highest in 30 days: 900 cfs');
 });
 
 test('a reading below everything in a complete month is the lowest in 30 days', () => {
   // A month-long recession: every reading lower than the one before.
   const record = recentRecord(month((h) => 200 + h), 'cfs', NOW);
   assert.equal(record?.kind, 'lowest');
-  assert.equal(recentRecordSentence(record), 'Lowest reading in the last 30 days');
+  assert.equal(recentRecordSentence(record), 'Lowest in 30 days: 200 cfs');
 });
 
 test('a reading inside the range sets no record', () => {

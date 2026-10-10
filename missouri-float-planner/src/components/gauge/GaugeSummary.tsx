@@ -210,7 +210,7 @@ export default function GaugeSummary({
     if (!forecast.length) return 'No official river forecast published.';
     const crestLine = forecastCrestSentence(forecastCrest(forecast, trustedStageFt));
     if (crestLine) return `${crestLine}.`;
-    if (trustedStageFt != null) return 'NWS forecast: no rise of half a foot or more.';
+    if (trustedStageFt != null) return 'NWS forecast: little or no rise expected.';
     let high: { ft: number; at: string } | null = null;
     for (const point of forecast) {
       if (point.gaugeHeightFt == null || !Number.isFinite(point.gaugeHeightFt) || point.gaugeHeightFt <= -999) continue;
@@ -218,7 +218,8 @@ export default function GaugeSummary({
     }
     if (!high) return 'No official river forecast published.';
     const day = forecastDayLabel(high.at);
-    return `NWS forecast: up to ${formatStage(high.ft)}${day ? ` ${day}` : ''}.`;
+    const when = !day ? '' : day === 'today' || day === 'tomorrow' ? ` ${day}` : ` on ${day}`;
+    return `NWS forecast: highest ${formatStage(high.ft)}${when}.`;
   })();
 
   const band = tier === 'reference' ? flowBand(flowPercentile) : null;
@@ -297,7 +298,7 @@ export default function GaugeSummary({
         {!trusted && (
           <span className="text-xs text-amber-700">
             {trust.reason === 'suspect_qualifier'
-              ? qualifierNote ?? 'Reading flagged by the source — may be inaccurate'
+              ? qualifierNote ?? 'Reading flagged by the source. It may be off.'
               : 'This gauge has not reported recently'}
           </span>
         )}
