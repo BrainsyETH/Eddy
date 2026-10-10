@@ -1,19 +1,21 @@
 // eddy-ios/src/float/FloatTracker.tsx
-// Feeds GPS to the active float while the app is open.
+// Runs the location stream for the active float.
 //
-// Mounted once at the root, renders nothing, and does nothing until a float is
-// active AND location permission is already granted. It never asks: the Start
-// Float flow asks, with the reason on screen (see useLocation.ts on why a
-// prompt is never spent without one).
+// Mounted once at the root, renders nothing, and does nothing without an
+// active float. It never asks for permission: the Start Float flow asks, with
+// the reason on screen (see useLocation.ts on why a prompt is never spent
+// without one).
 //
-// ONE subscription for the whole float, owned here rather than by a screen, so
-// switching tabs or leaving the Float Mode screen does not stop tracking or
-// start a second stream. Locked-screen tracking (#1448 Phase 4) replaces this
-// with a background location task feeding the same store.
+// ONE stream at a time:
+//   "Always" granted   the background task (backgroundTracking.ts), which also
+//                      delivers in the foreground and keeps going while locked.
+//   otherwise          a foreground watch here, which stops when the phone
+//                      locks; Float Mode says so (floatPermissions.ts).
+// Re-checked whenever Eddy returns to the foreground, so changing the setting
+// mid-float switches streams without a second one ever running.
 //
-// Accuracy is High with no distance filter. A distance filter would starve the
-// tracker during a stop and force a reacquire afterwards; battery tuning is a
-// Phase 4 job, measured on a real river.
+// Ending the float stops both. Nothing else does: switching tabs or leaving the
+// Float Mode screen leaves tracking exactly as it was.
 
 import { useEffect, useRef } from 'react';
 import { AppState } from 'react-native';
@@ -22,23 +24,36 @@ import { useFloatSession } from '@/hooks/useFloatSession';
 import { flushFloatSession, recordFixes } from '@/lib/floatSessionStore';
 import { onForeground } from '@/lib/foreground';
 import { warn } from '@/lib/monitoring';
+import { startBackgroundTracking, stopBackgroundTracking } from './backgroundTracking';
 
 export function FloatTracker() {
   const session = useFloatSession();
   const active = session != null;
-  const subscription = useRef<Location.LocationSubscription | null>(null);
-  // Set while a start is in flight, so a foreground event arriving mid-start
-  // cannot open a second stream.
-  const starting = useRef(false);
+  const watch = useRef<Location.LocationSubscription | null>(null);
+  // Serialises (re)starts, so a foreground event mid-start cannot open a
+  // second stream.
+  const busy = useRef(false);
 
   useEffect(() => {
-    if (!active) return;
+    if (!active) {
+      void stopBackgroundTracking();
+      watch.current?.remove();
+      watch.current = null;
+      return;
+    }
     let cancelled = false;
 
-    const start = async () => {
-      if (subscription.current || starting.current) return;
-      starting.current = true;
+    const ensure = async () => {
+      if (busy.current) return;
+      busy.current = true;
       try {
+        if (await startBackgroundTracking()) {
+          // The task is the stream now; drop any foreground watch.
+          watch.current?.remove();
+          watch.current = null;
+          return;
+        }
+        if (watch.current) return;
         const permission = await Location.getForegroundPermissionsAsync();
         if (cancelled || permission.status !== 'granted') return;
         const next = await Location.watchPositionAsync(
@@ -54,18 +69,16 @@ export function FloatTracker() {
           },
         );
         if (cancelled) next.remove();
-        else subscription.current = next;
+        else watch.current = next;
       } catch (error) {
         warn('float', 'could not start location updates', error);
       } finally {
-        starting.current = false;
+        busy.current = false;
       }
     };
 
-    void start();
-    // Permission may be granted after the float began (the start flow asks),
-    // or restored on return from Settings.
-    const offForeground = onForeground(() => void start());
+    void ensure();
+    const offForeground = onForeground(() => void ensure());
     const appState = AppState.addEventListener('change', (state) => {
       if (state !== 'active') void flushFloatSession();
     });
@@ -74,8 +87,10 @@ export function FloatTracker() {
       cancelled = true;
       offForeground();
       appState.remove();
-      subscription.current?.remove();
-      subscription.current = null;
+      // Only the foreground watch belongs to this component's lifetime. The
+      // background task outlives it and stops when the float ends.
+      watch.current?.remove();
+      watch.current = null;
       void flushFloatSession();
     };
   }, [active]);

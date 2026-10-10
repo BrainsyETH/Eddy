@@ -265,6 +265,13 @@ function useStart() {
           if (!permission.canAskAgain) void Linking.openSettings();
           return;
         }
+        // Locked-screen tracking needs "Always". Asked once, here, where the
+        // reason is on screen; declining still starts the float, and Float
+        // Mode says tracking pauses while locked.
+        const background = await Location.getBackgroundPermissionsAsync();
+        if (background.status !== 'granted' && background.canAskAgain) {
+          await Location.requestBackgroundPermissionsAsync();
+        }
         // beginFloat refuses if a float is already active (a second tap, or
         // one started elsewhere). Either way Float Mode shows the active one.
         await beginFloat(made.session);
@@ -282,8 +289,8 @@ function LocationReason() {
   const { colors } = useTheme();
   return (
     <Text style={[styles.body, { color: colors.textMuted }]}>
-      Float Mode uses your location to show miles and time left. It stays on your phone. For now, keep Eddy open with the
-      screen on while you float.
+      Float Mode uses your location to show miles and time left, and it stays on your phone. To keep tracking with
+      your phone locked in a dry bag, allow location Always when asked.
     </Text>
   );
 }

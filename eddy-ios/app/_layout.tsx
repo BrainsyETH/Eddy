@@ -51,6 +51,9 @@ import { report, warn } from '@/lib/monitoring';
 import { sweepStaleVersions } from '@/lib/riverCache';
 import { sweepOfflinePacks } from '@/map/packSweep';
 import { seedOfflineBundle } from '@/api/client';
+// Also defines Float Mode's background location task, which must exist before
+// iOS relaunches Eddy in the background to deliver locations; see
+// src/float/backgroundTracking.ts.
 import { FloatTracker } from '@/float/FloatTracker';
 
 /**

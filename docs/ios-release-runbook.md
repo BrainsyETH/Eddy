@@ -119,6 +119,36 @@ remain necessary. The plan-status line's automatic announcements still use the
 Android-only `accessibilityLiveRegion`; explicit VoiceOver status announcements
 remain a non-blocking follow-up.
 
+### Float Mode release gates (#1448)
+
+Float Mode (Phases 2–4 of #1448) adds native code and a background mode. These
+are pending checks, not evidence of a device pass.
+
+- [ ] **Ship a new binary.** `expo-task-manager` and `expo-keep-awake` are now
+      direct dependencies and `isIosBackgroundLocationEnabled` is `true`, so
+      the runtime fingerprint changes. Over-the-air updates cannot deliver this.
+- [ ] **Do not submit a binary that declares background location the reviewer
+      cannot see used.** Store builds show Float Mode only when the server
+      flag is on (`FLOAT_MODE_ENABLED=true` on Vercel; see
+      `eddy-ios/src/lib/floatModeFeature.ts`). Either turn the flag on for the
+      release, or hold this binary back. Development and preview builds show
+      Float Mode regardless.
+- [ ] **Reviewer notes** (append to the block in `docs/app-privacy-labels.md`):
+      Float Mode (Floats tab → Start Float) tracks progress to a take-out
+      during a river float. It asks for location “Always” only when a float
+      starts, so tracking continues with the phone locked in a dry bag; the
+      blue location indicator shows while it runs, and tracking stops when the
+      float ends. Float positions stay on the device and are never sent.
+- [ ] **Permission states on a device:** Always, While Using (tracking pauses
+      when locked, and the screen says so), Allow Once, Precise Location off
+      (Float Mode says it cannot place you), denied. No prompt loops.
+- [ ] **Release acceptance matrix in #1448** passed on physical iPhones,
+      including an older one: download at home → no service at the river →
+      start → lock for an hour → reopen with credible position, miles and time
+      left. Record battery drain per hour, screen on versus mostly locked.
+- [ ] **Offline map device proofs in ADR 0011** done and their measured sizes
+      recorded there.
+
 ### 1.1 delta gates found in the August 11 repository audit
 
 **Historical.** 1.1 shipped. These are kept because the ones still unticked

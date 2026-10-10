@@ -32,6 +32,7 @@ let session: FloatSession | null = null;
 let index: RouteIndex | null = null;
 let loaded: Promise<FloatSession | null> | null = null;
 let dirty = false;
+let lastWriteAt = 0;
 let writeTimer: ReturnType<typeof setTimeout> | null = null;
 const listeners = new Set<() => void>();
 
@@ -51,6 +52,7 @@ function set(next: FloatSession | null) {
 
 async function write(): Promise<void> {
   dirty = false;
+  lastWriteAt = Date.now();
   try {
     if (session) await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(session));
     else await AsyncStorage.removeItem(STORAGE_KEY);
@@ -126,6 +128,17 @@ export async function flushFloatSession(): Promise<void> {
     writeTimer = null;
   }
   if (dirty) await write();
+}
+
+/**
+ * Write pending changes if the last write is older than `minIntervalMs`.
+ *
+ * For the background location task: iOS may suspend the app between
+ * deliveries, so the throttle timer cannot be trusted to fire, but writing a
+ * long session on every delivery would be wasteful.
+ */
+export async function flushFloatSessionIfStale(minIntervalMs: number): Promise<void> {
+  if (dirty && Date.now() - lastWriteAt >= minIntervalMs) await flushFloatSession();
 }
 
 /** End the float and forget it. Tracking stops because nothing is active. */

@@ -11,14 +11,17 @@
 // when the float started.
 
 import { useEffect, useMemo, useState } from 'react';
-import { Alert, Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Alert, Linking, Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { useIsFocused, useRouter } from 'expo-router';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { activateKeepAwakeAsync, deactivateKeepAwake } from 'expo-keep-awake';
 import * as Location from 'expo-location';
 import { FloatMap } from '@/float/FloatMap';
 import { useFloatSession } from '@/hooks/useFloatSession';
 import { endFloat } from '@/lib/floatSessionStore';
 import { remainingCopy, statusCopy, viewSession } from '@/lib/floatSession';
+import { trackingMode, trackingNotice, type TrackingMode } from '@/lib/floatPermissions';
 import { radii } from '@/theme/layout';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, textStyles, type as t } from '@/theme/typography';
@@ -32,7 +35,17 @@ export default function FloatModeScreen() {
   const router = useRouter();
   const { colors, elevation } = useTheme();
   const [now, setNow] = useState(() => Date.now());
-  const permission = useLocationPermission();
+  const permission = useTrackingMode();
+  const [keepAwake, setKeepAwake] = useKeepAwakePreference();
+  const focused = useIsFocused();
+
+  // Only while this screen is showing and a float is active (#1448): leaving
+  // the screen or ending the float releases it.
+  useEffect(() => {
+    if (!keepAwake || !focused || !session) return;
+    void activateKeepAwakeAsync(KEEP_AWAKE_TAG);
+    return () => void deactivateKeepAwake(KEEP_AWAKE_TAG);
+  }, [keepAwake, focused, session]);
 
   useEffect(() => {
     const timer = setInterval(() => setNow(Date.now()), TICK_MS);
@@ -103,14 +116,20 @@ export default function FloatModeScreen() {
           {statusCopy(view, clock)}
         </Text>
 
-        {permission === 'denied' ? (
-          <PermissionNotice onPress={() => void Linking.openSettings()} label="Location is off for Eddy. Turn it on in Settings to track this float." />
-        ) : permission === 'undetermined' ? (
-          <PermissionNotice
-            onPress={() => void Location.requestForegroundPermissionsAsync()}
-            label="Eddy needs your location to show how far you have left. It stays on your phone."
-          />
-        ) : null}
+        {(() => {
+          const notice = trackingNotice(permission.mode, permission.canAskAgain);
+          if (!notice) return null;
+          return (
+            <PermissionNotice
+              label={notice.text}
+              onPress={() =>
+                notice.action === 'request'
+                  ? void Location.requestForegroundPermissionsAsync().then(permission.refresh)
+                  : void Linking.openSettings()
+              }
+            />
+          );
+        })()}
 
         {view.startedPastTakeOut ? (
           <Text style={[styles.note, { color: colors.textMuted }]}>
@@ -136,6 +155,14 @@ export default function FloatModeScreen() {
             {time.note ? <Text style={[styles.note, { color: colors.textMuted }]}>{time.note}</Text> : null}
           </View>
         )}
+
+        <View style={[styles.toggleRow, { borderColor: colors.border }]}>
+          <View style={styles.toggleText}>
+            <Text style={[styles.toggleTitle, { color: colors.text }]}>Keep screen awake</Text>
+            <Text style={[styles.note, { color: colors.textMuted }]}>While this screen is open. Uses more battery.</Text>
+          </View>
+          <Switch value={keepAwake} onValueChange={setKeepAwake} accessibilityLabel="Keep screen awake" />
+        </View>
 
         <Pressable
           onPress={confirmEnd}
@@ -165,23 +192,40 @@ function PermissionNotice({ label, onPress }: { label: string; onPress: () => vo
   );
 }
 
-/** Foreground permission, re-read when it might have changed. */
-function useLocationPermission(): 'granted' | 'denied' | 'undetermined' | null {
-  const [status, setStatus] = useState<'granted' | 'denied' | 'undetermined' | null>(null);
+const KEEP_AWAKE_TAG = 'float-mode';
+const KEEP_AWAKE_KEY = 'eddy.float.keepAwake';
+
+/** The keep-awake choice, remembered between floats. Off unless chosen. */
+function useKeepAwakePreference(): [boolean, (value: boolean) => void] {
+  const [value, setValue] = useState(false);
   useEffect(() => {
-    let active = true;
-    const read = () =>
-      void Location.getForegroundPermissionsAsync().then((result) => {
-        if (active) setStatus(result.status as 'granted' | 'denied' | 'undetermined');
-      });
-    read();
-    const timer = setInterval(read, TICK_MS);
-    return () => {
-      active = false;
-      clearInterval(timer);
-    };
+    void AsyncStorage.getItem(KEEP_AWAKE_KEY)
+      .then((stored) => setValue(stored === '1'))
+      .catch(() => {});
   }, []);
-  return status;
+  const set = (next: boolean) => {
+    setValue(next);
+    void AsyncStorage.setItem(KEEP_AWAKE_KEY, next ? '1' : '0').catch(() => {});
+  };
+  return [value, set];
+}
+
+/** What the location permission allows, re-read when it might have changed. */
+function useTrackingMode(): { mode: TrackingMode; canAskAgain: boolean; refresh: () => void } {
+  const [state, setState] = useState<{ mode: TrackingMode; canAskAgain: boolean }>({ mode: 'unknown', canAskAgain: false });
+  const refresh = () => {
+    void Promise.all([Location.getForegroundPermissionsAsync(), Location.getBackgroundPermissionsAsync()])
+      .then(([foreground, background]) =>
+        setState({ mode: trackingMode(foreground, background), canAskAgain: foreground.canAskAgain }),
+      )
+      .catch(() => {});
+  };
+  useEffect(() => {
+    refresh();
+    const timer = setInterval(refresh, TICK_MS);
+    return () => clearInterval(timer);
+  }, []);
+  return { ...state, refresh };
 }
 
 const styles = StyleSheet.create({
@@ -206,4 +250,7 @@ const styles = StyleSheet.create({
   primaryText: { ...t.base, fontFamily: fonts.semibold },
   secondary: { minHeight: 48, borderRadius: 12, borderWidth: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 18 },
   secondaryText: { ...t.base, fontFamily: fonts.semibold },
+  toggleRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 10, borderTopWidth: StyleSheet.hairlineWidth },
+  toggleText: { flex: 1 },
+  toggleTitle: { ...t.base, fontFamily: fonts.semibold },
 });
