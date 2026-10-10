@@ -41,7 +41,7 @@
 // current match sits on the wrong one). A candidate is committed only after
 // several consecutive fixes agree with it and move plausibly along it. While
 // one is pending the tracker reports itself uncertain, and the last reliable
-// position, with its timestamp, progress and pace, does not move. No
+// position, with its timestamp and progress, does not move. No
 // map-matching framework, just a window and a confirmation count.
 
 import type { LngLat } from './route-preview';
@@ -113,8 +113,6 @@ export const CONFIRM_FIXES = 3;
  * longer trusted: fifteen minutes at the top speed spans most oxbows, so an
  * ambiguous fix could otherwise move progress a kilometre with no evidence.
  * Tracking reacquires instead, with the same confirmation as a relocation.
- * float-pace.ts uses the same limit for the longest interval it treats as
- * observed movement.
  */
 export const REACQUIRE_AFTER_MS = 3 * 60_000;
 
@@ -338,8 +336,7 @@ export type TrackResult =
       offsetMeters: number;
       /**
        * False when this commits a position that is not reachable from the
-       * previous one: the first acquisition, or a confirmed relocation. Pace
-       * must not treat the interval before it as movement.
+       * previous one: the first acquisition, or a confirmed relocation.
        */
       continuous: boolean;
     }
@@ -348,7 +345,7 @@ export type TrackResult =
    * committed position; 'reacquiring' after a gap longer than
    * REACQUIRE_AFTER_MS; 'relocating' while a competing position is being
    * confirmed. The committed position and its timestamp are held: show the
-   * last reliable values as not live, and add nothing to pace.
+   * last reliable values as not live.
    */
   | { kind: 'uncertain'; reason: 'acquiring' | 'reacquiring' | 'relocating' }
   | { kind: 'off-route'; offsetMeters: number }
