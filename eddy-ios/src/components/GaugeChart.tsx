@@ -751,6 +751,10 @@ function GaugeChartView({
   if (!siteId) return null;
 
   const lineColor = colors.interactive;
+  const typicalOpacity = isDark ? 0.14 : 0.08;
+  const medianColor = colors.text;
+  const medianDash = '1 4';
+  const priorDash = '7 5';
 
   /**
    * ONE OBSERVED READING PLUS A FORECAST IS A CHART — and so is a forecast
@@ -1018,6 +1022,26 @@ function GaugeChartView({
             <ControlIcon name="chevron-down" size={14} color={colors.textMuted} />
           </Pressable>
         </View>
+        {(showTypical && !!series.typicalArea) || (showMedian && !!series.typicalPath) || priorPoints.length > 0 ? <View style={styles.legend}>
+          {showTypical && !!series.typicalArea ? <View style={styles.legendItem}>
+            <Svg width={24} height={12} accessible={false}>
+              <Rect x={0} y={1} width={24} height={10} fill={colors.textMuted} fillOpacity={typicalOpacity} />
+            </Svg>
+            <Text style={[styles.caption, styles.legendLabel, { color: colors.textMuted }]}>Typical 25–75%</Text>
+          </View> : null}
+          {showMedian && !!series.typicalPath ? <View style={styles.legendItem}>
+            <Svg width={24} height={12} accessible={false}>
+              <Line x1={1} x2={23} y1={6} y2={6} stroke={medianColor} strokeWidth={1.8} strokeDasharray={medianDash} strokeLinecap="round" />
+            </Svg>
+            <Text style={[styles.caption, styles.legendLabel, { color: colors.textMuted }]}>Median 50%</Text>
+          </View> : null}
+          {priorPoints.length > 0 ? <View style={styles.legendItem}>
+            <Svg width={24} height={12} accessible={false}>
+              <Line x1={0} x2={24} y1={6} y2={6} stroke={colors.textSubtle} strokeWidth={1.6} strokeDasharray={priorDash} />
+            </Svg>
+            <Text style={[styles.caption, styles.legendLabel, { color: colors.textMuted }]}>Last year · daily average</Text>
+          </View> : null}
+        </View> : null}
         {history && !matchesRequest ? <View style={styles.rangeStatus}>
           <Text accessibilityLiveRegion="polite" style={[styles.caption, { color: colors.textMuted }]}>
             {loading ? 'Loading selected range… ' : 'Selected range unavailable. '}
@@ -1050,11 +1074,11 @@ function GaugeChartView({
                   width={plotWidth} height={Math.max(0, Math.min(padTop + plotHeight, scale.y(currentZone.min)) - Math.max(padTop, scale.y(currentZone.openEnded ? domain.max : Math.min(currentZone.max, domain.max))))}
                   fill={conditionColor(currentZone.key)} opacity={isDark ? 0.08 : 0.05} /> : null}
                 {gridValues.map(value => <Line key={`grid-${value}`} x1={padLeft} x2={padLeft + plotWidth} y1={scale.y(value)} y2={scale.y(value)} stroke={colors.border} strokeWidth={0.5} />)}
-                {showTypical && series.typicalArea ? <Path d={series.typicalArea} fill={colors.textMuted} fillOpacity={isDark ? 0.16 : 0.1} /> : null}
-                {showMedian && series.typicalPath ? <Path d={series.typicalPath} stroke={colors.textMuted} strokeWidth={1} strokeDasharray="2 4" fill="none" /> : null}
+                {showTypical && series.typicalArea ? <Path d={series.typicalArea} fill={colors.textMuted} fillOpacity={typicalOpacity} /> : null}
+                {showMedian && series.typicalPath ? <Path d={series.typicalPath} stroke={medianColor} strokeWidth={1.8} strokeDasharray={medianDash} strokeLinecap="round" fill="none" /> : null}
                 {zones.filter(zone => !zone.openEnded).map(zone => <Line key={`edge-${zone.key}`} x1={padLeft} x2={padLeft + plotWidth} y1={scale.y(zone.max)} y2={scale.y(zone.max)} stroke={conditionColor(zone.key)} strokeWidth={0.75} opacity={0.5} />)}
                 {stageLines.map(line => <Line key={`stage-${line.key}`} x1={padLeft} x2={padLeft + plotWidth} y1={scale.y(line.value)} y2={scale.y(line.value)} stroke={floodStageColor()} strokeWidth={1} strokeDasharray={FLOOD_STAGE_SYSTEM[line.key].dash} opacity={0.65} />)}
-                {series.priorPaths.map((d, i) => <Path key={`prior-${i}`} d={d} stroke={colors.textSubtle} strokeWidth={1.6} strokeDasharray="5 4" fill="none" strokeLinejoin="round" />)}
+                {series.priorPaths.map((d, i) => <Path key={`prior-${i}`} d={d} stroke={colors.textSubtle} strokeWidth={1.6} strokeDasharray={priorDash} fill="none" strokeLinejoin="round" />)}
                 {series.priorDots.map(point => <Circle key={`prior-dot-${point.t}`} cx={scale.x(point.t)} cy={scale.y(point.v)} r={2} fill={colors.textSubtle} />)}
                 {series.gapPaths.map((d, i) => <Path key={`gap-${i}`} d={d} stroke={colors.textSubtle} strokeWidth={1} strokeDasharray="1 5" fill="none" />)}
                 {series.paths.map((d, i) => <Path key={`observed-${i}`} d={d} stroke={lineColor} strokeWidth={2.8} fill="none" strokeLinejoin="round" strokeLinecap="round" />)}
@@ -1093,8 +1117,7 @@ function GaugeChartView({
                 fill={label.kind === 'name' ? colors.text : colors.textMuted} fontFamily={label.kind === 'name' ? fonts.medium : fonts.mono}>{label.text}</SvgText>)}
               {plotWidth >= axisFont * 7 && (forecastPoints.length > 0 || stageLines.length > 0) ? <SvgText x={padLeft + plotWidth - 3} y={axisFont * 1.8} textAnchor="end" fill={colors.textMuted} fontSize={axisFont} fontFamily={fonts.body}>{forecastPoints.length ? 'NWS forecast' : 'NWS stages'}</SvgText> : null}
               {plotWidth > axisFont * (forecastPoints.length || stageLines.length ? 18 : 8) ? <SvgText x={padLeft + 3} y={axisFont * 1.8} fill={colors.textMuted} fontSize={axisFont} fontFamily={fonts.body}>
-                {priorPoints.length ? (plotWidth > axisFont * (forecastPoints.length || stageLines.length ? 30 : 16) ? 'Last year · daily average' : 'Last year')
-                  : showTypical && series.typicalArea ? 'Typical' : showMedian && series.typicalPath ? 'Median' : nowLabelText === 'Last reading' ? 'Last reading' : ''}
+                {nowLabelText === 'Last reading' ? 'Last reading' : ''}
               </SvgText> : null}
               {xTicks.map((tick, index) => <SvgText key={`time-${index}`} x={scale.x(tick.value)} y={chartHeight - 6} fill={colors.textMuted} fontSize={axisFont} fontFamily={fonts.body} textAnchor={index === 0 ? 'start' : index === xTicks.length - 1 ? 'end' : 'middle'}>{axisTime(tick.value, drawnDays)}</SvgText>)}
             </Svg>
@@ -1253,6 +1276,9 @@ const styles = StyleSheet.create({
   measurement: { minHeight: 44, flexDirection: 'row', gap: 6, alignItems: 'center', flexShrink: 1, paddingVertical: 8, paddingHorizontal: 4 },
   measurementText: { ...t.sm, fontFamily: fonts.semibold, flexShrink: 1 },
   rangeButton: { minHeight: 44, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, borderRadius: 10, paddingHorizontal: 10, paddingVertical: 8 },
+  legend: { flexDirection: 'row', flexWrap: 'wrap', columnGap: 14, rowGap: 6, paddingHorizontal: 4, paddingBottom: 8 },
+  legendItem: { flexDirection: 'row', alignItems: 'center', gap: 5, flexShrink: 1 },
+  legendLabel: { flexShrink: 1 },
   rangeStatus: { marginBottom: 8, gap: 4 },
   plotWrap: { position: 'relative' },
   caption: { ...t.xs },
