@@ -121,6 +121,11 @@ async function runSync(request: NextRequest) {
   let unknownSites = 0;
   let graded = 0;
   let statsFailedChunks = 0;
+  // Time spent in percentile lookups across the pass. Reported because the
+  // lookups are sequential (~80 requests a pass) inside this route's 300s
+  // budget; measured on production at 9-14s of database time per pass against
+  // a 47s median run, and this is how a regression in that shows up.
+  let statsMs = 0;
   const regionErrors: string[] = [];
 
   try {
@@ -145,6 +150,7 @@ async function runSync(request: NextRequest) {
       // — see readSnapshotStatisticsForSites for why the old whole-day read
       // silently stopped grading everything west of the Appalachians. A site
       // with no row is fine and common: it grades as null, a neutral pin.
+      const statsStartedAt = Date.now();
       const { stats, failedChunks } = await readSnapshotStatisticsForSites(
         supabase,
         readings
@@ -152,6 +158,7 @@ async function runSync(request: NextRequest) {
           .map((reading) => reading.siteId),
         statsDate,
       );
+      statsMs += Date.now() - statsStartedAt;
       if (failedChunks > 0) {
         statsFailedChunks += failedChunks;
         logger.error('[sync-gauge-latest] percentile lookup failed', {
@@ -238,6 +245,7 @@ async function runSync(request: NextRequest) {
     written,
     graded,
     statsFailedChunks,
+    statsMs,
     unknownSites,
     regionErrors,
   });
