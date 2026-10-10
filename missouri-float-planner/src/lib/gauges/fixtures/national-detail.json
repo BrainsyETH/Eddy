@@ -40,6 +40,7 @@
       "waterTemperature": null,
       "dissolvedOxygen": null
     },
-    "seasonalContextUnavailableReason": null
+    "seasonalContextUnavailableReason": null,
+    "floodAlerts": []
   }
 }

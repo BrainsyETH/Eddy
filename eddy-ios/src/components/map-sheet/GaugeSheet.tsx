@@ -44,6 +44,7 @@ import { flowBand } from '@eddy/conditions/flow-band';
 import { safetySummarySentence, summarizeSafety } from '@eddy/conditions/safety-summary';
 import { isReadingStale } from '@eddy/conditions/reading-staleness';
 import { observationAgeHours } from '@eddy/conditions/gauge-freshness';
+import { floodAlertLine, floodAlertsToShow } from '@eddy/conditions/flood-alert-copy';
 import { GaugeChart } from '@/components/GaugeChart';
 import { ReadingScale } from '@/components/ReadingScale';
 import { Absent, Fact, LinkRow, Prose, Section } from './sections';
@@ -276,6 +277,7 @@ export function GaugeHistoryTab({ facts, detail, title }: GaugeTabProps & { titl
 export function GaugeAboutTab({ facts, detail }: GaugeTabProps) {
   const publicUrl = detail?.publicUrl ?? null;
   const band = detail?.curated === false ? flowBand(detail.flowPercentile) : null;
+  const alerts = floodAlertsToShow(detail?.floodAlerts);
 
   return (
     <View>
@@ -286,6 +288,16 @@ export function GaugeAboutTab({ facts, detail }: GaugeTabProps) {
       {band ? <Prose>{flowBandSentence(band)}</Prose> : null}
 
       {detail?.stationNote ? <Prose>{detail.stationNote}</Prose> : null}
+
+      {/* Active NWS alerts covering the station, either tier — the same
+          lookup and wording as the gauge screen. Quoted, never graded. */}
+      {alerts.length ? (
+        <Section title="NWS alerts">
+          {alerts.map((alert) => (
+            <Prose key={alert.event}>{floodAlertLine(alert)}</Prose>
+          ))}
+        </Section>
+      ) : null}
 
       {/* ── NWS stages, for the tier that has no Levels tab ───────────────
           A curated station shows these inside Levels. An unrated one has no

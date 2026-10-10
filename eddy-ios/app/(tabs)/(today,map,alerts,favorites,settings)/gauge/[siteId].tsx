@@ -94,7 +94,16 @@ import { GaugeChart } from '@/components/GaugeChart';
 import { ReadingSummaryCard } from '@/components/ReadingSummaryCard';
 import { readingSummarySeason } from '@/lib/readingSummary';
 import { useGaugeHistory } from '@/hooks/useGaugeHistory';
-import { coldWaterNote, recentPeak, recentPeakSentence, recentTrend } from '@eddy/conditions/gauge-recent';
+import {
+  coldWaterNote,
+  forecastCrest,
+  forecastCrestSentence,
+  forecastDayLabel,
+  recentPeak,
+  recentPeakSentence,
+  recentTrend,
+} from '@eddy/conditions/gauge-recent';
+import { floodAlertLine, floodAlertsToShow, isFloodWarning } from '@eddy/conditions/flood-alert-copy';
 import { FeedbackSheet } from '@/components/FeedbackSheet';
 import { PaywallSheet } from '@/components/PaywallSheet';
 import { premiumPitch } from '@/lib/premiumCopy';
@@ -467,9 +476,21 @@ export default function GaugeDetailScreen() {
       : null;
   const peakLine = unit ? recentPeakSentence(recentPeak(recentSeries, unit)) : null;
   const coldLine = coldWaterNote(gauge.waterTemperature);
+  // Active NWS alerts at the station's coordinates — absent from builds of the
+  // endpoint that predate the field, which reads exactly like none.
+  const alerts = floodAlertsToShow(gauge.floodAlerts);
   const summaryPercentile = !tierResolving && !gauge.readingSuspect && readingIsCurrent && supportsFlowBand(gauge.provider) ? gauge.flowPercentile : null;
 
   const stages = gauge.floodStages;
+  // The NWS forecast rides on the week's history response — the route attaches
+  // it for any station with an NWS location id, rated or not, and the chart
+  // already draws it. Here it is said in words: folded into the safety sentence
+  // ("Forecast to reach NWS minor flood stage Tuesday"), and as a crest line
+  // when it rises without reaching a category.
+  const forecast =
+    recentHistory.matchesRequest && recentHistory.history?.forecast?.length
+      ? recentHistory.history.forecast
+      : null;
   // FEET AGAINST FEET, always — gaugeHeightFt is the only value these
   // thresholds may be compared against. The five-state answer itself comes
   // from shared/safety-summary.ts, the same machine the website's summary
@@ -477,6 +498,10 @@ export default function GaugeDetailScreen() {
   // An untrusted reading (suspect, or past the shared six-hour line)
   // contributes no comparison: "official stages published; current comparison
   // unavailable" is the honest state for it.
+  const trustedStageFt =
+    gauge.readingSuspect || isReadingStale(observationAgeHours(gauge.readingTimestamp))
+      ? null
+      : gauge.gaugeHeightFt;
   const safety = summarizeSafety({
     stages: stages
       ? {
@@ -486,11 +511,16 @@ export default function GaugeDetailScreen() {
           major: stages.majorFt,
         }
       : null,
-    currentFt:
-      gauge.readingSuspect || isReadingStale(observationAgeHours(gauge.readingTimestamp))
-        ? null
-        : gauge.gaugeHeightFt,
+    currentFt: trustedStageFt,
+    forecast: forecast?.map((point) => ({ t: point.timestamp, gaugeHeightFt: point.gaugeHeightFt })) ?? null,
   });
+  const safetyDay = safety.kind === 'forecast' && safety.crossesAt ? forecastDayLabel(safety.crossesAt) : null;
+  // A forecast that reaches a category is already the safety sentence; the
+  // crest line is for the rise that stays below one.
+  const crestLine =
+    safety.kind === 'forecast' || safety.kind === 'current'
+      ? null
+      : forecastCrestSentence(forecastCrest(forecast, trustedStageFt));
 
   const age = readingAge(observationAgeHours(gauge.readingTimestamp));
   const percentile = percentileLabel(summaryPercentile);
@@ -654,10 +684,23 @@ export default function GaugeDetailScreen() {
               })),
             ]}
           >
+            {/* The Weather Service's alerts lead: they are its statement about
+                the area right now, and they outrank everything below. Only a
+                WARNING takes the flood colour; a watch or advisory is stated
+                at full strength without it. */}
+            {alerts.map((alert) => (
+              <Text
+                key={alert.event}
+                style={isFloodWarning(alert) ? [styles.stagePassed, { color: floodStageColor(), marginTop: 10 }] : [styles.caveat, { color: colors.text }]}
+              >
+                {floodAlertLine(alert)}
+              </Text>
+            ))}
             {/* Facts about the water, for either tier — never a verdict. The
                 crest is muted context; cold water is safety information, so it
                 reads at full strength without borrowing the alarm red. */}
             {peakLine ? <Text style={[styles.caveat, { color: colors.textMuted }]}>{peakLine}</Text> : null}
+            {crestLine ? <Text style={[styles.caveat, { color: colors.text }]}>{crestLine}</Text> : null}
             {coldLine ? <Text style={[styles.caveat, { color: colors.text }]}>{coldLine}</Text> : null}
             {/* Red only when the reading is SUSPECT (ice, estimated, equipment).
                 "Provisional" is how nearly every real-time USGS reading arrives,
@@ -671,8 +714,11 @@ export default function GaugeDetailScreen() {
             ) : null}
             {stages ? (
               <View style={[styles.stages, { borderTopColor: colors.border }]}>
-                <Text style={safety.kind === 'current' ? [styles.stagePassed, { color: floodStageColor() }] : [styles.stageSummary, { color: colors.textMuted }]}>
-                  {safetySummarySentence(safety)}
+                {/* A forecast crossing is the Weather Service's own statement
+                    about the next few days — it gets the same weight as a
+                    current one, while its sentence keeps the future tense. */}
+                <Text style={safety.kind === 'current' || safety.kind === 'forecast' ? [styles.stagePassed, { color: floodStageColor() }] : [styles.stageSummary, { color: colors.textMuted }]}>
+                  {safetySummarySentence(safety, { forecastDayLabel: safetyDay })}
                 </Text>
               </View>
             ) : null}

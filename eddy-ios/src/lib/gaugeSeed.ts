@@ -124,6 +124,13 @@ export interface GaugeSeed {
   seasonalContext?: GaugeDetail['seasonalContext'];
   seasonalContextUnavailableReason?: string | null;
   historyCapabilities?: GaugeDetail['historyCapabilities'];
+  /**
+   * Active NWS alerts at the station, from the detail fetch only — absent on
+   * every list seed, like floodStages. A seed recalled from disk can hold an
+   * alert the Weather Service has since cancelled; the screen refetches on open,
+   * and floodAlertsToShow drops anything past its own expiry meanwhile.
+   */
+  floodAlerts?: GaugeDetail['floodAlerts'];
 }
 
 /**
@@ -393,5 +400,6 @@ export function seedFromDetail(gauge: GaugeDetail): GaugeSeed {
     seasonalContext: gauge.seasonalContext,
     seasonalContextUnavailableReason: gauge.seasonalContextUnavailableReason,
     historyCapabilities: gauge.historyCapabilities,
+    floodAlerts: gauge.floodAlerts,
   };
 }

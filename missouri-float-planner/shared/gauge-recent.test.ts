@@ -4,6 +4,9 @@ import test from 'node:test';
 import type { ChartReadingLike } from './chart-model';
 import {
   coldWaterNote,
+  forecastCrest,
+  forecastCrestSentence,
+  forecastDayLabel,
   recentPeak,
   recentPeakSentence,
   recentTrend,
@@ -122,4 +125,35 @@ test('a stale or missing temperature says nothing', () => {
   assert.equal(coldWaterNote({ valueF: 45, observedAt: 'not a date' }, NOW), null);
   assert.equal(coldWaterNote({ valueF: Number.NaN, observedAt: new Date(NOW).toISOString() }, NOW), null);
   assert.equal(coldWaterNote(null, NOW), null);
+});
+
+/* ── forecastCrest ────────────────────────────────────────────────────── */
+
+function fc(hoursAhead: number, ft: number | null) {
+  return { timestamp: new Date(NOW + hoursAhead * 3_600_000).toISOString(), gaugeHeightFt: ft };
+}
+
+test('a rising forecast reports its crest in feet, with the Ozarks day', () => {
+  // NOW is Saturday 2026-10-10 13:00 Central.
+  const crest = forecastCrest([fc(6, 3.0), fc(30, 4.6), fc(54, 3.4)], 2.5, NOW);
+  assert.ok(crest);
+  assert.equal(crest.valueFt, 4.6);
+  assert.equal(forecastCrestSentence(crest, NOW), 'NWS forecast: crest near 4.60 ft tomorrow');
+});
+
+test('a flat, falling or past forecast says nothing', () => {
+  assert.equal(forecastCrest([fc(6, 2.6), fc(30, 2.7)], 2.5, NOW), null, 'under half a foot');
+  assert.equal(forecastCrest([fc(6, 2.2), fc(30, 1.9)], 2.5, NOW), null, 'falling');
+  assert.equal(forecastCrest([fc(-6, 9.0)], 2.5, NOW), null, 'points already past');
+  assert.equal(forecastCrest([fc(6, -9999)], 2.5, NOW), null, 'NWPS missing sentinel');
+  assert.equal(forecastCrest([fc(6, 9.0)], null, NOW), null, 'no current stage to compare');
+  assert.equal(forecastCrest(null, 2.5, NOW), null);
+});
+
+test('forecast days are named in Central time', () => {
+  assert.equal(forecastDayLabel(new Date(NOW + 3_600_000).toISOString(), NOW), 'today');
+  assert.equal(forecastDayLabel(new Date(NOW + 72 * 3_600_000).toISOString(), NOW), 'Tuesday');
+  // 04:30Z Sunday is still Saturday 23:30 in Chicago.
+  assert.equal(forecastDayLabel('2026-10-11T04:30:00Z', NOW), 'today');
+  assert.equal(forecastDayLabel('garbage', NOW), null);
 });

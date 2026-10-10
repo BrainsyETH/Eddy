@@ -58,6 +58,7 @@ import type { HistoryCapabilities } from '@/lib/flow-providers/types';
 import { toNum } from '@/lib/utils/num';
 import { withX402Route } from '@/lib/x402-config';
 import { orderRiverLinks } from '@shared/primary-river-link';
+import { fetchNWSAlertsAtPoint } from '@/lib/nws/alerts';
 
 export const dynamic = 'force-dynamic';
 
@@ -121,6 +122,25 @@ export interface GaugeDetailThreshold {
  * everywhere, so nothing downstream may compare these against discharge.
  */
 export type { GaugeFloodStages } from '@/lib/gauges/flood-stages';
+
+/**
+ * An active NWS flood alert whose area covers the station — quoted, not graded.
+ *
+ * From api.weather.gov `alerts/active?point=` at the station's coordinates, so
+ * it needs no river matching and reaches unrated stations. The Weather
+ * Service's own statement, like GaugeFloodStages: relaying it is not Eddy
+ * issuing a verdict.
+ */
+export interface GaugeFloodAlert {
+  /** e.g. "Flood Warning", "Flash Flood Watch". */
+  event: string;
+  headline: string;
+  /** "Extreme" | "Severe" | "Moderate" | "Minor" | "Unknown". */
+  severity: string;
+  /** ISO, or null when the Weather Service gave none. */
+  onset: string | null;
+  expires: string | null;
+}
 
 export interface GaugeDetail {
   /** gauge_stations.id — the key stars are stored under. */
@@ -207,6 +227,12 @@ export interface GaugeDetail {
    * is the only true thing left to say about the number.
    */
   stationNote: string | null;
+  /**
+   * Active river-relevant NWS alerts covering the station. [] when none are in
+   * effect; null when the lookup did not answer (timeout, outage) — "no
+   * alerts" and "could not ask" are different claims.
+   */
+  floodAlerts: GaugeFloodAlert[] | null;
 }
 
 export interface GaugeDetailResponse {
@@ -373,6 +399,23 @@ async function _GET(
       ? fetchDissolvedOxygen(waterQuality.siteId).then(stamp)
       : Promise.resolve(null);
 
+    // ── NWS alerts covering the station ────────────────────────────────────
+    // Started here so it runs beside the water-quality reads rather than after
+    // them. Bounded at 4s inside fetchNWSAlertsAtPoint and never throws, so a
+    // slow weather.gov costs this field (null), never the response.
+    const floodAlertsPromise: Promise<GaugeFloodAlert[] | null> =
+      row.lat != null && row.lng != null
+        ? fetchNWSAlertsAtPoint(row.lat, row.lng).then((alerts) =>
+            alerts?.map((alert) => ({
+              event: alert.event,
+              headline: alert.headline,
+              severity: alert.severity,
+              onset: alert.onset || null,
+              expires: alert.expires || null,
+            })) ?? null,
+          )
+        : Promise.resolve(null);
+
     // The station's own prose about what its number means. Written per station
     // in gauge_stations.threshold_descriptions — migration 00198 put the one
     // that matters most there, explaining that the Black below Clearwater runs
@@ -491,6 +534,7 @@ async function _GET(
 
     const waterTemperature = await waterTemperaturePromise;
     const dissolvedOxygen = await dissolvedOxygenPromise;
+    const floodAlerts = await floodAlertsPromise;
 
     // The seasonal comparison, published only when the policy allows it: the
     // band vocabulary is shared/flow-band.ts, the eligibility gate (record
@@ -561,6 +605,7 @@ async function _GET(
 
       publicUrl: getFlowProvider(provider)?.publicUrl(siteId) ?? null,
       stationNote,
+      floodAlerts,
     };
 
     // Short CDN window: this is a live reading, and the stale path above means

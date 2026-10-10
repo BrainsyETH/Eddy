@@ -200,3 +200,67 @@ export function coldWaterNote(
   if (temperature.valueF >= COLD_WATER_F) return null;
   return `Cold water: ${Math.round(temperature.valueF)}°F. A capsize is dangerous at this temperature — dress for immersion.`;
 }
+
+/* ── The official forecast, in words ─────────────────────────────────────── */
+
+export interface ForecastCrest {
+  valueFt: number;
+  /** ISO timestamp of the highest forecast point. */
+  at: string;
+}
+
+/**
+ * The highest point of the NWS forecast, when it is a real rise from now.
+ *
+ * STAGE ONLY. NWPS forecasts are published as stage; the discharge beside them
+ * is derived from a rating curve and is the number most likely to be wrong at
+ * exactly the moment anyone reads it. The same half foot as recentPeak, for the
+ * same datum reason. A flat or falling forecast says nothing — "the forecast
+ * shows no change" is not worth a line.
+ *
+ * Quoted, never interpreted: this relays the Weather Service's own number, the
+ * one safety-adjacent claim an unrated station is allowed to carry (see
+ * GaugeFloodStages in @eddy/types).
+ */
+export function forecastCrest(
+  forecast: readonly { timestamp: string; gaugeHeightFt: number | null }[] | null | undefined,
+  currentFt: number | null | undefined,
+  now: number = Date.now(),
+): ForecastCrest | null {
+  if (!forecast?.length || currentFt == null || !Number.isFinite(currentFt)) return null;
+  let best: { valueFt: number; at: string } | null = null;
+  for (const point of forecast) {
+    const t = Date.parse(point.timestamp);
+    if (!Number.isFinite(t) || t <= now) continue;
+    const value = point.gaugeHeightFt;
+    if (value == null || !Number.isFinite(value) || value <= -999) continue;
+    if (!best || value > best.valueFt) best = { valueFt: value, at: point.timestamp };
+  }
+  if (!best || best.valueFt - currentFt < PEAK_MIN_RISE_FT) return null;
+  return best;
+}
+
+/**
+ * "Tuesday" for a forecast time, in the Ozarks' calendar — or "today" /
+ * "tomorrow" when that is what it is. Null for an unparseable time.
+ *
+ * America/Chicago for the reason readingSummarySeason uses it: these are Ozark
+ * rivers, and a crest at 1 a.m. Central is Tuesday's crest to the person
+ * planning around it wherever their phone happens to be set.
+ */
+export function forecastDayLabel(iso: string, now: number = Date.now()): string | null {
+  const t = Date.parse(iso);
+  if (!Number.isFinite(t)) return null;
+  const dayKey = (ms: number) =>
+    new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Chicago', year: 'numeric', month: '2-digit', day: '2-digit' }).format(ms);
+  if (dayKey(t) === dayKey(now)) return 'today';
+  if (dayKey(t) === dayKey(now + 86_400_000)) return 'tomorrow';
+  return new Intl.DateTimeFormat('en-US', { timeZone: 'America/Chicago', weekday: 'long' }).format(t);
+}
+
+/** "NWS forecast: crest near 14.20 ft Tuesday". */
+export function forecastCrestSentence(crest: ForecastCrest | null, now: number = Date.now()): string | null {
+  if (!crest) return null;
+  const day = forecastDayLabel(crest.at, now);
+  return `NWS forecast: crest near ${crest.valueFt.toFixed(2)} ft${day ? ` ${day}` : ''}`;
+}
