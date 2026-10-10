@@ -18,6 +18,11 @@ android/
 !/modules/eddy-orientation/ios/EddyOrientation.podspec
 !/modules/eddy-orientation/ios/EddyOrientationReactDelegateHandler.swift
 
+!/modules/eddy-style-pack/ios/
+/modules/eddy-style-pack/ios/*
+!/modules/eddy-style-pack/ios/EddyStylePack.podspec
+!/modules/eddy-style-pack/ios/EddyStylePackModule.swift
+
 # Local secrets. EXPO_PUBLIC_MAPBOX_TOKEN lives here; EAS supplies it in builds.
 .env
 # Every dotenv variant, not just the two that were listed. `eas env:pull`
