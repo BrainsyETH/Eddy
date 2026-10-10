@@ -66,9 +66,11 @@ distinguish those, and three points within half a published mile is exactly wher
 a one-decimal index is least trustworthy.
 
 **huzzah — Dillard Mill → Highway 49 Bridge.** Stored `0.10` and `0.20` against
-1.44 mi of line. Two round numbers at the top of a float read as placeholders
-rather than an index. Check whether the Huzzah has a published mile system at
-all before assigning one.
+1.44 mi of line. **Resolved:** the published Huzzah index puts 0.0 at the
+Highway 49 bridge, with Dillard Mill about 2 miles above it, so Highway 49's
+`0.20` is right and Dillard Mill was the placeholder. Migration
+`20261010231514` sets it to `-1.80`, above the index origin, rather than
+rebasing the creek.
 
 **meramec — Campbell Bridge → Riverview Ranch.** 0.20 published against 0.53 of
 line. Neither endpoint deviates materially (Campbell Bridge is +0.45 against a
@@ -93,8 +95,9 @@ ramp at `37.51980535885081, -92.983741758884122`, Big John's gravel-bar launch
 at `37.64176700355199, -93.043858867544444`, and Williams Ford's entry point at
 `37.692403, -92.953851`. With those pins, Big John -> Williams measures 10.94
 line miles for a published 10.90, and Williams -> Moon Valley measures 9.92 for
-a published 10.10. Migration `20260914205500` corrects all three pins and can
-publish Big John.
+a published 10.10. Migration `20261010231359` (authored as `20260914205500`,
+applied 2026-10-10) corrects all three pins and
+published Big John.
 
 Charity remains held for a different reason exposed by the corrected pin: it is
 19.1 line miles above Big John, while their stored `0.10` and `1.30` values came
@@ -108,6 +111,6 @@ Charity; do not move either source-backed ramp or rebase the downstream guide.
 | --- | --- |
 | Williams Ford coordinate | **Resolved:** MDC Discover Nature ArcGIS Entry Points layer, area 9008 |
 | Bennett Spring cluster | The published Niangua float chart, at one-decimal resolution, plus each operator's own stated mile |
-| Huzzah top-of-float | Whether a published Huzzah mile index exists; if not, these are geometry miles and should say so |
+| Huzzah top-of-float | **Resolved:** published index has 0.0 at Highway 49; Dillard Mill is about 2 mi above it |
 | Meramec Campbell Bridge | The Meramec float chart; likely no defect |
 | Charity / Big John | **Coordinates resolved:** MDC Boat Ramps layer, areas 8249 / 7010. Charity's conflicting mile-index origin remains. |

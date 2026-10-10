@@ -164,6 +164,8 @@
 20261004044150
 20261004045234
 20261008014150
+20261010231359
+20261010231514
 
 # Reviewed but not yet applied to production. Use a plain `supabase db push`
 # when a pending version is newer than the newest applied version; use
@@ -171,6 +173,5 @@
 # once it is, under the version production recorded, and rename the file to
 # match when necessary.
 [pending]
-20260914205500
 20261008160000
 20261009120000

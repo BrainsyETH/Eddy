@@ -224,6 +224,6 @@ predated this PR. The search-path regression is covered by the PGlite test.
 readiness CLI has no local service-role credentials. The installed audit was run
 through the authenticated Supabase connector; the repository's ledger and access
 slug comparison helpers passed against a production snapshot. The only unmatched
-migration is the already-declared pending `20260914205500`, unrelated to this PR.
+migration was the then-pending `20260914205500` (applied 2026-10-10 as `20261010231359`), unrelated to this PR.
 All 19 dossier readiness reviews remain outstanding; this installation activates
 no rivers and clears none of that evidence backlog.
