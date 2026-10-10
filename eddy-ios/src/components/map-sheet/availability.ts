@@ -11,7 +11,9 @@
 // FOUR things produce a bar with no fill, and three of them mean different
 // things to a person deciding whether to keep looking:
 //
-//   full     every site is booked        → keep refreshing for a cancellation
+//   full     every reservable site taken → keep refreshing for a cancellation
+//            (first-come sites are counted apart, and a state park's feed
+//            cannot say "booked" at all — see noneToBook)
 //   closed   shut for the season         → go somewhere else
 //   nyr      not yet released            → come back when booking opens
 //   unknown  Eddy did not measure it     → say nothing at all
@@ -100,6 +102,11 @@ export interface NightBar {
    * so the words get the raw status.
    */
   status: CampsiteNightSummary['status'] | null;
+  /**
+   * First-come sites that night — inventory, never "free on arrival". Null is
+   * unknown: state parks, an older server, or no matching per-site rows.
+   */
+  sitesWalkUp: number | null;
 }
 
 /** Day of week for a `YYYY-MM-DD`, 0 = Sunday. Parsed as UTC so it cannot drift. */
@@ -179,6 +186,10 @@ export function nightBars(
       } else if (night.sitesOpen > 0 && night.sitesReservable > 0) {
         mark = 'bar';
         fill = Math.max(MIN_VISIBLE_FILL, night.sitesOpen / night.sitesReservable);
+      } else if (night.sitesReservable === 0) {
+        // Nothing reservable at all — every site first-come, or none offered
+        // online. No booked-out track: zero reservable sites is not "full".
+        mark = 'dash';
       } else {
         // Every site booked. A drawn, empty track — the inventory exists.
         mark = 'empty';
@@ -199,10 +210,29 @@ export function nightBars(
       sitesOpen: night?.sitesOpen ?? 0,
       sitesReservable: night?.sitesReservable ?? 0,
       status: night?.status ?? null,
+      sitesWalkUp: night?.sitesWalkUp ?? null,
     });
   }
 
   return bars;
+}
+
+/** `40 first-come sites`, or null when there are none or the count is unknown. */
+function walkUpLine(sites: number | null | undefined): string | null {
+  if (sites == null || sites <= 0) return null;
+  return `${sites} first-come ${sites === 1 ? 'site' : 'sites'}`;
+}
+
+/**
+ * The headline for a night with nothing left to book, worded per source.
+ *
+ * Recreation.gov's count excludes first-come sites, so "full" is true only of
+ * the reservable ones. Missouri State Parks publish a bare IsFree boolean that
+ * cannot say whether a site is booked, held or closed, so they never claim
+ * "booked" or "full" at all.
+ */
+function noneToBook(source: CampsiteAvailabilitySummary['source'] | undefined): string {
+  return source === 'mo_state_parks' ? 'No sites available to book' : 'Reservable sites full';
 }
 
 /** The number the hero prints, or null when there is nothing to say. */
@@ -215,6 +245,11 @@ export interface AvailabilityHero {
   detail: string | null;
   /** The nights the count describes — `Fri–Sun, Aug 7–9`. */
   caption: string;
+  /**
+   * `40 first-come sites`, when the night has walk-up inventory Eddy verified.
+   * Drawn after the caption, so truncation drops it before the night's name.
+   */
+  walkUp: string | null;
 }
 
 /**
@@ -282,6 +317,7 @@ export function availabilityHero(
   const nextIndex = bars.findIndex((b, i) => i > index && b.mark === 'bar');
   const withNext = (caption: string) =>
     nextIndex === -1 ? caption : `${caption} · next open ${nightLabel(bars[nextIndex].date, nextIndex)}`;
+  const walkUp = walkUpLine(bar.sitesWalkUp);
 
   if (bar.mark === 'bar') {
     if (availability.kind === 'backcountry_district') {
@@ -295,6 +331,7 @@ export function availabilityHero(
         headline: bar.sitesOpen === 1 ? 'backcountry site' : 'backcountry sites',
         detail: null,
         caption: name ? `${when} · ${name}` : when,
+        walkUp: null,
       };
     }
     return {
@@ -302,13 +339,22 @@ export function availabilityHero(
       headline: 'open',
       // This night's own denominator, not the window's. nightBars only marks
       // 'bar' when both counts are above zero, so it is always real here.
-      detail: `of ${bar.sitesReservable} sites`,
+      // Named "reservable" beside walk-up inventory, so the two read as
+      // separate pools rather than one count that forgot some sites.
+      detail: `of ${bar.sitesReservable} ${walkUp ? 'reservable ' : ''}sites`,
       caption: when,
+      walkUp,
     };
   }
 
   if (bar.mark === 'empty') {
-    return { count: null, headline: 'Fully booked', detail: null, caption: withNext(when) };
+    return {
+      count: null,
+      headline: noneToBook(availability.source),
+      detail: null,
+      caption: withNext(when),
+      walkUp,
+    };
   }
 
   // 'dash' — nothing here to fill, and WHY is the whole distinction. A reader
@@ -316,14 +362,25 @@ export function availabilityHero(
   // cancellation that is not coming, and one who takes an unreleased night for
   // a closure drives somewhere else the day before it opens.
   if (bar.status === 'not_yet_released') {
-    return { count: null, headline: 'Not yet bookable', detail: null, caption: withNext(when) };
+    return { count: null, headline: 'Not yet bookable', detail: null, caption: withNext(when), walkUp: null };
+  }
+  // Offered, but with nothing reservable: every site first-come, or none of it
+  // online. Neither is a closure, and neither is booked out.
+  if (bar.status !== 'closed') {
+    return {
+      count: null,
+      headline: walkUp ? 'First-come sites only' : 'No sites available to book',
+      detail: null,
+      caption: withNext(when),
+      walkUp,
+    };
   }
   // Shut for every night Eddy holds is a season, not a night. Said without a
   // date because there is no date to give: the fortnight ends before it reopens.
   if (bars.every((b) => b.mark === 'none' || b.status === 'closed')) {
-    return { count: null, headline: 'Closed for the season', detail: null, caption: '' };
+    return { count: null, headline: 'Closed for the season', detail: null, caption: '', walkUp: null };
   }
-  return { count: null, headline: 'Closed', detail: null, caption: withNext(when) };
+  return { count: null, headline: 'Closed', detail: null, caption: withNext(when), walkUp: null };
 }
 
 /**
@@ -337,15 +394,16 @@ function windowHero(
   availability: CampsiteAvailabilitySummary,
   name?: string,
 ): AvailabilityHero | null {
-  const { status, sitesOpen, sitesReservable, window, kind } = availability;
+  const { status, sitesOpen, sitesReservable, sitesWalkUp, window, kind, source } = availability;
+  const walkUp = walkUpLine(sitesWalkUp);
 
   switch (status) {
     case 'closed':
-      return { count: null, headline: 'Closed for the season', detail: null, caption: '' };
+      return { count: null, headline: 'Closed for the season', detail: null, caption: '', walkUp: null };
     case 'not_yet_released':
-      return { count: null, headline: 'Not yet bookable', detail: null, caption: window.label };
+      return { count: null, headline: 'Not yet bookable', detail: null, caption: window.label, walkUp: null };
     case 'full':
-      return { count: null, headline: 'Fully booked', detail: null, caption: window.label };
+      return { count: null, headline: noneToBook(source), detail: null, caption: window.label, walkUp };
     case 'open':
       if (kind === 'backcountry_district') {
         return {
@@ -353,13 +411,15 @@ function windowHero(
           headline: sitesOpen === 1 ? 'backcountry site' : 'backcountry sites',
           detail: null,
           caption: name ?? window.label,
+          walkUp: null,
         };
       }
       return {
         count: sitesOpen,
         headline: 'open',
-        detail: `of ${sitesReservable} sites`,
+        detail: `of ${sitesReservable} ${walkUp ? 'reservable ' : ''}sites`,
         caption: window.label,
+        walkUp,
       };
     default:
       return null;
@@ -381,10 +441,14 @@ export function availabilityVoiceOver(
   const hero = availabilityHero(availability, today, name);
   if (!hero) return null;
 
-  const headline =
+  const main =
     hero.count === null
       ? `${hero.headline}${hero.caption ? `, ${hero.caption}` : ''}`
       : `${hero.count} ${hero.headline}${hero.detail ? ` ${hero.detail}` : ''}, ${hero.caption}`;
+  // The ear gets the caveat the eye has no room for.
+  const headline = hero.walkUp
+    ? `${main}. Plus ${hero.walkUp}, which can't be reserved; availability on arrival isn't guaranteed`
+    : main;
 
   const bars = nightBars(availability, today);
   const withRoom = bars.filter((bar) => bar.mark === 'bar').length;
@@ -425,6 +489,10 @@ export interface NightChoice {
   isWeekend: boolean;
   /** The night's own status, or null when it was not measured. See NightBar. */
   status: NightBar['status'];
+  /** First-come sites that night; null when unknown. See NightBar. */
+  walkUp: number | null;
+  /** Who publishes the count, which decides how a zero may be worded. */
+  source: CampsiteAvailabilitySummary['source'] | null;
 }
 
 const MONTHS = [
@@ -474,6 +542,8 @@ export function nightChoices(
       mark: bar.mark,
       isWeekend: bar.isWeekend,
       status: bar.status,
+      walkUp: bar.sitesWalkUp,
+      source: availability?.source ?? null,
     };
   });
 }
@@ -518,17 +588,28 @@ function nightLabel(date: string, index: number): string {
  */
 export function nightPhrase(choice: NightChoice): string | null {
   if (choice.mark === 'none') return null;
+  const walkUp = walkUpLine(choice.walkUp);
   if (choice.mark === 'dash') {
     // The shape folds closed and unreleased together because both are "nothing
     // here to fill"; the words must not, and the hero above says the same two
     // things the same way. `not_yet_released` tells a reader to come back when
     // booking opens, which "not offered" would have talked them out of.
-    return choice.status === 'not_yet_released' ? 'Not yet bookable' : 'Not offered this night';
+    if (choice.status === 'not_yet_released') return 'Not yet bookable';
+    if (choice.status === 'closed') return 'Not offered this night';
+    // Offered with nothing reservable — the hero's "First-come sites only".
+    return walkUp
+      ? `First-come only · ${choice.walkUp} ${choice.walkUp === 1 ? 'site' : 'sites'}`
+      : 'No sites available to book';
   }
-  if (choice.mark === 'empty') return 'Fully booked';
+  if (choice.mark === 'empty') {
+    const none = noneToBook(choice.source ?? undefined);
+    return walkUp ? `${none} · ${walkUp}` : none;
+  }
   // `bar` is the only mark left, and nightBars only assigns it when BOTH counts
   // are above zero — so the denominator is always real here and needs no guard.
-  return `${choice.count ?? 0} of ${choice.total} sites open`;
+  return walkUp
+    ? `${choice.count ?? 0} of ${choice.total} reservable sites open · ${walkUp}`
+    : `${choice.count ?? 0} of ${choice.total} sites open`;
 }
 
 /**

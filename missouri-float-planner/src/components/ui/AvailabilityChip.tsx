@@ -36,7 +36,7 @@ export function availabilityLabel(
   availability: CampsiteAvailabilityInfo,
   name?: string,
 ): string | null {
-  const { status, sitesOpen, sitesReservable, window, kind } = availability;
+  const { status, sitesOpen, sitesReservable, sitesWalkUp, window, kind, source } = availability;
 
   switch (status) {
     case 'closed':
@@ -48,8 +48,18 @@ export function availabilityLabel(
       // rather than falling through to something false.
       return `Not yet bookable · ${window.label}`;
 
-    case 'full':
-      return `Fully booked · ${window.label}`;
+    case 'full': {
+      // UseDirect's IsFree boolean cannot say WHY a site is unavailable — booked,
+      // held or closed — so a state park never claims "booked" or "full".
+      if (source === 'mo_state_parks') return `No sites available to book · ${window.label}`;
+      // Recreation.gov's count excludes first-come sites, so "full" is only
+      // true of the reservable ones. Walk-up inventory is named, never promised.
+      const walkUp =
+        sitesWalkUp != null && sitesWalkUp > 0
+          ? ` · ${sitesWalkUp} first-come ${sitesWalkUp === 1 ? 'site' : 'sites'}`
+          : '';
+      return `Reservable sites full${walkUp} · ${window.label}`;
+    }
 
     case 'open':
       if (kind === 'backcountry_district') {

@@ -449,6 +449,12 @@ export interface CampsiteAvailabilitySummary {
   sitesReservable: number;
   /** `closed` is seasonal and must not be worded as "fully booked". */
   status: 'open' | 'full' | 'closed' | 'not_yet_released';
+  /**
+   * First-come sites on every night of `window` — inventory, never a promise
+   * any is free on arrival. Null or absent is UNKNOWN, not zero: always for
+   * state parks, and for any server predating the field.
+   */
+  sitesWalkUp?: number | null;
   kind: 'campground' | 'backcountry_district';
   source: 'recreation_gov' | 'mo_state_parks';
   fetchedAt: string;
@@ -476,6 +482,8 @@ export interface CampsiteNightSummary {
   sitesOpen: number;
   sitesReservable: number;
   status: 'open' | 'full' | 'closed' | 'not_yet_released';
+  /** First-come sites this observation recorded. Null or absent = unknown. */
+  sitesWalkUp?: number | null;
 }
 
 /** What one site is doing on one night. */
@@ -620,15 +628,25 @@ export function campsiteAvailabilityLine(
 ): string | null {
   if (!availability) return null;
 
-  const { status, sitesOpen, sitesReservable, window, kind } = availability;
+  const { status, sitesOpen, sitesReservable, sitesWalkUp, window, kind, source } = availability;
 
   switch (status) {
     case 'closed':
       return 'Closed for the season';
     case 'not_yet_released':
       return `Not yet bookable · ${window.label}`;
-    case 'full':
-      return `Fully booked · ${window.label}`;
+    case 'full': {
+      // UseDirect's IsFree boolean cannot say WHY a site is unavailable — booked,
+      // held or closed — so a state park never claims "booked" or "full".
+      if (source === 'mo_state_parks') return `No sites available to book · ${window.label}`;
+      // Recreation.gov's count excludes first-come sites, so "full" is only
+      // true of the reservable ones. Walk-up inventory is named, never promised.
+      const walkUp =
+        sitesWalkUp != null && sitesWalkUp > 0
+          ? ` · ${sitesWalkUp} first-come ${sitesWalkUp === 1 ? 'site' : 'sites'}`
+          : '';
+      return `Reservable sites full${walkUp} · ${window.label}`;
+    }
     case 'open':
       if (kind === 'backcountry_district') {
         const where = name ? ` · ${name}` : '';

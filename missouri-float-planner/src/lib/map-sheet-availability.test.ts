@@ -169,7 +169,7 @@ test('a zero is phrased by what made it zero, never as "0 open"', () => {
   const phraseFor = (nights: unknown[]) =>
     nightPhrase(nightChoices(summary({ nights: nights as never }), TODAY)[0]);
 
-  assert.equal(phraseFor([night(TODAY, 0, 54, 'full')]), 'Fully booked');
+  assert.equal(phraseFor([night(TODAY, 0, 54, 'full')]), 'Reservable sites full');
   assert.equal(phraseFor([night(TODAY, 0, 0, 'closed')]), 'Not offered this night');
   // The strip draws these two the same way — a dash is "nothing here to fill"
   // either way — but the words must not fold them: "come back when booking
@@ -229,10 +229,10 @@ test('nothing measured at all has no night to offer', () => {
 test('an open night always has a real denominator behind it', () => {
   // nightBars only marks 'bar' when BOTH counts are above zero, so the phrase
   // can print "of N" unguarded. A feed reporting openings against no inventory
-  // is marked 'empty' and never reaches that branch.
+  // has nothing reservable — a dash, never 'bar' and never a booked-out track.
   const choices = nightChoices(summary({ nights: [night(TODAY, 1, 0)] }), TODAY);
-  assert.equal(choices[0].mark, 'empty');
-  assert.equal(nightPhrase(choices[0]), 'Fully booked');
+  assert.equal(choices[0].mark, 'dash');
+  assert.equal(nightPhrase(choices[0]), 'No sites available to book');
 });
 
 test('fill never exceeds the track', () => {
@@ -300,7 +300,7 @@ test('a booked-out tonight points at the next night with room', () => {
   )!;
 
   assert.equal(hero.count, null);
-  assert.equal(hero.headline, 'Fully booked');
+  assert.equal(hero.headline, 'Reservable sites full');
   assert.equal(hero.caption, 'Tonight · next open Sat Aug 8');
 });
 
@@ -333,7 +333,7 @@ test('closed and fully booked are phrases, never a zero', () => {
 
   const full = availabilityHero(summary({ nights: [night(TODAY, 0, 54, 'full')] }), TODAY)!;
   assert.equal(full.count, null);
-  assert.equal(full.headline, 'Fully booked');
+  assert.equal(full.headline, 'Reservable sites full');
 });
 
 test('one closed night is not a season', () => {
@@ -366,7 +366,7 @@ test('a facility below the strip floor still describes the weekend', () => {
   assert.equal(hero.caption, 'Fri–Sun, Aug 7–9');
 
   const full = availabilityHero(summary({ status: 'full', sitesOpen: 0 }), TODAY)!;
-  assert.equal(full.headline, 'Fully booked');
+  assert.equal(full.headline, 'Reservable sites full');
   assert.equal(full.caption, 'Fri–Sun, Aug 7–9');
 });
 
@@ -414,4 +414,87 @@ test('an unmeasured night has no count rather than a zero', () => {
   const choices = nightChoices(summary({ nights: [night(TODAY, 8)] }), TODAY);
   assert.equal(choices[0].count, 8);
   assert.equal(choices[1].count, null);
+});
+
+/* ── First-come inventory and who may say "full" ──────────────────────────── */
+//
+// Recreation.gov's count excludes walk-up sites, so Red Bluff on a busy night
+// is "20 of 20 booked" with 40 first-come sites beside it. The card used to say
+// "Fully booked" above a site list of those 40. Missouri State Parks publish a
+// bare IsFree boolean that cannot say WHY a site is unavailable.
+
+const withWalkUp = (
+  date: string,
+  sitesOpen: number,
+  sitesReservable: number,
+  status: string,
+  sitesWalkUp: number | null,
+) => ({ date, sitesOpen, sitesReservable, status, sitesWalkUp }) as never;
+
+test('a full Recreation.gov night names its walk-up inventory, never promising it', () => {
+  const value = summary({ nights: [withWalkUp(TODAY, 0, 20, 'full', 40)] });
+  const hero = availabilityHero(value, TODAY)!;
+  assert.equal(hero.headline, 'Reservable sites full');
+  assert.equal(hero.walkUp, '40 first-come sites');
+  assert.doesNotMatch(hero.walkUp!, /open|available/i, 'inventory, not a vacancy claim');
+
+  const spoken = availabilityVoiceOver(value, TODAY)!;
+  assert.match(spoken, /40 first-come sites/);
+  assert.match(spoken, /can't be reserved; availability on arrival isn't guaranteed/);
+
+  assert.equal(
+    nightPhrase(nightChoices(value, TODAY)[0]),
+    'Reservable sites full · 40 first-come sites',
+  );
+});
+
+test('an open night beside walk-up inventory labels its denominator', () => {
+  const value = summary({ nights: [withWalkUp(TODAY, 12, 20, 'open', 40)] });
+  const hero = availabilityHero(value, TODAY)!;
+  assert.equal(hero.count, 12);
+  assert.equal(hero.detail, 'of 20 reservable sites');
+  assert.equal(hero.walkUp, '40 first-come sites');
+  assert.equal(
+    nightPhrase(nightChoices(value, TODAY)[0]),
+    '12 of 20 reservable sites open · 40 first-come sites',
+  );
+});
+
+test('unknown or zero walk-up inventory adds nothing', () => {
+  for (const walkUp of [null, 0]) {
+    const value = summary({ nights: [withWalkUp(TODAY, 0, 54, 'full', walkUp)] });
+    assert.equal(availabilityHero(value, TODAY)!.walkUp, null);
+    assert.equal(nightPhrase(nightChoices(value, TODAY)[0]), 'Reservable sites full');
+  }
+  // A server predating the field sends no sitesWalkUp at all.
+  assert.equal(availabilityHero(summary({ nights: [night(TODAY, 8)] }), TODAY)!.detail, 'of 54 sites');
+});
+
+test('a state park never claims booked or full', () => {
+  const value = summary({ source: 'mo_state_parks', nights: [night(TODAY, 0, 179, 'full')] });
+  const hero = availabilityHero(value, TODAY)!;
+  assert.equal(hero.headline, 'No sites available to book');
+  assert.doesNotMatch(hero.headline, /booked|full/i);
+  assert.equal(nightPhrase(nightChoices(value, TODAY)[0]), 'No sites available to book');
+
+  const folded = availabilityHero(summary({ source: 'mo_state_parks', status: 'full', sitesOpen: 0 }), TODAY)!;
+  assert.equal(folded.headline, 'No sites available to book');
+});
+
+test('a night with only walk-up sites is never full', () => {
+  // Zero reservable sites is "nothing to book online", not a booked-out night.
+  const bar = nightBars(summary({ nights: [withWalkUp(TODAY, 0, 0, 'full', 41)] }), TODAY)[0];
+  assert.equal(bar.mark, 'dash', 'no booked-out track for inventory that was never bookable');
+
+  const hero = availabilityHero(summary({ nights: [withWalkUp(TODAY, 0, 0, 'full', 41)] }), TODAY)!;
+  assert.equal(hero.headline, 'First-come sites only');
+  assert.equal(hero.walkUp, '41 first-come sites');
+
+  const phrase = nightPhrase(nightChoices(summary({ nights: [withWalkUp(TODAY, 0, 0, 'full', 41)] }), TODAY)[0]);
+  assert.equal(phrase, 'First-come only · 41 sites');
+
+  // And without a verified count it says only what is known.
+  const unknown = availabilityHero(summary({ nights: [withWalkUp(TODAY, 0, 0, 'full', null)] }), TODAY)!;
+  assert.equal(unknown.headline, 'No sites available to book');
+  assert.doesNotMatch(unknown.headline, /closed|full|booked/i);
 });

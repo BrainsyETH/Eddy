@@ -199,7 +199,7 @@ export function CampgroundAvailability({
                 a caption, and without it this card is a line shorter than the
                 one the slot reserved for it. */}
             <Text style={[styles.caption, { color: colors.textMuted }]} numberOfLines={largeText ? undefined : 1}>
-              {(hero ? [hero.detail, hero.caption].filter(Boolean).join(' · ') : '') || ' '}
+              {(hero ? [hero.detail, hero.caption, hero.walkUp].filter(Boolean).join(' · ') : '') || ' '}
             </Text>
           </View>
 
