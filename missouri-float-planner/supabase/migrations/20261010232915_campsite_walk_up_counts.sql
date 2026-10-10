@@ -1,4 +1,9 @@
--- Migration: 20261009120000_campsite_walk_up_counts.sql
+-- Migration: 20261010232915_campsite_walk_up_counts.sql
+-- APPLIED to production (ilefwfpvphadsbptiaur) 2026-10-10 and RECORDED as
+-- 20261010232915; authored as 20261009120000 and renamed to the recorded
+-- version. Ledger: supabase/production-migrations.txt. After apply: 1 802
+-- facility-nights, 92 with walk-up sites, none unknown; a three-facility
+-- read uses campsite_site_availability_walk_up_idx and runs in ~8 ms.
 --
 -- First-come (walk-up) inventory per facility-night, for the campground card.
 --
