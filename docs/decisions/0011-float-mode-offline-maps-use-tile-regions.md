@@ -51,15 +51,17 @@ there is none.
    the package present and current; its style URL equal to the one the app
    draws; every one of its chunks reporting
    `completedResourceCount == requiredResourceCount` from
-   `offlineManager.getPacks()`; and `styleVerified`, set only when a download
-   positively confirms the style pack is complete. **@rnmapbox/maps 10.3.5
-   cannot confirm it from JavaScript** (see "Constraints" below), and the
-   absence of an error is not evidence, so nothing sets `styleVerified` yet:
-   a fully downloaded trip shows "Trip and map tiles saved", never Ready
-   offline. Confirming the style pack needs a small native check that reads
-   the SDK's style pack counts; that is an open decision. Re-checked
-   each time the trip opens. An ambient-cache hit never counts. The code is
-   `tripReadiness` in `eddy-ios/src/lib/tripDownload.ts`, with tests.
+   `offlineManager.getPacks()`; and the style pack positively complete, read
+   from the SDK by a small local native module (`eddy-ios/modules/
+   eddy-style-pack`): `OfflineManager.stylePack(for:)` returns the pack's
+   `requiredResourceCount` and `completedResourceCount`, and it counts only
+   when required is above zero and completed reaches it. @rnmapbox/maps
+   10.3.5 cannot answer this from JavaScript (see "Constraints" below), and
+   the absence of an error is not evidence, so with no module (an older
+   binary, Expo Go), no pack or any error the trip shows "Trip and map tiles
+   saved", never Ready offline. Re-checked each time the trip opens, never
+   stored. An ambient-cache hit never counts. The code is `tripReadiness` and
+   `stylePackComplete` in `eddy-ios/src/lib/tripDownload.ts`, with tests.
 
 5. **Updating never deletes first.** A refresh downloads into new pack names
    and removes the old ones only after the new ones verify complete. Removing a
@@ -95,13 +97,17 @@ there is none.
   sends nothing; and `getPackStatus` rebuilds its in-memory pack from
   TileStore on every call, discarding any state from the run. An error can be
   heard (with a listener attached on resume too), but silence proves nothing.
+  Hence the native module in decision 4. It links whatever `MapboxMaps`
+  rnmapbox pins (no version of its own) and asks the default `OfflineManager`,
+  the same store rnmapbox downloads into.
 - **`createPack` throws if the name exists in this process.** Updates use new
   names (decision 5), which also avoids that.
 
 ## Prove on a device before building the full download UI
 
-1. One representative trip: download → airplane mode → cold launch → Float
-   Mode map renders the downloaded area, with labels → start and resume.
+1. One representative trip: download → the card reaches Ready offline (the
+   style-pack module compiled and answered) → airplane mode → cold launch →
+   Float Mode map renders the downloaded area, with labels → start and resume.
 2. No download, cleared ambient cache, airplane mode: the river-only view
    appears and tracking works.
 3. Background the app mid-download, return: progress resumes; nothing claims

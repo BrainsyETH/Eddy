@@ -136,21 +136,27 @@ export interface TripPackage {
   /** Exactly the chunks this package needs; readiness checks these, no others. */
   chunkNames: string[];
   savedAt: string;
-  /**
-   * Positive evidence that the style pack (style, sprites, glyphs) is complete.
-   * @rnmapbox/maps 10.3.5 exposes NO style-pack status to JavaScript, and the
-   * absence of an error is not evidence, so nothing in this version sets it;
-   * see ADR 0011. It is the hook for a native check, and until one exists no
-   * trip is ever called Ready offline.
-   */
-  styleVerified: boolean;
+}
+
+/** The Maps SDK's own counts for a style pack (style, sprites, glyphs). */
+export interface StylePackCounts {
+  requiredResourceCount: number;
+  completedResourceCount: number;
+}
+
+/**
+ * Positive evidence only: no counts (no native module, no pack, an error) or a
+ * pack that requires nothing is not complete.
+ */
+export function stylePackComplete(status: StylePackCounts | null): boolean {
+  return status != null && status.requiredResourceCount > 0 && status.completedResourceCount >= status.requiredResourceCount;
 }
 
 export type TripReadiness =
   | TripDownloadState
   /**
    * Route package saved and every map tile chunk complete, but the style pack
-   * cannot be confirmed. Shown as saved, never as Ready offline.
+   * is not confirmed complete. Shown as saved, never as Ready offline.
    */
   | { kind: 'tiles-saved'; bytes: number }
   /** Downloaded for a map style this version no longer uses: download again. */
@@ -158,8 +164,8 @@ export type TripReadiness =
 
 /**
  * Ready offline only when the package is saved, matches the current style,
- * every one of its chunks is complete, and the style pack is positively
- * confirmed complete (styleVerified).
+ * every one of its chunks is complete, and the style pack is confirmed
+ * complete right now (styleComplete, read from the SDK; see ADR 0011).
  * Tiles with no package (a cleared or failed save) are never ready: resuming
  * writes the package again.
  */
@@ -168,6 +174,7 @@ export function tripReadiness(
   currentStyleURL: string,
   packs: readonly PackStatus[],
   fallbackChunkNames: readonly string[],
+  styleComplete: boolean,
 ): TripReadiness {
   const valid = pkg != null && pkg.version === TRIP_PACKAGE_VERSION;
   const tiles = tripDownloadState(valid ? pkg.chunkNames : fallbackChunkNames, packs);
@@ -177,6 +184,6 @@ export function tripReadiness(
   if (pkg.styleURL !== currentStyleURL) {
     return { kind: 'outdated', bytes: tiles.kind === 'none' ? 0 : tiles.bytes };
   }
-  if (tiles.kind === 'ready' && !pkg.styleVerified) return { kind: 'tiles-saved', bytes: tiles.bytes };
+  if (tiles.kind === 'ready' && !styleComplete) return { kind: 'tiles-saved', bytes: tiles.bytes };
   return tiles;
 }

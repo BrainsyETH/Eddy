@@ -6,8 +6,8 @@
 // "clear saved river data" removes) and the background map. "Ready offline" is
 // shown only when tripReadiness says so (src/lib/tripDownload.ts): package
 // saved, current map style, every chunk complete, and the style pack
-// POSITIVELY confirmed. This version of the map SDK cannot confirm the style
-// pack (ADR 0011), so the best it shows is "Trip and map tiles saved".
+// POSITIVELY confirmed by the SDK's own counts (modules/eddy-style-pack; ADR
+// 0011). Without that evidence the best it shows is "Trip and map tiles saved".
 // Re-read from storage each time, never remembered.
 //
 // Downloads run while Eddy is open; iOS pauses them in the background. The
@@ -21,11 +21,13 @@ import { indexRoute, type FloatRoute } from '@/lib/floatSession';
 import {
   TRIP_PACKAGE_VERSION,
   planTripChunks,
+  stylePackComplete,
   tripReadiness,
   type TripChunk,
   type TripReadiness,
 } from '@/lib/tripDownload';
 import { getOfflineManager } from '@/map/runtime';
+import { readStylePackStatus } from '../../modules/eddy-style-pack';
 import { radii } from '@/theme/layout';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
@@ -75,7 +77,8 @@ export function TripDownloadCard({
   const refresh = useCallback(async () => {
     const pkg = await readTripPackage(tripKey);
     const packs = await readTripPacks(tripKey);
-    const next = tripReadiness(pkg, TRIP_STYLE_URL, packs, fallbackChunks.map((c) => c.name));
+    const styleComplete = stylePackComplete(await readStylePackStatus(TRIP_STYLE_URL));
+    const next = tripReadiness(pkg, TRIP_STYLE_URL, packs, fallbackChunks.map((c) => c.name), styleComplete);
     if (!mounted.current) return;
     setState(next);
     if (next.kind === 'ready' || next.kind === 'tiles-saved') setDownloading(false);
@@ -110,7 +113,6 @@ export function TripDownloadCard({
         styleURL: TRIP_STYLE_URL,
         chunkNames: fallbackChunks.map((c) => c.name),
         savedAt: new Date().toISOString(),
-        styleVerified: false,
       };
       try {
         await saveTripPackage(pkg);

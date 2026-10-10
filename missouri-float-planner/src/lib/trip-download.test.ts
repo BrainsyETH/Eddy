@@ -16,6 +16,7 @@ import {
   tripDownloadState,
   tripPackageKey,
   tripPackName,
+  stylePackComplete,
   tripReadiness,
   type TripPackage,
 } from '../../../eddy-ios/src/lib/tripDownload';
@@ -110,20 +111,30 @@ test('Ready offline means the whole trip, not only its tiles', () => {
     styleURL: STYLE,
     chunkNames: names,
     savedAt: '2026-07-01T00:00:00Z',
-    styleVerified: true,
   };
-  assert.deepEqual(tripReadiness(pkg, STYLE, complete, names), { kind: 'ready', bytes: 2_000 });
+  assert.deepEqual(tripReadiness(pkg, STYLE, complete, names, true), { kind: 'ready', bytes: 2_000 });
   // Tiles intact but the route package gone (cleared, or never saved).
-  assert.equal(tripReadiness(null, STYLE, complete, names).kind, 'partial');
+  assert.equal(tripReadiness(null, STYLE, complete, names, true).kind, 'partial');
   // Tiles complete is not the whole map: without positive evidence the style
   // pack is complete, it is saved, never Ready offline.
-  assert.deepEqual(tripReadiness({ ...pkg, styleVerified: false }, STYLE, complete, names), { kind: 'tiles-saved', bytes: 2_000 });
+  assert.deepEqual(tripReadiness(pkg, STYLE, complete, names, false), { kind: 'tiles-saved', bytes: 2_000 });
   // Downloaded for a different style than the app now draws.
-  assert.equal(tripReadiness(pkg, 'mapbox://styles/mapbox/streets-v12', complete, names).kind, 'outdated');
+  assert.equal(tripReadiness(pkg, 'mapbox://styles/mapbox/streets-v12', complete, names, true).kind, 'outdated');
   // A package from an older format is not trusted.
-  assert.equal(tripReadiness({ ...pkg, version: 0 as never }, STYLE, complete, names).kind, 'partial');
+  assert.equal(tripReadiness({ ...pkg, version: 0 as never }, STYLE, complete, names, true).kind, 'partial');
   // Readiness checks the package's own chunks, not whatever happens to exist.
-  assert.equal(tripReadiness({ ...pkg, chunkNames: [...names, 'float:t:2'] }, STYLE, complete, names).kind, 'partial');
+  assert.equal(tripReadiness({ ...pkg, chunkNames: [...names, 'float:t:2'] }, STYLE, complete, names, true).kind, 'partial');
+  // A complete style pack does not make missing tiles ready.
+  assert.equal(tripReadiness(pkg, STYLE, complete.slice(0, 1), names, true).kind, 'partial');
+});
+
+test('the style pack counts as complete only on positive evidence', () => {
+  // No native module, no pack, or an error.
+  assert.equal(stylePackComplete(null), false);
+  // A pack that requires nothing has proved nothing.
+  assert.equal(stylePackComplete({ requiredResourceCount: 0, completedResourceCount: 0 }), false);
+  assert.equal(stylePackComplete({ requiredResourceCount: 40, completedResourceCount: 39 }), false);
+  assert.equal(stylePackComplete({ requiredResourceCount: 40, completedResourceCount: 40 }), true);
 });
 
 test('the route package lives outside the cache that "clear saved river data" removes', () => {
