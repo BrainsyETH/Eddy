@@ -18,6 +18,9 @@ export const DETAIL_TITLES: Record<string, string> = {
   // Settings is no longer a tab: Today and Favorites push it from their
   // account button, so it is a shared detail like the rest.
   profile: 'Settings',
+  // Float Mode lives in the Floats tab; see COLD_TAB_OWNERS.
+  'float-start': 'Start a float',
+  'float-mode': 'Float Mode',
 };
 
 // Cold links have no originating tab. Match the destination's place in the app.
@@ -25,6 +28,8 @@ const COLD_TAB_OWNERS: Partial<Record<string, keyof typeof TAB_ROOTS>> = {
   floats: 'floats',
   'float/[shortCode]': 'floats',
   'favorite-floats': 'floats',
+  'float-start': 'floats',
+  'float-mode': 'floats',
 };
 
 /** Plain launches and known shared details need a tab owner on a cold link. */

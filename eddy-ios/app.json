@@ -57,8 +57,9 @@
       [
         "expo-location",
         {
-          "locationWhenInUsePermission": "Eddy uses your location to find nearby rivers and put-ins and show local weather. Approximate coordinates are sent to Eddy for the weather forecast.",
-          "isIosBackgroundLocationEnabled": false
+          "locationWhenInUsePermission": "Eddy uses your location to find nearby rivers and put-ins, show local weather, and track your progress during a float. Approximate coordinates are sent to Eddy for the weather forecast; float positions stay on your phone.",
+          "locationAlwaysAndWhenInUsePermission": "During a float, Eddy keeps tracking your progress to the take-out while your phone is locked, and stops when you end the float. Float positions stay on your phone.",
+          "isIosBackgroundLocationEnabled": true
         }
       ],
       [

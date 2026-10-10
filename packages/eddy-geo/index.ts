@@ -465,3 +465,8 @@ export function navCoordinatesFor(accessPoint: {
     label: accessPoint.name,
   };
 }
+
+// Float Mode: snapping GPS to a river line, river-mile progress, and pace.
+// Pure, and covered by missouri-float-planner/src/lib/river-progress.test.ts.
+export * from './river-progress';
+export * from './float-pace';

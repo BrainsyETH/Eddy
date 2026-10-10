@@ -35,6 +35,9 @@ import { formatBytes } from '@eddy/geo';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
 import { cacheFootprint, clearCache, type CacheFootprint } from '@/lib/riverCache';
+import { listTripDownloads, removeTripDownload, type StoredTrip } from '@/float/tripDownloads';
+import { useSavedFloats } from '@/hooks/useSavedFloats';
+import { useFloatSession } from '@/hooks/useFloatSession';
 
 export default function StorageScreen() {
   const { colors, elevation } = useTheme();
@@ -44,9 +47,26 @@ export default function StorageScreen() {
   // Measured on open rather than held in a hook: it reads every cached value
   // off disk, which is fine for a screen someone chose to look at and wrong on
   // a path any render can reach.
+  const [trips, setTrips] = useState<StoredTrip[]>([]);
+  const { floats } = useSavedFloats();
+  const activeFloat = useFloatSession();
   const measure = useCallback(() => {
     void cacheFootprint().then(setCache);
+    void listTripDownloads().then(setTrips);
   }, []);
+
+  // Trip maps are deliberate downloads, not cache: each is listed and removed
+  // on its own, and the one the active float uses is protected.
+  const confirmRemoveTrip = useCallback((tripKey: string, label: string) => {
+    if (activeFloat?.shortCode === tripKey || activeFloat?.id === tripKey) {
+      Alert.alert('In use', 'The float in progress uses this map. End the float first.');
+      return;
+    }
+    Alert.alert(`Remove the map for ${label}?`, 'The saved float stays. You can download its map again later.', [
+      { text: 'Keep', style: 'cancel' },
+      { text: 'Remove', style: 'destructive', onPress: () => void removeTripDownload(tripKey).then(measure) },
+    ]);
+  }, [activeFloat, measure]);
   useEffect(measure, [measure]);
 
   const confirmClear = useCallback(() => {
@@ -128,6 +148,35 @@ export default function StorageScreen() {
           </Text>
         </View>
 
+        {trips.length > 0 ? (
+          <View style={[styles.card, styles.tripCard, { backgroundColor: colors.card }, elevation(1)]}>
+            <Text style={[styles.rowTitle, { color: colors.text }]}>Trip maps</Text>
+            <Text style={[styles.note, { color: colors.textMuted }]}>
+              Map backgrounds you downloaded for floats, so they show with no signal.
+            </Text>
+            {trips.map((trip) => {
+              const saved = floats.find((f) => f.shortCode === trip.tripKey);
+              const label = trip.label ?? (saved ? `${saved.putInName} → ${saved.takeOutName}` : 'A float');
+              return (
+                <View key={trip.tripKey} style={styles.tripRow}>
+                  <View style={styles.tripText}>
+                    <Text style={[styles.note, { color: colors.text }]} numberOfLines={1}>{label}</Text>
+                    <Text style={[styles.totalNote, { color: colors.textSubtle }]}>{formatBytes(trip.bytes)}</Text>
+                  </View>
+                  <Pressable
+                    onPress={() => confirmRemoveTrip(trip.tripKey, label)}
+                    hitSlop={8}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Remove the map for ${label}`}
+                  >
+                    <ControlIcon name="trash-outline" size={18} color={colors.textSubtle} />
+                  </Pressable>
+                </View>
+              );
+            })}
+          </View>
+        ) : null}
+
         {/* ── WHAT THE MAP NEEDS, said without the history ──────────────
             This used to open "Eddy no longer downloads map backgrounds",
             addressed to someone who remembered a feature that had just been
@@ -138,8 +187,9 @@ export default function StorageScreen() {
             What is left is the fact the screen still owes: which half of a
             river needs signal and which half does not. */}
         <Info muted={colors.textMuted} subtle={colors.textSubtle}>
-          Map backgrounds need a connection to draw. Everything else on a river — put-ins, hazards,
-          the line and the last reading — works without one.
+          Map backgrounds need a connection to draw, except for floats whose map you downloaded.
+          Everything else on a river — put-ins, hazards, the line and the last reading — works
+          without one.
         </Info>
       </ScrollView>
     </SafeAreaView>
@@ -179,4 +229,7 @@ const styles = StyleSheet.create({
   legal: { ...t.xs, fontFamily: fonts.body },
   info: { flexDirection: 'row', gap: 8, alignItems: 'flex-start', marginTop: 20 },
   infoText: { ...t.xs, fontFamily: fonts.body, flex: 1 },
+  tripCard: { marginTop: 16 },
+  tripRow: { flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 44 },
+  tripText: { flex: 1, minWidth: 0 },
 });

@@ -79,3 +79,9 @@ android/
 /eddy-ios/modules/eddy-orientation/ios/*
 !/eddy-ios/modules/eddy-orientation/ios/EddyOrientation.podspec
 !/eddy-ios/modules/eddy-orientation/ios/EddyOrientationReactDelegateHandler.swift
+
+# Offline style-pack check for Float Mode (ADR 0011); handwritten source only.
+!/eddy-ios/modules/eddy-style-pack/ios/
+/eddy-ios/modules/eddy-style-pack/ios/*
+!/eddy-ios/modules/eddy-style-pack/ios/EddyStylePack.podspec
+!/eddy-ios/modules/eddy-style-pack/ios/EddyStylePackModule.swift

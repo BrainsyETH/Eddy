@@ -2656,6 +2656,8 @@ export interface NotificationPreferencesResponse {
 export interface AppFeatureFlags {
   campingHeatmap?: boolean;
   crowdSignal?: boolean;
+  /** Float Mode (#1448). Off in store builds until the server turns it on. */
+  floatMode?: boolean;
   push: boolean;
   planner: boolean;
   chat: boolean;
