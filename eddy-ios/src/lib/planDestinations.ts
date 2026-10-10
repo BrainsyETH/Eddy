@@ -3,7 +3,11 @@ import { nightBars } from '../components/map-sheet/availability';
 
 export type PlanDetailDestination =
   | { pathname: '/river/[slug]/access/[accessSlug]'; params: { slug: string; accessSlug: string } }
-  | { pathname: '/camping'; params: { facility: string; river: string; night: string } };
+  | { pathname: '/camping'; params: { facility: string; river: string; night: string } }
+  | {
+      pathname: '/float-start';
+      params: { riverSlug: string; putInId: string; takeOutId: string; shortCode?: string; plannerMph?: string };
+    };
 
 export function planAccessDestination(
   riverSlug: string,
