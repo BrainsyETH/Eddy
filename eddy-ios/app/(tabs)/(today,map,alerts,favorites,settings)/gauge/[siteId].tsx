@@ -93,6 +93,8 @@ import { EddyTake } from '@/components/EddyTake';
 import { GaugeChart } from '@/components/GaugeChart';
 import { ReadingSummaryCard } from '@/components/ReadingSummaryCard';
 import { readingSummarySeason } from '@/lib/readingSummary';
+import { useGaugeHistory } from '@/hooks/useGaugeHistory';
+import { coldWaterNote, recentPeak, recentPeakSentence, recentTrend } from '@eddy/conditions/gauge-recent';
 import { FeedbackSheet } from '@/components/FeedbackSheet';
 import { PaywallSheet } from '@/components/PaywallSheet';
 import { premiumPitch } from '@/lib/premiumCopy';
@@ -358,6 +360,14 @@ export default function GaugeDetailScreen() {
   /** The held report, but only while it still describes the station on screen. */
   const publicOutlook = reportKey && report?.key === reportKey ? report.data : null;
 
+  // ── The last week, for "which way is it going" and "where did it crest" ──
+  // Its own request, not the chart's: the chart's range is the reader's to
+  // change (it opens wider than a week), and the trend must not move with it.
+  // Seven days because that is the widest window the history route samples
+  // without collapsing into bucket extrema — see shared/gauge-recent.ts.
+  // Called above the early returns below, as every hook here must be.
+  const recentHistory = useGaugeHistory(siteId ?? null, 7);
+
   if (loading && !gauge) {
     // The native header remains available while the first record loads.
     return (
@@ -438,6 +448,25 @@ export default function GaugeDetailScreen() {
       : 'unknown';
 
   const readingIsCurrent = gaugeFreshness(gauge.readingTimestamp) === 'live';
+
+  // Only a series that IS the week we asked for, at instant resolution, may
+  // describe the last few hours — the same `matchesRequest` discipline
+  // GaugeChart keeps for its own trend.
+  const recentSeries =
+    recentHistory.matchesRequest && recentHistory.history && recentHistory.history.resolution !== 'daily'
+      ? recentHistory.history.readings
+      : null;
+  // Rated rivers keep the report's trend, which every other surface shows for
+  // them; this fills in for the stations that have no report — every unrated
+  // one — and for a rated one whose report has not landed. The guards that
+  // withhold it (stale series, no reading near six hours back) live in
+  // recentTrend.
+  const trend =
+    readingIsCurrent && !gauge.readingSuspect
+      ? (publicOutlook?.trend ?? (unit ? recentTrend(recentSeries, unit) : null))
+      : null;
+  const peakLine = unit ? recentPeakSentence(recentPeak(recentSeries, unit)) : null;
+  const coldLine = coldWaterNote(gauge.waterTemperature);
   const summaryPercentile = !tierResolving && !gauge.readingSuspect && readingIsCurrent && supportsFlowBand(gauge.provider) ? gauge.flowPercentile : null;
 
   const stages = gauge.floodStages;
@@ -602,7 +631,7 @@ export default function GaugeDetailScreen() {
             reading={value != null && unit ? { value, unit } : null}
             verdict={rated && !tierResolving ? { code, lastKnown: value != null && !readingIsCurrent } : null}
             resolving={tierResolving}
-            trend={readingIsCurrent && !gauge.readingSuspect ? publicOutlook?.trend : null}
+            trend={trend}
             thresholds={!tierResolving ? link : null}
             context={tierResolving ? null : readingSummarySeason(summaryPercentile, unit, undefined, gauge.dischargeCfs) ?? (!rated ? damNote : null)}
             stationName={gauge.name}
@@ -625,6 +654,11 @@ export default function GaugeDetailScreen() {
               })),
             ]}
           >
+            {/* Facts about the water, for either tier — never a verdict. The
+                crest is muted context; cold water is safety information, so it
+                reads at full strength without borrowing the alarm red. */}
+            {peakLine ? <Text style={[styles.caveat, { color: colors.textMuted }]}>{peakLine}</Text> : null}
+            {coldLine ? <Text style={[styles.caveat, { color: colors.text }]}>{coldLine}</Text> : null}
             {/* Red only when the reading is SUSPECT (ice, estimated, equipment).
                 "Provisional" is how nearly every real-time USGS reading arrives,
                 and classifyQualifiers calls it a footnote; in alarm red on
