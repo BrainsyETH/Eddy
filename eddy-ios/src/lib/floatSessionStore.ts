@@ -12,6 +12,7 @@
 // ── One float at a time ─────────────────────────────────────────────────────
 // beginFloat refuses while another is active, so repeated taps cannot make
 // two sessions. Ending is explicit; nothing here ends a float on its own.
+// The logic, and the rules it is tested against, are in floatSessionStoreCore.ts.
 //
 // ── Storage ─────────────────────────────────────────────────────────────────
 // Its own key, outside the cache prefix: clearing cached river data must not
@@ -21,132 +22,48 @@
 // else location-related in Eddy.
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import type { PositionFix, RouteIndex } from '@eddy/geo';
-import { applyFix, indexRoute, restoreSession, type FloatSession } from './floatSession';
+import type { PositionFix } from '@eddy/geo';
+import type { FloatSession } from './floatSession';
+import { createFloatSessionStore, type BeginResult } from './floatSessionStoreCore';
 import { warn } from './monitoring';
 
-const STORAGE_KEY = 'eddy.floatSession.v1';
-const WRITE_THROTTLE_MS = 15_000;
+const store = createFloatSessionStore(AsyncStorage, (message, detail) => warn('float', message, detail));
 
-let session: FloatSession | null = null;
-let index: RouteIndex | null = null;
-let loaded: Promise<FloatSession | null> | null = null;
-let dirty = false;
-let lastWriteAt = 0;
-let writeTimer: ReturnType<typeof setTimeout> | null = null;
-const listeners = new Set<() => void>();
-
-function notify() {
-  for (const listener of listeners) listener();
+/** Read the stored float once per process. Then read it with getFloatSession(). */
+export function ensureFloatSessionLoaded(): Promise<void> {
+  return store.ensureLoaded();
 }
 
-function set(next: FloatSession | null) {
-  session = next;
-  if (!next) index = null;
-  else if (!index) {
-    const built = indexRoute(next.route);
-    index = built.ok ? built.index : null;
-  }
-  notify();
-}
-
-async function write(): Promise<void> {
-  dirty = false;
-  lastWriteAt = Date.now();
-  try {
-    if (session) await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(session));
-    else await AsyncStorage.removeItem(STORAGE_KEY);
-  } catch (error) {
-    warn('float', 'could not save the float session', error);
-  }
-}
-
-function scheduleWrite() {
-  dirty = true;
-  if (writeTimer) return;
-  writeTimer = setTimeout(() => {
-    writeTimer = null;
-    if (dirty) void write();
-  }, WRITE_THROTTLE_MS);
-}
-
-/** Read the stored float once per launch. Safe to call repeatedly. */
-export function loadFloatSession(): Promise<FloatSession | null> {
-  loaded ??= (async () => {
-    try {
-      const restored = restoreSession(await AsyncStorage.getItem(STORAGE_KEY));
-      // A session whose route no longer indexes (corrupt, or calibration rules
-      // changed between versions) cannot show honest progress; drop it.
-      if (restored && !indexRoute(restored.route).ok) {
-        warn('float', 'stored float session no longer indexes; discarded');
-        await AsyncStorage.removeItem(STORAGE_KEY);
-        return null;
-      }
-      if (restored && !session) set(restored);
-    } catch (error) {
-      warn('float', 'could not read the float session', error);
-    }
-    return session;
-  })();
-  return loaded;
-}
-
+/** The current session: always this, never a value remembered from a load. */
 export function getFloatSession(): FloatSession | null {
-  return session;
+  return store.get();
 }
 
 export function subscribeFloatSession(listener: () => void): () => void {
-  listeners.add(listener);
-  return () => listeners.delete(listener);
+  return store.subscribe(listener);
 }
 
-/** Start a float. False when one is already active: resume or end it first. */
-export async function beginFloat(next: FloatSession): Promise<boolean> {
-  await loadFloatSession();
-  if (session) return false;
-  index = null;
-  set(next);
-  await write();
-  return true;
+/** Start a float. Not active until it is safely on disk. */
+export function beginFloat(next: FloatSession): Promise<BeginResult> {
+  return store.begin(next);
 }
 
 /** Feed GPS fixes, in time order, from the screen or a background task. */
 export function recordFixes(fixes: readonly PositionFix[], now = Date.now()): void {
-  if (!session || !index || fixes.length === 0) return;
-  let next = session;
-  for (const fix of fixes) next = applyFix(next, index, fix, now);
-  if (next === session) return;
-  session = next;
-  notify();
-  scheduleWrite();
+  store.record(fixes, now);
 }
 
 /** Write any pending change now; call when the app is leaving the foreground. */
-export async function flushFloatSession(): Promise<void> {
-  if (writeTimer) {
-    clearTimeout(writeTimer);
-    writeTimer = null;
-  }
-  if (dirty) await write();
+export function flushFloatSession(): Promise<void> {
+  return store.flush();
 }
 
-/**
- * Write pending changes if the last write is older than `minIntervalMs`.
- *
- * For the background location task: iOS may suspend the app between
- * deliveries, so the throttle timer cannot be trusted to fire, but writing a
- * long session on every delivery would be wasteful.
- */
-export async function flushFloatSessionIfStale(minIntervalMs: number): Promise<void> {
-  if (dirty && Date.now() - lastWriteAt >= minIntervalMs) await flushFloatSession();
+/** Write pending changes if the last write is older than `minIntervalMs`. */
+export function flushFloatSessionIfStale(minIntervalMs: number): Promise<void> {
+  return store.flushIfStale(minIntervalMs);
 }
 
 /** End the float and forget it. Tracking stops because nothing is active. */
-export async function endFloat(): Promise<void> {
-  if (writeTimer) {
-    clearTimeout(writeTimer);
-    writeTimer = null;
-  }
-  set(null);
-  await write();
+export function endFloat(): Promise<boolean> {
+  return store.end();
 }

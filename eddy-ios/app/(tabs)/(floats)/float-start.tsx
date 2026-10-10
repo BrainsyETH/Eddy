@@ -272,9 +272,13 @@ function useStart() {
         if (background.status !== 'granted' && background.canAskAgain) {
           await Location.requestBackgroundPermissionsAsync();
         }
-        // beginFloat refuses if a float is already active (a second tap, or
-        // one started elsewhere). Either way Float Mode shows the active one.
-        await beginFloat(made.session);
+        // A float is not active until it is on disk. 'already-active' (a
+        // second tap, or one started elsewhere) opens the float in progress.
+        const result = await beginFloat(made.session);
+        if (result === 'storage-failed') {
+          setError('Eddy couldn’t save this float on your phone, so it could be lost if Eddy closes. Free up some storage and try again.');
+          return;
+        }
         router.replace('/float-mode');
       } finally {
         setBusy(false);

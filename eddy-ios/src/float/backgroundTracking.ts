@@ -29,7 +29,7 @@
 
 import * as Location from 'expo-location';
 import * as TaskManager from 'expo-task-manager';
-import { flushFloatSessionIfStale, loadFloatSession, recordFixes } from '@/lib/floatSessionStore';
+import { ensureFloatSessionLoaded, flushFloatSessionIfStale, getFloatSession, recordFixes } from '@/lib/floatSessionStore';
 import { warn } from '@/lib/monitoring';
 
 export const FLOAT_LOCATION_TASK = 'eddy-float-location';
@@ -42,8 +42,10 @@ TaskManager.defineTask<{ locations: Location.LocationObject[] }>(FLOAT_LOCATION_
     warn('float', 'background location error', error.message);
     return;
   }
-  const session = await loadFloatSession();
-  if (!session) {
+  // Ask for the CURRENT session after loading, never the load's own result:
+  // a float started after launch is not in what the launch-time load found.
+  await ensureFloatSessionLoaded();
+  if (!getFloatSession()) {
     await stopBackgroundTracking();
     return;
   }
