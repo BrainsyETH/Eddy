@@ -3,7 +3,7 @@
 
 import { ControlIcon } from '@/components/ControlIcon';
 import { chartDateRange } from '@/lib/chartDateRange';
-import { Component, useCallback, useMemo, useState, useId, type ReactNode } from 'react';
+import { Component, useCallback, useMemo, useState, useRef, useLayoutEffect, useId, type ReactNode } from 'react';
 import {
   AccessibilityInfo,
   ActivityIndicator,
@@ -21,7 +21,7 @@ import {
 // a declared dependency and the root layout already mounts its root view, so
 // this adds no new runtime fingerprint. See SwipeRow.tsx for the situation
 // where reaching for it would be wrong.
-import { Gesture, GestureDetector } from 'react-native-gesture-handler';
+import { Gesture, GestureDetector, type GestureUpdateEvent, type PinchGestureHandlerEventPayload } from 'react-native-gesture-handler';
 import Svg, {
   Circle,
   Defs,
@@ -74,6 +74,7 @@ import { GaugeChartSheet } from '@/components/GaugeChartSheet';
 import { GaugeChartDetails } from '@/components/GaugeChartDetails';
 import { GaugeChartReadout, GaugeChartFixedReadout } from '@/components/GaugeChartReadout';
 import { GaugeChartFullscreen } from '@/components/GaugeChartFullscreen';
+import { pinchChartWindow } from '@/lib/gaugeChartZoom';
 import { chartTimeAtX, expandedChartHeight, type ChartSelection } from '@/lib/gaugeChartExpansion';
 import { chartGutters, chartGridValues, selectChartRailLabels, type ChartRailLabel } from '@/lib/gaugeChartLayout';
 import { validateChartDates, localChartDate, parseLocalChartDate, chartEndAfterStartChange, type ChartDateErrors } from '@/lib/gaugeChartDates';
@@ -135,6 +136,8 @@ interface Props {
   siteId: string | null;
   /** Station identity remains visible when the page is behind the chart. */
   title?: string;
+  /** Recent history belongs with the chart, not the current-reading card. */
+  recentSummary?: string | null;
   /**
    * The unit to OPEN on. Comes from the river's ladder where there is one, so
    * the chart and the reading above it start out saying the same thing.
@@ -247,6 +250,7 @@ function useGaugeChartController({ siteId, unit, provider, historyCapabilities, 
   const [dateErrors, setDateErrors] = useState<ChartDateErrors>({});
   const [days, setDays] = useState<number>(initialDays);
   const [selection, setSelection] = useState<ChartSelection | null>(null);
+  const [zoom, setZoom] = useState<{ key: string; start: number; end: number } | null>(null);
   /**
    * The unit being drawn, once the reader has chosen one.
    *
@@ -276,7 +280,7 @@ function useGaugeChartController({ siteId, unit, provider, historyCapabilities, 
     showLastYear, setShowLastYear, lastYearEligible, lastYear, lastYearDates,
     fullScale, setFullScale, fromDate, setFromDate, toDate, setToDate,
     customWindow, setCustomWindow, dateErrors, setDateErrors, days, setDays,
-    selection, setSelection, unitOverride, setUnitOverride, historyState,
+    selection, setSelection, zoom, setZoom, unitOverride, setUnitOverride, historyState,
   };
 }
 
@@ -296,7 +300,7 @@ function GaugeChartInner(props: Props) {
 }
 
 function GaugeChartView({
-  siteId, unit, thresholds = null, floodStages = null, provider, historyCapabilities,
+  siteId, unit, thresholds = null, floodStages = null, provider, historyCapabilities, recentSummary,
   controller, expanded = false, active = true, availableHeight = 0, onExpand, onClose,
 }: Props & {
   controller: ChartController;
@@ -322,7 +326,7 @@ function GaugeChartView({
     showLastYear, setShowLastYear, lastYearEligible, lastYear, lastYearDates,
     fullScale, setFullScale, fromDate, setFromDate, toDate, setToDate,
     customWindow, setCustomWindow, dateErrors, setDateErrors, days, setDays,
-    selection, setSelection, unitOverride, setUnitOverride, historyState,
+    selection, setSelection, zoom, setZoom, unitOverride, setUnitOverride, historyState,
   } = controller;
   const { history, loading, unavailable, failed, retry, historyDays, matchesRequest } = historyState;
   const capabilities = resolveHistoryCapabilities(provider, historyCapabilities);
@@ -522,7 +526,7 @@ function GaugeChartView({
    * stations do read below theirs. There is a test pinning both; it only guards
    * the renderers that call this.
    */
-  const domain = useMemo(() => {
+  const fullDomain = useMemo(() => {
     const spanning = [
       ...points,
       ...forecastPoints,
@@ -547,6 +551,17 @@ function GaugeChartView({
       includeAllContext: fullScale,
     });
   }, [points, forecastPoints, priorPoints, typical, zones, stageLines, drawnUnit, showTypical, showMedian, fullScale]);
+
+  // Keep zoom within the loaded data. Changing station, measurement or loaded
+  // range restores the full window, including when a request finishes later.
+  const zoomKey = `${siteId}:${drawnUnit}:${days}:${fromDate}:${toDate}:${fullDomain?.t0}:${fullDomain?.t1}`;
+  const viewport = zoom?.key === zoomKey ? zoom : null;
+  const domain = useMemo(() => fullDomain && viewport
+    ? { ...fullDomain, t0: viewport.start, t1: viewport.end }
+    : fullDomain, [fullDomain, viewport]);
+  const currentDomain = useRef(domain);
+  useLayoutEffect(() => { currentDomain.current = domain; }, [domain]);
+  const pinchStart = useRef<{ start: number; end: number; anchor: number } | null>(null);
 
   /**
    * Round numbers down the left edge, from the same tick function the web axis
@@ -717,25 +732,48 @@ function GaugeChartView({
     selectTime(time);
   }, [domain, padLeft, plotWidth, selectTime]);
 
-  // The inline pan still yields vertical drags to the page/map sheet and wins
-  // horizontal drags before the pager. Expanded selections remain after lifting
-  // the finger, so rotating the phone keeps the selected reading in view.
+  // Single-finger inspection yields vertical scrolling to the page. Touch
+  // selection is transient in both presentations; VoiceOver can still step.
   const scrubGesture = useMemo(
     () => Gesture.Pan()
       .runOnJS(true)
+      .maxPointers(1)
       .activeOffsetX([-SCRUB_ACTIVATE_X, SCRUB_ACTIVATE_X])
       .failOffsetY([-SCRUB_FAIL_Y, SCRUB_FAIL_Y])
       .onTouchesDown(e => {
         const touch = e.allTouches[0];
-        if (touch) selectTouch(touch.x, touch.y);
+        if (e.numberOfTouches === 1 && touch) selectTouch(touch.x, touch.y);
       })
       .onUpdate(e => selectTouch(e.x, e.y))
-      .onFinalize(() => {
-        setFinger(null);
-        if (!expanded) setSelection(null);
-      }),
-    [selectTouch, expanded, setSelection],
+      .onTouchesUp(clearScrub)
+      .onTouchesCancelled(clearScrub)
+      .onFinalize(clearScrub),
+    [selectTouch, clearScrub],
   );
+  const onPinchStart = useCallback((e: GestureUpdateEvent<PinchGestureHandlerEventPayload>) => {
+    clearScrub();
+    const window = currentDomain.current;
+    if (!window) return;
+    const anchor = chartTimeAtX(e.focalX, padLeft, plotWidth, window.t0, window.t1);
+    pinchStart.current = anchor === null ? null : { start: window.t0, end: window.t1, anchor };
+  }, [clearScrub, padLeft, plotWidth]);
+  const onPinchUpdate = useCallback((e: GestureUpdateEvent<PinchGestureHandlerEventPayload>) => {
+    const initial = pinchStart.current;
+    if (!initial || !fullDomain || plotWidth <= 8 || e.scale <= 0) return;
+    const window = pinchChartWindow(
+      { start: fullDomain.t0, end: fullDomain.t1 }, initial, initial.anchor,
+      e.scale, (e.focalX - padLeft - 4) / (plotWidth - 8),
+    );
+    if (window) setZoom(window.start === fullDomain.t0 && window.end === fullDomain.t1
+      ? null : { key: zoomKey, ...window });
+  }, [fullDomain, padLeft, plotWidth, setZoom, zoomKey]);
+  const onPinchEnd = useCallback(() => { pinchStart.current = null; clearScrub(); }, [clearScrub]);
+  const pinchGesture = useMemo(() => Gesture.Pinch()
+    // RNGH registers these callbacks; it never invokes them during render.
+    // eslint-disable-next-line react-hooks/refs
+    .runOnJS(true).onStart(onPinchStart).onUpdate(onPinchUpdate).onFinalize(onPinchEnd),
+  [onPinchStart, onPinchUpdate, onPinchEnd]);
+  const chartGesture = useMemo(() => Gesture.Simultaneous(pinchGesture, scrubGesture), [pinchGesture, scrubGesture]);
 
   /**
    * Every instant the scrub can land on — both series merged, ascending — for
@@ -928,11 +966,12 @@ function GaugeChartView({
   const measurementLabel = drawnUnit === 'cfs' ? 'Flow (cfs)' : 'Gauge height (ft)';
   const closeSheet = () => setSheet(null);
   const chooseUnit = (value: 'ft' | 'cfs') => {
-    setUnitOverride(value); clearScrub(); setShowTypical(false); setShowMedian(false); setShowLastYear(false); setFullScale(false); closeSheet();
+    setUnitOverride(value); setZoom(null); clearScrub(); setShowTypical(false); setShowMedian(false); setShowLastYear(false); setFullScale(false); closeSheet();
   };
   /** A range the layer cannot use turns it off rather than leaving it pending. */
   const chooseDays = (value: number) => {
     setDays(value);
+    setZoom(null);
     if (!lastYearAvailable(drawnUnit, capabilities, value)) setShowLastYear(false);
   };
   const openMeasurement = (target: string) => {
@@ -1006,6 +1045,7 @@ function GaugeChartView({
     <View style={[styles.card, expanded && styles.expandedCard, { backgroundColor: colors.card, borderColor: colors.border }]}
       accessibilityElementsHidden={!active} importantForAccessibility={active ? 'auto' : 'no-hide-descendants'}>
       <View onLayout={expanded ? event => setControlsHeight(event.nativeEvent.layout.height) : undefined}>
+        {recentSummary ? <Text style={[styles.caption, { color: colors.textMuted, paddingBottom: 8 }]}>{recentSummary}</Text> : null}
         <View style={styles.toolbar}>
           <Pressable accessibilityRole="button" accessibilityLabel={`Measurement: ${measurementLabel}`}
             accessibilityHint="Choose the measurement to chart"
@@ -1061,7 +1101,7 @@ function GaugeChartView({
           comparison={priorPoints.length ? priorText(readoutPoint) : null} /> : null}
       </View>
       <View style={styles.plotWrap} onLayout={onLayout}>
-        {width > 0 && hasPlot ? <GestureDetector gesture={scrubGesture}>
+        {width > 0 && hasPlot ? <GestureDetector gesture={chartGesture}>
           <View accessible accessibilityRole="adjustable" accessibilityLabel={plotSummary}
             accessibilityHint="Swipe up or down for the next or previous reading. Data and details contains the full table."
             accessibilityValue={spokenValue ? { text: spokenValue } : undefined}
@@ -1119,7 +1159,7 @@ function GaugeChartView({
               {plotWidth > axisFont * (forecastPoints.length || stageLines.length ? 18 : 8) ? <SvgText x={padLeft + 3} y={axisFont * 1.8} fill={colors.textMuted} fontSize={axisFont} fontFamily={fonts.body}>
                 {nowLabelText === 'Last reading' ? 'Last reading' : ''}
               </SvgText> : null}
-              {xTicks.map((tick, index) => <SvgText key={`time-${index}`} x={scale.x(tick.value)} y={chartHeight - 6} fill={colors.textMuted} fontSize={axisFont} fontFamily={fonts.body} textAnchor={index === 0 ? 'start' : index === xTicks.length - 1 ? 'end' : 'middle'}>{axisTime(tick.value, drawnDays)}</SvgText>)}
+              {xTicks.map((tick, index) => <SvgText key={`time-${index}`} x={scale.x(tick.value)} y={chartHeight - 6} fill={colors.textMuted} fontSize={axisFont} fontFamily={fonts.body} textAnchor={index === 0 ? 'start' : index === xTicks.length - 1 ? 'end' : 'middle'}>{axisTime(tick.value, viewport ? (viewport.end - viewport.start) / 86_400_000 : drawnDays)}</SvgText>)}
             </Svg>
             {scrubbed && !expanded && active ? <GaugeChartReadout key={`${drawnUnit}-${fontScale}`} width={width} height={chartHeight}
               point={{ x: scale.x(scrubbed.point.t), y: scale.y(scrubbed.point.v) }}
@@ -1143,6 +1183,9 @@ function GaugeChartView({
         <Pressable accessibilityRole="button" onPress={() => { clearScrub(); setSheet('data'); }} style={({ pressed }) => [styles.toolbarAction, { opacity: pressed ? 0.65 : 1 }]}>
           <ControlIcon name="grid-outline" size={16} color={colors.interactive} /><Text style={[styles.actionText, { color: colors.interactive }]}>Data & details</Text>
         </Pressable>
+        {viewport ? <Pressable accessibilityRole="button" accessibilityLabel="Reset chart zoom" onPress={() => { setZoom(null); clearScrub(); }} style={styles.toolbarAction}>
+          <Text style={[styles.actionText, { color: colors.interactive }]}>Reset zoom</Text>
+        </Pressable> : null}
         {!expanded ? <Pressable accessibilityRole="button" accessibilityLabel="Expand chart"
           accessibilityHint="Open the chart full screen."
           onPress={onExpand} style={({ pressed }) => [styles.expand, { opacity: pressed ? 0.65 : 1 }]}>
@@ -1270,7 +1313,7 @@ const styles = StyleSheet.create({
   // Page summaries own the current value, rating and freshness. This component
   // owns only the chart: ~310pt at default text size, growing with Dynamic Type.
   card: { marginBottom: 14, paddingHorizontal: 12, paddingTop: 8, borderTopWidth: StyleSheet.hairlineWidth, borderBottomWidth: StyleSheet.hairlineWidth },
-  expandedCard: { marginBottom: 0, paddingTop: 0, paddingBottom: 8, borderTopWidth: 0, borderBottomWidth: 0 },
+  expandedCard: { marginBottom: 0, paddingTop: 8, paddingBottom: 8, borderTopWidth: 0, borderBottomWidth: 0 },
   expand: { minWidth: 44, minHeight: 44, justifyContent: 'center', alignItems: 'center' },
   toolbar: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginBottom: 4 },
   measurement: { minHeight: 44, flexDirection: 'row', gap: 6, alignItems: 'center', flexShrink: 1, paddingVertical: 8, paddingHorizontal: 4 },
