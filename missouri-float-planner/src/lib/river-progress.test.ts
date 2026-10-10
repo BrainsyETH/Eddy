@@ -440,6 +440,8 @@ test('a break with GPS jitter is still a break', () => {
 
 test('slowing to a drift raises the estimate instead of keeping the earlier pace', () => {
   // 3 mph, then a slow pool at 0.2 mph: two miles is ten hours, not 40 min.
+  // Each 25 m run takes about 4.7 minutes, under the six that make a stop,
+  // so this also proves a possible stop that ends in movement counts in full.
   const fast = [LAUNCH, ...paddle(LAUNCH, 30, 3)];
   const pace = movingPace([...fast, ...paddle(tail(fast), 30, 0.2)], 1);
   assert.ok(pace.mph != null && Math.abs(pace.mph - 0.2) < 0.02, `got ${pace.mph}`);

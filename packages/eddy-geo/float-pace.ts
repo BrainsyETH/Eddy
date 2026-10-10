@@ -11,17 +11,21 @@
 // positions that stays within STAY_RADIUS_METERS of where it began for at
 // least STAY_MIN_MS is a stop, wherever it starts and ends. That time is left
 // out of pace, all of it, from the moment you arrived. A run still in progress
-// is left out until it either becomes a stop or ends, so a fresh stop never
-// drags the estimate around while it is being recognised.
+// is left out until it resolves, so a fresh stop never drags the estimate
+// around while it is being recognised.
 //
-// Anything that leaves the radius sooner is movement, downstream or up, and
-// counts with its sign: drifting slowly raises the estimate, paddling back
-// upstream lowers pace, and net upstream progress gives no estimate at all.
+// It resolves one of two ways. Staying STAY_MIN_MS makes it a stop. Leaving
+// the radius sooner makes it movement, and then ALL of its time and distance
+// count, so slow progress is never discarded a run at a time. Movement counts
+// with its sign: drifting slowly raises the estimate, paddling back upstream
+// lowers pace, and net upstream progress gives no estimate at all.
 //
-// Below roughly STAY_RADIUS_METERS per STAY_MIN_MS (about 0.15 mph) GPS
-// cannot tell drifting from sitting still. Rather than guess, the reading
-// says it is PAUSED once nothing has counted as movement for STAY_MIN_MS,
-// and the screen shows time left "at your earlier pace", never as recent.
+// Movement too small for this detector to separate from GPS variation (with
+// the starting values, slower than about 25 m in six minutes) never leaves the
+// radius. Rather than guess, the reading says it is PAUSED once nothing has
+// counted as movement for STAY_MIN_MS, and the screen shows time left "at your
+// earlier pace", never as recent. The radius and duration are starting values
+// to test on the river, not fixed properties of GPS.
 //
 // Pace is a rolling window over the most recent moving time, so it updates
 // with every position. Miles are calibrated river miles (river-progress.ts),
