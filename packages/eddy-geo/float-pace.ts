@@ -5,10 +5,14 @@
 // not predicted; when you stop, time left holds and your arrival simply moves
 // later, the way a navigation app behaves when you pull over.
 //
-// Knowing whether you are moving uses one rule, like a fitness app's
-// auto-pause: progress is read in steps of about two minutes, and a step slower
-// than AUTO_PAUSE_MPH does not count toward pace. Two minutes, because GPS
-// wander over a shorter step would look like movement at canoe speeds.
+// Breaks are recognised the standard GPS-only way: by lack of progress over a
+// few minutes, not by instantaneous speed. Progress is read in steps of about
+// five minutes, comparing your AVERAGED position in the first and last minute
+// of each step, which cancels GPS jitter. A step with less than BREAK_MAX_METERS
+// of downstream progress is a break (lunch, swimming) and does not count toward
+// pace. Slow drifting still makes that progress, so it counts and the estimate
+// goes up honestly. A GPS gap produces no samples, so it is neither a break nor
+// movement.
 //
 // Miles are calibrated river miles (river-progress.ts), never GPS speed over
 // ground, so pace agrees with the miles-remaining figure on the same screen.
@@ -16,10 +20,17 @@
 const MS_PER_HOUR = 3_600_000;
 
 /** Progress is judged over steps at least this long. */
-export const STEP_MS = 2 * 60_000;
-/** A step slower than this is paused. A starting value for river testing. */
-export const AUTO_PAUSE_MPH = 0.3;
-/** Pace averages roughly this much recent moving time. */
+export const STEP_MS = 5 * 60_000;
+/** Each end of a step is the average of the samples in this much time. */
+const STEP_END_MS = 60_000;
+/**
+ * Less downstream progress than this in a step is a break: about 0.1 mph,
+ * well below real floating and above averaged GPS jitter. A starting value
+ * for river testing.
+ */
+export const BREAK_MAX_METERS = 15;
+const BREAK_MAX_MILES = BREAK_MAX_METERS / 1609.344;
+/** Pace averages roughly this much recent moving time: "recent pace". */
 export const PACE_WINDOW_MS = 15 * 60_000;
 /** Moving time needed before pace says anything. */
 export const MIN_MOVING_MS = 5 * 60_000;
@@ -47,8 +58,8 @@ export interface MovingPace {
  * `direction` is +1 when the take-out has the larger river mile, -1 otherwise.
  */
 export function movingPace(samples: ReadonlyArray<PaceSample>, direction: 1 | -1): MovingPace | null {
-  // Cut the track into steps of at least STEP_MS. A confirmed jump starts a
-  // new step rather than counting as distance.
+  // Cut the track into steps of at least STEP_MS. A confirmed jump ends the
+  // step in progress rather than counting as distance.
   const steps: { ms: number; miles: number }[] = [];
   let start = 0;
   for (let i = 1; i < samples.length; i += 1) {
@@ -56,13 +67,14 @@ export function movingPace(samples: ReadonlyArray<PaceSample>, direction: 1 | -1
       start = i;
       continue;
     }
-    const ms = samples[i].timestamp - samples[start].timestamp;
-    if (ms < STEP_MS) continue;
-    steps.push({ ms, miles: (samples[i].riverMile - samples[start].riverMile) * direction });
+    if (samples[i].timestamp - samples[start].timestamp < STEP_MS) continue;
+    const from = averageAt(samples, start, i, 'start');
+    const to = averageAt(samples, start, i, 'end');
+    steps.push({ ms: to.timestamp - from.timestamp, miles: (to.riverMile - from.riverMile) * direction });
     start = i;
   }
 
-  const moving = steps.filter((step) => step.miles / (step.ms / MS_PER_HOUR) >= AUTO_PAUSE_MPH);
+  const moving = steps.filter((step) => step.ms > 0 && step.miles >= BREAK_MAX_MILES);
   const movingMs = moving.reduce((sum, step) => sum + step.ms, 0);
   if (movingMs < MIN_MOVING_MS) return null;
 
@@ -75,10 +87,27 @@ export function movingPace(samples: ReadonlyArray<PaceSample>, direction: 1 | -1
   return { mph: windowMiles / (windowMs / MS_PER_HOUR), movingMs };
 }
 
+/** Average position and time over the first or last STEP_END_MS of samples[from..to]. */
+function averageAt(samples: ReadonlyArray<PaceSample>, from: number, to: number, end: 'start' | 'end') {
+  let timestamp = 0;
+  let riverMile = 0;
+  let count = 0;
+  for (let i = from; i <= to; i += 1) {
+    const inside = end === 'start'
+      ? samples[i].timestamp - samples[from].timestamp <= STEP_END_MS
+      : samples[to].timestamp - samples[i].timestamp <= STEP_END_MS;
+    if (!inside) continue;
+    timestamp += samples[i].timestamp;
+    riverMile += samples[i].riverMile;
+    count += 1;
+  }
+  return { timestamp: timestamp / count, riverMile: riverMile / count };
+}
+
 export type EstimateBasis = 'planner' | 'blended' | 'observed' | 'learning';
 
 export interface RemainingEstimate {
-  /** Moving time left at the current pace, rounded to 5 minutes. */
+  /** Moving time left at your recent pace, rounded to 5 minutes. */
   minutes: number | null;
   basis: EstimateBasis;
 }

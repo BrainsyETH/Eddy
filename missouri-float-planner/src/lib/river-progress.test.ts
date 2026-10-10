@@ -410,7 +410,31 @@ test('a stop holds time left; it does not grow while you sit', () => {
   assert.equal(estimateRemaining(4, null, during).minutes, estimateRemaining(4, null, before).minutes);
 });
 
-test('after a stop, pace follows how you are going now', () => {
+test('a break with GPS jitter is still a break', () => {
+  // Sitting on a gravel bar, the matched position wanders a few metres.
+  const moving = [LAUNCH, ...paddle(LAUNCH, 30, 3)];
+  const last = tail(moving);
+  const lunch = Array.from({ length: 270 }, (_, i) => ({
+    timestamp: last.timestamp + (i + 1) * 10_000,
+    riverMile: last.riverMile + (i % 2 ? 0.004 : -0.004),
+    continuous: true,
+  }));
+  const before = movingPace(moving, 1);
+  const during = movingPace([...moving, ...lunch], 1);
+  assert.ok(before && during && Math.abs(during.mph - before.mph) < 0.05, `got ${during?.mph}`);
+});
+
+test('slowing to a drift raises the estimate instead of keeping the earlier pace', () => {
+  // 3 mph, then a slow pool at 0.2 mph. A speed cutoff kept using 3 mph and
+  // showed about 40 minutes for 2 miles; at 0.2 mph it is ten hours.
+  const fast = [LAUNCH, ...paddle(LAUNCH, 30, 3)];
+  const drift = [...fast, ...paddle(tail(fast), 30, 0.2)];
+  const pace = movingPace(drift, 1);
+  assert.ok(pace && Math.abs(pace.mph - 0.2) < 0.02, `got ${pace?.mph}`);
+  assert.equal(estimateRemaining(2, null, pace).minutes, 600);
+});
+
+test('after a break, pace moves to how you are going now over the next steps', () => {
   const first = [LAUNCH, ...paddle(LAUNCH, 30, 3)];
   const lunch = [...first, ...paddle(tail(first), 30, 0)];
   const after = [...lunch, ...paddle(tail(lunch), 20, 1.5)];
