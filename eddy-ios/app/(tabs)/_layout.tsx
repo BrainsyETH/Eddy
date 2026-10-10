@@ -5,7 +5,10 @@ import { ControlIcon } from '@/components/ControlIcon';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts } from '@/theme/typography';
 
-// Five tabs: Today, Map, Alerts, Favorites, Settings.
+// Five tabs: Today, Map, Floats, Favorites, Alerts.
+//
+// Settings is not a tab. Today and Favorites carry an account button that
+// pushes it as a shared detail, so it stays reachable signed in or out.
 //
 // Each tab owns a stack; /reports and the other public URLs remain unchanged.
 //
@@ -51,17 +54,17 @@ export default function TabsLayout() {
           <NativeTabs.Trigger.Label>Map</NativeTabs.Trigger.Label>
           <NativeTabs.Trigger.Icon sf={{ default: 'map', selected: 'map.fill' }} />
         </NativeTabs.Trigger>
-        <NativeTabs.Trigger name="(alerts)" disableAutomaticContentInsets>
-          <NativeTabs.Trigger.Label>Alerts</NativeTabs.Trigger.Label>
-          <NativeTabs.Trigger.Icon sf={{ default: 'bell', selected: 'bell.fill' }} />
+        <NativeTabs.Trigger name="(floats)" disableAutomaticContentInsets>
+          <NativeTabs.Trigger.Label>Floats</NativeTabs.Trigger.Label>
+          <NativeTabs.Trigger.Icon sf={{ default: 'sailboat', selected: 'sailboat.fill' }} />
         </NativeTabs.Trigger>
         <NativeTabs.Trigger name="(favorites)" disableAutomaticContentInsets>
           <NativeTabs.Trigger.Label>Favorites</NativeTabs.Trigger.Label>
           <NativeTabs.Trigger.Icon sf={{ default: 'star', selected: 'star.fill' }} />
         </NativeTabs.Trigger>
-        <NativeTabs.Trigger name="(settings)" disableAutomaticContentInsets>
-          <NativeTabs.Trigger.Label>Settings</NativeTabs.Trigger.Label>
-          <NativeTabs.Trigger.Icon sf="gearshape" />
+        <NativeTabs.Trigger name="(alerts)" disableAutomaticContentInsets>
+          <NativeTabs.Trigger.Label>Alerts</NativeTabs.Trigger.Label>
+          <NativeTabs.Trigger.Icon sf={{ default: 'bell', selected: 'bell.fill' }} />
         </NativeTabs.Trigger>
       </NativeTabs>
     );
@@ -97,10 +100,10 @@ export default function TabsLayout() {
         }}
       />
       <Tabs.Screen
-        name="(alerts)"
+        name="(floats)"
         options={{
-          title: 'Alerts',
-          tabBarIcon: ({ color, size }) => <ControlIcon name="notifications-outline" size={size} color={color} />,
+          title: 'Floats',
+          tabBarIcon: ({ color, size }) => <ControlIcon name="boat-outline" size={size} color={color} />,
         }}
       />
       <Tabs.Screen
@@ -111,10 +114,10 @@ export default function TabsLayout() {
         }}
       />
       <Tabs.Screen
-        name="(settings)"
+        name="(alerts)"
         options={{
-          title: 'Settings',
-          tabBarIcon: ({ color, size }) => <ControlIcon name="settings-outline" size={size} color={color} />,
+          title: 'Alerts',
+          tabBarIcon: ({ color, size }) => <ControlIcon name="notifications-outline" size={size} color={color} />,
         }}
       />
     </Tabs>

@@ -1,5 +1,5 @@
 /** Public URLs remain stable; groups only choose a tab's navigation history. */
-export const TAB_ROOTS = { today: 'reports', map: 'index', alerts: 'alerts', favorites: 'favorites', settings: 'profile' } as const;
+export const TAB_ROOTS = { today: 'reports', map: 'index', floats: 'float-home', favorites: 'favorites', alerts: 'alerts' } as const;
 
 export const DETAIL_TITLES: Record<string, string> = {
   weather: 'Weather',
@@ -15,12 +15,16 @@ export const DETAIL_TITLES: Record<string, string> = {
   storage: 'Storage',
   'river-conditions': 'River Conditions',
   'eddy-reads': 'Eddy’s Reads',
+  // Settings is no longer a tab: Today and Favorites push it from their
+  // account button, so it is a shared detail like the rest.
+  profile: 'Settings',
 };
 
 // Cold links have no originating tab. Match the destination's place in the app.
 const COLD_TAB_OWNERS: Partial<Record<string, keyof typeof TAB_ROOTS>> = {
-  storage: 'settings',
-  floats: 'favorites',
+  floats: 'floats',
+  'float/[shortCode]': 'floats',
+  'favorite-floats': 'floats',
 };
 
 /** Plain launches and known shared details need a tab owner on a cold link. */

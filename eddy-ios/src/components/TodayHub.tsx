@@ -8,7 +8,6 @@ import {
   AccessibilityInfo,
   useWindowDimensions,
   ActivityIndicator,
-  Image,
   Linking,
   Pressable,
   ScrollView,
@@ -35,22 +34,20 @@ import {
   fetchLocationWeather,
 } from '@/api/client';
 import { EddyReadCard, EddyReadPlaceholder } from '@/components/EddyReadCard';
+import { SectionHead } from '@/components/SectionHead';
 import { useAccount } from '@/hooks/useAccount';
 import { onForeground } from '@/lib/foreground';
 import { seedLocationForecast } from '@/lib/locationForecast';
 import { TodayRiverPhoto } from '@/components/TodayRiverPhoto';
 import { PaywallSheet } from '@/components/PaywallSheet';
 import { canOfferReadPremium, premiumReadUserId } from '@/lib/readPremiumAccess';
-import { EddyScene } from '@/components/EddyScene';
 import { Otter, otterForCondition } from '@/components/Otter';
 import { TodaySummary, TodayWeather } from '@/components/TodaySummary';
 import { useSession } from '@/hooks/useSession';
 import { type LocationStatus } from '@/hooks/useLocation';
 import { useStarredRivers } from '@/hooks/useStarredRivers';
 import { readFavoriteFloats, writeFavoriteFloats } from '@/lib/favoriteFloatCache';
-import { favoriteFloatMeta } from '@/lib/favoriteFloatCopy';
 import { formatReading, primaryReading, readingAge } from '@/lib/readingCopy';
-import { dailyFavoriteFloats } from '@/lib/todayFloats';
 import {
   chooseTodayRecommendations,
   todayRecommendationEmptyMessage,
@@ -69,7 +66,7 @@ import {
   floatableRank,
 } from '@/theme/conditions';
 import { useTheme } from '@/theme/ThemeProvider';
-import { fonts, textStyles, type as t } from '@/theme/typography';
+import { fonts, type as t } from '@/theme/typography';
 
 interface Props {
   rivers: RiverListItem[];
@@ -218,20 +215,6 @@ function RailViewport({ label, items, initialIndex, cardWidth, viewportWidth, ve
   );
 }
 
-function SectionHead({ title, action, onAction }: { title: string; action?: string; onAction?: () => void }) {
-  const { colors } = useTheme();
-  return (
-    <View style={styles.sectionHead}>
-      <Text style={[styles.sectionTitle, { color: colors.text }]}>{title}</Text>
-      {action && onAction ? (
-        <Pressable onPress={onAction} hitSlop={10} accessibilityRole="button">
-          <Text style={[styles.sectionAction, { color: colors.interactive }]}>{action}</Text>
-        </Pressable>
-      ) : null}
-    </View>
-  );
-}
-
 function ConditionPill({ river, centered = false }: { river: RiverListItem; centered?: boolean }) {
   const code = river.currentCondition?.code ?? 'unknown';
   return (
@@ -239,45 +222,6 @@ function ConditionPill({ river, centered = false }: { river: RiverListItem; cent
       <Text style={[styles.pillText, { color: conditionInk(code) }]} numberOfLines={1}>
         {conditionLabel(code)}
       </Text>
-    </View>
-  );
-}
-
-function FloatPreviewCard({
-  item,
-  onPlan,
-}: {
-  item: FavoriteFloatSummary;
-  onPlan: () => void;
-}) {
-  const { colors, elevation } = useTheme();
-  return (
-    <View style={[styles.floatPreview, { backgroundColor: colors.card }, elevation(1)]}>
-      {item.photoUrl ? (
-        <Image source={{ uri: item.photoUrl }} style={styles.floatPreviewPhoto} />
-      ) : (
-        <View style={[styles.floatFallback, { backgroundColor: colors.selectionBg }]}>
-          <View style={[styles.routeDot, styles.routeDotStart, { backgroundColor: colors.accent }]} />
-          <View style={[styles.routeLine, { borderColor: colors.interactive }]} />
-          <View style={[styles.routeDot, styles.routeDotEnd, { backgroundColor: colors.interactive }]} />
-          <EddyScene name="routePlanning" size={104} style={styles.floatEddy} />
-        </View>
-      )}
-      <View style={styles.floatPreviewBody}>
-        <Text style={[styles.floatRiver, { color: colors.accent }]}>{item.riverName.toUpperCase()}</Text>
-        <Text style={[styles.floatPreviewTitle, { color: colors.text }]} numberOfLines={2}>{item.tagline}</Text>
-        <Text style={[styles.floatEndpoints, { color: colors.textMuted }]} numberOfLines={2}>{item.putInName} → {item.takeOutName}</Text>
-        <Text style={[styles.floatMeta, { color: colors.textMuted }]} numberOfLines={2}>{favoriteFloatMeta(item)}</Text>
-        <Pressable
-          onPress={onPlan}
-          style={({ pressed }) => [styles.floatPlan, { backgroundColor: pressed ? colors.accentFillPressed : colors.accentFill, transform: [{ scale: pressed ? 0.98 : 1 }] }]}
-          accessibilityRole="button"
-          accessibilityLabel={`Plan ${item.putInName} to ${item.takeOutName}`}
-        >
-          <ControlIcon name="map-outline" size={17} color={colors.onAccent} />
-          <Text style={[styles.floatPlanText, { color: colors.onAccent }]}>Plan this float</Text>
-        </Pressable>
-      </View>
     </View>
   );
 }
@@ -416,7 +360,6 @@ export function TodayHub({
     high: HighWaterEntry[] | null;
     notices: RiverAlert[] | null;
   }>({ high: null, notices: null });
-  const [floatFailure, setFloatFailure] = useState(false);
   const [safetyFailure, setSafetyFailure] = useState({ high: false, notices: false });
   const [incumbentState, setIncumbentState] = useState<{
     ready: boolean;
@@ -434,6 +377,10 @@ export function TodayHub({
     void readRecommendation().then((riverId) => setIncumbentState({ ready: true, riverId }));
   }, [ensureGauges]);
 
+  // Featured Float moved to the Floats tab. Today still loads the curated
+  // floats: their photos back up rivers that have none, and this launch-time
+  // read keeps the cache warm for the Floats tab. A failure here hides no
+  // visible detail, so it does not raise the network notice.
   useEffect(() => {
     let current = true;
     void readFavoriteFloats().then((cached) => {
@@ -444,12 +391,10 @@ export function TodayHub({
       .then((live) => {
         if (!current) return;
         setFloats(live);
-        setFloatFailure(false);
         writeFavoriteFloats(live);
       })
       .catch((error) => {
         if (!current || (error instanceof ApiError && error.message === 'Request cancelled')) return;
-        setFloatFailure(true);
         setFloats((value) => value ?? []);
       });
     return () => {
@@ -545,7 +490,7 @@ export function TodayHub({
     safetyFailure,
   );
   const safetyCount = activeSafety.count;
-  const detailFailure = floatFailure || safetyFailure.high || safetyFailure.notices;
+  const detailFailure = safetyFailure.high || safetyFailure.notices;
   const safetyFilterLabel = safetyFilter === 'favorites' ? 'Favorites' : 'All Alerts';
   const topNotice = useMemo(() => {
     const rank = { warning: 0, watch: 1, notice: 2 } as const;
@@ -562,7 +507,6 @@ export function TodayHub({
     for (const item of floats ?? []) if (item.photoUrl && !result.has(item.riverSlug)) result.set(item.riverSlug, item.photoUrl);
     return result;
   }, [floats, rivers]);
-  const featuredFloat = useMemo(() => dailyFavoriteFloats(floats ?? [])[0] ?? null, [floats]);
   const previewDistances = useMemo(
     () => location.coords && gauges ? riverMilesByGauge(gauges, location.coords) : null,
     [gauges, location.coords],
@@ -785,16 +729,6 @@ export function TodayHub({
         />
       </View>
 
-      {featuredFloat ? (
-        <View style={styles.section}>
-          <SectionHead title="Featured float" action="See all" onAction={() => router.push('/favorite-floats')} />
-          <FloatPreviewCard
-            item={featuredFloat}
-            onPlan={() => openPlan(featuredFloat.riverSlug, featuredFloat.putInId, featuredFloat.takeOutId)}
-          />
-        </View>
-      ) : null}
-
       <PaywallSheet
         visible={paywallRiver !== null && !premiumUserId}
         riverName={paywallRiver ?? undefined}
@@ -820,9 +754,6 @@ const styles = StyleSheet.create({
   compactValue: { ...t.xl, minHeight: 38, lineHeight: 38, fontFamily: fonts.semibold, textAlign: 'center' },
   summaryTop: { marginBottom: 14, gap: 10 },
   section: { marginBottom: 24 },
-  sectionHead: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 10, paddingHorizontal: 2 },
-  sectionTitle: { ...textStyles.sectionTitle },
-  sectionAction: { ...t.sm, fontFamily: fonts.semibold },
   heroCopy: { flex: 1, minWidth: 0, zIndex: 1 },
   eyebrow: { ...t.xs, fontFamily: fonts.heading, letterSpacing: 0.9, marginBottom: 3 },
   heroMeta: { ...t.sm, fontFamily: fonts.body, marginTop: 4 },
@@ -859,19 +790,4 @@ const styles = StyleSheet.create({
   cardRailViewport: { marginHorizontal: -16 },
   cardRail: { paddingHorizontal: 16, paddingBottom: 2, gap: CARD_GAP, alignItems: 'stretch' },
   railPosition: { ...t.xs, fontFamily: fonts.mono, textAlign: 'right', marginTop: 5, paddingRight: 2 },
-  floatPreview: { width: '100%', borderRadius: 18, overflow: 'hidden' },
-  floatPreviewPhoto: { width: '100%', height: 126 },
-  floatFallback: { width: '100%', height: 126, overflow: 'hidden' },
-  routeDot: { position: 'absolute', width: 12, height: 12, borderRadius: 6, zIndex: 2 },
-  routeDotStart: { left: 26, top: 35 },
-  routeDotEnd: { left: 104, top: 87 },
-  routeLine: { position: 'absolute', left: 35, top: 43, width: 77, height: 50, borderLeftWidth: 3, borderBottomWidth: 3, borderBottomLeftRadius: 22, transform: [{ rotate: '-10deg' }] },
-  floatEddy: { position: 'absolute', right: 8, bottom: -9 },
-  floatPreviewBody: { padding: 14 },
-  floatRiver: { ...t.xs, fontFamily: fonts.heading, letterSpacing: 0.8 },
-  floatPreviewTitle: { ...t.lg, fontFamily: fonts.heading, marginTop: 3 },
-  floatEndpoints: { ...t.sm, fontFamily: fonts.body, marginTop: 5 },
-  floatMeta: { ...t.xs, fontFamily: fonts.mono, marginTop: 7 },
-  floatPlan: { minHeight: 44, borderRadius: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7, marginTop: 12 },
-  floatPlanText: { ...t.sm, fontFamily: fonts.semibold },
 });

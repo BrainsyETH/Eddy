@@ -12,27 +12,14 @@
 // honest split — the list is a memory, the plan is a measurement.
 
 import { NativeHeaderHome } from '@/components/NativeHeaderHome';
-import { radii } from '@/theme/layout';
 import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import { ControlIcon } from '@/components/ControlIcon';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
 import { EddyScene } from '@/components/EddyScene';
-import { useSavedFloats, type SavedFloat } from '@/hooks/useSavedFloats';
-
-/** "3 days ago" — the precision a share history deserves and no more. */
-function savedAgo(iso: string): string {
-  const then = new Date(iso).getTime();
-  if (!Number.isFinite(then)) return '';
-  const days = Math.floor((Date.now() - then) / 86_400_000);
-  if (days <= 0) return 'Today';
-  if (days === 1) return 'Yesterday';
-  if (days < 30) return `${days} days ago`;
-  const months = Math.round(days / 30);
-  return `${months} month${months === 1 ? '' : 's'} ago`;
-}
+import { useSavedFloats } from '@/hooks/useSavedFloats';
+import { SavedFloatRow } from '@/components/SavedFloatRow';
 
 export default function SavedFloatsScreen() {
   const { floats, ready, forget } = useSavedFloats();
@@ -91,71 +78,11 @@ export default function SavedFloatsScreen() {
   );
 }
 
-function SavedFloatRow({
-  float,
-  onOpen,
-  onForget,
-  elevation,
-}: {
-  float: SavedFloat;
-  onOpen: () => void;
-  onForget: () => void;
-  elevation: object;
-}) {
-  const { colors } = useTheme();
-
-  return (
-    <View style={[styles.row, { backgroundColor: colors.card }, elevation]}>
-      <Pressable
-        onPress={onOpen}
-        style={({ pressed }) => [styles.rowMain, { opacity: pressed ? 0.6 : 1 }]}
-        accessibilityRole="button"
-        accessibilityLabel={`${float.putInName} to ${float.takeOutName} on the ${float.riverName}`}
-      >
-        <Text style={[styles.rowRiver, { color: colors.textMuted }]} numberOfLines={1}>
-          {float.riverName}
-        </Text>
-        <Text style={[styles.rowSegment, { color: colors.text }]} numberOfLines={2}>
-          {float.putInName} → {float.takeOutName}
-        </Text>
-        <Text style={[styles.rowMeta, { color: colors.textSubtle }]} numberOfLines={1}>
-          {float.distanceLabel} · {savedAgo(float.savedAt)}
-        </Text>
-      </Pressable>
-
-      {/* A sibling of the open target, not a child of it, and a full-height
-          column — the same rule the star follows on a river row, for the same
-          reason: two overlapping touch targets make a tap ambiguous. */}
-      <Pressable
-        onPress={onForget}
-        style={({ pressed }) => [styles.forget, { opacity: pressed ? 0.5 : 1 }]}
-        accessibilityRole="button"
-        accessibilityLabel={`Remove ${float.putInName} to ${float.takeOutName}`}
-      >
-        <ControlIcon name="trash-outline" size={18} color={colors.textSubtle} />
-      </Pressable>
-    </View>
-  );
-}
-
 const styles = StyleSheet.create({
   screen: { flex: 1 },
   header: { paddingHorizontal: 20, paddingTop: 12, paddingBottom: 12 },
   subtitle: { ...t.sm, fontFamily: fonts.body, marginTop: 4 },
   list: { paddingBottom: 24 },
-  row: {
-    flexDirection: 'row',
-    alignItems: 'stretch',
-    marginHorizontal: 16,
-    marginBottom: 9,
-    borderRadius: radii.card,
-    overflow: 'hidden',
-  },
-  rowMain: { flex: 1, minWidth: 0, padding: 13 },
-  rowRiver: { ...t.xs, fontFamily: fonts.semibold },
-  rowSegment: { ...t.sm, fontFamily: fonts.semibold, marginTop: 3 },
-  rowMeta: { ...t.xs, fontFamily: fonts.body, marginTop: 3 },
-  forget: { width: 52, alignItems: 'center', justifyContent: 'center' },
   empty: { padding: 32, alignItems: 'center', gap: 12 },
   planButton: { minHeight: 44, borderRadius: 12, paddingHorizontal: 18, paddingVertical: 12, justifyContent: 'center' },
   planButtonText: { ...t.base, fontFamily: fonts.semibold },

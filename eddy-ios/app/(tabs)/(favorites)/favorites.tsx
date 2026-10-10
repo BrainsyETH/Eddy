@@ -47,6 +47,7 @@ import { FlatList, Pressable, RefreshControl, StyleSheet, Text, View } from 'rea
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LazyTabScreen } from '@/components/LazyTabScreen';
 import { ControlIcon } from '@/components/ControlIcon';
+import { AccountIconButton } from '@/components/AccountButton';
 import type { DamSnapshot, MapGauge, RiverListItem } from '@eddy/types';
 import { fetchGauges, fetchRivers } from '@/api/client';
 import { getSharedDams } from '@/hooks/useDams';
@@ -63,7 +64,6 @@ import { rememberGauge, seedFromMapGauge, seedFromStar } from '@/lib/gaugeSeed';
 import { useStarredRivers } from '@/hooks/useStarredRivers';
 import { useEddyUpdates } from '@/hooks/useEddyUpdates';
 import { selectEddySays } from '@/lib/eddySays';
-import { useSavedFloats } from '@/hooks/useSavedFloats';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { agedIndex, envelope, effectiveReadingAgeHours, type CacheEnvelope } from '@/lib/offline-cache';
 import { onForeground } from '@/lib/foreground';
@@ -138,7 +138,6 @@ export default function FavoritesScreen() {
 
 function FavoritesContent() {
   const { starred, toggleStar, ready } = useStarredRivers();
-  const { floats: savedFloats } = useSavedFloats();
   const { colors, elevation } = useTheme();
   const router = useRouter();
 
@@ -297,7 +296,10 @@ function FavoritesContent() {
         }
         ListHeaderComponent={
           <View style={styles.header}>
-            <Text style={[styles.title, { color: colors.text }]}>Favorites</Text>
+            <View style={styles.titleRow}>
+              <Text style={[styles.title, { color: colors.text }]}>Favorites</Text>
+              <AccountIconButton />
+            </View>
             <Text style={[styles.subtitle, { color: colors.textMuted }]}>
               {starred.length === 0
                 ? 'Favorites are saved on this device'
@@ -314,25 +316,6 @@ function FavoritesContent() {
                 </Text>
               </View>
             ) : null}
-
-            {/* Keep saved floats discoverable before the first save. */}
-            <Pressable
-              onPress={() => router.push('/floats')}
-              style={({ pressed }) => [
-                styles.floatsRow,
-                { backgroundColor: colors.card, opacity: pressed ? 0.6 : 1 },
-                elevation(1),
-              ]}
-              accessibilityRole="button"
-              accessibilityLabel={`Saved floats, ${savedFloats.length}`}
-            >
-              <ControlIcon name="navigate-outline" size={18} color={colors.interactive} />
-              <Text style={[styles.floatsText, { color: colors.text }]}>Saved floats</Text>
-              <Text style={[styles.floatsCount, { color: colors.textSubtle }]}>
-                {savedFloats.length}
-              </Text>
-              <ControlIcon name="chevron-forward" size={16} color={colors.textSubtle} />
-            </Pressable>
 
             {/* Full-bleed rather than inside the header's 20pt gutter: the chip
                 row scrolls horizontally and has to be able to run to the screen
@@ -534,23 +517,13 @@ const styles = StyleSheet.create({
   screen: { flex: 1 },
   header: { paddingHorizontal: 20, paddingTop: 12, paddingBottom: 16 },
   title: { ...textStyles.pageTitle },
+  titleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   subtitle: { ...t.sm, fontFamily: fonts.body, marginTop: 4 },
   // The glyph and its sentence on one line, in the caption size: a marker,
   // not a banner. `flex: 1` on the text so a wrap happens under itself rather
   // than pushing the icon to a second line.
   offlineRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 6 },
   offlineText: { ...t.xs, fontFamily: fonts.body, flex: 1 },
-  floatsRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    marginTop: 14,
-    paddingHorizontal: 13,
-    paddingVertical: 12,
-    borderRadius: 12,
-  },
-  floatsText: { ...t.sm, fontFamily: fonts.semibold, flex: 1 },
-  floatsCount: { ...t.sm, fontFamily: fonts.mono },
   // Cancels the header's own 20pt gutter so the scrolling chip row is
   // full-bleed; FilterChips re-applies the same 20 as content padding.
   chipRow: { marginHorizontal: -20, marginTop: 6, marginBottom: -6 },

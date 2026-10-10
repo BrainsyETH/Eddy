@@ -529,7 +529,7 @@ test('a confirmation waits for the server before saying Premium is on', () => {
 test('both redeem surfaces open the URL and sync against a baseline', () => {
   for (const path of [
     '../eddy-ios/src/components/PaywallSheet.tsx',
-    '../eddy-ios/app/(tabs)/(settings)/profile.tsx',
+    '../eddy-ios/app/(tabs)/(today,map,floats,favorites,alerts)/profile.tsx',
   ]) {
     const source = readFileSync(path, 'utf8');
     // Awaited, not fired and forgotten: the open rejects where the App Store
@@ -552,7 +552,7 @@ test('both redeem surfaces open the URL and sync against a baseline', () => {
 
   // And Profile is the one that must ask the stricter question, because it is
   // the one making a claim about what changed.
-  const profile = readFileSync('../eddy-ios/app/(tabs)/(settings)/profile.tsx', 'utf8');
+  const profile = readFileSync('../eddy-ios/app/(tabs)/(today,map,floats,favorites,alerts)/profile.tsx', 'utf8');
   assert.match(profile, /until: \(entitlement\) => entitlementMatchesSnapshot\(entitlement, target\)/);
 });
 
@@ -561,7 +561,7 @@ test('the redeem controls are signed-in only, like every purchase control', () =
   // on a real account — the same identity guard the purchase flow enforces.
   // In the paywall the link lives inside the existing `signedIn ?` footer
   // block beside Restore; in Settings the control carries its own guard.
-  const profile = readFileSync('../eddy-ios/app/(tabs)/(settings)/profile.tsx', 'utf8');
+  const profile = readFileSync('../eddy-ios/app/(tabs)/(today,map,floats,favorites,alerts)/profile.tsx', 'utf8');
   const redeem = profile.indexOf('onPress={() => void handleRedeem()}');
   assert.notEqual(redeem, -1, 'Settings has no redeem control');
   assert.notEqual(
@@ -629,7 +629,7 @@ test('every identity and purchase control is gated on the whole busy state', () 
   // Asserted control by control. The negative form this replaces — "no
   // `disabled={busy === }` survives" — passed just as happily with every
   // `disabled` prop deleted, which is the opposite of what it was pinning.
-  const profile = readFileSync('../eddy-ios/app/(tabs)/(settings)/profile.tsx', 'utf8');
+  const profile = readFileSync('../eddy-ios/app/(tabs)/(today,map,floats,favorites,alerts)/profile.tsx', 'utf8');
 
   const control = (onPress: string): string => {
     const at = profile.indexOf(onPress);
@@ -665,7 +665,7 @@ test('every identity and purchase control is gated on the whole busy state', () 
 });
 
 test('an inactive billing issue points to the subscription action, not the paywall', () => {
-  const profile = readFileSync('../eddy-ios/app/(tabs)/(settings)/profile.tsx', 'utf8');
+  const profile = readFileSync('../eddy-ios/app/(tabs)/(today,map,floats,favorites,alerts)/profile.tsx', 'utf8');
   assert.match(
     profile,
     /if \(entitlement\?\.billingIssue\) \{\s*void Linking\.openURL\(MANAGE_SUBSCRIPTIONS_URL\)/,
@@ -758,7 +758,7 @@ test('the SDK finding a subscription is not enough to claim it is restored', () 
 test('both restore surfaces reconcile with the server before claiming anything', () => {
   for (const path of [
     '../eddy-ios/src/components/PaywallSheet.tsx',
-    '../eddy-ios/app/(tabs)/(settings)/profile.tsx',
+    '../eddy-ios/app/(tabs)/(today,map,floats,favorites,alerts)/profile.tsx',
   ]) {
     const source = readFileSync(path, 'utf8');
     // A restore onto an account that did not buy — anyone who deleted their

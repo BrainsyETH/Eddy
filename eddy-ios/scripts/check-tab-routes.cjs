@@ -26,7 +26,7 @@ context.keys = () => keys;
 const tree = getRoutes(context, { platform: 'ios', skipGenerated: true, importMode: 'sync' });
 const tabs = tree.children.find(route => route.route === '(tabs)');
 assert.ok(tabs, 'Native tab navigator is missing');
-const roots = { today: 'reports', map: 'index', alerts: 'alerts', favorites: 'favorites', settings: 'profile' };
+const roots = { today: 'reports', map: 'index', floats: 'float-home', favorites: 'favorites', alerts: 'alerts' };
 for (const [group, initial] of Object.entries(roots)) {
   const stack = tabs.children.find(route => route.route === `(${group})`);
   assert.ok(stack, `Missing ${group} stack`);
@@ -212,14 +212,30 @@ for (const [group, initial] of Object.entries(roots)) {
 for (const [href, group, screen] of [
   ['https://eddy.guide/river/current?gauge=07067000#conditions', 'today', 'river/[slug]'],
   ['eddy://gauge/07067000', 'today', 'gauge/[siteId]'],
-  ['/storage', 'settings', 'storage'],
-  ['/floats', 'favorites', 'floats'],
+  ['/storage', 'today', 'storage'],
+  ['/profile', 'today', 'profile'],
+  ['/floats', 'floats', 'floats'],
+  ['/favorite-floats', 'floats', 'favorite-floats'],
+  ['https://eddy.guide/plan/TESTPLAN', 'floats', 'float/[shortCode]'],
 ]) {
   launch(redirectSystemPath({ path: href, initial: true }));
   assert.equal(activeTab(), `(${group})`, `Wrong cold-link owner for ${href}`);
   assert.equal(activeStack().routes.at(-1).name, screen);
   back();
   assert.equal(activeStack().routes.at(-1).name, roots[group], 'Cold link has no useful Back destination');
+}
+// Settings is not a tab: the account button pushes it inside Today or
+// Favorites, and Back returns to that tab's root.
+for (const group of ['today', 'favorites']) {
+  launch(`/(tabs)/(${group})/${roots[group]}`);
+  const action = push('/profile');
+  assert.equal(activeTab(), `(${group})`, `Settings escaped ${group}`);
+  assert.equal(action.type, 'PUSH');
+  assert.equal(activeStack().routes.at(-1).name, 'profile');
+  push('/storage');
+  assert.equal(activeStack().routes.at(-1).name, 'storage', 'Storage must push over Settings');
+  back(); back();
+  assert.equal(activeStack().routes.at(-1).name, roots[group], 'Back from Settings lost the tab root');
 }
 console.log('Shared pushes, nested Back, independent tab history, notification destinations, cold links, and root modal dismissal verified.');
 
