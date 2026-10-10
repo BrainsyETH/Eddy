@@ -25,7 +25,11 @@ import { withJobRun } from '@/lib/admin/dashboard/job-run';
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { US_REGIONS, fetchRegionLatest } from '@/lib/usgs/national-sites';
-import { readAllSnapshotStatistics } from '@/lib/usgs/percentile-snapshot';
+import {
+  PARAM_DISCHARGE,
+  readSnapshotStatisticsForSites,
+  seasonalBandEligible,
+} from '@/lib/usgs/percentile-snapshot';
 import { calculateDischargePercentile } from '@/lib/usgs/gauges';
 import { tryCronLock, releaseCronLock } from '@/lib/social/cron-lock';
 import { logger } from '@/lib/logger';
@@ -116,16 +120,19 @@ async function runSync(request: NextRequest) {
   let written = 0;
   let unknownSites = 0;
   let graded = 0;
+  let statsFailedChunks = 0;
+  // Time spent in percentile lookups across the pass. Reported because the
+  // lookups are sequential (~80 requests a pass) inside this route's 300s
+  // budget; measured on production at 9-14s of database time per pass against
+  // a 47s median run, and this is how a regression in that shows up.
+  let statsMs = 0;
   const regionErrors: string[] = [];
 
   try {
-    const [stationIds, stats] = await Promise.all([
-      loadStationIds(supabase),
-      // One query for the whole day rather than one per site. Empty is fine and
-      // expected before the national percentile backfill has run — every gauge
-      // simply grades as null, which the client renders as a neutral pin.
-      readAllSnapshotStatistics(supabase),
-    ]);
+    const stationIds = await loadStationIds(supabase);
+    // One date for the whole pass, so a run straddling midnight UTC cannot
+    // grade half the country against one day's row and half against the next.
+    const statsDate = new Date();
 
     for (const region of US_REGIONS) {
       let readings;
@@ -137,6 +144,27 @@ async function runSync(request: NextRequest) {
         regionErrors.push(region.name);
         logger.error('[sync-gauge-latest] region failed', { region: region.name, err });
         continue;
+      }
+
+      // Statistics for this region's gradeable sites only, looked up by site id
+      // — see readSnapshotStatisticsForSites for why the old whole-day read
+      // silently stopped grading everything west of the Appalachians. A site
+      // with no row is fine and common: it grades as null, a neutral pin.
+      const statsStartedAt = Date.now();
+      const { stats, failedChunks } = await readSnapshotStatisticsForSites(
+        supabase,
+        readings
+          .filter((reading) => reading.dischargeCfs !== null && stationIds.has(reading.siteId))
+          .map((reading) => reading.siteId),
+        statsDate,
+      );
+      statsMs += Date.now() - statsStartedAt;
+      if (failedChunks > 0) {
+        statsFailedChunks += failedChunks;
+        logger.error('[sync-gauge-latest] percentile lookup failed', {
+          region: region.name,
+          failedChunks,
+        });
       }
 
       const rows: LatestRow[] = [];
@@ -156,7 +184,16 @@ async function runSync(request: NextRequest) {
         let percentile: number | null = null;
         if (reading.dischargeCfs !== null) {
           const siteStats = stats.get(reading.siteId);
-          if (siteStats) {
+          // The same gate /api/gauges/[siteId] applies before publishing a
+          // band. Without it a thin record painted a band on the pin that the
+          // sheet it opens then declined to state.
+          if (
+            siteStats &&
+            seasonalBandEligible({
+              parameterCode: PARAM_DISCHARGE,
+              yearsOfRecord: siteStats.yearsOfRecord,
+            })
+          ) {
             percentile = calculateDischargePercentile(reading.dischargeCfs, siteStats);
             if (percentile !== null) graded++;
           }
@@ -207,6 +244,8 @@ async function runSync(request: NextRequest) {
     stationsSeen,
     written,
     graded,
+    statsFailedChunks,
+    statsMs,
     unknownSites,
     regionErrors,
   });

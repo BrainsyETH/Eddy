@@ -1396,9 +1396,10 @@ function MapContent() {
     }
 
     // Turn on the layer the result lives in, so what was searched for is
-    // visible when the map arrives. All are on by default; this covers the
-    // person who switched one off earlier in the session and then searched for
-    // exactly that kind of thing.
+    // visible when the map arrives. Most are on by default, so this usually
+    // covers the person who switched one off and then searched for exactly
+    // that kind of thing — but the national gauge tier opens OFF, so for an
+    // unrated station this is the ordinary path, not the exception.
     //
     // WHICH gauge layer depends on the tier. `gauges` is the curated one;
     // layerGauges filters the national layer down to `!curated`, so switching on

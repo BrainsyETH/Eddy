@@ -225,7 +225,14 @@ const LAYER_DEFAULTS: Record<LayerKey, boolean> = {
   // already drawn, and that is a distinction someone asks for.
   boatRamps: false,
   gauges: true,
-  allGauges: true,
+  // ── THE OTHER `false` TIER: reference, not verdict ─────────────────────
+  // Every station here is one Eddy has declined to rate, and at the opening
+  // statewide view its clusters (~500 stations in a Missouri frame) out-shout
+  // the ~45 rated dots beside them — in CLUSTER_FILL, which is the rated row's
+  // own teal. The tier is one chip away, and searching for an unrated station
+  // switches it on (see the search handler on the map screen). See the
+  // DEFAULT_LAYERS docblock for the history.
+  allGauges: false,
   hazards: true,
   dams: true,
   // On, with the rest of the place layers. A spring is the DESTINATION on these
@@ -319,12 +326,26 @@ const LAYER_DEFAULTS: Record<LayerKey, boolean> = {
  * choice — and bumping the key to force this on them would also throw away
  * every other layer decision they have made. See mapPreferences.ts.
  *
- * `allGauges` was excluded once too, on the grounds that the national tier is a
- * reference someone asks for and that defaulting it on would fire a viewport
- * request at every cold start. That made the map wait for a river selection
- * before it felt useful. Both tiers answer the opening statewide view: curated
- * gauges as compact condition dots and the national tier as clusters. The full
- * station marks and labels arrive only when the camera is closer.
+ * ── `allGauges` is off, for the second time, and for a different reason ────
+ *
+ * It was excluded once on the grounds that the national tier is a reference
+ * someone asks for and that defaulting it on fires a viewport request at every
+ * cold start. It was switched on because the map then waited for a river
+ * selection before it felt useful. That problem is gone without it: the
+ * curated tier draws as compact condition dots at the opening statewide view,
+ * and those dots ARE the answer to "where is there water".
+ *
+ * What switching it on cost is what turned it back off. In a Missouri frame
+ * the tier holds ~500 stations against ~45 rated ones, and it is the layer
+ * that clusters — so the opening view was a field of large dark-teal bubbles,
+ * in the rated row's own legend colour, with Eddy's verdicts as small dots
+ * among them. A layer defined by having NO verdict was the loudest thing on a
+ * map whose point is verdicts. It also cost up to a 1,000-row request per
+ * cold start, and more on every pan that left the cached box.
+ *
+ * Tiers are exempt from the "pin rows open on" rule (map-layer-rows.test.ts)
+ * because a chip refines a row rather than being one — boatRamps is the other
+ * off tier. Existing devices keep whatever they had; see below.
  *
  * Derived rather than typed out again — the table above is the only place a
  * default is stated. Order follows it, and nothing reads this as ordered:

@@ -455,6 +455,16 @@ test('the only rows that open off are the Overlays rows', () => {
   }
 });
 
+test('the national gauge tier opens off', () => {
+  // Exempt from the rule above as a tier, so it needs its own guard. A
+  // reference tier of ~500 Missouri stations, clustering in the rated row's
+  // colour, buried the ~45 rated dots at the opening view — see the
+  // DEFAULT_LAYERS docblock. Turning it back on should be a decision someone
+  // makes here, not a one-word edit nothing notices.
+  assert.equal(layerDefaults().get('allGauges'), false);
+  assert.equal(layerDefaults().get('gauges'), true);
+});
+
 test('the defaults table is the only place a default is stated', () => {
   // DEFAULT_LAYERS was an array literal beside the catalog, which is the second
   // source of truth this file's other guards exist to prevent. Derived, the
