@@ -86,7 +86,7 @@ remediation and broader query refactoring are outside this review's scope.
 
 Owner decision after the reporting paddler's feedback that Pruitt holds water
 after the upper river drops: Ozark (mile 27.8) is now rated by Pruitt. Migration
-`20261008160000_buffalo_ozark_on_pruitt` moves the shared boundary from 29.9 to
+`20261008033623_buffalo_ozark_on_pruitt` (authored as `20261008160000`) moves the shared boundary from 29.9 to
 27.8 and renames the sections "Upper (Ponca to Ozark)" and "Ozark to Hasty";
 slugs are unchanged. Ponca still rates Steel Creek, Kyles and Erbie.
 
