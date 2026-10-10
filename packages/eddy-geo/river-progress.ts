@@ -28,14 +28,20 @@
 // "corrected". So is one whose anchors do not sit on the line or run out of
 // order. Callers show an unsupported-route state; they never invent progress.
 //
-// ── Why matching searches near the last position ────────────────────────────
+// ── Why matching keeps a little memory ──────────────────────────────────────
 //
-// On an oxbow the nearest piece of line can be the other arm of the bend.
-// Rather than a map-matching framework, the matcher searches only the part of
-// the line the paddler could have reached since the last good fix (bounded by
-// elapsed time and a generous top speed) and widens to the whole line only
-// when that window has nothing close enough, which is how it recovers after a
-// GPS gap or a wrong match.
+// One fix is never allowed to move the paddler far. Each fix is matched only to
+// the part of the line reachable since the last committed position (elapsed
+// time times a generous top speed), and the projection itself is clamped to
+// that window, so even a single long segment cannot carry a match out of it.
+//
+// Anything else — the first position of a session, a relocation after a GPS
+// gap, or a better fit on the other arm of an oxbow while the current match
+// sits on the wrong one — becomes a CANDIDATE. A candidate is committed only
+// after several consecutive fixes agree with it and move plausibly along it.
+// Until then the tracker reports itself uncertain and the committed position,
+// with its progress and pace, does not move. No map-matching framework, just
+// a window and a confirmation count.
 
 import type { LngLat } from './route-preview';
 
@@ -78,6 +84,16 @@ const MAX_SPEED_MPS = 4;
 
 /** Extra search room around the last position, beyond speed and accuracy. */
 const WINDOW_SLACK_M = 100;
+
+/** Consecutive agreeing fixes needed to commit a position outside the window. */
+export const CONFIRM_FIXES = 3;
+
+/**
+ * How much better a candidate must fit than the committed track before it
+ * challenges it. Large enough that drifting toward the neck of an oxbow does
+ * not start a switch; small enough that sitting squarely on the other arm does.
+ */
+const CHALLENGE_MARGIN_M = 50;
 
 /**
  * Remaining distance at which the take-out counts as reached, about 160 m.
@@ -123,28 +139,46 @@ function project(cosLat: number, [lng, lat]: LngLat): [number, number] {
   return [lng * cosLat * METERS_PER_DEGREE, lat * METERS_PER_DEGREE];
 }
 
-/** Closest point on segment i to (px, py). */
-function projectOnSegment(index: Pick<RouteIndex, 'xs' | 'ys' | 'cumulative'>, i: number, px: number, py: number): Projection {
+/**
+ * Closest point on segment i to (px, py), restricted to the part of the
+ * segment between `from` and `to` metres along the line.
+ */
+function projectOnSegment(
+  index: Pick<RouteIndex, 'xs' | 'ys' | 'cumulative'>,
+  i: number,
+  px: number,
+  py: number,
+  from: number,
+  to: number,
+): Projection {
   const ax = index.xs[i];
   const ay = index.ys[i];
   const dx = index.xs[i + 1] - ax;
   const dy = index.ys[i + 1] - ay;
-  const lengthSq = dx * dx + dy * dy;
-  const t = lengthSq > 0 ? Math.min(1, Math.max(0, ((px - ax) * dx + (py - ay) * dy) / lengthSq)) : 0;
-  const cx = ax + t * dx;
-  const cy = ay + t * dy;
+  const length = Math.hypot(dx, dy);
+  const start = index.cumulative[i];
+  const tMin = length > 0 ? Math.max(0, (from - start) / length) : 0;
+  const tMax = length > 0 ? Math.min(1, (to - start) / length) : 0;
+  const free = length > 0 ? ((px - ax) * dx + (py - ay) * dy) / (length * length) : 0;
+  const t = Math.min(tMax, Math.max(tMin, free));
   return {
-    lineMeters: index.cumulative[i] + t * Math.sqrt(lengthSq),
-    offsetMeters: Math.hypot(px - cx, py - cy),
+    lineMeters: start + t * length,
+    offsetMeters: Math.hypot(px - (ax + t * dx), py - (ay + t * dy)),
   };
 }
 
-/** Nearest point among segments whose span overlaps [from, to] metres. */
+/**
+ * Nearest point on the line between `from` and `to` metres along it.
+ *
+ * The window bounds the PROJECTED point, not just which segments are looked
+ * at: a long segment that merely overlaps the window cannot place a match
+ * outside it.
+ */
 function nearest(index: Pick<RouteIndex, 'xs' | 'ys' | 'cumulative'>, px: number, py: number, from = -Infinity, to = Infinity): Projection | null {
   let best: Projection | null = null;
   for (let i = 0; i < index.xs.length - 1; i += 1) {
     if (index.cumulative[i + 1] < from || index.cumulative[i] > to) continue;
-    const candidate = projectOnSegment(index, i, px, py);
+    const candidate = projectOnSegment(index, i, px, py, from, to);
     if (!best || candidate.offsetMeters < best.offsetMeters) best = candidate;
   }
   return best;
@@ -236,63 +270,144 @@ export interface PositionFix {
   timestamp: number;
 }
 
-/** The last fix that matched, for windowed matching. */
-export interface PreviousMatch {
+/** A position on the line at a moment. */
+interface LinePosition {
   lineMeters: number;
   timestamp: number;
 }
 
-export type MatchResult =
+/**
+ * What the tracker remembers between fixes. Plain data: the session layer
+ * persists it with the float and passes it back in, so a relaunch resumes it.
+ */
+export interface TrackState {
+  /** The position progress and pace are based on; null until acquired. */
+  committed: LinePosition | null;
+  /** A position outside the window that later fixes may confirm. */
+  candidate: (LinePosition & { support: number }) | null;
+  /** Timestamp of the last fix that was not rejected. */
+  lastFixAt: number | null;
+}
+
+export const INITIAL_TRACK: TrackState = { committed: null, candidate: null, lastFixAt: null };
+
+export type TrackResult =
   | {
       kind: 'matched';
       lineMeters: number;
       riverMile: number;
       offsetMeters: number;
       /**
-       * False when there was no previous match or this one is not reachable
-       * from it (found by widening after a gap or a wrong match). Pace must
-       * not treat the interval before a discontinuous match as movement.
+       * False when this commits a position that is not reachable from the
+       * previous one: the first acquisition, or a confirmed relocation. Pace
+       * must not treat the interval before it as movement.
        */
       continuous: boolean;
     }
+  /**
+   * On the river, but where is not settled yet. 'acquiring' before the first
+   * committed position; 'relocating' while a candidate elsewhere is being
+   * confirmed. Show the last committed values as not live.
+   */
+  | { kind: 'uncertain'; reason: 'acquiring' | 'relocating' }
   | { kind: 'off-route'; offsetMeters: number }
   | { kind: 'rejected'; reason: 'inaccurate' | 'stale' | 'out-of-order' };
 
+/** Room to move between two moments, given the fix's own accuracy. */
+function reach(fromTimestamp: number, toTimestamp: number, accuracy: number): number {
+  return (MAX_SPEED_MPS * (toTimestamp - fromTimestamp)) / 1000 + accuracy + WINDOW_SLACK_M;
+}
+
 /**
- * Match one fix to the river.
+ * Feed one fix to the tracker.
  *
- * Rejected fixes say nothing about where the paddler is and must not move
- * progress. An off-route fix is real but is not forced onto the river.
+ * Returns the next state and what to show. Rejected fixes leave the state
+ * untouched. Only a 'matched' result moves progress.
  */
-export function matchFix(
+export function trackFix(
   index: RouteIndex,
+  state: TrackState,
   fix: PositionFix,
-  previous: PreviousMatch | null,
   now: number,
-): MatchResult {
+): { state: TrackState; result: TrackResult } {
   const accuracy = fix.accuracyMeters;
   if (accuracy == null || !Number.isFinite(accuracy) || accuracy > MAX_ACCURACY_M) {
-    return { kind: 'rejected', reason: 'inaccurate' };
+    return { state, result: { kind: 'rejected', reason: 'inaccurate' } };
   }
-  if (now - fix.timestamp > STALE_FIX_MS) return { kind: 'rejected', reason: 'stale' };
-  if (previous && fix.timestamp <= previous.timestamp) return { kind: 'rejected', reason: 'out-of-order' };
+  if (now - fix.timestamp > STALE_FIX_MS) return { state, result: { kind: 'rejected', reason: 'stale' } };
+  if (state.lastFixAt != null && fix.timestamp <= state.lastFixAt) {
+    return { state, result: { kind: 'rejected', reason: 'out-of-order' } };
+  }
 
   const [x, y] = project(index.cosLat, fix.lngLat);
   const tolerance = OFF_ROUTE_BASE_M + accuracy;
+  const { committed } = state;
 
-  if (previous) {
-    const seconds = (fix.timestamp - previous.timestamp) / 1000;
-    const reach = MAX_SPEED_MPS * seconds + accuracy + WINDOW_SLACK_M;
-    const local = nearest(index, x, y, previous.lineMeters - reach, previous.lineMeters + reach);
-    if (local && local.offsetMeters <= tolerance) {
-      return { kind: 'matched', ...local, riverMile: riverMileAt(index, local.lineMeters), continuous: true };
-    }
+  // Within reach of the committed position: the clamped window guarantees the
+  // displacement is physically plausible.
+  let local: Projection | null = null;
+  if (committed) {
+    const room = reach(committed.timestamp, fix.timestamp, accuracy);
+    local = nearest(index, x, y, committed.lineMeters - room, committed.lineMeters + room);
+  }
+  const localFits = local != null && local.offsetMeters <= tolerance;
+
+  // Anywhere on the line. It challenges the committed track only from outside
+  // the window, and only when it fits clearly better than the local match.
+  const global = nearest(index, x, y);
+  const challenges =
+    global != null &&
+    global.offsetMeters <= tolerance &&
+    (!committed ||
+      Math.abs(global.lineMeters - committed.lineMeters) > reach(committed.timestamp, fix.timestamp, accuracy)) &&
+    (!localFits || global.offsetMeters + CHALLENGE_MARGIN_M < local!.offsetMeters);
+
+  let candidate: TrackState['candidate'] = null;
+  if (challenges) {
+    const previous = state.candidate;
+    const agrees =
+      previous != null &&
+      Math.abs(global!.lineMeters - previous.lineMeters) <= reach(previous.timestamp, fix.timestamp, accuracy);
+    candidate = { lineMeters: global!.lineMeters, timestamp: fix.timestamp, support: agrees ? previous!.support + 1 : 1 };
   }
 
-  const global = nearest(index, x, y);
-  if (!global) return { kind: 'off-route', offsetMeters: Infinity };
-  if (global.offsetMeters > tolerance) return { kind: 'off-route', offsetMeters: global.offsetMeters };
-  return { kind: 'matched', ...global, riverMile: riverMileAt(index, global.lineMeters), continuous: false };
+  const base = { lastFixAt: fix.timestamp };
+
+  if (candidate && candidate.support >= CONFIRM_FIXES) {
+    return {
+      state: { ...base, committed: { lineMeters: candidate.lineMeters, timestamp: fix.timestamp }, candidate: null },
+      result: {
+        kind: 'matched',
+        lineMeters: candidate.lineMeters,
+        riverMile: riverMileAt(index, candidate.lineMeters),
+        offsetMeters: global!.offsetMeters,
+        continuous: false,
+      },
+    };
+  }
+
+  if (localFits) {
+    return {
+      state: { ...base, committed: { lineMeters: local!.lineMeters, timestamp: fix.timestamp }, candidate },
+      result: {
+        kind: 'matched',
+        lineMeters: local!.lineMeters,
+        riverMile: riverMileAt(index, local!.lineMeters),
+        offsetMeters: local!.offsetMeters,
+        continuous: true,
+      },
+    };
+  }
+
+  if (candidate) {
+    return {
+      state: { ...base, committed, candidate },
+      result: { kind: 'uncertain', reason: committed ? 'relocating' : 'acquiring' },
+    };
+  }
+
+  const offset = Math.min(local?.offsetMeters ?? Infinity, global?.offsetMeters ?? Infinity);
+  return { state: { ...base, committed, candidate: null }, result: { kind: 'off-route', offsetMeters: offset } };
 }
 
 export interface StretchProgress {

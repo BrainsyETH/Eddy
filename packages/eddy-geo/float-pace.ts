@@ -11,10 +11,14 @@
 //   - Only intervals between two consecutive, continuous matches no more than
 //     MAX_GAP_MS apart. A tracking gap is unknown, not a rest stop, and a jump
 //     on reacquisition is not evidence of speed.
-//   - A sustained stop (staying within STOP_RADIUS_MILES for STOP_MIN_MS or
-//     longer) is excluded. Drifting at more than about 0.4 mph leaves that
-//     radius within the time limit, so slow progress is not mistaken for a
-//     stop by speed alone.
+//   - A sustained stop is excluded: staying within STOP_RADIUS_MILES for
+//     STOP_MIN_MS or longer AND showing no steady drift across that time.
+//     Radius alone is not enough: 0.2 mph on low water stays inside 50 m for
+//     nine minutes, and calling that a stop would hold an earlier, faster
+//     pace and an optimistic estimate. So a still run is also tested for a
+//     consistent trend, comparing the average position of its first and last
+//     thirds (averaging cancels GPS wander), and a trend of STOP_MAX_MPH or
+//     more is movement, however slow.
 //
 // The window is measured in MOVING time, not wall time, so a long lunch stop
 // holds the last pace instead of letting it decay into "learning" again.
@@ -30,16 +34,21 @@ export const PACE_WINDOW_MS = 20 * 60_000;
 export const MAX_GAP_MS = 3 * 60_000;
 /** Staying within this distance (about 50 m) ... */
 export const STOP_RADIUS_MILES = 0.03;
-/** ... for at least this long is a stop. */
+/** ... for at least this long ... */
 export const STOP_MIN_MS = 5 * 60_000;
+/** ... with a steady drift slower than this, is a stop. */
+export const STOP_MAX_MPH = 0.1;
 /** Pace needs at least this much moving time ... */
 export const MIN_MOVING_MS = 5 * 60_000;
-/** ... and this much distance before it says anything. */
-export const MIN_MOVING_MILES = 0.1;
+/**
+ * ... and this much distance before it says anything: about 80 m, beyond GPS
+ * wander, and reachable in a 20-minute window at 0.15 mph.
+ */
+export const MIN_MOVING_MILES = 0.05;
 /** Moving time after which observed pace fully replaces the planner's. */
 export const BLEND_FULL_MS = 30 * 60_000;
 
-/** One matched position from river-progress.ts's matchFix. */
+/** One 'matched' result from river-progress.ts's trackFix. */
 export interface PaceSample {
   timestamp: number;
   riverMile: number;
@@ -75,11 +84,14 @@ export function observedPace(samples: ReadonlyArray<PaceSample>, direction: 1 | 
 
   // Stops: runs of usable intervals that never leave a small radius of where
   // the run began. A run is anchored at its first sample and closed by the
-  // first sample outside the radius or the first unusable interval.
+  // first sample outside the radius or the first unusable interval. A long
+  // enough run is a stop only if it shows no steady drift.
   let runStart = 0;
   let stoppedNow = false;
   const closeRun = (end: number) => {
-    const isStop = samples[end].timestamp - samples[runStart].timestamp >= STOP_MIN_MS;
+    const isStop =
+      samples[end].timestamp - samples[runStart].timestamp >= STOP_MIN_MS &&
+      Math.abs(driftMph(samples, runStart, end)) < STOP_MAX_MPH;
     if (isStop) for (let j = runStart + 1; j <= end; j += 1) stoppedInterval[j] = true;
     return isStop;
   };
@@ -112,6 +124,23 @@ export function observedPace(samples: ReadonlyArray<PaceSample>, direction: 1 | 
 
   if (movingMs < MIN_MOVING_MS || movingMiles < MIN_MOVING_MILES) return null;
   return { mph: movingMiles / (movingMs / MS_PER_HOUR), movingMs, sessionMovingMs, stopped: stoppedNow };
+}
+
+/**
+ * Steady drift across samples[from..to]: the change in average position from
+ * the first third to the last third, over the time between their averages.
+ * Averaging a third at each end cancels GPS wander that comparing two single
+ * samples would read as movement.
+ */
+function driftMph(samples: ReadonlyArray<PaceSample>, from: number, to: number): number {
+  const third = Math.max(1, Math.floor((to - from + 1) / 3));
+  const mean = (start: number, key: 'riverMile' | 'timestamp') => {
+    let sum = 0;
+    for (let i = start; i < start + third; i += 1) sum += samples[i][key];
+    return sum / third;
+  };
+  const hours = (mean(to - third + 1, 'timestamp') - mean(from, 'timestamp')) / MS_PER_HOUR;
+  return hours > 0 ? (mean(to - third + 1, 'riverMile') - mean(from, 'riverMile')) / hours : 0;
 }
 
 export type EstimateBasis = 'planner' | 'blended' | 'observed' | 'learning';

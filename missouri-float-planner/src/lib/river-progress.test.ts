@@ -11,14 +11,18 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
   ARRIVAL_MILES,
+  CONFIRM_FIXES,
+  INITIAL_TRACK,
   buildRouteIndex,
-  matchFix,
   riverMileAt,
   stretchProgress,
+  trackFix,
   type CalibrationAnchor,
   type LngLat,
   type PositionFix,
   type RouteIndex,
+  type TrackResult,
+  type TrackState,
 } from '../../../packages/eddy-geo/river-progress';
 import {
   estimateRemaining,
@@ -138,69 +142,161 @@ const OXBOW_INDEX = indexOf(OXBOW, [
   { lngLat: at(0, 120), riverMile: OXBOW_LENGTH / MILE },
 ]);
 
+const STRAIGHT_INDEX = indexOf(STRAIGHT, [
+  { lngLat: at(0, 0), riverMile: 0 },
+  { lngLat: at(10_000, 0), riverMile: 10_000 / MILE },
+]);
+
+/** A tracker already committed at a place on the line. */
+function committedAt(lineMeters: number, timestamp = T0): TrackState {
+  return { committed: { lineMeters, timestamp }, candidate: null, lastFixAt: timestamp };
+}
+
+/** Feed fixes in order; returns every result and the final state. */
+function feed(index: RouteIndex, state: TrackState, fixes: PositionFix[]): { results: TrackResult[]; state: TrackState } {
+  const results: TrackResult[] = [];
+  for (const f of fixes) {
+    const step = trackFix(index, state, f, f.timestamp);
+    results.push(step.result);
+    state = step.state;
+  }
+  return { results, state };
+}
+
+const matchedAt = (result: TrackResult) => (result.kind === 'matched' ? result.lineMeters : null);
+
+test('the first position is committed only once fixes agree on it', () => {
+  // A quick start's start anchor is the first committed position, so one
+  // stray fix must not become it.
+  const fixes = [0, 1, 2].map((k) => fix(3_000 + k * 20, 5, T0 + k * 10_000));
+  const { results, state } = feed(STRAIGHT_INDEX, INITIAL_TRACK, fixes);
+  assert.deepEqual(results.slice(0, CONFIRM_FIXES - 1), [
+    { kind: 'uncertain', reason: 'acquiring' },
+    { kind: 'uncertain', reason: 'acquiring' },
+  ]);
+  const last = results[CONFIRM_FIXES - 1];
+  assert.ok(last.kind === 'matched' && !last.continuous && Math.abs(last.lineMeters - 3_040) < 1);
+  assert.ok(state.committed && Math.abs(state.committed.lineMeters - 3_040) < 1);
+});
+
 test('on an oxbow the last position keeps the match on the right arm', () => {
-  // The paddler is on the first arm but drifting toward the neck, nearer the
-  // second arm's line than their own. Nearest-segment matching would jump
-  // them a kilometre downstream.
-  const previous = { lineMeters: 500, timestamp: T0 };
-  const result = matchFix(OXBOW_INDEX, fix(510, 70, T0 + 10_000), previous, T0 + 10_000);
-  assert.equal(result.kind, 'matched');
-  assert.ok(result.kind === 'matched' && Math.abs(result.lineMeters - 510) < 1 && result.continuous);
-  // Proof the scenario is a real trap: with no history, the nearest segment
-  // is the wrong arm.
-  const unaided = matchFix(OXBOW_INDEX, fix(510, 70, T0 + 10_000), null, T0 + 10_000);
-  assert.ok(unaided.kind === 'matched' && unaided.lineMeters > 1_120);
+  // On the first arm but drifting toward the neck, nearer the second arm's
+  // line than their own. Nearest-segment matching would jump them a
+  // kilometre downstream.
+  const { results } = feed(OXBOW_INDEX, committedAt(500), [
+    fix(510, 70, T0 + 10_000),
+    fix(520, 72, T0 + 20_000),
+    fix(530, 70, T0 + 30_000),
+    fix(540, 70, T0 + 40_000),
+  ]);
+  for (const [k, result] of results.entries()) {
+    assert.ok(result.kind === 'matched' && result.continuous, `fix ${k} should stay on the first arm`);
+    assert.ok(Math.abs(result.lineMeters - (510 + k * 10)) < 1);
+  }
+  // Proof the scenario is a real trap: acquired with no history, the same
+  // spot settles on the wrong arm.
+  const unaided = feed(OXBOW_INDEX, INITIAL_TRACK, [0, 1, 2].map((k) => fix(510, 70, T0 + k * 10_000)));
+  assert.ok((matchedAt(unaided.results[2]) ?? 0) > 1_120);
 });
 
-test('a match that cannot be reached from the last one widens and is marked discontinuous', () => {
-  // A wrong earlier match, or a fix after a gap: nothing near the last
-  // position fits, so the whole line is searched and pace must not read the
-  // jump as speed.
-  const previous = { lineMeters: 500, timestamp: T0 };
-  const result = matchFix(OXBOW_INDEX, fix(100, 120, T0 + 5_000), previous, T0 + 5_000);
-  assert.equal(result.kind, 'matched');
-  assert.ok(result.kind === 'matched' && Math.abs(result.lineMeters - 2020) < 1);
-  assert.ok(result.kind === 'matched' && !result.continuous);
+test('a long segment cannot carry a match beyond the reachable window', () => {
+  // One 10 km segment. Before the projection was clamped, an 8.5 km jump in
+  // ten seconds matched as continuous movement.
+  const index = indexOf([at(0, 0), at(10_000, 0)], [
+    { lngLat: at(0, 0), riverMile: 0 },
+    { lngLat: at(10_000, 0), riverMile: 10_000 / MILE },
+  ]);
+  const { results, state } = feed(index, committedAt(500), [fix(9_000, 0, T0 + 10_000)]);
+  assert.deepEqual(results[0], { kind: 'uncertain', reason: 'relocating' });
+  assert.equal(state.committed?.lineMeters, 500, 'progress must not move on one fix');
+  // An ordinary step along the same segment is still followed.
+  const next = feed(index, committedAt(500), [fix(530, 3, T0 + 10_000)]);
+  assert.ok(next.results[0].kind === 'matched' && next.results[0].continuous);
+  assert.ok(Math.abs((matchedAt(next.results[0]) ?? 0) - 530) < 1);
 });
 
-test('after a long gap the window has grown, so the match stays continuous', () => {
-  const previous = { lineMeters: 500, timestamp: T0 };
-  const result = matchFix(OXBOW_INDEX, fix(100, 120, T0 + 15 * 60_000), previous, T0 + 15 * 60_000);
-  assert.ok(result.kind === 'matched' && result.continuous);
+test('one impossible jump is held as uncertain, and a lone spike is forgotten', () => {
+  // Dense geometry, where the old global fallback accepted the jump outright
+  // and could put the paddler at the take-out.
+  const { results, state } = feed(STRAIGHT_INDEX, committedAt(500), [
+    fix(9_000, 0, T0 + 10_000),
+    fix(540, 0, T0 + 20_000),
+  ]);
+  assert.deepEqual(results[0], { kind: 'uncertain', reason: 'relocating' });
+  assert.ok(results[1].kind === 'matched' && results[1].continuous);
+  assert.ok(Math.abs((matchedAt(results[1]) ?? 0) - 540) < 1);
+  assert.equal(state.candidate, null, 'the spike must not keep counting toward a relocation');
+});
+
+test('a relocation is committed after consistent fixes, and marked discontinuous', () => {
+  // A wrong earlier match, or a GPS that settles somewhere else after a gap:
+  // several fixes moving plausibly together are evidence, one is not.
+  const fixes = [0, 1, 2].map((k) => fix(9_000 + k * 20, 0, T0 + (k + 1) * 10_000));
+  const { results, state } = feed(STRAIGHT_INDEX, committedAt(500), fixes);
+  assert.deepEqual(results.slice(0, 2).map((r) => r.kind), ['uncertain', 'uncertain']);
+  assert.equal(results[2].kind, 'matched');
+  assert.ok(results[2].kind === 'matched' && !results[2].continuous);
+  assert.ok(state.committed && Math.abs(state.committed.lineMeters - 9_040) < 1);
+});
+
+test('fixes that scatter do not add up to a relocation', () => {
+  const fixes = [9_000, 4_000, 9_000, 4_000].map((x, k) => fix(x, 0, T0 + (k + 1) * 10_000));
+  const { results, state } = feed(STRAIGHT_INDEX, committedAt(500), fixes);
+  assert.ok(results.every((r) => r.kind === 'uncertain'));
+  assert.equal(state.committed?.lineMeters, 500);
+});
+
+test('a wrong oxbow match recovers once fixes clearly favour the other arm', () => {
+  // Committed on the first arm, but the paddler is really on the second,
+  // 120 m away and still inside the off-route tolerance. Fixes squarely on
+  // the second arm must win, over several fixes rather than one.
+  const fixes = [0, 1, 2].map((k) => fix(490 - k * 10, 120, T0 + (k + 1) * 10_000));
+  const { results, state } = feed(OXBOW_INDEX, committedAt(500), fixes);
+  assert.ok(results[0].kind === 'matched' && (matchedAt(results[0]) ?? 0) < 1_000, 'one fix does not switch arms');
+  const switched = results[CONFIRM_FIXES - 1];
+  assert.ok(switched.kind === 'matched' && !switched.continuous);
+  // x = 470 on the second arm is 1120 + 530 m along the line.
+  assert.ok(Math.abs((matchedAt(switched) ?? 0) - 1_650) < 1);
+  assert.ok(state.committed && state.committed.lineMeters > 1_120);
+});
+
+test('after a long gap the window has grown, so a plausible move stays continuous', () => {
+  const { results } = feed(OXBOW_INDEX, committedAt(500), [fix(100, 120, T0 + 15 * 60_000)]);
+  assert.ok(results[0].kind === 'matched' && results[0].continuous);
 });
 
 test('backwards movement is followed, not clamped to the furthest point reached', () => {
-  const index = indexOf(STRAIGHT, [
-    { lngLat: at(0, 0), riverMile: 0 },
-    { lngLat: at(10_000, 0), riverMile: 10_000 / MILE },
-  ]);
-  const result = matchFix(index, fix(550, 5, T0 + 30_000), { lineMeters: 600, timestamp: T0 }, T0 + 30_000);
-  assert.ok(result.kind === 'matched' && Math.abs(result.lineMeters - 550) < 1 && result.continuous);
+  const { results } = feed(STRAIGHT_INDEX, committedAt(600), [fix(550, 5, T0 + 30_000)]);
+  assert.ok(results[0].kind === 'matched' && results[0].continuous);
+  assert.ok(Math.abs((matchedAt(results[0]) ?? 0) - 550) < 1);
 });
 
 test('a position off the river is reported, not forced onto it, and matching resumes after', () => {
-  const index = indexOf(STRAIGHT, [
-    { lngLat: at(0, 0), riverMile: 0 },
-    { lngLat: at(10_000, 0), riverMile: 10_000 / MILE },
+  const { results } = feed(STRAIGHT_INDEX, committedAt(2_000), [
+    fix(2_050, 600, T0 + 60_000),
+    fix(2_100, 20, T0 + 120_000),
   ]);
-  const previous = { lineMeters: 2_000, timestamp: T0 };
-  const away = matchFix(index, fix(2_050, 600, T0 + 60_000), previous, T0 + 60_000);
-  assert.equal(away.kind, 'off-route');
-  assert.ok(away.kind === 'off-route' && Math.abs(away.offsetMeters - 600) < 1);
-  const back = matchFix(index, fix(2_100, 20, T0 + 120_000), previous, T0 + 120_000);
-  assert.ok(back.kind === 'matched' && back.continuous);
+  assert.ok(results[0].kind === 'off-route' && Math.abs(results[0].offsetMeters - 600) < 1);
+  assert.ok(results[1].kind === 'matched' && results[1].continuous);
   // A tight bend is not off-route: 100 m off the simplified line with a
-  // 20 m fix is still on the river.
-  assert.equal(matchFix(index, fix(3_000, 100, T0 + 1), null, T0 + 1).kind, 'matched');
+  // 10 m fix is still on the river.
+  const bend = feed(STRAIGHT_INDEX, committedAt(3_000), [fix(3_000, 100, T0 + 10_000)]);
+  assert.equal(bend.results[0].kind, 'matched');
 });
 
-test('inaccurate, unknown-accuracy, stale and out-of-order fixes are rejected', () => {
-  const previous = { lineMeters: 500, timestamp: T0 };
+test('inaccurate, unknown-accuracy, stale and out-of-order fixes are rejected and change nothing', () => {
+  const state = committedAt(500);
   const now = T0 + 60_000;
-  assert.deepEqual(matchFix(OXBOW_INDEX, fix(500, 0, now, 200), previous, now), { kind: 'rejected', reason: 'inaccurate' });
-  assert.deepEqual(matchFix(OXBOW_INDEX, fix(500, 0, now, null), previous, now), { kind: 'rejected', reason: 'inaccurate' });
-  assert.deepEqual(matchFix(OXBOW_INDEX, fix(500, 0, now - 5 * 60_000), null, now), { kind: 'rejected', reason: 'stale' });
-  assert.deepEqual(matchFix(OXBOW_INDEX, fix(500, 0, T0 - 1), previous, now), { kind: 'rejected', reason: 'out-of-order' });
+  for (const [f, reason] of [
+    [fix(500, 0, now, 200), 'inaccurate'],
+    [fix(500, 0, now, null), 'inaccurate'],
+    [fix(500, 0, now - 5 * 60_000), 'stale'],
+    [fix(500, 0, T0 - 1), 'out-of-order'],
+  ] as const) {
+    const step = trackFix(OXBOW_INDEX, state, f, now);
+    assert.deepEqual(step.result, { kind: 'rejected', reason });
+    assert.equal(step.state, state);
+  }
 });
 
 // ── Progress and arrival ──────────────────────────────────────────────────
@@ -208,7 +304,8 @@ test('inaccurate, unknown-accuracy, stale and out-of-order fixes are rejected', 
 test('a take-out across a bend is not reached until the river says so', () => {
   // On the oxbow the paddler at the start is 120 m from the take-out in a
   // straight line, and two kilometres from it on the water.
-  const start = matchFix(OXBOW_INDEX, fix(0, 5, T0), null, T0);
+  const { results } = feed(OXBOW_INDEX, INITIAL_TRACK, [0, 1, 2].map((k) => fix(0, 5, T0 + k * 10_000)));
+  const start = results[2];
   assert.ok(start.kind === 'matched');
   const end = OXBOW_LENGTH / MILE;
   const progress = stretchProgress(0, end, start.riverMile);
@@ -274,6 +371,23 @@ test('slow drifting on low water still counts as progress', () => {
   const pace = observedPace(samples, 1);
   assert.ok(pace && Math.abs(pace.mph - 0.8) < 0.01, `got ${pace?.mph}`);
   assert.equal(pace?.stopped, false);
+});
+
+test('very slow, steady drift is movement, not a stop', () => {
+  // 0.2 mph stays inside the stop radius for nine minutes. An hour of it
+  // used to return no pace at all.
+  const samples = [LAUNCH, ...paddle(LAUNCH, 60, 0.2)];
+  const pace = observedPace(samples, 1);
+  assert.ok(pace && Math.abs(pace.mph - 0.2) < 0.01, `got ${pace?.mph}`);
+  assert.equal(pace?.stopped, false);
+});
+
+test('slowing to a crawl lowers the estimate instead of holding the earlier pace', () => {
+  const fast = [LAUNCH, ...paddle(LAUNCH, 30, 3)];
+  const slow = paddle(fast[fast.length - 1], 30, 0.2);
+  const pace = observedPace([...fast, ...slow], 1);
+  assert.ok(pace && pace.mph < 0.5, `got ${pace?.mph}`);
+  assert.ok((estimateRemaining(2, null, pace).minutes ?? 0) > estimateRemaining(2, null, observedPace(fast, 1)).minutes!);
 });
 
 test('a tracking gap and a jump on reacquisition are not read as speed', () => {
