@@ -17,6 +17,7 @@ import {
   upcomingForecast,
 } from './gauge-recent';
 import { historyHasData } from './chart-model';
+import { normalizeGaugeHistory, type GaugeHistoryReadingLike } from './history-normalize';
 
 const NOW = Date.parse('2026-10-10T18:00:00Z');
 
@@ -282,6 +283,65 @@ test('a response that does not declare its window or statistic sets no record', 
   const history = month((h) => (h === 0 ? 900 : 400));
   assert.equal(recentRecord({ readings: history.readings }, 'cfs', NOW), null);
   assert.equal(recentRecord({ ...history, resolution: undefined }, 'cfs', NOW), null);
+});
+
+test('the normalized path refuses a window the normalizer had to invent', () => {
+  // Test readings carry no qualifiers, so they fit the wire shape as-is.
+  const wire = (readings: readonly ChartReadingLike[]) => readings as GaugeHistoryReadingLike[];
+  // Both clients normalize before they read. For an old payload the normalizer
+  // fills in resolution 'instant' and a window derived from the series' own
+  // span, which would make a series missing its start look complete.
+  const raw = month((h) => (h === 0 ? 900 : 400), { startHoursAgo: 29.5 * 24 });
+  const legacy = normalizeGaugeHistory({ siteId: 'x', siteName: 'x', readings: wire(raw.readings) });
+  assert.ok(legacy);
+  assert.equal(legacy.serverDeclaredWindow, false);
+  assert.equal(recentRecord(legacy, 'cfs', NOW), null);
+  // Normalizing twice cannot turn the invented fields into declared ones.
+  assert.equal(normalizeGaugeHistory(legacy)?.serverDeclaredWindow, false);
+
+  // A current payload keeps its claim through the same normalizer.
+  const current = normalizeGaugeHistory({
+    siteId: 'x', siteName: 'x', readings: wire(raw.readings),
+    resolution: 'instant', requestedWindow: month(() => 0).requestedWindow,
+  });
+  assert.equal(current?.serverDeclaredWindow, true);
+  const full = normalizeGaugeHistory({
+    siteId: 'x', siteName: 'x', readings: wire(month((h) => (h === 0 ? 900 : 400)).readings),
+    resolution: 'instant', requestedWindow: month(() => 0).requestedWindow,
+  });
+  assert.equal(recentRecordSentence(recentRecord(full, 'cfs', NOW)), 'Highest in 30 days: 900 cfs');
+});
+
+test('a series missing most of its first day claims nothing', () => {
+  // 23 hours missing at the front of three-hourly readings: a crest in those
+  // hours could be higher than now. The old fixed 24-hour allowance let it by.
+  const history = month((h) => (h === 0 ? 900 : 400), { startHoursAgo: RECORD_WINDOW_DAYS * 24 - 23 });
+  assert.equal(recentRecord(history, 'cfs', NOW), null);
+});
+
+test('a first reading one cadence after the window opens still counts', () => {
+  const history = month((h) => (h === 0 ? 900 : 400), { startHoursAgo: RECORD_WINDOW_DAYS * 24 - 3 });
+  assert.equal(recentRecord(history, 'cfs', NOW)?.kind, 'highest');
+});
+
+test('a suspect reading anywhere in the window withholds the record', () => {
+  // A flat month with one equipment-flagged low: that value alone would make
+  // the month's swing look "meaningful" and today the highest.
+  const history = month(() => 400);
+  history.readings = history.readings.map((r, i, all) =>
+    i === 50 ? { ...r, dischargeCfs: 100, qualifiers: ['Eqp'] } : i === all.length - 1 ? { ...r, dischargeCfs: 410 } : r,
+  );
+  assert.equal(recentRecord(history, 'cfs', NOW), null);
+  // Provisional is how nearly every real-time reading arrives; it does not count.
+  const provisional = month((h) => (h === 0 ? 900 : 400));
+  provisional.readings = provisional.readings.map((r) => ({ ...r, qualifiers: ['P'] }));
+  assert.equal(recentRecord(provisional, 'cfs', NOW)?.kind, 'highest');
+});
+
+test('readings from before the window neither set nor break the record', () => {
+  const history = month((h) => (h === 0 ? 900 : 400));
+  history.readings = [at(RECORD_WINDOW_DAYS * 24 + 48, 5000), ...history.readings];
+  assert.equal(recentRecord(history, 'cfs', NOW)?.kind, 'highest');
 });
 
 test('no history, no record', () => {

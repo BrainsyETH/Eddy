@@ -188,9 +188,6 @@ export function recentPeakSentence(peak: RecentPeak | null): string | null {
  */
 export const RECORD_WINDOW_DAYS = 30;
 
-/** How far after the window's start the first reading may begin. */
-export const RECORD_START_SLACK_HOURS = 24;
-
 export interface RecentRecord {
   kind: 'highest' | 'lowest';
   value: number;
@@ -201,15 +198,19 @@ export interface RecentRecord {
 /**
  * The parts of a history response a record claim has to check.
  *
- * Optional because a payload cached by an older build carries neither field
- * (see GaugeHistoryResponse in @eddy/types). Absent is not defaulted here, as
- * the chart's normalizer does: a record is a claim about a whole window, and a
- * response that does not declare its window or its statistic cannot back one.
+ * A record is a claim about a whole window, so a response that did not declare
+ * its window and its statistic cannot back one. Both clients run responses
+ * through the shared normalizer first, which FILLS those fields in for older
+ * payloads (resolution 'instant', the window derived from the series' own
+ * span). `serverDeclaredWindow` is how that is told apart: false means the
+ * normalizer invented them. Absent means an un-normalized response, which is
+ * judged by the fields themselves.
  */
 export interface RecordHistoryLike {
   readings: readonly ChartReadingLike[];
   resolution?: 'instant' | 'daily';
   requestedWindow?: { from: string; to: string } | null;
+  serverDeclaredWindow?: boolean;
 }
 
 /**
@@ -221,11 +222,18 @@ export interface RecordHistoryLike {
  *   - instantaneous resolution only — a daily mean is a different statistic,
  *     and comparing today's reading against it would be a record by accident;
  *   - the window asked for is the window the claim names;
- *   - the first reading begins near the window's start (a station that started
- *     reporting last week has no 30-day record to set);
  *   - no outage anywhere in it, by the same gap rule the chart draws breaks
- *     with — a crest during an outage could be higher than today;
- *   - the latest reading is current and not flagged suspect.
+ *     with — a crest during an outage could be higher than today. The
+ *     window's START counts as a reading for that rule, so a series that
+ *     begins late is an outage at the front, judged by the station's own
+ *     cadence rather than a fixed allowance;
+ *   - no reading in it flagged suspect. An estimated or equipment-flagged
+ *     value can be the extreme the claim is measured against, or the swing
+ *     that makes it "meaningful", and dropping it would leave a hole the
+ *     claim cannot vouch for. Checking the SERVED points is enough: the
+ *     history route samples by keeping each bucket's minimum and maximum, so
+ *     a point it dropped was never an extreme;
+ *   - the latest reading is current.
  *
  * A record also has to MEAN something: the window must hold a real swing (the
  * same thresholds recentPeak uses), or a river flat for a month would set a
@@ -236,21 +244,27 @@ export function recentRecord(
   unit: ReadingUnit,
   now: number = Date.now(),
 ): RecentRecord | null {
-  if (!history || history.resolution !== 'instant' || !history.requestedWindow) return null;
+  if (!history || history.serverDeclaredWindow === false) return null;
+  if (history.resolution !== 'instant' || !history.requestedWindow) return null;
   const from = Date.parse(history.requestedWindow.from);
   const to = Date.parse(history.requestedWindow.to);
   if (!Number.isFinite(from) || !Number.isFinite(to)) return null;
   if (Math.abs((to - from) / (24 * HOUR_MS) - RECORD_WINDOW_DAYS) > 1) return null;
 
-  const points = chartPoints([...history.readings], unit);
+  // Only the window the sentence names: a reading from before it neither sets
+  // nor breaks a 30-day record.
+  const points = chartPoints([...history.readings], unit).filter((point) => point.t >= from);
   if (points.length < 3) return null;
-  if (points[0].t > from + RECORD_START_SLACK_HOURS * HOUR_MS) return null;
-  if (splitAtGaps(points).length !== 1) return null;
+  if (points.some((point) => hasSuspectQualifier(point.qualifiers))) return null;
+  // The window's start as a reading, so a late first reading is a gap. An
+  // explicit "no gap here" marker is dropped so the interval rule always runs;
+  // a marked gap still breaks.
+  const timeline = [{ t: from }, ...points.map((point) => ({ t: point.t, breakBefore: point.breakBefore || undefined }))];
+  if (splitAtGaps(timeline).length !== 1) return null;
 
   const latest = points[points.length - 1];
   const latestAgeHours = (now - latest.t) / HOUR_MS;
   if (!Number.isFinite(latestAgeHours) || latestAgeHours > TREND_MAX_LATEST_AGE_HOURS) return null;
-  if (hasSuspectQualifier(latest.qualifiers)) return null;
 
   const earlier = points.slice(0, -1).map((point) => point.v);
   const high = Math.max(...earlier);
