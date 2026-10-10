@@ -9,9 +9,11 @@
 // list stays exactly where links expect it.
 //
 // ── What it deliberately does not show ────────────────────────────────────
-// No float times on saved cards (see SavedFloatRow), and no Start Float or
-// "Ready offline" until Float Mode exists (#1448). Featured Float is the same
-// curated pick Today used to show, with the same daily rotation.
+// No float times on saved cards (see SavedFloatRow). Start Float and Resume
+// Float appear only where the floatMode flag is on (development and preview
+// builds, or the server flag; see floatModeFeature.ts), and "Ready offline"
+// not until downloads exist (#1448). Featured Float is the same curated pick
+// Today used to show, with the same daily rotation.
 
 import { useCallback, useEffect, useState } from 'react';
 import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
@@ -26,6 +28,8 @@ import { LazyTabScreen } from '@/components/LazyTabScreen';
 import { SavedFloatRow } from '@/components/SavedFloatRow';
 import { SectionHead } from '@/components/SectionHead';
 import { useSavedFloats } from '@/hooks/useSavedFloats';
+import { useAppConfig } from '@/hooks/useAppConfig';
+import { useFloatSession } from '@/hooks/useFloatSession';
 import { readFavoriteFloats, writeFavoriteFloats } from '@/lib/favoriteFloatCache';
 import { dailyFavoriteFloats } from '@/lib/todayFloats';
 import { useTheme } from '@/theme/ThemeProvider';
@@ -42,6 +46,8 @@ function FloatHomeContent() {
   const router = useRouter();
   const { colors, elevation } = useTheme();
   const { floats: saved, ready, forget } = useSavedFloats();
+  const { features } = useAppConfig();
+  const activeFloat = useFloatSession();
   const [curated, setCurated] = useState<FavoriteFloatSummary[] | null>(null);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -98,7 +104,27 @@ function FloatHomeContent() {
           </View>
         </View>
 
-        <View style={styles.gutter}>
+        {features.floatMode && activeFloat ? (
+          <View style={[styles.gutter, styles.resumeWrap]}>
+            <Pressable
+              onPress={() => router.push('/float-mode')}
+              style={({ pressed }) => [styles.resume, { backgroundColor: colors.card, opacity: pressed ? 0.7 : 1 }, elevation(1)]}
+              accessibilityRole="button"
+              accessibilityLabel={`Resume float on the ${activeFloat.route.riverName} to ${activeFloat.takeOut.name}`}
+            >
+              <ControlIcon name="navigate-outline" size={20} color={colors.interactive} />
+              <View style={styles.welcomeText}>
+                <Text style={[styles.resumeTitle, { color: colors.text }]}>Resume Float</Text>
+                <Text style={[styles.subtitle, { color: colors.textMuted }]} numberOfLines={1}>
+                  {activeFloat.route.riverName} · to {activeFloat.takeOut.name}
+                </Text>
+              </View>
+              <ControlIcon name="chevron-forward" size={16} color={colors.textSubtle} />
+            </Pressable>
+          </View>
+        ) : null}
+
+        <View style={[styles.gutter, styles.actions]}>
           <Pressable
             onPress={() => openPlanner()}
             style={({ pressed }) => [
@@ -110,6 +136,16 @@ function FloatHomeContent() {
             <ControlIcon name="map-outline" size={18} color={colors.onAccent} />
             <Text style={[styles.planButtonText, { color: colors.onAccent }]}>Plan a Float</Text>
           </Pressable>
+          {features.floatMode && !activeFloat ? (
+            <Pressable
+              onPress={() => router.push('/float-start')}
+              style={({ pressed }) => [styles.startButton, { borderColor: colors.border, opacity: pressed ? 0.6 : 1 }]}
+              accessibilityRole="button"
+            >
+              <ControlIcon name="navigate-outline" size={18} color={colors.interactive} />
+              <Text style={[styles.startText, { color: colors.interactive }]}>Start Float</Text>
+            </Pressable>
+          ) : null}
         </View>
 
         <View style={styles.section}>
@@ -166,6 +202,12 @@ const styles = StyleSheet.create({
   subtitle: { ...t.sm, fontFamily: fonts.body, marginTop: 4 },
   planButton: { minHeight: 48, borderRadius: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 },
   planButtonText: { ...t.base, fontFamily: fonts.semibold },
+  actions: { gap: 10 },
+  startButton: { minHeight: 48, borderRadius: 12, borderWidth: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 },
+  startText: { ...t.base, fontFamily: fonts.semibold },
+  resumeWrap: { marginBottom: 12 },
+  resume: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14, borderRadius: 14 },
+  resumeTitle: { ...t.base, fontFamily: fonts.semibold },
   section: { marginTop: 24 },
   emptyRow: { paddingVertical: 4 },
   emptyText: { ...t.sm, fontFamily: fonts.body },

@@ -33,7 +33,9 @@ import {
   INITIAL_TRACK,
   buildRouteIndex,
   estimateRemaining,
+  milesBetween,
   movingPace,
+  pointAt,
   stretchProgress,
   trackFix,
   type LngLat,
@@ -113,6 +115,8 @@ export interface FloatSession {
   samples: PaceSample[];
   /** The most recent tracker verdict, for the status line. */
   last: { result: TrackResult; at: number } | null;
+  /** The last confirmed position, on the line, for the map dot. */
+  position: { lngLat: LngLat; at: number } | null;
 }
 
 export type RouteProblem = RouteRefusal | 'no-river-data' | 'no-take-out' | 'take-out-upstream';
@@ -198,6 +202,7 @@ export function startSession(input: {
       track: INITIAL_TRACK,
       samples: [],
       last: null,
+      position: null,
     },
   };
 }
@@ -208,6 +213,7 @@ export function applyFix(session: FloatSession, index: RouteIndex, fix: Position
   if (step.result.kind === 'rejected') return session;
   const next: FloatSession = { ...session, track: step.state, last: { result: step.result, at: fix.timestamp } };
   if (step.result.kind === 'matched') {
+    next.position = { lngLat: pointAt(index, step.result.lineMeters), at: fix.timestamp };
     const sample: PaceSample = { timestamp: fix.timestamp, riverMile: step.result.riverMile, continuous: step.result.continuous };
     const previous = session.samples[session.samples.length - 1];
     // A discontinuous sample is always kept: it marks a jump pace must not
@@ -308,8 +314,87 @@ export function restoreSession(raw: string | null): FloatSession | null {
   try {
     const parsed = JSON.parse(raw) as Partial<FloatSession>;
     if (parsed?.version !== SESSION_VERSION || !parsed.id || !parsed.route || !parsed.takeOut || !parsed.track) return null;
-    return parsed as FloatSession;
+    return { ...parsed, position: parsed.position ?? null } as FloatSession;
   } catch {
     return null;
+  }
+}
+
+export interface RiverSuggestion {
+  slug: string;
+  name: string;
+  /** Straight-line miles to the river's nearest put-in or take-out; never driving distance. */
+  miles: number;
+}
+
+/**
+ * Rivers near a position, nearest first, for the quick-start picker.
+ *
+ * A suggestion, never a choice: the person confirms the river, because near a
+ * confluence the nearest access point can belong to the wrong one. Rivers
+ * with no known access coordinates are left out rather than guessed at.
+ */
+export function suggestRivers(
+  rivers: readonly { slug: string; name: string; floatAccessCoordinates?: { lat: number; lng: number }[] }[],
+  here: { lat: number; lng: number },
+  limit = 5,
+): RiverSuggestion[] {
+  const suggestions: RiverSuggestion[] = [];
+  for (const river of rivers) {
+    const points = river.floatAccessCoordinates ?? [];
+    if (points.length === 0) continue;
+    const miles = Math.min(...points.map((point) => milesBetween(here, point)));
+    suggestions.push({ slug: river.slug, name: river.name, miles });
+  }
+  return suggestions.sort((a, b) => a.miles - b.miles).slice(0, limit);
+}
+
+/** "1 hr 40 min", "45 min": the precision a five-minute estimate deserves. */
+export function formatDuration(minutes: number): string {
+  const hours = Math.floor(minutes / 60);
+  const rest = minutes % 60;
+  if (hours === 0) return `${rest} min`;
+  return rest === 0 ? `${hours} hr` : `${hours} hr ${rest} min`;
+}
+
+/**
+ * The time-left line and the note under it. Never says "current pace": the
+ * pace is a recent average, and while paused it is an earlier one.
+ */
+export function remainingCopy(estimate: RemainingEstimate): { headline: string; note: string } {
+  if (estimate.minutes == null) {
+    return { headline: 'Learning your pace', note: 'Time left appears after a few minutes on the water.' };
+  }
+  if (estimate.minutes === 0) return { headline: 'At the take-out', note: '' };
+  const time = `About ${formatDuration(estimate.minutes)}`;
+  if (estimate.paused) {
+    return { headline: time, note: 'At your earlier pace. You look stopped, so this holds until you move again.' };
+  }
+  switch (estimate.basis) {
+    case 'planner':
+      return { headline: time, note: 'From the plan’s estimate, until Eddy learns your pace. Stops not included.' };
+    case 'blended':
+    case 'observed':
+      return { headline: time, note: 'At your recent pace. Stops not included.' };
+    default:
+      return { headline: time, note: '' };
+  }
+}
+
+/** The one-line status above the numbers. */
+export function statusCopy(view: FloatView, now: number): string {
+  switch (view.status) {
+    case 'acquiring':
+      return 'Finding your spot on the river…';
+    case 'uncertain':
+      return 'Checking your position. Showing your last confirmed spot.';
+    case 'off-route':
+      return 'You look away from the river. Showing your last spot on it.';
+    case 'stale': {
+      const minutes = view.positionAt == null ? null : Math.round((now - view.positionAt) / 60_000);
+      return minutes == null ? 'Waiting for GPS.' : `Waiting for GPS. Last position ${minutes} min ago.`;
+    }
+    case 'live':
+      return view.arrived ? 'You’re at the take-out.' : 'Live';
   }
 }

@@ -12,9 +12,13 @@ import type { MapAccessPoint } from '@eddy/types';
 import {
   MAX_SAMPLES,
   applyFix,
+  formatDuration,
+  remainingCopy,
+  statusCopy,
   restoreSession,
   routeFromRiver,
   startSession,
+  suggestRivers,
   takeOutChoices,
   viewSession,
   type FloatSession,
@@ -210,4 +214,40 @@ test('fixes every second keep one pace sample per ten seconds', () => {
   // Acquisition takes the first fixes; after that, about one per 10 s.
   assert.ok(session.samples.length >= 11 && session.samples.length <= 13, `kept ${session.samples.length}`);
   assert.equal(viewSession(session, T0 + 120_000).status, 'live');
+});
+
+test('nearby rivers are suggested nearest first, and rivers with no access points are left out', () => {
+  const here = { lat: 37.0, lng: -91.4 };
+  const rivers = [
+    { slug: 'far', name: 'Far', floatAccessCoordinates: [{ lat: 37.5, lng: -91.4 }] },
+    { slug: 'near', name: 'Near', floatAccessCoordinates: [{ lat: 37.2, lng: -91.4 }, { lat: 37.01, lng: -91.4 }] },
+    { slug: 'unknown', name: 'Unknown' },
+  ];
+  const suggestions = suggestRivers(rivers, here);
+  assert.deepEqual(suggestions.map((s) => s.slug), ['near', 'far']);
+  assert.ok(suggestions[0].miles < 1, 'uses the nearest access point, not the first');
+});
+
+test('time left is worded honestly for each kind of estimate', () => {
+  assert.equal(formatDuration(100), '1 hr 40 min');
+  assert.equal(formatDuration(45), '45 min');
+  assert.equal(formatDuration(120), '2 hr');
+  assert.equal(remainingCopy({ minutes: null, basis: 'learning', paused: false }).headline, 'Learning your pace');
+  assert.match(remainingCopy({ minutes: 100, basis: 'observed', paused: false }).note, /recent pace/);
+  assert.match(remainingCopy({ minutes: 100, basis: 'observed', paused: true }).note, /earlier pace/);
+  assert.match(remainingCopy({ minutes: 100, basis: 'planner', paused: false }).note, /plan/);
+  for (const basis of ['planner', 'blended', 'observed'] as const) {
+    assert.doesNotMatch(remainingCopy({ minutes: 60, basis, paused: false }).note, /current pace/);
+  }
+});
+
+test('the status line says when a position is not live', () => {
+  const { route, index } = prepared();
+  const started = startSession({ id: 's10', kind: 'saved', route, putInId: 'akers', takeOutId: 'round-spring', now: T0 });
+  assert.ok(started.ok);
+  assert.match(statusCopy(viewSession(started.session, T0), T0), /Finding/);
+  const session = float(started.session, index, 1_000, T0, 30, 1);
+  assert.equal(statusCopy(viewSession(session, T0 + 30_000), T0 + 30_000), 'Live');
+  const later = T0 + 30_000 + 7 * 60_000;
+  assert.match(statusCopy(viewSession(session, later), later), /Last position 7 min ago/);
 });

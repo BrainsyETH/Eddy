@@ -299,6 +299,29 @@ export function riverMileAt(index: RouteIndex, lineMeters: number): number {
   return a.riverMile + t * (b.riverMile - a.riverMile);
 }
 
+/**
+ * Where one point falls on the route, with no tracking history: for choosing
+ * among take-outs before a float starts, never for progress. Progress always
+ * goes through trackFix, which will not trust a single fix.
+ */
+export function locateOnRoute(index: RouteIndex, lngLat: LngLat): { riverMile: number; offsetMeters: number } | null {
+  const [x, y] = project(index.cosLat, lngLat);
+  const hit = nearest(index, x, y);
+  return hit ? { riverMile: riverMileAt(index, hit.lineMeters), offsetMeters: hit.offsetMeters } : null;
+}
+
+/** The point on the line at a distance along it, for drawing a matched position. */
+export function pointAt(index: RouteIndex, lineMeters: number): LngLat {
+  const along = Math.min(index.lengthMeters, Math.max(0, lineMeters));
+  let i = 0;
+  while (i < index.xs.length - 2 && index.cumulative[i + 1] < along) i += 1;
+  const span = index.cumulative[i + 1] - index.cumulative[i];
+  const t = span > 0 ? (along - index.cumulative[i]) / span : 0;
+  const x = index.xs[i] + t * (index.xs[i + 1] - index.xs[i]);
+  const y = index.ys[i] + t * (index.ys[i + 1] - index.ys[i]);
+  return [x / (index.cosLat * METERS_PER_DEGREE), y / METERS_PER_DEGREE];
+}
+
 export interface PositionFix {
   lngLat: LngLat;
   /** Horizontal accuracy in metres; null means unknown and is not used. */

@@ -14,6 +14,8 @@ import {
   CONFIRM_FIXES,
   INITIAL_TRACK,
   buildRouteIndex,
+  locateOnRoute,
+  pointAt,
   riverMileAt,
   stretchProgress,
   trackFix,
@@ -161,6 +163,27 @@ test('data that cannot support progress is refused, never corrected', () => {
   );
   // Within the 10% tolerance is accepted.
   assert.equal(buildRouteIndex(STRAIGHT, [ends[0], { ...ends[1], riverMile: (10_000 / MILE) * 1.09 }]).ok, true);
+});
+
+test('a one-off location reads its river mile and how far from the river it is', () => {
+  const index = indexOf(STRAIGHT, [
+    { lngLat: at(0, 0), riverMile: 10 },
+    { lngLat: at(10_000, 0), riverMile: 10 + 10_000 / MILE },
+  ]);
+  const here = locateOnRoute(index, at(5_000, 300));
+  assert.ok(here && Math.abs(here.riverMile - (10 + 5_000 / MILE)) < 1e-6);
+  assert.ok(here && Math.abs(here.offsetMeters - 300) < 1);
+});
+
+test('a place on the line maps back to its coordinates', () => {
+  const index = indexOf(OXBOW, [
+    { lngLat: at(0, 0), riverMile: 0 },
+    { lngLat: at(0, 120), riverMile: OXBOW_LENGTH / MILE },
+  ]);
+  const [lng, lat] = pointAt(index, 1_120 + 300);
+  const [elng, elat] = at(700, 120);
+  assert.ok(Math.abs(lng - elng) < 1e-6 && Math.abs(lat - elat) < 1e-6);
+  assert.deepEqual(pointAt(index, -50), pointAt(index, 0), 'clamped to the line');
 });
 
 // ── Matching ──────────────────────────────────────────────────────────────

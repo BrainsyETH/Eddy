@@ -9,7 +9,7 @@ import { NativeHeaderHome } from '@/components/NativeHeaderHome';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, Share, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Stack, useLocalSearchParams } from 'expo-router';
+import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import type { FloatPlan } from '@eddy/types';
 import { ApiError, fetchSavedPlan } from '@/api/client';
 import { useTheme } from '@/theme/ThemeProvider';
@@ -21,6 +21,7 @@ import { SavedFloatDetails } from '@/components/SavedFloatDetails';
 import { createSavedFloatLoader, emptySavedFloatState } from '@/lib/savedFloatLoader';
 import { onForeground } from '@/lib/foreground';
 import { networkHintsOffline } from '@/lib/networkHint';
+import { useAppConfig } from '@/hooks/useAppConfig';
 
 export default function SavedFloatScreen() {
   const { shortCode } = useLocalSearchParams<{ shortCode: string }>();
@@ -32,6 +33,8 @@ export default function SavedFloatScreen() {
     ? state : emptySavedFloatState<FloatPlan>();
 
   const stub = floats.find((f) => f.shortCode === shortCode) ?? null;
+  const router = useRouter();
+  const { features } = useAppConfig();
 
   const loader = useMemo(() => createSavedFloatLoader({
     fetchPlan: fetchSavedPlan,
@@ -80,6 +83,28 @@ export default function SavedFloatScreen() {
     remember(plan, { shortCode, url: stub?.url ?? `https://eddy.guide/plan/${shortCode}` });
   }, [plan, shortCode, saved, stub, remember, forgetPlan]);
 
+  // Start Float works offline from the saved stub's ids; the live plan adds
+  // its MOVING speed (not its headline time, which includes stops) when
+  // today's conditions have just been read.
+  const riverSlug = plan?.river.slug ?? stub?.riverSlug;
+  const putInId = plan?.putIn.id ?? stub?.putInId;
+  const takeOutId = plan?.takeOut.id ?? stub?.takeOutId;
+  const plannerMph = plan && !error ? plan.floatTime?.speedMph : undefined;
+  const canStart = features.floatMode && riverSlug && putInId && takeOutId;
+  const onStart = useCallback(() => {
+    if (!riverSlug || !putInId || !takeOutId) return;
+    router.push({
+      pathname: '/float-start',
+      params: {
+        riverSlug,
+        putInId,
+        takeOutId,
+        ...(shortCode ? { shortCode } : {}),
+        ...(plannerMph ? { plannerMph: String(plannerMph) } : {}),
+      },
+    });
+  }, [router, riverSlug, putInId, takeOutId, shortCode, plannerMph]);
+
   // The heading belongs to the same scroll view as the current/offline body.
   // A fixed sibling would hide behind the transparent navigation bar.
   const heading = (
@@ -94,6 +119,15 @@ export default function SavedFloatScreen() {
             ? `${stub.putInName} → ${stub.takeOutName}`
             : ' '}
       </Text>
+      {canStart ? (
+        <Pressable
+          onPress={onStart}
+          style={({ pressed }) => [styles.startButton, { backgroundColor: pressed ? colors.accentFillPressed : colors.accentFill }]}
+          accessibilityRole="button"
+        >
+          <Text style={[styles.startText, { color: colors.onAccent }]}>Start float</Text>
+        </Pressable>
+      ) : null}
     </View>
   );
 
@@ -168,4 +202,6 @@ const styles = StyleSheet.create({
   centered: { flexGrow: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: 32, gap: 12 },
   centeredText: { ...t.sm, fontFamily: fonts.body, textAlign: 'center' },
   link: { ...t.sm, fontFamily: fonts.semibold },
+  startButton: { minHeight: 44, borderRadius: 12, alignItems: 'center', justifyContent: 'center', marginTop: 12 },
+  startText: { ...t.base, fontFamily: fonts.semibold },
 });
