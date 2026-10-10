@@ -22,9 +22,10 @@
 // already trusts for its own trend, and the sampling preserves peaks, so one
 // seven-day request answers both questions here.
 
-import type { ChartReadingLike } from './chart-model';
+import { chartPoints, splitAtGaps, type ChartReadingLike } from './chart-model';
 import type { ReadingUnit } from './reading-unit';
 import { computeTrend, type GaugeTrend } from './gauge-trend';
+import { hasSuspectQualifier } from './reading-trust';
 
 const HOUR_MS = 3_600_000;
 
@@ -167,6 +168,107 @@ export function recentPeakSentence(peak: RecentPeak | null): string | null {
         ? 'about a day ago'
         : `${Math.floor(hours / 24)} days ago`;
   return `Peaked ${when} at ${formatValue(peak.value, peak.unit)}`;
+}
+
+/* ── A bounded record ────────────────────────────────────────────────────── */
+
+/**
+ * The window a record claim covers: "highest reading in the last 30 days".
+ *
+ * Thirty because every provider serves thirty days of instantaneous readings
+ * (history-capabilities.ts), so the claim compares like with like on every
+ * station: the current instantaneous reading against instantaneous readings.
+ * Longer claims ("lowest for this date in 12 years") need year-by-year daily
+ * values and are deliberately not made here — a percentile describes a
+ * distribution, not a chronology, and cannot establish a record.
+ *
+ * The history route samples a 30-day window by keeping each bucket's MIN AND
+ * MAX, so the sampling that makes the series wrong for a six-hour trend is
+ * exactly what keeps it right for an extreme.
+ */
+export const RECORD_WINDOW_DAYS = 30;
+
+/** How far after the window's start the first reading may begin. */
+export const RECORD_START_SLACK_HOURS = 24;
+
+export interface RecentRecord {
+  kind: 'highest' | 'lowest';
+  value: number;
+  unit: ReadingUnit;
+  windowDays: number;
+}
+
+/**
+ * The parts of a history response a record claim has to check.
+ *
+ * Optional because a payload cached by an older build carries neither field
+ * (see GaugeHistoryResponse in @eddy/types). Absent is not defaulted here, as
+ * the chart's normalizer does: a record is a claim about a whole window, and a
+ * response that does not declare its window or its statistic cannot back one.
+ */
+export interface RecordHistoryLike {
+  readings: readonly ChartReadingLike[];
+  resolution?: 'instant' | 'daily';
+  requestedWindow?: { from: string; to: string } | null;
+}
+
+/**
+ * Whether the latest reading is the highest or lowest of the last
+ * RECORD_WINDOW_DAYS, or null whenever that cannot be said honestly.
+ *
+ * A record is a claim about every moment in the window, so the series must
+ * actually cover every moment of it:
+ *   - instantaneous resolution only — a daily mean is a different statistic,
+ *     and comparing today's reading against it would be a record by accident;
+ *   - the window asked for is the window the claim names;
+ *   - the first reading begins near the window's start (a station that started
+ *     reporting last week has no 30-day record to set);
+ *   - no outage anywhere in it, by the same gap rule the chart draws breaks
+ *     with — a crest during an outage could be higher than today;
+ *   - the latest reading is current and not flagged suspect.
+ *
+ * A record also has to MEAN something: the window must hold a real swing (the
+ * same thresholds recentPeak uses), or a river flat for a month would set a
+ * new "record" every reading.
+ */
+export function recentRecord(
+  history: RecordHistoryLike | null | undefined,
+  unit: ReadingUnit,
+  now: number = Date.now(),
+): RecentRecord | null {
+  if (!history || history.resolution !== 'instant' || !history.requestedWindow) return null;
+  const from = Date.parse(history.requestedWindow.from);
+  const to = Date.parse(history.requestedWindow.to);
+  if (!Number.isFinite(from) || !Number.isFinite(to)) return null;
+  if (Math.abs((to - from) / (24 * HOUR_MS) - RECORD_WINDOW_DAYS) > 1) return null;
+
+  const points = chartPoints([...history.readings], unit);
+  if (points.length < 3) return null;
+  if (points[0].t > from + RECORD_START_SLACK_HOURS * HOUR_MS) return null;
+  if (splitAtGaps(points).length !== 1) return null;
+
+  const latest = points[points.length - 1];
+  const latestAgeHours = (now - latest.t) / HOUR_MS;
+  if (!Number.isFinite(latestAgeHours) || latestAgeHours > TREND_MAX_LATEST_AGE_HOURS) return null;
+  if (hasSuspectQualifier(latest.qualifiers)) return null;
+
+  const earlier = points.slice(0, -1).map((point) => point.v);
+  const high = Math.max(...earlier);
+  const low = Math.min(...earlier);
+
+  if (latest.v >= high && meaningfullyAbove(latest.v, low, unit)) {
+    return { kind: 'highest', value: latest.v, unit, windowDays: RECORD_WINDOW_DAYS };
+  }
+  if (latest.v <= low && meaningfullyAbove(high, latest.v, unit)) {
+    return { kind: 'lowest', value: latest.v, unit, windowDays: RECORD_WINDOW_DAYS };
+  }
+  return null;
+}
+
+/** "Highest reading in the last 30 days". */
+export function recentRecordSentence(record: RecentRecord | null): string | null {
+  if (!record) return null;
+  return `${record.kind === 'highest' ? 'Highest' : 'Lowest'} reading in the last ${record.windowDays} days`;
 }
 
 /* ── Cold water ──────────────────────────────────────────────────────────── */

@@ -494,6 +494,7 @@ export default function RiverGaugeDetail({ riverSlug, damSlot }: RiverGaugeDetai
             conditionCode={condition.code}
             flowPercentile={gaugeDetail?.flowPercentile ?? null}
             floodStages={gaugeDetail?.floodStages ?? null}
+            waterTemperature={gaugeDetail?.waterTemperature ?? null}
           />
 
           {/* Dam operations, under the reading they qualify and above the

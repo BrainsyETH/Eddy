@@ -108,7 +108,11 @@ test('provisional qualifier copy names the station provider', () => {
 test('unknown provider copy does not guess USGS', () => {
   assert.equal(classifyQualifiers(['P'], null).note, 'Provisional provider data');
   assert.equal(
-    classifyQualifiers(['Rat'], null).note,
-    'Reading flagged by provider — may be inaccurate',
+    classifyQualifiers(['***'], null).note,
+    'Value unavailable from provider — reading suspect',
+  );
+  assert.equal(
+    classifyQualifiers(['***'], 'usace').note,
+    'Value unavailable from USACE — reading suspect',
   );
 });

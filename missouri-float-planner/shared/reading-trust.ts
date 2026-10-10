@@ -51,6 +51,48 @@ export function hasSuspectQualifier(qualifiers: string[] | null | undefined): bo
   return (qualifiers ?? []).some((code) => SUSPECT_QUALIFIERS.has(code));
 }
 
+/**
+ * What each suspect code means for the number on screen, most serious first.
+ *
+ * One entry per SUSPECT_QUALIFIERS code (reading-trust.test.ts holds the two
+ * lists together). The order decides which explanation a reading carrying
+ * several codes gets: a broken sensor outranks an estimate of what it would
+ * have read. `{publisher}` is the station's agency, so a USACE dam is never
+ * captioned with a USGS code it did not send.
+ *
+ * Plain words, not codes: "Rat" means nothing to a floater, "beyond the
+ * gauge's measured range" does. Each line still ends on what it means for the
+ * reading, because that is the only part a reader can act on.
+ */
+const SUSPECT_QUALIFIER_NOTES: readonly (readonly [code: string, note: string])[] = [
+  ['Eqp', 'Sensor malfunction — reading suspect'],
+  ['Mnt', 'Station under maintenance — reading suspect'],
+  ['***', 'Value unavailable from {publisher} — reading suspect'],
+  ['Dis', 'Station discontinued — reading may be out of date'],
+  ['Ice', 'Ice-affected reading — may be inaccurate'],
+  ['Bkw', 'Backwater-affected — flow may be inaccurate'],
+  ['Rat', "Beyond the gauge's measured range — flow is extrapolated"],
+  ['e', 'Estimated reading — may be inaccurate'],
+  ['E', 'Estimated reading — may be inaccurate'],
+  ['ZFl', 'Zero flow reported — may be inaccurate'],
+  ['Ssn', 'Seasonal station — reading may be outside its season'],
+];
+
+/** The explanation for the most serious suspect code present, or null. */
+export function suspectQualifierNote(
+  qualifiers: string[] | null | undefined,
+  publisher: string,
+): string | null {
+  const codes = qualifiers ?? [];
+  for (const [code, note] of SUSPECT_QUALIFIER_NOTES) {
+    if (codes.includes(code)) return note.replace('{publisher}', publisher);
+  }
+  return hasSuspectQualifier(codes) ? `Reading flagged by ${publisher} — may be inaccurate` : null;
+}
+
+/** Every code with its own explanation — for the test that keeps both lists whole. */
+export const EXPLAINED_SUSPECT_QUALIFIERS: readonly string[] = SUSPECT_QUALIFIER_NOTES.map(([code]) => code);
+
 export type ReadingDistrust = 'suspect_qualifier' | 'stale';
 
 export type ReadingTrust =

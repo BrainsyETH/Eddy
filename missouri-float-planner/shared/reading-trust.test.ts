@@ -2,7 +2,13 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { SUSPECT_QUALIFIERS, assessReadingTrust, hasSuspectQualifier } from './reading-trust';
+import {
+  EXPLAINED_SUSPECT_QUALIFIERS,
+  SUSPECT_QUALIFIERS,
+  assessReadingTrust,
+  hasSuspectQualifier,
+  suspectQualifierNote,
+} from './reading-trust';
 
 test('provisional is not suspect', () => {
   // Essentially every real-time USGS reading carries 'P'. Treating it as
@@ -76,4 +82,32 @@ test('nothing redefines SUSPECT_QUALIFIERS outside this module', () => {
       `${relative} no longer references SUSPECT_QUALIFIERS — update this guard if that is deliberate`,
     );
   }
+});
+
+// ── what a suspect code means, in words ──────────────────────────
+
+test('every suspect code has its own explanation, and nothing else does', () => {
+  // A code added to SUSPECT_QUALIFIERS without a note would fall back to the
+  // generic "flagged" line; a note for a code that is not suspect could never
+  // be shown. Either is a silent drift, so the two lists are held together.
+  assert.deepEqual([...EXPLAINED_SUSPECT_QUALIFIERS].sort(), [...SUSPECT_QUALIFIERS].sort());
+});
+
+test('the most serious code explains a reading that carries several', () => {
+  assert.equal(suspectQualifierNote(['P', 'e', 'Eqp'], 'USGS'), 'Sensor malfunction — reading suspect');
+  assert.equal(suspectQualifierNote(['Ice', 'e'], 'USGS'), 'Ice-affected reading — may be inaccurate');
+  assert.equal(
+    suspectQualifierNote(['Rat'], 'USGS'),
+    "Beyond the gauge's measured range — flow is extrapolated",
+  );
+});
+
+test('provisional and clean readings get no suspect note', () => {
+  assert.equal(suspectQualifierNote(['P'], 'USGS'), null);
+  assert.equal(suspectQualifierNote([], 'USGS'), null);
+  assert.equal(suspectQualifierNote(null, 'USGS'), null);
+});
+
+test('the station agency is named, never assumed', () => {
+  assert.equal(suspectQualifierNote(['***'], 'USACE'), 'Value unavailable from USACE — reading suspect');
 });
