@@ -156,7 +156,7 @@ export default function StorageScreen() {
             </Text>
             {trips.map((trip) => {
               const saved = floats.find((f) => f.shortCode === trip.tripKey);
-              const label = saved ? `${saved.putInName} → ${saved.takeOutName}` : 'A float';
+              const label = trip.label ?? (saved ? `${saved.putInName} → ${saved.takeOutName}` : 'A float');
               return (
                 <View key={trip.tripKey} style={styles.tripRow}>
                   <View style={styles.tripText}>

@@ -72,7 +72,7 @@ export default function FloatStartScreen() {
 
 function SavedStart(props: { riverSlug: string; putInId: string; takeOutId: string; shortCode: string | null; plannerMph: number | null }) {
   const { colors } = useTheme();
-  const loaded = useRoute(props.riverSlug);
+  const loaded = useRoute(props.riverSlug, props.shortCode);
   const start = useStart();
 
   if (!loaded) return <Loading />;
@@ -230,17 +230,17 @@ function QuickStart() {
   );
 }
 
-/** Load a river's route once per slug. */
-function useRoute(slug: string | null): LoadedRoute | null {
+/** Load a river's route once per slug; a saved trip's own package first. */
+function useRoute(slug: string | null, tripKey?: string | null): LoadedRoute | null {
   const [state, setState] = useState<{ slug: string; result: LoadedRoute } | null>(null);
   useEffect(() => {
     if (!slug) return;
     const controller = new AbortController();
-    loadFloatRoute(slug, controller.signal)
+    loadFloatRoute(slug, controller.signal, tripKey)
       .then((result) => setState({ slug, result }))
       .catch(() => {});
     return () => controller.abort();
-  }, [slug]);
+  }, [slug, tripKey]);
   return slug && state?.slug === slug ? state.result : null;
 }
 

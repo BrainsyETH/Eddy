@@ -12,8 +12,12 @@ import {
   PAD_METERS,
   isTripPack,
   planTripChunks,
+  TRIP_PACKAGE_VERSION,
   tripDownloadState,
+  tripPackageKey,
   tripPackName,
+  tripReadiness,
+  type TripPackage,
 } from '../../../eddy-ios/src/lib/tripDownload';
 
 const LAT0 = 37.0;
@@ -91,4 +95,36 @@ test('Ready offline needs every chunk present and complete', () => {
   assert.equal(tripDownloadState(expected, [pack('float:t:0', 0, 0), pack('float:t:1', 100)]).kind, 'partial');
   // Other trips' packs are ignored.
   assert.equal(tripDownloadState(expected, [pack('float:other:0', 100), pack('float:t:0', 100)]).kind, 'partial');
+});
+
+test('Ready offline means the whole trip, not only its tiles', () => {
+  const STYLE = 'mapbox://styles/mapbox/outdoors-v12';
+  const names = ['float:t:0', 'float:t:1'];
+  const complete = names.map((name) => ({ name, requiredResourceCount: 10, completedResourceCount: 10, completedResourceSize: 1_000 }));
+  const pkg: TripPackage = {
+    version: TRIP_PACKAGE_VERSION,
+    tripKey: 't',
+    route: { riverSlug: 'current', riverName: 'Current', line: [], anchors: [], fetchedAt: null },
+    fromId: 'a',
+    toId: 'b',
+    styleURL: STYLE,
+    chunkNames: names,
+    savedAt: '2026-07-01T00:00:00Z',
+    styleVerified: true,
+  };
+  assert.deepEqual(tripReadiness(pkg, STYLE, complete, names), { kind: 'ready', bytes: 2_000 });
+  // Tiles intact but the route package gone (cleared, or never saved).
+  assert.equal(tripReadiness(null, STYLE, complete, names).kind, 'partial');
+  // The style pack never loaded cleanly.
+  assert.equal(tripReadiness({ ...pkg, styleVerified: false }, STYLE, complete, names).kind, 'partial');
+  // Downloaded for a different style than the app now draws.
+  assert.equal(tripReadiness(pkg, 'mapbox://styles/mapbox/streets-v12', complete, names).kind, 'outdated');
+  // A package from an older format is not trusted.
+  assert.equal(tripReadiness({ ...pkg, version: 0 as never }, STYLE, complete, names).kind, 'partial');
+  // Readiness checks the package's own chunks, not whatever happens to exist.
+  assert.equal(tripReadiness({ ...pkg, chunkNames: [...names, 'float:t:2'] }, STYLE, complete, names).kind, 'partial');
+});
+
+test('the route package lives outside the cache that "clear saved river data" removes', () => {
+  assert.equal(tripPackageKey('abc').startsWith('eddy.cache.'), false);
 });

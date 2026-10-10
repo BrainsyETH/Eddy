@@ -24,11 +24,11 @@ export function SavedTripDownload({
 
   useEffect(() => {
     const controller = new AbortController();
-    loadFloatRoute(riverSlug, controller.signal)
+    loadFloatRoute(riverSlug, controller.signal, shortCode)
       .then((loaded) => setRoute(loaded.ok ? loaded.route : null))
       .catch(() => {});
     return () => controller.abort();
-  }, [riverSlug]);
+  }, [riverSlug, shortCode]);
 
   if (!route) return null;
   return (

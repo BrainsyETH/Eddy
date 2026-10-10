@@ -12,6 +12,7 @@
 // chunks are stored once.
 
 import { boundsForLine, locateOnRoute, pointAt, type LngLat, type RouteIndex } from '@eddy/geo';
+import type { FloatRoute } from './floatSession';
 
 /** Starting values from ADR 0011; measure on devices before changing. */
 export const CHUNK_METERS = 3_000;
@@ -105,4 +106,69 @@ export function tripDownloadState(expected: readonly string[], packs: readonly P
   // Chunks not started yet count as nothing done.
   const fraction = required > 0 ? (done / required) * (found.length / expected.length) : 0;
   return { kind: 'partial', fraction, bytes };
+}
+
+// ── The trip package ────────────────────────────────────────────────────────
+//
+// "Ready offline" means the whole trip is on the phone, not only map tiles:
+// the route the float will use (line, access points, calibration) saved where
+// clearing cached river data cannot reach it, plus a complete map. The package
+// is written when a download starts, so even a partial download leaves the
+// route ready for an offline start.
+
+/** Bumped if the stored package shape changes; older packages read as absent. */
+export const TRIP_PACKAGE_VERSION = 1;
+
+/** Outside the `eddy.cache.` prefix on purpose: clearCache must not touch it. */
+export function tripPackageKey(tripKey: string): string {
+  return `eddy.tripPackage.v${TRIP_PACKAGE_VERSION}.${tripKey}`;
+}
+
+export interface TripPackage {
+  version: typeof TRIP_PACKAGE_VERSION;
+  tripKey: string;
+  /** The route this trip's float uses offline; its distance basis is fixed here. */
+  route: FloatRoute;
+  fromId: string;
+  toId: string;
+  /** The map style the tiles were downloaded for. */
+  styleURL: string;
+  /** Exactly the chunks this package needs; readiness checks these, no others. */
+  chunkNames: string[];
+  savedAt: string;
+  /**
+   * The style pack loaded without error during a run that completed the
+   * tiles. The SDK exposes no style-pack status to read back, so this is the
+   * strongest evidence available; ADR 0011 keeps a device proof on top of it.
+   */
+  styleVerified: boolean;
+}
+
+export type TripReadiness =
+  | TripDownloadState
+  /** Downloaded for a map style this version no longer uses: download again. */
+  | { kind: 'outdated'; bytes: number };
+
+/**
+ * Ready offline only when the package is saved, matches the current style,
+ * every one of its chunks is complete, and its style pack loaded cleanly.
+ * Tiles with no package (a cleared or failed save) are never ready: resuming
+ * writes the package again.
+ */
+export function tripReadiness(
+  pkg: TripPackage | null,
+  currentStyleURL: string,
+  packs: readonly PackStatus[],
+  fallbackChunkNames: readonly string[],
+): TripReadiness {
+  const valid = pkg != null && pkg.version === TRIP_PACKAGE_VERSION;
+  const tiles = tripDownloadState(valid ? pkg.chunkNames : fallbackChunkNames, packs);
+  if (!valid) {
+    return tiles.kind === 'ready' ? { kind: 'partial', fraction: 0.99, bytes: tiles.bytes } : tiles;
+  }
+  if (pkg.styleURL !== currentStyleURL) {
+    return { kind: 'outdated', bytes: tiles.kind === 'none' ? 0 : tiles.bytes };
+  }
+  if (tiles.kind === 'ready' && !pkg.styleVerified) return { kind: 'partial', fraction: 0.99, bytes: tiles.bytes };
+  return tiles;
 }

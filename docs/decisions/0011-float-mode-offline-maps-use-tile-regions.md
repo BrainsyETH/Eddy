@@ -42,10 +42,19 @@ there is none.
    match `^river:[^:]+:\d+$`, the pattern `src/map/packSweep.ts` deletes for
    the removed river-download feature. A test asserts it.
 
-4. **"Ready offline" means every chunk reports
-   `completedResourceCount == requiredResourceCount`**, as returned by
-   `offlineManager.getPacks()`. Re-checked when the trip opens, not only when
-   the download finishes. An ambient-cache hit never counts.
+4. **"Ready offline" means the whole trip, not only tiles.** A download first
+   saves a **route package** (the river line, access points and calibration
+   the float will use, the planned chunk names, and the style URL) under
+   `eddy.tripPackage.v1.<trip-key>`, outside the `eddy.cache.` prefix that
+   "Clear saved river data" removes. An offline start from that saved float
+   reads the package before the cache. Ready offline then requires all of:
+   the package present and current; its style URL equal to the one the app
+   draws; every one of its chunks reporting
+   `completedResourceCount == requiredResourceCount` from
+   `offlineManager.getPacks()`; and `styleVerified`, set only when a download
+   run completes the tiles with no style or tile error reported. Re-checked
+   each time the trip opens. An ambient-cache hit never counts. The code is
+   `tripReadiness` in `eddy-ios/src/lib/tripDownload.ts`, with tests.
 
 5. **Updating never deletes first.** A refresh downloads into new pack names
    and removes the old ones only after the new ones verify complete. Removing a

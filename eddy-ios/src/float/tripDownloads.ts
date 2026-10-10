@@ -6,17 +6,19 @@
 // the native module, and treats every failure as "not ready" rather than
 // guessing.
 
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { STYLE_URL, getOfflineManager } from '@/map/runtime';
 import { warn } from '@/lib/monitoring';
 import {
   MAX_ZOOM,
   MIN_ZOOM,
+  TRIP_PACKAGE_VERSION,
   TRIP_PACK_PREFIX,
   isTripPack,
-  tripDownloadState,
+  tripPackageKey,
   type PackStatus,
   type TripChunk,
-  type TripDownloadState,
+  type TripPackage,
 } from '@/lib/tripDownload';
 
 interface NativePack {
@@ -50,16 +52,34 @@ async function statuses(list: NativePack[]): Promise<PackStatus[]> {
   return out;
 }
 
-/** Is this trip's map on the phone? Re-read each time; never cached. */
-export async function readTripDownload(tripKey: string, chunks: readonly TripChunk[]): Promise<TripDownloadState> {
+/** This trip's packs as the native store reports them. Re-read each time; never cached. */
+export async function readTripPacks(tripKey: string): Promise<PackStatus[]> {
   try {
-    const mine = (await packs()).filter((pack) => isTripPack(pack.name, tripKey));
-    return tripDownloadState(chunks.map((chunk) => chunk.name), await statuses(mine));
+    return await statuses((await packs()).filter((pack) => isTripPack(pack.name, tripKey)));
   } catch (error) {
     warn('float', 'could not read trip downloads', error);
-    return { kind: 'none' };
+    return [];
   }
 }
+
+/** The saved route package for a trip, or null if missing, unreadable or from another format. */
+export async function readTripPackage(tripKey: string): Promise<TripPackage | null> {
+  try {
+    const raw = await AsyncStorage.getItem(tripPackageKey(tripKey));
+    const parsed = raw ? (JSON.parse(raw) as TripPackage) : null;
+    return parsed?.version === TRIP_PACKAGE_VERSION && parsed.route ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Save a trip's route package. Throws: a download must not start without it. */
+export async function saveTripPackage(pkg: TripPackage): Promise<void> {
+  await AsyncStorage.setItem(tripPackageKey(pkg.tripKey), JSON.stringify(pkg));
+}
+
+/** The current map style, for packages and readiness. */
+export const TRIP_STYLE_URL = STYLE_URL;
 
 /**
  * Download every chunk, resuming any that already exist. Resolves once all
@@ -85,18 +105,25 @@ export async function startTripDownload(chunks: readonly TripChunk[], onError: (
   }
 }
 
-/** Remove one trip's map. Tiles other trips share stay (TileStore keeps them). */
+/**
+ * Remove one trip's map and its route package. Tiles other trips share stay
+ * (TileStore keeps them). The saved float itself is untouched.
+ */
 export async function removeTripDownload(tripKey: string): Promise<void> {
   const manager = getOfflineManager();
-  if (!manager) return;
-  for (const pack of await packs()) {
-    if (isTripPack(pack.name, tripKey)) await manager.deletePack(pack.name);
+  if (manager) {
+    for (const pack of await packs()) {
+      if (isTripPack(pack.name, tripKey)) await manager.deletePack(pack.name);
+    }
   }
+  await AsyncStorage.removeItem(tripPackageKey(tripKey)).catch(() => {});
 }
 
 export interface StoredTrip {
   tripKey: string;
   bytes: number;
+  /** From the route package, when there is one. */
+  label: string | null;
 }
 
 /** Every trip map on the phone, for the Storage screen. */
@@ -108,7 +135,14 @@ export async function listTripDownloads(): Promise<StoredTrip[]> {
       const tripKey = pack.name.slice(TRIP_PACK_PREFIX.length).replace(/:\d+$/, '');
       byTrip.set(tripKey, (byTrip.get(tripKey) ?? 0) + pack.completedResourceSize);
     }
-    return [...byTrip].map(([tripKey, bytes]) => ({ tripKey, bytes }));
+    const out: StoredTrip[] = [];
+    for (const [tripKey, bytes] of byTrip) {
+      const pkg = await readTripPackage(tripKey);
+      const from = pkg?.route.anchors.find((a) => a.id === pkg.fromId)?.name;
+      const to = pkg?.route.anchors.find((a) => a.id === pkg.toId)?.name;
+      out.push({ tripKey, bytes, label: from && to ? `${from} → ${to}` : null });
+    }
+    return out;
   } catch (error) {
     warn('float', 'could not list trip downloads', error);
     return [];

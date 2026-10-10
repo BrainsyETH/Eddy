@@ -1,21 +1,33 @@
 // eddy-ios/src/float/loadFloatRoute.ts
 // The river line and access points a float needs, from the phone first.
 //
-// The launch bundle seeds every river's line and put-ins (see
-// seedOfflineBundle), so at a put-in with no signal this normally answers from
-// disk. Only when the cache lacks a part does it ask the network, and a failed
-// request is reported as exactly that, never as a route.
+// A downloaded trip's own route package comes first: it is saved outside the
+// cache and cannot be cleared with it, and it fixes the distance basis the
+// trip's map was planned on. Otherwise the cached river: the launch bundle
+// seeds every river's line and put-ins (see seedOfflineBundle), so at a put-in
+// with no signal this normally answers from disk. Only when the cache lacks a
+// part does it ask the network, and a failed request is reported as exactly
+// that, never as a route.
 
 import { ApiError, fetchRiverAccessPoints, fetchRiverDetail } from '@/api/client';
 import { readRiver } from '@/lib/riverCache';
 import { routeFromRiver, type FloatRoute, type RouteProblem } from '@/lib/floatSession';
 import type { RouteIndex } from '@eddy/geo';
+import { indexRoute } from '@/lib/floatSession';
+import { readTripPackage } from './tripDownloads';
 
 export type LoadedRoute =
   | { ok: true; route: FloatRoute; index: RouteIndex }
   | { ok: false; reason: RouteProblem | 'offline' };
 
-export async function loadFloatRoute(slug: string, signal?: AbortSignal): Promise<LoadedRoute> {
+export async function loadFloatRoute(slug: string, signal?: AbortSignal, tripKey?: string | null): Promise<LoadedRoute> {
+  if (tripKey) {
+    const pkg = await readTripPackage(tripKey);
+    if (pkg && pkg.route.riverSlug === slug) {
+      const built = indexRoute(pkg.route);
+      if (built.ok) return { ok: true, route: pkg.route, index: built.index };
+    }
+  }
   const cached = await readRiver(slug);
   let river = cached?.payload.river;
   let accessPoints = cached?.payload.accessPoints;
