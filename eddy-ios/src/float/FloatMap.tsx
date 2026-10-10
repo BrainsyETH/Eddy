@@ -10,17 +10,23 @@
 // owns the only one) and would show raw fixes the tracker has not confirmed.
 // The dot is the last committed position, the same one the numbers use.
 //
-// ── When Mapbox cannot draw ─────────────────────────────────────────────────
-// No token, Expo Go, a failed native load, or a map that cannot load its style
-// (no downloaded map, no signal, nothing cached): the river is drawn plainly
-// in SVG instead, with the same ends and the same dot. It needs no style,
-// tiles or network. See ADR 0011.
+// ── When the background map cannot load ─────────────────────────────────────
+// No downloaded map, no signal, nothing cached: the SAME map switches to a
+// built-in neutral style that needs no network, and the river, both ends, the
+// dot, the camera, following, pan, zoom and Recenter all carry on. While on the
+// neutral style it checks for a connection at most once a minute and tries the
+// real style again; a failed retry falls back to neutral. Nothing remounts and
+// nothing flaps with a flickering signal (ADR 0011).
+//
+// The SVG drawing below remains only for builds with no Mapbox at all (no
+// token, Expo Go), where there is no map to keep.
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, StyleSheet, Text, View, type LayoutChangeEvent } from 'react-native';
 import Svg, { Circle, Path } from 'react-native-svg';
 import { boundsForLine, type LngLat } from '@eddy/geo';
 import { loadMapbox, STYLE_URL } from '@/map/runtime';
+import { networkHintsOffline } from '@/lib/networkHint';
 import { ControlIcon } from '@/components/ControlIcon';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
@@ -40,18 +46,12 @@ interface CameraRef {
 
 const FOLLOW_ZOOM = 14;
 
+/** How often, at most, to try the real style again while on the neutral one. */
+const STYLE_RETRY_MS = 60_000;
+
 export function FloatMap(props: FloatMapProps) {
   const Mapbox = loadMapbox();
-  // One-way for this visit (ADR 0011): once the map has failed to load its
-  // style (no download, no signal, nothing cached), draw the river instead
-  // and stay there. Flipping back and forth with connectivity would remount
-  // the map and lose the camera every time service flickered.
-  const [failed, setFailed] = useState(false);
-  return Mapbox && !failed ? (
-    <MapboxFloatMap {...props} Mapbox={Mapbox} onFail={() => setFailed(true)} />
-  ) : (
-    <RiverOnlyMap {...props} />
-  );
+  return Mapbox ? <MapboxFloatMap {...props} Mapbox={Mapbox} /> : <RiverOnlyMap {...props} />;
 }
 
 function MapboxFloatMap({
@@ -61,11 +61,29 @@ function MapboxFloatMap({
   takeOut,
   position,
   positionDimmed,
-  onFail,
-}: FloatMapProps & { Mapbox: NonNullable<ReturnType<typeof loadMapbox>>; onFail: () => void }) {
+}: FloatMapProps & { Mapbox: NonNullable<ReturnType<typeof loadMapbox>> }) {
   const { colors } = useTheme();
   const camera = useRef<CameraRef | null>(null);
   const [following, setFollowing] = useState(true);
+  const [neutral, setNeutral] = useState(false);
+
+  // A background with no sources at all: renders with no network, no tiles
+  // and no glyphs, so the route layers above it always draw.
+  const neutralStyle = useMemo(
+    () => JSON.stringify({ version: 8, sources: {}, layers: [{ id: 'background', type: 'background', paint: { 'background-color': colors.selectionBg } }] }),
+    [colors.selectionBg],
+  );
+
+  // On the neutral style, retry the real one when a connection looks likely.
+  useEffect(() => {
+    if (!neutral) return;
+    const timer = setInterval(() => {
+      void networkHintsOffline().then((offline) => {
+        if (!offline) setNeutral(false);
+      });
+    }, STYLE_RETRY_MS);
+    return () => clearInterval(timer);
+  }, [neutral]);
 
   const bounds = useMemo(() => boundsForLine(line), [line]);
   const [defaultSettings] = useState(() =>
@@ -103,12 +121,12 @@ function MapboxFloatMap({
     <View style={styles.fill}>
       <Mapbox.MapView
         style={styles.fill}
-        styleURL={STYLE_URL}
+        {...(neutral ? { styleJSON: neutralStyle } : { styleURL: STYLE_URL })}
         scaleBarEnabled={false}
         // Required by Mapbox's terms on every map; position only.
         logoEnabled
         attributionEnabled
-        onDidFailLoadingMap={onFail}
+        onDidFailLoadingMap={() => setNeutral(true)}
         onCameraChanged={(state: { gestures?: { isGestureActive?: boolean } }) => {
           if (state?.gestures?.isGestureActive) setFollowing(false);
         }}
@@ -149,6 +167,11 @@ function MapboxFloatMap({
           </Mapbox.ShapeSource>
         ) : null}
       </Mapbox.MapView>
+      {neutral ? (
+        <View style={[styles.chip, { backgroundColor: colors.card }]} pointerEvents="none">
+          <Text style={[styles.chipText, { color: colors.textMuted }]}>Background map unavailable</Text>
+        </View>
+      ) : null}
       {!following && position ? <RecenterButton onPress={() => setFollowing(true)} /> : null}
     </View>
   );
@@ -169,7 +192,7 @@ function RecenterButton({ onPress }: { onPress: () => void }) {
   );
 }
 
-/** The river drawn plainly, for when Mapbox cannot draw at all. */
+/** The river drawn plainly, for builds with no Mapbox at all (no token, Expo Go). */
 function RiverOnlyMap({ line, start, takeOut, position, positionDimmed }: FloatMapProps) {
   const { colors } = useTheme();
   const [size, setSize] = useState<{ width: number; height: number } | null>(null);
@@ -240,5 +263,7 @@ const styles = StyleSheet.create({
     borderRadius: 22,
   },
   recenterText: { ...t.sm, fontFamily: fonts.semibold },
+  chip: { position: 'absolute', top: 10, alignSelf: 'center', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 10 },
+  chipText: { ...t.xs, fontFamily: fonts.semibold },
   fallbackNote: { position: 'absolute', left: 12, bottom: 10, ...t.xs, fontFamily: fonts.body },
 });

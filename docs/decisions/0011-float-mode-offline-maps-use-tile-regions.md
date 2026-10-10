@@ -60,13 +60,16 @@ there is none.
    and removes the old ones only after the new ones verify complete. Removing a
    download keeps the saved float and its essential data.
 
-6. **When there is no usable background map, draw the river anyway.** The Float
-   Mode map switches once, for the rest of that screen visit, from Mapbox to
-   the SVG river-only view (`eddy-ios/src/float/FloatMap.tsx`) when Mapbox
-   cannot render: no token, Expo Go, or the map failing to load its style.
-   That view needs no style, tiles or network. It shows the same line, ends
-   and position, labelled "background map unavailable". It never flips back
-   and forth with connectivity.
+6. **When there is no usable background map, keep the same map and draw the
+   river anyway.** When Mapbox cannot load its style (no download, no signal,
+   nothing cached), the Float Mode map switches to a built-in neutral style
+   with no sources, which needs no network. It is the same map instance, so
+   the route, ends, position, camera, following, pan, zoom and Recenter all
+   continue, with a quiet "Background map unavailable" label. While neutral,
+   it checks for a connection at most once a minute and tries the real style
+   again; a failed retry falls back to neutral, so a flickering signal cannot
+   make it flap or remount (`eddy-ios/src/float/FloatMap.tsx`). The plain SVG
+   drawing remains only for builds with no Mapbox at all (no token, Expo Go).
 
 7. **Downloads are deliberate and user-started.** Never started automatically
    on reconnection. The native module sets `networkRestriction: .none`, so a
