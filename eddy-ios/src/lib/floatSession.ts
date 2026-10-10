@@ -32,6 +32,7 @@ import type { MapAccessPoint, RiverDetail } from '@eddy/types';
 import {
   INITIAL_TRACK,
   buildRouteIndex,
+  locateOnRoute,
   estimateRemaining,
   milesBetween,
   movingPace,
@@ -117,9 +118,37 @@ export interface FloatSession {
   last: { result: TrackResult; at: number } | null;
   /** The last confirmed position, on the line, for the map dot. */
   position: { lngLat: LngLat; at: number } | null;
+  /**
+   * Restored after a relaunch and not yet re-confirmed. Progress is kept, but
+   * nothing is live until fresh fixes confirm a position again.
+   */
+  awaitingFix?: boolean;
 }
 
-export type RouteProblem = RouteRefusal | 'no-river-data' | 'no-take-out' | 'take-out-upstream';
+export type RouteProblem =
+  | RouteRefusal
+  | 'no-river-data'
+  | 'no-take-out'
+  | 'take-out-upstream'
+  /** A chosen end's river mile disagrees with where calibration places it. */
+  | 'endpoint-unreliable';
+
+/**
+ * How far an end's own river mile may sit from the calibrated mile at its
+ * place on the line. Matches the per-span allowance in river-progress.ts.
+ */
+const ENDPOINT_TOLERANCE_MILES = 0.05;
+
+/**
+ * Can this access point end (or begin) a float? Its river mile must agree with
+ * the calibrated line at its own position. An access point that calibration
+ * left out for disagreeing with its neighbours fails this, and must not
+ * become the take-out: its mile would put "arrived" miles from where it is.
+ */
+export function endpointIsReliable(index: RouteIndex, anchor: RouteAnchor): boolean {
+  const placed = locateOnRoute(index, anchor.lngLat);
+  return placed != null && Math.abs(placed.riverMile - anchor.riverMile) <= ENDPOINT_TOLERANCE_MILES;
+}
 
 /** Shape cached river data into a route, or say exactly why it cannot be used. */
 export function routeFromRiver(
@@ -161,9 +190,10 @@ export function indexRoute(route: FloatRoute): { ok: true; index: RouteIndex } |
  * larger mile. With no confirmed position yet, every endpoint is offered and
  * the choice is checked again once one exists.
  */
-export function takeOutChoices(route: FloatRoute, currentMile: number | null): RouteAnchor[] {
+export function takeOutChoices(route: FloatRoute, index: RouteIndex, currentMile: number | null): RouteAnchor[] {
   return route.anchors
     .filter((anchor) => anchor.endpoint && (currentMile == null || anchor.riverMile > currentMile))
+    .filter((anchor) => endpointIsReliable(index, anchor))
     .sort((a, b) => a.riverMile - b.riverMile);
 }
 
@@ -176,6 +206,8 @@ export function startSession(input: {
   kind: 'saved' | 'quick';
   shortCode?: string | null;
   route: FloatRoute;
+  /** The calibrated index of `route`; the ends are checked against it. */
+  index: RouteIndex;
   putInId?: string | null;
   takeOutId: string;
   plannerMph?: number | null;
@@ -185,6 +217,10 @@ export function startSession(input: {
   if (!takeOut) return { ok: false, reason: 'no-take-out' };
   const putIn = input.putInId ? input.route.anchors.find((anchor) => anchor.id === input.putInId) ?? null : null;
   if (input.kind === 'saved' && !putIn) return { ok: false, reason: 'no-river-data' };
+  // Distance, progress, arrival and time left all hang off these two miles.
+  if (!endpointIsReliable(input.index, takeOut) || (putIn && !endpointIsReliable(input.index, putIn))) {
+    return { ok: false, reason: 'endpoint-unreliable' };
+  }
   if (putIn && takeOut.riverMile <= putIn.riverMile) return { ok: false, reason: 'take-out-upstream' };
   return {
     ok: true,
@@ -213,6 +249,7 @@ export function applyFix(session: FloatSession, index: RouteIndex, fix: Position
   if (step.result.kind === 'rejected') return session;
   const next: FloatSession = { ...session, track: step.state, last: { result: step.result, at: fix.timestamp } };
   if (step.result.kind === 'matched') {
+    next.awaitingFix = false;
     next.position = { lngLat: pointAt(index, step.result.lineMeters), at: fix.timestamp };
     const sample: PaceSample = { timestamp: fix.timestamp, riverMile: step.result.riverMile, continuous: step.result.continuous };
     const previous = session.samples[session.samples.length - 1];
@@ -232,6 +269,8 @@ export function applyFix(session: FloatSession, index: RouteIndex, fix: Position
 export type FloatStatus =
   /** No confirmed position yet. */
   | 'acquiring'
+  /** Restored after a relaunch; finding the position again. */
+  | 'resuming'
   /** Position is confirmed and recent. */
   | 'live'
   /** A newer fix is being confirmed; showing the last reliable values. */
@@ -287,8 +326,9 @@ export function viewSession(session: FloatSession, now: number): FloatView {
   const progress = stretchProgress(session.startMile, session.takeOut.riverMile, latest.riverMile);
   const startedPastTakeOut = session.kind === 'quick' && session.startMile >= session.takeOut.riverMile;
   const lastKind = session.last?.result.kind;
-  const status: FloatStatus =
-    now - latest.timestamp > STALE_POSITION_MS
+  const status: FloatStatus = session.awaitingFix
+    ? 'resuming'
+    : now - latest.timestamp > STALE_POSITION_MS
       ? 'stale'
       : lastKind === 'uncertain'
         ? 'uncertain'
@@ -314,7 +354,16 @@ export function restoreSession(raw: string | null): FloatSession | null {
   try {
     const parsed = JSON.parse(raw) as Partial<FloatSession>;
     if (parsed?.version !== SESSION_VERSION || !parsed.id || !parsed.route || !parsed.takeOut || !parsed.track) return null;
-    return { ...parsed, position: parsed.position ?? null } as FloatSession;
+    // Nobody knows what happened while the app was gone. Keep the progress,
+    // but forget the confirmed position so the tracker reacquires with its
+    // usual confirmation, and the first fix after it counts as a break in
+    // pace rather than as movement. Nothing reads as live until then.
+    return {
+      ...parsed,
+      position: parsed.position ?? null,
+      track: { ...parsed.track, committed: null, candidate: null },
+      awaitingFix: true,
+    } as FloatSession;
   } catch {
     return null;
   }
@@ -386,6 +435,8 @@ export function statusCopy(view: FloatView, now: number): string {
   switch (view.status) {
     case 'acquiring':
       return 'Finding your spot on the river…';
+    case 'resuming':
+      return 'Finding your spot again. Showing where you were.';
     case 'uncertain':
       return 'Checking your position. Showing your last confirmed spot.';
     case 'off-route':

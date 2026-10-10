@@ -100,6 +100,7 @@ function SavedStart(props: { riverSlug: string; putInId: string; takeOutId: stri
               kind: 'saved',
               shortCode: props.shortCode,
               route: loaded.route,
+              index: loaded.index,
               putInId: props.putInId,
               takeOutId: props.takeOutId,
               plannerMph: props.plannerMph,
@@ -149,7 +150,7 @@ function QuickStart() {
     return hit && hit.offsetMeters <= ON_RIVER_METERS ? hit : null;
   }, [loaded, here]);
   const choices = useMemo(
-    () => (loaded?.ok ? takeOutChoices(loaded.route, located?.riverMile ?? null) : []),
+    () => (loaded?.ok ? takeOutChoices(loaded.route, loaded.index, located?.riverMile ?? null) : []),
     [loaded, located],
   );
 
@@ -214,7 +215,7 @@ function QuickStart() {
               detail={located ? `${(anchor.riverMile - located.riverMile).toFixed(1)} mi` : undefined}
               onPress={() =>
                 void start.run(() =>
-                  startSession({ id: newSessionId(), kind: 'quick', route: loaded.route, takeOutId: anchor.id, now: Date.now() }),
+                  startSession({ id: newSessionId(), kind: 'quick', route: loaded.route, index: loaded.index, takeOutId: anchor.id, now: Date.now() }),
                 )
               }
             />

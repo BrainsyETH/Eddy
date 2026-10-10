@@ -27,7 +27,7 @@ function newSession(id = 's1'): FloatSession {
     null,
   );
   assert.ok(prepared.ok);
-  const started = startSession({ id, kind: 'saved', route: prepared.route, putInId: 'akers', takeOutId: 'round-spring', now: T0 });
+  const started = startSession({ id, kind: 'saved', route: prepared.route, index: prepared.index, putInId: 'akers', takeOutId: 'round-spring', now: T0 });
   assert.ok(started.ok);
   return started.session;
 }
