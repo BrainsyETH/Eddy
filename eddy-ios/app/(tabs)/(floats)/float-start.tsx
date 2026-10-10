@@ -23,6 +23,7 @@ import { useFloatSession } from '@/hooks/useFloatSession';
 import { loadFloatRoute, routeProblemCopy, type LoadedRoute } from '@/float/loadFloatRoute';
 import { suggestRivers, startSession, takeOutChoices, type RouteAnchor } from '@/lib/floatSession';
 import { beginFloat } from '@/lib/floatSessionStore';
+import { TripDownloadCard } from '@/float/TripDownloadCard';
 import { readBestIndex } from '@/lib/riverCache';
 import { radii } from '@/theme/layout';
 import { useTheme } from '@/theme/ThemeProvider';
@@ -85,6 +86,9 @@ function SavedStart(props: { riverSlug: string; putInId: string; takeOutId: stri
       <Text style={[styles.title, { color: colors.text }]}>
         {putIn?.name ?? 'Put-in'} → {takeOut?.name ?? 'Take-out'}
       </Text>
+      {props.shortCode ? (
+        <TripDownloadCard tripKey={props.shortCode} route={loaded.route} fromId={props.putInId} toId={props.takeOutId} />
+      ) : null}
       <LocationReason />
       <PrimaryButton
         label="Start float"

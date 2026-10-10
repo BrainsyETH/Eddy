@@ -11,9 +11,10 @@
 // The dot is the last committed position, the same one the numbers use.
 //
 // ── When Mapbox cannot draw ─────────────────────────────────────────────────
-// No token, Expo Go, or a failed native load: the river is drawn plainly in
-// SVG instead, with the same ends and the same dot. Phase 3's river-only
-// fallback (no downloaded map, no signal) builds on that same view.
+// No token, Expo Go, a failed native load, or a map that cannot load its style
+// (no downloaded map, no signal, nothing cached): the river is drawn plainly
+// in SVG instead, with the same ends and the same dot. It needs no style,
+// tiles or network. See ADR 0011.
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, StyleSheet, Text, View, type LayoutChangeEvent } from 'react-native';
@@ -41,7 +42,16 @@ const FOLLOW_ZOOM = 14;
 
 export function FloatMap(props: FloatMapProps) {
   const Mapbox = loadMapbox();
-  return Mapbox ? <MapboxFloatMap {...props} Mapbox={Mapbox} /> : <RiverOnlyMap {...props} />;
+  // One-way for this visit (ADR 0011): once the map has failed to load its
+  // style (no download, no signal, nothing cached), draw the river instead
+  // and stay there. Flipping back and forth with connectivity would remount
+  // the map and lose the camera every time service flickered.
+  const [failed, setFailed] = useState(false);
+  return Mapbox && !failed ? (
+    <MapboxFloatMap {...props} Mapbox={Mapbox} onFail={() => setFailed(true)} />
+  ) : (
+    <RiverOnlyMap {...props} />
+  );
 }
 
 function MapboxFloatMap({
@@ -51,7 +61,8 @@ function MapboxFloatMap({
   takeOut,
   position,
   positionDimmed,
-}: FloatMapProps & { Mapbox: NonNullable<ReturnType<typeof loadMapbox>> }) {
+  onFail,
+}: FloatMapProps & { Mapbox: NonNullable<ReturnType<typeof loadMapbox>>; onFail: () => void }) {
   const { colors } = useTheme();
   const camera = useRef<CameraRef | null>(null);
   const [following, setFollowing] = useState(true);
@@ -97,6 +108,7 @@ function MapboxFloatMap({
         // Required by Mapbox's terms on every map; position only.
         logoEnabled
         attributionEnabled
+        onDidFailLoadingMap={onFail}
         onCameraChanged={(state: { gestures?: { isGestureActive?: boolean } }) => {
           if (state?.gestures?.isGestureActive) setFollowing(false);
         }}

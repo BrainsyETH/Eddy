@@ -22,6 +22,7 @@ import { createSavedFloatLoader, emptySavedFloatState } from '@/lib/savedFloatLo
 import { onForeground } from '@/lib/foreground';
 import { networkHintsOffline } from '@/lib/networkHint';
 import { useAppConfig } from '@/hooks/useAppConfig';
+import { SavedTripDownload } from '@/float/SavedTripDownload';
 
 export default function SavedFloatScreen() {
   const { shortCode } = useLocalSearchParams<{ shortCode: string }>();
@@ -128,6 +129,11 @@ export default function SavedFloatScreen() {
           <Text style={[styles.startText, { color: colors.onAccent }]}>Start float</Text>
         </Pressable>
       ) : null}
+      {canStart && shortCode ? (
+        <View style={styles.download}>
+          <SavedTripDownload riverSlug={riverSlug!} shortCode={shortCode} putInId={putInId!} takeOutId={takeOutId!} />
+        </View>
+      ) : null}
     </View>
   );
 
@@ -204,4 +210,5 @@ const styles = StyleSheet.create({
   link: { ...t.sm, fontFamily: fonts.semibold },
   startButton: { minHeight: 44, borderRadius: 12, alignItems: 'center', justifyContent: 'center', marginTop: 12 },
   startText: { ...t.base, fontFamily: fonts.semibold },
+  download: { marginTop: 12 },
 });

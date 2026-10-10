@@ -304,10 +304,13 @@ export function riverMileAt(index: RouteIndex, lineMeters: number): number {
  * among take-outs before a float starts, never for progress. Progress always
  * goes through trackFix, which will not trust a single fix.
  */
-export function locateOnRoute(index: RouteIndex, lngLat: LngLat): { riverMile: number; offsetMeters: number } | null {
+export function locateOnRoute(
+  index: RouteIndex,
+  lngLat: LngLat,
+): { riverMile: number; lineMeters: number; offsetMeters: number } | null {
   const [x, y] = project(index.cosLat, lngLat);
   const hit = nearest(index, x, y);
-  return hit ? { riverMile: riverMileAt(index, hit.lineMeters), offsetMeters: hit.offsetMeters } : null;
+  return hit ? { riverMile: riverMileAt(index, hit.lineMeters), lineMeters: hit.lineMeters, offsetMeters: hit.offsetMeters } : null;
 }
 
 /** The point on the line at a distance along it, for drawing a matched position. */
