@@ -406,8 +406,11 @@ export function trackFix(
   let candidate: TrackState['candidate'] = null;
   if (challenges) {
     const previous = state.candidate;
+    // Agreement must be recent: support gathered before a long gap says
+    // nothing about where a fix after it is, so the count starts over.
     const agrees =
       previous != null &&
+      fix.timestamp - previous.timestamp <= REACQUIRE_AFTER_MS &&
       Math.abs(global!.lineMeters - previous.lineMeters) <= reach(previous.timestamp, fix.timestamp, accuracy);
     candidate = { lineMeters: global!.lineMeters, timestamp: fix.timestamp, support: agrees ? previous!.support + 1 : 1 };
   }

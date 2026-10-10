@@ -301,6 +301,16 @@ test('while a competing position is confirmed, the last reliable one is held as 
   assert.deepEqual(step.state.committed, before.committed);
 });
 
+test('agreement gathered before a long gap does not confirm a fix after it', () => {
+  // Two agreeing fixes, fifteen minutes of nothing, then one fix 2.5 km
+  // away: that one fix must start a fresh confirmation, not finish the old.
+  const fixes = [fix(1_000, 0, T0), fix(1_010, 0, T0 + 10_000), fix(3_500, 0, T0 + 14.5 * 60_000)];
+  const { results, state } = feed(STRAIGHT_INDEX, INITIAL_TRACK, fixes);
+  assert.deepEqual(results.map((r) => r.kind), ['uncertain', 'uncertain', 'uncertain']);
+  assert.equal(state.committed, null);
+  assert.equal(state.candidate?.support, 1);
+});
+
 test('after a long gap, tracking reacquires with confirmation instead of trusting the wide window', () => {
   // Fifteen minutes without a fix lets the window span the whole oxbow. One
   // ambiguous fix used to move progress 1.1 km downstream as continuous.
@@ -398,20 +408,23 @@ const LAUNCH: PaceSample = { timestamp: T0, riverMile: 30, continuous: false };
 
 test('pace is your speed while moving', () => {
   const pace = movingPace([LAUNCH, ...paddle(LAUNCH, 30, 2.5)], 1);
-  assert.ok(pace && Math.abs(pace.mph - 2.5) < 1e-6);
+  assert.ok(pace.mph != null && Math.abs(pace.mph - 2.5) < 0.01);
+  assert.equal(pace.paused, false);
 });
 
-test('a stop holds time left; it does not grow while you sit', () => {
-  const moving = [LAUNCH, ...paddle(LAUNCH, 30, 3)];
-  const lunch = [...moving, ...paddle(tail(moving), 45, 0)];
-  const before = movingPace(moving, 1);
-  const during = movingPace(lunch, 1);
-  assert.ok(before && during && Math.abs(during.mph - before.mph) < 1e-6);
-  assert.equal(estimateRemaining(4, null, during).minutes, estimateRemaining(4, null, before).minutes);
+test('a lunch stop never raises time left, whenever it starts', () => {
+  // 32 minutes, so the stop does not begin on any convenient boundary. A
+  // block-based rule moved 80 minutes to 95 while sitting still.
+  const moving = [LAUNCH, ...paddle(LAUNCH, 32, 3)];
+  const before = estimateRemaining(4, null, movingPace(moving, 1)).minutes;
+  for (const sat of [1, 3, 6, 10, 45]) {
+    const reading = movingPace([...moving, ...paddle(tail(moving), sat, 0)], 1);
+    assert.equal(estimateRemaining(4, null, reading).minutes, before, `after ${sat} min stopped`);
+  }
+  assert.equal(movingPace([...moving, ...paddle(tail(moving), 10, 0)], 1).paused, true);
 });
 
 test('a break with GPS jitter is still a break', () => {
-  // Sitting on a gravel bar, the matched position wanders a few metres.
   const moving = [LAUNCH, ...paddle(LAUNCH, 30, 3)];
   const last = tail(moving);
   const lunch = Array.from({ length: 270 }, (_, i) => ({
@@ -421,51 +434,85 @@ test('a break with GPS jitter is still a break', () => {
   }));
   const before = movingPace(moving, 1);
   const during = movingPace([...moving, ...lunch], 1);
-  assert.ok(before && during && Math.abs(during.mph - before.mph) < 0.05, `got ${during?.mph}`);
+  assert.ok(before.mph && during.mph && Math.abs(during.mph - before.mph) < 0.05, `got ${during.mph}`);
+  assert.equal(during.paused, true);
 });
 
 test('slowing to a drift raises the estimate instead of keeping the earlier pace', () => {
-  // 3 mph, then a slow pool at 0.2 mph. A speed cutoff kept using 3 mph and
-  // showed about 40 minutes for 2 miles; at 0.2 mph it is ten hours.
+  // 3 mph, then a slow pool at 0.2 mph: two miles is ten hours, not 40 min.
   const fast = [LAUNCH, ...paddle(LAUNCH, 30, 3)];
-  const drift = [...fast, ...paddle(tail(fast), 30, 0.2)];
-  const pace = movingPace(drift, 1);
-  assert.ok(pace && Math.abs(pace.mph - 0.2) < 0.02, `got ${pace?.mph}`);
+  const pace = movingPace([...fast, ...paddle(tail(fast), 30, 0.2)], 1);
+  assert.ok(pace.mph != null && Math.abs(pace.mph - 0.2) < 0.02, `got ${pace.mph}`);
+  assert.equal(pace.paused, false);
   assert.equal(estimateRemaining(2, null, pace).minutes, 600);
 });
 
-test('after a break, pace moves to how you are going now over the next steps', () => {
+test('too slow to tell from sitting still reads as paused, not as recent pace', () => {
+  // 0.1 mph for an hour. GPS cannot separate that from a stop, so the
+  // earlier pace is kept but flagged, and the screen says so.
+  const fast = [LAUNCH, ...paddle(LAUNCH, 30, 3)];
+  const reading = movingPace([...fast, ...paddle(tail(fast), 60, 0.1)], 1);
+  assert.equal(reading.paused, true);
+  assert.equal(estimateRemaining(2, null, reading).paused, true);
+});
+
+test('paddling upstream counts against pace instead of being ignored', () => {
+  const down = [LAUNCH, ...paddle(LAUNCH, 30, 3)];
+  const someUp = movingPace([...down, ...paddle(tail(down), 5, -1)], 1);
+  assert.ok(someUp.mph != null && someUp.mph < 3);
+  // Net upstream over the whole window: no estimate rather than the old one.
+  const allUp = movingPace([...down, ...paddle(tail(down), 20, -1)], 1);
+  assert.equal(allUp.mph, null);
+  assert.equal(allUp.paused, false);
+});
+
+test('after a break, pace moves to how you are going now', () => {
   const first = [LAUNCH, ...paddle(LAUNCH, 30, 3)];
   const lunch = [...first, ...paddle(tail(first), 30, 0)];
-  const after = [...lunch, ...paddle(tail(lunch), 20, 1.5)];
-  const pace = movingPace(after, 1);
-  assert.ok(pace && Math.abs(pace.mph - 1.5) < 0.2, `got ${pace?.mph}`);
+  const after = movingPace([...lunch, ...paddle(tail(lunch), 20, 1.5)], 1);
+  assert.ok(after.mph != null && Math.abs(after.mph - 1.5) < 0.05, `got ${after.mph}`);
+  assert.equal(after.paused, false);
 });
 
 test('a confirmed GPS jump is not read as speed', () => {
   const first = [LAUNCH, ...paddle(LAUNCH, 20, 2)];
   const jump: PaceSample = { ...tail(first), timestamp: tail(first).timestamp + 10_000, riverMile: tail(first).riverMile + 1, continuous: false };
   const pace = movingPace([...first, jump, ...paddle(jump, 20, 2)], 1);
-  assert.ok(pace && Math.abs(pace.mph - 2) < 1e-6, `got ${pace?.mph}`);
+  assert.ok(pace.mph != null && Math.abs(pace.mph - 2) < 0.01, `got ${pace.mph}`);
 });
 
 test('a line drawn upstream measures pace in the travel direction', () => {
   const pace = movingPace([LAUNCH, ...paddle(LAUNCH, 30, -2)], -1);
-  assert.ok(pace && Math.abs(pace.mph - 2) < 1e-6);
+  assert.ok(pace.mph != null && Math.abs(pace.mph - 2) < 0.01);
+});
+
+test('learning and blending follow real moving time, updating with every fix', () => {
+  // First estimate after about five minutes of moving, not ten.
+  assert.equal(movingPace([LAUNCH, ...paddle(LAUNCH, 4, 2.5)], 1).mph, null);
+  const six = movingPace([LAUNCH, ...paddle(LAUNCH, 6, 2.5)], 1);
+  assert.ok(six.mph != null && six.movingMs >= 5 * MIN && six.movingMs <= 6 * MIN);
+  // Planner fully replaced after about thirty minutes of moving, not forty.
+  const thirtyOne = movingPace([LAUNCH, ...paddle(LAUNCH, 31, 4)], 1);
+  assert.equal(estimateRemaining(6, 2, thirtyOne).basis, 'observed');
+  // Pace responds between fixes, not only at block boundaries.
+  const base = [LAUNCH, ...paddle(LAUNCH, 20, 2)];
+  const a = movingPace([...base, ...paddle(tail(base), 1, 4)], 1).mph!;
+  const b = movingPace([...base, ...paddle(tail(base), 2, 4)], 1).mph!;
+  assert.ok(b > a && a > 2);
 });
 
 test('until there is enough moving time, the estimate is the planner or "learning"', () => {
-  assert.equal(movingPace([LAUNCH, ...paddle(LAUNCH, 3, 2.5)], 1), null);
-  assert.deepEqual(estimateRemaining(5, null, null), { minutes: null, basis: 'learning' });
-  assert.deepEqual(estimateRemaining(5, 2.5, null), { minutes: 120, basis: 'planner' });
+  assert.deepEqual(estimateRemaining(5, null, null), { minutes: null, basis: 'learning', paused: false });
+  assert.deepEqual(estimateRemaining(5, 2.5, null), { minutes: 120, basis: 'planner', paused: false });
 });
 
 test('your pace takes over from the planner over the first half hour of moving', () => {
   // Halfway through the blend: 3 mph over 6 miles is 120 minutes.
-  assert.deepEqual(estimateRemaining(6, 2, { mph: 4, movingMs: 15 * MIN }), { minutes: 120, basis: 'blended' });
-  assert.deepEqual(estimateRemaining(6, 2, { mph: 4, movingMs: 30 * MIN }), { minutes: 90, basis: 'observed' });
+  const half = { mph: 4, movingMs: 15 * MIN, paused: false };
+  assert.deepEqual(estimateRemaining(6, 2, half), { minutes: 120, basis: 'blended', paused: false });
+  assert.deepEqual(estimateRemaining(6, 2, { ...half, movingMs: 30 * MIN }), { minutes: 90, basis: 'observed', paused: false });
 });
 
 test('nothing remaining reads as zero minutes', () => {
-  assert.deepEqual(estimateRemaining(0, 2.5, null), { minutes: 0, basis: 'planner' });
+  assert.deepEqual(estimateRemaining(0, 2.5, null), { minutes: 0, basis: 'planner', paused: false });
 });
