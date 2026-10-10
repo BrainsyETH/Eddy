@@ -604,7 +604,7 @@ export default function GaugeDetailScreen() {
             resolving={tierResolving}
             trend={readingIsCurrent && !gauge.readingSuspect ? publicOutlook?.trend : null}
             thresholds={!tierResolving ? link : null}
-            context={tierResolving ? null : readingSummarySeason(summaryPercentile, unit) ?? (!rated ? damNote : null)}
+            context={tierResolving ? null : readingSummarySeason(summaryPercentile, unit, undefined, gauge.dischargeCfs) ?? (!rated ? damNote : null)}
             stationName={gauge.name}
             age={readingIsCurrent ? age : [gaugeFreshnessLabel(gauge.readingTimestamp), age].filter(Boolean).join(' · ')}
             ageWarning={!readingIsCurrent}
@@ -625,7 +625,16 @@ export default function GaugeDetailScreen() {
               })),
             ]}
           >
-            {gauge.qualifierNote ? <Text style={[styles.caveat, { color: colors.error }]}>{gauge.qualifierNote}</Text> : null}
+            {/* Red only when the reading is SUSPECT (ice, estimated, equipment).
+                "Provisional" is how nearly every real-time USGS reading arrives,
+                and classifyQualifiers calls it a footnote; in alarm red on
+                almost every station it teaches the reader to ignore red. The
+                website and embeds already gate on readingSuspect. */}
+            {gauge.qualifierNote ? (
+              <Text style={[styles.caveat, { color: gauge.readingSuspect ? colors.error : colors.textMuted }]}>
+                {gauge.qualifierNote}
+              </Text>
+            ) : null}
             {stages ? (
               <View style={[styles.stages, { borderTopColor: colors.border }]}>
                 <Text style={safety.kind === 'current' ? [styles.stagePassed, { color: floodStageColor() }] : [styles.stageSummary, { color: colors.textMuted }]}>
