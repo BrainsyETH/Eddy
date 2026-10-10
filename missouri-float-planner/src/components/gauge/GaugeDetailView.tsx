@@ -423,6 +423,7 @@ export default function GaugeDetailView({ siteId }: GaugeDetailViewProps) {
           conditionCode={condition.code}
           flowPercentile={gaugeDetail?.flowPercentile ?? null}
           floodStages={gaugeDetail?.floodStages ?? null}
+          waterTemperature={gaugeDetail?.waterTemperature ?? null}
         />
 
         {/* Chart + Reading Row */}

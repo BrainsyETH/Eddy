@@ -26,11 +26,28 @@
 //     opinion about floating is subordinate to NWS's statement about flood.
 //   · Infer safety from missing stages. Absence reads as a statement about
 //     publication, in shared/safety-summary.ts's exact words.
+//   · Read "lately" off the chart's range. The chart's window is the reader's
+//     to change, and a 30-day series is bucket extrema — fine for a crest,
+//     wrong for a six-hour trend. The trend, crest and forecast read a fixed
+//     seven-day request and the record a fixed 30-day one, the same requests
+//     and the same shared/gauge-recent.ts rules the iOS gauge screen uses.
 
 import { useEffect, useMemo, useRef } from 'react';
 import { useGaugeHistory } from '@/hooks/useGaugeHistory';
 import { trackGaugeDataUnavailable } from '@/lib/gauge/analytics';
-import { computeTrend } from '@shared/gauge-trend';
+import {
+  RECORD_WINDOW_DAYS,
+  coldWaterNote,
+  forecastCrest,
+  forecastCrestSentence,
+  forecastDayLabel,
+  recentPeak,
+  recentPeakSentence,
+  recentRecord,
+  recentRecordSentence,
+  recentTrend,
+  upcomingForecast,
+} from '@shared/gauge-recent';
 import { formatAgeFromHours } from '@/lib/utils/reading-age';
 import ConditionBadge from '@/components/ui/ConditionBadge';
 import type { ConditionCode, GaugeFloodStages } from '@/types/api';
@@ -64,26 +81,13 @@ interface GaugeSummaryProps {
   yearsOfRecord?: number | null;
   seasonalContextUnavailableReason?: string | null;
   floodStages?: GaugeFloodStages | null;
+  /** The station's latest water temperature, for the cold-water note. */
+  waterTemperature?: { valueF: number; observedAt: string } | null;
   className?: string;
 }
 
-function crestOf(
-  forecast: { timestamp: string; gaugeHeightFt: number | null }[],
-): { ft: number; at: string } | null {
-  let best: { ft: number; at: string } | null = null;
-  for (const point of forecast) {
-    if (point.gaugeHeightFt == null) continue;
-    if (!best || point.gaugeHeightFt > best.ft) best = { ft: point.gaugeHeightFt, at: point.timestamp };
-  }
-  return best;
-}
-
-function dayLabel(iso: string | null): string | null {
-  if (!iso) return null;
-  const date = new Date(iso);
-  if (!Number.isFinite(date.getTime())) return null;
-  return date.toLocaleDateString('en-US', { weekday: 'long' });
-}
+/** The trend, crest and forecast window — the one iOS reads them from too. */
+const RECENT_DAYS = 7;
 
 const PROVIDER_LABEL: Record<string, string> = {
   usgs: 'Official USGS gauge',
@@ -107,9 +111,14 @@ export default function GaugeSummary({
   yearsOfRecord,
   seasonalContextUnavailableReason,
   floodStages,
+  waterTemperature,
   className = '',
 }: GaugeSummaryProps) {
-  const { data: history, isError: historyFailed } = useGaugeHistory(siteId, days);
+  // The chart's own request — shared with it through the query cache, and
+  // watched here only so a failed chart is reported once.
+  const { isError: historyFailed } = useGaugeHistory(siteId, days);
+  const { data: recent } = useGaugeHistory(siteId, RECENT_DAYS);
+  const { data: month } = useGaugeHistory(siteId, RECORD_WINDOW_DAYS);
 
   // gauge_data_unavailable — one event per summary mount per category, never
   // a stream. The bag carries provider, tier and the category only: no
@@ -138,10 +147,26 @@ export default function GaugeSummary({
         ? `${Math.round(value).toLocaleString()} cfs`
         : `${value.toFixed(2)} ft`;
 
+  // Only an instantaneous series may describe the last few hours.
+  const recentSeries = recent && recent.resolution !== 'daily' ? recent.readings : null;
   const trend = useMemo(
-    () => (trusted ? computeTrend(history?.readings, primaryUnit) : null),
-    [trusted, history, primaryUnit],
+    () => (trusted ? recentTrend(recentSeries, primaryUnit) : null),
+    [trusted, recentSeries, primaryUnit],
   );
+
+  // ── Lately: facts about the water, for either tier — never a verdict ──
+  // The record speaks about the CURRENT reading, so it needs a trusted one;
+  // the crest and the water temperature are about the past and carry their
+  // own age guards.
+  const recordLine = trusted ? recentRecordSentence(recentRecord(month, primaryUnit)) : null;
+  const peakLine = recentPeakSentence(recentPeak(recentSeries, primaryUnit));
+  const coldLine = coldWaterNote(waterTemperature);
+  const factLines = [recordLine, peakLine].filter((line): line is string => line !== null);
+
+  // Upcoming points only: a stale station or a cached response can still
+  // carry forecast points that have already happened.
+  const forecast = useMemo(() => upcomingForecast(recent?.forecast), [recent]);
+  const trustedStageFt = trusted ? gaugeHeightFt : null;
 
   // ── Safety ───────────────────────────────────────────────────────
   const safety: SafetySummary = useMemo(
@@ -155,17 +180,17 @@ export default function GaugeSummary({
               major: floodStages.majorFt,
             }
           : null,
-        currentFt: trusted ? gaugeHeightFt : null,
-        forecast: (history?.forecast ?? []).map((point) => ({
+        currentFt: trustedStageFt,
+        forecast: forecast.map((point) => ({
           t: point.timestamp,
           gaugeHeightFt: point.gaugeHeightFt,
         })),
       }),
-    [floodStages, trusted, gaugeHeightFt, history],
+    [floodStages, trustedStageFt, forecast],
   );
   const officialEvent = safety.kind === 'current';
   const safetySentence = safetySummarySentence(safety, {
-    forecastDayLabel: safety.kind === 'forecast' ? dayLabel(safety.crossesAt) : null,
+    forecastDayLabel: safety.kind === 'forecast' && safety.crossesAt ? forecastDayLabel(safety.crossesAt) : null,
   });
 
   useEffect(() => {
@@ -177,10 +202,25 @@ export default function GaugeSummary({
   }, [historyFailed, tier, value]);
 
   // ── Official forecast ────────────────────────────────────────────
-  const crest = useMemo(() => crestOf(history?.forecast ?? []), [history]);
-  const forecastSentence = crest
-    ? `NWS forecast: near ${formatStage(crest.ft)}${dayLabel(crest.at) ? ` ${dayLabel(crest.at)}` : ''}.`
-    : 'No official river forecast published.';
+  // The crest sentence needs a trusted stage to measure the rise from. Without
+  // one the forecast's highest point is still quoted — it is the Weather
+  // Service's number, not a comparison — and a forecast with no meaningful
+  // rise says so rather than naming a "crest" that is today's level.
+  const forecastSentence = (() => {
+    if (!forecast.length) return 'No official river forecast published.';
+    const crestLine = forecastCrestSentence(forecastCrest(forecast, trustedStageFt));
+    if (crestLine) return `${crestLine}.`;
+    if (trustedStageFt != null) return 'NWS forecast: little or no rise expected.';
+    let high: { ft: number; at: string } | null = null;
+    for (const point of forecast) {
+      if (point.gaugeHeightFt == null || !Number.isFinite(point.gaugeHeightFt) || point.gaugeHeightFt <= -999) continue;
+      if (!high || point.gaugeHeightFt > high.ft) high = { ft: point.gaugeHeightFt, at: point.timestamp };
+    }
+    if (!high) return 'No official river forecast published.';
+    const day = forecastDayLabel(high.at);
+    const when = !day ? '' : day === 'today' || day === 'tomorrow' ? ` ${day}` : ` on ${day}`;
+    return `NWS forecast: highest ${formatStage(high.ft)}${when}.`;
+  })();
 
   const band = tier === 'reference' ? flowBand(flowPercentile) : null;
   const providerLabel = PROVIDER_LABEL[provider ?? 'usgs'] ?? null;
@@ -258,7 +298,7 @@ export default function GaugeSummary({
         {!trusted && (
           <span className="text-xs text-amber-700">
             {trust.reason === 'suspect_qualifier'
-              ? qualifierNote ?? 'Reading flagged by the source — may be inaccurate'
+              ? qualifierNote ?? 'Reading flagged by the source. It may be off.'
               : 'This gauge has not reported recently'}
           </span>
         )}
@@ -272,6 +312,22 @@ export default function GaugeSummary({
       )}
 
       {yearsOfRecord != null && trusted ? <p className="text-xs text-neutral-500">Seasonal comparison based on {yearsOfRecord} years of discharge records.</p> : seasonalContextUnavailableReason ? <p className="text-xs text-neutral-500">{seasonalContextUnavailableReason}</p> : null}
+      {(factLines.length > 0 || coldLine) && (
+        <div className="flex items-baseline gap-2">
+          <span className="text-[11px] font-semibold uppercase tracking-wider text-neutral-500 w-20 flex-shrink-0">
+            Lately
+          </span>
+          <span className="flex flex-col gap-0.5 text-sm">
+            {factLines.map((line) => (
+              <span key={line} className="text-neutral-600">{line}</span>
+            ))}
+            {/* Safety information about the water, at full strength — but not
+                in the alarm colours, which belong to verdicts and the NWS. */}
+            {coldLine && <span className="text-neutral-900">{coldLine}</span>}
+          </span>
+        </div>
+      )}
+
       {!officialEvent && safetyRow}
 
       <div className="flex items-baseline gap-2">

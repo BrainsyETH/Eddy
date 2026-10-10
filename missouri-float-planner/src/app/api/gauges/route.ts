@@ -143,7 +143,7 @@ export interface GaugeStation {
   readingAgeHours: number | null;
   /** True when USGS qualifier codes flag the reading as suspect (ice, estimated, sensor issues). */
   readingSuspect: boolean;
-  /** Human-readable qualifier note ("Ice-affected reading — may be inaccurate"), or null when clean. */
+  /** Human-readable qualifier note ("Ice at the gauge. This reading may be off."), or null when clean. */
   qualifierNote: string | null;
   // Threshold descriptions (from gauge_stations table)
   thresholdDescriptions: ThresholdDescriptions | null;

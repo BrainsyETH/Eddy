@@ -27,7 +27,7 @@ export interface GaugeConditionResult {
   optimalRange: string;
   closureLevel: number | null;
   thresholds: ConditionThresholds;
-  /** USGS qualifier note (e.g. "Estimated reading — may be inaccurate"), null when clean. */
+  /** USGS qualifier note (e.g. "USGS estimated this reading. It may be off."), null when clean. */
   qualifierNote: string | null;
 }
 
