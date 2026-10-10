@@ -315,6 +315,22 @@ test('summary context keeps the discharge qualifier beside a stage reading', asy
   assert.equal(readingSummarySeason(11, 'cfs', new Date('invalid')), 'Lower than usual for this time of year');
 });
 
+test('a stage headline names the discharge its seasonal comparison is about', async () => {
+  // The map sheet leads an unrated station in cfs; the gauge screen leads in ft
+  // once NWS stages exist. The discharge rides on the Flow line so the number
+  // the reader tapped is still on the screen they arrive at.
+  const { readingSummarySeason } = await import('../../../eddy-ios/src/lib/readingSummary');
+  const date = new Date('2026-10-01T18:00:00Z');
+  assert.equal(readingSummarySeason(50, 'ft', date, 259), 'Flow: 259 cfs, about normal for early October');
+  assert.equal(readingSummarySeason(50, 'ft', date, 12840.4), 'Flow: 12,840 cfs, about normal for early October');
+  // A cfs headline already states the number, and no comparison means no line.
+  assert.equal(readingSummarySeason(50, 'cfs', date, 259), 'About normal for early October');
+  assert.equal(readingSummarySeason(null, 'ft', date, 259), null);
+  // No usable discharge falls back to the unnumbered line.
+  assert.equal(readingSummarySeason(50, 'ft', date, null), 'Flow: about normal for early October');
+  assert.equal(readingSummarySeason(50, 'ft', date, NaN), 'Flow: about normal for early October');
+});
+
 test('summary scale names the real first and last bands, including partial ladders', async () => {
   const { readingSummaryScaleLabels } = await import('../../../eddy-ios/src/lib/readingSummary');
   const { buildZones } = await import('@shared/threshold-zones');

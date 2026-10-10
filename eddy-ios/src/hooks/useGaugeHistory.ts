@@ -36,6 +36,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { GaugeHistoryResponse } from '@eddy/types';
 import { fetchGaugeHistory } from '@/api/client';
+import { historyHasData } from '@eddy/conditions/chart-model';
 
 /** A handful of windows per station is all a session ever visits. */
 const CACHE_SIZE = 8;
@@ -165,7 +166,10 @@ export function useGaugeHistory(siteId: string | null, days: number, window?: { 
     if (controller.signal.aborted || currentKey.current !== key) return;
 
     // `undefined` is a FAILED request; `null` is the endpoint's 404; a response
-    // with no readings is a station that answered and has nothing. The client
+    // with neither readings nor forecast is a station that answered and has
+    // nothing. A forecast-only response (`readings: []`, forecast present) is
+    // an ANSWER — GaugeChart draws it and the gauge screen states it — and
+    // was being discarded here as "unavailable". The client
     // draws that line — see fetchGaugeHistory — because only it holds the
     // status code. Nothing below may cache a failure.
     if (result === undefined) {
@@ -187,7 +191,7 @@ export function useGaugeHistory(siteId: string | null, days: number, window?: { 
       return;
     }
 
-    const usable = result && result.readings.length > 0 ? result : null;
+    const usable = historyHasData(result) ? result : null;
 
     cache.current.set(key, usable);
     if (cache.current.size > CACHE_SIZE) {

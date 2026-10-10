@@ -56,12 +56,22 @@ export async function fetchNWSAlerts(stateCode: string = 'MO', options: { strict
 
   const data = await response.json();
   if (options.strict && !Array.isArray(data.features)) throw new Error('Invalid NWS alert response');
-  const features = data.features || [];
+  return parseRiverAlerts(data.features);
+}
 
+/**
+ * The river-relevant alerts in an api.weather.gov FeatureCollection's features.
+ *
+ * Pure, so the event filter can be tested without the network, and shared by
+ * the state-wide and point lookups so the two cannot disagree about which
+ * events count.
+ */
+export function parseRiverAlerts(features: unknown): NWSAlert[] {
   const alerts: NWSAlert[] = [];
+  if (!Array.isArray(features)) return alerts;
 
-  for (const feature of features) {
-    const props = feature.properties;
+  for (const feature of features as { id?: string; properties?: Record<string, string | undefined> }[]) {
+    const props = feature?.properties;
     if (!props) continue;
 
     // Only keep river/flood-relevant alerts
@@ -84,6 +94,42 @@ export async function fetchNWSAlerts(stateCode: string = 'MO', options: { strict
   }
 
   return alerts;
+}
+
+/**
+ * Active river-relevant alerts whose area contains one point — a gauge.
+ *
+ * The state-wide lookup above is matched to RIVERS by search terms, which an
+ * unrated station does not have. `?point=` asks the Weather Service directly
+ * which alerts cover these coordinates (forecast zones, counties, and the
+ * polygons river flood warnings are drawn along), so no matching is needed.
+ *
+ * Never throws: a gauge screen must not fail because weather.gov is slow. Null
+ * means the lookup did not answer; [] means it answered with nothing active.
+ * The two are different claims and the caller keeps them apart.
+ */
+export async function fetchNWSAlertsAtPoint(
+  lat: number,
+  lng: number,
+  options: { timeoutMs?: number } = {},
+): Promise<NWSAlert[] | null> {
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+  const url = `https://api.weather.gov/alerts/active?point=${lat.toFixed(4)},${lng.toFixed(4)}`;
+  try {
+    const response = await trackedFetch('nws', 'alerts_point', url, {
+      signal: AbortSignal.timeout(options.timeoutMs ?? 4_000),
+      headers: {
+        'User-Agent': '(Eddy Float Planner, contact@eddyfloat.com)',
+        Accept: 'application/geo+json',
+      },
+      next: { revalidate: 300 },
+    });
+    if (!response.ok) return null;
+    const data = await response.json();
+    return Array.isArray(data?.features) ? parseRiverAlerts(data.features) : null;
+  } catch {
+    return null;
+  }
 }
 
 /**

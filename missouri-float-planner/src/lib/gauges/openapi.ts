@@ -32,6 +32,7 @@ export const gaugeSchemas = {
     seasonalContextUnavailableReason: nullableString,
     historyCapabilities: object({ maxInstantDays: number, supportsDaily: boolean, supportsCustomRange: boolean }),
     publicUrl: nullableString, stationNote: nullableString,
+    floodAlerts: { ...nullable(array(object({ event: string, headline: string, severity: string, onset: nullableTime, expires: nullableTime }))), description: 'Active river-relevant NWS alerts whose area covers the station, from api.weather.gov. [] when none are in effect; null when the lookup did not answer.' },
   }),
   GaugeDetailResponse: object({ gauge: ref('GaugeDetail') }),
   GaugeHistoryResponse: object({ siteId: string, siteName: string, readings: array(ref('GaugeReading')), observedThrough: nullableTime, sampled: boolean,

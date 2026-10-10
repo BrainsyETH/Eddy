@@ -93,6 +93,18 @@ import { EddyTake } from '@/components/EddyTake';
 import { GaugeChart } from '@/components/GaugeChart';
 import { ReadingSummaryCard } from '@/components/ReadingSummaryCard';
 import { readingSummarySeason } from '@/lib/readingSummary';
+import { useGaugeHistory } from '@/hooks/useGaugeHistory';
+import {
+  coldWaterNote,
+  forecastCrest,
+  forecastCrestSentence,
+  forecastDayLabel,
+  recentPeak,
+  recentPeakSentence,
+  recentTrend,
+  upcomingForecast,
+} from '@eddy/conditions/gauge-recent';
+import { floodAlertLine, floodAlertsToShow, isFloodWarning } from '@eddy/conditions/flood-alert-copy';
 import { FeedbackSheet } from '@/components/FeedbackSheet';
 import { PaywallSheet } from '@/components/PaywallSheet';
 import { premiumPitch } from '@/lib/premiumCopy';
@@ -358,6 +370,14 @@ export default function GaugeDetailScreen() {
   /** The held report, but only while it still describes the station on screen. */
   const publicOutlook = reportKey && report?.key === reportKey ? report.data : null;
 
+  // ── The last week, for "which way is it going" and "where did it crest" ──
+  // Its own request, not the chart's: the chart's range is the reader's to
+  // change (it opens wider than a week), and the trend must not move with it.
+  // Seven days because that is the widest window the history route samples
+  // without collapsing into bucket extrema — see shared/gauge-recent.ts.
+  // Called above the early returns below, as every hook here must be.
+  const recentHistory = useGaugeHistory(siteId ?? null, 7);
+
   if (loading && !gauge) {
     // The native header remains available while the first record loads.
     return (
@@ -438,9 +458,41 @@ export default function GaugeDetailScreen() {
       : 'unknown';
 
   const readingIsCurrent = gaugeFreshness(gauge.readingTimestamp) === 'live';
+
+  // Only a series that IS the week we asked for, at instant resolution, may
+  // describe the last few hours — the same `matchesRequest` discipline
+  // GaugeChart keeps for its own trend.
+  const recentSeries =
+    recentHistory.matchesRequest && recentHistory.history && recentHistory.history.resolution !== 'daily'
+      ? recentHistory.history.readings
+      : null;
+  // Rated rivers keep the report's trend, which every other surface shows for
+  // them; this fills in for the stations that have no report — every unrated
+  // one — and for a rated one whose report has not landed. The guards that
+  // withhold it (stale series, no reading near six hours back) live in
+  // recentTrend.
+  const trend =
+    readingIsCurrent && !gauge.readingSuspect
+      ? (publicOutlook?.trend ?? (unit ? recentTrend(recentSeries, unit) : null))
+      : null;
+  const peakLine = unit ? recentPeakSentence(recentPeak(recentSeries, unit)) : null;
+  const coldLine = coldWaterNote(gauge.waterTemperature);
+  // Active NWS alerts at the station's coordinates — absent from builds of the
+  // endpoint that predate the field, which reads exactly like none.
+  const alerts = floodAlertsToShow(gauge.floodAlerts);
   const summaryPercentile = !tierResolving && !gauge.readingSuspect && readingIsCurrent && supportsFlowBand(gauge.provider) ? gauge.flowPercentile : null;
 
   const stages = gauge.floodStages;
+  // The NWS forecast rides on the week's history response — the route attaches
+  // it for any station with an NWS location id, rated or not, and the chart
+  // already draws it. Here it is said in words: folded into the safety sentence
+  // ("Forecast to reach NWS minor flood stage Tuesday"), and as a crest line
+  // when it rises without reaching a category.
+  // Upcoming points only: the route trims to what lies past the last
+  // OBSERVATION, and a stale station or a cached response can still carry
+  // points that have already happened — which would let the safety line say
+  // "forecast to reach" about a time already gone.
+  const forecast = recentHistory.matchesRequest ? upcomingForecast(recentHistory.history?.forecast) : [];
   // FEET AGAINST FEET, always — gaugeHeightFt is the only value these
   // thresholds may be compared against. The five-state answer itself comes
   // from shared/safety-summary.ts, the same machine the website's summary
@@ -448,6 +500,10 @@ export default function GaugeDetailScreen() {
   // An untrusted reading (suspect, or past the shared six-hour line)
   // contributes no comparison: "official stages published; current comparison
   // unavailable" is the honest state for it.
+  const trustedStageFt =
+    gauge.readingSuspect || isReadingStale(observationAgeHours(gauge.readingTimestamp))
+      ? null
+      : gauge.gaugeHeightFt;
   const safety = summarizeSafety({
     stages: stages
       ? {
@@ -457,11 +513,16 @@ export default function GaugeDetailScreen() {
           major: stages.majorFt,
         }
       : null,
-    currentFt:
-      gauge.readingSuspect || isReadingStale(observationAgeHours(gauge.readingTimestamp))
-        ? null
-        : gauge.gaugeHeightFt,
+    currentFt: trustedStageFt,
+    forecast: forecast.map((point) => ({ t: point.timestamp, gaugeHeightFt: point.gaugeHeightFt })),
   });
+  const safetyDay = safety.kind === 'forecast' && safety.crossesAt ? forecastDayLabel(safety.crossesAt) : null;
+  // A forecast that reaches a category is already the safety sentence; the
+  // crest line is for the rise that stays below one.
+  const crestLine =
+    safety.kind === 'forecast' || safety.kind === 'current'
+      ? null
+      : forecastCrestSentence(forecastCrest(forecast, trustedStageFt));
 
   const age = readingAge(observationAgeHours(gauge.readingTimestamp));
   const percentile = percentileLabel(summaryPercentile);
@@ -602,9 +663,9 @@ export default function GaugeDetailScreen() {
             reading={value != null && unit ? { value, unit } : null}
             verdict={rated && !tierResolving ? { code, lastKnown: value != null && !readingIsCurrent } : null}
             resolving={tierResolving}
-            trend={readingIsCurrent && !gauge.readingSuspect ? publicOutlook?.trend : null}
+            trend={trend}
             thresholds={!tierResolving ? link : null}
-            context={tierResolving ? null : readingSummarySeason(summaryPercentile, unit) ?? (!rated ? damNote : null)}
+            context={tierResolving ? null : readingSummarySeason(summaryPercentile, unit, undefined, gauge.dischargeCfs) ?? (!rated ? damNote : null)}
             stationName={gauge.name}
             age={readingIsCurrent ? age : [gaugeFreshnessLabel(gauge.readingTimestamp), age].filter(Boolean).join(' · ')}
             ageWarning={!readingIsCurrent}
@@ -625,11 +686,41 @@ export default function GaugeDetailScreen() {
               })),
             ]}
           >
-            {gauge.qualifierNote ? <Text style={[styles.caveat, { color: colors.error }]}>{gauge.qualifierNote}</Text> : null}
+            {/* The Weather Service's alerts lead: they are its statement about
+                the area right now, and they outrank everything below. Only a
+                WARNING takes the flood colour; a watch or advisory is stated
+                at full strength without it. */}
+            {alerts.map((alert) => (
+              <Text
+                key={alert.event}
+                style={isFloodWarning(alert) ? [styles.stagePassed, { color: floodStageColor(), marginTop: 10 }] : [styles.caveat, { color: colors.text }]}
+              >
+                {floodAlertLine(alert)}
+              </Text>
+            ))}
+            {/* Facts about the water, for either tier — never a verdict. The
+                crest is muted context; cold water is safety information, so it
+                reads at full strength without borrowing the alarm red. */}
+            {peakLine ? <Text style={[styles.caveat, { color: colors.textMuted }]}>{peakLine}</Text> : null}
+            {crestLine ? <Text style={[styles.caveat, { color: colors.text }]}>{crestLine}</Text> : null}
+            {coldLine ? <Text style={[styles.caveat, { color: colors.text }]}>{coldLine}</Text> : null}
+            {/* Red only when the reading is SUSPECT (ice, estimated, equipment).
+                "Provisional" is how nearly every real-time USGS reading arrives,
+                and classifyQualifiers calls it a footnote; in alarm red on
+                almost every station it teaches the reader to ignore red. The
+                website and embeds already gate on readingSuspect. */}
+            {gauge.qualifierNote ? (
+              <Text style={[styles.caveat, { color: gauge.readingSuspect ? colors.error : colors.textMuted }]}>
+                {gauge.qualifierNote}
+              </Text>
+            ) : null}
             {stages ? (
               <View style={[styles.stages, { borderTopColor: colors.border }]}>
-                <Text style={safety.kind === 'current' ? [styles.stagePassed, { color: floodStageColor() }] : [styles.stageSummary, { color: colors.textMuted }]}>
-                  {safetySummarySentence(safety)}
+                {/* A forecast crossing is the Weather Service's own statement
+                    about the next few days — it gets the same weight as a
+                    current one, while its sentence keeps the future tense. */}
+                <Text style={safety.kind === 'current' || safety.kind === 'forecast' ? [styles.stagePassed, { color: floodStageColor() }] : [styles.stageSummary, { color: colors.textMuted }]}>
+                  {safetySummarySentence(safety, { forecastDayLabel: safetyDay })}
                 </Text>
               </View>
             ) : null}

@@ -1238,6 +1238,25 @@ export interface GaugeFloodStages {
   source: 'nwps' | 'curated';
 }
 
+/**
+ * An active NWS flood alert whose area covers the station — quoted, not graded.
+ *
+ * From api.weather.gov `alerts/active?point=` at the station's coordinates, so
+ * it needs no river matching and reaches unrated stations. The Weather
+ * Service's own statement, like GaugeFloodStages: relaying it is not Eddy
+ * issuing a verdict.
+ */
+export interface GaugeFloodAlert {
+  /** e.g. "Flood Warning", "Flash Flood Watch". */
+  event: string;
+  headline: string;
+  /** "Extreme" | "Severe" | "Moderate" | "Minor" | "Unknown". */
+  severity: string;
+  /** ISO, or null when the Weather Service gave none. */
+  onset: string | null;
+  expires: string | null;
+}
+
 export interface GaugeDetail {
   /** gauge_stations.id — the key stars are stored under. */
   id: string;
@@ -1326,6 +1345,13 @@ export interface GaugeDetail {
    * Optional: it post-dates deployed builds of the endpoint.
    */
   stationNote?: string | null;
+  /**
+   * Active river-relevant NWS alerts covering the station. [] when none are in
+   * effect; null when the lookup did not answer — "no alerts" and "could not
+   * ask" are different claims. Optional: it post-dates deployed builds of the
+   * endpoint, and absent reads as null.
+   */
+  floodAlerts?: GaugeFloodAlert[] | null;
 }
 
 export interface GaugeDetailResponse {
