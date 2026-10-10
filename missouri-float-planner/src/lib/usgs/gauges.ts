@@ -11,7 +11,7 @@ import { readSnapshotStatistics } from '@/lib/usgs/percentile-snapshot';
 // The suspect-qualifier vocabulary is defined once in shared/reading-trust.ts;
 // this facade classifies with it rather than keeping a second copy that can
 // drift (it did: this table and the alert gate's disagreed with the chart's).
-import { SUSPECT_QUALIFIERS } from '@shared/reading-trust';
+import { SUSPECT_QUALIFIERS, suspectQualifierNote } from '@shared/reading-trust';
 import type {
   DailyStatistics,
   GaugeReading,
@@ -44,10 +44,7 @@ export function classifyQualifiers(
     provider === 'usace' ? 'USACE' : provider === 'nws' ? 'NWS' : provider === 'usgs' ? 'USGS' : 'provider';
   let note: string | null = null;
   if (suspect) {
-    if (codes.includes('Ice')) note = 'Ice-affected reading — may be inaccurate';
-    else if (codes.includes('e')) note = 'Estimated reading — may be inaccurate';
-    else if (codes.includes('Eqp')) note = 'Sensor malfunction — reading suspect';
-    else note = `Reading flagged by ${publisher} — may be inaccurate`;
+    note = suspectQualifierNote(codes, publisher);
   } else if (provisional) {
     note = `Provisional ${publisher} data`;
   }

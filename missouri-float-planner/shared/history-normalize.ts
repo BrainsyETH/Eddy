@@ -58,6 +58,14 @@ export interface NormalizedGaugeHistory {
   requestedWindow: { from: string; to: string } | null;
   coverageWindow: { from: string; to: string } | null;
   coverageComplete: boolean;
+  /**
+   * Whether the SERVER stated `resolution` and `requestedWindow`, rather than
+   * this normalizer filling them in. The defaults above are right for drawing
+   * a chart and wrong for a claim about a whole window: a derived window is
+   * just the series' own span, so it can never show that the start is missing.
+   * shared/gauge-recent.ts's recentRecord refuses a history without it.
+   */
+  serverDeclaredWindow: boolean;
   truncationReason: string | null;
   typical: GaugeTypicalReadingLike[];
   seasonalRange: SeasonalRangeRow[];
@@ -101,6 +109,10 @@ export function normalizeGaugeHistory(
     // An old payload predates truncation reporting; its server clamped the
     // request BEFORE serving, so the served window was the honored one.
     coverageComplete: raw.coverageComplete ?? true,
+    // Carried through when already present, so normalizing a normalized
+    // history cannot launder the defaults above into "declared".
+    serverDeclaredWindow:
+      raw.serverDeclaredWindow ?? (raw.resolution != null && raw.requestedWindow != null),
     truncationReason: raw.truncationReason ?? null,
     typical,
     seasonalRange:

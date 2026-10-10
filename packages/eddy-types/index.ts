@@ -1434,6 +1434,12 @@ export interface GaugeHistoryResponse {
   requestedWindow?: { from: string; to: string } | null;
   coverageWindow?: { from: string; to: string } | null;
   coverageComplete?: boolean;
+  /**
+   * Set by the client normalizer, never sent by the server: whether the
+   * response itself carried `resolution` and `requestedWindow`. See
+   * NormalizedGaugeHistory.serverDeclaredWindow in history-normalize.ts.
+   */
+  serverDeclaredWindow?: boolean;
   truncationReason?: string | null;
   /** Unit-declared twin of `typical`; discharge-only until stage opens. */
   seasonalRange?: Array<{

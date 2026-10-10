@@ -9,10 +9,15 @@ import {
   forecastDayLabel,
   recentPeak,
   recentPeakSentence,
+  recentRecord,
+  recentRecordSentence,
   recentTrend,
+  RECORD_WINDOW_DAYS,
+  type RecordHistoryLike,
   upcomingForecast,
 } from './gauge-recent';
 import { historyHasData } from './chart-model';
+import { normalizeGaugeHistory, type GaugeHistoryReadingLike } from './history-normalize';
 
 const NOW = Date.parse('2026-10-10T18:00:00Z');
 
@@ -190,4 +195,156 @@ test('a forecast-only history response counts as data', () => {
   assert.equal(historyHasData({ readings: [] }), false);
   assert.equal(historyHasData({ readings: [], forecast: null }), false);
   assert.equal(historyHasData(null), false);
+});
+
+/* ── recentRecord ─────────────────────────────────────────────────────── */
+
+/** A 30-day instantaneous history, readings every `stepHours`, newest at NOW. */
+function month(
+  cfs: (hoursAgo: number) => number,
+  { stepHours = 3, startHoursAgo = RECORD_WINDOW_DAYS * 24 }: { stepHours?: number; startHoursAgo?: number } = {},
+): RecordHistoryLike {
+  const readings: ChartReadingLike[] = [];
+  for (let h = startHoursAgo; h >= 0; h -= stepHours) readings.push(at(h, cfs(h)));
+  return {
+    readings,
+    resolution: 'instant',
+    requestedWindow: {
+      from: new Date(NOW - RECORD_WINDOW_DAYS * 86_400_000).toISOString(),
+      to: new Date(NOW).toISOString(),
+    },
+  };
+}
+
+test('a reading above everything in a complete month is the highest in 30 days', () => {
+  const record = recentRecord(month((h) => (h === 0 ? 900 : 400 + (h % 24))), 'cfs', NOW);
+  assert.deepEqual(record, { kind: 'highest', value: 900, unit: 'cfs', windowDays: 30 });
+  assert.equal(recentRecordSentence(record), 'Highest in 30 days: 900 cfs');
+});
+
+test('a reading below everything in a complete month is the lowest in 30 days', () => {
+  // A month-long recession: every reading lower than the one before.
+  const record = recentRecord(month((h) => 200 + h), 'cfs', NOW);
+  assert.equal(record?.kind, 'lowest');
+  assert.equal(recentRecordSentence(record), 'Lowest in 30 days: 200 cfs');
+});
+
+test('a reading inside the range sets no record', () => {
+  assert.equal(recentRecord(month((h) => (h === 0 ? 450 : h > 300 ? 300 : 600)), 'cfs', NOW), null);
+});
+
+test('a flat month sets no record, however its last reading compares', () => {
+  // 400 vs 410 is not a swing worth naming — the same bar recentPeak uses.
+  assert.equal(recentRecord(month((h) => (h === 0 ? 410 : 400)), 'cfs', NOW), null);
+  // Stage needs half a foot, not a percentage of an arbitrary datum.
+  const stage: RecordHistoryLike = month(() => 0);
+  stage.readings = stage.readings.map((r, i, all) => ({ ...r, dischargeCfs: null, gaugeHeightFt: i === all.length - 1 ? 3.3 : 3.0 }));
+  assert.equal(recentRecord(stage, 'ft', NOW), null);
+});
+
+test('daily values never set an instantaneous record', () => {
+  const history = month((h) => (h === 0 ? 900 : 400));
+  assert.equal(recentRecord({ ...history, resolution: 'daily' }, 'cfs', NOW), null);
+});
+
+test('a series that starts well after the window opens claims nothing', () => {
+  // Reporting for 20 of the 30 days: there is no 30-day record to set.
+  const history = month((h) => (h === 0 ? 900 : 400), { startHoursAgo: 20 * 24 });
+  assert.equal(recentRecord(history, 'cfs', NOW), null);
+});
+
+test('an outage anywhere in the window withholds the claim', () => {
+  // Three days missing mid-month: a crest during them could be higher than now.
+  const history = month((h) => (h === 0 ? 900 : 400));
+  history.readings = history.readings.filter((r) => {
+    const hoursAgo = (NOW - Date.parse(r.timestamp)) / 3_600_000;
+    return hoursAgo < 200 || hoursAgo > 272;
+  });
+  assert.equal(recentRecord(history, 'cfs', NOW), null);
+});
+
+test('a window that is not the 30 days the sentence names claims nothing', () => {
+  const history = month((h) => (h === 0 ? 900 : 400));
+  history.requestedWindow = { from: new Date(NOW - 7 * 86_400_000).toISOString(), to: new Date(NOW).toISOString() };
+  assert.equal(recentRecord(history, 'cfs', NOW), null);
+});
+
+test('a stale or suspect latest reading sets no record', () => {
+  const history = month((h) => (h === 0 ? 900 : 400));
+  assert.equal(recentRecord(history, 'cfs', NOW + 4 * 3_600_000), null);
+  const flagged = month((h) => (h === 0 ? 900 : 400));
+  flagged.readings = flagged.readings.map((r, i, all) => (i === all.length - 1 ? { ...r, qualifiers: ['Ice'] } : r));
+  assert.equal(recentRecord(flagged, 'cfs', NOW), null);
+});
+
+test('a response that does not declare its window or statistic sets no record', () => {
+  // A payload cached by a build older than those fields: the chart may default
+  // them, a claim about the whole window may not.
+  const history = month((h) => (h === 0 ? 900 : 400));
+  assert.equal(recentRecord({ readings: history.readings }, 'cfs', NOW), null);
+  assert.equal(recentRecord({ ...history, resolution: undefined }, 'cfs', NOW), null);
+});
+
+test('the normalized path refuses a window the normalizer had to invent', () => {
+  // Test readings carry no qualifiers, so they fit the wire shape as-is.
+  const wire = (readings: readonly ChartReadingLike[]) => readings as GaugeHistoryReadingLike[];
+  // Both clients normalize before they read. For an old payload the normalizer
+  // fills in resolution 'instant' and a window derived from the series' own
+  // span, which would make a series missing its start look complete.
+  const raw = month((h) => (h === 0 ? 900 : 400), { startHoursAgo: 29.5 * 24 });
+  const legacy = normalizeGaugeHistory({ siteId: 'x', siteName: 'x', readings: wire(raw.readings) });
+  assert.ok(legacy);
+  assert.equal(legacy.serverDeclaredWindow, false);
+  assert.equal(recentRecord(legacy, 'cfs', NOW), null);
+  // Normalizing twice cannot turn the invented fields into declared ones.
+  assert.equal(normalizeGaugeHistory(legacy)?.serverDeclaredWindow, false);
+
+  // A current payload keeps its claim through the same normalizer.
+  const current = normalizeGaugeHistory({
+    siteId: 'x', siteName: 'x', readings: wire(raw.readings),
+    resolution: 'instant', requestedWindow: month(() => 0).requestedWindow,
+  });
+  assert.equal(current?.serverDeclaredWindow, true);
+  const full = normalizeGaugeHistory({
+    siteId: 'x', siteName: 'x', readings: wire(month((h) => (h === 0 ? 900 : 400)).readings),
+    resolution: 'instant', requestedWindow: month(() => 0).requestedWindow,
+  });
+  assert.equal(recentRecordSentence(recentRecord(full, 'cfs', NOW)), 'Highest in 30 days: 900 cfs');
+});
+
+test('a series missing most of its first day claims nothing', () => {
+  // 23 hours missing at the front of three-hourly readings: a crest in those
+  // hours could be higher than now. The old fixed 24-hour allowance let it by.
+  const history = month((h) => (h === 0 ? 900 : 400), { startHoursAgo: RECORD_WINDOW_DAYS * 24 - 23 });
+  assert.equal(recentRecord(history, 'cfs', NOW), null);
+});
+
+test('a first reading one cadence after the window opens still counts', () => {
+  const history = month((h) => (h === 0 ? 900 : 400), { startHoursAgo: RECORD_WINDOW_DAYS * 24 - 3 });
+  assert.equal(recentRecord(history, 'cfs', NOW)?.kind, 'highest');
+});
+
+test('a suspect reading anywhere in the window withholds the record', () => {
+  // A flat month with one equipment-flagged low: that value alone would make
+  // the month's swing look "meaningful" and today the highest.
+  const history = month(() => 400);
+  history.readings = history.readings.map((r, i, all) =>
+    i === 50 ? { ...r, dischargeCfs: 100, qualifiers: ['Eqp'] } : i === all.length - 1 ? { ...r, dischargeCfs: 410 } : r,
+  );
+  assert.equal(recentRecord(history, 'cfs', NOW), null);
+  // Provisional is how nearly every real-time reading arrives; it does not count.
+  const provisional = month((h) => (h === 0 ? 900 : 400));
+  provisional.readings = provisional.readings.map((r) => ({ ...r, qualifiers: ['P'] }));
+  assert.equal(recentRecord(provisional, 'cfs', NOW)?.kind, 'highest');
+});
+
+test('readings from before the window neither set nor break the record', () => {
+  const history = month((h) => (h === 0 ? 900 : 400));
+  history.readings = [at(RECORD_WINDOW_DAYS * 24 + 48, 5000), ...history.readings];
+  assert.equal(recentRecord(history, 'cfs', NOW)?.kind, 'highest');
+});
+
+test('no history, no record', () => {
+  assert.equal(recentRecord(null, 'cfs', NOW), null);
+  assert.equal(recentRecordSentence(null), null);
 });

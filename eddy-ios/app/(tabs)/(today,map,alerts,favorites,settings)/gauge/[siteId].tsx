@@ -101,7 +101,10 @@ import {
   forecastDayLabel,
   recentPeak,
   recentPeakSentence,
+  recentRecord,
+  recentRecordSentence,
   recentTrend,
+  RECORD_WINDOW_DAYS,
   upcomingForecast,
 } from '@eddy/conditions/gauge-recent';
 import { floodAlertLine, floodAlertsToShow, isFloodWarning } from '@eddy/conditions/flood-alert-copy';
@@ -377,6 +380,9 @@ export default function GaugeDetailScreen() {
   // without collapsing into bucket extrema — see shared/gauge-recent.ts.
   // Called above the early returns below, as every hook here must be.
   const recentHistory = useGaugeHistory(siteId ?? null, 7);
+  // And the last month, for "highest reading in the last 30 days" — a fixed
+  // window of its own for the same reason: the claim names thirty days.
+  const monthHistory = useGaugeHistory(siteId ?? null, RECORD_WINDOW_DAYS);
 
   if (loading && !gauge) {
     // The native header remains available while the first record loads.
@@ -476,6 +482,12 @@ export default function GaugeDetailScreen() {
       ? (publicOutlook?.trend ?? (unit ? recentTrend(recentSeries, unit) : null))
       : null;
   const peakLine = unit ? recentPeakSentence(recentPeak(recentSeries, unit)) : null;
+  // About the CURRENT reading, so only for a trusted one; recentRecord checks
+  // the month's coverage, gaps and resolution itself.
+  const recordLine =
+    unit && readingIsCurrent && !gauge.readingSuspect && monthHistory.matchesRequest
+      ? recentRecordSentence(recentRecord(monthHistory.history, unit))
+      : null;
   const coldLine = coldWaterNote(gauge.waterTemperature);
   // Active NWS alerts at the station's coordinates — absent from builds of the
   // endpoint that predate the field, which reads exactly like none.
@@ -704,6 +716,7 @@ export default function GaugeDetailScreen() {
             {/* Facts about the water, for either tier — never a verdict. The
                 crest is muted context; cold water is safety information, so it
                 reads at full strength without borrowing the alarm red. */}
+            {recordLine ? <Text style={[styles.caveat, { color: colors.textMuted }]}>{recordLine}</Text> : null}
             {peakLine ? <Text style={[styles.caveat, { color: colors.textMuted }]}>{peakLine}</Text> : null}
             {crestLine ? <Text style={[styles.caveat, { color: colors.text }]}>{crestLine}</Text> : null}
             {coldLine ? <Text style={[styles.caveat, { color: colors.text }]}>{coldLine}</Text> : null}
