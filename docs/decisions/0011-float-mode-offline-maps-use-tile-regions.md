@@ -52,7 +52,12 @@ there is none.
    draws; every one of its chunks reporting
    `completedResourceCount == requiredResourceCount` from
    `offlineManager.getPacks()`; and `styleVerified`, set only when a download
-   run completes the tiles with no style or tile error reported. Re-checked
+   positively confirms the style pack is complete. **@rnmapbox/maps 10.3.5
+   cannot confirm it from JavaScript** (see "Constraints" below), and the
+   absence of an error is not evidence, so nothing sets `styleVerified` yet:
+   a fully downloaded trip shows "Trip and map tiles saved", never Ready
+   offline. Confirming the style pack needs a small native check that reads
+   the SDK's style pack counts; that is an open decision. Re-checked
    each time the trip opens. An ambient-cache hit never counts. The code is
    `tripReadiness` in `eddy-ios/src/lib/tripDownload.ts`, with tests.
 
@@ -84,9 +89,12 @@ there is none.
   after a relaunch (`getPacks` re-lists regions from `TileStore`). The UI
   must say "Paused, keep Eddy open to finish", never imply completion.
 - **Completeness covers tiles, not the style pack.** `getPacks()` reports
-  resource counts per tile region; the style pack's state is only visible
-  through the error callback during a download. That is why style-pack
-  rendering offline is on the device-proof list below.
+  resource counts per tile region. Nothing exposes the style pack: the
+  TileStore module offers only `setOption`; the one "complete" progress event
+  fires when the TILES finish; the step that waits for both style and tiles
+  sends nothing; and `getPackStatus` rebuilds its in-memory pack from
+  TileStore on every call, discarding any state from the run. An error can be
+  heard (with a listener attached on resume too), but silence proves nothing.
 - **`createPack` throws if the name exists in this process.** Updates use new
   names (decision 5), which also avoids that.
 

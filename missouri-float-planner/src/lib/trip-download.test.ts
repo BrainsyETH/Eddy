@@ -115,8 +115,9 @@ test('Ready offline means the whole trip, not only its tiles', () => {
   assert.deepEqual(tripReadiness(pkg, STYLE, complete, names), { kind: 'ready', bytes: 2_000 });
   // Tiles intact but the route package gone (cleared, or never saved).
   assert.equal(tripReadiness(null, STYLE, complete, names).kind, 'partial');
-  // The style pack never loaded cleanly.
-  assert.equal(tripReadiness({ ...pkg, styleVerified: false }, STYLE, complete, names).kind, 'partial');
+  // Tiles complete is not the whole map: without positive evidence the style
+  // pack is complete, it is saved, never Ready offline.
+  assert.deepEqual(tripReadiness({ ...pkg, styleVerified: false }, STYLE, complete, names), { kind: 'tiles-saved', bytes: 2_000 });
   // Downloaded for a different style than the app now draws.
   assert.equal(tripReadiness(pkg, 'mapbox://styles/mapbox/streets-v12', complete, names).kind, 'outdated');
   // A package from an older format is not trusted.

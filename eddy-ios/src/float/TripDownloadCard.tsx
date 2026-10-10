@@ -5,8 +5,10 @@
 // trip on the phone: the route package (saved first, outside the cache that
 // "clear saved river data" removes) and the background map. "Ready offline" is
 // shown only when tripReadiness says so (src/lib/tripDownload.ts): package
-// saved, current map style, every chunk complete, and the style pack loaded
-// cleanly. Re-read from storage each time, never remembered.
+// saved, current map style, every chunk complete, and the style pack
+// POSITIVELY confirmed. This version of the map SDK cannot confirm the style
+// pack (ADR 0011), so the best it shows is "Trip and map tiles saved".
+// Re-read from storage each time, never remembered.
 //
 // Downloads run while Eddy is open; iOS pauses them in the background. The
 // card says so rather than implying a download will finish on its own.
@@ -68,39 +70,20 @@ export function TripDownloadCard({
   const [downloading, setDownloading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const mounted = useRef(true);
-  // Whether the download run in progress has reported any error; a clean run
-  // that completes the tiles is the evidence the style pack loaded.
-  const runErrored = useRef(false);
-  // A run started from this card is in progress (until ready or an error).
-  const runActive = useRef(false);
   useEffect(() => () => void (mounted.current = false), []);
 
   const refresh = useCallback(async () => {
-    let pkg = await readTripPackage(tripKey);
+    const pkg = await readTripPackage(tripKey);
     const packs = await readTripPacks(tripKey);
-    let next = tripReadiness(pkg, TRIP_STYLE_URL, packs, fallbackChunks.map((c) => c.name));
-    if (pkg && !pkg.styleVerified && runActive.current && !runErrored.current) {
-      const tilesDone = tripReadiness({ ...pkg, styleVerified: true }, TRIP_STYLE_URL, packs, []);
-      if (tilesDone.kind === 'ready') {
-        pkg = { ...pkg, styleVerified: true };
-        try {
-          await saveTripPackage(pkg);
-          next = tilesDone;
-        } catch {
-          // Stays partial; the next refresh tries again.
-        }
-      }
-    }
+    const next = tripReadiness(pkg, TRIP_STYLE_URL, packs, fallbackChunks.map((c) => c.name));
     if (!mounted.current) return;
     setState(next);
-    if (next.kind === 'ready') {
-      runActive.current = false;
-      setDownloading(false);
-    }
+    if (next.kind === 'ready' || next.kind === 'tiles-saved') setDownloading(false);
   }, [tripKey, fallbackChunks]);
 
   useEffect(() => {
     if (!available || fallbackChunks.length === 0) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- refresh reads the native offline store, an external system.
     void refresh();
   }, [available, fallbackChunks, refresh]);
 
@@ -113,7 +96,6 @@ export function TripDownloadCard({
 
   const start = useCallback(async () => {
     setError(null);
-    runErrored.current = false;
     // The package first: an offline start depends on it, tiles or not. A
     // package already saved keeps its route, so a resume downloads exactly
     // what it planned.
@@ -139,18 +121,13 @@ export function TripDownloadCard({
     }
     const chunks = chunksFor(pkg.route, tripKey, pkg.fromId, pkg.toId);
     setDownloading(true);
-    runActive.current = true;
     try {
       await startTripDownload(chunks, (message) => {
-        runErrored.current = true;
-        runActive.current = false;
         if (!mounted.current) return;
         setError(message);
         setDownloading(false);
       });
     } catch (err) {
-      runErrored.current = true;
-      runActive.current = false;
       setError(err instanceof Error ? err.message : 'Download could not start.');
       setDownloading(false);
     }
@@ -186,6 +163,16 @@ export function TripDownloadCard({
       ) : state.kind === 'ready' ? (
         <>
           <Text style={[styles.body, { color: colors.text }]}>Ready offline · {formatBytes(state.bytes)}</Text>
+          <Pressable onPress={remove} accessibilityRole="button" style={styles.link}>
+            <Text style={[styles.linkText, { color: colors.error }]}>Remove download</Text>
+          </Pressable>
+        </>
+      ) : state.kind === 'tiles-saved' ? (
+        <>
+          <Text style={[styles.body, { color: colors.text }]}>Trip and map tiles saved · {formatBytes(state.bytes)}</Text>
+          <Text style={[styles.note, { color: colors.textMuted }]}>
+            Eddy can’t yet confirm the map’s style and labels are saved too, so this isn’t marked Ready offline.
+          </Text>
           <Pressable onPress={remove} accessibilityRole="button" style={styles.link}>
             <Text style={[styles.linkText, { color: colors.error }]}>Remove download</Text>
           </Pressable>

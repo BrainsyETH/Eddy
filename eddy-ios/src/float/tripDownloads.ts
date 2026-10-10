@@ -94,6 +94,11 @@ export async function startTripDownload(chunks: readonly TripChunk[], onError: (
   for (const chunk of chunks) {
     const pack = existing.get(chunk.name);
     if (pack) {
+      // A pack found after a relaunch has no listener in this process;
+      // attach one first, or its errors would go unheard.
+      await manager.subscribe(chunk.name, () => {}, (_pack: unknown, error: { message?: string }) =>
+        onError(error?.message ?? 'Download stopped.'),
+      );
       await pack.resume();
       continue;
     }

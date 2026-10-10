@@ -137,21 +137,29 @@ export interface TripPackage {
   chunkNames: string[];
   savedAt: string;
   /**
-   * The style pack loaded without error during a run that completed the
-   * tiles. The SDK exposes no style-pack status to read back, so this is the
-   * strongest evidence available; ADR 0011 keeps a device proof on top of it.
+   * Positive evidence that the style pack (style, sprites, glyphs) is complete.
+   * @rnmapbox/maps 10.3.5 exposes NO style-pack status to JavaScript, and the
+   * absence of an error is not evidence, so nothing in this version sets it;
+   * see ADR 0011. It is the hook for a native check, and until one exists no
+   * trip is ever called Ready offline.
    */
   styleVerified: boolean;
 }
 
 export type TripReadiness =
   | TripDownloadState
+  /**
+   * Route package saved and every map tile chunk complete, but the style pack
+   * cannot be confirmed. Shown as saved, never as Ready offline.
+   */
+  | { kind: 'tiles-saved'; bytes: number }
   /** Downloaded for a map style this version no longer uses: download again. */
   | { kind: 'outdated'; bytes: number };
 
 /**
  * Ready offline only when the package is saved, matches the current style,
- * every one of its chunks is complete, and its style pack loaded cleanly.
+ * every one of its chunks is complete, and the style pack is positively
+ * confirmed complete (styleVerified).
  * Tiles with no package (a cleared or failed save) are never ready: resuming
  * writes the package again.
  */
@@ -169,6 +177,6 @@ export function tripReadiness(
   if (pkg.styleURL !== currentStyleURL) {
     return { kind: 'outdated', bytes: tiles.kind === 'none' ? 0 : tiles.bytes };
   }
-  if (tiles.kind === 'ready' && !pkg.styleVerified) return { kind: 'partial', fraction: 0.99, bytes: tiles.bytes };
+  if (tiles.kind === 'ready' && !pkg.styleVerified) return { kind: 'tiles-saved', bytes: tiles.bytes };
   return tiles;
 }
