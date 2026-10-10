@@ -4,7 +4,9 @@ import {
   assertSnapshotParameter,
   leapDayOfYear,
   leapDayOfYearForDate,
+  readSnapshotStatisticsForSites,
   seasonalBandEligible,
+  SNAPSHOT_LOOKUP_CHUNK,
 } from './percentile-snapshot';
 import { parseDailyStatisticsRdb, parseRdb } from '../flow-providers/usgs';
 import { calculateDischargePercentile } from './gauges';
@@ -187,4 +189,96 @@ test('stage percentiles are snapshotted but publish no band yet', () => {
   // deliberate edit in percentile-snapshot.ts, not a side effect of rows
   // arriving in the table.
   assert.equal(seasonalBandEligible({ parameterCode: '00065', yearsOfRecord: 31 }), false);
+});
+
+// ── reading the snapshot for a set of sites ──────────────────────
+// The national cron used to page the whole day with .range(), which timed out
+// on page five and silently left every later site ungraded. These pin the
+// replacement: point lookups by site id, chunked, with failures COUNTED.
+
+interface LookupCall {
+  filters: Record<string, unknown>;
+  siteIds: string[];
+}
+
+function stubClient(respond: (call: LookupCall) => { data: unknown[] | null; error: { message: string } | null }) {
+  const calls: LookupCall[] = [];
+  const client = {
+    from(table: string) {
+      assert.equal(table, 'usgs_daily_percentiles');
+      const call: LookupCall = { filters: {}, siteIds: [] };
+      const builder = {
+        select: () => builder,
+        eq: (column: string, value: unknown) => {
+          call.filters[column] = value;
+          return builder;
+        },
+        in: (column: string, values: string[]) => {
+          assert.equal(column, 'site_no');
+          call.siteIds = values;
+          calls.push(call);
+          return Promise.resolve(respond(call));
+        },
+      };
+      return builder;
+    },
+  };
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return { client: client as any, calls };
+}
+
+function statRow(siteNo: string) {
+  return {
+    site_no: siteNo,
+    p05: 1, p10: 2, p20: 3, p25: 4, p50: 5, p75: 6, p80: 7, p90: 8, p95: 9,
+    mean: 5, count_years: 40,
+  };
+}
+
+test('site statistics are looked up by site id, in URL-safe chunks, for one day', async () => {
+  const siteIds = Array.from({ length: SNAPSHOT_LOOKUP_CHUNK * 2 + 5 }, (_, i) => `0700${String(i).padStart(4, '0')}`);
+  const { client, calls } = stubClient((call) => ({ data: call.siteIds.map(statRow), error: null }));
+
+  const { stats, failedChunks } = await readSnapshotStatisticsForSites(client, siteIds, new Date(2026, 9, 10));
+
+  assert.equal(failedChunks, 0);
+  assert.equal(stats.size, siteIds.length);
+  assert.deepEqual(calls.map((call) => call.siteIds.length), [SNAPSHOT_LOOKUP_CHUNK, SNAPSHOT_LOOKUP_CHUNK, 5]);
+  for (const call of calls) {
+    assert.deepEqual(call.filters, { parameter_code: '00060', day_of_year: leapDayOfYear(10, 10) });
+  }
+  assert.equal(stats.get(siteIds[0])?.yearsOfRecord, 40);
+});
+
+test('a failed chunk is counted and the other chunks still grade', async () => {
+  // The old reader returned whatever it had on the first error, and nothing
+  // said so — a plausible "no comparison" for every site it never reached.
+  const siteIds = Array.from({ length: SNAPSHOT_LOOKUP_CHUNK + 1 }, (_, i) => `0600${String(i).padStart(4, '0')}`);
+  let n = 0;
+  const { client } = stubClient((call) =>
+    n++ === 0
+      ? { data: null, error: { message: 'canceling statement due to statement timeout' } }
+      : { data: call.siteIds.map(statRow), error: null },
+  );
+
+  const originalError = console.error;
+  console.error = () => {};
+  try {
+    const { stats, failedChunks } = await readSnapshotStatisticsForSites(client, siteIds);
+    assert.equal(failedChunks, 1);
+    assert.equal(stats.size, 1);
+    assert.ok(stats.has(siteIds[SNAPSHOT_LOOKUP_CHUNK]));
+  } finally {
+    console.error = originalError;
+  }
+});
+
+test('duplicate and empty site lists cost no extra requests', async () => {
+  const { client, calls } = stubClient((call) => ({ data: call.siteIds.map(statRow), error: null }));
+  const empty = await readSnapshotStatisticsForSites(client, []);
+  assert.equal(empty.stats.size, 0);
+  assert.equal(calls.length, 0);
+
+  await readSnapshotStatisticsForSites(client, ['07067000', '07067000']);
+  assert.deepEqual(calls.map((call) => call.siteIds), [['07067000']]);
 });

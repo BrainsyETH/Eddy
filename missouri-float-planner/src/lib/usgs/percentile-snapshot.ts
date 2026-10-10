@@ -182,48 +182,72 @@ export async function snapshotSite(
 const SNAPSHOT_COLUMNS = 'p05, p10, p20, p25, p50, p75, p80, p90, p95, mean, count_years';
 
 /**
- * Every site's statistics for one calendar day, as a Map keyed by site id.
+ * How many site ids go in one `.in()` lookup.
  *
- * The national readings cron grades ~14,000 sites in a pass, and
- * readSnapshotStatistics() is one round trip per site. This is one query for
- * the whole day instead — there is at most one row per site per day_of_year,
- * so "today's rows" IS the working set, and no site-id list has to be shipped
- * up in the request (a 14,000-element `.in()` would blow the URL length the
- * same way fetchLatestModern does).
- *
- * Paged explicitly because PostgREST caps a response at 1,000 rows by default,
- * and a silent truncation here would look exactly like "most gauges have no
- * historical data" — a wrong answer that reads as a plausible one.
+ * Small enough that the URL stays a few KB (USGS ids run 8–15 characters), and
+ * large enough that a national pass is ~70 round trips rather than 14,000.
  */
-export async function readAllSnapshotStatistics(
+export const SNAPSHOT_LOOKUP_CHUNK = 200;
+
+export interface SnapshotStatisticsBatch {
+  stats: Map<string, DailyStatistics>;
+  /**
+   * Lookups that errored. Reported rather than swallowed: a failed chunk
+   * leaves its sites ungraded, and ungraded renders as "no comparison", which
+   * is a plausible-looking answer. The caller must surface this count.
+   */
+  failedChunks: number;
+}
+
+/**
+ * The statistics for a known set of sites on one calendar day.
+ *
+ * ── WHY BY SITE, AND NOT "EVERY ROW FOR TODAY" ────────────────────────────
+ *
+ * This replaced readAllSnapshotStatistics, which paged through the whole day
+ * with `.order('site_no').range()`. The table's only index is its primary key,
+ * (site_no, parameter_code, day_of_year), so filtering on day_of_year cannot
+ * seek: every page walked the index from the first site, and OFFSET made each
+ * page longer than the last. Measured on production (Oct 2026, ~4.2M rows),
+ * page five took 10s against PostgREST's 8s statement timeout. The error path
+ * returned the partial map without complaint, so every site past roughly
+ * 0430xxxx — the whole of Missouri, and everything west of it — was graded
+ * null on every hourly run, and the national layer painted them all as "no
+ * comparison" while the per-site detail route graded them fine.
+ *
+ * site_no LEADS the key, so an `.in()` on it is a point lookup per site:
+ * measured at ~0.6s for 300 sites, cold. Chunked so the request URL stays
+ * short (see SNAPSHOT_LOOKUP_CHUNK).
+ */
+export async function readSnapshotStatisticsForSites(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   supabase: SupabaseClient<any>,
+  siteIds: readonly string[],
   date: Date = new Date(),
   parameterCode: SnapshotParameter = PARAM_DISCHARGE
-): Promise<Map<string, DailyStatistics>> {
-  const out = new Map<string, DailyStatistics>();
+): Promise<SnapshotStatisticsBatch> {
+  const stats = new Map<string, DailyStatistics>();
+  let failedChunks = 0;
   const dayOfYear = leapDayOfYearForDate(date);
-  if (dayOfYear === null) return out;
+  if (dayOfYear === null) return { stats, failedChunks };
 
-  const PAGE = 1000;
-  for (let from = 0; ; from += PAGE) {
+  const unique = [...new Set(siteIds)];
+  for (let i = 0; i < unique.length; i += SNAPSHOT_LOOKUP_CHUNK) {
+    const chunk = unique.slice(i, i + SNAPSHOT_LOOKUP_CHUNK);
     const { data, error } = await supabase
       .from('usgs_daily_percentiles')
       .select(`site_no, ${SNAPSHOT_COLUMNS}`)
       .eq('parameter_code', parameterCode)
       .eq('day_of_year', dayOfYear)
-      // Ordered because .range() over an unordered result is not stable
-      // pagination — windows can repeat and skip rows, which here would look
-      // like "most gauges have no historical data".
-      .order('site_no')
-      .range(from, from + PAGE - 1);
+      .in('site_no', chunk);
 
     if (error) {
+      failedChunks++;
       console.error('[percentiles] batch read failed:', error.message);
-      return out;
+      continue;
     }
     for (const row of data ?? []) {
-      out.set(row.site_no, {
+      stats.set(row.site_no, {
         siteId: row.site_no,
         parameterCode,
         month: date.getMonth() + 1,
@@ -241,10 +265,9 @@ export async function readAllSnapshotStatistics(
         yearsOfRecord: row.count_years,
       });
     }
-    if (!data || data.length < PAGE) break;
   }
 
-  return out;
+  return { stats, failedChunks };
 }
 
 /**
