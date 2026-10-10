@@ -26,12 +26,18 @@
 // Every threshold below is a starting hypothesis for simulation and river
 // testing (#1448), not a product requirement.
 
+import { REACQUIRE_AFTER_MS } from './river-progress';
+
 const MS_PER_HOUR = 3_600_000;
 
 /** Moving time the pace is averaged over. #1448 suggests testing 15-30 min. */
 export const PACE_WINDOW_MS = 20 * 60_000;
-/** Longest interval between fixes still treated as observed movement. */
-export const MAX_GAP_MS = 3 * 60_000;
+/**
+ * Longest interval between fixes still treated as observed movement. The same
+ * limit after which the tracker reacquires, so the two never disagree about
+ * what counts as a gap.
+ */
+export const MAX_GAP_MS = REACQUIRE_AFTER_MS;
 /** Staying within this distance (about 50 m) ... */
 export const STOP_RADIUS_MILES = 0.03;
 /** ... for at least this long ... */

@@ -109,6 +109,38 @@ test('a line drawn from the mouth upstream still measures downstream progress', 
   assert.ok(Math.abs(progress.fraction - 0.5) < 1e-6);
 });
 
+test('every calibration span is checked, not just the total', () => {
+  // Correct total, but a middle pair claims three miles across 100 m. End to
+  // end it is invisible; span by span it is not. The bad anchor is left out
+  // and its neighbours calibrate that stretch instead.
+  const total = 10_000 / MILE;
+  const result = buildRouteIndex(STRAIGHT, [
+    { lngLat: at(0, 0), riverMile: 0 },
+    { lngLat: at(5_000, 0), riverMile: 3.1 },
+    { lngLat: at(5_100, 0), riverMile: 6.1 },
+    { lngLat: at(10_000, 0), riverMile: total },
+  ]);
+  assert.ok(result.ok);
+  assert.equal(result.index.excludedAnchors, 1);
+  const across = riverMileAt(result.index, 5_100) - riverMileAt(result.index, 5_000);
+  assert.ok(Math.abs(across - 100 / MILE) < 0.01, `100 m read as ${across.toFixed(2)} mi`);
+  // A middle anchor whose mile runs backwards is left out the same way.
+  const backwards = buildRouteIndex(STRAIGHT, [
+    { lngLat: at(0, 0), riverMile: 0 },
+    { lngLat: at(5_000, 0), riverMile: -1 },
+    { lngLat: at(10_000, 0), riverMile: total },
+  ]);
+  assert.ok(backwards.ok && backwards.index.excludedAnchors === 1);
+  // Close access points still calibrate: 150 m reading as 0.12 mi is within
+  // the absolute allowance for placing anchors on a simplified line.
+  const close = buildRouteIndex(STRAIGHT, [
+    { lngLat: at(0, 0), riverMile: 0 },
+    { lngLat: at(150, 0), riverMile: 0.12 },
+    { lngLat: at(10_000, 0), riverMile: total },
+  ]);
+  assert.ok(close.ok && close.index.excludedAnchors === 0);
+});
+
 test('data that cannot support progress is refused, never corrected', () => {
   const ends: CalibrationAnchor[] = [
     { lngLat: at(0, 0), riverMile: 0 },
@@ -123,7 +155,7 @@ test('data that cannot support progress is refused, never corrected', () => {
     { ok: false, reason: 'anchor-off-line' },
   );
   assert.deepEqual(
-    buildRouteIndex(STRAIGHT, [ends[0], { lngLat: at(5_000, 0), riverMile: 5 }, { ...ends[1], riverMile: 4 }]),
+    buildRouteIndex(STRAIGHT, [{ ...ends[0], riverMile: 5 }, { ...ends[1], riverMile: 5 }]),
     { ok: false, reason: 'anchors-out-of-order' },
   );
   // The War Eagle case: the line is about twice the miles it claims.
@@ -249,10 +281,14 @@ test('fixes that scatter do not add up to a relocation', () => {
 test('a wrong oxbow match recovers once fixes clearly favour the other arm', () => {
   // Committed on the first arm, but the paddler is really on the second,
   // 120 m away and still inside the off-route tolerance. Fixes squarely on
-  // the second arm must win, over several fixes rather than one.
+  // the second arm must win, over several fixes rather than one, and while
+  // they are being confirmed neither arm is presented as live.
   const fixes = [0, 1, 2].map((k) => fix(490 - k * 10, 120, T0 + (k + 1) * 10_000));
   const { results, state } = feed(OXBOW_INDEX, committedAt(500), fixes);
-  assert.ok(results[0].kind === 'matched' && (matchedAt(results[0]) ?? 0) < 1_000, 'one fix does not switch arms');
+  assert.deepEqual(results.slice(0, CONFIRM_FIXES - 1), [
+    { kind: 'uncertain', reason: 'relocating' },
+    { kind: 'uncertain', reason: 'relocating' },
+  ]);
   const switched = results[CONFIRM_FIXES - 1];
   assert.ok(switched.kind === 'matched' && !switched.continuous);
   // x = 470 on the second arm is 1120 + 530 m along the line.
@@ -260,9 +296,29 @@ test('a wrong oxbow match recovers once fixes clearly favour the other arm', () 
   assert.ok(state.committed && state.committed.lineMeters > 1_120);
 });
 
-test('after a long gap the window has grown, so a plausible move stays continuous', () => {
-  const { results } = feed(OXBOW_INDEX, committedAt(500), [fix(100, 120, T0 + 15 * 60_000)]);
-  assert.ok(results[0].kind === 'matched' && results[0].continuous);
+test('while a competing position is confirmed, the last reliable one is held as it was', () => {
+  // Advancing the questionable match, or its timestamp, would present it as
+  // live and feed it to pace.
+  const before = committedAt(500);
+  const step = trackFix(OXBOW_INDEX, before, fix(490, 120, T0 + 10_000), T0 + 10_000);
+  assert.deepEqual(step.result, { kind: 'uncertain', reason: 'relocating' });
+  assert.deepEqual(step.state.committed, before.committed);
+});
+
+test('after a long gap, tracking reacquires with confirmation instead of trusting the wide window', () => {
+  // Fifteen minutes without a fix lets the window span the whole oxbow. One
+  // ambiguous fix used to move progress 1.1 km downstream as continuous.
+  const gapEnd = T0 + 15 * 60_000;
+  const first = trackFix(OXBOW_INDEX, committedAt(500), fix(500, 65, gapEnd), gapEnd);
+  assert.deepEqual(first.result, { kind: 'uncertain', reason: 'reacquiring' });
+  assert.deepEqual(first.state.committed, { lineMeters: 500, timestamp: T0 });
+  // Consistent fixes after the gap resume tracking, marked discontinuous so
+  // the gap is not read as pace.
+  const fixes = [0, 1, 2].map((k) => fix(500 + k * 20, 5, gapEnd + k * 10_000));
+  const { results } = feed(OXBOW_INDEX, committedAt(500), fixes);
+  assert.deepEqual(results.slice(0, 2).map((r) => r.kind), ['uncertain', 'uncertain']);
+  assert.ok(results[2].kind === 'matched' && !results[2].continuous);
+  assert.ok(Math.abs((matchedAt(results[2]) ?? 0) - 540) < 1);
 });
 
 test('backwards movement is followed, not clamped to the furthest point reached', () => {

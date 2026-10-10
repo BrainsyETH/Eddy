@@ -35,13 +35,14 @@
 // time times a generous top speed), and the projection itself is clamped to
 // that window, so even a single long segment cannot carry a match out of it.
 //
-// Anything else — the first position of a session, a relocation after a GPS
-// gap, or a better fit on the other arm of an oxbow while the current match
-// sits on the wrong one — becomes a CANDIDATE. A candidate is committed only
-// after several consecutive fixes agree with it and move plausibly along it.
-// Until then the tracker reports itself uncertain and the committed position,
-// with its progress and pace, does not move. No map-matching framework, just
-// a window and a confirmation count.
+// Anything else becomes a CANDIDATE: the first position of a session, any
+// position after a gap long enough that the window no longer means much, and a
+// clearly better fit outside the window (the other arm of an oxbow while the
+// current match sits on the wrong one). A candidate is committed only after
+// several consecutive fixes agree with it and move plausibly along it. While
+// one is pending the tracker reports itself uncertain, and the last reliable
+// position, with its timestamp, progress and pace, does not move. No
+// map-matching framework, just a window and a confirmation count.
 
 import type { LngLat } from './route-preview';
 
@@ -60,6 +61,25 @@ const ANCHOR_TOLERANCE_M = 500;
 
 /** Mirrors MAX_LENGTH_DISAGREEMENT in the web app's river-geometry check. */
 export const MAX_LENGTH_DISAGREEMENT = 0.1;
+
+/**
+ * Absolute allowance on one calibration span, about 80 m. Short spans between
+ * close access points cannot meet a percentage alone: placing each anchor on
+ * the simplified line is itself uncertain by tens of metres.
+ */
+const SPAN_SLACK_MILES = 0.05;
+
+/** Does one span's line length agree with its river miles, in the right direction? */
+function spanAgrees(
+  a: { lineMeters: number; riverMile: number },
+  b: { lineMeters: number; riverMile: number },
+  direction: number,
+): boolean {
+  const riverMiles = (b.riverMile - a.riverMile) * direction;
+  const lineMiles = (b.lineMeters - a.lineMeters) / METERS_PER_MILE;
+  if (!(riverMiles > 0) || !(lineMiles > 0)) return false;
+  return Math.abs(lineMiles - riverMiles) <= Math.max(MAX_LENGTH_DISAGREEMENT * riverMiles, SPAN_SLACK_MILES);
+}
 
 /**
  * Base distance a fix may sit from the line and still count as on the river.
@@ -87,6 +107,16 @@ const WINDOW_SLACK_M = 100;
 
 /** Consecutive agreeing fixes needed to commit a position outside the window. */
 export const CONFIRM_FIXES = 3;
+
+/**
+ * After this long without a committed position, the reachable window is no
+ * longer trusted: fifteen minutes at the top speed spans most oxbows, so an
+ * ambiguous fix could otherwise move progress a kilometre with no evidence.
+ * Tracking reacquires instead, with the same confirmation as a relocation.
+ * float-pace.ts uses the same limit for the longest interval it treats as
+ * observed movement.
+ */
+export const REACQUIRE_AFTER_MS = 3 * 60_000;
 
 /**
  * How much better a candidate must fit than the committed track before it
@@ -119,6 +149,11 @@ export interface RouteIndex {
   readonly anchors: ReadonlyArray<{ lineMeters: number; riverMile: number }>;
   /** cos(reference latitude), for projecting fixes the same way. */
   readonly cosLat: number;
+  /**
+   * Intermediate anchors left out because their span disagreed with their
+   * neighbours. Not an error for the paddler; worth reporting as data to fix.
+   */
+  readonly excludedAnchors: number;
 }
 
 export type RouteRefusal =
@@ -224,25 +259,29 @@ export function buildRouteIndex(
   }
   placed.sort((a, b) => a.lineMeters - b.lineMeters);
 
-  // River miles must run one way along the line, strictly: two anchors at the
-  // same place with different miles, or a mile that doubles back, means the
-  // data cannot say where anything is.
-  const direction = Math.sign(placed[placed.length - 1].riverMile - placed[0].riverMile);
-  if (direction === 0) return { ok: false, reason: 'anchors-out-of-order' };
-  for (let i = 1; i < placed.length; i += 1) {
-    const step = placed[i].riverMile - placed[i - 1].riverMile;
-    if (Math.sign(step) !== direction || placed[i].lineMeters <= placed[i - 1].lineMeters) {
-      return { ok: false, reason: 'anchors-out-of-order' };
-    }
-  }
+  // The outer anchors are the stretch's own ends, so they must agree with
+  // each other: miles running one way, and within the length tolerance.
+  const first = placed[0];
+  const last = placed[placed.length - 1];
+  const direction = Math.sign(last.riverMile - first.riverMile);
+  if (direction === 0 || last.lineMeters <= first.lineMeters) return { ok: false, reason: 'anchors-out-of-order' };
+  if (!spanAgrees(first, last, direction)) return { ok: false, reason: 'length-disagreement' };
 
-  const lineMiles = (placed[placed.length - 1].lineMeters - placed[0].lineMeters) / METERS_PER_MILE;
-  const riverMiles = Math.abs(placed[placed.length - 1].riverMile - placed[0].riverMile);
-  if (Math.abs(lineMiles - riverMiles) / riverMiles > MAX_LENGTH_DISAGREEMENT) {
-    return { ok: false, reason: 'length-disagreement' };
+  // Every span calibration actually uses must agree too, not just the total:
+  // one bad intermediate mile can be invisible end to end and still turn 100 m
+  // into three miles. An intermediate anchor that disagrees with the last kept
+  // one is left out rather than refusing the stretch; its neighbours then
+  // calibrate that part of the line between them.
+  const kept = [first];
+  for (const anchor of placed.slice(1, -1)) {
+    if (spanAgrees(kept[kept.length - 1], anchor, direction) && spanAgrees(anchor, last, direction)) kept.push(anchor);
   }
+  kept.push(last);
 
-  return { ok: true, index: { xs, ys, cumulative, lengthMeters, anchors: placed, cosLat } };
+  return {
+    ok: true,
+    index: { xs, ys, cumulative, lengthMeters, anchors: kept, cosLat, excludedAnchors: placed.length - kept.length },
+  };
 }
 
 /**
@@ -306,10 +345,12 @@ export type TrackResult =
     }
   /**
    * On the river, but where is not settled yet. 'acquiring' before the first
-   * committed position; 'relocating' while a candidate elsewhere is being
-   * confirmed. Show the last committed values as not live.
+   * committed position; 'reacquiring' after a gap longer than
+   * REACQUIRE_AFTER_MS; 'relocating' while a competing position is being
+   * confirmed. The committed position and its timestamp are held: show the
+   * last reliable values as not live, and add nothing to pace.
    */
-  | { kind: 'uncertain'; reason: 'acquiring' | 'relocating' }
+  | { kind: 'uncertain'; reason: 'acquiring' | 'reacquiring' | 'relocating' }
   | { kind: 'off-route'; offsetMeters: number }
   | { kind: 'rejected'; reason: 'inaccurate' | 'stale' | 'out-of-order' };
 
@@ -342,25 +383,28 @@ export function trackFix(
   const [x, y] = project(index.cosLat, fix.lngLat);
   const tolerance = OFF_ROUTE_BASE_M + accuracy;
   const { committed } = state;
+  // A committed position too old to bound the search is kept for display,
+  // but matching starts over from confirmation.
+  const tracking = committed != null && fix.timestamp - committed.timestamp <= REACQUIRE_AFTER_MS;
 
   // Within reach of the committed position: the clamped window guarantees the
   // displacement is physically plausible.
   let local: Projection | null = null;
-  if (committed) {
-    const room = reach(committed.timestamp, fix.timestamp, accuracy);
-    local = nearest(index, x, y, committed.lineMeters - room, committed.lineMeters + room);
+  if (tracking) {
+    const room = reach(committed!.timestamp, fix.timestamp, accuracy);
+    local = nearest(index, x, y, committed!.lineMeters - room, committed!.lineMeters + room);
   }
   const localFits = local != null && local.offsetMeters <= tolerance;
 
-  // Anywhere on the line. It challenges the committed track only from outside
-  // the window, and only when it fits clearly better than the local match.
+  // Anywhere on the line. While tracking, it challenges only from outside the
+  // window and only when it fits clearly better than the local match.
   const global = nearest(index, x, y);
   const challenges =
     global != null &&
     global.offsetMeters <= tolerance &&
-    (!committed ||
-      Math.abs(global.lineMeters - committed.lineMeters) > reach(committed.timestamp, fix.timestamp, accuracy)) &&
-    (!localFits || global.offsetMeters + CHALLENGE_MARGIN_M < local!.offsetMeters);
+    (!tracking ||
+      (Math.abs(global.lineMeters - committed!.lineMeters) > reach(committed!.timestamp, fix.timestamp, accuracy) &&
+        (!localFits || global.offsetMeters + CHALLENGE_MARGIN_M < local!.offsetMeters)));
 
   let candidate: TrackState['candidate'] = null;
   if (challenges) {
@@ -386,9 +430,18 @@ export function trackFix(
     };
   }
 
+  // A credible competitor is being confirmed: neither position is reliable
+  // yet, so hold the committed one, timestamp included, and say so.
+  if (candidate) {
+    return {
+      state: { ...base, committed, candidate },
+      result: { kind: 'uncertain', reason: !committed ? 'acquiring' : tracking ? 'relocating' : 'reacquiring' },
+    };
+  }
+
   if (localFits) {
     return {
-      state: { ...base, committed: { lineMeters: local!.lineMeters, timestamp: fix.timestamp }, candidate },
+      state: { ...base, committed: { lineMeters: local!.lineMeters, timestamp: fix.timestamp }, candidate: null },
       result: {
         kind: 'matched',
         lineMeters: local!.lineMeters,
@@ -396,13 +449,6 @@ export function trackFix(
         offsetMeters: local!.offsetMeters,
         continuous: true,
       },
-    };
-  }
-
-  if (candidate) {
-    return {
-      state: { ...base, committed, candidate },
-      result: { kind: 'uncertain', reason: committed ? 'relocating' : 'acquiring' },
     };
   }
 
