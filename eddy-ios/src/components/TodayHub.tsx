@@ -1,6 +1,5 @@
 import type { TodayRiverFilter } from '@/lib/todayNavigation';
 import { TodayCamping } from '@/components/TodayCamping';
-import { BestRiverNotices } from '@/components/BestRiverNotices';
 import { TodayRiverConditions } from '@/components/TodayRiverConditions';
 import { takePreloadedToday } from '@/lib/firstRunPreload';
 import { radii } from '@/theme/layout';
@@ -344,7 +343,6 @@ function BestRiverCard({
         </View>
       ) : null}
       <View style={styles.bestFooter}>
-        <BestRiverNotices notices={recommendation.notices} riverName={recommendation.river.name} />
         <View style={styles.actions}>
           <Pressable
             onPress={onPlan}
