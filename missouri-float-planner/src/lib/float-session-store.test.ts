@@ -8,7 +8,7 @@ import test from 'node:test';
 import type { MapAccessPoint } from '@eddy/types';
 import type { LngLat } from '@eddy/geo';
 import { routeFromRiver, startSession, type FloatSession } from '../../../eddy-ios/src/lib/floatSession';
-import { STORAGE_KEY, createFloatSessionStore, type SessionStorage } from '../../../eddy-ios/src/lib/floatSessionStoreCore';
+import { ENDED_KEY, STORAGE_KEY, createFloatSessionStore, type SessionStorage } from '../../../eddy-ios/src/lib/floatSessionStoreCore';
 
 const MILE = 1609.344;
 const COS = Math.cos((37 * Math.PI) / 180);
@@ -34,9 +34,10 @@ function newSession(id = 's1'): FloatSession {
 
 function fakeDisk() {
   const data = new Map<string, string>();
-  const disk: SessionStorage & { failWrites: boolean; data: Map<string, string> } = {
+  const disk: SessionStorage & { failWrites: boolean; failRemoves: boolean; data: Map<string, string> } = {
     data,
     failWrites: false,
+    failRemoves: false,
     async getItem(key) {
       return data.get(key) ?? null;
     },
@@ -45,7 +46,7 @@ function fakeDisk() {
       data.set(key, value);
     },
     async removeItem(key) {
-      if (disk.failWrites) throw new Error('disk full');
+      if (disk.failWrites || disk.failRemoves) throw new Error('disk full');
       data.delete(key);
     },
   };
@@ -108,4 +109,51 @@ test('a failed background save is retried, not forgotten', async () => {
   await store.flush();
   const saved = JSON.parse(disk.data.get(STORAGE_KEY)!) as FloatSession;
   assert.ok(saved.last != null, 'the change made before the failed write reached disk on retry');
+});
+
+test('two starts at once cannot both win', async () => {
+  // Both used to pass the "nothing active" check while awaiting the disk,
+  // and the second replaced the first.
+  const disk = fakeDisk();
+  const store = createFloatSessionStore(disk, quiet);
+  const [first, second] = await Promise.all([store.begin(newSession('a')), store.begin(newSession('b'))]);
+  assert.deepEqual([first, second].sort(), ['already-active', 'started']);
+  const winner = first === 'started' ? 'a' : 'b';
+  assert.equal(store.get()?.id, winner);
+  assert.equal((JSON.parse(disk.data.get(STORAGE_KEY)!) as FloatSession).id, winner, 'disk and memory agree');
+});
+
+test('a float whose stored copy could not be removed stays ended, and removal is retried', async () => {
+  const disk = fakeDisk();
+  const store = createFloatSessionStore(disk, quiet);
+  await store.begin(newSession());
+  disk.failRemoves = true;
+  assert.equal(await store.end(), false, 'the failure is reported, not hidden');
+  assert.equal(store.get(), null, 'tracking stops regardless');
+  assert.equal(disk.data.get(ENDED_KEY), 's1', 'marked as ended');
+  disk.failRemoves = false;
+  assert.equal(await store.retryPendingEnd(), true);
+  assert.equal(disk.data.has(STORAGE_KEY), false);
+  assert.equal(disk.data.has(ENDED_KEY), false);
+});
+
+test('an ended float does not come back after a relaunch, even if removal never succeeded', async () => {
+  const disk = fakeDisk();
+  const store = createFloatSessionStore(disk, quiet);
+  await store.begin(newSession());
+  disk.failRemoves = true;
+  await store.end();
+  disk.failRemoves = false;
+  const relaunched = createFloatSessionStore(disk, quiet);
+  await relaunched.ensureLoaded();
+  assert.equal(relaunched.get(), null);
+  assert.equal(disk.data.has(STORAGE_KEY), false, 'the leftover copy is cleared on the way');
+  // A different float started later is not mistaken for the ended one.
+  assert.equal(await relaunched.begin(newSession('s2')), 'started');
+  const again = createFloatSessionStore(disk, quiet);
+  await again.ensureLoaded();
+  assert.equal(again.get()?.id, 's2');
+  // A retry left over from the ended float must not delete the new one.
+  await store.retryPendingEnd();
+  assert.equal((JSON.parse(disk.data.get(STORAGE_KEY)!) as FloatSession).id, 's2');
 });

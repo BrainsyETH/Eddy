@@ -94,11 +94,20 @@ function MapboxFloatMap({
         : { centerCoordinate: takeOut, zoomLevel: 12 },
   );
 
-  // Follow the confirmed position while following is on.
+  // Follow the confirmed position while following is on. The first position
+  // also zooms in to tracking level (a float starts fitted to the whole river,
+  // before GPS); after that only the centre moves, so a zoom the paddler chose
+  // is kept, Recenter included.
   const lng = position?.[0];
   const lat = position?.[1];
+  const zoomedToTrack = useRef(position != null);
   useEffect(() => {
     if (!following || lng == null || lat == null) return;
+    if (!zoomedToTrack.current) {
+      zoomedToTrack.current = true;
+      camera.current?.setCamera({ centerCoordinate: [lng, lat], zoomLevel: FOLLOW_ZOOM, animationDuration: 800 });
+      return;
+    }
     camera.current?.setCamera({ centerCoordinate: [lng, lat], animationDuration: 600 });
   }, [following, lng, lat]);
 

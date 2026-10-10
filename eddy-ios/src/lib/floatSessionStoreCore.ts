@@ -13,6 +13,13 @@
 //   The session is read from the store, never from the result of the first
 //   load. A load that found nothing at launch must not hide a float started
 //   since; the background task asks for the CURRENT session every time.
+//
+//   One start at a time: a start reserves itself before it awaits the disk,
+//   so two quick taps cannot both pass the "nothing active" check.
+//
+//   An ended float stays ended. Tracking stops at once; if the stored copy
+//   cannot be removed, removal is retried, and an "ended" marker under its own
+//   key makes the next launch discard the copy instead of resuming it.
 
 import type { PositionFix, RouteIndex } from '@eddy/geo';
 import { applyFix, indexRoute, restoreSession, type FloatSession } from './floatSession';
@@ -26,7 +33,10 @@ export interface SessionStorage {
 export type BeginResult = 'started' | 'already-active' | 'storage-failed';
 
 export const STORAGE_KEY = 'eddy.floatSession.v1';
+/** The id of a float that was ended but whose stored copy may remain. */
+export const ENDED_KEY = 'eddy.floatSession.ended.v1';
 const WRITE_THROTTLE_MS = 15_000;
+const END_RETRY_MS = 15_000;
 
 export function createFloatSessionStore(storage: SessionStorage, warn: (message: string, detail?: unknown) => void) {
   let session: FloatSession | null = null;
@@ -35,6 +45,11 @@ export function createFloatSessionStore(storage: SessionStorage, warn: (message:
   let dirty = false;
   let lastWriteAt = 0;
   let writeTimer: ReturnType<typeof setTimeout> | null = null;
+  /** A start in flight, holding the slot until it lands or fails. */
+  let starting = false;
+  /** An ended float whose stored copy still needs removing. */
+  let pendingEndId: string | null = null;
+  let endTimer: ReturnType<typeof setTimeout> | null = null;
   const listeners = new Set<() => void>();
 
   const notify = () => {
@@ -89,6 +104,12 @@ export function createFloatSessionStore(storage: SessionStorage, warn: (message:
         try {
           const restored = restoreSession(await storage.getItem(STORAGE_KEY));
           if (!restored || session) return;
+          // Ended last time, but the stored copy outlived it: finish ending.
+          if ((await storage.getItem(ENDED_KEY)) === restored.id) {
+            await storage.removeItem(STORAGE_KEY);
+            await storage.removeItem(ENDED_KEY);
+            return;
+          }
           const built = indexRoute(restored.route);
           if (!built.ok) {
             // Calibration rules changed, or the data is corrupt: it cannot
@@ -117,19 +138,27 @@ export function createFloatSessionStore(storage: SessionStorage, warn: (message:
     /** Start a float: written to disk first, published only once it is there. */
     async begin(next: FloatSession): Promise<BeginResult> {
       await this.ensureLoaded();
-      if (session) return 'already-active';
-      const built = indexRoute(next.route);
-      if (!built.ok) return 'storage-failed';
+      // Checked and reserved with no await in between.
+      if (session || starting) return 'already-active';
+      starting = true;
       try {
-        await storage.setItem(STORAGE_KEY, JSON.stringify(next));
-      } catch (error) {
-        warn('could not save a new float session', error);
-        return 'storage-failed';
+        const built = indexRoute(next.route);
+        if (!built.ok) return 'storage-failed';
+        try {
+          await storage.setItem(STORAGE_KEY, JSON.stringify(next));
+        } catch (error) {
+          warn('could not save a new float session', error);
+          return 'storage-failed';
+        }
+        // The new float now occupies the key an unfinished end was clearing.
+        pendingEndId = null;
+        lastWriteAt = Date.now();
+        dirty = false;
+        publish(next, built.index);
+        return 'started';
+      } finally {
+        starting = false;
       }
-      lastWriteAt = Date.now();
-      dirty = false;
-      publish(next, built.index);
-      return 'started';
     },
 
     /** Feed GPS fixes, in time order, from the screen or a background task. */
@@ -153,15 +182,42 @@ export function createFloatSessionStore(storage: SessionStorage, warn: (message:
       if (dirty && Date.now() - lastWriteAt >= minIntervalMs) await this.flush();
     },
 
-    /** End the float. Resolves false if the stored copy could not be removed. */
+    /**
+     * End the float. Tracking stops at once. Resolves false if the stored copy
+     * could not be removed yet; removal is then retried until it succeeds.
+     */
     async end(): Promise<boolean> {
       clearTimer();
+      const endedId = session?.id ?? null;
       publish(null, null);
+      dirty = false;
+      if (await this.retryPendingEnd(endedId)) return true;
+      // Best effort: if even this cannot be written, the retries still run.
+      if (endedId) await storage.setItem(ENDED_KEY, endedId).catch(() => {});
+      return false;
+    },
+
+    /** Try again to remove an ended float's stored copy. True once it is gone. */
+    async retryPendingEnd(endedId: string | null = pendingEndId): Promise<boolean> {
+      if (endTimer) {
+        clearTimeout(endTimer);
+        endTimer = null;
+      }
       try {
-        await writeNow();
+        // Remove only the float that was ended: a newer one may have been
+        // started into the same key since.
+        const stored = restoreSession(await storage.getItem(STORAGE_KEY));
+        if (stored && (stored.id === endedId || endedId == null)) await storage.removeItem(STORAGE_KEY);
+        await storage.removeItem(ENDED_KEY).catch(() => {});
+        pendingEndId = null;
         return true;
       } catch (error) {
-        warn('could not remove the float session', error);
+        warn('could not remove the ended float session; will retry', error);
+        pendingEndId = endedId;
+        endTimer = setTimeout(() => {
+          endTimer = null;
+          if (pendingEndId && !session) void this.retryPendingEnd();
+        }, END_RETRY_MS);
         return false;
       }
     },

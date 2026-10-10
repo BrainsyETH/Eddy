@@ -89,7 +89,16 @@ export default function FloatModeScreen() {
           text: view.arrived ? 'Finish' : 'End float',
           style: view.arrived ? 'default' : 'destructive',
           onPress: () => {
-            void endFloat().then(() => router.replace('/float-home'));
+            void endFloat().then((cleared) => {
+              // Tracking has stopped either way; say so if storage lagged.
+              if (!cleared) {
+                Alert.alert(
+                  'Float ended',
+                  'Eddy couldn’t clear it from your phone’s storage yet and will keep trying. It won’t resume.',
+                );
+              }
+              router.replace('/float-home');
+            });
           },
         },
       ],
