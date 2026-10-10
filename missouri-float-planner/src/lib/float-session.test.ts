@@ -281,6 +281,22 @@ test('an access point calibration left out can be neither offered nor used as a 
   );
 });
 
+test('an access point set back from the river leaves the river usable but is never an end', () => {
+  // Echo Bluff on the Current: a kilometre from the line, with a plausible
+  // mile. The river still starts; that access point cannot be put-in or take-out.
+  const access = [
+    ...ACCESS,
+    { ...point('echo-bluff', 6_000, 20 + 6_000 * MILES_PER_M), coordinates: { lng: at(6_000)[0], lat: at(6_000, 1_000)[1] } },
+  ];
+  const result = routeFromRiver(RIVER, access, null);
+  assert.ok(result.ok);
+  assert.ok(!takeOutChoices(result.route, result.index, null).some((a) => a.id === 'echo-bluff'));
+  assert.deepEqual(
+    startSession({ id: 'e1', kind: 'quick', route: result.route, index: result.index, takeOutId: 'echo-bluff', now: T0 }),
+    { ok: false, reason: 'endpoint-unreliable' },
+  );
+});
+
 test('after a relaunch nothing reads as live until fresh fixes confirm a position', () => {
   const { route, index } = prepared();
   const started = startSession({ id: 'r1', kind: 'saved', route, index, putInId: 'akers', takeOutId: 'round-spring', now: T0 });

@@ -139,6 +139,27 @@ test('every calibration span is checked, not just the total', () => {
   assert.ok(close.ok && close.index.excludedAnchors === 0);
 });
 
+test('one bad access point cannot refuse a river the others agree on', () => {
+  const mile = (x: number) => x / MILE;
+  const good: CalibrationAnchor[] = [
+    { lngLat: at(1_000, 0), riverMile: mile(1_000) },
+    { lngLat: at(5_000, 0), riverMile: mile(5_000) },
+    { lngLat: at(8_000, 0), riverMile: mile(8_000) },
+  ];
+  // A park entrance a kilometre from the water (the Current's Echo Bluff, the
+  // Buffalo's Buffalo City) is left out, not fatal.
+  const offLine = buildRouteIndex(STRAIGHT, [...good, { lngLat: at(7_000, 1_000), riverMile: mile(7_000) }]);
+  assert.ok(offLine.ok && offLine.index.excludedAnchors === 1);
+  // The OUTERMOST access point's mile is wrong (Huzzah's Dillard Mill,
+  // Courtois's Brazil bridge): the agreeing majority calibrates, it is left out.
+  const badFirst = buildRouteIndex(STRAIGHT, [{ lngLat: at(0, 0), riverMile: 0.5 }, ...good]);
+  assert.ok(badFirst.ok && badFirst.index.excludedAnchors === 1);
+  assert.ok(Math.abs(riverMileAt(badFirst.index, 5_000) - mile(5_000)) < 0.01);
+  const badLast = buildRouteIndex(STRAIGHT, [...good, { lngLat: at(10_000, 0), riverMile: mile(8_000) + 4 }]);
+  assert.ok(badLast.ok && badLast.index.excludedAnchors === 1);
+  assert.ok(Math.abs(riverMileAt(badLast.index, 5_000) - mile(5_000)) < 0.01);
+});
+
 test('data that cannot support progress is refused, never corrected', () => {
   const ends: CalibrationAnchor[] = [
     { lngLat: at(0, 0), riverMile: 0 },

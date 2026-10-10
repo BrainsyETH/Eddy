@@ -32,6 +32,7 @@ import type { MapAccessPoint, RiverDetail } from '@eddy/types';
 import {
   INITIAL_TRACK,
   buildRouteIndex,
+  ANCHOR_TOLERANCE_M,
   locateOnRoute,
   estimateRemaining,
   milesBetween,
@@ -140,14 +141,18 @@ export type RouteProblem =
 const ENDPOINT_TOLERANCE_MILES = 0.05;
 
 /**
- * Can this access point end (or begin) a float? Its river mile must agree with
- * the calibrated line at its own position. An access point that calibration
- * left out for disagreeing with its neighbours fails this, and must not
- * become the take-out: its mile would put "arrived" miles from where it is.
+ * Can this access point end (or begin) a float? It must sit on the line, and
+ * its river mile must agree with the calibrated line at its own position. An
+ * access point that calibration left out fails this, and must not become the
+ * take-out: its mile would put "arrived" miles from where it is.
  */
 export function endpointIsReliable(index: RouteIndex, anchor: RouteAnchor): boolean {
   const placed = locateOnRoute(index, anchor.lngLat);
-  return placed != null && Math.abs(placed.riverMile - anchor.riverMile) <= ENDPOINT_TOLERANCE_MILES;
+  return (
+    placed != null &&
+    placed.offsetMeters <= ANCHOR_TOLERANCE_M &&
+    Math.abs(placed.riverMile - anchor.riverMile) <= ENDPOINT_TOLERANCE_MILES
+  );
 }
 
 /** Shape cached river data into a route, or say exactly why it cannot be used. */

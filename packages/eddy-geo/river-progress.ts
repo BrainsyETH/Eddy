@@ -23,10 +23,12 @@
 // linear referencing road and river mile systems use, and it needs no
 // correction factor and no finer geometry.
 //
-// A stretch whose line and miles disagree by more than 10% end to end, the
-// tolerance the web app's geometry check already uses, is refused rather than
-// "corrected". So is one whose anchors do not sit on the line or run out of
-// order. Callers show an unsupported-route state; they never invent progress.
+// Each span between neighbouring anchors must agree with its miles within 10%,
+// the tolerance the web app's geometry check already uses. Access points that
+// sit off the line or disagree with the rest are left out of calibration (and
+// cannot be a float's ends); a river is refused only when fewer than two agree.
+// Nothing is "corrected": callers show an unsupported-route state rather than
+// invent progress.
 //
 // ── Why matching keeps a little memory ──────────────────────────────────────
 //
@@ -57,7 +59,7 @@ const METERS_PER_DEGREE = 111_320;
  * Access points are snapped to the channel on import; this allows for the
  * unsnapped ones and for the simplification, and no more.
  */
-const ANCHOR_TOLERANCE_M = 500;
+export const ANCHOR_TOLERANCE_M = 500;
 
 /** Mirrors MAX_LENGTH_DISAGREEMENT in the web app's river-geometry check. */
 export const MAX_LENGTH_DISAGREEMENT = 0.1;
@@ -148,8 +150,8 @@ export interface RouteIndex {
   /** cos(reference latitude), for projecting fixes the same way. */
   readonly cosLat: number;
   /**
-   * Intermediate anchors left out because their span disagreed with their
-   * neighbours. Not an error for the paddler; worth reporting as data to fix.
+   * Anchors left out of calibration: off the line, or disagreeing with the
+   * others. Not an error for the paddler; worth reporting as data to fix.
    */
   readonly excludedAnchors: number;
 }
@@ -247,39 +249,56 @@ export function buildRouteIndex(
   const usable = anchors.filter((anchor) => Number.isFinite(anchor.riverMile));
   if (usable.length < 2) return { ok: false, reason: 'too-few-anchors' };
 
+  // An access point set back from the water (a park entrance, a lake ramp
+  // past the line's end) cannot calibrate it. It is left out, not allowed to
+  // refuse the whole river; endpointIsReliable keeps it from being an end.
   const geometry = { xs, ys, cumulative };
   const placed: { lineMeters: number; riverMile: number }[] = [];
   for (const anchor of usable) {
     const [x, y] = project(cosLat, anchor.lngLat);
     const hit = nearest(geometry, x, y);
-    if (!hit || hit.offsetMeters > ANCHOR_TOLERANCE_M) return { ok: false, reason: 'anchor-off-line' };
-    placed.push({ lineMeters: hit.lineMeters, riverMile: anchor.riverMile });
+    if (hit && hit.offsetMeters <= ANCHOR_TOLERANCE_M) placed.push({ lineMeters: hit.lineMeters, riverMile: anchor.riverMile });
   }
+  if (placed.length < 2) return { ok: false, reason: 'anchor-off-line' };
   placed.sort((a, b) => a.lineMeters - b.lineMeters);
 
-  // The outer anchors are the stretch's own ends, so they must agree with
-  // each other: miles running one way, and within the length tolerance.
-  const first = placed[0];
-  const last = placed[placed.length - 1];
-  const direction = Math.sign(last.riverMile - first.riverMile);
-  if (direction === 0 || last.lineMeters <= first.lineMeters) return { ok: false, reason: 'anchors-out-of-order' };
-  if (!spanAgrees(first, last, direction)) return { ok: false, reason: 'length-disagreement' };
-
-  // Every span calibration actually uses must agree too, not just the total:
-  // one bad intermediate mile can be invisible end to end and still turn 100 m
-  // into three miles. An intermediate anchor that disagrees with the last kept
-  // one is left out rather than refusing the stretch; its neighbours then
-  // calibrate that part of the line between them.
-  const kept = [first];
-  for (const anchor of placed.slice(1, -1)) {
-    if (spanAgrees(kept[kept.length - 1], anchor, direction) && spanAgrees(anchor, last, direction)) kept.push(anchor);
+  // Every span calibration uses must agree with its miles, not just the total:
+  // one bad mile can be invisible end to end and still turn 100 m into three
+  // miles. Calibration uses the largest set of access points whose spans all
+  // agree, in either direction along the line; the rest are left out, and
+  // their neighbours calibrate that part of the line. No single access point,
+  // the outermost included, can refuse a river the others agree on.
+  const kept = [consistentChain(placed, 1), consistentChain(placed, -1)].reduce((a, b) => (b.length > a.length ? b : a));
+  if (kept.length < 2) {
+    const flat = placed.every((anchor) => anchor.riverMile === placed[0].riverMile);
+    return { ok: false, reason: flat ? 'anchors-out-of-order' : 'length-disagreement' };
   }
-  kept.push(last);
 
   return {
     ok: true,
-    index: { xs, ys, cumulative, lengthMeters, anchors: kept, cosLat, excludedAnchors: placed.length - kept.length },
+    index: { xs, ys, cumulative, lengthMeters, anchors: kept, cosLat, excludedAnchors: usable.length - kept.length },
   };
+}
+
+/**
+ * The longest run of anchors, in line order, in which every neighbouring pair
+ * agrees (spanAgrees) with miles running in `direction`. A river has a few
+ * dozen access points at most, so the quadratic search is nothing.
+ */
+function consistentChain<T extends { lineMeters: number; riverMile: number }>(placed: readonly T[], direction: number): T[] {
+  const length = placed.map(() => 1);
+  const previous = placed.map(() => -1);
+  for (let j = 1; j < placed.length; j += 1) {
+    for (let i = 0; i < j; i += 1) {
+      if (length[i] + 1 > length[j] && spanAgrees(placed[i], placed[j], direction)) {
+        length[j] = length[i] + 1;
+        previous[j] = i;
+      }
+    }
+  }
+  const chain: T[] = [];
+  for (let at = length.indexOf(Math.max(...length)); at >= 0; at = previous[at]) chain.unshift(placed[at]);
+  return chain;
 }
 
 /**
