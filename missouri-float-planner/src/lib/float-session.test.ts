@@ -255,46 +255,41 @@ test('the status line says when a position is not live', () => {
   assert.match(statusCopy(viewSession(session, later), later), /Last position 7 min ago/);
 });
 
-test('an access point calibration left out can be neither offered nor used as a take-out', () => {
-  // A middle access point whose river mile disagrees with its neighbours is
-  // left out of calibration. Its own mile would say "2.4 miles left" while
-  // standing at it, so it must not become the take-out.
+test('every endpoint is usable; one calibration left out is measured where it sits', () => {
+  // A middle access point whose published mile is wrong by miles (the
+  // Niangua's Williams Ford) is left out of calibration. It is still a
+  // put-in and a take-out; its distance comes from where it actually is, so
+  // standing at it reads as arrived rather than "8 miles left".
   const access = [
     point('akers', 0, 20),
-    point('bad', 5_000, 20 + 5_000 * MILES_PER_M + 2.4),
+    point('bad', 5_000, 20 + 5_000 * MILES_PER_M + 8),
     point('round-spring', 10_000, 20 + 10_000 * MILES_PER_M),
   ];
   const result = routeFromRiver(RIVER, access, null);
   assert.ok(result.ok);
-  assert.ok(!takeOutChoices(result.route, result.index, null).some((a) => a.id === 'bad'));
-  assert.deepEqual(
-    startSession({ id: 'b1', kind: 'quick', route: result.route, index: result.index, takeOutId: 'bad', now: T0 }),
-    { ok: false, reason: 'endpoint-unreliable' },
-  );
-  assert.deepEqual(
-    startSession({ id: 'b2', kind: 'saved', route: result.route, index: result.index, putInId: 'bad', takeOutId: 'round-spring', now: T0 }),
-    { ok: false, reason: 'endpoint-unreliable' },
-  );
-  assert.equal(
-    startSession({ id: 'b3', kind: 'saved', route: result.route, index: result.index, putInId: 'akers', takeOutId: 'round-spring', now: T0 }).ok,
-    true,
-  );
+  assert.equal(result.index.excludedAnchors, 1);
+  assert.ok(takeOutChoices(result.route, result.index, null).some((a) => a.id === 'bad'));
+  const asTakeOut = startSession({ id: 'b1', kind: 'saved', route: result.route, index: result.index, putInId: 'akers', takeOutId: 'bad', now: T0 });
+  assert.ok(asTakeOut.ok);
+  assert.ok(Math.abs(asTakeOut.session.takeOut.riverMile - (20 + 5_000 * MILES_PER_M)) < 0.01);
+  const asPutIn = startSession({ id: 'b2', kind: 'saved', route: result.route, index: result.index, putInId: 'bad', takeOutId: 'round-spring', now: T0 });
+  assert.ok(asPutIn.ok);
+  assert.ok(Math.abs((asPutIn.session.startMile ?? 0) - (20 + 5_000 * MILES_PER_M)) < 0.01);
+  // An end that calibrates keeps its own published mile exactly.
+  assert.equal(asPutIn.session.takeOut.riverMile, 20 + 10_000 * MILES_PER_M);
 });
 
-test('an access point set back from the river leaves the river usable but is never an end', () => {
-  // Echo Bluff on the Current: a kilometre from the line, with a plausible
-  // mile. The river still starts; that access point cannot be put-in or take-out.
+test('a launch set back from the river is still an end', () => {
+  // Buffalo City: the traditional Buffalo take-out, a kilometre off the line
+  // on the White below the confluence.
   const access = [
     ...ACCESS,
-    { ...point('echo-bluff', 6_000, 20 + 6_000 * MILES_PER_M), coordinates: { lng: at(6_000)[0], lat: at(6_000, 1_000)[1] } },
+    { ...point('buffalo-city', 6_000, 20 + 6_000 * MILES_PER_M), coordinates: { lng: at(6_000)[0], lat: at(6_000, 1_000)[1] } },
   ];
   const result = routeFromRiver(RIVER, access, null);
   assert.ok(result.ok);
-  assert.ok(!takeOutChoices(result.route, result.index, null).some((a) => a.id === 'echo-bluff'));
-  assert.deepEqual(
-    startSession({ id: 'e1', kind: 'quick', route: result.route, index: result.index, takeOutId: 'echo-bluff', now: T0 }),
-    { ok: false, reason: 'endpoint-unreliable' },
-  );
+  assert.ok(takeOutChoices(result.route, result.index, null).some((a) => a.id === 'buffalo-city'));
+  assert.equal(startSession({ id: 'e1', kind: 'quick', route: result.route, index: result.index, takeOutId: 'buffalo-city', now: T0 }).ok, true);
 });
 
 test('after a relaunch nothing reads as live until fresh fixes confirm a position', () => {

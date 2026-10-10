@@ -10,25 +10,28 @@
 //
 // ── Why river miles are calibrated at access points ─────────────────────────
 //
-// The stored river lines were simplified on import (about 50 m tolerance), which
-// cuts the inside of bends: the line runs roughly 2-4% shorter than the channel
-// (see src/lib/trust/checks/river-geometry.ts in the web app). The planner's
-// distance does not use the line at all; it subtracts the hand-entered river
-// miles of the two access points (get_float_segment).
+// The planner's distance does not use the line at all; it subtracts the two
+// access points' river miles (get_float_segment). Those miles are often
+// EDITORIAL, the published mile index a river is described by, which follows
+// the real meanders and so runs longer than the simplified stored line, by up
+// to about 1.5x per segment (see src/lib/geo/mile-index.ts in the web app and
+// migration 20260914175427).
 //
 // So the line is used for ORDER and PLACE, and the access points' river miles
 // are used for DISTANCE. Between two neighbouring anchors, distance along the
 // line is scaled to the miles between them. That restores the bends, absorbs
-// the shortfall, and makes the total match the planner exactly. It is the same
-// linear referencing road and river mile systems use, and it needs no
-// correction factor and no finer geometry.
+// any difference between the two kinds of mile, and makes the total match the
+// planner exactly. It is the same linear referencing road and river mile
+// systems use, and it needs no correction factor and no finer geometry.
 //
-// Each span between neighbouring anchors must agree with its miles within 10%,
-// the tolerance the web app's geometry check already uses. Access points that
-// sit off the line or disagree with the rest are left out of calibration (and
-// cannot be a float's ends); a river is refused only when fewer than two agree.
-// Nothing is "corrected": callers show an unsupported-route state rather than
-// invent progress.
+// A span is plausible by the same rule the web app's data validator applies
+// (mileage_segment_implausible): quoted miles between 0.5x and 2x the line, or
+// within half a mile of it, which covers one-decimal rounding on short spans
+// and still rejects "100 m is three miles". Calibration uses the largest set
+// of access points whose spans are all plausible; the rest are left out and
+// their neighbours calibrate that part of the line. A river is refused only
+// when fewer than two agree. Nothing is "corrected": callers show an
+// unsupported-route state rather than invent progress.
 //
 // ── Why matching keeps a little memory ──────────────────────────────────────
 //
@@ -55,21 +58,23 @@ const METERS_PER_MILE = 1609.344;
 const METERS_PER_DEGREE = 111_320;
 
 /**
- * How far an access point may sit from the line and still calibrate it.
- * Access points are snapped to the channel on import; this allows for the
- * unsnapped ones and for the simplification, and no more.
+ * How far an access point may sit from the line and still calibrate it. The
+ * data audit's line for "not on this river" (docs/river-access-data-audit-
+ * 2026-09-14.md); recorded off-channel launches such as Buffalo City (1 km, on
+ * the White below the confluence) sit inside it.
  */
-export const ANCHOR_TOLERANCE_M = 500;
+export const ANCHOR_TOLERANCE_M = 1_500;
 
-/** Mirrors MAX_LENGTH_DISAGREEMENT in the web app's river-geometry check. */
-export const MAX_LENGTH_DISAGREEMENT = 0.1;
+/** Quoted miles per line mile a span may have; mirrors mileage_segment_implausible. */
+const MIN_MILE_RATIO = 0.5;
+const MAX_MILE_RATIO = 2;
 
 /**
- * Absolute allowance on one calibration span, about 80 m. Short spans between
- * close access points cannot meet a percentage alone: placing each anchor on
- * the simplified line is itself uncertain by tens of metres.
+ * Absolute allowance on one span. Published miles are rounded to a tenth, and
+ * placing each access point on the simplified line is uncertain by tens of
+ * metres, so on a short span the ratio alone means nothing.
  */
-const SPAN_SLACK_MILES = 0.05;
+const SPAN_SLACK_MILES = 0.5;
 
 /** Does one span's line length agree with its river miles, in the right direction? */
 function spanAgrees(
@@ -80,7 +85,8 @@ function spanAgrees(
   const riverMiles = (b.riverMile - a.riverMile) * direction;
   const lineMiles = (b.lineMeters - a.lineMeters) / METERS_PER_MILE;
   if (!(riverMiles > 0) || !(lineMiles > 0)) return false;
-  return Math.abs(lineMiles - riverMiles) <= Math.max(MAX_LENGTH_DISAGREEMENT * riverMiles, SPAN_SLACK_MILES);
+  const ratio = riverMiles / lineMiles;
+  return (ratio >= MIN_MILE_RATIO && ratio <= MAX_MILE_RATIO) || Math.abs(riverMiles - lineMiles) <= SPAN_SLACK_MILES;
 }
 
 /**
@@ -151,7 +157,8 @@ export interface RouteIndex {
   readonly cosLat: number;
   /**
    * Anchors left out of calibration: off the line, or disagreeing with the
-   * others. Not an error for the paddler; worth reporting as data to fix.
+   * others. Not an error for the paddler (an end's mile then comes from its
+   * position); worth reporting as data to fix.
    */
   readonly excludedAnchors: number;
 }
@@ -249,9 +256,9 @@ export function buildRouteIndex(
   const usable = anchors.filter((anchor) => Number.isFinite(anchor.riverMile));
   if (usable.length < 2) return { ok: false, reason: 'too-few-anchors' };
 
-  // An access point set back from the water (a park entrance, a lake ramp
-  // past the line's end) cannot calibrate it. It is left out, not allowed to
-  // refuse the whole river; endpointIsReliable keeps it from being an end.
+  // An access point too far from the line to be on this river (a bad
+  // coordinate) cannot calibrate it. It is left out, not allowed to refuse
+  // the whole river.
   const geometry = { xs, ys, cumulative };
   const placed: { lineMeters: number; riverMile: number }[] = [];
   for (const anchor of usable) {

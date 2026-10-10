@@ -32,7 +32,6 @@ import type { MapAccessPoint, RiverDetail } from '@eddy/types';
 import {
   INITIAL_TRACK,
   buildRouteIndex,
-  ANCHOR_TOLERANCE_M,
   locateOnRoute,
   estimateRemaining,
   milesBetween,
@@ -126,33 +125,19 @@ export interface FloatSession {
   awaitingFix?: boolean;
 }
 
-export type RouteProblem =
-  | RouteRefusal
-  | 'no-river-data'
-  | 'no-take-out'
-  | 'take-out-upstream'
-  /** A chosen end's river mile disagrees with where calibration places it. */
-  | 'endpoint-unreliable';
+export type RouteProblem = RouteRefusal | 'no-river-data' | 'no-take-out' | 'take-out-upstream';
 
 /**
- * How far an end's own river mile may sit from the calibrated mile at its
- * place on the line. Matches the per-span allowance in river-progress.ts.
+ * The mile a float's end is measured at: the calibrated mile where that access
+ * point actually sits on the line. Every float endpoint is usable. For one that
+ * calibrates the line this IS its own river mile; for one calibration left out
+ * (its published mile disagrees with its neighbours), its position decides,
+ * because that is where the paddler actually lands. Endpoints are vetted
+ * server-side for distance from the channel (access_point_offline, with
+ * recorded exceptions such as Buffalo City), so the position is trusted.
  */
-const ENDPOINT_TOLERANCE_MILES = 0.05;
-
-/**
- * Can this access point end (or begin) a float? It must sit on the line, and
- * its river mile must agree with the calibrated line at its own position. An
- * access point that calibration left out fails this, and must not become the
- * take-out: its mile would put "arrived" miles from where it is.
- */
-export function endpointIsReliable(index: RouteIndex, anchor: RouteAnchor): boolean {
-  const placed = locateOnRoute(index, anchor.lngLat);
-  return (
-    placed != null &&
-    placed.offsetMeters <= ANCHOR_TOLERANCE_M &&
-    Math.abs(placed.riverMile - anchor.riverMile) <= ENDPOINT_TOLERANCE_MILES
-  );
+export function endMile(index: RouteIndex, anchor: RouteAnchor): number {
+  return locateOnRoute(index, anchor.lngLat)?.riverMile ?? anchor.riverMile;
 }
 
 /** Shape cached river data into a route, or say exactly why it cannot be used. */
@@ -197,13 +182,15 @@ export function indexRoute(route: FloatRoute): { ok: true; index: RouteIndex } |
  */
 export function takeOutChoices(route: FloatRoute, index: RouteIndex, currentMile: number | null): RouteAnchor[] {
   return route.anchors
-    .filter((anchor) => anchor.endpoint && (currentMile == null || anchor.riverMile > currentMile))
-    .filter((anchor) => endpointIsReliable(index, anchor))
-    .sort((a, b) => a.riverMile - b.riverMile);
+    .filter((anchor) => anchor.endpoint)
+    .map((anchor) => ({ anchor, mile: endMile(index, anchor) }))
+    .filter(({ mile }) => currentMile == null || mile > currentMile)
+    .sort((a, b) => a.mile - b.mile)
+    .map(({ anchor }) => anchor);
 }
 
-function end(anchor: RouteAnchor): FloatEnd {
-  return { id: anchor.id, name: anchor.name, riverMile: anchor.riverMile };
+function end(index: RouteIndex, anchor: RouteAnchor): FloatEnd {
+  return { id: anchor.id, name: anchor.name, riverMile: endMile(index, anchor) };
 }
 
 export function startSession(input: {
@@ -211,7 +198,7 @@ export function startSession(input: {
   kind: 'saved' | 'quick';
   shortCode?: string | null;
   route: FloatRoute;
-  /** The calibrated index of `route`; the ends are checked against it. */
+  /** The calibrated index of `route`; the ends are measured on it. */
   index: RouteIndex;
   putInId?: string | null;
   takeOutId: string;
@@ -223,10 +210,9 @@ export function startSession(input: {
   const putIn = input.putInId ? input.route.anchors.find((anchor) => anchor.id === input.putInId) ?? null : null;
   if (input.kind === 'saved' && !putIn) return { ok: false, reason: 'no-river-data' };
   // Distance, progress, arrival and time left all hang off these two miles.
-  if (!endpointIsReliable(input.index, takeOut) || (putIn && !endpointIsReliable(input.index, putIn))) {
-    return { ok: false, reason: 'endpoint-unreliable' };
-  }
-  if (putIn && takeOut.riverMile <= putIn.riverMile) return { ok: false, reason: 'take-out-upstream' };
+  const takeOutEnd = end(input.index, takeOut);
+  const putInEnd = putIn ? end(input.index, putIn) : null;
+  if (putInEnd && takeOutEnd.riverMile <= putInEnd.riverMile) return { ok: false, reason: 'take-out-upstream' };
   return {
     ok: true,
     session: {
@@ -235,11 +221,11 @@ export function startSession(input: {
       kind: input.kind,
       shortCode: input.shortCode ?? null,
       route: input.route,
-      putIn: putIn ? end(putIn) : null,
-      takeOut: end(takeOut),
+      putIn: putInEnd,
+      takeOut: takeOutEnd,
       plannerMph: input.plannerMph != null && input.plannerMph > 0 ? input.plannerMph : null,
       startedAt: input.now,
-      startMile: putIn ? putIn.riverMile : null,
+      startMile: putInEnd ? putInEnd.riverMile : null,
       track: INITIAL_TRACK,
       samples: [],
       last: null,
