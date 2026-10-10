@@ -203,10 +203,36 @@ export function coldWaterNote(
 
 /* ── The official forecast, in words ─────────────────────────────────────── */
 
+/**
+ * The forecast points still ahead of `now`.
+ *
+ * The history route trims the forecast to what lies ahead of the last
+ * OBSERVATION, which is not the same as ahead of now: a station that stopped
+ * reporting hours ago, or a response served from cache, still carries points
+ * that have already happened. Every forecast sentence reads through this
+ * first, so none can say "forecast to reach" about a time already gone.
+ */
+export function upcomingForecast<T extends { timestamp: string }>(
+  forecast: readonly T[] | null | undefined,
+  now: number = Date.now(),
+): T[] {
+  if (!forecast?.length) return [];
+  return forecast.filter((point) => {
+    const t = Date.parse(point.timestamp);
+    return Number.isFinite(t) && t > now;
+  });
+}
+
 export interface ForecastCrest {
   valueFt: number;
   /** ISO timestamp of the highest forecast point. */
   at: string;
+  /**
+   * 'crest' when the forecast comes back down after its highest point;
+   * 'rising' when that point is where the forecast ENDS — the river is still
+   * climbing when the NWS stops forecasting, so it is not a crest at all.
+   */
+  kind: 'crest' | 'rising';
 }
 
 /**
@@ -227,17 +253,24 @@ export function forecastCrest(
   currentFt: number | null | undefined,
   now: number = Date.now(),
 ): ForecastCrest | null {
-  if (!forecast?.length || currentFt == null || !Number.isFinite(currentFt)) return null;
-  let best: { valueFt: number; at: string } | null = null;
-  for (const point of forecast) {
-    const t = Date.parse(point.timestamp);
-    if (!Number.isFinite(t) || t <= now) continue;
-    const value = point.gaugeHeightFt;
-    if (value == null || !Number.isFinite(value) || value <= -999) continue;
-    if (!best || value > best.valueFt) best = { valueFt: value, at: point.timestamp };
+  if (currentFt == null || !Number.isFinite(currentFt)) return null;
+  const points = upcomingForecast(forecast, now).filter(
+    (point): point is { timestamp: string; gaugeHeightFt: number } =>
+      point.gaugeHeightFt != null && Number.isFinite(point.gaugeHeightFt) && point.gaugeHeightFt > -999,
+  );
+  if (!points.length) return null;
+
+  let peakIndex = 0;
+  for (let i = 1; i < points.length; i++) {
+    if (points[i].gaugeHeightFt > points[peakIndex].gaugeHeightFt) peakIndex = i;
   }
-  if (!best || best.valueFt - currentFt < PEAK_MIN_RISE_FT) return null;
-  return best;
+  const peak = points[peakIndex];
+  if (peak.gaugeHeightFt - currentFt < PEAK_MIN_RISE_FT) return null;
+  // A crest needs the forecast to come back DOWN after it. A plateau held to
+  // the last point is not a decline either: the river is still up there when
+  // the forecast stops.
+  const declines = points.slice(peakIndex + 1).some((point) => point.gaugeHeightFt < peak.gaugeHeightFt);
+  return { valueFt: peak.gaugeHeightFt, at: peak.timestamp, kind: declines ? 'crest' : 'rising' };
 }
 
 /**
@@ -258,9 +291,15 @@ export function forecastDayLabel(iso: string, now: number = Date.now()): string 
   return new Intl.DateTimeFormat('en-US', { timeZone: 'America/Chicago', weekday: 'long' }).format(t);
 }
 
-/** "NWS forecast: crest near 14.20 ft Tuesday". */
+/**
+ * "NWS forecast: crest near 14.20 ft Tuesday", or, when the forecast ends
+ * still climbing, "NWS forecast: still rising, 14.20 ft by Tuesday".
+ */
 export function forecastCrestSentence(crest: ForecastCrest | null, now: number = Date.now()): string | null {
   if (!crest) return null;
   const day = forecastDayLabel(crest.at, now);
-  return `NWS forecast: crest near ${crest.valueFt.toFixed(2)} ft${day ? ` ${day}` : ''}`;
+  const value = `${crest.valueFt.toFixed(2)} ft`;
+  return crest.kind === 'crest'
+    ? `NWS forecast: crest near ${value}${day ? ` ${day}` : ''}`
+    : `NWS forecast: still rising, ${value}${day ? ` by ${day}` : ''}`;
 }

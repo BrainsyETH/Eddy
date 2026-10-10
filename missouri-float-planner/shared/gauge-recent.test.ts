@@ -10,7 +10,9 @@ import {
   recentPeak,
   recentPeakSentence,
   recentTrend,
+  upcomingForecast,
 } from './gauge-recent';
+import { historyHasData } from './chart-model';
 
 const NOW = Date.parse('2026-10-10T18:00:00Z');
 
@@ -156,4 +158,36 @@ test('forecast days are named in Central time', () => {
   // 04:30Z Sunday is still Saturday 23:30 in Chicago.
   assert.equal(forecastDayLabel('2026-10-11T04:30:00Z', NOW), 'today');
   assert.equal(forecastDayLabel('garbage', NOW), null);
+});
+
+/* ── review follow-ups ────────────────────────────────────────────────── */
+
+test('past forecast points are dropped before anything is said about them', () => {
+  // A stale station or a cached response can carry points the route kept
+  // because they were past the last OBSERVATION, not past now.
+  const points = [fc(-3, 9.0), fc(-1, 8.0), fc(2, 3.0), fc(20, 3.4)];
+  assert.deepEqual(upcomingForecast(points, NOW).map((p) => p.gaugeHeightFt), [3.0, 3.4]);
+  assert.deepEqual(upcomingForecast(null, NOW), []);
+  assert.deepEqual(upcomingForecast([{ timestamp: 'nope' }], NOW), []);
+});
+
+test('a forecast still climbing at its last point is a rise, not a crest', () => {
+  const rising = forecastCrest([fc(6, 3.0), fc(30, 3.8), fc(72, 4.6)], 2.5, NOW);
+  assert.ok(rising);
+  assert.equal(rising.kind, 'rising');
+  assert.equal(forecastCrestSentence(rising, NOW), 'NWS forecast: still rising, 4.60 ft by Tuesday');
+  // Held flat to the end is not a decline either.
+  assert.equal(forecastCrest([fc(6, 4.6), fc(30, 4.6)], 2.5, NOW)?.kind, 'rising');
+  // Coming back down after the high point is what makes it a crest.
+  assert.equal(forecastCrest([fc(6, 4.6), fc(30, 4.5)], 2.5, NOW)?.kind, 'crest');
+});
+
+test('a forecast-only history response counts as data', () => {
+  // The route ships forecast-only stations with readings: [], and the
+  // chart draws them; the hook was discarding them as "unavailable".
+  assert.equal(historyHasData({ readings: [], forecast: [{}] }), true);
+  assert.equal(historyHasData({ readings: [{}], forecast: [] }), true);
+  assert.equal(historyHasData({ readings: [] }), false);
+  assert.equal(historyHasData({ readings: [], forecast: null }), false);
+  assert.equal(historyHasData(null), false);
 });

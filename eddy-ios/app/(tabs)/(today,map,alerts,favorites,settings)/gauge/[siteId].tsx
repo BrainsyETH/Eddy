@@ -102,6 +102,7 @@ import {
   recentPeak,
   recentPeakSentence,
   recentTrend,
+  upcomingForecast,
 } from '@eddy/conditions/gauge-recent';
 import { floodAlertLine, floodAlertsToShow, isFloodWarning } from '@eddy/conditions/flood-alert-copy';
 import { FeedbackSheet } from '@/components/FeedbackSheet';
@@ -487,10 +488,11 @@ export default function GaugeDetailScreen() {
   // already draws it. Here it is said in words: folded into the safety sentence
   // ("Forecast to reach NWS minor flood stage Tuesday"), and as a crest line
   // when it rises without reaching a category.
-  const forecast =
-    recentHistory.matchesRequest && recentHistory.history?.forecast?.length
-      ? recentHistory.history.forecast
-      : null;
+  // Upcoming points only: the route trims to what lies past the last
+  // OBSERVATION, and a stale station or a cached response can still carry
+  // points that have already happened — which would let the safety line say
+  // "forecast to reach" about a time already gone.
+  const forecast = recentHistory.matchesRequest ? upcomingForecast(recentHistory.history?.forecast) : [];
   // FEET AGAINST FEET, always — gaugeHeightFt is the only value these
   // thresholds may be compared against. The five-state answer itself comes
   // from shared/safety-summary.ts, the same machine the website's summary
@@ -512,7 +514,7 @@ export default function GaugeDetailScreen() {
         }
       : null,
     currentFt: trustedStageFt,
-    forecast: forecast?.map((point) => ({ t: point.timestamp, gaugeHeightFt: point.gaugeHeightFt })) ?? null,
+    forecast: forecast.map((point) => ({ t: point.timestamp, gaugeHeightFt: point.gaugeHeightFt })),
   });
   const safetyDay = safety.kind === 'forecast' && safety.crossesAt ? forecastDayLabel(safety.crossesAt) : null;
   // A forecast that reaches a category is already the safety sentence; the

@@ -317,6 +317,21 @@ export function chartDomain(
 /** Limit the visible forecast horizon to the selected history span. Keep the
  * complete issuance for the data table/CSV; never shift a forecast value or
  * manufacture a connector from the latest observation. */
+/**
+ * Whether a history response has anything to show: observations OR forecast.
+ *
+ * The route stopped 404ing forecast-only stations and ships them with
+ * `readings: []` (NWPS forecasts points it has no telemetry at), and the iOS
+ * chart draws a forecast with nothing observed behind it. A client that
+ * treats an empty observed series as "no history" throws exactly those
+ * responses away before either can use them.
+ */
+export function historyHasData(
+  history: { readings: readonly unknown[]; forecast?: readonly unknown[] | null } | null | undefined,
+): boolean {
+  return !!history && (history.readings.length > 0 || (history.forecast?.length ?? 0) > 0);
+}
+
 export function chartForecastWindow(points: ChartPoint[], windowEnd: number, historyDays: number): ChartPoint[] {
   if (!Number.isFinite(windowEnd) || historyDays <= 0) return points;
   const end = windowEnd + Math.max(1, historyDays) * 86_400_000;
