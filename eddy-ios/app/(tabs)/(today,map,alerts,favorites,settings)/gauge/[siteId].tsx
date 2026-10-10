@@ -517,10 +517,13 @@ export default function GaugeDetailScreen() {
     forecast: forecast.map((point) => ({ t: point.timestamp, gaugeHeightFt: point.gaugeHeightFt })),
   });
   const safetyDay = safety.kind === 'forecast' && safety.crossesAt ? forecastDayLabel(safety.crossesAt) : null;
-  // A forecast that reaches a category is already the safety sentence; the
-  // crest line is for the rise that stays below one.
+  // Withheld only when the safety sentence already IS the forecast ("Forecast
+  // to reach NWS minor flood stage Tuesday"). A river already at a category
+  // still gets it: summarizeSafety reports the CURRENT category and stops, so
+  // "Currently at or above NWS action stage" would otherwise be all a reader
+  // saw while the Weather Service forecasts a crest several feet higher.
   const crestLine =
-    safety.kind === 'forecast' || safety.kind === 'current'
+    safety.kind === 'forecast'
       ? null
       : forecastCrestSentence(forecastCrest(forecast, trustedStageFt));
 
