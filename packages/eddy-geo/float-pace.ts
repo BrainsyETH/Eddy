@@ -1,69 +1,110 @@
 // packages/eddy-geo/float-pace.ts
-// Trip pace and the time-remaining estimate built on it.
+// Moving pace and the time-remaining estimate built on it.
 //
-// Pace is river miles travelled divided by time on the water since the float
-// started, stops included. Paddlers stop; their real pace already says how
-// much, and the planner's trip time already includes a stop allowance, so the
-// two compare like for like. Nothing here guesses which minutes were stops.
+// "Time left" means: if you keep going like this, this is how long. Stops are
+// not predicted; when you stop, time left holds and your arrival simply moves
+// later, the way a navigation app behaves when you pull over.
+//
+// Knowing whether you are moving uses one rule, like a fitness app's
+// auto-pause: progress is read in steps of about two minutes, and a step slower
+// than AUTO_PAUSE_MPH does not count toward pace. Two minutes, because GPS
+// wander over a shorter step would look like movement at canoe speeds.
 //
 // Miles are calibrated river miles (river-progress.ts), never GPS speed over
 // ground, so pace agrees with the miles-remaining figure on the same screen.
 
 const MS_PER_HOUR = 3_600_000;
 
-/** Time on the water before trip pace says anything. */
-export const MIN_ELAPSED_MS = 10 * 60_000;
-/** Distance travelled before trip pace says anything, about 160 m. */
-export const MIN_TRAVELLED_MILES = 0.1;
-/** Time on the water after which trip pace fully replaces the planner's. */
+/** Progress is judged over steps at least this long. */
+export const STEP_MS = 2 * 60_000;
+/** A step slower than this is paused. A starting value for river testing. */
+export const AUTO_PAUSE_MPH = 0.3;
+/** Pace averages roughly this much recent moving time. */
+export const PACE_WINDOW_MS = 15 * 60_000;
+/** Moving time needed before pace says anything. */
+export const MIN_MOVING_MS = 5 * 60_000;
+/** Moving time after which pace fully replaces the planner's estimate. */
 export const BLEND_FULL_MS = 30 * 60_000;
 
+/** One committed position from river-progress.ts's trackFix. */
+export interface PaceSample {
+  timestamp: number;
+  riverMile: number;
+  /** trackFix's `continuous`: false after a confirmed jump, which is not movement. */
+  continuous: boolean;
+}
+
+export interface MovingPace {
+  /** Miles per hour while moving. */
+  mph: number;
+  /** Moving time this session; drives the planner-to-pace blend. */
+  movingMs: number;
+}
+
 /**
- * Trip pace in miles per hour, stops included, or null until there is enough
- * to go on.
+ * Pace while moving, or null until there is enough moving time.
  *
- * `startedAt` and `travelledMiles` are measured from the session's start
- * anchor: the first committed position, which for a saved trip started
- * partway down may not be its put-in.
+ * `direction` is +1 when the take-out has the larger river mile, -1 otherwise.
  */
-export function tripPace(startedAt: number, now: number, travelledMiles: number): number | null {
-  const elapsed = now - startedAt;
-  if (elapsed < MIN_ELAPSED_MS || travelledMiles < MIN_TRAVELLED_MILES) return null;
-  return travelledMiles / (elapsed / MS_PER_HOUR);
+export function movingPace(samples: ReadonlyArray<PaceSample>, direction: 1 | -1): MovingPace | null {
+  // Cut the track into steps of at least STEP_MS. A confirmed jump starts a
+  // new step rather than counting as distance.
+  const steps: { ms: number; miles: number }[] = [];
+  let start = 0;
+  for (let i = 1; i < samples.length; i += 1) {
+    if (!samples[i].continuous) {
+      start = i;
+      continue;
+    }
+    const ms = samples[i].timestamp - samples[start].timestamp;
+    if (ms < STEP_MS) continue;
+    steps.push({ ms, miles: (samples[i].riverMile - samples[start].riverMile) * direction });
+    start = i;
+  }
+
+  const moving = steps.filter((step) => step.miles / (step.ms / MS_PER_HOUR) >= AUTO_PAUSE_MPH);
+  const movingMs = moving.reduce((sum, step) => sum + step.ms, 0);
+  if (movingMs < MIN_MOVING_MS) return null;
+
+  let windowMs = 0;
+  let windowMiles = 0;
+  for (let i = moving.length - 1; i >= 0 && windowMs < PACE_WINDOW_MS; i -= 1) {
+    windowMs += moving[i].ms;
+    windowMiles += moving[i].miles;
+  }
+  return { mph: windowMiles / (windowMs / MS_PER_HOUR), movingMs };
 }
 
 export type EstimateBasis = 'planner' | 'blended' | 'observed' | 'learning';
 
 export interface RemainingEstimate {
-  /** Remaining time on the water at the current trip pace, rounded to 5 minutes. */
+  /** Moving time left at the current pace, rounded to 5 minutes. */
   minutes: number | null;
   basis: EstimateBasis;
 }
 
 /**
- * Time left to the take-out.
+ * Moving time left to the take-out.
  *
- * `plannerMph` is the plan's distance over its headline trip time, which
- * includes stops, the same basis as trip pace. Pass null when there is no
+ * `plannerMph` is the planner's MOVING speed (FloatTimeResult.speedMph), not
+ * its headline time, which adds a stop allowance. Pass null when there is no
  * usable, current planner estimate; a quick or offline start then shows
- * "learning your pace" until trip pace exists.
+ * "learning your pace" until pace exists.
  *
- * The weight moves from planner to observed over the first half hour, so the
- * number shifts gradually rather than jumping when pace first appears.
+ * The weight moves from planner to observed pace over the first half hour of
+ * moving, so the number shifts gradually rather than jumping.
  */
 export function estimateRemaining(
   remainingMiles: number,
   plannerMph: number | null,
-  pace: number | null,
-  elapsedMs: number,
+  pace: MovingPace | null,
 ): RemainingEstimate {
   const planner = plannerMph != null && plannerMph > 0 ? plannerMph : null;
-  const observed = pace != null && pace > 0 ? pace : null;
-  if (!observed && !planner) return { minutes: null, basis: 'learning' };
+  if (!pace && !planner) return { minutes: null, basis: 'learning' };
 
-  const weight = observed ? Math.min(1, elapsedMs / BLEND_FULL_MS) : 0;
-  const mph = observed && planner ? (1 - weight) * planner + weight * observed : (observed ?? planner!);
-  const basis: EstimateBasis = !observed ? 'planner' : !planner || weight >= 1 ? 'observed' : 'blended';
+  const weight = pace ? Math.min(1, pace.movingMs / BLEND_FULL_MS) : 0;
+  const mph = pace && planner ? (1 - weight) * planner + weight * pace.mph : (pace?.mph ?? planner!);
+  const basis: EstimateBasis = !pace ? 'planner' : !planner || weight >= 1 ? 'observed' : 'blended';
 
   if (remainingMiles <= 0) return { minutes: 0, basis };
   return { minutes: Math.max(5, Math.round(((remainingMiles / mph) * 60) / 5) * 5), basis };
