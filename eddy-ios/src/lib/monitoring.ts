@@ -79,7 +79,9 @@ export type LogTag =
   // First run resolves once per launch and then cannot be observed again on
   // that device. Without a tag naming which pane it chose, "I was not prompted"
   // is a report with nothing behind it — see resetFirstRun in onboarding.ts.
-  | 'onboarding';
+  | 'onboarding'
+  // Float Mode's session store and location stream. Never carries a position.
+  | 'float';
 
 /**
  * Throttling state for warn(), for the life of the process.

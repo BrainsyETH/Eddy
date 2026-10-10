@@ -51,6 +51,7 @@ import { report, warn } from '@/lib/monitoring';
 import { sweepStaleVersions } from '@/lib/riverCache';
 import { sweepOfflinePacks } from '@/map/packSweep';
 import { seedOfflineBundle } from '@/api/client';
+import { FloatTracker } from '@/float/FloatTracker';
 
 /**
  * How long the splash may wait on the brand typeface before giving up.
@@ -256,6 +257,9 @@ export default function RootLayout() {
                         {/* Inside SessionProvider: registration needs a token, and the
                             backend only accepts one from a permanent account. */}
                         <PushProvider>
+                          {/* Renders nothing; feeds GPS to an active float
+                              whichever screen is showing. */}
+                          <FloatTracker />
                           <ThemedShell />
                         </PushProvider>
                       </AlertRulesProvider>

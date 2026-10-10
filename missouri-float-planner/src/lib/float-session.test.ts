@@ -10,6 +10,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import type { MapAccessPoint } from '@eddy/types';
 import {
+  MAX_SAMPLES,
   applyFix,
   restoreSession,
   routeFromRiver,
@@ -194,6 +195,19 @@ test('the stored history stays bounded on a long day', () => {
   const { route, index } = prepared();
   const started = startSession({ id: 's8', kind: 'saved', route, putInId: 'akers', takeOutId: 'round-spring', now: T0 });
   assert.ok(started.ok);
-  const session = float(started.session, index, 0, T0, 6 * 3600, 0.4);
-  assert.ok(session.samples.length <= 1_500);
+  const session = float(started.session, index, 0, T0, 8 * 3600, 0.3);
+  assert.ok(session.samples.length <= MAX_SAMPLES);
+});
+
+test('fixes every second keep one pace sample per ten seconds', () => {
+  const { route, index } = prepared();
+  const started = startSession({ id: 's9', kind: 'saved', route, putInId: 'akers', takeOutId: 'round-spring', now: T0 });
+  assert.ok(started.ok);
+  let session = started.session;
+  for (let s = 0; s <= 120; s += 1) {
+    session = applyFix(session, index, fix(500 + s, T0 + s * 1000), T0 + s * 1000);
+  }
+  // Acquisition takes the first fixes; after that, about one per 10 s.
+  assert.ok(session.samples.length >= 11 && session.samples.length <= 13, `kept ${session.samples.length}`);
+  assert.equal(viewSession(session, T0 + 120_000).status, 'live');
 });

@@ -50,11 +50,18 @@ import {
 export const SESSION_VERSION = 1;
 
 /**
- * Committed positions kept for pace. Pace needs the last fifteen minutes of
- * moving plus whatever stop is in progress; a day on the water at one fix
- * every few seconds would otherwise grow without bound in storage.
+ * Committed positions are kept for pace at most this often. The tracker still
+ * sees every fix; pace needs minutes of history, not seconds, and iOS can
+ * deliver a fix every second in the foreground.
  */
-const MAX_SAMPLES = 1_500;
+export const SAMPLE_SPACING_MS = 10_000;
+
+/**
+ * Committed positions kept for pace: about seven hours at SAMPLE_SPACING_MS.
+ * Pace needs fifteen minutes of moving plus any stop in progress, so even a
+ * long lunch leaves the moving history it reads from.
+ */
+export const MAX_SAMPLES = 2_500;
 
 /** A stored position older than this is not shown as current. */
 export const STALE_POSITION_MS = 2 * 60_000;
@@ -113,7 +120,7 @@ export type RouteProblem = RouteRefusal | 'no-river-data' | 'no-take-out' | 'tak
 /** Shape cached river data into a route, or say exactly why it cannot be used. */
 export function routeFromRiver(
   river: Pick<RiverDetail, 'slug' | 'name' | 'geometry'> | null | undefined,
-  accessPoints: ReadonlyArray<MapAccessPoint> | null | undefined,
+  accessPoints: readonly MapAccessPoint[] | null | undefined,
   fetchedAt: string | null,
 ): { ok: true; route: FloatRoute; index: RouteIndex } | { ok: false; reason: RouteProblem } {
   if (!river || !accessPoints) return { ok: false, reason: 'no-river-data' };
@@ -202,7 +209,12 @@ export function applyFix(session: FloatSession, index: RouteIndex, fix: Position
   const next: FloatSession = { ...session, track: step.state, last: { result: step.result, at: fix.timestamp } };
   if (step.result.kind === 'matched') {
     const sample: PaceSample = { timestamp: fix.timestamp, riverMile: step.result.riverMile, continuous: step.result.continuous };
-    next.samples = [...session.samples, sample].slice(-MAX_SAMPLES);
+    const previous = session.samples[session.samples.length - 1];
+    // A discontinuous sample is always kept: it marks a jump pace must not
+    // read as movement.
+    if (!previous || !sample.continuous || sample.timestamp - previous.timestamp >= SAMPLE_SPACING_MS) {
+      next.samples = [...session.samples, sample].slice(-MAX_SAMPLES);
+    }
     // A quick start begins where the paddler is first confirmed to be. If that
     // is already past the chosen take-out, the session reports it rather than
     // inventing a start.

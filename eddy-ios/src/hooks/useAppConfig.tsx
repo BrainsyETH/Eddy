@@ -10,6 +10,8 @@
 // Camping defaults off when config is unavailable.
 
 import { campingHeatmapEnabled, crowdSignalEnabled } from '@/lib/campingFeature';
+import { floatModeEnabled } from '@/lib/floatModeFeature';
+import { resolveEnvironment } from '@/lib/monitoring';
 import {
   createContext,
   useContext,
@@ -27,6 +29,7 @@ import { initialAppConfigState, receiveAppConfig } from '@/lib/appConfigState';
 const DEFAULT_FEATURES: AppFeatureFlags = {
   campingHeatmap: false,
   crowdSignal: false,
+  floatMode: false,
   push: true,
   planner: true,
   chat: false,
@@ -87,6 +90,7 @@ export function AppConfigProvider({ children }: { children: ReactNode }) {
         ...config?.features,
         campingHeatmap: campingHeatmapEnabled(config?.features),
         crowdSignal: crowdSignalEnabled(config?.features),
+        floatMode: floatModeEnabled(config?.features, resolveEnvironment()),
       },
       notice: config?.notice ?? null,
     };

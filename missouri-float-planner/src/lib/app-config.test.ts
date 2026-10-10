@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { compareVersions, isUpgradeRequired } from '../../../packages/eddy-types/index';
+import { floatModeEnabled } from '../../../eddy-ios/src/lib/floatModeFeature';
 
 // The version gate is the one lever that can lock a user out of the app
 // entirely, so its edge cases matter more than its happy path.
@@ -73,4 +74,14 @@ test('failed launch config stays fail-open for that session; an existing launch 
   assert.equal(receiveAppConfig(failedLaunch, config, '1.0.0').upgradeRequired, false);
   const gatedLaunch = receiveAppConfig(initialAppConfigState, config, '1.0.0');
   assert.equal(receiveAppConfig(gatedLaunch, null, '1.0.0').upgradeRequired, true);
+});
+
+test('Float Mode is on for internal builds and off in store builds until the server says so', () => {
+  assert.equal(floatModeEnabled(undefined, 'development'), true);
+  assert.equal(floatModeEnabled({ floatMode: false }, 'preview'), true);
+  assert.equal(floatModeEnabled(undefined, 'production'), false);
+  assert.equal(floatModeEnabled({ floatMode: false }, 'production'), false);
+  assert.equal(floatModeEnabled({ floatMode: 'true' }, 'production'), false, 'only a real true turns it on');
+  assert.equal(floatModeEnabled({ floatMode: true }, 'production'), true);
+  assert.equal(floatModeEnabled(null, 'unknown'), false);
 });
