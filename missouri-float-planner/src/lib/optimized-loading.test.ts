@@ -146,7 +146,7 @@ test('old camping data cannot trigger repeated offline timer refreshes', () => {
   assert.equal(changed('2026-10-05'), true);
 });
 test('hazards failure and retry are rendered outside all collapsible content', () => {
-  const source = ts.createSourceFile('river.tsx', readFileSync('../eddy-ios/app/(tabs)/(today,map,alerts,favorites,settings)/river/[slug].tsx', 'utf8'), ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+  const source = ts.createSourceFile('river.tsx', readFileSync('../eddy-ios/app/(tabs)/(today,map,floats,favorites,alerts)/river/[slug].tsx', 'utf8'), ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
   let found = false;
   function visit(node: ts.Node) {
     if (ts.isJsxSelfClosingElement(node) && node.tagName.getText(source) === 'UnavailableNote' && node.getText(source).includes('Hazards unavailable')) {

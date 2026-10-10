@@ -217,11 +217,11 @@ export function PaywallSheet({ visible, onClose, riverName, onPurchased }: Props
           // Their money moved and Apple has the receipt. The only true
           // statement is that it has not reached us yet, so say that and let
           // them go — never imply the purchase did not happen. "Pull down on
-          // Eddy's Settings tab", not "pull to refresh": this sheet opens over river
+          // Eddy's Settings screen", not "pull to refresh": this sheet opens over river
           // and gauge screens, where there is nothing to pull.
           Alert.alert(
             'Thanks — you are subscribed',
-            'It can take a moment to show up. If anything still looks locked in a minute, pull down on Eddy’s Settings tab.',
+            'It can take a moment to show up. If anything still looks locked in a minute, pull down on Eddy’s Settings screen.',
           );
         }
 

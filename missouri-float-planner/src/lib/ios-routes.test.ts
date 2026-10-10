@@ -201,7 +201,7 @@ test('cold shared detail links open Today and preserve parameters', () => {
   for (const input of ['https://eddy.guide/river/current?gauge=07067000#conditions', 'eddy://river/current?gauge=07067000#conditions', '/river/current?gauge=07067000#conditions']) {
     assert.equal(redirectSystemPath({ path: input, initial: true }), '/(tabs)/(today)/river/current?gauge=07067000#conditions');
   }
-  assert.equal(redirectSystemPath({ path: 'https://eddy.guide/plan/abc?view=details', initial: true }), '/(tabs)/(today)/float/abc?view=details');
+  assert.equal(redirectSystemPath({ path: 'https://eddy.guide/plan/abc?view=details', initial: true }), '/(tabs)/(floats)/float/abc?view=details');
 });
 
 test('plain cold launches open Today while explicit Map navigation remains available', () => {
@@ -218,7 +218,7 @@ test('plain cold launches open Today while explicit Map navigation remains avail
 
 test('warm detail links preserve the current tab and modal tasks remain global', () => {
   assert.equal(redirectSystemPath({ path: '/river/current', initial: false }), '/river/current');
-  for (const path of ['/reports', '/profile', '/alerts/new', '/alerts/configure?siteId=123', '/alerts/quiet-hours', '/alerts/rule-123?source=gauge', '/not-a-route']) {
+  for (const path of ['/reports', '/alerts/new', '/alerts/configure?siteId=123', '/alerts/quiet-hours', '/alerts/rule-123?source=gauge', '/not-a-route']) {
     assert.equal(redirectSystemPath({ path, initial: true }), path);
   }
   assert.equal(redirectSystemPath({ path: 'https://example.com/river/current', initial: true }), 'https://example.com/river/current');
@@ -227,9 +227,10 @@ test('warm detail links preserve the current tab and modal tasks remain global',
 
 test('cold links use the destination tab and retain query/hash while warm links stay unqualified', () => {
   for (const [path, owner] of [
-    ['/storage', 'settings'],
-    ['/floats', 'favorites'],
-    ['/favorite-floats', 'today'], ['/current-alerts', 'today'],
+    // Settings is a shared detail now, pushed from Today and Favorites.
+    ['/profile', 'today'], ['/storage', 'today'],
+    ['/floats', 'floats'], ['/favorite-floats', 'floats'], ['/float/abc', 'floats'],
+    ['/current-alerts', 'today'],
   ]) {
     const withParams = `${path}?source=link#details`;
     assert.equal(redirectSystemPath({ path: withParams, initial: true }), `/(tabs)/(${owner})${withParams}`);

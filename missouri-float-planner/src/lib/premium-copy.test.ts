@@ -176,7 +176,7 @@ test('both paywall surfaces read from the shared copy', () => {
   assert.match(paywall, /PREMIUM_BENEFITS/);
   assert.match(paywall, /premiumSubtitle\(/);
 
-  const gauge = readFileSync('../eddy-ios/app/(tabs)/(today,map,alerts,favorites,settings)/gauge/[siteId].tsx', 'utf8');
+  const gauge = readFileSync('../eddy-ios/app/(tabs)/(today,map,floats,favorites,alerts)/gauge/[siteId].tsx', 'utf8');
   assert.match(gauge, /from '@\/lib\/premiumCopy'/);
   assert.match(gauge, /premiumPitch\(/);
 });
@@ -186,8 +186,8 @@ test('no iOS surface still claims Premium includes alerts or offline maps', () =
   // that today's files are clean, it is that a reintroduction fails a test.
   const surfaces = [
     '../eddy-ios/src/components/PaywallSheet.tsx',
-    '../eddy-ios/app/(tabs)/(today,map,alerts,favorites,settings)/gauge/[siteId].tsx',
-    '../eddy-ios/app/(tabs)/(settings)/profile.tsx',
+    '../eddy-ios/app/(tabs)/(today,map,floats,favorites,alerts)/gauge/[siteId].tsx',
+    '../eddy-ios/app/(tabs)/(today,map,floats,favorites,alerts)/profile.tsx',
     '../eddy-ios/src/components/EddyTake.tsx',
   ];
   const retired = [

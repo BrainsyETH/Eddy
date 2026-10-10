@@ -1,4 +1,4 @@
-// eddy-ios/app/(tabs)/profile.tsx
+// eddy-ios/app/(tabs)/(today,map,floats,favorites,alerts)/profile.tsx
 // Account, subscription, and the two controls App Review specifically looks
 // for: Restore Purchases and account deletion.
 //
@@ -46,13 +46,13 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { LazyTabScreen } from '@/components/LazyTabScreen';
+import { NativeHeaderHome } from '@/components/NativeHeaderHome';
 import { useRouter } from 'expo-router';
 import * as AppleAuthentication from 'expo-apple-authentication';
 import Constants from 'expo-constants';
 import { ControlIcon } from '@/components/ControlIcon';
 import { useTheme } from '@/theme/ThemeProvider';
-import { fonts, textStyles, type as t } from '@/theme/typography';
+import { fonts, type as t } from '@/theme/typography';
 import { Otter } from '@/components/Otter';
 import { useStarredRivers } from '@/hooks/useStarredRivers';
 import { useSavedFloats } from '@/hooks/useSavedFloats';
@@ -101,8 +101,10 @@ const MANAGE_SUBSCRIPTIONS_URL = 'https://apps.apple.com/account/subscriptions';
  */
 const CONFIRM_PENDING_MAX_MS = 3 * 60_000;
 
+// Pushed on demand rather than mounted eagerly as a tab, so it no longer needs
+// LazyTabScreen's first-visit gate.
 export default function ProfileScreen() {
-  return <LazyTabScreen><ProfileContent /></LazyTabScreen>;
+  return <ProfileContent />;
 }
 
 function ProfileContent() {
@@ -540,12 +542,15 @@ function ProfileContent() {
   const notificationControl = notificationControlKind(features.push, permission);
 
   return (
-    <SafeAreaView style={[styles.screen, { backgroundColor: colors.bg }]} edges={['top']}>
+    // A shared detail now, pushed from Today or Favorites: the native header
+    // carries the "Settings" title and the Back button.
+    <SafeAreaView style={[styles.screen, { backgroundColor: colors.bg }]} edges={['left', 'right']}>
+      <NativeHeaderHome destination="today" />
       <ScrollView
         contentInsetAdjustmentBehavior="automatic"
         contentContainerStyle={styles.content}
         // The gesture the restore and redemption alerts point at ("pull down
-        // on Eddy's Settings tab"). This screen is where entitlement state renders,
+        // on Eddy's Settings screen"). This screen is where entitlement state renders,
         // and useAccount re-reads only on mount — so without this, "check
         // again in a moment" had no mechanism short of leaving the tab.
         refreshControl={
@@ -559,8 +564,6 @@ function ProfileContent() {
           />
         }
       >
-        <Text style={[styles.title, { color: colors.text }]}>Settings</Text>
-
         {/* Identity is the page anchor, not another labelled settings group. */}
         <View style={[styles.accountCard, { backgroundColor: colors.card }, elevation(1)]}>
           {!ready ? (
@@ -1002,7 +1005,6 @@ function SettingsRow({
 const styles = StyleSheet.create({
   screen: { flex: 1 },
   content: { padding: 20, paddingBottom: 48 },
-  title: { ...textStyles.pageTitle },
   section: { marginTop: 22 },
   sectionTitle: { ...t.sm, fontFamily: fonts.semibold, marginBottom: 8, marginLeft: 2 },
   accountCard: { borderRadius: radii.card, padding: 16, gap: 14, marginTop: 18 },

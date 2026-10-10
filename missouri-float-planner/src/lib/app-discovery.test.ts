@@ -72,7 +72,9 @@ test('every contextual banner opens an existing native destination, cold and war
     const content = smartBannerContent(path, null, config);
     const argument = content.split(', ').find(p => p.startsWith('app-argument='))!.slice('app-argument='.length);
     assert.equal(redirectSystemPath({ path: argument, initial: false }), path);
-    assert.equal(redirectSystemPath({ path: argument, initial: true }), `/(tabs)/(today)${path}`);
+    // A float belongs to the Floats tab; every other detail opens under Today.
+    const owner = path.startsWith('/float/') ? 'floats' : 'today';
+    assert.equal(redirectSystemPath({ path: argument, initial: true }), `/(tabs)/(${owner})${path}`);
   }
   assert.equal(redirectSystemPath({ path: 'eddy:///reports', initial: true }), '/reports');
 });

@@ -111,6 +111,7 @@ import { TodayHub } from '@/components/TodayHub';
 import type { TodayRead } from '@/components/TodayHub';
 import type { TodayRiverFilter, TodayReadFilter } from '@/lib/todayNavigation';
 import { NativeHeaderHome } from '@/components/NativeHeaderHome';
+import { AccountIconButton, AccountToolbarButton } from '@/components/AccountButton';
 import { useTodayCatalog } from '@/hooks/useTodayCatalog';
 import type { SearchBarCommands } from 'react-native-screens';
 import { EddyReadCard } from '@/components/EddyReadCard';
@@ -1300,7 +1301,7 @@ export function TodayScreen({ browseMode = 'today', initialRiverFilter = 'all', 
         : scope === 'dams' ? 'Search dams and lakes' : 'Search access points'
     : browseMode === 'rivers' ? 'Search rivers' : 'Search reads by river';
   const nativeChrome = browseMode === 'today' && !nativeToday ? null : <>
-    {browseMode !== 'today' ? <NativeHeaderHome destination="today" /> : null}
+    {browseMode !== 'today' ? <NativeHeaderHome destination="today" /> : <AccountToolbarButton />}
     <Stack.SearchBar
       ref={nativeSearch}
       placeholder={searchPlaceholder}
@@ -1371,7 +1372,10 @@ export function TodayScreen({ browseMode = 'today', initialRiverFilter = 'all', 
     >
       {nativeChrome}
       {browseMode === 'today' && !nativeToday ? <View style={styles.header}>
-        <Text style={[styles.title, { color: colors.text }]}>Today</Text>
+        <View style={styles.titleRow}>
+          <Text style={[styles.title, { color: colors.text }]}>Today</Text>
+          <AccountIconButton />
+        </View>
         {statusNotice}
       </View> : null}
 
@@ -1761,6 +1765,7 @@ const styles = StyleSheet.create({
   // product — only inside the paywall — so the app looked generic on every
   // screen a user actually spends time on.
   title: { ...textStyles.pageTitle },
+  titleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   subtitle: { ...t.sm, fontFamily: fonts.body, marginTop: 4 },
   // The seed's "Loading conditions…" strip: the subtitle's type and offset,
   // with a small spinner ahead of it on the same baseline.
