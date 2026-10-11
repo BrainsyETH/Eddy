@@ -1,3 +1,4 @@
+import { scrubFloatSearchRequest, scrubFloatSearchBreadcrumb } from '@shared/float-search-privacy';
 // src/instrumentation.ts
 // Next.js instrumentation hook — the single place monitoring is wired up
 // (audit F19), plus the boot-time environment audit (src/lib/env.ts).
@@ -86,6 +87,11 @@ export async function register(): Promise<void> {
       // The reporter below redacts before Sentry ever sees an event; these stop
       // the SDK adding its own unredacted copies of the same data.
       sendDefaultPii: false,
+      beforeSend(event) {
+        if (event.request) scrubFloatSearchRequest(event.request);
+        return event;
+      },
+      beforeBreadcrumb: scrubFloatSearchBreadcrumb,
     });
     setErrorReporter(createSentryReporter(Sentry));
     return;

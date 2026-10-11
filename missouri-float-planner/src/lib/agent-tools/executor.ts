@@ -1,3 +1,5 @@
+import { compareFloatChoices, durationRelation } from '@shared/float-search';
+import { loadCandidateDuration } from './candidate-duration';
 import type { Json } from '@/types/database';
 import { AGENT_TOOLS } from './catalog';
 import {
@@ -594,12 +596,14 @@ function createScopedExecutor(db: Db, options: ExecutorOptions) {
               'No calibrated speed for this vessel.',
               'unavailable',
             );
+          const candidateDuration = screening ? await phase('duration-inputs', () => loadCandidateDuration(ctx, r, screening, String(args.vesselType), planning.primeStatistics)) : undefined;
           const screened = screenCandidates(
             points,
             Number(args.targetHours),
             speed,
             args.publicOnly === true,
             screening,
+            candidateDuration,
           );
           candidates = screened.candidates;
           coverage = screened.coverage;
@@ -651,25 +655,21 @@ function createScopedExecutor(db: Db, options: ExecutorOptions) {
           (p) =>
             p.data.routeAssessment.recommendationStatus !== 'not_recommended',
         );
-        eligible.sort(
-          (a, b) =>
-            Number(
-              a.data.routeAssessment.recommendationStatus === 'conditional',
-            ) -
-              Number(
-                b.data.routeAssessment.recommendationStatus === 'conditional',
-              ) ||
-            Number(a.data.routeAssessment.conditionCode === 'low') -
-              Number(b.data.routeAssessment.conditionCode === 'low') ||
-            durationFit(a) - durationFit(b) ||
-            (b.putIn.amenities?.length ?? 0) - (a.putIn.amenities?.length ?? 0),
-        );
+        const choice = (p: (typeof completed)[number]) => ({
+          id: `${p.putIn.id}:${p.takeOut.id}`,
+          minutes: p.data.estimatedFloatTime!.minutes,
+          timeRange: p.data.estimatedFloatTime!.timeRange!,
+          conditional: p.data.routeAssessment.recommendationStatus === 'conditional',
+          conditionCode: p.data.routeAssessment.conditionCode,
+        });
+        eligible.sort((a, b) => compareFloatChoices(choice(a), choice(b), Number(args.targetHours) * 60));
         const picks = eligible.slice(0, Number(args.limit)).map((p) => ({
           ...summarizePlan(p),
+          durationMatch: durationRelation(p.data.estimatedFloatTime!.timeRange!, Number(args.targetHours) * 60),
           reasons: [
             durationFit(p) === 0
               ? 'Requested duration falls inside the estimated range.'
-              : 'Closest duration among the bounded candidates checked.',
+              : `${durationRelation(p.data.estimatedFloatTime!.timeRange!, Number(args.targetHours) * 60) === 'shorter' ? 'Shorter' : 'Longer'} alternative among the candidates checked.`,
             ...(args.publicOnly
               ? ['Both endpoints are recorded as public.']
               : []),

@@ -19,6 +19,7 @@ interface NavItem {
 }
 
 const NAV_ITEMS: NavItem[] = [
+  { href: '/find-float', label: 'Find a Float', matches: (p) => p === '/find-float' },
   {
     href: '/plan',
     label: 'Plan a Float',

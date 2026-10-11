@@ -20,6 +20,7 @@ export const DETAIL_TITLES: Record<string, string> = {
   profile: 'Settings',
   // Float Mode lives in the Floats tab; see COLD_TAB_OWNERS.
   'float-start': 'Start a float',
+  'find-float': 'Find a Float',
   'float-mode': 'Float Mode',
 };
 
@@ -29,6 +30,7 @@ const COLD_TAB_OWNERS: Partial<Record<string, keyof typeof TAB_ROOTS>> = {
   'float/[shortCode]': 'floats',
   'favorite-floats': 'floats',
   'float-start': 'floats',
+  'find-float': 'floats',
   'float-mode': 'floats',
 };
 

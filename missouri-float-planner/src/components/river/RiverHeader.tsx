@@ -5,6 +5,7 @@
 // Back navigation is now handled by the global SiteHeader
 
 import { useState, useEffect, useRef } from 'react';
+import Link from 'next/link';
 import { Info } from 'lucide-react';
 import type { RiverWithDetails, RiverCondition } from '@/types/api';
 
@@ -59,6 +60,8 @@ export default function RiverHeader({ river, condition }: RiverHeaderProps) {
             {river.description && (
               <p className="text-base md:text-lg mb-3 md:mb-4" style={{ color: '#A3D1DB' }}>{river.description}</p>
             )}
+
+            <Link href={`/find-float?river=${encodeURIComponent(river.slug)}`} className="mb-4 inline-block rounded-lg border border-white/40 px-4 py-2 font-semibold hover:bg-white/10">Find a float on this river</Link>
 
             {/* River Stats */}
             <div className="flex flex-wrap gap-3 md:gap-4 text-sm">

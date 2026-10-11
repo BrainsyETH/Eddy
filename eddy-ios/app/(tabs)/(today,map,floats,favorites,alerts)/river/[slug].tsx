@@ -1374,6 +1374,10 @@ export default function RiverDetailScreen() {
             discovered halfway down the thing it controls. Read in order, the
             screen now says which stretch, then what it is doing, then what to
             do about it. */}
+        <Pressable accessibilityRole="button" onPress={() => router.push({ pathname: '/find-float', params: { river: slug } })} style={{ paddingVertical: 14, marginBottom: 12 }}>
+          <Text style={[styles.hazardBody, { color: colors.interactive }]}>Find a float on this river →</Text>
+        </Pressable>
+
         <GaugePicker
           gauges={gauges}
           riverSlug={slug}

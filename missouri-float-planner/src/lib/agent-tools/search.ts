@@ -1,3 +1,5 @@
+import { compareFloatChoices } from '@shared/float-search';
+import { calculateTripDuration, type TripDuration } from '@/lib/calculations/trip-duration';
 import {
   checked,
   numeric,
@@ -57,10 +59,12 @@ export function screeningGauge(
   );
 }
 
-interface Candidate {
+export interface Candidate {
   putIn: Access;
   takeOut: Access;
   difference: number;
+  duration: TripDuration;
+  conditionCode: string;
   group: string;
   unknown: boolean;
 }
@@ -68,6 +72,7 @@ export interface Screening {
   links: GaugeLink[];
   reaches: Reach[];
   ratings: Map<string, string>;
+  views?: Map<string, Awaited<ReturnType<DataContext['gaugeView']>>>;
 }
 
 export async function loadScreening(
@@ -94,6 +99,7 @@ export async function loadScreening(
   return {
     links,
     reaches,
+    views: new Map(views.map(g => [g.id, g])),
     ratings: new Map(views.map((g) => [g.id, g.conditionCode])),
   };
 }
@@ -107,6 +113,7 @@ export function screenCandidates(
   speedMph: number,
   publicOnly: boolean,
   screen?: Screening,
+  durationFor?: (putIn: Access, takeOut: Access) => TripDuration | null,
 ) {
   const eligible = points
     .filter(
@@ -181,18 +188,20 @@ export function screenCandidates(
         counts.screenedOutPairs++;
         continue;
       }
+      const duration = durationFor ? durationFor(putIn, takeOut) : calculateTripDuration({
+        miles: end - start, condition: 'flowing', speeds: { speedLowWater: speedMph, speedNormal: speedMph, speedHighWater: speedMph },
+      });
+      if (!duration) continue;
       local.push({
         putIn,
         takeOut,
-        difference: Math.abs((end - start) / speedMph - targetHours),
+        duration,
+        conditionCode: code,
+        difference: Math.abs(duration.minutes / 60 - targetHours),
         group,
         unknown: code === 'unknown' || spanUnknown,
       });
-      local.sort(
-        (a, b) =>
-          a.difference - b.difference ||
-          a.takeOut.id.localeCompare(b.takeOut.id),
-      );
+      local.sort((a, b) => compareCandidates(a, b, targetHours));
       if (local.length > 2) local.pop();
     }
     pool.push(...local);
@@ -215,13 +224,13 @@ export function screenCandidates(
   while (pool.length && candidates.length < MAX_ESTIMATES) {
     pool.sort(
       (a, b) =>
-        Number(a.unknown) - Number(b.unknown) ||
+        Number(!(a.duration.timeRange.min <= targetHours * 60 && a.duration.timeRange.max >= targetHours * 60)) -
+          Number(!(b.duration.timeRange.min <= targetHours * 60 && b.duration.timeRange.max >= targetHours * 60)) ||
+        Number(a.unknown || a.conditionCode === 'low') - Number(b.unknown || b.conditionCode === 'low') ||
         Number(groups.has(a.group)) - Number(groups.has(b.group)) ||
         Number(putIns.has(a.putIn.id)) - Number(putIns.has(b.putIn.id)) ||
         Number(overlap(a)) - Number(overlap(b)) ||
-        a.difference - b.difference ||
-        a.putIn.id.localeCompare(b.putIn.id) ||
-        a.takeOut.id.localeCompare(b.takeOut.id),
+        compareCandidates(a, b, targetHours),
     );
     const next = pool.shift()!;
     candidates.push(next);
@@ -240,4 +249,9 @@ export function screenCandidates(
         : 'Screening was unavailable; candidates were diversified without a preliminary condition exclusion.',
     },
   };
+}
+
+export function compareCandidates(a: Candidate, b: Candidate, targetHours: number) {
+  const choice = (c: Candidate) => ({ id: `${c.putIn.id}:${c.takeOut.id}`, ...c.duration, conditionCode: c.conditionCode, conditional: c.unknown });
+  return compareFloatChoices(choice(a), choice(b), targetHours * 60);
 }

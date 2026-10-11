@@ -1200,12 +1200,10 @@ export async function fetchRiverServices(
  * reading and Mapbox for the shuttle drive — so it runs once on an explicit
  * tap, never speculatively as the user moves between access points.
  *
- * NO vesselTypeId. The app stopped asking which boat you are in — the endpoint
- * defaults to a canoe, and the plan it returns names the vessel it used, which
- * is all the answer needs to say. See useFloatPlan for why that step is gone.
+ * Find a Float can supply a boat; ordinary planning still defaults to canoe.
  */
 export async function fetchFloatPlan(
-  params: { riverId: string; startId: string; endId: string },
+  params: { riverId: string; startId: string; endId: string; vesselTypeId?: string },
   signal?: AbortSignal,
 ): Promise<FloatPlan> {
   const query = new URLSearchParams({
@@ -1213,6 +1211,7 @@ export async function fetchFloatPlan(
     startId: params.startId,
     endId: params.endId,
   });
+  if (params.vesselTypeId) query.set('vesselTypeId', params.vesselTypeId);
   const data = await get<PlanResponse>(`/api/plan?${query.toString()}`, signal);
   return data.plan;
 }
@@ -2475,4 +2474,27 @@ export function fetchCampsitePhotos(facilityId: string, signal?: AbortSignal, si
 
 export function fetchCampingOverview(signal?: AbortSignal, nights: 21 | 90 = 90): Promise<CampingOverview> {
   return get<CampingOverview>(`/api/camping/availability?nights=${nights}`,signal);
+}
+
+/** Search bodies are private: no URL parameters, logs, analytics, or disk cache. */
+async function floatSearchPost<T>(path: string, body: unknown, signal?: AbortSignal): Promise<T> {
+  const deadline = withDeadline(signal, 25_000);
+  try {
+    const response = await fetch(`${BASE_URL}${path}`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json', 'User-Agent': USER_AGENT },
+      body: JSON.stringify(body), signal: deadline.signal,
+    });
+    const data = await response.json();
+    if (!response.ok) throw new ApiError(data.error || 'Search is unavailable. Please try again.', response.status);
+    return data;
+  } catch (error) {
+    if (error instanceof ApiError) throw error;
+    throw new ApiError(signal?.aborted ? 'Request cancelled' : 'Search could not finish. Check your connection and try again.');
+  } finally { deadline.done(); }
+}
+export function fetchFloatSearch(input: import('@eddy/conditions/float-search').FloatSearchInput, signal?: AbortSignal) {
+  return floatSearchPost<import('@eddy/conditions/float-search').FloatSearchResponse>('/api/float-search', input, signal);
+}
+export function fetchFloatSearchPlaces(query: string, signal?: AbortSignal) {
+  return floatSearchPost<{ places: import('@eddy/conditions/float-search').FloatSearchPlace[] }>('/api/float-search/places', { query }, signal);
 }

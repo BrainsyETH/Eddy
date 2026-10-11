@@ -161,6 +161,8 @@ function fixture(
       speed_normal: slug === 'tube' ? 1 : 2.5,
       speed_high_water: 3.5,
     })),
+    float_segments: [],
+    community_reports: [],
     river_characteristics: [],
     river_sections: [],
     usgs_daily_percentiles: [],
@@ -196,6 +198,7 @@ function fixture(
         return q;
       },
       order: () => q,
+      range: (start: number, end: number) => { rows = rows.slice(start, end + 1); return q; },
       limit: (n: number) => {
         rows = rows.slice(0, n);
         return q;
@@ -1106,4 +1109,62 @@ test('MCP plans separate downstream dams and retain unknown portage flags', asyn
   const failed = await fixture({ fail: 'river_hazards' }).execute('plan_float', trip);
   assert.equal(failed.status, 'lookup_failed');
   assert.equal('hazards' in failed.data, false);
+});
+
+import { findNearbyFloats, diverseFloats } from './nearby-search';
+const nearbyInput = { near: { lat: 37, lng: -91 }, targetHours: 5, radiusMiles: 100, vesselType: 'canoe' as const, publicOnly: true };
+
+test('nearby search shares six route estimates across rivers, respects radius and separates alternatives', async () => {
+  const f = fixture({ points: 8 });
+  const original = [...f.tables.access_points];
+  const river = f.tables.rivers[0];
+  for (let r = 2; r <= 4; r++) {
+    f.tables.rivers.push({ ...river, id: uuid(r), slug: `river-${r}`, name: `River ${r}` });
+    f.tables.river_gauges.push({ ...f.tables.river_gauges[0], river_id: uuid(r) });
+    f.tables.access_points.push(...original.map((p, i) => ({ ...p, id: uuid(r * 1000 + i), river_id: uuid(r), location_orig: { type: 'Point', coordinates: [r === 4 ? -100 : -91.1, 37] } })));
+  }
+  const result = await findNearbyFloats(f.db, nearbyInput, { sources: f.sources, now: NOW });
+  assert.equal(result.failed, 0);
+  assert.equal(result.partial, false);
+  assert.equal(f.calls.filter(c => c === 'get_float_segment').length, 6);
+  assert.equal(result.evaluated, 6);
+  assert.ok(new Set(result.matches.map(m => m.riverId)).size >= 2);
+  assert.ok(result.matches.every(m => m.timeRange.min <= 300 && m.timeRange.max >= 300 && m.nearbyMiles! <= 100));
+  assert.ok(result.alternatives.every(m => m.relation !== 'match'));
+  assert.ok([...result.matches, ...result.alternatives].every(m => m.riverId !== uuid(4)));
+  assert.ok(result.matches.every(m => m.url.includes('vessel=') && m.putIn.isPublic && m.takeOut.isPublic));
+});
+test('single river needs no location and alternatives retain a shorter/longer label', async () => {
+  const f = fixture({ points: 4 });
+  const result = await findNearbyFloats(f.db, { ...nearbyInput, near: undefined, river: 'current', targetHours: 12 }, { sources: f.sources, now: NOW });
+  assert.equal(result.failed, 0);
+  assert.equal(result.matches.length, 0);
+  assert.ok(result.alternatives.length > 0);
+  assert.ok(result.alternatives.every(m => m.relation === 'shorter' && m.nearbyMiles === null));
+});
+test('public endpoints and closure checks survive multi-river search', async () => {
+  const privateFixture = fixture();
+  privateFixture.tables.access_points.forEach(p => { p.is_public = false; });
+  const privateResult = await findNearbyFloats(privateFixture.db, nearbyInput, { sources: privateFixture.sources, now: NOW });
+  assert.deepEqual(privateResult.matches, []);
+  assert.equal(privateResult.evaluated, 0);
+  const f = fixture({ closure: true, points: 6 });
+  const closed = await findNearbyFloats(f.db, nearbyInput, { sources: f.sources, now: NOW });
+  assert.equal(closed.failed, 0);
+  assert.ok(closed.evaluated > 0);
+  assert.deepEqual([...closed.matches, ...closed.alternatives], []);
+});
+test('nearby deadline cancels reads and reports a partial search', async () => {
+  const f = fixture({ stallTable: 'float_segments' });
+  const result = await findNearbyFloats(f.db, nearbyInput, { sources: f.sources, now: NOW, budgetMs: 40 });
+  assert.equal(result.partial, true);
+  assert.ok(f.calls.includes('cancelled'));
+  assert.equal(result.evaluated, 0);
+});
+test('variety cap backfills and is disabled for a selected river', () => {
+  const rows = ['a','a','a','b','b','c'].map((riverId, id) => ({ riverId, id }));
+  assert.deepEqual(diverseFloats(rows, 5).map(r => r.id), [0,1,3,4,5]);
+  assert.equal(diverseFloats(rows.slice(0,3), 5).length, 3);
+  assert.deepEqual(diverseFloats(rows, 6).map(r => r.id), [0,1,2,3,4,5], 'backfilling must preserve the original condition/duration ranking');
+  assert.deepEqual(diverseFloats(rows, 5, true).map(r => r.id), [0,1,2,3,4]);
 });
