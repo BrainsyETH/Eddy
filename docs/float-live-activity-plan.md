@@ -1,12 +1,48 @@
 # Float Mode: Lock Screen and Dynamic Island
 
 Follow-up to merged #1468 and the core Float Mode plan in #1448.
-This is the implementation plan for the next native PR, not a claim that a
-Live Activity exists or that the device release gates have passed.
+The native implementation is on `codex/float-live-activity`. Swift compilation,
+signing, rendered layouts and physical-device release gates remain pending.
+
+## Implementation and handoff
+
+- `eddy-ios/src/lib/floatActivity.ts`: pure display payload and serialized,
+  coalesced native updates; shares the existing ETA model.
+- `eddy-ios/src/float/liveActivity.ts`: optional bridge, independent of any
+  screen. The session store starts/ends the card; background delivery awaits it.
+- `eddy-ios/modules/eddy-live-activity/`: ActivityKit lifecycle, shared Codable
+  attributes, SwiftUI Lock Screen and compact/expanded/minimal Island layouts.
+- `eddy-ios/plugins/withFloatActivity.js`: generated WidgetKit target,
+  embedding/dependency, versions, resources and EAS credential discovery.
+- `FloatActivityControl`: explicit restore after dismissal/expiry. The card
+  deep-links to the existing `/float-mode` route.
+
+Start is best-effort after persistence. Existing cards reconnect on restore;
+missing cards never restart without a fresh Start Float or Show action. Native
+state observation reports dismissal/expiry without ending the session. Local
+updates need no connection, APNs registration, account or extra GPS watcher.
+
+Automated packaging verification (from `eddy-ios/`, Node 20):
+
+```sh
+npx expo prebuild --platform ios --no-install
+node scripts/check-float-activity.cjs
+npx expo-modules-autolinking resolve --platform apple
+```
+
+The structural check verifies the target's sources/resources, host dependency,
+embedded extension, matching version, credential declaration and repeated
+plugin application. It does **not** compile Swift or provision the extension.
+EAS must provision `eddy.guide.app.FloatActivity` for the new binary.
+
+Next: compile/sign a development binary on macOS or EAS, inspect both layouts
+(including long names and larger text), then run the physical-device matrix
+below. Keep the existing screen-awake option until those tests prove the
+background stream. Home Screen widgets remain a separate follow-up.
 
 ## Delivery order
 
-1. Merge the preparation fixes: notification/location permission refresh on
+1. Preparation fixes merged in #1469: notification/location permission refresh on
    foreground, explicit report-idempotency lookup failures, separate report
    creation and retry limits, and awaited/cancellable background report sends.
 2. Report-client-ID migration applied to production on 2026-10-11 as
@@ -15,8 +51,9 @@ Live Activity exists or that the device release gates have passed.
    Complete the device/API send-and-retry check before releasing reports.
 3. Prove current locked-screen tracking on a physical iPhone. Record location
    permission, OS/device, duration, battery drain, GPS gaps, and recovery.
-4. Implement Lock Screen + Dynamic Island in one native PR, with the lifecycle,
-   stale presentation, build packaging, and conditional keep-awake below.
+4. Lock Screen + Dynamic Island are implemented in the native PR, with the
+   lifecycle, stale presentation, and build packaging below. Conditional
+   keep-awake remains gated on physical-device tracking validation.
 5. Validate the native binary on a device and repeat the river pass with the
    activity visible. Home Screen widgets follow separately.
 
@@ -118,8 +155,9 @@ refresh. No JS timer is required to mark a suspended app's card stale.
 ## Keep Screen Awake and permissions
 
 Keep the existing switch until locked-screen tracking passes physical-device
-checks. In the native PR, make it a fallback for foreground-only tracking; hide
-and release it once the background stream is confirmed running. Permission alone
+checks. The first implementation leaves the switch available. After the device gate,
+make it a fallback for foreground-only tracking; hide and release it once the
+background stream is confirmed running. Permission alone
 is not proof that `startLocationUpdatesAsync` succeeded. If background startup
 fails, expose the screen-on fallback and explain the actual mode.
 

@@ -85,3 +85,10 @@ android/
 /eddy-ios/modules/eddy-style-pack/ios/*
 !/eddy-ios/modules/eddy-style-pack/ios/EddyStylePack.podspec
 !/eddy-ios/modules/eddy-style-pack/ios/EddyStylePackModule.swift
+
+# ActivityKit bridge and shared attributes; widget templates live outside ios/.
+!/eddy-ios/modules/eddy-live-activity/ios/
+/eddy-ios/modules/eddy-live-activity/ios/*
+!/eddy-ios/modules/eddy-live-activity/ios/EddyLiveActivity.podspec
+!/eddy-ios/modules/eddy-live-activity/ios/EddyLiveActivityModule.swift
+!/eddy-ios/modules/eddy-live-activity/ios/FloatActivityAttributes.swift

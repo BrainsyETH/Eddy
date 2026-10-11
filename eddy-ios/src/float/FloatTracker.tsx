@@ -21,10 +21,11 @@ import { useEffect, useRef } from 'react';
 import { AppState } from 'react-native';
 import * as Location from 'expo-location';
 import { useFloatSession } from '@/hooks/useFloatSession';
-import { flushFloatSession, recordFixes } from '@/lib/floatSessionStore';
+import { flushFloatSession, getFloatSession, recordFixes } from '@/lib/floatSessionStore';
 import { onForeground } from '@/lib/foreground';
 import { warn } from '@/lib/monitoring';
 import { startBackgroundTracking, stopBackgroundTracking } from './backgroundTracking';
+import { syncFloatActivity } from './liveActivity';
 
 export function FloatTracker() {
   const session = useFloatSession();
@@ -78,7 +79,15 @@ export function FloatTracker() {
     };
 
     void ensure();
-    const offForeground = onForeground(() => void ensure());
+    const offForeground = onForeground(() => {
+      void ensure();
+      void syncFloatActivity(getFloatSession(), { force: true });
+    });
+    // Foreground heartbeat only. The system staleDate covers suspension;
+    // this timer neither wakes the app nor extends the last reliable fix.
+    const heartbeat = setInterval(() => {
+      if (AppState.currentState === 'active') void syncFloatActivity(getFloatSession());
+    }, 60_000);
     const appState = AppState.addEventListener('change', (state) => {
       if (state !== 'active') void flushFloatSession();
     });
@@ -86,6 +95,7 @@ export function FloatTracker() {
     return () => {
       cancelled = true;
       offForeground();
+      clearInterval(heartbeat);
       appState.remove();
       // Only the foreground watch belongs to this component's lifetime. The
       // background task outlives it and stops when the float ends.
