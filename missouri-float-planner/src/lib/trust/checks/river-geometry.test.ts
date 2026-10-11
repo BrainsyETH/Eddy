@@ -86,6 +86,16 @@ test('gauges linked but none near the line is reported', () => {
   assert.deepEqual(keys({ gaugeCount: 3, gaugesOnRiver: 0 }), ['no_gauges_near_geometry']);
 });
 
+test('only the documented Courtois proxy bypasses gauge proximity', () => {
+  const proxy = { riverSlug: 'courtois', gaugeCount: 1, gaugesOnRiver: 0, linkedGaugeSiteIds: ['07014000'] };
+  assert.deepEqual(keys(proxy), []);
+  for (const changed of [
+    { riverSlug: 'huzzah' }, { linkedGaugeSiteIds: ['07014500'] },
+    { linkedGaugeSiteIds: [] }, { gaugeCount: 2 },
+  ]) assert.ok(keys({ ...proxy, ...changed }).includes('no_gauges_near_geometry'));
+  assert.ok(keys({ ...proxy, geometryMissing: true }).includes('geometry_missing'));
+});
+
 test('a river with no gauges at all reports that instead', () => {
   // Not both — "no gauges are near the line" is meaningless when there are none.
   const found = keys({ gaugeCount: 0, gaugesOnRiver: 0 });

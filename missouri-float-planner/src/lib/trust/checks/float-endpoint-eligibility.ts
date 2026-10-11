@@ -81,6 +81,8 @@ export interface EndpointEligibilityRow {
    */
   river_mile_downstream: number | null;
   river_slug: string | null;
+  /** Only populated for the single, staged upper-Elk corridor. */
+  staged_elk_corridor_end?: number | null;
   /** Free text. See isVehicleUnreachable() for why it is read so narrowly. */
   road_access: string | null;
   /** The other field the same declaration lands in. Also free text. */
@@ -206,6 +208,11 @@ export function deriveEndpointEligibilityFindings(
     }
 
     if (row.is_float_endpoint !== true && launchRoles.length > 0) {
+      // 20261004044139 stages Elk above Shadow Lake Dam. Cowskin remains
+      // visible, but enabling it would offer trips through the dam. The
+      // exception stops applying when the section layout or this point moves.
+      if (row.is_float_endpoint === false && row.river_slug === 'elk' && row.slug === 'cowskin-access' &&
+          row.river_mile_downstream === 21.17 && row.staged_elk_corridor_end === 11.61) continue;
       findings.push({
         entityType: 'access_point',
         entityKey,
@@ -251,7 +258,7 @@ export const floatEndpointEligibilityCheck: TrustCheck = {
     const { data, error } = await ctx.supabase
       .from('access_points')
       .select(
-        'id, name, slug, type, types, approved, is_float_endpoint, river_mile_downstream, road_access, parking_info, rivers!inner(slug)',
+        'id, name, slug, type, types, approved, is_float_endpoint, river_mile_downstream, road_access, parking_info, rivers!inner(slug, river_sections(section_slug, river_mile_start, river_mile_end))',
       )
       .eq('approved', true);
 
@@ -273,6 +280,12 @@ export const floatEndpointEligibilityCheck: TrustCheck = {
       river_mile_downstream:
         r.river_mile_downstream != null ? Number(r.river_mile_downstream) : null,
       river_slug: r.rivers?.slug ?? null,
+      staged_elk_corridor_end:
+        r.rivers?.river_sections?.length === 1 &&
+        r.rivers.river_sections[0].section_slug === 'elk-main' &&
+        r.rivers.river_sections[0].river_mile_start != null &&
+        Number(r.rivers.river_sections[0].river_mile_start) === 0
+          ? Number(r.rivers.river_sections[0].river_mile_end) : null,
       road_access: r.road_access ?? null,
       parking_info: r.parking_info ?? null,
     }));

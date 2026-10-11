@@ -156,6 +156,31 @@ function stubClient(rows: unknown[], error: { message: string } | null = null) {
 const ctx = (supabase: unknown, now: Date) =>
   ({ supabase, now, deadlineMs: now.getTime() + 30_000 }) as never;
 
+test('resolution evidence requires a measured dam and its stalest series', async () => {
+  const stub = stubClient([
+    { dam_id: 'healthy', metric: 'release', latest_observed_hour: '2026-08-24T19:00:00Z' },
+    { dam_id: 'frozen', metric: 'release', latest_observed_hour: '2026-08-24T19:00:00Z' },
+    { dam_id: 'frozen', metric: 'generationFlow', latest_observed_hour: '2026-08-22T19:00:00Z' },
+  ]);
+  const result = await damFreshnessCheck.run(ctx(stub.supabase, NOW));
+  assert.deepEqual(result.verifiedResolutions, [
+    { entityType: 'dam', entityKey: 'healthy', ruleKey: 'dam_history_stale' },
+    { entityType: 'dam', entityKey: 'healthy', ruleKey: 'dam_history_frozen' },
+    { entityType: 'dam', entityKey: 'frozen', ruleKey: 'dam_history_stale' },
+  ]);
+});
+
+test('malformed or future series cannot supply recovery evidence', async () => {
+  for (const bad of [
+    { dam_id: 'a', metric: 'release', latest_observed_hour: null },
+    { dam_id: 'a', metric: 'release', latest_observed_hour: 'invalid' },
+    { dam_id: 'a', metric: 'release', latest_observed_hour: '2026-08-25T00:00:00Z' },
+    { dam_id: 'a', latest_observed_hour: '2026-08-24T19:00:00Z' },
+  ]) {
+    await assert.rejects(damFreshnessCheck.run(ctx(stubClient([bad]).supabase, NOW)), /invalid/);
+  }
+});
+
 test('run() reads the grouped RPC, never a capped table page', async () => {
   const stub = stubClient([
     { dam_id: 'swl-table-rock-dam', metric: 'release', latest_observed_hour: '2026-08-24T19:00:00Z' },

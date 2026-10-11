@@ -425,6 +425,13 @@ listing a campground neither creates a float endpoint nor asserts availability.
 See [the September 26 batch](services-camping-gap-2026-09-26.md) for reviewed
 records, source attribution, verified campground map coordinates, and application commands.
 
+Until the standalone declaration is persisted on `nearby_services`, the trust
+service check recognizes the three reviewed September 26 standalone rows by
+UUID, name, type, city, and state. It still checks any river links subsequently
+added to them. New standalone imports need an explicit update to that register
+in `src/lib/trust/checks/service-geo-consistency.ts`; other unlinked campgrounds
+remain review findings.
+
 
 Coordinate provenance can be imported with `geocode_precision` (`exact` or
 `approximate`), `geocode_source` (a descriptive method/provider), and

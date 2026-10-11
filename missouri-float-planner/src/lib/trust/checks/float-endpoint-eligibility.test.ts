@@ -18,9 +18,37 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
   deriveEndpointEligibilityFindings,
+  floatEndpointEligibilityCheck,
   isVehicleUnreachable,
   type EndpointEligibilityRow,
 } from './float-endpoint-eligibility';
+
+test('Cowskin stays excluded only while Elk has the reviewed upper corridor', () => {
+  const cowskin = row({ slug: 'cowskin-access', river_slug: 'elk', types: ['access'],
+    is_float_endpoint: false, river_mile_downstream: 21.17, staged_elk_corridor_end: 11.61 });
+  assert.deepEqual(deriveEndpointEligibilityFindings([cowskin]), []);
+  for (const changed of [
+    { staged_elk_corridor_end: 25 }, { staged_elk_corridor_end: null },
+    { slug: 'another-launch' }, { river_mile_downstream: 10 }, { is_float_endpoint: null },
+  ]) assert.ok(deriveEndpointEligibilityFindings([{ ...cowskin, ...changed }])
+    .some((f) => f.ruleKey === 'launch_not_selectable'));
+});
+
+test('the endpoint read only recognizes a complete, single upper-Elk section', async () => {
+  const upper = { section_slug: 'elk-main', river_mile_start: '0', river_mile_end: '11.61' };
+  for (const sections of [[upper], [], [upper, { ...upper, section_slug: 'elk-lower' }],
+    [{ ...upper, river_mile_start: null }]]) {
+    const supabase = { from: () => ({ select: (query: string) => {
+      assert.match(query, /river_sections\(section_slug, river_mile_start, river_mile_end\)/);
+      return { eq: async () => ({ error: null, data: [{
+        ...row({ slug: 'cowskin-access', is_float_endpoint: false, river_mile_downstream: 21.17 }),
+        rivers: { slug: 'elk', river_sections: sections },
+      }] }) };
+    } }) };
+    const result = await floatEndpointEligibilityCheck.run({ supabase, now: new Date(), deadlineMs: Infinity });
+    assert.equal(result.findings.length, sections.length === 1 && sections[0].river_mile_start === '0' ? 0 : 1);
+  }
+});
 
 function row(overrides: Partial<EndpointEligibilityRow> = {}): EndpointEligibilityRow {
   return {
