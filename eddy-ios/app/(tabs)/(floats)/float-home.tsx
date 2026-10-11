@@ -157,7 +157,7 @@ function FloatHomeContent() {
           ) : null}
         </View>
 
-        <View style={styles.gutter}>
+        {features.floatSearch ? <View style={styles.gutter}>
           <Pressable onPress={() => router.push('/find-float')} accessibilityRole="button" style={[styles.resume, { backgroundColor: colors.card }, elevation(1)]}>
             <ControlIcon name="search-outline" size={22} color={colors.interactive} />
             <View style={styles.welcomeText}>
@@ -166,7 +166,7 @@ function FloatHomeContent() {
             </View>
             <ControlIcon name="chevron-forward" size={16} color={colors.textSubtle} />
           </Pressable>
-        </View>
+        </View> : null}
 
         <View style={styles.section}>
           <View style={styles.gutter}>

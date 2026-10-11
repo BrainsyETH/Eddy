@@ -543,7 +543,7 @@ function FloatCard({
           {o.relation !== 'match' ? ` · ${o.relation} option` : ''}
         </span>
         <span>{o.distanceMiles.toFixed(1)} river miles</span>
-        {o.nearbyMiles != null && <span>{o.nearbyMiles} mi to put-in</span>}
+        {o.nearbyMiles != null && <span>{o.nearbyMiles} mi away (straight line)</span>}
       </p>
       <p className="mt-2 text-sm text-[var(--color-text-secondary)]">
         About {Math.round(o.minutes / 6) / 10} hours with stops ·{' '}

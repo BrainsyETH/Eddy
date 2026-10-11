@@ -12,7 +12,7 @@ import {
 import { getFlowProvider } from '@/lib/flow-providers';
 import { classifyQualifiers } from '@/lib/usgs/gauges';
 import { conditionAvailability } from '@shared/condition-availability';
-import { AgentError, BASE_URL, freshness, memoizeAsync } from './contracts';
+import { AgentError, RiverNotFoundError, BASE_URL, freshness, memoizeAsync } from './contracts';
 
 export type Db = SupabaseClient<Database>;
 export type River = Pick<
@@ -224,10 +224,7 @@ export function createDataContext(db: Db, now = Date.now()) {
         .replace(/[\\%_]/g, '\\$&');
       found = checked(await query().ilike('name', name).maybeSingle(), 'river');
     }
-    if (!found)
-      throw new AgentError(
-        'River not found in curated coverage. Use list_rivers for supported slugs.',
-      );
+    if (!found) throw new RiverNotFoundError();
     return found;
   });
   async function point(r: River, ref: string, endpoint = false) {

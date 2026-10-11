@@ -2,12 +2,15 @@
 import assert from 'node:assert/strict';
 import test, { after } from 'node:test';
 import { readFileSync } from 'node:fs';
+import ts from 'typescript';
+import { z } from 'zod';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
 import { createAgentExecutor } from './executor';
 import { createAgentServer } from './mcp-server';
 import { AGENT_TOOLS } from './catalog';
-import { AGENT_VERSION, freshness, tripDate } from './contracts';
+import { AGENT_VERSION, RiverNotFoundError, freshness, tripDate } from './contracts';
+import { approximateLocation } from '@shared/float-search';
 import {
   readMcpBody,
   MAX_BODY_BYTES,
@@ -1137,6 +1140,61 @@ test('MCP plans separate downstream dams and retain unknown portage flags', asyn
 
 import { findNearbyFloats, diverseFloats } from './nearby-search';
 const nearbyInput = { near: { lat: 37, lng: -91 }, targetHours: 5, radiusMiles: 100, vesselType: 'canoe' as const, publicOnly: true };
+
+// Exercise the real HTTP handler and search together. Only network boundaries
+// (Supabase creation, rate limiting and external sources) use offline fixtures.
+function floatSearchPost(f: ReturnType<typeof fixture>) {
+  const source = readFileSync(new URL('../../app/api/float-search/route.ts', import.meta.url), 'utf8');
+  const compiled = ts.transpileModule(source, {
+    compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
+  });
+  const dependencies: Record<string, unknown> = {
+    zod: { z },
+    '@/lib/supabase/server': { createClient: async () => f.db },
+    '@/lib/rate-limit': { getClientIp: () => '127.0.0.1' },
+    '@/lib/agent-tools/limits': { createFloatSearchLimiter: () => ({ general: async () => null, tool: async () => null }) },
+    '@/lib/agent-tools/http': { readMcpBody, validOrigin },
+    '@/lib/agent-tools/nearby-search': {
+      findNearbyFloats: (db: Db, input: Parameters<typeof findNearbyFloats>[1], options: Parameters<typeof findNearbyFloats>[2]) =>
+        findNearbyFloats(db, input, { ...options, sources: f.sources, now: NOW }),
+    },
+    '@shared/float-search': { approximateLocation },
+    '@/lib/agent-tools/contracts': { RiverNotFoundError },
+  };
+  const exports = {} as { POST: (request: Request) => Promise<Response> };
+  new Function('require', 'exports', compiled.outputText)((id: string) => {
+    assert.ok(id in dependencies, `Unexpected route dependency: ${id}`);
+    return dependencies[id];
+  }, exports);
+  return (body: unknown) => exports.POST(new Request('https://eddy.guide/api/float-search', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
+  }));
+}
+
+test('float-search HTTP returns a non-retryable 404 for missing and inactive rivers', async () => {
+  for (const river of ['unknown-river', uuid(999), 'current', uuid(1), 'Current River']) {
+    const f = fixture();
+    f.tables.rivers[0].active = false;
+    const response = await floatSearchPost(f)({ ...nearbyInput, river });
+    assert.equal(response.status, 404, river);
+    assert.equal(response.headers.get('cache-control'), 'private, no-store');
+    assert.deepEqual(await response.json(), { error: 'This river is not available for float search. Choose another river.' });
+    assert.equal(f.calls.includes('get_float_segment'), false, 'invalid rivers never start route checks');
+  }
+});
+
+test('float-search HTTP keeps lookup outages retryable and successful empty searches valid', async () => {
+  const outage = await floatSearchPost(fixture({ fail: 'rivers' }))({ ...nearbyInput, river: 'current' });
+  assert.equal(outage.status, 503);
+  assert.deepEqual(await outage.json(), { error: 'The search could not finish. Please try again.' });
+  const f = fixture();
+  f.tables.access_points.forEach(p => { p.is_public = false; });
+  const empty = await floatSearchPost(f)({ ...nearbyInput, river: 'current' });
+  assert.equal(empty.status, 200);
+  assert.equal((await empty.json()).evaluated, 0);
+  const invalid = await floatSearchPost(f)({ ...nearbyInput, river: '' });
+  assert.equal(invalid.status, 400);
+});
 
 test('nearby search shares six route estimates across rivers, respects radius and separates alternatives', async () => {
   const f = fixture({ points: 8 });

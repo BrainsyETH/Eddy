@@ -25,6 +25,7 @@ import {
   type SourceProviders,
 } from './sources';
 import { abortable, searchBudget } from './budget';
+import { RiverNotFoundError } from './contracts';
 
 /** Prefer variety, then backfill: a river cap must never hide the only matches. */
 export function diverseFloats<T extends { riverId: string }>(
@@ -313,7 +314,8 @@ export async function findNearbyFloats(
         /* Photos do not affect trip estimates. */
       }
     }
-  } catch {
+  } catch (error) {
+    if (error instanceof RiverNotFoundError) throw error;
     partial = true;
     if (!budget.signal.aborted) failed++;
   } finally {

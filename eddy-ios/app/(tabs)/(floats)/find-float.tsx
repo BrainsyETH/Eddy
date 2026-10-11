@@ -260,7 +260,7 @@ export default function FindFloatScreen() {
           {o.relation === 'match' ? '' : ` · ${o.relation} option`}
         </Text>
         {body(
-          `${o.distanceMiles.toFixed(1)} river miles${o.nearbyMiles == null ? '' : ` · ${o.nearbyMiles} mi to put-in`}`,
+          `${o.distanceMiles.toFixed(1)} river miles${o.nearbyMiles == null ? '' : ` · ${o.nearbyMiles} mi away (straight line)`}`,
         )}
         {body(
           `About ${Math.round(o.minutes / 6) / 10} hours with stops · ${o.estimateBasis === 'current_conditions' ? 'Current conditions' : 'Typical conditions'}`,

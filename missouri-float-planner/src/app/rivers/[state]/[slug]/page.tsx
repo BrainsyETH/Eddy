@@ -34,6 +34,7 @@ import type { RiverType } from '@/lib/rivers/context';
 import RiverGaugeDetail from '@/components/gauge/RiverGaugeDetail';
 import SiteFooter from '@/components/ui/SiteFooter';
 import { jsonLdString } from '@/lib/json-ld';
+import { floatSearchLaunch } from '@/lib/float-search-launch';
 
 const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://eddy.guide';
 
@@ -126,7 +127,7 @@ export default async function RiverGuidePage({ params }: Props) {
   const [riverResult, guideResult] = await Promise.all([
     supabase
       .from('rivers')
-      .select('id, name, slug, state, description, float_tip, length_miles, difficulty_rating, region, geom, river_type')
+      .select('id, name, slug, state, description, float_tip, length_miles, difficulty_rating, region, geom, river_type, active')
       .eq('slug', slug)
       .maybeSingle(),
     supabase
@@ -344,6 +345,14 @@ export default async function RiverGuidePage({ params }: Props) {
                     Plan a Float on the {river.name}
                     <ArrowRight className="w-5 h-5" />
                   </Link>
+                  {floatSearchLaunch().web && river.active && (
+                    <Link
+                      href={`/find-float?river=${encodeURIComponent(slug)}`}
+                      className="inline-flex items-center px-5 py-3 rounded-xl font-semibold text-white border border-white/25 hover:bg-white/10 transition-colors no-underline"
+                    >
+                      Find a float on this river
+                    </Link>
+                  )}
                   {guidePost && (
                     <Link
                       href={`/blog/${guidePost.slug}`}

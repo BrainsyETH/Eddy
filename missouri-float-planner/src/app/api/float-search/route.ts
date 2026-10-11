@@ -5,6 +5,7 @@ import { createFloatSearchLimiter } from '@/lib/agent-tools/limits';
 import { readMcpBody, validOrigin } from '@/lib/agent-tools/http';
 import { findNearbyFloats } from '@/lib/agent-tools/nearby-search';
 import { approximateLocation } from '@shared/float-search';
+import { RiverNotFoundError } from '@/lib/agent-tools/contracts';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 30;
@@ -59,7 +60,12 @@ export async function POST(request: Request) {
       signal: request.signal,
     });
     return Response.json(result, { headers });
-  } catch {
+  } catch (error) {
+    if (error instanceof RiverNotFoundError)
+      return Response.json(
+        { error: 'This river is not available for float search. Choose another river.' },
+        { status: 404, headers },
+      );
     return Response.json(
       { error: 'The search could not finish. Please try again.' },
       { status: 503, headers },

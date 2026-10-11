@@ -20,6 +20,7 @@
 // to have somewhere to go, and an anonymous id is replaced on reinstall.
 
 import { NativeHeaderHome } from '@/components/NativeHeaderHome';
+import { useAppConfig } from '@/hooks/useAppConfig';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -353,6 +354,7 @@ function ServiceRow({ service }: { service: RiverService }) {
 }
 
 export default function RiverDetailScreen() {
+  const { features } = useAppConfig();
   // Set only when the reader arrived from somewhere that knows which water they
   // came for — today the dam screen. `section` names the reach to mark in the
   // reaches panel; `gauge` is the provider-native site id that reads it. Both
@@ -1374,9 +1376,9 @@ export default function RiverDetailScreen() {
             discovered halfway down the thing it controls. Read in order, the
             screen now says which stretch, then what it is doing, then what to
             do about it. */}
-        <Pressable accessibilityRole="button" onPress={() => router.push({ pathname: '/find-float', params: { river: slug } })} style={{ paddingVertical: 14, marginBottom: 12 }}>
+        {features.floatSearch ? <Pressable accessibilityRole="button" onPress={() => router.push({ pathname: '/find-float', params: { river: slug } })} style={{ paddingVertical: 14, marginBottom: 12 }}>
           <Text style={[styles.hazardBody, { color: colors.interactive }]}>Find a float on this river →</Text>
-        </Pressable>
+        </Pressable> : null}
 
         <GaugePicker
           gauges={gauges}

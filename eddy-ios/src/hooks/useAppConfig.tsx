@@ -30,6 +30,7 @@ const DEFAULT_FEATURES: AppFeatureFlags = {
   campingHeatmap: false,
   crowdSignal: false,
   floatMode: false,
+  floatSearch: false,
   push: true,
   planner: true,
   chat: false,
@@ -91,6 +92,7 @@ export function AppConfigProvider({ children }: { children: ReactNode }) {
         campingHeatmap: campingHeatmapEnabled(config?.features),
         crowdSignal: crowdSignalEnabled(config?.features),
         floatMode: floatModeEnabled(config?.features, resolveEnvironment()),
+        floatSearch: config?.features.floatSearch === true,
       },
       notice: config?.notice ?? null,
     };
