@@ -15,6 +15,7 @@ import { tiktokRemainingBudget } from './tiktok-cap';
 
 import { WEEKEND_FLOATABLE, WEEKEND_SEVERITY } from '@shared/condition-system';
 import { getOrCreateConfig } from './config-helpers';
+import { canAutoPublish } from './review';
 import { getLocalDay, getLocalMinutes } from './local-time';
 import { upcomingHolidayWeekend } from './holiday-weekends';
 import type {
@@ -358,7 +359,9 @@ export async function getScheduledPosts(options?: { skipTimeCheck?: boolean }): 
   }
 
   console.log(`${LOG_PREFIX} Scheduled ${posts.length} posts (${diag.due_rivers.length} river highlights)`);
-  return { posts, diagnostics: diag };
+  return { posts: posts.map(post => ({ ...post, autoPublish: canAutoPublish({
+    post_type: post.postType, platform: post.platform,
+  }) })), diagnostics: diag };
 }
 
 // True when the scheduled Central time falls within the current fire window.
@@ -394,8 +397,16 @@ async function hasPostedToday(
     .from('social_posts')
     .select('id')
     .eq('post_type', postType)
-    .gte('created_at', todayStart.toISOString())
-    .in('status', ['pending', 'publishing', 'published', 'rendering', 'inbox']);
+    .gte('created_at', todayStart.toISOString());
+
+  if (postType === 'section_guide') {
+    // Review drafts consume the day's slot, even with no TikTok connected.
+    // Failed drafts stay available for manual rerender instead of regenerating
+    // on the catch-up tick. Automatic failures retain the existing retry path.
+    query = query.or('status.in.(pending,publishing,published,rendering,inbox,review),and(status.eq.failed,auto_publish.eq.false)');
+  } else {
+    query = query.in('status', ['pending', 'publishing', 'published', 'rendering', 'inbox']);
+  }
 
   if (riverSlug) {
     query = query.eq('river_slug', riverSlug);
@@ -436,5 +447,6 @@ export async function getRetryablePosts(): Promise<
     .gte('created_at', cutoff)
     .order('created_at', { ascending: true });
 
-  return data || [];
+  // Also protects failed Float Picks created before the draft policy deployed.
+  return (data || []).filter(canAutoPublish);
 }

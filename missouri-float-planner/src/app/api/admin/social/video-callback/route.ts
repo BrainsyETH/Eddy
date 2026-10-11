@@ -7,6 +7,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { getAdapter } from '@/lib/social/adapters';
 import type { SocialPlatform } from '@/lib/social/types';
 import { hasValidMachineBearer } from '@/lib/security/machine-auth';
+import { canAutoPublish } from '@/lib/social/review';
 
 export const dynamic = 'force-dynamic';
 
@@ -100,9 +101,9 @@ export async function POST(request: NextRequest) {
       continue;
     }
 
-    if (post.auto_publish === false) {
+    if (!canAutoPublish(post)) {
       const { error: reviewError } = await supabase.from('social_posts')
-        .update({ video_url: videoUrl, status: 'review', error_message: null, updated_at: new Date().toISOString() })
+        .update({ video_url: videoUrl, status: 'review', auto_publish: false, error_message: null, updated_at: new Date().toISOString() })
         .eq('id', postId).eq('status', 'rendering');
       results.push({ postId, platform, success: !reviewError, error: reviewError?.message });
       continue;

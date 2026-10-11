@@ -320,7 +320,12 @@ checks, and it must be listened to before approving voice quality or level.
   skipped, not cut mid-advice. Legacy blogs without structured highlights keep
   their description. The clickable guide card, rotation and Tuesday cron stay
   unchanged; this does not add an Instagram carousel publisher.
-- **Float Pick:** no selection, schedule, caption, or rendering changes.
+- **Float Pick:** selection, days/times, caption, and rendered content stay the
+  same. Scheduled Facebook/Instagram copies now become review drafts in Admin
+  → Social posting history. Explicit Publish is required for feed/Reel delivery;
+  no Stories publisher or native Meta draft upload is implemented. TikTok keeps
+  its existing delivery path. Failed drafts retain their saved composition for
+  Render again and cannot auto-publish through the image fallback or retry queue.
 - **Eddy’s Read:** newly generated social Reads compare two or three rivers.
   They reuse the narrated scrolling Read composition, with retained short
   summaries and explicitly labeled weekend weather. Current water is never

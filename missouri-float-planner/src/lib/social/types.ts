@@ -216,4 +216,6 @@ export interface ScheduledPost {
   mediaType: MediaType;
   hashtags: string[];
   eddyUpdateId: string | null;
+  /** False means generation ends in Eddy's review queue, without platform delivery. */
+  autoPublish?: boolean;
 }

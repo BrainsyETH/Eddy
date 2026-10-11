@@ -3,13 +3,23 @@
 Manual generation now creates a draft. Video drafts move from `rendering` to
 `review` after the audio-verified callback; image tips start in `review`.
 Inspect the media and full caption in posting history, then publish the approved
-draft. Scheduled posts retain automatic publication. `inbox` means TikTok still
+draft. Scheduled Facebook/Instagram Float Picks also stop in `review`; their
+existing days and times now generate drafts in Eddy Admin, not in Meta's native
+draft folders. Explicit Publish still uses the existing feed/Reel publisher;
+Stories publishing is not implemented. Other scheduled formats retain automatic
+publication. `inbox` means TikTok still
 requires completion in its app; it does not mean publicly published.
 
 Retry delivery uses the saved media type, URL and caption. Render again uses the
 saved composition and returns to review. Older failed renders without a saved
 composition require a new draft. Generating another manual post preserves history.
 Concurrent approval requests claim the row before contacting the platform.
+
+Float Pick review drafts consume their daily schedule slot. A failed draft is
+retained for Render again and does not silently publish an image or enter the
+automatic delivery retry queue. Scheduled renders save their composition for
+that retry. The callback also holds older in-flight Meta Float Picks for review,
+even if they were originally created with automatic publication enabled.
 
 ## Editorial changes
 

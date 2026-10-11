@@ -110,6 +110,7 @@ interface PreviewPost {
   imageUrl: string;
   mediaType: string;
   hashtags: string[];
+  autoPublish?: boolean;
 }
 
 interface PreviewData {
@@ -863,6 +864,9 @@ export default function SocialAdminPage() {
                               Video
                             </span>
                           )}
+                          {post.autoPublish === false && (
+                            <span className="text-xs text-neutral-300">Draft · review required</span>
+                          )}
                           {post.riverSlug && (
                             <span className="text-xs text-neutral-400">{post.riverSlug}</span>
                           )}
@@ -978,7 +982,7 @@ export default function SocialAdminPage() {
               Quick Post
             </h3>
             <p className="text-sm text-neutral-400">
-              Generate a draft, inspect the caption and media, then choose Publish. Scheduled posts still publish automatically.
+              Generate a draft, inspect the caption and media, then choose Publish. Scheduled Facebook and Instagram Float Picks also wait here for review.
             </p>
 
             {/* Post type selector */}
@@ -1300,7 +1304,7 @@ export default function SocialAdminPage() {
                   </div>
 
                   <div className={`text-sm font-medium ${config.posting_enabled ? 'text-green-400' : 'text-red-400'}`}>
-                    {config.posting_enabled ? 'Active - Posts will be published automatically' : 'Paused - No posts will be published'}
+                    {config.posting_enabled ? 'Active - Scheduled posts run; Facebook and Instagram Float Picks become drafts' : 'Paused - Scheduled posts and drafts are paused'}
                   </div>
                 </div>
 
@@ -1364,6 +1368,7 @@ export default function SocialAdminPage() {
                   <p className="text-sm text-neutral-400 mb-4">
                     Everything in one grid. Click a day cell to toggle <span className="text-neutral-300">Off / Video</span>.
                     If every day for a row is Off, that post type is disabled. Set the time each type fires, or choose Generate draft to review a manual post.
+                    {' '}Facebook and Instagram Float Picks generate drafts in posting history; they publish only when you choose Publish. TikTok delivery follows its connected-account settings.
                   </p>
                   <div className="overflow-x-auto">
                     <table className="w-full text-sm">
@@ -1507,7 +1512,7 @@ export default function SocialAdminPage() {
                     </table>
                   </div>
                   <p className="text-xs text-neutral-500 mt-3">
-                    All times are Central (CST/CDT). Eddy’s Read runs once on Thursday at 5:00 PM when its Thursday cell is enabled. Float Pick keeps its own schedule.
+                    All times are Central (CST/CDT). Eddy’s Read runs once on Thursday at 5:00 PM when its Thursday cell is enabled. Float Pick keeps its own generation schedule; Facebook and Instagram copies require review.
                   </p>
                 </div>
 

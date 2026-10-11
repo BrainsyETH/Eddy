@@ -4,7 +4,8 @@
 //
 // Image posts: published inline.
 // Video posts: ONE render per video (both platforms share the same file).
-//   Triggers GH Actions workflow → callback publishes to all platforms.
+//   Triggers GH Actions workflow → callback delivers or holds for review.
+// Facebook/Instagram Float Picks always wait for review in Eddy Admin.
 
 import { withJobRun } from '@/lib/admin/dashboard/job-run';
 import { NextRequest, NextResponse } from 'next/server';
@@ -16,6 +17,7 @@ import { triggerVideoRender, getCompositionForPost } from '@/lib/social/video-re
 import { tryCronLock, releaseCronLock } from '@/lib/social/cron-lock';
 import { buildPostContext } from '@/lib/social/post-context';
 import type { PostKind } from '@/lib/social/post-types';
+import { canAutoPublish } from '@/lib/social/review';
 
 const CRON_LOCK_NAME = 'post_social';
 // Sized to THIS route's runtime, not the render's. triggerVideoRender POSTs a
@@ -102,6 +104,7 @@ async function runSocialPosting(request: NextRequest) {
   let failed = 0;
   let skipped = 0;
   let rendering = 0;
+  let review = 0;
   const errors: string[] = [];
   let diagnostics: SchedulerResult['diagnostics'] | undefined;
 
@@ -187,6 +190,7 @@ async function runSocialPosting(request: NextRequest) {
       const todayStart = new Date();
       todayStart.setUTCHours(0, 0, 0, 0);
       const postIds: string[] = [];
+      const insertedPosts: Array<{ id: string; post: ScheduledPost }> = [];
 
       // Insert DB records for all platforms in this group
       for (const post of groupPosts) {
@@ -221,6 +225,7 @@ async function runSocialPosting(request: NextRequest) {
             hashtags: post.hashtags,
             eddy_update_id: post.eddyUpdateId,
             status: 'rendering',
+            auto_publish: canAutoPublish({ post_type: post.postType, platform: post.platform }),
           })
           .select('id')
           .single();
@@ -232,6 +237,7 @@ async function runSocialPosting(request: NextRequest) {
         }
 
         postIds.push(record.id);
+        insertedPosts.push({ id: record.id, post });
       }
 
       if (postIds.length === 0) continue;
@@ -245,28 +251,37 @@ async function runSocialPosting(request: NextRequest) {
           renderData,
         );
 
-        const dispatched = await triggerVideoRender({
-          postIds: postIds.join(','),
-          compositionId,
-          inputProps,
-          outputFilename,
-        });
+        // Keep the exact composition so a failed draft can be rendered again
+        // from posting history without selecting a different float.
+        const renderRequest = { compositionId, inputProps, outputFilename };
+        const { error: saveError } = await supabase.from('social_posts')
+          .update({ render_request: renderRequest })
+          .in('id', postIds).eq('status', 'rendering');
+        if (saveError) throw new Error(`Could not save render request: ${saveError.message}`);
+        const dispatched = await triggerVideoRender({ ...renderRequest, postIds: postIds.join(',') });
 
         if (dispatched) {
           rendering += postIds.length;
           console.log(`${LOG_PREFIX} Video render triggered for ${groupKey}: ${postIds.length} platform(s), IDs: ${postIds.join(',')}`);
         } else {
-          // Dispatch failed — fall back to image for all. Surface the
+          // Dispatch failed — only automatic posts may fall back to image. Surface the
           // dispatch failure on each row so a SQL query reveals "why is
           // everything posting as image" without needing log forensics.
           // Most common cause: GH_ACTIONS_TOKEN expired or lost scope.
-          const fallbackReason = 'Video dispatch returned non-204 — fell back to image. Check GH_ACTIONS_TOKEN scope/expiry and that workflow render-social-video.yml exists on the configured ref.';
-          console.error(`${LOG_PREFIX} GH Actions dispatch failed for ${groupKey}, falling back to image`);
-          errors.push(`${groupKey}: ${fallbackReason}`);
-          for (let i = 0; i < groupPosts.length; i++) {
-            const post = groupPosts[i];
-            const id = postIds[i];
-            if (!id) continue;
+          const dispatchReason = 'Video dispatch failed. Check GH_ACTIONS_TOKEN scope/expiry and that workflow render-social-video.yml exists on the configured ref.';
+          const fallbackReason = `${dispatchReason} Fell back to image for automatic publication.`;
+          console.error(`${LOG_PREFIX} GH Actions dispatch failed for ${groupKey}; review drafts remain unpublished`);
+          errors.push(`${groupKey}: ${dispatchReason}`);
+          for (const { id, post } of insertedPosts) {
+            if (!canAutoPublish({ post_type: post.postType, platform: post.platform })) {
+              await supabase.from('social_posts').update({
+                status: 'failed', auto_publish: false,
+                error_message: 'Video render could not be started. Use Render again to prepare this draft.',
+                updated_at: new Date().toISOString(),
+              }).eq('id', id).eq('status', 'rendering');
+              failed++;
+              continue;
+            }
             const adapter = getAdapter(post.platform);
             if (!adapter) continue;
 
@@ -313,6 +328,7 @@ async function runSocialPosting(request: NextRequest) {
 
     // ─── Image posts: publish inline ─────────────────────────
     for (const post of imagePosts) {
+      const autoPublish = canAutoPublish({ post_type: post.postType, platform: post.platform });
       const adapter = getAdapter(post.platform);
       if (!adapter) {
         console.log(`${LOG_PREFIX} No credentials for ${post.platform}, skipping`);
@@ -342,7 +358,8 @@ async function runSocialPosting(request: NextRequest) {
           media_type: 'image',
           hashtags: post.hashtags,
           eddy_update_id: post.eddyUpdateId,
-          status: 'publishing',
+          status: autoPublish ? 'publishing' : 'review',
+          auto_publish: autoPublish,
         })
         .select('id')
         .single();
@@ -352,6 +369,8 @@ async function runSocialPosting(request: NextRequest) {
         skipped++;
         continue;
       }
+
+      if (!autoPublish) { review++; continue; }
 
       try {
         const pubResult = await adapter.publishPost({ caption: post.caption, imageUrl: post.imageUrl, mediaType: 'image' });
@@ -397,6 +416,7 @@ async function runSocialPosting(request: NextRequest) {
 
       const { data: fullPost } = await supabase.from('social_posts').select('*').eq('id', post.id).single();
       if (!fullPost) continue;
+      if (!canAutoPublish(fullPost)) continue;
 
       await supabase.from('social_posts').update({ status: 'publishing', retry_count: fullPost.retry_count + 1, updated_at: new Date().toISOString() }).eq('id', post.id);
 
@@ -439,7 +459,7 @@ async function runSocialPosting(request: NextRequest) {
 
   return NextResponse.json({
     message: 'Social media posting complete',
-    published, failed, skipped, rendering,
+    published, failed, skipped, rendering, review,
     errors: errors.length > 0 ? errors : undefined,
     diagnostics,
     executionTime: new Date().toISOString(),
