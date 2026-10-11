@@ -188,11 +188,12 @@ test('a report is never sent before it is saved, and a failed save rolls back no
   assert.deepEqual(stored.map((r) => [r.id, r.status]), [['A', 'sent']]);
 });
 
-test('background budget cancels a joined send without backoff or starting more reports', async () => {
+test('cancelled sends cool down for a minute while other reports stay eligible', async () => {
   const storage = disk();
   const waiting = (id: string): HazardReport => ({ ...input(id), status: 'waiting', attempts: 0, nextAttemptAt: 0 });
   storage.data.set(REPORTS_KEY, JSON.stringify([waiting('first'), waiting('second')]));
   const sent: string[] = [];
+  let now = T0;
   let abortSeen = false;
   let cancel = true;
   const queue = createReportQueue(storage, async (report, signal) => {
@@ -204,7 +205,7 @@ test('background budget cancels a joined send without backoff or starting more r
         resolve({ kind: 'retry' });
       }, { once: true });
     });
-  }, () => {}, () => T0);
+  }, () => {}, () => now);
   const foregroundRun = queue.flush();
   await queue.flush(10);
   await foregroundRun;
@@ -215,8 +216,46 @@ test('background budget cancels a joined send without backoff or starting more r
   assert.equal(queue.list()[0].status, 'waiting');
   cancel = false;
   await queue.flush();
-  assert.deepEqual(sent, ['first', 'first', 'second']);
+  assert.deepEqual(sent, ['first', 'second'], 'another due report is not held behind the cancelled one');
+  assert.equal(queue.nextDueAt(), T0 + 60_000, 'foreground timer uses the same cooldown as flush');
+  for (const elapsed of [1_000, 5_000, 10_000, 30_000, 59_999]) {
+    now = T0 + elapsed;
+    await queue.flush(5_000);
+    await queue.flush();
+  }
+  assert.deepEqual(sent, ['first', 'second'], 'frequent foreground/background calls cannot resend during cooldown');
+  assert.equal(queue.nextDueAt(), T0 + 60_000);
+  now = T0 + 60_000;
+  await queue.flush();
+  assert.deepEqual(sent, ['first', 'second', 'first']);
   assert.ok(queue.list().every((report) => report.status === 'sent'));
+  assert.equal(queue.nextDueAt(), null);
+});
+
+test('cancellation cooldown is memory-only and relaunch preserves real failure backoff', async () => {
+  const storage = disk();
+  const report: HazardReport = { ...input('retry'), status: 'waiting', attempts: 3, nextAttemptAt: T0 };
+  const saved = JSON.stringify([report]);
+  storage.data.set(REPORTS_KEY, saved);
+  const queue = createReportQueue(storage, async (_report, signal) => new Promise<SendOutcome>((resolve) => {
+    signal.addEventListener('abort', () => resolve({ kind: 'retry' }), { once: true });
+  }), () => {}, () => T0);
+  await queue.flush(10);
+  assert.equal(queue.nextDueAt(), T0 + 60_000);
+  assert.equal(queue.list()[0].attempts, 3);
+  assert.equal(storage.data.get(REPORTS_KEY), saved, 'the cooldown never changes persisted retry state');
+
+  let calls = 0;
+  const relaunched = createReportQueue(storage, async () => {
+    calls += 1;
+    return { kind: 'retry' };
+  }, () => {}, () => T0);
+  await relaunched.ensureLoaded();
+  assert.equal(relaunched.nextDueAt(), T0, 'relaunch immediately retries an already-due report');
+  await relaunched.flush();
+  assert.equal(calls, 1);
+  assert.equal(relaunched.list()[0].attempts, 4);
+  assert.equal(relaunched.nextDueAt(), T0 + retryDelay(4), 'real failures keep exponential backoff');
 });
 
 test('a delivered response at the background deadline still records success', async () => {

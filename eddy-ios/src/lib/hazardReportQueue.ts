@@ -68,6 +68,7 @@ const MAX_NOTE = 500;
 const KEEP_DONE_MS = 7 * 24 * 60 * 60_000;
 const FIRST_RETRY_MS = 60_000;
 const MAX_RETRY_MS = 30 * 60_000;
+const CANCELLED_SEND_COOLDOWN_MS = 60_000;
 
 /** Wait before the next attempt after `attempts` failures: 1, 2, 4 … 30 min. */
 export function retryDelay(attempts: number): number {
@@ -115,6 +116,11 @@ export function createReportQueue(
   let loading: Promise<void> | null = null;
   let sending: Promise<void> | null = null;
   let sendingController: AbortController | null = null;
+  // A time-budget cancellation is not a delivery failure, but GPS callbacks
+  // must not retry it every few seconds. Memory-only: relaunch clears this
+  // cooldown while preserving the report's real, persisted failure backoff.
+  const cancelledUntil = new Map<string, number>();
+  const dueAt = (report: HazardReport) => Math.max(report.nextAttemptAt, cancelledUntil.get(report.id) ?? 0);
   const listeners = new Set<() => void>();
   const notify = () => listeners.forEach((listener) => listener());
 
@@ -202,7 +208,7 @@ export function createReportQueue(
             // Until nothing is due, so a report added mid-run is sent in it.
             const tried = new Set<string>();
             while (!signal.aborted) {
-              const due = reports.filter((r) => r.status === 'waiting' && r.nextAttemptAt <= clock() && !tried.has(r.id));
+              const due = reports.filter((r) => r.status === 'waiting' && dueAt(r) <= clock() && !tried.has(r.id));
               if (due.length === 0) break;
               for (const report of due) {
                 if (signal.aborted) break;
@@ -216,7 +222,11 @@ export function createReportQueue(
                 }
                 // A server success/refusal remains authoritative even if the
                 // budget expired while its response was being processed.
-                if (signal.aborted && outcome.kind === 'retry') break;
+                if (signal.aborted && outcome.kind === 'retry') {
+                  cancelledUntil.set(report.id, clock() + CANCELLED_SEND_COOLDOWN_MS);
+                  break;
+                }
+                cancelledUntil.delete(report.id);
                 const attempts = report.attempts + 1;
                 if (outcome.kind === 'sent') await update(report.id, { status: 'sent', attempts, sentAt: new Date(clock()).toISOString() });
                 else if (outcome.kind === 'refused') await update(report.id, { status: 'refused', attempts, refusal: outcome.message, sentAt: new Date(clock()).toISOString() });
@@ -232,6 +242,8 @@ export function createReportQueue(
       const run = sending;
       if (budgetMs == null) return run;
       const controller = sendingController;
+      // Overlapping callers bound the same send: the earliest deadline wins.
+      // A later callback cannot extend an earlier task's execution budget.
       const timeout = setTimeout(() => controller?.abort(), Math.max(0, budgetMs));
       return run.finally(() => clearTimeout(timeout));
     },
@@ -239,7 +251,7 @@ export function createReportQueue(
     /** When the next waiting report is due, or null if none is waiting. */
     nextDueAt(): number | null {
       const waiting = reports.filter((r) => r.status === 'waiting');
-      return waiting.length ? Math.min(...waiting.map((r) => r.nextAttemptAt)) : null;
+      return waiting.length ? Math.min(...waiting.map(dueAt)) : null;
     },
   };
   return queue;
