@@ -19,6 +19,7 @@
 // entirety. It still needs an ACCOUNT, which is not a tier — a notification has
 // to have somewhere to go, and an anonymous id is replaced on reinstall.
 
+import { RiverGuideLink } from '@/components/RiverGuideCard';
 import { NativeHeaderHome } from '@/components/NativeHeaderHome';
 import { useAppConfig } from '@/hooks/useAppConfig';
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -1503,6 +1504,8 @@ export default function RiverDetailScreen() {
           </View>
         ) : null}
         </View>
+
+        <RiverGuideLink riverSlug={slug} />
 
         {/* AFTER the take, not before it. These photos are banded by condition,
             so they illustrate a verdict — and putting them above the verdict

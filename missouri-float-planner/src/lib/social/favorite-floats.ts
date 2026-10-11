@@ -190,7 +190,7 @@ async function loadFavoritePool(
         springs: springsForRun(riverSlug, putInMile, takeOutMile),
         tagline: cleanName(section.name),
         bestFor: cleanName(section.best),
-        difficulty: section.diff,
+        difficulty: section.diff ?? '',
         bestForTags: section.best_for_tags || [],
         fromSlug: putIn.slug,
         toSlug: takeOut.slug,
