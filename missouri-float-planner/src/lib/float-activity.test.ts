@@ -293,6 +293,21 @@ test('presentation exceptions and rejections never reject the session lifecycle'
   }
 });
 
+test('Show on Lock Screen timeout leaves success or failure to the native result', async () => {
+  for (const result of ['active', 'error'] as const) {
+    const native = deferred<ActivityAvailability>();
+    const states: ActivityAvailability[] = [];
+    const controller = createFloatActivityController({ sync: () => native.promise }, (state) => states.push(state));
+    const showing = controller.sync(snapshot(), { start: true });
+    assert.equal(await controller.settled(1), false, 'the button can stop waiting');
+    assert.deepEqual(states, [], 'a wait timeout is not a native failure');
+    native.resolve(result);
+    await showing;
+    assert.deepEqual(states, [result], 'late success or failure still reaches the screen');
+    assert.equal(await controller.settled(), true);
+  }
+});
+
 test('handover timeout releases the caller while keeping a pending End serialized', async () => {
   const native = deferred<ActivityAvailability>();
   const calls: (FloatActivitySnapshot | null)[] = [];
@@ -307,12 +322,12 @@ test('handover timeout releases the caller while keeping a pending End serialize
   void controller.sync(changed);
   const ended = controller.sync(null, { force: true });
   assert.equal(await controller.settled(1), false);
-  assert.deepEqual(states, ['error']);
+  assert.deepEqual(states, []);
   assert.equal(calls.length, 1, 'timeout must not unlock the native queue');
   native.resolve('active');
   await ended;
   assert.equal(await controller.settled(), true);
   assert.equal(calls.length, 2);
   assert.equal(calls[1], null, 'queued progress is superseded by End');
-  assert.equal(states.at(-1), 'idle');
+  assert.deepEqual(states, ['active', 'idle']);
 });

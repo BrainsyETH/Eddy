@@ -177,9 +177,10 @@ export function createFloatActivityController(
       if (!running) return Promise.resolve(true);
       // Bound the CALLER's wait, not the native operation. Keep the drain and
       // its pending End serialized even when the OS call outlives this budget.
+      // A timeout is not a failure; the native result still decides availability.
       const delivery = running;
       return new Promise((resolve) => {
-        const timer = setTimeout(() => { publish('error'); resolve(false); }, maxWaitMs);
+        const timer = setTimeout(() => resolve(false), maxWaitMs);
         void delivery.then(
           () => { clearTimeout(timer); resolve(true); },
           () => { clearTimeout(timer); resolve(false); },

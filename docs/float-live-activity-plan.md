@@ -124,9 +124,10 @@ snapshot. Serialize/coalesce updates; an older async update cannot overwrite a
 newer one or revive an ended session. After fixes are recorded and persisted,
 the background task allows one second for the activity handover before optional
 report delivery. Show on Lock Screen uses the same bound, so its button cannot
-stay busy indefinitely. Timeout releases the caller and shows an update error;
-it never cancels/unlocks the serialized native queue or starts a concurrent
-operation. A late native completion can still deliver the latest state/End.
+stay busy indefinitely. Timeout releases the caller without changing availability;
+the native result determines success or failure, even if it arrives later. It
+never cancels/unlocks the serialized native queue or starts a concurrent operation.
+A late native completion can still deliver the latest state/End.
 
 ## Staleness without JavaScript execution
 
@@ -216,6 +217,7 @@ Physical-device checks, with an older supported iPhone as well:
 | Repeated loss/recovery of cellular service | No reset, duplicate activity, or camera change |
 | Dismiss card, relaunch | Float survives; dismissed card does not reappear automatically |
 | End float while update is pending | Finish remains responsive; eventual activity end cannot be reversed by that update |
+| Stall a card update indefinitely, end the float, then fully terminate and relaunch the app | Tracking stops and Finish responds before termination; after successful end persistence, the new process removes the leftover card and the float stays ended. Reopening the same running process does not clear the stuck queue |
 | Native request fails, then fixes/relaunch/retry | Error remains visible; explicit successful retry clears it |
 | First EAS archive | Host and extension build/marketing versions match |
 | Off-river take-out | End of mapped river does not claim arrival |
