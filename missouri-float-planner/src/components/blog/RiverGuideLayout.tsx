@@ -255,6 +255,14 @@ export default async function RiverGuideLayout({ post }: Props) {
         <span
           style={{
             marginLeft: 'auto',
+            display: 'inline-flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            flexShrink: 0,
+            minHeight: 26,
+            lineHeight: 1,
+            whiteSpace: 'nowrap',
+            textAlign: 'center',
             padding: '4px 10px',
             background: 'var(--color-accent-100)',
             color: 'var(--color-accent-700)',

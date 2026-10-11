@@ -144,8 +144,8 @@ export default async function BlogPage() {
                         />
                       </div>
                     )}
-                    <div className="flex items-center gap-3 mb-3">
-                      <span className="px-3 py-1 rounded-full text-xs font-semibold bg-primary-100 text-primary-700">
+                    <div className="flex flex-wrap items-center gap-x-3 gap-y-2 mb-3">
+                      <span className="inline-flex max-w-full items-center justify-center px-3 py-1 rounded-full text-center text-xs leading-snug font-semibold bg-primary-100 text-primary-700">
                         {riverName ?? post.category}
                       </span>
                       {post.read_time_minutes && (
