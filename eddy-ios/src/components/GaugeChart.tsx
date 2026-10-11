@@ -74,7 +74,7 @@ import { GaugeChartSheet } from '@/components/GaugeChartSheet';
 import { GaugeChartDetails } from '@/components/GaugeChartDetails';
 import { GaugeChartReadout, GaugeChartFixedReadout } from '@/components/GaugeChartReadout';
 import { GaugeChartFullscreen } from '@/components/GaugeChartFullscreen';
-import { pinchChartWindow } from '@/lib/gaugeChartZoom';
+import { pinchChartWindow, chartZoomKey, visibleChartTimes } from '@/lib/gaugeChartZoom';
 import { chartTimeAtX, expandedChartHeight, type ChartSelection } from '@/lib/gaugeChartExpansion';
 import { chartGutters, chartGridValues, selectChartRailLabels, type ChartRailLabel } from '@/lib/gaugeChartLayout';
 import { validateChartDates, localChartDate, parseLocalChartDate, chartEndAfterStartChange, type ChartDateErrors } from '@/lib/gaugeChartDates';
@@ -554,8 +554,10 @@ function GaugeChartView({
 
   // Keep zoom within the loaded data. Changing station, measurement or loaded
   // range restores the full window, including when a request finishes later.
-  const zoomKey = `${siteId}:${drawnUnit}:${days}:${fromDate}:${toDate}:${fullDomain?.t0}:${fullDomain?.t1}`;
+  const zoomKey = chartZoomKey(siteId, drawnUnit, days, customWindow, history?.requestedWindow, drawnDays);
   const viewport = zoom?.key === zoomKey ? zoom : null;
+  // Time-axis zoom deliberately retains the full-window value scale so pinch
+  // gestures do not exaggerate small changes or make threshold labels jump.
   const domain = useMemo(() => fullDomain && viewport
     ? { ...fullDomain, t0: viewport.start, t1: viewport.end }
     : fullDomain, [fullDomain, viewport]);
@@ -721,8 +723,9 @@ function GaugeChartView({
     if (!selection) return null;
     const point = nearestChartPoint(selection.kind === 'observed' ? points : forecastPoints, selection.time);
     // A new range must never silently attach an old selection to another day.
-    return point?.t === selection.time ? { point, kind: selection.kind } : null;
-  }, [selection, points, forecastPoints]);
+    return point?.t === selection.time && domain && point.t >= domain.t0 && point.t <= domain.t1
+      ? { point, kind: selection.kind } : null;
+  }, [selection, points, forecastPoints, domain]);
 
   const selectTouch = useCallback((x: number, y: number) => {
     if (!domain) return;
@@ -782,8 +785,8 @@ function GaugeChartView({
    * others.
    */
   const scrubTimes = useMemo(
-    () => [...points, ...forecastPoints].map((p) => p.t).sort((a, b) => a - b),
-    [points, forecastPoints],
+    () => visibleChartTimes([...points, ...forecastPoints].map(p => p.t), domain ? { start: domain.t0, end: domain.t1 } : null),
+    [points, forecastPoints, domain],
   );
 
   if (!siteId) return null;
@@ -842,8 +845,12 @@ function GaugeChartView({
       : null;
 
   const newest = points.length ? points[points.length - 1] : null;
-  const readoutPoint = scrubbed ?? (newest ? { point: newest, kind: 'observed' as const }
-    : forecastPoints[0] ? { point: forecastPoints[0], kind: 'forecast' as const } : null);
+  const visibleObserved = viewport && domain ? points.filter(p => p.t >= domain.t0 && p.t <= domain.t1) : points;
+  const visibleForecast = viewport && domain ? forecastPoints.filter(p => p.t >= domain.t0 && p.t <= domain.t1) : forecastPoints;
+  const readoutObserved = visibleObserved[visibleObserved.length - 1];
+  const defaultReadout = readoutObserved ? { point: readoutObserved, kind: 'observed' as const }
+    : visibleForecast[0] ? { point: visibleForecast[0], kind: 'forecast' as const } : null;
+  const readoutPoint = scrubbed ?? defaultReadout;
   const readoutZone = readoutPoint?.kind === 'observed'
     ? zones.find(zone => readoutPoint.point.v <= zone.max || zone.openEnded) : null;
   /** The same date last year, or nothing — never a neighbouring day. */
@@ -923,8 +930,7 @@ function GaugeChartView({
    * provisional reading is not a verified one.
    */
   const spokenValue = (() => {
-    const at = scrubbed ?? (newest ? { point: newest, kind: 'observed' as const }
-      : forecastPoints[0] ? { point: forecastPoints[0], kind: 'forecast' as const } : null);
+    const at = readoutPoint;
     if (!at) return null;
     const bits = [`${formatReading(at.point.v, drawnUnit)}, ${scrubTime(at.point.t)}`];
     if (at.kind === 'forecast') bits.push('NWS forecast');
@@ -941,12 +947,12 @@ function GaugeChartView({
   /**
    * One VoiceOver step: the adjacent reading in either series, clamped at the
    * ends. Steps BY READING, not by distance — stepScrubTime()'s note says why —
-   * and starts from the newest observation when nothing is scrubbed yet, which
+   * and starts from the newest visible observation when nothing is scrubbed, which
    * is where the summary label has just left the listener.
    */
   const stepScrub = (step: 1 | -1) => {
     if (!scale) return;
-    const from = scrubbed?.point.t ?? newest?.t ?? forecastPoints[0]?.t;
+    const from = readoutPoint?.point.t;
     if (from == null) return;
     const next = stepScrubTime(scrubTimes, from, step);
     if (next != null) selectTime(next);
@@ -1183,7 +1189,8 @@ function GaugeChartView({
         <Pressable accessibilityRole="button" onPress={() => { clearScrub(); setSheet('data'); }} style={({ pressed }) => [styles.toolbarAction, { opacity: pressed ? 0.65 : 1 }]}>
           <ControlIcon name="grid-outline" size={16} color={colors.interactive} /><Text style={[styles.actionText, { color: colors.interactive }]}>Data & details</Text>
         </Pressable>
-        {viewport ? <Pressable accessibilityRole="button" accessibilityLabel="Reset chart zoom" onPress={() => { setZoom(null); clearScrub(); }} style={styles.toolbarAction}>
+        {viewport ? <Pressable accessibilityRole="button" accessibilityLabel="Reset chart zoom" onPress={() => { setZoom(null); clearScrub(); }} style={({ pressed }) => [styles.toolbarAction, { opacity: pressed ? 0.65 : 1 }]}>
+          <ControlIcon name="refresh-outline" size={16} color={colors.interactive} />
           <Text style={[styles.actionText, { color: colors.interactive }]}>Reset zoom</Text>
         </Pressable> : null}
         {!expanded ? <Pressable accessibilityRole="button" accessibilityLabel="Expand chart"

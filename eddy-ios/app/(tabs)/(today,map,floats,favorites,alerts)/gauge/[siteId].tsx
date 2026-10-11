@@ -717,16 +717,12 @@ export default function GaugeDetailScreen() {
                 crest is muted context; cold water is safety information, so it
                 reads at full strength without borrowing the alarm red. */}
             {recordLine ? <Text style={[styles.caveat, { color: colors.textMuted }]}>{recordLine}</Text> : null}
-            {rated && peakLine ? <Text style={[styles.caveat, { color: colors.textMuted }]}>{peakLine}</Text> : null}
             {crestLine ? <Text style={[styles.caveat, { color: colors.text }]}>{crestLine}</Text> : null}
             {coldLine ? <Text style={[styles.caveat, { color: colors.text }]}>{coldLine}</Text> : null}
-            {/* Red only when the reading is SUSPECT (ice, estimated, equipment).
-                "Provisional" is how nearly every real-time USGS reading arrives,
-                and classifyQualifiers calls it a footnote; in alarm red on
-                almost every station it teaches the reader to ignore red. The
-                website and embeds already gate on readingSuspect. */}
+            {/* Keep suspect-reading warnings; routine provisional notes live
+                in chart details rather than the current-reading card. */}
             {gauge.readingSuspect && gauge.qualifierNote ? (
-              <Text style={[styles.caveat, { color: gauge.readingSuspect ? colors.error : colors.textMuted }]}>
+              <Text style={[styles.caveat, { color: colors.error }]}>
                 {gauge.qualifierNote}
               </Text>
             ) : null}
@@ -757,7 +753,7 @@ export default function GaugeDetailScreen() {
           <GaugeChart
             siteId={gauge.siteId}
             title={gauge.name}
-            recentSummary={!rated ? peakLine : null}
+            recentSummary={peakLine}
             provider={gauge.provider}
             unit={unit ?? 'cfs'}
             thresholds={rated ? link : null}
