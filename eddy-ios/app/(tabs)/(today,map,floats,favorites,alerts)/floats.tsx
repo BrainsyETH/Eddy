@@ -20,6 +20,7 @@ import { fonts, type as t } from '@/theme/typography';
 import { EddyScene } from '@/components/EddyScene';
 import { useSavedFloats } from '@/hooks/useSavedFloats';
 import { SavedFloatRow } from '@/components/SavedFloatRow';
+import { newPlanRequest } from '@/lib/planRequest';
 
 export default function SavedFloatsScreen() {
   const { floats, ready, forget } = useSavedFloats();
@@ -56,7 +57,7 @@ export default function SavedFloatsScreen() {
                 river every time you open it.
               </Text>
               <Pressable
-                onPress={() => router.push({ pathname: '/', params: { openPlan: '1' } })}
+                onPress={() => router.push({ pathname: '/', params: { openPlan: '1', planRequest: newPlanRequest() } })}
                 style={[styles.planButton, { backgroundColor: colors.accentFill }]}
                 accessibilityRole="button"
               >

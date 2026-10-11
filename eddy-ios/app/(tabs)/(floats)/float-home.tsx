@@ -34,6 +34,7 @@ import { readFavoriteFloats, writeFavoriteFloats } from '@/lib/favoriteFloatCach
 import { dailyFavoriteFloats } from '@/lib/todayFloats';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, textStyles, type as t } from '@/theme/typography';
+import { newPlanRequest } from '@/lib/planRequest';
 
 /** Enough to recognise your recent floats; See all has the rest. */
 const SAVED_PREVIEW_COUNT = 3;
@@ -89,7 +90,7 @@ function FloatHomeContent() {
 
   const openPlanner = useCallback((params: Record<string, string> = {}) => {
     // The planner lives on the Map tab; closing it comes back here.
-    router.push({ pathname: '/', params: { ...params, openPlan: '1', planReturnTo: 'floats' } });
+    router.push({ pathname: '/', params: { ...params, openPlan: '1', planRequest: newPlanRequest(), planReturnTo: 'floats' } });
   }, [router]);
 
   return (

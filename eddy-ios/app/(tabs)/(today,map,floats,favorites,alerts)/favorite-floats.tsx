@@ -11,6 +11,7 @@ import { readFavoriteFloats, writeFavoriteFloats } from '@/lib/favoriteFloatCach
 import { favoriteFloatMeta } from '@/lib/favoriteFloatCopy';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
+import { newPlanRequest } from '@/lib/planRequest';
 
 export default function FavoriteFloatsScreen() {
   const router = useRouter();
@@ -54,6 +55,7 @@ export default function FavoriteFloatsScreen() {
       params: {
         focusRiver: item.riverSlug,
         openPlan: '1',
+        planRequest: newPlanRequest(),
         planPutIn: item.putInId,
         planTakeOut: item.takeOutId,
       },

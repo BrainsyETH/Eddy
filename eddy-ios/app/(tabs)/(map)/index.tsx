@@ -1506,11 +1506,15 @@ function MapContent() {
     planTakeOut?: string;
     /** The tab that opened the planner; closing it goes back there. */
     planReturnTo?: string;
+    /** One-time id of this request; see src/lib/planRequest.ts. */
+    planRequest?: string;
   }>();
   const focusAccess = focusParams.focusAccess ?? null;
   const focusRiver = focusParams.focusRiver ?? null;
   const focusConsumed = useRef<string | null>(null);
   const planIntentConsumed = useRef<string | null>(null);
+  /** Requests already acted on; a replayed one is ignored, never reopened. */
+  const planRequestsDone = useRef(new Set<string>());
 
   // The work, as a callback rather than inline in the effect below. A route
   // param is an external system and reacting to one is what an effect is for,
@@ -1613,11 +1617,14 @@ function MapContent() {
       planIntentConsumed.current = null;
       return;
     }
+    const request = focusParams.planRequest ?? null;
+    if (request && planRequestsDone.current.has(request)) return;
     if (!focusRiver) {
+      if (request) planRequestsDone.current.add(request);
       planReturnTo.current = focusParams.planReturnTo ?? null;
       // eslint-disable-next-line react-hooks/set-state-in-effect -- explicit navigation from Saved floats opens the planner.
       setPlanOpen(true);
-      router.setParams({ openPlan: undefined, planPutIn: undefined, planTakeOut: undefined, planReturnTo: undefined });
+      router.setParams({ openPlan: undefined, planPutIn: undefined, planTakeOut: undefined, planReturnTo: undefined, planRequest: undefined });
       return;
     }
     const token = `${focusRiver}:${focusParams.planPutIn ?? ''}:${focusParams.planTakeOut ?? ''}`;
@@ -1640,6 +1647,7 @@ function MapContent() {
     }
 
     planIntentConsumed.current = token;
+    if (request) planRequestsDone.current.add(request);
     planReturnTo.current = focusParams.planReturnTo ?? null;
     setPlanOpen(true);
     router.setParams({
@@ -1648,12 +1656,14 @@ function MapContent() {
       planPutIn: undefined,
       planTakeOut: undefined,
       planReturnTo: undefined,
+      planRequest: undefined,
     });
   }, [
     focusParams.openPlan,
     focusParams.planPutIn,
     focusParams.planTakeOut,
     focusParams.planReturnTo,
+    focusParams.planRequest,
     focusRiver,
     planner,
     plannerAccess?.slug,
