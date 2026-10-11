@@ -78,6 +78,16 @@ install output; installing on the wrong Node resolves a different dependency
 graph than CI, which is how a lockfile stops matching and a native build starts
 failing for reasons that name anything but Node.
 
+## Skills
+
+Repeatable workflows are skills in `.agents/skills/<name>/SKILL.md` (Codex
+reads them there); `.claude/skills/<name>` is a symlink to the same directory
+for Claude Code. Edit the `.agents/` copy only. `eddy-review` reviews a branch
+or PR; `eddy-ios-release-prep` assesses an iOS release and writes its
+readiness record. Skills route to the authoritative docs rather than restate
+them; `missouri-float-planner/src/lib/agent-skills.test.ts` checks the links
+and that every path a skill names exists.
+
 ## Hard constraints
 
 - **No root `package.json`, lockfile, or npm workspace — deliberate.** `npx expo` run from the root would fetch latest Expo instead of the pinned SDK; workspaces would break EAS archiving and Vercel's scoped install. Rationale: `eddy-ios/README.md`, ADRs in `docs/decisions/`.
