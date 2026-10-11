@@ -52,7 +52,9 @@ plans and point-in-time reports: check them against the code before acting.
 Keep three states apart when describing a feature: **implemented** (in code
 on `main`), **device-verified** (its runbook or ADR gate is ticked), and
 **released** (in a store build, and on if it is behind a server flag). The
-code proves only the first.
+code proves only the first. An unticked gate means the evidence is not
+recorded, not that the thing did not happen: say "unconfirmed", not "not
+released", unless there is evidence either way.
 
 When a change alters a lasting rule or product decision, update the document
 that owns it in the same PR.

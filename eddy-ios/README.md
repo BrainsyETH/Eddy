@@ -739,7 +739,8 @@ confused:
 
 - **The per-river download — removed.** Described below. Its packs are named
   `river:<id>:<n>` and `src/map/packSweep.ts` deletes them.
-- **Float Mode trip downloads — built, not yet released.** A user-started
+- **Float Mode trip downloads — implemented; device verification and release
+  status unconfirmed.** A user-started
   download of a padded corridor along one saved float's route, plus a route
   package so the float can start with no signal. Packs are named
   `float:<trip-key>:<chunk>` and never match the sweep. The decision, and the
@@ -912,8 +913,9 @@ connection. The basemap does not; with no signal it renders blank while the rest
 of the river screen still works. There are no user waypoints and no Apple Watch
 app.
 
-**Float Mode (#1448) — built, not yet released.** Three states, kept apart on
-purpose because they are easy to blur:
+**Float Mode (#1448) — implemented; device verification and release status
+unconfirmed.** Three states, kept apart on purpose because they are easy to
+blur:
 
 - *Implemented in code:* on-water progress from GPS (miles left, percentage,
   time left; `src/lib/floatSession.ts`, `src/float/FloatTracker.tsx`), tracking
@@ -926,9 +928,12 @@ purpose because they are easy to blur:
   when the server's `floatMode` flag is on (`src/lib/floatModeFeature.ts`).
   Whether that flag is on in production is a live setting — check
   `/api/app-config`, do not infer it from this file.
-- *Not yet device-verified:* the "Prove on a device" list in ADR 0011 and the
-  Float Mode gates in `docs/ios-release-runbook.md`. Until those are ticked,
-  describe Float Mode as implemented, not shipped.
+- *Device-verified and released — unconfirmed:* the "Prove on a device" list
+  in ADR 0011 and the Float Mode gates in `docs/ios-release-runbook.md` are
+  unticked. That proves the evidence is not recorded, not that the checks
+  never happened or that nothing shipped. Until someone records them (or
+  confirms the store build and flag), describe Float Mode as implemented,
+  with verification and release status unconfirmed.
 
 **The only entitlement gate is Eddy's written read.** Conditions, gauge
 readings, hazards and the float plan are free, online or off — see `PaywallSheet`
