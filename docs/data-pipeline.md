@@ -102,6 +102,7 @@ when running the write phases.
 
 | Script | Run | Writes (Supabase) | Guard |
 | --- | --- | --- | --- |
+| `seed-river-guides.ts` | direct | `blog_posts` insert for missing rivers; preserves existing posts and validates route endpoints/miles | dry-default; `--apply` inserts drafts, `--apply --publish` inserts published posts; honors `EXPECTED_SUPABASE_REF`. See [guide runbook](../missouri-float-planner/docs/river-guide-style.md#repository-authored-guides-and-publishing) |
 | `import-usgs-gauges.ts` | direct | `gauge_stations` upsert (national OGC import) | dry-default, `--apply`; honors `EXPECTED_SUPABASE_REF` |
 | `import-nwps-gauges.ts` | direct | `gauge_stations` update (NWS flood/action stages) | dry-default, `--apply`; honors `EXPECTED_SUPABASE_REF` |
 | `import-nhd-rivers-from-tnm.ts` | `npm run db:import-rivers-tnm` | `rivers` geometry insert/update (or SQL to `--out`) | dry-default, `--apply`; honors `EXPECTED_SUPABASE_REF` (migrated off the legacy allowlist 2026-08-25) |

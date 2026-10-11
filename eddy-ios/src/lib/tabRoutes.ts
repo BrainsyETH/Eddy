@@ -15,6 +15,7 @@ export const DETAIL_TITLES: Record<string, string> = {
   storage: 'Storage',
   'river-conditions': 'River Conditions',
   'eddy-reads': 'Eddy’s Reads',
+  'river-guides': 'River guides',
   // Settings is no longer a tab: Today and Favorites push it from their
   // account button, so it is a shared detail like the rest.
   profile: 'Settings',
