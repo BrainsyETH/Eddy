@@ -71,7 +71,8 @@
         }
       ],
       "expo-image",
-      "@react-native-community/datetimepicker"
+      "@react-native-community/datetimepicker",
+      "./plugins/withFloatActivity"
     ],
     "experiments": {
       "typedRoutes": true

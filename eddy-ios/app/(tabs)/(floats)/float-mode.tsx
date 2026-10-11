@@ -17,6 +17,7 @@ import { useIsFocused, useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { activateKeepAwakeAsync, deactivateKeepAwake } from 'expo-keep-awake';
 import * as Location from 'expo-location';
+import { FloatActivityControl } from '@/float/FloatActivityControl';
 import { FloatMap } from '@/float/FloatMap';
 import { FloatReminders } from '@/float/FloatReminders';
 import { FloatHazardReports } from '@/float/FloatHazardReports';
@@ -174,6 +175,8 @@ export default function FloatModeScreen() {
             {time.note ? <Text style={[styles.note, { color: colors.textMuted }]}>{time.note}</Text> : null}
           </View>
         )}
+
+        <FloatActivityControl />
 
         <FloatReminders session={session} />
 

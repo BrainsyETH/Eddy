@@ -32,6 +32,7 @@ import * as TaskManager from 'expo-task-manager';
 import { ensureFloatSessionLoaded, floatRemindersSettled, flushFloatSessionIfStale, getFloatSession, recordFixes } from '@/lib/floatSessionStore';
 import { warn } from '@/lib/monitoring';
 import { flushHazardReports } from './hazardReports';
+import { floatActivitySettled } from './liveActivity';
 
 export const FLOAT_LOCATION_TASK = 'eddy-float-location';
 
@@ -59,6 +60,9 @@ TaskManager.defineTask<{ locations: Location.LocationObject[] }>(FLOAT_LOCATION_
   // Let a reminder reach the notifier before iOS suspends Eddy again.
   await floatRemindersSettled();
   await flushFloatSessionIfStale(BACKGROUND_WRITE_MS);
+  // Give ActivityKit up to one second after recording/persisting fixes. A stuck
+  // native update must not hold this task or optional report delivery open.
+  await floatActivitySettled();
   // A hazard report written with no signal goes out when the locked phone
   // finds some. Tracking/persistence finish first; allow five seconds for
   // reports, then cancel unfinished network work without growing backoff.
