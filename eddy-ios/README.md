@@ -813,7 +813,14 @@ Two notes:
 
 ## Icons and splash
 
-Generated from the Eddy favicon artwork, not hand-exported:
+The Floats tab uses the smiling Eddy-in-a-canoe alpha template from
+`design/eddy-canoe-tab/`. iOS tints it through the native tab bar; the non-iOS
+tab uses the same asset and its supplied tint. The smile is a transparent
+cutout, so it remains distinct in dark mode. Regenerate the 1x/2x/3x exports
+with `node eddy-ios/scripts/build-tab-icons.cjs` from the root after installing
+web dependencies. See the source directory's README for appearance checks.
+
+The app icon and splash are generated from the Eddy favicon artwork:
 
 ```bash
 python3 eddy-ios/scripts/build-icons.py    # needs Pillow

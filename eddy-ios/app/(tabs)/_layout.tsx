@@ -2,6 +2,7 @@ import { Tabs } from 'expo-router';
 import { NativeTabs } from 'expo-router/unstable-native-tabs';
 import { Platform } from 'react-native';
 import { ControlIcon } from '@/components/ControlIcon';
+import { FLOAT_TAB_ICON, FloatTabIcon } from '@/components/FloatTabIcon';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts } from '@/theme/typography';
 
@@ -56,7 +57,7 @@ export default function TabsLayout() {
         </NativeTabs.Trigger>
         <NativeTabs.Trigger name="(floats)" disableAutomaticContentInsets>
           <NativeTabs.Trigger.Label>Floats</NativeTabs.Trigger.Label>
-          <NativeTabs.Trigger.Icon sf={{ default: 'sailboat', selected: 'sailboat.fill' }} />
+          <NativeTabs.Trigger.Icon src={FLOAT_TAB_ICON} renderingMode="template" />
         </NativeTabs.Trigger>
         <NativeTabs.Trigger name="(favorites)" disableAutomaticContentInsets>
           <NativeTabs.Trigger.Label>Favorites</NativeTabs.Trigger.Label>
@@ -103,7 +104,7 @@ export default function TabsLayout() {
         name="(floats)"
         options={{
           title: 'Floats',
-          tabBarIcon: ({ color, size }) => <ControlIcon name="boat-outline" size={size} color={color} />,
+          tabBarIcon: ({ color, size }) => <FloatTabIcon size={size} color={color} />,
         }}
       />
       <Tabs.Screen
