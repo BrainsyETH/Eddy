@@ -17,12 +17,17 @@
 //   One start at a time: a start reserves itself before it awaits the disk,
 //   so two quick taps cannot both pass the "nothing active" check.
 //
+//   A reminder is sent once. It is recorded as sent and written to disk in
+//   the same step that hands it to the notifier, so a relaunch or a crash
+//   right after cannot send it again.
+//
 //   An ended float stays ended. Tracking stops at once; if the stored copy
 //   cannot be removed, removal is retried, and an "ended" marker under its own
 //   key makes the next launch discard the copy instead of resuming it.
 
 import type { PositionFix, RouteIndex } from '@eddy/geo';
 import { applyFix, indexRoute, restoreSession, type FloatSession } from './floatSession';
+import { dueReminders, markFired, remindersOf, type DueReminder, type FloatReminderSettings } from './floatReminders';
 
 export interface SessionStorage {
   getItem(key: string): Promise<string | null>;
@@ -38,7 +43,12 @@ export const ENDED_KEY = 'eddy.floatSession.ended.v1';
 const WRITE_THROTTLE_MS = 15_000;
 const END_RETRY_MS = 15_000;
 
-export function createFloatSessionStore(storage: SessionStorage, warn: (message: string, detail?: unknown) => void) {
+export function createFloatSessionStore(
+  storage: SessionStorage,
+  warn: (message: string, detail?: unknown) => void,
+  /** Deliver reminders this position has reached; see floatReminders.ts. */
+  onReminders: (due: DueReminder[], session: FloatSession) => void = () => {},
+) {
   let session: FloatSession | null = null;
   let index: RouteIndex | null = null;
   let loading: Promise<void> | null = null;
@@ -167,9 +177,31 @@ export function createFloatSessionStore(storage: SessionStorage, warn: (message:
       let next = session;
       for (const fix of fixes) next = applyFix(next, index, fix, now);
       if (next === session) return;
+      const due = dueReminders(next, now);
+      if (due.length > 0) next = markFired(next, due.map((reminder) => reminder.id));
       session = next;
       notify();
-      scheduleWrite();
+      if (due.length === 0) {
+        scheduleWrite();
+        return;
+      }
+      clearTimer();
+      void writeQuietly();
+      try {
+        onReminders(due, next);
+      } catch (error) {
+        warn('could not deliver a float reminder', error);
+      }
+    },
+
+    /** Change this float's reminders; what was already sent stays sent. */
+    setReminders(update: (current: FloatReminderSettings) => Omit<FloatReminderSettings, 'fired'>): void {
+      if (!session) return;
+      const current = remindersOf(session);
+      session = { ...session, reminders: { ...update(current), fired: current.fired } };
+      notify();
+      clearTimer();
+      void writeQuietly();
     },
 
     async flush(): Promise<void> {

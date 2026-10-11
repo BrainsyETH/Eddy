@@ -48,6 +48,7 @@ import {
   type TrackResult,
   type TrackState,
 } from '@eddy/geo';
+import type { FloatReminderSettings } from './floatReminders';
 
 /** Bumped when the stored shape changes; older sessions are not restored. */
 export const SESSION_VERSION = 1;
@@ -123,6 +124,8 @@ export interface FloatSession {
    * nothing is live until fresh fixes confirm a position again.
    */
   awaitingFix?: boolean;
+  /** On-water reminders; see floatReminders.ts. Absent means the defaults. */
+  reminders?: FloatReminderSettings;
 }
 
 export type RouteProblem = RouteRefusal | 'no-river-data' | 'no-take-out' | 'take-out-upstream';

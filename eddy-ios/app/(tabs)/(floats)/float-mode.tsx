@@ -18,6 +18,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { activateKeepAwakeAsync, deactivateKeepAwake } from 'expo-keep-awake';
 import * as Location from 'expo-location';
 import { FloatMap } from '@/float/FloatMap';
+import { FloatReminders } from '@/float/FloatReminders';
 import { useFloatSession } from '@/hooks/useFloatSession';
 import { endFloat } from '@/lib/floatSessionStore';
 import { remainingCopy, statusCopy, viewSession } from '@/lib/floatSession';
@@ -164,6 +165,8 @@ export default function FloatModeScreen() {
             {time.note ? <Text style={[styles.note, { color: colors.textMuted }]}>{time.note}</Text> : null}
           </View>
         )}
+
+        <FloatReminders session={session} />
 
         <View style={[styles.toggleRow, { borderColor: colors.border }]}>
           <View style={styles.toggleText}>

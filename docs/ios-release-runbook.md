@@ -148,6 +148,13 @@ are pending checks, not evidence of a device pass.
       left. Record battery drain per hour, screen on versus mostly locked.
 - [ ] **Offline map device proofs in ADR 0011** done and their measured sizes
       recorded there.
+- [ ] **On-water reminders (Phase 5)** on a physical iPhone, phone locked,
+      no cell service: the take-out reminder arrives about half a mile out,
+      once; a chosen stop's arrives a quarter mile out; nothing arrives while
+      paddling upstream, off the river, or before a relaunched float re-finds
+      its position; tapping one opens Float Mode. With notifications denied,
+      Float Mode says reminders can't appear. Pure rules:
+      `src/lib/float-reminders.test.ts` in the web suite.
 
 ### 1.1 delta gates found in the August 11 repository audit
 
