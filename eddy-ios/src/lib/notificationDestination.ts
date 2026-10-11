@@ -4,6 +4,8 @@
 export function notificationDestination(input: unknown) {
   if (!input || typeof input !== 'object' || Array.isArray(input)) return null;
   const data = input as Record<string, unknown>;
+  // An on-water reminder (floatReminders.ts) opens the float it is about.
+  if (typeof data.floatReminder === 'string') return { pathname: '/float-mode' as const };
   const siteId = typeof data.gaugeSiteId === 'string' ? data.gaugeSiteId : null;
   const slug = typeof data.riverSlug === 'string' ? data.riverSlug : null;
   const alertId = typeof data.alertId === 'string' ? data.alertId : null;

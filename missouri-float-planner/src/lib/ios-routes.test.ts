@@ -245,6 +245,8 @@ test('notification destinations keep the exact subject and alert context', () =>
   assert.deepEqual(notificationDestination({ riverSlug: 'current', alertId: 'rule-2' }), {
     pathname: '/river/[slug]', params: { slug: 'current', alertId: 'rule-2' },
   });
+  // An on-water reminder opens the float it is about.
+  assert.deepEqual(notificationDestination({ floatReminder: 'take-out' }), { pathname: '/float-mode' });
   assert.equal(notificationDestination({}), null);
   assert.equal(notificationDestination(null), null);
   assert.equal(notificationDestination({ gaugeSiteId: 123, riverSlug: false }), null);

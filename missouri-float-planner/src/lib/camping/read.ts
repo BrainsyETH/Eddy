@@ -58,7 +58,7 @@ export interface CampsiteNight {
    * First-come sites the same observation recorded — inventory, never a claim
    * that any is free on arrival. Null is UNKNOWN, not zero: state parks (whose
    * feed cannot say walk-up), and any night whose per-site rows do not match
-   * this observation. See 20261009120000_campsite_walk_up_counts.sql.
+   * this observation. See 20261010232915_campsite_walk_up_counts.sql.
    */
   sitesWalkUp: number | null;
 }

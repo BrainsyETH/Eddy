@@ -9,13 +9,17 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { STYLE_URL, getOfflineManager } from '@/map/runtime';
 import { warn } from '@/lib/monitoring';
+import { readStylePackStatus } from '../../modules/eddy-style-pack';
 import {
   MAX_ZOOM,
   MIN_ZOOM,
   TRIP_PACKAGE_VERSION,
   TRIP_PACK_PREFIX,
   isTripPack,
+  offlineBadge,
+  stylePackComplete,
   tripPackageKey,
+  tripReadiness,
   type PackStatus,
   type TripChunk,
   type TripPackage,
@@ -27,24 +31,42 @@ interface NativePack {
   resume: () => Promise<void>;
 }
 
+/**
+ * How long a native offline read may take before it counts as failed. The
+ * card waits on these to show anything, and a native call that never answers
+ * must not leave it on a spinner forever ("not ready" is the honest reading).
+ */
+const NATIVE_READ_TIMEOUT_MS = 8_000;
+
+/** Reject if `promise` has not settled in time, naming the call for the log. */
+export function bounded<T>(promise: Promise<T>, what: string, ms = NATIVE_READ_TIMEOUT_MS): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => reject(new Error(`${what} did not answer within ${ms} ms`)), ms);
+  });
+  return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
+}
+
 async function packs(): Promise<NativePack[]> {
   const manager = getOfflineManager();
   if (!manager) return [];
-  return ((await manager.getPacks()) as NativePack[]).filter((pack) => pack?.name?.startsWith(TRIP_PACK_PREFIX));
+  const all = (await bounded(manager.getPacks(), 'offlineManager.getPacks')) as NativePack[];
+  return all.filter((pack) => pack?.name?.startsWith(TRIP_PACK_PREFIX));
 }
 
 async function statuses(list: NativePack[]): Promise<PackStatus[]> {
   const out: PackStatus[] = [];
   for (const pack of list) {
     try {
-      const status = await pack.status();
+      const status = await bounded(pack.status(), `pack.status(${pack.name})`);
       out.push({
         name: pack.name,
         requiredResourceCount: status.requiredResourceCount ?? 0,
         completedResourceCount: status.completedResourceCount ?? 0,
         completedResourceSize: status.completedResourceSize ?? 0,
       });
-    } catch {
+    } catch (error) {
+      warn('float', 'could not read a trip download', error);
       // A pack the native side cannot describe is not complete.
       out.push({ name: pack.name, requiredResourceCount: 0, completedResourceCount: 0, completedResourceSize: 0 });
     }
@@ -152,4 +174,33 @@ export async function listTripDownloads(): Promise<StoredTrip[]> {
     warn('float', 'could not list trip downloads', error);
     return [];
   }
+}
+
+/**
+ * The offline status line for each saved float, keyed by its trip key; trips
+ * with nothing on the phone are absent. One read of the native store for the
+ * whole list, then the same rules as the trip's own card (tripReadiness).
+ */
+export async function readOfflineBadges(tripKeys: readonly string[]): Promise<Map<string, string>> {
+  const out = new Map<string, string>();
+  if (tripKeys.length === 0) return out;
+  let all: PackStatus[] = [];
+  try {
+    all = await statuses(await packs());
+  } catch (error) {
+    warn('float', 'could not read trip downloads for the saved list', error);
+  }
+  const styleComplete = stylePackComplete(await readStylePackStatus(TRIP_STYLE_URL));
+  await Promise.all(
+    tripKeys.map(async (tripKey) => {
+      const pkg = await readTripPackage(tripKey);
+      const own = all.filter((pack) => isTripPack(pack.name, tripKey));
+      const readiness = pkg || own.length > 0
+        ? tripReadiness(pkg, TRIP_STYLE_URL, own, own.map((pack) => pack.name), styleComplete)
+        : null;
+      const badge = offlineBadge(readiness, pkg != null);
+      if (badge) out.set(tripKey, badge);
+    }),
+  );
+  return out;
 }

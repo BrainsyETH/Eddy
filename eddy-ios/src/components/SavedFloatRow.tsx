@@ -29,11 +29,14 @@ export function SavedFloatRow({
   onOpen,
   onForget,
   elevation,
+  offline,
 }: {
   float: SavedFloat;
   onOpen: () => void;
   onForget: () => void;
   elevation: object;
+  /** What of this trip is on the phone (offlineBadge); absent when nothing is. */
+  offline?: string | null;
 }) {
   const { colors } = useTheme();
 
@@ -43,7 +46,7 @@ export function SavedFloatRow({
         onPress={onOpen}
         style={({ pressed }) => [styles.rowMain, { opacity: pressed ? 0.6 : 1 }]}
         accessibilityRole="button"
-        accessibilityLabel={`${float.putInName} to ${float.takeOutName} on the ${float.riverName}`}
+        accessibilityLabel={`${float.putInName} to ${float.takeOutName} on the ${float.riverName}${offline ? `, ${offline}` : ''}`}
       >
         <Text style={[styles.rowRiver, { color: colors.textMuted }]} numberOfLines={1}>
           {float.riverName}
@@ -54,6 +57,18 @@ export function SavedFloatRow({
         <Text style={[styles.rowMeta, { color: colors.textSubtle }]} numberOfLines={1}>
           {float.distanceLabel} · {savedAgo(float.savedAt)}
         </Text>
+        {offline ? (
+          <View style={styles.offline}>
+            <ControlIcon
+              name={offline === 'Ready offline' ? 'cloud-done-outline' : 'cloud-outline'}
+              size={13}
+              color={offline === 'Ready offline' ? colors.interactive : colors.textMuted}
+            />
+            <Text style={[styles.offlineText, { color: offline === 'Ready offline' ? colors.interactive : colors.textMuted }]}>
+              {offline}
+            </Text>
+          </View>
+        ) : null}
       </Pressable>
 
       {/* A sibling of the open target, not a child of it, and a full-height
@@ -85,4 +100,6 @@ const styles = StyleSheet.create({
   rowSegment: { ...t.sm, fontFamily: fonts.semibold, marginTop: 3 },
   rowMeta: { ...t.xs, fontFamily: fonts.body, marginTop: 3 },
   forget: { width: 52, alignItems: 'center', justifyContent: 'center' },
+  offline: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 5 },
+  offlineText: { ...t.xs, fontFamily: fonts.semibold },
 });

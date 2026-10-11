@@ -2420,6 +2420,41 @@ export async function submitRiverVisual(
   }
 }
 
+/** A hazard report from Float Mode; see src/lib/hazardReportQueue.ts. */
+export interface HazardReportSubmission {
+  riverId: string;
+  latitude: number;
+  longitude: number;
+  description: string;
+  /** When the position was taken, which is when the hazard was seen. */
+  capturedAt: string;
+  /** Sent on every attempt; the server files a report once per id. */
+  clientReportId: string;
+}
+
+/**
+ * File a hazard report. Lands as `status: 'pending'` for a moderator.
+ * Throws ApiError: with the HTTP status when the server answered (its own
+ * sentence for a refusal), without one when it could not be reached.
+ */
+export async function submitHazardReport(input: HazardReportSubmission, signal?: AbortSignal): Promise<void> {
+  const deadline = withDeadline(signal);
+  let response: Response;
+  try {
+    response = await fetchOnce(`${BASE_URL}/api/reports`, deadline, {
+      method: 'POST',
+      headers: { Accept: 'application/json', 'Content-Type': 'application/json', 'User-Agent': USER_AGENT },
+      body: JSON.stringify({ ...input, type: 'hazard' }),
+    });
+  } catch (err) {
+    throw err instanceof ApiError ? err : new ApiError('No connection');
+  }
+  if (!response.ok) {
+    const detail = (await response.json().catch(() => null)) as { error?: string } | null;
+    throw new ApiError(detail?.error ?? `Submit failed (${response.status})`, response.status);
+  }
+}
+
 /** Optional media never blocks availability. media=2 bypasses old empty photo caches. */
 export function fetchCampsitePhotos(facilityId: string, signal?: AbortSignal, siteId?: string) {
   return get<import('@eddy/types').CampsitePhotosResponse>(

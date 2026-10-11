@@ -48,6 +48,7 @@ import {
   type TrackResult,
   type TrackState,
 } from '@eddy/geo';
+import type { FloatReminderSettings } from './floatReminders';
 
 /** Bumped when the stored shape changes; older sessions are not restored. */
 export const SESSION_VERSION = 1;
@@ -91,7 +92,16 @@ export interface FloatRoute {
 export interface FloatEnd {
   id: string;
   name: string;
+  /** Calibrated mile of the river's closest point to this end. */
   riverMile: number;
+  /**
+   * How far the access point itself sits from that closest point, in metres,
+   * when it is beyond OFF_LINE_END_M: a launch off the mapped river (Buffalo
+   * City is a kilometre down the White). Reaching the river's closest point is
+   * then NOT arriving. Absent for ends on the river, and on floats started
+   * before this was recorded.
+   */
+  offLineMeters?: number;
 }
 
 export interface FloatSession {
@@ -123,31 +133,42 @@ export interface FloatSession {
    * nothing is live until fresh fixes confirm a position again.
    */
   awaitingFix?: boolean;
+  /** On-water reminders; see floatReminders.ts. Absent means the defaults. */
+  reminders?: FloatReminderSettings;
 }
 
-export type RouteProblem =
-  | RouteRefusal
-  | 'no-river-data'
-  | 'no-take-out'
-  | 'take-out-upstream'
-  /** A chosen end's river mile disagrees with where calibration places it. */
-  | 'endpoint-unreliable';
+export type RouteProblem = RouteRefusal | 'no-river-data' | 'no-take-out' | 'take-out-upstream';
 
 /**
- * How far an end's own river mile may sit from the calibrated mile at its
- * place on the line. Matches the per-span allowance in river-progress.ts.
+ * The mile a float's end is measured at: the calibrated mile where that access
+ * point actually sits on the line. Every float endpoint is usable. For one that
+ * calibrates the line this IS its own river mile; for one calibration left out
+ * (its published mile disagrees with its neighbours), its position decides,
+ * because that is where the paddler actually lands. Endpoints are vetted
+ * server-side for distance from the channel (access_point_offline, with
+ * recorded exceptions such as Buffalo City), so the position is trusted.
  */
-const ENDPOINT_TOLERANCE_MILES = 0.05;
+export function endMile(index: RouteIndex, anchor: RouteAnchor): number {
+  return locateOnRoute(index, anchor.lngLat)?.riverMile ?? anchor.riverMile;
+}
 
 /**
- * Can this access point end (or begin) a float? Its river mile must agree with
- * the calibrated line at its own position. An access point that calibration
- * left out for disagreeing with its neighbours fails this, and must not
- * become the take-out: its mile would put "arrived" miles from where it is.
+ * Farther than this from the river line, an end is "off the mapped river":
+ * the line ends, or passes, short of it. About the tracker's own on-river
+ * allowance plus a bank; ordinary snapped launches sit well inside it.
  */
-export function endpointIsReliable(index: RouteIndex, anchor: RouteAnchor): boolean {
+export const OFF_LINE_END_M = 150;
+
+/** An end as the float measures it: its river mile, and whether it is off the line. */
+export function placeEnd(index: RouteIndex, anchor: RouteAnchor): FloatEnd {
   const placed = locateOnRoute(index, anchor.lngLat);
-  return placed != null && Math.abs(placed.riverMile - anchor.riverMile) <= ENDPOINT_TOLERANCE_MILES;
+  const offLine = placed && placed.offsetMeters > OFF_LINE_END_M ? Math.round(placed.offsetMeters) : undefined;
+  return {
+    id: anchor.id,
+    name: anchor.name,
+    riverMile: placed?.riverMile ?? anchor.riverMile,
+    ...(offLine != null ? { offLineMeters: offLine } : {}),
+  };
 }
 
 /** Shape cached river data into a route, or say exactly why it cannot be used. */
@@ -184,21 +205,30 @@ export function indexRoute(route: FloatRoute): { ok: true; index: RouteIndex } |
   return result.ok ? { ok: true, index: result.index } : { ok: false, reason: result.reason };
 }
 
-/**
- * Take-outs a quick start can choose: endpoints downstream of where you are,
- * nearest first. River miles count from the headwaters, so downstream is a
- * larger mile. With no confirmed position yet, every endpoint is offered and
- * the choice is checked again once one exists.
- */
-export function takeOutChoices(route: FloatRoute, index: RouteIndex, currentMile: number | null): RouteAnchor[] {
-  return route.anchors
-    .filter((anchor) => anchor.endpoint && (currentMile == null || anchor.riverMile > currentMile))
-    .filter((anchor) => endpointIsReliable(index, anchor))
-    .sort((a, b) => a.riverMile - b.riverMile);
+/** A take-out a quick start can choose, measured the way the float will be. */
+export interface TakeOutChoice extends RouteAnchor {
+  /** Calibrated mile of the river's closest point to it (placeEnd). */
+  mile: number;
+  /** Set when the take-out sits off the mapped river; see FloatEnd. */
+  offLineMeters?: number;
 }
 
-function end(anchor: RouteAnchor): FloatEnd {
-  return { id: anchor.id, name: anchor.name, riverMile: anchor.riverMile };
+/**
+ * Take-outs a quick start can choose: endpoints downstream of where you are,
+ * nearest first, each at the calibrated mile the float will use, so a label
+ * and the float that follows agree. River miles count from the headwaters, so
+ * downstream is a larger mile. With no confirmed position yet, every endpoint
+ * is offered and the choice is checked again once one exists.
+ */
+export function takeOutChoices(route: FloatRoute, index: RouteIndex, currentMile: number | null): TakeOutChoice[] {
+  return route.anchors
+    .filter((anchor) => anchor.endpoint)
+    .map((anchor) => {
+      const placed = placeEnd(index, anchor);
+      return { ...anchor, mile: placed.riverMile, ...(placed.offLineMeters != null ? { offLineMeters: placed.offLineMeters } : {}) };
+    })
+    .filter((choice) => currentMile == null || choice.mile > currentMile)
+    .sort((a, b) => a.mile - b.mile);
 }
 
 export function startSession(input: {
@@ -206,7 +236,7 @@ export function startSession(input: {
   kind: 'saved' | 'quick';
   shortCode?: string | null;
   route: FloatRoute;
-  /** The calibrated index of `route`; the ends are checked against it. */
+  /** The calibrated index of `route`; the ends are measured on it. */
   index: RouteIndex;
   putInId?: string | null;
   takeOutId: string;
@@ -218,10 +248,9 @@ export function startSession(input: {
   const putIn = input.putInId ? input.route.anchors.find((anchor) => anchor.id === input.putInId) ?? null : null;
   if (input.kind === 'saved' && !putIn) return { ok: false, reason: 'no-river-data' };
   // Distance, progress, arrival and time left all hang off these two miles.
-  if (!endpointIsReliable(input.index, takeOut) || (putIn && !endpointIsReliable(input.index, putIn))) {
-    return { ok: false, reason: 'endpoint-unreliable' };
-  }
-  if (putIn && takeOut.riverMile <= putIn.riverMile) return { ok: false, reason: 'take-out-upstream' };
+  const takeOutEnd = placeEnd(input.index, takeOut);
+  const putInEnd = putIn ? placeEnd(input.index, putIn) : null;
+  if (putInEnd && takeOutEnd.riverMile <= putInEnd.riverMile) return { ok: false, reason: 'take-out-upstream' };
   return {
     ok: true,
     session: {
@@ -230,11 +259,11 @@ export function startSession(input: {
       kind: input.kind,
       shortCode: input.shortCode ?? null,
       route: input.route,
-      putIn: putIn ? end(putIn) : null,
-      takeOut: end(takeOut),
+      putIn: putInEnd,
+      takeOut: takeOutEnd,
       plannerMph: input.plannerMph != null && input.plannerMph > 0 ? input.plannerMph : null,
       startedAt: input.now,
-      startMile: putIn ? putIn.riverMile : null,
+      startMile: putInEnd ? putInEnd.riverMile : null,
       track: INITIAL_TRACK,
       samples: [],
       last: null,
@@ -288,7 +317,16 @@ export interface FloatView {
   milesLeft: number | null;
   /** 0-1; null until a position is confirmed. */
   fraction: number | null;
+  /** At the take-out itself. Never true for a take-out off the mapped river. */
   arrived: boolean;
+  /**
+   * At the river's closest point to a take-out that sits off the mapped
+   * river: tracking can go no further, and the take-out is still
+   * takeOutBeyondMeters away.
+   */
+  atRiverEnd: boolean;
+  /** How far the take-out sits from the river line, when it is off it. */
+  takeOutBeyondMeters: number | null;
   pastEnd: boolean;
   /** The quick start began past the chosen take-out. */
   startedPastTakeOut: boolean;
@@ -300,10 +338,12 @@ export interface FloatView {
 /** What the screen shows, derived fresh each time; nothing here is stored. */
 export function viewSession(session: FloatSession, now: number): FloatView {
   const latest = session.samples[session.samples.length - 1] ?? null;
+  const beyond = session.takeOut.offLineMeters ?? null;
   const base = {
     riverName: session.route.riverName,
     takeOutName: session.takeOut.name,
     positionAt: latest?.timestamp ?? null,
+    takeOutBeyondMeters: beyond,
   };
   const estimate = (miles: number | null): RemainingEstimate =>
     miles == null
@@ -317,6 +357,7 @@ export function viewSession(session: FloatSession, now: number): FloatView {
       milesLeft: null,
       fraction: null,
       arrived: false,
+      atRiverEnd: false,
       pastEnd: false,
       startedPastTakeOut: false,
       estimate: estimate(null),
@@ -341,7 +382,8 @@ export function viewSession(session: FloatSession, now: number): FloatView {
     status,
     milesLeft: Math.max(0, progress.remainingMiles),
     fraction: startedPastTakeOut ? null : progress.fraction,
-    arrived: progress.arrived,
+    arrived: progress.arrived && beyond == null,
+    atRiverEnd: progress.arrived && beyond != null,
     pastEnd: progress.pastEnd,
     startedPastTakeOut,
     estimate: estimate(progress.remainingMiles),
@@ -363,6 +405,9 @@ export function restoreSession(raw: string | null): FloatSession | null {
       position: parsed.position ?? null,
       track: { ...parsed.track, committed: null, candidate: null },
       awaitingFix: true,
+      // A handover interrupted by the app ending may or may not have shown;
+      // it becomes eligible again rather than silently lost (floatReminders.ts).
+      ...(parsed.reminders ? { reminders: { ...parsed.reminders, pending: [] } } : {}),
     } as FloatSession;
   } catch {
     return null;
@@ -410,11 +455,15 @@ export function formatDuration(minutes: number): string {
  * The time-left line and the note under it. Never says "current pace": the
  * pace is a recent average, and while paused it is an earlier one.
  */
-export function remainingCopy(estimate: RemainingEstimate): { headline: string; note: string } {
+export function remainingCopy(
+  estimate: RemainingEstimate,
+  /** The take-out is off the mapped river; time runs to its closest point. */
+  takeOutOffLine = false,
+): { headline: string; note: string } {
   if (estimate.minutes == null) {
     return { headline: 'Learning your pace', note: 'Time left appears after a few minutes on the water.' };
   }
-  if (estimate.minutes === 0) return { headline: 'At the take-out', note: '' };
+  if (estimate.minutes === 0) return { headline: takeOutOffLine ? 'At the river’s closest point' : 'At the take-out', note: '' };
   const time = `About ${formatDuration(estimate.minutes)}`;
   if (estimate.paused) {
     return { headline: time, note: 'At your earlier pace. You look stopped, so this holds until you move again.' };
@@ -428,6 +477,11 @@ export function remainingCopy(estimate: RemainingEstimate): { headline: string; 
     default:
       return { headline: time, note: '' };
   }
+}
+
+/** "1.0 km", "400 m": how far a take-out sits off the mapped river. */
+export function formatBeyond(meters: number): string {
+  return meters >= 1_000 ? `${(meters / 1_000).toFixed(1)} km` : `${Math.round(meters / 50) * 50} m`;
 }
 
 /** The one-line status above the numbers. */
@@ -446,6 +500,9 @@ export function statusCopy(view: FloatView, now: number): string {
       return minutes == null ? 'Waiting for GPS.' : `Waiting for GPS. Last position ${minutes} min ago.`;
     }
     case 'live':
+      if (view.atRiverEnd) {
+        return `You’re at the river’s closest point to ${view.takeOutName}. It’s about ${formatBeyond(view.takeOutBeyondMeters!)} from here, off the mapped river.`;
+      }
       return view.arrived ? 'You’re at the take-out.' : 'Live';
   }
 }

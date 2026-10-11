@@ -139,6 +139,41 @@ test('every calibration span is checked, not just the total', () => {
   assert.ok(close.ok && close.index.excludedAnchors === 0);
 });
 
+test('one bad access point cannot refuse a river the others agree on', () => {
+  const mile = (x: number) => 10 + x / MILE;
+  const good: CalibrationAnchor[] = [
+    { lngLat: at(1_000, 0), riverMile: mile(1_000) },
+    { lngLat: at(5_000, 0), riverMile: mile(5_000) },
+    { lngLat: at(8_000, 0), riverMile: mile(8_000) },
+  ];
+  // A launch set back a kilometre (Buffalo City, on the White below the
+  // confluence) still calibrates; a coordinate kilometres away is left out.
+  const setBack = buildRouteIndex(STRAIGHT, [...good, { lngLat: at(7_000, 1_000), riverMile: mile(7_000) }]);
+  assert.ok(setBack.ok && setBack.index.excludedAnchors === 0);
+  const badCoordinate = buildRouteIndex(STRAIGHT, [...good, { lngLat: at(7_000, 3_000), riverMile: mile(7_000) }]);
+  assert.ok(badCoordinate.ok && badCoordinate.index.excludedAnchors === 1);
+  // The OUTERMOST access point's mile is wrong (Huzzah's Highway 49 bridge):
+  // the agreeing majority calibrates, and it is left out.
+  const badFirst = buildRouteIndex(STRAIGHT, [{ lngLat: at(0, 0), riverMile: mile(1_000) - 4 }, ...good]);
+  assert.ok(badFirst.ok && badFirst.index.excludedAnchors === 1);
+  assert.ok(Math.abs(riverMileAt(badFirst.index, 5_000) - mile(5_000)) < 0.01);
+  const badLast = buildRouteIndex(STRAIGHT, [...good, { lngLat: at(10_000, 0), riverMile: mile(8_000) + 4 }]);
+  assert.ok(badLast.ok && badLast.index.excludedAnchors === 1);
+  assert.ok(Math.abs(riverMileAt(badLast.index, 5_000) - mile(5_000)) < 0.01);
+});
+
+test('editorial miles that follow the meanders calibrate; impossible ones do not', () => {
+  // Published mile indexes run longer than the simplified line, up to about
+  // 1.5x per segment on real rivers. That is normal, not a defect.
+  const line = 10_000 / MILE;
+  const index = (miles: number) => buildRouteIndex(STRAIGHT, [{ lngLat: at(0, 0), riverMile: 0 }, { lngLat: at(10_000, 0), riverMile: miles }]);
+  assert.equal(index(line * 1.5).ok, true);
+  assert.equal(index(line * 0.6).ok, true);
+  // Outside 0.5x-2x, the data validator's own bounds, it is refused.
+  assert.deepEqual(index(line * 2.5), { ok: false, reason: 'length-disagreement' });
+  assert.deepEqual(index(line * 0.4), { ok: false, reason: 'length-disagreement' });
+});
+
 test('data that cannot support progress is refused, never corrected', () => {
   const ends: CalibrationAnchor[] = [
     { lngLat: at(0, 0), riverMile: 0 },
@@ -156,13 +191,11 @@ test('data that cannot support progress is refused, never corrected', () => {
     buildRouteIndex(STRAIGHT, [{ ...ends[0], riverMile: 5 }, { ...ends[1], riverMile: 5 }]),
     { ok: false, reason: 'anchors-out-of-order' },
   );
-  // The War Eagle case: the line is about twice the miles it claims.
+  // The line is three times the miles it claims.
   assert.deepEqual(
-    buildRouteIndex(STRAIGHT, [ends[0], { ...ends[1], riverMile: 10_000 / MILE / 2 }]),
+    buildRouteIndex(STRAIGHT, [ends[0], { ...ends[1], riverMile: 10_000 / MILE / 3 }]),
     { ok: false, reason: 'length-disagreement' },
   );
-  // Within the 10% tolerance is accepted.
-  assert.equal(buildRouteIndex(STRAIGHT, [ends[0], { ...ends[1], riverMile: (10_000 / MILE) * 1.09 }]).ok, true);
 });
 
 test('a one-off location reads its river mile and how far from the river it is', () => {

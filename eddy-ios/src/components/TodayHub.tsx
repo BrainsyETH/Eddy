@@ -65,6 +65,7 @@ import {
 } from '@/theme/conditions';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
+import { newPlanRequest } from '@/lib/planRequest';
 
 interface Props {
   rivers: RiverListItem[];
@@ -464,7 +465,7 @@ export function TodayHub({
   const openPlan = useCallback((riverSlug: string, putInId?: string, takeOutId?: string) => {
     router.push({
       pathname: '/',
-      params: { focusRiver: riverSlug, openPlan: '1', planPutIn: putInId, planTakeOut: takeOutId },
+      params: { focusRiver: riverSlug, openPlan: '1', planRequest: newPlanRequest(), planPutIn: putInId, planTakeOut: takeOutId },
     });
   }, [router]);
 

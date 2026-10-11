@@ -21,7 +21,7 @@ import { locateOnRoute, type LngLat } from '@eddy/geo';
 import type { RiverListItem } from '@eddy/types';
 import { useFloatSession } from '@/hooks/useFloatSession';
 import { loadFloatRoute, routeProblemCopy, type LoadedRoute } from '@/float/loadFloatRoute';
-import { suggestRivers, startSession, takeOutChoices, type RouteAnchor } from '@/lib/floatSession';
+import { formatBeyond, suggestRivers, startSession, takeOutChoices, type TakeOutChoice } from '@/lib/floatSession';
 import { beginFloat } from '@/lib/floatSessionStore';
 import { TripDownloadCard } from '@/float/TripDownloadCard';
 import { readBestIndex } from '@/lib/riverCache';
@@ -120,6 +120,12 @@ function QuickStart() {
   const [here, setHere] = useState<{ lat: number; lng: number } | null>(null);
   const [locating, setLocating] = useState(false);
   const [riverSlug, setRiverSlug] = useState<string | null>(null);
+  /**
+   * The take-out picked, waiting on Start float. Its session id is made here
+   * and reused at start, so an optional download made now (keyed by it)
+   * belongs to the float that follows.
+   */
+  const [picked, setPicked] = useState<{ choice: TakeOutChoice; sessionId: string } | null>(null);
   const loaded = useRoute(riverSlug);
   const start = useStart();
 
@@ -142,6 +148,9 @@ function QuickStart() {
   }, []);
 
   const suggestions = useMemo(() => (rivers && here ? suggestRivers(rivers, here) : []), [rivers, here]);
+  // One array per position: the download card plans from it, and a new array
+  // every render would re-plan and re-read the offline store every render.
+  const herePoint = useMemo<LngLat | null>(() => (here ? [here.lng, here.lat] : null), [here]);
 
   // Where you are on the chosen river, to offer only take-outs below you.
   const located = useMemo(() => {
@@ -194,6 +203,54 @@ function QuickStart() {
   if (!loaded) return <Loading />;
   if (!loaded.ok) return <Problem text={routeProblemCopy(loaded.reason)} onBack={() => setRiverSlug(null)} />;
 
+  const milesTo = (choice: TakeOutChoice) => (located ? choice.mile - located.riverMile : null);
+
+  if (picked) {
+    const { choice, sessionId } = picked;
+    const miles = milesTo(choice);
+    return (
+      <Shell>
+        <Text style={[styles.eyebrow, { color: colors.accent }]}>{loaded.route.riverName.toUpperCase()}</Text>
+        <Text style={[styles.title, { color: colors.text }]}>To {choice.name}</Text>
+        {miles != null ? (
+          <Text style={[styles.body, { color: colors.text }]}>About {miles.toFixed(1)} mi down the river from you.</Text>
+        ) : null}
+        {choice.offLineMeters != null ? (
+          <Text style={[styles.body, { color: colors.textMuted }]}>
+            {choice.name} sits about {formatBeyond(choice.offLineMeters)} off the mapped river. Float Mode tracks you to the river’s closest point and tells you when you’re there.
+          </Text>
+        ) : null}
+        {located && herePoint ? (
+          <TripDownloadCard
+            tripKey={sessionId}
+            route={loaded.route}
+            fromId=""
+            fromLngLat={herePoint}
+            toId={choice.id}
+          />
+        ) : (
+          <Text style={[styles.body, { color: colors.textMuted }]}>
+            An offline map download needs Eddy to find you on this river first. Float Mode tracks without one.
+          </Text>
+        )}
+        <LocationReason />
+        <PrimaryButton
+          label="Start float"
+          busy={start.busy}
+          onPress={() =>
+            void start.run(() =>
+              startSession({ id: sessionId, kind: 'quick', route: loaded.route, index: loaded.index, takeOutId: choice.id, now: Date.now() }),
+            )
+          }
+        />
+        {start.error ? <Text style={[styles.body, { color: colors.error }]}>{start.error}</Text> : null}
+        <Pressable onPress={() => setPicked(null)} accessibilityRole="button" style={styles.link}>
+          <Text style={[styles.secondaryText, { color: colors.interactive }]}>Choose a different take-out</Text>
+        </Pressable>
+      </Shell>
+    );
+  }
+
   return (
     <Shell>
       <Text style={[styles.eyebrow, { color: colors.accent }]}>{loaded.route.riverName.toUpperCase()}</Text>
@@ -208,22 +265,24 @@ function QuickStart() {
         {choices.length === 0 ? (
           <Text style={[styles.body, { color: colors.textMuted, padding: 14 }]}>No take-outs below you on this river.</Text>
         ) : (
-          choices.map((anchor: RouteAnchor) => (
-            <Row
-              key={anchor.id}
-              title={anchor.name}
-              detail={located ? `${(anchor.riverMile - located.riverMile).toFixed(1)} mi` : undefined}
-              onPress={() =>
-                void start.run(() =>
-                  startSession({ id: newSessionId(), kind: 'quick', route: loaded.route, index: loaded.index, takeOutId: anchor.id, now: Date.now() }),
-                )
-              }
-            />
-          ))
+          choices.map((choice) => {
+            const miles = milesTo(choice);
+            const detail = [miles != null ? `${miles.toFixed(1)} mi` : null, choice.offLineMeters != null ? 'off river' : null]
+              .filter(Boolean)
+              .join(' · ');
+            return (
+              <Row
+                key={choice.id}
+                title={choice.name}
+                detail={detail || undefined}
+                onPress={() => setPicked({ choice, sessionId: newSessionId() })}
+              />
+            );
+          })
         )}
       </View>
       {start.error ? <Text style={[styles.body, { color: colors.error }]}>{start.error}</Text> : null}
-      <Pressable onPress={() => setRiverSlug(null)} accessibilityRole="button" style={styles.link}>
+      <Pressable onPress={() => { setPicked(null); setRiverSlug(null); }} accessibilityRole="button" style={styles.link}>
         <Text style={[styles.secondaryText, { color: colors.interactive }]}>Choose a different river</Text>
       </Pressable>
     </Shell>

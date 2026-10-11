@@ -148,6 +148,22 @@ are pending checks, not evidence of a device pass.
       left. Record battery drain per hour, screen on versus mostly locked.
 - [ ] **Offline map device proofs in ADR 0011** done and their measured sizes
       recorded there.
+- [ ] **On-water reminders (Phase 5)** on a physical iPhone, phone locked,
+      no cell service: the take-out reminder arrives about half a mile out,
+      once; a chosen stop's arrives a quarter mile out; nothing arrives while
+      paddling upstream, off the river, or before a relaunched float re-finds
+      its position; tapping one opens Float Mode. With notifications denied,
+      Float Mode says reminders can't appear. Pure rules:
+      `src/lib/float-reminders.test.ts` in the web suite.
+- [ ] **Hazard reports from Float Mode (Phase 5, #1453).** Apply
+      `20261011120000_report_client_ids.sql` to production first (the API only
+      writes `client_report_id` when a client sends one, so web reports are
+      unaffected either way, but iOS retries need the column). Then on a
+      device: report with no signal → "Saved on your phone"; signal returns
+      (foreground, or locked during a float) → "Sent for review" and exactly
+      one pending row in `community_reports`; a report far from the river →
+      "Not accepted" with the server's reason. Pure rules:
+      `src/lib/hazard-report-queue.test.ts`.
 
 ### 1.1 delta gates found in the August 11 repository audit
 

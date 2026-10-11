@@ -62,8 +62,6 @@ export function routeProblemCopy(reason: RouteProblem | 'offline'): string {
       return 'That take-out isn’t on this river anymore. Choose another one.';
     case 'take-out-upstream':
       return 'That take-out is upstream of where this float starts.';
-    case 'endpoint-unreliable':
-      return 'Eddy’s mileage for one end of this float doesn’t line up with the river, so Float Mode can’t show honest distance for it yet.';
     case 'too-few-points':
     case 'too-few-anchors':
     case 'anchor-off-line':

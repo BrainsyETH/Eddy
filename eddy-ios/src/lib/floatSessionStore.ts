@@ -22,12 +22,41 @@
 // else location-related in Eddy.
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as Notifications from 'expo-notifications';
 import type { PositionFix } from '@eddy/geo';
 import type { FloatSession } from './floatSession';
 import { createFloatSessionStore, type BeginResult } from './floatSessionStoreCore';
+import { reminderCopy, type DueReminder, type FloatReminderSettings } from './floatReminders';
 import { warn } from './monitoring';
 
-const store = createFloatSessionStore(AsyncStorage, (message, detail) => warn('float', message, detail));
+/**
+ * A reminder is a local notification: scheduled on the phone, so it needs no
+ * cell service, and shown even while locked (Phase 4 keeps fixes coming with
+ * the screen off). Tapping it opens Float Mode. Resolves with the reminders
+ * the phone accepted; without notification permission none are, so they stay
+ * eligible and still fire if permission is given in time. The Float Mode
+ * screen says when notifications are off.
+ */
+async function deliverReminders(due: DueReminder[]): Promise<string[]> {
+  const permission = await Notifications.getPermissionsAsync().catch(() => null);
+  if (!permission?.granted) return [];
+  const delivered: string[] = [];
+  for (const reminder of due) {
+    const { title, body } = reminderCopy(reminder);
+    try {
+      await Notifications.scheduleNotificationAsync({
+        content: { title, body, sound: true, data: { floatReminder: reminder.id } },
+        trigger: null,
+      });
+      delivered.push(reminder.id);
+    } catch (error) {
+      warn('float', 'could not show a float reminder', error);
+    }
+  }
+  return delivered;
+}
+
+const store = createFloatSessionStore(AsyncStorage, (message, detail) => warn('float', message, detail), deliverReminders);
 
 /** Read the stored float once per process. Then read it with getFloatSession(). */
 export function ensureFloatSessionLoaded(): Promise<void> {
@@ -66,4 +95,14 @@ export function flushFloatSessionIfStale(minIntervalMs: number): Promise<void> {
 /** End the float and forget it. Tracking stops because nothing is active. */
 export function endFloat(): Promise<boolean> {
   return store.end();
+}
+
+/** Change the active float's reminders. */
+export function setFloatReminders(update: (current: FloatReminderSettings) => Pick<FloatReminderSettings, 'takeOut' | 'stops'>): void {
+  store.setReminders(update);
+}
+
+/** Wait for reminder handovers in progress; the background task awaits this. */
+export function floatRemindersSettled(): Promise<void> {
+  return store.remindersSettled();
 }

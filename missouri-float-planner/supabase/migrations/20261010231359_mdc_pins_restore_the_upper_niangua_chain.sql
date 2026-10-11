@@ -1,7 +1,9 @@
 -- Restore the upper-Niangua access chain from MDC's live GIS, without rebasing
 -- the published FloatMissouri mile index.
--- PENDING BY DESIGN: apply after review, then record production's migration
--- version here and in supabase/production-migrations.txt (renaming if needed).
+-- APPLIED to production (ilefwfpvphadsbptiaur) 2026-10-10 and RECORDED as
+-- 20261010231359; authored as 20260914205500 and renamed to the recorded
+-- version. Ledger: supabase/production-migrations.txt. Apply output: Niangua
+-- mileage_segment_implausible 4 -> 3 segments, Big John published.
 --
 -- SOURCES (checked 2026-09-14):
 --   MDC place pages:

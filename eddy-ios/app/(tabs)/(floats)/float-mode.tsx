@@ -18,9 +18,11 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { activateKeepAwakeAsync, deactivateKeepAwake } from 'expo-keep-awake';
 import * as Location from 'expo-location';
 import { FloatMap } from '@/float/FloatMap';
+import { FloatReminders } from '@/float/FloatReminders';
+import { FloatHazardReports } from '@/float/FloatHazardReports';
 import { useFloatSession } from '@/hooks/useFloatSession';
 import { endFloat } from '@/lib/floatSessionStore';
-import { remainingCopy, statusCopy, viewSession } from '@/lib/floatSession';
+import { formatBeyond, remainingCopy, statusCopy, viewSession } from '@/lib/floatSession';
 import { trackingMode, trackingNotice, type TrackingMode } from '@/lib/floatPermissions';
 import { radii } from '@/theme/layout';
 import { useTheme } from '@/theme/ThemeProvider';
@@ -76,18 +78,20 @@ export default function FloatModeScreen() {
   }
 
   const position: LngLat | null = session.position?.lngLat ?? null;
-  const time = remainingCopy(view.estimate);
+  const time = remainingCopy(view.estimate, view.takeOutBeyondMeters != null);
   const live = view.status === 'live';
+  // At the take-out, or as close as the mapped river goes to one off it.
+  const done = view.arrived || view.atRiverEnd;
 
   const confirmEnd = () => {
     Alert.alert(
-      view.arrived ? 'Finish this float?' : 'End this float?',
-      view.arrived ? 'Tracking stops.' : 'Tracking stops and this float’s progress is cleared.',
+      done ? 'Finish this float?' : 'End this float?',
+      done ? 'Tracking stops.' : 'Tracking stops and this float’s progress is cleared.',
       [
         { text: 'Keep floating', style: 'cancel' },
         {
-          text: view.arrived ? 'Finish' : 'End float',
-          style: view.arrived ? 'default' : 'destructive',
+          text: done ? 'Finish' : 'End float',
+          style: done ? 'default' : 'destructive',
           onPress: () => {
             void endFloat().then((cleared) => {
               // Tracking has stopped either way; say so if storage lagged.
@@ -160,10 +164,19 @@ export default function FloatModeScreen() {
             <Text style={[styles.percent, { color: colors.textMuted }]}>
               {view.fraction == null ? ' ' : `${Math.round(view.fraction * 100)}% of the way`}
             </Text>
+            {view.takeOutBeyondMeters != null ? (
+              <Text style={[styles.note, { color: colors.textMuted }]}>
+                Miles to the river’s closest point. {view.takeOutName} is about {formatBeyond(view.takeOutBeyondMeters)} beyond it, off the mapped river.
+              </Text>
+            ) : null}
             <Text style={[styles.time, { color: colors.text }]}>{time.headline}</Text>
             {time.note ? <Text style={[styles.note, { color: colors.textMuted }]}>{time.note}</Text> : null}
           </View>
         )}
+
+        <FloatReminders session={session} />
+
+        <FloatHazardReports session={session} />
 
         <View style={[styles.toggleRow, { borderColor: colors.border }]}>
           <View style={styles.toggleText}>
@@ -176,15 +189,15 @@ export default function FloatModeScreen() {
         <Pressable
           onPress={confirmEnd}
           style={({ pressed }) => [
-            view.arrived ? styles.primary : styles.secondary,
-            view.arrived
+            done ? styles.primary : styles.secondary,
+            done
               ? { backgroundColor: pressed ? colors.accentFillPressed : colors.accentFill }
               : { borderColor: colors.border, opacity: pressed ? 0.6 : 1 },
           ]}
           accessibilityRole="button"
         >
-          <Text style={view.arrived ? [styles.primaryText, { color: colors.onAccent }] : [styles.secondaryText, { color: colors.error }]}>
-            {view.arrived ? 'Finish float' : 'End float'}
+          <Text style={done ? [styles.primaryText, { color: colors.onAccent }] : [styles.secondaryText, { color: colors.error }]}>
+            {done ? 'Finish float' : 'End float'}
           </Text>
         </Pressable>
       </ScrollView>

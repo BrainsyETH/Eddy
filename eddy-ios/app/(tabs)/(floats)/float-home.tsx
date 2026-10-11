@@ -1,6 +1,6 @@
 // eddy-ios/app/(tabs)/(floats)/float-home.tsx
 // The Floats tab: plan a float, reopen the ones you kept, or start from Eddy's
-// featured pick.
+// featured picks.
 //
 // ── Why this route is not /floats ─────────────────────────────────────────
 // /floats is the public saved-float list, shared by every tab stack and
@@ -11,12 +11,12 @@
 // ── What it deliberately does not show ────────────────────────────────────
 // No float times on saved cards (see SavedFloatRow). Start Float and Resume
 // Float appear only where the floatMode flag is on (development and preview
-// builds, or the server flag; see floatModeFeature.ts), and "Ready offline"
-// not until downloads exist (#1448). Featured Float is the same curated pick
-// Today used to show, with the same daily rotation.
+// builds, or the server flag; see floatModeFeature.ts), and so do the offline
+// lines on saved floats, read from the same rules as each trip's own card. Featured Floats are the first three of the
+// curated picks in the same daily rotation Today used, swiped one at a time.
 
 import { useCallback, useEffect, useState } from 'react';
-import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, View, type LayoutChangeEvent, type NativeScrollEvent, type NativeSyntheticEvent } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import type { FavoriteFloatSummary } from '@eddy/types';
@@ -30,13 +30,19 @@ import { SectionHead } from '@/components/SectionHead';
 import { useSavedFloats } from '@/hooks/useSavedFloats';
 import { useAppConfig } from '@/hooks/useAppConfig';
 import { useFloatSession } from '@/hooks/useFloatSession';
+import { useOfflineBadges } from '@/float/useOfflineBadges';
 import { readFavoriteFloats, writeFavoriteFloats } from '@/lib/favoriteFloatCache';
 import { dailyFavoriteFloats } from '@/lib/todayFloats';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, textStyles, type as t } from '@/theme/typography';
+import { newPlanRequest } from '@/lib/planRequest';
 
 /** Enough to recognise your recent floats; See all has the rest. */
 const SAVED_PREVIEW_COUNT = 3;
+
+/** Featured picks to swipe through; See all has the rest. */
+const FEATURED_COUNT = 3;
+const FEATURED_GAP = 12;
 
 export default function FloatHomeScreen() {
   return <LazyTabScreen><FloatHomeContent /></LazyTabScreen>;
@@ -48,6 +54,8 @@ function FloatHomeContent() {
   const { floats: saved, ready, forget } = useSavedFloats();
   const { features } = useAppConfig();
   const activeFloat = useFloatSession();
+  const savedPreview = saved.slice(0, SAVED_PREVIEW_COUNT);
+  const offline = useOfflineBadges(savedPreview.map((item) => item.shortCode), features.floatMode);
   const [curated, setCurated] = useState<FavoriteFloatSummary[] | null>(null);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -81,10 +89,11 @@ function FloatHomeContent() {
     setRefreshing(false);
   }, [loadCurated]);
 
-  const featured = curated ? dailyFavoriteFloats(curated)[0] ?? null : null;
+  const featured = curated ? dailyFavoriteFloats(curated).slice(0, FEATURED_COUNT) : [];
 
   const openPlanner = useCallback((params: Record<string, string> = {}) => {
-    router.push({ pathname: '/', params: { ...params, openPlan: '1' } });
+    // The planner lives on the Map tab; closing it comes back here.
+    router.push({ pathname: '/', params: { ...params, openPlan: '1', planRequest: newPlanRequest(), planReturnTo: 'floats' } });
   }, [router]);
 
   return (
@@ -156,10 +165,11 @@ function FloatHomeContent() {
               onAction={() => router.push('/floats')}
             />
           </View>
-          {saved.slice(0, SAVED_PREVIEW_COUNT).map((item) => (
+          {savedPreview.map((item) => (
             <SavedFloatRow
               key={item.shortCode}
               float={item}
+              offline={offline.get(item.shortCode)}
               onOpen={() => router.push(`/float/${item.shortCode}`)}
               onForget={() => forget(item.shortCode)}
               elevation={elevation(1)}
@@ -168,27 +178,90 @@ function FloatHomeContent() {
           {ready && saved.length === 0 ? (
             <View style={[styles.gutter, styles.emptyRow]}>
               <Text style={[styles.emptyText, { color: colors.textMuted }]}>
-                Floats you save show up here. Plan one above, or start from Eddy’s featured pick below.
+                Floats you save show up here. Plan one above, or start from one of Eddy’s featured floats below.
               </Text>
             </View>
           ) : null}
         </View>
 
-        {featured ? (
-          <View style={[styles.section, styles.gutter]}>
-            <SectionHead title="Featured float" action="See all" onAction={() => router.push('/favorite-floats')} />
-            <FeaturedFloatCard
-              item={featured}
-              onPlan={() => openPlanner({
-                focusRiver: featured.riverSlug,
-                planPutIn: featured.putInId,
-                planTakeOut: featured.takeOutId,
+        {featured.length > 0 ? (
+          <View style={styles.section}>
+            <View style={styles.gutter}>
+              <SectionHead title="Featured Floats" action="See all" onAction={() => router.push('/favorite-floats')} />
+            </View>
+            <FeaturedCarousel
+              items={featured}
+              onPlan={(item) => openPlanner({
+                focusRiver: item.riverSlug,
+                planPutIn: item.putInId,
+                planTakeOut: item.takeOutId,
               })}
             />
           </View>
         ) : null}
       </ScrollView>
     </SafeAreaView>
+  );
+}
+
+/**
+ * One featured pick per page, the next one peeking in so it reads as
+ * swipeable, with dots for where you are. Pages snap; the card keeps its own
+ * single action.
+ */
+function FeaturedCarousel({
+  items,
+  onPlan,
+}: {
+  items: FavoriteFloatSummary[];
+  onPlan: (item: FavoriteFloatSummary) => void;
+}) {
+  const { colors } = useTheme();
+  const [width, setWidth] = useState(0);
+  const [page, setPage] = useState(0);
+  const single = items.length === 1;
+  // 16 pt gutter on the left; the next card peeks 24 pt in on the right.
+  const cardWidth = width > 0 ? (single ? width - 32 : width - 16 - FEATURED_GAP - 24) : 0;
+  const onLayout = (event: LayoutChangeEvent) => setWidth(event.nativeEvent.layout.width);
+  const onScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+    if (cardWidth <= 0) return;
+    const next = Math.round(event.nativeEvent.contentOffset.x / (cardWidth + FEATURED_GAP));
+    setPage(Math.max(0, Math.min(items.length - 1, next)));
+  };
+
+  return (
+    <View onLayout={onLayout}>
+      {cardWidth > 0 ? (
+        <ScrollView
+          horizontal
+          scrollEnabled={!single}
+          showsHorizontalScrollIndicator={false}
+          decelerationRate="fast"
+          snapToInterval={cardWidth + FEATURED_GAP}
+          snapToAlignment="start"
+          disableIntervalMomentum
+          onScroll={onScroll}
+          scrollEventThrottle={32}
+          contentContainerStyle={styles.carousel}
+        >
+          {items.map((item) => (
+            <View key={item.id} style={{ width: cardWidth }}>
+              <FeaturedFloatCard item={item} onPlan={() => onPlan(item)} />
+            </View>
+          ))}
+        </ScrollView>
+      ) : null}
+      {items.length > 1 ? (
+        <View style={styles.dots} importantForAccessibility="no-hide-descendants">
+          {items.map((item, index) => (
+            <View
+              key={item.id}
+              style={[styles.dot, { backgroundColor: index === page ? colors.interactive : colors.border }]}
+            />
+          ))}
+        </View>
+      ) : null}
+    </View>
   );
 }
 
@@ -211,4 +284,7 @@ const styles = StyleSheet.create({
   section: { marginTop: 24 },
   emptyRow: { paddingVertical: 4 },
   emptyText: { ...t.sm, fontFamily: fonts.body },
+  carousel: { paddingHorizontal: 16, gap: FEATURED_GAP, alignItems: 'stretch' },
+  dots: { flexDirection: 'row', justifyContent: 'center', gap: 6, marginTop: 10 },
+  dot: { width: 6, height: 6, borderRadius: 3 },
 });

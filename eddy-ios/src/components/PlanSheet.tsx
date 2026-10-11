@@ -58,10 +58,12 @@ import { createPlanActions } from '@/lib/planActions';
 import { createPlanDetailNavigation } from '@/lib/planDetailNavigation';
 import type { PlanDetailDestination } from '@/lib/planDestinations';
 import { usePlanSupport } from '@/hooks/usePlanSupport';
+import { useAppConfig } from '@/hooks/useAppConfig';
 
 interface Props {
   visible: boolean;
-  onClose: () => void;
+  /** 'started' when the sheet closed because a float started from it. */
+  onClose: (reason?: 'started') => void;
   rivers: RiverListItem[];
   riversLoading: boolean;
   riversError: string | null;
@@ -99,7 +101,8 @@ export function PlanSheet({
   userCoords,
 }: Props) {
   const { colors } = useTheme();
-  const { remember, isSaved, forgetPlan, ready: savedFloatsReady } = useSavedFloats();
+  const { floats, remember, isSaved, forgetPlan, ready: savedFloatsReady } = useSavedFloats();
+  const { features } = useAppConfig();
   const { fontScale } = useWindowDimensions();
   const stacked = fontScale > 1.3;
   const [actions] = useState(createPlanActions);
@@ -127,7 +130,10 @@ export function PlanSheet({
     if (!destination) return;
     if (!visible || !resultReady || !focused) { detailNavigation.reset(); return; }
     router.push(destination);
-  }, [detailNavigation, router, visible, resultReady, focused]);
+    // A started float is where the paddler is going, not a detail to come
+    // back from: the planner does not reopen over the map afterwards.
+    if (destination.pathname === '/float-start') onClose('started');
+  }, [detailNavigation, router, visible, resultReady, focused, onClose]);
   // iOS waits for the native dismissal callback. Other platforms remove the
   // modal when visible becomes false and do not emit that callback.
   useEffect(() => {
@@ -160,6 +166,28 @@ export function PlanSheet({
     if (result === 'saved') successFeedback();
     else if (result === 'removed') selectionFeedback();
   }, [actions, plan, visible, resultReady, savedFloatsReady, isSaved, forgetPlan, remember]);
+
+  // Start Float from the answer itself, the same as from a saved float. The
+  // planner's MOVING speed goes along (the headline time includes stops), and
+  // the saved float's code when this stretch is kept, so the float links back
+  // to it and can use its offline download.
+  const canStart = features.floatMode && resultReady && plan != null;
+  const onStart = useCallback(() => {
+    if (!plan || !visible || !resultReady || !focused) return;
+    const kept = floats.find((f) => f.riverSlug === plan.river.slug && f.putInId === plan.putIn.id && f.takeOutId === plan.takeOut.id);
+    const speed = plan.floatTime?.speedMph;
+    actions.cancelShare();
+    detailNavigation.open({
+      pathname: '/float-start',
+      params: {
+        riverSlug: plan.river.slug,
+        putInId: plan.putIn.id,
+        takeOutId: plan.takeOut.id,
+        ...(kept ? { shortCode: kept.shortCode } : {}),
+        ...(speed ? { plannerMph: String(speed) } : {}),
+      },
+    });
+  }, [actions, detailNavigation, floats, plan, visible, resultReady, focused]);
 
   const heading = (
     <View style={styles.headText}>
@@ -292,6 +320,17 @@ export function PlanSheet({
                   <Text key={message} accessibilityRole="alert" accessibilityLiveRegion="polite" style={[styles.actionError, { color: colors.error }]}>{message}</Text>
                 ))}
               </ScrollView>
+            ) : null}
+            {canStart ? (
+              <Pressable
+                onPress={onStart}
+                style={({ pressed }) => [styles.primaryButton, styles.startButton, { backgroundColor: pressed ? colors.accentFillPressed : colors.accentFill }]}
+                accessibilityRole="button"
+                accessibilityHint="Opens Float Mode for this put-in and take-out"
+              >
+                <ControlIcon name="navigate-outline" size={17} color={colors.onAccent} />
+                <Text style={[styles.primaryButtonText, { color: colors.onAccent }]}>Start float</Text>
+              </Pressable>
             ) : null}
             <View style={[styles.actionRow, stacked && styles.actionRowStacked]}>
               <Pressable
@@ -843,6 +882,7 @@ const styles = StyleSheet.create({
   actionRow: { flexDirection: 'row', gap: 12 },
   actionRowStacked: { flexDirection: 'column' },
   stackedButton: { flex: 0 },
+  startButton: { flex: 0 },
   // Both flex:1, so the two intentions carry the same weight. Share keeps the
   // accent — it is still the thing most people do with a finished plan — and
   // Save is outlined until it is on, when it wears the star's own warm edge.
