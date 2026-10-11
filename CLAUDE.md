@@ -30,7 +30,7 @@ and `eddy-ios/package.json`. CI pins Node 20 (`.github/workflows/app-ci.yml`).
 | Change | Start in | Read first | Validate with |
 | --- | --- | --- | --- |
 | Web page / API route / server logic | `missouri-float-planner/src/` | `missouri-float-planner/README.md` | `make check-web` |
-| iOS screen / component / native config | `eddy-ios/app/`, `eddy-ios/src/` | `eddy-ios/README.md` | `make check-mobile` + `make bundle-mobile` |
+| iOS screen / component / native config | `eddy-ios/app/`, `eddy-ios/src/` | `eddy-ios/AGENTS.md`, then the `eddy-ios/README.md` sections it names | `make check-mobile` + `make bundle-mobile` + `make check-web` (iOS logic is tested there; register new test files in its `test` script) |
 | River-condition behavior | `missouri-float-planner/shared/` | comments in `.github/workflows/app-ci.yml` | `make check-web` + `make bundle-mobile` |
 | Shared types / geo / hazards / sync | `packages/` | the package's source headers | `make check-web` + `make bundle-mobile` |
 | Data ingestion or correction | `missouri-float-planner/scripts/` | `docs/data-pipeline.md` (catalog + guard levels), then `scripts/ingestion/README.md` | script dry run, then `make check-web` |
@@ -41,9 +41,20 @@ and `eddy-ios/package.json`. CI pins Node 20 (`.github/workflows/app-ci.yml`).
 
 Web tests intentionally cover iOS-app and `packages/` logic (neither has its
 own runner), so a mobile or package change can fail `make check-web` — that is
-by design, not flake. See the comment block at the top of `app-ci.yml`.
+by design, not flake. See the comment block at the top of `app-ci.yml`. The
+web `test` script lists every file explicitly (no glob); a test that is not
+listed never runs, and `src/lib/trust/registered-tests.test.ts` fails on it.
 
 ## Commands
+
+**Setup:** `./bootstrap.sh [web|mobile|all] [--env-file FILE]` at the root
+finds Node 20 (PATH, nvm, or `/opt/node20`) and runs `npm ci` only when an
+app's `package.json`, its lockfile, or the Node version changed. It is the one setup path for every
+tool: Claude cloud sessions run it from `.claude/hooks/session-start.sh`
+(which passes `$CLAUDE_ENV_FILE`, so later commands keep Node 20); a Codex or
+other environment's setup script calls it too, passing a file its later
+shells read (for example `./bootstrap.sh all --env-file ~/.bashrc`). Change
+setup in `bootstrap.sh`, not in a caller.
 
 Run `make help` at the root. Targets are thin wrappers over each project's own
 scripts and mirror CI exactly:
@@ -67,6 +78,16 @@ install output; installing on the wrong Node resolves a different dependency
 graph than CI, which is how a lockfile stops matching and a native build starts
 failing for reasons that name anything but Node.
 
+## Skills
+
+Repeatable workflows are skills in `.agents/skills/<name>/SKILL.md` (Codex
+reads them there); `.claude/skills/<name>` is a symlink to the same directory
+for Claude Code. Edit the `.agents/` copy only. `eddy-review` reviews a branch
+or PR; `eddy-ios-release-prep` assesses an iOS release and writes its
+readiness record. Skills route to the authoritative docs rather than restate
+them; `missouri-float-planner/src/lib/agent-skills.test.ts` checks the links
+and that every path a skill names exists.
+
 ## Hard constraints
 
 - **No root `package.json`, lockfile, or npm workspace — deliberate.** `npx expo` run from the root would fetch latest Expo instead of the pinned SDK; workspaces would break EAS archiving and Vercel's scoped install. Rationale: `eddy-ios/README.md`, ADRs in `docs/decisions/`.
@@ -74,6 +95,21 @@ failing for reasons that name anything but Node.
 - **`.easignore` is a security-critical allowlist.** While it exists, EAS ignores `.gitignore` entirely, so anything not denied there gets uploaded — including `.env` files — and it defines the EAS archive from the **git root**. After any edit, run `python3 eddy-ios/scripts/check-easignore.py`. Read its header before touching it.
 - **Vercel builds only `missouri-float-planner/`.** Shippable web code must not import from outside it (that is why `shared/` lives inside the web tree). Tests may — they run under `tsconfig.test.json`, not the build.
 - **Do not write to production** (Supabase data, deployments, external messages, secrets) without explicit user authorization; prefer dry runs, and inspect current state first. DB scripts build clients via `scripts/lib/db.ts`, which refuses writes unless `EXPECTED_SUPABASE_REF` names the target project — enforced by a test; don't route around it.
+
+## Keeping documentation current
+
+When a change alters a lasting rule or product decision, update the document
+that owns it in the same PR: the ADR in `docs/decisions/`, the README section,
+the runbook, or this file. Temporary progress belongs in issues and PRs, not
+in these documents. A mistake that can be checked mechanically gets a test or
+script instead of a sentence (as `ios-release-runbook.test.ts` does for the
+runbook's version line).
+
+Describe feature status in three separate states: **implemented** (in code on
+`main`), **device-verified** (a runbook or ADR gate ticked with evidence), and
+**released** (in a store build, and switched on if behind a server flag). An
+unticked gate means the evidence is not recorded; write "unconfirmed", not
+"not released".
 
 ## Generated / do-not-edit paths
 

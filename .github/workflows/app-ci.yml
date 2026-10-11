@@ -20,6 +20,12 @@
 # the app's @eddy/conditions package, so editing the canonical condition system
 # can break the iOS bundle just as easily as editing the app can break a web
 # test.
+#
+# docs/ios-release-runbook.md is here for the same reason:
+# src/lib/ios-release-runbook.test.ts reads it, so a docs-only edit to it can
+# break the suite. Version bumps already trigger CI through eddy-ios/**.
+# .agents/skills and .claude/skills likewise: src/lib/agent-skills.test.ts
+# checks the skills, their symlinks, and the paths they name.
 
 name: App CI
 
@@ -32,6 +38,9 @@ on:
       - '.easignore'
       - '.github/workflows/**'
       - '.github/dependabot.yml'
+      - 'docs/ios-release-runbook.md'
+      - '.agents/skills/**'
+      - '.claude/skills/**'
   push:
     branches: [main]
     paths:
@@ -41,6 +50,9 @@ on:
       - '.easignore'
       - '.github/workflows/**'
       - '.github/dependabot.yml'
+      - 'docs/ios-release-runbook.md'
+      - '.agents/skills/**'
+      - '.claude/skills/**'
   workflow_dispatch:
 
 permissions:
