@@ -8,7 +8,7 @@ export function FloatTabIcon({ color, size }: { color: ColorValue; size: number 
   return (
     <Image
       source={FLOAT_TAB_ICON}
-      style={{ width: size * (32 / 24), height: size, tintColor: color }}
+      style={{ width: size, height: size, tintColor: color }}
       resizeMode="contain"
       accessible={false}
       importantForAccessibility="no"
