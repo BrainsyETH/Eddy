@@ -24,7 +24,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import type * as maplibregl from 'maplibre-gl';
 import { useMap } from './MapContainer';
-import { ANCHORS, addLayerAt, whenStyleReady } from './layer-anchors';
+import { ANCHORS, addLayerAt, isStyleReady, whenStyleReady } from './layer-anchors';
 import { simplifyLine, LABEL_SIMPLIFY_TOLERANCE } from './simplify';
 import {
   LINE_WIDTH,
@@ -99,7 +99,7 @@ export default function ConditionNetworkLayer({
     // only need the style. (The old loaded()/once('load') gate is why
     // condition layers silently never rendered: 'load' fires once per map
     // lifetime, so data arriving during a tile stream hit a dead handler.)
-    if (!map.isStyleLoaded()) {
+    if (!isStyleReady(map)) {
       return whenStyleReady(map, () => setStyleReadyTick((t) => t + 1));
     }
 

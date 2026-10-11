@@ -29,7 +29,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import * as maplibregl from 'maplibre-gl';
 import { useMap } from './MapContainer';
-import { ANCHORS, addLayerAt, whenStyleReady } from './layer-anchors';
+import { ANCHORS, addLayerAt, isStyleReady, whenStyleReady } from './layer-anchors';
 import { simplifyLine, LABEL_SIMPLIFY_TOLERANCE } from './simplify';
 import { presentPopup } from './popup-manager';
 import { LINE_WIDTH, CASING_WIDTH, CASING_COLOR, HIT_WIDTH, NO_DATA_WATER_COLOR } from './line-style';
@@ -146,7 +146,7 @@ export default function ConditionRiverLayer({
     // map.loaded() — false while tiles stream, and 'load' fires only once
     // per map lifetime (the old gate left this layer silently unrendered
     // whenever conditions arrived during a tile stream).
-    if (!map.isStyleLoaded()) {
+    if (!isStyleReady(map)) {
       return whenStyleReady(map, () => setStyleReadyTick((t) => t + 1));
     }
 

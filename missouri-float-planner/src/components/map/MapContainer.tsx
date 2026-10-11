@@ -11,7 +11,7 @@ import 'maplibre-gl/dist/maplibre-gl.css';
 import { Layers, Maximize2, Minimize2 } from 'lucide-react';
 import { conditionColor, CONDITION_ORDER } from '@shared/condition-system';
 import { CONDITION_SHORT_LABELS } from '@/constants';
-import { ANCHORS, addLayerAt } from './layer-anchors';
+import { ANCHORS, addLayerAt, whenStyleReady } from './layer-anchors';
 import { MapProvider } from './map-context';
 import PublicLandsLayer from './PublicLandsLayer';
 import { MAP_OVERLAYS, type MapOverlayKey } from './map-overlays';
@@ -192,6 +192,9 @@ export default function MapContainer({
   const mapContainer = useRef<HTMLDivElement>(null);
   const map = useRef<maplibregl.Map | null>(null);
   const [mapLoaded, setMapLoaded] = useState(false);
+  const [mapLoadError, setMapLoadError] = useState<string | null>(null);
+  const [mapAttempt, setMapAttempt] = useState(0);
+  const cancelReadinessRef = useRef<(() => void) | null>(null);
   const [weatherEnabled, setWeatherEnabled] = useState(showWeatherOverlay);
   const [radarTimestamp, setRadarTimestamp] = useState<string | null>(null);
   const [mapStyle, setMapStyle] = useState<MapStyleKey>('immersive');
@@ -283,6 +286,18 @@ export default function MapContainer({
   // Note: Style preference is loaded synchronously in the map initialization effect
   // to avoid a flash of wrong style on first render
 
+  const watchStyleReadiness = useCallback((m: maplibregl.Map) => {
+    cancelReadinessRef.current?.();
+    setMapLoaded(false);
+    setMapLoadError(null);
+    cancelReadinessRef.current = whenStyleReady(m, () => {
+      setMapLoaded(true);
+      setMapLoadError(null);
+    }, () => {
+      setMapLoadError('The map is taking longer than expected. Try again or choose another map layer.');
+    });
+  }, []);
+
   // Change map style. Per-style treatment (dark background, hillshade,
   // radar re-add, child remount) happens in the persistent style.load
   // handler registered at map init — one code path for initial load and
@@ -290,6 +305,10 @@ export default function MapContainer({
   // key.
   const changeMapStyle = useCallback((styleKey: MapStyleKey) => {
     if (!map.current) return;
+    if (styleKey === styleKeyRef.current) {
+      setShowStylePicker(false);
+      return;
+    }
 
     setMapStyle(styleKey);
     styleKeyRef.current = styleKey;
@@ -298,8 +317,10 @@ export default function MapContainer({
 
     // Use custom style object for satellite, URL for others
     const style = styleKey === 'satellite' ? SATELLITE_STYLE : MAP_STYLES[styleKey].url;
-    map.current.setStyle(style);
-  }, []);
+    // A full replacement guarantees style.load, which remounts Eddy's layers.
+    map.current.setStyle(style, { diff: false });
+    watchStyleReadiness(map.current);
+  }, [watchStyleReadiness]);
 
   // Fetch latest radar timestamp from RainViewer API
   const fetchRadarTimestamp = useCallback(async () => {
@@ -485,6 +506,7 @@ export default function MapContainer({
 
     // Reset mapLoaded when creating a new map instance (important for bounds changes)
     setMapLoaded(false);
+    setMapLoadError(null);
 
     // A valid ?lat&lng&z camera wins over initialBounds on first creation
     // only (see pendingUrlCamRef above).
@@ -494,30 +516,38 @@ export default function MapContainer({
     const urlCam = pendingUrlCamRef.current;
 
     // Initialize map
-    map.current = new maplibregl.Map({
-      container: mapContainer.current,
-      style: mapStyleUrl,
-      cooperativeGestures: cooperativeGestures,
-      attributionControl: false,
-      center: urlCam
-        ? [urlCam.lng, urlCam.lat]
-        : initialBounds
-        ? [
-            (initialBounds[0] + initialBounds[2]) / 2,
-            (initialBounds[1] + initialBounds[3]) / 2,
-          ]
-        : [-91.5, 37.8], // Center of Missouri
-      zoom: urlCam ? urlCam.z : initialBounds ? 8 : 7,
-      bounds: !urlCam && initialBounds
-        ? new maplibregl.LngLatBounds(
-            [initialBounds[0], initialBounds[1]],
-            [initialBounds[2], initialBounds[3]]
-          )
-        : undefined,
-      fitBoundsOptions: {
-        padding: 50,
-      },
-    });
+    try {
+      map.current = new maplibregl.Map({
+        container: mapContainer.current,
+        style: mapStyleUrl,
+        cooperativeGestures: cooperativeGestures,
+        attributionControl: false,
+        center: urlCam
+          ? [urlCam.lng, urlCam.lat]
+          : initialBounds
+          ? [
+              (initialBounds[0] + initialBounds[2]) / 2,
+              (initialBounds[1] + initialBounds[3]) / 2,
+            ]
+          : [-91.5, 37.8], // Center of Missouri
+        zoom: urlCam ? urlCam.z : initialBounds ? 8 : 7,
+        bounds: !urlCam && initialBounds
+          ? new maplibregl.LngLatBounds(
+              [initialBounds[0], initialBounds[1]],
+              [initialBounds[2], initialBounds[3]]
+            )
+          : undefined,
+        fitBoundsOptions: {
+          padding: 50,
+        },
+      });
+    } catch (error) {
+      console.error('Could not initialize map:', error);
+      // A throwing constructor can leave its canvas behind before assigning map.current.
+      mapContainer.current.replaceChildren();
+      setMapLoadError('The map could not start. Try again, or check that graphics acceleration is enabled in your browser.');
+      return;
+    }
     cameraSetAtCreateRef.current = Boolean(urlCam || initialBounds);
     if (urlCam) {
       pendingUrlCamRef.current = null; // consumed
@@ -579,9 +609,7 @@ export default function MapContainer({
     // Move attribution to bottom-left so it doesn't cover access points
     map.current.addControl(new maplibregl.AttributionControl({ compact: true }), 'bottom-left');
 
-    map.current.on('load', () => {
-      setMapLoaded(true);
-
+    map.current.on('style.load', () => {
       // MapLibre auto-expands the compact attribution the first time it populates
       // (on style load), and only re-collapses on a drag. Force it minimized here
       // so it starts as just the (i); the toggle button still expands it on click.
@@ -591,15 +619,19 @@ export default function MapContainer({
         attribEl.removeAttribute('open');
       }
     });
+    // MapLibre's load waits for every basemap resource. Eddy's data only
+    // needs the parsed style; a slow tile must not hide all pins and routes.
+    watchStyleReadiness(map.current);
 
     // Cleanup
     return () => {
+      cancelReadinessRef.current?.();
       if (map.current) {
         map.current.remove();
         map.current = null;
       }
     };
-    // Create the map ONCE per component mount. This effect was previously
+    // Create the map once per component mount (or explicit retry). This effect was previously
     // keyed on initialBounds, so switching rivers in the planner tore down
     // and rebuilt the entire MapLibre instance — style re-fetch/re-parse
     // and every tile re-requested on each switch. Bounds changes are eased
@@ -607,7 +639,7 @@ export default function MapContainer({
     // syncCameraToUrl are create-time constants on every surface that
     // renders this component.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [mapAttempt]);
 
   useEffect(() => {
     if (!map.current || !initialBounds) return;
@@ -626,16 +658,8 @@ export default function MapContainer({
       [initialBounds[2], initialBounds[3]]
     );
 
-    if (!map.current.loaded()) {
-      const handleLoad = () => {
-        map.current?.fitBounds(bounds, { padding: 50, duration: 800 });
-      };
-      map.current.once('load', handleLoad);
-      return () => {
-        map.current?.off('load', handleLoad);
-      };
-    }
-
+    // Camera changes do not require tiles or even a parsed style. In
+    // particular, don't wait for the one-time load event after river switches.
     map.current.fitBounds(bounds, { padding: 50, duration: 800 });
   }, [initialBounds]);
 
@@ -673,9 +697,23 @@ export default function MapContainer({
           {children}
         </MapProvider>
       )}
-      {!mapLoaded && (
+      {!mapLoaded && !mapLoadError && (
         <div className="absolute inset-0 flex items-center justify-center bg-neutral-100/60 pointer-events-none" role="status" aria-label="Loading map">
           <div className="w-10 h-10 border-3 border-primary-200 border-t-primary-600 rounded-full animate-spin" />
+        </div>
+      )}
+      {mapLoadError && (
+        <div className="absolute inset-0 flex items-center justify-center bg-neutral-100/60 p-6 pointer-events-none">
+          <div className="max-w-sm rounded-xl bg-white p-5 text-center shadow-lg pointer-events-auto" role="alert">
+            <p className="text-sm text-neutral-700">{mapLoadError}</p>
+            <button
+              type="button"
+              onClick={() => setMapAttempt((attempt) => attempt + 1)}
+              className="mt-3 rounded-lg bg-primary-600 px-4 py-2 text-sm font-semibold text-white hover:bg-primary-700"
+            >
+              Try again
+            </button>
+          </div>
         </div>
       )}
 
