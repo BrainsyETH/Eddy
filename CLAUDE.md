@@ -48,8 +48,8 @@ listed never runs, and `src/lib/trust/registered-tests.test.ts` fails on it.
 ## Commands
 
 **Setup:** `./bootstrap.sh [web|mobile|all] [--env-file FILE]` at the root
-finds Node 20 (PATH, nvm, or `/opt/node20`) and runs `npm ci` only when a
-lockfile or the Node version changed. It is the one setup path for every
+finds Node 20 (PATH, nvm, or `/opt/node20`) and runs `npm ci` only when an
+app's `package.json`, its lockfile, or the Node version changed. It is the one setup path for every
 tool: Claude cloud sessions run it from `.claude/hooks/session-start.sh`
 (which passes `$CLAUDE_ENV_FILE`, so later commands keep Node 20); a Codex or
 other environment's setup script calls it too, passing a file its later
@@ -95,6 +95,21 @@ and that every path a skill names exists.
 - **`.easignore` is a security-critical allowlist.** While it exists, EAS ignores `.gitignore` entirely, so anything not denied there gets uploaded — including `.env` files — and it defines the EAS archive from the **git root**. After any edit, run `python3 eddy-ios/scripts/check-easignore.py`. Read its header before touching it.
 - **Vercel builds only `missouri-float-planner/`.** Shippable web code must not import from outside it (that is why `shared/` lives inside the web tree). Tests may — they run under `tsconfig.test.json`, not the build.
 - **Do not write to production** (Supabase data, deployments, external messages, secrets) without explicit user authorization; prefer dry runs, and inspect current state first. DB scripts build clients via `scripts/lib/db.ts`, which refuses writes unless `EXPECTED_SUPABASE_REF` names the target project — enforced by a test; don't route around it.
+
+## Keeping documentation current
+
+When a change alters a lasting rule or product decision, update the document
+that owns it in the same PR: the ADR in `docs/decisions/`, the README section,
+the runbook, or this file. Temporary progress belongs in issues and PRs, not
+in these documents. A mistake that can be checked mechanically gets a test or
+script instead of a sentence (as `ios-release-runbook.test.ts` does for the
+runbook's version line).
+
+Describe feature status in three separate states: **implemented** (in code on
+`main`), **device-verified** (a runbook or ADR gate ticked with evidence), and
+**released** (in a store build, and switched on if behind a server flag). An
+unticked gate means the evidence is not recorded; write "unconfirmed", not
+"not released".
 
 ## Generated / do-not-edit paths
 
