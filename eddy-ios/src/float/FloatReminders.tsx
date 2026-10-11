@@ -10,6 +10,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Linking, Pressable, StyleSheet, Switch, Text, View } from 'react-native';
 import * as Notifications from 'expo-notifications';
+import { onForeground } from '@/lib/foreground';
 import { setFloatReminders } from '@/lib/floatSessionStore';
 import { indexRoute, type FloatSession } from '@/lib/floatSession';
 import {
@@ -109,7 +110,10 @@ function useNotificationAccess(): { state: NotificationAccess; request: () => vo
       .then((status) => setState(status.granted ? 'granted' : status.canAskAgain ? 'ask' : 'settings'))
       .catch(() => setState('unknown'));
   }, []);
-  useEffect(read, [read]);
+  useEffect(() => {
+    read();
+    return onForeground(read);
+  }, [read]);
   const request = useCallback(() => {
     void Notifications.requestPermissionsAsync({ ios: { allowAlert: true, allowSound: true } })
       .then(read)

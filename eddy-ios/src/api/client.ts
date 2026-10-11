@@ -2439,19 +2439,30 @@ export interface HazardReportSubmission {
  */
 export async function submitHazardReport(input: HazardReportSubmission, signal?: AbortSignal): Promise<void> {
   const deadline = withDeadline(signal);
-  let response: Response;
+  const startedAt = Date.now();
   try {
-    response = await fetchOnce(`${BASE_URL}/api/reports`, deadline, {
+    // Keep cancellation attached through reading an error body. fetchOnce
+    // releases its deadline at headers, which is too early for a background
+    // task with a fixed execution budget on an intermittent connection.
+    const response = await fetch(`${BASE_URL}/api/reports`, {
       method: 'POST',
       headers: { Accept: 'application/json', 'Content-Type': 'application/json', 'User-Agent': USER_AGENT },
       body: JSON.stringify({ ...input, type: 'hazard' }),
+      signal: deadline.signal,
     });
+    recordTiming('/api/reports', response.ok ? 'ok' : 'failed', startedAt);
+    if (!response.ok) {
+      const detail = (await response.json().catch(() => null)) as { error?: string } | null;
+      throw new ApiError(detail?.error ?? `Submit failed (${response.status})`, response.status);
+    }
   } catch (err) {
-    throw err instanceof ApiError ? err : new ApiError('No connection');
-  }
-  if (!response.ok) {
-    const detail = (await response.json().catch(() => null)) as { error?: string } | null;
-    throw new ApiError(detail?.error ?? `Submit failed (${response.status})`, response.status);
+    if (err instanceof ApiError) throw err;
+    const aborted = err instanceof Error && err.name === 'AbortError';
+    const cancelled = aborted && !deadline.timedOut;
+    recordTiming('/api/reports', cancelled ? 'cancelled' : aborted ? 'timeout' : 'offline', startedAt);
+    throw new ApiError(cancelled ? 'Request cancelled' : 'No connection');
+  } finally {
+    deadline.done();
   }
 }
 

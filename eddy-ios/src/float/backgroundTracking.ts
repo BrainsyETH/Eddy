@@ -60,8 +60,9 @@ TaskManager.defineTask<{ locations: Location.LocationObject[] }>(FLOAT_LOCATION_
   await floatRemindersSettled();
   await flushFloatSessionIfStale(BACKGROUND_WRITE_MS);
   // A hazard report written with no signal goes out when the locked phone
-  // finds some. Sends only what is due, one at a time; never blocks tracking.
-  void flushHazardReports();
+  // finds some. Tracking/persistence finish first; allow five seconds for
+  // reports, then cancel unfinished network work without growing backoff.
+  await flushHazardReports(5_000);
 });
 
 /** Start locked-screen tracking if "Always" is granted. False when it is not. */

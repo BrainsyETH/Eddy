@@ -21,6 +21,7 @@ import { FloatMap } from '@/float/FloatMap';
 import { FloatReminders } from '@/float/FloatReminders';
 import { FloatHazardReports } from '@/float/FloatHazardReports';
 import { useFloatSession } from '@/hooks/useFloatSession';
+import { onForeground } from '@/lib/foreground';
 import { endFloat } from '@/lib/floatSessionStore';
 import { formatBeyond, remainingCopy, statusCopy, viewSession } from '@/lib/floatSession';
 import { trackingMode, trackingNotice, type TrackingMode } from '@/lib/floatPermissions';
@@ -244,8 +245,9 @@ function useTrackingMode(): { mode: TrackingMode; canAskAgain: boolean; refresh:
   };
   useEffect(() => {
     refresh();
+    const offForeground = onForeground(refresh);
     const timer = setInterval(refresh, TICK_MS);
-    return () => clearInterval(timer);
+    return () => { clearInterval(timer); offForeground(); };
   }, []);
   return { ...state, refresh };
 }
