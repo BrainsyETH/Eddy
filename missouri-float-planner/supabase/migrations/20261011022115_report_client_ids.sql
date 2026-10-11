@@ -1,7 +1,6 @@
--- Migration: 20261011120000_report_client_ids.sql
--- PENDING BY DESIGN: apply before the API change that writes the column is
--- deployed, then record production's version here and in
--- supabase/production-migrations.txt (renaming if needed).
+-- Migration: 20261011022115_report_client_ids.sql
+-- Applied to production ilefwfpvphadsbptiaur on 2026-10-11.
+-- Filename matches the version assigned by Supabase migration history.
 --
 -- One report, once, however many times it is sent.
 --

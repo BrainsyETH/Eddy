@@ -172,7 +172,7 @@ export async function POST(request: NextRequest) {
     // A device that queued a report offline (Float Mode) sends the same
     // clientReportId on every attempt. If an earlier attempt already landed and
     // only its reply was lost, answer with that report instead of filing it
-    // twice. See migration 20261011120000_report_client_ids.sql.
+    // twice. See migration 20261011022115_report_client_ids.sql.
     const alreadyFiled = () => findFiledReport(clientReportId, async (id) => {
       const { data, error } = await supabase
         .from('community_reports')

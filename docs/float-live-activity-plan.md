@@ -9,10 +9,10 @@ Live Activity exists or that the device release gates have passed.
 1. Merge the preparation fixes: notification/location permission refresh on
    foreground, explicit report-idempotency lookup failures, separate report
    creation and retry limits, and awaited/cancellable background report sends.
-2. Apply the existing report-client-ID migration to production before any
-   client sends `clientReportId`. Record the actual production migration
-   version, rename the file if necessary, and move that version from pending
-   to applied. Run `make check-db`. It remains pending until this succeeds.
+2. Report-client-ID migration applied to production on 2026-10-11 as
+   `20261011022115_report_client_ids.sql`. The UUID column and valid partial
+   unique index were verified; the filename and applied ledger match history.
+   Complete the device/API send-and-retry check before releasing reports.
 3. Prove current locked-screen tracking on a physical iPhone. Record location
    permission, OS/device, duration, battery drain, GPS gaps, and recovery.
 4. Implement Lock Screen + Dynamic Island in one native PR, with the lifecycle,
@@ -164,8 +164,8 @@ Physical-device checks, with an older supported iPhone as well:
 | Multi-hour river session | Record battery drain and gaps; establish release battery target |
 
 Do not mark device gates complete based on unit tests or a simulator screenshot.
-Report-client-ID migration and an idempotent send/retry check remain required
-before exposing reports from the new build to production.
+The report-client-ID migration is applied. An idempotent device/API send-and-
+retry check remains required before exposing reports from the new build.
 
 ## Separate follow-ups
 
