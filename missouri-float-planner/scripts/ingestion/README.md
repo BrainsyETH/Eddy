@@ -411,6 +411,14 @@ Real shipped values, as calibration examples (primary gauge shown):
 
 Open follow-ups live in `DEPLOYMENT-STATUS.md`.
 
+The [2026-10-11 trust source review](../../../docs/audits/2026-10-11-trust-follow-up.md)
+confirms Bennett Spring's MDC concrete-ramp pin and Lead Mine's published 53.7
+mile. Migration `20261011214010` applies those two corrections. Riverfront's
+private launch mile, Riverview Ranch's exact landing, Mammoth Spring Dam #1
+launch eligibility, and Jacks Fork's separate Good/Flowing band remain under
+review. Do not import guessed replacement miles or the moherp ESTIMATED
+238-cfs value for Jacks Fork.
+
 ### Standalone camping alongside Phase 8.5
 
 Regional campgrounds do not need a fabricated river association. In a new,
@@ -424,6 +432,13 @@ import requirements still apply. No schema change is needed. Campground coordina
 listing a campground neither creates a float endpoint nor asserts availability.
 See [the September 26 batch](services-camping-gap-2026-09-26.md) for reviewed
 records, source attribution, verified campground map coordinates, and application commands.
+
+Until the standalone declaration is persisted on `nearby_services`, the trust
+service check recognizes the three reviewed September 26 standalone rows by
+UUID, name, type, city, and state. It still checks any river links subsequently
+added to them. New standalone imports need an explicit update to that register
+in `src/lib/trust/checks/service-geo-consistency.ts`; other unlinked campgrounds
+remain review findings.
 
 
 Coordinate provenance can be imported with `geocode_precision` (`exact` or

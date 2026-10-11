@@ -42,6 +42,33 @@ async function run(supabase: ReturnType<typeof createFakeSupabase>, c: TrustChec
   return runTrustCheck(supabase, c, { now: NOW, deadlineMs: Date.now() + 60_000 });
 }
 
+test('verified fleet recovery clears the anomaly but retains unobserved and snoozed findings', async () => {
+  const supabase = createFakeSupabase({ trust_runs: [], trust_findings: [] });
+  const fleet = Array.from({ length: 12 }, (_, i) => finding({ entityType: 'dam', entityKey: `dam-${i}`, ruleKey: 'dam_history_stale' }));
+  await run(supabase, check({ scopeCount: 18, findings: fleet }));
+  await run(supabase, check({ scopeCount: 18, findings: [] }));
+  assert.equal(supabase.rows('trust_findings').find((r) => r.rule_key === 'reconcile_anomaly')?.status, 'open');
+  const snoozed = supabase.rows('trust_findings').find((r) => r.entity_key === 'dam-10')!;
+  snoozed.status = 'snoozed';
+  snoozed.snoozed_until = '2026-08-05T12:00:00Z';
+  const summary = await run(supabase, check({ scopeCount: 17, findings: [], verifiedResolutions: fleet.slice(0, 11) }));
+  assert.equal(summary.suppressedReason, undefined);
+  assert.equal(supabase.rows('trust_findings').filter((r) => r.entity_type === 'dam' && r.status === 'resolved').length, 10);
+  assert.equal(supabase.rows('trust_findings').find((r) => r.entity_key === 'dam-11')?.status, 'open');
+  assert.equal(snoozed.status, 'snoozed');
+  assert.equal(supabase.rows('trust_findings').find((r) => r.rule_key === 'reconcile_anomaly')?.status, 'resolved');
+});
+
+test('positive resolution evidence cannot override a partial or empty run', async () => {
+  for (const incomplete of [{ scopeCount: 18, partial: true }, { scopeCount: 0 }]) {
+    const supabase = createFakeSupabase({ trust_runs: [], trust_findings: [] });
+    await run(supabase, check({ scopeCount: 18, findings: [finding()] }));
+    const summary = await run(supabase, check({ ...incomplete, findings: [], verifiedResolutions: [finding()] }));
+    assert.equal(summary.resolved, 0);
+    assert.equal(supabase.rows('trust_findings')[0].status, 'open');
+  }
+});
+
 // ── ordinary operation ───────────────────────────────────────────
 
 test('a new finding is written with its severity resolved', () => {

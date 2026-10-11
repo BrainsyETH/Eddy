@@ -36,6 +36,21 @@ function row(overrides: Partial<ServiceGeoRow> = {}): ServiceGeoRow {
 
 const rulesOf = (rows: ServiceGeoRow[]) => deriveServiceGeoFindings(rows).map((f) => f.ruleKey);
 
+test('documented standalone camps do not need invented river links', () => {
+  const camps = [
+    ['12babb05-ee2d-4a7c-97eb-8d56c8d92a19', 'Roaring River State Park Campgrounds', 'Cassville', 'MO'],
+    ['b0ca7a25-6d7a-49ec-b13e-2adbe4fa27fc', 'Table Rock State Park Campgrounds', 'Branson', 'MO'],
+    ['e98555c4-6575-4f35-bfcc-cc8c492764ca', "Devil's Den State Park Campground", 'West Fork', 'AR'],
+  ].map(([service_id, service_name, city, state]) => row({
+    service_id, service_name, city, state, service_type: 'campground', linked_river_count: 0,
+  }));
+  assert.deepEqual(rulesOf(camps), []);
+  assert.deepEqual(rulesOf([row({ ...camps[0], service_id: 'new-camp' })]), ['service_no_river_link']);
+  assert.deepEqual(rulesOf([row({ ...camps[0], service_type: 'outfitter' })]), ['service_no_river_link']);
+  assert.ok(rulesOf([row({ ...camps[0], linked_river_count: 1, nearest_linked_miles: 20 })])
+    .includes('service_far_from_linked_river'));
+});
+
 /* ── What it must NOT report ───────────────────────────────────────────────
    A permanent false positive against correct data teaches an operator to stop
    reading the list, which costs more than the rule earns. */

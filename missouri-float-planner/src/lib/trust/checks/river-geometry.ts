@@ -38,6 +38,8 @@ export interface RiverGeometryIssue {
 }
 
 export interface RiverGeometryMetrics {
+  riverSlug?: string;
+  linkedGaugeSiteIds?: (string | null)[];
   coordinateCount: number;
   /**
    * Vertices per mile OF THE STORED LINE, not per mile of `length_miles`.
@@ -228,7 +230,12 @@ export function deriveRiverGeometryIssues(m: RiverGeometryMetrics): RiverGeometr
   // Gauges exist and none of them are near the line. Either the gauges are
   // wired to the wrong river or the geometry stops short of them; both are the
   // misassociation class docs/gauge-alerting-misalignment-audit.md is about.
-  if (m.gaugeCount > 0 && m.gaugesOnRiver === 0) {
+  // Courtois deliberately borrows Huzzah near Steelville. Check the exact
+  // wiring, not just the river slug: replacing the proxy or adding another
+  // off-river station still requires review. All geometry rules remain active.
+  const documentedProxy = m.riverSlug === 'courtois' && m.gaugeCount === 1 &&
+    m.linkedGaugeSiteIds?.length === 1 && m.linkedGaugeSiteIds[0] === '07014000';
+  if (m.gaugeCount > 0 && m.gaugesOnRiver === 0 && !documentedProxy) {
     issues.push({
       ruleKey: 'no_gauges_near_geometry',
       message: 'No gauge stations are within 1km of river geometry — geometry may be incomplete',
@@ -444,13 +451,15 @@ export async function collectRiverHealth(
 
     let gaugesOnRiver = 0;
     const gaugeStations = await mustRows<{ gauge_stations: unknown }>(
-      supabase.from('river_gauges').select('gauge_stations!inner(location)').eq('river_id', river.id),
+      supabase.from('river_gauges').select('gauge_stations!inner(location, usgs_site_id)').eq('river_id', river.id),
       `could not load gauge stations for ${river.slug}`,
     );
 
+    const linkedGaugeSiteIds: (string | null)[] = [];
     for (const gs of gaugeStations) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const station = gs.gauge_stations as any;
+      linkedGaugeSiteIds.push(station?.usgs_site_id ?? null);
       if (!station?.location) continue;
       if (typeof station.location !== 'object' || station.location.type !== 'Point') continue;
 
@@ -507,6 +516,8 @@ export async function collectRiverHealth(
       accessPointCount: apCount,
       poiCount,
       issues: deriveRiverGeometryIssues({
+        riverSlug: river.slug,
+        linkedGaugeSiteIds,
         coordinateCount,
         coordsPerMile,
         geometryLengthMiles: measuredLengthMiles,

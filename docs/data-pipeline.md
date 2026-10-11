@@ -59,6 +59,12 @@ report. See `docs/audits/2026-09-20-spring-classifications.md` for scope and ver
 
 ## Checks & validation (read-only, safe always)
 
+The [October 11 trust follow-up](audits/2026-10-11-trust-follow-up.md)
+records the sourced Bennett Spring pin and Lead Mine mile corrections, their
+production migration, and the evidence still missing for four open findings.
+Niangua's aggregate remains open for Riverfront; do not rebase editorial miles
+onto the river geometry to make the check pass.
+
 | Script | Run | Purpose |
 | --- | --- | --- |
 | `validate-data.ts` | `npm run db:validate` (`-- --strict` to fail on warnings) | Runs DB-side `validate_river_data()` + knowledge-base cross-check. The ingestion gate. |

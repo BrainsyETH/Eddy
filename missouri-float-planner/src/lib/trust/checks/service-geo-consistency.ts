@@ -85,6 +85,24 @@ export const FAR_FROM_RIVER_MILES = 10;
  */
 export const NEARER_OTHER_RIVER_MARGIN_MILES = 2;
 
+// Explicit standalone rows from scripts/ingestion/services-camping-gap-2026-09-26.md.
+// The CSV's river_link_status=standalone is not stored in the database yet.
+// Keep this narrow until that declaration is persisted by the importer: an
+// arbitrary unlinked campground must still be reported. Linked rows continue
+// through all distance checks even when they appear in this register.
+const STANDALONE_CAMPGROUNDS = [
+  ['12babb05-ee2d-4a7c-97eb-8d56c8d92a19', 'Roaring River State Park Campgrounds', 'Cassville', 'MO'],
+  ['b0ca7a25-6d7a-49ec-b13e-2adbe4fa27fc', 'Table Rock State Park Campgrounds', 'Branson', 'MO'],
+  ['e98555c4-6575-4f35-bfcc-cc8c492764ca', "Devil's Den State Park Campground", 'West Fork', 'AR'],
+] as const;
+
+function isDocumentedStandalone(row: ServiceGeoRow): boolean {
+  return row.service_type === 'campground' && STANDALONE_CAMPGROUNDS.some(
+    ([id, name, city, state]) => row.service_id === id && row.service_name === name &&
+      row.city === city && row.state === state,
+  );
+}
+
 function toMiles(value: number | string | null): number | null {
   if (value === null || value === undefined) return null;
   const n = typeof value === 'number' ? value : Number(value);
@@ -116,6 +134,7 @@ export function deriveServiceGeoFindings(rows: ServiceGeoRow[]): RawFinding[] {
     const nearestAnyMiles = toMiles(row.nearest_any_miles);
 
     if (row.linked_river_count === 0) {
+      if (isDocumentedStandalone(row)) continue;
       // Returned by the SQL rather than filtered out on purpose: a service with
       // a pin and no link is invisible to /api/rivers/[slug]/services, so
       // dropping it from scope would let a clean sweep be reported over a
