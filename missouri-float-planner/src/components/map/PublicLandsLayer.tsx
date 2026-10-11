@@ -35,7 +35,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import * as maplibregl from 'maplibre-gl';
 import { useMap } from './MapContainer';
-import { ANCHORS, addLayerAt, whenStyleReady } from './layer-anchors';
+import { ANCHORS, addLayerAt, isStyleReady, whenStyleReady } from './layer-anchors';
 import { presentPopup } from './popup-manager';
 import {
   bboxContains,
@@ -243,7 +243,7 @@ export default function PublicLandsLayer() {
   // mount that lands mid-transition.
   useEffect(() => {
     if (!map) return;
-    if (!map.isStyleLoaded()) {
+    if (!isStyleReady(map)) {
       return whenStyleReady(map, () => setStyleReadyTick((t) => t + 1));
     }
 
