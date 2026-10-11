@@ -114,9 +114,7 @@ export default function SavedFloatScreen() {
         {plan?.river.name ?? stub?.riverName ?? 'Saved float'}
       </Text>
       <Text style={[styles.subtitle, { color: colors.textMuted }]}>
-        {plan && !loading && !error
-          ? 'Re-read against the river right now'
-          : plan ? `${plan.putIn.name} → ${plan.takeOut.name}` : stub
+        {plan ? `${plan.putIn.name} → ${plan.takeOut.name}` : stub
             ? `${stub.putInName} → ${stub.takeOutName}`
             : ' '}
       </Text>

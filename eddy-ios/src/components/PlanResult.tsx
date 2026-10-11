@@ -118,13 +118,14 @@ export function PlanResult({ plan, verification, actions, accessPoints, header, 
       onScroll={onScrollOffsetChange ? (event) => onScrollOffsetChange(Math.max(0, event.nativeEvent.contentOffset.y)) : undefined}
     >
       {header}
-      {verification ? <View style={styles.verification} accessibilityLiveRegion="polite">
+      {/* Only what needs attention: checking, or unavailable. A plan that is
+          current says nothing; current is what a plan is supposed to be. */}
+      {verification && verification.state !== 'current' ? <View style={styles.verification} accessibilityLiveRegion="polite">
         <View style={styles.verificationLabel}>
           {verification.state === 'checking' ? <ActivityIndicator color={colors.interactive} /> : null}
           <Text style={[styles.verificationText, { color: colors.textMuted }]}>
             {verification.state === 'checking' ? 'Checking current conditions…'
-              : verification.state === 'unavailable' ? verification.error ?? 'Current conditions are unavailable.'
-              : 'Current conditions checked.'}
+              : verification.error ?? 'Current conditions are unavailable.'}
             {checked ? ` Last checked ${checked}.` : ''}
           </Text>
         </View>

@@ -62,7 +62,8 @@ import { useAppConfig } from '@/hooks/useAppConfig';
 
 interface Props {
   visible: boolean;
-  onClose: () => void;
+  /** 'started' when the sheet closed because a float started from it. */
+  onClose: (reason?: 'started') => void;
   rivers: RiverListItem[];
   riversLoading: boolean;
   riversError: string | null;
@@ -131,7 +132,7 @@ export function PlanSheet({
     router.push(destination);
     // A started float is where the paddler is going, not a detail to come
     // back from: the planner does not reopen over the map afterwards.
-    if (destination.pathname === '/float-start') onClose();
+    if (destination.pathname === '/float-start') onClose('started');
   }, [detailNavigation, router, visible, resultReady, focused, onClose]);
   // iOS waits for the native dismissal callback. Other platforms remove the
   // modal when visible becomes false and do not emit that callback.

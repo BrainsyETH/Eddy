@@ -1504,6 +1504,8 @@ function MapContent() {
     openPlan?: string;
     planPutIn?: string;
     planTakeOut?: string;
+    /** The tab that opened the planner; closing it goes back there. */
+    planReturnTo?: string;
   }>();
   const focusAccess = focusParams.focusAccess ?? null;
   const focusRiver = focusParams.focusRiver ?? null;
@@ -1586,6 +1588,22 @@ function MapContent() {
   const planner = useFloatPlan(selected?.id ?? null, plannerAccessPoints);
 
   /**
+   * Where to go when the planner closes. "Plan a Float" on the Floats tab
+   * borrows this tab's planner; closing it should land back on Floats, not
+   * strand the reader on a map they never chose. Starting a float from the
+   * planner goes to Float Mode instead, and leaving this tab by any other
+   * route ends the borrow.
+   */
+  const planReturnTo = useRef<string | null>(null);
+  useFocusEffect(useCallback(() => () => { planReturnTo.current = null; }, []));
+  const closePlanner = useCallback((reason?: 'started') => {
+    setPlanOpen(false);
+    const back = planReturnTo.current;
+    planReturnTo.current = null;
+    if (back === 'floats' && reason !== 'started') router.navigate('/float-home');
+  }, [router]);
+
+  /**
    * Planner handoff from Today. The route carries database IDs, not names or
    * slugs that can drift, and waits until the selected river's own access list
    * has landed before calculating the exact editorial stretch.
@@ -1596,9 +1614,10 @@ function MapContent() {
       return;
     }
     if (!focusRiver) {
+      planReturnTo.current = focusParams.planReturnTo ?? null;
       // eslint-disable-next-line react-hooks/set-state-in-effect -- explicit navigation from Saved floats opens the planner.
       setPlanOpen(true);
-      router.setParams({ openPlan: undefined, planPutIn: undefined, planTakeOut: undefined });
+      router.setParams({ openPlan: undefined, planPutIn: undefined, planTakeOut: undefined, planReturnTo: undefined });
       return;
     }
     const token = `${focusRiver}:${focusParams.planPutIn ?? ''}:${focusParams.planTakeOut ?? ''}`;
@@ -1621,17 +1640,20 @@ function MapContent() {
     }
 
     planIntentConsumed.current = token;
+    planReturnTo.current = focusParams.planReturnTo ?? null;
     setPlanOpen(true);
     router.setParams({
       focusRiver: undefined,
       openPlan: undefined,
       planPutIn: undefined,
       planTakeOut: undefined,
+      planReturnTo: undefined,
     });
   }, [
     focusParams.openPlan,
     focusParams.planPutIn,
     focusParams.planTakeOut,
+    focusParams.planReturnTo,
     focusRiver,
     planner,
     plannerAccess?.slug,
@@ -3334,7 +3356,7 @@ function MapContent() {
           keeps drawing the route after this closes. */}
       <PlanSheet
         visible={planOpen}
-        onClose={() => setPlanOpen(false)}
+        onClose={closePlanner}
         rivers={plannerRivers}
         riversLoading={riversLoading}
         riversError={riversError}

@@ -72,13 +72,23 @@ export function TripDownloadCard({
   const [downloading, setDownloading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const mounted = useRef(true);
-  useEffect(() => () => void (mounted.current = false), []);
+  useEffect(() => {
+    // Set on every mount, not only at creation: a remount (React's dev
+    // double-mount, or a screen restored from the stack) must be able to
+    // publish what it reads.
+    mounted.current = true;
+    return () => void (mounted.current = false);
+  }, []);
 
   const refresh = useCallback(async () => {
-    const pkg = await readTripPackage(tripKey);
-    const packs = await readTripPacks(tripKey);
-    const styleComplete = stylePackComplete(await readStylePackStatus(TRIP_STYLE_URL));
-    const next = tripReadiness(pkg, TRIP_STYLE_URL, packs, fallbackChunks.map((c) => c.name), styleComplete);
+    // Each read already turns its own failure or timeout into "not ready", so
+    // this always reaches a state; the three run together, not in a row.
+    const [pkg, packs, style] = await Promise.all([
+      readTripPackage(tripKey),
+      readTripPacks(tripKey),
+      readStylePackStatus(TRIP_STYLE_URL),
+    ]);
+    const next = tripReadiness(pkg, TRIP_STYLE_URL, packs, fallbackChunks.map((c) => c.name), stylePackComplete(style));
     if (!mounted.current) return;
     setState(next);
     if (next.kind === 'ready' || next.kind === 'tiles-saved') setDownloading(false);
