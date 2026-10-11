@@ -1,3 +1,4 @@
+import { openExternalLink } from '@/lib/openExternalLink';
 import { useCallback, useMemo, useReducer, useRef, useState } from 'react';
 import {
   ActionSheetIOS,
@@ -580,9 +581,7 @@ function CampingContent() {
                               style={styles.action}
                               onPress={() => {
                                 setLinkFailed(false);
-                                void Linking.openURL(url).catch(() =>
-                                  setLinkFailed(true),
-                                );
+                                void openExternalLink(url, () => setLinkFailed(true));
                               }}
                             >
                               <Text style={{ color: colors.interactive }}>

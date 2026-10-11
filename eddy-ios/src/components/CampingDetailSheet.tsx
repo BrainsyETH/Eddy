@@ -1,8 +1,8 @@
+import { openExternalLink } from '@/lib/openExternalLink';
 import { useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
-  Linking,
   Modal,
   Pressable,
   StyleSheet,
@@ -101,7 +101,7 @@ export function CampingDetailSheet({
     .sort();
   function open(url: string) {
     setFailed(false);
-    void Linking.openURL(url).catch(() => setFailed(true));
+    void openExternalLink(url, () => setFailed(true));
   }
   return (
     <Modal

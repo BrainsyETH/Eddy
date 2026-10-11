@@ -1,3 +1,4 @@
+import { openExternalLink } from '@/lib/openExternalLink';
 // eddy-ios/src/components/map-sheet/PinCallout.tsx
 // Non-tabbed POIs keep identity and actions in a measured preview, with their
 // description and links in a bounded scroller below it.
@@ -6,7 +7,7 @@ import { ServiceCampingSites } from '@/components/ServiceCampingSites';
 import type { ComponentProps } from 'react';
 import { MapSheet } from './MapSheet';
 import { SheetBody } from './SheetPager';
-import { Linking, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { ControlIcon } from '@/components/ControlIcon';
 import type { MapAccessPoint } from '@eddy/types';
 import {
@@ -215,7 +216,7 @@ export function PinCallout({
       key: `contact-${action.label}`,
       label: action.label,
       accessibilityLabel: `${action.label}: ${pin.name}`,
-      onPress: () => void Linking.openURL(action.url),
+      onPress: () => void openExternalLink(action.url),
       external: true,
     });
   }
@@ -223,7 +224,7 @@ export function PinCallout({
     calloutRows.push({
       key: 'link',
       label: pin.link.label,
-      onPress: () => void Linking.openURL(pin.link!.url),
+      onPress: () => void openExternalLink(pin.link!.url),
       external: true,
     });
   }
@@ -243,7 +244,7 @@ export function PinCallout({
     calloutRows.push({
       key: 'stays',
       label: STAY_SEARCH_LABEL,
-      onPress: () => void Linking.openURL(stayUrl),
+      onPress: () => void openExternalLink(stayUrl),
       external: true,
       externalTint: AIRBNB_LINK_COLOR,
     });

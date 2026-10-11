@@ -1,5 +1,5 @@
-import { useRef } from 'react';
-import { Alert, Linking, Pressable, StyleSheet, Text, View } from 'react-native';
+import { openExternalLink } from '@/lib/openExternalLink';
+import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
 import { ScenicImage } from './ScenicImage';
@@ -9,14 +9,9 @@ import { useRiverGuides } from '@/hooks/useRiverGuides';
 
 export function RiverGuideCard({ guide, compact = false }: { guide: RiverGuideSummary; compact?: boolean }) {
   const { colors } = useTheme();
-  const opening = useRef(false);
-  const open = async () => {
-    if (opening.current) return;
-    opening.current = true;
-    try { await Linking.openURL(riverGuideUrl(guide.slug)); }
-    catch { Alert.alert('Couldn’t open the guide', 'Please try again in a moment.'); }
-    finally { opening.current = false; }
-  };
+  const open = () => openExternalLink(riverGuideUrl(guide.slug), () => {
+    Alert.alert('Couldn’t open the guide', 'Please try again in a moment.');
+  });
   return (
     <Pressable onPress={() => void open()} accessibilityRole="link"
       accessibilityLabel={`${guide.title}. Read the full guide on eddy.guide.`}

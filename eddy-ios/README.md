@@ -936,15 +936,53 @@ started — look at step 2, not step 3.
 Today includes a free **River guides** entry leading to `/river-guides`, a
 searchable native list of published `River Guides` articles from `/api/blog`.
 Each river detail page also shows its matching published guide, if one exists.
-The full article opens on `eddy.guide` in the browser, retaining the shared web
+The full article opens on `eddy.guide` in the in-app browser, retaining the shared web
 layout, live conditions and planner links. This is evergreen content, separate
 from Eddy’s Reads. Loading happens when the catalog or river detail opens, not
 at app startup; failures offer retry in the catalog and hide the optional
-river-detail link. No new native dependency or entitlement is involved.
+river-detail link. The catalog has no entitlement requirement; its links use the
+shared browser behavior below.
 
 Content and import instructions live in the
 [river-guide runbook](../missouri-float-planner/docs/river-guide-style.md#repository-authored-guides-and-publishing).
 Device verification and release status for this entry are unconfirmed.
+
+## Opening web links
+
+Web pages (guides, booking and outfitter sites, gauge/alert sources, policies
+and photo credits) use `src/lib/openExternalLink.ts`. On iOS,
+`expo-web-browser` presents a Safari sheet with **Done** and the standard
+browser controls, including opening in the full browser. Closing it returns to
+the same Eddy screen or sheet. Controls use Eddy's interactive color, resolved
+from the system appearance at each opening; Safari owns the toolbar background.
+Android uses a browser Custom Tab.
+
+On iOS, HTTPS Recreation.gov campground and campsite links first attempt an
+app-only universal-link handoff through the local `eddy-links` module. This
+preserves the provider app and its signed-in session when iOS can open that
+specific URL there. An absent app, unsupported link, disabled association or
+missing module falls back to the in-app browser. `canOpenURL(https:)` cannot
+answer that question: the native bridge uses `universalLinksOnly`, which does
+not open Safari when the app handoff is unavailable. Other pages and providers
+keep the browser behavior. Android does not use this iOS-only handoff.
+
+Web URLs are serialized from the parsed URL before opening either browser.
+Service website buttons use `serviceContactActions` to add a missing HTTPS
+scheme and hide invalid website values, consistently with the map sheets.
+
+Keep internal destinations on Expo Router. Directions (including HTTPS maps
+fallbacks), App Store subscriptions/offer redemption, phone and email actions
+keep their system-app handoffs. Mixed contact rows can use the helper: non-web
+schemes still go to the system.
+
+One shared guard covers the app handoff and prevents concurrent browser presentations. Browser failures
+fall back to the system browser; if both fail, the helper shows a retry alert.
+Pass an error callback to retain an existing inline booking error instead.
+The native browser module loads only on tap, so a missing module cannot block
+app startup. The browser dependency and `eddy-links` require a **new native build**, never an
+OTA-only release. Safari-sheet cookies are separate from Safari's, so a
+booking site may ask the user to sign in again. Eddy sign-in does not use this
+helper. Device verification is tracked in the iOS release runbook.
 
 ## Current state
 

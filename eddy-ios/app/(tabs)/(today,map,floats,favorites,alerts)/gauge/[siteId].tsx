@@ -1,3 +1,4 @@
+import { openExternalLink } from '@/lib/openExternalLink';
 import { NativeHeaderHome } from '@/components/NativeHeaderHome';
 import { gaugeFreshness, gaugeFreshnessLabel, isCurrentWaterMeasurement, observationAgeHours } from '@eddy/conditions/gauge-freshness';
 // eddy-ios/app/gauge/[siteId].tsx
@@ -32,7 +33,6 @@ import { gaugeFreshness, gaugeFreshnessLabel, isCurrentWaterMeasurement, observa
 import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
-  Linking,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -435,7 +435,7 @@ export default function GaugeDetailScreen() {
               waterdata.usgs.gov. */}
           {looksLikeUsgsSiteId(siteId) && usgsGaugeUrl(siteId) ? (
             <Pressable
-              onPress={() => void Linking.openURL(usgsGaugeUrl(siteId)!)}
+              onPress={() => void openExternalLink(usgsGaugeUrl(siteId)!)}
               style={({ pressed }) => [
                 styles.sourceButton,
                 { borderColor: colors.border, opacity: pressed ? 0.6 : 1 },
@@ -927,7 +927,7 @@ export default function GaugeDetailScreen() {
               source of record and holds the decades this chart does not. */}
           {source ? (
             <Pressable
-              onPress={() => void Linking.openURL(source)}
+              onPress={() => void openExternalLink(source)}
               style={({ pressed }) => [
                 styles.sourceButton,
                 { borderColor: colors.border, opacity: pressed ? 0.6 : 1 },

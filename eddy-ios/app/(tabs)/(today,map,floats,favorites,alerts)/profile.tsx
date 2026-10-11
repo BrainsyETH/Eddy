@@ -1,3 +1,4 @@
+import { openExternalLink } from '@/lib/openExternalLink';
 // eddy-ios/app/(tabs)/(today,map,floats,favorites,alerts)/profile.tsx
 // Account, subscription, and the two controls App Review specifically looks
 // for: Restore Purchases and account deletion.
@@ -775,19 +776,19 @@ function ProfileContent() {
             <SettingsRow
               icon="document-text-outline"
               title="Terms of Use"
-              onPress={() => void Linking.openURL(TERMS_URL)}
+              onPress={() => void openExternalLink(TERMS_URL)}
               external
             />
             <SettingsRow
               icon="image-outline"
               title="Photo credits"
-              onPress={() => void Linking.openURL('https://eddy.guide/photo-credits')}
+              onPress={() => void openExternalLink('https://eddy.guide/photo-credits')}
               external
             />
             <SettingsRow
               icon="shield-checkmark-outline"
               title="Privacy Policy"
-              onPress={() => void Linking.openURL(PRIVACY_URL)}
+              onPress={() => void openExternalLink(PRIVACY_URL)}
               external
               last={resolveEnvironment() === 'production'}
             />

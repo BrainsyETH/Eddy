@@ -1,3 +1,4 @@
+import { openExternalLink } from '@/lib/openExternalLink';
 // eddy-ios/src/components/PlanSupport.tsx
 // Who can help with this float, at whichever end of it they are near.
 //
@@ -176,7 +177,7 @@ function Row({
           <Action
             icon="globe-outline"
             label={`${name} website`}
-            onPress={() => void Linking.openURL(site)}
+            onPress={() => void openExternalLink(site)}
             colors={colors}
           />
         ) : null}
@@ -184,7 +185,7 @@ function Row({
           <Action
             icon={only.startsWith('tel:') ? 'call-outline' : 'globe-outline'}
             label={only.startsWith('tel:') ? `Call ${name}` : `${name} website`}
-            onPress={() => void Linking.openURL(only)}
+            onPress={() => void openExternalLink(only)}
             colors={colors}
           />
         ) : null}

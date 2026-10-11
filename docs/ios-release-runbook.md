@@ -182,6 +182,39 @@ and device gates remain separate from the preparation fixes.
       "Not accepted" with the server's reason. Pure rules:
       `src/lib/hazard-report-queue.test.ts`.
 
+### In-app web browser gates — October 11, 2026
+
+Device and release status are unconfirmed. `expo-web-browser` and the local
+`eddy-links` bridge add native modules: rebuild the development/preview/production client before testing or
+shipping; do not ship this change as an OTA-only update.
+
+- [ ] Open a River Guide, a gauge source, an alert source, an outfitter site
+      and a policy page. Confirm a Safari sheet with **Done**, a visible domain
+      and the standard option to open in the full browser. Check Eddy's control
+      tint in light/dark mode, including closing, changing appearance and reopening.
+- [ ] Open Recreation.gov from the camping list, campground detail modal,
+      campsite card and map sheet **with its app installed and already signed
+      in**, then **without it installed**. When iOS recognizes the specific
+      booking URL, confirm it opens the provider app and keeps its session;
+      otherwise confirm an in-app Safari sheet opens without a separate Safari
+      launch. Include a link the provider app does not support and a disabled
+      universal-link association. Confirm the URL/site/query is preserved;
+      test login and the booking flow without submitting a reservation. Browser Done
+      and swipe-to-dismiss return to the same selected campground, dates and
+      scroll position; returning from Recreation.gov preserves that context too.
+      Rapid repeated taps initiate only one handoff/browser presentation.
+- [ ] On both river and access-point detail screens, a service website stored
+      as `www.example.com` opens successfully. Invalid/empty websites have no
+      website button; the phone action remains available independently.
+- [ ] Verify directions (Apple Maps and an installed alternative), saved-float
+      shuttle directions, telephone/email links, subscription management and
+      offer redemption still open their appropriate system apps. Existing
+      native river/gauge/access/float navigation still opens the app screen.
+- [ ] With no connection, the browser can still be dismissed and Eddy remains
+      usable. Exercise a failed browser handoff: system-browser fallback works;
+      if that also fails, a retry alert or the existing inline booking error
+      appears and a later tap can retry.
+
 ### 1.1 delta gates found in the August 11 repository audit
 
 **Historical.** 1.1 shipped. These are kept because the ones still unticked
