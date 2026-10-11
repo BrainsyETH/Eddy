@@ -21,9 +21,13 @@ import { EddyScene } from '@/components/EddyScene';
 import { useSavedFloats } from '@/hooks/useSavedFloats';
 import { SavedFloatRow } from '@/components/SavedFloatRow';
 import { newPlanRequest } from '@/lib/planRequest';
+import { useOfflineBadges } from '@/float/useOfflineBadges';
+import { useAppConfig } from '@/hooks/useAppConfig';
 
 export default function SavedFloatsScreen() {
   const { floats, ready, forget } = useSavedFloats();
+  const { features } = useAppConfig();
+  const offline = useOfflineBadges(floats.map((item) => item.shortCode), features.floatMode);
   const { colors, elevation } = useTheme();
   const router = useRouter();
 
@@ -69,6 +73,7 @@ export default function SavedFloatsScreen() {
         renderItem={({ item }) => (
           <SavedFloatRow
             float={item}
+            offline={offline.get(item.shortCode)}
             onOpen={() => router.push(`/float/${item.shortCode}`)}
             onForget={() => forget(item.shortCode)}
             elevation={elevation(1)}

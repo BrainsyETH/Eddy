@@ -187,3 +187,24 @@ export function tripReadiness(
   if (tiles.kind === 'ready' && !styleComplete) return { kind: 'tiles-saved', bytes: tiles.bytes };
   return tiles;
 }
+
+/**
+ * The one-line offline status a saved float's row shows, or null for none.
+ * The same states as the trip's own card, never more generous: "Ready
+ * offline" only for a complete, confirmed trip, and a route package alone is
+ * "Route saved" (#1448: Saved, Route available and Ready offline differ).
+ */
+export function offlineBadge(readiness: TripReadiness | null, hasPackage: boolean): string | null {
+  switch (readiness?.kind) {
+    case 'ready':
+      return 'Ready offline';
+    case 'tiles-saved':
+      return 'Map saved';
+    case 'partial':
+      return 'Map partly saved';
+    case 'outdated':
+      return 'Map needs update';
+    default:
+      return hasPackage ? 'Route saved' : null;
+  }
+}

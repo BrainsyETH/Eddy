@@ -11,8 +11,8 @@
 // ── What it deliberately does not show ────────────────────────────────────
 // No float times on saved cards (see SavedFloatRow). Start Float and Resume
 // Float appear only where the floatMode flag is on (development and preview
-// builds, or the server flag; see floatModeFeature.ts), and "Ready offline"
-// not until downloads exist (#1448). Featured Floats are the first three of the
+// builds, or the server flag; see floatModeFeature.ts), and so do the offline
+// lines on saved floats, read from the same rules as each trip's own card. Featured Floats are the first three of the
 // curated picks in the same daily rotation Today used, swiped one at a time.
 
 import { useCallback, useEffect, useState } from 'react';
@@ -30,6 +30,7 @@ import { SectionHead } from '@/components/SectionHead';
 import { useSavedFloats } from '@/hooks/useSavedFloats';
 import { useAppConfig } from '@/hooks/useAppConfig';
 import { useFloatSession } from '@/hooks/useFloatSession';
+import { useOfflineBadges } from '@/float/useOfflineBadges';
 import { readFavoriteFloats, writeFavoriteFloats } from '@/lib/favoriteFloatCache';
 import { dailyFavoriteFloats } from '@/lib/todayFloats';
 import { useTheme } from '@/theme/ThemeProvider';
@@ -53,6 +54,8 @@ function FloatHomeContent() {
   const { floats: saved, ready, forget } = useSavedFloats();
   const { features } = useAppConfig();
   const activeFloat = useFloatSession();
+  const savedPreview = saved.slice(0, SAVED_PREVIEW_COUNT);
+  const offline = useOfflineBadges(savedPreview.map((item) => item.shortCode), features.floatMode);
   const [curated, setCurated] = useState<FavoriteFloatSummary[] | null>(null);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -162,10 +165,11 @@ function FloatHomeContent() {
               onAction={() => router.push('/floats')}
             />
           </View>
-          {saved.slice(0, SAVED_PREVIEW_COUNT).map((item) => (
+          {savedPreview.map((item) => (
             <SavedFloatRow
               key={item.shortCode}
               float={item}
+              offline={offline.get(item.shortCode)}
               onOpen={() => router.push(`/float/${item.shortCode}`)}
               onForget={() => forget(item.shortCode)}
               elevation={elevation(1)}

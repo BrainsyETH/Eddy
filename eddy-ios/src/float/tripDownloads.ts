@@ -9,13 +9,17 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { STYLE_URL, getOfflineManager } from '@/map/runtime';
 import { warn } from '@/lib/monitoring';
+import { readStylePackStatus } from '../../modules/eddy-style-pack';
 import {
   MAX_ZOOM,
   MIN_ZOOM,
   TRIP_PACKAGE_VERSION,
   TRIP_PACK_PREFIX,
   isTripPack,
+  offlineBadge,
+  stylePackComplete,
   tripPackageKey,
+  tripReadiness,
   type PackStatus,
   type TripChunk,
   type TripPackage,
@@ -170,4 +174,33 @@ export async function listTripDownloads(): Promise<StoredTrip[]> {
     warn('float', 'could not list trip downloads', error);
     return [];
   }
+}
+
+/**
+ * The offline status line for each saved float, keyed by its trip key; trips
+ * with nothing on the phone are absent. One read of the native store for the
+ * whole list, then the same rules as the trip's own card (tripReadiness).
+ */
+export async function readOfflineBadges(tripKeys: readonly string[]): Promise<Map<string, string>> {
+  const out = new Map<string, string>();
+  if (tripKeys.length === 0) return out;
+  let all: PackStatus[] = [];
+  try {
+    all = await statuses(await packs());
+  } catch (error) {
+    warn('float', 'could not read trip downloads for the saved list', error);
+  }
+  const styleComplete = stylePackComplete(await readStylePackStatus(TRIP_STYLE_URL));
+  await Promise.all(
+    tripKeys.map(async (tripKey) => {
+      const pkg = await readTripPackage(tripKey);
+      const own = all.filter((pack) => isTripPack(pack.name, tripKey));
+      const readiness = pkg || own.length > 0
+        ? tripReadiness(pkg, TRIP_STYLE_URL, own, own.map((pack) => pack.name), styleComplete)
+        : null;
+      const badge = offlineBadge(readiness, pkg != null);
+      if (badge) out.set(tripKey, badge);
+    }),
+  );
+  return out;
 }
