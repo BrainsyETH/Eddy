@@ -29,6 +29,7 @@ import { createFloatSessionStore, type BeginResult } from './floatSessionStoreCo
 import { reminderCopy, type DueReminder, type FloatReminderSettings } from './floatReminders';
 import { warn } from './monitoring';
 import { syncFloatActivity } from '../float/liveActivity';
+import { createFloatActivityLifecycle } from './floatActivity';
 
 /**
  * A reminder is a local notification: scheduled on the phone, so it needs no
@@ -58,12 +59,11 @@ async function deliverReminders(due: DueReminder[]): Promise<string[]> {
 }
 
 const store = createFloatSessionStore(AsyncStorage, (message, detail) => warn('float', message, detail), deliverReminders);
-let loaded: Promise<void> | null = null;
+const activityLifecycle = createFloatActivityLifecycle(store, syncFloatActivity);
 
 /** Read the stored float once per process. Then read it with getFloatSession(). */
 export function ensureFloatSessionLoaded(): Promise<void> {
-  loaded ??= store.ensureLoaded().then(() => syncFloatActivity(store.get(), { force: true }));
-  return loaded;
+  return activityLifecycle.ensureLoaded();
 }
 
 /** The current session: always this, never a value remembered from a load. */
@@ -76,11 +76,8 @@ export function subscribeFloatSession(listener: () => void): () => void {
 }
 
 /** Start a float. Not active until it is safely on disk. */
-export async function beginFloat(next: FloatSession): Promise<BeginResult> {
-  await ensureFloatSessionLoaded();
-  const result = await store.begin(next);
-  if (result === 'started') void syncFloatActivity(store.get(), { start: true });
-  return result;
+export function beginFloat(next: FloatSession): Promise<BeginResult> {
+  return activityLifecycle.begin(next);
 }
 
 /** Feed GPS fixes, in time order, from the screen or a background task. */
@@ -100,11 +97,8 @@ export function flushFloatSessionIfStale(minIntervalMs: number): Promise<void> {
 }
 
 /** End the float and forget it. Tracking stops because nothing is active. */
-export async function endFloat(): Promise<boolean> {
-  // end() clears memory synchronously, even if the disk write later fails.
-  const ended = store.end();
-  await syncFloatActivity(null, { force: true });
-  return ended;
+export function endFloat(): Promise<boolean> {
+  return activityLifecycle.end();
 }
 
 /** Change the active float's reminders. */

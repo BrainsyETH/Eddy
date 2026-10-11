@@ -20,7 +20,9 @@ public final class EddyLiveActivityModule: Module {
     AsyncFunction("sync") { (json: String?, allowStart: Bool, promise: Promise) in
       Task { @MainActor in
         do {
-          let result = try await FloatActivities.sync(json, allowStart: allowStart)
+          let result = try await FloatActivities.sync(json, allowStart: allowStart) { activityId in
+            self.invalidateObservation(for: activityId)
+          }
           self.observeCurrentActivity()
           promise.resolve(result)
         } catch {
@@ -29,6 +31,16 @@ public final class EddyLiveActivityModule: Module {
         }
       }
     }
+  }
+
+  @MainActor
+  private func invalidateObservation(for activityId: String) {
+    guard observedId == activityId else { return }
+    // Do this BEFORE Activity.end can emit .ended. Intentional cleanup is not
+    // a user dismissal, including when an old session's card is reconciled.
+    observedId = nil
+    observation?.cancel()
+    observation = nil
   }
 
   @MainActor
@@ -54,9 +66,10 @@ public final class EddyLiveActivityModule: Module {
 
 @MainActor
 private enum FloatActivities {
-  private static let attemptedKey = "eddy.floatActivity.attemptedSession"
+  private static let startedKey = "eddy.floatActivity.startedSession"
+  private static let failedKey = "eddy.floatActivity.failedSession"
 
-  static func sync(_ json: String?, allowStart: Bool) async throws -> String {
+  static func sync(_ json: String?, allowStart: Bool, willEnd: (String) -> Void) async throws -> String {
     let decoder = JSONDecoder()
     decoder.dateDecodingStrategy = .millisecondsSince1970
     let snapshot: Snapshot?
@@ -76,13 +89,20 @@ private enum FloatActivities {
       if let snapshot, active, activity.attributes.sessionId == snapshot.sessionId, matching == nil {
         matching = activity
       } else {
+        // Expired/orphaned cards are deliberately removed on the next handover;
+        // stale progress is not kept around as a completed-trip summary.
+        willEnd(activity.id)
         await activity.end(nil, dismissalPolicy: .immediate)
       }
     }
-    guard let snapshot else { return "idle" }
+    guard let snapshot else {
+      UserDefaults.standard.removeObject(forKey: failedKey)
+      return "idle"
+    }
     let content = ActivityContent(state: snapshot.state, staleDate: snapshot.state.staleAt ?? Date())
     if let matching {
-      UserDefaults.standard.set(snapshot.sessionId, forKey: attemptedKey)
+      UserDefaults.standard.set(snapshot.sessionId, forKey: startedKey)
+      UserDefaults.standard.removeObject(forKey: failedKey)
       await matching.update(content)
       return matching.activityState == .active || matching.activityState == .stale ? "active" : "dismissed"
     }
@@ -91,15 +111,24 @@ private enum FloatActivities {
     // A missing activity may have been dismissed, expired, or ended by iOS.
     // Restoring a session/background callback never authorizes a new card.
     guard allowStart, UIApplication.shared.applicationState == .active else {
-      return UserDefaults.standard.string(forKey: attemptedKey) == snapshot.sessionId ? "dismissed" : "idle"
+      if UserDefaults.standard.string(forKey: failedKey) == snapshot.sessionId { return "error" }
+      return UserDefaults.standard.string(forKey: startedKey) == snapshot.sessionId ? "dismissed" : "idle"
     }
-    // Remember the attempt BEFORE requesting; a relaunch cannot duplicate it.
-    UserDefaults.standard.set(snapshot.sessionId, forKey: attemptedKey)
-    _ = try Activity<FloatActivityAttributes>.request(
-      attributes: FloatActivityAttributes(sessionId: snapshot.sessionId),
-      content: content,
-      pushType: nil
-    )
-    return "active"
+    do {
+      _ = try Activity<FloatActivityAttributes>.request(
+        attributes: FloatActivityAttributes(sessionId: snapshot.sessionId),
+        content: content,
+        pushType: nil
+      )
+      // A crash between request and this write is recoverable via activities.
+      UserDefaults.standard.set(snapshot.sessionId, forKey: startedKey)
+      UserDefaults.standard.removeObject(forKey: failedKey)
+      return "active"
+    } catch {
+      // Keep the explanation through later fixes/relaunches until an explicit
+      // retry succeeds. A failed start is neither idle nor a user dismissal.
+      UserDefaults.standard.set(snapshot.sessionId, forKey: failedKey)
+      throw error
+    }
   }
 }

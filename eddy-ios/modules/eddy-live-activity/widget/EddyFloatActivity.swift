@@ -32,7 +32,7 @@ struct EddyFloatActivity: Widget {
           FloatCard(context: context, expanded: true)
         }
       } compactLeading: {
-        Image(systemName: display.reliable ? "water.waves" : "location.slash")
+        Image(systemName: display.statusSymbol)
           .foregroundStyle(display.tint)
           .accessibilityLabel(display.shortStatus)
       } compactTrailing: {
@@ -41,7 +41,7 @@ struct EddyFloatActivity: Widget {
         Text(display.reliable ? "\(context.state.milesText) mi" : display.compactStatus)
           .font(.caption.weight(.semibold)).monospacedDigit().foregroundStyle(display.tint)
       } minimal: {
-        Image(systemName: display.reliable ? "water.waves" : "location.slash")
+        Image(systemName: display.statusSymbol)
           .foregroundStyle(display.tint).accessibilityLabel(display.shortStatus)
       }
       .widgetURL(floatURL)
@@ -71,7 +71,20 @@ private struct FloatDisplay {
       return state.paused ? "Stopped · earlier pace" : "Live"
     }
   }
-  var compactStatus: String { stale && state.lastFixAt != nil ? "Stale" : "GPS?" }
+  var compactStatus: String {
+    if stale && state.lastFixAt != nil { return "Stale" }
+    switch state.status {
+    case "off-route": return "Off route"
+    case "uncertain": return "Checking"
+    default: return "Finding"
+    }
+  }
+  var statusSymbol: String {
+    if stale && state.lastFixAt != nil { return "clock" }
+    if reliable { return "water.waves" }
+    // Off-route can have perfectly good GPS: don't show a crossed-out receiver.
+    return state.status == "off-route" ? "arrow.turn.up.right" : "location"
+  }
   var estimate: String {
     // An old zero-minute estimate must never masquerade as a fresh arrival.
     if !reliable && (state.arrived || state.atRiverEnd) { return "Open Eddy to check progress" }
@@ -126,7 +139,7 @@ private struct FloatCard: View {
         Text(state.estimateNote).font(.caption2).foregroundStyle(.white.opacity(0.7)).lineLimit(1).minimumScaleFactor(0.8)
       }
       HStack(spacing: 4) {
-        Image(systemName: display.reliable ? "location.fill" : "location.slash")
+        Image(systemName: display.reliable ? "location.fill" : display.statusSymbol)
         Text(display.shortStatus).lineLimit(1)
         if !display.reliable, let fix = state.lastFixAt {
           Text("·")

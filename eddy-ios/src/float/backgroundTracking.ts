@@ -60,7 +60,8 @@ TaskManager.defineTask<{ locations: Location.LocationObject[] }>(FLOAT_LOCATION_
   // Let a reminder reach the notifier before iOS suspends Eddy again.
   await floatRemindersSettled();
   await flushFloatSessionIfStale(BACKGROUND_WRITE_MS);
-  // Finish the local ActivityKit handover before spending time on the network.
+  // Give ActivityKit up to one second after recording/persisting fixes. A stuck
+  // native update must not hold this task or optional report delivery open.
   await floatActivitySettled();
   // A hazard report written with no signal goes out when the locked phone
   // finds some. Tracking/persistence finish first; allow five seconds for

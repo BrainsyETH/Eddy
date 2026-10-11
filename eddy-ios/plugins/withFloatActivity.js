@@ -76,8 +76,9 @@ function configureProject(project, root, config) {
       INFOPLIST_FILE: `"${TARGET}/${TARGET}-Info.plist"`,
       PRODUCT_BUNDLE_IDENTIFIER: `"${config.ios.bundleIdentifier}.FloatActivity"`,
       // Expo writes app versions directly into Info.plist; the host build
-      // setting can still say template "1.0". Use Expo's resolved versions,
-      // including the ios.buildNumber EAS supplies for remote auto-increment.
+      // setting can still say template "1.0". These are local/prebuild values.
+      // EAS remote versioning later rewrites every provisioned target's plist;
+      // verify both final versions in the first .ipa.
       MARKETING_VERSION: config.version,
       CURRENT_PROJECT_VERSION: config.ios.buildNumber ?? hostSettings.CURRENT_PROJECT_VERSION ?? '1',
       SWIFT_VERSION: '5.0',

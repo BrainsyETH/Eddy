@@ -3,7 +3,7 @@ import { Linking, Pressable, StyleSheet, Text, View } from 'react-native';
 import { getFloatSession } from '@/lib/floatSessionStore';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
-import { syncFloatActivity, useFloatActivity } from './liveActivity';
+import { floatActivitySettled, syncFloatActivity, useFloatActivity } from './liveActivity';
 
 /** A dismissed/expired activity only returns after an explicit action here. */
 export function FloatActivityControl() {
@@ -21,7 +21,10 @@ export function FloatActivityControl() {
     const session = getFloatSession();
     if (!session) return;
     setBusy(true);
-    try { await syncFloatActivity(session, { start: true }); }
+    try {
+      void syncFloatActivity(session, { start: true });
+      await floatActivitySettled();
+    }
     finally { setBusy(false); }
   };
   return (

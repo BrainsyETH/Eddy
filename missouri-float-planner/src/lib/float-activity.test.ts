@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
-  createFloatActivityController, floatActivitySnapshot,
+  createFloatActivityController, createFloatActivityLifecycle, floatActivitySnapshot,
   type ActivityAvailability, type FloatActivitySnapshot,
 } from '../../../eddy-ios/src/lib/floatActivity';
 import {
@@ -9,6 +9,7 @@ import {
   type FloatSession,
 } from '../../../eddy-ios/src/lib/floatSession';
 import type { LngLat, RouteIndex } from '@eddy/geo';
+import { createFloatSessionStore, STORAGE_KEY, type SessionStorage } from '../../../eddy-ios/src/lib/floatSessionStoreCore';
 
 const T0 = Date.parse('2026-10-11T14:00:00Z');
 function at(meters: number): LngLat { return [-91 + meters / (111_320 * Math.cos(37 * Math.PI / 180)), 37]; }
@@ -209,4 +210,109 @@ test('held estimates do not get a newer as-of date on each paused heartbeat', as
   await c.sync(next);
   assert.equal(calls[1].state.estimateAsOf, calls[0].state.estimateAsOf);
   assert.notEqual(calls[1].state.lastFixAt, calls[0].state.lastFixAt);
+});
+
+function memoryDisk() {
+  const data = new Map<string, string>();
+  const disk: SessionStorage = {
+    async getItem(key) { return data.get(key) ?? null; },
+    async setItem(key, value) { data.set(key, value); },
+    async removeItem(key) { data.delete(key); },
+  };
+  return { data, disk };
+}
+
+test('a stalled restored card cannot block loading, recording, or persisting fixes', { timeout: 1000 }, async () => {
+  const { session } = prepared();
+  const { data, disk } = memoryDisk();
+  data.set(STORAGE_KEY, JSON.stringify(session));
+  const native = deferred<void>();
+  const store = createFloatSessionStore(disk, () => {});
+  const life = createFloatActivityLifecycle(store, () => native.promise);
+  await life.ensureLoaded();
+  assert.equal(store.get()?.id, session.id);
+  for (let s = 0; s <= 60; s += 10) {
+    const now = T0 + s * 1000;
+    store.record([{ lngLat: at(1000 + s), timestamp: now, accuracyMeters: 8 }], now);
+  }
+  await store.flush();
+  assert.ok(JSON.parse(data.get(STORAGE_KEY)!).samples.length > 0);
+  assert.equal(await life.end(), true);
+  assert.equal(store.get(), null);
+  native.resolve();
+});
+
+test('start waits for disk, never for the previous card, and cannot start twice', { timeout: 1000 }, async () => {
+  const { disk } = memoryDisk();
+  const write = deferred<void>();
+  const native = deferred<void>();
+  const setItem = disk.setItem;
+  disk.setItem = async (key, value) => { await write.promise; await setItem(key, value); };
+  const store = createFloatSessionStore(disk, () => {});
+  const starts: boolean[] = [];
+  const life = createFloatActivityLifecycle(store, (_s, options) => { starts.push(options.start === true); return native.promise; });
+  await life.ensureLoaded();
+  const starting = life.begin(prepared().session);
+  await Promise.resolve();
+  assert.equal(store.get(), null, 'persistence still gates session creation');
+  assert.deepEqual(starts, [false], 'no card start before persistence');
+  write.resolve();
+  assert.equal(await starting, 'started');
+  assert.equal(await life.begin(prepared().session), 'already-active');
+  assert.deepEqual(starts, [false, true]);
+  await life.end();
+  native.resolve();
+});
+
+test('failed disk cleanup returns false promptly even when ending the card stalls', { timeout: 1000 }, async () => {
+  const { disk } = memoryDisk();
+  const native = deferred<void>();
+  const store = createFloatSessionStore(disk, () => {});
+  const life = createFloatActivityLifecycle(store, () => native.promise);
+  assert.equal(await life.begin(prepared().session), 'started');
+  const removeItem = disk.removeItem;
+  disk.removeItem = async () => { throw new Error('disk unavailable'); };
+  try {
+    assert.equal(await life.end(), false);
+    assert.equal(store.get(), null, 'tracking has stopped despite both failures');
+  } finally {
+    disk.removeItem = removeItem;
+    await store.retryPendingEnd();
+    native.resolve();
+  }
+});
+
+test('presentation exceptions and rejections never reject the session lifecycle', async () => {
+  for (const sync of [() => Promise.reject(new Error('bridge failed')), () => { throw new Error('bridge threw'); }]) {
+    const { disk } = memoryDisk();
+    const store = createFloatSessionStore(disk, () => {});
+    const life = createFloatActivityLifecycle(store, sync);
+    await life.ensureLoaded();
+    assert.equal(await life.begin(prepared().session), 'started');
+    assert.equal(await life.end(), true);
+  }
+});
+
+test('handover timeout releases the caller while keeping a pending End serialized', async () => {
+  const native = deferred<ActivityAvailability>();
+  const calls: (FloatActivitySnapshot | null)[] = [];
+  const states: ActivityAvailability[] = [];
+  const controller = createFloatActivityController({ sync: async (s) => {
+    calls.push(s);
+    return calls.length === 1 ? native.promise : 'idle';
+  } }, (state) => states.push(state));
+  void controller.sync(snapshot(), { start: true });
+  await Promise.resolve();
+  const changed = snapshot(); changed.state.milesText = '1.0';
+  void controller.sync(changed);
+  const ended = controller.sync(null, { force: true });
+  assert.equal(await controller.settled(1), false);
+  assert.deepEqual(states, ['error']);
+  assert.equal(calls.length, 1, 'timeout must not unlock the native queue');
+  native.resolve('active');
+  await ended;
+  assert.equal(await controller.settled(), true);
+  assert.equal(calls.length, 2);
+  assert.equal(calls[1], null, 'queued progress is superseded by End');
+  assert.equal(states.at(-1), 'idle');
 });

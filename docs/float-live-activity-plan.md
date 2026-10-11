@@ -9,7 +9,8 @@ signing, rendered layouts and physical-device release gates remain pending.
 - `eddy-ios/src/lib/floatActivity.ts`: pure display payload and serialized,
   coalesced native updates; shares the existing ETA model.
 - `eddy-ios/src/float/liveActivity.ts`: optional bridge, independent of any
-  screen. The session store starts/ends the card; background delivery awaits it.
+  screen. The session store announces starts/ends without waiting for the card;
+  background delivery allows up to one second for the native handover.
 - `eddy-ios/modules/eddy-live-activity/`: ActivityKit lifecycle, shared Codable
   attributes, SwiftUI Lock Screen and compact/expanded/minimal Island layouts.
 - `eddy-ios/plugins/withFloatActivity.js`: generated WidgetKit target,
@@ -33,7 +34,10 @@ npx expo-modules-autolinking resolve --platform apple
 The structural check verifies the target's sources/resources, host dependency,
 embedded extension, matching version, credential declaration and repeated
 plugin application. It does **not** compile Swift or provision the extension.
-EAS must provision `eddy.guide.app.FloatActivity` for the new binary.
+EAS must provision `eddy.guide.app.FloatActivity` for the new binary. Its remote
+version update covers provisioned targets after prebuild; the plugin's fallback
+build setting does not prove the final archive version. On the first EAS `.ipa`,
+compare the app and extension `CFBundleVersion` and `CFBundleShortVersionString`.
 
 Next: compile/sign a development binary on macOS or EAS, inspect both layouts
 (including long names and larger text), then run the physical-device matrix
@@ -66,7 +70,9 @@ No estimator, calibration, or route-matching changes are part of this work.
 - Lock Screen: river, take-out, remaining river miles, progress, estimated
   moving time, and an honest location status. Tap to reopen the active float.
 - Dynamic Island: compact remaining miles/status; expanded destination,
-  progress, and moving-time estimate. No map or route geometry.
+  progress, and moving-time estimate. Compact states distinguish Finding,
+  Checking, Off route and Stale. Off route does not claim GPS is broken or that
+  the paddler has left the water. No map or route geometry.
 - Stops are ordinary pauses wherever they happen. Use `remainingCopy` from
   the existing estimator. Time remaining is a fixed, rounded estimate with an
   as-of date, never an ETA countdown that keeps decreasing during a stop.
@@ -115,8 +121,12 @@ Update only for a meaningful displayed change: roughly 0.1 mile, tracker status,
 rounded ETA, pause/resume or earlier-pace state, arrival, or a 60-second heartbeat
 when the app has execution time. Compare against the last successfully delivered
 snapshot. Serialize/coalesce updates; an older async update cannot overwrite a
-newer one or revive an ended session. The background task awaits the activity
-handover without waiting for optional report delivery first.
+newer one or revive an ended session. After fixes are recorded and persisted,
+the background task allows one second for the activity handover before optional
+report delivery. Show on Lock Screen uses the same bound, so its button cannot
+stay busy indefinitely. Timeout releases the caller and shows an update error;
+it never cancels/unlocks the serialized native queue or starts a concurrent
+operation. A late native completion can still deliver the latest state/End.
 
 ## Staleness without JavaScript execution
 
@@ -129,8 +139,10 @@ withhold unsupported numbers.
 Do not extend freshness for rejected/uncertain fixes or a heartbeat. Preserve
 `live`, `uncertain`, `off-route`, `stale`, and `resuming`; a still-fresh timestamp
 must not override uncertainty. A stale card labels its numbers as last known.
-The estimate's as-of time must reflect its source estimate, not a cosmetic
-refresh. No JS timer is required to mark a suspended app's card stale.
+The estimate's as-of time follows the confirmed position used to recompute it.
+A heartbeat without a new confirmed position cannot refresh it. While stopped,
+an unchanged displayed estimate/distance retains its earlier date. No JS timer
+is required to mark a suspended app's card stale.
 
 ## Lifecycle and recovery
 
@@ -138,17 +150,24 @@ refresh. No JS timer is required to mark a suspended app's card stale.
   action. First version uses local ActivityKit; no APNs/push-to-start service.
 - Reconcile `Activity.activities` by session ID on launch/foreground. Reattach
   to a matching existing activity; end orphaned/duplicate Eddy activities.
-- Persist the session's activity-attempt/dismissal state. Absence of an activity
-  on restore is not permission to recreate a card the user dismissed. Offer an
-  explicit in-app “Show on Lock Screen” action to restore one.
+- Persist successful creation separately from a failed request. A failed start
+  remains an error across fixes/relaunches until retry succeeds or the float
+  ends. Absence of an activity on restore is not permission to recreate one.
+  Offer an explicit in-app “Show on Lock Screen” action to restore it.
 - Observe system activity-state changes. Dismissal/expiry/disabled activities
   never end the float. Background location callbacks update existing activities;
   they do not try to create replacements.
 - Account for Apple's eight-hour active lifetime. Tracking continues; a new
   local activity can be offered when the user returns to Eddy. Do not promise
-  an automatically renewed card throughout a longer float.
+  an automatically renewed card throughout a longer float. Deliberately remove
+  expired cards immediately on the next native reconciliation; their old content
+  is not a completed-trip summary.
 - End Float invalidates queued updates and ends the matching activity even if
-  session-storage cleanup has trouble. Reconcile leftovers at next launch.
+  session-storage cleanup has trouble. Loading, starting and finishing the
+  session never await ActivityKit. Finish returns the storage result while card
+  cleanup remains queued. Invalidate the native observer before intentionally
+  ending a card, so cleanup is not reported as a dismissal. Reconcile leftovers
+  at next launch.
 - Foreground-only tracking can still have a card, but locking means its position
   will go stale. The card must not promise continuous tracking in that mode.
 
@@ -196,7 +215,9 @@ Physical-device checks, with an older supported iPhone as well:
 | Downloaded map and no-download route-only mode, without service | Tracking and activity update locally |
 | Repeated loss/recovery of cellular service | No reset, duplicate activity, or camera change |
 | Dismiss card, relaunch | Float survives; dismissed card does not reappear automatically |
-| End float while update is pending | Activity ends and cannot be revived by that update |
+| End float while update is pending | Finish remains responsive; eventual activity end cannot be reversed by that update |
+| Native request fails, then fixes/relaunch/retry | Error remains visible; explicit successful retry clears it |
+| First EAS archive | Host and extension build/marketing versions match |
 | Off-river take-out | End of mapped river does not claim arrival |
 | Change permissions/disable activities in Settings | Updated warning and supported fallback on return |
 | Multi-hour river session | Record battery drain and gaps; establish release battery target |

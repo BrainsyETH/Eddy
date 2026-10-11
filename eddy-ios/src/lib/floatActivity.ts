@@ -1,6 +1,40 @@
 // Pure presentation and serialized delivery for Float Mode's native card.
 // It shares the float screen's distance/pace model; it never tracks location.
 import { formatBeyond, remainingCopy, STALE_POSITION_MS, viewSession, type FloatSession, type FloatStatus } from './floatSession';
+import type { FloatSessionStore } from './floatSessionStoreCore';
+
+export type FloatActivityOptions = { start?: boolean; force?: boolean };
+
+/** The session owns its lifecycle; presentation never joins its promises. */
+export function createFloatActivityLifecycle(
+  store: Pick<FloatSessionStore, 'ensureLoaded' | 'get' | 'begin' | 'end'>,
+  sync: (session: FloatSession | null, options: FloatActivityOptions) => Promise<void>,
+) {
+  let loaded: Promise<void> | null = null;
+  const announce = (session: FloatSession | null, options: FloatActivityOptions) => {
+    try { void sync(session, options).catch(() => {}); }
+    catch { /* A presentation failure cannot interrupt tracking or persistence. */ }
+  };
+  const ensureLoaded = () => {
+    loaded ??= store.ensureLoaded().then(() => { announce(store.get(), { force: true }); });
+    return loaded;
+  };
+  return {
+    ensureLoaded,
+    async begin(next: FloatSession) {
+      await ensureLoaded();
+      const result = await store.begin(next);
+      if (result === 'started') announce(store.get(), { start: true });
+      return result;
+    },
+    end() {
+      // end() clears memory synchronously; its result belongs to storage only.
+      const ended = store.end();
+      announce(null, { force: true });
+      return ended;
+    },
+  };
+}
 
 export type ActivityAvailability = 'unavailable' | 'idle' | 'active' | 'dismissed' | 'disabled' | 'error';
 export interface FloatActivitySnapshot {
@@ -129,7 +163,7 @@ export function createFloatActivityController(
   };
   return {
     observeAvailability: publish,
-    sync(snapshot: FloatActivitySnapshot | null, options: { start?: boolean; force?: boolean } = {}): Promise<void> {
+    sync(snapshot: FloatActivitySnapshot | null, options: FloatActivityOptions = {}): Promise<void> {
       const samePending = pending?.snapshot?.sessionId === snapshot?.sessionId;
       pending = {
         snapshot: snapshot ? { ...snapshot, state: { ...snapshot.state } } : null,
@@ -139,8 +173,18 @@ export function createFloatActivityController(
       // Schedule as a microtask so synchronous callers coalesce too.
       return kick();
     },
-    async settled(): Promise<void> {
-      while (running) await running;
+    settled(maxWaitMs = 1_000): Promise<boolean> {
+      if (!running) return Promise.resolve(true);
+      // Bound the CALLER's wait, not the native operation. Keep the drain and
+      // its pending End serialized even when the OS call outlives this budget.
+      const delivery = running;
+      return new Promise((resolve) => {
+        const timer = setTimeout(() => { publish('error'); resolve(false); }, maxWaitMs);
+        void delivery.then(
+          () => { clearTimeout(timer); resolve(true); },
+          () => { clearTimeout(timer); resolve(false); },
+        );
+      });
     },
   };
 }
