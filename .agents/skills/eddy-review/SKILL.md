@@ -58,11 +58,16 @@ Go through each that the diff touches. Each names how to check it.
   path filters (`.github/workflows/app-ci.yml`) can be broken by a PR that
   never triggers CI. If the diff adds such a read, the filter must gain the
   path.
-- **Binaries in the field call this API.** Any change to an API route or
-  response shape the iOS app reads must be additive: an older store binary
-  keeps calling the old shape. A removed or renamed field, or a new route the
-  new binary depends on, means "deploy web before distributing the build" —
-  say so explicitly.
+- **Binaries in the field call this API.** Two different problems; name
+  which one a change has.
+  - *Breaking:* a removed or renamed field or route, or a changed meaning,
+    breaks iOS binaries already installed, and deploy order does not help.
+    It is blocking unless the PR keeps the old shape working or states a
+    migration strategy (a forced upgrade via `min_supported_version`, a
+    versioned route) and when old binaries stop mattering.
+  - *Additive dependency:* a new route or field the new binary needs is
+    safe for old binaries but means "deploy web before distributing the
+    build". Say so explicitly.
 - **Shippable web code stays inside `missouri-float-planner/`.** Vercel builds
   only that directory, and the web app has no dependency on `packages/`. A
   non-test file (not `*.test.ts` / `*.spec.ts`) importing from `eddy-ios/`,
@@ -70,10 +75,13 @@ Go through each that the diff touches. Each names how to check it.
 - **`shared/` changes ship in both apps.** Check the iOS side of a change to
   the condition system, not only the web side.
 - **Native fingerprint.** A new native dependency, config plugin, `app.json`
-  permission or background mode, or anything under `eddy-ios/modules/`
-  changes `runtimeVersion` (fingerprint policy): it needs a new binary and
-  must not be shipped as an EAS Update. The PR should say so, and the
-  runbook should carry a gate for it.
+  permission or background mode, or anything under `eddy-ios/modules/` or
+  `eddy-ios/plugins/` (local config plugins) can change `runtimeVersion`
+  (fingerprint policy): it needs a new binary and must not be shipped as an
+  EAS Update. The PR should say so, and the runbook should carry a gate for
+  it. That list flags candidates; when it matters, confirm by comparing
+  `npx expo-updates fingerprint:generate --platform ios` (run in
+  `eddy-ios/`) on base and head rather than asserting it from the diff.
 - **Migrations.** A migration file is named for the version production
   recorded and listed in `missouri-float-planner/supabase/production-migrations.txt` (or its
   `[pending]` section until applied). The ledger test enforces the file;

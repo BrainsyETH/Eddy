@@ -26,9 +26,16 @@ a person must do.
 - What the runbook says is live and in progress, and when that was confirmed.
   The live store version is a fact about App Store Connect: if nobody has
   confirmed it, the report says "unconfirmed" and asks.
-- Baseline: the commit that set the previous shipped version, e.g.
-  `git log --format='%h %ad %s' --date=short -S'"version": "1.2.0"' -- eddy-ios/app.json`.
-  If the clone is shallow (`git rev-parse --is-shallow-repository`), deepen
+- Baseline: the **Git SHA the shipped build was made from**, not the commit
+  that bumped the version — more work can land between the bump and the
+  build. The repo has no release tags; the SHA is on the EAS build record
+  (`gitCommitHash`, e.g. `eas build:list --platform ios --status finished`,
+  matched to the build number App Store Connect shows as live). That is a
+  read-only call but needs EAS access; run it only where the person has
+  authorized it. If the SHA is not available, use the version-bump commit
+  (`git log -S'"version": "1.2.0"' -- eddy-ios/app.json`) as a stand-in and
+  label the baseline **unconfirmed** in the report, with what it might miss.
+- If the clone is shallow (`git rev-parse --is-shallow-repository`), deepen
   it first; a delta measured from a truncated history is wrong.
 - The previous readiness report, `docs/release-readiness-<x.y>.md`: its open
   gates carry forward until someone records them closed.
@@ -40,17 +47,39 @@ in `eddy-ios/`, `missouri-float-planner/shared/`, `packages/`; API routes
 added or changed under `missouri-float-planner/src/app/api/`; migrations
 added.
 
-**Did the native fingerprint move?** Diff `eddy-ios/app.json`,
-`eddy-ios/package.json`, `eddy-ios/package-lock.json`, `eddy-ios/metro.config.js`,
-`.easignore` and `eddy-ios/modules/` against the baseline.
+**Did the native fingerprint move?** Two separate steps, reported
+separately:
+
+1. *Candidates, from the diff.* Native-relevant changes since the baseline in
+   `eddy-ios/app.json`, `eddy-ios/package.json`, `eddy-ios/package-lock.json`,
+   `eddy-ios/metro.config.js`, `.easignore`, `eddy-ios/modules/` (local native
+   modules) and `eddy-ios/plugins/` (local config plugins, e.g.
+   `withFloatActivity.js`). This says what *could* move the fingerprint; it
+   is not proof that it did or did not.
+2. *The fingerprint itself.* From `eddy-ios/`, run
+   `npx expo-updates fingerprint:generate --platform ios` at the release
+   commit and at the baseline (a `git worktree` with its own `npm ci`), and
+   compare the `hash`. Use this command, not bare `@expo/fingerprint`, which
+   hashes differently from the runtime version. The EAS build record's
+   `runtimeVersion` is an equivalent source for the shipped side. If neither
+   comparison was made, say the fingerprint is **unconfirmed** and treat the
+   candidates as the reason to cut a build.
 
 - Moved: a new binary is required; an EAS Update cannot deliver it.
-- Did not move: an EAS Update to `production` would reach binaries already
-  in the store under the old version string. Say so; cut a build.
+- Unchanged (computed, not inferred): an EAS Update to `production` would
+  reach binaries already in the store under the old version string. Say so;
+  cut a build.
 
-**Server dependencies.** List every route or response field the new binary
-needs that the old server lacks. Each one makes "deploy web before the build
-is distributed" a gate.
+**Server compatibility, in both directions.**
+
+- *New binary, old server:* every route or response field the new binary
+  needs that production lacks makes "deploy web before the build is
+  distributed" a gate.
+- *Old binaries, new server:* every field or route removed, renamed, or
+  changed in meaning since the baseline breaks binaries already installed,
+  whatever the deploy order. Each needs the compatibility kept (old shape
+  still served) or an explicit migration strategy (`min_supported_version`
+  forced upgrade, versioned route), recorded as a gate.
 
 ## 3. Run the checks
 
