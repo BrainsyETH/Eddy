@@ -4,7 +4,7 @@ import { readFileSync } from 'node:fs';
 import { PGlite } from '@electric-sql/pglite';
 import { classifyReading } from '../shared/condition-ladder';
 
-const migration = readFileSync('supabase/migrations/20261011202743_river_guide_review_data_corrections.sql', 'utf8');
+const migration = readFileSync('supabase/migrations/20261011203745_river_guide_review_data_corrections.sql', 'utf8');
 const gasconade = 'f067668b-b9a2-4482-aad6-4952155162d2';
 const crooked = '376f7b8e-0cfb-421d-a66a-976207cfe774';
 const northFork = '4593382d-dfbb-40b1-b5ad-8344af4dfcd5';

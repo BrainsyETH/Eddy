@@ -106,13 +106,13 @@ It never overwrites existing articles. If drafts were imported, review and
 publish them through `/admin/blog`; rerunning with `--publish` will preserve
 those drafts rather than change their status. The article import needs no schema
 change. The companion data migration
-`20261011202743_river_guide_review_data_corrections.sql` is tracked as **pending**
-in `supabase/production-migrations.txt`: it links the existing Rich Fountain
+`20261011203745_river_guide_review_data_corrections.sql` was applied on
+**2026-10-11** and is tracked as **applied** in `supabase/production-migrations.txt`: it links the existing Rich Fountain
 gauge as secondary/unrated, fixes Kelley’s Slab’s display name without changing
 its slug, and retires the obsolete Dawt Mill portage/chute record. Its retirement
-is not confirmation of safe navigation today. Apply that reviewed migration as
-part of the authorized database release, verify all three rows, then record the
-actual production version in the ledger and run `make check-db`.
+is not confirmation of safe navigation today. Production readback verified all
+three corrections. The migration filename and ledger match the recorded production version; do not apply the former pending
+filename as a separate migration.
 
 The shared heading correction also renders full river names in the seven
 existing published guides (for example, “Today on the Current River”). Their

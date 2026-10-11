@@ -1,4 +1,5 @@
--- Pending production application. Three corrections verified 2026-10-11.
+-- Applied to production ilefwfpvphadsbptiaur on 2026-10-11.
+-- Recorded as 20261011203745; all three corrections verified after application.
 -- One DO statement makes the changes atomic; unexpected editorial drift aborts
 -- the whole correction. Reapplying the reviewed state is a no-op.
 --
@@ -64,7 +65,7 @@ BEGIN
     WHERE id = slab.id AND name = 'Kelly''s Slab Access';
 
   SELECT * INTO STRICT dawt FROM public.river_hazards
-    WHERE id = '93062149-e42f-452e-bff6-b4e4cde70f6f' AND river_id = north_fork_id FOR UPDATE;
+    WHERE name = 'Dawt Mill Dam' AND river_id = north_fork_id FOR UPDATE;
   IF dawt.active IS FALSE AND dawt.portage_required IS FALSE
     AND dawt.portage_side IS NULL AND dawt.seasonal_notes IS NULL
     AND dawt.description = retired_description THEN
