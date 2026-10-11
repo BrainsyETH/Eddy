@@ -411,6 +411,14 @@ Real shipped values, as calibration examples (primary gauge shown):
 
 Open follow-ups live in `DEPLOYMENT-STATUS.md`.
 
+The [2026-10-11 trust source review](../../../docs/audits/2026-10-11-trust-follow-up.md)
+confirms Bennett Spring's MDC concrete-ramp pin and Lead Mine's published 53.7
+mile. Migration `20261011214010` applies those two corrections. Riverfront's
+private launch mile, Riverview Ranch's exact landing, Mammoth Spring Dam #1
+launch eligibility, and Jacks Fork's separate Good/Flowing band remain under
+review. Do not import guessed replacement miles or the moherp ESTIMATED
+238-cfs value for Jacks Fork.
+
 ### Standalone camping alongside Phase 8.5
 
 Regional campgrounds do not need a fabricated river association. In a new,
