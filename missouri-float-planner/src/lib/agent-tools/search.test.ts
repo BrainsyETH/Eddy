@@ -250,3 +250,13 @@ test('empty copy distinguishes an unfinished search and withheld times from no m
   assert.match(floatSearchEmptyMessage({ ...result, partial: true }), /could not finish/);
   assert.equal(floatSearchEmptyMessage({ ...result, unavailableReason: 'Dam releases vary.' }), 'Dam releases vary.');
 });
+
+test('result cards never show a straight-line distance; the ordering note appears only when location was used', async () => {
+  const { floatSearchUsedProximity } = await import('@shared/float-search');
+  const option = { nearbyMiles: null } as { nearbyMiles: number | null };
+  assert.equal(floatSearchUsedProximity({ matches: [option as never], alternatives: [] }), false);
+  assert.equal(floatSearchUsedProximity({ matches: [], alternatives: [{ nearbyMiles: 12 } as never] }), true);
+  for (const file of ['src/app/find-float/FindFloatClient.tsx', '../eddy-ios/app/(tabs)/(floats)/find-float.tsx']) {
+    assert.doesNotMatch(readFileSync(file, 'utf8'), /nearbyMiles\}?\s*mi\b|mi away/, `${file} renders a put-in distance`);
+  }
+});

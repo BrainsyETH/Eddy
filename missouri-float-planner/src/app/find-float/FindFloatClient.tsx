@@ -16,6 +16,8 @@ import {
   floatSearchEmptyMessage,
   FLOAT_SEARCH_MAX_AGE_MS,
   FLOAT_SEARCH_EXPIRED_MESSAGE,
+  FLOAT_SEARCH_PROXIMITY_NOTE,
+  floatSearchUsedProximity,
   type FloatBoat,
   type FloatSearchInput,
   type FloatSearchOption,
@@ -469,6 +471,11 @@ export default function FindFloatClient({
             . Estimates use current conditions where available; conditions can
             change.
           </p>
+          {floatSearchUsedProximity(result) && (
+            <p className="text-sm text-[var(--color-text-secondary)]">
+              {FLOAT_SEARCH_PROXIMITY_NOTE}
+            </p>
+          )}
           {result.partial && (
             <p className="rounded-xl border border-neutral-300 p-4">
               {result.failed ? 'Some river data was unavailable. ' : ''}This is
@@ -543,7 +550,6 @@ function FloatCard({
           {o.relation !== 'match' ? ` · ${o.relation} option` : ''}
         </span>
         <span>{o.distanceMiles.toFixed(1)} river miles</span>
-        {o.nearbyMiles != null && <span>{o.nearbyMiles} mi away (straight line)</span>}
       </p>
       <p className="mt-2 text-sm text-[var(--color-text-secondary)]">
         About {Math.round(o.minutes / 6) / 10} hours with stops ·{' '}

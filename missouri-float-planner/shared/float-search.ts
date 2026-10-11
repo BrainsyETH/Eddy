@@ -96,6 +96,11 @@ export interface FloatSearchResponse {
 
 export const REGULATED_DURATION_MESSAGE = 'Duration matching is unavailable on this river because dam releases can change the current mid-float. Check the river page for release information.';
 export const FLOAT_SEARCH_MAX_AGE_MS = 30 * 60 * 1000;
+/** Proximity orders similar fits only; it is straight-line, so never shown as a distance. */
+export const FLOAT_SEARCH_PROXIMITY_NOTE = 'Among similar fits, put-ins closer to your starting point are listed first. Plan a float to see the drive.';
+export function floatSearchUsedProximity(result: Pick<FloatSearchResponse, 'matches' | 'alternatives'>) {
+  return [...result.matches, ...result.alternatives].some((option) => option.nearbyMiles != null);
+}
 export const FLOAT_SEARCH_EXPIRED_MESSAGE = 'These results have expired. Your choices are saved; search again for current conditions.';
 export function floatSearchIsFresh(result: Pick<FloatSearchResponse, 'estimatedAt'>, now = Date.now()) {
   const age = now - Date.parse(result.estimatedAt);

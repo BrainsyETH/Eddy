@@ -25,6 +25,8 @@ import {
   floatSearchEmptyMessage,
   FLOAT_SEARCH_MAX_AGE_MS,
   FLOAT_SEARCH_EXPIRED_MESSAGE,
+  FLOAT_SEARCH_PROXIMITY_NOTE,
+  floatSearchUsedProximity,
   type FloatBoat,
   type FloatSearchInput,
   type FloatSearchOption,
@@ -260,7 +262,7 @@ export default function FindFloatScreen() {
           {o.relation === 'match' ? '' : ` · ${o.relation} option`}
         </Text>
         {body(
-          `${o.distanceMiles.toFixed(1)} river miles${o.nearbyMiles == null ? '' : ` · ${o.nearbyMiles} mi away (straight line)`}`,
+          `${o.distanceMiles.toFixed(1)} river miles`,
         )}
         {body(
           `About ${Math.round(o.minutes / 6) / 10} hours with stops · ${o.estimateBasis === 'current_conditions' ? 'Current conditions' : 'Typical conditions'}`,
@@ -546,6 +548,7 @@ export default function FindFloatScreen() {
           {body(
             `Checked ${new Date(result.estimatedAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}. Conditions can change.`,
           )}
+          {floatSearchUsedProximity(result) && body(FLOAT_SEARCH_PROXIMITY_NOTE)}
           {result.partial &&
             body(
               `${result.failed ? 'Some river data was unavailable. ' : ''}This is a partial search. Try again or choose a river for a closer look.`,
