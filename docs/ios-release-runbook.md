@@ -2,13 +2,24 @@
 
 ## Current release
 
-- **Live App Store version:** 1.1
-- **Release in progress:** 1.2 (`eddy-ios/app.json` is `1.2.0`)
-- **Status confirmed:** 2026-09-03
+- **Release in progress:** 1.4 (`eddy-ios/app.json` is `1.4.0`, bumped
+  2026-10-06)
+- **Live App Store version:** not confirmed since 2026-09-03, when it was 1.1
+  and 1.2 was in progress. Whether 1.2 (or anything after it) reached the
+  store is not recorded here. Read it from App Store Connect, then replace this
+  line with the version and the date you checked.
+- **Status confirmed:** release-in-progress line 2026-10-11, from `app.json`
+  only; no store, TestFlight or device state was checked.
 
-The delta report for this release is **`docs/release-readiness-1.2.md`**. Read
-it before working this file: it carries the 1.2 gates, what shipped, and — the
-part that is easy to skip — an explicit list of what was *not* verified.
+`missouri-float-planner/src/lib/ios-release-runbook.test.ts` fails when the
+`app.json` version above stops matching the real one, so a version bump has
+to touch this section. It cannot check the store line; that one is on you.
+
+There is no `docs/release-readiness-1.4.md` yet. The 1.2 report,
+**`docs/release-readiness-1.2.md`**, is still the most recent delta report and
+the best list of what was *not* verified; its gates below stay unticked until
+someone confirms them, not until a later version ships. The 1.4.0 and Float
+Mode sections below are this release's own gates.
 
 The checkboxes below are the evidence checklist, and they are deliberately not
 inferred from the fact that the previous release shipped: enrolment, signing
@@ -18,7 +29,9 @@ releases.
 
 ### 1.2 delta gates
 
-The full reasoning for each is in `docs/release-readiness-1.2.md`; this is the
+**Carried, not confirmed.** Written for 1.2 on 2026-09-03. If 1.2 shipped, an
+unticked gate here is either still open in 1.4 or was closed without being
+recorded — find out which before ticking it. The full reasoning for each is in `docs/release-readiness-1.2.md`; this is the
 checklist.
 
 - [ ] **Deploy the web app before the build is distributed.** The 1.2 binary

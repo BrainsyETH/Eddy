@@ -732,7 +732,21 @@ star/unstar them and confirm they remain eligible. Check the access distance,
 no-location statewide picks, a location outside 100 miles, and an older response
 without access coordinates. Recommendations no longer wait on the gauge feed.
 
-### There is no offline map download
+### The per-river map download was removed (Float Mode trip downloads are separate)
+
+Two different features have downloaded map tiles, and they must not be
+confused:
+
+- **The per-river download — removed.** Described below. Its packs are named
+  `river:<id>:<n>` and `src/map/packSweep.ts` deletes them.
+- **Float Mode trip downloads — built, not yet released.** A user-started
+  download of a padded corridor along one saved float's route, plus a route
+  package so the float can start with no signal. Packs are named
+  `float:<trip-key>:<chunk>` and never match the sweep. The decision, and the
+  device checks it still needs, are in
+  [`docs/decisions/0011-float-mode-offline-maps-use-tile-regions.md`](../docs/decisions/0011-float-mode-offline-maps-use-tile-regions.md);
+  the code is `src/lib/tripDownload.ts` and `src/float/`. Release state is
+  under [Current state](#current-state).
 
 Eddy used to sell a per-river Mapbox tile download as its Premium feature. It
 was removed, and the reasoning is worth keeping because it is the kind of thing
@@ -750,8 +764,8 @@ The stronger version — computing a float time on the phone from the cached riv
 mile and last reading — is genuinely feasible and was scoped. It was not worth
 the maintenance surface for one person, so the feature went instead of growing.
 
-What this leaves: the basemap is blank with no signal, and every other part of a
-river screen still renders. `src/map/packSweep.ts` deletes the tile packs left
+What this leaves, outside Float Mode: the basemap is blank with no signal, and
+every other part of a river screen still renders. `src/map/packSweep.ts` deletes the tile packs left
 on phones that downloaded one, once per install.
 
 What stays free, online or off: conditions, gauge readings, hazards, and the
@@ -885,7 +899,7 @@ started — look at step 2, not step 3.
 | Settings | **live** — Sign in with Apple, subscription state, Restore Purchases, account deletion |
 
 This table said "premium-gated offline packs" against the Map row long after the
-download feature was removed — see [There is no offline map download](#there-is-no-offline-map-download),
+download feature was removed — see [The per-river map download was removed](#the-per-river-map-download-was-removed-float-mode-trip-downloads-are-separate),
 which is the authoritative account. The row is corrected here rather than
 annotated because a status table is read as current state, not as history: a
 competitive review of this repo took the two passages as a contradiction it had
@@ -895,8 +909,26 @@ the code deletes on launch.
 **What ships offline today:** river data — put-ins, hazards, the river line, the
 last reading — seeded free for every curated river on any launch with a
 connection. The basemap does not; with no signal it renders blank while the rest
-of the river screen still works. There is no GPS track recording, no user
-waypoints, and no Apple Watch app.
+of the river screen still works. There are no user waypoints and no Apple Watch
+app.
+
+**Float Mode (#1448) — built, not yet released.** Three states, kept apart on
+purpose because they are easy to blur:
+
+- *Implemented in code:* on-water progress from GPS (miles left, percentage,
+  time left; `src/lib/floatSession.ts`, `src/float/FloatTracker.tsx`), tracking
+  while the phone is locked (background location in `app.json`), trip downloads
+  for offline maps (ADR 0011), and a Lock Screen / Dynamic Island Live Activity
+  (`docs/float-live-activity-plan.md`). This is progress along a known route,
+  not a recorded GPS track; float positions stay on the phone, as the
+  location permission strings in `app.json` promise.
+- *Visible:* always in development and preview builds; in store builds only
+  when the server's `floatMode` flag is on (`src/lib/floatModeFeature.ts`).
+  Whether that flag is on in production is a live setting — check
+  `/api/app-config`, do not infer it from this file.
+- *Not yet device-verified:* the "Prove on a device" list in ADR 0011 and the
+  Float Mode gates in `docs/ios-release-runbook.md`. Until those are ticked,
+  describe Float Mode as implemented, not shipped.
 
 **The only entitlement gate is Eddy's written read.** Conditions, gauge
 readings, hazards and the float plan are free, online or off — see `PaywallSheet`

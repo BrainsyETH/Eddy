@@ -30,7 +30,7 @@ and `eddy-ios/package.json`. CI pins Node 20 (`.github/workflows/app-ci.yml`).
 | Change | Start in | Read first | Validate with |
 | --- | --- | --- | --- |
 | Web page / API route / server logic | `missouri-float-planner/src/` | `missouri-float-planner/README.md` | `make check-web` |
-| iOS screen / component / native config | `eddy-ios/app/`, `eddy-ios/src/` | `eddy-ios/README.md` | `make check-mobile` + `make bundle-mobile` |
+| iOS screen / component / native config | `eddy-ios/app/`, `eddy-ios/src/` | `eddy-ios/AGENTS.md`, then the `eddy-ios/README.md` sections it names | `make check-mobile` + `make bundle-mobile` + `make check-web` (iOS logic is tested there; register new test files in its `test` script) |
 | River-condition behavior | `missouri-float-planner/shared/` | comments in `.github/workflows/app-ci.yml` | `make check-web` + `make bundle-mobile` |
 | Shared types / geo / hazards / sync | `packages/` | the package's source headers | `make check-web` + `make bundle-mobile` |
 | Data ingestion or correction | `missouri-float-planner/scripts/` | `docs/data-pipeline.md` (catalog + guard levels), then `scripts/ingestion/README.md` | script dry run, then `make check-web` |
@@ -41,7 +41,9 @@ and `eddy-ios/package.json`. CI pins Node 20 (`.github/workflows/app-ci.yml`).
 
 Web tests intentionally cover iOS-app and `packages/` logic (neither has its
 own runner), so a mobile or package change can fail `make check-web` — that is
-by design, not flake. See the comment block at the top of `app-ci.yml`.
+by design, not flake. See the comment block at the top of `app-ci.yml`. The
+web `test` script lists every file explicitly (no glob); a test that is not
+listed never runs, and `src/lib/trust/registered-tests.test.ts` fails on it.
 
 ## Commands
 
