@@ -4,12 +4,17 @@
 
 - **Release in progress:** 1.4 (`eddy-ios/app.json` is `1.4.0`, bumped
   2026-10-06)
-- **Live App Store version:** not confirmed since 2026-09-03, when it was 1.1
-  and 1.2 was in progress. Whether 1.2 (or anything after it) reached the
-  store is not recorded here. Read it from App Store Connect, then replace this
-  line with the version and the date you checked.
-- **Status confirmed:** release-in-progress line 2026-10-11, from `app.json`
-  only; no store, TestFlight or device state was checked.
+- **Live App Store version:** 1.4.0 in the US storefront, checked
+  2026-10-11 against the [public App Store listing](https://apps.apple.com/us/app/eddy-river-guide/id6794933267)
+  and [Apple's lookup API](https://itunes.apple.com/lookup?id=6794933267&country=us).
+  The lookup API reports this version released 2026-10-05.
+- **Production Float Mode:** off as observed 2026-10-11;
+  [`GET /api/app-config`](https://eddy.guide/api/app-config) returned
+  `features.floatMode: false`. This records the public configuration served
+  to clients; no Vercel setting was changed.
+- **Status confirmed:** repository version, public US store version, and
+  production app-config response checked 2026-10-11. App Store Connect build
+  identity, TestFlight state, and device gates remain unconfirmed.
 
 `missouri-float-planner/src/lib/ios-release-runbook.test.ts` fails when the
 `app.json` version above stops matching the real one, so a version bump has
