@@ -84,10 +84,24 @@ fi
 export PATH="$NODE_BIN:$PATH"
 log "using Node $(node -v) from $NODE_BIN"
 
+# The key covers package.json as well as the lockfile: a dependency edited in
+# package.json without updating the lockfile must reach `npm ci`, which fails
+# on exactly that mismatch, not be skipped as "current". Hashed with the Node
+# just selected, so there is no dependency on sha256sum (absent on stock macOS).
+install_key() {
+  node -e '
+    const { createHash } = require("crypto");
+    const { readFileSync } = require("fs");
+    const h = createHash("sha256");
+    for (const f of process.argv.slice(1)) h.update(f).update("\0").update(readFileSync(f));
+    console.log(process.version + " " + h.digest("hex"));
+  ' "$1/package.json" "$1/package-lock.json"
+}
+
 install_app() {
   local dir="$ROOT/$1" stamp key
   stamp="$dir/node_modules/.eddy-bootstrap-stamp"
-  key="$(node -v) $(sha256sum "$dir/package-lock.json" | cut -d' ' -f1)"
+  key="$(install_key "$dir")"
   if [ -f "$stamp" ] && [ "$(cat "$stamp")" = "$key" ]; then
     log "$1: dependencies current, skipping npm ci"
     return
@@ -97,13 +111,25 @@ install_app() {
   echo "$key" > "$stamp"
 }
 
+# The .easignore check cannot run without pathspec, so failing to install it
+# fails setup: announcing "ready" would hide that the archive check is dead.
 ensure_pathspec() {
-  python3 -c 'import pathspec' 2>/dev/null && return
+  python3 -c 'import pathspec' 2>/dev/null && return 0
   log "installing Python pathspec for the .easignore check"
-  # Same fallback as `make bundle-mobile`: the second form covers PEP 668.
-  python3 -m pip install --quiet --user pathspec >&2 2>&1 \
-    || python3 -m pip install --quiet --user --break-system-packages pathspec >&2 2>&1 \
-    || log "could not install pathspec; check-easignore.py will refuse to run"
+  if python3 -c 'import sys; sys.exit(0 if sys.prefix != sys.base_prefix else 1)'; then
+    # Inside a virtual environment pip refuses --user; install into the venv.
+    python3 -m pip install --quiet pathspec >&2 2>&1 || true
+  else
+    # The second form covers PEP 668 ("externally managed") system Pythons.
+    python3 -m pip install --quiet --user pathspec >&2 2>&1 \
+      || python3 -m pip install --quiet --user --break-system-packages pathspec >&2 2>&1 \
+      || true
+  fi
+  python3 -c 'import pathspec' 2>/dev/null && return 0
+  log "could not install Python pathspec, so eddy-ios/scripts/check-easignore.py cannot run."
+  log "  Install it for $(command -v python3): python3 -m pip install pathspec"
+  log "  (add --user outside a virtual environment), then re-run ./bootstrap.sh."
+  return 1
 }
 
 case "$TARGET" in
