@@ -23,16 +23,16 @@ import {
 } from '@/lib/hazardReportQueue';
 
 /** The river's id, from the phone when it can be; the API needs the UUID. */
-async function riverIdFor(slug: string): Promise<string> {
+async function riverIdFor(slug: string, signal: AbortSignal): Promise<string> {
   const cached = await readRiver(slug);
   const id = cached?.payload.river?.id;
   if (id) return id;
-  return (await fetchRiverDetail(slug)).id;
+  return (await fetchRiverDetail(slug, signal)).id;
 }
 
-async function send(report: HazardReport): Promise<SendOutcome> {
+async function send(report: HazardReport, signal: AbortSignal): Promise<SendOutcome> {
   try {
-    const riverId = await riverIdFor(report.riverSlug);
+    const riverId = await riverIdFor(report.riverSlug, signal);
     await submitHazardReport({
       riverId,
       latitude: report.latitude,
@@ -40,7 +40,7 @@ async function send(report: HazardReport): Promise<SendOutcome> {
       description: reportDescription(report),
       capturedAt: report.capturedAt,
       clientReportId: report.id,
-    });
+    }, signal);
     return { kind: 'sent' };
   } catch (error) {
     if (error instanceof ApiError && isFinalRefusal(error.status)) return { kind: 'refused', message: error.message };
@@ -53,8 +53,8 @@ const queue = createReportQueue(AsyncStorage, send, (message, detail) => warn('f
 let timer: ReturnType<typeof setTimeout> | null = null;
 
 /** Try to send what is due, then wake again when the next one is. */
-export function flushHazardReports(): Promise<void> {
-  return queue.flush().then(() => {
+export function flushHazardReports(budgetMs?: number): Promise<void> {
+  return queue.flush(budgetMs).then(() => {
     if (timer) clearTimeout(timer);
     timer = null;
     const due = queue.nextDueAt();

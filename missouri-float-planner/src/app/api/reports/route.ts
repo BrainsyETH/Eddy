@@ -12,6 +12,7 @@ import {
   REPORT_CORRIDOR_MAX_DISTANCE_METERS,
   validateReportCorridor,
 } from '@/lib/reports/location';
+import { findFiledReport, ReportLookupError } from '@/lib/reports/idempotency';
 import { deriveRiverVisualGauge } from '@/lib/reports/gauge-derivation';
 
 export const dynamic = 'force-dynamic';
@@ -23,8 +24,10 @@ const MAX_IMAGE_URL_LEN = 1000;
 
 export async function POST(request: NextRequest) {
   try {
-    // Rate limit: 5 report submissions per IP per 15 minutes
-    const rateLimitResult = await rateLimit(`reports:${getClientIp(request)}`, 5, 15 * 60 * 1000, { failClosed: true });
+    // Bound all attempts before parsing/DB work. Confirmed retries do not
+    // consume the separate five-new-reports quota below.
+    const ip = getClientIp(request);
+    const rateLimitResult = await rateLimit(`report-attempts:${ip}`, 60, 15 * 60 * 1000, { failClosed: true });
     if (rateLimitResult) return rateLimitResult;
 
     const body = await request.json();
@@ -170,15 +173,14 @@ export async function POST(request: NextRequest) {
     // clientReportId on every attempt. If an earlier attempt already landed and
     // only its reply was lost, answer with that report instead of filing it
     // twice. See migration 20261011120000_report_client_ids.sql.
-    const alreadyFiled = async (): Promise<string | null> => {
-      if (!clientReportId) return null;
-      const { data } = await supabase
+    const alreadyFiled = () => findFiledReport(clientReportId, async (id) => {
+      const { data, error } = await supabase
         .from('community_reports')
         .select('id')
-        .eq('client_report_id', clientReportId)
+        .eq('client_report_id', id)
         .maybeSingle();
-      return (data as { id?: string } | null)?.id ?? null;
-    };
+      return { data, error };
+    });
     const filedResponse = (id: string) =>
       NextResponse.json({
         success: true,
@@ -187,6 +189,9 @@ export async function POST(request: NextRequest) {
       });
     const existing = await alreadyFiled();
     if (existing) return filedResponse(existing);
+
+    const submissionLimit = await rateLimit(`reports:${ip}`, 5, 15 * 60 * 1000, { failClosed: true });
+    if (submissionLimit) return submissionLimit;
 
     // Reports are safety-relevant and must be anchored to the river they name.
     // The existing PostGIS helper only returns active rivers, so this also
@@ -361,6 +366,13 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     );
   } catch (error) {
+    if (error instanceof ReportLookupError) {
+      console.error('[Reports] Idempotency lookup unavailable:', error.cause);
+      return NextResponse.json(
+        { error: 'Unable to confirm report delivery. Please try again.' },
+        { status: 503, headers: { 'Retry-After': '30' } },
+      );
+    }
     console.error('Error in reports endpoint:', error);
     return NextResponse.json(
       { error: 'Internal server error' },

@@ -155,6 +155,10 @@ are pending checks, not evidence of a device pass.
       its position; tapping one opens Float Mode. With notifications denied,
       Float Mode says reminders can't appear. Pure rules:
       `src/lib/float-reminders.test.ts` in the web suite.
+For the Lock Screen/Dynamic Island follow-up, use
+[`float-live-activity-plan.md`](float-live-activity-plan.md). Native implementation
+and device gates remain separate from the preparation fixes.
+
 - [ ] **Hazard reports from Float Mode (Phase 5, #1453).** Apply
       `20261011120000_report_client_ids.sql` to production first (the API only
       writes `client_report_id` when a client sends one, so web reports are

@@ -187,3 +187,44 @@ test('a report is never sent before it is saved, and a failed save rolls back no
   const stored = JSON.parse(data.get(REPORTS_KEY)!) as HazardReport[];
   assert.deepEqual(stored.map((r) => [r.id, r.status]), [['A', 'sent']]);
 });
+
+test('background budget cancels a joined send without backoff or starting more reports', async () => {
+  const storage = disk();
+  const waiting = (id: string): HazardReport => ({ ...input(id), status: 'waiting', attempts: 0, nextAttemptAt: 0 });
+  storage.data.set(REPORTS_KEY, JSON.stringify([waiting('first'), waiting('second')]));
+  const sent: string[] = [];
+  let abortSeen = false;
+  let cancel = true;
+  const queue = createReportQueue(storage, async (report, signal) => {
+    sent.push(report.id);
+    if (!cancel) return { kind: 'sent' };
+    return new Promise<SendOutcome>((resolve) => {
+      signal.addEventListener('abort', () => {
+        abortSeen = true;
+        resolve({ kind: 'retry' });
+      }, { once: true });
+    });
+  }, () => {}, () => T0);
+  const foregroundRun = queue.flush();
+  await queue.flush(10);
+  await foregroundRun;
+  assert.equal(abortSeen, true);
+  assert.deepEqual(sent, ['first']);
+  assert.equal(queue.list()[0].attempts, 0);
+  assert.equal(queue.list()[0].nextAttemptAt, 0);
+  assert.equal(queue.list()[0].status, 'waiting');
+  cancel = false;
+  await queue.flush();
+  assert.deepEqual(sent, ['first', 'first', 'second']);
+  assert.ok(queue.list().every((report) => report.status === 'sent'));
+});
+
+test('a delivered response at the background deadline still records success', async () => {
+  const queue = createReportQueue(disk(), async (_report, signal) => new Promise<SendOutcome>((resolve) => {
+    signal.addEventListener('abort', () => resolve({ kind: 'sent' }), { once: true });
+  }), () => {}, () => T0);
+  await queue.add(input('landed'));
+  await queue.flush(10);
+  assert.equal(queue.list()[0].status, 'sent');
+  assert.equal(queue.list()[0].attempts, 1);
+});
