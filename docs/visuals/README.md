@@ -1,20 +1,23 @@
 # Visual explainers
 
-Self-contained HTML pages that show how Eddy works. Each file opens straight
-from disk in a browser: fonts and images are embedded, nothing is fetched,
-nothing here is built or shipped. They are reference material, not product code.
+Interactive guides to how Eddy works, available after signing in at
+`/admin` → **Visual guides** (`/admin/visuals`). Each guide opens as a full-page
+document, with links back to the collection and the admin dashboard.
+
+The canonical HTML files live in `missouri-float-planner/content/admin-visuals/`.
+Fonts and images are embedded, so the files also open directly from disk.
 
 | Page | What it shows | Audience |
 | --- | --- | --- |
-| [`watershed.html`](watershed.html) | The whole system as a watershed: sources → Vercel Cron → Supabase → the condition ladder → web, iOS, alerts, social, MCP. Simulated gauge passes and a "send a storm" button. | Team |
-| [`social-delta.html`](social-delta.html) | Continues the watershed downstream of Social: post scheduler, condition alerts, ClipEngine, captions, renders, brand checks, the feeds, and insights flowing back. | Team |
-| [`eddys-day.html`](eddys-day.html) | A 24-hour dial of every scheduled job, plotted from `missouri-float-planner/vercel.json`. | Team |
-| [`condition-ladder.html`](condition-ladder.html) | A hands-on port of `classifyReading` (`shared/condition-ladder.ts`): flood-stage override, cross-unit fallback, `strictUnit`. | Team |
-| [`how-eddys-read-works.html`](how-eddys-read-works.html) | The daily Eddy's Read pipeline: facts, context, preflight, the model's three blocks, the contradiction guard, and the live re-check, in four scenarios. | Team |
-| [`ios-plumbing.html`](ios-plumbing.html) | The iOS app's plumbing: API client, offline bundle and river cache, Keychain, RevenueCat, push, Mapbox, and shared packages, with a lose-signal switch. | Team |
-| [`ios-tour.html`](ios-tour.html) | A clickable iPhone running the five tabs on the app's own theme, with notes on what each part does and where its data comes from. | Team, product |
-| [`float-board.html`](float-board.html) | Prototype paddler view: real access points by river mile, a what-if water level, and a canoe floating the stretch. | Product |
-| [`below-the-dam.html`](below-the-dam.html) | Why Eddy gives no float time below a hydropower dam, played through a day. | Paddlers, product |
+| [`watershed.html`](../../missouri-float-planner/content/admin-visuals/watershed.html) | The whole system as a watershed: sources → Vercel Cron → Supabase → the condition ladder → web, iOS, alerts, social, MCP. Simulated gauge passes and a "send a storm" button. | Team |
+| [`social-delta.html`](../../missouri-float-planner/content/admin-visuals/social-delta.html) | Continues the watershed downstream of Social: post scheduler, condition alerts, ClipEngine, captions, renders, brand checks, the feeds, and insights flowing back. | Team |
+| [`eddys-day.html`](../../missouri-float-planner/content/admin-visuals/eddys-day.html) | A 24-hour dial of every scheduled job, plotted from `missouri-float-planner/vercel.json`. | Team |
+| [`condition-ladder.html`](../../missouri-float-planner/content/admin-visuals/condition-ladder.html) | A hands-on port of `classifyReading` (`shared/condition-ladder.ts`): flood-stage override, cross-unit fallback, `strictUnit`. | Team |
+| [`how-eddys-read-works.html`](../../missouri-float-planner/content/admin-visuals/how-eddys-read-works.html) | The daily Eddy's Read pipeline: facts, context, preflight, the model's three blocks, the contradiction guard, and the live re-check, in four scenarios. | Team |
+| [`ios-plumbing.html`](../../missouri-float-planner/content/admin-visuals/ios-plumbing.html) | The iOS app's plumbing: API client, offline bundle and river cache, Keychain, RevenueCat, push, Mapbox, and shared packages, with a lose-signal switch. | Team |
+| [`ios-tour.html`](../../missouri-float-planner/content/admin-visuals/ios-tour.html) | A clickable iPhone running the five tabs on the app's own theme, with notes on what each part does and where its data comes from. | Team, product |
+| [`float-board.html`](../../missouri-float-planner/content/admin-visuals/float-board.html) | Prototype paddler view: real access points by river mile, a what-if water level, and a canoe floating the stretch. | Product |
+| [`below-the-dam.html`](../../missouri-float-planner/content/admin-visuals/below-the-dam.html) | Why Eddy gives no float time below a hydropower dam, played through a day. | Paddlers, product |
 
 ## What is real and what is not
 
@@ -49,8 +52,23 @@ are not kept here; edit the HTML directly, or rebuild from the referenced
 source files. Keep everything inline (no external requests), and keep the
 "simulated" labels honest when the code they describe changes.
 
-None of this is reachable from the website or the app: `docs/` is outside
-Vercel's root directory, and `.easignore` admits only what the iOS bundle needs.
+## Admin access and deployment
+
+The gallery uses the existing admin sign-in. Each document at
+`/admin/visuals/<filename>.html` validates the signed admin session on the server
+before reading its file. Missing, invalid, and expired sessions return to the
+gallery's sign-in screen. Only catalogued filenames are served, and responses
+use `private, no-store` and `noindex, nofollow`.
+
+Keep the HTML in `content/admin-visuals/`, never `public/`. The route-specific
+`outputFileTracingIncludes` in `next.config.mjs` packages the files for Vercel.
+The route adds admin navigation. Its policy in `next.config.mjs` permits
+inline interactions and embedded assets while blocking external requests.
+The iOS bundle does not include these guides.
+
+When adding a guide, register it in `src/lib/admin/visual-guides.ts` and update
+the collection selector in each HTML file. The catalog is also the server's
+filename allowlist.
 
 ## Checking an edit
 
@@ -63,4 +81,8 @@ Exercise the controls relevant to the page: all condition presets, all four
 Read scenarios through the final step, each river and water level on the Float
 Board, time and launch choices below the dam, schedule day/time-zone choices,
 online/offline app scenarios, and all five phone tabs and numbered markers.
-The product's build checks do not exercise these standalone reference pages.
+Run `make check-web` for the gallery and access-control tests. Also check the
+signed-in routes in a browser: embedded fonts, collection links, and the return
+to admin navigation must work with the response security headers. Try a direct
+diagram URL after signing out; it must return to sign-in without serving HTML.
+The automated tests do not exercise every standalone diagram interaction.
