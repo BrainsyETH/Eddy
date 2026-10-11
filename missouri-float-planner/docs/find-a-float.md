@@ -1,6 +1,6 @@
 # Find a Float
 
-Find a Float is available directly at `/find-float`. Discovery links in the web header, iOS Floats tab and river pages are off by default until the release checks pass. River links open it with that river selected. It searches the active river/access catalog, not only featured editorial floats.
+Find a Float is available directly at `/find-float`. Discovery links in the web header and production iOS builds are off by default until the release checks pass. Development and EAS preview iOS builds always show its Floats-tab and river-page buttons for QA, matching Float Mode. River links open it with that river selected. It searches the active river/access catalog, not only featured editorial floats.
 
 ## Rollout
 
@@ -9,11 +9,11 @@ Set these server environment variables on the intended Vercel environment and re
 | Variable | Controls | Enable after |
 | --- | --- | --- |
 | `FLOAT_SEARCH_ENABLED` | Web header (desktop and mobile) and active river-page button | Live benchmarks and service configuration checks |
-| `FLOAT_SEARCH_IOS_ENABLED` | iOS Floats-tab and river-page buttons, via `/api/app-config` → `features.floatSearch` | Endpoints are live and native device checks pass |
+| `FLOAT_SEARCH_IOS_ENABLED` | Production iOS Floats-tab and river-page buttons, via `/api/app-config` → `features.floatSearch` | Endpoints are live and native device checks pass |
 
-The switches are independent, so web can launch while iOS stays unlisted. The native flag defaults off on missing/failed configuration and refreshes through the existing startup/foreground app-config flow, subject to its cache. No schema migration or native dependency is needed. The web river link lives in the canonical river guide page, not the unused legacy `RiverHeader` component.
+The switches are independent, so web can launch while production iOS stays unlisted. In production and unidentified builds, the native flag defaults off on missing/failed configuration and refreshes through the existing startup/foreground app-config flow, subject to its cache. Development and EAS preview builds show search even when that flag is off or config is unavailable. These builds still call the configured backend (currently `https://eddy.guide`), so a Vercel Preview environment setting does not change their backend. No schema migration or native dependency is needed. The web river link lives in the canonical river guide page, not the unused legacy `RiverHeader` component.
 
-These are discovery switches, not authorization or API shutdown switches. Direct page/app links and both POST endpoints remain reachable for QA with the existing rate limits. Enable preview discovery for testers or use direct links while production stays unlisted. Changing a Vercel environment variable requires a deployment; this is not an instant runtime kill switch.
+These are discovery switches, not authorization or API shutdown switches. Direct page/app links and both POST endpoints remain reachable for QA with the existing rate limits. Use development/preview iOS builds or direct links while production stays unlisted. Changing a Vercel environment variable requires a deployment; this is not an instant runtime kill switch.
 
 ## Matching and estimates
 
@@ -63,7 +63,7 @@ Additional release checks: edit the take-out of a tube plan and confirm the boat
 
 Before enabling public discovery:
 
-- With both flags unset, verify desktop/mobile web navigation and both native entry points are hidden; direct links still work. Enable each flag independently and check only its intended surface. Check native missing-config fallback and foreground refresh.
+- With both flags unset, verify desktop/mobile web navigation and both native entry points in production iOS builds are hidden; direct links still work. Development and EAS preview iOS builds must show both entry points with the native flag off or config unavailable. Enable each flag independently and check only its intended production surface. Check production native missing-config fallback and foreground refresh.
 - Benchmark five-hour canoe searches within 100 miles of Salem, Eminence and Springfield. Record deployment SHA, first/repeat latency, evaluated route counts, partial responses, failures and 429s, plus a modest concurrent run. Label caches cold only when deployment/cache evidence establishes that. Assess typical and slow responses, not just whether they fit the 20-second deadline.
 - Confirm production `UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN` and `MAPBOX_ACCESS_TOKEN`, then exercise search and town lookup. Public `/api/health` only proves liveness; authenticated diagnostics report Mapbox presence, not limiter/service success. Do not record credential values.
 - Keep native discovery off until the device checklist passes. An OTA release additionally requires a matching installed runtime fingerprint/channel; a successful JS export alone does not establish compatibility.
