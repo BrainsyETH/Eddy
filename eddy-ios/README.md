@@ -314,6 +314,12 @@ and river selection, a native radius menu, and a half-hour-step system slider.
 The slider uses `@react-native-community/slider`; this requires a new native
 binary, not an OTA on the previous runtime. The search footer uses the screen's
 native bottom safe area so tab-bar clearance is not a guessed pixel height.
+The slider previews time locally during a touch drag and commits on release;
+returning to the original time keeps the results. Non-drag accessibility
+adjustments commit immediately. The finder starts with its search controls,
+and result cards show one duration range with a visible conditions-basis
+caption. Location/town errors stay in their selection sheet and clear on
+dismissal; float-search errors remain on the main screen.
 Estimate info is available in the finder, result cards, and planner. It explains
 published timings and modeled times without claiming that every estimate is
 calculated directly from CFS. More filters currently contains the existing
@@ -334,6 +340,11 @@ Device QA for this layout remains required: light/dark, maximum Dynamic Type,
 VoiceOver slider adjustments, keyboard and sheet dismissal, footer clearance
 above native tabs, return from the planner with scroll restored, photo failure
 offline, rapid repeat route taps, and cancel/confirm removal.
+During slider QA, drag away and back without losing results, then change the
+time and confirm results clear only on release. Verify VoiceOver changes the
+actual search time, including after a touch drag. Recheck the native footer
+insets on Expo upgrades: its `react-native-screens/experimental` safe-area
+component follows the native-tabs integration documented by Expo.
 
 ## Condition colours and labels
 
