@@ -110,6 +110,7 @@ import { SearchBar } from '@/components/SearchBar';
 import { TodayHub } from '@/components/TodayHub';
 import type { TodayRead } from '@/components/TodayHub';
 import type { TodayRiverFilter, TodayReadFilter } from '@/lib/todayNavigation';
+import { defaultCurrentAlertsFilter } from '@/lib/todaySafety';
 import { NativeHeaderHome } from '@/components/NativeHeaderHome';
 import { AccountIconButton, AccountToolbarButton } from '@/components/AccountButton';
 import { useTodayCatalog } from '@/hooks/useTodayCatalog';
@@ -1301,7 +1302,14 @@ export function TodayScreen({ browseMode = 'today', initialRiverFilter = 'all', 
         : scope === 'dams' ? 'Search dams and lakes' : 'Search access points'
     : browseMode === 'rivers' ? 'Search rivers' : 'Search reads by river';
   const nativeChrome = browseMode === 'today' && !nativeToday ? null : <>
-    {browseMode !== 'today' ? <NativeHeaderHome destination="today" /> : <AccountToolbarButton />}
+    {browseMode !== 'today' ? <NativeHeaderHome destination="today" /> : <>
+      <Stack.Toolbar placement="left">
+        <Stack.Toolbar.Button icon="bell" accessibilityLabel="Current alerts" onPress={() => router.push({ pathname: '/current-alerts', params: { filter: defaultCurrentAlertsFilter(starred) } })}>
+          Alerts
+        </Stack.Toolbar.Button>
+      </Stack.Toolbar>
+      <AccountToolbarButton />
+    </>}
     <Stack.SearchBar
       ref={nativeSearch}
       placeholder={searchPlaceholder}

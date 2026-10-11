@@ -23,7 +23,6 @@ import { compareReadRivers, selectReadRail, readRailState } from '@/lib/readRail
 import { useFocusEffect, useRouter } from 'expo-router';
 import type {
   FavoriteFloatSummary,
-  HighWaterEntry,
   MapGauge,
   RiverAlert,
   RiverListItem,
@@ -57,7 +56,6 @@ import { railSelectionIndex, railIndexAtOffset } from '@/lib/railSelection';
 import { readRecommendation, writeRecommendation } from '@/lib/todayPreferences';
 import type { EddySays } from '@/lib/eddySays';
 import { riverMilesByGauge } from '@/lib/riverDistance';
-import { currentAlertsSummary, defaultCurrentAlertsFilter } from '@/lib/todaySafety';
 import {
   conditionBg,
   conditionChipBorder,
@@ -327,8 +325,8 @@ export function TodayHub({
   onBrowseRivers,
 }: Props) {
   const router = useRouter();
-  const { colors, elevation } = useTheme();
-  const { starred, ready: starsReady } = useStarredRivers();
+  const { colors } = useTheme();
+  const { starred } = useStarredRivers();
   const { session, ready: sessionReady } = useSession();
   const account = useAccount();
   const readAccess = {
@@ -358,10 +356,9 @@ export function TodayHub({
 
   const [floats, setFloats] = useState<FavoriteFloatSummary[] | null>(null);
   const [safety, setSafety] = useState<{
-    high: HighWaterEntry[] | null;
     notices: RiverAlert[] | null;
-  }>({ high: null, notices: null });
-  const [safetyFailure, setSafetyFailure] = useState({ high: false, notices: false });
+  }>({ notices: null });
+  const [safetyFailure, setSafetyFailure] = useState({ notices: false });
   const [incumbentState, setIncumbentState] = useState<{
     ready: boolean;
     riverId: string | null;
@@ -407,16 +404,6 @@ export function TodayHub({
   useEffect(() => {
     const controller = new AbortController();
 
-    void takePreloadedToday('highWater', controller.signal).then(
-      (entries) => {
-        if (controller.signal.aborted) return;
-        setSafety((current) => ({ ...current, high: entries }));
-        setSafetyFailure((current) => ({ ...current, high: false }));
-      },
-      () => {
-        if (!controller.signal.aborted) setSafetyFailure((current) => ({ ...current, high: true }));
-      },
-    );
     void takePreloadedToday('notices', controller.signal).then(
       (entries) => {
         if (controller.signal.aborted) return;
@@ -482,26 +469,7 @@ export function TodayHub({
     });
   }, [router]);
 
-  const safetyFilter = defaultCurrentAlertsFilter(starred);
-  const activeSafety = currentAlertsSummary(
-    starsReady ? safety.high : null,
-    starsReady ? safety.notices : null,
-    safetyFilter,
-    starred,
-    safetyFailure,
-  );
-  const safetyCount = activeSafety.count;
-  const detailFailure = safetyFailure.high || safetyFailure.notices;
-  const safetyFilterLabel = safetyFilter === 'favorites' ? 'Favorites' : 'All Alerts';
-  const topNotice = useMemo(() => {
-    const rank = { warning: 0, watch: 1, notice: 2 } as const;
-    return [...activeSafety.notices].sort((a, b) => rank[a.severity] - rank[b.severity])[0] ?? null;
-  }, [activeSafety.notices]);
-  const ordinaryTopHigh = useMemo(
-    () => [...activeSafety.high].sort((a, b) => Number(b.conditionCode === 'dangerous') - Number(a.conditionCode === 'dangerous'))[0] ?? null,
-    [activeSafety.high],
-  );
-  const topHigh = ordinaryTopHigh;
+  const detailFailure = safetyFailure.notices;
   const photos = useMemo(() => {
     const result = new Map<string, string>();
     for (const river of rivers) if (river.photoUrl) result.set(river.slug, river.photoUrl);
@@ -607,33 +575,18 @@ export function TodayHub({
             onRetry={onRetryReads}
           />
         ) : null}
-        <View style={styles.weatherAlerts}>
-          <View style={styles.compactColumn}>
-            <TodayWeather compact locationEnabled={Boolean(location.coords)}
-              onOpen={() => {
-                if (!weatherCoords || !activeWeather) return;
-                seedLocationForecast(JSON.stringify([weatherCoords.lat, weatherCoords.lng]), activeWeather);
-                router.push({ pathname: '/weather', params: { lat: String(weatherCoords.lat), lng: String(weatherCoords.lng) } });
-              }}
-              weather={activeWeather?.days[0] ?? null}
-              weatherLocation={activeWeather?.city ?? null}
-              weatherLoading={Boolean(location.coords && !activeWeather && !localWeatherFailed)}
-              onRequestLocation={requestLocalWeather}
-              locationActionLabel={locationActionLabel}
-            />
-          </View>
-          <View style={styles.compactColumn}>
-            <View style={[styles.alertCard, { backgroundColor: colors.card, borderColor: colors.border }, elevation(1)]}>
-              <Pressable accessibilityRole="button" accessibilityLabel={`Current alerts. ${activeSafety.label}. ${safetyFilterLabel}. ${activeSafety.detail ?? ''} ${topNotice?.title ?? (topHigh ? `${topHigh.name}: ${conditionLabel(topHigh.conditionCode)}` : '')}`} onPress={() => router.push({ pathname: '/current-alerts', params: { filter: safetyFilter } })} style={styles.alertMain}>
-                <View style={styles.compactHeading}>
-                  <ControlIcon name={safetyCount ? 'warning-outline' : 'notifications-outline'} size={28} color={safetyCount ? conditionInk(topHigh?.conditionCode === 'dangerous' || topNotice?.severity === 'warning' ? 'dangerous' : 'high') : colors.interactive} />
-                </View>
-                <Text style={[styles.compactValue, { color: colors.text }, safetyCount ? styles.alertCount : null]}>{activeSafety.label}</Text>
-                {activeSafety.detail ? <Text style={[styles.alertStatus, { color: colors.textMuted }]}>{activeSafety.detail}</Text> : null}
-              </Pressable>
-            </View>
-          </View>
-        </View>
+        <TodayWeather locationEnabled={Boolean(location.coords)}
+          onOpen={() => {
+            if (!weatherCoords || !activeWeather) return;
+            seedLocationForecast(JSON.stringify([weatherCoords.lat, weatherCoords.lng]), activeWeather);
+            router.push({ pathname: '/weather', params: { lat: String(weatherCoords.lat), lng: String(weatherCoords.lng) } });
+          }}
+          weather={activeWeather?.days[0] ?? null}
+          weatherLocation={activeWeather?.city ?? null}
+          weatherLoading={Boolean(location.coords && !activeWeather && !localWeatherFailed)}
+          onRequestLocation={requestLocalWeather}
+          locationActionLabel={locationActionLabel}
+        />
       </View>
 
       <View style={styles.section}>
@@ -745,14 +698,6 @@ const styles = StyleSheet.create({
   flex: { flex: 1, minWidth: 0 },
   notice: { borderWidth: 1, borderRadius: 12, padding: 12, flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 14 },
   noticeText: { ...t.sm, fontFamily: fonts.body, flex: 1 },
-  weatherAlerts: { flexDirection: 'row', alignItems: 'stretch', gap: 10 },
-  compactColumn: { flex: 1, minWidth: 0 },
-  alertCard: { flex: 1, borderWidth: StyleSheet.hairlineWidth, borderRadius: 16, padding: 12, minHeight: 120 },
-  alertMain: { flex: 1, minHeight: 44, gap: 6, alignItems: 'center', justifyContent: 'center' },
-  compactHeading: { minHeight: 29, alignItems: 'center', justifyContent: 'center' },
-  alertStatus: { ...t.xs, textAlign: 'center' },
-  alertCount: { ...t['3xl'], fontFamily: fonts.semibold },
-  compactValue: { ...t.xl, minHeight: 38, lineHeight: 38, fontFamily: fonts.semibold, textAlign: 'center' },
   summaryTop: { marginBottom: 14, gap: 10 },
   section: { marginBottom: 24 },
   heroCopy: { flex: 1, minWidth: 0, zIndex: 1 },
