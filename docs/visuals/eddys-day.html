@@ -2,7 +2,7 @@
 <html lang="en">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Eddy's Day</title>
+<title>Daily schedule · Eddy</title>
 <style>
 /* Layout: Eddy's site header, then a 24-hour dial of every scheduled job beside
    the job list. Rings are job groups; each dot is one real run. */
@@ -180,43 +180,119 @@ svg.dial { display: block; width: 100%; height: auto; max-width: 560px; margin: 
 .fine { margin: 0; font-size: 12px; color: var(--color-text-muted); }
 .fine code { font: 12px ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--code); }
 @media (prefers-reduced-motion: reduce) { .dial .dot.hit, .firing li { animation: none; } }
+
+/* Collection UI. Kept inline so every explainer still opens offline. */
+:root {
+ --vx-bg:var(--color-background,var(--bg,#F7F6F3));
+ --vx-card:var(--color-surface,var(--card,var(--surface,#fff)));
+ --vx-text:var(--color-text-primary,var(--text,var(--fg,#2D2A24)));
+ --vx-muted:var(--color-text-secondary,var(--textMuted,var(--muted,#6B6459)));
+ --vx-border:var(--color-border,var(--border,var(--line,#DBD5CA)));
+ --vx-link:var(--code,var(--interactive,var(--raw,#256574)));
+}
+body { margin:0; }
+.page,.wrap { width:100%; max-width:1240px; padding:28px 24px 48px; gap:24px; }
+.page>*,.wrap>* { min-width:0; }
+.titlebar h1,.intro h1 { font-size:clamp(30px,3.2vw,42px); line-height:1.12; letter-spacing:-.025em; margin-bottom:12px; text-wrap:balance; }
+.titlebar p,.intro p { font-size:16px; line-height:1.65; max-width:66ch; }
+.card-panel,.panel { border-radius:18px; box-shadow:0 4px 18px #0f2d3506; }
+.panel-head { padding:16px 20px; }
+.panel-head .meta,.fine,footer { color:var(--vx-muted); font-size:13px; line-height:1.6; }
+.fine code,footer code,code { overflow-wrap:anywhere; }
+button,input,select { font:inherit; }
+button,.btn-outline,.pill,.segmented__option,.seg button { min-height:44px; }
+button:disabled { cursor:default; opacity:.45; }
+:where(button,a,input,select,summary,[tabindex]):focus-visible { outline:3px solid var(--vx-link); outline-offset:4px; }
+input[type=range] { min-height:44px; accent-color:var(--vx-link); cursor:pointer; }
+.segmented { flex-wrap:wrap; border-radius:14px; }
+.segmented__option { white-space:normal; }
+.tile { border:1px solid var(--vx-border); box-shadow:none; border-radius:14px; padding:16px; background:var(--vx-card); }
+.tile .l { font-size:12px; text-transform:none; letter-spacing:0; }
+.vx-nav { max-width:1192px; margin:auto; display:flex; justify-content:space-between; align-items:center; gap:16px; padding:16px 24px; border-bottom:1px solid var(--vx-border); color:var(--vx-text); font:500 14px var(--font-body,var(--body,system-ui)); }
+.vx-nav label { white-space:nowrap; }
+.vx-nav select { min-height:44px; width:min(100%,340px); padding:8px 32px 8px 12px; border:1px solid var(--vx-border); border-radius:12px; color:var(--vx-text); background:var(--vx-card); }
+.vx-nav small { display:block; font-size:12px; color:var(--vx-muted); }
+.vx-guide { display:flex; align-items:center; gap:12px 24px; padding:16px 20px; border:1px solid var(--vx-border); border-left:4px solid var(--vx-link); border-radius:12px; color:var(--vx-muted); background:var(--vx-card); font-size:14px; line-height:1.55; }
+.vx-guide p { margin:0; }
+.vx-guide strong { color:var(--vx-text); }
+.vx-guide .vx-badge { font-size:12px; font-weight:600; color:var(--vx-link); white-space:nowrap; margin-left:auto; }
+.vx-technical { border:1px solid var(--vx-border); border-radius:14px; background:var(--vx-card); overflow:hidden; }
+.vx-technical>summary { padding:16px 20px; min-height:48px; cursor:pointer; font-size:14px; font-weight:600; color:var(--vx-link); }
+.vx-technical[open]>summary { border-bottom:1px solid var(--vx-border); }
+.vx-technical>p { padding:0 20px 16px; }
+.vx-skip { position:fixed; top:8px; left:8px; z-index:100; padding:12px 18px; background:var(--vx-card); color:var(--vx-link); transform:translateY(-160%); border-radius:8px; }
+.vx-skip:focus { transform:none; }
+@media(max-width:640px) {
+ .page,.wrap { padding:20px 16px 36px; gap:20px; }
+ .vx-nav { padding:12px 16px; gap:10px; }
+ .vx-nav select { max-width:64%; font-size:13px; }
+ .vx-nav small { display:none; }
+ .vx-guide { align-items:flex-start; flex-direction:column; gap:8px; padding:14px 16px; }
+ .vx-guide .vx-badge { margin:0; }
+ .panel-head { padding:14px 16px; }
+ .titlebar,.intro { gap:16px; }
+ .titlebar>div,.intro>div { min-width:0; }
+}
+@media(prefers-reduced-motion:reduce) { *,*::before,*::after { animation:none !important; transition:none !important; scroll-behavior:auto !important; } }
+
+
+.vx-timeline { padding:12px 20px; display:grid; grid-template-columns:1fr auto; gap:4px 12px; border-top:1px solid var(--vx-border); }
+.vx-timeline label { font-size:13px; color:var(--vx-muted); }
+.vx-timeline input { grid-column:1/-1; grid-row:2; width:100%; }
+.vx-timeline output { font-size:14px; font-weight:600; }
+.group summary { min-height:48px; display:flex; align-items:center; gap:10px; cursor:pointer; font-weight:600; }
+.group summary::after { content:'+'; font-size:20px; color:var(--vx-link); }
+.group[open] summary::after { content:'−'; }
+.group summary i { width:10px; height:10px; border-radius:50%; flex:none; }
+.group summary span { margin-left:auto; font-size:12px; color:var(--vx-muted); }
+.job { padding:14px 4px; }
+.job .when { white-space:normal; max-width:140px; }
+.job .what code { display:block; font-size:11px; margin-top:6px; }
+@media(min-width:961px) { .main>.card-panel { position:sticky; top:16px; } }
+@media(max-width:640px) { #dow { display:grid; grid-template-columns:repeat(7,minmax(0,1fr)); width:100%; gap:0; } #dow button { padding:6px 0; font-size:12px; } .job { grid-template-columns:1fr; } .job .when { grid-column:1; grid-row:auto; text-align:left; max-width:none; color:var(--vx-link); } }
+
 </style>
 
 <header class="site-header"><div class="in">
   <a class="logo" href="https://eddy.guide" target="_blank" rel="noopener"><img src="data:image/webp;base64,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" alt="Eddy"><span>Eddy</span></a>
   <span class="tag">How it works</span>
-</div></header>
+</div></header><a class="vx-skip" href="#vx-content">Skip to explainer</a>
+<nav class="vx-nav" aria-label="Eddy explainers"><label for="vx-page">Explore Eddy<small>Interactive field notes</small></label><select id="vx-page"><option value="watershed.html">System map</option><option value="social-delta.html">Social posts</option><option value="eddys-day.html" selected>Daily schedule</option><option value="condition-ladder.html">Condition ratings</option><option value="how-eddys-read-works.html">Eddy’s Read</option><option value="ios-plumbing.html">Inside the iPhone app</option><option value="ios-tour.html">iPhone tour</option><option value="float-board.html">Float Board</option><option value="below-the-dam.html">Below the dam</option></select></nav>
 
-<main class="page">
+
+<main class="page" id="vx-content">
   <div class="titlebar">
     <div>
-      <h1>Eddy's Day</h1>
-      <p>Every job Eddy runs on its own, on one 24-hour dial. Each dot is a real scheduled run from <code style="font:13px ui-monospace,Menlo,monospace">vercel.json</code>. Nobody presses a button for any of these: this is the clock that keeps the river data fresh, writes the Reads, sends the alerts and posts to social.</p>
+      <h1>A day behind the scenes</h1>
+      <p>While you plan a float, Eddy is refreshing gauges, writing Reads, checking alerts, and preparing posts. Explore the scheduled jobs across a day. The clock is a simulation, not a record of completed work.</p>
     </div>
     <div class="ctrls">
       <div class="segmented segmented--md" role="group" aria-label="Time zone" id="tz">
-        <button type="button" class="segmented__option" data-tz="central" aria-pressed="true">Central</button>
+        <button type="button" class="segmented__option" data-tz="central" aria-pressed="true">Central · CDT</button>
         <button type="button" class="segmented__option" data-tz="utc" aria-pressed="false">UTC</button>
       </div>
       <button type="button" class="btn-outline" id="play">Pause</button>
     </div>
   </div>
 
+  <aside class="vx-guide"><p><strong>Try it.</strong> Pick a day, then choose a job to highlight its runs. Use the time slider to explore at your own pace.</p><span class="vx-badge">Example schedule</span></aside>
+
   <div class="stats">
-    <div class="tile"><p class="v" id="s-entries">35</p><p class="l">Schedule entries</p></div>
+    <div class="tile"><p class="v" id="s-entries">35</p><p class="l">Scheduled tasks</p></div>
     <div class="tile"><p class="v" id="s-handlers">23</p><p class="l">Jobs</p></div>
-    <div class="tile"><p class="v" id="s-day">955</p><p class="l">Runs today</p></div>
-    <div class="tile"><p class="v" id="s-busiest">:00</p><p class="l">Busiest minute</p></div>
+    <div class="tile"><p class="v" id="s-day">955</p><p class="l">Runs scheduled</p></div>
+    <div class="tile"><p class="v" id="s-busiest">:00</p><p class="l">Busiest time</p></div>
   </div>
 
   <div class="main">
     <section class="card-panel">
       <div class="panel-head">
-        <div class="left"><h2>The dial</h2><span class="meta" id="daylabel"></span></div>
+        <div class="left"><h2>The day at a glance</h2><span class="meta" id="daylabel"></span></div>
         <div class="segmented" role="group" aria-label="Day of week" id="dow"></div>
       </div>
       <div class="dialwrap"><svg class="dial" id="dial" viewBox="0 0 560 560" role="img" aria-label="24-hour dial of Eddy's scheduled jobs"></svg></div>
-      <div class="firing"><div class="lbl" id="firing-lbl">Firing now</div><ul id="firing"></ul></div>
+      <div class="vx-timeline"><label for="vx-time">Explore a time of day</label><input id="vx-time" type="range" min="0" max="1439" step="1" value="365"><output id="vx-time-value" for="vx-time"></output></div>
+      <div class="firing"><div class="lbl" id="firing-lbl">Running in the demo</div><ul id="firing"></ul></div>
     </section>
     <div class="groups" id="groups"></div>
   </div>
@@ -233,23 +309,23 @@ const GROUPS = [
   { key: "eddy", name: "Eddy's writing", color: "var(--g-eddy)" },
   { key: "social", name: "Social and media", color: "var(--g-social)" },
   { key: "land", name: "Campsites and public lands", color: "var(--g-land)" },
-  { key: "ops", name: "Integrity and housekeeping", color: "var(--g-ops)" },
+  { key: "ops", name: "Data checks and upkeep", color: "var(--g-ops)" },
 ];
 const META = {
-  "/api/cron/update-gauges": ["water", "Gauge pass", "Pulls readings for Eddy's curated gauges from USGS and NWS, and hands any crossing into high water to the alerts."],
-  "/api/cron/update-gauges?highFrequency=1": ["water", "High-frequency gauge pass", "The same pass every 15 minutes, so a rising river shows up fast."],
+  "/api/cron/update-gauges": ["water", "Refresh river gauges", "Pulls readings for Eddy's curated gauges from USGS and NWS, and hands any crossing into high water to the alerts."],
+  "/api/cron/update-gauges?highFrequency=1": ["water", "Check fast-changing gauges", "The same pass every 15 minutes, so a rising river shows up fast."],
   "/api/cron/sync-gauge-latest": ["water", "National gauges", "Refreshes the latest value for about 14,000 stations nationwide, one row each, overwritten in place."],
   "/api/cron/sync-dam-history": ["water", "Dam history", "Keeps an hourly record of what each powerhouse actually released."],
   "/api/cron/sync-dam-snapshots": ["water", "Dam snapshots", "Assembles each dam's current state ahead of time so the dam pages load fast."],
   "/api/cron/snapshot-percentiles": ["water", "Historical percentiles", "Works through the station catalog in rotating batches, so Eddy can say how unusual a level is."],
   "/api/cron/evaluate-gauge-alerts": ["alerts", "Check alert rules", "Compares gauges with everyone's alert rules and queues a push for each match."],
-  "/api/cron/deliver-push": ["alerts", "Send pushes", "Sends the queued notifications through Expo."],
+  "/api/cron/deliver-push": ["alerts", "Send notifications", "Sends the queued notifications through Expo."],
   "/api/cron/push-receipts": ["alerts", "Push receipts", "Checks whether Apple took each push, and stops sending to phones that deleted the app."],
   "/api/cron/generate-eddy-updates": ["eddy", "Eddy's Reads", "Writes the morning Read for every river and section, ten minutes after the hourly gauge pass."],
   "/api/cron/generate-eddy-updates?globalOnly=1": ["eddy", "Ozarks Pulse", "Writes the statewide summary on its own run, so it has the whole time budget to itself."],
   "/api/cron/generate-gauge-updates": ["eddy", "Gauge updates", "Writes short updates for the secondary gauges on each river."],
   "/api/cron/post-social": ["social", "Post scheduler", "Posts whatever social content is due in this half hour."],
-  "/api/cron/social-preflight": ["social", "Render preflight", "Checks the video render pipeline is reachable before posts need it."],
+  "/api/cron/social-preflight": ["social", "Check the video system", "Checks the video render pipeline is reachable before posts need it."],
   "/api/cron/brand-check-pending": ["social", "Clip brand check", "Claude vision reviews pending clips an hour before each clip post."],
   "/api/cron/post-clip": ["social", "Clip post", "Posts the oldest approved creator clip to Facebook, Instagram and TikTok."],
   "/api/cron/post-blog": ["social", "Blog post", "Shares a river guide to Facebook every Tuesday."],
@@ -258,8 +334,8 @@ const META = {
   "/api/cron/sync-availability": ["land", "Campsite availability", "Refreshes campsite availability, one provider per run so one outage can't eat another's time."],
   "/api/cron/sync-nps": ["land", "National Park Service", "Weekly sync of NPS data."],
   "/api/cron/sync-usfs": ["land", "Forest Service", "Weekly sync of campgrounds and facilities near the rivers, queued for review."],
-  "/api/cron/trust-tick": ["ops", "Trust tick", "Runs whichever data-integrity checks are due and updates the trust ledger."],
-  "/api/cron/rollup-telemetry": ["ops", "Telemetry rollup", "Rolls up app telemetry into summaries."],
+  "/api/cron/trust-tick": ["ops", "Check data quality", "Runs whichever data-integrity checks are due and updates the trust ledger."],
+  "/api/cron/rollup-telemetry": ["ops", "Summarize app activity", "Rolls up app telemetry into summaries."],
   "/api/cron/revoke-apple-tokens": ["ops", "Apple sign-in revocations", "Works through the queue of Apple sign-in tokens to revoke for deleted accounts."],
 };
 const DOWS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
@@ -267,7 +343,7 @@ const DAYNAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Frida
 const meta = (p) => META[p] || META[p.split("?")[0]];
 JOBS.forEach((j, i) => { j.i = i; const m = meta(j.path); j.group = m[0]; j.name = m[1]; j.what = m[2]; if (j.path.includes("source=")) j.name += j.path.includes("mo_state_parks") ? " \u00b7 MO State Parks" : " \u00b7 Recreation.gov"; });
 
-const S = { tz: "central", dow: new Date().getDay(), min: 6 * 60 + 5, playing: !matchMedia("(prefers-reduced-motion: reduce)").matches, sel: null };
+const S = { tz: "central", dow: new Date().getDay(), min: 6 * 60 + 5, playing: false, sel: null };
 const OFF = -300; // CDT
 const local = (m) => S.tz === "utc" ? m : ((m + OFF) % 1440 + 1440) % 1440;
 // a job's runs on the selected LOCAL day: convert, and shift the cron day-of-week when CDT crosses midnight
@@ -330,25 +406,27 @@ function drawDial() {
 function applySel() {
   const sel = S.sel ? S.sel.split(",").map(Number) : null;
   for (const k in dotsByJob) dotsByJob[k].forEach((c) => c.classList.toggle("dim", sel != null && !sel.includes(+k)));
-  document.querySelectorAll(".job").forEach((b) => b.classList.toggle("on", b.dataset.i === S.sel));
+  document.querySelectorAll(".job").forEach((b) => { b.classList.toggle("on", b.dataset.i === S.sel); b.setAttribute("aria-pressed", String(b.dataset.i === S.sel)); });
 }
 
 // ---- lists + stats -------------------------------------------------------------------
 function drawLists() {
-  const wrap = document.getElementById("groups"); wrap.innerHTML = "";
+  const wrap = document.getElementById("groups");
+  const openGroups = new Set([...wrap.querySelectorAll("details[open]")].map(group => group.dataset.group));
+  const firstDraw = !wrap.children.length; wrap.innerHTML = "";
   let total = 0; const perMin = new Map();
   GROUPS.forEach((g) => {
     const jobs = JOBS.filter((j) => j.group === g.key);
-    const sec = document.createElement("section"); sec.className = "card-panel group";
+    const sec = document.createElement("details"); sec.className = "card-panel group"; sec.dataset.group = g.key; sec.open = firstDraw ? g.key === "water" : openGroups.has(g.key);
     let n = 0;
     const merged = new Map();
     jobs.forEach((j) => { const runs = runsOn(j, S.dow); n += runs.length; runs.forEach((m) => perMin.set(m, (perMin.get(m) || 0) + 1));
       const key = j.name; if (!merged.has(key)) merged.set(key, { j, ids: [], runs: [] });
       const e = merged.get(key); e.ids.push(j.i); e.runs.push(...runs); });
     const rows = [...merged.values()].map(({ j, ids, runs }) => { runs.sort((x, y) => x - y);
-      return `<button type="button" class="job" data-i="${ids.join(",")}"><b>${j.name}</b><span class="when">${cadence(j, runs)}</span><span class="what">${j.what} <code>${j.path.replace("/api/cron/", "").split("&")[0]}</code></span></button>`; }).join("");
+      return `<button type="button" class="job" data-i="${ids.join(",")}" title="${j.path}"><b>${j.name}</b><span class="when">${cadence(j, runs)}</span><span class="what">${j.what}</span></button>`; }).join("");
     total += n;
-    sec.innerHTML = `<h3><i style="background:${g.color}"></i>${g.name}<span>${n} runs</span></h3>${rows}`;
+    sec.innerHTML = `<summary><i style="background:${g.color}"></i>${g.name}<span>${n} runs</span></summary>${rows}`;
     wrap.appendChild(sec);
   });
   document.getElementById("s-day").textContent = total.toLocaleString();
@@ -382,24 +460,37 @@ function frame(now) {
   const a = ang(S.min);
   hand.setAttribute("x2", CX + 250 * Math.cos(a)); hand.setAttribute("y2", CY + 250 * Math.sin(a));
   document.getElementById("ct").textContent = fmt(Math.floor(S.min));
+  document.getElementById("vx-time").value = Math.floor(S.min);
+  document.getElementById("vx-time").setAttribute("aria-valuetext", fmt(Math.floor(S.min)));
+  document.getElementById("vx-time-value").textContent = fmt(Math.floor(S.min));
   const done = Object.values(dotsByJob).reduce((n, arr) => n + arr.filter((c) => +c.dataset.m <= S.min).length, 0);
-  document.getElementById("cs").textContent = `${done.toLocaleString()} runs so far`;
+  document.getElementById("cs").textContent = `${done.toLocaleString()} scheduled by now`;
   requestAnimationFrame(frame);
 }
 function showFiring(ids) {
   const ul = document.getElementById("firing");
-  ul.innerHTML = ids.slice(0, 6).map((i) => { const j = JOBS[i], g = GROUPS.find((x) => x.key === j.group); return `<li><i style="background:${g.color}"></i>${j.name}</li>`; }).join("");
-  document.getElementById("firing-lbl").textContent = `Firing at ${fmt(Math.floor(S.min))}`;
+  ul.innerHTML = ids.map((i) => { const j = JOBS[i], g = GROUPS.find((x) => x.key === j.group); return `<li><i style="background:${g.color}"></i>${j.name}</li>`; }).join("");
+  document.getElementById("firing-lbl").textContent = `Demo jobs at ${fmt(Math.floor(S.min))}`;
 }
 
 document.querySelectorAll("#tz button").forEach((b) => b.addEventListener("click", () => {
   S.tz = b.dataset.tz; document.querySelectorAll("#tz button").forEach((x) => x.setAttribute("aria-pressed", String(x === b))); drawDow(); redraw();
 }));
-document.getElementById("play").addEventListener("click", (e) => { S.playing = !S.playing; e.target.textContent = S.playing ? "Pause" : "Play"; });
+document.getElementById("play").addEventListener("click", (e) => { S.playing = !S.playing; e.target.textContent = S.playing ? "Pause" : "Play"; e.target.setAttribute("aria-pressed", String(S.playing)); });
 if (!S.playing) document.getElementById("play").textContent = "Play";
 drawDow(); redraw();
 showFiring(JOBS.filter((j) => runsOn(j, S.dow).some((m) => m >= 360 && m <= 371)).map((j) => j.i));
 document.getElementById("firing-lbl").textContent = "Around 6 AM";
 requestAnimationFrame(frame);
+document.getElementById('vx-time').addEventListener('input', event => {
+ S.min = +event.target.value; S.playing = false; document.getElementById('play').textContent = 'Play'; document.getElementById('play').setAttribute('aria-pressed','false');
+ const current = JOBS.filter(job => runsOn(job, S.dow).includes(Math.floor(S.min))).map(job => job.i);
+ showFiring(current);
+ if (!current.length) document.getElementById('firing').innerHTML = '<li>No jobs start at this minute.</li>';
+});
 })();
+</script>
+
+<script>
+document.getElementById("vx-page").addEventListener("change", (event) => { location.href = event.target.value; });
 </script>

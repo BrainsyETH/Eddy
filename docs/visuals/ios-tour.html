@@ -2,7 +2,7 @@
 <html lang="en">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Eddy for iPhone</title>
+<title>iPhone tour · Eddy</title>
 <style>
 /* Layout: an iPhone running Eddy's five tabs on the left, and "behind this
    screen" notes on the right whose numbers match the coral markers on the phone. */
@@ -255,14 +255,87 @@ body { background: var(--bg); color: var(--text); font-family: var(--body); font
 :root[data-theme="dark"] .ctext { color: var(--cs); }
 .phone.force-light .ctext { color: var(--ci); }
 .phone.force-dark .ctext { color: var(--cs); }
-</style>
 
-<main class="page">
+/* Collection UI. Kept inline so every explainer still opens offline. */
+:root {
+ --vx-bg:var(--color-background,var(--bg,#F7F6F3));
+ --vx-card:var(--color-surface,var(--card,var(--surface,#fff)));
+ --vx-text:var(--color-text-primary,var(--text,var(--fg,#2D2A24)));
+ --vx-muted:var(--color-text-secondary,var(--textMuted,var(--muted,#6B6459)));
+ --vx-border:var(--color-border,var(--border,var(--line,#DBD5CA)));
+ --vx-link:var(--code,var(--interactive,var(--raw,#256574)));
+}
+body { margin:0; }
+.page,.wrap { width:100%; max-width:1240px; padding:28px 24px 48px; gap:24px; }
+.page>*,.wrap>* { min-width:0; }
+.titlebar h1,.intro h1 { font-size:clamp(30px,3.2vw,42px); line-height:1.12; letter-spacing:-.025em; margin-bottom:12px; text-wrap:balance; }
+.titlebar p,.intro p { font-size:16px; line-height:1.65; max-width:66ch; }
+.card-panel,.panel { border-radius:18px; box-shadow:0 4px 18px #0f2d3506; }
+.panel-head { padding:16px 20px; }
+.panel-head .meta,.fine,footer { color:var(--vx-muted); font-size:13px; line-height:1.6; }
+.fine code,footer code,code { overflow-wrap:anywhere; }
+button,input,select { font:inherit; }
+button,.btn-outline,.pill,.segmented__option,.seg button { min-height:44px; }
+button:disabled { cursor:default; opacity:.45; }
+:where(button,a,input,select,summary,[tabindex]):focus-visible { outline:3px solid var(--vx-link); outline-offset:4px; }
+input[type=range] { min-height:44px; accent-color:var(--vx-link); cursor:pointer; }
+.segmented { flex-wrap:wrap; border-radius:14px; }
+.segmented__option { white-space:normal; }
+.tile { border:1px solid var(--vx-border); box-shadow:none; border-radius:14px; padding:16px; background:var(--vx-card); }
+.tile .l { font-size:12px; text-transform:none; letter-spacing:0; }
+.vx-nav { max-width:1192px; margin:auto; display:flex; justify-content:space-between; align-items:center; gap:16px; padding:16px 24px; border-bottom:1px solid var(--vx-border); color:var(--vx-text); font:500 14px var(--font-body,var(--body,system-ui)); }
+.vx-nav label { white-space:nowrap; }
+.vx-nav select { min-height:44px; width:min(100%,340px); padding:8px 32px 8px 12px; border:1px solid var(--vx-border); border-radius:12px; color:var(--vx-text); background:var(--vx-card); }
+.vx-nav small { display:block; font-size:12px; color:var(--vx-muted); }
+.vx-guide { display:flex; align-items:center; gap:12px 24px; padding:16px 20px; border:1px solid var(--vx-border); border-left:4px solid var(--vx-link); border-radius:12px; color:var(--vx-muted); background:var(--vx-card); font-size:14px; line-height:1.55; }
+.vx-guide p { margin:0; }
+.vx-guide strong { color:var(--vx-text); }
+.vx-guide .vx-badge { font-size:12px; font-weight:600; color:var(--vx-link); white-space:nowrap; margin-left:auto; }
+.vx-technical { border:1px solid var(--vx-border); border-radius:14px; background:var(--vx-card); overflow:hidden; }
+.vx-technical>summary { padding:16px 20px; min-height:48px; cursor:pointer; font-size:14px; font-weight:600; color:var(--vx-link); }
+.vx-technical[open]>summary { border-bottom:1px solid var(--vx-border); }
+.vx-technical>p { padding:0 20px 16px; }
+.vx-skip { position:fixed; top:8px; left:8px; z-index:100; padding:12px 18px; background:var(--vx-card); color:var(--vx-link); transform:translateY(-160%); border-radius:8px; }
+.vx-skip:focus { transform:none; }
+@media(max-width:640px) {
+ .page,.wrap { padding:20px 16px 36px; gap:20px; }
+ .vx-nav { padding:12px 16px; gap:10px; }
+ .vx-nav select { max-width:64%; font-size:13px; }
+ .vx-nav small { display:none; }
+ .vx-guide { align-items:flex-start; flex-direction:column; gap:8px; padding:14px 16px; }
+ .vx-guide .vx-badge { margin:0; }
+ .panel-head { padding:14px 16px; }
+ .titlebar,.intro { gap:16px; }
+ .titlebar>div,.intro>div { min-width:0; }
+}
+@media(prefers-reduced-motion:reduce) { *,*::before,*::after { animation:none !important; transition:none !important; scroll-behavior:auto !important; } }
+
+
+.hs { min-height:32px; width:32px; height:32px; border-radius:50%; line-height:28px; animation:none; }
+.hs::after { content:''; position:absolute; inset:-6px; }
+.note .src { opacity:.85; }
+.notes { gap:18px; }
+.note { padding:18px; }
+#vx-tour-tip { display:none; }
+@media(max-width:860px) {
+ .phone { position:relative; top:auto; }
+ #vx-tour-tip:not([hidden]) { display:block; position:fixed; bottom:16px; left:16px; right:16px; z-index:50; max-height:38dvh; overflow:auto; background:var(--vx-card); color:var(--vx-text); border:1px solid var(--vx-border); border-top:3px solid var(--vx-link); box-shadow:0 8px 36px #0003; border-radius:18px; padding:18px 20px; font-size:14px; }
+ #vx-tour-tip button { float:right; width:44px; background:transparent; border:0; color:var(--vx-link); font-size:24px; }
+ #vx-tour-tip p { line-height:1.6; margin:8px 0 0; }
+ .screen { height:660px; }
+ .notes .note { padding:14px; }
+}
+
+</style><a class="vx-skip" href="#vx-content">Skip to explainer</a>
+<nav class="vx-nav" aria-label="Eddy explainers"><label for="vx-page">Explore Eddy<small>Interactive field notes</small></label><select id="vx-page"><option value="watershed.html">System map</option><option value="social-delta.html">Social posts</option><option value="eddys-day.html">Daily schedule</option><option value="condition-ladder.html">Condition ratings</option><option value="how-eddys-read-works.html">Eddy’s Read</option><option value="ios-plumbing.html">Inside the iPhone app</option><option value="ios-tour.html" selected>iPhone tour</option><option value="float-board.html">Float Board</option><option value="below-the-dam.html">Below the dam</option></select></nav>
+
+
+<main class="page" id="vx-content">
   <div class="brand"><img src="data:image/webp;base64,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" alt="Eddy app icon"><span>Eddy</span></div>
   <div class="intro">
     <div>
-      <h1>Eddy for iPhone</h1>
-      <p>A tour of the app's five tabs. Tap a tab on the phone, then tap a coral number to see what that part of the screen does and where its data comes from.</p>
+      <h1>Take a look around Eddy</h1>
+      <p>Explore five example screens, from checking today’s water to saving a favorite river. Tap a tab, then choose a numbered marker to learn more. This is an illustrated tour, so only the tabs and numbered markers respond.</p>
     </div>
     <div class="ctl"><small>Phone appearance</small>
       <div class="seg" id="appearance" role="group" aria-label="Phone appearance">
@@ -270,6 +343,8 @@ body { background: var(--bg); color: var(--text); font-family: var(--body); font
       </div>
     </div>
   </div>
+
+  <aside class="vx-guide"><p><strong>Try it.</strong> Switch tabs on the phone. The numbered markers explain what you can do on each screen.</p><span class="vx-badge">Illustrative app tour</span></aside>
 
   <div class="stage">
     <div class="phone" id="phone">
@@ -300,7 +375,7 @@ body { background: var(--bg); color: var(--text); font-family: var(--body); font
           <div class="tgt" data-n="3" style="margin:0 16px;border-radius:20px"><button type="button" class="hs" data-n="3">3</button>
           <div class="rail" style="margin:0 -16px">
             <article class="read"><div class="row"><span class="k">EDDY'S READ</span><span class="chip" style="background:rgb(219,244,236);color:#065F46;border-color:#6EE7B7">Flowing</span></div><h4>Current River</h4>
-              <p>The Current floats fine near Van Buren, just on the thin side, so pick your line through the riffles.</p>
+              <p>The lower Current near Van Buren has water for an easygoing float. Check the upper gauges if you’re heading toward Akers or Montauk.</p>
               <div class="ft"><span>6:10 AM</span><b>View full read &#x203a;</b></div></article>
             <article class="read"><div class="row"><span class="k">EDDY'S READ</span><span class="chip" style="background:rgb(237,247,220);color:#3F6212;border-color:#BEF264">Good</span></div><h4>Jacks Fork</h4>
               <div class="lockline"></div><div class="lockline"></div><div class="lockline" style="width:68%"></div>
@@ -462,16 +537,16 @@ const NOTES = {
       ["Works with no account and no signal", "Stars live on the phone first, so the list always renders. Conditions are added on top when /api/rivers answers; offline, a card says so instead of vanishing.", ["useStarredRivers.tsx", "favorites.tsx"]],
       ["A card, not a row", "A favorite gets a condition card. \u201c944 cfs, Good\u201d is a measurement; the card adds where that number sits between too low and flood.", ["FavoriteRiverCard.tsx"]],
       ["The band track", "The bar under the reading shows the river's bands from too low to flood with a marker for right now. It answers \u201chow much margin is there?\u201d in a glance, with no extra request per river.", ["FavoriteRiverCard.tsx", "ReadingScale.tsx"]],
-      ["Saved floats", "Trips you planned on the map, kept with their put-in, take-out and float time so you can reopen them at the river.", ["/api/plan/save", "SavedFloatDetails.tsx"]],
+      ["Saved floats", "Keep your planned put-in and take-out together so you can reopen the trip. Check current conditions when you return to it.", ["/api/plan/save", "SavedFloatDetails.tsx"]],
     ],
   },
   settings: {
-    lede: "Account, subscription, and the two controls App Review looks for: Restore Purchases and deleting your data.",
+    lede: "Manage your account, subscription, notifications, and saved data in one place.",
     items: [
       ["Eddy Premium", "Premium unlocks the daily full Read for your favorite rivers. The free app works with no account at all, so Sign in with Apple is offered, never forced. Purchases run through RevenueCat.", ["profile.tsx", "PaywallSheet.tsx", "purchases.ts"]],
       ["Why the button is teal", "On the website the main button is coral. In the app it is teal, because every warm color on a river screen already means a condition, and a coral button would read as a flood warning. Coral stays Eddy's own color: the otter, the kicker, these numbers.", ["palette.ts", "ADR 0007"]],
       ["Notifications and offline", "The notification switch is Eddy's own opt-out, separate from iOS permission; if iOS has denied it, the row links to Settings instead. Offline storage shows what Eddy keeps on the phone for no-signal put-ins: every river's access points, hazards, line and last reading, refreshed automatically on each launch with a connection.", ["/api/me/notification-preferences", "/api/offline/bundle"]],
-      ["Delete my data", "Required by App Review and actually deletes: not a deactivation, not an email to support. Signed in, it reads Delete account.", ["/api/me", "account-deletion"]],
+      ["Delete my data", "Remove your Eddy data directly from Settings. When you are signed in, this option is called Delete account.", ["/api/me", "account-deletion"]],
     ],
   },
 };
@@ -484,6 +559,8 @@ let cur = "today", pushTimer = null;
 
 function show(tab) {
   cur = tab;
+  $$('.tab').forEach(button => { button.tabIndex = button.dataset.tab === tab ? 0 : -1; });
+  const tip = document.getElementById('vx-tour-tip'); if (tip) tip.hidden = true;
   $$(".tab").forEach((b) => b.setAttribute("aria-selected", String(b.dataset.tab === tab)));
   $$(".view").forEach((v) => v.classList.toggle("on", v.dataset.view === tab));
   $("#n-eyebrow").textContent = `TAB ${TABS.indexOf(tab) + 1} OF 5`;
@@ -504,7 +581,12 @@ function light(n, scroll) {
   if (!n) return;
   const target = $(`.tgt[data-n="${n}"]`, view);
   if (scroll && target && view.classList.contains("scroll")) view.scrollTo({ top: Math.max(0, target.offsetTop - 120), behavior: reduce ? "auto" : "smooth" });
-  if (!scroll) { const note = $(`#n-list .note[data-n="${n}"]`); if (note && note.getBoundingClientRect().top > innerHeight) note.scrollIntoView({ block: "nearest", behavior: reduce ? "auto" : "smooth" }); }
+  if (!scroll && matchMedia('(max-width:860px)').matches) {
+    const tip = document.getElementById('vx-tour-tip');
+    const [title, description] = NOTES[cur].items[n - 1];
+    tip.querySelector('strong').textContent = `${n}. ${title}`;
+    tip.querySelector('p').textContent = description; tip.hidden = false;
+  }
 }
 $$(".tab").forEach((b) => b.addEventListener("click", () => show(b.dataset.tab)));
 $$(".hs").forEach((h) => h.addEventListener("click", (e) => { e.stopPropagation(); light(+h.dataset.n, false); }));
@@ -514,5 +596,29 @@ $$("#appearance button").forEach((b) => b.addEventListener("click", () => {
   if (b.dataset.a !== "system") p.classList.add("force-" + b.dataset.a);
 }));
 show("today");
+
+const tip = document.createElement('aside'); tip.id = 'vx-tour-tip'; tip.hidden = true; tip.setAttribute('aria-live','polite');
+tip.innerHTML = '<button type="button" aria-label="Close explanation">×</button><strong></strong><p></p>';
+document.body.append(tip);
+tip.querySelector('button').addEventListener('click', () => { tip.hidden = true; const active = document.querySelector(`.view.on .hs[aria-pressed="true"]`); if (active) active.focus(); });
+$$('.hs').forEach(button => {
+ const tab = button.closest('.view').dataset.view;
+ button.setAttribute('aria-label', `Explain ${NOTES[tab].items[+button.dataset.n - 1][0]}`);
+ button.addEventListener('click', () => { $$('.hs').forEach(other => other.setAttribute('aria-pressed',String(other === button))); });
+});
+$$('.tab').forEach((button, i) => {
+ button.id = `tour-tab-${button.dataset.tab}`; button.setAttribute('aria-controls',`tour-panel-${button.dataset.tab}`);
+ const panel = document.querySelector(`.view[data-view="${button.dataset.tab}"]`);
+ panel.id = `tour-panel-${button.dataset.tab}`; panel.setAttribute('role','tabpanel'); panel.setAttribute('aria-labelledby', button.id);
+ button.addEventListener('keydown', event => {
+   const next = event.key === 'ArrowRight' ? (i+1)%TABS.length : event.key === 'ArrowLeft' ? (i+TABS.length-1)%TABS.length : event.key === 'Home' ? 0 : event.key === 'End' ? TABS.length-1 : null;
+   if (next === null) return; event.preventDefault(); show(TABS[next]); $$('.tab')[next].focus();
+ });
+});
+
 })();
+</script>
+
+<script>
+document.getElementById("vx-page").addEventListener("change", (event) => { location.href = event.target.value; });
 </script>

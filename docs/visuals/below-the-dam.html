@@ -2,7 +2,7 @@
 <html lang="en">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Below the Dam</title>
+<title>Below the dam · Eddy</title>
 <style>
 /* Layout: Eddy's site header, then one stretch of river below a hydropower dam
    played through a day, its stage chart, and what Eddy shows (and won't). */
@@ -184,46 +184,137 @@ svg.ch { display: block; width: 100%; height: auto; }
 .state { border-radius: 10px; border: 1px solid var(--color-border); padding: 8px 10px; font-size: 13px; }
 .state b { display: block; font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: var(--color-text-muted); }
 @media (prefers-reduced-motion: reduce) { .tw .wat { transition: none; } }
+
+/* Collection UI. Kept inline so every explainer still opens offline. */
+:root {
+ --vx-bg:var(--color-background,var(--bg,#F7F6F3));
+ --vx-card:var(--color-surface,var(--card,var(--surface,#fff)));
+ --vx-text:var(--color-text-primary,var(--text,var(--fg,#2D2A24)));
+ --vx-muted:var(--color-text-secondary,var(--textMuted,var(--muted,#6B6459)));
+ --vx-border:var(--color-border,var(--border,var(--line,#DBD5CA)));
+ --vx-link:var(--code,var(--interactive,var(--raw,#256574)));
+}
+body { margin:0; }
+.page,.wrap { width:100%; max-width:1240px; padding:28px 24px 48px; gap:24px; }
+.page>*,.wrap>* { min-width:0; }
+.titlebar h1,.intro h1 { font-size:clamp(30px,3.2vw,42px); line-height:1.12; letter-spacing:-.025em; margin-bottom:12px; text-wrap:balance; }
+.titlebar p,.intro p { font-size:16px; line-height:1.65; max-width:66ch; }
+.card-panel,.panel { border-radius:18px; box-shadow:0 4px 18px #0f2d3506; }
+.panel-head { padding:16px 20px; }
+.panel-head .meta,.fine,footer { color:var(--vx-muted); font-size:13px; line-height:1.6; }
+.fine code,footer code,code { overflow-wrap:anywhere; }
+button,input,select { font:inherit; }
+button,.btn-outline,.pill,.segmented__option,.seg button { min-height:44px; }
+button:disabled { cursor:default; opacity:.45; }
+:where(button,a,input,select,summary,[tabindex]):focus-visible { outline:3px solid var(--vx-link); outline-offset:4px; }
+input[type=range] { min-height:44px; accent-color:var(--vx-link); cursor:pointer; }
+.segmented { flex-wrap:wrap; border-radius:14px; }
+.segmented__option { white-space:normal; }
+.tile { border:1px solid var(--vx-border); box-shadow:none; border-radius:14px; padding:16px; background:var(--vx-card); }
+.tile .l { font-size:12px; text-transform:none; letter-spacing:0; }
+.vx-nav { max-width:1192px; margin:auto; display:flex; justify-content:space-between; align-items:center; gap:16px; padding:16px 24px; border-bottom:1px solid var(--vx-border); color:var(--vx-text); font:500 14px var(--font-body,var(--body,system-ui)); }
+.vx-nav label { white-space:nowrap; }
+.vx-nav select { min-height:44px; width:min(100%,340px); padding:8px 32px 8px 12px; border:1px solid var(--vx-border); border-radius:12px; color:var(--vx-text); background:var(--vx-card); }
+.vx-nav small { display:block; font-size:12px; color:var(--vx-muted); }
+.vx-guide { display:flex; align-items:center; gap:12px 24px; padding:16px 20px; border:1px solid var(--vx-border); border-left:4px solid var(--vx-link); border-radius:12px; color:var(--vx-muted); background:var(--vx-card); font-size:14px; line-height:1.55; }
+.vx-guide p { margin:0; }
+.vx-guide strong { color:var(--vx-text); }
+.vx-guide .vx-badge { font-size:12px; font-weight:600; color:var(--vx-link); white-space:nowrap; margin-left:auto; }
+.vx-technical { border:1px solid var(--vx-border); border-radius:14px; background:var(--vx-card); overflow:hidden; }
+.vx-technical>summary { padding:16px 20px; min-height:48px; cursor:pointer; font-size:14px; font-weight:600; color:var(--vx-link); }
+.vx-technical[open]>summary { border-bottom:1px solid var(--vx-border); }
+.vx-technical>p { padding:0 20px 16px; }
+.vx-skip { position:fixed; top:8px; left:8px; z-index:100; padding:12px 18px; background:var(--vx-card); color:var(--vx-link); transform:translateY(-160%); border-radius:8px; }
+.vx-skip:focus { transform:none; }
+@media(max-width:640px) {
+ .page,.wrap { padding:20px 16px 36px; gap:20px; }
+ .vx-nav { padding:12px 16px; gap:10px; }
+ .vx-nav select { max-width:64%; font-size:13px; }
+ .vx-nav small { display:none; }
+ .vx-guide { align-items:flex-start; flex-direction:column; gap:8px; padding:14px 16px; }
+ .vx-guide .vx-badge { margin:0; }
+ .panel-head { padding:14px 16px; }
+ .titlebar,.intro { gap:16px; }
+ .titlebar>div,.intro>div { min-width:0; }
+}
+@media(prefers-reduced-motion:reduce) { *,*::before,*::after { animation:none !important; transition:none !important; scroll-behavior:auto !important; } }
+
+
+.ctl { gap:16px; }
+.ctl select { min-height:44px; border-radius:8px; padding:6px 10px; }
+.why .states { grid-template-columns:minmax(0,1fr); }
+.state { display:grid; gap:4px; padding:12px; }
+@media(max-width:640px) {
+ .twwrap { overflow-x:auto; }
+ .tw { min-width:720px; }
+ .ctl { display:grid; grid-template-columns:1fr; }
+ .ctl input { width:100%; }
+ .why { grid-template-columns:1fr; }
+ .chart { overflow-x:auto; }
+ .ch { min-width:460px; }
+}
+
+
+.vx-access-list { display:none; }
+@media(max-width:640px) {
+ svg.tw { min-width:0; }
+ .tw .lbl,.tw .sm { display:none; }
+ .twwrap { position:relative; }
+ .twwrap::after { content:'Dam → A → B → C · downstream'; display:block; text-align:center; font-size:12px; color:var(--vx-muted); padding-bottom:10px; }
+ .vx-access-list { display:grid; padding:0 16px 12px; gap:8px; }
+ .vx-access-list>div { display:flex; justify-content:space-between; gap:12px; border-top:1px solid var(--vx-border); padding-top:8px; font-size:14px; }
+ .vx-access-list b { border-left:3px solid var(--access-color); padding-left:8px; }
+ .vx-access-list span { text-align:right; }
+ .vx-access-list small { display:block; color:var(--vx-muted); font-size:12px; font-weight:400; }
+ .ch { min-width:0; }
+ .ch .ax { font-size:17px; }
+}
+
 </style>
 
 <header class="site-header"><div class="in">
   <a class="logo" href="https://eddy.guide" target="_blank" rel="noopener"><img src="data:image/webp;base64,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" alt="Eddy"><span>Eddy</span></a>
   <span class="tag">Floating safety</span>
-</div></header>
+</div></header><a class="vx-skip" href="#vx-content">Skip to explainer</a>
+<nav class="vx-nav" aria-label="Eddy explainers"><label for="vx-page">Explore Eddy<small>Interactive field notes</small></label><select id="vx-page"><option value="watershed.html">System map</option><option value="social-delta.html">Social posts</option><option value="eddys-day.html">Daily schedule</option><option value="condition-ladder.html">Condition ratings</option><option value="how-eddys-read-works.html">Eddy’s Read</option><option value="ios-plumbing.html">Inside the iPhone app</option><option value="ios-tour.html">iPhone tour</option><option value="float-board.html">Float Board</option><option value="below-the-dam.html" selected>Below the dam</option></select></nav>
 
-<main class="page">
+
+<main class="page" id="vx-content">
   <div class="titlebar">
     <div>
-      <h1>Below the Dam</h1>
-      <p>Below a hydropower dam the river is turned on and off. Bull Shoals can go from about 800 cfs to over 20,000 in an hour, so you can launch on one river and be floating on a different one by mile five. That is why Eddy gives a float time on spring rivers and refuses to give one here. Play the day to see it.</p>
+      <h1>Why dam releases change a float</h1>
+      <p>Water released from a hydropower dam takes time to travel downstream. Your put-in can look quiet while a release is already on its way. This example shows why Eddy leaves the float time unavailable on these stretches.</p>
     </div>
     <div class="segmented segmented--md" role="group" aria-label="Playback"><button type="button" class="segmented__option" id="play" aria-pressed="true">Pause</button><button type="button" class="segmented__option" id="restart">Restart day</button></div>
   </div>
 
+  <aside class="vx-guide"><p><strong>Try it.</strong> Drag through the day and watch the release move downstream. Change the launch time to compare the example trips.</p><span class="vx-badge">Interactive demo · not live data</span></aside>
+
   <section class="card-panel stage-card">
-    <div class="panel-head"><div class="left"><h2>A tailwater, through one day</h2><span class="meta">illustration &#xb7; dam releases on schedule at 3 PM</span></div></div>
+    <div class="panel-head"><div class="left"><h2>Follow a release downstream</h2><span class="meta">Example only · release starts at 3 PM</span></div></div>
     <div class="twwrap"><svg class="tw" id="tw" viewBox="0 0 1000 300" aria-label="A river below a dam, with three access points and a release moving downstream"></svg></div>
+    <div class="vx-access-list" id="vx-access-list" aria-label="Example readings at each access"></div>
     <div class="ctl">
       <span class="time" id="clock">6:00 AM</span>
       <input type="range" id="scrub" min="0" max="960" step="1" value="0" aria-label="Time of day">
       <label for="launch">Launch from Access A at
         <select id="launch"><option value="360">12:00 PM</option><option value="300" selected>11:00 AM</option><option value="540">3:00 PM</option></select></label>
     </div>
-    <div class="callout" id="callout" aria-live="polite"></div>
+    <div class="callout" id="callout"></div>
   </section>
 
   <div class="two">
     <section class="card-panel">
-      <div class="panel-head"><div class="left"><h2>Stage at each access</h2><span class="meta">feet above minimum release</span></div></div>
+      <div class="panel-head"><div class="left"><h2>Water level at each access</h2><span class="meta">feet above minimum release</span></div></div>
       <div class="chart"><svg class="ch" id="ch" viewBox="0 0 620 250" aria-label="Water level at the three access points over the day"></svg></div>
       <div class="legend"><span><i style="background:#2D7889"></i>Access A &#xb7; mile 2</span><span><i style="background:#B89D72"></i>Access B &#xb7; mile 7</span><span><i style="background:#E5573F"></i>Access C &#xb7; mile 14</span><span><i style="background:var(--color-primary-200)"></i>Generating at the dam</span></div>
     </section>
     <section class="card-panel">
-      <div class="panel-head"><div class="left"><h2>What Eddy shows here</h2><span class="meta">wording from shared/</span></div></div>
+      <div class="panel-head"><div class="left"><h2>What Eddy shows here</h2><span class="meta">Example trip information</span></div></div>
       <div class="eddy">
         <div class="row"><span class="k">Release schedule</span><span class="main" id="sched">Generation scheduled to start at 3 PM</span><span class="sub">Times are at the dam, not at your access.</span></div>
-        <div class="row"><span class="k">Tailwater below the dam</span><span class="main" id="move">+0.0 ft over 3h</span><span class="sub" id="age">Eddy last checked 12 minutes ago.</span><span class="sub" id="moving" hidden>Water already released may still be moving downstream</span></div>
-        <div class="row withheld"><span class="k">Float time, Access A to C</span><span class="big">No single time</span><span class="sub">Dam releases can change mid-float, so one estimate would be wrong the moment the units start or stop. Check the dam's schedule before you go.</span></div>
+        <div class="row"><span class="k">Tailwater below the dam</span><span class="main" id="move">+0.0 ft over 3h</span><span class="sub" id="age">Example reading · checked 12 minutes ago.</span><span class="sub" id="moving" hidden>Water already released may still be moving downstream</span></div>
+        <div class="row withheld"><span class="k">Float time, Access A to C</span><span class="big">Time unavailable</span><span class="sub">A release may change the current during your trip. Eddy does not yet have a reliable travel-time estimate for this stretch. Check current release information before planning.</span></div>
         <p class="fine">Eddy shows a signed number, never "rising" or "steady", and never an all-clear. The plan-card sentence is the iOS app's; the website and chat carry the same rule.</p>
       </div>
     </section>
@@ -231,23 +322,23 @@ svg.ch { display: block; width: 100%; height: auto; }
 
   <div class="why">
     <section class="card-panel">
-      <h3>The usual ladder flips</h3>
-      <p>Too Low to Flood is a float verdict. Below a dam the meanings invert, so Eddy does not color a tailwater with condition colors at all.</p>
+      <h3>Why there is no condition color</h3>
+      <p>Dam releases change depth and current in ways that Eddy’s usual river ratings do not capture. Eddy shows release information without assigning a floatability color.</p>
       <div class="states">
-        <div class="state"><b>Minimum release</b>Best wading on the river. Not floatable.</div>
-        <div class="state"><b>One unit</b>Ends wading. Good floating water.</div>
-        <div class="state"><b>Full generation</b>Dangerous to stand in, not "dangerous" to float.</div>
+        <div class="state"><b>Minimum release</b>Lower water. Conditions still vary by location.</div>
+        <div class="state"><b>One unit</b>A release can bring deeper, faster water.</div>
+        <div class="state"><b>Full generation</b>Stronger current. This is not a safety rating.</div>
       </div>
     </section>
     <section class="card-panel">
-      <h3>A number, not a word</h3>
+      <h3>See how much the water changed</h3>
       <div class="figure">8 ft</div>
       <p>The tailwater swings about 8 feet from idle to full generation (Table Rock 8.19 ft, Bull Shoals 7.67 ft, measured August 12, 2026). A week of hourly data showed no threshold that separates "rising" from "steady", so Eddy prints "+2.1 ft over 3h" and lets you judge.</p>
     </section>
     <section class="card-panel">
       <h3>Why not a wider range?</h3>
-      <div class="figure">Too long</div>
-      <p>A time worked out at idle flow is too long, so it looks cautious. In fact it tells you that you have hours of daylight on water that is about to rise under you. Eddy will only quote one once it knows when a release reaches each access, which it plans to measure, not assume.</p>
+      <div class="figure">Timing matters</div>
+      <p>A wider estimate still cannot tell you when a release will reach your stretch. Until that timing is understood, a single trip duration could give you the wrong picture of the day ahead.</p>
     </section>
   </div>
 
@@ -326,7 +417,7 @@ function buildChart() {
 }
 
 // ---- state -------------------------------------------------------------------------------------
-const S = { t: 0, playing: !reduce, launch: 300 };
+const S = { t: 0, playing: false, launch: 300 };
 function canoeAt(t) {
   if (t < S.launch) return null;
   let mile = 2, tt = S.launch;
@@ -337,6 +428,7 @@ function render() {
   const t = S.t;
   $("clock").textContent = fmt(t);
   $("scrub").value = Math.round(t);
+  $("scrub").setAttribute("aria-valuetext", fmt(t));
   segs.forEach((s) => {
     const f = fracAt(s.mile, t);
     s.p.setAttribute("stroke-width", (16 + 30 * f).toFixed(1));
@@ -347,6 +439,10 @@ function render() {
   if (t >= GEN_ON && frontMile <= MILES) { const x = xOf(frontMile), y = yOf(x); frontLine.setAttribute("x1", x); frontLine.setAttribute("x2", x); frontLine.setAttribute("y1", y - 34); frontLine.setAttribute("y2", y + 34); frontLine.style.display = ""; }
   else frontLine.style.display = "none";
   stamps.forEach((s) => { const ft = stageAt(s.mile, t), ago = stageAt(s.mile, t - 180); const dlt = ft - ago; s.r.textContent = `${Math.round(cfsAt(s.mile, t)).toLocaleString()} cfs \u00b7 ${dlt >= 0 ? "+" : "\u2212"}${Math.abs(dlt).toFixed(1)} ft over 3h`; });
+  $("vx-access-list").innerHTML = ACCESS.map(([name, mile, color]) => {
+    const change = stageAt(mile,t)-stageAt(mile,t-180);
+    return `<div><b style="--access-color:${color}">Access ${name}<small>Mile ${mile}</small></b><span>${Math.round(cfsAt(mile,t)).toLocaleString()} cfs<small>${change >= 0 ? '+' : '−'}${Math.abs(change).toFixed(1)} ft over 3h</small></span></div>`;
+  }).join('');
   // canoe
   const c = canoeAt(t);
   if (c && !(c.done && t > c.arrive + 40)) { const x = xOf(c.mile), y = yOf(x); canoe.setAttribute("x", x - 27); canoe.setAttribute("y", y - 30); } else canoe.setAttribute("x", -100);
@@ -361,9 +457,9 @@ function render() {
   // callout
   const co = $("callout");
   let msg = "", warn = false;
-  if (!c) msg = t < GEN_ON ? `<b>Idle release, ${IDLE} cfs.</b> Clear, shallow and slow. The best wading of the day, and too thin to float well.` : `<b>Release on.</b> The water at each access rises in turn, later the farther it is from the dam.`;
+  if (!c) msg = t < GEN_ON ? `<b>Idle release, ${IDLE} cfs.</b> The example river is at its lower release level. This does not establish a safe time to launch or wade.` : `<b>Release on.</b> The water at each access rises in turn, later the farther it is from the dam.`;
   else if (c.done) msg = `<b>Off the water at Access C, ${fmt(c.arrive)}.</b> ${S.launch < GEN_ON ? "Faster than the idle-flow estimate, because the release caught up. Faster here meant pushier, deeper water than you launched on." : "On generation water from start to finish."}`;
-  else { const f = fracAt(c.mile, t); if (f > 0.05 && S.launch < GEN_ON) { warn = true; msg = `<b>The release has caught the canoe at mile ${c.mile.toFixed(1)}.</b> Launched on ${IDLE} cfs; now on about ${Math.round(cfsAt(c.mile, t)).toLocaleString()} cfs. Any time quoted at launch is now wrong.`; } else msg = `<b>Floating at mile ${c.mile.toFixed(1)}</b> on ${Math.round(cfsAt(c.mile, t)).toLocaleString()} cfs.${S.launch < GEN_ON ? " The schedule says 3 PM at the dam. Nobody has measured when that water reaches you." : ""}`; }
+  else { const f = fracAt(c.mile, t); if (f > 0.05 && S.launch < GEN_ON) { warn = true; msg = `<b>The release has caught the canoe at mile ${c.mile.toFixed(1)}.</b> Launched on ${IDLE} cfs; now on about ${Math.round(cfsAt(c.mile, t)).toLocaleString()} cfs. A launch-time estimate would miss this change.`; } else msg = `<b>Floating at mile ${c.mile.toFixed(1)}</b> on ${Math.round(cfsAt(c.mile, t)).toLocaleString()} cfs.${S.launch < GEN_ON ? " The schedule says 3 PM at the dam. Nobody has measured when that water reaches you." : ""}`; }
   co.innerHTML = msg; co.classList.toggle("warn", warn);
 }
 
@@ -379,9 +475,13 @@ $("restart").addEventListener("click", () => { S.t = 0; setPlaying(true); render
 $("scrub").addEventListener("input", (e) => { S.t = +e.target.value; setPlaying(false); render(); });
 $("launch").addEventListener("change", (e) => { S.launch = +e.target.value; render(); });
 buildRiver(); buildChart();
-if (reduce) S.t = 690;
+S.t = 0;
 setPlaying(S.playing);
 render();
 requestAnimationFrame(frame);
 })();
+</script>
+
+<script>
+document.getElementById("vx-page").addEventListener("change", (event) => { location.href = event.target.value; });
 </script>
