@@ -165,6 +165,10 @@ export default {
       {
         "label": "Caddo River Camping & Canoe Rental: public-access directions",
         "url": "https://caddoriver.com/contact"
+      },
+      {
+        "label": "American Whitewater: Caddo, Norman–Amity reach notes",
+        "url": "https://www.americanwhitewater.org/content/River/view/river-detail/91/main"
       }
     ],
     "checked_at": "2026-10-11",

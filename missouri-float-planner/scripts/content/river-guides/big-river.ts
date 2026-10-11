@@ -5,7 +5,7 @@ export default {
   "title": "Big River Float Trip Guide: Washington State Park & Day Floats",
   "description": "A relaxed Big River day starts around Washington State Park: long pools, short riffles, and a little history after the take-out.",
   "river_slug": "big-river",
-  "featured_image_url": "https://commons.wikimedia.org/wiki/Special:FilePath/Cedar_Hill_Dam_on_Big_River_in_Missouri.JPG?width=1280",
+  "featured_image_url": "https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy%20the%20otter%20in%20a%20cool%20canoe.png",
   "read_time_minutes": 5,
   "guide_data": {
     "hero": {
@@ -13,7 +13,7 @@ export default {
       "title_top": "Big River",
       "title_accent": "Float Trip Guide.",
       "lede": "Pair a Washington State Park visit with a few miles on the Big River, or head downstream from Mammoth for a longer day among wooded bends.",
-      "photo_url": "https://commons.wikimedia.org/wiki/Special:FilePath/Cedar_Hill_Dam_on_Big_River_in_Missouri.JPG?width=1280",
+      "photo_url": "",
       "mile_stats": [
         {
           "label": "Region",
@@ -27,15 +27,7 @@ export default {
           "label": "In this guide",
           "value": "3 float routes"
         }
-      ],
-      "photo_credit": {
-        "image_url": "https://commons.wikimedia.org/wiki/Special:FilePath/Cedar_Hill_Dam_on_Big_River_in_Missouri.JPG?width=1280",
-        "author": "Marcusscotus1",
-        "source_url": "https://commons.wikimedia.org/wiki/File:Cedar_Hill_Dam_on_Big_River_in_Missouri.JPG",
-        "license": "Public domain",
-        "license_url": "https://creativecommons.org/publicdomain/mark/1.0/",
-        "changes": "Cropped to fit"
-      }
+      ]
     },
     "intro_html": "<p><strong>Big River is for the group that wants a river day without turning the drive into an expedition.</strong> Around Washington State Park, the appeal is straightforward: wooded banks, room to paddle, and public accesses that let you choose a shorter outing. Bring lunch, leave time for the pools, and resist measuring the day by how fast you finish.</p><p>The park gives this float a second chapter. Its petroglyph sites and stone buildings are worth keeping some daylight for. Farther downriver, old mill dams change the route planning; the trips below stay in the Washington State Park–Brown’s Ford corridor rather than treating the whole river as one continuous beginner run.</p>",
     "why_different": [

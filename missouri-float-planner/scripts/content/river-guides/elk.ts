@@ -48,7 +48,7 @@ export default {
     "springs": [
       {
         "name": "Pineville city access",
-        "note": "Use the developed river access from Rhine Road and confirm parking before arranging the shuttle."
+        "note": "Pineville’s public boat launch is at 100 Conservation Lane, off Rhine Street. The city lists bathrooms here; check parking and current access before arranging the shuttle."
       },
       {
         "name": "Mount Shira Access",
@@ -151,6 +151,14 @@ export default {
       "primary_gauge": "Elk River at Noel · USGS 07188925"
     },
     "sources": [
+      {
+        "label": "City of Pineville: Elk River Access address and facilities",
+        "url": "https://pinevillemo.us/departments/parks-recreation/"
+      },
+      {
+        "label": "MDC: City of Pineville Elk River Access",
+        "url": "https://mdc.mo.gov/discover-nature/places/city-pineville-elk-river-access"
+      },
       {
         "label": "MDC: Mount Shira Access",
         "url": "https://mdc.mo.gov/discover-nature/places/mount-shira-access"

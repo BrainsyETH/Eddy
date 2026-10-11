@@ -55,7 +55,7 @@ export default {
         "miles": "7.7",
         "best": "A full day of scenery and fishing stops in the preserve corridor",
         "photo": null,
-        "body": "Set up a downstream take-out at Trigger Gap before launching at Rockhouse. Confirm the access arrangements at both ends, and leave room for stops on the way. This plan stays below the low-water crossings in the Marble–Marshall Ford reach."
+        "body": "Rockhouse is the AGFC public access just upstream of the preserve. Arrange the specific Trigger Gap landing, parking, and shuttle before launching. The outfitter describes a rapid at the finish; check its current condition and your take-out location before committing to the trip."
       }
     ],
     "springs": [],
@@ -86,7 +86,7 @@ export default {
     "pro_tips": [
       {
         "strong": "Treat the preserve as a guest visit.",
-        "body": "Follow current site guidance for day use, camping, and land access. A pretty gravel stop does not grant permission to go exploring inland."
+        "body": "The Nature Conservancy invites daytime exploration by river, but the preserve’s land is closed to the public and has no hiking trails. Keep the visit on the river corridor and follow posted access rules."
       },
       {
         "strong": "Do not swap upper and lower gauge assumptions.",
@@ -144,12 +144,12 @@ export default {
     },
     "sources": [
       {
-        "label": "The Nature Conservancy: Kings River Preserve",
+        "label": "The Nature Conservancy: Rockhouse access and preserve visitor rules",
         "url": "https://www.nature.org/en-us/get-involved/how-to-help/places-we-protect/kings-river/"
       },
       {
-        "label": "Trigger Gap Outfitters: landing and shuttle information",
-        "url": "https://triggergapoutfitters.com/"
+        "label": "Trigger Gap Outfitters: Rockhouse trip and finishing rapid",
+        "url": "https://triggergapoutfitters.com/float-trips/"
       },
       {
         "label": "USGS: station 07050500",

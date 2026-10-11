@@ -73,7 +73,7 @@ export default {
         "from": "Warren Bridge Access",
         "to": "Florence C. Cook Access",
         "miles": "7.7",
-        "best": "A separate lower reach ending at Flo Cook",
+        "best": "A separate lower reach ending at Florence C. Cook",
         "photo": null,
         "body": "Continue the lower-creek story from Warren Bridge to Florence C. Cook Access. Cook sits near the Norfork Lake end of the watershed; check how downstream backwater and current conditions affect the finish."
       }
@@ -101,7 +101,7 @@ export default {
       "Drinking water, food, sun protection, and a bag to pack out your trash.",
       "Secure footwear and a dry bag for essentials.",
       "A compact tackle kit for smallmouth water, with current fishing rules checked.",
-      "Saved directions for Warren Bridge or Flo Cook; phone reception is not a shuttle plan."
+      "Saved directions for Warren Bridge or Florence C. Cook; phone reception is not a shuttle plan."
     ],
     "pro_tips": [
       {
@@ -168,7 +168,7 @@ export default {
         "url": "https://www.floatmissouri.com/plan/missouri-rivers/bryant-creek/"
       },
       {
-        "label": "MDC: Flo Cook Access",
+        "label": "MDC: Florence C. Cook Access",
         "url": "https://mdc.mo.gov/discover-nature/places/flo-cook-access"
       },
       {

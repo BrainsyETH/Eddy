@@ -9,8 +9,8 @@ export default {
   "read_time_minutes": 4,
   "guide_data": {
     "hero": {
-      "eyebrow": "Spring River (Arkansas) · Arkansas",
-      "title_top": "Spring River (Arkansas)",
+      "eyebrow": "Spring River · Northern Arkansas",
+      "title_top": "Spring River",
       "title_accent": "Float Trip Guide.",
       "lede": "Visit the big spring on land, then choose your paddle downstream. The Arkansas Spring River changes character between Mammoth Spring and Hardy; the name alone doesn’t describe the trip.",
       "photo_url": "",

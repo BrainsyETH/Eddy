@@ -67,7 +67,7 @@ export default {
         "miles": "7.4",
         "best": "A wider lower-river outing for paddlers comfortable with open pools",
         "photo": null,
-        "body": "Rollins Ferry to Pointers Creek gives you a lower-Gasconade option with named public endpoints. Expect larger water and longer pools than on the upper river, and leave time to paddle if the wind turns against you. Use Jerome (USGS 06933500) for upstream context and check conditions locally at Rollins Ferry. Hazelgreen does not describe this lower reach."
+        "body": "Rollins Ferry to Pointers Creek gives you a lower-Gasconade option with named public endpoints. Expect larger water and longer pools than on the upper river, and leave time to paddle if the wind turns against you. Use Rich Fountain (USGS 06934000), near Rollins Ferry, for this lower reach’s water level and trend, then check the launch itself. A reading is not a floatability rating. Hazelgreen does not describe this lower reach."
       }
     ],
     "springs": [],
@@ -152,7 +152,7 @@ export default {
     "tldr": {
       "typical_distance": "7.2–7.4 mi featured routes",
       "best_for_beginners": "Both featured trips exceed seven miles; choose for paddling stamina and conditions, not a short-looking road shuttle.",
-      "primary_gauge": "Hazelgreen (06928000): upper-river context. Jerome (06933500): upstream context for Rollins Ferry, not an on-route reading.",
+      "primary_gauge": "Hazelgreen (06928000): upper-river context. Rich Fountain (06934000): local level and trend near Rollins Ferry; no calibrated floatability thresholds.",
       "gauge_label": "Gauge context"
     },
     "sources": [
@@ -181,8 +181,8 @@ export default {
         "url": "https://waterdata.usgs.gov/monitoring-location/06928000/"
       },
       {
-        "label": "USGS: Gasconade River at Jerome (06933500)",
-        "url": "https://waterdata.usgs.gov/monitoring-location/06933500/"
+        "label": "USGS: Gasconade near Rich Fountain (06934000)",
+        "url": "https://waterdata.usgs.gov/monitoring-location/USGS-06934000/"
       }
     ],
     "checked_at": "2026-10-11",

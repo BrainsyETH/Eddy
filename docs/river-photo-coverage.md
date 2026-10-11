@@ -21,7 +21,7 @@ not photographs of current conditions or necessarily of a featured route.
 
 | River | Article hero | Rights evidence |
 | --- | --- | --- |
-| Big River | Existing Cedar Hill Dam photo | Marcusscotus1; public-domain release on [file page](https://commons.wikimedia.org/wiki/File:Cedar_Hill_Dam_on_Big_River_in_Missouri.JPG), rechecked October 11 |
+| Big River | Eddy canoe artwork | Cedar Hill Dam has documented public-domain rights, but sits well below the featured routes. Excluded from the article and its cards because it misrepresents this guide’s setting. |
 | Bryant Creek | Existing creek photo | Missouri State Parks; public domain, per the September 16 file-specific review above; fresh page retrieval was unavailable |
 | James | Existing James River photo | Cold417; CC BY-SA 3.0, per the September 16 file-specific review above; fresh page retrieval was unavailable |
 | Spring River MO | Existing La Russell photo | Traveler7; public-domain release on [file page](https://commons.wikimedia.org/wiki/File:Spring_River,_La_Russell_Mo.JPG), rechecked October 11 |

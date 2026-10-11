@@ -104,7 +104,19 @@ drafts and scheduled posts. It rejects missing/inactive rivers, withdrawn
 endpoints, reversed routes, and route-mileage drift before inserting anything.
 It never overwrites existing articles. If drafts were imported, review and
 publish them through `/admin/blog`; rerunning with `--publish` will preserve
-those drafts rather than change their status. No schema migration is needed.
+those drafts rather than change their status. The article import needs no schema
+change. The companion data migration
+`20261011202743_river_guide_review_data_corrections.sql` is tracked as **pending**
+in `supabase/production-migrations.txt`: it links the existing Rich Fountain
+gauge as secondary/unrated, fixes Kelley’s Slab’s display name without changing
+its slug, and retires the obsolete Dawt Mill portage/chute record. Its retirement
+is not confirmation of safe navigation today. Apply that reviewed migration as
+part of the authorized database release, verify all three rows, then record the
+actual production version in the ledger and run `make check-db`.
+
+The shared heading correction also renders full river names in the seven
+existing published guides (for example, “Today on the Current River”). Their
+stored article content and permanent URLs are preserved.
 
 Once published, posts appear in the existing web blog. The native app has a
 free **Today → River guides** browser and a matching link on each river detail
