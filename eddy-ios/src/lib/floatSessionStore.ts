@@ -28,6 +28,8 @@ import type { FloatSession } from './floatSession';
 import { createFloatSessionStore, type BeginResult } from './floatSessionStoreCore';
 import { reminderCopy, type DueReminder, type FloatReminderSettings } from './floatReminders';
 import { warn } from './monitoring';
+import { syncFloatActivity } from '../float/liveActivity';
+import { createFloatActivityLifecycle } from './floatActivity';
 
 /**
  * A reminder is a local notification: scheduled on the phone, so it needs no
@@ -57,10 +59,11 @@ async function deliverReminders(due: DueReminder[]): Promise<string[]> {
 }
 
 const store = createFloatSessionStore(AsyncStorage, (message, detail) => warn('float', message, detail), deliverReminders);
+const activityLifecycle = createFloatActivityLifecycle(store, syncFloatActivity);
 
 /** Read the stored float once per process. Then read it with getFloatSession(). */
 export function ensureFloatSessionLoaded(): Promise<void> {
-  return store.ensureLoaded();
+  return activityLifecycle.ensureLoaded();
 }
 
 /** The current session: always this, never a value remembered from a load. */
@@ -74,12 +77,13 @@ export function subscribeFloatSession(listener: () => void): () => void {
 
 /** Start a float. Not active until it is safely on disk. */
 export function beginFloat(next: FloatSession): Promise<BeginResult> {
-  return store.begin(next);
+  return activityLifecycle.begin(next);
 }
 
 /** Feed GPS fixes, in time order, from the screen or a background task. */
 export function recordFixes(fixes: readonly PositionFix[], now = Date.now()): void {
   store.record(fixes, now);
+  void syncFloatActivity(store.get());
 }
 
 /** Write any pending change now; call when the app is leaving the foreground. */
@@ -94,7 +98,7 @@ export function flushFloatSessionIfStale(minIntervalMs: number): Promise<void> {
 
 /** End the float and forget it. Tracking stops because nothing is active. */
 export function endFloat(): Promise<boolean> {
-  return store.end();
+  return activityLifecycle.end();
 }
 
 /** Change the active float's reminders. */
