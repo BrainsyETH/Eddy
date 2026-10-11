@@ -717,12 +717,13 @@ export default function GaugeDetailScreen() {
                 crest is muted context; cold water is safety information, so it
                 reads at full strength without borrowing the alarm red. */}
             {recordLine ? <Text style={[styles.caveat, { color: colors.textMuted }]}>{recordLine}</Text> : null}
+            {rated && peakLine ? <Text style={[styles.caveat, { color: colors.textMuted }]}>{peakLine}</Text> : null}
             {crestLine ? <Text style={[styles.caveat, { color: colors.text }]}>{crestLine}</Text> : null}
             {coldLine ? <Text style={[styles.caveat, { color: colors.text }]}>{coldLine}</Text> : null}
-            {/* Keep suspect-reading warnings; routine provisional notes live
-                in chart details rather than the current-reading card. */}
-            {gauge.readingSuspect && gauge.qualifierNote ? (
-              <Text style={[styles.caveat, { color: colors.error }]}>
+            {/* Preserve Eddy-rated cards. Unrated cards omit routine provisional
+                notes but still show suspect-reading warnings. */}
+            {(rated || gauge.readingSuspect) && gauge.qualifierNote ? (
+              <Text style={[styles.caveat, { color: gauge.readingSuspect ? colors.error : colors.textMuted }]}>
                 {gauge.qualifierNote}
               </Text>
             ) : null}
@@ -753,7 +754,7 @@ export default function GaugeDetailScreen() {
           <GaugeChart
             siteId={gauge.siteId}
             title={gauge.name}
-            recentSummary={peakLine}
+            recentSummary={!rated ? peakLine : null}
             provider={gauge.provider}
             unit={unit ?? 'cfs'}
             thresholds={rated ? link : null}
