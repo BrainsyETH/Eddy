@@ -301,6 +301,40 @@ just draws it. The source art in `remotion/public/eddy` is video resolution
 (~700 KB each); `assets/otter/` holds 300px copies, which took the set from
 4.58 MB to 193 KB.
 
+### Floats discovery controls
+
+The Floats hub leads with Find a Float, followed by Plan a Float and Start
+Float. An active trip gets the leading Resume action. Vessel choices use four
+labelled SVG glyphs (canoe, kayak, raft, tube), semantic theme colors, and a
+checkmark as well as color for selection. Large text reflows the choices.
+Utility actions keep native SF Symbols through `ControlIcon`.
+
+Find a Float separates Nearby and By river, with native page sheets for town
+and river selection, a native radius menu, and a half-hour-step system slider.
+The slider uses `@react-native-community/slider`; this requires a new native
+binary, not an OTA on the previous runtime. The search footer uses the screen's
+native bottom safe area so tab-bar clearance is not a guessed pixel height.
+Estimate info is available in the finder, result cards, and planner. It explains
+published timings and modeled times without claiming that every estimate is
+calculated directly from CFS. More filters currently contains the existing
+public-access option; camping, amenities, and river-distance filters are not
+part of this UI change.
+
+Saved cards show a cached endpoint thumbnail, then a river photo from the
+existing index cache, then the Eddy canoe. Featured cards also reuse cached
+river photos when their editorial photo is absent. One cache read per screen
+avoids per-card API requests; a missing or failed cache leaves the fallback.
+New saves retain the photo URL; older saves gain one on their next successful
+online open. A refresh without imagery retains the prior photo. Images use
+`ScenicImage` at thumbnail size and never block opening a saved route. Removing
+a save is in the native options menu with confirmation. Time estimates and
+conditions remain absent from saved cards.
+
+Device QA for this layout remains required: light/dark, maximum Dynamic Type,
+VoiceOver slider adjustments, keyboard and sheet dismissal, footer clearance
+above native tabs, return from the planner with scroll restored, photo failure
+offline, rapid repeat route taps, and cancel/confirm removal.
+
 ## Condition colours and labels
 
 Import them from `@eddy/conditions` via `src/theme/conditions.ts`. Never
