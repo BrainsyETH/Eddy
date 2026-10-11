@@ -19,6 +19,7 @@ import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
 import { EddyScene } from '@/components/EddyScene';
 import { useSavedFloats } from '@/hooks/useSavedFloats';
+import { useCachedRiverPhotos } from '@/hooks/useCachedRiverPhotos';
 import { SavedFloatRow } from '@/components/SavedFloatRow';
 import { newPlanRequest } from '@/lib/planRequest';
 import { useOfflineBadges } from '@/float/useOfflineBadges';
@@ -26,6 +27,7 @@ import { useAppConfig } from '@/hooks/useAppConfig';
 
 export default function SavedFloatsScreen() {
   const { floats, ready, forget } = useSavedFloats();
+  const photos = useCachedRiverPhotos();
   const { features } = useAppConfig();
   const offline = useOfflineBadges(floats.map((item) => item.shortCode), features.floatMode);
   const { colors, elevation } = useTheme();
@@ -73,6 +75,7 @@ export default function SavedFloatsScreen() {
         renderItem={({ item }) => (
           <SavedFloatRow
             float={item}
+            riverPhotoUrl={photos.get(item.riverSlug)}
             offline={offline.get(item.shortCode)}
             onOpen={() => router.push(`/float/${item.shortCode}`)}
             onForget={() => forget(item.shortCode)}

@@ -38,6 +38,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { FloatPlan } from '@eddy/types';
 import { savedFloatLogistics, type SavedFloatLogistics } from '@/lib/savedFloatLogistics';
 import { createStorageQueue } from '@/lib/storageQueue';
+import { savedFloatPhoto } from '@/lib/floatPresentation';
 
 const STORAGE_KEY = 'eddy.savedFloats.v1';
 
@@ -67,6 +68,8 @@ export interface SavedFloat {
   /** Rendered straight from the plan, so the list matches what was saved. */
   distanceLabel: string;
   savedAt: string;
+  /** Optional so existing saves stay readable. A cached endpoint photo only. */
+  photoUrl?: string;
   logistics?: SavedFloatLogistics;
 }
 
@@ -159,6 +162,7 @@ export function SavedFloatsProvider({ children }: { children: ReactNode }) {
       putInName: plan.putIn.name, takeOutName: plan.takeOut.name,
       putInId: plan.putIn.id, takeOutId: plan.takeOut.id,
       distanceLabel: plan.distance.formatted, savedAt: new Date().toISOString(),
+      photoUrl: savedFloatPhoto(plan, previous?.photoUrl),
       logistics: savedFloatLogistics(plan, undefined, previous?.logistics),
     };
     persist([entry, ...floatsRef.current.filter((f) => f.shortCode !== entry.shortCode && !matchesPlan(f, plan))].slice(0, MAX_ENTRIES));
@@ -177,6 +181,7 @@ export function SavedFloatsProvider({ children }: { children: ReactNode }) {
     if (epoch.current !== revision || !floatsRef.current.some((f) => f.shortCode === shortCode)) return;
     persist(floatsRef.current.map((f) => f.shortCode === shortCode ? {
       ...f, logistics: savedFloatLogistics(plan, undefined, f.logistics),
+      photoUrl: savedFloatPhoto(plan, f.photoUrl),
       riverName: plan.river.name, riverSlug: plan.river.slug,
       putInName: plan.putIn.name, takeOutName: plan.takeOut.name,
       putInId: plan.putIn.id, takeOutId: plan.takeOut.id, distanceLabel: plan.distance.formatted,

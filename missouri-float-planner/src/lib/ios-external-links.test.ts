@@ -63,7 +63,7 @@ test('two failed opens show one error and release the guard so the user can retr
   assert.deepEqual(h.errors, [unavailable]);
   fails = false;
   await open('https://example.com');
-  assert.deepEqual(h.browser, ['https://example.com']);
+  assert.deepEqual(h.browser, ['https://example.com/']);
   assert.equal(h.errors.length, 1);
 });
 
@@ -112,5 +112,98 @@ test('invalid URLs report a failure without opening anything; surrounding whites
   assert.deepEqual(h.browser, []);
   assert.deepEqual(h.system, []);
   await open('  https://example.com  ');
-  assert.deepEqual(h.browser, ['https://example.com']);
+  assert.deepEqual(h.browser, ['https://example.com/']);
+});
+
+test('web browser and fallback receive the parsed URL, including encoded spaces and Unicode', async () => {
+  const h = harness();
+  const attempted: string[] = [];
+  h.handlers.openBrowser = async (url) => { attempted.push(url); throw new Error('Cannot present'); };
+  const open = createExternalLinkOpener(h.handlers);
+  const input = ' HTTPS://EXAMPLE.COM:443/café guide?name=Big Spring#the map ';
+  const expected = 'https://example.com/caf%C3%A9%20guide?name=Big%20Spring#the%20map';
+  await open(input);
+  assert.deepEqual(attempted, [expected]);
+  assert.deepEqual(h.system, [expected]);
+});
+
+test('a supported Recreation.gov booking opens its app without presenting either browser', async () => {
+  const h = harness();
+  const app: string[] = [];
+  const open = createExternalLinkOpener({ ...h.handlers, openBookingApp: async (url) => { app.push(url); return true; } });
+  const urls = [
+    'https://www.recreation.gov/camping/campsites/123?start=2026-10-12&end=2026-10-14#details',
+    'https://recreation.gov/camping/campgrounds/234/',
+  ];
+  for (const url of urls) await open(url);
+  assert.deepEqual(app, urls);
+  assert.deepEqual(h.browser, []);
+  assert.deepEqual(h.system, []);
+});
+
+test('no installed app, an unhandled URL or a missing native module all use the in-app browser', async () => {
+  const url = 'https://www.recreation.gov/camping/campsites/123';
+  for (const outcome of ['unhandled', 'missing-module'] as const) {
+    const h = harness();
+    const open = createExternalLinkOpener({ ...h.handlers, openBookingApp: async () => {
+      if (outcome === 'missing-module') throw new Error('Missing native module');
+      return false;
+    } });
+    await open(url);
+    assert.deepEqual(h.browser, [url]);
+    assert.deepEqual(h.system, []);
+    assert.deepEqual(h.errors, []);
+  }
+});
+
+test('only exact HTTPS Recreation.gov booking URLs attempt an app handoff', async () => {
+  const h = harness();
+  const app: string[] = [];
+  const open = createExternalLinkOpener({ ...h.handlers, openBookingApp: async (url) => { app.push(url); return true; } });
+  const urls = [
+    'https://www.recreation.gov/articles/story',
+    'https://www.recreation.gov/camping/campsites',
+    'https://www.recreation.gov/camping/campsites/123/other',
+    'http://www.recreation.gov/camping/campsites/123',
+    'https://www.recreation.gov.example.com/camping/campsites/123',
+    'https://www.recreation.gov@evil.example/camping/campsites/123',
+    'https://example.com@www.recreation.gov/camping/campsites/123',
+    'https://www.recreation.gov:8443/camping/campsites/123',
+    'https://eddy.guide/blog/current-river-guide',
+    'https://icampmo.com/book',
+  ];
+  for (const url of urls) await open(url);
+  assert.deepEqual(app, []);
+  assert.deepEqual(h.browser, urls);
+});
+
+test('rapid booking taps share the guard while an app handoff is pending', async () => {
+  const h = harness();
+  let complete!: (opened: boolean) => void;
+  const app: string[] = [];
+  const open = createExternalLinkOpener({ ...h.handlers, openBookingApp: (url) => {
+    app.push(url);
+    return new Promise<boolean>(resolve => { complete = resolve; });
+  } });
+  const url = 'https://www.recreation.gov/camping/campsites/123';
+  const first = open(url);
+  await open(url);
+  await open('https://example.com/while-pending');
+  assert.deepEqual(app, [url]);
+  assert.deepEqual(h.browser, []);
+  complete(true);
+  await first;
+  await open('https://example.com/after-returning');
+  assert.deepEqual(h.browser, ['https://example.com/after-returning']);
+});
+
+test('booking app failure still permits system-browser fallback and a later retry', async () => {
+  const h = harness();
+  h.handlers.openBrowser = async () => { throw new Error('Cannot present'); };
+  const open = createExternalLinkOpener({ ...h.handlers, openBookingApp: async () => false });
+  const url = 'https://www.recreation.gov/camping/campsites/123';
+  await open(url);
+  await open(url);
+  assert.deepEqual(h.system, [url, url]);
+  assert.deepEqual(h.errors, []);
 });

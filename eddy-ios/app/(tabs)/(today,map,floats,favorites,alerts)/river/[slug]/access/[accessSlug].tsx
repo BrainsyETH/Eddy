@@ -1,3 +1,4 @@
+import { serviceContactActions } from '@/lib/serviceContactActions';
 import { openExternalLink } from '@/lib/openExternalLink';
 import { ScenicImage } from '@/components/ScenicImage';
 // eddy-ios/app/river/[slug]/access/[accessSlug].tsx
@@ -310,6 +311,7 @@ function GaugeCard({ status, onOpen }: { status: AccessPointGaugeStatus; onOpen:
 
 function ServiceRow({ service }: { service: NearbyService }) {
   const { colors, elevation } = useTheme();
+  const website = serviceContactActions({ website: service.website }).find(action => action.label === 'Website')?.url;
   const meta = [service.distance, service.notes].filter(Boolean).join(' · ');
 
   return (
@@ -341,9 +343,9 @@ function ServiceRow({ service }: { service: NearbyService }) {
           <Ionicons name="call-outline" size={19} color={colors.interactive} />
         </Pressable>
       ) : null}
-      {service.website ? (
+      {website ? (
         <Pressable
-          onPress={() => void openExternalLink(service.website!)}
+          onPress={() => void openExternalLink(website)}
           hitSlop={8}
           accessibilityRole="button"
           accessibilityLabel={`Open ${service.name} website`}

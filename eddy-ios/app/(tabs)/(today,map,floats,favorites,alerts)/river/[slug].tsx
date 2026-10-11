@@ -1,3 +1,4 @@
+import { serviceContactActions } from '@/lib/serviceContactActions';
 import { openExternalLink } from '@/lib/openExternalLink';
 // eddy-ios/app/river/[slug].tsx
 // One river: what it's doing right now, what could hurt you, and where to get on.
@@ -301,6 +302,7 @@ function AccessRow({ point, riverSlug }: { point: MapAccessPoint; riverSlug: str
  */
 function ServiceRow({ service }: { service: RiverService }) {
   const { colors, elevation } = useTheme();
+  const website = serviceContactActions({ website: service.website }).find(action => action.label === 'Website')?.url;
 
   return (
     <View style={[styles.serviceRow, { backgroundColor: colors.card }, elevation(1)]}>
@@ -341,9 +343,9 @@ function ServiceRow({ service }: { service: RiverService }) {
           <ControlIcon name="call-outline" size={19} color={colors.interactive} />
         </Pressable>
       ) : null}
-      {service.website ? (
+      {website ? (
         <Pressable
-          onPress={() => void openExternalLink(service.website!)}
+          onPress={() => void openExternalLink(website)}
           hitSlop={10}
           accessibilityRole="button"
           accessibilityLabel={`Open ${service.name} website`}

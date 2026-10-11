@@ -1,0 +1,66 @@
+import { Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import { FLOAT_BOATS, type FloatBoat } from '@eddy/conditions/float-search';
+import { VesselIcon } from './VesselIcon';
+import { ControlIcon } from './ControlIcon';
+import { useTheme } from '@/theme/ThemeProvider';
+import { fonts, type as t } from '@/theme/typography';
+
+export function VesselPicker({
+  value,
+  onChange,
+}: {
+  value: FloatBoat;
+  onChange: (vessel: FloatBoat) => void;
+}) {
+  const { colors } = useTheme();
+  const { fontScale, width } = useWindowDimensions();
+  const columns = fontScale > 1.8 ? 1 : fontScale > 1.15 || width < 360 ? 2 : 4;
+  return (
+    <View style={styles.options} accessibilityRole="radiogroup" accessibilityLabel="Vessel">
+      {FLOAT_BOATS.map((vessel) => {
+        const selected = value === vessel;
+        const ink = selected ? colors.selectionText : colors.textMuted;
+        return (
+          <Pressable
+            key={vessel}
+            onPress={() => onChange(vessel)}
+            accessibilityRole="radio"
+            accessibilityLabel={vessel[0].toUpperCase() + vessel.slice(1)}
+            accessibilityState={{ checked: selected }}
+            style={({ pressed }) => [
+              styles.option,
+              {
+                width: columns === 4 ? '23%' : columns === 2 ? '48%' : '100%',
+                backgroundColor: selected ? colors.selectionBg : colors.bg,
+                borderColor: selected ? colors.interactive : colors.border,
+                opacity: pressed ? 0.7 : 1,
+              },
+            ]}
+          >
+            <VesselIcon vessel={vessel} color={ink} />
+            <Text style={[styles.label, { color: ink }]}>{vessel[0].toUpperCase() + vessel.slice(1)}</Text>
+            {selected ? (
+              <View style={styles.check}>
+                <ControlIcon name="checkmark" size={11} color={ink} />
+              </View>
+            ) : null}
+          </Pressable>
+        );
+      })}
+    </View>
+  );
+}
+const styles = StyleSheet.create({
+  options: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', rowGap: 8 },
+  option: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    minHeight: 82,
+    padding: 10,
+    borderWidth: 1,
+    borderRadius: 12,
+  },
+  label: { ...t.sm, fontFamily: fonts.semibold },
+  check: { position: 'absolute', top: 5, right: 5 },
+});

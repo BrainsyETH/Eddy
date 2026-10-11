@@ -86,6 +86,12 @@ android/
 !/eddy-ios/modules/eddy-style-pack/ios/EddyStylePack.podspec
 !/eddy-ios/modules/eddy-style-pack/ios/EddyStylePackModule.swift
 
+# App-only booking handoff; admit only its handwritten native source.
+!/eddy-ios/modules/eddy-links/ios/
+/eddy-ios/modules/eddy-links/ios/*
+!/eddy-ios/modules/eddy-links/ios/EddyLinks.podspec
+!/eddy-ios/modules/eddy-links/ios/EddyLinksModule.swift
+
 # ActivityKit bridge and shared attributes; widget templates live outside ios/.
 !/eddy-ios/modules/eddy-live-activity/ios/
 /eddy-ios/modules/eddy-live-activity/ios/*
