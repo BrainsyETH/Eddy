@@ -14,6 +14,9 @@ const symbols: Partial<Record<NonNullable<Props['name']>, SFSymbol>> = {
   locate: 'location.fill', 'locate-outline': 'location',
   layers: 'square.3.layers.3d', 'layers-outline': 'square.3.layers.3d',
   search: 'magnifyingglass', 'search-outline': 'magnifyingglass', checkmark: 'checkmark',
+  'map-outline': 'map', 'navigate-outline': 'location.north',
+  'information-circle-outline': 'info.circle', 'ellipsis-horizontal': 'ellipsis',
+  'time-outline': 'clock', 'trash-outline': 'trash',
 };
 
 /** Native utility glyphs on iOS; preserve category artwork and other icons. */

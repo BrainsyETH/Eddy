@@ -6,6 +6,7 @@ import ts from 'typescript';
 import type { FloatPlan } from '@eddy/types';
 import { createPlanActions, planShareMessage } from '../../../eddy-ios/src/lib/planActions';
 import { createSavedFloatLoader, type SavedFloatLoadState } from '../../../eddy-ios/src/lib/savedFloatLoader';
+import { savedFloatPhoto } from '../../../eddy-ios/src/lib/floatPresentation';
 
 const link = { shortCode: 'float1', url: 'https://eddy.guide/float/float1' };
 const plan = {
@@ -15,6 +16,17 @@ const plan = {
   distance: { formatted: '9.5 mi' },
   floatTime: { formatted: '3–5 hours' },
 } as FloatPlan;
+
+test('saved float thumbnails prefer the put-in and retain a known photo on a sparse refresh', () => {
+  const putIn = 'https://www.nps.gov/put-in.jpg';
+  const takeOut = 'https://www.nps.gov/take-out.jpg';
+  const photographed = { ...plan, putIn: { ...plan.putIn, imageUrls: [putIn] }, takeOut: { ...plan.takeOut, imageUrls: [takeOut] } };
+  assert.equal(savedFloatPhoto(photographed), putIn);
+  assert.equal(savedFloatPhoto({ ...photographed, putIn: plan.putIn }), takeOut);
+  assert.equal(savedFloatPhoto(plan, putIn), putIn);
+  assert.equal(savedFloatPhoto(plan), undefined, 'old saves need no photo to remain readable');
+  assert.equal(savedFloatPhoto({ ...plan, putIn: { ...plan.putIn, imageUrls: ['', 'not-a-url'] } }), undefined);
+});
 
 function deferred<T>() {
   let resolve!: (value: T) => void;

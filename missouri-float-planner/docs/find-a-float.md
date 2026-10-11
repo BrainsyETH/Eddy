@@ -11,7 +11,7 @@ Set these server environment variables on the intended Vercel environment and re
 | `FLOAT_SEARCH_ENABLED` | Web header (desktop and mobile) and active river-page button | Live benchmarks and service configuration checks |
 | `FLOAT_SEARCH_IOS_ENABLED` | Production iOS Floats-tab and river-page buttons, via `/api/app-config` → `features.floatSearch` | Endpoints are live and native device checks pass |
 
-The switches are independent, so web can launch while production iOS stays unlisted. In production and unidentified builds, the native flag defaults off on missing/failed configuration and refreshes through the existing startup/foreground app-config flow, subject to its cache. Development and EAS preview builds show search even when that flag is off or config is unavailable. These builds still call the configured backend (currently `https://eddy.guide`), so a Vercel Preview environment setting does not change their backend. No schema migration or native dependency is needed. The web river link lives in the canonical river guide page, not the unused legacy `RiverHeader` component.
+The switches are independent, so web can launch while production iOS stays unlisted. In production and unidentified builds, the native flag defaults off on missing/failed configuration and refreshes through the existing startup/foreground app-config flow, subject to its cache. Development and EAS preview builds show search even when that flag is off or config is unavailable. These builds still call the configured backend (currently `https://eddy.guide`), so a Vercel Preview environment setting does not change their backend. No schema migration is needed. The iOS discovery refresh adds the native time slider, so it requires a fresh iOS binary rather than an OTA-only update. The web river link lives in the canonical river guide page, not the unused legacy `RiverHeader` component.
 
 These are discovery switches, not authorization or API shutdown switches. Direct page/app links and both POST endpoints remain reachable for QA with the existing rate limits. Use development/preview iOS builds or direct links while production stays unlisted. Changing a Vercel environment variable requires a deployment; this is not an instant runtime kill switch.
 
@@ -25,7 +25,7 @@ Matches rank before alternatives. Within matches: ordinary conditions before con
 
 Screening continues to exclude `too_low`, `high`, and `dangerous`, including positioned gauges within the route. Full route checks remove `not_recommended` results. Unknown/low readings can survive with the existing assessment's caution labels and typical-estimate basis. Closures and hazards use the existing recommendation checks.
 
-Variety is a preference: reuse the existing overlap/put-in/reach selection, prefer at most two picks per river, then backfill. Selecting a river disables the river cap and the radius filter. Location still supplies geographic distance to the launch, and both apps disable the radius control with an explanation.
+Variety is a preference: reuse the existing overlap/put-in/reach selection, prefer at most two picks per river, then backfill. Selecting a river disables the river cap and the radius filter. Location still supplies geographic distance to the launch. The web disables the radius control with an explanation; iOS separates Nearby and By river and only shows a radius in Nearby.
 
 ## Bounded API
 
@@ -59,7 +59,7 @@ Regression coverage includes Cedar Grove → Akers surviving a five-hour shortli
 
 Release smoke check on iOS: allow/deny location; select a town and a river; search with each boat; open a result; close the planner and confirm the results/scroll/boat are restored. The native production bundle is checked without Apple credentials; device permission dialogs require a simulator or device.
 
-Additional release checks: edit the take-out of a tube plan and confirm the boat label remains Tube; return after 30 minutes or background/foreground the app and confirm expired cards require a new search while preserving inputs; select a distant river and confirm radius is disabled and distances remain visible. Live preview timing and the native permission/navigation smoke check are separate from fixture tests.
+Additional release checks: edit the take-out of a tube plan and confirm the vessel label remains Tube; return after 30 minutes or background/foreground the app and confirm expired cards require a new search while preserving inputs; select a distant river and confirm radius is disabled on web and hidden in iOS By river. Live preview timing and the native permission/navigation smoke check are separate from fixture tests.
 
 Before enabling public discovery:
 

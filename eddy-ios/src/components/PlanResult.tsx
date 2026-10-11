@@ -220,7 +220,7 @@ export function PlanResult({ plan, verification, actions, accessPoints, header, 
         )}
         </CurrentPlanValue>
 
-        {plan.vessel?.name ? <Text style={[styles.headlineNote, { color: colors.textSubtle }]}>Boat: {plan.vessel.name}</Text> : null}
+        {plan.vessel?.name ? <Text style={[styles.headlineNote, { color: colors.textSubtle }]}>Vessel: {plan.vessel.name}</Text> : null}
 
         {plan.river.floatTip ? <Text style={[styles.headlineNote, { color: colors.textSubtle }]}>{plan.river.floatTip}</Text> : null}
       </View>
