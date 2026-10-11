@@ -145,3 +145,45 @@ test('what a moderator reads, and ids that are valid UUIDs', () => {
   for (let i = 0; i < 50; i += 1) assert.match(newReportId(), uuid);
   assert.notEqual(newReportId(), newReportId());
 });
+
+test('a report is never sent before it is saved, and a failed save rolls back nothing else', async () => {
+  // The reviewer's race: report B is added while report A is being sent. B's
+  // save is slow and then fails. B must never be sent, and A must keep its
+  // "sent" status.
+  const data = new Map<string, string>();
+  let releaseB: (() => void) | null = null;
+  const storage: ReportStorage = {
+    async getItem(key) { return data.get(key) ?? null; },
+    async setItem(key, value) {
+      if (value.includes('"id":"B"') && !value.includes('"status":"sent"')) {
+        await new Promise<void>((resolve) => { releaseB = resolve; });
+        throw new Error('disk full');
+      }
+      data.set(key, value);
+    },
+  };
+  const sent: string[] = [];
+  let finishA: (() => void) | null = null;
+  const queue = createReportQueue(storage, async (report) => {
+    sent.push(report.id);
+    if (report.id === 'A') await new Promise<void>((resolve) => { finishA = resolve; });
+    return { kind: 'sent' };
+  }, () => {}, () => T0);
+
+  await queue.add(input('A'));
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  assert.deepEqual(sent, ['A']);
+  // A is in flight; B is added and its save hangs.
+  const addingB = queue.add(input('B'));
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  assert.equal(queue.list().some((r) => r.id === 'B'), false, 'not visible before it is on disk');
+  finishA!();
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  releaseB!();
+  await assert.rejects(addingB);
+  await queue.flush();
+  assert.deepEqual(sent, ['A'], 'B was never sent');
+  assert.deepEqual(queue.list().map((r) => [r.id, r.status]), [['A', 'sent']]);
+  const stored = JSON.parse(data.get(REPORTS_KEY)!) as HazardReport[];
+  assert.deepEqual(stored.map((r) => [r.id, r.status]), [['A', 'sent']]);
+});

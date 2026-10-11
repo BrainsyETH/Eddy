@@ -7,11 +7,11 @@
 // plainly when notifications are off, because a reminder that silently never
 // arrives is worse than none.
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Linking, Pressable, StyleSheet, Switch, Text, View } from 'react-native';
 import * as Notifications from 'expo-notifications';
 import { setFloatReminders } from '@/lib/floatSessionStore';
-import type { FloatSession } from '@/lib/floatSession';
+import { indexRoute, type FloatSession } from '@/lib/floatSession';
 import {
   STOP_LEAD_MILES,
   TAKE_OUT_LEAD_MILES,
@@ -28,7 +28,13 @@ export function FloatReminders({ session }: { session: FloatSession }) {
   const { colors } = useTheme();
   const settings = remindersOf(session);
   const fired = new Set(settings.fired);
-  const stops = reminderStops(session);
+  const pending = new Set(settings.pending ?? []);
+  // The same calibrated line the reminders are measured on.
+  const stops = useMemo(() => {
+    const built = indexRoute(session.route);
+    return built.ok ? reminderStops(session, built.index) : [];
+  }, [session]);
+  const stateOf = (id: string, waiting: string) => (fired.has(id) ? 'Sent.' : pending.has(id) ? 'Sending…' : waiting);
   const access = useNotificationAccess();
   const anyOn = settings.takeOut || settings.stops.length > 0;
 
@@ -55,7 +61,7 @@ export function FloatReminders({ session }: { session: FloatSession }) {
 
       <ReminderRow
         title={`Before ${session.takeOut.name}`}
-        note={fired.has(TAKE_OUT_REMINDER_ID) ? 'Sent.' : `About ${TAKE_OUT_LEAD_MILES} mi ahead, along the river.`}
+        note={stateOf(TAKE_OUT_REMINDER_ID, `About ${TAKE_OUT_LEAD_MILES} mi ahead, along the river.`)}
         value={settings.takeOut}
         onChange={(on) => setFloatReminders((current) => ({ ...current, takeOut: on }))}
       />
@@ -63,13 +69,13 @@ export function FloatReminders({ session }: { session: FloatSession }) {
       {stops.length > 0 ? (
         <>
           <Text style={[styles.subheading, { color: colors.textMuted }]}>Stops along the way</Text>
-          {stops.map((stop) => (
+          {stops.map(({ anchor }) => (
             <ReminderRow
-              key={stop.id}
-              title={stop.name}
-              note={fired.has(stop.id) ? 'Sent.' : `About ${STOP_LEAD_MILES} mi ahead.`}
-              value={settings.stops.includes(stop.id)}
-              onChange={(on) => toggleStop(stop.id, on)}
+              key={anchor.id}
+              title={anchor.name}
+              note={stateOf(anchor.id, `About ${STOP_LEAD_MILES} mi ahead.`)}
+              value={settings.stops.includes(anchor.id)}
+              onChange={(on) => toggleStop(anchor.id, on)}
             />
           ))}
         </>

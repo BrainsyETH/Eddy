@@ -268,7 +268,10 @@ test('every endpoint is usable; one calibration left out is measured where it si
   const result = routeFromRiver(RIVER, access, null);
   assert.ok(result.ok);
   assert.equal(result.index.excludedAnchors, 1);
-  assert.ok(takeOutChoices(result.route, result.index, null).some((a) => a.id === 'bad'));
+  const offered = takeOutChoices(result.route, result.index, null).find((a) => a.id === 'bad');
+  assert.ok(offered);
+  // Listed at the mile the float will use, so the label matches the float.
+  assert.ok(Math.abs(offered.mile - (20 + 5_000 * MILES_PER_M)) < 0.01, `listed at ${offered.mile}`);
   const asTakeOut = startSession({ id: 'b1', kind: 'saved', route: result.route, index: result.index, putInId: 'akers', takeOutId: 'bad', now: T0 });
   assert.ok(asTakeOut.ok);
   assert.ok(Math.abs(asTakeOut.session.takeOut.riverMile - (20 + 5_000 * MILES_PER_M)) < 0.01);
@@ -290,6 +293,35 @@ test('a launch set back from the river is still an end', () => {
   assert.ok(result.ok);
   assert.ok(takeOutChoices(result.route, result.index, null).some((a) => a.id === 'buffalo-city'));
   assert.equal(startSession({ id: 'e1', kind: 'quick', route: result.route, index: result.index, takeOutId: 'buffalo-city', now: T0 }).ok, true);
+});
+
+test('reaching the river’s closest point to an off-river take-out is not arriving', () => {
+  // The take-out sits 1 km off the line, level with x = 10 km (the line's
+  // end). Floating to the end must not say "arrived" or 0 miles to it.
+  const access = [
+    point('akers', 0, 20),
+    point('round-spring', 10_000, 20 + 10_000 * MILES_PER_M),
+    { ...point('beyond', 10_000, 20 + 10_000 * MILES_PER_M), coordinates: { lng: at(10_000)[0], lat: at(10_000, 1_000)[1] } },
+  ];
+  const result = routeFromRiver(RIVER, access, null);
+  assert.ok(result.ok);
+  const off = startSession({ id: 'o1', kind: 'saved', route: result.route, index: result.index, putInId: 'akers', takeOutId: 'beyond', now: T0 });
+  assert.ok(off.ok);
+  assert.ok(off.session.takeOut.offLineMeters! > 900);
+  const there = float(off.session, result.index, 9_700, T0, 200, 1.5);
+  const view = viewSession(there, T0 + 200_000);
+  assert.equal(view.arrived, false, 'the take-out is still a kilometre away');
+  assert.equal(view.atRiverEnd, true);
+  assert.match(statusCopy(view, T0 + 200_000), /closest point to beyond\. It’s about 1\.0 km from here/);
+  assert.equal(remainingCopy({ minutes: 0, basis: 'observed', paused: false }, true).headline, 'At the river’s closest point');
+
+  // The same place on the line as an on-river take-out does arrive.
+  const on = startSession({ id: 'o2', kind: 'saved', route: result.route, index: result.index, putInId: 'akers', takeOutId: 'round-spring', now: T0 });
+  assert.ok(on.ok);
+  assert.equal(on.session.takeOut.offLineMeters, undefined);
+  const arrived = viewSession(float(on.session, result.index, 9_700, T0, 200, 1.5), T0 + 200_000);
+  assert.equal(arrived.arrived, true);
+  assert.equal(arrived.atRiverEnd, false);
 });
 
 test('after a relaunch nothing reads as live until fresh fixes confirm a position', () => {

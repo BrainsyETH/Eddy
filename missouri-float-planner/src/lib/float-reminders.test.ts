@@ -20,7 +20,8 @@ import {
   STOP_LEAD_MILES,
   TAKE_OUT_LEAD_MILES,
   dueReminders,
-  markFired,
+  markPending,
+  settleDelivery,
   reminderCopy,
   reminderStops,
 } from '../../../eddy-ios/src/lib/floatReminders';
@@ -66,16 +67,16 @@ test('the take-out reminder comes about half a mile out, along the river, and on
   const { session: s0, index } = started(STRAIGHT, ACCESS, 'akers', 'round-spring');
   // Well upstream: nothing due.
   let { session, t } = paddle(s0, index, 0, 8_000, T0);
-  assert.deepEqual(dueReminders(session, t), []);
+  assert.deepEqual(dueReminders(session, index, t), []);
   // Inside the heads-up distance.
   ({ session, t } = paddle(session, index, 8_000, 9_400, t));
-  const due = dueReminders(session, t - 10_000);
+  const due = dueReminders(session, index, t - 10_000);
   assert.deepEqual(due.map((r) => r.id), ['take-out']);
   assert.ok(due[0].milesAway > 0 && due[0].milesAway <= TAKE_OUT_LEAD_MILES);
   // Sent once: recorded, it is never due again on this float.
-  session = markFired(session, due.map((r) => r.id));
+  session = settleDelivery(markPending(session, ['take-out']), ['take-out'], ['take-out']);
   ({ session, t } = paddle(session, index, 9_400, 9_800, t));
-  assert.deepEqual(dueReminders(session, t - 10_000), []);
+  assert.deepEqual(dueReminders(session, index, t - 10_000), []);
 });
 
 test('a take-out across a bend is not "close"', () => {
@@ -98,44 +99,44 @@ test('a take-out across a bend is not "close"', () => {
     session = applyFix(session, index, fix(at(x, 5), t), t);
     t += 10_000;
   }
-  assert.deepEqual(dueReminders(session, t - 10_000), []);
+  assert.deepEqual(dueReminders(session, index, t - 10_000), []);
 });
 
 test('no reminder from a position that is not live and confirmed', () => {
   const { session: s0, index } = started(STRAIGHT, ACCESS, 'akers', 'round-spring');
   const { session, t } = paddle(s0, index, 8_000, 9_400, T0);
   // Stale: the last confirmed position is minutes old.
-  assert.deepEqual(dueReminders(session, t + 5 * 60_000), []);
+  assert.deepEqual(dueReminders(session, index, t + 5 * 60_000), []);
   // Restored after a relaunch and not yet re-found.
   const restored = restoreSession(JSON.stringify(session));
   assert.ok(restored);
-  assert.deepEqual(dueReminders(restored, t), []);
+  assert.deepEqual(dueReminders(restored, index, t), []);
   // Off the river: a fix 400 m from the line.
   const off = applyFix(session, index, fix(at(9_400, 400), t), t);
-  assert.deepEqual(dueReminders(off, t), []);
+  assert.deepEqual(dueReminders(off, index, t), []);
 });
 
 test('paddling upstream, away from the take-out, sends nothing', () => {
   const { session: s0, index } = started(STRAIGHT, ACCESS, 'akers', 'round-spring');
   // Inside the heads-up distance but heading back up the river.
   const { session, t } = paddle(s0, index, 9_600, 9_300, T0, 1);
-  assert.deepEqual(dueReminders(session, t - 10_000), []);
+  assert.deepEqual(dueReminders(session, index, t - 10_000), []);
   // The same place heading downstream is due.
   const { session: down, t: t2 } = paddle(s0, index, 9_300, 9_600, T0, 1);
-  assert.deepEqual(dueReminders(down, t2 - 10_000).map((r) => r.id), ['take-out']);
+  assert.deepEqual(dueReminders(down, index, t2 - 10_000).map((r) => r.id), ['take-out']);
 });
 
 test('a chosen stop gets its own reminder; others along the way do not', () => {
   const { session: s0, index } = started(STRAIGHT, ACCESS, 'akers', 'round-spring');
-  assert.deepEqual(reminderStops(s0).map((a) => a.id), ['cave', 'pulltite']);
+  assert.deepEqual(reminderStops(s0, index).map(({ anchor }) => anchor.id), ['cave', 'pulltite']);
   const chosen: FloatSession = { ...s0, reminders: { takeOut: false, stops: ['pulltite'], fired: [] } };
   let { session, t } = paddle(chosen, index, 0, 3_800, T0);
   // Passing cave (not chosen) is silent.
   ({ session, t } = paddle(session, index, 3_800, 4_200, t));
-  assert.deepEqual(dueReminders(session, t - 10_000), []);
+  assert.deepEqual(dueReminders(session, index, t - 10_000), []);
   // A quarter mile before pulltite.
   ({ session, t } = paddle(session, index, 4_200, 5_700, t));
-  const due = dueReminders(session, t - 10_000);
+  const due = dueReminders(session, index, t - 10_000);
   assert.deepEqual(due.map((r) => r.id), ['pulltite']);
   assert.ok(due[0].milesAway <= STOP_LEAD_MILES);
   assert.equal(reminderCopy(due[0]).title, 'pulltite coming up');
@@ -149,7 +150,7 @@ test('the store sends a reminder once and remembers it on disk, through a relaun
     async removeItem(key) { data.delete(key); },
   };
   const sent: string[] = [];
-  const store = createFloatSessionStore(disk, () => {}, (due) => sent.push(...due.map((r) => r.id)));
+  const store = createFloatSessionStore(disk, () => {}, async (due) => { sent.push(...due.map((r) => r.id)); return due.map((r) => r.id); });
   const { session } = started(STRAIGHT, ACCESS, 'akers', 'round-spring');
   assert.equal(await store.begin(session), 'started');
 
@@ -158,6 +159,7 @@ test('the store sends a reminder once and remembers it on disk, through a relaun
     store.record([fix(at(x, 5), t)], t);
     t += 10_000;
   }
+  await store.remindersSettled();
   assert.deepEqual(sent, ['take-out']);
   await store.flush();
   const stored = JSON.parse(data.get('eddy.floatSession.v1')!) as FloatSession;
@@ -165,12 +167,13 @@ test('the store sends a reminder once and remembers it on disk, through a relaun
 
   // Relaunch: a new store reads the same disk; approaching again sends nothing.
   const sentAfter: string[] = [];
-  const relaunched = createFloatSessionStore(disk, () => {}, (due) => sentAfter.push(...due.map((r) => r.id)));
+  const relaunched = createFloatSessionStore(disk, () => {}, async (due) => { sentAfter.push(...due.map((r) => r.id)); return due.map((r) => r.id); });
   await relaunched.ensureLoaded();
   for (let x = 9_000; x <= 9_800; x += 15) {
     relaunched.record([fix(at(x, 5), t)], t);
     t += 10_000;
   }
+  await relaunched.remindersSettled();
   assert.deepEqual(sentAfter, []);
   // Turning the take-out reminder off and on again does not re-arm it.
   relaunched.setReminders((current) => ({ ...current, takeOut: false }));
@@ -179,4 +182,67 @@ test('the store sends a reminder once and remembers it on disk, through a relaun
   await relaunched.end();
   await store.end();
   assert.ok(indexRoute(session.route).ok);
+});
+
+test('a reminder the phone did not accept is not "sent", and is tried again', async () => {
+  const data = new Map<string, string>();
+  const disk: SessionStorage = {
+    async getItem(key) { return data.get(key) ?? null; },
+    async setItem(key, value) { data.set(key, value); },
+    async removeItem(key) { data.delete(key); },
+  };
+  let accept = false;
+  const offered: string[] = [];
+  const pendingOnDiskWhenOffered: string[][] = [];
+  const store = createFloatSessionStore(disk, () => {}, async (due) => {
+    offered.push(...due.map((r) => r.id));
+    // The handover is on disk before the notifier sees it.
+    pendingOnDiskWhenOffered.push((JSON.parse(data.get('eddy.floatSession.v1')!) as FloatSession).reminders?.pending ?? []);
+    if (!accept) throw new Error('notifications unavailable');
+    return due.map((r) => r.id);
+  });
+  const { session } = started(STRAIGHT, ACCESS, 'akers', 'round-spring');
+  assert.equal(await store.begin(session), 'started');
+
+  let t = T0;
+  for (let x = 8_000; x <= 9_300; x += 15) {
+    store.record([fix(at(x, 5), t)], t);
+    t += 10_000;
+  }
+  await store.remindersSettled();
+  assert.deepEqual(offered, ['take-out']);
+  assert.deepEqual(pendingOnDiskWhenOffered, [['take-out']]);
+  // Refused: not sent, not stuck pending.
+  assert.deepEqual(store.get()?.reminders?.fired, []);
+  assert.deepEqual(store.get()?.reminders?.pending, []);
+
+  // Tried again after a minute, and this time accepted.
+  accept = true;
+  for (let x = 9_300; x <= 9_500; x += 15) {
+    store.record([fix(at(x, 5), t)], t);
+    t += 10_000;
+  }
+  await store.remindersSettled();
+  assert.deepEqual(offered, ['take-out', 'take-out']);
+  assert.deepEqual(store.get()?.reminders?.fired, ['take-out']);
+  await store.end();
+});
+
+test('a stop is reminded where it actually is, not at a published mile calibration left out', () => {
+  // "lunch" sits at x = 5,000 m (mile 23.11 on this river) but its published
+  // mile says 25.5. Calibration leaves that mile out; the reminder must come
+  // a quarter mile before where the stop really is.
+  const access = [...ACCESS.filter((a) => a.id !== 'pulltite'), { ...point('lunch', 5_000), riverMile: 25.5 }];
+  const { session: s0, index } = started(STRAIGHT, access, 'akers', 'round-spring');
+  const stops = reminderStops(s0, index);
+  const lunch = stops.find(({ anchor }) => anchor.id === 'lunch')!;
+  assert.ok(Math.abs(lunch.mile - (20 + 5_000 / MILE)) < 0.01, `measured at ${lunch.mile}`);
+  const chosen: FloatSession = { ...s0, reminders: { takeOut: false, stops: ['lunch'], fired: [] } };
+  const { session, t } = paddle(chosen, index, 0, 4_700, T0);
+  assert.deepEqual(dueReminders(session, index, t - 10_000).map((r) => r.id), ['lunch']);
+});
+
+test('the take-out reminder for an off-river take-out says where it really is', () => {
+  const copy = reminderCopy({ id: 'take-out', name: 'Buffalo City', kind: 'take-out', milesAway: 0.4, beyondMeters: 1_001 });
+  assert.match(copy.body, /closest point to Buffalo City is about 0\.4 mi ahead\. The take-out is about 1\.0 km beyond it/);
 });

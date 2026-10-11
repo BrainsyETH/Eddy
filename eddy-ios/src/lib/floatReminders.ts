@@ -16,11 +16,18 @@
 //   guess would teach people to ignore them.
 //   Approaching means the target is downstream and the paddler is not moving
 //   upstream away from it.
-//   Each reminder fires once per float. The fired list is stored with the
-//   float, so a relaunch, a GPS gap or drifting back and forth across the
-//   threshold never repeats it.
+//   Stops are measured where they actually sit on the calibrated line, the
+//   same as the float's own ends (placeEnd), never by a published mile that
+//   calibration left out.
+//   "Sent" means the phone accepted the notification. A reminder is PENDING
+//   while it is being handed over: written to disk first, then scheduled,
+//   then marked sent only if scheduling succeeded. A failure leaves it
+//   eligible again. Pending is cleared on a relaunch, so a crash mid-handover
+//   can at worst repeat a reminder once, never lose it: a second heads-up
+//   beats a missed take-out.
 
-import type { FloatSession, RouteAnchor } from './floatSession';
+import type { RouteIndex } from '@eddy/geo';
+import { placeEnd, type FloatSession, type RouteAnchor } from './floatSession';
 
 /** Heads-up distance before the take-out: about 10-15 minutes on the water. */
 export const TAKE_OUT_LEAD_MILES = 0.5;
@@ -44,8 +51,10 @@ export interface FloatReminderSettings {
   takeOut: boolean;
   /** Access-point ids along the way to remind before. */
   stops: string[];
-  /** Reminder ids already sent this float ('take-out' or a stop id). */
+  /** Reminder ids the phone accepted this float ('take-out' or a stop id). */
   fired: string[];
+  /** Reminder ids being handed to the notifier right now. */
+  pending?: string[];
 }
 
 export const DEFAULT_REMINDERS: FloatReminderSettings = { takeOut: true, stops: [], fired: [] };
@@ -60,21 +69,26 @@ export interface DueReminder {
   kind: 'take-out' | 'stop';
   /** Along-river miles left to it when it fired. */
   milesAway: number;
+  /** For a take-out off the mapped river: how far it sits beyond the river. */
+  beyondMeters?: number;
 }
 
 /**
  * Access points a paddler can ask to be reminded before: those strictly
- * between where the float is measured from and the take-out, in river order.
+ * between where the float is measured from and the take-out, in river order,
+ * each at its calibrated mile on the line.
  */
-export function reminderStops(session: FloatSession): RouteAnchor[] {
+export function reminderStops(session: FloatSession, index: RouteIndex): { anchor: RouteAnchor; mile: number }[] {
   const from = session.startMile ?? session.putIn?.riverMile ?? -Infinity;
   return session.route.anchors
-    .filter((anchor) => anchor.id !== session.takeOut.id && anchor.riverMile > from && anchor.riverMile < session.takeOut.riverMile)
-    .sort((a, b) => a.riverMile - b.riverMile);
+    .filter((anchor) => anchor.id !== session.takeOut.id)
+    .map((anchor) => ({ anchor, mile: placeEnd(index, anchor).riverMile }))
+    .filter(({ mile }) => mile > from && mile < session.takeOut.riverMile)
+    .sort((a, b) => a.mile - b.mile);
 }
 
-/** The reminders this position has reached and that have not been sent yet. */
-export function dueReminders(session: FloatSession, now: number): DueReminder[] {
+/** The reminders this position has reached and that are neither sent nor being sent. */
+export function dueReminders(session: FloatSession, index: RouteIndex, now: number): DueReminder[] {
   const settings = remindersOf(session);
   if (!settings.takeOut && settings.stops.length === 0) return [];
   if (session.awaitingFix) return [];
@@ -86,35 +100,62 @@ export function dueReminders(session: FloatSession, now: number): DueReminder[] 
   const earlier = [...session.samples].reverse().find((sample) => sample.timestamp <= last.at - DIRECTION_WINDOW_MS);
   if (earlier && here < earlier.riverMile - UPSTREAM_TOLERANCE_MILES) return [];
 
-  const fired = new Set(settings.fired);
-  const targets: { id: string; name: string; mile: number; kind: DueReminder['kind']; lead: number }[] = [];
+  const done = new Set([...settings.fired, ...(settings.pending ?? [])]);
+  const targets: (DueReminder & { mile: number; lead: number })[] = [];
   if (settings.takeOut) {
-    targets.push({ id: TAKE_OUT_REMINDER_ID, name: session.takeOut.name, mile: session.takeOut.riverMile, kind: 'take-out', lead: TAKE_OUT_LEAD_MILES });
+    targets.push({
+      id: TAKE_OUT_REMINDER_ID,
+      name: session.takeOut.name,
+      kind: 'take-out',
+      mile: session.takeOut.riverMile,
+      lead: TAKE_OUT_LEAD_MILES,
+      milesAway: 0,
+      ...(session.takeOut.offLineMeters != null ? { beyondMeters: session.takeOut.offLineMeters } : {}),
+    });
   }
   const chosen = new Set(settings.stops);
-  for (const stop of reminderStops(session)) {
-    if (chosen.has(stop.id)) targets.push({ id: stop.id, name: stop.name, mile: stop.riverMile, kind: 'stop', lead: STOP_LEAD_MILES });
+  for (const { anchor, mile } of reminderStops(session, index)) {
+    if (chosen.has(anchor.id)) targets.push({ id: anchor.id, name: anchor.name, kind: 'stop', mile, lead: STOP_LEAD_MILES, milesAway: 0 });
   }
 
   return targets
-    .filter((target) => !fired.has(target.id))
+    .filter((target) => !done.has(target.id))
     .map((target) => ({ ...target, milesAway: target.mile - here }))
     // Ahead and within the heads-up distance. Already past it is too late.
     .filter((target) => target.milesAway > 0 && target.milesAway <= target.lead)
-    .map(({ id, name, kind, milesAway }) => ({ id, name, kind, milesAway }));
+    .map(({ mile: _mile, lead: _lead, ...reminder }) => reminder);
 }
 
-/** The session with these reminders recorded as sent. */
-export function markFired(session: FloatSession, ids: readonly string[]): FloatSession {
+function withReminders(session: FloatSession, change: (settings: FloatReminderSettings) => FloatReminderSettings): FloatSession {
+  return { ...session, reminders: change(remindersOf(session)) };
+}
+
+/** These reminders are being handed to the notifier. */
+export function markPending(session: FloatSession, ids: readonly string[]): FloatSession {
   if (ids.length === 0) return session;
-  const settings = remindersOf(session);
-  return { ...session, reminders: { ...settings, fired: [...new Set([...settings.fired, ...ids])] } };
+  return withReminders(session, (s) => ({ ...s, pending: [...new Set([...(s.pending ?? []), ...ids])] }));
+}
+
+/** The handover finished: `delivered` were accepted, the rest are eligible again. */
+export function settleDelivery(session: FloatSession, attempted: readonly string[], delivered: readonly string[]): FloatSession {
+  const tried = new Set(attempted);
+  return withReminders(session, (s) => ({
+    ...s,
+    fired: [...new Set([...s.fired, ...delivered])],
+    pending: (s.pending ?? []).filter((id) => !tried.has(id)),
+  }));
 }
 
 /** The notification a reminder becomes. */
 export function reminderCopy(reminder: DueReminder): { title: string; body: string } {
   const distance = reminder.milesAway < 0.1 ? 'just ahead' : `about ${reminder.milesAway.toFixed(1)} mi ahead`;
-  return reminder.kind === 'take-out'
-    ? { title: 'Take-out coming up', body: `${reminder.name} is ${distance}, along the river.` }
-    : { title: `${reminder.name} coming up`, body: `It is ${distance}, along the river.` };
+  if (reminder.kind === 'stop') return { title: `${reminder.name} coming up`, body: `It is ${distance}, along the river.` };
+  if (reminder.beyondMeters != null) {
+    const beyond = reminder.beyondMeters >= 1_000 ? `${(reminder.beyondMeters / 1_000).toFixed(1)} km` : `${Math.round(reminder.beyondMeters / 50) * 50} m`;
+    return {
+      title: 'Take-out coming up',
+      body: `The river’s closest point to ${reminder.name} is ${distance}. The take-out is about ${beyond} beyond it, off the mapped river.`,
+    };
+  }
+  return { title: 'Take-out coming up', body: `${reminder.name} is ${distance}, along the river.` };
 }

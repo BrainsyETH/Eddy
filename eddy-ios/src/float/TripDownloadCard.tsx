@@ -15,7 +15,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, Pressable, StyleSheet, Text, View } from 'react-native';
-import { formatBytes } from '@eddy/geo';
+import { formatBytes, type LngLat } from '@eddy/geo';
 import { ControlIcon } from '@/components/ControlIcon';
 import { indexRoute, type FloatRoute } from '@/lib/floatSession';
 import {
@@ -41,10 +41,16 @@ import {
 } from './tripDownloads';
 
 const POLL_MS = 2_000;
+/**
+ * Tiles can finish before the style pack (style, sprites, glyphs). Keep
+ * checking this long for the style to follow before offering to finish the
+ * download by hand, rather than stopping the moment the tiles are done.
+ */
+const STYLE_WAIT_MS = 90_000;
 
-function chunksFor(route: FloatRoute, tripKey: string, fromId: string, toId: string): TripChunk[] {
+function chunksFor(route: FloatRoute, tripKey: string, fromId: string, toId: string, fromLngLat?: LngLat): TripChunk[] {
   const built = indexRoute(route);
-  const from = route.anchors.find((a) => a.id === fromId)?.lngLat;
+  const from = fromLngLat ?? route.anchors.find((a) => a.id === fromId)?.lngLat;
   const to = route.anchors.find((a) => a.id === toId)?.lngLat;
   return built.ok && from && to ? planTripChunks(built.index, tripKey, from, to) : [];
 }
@@ -53,6 +59,7 @@ export function TripDownloadCard({
   tripKey,
   route,
   fromId,
+  fromLngLat,
   toId,
   protectedByActiveFloat = false,
 }: {
@@ -60,18 +67,25 @@ export function TripDownloadCard({
   /** The route to package if none is saved yet. A saved package's own route wins. */
   route: FloatRoute;
   fromId: string;
+  /** A quick start's position on the river; wins over fromId. */
+  fromLngLat?: LngLat;
   toId: string;
   /** The active float uses this map; removing it is refused. */
   protectedByActiveFloat?: boolean;
 }) {
   const { colors, elevation } = useTheme();
   const available = getOfflineManager() != null;
-  const fallbackChunks = useMemo(() => chunksFor(route, tripKey, fromId, toId), [route, tripKey, fromId, toId]);
+  const fallbackChunks = useMemo(
+    () => chunksFor(route, tripKey, fromId, toId, fromLngLat),
+    [route, tripKey, fromId, toId, fromLngLat],
+  );
 
   const [state, setState] = useState<TripReadiness | null>(null);
   const [downloading, setDownloading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const mounted = useRef(true);
+  /** When the tiles were first seen complete with the style still pending. */
+  const tilesDoneAt = useRef<number | null>(null);
   useEffect(() => {
     // Set on every mount, not only at creation: a remount (React's dev
     // double-mount, or a screen restored from the stack) must be able to
@@ -91,7 +105,15 @@ export function TripDownloadCard({
     const next = tripReadiness(pkg, TRIP_STYLE_URL, packs, fallbackChunks.map((c) => c.name), stylePackComplete(style));
     if (!mounted.current) return;
     setState(next);
-    if (next.kind === 'ready' || next.kind === 'tiles-saved') setDownloading(false);
+    if (next.kind === 'ready') {
+      tilesDoneAt.current = null;
+      setDownloading(false);
+    } else if (next.kind === 'tiles-saved') {
+      // Still downloading until the style follows, or until it plainly is not
+      // going to without a nudge; then Finish download offers that nudge.
+      tilesDoneAt.current ??= Date.now();
+      if (Date.now() - tilesDoneAt.current > STYLE_WAIT_MS) setDownloading(false);
+    }
   }, [tripKey, fallbackChunks]);
 
   useEffect(() => {
@@ -119,6 +141,7 @@ export function TripDownloadCard({
         tripKey,
         route,
         fromId,
+        ...(fromLngLat ? { fromLngLat } : {}),
         toId,
         styleURL: TRIP_STYLE_URL,
         chunkNames: fallbackChunks.map((c) => c.name),
@@ -131,7 +154,8 @@ export function TripDownloadCard({
         return;
       }
     }
-    const chunks = chunksFor(pkg.route, tripKey, pkg.fromId, pkg.toId);
+    const chunks = chunksFor(pkg.route, tripKey, pkg.fromId, pkg.toId, pkg.fromLngLat);
+    tilesDoneAt.current = null;
     setDownloading(true);
     try {
       await startTripDownload(chunks, (message) => {
@@ -144,7 +168,7 @@ export function TripDownloadCard({
       setDownloading(false);
     }
     void refresh();
-  }, [tripKey, route, fromId, toId, fallbackChunks, refresh]);
+  }, [tripKey, route, fromId, fromLngLat, toId, fallbackChunks, refresh]);
 
   const remove = useCallback(() => {
     if (protectedByActiveFloat) {
@@ -182,9 +206,21 @@ export function TripDownloadCard({
       ) : state.kind === 'tiles-saved' ? (
         <>
           <Text style={[styles.body, { color: colors.text }]}>Trip and map tiles saved · {formatBytes(state.bytes)}</Text>
-          <Text style={[styles.note, { color: colors.textMuted }]}>
-            Eddy can’t yet confirm the map’s style and labels are saved too, so this isn’t marked Ready offline.
-          </Text>
+          {downloading ? (
+            <View style={styles.row}>
+              <ActivityIndicator color={colors.interactive} />
+              <Text style={[styles.note, { color: colors.textMuted }]}>Finishing the map’s style and labels… Keep Eddy open.</Text>
+            </View>
+          ) : (
+            <>
+              <Text style={[styles.note, { color: colors.textMuted }]}>
+                The map’s style and labels aren’t confirmed saved yet, so this isn’t marked Ready offline.
+              </Text>
+              <Pressable onPress={() => void start()} accessibilityRole="button" style={styles.link}>
+                <Text style={[styles.linkText, { color: colors.interactive }]}>Finish download</Text>
+              </Pressable>
+            </>
+          )}
           <Pressable onPress={remove} accessibilityRole="button" style={styles.link}>
             <Text style={[styles.linkText, { color: colors.error }]}>Remove download</Text>
           </Pressable>
@@ -240,5 +276,6 @@ const styles = StyleSheet.create({
   note: { ...t.sm, fontFamily: fonts.body },
   button: { minHeight: 44, borderRadius: 12, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
   link: { minHeight: 44, justifyContent: 'center' },
+  row: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   linkText: { ...t.base, fontFamily: fonts.semibold },
 });

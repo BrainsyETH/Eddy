@@ -131,6 +131,11 @@ export interface TripPackage {
   route: FloatRoute;
   fromId: string;
   toId: string;
+  /**
+   * Where a quick start's download begins: the paddler's position on the
+   * river, which is no access point. When set it wins over fromId.
+   */
+  fromLngLat?: LngLat;
   /** The map style the tiles were downloaded for. */
   styleURL: string;
   /** Exactly the chunks this package needs; readiness checks these, no others. */

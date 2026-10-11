@@ -17,9 +17,10 @@
 //   One start at a time: a start reserves itself before it awaits the disk,
 //   so two quick taps cannot both pass the "nothing active" check.
 //
-//   A reminder is sent once. It is recorded as sent and written to disk in
-//   the same step that hands it to the notifier, so a relaunch or a crash
-//   right after cannot send it again.
+//   A reminder is "sent" only once the notifier accepted it. It is marked
+//   pending and that is written to disk (awaited) before it is handed over;
+//   a failed handover makes it eligible again; only a success records it as
+//   sent. See floatReminders.ts for why a relaunch clears pending.
 //
 //   An ended float stays ended. Tracking stops at once; if the stored copy
 //   cannot be removed, removal is retried, and an "ended" marker under its own
@@ -27,7 +28,14 @@
 
 import type { PositionFix, RouteIndex } from '@eddy/geo';
 import { applyFix, indexRoute, restoreSession, type FloatSession } from './floatSession';
-import { dueReminders, markFired, remindersOf, type DueReminder, type FloatReminderSettings } from './floatReminders';
+import {
+  dueReminders,
+  markPending,
+  remindersOf,
+  settleDelivery,
+  type DueReminder,
+  type FloatReminderSettings,
+} from './floatReminders';
 
 export interface SessionStorage {
   getItem(key: string): Promise<string | null>;
@@ -42,12 +50,17 @@ export const STORAGE_KEY = 'eddy.floatSession.v1';
 export const ENDED_KEY = 'eddy.floatSession.ended.v1';
 const WRITE_THROTTLE_MS = 15_000;
 const END_RETRY_MS = 15_000;
+/** A reminder the notifier did not accept is tried again after this. */
+const REMINDER_RETRY_MS = 60_000;
 
 export function createFloatSessionStore(
   storage: SessionStorage,
   warn: (message: string, detail?: unknown) => void,
-  /** Deliver reminders this position has reached; see floatReminders.ts. */
-  onReminders: (due: DueReminder[], session: FloatSession) => void = () => {},
+  /**
+   * Hand reminders this position has reached to the notifier; resolves with
+   * the ids it accepted. See floatReminders.ts.
+   */
+  onReminders: (due: DueReminder[], session: FloatSession) => Promise<readonly string[]> = async () => [],
 ) {
   let session: FloatSession | null = null;
   let index: RouteIndex | null = null;
@@ -60,6 +73,14 @@ export function createFloatSessionStore(
   /** An ended float whose stored copy still needs removing. */
   let pendingEndId: string | null = null;
   let endTimer: ReturnType<typeof setTimeout> | null = null;
+  /** Reminder handovers still running. */
+  const deliveries = new Set<Promise<void>>();
+  /**
+   * When a reminder the notifier refused may be tried again. Kept in memory:
+   * without it a refused reminder (no notification permission, say) would be
+   * retried, and written, on every fix inside its window.
+   */
+  const retryAt = new Map<string, number>();
   const listeners = new Set<() => void>();
 
   const notify = () => {
@@ -105,6 +126,37 @@ export function createFloatSessionStore(
       clearTimeout(writeTimer);
       writeTimer = null;
     }
+  };
+
+  /**
+   * Pending is on disk before the notifier sees anything; sent is recorded
+   * only for what it accepted. If pending cannot be written the reminder is
+   * still delivered: a missed take-out is worse than a possible repeat.
+   */
+  const deliver = async (due: DueReminder[], sessionId: string, now: number): Promise<void> => {
+    clearTimer();
+    try {
+      await writeNow();
+    } catch (error) {
+      dirty = true;
+      warn('could not save pending reminders; delivering anyway', error);
+    }
+    const attempted = due.map((reminder) => reminder.id);
+    let delivered: readonly string[] = [];
+    try {
+      if (session?.id === sessionId) delivered = await onReminders(due, session);
+    } catch (error) {
+      warn('could not deliver a float reminder', error);
+    }
+    if (session?.id !== sessionId) return;
+    const accepted = new Set(delivered);
+    for (const id of attempted) {
+      if (accepted.has(id)) retryAt.delete(id);
+      else retryAt.set(id, now + REMINDER_RETRY_MS);
+    }
+    session = settleDelivery(session, attempted, delivered);
+    notify();
+    await writeQuietly();
   };
 
   return {
@@ -177,8 +229,8 @@ export function createFloatSessionStore(
       let next = session;
       for (const fix of fixes) next = applyFix(next, index, fix, now);
       if (next === session) return;
-      const due = dueReminders(next, now);
-      if (due.length > 0) next = markFired(next, due.map((reminder) => reminder.id));
+      const due = dueReminders(next, index, now).filter((reminder) => (retryAt.get(reminder.id) ?? 0) <= now);
+      if (due.length > 0) next = markPending(next, due.map((reminder) => reminder.id));
       session = next;
       notify();
       if (due.length === 0) {
@@ -186,19 +238,21 @@ export function createFloatSessionStore(
         return;
       }
       clearTimer();
-      void writeQuietly();
-      try {
-        onReminders(due, next);
-      } catch (error) {
-        warn('could not deliver a float reminder', error);
-      }
+      const delivery = deliver(due, next.id, now).finally(() => deliveries.delete(delivery));
+      deliveries.add(delivery);
     },
 
-    /** Change this float's reminders; what was already sent stays sent. */
-    setReminders(update: (current: FloatReminderSettings) => Omit<FloatReminderSettings, 'fired'>): void {
+    /** Resolves once every reminder handover in progress has finished. */
+    async remindersSettled(): Promise<void> {
+      while (deliveries.size > 0) await Promise.all([...deliveries]);
+    },
+
+    /** Change this float's reminders; what was sent, or is being sent, stays so. */
+    setReminders(update: (current: FloatReminderSettings) => Pick<FloatReminderSettings, 'takeOut' | 'stops'>): void {
       if (!session) return;
       const current = remindersOf(session);
-      session = { ...session, reminders: { ...update(current), fired: current.fired } };
+      const { takeOut, stops } = update(current);
+      session = { ...session, reminders: { ...current, takeOut, stops } };
       notify();
       clearTimer();
       void writeQuietly();

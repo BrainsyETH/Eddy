@@ -29,7 +29,7 @@
 
 import * as Location from 'expo-location';
 import * as TaskManager from 'expo-task-manager';
-import { ensureFloatSessionLoaded, flushFloatSessionIfStale, getFloatSession, recordFixes } from '@/lib/floatSessionStore';
+import { ensureFloatSessionLoaded, floatRemindersSettled, flushFloatSessionIfStale, getFloatSession, recordFixes } from '@/lib/floatSessionStore';
 import { warn } from '@/lib/monitoring';
 import { flushHazardReports } from './hazardReports';
 
@@ -56,6 +56,8 @@ TaskManager.defineTask<{ locations: Location.LocationObject[] }>(FLOAT_LOCATION_
     timestamp: location.timestamp,
   }));
   recordFixes(fixes);
+  // Let a reminder reach the notifier before iOS suspends Eddy again.
+  await floatRemindersSettled();
   await flushFloatSessionIfStale(BACKGROUND_WRITE_MS);
   // A hazard report written with no signal goes out when the locked phone
   // finds some. Sends only what is due, one at a time; never blocks tracking.

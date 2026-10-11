@@ -117,13 +117,34 @@ export function createReportQueue(
   const listeners = new Set<() => void>();
   const notify = () => listeners.forEach((listener) => listener());
 
-  const save = async () => {
-    await storage.setItem(REPORTS_KEY, JSON.stringify(reports));
+  /**
+   * Every change goes through here, one after another: compute the next list
+   * from the CURRENT one, write it, then publish it. Writes therefore land in
+   * order, and a failed write never rolls back a change made meanwhile.
+   *
+   * `mustSave`: a new report is only published (and so only visible to the
+   * sender) once it is on disk, and the failure goes to the caller. A status
+   * change is published even if its write fails, because the send already
+   * happened; the next write carries it.
+   */
+  let chain: Promise<unknown> = Promise.resolve();
+  const commit = (change: (current: HazardReport[]) => HazardReport[], mustSave: boolean): Promise<void> => {
+    const run = chain.then(async () => {
+      const next = change(reports);
+      try {
+        await storage.setItem(REPORTS_KEY, JSON.stringify(next));
+      } catch (error) {
+        if (mustSave) throw error;
+        warn('could not save hazard report state', error);
+      }
+      reports = next;
+      notify();
+    });
+    chain = run.catch(() => {});
+    return run;
   };
-  const update = (id: string, change: Partial<HazardReport>) => {
-    reports = reports.map((report) => (report.id === id ? { ...report, ...change } : report));
-    notify();
-  };
+  const update = (id: string, change: Partial<HazardReport>) =>
+    commit((current) => current.map((report) => (report.id === id ? { ...report, ...change } : report)), false);
 
   const queue = {
     ensureLoaded(): Promise<void> {
@@ -159,15 +180,8 @@ export function createReportQueue(
     async add(input: Omit<HazardReport, 'status' | 'attempts' | 'nextAttemptAt' | 'refusal' | 'sentAt'>): Promise<void> {
       await queue.ensureLoaded();
       const report: HazardReport = { ...input, note: input.note.trim().slice(0, MAX_NOTE), status: 'waiting', attempts: 0, nextAttemptAt: 0 };
-      const before = reports;
-      reports = [report, ...reports];
-      try {
-        await save();
-      } catch (error) {
-        reports = before;
-        throw error;
-      }
-      notify();
+      // Not visible to the sender, or anyone, until it is on disk.
+      await commit((current) => [report, ...current], true);
       void queue.flush();
     },
 
@@ -191,10 +205,9 @@ export function createReportQueue(
                 outcome = { kind: 'retry' };
               }
               const attempts = report.attempts + 1;
-              if (outcome.kind === 'sent') update(report.id, { status: 'sent', attempts, sentAt: new Date(clock()).toISOString() });
-              else if (outcome.kind === 'refused') update(report.id, { status: 'refused', attempts, refusal: outcome.message, sentAt: new Date(clock()).toISOString() });
-              else update(report.id, { attempts, nextAttemptAt: clock() + retryDelay(attempts) });
-              await save().catch((error) => warn('could not save hazard report state', error));
+              if (outcome.kind === 'sent') await update(report.id, { status: 'sent', attempts, sentAt: new Date(clock()).toISOString() });
+              else if (outcome.kind === 'refused') await update(report.id, { status: 'refused', attempts, refusal: outcome.message, sentAt: new Date(clock()).toISOString() });
+              else await update(report.id, { attempts, nextAttemptAt: clock() + retryDelay(attempts) });
             }
           }
         } finally {
