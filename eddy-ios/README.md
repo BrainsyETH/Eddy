@@ -816,7 +816,8 @@ Two notes:
 The Floats tab uses the smiling Eddy-in-a-canoe alpha template from
 `design/eddy-canoe-tab/`. iOS tints it through the native tab bar; the non-iOS
 tab uses the same asset and its supplied tint. The smile is a transparent
-cutout, so it remains distinct in dark mode. Regenerate the 1x/2x/3x exports
+cutout, so it remains distinct in dark mode. The compact artwork fits a square
+28-point native icon; both navigators preserve its proportions. Regenerate the 1x/2x/3x exports
 with `node eddy-ios/scripts/build-tab-icons.cjs` from the root after installing
 web dependencies. See the source directory's README for appearance checks.
 
