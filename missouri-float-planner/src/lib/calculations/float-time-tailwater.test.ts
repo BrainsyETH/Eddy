@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { calculateTripDuration } from './trip-duration';
 import { calculateFloatTime, floatTimeWithholding, DEFAULT_CANOE_SPEEDS } from './floatTime';
 
 const MILES = 7.2;
@@ -129,25 +130,15 @@ test('chat delegates to the shared estimator that reads river_type from the requ
   assert.match(AGENT_PLANNING, /await estimateRoute\(/);
 });
 
-test('the published float_segments branch is gated, not just the estimate branch', () => {
-  // The regression: `if (!isDangerous && segmentTime …)`. A tailwater with a
-  // stored time served it straight past the refusal, permanently, because that
-  // branch never calls calculateFloatTime at all.
-  assert.match(
-    PLAN_ROUTE,
-    /if \(!withholdFloatTime && segmentTime/,
-    'the known-times branch must be gated on withholdFloatTime',
-  );
-  assert.match(
-    PLAN_ROUTE,
-    /\} else if \(!withholdFloatTime\)/,
-    'the estimate branch must be gated on the same value',
-  );
-  assert.doesNotMatch(
-    PLAN_ROUTE,
-    /if \(!isDangerous && segmentTime/,
-    'the known-times branch must not be gated on danger alone',
-  );
+test('published and modeled trips both withhold times on tailwaters and dangerous water', () => {
+  for (const published of [null, { min: 180, max: 300, minutes: 240 }]) {
+    for (const condition of ['too_low', 'low', 'good', 'flowing', 'high', 'dangerous'] as const) {
+      assert.equal(calculateTripDuration({ miles: MILES, speeds: DEFAULT_CANOE_SPEEDS, condition,
+        options: { riverType: 'dam_tailwater' }, published }), null);
+    }
+    assert.equal(calculateTripDuration({ miles: MILES, speeds: DEFAULT_CANOE_SPEEDS,
+      condition: 'dangerous', options: { riverType: 'spring_fed_float' }, published }), null);
+  }
 });
 
 test('neither call site derives the withholding decision from the context cache', () => {

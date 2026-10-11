@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { compareVersions, isUpgradeRequired } from '../../../packages/eddy-types/index';
 import { floatModeEnabled } from '../../../eddy-ios/src/lib/floatModeFeature';
+import { floatSearchLaunch } from './float-search-launch';
 
 // The version gate is the one lever that can lock a user out of the app
 // entirely, so its edge cases matter more than its happy path.
@@ -84,4 +85,14 @@ test('Float Mode is on for internal builds and off in store builds until the ser
   assert.equal(floatModeEnabled({ floatMode: 'true' }, 'production'), false, 'only a real true turns it on');
   assert.equal(floatModeEnabled({ floatMode: true }, 'production'), true);
   assert.equal(floatModeEnabled(null, 'unknown'), false);
+});
+
+test('Find a Float discovery defaults off and web can launch independently of iOS', () => {
+  assert.deepEqual(floatSearchLaunch({}), { web: false, ios: false });
+  assert.deepEqual(floatSearchLaunch({ FLOAT_SEARCH_ENABLED: 'true' }), { web: true, ios: false });
+  assert.deepEqual(floatSearchLaunch({ FLOAT_SEARCH_IOS_ENABLED: 'true' }), { web: false, ios: true });
+  assert.deepEqual(floatSearchLaunch({ FLOAT_SEARCH_ENABLED: 'true', FLOAT_SEARCH_IOS_ENABLED: 'true' }), { web: true, ios: true });
+  for (const value of ['false', '1', 'TRUE', '']) {
+    assert.deepEqual(floatSearchLaunch({ FLOAT_SEARCH_ENABLED: value, FLOAT_SEARCH_IOS_ENABLED: value }), { web: false, ios: false });
+  }
 });

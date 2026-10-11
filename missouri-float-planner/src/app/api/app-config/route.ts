@@ -27,6 +27,7 @@ import { NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { cdnCacheHeaders } from '@/lib/api-utils';
 import type { AppConfigResponse } from '@/types/api';
+import { floatSearchLaunch } from '@/lib/float-search-launch';
 
 export const dynamic = 'force-dynamic';
 
@@ -42,6 +43,7 @@ const FALLBACK: AppConfigResponse = {
     campingHeatmap: false,
     crowdSignal: false,
     floatMode: false,
+    floatSearch: false,
     push: true,
     planner: true,
     chat: false,
@@ -82,6 +84,7 @@ export async function GET() {
         campingHeatmap: process.env.CAMPING_HEATMAP_ENABLED === 'true',
         crowdSignal: process.env.CROWD_SIGNAL_ENABLED === 'true',
         floatMode: process.env.FLOAT_MODE_ENABLED === 'true',
+        floatSearch: floatSearchLaunch().ios,
         push: data.push_enabled,
         planner: data.planner_enabled,
         chat: data.chat_enabled,

@@ -56,7 +56,7 @@ export interface FloatPlanState {
   choosePutIn: (point: MapAccessPoint) => void;
   chooseTakeOut: (point: MapAccessPoint) => void;
   /** Both ends at once, from a caller that already knows the pair. */
-  planFloat: (putIn: MapAccessPoint, takeOut: MapAccessPoint) => void;
+  planFloat: (putIn: MapAccessPoint, takeOut: MapAccessPoint, vesselTypeId?: string) => void;
   goToStep: (step: PlanStep) => void;
   reset: () => void;
 }
@@ -69,6 +69,7 @@ export function useFloatPlan(riverId: string | null, accessPoints: MapAccessPoin
   const [calculating, setCalculating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const requests = useRef(createLatestRequest());
+  const vesselTypeId = useRef<string | undefined>(undefined);
   const invalidate = useCallback(() => {
     requests.current.invalidate();
     setCalculating(false);
@@ -80,6 +81,7 @@ export function useFloatPlan(riverId: string | null, accessPoints: MapAccessPoin
   // points into a segment the server cannot resolve.
   useEffect(() => {
     invalidate();
+    vesselTypeId.current = undefined;
     setStep('put-in');
     setPutIn(null);
     setTakeOut(null);
@@ -134,7 +136,7 @@ export function useFloatPlan(riverId: string | null, accessPoints: MapAccessPoin
       setError(null);
       setStep('result');
       try {
-        const result = await fetchFloatPlan({ riverId, startId: start.id, endId: end.id }, request.signal);
+        const result = await fetchFloatPlan({ riverId, startId: start.id, endId: end.id, vesselTypeId: vesselTypeId.current }, request.signal);
         if (!request.isCurrent()) return;
         if (result.river.id !== riverId || result.putIn.id !== start.id || result.takeOut.id !== end.id) {
           throw new Error('The river or access points changed. Please try this float again.');
@@ -215,12 +217,13 @@ export function useFloatPlan(riverId: string | null, accessPoints: MapAccessPoin
    * for callers that know both ends.
    */
   const planFloat = useCallback(
-    (start: MapAccessPoint, end: MapAccessPoint) => {
+    (start: MapAccessPoint, end: MapAccessPoint, boatId?: string) => {
       // The likeliest way a non-endpoint reaches the planner: a float saved
       // before the point was reclassified, replayed from Float trips. /api/plan
       // would refuse it, so refuse it here rather than spending the round trip
       // to show a failure.
       if (start.isFloatEndpoint === false || end.isFloatEndpoint === false) return;
+      vesselTypeId.current = boatId;
       setPutIn(start);
       setTakeOut(end);
       setPlan(null);
@@ -231,6 +234,7 @@ export function useFloatPlan(riverId: string | null, accessPoints: MapAccessPoin
 
   const reset = useCallback(() => {
     invalidate();
+    vesselTypeId.current = undefined;
     setStep('put-in');
     setPutIn(null);
     setTakeOut(null);

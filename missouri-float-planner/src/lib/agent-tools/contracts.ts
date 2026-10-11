@@ -20,6 +20,13 @@ export class AgentError extends Error {
   constructor(message: string, readonly status: Status = 'invalid_request') { super(message); }
 }
 
+/** Preserve missing catalog entries separately from retryable lookup failures. */
+export class RiverNotFoundError extends AgentError {
+  constructor() {
+    super('River not found in curated coverage. Use list_rivers for supported slugs.');
+  }
+}
+
 export function result(data: Record<string, unknown>, status: Status = 'ok', warnings: string[] = []): AgentResult {
   return { status, data, warnings, safetyNote: SAFETY_NOTE };
 }

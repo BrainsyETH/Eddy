@@ -4,6 +4,7 @@ import {
   estimateRoute,
   RouteEstimateError,
 } from '@/lib/calculations/route-estimate';
+import type { DailyStatistics } from '@/lib/usgs/gauges';
 import { fetchGaugeReadings } from '@/lib/usgs/gauges';
 import { readSnapshotStatistics } from '@/lib/usgs/percentile-snapshot';
 import { getDriveTime } from '@/lib/mapbox/directions';
@@ -58,9 +59,12 @@ export function createPlanning(
   },
   signal?: AbortSignal,
 ) {
-  const daily = memoizeAsync((id: string) =>
-    providers.fetchDailyStatistics(id),
-  );
+  const historical = new Map<string, DailyStatistics | null>();
+  const daily = memoizeAsync((id: string) => historical.has(id)
+    ? Promise.resolve(historical.get(id) ?? null) : providers.fetchDailyStatistics(id));
+  const primeStatistics = (stats: Map<string, DailyStatistics | null>) => {
+    for (const [id, row] of stats) historical.set(id, row);
+  };
   const live = memoizeAsync(async (key: string) => {
     const timeout = AbortSignal.timeout(3_000);
     const requestSignal = signal ? AbortSignal.any([signal, timeout]) : timeout;
@@ -435,6 +439,6 @@ export function createPlanning(
       note: 'Driving estimate only; no shuttle service or availability has been confirmed.',
     };
   }
-  return { resolve, calculate, drive, vessels };
+  return { resolve, calculate, drive, vessels, primeStatistics };
 }
 export type Planning = ReturnType<typeof createPlanning>;

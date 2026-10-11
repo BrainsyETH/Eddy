@@ -7,7 +7,8 @@ import { STALE_READING_HOURS } from '@shared/reading-staleness';
 import { resolveFloatEndpoints, endpointFailureStatus } from '@/lib/access-points/endpoint-resolver';
 import { fetchGaugeReadings, fetchDailyStatistics, classifyQualifiers } from '@/lib/usgs/gauges';
 import { applyFloodStageOverride, computeConditionFromDbRow, getConditionShortLabel } from '@/lib/conditions';
-import { calculateFloatTime, floatTimeWithholding, formatFloatTime, formatFloatTimeRange, formatFloatTimeRangeCompact, type SpeedCurve } from './floatTime';
+import { floatTimeWithholding, formatFloatTime, formatFloatTimeRange, formatFloatTimeRangeCompact, type SpeedCurve } from './floatTime';
+import { calculateTripDuration, validPublishedTiming } from './trip-duration';
 import { toNum } from '@/lib/utils/num';
 
 function dbRatingStatus(row: Record<string, unknown>): 'rated' | 'unrated' {
@@ -18,14 +19,6 @@ function dbRatingStatus(row: Record<string, unknown>): 'rated' | 'unrated' {
 type AccessPointRow = Database['public']['Tables']['access_points']['Row'];
 export class RouteEstimateError extends Error {
   constructor(message: string, public readonly status: number) { super(message); }
-}
-function scaleKnownTimeForCondition(minutes: number, code: ConditionCode): number {
-  const factor =
-    code === 'too_low' ? 2.0 :
-    code === 'low' ? 1.33 :
-    code === 'high' ? 0.85 :
-    1.0; // good / flowing / unknown → published normal-flow time
-  return Math.round(minutes * factor);
 }
 
 export type RouteSegment = Database['public']['Functions']['get_float_segment']['Returns'][number];
@@ -437,81 +430,24 @@ export async function estimateRoute(supabase: SupabaseClient<Database>, {
       p_vessel_type: vesselType.slug,
     });
 
-    let floatTimeResult: {
-      minutes: number;
-      speedMph: number;
-      isEstimate: boolean;
-      basis: 'trip' | 'moving';
-      timeRange?: { min: number; max: number };
-    } | null = null;
-
-    // Dangerous water gets NO float time (neither known nor estimated).
-
-
-    // Neither does regulated water, and for a different reason. Dangerous
-    // water has a float time we decline to quote; a tailwater has one we
-    // cannot compute, because every model here takes ONE discharge and holds
-    // it for the whole trip while the release can change mid-float.
-    //
-    // This gate has to sit HERE rather than only inside calculateFloatTime:
-    // the published-times branch below never calls that function, so a
-    // float_segments row on a tailwater would serve a stored time straight
-    // past the refusal. Read off the river row, so it cannot fail open.
-    const withholdReason = floatTimeWithholding(
-      conditionCode,
-      river.river_type as ReachRiverType | null,
-    );
-    const withholdFloatTime = withholdReason !== null;
+    const withholdReason = floatTimeWithholding(conditionCode, river.river_type as ReachRiverType | null);
     const estimateBasis: 'today' | 'typical' = mode === 'typical' || conditionCode === 'unknown' ? 'typical' : 'today';
-
-    if (!withholdFloatTime && segmentTime && segmentTime.length > 0 && segmentTime[0].time_avg_minutes > 0
-      && segmentTime[0].time_min_minutes > 0
-      && segmentTime[0].time_max_minutes >= segmentTime[0].time_min_minutes) {
-      // Without a rating, quote the published typical range without implying
-      // that today's reading supports a flow adjustment.
-      const st = segmentTime[0];
-      const avg = scaleKnownTimeForCondition(st.time_avg_minutes, conditionCode);
-      const rMin = st.time_min_minutes ? scaleKnownTimeForCondition(st.time_min_minutes, conditionCode) : undefined;
-      const rMax = st.time_max_minutes ? scaleKnownTimeForCondition(st.time_max_minutes, conditionCode) : undefined;
-      floatTimeResult = {
-        minutes: avg,
-        speedMph: avg > 0 ? distanceMiles / (avg / 60) : 0,
-        isEstimate: false,
-        basis: 'trip',
-        timeRange: rMin != null && rMax != null ? { min: rMin, max: rMax } : undefined,
-      };
-    } else if (!withholdFloatTime) {
-      // Flow-dependent estimate (falls back to the condition-band step if no
-      // discharge), using this river's calibrated low-water speed curve when
-      // one exists (river_characteristics.speed_curve).
-      const { data: characteristics } = await supabase.from('river_characteristics')
-        .select('speed_curve').eq('river_id', riverId).maybeSingle();
-      const calcResult = calculateFloatTime(
-        distanceMiles,
-        { speedLowWater, speedNormal, speedHighWater },
-        conditionCode,
-        {
-          dischargeCfs: estimateBasis === 'today' ? dischargeCfs : null,
-          refCfs: estimateBasis === 'today' ? refCfs : null,
-          basis: 'trip',
-          speedCurve: characteristics?.speed_curve as SpeedCurve | null,
-          // Belt and braces behind withholdFloatTime above, and from the river
-          // ROW rather than the cached context so the two agree even when the
-          // cache does not answer.
-          riverType: river.river_type as ReachRiverType | null,
-        }
-      );
-
-      if (calcResult) {
-        floatTimeResult = {
-          minutes: calcResult.minutes,
-          speedMph: calcResult.speedMph,
-          isEstimate: true,
-          basis: calcResult.basis,
-          timeRange: { min: calcResult.minMinutes, max: calcResult.maxMinutes },
-        };
-      }
-    }
+    const st = segmentTime?.[0];
+    const published = st ? { min: st.time_min_minutes, max: st.time_max_minutes, minutes: st.time_avg_minutes } : null;
+    const { data: characteristics } = withholdReason || validPublishedTiming(published) ? { data: null } : await supabase.from('river_characteristics')
+      .select('speed_curve').eq('river_id', riverId).maybeSingle();
+    const floatTimeResult = calculateTripDuration({
+      miles: distanceMiles,
+      speeds: { speedLowWater, speedNormal, speedHighWater },
+      condition: conditionCode,
+      published,
+      options: {
+        dischargeCfs: estimateBasis === 'today' ? dischargeCfs : null,
+        refCfs: estimateBasis === 'today' ? refCfs : null,
+        speedCurve: characteristics?.speed_curve as SpeedCurve | null,
+        riverType: river.river_type as ReachRiverType | null,
+      },
+    });
 
     const floatTime = floatTimeResult ? {
       ...floatTimeResult,

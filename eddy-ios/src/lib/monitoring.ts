@@ -1,3 +1,4 @@
+import { scrubFloatSearchBreadcrumb } from '@eddy/conditions/float-search-privacy';
 // eddy-ios/src/lib/monitoring.ts
 // Crash and error reporting. The only place this app talks to Sentry.
 //
@@ -132,6 +133,7 @@ function initSentry(): void {
     environment: resolveEnvironment(),
     beforeSend: (event) => scrubEvent(event),
     beforeBreadcrumb: (crumb) => {
+      scrubFloatSearchBreadcrumb(crumb);
       if (crumb.message) crumb.message = redactText(crumb.message);
       if (crumb.data) crumb.data = redactContext(crumb.data) as typeof crumb.data;
       return crumb;

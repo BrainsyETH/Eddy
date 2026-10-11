@@ -6,11 +6,26 @@ import type { Database } from '@/types/database';
 import { estimateRoute, RouteEstimateError } from './route-estimate';
 import { routeFixture } from './route-estimate-fixture';
 import { savedTimeRangeLabel, validTimeRange } from './saved-time-range';
+import { getFlowProvider, type DailyStatistics } from '@/lib/flow-providers';
 
 test('published route range takes priority and scales for low water', async () => {
-  const result = await routeFixture({ published: { min: 180, max: 300 }, condition: 'low' }).estimate();
+  const fixture = routeFixture({ published: { min: 180, max: 300 }, condition: 'low' });
+  const result = await fixture.estimate();
   assert.deepEqual(result.floatTime?.timeRange, { min: 239, max: 399 });
   assert.equal(result.floatTime?.isEstimate, false);
+  assert.ok(!fixture.calls.includes('river_characteristics'), 'published timing needs no speed-curve query');
+});
+
+test('default planner still uses live reference flows when no stored snapshot exists', async (t) => {
+  const live = t.mock.method(getFlowProvider('usgs')!, 'fetchDailyStatistics', async (site: string) => {
+    assert.equal(site, 'fixture-gauge');
+    return { p50: 180 } as DailyStatistics;
+  });
+  const f = routeFixture({ miles: 7.2, condition: 'good', discharge: 400 });
+  const result = await estimateRoute(f.client, { riverId: 'river', startId: 'put-in', endId: 'take-out' });
+  assert.equal(live.mock.callCount(), 1);
+  assert.deepEqual(result.floatTime?.timeRange, { min: 136, max: 218 });
+  assert.ok(!f.calls.includes('usgs_daily_percentiles'));
 });
 
 test('route service resolves flow and river curve, rather than using a social band shortcut', async () => {
