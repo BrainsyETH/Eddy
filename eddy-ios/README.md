@@ -889,6 +889,21 @@ A splash that lifts after ~8 seconds means the backstop did its job and the
 report is already filed. A splash that never lifts at all means JS never
 started — look at step 2, not step 3.
 
+## River guides
+
+Today includes a free **River guides** entry leading to `/river-guides`, a
+searchable native list of published `River Guides` articles from `/api/blog`.
+Each river detail page also shows its matching published guide, if one exists.
+The full article opens on `eddy.guide` in the browser, retaining the shared web
+layout, live conditions and planner links. This is evergreen content, separate
+from Eddy’s Reads. Loading happens when the catalog or river detail opens, not
+at app startup; failures offer retry in the catalog and hide the optional
+river-detail link. No new native dependency or entitlement is involved.
+
+Content and import instructions live in the
+[river-guide runbook](../missouri-float-planner/docs/river-guide-style.md#repository-authored-guides-and-publishing).
+Device verification and release status for this entry are unconfirmed.
+
 ## Current state
 
 | Tab | Status |

@@ -121,6 +121,8 @@ export interface RelatedRiver {
 }
 
 export interface GuideData {
+  /** Primary references and local access information used for this guide. */
+  sources?: { label: string; url: string }[];
   hero: GuideHero;
   intro_html: string;
   why_different: GuideBullet[];

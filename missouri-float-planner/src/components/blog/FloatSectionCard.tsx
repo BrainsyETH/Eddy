@@ -5,6 +5,7 @@
 import Link from 'next/link';
 import Image from 'next/image';
 import type { FloatSection } from '@/types/blog';
+import { optimizeBlogImage } from '@/lib/blog-image';
 
 interface Props {
   section: FloatSection;
@@ -63,6 +64,7 @@ export default function FloatSectionCard({ section: s, index, plannerUrl, photoF
           >
             <Image
               src={photo}
+              unoptimized={!optimizeBlogImage(photo)}
               alt={`${s.from} → ${s.to}`}
               fill
               loading="lazy"

@@ -10,6 +10,8 @@ import type { RiverGuidePost, FloatSection, GuideSegment } from '@/types/blog';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { riverPath } from '@/lib/navigation/river-path';
 import { npsHeroImage } from '@/lib/services/npsCampground';
+import { RIVER_PHOTO_CREDITS } from '@shared/river-photos';
+import { optimizeBlogImage } from '@/lib/blog-image';
 import SectionTitle from './SectionTitle';
 import FloatSectionCard from './FloatSectionCard';
 import EddySaysCallout from './EddySaysCallout';
@@ -36,10 +38,10 @@ function buildToc(post: RiverGuidePost): TocItem[] {
   items.push(
     { id: 'today',      label: 'Today on the river' },
     { id: 'different',  label: 'Why this river is different' },
-    { id: 'pick',       label: 'Pick your float' },
   );
+  if (g.sections.length) items.push({ id: 'pick', label: 'Pick your float' });
+  if (g.springs.length) items.push({ id: 'springs', label: 'Springs & sights' });
   items.push(
-    { id: 'springs',    label: 'Springs & sights' },
     { id: 'outfitters', label: 'Outfitters & lodging' },
     { id: 'gauge',      label: 'Water levels & gauge' },
   );
@@ -203,6 +205,7 @@ export default async function RiverGuideLayout({ post }: Props) {
   const g = post.guide_data;
   const slug = post.river_slug ?? post.slug;
   const riverName = g.hero.title_top;
+  const photoCredit = RIVER_PHOTO_CREDITS[slug];
   const toc = buildToc(post);
   const grouped = groupSectionsBySegment(g.sections, g.segments);
   const aps = await resolveAccessPoints(slug, g.sections);
@@ -341,13 +344,20 @@ export default async function RiverGuideLayout({ post }: Props) {
             }}
           >
             <Image
-              src={g.hero.photo_url}
-              alt={`${riverName} hero`}
+              src={g.hero.photo_url || EDDY_CANOE}
+              unoptimized={!optimizeBlogImage(g.hero.photo_url || EDDY_CANOE)}
+              alt={g.hero.photo_url ? `${riverName} scenery` : "Eddy in a canoe"}
               fill
               priority
               sizes="(max-width: 1023px) 100vw, 580px"
-              style={{ objectFit: 'cover' }}
+              style={{ objectFit: g.hero.photo_url ? 'cover' : 'contain' }}
             />
+            {photoCredit && g.hero.photo_url ? <a href={photoCredit.url}
+              style={{ position: 'absolute', bottom: 8, right: 8, left: 8, fontSize: 12,
+                padding: '4px 8px', background: 'var(--color-neutral-50)', color: 'var(--color-neutral-900)',
+                borderRadius: 4, textDecoration: 'underline' }}>
+              Photo: {photoCredit.text}
+            </a> : null}
           </div>
         </div>
 
@@ -455,7 +465,7 @@ export default async function RiverGuideLayout({ post }: Props) {
           <div id="today" style={{ scrollMarginTop: 80 }}>
             <SectionTitle eyebrow="Live conditions">Today on the {riverName.replace(/ River$/, '')}</SectionTitle>
             <p style={{ fontSize: 17, color: 'var(--color-neutral-700)', marginBottom: 6, lineHeight: 1.65 }}>
-              Eddy reads the gauge, the trend, and the forecast and writes a fresh take a few times a day. Use it as one input alongside your own judgment, the outfitter you&rsquo;re renting from, and the most recent NPS advisories.
+              Eddy reads the gauge, the trend, and the forecast and writes a fresh take a few times a day. Use it as one input alongside your own judgment, the outfitter you&rsquo;re renting from, and current advisories from the agency that manages your stretch.
             </p>
           </div>
 
@@ -499,11 +509,12 @@ export default async function RiverGuideLayout({ post }: Props) {
           </ul>
 
           {/* Pick float */}
+          {g.sections.length > 0 && <>
           <SectionTitle id="pick" eyebrow="Float sections">
             Pick your float
           </SectionTitle>
           <p style={{ fontSize: 17, color: 'var(--color-neutral-700)', marginBottom: 24, lineHeight: 1.65 }}>
-            The {riverName.replace(/ River$/, '')} divides cleanly into character zones. Pick by how much time you have, who you&rsquo;re paddling with, and what you want to see.
+            Choose a stretch for your group, your time, and today&rsquo;s water. Distances are approximate; use the planner for the current route and time estimate.
           </p>
           {(() => {
             // Render section cards with optional segment headers between groups.
@@ -529,7 +540,10 @@ export default async function RiverGuideLayout({ post }: Props) {
             ));
           })()}
 
+          </>}
+
           {/* Springs */}
+          {g.springs.length > 0 && <>
           <SectionTitle id="springs" eyebrow="Off-river stops">
             Springs &amp; sights worth stopping for
           </SectionTitle>
@@ -583,6 +597,8 @@ export default async function RiverGuideLayout({ post }: Props) {
             ))}
           </div>
 
+          </>}
+
           {/* Outfitters — full inline directory, no off-page redirects */}
           <SectionTitle id="outfitters" eyebrow="Directory">
             Outfitters, campgrounds &amp; lodging
@@ -597,7 +613,7 @@ export default async function RiverGuideLayout({ post }: Props) {
             Water levels &amp; gauge
           </SectionTitle>
           <p style={{ fontSize: 17, color: 'var(--color-neutral-700)', marginBottom: 18, lineHeight: 1.65 }}>
-            Check the gauge before you load the truck. The trend over the last week matters more than today&rsquo;s number — a falling river after a flood is fine; a rising river isn&rsquo;t.
+            Check the gauge before you load the truck. Look at the current level, its trend, and recent rain together. A falling gauge alone does not establish suitable conditions; check the reach and current local advisories too.
           </p>
           <iframe
             data-eddy-embed
@@ -788,6 +804,13 @@ export default async function RiverGuideLayout({ post }: Props) {
               />
             </>
           )}
+
+          {g.sources?.length ? <section aria-label="Guide sources" style={{ marginTop: 32, marginBottom: 24 }}>
+            <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 20, marginBottom: 10 }}>Sources &amp; local information</h3>
+            <ul style={{ paddingLeft: 20, fontSize: 14, lineHeight: 1.8 }}>
+              {g.sources.map(source => <li key={source.url}><a href={source.url} style={{ textDecoration: 'underline' }}>{source.label}</a></li>)}
+            </ul>
+          </section> : null}
 
           <EddySaysCallout callout={g.callouts.footer} riverSlug={slug} />
 

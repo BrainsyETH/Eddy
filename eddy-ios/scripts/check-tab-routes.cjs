@@ -32,7 +32,7 @@ for (const [group, initial] of Object.entries(roots)) {
   assert.ok(stack, `Missing ${group} stack`);
   assert.equal(stack.initialRouteName, initial, `${group} must open its own root`);
   const routes = stack.children.map(route => route.route);
-  for (const detail of ['river/[slug]', 'gauge/[siteId]', 'dam/[damId]', 'river-conditions', 'camping', 'weather', 'eddy-reads']) {
+  for (const detail of ['river/[slug]', 'gauge/[siteId]', 'dam/[damId]', 'river-conditions', 'camping', 'weather', 'eddy-reads', 'river-guides']) {
     assert.ok(routes.includes(detail), `${detail} must push inside ${group}`);
   }
   for (const other of Object.values(roots).filter(name => name !== initial)) {

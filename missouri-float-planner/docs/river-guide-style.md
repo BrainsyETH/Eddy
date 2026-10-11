@@ -39,7 +39,7 @@ Before publishing or significantly revising a River Guide, verify:
 - [ ] **Length and terminus** — Wikipedia + MDC watershed inventory.
 - [ ] **Class rating per segment** — American Whitewater + MDC.
 - [ ] **Spring rankings** — MDC big-springs page only. Outfitter sites disagree.
-- [ ] **All access points and order, with mile markers** — `get_river_pois()` in our DB matches what the on-site planner shows; cross-check against floatmissouri.com Mile-by-Mile and missouriscenicrivers.com.
+- [ ] **All access points and order, with mile markers** — `access_points.river_mile_downstream` supplies planner access miles. Use only approved float endpoints in downstream order; `get_river_pois()` supplies scenic POIs, not access points. Cross-check against the land manager’s access guide and regional mile-by-mile references.
 - [ ] **All outfitters currently operating** — Phone or check 2025/2026 social posts. Cross-reference missouricanoe.org (MCFA member list).
 - [ ] **Regulations cite the entity** — NPS for ONSR, USFS for Eleven Point, MDC for non-federal.
 - [ ] **Gauge IDs and floatability thresholds** — USGS Water Data + missouriscenicrivers floatability cutoffs. The `river_gauges` table is the source of truth for thresholds.
@@ -63,12 +63,49 @@ Outfitter websites and travel blogs (windysfloats.com, dangtravelers.com, uneart
 
 ## Schema enforcement
 
-The structured payload lives in `blog_posts.guide_data` (JSONB). Shape is enforced in TypeScript at `src/types/blog.ts`. Required fields: `hero`, `intro_html`, `why_different`, `sections`, `springs`, `seasons`, `what_to_bring`, `pro_tips`, `callouts`, `faq`. Optional but recommended for new river guides: `tldr`, `segments` (Upper / Middle / Lower), `regulations`, `drive_times`, `nearby_attractions`, `related_rivers`. Per-section `segment` + `best_for_tags`. Per-spring `rank` + `flow`.
+The structured payload lives in `blog_posts.guide_data` (JSONB). Shape is enforced in TypeScript at `src/types/blog.ts`. Required fields: `hero`, `intro_html`, `why_different`, `sections`, `springs`, `seasons`, `what_to_bring`, `pro_tips`, `callouts`, `faq`. Optional but recommended for new river guides: `tldr`, `segments` (Upper / Middle / Lower), `regulations`, `drive_times`, `nearby_attractions`, `related_rivers`, `sources` (label + URL). Per-section `segment` + `best_for_tags`. Per-spring `rank` + `flow`.
 
 Renderer is `src/components/blog/RiverGuideLayout.tsx`. New optional fields render only when present, so a new river can ship with the minimum required shape and grow into the rest.
 
 ## When in doubt
 
-- **Pull from the DB, not from blog memory.** `get_river_pois()` and `river_gauges` are the source of truth for mile markers and thresholds. The DB matches what the on-site planner shows readers; if your guide disagrees with the DB, the guide is wrong.
+- **Pull from the DB, not from blog memory.** `access_points.river_mile_downstream` and `river_gauges` are the source of truth for access miles and thresholds; `get_river_pois()` supplies scenic POIs. The DB matches what the on-site planner shows readers; if your guide disagrees with the DB, the guide is wrong.
 - **Three sources or none.** A claim that only appears on one outfitter blog isn't a fact.
 - **Soften before you delete.** If a beloved claim won't pass fact-check, "may," "one of," or "approximately" is usually closer to the truth and still useful to the reader.
+
+## Repository-authored guides and publishing
+
+New missing-river guides live in `scripts/content/river-guides/`, one typed
+`RiverGuideSeed` per river, registered in `index.ts`. Keep source URLs and the
+editorial check date alongside the structured content. Use the existing
+`guide_data` renderer; do not put a second HTML article in `content`.
+
+The October 2026 batch covers 18 active rivers without a guide. The two Spring
+Rivers have separate river slugs and explicitly disambiguated titles. Elk is an
+access overview: its known crossing and dam do not have a verified through-route
+or portage. Empty route sections are supported; never invent a connecting float
+to fill the template. Photo URLs come from the existing river photo catalog;
+Elk uses Eddy artwork until a suitable scene is available.
+
+From `missouri-float-planner/`, with the usual script environment loaded:
+
+```sh
+npx tsx scripts/seed-river-guides.ts                  # read-only plan
+npx tsx scripts/seed-river-guides.ts --apply          # insert new drafts
+npx tsx scripts/seed-river-guides.ts --apply --publish # insert new published guides
+```
+
+Writes require explicit authorization and the shared `EXPECTED_SUPABASE_REF`
+guard. Deploy the updated guide renderer and `/api/blog` first. Review the
+preview: it preserves any existing post with the same slug or river, including
+drafts and scheduled posts. It rejects missing/inactive rivers, withdrawn
+endpoints, reversed routes, and route-mileage drift before inserting anything.
+It never overwrites existing articles. If drafts were imported, review and
+publish them through `/admin/blog`; rerunning with `--publish` will preserve
+those drafts rather than change their status. No schema migration is needed.
+
+Once published, posts appear in the existing web blog. The native app has a
+free **Today → River guides** browser and a matching link on each river detail
+page. It loads only published posts from `/api/blog`, searches titles and
+descriptions, and opens the existing web article in the browser. Evergreen
+river guides remain separate from the time-sensitive Eddy’s Reads feed.

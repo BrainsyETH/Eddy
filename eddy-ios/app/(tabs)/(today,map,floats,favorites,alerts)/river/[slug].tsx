@@ -1,3 +1,4 @@
+import { RiverGuideLink } from '@/components/RiverGuideCard';
 // eddy-ios/app/river/[slug].tsx
 // One river: what it's doing right now, what could hurt you, and where to get on.
 //
@@ -1503,6 +1504,8 @@ export default function RiverDetailScreen() {
           </View>
         ) : null}
         </View>
+
+        <RiverGuideLink riverSlug={slug} />
 
         {/* AFTER the take, not before it. These photos are banded by condition,
             so they illustrate a verdict — and putting them above the verdict

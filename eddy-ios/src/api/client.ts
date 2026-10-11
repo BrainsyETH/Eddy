@@ -1,4 +1,5 @@
 import type { CampingOverview } from '@eddy/types';
+import type { RiverGuideSummary } from '@/lib/riverGuides';
 // eddy-ios/src/api/client.ts
 // Thin client over the existing Next.js REST API, which the app consumes as a
 // headless backend. No auth yet — every endpoint used by the shell is public.
@@ -572,6 +573,12 @@ export async function fetchRivers(signal?: AbortSignal): Promise<RiverListItem[]
   // point of keeping it. Reading is the screen's job.
   writeIndex(rivers);
   return rivers;
+}
+
+/** The published blog index; the API excludes drafts and scheduled posts. */
+export async function fetchBlogPosts(signal?: AbortSignal): Promise<RiverGuideSummary[]> {
+  const data = await get<{ posts: RiverGuideSummary[] }>('/api/blog', signal);
+  return data.posts ?? [];
 }
 
 /**

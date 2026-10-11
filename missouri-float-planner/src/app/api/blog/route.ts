@@ -15,7 +15,7 @@ async function _GET() {
     // Get only published posts where published_at is in the past
     const { data: posts, error } = await supabase
       .from('blog_posts')
-      .select('id, slug, title, description, category, featured_image_url, read_time_minutes, published_at')
+      .select('id, slug, title, description, category, featured_image_url, read_time_minutes, published_at, river_slug')
       .eq('status', 'published')
       .lte('published_at', new Date().toISOString())
       .order('published_at', { ascending: false });
@@ -34,6 +34,7 @@ async function _GET() {
       title: post.title,
       description: post.description,
       category: post.category,
+      riverSlug: post.river_slug,
       featuredImageUrl: post.featured_image_url,
       readTimeMinutes: post.read_time_minutes,
       publishedAt: post.published_at,
