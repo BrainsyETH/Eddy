@@ -12,6 +12,10 @@ import {
   floatRangeLabel,
   publicAccessLabel,
   floatPlanPath,
+  floatSearchIsFresh,
+  floatSearchEmptyMessage,
+  FLOAT_SEARCH_MAX_AGE_MS,
+  FLOAT_SEARCH_EXPIRED_MESSAGE,
   type FloatBoat,
   type FloatSearchInput,
   type FloatSearchOption,
@@ -72,14 +76,17 @@ export default function FindFloatClient({
   const [places, setPlaces] = useState<FloatSearchPlace[] | null>(null);
   const [busy, setBusy] = useState<'town' | 'location' | 'search' | null>(null);
   const [error, setError] = useState('');
+  const [expired, setExpired] = useState(false);
   const request = useRef<AbortController | null>(null);
   const locationAttempt = useRef(0);
   const { data: rivers, isError: riversFailed } = useRivers();
   useEffect(() => {
     if (previous?.initialRiver === initialRiver) {
       // eslint-disable-next-line react-hooks/set-state-in-effect -- restore ephemeral navigation state.
-      setState(previous.state);
-      const scroll = previous.scroll;
+      const stale = previous.state.result && !floatSearchIsFresh(previous.state.result);
+      setState(stale ? { ...previous.state, result: null } : previous.state);
+      setExpired(Boolean(stale));
+      const scroll = stale ? 0 : previous.scroll;
       requestAnimationFrame(() => window.scrollTo(0, scroll));
     } else {
       try {
@@ -99,11 +106,29 @@ export default function FindFloatClient({
       attempts.current++;
     };
   }, [initialRiver]);
+  useEffect(() => {
+    const result = state.result;
+    if (!result) return;
+    const expire = () => {
+      if (floatSearchIsFresh(result)) return;
+      setState(s => s.result === result ? { ...s, result: null } : s);
+      setExpired(true);
+    };
+    const timer = window.setTimeout(expire, Math.max(0, Date.parse(result.estimatedAt) + FLOAT_SEARCH_MAX_AGE_MS - Date.now()));
+    window.addEventListener('focus', expire);
+    document.addEventListener('visibilitychange', expire);
+    return () => {
+      window.clearTimeout(timer);
+      window.removeEventListener('focus', expire);
+      document.removeEventListener('visibilitychange', expire);
+    };
+  }, [state.result]);
   const update = (patch: Partial<FloatSearchInput>) => {
     request.current?.abort();
     locationAttempt.current++;
     setBusy(null);
     setError('');
+    setExpired(false);
     setState((s) => ({ ...s, input: { ...s.input, ...patch }, result: null }));
     if (patch.vesselType)
       try {
@@ -144,6 +169,7 @@ export default function FindFloatClient({
     }
   }
   async function search() {
+    setExpired(false);
     const { controller, signal } = begin('search');
     setState((s) => ({ ...s, result: null }));
     try {
@@ -343,7 +369,7 @@ export default function FindFloatClient({
             Within
             <select
               className={`${control} mt-1`}
-              disabled={!input.near}
+              disabled={!input.near || Boolean(input.river)}
               value={input.radiusMiles}
               onChange={(e) => update({ radiusMiles: Number(e.target.value) })}
             >
@@ -353,6 +379,7 @@ export default function FindFloatClient({
                 </option>
               ))}
             </select>
+            {input.river && <span className="mt-1 block font-normal text-[var(--color-text-secondary)]">Searching the selected river at any distance.</span>}
           </label>
           <label className="text-sm font-semibold">
             River (optional)
@@ -423,6 +450,7 @@ export default function FindFloatClient({
           {error}
         </p>
       )}
+      {expired && <p role="status" className="mt-6 rounded-xl border border-neutral-300 p-4">{FLOAT_SEARCH_EXPIRED_MESSAGE}</p>}
       {result && (
         <section
           className="mt-8 space-y-5"
@@ -449,8 +477,7 @@ export default function FindFloatClient({
           )}
           {result.matches.length === 0 && (
             <p className="rounded-xl bg-[var(--color-surface)] p-5">
-              No duration matches among the routes checked. Try a wider radius,
-              another boat, or a different time.
+              {floatSearchEmptyMessage(result)}
             </p>
           )}
           {result.matches.map((option) => (

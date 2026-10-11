@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { createClient } from '@/lib/supabase/server';
 import { getClientIp } from '@/lib/rate-limit';
-import { createMcpLimiter } from '@/lib/agent-tools/limits';
+import { createFloatSearchLimiter } from '@/lib/agent-tools/limits';
 import { readMcpBody, validOrigin } from '@/lib/agent-tools/http';
 import { findNearbyFloats } from '@/lib/agent-tools/nearby-search';
 import { approximateLocation } from '@shared/float-search';
@@ -30,7 +30,7 @@ export async function POST(request: Request) {
   const headers = { 'Cache-Control': 'private, no-store' };
   if (!validOrigin(request))
     return Response.json({ error: 'Invalid origin' }, { status: 403, headers });
-  const limiter = createMcpLimiter(getClientIp(request));
+  const limiter = createFloatSearchLimiter(getClientIp(request));
   const general = await limiter.general();
   if (general) return general;
   let parsed;
@@ -61,7 +61,7 @@ export async function POST(request: Request) {
     return Response.json(result, { headers });
   } catch {
     return Response.json(
-      { error: 'Float search is unavailable. Please try again.' },
+      { error: 'The search could not finish. Please try again.' },
       { status: 503, headers },
     );
   }

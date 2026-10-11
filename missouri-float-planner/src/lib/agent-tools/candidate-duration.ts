@@ -56,7 +56,8 @@ export function publishedTiming(
 
 /** IO is bounded per river, never per endpoint pair. Gauge observations are
  * loaded by loadScreening in a batch; historical normals use the same snapshot
- * policy as the final route estimator. Final geometry/route checks still run. */
+ * policy as the bounded search's final checks. Opening the public planner can
+ * refine the reference with live statistics. Final route checks still run. */
 export async function loadCandidateDuration(
   ctx: DataContext,
   river: River,
@@ -64,17 +65,12 @@ export async function loadCandidateDuration(
   vesselSlug: string,
   primeStatistics?: (stats: Map<string, DailyStatistics | null>) => void,
 ) {
-  const [vessel, metadata, characteristics, published, statistics] =
+  const [vessel, characteristics, published, statistics] =
     await Promise.all([
       ctx.db
         .from('vessel_types')
         .select('*')
         .eq('slug', vesselSlug)
-        .maybeSingle(),
-      ctx.db
-        .from('rivers')
-        .select('river_type')
-        .eq('id', river.id)
         .maybeSingle(),
       ctx.db
         .from('river_characteristics')
@@ -108,10 +104,9 @@ export async function loadCandidateDuration(
     ),
   );
   const boat = checked(vessel, 'vessel speeds');
-  const riverData = checked(metadata, 'river type');
   const curve = checked(characteristics, 'river speed curve');
   const rows = checked(published, 'published trip times') ?? [];
-  if (!boat || !riverData || rows.length > 500)
+  if (!boat || rows.length > 500)
     throw new Error('Duration inputs unavailable');
   const speeds = {
     speedLowWater: Number(boat.speed_low_water),
@@ -123,7 +118,7 @@ export async function loadCandidateDuration(
     const key = `${row.put_in_id}:${row.take_out_id}`;
     if (!byPair.has(key)) byPair.set(key, row);
   }
-  return (putIn: Access, takeOut: Access) => {
+  const durationFor = (putIn: Access, takeOut: Access) => {
     const start = numeric(putIn.river_mile_downstream),
       end = numeric(takeOut.river_mile_downstream);
     if (start == null || end == null || end <= start) return null;
@@ -150,7 +145,7 @@ export async function loadCandidateDuration(
         vesselSlug,
       ),
       options: {
-        riverType: riverData.river_type as ReachRiverType | null,
+        riverType: river.river_type as ReachRiverType | null,
         speedCurve: curve?.speed_curve as SpeedCurve | null,
         dischargeCfs: condition === 'unknown' ? null : reading?.dischargeCfs,
         refCfs:
@@ -160,4 +155,15 @@ export async function loadCandidateDuration(
       },
     });
   };
+  return { durationFor, partial: statistics.failedChunks > 0 };
+}
+
+/** Degraded screening is provisional; never bypass regulated-water withholding. */
+export function fallbackCandidateDuration(river: Pick<River, 'river_type'>, speedMph: number) {
+  return (putIn: Access, takeOut: Access) => calculateTripDuration({
+    miles: Number(takeOut.river_mile_downstream) - Number(putIn.river_mile_downstream),
+    condition: 'unknown',
+    speeds: { speedLowWater: speedMph, speedNormal: speedMph, speedHighWater: speedMph },
+    options: { riverType: river.river_type as ReachRiverType | null },
+  });
 }

@@ -194,7 +194,8 @@ test('ranking separates matches, condition tiers, time buckets and proximity', a
   const base = { id: 'a', minutes: 300, timeRange: { min: 240, max: 420 }, conditionCode: 'good', nearbyMiles: 20 };
   assert.ok(compareFloatChoices(base, { ...base, minutes: 390, timeRange: { min: 360, max: 480 }, nearbyMiles: 1 }, 300) < 0);
   assert.ok(compareFloatChoices(base, { ...base, conditional: true, nearbyMiles: 1 }, 300) < 0);
-  assert.ok(compareFloatChoices(base, { ...base, minutes: 345, nearbyMiles: 1 }, 300) < 0);
+  assert.ok(compareFloatChoices(base, { ...base, minutes: 365, nearbyMiles: 1 }, 300) < 0);
+  assert.ok(compareFloatChoices({ ...base, nearbyMiles: 95 }, { ...base, minutes: 335, nearbyMiles: 10 }, 300) > 0, 'nearby 5:35 wins over distant 5:00 inside the same hour bucket');
   assert.ok(compareFloatChoices(base, { ...base, minutes: 310, nearbyMiles: 10 }, 300) > 0);
   assert.ok(compareFloatChoices(base, { ...base, timeRange: { min: 120, max: 540 } }, 300) < 0);
 });
@@ -218,6 +219,7 @@ test('one timing function preserves boat, published-time and flow behavior in fi
 
 import { publishedTiming } from './candidate-duration';
 import { approximateLocation } from '@shared/float-search';
+import { floatSearchIsFresh, floatSearchEmptyMessage, FLOAT_SEARCH_MAX_AGE_MS } from '@shared/float-search';
 import { scrubFloatSearchRequest, scrubFloatSearchBreadcrumb } from '@shared/float-search-privacy';
 test('published timing keeps kayak on canoe times and follows reverse-route rules', () => {
   const rows = [{ put_in_id: 'a', take_out_id: 'b', canoe_time_min: 180, canoe_time_max: 300, raft_time_min: 240, raft_time_max: 360, tube_time_min: 360, tube_time_max: 480 }];
@@ -231,4 +233,20 @@ test('search location is approximated and monitoring discards private inputs', (
   assert.deepEqual(approximateLocation({ lat: 37.123456, lng: -91.987654 }), { lat: 37.12, lng: -91.99 });
   assert.deepEqual(scrubFloatSearchRequest({ url: 'https://eddy.guide/api/float-search', data: { near: { lat: 37.12, lng: -91.99 } }, headers: { cookie: 'private' } }), { url: 'https://eddy.guide/api/float-search' });
   assert.deepEqual(scrubFloatSearchBreadcrumb({ message: 'private query', data: { url: 'https://api.mapbox.com/search/geocode/v6/forward?q=Town&access_token=private', request_body: 'private', method: 'GET', status_code: 200 } }), { data: { url: 'https://api.mapbox.com/search/geocode/v6/forward', method: 'GET', status_code: 200 } });
+});
+
+test('restored result freshness expires at thirty minutes and rejects invalid or future times', () => {
+  const now = Date.parse('2026-10-11T12:00:00Z');
+  const result = { estimatedAt: new Date(now).toISOString() };
+  assert.equal(floatSearchIsFresh(result, now + FLOAT_SEARCH_MAX_AGE_MS - 1), true);
+  assert.equal(floatSearchIsFresh(result, now + FLOAT_SEARCH_MAX_AGE_MS), false);
+  assert.equal(floatSearchIsFresh(result, now - 1), false);
+  assert.equal(floatSearchIsFresh({ estimatedAt: 'invalid' }, now), false);
+});
+
+test('empty copy distinguishes an unfinished search and withheld times from no matches', () => {
+  const result = { matches: [], alternatives: [], partial: false, evaluated: 0, failed: 0, estimatedAt: '' };
+  assert.match(floatSearchEmptyMessage(result), /No duration matches/);
+  assert.match(floatSearchEmptyMessage({ ...result, partial: true }), /could not finish/);
+  assert.equal(floatSearchEmptyMessage({ ...result, unavailableReason: 'Dam releases vary.' }), 'Dam releases vary.');
 });

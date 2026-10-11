@@ -81,7 +81,7 @@ export function routeFixture(options: {
     },
   };
   const context = createRouteEstimateContext(client, options.segmentReader);
-  return { calls, estimate: (mode: 'today' | 'typical' = 'today') => estimateRoute(client, {
+  return { calls, client, estimate: (mode: 'today' | 'typical' = 'today') => estimateRoute(client, {
     riverId: 'river', startId: 'put-in', endId: 'take-out', mode, vesselTypeId: options.vessel,
   }, providers, context) };
 }

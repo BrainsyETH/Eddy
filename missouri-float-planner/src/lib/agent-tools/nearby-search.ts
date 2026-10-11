@@ -3,6 +3,7 @@ import {
   compareFloatChoices,
   durationRelation,
   geographicMiles,
+  REGULATED_DURATION_MESSAGE,
   type FloatSearchInput,
   type FloatSearchOption,
   type FloatSearchResponse,
@@ -70,6 +71,7 @@ export async function findNearbyFloats(
   let failed = 0,
     evaluated = 0,
     partial = false;
+  let unavailableReason: string | undefined;
   const pool: Array<{
     candidate: Candidate;
     river: River;
@@ -93,12 +95,14 @@ export async function findNearbyFloats(
     );
   }
   try {
-    const rivers = input.river
+    const catalog = input.river
       ? [await ctx.river(input.river)]
       : await ctx.rivers('all');
+    const rivers = catalog.filter(r => r.river_type !== 'dam_tailwater');
+    if (input.river && !rivers.length) unavailableReason = REGULATED_DURATION_MESSAGE;
     // Page explicitly: Supabase's default row cap must not silently hide rivers.
     const distanceByRiver = new Map<string, number>();
-    if (near) {
+    if (near && !input.river && rivers.length) {
       const riverById = new Map(rivers.map((r) => [r.id, r]));
       for (let offset = 0; offset < 10_000; offset += 500) {
         const rows =
@@ -139,7 +143,7 @@ export async function findNearbyFloats(
     const nearby = rivers
       .filter(
         (r) =>
-          !near || (distanceByRiver.get(r.id) ?? Infinity) <= input.radiusMiles,
+          input.river || !near || (distanceByRiver.get(r.id) ?? Infinity) <= input.radiusMiles,
       )
       .sort(
         (a, b) =>
@@ -156,19 +160,20 @@ export async function findNearbyFloats(
       ]);
       if (points.length > 500)
         throw new Error('Access catalog exceeds search limit');
-      const durationFor = await loadCandidateDuration(
+      const { durationFor, partial: durationPartial } = await loadCandidateDuration(
         ctx,
         river,
         screen,
         input.vesselType,
         planning.primeStatistics,
       );
+      partial ||= durationPartial;
       const closePutIns = new Set(
         points
           .filter((point) => {
             const coords = accessView(point, river).coordinates;
             return (
-              !near ||
+              input.river || !near ||
               Boolean(
                 coords && geographicMiles(near, coords) <= input.radiusMiles,
               )
@@ -314,6 +319,9 @@ export async function findNearbyFloats(
   } finally {
     budget.dispose();
   }
+  if (evaluated === 0 && (failed > 0 || budget.signal.aborted)) {
+    throw new Error('The search could not finish. Please try again.');
+  }
   output.sort((a, b) => compareFloatChoices(a, b, input.targetHours * 60));
   return {
     matches: diverseFloats(
@@ -330,5 +338,6 @@ export async function findNearbyFloats(
     failed,
     evaluated,
     estimatedAt: new Date(ctx.now).toISOString(),
+    ...(unavailableReason ? { unavailableReason } : {}),
   };
 }

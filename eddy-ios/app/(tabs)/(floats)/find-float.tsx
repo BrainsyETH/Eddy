@@ -1,6 +1,7 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  AppState,
   Image,
   Linking,
   Pressable,
@@ -11,7 +12,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { RiverListItem } from '@eddy/types';
 import {
@@ -20,6 +21,10 @@ import {
   FLOAT_BOAT_STORAGE_KEY,
   floatRangeLabel,
   publicAccessLabel,
+  floatSearchIsFresh,
+  floatSearchEmptyMessage,
+  FLOAT_SEARCH_MAX_AGE_MS,
+  FLOAT_SEARCH_EXPIRED_MESSAGE,
   type FloatBoat,
   type FloatSearchInput,
   type FloatSearchOption,
@@ -58,7 +63,7 @@ export default function FindFloatScreen() {
   const location = useLocation();
   const [state, setState] = useState<State>(() =>
     previous && (!initialRiver || previous.river === initialRiver)
-      ? previous.state
+      ? { ...previous.state, result: previous.state.result && floatSearchIsFresh(previous.state.result) ? previous.state.result : null }
       : {
           input: {
             river: initialRiver || undefined,
@@ -78,11 +83,12 @@ export default function FindFloatScreen() {
   const [places, setPlaces] = useState<FloatSearchPlace[] | null>(null);
   const [busy, setBusy] = useState<'town' | 'search' | 'location' | null>(null);
   const [error, setError] = useState('');
+  const [expired, setExpired] = useState(() => Boolean(previous && (!initialRiver || previous.river === initialRiver) && previous.state.result && !floatSearchIsFresh(previous.state.result)));
   const request = useRef<AbortController | null>(null);
   const locationAttempt = useRef(0);
   const scroll = useRef(0);
   const restoreScroll = useRef(
-    previous && (!initialRiver || previous.river === initialRiver)
+    previous && (!initialRiver || previous.river === initialRiver) && previous.state.result && floatSearchIsFresh(previous.state.result)
       ? previous.scroll
       : 0,
   );
@@ -112,11 +118,25 @@ export default function FindFloatScreen() {
       attempts.current++;
     };
   }, [initialRiver]);
+  useFocusEffect(useCallback(() => {
+    const result = state.result;
+    if (!result) return;
+    const expire = () => {
+      if (floatSearchIsFresh(result)) return;
+      setState(s => s.result === result ? { ...s, result: null } : s);
+      setExpired(true);
+    };
+    expire();
+    const timer = setTimeout(expire, Math.max(0, Date.parse(result.estimatedAt) + FLOAT_SEARCH_MAX_AGE_MS - Date.now()));
+    const subscription = AppState.addEventListener('change', value => { if (value === 'active') expire(); });
+    return () => { clearTimeout(timer); subscription.remove(); };
+  }, [state.result]));
   const update = (patch: Partial<FloatSearchInput>) => {
     request.current?.abort();
     locationAttempt.current++;
     setBusy(null);
     setError('');
+    setExpired(false);
     setState((s) => ({ ...s, input: { ...s.input, ...patch }, result: null }));
     if (patch.vesselType)
       void AsyncStorage.setItem(FLOAT_BOAT_STORAGE_KEY, patch.vesselType).catch(
@@ -124,6 +144,7 @@ export default function FindFloatScreen() {
       );
   };
   async function run(kind: 'town' | 'search') {
+    if (kind === 'search') setExpired(false);
     request.current?.abort();
     locationAttempt.current++;
     const controller = new AbortController();
@@ -431,10 +452,11 @@ export default function FindFloatScreen() {
             label={`${radiusMiles} mi`}
             onPress={() => update({ radiusMiles })}
             selected={input.radiusMiles === radiusMiles}
-            disabled={!input.near}
+            disabled={!input.near || Boolean(input.river)}
           />
         ))}
       </View>
+      {input.river && body('Searching the selected river at any distance.')}
       {label('River (optional)')}
       {
         <SearchButton
@@ -515,6 +537,7 @@ export default function FindFloatScreen() {
           {error}
         </Text>
       ) : null}
+      {expired && body(FLOAT_SEARCH_EXPIRED_MESSAGE)}
       {result && (
         <View style={styles.group}>
           <Text style={[styles.heading, { color: colors.text }]}>
@@ -529,7 +552,7 @@ export default function FindFloatScreen() {
             )}
           {result.matches.length === 0 &&
             body(
-              'No duration matches among the routes checked. Try a wider radius, another boat, or a different time.',
+              floatSearchEmptyMessage(result),
             )}
           {result.matches.map(card)}
           {result.alternatives.length > 0 && (

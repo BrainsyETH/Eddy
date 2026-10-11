@@ -40,8 +40,8 @@ export function compareFloatChoices(
     Number(gap(a) > 0) - Number(gap(b) > 0) ||
     caution(a) - caution(b) ||
     (gap(a) && gap(b) ? gap(a) - gap(b) : 0) ||
-    Math.floor(Math.abs(a.minutes - target) / 30) -
-      Math.floor(Math.abs(b.minutes - target) / 30) ||
+    Math.floor(Math.abs(a.minutes - target) / 60) -
+      Math.floor(Math.abs(b.minutes - target) / 60) ||
     (a.nearbyMiles ?? Infinity) - (b.nearbyMiles ?? Infinity) ||
     a.timeRange.max - a.timeRange.min - (b.timeRange.max - b.timeRange.min) ||
     a.id.localeCompare(b.id)
@@ -91,6 +91,20 @@ export interface FloatSearchResponse {
   failed: number;
   evaluated: number;
   estimatedAt: string;
+  unavailableReason?: string;
+}
+
+export const REGULATED_DURATION_MESSAGE = 'Duration matching is unavailable on this river because dam releases can change the current mid-float. Check the river page for release information.';
+export const FLOAT_SEARCH_MAX_AGE_MS = 30 * 60 * 1000;
+export const FLOAT_SEARCH_EXPIRED_MESSAGE = 'These results have expired. Your choices are saved; search again for current conditions.';
+export function floatSearchIsFresh(result: Pick<FloatSearchResponse, 'estimatedAt'>, now = Date.now()) {
+  const age = now - Date.parse(result.estimatedAt);
+  return Number.isFinite(age) && age >= 0 && age < FLOAT_SEARCH_MAX_AGE_MS;
+}
+export function floatSearchEmptyMessage(result: FloatSearchResponse) {
+  if (result.unavailableReason) return result.unavailableReason;
+  if (result.partial && result.evaluated === 0) return 'The search could not finish. Please try again.';
+  return 'No duration matches found in this search. Try another river, boat, or time, or widen your nearby search.';
 }
 
 export interface FloatSearchPlace {

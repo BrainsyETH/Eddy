@@ -22,6 +22,7 @@ export type River = Pick<
   | 'slug'
   | 'state'
   | 'region'
+  | 'river_type'
   | 'length_miles'
   | 'description'
   | 'difficulty_rating'
@@ -121,7 +122,7 @@ export function createDataContext(db: Db, now = Date.now()) {
         await db
           .from('rivers')
           .select(
-            'id, name, slug, state, region, length_miles, description, difficulty_rating, float_summary, float_tip, timezone, park_code, alert_search_terms, weather_city, weather_lat, weather_lon',
+            'id, name, slug, state, region, river_type, length_miles, description, difficulty_rating, float_summary, float_tip, timezone, park_code, alert_search_terms, weather_city, weather_lat, weather_lon',
           )
           .eq('active', true)
           .order('name'),
@@ -202,7 +203,7 @@ export function createDataContext(db: Db, now = Date.now()) {
       db
         .from('rivers')
         .select(
-          'id, name, slug, state, region, length_miles, description, difficulty_rating, float_summary, float_tip, timezone, park_code, alert_search_terms, weather_city, weather_lat, weather_lon',
+          'id, name, slug, state, region, river_type, length_miles, description, difficulty_rating, float_summary, float_tip, timezone, park_code, alert_search_terms, weather_city, weather_lat, weather_lon',
         )
         .eq('active', true);
     const uuid =

@@ -1,5 +1,5 @@
-import { compareFloatChoices, durationRelation } from '@shared/float-search';
-import { loadCandidateDuration } from './candidate-duration';
+import { compareFloatChoices, durationRelation, REGULATED_DURATION_MESSAGE } from '@shared/float-search';
+import { loadCandidateDuration, fallbackCandidateDuration } from './candidate-duration';
 import type { Json } from '@/types/database';
 import { AGENT_TOOLS } from './catalog';
 import {
@@ -550,6 +550,7 @@ function createScopedExecutor(db: Db, options: ExecutorOptions) {
         let coverage: ReturnType<typeof screenCandidates>['coverage'] | null =
           null;
         let alertChecks: ReturnType<typeof summarizeAlerts> | null = null;
+        let unavailableReason: string | undefined;
         let failed = 0,
           started = 0,
           finished = 0;
@@ -557,6 +558,7 @@ function createScopedExecutor(db: Db, options: ExecutorOptions) {
           const r = await phase('coverage', () =>
             ctx.river(String(args.river)),
           );
+          if (r.river_type === 'dam_tailwater') unavailableReason = REGULATED_DURATION_MESSAGE;
           tripDate(
             args.date as string | undefined,
             r.timezone || 'America/Chicago',
@@ -596,7 +598,18 @@ function createScopedExecutor(db: Db, options: ExecutorOptions) {
               'No calibrated speed for this vessel.',
               'unavailable',
             );
-          const candidateDuration = screening ? await phase('duration-inputs', () => loadCandidateDuration(ctx, r, screening, String(args.vesselType), planning.primeStatistics)) : undefined;
+          let candidateDuration = fallbackCandidateDuration(r, speed);
+          let durationPartial = !screening;
+          if (screening) {
+            try {
+              const loaded = await phase('duration-inputs', () => loadCandidateDuration(ctx, r, screening, String(args.vesselType), planning.primeStatistics));
+              candidateDuration = loaded.durationFor;
+              durationPartial = loaded.partial;
+            } catch {
+              options.signal?.throwIfAborted();
+              durationPartial = true;
+            }
+          }
           const screened = screenCandidates(
             points,
             Number(args.targetHours),
@@ -607,6 +620,10 @@ function createScopedExecutor(db: Db, options: ExecutorOptions) {
           );
           candidates = screened.candidates;
           coverage = screened.coverage;
+          if (durationPartial) {
+            coverage.status = 'partial';
+            coverage.note += ' Some duration inputs were unavailable; completed route assessments determine the results.';
+          }
           await phase('estimates', async () => {
             // Bounded workers avoid batch barriers while keeping backend load
             // at two estimates per request. Never schedule work after expiry.
@@ -653,8 +670,10 @@ function createScopedExecutor(db: Db, options: ExecutorOptions) {
         };
         const eligible = completed.filter(
           (p) =>
-            p.data.routeAssessment.recommendationStatus !== 'not_recommended',
+            p.data.routeAssessment.recommendationStatus !== 'not_recommended' &&
+            p.data.estimatedFloatTime?.timeRange,
         );
+        const missingTimes = completed.filter(p => !p.data.estimatedFloatTime?.timeRange).length;
         const choice = (p: (typeof completed)[number]) => ({
           id: `${p.putIn.id}:${p.takeOut.id}`,
           minutes: p.data.estimatedFloatTime!.minutes,
@@ -701,6 +720,7 @@ function createScopedExecutor(db: Db, options: ExecutorOptions) {
           {
             recommendations: picks,
             excludedCandidates: excluded.length,
+            unavailableTimeCandidates: missingTimes,
             exclusionReasons: [...exclusionReasons.values()],
             alertChecks,
             screening: coverage,
@@ -715,9 +735,11 @@ function createScopedExecutor(db: Db, options: ExecutorOptions) {
               'Condition-screened, diversified shortlist; not an exhaustive best-of-river ranking. Screening describes current stored observations, not a forecast.',
             reason: timedOut
               ? 'Search deadline reached; only completed assessments are returned. An empty result does not establish that the river is unsuitable.'
-              : picks.length
+              : unavailableReason ?? (picks.length
                 ? null
-                : 'No suitable recommendation could be established from the checked candidates and available data.',
+                : missingTimes
+                  ? 'The checked routes have no reliable duration estimate, so they cannot be matched by time.'
+                  : 'No suitable recommendation could be established from the checked candidates and available data.'),
           },
           timedOut ||
             (picks.length &&

@@ -19,6 +19,12 @@ export interface TripDuration {
   timeRange: { min: number; max: number };
 }
 
+export function validPublishedTiming(published?: PublishedTiming | null): published is PublishedTiming {
+  return Boolean(published &&
+    [published.min, published.max, published.minutes].every(n => Number.isFinite(n) && n > 0) &&
+    published.max >= published.min && published.minutes >= published.min && published.minutes <= published.max);
+}
+
 /** One timing decision for screening and confirmed plans. No IO and no second
  * stop allowance on published trip times. Same inputs must give the same range. */
 export function calculateTripDuration(input: {
@@ -35,15 +41,7 @@ export function calculateTripDuration(input: {
     floatTimeWithholding(condition, options?.riverType)
   )
     return null;
-  if (
-    published &&
-    [published.min, published.max, published.minutes].every(
-      (n) => Number.isFinite(n) && n > 0,
-    ) &&
-    published.max >= published.min &&
-    published.minutes >= published.min &&
-    published.minutes <= published.max
-  ) {
+  if (validPublishedTiming(published)) {
     const factor =
       condition === 'too_low'
         ? 2

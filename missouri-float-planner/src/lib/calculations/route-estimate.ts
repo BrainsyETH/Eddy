@@ -8,8 +8,7 @@ import { resolveFloatEndpoints, endpointFailureStatus } from '@/lib/access-point
 import { fetchGaugeReadings, fetchDailyStatistics, classifyQualifiers } from '@/lib/usgs/gauges';
 import { applyFloodStageOverride, computeConditionFromDbRow, getConditionShortLabel } from '@/lib/conditions';
 import { floatTimeWithholding, formatFloatTime, formatFloatTimeRange, formatFloatTimeRangeCompact, type SpeedCurve } from './floatTime';
-import { calculateTripDuration } from './trip-duration';
-import { readSnapshotStatistics } from '@/lib/usgs/percentile-snapshot';
+import { calculateTripDuration, validPublishedTiming } from './trip-duration';
 import { toNum } from '@/lib/utils/num';
 
 function dbRatingStatus(row: Record<string, unknown>): 'rated' | 'unrated' {
@@ -109,7 +108,7 @@ async function readVessel(supabase: SupabaseClient<Database>, vesselTypeId?: str
  */
 export async function estimateRoute(supabase: SupabaseClient<Database>, {
   riverId, startId, endId, vesselTypeId, mode = 'today',
-}: { riverId: string; startId: string; endId: string; vesselTypeId?: string | null; mode?: 'today' | 'typical' }, providers = { fetchGaugeReadings, fetchDailyStatistics: (id: string) => readSnapshotStatistics(supabase, id) }, context = createRouteEstimateContext(supabase)) {
+}: { riverId: string; startId: string; endId: string; vesselTypeId?: string | null; mode?: 'today' | 'typical' }, providers = { fetchGaugeReadings, fetchDailyStatistics }, context = createRouteEstimateContext(supabase)) {
     // Get access points. The resolver is the only thing that decides whether a
     // float may be built from these two ids: it requires both to be approved,
     // both to be float endpoints (so a park with no ramp is refused rather than
@@ -433,14 +432,15 @@ export async function estimateRoute(supabase: SupabaseClient<Database>, {
 
     const withholdReason = floatTimeWithholding(conditionCode, river.river_type as ReachRiverType | null);
     const estimateBasis: 'today' | 'typical' = mode === 'typical' || conditionCode === 'unknown' ? 'typical' : 'today';
-    const { data: characteristics } = withholdReason ? { data: null } : await supabase.from('river_characteristics')
-      .select('speed_curve').eq('river_id', riverId).maybeSingle();
     const st = segmentTime?.[0];
+    const published = st ? { min: st.time_min_minutes, max: st.time_max_minutes, minutes: st.time_avg_minutes } : null;
+    const { data: characteristics } = withholdReason || validPublishedTiming(published) ? { data: null } : await supabase.from('river_characteristics')
+      .select('speed_curve').eq('river_id', riverId).maybeSingle();
     const floatTimeResult = calculateTripDuration({
       miles: distanceMiles,
       speeds: { speedLowWater, speedNormal, speedHighWater },
       condition: conditionCode,
-      published: st ? { min: st.time_min_minutes, max: st.time_max_minutes, minutes: st.time_avg_minutes } : null,
+      published,
       options: {
         dischargeCfs: estimateBasis === 'today' ? dischargeCfs : null,
         refCfs: estimateBasis === 'today' ? refCfs : null,

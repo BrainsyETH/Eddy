@@ -38,8 +38,7 @@ export async function POST(request: Request) {
       { error: 'Enter a town and state.' },
       { status: 400, headers },
     );
-  const token =
-    process.env.MAPBOX_ACCESS_TOKEN || process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
+  const token = process.env.MAPBOX_ACCESS_TOKEN;
   if (!token)
     return Response.json(
       {

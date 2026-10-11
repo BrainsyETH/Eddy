@@ -62,7 +62,6 @@ export function screeningGauge(
 export interface Candidate {
   putIn: Access;
   takeOut: Access;
-  difference: number;
   duration: TripDuration;
   conditionCode: string;
   group: string;
@@ -197,7 +196,6 @@ export function screenCandidates(
         takeOut,
         duration,
         conditionCode: code,
-        difference: Math.abs(duration.minutes / 60 - targetHours),
         group,
         unknown: code === 'unknown' || spanUnknown,
       });

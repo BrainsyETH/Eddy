@@ -44,6 +44,7 @@ export function mcpNetworkBucket(
 export function createMcpLimiter(
   ip: string,
   options: {
+    surface?: 'mcp' | 'float-search';
     env?: Environment;
     limit?: (...args: Parameters<typeof rateLimit>) => Promise<Response | null>;
     admit?: (buckets: WorkBucket[]) => Promise<Admission>;
@@ -52,11 +53,12 @@ export function createMcpLimiter(
 ) {
   const env = { ...process.env, ...options.env };
   const limits = mcpLimits(env);
+  const ui = options.surface === 'float-search';
   const admit =
     options.admit ?? ((buckets: WorkBucket[]) => admitMcpWork(buckets, env));
   const limit = options.limit ?? rateLimit;
   const log =
-    options.log ?? ((event) => logger.warn('[MCP] request rejected', event));
+    options.log ?? ((event) => logger.warn(ui ? '[Float search] request rejected' : '[MCP] request rejected', event));
   const networkBucket = mcpNetworkBucket(ip, env);
 
   async function check(
@@ -88,24 +90,24 @@ export function createMcpLimiter(
   return {
     networkBucket,
     general: () =>
-      check('ip_requests', `mcp:${ip}`, limits.requestsPerIp, null),
+      check('ip_requests', `${ui ? 'float-search' : 'mcp'}:${ip}`, ui ? 120 : limits.requestsPerIp, null),
     async tool(body: unknown) {
       const tool = expensiveTool(body);
       if (!tool) return null;
       const search = tool === 'find_floats';
-      const className = search ? 'search' : 'detail';
+      const className = ui ? 'float_search' : search ? 'search' : 'detail';
       const admission = await admit([
         {
           name: 'ip_heavy',
-          key: `rl:{mcp-heavy}:ip:${ip}`,
-          allowance: limits.heavyPerIp,
+          key: ui ? `rl:{mcp-heavy}:float-search:ip:${ip}` : `rl:{mcp-heavy}:ip:${ip}`,
+          allowance: ui ? positiveLimit(env.FLOAT_SEARCH_PER_IP_PER_MINUTE, 12) : limits.heavyPerIp,
         },
         {
           name: `global_${className}`,
           key: `rl:{mcp-heavy}:${className}`,
           allowance: Math.min(
-            search ? limits.searchGlobal : limits.detailGlobal,
-            Math.floor(limits.heavyGlobal / 2),
+            ui ? positiveLimit(env.FLOAT_SEARCH_GLOBAL_PER_MINUTE, 20) : search ? limits.searchGlobal : limits.detailGlobal,
+            Math.max(1, Math.floor(limits.heavyGlobal / (ui ? 3 : 2))),
           ),
         },
         {
@@ -129,4 +131,9 @@ export function createMcpLimiter(
       return admission.response;
     },
   };
+}
+
+/** Separate UI admission, with the same aggregate backend ceiling as MCP. */
+export function createFloatSearchLimiter(ip: string, options: Parameters<typeof createMcpLimiter>[1] = {}) {
+  return createMcpLimiter(ip, { ...options, surface: 'float-search' });
 }
