@@ -5,14 +5,14 @@ export default {
   "title": "James River Float Trip Guide: Springfield-Area Floats & Galena",
   "description": "A southwest Missouri river day within reach of Springfield: start around Delaware Town, Shelvin Rock, or the Galena stretch and leave time to linger.",
   "river_slug": "james",
-  "featured_image_url": "https://commons.wikimedia.org/wiki/Special:FilePath/James_River_in_Springfield_Missouri_USA.jpg?width=1280",
+  "featured_image_url": "https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy%20the%20otter%20in%20a%20cool%20canoe.png",
   "read_time_minutes": 5,
   "guide_data": {
     "hero": {
       "eyebrow": "James River · Missouri",
       "title_top": "James River",
       "title_accent": "Float Trip Guide.",
-      "lede": "A southwest Missouri river day within reach of Springfield: start around Delaware Town, Shelvin Rock, or the Galena stretch and leave time to linger.",
+      "lede": "Delaware Town, Shelvin Rock, and the old Y-Bridge give the James several ways into a river day. Pick one stretch and leave the rest for the next visit.",
       "photo_url": "https://commons.wikimedia.org/wiki/Special:FilePath/James_River_in_Springfield_Missouri_USA.jpg?width=1280",
       "mile_stats": [
         {
@@ -20,14 +20,22 @@ export default {
           "value": "Missouri"
         },
         {
-          "label": "Water",
-          "value": "Class I"
+          "label": "Plan around",
+          "value": "The day’s flow"
         },
         {
           "label": "In this guide",
           "value": "3 float routes"
         }
-      ]
+      ],
+      "photo_credit": {
+        "image_url": "https://commons.wikimedia.org/wiki/Special:FilePath/James_River_in_Springfield_Missouri_USA.jpg?width=1280",
+        "author": "Cold417",
+        "source_url": "https://commons.wikimedia.org/wiki/File:James_River_in_Springfield_Missouri_USA.jpg",
+        "license": "CC BY-SA 3.0",
+        "license_url": "https://creativecommons.org/licenses/by-sa/3.0/",
+        "changes": "Cropped to fit"
+      }
     },
     "intro_html": "<p><strong>The James is a reminder that a satisfying float does not have to start with a long drive into the deep Ozarks.</strong> South of Springfield, public accesses break the river into days of wooded banks, pools, and fishing stops. Pick a modest distance, sort the shuttle, and you can spend more of the day on the water than getting there.</p><p>The Galena stretch and the river near Springfield are different planning choices. Water and runoff change along the way toward Table Rock Lake. Match the gauge and local observations to the reach you picked, rather than treating the entire James as one uniform float.</p>",
     "why_different": [
@@ -53,12 +61,9 @@ export default {
         "from": "Delaware Town Access",
         "to": "Shelvin Rock Access",
         "miles": "5.7",
-        "time": "Varies with flow and stops",
-        "diff": "I",
-        "crowd": "Weekdays tend to be quieter",
-        "best": "A day south of Springfield",
+        "best": "A modest-mileage paddle starting at Delaware Town",
         "photo": null,
-        "body": "Delaware Town to Shelvin Rock is a useful first route to inspect. Set up the shuttle before launch and keep the day loose enough for a lunch or fishing stop. Eddy maps this reach at about 5.7 miles. Use the planner for a current time estimate and leave room for stops."
+        "body": "Delaware Town to Shelvin Rock is a useful first route to inspect. Set up the shuttle before launch and keep the day loose enough for a lunch or fishing stop."
       },
       {
         "id": 2,
@@ -68,12 +73,9 @@ export default {
         "from": "Shelvin Rock Access",
         "to": "Hootentown Access",
         "miles": "6",
-        "time": "Varies with flow and stops",
-        "diff": "I",
-        "crowd": "Weekdays tend to be quieter",
-        "best": "The next stretch downstream",
+        "best": "Continuing the James experience on a separate reach toward Hootentown",
         "photo": null,
-        "body": "Shelvin Rock to Hootentown makes another self-contained outing. Choosing this pair instead of linking both upper sections leaves more time to enjoy the river. Eddy maps this reach at about 6 miles. Use the planner for a current time estimate and leave room for stops."
+        "body": "Shelvin Rock to Hootentown makes another self-contained outing. Choosing this pair instead of linking both upper sections leaves more time to enjoy the river."
       },
       {
         "id": 3,
@@ -83,21 +85,12 @@ export default {
         "from": "H.L. Kerr Access",
         "to": "Galena Y-Bridge Access (Ralph Cox Memorial Access)",
         "miles": "4.9",
-        "time": "Varies with flow and stops",
-        "diff": "I",
-        "crowd": "Weekdays tend to be quieter",
-        "best": "A Galena finish",
+        "best": "A shorter Galena outing ending at the Y-Bridge",
         "photo": null,
-        "body": "H. L. Kerr to the Galena access is a compact lower-river plan. Confirm the exact ramp and downstream water conditions rather than assuming the road bridge itself is your take-out. Eddy maps this reach at about 4.9 miles. Use the planner for a current time estimate and leave room for stops."
+        "body": "H. L. Kerr to the Galena access is a compact lower-river plan. Confirm the exact ramp and downstream water conditions rather than assuming the road bridge itself is your take-out."
       }
     ],
-    "springs": [
-      {
-        "name": "Galena Y-Bridge Access (Ralph Cox Memorial Access)",
-        "mile": "88.17",
-        "note": "A named take-out for the Galena outing; save its access directions before leaving the put-in."
-      }
-    ],
+    "springs": [],
     "seasons": [
       {
         "m": "Mar–May",
@@ -116,11 +109,11 @@ export default {
       }
     ],
     "what_to_bring": [
-      "A well-fitting PFD for everyone; wear yours on the water.",
-      "Drinking water, lunch, and a dry bag with an extra layer.",
-      "Shoes that stay on your feet over slippery rocks and gravel.",
-      "Sun protection and a bag for every bit of trash you bring.",
-      "Your saved route, take-out directions, and a shuttle arranged before launching."
+      "A fitted PFD for each paddler, worn on the water.",
+      "Drinking water, food, sun protection, and a bag to pack out your trash.",
+      "Secure footwear and a dry bag for essentials.",
+      "A photo or saved pin of the Galena Y-Bridge take-out if that is your finish.",
+      "A small dry bag for lunch so a gravel-bar stop stays on the menu."
     ],
     "pro_tips": [
       {
@@ -143,7 +136,7 @@ export default {
       },
       "footer": {
         "tone": "note",
-        "quote": "A southwest Missouri river day within reach of Springfield: start around Delaware Town, Shelvin Rock, or the Galena stretch and leave time to linger."
+        "quote": "Keep Galena’s Y-Bridge outing separate from the Delaware Town and Hootentown reaches. Each has its own shuttle, and the James has plenty left for another day."
       }
     },
     "faq": [
@@ -178,48 +171,41 @@ export default {
     ],
     "tldr": {
       "typical_distance": "4.9–6 mi featured routes",
-      "best_for_beginners": "Match the reach and today’s water to your group",
+      "best_for_beginners": "H.L. Kerr → Galena Y-Bridge is the shortest featured option at 4.9 miles; check the Galena reading and access.",
       "primary_gauge": "James River at Galena, MO · USGS 07052500"
     },
     "sources": [
       {
-        "label": "Missouri Float Trips",
+        "label": "Missouri Float Trips: James River",
         "url": "https://www.floatmissouri.com/plan/missouri-rivers/james-river/"
       },
       {
-        "label": "Missouri Department of Conservation",
+        "label": "MDC: Delaware Town Access",
         "url": "https://mdc.mo.gov/discover-nature/places/delaware-town-access"
       },
       {
-        "label": "Missouri Department of Conservation",
+        "label": "MDC: Shelvin Rock Access",
         "url": "https://mdc.mo.gov/discover-nature/places/shelvin-rock-access"
       },
       {
-        "label": "Missouri Department of Conservation",
+        "label": "MDC: Hooten Town Access",
         "url": "https://mdc.mo.gov/discover-nature/places/hooten-town-access"
       },
       {
-        "label": "Missouri Department of Conservation",
+        "label": "MDC: H L Kerr Access",
         "url": "https://mdc.mo.gov/discover-nature/places/h-l-kerr-access"
       },
       {
-        "label": "Missouri Department of Conservation",
+        "label": "MDC: Ralph Cox Memorial Access",
         "url": "https://mdc.mo.gov/discover-nature/places/ralph-cox-memorial-access"
       },
       {
-        "label": "USGS gauge",
+        "label": "USGS: station 07052500",
         "url": "https://waterdata.usgs.gov/monitoring-location/07052500/"
       }
-    ]
+    ],
+    "checked_at": "2026-10-11",
+    "use_access_photos": false
   },
-  "checked_at": "2026-10-11",
-  "sources": [
-    "https://www.floatmissouri.com/plan/missouri-rivers/james-river/",
-    "https://mdc.mo.gov/discover-nature/places/delaware-town-access",
-    "https://mdc.mo.gov/discover-nature/places/shelvin-rock-access",
-    "https://mdc.mo.gov/discover-nature/places/hooten-town-access",
-    "https://mdc.mo.gov/discover-nature/places/h-l-kerr-access",
-    "https://mdc.mo.gov/discover-nature/places/ralph-cox-memorial-access",
-    "https://waterdata.usgs.gov/monitoring-location/07052500/"
-  ]
+  "og_image_url": "https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy%20the%20otter%20in%20a%20cool%20canoe.png"
 } satisfies RiverGuideSeed;

@@ -10,8 +10,7 @@ import type { RiverGuidePost, FloatSection, GuideSegment } from '@/types/blog';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { riverPath } from '@/lib/navigation/river-path';
 import { npsHeroImage } from '@/lib/services/npsCampground';
-import { RIVER_PHOTO_CREDITS } from '@shared/river-photos';
-import { optimizeBlogImage } from '@/lib/blog-image';
+import { optimizeBlogImage, guidePhotoCredit } from '@/lib/blog-image';
 import SectionTitle from './SectionTitle';
 import FloatSectionCard from './FloatSectionCard';
 import EddySaysCallout from './EddySaysCallout';
@@ -40,7 +39,7 @@ function buildToc(post: RiverGuidePost): TocItem[] {
     { id: 'different',  label: 'Why this river is different' },
   );
   if (g.sections.length) items.push({ id: 'pick', label: 'Pick your float' });
-  if (g.springs.length) items.push({ id: 'springs', label: 'Springs & sights' });
+  if (g.springs.length) items.push({ id: 'springs', label: g.sights_heading ?? 'Springs & sights' });
   items.push(
     { id: 'outfitters', label: 'Outfitters & lodging' },
     { id: 'gauge',      label: 'Water levels & gauge' },
@@ -205,7 +204,7 @@ export default async function RiverGuideLayout({ post }: Props) {
   const g = post.guide_data;
   const slug = post.river_slug ?? post.slug;
   const riverName = g.hero.title_top;
-  const photoCredit = RIVER_PHOTO_CREDITS[slug];
+  const photoCredit = guidePhotoCredit(g.hero);
   const toc = buildToc(post);
   const grouped = groupSectionsBySegment(g.sections, g.segments);
   const aps = await resolveAccessPoints(slug, g.sections);
@@ -352,12 +351,13 @@ export default async function RiverGuideLayout({ post }: Props) {
               sizes="(max-width: 1023px) 100vw, 580px"
               style={{ objectFit: g.hero.photo_url ? 'cover' : 'contain' }}
             />
-            {photoCredit && g.hero.photo_url ? <a href={photoCredit.url}
+            {photoCredit ? <div
               style={{ position: 'absolute', bottom: 8, right: 8, left: 8, fontSize: 12,
-                padding: '4px 8px', background: 'var(--color-neutral-50)', color: 'var(--color-neutral-900)',
-                borderRadius: 4, textDecoration: 'underline' }}>
-              Photo: {photoCredit.text}
-            </a> : null}
+                padding: '4px 8px', background: 'var(--color-neutral-50)', color: 'var(--color-neutral-900)', borderRadius: 4 }}>
+              Photo: <a href={photoCredit.source_url} style={{ textDecoration: 'underline' }}>{photoCredit.author}</a>
+              {' · '}<a href={photoCredit.license_url} style={{ textDecoration: 'underline' }}>{photoCredit.license}</a>
+              {photoCredit.changes ? ` · ${photoCredit.changes}` : ''}
+            </div> : null}
           </div>
         </div>
 
@@ -463,7 +463,7 @@ export default async function RiverGuideLayout({ post }: Props) {
         <main style={{ maxWidth: 760, minWidth: 0 }}>
           {/* Today — Eddy's live take, condition-aware */}
           <div id="today" style={{ scrollMarginTop: 80 }}>
-            <SectionTitle eyebrow="Live conditions">Today on the {riverName.replace(/ River$/, '')}</SectionTitle>
+            <SectionTitle eyebrow="Live conditions">Today on the {riverName}</SectionTitle>
             <p style={{ fontSize: 17, color: 'var(--color-neutral-700)', marginBottom: 6, lineHeight: 1.65 }}>
               Eddy reads the gauge, the trend, and the forecast and writes a fresh take a few times a day. Use it as one input alongside your own judgment, the outfitter you&rsquo;re renting from, and current advisories from the agency that manages your stretch.
             </p>
@@ -473,7 +473,7 @@ export default async function RiverGuideLayout({ post }: Props) {
 
           {/* Why different */}
           <SectionTitle id="different" eyebrow="The pitch">
-            Why the {riverName.replace(/ River$/, '')} is different
+            Why the {riverName} is different
           </SectionTitle>
           <div
             style={{ fontSize: 17, lineHeight: 1.7, color: 'var(--color-neutral-800)' }}
@@ -532,7 +532,7 @@ export default async function RiverGuideLayout({ post }: Props) {
                       section={s}
                       index={idx}
                       plannerUrl={buildPlannerUrl(slug, s, aps)}
-                      photoFallback={resolveSectionPhoto(s, aps)}
+                      photoFallback={g.use_access_photos === false ? undefined : resolveSectionPhoto(s, aps)}
                     />
                   );
                 })}
@@ -545,7 +545,7 @@ export default async function RiverGuideLayout({ post }: Props) {
           {/* Springs */}
           {g.springs.length > 0 && <>
           <SectionTitle id="springs" eyebrow="Off-river stops">
-            Springs &amp; sights worth stopping for
+            {g.sights_heading ?? 'Springs & sights worth stopping for'}
           </SectionTitle>
           <div
             style={{
@@ -561,14 +561,14 @@ export default async function RiverGuideLayout({ post }: Props) {
                 key={sp.name}
                 style={{
                   display: 'grid',
-                  gridTemplateColumns: '100px 1fr',
+                  gridTemplateColumns: sp.mile ? '100px 1fr' : '1fr',
                   gap: 0,
                   padding: '16px 22px',
                   borderTop: i ? '1px dashed var(--color-neutral-300)' : 'none',
                   alignItems: 'center',
                 }}
               >
-                <div
+                {sp.mile && <div
                   style={{
                     fontFamily: 'var(--font-mono)',
                     fontSize: 13,
@@ -577,7 +577,7 @@ export default async function RiverGuideLayout({ post }: Props) {
                   }}
                 >
                   mile {sp.mile}
-                </div>
+                </div>}
                 <div>
                   <div
                     style={{
@@ -604,7 +604,7 @@ export default async function RiverGuideLayout({ post }: Props) {
             Outfitters, campgrounds &amp; lodging
           </SectionTitle>
           <p style={{ fontSize: 15, color: 'var(--color-neutral-600)', marginBottom: 18, lineHeight: 1.55 }}>
-            Every active service that operates on the {riverName.replace(/ River$/, '')}. Tap a phone number to call; tap Reserve to book.
+            Every active service that operates on the {riverName}. Tap a phone number to call; tap Reserve to book.
           </p>
           <DirectoryCards riverSlug={slug} />
 
@@ -807,6 +807,7 @@ export default async function RiverGuideLayout({ post }: Props) {
 
           {g.sources?.length ? <section aria-label="Guide sources" style={{ marginTop: 32, marginBottom: 24 }}>
             <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 20, marginBottom: 10 }}>Sources &amp; local information</h3>
+            {g.checked_at ? <p style={{ fontSize: 13, color: 'var(--color-neutral-600)' }}>Editorial sources checked {g.checked_at}.</p> : null}
             <ul style={{ paddingLeft: 20, fontSize: 14, lineHeight: 1.8 }}>
               {g.sources.map(source => <li key={source.url}><a href={source.url} style={{ textDecoration: 'underline' }}>{source.label}</a></li>)}
             </ul>

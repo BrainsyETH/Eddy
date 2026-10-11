@@ -1,3 +1,4 @@
+import type { RiverGuideSeed } from '../../lib/river-guide-seeds';
 import bigPiney from './big-piney';
 import bigRiver from './big-river';
 import black from './black';
@@ -17,7 +18,7 @@ import springRiver from './spring-river';
 import stFrancis from './st-francis';
 import warEagleCreek from './war-eagle-creek';
 
-export const riverGuideSeeds = [
+export const riverGuideSeeds: RiverGuideSeed[] = [
   bigPiney,
   bigRiver,
   black,

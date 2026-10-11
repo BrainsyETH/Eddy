@@ -8,8 +8,7 @@ export interface RiverGuideSeed {
   featured_image_url: string;
   read_time_minutes: number;
   guide_data: GuideData;
-  checked_at: string;
-  sources: string[];
+  og_image_url?: string;
 }
 
 export interface GuideRiver { id: string; slug: string; active: boolean }
@@ -60,7 +59,7 @@ export function guideInsertRow(seed: RiverGuideSeed, published: boolean, now: st
   return {
     slug: seed.slug, title: seed.title, description: seed.description,
     river_slug: seed.river_slug, category: 'River Guides',
-    featured_image_url: seed.featured_image_url, og_image_url: seed.featured_image_url,
+    featured_image_url: seed.featured_image_url, og_image_url: seed.og_image_url ?? seed.featured_image_url,
     read_time_minutes: seed.read_time_minutes, guide_data: seed.guide_data,
     meta_keywords: [seed.guide_data.hero.title_top, 'float trip guide', 'river access', 'Eddy'],
     status: published ? 'published' : 'draft', published_at: published ? now : null,

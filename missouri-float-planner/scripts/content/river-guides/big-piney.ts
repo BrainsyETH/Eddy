@@ -5,23 +5,23 @@ export default {
   "title": "Big Piney River Float Trip Guide: Bluffs, Fishing & Public Access",
   "description": "Pine-topped bluffs, fishing stops, and room to take your time. Get to know the Big Piney from the Houston accesses to its separate lower stretch.",
   "river_slug": "big-piney",
-  "featured_image_url": "https://mdc.mo.gov/sites/default/files/styles/gallery_main_image/public/mo_nature/images/conservation/Baptist-Camp-Access.jpeg?itok=kqERkkdq",
+  "featured_image_url": "https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy%20the%20otter%20in%20a%20cool%20canoe.png",
   "read_time_minutes": 5,
   "guide_data": {
     "hero": {
       "eyebrow": "Big Piney River · Missouri",
       "title_top": "Big Piney River",
       "title_accent": "Float Trip Guide.",
-      "lede": "Pine-topped bluffs, fishing stops, and room to take your time. Get to know the Big Piney from the Houston accesses to its separate lower stretch.",
-      "photo_url": "https://mdc.mo.gov/sites/default/files/styles/gallery_main_image/public/mo_nature/images/conservation/Baptist-Camp-Access.jpeg?itok=kqERkkdq",
+      "lede": "Pine-topped bluffs, fishing pools, and room for a gravel-bar lunch. Choose a short outing near Houston or give the forest reach below Mason Bridge more of your day.",
+      "photo_url": "",
       "mile_stats": [
         {
           "label": "Region",
           "value": "Missouri"
         },
         {
-          "label": "Water",
-          "value": "Class I–II"
+          "label": "Plan around",
+          "value": "The day’s flow"
         },
         {
           "label": "In this guide",
@@ -53,12 +53,9 @@ export default {
         "from": "Dogs Bluff Access",
         "to": "Mineral Springs Access",
         "miles": "2.9",
-        "time": "Varies with flow and stops",
-        "diff": "I–II",
-        "crowd": "Weekdays tend to be quieter",
-        "best": "A short upper-river outing",
+        "best": "A short upper-river outing with a modest mileage target",
         "photo": null,
-        "body": "Start at Dogs Bluff and finish at Mineral Springs. Keep this one deliberately unhurried: stop for lunch, work a promising pool, and give first-time canoe partners time to find their rhythm. Check the upper river before committing in a dry spell. Eddy maps this reach at about 2.9 miles. Use the planner for a current time estimate and leave room for stops."
+        "body": "Start at Dogs Bluff and finish at Mineral Springs. Keep this one deliberately unhurried: stop for lunch, work a promising pool, and give first-time canoe partners time to find their rhythm. Check the upper river before committing in a dry spell."
       },
       {
         "id": 2,
@@ -68,12 +65,9 @@ export default {
         "from": "Mason Bridge Access",
         "to": "Slabtown Recreation Area",
         "miles": "8.6",
-        "time": "Varies with flow and stops",
-        "diff": "I–II",
-        "crowd": "Weekdays tend to be quieter",
-        "best": "A day ending at Slabtown",
+        "best": "A longer forest float with time for fishing and a gravel-bar lunch",
         "photo": null,
-        "body": "Mason Bridge to Slabtown gives you a longer run with a clearly named Forest Service take-out. Finish at Slabtown rather than casually extending the day downstream, where additional obstructions and access questions change the plan. Eddy maps this reach at about 8.6 miles. Use the planner for a current time estimate and leave room for stops."
+        "body": "Mason Bridge to Slabtown gives you a longer run with a clearly named Forest Service take-out. Finish at Slabtown rather than casually extending the day downstream, where additional obstructions and access questions change the plan."
       },
       {
         "id": 3,
@@ -83,21 +77,12 @@ export default {
         "from": "East Gate Access",
         "to": "Crossroads Access",
         "miles": "3.1",
-        "time": "Varies with flow and stops",
-        "diff": "I–II",
-        "crowd": "Weekdays tend to be quieter",
-        "best": "The lower-river sampler",
+        "best": "A short paddle in the East Gate area",
         "photo": null,
-        "body": "Start fresh below the military reach at East Gate and paddle to Crossroads. It is a compact introduction to the lower Big Piney and a useful alternative to a long through-trip. Eddy maps this reach at about 3.1 miles. Use the planner for a current time estimate and leave room for stops."
+        "body": "Start fresh below the military reach at East Gate and paddle to Crossroads. It is a compact introduction to the lower Big Piney and a useful alternative to a long through-trip."
       }
     ],
-    "springs": [
-      {
-        "name": "Slabtown Recreation Area",
-        "mile": "59",
-        "note": "A Forest Service river stop with nearby bluff scenery. Check the current site page for campground and trail information."
-      }
-    ],
+    "springs": [],
     "seasons": [
       {
         "m": "Mar–May",
@@ -116,11 +101,11 @@ export default {
       }
     ],
     "what_to_bring": [
-      "A well-fitting PFD for everyone; wear yours on the water.",
-      "Drinking water, lunch, and a dry bag with an extra layer.",
-      "Shoes that stay on your feet over slippery rocks and gravel.",
-      "Sun protection and a bag for every bit of trash you bring.",
-      "Your saved route, take-out directions, and a shuttle arranged before launching."
+      "A fitted PFD for each paddler, worn on the water.",
+      "Drinking water, food, sun protection, and a bag to pack out your trash.",
+      "Secure footwear and a dry bag for essentials.",
+      "A saved map for the Mason Bridge–Slabtown shuttle; forest-road turns are easier with directions already loaded.",
+      "A rod and tackle, if fishing is part of the plan, with the current Missouri permit and regulations checked."
     ],
     "pro_tips": [
       {
@@ -143,7 +128,7 @@ export default {
       },
       "footer": {
         "tone": "note",
-        "quote": "Pine-topped bluffs, fishing stops, and room to take your time. Get to know the Big Piney from the Houston accesses to its separate lower stretch."
+        "quote": "Pick the Big Piney stretch before packing the truck: Dogs Bluff is a different day from Mason Bridge to Slabtown. Save the right take-out, then leave a little time for the bluffs."
       }
     },
     "faq": [
@@ -182,58 +167,49 @@ export default {
     ],
     "tldr": {
       "typical_distance": "2.9–8.6 mi featured routes",
-      "best_for_beginners": "Match the reach and today’s water to your group",
+      "best_for_beginners": "Dogs Bluff → Mineral Springs: 2.9 miles to consider when the upper river has suitable water.",
       "primary_gauge": "Big Piney River near Big Piney, MO · USGS 06930000"
     },
     "sources": [
       {
-        "label": "USDA Forest Service",
+        "label": "USFS: Big Piney River",
         "url": "https://www.fs.usda.gov/r09/marktwain/recreation/big-piney-river"
       },
       {
-        "label": "USDA Forest Service",
+        "label": "USFS: East Gate",
         "url": "https://www.fs.usda.gov/r09/marktwain/recreation/east-gate"
       },
       {
-        "label": "Missouri Department of Conservation",
+        "label": "MDC: Dogs Bluff Access",
         "url": "https://mdc.mo.gov/discover-nature/places/dogs-bluff-access"
       },
       {
-        "label": "Missouri Department of Conservation",
+        "label": "MDC: Mineral Springs Access",
         "url": "https://mdc.mo.gov/discover-nature/places/mineral-springs-access"
       },
       {
-        "label": "Missouri Department of Conservation",
+        "label": "MDC: Mason Bridge Access",
         "url": "https://mdc.mo.gov/discover-nature/places/mason-bridge-access"
       },
       {
-        "label": "USDA Forest Service",
+        "label": "USFS: Slabtown Recreation Area",
         "url": "https://www.fs.usda.gov/r09/marktwain/recreation/slabtown-recreation-area"
       },
       {
-        "label": "USDA Forest Service",
+        "label": "USFS: Big Piney recreation information",
         "url": "https://www.fs.usda.gov/recarea/mtnf/recarea/?recid=21814"
       },
       {
-        "label": "USDA Forest Service",
+        "label": "USFS: Crossroads Access",
         "url": "https://www.fs.usda.gov/r09/marktwain/recreation/crossroads-access"
       },
       {
-        "label": "USGS gauge",
+        "label": "USGS: station 06930000",
         "url": "https://waterdata.usgs.gov/monitoring-location/06930000/"
       }
-    ]
+    ],
+    "checked_at": "2026-10-11",
+    "use_access_photos": false
   },
-  "checked_at": "2026-10-11",
-  "sources": [
-    "https://www.fs.usda.gov/r09/marktwain/recreation/big-piney-river",
-    "https://www.fs.usda.gov/r09/marktwain/recreation/east-gate",
-    "https://mdc.mo.gov/discover-nature/places/dogs-bluff-access",
-    "https://mdc.mo.gov/discover-nature/places/mineral-springs-access",
-    "https://mdc.mo.gov/discover-nature/places/mason-bridge-access",
-    "https://www.fs.usda.gov/r09/marktwain/recreation/slabtown-recreation-area",
-    "https://www.fs.usda.gov/recarea/mtnf/recarea/?recid=21814",
-    "https://www.fs.usda.gov/r09/marktwain/recreation/crossroads-access",
-    "https://waterdata.usgs.gov/monitoring-location/06930000/"
-  ]
+  "og_image_url": "https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy%20the%20otter%20in%20a%20cool%20canoe.png"
 } satisfies RiverGuideSeed;

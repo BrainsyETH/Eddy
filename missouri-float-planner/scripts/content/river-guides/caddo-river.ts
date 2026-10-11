@@ -12,7 +12,7 @@ export default {
       "eyebrow": "Caddo River · Arkansas",
       "title_top": "Caddo River",
       "title_accent": "Float Trip Guide.",
-      "lede": "An Ouachita Mountains float with rocky riffles, long pools, and a handy base in Glenwood. Start with the Caddo Gap reach and build from there.",
+      "lede": "Make Glenwood the meeting point, then follow the Caddo through an Ouachita river day of riffles and long pools. Check the actual launch name before borrowing anyone else’s float time.",
       "photo_url": "https://commons.wikimedia.org/wiki/Special:FilePath/Norman%2C_AR_002.jpg?width=1280",
       "mile_stats": [
         {
@@ -20,14 +20,22 @@ export default {
           "value": "Ouachita Mountains"
         },
         {
-          "label": "Water",
-          "value": "Class I–II"
+          "label": "Plan around",
+          "value": "The day’s flow"
         },
         {
           "label": "In this guide",
           "value": "2 float routes"
         }
-      ]
+      ],
+      "photo_credit": {
+        "image_url": "https://commons.wikimedia.org/wiki/Special:FilePath/Norman%2C_AR_002.jpg?width=1280",
+        "author": "Brandonrush",
+        "source_url": "https://commons.wikimedia.org/wiki/File:Norman,_AR_002.jpg",
+        "license": "CC0 1.0",
+        "license_url": "https://creativecommons.org/publicdomain/zero/1.0/",
+        "changes": "Cropped to fit"
+      }
     },
     "intro_html": "<p><strong>The Caddo is a good excuse to make Glenwood the center of a river weekend.</strong> Upstream, the water comes through the Ouachita Mountains and the Caddo Gap country; downstream, it works toward DeGray Lake. Between the pools and rockier passages, the day has enough variety to keep you engaged without needing a huge route.</p><p>The useful planning question is which part of the Caddo your reservation or map actually describes. A private launch above Glenwood can produce a different distance from Eddy’s public-access route. Get the endpoint names, check the Caddo Gap gauge, and leave time for the stops that made you want to float in the first place.</p>",
     "why_different": [
@@ -53,12 +61,9 @@ export default {
         "from": "Swinging Bridge Access (Caddo Gap)",
         "to": "Glenwood Access (City Park Boat Ramp)",
         "miles": "9.9",
-        "time": "Varies with flow and stops",
-        "diff": "I–II",
-        "crowd": "Weekdays tend to be quieter",
-        "best": "The Caddo Gap day",
+        "best": "Paddlers wanting the full Caddo Gap-to-Glenwood outing",
         "photo": null,
-        "body": "Launch at Swinging Bridge in the Caddo Gap area and aim for the Glenwood city access. This is longer than some privately arranged resort floats; do not substitute a rental company’s shorter trip time for this pair of public endpoints. Eddy maps this reach at about 9.9 miles. Use the planner for a current time estimate and leave room for stops."
+        "body": "Launch at Swinging Bridge in the Caddo Gap area and aim for the Glenwood city access. This is longer than some privately arranged resort floats; do not substitute a rental company’s shorter trip time for this pair of public endpoints."
       },
       {
         "id": 2,
@@ -68,21 +73,12 @@ export default {
         "from": "Glenwood Access (City Park Boat Ramp)",
         "to": "Hwy 182 Amity Boat Ramp",
         "miles": "8.1",
-        "time": "Varies with flow and stops",
-        "diff": "I–II",
-        "crowd": "Weekdays tend to be quieter",
-        "best": "A separate day below Glenwood",
+        "best": "A separate downstream day toward Amity",
         "photo": null,
-        "body": "The reach to Highway 182 near Amity is an alternative below Glenwood. Check access and local conditions at both ends, and make the downstream take-out part of the shuttle plan before leaving town. Eddy maps this reach at about 8.1 miles. Use the planner for a current time estimate and leave room for stops."
+        "body": "The reach to Highway 182 near Amity is an alternative below Glenwood. Check access and local conditions at both ends, and make the downstream take-out part of the shuttle plan before leaving town."
       }
     ],
-    "springs": [
-      {
-        "name": "Glenwood Access (City Park Boat Ramp)",
-        "mile": "27.68",
-        "note": "A useful end to the upper outing, with Glenwood as the place to regroup afterward."
-      }
-    ],
+    "springs": [],
     "seasons": [
       {
         "m": "Mar–May",
@@ -101,11 +97,11 @@ export default {
       }
     ],
     "what_to_bring": [
-      "A well-fitting PFD for everyone; wear yours on the water.",
-      "Drinking water, lunch, and a dry bag with an extra layer.",
-      "Shoes that stay on your feet over slippery rocks and gravel.",
-      "Sun protection and a bag for every bit of trash you bring.",
-      "Your saved route, take-out directions, and a shuttle arranged before launching."
+      "A fitted PFD for each paddler, worn on the water.",
+      "Drinking water, food, sun protection, and a bag to pack out your trash.",
+      "Secure footwear and a dry bag for essentials.",
+      "Footwear that stays secure over the Caddo’s rocky shallows.",
+      "Enough drinking water and daylight for the full public-access route, which may be longer than a rental float."
     ],
     "pro_tips": [
       {
@@ -128,7 +124,7 @@ export default {
       },
       "footer": {
         "tone": "note",
-        "quote": "An Ouachita Mountains float with rocky riffles, long pools, and a handy base in Glenwood. Start with the Caddo Gap reach and build from there."
+        "quote": "A rental company’s short Glenwood float may start miles below Caddo Gap. Match the launch and landing names before deciding when to meet the shuttle."
       }
     },
     "faq": [
@@ -151,35 +147,28 @@ export default {
         "body": "The public Caddo Gap–Glenwood route may be longer than a private outfitter’s advertised float."
       }
     ],
-    "related_rivers": [
-      {
-        "slug": "mulberry",
-        "label": "Mulberry River"
-      },
-      {
-        "slug": "buffalo",
-        "label": "Buffalo National River"
-      }
-    ],
+    "related_rivers": [],
     "tldr": {
       "typical_distance": "8.1–9.9 mi featured routes",
-      "best_for_beginners": "Match the reach and today’s water to your group",
+      "best_for_beginners": "The public routes here are 8.1 and 9.9 miles. Ask about a shorter confirmed local route for a first paddle.",
       "primary_gauge": "Caddo River near Caddo Gap, AR · USGS 07359610"
     },
     "sources": [
       {
-        "label": "Arkansas Tourism & State Parks",
+        "label": "Arkansas Tourism: Caddo River",
         "url": "https://www.arkansas.com/experiences/discover/attraction-listings/caddo-river"
       },
       {
-        "label": "USGS gauge",
+        "label": "USGS: station 07359610",
         "url": "https://waterdata.usgs.gov/monitoring-location/07359610/"
+      },
+      {
+        "label": "Caddo River Camping & Canoe Rental: public-access directions",
+        "url": "https://caddoriver.com/contact"
       }
-    ]
+    ],
+    "checked_at": "2026-10-11",
+    "use_access_photos": false
   },
-  "checked_at": "2026-10-11",
-  "sources": [
-    "https://www.arkansas.com/experiences/discover/attraction-listings/caddo-river",
-    "https://waterdata.usgs.gov/monitoring-location/07359610/"
-  ]
+  "og_image_url": "https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy%20the%20otter%20in%20a%20cool%20canoe.png"
 } satisfies RiverGuideSeed;

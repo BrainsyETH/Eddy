@@ -1,3 +1,4 @@
+import { IMAGE_REMOTE_PATTERNS } from './shared/image-remote-patterns.mjs';
 import { withSentryConfig } from '@sentry/nextjs';
 
 // Snapshot of Next 16.3.8's default HTML-limited crawler list. Keep config
@@ -17,37 +18,7 @@ const nextConfig = {
   // metadata for iOS Safari; other browsers retain metadata streaming.
   htmlLimitedBots: new RegExp(`${HTML_LIMITED_BOT_UA_RE.source}|(?:iPhone|iPad|iPod).*Safari`, 'i'),
   images: {
-    remotePatterns: [
-      { protocol: 'https', hostname: 'cdn.recreation.gov', pathname: '/public/**' },
-      { protocol: 'https', hostname: 'icampmo.usedirect.com', pathname: '/MSPWeb/images/Missouri/**' },
-      { protocol: 'https', hostname: 'upload.wikimedia.org', port: '', pathname: '/wikipedia/commons/**' },
-      { protocol: 'https', hostname: 'www.fws.gov', port: '', pathname: '/sites/default/files/**' },
-      {
-        protocol: 'https',
-        hostname: 'q5skne5bn5nbyxfw.public.blob.vercel-storage.com',
-      },
-      {
-        protocol: 'https',
-        hostname: 'openweathermap.org',
-        pathname: '/img/**',
-      },
-      {
-        protocol: 'https',
-        hostname: 'www.nps.gov',
-      },
-      {
-        protocol: 'https',
-        hostname: 'images.unsplash.com',
-      },
-      {
-        // Community-submitted river visual photos live in Supabase Storage.
-        // Wildcard host so dev/preview/prod projects (different subdomains) all
-        // resolve; scoped to the public storage path only.
-        protocol: 'https',
-        hostname: '**.supabase.co',
-        pathname: '/storage/v1/object/public/**',
-      },
-    ],
+    remotePatterns: IMAGE_REMOTE_PATTERNS,
   },
   async rewrites() {
     return [

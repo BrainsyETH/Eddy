@@ -12,7 +12,7 @@ export default {
       "eyebrow": "Bryant Creek · Missouri",
       "title_top": "Bryant Creek",
       "title_accent": "Float Trip Guide.",
-      "lede": "Clear pools, smaller water, and time to fish. Plan a Bryant Creek day around Sycamore and Warren Bridge, with a realistic look at the upstream water.",
+      "lede": "Bring the fishing rod and a patient pace. The lower Bryant offers a smaller-stream day through the southern Missouri Ozarks, with Sycamore and Warren Bridge anchoring the choices.",
       "photo_url": "https://commons.wikimedia.org/wiki/Special:FilePath/BryantCreek_02.jpg?width=1280",
       "mile_stats": [
         {
@@ -20,14 +20,22 @@ export default {
           "value": "Missouri"
         },
         {
-          "label": "Water",
-          "value": "Class I"
+          "label": "Plan around",
+          "value": "The day’s flow"
         },
         {
           "label": "In this guide",
           "value": "2 float routes"
         }
-      ]
+      ],
+      "photo_credit": {
+        "image_url": "https://commons.wikimedia.org/wiki/Special:FilePath/BryantCreek_02.jpg?width=1280",
+        "author": "Missouri State Parks",
+        "source_url": "https://commons.wikimedia.org/wiki/File:BryantCreek_02.jpg",
+        "license": "Public domain",
+        "license_url": "https://creativecommons.org/publicdomain/mark/1.0/",
+        "changes": "Cropped to fit"
+      }
     },
     "intro_html": "<p><strong>Bryant Creek feels like a trip you heard about from someone who likes to keep a few places to themselves.</strong> It shares the south-central Ozarks with the North Fork, but this is a narrower, more intimate creek. The pleasure is in the details: a quiet pool, a gravel bend, and enough time to stop when a stretch looks promising.</p><p>Spring inflows help Bryant, but they do not give every upstream mile the same water. The Tecumseh gauge is near the lower end. If you are launching well upstream, a healthy-looking number there can still leave you working through shallow riffles. Start with the reach, then decide whether today suits it.</p>",
     "why_different": [
@@ -53,12 +61,9 @@ export default {
         "from": "Sycamore Access",
         "to": "Warren Bridge Access",
         "miles": "7.6",
-        "time": "Varies with flow and stops",
-        "diff": "I",
-        "crowd": "Weekdays tend to be quieter",
-        "best": "The lower-creek introduction",
+        "best": "Fishing stops on a lower-creek day from Sycamore",
         "photo": null,
-        "body": "Sycamore to Warren Bridge is a useful place to start thinking about a Bryant day. Give yourself time for the pools and a close look at narrower bends. Confirm your exact access directions before heading into the valley. Eddy maps this reach at about 7.6 miles. Use the planner for a current time estimate and leave room for stops."
+        "body": "Sycamore to Warren Bridge is a useful place to start thinking about a Bryant day. Give yourself time for the pools and a close look at narrower bends. Confirm your exact access directions before heading into the valley."
       },
       {
         "id": 2,
@@ -68,26 +73,12 @@ export default {
         "from": "Warren Bridge Access",
         "to": "Florence C. Cook Access",
         "miles": "7.7",
-        "time": "Varies with flow and stops",
-        "diff": "I",
-        "crowd": "Weekdays tend to be quieter",
-        "best": "A day toward the mouth",
+        "best": "A separate lower reach ending at Flo Cook",
         "photo": null,
-        "body": "Continue the lower-creek story from Warren Bridge to Florence C. Cook Access. Cook sits near the Norfork Lake end of the watershed; check how downstream backwater and current conditions affect the finish. Eddy maps this reach at about 7.7 miles. Use the planner for a current time estimate and leave room for stops."
+        "body": "Continue the lower-creek story from Warren Bridge to Florence C. Cook Access. Cook sits near the Norfork Lake end of the watershed; check how downstream backwater and current conditions affect the finish."
       }
     ],
-    "springs": [
-      {
-        "name": "Sycamore Access",
-        "mile": "46.48",
-        "note": "A public starting point for the lower creek."
-      },
-      {
-        "name": "Florence C. Cook Access",
-        "mile": "61.85",
-        "note": "A named lower take-out near the Norfork Lake end of Bryant Creek."
-      }
-    ],
+    "springs": [],
     "seasons": [
       {
         "m": "Mar–May",
@@ -106,11 +97,11 @@ export default {
       }
     ],
     "what_to_bring": [
-      "A well-fitting PFD for everyone; wear yours on the water.",
-      "Drinking water, lunch, and a dry bag with an extra layer.",
-      "Shoes that stay on your feet over slippery rocks and gravel.",
-      "Sun protection and a bag for every bit of trash you bring.",
-      "Your saved route, take-out directions, and a shuttle arranged before launching."
+      "A fitted PFD for each paddler, worn on the water.",
+      "Drinking water, food, sun protection, and a bag to pack out your trash.",
+      "Secure footwear and a dry bag for essentials.",
+      "A compact tackle kit for smallmouth water, with current fishing rules checked.",
+      "Saved directions for Warren Bridge or Flo Cook; phone reception is not a shuttle plan."
     ],
     "pro_tips": [
       {
@@ -133,7 +124,7 @@ export default {
       },
       "footer": {
         "tone": "note",
-        "quote": "Clear pools, smaller water, and time to fish. Plan a Bryant Creek day around Sycamore and Warren Bridge, with a realistic look at the upstream water."
+        "quote": "Bryant Creek rewards leaving room between the miles. Choose one of the lower-creek legs, confirm the take-out, and let a promising pool keep you a little longer."
       }
     },
     "faq": [
@@ -168,38 +159,33 @@ export default {
     ],
     "tldr": {
       "typical_distance": "7.6–7.7 mi featured routes",
-      "best_for_beginners": "Match the reach and today’s water to your group",
+      "best_for_beginners": "Both featured legs are roughly 7.6 miles. A shorter first trip needs separately confirmed access.",
       "primary_gauge": "Bryant Creek near Tecumseh, MO · USGS 07058000"
     },
     "sources": [
       {
-        "label": "Missouri Float Trips",
+        "label": "Missouri Float Trips: Bryant Creek",
         "url": "https://www.floatmissouri.com/plan/missouri-rivers/bryant-creek/"
       },
       {
-        "label": "Missouri Department of Conservation",
+        "label": "MDC: Flo Cook Access",
         "url": "https://mdc.mo.gov/discover-nature/places/flo-cook-access"
       },
       {
-        "label": "Missouri Department of Conservation",
+        "label": "MDC: Sycamore Access",
         "url": "https://mdc.mo.gov/discover-nature/places/sycamore-access"
       },
       {
-        "label": "Missouri Department of Conservation",
+        "label": "MDC: Warren Bridge Access",
         "url": "https://mdc.mo.gov/discover-nature/places/warren-bridge-access"
       },
       {
-        "label": "USGS gauge",
+        "label": "USGS: station 07058000",
         "url": "https://waterdata.usgs.gov/monitoring-location/07058000/"
       }
-    ]
+    ],
+    "checked_at": "2026-10-11",
+    "use_access_photos": false
   },
-  "checked_at": "2026-10-11",
-  "sources": [
-    "https://www.floatmissouri.com/plan/missouri-rivers/bryant-creek/",
-    "https://mdc.mo.gov/discover-nature/places/flo-cook-access",
-    "https://mdc.mo.gov/discover-nature/places/sycamore-access",
-    "https://mdc.mo.gov/discover-nature/places/warren-bridge-access",
-    "https://waterdata.usgs.gov/monitoring-location/07058000/"
-  ]
+  "og_image_url": "https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy%20the%20otter%20in%20a%20cool%20canoe.png"
 } satisfies RiverGuideSeed;

@@ -5,23 +5,23 @@ export default {
   "title": "Gasconade River Float Trip Guide: Bluffs, Bends & Day Floats",
   "description": "Long bends, bluff views, and plenty of ways to make a quiet river day. Choose a piece of the Gasconade instead of trying to do it all.",
   "river_slug": "gasconade",
-  "featured_image_url": "https://mdc.mo.gov/sites/default/files/styles/gallery_main_image/public/mo_nature/images/conservation/Camp%20Branch%20Access.jpg?itok=6DE8JECc",
+  "featured_image_url": "https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy%20the%20otter%20in%20a%20cool%20canoe.png",
   "read_time_minutes": 5,
   "guide_data": {
     "hero": {
       "eyebrow": "Gasconade River · Missouri",
       "title_top": "Gasconade River",
       "title_accent": "Float Trip Guide.",
-      "lede": "Long bends, bluff views, and plenty of ways to make a quiet river day. Choose a piece of the Gasconade instead of trying to do it all.",
-      "photo_url": "https://mdc.mo.gov/sites/default/files/styles/gallery_main_image/public/mo_nature/images/conservation/Camp%20Branch%20Access.jpg?itok=6DE8JECc",
+      "lede": "The Gasconade is a river of big bends and different-sized days. Start near Buzzard Bluff for an upper-river outing, or head far downstream for the wider water at Rollins Ferry.",
+      "photo_url": "",
       "mile_stats": [
         {
           "label": "Region",
           "value": "Missouri"
         },
         {
-          "label": "Water",
-          "value": "Class I"
+          "label": "Plan around",
+          "value": "The day’s flow"
         },
         {
           "label": "In this guide",
@@ -53,12 +53,9 @@ export default {
         "from": "Buzzard Bluff Access",
         "to": "Wilbur Allen Memorial Conservation Area",
         "miles": "7.2",
-        "time": "Varies with flow and stops",
-        "diff": "I",
-        "crowd": "Weekdays tend to be quieter",
-        "best": "An upper-river outing",
+        "best": "An upper-Gasconade day with fishing and lunch stops",
         "photo": null,
-        "body": "Buzzard Bluff to Wilbur Allen is a manageable upper pairing when the water suits it. Check the actual launch depth; a downstream gauge can look generous while the upper riffles are thin. Eddy maps this reach at about 7.2 miles. Use the planner for a current time estimate and leave room for stops."
+        "body": "Buzzard Bluff to Wilbur Allen is a manageable upper pairing when the water suits it. Check the actual launch depth; a downstream gauge can look generous while the upper riffles are thin. Hazelgreen is downstream of this upper route; compare the trend with local launch conditions."
       },
       {
         "id": 2,
@@ -68,21 +65,12 @@ export default {
         "from": "Rollins Ferry Access",
         "to": "Pointers Creek Access",
         "miles": "7.4",
-        "time": "Varies with flow and stops",
-        "diff": "I",
-        "crowd": "Weekdays tend to be quieter",
-        "best": "A lower-river day",
+        "best": "A wider lower-river outing for paddlers comfortable with open pools",
         "photo": null,
-        "body": "Rollins Ferry to Pointers Creek gives you a lower-Gasconade option with named public endpoints. Expect larger water and longer pools than on the upper river, and leave time to paddle if the wind turns against you. Eddy maps this reach at about 7.4 miles. Use the planner for a current time estimate and leave room for stops."
+        "body": "Rollins Ferry to Pointers Creek gives you a lower-Gasconade option with named public endpoints. Expect larger water and longer pools than on the upper river, and leave time to paddle if the wind turns against you. Use Jerome (USGS 06933500) for upstream context and check conditions locally at Rollins Ferry. Hazelgreen does not describe this lower reach."
       }
     ],
-    "springs": [
-      {
-        "name": "Rollins Ferry Access",
-        "mile": "203.4",
-        "note": "An established lower-river starting point. Set up the return vehicle before putting in."
-      }
-    ],
+    "springs": [],
     "seasons": [
       {
         "m": "Mar–May",
@@ -101,11 +89,11 @@ export default {
       }
     ],
     "what_to_bring": [
-      "A well-fitting PFD for everyone; wear yours on the water.",
-      "Drinking water, lunch, and a dry bag with an extra layer.",
-      "Shoes that stay on your feet over slippery rocks and gravel.",
-      "Sun protection and a bag for every bit of trash you bring.",
-      "Your saved route, take-out directions, and a shuttle arranged before launching."
+      "A fitted PFD for each paddler, worn on the water.",
+      "Drinking water, food, sun protection, and a bag to pack out your trash.",
+      "Secure footwear and a dry bag for essentials.",
+      "A saved route showing the bends between your chosen access pair.",
+      "Sun protection and extra drinking water for the wider lower river near Rollins Ferry."
     ],
     "pro_tips": [
       {
@@ -128,7 +116,7 @@ export default {
       },
       "footer": {
         "tone": "note",
-        "quote": "Long bends, bluff views, and plenty of ways to make a quiet river day. Choose a piece of the Gasconade instead of trying to do it all."
+        "quote": "Buzzard Bluff and Rollins Ferry are nearly 190 river miles apart. Give each its own water check and shuttle plan; a single Gasconade reading cannot do both jobs."
       }
     },
     "faq": [
@@ -163,43 +151,42 @@ export default {
     ],
     "tldr": {
       "typical_distance": "7.2–7.4 mi featured routes",
-      "best_for_beginners": "Match the reach and today’s water to your group",
-      "primary_gauge": "Gasconade River near Hazelgreen, MO · USGS 06928000"
+      "best_for_beginners": "Both featured trips exceed seven miles; choose for paddling stamina and conditions, not a short-looking road shuttle.",
+      "primary_gauge": "Hazelgreen (06928000): upper-river context. Jerome (06933500): upstream context for Rollins Ferry, not an on-route reading.",
+      "gauge_label": "Gauge context"
     },
     "sources": [
       {
-        "label": "Missouri Float Trips",
+        "label": "Missouri Float Trips: Gasconade River",
         "url": "https://www.floatmissouri.com/plan/missouri-rivers/gasconade-river/"
       },
       {
-        "label": "Missouri Department of Conservation",
+        "label": "MDC: Buzzard Bluff Access",
         "url": "https://mdc.mo.gov/discover-nature/places/buzzard-bluff-access"
       },
       {
-        "label": "Missouri Department of Conservation",
+        "label": "MDC: Wilbur Allen Memorial Conservation Area",
         "url": "https://mdc.mo.gov/discover-nature/places/wilbur-allen-memorial-conservation-area"
       },
       {
-        "label": "Missouri Department of Conservation",
+        "label": "MDC: Rollins Ferry Access",
         "url": "https://mdc.mo.gov/discover-nature/places/rollins-ferry-access"
       },
       {
-        "label": "Missouri Department of Conservation",
+        "label": "MDC: Pointers Creek Access",
         "url": "https://mdc.mo.gov/discover-nature/places/pointers-creek-access"
       },
       {
-        "label": "USGS gauge",
+        "label": "USGS: station 06928000",
         "url": "https://waterdata.usgs.gov/monitoring-location/06928000/"
+      },
+      {
+        "label": "USGS: Gasconade River at Jerome (06933500)",
+        "url": "https://waterdata.usgs.gov/monitoring-location/06933500/"
       }
-    ]
+    ],
+    "checked_at": "2026-10-11",
+    "use_access_photos": false
   },
-  "checked_at": "2026-10-11",
-  "sources": [
-    "https://www.floatmissouri.com/plan/missouri-rivers/gasconade-river/",
-    "https://mdc.mo.gov/discover-nature/places/buzzard-bluff-access",
-    "https://mdc.mo.gov/discover-nature/places/wilbur-allen-memorial-conservation-area",
-    "https://mdc.mo.gov/discover-nature/places/rollins-ferry-access",
-    "https://mdc.mo.gov/discover-nature/places/pointers-creek-access",
-    "https://waterdata.usgs.gov/monitoring-location/06928000/"
-  ]
+  "og_image_url": "https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy%20the%20otter%20in%20a%20cool%20canoe.png"
 } satisfies RiverGuideSeed;

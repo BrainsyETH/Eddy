@@ -2,8 +2,9 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { riverGuideSeeds } from '../../scripts/content/river-guides';
 import { guideInsertRow, planRiverGuideSeeds, type RiverGuideSeed } from '../../scripts/lib/river-guide-seeds';
+import { favoriteFloatMeta } from '../../../eddy-ios/src/lib/favoriteFloatCopy';
 import { selectRiverGuides, riverGuideUrl } from '../../../eddy-ios/src/lib/riverGuides';
-import { optimizeBlogImage } from './blog-image';
+import { optimizeBlogImage, guidePhotoCredit } from './blog-image';
 
 const sample = riverGuideSeeds.find(seed => seed.river_slug === 'black')!;
 const rivers = [{ id: 'river', slug: 'black', active: true }];
@@ -20,7 +21,7 @@ test('all 18 missing active rivers have a distinct, typed guide with sources and
   assert.equal(new Set(riverGuideSeeds.map(seed => seed.slug)).size, 18);
   for (const seed of riverGuideSeeds) {
     assert.ok(seed.guide_data.faq.length >= 3, seed.slug);
-    assert.ok(seed.sources.length >= 2, seed.slug);
+    assert.ok((seed.guide_data.sources?.length ?? 0) >= 3, seed.slug);
     assert.ok(seed.guide_data.intro_html.includes('<p>'), seed.slug);
     assert.ok(seed.guide_data.sources?.every(source => /^https:\/\//.test(source.url)), seed.slug);
   }
@@ -76,4 +77,47 @@ test('agency scenery outside the optimizer allowlist renders directly; approved 
   assert.equal(optimizeBlogImage('https://www.nps.gov/photo.jpg'), true);
   assert.equal(optimizeBlogImage('https://upload.wikimedia.org/wikipedia/commons/a/photo.jpg'), true);
   assert.equal(optimizeBlogImage('https://www.nps.gov.attacker.example/photo.jpg'), false);
+  assert.equal(optimizeBlogImage('https://www.fws.gov/sites/default/files/photo.jpg'), true);
+  assert.equal(optimizeBlogImage('https://www.fws.gov/private/photo.jpg'), false);
+});
+
+
+test('reviewed content retains provenance in the saved JSON and binds credits to the exact hero', () => {
+  for (const seed of riverGuideSeeds) {
+    const saved = guideInsertRow(seed, false, '2026-10-11T00:00:00Z');
+    assert.equal(saved.guide_data.checked_at, '2026-10-11');
+    assert.ok(saved.guide_data.sources?.length);
+    assert.equal(saved.guide_data.use_access_photos, false);
+    assert.notEqual(seed.description, seed.guide_data.hero.lede);
+    if (seed.guide_data.hero.photo_url) {
+      const credit = guidePhotoCredit(seed.guide_data.hero);
+      assert.ok(credit?.source_url && credit.license_url, seed.slug);
+      assert.equal(guidePhotoCredit({ ...seed.guide_data.hero, photo_url: 'https://example.com/replacement.jpg' }), undefined);
+      if (credit.license.startsWith('CC BY')) assert.notEqual(seed.featured_image_url, seed.guide_data.hero.photo_url);
+    }
+    assert.notEqual(saved.og_image_url, seed.guide_data.hero.photo_url);
+  }
+});
+
+test('Spring Missouri is an access overview until the upstream launch is verified', () => {
+  const guide = riverGuideSeeds.find(seed => seed.river_slug === 'spring-river-mo')!;
+  assert.equal(guide.slug, 'spring-river-float-trips-missouri');
+  assert.deepEqual(guide.guide_data.sections, []);
+  assert.ok(JSON.stringify(guide.guide_data).includes('1040 Bridge'));
+});
+
+test('nearby whitewater, historical dam status, and the Twin Bridges creek are explicit', () => {
+  const st = riverGuideSeeds.find(seed => seed.river_slug === 'st-francis')!.guide_data;
+  assert.match(st.sections[0].body, /0.5 mile/);
+  assert.match(st.sections[0].body, /whitewater/);
+  assert.match(st.sections[0].body, /Silver Mine Dam/);
+  const nf = riverGuideSeeds.find(seed => seed.river_slug === 'north-fork-white')!.guide_data;
+  assert.match(nf.sections[0].body, /Spring Creek/);
+  assert.match(nf.sections[1].body, /removed in 2017/);
+});
+
+
+test('favorite-float copy omits an unverified difficulty instead of inventing a class', () => {
+  const text = favoriteFloatMeta({ distanceMiles: 5, durationHours: null, durationFormatted: null, durationUnavailableReason: null, difficulty: '' });
+  assert.equal(text, '5.0 mi · Open plan for float time');
 });

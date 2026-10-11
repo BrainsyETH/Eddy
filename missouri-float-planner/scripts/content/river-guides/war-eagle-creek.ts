@@ -5,23 +5,23 @@ export default {
   "title": "War Eagle Creek Float Trip Guide: Withrow Springs & Seasonal Floats",
   "description": "A spring-season creek day near Withrow Springs, with bluff scenery and a mill visit to round out the weekend.",
   "river_slug": "war-eagle-creek",
-  "featured_image_url": "https://commons.wikimedia.org/wiki/Special:FilePath/War_Eagle_Creek_at_Withrow_Springs_State_Park.jpg?width=1200",
+  "featured_image_url": "https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy%20the%20otter%20in%20a%20cool%20canoe.png",
   "read_time_minutes": 5,
   "guide_data": {
     "hero": {
       "eyebrow": "War Eagle Creek · Arkansas",
       "title_top": "War Eagle Creek",
       "title_accent": "Float Trip Guide.",
-      "lede": "A spring-season creek day near Withrow Springs, with bluff scenery and a mill visit to round out the weekend.",
-      "photo_url": "https://commons.wikimedia.org/wiki/Special:FilePath/War_Eagle_Creek_at_Withrow_Springs_State_Park.jpg?width=1200",
+      "lede": "Build a spring river day around Withrow Springs: a paddle through wooded bends, time on a park trail, and no need to turn it into an expedition.",
+      "photo_url": "",
       "mile_stats": [
         {
           "label": "Region",
           "value": "Arkansas Ozarks"
         },
         {
-          "label": "Water",
-          "value": "Class I"
+          "label": "Plan around",
+          "value": "The day’s flow"
         },
         {
           "label": "In this guide",
@@ -53,12 +53,9 @@ export default {
         "from": "Hwy 412 Bridge Access",
         "to": "Withrow Springs State Park Boating Access (Hwy 23 Bridge)",
         "miles": "4.5",
-        "time": "Varies with flow and stops",
-        "diff": "I",
-        "crowd": "Weekdays tend to be quieter",
-        "best": "A short day ending at Withrow Springs",
+        "best": "A shorter paddle ending by Withrow Springs",
         "photo": null,
-        "body": "Confirm launch and parking at the Highway 412 crossing, then plan the take-out at the park’s Highway 23 boating access. This keeps the outing upstream of the mill area and leaves time for the park afterward. Eddy maps this reach at about 4.5 miles. Use the planner for a current time estimate and leave room for stops."
+        "body": "Confirm launch and parking at the Highway 412 crossing, then plan the take-out at the park’s Highway 23 boating access. This keeps the outing upstream of the mill area and leaves time for the park afterward."
       },
       {
         "id": 2,
@@ -68,19 +65,15 @@ export default {
         "from": "Withrow Springs State Park Boating Access (Hwy 23 Bridge)",
         "to": "War Eagle Creek Walk-in Access ('Chicken House Access')",
         "miles": "6.2",
-        "time": "Varies with flow and stops",
-        "diff": "I",
-        "crowd": "Weekdays tend to be quieter",
-        "best": "A longer creek outing",
+        "best": "A longer outing below the park for paddlers prepared for the carry-out",
         "photo": null,
-        "body": "Before choosing this pairing, confirm that the downstream walk-in access suits carrying your boat and that parking is available. A walk-in take-out can be very different from a ramp, especially with a heavy canoe. Eddy maps this reach at about 6.2 miles. Use the planner for a current time estimate and leave room for stops."
+        "body": "Before choosing this pairing, confirm that the downstream walk-in access suits carrying your boat and that parking is available. A walk-in take-out can be very different from a ramp, especially with a heavy canoe."
       }
     ],
     "springs": [
       {
-        "name": "Withrow Springs State Park Boating Access (Hwy 23 Bridge)",
-        "mile": "31.2",
-        "note": "Pair the float with time on the park’s trails. Check current park information before setting an overnight plan."
+        "name": "Withrow Springs trails",
+        "note": "Pair the paddle with a walk in the state park. Check the current trail notice first: the park has posted storm-damage repairs affecting the lower War Eagle Trail."
       }
     ],
     "seasons": [
@@ -101,11 +94,11 @@ export default {
       }
     ],
     "what_to_bring": [
-      "A well-fitting PFD for everyone; wear yours on the water.",
-      "Drinking water, lunch, and a dry bag with an extra layer.",
-      "Shoes that stay on your feet over slippery rocks and gravel.",
-      "Sun protection and a bag for every bit of trash you bring.",
-      "Your saved route, take-out directions, and a shuttle arranged before launching."
+      "A fitted PFD for each paddler, worn on the water.",
+      "Drinking water, food, sun protection, and a bag to pack out your trash.",
+      "Secure footwear and a dry bag for essentials.",
+      "Dry walking shoes for a Withrow Springs trail after the paddle.",
+      "An offline map with the Highway 23 boating access marked separately from the park’s main facilities."
     ],
     "pro_tips": [
       {
@@ -128,7 +121,7 @@ export default {
       },
       "footer": {
         "tone": "note",
-        "quote": "A spring-season creek day near Withrow Springs, with bluff scenery and a mill visit to round out the weekend."
+        "quote": "Withrow Springs is the anchor, but choose which side of it you plan to paddle. Save the exact access and ask the park about today’s creek before setting the shuttle."
       }
     },
     "faq": [
@@ -171,28 +164,26 @@ export default {
     ],
     "tldr": {
       "typical_distance": "4.5–6.2 mi featured routes",
-      "best_for_beginners": "Match the reach and today’s water to your group",
+      "best_for_beginners": "Highway 412 → Withrow Springs is the shorter featured reach at 4.5 miles; confirm seasonal water and access.",
       "primary_gauge": "War Eagle Creek near Hindsville, AR · USGS 07049000"
     },
     "sources": [
       {
-        "label": "Arkansas Tourism & State Parks",
+        "label": "Arkansas State Parks: Withrow Springs State Park",
         "url": "https://www.arkansas.com/state-parks/explore/parks/withrow-springs-state-park"
       },
       {
-        "label": "Arkansas Tourism & State Parks",
-        "url": "https://www.arkansasstateparks.com/parks/withrow-springs-state-park"
+        "label": "USGS: station 07049000",
+        "url": "https://waterdata.usgs.gov/monitoring-location/07049000/"
       },
       {
-        "label": "USGS gauge",
-        "url": "https://waterdata.usgs.gov/monitoring-location/07049000/"
+        "label": "Arkansas State Parks: War Eagle Trail and closure notices",
+        "url": "https://www.arkansas.com/state-parks/explore/trails/war-eagle-trail"
       }
-    ]
+    ],
+    "checked_at": "2026-10-11",
+    "use_access_photos": false,
+    "sights_heading": "Places to explore ashore"
   },
-  "checked_at": "2026-10-11",
-  "sources": [
-    "https://www.arkansas.com/state-parks/explore/parks/withrow-springs-state-park",
-    "https://www.arkansasstateparks.com/parks/withrow-springs-state-park",
-    "https://waterdata.usgs.gov/monitoring-location/07049000/"
-  ]
+  "og_image_url": "https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy%20the%20otter%20in%20a%20cool%20canoe.png"
 } satisfies RiverGuideSeed;

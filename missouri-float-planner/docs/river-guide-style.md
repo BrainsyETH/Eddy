@@ -77,15 +77,17 @@ Renderer is `src/components/blog/RiverGuideLayout.tsx`. New optional fields rend
 
 New missing-river guides live in `scripts/content/river-guides/`, one typed
 `RiverGuideSeed` per river, registered in `index.ts`. Keep source URLs and the
-editorial check date alongside the structured content. Use the existing
+editorial check date inside `guide_data.sources` and `guide_data.checked_at`, so
+they persist with the article. Use the existing
 `guide_data` renderer; do not put a second HTML article in `content`.
 
 The October 2026 batch covers 18 active rivers without a guide. The two Spring
 Rivers have separate river slugs and explicitly disambiguated titles. Elk is an
 access overview: its known crossing and dam do not have a verified through-route
-or portage. Empty route sections are supported; never invent a connecting float
-to fill the template. Photo URLs come from the existing river photo catalog;
-Elk uses Eddy artwork until a suitable scene is available.
+or portage. Spring River (Missouri) is also an access overview until a second endpoint
+with verified launch permission is available. Empty route sections are supported;
+never invent a connecting float to fill the template. Photo reuse must be reviewed for the new surface; an existing catalog URL
+is not itself permission. See the [photo review](../../docs/river-photo-coverage.md#river-guide-reuse-review-october-2026).
 
 From `missouri-float-planner/`, with the usual script environment loaded:
 
@@ -109,3 +111,30 @@ free **Today → River guides** browser and a matching link on each river detail
 page. It loads only published posts from `/api/blog`, searches titles and
 descriptions, and opens the existing web article in the browser. Evergreen
 river guides remain separate from the time-sensitive Eddy’s Reads feed.
+
+## Writing the visible details
+
+- The description, hero lede, and footer do different jobs: search summary,
+  invitation to read, and a useful closing tip. Do not repeat one sentence in
+  all three places.
+- Give each route a distinct audience in `best`. Omit `time`, `crowd`, or `diff`
+  when the claim has not been established for that reach; the card supports
+  missing fields. Sourced timing estimates must identify their assumptions.
+  Keep standard packing essentials, then add gear or logistics specific to the
+  river. A beginner tile should name a suitable option to assess, or explain why
+  this guide does not provide a first-trip recommendation.
+- `springs` can hold genuine land visits under `sights_heading`. Omit `mile` for
+  stops that are not located on the float; do not give a trail the launch’s mile
+  marker. Access-overview articles can label the section as public access.
+- Nearby hazards need a named finish and a useful boundary, without implying
+  that an old hazard record is current. A conflicting record needs investigation,
+  not an unsupported portage instruction.
+- Each source link names the page, not just the agency. Keep references relevant
+  to the claims; a gauge page supports gauge identity, not a difficulty rating.
+- Store photo attribution in `hero.photo_credit`, bound to its exact `image_url`,
+  with author, source, license link, and display alterations. Use owned artwork
+  where reuse rights cannot be established. For this batch, attribution-required
+  scenery stays in the article with its caption; uncaptioned index/app cards and
+  social previews use owned artwork. Public-domain scenery may appear on cards.
+  The batch sets `use_access_photos: false` so unresolved access photos cannot
+  silently re-enter through the route-card fallback.

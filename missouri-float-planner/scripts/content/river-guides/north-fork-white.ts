@@ -5,23 +5,23 @@ export default {
   "title": "North Fork River Float Trip Guide: Blue Spring & Missouri Floats",
   "description": "Cold spring water, wooded bluffs, and a Blue Spring stop. Plan the Missouri North Fork around Twin Bridges, Hammond, and the lower public accesses.",
   "river_slug": "north-fork-white",
-  "featured_image_url": "https://commons.wikimedia.org/wiki/Special:FilePath/Bridge_over_the_upper_North_Fork_River.jpg?width=1200",
+  "featured_image_url": "https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy%20the%20otter%20in%20a%20cool%20canoe.png",
   "read_time_minutes": 5,
   "guide_data": {
     "hero": {
       "eyebrow": "North Fork River · Missouri",
       "title_top": "North Fork River",
       "title_accent": "Float Trip Guide.",
-      "lede": "Cold spring water, wooded bluffs, and a Blue Spring stop. Plan the Missouri North Fork around Twin Bridges, Hammond, and the lower public accesses.",
-      "photo_url": "https://commons.wikimedia.org/wiki/Special:FilePath/Bridge_over_the_upper_North_Fork_River.jpg?width=1200",
+      "lede": "Cold spring water, wooded banks, and a Blue Spring walk at Hammond make the North Fork a good river to linger around. This is Missouri above Norfork Lake—not the Arkansas tailwater.",
+      "photo_url": "",
       "mile_stats": [
         {
           "label": "Region",
           "value": "Missouri"
         },
         {
-          "label": "Water",
-          "value": "Class I–II"
+          "label": "Plan around",
+          "value": "The day’s flow"
         },
         {
           "label": "In this guide",
@@ -53,12 +53,9 @@ export default {
         "from": "Highway 14 bridge (Twin Bridges) over North Fork",
         "to": "North Fork Recreation Area (Hammond)",
         "miles": "4.9",
-        "time": "Varies with flow and stops",
-        "diff": "I–II",
-        "crowd": "Weekdays tend to be quieter",
-        "best": "Twin Bridges to Hammond",
+        "best": "An upper outing paired with a Blue Spring walk at Hammond",
         "photo": null,
-        "body": "Start at the North Fork side of Twin Bridges and finish at North Fork Recreation Area. Check the exact launch location so you do not confuse the North Fork with nearby Bryant Creek. Leave time for a spring walk after loading the boats. Eddy maps this reach at about 4.9 miles. Use the planner for a current time estimate and leave room for stops."
+        "body": "Start at the North Fork side of Twin Bridges and finish at North Fork Recreation Area. Check the exact launch location so you do not confuse the North Fork with nearby Spring Creek. Leave time for a spring walk after loading the boats."
       },
       {
         "id": 2,
@@ -68,19 +65,15 @@ export default {
         "from": "Blair Bridge Access",
         "to": "Patrick Bridge Access",
         "miles": "3.1",
-        "time": "Varies with flow and stops",
-        "diff": "I–II",
-        "crowd": "Weekdays tend to be quieter",
-        "best": "A short lower-river float",
+        "best": "A short lower-river paddle with Patrick Bridge as the finish",
         "photo": null,
-        "body": "Blair Bridge to Patrick Bridge is a compact lower outing. Keep Patrick Bridge as the planned finish; continuing into the Dawt Mill and lake-end reaches involves a separate set of access and channel checks. Eddy maps this reach at about 3.1 miles. Use the planner for a current time estimate and leave room for stops."
+        "body": "This short lower-river outing runs from Blair Bridge to Patrick Bridge. Use Patrick Bridge as the definite finish. Downstream is the historic Dawt Mill dam site; much of the dam was removed in 2017, so older descriptions of a required portage are not a reliable current route plan. Continuing toward Dawt or Tecumseh needs a separate check of access, channel conditions, and any remaining structure."
       }
     ],
     "springs": [
       {
-        "name": "North Fork Recreation Area (Hammond)",
-        "mile": "43.09",
-        "note": "Walk the Blue Spring Trail from the recreation area and make the spring part of the visit without adding river miles."
+        "name": "Blue Spring Trail at North Fork Recreation Area",
+        "note": "Take a separate walk from the recreation area to see the spring. It is this North Fork’s Blue Spring, not the similarly named springs on the Current or Jacks Fork."
       }
     ],
     "seasons": [
@@ -101,11 +94,11 @@ export default {
       }
     ],
     "what_to_bring": [
-      "A well-fitting PFD for everyone; wear yours on the water.",
-      "Drinking water, lunch, and a dry bag with an extra layer.",
-      "Shoes that stay on your feet over slippery rocks and gravel.",
-      "Sun protection and a bag for every bit of trash you bring.",
-      "Your saved route, take-out directions, and a shuttle arranged before launching."
+      "A fitted PFD for each paddler, worn on the water.",
+      "Drinking water, food, sun protection, and a bag to pack out your trash.",
+      "Secure footwear and a dry bag for essentials.",
+      "An insulating layer sealed in a dry bag for the North Fork’s cold water.",
+      "Dry walking shoes for the Blue Spring Trail at North Fork Recreation Area."
     ],
     "pro_tips": [
       {
@@ -128,7 +121,7 @@ export default {
       },
       "footer": {
         "tone": "note",
-        "quote": "Cold spring water, wooded bluffs, and a Blue Spring stop. Plan the Missouri North Fork around Twin Bridges, Hammond, and the lower public accesses."
+        "quote": "Finish the lower outing at Patrick Bridge. A trip toward Dawt Mill and Tecumseh needs a separate current access and channel check; old dam and portage descriptions are not enough."
       }
     },
     "faq": [
@@ -148,7 +141,7 @@ export default {
     "pre_launch_notes": [
       {
         "strong": "Confirm the North Fork launch.",
-        "body": "At Twin Bridges, use the access on the North Fork, not a neighboring creek pin."
+        "body": "Highway 14 crosses both the North Fork and Spring Creek at Twin Bridges. Use the North Fork launch for the Hammond route."
       },
       {
         "strong": "Keep the finish above your planned boundary.",
@@ -167,33 +160,42 @@ export default {
     ],
     "tldr": {
       "typical_distance": "3.1–4.9 mi featured routes",
-      "best_for_beginners": "Match the reach and today’s water to your group",
+      "best_for_beginners": "Blair Bridge → Patrick Bridge is the shorter option at 3.1 miles; cold water and current still matter.",
       "primary_gauge": "North Fork River near Tecumseh, MO · USGS 07057500"
     },
     "sources": [
       {
-        "label": "USDA Forest Service",
+        "label": "USFS: North Fork Recreation Area",
         "url": "https://www.fs.usda.gov/r09/marktwain/recreation/north-fork-recreation-area"
       },
       {
-        "label": "Missouri Department of Conservation",
+        "label": "MDC: Blair Bridge Access",
         "url": "https://mdc.mo.gov/discover-nature/places/blair-bridge-access"
       },
       {
-        "label": "Missouri Department of Conservation",
+        "label": "MDC: Patrick Bridge Access",
         "url": "https://mdc.mo.gov/discover-nature/places/patrick-bridge-access"
       },
       {
-        "label": "USGS gauge",
+        "label": "USGS: station 07057500",
         "url": "https://waterdata.usgs.gov/monitoring-location/07057500/"
+      },
+      {
+        "label": "Ozark County Times: Twin Bridges and North Fork access guide",
+        "url": "https://ozarkcountytimes.com/news-local-news/north-fork-float-trip-guide-float-trip-options-north-fork-river-provide-summer-fun"
+      },
+      {
+        "label": "USACE: authorization to remove part of Dawt Mill Dam",
+        "url": "https://www.swl.usace.army.mil/Media/News-Releases/Article/933354/corps-verifies-use-of-nationwide-permit-for-removal-of-a-portion-of-dawt-mill-d/"
+      },
+      {
+        "label": "Ozark County Times: Dawt dam removal, March 2017",
+        "url": "https://ozarkcountytimes.com/dam-comes-down-more-photos-and-information-about-dawt-dam-removal"
       }
-    ]
+    ],
+    "checked_at": "2026-10-11",
+    "use_access_photos": false,
+    "sights_heading": "Places to explore ashore"
   },
-  "checked_at": "2026-10-11",
-  "sources": [
-    "https://www.fs.usda.gov/r09/marktwain/recreation/north-fork-recreation-area",
-    "https://mdc.mo.gov/discover-nature/places/blair-bridge-access",
-    "https://mdc.mo.gov/discover-nature/places/patrick-bridge-access",
-    "https://waterdata.usgs.gov/monitoring-location/07057500/"
-  ]
+  "og_image_url": "https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy%20the%20otter%20in%20a%20cool%20canoe.png"
 } satisfies RiverGuideSeed;

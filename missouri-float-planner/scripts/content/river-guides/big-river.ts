@@ -12,7 +12,7 @@ export default {
       "eyebrow": "Big River · Missouri",
       "title_top": "Big River",
       "title_accent": "Float Trip Guide.",
-      "lede": "A relaxed Big River day starts around Washington State Park: long pools, short riffles, and a little history after the take-out.",
+      "lede": "Pair a Washington State Park visit with a few miles on the Big River, or head downstream from Mammoth for a longer day among wooded bends.",
       "photo_url": "https://commons.wikimedia.org/wiki/Special:FilePath/Cedar_Hill_Dam_on_Big_River_in_Missouri.JPG?width=1280",
       "mile_stats": [
         {
@@ -20,14 +20,22 @@ export default {
           "value": "Missouri"
         },
         {
-          "label": "Water",
-          "value": "Class I"
+          "label": "Plan around",
+          "value": "The day’s flow"
         },
         {
           "label": "In this guide",
           "value": "3 float routes"
         }
-      ]
+      ],
+      "photo_credit": {
+        "image_url": "https://commons.wikimedia.org/wiki/Special:FilePath/Cedar_Hill_Dam_on_Big_River_in_Missouri.JPG?width=1280",
+        "author": "Marcusscotus1",
+        "source_url": "https://commons.wikimedia.org/wiki/File:Cedar_Hill_Dam_on_Big_River_in_Missouri.JPG",
+        "license": "Public domain",
+        "license_url": "https://creativecommons.org/publicdomain/mark/1.0/",
+        "changes": "Cropped to fit"
+      }
     },
     "intro_html": "<p><strong>Big River is for the group that wants a river day without turning the drive into an expedition.</strong> Around Washington State Park, the appeal is straightforward: wooded banks, room to paddle, and public accesses that let you choose a shorter outing. Bring lunch, leave time for the pools, and resist measuring the day by how fast you finish.</p><p>The park gives this float a second chapter. Its petroglyph sites and stone buildings are worth keeping some daylight for. Farther downriver, old mill dams change the route planning; the trips below stay in the Washington State Park–Brown’s Ford corridor rather than treating the whole river as one continuous beginner run.</p>",
     "why_different": [
@@ -53,12 +61,9 @@ export default {
         "from": "Washington State Park Access",
         "to": "Mammoth Access",
         "miles": "3.2",
-        "time": "Varies with flow and stops",
-        "diff": "I",
-        "crowd": "Weekdays tend to be quieter",
-        "best": "A short park float",
+        "best": "Combining a park visit with a short paddle",
         "photo": null,
-        "body": "Launch at the park and finish at Mammoth. This shorter pairing leaves room for breaks and a park visit afterward. Even a modest distance can take time when the current is slow. Eddy maps this reach at about 3.2 miles. Use the planner for a current time estimate and leave room for stops."
+        "body": "Launch at the park and finish at Mammoth. This shorter pairing leaves room for breaks and a park visit afterward. Even a modest distance can take time when the current is slow."
       },
       {
         "id": 2,
@@ -68,12 +73,9 @@ export default {
         "from": "Mammoth Access",
         "to": "Merrill Horse Access",
         "miles": "6.2",
-        "time": "Varies with flow and stops",
-        "diff": "I",
-        "crowd": "Weekdays tend to be quieter",
-        "best": "A longer middle-river day",
+        "best": "A longer paddle starting at Mammoth",
         "photo": null,
-        "body": "Mammoth to Merrill Horse adds more river without reaching the lower mill-dam corridor. Plan on paddling the long pools, particularly if the wind is in your face. Eddy maps this reach at about 6.2 miles. Use the planner for a current time estimate and leave room for stops."
+        "body": "Mammoth to Merrill Horse adds more river without reaching the lower mill-dam corridor. Plan on paddling the long pools, particularly if the wind is in your face."
       },
       {
         "id": 3,
@@ -83,19 +85,15 @@ export default {
         "from": "Merrill Horse Access",
         "to": "Brown's Ford Access",
         "miles": "5",
-        "time": "Varies with flow and stops",
-        "diff": "I",
-        "crowd": "Weekdays tend to be quieter",
-        "best": "A fishing-paced outing",
+        "best": "A five-mile outing farther downstream",
         "photo": null,
-        "body": "Keep the day between Merrill Horse and Brown’s Ford. It is a sensible distance to stretch out with fishing stops rather than turning a short trip into an afternoon sprint. Eddy maps this reach at about 5 miles. Use the planner for a current time estimate and leave room for stops."
+        "body": "Keep the day between Merrill Horse and Brown’s Ford. It is a sensible distance to stretch out with fishing stops rather than turning a short trip into an afternoon sprint."
       }
     ],
     "springs": [
       {
-        "name": "Washington State Park Access",
-        "mile": "76.97",
-        "note": "Make time for the park’s petroglyph sites and trails before or after the float."
+        "name": "Washington State Park petroglyphs",
+        "note": "Set aside time ashore for the park’s rock-carving sites. Use the designated viewing areas and trails rather than adding a riverbank scramble to the float."
       }
     ],
     "seasons": [
@@ -116,11 +114,11 @@ export default {
       }
     ],
     "what_to_bring": [
-      "A well-fitting PFD for everyone; wear yours on the water.",
-      "Drinking water, lunch, and a dry bag with an extra layer.",
-      "Shoes that stay on your feet over slippery rocks and gravel.",
-      "Sun protection and a bag for every bit of trash you bring.",
-      "Your saved route, take-out directions, and a shuttle arranged before launching."
+      "A fitted PFD for each paddler, worn on the water.",
+      "Drinking water, food, sun protection, and a bag to pack out your trash.",
+      "Secure footwear and a dry bag for essentials.",
+      "Dry walking shoes for Washington State Park’s petroglyph sites.",
+      "A downloaded map showing Mammoth, Merrill Horse, and Brown’s Ford; choose the finish before launching."
     ],
     "pro_tips": [
       {
@@ -143,7 +141,7 @@ export default {
       },
       "footer": {
         "tone": "note",
-        "quote": "A relaxed Big River day starts around Washington State Park: long pools, short riffles, and a little history after the take-out."
+        "quote": "Washington State Park can fill the dry-land half of the day. Leave the petroglyph visit on the itinerary, and keep the paddle between the two accesses you picked."
       }
     },
     "faq": [
@@ -182,48 +180,42 @@ export default {
     ],
     "tldr": {
       "typical_distance": "3.2–6.2 mi featured routes",
-      "best_for_beginners": "Match the reach and today’s water to your group",
+      "best_for_beginners": "Washington State Park → Mammoth: the shortest featured option at 3.2 miles, subject to the day’s water.",
       "primary_gauge": "Big River near Richwoods, MO · USGS 07018100"
     },
     "sources": [
       {
-        "label": "Missouri State Parks",
+        "label": "Missouri State Parks: Petroglyphs",
         "url": "https://mostateparks.com/page/washington-state-park/petroglyphs"
       },
       {
-        "label": "Missouri Float Trips",
+        "label": "Missouri Float Trips: Big River",
         "url": "https://www.floatmissouri.com/plan/missouri-rivers/big-river/"
       },
       {
-        "label": "Missouri State Parks",
+        "label": "Missouri State Parks: Washington State Park",
         "url": "https://mostateparks.com/park/washington-state-park"
       },
       {
-        "label": "Missouri Department of Conservation",
+        "label": "MDC: Mammoth Access",
         "url": "https://mdc.mo.gov/discover-nature/places/mammoth-access"
       },
       {
-        "label": "Missouri Department of Conservation",
+        "label": "MDC: Merrill Horse Access",
         "url": "https://mdc.mo.gov/discover-nature/places/merrill-horse-access"
       },
       {
-        "label": "Missouri Department of Conservation",
+        "label": "MDC: Browns Ford Access",
         "url": "https://mdc.mo.gov/discover-nature/places/browns-ford-access"
       },
       {
-        "label": "USGS gauge",
+        "label": "USGS: station 07018100",
         "url": "https://waterdata.usgs.gov/monitoring-location/07018100/"
       }
-    ]
+    ],
+    "checked_at": "2026-10-11",
+    "use_access_photos": false,
+    "sights_heading": "Places to explore ashore"
   },
-  "checked_at": "2026-10-11",
-  "sources": [
-    "https://mostateparks.com/page/washington-state-park/petroglyphs",
-    "https://www.floatmissouri.com/plan/missouri-rivers/big-river/",
-    "https://mostateparks.com/park/washington-state-park",
-    "https://mdc.mo.gov/discover-nature/places/mammoth-access",
-    "https://mdc.mo.gov/discover-nature/places/merrill-horse-access",
-    "https://mdc.mo.gov/discover-nature/places/browns-ford-access",
-    "https://waterdata.usgs.gov/monitoring-location/07018100/"
-  ]
+  "og_image_url": "https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy%20the%20otter%20in%20a%20cool%20canoe.png"
 } satisfies RiverGuideSeed;

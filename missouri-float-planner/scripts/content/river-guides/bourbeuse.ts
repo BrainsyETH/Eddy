@@ -5,23 +5,23 @@ export default {
   "title": "Bourbeuse River Float Trip Guide: Quiet Floats & Public Access",
   "description": "Slow bends, fishing stops, and a float close to home. The Bourbeuse is a river for paddling at your own pace.",
   "river_slug": "bourbeuse",
-  "featured_image_url": "https://mdc.mo.gov/sites/default/files/styles/gallery_main_image/public/2021-10/Mint_Spring_Access_ramp_10-2-21.jpg?itok=fnfRCDyT",
+  "featured_image_url": "https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy%20the%20otter%20in%20a%20cool%20canoe.png",
   "read_time_minutes": 4,
   "guide_data": {
     "hero": {
       "eyebrow": "Bourbeuse River · Missouri",
       "title_top": "Bourbeuse River",
       "title_accent": "Float Trip Guide.",
-      "lede": "Slow bends, fishing stops, and a float close to home. The Bourbeuse is a river for paddling at your own pace.",
-      "photo_url": "https://mdc.mo.gov/sites/default/files/styles/gallery_main_image/public/2021-10/Mint_Spring_Access_ramp_10-2-21.jpg?itok=fnfRCDyT",
+      "lede": "No need to chase a famous spring here. The Bourbeuse is about wooded bends, quiet pools, and discovering how much river fits between two nearby roads.",
+      "photo_url": "",
       "mile_stats": [
         {
           "label": "Region",
           "value": "Missouri"
         },
         {
-          "label": "Water",
-          "value": "Class I"
+          "label": "Plan around",
+          "value": "The day’s flow"
         },
         {
           "label": "In this guide",
@@ -53,12 +53,9 @@ export default {
         "from": "Mill Rock MDC Access",
         "to": "Wenkel Ford MDC Access",
         "miles": "7.2",
-        "time": "Varies with flow and stops",
-        "diff": "I",
-        "crowd": "Weekdays tend to be quieter",
-        "best": "A middle-river wander",
+        "best": "Unhurried paddling through the middle river’s bends",
         "photo": null,
-        "body": "Use Mill Rock and Wenkel Ford for a day of bends and pools. Keep the put-in and take-out pinned before leaving home; two places that look close together by road can be a real day on this river. Eddy maps this reach at about 7.2 miles. Use the planner for a current time estimate and leave room for stops."
+        "body": "Use Mill Rock and Wenkel Ford for a day of bends and pools. Keep the put-in and take-out pinned before leaving home; two places that look close together by road can be a real day on this river."
       },
       {
         "id": 2,
@@ -68,21 +65,12 @@ export default {
         "from": "Mayers Landing MDC Access",
         "to": "Union MDC Access",
         "miles": "8.4",
-        "time": "Varies with flow and stops",
-        "diff": "I",
-        "crowd": "Weekdays tend to be quieter",
-        "best": "A day ending at Union",
+        "best": "A lower-river day ending near Union",
         "photo": null,
-        "body": "Mayers Landing to Union is a lower-river option with a named MDC take-out. Finish at Union as planned rather than drifting on toward Guths Mill Dam downstream. Eddy maps this reach at about 8.4 miles. Use the planner for a current time estimate and leave room for stops."
+        "body": "Mayers Landing to Union is a lower-river option with a named MDC take-out. Finish at Union as planned rather than drifting on toward Guths Mill Dam downstream."
       }
     ],
-    "springs": [
-      {
-        "name": "Mill Rock MDC Access",
-        "mile": "34.8",
-        "note": "A named MDC launch for the middle river; use the access directions rather than an informal roadside pin."
-      }
-    ],
+    "springs": [],
     "seasons": [
       {
         "m": "Mar–May",
@@ -101,11 +89,11 @@ export default {
       }
     ],
     "what_to_bring": [
-      "A well-fitting PFD for everyone; wear yours on the water.",
-      "Drinking water, lunch, and a dry bag with an extra layer.",
-      "Shoes that stay on your feet over slippery rocks and gravel.",
-      "Sun protection and a bag for every bit of trash you bring.",
-      "Your saved route, take-out directions, and a shuttle arranged before launching."
+      "A fitted PFD for each paddler, worn on the water.",
+      "Drinking water, food, sun protection, and a bag to pack out your trash.",
+      "Secure footwear and a dry bag for essentials.",
+      "Sun protection for slow pools where the breeze can disappear.",
+      "A route saved along the river’s bends, plus the road directions back from Wenkel Ford or Union."
     ],
     "pro_tips": [
       {
@@ -128,7 +116,7 @@ export default {
       },
       "footer": {
         "tone": "note",
-        "quote": "Slow bends, fishing stops, and a float close to home. The Bourbeuse is a river for paddling at your own pace."
+        "quote": "The Bourbeuse takes the long way around. Plan from river miles, leave lunch within reach, and give those bends more time than the road map suggests."
       }
     },
     "faq": [
@@ -163,48 +151,41 @@ export default {
     ],
     "tldr": {
       "typical_distance": "7.2–8.4 mi featured routes",
-      "best_for_beginners": "Match the reach and today’s water to your group",
+      "best_for_beginners": "Neither featured route is a quick sampler: both exceed seven miles. Allow for steady paddling through pools.",
       "primary_gauge": "Bourbeuse River at Union, MO · USGS 07016500"
     },
     "sources": [
       {
-        "label": "Missouri Float Trips",
+        "label": "Missouri Float Trips: Bourbeuse River",
         "url": "https://www.floatmissouri.com/plan/missouri-rivers/bourbeuse-river/"
       },
       {
-        "label": "Missouri Department of Conservation",
+        "label": "MDC: Bourbeuse River watershed assessment",
         "url": "https://mdc.mo.gov/sites/default/files/2021-12/050_2021_BourbeuseRiver.pdf"
       },
       {
-        "label": "Missouri Department of Conservation",
+        "label": "MDC: Mill Rock Access",
         "url": "https://mdc.mo.gov/discover-nature/places/mill-rock-access"
       },
       {
-        "label": "Missouri Department of Conservation",
+        "label": "MDC: Wenkel Ford Access",
         "url": "https://mdc.mo.gov/discover-nature/places/wenkel-ford-access"
       },
       {
-        "label": "Missouri Department of Conservation",
+        "label": "MDC: Mayers Landing Access",
         "url": "https://mdc.mo.gov/discover-nature/places/mayers-landing-access"
       },
       {
-        "label": "Missouri Department of Conservation",
+        "label": "MDC: Union Access",
         "url": "https://mdc.mo.gov/discover-nature/places/union-access"
       },
       {
-        "label": "USGS gauge",
+        "label": "USGS: station 07016500",
         "url": "https://waterdata.usgs.gov/monitoring-location/07016500/"
       }
-    ]
+    ],
+    "checked_at": "2026-10-11",
+    "use_access_photos": false
   },
-  "checked_at": "2026-10-11",
-  "sources": [
-    "https://www.floatmissouri.com/plan/missouri-rivers/bourbeuse-river/",
-    "https://mdc.mo.gov/sites/default/files/2021-12/050_2021_BourbeuseRiver.pdf",
-    "https://mdc.mo.gov/discover-nature/places/mill-rock-access",
-    "https://mdc.mo.gov/discover-nature/places/wenkel-ford-access",
-    "https://mdc.mo.gov/discover-nature/places/mayers-landing-access",
-    "https://mdc.mo.gov/discover-nature/places/union-access",
-    "https://waterdata.usgs.gov/monitoring-location/07016500/"
-  ]
+  "og_image_url": "https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy%20the%20otter%20in%20a%20cool%20canoe.png"
 } satisfies RiverGuideSeed;

@@ -13,6 +13,15 @@ export interface GuideHero {
   title_accent: string;
   lede: string;
   photo_url: string;
+  photo_credit?: {
+    image_url: string;
+    author: string;
+    source_url: string;
+    license: string;
+    license_url: string;
+    /** CSS cropping or other alterations, when applicable. */
+    changes?: string;
+  };
   mile_stats: GuideMileStat[];
 }
 
@@ -31,9 +40,10 @@ export interface FloatSection {
   from: string;
   to: string;
   miles: string;
-  time: string;
-  diff: FloatDifficulty;
-  crowd: string;
+  /** Omit unsourced estimates and ratings instead of filling a template. */
+  time?: string;
+  diff?: FloatDifficulty;
+  crowd?: string;
   best: string;
   photo: string | null;
   body: string;
@@ -52,7 +62,8 @@ export interface FloatSection {
 
 export interface SpringStop {
   name: string;
-  mile: string;
+  /** Omit for land visits that are not a river-mile stop. */
+  mile?: string;
   note: string;
   rank?: string;
   flow?: string;
@@ -84,6 +95,7 @@ export interface GuideTldr {
   typical_distance: string;
   best_for_beginners: string;
   primary_gauge: string;
+  gauge_label?: string;
   recommended_outfitter?: string;
 }
 
@@ -123,6 +135,12 @@ export interface RelatedRiver {
 export interface GuideData {
   /** Primary references and local access information used for this guide. */
   sources?: { label: string; url: string }[];
+  /** Editorial review date, independent of operational row updates. */
+  checked_at?: string;
+  /** New guides can opt out of access photos whose reuse rights are unreviewed. */
+  use_access_photos?: boolean;
+  /** Optional section labels for river-specific land visits and access overviews. */
+  sights_heading?: string;
   hero: GuideHero;
   intro_html: string;
   why_different: GuideBullet[];

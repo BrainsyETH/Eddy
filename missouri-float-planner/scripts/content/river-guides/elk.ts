@@ -12,7 +12,7 @@ export default {
       "eyebrow": "Elk River · Missouri",
       "title_top": "Elk River",
       "title_accent": "Float Trip Guide.",
-      "lede": "Get to know the Elk around Pineville and Noel: gravel-bar scenery, summer river weekends, and the access details that make a trip work.",
+      "lede": "Pineville mornings, gravel-bar afternoons, and Noel summer weekends. Get to know the Elk’s public accesses, then choose a complete trip with both ends arranged.",
       "photo_url": "",
       "mile_stats": [
         {
@@ -20,8 +20,8 @@ export default {
           "value": "Missouri"
         },
         {
-          "label": "Water",
-          "value": "Class I"
+          "label": "Plan around",
+          "value": "Confirmed access"
         },
         {
           "label": "In this guide",
@@ -47,14 +47,16 @@ export default {
     "sections": [],
     "springs": [
       {
+        "name": "Pineville city access",
+        "note": "Use the developed river access from Rhine Road and confirm parking before arranging the shuttle."
+      },
+      {
         "name": "Mount Shira Access",
-        "mile": "7.78",
-        "note": "A named public Elk River access with a gravel launch; use it as a location to research, not proof of an uninterrupted route."
+        "note": "A gravel launch for a day on the Elk. Camping is not offered here; arrange an overnight stay separately."
       },
       {
         "name": "Cowskin Access",
-        "mile": "21.17",
-        "note": "A lower-Elk public access at Highway 43, separate from the Noel dam reach."
+        "note": "A lower-Elk access at Highway 43. Save the access directions rather than navigating to the highway crossing alone."
       }
     ],
     "seasons": [
@@ -75,11 +77,11 @@ export default {
       }
     ],
     "what_to_bring": [
-      "A well-fitting PFD for everyone; wear yours on the water.",
-      "Drinking water, lunch, and a dry bag with an extra layer.",
-      "Shoes that stay on your feet over slippery rocks and gravel.",
-      "Sun protection and a bag for every bit of trash you bring.",
-      "Your saved route, take-out directions, and a shuttle arranged before launching."
+      "A fitted PFD for each paddler, worn on the water.",
+      "Drinking water, food, sun protection, and a bag to pack out your trash.",
+      "Secure footwear and a dry bag for essentials.",
+      "Written launch, parking, and shuttle details for the exact Elk outing you arranged.",
+      "A dry bag for vehicle keys and a change of clothes for the ride home from Pineville or Noel."
     ],
     "pro_tips": [
       {
@@ -102,7 +104,7 @@ export default {
       },
       "footer": {
         "tone": "note",
-        "quote": "Get to know the Elk around Pineville and Noel: gravel-bar scenery, summer river weekends, and the access details that make a trip work."
+        "quote": "Tell the shuttle driver the exact launch and take-out, not just “the Elk.” A Pineville paddle and a Noel outing can put different crossings between you and the finish."
       }
     },
     "faq": [
@@ -145,28 +147,26 @@ export default {
     ],
     "tldr": {
       "typical_distance": "Choose a reach with confirmed access",
-      "best_for_beginners": "Match the reach and today’s water to your group",
-      "primary_gauge": "Elk Rv at MO-59, Noel, MO · USGS 07188925"
+      "best_for_beginners": "Arrange a short, confirmed reach locally; this guide does not connect the public accesses across the crossing or dam.",
+      "primary_gauge": "Elk River at Noel · USGS 07188925"
     },
     "sources": [
       {
-        "label": "Missouri Department of Conservation",
+        "label": "MDC: Mount Shira Access",
         "url": "https://mdc.mo.gov/discover-nature/places/mount-shira-access"
       },
       {
-        "label": "Missouri Department of Conservation",
+        "label": "MDC: Cowskin Access",
         "url": "https://mdc.mo.gov/discover-nature/places/cowskin-access"
       },
       {
-        "label": "USGS gauge",
+        "label": "USGS: station 07188925",
         "url": "https://waterdata.usgs.gov/monitoring-location/07188925/"
       }
-    ]
+    ],
+    "checked_at": "2026-10-11",
+    "use_access_photos": false,
+    "sights_heading": "Public access on the Elk"
   },
-  "checked_at": "2026-10-11",
-  "sources": [
-    "https://mdc.mo.gov/discover-nature/places/mount-shira-access",
-    "https://mdc.mo.gov/discover-nature/places/cowskin-access",
-    "https://waterdata.usgs.gov/monitoring-location/07188925/"
-  ]
+  "og_image_url": "https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy%20the%20otter%20in%20a%20cool%20canoe.png"
 } satisfies RiverGuideSeed;

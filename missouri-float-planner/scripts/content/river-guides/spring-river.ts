@@ -5,27 +5,27 @@ export default {
   "title": "Spring River (Arkansas) Float Trip Guide: Mammoth Spring, Hardy & Day Floats",
   "description": "Start with Mammoth Spring, then choose the Arkansas Spring River reach that fits your group. Cold water, ledges, and Hardy each shape the trip.",
   "river_slug": "spring-river",
-  "featured_image_url": "https://www.arkansas.com/sites/default/files/styles/max_2600x2600/public/2026-01/Mammoth_Springs_closeWaterfall_opt.jpg?itok=Y-H8m6Ss",
+  "featured_image_url": "https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy%20the%20otter%20in%20a%20cool%20canoe.png",
   "read_time_minutes": 4,
   "guide_data": {
     "hero": {
       "eyebrow": "Spring River (Arkansas) · Arkansas",
       "title_top": "Spring River (Arkansas)",
       "title_accent": "Float Trip Guide.",
-      "lede": "Start with Mammoth Spring, then choose the Arkansas Spring River reach that fits your group. Cold water, ledges, and Hardy each shape the trip.",
-      "photo_url": "https://www.arkansas.com/sites/default/files/styles/max_2600x2600/public/2026-01/Mammoth_Springs_closeWaterfall_opt.jpg?itok=Y-H8m6Ss",
+      "lede": "Visit the big spring on land, then choose your paddle downstream. The Arkansas Spring River changes character between Mammoth Spring and Hardy; the name alone doesn’t describe the trip.",
+      "photo_url": "",
       "mile_stats": [
         {
           "label": "Region",
           "value": "Arkansas Ozarks"
         },
         {
-          "label": "Water",
-          "value": "Varies by reach"
+          "label": "Plan around",
+          "value": "The day’s flow"
         },
         {
           "label": "In this guide",
-          "value": "1 float routes"
+          "value": "1 float route"
         }
       ]
     },
@@ -53,19 +53,15 @@ export default {
         "from": "Hardy Beach Access",
         "to": "LB Access (Harold E. Alexander Spring River WMA)",
         "miles": "6.4",
-        "time": "Varies with flow and stops",
-        "diff": "I–II",
-        "crowd": "Weekdays tend to be quieter",
-        "best": "A day below Hardy",
+        "best": "A downstream-Hardy outing kept separate from the upper river’s dams and falls",
         "photo": null,
-        "body": "Use Hardy Beach as the starting point and LB Access in Harold E. Alexander Spring River WMA as the planned finish. Confirm current access directions and the reach’s conditions. This route does not describe the upper ledges between Mammoth Spring and Hardy. Eddy maps this reach at about 6.4 miles. Use the planner for a current time estimate and leave room for stops."
+        "body": "Use Hardy Beach as the starting point and LB Access in Harold E. Alexander Spring River WMA as the planned finish. Confirm current access directions and the reach’s conditions. This route does not describe the upper ledges between Mammoth Spring and Hardy."
       }
     ],
     "springs": [
       {
-        "name": "Mammoth Spring State Park (Dam #1)",
-        "mile": "0.23",
-        "note": "Visit Mammoth Spring State Park on land. The dam location is a sightseeing stop, not a through-paddling route."
+        "name": "Mammoth Spring State Park",
+        "note": "Visit the spring and historic park features on foot. The dam at the spring belongs to the sightseeing plan, not to the Hardy-to-LB paddle."
       }
     ],
     "seasons": [
@@ -86,11 +82,11 @@ export default {
       }
     ],
     "what_to_bring": [
-      "A well-fitting PFD for everyone; wear yours on the water.",
-      "Drinking water, lunch, and a dry bag with an extra layer.",
-      "Shoes that stay on your feet over slippery rocks and gravel.",
-      "Sun protection and a bag for every bit of trash you bring.",
-      "Your saved route, take-out directions, and a shuttle arranged before launching."
+      "A fitted PFD for each paddler, worn on the water.",
+      "Drinking water, food, sun protection, and a bag to pack out your trash.",
+      "Secure footwear and a dry bag for essentials.",
+      "Dry insulating clothing for an unexpected swim in spring-fed water.",
+      "The exact LB Access directions and the agreed shuttle pickup, saved before leaving Hardy."
     ],
     "pro_tips": [
       {
@@ -113,7 +109,7 @@ export default {
       },
       "footer": {
         "tone": "note",
-        "quote": "Start with Mammoth Spring, then choose the Arkansas Spring River reach that fits your group. Cold water, ledges, and Hardy each shape the trip."
+        "quote": "A Mammoth Spring visit and a Hardy float belong on separate parts of the itinerary. Follow the named Hardy-to-LB route, and leave upper-river dams and falls out of an improvised extension."
       }
     },
     "faq": [
@@ -152,23 +148,26 @@ export default {
     ],
     "tldr": {
       "typical_distance": "6.4 mi featured route",
-      "best_for_beginners": "Match the reach and today’s water to your group",
+      "best_for_beginners": "Hardy → LB is 6.4 miles. Confirm that reach with a local operator; spring water does not make every stretch easy.",
       "primary_gauge": "Spring River at Spring Street Bridge at Hardy, AR · USGS 07069305"
     },
     "sources": [
       {
-        "label": "Arkansas Tourism & State Parks",
+        "label": "Arkansas State Parks: Mammoth Spring State Park",
         "url": "https://www.arkansas.com/state-parks/explore/parks/mammoth-spring-state-park"
       },
       {
-        "label": "USGS gauge",
+        "label": "USGS: station 07069305",
         "url": "https://waterdata.usgs.gov/monitoring-location/07069305/"
+      },
+      {
+        "label": "AGFC: Harold E. Alexander Spring River WMA and river access",
+        "url": "https://www.agfc.com/wma/harold-e-alexander-spring-river-wma/"
       }
-    ]
+    ],
+    "checked_at": "2026-10-11",
+    "use_access_photos": false,
+    "sights_heading": "Places to explore ashore"
   },
-  "checked_at": "2026-10-11",
-  "sources": [
-    "https://www.arkansas.com/state-parks/explore/parks/mammoth-spring-state-park",
-    "https://waterdata.usgs.gov/monitoring-location/07069305/"
-  ]
+  "og_image_url": "https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy%20the%20otter%20in%20a%20cool%20canoe.png"
 } satisfies RiverGuideSeed;

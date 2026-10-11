@@ -26,7 +26,8 @@ const DIFF_COLORS: Record<string, { bg: string; fg: string; bd: string }> = {
 };
 
 export default function FloatSectionCard({ section: s, index, plannerUrl, photoFallback }: Props) {
-  const dc = DIFF_COLORS[s.diff] ?? DIFF_COLORS.I;
+  const dc = DIFF_COLORS[s.diff ?? ''] ?? DIFF_COLORS.I;
+  const stats = [['Distance', `${s.miles} mi`], ['Float time', s.time], ['Class', s.diff], ['Crowd', s.crowd]].filter(([, value]) => value);
   const photo = s.photo || photoFallback || null;
   const titleContent = (
     <>
@@ -180,7 +181,7 @@ export default function FloatSectionCard({ section: s, index, plannerUrl, photoF
             data-guide-section-stats
             style={{
               display: 'grid',
-              gridTemplateColumns: 'repeat(4, 1fr)',
+              gridTemplateColumns: `repeat(${stats.length}, 1fr)`,
               gap: 0,
               margin: '14px 0 16px',
               padding: '10px 0',
@@ -188,17 +189,12 @@ export default function FloatSectionCard({ section: s, index, plannerUrl, photoF
               borderBottom: '1px solid var(--color-neutral-200)',
             }}
           >
-            {[
-              ['Distance', `${s.miles} mi`],
-              ['Float time', s.time],
-              ['Class', s.diff],
-              ['Crowd', s.crowd],
-            ].map(([k, v], i) => (
+            {stats.map(([k, v], i) => (
               <div
                 key={k}
                 style={{
                   padding: '0 14px',
-                  borderRight: i < 3 ? '1px dashed var(--color-neutral-300)' : 'none',
+                  borderRight: i < stats.length - 1 ? '1px dashed var(--color-neutral-300)' : 'none',
                   minWidth: 0,
                 }}
               >
@@ -220,7 +216,7 @@ export default function FloatSectionCard({ section: s, index, plannerUrl, photoF
                     fontFamily: 'var(--font-mono)',
                     fontSize: 14,
                     fontWeight: 600,
-                    color: i === 2 ? dc.fg : 'var(--color-neutral-900)',
+                    color: k === 'Class' ? dc.fg : 'var(--color-neutral-900)',
                     overflow: 'hidden',
                     textOverflow: 'ellipsis',
                     whiteSpace: 'nowrap',

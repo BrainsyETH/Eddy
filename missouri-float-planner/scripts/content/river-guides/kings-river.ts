@@ -5,27 +5,27 @@ export default {
   "title": "Kings River Float Trip Guide: Rockhouse, Trigger Gap & Local Tips",
   "description": "Gravel bends, bluff scenery, and a river that runs north. Get to know the Kings around Rockhouse and Trigger Gap.",
   "river_slug": "kings-river",
-  "featured_image_url": "https://www.arkansas.com/sites/default/files/styles/max_2600x2600/public/2026-01/KINGS%20RIVER%20CANOE.jpg?itok=f3NPjlhR",
+  "featured_image_url": "https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy%20the%20otter%20in%20a%20cool%20canoe.png",
   "read_time_minutes": 4,
   "guide_data": {
     "hero": {
       "eyebrow": "Kings River · Arkansas",
       "title_top": "Kings River",
       "title_accent": "Float Trip Guide.",
-      "lede": "Gravel bends, bluff scenery, and a river that runs north. Get to know the Kings around Rockhouse and Trigger Gap.",
-      "photo_url": "https://www.arkansas.com/sites/default/files/styles/max_2600x2600/public/2026-01/KINGS%20RIVER%20CANOE.jpg?itok=f3NPjlhR",
+      "lede": "Rockhouse to Trigger Gap is a day for clear pools, gravel bends, and lunch that lasts a little longer. Keep the schedule loose enough to enjoy the Kings between paddle strokes.",
+      "photo_url": "",
       "mile_stats": [
         {
           "label": "Region",
           "value": "Arkansas Ozarks"
         },
         {
-          "label": "Water",
-          "value": "Class I–II"
+          "label": "Plan around",
+          "value": "The day’s flow"
         },
         {
           "label": "In this guide",
-          "value": "1 float routes"
+          "value": "1 float route"
         }
       ]
     },
@@ -53,21 +53,12 @@ export default {
         "from": "Rockhouse Access",
         "to": "Trigger Gap Landing",
         "miles": "7.7",
-        "time": "Varies with flow and stops",
-        "diff": "I–II",
-        "crowd": "Weekdays tend to be quieter",
-        "best": "The Rockhouse–Trigger Gap day",
+        "best": "A full day of scenery and fishing stops in the preserve corridor",
         "photo": null,
-        "body": "Set up a downstream take-out at Trigger Gap before launching at Rockhouse. Confirm the access arrangements at both ends, and leave room for stops on the way. This plan stays below the low-water crossings in the Marble–Marshall Ford reach. Eddy maps this reach at about 7.7 miles. Use the planner for a current time estimate and leave room for stops."
+        "body": "Set up a downstream take-out at Trigger Gap before launching at Rockhouse. Confirm the access arrangements at both ends, and leave room for stops on the way. This plan stays below the low-water crossings in the Marble–Marshall Ford reach."
       }
     ],
-    "springs": [
-      {
-        "name": "Trigger Gap Landing",
-        "mile": "59.15",
-        "note": "A useful landmark and take-out in the middle-river planning area."
-      }
-    ],
+    "springs": [],
     "seasons": [
       {
         "m": "Mar–May",
@@ -86,11 +77,11 @@ export default {
       }
     ],
     "what_to_bring": [
-      "A well-fitting PFD for everyone; wear yours on the water.",
-      "Drinking water, lunch, and a dry bag with an extra layer.",
-      "Shoes that stay on your feet over slippery rocks and gravel.",
-      "Sun protection and a bag for every bit of trash you bring.",
-      "Your saved route, take-out directions, and a shuttle arranged before launching."
+      "A fitted PFD for each paddler, worn on the water.",
+      "Drinking water, food, sun protection, and a bag to pack out your trash.",
+      "Secure footwear and a dry bag for essentials.",
+      "Lunch you can unpack easily at a permitted gravel stop.",
+      "Saved Trigger Gap landing directions, including the parking or shuttle arrangement you confirmed."
     ],
     "pro_tips": [
       {
@@ -113,7 +104,7 @@ export default {
       },
       "footer": {
         "tone": "note",
-        "quote": "Gravel bends, bluff scenery, and a river that runs north. Get to know the Kings around Rockhouse and Trigger Gap."
+        "quote": "Trigger Gap is the finish for this outing. Sort out the landing and shuttle before Rockhouse, then spend the day enjoying the river instead of negotiating the last mile."
       }
     },
     "faq": [
@@ -148,28 +139,25 @@ export default {
     ],
     "tldr": {
       "typical_distance": "7.7 mi featured route",
-      "best_for_beginners": "Match the reach and today’s water to your group",
+      "best_for_beginners": "The featured Rockhouse → Trigger Gap trip is 7.7 miles; confirm suitable flow and allow a full river outing.",
       "primary_gauge": "Kings River near Berryville, AR · USGS 07050500"
     },
     "sources": [
       {
-        "label": "The Nature Conservancy",
+        "label": "The Nature Conservancy: Kings River Preserve",
         "url": "https://www.nature.org/en-us/get-involved/how-to-help/places-we-protect/kings-river/"
       },
       {
-        "label": "Access information",
+        "label": "Trigger Gap Outfitters: landing and shuttle information",
         "url": "https://triggergapoutfitters.com/"
       },
       {
-        "label": "USGS gauge",
+        "label": "USGS: station 07050500",
         "url": "https://waterdata.usgs.gov/monitoring-location/07050500/"
       }
-    ]
+    ],
+    "checked_at": "2026-10-11",
+    "use_access_photos": false
   },
-  "checked_at": "2026-10-11",
-  "sources": [
-    "https://www.nature.org/en-us/get-involved/how-to-help/places-we-protect/kings-river/",
-    "https://triggergapoutfitters.com/",
-    "https://waterdata.usgs.gov/monitoring-location/07050500/"
-  ]
+  "og_image_url": "https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy%20the%20otter%20in%20a%20cool%20canoe.png"
 } satisfies RiverGuideSeed;

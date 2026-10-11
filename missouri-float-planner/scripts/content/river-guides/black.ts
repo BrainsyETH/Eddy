@@ -5,23 +5,23 @@ export default {
   "title": "Black River Float Trip Guide: Lesterville & Clearwater Reaches",
   "description": "Choose your Black River: a Lesterville float above Clearwater Lake or a separate, quieter outing below the dam.",
   "river_slug": "black",
-  "featured_image_url": "https://mdc.mo.gov/sites/default/files/styles/gallery_main_image/public/mo_nature/images/conservation/Lesterville-Access.jpeg?itok=BJkKaaE-",
+  "featured_image_url": "https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy%20the%20otter%20in%20a%20cool%20canoe.png",
   "read_time_minutes": 5,
   "guide_data": {
     "hero": {
       "eyebrow": "Black River · Missouri",
       "title_top": "Black River",
       "title_accent": "Float Trip Guide.",
-      "lede": "Choose your Black River: a Lesterville float above Clearwater Lake or a separate, quieter outing below the dam.",
-      "photo_url": "https://mdc.mo.gov/sites/default/files/styles/gallery_main_image/public/mo_nature/images/conservation/Lesterville-Access.jpeg?itok=BJkKaaE-",
+      "lede": "Lesterville’s upper river and the water below Clearwater make two different Black River trips. Pick one stretch, find its gauge, and give the day room to unfold.",
+      "photo_url": "",
       "mile_stats": [
         {
           "label": "Region",
           "value": "Missouri"
         },
         {
-          "label": "Water",
-          "value": "Varies by reach"
+          "label": "Plan around",
+          "value": "The day’s flow"
         },
         {
           "label": "In this guide",
@@ -53,12 +53,9 @@ export default {
         "from": "Lesterville Access",
         "to": "Highway K Recreation Area (Clearwater Lake)",
         "miles": "12.9",
-        "time": "Varies with flow and stops",
-        "diff": "I–II",
-        "crowd": "Weekdays tend to be quieter",
-        "best": "A full upper-river day",
+        "best": "A longer upper-Black day for paddlers prepared to cover nearly 13 miles",
         "photo": null,
-        "body": "Start at Lesterville Access and finish at Highway K above Clearwater Lake. This is a substantial day, so arrange the shuttle and confirm how lake backwater affects the final miles. Do not continue toward the dam as an afterthought. Eddy maps this reach at about 12.9 miles. Use the planner for a current time estimate and leave room for stops."
+        "body": "Start at Lesterville Access and finish at Highway K above Clearwater Lake. This is a substantial day, so arrange the shuttle and confirm how lake backwater affects the final miles. Do not continue toward the dam as an afterthought."
       },
       {
         "id": 2,
@@ -68,19 +65,15 @@ export default {
         "from": "Markham Springs Recreation Area",
         "to": "Hammer Access (Bradley A. Hammer Memorial CA)",
         "miles": "2.7",
-        "time": "Varies with flow and stops",
-        "diff": "I",
-        "crowd": "Weekdays tend to be quieter",
-        "best": "A short lower-river outing",
+        "best": "A short lower-Black outing based around Markham Springs",
         "photo": null,
-        "body": "Markham Springs to Hammer gives you a compact outing below Clearwater Dam. Check release information as well as the downstream river reading; the upper-river Annapolis gauge alone does not describe this reach. Eddy maps this reach at about 2.7 miles. Use the planner for a current time estimate and leave room for stops."
+        "body": "Markham Springs to Hammer gives you a compact outing below Clearwater Dam. Check release information as well as the downstream river reading; the upper-river Annapolis gauge alone does not describe this reach."
       }
     ],
     "springs": [
       {
-        "name": "Markham Springs Recreation Area",
-        "mile": "59.4",
-        "note": "A Forest Service recreation area and a useful base for exploring the lower Black."
+        "name": "Markham Springs",
+        "note": "Make the spring and wooded recreation area a visit in their own right before or after the lower-Black paddle."
       }
     ],
     "seasons": [
@@ -101,11 +94,11 @@ export default {
       }
     ],
     "what_to_bring": [
-      "A well-fitting PFD for everyone; wear yours on the water.",
-      "Drinking water, lunch, and a dry bag with an extra layer.",
-      "Shoes that stay on your feet over slippery rocks and gravel.",
-      "Sun protection and a bag for every bit of trash you bring.",
-      "Your saved route, take-out directions, and a shuttle arranged before launching."
+      "A fitted PFD for each paddler, worn on the water.",
+      "Drinking water, food, sun protection, and a bag to pack out your trash.",
+      "Secure footwear and a dry bag for essentials.",
+      "A saved take-out pin and enough daylight for the 12.9-mile Lesterville outing.",
+      "Dry shoes for time at Markham Springs after a lower-river float."
     ],
     "pro_tips": [
       {
@@ -128,7 +121,7 @@ export default {
       },
       "footer": {
         "tone": "note",
-        "quote": "Choose your Black River: a Lesterville float above Clearwater Lake or a separate, quieter outing below the dam."
+        "quote": "A Clearwater release tells you about the river below the dam, not the water at Lesterville. Keep those two Black River trips separate, including the gauge and shuttle."
       }
     },
     "faq": [
@@ -163,43 +156,38 @@ export default {
     ],
     "tldr": {
       "typical_distance": "2.7–12.9 mi featured routes",
-      "best_for_beginners": "Match the reach and today’s water to your group",
+      "best_for_beginners": "Markham Springs → Hammer is the shorter option at 2.7 miles; check downstream releases and current conditions.",
       "primary_gauge": "Black River near Annapolis, MO · USGS 07061500"
     },
     "sources": [
       {
-        "label": "Missouri Float Trips",
+        "label": "Missouri Float Trips: Black River",
         "url": "https://www.floatmissouri.com/plan/missouri-rivers/black-river/"
       },
       {
-        "label": "USDA Forest Service",
+        "label": "USFS: Markham Springs Recreation Area",
         "url": "https://www.fs.usda.gov/r09/marktwain/recreation/markham-springs-recreation-area"
       },
       {
-        "label": "Missouri Department of Conservation",
+        "label": "MDC: Lesterville Access",
         "url": "https://mdc.mo.gov/discover-nature/places/lesterville-access"
       },
       {
-        "label": "Recreation.gov",
+        "label": "Recreation.gov: Highway K campground",
         "url": "https://www.recreation.gov/camping/campgrounds/232604"
       },
       {
-        "label": "Missouri Department of Conservation",
+        "label": "MDC: Bradley Hammer Memorial Conservation Area",
         "url": "https://mdc.mo.gov/discover-nature/places/bradley-hammer-memorial-conservation-area"
       },
       {
-        "label": "USGS gauge",
+        "label": "USGS: station 07061500",
         "url": "https://waterdata.usgs.gov/monitoring-location/07061500/"
       }
-    ]
+    ],
+    "checked_at": "2026-10-11",
+    "use_access_photos": false,
+    "sights_heading": "Places to explore ashore"
   },
-  "checked_at": "2026-10-11",
-  "sources": [
-    "https://www.floatmissouri.com/plan/missouri-rivers/black-river/",
-    "https://www.fs.usda.gov/r09/marktwain/recreation/markham-springs-recreation-area",
-    "https://mdc.mo.gov/discover-nature/places/lesterville-access",
-    "https://www.recreation.gov/camping/campgrounds/232604",
-    "https://mdc.mo.gov/discover-nature/places/bradley-hammer-memorial-conservation-area",
-    "https://waterdata.usgs.gov/monitoring-location/07061500/"
-  ]
+  "og_image_url": "https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy%20the%20otter%20in%20a%20cool%20canoe.png"
 } satisfies RiverGuideSeed;

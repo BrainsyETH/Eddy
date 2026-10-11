@@ -12,7 +12,7 @@ export default {
       "eyebrow": "Mulberry River · Arkansas",
       "title_top": "Mulberry River",
       "title_accent": "Float Trip Guide.",
-      "lede": "A moving-water trip through the Boston Mountains. Pick a Mulberry reach for your paddling experience and today’s flow, with the forest as the backdrop.",
+      "lede": "Wolf Pen, High Bank, Redding: three useful names for a river that keeps you engaged. Come for moving water and forest scenery, with skills and equipment to match the run.",
       "photo_url": "https://live.staticflickr.com/4619/25631401007_d4f96050b4_b.jpg",
       "mile_stats": [
         {
@@ -20,14 +20,22 @@ export default {
           "value": "Arkansas Ozarks"
         },
         {
-          "label": "Water",
-          "value": "Moving water; flow-dependent"
+          "label": "Plan around",
+          "value": "Moving-water skills"
         },
         {
           "label": "In this guide",
           "value": "2 float routes"
         }
-      ]
+      ],
+      "photo_credit": {
+        "image_url": "https://live.staticflickr.com/4619/25631401007_d4f96050b4_b.jpg",
+        "author": "Tim Palmer / USDA Forest Service",
+        "source_url": "https://www.flickr.com/photo.gne?id=25631401007",
+        "license": "Public domain",
+        "license_url": "https://creativecommons.org/publicdomain/mark/1.0/",
+        "changes": "Cropped to fit"
+      }
     },
     "intro_html": "<p><strong>The Mulberry is the river for a day when you want to keep your paddle in your hands.</strong> Rockier passages and quick decisions are part of the attraction. Around Wolf Pen, High Bank, and Redding, the surrounding national forest gives the trip a mountain feel that is different from a slow summer pool-to-pool float.</p><p>The catch is timing. Rain can change the Mulberry rapidly, and a route that feels modest at one level can be a different outing at another. The gauge near Mulberry is not the same measuring point as a local outfitter’s painted or staff gauge. Know which reading someone means before comparing advice, and choose the run around your experience rather than the most exciting photograph.</p>",
     "why_different": [
@@ -53,12 +61,9 @@ export default {
         "from": "Wolf Pen Recreation Area",
         "to": "High Bank Recreation Area",
         "miles": "4.3",
-        "time": "Varies with flow and stops",
-        "diff": "II",
-        "crowd": "Weekdays tend to be quieter",
-        "best": "A compact upper outing",
+        "best": "Experienced moving-water paddlers choosing a shorter run",
         "photo": null,
-        "body": "Wolf Pen to High Bank keeps the distance modest, but short does not mean easy. Get a current local assessment of the run and make sure the group can handle moving water and self-rescue. Eddy maps this reach at about 4.3 miles. Use the planner for a current time estimate and leave room for stops."
+        "body": "Wolf Pen to High Bank keeps the distance modest, but short does not mean easy. Get a current local assessment of the run and make sure the group can handle moving water and self-rescue. This is part of American Whitewater’s II+ Wolf Pen–Redding corridor; the rating is not a promise about conditions on the day."
       },
       {
         "id": 2,
@@ -68,21 +73,12 @@ export default {
         "from": "High Bank Recreation Area",
         "to": "Redding Recreation Area",
         "miles": "8.3",
-        "time": "Varies with flow and stops",
-        "diff": "II",
-        "crowd": "Weekdays tend to be quieter",
-        "best": "A longer forest run",
+        "best": "A longer whitewater outing ending at Redding",
         "photo": null,
-        "body": "High Bank to Redding gives experienced paddlers a longer commitment through this forest corridor. Choose the day’s water carefully and arrange the take-out before you reach the launch. Eddy maps this reach at about 8.3 miles. Use the planner for a current time estimate and leave room for stops."
+        "body": "High Bank to Redding gives experienced paddlers a longer commitment through this forest corridor. Choose the day’s water carefully and arrange the take-out before you reach the launch. This is part of American Whitewater’s II+ Wolf Pen–Redding corridor; the rating is not a promise about conditions on the day."
       }
     ],
-    "springs": [
-      {
-        "name": "Redding Recreation Area",
-        "mile": "32.21",
-        "note": "A Forest Service recreation area that can anchor a river weekend; check its current campground information."
-      }
-    ],
+    "springs": [],
     "seasons": [
       {
         "m": "Late fall–spring",
@@ -101,11 +97,11 @@ export default {
       }
     ],
     "what_to_bring": [
-      "A well-fitting PFD for everyone; wear yours on the water.",
-      "Drinking water, lunch, and a dry bag with an extra layer.",
-      "Shoes that stay on your feet over slippery rocks and gravel.",
-      "Sun protection and a bag for every bit of trash you bring.",
-      "Your saved route, take-out directions, and a shuttle arranged before launching."
+      "A fitted PFD for each paddler, worn on the water.",
+      "Drinking water, food, sun protection, and a bag to pack out your trash.",
+      "Secure footwear and a dry bag for essentials.",
+      "A paddling helmet and equipment suited to whitewater, with rescue skills practiced before the trip.",
+      "A dry change of insulating clothing for a cold-water swim or an early-season shuttle."
     ],
     "pro_tips": [
       {
@@ -128,7 +124,7 @@ export default {
       },
       "footer": {
         "tone": "note",
-        "quote": "A moving-water trip through the Boston Mountains. Pick a Mulberry reach for your paddling experience and today’s flow, with the forest as the backdrop."
+        "quote": "On the Mulberry, a short route still asks you to paddle. Choose the reach for the group’s moving-water skills, and make Redding a planned finish rather than a place you pass by."
       }
     },
     "faq": [
@@ -157,43 +153,43 @@ export default {
     ],
     "related_rivers": [
       {
-        "slug": "st-francis",
-        "label": "St. Francis River"
+        "slug": "war-eagle-creek",
+        "label": "War Eagle Creek"
       },
       {
-        "slug": "buffalo",
-        "label": "Buffalo National River"
+        "slug": "kings-river",
+        "label": "Kings River"
       }
     ],
     "tldr": {
       "typical_distance": "4.3–8.3 mi featured routes",
-      "best_for_beginners": "Match the reach and today’s water to your group",
+      "best_for_beginners": "Not a casual first float. The Wolf Pen–Redding corridor is rated II+ by American Whitewater.",
       "primary_gauge": "Mulberry River near Mulberry, AR · USGS 07252000"
     },
     "sources": [
       {
-        "label": "USDA Forest Service",
+        "label": "USFS: Mulberry River",
         "url": "https://www.fs.usda.gov/r08/ozark-stfrancis/recreation/mulberry-river"
       },
       {
-        "label": "Recreation.gov",
+        "label": "Recreation.gov: Redding Recreation Area",
         "url": "https://www.recreation.gov/camping/campgrounds/10158827"
       },
       {
-        "label": "USDA Forest Service",
+        "label": "USFS: Wolf Pen Recreation Area",
         "url": "https://www.fs.usda.gov/r08/ozark-stfrancis/recreation/wolf-pen-recreation-area"
       },
       {
-        "label": "USGS gauge",
+        "label": "USGS: station 07252000",
         "url": "https://waterdata.usgs.gov/monitoring-location/07252000/"
+      },
+      {
+        "label": "American Whitewater: Wolf Pen to Redding (II+)",
+        "url": "https://www.americanwhitewater.org/content/River/view/river-detail/103/main"
       }
-    ]
+    ],
+    "checked_at": "2026-10-11",
+    "use_access_photos": false
   },
-  "checked_at": "2026-10-11",
-  "sources": [
-    "https://www.fs.usda.gov/r08/ozark-stfrancis/recreation/mulberry-river",
-    "https://www.recreation.gov/camping/campgrounds/10158827",
-    "https://www.fs.usda.gov/r08/ozark-stfrancis/recreation/wolf-pen-recreation-area",
-    "https://waterdata.usgs.gov/monitoring-location/07252000/"
-  ]
+  "og_image_url": "https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy%20the%20otter%20in%20a%20cool%20canoe.png"
 } satisfies RiverGuideSeed;

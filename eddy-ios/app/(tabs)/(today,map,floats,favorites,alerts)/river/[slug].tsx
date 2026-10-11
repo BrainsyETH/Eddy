@@ -1,4 +1,3 @@
-import { RiverGuideLink } from '@/components/RiverGuideCard';
 // eddy-ios/app/river/[slug].tsx
 // One river: what it's doing right now, what could hurt you, and where to get on.
 //
@@ -20,6 +19,7 @@ import { RiverGuideLink } from '@/components/RiverGuideCard';
 // entirety. It still needs an ACCOUNT, which is not a tier — a notification has
 // to have somewhere to go, and an anonymous id is replaced on reinstall.
 
+import { RiverGuideLink } from '@/components/RiverGuideCard';
 import { NativeHeaderHome } from '@/components/NativeHeaderHome';
 import { useAppConfig } from '@/hooks/useAppConfig';
 import { useCallback, useEffect, useRef, useState } from 'react';

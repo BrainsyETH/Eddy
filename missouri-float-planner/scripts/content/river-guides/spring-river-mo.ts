@@ -1,18 +1,18 @@
 import type { RiverGuideSeed } from '../../lib/river-guide-seeds';
 
 export default {
-  "slug": "spring-river-missouri-float-trip-guide",
-  "title": "Spring River (Missouri) Float Trip Guide: La Russell, Carthage & Local Tips",
-  "description": "A southwest Missouri float around La Russell and Carthage. Get the right Spring River, then match a short public-access plan to the day’s water.",
+  "slug": "spring-river-float-trips-missouri",
+  "title": "Spring River (Missouri) Guide: La Russell, Carthage & Public Access",
+  "description": "Get to know southwest Missouri’s Spring River near La Russell and Carthage, with public-access information, local gauges, and practical planning tips.",
   "river_slug": "spring-river-mo",
   "featured_image_url": "https://commons.wikimedia.org/wiki/Special:FilePath/Spring_River%2C_La_Russell_Mo.JPG?width=1280",
   "read_time_minutes": 4,
   "guide_data": {
     "hero": {
-      "eyebrow": "Spring River (Missouri) · Missouri",
-      "title_top": "Spring River (Missouri)",
+      "eyebrow": "Spring River · Southwest Missouri",
+      "title_top": "Spring River",
       "title_accent": "Float Trip Guide.",
-      "lede": "A southwest Missouri float around La Russell and Carthage. Get the right Spring River, then match a short public-access plan to the day’s water.",
+      "lede": "This is the Spring River near La Russell and Carthage. Start by getting to know the public access, the local water readings, and the arrangements a southwest Missouri river day needs.",
       "photo_url": "https://commons.wikimedia.org/wiki/Special:FilePath/Spring_River%2C_La_Russell_Mo.JPG?width=1280",
       "mile_stats": [
         {
@@ -20,14 +20,22 @@ export default {
           "value": "Missouri"
         },
         {
-          "label": "Water",
-          "value": "Class I"
+          "label": "Plan around",
+          "value": "Confirmed access"
         },
         {
           "label": "In this guide",
-          "value": "1 float routes"
+          "value": "Public access"
         }
-      ]
+      ],
+      "photo_credit": {
+        "image_url": "https://commons.wikimedia.org/wiki/Special:FilePath/Spring_River%2C_La_Russell_Mo.JPG?width=1280",
+        "author": "Traveler7",
+        "source_url": "https://commons.wikimedia.org/wiki/File:Spring_River,_La_Russell_Mo.JPG",
+        "license": "Public domain",
+        "license_url": "https://creativecommons.org/publicdomain/mark/1.0/",
+        "changes": "Cropped to fit"
+      }
     },
     "intro_html": "<p><strong>This Spring River belongs to the Missouri side of the map, near La Russell and Carthage.</strong> It is a different trip from the cold river at Mammoth Spring in Arkansas. Here, the appeal is a local river day: riffles, fishing stops, and a chance to spend an afternoon outside without building the whole weekend around a long drive.</p><p>Start with access you have confirmed and keep the first plan modest. A bridge shown on a map is not the same thing as a developed launch with parking. The river changes with rain, and lower mill sites add complications to longer routes. A little preparation at both ends leaves more room to enjoy the water between them.</p>",
     "why_different": [
@@ -36,36 +44,19 @@ export default {
         "body": "Adding Missouri to the name avoids mixing up directions, gauges, and shuttle offers with the Arkansas river."
       },
       {
-        "strong": "La Russell gives you a named starting point.",
-        "body": "The MDC access is a useful anchor for researching the upper Missouri float corridor."
+        "strong": "Fishing can be the whole plan.",
+        "body": "An afternoon beside the Spring does not need a shuttle. Check current fishing rules and spend time getting to know the water at a public access."
       },
       {
-        "strong": "Carthage and Waco tell different parts of the story.",
-        "body": "Use the gauge nearest the reach you want rather than transferring one reading across the whole river."
+        "strong": "La Russell is a public access to know.",
+        "body": "MDC lists a small parking area and access to the Spring River. A float still needs a second confirmed launch or landing."
       }
     ],
-    "sections": [
-      {
-        "id": 1,
-        "name": "A shorter outing to La Russell",
-        "from_slug": "1040-bridge",
-        "to_slug": "la-russell-access",
-        "from": "1040 Bridge",
-        "to": "La Russell Access",
-        "miles": "6.2",
-        "time": "Varies with flow and stops",
-        "diff": "I",
-        "crowd": "Weekdays tend to be quieter",
-        "best": "A shorter outing to La Russell",
-        "photo": null,
-        "body": "Confirm lawful launch and parking arrangements at 1040 Bridge before choosing this route; a bridge is not a blanket access invitation. Finish at the developed La Russell access and keep the lower mill-dam reaches for a separate plan. Eddy maps this reach at about 6.2 miles. Use the planner for a current time estimate and leave room for stops."
-      }
-    ],
+    "sections": [],
     "springs": [
       {
         "name": "La Russell Access",
-        "mile": "10.86",
-        "note": "The named MDC access makes a clearer destination than an informal roadside pin."
+        "note": "MDC’s public access has a small parking area beside the Spring River. Check its current site information and arrange the other end before planning a through-float."
       }
     ],
     "seasons": [
@@ -86,16 +77,16 @@ export default {
       }
     ],
     "what_to_bring": [
-      "A well-fitting PFD for everyone; wear yours on the water.",
-      "Drinking water, lunch, and a dry bag with an extra layer.",
-      "Shoes that stay on your feet over slippery rocks and gravel.",
-      "Sun protection and a bag for every bit of trash you bring.",
-      "Your saved route, take-out directions, and a shuttle arranged before launching."
+      "A fitted PFD for each paddler, worn on the water.",
+      "Drinking water, food, sun protection, and a bag to pack out your trash.",
+      "Secure footwear and a dry bag for essentials.",
+      "Saved directions to La Russell Access and written permission details for any privately arranged launch.",
+      "Your fishing kit and current Missouri rules if the visit is a bank-fishing day instead of a float."
     ],
     "pro_tips": [
       {
-        "strong": "Scout the land access first.",
-        "body": "If the bridge launch or parking does not work, choose a different plan before unloading the boat."
+        "strong": "Visit La Russell before arranging the float.",
+        "body": "See where the boat can enter or leave the water, then arrange a second confirmed access and the shuttle."
       },
       {
         "strong": "Keep the state in your saved search.",
@@ -113,7 +104,7 @@ export default {
       },
       "footer": {
         "tone": "note",
-        "quote": "A southwest Missouri float around La Russell and Carthage. Get the right Spring River, then match a short public-access plan to the day’s water."
+        "quote": "La Russell is a useful public access to know. Build a through-float only after confirming the other end; a bridge symbol does not settle launch permission or parking."
       }
     },
     "faq": [
@@ -127,7 +118,7 @@ export default {
       },
       {
         "q": "Are the bridge locations guaranteed public launches?",
-        "a": "No. Confirm the actual entry point, parking, and permission before using a bridge-based launch."
+        "a": "No. In particular, this guide has not verified launch permission or parking at 1040 Bridge. Use a confirmed access arrangement instead of treating the bridge pin as permission."
       },
       {
         "q": "Can I keep going into Kansas?",
@@ -136,8 +127,8 @@ export default {
     ],
     "pre_launch_notes": [
       {
-        "strong": "Confirm the upstream launch.",
-        "body": "The featured route depends on lawful access and parking at 1040 Bridge."
+        "strong": "Confirm both ends before choosing a route.",
+        "body": "Launch permission and parking at 1040 Bridge have not been verified for this guide, so no float from that bridge is featured."
       }
     ],
     "related_rivers": [
@@ -151,24 +142,32 @@ export default {
       }
     ],
     "tldr": {
-      "typical_distance": "6.2 mi featured route",
-      "best_for_beginners": "Match the reach and today’s water to your group",
-      "primary_gauge": "Spring River at Carthage, MO · USGS 07185765"
+      "typical_distance": "Access overview; no featured through-route",
+      "best_for_beginners": "No verified first-trip route is featured yet. Confirm both ends before committing to a float.",
+      "primary_gauge": "Carthage (07185765) and Waco (07186000); neither is a reading at La Russell.",
+      "gauge_label": "Downstream gauges"
     },
     "sources": [
       {
-        "label": "Missouri Department of Conservation",
+        "label": "MDC: Spring River watershed assessment",
         "url": "https://mdc.mo.gov/sites/default/files/2022-12/370_2022_springriver.pdf"
       },
       {
-        "label": "USGS gauge",
+        "label": "USGS: station 07185765",
         "url": "https://waterdata.usgs.gov/monitoring-location/07185765/"
+      },
+      {
+        "label": "MDC: La Russell Access",
+        "url": "https://mdc.mo.gov/discover-nature/places/la-russell-access"
+      },
+      {
+        "label": "USGS: Spring River near Waco (07186000)",
+        "url": "https://waterdata.usgs.gov/monitoring-location/07186000/"
       }
-    ]
+    ],
+    "checked_at": "2026-10-11",
+    "use_access_photos": false,
+    "sights_heading": "Public access near La Russell"
   },
-  "checked_at": "2026-10-11",
-  "sources": [
-    "https://mdc.mo.gov/sites/default/files/2022-12/370_2022_springriver.pdf",
-    "https://waterdata.usgs.gov/monitoring-location/07185765/"
-  ]
+  "og_image_url": "https://q5skne5bn5nbyxfw.public.blob.vercel-storage.com/Eddy_Otter/Eddy%20the%20otter%20in%20a%20cool%20canoe.png"
 } satisfies RiverGuideSeed;
