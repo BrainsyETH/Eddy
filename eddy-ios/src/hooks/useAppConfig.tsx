@@ -11,6 +11,7 @@
 
 import { campingHeatmapEnabled, crowdSignalEnabled } from '@/lib/campingFeature';
 import { floatModeEnabled } from '@/lib/floatModeFeature';
+import { floatSearchEnabled } from '@/lib/floatSearchFeature';
 import { resolveEnvironment } from '@/lib/monitoring';
 import {
   createContext,
@@ -82,6 +83,7 @@ export function AppConfigProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const value = useMemo<AppConfigValue>(() => {
+    const environment = resolveEnvironment();
     return {
       config,
       loading,
@@ -91,8 +93,8 @@ export function AppConfigProvider({ children }: { children: ReactNode }) {
         ...config?.features,
         campingHeatmap: campingHeatmapEnabled(config?.features),
         crowdSignal: crowdSignalEnabled(config?.features),
-        floatMode: floatModeEnabled(config?.features, resolveEnvironment()),
-        floatSearch: config?.features.floatSearch === true,
+        floatMode: floatModeEnabled(config?.features, environment),
+        floatSearch: floatSearchEnabled(config?.features, environment),
       },
       notice: config?.notice ?? null,
     };
