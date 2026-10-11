@@ -11,8 +11,8 @@ sections for the task, not all of it.
 
 ## Rules that break builds
 
-- Run commands from inside `eddy-ios/`, on Node 20 (`.nvmrc`). Never
-  `--legacy-peer-deps`: it removes shipped native packages.
+- Run commands from inside `eddy-ios/`, on Node 20 (`.nvmrc`; `../bootstrap.sh`
+  sets it up and installs). Never `--legacy-peer-deps`: it removes shipped native packages.
 - Code at module scope runs before the splash lifts. Read README *Launch path*
   before adding any.
 - A new native dependency, plugin or `app.json` permission changes the runtime

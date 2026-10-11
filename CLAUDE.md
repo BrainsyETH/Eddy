@@ -47,6 +47,15 @@ listed never runs, and `src/lib/trust/registered-tests.test.ts` fails on it.
 
 ## Commands
 
+**Setup:** `./bootstrap.sh [web|mobile|all] [--env-file FILE]` at the root
+finds Node 20 (PATH, nvm, or `/opt/node20`) and runs `npm ci` only when a
+lockfile or the Node version changed. It is the one setup path for every
+tool: Claude cloud sessions run it from `.claude/hooks/session-start.sh`
+(which passes `$CLAUDE_ENV_FILE`, so later commands keep Node 20); a Codex or
+other environment's setup script calls it too, passing a file its later
+shells read (for example `./bootstrap.sh all --env-file ~/.bashrc`). Change
+setup in `bootstrap.sh`, not in a caller.
+
 Run `make help` at the root. Targets are thin wrappers over each project's own
 scripts and mirror CI exactly:
 
