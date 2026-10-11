@@ -5,7 +5,7 @@
 
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { trackingMode, trackingNotice } from '../../../eddy-ios/src/lib/floatPermissions';
+import { startLocationState, trackingMode, trackingNotice } from '../../../eddy-ios/src/lib/floatPermissions';
 
 test('each permission state maps to what tracking can actually do', () => {
   const precise = { status: 'granted', ios: { accuracy: 'full' as const } };
@@ -22,8 +22,19 @@ test('each permission state maps to what tracking can actually do', () => {
 
 test('only full locked-screen tracking goes without a notice', () => {
   assert.equal(trackingNotice('locked'), null);
-  assert.match(trackingNotice('screen-on')!.text, /pauses while your screen is locked/);
+  assert.match(trackingNotice('screen-on')!.text, /pauses while your phone is locked/);
   assert.equal(trackingNotice('approximate')!.action, 'settings');
+});
+
+test('start setup distinguishes first prompt, Settings, precision, and disabled services', () => {
+  assert.equal(startLocationState(null, true), 'checking');
+  assert.equal(startLocationState({ status: 'undetermined', canAskAgain: true }, true), 'request');
+  assert.equal(startLocationState({ status: 'denied', canAskAgain: true }, true), 'request');
+  assert.equal(startLocationState({ status: 'denied', canAskAgain: false }, true), 'settings');
+  assert.equal(startLocationState({ status: 'granted', ios: { accuracy: 'reduced' } }, true), 'precise');
+  assert.equal(startLocationState({ status: 'granted', ios: { accuracy: 'full' } }, true), 'ready');
+  assert.equal(startLocationState({ status: 'granted' }, false), 'services');
+  assert.equal(startLocationState({ status: 'denied', canAskAgain: false }, false), 'services');
 });
 
 test('the prompt is offered only while iOS will still show it', () => {

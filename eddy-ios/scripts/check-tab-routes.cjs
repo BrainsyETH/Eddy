@@ -246,3 +246,35 @@ for (const href of ['/alerts/quiet-hours', '/alerts/rule-1?source=gauge']) {
   assert.equal(modal.routes.at(-1).name, href.includes('quiet-hours') ? 'quiet-hours' : '[id]');
 }
 console.log('Quiet hours and edit sheets preserve warm origins and resolve cold URLs.');
+
+// Setup pages must be real native stack entries: Back/swipe preserves choices,
+// and completing either path must not strand setup pages behind Float Mode.
+const { completedFloatRoutes } = require('../src/lib/floatStart.ts');
+for (const saved of [false, true]) {
+  launch('/(tabs)/(floats)/float-home');
+  if (saved) push('/float/TESTPLAN');
+  const origin = activeStack().routes.at(-1);
+  push(saved ? '/float-start?riverSlug=current&putInId=akers&takeOutId=waymeyer&shortCode=TESTPLAN' : '/float-start');
+  const entryKey = activeStack().routes.at(-1).key;
+  if (!saved) {
+    push({ pathname: '/float-start', params: { step: 'takeout', riverSlug: 'current', startKey: entryKey } });
+    assert.equal(activeStack().routes.length, 3, 'Take-out must push, not replace river selection');
+    const takeoutPage = activeStack().routes.at(-1);
+    push({ pathname: '/float-start', params: { step: 'summary', riverSlug: 'current', takeOutId: 'waymeyer', startKey: entryKey } });
+    back();
+    assert.deepEqual(activeStack().routes.at(-1), takeoutPage, 'Back lost the selected river');
+    push({ pathname: '/float-start', params: { step: 'summary', riverSlug: 'current', takeOutId: 'two-rivers', startKey: entryKey } });
+  }
+  const summary = activeStack().routes.at(-1);
+  push({ pathname: '/float-start', params: { ...summary.params, step: 'background', startKey: entryKey } });
+  back();
+  assert.deepEqual(activeStack().routes.at(-1), summary, 'Dismissing the permission sheet lost the summary');
+  const stack = activeStack();
+  const routes = completedFloatRoutes(stack.routes, entryKey);
+  state = apply({ type: 'RESET', target: stack.key, payload: { ...stack, routes, index: routes.length - 1 } });
+  assert.equal(activeStack().routes.at(-1).name, 'float-mode');
+  assert.ok(!activeStack().routes.some(route => route.name === 'float-start'));
+  back();
+  assert.deepEqual(activeStack().routes.at(-1), origin, 'Completing setup lost its origin screen');
+}
+console.log('Quick/saved float setup, native Back, sheet dismissal, and completed-session history verified.');
