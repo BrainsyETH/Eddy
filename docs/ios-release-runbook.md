@@ -182,6 +182,29 @@ and device gates remain separate from the preparation fixes.
       "Not accepted" with the server's reason. Pure rules:
       `src/lib/hazard-report-queue.test.ts`.
 
+### In-app web browser gates — October 11, 2026
+
+Device and release status are unconfirmed. `expo-web-browser` adds a native
+module: rebuild the development/preview/production client before testing or
+shipping; do not ship this change as an OTA-only update.
+
+- [ ] Open a River Guide, a gauge source, an alert source, an outfitter site
+      and a policy page. Confirm a Safari sheet with **Done**, a visible domain
+      and the standard option to open in the full browser. Check light/dark mode.
+- [ ] Open Recreation.gov from the camping list, campground detail modal,
+      campsite card and map sheet. Confirm the URL/site/query is preserved;
+      test login and the booking flow without submitting a reservation. Done
+      and swipe-to-dismiss return to the same selected campground, dates and
+      scroll position. Rapid repeated taps present only one browser.
+- [ ] Verify directions (Apple Maps and an installed alternative), saved-float
+      shuttle directions, telephone/email links, subscription management and
+      offer redemption still open their appropriate system apps. Existing
+      native river/gauge/access/float navigation still opens the app screen.
+- [ ] With no connection, the browser can still be dismissed and Eddy remains
+      usable. Exercise a failed browser handoff: system-browser fallback works;
+      if that also fails, a retry alert or the existing inline booking error
+      appears and a later tap can retry.
+
 ### 1.1 delta gates found in the August 11 repository audit
 
 **Historical.** 1.1 shipped. These are kept because the ones still unticked

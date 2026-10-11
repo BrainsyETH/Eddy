@@ -1,5 +1,6 @@
+import { openExternalLink } from '@/lib/openExternalLink';
 import { useMemo, useState } from 'react';
-import { Alert, Linking, Pressable, Share, StyleSheet, Text, View } from 'react-native';
+import { Alert, Pressable, Share, StyleSheet, Text, View } from 'react-native';
 import { File, Paths } from 'expo-file-system';
 import type { GaugeFloodStages, GaugeHistoryResponse } from '@eddy/types';
 import { buildZones, type ThresholdValues } from '@eddy/conditions/threshold-zones';
@@ -105,7 +106,7 @@ export function GaugeChartDetails({ siteId, history, thresholds, floodStages, de
         : 'No NWS forecast is available for this window.'}</Text>
       <Text style={[styles.meta, { color: colors.textMuted }]}>{history?.typical?.length ? `USGS historical daily flow percentiles${years ? ` · ${years} years of record` : ''}. The typical range is the 25th–75th percentile; the median is the 50th. These describe historical flow, not forecast uncertainty.` : 'Historical flow percentiles are unavailable for this window.'}</Text>
       <Text style={[styles.meta, { color: colors.textMuted }]}>Flow (cfs) and gauge height (ft) are separate measurements. Dotted connectors mark missing readings, not measurements. Touch the chart or use VoiceOver to inspect actual samples.</Text>
-      {sourceUrl ? <Pressable accessibilityRole="link" onPress={() => { void Linking.openURL(sourceUrl).catch(() => Alert.alert('Couldn’t open source', 'Please try again.')); }} style={styles.export}>
+      {sourceUrl ? <Pressable accessibilityRole="link" onPress={() => { void openExternalLink(sourceUrl, () => Alert.alert('Couldn’t open source', 'Please try again.')); }} style={styles.export}>
         <Text style={[styles.controlText, { color: colors.interactive }]}>Open provider page</Text>
       </Pressable> : null}
     </>}

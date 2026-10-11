@@ -1,3 +1,4 @@
+import { openExternalLink } from '@/lib/openExternalLink';
 // eddy-ios/src/components/PaywallSheet.tsx
 // The contextual paywall, shown when a 402 comes back from subscribing.
 //
@@ -447,7 +448,7 @@ export function PaywallSheet({ visible, onClose, riverName, onPurchased }: Props
               requires them to be reachable from. */}
           <View style={styles.legalLinks}>
             <Pressable
-              onPress={() => Linking.openURL(TERMS_URL)}
+              onPress={() => openExternalLink(TERMS_URL)}
               hitSlop={8}
               accessibilityRole="link"
             >
@@ -455,7 +456,7 @@ export function PaywallSheet({ visible, onClose, riverName, onPurchased }: Props
             </Pressable>
             <Text style={[styles.legalLink, { color: colors.textSubtle }]}>·</Text>
             <Pressable
-              onPress={() => Linking.openURL(PRIVACY_URL)}
+              onPress={() => openExternalLink(PRIVACY_URL)}
               hitSlop={8}
               accessibilityRole="link"
             >

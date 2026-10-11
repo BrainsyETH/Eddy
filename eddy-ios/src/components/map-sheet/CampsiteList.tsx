@@ -1,3 +1,4 @@
+import { openExternalLink } from '@/lib/openExternalLink';
 // eddy-ios/src/components/map-sheet/CampsiteList.tsx
 // Which site, not just how many.
 //
@@ -17,7 +18,7 @@ import { useState } from 'react';
 import type { CampsitePhoto } from '@eddy/types';
 import { useCampsitePhotos } from '@/hooks/useCampsitePhotos';
 import { CampsitePhotos } from './CampsitePhotos';
-import { Alert, Linking, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
 import { ControlIcon } from '@/components/ControlIcon';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
@@ -54,13 +55,13 @@ function SiteRow({ entry, date, photos: suppliedPhotos, photoFacilityId, reserva
       {photos?.length ? <CampsitePhotos key={photos.map((photo) => photo.url).join('|')} photos={photos} label={label} /> : null}
       <Pressable
         onPress={() => {
-          if (booking) void Linking.openURL(booking.url).catch(() => {
+          if (booking) void openExternalLink(booking.url, () => {
             Alert.alert('Couldn’t open reservations', 'Please try again.');
           });
         }}
         disabled={!openable}
         style={({ pressed }) => [styles.row, styles.booking, { opacity: pressed && openable ? 0.6 : 1 }]}
-        // A row that leaves for Safari is a link, not a button. LinkRow hardcodes
+        // A row that opens a reservation page is a link, not a button. LinkRow hardcodes
         // `button`, which is why this one is built here rather than reusing it.
         accessibilityRole={openable ? 'link' : 'text'}
         accessibilityLabel={

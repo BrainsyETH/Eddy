@@ -1,3 +1,4 @@
+import { openExternalLink } from '@/lib/openExternalLink';
 import { ScenicImage } from '@/components/ScenicImage';
 // eddy-ios/src/components/map-sheet/RiverSheet.tsx
 // What a river says when you tap its line.
@@ -21,7 +22,7 @@ import { ScenicImage } from '@/components/ScenicImage';
 // an opinion about what an outfitter is. Six surfaces once held six of those
 // opinions and they disagreed — see MAPS_SHEET_SERVICE_MODEL_PLAN.md.
 import { useCallback, useMemo } from 'react';
-import { Linking, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { ControlIcon } from '@/components/ControlIcon';
 import type { MapAccessPoint } from '@eddy/types';
 import type { RiverSheetData } from './riverTabs';
@@ -281,7 +282,7 @@ export function RiverServicesTab({ river, onOpenCamping }: RiverTabProps) {
                 // Undefined, not a handler that checks and does nothing: that
                 // is what makes the row stop being a button rather than become
                 // a broken one. See LinkRow's onPress.
-                onPress={url ? () => void Linking.openURL(url) : undefined}
+                onPress={url ? () => void openExternalLink(url) : undefined}
               />
             );
           })}

@@ -1,3 +1,4 @@
+import { openExternalLink } from '@/lib/openExternalLink';
 import { PlanDownstreamDams } from '@/components/PlanDownstreamDams';
 import { unknownConditionLabel } from '@eddy/conditions/condition-availability';
 // eddy-ios/src/components/PlanResult.tsx
@@ -470,7 +471,7 @@ function GaugeSourceLink({ plan }: { plan: FloatPlan }) {
 
   return (
     <Pressable
-      onPress={() => void Linking.openURL(url)}
+      onPress={() => void openExternalLink(url)}
       style={({ pressed }) => [
         styles.sourceRow,
         { borderTopColor: colors.border, opacity: pressed ? 0.6 : 1 },

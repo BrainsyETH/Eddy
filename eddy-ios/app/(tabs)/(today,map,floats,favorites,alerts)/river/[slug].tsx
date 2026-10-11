@@ -1,3 +1,4 @@
+import { openExternalLink } from '@/lib/openExternalLink';
 // eddy-ios/app/river/[slug].tsx
 // One river: what it's doing right now, what could hurt you, and where to get on.
 //
@@ -342,7 +343,7 @@ function ServiceRow({ service }: { service: RiverService }) {
       ) : null}
       {service.website ? (
         <Pressable
-          onPress={() => void Linking.openURL(service.website!)}
+          onPress={() => void openExternalLink(service.website!)}
           hitSlop={10}
           accessibilityRole="button"
           accessibilityLabel={`Open ${service.name} website`}

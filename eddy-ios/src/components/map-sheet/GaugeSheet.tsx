@@ -1,3 +1,4 @@
+import { openExternalLink } from '@/lib/openExternalLink';
 // eddy-ios/src/components/map-sheet/GaugeSheet.tsx
 // What a gauge says, split by tab — and the tier decides the VOCABULARY, never
 // the layout.
@@ -22,7 +23,7 @@
 // while Linux CI on a case-sensitive volume compiles it perfectly. Named to
 // match RiverSheet.tsx/riverTabs.ts so the pairing is obvious and cannot
 // collide again.
-import { Linking, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 import type { GaugeDetail } from '@eddy/types';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
@@ -338,7 +339,7 @@ export function GaugeAboutTab({ facts, detail }: GaugeTabProps) {
           <LinkRow
             label="Open on the provider's site"
             external
-            onPress={() => void Linking.openURL(publicUrl)}
+            onPress={() => void openExternalLink(publicUrl)}
           />
         </Section>
       ) : null}

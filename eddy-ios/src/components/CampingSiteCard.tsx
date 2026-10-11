@@ -1,4 +1,5 @@
-import { Linking, Pressable, ScrollView, Text, View, useWindowDimensions } from 'react-native';
+import { openExternalLink } from '@/lib/openExternalLink';
+import { Pressable, ScrollView, Text, View, useWindowDimensions } from 'react-native';
 import { useState } from 'react';
 import { useTheme } from '@/theme/ThemeProvider';
 import { textStyles } from '@/theme/typography';
@@ -115,7 +116,7 @@ export function CampingSiteCard({
           }}
           onPress={() => {
             setFailed(false);
-            void Linking.openURL(url).catch(() => setFailed(true));
+            void openExternalLink(url, () => setFailed(true));
           }}
         >
           <Text style={[textStyles.body, { color: colors.onInteractive, textAlign: 'center' }]}>

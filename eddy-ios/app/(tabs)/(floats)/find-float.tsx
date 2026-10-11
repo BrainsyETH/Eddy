@@ -1,9 +1,9 @@
+import { openExternalLink } from '@/lib/openExternalLink';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   AppState,
   Image,
-  Linking,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -386,7 +386,7 @@ export default function FindFloatScreen() {
           ))}
           <Text
             onPress={() =>
-              void Linking.openURL('https://www.mapbox.com/about/maps/')
+              void openExternalLink('https://www.mapbox.com/about/maps/')
             }
             accessibilityRole="link"
             style={[t.xs, { color: colors.textMuted }]}

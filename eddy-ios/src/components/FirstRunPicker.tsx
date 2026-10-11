@@ -1,3 +1,4 @@
+import { openExternalLink } from '@/lib/openExternalLink';
 // Personalization does real work: both river and dam choices become Favorites.
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { AccessibilityInfo, ActivityIndicator, FlatList, Keyboard, KeyboardAvoidingView, Linking, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
@@ -246,10 +247,10 @@ export function FirstRunPicker({ onDone }: Props) {
             {Object.entries(DAM_PHOTOS).map(([id, photo]) => <View key={id} style={styles.credit}>
               <Text style={[styles.name, { color: colors.text }]}>{DAM_CATALOG.find(dam => dam.id === id)?.name}</Text>
               <Text style={{ color: colors.textMuted }}>{photo.credit}</Text>
-              <Pressable accessibilityRole="link" onPress={() => void Linking.openURL(photo.url)} style={styles.textButton}><Text style={{ color: colors.interactive }}>Original photograph</Text></Pressable>
-              <Pressable accessibilityRole="link" onPress={() => void Linking.openURL(photo.license)} style={styles.textButton}><Text style={{ color: colors.interactive }}>License</Text></Pressable>
+              <Pressable accessibilityRole="link" onPress={() => void openExternalLink(photo.url)} style={styles.textButton}><Text style={{ color: colors.interactive }}>Original photograph</Text></Pressable>
+              <Pressable accessibilityRole="link" onPress={() => void openExternalLink(photo.license)} style={styles.textButton}><Text style={{ color: colors.interactive }}>License</Text></Pressable>
             </View>)}
-            {rivers.filter(river => river.photoCredit).map(river => <Pressable key={river.id} accessibilityRole="link" onPress={() => void Linking.openURL(river.photoCredit!.url)} style={styles.credit}>
+            {rivers.filter(river => river.photoCredit).map(river => <Pressable key={river.id} accessibilityRole="link" onPress={() => void openExternalLink(river.photoCredit!.url)} style={styles.credit}>
               <Text style={[styles.name, { color: colors.text }]}>{river.name}</Text><Text style={{ color: colors.interactive }}>{river.photoCredit!.text}</Text>
             </Pressable>)}
           </ScrollView>

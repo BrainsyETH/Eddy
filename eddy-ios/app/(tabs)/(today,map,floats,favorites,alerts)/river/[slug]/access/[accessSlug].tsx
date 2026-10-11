@@ -1,3 +1,4 @@
+import { openExternalLink } from '@/lib/openExternalLink';
 import { ScenicImage } from '@/components/ScenicImage';
 // eddy-ios/app/river/[slug]/access/[accessSlug].tsx
 // One access point: whether you can get down there, and what is waiting.
@@ -342,7 +343,7 @@ function ServiceRow({ service }: { service: NearbyService }) {
       ) : null}
       {service.website ? (
         <Pressable
-          onPress={() => void Linking.openURL(service.website!)}
+          onPress={() => void openExternalLink(service.website!)}
           hitSlop={8}
           accessibilityRole="button"
           accessibilityLabel={`Open ${service.name} website`}
@@ -625,7 +626,7 @@ export default function AccessPointDetailScreen() {
 
           {point.officialSiteUrl ? (
             <Pressable
-              onPress={() => void Linking.openURL(point.officialSiteUrl!)}
+              onPress={() => void openExternalLink(point.officialSiteUrl!)}
               style={({ pressed }) => [
                 styles.secondaryAction,
                 { borderColor: colors.border, opacity: pressed ? 0.6 : 1 },
@@ -777,7 +778,7 @@ export default function AccessPointDetailScreen() {
                 {point.npsCampground.reservationUrl ?? point.npsCampground.npsUrl ? (
                   <Pressable
                     onPress={() =>
-                      void Linking.openURL(
+                      void openExternalLink(
                         (point.npsCampground!.reservationUrl ?? point.npsCampground!.npsUrl)!,
                       )
                     }

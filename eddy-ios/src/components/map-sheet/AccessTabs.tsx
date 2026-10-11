@@ -1,3 +1,4 @@
+import { openExternalLink } from '@/lib/openExternalLink';
 import { ScenicImage } from '@/components/ScenicImage';
 import { serviceContactActions } from '@/lib/serviceContactActions';
 // eddy-ios/src/components/map-sheet/AccessTabs.tsx
@@ -14,7 +15,7 @@ import { serviceContactActions } from '@/lib/serviceContactActions';
 // screen holds), both are enhancements to a tab that already answers its
 // question, and neither should hold up the tabs themselves.
 import { useMemo, useState } from 'react';
-import { Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { ControlIcon } from '@/components/ControlIcon';
 import { EddySymbol } from '@/components/EddySymbol';
 import type { PlaceSymbolName } from './placeSymbol';
@@ -505,7 +506,7 @@ function BookButton({ action }: { action: BookingAction }) {
   const { colors } = useTheme();
   return (
     <Pressable
-      onPress={() => void Linking.openURL(action.url)}
+      onPress={() => void openExternalLink(action.url)}
       style={({ pressed }) => [
         styles.book,
         { borderColor: colors.accentFill, opacity: pressed ? 0.6 : 1 },
@@ -694,7 +695,7 @@ export function AccessCampingTab({ accessPoint, detail, status, active = false, 
               detail={staySearchAreaLabel()}
               external
               externalTint={AIRBNB_LINK_COLOR}
-              onPress={() => void Linking.openURL(stayUrl)}
+              onPress={() => void openExternalLink(stayUrl)}
             />
           </Section>
         ) : null}
@@ -787,14 +788,14 @@ export function AccessCampingTab({ accessPoint, detail, status, active = false, 
             <LinkRow
               label={nps ? 'Park website' : 'Official site'}
               external
-              onPress={() => void Linking.openURL(point.officialSiteUrl as string)}
+              onPress={() => void openExternalLink(point.officialSiteUrl as string)}
             />
           ) : null}
           {nps?.npsUrl ? (
             <LinkRow
               label="Campground page"
               external
-              onPress={() => void Linking.openURL(nps.npsUrl as string)}
+              onPress={() => void openExternalLink(nps.npsUrl as string)}
             />
           ) : null}
         </Section>
@@ -919,7 +920,7 @@ export function AccessCampingTab({ accessPoint, detail, status, active = false, 
             detail={staySearchAreaLabel()}
             external
             externalTint={AIRBNB_LINK_COLOR}
-            onPress={() => void Linking.openURL(stayUrl)}
+            onPress={() => void openExternalLink(stayUrl)}
           />
         ) : null}
       </Section>
@@ -1040,7 +1041,7 @@ function ServiceContactRow({ service }: { service: NearbyService }) {
               key={action.label}
               accessibilityRole="link"
               accessibilityLabel={`${action.label}: ${service.name}`}
-              onPress={() => void Linking.openURL(action.url)}
+              onPress={() => void openExternalLink(action.url)}
               style={{ minHeight: 44, minWidth: 44, justifyContent: 'center', paddingHorizontal: 8 }}
             >
               <Text style={{ ...t.sm, fontFamily: fonts.body, color: colors.interactive }}>{action.label}</Text>
