@@ -19,6 +19,7 @@ import { activateKeepAwakeAsync, deactivateKeepAwake } from 'expo-keep-awake';
 import * as Location from 'expo-location';
 import { FloatMap } from '@/float/FloatMap';
 import { FloatReminders } from '@/float/FloatReminders';
+import { FloatHazardReports } from '@/float/FloatHazardReports';
 import { useFloatSession } from '@/hooks/useFloatSession';
 import { endFloat } from '@/lib/floatSessionStore';
 import { remainingCopy, statusCopy, viewSession } from '@/lib/floatSession';
@@ -167,6 +168,8 @@ export default function FloatModeScreen() {
         )}
 
         <FloatReminders session={session} />
+
+        <FloatHazardReports session={session} />
 
         <View style={[styles.toggleRow, { borderColor: colors.border }]}>
           <View style={styles.toggleText}>

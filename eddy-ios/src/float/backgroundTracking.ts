@@ -31,6 +31,7 @@ import * as Location from 'expo-location';
 import * as TaskManager from 'expo-task-manager';
 import { ensureFloatSessionLoaded, flushFloatSessionIfStale, getFloatSession, recordFixes } from '@/lib/floatSessionStore';
 import { warn } from '@/lib/monitoring';
+import { flushHazardReports } from './hazardReports';
 
 export const FLOAT_LOCATION_TASK = 'eddy-float-location';
 
@@ -56,6 +57,9 @@ TaskManager.defineTask<{ locations: Location.LocationObject[] }>(FLOAT_LOCATION_
   }));
   recordFixes(fixes);
   await flushFloatSessionIfStale(BACKGROUND_WRITE_MS);
+  // A hazard report written with no signal goes out when the locked phone
+  // finds some. Sends only what is due, one at a time; never blocks tracking.
+  void flushHazardReports();
 });
 
 /** Start locked-screen tracking if "Always" is granted. False when it is not. */

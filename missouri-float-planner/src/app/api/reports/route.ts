@@ -45,6 +45,7 @@ export async function POST(request: NextRequest) {
       submitterName,
       capturedAt,
       readingSource,
+      clientReportId,
     } = body;
 
     // Validate required fields
@@ -67,7 +68,7 @@ export async function POST(request: NextRequest) {
     if (!isValidUUID(String(riverId))) {
       return NextResponse.json({ error: 'Invalid riverId' }, { status: 400 });
     }
-    for (const [field, value] of Object.entries({ hazardId, accessPointId, gaugeStationId })) {
+    for (const [field, value] of Object.entries({ hazardId, accessPointId, gaugeStationId, clientReportId })) {
       if (value != null && !isValidUUID(String(value))) {
         return NextResponse.json({ error: `Invalid ${field}` }, { status: 400 });
       }
@@ -164,6 +165,29 @@ export async function POST(request: NextRequest) {
 
     const supabase = createAdminClient();
 
+    // ── One report, once ─────────────────────────────────────────────────────
+    // A device that queued a report offline (Float Mode) sends the same
+    // clientReportId on every attempt. If an earlier attempt already landed and
+    // only its reply was lost, answer with that report instead of filing it
+    // twice. See migration 20261011120000_report_client_ids.sql.
+    const alreadyFiled = async (): Promise<string | null> => {
+      if (!clientReportId) return null;
+      const { data } = await supabase
+        .from('community_reports')
+        .select('id')
+        .eq('client_report_id', clientReportId)
+        .maybeSingle();
+      return (data as { id?: string } | null)?.id ?? null;
+    };
+    const filedResponse = (id: string) =>
+      NextResponse.json({
+        success: true,
+        id,
+        message: 'Report submitted successfully. It will be reviewed by an admin before appearing publicly.',
+      });
+    const existing = await alreadyFiled();
+    if (existing) return filedResponse(existing);
+
     // Reports are safety-relevant and must be anchored to the river they name.
     // The existing PostGIS helper only returns active rivers, so this also
     // rejects unknown/inactive river IDs without relying on a state whitelist.
@@ -247,6 +271,10 @@ export async function POST(request: NextRequest) {
 
     if (hazardId) baseData.hazard_id = hazardId;
     if (submitterName) baseData.submitter_name = submitterName.trim();
+    if (clientReportId) baseData.client_report_id = clientReportId;
+    // When it was seen, not when it was sent: a report queued on the water can
+    // arrive hours later, and a reviewer needs to know which.
+    if (capturedAtIso) baseData.captured_at = capturedAtIso;
 
     // River visual specific fields.
     //
@@ -260,7 +288,6 @@ export async function POST(request: NextRequest) {
     // gauge-derivation.ts.
     if (type === 'river_visual') {
       if (accessPointId) baseData.access_point_id = accessPointId;
-      if (capturedAtIso) baseData.captured_at = capturedAtIso;
 
       const derived = await deriveRiverVisualGauge(supabase, {
         riverId: String(riverId),
@@ -311,12 +338,13 @@ export async function POST(request: NextRequest) {
         .select('id')
         .single();
 
-      if (!error && data) {
-        return NextResponse.json({
-          success: true,
-          id: data.id,
-          message: 'Report submitted successfully. It will be reviewed by an admin before appearing publicly.',
-        });
+      if (!error && data) return filedResponse(data.id);
+
+      // Two attempts of the same report raced past the check above; the
+      // unique index let one in. Answer with that one.
+      if (error?.code === '23505' && clientReportId) {
+        const raced = await alreadyFiled();
+        if (raced) return filedResponse(raced);
       }
 
       lastError = error;

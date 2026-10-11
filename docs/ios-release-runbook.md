@@ -155,6 +155,15 @@ are pending checks, not evidence of a device pass.
       its position; tapping one opens Float Mode. With notifications denied,
       Float Mode says reminders can't appear. Pure rules:
       `src/lib/float-reminders.test.ts` in the web suite.
+- [ ] **Hazard reports from Float Mode (Phase 5, #1453).** Apply
+      `20261011120000_report_client_ids.sql` to production first (the API only
+      writes `client_report_id` when a client sends one, so web reports are
+      unaffected either way, but iOS retries need the column). Then on a
+      device: report with no signal → "Saved on your phone"; signal returns
+      (foreground, or locked during a float) → "Sent for review" and exactly
+      one pending row in `community_reports`; a report far from the river →
+      "Not accepted" with the server's reason. Pure rules:
+      `src/lib/hazard-report-queue.test.ts`.
 
 ### 1.1 delta gates found in the August 11 repository audit
 
