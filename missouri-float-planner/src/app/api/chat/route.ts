@@ -69,7 +69,6 @@ async function _POST(request: Request) {
   // Track for logging
   const startTime = Date.now();
   const toolsCalled: string[] = [];
-  let fullResponse = '';
   let inputTokens = 0;
   let outputTokens = 0;
 
@@ -128,7 +127,6 @@ async function _POST(request: Request) {
 
           for (const block of response.content) {
             if (block.type === 'text') {
-              fullResponse += block.text;
               // Only send text to client on the final turn (no intermediate narration)
               if (isFinalTurn) {
                 send({ type: 'text', content: block.text });
@@ -197,13 +195,10 @@ async function _POST(request: Request) {
         logChatInteraction({
           sessionId: request.headers.get('x-session-id') || 'unknown',
           riverSlug: body.riverSlug || null,
-          userMessage: recentMessages[recentMessages.length - 1]?.content || '',
-          assistantResponse: fullResponse,
           toolsCalled,
           inputTokens,
           outputTokens,
           durationMs: Date.now() - startTime,
-          ipHash: hashIp(ip),
         }).catch(e => console.error('[Chat] Logging failed:', e));
       }
     },
@@ -219,45 +214,37 @@ async function _POST(request: Request) {
 }
 
 // ─── Logging ─────────────────────────────────────────────────────────────────
+//
+// Usage metadata only: no message text, no response text and no network
+// identifier. Rate limiting reads the address directly and keeps nothing.
+//
+// Production has no chat_logs table (00078 predates the migration ledger and
+// was never applied there), so while chat is disabled this insert fails and is
+// swallowed. Before re-enabling chat, create the table WITHOUT text or IP
+// columns and update the privacy policy, which promises to describe message
+// retention before messages are accepted.
 
 async function logChatInteraction(data: {
   sessionId: string;
   riverSlug: string | null;
-  userMessage: string;
-  assistantResponse: string;
   toolsCalled: string[];
   inputTokens: number;
   outputTokens: number;
   durationMs: number;
-  ipHash: string;
 }) {
   try {
     const supabase = createAdminClient();
     await supabase.from('chat_logs').insert({
       session_id: data.sessionId,
       river_slug: data.riverSlug,
-      user_message: data.userMessage.slice(0, 2000),
-      assistant_response: data.assistantResponse.slice(0, 5000),
       tools_called: data.toolsCalled,
       input_tokens: data.inputTokens,
       output_tokens: data.outputTokens,
       duration_ms: data.durationMs,
-      ip_hash: data.ipHash,
     });
   } catch (e) {
     console.error('[Chat] Failed to log interaction:', e);
   }
-}
-
-function hashIp(ip: string): string {
-  // Simple hash for privacy — not cryptographically secure, just for analytics grouping
-  let hash = 0;
-  for (let i = 0; i < ip.length; i++) {
-    const char = ip.charCodeAt(i);
-    hash = ((hash << 5) - hash) + char;
-    hash = hash & hash; // Convert to 32-bit integer
-  }
-  return Math.abs(hash).toString(36);
 }
 
 export const POST = withX402Route(_POST as unknown as (request: import('next/server').NextRequest) => Promise<import('next/server').NextResponse>, '/api/chat');
