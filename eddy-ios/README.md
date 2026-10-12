@@ -1032,9 +1032,13 @@ blur:
   hazard, an arrival time and a sunset warning. Serious hazards, the approaching
   take-out and arrival are notified. A float left running ends itself an hour
   after arrival or 45 minutes after leaving the river (`src/lib/floatEnding.ts`),
-  never for stopping or losing signal. With Always, a closed Eddy is relaunched
-  to resume by significant location changes and a wake geofence
-  (`src/float/backgroundTracking.ts`). This is progress along a known route,
+  never for stopping or losing signal, and only on fresh evidence of being
+  away. With Always, significant location changes and a wake geofence
+  (`src/float/backgroundTracking.ts`) are meant to relaunch a closed Eddy to
+  resume; that is device-unconfirmed, so the screen asks people to leave Eddy
+  open in the background rather than promising it. A take-out off the mapped
+  river is never recorded as reached: reaching the river's closest point is
+  kept separate (`riverEndAt`). This is progress along a known route,
   not a recorded GPS track; raw float positions stay on the phone. Signed-in
   recap summaries are backed up separately (ADR 0012). Hazard reports explicitly
   send the location the user submits.

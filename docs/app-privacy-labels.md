@@ -171,8 +171,8 @@ opted-in completed-float summaries. No tracking.**
   foreground permission when started and offers Always permission for tracking
   while locked. `app.json` enables background location. Ending stops tracking.
   With Always, significant-location-change and region monitoring (a geofence
-  around the latest fix, on the device only) can relaunch Eddy to resume a float
-  after it is closed. A float left running ends itself an hour after reaching
+  around the latest fix, on the device only) are used to try to relaunch Eddy
+  to resume a float after it is closed (device-unconfirmed). A float left running ends itself an hour after reaching
   the take-out or 45 minutes after leaving the river.
 - Raw Float Mode positions, pace samples, tracker state and the river-line copy
   stay on the phone and are removed when ending is durably saved. The account
@@ -217,8 +217,7 @@ is introduced by these features.
 >
 > **Location is requested in context, never on launch.** Float Mode uses
 > location to show progress to a chosen take-out. Always permission lets it
-> continue while the phone is locked in a dry bag, or after Eddy is closed (iOS
-> may relaunch it in the background to resume); ending a float stops tracking,
+> continue while the phone is locked in a dry bag; ending a float stops tracking,
 > and a float left running ends itself after the take-out is reached or the
 > paddler leaves the river.
 > Raw float positions stay on the phone. Signed-in users back up trip summaries,

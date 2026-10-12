@@ -86,9 +86,10 @@ TaskManager.defineTask<{ locations: Location.LocationObject[] }>(FLOAT_LOCATION_
     accuracyMeters: location.coords.accuracy ?? null,
     timestamp: location.timestamp,
   }));
-  const autoEnded = recordFixes(fixes);
-  if (autoEnded) {
-    await autoEnded;
+  const autoEnd = recordFixes(fixes);
+  // Stop only if it actually ended: rechecked after any prompt landed, a
+  // float the paddler has come back to keeps tracking.
+  if (autoEnd && (await autoEnd)) {
     await stopBackgroundTracking();
     return;
   }

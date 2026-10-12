@@ -355,6 +355,10 @@ test('reaching the river’s closest point to an off-river take-out is not arriv
   assert.equal(view.atRiverEnd, true);
   assert.match(statusCopy(view, T0 + 200_000), /closest point to beyond\. It’s about 1\.0 km from here/);
   assert.equal(remainingCopy({ minutes: 0, basis: 'observed', paused: false }, true).headline, 'At the river’s closest point');
+  // Recorded as the river's end, never as arriving: the recap must not say
+  // the take-out was reached.
+  assert.equal(there.arrivedAt ?? null, null);
+  assert.ok(there.riverEndAt != null);
 
   // The same place on the line as an on-river take-out does arrive.
   const on = startSession({ id: 'o2', kind: 'saved', route: result.route, index: result.index, putInId: 'akers', takeOutId: 'round-spring', now: T0 });
@@ -533,4 +537,28 @@ test('arrival time is weighed against sunset at the take-out', () => {
   const copy = arrivalCopy(arrivalOutlook(90, evening, takeOut)!, (ms) => new Date(ms).toISOString().slice(11, 16));
   assert.equal(copy.line, 'Arrive around 02:00');
   assert.match(copy.warning ?? '', /after sunset \(01:2\d\)/);
+});
+
+test('an off-map take-out is not recorded as reached, however the float ends', async () => {
+  const { recapFloat } = await import('../../../eddy-ios/src/lib/floatRecap');
+  const { autoEndAt, autoEndCopy, AUTO_END_AFTER_ARRIVAL_MS } = await import('../../../eddy-ios/src/lib/floatEnding');
+  const access = [
+    point('akers', 0, 20),
+    { ...point('beyond', 10_000, 20 + 10_000 * MILES_PER_M), coordinates: { lng: at(10_000)[0], lat: at(10_000, 1_000)[1] } },
+  ];
+  const result = routeFromRiver(RIVER, access, null);
+  assert.ok(result.ok);
+  const off = startSession({ id: 'r1', kind: 'saved', route: result.route, index: result.index, putInId: 'akers', takeOutId: 'beyond', now: T0 });
+  assert.ok(off.ok);
+  const there = float(off.session, result.index, 9_700, T0, 200, 1.5);
+  const recap = recapFloat(there, T0 + 30 * 60_000);
+  assert.equal(recap.reachedTakeOut, false);
+  assert.equal(recap.endedAt, T0 + 30 * 60_000);
+  // Left running, it still ends, without claiming an arrival.
+  const endAt = autoEndAt(there, there.riverEndAt! + AUTO_END_AFTER_ARRIVAL_MS);
+  assert.equal(endAt, there.riverEndAt);
+  assert.equal(recapFloat(there, endAt!).reachedTakeOut, false);
+  const copy = autoEndCopy(there);
+  assert.doesNotMatch(`${copy.title} ${copy.body}`, /finished|ended your float at/i);
+  assert.match(copy.body, /closest point to beyond/);
 });

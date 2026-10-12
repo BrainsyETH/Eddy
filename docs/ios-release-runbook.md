@@ -205,7 +205,9 @@ are pending checks, not evidence of a device pass.
       from the river. Leave a float running: it ends itself an hour after
       arrival, or after driving well away from the river ("Still floating?" at
       ten minutes, ended at 45), with a "Float ended" notice that opens the
-      recap. A long lunch on the bank must NOT end it. The arrival time and
+      recap. A long lunch on the bank must NOT end it, nor a GPS gap followed
+      by returning to the river. An off-map take-out (Buffalo City) must not
+      be recorded as reached. The arrival time and
       sunset warning read right late in the day. Pure rules:
       `float-reminders.test.ts`, `float-session.test.ts`.
 - [ ] **Closing Eddy mid-float** with Always granted: swipe Eddy away, keep
@@ -213,6 +215,8 @@ are pending checks, not evidence of a device pass.
       location change and the wake geofence relaunch it; expect a delay in
       dead zones). Record how long the gap was with and without cell coverage.
       Swiping away with While Using must leave the float intact on reopen.
+      Until this passes, Float Mode tells people to leave Eddy open in the
+      background; only change that copy with this evidence recorded.
 
 For the Lock Screen/Dynamic Island follow-up, use
 [`float-live-activity-plan.md`](float-live-activity-plan.md). Native implementation

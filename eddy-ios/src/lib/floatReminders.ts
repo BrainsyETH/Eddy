@@ -127,7 +127,7 @@ export function dueReminders(session: FloatSession, index: RouteIndex, now: numb
 function dueAlongRiver(session: FloatSession, index: RouteIndex, now: number, settings: FloatReminderSettings): DueReminder[] {
   const hazardsOn = settings.hazards !== false;
   if (!settings.takeOut && settings.stops.length === 0 && !hazardsOn) return [];
-  if (session.awaitingFix || session.arrivedAt != null) return [];
+  if (session.awaitingFix || session.arrivedAt != null || session.riverEndAt != null) return [];
   const last = session.last;
   if (!last || last.result.kind !== 'matched' || now - last.at > LIVE_POSITION_MS) return [];
 

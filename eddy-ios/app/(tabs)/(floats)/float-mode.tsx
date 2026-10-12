@@ -180,7 +180,8 @@ export default function FloatModeScreen() {
 
         {permission.mode === 'locked' ? (
           <Text style={[styles.note, { color: colors.textMuted }]}>
-            Lock your phone or close Eddy and tracking carries on. If you close Eddy, it picks up again once you move on.
+            Tracking carries on with your phone locked. Leave Eddy open in the background rather than closing it: if
+            you close it, tracking may pause until you open Eddy again.
           </Text>
         ) : null}
 

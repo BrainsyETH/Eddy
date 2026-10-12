@@ -336,12 +336,46 @@ test('a float left running ends itself after arriving or leaving the river, neve
   assert.equal(autoEndAt(arrived, t + AUTO_END_AFTER_ARRIVAL_MS), t);
   assert.match(autoEndCopy(arrived).body, /at round-spring/);
 
-  // Driving home: prompt first, then the end, recorded when they left.
-  let away = session;
-  for (let k = 0; k < 4; k += 1) away = applyFix(away, index, fix(at(3_000, 5_000), t + k * 60_000), t + k * 60_000);
+  // Driving home, with fixes all the way: prompt first, then the end,
+  // recorded when they left.
+  const drive = (s: FloatSession, until: number) => {
+    for (let at_ = t; at_ <= until; at_ += 60_000) s = applyFix(s, index, fix(at(3_000, 5_000), at_), at_);
+    return s;
+  };
+  let away = drive(session, t + AWAY_PROMPT_MS - 60_000);
   assert.equal(away.awaySince, t);
-  assert.deepEqual(dueReminders(away, index, t + AWAY_PROMPT_MS - 1).map((r) => r.id), []);
+  assert.deepEqual(dueReminders(away, index, t + AWAY_PROMPT_MS - 60_000).map((r) => r.id), []);
+  away = drive(session, t + AWAY_PROMPT_MS);
   assert.deepEqual(dueReminders(away, index, t + AWAY_PROMPT_MS).map((r) => r.id), [AWAY_PROMPT_ID]);
+  away = drive(session, t + AUTO_END_AWAY_MS);
   assert.equal(autoEndAt(away, t + AUTO_END_AWAY_MS), t);
   assert.match(autoEndCopy(away).body, /left the Current River/);
+});
+
+test('away is judged on fresh evidence: a gap, a return to the river, or a bank stop ends nothing', () => {
+  const { session: s0, index } = started(STRAIGHT, ACCESS, 'akers', 'round-spring');
+  const { session, t } = paddle(s0, index, 0, 3_000, T0);
+  const farFix = (s: FloatSession, when: number) => applyFix(s, index, fix(at(3_000, 5_000), when), when);
+
+  // One away fix, then nothing: a stale away fix prompts and ends nothing.
+  const once = farFix(session, t);
+  assert.equal(once.awaySince, t);
+  assert.equal(autoEndAt(once, t + AUTO_END_AWAY_MS), null);
+  assert.deepEqual(dueReminders(once, index, t + AWAY_PROMPT_MS).map((r) => r.id), []);
+
+  // Away, a GPS gap, then the first fresh fix back on the river is still being
+  // confirmed: the clock is stopped before confirmation finishes.
+  const back = t + AUTO_END_AWAY_MS + 60_000;
+  const returning = applyFix(once, index, fix(at(3_050, 5), back), back);
+  assert.equal(returning.last?.result.kind, 'uncertain');
+  assert.equal(returning.awaySince, null);
+  assert.equal(autoEndAt(returning, back), null);
+
+  // Back within 400 m of the river for a long stop on the bank: no end.
+  let bank = farFix(farFix(session, t), t + 60_000);
+  for (let when = t + 120_000; when <= t + 2 * AUTO_END_AWAY_MS; when += 60_000) {
+    bank = applyFix(bank, index, fix(at(3_000, 400), when), when);
+  }
+  assert.equal(bank.awaySince, null);
+  assert.equal(autoEndAt(bank, t + 2 * AUTO_END_AWAY_MS), null);
 });

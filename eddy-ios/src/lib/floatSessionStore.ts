@@ -88,30 +88,36 @@ export function beginFloat(next: FloatSession): Promise<BeginResult> {
 
 /**
  * Feed GPS fixes, in time order, from the screen or a background task.
- * Returns the automatic end this delivery triggered, if any (floatEnding.ts),
- * so a background task can wait for it before iOS suspends Eddy.
+ * Returns the automatic end this delivery may trigger (floatEnding.ts),
+ * resolving true only if it did end the float, so a background task can wait
+ * for it before iOS suspends Eddy and stop tracking only when it ended.
  */
-export function recordFixes(fixes: readonly PositionFix[], now = Date.now()): Promise<void> | null {
+export function recordFixes(fixes: readonly PositionFix[], now = Date.now()): Promise<boolean> | null {
   store.record(fixes, now);
   const session = store.get();
-  const endAt = autoEndAt(session, now);
-  if (session && endAt != null) return autoEnd(session, endAt);
+  if (session && autoEndAt(session, now) != null) return autoEnd(session.id);
   void syncFloatActivity(session);
   return null;
 }
 
 /** End a float nobody ended, say so, and keep its recap at the real finish. */
-async function autoEnd(session: FloatSession, endedAt: number): Promise<void> {
+async function autoEnd(sessionId: string): Promise<boolean> {
   // Let a pending arrival or away prompt land first, so the end notice follows it.
   await store.remindersSettled();
-  if (store.get()?.id !== session.id) return;
+  // Decide again on the session as it is now: fixes that arrived while the
+  // prompt was being handed over may have put the paddler back on the river.
+  const session = store.get();
+  const endedAt = session?.id === sessionId ? autoEndAt(session, Date.now()) : null;
+  if (!session || endedAt == null) return false;
   await activityLifecycle.end(floatArchive.contributionVersion(session.archiveScope), endedAt);
   const permission = await Notifications.getPermissionsAsync().catch(() => null);
-  if (!permission?.granted) return;
-  await Notifications.scheduleNotificationAsync({
-    content: { ...autoEndCopy(session), sound: true, data: { floatEnded: session.id } },
-    trigger: null,
-  }).catch((error) => warn('float', 'could not show the float-ended notice', error));
+  if (permission?.granted) {
+    await Notifications.scheduleNotificationAsync({
+      content: { ...autoEndCopy(session), sound: true, data: { floatEnded: session.id } },
+      trigger: null,
+    }).catch((error) => warn('float', 'could not show the float-ended notice', error));
+  }
+  return true;
 }
 
 /** Write any pending change now; call when the app is leaving the foreground. */

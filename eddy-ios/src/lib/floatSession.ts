@@ -169,17 +169,26 @@ export interface FloatSession {
   /** On-water reminders; see floatReminders.ts. Absent means the defaults. */
   reminders?: FloatReminderSettings;
   /**
-   * When a confirmed position first reached the take-out (or, for a take-out
-   * off the mapped river, the river's closest point to it: as far as tracking
-   * can follow). The float's on-water time ends here; accounting stops, and
-   * the recap counts the take-out as reached however late Finish is tapped.
+   * When a confirmed position first reached the take-out. The float's
+   * on-water time ends here; accounting stops, and the recap counts the
+   * take-out as reached however late Finish is tapped. Never set for a
+   * take-out off the mapped river: see riverEndAt.
    */
   arrivedAt?: number | null;
   /**
+   * For a take-out off the mapped river (Buffalo City, a kilometre down the
+   * White): when a confirmed position first reached the river's closest point
+   * to it. Tracking can follow no further, but the paddler has NOT arrived:
+   * the take-out is still offLineMeters away, so this is never reported as
+   * reaching it.
+   */
+  riverEndAt?: number | null;
+  /**
    * When fixes started placing the paddler well away from the river (more
-   * than AWAY_FROM_RIVER_M) without a confirmed river position since: they
-   * have most likely left it. Drives "Still floating?" and the automatic end
-   * (floatEnding.ts). Cleared by the next confirmed river position.
+   * than AWAY_FROM_RIVER_M), with every usable fix since agreeing: they have
+   * most likely left it. Drives "Still floating?" and the automatic end
+   * (floatEnding.ts). Any usable fix that does not show them that far away
+   * (on the river, being re-confirmed on it, or on a bank) clears it.
    */
   awaySince?: number | null;
 }
@@ -373,12 +382,11 @@ export function applyFix(session: FloatSession, index: RouteIndex, fix: Position
   const step = trackFix(index, session.track, fix, now);
   if (step.result.kind === 'rejected') return session;
   const next: FloatSession = { ...session, track: step.state, last: { result: step.result, at: fix.timestamp } };
-  if (step.result.kind === 'off-route' && step.result.offsetMeters > AWAY_FROM_RIVER_M) {
-    next.awaySince = session.awaySince ?? fix.timestamp;
-  }
+  // Away only while every usable fix says so; anything nearer starts over.
+  const farAway = step.result.kind === 'off-route' && step.result.offsetMeters > AWAY_FROM_RIVER_M;
+  next.awaySince = farAway ? (session.awaySince ?? fix.timestamp) : null;
   if (step.result.kind === 'matched') {
     next.awaitingFix = false;
-    next.awaySince = null;
     next.position = { lngLat: pointAt(index, step.result.lineMeters), at: fix.timestamp };
     const sample: PaceSample = { timestamp: fix.timestamp, riverMile: step.result.riverMile, continuous: step.result.continuous };
     const previous = session.samples[session.samples.length - 1];
@@ -395,11 +403,12 @@ export function applyFix(session: FloatSession, index: RouteIndex, fix: Position
     // inventing a start.
     if (next.startMile == null) next.startMile = step.result.riverMile;
     if (
-      session.arrivedAt == null &&
       !(session.kind === 'quick' && next.startMile >= session.takeOut.riverMile) &&
       stretchProgress(next.startMile, session.takeOut.riverMile, step.result.riverMile).remainingMiles <= ARRIVAL_MILES
     ) {
-      next.arrivedAt = fix.timestamp;
+      // Off the mapped river, the line's end is not the take-out.
+      if (session.takeOut.offLineMeters != null) next.riverEndAt = session.riverEndAt ?? fix.timestamp;
+      else next.arrivedAt = session.arrivedAt ?? fix.timestamp;
     }
   }
   return next;
