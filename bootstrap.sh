@@ -14,10 +14,16 @@
 #    node@20). Fails, rather than continuing, if none matches: installing on
 #    the wrong Node resolves a different dependency graph than CI (see
 #    guard-node in the Makefile).
-# 2. Runs `npm ci` in each app only when its lockfile or the Node version has
-#    changed since the last run here. A stamp in node_modules records both, so
-#    resumes and repeat calls cost a hash, not an install. `npm ci` never takes
-#    --legacy-peer-deps (see eddy-ios/README.md).
+# 2. Installs each app only when its package.json, lockfile or the Node version
+#    has changed since the last run here. A stamp in node_modules records all
+#    three, so resumes and repeat calls cost a hash, not an install. With no
+#    node_modules it runs `npm ci`; with an existing tree it runs `npm install`,
+#    which updates only what changed instead of deleting the tree first. That
+#    matters in cloud sessions, which cache the container after this hook: a
+#    lockfile bump would otherwise rebuild ~2.4 GB from scratch. If
+#    `npm install` would rewrite the lockfile (package.json edited without it),
+#    setup fails, as `npm ci` would. Neither ever takes --legacy-peer-deps (see
+#    eddy-ios/README.md); CI and `make setup-*` still use `npm ci`.
 # 3. For mobile, makes sure Python has `pathspec` for the .easignore check.
 # 4. With --env-file, appends one `export PATH=...` line (once) so LATER shells
 #    get the same Node. Running `nvm use` inside a hook or setup script changes
@@ -85,8 +91,8 @@ export PATH="$NODE_BIN:$PATH"
 log "using Node $(node -v) from $NODE_BIN"
 
 # The key covers package.json as well as the lockfile: a dependency edited in
-# package.json without updating the lockfile must reach `npm ci`, which fails
-# on exactly that mismatch, not be skipped as "current". Hashed with the Node
+# package.json without updating the lockfile must reach the install, which
+# fails on exactly that mismatch, not be skipped as "current". Hashed with the Node
 # just selected, so there is no dependency on sha256sum (absent on stock macOS).
 install_key() {
   node -e '
@@ -103,11 +109,32 @@ install_app() {
   stamp="$dir/node_modules/.eddy-bootstrap-stamp"
   key="$(install_key "$dir")"
   if [ -f "$stamp" ] && [ "$(cat "$stamp")" = "$key" ]; then
-    log "$1: dependencies current, skipping npm ci"
+    log "$1: dependencies current, skipping install"
     return
   fi
-  log "$1: npm ci"
-  (cd "$dir" && npm ci --no-audit --no-fund >&2)
+  if [ ! -d "$dir/node_modules" ]; then
+    log "$1: npm ci"
+    (cd "$dir" && npm ci --no-audit --no-fund >&2)
+  else
+    # Updating in place keeps the cached tree. Guard the one thing `npm ci`
+    # did that `npm install` does not: refuse a lockfile that disagrees with
+    # package.json, instead of silently rewriting it.
+    local lock="$dir/package-lock.json" before
+    before="$(mktemp)"
+    cp "$lock" "$before"
+    log "$1: npm install (updating existing node_modules)"
+    (cd "$dir" && npm install --no-audit --no-fund >&2)
+    if ! cmp -s "$before" "$lock"; then
+      cp "$before" "$lock"
+      # node_modules now follows the edited package.json; force the next run
+      # to reinstall rather than trust the old stamp.
+      rm -f "$before" "$stamp"
+      log "$1: package-lock.json is out of sync with package.json (npm install wanted to rewrite it)."
+      log "  Restored the committed lockfile. Run npm install in $1/ and commit the lockfile."
+      return 1
+    fi
+    rm -f "$before"
+  fi
   echo "$key" > "$stamp"
 }
 

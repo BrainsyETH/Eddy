@@ -35,6 +35,7 @@ import {
   pruneStoredSnapshots,
   writeStoredSnapshots,
 } from '@/lib/data/dam-snapshot-store';
+import { recordForecastHistory } from '@/lib/data/dam-forecast-history';
 
 export const dynamic = 'force-dynamic';
 // Twenty dams at four in flight, each reading seven CWMS series plus SWPA, the
@@ -88,6 +89,7 @@ async function runSync(request: NextRequest) {
   const startedAt = Date.now();
   let stored = 0;
   let keptOnOutage = 0;
+  let forecastHistory: Awaited<ReturnType<typeof recordForecastHistory>> = null;
 
   try {
     const ids = listDamIds();
@@ -112,6 +114,9 @@ async function runSync(request: NextRequest) {
 
     stored = await writeStoredSnapshots(supabase, decided.writable, startedAt);
     await pruneStoredSnapshots(supabase, ids);
+    // Only snapshots decideWrites accepted: an outage's empty schedule is not a
+    // forecast of no generation. See dam-forecast-history.ts.
+    forecastHistory = await recordForecastHistory(supabase, decided.writable, startedAt);
   } finally {
     await releaseCronLock(supabase, JOB);
   }
@@ -126,6 +131,8 @@ async function runSync(request: NextRequest) {
     // ages out, then read through, and answer correctly the whole time. A
     // number equal to the dam count is an upstream outage, not a code problem.
     keptOnOutage,
+    // Null means the history write failed; the pages were still served.
+    forecastHistory,
   });
 }
 

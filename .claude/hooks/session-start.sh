@@ -3,7 +3,7 @@
 # Codex, cloud setup scripts and fresh clones run the same steps.
 #
 # Cloud sessions only: on a local machine, Node and installs are yours to
-# manage, and an unexpected npm ci on every session start would be a surprise.
+# manage, and an unexpected install on every session start would be a surprise.
 set -euo pipefail
 
 if [ "${CLAUDE_CODE_REMOTE:-}" != "true" ]; then

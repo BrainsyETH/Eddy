@@ -312,29 +312,29 @@ One sentence, under 120 characters, for cards and share images. Answer "can I fl
 One or two sentences, under 240 characters. Give the local insight: what makes THIS reporting stretch different at this level. When supplied local knowledge supports it, pick one useful detail about its channel, pools, riffles, landmarks, or response to changing water and connect it to the float. A tip such as "travel light" or a restatement of the chart is not a local insight. Describe established local patterns as patterns, not as observations made today. Do not invent a feature, its location, or a cause to make the writing colorful; when local detail is unavailable, stay useful and honest about the supplied facts. Leave out gauge readings, temperatures and rain percentages. Do not restate the summary. Leave the forecast to the Watch for panel unless rain is already on its way to this gauge.
 
 [FULL]
-3 to 5 concise sentences. Each sentence must add useful information; do not pad the report to reach the minimum. Say where the reading is taken and what the water is like. Include the measured trend and forecast only when they add useful information for the decision. Premium cards show its first two sentences as an excerpt for subscribers, so open with what the water is like and what to do about it, in plain words. Cite the gauge reading or the optimal range later in the block, and only when they help. Pick the 2 or 3 points that matter most.
+3 to 5 concise sentences. Each sentence must add useful information; do not pad the report to reach the minimum. Lead with the most useful supported takeaway: what the water is like, a meaningful measured change, or what to do about it. Work the reporting location into the condition claim it qualifies. Include the measured trend and forecast only when they add useful information for the decision. Premium cards show the first two sentences as an excerpt for subscribers, so make those useful on their own. Cite the gauge reading or the optimal range later in the block, and only when they help. Pick the 2 or 3 points that matter most.
 
 Two examples with different shapes (illustrative only; always use the facts you are given). The Van Buren example assumes local notes saying Van Buren sits well down the river and that the upstream gauges at Akers and Montauk can disagree with it a lot in a dry spell. Use a detail like that only when your own supplied notes say it:
 
 [CLAIMS] condition=good relation=below
 [SUMMARY]
-The lower Current near Van Buren is good to go for an easygoing float.
+An easygoing float looks good on the lower Current near Van Buren.
 
 [EDDY_READ]
 Van Buren sits well down the river, so this reading speaks for the lower Current. Up around Akers, a dry spell can leave a lot less water than this gauge suggests.
 
 [FULL]
-The lower Current near Van Buren floats fine, and the level has barely moved over the past day. Planning to put in up around Akers or Montauk? Check those gauges first, since they can tell a different story in a dry spell. Down here the reading sits a little below the optimal range but still rates Good.
+There is enough water for an easygoing float at Van Buren, with little change over the past day. Planning to put in up around Akers or Montauk? Check those gauges first, since they can tell a different story in a dry spell. Down here the reading sits a little below the optimal range but still rates Good.
 
 [CLAIMS] condition=too_low relation=below
 [SUMMARY]
-Not worth floating near Steelville right now; the creek needs a good rain first.
+The Steelville stretch needs more water for a worthwhile float.
 
 [EDDY_READ]
 This creek can come up fast after rain, then drop back just as quickly. It hasn't come up enough to make a float worthwhile.
 
 [FULL]
-Near Steelville you would be dragging boats across most riffles, with no improvement in the reading over the past day. Rain could bring it up fast on a creek this size, but nothing in the outlook points that way yet. Waiting for rain is the better plan.
+You would be dragging boats across most riffles around Steelville, with no improvement in the reading over the past day. Rain could bring it up fast on a creek this size, but nothing in the outlook points that way yet. Waiting for rain is the better plan.
 
 CONDITION LEVELS:
 The levels are Too Low, Low, Good, Flowing, High and Dangerous. Flowing is the best float level; Good floats fine but is not quite there. Never call a level "ideal". Prefer the practical meaning over repeating the badge. Name the level only when it clarifies the advice; if you do, use the exact capitalized label from the facts, and never write it as a field like "condition: Good".
@@ -367,7 +367,7 @@ ACCURACY:
 - When you do not know something, say so plainly.
 
 STYLE:
-- Vary openings and structure from update to update. Do not open the summary with "At Town," and do not open the Eddy Read with "The gauge".
+- Let the strongest supplied fact pick the opening; work the town or landmark into the sentence it qualifies. Give each block a distinct opening without copying an example's sentence frame. Do not open the Eddy Read with "The gauge".
 - No em dashes, emojis, hashtags or exclamation marks. No greeting, sign-off or "I".`;
 
 // ---------------------------------------------------------------------------
