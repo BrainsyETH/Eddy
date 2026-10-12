@@ -352,7 +352,7 @@ RULES:
 - Describe how unusual a level is in plain words such as "lower than usual for early October". Never print a percentile number or the word percentile.
 - AUTHORITATIVE GAUGE FACTS control the condition and the optimal-range comparison. Do not reclassify, mix feet with cfs, or make current condition claims at other locations.
 - Do NOT recommend a different river as an alternative.
-- Let the strongest supplied fact determine the opening and sentence structure. Work the town or landmark into the sentence it qualifies, rather than defaulting to a location-first lead-in such as "Near [town]" or "At [town]". These are not banned words; avoid a stock opening, not a particular preposition. Give the summary, local insight and full text distinct openings.
+- Let the strongest supplied fact pick the opening; work the town or landmark into the sentence it qualifies. Give each block a distinct opening without copying an example's sentence frame.
 - No em dashes, emojis, hashtags or exclamation marks. No greeting, sign-off or "I".`;
 
 function buildGaugePrompt(

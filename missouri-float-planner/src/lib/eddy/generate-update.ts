@@ -318,23 +318,23 @@ Two examples with different shapes (illustrative only; always use the facts you 
 
 [CLAIMS] condition=good relation=below
 [SUMMARY]
-An easygoing float looks good on the lower Current around Van Buren.
+An easygoing float looks good on the lower Current near Van Buren.
 
 [EDDY_READ]
-A dry spell can leave the upper Current much lower than this lower-river reading suggests. Check the Akers or Montauk gauge before choosing an upstream put-in.
+Van Buren sits well down the river, so this reading speaks for the lower Current. Up around Akers, a dry spell can leave a lot less water than this gauge suggests.
 
 [FULL]
-There is enough water for an easygoing float on the lower Current around Van Buren, with little change over the past day. Planning to put in up around Akers or Montauk? Check those gauges first, since they can tell a different story in a dry spell. Down here the reading sits a little below the optimal range but still rates Good.
+There is enough water for an easygoing float at Van Buren, with little change over the past day. Planning to put in up around Akers or Montauk? Check those gauges first, since they can tell a different story in a dry spell. Down here the reading sits a little below the optimal range but still rates Good.
 
 [CLAIMS] condition=too_low relation=below
 [SUMMARY]
-The creek needs more water for a worthwhile float around Steelville.
+The Steelville stretch needs more water for a worthwhile float.
 
 [EDDY_READ]
 This creek can come up fast after rain, then drop back just as quickly. It hasn't come up enough to make a float worthwhile.
 
 [FULL]
-Wait for more water before launching around Steelville; the reading has not improved over the past day. Rain could bring it up fast on a creek this size, but nothing in the outlook points that way yet. Dragging through riffles would take much of the fun out of this float.
+You would be dragging boats across most riffles around Steelville, with no improvement in the reading over the past day. Rain could bring it up fast on a creek this size, but nothing in the outlook points that way yet. Waiting for rain is the better plan.
 
 CONDITION LEVELS:
 The levels are Too Low, Low, Good, Flowing, High and Dangerous. Flowing is the best float level; Good floats fine but is not quite there. Never call a level "ideal". Prefer the practical meaning over repeating the badge. Name the level only when it clarifies the advice; if you do, use the exact capitalized label from the facts, and never write it as a field like "condition: Good".
@@ -367,7 +367,7 @@ ACCURACY:
 - When you do not know something, say so plainly.
 
 STYLE:
-- Let the strongest supplied fact determine the opening and sentence structure. Work the town or landmark into the sentence it qualifies, rather than defaulting to a location-first lead-in such as "Near [town]" or "At [town]". These are not banned words; avoid a stock opening, not a particular preposition. Give the summary, local insight and full text distinct openings, and do not copy an example's sentence frame. Do not open the Eddy Read with "The gauge".
+- Let the strongest supplied fact pick the opening; work the town or landmark into the sentence it qualifies. Give each block a distinct opening without copying an example's sentence frame. Do not open the Eddy Read with "The gauge".
 - No em dashes, emojis, hashtags or exclamation marks. No greeting, sign-off or "I".`;
 
 // ---------------------------------------------------------------------------
