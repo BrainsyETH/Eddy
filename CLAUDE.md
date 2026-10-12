@@ -48,8 +48,10 @@ listed never runs, and `src/lib/trust/registered-tests.test.ts` fails on it.
 ## Commands
 
 **Setup:** `./bootstrap.sh [web|mobile|all] [--env-file FILE]` at the root
-finds Node 20 (PATH, nvm, or `/opt/node20`) and runs `npm ci` only when an
-app's `package.json`, its lockfile, or the Node version changed. It is the one setup path for every
+finds Node 20 (PATH, nvm, or `/opt/node20`) and installs an app only when its
+`package.json`, its lockfile, or the Node version changed: `npm ci` into an
+empty tree, `npm install` over an existing one (so a cached cloud container
+updates in place), failing if the lockfile is out of sync either way. It is the one setup path for every
 tool: Claude cloud sessions run it from `.claude/hooks/session-start.sh`
 (which passes `$CLAUDE_ENV_FILE`, so later commands keep Node 20); a Codex or
 other environment's setup script calls it too, passing a file its later
