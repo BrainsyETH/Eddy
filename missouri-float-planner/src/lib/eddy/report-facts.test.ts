@@ -361,7 +361,8 @@ test('the comparison is translated into plain words only where it adds meaning',
   assert.match(plainRelation(buildReportFacts({ ...input, dischargeCfs: 1500 })) ?? '', /sweet spot/);
   assert.equal(plainRelation(buildReportFacts({ ...input, dischargeCfs: 300 })), null);
   assert.match(reportFactsPrompt(facts), /In plain words for the reader: floatable, with a reading below the optimal range/);
-  assert.match(reportFactsPrompt(facts), /do not open every block with "At Town,"/);
+  assert.match(reportFactsPrompt(facts), /once in the summary and once in the full text, using the town or landmark/);
+  assert.match(reportFactsPrompt(facts), /Do not turn a station assessment into a claim about the entire river/);
 });
 
 test('fallback prose names the station by its town and reads as sentences', () => {

@@ -31,6 +31,14 @@ selection and row persistence are unchanged; disabling unused targets is separat
 
 ## Structured claims and prose
 
+River and secondary-gauge Reads lead with the most useful supported takeaway
+for a floater: conditions, a meaningful measured change, or practical advice.
+The summary and full text each name the reporting town or landmark within the
+claim it qualifies; that geographic scope does not require a location-first
+opening. Examples illustrate different sentence shapes, not reusable templates.
+Active flood alerts and Dangerous advice retain priority. Each generation is
+independent, so prompt guidance alone does not guarantee variety across a batch.
+
 Both system prompts ask for the first line supplied in the facts:
 
     [CLAIMS] condition=good relation=below
@@ -77,3 +85,6 @@ No production data, SQL migration, model switch or saved-report regeneration.
 After deployment, inspect fresh Van Buren and Black tailwater Reads, their compact
 versions, missing-gauge reports and alert attribution. The original 2.57 ft /
 756 cfs example must remain Good and below its 1,190–2,700 cfs optimal range.
+Prompt changes take effect for newly generated Reads after deployment; saved
+Reads retain their wording until refreshed. Review a fresh batch across river
+and secondary-gauge Reads for useful, varied openings and clear geographic scope.
