@@ -255,7 +255,7 @@ export function samplePreservingExtrema<T>(
  * beneath a floor labelled 0.00 ft. Clamp cfs, never clamp ft.
  */
 export function chartDomain(
-  points: ChartPoint[],
+  points: readonly Pick<ChartPoint, 't' | 'v'>[],
   unit: ReadingUnit,
   contextValues: number[] = [],
   nearFraction = 0.75,
