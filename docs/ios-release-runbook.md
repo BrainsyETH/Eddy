@@ -44,7 +44,9 @@ checklist.
       native changes and could otherwise put 1.2 JavaScript into a 1.1 binary
       through EAS Update. The October 4 follow-up adds `expo-network`, changing
       the fingerprint runtime: its native module requires a rebuilt client.
-      An OTA update cannot add it to an already installed build.
+      The October 11 Floats refresh also adds `@react-native-community/slider`.
+      Both require a new binary; an OTA update cannot add their native modules
+      to an already installed build.
 - [ ] **Trust Ledger critical — Jacks Fork, still open, no longer snoozed.**
       07065200 (near Mountain View) has `level_low = level_optimal_min = 100`
       cfs, untouched since 2026-07-21. The September 1 recalibration fixed

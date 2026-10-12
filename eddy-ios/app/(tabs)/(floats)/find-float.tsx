@@ -15,7 +15,7 @@ import {
   View,
 } from 'react-native';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
-import Slider from '@react-native-community/slider';
+import { FloatDurationSlider } from '@/components/FloatDurationSlider';
 import { MenuView } from '@react-native-menu/menu';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { SafeAreaView as ScreenSafeAreaView } from 'react-native-screens/experimental';
@@ -104,6 +104,7 @@ export default function FindFloatScreen() {
   const [places, setPlaces] = useState<FloatSearchPlace[] | null>(null);
   const [busy, setBusy] = useState<'town' | 'search' | 'location' | null>(null);
   const [error, setError] = useState('');
+  const [pickerError, setPickerError] = useState('');
   const [expired, setExpired] = useState(() =>
     Boolean(
       previous &&
@@ -174,6 +175,7 @@ export default function FindFloatScreen() {
     locationAttempt.current++;
     setBusy(null);
     setError('');
+    setPickerError('');
     setExpired(false);
     setState((s) => ({ ...s, input: { ...s.input, ...patch }, result: null }));
     if (patch.vesselType) void AsyncStorage.setItem(FLOAT_BOAT_STORAGE_KEY, patch.vesselType).catch(() => {});
@@ -185,7 +187,8 @@ export default function FindFloatScreen() {
     const controller = new AbortController();
     request.current = controller;
     setBusy(kind);
-    setError('');
+    if (kind === 'search') setError('');
+    else setPickerError('');
     if (kind === 'search') {
       revealResults.current = true;
       setState((s) => ({ ...s, result: null }));
@@ -203,8 +206,11 @@ export default function FindFloatScreen() {
         if (!controller.signal.aborted) setState((s) => ({ ...s, result }));
       }
     } catch (e) {
-      if (!controller.signal.aborted)
-        setError(e instanceof Error ? e.message : 'Search could not finish. Please try again.');
+      if (!controller.signal.aborted) {
+        const message = e instanceof Error ? e.message : 'Search could not finish. Please try again.';
+        if (kind === 'search') setError(message);
+        else setPickerError(message);
+      }
     } finally {
       if (!controller.signal.aborted) setBusy(null);
     }
@@ -213,10 +219,12 @@ export default function FindFloatScreen() {
     request.current?.abort();
     const attempt = ++locationAttempt.current;
     setBusy('location');
-    setError('');
+    setPickerError('');
     const point = await location.request();
     if (attempt !== locationAttempt.current) return;
     if (point) {
+      setError('');
+      setExpired(false);
       setState((s) => ({
         ...s,
         location: 'Your approximate location',
@@ -225,7 +233,7 @@ export default function FindFloatScreen() {
       }));
       setPlaces(null);
       setLocationPicker(false);
-    } else setError('Location is unavailable. Choose a town or a river.');
+    } else setPickerError('Location is unavailable. Choose a town or a river.');
     setBusy(null);
   }
   function plan(option: FloatSearchOption) {
@@ -286,7 +294,9 @@ export default function FindFloatScreen() {
         </Pressable>
         {body(`${o.distanceMiles.toFixed(1)} river miles`)}
         {body(
-          `About ${floatDurationLabel(o.minutes)} · ${o.estimateBasis === 'current_conditions' ? 'Current conditions' : 'Typical conditions'}`,
+          o.estimateBasis === 'current_conditions'
+            ? 'Based on current conditions'
+            : 'Based on typical conditions',
         )}
         {o.observedAt && o.estimateBasis === 'current_conditions'
           ? body(
@@ -318,6 +328,7 @@ export default function FindFloatScreen() {
     request.current?.abort();
     locationAttempt.current++;
     setBusy(null);
+    setPickerError('');
     setLocationPicker(false);
     setRiverPicker(false);
   };
@@ -345,10 +356,6 @@ export default function FindFloatScreen() {
           }
         }}
       >
-        <View style={styles.intro}>
-          <Text style={[styles.title, { color: colors.text }]}>Your next stretch</Text>
-          {body('Find a float that fits your day.')}
-        </View>
         <View style={[styles.modes, { backgroundColor: colors.cardRaised }]} accessibilityRole="tablist">
           {(['nearby', 'river'] as const).map((mode) => (
             <Pressable
@@ -372,7 +379,7 @@ export default function FindFloatScreen() {
         <View style={[styles.formGroup, { backgroundColor: colors.card }]}>
           <Pressable
             onPress={() => {
-              setError('');
+              setPickerError('');
               if (state.mode === 'river') setRiverPicker(true);
               else setLocationPicker(true);
             }}
@@ -438,30 +445,10 @@ export default function FindFloatScreen() {
             {label('Time on the river')}
             <InfoButton topic="time" onPress={() => setInfo('time')} />
           </View>
-          <Text style={[styles.duration, { color: colors.text }]}>
-            About {floatDurationLabel(input.targetHours * 60)}
-          </Text>
-          <Slider
-            style={styles.slider}
-            minimumValue={0.5}
-            maximumValue={12}
-            step={0.5}
-            value={input.targetHours}
-            minimumTrackTintColor={colors.interactive}
-            maximumTrackTintColor={colors.border}
-            accessibilityLabel="Time on the river"
-            accessibilityValue={{
-              min: 0.5,
-              max: 12,
-              now: input.targetHours,
-              text: floatDurationLabel(input.targetHours * 60),
-            }}
-            onValueChange={(hours) => update({ targetHours: Math.round(hours * 2) / 2 })}
+          <FloatDurationSlider
+            hours={input.targetHours}
+            onChange={(targetHours) => update({ targetHours })}
           />
-          <View style={styles.between}>
-            {body('30 min')}
-            {body('12 hours')}
-          </View>
         </View>
         <View style={[styles.formGroup, styles.groupPadding, { backgroundColor: colors.card }]}>
           {label('Vessel')}
@@ -630,7 +617,7 @@ export default function FindFloatScreen() {
                         request.current?.abort();
                         locationAttempt.current++;
                         setBusy(null);
-                        setError('');
+                        setPickerError('');
                         setPlaces(null);
                         setState((s) => ({ ...s, town }));
                       }}
@@ -679,9 +666,9 @@ export default function FindFloatScreen() {
                     ) : null}
                   </>
                 )}
-                {error ? (
+                {pickerError ? (
                   <Text accessibilityRole="alert" style={[t.sm, { color: colors.error }]}>
-                    {error}
+                    {pickerError}
                   </Text>
                 ) : null}
               </ScrollView>
@@ -751,8 +738,6 @@ function InfoButton({ topic, onPress }: { topic: FloatInfoTopic; onPress: () => 
 const styles = StyleSheet.create({
   screen: { flex: 1 },
   content: { padding: 16, paddingBottom: 24, gap: 12 },
-  intro: { gap: 4, paddingVertical: 6 },
-  title: { ...t['3xl'], fontFamily: fonts.display },
   heading: { ...t.xl, fontFamily: fonts.heading },
   label: { ...t.base, fontFamily: fonts.semibold },
   group: { gap: 12 },
@@ -780,8 +765,6 @@ const styles = StyleSheet.create({
   divider: { height: StyleSheet.hairlineWidth, marginHorizontal: 16 },
   noteRow: { flexDirection: 'row', alignItems: 'center', paddingLeft: 16, paddingRight: 6 },
   between: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap' },
-  duration: { ...t['2xl'], fontFamily: fonts.semibold, fontVariant: ['tabular-nums'] },
-  slider: { width: '100%', height: 44 },
   info: { minWidth: 44, minHeight: 44, alignItems: 'center', justifyContent: 'center' },
   estimateLink: { flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 44 },
   card: { borderWidth: 1, borderRadius: 18, padding: 16, gap: 8 },
