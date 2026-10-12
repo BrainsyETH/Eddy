@@ -1289,6 +1289,19 @@ page/map pin. Selection stores the reading's timestamp and observed/forecast
 identity; resizing cannot move it to a different reading. In the expanded view,
 the readout has reserved space outside the plot and persists after scrubbing.
 
+Pinch zoom changes the time range and retains the full-window value scale by
+default. Once zoomed, the expanded chart offers **Fit visible values**: the
+vertical axis follows the visible observations, forecast and enabled comparison
+layers, with nearby threshold context and the usual minimum span. The fit
+includes line intersections at the viewport edges but never treats those as
+readings or bridges telemetry gaps. A window without visible data retains the
+original scale. **Restore value scale** keeps the time zoom while restoring the
+full-window vertical scale; **Reset zoom**, pinching all the way out, or changing
+the station, measurement or history range clears the fit. The compact chart
+always retains its full-window value scale. Closing and reopening the expanded
+chart retains the fitting choice for the same zoomed range. Fitting and the
+Compare panel's full threshold scale are mutually exclusive choices.
+
 The app config permits native rotation. The local `eddy-orientation` Expo
 module supplies a portrait-only root view controller through a React delegate
 handler, before React mounts. This also covers onboarding/legal, the first-run
@@ -1323,6 +1336,15 @@ Before distribution, verify on an iPhone:
   cached line, source scroll position, selected pin and sheet tab/detent.
 - Scrub an observed and a forecast reading, lift your finger, and rotate left,
   right and back. Keep the same timestamp, value and source. Try 30d and 1y.
+- On a 1y chart with a large peak, pinch into a quiet week, then tap Fit visible
+  values. Confirm the vertical range tightens and follows further time zooming
+  and panning. Enable Typical range, Historical median and Last year; all visible
+  layers must fit. Check negative stage, flat flow and an outage window. Restore
+  value scale must keep the selected dates; Reset zoom must restore both axes.
+  Check the fit action in both orientations, light/dark and large text. Close and
+  reopen: the compact chart keeps its original vertical scale, while the expanded
+  view retains fitting. Change measurement/range and confirm the fit is cleared;
+  selecting Full Eddy scale/Full stage references must also clear it.
 - Close while in landscape, including with VoiceOver escape. The source returns
   to portrait. Rotate on each tab root (Today, Map, Favorites and Settings),
   switch tabs while sideways, and test Map with a sheet open, the planner and

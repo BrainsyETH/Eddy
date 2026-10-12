@@ -58,13 +58,13 @@ ID. Crash/other diagnostics and Device ID must be disclosed accordingly.
 
 ## Before distribution
 
-1. **Approve and apply the reviewed archive migration to the intended project.**
-   `20261012000204_float_archive.sql` creates private summary/preferences tables,
+1. **Done: the archive migration is applied to production.**
+   `20261012030557_float_archive.sql` creates private summary/preferences tables,
    owner-read RLS, service-only write/consent functions and account-deletion
    cascades. Local database tests cover consent, isolation and deletion. Production
-   project `ilefwfpvphadsbptiaur` has neither table as of this check. Review a CLI
-   dry run; preserve the actual recorded version in the filename/ledger and run
-   `make check-db`. Do not apply unrelated pending migrations blindly.
+   project `ilefwfpvphadsbptiaur` recorded it as `20261012030557` (the file was
+   authored as `20261012000204` and renamed to match; its statements are
+   byte-identical to the recorded ones). Run `make check-db` to confirm no drift.
 2. **Merge/deploy the additive API and policy before giving testers this build.**
    Production `/api/me/float-archive` returns 404. An unauthenticated 401 after
    deployment proves routing only: also test a disposable Apple account's read,
