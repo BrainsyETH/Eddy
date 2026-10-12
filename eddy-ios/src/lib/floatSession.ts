@@ -31,6 +31,9 @@
 import type { MapAccessPoint, RiverDetail } from '@eddy/types';
 import {
   INITIAL_TRACK,
+  accumulateFloat,
+  EMPTY_FLOAT_TOTALS,
+  type FloatTotals,
   buildRouteIndex,
   locateOnRoute,
   estimateRemaining,
@@ -124,6 +127,10 @@ export interface FloatSession {
   startMile: number | null;
   track: TrackState;
   samples: PaceSample[];
+  /** Durable accounting; absent on sessions started by an older build. */
+  totals?: FloatTotals;
+  archiveScope?: string;
+  boatType?: string | null;
   /** The most recent tracker verdict, for the status line. */
   last: { result: TrackResult; at: number } | null;
   /** The last confirmed position, on the line, for the map dot. */
@@ -241,6 +248,7 @@ export function startSession(input: {
   putInId?: string | null;
   takeOutId: string;
   plannerMph?: number | null;
+  boatType?: string | null;
   now: number;
 }): { ok: true; session: FloatSession } | { ok: false; reason: RouteProblem } {
   const takeOut = input.route.anchors.find((anchor) => anchor.id === input.takeOutId);
@@ -266,6 +274,8 @@ export function startSession(input: {
       startMile: putInEnd ? putInEnd.riverMile : null,
       track: INITIAL_TRACK,
       samples: [],
+      totals: { ...EMPTY_FLOAT_TOTALS },
+      boatType: input.boatType ?? null,
       last: null,
       position: null,
     },
@@ -274,6 +284,7 @@ export function startSession(input: {
 
 /** Feed one GPS fix. Returns the same object when nothing changed. */
 export function applyFix(session: FloatSession, index: RouteIndex, fix: PositionFix, now: number): FloatSession {
+  if (fix.timestamp < session.startedAt) return session;
   const step = trackFix(index, session.track, fix, now);
   if (step.result.kind === 'rejected') return session;
   const next: FloatSession = { ...session, track: step.state, last: { result: step.result, at: fix.timestamp } };
@@ -286,6 +297,7 @@ export function applyFix(session: FloatSession, index: RouteIndex, fix: Position
     // read as movement.
     if (!previous || !sample.continuous || sample.timestamp - previous.timestamp >= SAMPLE_SPACING_MS) {
       next.samples = [...session.samples, sample].slice(-MAX_SAMPLES);
+      next.totals = accumulateFloat(session.totals ?? EMPTY_FLOAT_TOTALS, sample);
     }
     // A quick start begins where the paddler is first confirmed to be. If that
     // is already past the chosen take-out, the session reports it rather than

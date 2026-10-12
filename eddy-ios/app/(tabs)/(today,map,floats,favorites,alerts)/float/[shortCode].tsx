@@ -90,7 +90,7 @@ export default function SavedFloatScreen() {
   const riverSlug = plan?.river.slug ?? stub?.riverSlug;
   const putInId = plan?.putIn.id ?? stub?.putInId;
   const takeOutId = plan?.takeOut.id ?? stub?.takeOutId;
-  const plannerMph = plan && !error ? plan.floatTime?.speedMph : undefined;
+  const plannerMph = plan && !error && plan.estimateBasis !== 'typical' ? plan.floatTime?.movingSpeedMph : undefined;
   const canStart = features.floatMode && riverSlug && putInId && takeOutId;
   const onStart = useCallback(() => {
     if (!riverSlug || !putInId || !takeOutId) return;
@@ -100,11 +100,12 @@ export default function SavedFloatScreen() {
         riverSlug,
         putInId,
         takeOutId,
+        ...(plan?.vessel.slug ? { boatType:plan.vessel.slug } : {}),
         ...(shortCode ? { shortCode } : {}),
         ...(plannerMph ? { plannerMph: String(plannerMph) } : {}),
       },
     });
-  }, [router, riverSlug, putInId, takeOutId, shortCode, plannerMph]);
+  }, [router, riverSlug, putInId, takeOutId, shortCode, plannerMph, plan]);
 
   // The heading belongs to the same scroll view as the current/offline body.
   // A fixed sibling would hide behind the transparent navigation bar.

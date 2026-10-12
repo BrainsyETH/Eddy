@@ -560,6 +560,8 @@ export interface FloatPlan {
     minutes: number;
     formatted: string;
     speedMph: number;
+    /** Absent on older servers; never fall back to whole-trip speedMph. */
+    movingSpeedMph?: number | null;
     isEstimate?: boolean;  // true if calculated, false if from known segment data
     /** 'trip' includes typical stops; 'moving' is paddling-only. */
     basis?: 'trip' | 'moving';

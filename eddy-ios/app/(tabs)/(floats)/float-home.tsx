@@ -137,6 +137,10 @@ function FloatHomeContent() {
           </View>
         </View>
 
+        <Pressable accessibilityRole="button" onPress={() => router.push('/float-history')} style={[styles.gutter,{ paddingVertical:14 }]}>
+          <Text style={[textStyles.cardTitle,{ color:colors.interactive }]}>Float history &amp; backup</Text>
+          <Text style={[t.sm,{ color:colors.textMuted }]}>Your recaps, saved routes and sharing preferences</Text>
+        </Pressable>
         {features.floatMode && activeFloat ? (
           <View style={[styles.gutter, styles.resumeWrap]}>
             <Pressable

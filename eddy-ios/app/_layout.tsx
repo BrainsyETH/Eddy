@@ -38,6 +38,7 @@ import { GeistMono_500Medium } from '@expo-google-fonts/geist-mono/500Medium';
 import { AppConfigProvider } from '@/hooks/useAppConfig';
 import { SessionProvider } from '@/hooks/useSession';
 import { StarredRiversProvider } from '@/hooks/useStarredRivers';
+import { FloatArchiveProvider } from '@/hooks/useFloatArchive';
 import { SavedFloatsProvider } from '@/hooks/useSavedFloats';
 import { AlertRulesProvider } from '@/hooks/useAlertRules';
 import { PushProvider } from '@/hooks/usePush';
@@ -250,6 +251,7 @@ export default function RootLayout() {
                     {/* Beside the stars, and for the same reason: a share-code
                         history is local, works with no account, and never blocks a
                         render on disk. */}
+                    <FloatArchiveProvider>
                     <SavedFloatsProvider>
                       {/* Server state, not a local store: an alert exists to make
                           the backend push, so one that lived only on the phone
@@ -267,6 +269,7 @@ export default function RootLayout() {
                         </PushProvider>
                       </AlertRulesProvider>
                     </SavedFloatsProvider>
+                    </FloatArchiveProvider>
                   </StarredRiversProvider>
                 </SessionProvider>
               </UpgradeGate>

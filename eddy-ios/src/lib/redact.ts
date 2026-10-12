@@ -24,6 +24,8 @@ const REDACTIONS: [RegExp, string][] = [
   [/(bearer\s+)[\w.~+/=-]+/gi, '$1[redacted]'],
   // long hex blobs (tokens, HMACs, session ids)
   [/\b[0-9a-f]{32,}\b/gi, '[redacted-hex]'],
+  // Dashed account UUIDs are not matched by the contiguous-hex rule.
+  [/\b[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}\b/gi, '[redacted-id]'],
   // JWT-shaped triples — a Supabase session is three of these
   [/\beyJ[\w-]+\.[\w-]+\.[\w-]+\b/g, '[redacted-jwt]'],
   // key=value style secrets
@@ -33,10 +35,8 @@ const REDACTIONS: [RegExp, string][] = [
   ],
   // latitude,longitude pairs
   //
-  // The app computes position on the device and never sends it anywhere, so a
-  // coordinate can only reach a reporter by riding along in a message — which
-  // is exactly the case a redaction table is for, and which the privacy policy
-  // states plainly is stripped.
+  // Location has explicit weather/report/backup flows. It must not also leak
+  // into diagnostic messages through a thrown error.
   //
   // THREE decimal places minimum, and that is what keeps it from eating the
   // app's own numbers: a pair of gauge readings ("3.40, 2.80") or a river mile

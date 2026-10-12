@@ -88,7 +88,7 @@ export default function FloatModeScreen() {
   const confirmEnd = () => {
     Alert.alert(
       done ? 'Finish this float?' : 'End this float?',
-      done ? 'Tracking stops.' : 'Tracking stops and this float’s progress is cleared.',
+      'Tracking stops and Eddy saves a recap in your float history.',
       [
         { text: 'Keep floating', style: 'cancel' },
         {
@@ -100,10 +100,10 @@ export default function FloatModeScreen() {
               if (!cleared) {
                 Alert.alert(
                   'Float ended',
-                  'Eddy couldn’t clear it from your phone’s storage yet and will keep trying. It won’t resume.',
+                  'Tracking has stopped. Eddy couldn’t finish saving your recap yet and will retry. Keep the app open and check your history.',
                 );
               }
-              router.replace('/float-home');
+              router.replace({ pathname:'/float-recap',params:{ id:session.id } });
             });
           },
         },

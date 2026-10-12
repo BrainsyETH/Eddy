@@ -18,9 +18,12 @@
 // Its own key, outside the cache prefix: clearing cached river data must not
 // end a float in progress. Writes are throttled (a fix can arrive every
 // second) and flushed when the app goes to the background, where iOS may end
-// it without warning. Precise positions stay on the phone, like everything
-// else location-related in Eddy.
+// it without warning. Raw float positions stay on the phone; completed
+// summaries use the separate account archive. Hazard reports are a separate,
+// explicit location submission.
 
+import { floatArchive } from './floatArchive';
+import { recapFloat } from './floatRecap';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Notifications from 'expo-notifications';
 import type { PositionFix } from '@eddy/geo';
@@ -58,7 +61,8 @@ async function deliverReminders(due: DueReminder[]): Promise<string[]> {
   return delivered;
 }
 
-const store = createFloatSessionStore(AsyncStorage, (message, detail) => warn('float', message, detail), deliverReminders);
+const store = createFloatSessionStore(AsyncStorage, (message, detail) => warn('float', message, detail), deliverReminders,
+  (session, endedAt, contributionVersion) => floatArchive.addCompleted(recapFloat(session, endedAt), session.archiveScope, contributionVersion));
 const activityLifecycle = createFloatActivityLifecycle(store, syncFloatActivity);
 
 /** Read the stored float once per process. Then read it with getFloatSession(). */
@@ -77,7 +81,8 @@ export function subscribeFloatSession(listener: () => void): () => void {
 
 /** Start a float. Not active until it is safely on disk. */
 export function beginFloat(next: FloatSession): Promise<BeginResult> {
-  return activityLifecycle.begin(next);
+  if (!floatArchive.snapshot().ready) return Promise.resolve('storage-failed');
+  return activityLifecycle.begin({ ...next, archiveScope: floatArchive.scope() });
 }
 
 /** Feed GPS fixes, in time order, from the screen or a background task. */
@@ -96,9 +101,9 @@ export function flushFloatSessionIfStale(minIntervalMs: number): Promise<void> {
   return store.flushIfStale(minIntervalMs);
 }
 
-/** End the float and forget it. Tracking stops because nothing is active. */
+/** End the float and save its recap. Tracking stops because nothing is active. */
 export function endFloat(): Promise<boolean> {
-  return activityLifecycle.end();
+  return activityLifecycle.end(floatArchive.contributionVersion(store.get()?.archiveScope));
 }
 
 /** Change the active float's reminders. */
@@ -109,4 +114,10 @@ export function setFloatReminders(update: (current: FloatReminderSettings) => Pi
 /** Wait for reminder handovers in progress; the background task awaits this. */
 export function floatRemindersSettled(): Promise<void> {
   return store.remindersSettled();
+}
+
+/** Account deletion also clears positions and any pending end journal. */
+export async function discardFloat(): Promise<void> {
+  await store.discard();
+  void syncFloatActivity(null);
 }

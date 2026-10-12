@@ -130,7 +130,7 @@ test('a float whose stored copy could not be removed stays ended, and removal is
   disk.failRemoves = true;
   assert.equal(await store.end(), false, 'the failure is reported, not hidden');
   assert.equal(store.get(), null, 'tracking stops regardless');
-  assert.equal(disk.data.get(ENDED_KEY), 's1', 'marked as ended');
+  assert.equal(JSON.parse(disk.data.get(ENDED_KEY)!).session.id, 's1', 'journaled as ended');
   disk.failRemoves = false;
   assert.equal(await store.retryPendingEnd(), true);
   assert.equal(disk.data.has(STORAGE_KEY), false);
