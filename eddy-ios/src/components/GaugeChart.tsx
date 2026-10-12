@@ -74,7 +74,7 @@ import { GaugeChartSheet } from '@/components/GaugeChartSheet';
 import { GaugeChartDetails } from '@/components/GaugeChartDetails';
 import { GaugeChartReadout, GaugeChartFixedReadout } from '@/components/GaugeChartReadout';
 import { GaugeChartFullscreen } from '@/components/GaugeChartFullscreen';
-import { pinchChartWindow, chartZoomKey, visibleChartTimes } from '@/lib/gaugeChartZoom';
+import { pinchChartWindow, chartZoomKey, visibleChartTimes, visibleChartGeometry } from '@/lib/gaugeChartZoom';
 import { chartTimeAtX, expandedChartHeight, type ChartSelection } from '@/lib/gaugeChartExpansion';
 import { chartGutters, chartGridValues, selectChartRailLabels, type ChartRailLabel } from '@/lib/gaugeChartLayout';
 import { validateChartDates, localChartDate, parseLocalChartDate, chartEndAfterStartChange, type ChartDateErrors } from '@/lib/gaugeChartDates';
@@ -251,6 +251,7 @@ function useGaugeChartController({ siteId, unit, provider, historyCapabilities, 
   const [days, setDays] = useState<number>(initialDays);
   const [selection, setSelection] = useState<ChartSelection | null>(null);
   const [zoom, setZoom] = useState<{ key: string; start: number; end: number } | null>(null);
+  const [fitValuesKey, setFitValuesKey] = useState<string | null>(null);
   /**
    * The unit being drawn, once the reader has chosen one.
    *
@@ -280,7 +281,7 @@ function useGaugeChartController({ siteId, unit, provider, historyCapabilities, 
     showLastYear, setShowLastYear, lastYearEligible, lastYear, lastYearDates,
     fullScale, setFullScale, fromDate, setFromDate, toDate, setToDate,
     customWindow, setCustomWindow, dateErrors, setDateErrors, days, setDays,
-    selection, setSelection, zoom, setZoom, unitOverride, setUnitOverride, historyState,
+    selection, setSelection, zoom, setZoom, fitValuesKey, setFitValuesKey, unitOverride, setUnitOverride, historyState,
   };
 }
 
@@ -326,7 +327,7 @@ function GaugeChartView({
     showLastYear, setShowLastYear, lastYearEligible, lastYear, lastYearDates,
     fullScale, setFullScale, fromDate, setFromDate, toDate, setToDate,
     customWindow, setCustomWindow, dateErrors, setDateErrors, days, setDays,
-    selection, setSelection, zoom, setZoom, unitOverride, setUnitOverride, historyState,
+    selection, setSelection, zoom, setZoom, fitValuesKey, setFitValuesKey, unitOverride, setUnitOverride, historyState,
   } = controller;
   const { history, loading, unavailable, failed, retry, historyDays, matchesRequest } = historyState;
   const capabilities = resolveHistoryCapabilities(provider, historyCapabilities);
@@ -515,6 +516,16 @@ function GaugeChartView({
     [lastYearShown, matchesRequest, lastYear.readings, lastYearDates, history],
   );
 
+  const domainContext = useMemo(() => [
+    ...stageLines.map((line) => line.value),
+    ...zones.flatMap((zone) => zone.openEnded ? [zone.min] : [zone.min, zone.max]),
+  ], [stageLines, zones]);
+  const domainOptions = useMemo(() => ({
+    minimumSpan: drawnUnit === 'cfs' ? 80 : 0.3,
+    minimumSpanFraction: drawnUnit === 'cfs' ? 0.18 : 0.08,
+    includeAllContext: fullScale,
+  }), [drawnUnit, fullScale]);
+
   /**
    * The axis, from shared/chart-model.ts rather than from a loop in this file.
    *
@@ -541,29 +552,39 @@ function GaugeChartView({
     // Band edges and stage lines are context the axis may stretch to include —
     // only the EDGES, since a band boundary is the number someone needs to see
     // their line approaching, and a band's far side is not.
-    const context = [
-      ...stageLines.map((line) => line.value),
-      ...zones.flatMap((zone) => zone.openEnded ? [zone.min] : [zone.min, zone.max]),
-    ];
-    return chartDomain(spanning, drawnUnit, context, NEAR_THRESHOLD_FRACTION, {
-      minimumSpan: drawnUnit === 'cfs' ? 80 : 0.3,
-      minimumSpanFraction: drawnUnit === 'cfs' ? 0.18 : 0.08,
-      includeAllContext: fullScale,
-    });
-  }, [points, forecastPoints, priorPoints, typical, zones, stageLines, drawnUnit, showTypical, showMedian, fullScale]);
+    return chartDomain(spanning, drawnUnit, domainContext, NEAR_THRESHOLD_FRACTION, domainOptions);
+  }, [points, forecastPoints, priorPoints, typical, domainContext, domainOptions, drawnUnit, showTypical, showMedian]);
 
   // Keep zoom within the loaded data. Changing station, measurement or loaded
   // range restores the full window, including when a request finishes later.
   const zoomKey = chartZoomKey(siteId, drawnUnit, days, customWindow, history?.requestedWindow, drawnDays);
   const viewport = zoom?.key === zoomKey ? zoom : null;
-  // Time-axis zoom deliberately retains the full-window value scale so pinch
-  // gestures do not exaggerate small changes or make threshold labels jump.
+  // Keep the original value scale by default and in the compact presentation.
+  // Fitting is an explicit expanded-chart choice, scoped to the loaded window.
+  const fitVisibleValues = expanded && !!viewport && fitValuesKey === zoomKey;
+  const fittingSegments = useMemo(() => {
+    if (!fitVisibleValues) return [];
+    const band = typical.filter(row => row.low !== null && row.high !== null);
+    return [
+      ...splitAtGaps(points, GAP_BREAK_MULTIPLE),
+      ...splitAtGaps(forecastPoints, GAP_BREAK_MULTIPLE),
+      ...splitAtGaps(priorPoints, GAP_BREAK_MULTIPLE),
+      ...(showTypical && band.length > 1 ? [band.map(row => ({ t: row.t, v: row.low! })), band.map(row => ({ t: row.t, v: row.high! }))] : []),
+      ...(showMedian && typical.length > 1 ? [typical.map(row => ({ t: row.t, v: row.median }))] : []),
+    ];
+  }, [fitVisibleValues, points, forecastPoints, priorPoints, typical, showTypical, showMedian]);
+  const fittedDomain = useMemo(() => {
+    if (!fitVisibleValues || !viewport) return null;
+    const visible = visibleChartGeometry(fittingSegments, viewport);
+    // No visible data (for example inside an outage) retains the original axis.
+    return chartDomain(visible, drawnUnit, domainContext, NEAR_THRESHOLD_FRACTION, domainOptions);
+  }, [fitVisibleValues, viewport, fittingSegments, drawnUnit, domainContext, domainOptions]);
   const domain = useMemo(() => fullDomain && viewport
-    ? { ...fullDomain, t0: viewport.start, t1: viewport.end }
-    : fullDomain, [fullDomain, viewport]);
+    ? { ...(fittedDomain ?? fullDomain), t0: viewport.start, t1: viewport.end }
+    : fullDomain, [fullDomain, fittedDomain, viewport]);
   const currentDomain = useRef(domain);
   useLayoutEffect(() => { currentDomain.current = domain; }, [domain]);
-  const pinchStart = useRef<{ start: number; end: number; anchor: number } | null>(null);
+  const pinchStart = useRef<{ start: number; end: number; anchor: number; left: number; width: number } | null>(null);
 
   /**
    * Round numbers down the left edge, from the same tick function the web axis
@@ -758,18 +779,23 @@ function GaugeChartView({
     const window = currentDomain.current;
     if (!window) return;
     const anchor = chartTimeAtX(e.focalX, padLeft, plotWidth, window.t0, window.t1);
-    pinchStart.current = anchor === null ? null : { start: window.t0, end: window.t1, anchor };
+    pinchStart.current = anchor === null ? null : { start: window.t0, end: window.t1, anchor, left: padLeft, width: plotWidth };
   }, [clearScrub, padLeft, plotWidth]);
   const onPinchUpdate = useCallback((e: GestureUpdateEvent<PinchGestureHandlerEventPayload>) => {
     const initial = pinchStart.current;
-    if (!initial || !fullDomain || plotWidth <= 8 || e.scale <= 0) return;
+    if (!initial || !fullDomain || initial.width <= 8 || e.scale <= 0) return;
     const window = pinchChartWindow(
       { start: fullDomain.t0, end: fullDomain.t1 }, initial, initial.anchor,
-      e.scale, (e.focalX - padLeft - 4) / (plotWidth - 8),
+      // Fitted tick labels can change gutter width during a gesture. Use its
+      // starting geometry to avoid feeding those layout changes back into zoom.
+      e.scale, (e.focalX - initial.left - 4) / (initial.width - 8),
     );
-    if (window) setZoom(window.start === fullDomain.t0 && window.end === fullDomain.t1
-      ? null : { key: zoomKey, ...window });
-  }, [fullDomain, padLeft, plotWidth, setZoom, zoomKey]);
+    if (window) {
+      const isFullWindow = window.start === fullDomain.t0 && window.end === fullDomain.t1;
+      setZoom(isFullWindow ? null : { key: zoomKey, ...window });
+      if (isFullWindow) setFitValuesKey(null);
+    }
+  }, [fullDomain, setZoom, setFitValuesKey, zoomKey]);
   const onPinchEnd = useCallback(() => { pinchStart.current = null; clearScrub(); }, [clearScrub]);
   const pinchGesture = useMemo(() => Gesture.Pinch()
     // RNGH registers these callbacks; it never invokes them during render.
@@ -972,12 +998,13 @@ function GaugeChartView({
   const measurementLabel = drawnUnit === 'cfs' ? 'Flow (cfs)' : 'Gauge height (ft)';
   const closeSheet = () => setSheet(null);
   const chooseUnit = (value: 'ft' | 'cfs') => {
-    setUnitOverride(value); setZoom(null); clearScrub(); setShowTypical(false); setShowMedian(false); setShowLastYear(false); setFullScale(false); closeSheet();
+    setUnitOverride(value); setZoom(null); setFitValuesKey(null); clearScrub(); setShowTypical(false); setShowMedian(false); setShowLastYear(false); setFullScale(false); closeSheet();
   };
   /** A range the layer cannot use turns it off rather than leaving it pending. */
   const chooseDays = (value: number) => {
     setDays(value);
     setZoom(null);
+    setFitValuesKey(null);
     if (!lastYearAvailable(drawnUnit, capabilities, value)) setShowLastYear(false);
   };
   const openMeasurement = (target: string) => {
@@ -1189,7 +1216,15 @@ function GaugeChartView({
         <Pressable accessibilityRole="button" onPress={() => { clearScrub(); setSheet('data'); }} style={({ pressed }) => [styles.toolbarAction, { opacity: pressed ? 0.65 : 1 }]}>
           <ControlIcon name="grid-outline" size={16} color={colors.interactive} /><Text style={[styles.actionText, { color: colors.interactive }]}>Data & details</Text>
         </Pressable>
-        {viewport ? <Pressable accessibilityRole="button" accessibilityLabel="Reset chart zoom" onPress={() => { setZoom(null); clearScrub(); }} style={({ pressed }) => [styles.toolbarAction, { opacity: pressed ? 0.65 : 1 }]}>
+        {expanded && viewport && hasPlot ? <Pressable accessibilityRole="button"
+          accessibilityLabel={fitVisibleValues ? 'Restore full-window value scale' : 'Fit visible values'}
+          accessibilityHint={fitVisibleValues ? 'Keep this time range and restore the original vertical scale.' : 'Adjust the vertical scale to the visible readings and comparison layers.'}
+          onPress={() => { setFitValuesKey(fitVisibleValues ? null : zoomKey); if (!fitVisibleValues) setFullScale(false); clearScrub(); }}
+          style={({ pressed }) => [styles.toolbarAction, { opacity: pressed ? 0.65 : 1 }]}>
+          <ControlIcon name="resize-outline" size={16} color={colors.interactive} />
+          <Text style={[styles.actionText, { color: colors.interactive }]}>{fitVisibleValues ? 'Restore value scale' : 'Fit visible values'}</Text>
+        </Pressable> : null}
+        {viewport ? <Pressable accessibilityRole="button" accessibilityLabel="Reset chart zoom" onPress={() => { setZoom(null); setFitValuesKey(null); clearScrub(); }} style={({ pressed }) => [styles.toolbarAction, { opacity: pressed ? 0.65 : 1 }]}>
           <ControlIcon name="refresh-outline" size={16} color={colors.interactive} />
           <Text style={[styles.actionText, { color: colors.interactive }]}>Reset zoom</Text>
         </Pressable> : null}
@@ -1211,7 +1246,7 @@ function GaugeChartView({
             action={showLastYear && lastYear.status === 'failed' ? <Pressable accessibilityRole="button" accessibilityLabel="Retry last year" onPress={lastYear.retry} style={[styles.retry, styles.inlineRetry]}>
               <Text style={[styles.actionText, { color: colors.interactive }]}>Retry</Text>
             </Pressable> : null} /> : null}
-          <ChartComparison label={zones.length ? 'Full Eddy scale' : 'Full stage references'} detail={zones.length ? 'Show every condition threshold' : stageLines.length ? 'NWS references in feet' : 'No thresholds for this measurement'} value={fullScale} disabled={!zones.length && !stageLines.length} onChange={setFullScale} />
+          <ChartComparison label={zones.length ? 'Full Eddy scale' : 'Full stage references'} detail={zones.length ? 'Show every condition threshold' : stageLines.length ? 'NWS references in feet' : 'No thresholds for this measurement'} value={fullScale} disabled={!zones.length && !stageLines.length} onChange={value => { setFullScale(value); if (value) setFitValuesKey(null); }} />
           <Text style={[styles.caption, { color: colors.textMuted }]}>Historical context describes past daily flow, not forecast uncertainty. Values appear only for dates provided by USGS.</Text>
         </> : sheet === 'data' ? <GaugeChartDetails siteId={siteId} history={history} thresholds={thresholds} floodStages={floodStages} defaultUnit={unit} /> : sheet === 'unit' ? availableUnits.map(value => <Pressable key={value} accessibilityRole="radio" accessibilityState={{ checked: value === drawnUnit }} onPress={() => chooseUnit(value)} style={[styles.choice, { borderBottomColor: colors.border }]}>
           <Text style={[styles.choiceText, { color: colors.text }]}>{value === 'cfs' ? 'Flow (cfs)' : 'Gauge height (ft)'}</Text>{value === drawnUnit ? <ControlIcon name="checkmark" size={20} color={colors.interactive} /> : null}
