@@ -3,11 +3,12 @@
 // /dams, /dams/[damId] and the API routes, mirroring src/lib/data/rivers.ts.
 //
 // READ-THROUGH, NOT STORED. Unlike gauge readings, none of this is worth
-// persisting: the Corps rewrites its whole release forecast daily and SWPA
-// republishes seven schedule files on a rolling week, so yesterday's copy is
-// worthless. Pool elevation is a display number nobody charts. Storing it
-// would mean tables, a cron, supersession deletes and a retention job to
-// manage data with no history value. Callers cache at the CDN edge instead.
+// persisting for serving: the Corps rewrites its whole release forecast daily
+// and SWPA republishes seven schedule files on a rolling week, so no route has
+// a use for yesterday's copy. Pool elevation is a display number nobody
+// charts. Callers cache at the CDN edge instead. Past forecasts ARE kept, but
+// only to score them later and never to serve them: see
+// dam-forecast-history.ts and ADR 0013.
 //
 // The one exception is total release, which IS a river discharge and DOES get
 // stored — through the usace FlowProvider and the normal gauge pipeline. This
