@@ -28,7 +28,7 @@
 // Either way there must be a take-out. Without one there are no miles left,
 // no percentage and no time left, which is the whole feature.
 
-import type { MapAccessPoint, RiverDetail } from '@eddy/types';
+import type { Hazard, HazardSeverity, MapAccessPoint, RiverDetail } from '@eddy/types';
 import {
   INITIAL_TRACK,
   accumulateFloat,
@@ -41,6 +41,9 @@ import {
   movingPace,
   pointAt,
   stretchProgress,
+  lineMetersAtMile,
+  sliceLine,
+  sunsetAt,
   trackFix,
   type LngLat,
   type PaceSample,
@@ -48,6 +51,7 @@ import {
   type RemainingEstimate,
   type RouteIndex,
   type RouteRefusal,
+  ARRIVAL_MILES,
   type TrackResult,
   type TrackState,
 } from '@eddy/geo';
@@ -82,12 +86,34 @@ export interface RouteAnchor {
   endpoint: boolean;
 }
 
+/**
+ * A known hazard on the route, placed on the calibrated line at start so
+ * "how far to it" uses the same miles as everything else on the screen.
+ */
+export interface RouteHazard {
+  id: string;
+  name: string;
+  type: string;
+  severity: HazardSeverity;
+  portageRequired: boolean | null;
+  portageSide: 'left' | 'right' | 'either' | null;
+  lngLat: LngLat;
+  /** Calibrated mile where it sits on the line (not the published mile). */
+  riverMile: number;
+}
+
 /** The essential, offline part of a float: copied in at start and never refreshed. */
 export interface FloatRoute {
   riverSlug: string;
   riverName: string;
   line: LngLat[];
   anchors: RouteAnchor[];
+  /**
+   * Known hazards, copied in at start like the line so they work with no
+   * signal. Absent on floats started before hazards were carried, and on trip
+   * downloads saved before then; both simply show none.
+   */
+  hazards?: RouteHazard[];
   /** When the river data was fetched, for display only. */
   fetchedAt: string | null;
 }
@@ -142,7 +168,37 @@ export interface FloatSession {
   awaitingFix?: boolean;
   /** On-water reminders; see floatReminders.ts. Absent means the defaults. */
   reminders?: FloatReminderSettings;
+  /**
+   * When a confirmed position first reached the take-out. The float's
+   * on-water time ends here; accounting stops, and the recap counts the
+   * take-out as reached however late Finish is tapped. Never set for a
+   * take-out off the mapped river: see riverEndAt.
+   */
+  arrivedAt?: number | null;
+  /**
+   * For a take-out off the mapped river (Buffalo City, a kilometre down the
+   * White): when a confirmed position first reached the river's closest point
+   * to it. Tracking can follow no further, but the paddler has NOT arrived:
+   * the take-out is still offLineMeters away, so this is never reported as
+   * reaching it.
+   */
+  riverEndAt?: number | null;
+  /**
+   * When fixes started placing the paddler well away from the river (more
+   * than AWAY_FROM_RIVER_M), with every usable fix since agreeing: they have
+   * most likely left it. Drives "Still floating?" and the automatic end
+   * (floatEnding.ts). Any usable fix that does not show them that far away
+   * (on the river, being re-confirmed on it, or on a bank) clears it.
+   */
+  awaySince?: number | null;
 }
+
+/**
+ * Fixes farther than this from the river line mean the paddler has left it,
+ * not that they are on a gravel bar, a wide eddy or a bank: a campsite or a
+ * lunch stop sits well inside it, a car on the road home soon does not.
+ */
+export const AWAY_FROM_RIVER_M = 1_000;
 
 export type RouteProblem = RouteRefusal | 'no-river-data' | 'no-take-out' | 'take-out-upstream';
 
@@ -183,6 +239,7 @@ export function routeFromRiver(
   river: Pick<RiverDetail, 'slug' | 'name' | 'geometry'> | null | undefined,
   accessPoints: readonly MapAccessPoint[] | null | undefined,
   fetchedAt: string | null,
+  hazards: readonly Hazard[] | null | undefined = null,
 ): { ok: true; route: FloatRoute; index: RouteIndex } | { ok: false; reason: RouteProblem } {
   if (!river || !accessPoints) return { ok: false, reason: 'no-river-data' };
   const anchors: RouteAnchor[] = accessPoints
@@ -203,7 +260,44 @@ export function routeFromRiver(
     fetchedAt,
   };
   const built = indexRoute(route);
-  return built.ok ? { ok: true, route, index: built.index } : built;
+  if (!built.ok) return built;
+  const placed = placeHazards(built.index, hazards ?? []);
+  return { ok: true, route: placed.length > 0 ? { ...route, hazards: placed } : route, index: built.index };
+}
+
+/**
+ * A hazard farther than this from the line is not placed: its coordinate is
+ * wrong or it belongs to a tributary, and a distance to it would be invented.
+ */
+export const HAZARD_OFF_LINE_M = 300;
+
+/** Place hazards on the calibrated line, in river order; ones off the line are left out. */
+export function placeHazards(index: RouteIndex, hazards: readonly Hazard[]): RouteHazard[] {
+  const placed: RouteHazard[] = [];
+  for (const hazard of hazards) {
+    if (!hazard.coordinates || !Number.isFinite(hazard.coordinates.lng) || !Number.isFinite(hazard.coordinates.lat)) continue;
+    const lngLat: LngLat = [hazard.coordinates.lng, hazard.coordinates.lat];
+    const hit = locateOnRoute(index, lngLat);
+    if (!hit || hit.offsetMeters > HAZARD_OFF_LINE_M) continue;
+    placed.push({
+      id: hazard.id,
+      name: hazard.name,
+      type: hazard.type,
+      severity: hazard.severity,
+      portageRequired: hazard.portageRequired ?? null,
+      portageSide: hazard.portageSide ?? null,
+      lngLat,
+      riverMile: hit.riverMile,
+    });
+  }
+  return placed.sort((a, b) => a.riverMile - b.riverMile);
+}
+
+/** Copy hazards into a route that lacks them (a trip download saved before they were carried). */
+export function withHazards(route: FloatRoute, index: RouteIndex, hazards: readonly Hazard[] | null | undefined): FloatRoute {
+  if (route.hazards || !hazards?.length) return route;
+  const placed = placeHazards(index, hazards);
+  return placed.length > 0 ? { ...route, hazards: placed } : route;
 }
 
 /** Rebuild the calibrated index from a route; used at start and on restore. */
@@ -288,6 +382,9 @@ export function applyFix(session: FloatSession, index: RouteIndex, fix: Position
   const step = trackFix(index, session.track, fix, now);
   if (step.result.kind === 'rejected') return session;
   const next: FloatSession = { ...session, track: step.state, last: { result: step.result, at: fix.timestamp } };
+  // Away only while every usable fix says so; anything nearer starts over.
+  const farAway = step.result.kind === 'off-route' && step.result.offsetMeters > AWAY_FROM_RIVER_M;
+  next.awaySince = farAway ? (session.awaySince ?? fix.timestamp) : null;
   if (step.result.kind === 'matched') {
     next.awaitingFix = false;
     next.position = { lngLat: pointAt(index, step.result.lineMeters), at: fix.timestamp };
@@ -297,12 +394,22 @@ export function applyFix(session: FloatSession, index: RouteIndex, fix: Position
     // read as movement.
     if (!previous || !sample.continuous || sample.timestamp - previous.timestamp >= SAMPLE_SPACING_MS) {
       next.samples = [...session.samples, sample].slice(-MAX_SAMPLES);
-      next.totals = accumulateFloat(session.totals ?? EMPTY_FLOAT_TOTALS, sample);
+      // On-water accounting ends at the take-out: loading the boat, or
+      // forgetting to tap Finish, is not part of the float.
+      if (session.arrivedAt == null) next.totals = accumulateFloat(session.totals ?? EMPTY_FLOAT_TOTALS, sample);
     }
     // A quick start begins where the paddler is first confirmed to be. If that
     // is already past the chosen take-out, the session reports it rather than
     // inventing a start.
     if (next.startMile == null) next.startMile = step.result.riverMile;
+    if (
+      !(session.kind === 'quick' && next.startMile >= session.takeOut.riverMile) &&
+      stretchProgress(next.startMile, session.takeOut.riverMile, step.result.riverMile).remainingMiles <= ARRIVAL_MILES
+    ) {
+      // Off the mapped river, the line's end is not the take-out.
+      if (session.takeOut.offLineMeters != null) next.riverEndAt = session.riverEndAt ?? fix.timestamp;
+      else next.arrivedAt = session.arrivedAt ?? fix.timestamp;
+    }
   }
   return next;
 }
@@ -345,16 +452,33 @@ export interface FloatView {
   estimate: RemainingEstimate;
   /** When the shown position was confirmed. */
   positionAt: number | null;
+  /**
+   * When GPS last gave a usable fix, on the river or not. Staleness is
+   * measured from this: a paddler on a bank away from the line has GPS, and
+   * is told they look away from the river, not that GPS is lost.
+   */
+  lastFixAt: number | null;
+  /** The next known hazard ahead, before the take-out; null when none or no position. */
+  nextHazard: { hazard: RouteHazard; milesAway: number } | null;
+}
+
+/** The next hazard downstream of `mile` and short of the take-out. */
+export function hazardAhead(session: FloatSession, mile: number | null): { hazard: RouteHazard; milesAway: number } | null {
+  if (mile == null) return null;
+  const hazard = (session.route.hazards ?? []).find((h) => h.riverMile > mile && h.riverMile <= session.takeOut.riverMile);
+  return hazard ? { hazard, milesAway: hazard.riverMile - mile } : null;
 }
 
 /** What the screen shows, derived fresh each time; nothing here is stored. */
 export function viewSession(session: FloatSession, now: number): FloatView {
   const latest = session.samples[session.samples.length - 1] ?? null;
   const beyond = session.takeOut.offLineMeters ?? null;
+  const lastFixAt = Math.max(session.track.lastFixAt ?? 0, latest?.timestamp ?? 0) || null;
   const base = {
     riverName: session.route.riverName,
     takeOutName: session.takeOut.name,
     positionAt: latest?.timestamp ?? null,
+    lastFixAt,
     takeOutBeyondMeters: beyond,
   };
   const estimate = (miles: number | null): RemainingEstimate =>
@@ -373,6 +497,8 @@ export function viewSession(session: FloatSession, now: number): FloatView {
       pastEnd: false,
       startedPastTakeOut: false,
       estimate: estimate(null),
+      // A saved float knows where it starts before GPS does.
+      nextHazard: hazardAhead(session, session.startMile),
     };
   }
 
@@ -381,7 +507,7 @@ export function viewSession(session: FloatSession, now: number): FloatView {
   const lastKind = session.last?.result.kind;
   const status: FloatStatus = session.awaitingFix
     ? 'resuming'
-    : now - latest.timestamp > STALE_POSITION_MS
+    : now - (lastFixAt ?? latest.timestamp) > STALE_POSITION_MS
       ? 'stale'
       : lastKind === 'uncertain'
         ? 'uncertain'
@@ -399,7 +525,75 @@ export function viewSession(session: FloatSession, now: number): FloatView {
     pastEnd: progress.pastEnd,
     startedPastTakeOut,
     estimate: estimate(progress.remainingMiles),
+    nextHazard: startedPastTakeOut ? null : hazardAhead(session, latest.riverMile),
   };
+}
+
+/** What the Float Mode map draws: the stretch, the access points along it, its hazards. */
+export interface FloatMapFeatures {
+  /** Null until a quick start knows where it began; the map then shows the whole river. */
+  section: LngLat[] | null;
+  stops: LngLat[];
+  hazards: { lngLat: LngLat; severity: HazardSeverity }[];
+}
+
+export function mapFeatures(session: FloatSession, index: RouteIndex): FloatMapFeatures {
+  const from = session.startMile ?? session.putIn?.riverMile ?? null;
+  const to = session.takeOut.riverMile;
+  const between = (mile: number) => (from == null ? mile <= to : mile > from && mile < to);
+  const ends = new Set([session.putIn?.id, session.takeOut.id]);
+  return {
+    section: from == null ? null : sliceLine(index, lineMetersAtMile(index, from), lineMetersAtMile(index, to)),
+    stops:
+      from == null
+        ? []
+        : session.route.anchors
+            .filter((anchor) => !ends.has(anchor.id) && between(placeEnd(index, anchor).riverMile))
+            .map((anchor) => anchor.lngLat),
+    hazards: (session.route.hazards ?? [])
+      .filter((hazard) => (from == null ? hazard.riverMile <= to : hazard.riverMile >= from && hazard.riverMile <= to))
+      .map((hazard) => ({ lngLat: hazard.lngLat, severity: hazard.severity })),
+  };
+}
+
+/** Arriving this close to sunset or later is worth a word. */
+export const NEAR_SUNSET_MS = 30 * 60_000;
+
+export type ArrivalOutlook = {
+  arriveAt: number;
+  sunset: number | null;
+  /** 'set': the sun has already set; 'after': arrival after sunset; 'near': within NEAR_SUNSET_MS of it. */
+  light: 'day' | 'near' | 'after' | 'set';
+};
+
+/**
+ * When the take-out is reached at this estimate, against sunset there.
+ * People stay a little long on the water; this is the nudge. Null when
+ * there is no estimate to place on a clock.
+ */
+export function arrivalOutlook(minutes: number | null, now: number, at: LngLat): ArrivalOutlook | null {
+  if (minutes == null || minutes <= 0) return null;
+  const arriveAt = now + minutes * 60_000;
+  const sunset = sunsetAt(at[1], at[0], now);
+  const light =
+    sunset == null ? 'day' : now >= sunset ? 'set' : arriveAt > sunset ? 'after' : arriveAt > sunset - NEAR_SUNSET_MS ? 'near' : 'day';
+  return { arriveAt, sunset, light };
+}
+
+/** The arrival line and any daylight warning, with the clock formatted by the caller. */
+export function arrivalCopy(outlook: ArrivalOutlook, formatTime: (ms: number) => string): { line: string; warning: string | null } {
+  const line = `Arrive around ${formatTime(outlook.arriveAt)}`;
+  const sunset = outlook.sunset == null ? '' : formatTime(outlook.sunset);
+  switch (outlook.light) {
+    case 'after':
+      return { line, warning: `That’s after sunset (${sunset}). Pick up the pace, or plan to take out before dark.` };
+    case 'near':
+      return { line, warning: `That’s close to sunset (${sunset}). Leave time to load up before dark.` };
+    case 'set':
+      return { line, warning: `The sun set at ${sunset}.` };
+    default:
+      return { line: sunset ? `${line} · sunset ${sunset}` : line, warning: null };
+  }
 }
 
 /** Parse a stored session, or null if it is missing, corrupt or from another version. */
@@ -455,7 +649,12 @@ export function suggestRivers(
   return suggestions.sort((a, b) => a.miles - b.miles).slice(0, limit);
 }
 
-/** "1 hr 40 min", "45 min": the precision a five-minute estimate deserves. */
+/**
+ * "1 hr 40 min", "45 min": the precision a five-minute estimate deserves.
+ * Deliberately not floatPresentation's floatDurationLabel, which labels the
+ * search slider's half-hour steps ("1½ hours") and would misstate a measured
+ * or estimated time.
+ */
 export function formatDuration(minutes: number): string {
   const hours = Math.floor(minutes / 60);
   const rest = minutes % 60;
@@ -508,7 +707,7 @@ export function statusCopy(view: FloatView, now: number): string {
     case 'off-route':
       return 'You look away from the river. Showing your last spot on it.';
     case 'stale': {
-      const minutes = view.positionAt == null ? null : Math.round((now - view.positionAt) / 60_000);
+      const minutes = view.lastFixAt == null ? null : Math.round((now - view.lastFixAt) / 60_000);
       return minutes == null ? 'Waiting for GPS.' : `Waiting for GPS. Last position ${minutes} min ago.`;
     }
     case 'live':

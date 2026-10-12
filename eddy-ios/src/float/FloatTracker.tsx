@@ -10,7 +10,9 @@
 //   "Always" granted   the background task (backgroundTracking.ts), which also
 //                      delivers in the foreground and keeps going while locked.
 //   otherwise          a foreground watch here, which stops when the phone
-//                      locks; Float Mode says so (floatPermissions.ts).
+//                      locks; Float Mode says so (floatPermissions.ts). Any
+//                      background task left from an earlier "Always" grant is
+//                      stopped first.
 // Re-checked whenever Eddy returns to the foreground, so changing the setting
 // mid-float switches streams without a second one ever running.
 //
@@ -54,6 +56,10 @@ export function FloatTracker() {
           watch.current = null;
           return;
         }
+        // "Always" was withdrawn mid-float (or never given): the task cannot
+        // deliver while locked any more, so it must not keep running beside
+        // the foreground watch as a second stream.
+        await stopBackgroundTracking();
         if (watch.current) return;
         const permission = await Location.getForegroundPermissionsAsync();
         if (cancelled || permission.status !== 'granted') return;

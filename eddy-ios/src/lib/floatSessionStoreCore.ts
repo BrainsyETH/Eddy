@@ -265,11 +265,11 @@ export function createFloatSessionStore(
     },
 
     /** Change this float's reminders; what was sent, or is being sent, stays so. */
-    setReminders(update: (current: FloatReminderSettings) => Pick<FloatReminderSettings, 'takeOut' | 'stops'>): void {
+    setReminders(update: (current: FloatReminderSettings) => Pick<FloatReminderSettings, 'takeOut' | 'stops' | 'hazards'>): void {
       if (!session) return;
       const current = remindersOf(session);
-      const { takeOut, stops } = update(current);
-      session = { ...session, reminders: { ...current, takeOut, stops } };
+      const { takeOut, stops, hazards } = update(current);
+      session = { ...session, reminders: { ...current, takeOut, stops, ...(hazards != null ? { hazards } : {}) } };
       notify();
       clearTimer();
       void writeQuietly();
@@ -288,13 +288,15 @@ export function createFloatSessionStore(
     /**
      * End the float. Tracking stops at once. Resolves false if the stored copy
      * could not be removed yet; removal is then retried until it succeeds.
+     * `endedAt` is when the float finished, for an automatic end that noticed
+     * late (floatEnding.ts); the recap may still clamp it (floatRecap.ts).
      */
-    end(contributionVersion: string | null = null): Promise<boolean> {
+    end(contributionVersion: string | null = null, endedAt = Date.now()): Promise<boolean> {
       if (ending) return ending;
       if (!session && !pendingRecap && !pendingEndId) return Promise.resolve(true);
       clearTimer();
       if (session) {
-        pendingRecap = { session, endedAt: Date.now(), contributionVersion };
+        pendingRecap = { session, endedAt, contributionVersion };
         pendingEndId = session.id;
       }
       publish(null, null);

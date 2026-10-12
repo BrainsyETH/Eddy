@@ -131,13 +131,17 @@ A late native completion can still deliver the latest state/End.
 
 ## Staleness without JavaScript execution
 
-Set `ActivityContent.staleDate` from the last reliable fix plus
-`STALE_POSITION_MS` (currently two minutes). Carry the fix as a Date, not a
+Set `ActivityContent.staleDate` from the last usable GPS fix plus
+`STALE_POSITION_MS` (currently two minutes). A usable fix is any fix the tracker
+did not reject, on the river or off it: a paddler on a bank with working GPS is
+`off-route`, not stale. The card's `lastFixAt` (the shown position's date) still
+follows only confirmed river positions. Carry the fix as a Date, not a
 preformatted age. Use `context.isStale` for the stale presentation and SwiftUI's
 relative-date text for its age. With no reliable fix, show finding/resuming and
 withhold unsupported numbers.
 
-Do not extend freshness for rejected/uncertain fixes or a heartbeat. Preserve
+Do not extend freshness for rejected fixes or a heartbeat; uncertain and
+off-route fixes keep the card out of `stale` but never move the position date. Preserve
 `live`, `uncertain`, `off-route`, `stale`, and `resuming`; a still-fresh timestamp
 must not override uncertainty. A stale card labels its numbers as last known.
 The estimate's as-of time follows the confirmed position used to recompute it.

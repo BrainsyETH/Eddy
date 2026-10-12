@@ -1,13 +1,20 @@
 import { EMPTY_FLOAT_TOTALS, finishFloatTotals } from '@eddy/geo';
 import type { CompletedFloat } from '@eddy/conditions/float-archive';
-import { viewSession, type FloatSession } from './floatSession';
+import type { FloatSession } from './floatSession';
 
-/** Explicit allowlist: the active session contains private raw positions. */
+/**
+ * Explicit allowlist: the active session contains private raw positions.
+ *
+ * A float that reached the take-out ended there, however late Finish was
+ * tapped (accounting stopped at arrival too; floatSession.ts applyFix). One
+ * that did not ends when it was ended, or, for an automatic end, when the
+ * paddler left the river (floatEnding.ts).
+ */
 export function recapFloat(session: FloatSession, now: number): CompletedFloat {
-  const endedAt = Math.max(session.startedAt, now, session.totals?.last?.timestamp ?? 0);
+  const finished = session.arrivedAt ?? now;
+  const endedAt = Math.max(session.startedAt, finished, session.totals?.last?.timestamp ?? 0);
   const elapsedMs = endedAt - session.startedAt;
   const totals = session.totals ?? EMPTY_FLOAT_TOTALS;
-  const view = viewSession(session, endedAt);
   return {
     version: 1,
     id: session.id,
@@ -25,7 +32,9 @@ export function recapFloat(session: FloatSession, now: number): CompletedFloat {
     plannerMph: session.plannerMph,
     firstMile: totals.firstMile,
     lastMile: totals.last?.riverMile ?? null,
-    reachedTakeOut: view.status === 'live' && view.arrived,
+    // Arrival is recorded once, from a confirmed position; ending later, away
+    // from the river or out of signal, does not undo it.
+    reachedTakeOut: session.arrivedAt != null,
     measurementVersion: 1,
   };
 }
