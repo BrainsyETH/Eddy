@@ -1045,6 +1045,37 @@ blur:
 readings, hazards and the float plan are free, online or off — see `PaywallSheet`
 for why safety data can never sit behind a wall.
 
+### Starting a float
+
+`float-start.tsx` checks location permission without prompting on entry. With
+permission, it locates automatically; otherwise one short card offers the
+system prompt or Settings. Manual river selection remains available, but
+starting tracking still requires precise foreground location and enabled
+Location Services. A GPS timeout does not block manual setup. Returning from
+Settings rechecks permission without discarding the trip.
+
+Quick starts confirm a suggested river, pick a take-out, then review one
+summary card. Suggestions use straight-line distance to access points, never
+claim that the nearest river is the correct one, and keep the full list behind
+search. Only a fix under two minutes old, with accuracy within 100 m and within
+150 m of the chosen river line, narrows take-outs downstream or supplies
+preview miles. This is a preview, not a committed tracker position. Quick
+starts learn time left after tracking begins; saved trips can show the supplied
+planner's moving-time estimate, with stops explicitly excluded.
+
+Each choice pushes a native stack page at the same `/float-start` URL. Back and
+swipe return to the previous choice; successful start removes only this setup's
+pages. Saved trips open the summary directly, show distance to the put-in when
+available, and can download their known route without location. Quick downloads
+need a usable on-river fix. Both retain the offline card's full readiness states.
+
+The background-location explanation is a native sheet shown at Start, once per
+installation, unless Always is already granted. It offers foreground-only
+tracking too. It never promises a specific iOS prompt: Allow Once can silently
+decline a background request. Float Mode then shows the short locked-phone
+tracking notice. No session is created until the permission flow finishes.
+Device verification of these screens and permission transitions is unconfirmed.
+
 Remote config and the forced-upgrade gate are wired (`/api/app-config`), and both
 fail open: an unreachable config means no upgrade requirement and all features
 enabled.

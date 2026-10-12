@@ -24,6 +24,7 @@ import {
   type FloatSession,
 } from '../../../eddy-ios/src/lib/floatSession';
 import type { LngLat, PositionFix, RouteIndex } from '@eddy/geo';
+import { START_FIX_MAX_AGE_MS, usableStartFix, startRiverPosition } from '../../../eddy-ios/src/lib/floatStart';
 
 const MILE = 1609.344;
 const LAT0 = 37.0;
@@ -89,6 +90,42 @@ test('a quick start offers only real take-outs, downstream, nearest first', () =
   // Cave is on the river and calibrates it, but cannot end a float.
   assert.ok(route.anchors.some((a) => a.id === 'cave'));
   assert.ok(!takeOutChoices(route, index, null).some((a) => a.id === 'cave'));
+});
+
+test('start previews reject stale, future, invalid, and imprecise locations', () => {
+  const preview = { point: at(2_000), accuracy: 10, timestamp: T0 };
+  assert.equal(usableStartFix(preview, T0), true);
+  assert.equal(usableStartFix(preview, T0 + START_FIX_MAX_AGE_MS - 1), true);
+  assert.equal(usableStartFix(preview, T0 + START_FIX_MAX_AGE_MS), false);
+  assert.equal(usableStartFix(preview, T0 - 1), false);
+  for (const accuracy of [null, -1, 101, NaN, Infinity]) {
+    assert.equal(usableStartFix({ ...preview, accuracy }, T0), false);
+  }
+  for (const point of [[NaN, 37], [-181, 37], [-91, 91]] as LngLat[]) {
+    assert.equal(usableStartFix({ ...preview, point }, T0), false);
+  }
+});
+
+test('only a fresh fix near the chosen river narrows take-outs, without seeding tracking', () => {
+  const { route, index } = prepared();
+  const preview = { point: at(2_000, 20), accuracy: 10, timestamp: T0 };
+  const hit = startRiverPosition(index, preview, T0);
+  assert.ok(hit);
+  assert.deepEqual(takeOutChoices(route, index, hit.riverMile).map((choice) => choice.id), ['pulltite', 'round-spring']);
+  for (const position of [
+    startRiverPosition(index, { ...preview, point: at(2_000, 250) }, T0),
+    startRiverPosition(index, { ...preview, accuracy: 500 }, T0),
+    startRiverPosition(index, preview, T0 + START_FIX_MAX_AGE_MS),
+    startRiverPosition(index, null, T0),
+  ]) {
+    assert.equal(position, null);
+    assert.equal(takeOutChoices(route, index, position).length, 3);
+  }
+  const started = startSession({ id: 'preview-only', kind: 'quick', route, index, takeOutId: 'round-spring', now: T0 });
+  assert.ok(started.ok);
+  assert.equal(started.session.startMile, null);
+  assert.equal(started.session.plannerMph, null);
+  assert.equal(started.session.position, null);
 });
 
 test('a saved float must run downstream to a known take-out', () => {

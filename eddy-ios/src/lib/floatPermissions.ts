@@ -17,7 +17,7 @@ export type TrackingMode =
   /** Not read yet. */
   | 'unknown';
 
-interface ForegroundPermission {
+export interface ForegroundPermission {
   status: string;
   canAskAgain?: boolean;
   ios?: { accuracy?: 'full' | 'reduced' } | null;
@@ -46,17 +46,30 @@ export function trackingNotice(mode: TrackingMode, canAskAgain = false): Trackin
       return null;
     case 'screen-on':
       return {
-        text: 'Tracking pauses while your screen is locked. To keep it going in a dry bag, set Eddy’s location to Always in Settings, or keep the screen on.',
+        text: 'Tracking pauses while your phone is locked.',
         action: 'settings',
       };
     case 'approximate':
       return {
-        text: 'Precise Location is off for Eddy, so Float Mode can’t place you on the river. Turn it on in Settings.',
+        text: 'Turn on Precise Location to track your float.',
         action: 'settings',
       };
     case 'none':
       return canAskAgain
-        ? { text: 'Float Mode needs your location to show how far you have left. It stays on your phone.', action: 'request' }
-        : { text: 'Location is off for Eddy. Turn it on in Settings to track this float.', action: 'settings' };
+        ? { text: 'Eddy uses your location to track your float.', action: 'request' }
+        : { text: 'Turn on location to track your float.', action: 'settings' };
   }
+}
+
+export type StartLocationState = 'checking' | 'request' | 'settings' | 'precise' | 'services' | 'ready';
+
+/** A manual river choice never bypasses the permission needed to track. */
+export function startLocationState(
+  permission: ForegroundPermission | null,
+  servicesEnabled: boolean,
+): StartLocationState {
+  if (!permission) return 'checking';
+  if (!servicesEnabled) return 'services';
+  if (permission.status !== 'granted') return permission.canAskAgain ? 'request' : 'settings';
+  return permission.ios?.accuracy === 'reduced' ? 'precise' : 'ready';
 }

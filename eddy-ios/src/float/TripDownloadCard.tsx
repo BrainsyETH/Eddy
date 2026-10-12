@@ -62,6 +62,7 @@ export function TripDownloadCard({
   fromLngLat,
   toId,
   protectedByActiveFloat = false,
+  compact = false,
 }: {
   tripKey: string;
   /** The route to package if none is saved yet. A saved package's own route wins. */
@@ -72,6 +73,8 @@ export function TripDownloadCard({
   toId: string;
   /** The active float uses this map; removing it is refused. */
   protectedByActiveFloat?: boolean;
+  /** Setup already explains the trip; keep the optional download brief. */
+  compact?: boolean;
 }) {
   const { colors, elevation } = useTheme();
   const available = getOfflineManager() != null;
@@ -186,12 +189,21 @@ export function TripDownloadCard({
   }, [protectedByActiveFloat, tripKey, refresh]);
 
   if (!available || fallbackChunks.length === 0) return null;
+  const compactOffer = compact && state?.kind === 'none' && !downloading;
 
   return (
     <View style={[styles.card, { backgroundColor: colors.card }, elevation(1)]}>
       <View style={styles.head}>
         <ControlIcon name="cloud-download-outline" size={18} color={colors.interactive} />
-        <Text style={[styles.title, { color: colors.text }]}>Offline map</Text>
+        {compactOffer ? <>
+          <View style={styles.offerTitle}>
+            <Text style={[styles.title, { color: colors.text }]}>Offline map</Text>
+            <Text style={[styles.note, { color: colors.textMuted }]}>Optional</Text>
+          </View>
+          <Pressable onPress={() => void start()} accessibilityRole="button" accessibilityLabel="Download offline map" style={styles.downloadLink}>
+            <Text style={[styles.linkText, { color: colors.interactive }]}>Download</Text>
+          </Pressable>
+        </> : <Text style={[styles.title, { color: colors.text }]}>Offline map</Text>}
       </View>
 
       {state == null ? (
@@ -248,7 +260,7 @@ export function TripDownloadCard({
             </Pressable>
           ) : null}
         </>
-      ) : (
+      ) : compactOffer ? null : (
         <>
           <Text style={[styles.note, { color: colors.textMuted }]}>
             Save this trip and its map so both work with no signal. Optional: Float Mode tracks without it.
@@ -270,7 +282,9 @@ export function TripDownloadCard({
 
 const styles = StyleSheet.create({
   card: { borderRadius: radii.card, padding: 14, gap: 8 },
-  head: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  head: { flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' },
+  offerTitle: { flex: 1, minWidth: 120 },
+  downloadLink: { minHeight: 44, justifyContent: 'center', paddingHorizontal: 8 },
   title: { ...t.base, fontFamily: fonts.semibold },
   body: { ...t.sm, fontFamily: fonts.semibold },
   note: { ...t.sm, fontFamily: fonts.body },
