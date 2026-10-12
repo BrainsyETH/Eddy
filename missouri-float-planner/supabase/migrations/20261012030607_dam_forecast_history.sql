@@ -1,5 +1,8 @@
 -- 20261012030607_dam_forecast_history.sql
 --
+-- APPLIED to production (ilefwfpvphadsbptiaur) 2026-10-12 and RECORDED as
+-- 20261012030607. Ledger: supabase/production-migrations.txt.
+--
 -- Every distinct dam generation forecast and SWPA schedule Eddy served, kept so
 -- forecast accuracy can be measured against what the powerhouse then did.
 --
