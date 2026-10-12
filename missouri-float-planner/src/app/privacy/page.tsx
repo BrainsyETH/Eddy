@@ -70,8 +70,8 @@ export default function PrivacyPage() {
               a push token issued by Apple and the notification service, together with the
               platform, app version, the device&rsquo;s model name (for example
               &ldquo;iPhone 15 Pro&rdquo;), and a record of which alerts were sent to that
-              device. Tokens identify a device installation, not a person, and are removed when
-              the device stops accepting notifications.
+              device. Tokens identify an installation and are linked to your Eddy account;
+              they are removed when the device stops accepting notifications.
             </li>
             <li>
               <strong>Subscription status.</strong> If you purchase Eddy Premium, Eddy stores the
@@ -183,7 +183,7 @@ export default function PrivacyPage() {
             <li><strong>Resend</strong> for subscription, inbound email, and reply delivery.</li>
             <li><strong>USGS and weather providers</strong> for river and forecast data. Gauge requests are generally made server-side.</li>
             <li><strong>Mapbox</strong> for map tiles. Loading a map sends Mapbox your IP address and the area of the map you are looking at, which approximates your location even when you have not granted location access. The iOS app switches Mapbox&rsquo;s own usage telemetry off at startup, so it sends Mapbox nothing beyond the tile requests needed to draw the map.</li>
-            <li><strong>Sentry</strong> for crash and error reporting from the website and the iOS app. Reports carry device model, operating system, app version, and a stack trace. Access tokens, email addresses, and coordinates are stripped on your device before anything is sent.</li>
+            <li><strong>Sentry</strong> for crash and error reporting from the website and the iOS app. Reports carry device model, operating system, app version, a stack trace, and an SDK installation identifier used to connect diagnostics from the same installation. Eddy filters likely tokens, email addresses, account UUIDs, and coordinate pairs from JavaScript error text and custom diagnostic extras before sending. Diagnostic reports are not used for advertising.</li>
             <li><strong>RevenueCat</strong> for subscription purchases and their status. RevenueCat receives your Eddy account identifier and the purchase records Apple returns. Eddy never receives your payment details — those stay with Apple.</li>
             <li><strong>Expo</strong> for delivering push notifications to the iOS app. Expo receives a device push token and the contents of each notification, which name the river and its condition.</li>
             <li><strong>Apple</strong> for Sign in with Apple and for all subscription billing.</li>

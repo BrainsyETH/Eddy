@@ -29,6 +29,8 @@ const REDACTIONS: Array<[RegExp, string]> = [
   [/(bearer\s+)[\w.~+/=-]+/gi, '$1[redacted]'],
   // long hex blobs (tokens, HMACs, session ids)
   [/\b[0-9a-f]{32,}\b/gi, '[redacted-hex]'],
+  // Dashed account UUIDs are not matched by the contiguous-hex rule.
+  [/\b[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}\b/gi, '[redacted-id]'],
   // JWT-shaped triples
   [/\beyJ[\w-]+\.[\w-]+\.[\w-]+\b/g, '[redacted-jwt]'],
   // key=value style secrets

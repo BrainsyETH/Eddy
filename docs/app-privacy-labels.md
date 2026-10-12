@@ -28,10 +28,19 @@ Apply and verify the questionnaire before the new binary is submitted.
 | Purchases → Purchase History | Yes | Yes | No |
 | User Content → Photos or Videos | Yes | Yes | No |
 | User Content → Other User Content | Yes | Yes | No |
-| Diagnostics → Crash Data | Yes | **No** | No |
+| User Content → Customer Support | Yes | Yes | No |
+| Diagnostics → Crash Data | Yes | Yes, via SDK installation ID | No |
+| Diagnostics → Other Diagnostic Data | Yes | Yes, via SDK installation ID | No |
 | Location → Precise Location | Yes | Yes | No |
-| Identifiers → Device ID | See note below | — | No |
-| Everything else | Not collected | — | — |
+| Location → Coarse Location | Yes | Verify provider/log linkage before publishing | No |
+| Identifiers → Device ID | Yes | Yes | No |
+
+Coarse Location linkage is an open release check, not an answer ready to paste.
+The forecast endpoint retains rounded coordinate cache keys for up to one hour;
+this is more than processing solely to answer the current request. Check hosting,
+weather-provider and diagnostic payloads for identifiers before choosing its
+linkage answer. Do not mark all remaining categories uncollected until the
+submitted binary's SDK payloads and privacy report have been checked.
 
 **Tracking: No.** Answer "No" to the tracking question and do not add
 `NSUserTrackingUsageDescription`. There is no advertising, no IDFA, no ad SDK,
@@ -42,7 +51,7 @@ own behalf by default is Mapbox, and the app turns that off — see Location.
 
 ## Contact Info → Email Address
 
-**Collected, linked to identity. Purposes: App Functionality, Customer Support.**
+**Collected, linked to identity. Purpose: App Functionality (including customer support).**
 
 Two sources:
 
@@ -56,7 +65,8 @@ Not used for tracking, not used for advertising, not sold.
 
 ## Identifiers → User ID
 
-**Collected, linked to identity. Purpose: App Functionality.**
+**Collected, linked to identity. Purposes: App Functionality; Analytics for
+opted-in completed-float summaries.**
 
 The Supabase user id. An anonymous account is created on first launch. Linking
 a new Apple identity upgrades it in place; signing into an existing Apple-linked
@@ -67,17 +77,16 @@ The same id is RevenueCat's `appUserID` (`src/lib/purchases.ts`), which is why
 purchases require a signed-in account: an entitlement bought under an anonymous
 id is stranded by the next reinstall.
 
-### Identifiers → Device ID (judgement call)
+### Identifiers → Device ID
 
 The app sends an **Expo push token** plus the device model name to
-`/api/me/device-tokens` (`src/lib/push.ts`). A push token identifies an app
-installation, not a device or a person, and is rotated and revoked by the OS.
+`/api/me/device-tokens` (`src/lib/push.ts`). It identifies an app installation
+and is stored against the account. Sentry also supplies a persistent SDK
+installation ID in diagnostic events.
 
-Apple's "Device ID" category is written for durable hardware/vendor identifiers
-(IDFV, IDFA), which this is not. Declaring it under **Identifiers → User ID**
-(it is stored against the account) with the push token described in the privacy
-policy is the accurate reading. If a reviewer asks, the answer is that no
-hardware identifier is read or stored.
+**Collected, linked to identity. Purpose: App Functionality.** Apple's definition
+includes other device-level IDs, not only IDFA/IDFV. An installation identifier
+does not need to reveal someone's name to fall under this category. No tracking.
 
 ## Purchases → Purchase History
 
@@ -122,23 +131,36 @@ affects newly completed floats, and can be withdrawn without losing backup.
 
 ## Diagnostics → Crash Data
 
-**Collected, NOT linked to identity. Purpose: App Functionality.**
+**Collected, linked to identity through a device/installation ID.
+Purpose: App Functionality.** Also disclose **Other Diagnostic Data** for handled
+errors and diagnostic context. No advertising or tracking.
 
-Sentry. What makes "not linked" true rather than aspirational:
+Sentry configuration limits data but does not make it unlinked:
 
 - `sendDefaultPii: false` and `tracesSampleRate: 0` (`src/lib/monitoring.ts`).
 - `Sentry.setUser` is never called anywhere in the app.
-- Every event is redacted **on the device** before sending — emails, bearer
-  tokens, JWTs, hex blobs, key=value secrets, and coordinate pairs
-  (`src/lib/redact.ts`, applied by `src/lib/scrub-event.ts`).
+- JavaScript error text and custom diagnostic extras are redacted on the device
+  for emails, tokens, UUIDs and coordinate pairs (`src/lib/redact.ts`, applied
+  by `src/lib/scrub-event.ts`). These hooks do not prove that every native SDK
+  event or HTTP breadcrumb is scrubbed.
 
-Note: the one diagnostic breadcrumb that mentioned account ids — fired when an
-Apple sign-in changes the user id — now carries only the first eight characters
-of each id (`src/hooks/useSession.tsx`). The full UUIDs used to slip past the
-redaction (its hex rule wants 32+ contiguous characters, which a dashed UUID
-never is), which contradicted the "not linked to identity" answer above. A
-truncated prefix still answers "did the id change" and gives the backend
-something to search on without being an account identifier.
+The installed `@sentry/react-native` implementation, `ios/RNSentry.mm` in
+`fetchNativeDeviceContexts`, supplies `PrivateSentrySDKOnly.installationID` as
+`user.id` when no user is configured. Its DeviceContext integration attaches
+that user to events. Eddy's scrubber does not remove it. `sendDefaultPii: false`
+and never calling `setUser` are therefore insufficient for a "not linked" answer.
+
+Apple sign-in diagnostics now record only that the identity changed and whether
+the previous account was a guest; no full ID or searchable prefix is included.
+Before submission inspect both a handled JS error and a native crash from the
+actual binary, plus release-health events and network breadcrumbs. Confirm the
+diagnostic/location categories against what is actually sent.
+
+## User Content → Customer Support
+
+**Collected, linked to identity. Purpose: App Functionality.** In-app feedback
+includes an email address and support text. Customer Support is a data type;
+it is not a separate purpose option in Apple's questionnaire.
 
 ## Location → Precise Location
 
@@ -158,9 +180,9 @@ opted-in completed-float summaries. No tracking.**
   That request is currently unauthenticated: do not claim this path itself is
   account linked. It still collects precise location; optional submission is
   not a blanket exemption from disclosure.
-- Local weather sends coordinates rounded to 0.05 degrees to Eddy. It does not
-  send Float Mode's position trace. Check retention of request/security logs
-  when completing Apple's separate Coarse Location question.
+- Local weather sends coordinates rounded to 0.05 degrees to Eddy. The forecast
+  route caches those coordinate keys for up to one hour. Disclose Coarse Location
+  for App Functionality; complete the linkage check described above.
 - Mapbox telemetry is disabled in `src/map/runtime.ts`. Tile requests still
   disclose IP address and viewport to Mapbox. Diagnostic scrubbing redacts
   coordinates before sending events to Sentry.
@@ -174,11 +196,12 @@ is introduced by these features.
 
 ## Reviewer notes — paste into App Store Connect
 
-> **No demo account is needed.** Eddy is anonymous-first: the app creates an
+> **Browsing and local history work without sign-in.** Eddy creates an
 > anonymous account on launch and every browsing feature — rivers, live gauge
 > readings, hazards, access points, and the full float-plan calculator — works
-> without signing in. Sign in with Apple is offered but never required to
-> evaluate the app.
+> without signing in. **Sign in with Apple is required to review account backup,
+> recovery, optional contributions, and subscriptions.** Use the sign-in action
+> in Floats › Float history & backup or Profile. No Eddy password is required.
 >
 > **The paywall shows no purchase controls until Sign in with Apple completes.**
 > This is deliberate and not a bug. Subscriptions are keyed to the account id, so
@@ -196,11 +219,21 @@ is introduced by these features.
 > estimates. Hazard reports send the location and time of the submitted hazard;
 > weather requests send rounded coordinates.
 >
+> **To review Float Mode:** open Floats › Start Float, select a supported river
+> from the full list (nearby suggestions are optional), choose a take-out, and
+> start. Precise foreground location is required for tracking. The Always-location
+> explanation offers foreground-only tracking as an alternative. Away from a
+> supported river, progress/pace can remain unavailable; that is expected.
+> Ending the float still creates a recap and stops tracking. An attached field
+> recording demonstrates on-river progress and locked-phone tracking; it is not
+> a substitute for access to the feature in this build.
+>
 > **Float history is under Floats › Float history & backup.** A recap is saved
 > when a float ends, works locally without an account, and is recoverable after
 > Apple sign-in when backed up. Delete a recap from its detail screen. The
 > estimate-improvement setting defaults off and is independent of backup.
-> For review, confirm that the Float Mode server flag is enabled for this build.
+> Turning contributions off excludes
+> previously contributed trips from future analysis while preserving backup.
 >
 > **Account deletion is in the app**: Profile › Delete account. It takes effect
 > immediately and removes the account, private saved floats, float history,
@@ -216,6 +249,21 @@ is introduced by these features.
 > **Safety disclaimers** appear wherever conditions or float times are shown.
 > The app refuses to estimate a float time in dangerous water rather than
 > printing a number.
+
+**Operator checks before pasting:** verify production `features.floatMode` is
+true and account flows work in this exact build; attach the field recording
+referenced above. Verify that an App Review Apple account can complete sign-in
+and sandbox purchases. If it cannot, arrange Apple-accepted review access before
+submission; do not state that all features can be reviewed without signing in.
+Use the actual Delete account/Delete my data label for the account state tested.
+
+## Apple references (checked October 12, 2026)
+
+- [App Privacy definitions and linkage](https://developer.apple.com/app-store/app-privacy-details/)
+- [Review Guidelines](https://developer.apple.com/app-store/review/guidelines/):
+  2.1 (complete, accessible app), 2.3.1 (specific reviewer notes),
+  2.5.4 (background services), 5.1.1 (privacy and deletion).
+- [Account deletion and Apple token revocation](https://developer.apple.com/help/app-review/guideline-reference/5-1-1-account-deletion)
 
 ---
 

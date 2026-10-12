@@ -213,12 +213,11 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     setSession(appleSession);
 
     // A changed id is expected for a returning Apple account. Favorites merge
-    // on session change; do not log complete account identifiers.
+    // on session change. Even a prefix can be joined back to an account, so
+    // record only the transition, never either identifier.
     const nextId = appleSession.user.id;
     if (previousId && nextId && previousId !== nextId) {
       warn('auth', 'Apple sign-in changed the user id', {
-        previousId: previousId.slice(0, 8),
-        nextId: nextId.slice(0, 8),
         previousWasAnonymous,
       });
     }

@@ -8,18 +8,42 @@
   and 1.2 was in progress. Whether 1.2 (or anything after it) reached the
   store is not recorded here. Read it from App Store Connect, then replace this
   line with the version and the date you checked.
-- **Status confirmed:** release-in-progress line 2026-10-11, from `app.json`
-  only; no store, TestFlight or device state was checked.
+- **Status confirmed:** 2026-10-12 from `app.json`, PR #1488 CI, and read-only
+  public production/API and database checks. App Store Connect, EAS build history,
+  TestFlight and physical-device state remain unconfirmed.
 
 `missouri-float-planner/src/lib/ios-release-runbook.test.ts` fails when the
 `app.json` version above stops matching the real one, so a version bump has
 to touch this section. It cannot check the store line; that one is on you.
 
-There is no `docs/release-readiness-1.4.md` yet. The 1.2 report,
-**`docs/release-readiness-1.2.md`**, is still the most recent delta report and
-the best list of what was *not* verified; its gates below stay unticked until
-someone confirms them, not until a later version ships. The 1.4.0 and Float
-Mode sections below are this release's own gates.
+See **[`release-readiness-1.4.md`](release-readiness-1.4.md)** for the current
+submission verdict and release order. The shipped-build baseline is unconfirmed.
+The 1.2 report's gates below stay unticked until evidence closes them; a later
+version number does not close them. The 1.4, Float Mode, and history sections
+below remain the device checklist.
+
+### October 12 submission blockers
+
+- [ ] Apply the reviewed archive migration, reconcile its recorded version and
+      deploy the API/policy before distributing the new build. Read-only check:
+      both archive tables are absent and `/api/me/float-archive` returns 404.
+- [ ] Enable Float Mode for the release **after device acceptance** and verify
+      it in the production-profile binary. Public config currently returns
+      `floatMode: false`; preview visibility does not prove reviewer visibility.
+- [ ] Publish the matching policy and complete App Store Connect privacy answers.
+      The live policy still says October 6. The prepared answers now include
+      linked diagnostic installation IDs; verify coarse-location linkage and
+      SDK payloads before publishing them.
+- [ ] Confirm the live store version/build and its EAS `gitCommitHash` and
+      `runtimeVersion`; choose the next valid marketing/build version accordingly.
+      `app.json` 1.4.0 alone does not establish that 1.4.0 can be submitted.
+- [ ] Resolve the Jacks Fork Trust Ledger critical before submission. A fresh
+      read on October 12 confirms it remains open; last seen 01:00 UTC. This is
+      an existing river-data release gate, separate from the new history work.
+
+Read-only checks also found `minSupportedVersion: "0.0.0"` and an HTTP 200 JSON
+association file for `D4U38CY2HK.eddy.guide.app`. Installation-time link behavior
+still needs a device check. No production settings were changed.
 
 The checkboxes below are the evidence checklist, and they are deliberately not
 inferred from the fact that the previous release shipped: enrolment, signing
@@ -813,9 +837,10 @@ xcodebuild -workspace *.xcworkspace -scheme Eddy -configuration Debug \
   CODE_SIGNING_ALLOWED=NO build
 ```
 
-**Expect the first one to fail.** No native archive has ever been produced from
-this repo, so prebuild, autolinking, the Mapbox pod and the Sentry config plugin
-all run for the first time. That is a normal cost, not a symptom.
+**Verify the native archive for this release.** The repository does not establish
+which of the newly added modules/extensions were in the last shipped binary.
+A JavaScript export does not prove Swift compilation, signing, extension version
+matching, Mapbox pod integration or App Store validation.
 
 ### If the app launches to a splash screen that never lifts
 
@@ -885,8 +910,8 @@ testing and the first submission, not installation.
 - [ ] App Privacy nutrition labels, age rating. **The answers are written down**
       — see `docs/app-privacy-labels.md`, which records each category, whether it
       is linked to identity, and the code that makes the answer true. Transcribe
-      it rather than re-deriving it; a label that disagrees with observed traffic
-      is grounds for rejection either way it disagrees.
+      the verified answers after closing its open SDK/coarse-location checks;
+      do not paste unresolved categories as if they were verified.
 - [ ] Screenshots (6.9" and 6.5").
 - [ ] **Reviewer notes** — a paste-ready block lives at the bottom of
       `docs/app-privacy-labels.md`. It covers the things that otherwise read as
@@ -898,10 +923,13 @@ testing and the first submission, not installation.
 
 ### Privacy manifest
 
-Do not add speculative declarations. Expo and the native dependencies ship
-their own `PrivacyInfo.xcprivacy`, though Apple does not always merge manifests
-from static pods correctly. Inspect the built archive, and treat an
-**ITMS-91053** email as the signal — it is a delay, not a rejection.
+Inspect the final Xcode archive's privacy report, bundled SDK manifests/signatures
+and required-reason API declarations before submitting. Expo/dependency manifests
+are inputs, not proof that the final app and Live Activity extension are valid.
+Use only declarations that match actual API use. Resolve missing-manifest,
+signature and required-reason warnings (including ITMS-91053) before submission;
+do not wait for App Review to find them. See Apple's
+[third-party SDK requirements](https://developer.apple.com/support/third-party-SDK-requirements/).
 
 ---
 
