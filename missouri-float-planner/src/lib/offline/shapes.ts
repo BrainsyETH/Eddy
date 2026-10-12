@@ -19,6 +19,7 @@
 // Everything here is PURE — rows in, wire shape out, no Supabase client and no
 // I/O — which is the whole reason it can be tested without a database.
 
+import { withReviewedPlacePhoto } from '@/lib/photos/reviewed';
 import { calculateBounds, type GeoBounds } from '@/lib/utils/geo';
 import { inBounds } from '@/lib/geo/region-bounds';
 import { bookingUrlFor } from '@/lib/camping/booking';
@@ -387,7 +388,7 @@ export function toAccessPoint(
     feeRequired: row.fee_required ?? false,
     feeNotes: row.fee_notes,
     directionsOverride: row.directions_override,
-    imageUrls: row.image_urls || [],
+    imageUrls: withReviewedPlacePhoto('access_points', row).image_urls || [],
     googleMapsUrl: row.google_maps_url,
     coordinates: { lng, lat },
     roadSurface: row.road_surface || [],

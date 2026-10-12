@@ -353,7 +353,7 @@ export default async function RiverGuideLayout({ post }: Props) {
             <Image
               src={g.hero.photo_url || EDDY_CANOE}
               unoptimized={!optimizeBlogImage(g.hero.photo_url || EDDY_CANOE)}
-              alt={g.hero.photo_url ? `${riverName} scenery` : "Eddy in a canoe"}
+              alt={g.hero.photo_alt ?? (g.hero.photo_url ? `${riverName} scenery` : "Eddy in a canoe")}
               fill
               priority
               sizes="(max-width: 1023px) 100vw, 580px"
@@ -362,6 +362,7 @@ export default async function RiverGuideLayout({ post }: Props) {
             {photoCredit ? <div
               style={{ position: 'absolute', bottom: 8, right: 8, left: 8, fontSize: 12,
                 padding: '4px 8px', background: 'var(--color-neutral-50)', color: 'var(--color-neutral-900)', borderRadius: 4 }}>
+              {g.hero.photo_caption && <div style={{ marginBottom: 4 }}>{g.hero.photo_caption}</div>}
               Photo: <a href={photoCredit.source_url} style={{ textDecoration: 'underline' }}>{photoCredit.author}</a>
               {' · '}<a href={photoCredit.license_url} style={{ textDecoration: 'underline' }}>{photoCredit.license}</a>
               {photoCredit.changes ? ` · ${photoCredit.changes}` : ''}

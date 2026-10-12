@@ -1,3 +1,4 @@
+import { guideCover, type GuidePhoto } from '@/lib/photos/guides';
 import { RIVER_PHOTOS, RIVER_PHOTO_CREDITS } from '@shared/river-photos';
 // src/lib/data/rivers.ts
 // Shared server-side data fetching for rivers
@@ -338,6 +339,7 @@ export async function getRivers(): Promise<RiverListItem[]> {
  * A river's most recent published guide post: its blog slug + featured image.
  */
 export interface RiverGuide {
+  photo?: GuidePhoto;
   postSlug: string;
   image: string | null;
 }
@@ -372,11 +374,8 @@ export async function getRiverGuides(
       const riverSlug = post.river_slug as string | null;
       // Keep the most recent post per river (results are ordered desc).
       if (!riverSlug || guides[riverSlug] || typeof post.slug !== 'string' || !post.slug) continue;
-      const image =
-        typeof post.featured_image_url === 'string' && post.featured_image_url
-          ? post.featured_image_url
-          : null;
-      guides[riverSlug] = { postSlug: post.slug, image };
+      const cover = guideCover(post);
+      guides[riverSlug] = { postSlug: post.slug, image: cover.src, photo: cover.photo };
     }
     return guides;
   } catch {

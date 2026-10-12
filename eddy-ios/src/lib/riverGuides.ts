@@ -6,6 +6,15 @@ export interface RiverGuideSummary {
   category: string;
   riverSlug?: string | null;
   featuredImageUrl: string | null;
+  featuredImageAlt?: string;
+  imageCredit?: {
+    author: string;
+    sourceUrl: string;
+    license: string;
+    licenseUrl: string;
+    caption: string;
+    changes: string;
+  } | null;
   readTimeMinutes: number | null;
 }
 

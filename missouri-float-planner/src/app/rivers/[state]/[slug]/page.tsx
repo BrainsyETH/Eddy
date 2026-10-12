@@ -7,6 +7,8 @@
 // hit with putIn/takeOut params we redirect there so old shared links keep
 // working.
 
+import { guideCover } from '@/lib/photos/guides';
+import GuidePhotoCredit from '@/components/blog/GuidePhotoCredit';
 import { appBannerMetadata } from '@/lib/app-discovery';
 import type { Metadata } from 'next';
 import { notFound, permanentRedirect } from 'next/navigation';
@@ -132,7 +134,7 @@ export default async function RiverGuidePage({ params }: Props) {
       .maybeSingle(),
     supabase
       .from('blog_posts')
-      .select('slug, title, description, featured_image_url')
+      .select('slug, river_slug, title, description, featured_image_url')
       .eq('river_slug', slug)
       .eq('status', 'published')
       .lte('published_at', new Date().toISOString())
@@ -202,6 +204,7 @@ export default async function RiverGuidePage({ params }: Props) {
 
   const conditionCode = condRowsResult?.data?.[0]?.condition_code || 'unknown';
   const guidePost = guideResult.data || null;
+  const guideImage = guidePost ? guideCover(guidePost) : null;
 
   // Centroid for JSON-LD
   let centroid: [number, number] | null = null;
@@ -552,12 +555,13 @@ export default async function RiverGuidePage({ params }: Props) {
                 href={`/blog/${guidePost.slug}`}
                 className="group block overflow-hidden rounded-2xl border border-neutral-200 bg-white hover:shadow-md hover:border-neutral-300 transition-all no-underline"
               >
-                {(guidePost.featured_image_url || heroImage) && (
+                {guideImage?.src && (
                   <div className="relative h-52 md:h-64 overflow-hidden bg-neutral-100">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
-                      src={guidePost.featured_image_url || heroImage || ''}
-                      alt={guidePost.title}
+                      src={guideImage.src}
+                      alt={guideImage.alt ?? guidePost.title}
+                      loading="lazy"
                       className="absolute inset-0 w-full h-full object-cover group-hover:scale-[1.02] transition-transform duration-slower"
                     />
                   </div>
@@ -575,6 +579,7 @@ export default async function RiverGuidePage({ params }: Props) {
                   </span>
                 </div>
               </Link>
+              <GuidePhotoCredit photo={guideImage?.photo} caption />
             </section>
           )}
           {/* The condition above is a claim about water, and the only people who

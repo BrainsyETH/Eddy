@@ -1,4 +1,8 @@
 import Link from 'next/link';
+import Image from 'next/image';
+import { optimizeBlogImage } from '@/lib/blog-image';
+import { guideCover, isGuidePlaceholder } from '@/lib/photos/guides';
+import GuidePhotoCredit from '@/components/blog/GuidePhotoCredit';
 import type { Metadata } from 'next';
 import { ArrowRight, BookOpen } from 'lucide-react';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -127,54 +131,55 @@ export default async function BlogPage() {
               {blogPosts.map((post) => {
                 const riverName = post.river_slug ? riverNames[post.river_slug] ?? null : null;
                 const displayTitle = stripRiverName(post.title, riverName);
+                const cover = guideCover(post);
                 return (
-                  <Link
-                    key={post.slug}
-                    href={`/blog/${post.slug}`}
-                    className="group flex flex-col overflow-hidden bg-white border-2 border-neutral-200 rounded-xl p-4 sm:p-6 shadow-sm
-                               hover:border-primary-400 hover:shadow-md transition-all no-underline"
-                  >
-                    {post.featured_image_url && (
-                      <div className="-mt-4 -mx-4 sm:-mt-6 sm:-mx-6 mb-4 rounded-t-xl overflow-hidden">
-                        <img
-                          src={post.featured_image_url}
-                          alt={riverName ?? post.title}
-                          loading="lazy"
-                          className="w-full h-40 object-cover"
-                        />
+                  <article key={post.slug} className="group flex flex-col overflow-hidden bg-white border-2 border-neutral-200 rounded-xl shadow-sm hover:border-primary-400 hover:shadow-md transition-all">
+                    <Link href={`/blog/${post.slug}`} className="flex flex-col flex-1 p-4 sm:p-6 no-underline">
+                      {cover.src && (
+                        <div className="relative h-44 -mt-4 -mx-4 sm:-mt-6 sm:-mx-6 mb-4 overflow-hidden bg-neutral-100">
+                          <Image
+                            src={cover.src}
+                            alt={cover.alt ?? riverName ?? post.title}
+                            fill
+                            sizes="(min-width: 1024px) 320px, (min-width: 768px) 50vw, 100vw"
+                            unoptimized={!optimizeBlogImage(cover.src)}
+                            className={isGuidePlaceholder(cover.src) ? 'object-contain p-3' : 'object-cover'}
+                          />
+                        </div>
+                      )}
+                      <div className="flex flex-wrap items-center gap-x-3 gap-y-2 mb-3">
+                        <span className="inline-flex max-w-full items-center justify-center px-3 py-1 rounded-full text-center text-xs leading-snug font-semibold bg-primary-100 text-primary-700">
+                          {riverName ?? post.category}
+                        </span>
+                        {post.read_time_minutes && (
+                          <span className="text-xs text-neutral-500">{post.read_time_minutes} min read</span>
+                        )}
+                        {post.published_at && (
+                          <time dateTime={post.published_at} className="text-xs text-neutral-500">
+                            {new Date(post.published_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                          </time>
+                        )}
                       </div>
-                    )}
-                    <div className="flex flex-wrap items-center gap-x-3 gap-y-2 mb-3">
-                      <span className="inline-flex max-w-full items-center justify-center px-3 py-1 rounded-full text-center text-xs leading-snug font-semibold bg-primary-100 text-primary-700">
-                        {riverName ?? post.category}
-                      </span>
-                      {post.read_time_minutes && (
-                        <span className="text-xs text-neutral-500">{post.read_time_minutes} min read</span>
+
+                      <h2 className="text-lg font-bold text-neutral-900 mb-2 group-hover:text-primary-700 transition-colors">
+                        {displayTitle}
+                      </h2>
+
+                      {post.description && (
+                        <p className="text-sm text-neutral-600 mb-4 line-clamp-2">{post.description}</p>
                       )}
-                      {post.published_at && (
-                        <time dateTime={post.published_at} className="text-xs text-neutral-500">
-                          {new Date(post.published_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
-                        </time>
-                      )}
-                    </div>
 
-                    <h2 className="text-lg font-bold text-neutral-900 mb-2 group-hover:text-primary-700 transition-colors">
-                      {displayTitle}
-                    </h2>
-
-                    {post.description && (
-                      <p className="text-sm text-neutral-600 mb-4 line-clamp-2">{post.description}</p>
-                    )}
-
-                    <div className="mt-auto pt-2 flex justify-center">
-                      <span
-                        className="inline-flex w-full sm:w-auto justify-center items-center gap-1.5 px-5 py-2.5 rounded-lg text-sm font-semibold text-white bg-accent-500 transition-colors group-hover:bg-accent-600"
-                      >
-                        View Guide
-                        <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-                      </span>
-                    </div>
-                  </Link>
+                      <div className="mt-auto pt-2 flex justify-center">
+                        <span
+                          className="inline-flex w-full sm:w-auto justify-center items-center gap-1.5 px-5 py-2.5 rounded-lg text-sm font-semibold text-white bg-accent-500 transition-colors group-hover:bg-accent-600"
+                        >
+                          View Guide
+                          <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                        </span>
+                      </div>
+                    </Link>
+                    {cover.photo && <div className="px-4 pb-4 sm:px-6 sm:pb-6 border-t border-neutral-100"><GuidePhotoCredit photo={cover.photo} caption /></div>}
+                  </article>
                 );
               })}
             </div>

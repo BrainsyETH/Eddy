@@ -1,6 +1,7 @@
 // src/app/api/rivers/[slug]/pois/route.ts
 // GET /api/rivers/[slug]/pois - Get points of interest for a river
 
+import { withReviewedPlacePhoto } from '@/lib/photos/reviewed';
 import { NextRequest, NextResponse } from 'next/server';
 import { cdnCacheHeaders } from '@/lib/api-utils';
 import { createClient } from '@/lib/supabase/server';
@@ -54,7 +55,7 @@ async function _GET(
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const formattedPois = (pois || []).map((poi: any) => {
       // images may be stored as JSON string — parse if needed
-      let images = poi.images || [];
+      let images = withReviewedPlacePhoto('points_of_interest', poi).images || [];
       if (typeof images === 'string') {
         try { images = JSON.parse(images); } catch { images = []; }
       }

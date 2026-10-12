@@ -1,3 +1,4 @@
+import { guideCover, resolveGuideHero, publicGuideImage } from '@/lib/photos/guides';
 import ArticleByline from '@/components/blog/ArticleByline';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
@@ -50,7 +51,15 @@ async function getBlogPost(slug: string): Promise<BlogPost | null> {
     return null;
   }
 
-  return post;
+  const cover = guideCover(post);
+  return {
+    ...post,
+    featured_image_url: cover.photo?.imageUrl ?? cover.src,
+    guide_data: post.guide_data?.hero ? {
+      ...post.guide_data,
+      hero: resolveGuideHero(post, post.guide_data.hero),
+    } : post.guide_data,
+  };
 }
 
 export async function generateMetadata(
@@ -111,7 +120,7 @@ export default async function BlogPostPage({
     description: post.description || undefined,
     datePublished: post.published_at || undefined,
     author: { '@type': 'Organization', name: 'Eddy', url: `${BASE_URL}/about` },
-    image: post.featured_image_url || undefined,
+    image: publicGuideImage(post.featured_image_url) || undefined,
     url: `${BASE_URL}/blog/${post.slug}`,
     publisher: {
       '@type': 'Organization',

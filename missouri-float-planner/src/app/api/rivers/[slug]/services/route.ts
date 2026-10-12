@@ -1,6 +1,7 @@
 // src/app/api/rivers/[slug]/services/route.ts
 // GET /api/rivers/[slug]/services - Get nearby services directory for a river
 
+import { withReviewedPlacePhoto } from '@/lib/photos/reviewed';
 import { NextRequest, NextResponse } from 'next/server';
 import { cdnCacheHeaders } from '@/lib/api-utils';
 import { createClient } from '@/lib/supabase/server';
@@ -140,7 +141,7 @@ async function _GET(
           feeRange: s.fee_range || null,
           seasonOpenMonth: s.season_open_month || null,
           seasonCloseMonth: s.season_close_month || null,
-          details: s.details || {},
+          details: withReviewedPlacePhoto('nearby_services', s).details || {},
           isPrimary: link.is_primary,
           sectionDescription: link.section_description,
           availability: availability.byNearbyServiceId.get(s.id) ?? null,

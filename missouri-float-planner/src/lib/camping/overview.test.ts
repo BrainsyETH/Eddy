@@ -346,3 +346,16 @@ test('service media preserves numbered-site and URL safeguards; valid NPS media 
   data.nps = [{ id: 'nps', name: 'Park', images: [{ url: 'https://example.com/nps.jpg' }] }];
   assert.equal(buildCampingOverview(data, now).tracked[0].imageUrl, 'https://example.com/nps.jpg');
 });
+
+test('Pulltite uses its reviewed campground photo when NPS only supplies a map', async () => {
+  const { reviewedPhotos } = await import('../photos/reviewed');
+  const photo = reviewedPhotos.find(p => p.name === 'Pulltite Campground')!;
+  const i = input();
+  i.services[0] = { ...i.services[0], id: photo.id, name: photo.name };
+  i.facilities[0].nearby_service_id = photo.id;
+  i.facilities[0].nps_campground_id = 'n';
+  i.nps = [{ id: 'n', name: photo.name, images: [{ url: 'https://www.nps.gov/map.jpg', title: 'Pulltite Map' }] }];
+  assert.equal(buildCampingOverview(i, now).tracked[0].imageUrl, photo.image.url);
+  i.nps[0].images = [{ url: 'https://www.nps.gov/new-overview.jpg', title: 'Campground overview' }];
+  assert.equal(buildCampingOverview(i, now).tracked[0].imageUrl, 'https://www.nps.gov/new-overview.jpg');
+});

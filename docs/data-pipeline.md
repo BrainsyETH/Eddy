@@ -44,11 +44,14 @@ happens *after* the pin check passes. Three values:
 
 ## Reviewed photo additions
 
-`scripts/backfill-reviewed-photos.ts` previews four exact-identity photo additions;
+`scripts/backfill-reviewed-photos.ts` previews five exact-identity photo additions;
 `--apply` uses the shared project guard, preserves existing photos and unrelated
 service details, checks concurrent updates, and reads every changed row back.
-Deploy the photo-credits page and image optimizer support first. No schema
-migration is required. See `missouri-float-planner/docs/photo-coverage-2026-10-04.md`.
+The reviewed catalog also supplies read-time fallbacks on public place surfaces,
+so these photos do not require a database write to appear. The optional backfill
+persists the same selections. Deploy the photo-credits page and image optimizer
+support first. No schema migration is required. See
+`docs/photo-coverage-2026-10-11.md` for the current coverage and remaining gaps. See `missouri-float-planner/docs/photo-coverage-2026-10-04.md`.
 
 ## Reviewed spring repairs
 

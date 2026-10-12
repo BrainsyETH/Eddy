@@ -4,6 +4,7 @@
 // band, and an embed CTA. Visual brand (white/coral/Fredoka/otter) is
 // unchanged; only the section structure was reworked.
 
+import GuidePhotoCredit from '@/components/blog/GuidePhotoCredit';
 import type { Metadata } from 'next';
 import Image from 'next/image';
 import Link from 'next/link';
@@ -215,6 +216,7 @@ export default async function Home() {
             })}
           </div>
         </div>
+        {FEATURED_RIVER_SLUGS.map(slug => <GuidePhotoCredit key={slug} photo={riverGuides[slug]?.photo} />)}
       </section>
 
       {/* ─── Embed CTA ─── */}

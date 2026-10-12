@@ -11,7 +11,7 @@ import test from 'node:test';
 import { imageUrl } from '../../../eddy-ios/src/lib/imageUrl';
 import { parseCampingSnapshot } from '../../../eddy-ios/src/lib/campingSnapshot';
 import { withinBudget } from './within-budget';
-import { reviewedPhotos, reviewedPhotoPatch, rowHasReviewedPhoto } from './photos/reviewed';
+import { reviewedPhotos, reviewedPhotoPatch, rowHasReviewedPhoto, withReviewedPlacePhoto } from './photos/reviewed';
 
 test('reviewed photo backfills accept encoded empty arrays and preserve existing photos', () => {
   const entry = reviewedPhotos.find(photo => photo.table === 'points_of_interest')!;
@@ -290,4 +290,22 @@ test('late saved camping dates extend a fresh short result and survive full-load
   assert.deepEqual(mergeCampingSnapshots(saved, short), result);
   const full = snapshot(90, '2026-10-03T12:01:00Z', '2026-10-03T12:00:00Z', 1);
   assert.equal(mergeCampingSnapshots(result, full), full);
+});
+
+
+test('read-time photos preserve originals and only fill reviewed exact places', () => {
+  const poi = reviewedPhotos.find(photo => photo.name === 'Jam Up Cave')!;
+  const empty = { id: poi.id, name: poi.name, nps_id: null, images: '[]' };
+  assert.deepEqual(withReviewedPlacePhoto('points_of_interest', empty).images, [poi.image]);
+  assert.equal(empty.images, '[]', 'database row is not mutated');
+  for (const row of [
+    { ...empty, name: 'Another cave' }, { ...empty, id: 'another-id' },
+    { ...empty, nps_id: 'provider-owned' }, { ...empty, nps_id: undefined },
+    { ...empty, images: 'malformed' },
+    { ...empty, images: JSON.stringify([{ url: 'https://example.com/editor.jpg' }]) },
+  ]) assert.equal(withReviewedPlacePhoto('points_of_interest', row), row);
+  assert.equal(withReviewedPlacePhoto('access_points', empty), empty);
+  const service = reviewedPhotos.find(photo => photo.table === 'nearby_services')!;
+  const row = { id: service.id, name: service.name, details: { notes: 'Preserve me', images: [] } };
+  assert.deepEqual(withReviewedPlacePhoto('nearby_services', row).details, { notes: 'Preserve me', images: [service.image] });
 });

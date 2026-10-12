@@ -13,20 +13,32 @@ export function RiverGuideCard({ guide, compact = false }: { guide: RiverGuideSu
     Alert.alert('Couldn’t open the guide', 'Please try again in a moment.');
   });
   return (
-    <Pressable onPress={() => void open()} accessibilityRole="link"
-      accessibilityLabel={`${guide.title}. Read the full guide on eddy.guide.`}
-      style={({ pressed }) => [styles.card, { backgroundColor: colors.card, borderColor: colors.border, opacity: pressed ? 0.75 : 1 }]}>
-      {!compact && guide.featuredImageUrl ? <ScenicImage source={{ uri: guide.featuredImageUrl }} imageWidth={750} style={styles.photo} accessibilityIgnoresInvertColors /> : null}
-      <View style={styles.copy}>
-        <Text style={[styles.eyebrow, { color: colors.interactive }]}>RIVER GUIDE{guide.readTimeMinutes ? ` · ${guide.readTimeMinutes} MIN READ` : ''}</Text>
-        <Text style={[styles.title, { color: colors.text }]}>{guide.title}</Text>
-        {!compact && guide.description ? <Text style={[styles.body, { color: colors.textMuted }]} numberOfLines={3}>{guide.description}</Text> : null}
-        <View style={styles.action}>
-          <Text style={[styles.link, { color: colors.interactive }]}>Read the guide</Text>
-          <ControlIcon name="open-outline" size={16} color={colors.interactive} />
+    <View style={styles.container}>
+      <Pressable onPress={() => void open()} accessibilityRole="link"
+        accessibilityLabel={`${guide.title}. Read the full guide on eddy.guide.`}
+        style={({ pressed }) => [styles.card, { backgroundColor: colors.card, borderColor: colors.border, opacity: pressed ? 0.75 : 1 }]}>
+        {!compact && guide.featuredImageUrl ? <ScenicImage source={{ uri: guide.featuredImageUrl }} imageWidth={750} style={styles.photo} accessibilityLabel={guide.featuredImageAlt ?? guide.title} accessibilityIgnoresInvertColors /> : null}
+        <View style={styles.copy}>
+          <Text style={[styles.eyebrow, { color: colors.interactive }]}>RIVER GUIDE{guide.readTimeMinutes ? ` · ${guide.readTimeMinutes} MIN READ` : ''}</Text>
+          <Text style={[styles.title, { color: colors.text }]}>{guide.title}</Text>
+          {!compact && guide.description ? <Text style={[styles.body, { color: colors.textMuted }]} numberOfLines={3}>{guide.description}</Text> : null}
+          <View style={styles.action}>
+            <Text style={[styles.link, { color: colors.interactive }]}>Read the guide</Text>
+            <ControlIcon name="open-outline" size={16} color={colors.interactive} />
+          </View>
         </View>
-      </View>
-    </Pressable>
+      </Pressable>
+      {!compact && guide.featuredImageUrl && guide.imageCredit ? (
+        <View style={styles.credit}>
+          <Text style={[styles.creditText, { color: colors.textMuted }]}>{guide.imageCredit.caption}</Text>
+          <Text style={[styles.creditText, { color: colors.textMuted }]}>
+            Photo: <Text accessibilityRole="link" style={{ color: colors.interactive, textDecorationLine: 'underline' }} onPress={() => void openExternalLink(guide.imageCredit!.sourceUrl)}>{guide.imageCredit.author}</Text>
+            {' · '}<Text accessibilityRole="link" style={{ color: colors.interactive, textDecorationLine: 'underline' }} onPress={() => void openExternalLink(guide.imageCredit!.licenseUrl)}>{guide.imageCredit.license}</Text>
+          </Text>
+          <Text style={[styles.creditText, { color: colors.textMuted }]}>{guide.imageCredit.changes}</Text>
+        </View>
+      ) : null}
+    </View>
   );
 }
 
@@ -38,7 +50,10 @@ export function RiverGuideLink({ riverSlug }: { riverSlug: string }) {
 }
 
 const styles = StyleSheet.create({
-  card: { borderWidth: 1, borderRadius: 18, overflow: 'hidden', marginBottom: 16 },
+  container: { marginBottom: 16 },
+  card: { borderWidth: 1, borderRadius: 18, overflow: 'hidden' },
+  credit: { paddingHorizontal: 12, paddingTop: 8, gap: 2 },
+  creditText: { ...t.xs, fontFamily: fonts.body },
   photo: { width: '100%', aspectRatio: 2 },
   copy: { padding: 16, gap: 8 },
   eyebrow: { ...t.xs, fontFamily: fonts.semibold, letterSpacing: 0.8 },

@@ -121,3 +121,46 @@ test('favorite-float copy omits an unverified difficulty instead of inventing a 
   const text = favoriteFloatMeta({ distanceMiles: 5, durationHours: null, durationFormatted: null, durationUnavailableReason: null, difficulty: '' });
   assert.equal(text, '5.0 mi · Open plan for float time');
 });
+
+test('reviewed guide photos replace only known placeholders on the exact guide', async () => {
+  const { guidePhotos, guideCover, resolveGuideHero, publicGuideImage } = await import('./photos/guides');
+  for (const photo of guidePhotos) {
+    const post = { slug: photo.postSlug, river_slug: photo.riverSlug, featured_image_url: sample.featured_image_url };
+    const cover = guideCover(post);
+    assert.equal(cover.src, photo.cardUrl);
+    assert.equal(cover.photo, photo);
+    assert.equal(publicGuideImage(cover.src), `https://eddy.guide${photo.cardUrl}`);
+    assert.equal(guideCover({ ...post, slug: 'another-article' }).photo, undefined);
+    assert.equal(guideCover({ ...post, river_slug: 'another-river' }).photo, undefined);
+    assert.equal(guideCover({ ...post, featured_image_url: 'https://example.com/editor.jpg' }).src, 'https://example.com/editor.jpg');
+    assert.equal(guideCover({ ...post, featured_image_url: 'https://example.com/editor.jpg' }).photo, undefined);
+    const hero = resolveGuideHero(post, { ...sample.guide_data.hero, photo_url: '' });
+    assert.equal(hero.photo_url, photo.imageUrl);
+    assert.equal(guidePhotoCredit(hero)?.source_url, photo.sourceUrl);
+    const edited = { ...hero, photo_url: 'https://example.com/editor.jpg' };
+    assert.equal(resolveGuideHero(post, edited), edited);
+    assert.equal(guidePhotoCredit(edited), undefined);
+  }
+  assert.equal(publicGuideImage('https://example.com/editor.jpg'), 'https://example.com/editor.jpg');
+  assert.equal(publicGuideImage(null), null);
+  assert.equal(guideCover({ slug: 'unknown', featured_image_url: null }).src, null);
+});
+
+test('every reviewed guide photo ships compact, readable images with source and license links', async () => {
+  const { guidePhotos } = await import('./photos/guides');
+  const { readFileSync } = await import('node:fs');
+  const sharp = (await import('sharp')).default;
+  assert.equal(new Set(guidePhotos.map(photo => photo.postSlug)).size, guidePhotos.length);
+  for (const photo of guidePhotos) {
+    assert.ok(photo.alt && photo.caption && photo.author && photo.license && photo.changes);
+    for (const url of [photo.originalUrl, photo.sourceUrl, photo.licenseUrl]) assert.equal(new URL(url).protocol, 'https:');
+    for (const [url, maxWidth, maxBytes] of [[photo.cardUrl, 640, 160000], [photo.imageUrl, 1400, 600000]] as const) {
+      assert.match(url, /^\/images\/river-guides\/[a-z-]+(?:-card)?\.webp$/);
+      const bytes = readFileSync(new URL(`../../public${url}`, import.meta.url));
+      const meta = await sharp(bytes).metadata();
+      assert.equal(meta.format, 'webp');
+      assert.ok(meta.width! <= maxWidth && meta.width! >= 300, photo.riverSlug);
+      assert.ok(bytes.length <= maxBytes, `${photo.riverSlug}: ${bytes.length} bytes`);
+    }
+  }
+});

@@ -11,7 +11,13 @@ James River is used under CC BY-SA 3.0 (https://creativecommons.org/licenses/by-
 
 The registry uses hosted image URLs. Network failures can still prevent a photo loading; every active river has a source, but images are editorial scenery rather than live-condition evidence. Original image downloads were blocked in the development environment; visual inspection of all new photo crops on device remains required.
 
-## River guide reuse review — October 2026
+## Original river guide seed review — October 2026
+
+This table records the original seed payload. The read-time guide-photo registry
+now supplies 12 credited local covers on the blog and guide cards, preserving
+editor overrides. It also replaces the historical St. Francis dam hero. See
+[the October 11 audit](photo-coverage-2026-10-11.md) for the current behavior and
+remaining gaps; the source seed payload and route-photo opt-out are unchanged.
 
 The October 11 guide batch does not assume that an image already used elsewhere
 in Eddy can be reused on every new surface. Credits below are stored with each

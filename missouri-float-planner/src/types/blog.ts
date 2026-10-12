@@ -13,6 +13,8 @@ export interface GuideHero {
   title_accent: string;
   lede: string;
   photo_url: string;
+  photo_alt?: string;
+  photo_caption?: string;
   photo_credit?: {
     image_url: string;
     author: string;

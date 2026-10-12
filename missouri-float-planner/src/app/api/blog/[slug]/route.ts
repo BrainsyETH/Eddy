@@ -1,6 +1,7 @@
 // src/app/api/blog/[slug]/route.ts
 // GET /api/blog/[slug] - Get single published blog post by slug
 
+import { guideCover, publicGuideImage } from '@/lib/photos/guides';
 import { NextRequest, NextResponse } from 'next/server';
 import { cdnCacheHeaders } from '@/lib/api-utils';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -39,6 +40,7 @@ async function _GET(
       );
     }
 
+    const cover = guideCover(data);
     const formatted = {
       id: data.id,
       slug: data.slug,
@@ -46,7 +48,13 @@ async function _GET(
       description: data.description,
       content: data.content,
       category: data.category,
-      featuredImageUrl: data.featured_image_url,
+      featuredImageUrl: publicGuideImage(cover.src),
+      featuredImageAlt: cover.alt ?? data.title,
+      imageCredit: cover.photo ? {
+        author: cover.photo.author, sourceUrl: cover.photo.sourceUrl,
+        license: cover.photo.license, licenseUrl: cover.photo.licenseUrl,
+        caption: cover.photo.caption, changes: cover.photo.changes,
+      } : null,
       ogImageUrl: data.og_image_url,
       metaKeywords: data.meta_keywords,
       readTimeMinutes: data.read_time_minutes,
