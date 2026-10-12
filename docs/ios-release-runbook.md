@@ -153,7 +153,8 @@ are pending checks, not evidence of a device pass.
       during a river float. It asks for location “Always” only when a float
       starts, so tracking continues with the phone locked in a dry bag; the
       blue location indicator shows while it runs, and tracking stops when the
-      float ends. Float positions stay on the device and are never sent.
+      float ends. Raw float positions stay on the device. Signed-in recap summaries
+      are backed up, and explicit hazard reports transmit their captured location.
 - [ ] **Permission states on a device:** Always, While Using (tracking pauses
       when locked, and the screen says so), Allow Once, Precise Location off
       (Float Mode says it cannot place you), denied. No prompt loops.
@@ -183,6 +184,38 @@ and device gates remain separate from the preparation fixes.
       one pending row in `community_reports`; a report far from the river →
       "Not accepted" with the server's reason. Pure rules:
       `src/lib/hazard-report-queue.test.ts`.
+
+### Float history and backup release gates — October 12, 2026
+
+Implementation in this branch; device verification and release status unconfirmed.
+See ADR 0012 for scope, consent, storage and measurement semantics.
+
+- [ ] Apply the reviewed `float_archive` migration to the intended environment;
+      verify the recorded version and move it from pending to applied in the
+      production ledger when appropriate. Run `make check-db` after applying.
+      Deploy the additive web API before distributing the new iOS binary.
+- [ ] Update and verify App Store Connect privacy answers and reviewer notes
+      from `docs/app-privacy-labels.md`. Publish the matching privacy policy.
+      The `app.json` permission-text change requires a **new binary**, not OTA.
+- [ ] On TestFlight, complete several real floats with a known moving interval,
+      a long stop, a GPS gap, locked-screen tracking, and an interrupted/restarted
+      app. Compare elapsed, moving, stopped and unobserved time to a written log.
+      Test an early end and a float longer than seven hours. Record evidence
+      before accepting these measurements for internal analysis.
+- [ ] Test guest recap → Apple sign-in → backup → reinstall/second device →
+      restore, including an existing Apple account with a different user ID.
+      Recover old saved routes as well as completed summaries. Verify offline
+      history and the explicit pending/error backup states.
+- [ ] Delete a trip offline, reconnect, then open an older second device. It
+      stays deleted. Delete the account with an active float and pending backup;
+      no local history, raw session or queued write restores the deleted data.
+- [ ] Confirm the sharing setting starts off; old trips are not enrolled when
+      enabled. Finish a new trip while on, review it in `/admin/float-contributions`,
+      disable sharing, and verify it disappears from future admin queries.
+      Repeat a withdrawal offline and confirm retry after reconnection.
+- [ ] Verify light/dark mode, large text and VoiceOver on history/recap/boat
+      selection. Explain a missing historical water reading without implying
+      current water. Public float estimates must remain unchanged by contributions.
 
 ### In-app web browser gates — October 11, 2026
 

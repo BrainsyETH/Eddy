@@ -27,9 +27,9 @@ export function createFloatActivityLifecycle(
       if (result === 'started') announce(store.get(), { start: true });
       return result;
     },
-    end() {
+    end(contributionVersion: string | null = null) {
       // end() clears memory synchronously; its result belongs to storage only.
-      const ended = store.end();
+      const ended = store.end(contributionVersion);
       announce(null, { force: true });
       return ended;
     },

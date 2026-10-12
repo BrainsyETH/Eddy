@@ -6,7 +6,7 @@ export type PlanDetailDestination =
   | { pathname: '/camping'; params: { facility: string; river: string; night: string } }
   | {
       pathname: '/float-start';
-      params: { riverSlug: string; putInId: string; takeOutId: string; shortCode?: string; plannerMph?: string };
+      params: { riverSlug: string; putInId: string; takeOutId: string; shortCode?: string; plannerMph?: string; boatType?: string };
     };
 
 export function planAccessDestination(

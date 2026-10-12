@@ -17,6 +17,10 @@ privacy policy, not by these labels.
 
 ## Summary
 
+Prepared for float-history/account-backup release, October 12, 2026. These are
+repository answers, not confirmation that App Store Connect has been updated.
+Apply and verify the questionnaire before the new binary is submitted.
+
 | Category | Collected | Linked to identity | Tracking |
 | --- | --- | --- | --- |
 | Contact Info → Email Address | Yes | Yes | No |
@@ -25,7 +29,7 @@ privacy policy, not by these labels.
 | User Content → Photos or Videos | Yes | Yes | No |
 | User Content → Other User Content | Yes | Yes | No |
 | Diagnostics → Crash Data | Yes | **No** | No |
-| Location | **Not collected** | — | — |
+| Location → Precise Location | Yes | Yes | No |
 | Identifiers → Device ID | See note below | — | No |
 | Everything else | Not collected | — | — |
 
@@ -54,9 +58,10 @@ Not used for tracking, not used for advertising, not sold.
 
 **Collected, linked to identity. Purpose: App Functionality.**
 
-The Supabase user id. Created anonymously on first launch and **upgraded in
-place** when someone signs in with Apple, so it is the same id before and after
-— nothing is migrated because nothing moves.
+The Supabase user id. An anonymous account is created on first launch. Linking
+a new Apple identity upgrades it in place; signing into an existing Apple-linked
+account can switch user ids. Guest float history is adopted into the signed-in
+account. Its opt-in summaries are used for Analytics as well as App Functionality.
 
 The same id is RevenueCat's `appUserID` (`src/lib/purchases.ts`), which is why
 purchases require a signed-in account: an entitlement bought under an anonymous
@@ -104,8 +109,16 @@ Two facts worth having ready for review:
 **Collected, linked to identity. Purpose: App Functionality.**
 
 Feedback message text, photo descriptions and optional submitter name, manual
-gauge readings, and the float plans / favorites / alert rules synced to
-`/api/me/*` for signed-in users.
+gauge readings, favorites, alert rules, and private saved-route collections and
+completed-float summaries synced through `/api/me/float-archive` for signed-in
+users. Shared plan links use `/api/plan/save` and remain a separate feature.
+
+Completed summaries include the route, date/times, boat type if supplied,
+tracked distance, moving/stopped/unobserved time, pace, arrival status and a
+historical gauge reading when available. **Purposes: App Functionality and,
+for trips contributed with the optional setting, Analytics.** Contributions
+remain account linked; do not label them anonymous. The setting defaults off,
+affects newly completed floats, and can be withdrawn without losing backup.
 
 ## Diagnostics → Crash Data
 
@@ -127,30 +140,35 @@ never is), which contradicted the "not linked to identity" answer above. A
 truncated prefix still answers "did the id change" and gives the backend
 something to search on without being an account identifier.
 
-## Location — **not collected**
+## Location → Precise Location
 
-This is the answer most worth being able to defend, because the app does ask for
-location permission. The chain:
+**Collected, linked to identity. Purposes: App Functionality; Analytics for
+opted-in completed-float summaries. No tracking.**
 
-1. **It never leaves the device.** `src/hooks/useLocation.ts` resolves a
-   position and uses it on-device to sort put-ins nearest-first and to sort
-   search results by distance. Nothing posts it. The permission string says so.
-2. **It is only ever requested on an explicit tap** — the locate button on the
-   map, the compass in the search field. Never on launch.
-3. **No background location.** `isIosBackgroundLocationEnabled: false`, no
-   background modes, and the `NSLocationAlwaysAndWhenInUse` string has been
-   removed from `app.json` because nothing requests Always authorization.
-4. **Mapbox telemetry is off.** `Mapbox.setTelemetryEnabled(false)` runs in
-   `src/map/runtime.ts` before any map view mounts. Without this, the Mapbox SDK
-   would collect its own location-adjacent telemetry by default and this answer
-   would be wrong.
-5. **Coordinates are redacted from crash reports** (see Diagnostics), so they
-   cannot reach Sentry inside an error message either.
+- Nearby sorting and Float Mode use GPS on the device. Float Mode requests
+  foreground permission when started and offers Always permission for tracking
+  while locked. `app.json` enables background location. Ending stops tracking.
+- Raw Float Mode positions, pace samples, tracker state and the river-line copy
+  stay on the phone and are removed when ending is durably saved. The account
+  backup contains a summary, including route endpoints and first/last river mile
+  with exact times. A route and mile can locate someone precisely even without
+  uploading latitude/longitude. Treat these summaries as linked location data.
+- Hazard reports (`src/lib/hazardReportQueue.ts`) transmit the captured GPS
+  location, accuracy and time to `/api/reports` following an explicit report.
+  That request is currently unauthenticated: do not claim this path itself is
+  account linked. It still collects precise location; optional submission is
+  not a blanket exemption from disclosure.
+- Local weather sends coordinates rounded to 0.05 degrees to Eddy. It does not
+  send Float Mode's position trace. Check retention of request/security logs
+  when completing Apple's separate Coarse Location question.
+- Mapbox telemetry is disabled in `src/map/runtime.ts`. Tile requests still
+  disclose IP address and viewport to Mapbox. Diagnostic scrubbing redacts
+  coordinates before sending events to Sentry.
 
-What Mapbox does still receive is the **IP address and map viewport** of any
-tile request, which approximates a location the way any web request does. That
-is disclosed in the privacy policy under Service Providers. It is not
-app-collected location data.
+Backup is authenticated and serves app functionality. The contribution setting
+permits internal analysis of the same records; it creates no separate upload
+and does not share trips with outfitters or advertising networks. No ATT prompt
+is introduced by these features.
 
 ---
 
@@ -170,13 +188,23 @@ app-collected location data.
 > makes Restore Purchases work across reinstalls and devices. Restore Purchases
 > is available on the paywall and in Profile.
 >
-> **Location is only ever requested on an explicit tap** — the locate button on
-> the map or the compass in the search field — never on launch. Coordinates are
-> used on the device to sort nearby put-ins and are never transmitted to our
-> servers.
+> **Location is requested in context, never on launch.** Float Mode uses
+> location to show progress to a chosen take-out. Always permission lets it
+> continue while the phone is locked in a dry bag; ending a float stops tracking.
+> Raw float positions stay on the phone. Signed-in users back up trip summaries,
+> including route and times, and can optionally contribute them to improve
+> estimates. Hazard reports send the location and time of the submitted hazard;
+> weather requests send rounded coordinates.
+>
+> **Float history is under Floats › Float history & backup.** A recap is saved
+> when a float ends, works locally without an account, and is recoverable after
+> Apple sign-in when backed up. Delete a recap from its detail screen. The
+> estimate-improvement setting defaults off and is independent of backup.
+> For review, confirm that the Float Mode server flag is enabled for this build.
 >
 > **Account deletion is in the app**: Profile › Delete account. It takes effect
-> immediately and removes the account, saved floats, favorites, alert rules, and
+> immediately and removes the account, private saved floats, float history,
+> contribution preference, favorites, alert rules, and
 > registered devices. The screen states that it does not cancel an active
 > subscription, since Apple manages billing.
 >
@@ -195,7 +223,8 @@ app-collected location data.
 
 Any of these changes the answers above:
 
-- Adding an analytics or advertising SDK (would likely make Tracking "Yes").
+- Adding analytics or advertising, or sharing data across companies; reassess
+  collection, purposes and Apple’s tracking definition for the actual flow.
 - Sending a coordinate to any server, for any reason.
 - Calling `Sentry.setUser`, or enabling `sendDefaultPii` / tracing.
 - Requesting Always location or adding a background mode.

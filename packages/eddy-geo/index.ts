@@ -470,3 +470,5 @@ export function navCoordinatesFor(accessPoint: {
 // Pure, and covered by missouri-float-planner/src/lib/river-progress.test.ts.
 export * from './river-progress';
 export * from './float-pace';
+
+export * from './float-totals';

@@ -59,7 +59,7 @@ interface SessionValue {
    */
   accountsConfigured: boolean;
   /** A fresh access token, or null. Refreshes if the cached one has expired. */
-  getAccessToken: () => Promise<string | null>;
+  getAccessToken: (expectedUserId?: string) => Promise<string | null>;
   /**
    * True while the session belongs to an anonymous user — someone who has
    * stars but no account. Purchases and push both require this to be false.
@@ -156,7 +156,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
-  const getAccessToken = useCallback(async () => {
+  const getAccessToken = useCallback(async (expectedUserId?: string) => {
     const supabase = getSupabase();
     if (!supabase) return null;
     try {
@@ -164,6 +164,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       // this is preferred over reading session.access_token from state, which
       // can be stale after a long backgrounding.
       const { data } = await supabase.auth.getSession();
+      if (expectedUserId && data.session?.user.id !== expectedUserId) return null;
       return data.session?.access_token ?? null;
     } catch {
       return null;

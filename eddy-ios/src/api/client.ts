@@ -2505,3 +2505,30 @@ export function fetchFloatSearch(input: import('@eddy/conditions/float-search').
 export function fetchFloatSearchPlaces(query: string, signal?: AbortSignal) {
   return floatSearchPost<{ places: import('@eddy/conditions/float-search').FloatSearchPlace[] }>('/api/float-search/places', { query }, signal);
 }
+
+/** Private trip backup; no request cache and no raw tracking positions. */
+export async function readFloatArchive(token: string) {
+  const rows: import('@eddy/conditions/float-archive').ArchiveRow[] = [];
+  let cursor: string | null = null;
+  let preference: import('@eddy/conditions/float-archive').ContributionPreference = { enabled:false, version:null };
+  do {
+    const page: { rows:import('@eddy/conditions/float-archive').ArchiveRow[]; nextCursor:string | null; preference:import('@eddy/conditions/float-archive').ContributionPreference } | null = await authed(
+      `/api/me/float-archive${cursor ? `?cursor=${encodeURIComponent(cursor)}` : ''}`, token);
+    if (!page) throw new Error('Sign in again to load float backup.');
+    rows.push(...page.rows); preference = page.preference; cursor = page.nextCursor;
+  } while (cursor);
+  return { rows, preference };
+}
+export async function writeFloatArchive(token: string, rows: import('@eddy/conditions/float-archive').ArchiveRow[]) {
+  const result = await authed('/api/me/float-archive',token,{ method:'POST', body:{ rows: rows.map(row => {
+    if (row.kind !== 'completed' || !row.payload) return row;
+    const { water: _water, ...payload } = row.payload as import('@eddy/conditions/float-archive').CompletedFloat;
+    return { ...row, payload };
+  }) } });
+  if (!result) throw new Error('Sign in again to back up floats.');
+}
+export async function setFloatContribution(token: string, enabled: boolean) {
+  const result = await authed<import('@eddy/conditions/float-archive').ContributionPreference>('/api/me/float-archive',token,{ method:'PATCH', body:{ enabled } });
+  if (!result) throw new Error('Sign in again to change sharing.');
+  return result;
+}

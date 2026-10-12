@@ -26,7 +26,7 @@ export default function PrivacyPage() {
           >
             Privacy Policy
           </h1>
-          <p className="text-white/80">Last updated: October 6, 2026</p>
+          <p className="text-white/80">Last updated: October 12, 2026</p>
         </div>
       </section>
 
@@ -57,8 +57,7 @@ export default function PrivacyPage() {
               <strong>Anonymous app accounts.</strong> When you first open the mobile app, Eddy
               creates an anonymous account so saved rivers can be stored and restored. It
               consists of a randomly generated identifier and a timestamp. It contains no email
-              address, name, or password, and you are not asked to sign up. If you later sign in
-              with Apple, that same identifier is reused rather than replaced.
+              address, name, or password, and you are not asked to sign up. Sign in with Apple provides a recoverable identity across devices; signing into an existing Apple-linked account may replace the anonymous identifier.
             </li>
             <li>
               <strong>Sign in with Apple.</strong> If you choose to sign in, Apple provides a
@@ -85,16 +84,33 @@ export default function PrivacyPage() {
             <li>
               <strong>Precise location in the app.</strong> If you allow it, the app may use your
               device&apos;s location to show where you are relative to a river. Precise location is used
-              on the device for map and distance features. For local weather, the app sends
+              on the device for map and distance features. During an active float, background location can keep progress working while your phone is locked; ending the float stops tracking. For local weather, the app sends
               coordinates rounded to 0.05 degrees to Eddy&apos;s forecast endpoint. Location
               is not shared with third parties for advertising. You can decline, and the app remains usable;
               you can revoke the permission at any time in iOS Settings.
             </li>
             <li>
+              <strong>Float history and account backup.</strong> Ending a float saves a recap
+              on your phone. When signed in with Apple, Eddy backs up your saved routes and
+              completed summaries so you can recover them. Summaries include route endpoints,
+              first and last tracked river mile, date and times, boat type if supplied, tracked
+              distance, moving, stopped and unobserved time, pace, and a historical water reading
+              when available. These records are linked to your account. Raw Float Mode GPS
+              positions and traces are not uploaded.
+            </li>
+            <li>
+              <strong>Helping improve estimates.</strong> An optional setting under Floats
+              &rsaquo; Float history &amp; backup lets Eddy study summaries of floats you finish
+              while sharing is enabled. It is off by default. Turning it off excludes your
+              trips from future analysis without removing your backup. Setting changes need
+              a connection; the app retries a pending withdrawal. We do not provide these
+              trips to outfitters or use them for advertising.
+            </li>
+            <li>
               <strong>On-device storage.</strong> River data (access points, hazards, courses,
               and last known readings), saved rivers, and app preferences are stored on your
               device so the app works without a signal. You can clear the river data at any time
-              from Profile &rsaquo; Storage, and deleting the app removes everything.
+              from Profile &rsaquo; Storage, Deleting the app removes its local data; account backups require separate deletion. Authentication credentials may remain in the iOS Keychain.
             </li>
             <li>
               <strong>Feedback and correspondence.</strong> Email address (required when you
@@ -114,7 +130,7 @@ export default function PrivacyPage() {
             <li>
               <strong>Community reports and photos.</strong> Report type, description, river
               and coordinates, optional display name, selected access/gauge context, and an
-              uploaded photo. Uploaded photos are held privately for review and only become
+              uploaded photo. In-app hazard reports send your captured GPS position, accuracy and capture time when you choose to submit the report. Uploaded photos are held privately for review and only become
               publicly visible if a moderator approves the report; rejected photos are
               deleted from storage. Eddy decodes and re-encodes community photos before
               storage to remove embedded camera metadata, including EXIF location metadata.
@@ -187,6 +203,11 @@ export default function PrivacyPage() {
             Subscription information is kept until you unsubscribe or request deletion. Feedback,
             correspondence, security logs, and community reports are retained while needed to
             respond, moderate, maintain an audit trail, prevent abuse, and meet legal obligations.
+            Private float summaries and saved-route collections remain until you delete
+            the trip or account. Deletion removes the private record from future estimate
+            analysis. A minimal deletion marker without the trip content prevents an older
+            device from restoring a deleted record; account deletion removes the marker too.
+            Deleting a private saved route does not revoke a previously shared public plan link.
             Shared plans remain available while their links are supported. Approved community
             content and its display name, description, river location, and photo may be public.
             You can delete a guest account and its saved data using Delete my data in the app.

@@ -21,6 +21,7 @@ import * as Location from 'expo-location';
 import { milesBetween } from '@eddy/geo';
 import type { RiverListItem } from '@eddy/types';
 import { ControlIcon } from '@/components/ControlIcon';
+import { useFloatArchive } from '@/hooks/useFloatArchive';
 import { useFloatSession } from '@/hooks/useFloatSession';
 import { useFloatStartLocation } from '@/hooks/useFloatStartLocation';
 import { loadFloatRoute, routeProblemCopy, type LoadedRoute } from '@/float/loadFloatRoute';
@@ -46,6 +47,7 @@ type Params = {
   takeOutId?: string;
   shortCode?: string;
   plannerMph?: string;
+  boatType?: string;
   step?: 'takeout' | 'summary' | 'background';
   startKey?: string;
   sessionId?: string;
@@ -81,9 +83,11 @@ function StartFlow({ params }: { params: Params }) {
   const route = useNavigationRoute();
   const location = useFloatStartLocation();
   const [sessionId] = useState(() => params.sessionId ?? newSessionId());
+  const [boatType,setBoatType] = useState<string | null>(params.boatType ?? null);
   const startKey = params.startKey ?? route.key;
   const loaded = useRiverRoute(params.riverSlug, params.shortCode ?? params.sessionId);
-  const nextParams = { ...params, sessionId, startKey };
+  const nextParams = { ...params, sessionId, startKey, boatType:boatType ?? undefined,
+    plannerMph:boatType === (params.boatType ?? null) ? params.plannerMph : undefined };
   const start = useStart(nextParams, loaded, location);
   const saved = Boolean(params.putInId && params.takeOutId);
   const summary = saved || params.step === 'summary' || params.step === 'background';
@@ -225,7 +229,7 @@ function StartFlow({ params }: { params: Params }) {
   const startMile = preview.session.putIn?.riverMile ?? located?.riverMile;
   const miles = startMile != null ? preview.session.takeOut.riverMile - startMile : null;
   const upstream = !saved && miles != null && miles <= 0;
-  const plannerMph = Number(params.plannerMph);
+  const plannerMph = Number(nextParams.plannerMph);
   const minutes =
     saved && miles != null && miles > 0 && Number.isFinite(plannerMph) && plannerMph > 0
       ? Math.max(5, Math.round(((miles / plannerMph) * 60) / 5) * 5)
@@ -284,6 +288,10 @@ function StartFlow({ params }: { params: Params }) {
             toId={takeOut.id}
           />
         ) : null}
+        <BoatChoice value={boatType} onChange={setBoatType} />
+        <Text style={[styles.caption,{ color:colors.textMuted }]}>
+          Raw float positions stay on this phone. Ending saves a recap; signed-in recaps are backed up to your account.
+        </Text>
         {location.state !== 'ready' ? (
           <LocationGate location={location} summary />
         ) : (
@@ -309,6 +317,20 @@ function StartFlow({ params }: { params: Params }) {
       </Shell>
     </>
   );
+}
+
+function BoatChoice({ value,onChange }: { value:string | null; onChange:(value:string | null) => void }) {
+  const { colors } = useTheme();
+  return <View style={{ gap:8 }}>
+    <Text style={[styles.body,{ color:colors.text }]}>Boat type (optional)</Text>
+    <View style={{ flexDirection:'row',flexWrap:'wrap',gap:8 }}>
+      {[['canoe','Canoe'],['kayak','Kayak'],['raft','Raft'],['tube','Tube'],['sup','Paddleboard']].map(([id,label]) =>
+        <Pressable key={id} accessibilityRole="button" accessibilityState={{ selected:value === id }}
+          onPress={() => onChange(value === id ? null : id)} style={{ padding:12,borderWidth:1,borderRadius:12,borderColor:value === id ? colors.interactive : colors.border }}>
+          <Text style={[styles.body,{ color:value === id ? colors.interactive : colors.text }]}>{label}</Text>
+        </Pressable>)}
+    </View>
+  </View>;
 }
 
 function RiverPicker({ location, onChoose }: { location: StartLocation; onChoose: (slug: string) => void }) {
@@ -543,6 +565,7 @@ function BackgroundStep({
 }
 
 function useStart(params: Params, loaded: LoadedRoute | null, location: StartLocation) {
+  const archive = useFloatArchive();
   const router = useRouter();
   const navigation = useNavigation();
   const [busy, setBusy] = useState(false);
@@ -563,6 +586,7 @@ function useStart(params: Params, loaded: LoadedRoute | null, location: StartLoc
     setBusy(true);
     setError(null);
     try {
+      if (!archive.ready) { setError('Your float history is still loading. Please try again in a moment.'); return; }
       const foreground = await Location.getForegroundPermissionsAsync();
       const services = await Location.hasServicesEnabledAsync();
       if (!focused.current) return;
@@ -621,6 +645,7 @@ function useStart(params: Params, loaded: LoadedRoute | null, location: StartLoc
         putInId: params.putInId,
         takeOutId: params.takeOutId ?? '',
         plannerMph: saved && Number.isFinite(speed) && speed > 0 ? speed : null,
+        boatType:params.boatType ?? null,
         now: Date.now(),
       });
       if (!made.ok) {

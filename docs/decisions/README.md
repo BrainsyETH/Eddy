@@ -18,3 +18,4 @@ successor), `historical` (context only), `open` (recorded but not yet decided).
 | [0009](0009-model-choice-is-allowlisted-runtime-config.md) | Model choice is runtime config, bounded by a code-side allowlist | active |
 | [0010](0010-hydrograph-gridlines-and-export-belong-to-an-expanded-mode.md) | Hydrograph gridlines and data export wait for an expanded chart mode | open |
 | [0011](0011-float-mode-offline-maps-use-tile-regions.md) | Float Mode offline maps are Mapbox tile regions along the route, with a river-only fallback | active |
+| [0012](0012-float-history-account-backup.md) | Float history, account backup and optional contribution use one private summary archive | active |
