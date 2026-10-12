@@ -230,6 +230,13 @@ See ADR 0012 for scope, consent, storage and measurement semantics.
       restore, including an existing Apple account with a different user ID.
       Recover old saved routes as well as completed summaries. Verify offline
       history and the explicit pending/error backup states.
+- [ ] Exercise corrupt current and legacy local history: a recovery copy remains,
+      Float Mode can start, and cloud history restores. Check temporary read/write
+      failures retry without resetting valid data. Refuse one trip in a backup
+      larger than 20 rows: later trips and restores continue, the refused trip
+      stays visible, and manual retry works. Verify a missing endpoint shows
+      temporary unavailability and network retries back off. During the real-float
+      stop test, confirm stationary GPS drift does not accumulate tracked miles.
 - [ ] Delete a trip offline, reconnect, then open an older second device. It
       stays deleted. Delete the account with an active float and pending backup;
       no local history, raw session or queued write restores the deleted data.

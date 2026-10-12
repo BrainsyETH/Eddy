@@ -3,9 +3,8 @@ import { jsonPrivate } from '@/lib/api-utils';
 import { requirePermanentUser } from '@/lib/supabase/request';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { rateLimit } from '@/lib/rate-limit';
-import { waterAtStart } from '@/lib/float-archive/water';
-import type { CompletedFloat } from '@shared/float-archive';
-import { archiveBatch } from '@/lib/float-archive/validation';
+import { archiveEnvelope } from '@/lib/float-archive/validation';
+import { writeArchiveBatch } from '@/lib/float-archive/write';
 
 export const dynamic = 'force-dynamic';
 async function authorize(request: NextRequest) {
@@ -62,25 +61,11 @@ export async function POST(request: NextRequest) {
     } catch {
       return jsonPrivate({ error: 'Invalid JSON' }, { status: 400 });
     }
-    const parsed = archiveBatch.safeParse(body);
-    if (!parsed.success) return jsonPrivate({ error: 'Invalid float summary' }, { status: 400 });
+    const parsed = archiveEnvelope.safeParse(body);
+    if (!parsed.success) return jsonPrivate({ error: 'Invalid backup request' }, { status: 400 });
     const admin = createAdminClient(AbortSignal.timeout(12000));
-    const rows = await Promise.all(
-      parsed.data.rows.map(async (row) =>
-        row.kind === 'completed' && !row.deleted
-          ? {
-              ...row,
-              payload: {
-                ...(row.payload as CompletedFloat),
-                water: await waterAtStart(admin, row.payload as CompletedFloat),
-              },
-            }
-          : row,
-      ),
-    );
-    const { error } = await createAdminClient().rpc('write_float_archive', { p_user: auth.user.id, p_rows: rows });
-    if (error) throw new Error('Archive write failed');
-    return jsonPrivate({ ok: true });
+    const results = await writeArchiveBatch(admin, auth.user.id, parsed.data.rows);
+    return jsonPrivate({ ok: true, results });
   } catch {
     return jsonPrivate({ error: 'Could not back up floats. Please retry.' }, { status: 503 });
   }

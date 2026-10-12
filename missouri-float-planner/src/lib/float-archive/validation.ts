@@ -65,28 +65,24 @@ const saved = z
     photoUrl: z.string().url().max(2048).optional(),
   })
   .strict();
-export const archiveBatch = z
+export const archiveRow = z
   .object({
-    rows: z
-      .array(
-        z
-          .object({
-            id,
-            kind: z.enum(['saved', 'completed']),
-            deleted: z.boolean(),
-            contributionVersion: z.string().uuid().nullable(),
-            payload: z.unknown(),
-          })
-          .strict()
-          .superRefine((row, ctx) => {
-            const valid = row.deleted
-              ? row.payload === null
-              : row.kind === 'completed'
-                ? completed.safeParse(row.payload).success && (row.payload as { id: string }).id === row.id
-                : saved.safeParse(row.payload).success;
-            if (!valid) ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Invalid trip summary' });
-          }),
-      )
-      .max(20),
+    id,
+    kind: z.enum(['saved', 'completed']),
+    deleted: z.boolean(),
+    contributionVersion: z.string().uuid().nullable(),
+    payload: z.unknown(),
   })
-  .strict();
+  .strict()
+  .superRefine((row, ctx) => {
+    const valid = row.deleted
+      ? row.payload === null
+      : row.kind === 'completed'
+        ? completed.safeParse(row.payload).success && (row.payload as { id: string }).id === row.id
+        : saved.safeParse(row.payload).success;
+    if (!valid) ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Invalid trip summary' });
+  });
+
+/** Bound the envelope; individual rows are validated without blocking their neighbours. */
+export const archiveEnvelope = z.object({ rows: z.array(z.unknown()).max(20) }).strict();
+export const archiveBatch = z.object({ rows: z.array(archiveRow).max(20) }).strict();

@@ -3,12 +3,14 @@ import test from 'node:test';
 import { readFileSync, readdirSync } from 'node:fs';
 import { PGlite } from '@electric-sql/pglite';
 import { accumulateFloat, EMPTY_FLOAT_TOTALS, finishFloatTotals, movingPace, type PaceSample } from '@eddy/geo';
-import { createFloatArchive, ARCHIVE_KEY, type ArchiveTransport } from '../../../eddy-ios/src/lib/floatArchiveCore';
+import { createFloatArchive, ARCHIVE_KEY, ARCHIVE_RECOVERY_KEY, type ArchiveTransport } from '../../../eddy-ios/src/lib/floatArchiveCore';
 import { recapFloat } from '../../../eddy-ios/src/lib/floatRecap';
 import { createFloatSessionStore, ENDED_KEY, STORAGE_KEY } from '../../../eddy-ios/src/lib/floatSessionStoreCore';
 import { routeFromRiver, startSession } from '../../../eddy-ios/src/lib/floatSession';
 import type { ArchiveRow, CompletedFloat } from '@shared/float-archive';
 import { archiveBatch } from './float-archive/validation';
+import { writeArchiveBatch } from './float-archive/write';
+import type { SupabaseClient } from '@supabase/supabase-js';
 import { calculateTripDuration } from './calculations/trip-duration';
 
 function disk() {
@@ -63,6 +65,7 @@ function server() {
     },
     async write(batch) {
       for (const row of batch) if (!rows.get(row.id)?.deleted) rows.set(row.id, { ...row });
+      return batch.map(() => ({ status: 'accepted' as const }));
     },
     async consent(enabled) {
       preference = { enabled, version };
@@ -156,6 +159,98 @@ test('recap has no trace, and a legacy session is unknown instead of inferred fr
   assert.equal(trip.distanceMiles, 0);
   for (const field of ['route', 'samples', 'position', 'track', 'coordinates']) assert.ok(!(field in trip));
   assert.equal(trip.reachedTakeOut, false);
+});
+
+test('confirmed stops add no GPS wobble distance; movement, upstream travel and gaps remain distinct', () => {
+  let totals = { ...EMPTY_FLOAT_TOTALS };
+  for (let i = 0; i <= 360; i++)
+    totals = accumulateFloat(totals, { timestamp: i * 10000, riverMile: i % 2 ? 0.003 : 0, continuous: i > 0 });
+  const stopped = finishFloatTotals(totals, 3600000);
+  assert.equal(stopped.distanceMiles, 0);
+  assert.equal(stopped.movingMs, 0);
+  assert.equal(stopped.stoppedMs, 3600000);
+  // A continuity break closes the stop; no miles are invented across that gap.
+  totals = accumulateFloat(totals, { timestamp: 3700000, riverMile: 10, continuous: false });
+  for (let i = 1; i <= 30; i++) {
+    const sample = { timestamp: 3700000 + i * 10000, riverMile: 10 + i * 0.01, continuous: true };
+    const restored = accumulateFloat(JSON.parse(JSON.stringify(totals)), sample);
+    totals = accumulateFloat(totals, sample);
+    assert.deepEqual(restored, totals, 'pending distance survives a restart');
+  }
+  for (let i = 1; i <= 10; i++)
+    totals = accumulateFloat(totals, { timestamp: 4000000 + i * 10000, riverMile: 10.3 - i * 0.01, continuous: true });
+  totals = accumulateFloat(totals, { timestamp: 4200000, riverMile: 20, continuous: false });
+  const final = finishFloatTotals(totals, 4200000);
+  assert.ok(Math.abs(final.distanceMiles - 0.4) < 1e-9, 'downstream and upstream movement count; gap and stop do not');
+  assert.equal(final.stoppedMs, 3600000);
+  assert.equal(final.movingMs, 400000);
+  assert.equal(final.unknownMs, 200000);
+});
+
+test('corrupt current and legacy history is copied before recovery, and cloud history can still restore', async () => {
+  for (const [key, raw] of [
+    [ARCHIVE_KEY, '{broken'],
+    [ARCHIVE_KEY, JSON.stringify({ version: 1, owner: 'A', guestKey: 'guest', accounts: { A: { rows: null } } })],
+    ['eddy.savedFloats.v1', '{broken legacy'],
+    ['eddy.savedFloats.v1', JSON.stringify([null])],
+  ]) {
+    const storage = disk();
+    storage.data.set(key, raw);
+    const local = createFloatArchive(storage);
+    await local.select('guest');
+    assert.equal(local.snapshot().ready, true);
+    assert.equal(local.snapshot().recovered, true);
+    assert.deepEqual(JSON.parse(storage.data.get(ARCHIVE_RECOVERY_KEY)!), [{ source: key, raw }]);
+    await local.addCompleted(summary('new'));
+    const restarted = createFloatArchive(storage);
+    await restarted.select('A');
+    const remote = server();
+    await remote.api.write([{ id: 'restored', kind: 'completed', payload: summary('restored'), deleted: false, contributionVersion: null }]);
+    await restarted.sync('A', remote.api);
+    assert.deepEqual(restarted.snapshot().rows.map((r) => r.id).sort(), ['new', 'restored']);
+    assert.equal(restarted.snapshot().recovered, true);
+    await restarted.remove('new', 'A');
+    assert.equal(storage.data.has(ARCHIVE_RECOVERY_KEY), false, 'deleting a trip also removes unreadable copies');
+    assert.equal(restarted.snapshot().recovered, false);
+  }
+});
+
+test('recovery never overwrites data if preservation fails, and temporary read errors can retry', async () => {
+  const storage = disk();
+  storage.data.set(ARCHIVE_KEY, '{original');
+  storage.fail = true;
+  const local = createFloatArchive(storage);
+  await assert.rejects(local.select('guest'), /full/);
+  assert.equal(local.snapshot().ready, false);
+  assert.equal(storage.data.get(ARCHIVE_KEY), '{original');
+  storage.fail = false;
+  await local.select('guest');
+  await local.addCompleted(summary());
+  const valid = storage.data.get(ARCHIVE_KEY);
+  let unavailable = true;
+  const restarted = createFloatArchive({ ...storage, getItem: async (key) => {
+    if (unavailable) throw new Error('temporarily unavailable');
+    return storage.getItem(key);
+  } });
+  await assert.rejects(restarted.select('guest'), /temporarily unavailable/);
+  assert.equal(storage.data.get(ARCHIVE_KEY), valid);
+  unavailable = false;
+  await restarted.select('guest');
+  assert.equal(restarted.snapshot().rows[0].id, 'trip');
+  await restarted.clear('guest');
+  assert.equal(storage.data.has(ARCHIVE_RECOVERY_KEY), false);
+  storage.data.set(ARCHIVE_KEY, JSON.stringify({ version: 2 }));
+  await assert.rejects(createFloatArchive(storage).select('guest'), /Update Eddy/);
+  assert.equal(storage.data.get(ARCHIVE_KEY), JSON.stringify({ version: 2 }));
+});
+
+test('later corruption preserves earlier recovery copies instead of overwriting them', async () => {
+  const storage = disk();
+  storage.data.set(ARCHIVE_KEY, '{first');
+  await createFloatArchive(storage).select('guest');
+  storage.data.set(ARCHIVE_KEY, '{second');
+  await createFloatArchive(storage).select('guest');
+  assert.deepEqual(JSON.parse(storage.data.get(ARCHIVE_RECOVERY_KEY)!).map((v: { raw: string }) => v.raw), ['{first', '{second']);
 });
 
 test('end journal replays the same summary after an interrupted archive write and never resumes', async () => {
@@ -333,6 +428,148 @@ test('summary validation rejects raw GPS, unknown fields, inconsistent times and
     { ...summary(), id: 'different' },
   ])
     assert.equal(archiveBatch.safeParse({ rows: [{ ...row, payload }] }).success, false);
+});
+
+test('a refused trip does not block later batches or restores, and retries only on request', async () => {
+  const storage = disk();
+  const local = createFloatArchive(storage);
+  await local.select('A');
+  for (let i = 0; i < 25; i++) await local.addCompleted(summary(`trip-${i}`), 'A');
+  const remote = server();
+  remote.rows.set('remote', { id: 'remote', kind: 'completed', payload: summary('remote'), deleted: false, contributionVersion: null });
+  const attempted: string[] = [];
+  let reject = true;
+  const api: ArchiveTransport = { ...remote.api, write: async (batch) => {
+    attempted.push(...batch.map((r) => r.id));
+    return Promise.all(batch.map(async (row) => {
+      if (row.id === 'trip-22' && reject) return { status: 'rejected' as const, reason: 'Unsupported trip details.' };
+      return (await remote.api.write([row]))[0];
+    }));
+  } };
+  await local.sync('A', api);
+  assert.equal(attempted.length, 25);
+  assert.equal(remote.rows.size, 25, 'all 24 valid local trips uploaded');
+  assert.equal(local.snapshot().rows.length, 26, 'remote trip restored despite refusal');
+  assert.equal(local.snapshot().rows.find((r) => r.id === 'trip-22')!.backupError, 'Unsupported trip details.');
+  const restarted = createFloatArchive(storage);
+  await restarted.select('A');
+  await restarted.sync('A', api);
+  assert.equal(attempted.length, 25, 'refusal survives restart without endless retries');
+  assert.ok(restarted.snapshot().rows.find((r) => r.id === 'trip-22')!.payload, 'local trip stays visible');
+  reject = false;
+  await restarted.retryRejected('A');
+  await restarted.sync('A', api, true);
+  assert.deepEqual(attempted.slice(25), ['trip-22']);
+  assert.equal(restarted.snapshot().rows.find((r) => r.id === 'trip-22')!.backupError, undefined);
+});
+
+test('accepted batches stay acknowledged after later network failures; retries back off and manual sync bypasses', async () => {
+  let now = 1000000;
+  const local = createFloatArchive(disk(), () => now);
+  await local.select('A');
+  for (let i = 0; i < 25; i++) await local.addCompleted(summary(`trip-${i}`), 'A');
+  const remote = server();
+  let writes = 0;
+  const api: ArchiveTransport = { ...remote.api, write: async (batch) => {
+    writes++;
+    if (writes > 1) throw new Error('offline');
+    return remote.api.write(batch);
+  } };
+  await local.sync('A', api);
+  assert.equal(local.snapshot().rows.filter((r) => r.dirty).length, 5);
+  assert.equal(local.snapshot().retryAt, now + 60000);
+  await local.sync('A', api);
+  assert.equal(writes, 2);
+  for (const delay of [120000, 240000, 480000, 900000, 900000]) {
+    now = local.snapshot().retryAt!;
+    await local.sync('A', api);
+    assert.equal(local.snapshot().retryAt, now + delay);
+  }
+  const remaining: string[] = [];
+  await local.sync('A', { ...remote.api, write: async (batch) => {
+    remaining.push(...batch.map((r) => r.id));
+    return remote.api.write(batch);
+  } }, true);
+  assert.equal(remaining.length, 5, 'successful first batch is never resent');
+  assert.equal(local.snapshot().retryAt, null);
+  assert.equal(local.snapshot().error, null);
+  assert.equal(local.snapshot().rows.filter((r) => r.dirty).length, 0);
+});
+
+test('an unconfirmed protocol response retries, while a failed restore does not resend acknowledged uploads', async () => {
+  const local = createFloatArchive(disk());
+  await local.select('A');
+  await local.addCompleted(summary(), 'A');
+  const remote = server();
+  await local.sync('A', { ...remote.api, write: async () => [] });
+  assert.equal(local.snapshot().rows[0].dirty, true);
+  assert.match(local.snapshot().error!, /could not be confirmed/);
+  await local.sync('A', { ...remote.api, read: async () => { throw new Error('read unavailable'); } }, true);
+  assert.equal(local.snapshot().rows[0].dirty, false);
+  await local.sync('A', { ...remote.api, write: async () => { throw new Error('must not resend'); } }, true);
+  assert.equal(local.snapshot().error, null);
+});
+
+test('an upload acknowledgement cannot clear a deletion made while that upload is in flight', async () => {
+  const local = createFloatArchive(disk());
+  await local.select('A');
+  await local.addCompleted(summary(), 'A');
+  const remote = server();
+  let release!: () => void;
+  let started!: () => void;
+  const gate = new Promise<void>((r) => { release = r; });
+  const start = new Promise<void>((r) => { started = r; });
+  const pending = local.sync('A', { ...remote.api, write: async (batch) => {
+    started();
+    await gate;
+    return remote.api.write(batch);
+  } });
+  await start;
+  await local.remove('trip', 'A');
+  release();
+  await pending;
+  assert.equal(local.snapshot().rows[0].deleted, true);
+  assert.equal(local.snapshot().rows[0].dirty, true);
+  await local.sync('A', remote.api);
+  assert.equal(remote.rows.get('trip')!.deleted, true);
+});
+
+test('server returns per-row refusals, enriches only new owned trips, and leaves infrastructure failures retryable', async () => {
+  const persisted: ArchiveRow[] = [];
+  const enriched: string[] = [];
+  const filters: unknown[][] = [];
+  let lookupFailure = false;
+  let writeFailure = false;
+  const db = {
+    from(table: string) { assert.equal(table, 'float_archive'); return this; },
+    select(fields: string) { assert.equal(fields, 'id'); return this; },
+    eq(field: string, user: string) { filters.push([field, user]); return this; },
+    async in(field: string, ids: string[]) {
+      assert.equal(field, 'id');
+      assert.deepEqual(ids, ['existing', 'new']);
+      return { data: [{ id: 'existing' }], error: lookupFailure ? { message: 'offline' } : null };
+    },
+    async rpc(name: string, args: { p_user: string; p_rows: ArchiveRow[] }) {
+      assert.equal(name, 'write_float_archive');
+      assert.equal(args.p_user, 'owner');
+      if (!writeFailure) persisted.push(...args.p_rows);
+      return { error: writeFailure ? { message: 'offline' } : null };
+    },
+  } as unknown as SupabaseClient;
+  const water = async (_db: SupabaseClient, trip: CompletedFloat) => { enriched.push(trip.id); return null; };
+  const row = (id: string): ArchiveRow => ({ id, kind: 'completed', payload: summary(id), deleted: false, contributionVersion: null });
+  const input = [row('existing'), { ...row('bad-clock'), payload: { ...summary('bad-clock'), startedAt: Date.now() + 172800000 } }, row('new')];
+  const results = await writeArchiveBatch(db, 'owner', input, water);
+  assert.deepEqual(results.map((r) => r.status), ['accepted', 'rejected', 'accepted']);
+  assert.deepEqual(persisted.map((r) => r.id), ['existing', 'new']);
+  assert.deepEqual(enriched, ['new']);
+  assert.deepEqual(filters, [['user_id', 'owner']], 'existing IDs must be scoped to authenticated owner');
+  lookupFailure = true;
+  await assert.rejects(writeArchiveBatch(db, 'owner', input, water), /check existing/);
+  lookupFailure = false;
+  writeFailure = true;
+  await assert.rejects(writeArchiveBatch(db, 'owner', input, water), /Archive write failed/);
+  assert.equal(persisted.length, 2);
 });
 
 test('SQL isolates accounts, serializes opt-out, preserves tombstones and cascades deletion', async () => {

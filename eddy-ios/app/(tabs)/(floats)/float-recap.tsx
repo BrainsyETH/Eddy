@@ -84,7 +84,7 @@ export default function FloatRecapScreen() {
               </Text>
             ) : (
               <Text style={[t.base, { color: colors.textMuted }]}>
-                {row?.dirty
+                {row?.dirty || row?.backupError
                   ? 'A historical gauge reading can be added after account backup.'
                   : 'No suitable historical reading was available near your start time.'}
               </Text>
@@ -92,6 +92,8 @@ export default function FloatRecapScreen() {
             <Text style={[t.sm, { color: colors.textMuted }]}>
               {archive.owner === 'guest'
                 ? 'Saved on this phone.'
+                : row?.backupError
+                  ? `Not backed up. ${row.backupError}`
                 : row?.dirty
                   ? 'Saved on this phone. Account backup pending.'
                   : 'Backed up to your account.'}

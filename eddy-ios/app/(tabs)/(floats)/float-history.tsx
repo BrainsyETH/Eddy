@@ -20,6 +20,7 @@ export default function FloatHistoryScreen() {
     .sort((a, b) => b.startedAt - a.startedAt);
   const guest = archive.owner === 'guest';
   const pending = archive.rows.some((row) => row.dirty);
+  const refused = archive.rows.filter((row) => row.backupError);
   const consent = async (enabled: boolean) => {
     setChanging(true);
     try {
@@ -44,6 +45,12 @@ export default function FloatHistoryScreen() {
         }
       >
         <Text style={[textStyles.pageTitle, { color: colors.text }]}>Your float history</Text>
+        {archive.recovered ? (
+          <Text accessibilityRole="alert" style={[t.base, { color: colors.textMuted }]}>
+            Some local history could not be opened. A recovery copy is kept on this phone.
+            Sign in to reload floats that were backed up. Unsynced floats may be missing.
+          </Text>
+        ) : null}
         <View style={[styles.card, { borderColor: colors.border, backgroundColor: colors.card }]}>
           <Text style={[textStyles.cardTitle, { color: colors.text }]}>
             {guest ? 'Keep your floats safe' : 'Account backup'}
@@ -55,6 +62,8 @@ export default function FloatHistoryScreen() {
                 ? 'Backing up and checking for floats…'
                 : archive.error
                   ? 'Backup needs attention. Your local floats are still here.'
+                  : refused.length
+                    ? `${refused.length} ${refused.length === 1 ? 'float could' : 'floats could'} not be backed up. Your local copies are still here.`
                   : pending
                     ? 'Saved on this phone. Waiting to back up.'
                     : 'Your completed floats and saved routes are backed up.'}
@@ -67,6 +76,26 @@ export default function FloatHistoryScreen() {
             </Pressable>
           )}
           {archive.error ? <Text style={[t.sm, { color: colors.error }]}>{archive.error}</Text> : null}
+          {!archive.ready ? (
+            <Pressable accessibilityRole="button" onPress={() => void archive.refresh()} style={styles.button}>
+              <Text style={[t.base, { color: colors.interactive }]}>Retry loading history</Text>
+            </Pressable>
+          ) : null}
+          {refused.map((row) => (
+            <Text key={row.id} style={[t.sm, { color: colors.error }]}>
+              {row.payload?.riverName ?? 'Float'}: {row.backupError}
+            </Text>
+          ))}
+          {refused.length && !guest ? (
+            <Pressable accessibilityRole="button" style={styles.button} onPress={() => {
+              void archive.retryRejected().catch(() => Alert.alert('Could not retry backup', 'Please try again.'));
+            }}>
+              <Text style={[t.base, { color: colors.interactive }]}>Retry these floats</Text>
+            </Pressable>
+          ) : null}
+          {archive.retryAt && archive.error ? (
+            <Text style={[t.sm, { color: colors.textMuted }]}>Backup will retry automatically. You can also tap Sync now.</Text>
+          ) : null}
         </View>
         {!guest && archive.ready ? (
           <View style={[styles.card, { borderColor: colors.border, backgroundColor: colors.card }]}>
@@ -98,7 +127,9 @@ export default function FloatHistoryScreen() {
         ) : null}
         <Text style={[textStyles.sectionTitle, { color: colors.text }]}>Completed floats</Text>
         {!archive.ready ? (
-          <Text style={[t.base, { color: colors.textMuted }]}>Loading your history…</Text>
+          <Text style={[t.base, { color: colors.textMuted }]}>
+            {archive.error ? 'Your history could not be opened. Retry above.' : 'Loading your history…'}
+          </Text>
         ) : trips.length === 0 ? (
           <Text style={[t.base, { color: colors.textMuted }]}>
             Finish a float in Float Mode to see your recap here.

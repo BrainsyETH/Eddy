@@ -13,8 +13,10 @@ anonymous upload endpoint or separate tracking identity.
 same anchored stay-point rule as moving pace. Totals are persisted with the
 active session independently of the 2,500-sample pace buffer. Discontinuous
 intervals, acquisition time, the final unobserved tail and an unresolved brief
-run are unknown, never inferred stops. Tracked distance sums continuous river
-mile displacement; gaps do not invent distance. It remains a GPS-derived estimate.
+run are unknown, never inferred stops. Tracked distance sums absolute river-mile
+displacement only in classified moving intervals, including upstream travel.
+Confirmed stops discard GPS wobble; gaps and unresolved final movement do not
+invent distance. It remains a GPS-derived estimate.
 Moving speed uses signed progress over classified moving time. Existing sessions
 without totals retain their history but pre-upgrade time is unobserved.
 
@@ -37,6 +39,14 @@ with the right account even after a later sign-out. Private saved-route metadata
 migrates from `eddy.savedFloats.v1`; offline logistics stay local and are refetched
 when a recovered route is opened. There is no silent 50-trip truncation.
 
+Malformed current or legacy history is copied to a separate local recovery key
+before creating an empty archive. The history screen explains that unsynced trips
+may be missing; account backup can restore previously uploaded records. Temporary
+storage errors remain retryable and do not reset history. Future archive versions
+require an app update. Recovery copies never upload, survive another recovery, and
+are removed on trip or account deletion because unreadable contents cannot be
+safely scoped to a single trip.
+
 Server rows in `float_archive` belong to a permanent authenticated user. The API
 verifies the user; RLS limits reads to that permanent owner. Mutations use
 service-only functions after strict allowlist validation. No raw positions,
@@ -47,10 +57,22 @@ it. Saving a route again creates a new record. Account deletion cascades both
 archive tables and clears local history, active session and pending journal.
 Deleting a private saved route does not revoke its public shared link.
 
+Backup POST returns one ordered result per input row. Invalid trips stay local
+with a visible refusal and manual retry; other rows and subsequent batches still
+upload, and cloud restore continues. Acknowledgements persist after each batch,
+without clearing edits made during the request. Network, authentication, storage
+and server failures remain retryable with 1–15 minute exponential backoff while
+the app is open; manual sync can retry immediately. Deploy this response contract
+before the new binary. An unrecognized response stays pending rather than falsely
+claiming a successful backup.
+
 A server lookup adds the nearest non-suspect observation within 30 minutes of
 start from the nearest curated upstream gauge. Missing or failing history stays
 null. No daily-mean or current-reading substitution. This is context from one
 gauge, not proof of conditions along the entire route.
+Existing completed IDs are checked within the authenticated owner's archive so
+retries skip gauge enrichment; the write function still enforces immutability and
+deletion tombstones against concurrent requests.
 
 ## Consent and review
 

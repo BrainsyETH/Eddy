@@ -56,6 +56,10 @@ export interface ArchiveRow {
   /** Version of the explicit account opt-in when this float finished. */
   contributionVersion: string | null;
 }
+/** One result per input row, in the same order. A refusal keeps the local copy. */
+export type ArchiveWriteResult =
+  | { status: 'accepted' }
+  | { status: 'rejected'; reason: string };
 export interface ContributionPreference {
   enabled: boolean;
   version: string | null;

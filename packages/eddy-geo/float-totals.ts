@@ -13,6 +13,7 @@ export interface FloatTotals {
   last: PaceSample | null;
   runMs: number;
   runMiles: number;
+  runDistanceMiles?: number;
 }
 
 export const EMPTY_FLOAT_TOTALS: FloatTotals = {
@@ -25,6 +26,7 @@ export const EMPTY_FLOAT_TOTALS: FloatTotals = {
   last: null,
   runMs: 0,
   runMiles: 0,
+  runDistanceMiles: 0,
 };
 
 function closeRun(t: FloatTotals): void {
@@ -32,9 +34,11 @@ function closeRun(t: FloatTotals): void {
   else {
     t.movingMs += t.runMs;
     t.movingMiles += t.runMiles;
+    t.distanceMiles += t.runDistanceMiles ?? 0;
   }
   t.runMs = 0;
   t.runMiles = 0;
+  t.runDistanceMiles = 0;
 }
 
 export function accumulateFloat(previous: FloatTotals, sample: PaceSample): FloatTotals {
@@ -52,7 +56,9 @@ export function accumulateFloat(previous: FloatTotals, sample: PaceSample): Floa
     t.anchor = t.last;
   }
   const miles = sample.riverMile - t.last.riverMile;
-  t.distanceMiles += Math.abs(miles);
+  // Hold displacement until the run is classified. Confirmed stops contribute
+  // no distance, even when GPS drifts back and forth inside the stay radius.
+  t.runDistanceMiles = (t.runDistanceMiles ?? 0) + Math.abs(miles);
   t.runMs += dt;
   t.runMiles += miles;
   t.last = sample;

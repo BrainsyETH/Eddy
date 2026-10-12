@@ -14,8 +14,9 @@
 -- So the FK goes. Two consequences, both accounted for:
 --
 --   1. Deleting a river_condition_events row no longer clears its ledger rows.
---      push-receipts stops receipt polling after 24 hours and marks rows
---      checked; it does not delete them. Account deletion still cascades.
+--      push-receipts already prunes this table at RETENTION_HOURS = 24, which is
+--      what now does that job. Note the prune is by AGE, so it collects orphans
+--      whether or not anything was deleted upstream.
 --   2. event_id no longer proves the referenced event exists. event_source says
 --      which table to look in; nothing dereferences it except support queries.
 --

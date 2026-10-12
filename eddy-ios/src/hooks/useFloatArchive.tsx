@@ -8,13 +8,15 @@ import { useSession } from './useSession';
 
 const readSnapshot = () => floatArchive.snapshot();
 type Value = ReturnType<typeof readSnapshot> & {
-  refresh: () => Promise<void>;
+  refresh: () => Promise<boolean>;
+  retryRejected: () => Promise<void>;
   setConsent: (enabled: boolean) => Promise<void>;
   clear: () => Promise<void>;
 };
 const Context = createContext<Value>({
   ...readSnapshot(),
-  refresh: async () => {},
+  refresh: async () => false,
+  retryRejected: async () => {},
   setConsent: async () => {},
   clear: async () => {},
 });
@@ -40,25 +42,36 @@ export function FloatArchiveProvider({ children }: { children: ReactNode }) {
       consent: (enabled) => withToken((token) => setFloatContribution(token, enabled)),
     };
   }, [scope, getAccessToken]);
-  const refresh = useCallback(async () => {
-    if (ready && scope !== 'guest') await floatArchive.sync(scope, transport());
+  const sync = useCallback(async (force = false) => {
+    if (!ready) return;
+    if (!floatArchive.snapshot().ready || floatArchive.snapshot().owner !== scope) await floatArchive.select(scope);
+    if (scope !== 'guest') await floatArchive.sync(scope, transport(), force);
   }, [ready, scope, transport]);
+  const refresh = useCallback(async () => {
+    try { await sync(true); } catch { return false; }
+    return floatArchive.snapshot().ready && floatArchive.snapshot().owner === scope;
+  }, [scope, sync]);
+  const retryRejected = useCallback(async () => {
+    await floatArchive.retryRejected(scope);
+    await sync(true);
+  }, [scope, sync]);
+  const autoSync = useCallback(() => { void sync().catch(() => {}); }, [sync]);
   // A brief debounce coalesces fixes to saved metadata. Retry on foreground and
   // periodically while open, so reconnecting does not need a relaunch.
   const pending = snapshot.rows.some((r) => r.dirty);
   useEffect(() => {
     if (!snapshot.ready || snapshot.owner !== scope) return;
-    const timer = setTimeout(() => void refresh(), 1500);
+    const timer = setTimeout(autoSync, 1500);
     return () => clearTimeout(timer);
-  }, [snapshot.ready, snapshot.owner, scope, pending, refresh]);
+  }, [snapshot.ready, snapshot.owner, scope, pending, autoSync]);
   useEffect(() => {
-    const off = onForeground(() => void refresh());
-    const timer = setInterval(() => void refresh(), 60000);
+    const off = onForeground(autoSync);
+    const timer = setInterval(autoSync, 60000);
     return () => {
       off();
       clearInterval(timer);
     };
-  }, [refresh]);
+  }, [autoSync]);
   const setConsent = useCallback(
     (enabled: boolean) => floatArchive.setConsent(scope, enabled, transport()),
     [scope, transport],
@@ -72,13 +85,14 @@ export function FloatArchiveProvider({ children }: { children: ReactNode }) {
     () => ({
       ...snapshot,
       refresh,
+      retryRejected,
       setConsent,
       clear,
       // Never show the old account for the render before the effect selects anew.
       ready: snapshot.ready && snapshot.owner === scope,
       rows: snapshot.owner === scope ? snapshot.rows : [],
     }),
-    [snapshot, refresh, setConsent, clear, scope],
+    [snapshot, refresh, retryRejected, setConsent, clear, scope],
   );
   return <Context.Provider value={value}>{children}</Context.Provider>;
 }

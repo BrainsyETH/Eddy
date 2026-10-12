@@ -2506,13 +2506,24 @@ export function fetchFloatSearchPlaces(query: string, signal?: AbortSignal) {
   return floatSearchPost<{ places: import('@eddy/conditions/float-search').FloatSearchPlace[] }>('/api/float-search/places', { query }, signal);
 }
 
+/** Preserve auth failures; missing deployments and server failures need a different remedy. */
+async function archiveRequest<T>(path: string, token: string, init?: { method?: string; body?: unknown }): Promise<T | null> {
+  try {
+    return await authed<T>(path, token, init);
+  } catch (error) {
+    if (error instanceof ApiError && (error.status === 404 || (error.status ?? 0) >= 500))
+      throw new Error('Float backup is temporarily unavailable. Your floats are saved on this phone. Try again later.');
+    throw error;
+  }
+}
+
 /** Private trip backup; no request cache and no raw tracking positions. */
 export async function readFloatArchive(token: string) {
   const rows: import('@eddy/conditions/float-archive').ArchiveRow[] = [];
   let cursor: string | null = null;
   let preference: import('@eddy/conditions/float-archive').ContributionPreference = { enabled:false, version:null };
   do {
-    const page: { rows:import('@eddy/conditions/float-archive').ArchiveRow[]; nextCursor:string | null; preference:import('@eddy/conditions/float-archive').ContributionPreference } | null = await authed(
+    const page: { rows:import('@eddy/conditions/float-archive').ArchiveRow[]; nextCursor:string | null; preference:import('@eddy/conditions/float-archive').ContributionPreference } | null = await archiveRequest(
       `/api/me/float-archive${cursor ? `?cursor=${encodeURIComponent(cursor)}` : ''}`, token);
     if (!page) throw new Error('Sign in again to load float backup.');
     rows.push(...page.rows); preference = page.preference; cursor = page.nextCursor;
@@ -2520,15 +2531,16 @@ export async function readFloatArchive(token: string) {
   return { rows, preference };
 }
 export async function writeFloatArchive(token: string, rows: import('@eddy/conditions/float-archive').ArchiveRow[]) {
-  const result = await authed('/api/me/float-archive',token,{ method:'POST', body:{ rows: rows.map(row => {
+  const result = await archiveRequest<{ results: import('@eddy/conditions/float-archive').ArchiveWriteResult[] }>('/api/me/float-archive',token,{ method:'POST', body:{ rows: rows.map(row => {
     if (row.kind !== 'completed' || !row.payload) return row;
     const { water: _water, ...payload } = row.payload as import('@eddy/conditions/float-archive').CompletedFloat;
     return { ...row, payload };
   }) } });
   if (!result) throw new Error('Sign in again to back up floats.');
+  return result.results;
 }
 export async function setFloatContribution(token: string, enabled: boolean) {
-  const result = await authed<import('@eddy/conditions/float-archive').ContributionPreference>('/api/me/float-archive',token,{ method:'PATCH', body:{ enabled } });
+  const result = await archiveRequest<import('@eddy/conditions/float-archive').ContributionPreference>('/api/me/float-archive',token,{ method:'PATCH', body:{ enabled } });
   if (!result) throw new Error('Sign in again to change sharing.');
   return result;
 }

@@ -586,7 +586,10 @@ function useStart(params: Params, loaded: LoadedRoute | null, location: StartLoc
     setBusy(true);
     setError(null);
     try {
-      if (!archive.ready) { setError('Your float history is still loading. Please try again in a moment.'); return; }
+      if (!archive.ready && !(await archive.refresh())) {
+        setError('Your float history could not be opened. Please try again.');
+        return;
+      }
       const foreground = await Location.getForegroundPermissionsAsync();
       const services = await Location.hasServicesEnabledAsync();
       if (!focused.current) return;
