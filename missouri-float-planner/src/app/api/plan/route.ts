@@ -349,6 +349,8 @@ async function _GET(request: NextRequest) {
               ? formatFloatTimeRange(floatTimeResult.timeRange.min, floatTimeResult.timeRange.max)
               : formatFloatTime(floatTimeResult.minutes),
             speedMph: floatTimeResult.speedMph,
+            movingSpeedMph: availability.readingStatus === 'current' && !condition?.accuracy_warning
+              ? floatTimeResult.movingSpeedMph : null,
             isEstimate: floatTimeResult.isEstimate,
             basis: floatTimeResult.basis,
             timeRange: floatTimeResult.timeRange,

@@ -175,12 +175,13 @@ export function PlanSheet({
   const onStart = useCallback(() => {
     if (!plan || !visible || !resultReady || !focused) return;
     const kept = floats.find((f) => f.riverSlug === plan.river.slug && f.putInId === plan.putIn.id && f.takeOutId === plan.takeOut.id);
-    const speed = plan.floatTime?.speedMph;
+    const speed = plan.estimateBasis === 'typical' ? null : plan.floatTime?.movingSpeedMph;
     actions.cancelShare();
     detailNavigation.open({
       pathname: '/float-start',
       params: {
         riverSlug: plan.river.slug,
+        boatType: plan.vessel.slug,
         putInId: plan.putIn.id,
         takeOutId: plan.takeOut.id,
         ...(kept ? { shortCode: kept.shortCode } : {}),

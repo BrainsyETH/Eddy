@@ -437,7 +437,8 @@ function ProfileContent() {
       // Server deletion succeeded. Local cleanup has its own retry so it can
       // never be reported as an account-deletion failure or silently skipped.
       const finish = async () => {
-        const cleanup = await Promise.allSettled([clearStars(), clearSavedFloats(), forgetSession()]);
+        const cleanup = await Promise.allSettled([clearStars(), clearSavedFloats()]);
+        if (cleanup.every(entry => entry.status === 'fulfilled')) await forgetSession();
         const subscriptionNote = result?.hadActiveEntitlement
           ? ' Your Apple subscription is still active — cancel it in Settings › Apple ID › Subscriptions to stop being billed.'
           : '';
@@ -448,7 +449,7 @@ function ProfileContent() {
           return;
         }
         Alert.alert(signedIn ? 'Account deleted' : 'Data deleted',
-          (session ? 'Your account, favorites and saved floats have been removed.' : 'Your favorites and saved floats have been removed from this device.') + subscriptionNote);
+          (session ? 'Your account, favorites, saved floats and float history have been removed.' : 'Your favorites, saved floats and float history have been removed from this device.') + subscriptionNote);
       };
       await finish();
     } catch (err) {

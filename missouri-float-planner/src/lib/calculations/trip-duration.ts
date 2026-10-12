@@ -14,6 +14,8 @@ export interface PublishedTiming {
 export interface TripDuration {
   minutes: number;
   speedMph: number;
+  /** Modeled moving pace, independent of a published whole-trip timing. */
+  movingSpeedMph: number | null;
   isEstimate: boolean;
   basis: 'trip' | 'moving';
   timeRange: { min: number; max: number };
@@ -41,6 +43,8 @@ export function calculateTripDuration(input: {
     floatTimeWithholding(condition, options?.riverType)
   )
     return null;
+  const modeled = calculateFloatTime(miles, speeds, condition, { ...options, basis: 'trip' });
+  const movingSpeedMph = condition === 'unknown' ? null : modeled?.speedMph ?? null;
   if (validPublishedTiming(published)) {
     const factor =
       condition === 'too_low'
@@ -53,6 +57,7 @@ export function calculateTripDuration(input: {
     const minutes = Math.round(published.minutes * factor);
     return {
       minutes,
+      movingSpeedMph,
       speedMph: miles / (minutes / 60),
       isEstimate: false,
       basis: 'trip',
@@ -62,13 +67,11 @@ export function calculateTripDuration(input: {
       },
     };
   }
-  const result = calculateFloatTime(miles, speeds, condition, {
-    ...options,
-    basis: 'trip',
-  });
+  const result = modeled;
   return result
     ? {
         minutes: result.minutes,
+        movingSpeedMph,
         speedMph: result.speedMph,
         isEstimate: true,
         basis: result.basis,

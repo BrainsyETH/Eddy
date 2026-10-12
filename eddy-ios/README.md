@@ -1028,8 +1028,9 @@ blur:
   while the phone is locked (background location in `app.json`), trip downloads
   for offline maps (ADR 0011), and a Lock Screen / Dynamic Island Live Activity
   (`docs/float-live-activity-plan.md`). This is progress along a known route,
-  not a recorded GPS track; float positions stay on the phone, as the
-  location permission strings in `app.json` promise.
+  not a recorded GPS track; raw float positions stay on the phone. Signed-in
+  recap summaries are backed up separately (ADR 0012). Hazard reports explicitly
+  send the location the user submits.
 - *Visible:* always in development and preview builds; in store builds only
   when the server's `floatMode` flag is on (`src/lib/floatModeFeature.ts`).
   Whether that flag is on in production is a live setting — check
@@ -1102,6 +1103,21 @@ Three things about it are load-bearing rather than stylistic:
 - **Apple returns the user's real name exactly once**, on the first
   authorisation for that Apple ID, and never again — not on reinstall. It is
   persisted immediately in `signInWithApple` for that reason.
+
+### Float history and backup
+
+Floats → Float history & backup contains end-of-float recaps and the account
+backup status. History works on the device as a guest. Apple sign-in backs up
+completed summaries and the user's private saved-route collection through
+`/api/me/float-archive`; opening a previously shared plan URL remains separate.
+Signing out hides that account's local history. Signing into another account
+never imports the previous signed-in account's history. Guest history is adopted
+once on sign-in, including an upgrade to an existing Apple identity.
+
+The default-off “Help improve float estimates” setting permits internal review
+of newly completed floats. Backup works independently. See ADR 0012 for
+measurement gaps, immutable completed summaries, deletion markers, revocation
+and the end journal. Device and release checks live in the release runbook.
 
 ### The purchase flow
 

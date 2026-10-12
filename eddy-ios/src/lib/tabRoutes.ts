@@ -23,6 +23,8 @@ export const DETAIL_TITLES: Record<string, string> = {
   'float-start': 'Start a float',
   'find-float': 'Find a Float',
   'float-mode': 'Float Mode',
+  'float-history': 'Float history',
+  'float-recap': 'Float recap',
 };
 
 // Cold links have no originating tab. Match the destination's place in the app.
@@ -33,6 +35,8 @@ const COLD_TAB_OWNERS: Partial<Record<string, keyof typeof TAB_ROOTS>> = {
   'float-start': 'floats',
   'find-float': 'floats',
   'float-mode': 'floats',
+  'float-history': 'floats',
+  'float-recap': 'floats',
 };
 
 /** Plain launches and known shared details need a tab owner on a cold link. */

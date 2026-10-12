@@ -13,7 +13,9 @@ test('published route range takes priority and scales for low water', async () =
   const result = await fixture.estimate();
   assert.deepEqual(result.floatTime?.timeRange, { min: 239, max: 399 });
   assert.equal(result.floatTime?.isEstimate, false);
-  assert.ok(!fixture.calls.includes('river_characteristics'), 'published timing needs no speed-curve query');
+  assert.ok(fixture.calls.includes('river_characteristics'), 'Float Mode needs the moving model even with a published total');
+  assert.ok(result.floatTime?.movingSpeedMph);
+  assert.notEqual(result.floatTime?.movingSpeedMph,result.floatTime?.speedMph);
 });
 
 test('default planner still uses live reference flows when no stored snapshot exists', async (t) => {

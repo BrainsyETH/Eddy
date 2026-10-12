@@ -19,7 +19,7 @@ import { scrubFloatSearchBreadcrumb } from '@eddy/conditions/float-search-privac
 //
 // ── Two deliberate restraints ──────────────────────────────────────────────
 //
-// NOTHING LEAVES UNREDACTED. See src/lib/redact.ts for the table and
+// REDACT JAVASCRIPT ERROR TEXT. See src/lib/redact.ts for the table and
 // src/lib/scrub-event.ts for which fields of an event it is applied to —
 // beforeSend and beforeBreadcrumb both run over it. Sentry's own server-side
 // scrubbing is one hop too late for a token that should never have left the
@@ -27,10 +27,10 @@ import { scrubFloatSearchBreadcrumb } from '@eddy/conditions/float-search-privac
 // load it without @sentry/react-native; it went a long time uncovered, and
 // missing the field captureException actually writes to.
 //
-// NO PERFORMANCE TRACING, NO PII. tracesSampleRate is 0 and sendDefaultPii is
-// false. We want crashes and handled errors; traces would spend the quota on
-// data nobody is going to read, and PII is the thing the paragraph above is
-// about.
+// NO PERFORMANCE TRACING OR DEFAULT PII. tracesSampleRate is 0 and
+// sendDefaultPii is false. The native SDK still adds an installation identifier,
+// so these settings do not make reports unlinked. JS hooks also do not prove
+// redaction of native crash payloads; inspect the binary's events at release.
 
 import * as Sentry from '@sentry/react-native';
 import Constants from 'expo-constants';

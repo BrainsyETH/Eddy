@@ -26,6 +26,7 @@
 //   cannot be removed, removal is retried, and an "ended" marker under its own
 //   key makes the next launch discard the copy instead of resuming it.
 
+import { createStorageQueue } from './storageQueue';
 import type { PositionFix, RouteIndex } from '@eddy/geo';
 import { applyFix, indexRoute, restoreSession, type FloatSession } from './floatSession';
 import {
@@ -54,14 +55,24 @@ const END_RETRY_MS = 15_000;
 const REMINDER_RETRY_MS = 60_000;
 
 export function createFloatSessionStore(
-  storage: SessionStorage,
+  rawStorage: SessionStorage,
   warn: (message: string, detail?: unknown) => void,
   /**
    * Hand reminders this position has reached to the notifier; resolves with
    * the ids it accepted. See floatReminders.ts.
    */
   onReminders: (due: DueReminder[], session: FloatSession) => Promise<readonly string[]> = async () => [],
+  onEnd: (session: FloatSession, endedAt: number, contributionVersion: string | null) => Promise<void> = async () => {},
 ) {
+  const writes = createStorageQueue();
+  const storage: SessionStorage = {
+    getItem: (key) => writes.run(() => rawStorage.getItem(key)),
+    setItem: (key, value) => writes.run(() => rawStorage.setItem(key, value)),
+    removeItem: (key) => writes.run(() => rawStorage.removeItem(key)),
+  };
+  let pendingRecap: { session: FloatSession; endedAt: number; contributionVersion?: string | null } | null = null;
+  let ending: Promise<boolean> | null = null;
+  let finalizing: Promise<boolean> | null = null;
   let session: FloatSession | null = null;
   let index: RouteIndex | null = null;
   let loading: Promise<void> | null = null;
@@ -98,7 +109,7 @@ export function createFloatSessionStore(
   const writeNow = async () => {
     lastWriteAt = Date.now();
     if (session) await storage.setItem(STORAGE_KEY, JSON.stringify(session));
-    else await storage.removeItem(STORAGE_KEY);
+    // Only the end transaction removes the session key.
     dirty = false;
   };
 
@@ -164,10 +175,15 @@ export function createFloatSessionStore(
     ensureLoaded(): Promise<void> {
       loading ??= (async () => {
         try {
+          const marker = await storage.getItem(ENDED_KEY);
+          if (marker?.startsWith('{')) {
+            pendingRecap = JSON.parse(marker);
+            pendingEndId = pendingRecap?.session.id ?? null;
+            if (!(await this.retryPendingEnd())) return;
+          }
           const restored = restoreSession(await storage.getItem(STORAGE_KEY));
           if (!restored || session) return;
-          // Ended last time, but the stored copy outlived it: finish ending.
-          if ((await storage.getItem(ENDED_KEY)) === restored.id) {
+          if (marker === restored.id) {
             await storage.removeItem(STORAGE_KEY);
             await storage.removeItem(ENDED_KEY);
             return;
@@ -204,6 +220,7 @@ export function createFloatSessionStore(
       if (session || starting) return 'already-active';
       starting = true;
       try {
+        if (pendingRecap && !(await this.retryPendingEnd())) return 'storage-failed';
         const built = indexRoute(next.route);
         if (!built.ok) return 'storage-failed';
         try {
@@ -272,30 +289,61 @@ export function createFloatSessionStore(
      * End the float. Tracking stops at once. Resolves false if the stored copy
      * could not be removed yet; removal is then retried until it succeeds.
      */
-    async end(): Promise<boolean> {
+    end(contributionVersion: string | null = null): Promise<boolean> {
+      if (ending) return ending;
+      if (!session && !pendingRecap && !pendingEndId) return Promise.resolve(true);
       clearTimer();
-      const endedId = session?.id ?? null;
+      if (session) {
+        pendingRecap = { session, endedAt: Date.now(), contributionVersion };
+        pendingEndId = session.id;
+      }
       publish(null, null);
       dirty = false;
-      if (await this.retryPendingEnd(endedId)) return true;
-      // Best effort: if even this cannot be written, the retries still run.
-      if (endedId) await storage.setItem(ENDED_KEY, endedId).catch(() => {});
-      return false;
+      ending = this.retryPendingEnd().finally(() => { ending = null; });
+      return ending;
+    },
+
+    /** Account deletion discards the active session without creating a recap. */
+    async discard(): Promise<void> {
+      clearTimer();
+      if (endTimer) clearTimeout(endTimer);
+      if (ending) await ending;
+      if (finalizing) await finalizing;
+      if (endTimer) clearTimeout(endTimer);
+      pendingRecap = null;
+      pendingEndId = null;
+      publish(null, null);
+      dirty = false;
+      await storage.removeItem(ENDED_KEY);
+      await storage.removeItem(STORAGE_KEY);
     },
 
     /** Try again to remove an ended float's stored copy. True once it is gone. */
-    async retryPendingEnd(endedId: string | null = pendingEndId): Promise<boolean> {
+    retryPendingEnd(endedId: string | null = pendingEndId): Promise<boolean> {
+      if (finalizing) return finalizing;
+      finalizing = this.finishPendingEnd(endedId).finally(() => { finalizing = null; });
+      return finalizing;
+    },
+
+    async finishPendingEnd(endedId: string | null): Promise<boolean> {
       if (endTimer) {
         clearTimeout(endTimer);
         endTimer = null;
       }
       try {
+        if (pendingRecap) {
+          // Journal before archiving/removal: a kill at any later step replays
+          // the same immutable recap id, never resumes tracking or duplicates it.
+          await storage.setItem(ENDED_KEY, JSON.stringify(pendingRecap));
+          await onEnd(pendingRecap.session, pendingRecap.endedAt, pendingRecap.contributionVersion ?? null);
+        }
         // Remove only the float that was ended: a newer one may have been
         // started into the same key since.
         const stored = restoreSession(await storage.getItem(STORAGE_KEY));
         if (stored && (stored.id === endedId || endedId == null)) await storage.removeItem(STORAGE_KEY);
-        await storage.removeItem(ENDED_KEY).catch(() => {});
+        await storage.removeItem(ENDED_KEY);
         pendingEndId = null;
+        pendingRecap = null;
         return true;
       } catch (error) {
         warn('could not remove the ended float session; will retry', error);
