@@ -25,7 +25,26 @@
 // starting point, not the answer.
 //
 // Tracking stops when the float ends, and never runs without an active float:
-// a delivery that finds no float stops the task.
+// a delivery that finds no float stops the task. A float nobody ended ends
+// itself after arriving or leaving the river (floatEnding.ts), which stops
+// tracking the same way.
+//
+// ── Closing Eddy mid-float ──────────────────────────────────────────────────
+// Assume people swipe Eddy away on the water. Standard location updates stop
+// when they do, and iOS does not relaunch an app for them. Two services do
+// relaunch a closed app into the background, and Apple's guidance is to use
+// them for exactly this:
+//   significant location changes   expo-location already starts these with
+//     the task (EXLocationTaskConsumer), and expo-task-manager re-registers
+//     the task on relaunch, which restarts full-accuracy updates.
+//   region monitoring              a "wake fence" around the latest fix
+//     (WAKE_FENCE_RADIUS_M), moved as the paddler moves. Leaving it relaunches
+//     Eddy, whose wake task restarts tracking.
+// Both lean on cell and Wi-Fi more than GPS, so in a dead zone the wake can
+// come late; the gap is then reacquired like any other (river-progress.ts).
+// Neither needs a new permission: both run under the "Always" grant tracking
+// already has, and the blue indicator stays the honest signal. Device-proven:
+// unconfirmed (docs/ios-release-runbook.md).
 
 import * as Location from 'expo-location';
 import * as TaskManager from 'expo-task-manager';
@@ -35,9 +54,20 @@ import { flushHazardReports } from './hazardReports';
 import { floatActivitySettled } from './liveActivity';
 
 export const FLOAT_LOCATION_TASK = 'eddy-float-location';
+export const FLOAT_WAKE_TASK = 'eddy-float-wake';
 
 /** Persist at least this often from the background; see flushFloatSessionIfStale. */
 const BACKGROUND_WRITE_MS = 30_000;
+
+/**
+ * Radius of the wake fence. Region monitoring is unreliable much below about
+ * 150 m; a float covers this in a few minutes, so a closed Eddy wakes soon
+ * after the paddler moves on.
+ */
+const WAKE_FENCE_RADIUS_M = 200;
+/** Move the fence once the latest fix is this far from its centre. */
+const WAKE_FENCE_MOVE_M = 100;
+let fenceCenter: { latitude: number; longitude: number } | null = null;
 
 TaskManager.defineTask<{ locations: Location.LocationObject[] }>(FLOAT_LOCATION_TASK, async ({ data, error }) => {
   if (error) {
@@ -56,9 +86,16 @@ TaskManager.defineTask<{ locations: Location.LocationObject[] }>(FLOAT_LOCATION_
     accuracyMeters: location.coords.accuracy ?? null,
     timestamp: location.timestamp,
   }));
-  recordFixes(fixes);
+  const autoEnded = recordFixes(fixes);
+  if (autoEnded) {
+    await autoEnded;
+    await stopBackgroundTracking();
+    return;
+  }
   // Let a reminder reach the notifier before iOS suspends Eddy again.
   await floatRemindersSettled();
+  const latest = data?.locations?.[data.locations.length - 1];
+  if (latest) await moveWakeFence(latest.coords);
   await flushFloatSessionIfStale(BACKGROUND_WRITE_MS);
   // Give ActivityKit up to one second after recording/persisting fixes. A stuck
   // native update must not hold this task or optional report delivery open.
@@ -68,6 +105,47 @@ TaskManager.defineTask<{ locations: Location.LocationObject[] }>(FLOAT_LOCATION_
   // reports, then cancel unfinished network work without growing backoff.
   await flushHazardReports(5_000);
 });
+
+// Relaunched by the wake fence (or woken by it while running): make sure the
+// location stream is running again. The stream itself moves the fence.
+TaskManager.defineTask(FLOAT_WAKE_TASK, async ({ error }) => {
+  if (error) {
+    warn('float', 'wake fence error', error.message);
+    return;
+  }
+  await ensureFloatSessionLoaded();
+  if (!getFloatSession()) {
+    await stopBackgroundTracking();
+    return;
+  }
+  await startBackgroundTracking();
+});
+
+/** Re-centre the wake fence on the paddler once they have moved away from it. */
+async function moveWakeFence(coords: { latitude: number; longitude: number }): Promise<void> {
+  if (fenceCenter && metersBetween(fenceCenter, coords) < WAKE_FENCE_MOVE_M) return;
+  try {
+    await Location.startGeofencingAsync(FLOAT_WAKE_TASK, [
+      {
+        identifier: 'float-wake',
+        latitude: coords.latitude,
+        longitude: coords.longitude,
+        radius: WAKE_FENCE_RADIUS_M,
+        notifyOnEnter: false,
+        notifyOnExit: true,
+      },
+    ]);
+    fenceCenter = { latitude: coords.latitude, longitude: coords.longitude };
+  } catch (error) {
+    warn('float', 'could not move the wake fence', error);
+  }
+}
+
+function metersBetween(a: { latitude: number; longitude: number }, b: { latitude: number; longitude: number }): number {
+  const y = (b.latitude - a.latitude) * 111_320;
+  const x = (b.longitude - a.longitude) * 111_320 * Math.cos((a.latitude * Math.PI) / 180);
+  return Math.hypot(x, y);
+}
 
 /** Start locked-screen tracking if "Always" is granted. False when it is not. */
 export async function startBackgroundTracking(): Promise<boolean> {
@@ -96,5 +174,11 @@ export async function stopBackgroundTracking(): Promise<void> {
     }
   } catch (error) {
     warn('float', 'could not stop background location', error);
+  }
+  try {
+    fenceCenter = null;
+    if (await Location.hasStartedGeofencingAsync(FLOAT_WAKE_TASK)) await Location.stopGeofencingAsync(FLOAT_WAKE_TASK);
+  } catch (error) {
+    warn('float', 'could not stop the wake fence', error);
   }
 }

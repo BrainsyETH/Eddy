@@ -326,6 +326,37 @@ export function riverMileAt(index: RouteIndex, lineMeters: number): number {
 }
 
 /**
+ * The place on the line at a river mile: the inverse of riverMileAt, clamped
+ * to the line. Calibrated miles run one way along the line, so between any two
+ * neighbouring anchors this is the same linear interpolation run backwards.
+ */
+export function lineMetersAtMile(index: RouteIndex, mile: number): number {
+  const anchors = index.anchors;
+  const direction = Math.sign(anchors[anchors.length - 1].riverMile - anchors[0].riverMile) || 1;
+  let i = 0;
+  while (i < anchors.length - 2 && (mile - anchors[i + 1].riverMile) * direction > 0) i += 1;
+  const a = anchors[i];
+  const b = anchors[i + 1];
+  const t = (mile - a.riverMile) / (b.riverMile - a.riverMile);
+  return Math.min(index.lengthMeters, Math.max(0, a.lineMeters + t * (b.lineMeters - a.lineMeters)));
+}
+
+/** The part of the line between two distances along it, in either order: one stretch to draw. */
+export function sliceLine(index: RouteIndex, fromMeters: number, toMeters: number): LngLat[] {
+  const clamp = (value: number) => Math.min(index.lengthMeters, Math.max(0, value));
+  const lo = clamp(Math.min(fromMeters, toMeters));
+  const hi = clamp(Math.max(fromMeters, toMeters));
+  const points: LngLat[] = [pointAt(index, lo)];
+  for (let i = 0; i < index.cumulative.length; i += 1) {
+    if (index.cumulative[i] > lo && index.cumulative[i] < hi) {
+      points.push([index.xs[i] / (index.cosLat * METERS_PER_DEGREE), index.ys[i] / METERS_PER_DEGREE]);
+    }
+  }
+  points.push(pointAt(index, hi));
+  return points;
+}
+
+/**
  * Where one point falls on the route, with no tracking history: for choosing
  * among take-outs before a float starts, never for progress. Progress always
  * goes through trackFix, which will not trust a single fix.

@@ -33,6 +33,7 @@ import { reminderCopy, type DueReminder, type FloatReminderSettings } from './fl
 import { warn } from './monitoring';
 import { syncFloatActivity } from '../float/liveActivity';
 import { createFloatActivityLifecycle } from './floatActivity';
+import { autoEndAt, autoEndCopy } from './floatEnding';
 
 /**
  * A reminder is a local notification: scheduled on the phone, so it needs no
@@ -85,10 +86,32 @@ export function beginFloat(next: FloatSession): Promise<BeginResult> {
   return activityLifecycle.begin({ ...next, archiveScope: floatArchive.scope() });
 }
 
-/** Feed GPS fixes, in time order, from the screen or a background task. */
-export function recordFixes(fixes: readonly PositionFix[], now = Date.now()): void {
+/**
+ * Feed GPS fixes, in time order, from the screen or a background task.
+ * Returns the automatic end this delivery triggered, if any (floatEnding.ts),
+ * so a background task can wait for it before iOS suspends Eddy.
+ */
+export function recordFixes(fixes: readonly PositionFix[], now = Date.now()): Promise<void> | null {
   store.record(fixes, now);
-  void syncFloatActivity(store.get());
+  const session = store.get();
+  const endAt = autoEndAt(session, now);
+  if (session && endAt != null) return autoEnd(session, endAt);
+  void syncFloatActivity(session);
+  return null;
+}
+
+/** End a float nobody ended, say so, and keep its recap at the real finish. */
+async function autoEnd(session: FloatSession, endedAt: number): Promise<void> {
+  // Let a pending arrival or away prompt land first, so the end notice follows it.
+  await store.remindersSettled();
+  if (store.get()?.id !== session.id) return;
+  await activityLifecycle.end(floatArchive.contributionVersion(session.archiveScope), endedAt);
+  const permission = await Notifications.getPermissionsAsync().catch(() => null);
+  if (!permission?.granted) return;
+  await Notifications.scheduleNotificationAsync({
+    content: { ...autoEndCopy(session), sound: true, data: { floatEnded: session.id } },
+    trigger: null,
+  }).catch((error) => warn('float', 'could not show the float-ended notice', error));
 }
 
 /** Write any pending change now; call when the app is leaving the foreground. */
@@ -107,7 +130,7 @@ export function endFloat(): Promise<boolean> {
 }
 
 /** Change the active float's reminders. */
-export function setFloatReminders(update: (current: FloatReminderSettings) => Pick<FloatReminderSettings, 'takeOut' | 'stops'>): void {
+export function setFloatReminders(update: (current: FloatReminderSettings) => Pick<FloatReminderSettings, 'takeOut' | 'stops' | 'hazards'>): void {
   store.setReminders(update);
 }
 

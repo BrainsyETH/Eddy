@@ -157,3 +157,14 @@ test('an ended float does not come back after a relaunch, even if removal never 
   await store.retryPendingEnd();
   assert.equal((JSON.parse(disk.data.get(STORAGE_KEY)!) as FloatSession).id, 's2');
 });
+
+test('an automatic end records the moment the float finished, not when it was noticed', async () => {
+  const ended: number[] = [];
+  const store = createFloatSessionStore(fakeDisk(), quiet, async () => [], async (_session, endedAt) => {
+    ended.push(endedAt);
+  });
+  assert.equal(await store.begin(newSession('auto')), 'started');
+  assert.equal(await store.end(null, T0 + 3_600_000), true);
+  assert.deepEqual(ended, [T0 + 3_600_000]);
+  assert.equal(store.get(), null);
+});

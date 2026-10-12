@@ -74,19 +74,22 @@ test('a random stop holds moving time; slow movement follows the existing estima
   assert.equal(driftCard.estimateText, remainingCopy(driftView.estimate).headline);
 });
 
-test('uncertain and off-route fixes cannot refresh the last reliable date', () => {
+test('uncertain and off-route fixes cannot refresh the last reliable date, but do show GPS is working', () => {
   const { session, index } = prepared();
   const live = travel(session, index, 1000, 60, T0, 1);
   const before = floatActivitySnapshot(live, T0 + 60_000).state;
   const jump = applyFix(live, index, { lngLat: at(6000), timestamp: T0 + 70_000, accuracyMeters: 8 }, T0 + 70_000);
   const uncertain = floatActivitySnapshot(jump, T0 + 70_000).state;
   assert.equal(uncertain.status, 'uncertain');
-  assert.equal(uncertain.staleAt, before.staleAt);
+  // Staleness follows the last usable fix: GPS is working, so the card says
+  // "checking" or "off the river", not "stale". The position's date holds.
+  assert.equal(uncertain.staleAt, T0 + 70_000 + 2 * 60_000);
   assert.equal(uncertain.lastFixAt, before.lastFixAt);
   const off = applyFix(live, index, { lngLat: [at(1060)[0], 37.02], timestamp: T0 + 70_000, accuracyMeters: 8 }, T0 + 70_000);
   const offCard = floatActivitySnapshot(off, T0 + 70_000).state;
   assert.equal(offCard.status, 'off-route');
-  assert.equal(offCard.staleAt, before.staleAt);
+  assert.equal(offCard.staleAt, T0 + 70_000 + 2 * 60_000);
+  assert.equal(offCard.lastFixAt, before.lastFixAt);
   assert.equal(floatActivitySnapshot(live, T0 + 600_000).state.status, 'stale');
 });
 

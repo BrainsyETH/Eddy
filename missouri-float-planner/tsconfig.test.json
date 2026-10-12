@@ -50,6 +50,9 @@
       "@eddy/geo": [
         "../packages/eddy-geo/index.ts"
       ],
+      "@eddy/hazards": [
+        "../packages/eddy-hazards/index.ts"
+      ],
       "@eddy/conditions": [
         "./shared/condition-system.ts"
       ],

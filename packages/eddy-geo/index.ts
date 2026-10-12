@@ -472,3 +472,4 @@ export * from './river-progress';
 export * from './float-pace';
 
 export * from './float-totals';
+export * from './sun';

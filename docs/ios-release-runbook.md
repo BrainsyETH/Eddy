@@ -196,6 +196,24 @@ are pending checks, not evidence of a device pass.
       Float Mode says reminders can't appear. Pure rules:
       `src/lib/float-reminders.test.ts` in the web suite.
 
+- [ ] **Arrival, hazards and ending (#1448 follow-up)** on a physical iPhone,
+      phone locked, no cell service: "<take-out> take-out is approaching" about
+      half a mile out; "You've reached <take-out>" on arrival, once; a serious
+      known hazard (danger, warning, or a required portage) announced a quarter
+      mile out, with the Next hazard card on screen; the recap says the take-out
+      was reached and ends at arrival even when Finish is tapped later or away
+      from the river. Leave a float running: it ends itself an hour after
+      arrival, or after driving well away from the river ("Still floating?" at
+      ten minutes, ended at 45), with a "Float ended" notice that opens the
+      recap. A long lunch on the bank must NOT end it. The arrival time and
+      sunset warning read right late in the day. Pure rules:
+      `float-reminders.test.ts`, `float-session.test.ts`.
+- [ ] **Closing Eddy mid-float** with Always granted: swipe Eddy away, keep
+      floating, and confirm tracking resumes without reopening it (significant
+      location change and the wake geofence relaunch it; expect a delay in
+      dead zones). Record how long the gap was with and without cell coverage.
+      Swiping away with While Using must leave the float intact on reopen.
+
 For the Lock Screen/Dynamic Island follow-up, use
 [`float-live-activity-plan.md`](float-live-activity-plan.md). Native implementation
 and device gates remain separate from the preparation fixes.

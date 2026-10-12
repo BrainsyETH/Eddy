@@ -2,7 +2,8 @@
 //
 // Covers eddy-ios/src/lib/floatReminders.ts (#1448 Phase 5) and how the store
 // sends them: along-river distance, only on a live position, only while
-// approaching, and once per float, across a relaunch included.
+// approaching, and once per float, across a relaunch included. Also the
+// ending rules in eddy-ios/src/lib/floatEnding.ts, which ride the same path.
 
 import assert from 'node:assert/strict';
 import test from 'node:test';
@@ -17,15 +18,26 @@ import {
   type FloatSession,
 } from '../../../eddy-ios/src/lib/floatSession';
 import {
+  HAZARD_LEAD_MILES,
   STOP_LEAD_MILES,
   TAKE_OUT_LEAD_MILES,
   dueReminders,
+  hazardReminderId,
   markPending,
   settleDelivery,
   reminderCopy,
   reminderStops,
 } from '../../../eddy-ios/src/lib/floatReminders';
 import { createFloatSessionStore, type SessionStorage } from '../../../eddy-ios/src/lib/floatSessionStoreCore';
+import {
+  ARRIVED_PROMPT_ID,
+  AUTO_END_AFTER_ARRIVAL_MS,
+  AUTO_END_AWAY_MS,
+  AWAY_PROMPT_ID,
+  AWAY_PROMPT_MS,
+  autoEndAt,
+  autoEndCopy,
+} from '../../../eddy-ios/src/lib/floatEnding';
 
 const MILE = 1609.344;
 const COS = Math.cos((37 * Math.PI) / 180);
@@ -244,5 +256,92 @@ test('a stop is reminded where it actually is, not at a published mile calibrati
 
 test('the take-out reminder for an off-river take-out says where it really is', () => {
   const copy = reminderCopy({ id: 'take-out', name: 'Buffalo City', kind: 'take-out', milesAway: 0.4, beyondMeters: 1_001 });
-  assert.match(copy.body, /closest point to Buffalo City is about 0\.4 mi ahead\. The take-out is about 1\.0 km beyond it/);
+  assert.equal(copy.title, 'Buffalo City take-out is approaching');
+  assert.match(copy.body, /About 0\.4 mi ahead to the river’s closest point\. The take-out is about 1\.0 km beyond it/);
+});
+
+// ── Hazards, and ending a float nobody ended ────────────────────────────────
+
+function withHazard(severity: 'danger' | 'caution', portageRequired = true, x = 7_000) {
+  const [lng, lat] = at(x);
+  const prepared = routeFromRiver(
+    { slug: 'current', name: 'Current River', geometry: { type: 'LineString', coordinates: STRAIGHT } },
+    ACCESS,
+    null,
+    [
+      {
+        id: 'dam',
+        riverId: 'r',
+        name: 'Mill Dam',
+        type: 'low_water_dam',
+        riverMile: 0,
+        description: null,
+        severity,
+        portageRequired,
+        portageSide: 'right',
+        seasonalNotes: null,
+        coordinates: { lng, lat },
+      },
+    ],
+  );
+  assert.ok(prepared.ok);
+  const result = startSession({ id: 'f1', kind: 'saved', route: prepared.route, index: prepared.index, putInId: 'akers', takeOutId: 'round-spring', now: T0 });
+  assert.ok(result.ok);
+  return { session: result.session, index: prepared.index };
+}
+
+test('a serious hazard gets a heads-up a quarter mile out; a minor one stays on screen', () => {
+  // A required portage is serious whatever its severity says.
+  const portage = withHazard('caution', true);
+  const ahead = paddle(portage.session, portage.index, 0, 6_700, T0);
+  assert.equal(dueReminders(ahead.session, portage.index, ahead.t - 10_000).length, 1);
+
+  const serious = withHazard('danger');
+  const { session, t } = paddle(serious.session, serious.index, 0, 6_700, T0);
+  const due = dueReminders(session, serious.index, t - 10_000);
+  assert.deepEqual(due.map((r) => r.id), [hazardReminderId('dam')]);
+  assert.ok(due[0].milesAway <= HAZARD_LEAD_MILES);
+  const copy = reminderCopy(due[0]);
+  assert.equal(copy.title, 'Low-water dam ahead: Mill Dam');
+  assert.match(copy.body, /Portage river right\./);
+  // Switched off for this float: nothing.
+  const off = { ...session, reminders: { takeOut: true, stops: [], fired: [], hazards: false } };
+  assert.deepEqual(dueReminders(off, serious.index, t - 10_000), []);
+
+  const minor = withHazard('caution', false);
+  const quiet = paddle(minor.session, minor.index, 0, 6_700, T0);
+  assert.deepEqual(dueReminders(quiet.session, minor.index, quiet.t - 10_000), []);
+});
+
+test('reaching the take-out offers Finish once, and nothing along the river after it', () => {
+  const { session: s0, index } = started(STRAIGHT, ACCESS, 'akers', 'pulltite');
+  let { session, t } = paddle(s0, index, 0, 6_000, T0);
+  assert.ok(session.arrivedAt != null);
+  const due = dueReminders(session, index, t - 10_000);
+  assert.deepEqual(due.map((r) => r.id), [ARRIVED_PROMPT_ID]);
+  assert.equal(reminderCopy(due[0]).title, 'You’ve reached pulltite');
+  session = settleDelivery(markPending(session, [ARRIVED_PROMPT_ID]), [ARRIVED_PROMPT_ID], [ARRIVED_PROMPT_ID]);
+  ({ session, t } = paddle(session, index, 6_000, 6_100, t, 0.5));
+  assert.deepEqual(dueReminders(session, index, t - 10_000), []);
+});
+
+test('a float left running ends itself after arriving or leaving the river, never for stopping', () => {
+  const { session: s0, index } = started(STRAIGHT, ACCESS, 'akers', 'round-spring');
+  const { session, t } = paddle(s0, index, 0, 3_000, T0);
+  // A three-hour lunch on the river: nothing ends.
+  assert.equal(autoEndAt(session, t + 3 * 3_600_000), null);
+
+  const arrived = { ...session, arrivedAt: t };
+  assert.equal(autoEndAt(arrived, t + AUTO_END_AFTER_ARRIVAL_MS - 1), null);
+  assert.equal(autoEndAt(arrived, t + AUTO_END_AFTER_ARRIVAL_MS), t);
+  assert.match(autoEndCopy(arrived).body, /at round-spring/);
+
+  // Driving home: prompt first, then the end, recorded when they left.
+  let away = session;
+  for (let k = 0; k < 4; k += 1) away = applyFix(away, index, fix(at(3_000, 5_000), t + k * 60_000), t + k * 60_000);
+  assert.equal(away.awaySince, t);
+  assert.deepEqual(dueReminders(away, index, t + AWAY_PROMPT_MS - 1).map((r) => r.id), []);
+  assert.deepEqual(dueReminders(away, index, t + AWAY_PROMPT_MS).map((r) => r.id), [AWAY_PROMPT_ID]);
+  assert.equal(autoEndAt(away, t + AUTO_END_AWAY_MS), t);
+  assert.match(autoEndCopy(away).body, /left the Current River/);
 });

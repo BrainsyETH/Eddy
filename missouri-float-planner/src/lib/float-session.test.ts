@@ -12,6 +12,10 @@ import type { MapAccessPoint } from '@eddy/types';
 import {
   MAX_SAMPLES,
   applyFix,
+  arrivalCopy,
+  arrivalOutlook,
+  mapFeatures,
+  withHazards,
   formatDuration,
   remainingCopy,
   statusCopy,
@@ -384,4 +388,149 @@ test('after a relaunch nothing reads as live until fresh fixes confirm a positio
   // The gap is a break in pace evidence, not movement.
   const last = session.samples[session.samples.length - 1];
   assert.equal(last.continuous, false);
+});
+
+// ── Off the river, arrival, hazards, the stretch, and daylight ──────────────
+
+test('away from the river with GPS working says so and holds the last spot, however long', () => {
+  const { route, index } = prepared();
+  const started = startSession({ id: 'o1', kind: 'saved', route, index, putInId: 'akers', takeOutId: 'round-spring', now: T0 });
+  assert.ok(started.ok);
+  let session = float(started.session, index, 1_000, T0, 60, 1);
+  const held = session.position;
+  // Ten minutes on a bank 400 m from the line, fixes every 20 s.
+  let t = T0 + 60_000;
+  for (let s = 0; s < 30; s += 1) {
+    t += 20_000;
+    session = applyFix(session, index, { lngLat: at(1_060, 400), accuracyMeters: 10, timestamp: t }, t);
+  }
+  const view = viewSession(session, t);
+  assert.equal(view.status, 'off-route');
+  assert.match(statusCopy(view, t), /away from the river/);
+  assert.deepEqual(session.position, held);
+  assert.equal(view.lastFixAt, t);
+  // Not "left the river": 400 m is a bank, not the road home.
+  assert.equal(session.awaySince ?? null, null);
+  // When fixes do stop, it is stale from the last fix, not the last river position.
+  assert.match(statusCopy(viewSession(session, t + 3 * 60_000), t + 3 * 60_000), /Last position 3 min ago/);
+});
+
+test('going well away from the river is recorded once, and a river position clears it', () => {
+  const { route, index } = prepared();
+  const started = startSession({ id: 'o2', kind: 'saved', route, index, putInId: 'akers', takeOutId: 'round-spring', now: T0 });
+  assert.ok(started.ok);
+  let session = float(started.session, index, 1_000, T0, 60, 1);
+  const away = (s: FloatSession, t: number) => applyFix(s, index, { lngLat: at(1_060, 3_000), accuracyMeters: 10, timestamp: t }, t);
+  session = away(session, T0 + 80_000);
+  session = away(session, T0 + 100_000);
+  assert.equal(session.awaySince, T0 + 80_000);
+  session = float(session, index, 1_070, T0 + 120_000, 30, 1);
+  assert.equal(session.awaySince, null);
+});
+
+test('arrival is recorded once from a confirmed position; on-water accounting stops there', async () => {
+  const { recapFloat } = await import('../../../eddy-ios/src/lib/floatRecap');
+  const { route, index } = prepared();
+  const started = startSession({ id: 'a1', kind: 'saved', route, index, putInId: 'akers', takeOutId: 'pulltite', now: T0 });
+  assert.ok(started.ok);
+  let session = float(started.session, index, 0, T0, 6_000, 1);
+  assert.ok(session.arrivedAt != null);
+  const arrivedAt = session.arrivedAt!;
+  const totalsAtArrival = session.totals;
+  // Sit at the take-out for twenty minutes, then walk to the car.
+  session = float(session, index, 6_000, T0 + 6_010_000, 1_200, 0);
+  assert.equal(session.arrivedAt, arrivedAt);
+  assert.deepEqual(session.totals, totalsAtArrival);
+  let t = T0 + 7_300_000;
+  for (let s = 0; s < 10; s += 1) {
+    t += 20_000;
+    session = applyFix(session, index, { lngLat: at(6_000, 2_000), accuracyMeters: 10, timestamp: t }, t);
+  }
+  // Ending hours later, away from the river, still reached the take-out, and
+  // the float ended when it arrived.
+  const recap = recapFloat(session, t + 3 * 3_600_000);
+  assert.equal(recap.reachedTakeOut, true);
+  assert.equal(recap.endedAt, arrivedAt);
+  assert.equal(recap.elapsedMs, arrivedAt - T0);
+});
+
+test('a quick start already past its take-out never counts as arrived', () => {
+  const { route, index } = prepared();
+  const quick = startSession({ id: 'a2', kind: 'quick', route, index, takeOutId: 'pulltite', now: T0 });
+  assert.ok(quick.ok);
+  const past = float(quick.session, index, 8_000, T0, 60, 1);
+  assert.equal(past.arrivedAt ?? null, null);
+});
+
+test('hazards are placed on the calibrated line in river order; one off the line is left out', () => {
+  const hazard = (id: string, x: number, y = 0, severity: 'danger' | 'caution' = 'danger') => {
+    const [lng, lat] = at(x, y);
+    return {
+      id,
+      riverId: 'r',
+      name: id,
+      type: 'low_water_dam' as const,
+      riverMile: 0,
+      description: null,
+      severity,
+      portageRequired: true,
+      portageSide: 'left' as const,
+      seasonalNotes: null,
+      coordinates: { lng, lat },
+    };
+  };
+  const result = routeFromRiver(RIVER, ACCESS, null, [hazard('b', 7_000), hazard('a', 2_000, 0, 'caution'), hazard('far', 4_000, 2_000)]);
+  assert.ok(result.ok);
+  const placed = result.route.hazards ?? [];
+  assert.deepEqual(placed.map((h) => h.id), ['a', 'b']);
+  assert.ok(Math.abs(placed[0].riverMile - (20 + 2_000 * MILES_PER_M)) < 0.01);
+
+  const started = startSession({ id: 'h1', kind: 'saved', route: result.route, index: result.index, putInId: 'akers', takeOutId: 'round-spring', now: T0 });
+  assert.ok(started.ok);
+  // Before any fix, a saved float already knows the first hazard ahead.
+  assert.equal(viewSession(started.session, T0).nextHazard?.hazard.id, 'a');
+  const past = float(started.session, result.index, 2_500, T0, 30, 1);
+  const next = viewSession(past, T0 + 30_000).nextHazard;
+  assert.equal(next?.hazard.id, 'b');
+  assert.ok(next && Math.abs(next.milesAway - 4_470 * MILES_PER_M) < 0.05);
+
+  // A route without hazards (an older trip download) takes them from elsewhere.
+  const bare = routeFromRiver(RIVER, ACCESS, null);
+  assert.ok(bare.ok);
+  assert.equal(bare.route.hazards, undefined);
+  assert.equal(withHazards(bare.route, bare.index, [hazard('b', 7_000)]).hazards?.length, 1);
+});
+
+test('the map frames the chosen stretch, with the access points along it', () => {
+  const { route, index: idx } = prepared();
+  const started = startSession({ id: 'm1', kind: 'saved', route, index: idx, putInId: 'akers', takeOutId: 'pulltite', now: T0 });
+  assert.ok(started.ok);
+  const features = mapFeatures(started.session, idx);
+  assert.ok(features.section);
+  const [first] = features.section!;
+  const last = features.section![features.section!.length - 1];
+  assert.ok(Math.abs(first[0] - at(0)[0]) < 1e-6);
+  assert.ok(Math.abs(last[0] - at(6_000)[0]) < 1e-6);
+  // Cave (not an endpoint, but an access point) sits between them.
+  assert.equal(features.stops.length, 1);
+
+  // A quick start shows the whole river until it knows where it began.
+  const quick = startSession({ id: 'm2', kind: 'quick', route, index: idx, takeOutId: 'pulltite', now: T0 });
+  assert.ok(quick.ok);
+  assert.equal(mapFeatures(quick.session, idx).section, null);
+});
+
+test('arrival time is weighed against sunset at the take-out', () => {
+  const takeOut = at(10_000);
+  // July 4 in the Ozarks: sunset about 8:28 pm CDT (01:28 UTC).
+  const noon = Date.parse('2026-07-04T17:00:00Z');
+  assert.equal(arrivalOutlook(60, noon, takeOut)?.light, 'day');
+  const evening = Date.parse('2026-07-05T00:30:00Z');
+  assert.equal(arrivalOutlook(45, evening, takeOut)?.light, 'near');
+  assert.equal(arrivalOutlook(90, evening, takeOut)?.light, 'after');
+  assert.equal(arrivalOutlook(30, Date.parse('2026-07-05T02:00:00Z'), takeOut)?.light, 'set');
+  assert.equal(arrivalOutlook(null, noon, takeOut), null);
+  const copy = arrivalCopy(arrivalOutlook(90, evening, takeOut)!, (ms) => new Date(ms).toISOString().slice(11, 16));
+  assert.equal(copy.line, 'Arrive around 02:00');
+  assert.match(copy.warning ?? '', /after sunset \(01:2\d\)/);
 });

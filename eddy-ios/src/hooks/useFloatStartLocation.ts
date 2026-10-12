@@ -9,6 +9,11 @@ import { START_FIX_MAX_AGE_MS, usableStartFix, type StartFix } from '@/lib/float
 // through navigation URLs; actual tracking still starts only after beginFloat.
 let previewFix: StartFix | null = null;
 
+/** The shared preview fix right now, for a check that must not use a render's copy. */
+export function currentStartFix(): StartFix | null {
+  return previewFix;
+}
+
 export function useFloatStartLocation() {
   const [permission, setPermission] = useState<ForegroundPermission | null>(null);
   const [servicesEnabled, setServicesEnabled] = useState(true);

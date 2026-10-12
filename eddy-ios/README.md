@@ -1027,7 +1027,14 @@ blur:
   time left; `src/lib/floatSession.ts`, `src/float/FloatTracker.tsx`), tracking
   while the phone is locked (background location in `app.json`), trip downloads
   for offline maps (ADR 0011), and a Lock Screen / Dynamic Island Live Activity
-  (`docs/float-live-activity-plan.md`). This is progress along a known route,
+  (`docs/float-live-activity-plan.md`). The map frames the chosen stretch
+  with the access points and known hazards along it; the screen shows the next
+  hazard, an arrival time and a sunset warning. Serious hazards, the approaching
+  take-out and arrival are notified. A float left running ends itself an hour
+  after arrival or 45 minutes after leaving the river (`src/lib/floatEnding.ts`),
+  never for stopping or losing signal. With Always, a closed Eddy is relaunched
+  to resume by significant location changes and a wake geofence
+  (`src/float/backgroundTracking.ts`). This is progress along a known route,
   not a recorded GPS track; raw float positions stay on the phone. Signed-in
   recap summaries are backed up separately (ADR 0012). Hazard reports explicitly
   send the location the user submits.
@@ -1056,7 +1063,10 @@ Location Services. A GPS timeout does not block manual setup. Returning from
 Settings rechecks permission without discarding the trip.
 
 Quick starts confirm a suggested river, pick a take-out, then review one
-summary card. Suggestions use straight-line distance to access points, never
+summary card. Before Eddy finds the paddler on the river, take-outs are listed
+by river mile with a "Find me" action; afterwards, by distance ahead. Choosing
+a custom take-out point is not supported: the end must be a known access point,
+because progress is measured between calibrated access points. Suggestions use straight-line distance to access points, never
 claim that the nearest river is the correct one, and keep the full list behind
 search. Only a fix under two minutes old, with accuracy within 100 m and within
 150 m of the chosen river line, narrows take-outs downstream or supplies
@@ -1064,7 +1074,10 @@ preview miles. This is a preview, not a committed tracker position. Quick
 starts learn time left after tracking begins; saved trips can show the supplied
 planner's moving-time estimate, with stops explicitly excluded.
 
-Each choice pushes a native stack page at the same `/float-start` URL. Back and
+The steps are in `app/(tabs)/(floats)/float-start.tsx`; their pieces (river
+picker, location card, background sheet, `useStart`) are in `src/float/start/`.
+At Start, a quick start gets a fresh fix if the preview has aged out, so a
+take-out behind the paddler is still caught. Each choice pushes a native stack page at the same `/float-start` URL. Back and
 swipe return to the previous choice; successful start removes only this setup's
 pages. Saved trips open the summary directly, show distance to the put-in when
 available, and can download their known route without location. Quick downloads

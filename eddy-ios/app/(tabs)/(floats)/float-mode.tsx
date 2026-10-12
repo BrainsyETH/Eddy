@@ -10,7 +10,7 @@
 // only; miles, progress and time left come from data copied onto the phone
 // when the float started.
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, Linking, Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useIsFocused, useRouter } from 'expo-router';
@@ -24,7 +24,17 @@ import { FloatHazardReports } from '@/float/FloatHazardReports';
 import { useFloatSession } from '@/hooks/useFloatSession';
 import { onForeground } from '@/lib/foreground';
 import { endFloat } from '@/lib/floatSessionStore';
-import { formatBeyond, remainingCopy, statusCopy, viewSession } from '@/lib/floatSession';
+import {
+  arrivalCopy,
+  arrivalOutlook,
+  formatBeyond,
+  indexRoute,
+  mapFeatures,
+  remainingCopy,
+  statusCopy,
+  viewSession,
+} from '@/lib/floatSession';
+import { hazardTypeLabel } from '@eddy/hazards';
 import { trackingMode, trackingNotice, type TrackingMode } from '@/lib/floatPermissions';
 import { radii } from '@/theme/layout';
 import { useTheme } from '@/theme/ThemeProvider';
@@ -33,6 +43,8 @@ import type { LngLat } from '@eddy/geo';
 
 /** Re-read the clock this often so "last position N min ago" stays true. */
 const TICK_MS = 15_000;
+
+const clockTime = (ms: number) => new Date(ms).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
 
 export default function FloatModeScreen() {
   const session = useFloatSession();
@@ -62,11 +74,39 @@ export default function FloatModeScreen() {
   const clock = Math.max(now, session?.last?.at ?? 0);
   const view = useMemo(() => (session ? viewSession(session, clock) : null), [session, clock]);
 
+  const route = session?.route;
+  const putInId = session?.putIn?.id;
+  const takeOutId = session?.takeOut.id;
   const ends = useMemo(() => {
-    if (!session) return null;
-    const anchor = (id: string | undefined) => session.route.anchors.find((a) => a.id === id)?.lngLat ?? null;
-    return { start: anchor(session.putIn?.id), takeOut: anchor(session.takeOut.id) };
-  }, [session]);
+    if (!route) return null;
+    const anchor = (id: string | undefined) => route.anchors.find((a) => a.id === id)?.lngLat ?? null;
+    return { start: anchor(putInId), takeOut: anchor(takeOutId) };
+  }, [route, putInId, takeOutId]);
+
+  // The same calibrated line the numbers use; rebuilt only if the route changes.
+  const index = useMemo(() => {
+    if (!route) return null;
+    const built = indexRoute(route);
+    return built.ok ? built.index : null;
+  }, [route]);
+  const startMile = session?.startMile ?? null;
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- the stretch moves only when its start or route does, not on every fix
+  const features = useMemo(() => (session && index ? mapFeatures(session, index) : null), [index, startMile]);
+
+  // A float Eddy ended on its own (arrived long ago, or left the river) while
+  // this screen was open: show its recap, as Finish would.
+  const lastId = useRef<string | null>(null);
+  const endingHere = useRef(false);
+  useEffect(() => {
+    if (session) {
+      lastId.current = session.id;
+      return;
+    }
+    if (lastId.current && !endingHere.current && focused) {
+      router.replace({ pathname: '/float-recap', params: { id: lastId.current } });
+    }
+    lastId.current = null;
+  }, [session, focused, router]);
 
   if (!session || !view || !ends?.takeOut) {
     return (
@@ -81,6 +121,9 @@ export default function FloatModeScreen() {
 
   const position: LngLat | null = session.position?.lngLat ?? null;
   const time = remainingCopy(view.estimate, view.takeOutBeyondMeters != null);
+  const outlook = arrivalOutlook(view.estimate.minutes, clock, ends.takeOut);
+  const arrival = outlook ? arrivalCopy(outlook, clockTime) : null;
+  const hazard = view.nextHazard;
   const live = view.status === 'live';
   // At the take-out, or as close as the mapped river goes to one off it.
   const done = view.arrived || view.atRiverEnd;
@@ -95,6 +138,7 @@ export default function FloatModeScreen() {
           text: done ? 'Finish' : 'End float',
           style: done ? 'default' : 'destructive',
           onPress: () => {
+            endingHere.current = true;
             void endFloat().then((cleared) => {
               // Tracking has stopped either way; say so if storage lagged.
               if (!cleared) {
@@ -116,6 +160,9 @@ export default function FloatModeScreen() {
       <View style={styles.map}>
         <FloatMap
           line={session.route.line}
+          section={features?.section ?? null}
+          stops={features?.stops ?? []}
+          hazards={features?.hazards ?? []}
           start={ends.start}
           takeOut={ends.takeOut}
           position={position}
@@ -130,6 +177,12 @@ export default function FloatModeScreen() {
         <Text style={[styles.status, { color: live ? colors.interactive : colors.textMuted }]} accessibilityLiveRegion="polite">
           {statusCopy(view, clock)}
         </Text>
+
+        {permission.mode === 'locked' ? (
+          <Text style={[styles.note, { color: colors.textMuted }]}>
+            Lock your phone or close Eddy and tracking carries on. If you close Eddy, it picks up again once you move on.
+          </Text>
+        ) : null}
 
         {(() => {
           const notice = trackingNotice(permission.mode, permission.canAskAgain);
@@ -173,8 +226,29 @@ export default function FloatModeScreen() {
             ) : null}
             <Text style={[styles.time, { color: colors.text }]}>{time.headline}</Text>
             {time.note ? <Text style={[styles.note, { color: colors.textMuted }]}>{time.note}</Text> : null}
+            {arrival ? <Text style={[styles.note, { color: colors.text }]}>{arrival.line}</Text> : null}
+            {arrival?.warning ? (
+              <Text style={[styles.note, styles.emphasis, { color: colors.error }]} accessibilityRole="alert">
+                {arrival.warning}
+              </Text>
+            ) : null}
           </View>
         )}
+
+        {hazard ? (
+          <View style={[styles.card, { backgroundColor: colors.card }, elevation(1)]}>
+            <Text style={[styles.note, { color: colors.textMuted }]}>Next hazard</Text>
+            <Text style={[styles.toggleTitle, { color: colors.text }]}>
+              {hazardTypeLabel(hazard.hazard.type)}: {hazard.hazard.name}
+            </Text>
+            <Text style={[styles.note, { color: colors.textMuted }]}>
+              {hazard.milesAway < 0.1 ? 'Just ahead' : `${hazard.milesAway.toFixed(1)} mi ahead`}, along the river
+              {hazard.hazard.portageRequired
+                ? ` · portage${hazard.hazard.portageSide && hazard.hazard.portageSide !== 'either' ? ` river ${hazard.hazard.portageSide}` : ''}`
+                : ''}
+            </Text>
+          </View>
+        ) : null}
 
         <FloatActivityControl />
 
@@ -270,6 +344,7 @@ const styles = StyleSheet.create({
   percent: { ...t.xs, fontFamily: fonts.body },
   time: { ...t.lg, fontFamily: fonts.heading, marginTop: 4 },
   note: { ...t.sm, fontFamily: fonts.body },
+  emphasis: { fontFamily: fonts.semibold },
   notice: { borderRadius: 12, borderWidth: StyleSheet.hairlineWidth, padding: 12 },
   noticeText: { ...t.sm, fontFamily: fonts.body },
   emptyTitle: { ...t.lg, fontFamily: fonts.heading },
