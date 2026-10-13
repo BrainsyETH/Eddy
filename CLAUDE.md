@@ -66,6 +66,10 @@ scripts and mirror CI exactly:
 - `make check-mobile` — iOS typecheck + lint
 - `make bundle-mobile` — credential-free production iOS bundle + `.easignore` allowlist check (the step that catches Metro/EAS breakage invisible in dev)
 - `make check-db` — migration drift against the **linked** Supabase project. Outside `make check` on purpose: it needs credentials, and CI stays hermetic. Run it after applying anything by hand, not only before a release
+- `make check-db` also checks live report-write privileges/policies and exposed
+  `SECURITY DEFINER` RPCs against the reviewed public API allowlist in
+  `scripts/lib/client-access-contract.ts` under the web app. New public definer
+  functions require an explicit allowlist review; report writes remain server-only.
 - `make check` — all of the above
 - `make dev` — run the app locally on a simulator
 - `make build-ios` / `make testflight` — EAS builds. The native-artifact cleanup and the `.easignore` check are **prerequisites**, not remembered steps
