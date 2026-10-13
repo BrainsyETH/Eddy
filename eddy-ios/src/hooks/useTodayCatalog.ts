@@ -1,4 +1,6 @@
-import { useEffect, useSyncExternalStore } from 'react';
+import { useCallback, useEffect, useSyncExternalStore } from 'react';
+import { useFocusEffect } from 'expo-router';
+import { useObservationClock } from '@/hooks/useObservationClock';
 import { ApiError } from '@/api/client';
 import { takePreloadedToday } from '@/lib/firstRunPreload';
 import { onForeground } from '@/lib/foreground';
@@ -17,12 +19,19 @@ const catalog = createTodayCatalog({
 });
 
 export function useTodayCatalog() {
+  const now = useObservationClock();
   const snapshot = useSyncExternalStore(catalog.subscribe, catalog.getSnapshot, catalog.getSnapshot);
-  useEffect(() => {
-    void catalog.load();
+  useEffect(() => { catalog.age(); }, [now]);
+  useFocusEffect(useCallback(() => {
+    const refresh = () => {
+      catalog.age();
+      void catalog.load();
+      if (catalog.getSnapshot().gauges !== null || catalog.getSnapshot().gaugeError !== null) void catalog.ensureGauges();
+    };
+    refresh();
     // All mounted routes share the freshness check and in-flight request.
     // Unmounting one route must not cancel another route's public-data load.
-    return onForeground(() => { void catalog.load(); });
-  }, []);
-  return { ...snapshot, load: catalog.load, ensureGauges: catalog.ensureGauges };
+    return onForeground(refresh);
+  }, []));
+  return { ...snapshot, now, load: catalog.load, ensureGauges: catalog.ensureGauges };
 }

@@ -806,6 +806,14 @@ feature sold the least valuable half, and the giveaway test showed it: download
 a river, switch on airplane mode, relaunch, and everything still worked. The
 button looked like it had done nothing because almost nothing was what it did.
 
+River detail ages readings from their observation timestamp, with each entry's
+own receipt time as a fallback. The shared conditions blob's write time cannot
+date an individual river. Legacy entries without either trustworthy timestamp
+show an unknown-time warning. Visible river details, Today lists, and dam rows
+age on one shared minute clock; focus and foreground also update that clock.
+Today's gauge cache expires after five minutes, dams use the shared dam store,
+and pull-to-refresh bypasses both caches when those datasets are in use.
+
 The stronger version — computing a float time on the phone from the cached river
 mile and last reading — is genuinely feasible and was scoped. It was not worth
 the maintenance surface for one person, so the feature went instead of growing.

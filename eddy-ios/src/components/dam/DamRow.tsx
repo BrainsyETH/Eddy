@@ -17,10 +17,13 @@ import { ControlIcon } from '@/components/ControlIcon';
 import type { DamSnapshot } from '@eddy/types';
 import {
   centralDayKey,
+  relativeAge,
   idleWindowSentence,
   SCHEDULE_CHANGE_NOTE,
 } from '@eddy/conditions/dam-schedule-copy';
 import { DayBars } from '@/components/dam/DayBars';
+import { generationNow, generationStatusLabel, speaksForNow } from '@eddy/conditions/dam-generation';
+import { useObservationClock } from '@/hooks/useObservationClock';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
 import { KindMark } from '@/components/KindMark';
@@ -57,7 +60,12 @@ function DamRowComponent({
   showSchedule?: boolean;
 }) {
   const { colors } = useTheme();
+  const now = useObservationClock();
+  const generation = generationNow(dam, now);
+  const status = generationStatusLabel(generation);
+  const generatingNow = generation.kind === 'generating' && speaksForNow(generation.age);
   const release = dam.metrics.release;
+  const releaseAge = release ? relativeAge(release.at, now) : null;
 
   // ── TODAY BY DATE, NEVER BY POSITION ──────────────────────────────────────
   //
@@ -70,7 +78,7 @@ function DamRowComponent({
   //
   // Ordinary when absent — Kansas City district publishes no SWPA schedule at
   // all — and absent renders nothing rather than an empty chart.
-  const todayKey = centralDayKey();
+  const todayKey = centralDayKey(now);
   const today = showSchedule
     ? (dam.schedule.find((entry) => entry.scheduleDate === todayKey) ?? null)
     : null;
@@ -102,27 +110,33 @@ function DamRowComponent({
         </View>
 
         <View style={styles.right}>
-          {dam.generating !== null ? (
+          {status ? (
             <View style={styles.stateRow}>
               <ControlIcon
-                name={dam.generating ? 'flash' : 'flash-off-outline'}
+                name={generation.kind === 'unavailable' ? 'help-circle-outline'
+                  : generation.kind === 'generating' ? 'flash' : 'flash-off-outline'}
                 size={13}
-                color={dam.generating ? colors.interactive : colors.textSubtle}
+                color={generatingNow ? colors.interactive : colors.textSubtle}
               />
               <Text
                 style={[
                   styles.state,
-                  { color: dam.generating ? colors.interactive : colors.textSubtle },
+                  { color: generatingNow ? colors.interactive : colors.textSubtle },
                 ]}
               >
-                {dam.generating ? 'Generating' : 'Idle'}
+                {status}
               </Text>
             </View>
           ) : null}
           {release ? (
-            <Text style={[styles.release, { color: colors.text }]}>
-              {Math.round(release.value).toLocaleString()} cfs
-            </Text>
+            <>
+              <Text style={[styles.release, { color: colors.text }]}>
+                {Math.round(release.value).toLocaleString()} cfs
+              </Text>
+              <Text style={[styles.meta, { color: colors.textSubtle }]}>
+                {releaseAge ?? 'Observation time unavailable'}
+              </Text>
+            </>
           ) : null}
         </View>
 
@@ -195,8 +209,8 @@ const styles = StyleSheet.create({
   main: { flex: 1, gap: 2 },
   name: { ...t.base, fontFamily: fonts.semibold },
   meta: { ...t.xs },
-  right: { alignItems: 'flex-end', gap: 2 },
+  right: { alignItems: 'flex-end', gap: 2, maxWidth: '48%', flexShrink: 1 },
   stateRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  state: { ...t.xs, fontFamily: fonts.semibold },
+  state: { ...t.xs, fontFamily: fonts.semibold, flexShrink: 1, textAlign: 'right' },
   release: { ...t.sm, fontFamily: fonts.heading },
 });

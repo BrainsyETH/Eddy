@@ -1,4 +1,4 @@
-import type { RiverListItem } from '@eddy/types';
+import type { RiverConditionDetail, RiverListItem } from '@eddy/types';
 // eddy-ios/src/lib/offline-cache.ts
 // Key formats and envelope handling for the on-disk river cache. PURE — no
 // AsyncStorage, no Expo, nothing that cannot run under the web test runner.
@@ -357,10 +357,9 @@ export type ReadingBand = 'fresh' | 'stale' | 'expired';
  * claiming to be an hour old, forever, with the claim getting more wrong the
  * longer it sits there.
  *
- * The fix is to add the time elapsed since the CACHE ENTRY was written, which
- * is why `fetchedAt` and not the reading's own timestamp is the second
- * argument. Those two differ, and using the reading's own would under-report
- * staleness by exactly the amount that matters.
+ * When no observation timestamp exists, add time since THIS payload arrived.
+ * For individually updated entries use their own receipt time. When an absolute
+ * observation time exists, observationAgeHours is the primary calculation.
  *
  * Returns null for "we cannot say", which the bands treat as the oldest case
  * rather than the newest — an unknown age is not evidence of freshness.
@@ -379,6 +378,39 @@ export function effectiveReadingAgeHours(
   // so the stored age is the floor.
   const elapsedHours = elapsedMs > 0 ? elapsedMs / 3_600_000 : 0;
   return storedAgeHours + elapsedHours;
+}
+
+/** Prefer the observation clock. The fallback clock must belong to THIS
+ * reading, never the envelope containing multiple independently written rivers.
+ * Keep the server age as a floor when the device clock is behind.
+ */
+export function observationAgeHours(
+  observedAt: string | null | undefined,
+  storedAgeHours: number | null | undefined,
+  receivedAt: string | null | undefined,
+  now: number,
+): number | null {
+  const floor = typeof storedAgeHours === 'number' && Number.isFinite(storedAgeHours)
+    && storedAgeHours >= 0 ? storedAgeHours : null;
+  if (isIsoDate(observedAt)) {
+    return Math.max(floor ?? 0, (now - Date.parse(observedAt)) / 3_600_000);
+  }
+  return effectiveReadingAgeHours(floor, receivedAt, now);
+}
+
+/** Optional for v1 entries written before per-reading receipt times existed. */
+export type CachedCondition = RiverConditionDetail & { cachedAt?: string };
+
+export function mergeCondition(
+  existing: CacheEnvelope<Record<string, CachedCondition>> | null,
+  riverId: string,
+  condition: RiverConditionDetail,
+  receivedAt: string,
+): CacheEnvelope<Record<string, CachedCondition>> {
+  return envelope({
+    ...existing?.payload,
+    [riverId]: { ...condition, cachedAt: receivedAt },
+  }, receivedAt);
 }
 
 /**
@@ -443,7 +475,7 @@ export function agedIndex(
         ...condition,
         readingAgeHours: age,
         code: 'unknown',
-        label: `Last known: ${condition.label}`,
+        label: condition.label.startsWith('Last known: ') ? condition.label : `Last known: ${condition.label}`,
         trend: null,
       },
     };
