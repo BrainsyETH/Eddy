@@ -4,7 +4,9 @@
 //
 // App Store Guideline 1.2's "block abusive users from the service". The ban is
 // keyed on the account and its Apple ID (see src/lib/reports/submitter-ban.ts),
-// so deleting the account and signing in again does not lift it.
+// so deleting the account and signing in again does not lift it. The steps and
+// their failure handling live in src/lib/reports/ban-submitter.ts; this route
+// wires them to Supabase.
 //
 // Only reports filed with a session can be banned. The website and builds
 // before photo sign-in submit anonymously, and those rows have no user_id: the
@@ -14,7 +16,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { requireAdminAuth, isValidUUID, invalidIdResponse, logAdminAction } from '@/lib/admin-auth';
 import { applyMediaTransitions } from '@/lib/uploads/apply-media-transitions';
-import { isSubmitterBanned, submitterKeys, type SubmitterKeys } from '@/lib/reports/submitter-ban';
+import { banSubmitter, type SubmitterReportRow } from '@/lib/reports/ban-submitter';
+import { SubmitterBanLookupError } from '@/lib/reports/submitter-ban';
 
 export const dynamic = 'force-dynamic';
 
@@ -53,69 +56,65 @@ export async function POST(
       );
     }
 
-    // The Apple key is what survives account deletion. An account that is
-    // already gone still gets a user_id ban; it just cannot add the Apple key.
-    let keys: SubmitterKeys = { userId: report.user_id, appleSubjectHash: null };
-    const { data: account } = await supabase.auth.admin.getUserById(report.user_id);
-    if (account?.user) keys = submitterKeys(account.user);
-
-    const alreadyBanned = await isSubmitterBanned(keys, (filter) =>
-      supabase.from('banned_submitters').select('id').or(filter).limit(1)
+    const result = await banSubmitter(
+      { userId: report.user_id, sourceReportId: report.id, reason: reason || null },
+      {
+        getAccount: async (userId) => {
+          const { data, error } = await supabase.auth.admin.getUserById(userId);
+          return { user: data?.user ?? null, error };
+        },
+        findBan: (filter) => supabase.from('banned_submitters').select('id').or(filter).limit(1),
+        insertBan: (row) => supabase.from('banned_submitters').insert(row),
+        backfillAppleHash: (userId, hash) =>
+          supabase
+            .from('banned_submitters')
+            .update({ apple_subject_hash: hash })
+            .eq('user_id', userId)
+            .is('apple_subject_hash', null),
+        listSubmitterReports: (userId) =>
+          supabase
+            .from('community_reports')
+            .select('id, status, image_path, image_url')
+            .eq('user_id', userId)
+            .returns<SubmitterReportRow[]>(),
+        rejectReports: (ids) =>
+          supabase
+            .from('community_reports')
+            .update({ status: 'rejected', updated_at: new Date().toISOString() })
+            .in('id', ids),
+        takedownMedia: (rows) => applyMediaTransitions(supabase, 'rejected', rows),
+      },
     );
-    if (!alreadyBanned) {
-      const { error: banError } = await supabase.from('banned_submitters').insert({
-        user_id: keys.userId,
-        apple_subject_hash: keys.appleSubjectHash,
-        source_report_id: report.id,
-        reason: reason || null,
-      });
-      // 23505: a concurrent ban on the same key landed first — same outcome.
-      if (banError && banError.code !== '23505') {
-        console.error('[ban-submitter] Could not record ban:', banError.message);
-        return NextResponse.json({ error: 'Could not ban submitter' }, { status: 500 });
-      }
-    }
 
-    // Ban first, take down second: if the takedown fails the ban still holds,
-    // and repeating the action finishes the job.
-    const { data: rows, error: rowsError } = await supabase
-      .from('community_reports')
-      .select('id, image_path, image_url')
-      .eq('user_id', keys.userId)
-      .in('status', ['pending', 'verified']);
-    if (rowsError) {
-      console.error('[ban-submitter] Could not list submitter reports:', rowsError.message);
-      return NextResponse.json(
-        { error: 'Submitter banned, but their reports could not be listed. Try again to remove them.' },
-        { status: 500 }
-      );
-    }
-
-    const ids = (rows ?? []).map((row) => row.id as string);
-    if (ids.length > 0) {
-      const { error: updateError } = await supabase
-        .from('community_reports')
-        .update({ status: 'rejected', updated_at: new Date().toISOString() })
-        .in('id', ids);
-      if (updateError) {
-        console.error('[ban-submitter] Could not reject submitter reports:', updateError.message);
-        return NextResponse.json(
-          { error: 'Submitter banned, but their reports could not be removed. Try again to remove them.' },
-          { status: 500 }
-        );
-      }
-      await applyMediaTransitions(supabase, 'rejected', rows ?? []);
+    if (!result.ok) {
+      console.error('[ban-submitter]', result.error, { reportId: report.id });
+      return NextResponse.json({ error: result.error, banned: result.banned }, { status: result.status });
     }
 
     await logAdminAction({
       action: 'ban_submitter',
       entityType: 'community_report',
       entityId: report.id,
-      details: { userId: keys.userId, appleKey: Boolean(keys.appleSubjectHash), removed: ids.length, reason: reason || null },
+      details: {
+        userId: report.user_id,
+        appleKey: result.appleKey,
+        rejected: result.rejected,
+        mediaRemoved: result.mediaRemoved,
+        reason: reason || null,
+      },
     });
 
-    return NextResponse.json({ banned: true, alreadyBanned, removed: ids.length });
+    return NextResponse.json({
+      banned: true,
+      alreadyBanned: result.alreadyBanned,
+      removed: result.rejected,
+      mediaRemoved: result.mediaRemoved,
+    });
   } catch (error) {
+    if (error instanceof SubmitterBanLookupError) {
+      console.error('[ban-submitter] Ban lookup unavailable:', error.cause);
+      return NextResponse.json({ error: 'Could not check existing bans. Try again.' }, { status: 503 });
+    }
     console.error('Error in POST ban-submitter:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }

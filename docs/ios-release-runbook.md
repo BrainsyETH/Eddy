@@ -276,6 +276,11 @@ Implemented on this branch; device verification and release status unconfirmed.
 JavaScript-only on iOS (no new native module), so it can ship over the air if
 the runtime fingerprint matches the store binary.
 
+- [ ] **First, confirm #1504's report-write restrictions are live in
+      production** (`make check-db` reports no client write privilege or policy
+      on `community_reports`). A ban trusts `community_reports.user_id`; while
+      clients can still write that table, anyone can file a report under
+      another user's id and get that user banned.
 - [ ] Apply the `banned_submitters` migration and move it from pending to
       applied in the ledger under the version production records. Run
       `make check-db`. Deploy the web app (report route + admin ban route)
