@@ -8,10 +8,14 @@
 // the gravel bar holding the thing that took the picture. Every photo Eddy has
 // was submitted by somebody who had already gone home.
 //
-// ── No account ─────────────────────────────────────────────────────────────
-// /api/upload and /api/reports are both public and rate-limited by IP. Same
-// posture as the feedback sheet: requiring a login here would filter for the
-// users least likely to be standing in a river.
+// ── Sign in with Apple, required ───────────────────────────────────────────
+// This used to need no account, on the grounds that a login filters out the
+// people most likely to be standing in a river. App Store Guideline 1.2 decided
+// it: photos are user-generated content other people see, and the app must be
+// able to block an abusive submitter. Only an account can be blocked, so the
+// report is signed with the Apple session and /api/reports checks it against
+// banned_submitters (see src/lib/reports/submitter-ban.ts on the server). The
+// website stays anonymous; every photo is still moderated before it appears.
 //
 // ── Nothing here is published ──────────────────────────────────────────────
 // The photo goes to a PRIVATE quarantine bucket and the report lands `pending`.
@@ -64,7 +68,9 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import { AppleSignInButton } from '@/components/AppleSignInButton';
 import { ControlIcon } from '@/components/ControlIcon';
+import { useSession } from '@/hooks/useSession';
 import type * as ImagePicker from 'expo-image-picker';
 import type * as ImageManipulator from 'expo-image-manipulator';
 import type * as ExpoFileSystem from 'expo-file-system';
@@ -284,6 +290,7 @@ export function PhotoSubmitSheet({
   onSubmitted,
 }: Props) {
   const { colors } = useTheme();
+  const { isAnonymous, accountsConfigured, getAccessToken } = useSession();
 
   const [photo, setPhoto] = useState<Prepared | null>(null);
   const [accessPointId, setAccessPointId] = useState<string | null>(
@@ -452,6 +459,13 @@ export function PhotoSubmitSheet({
     setBusy(true);
     setError(null);
     try {
+      // Before the upload, so a session that has gone missing costs nothing.
+      const accessToken = await getAccessToken();
+      if (!accessToken) {
+        setError('Your sign-in has expired. Close this and sign in again to send the photo.');
+        return;
+      }
+
       const imagePath = await uploadCommunityPhoto({
         uri: photo.uri,
         name: photo.name,
@@ -481,7 +495,7 @@ export function PhotoSubmitSheet({
         // The lookup now genuinely runs server-side; the label comes from
         // whichever branch of it actually ran.
         ...(manual ? { readingSource: 'manual' as const } : {}),
-      });
+      }, accessToken);
       setSent(true);
       onSubmitted?.();
     } catch (err) {
@@ -524,6 +538,25 @@ export function PhotoSubmitSheet({
                 accessibilityRole="button"
               >
                 <Text style={[styles.submitText, { color: colors.onInteractive }]}>Done</Text>
+              </Pressable>
+            </View>
+          ) : isAnonymous ? (
+            // Asked here, at the moment it matters, rather than at launch.
+            // Signing in flips isAnonymous and the form below replaces this.
+            <View style={styles.form}>
+              <Text style={[styles.title, { color: colors.text }]}>Add a photo</Text>
+              <Text style={[styles.subtitle, { color: colors.textMuted }]}>
+                {accountsConfigured
+                  ? 'Sign in with Apple to share photos. Eddy shows only the name you choose to credit, never your email.'
+                  : 'Photo sharing is not available in this version of the app.'}
+              </Text>
+              <AppleSignInButton onSignedIn={() => setError(null)} style={styles.signIn} />
+              <Pressable
+                onPress={dismiss}
+                style={({ pressed }) => [styles.notNow, { opacity: pressed ? 0.5 : 1 }]}
+                accessibilityRole="button"
+              >
+                <Text style={[styles.submitText, { color: colors.interactive }]}>Not now</Text>
               </Pressable>
             </View>
           ) : (
@@ -929,6 +962,8 @@ const styles = StyleSheet.create({
   hint: { ...t.xs, fontFamily: fonts.body },
   error: { ...t.xs, fontFamily: fonts.medium },
   submit: { alignItems: 'center', paddingVertical: 14, borderRadius: 12, marginTop: 4 },
+  signIn: { marginTop: 12 },
+  notNow: { alignItems: 'center', paddingVertical: 12 },
   submitText: { ...t.base, fontFamily: fonts.heading },
   done: { alignItems: 'center', gap: 8, paddingVertical: 24, paddingHorizontal: 8 },
   doneTitle: { ...t.xl, fontFamily: fonts.display },

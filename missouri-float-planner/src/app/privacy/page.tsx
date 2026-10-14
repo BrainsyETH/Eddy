@@ -26,7 +26,7 @@ export default function PrivacyPage() {
           >
             Privacy Policy
           </h1>
-          <p className="text-white/80">Last updated: October 12, 2026</p>
+          <p className="text-white/80">Last updated: October 14, 2026</p>
         </div>
       </section>
 
@@ -136,8 +136,11 @@ export default function PrivacyPage() {
               publicly visible if a moderator approves the report; rejected photos are
               deleted from storage. Eddy decodes and re-encodes community photos before
               storage to remove embedded camera metadata, including EXIF location metadata.
-              Reports and photos submitted through our public contribution form are not linked
-              to your Eddy account, even when you are signed in. Any display name is supplied
+              Photos submitted from the iOS app require Sign in with Apple and are linked to
+              your Eddy account, so that an account sending abusive content can be blocked;
+              your name and email are not published with them. Reports and photos submitted
+              through the website&rsquo;s public contribution form are not linked to your Eddy
+              account, even when you are signed in. Any display name is supplied
               separately and may be published with your contribution.
             </li>
             <li>
@@ -222,7 +225,9 @@ export default function PrivacyPage() {
             deleted information for a limited recovery period. After account deletion, we may
             temporarily retain an Apple authorization token and a technical identifier solely
             to revoke that authorization. Access is restricted to the server; the retry record
-            is removed after successful revocation.
+            is removed after successful revocation. If a moderator blocks an account from
+            contributing, we keep that account identifier and a one-way hash of its Apple
+            identifier, including after account deletion, solely to enforce the block.
           </p>
         </section>
 
