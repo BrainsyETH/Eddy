@@ -26,6 +26,7 @@ import {
   Film,
   ShieldCheck,
   Bot,
+  BookOpen,
 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { adminFetch } from '@/hooks/useAdminAuth';
@@ -38,6 +39,7 @@ interface AdminLayoutProps {
 
 const NAV_ITEMS = [
   { href: '/admin', label: 'Dashboard', icon: Home },
+  { href: '/admin/visuals', label: 'Visual guides', icon: BookOpen },
   { href: '/admin/trust', label: 'Trust', icon: ShieldCheck, badgeKey: 'openCriticalFindings' as const },
   { href: '/admin/blog', label: 'Blog Posts', icon: FileText },
   { href: '/admin/float-contributions', label: 'Float contributions', icon: History },
