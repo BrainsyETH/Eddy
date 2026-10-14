@@ -291,6 +291,24 @@ See ADR 0012 for scope, consent, storage and measurement semantics.
       selection. Explain a missing historical water reading without implying
       current water. Public float estimates must remain unchanged by contributions.
 
+### Location lifecycle and AI labels — October 14, 2026
+
+Implemented on this branch; device verification and release status unconfirmed.
+JavaScript-only (no native change), so it can ride the same over-the-air update
+as the freshness and photo-ban work if the runtime fingerprint matches.
+
+- [ ] Locate after moving: open the map, drive or walk well away (or simulate
+      a location change), tap Locate. The map centres on the new position, not
+      the earlier one. With GPS unavailable (airplane mode, indoors), the
+      spinner ends within about 15 seconds.
+- [ ] End during start: start a float with "Always" granted and tap End
+      immediately. The blue location indicator disappears and stays gone;
+      repeat with the phone locked straight after End.
+- [ ] Float Mode with keep-awake on: the screen stays awake through several GPS
+      fixes and sleeps normally after leaving the screen or ending the float.
+- [ ] Eddy's Read and Eddy's Take headings say "AI-generated"; the Take shows
+      the AI caveat under its sections; VoiceOver reads both.
+
 ### Photo submitter bans (Guideline 1.2) — October 14, 2026
 
 Implemented on this branch; device verification and release status unconfirmed.

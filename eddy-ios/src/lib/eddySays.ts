@@ -70,6 +70,18 @@ export function selectEddySays(source: EddySaysSource | null | undefined): EddyS
 }
 
 /**
+ * Said beside every piece of Eddy's prose (audit M5).
+ *
+ * "Eddy's Read" and "Eddy's Take" are a persona's names, and an otter icon does
+ * not tell anyone the paragraph was written by a model. The label goes on the
+ * heading, where it is read before the prose; the caveat goes under it.
+ */
+export const AI_LABEL = 'AI-generated';
+export const AI_CAVEAT =
+  'Written by AI from gauge readings and forecasts. Conditions change: check the current reading, ' +
+  'any dam releases, and access before you go.';
+
+/**
  * "this morning" / "3 hours ago" — deliberately vague at the coarse end.
  *
  * The precision people need from this is "not just now", and a paragraph is not

@@ -5,7 +5,7 @@ import { BlurView } from 'expo-blur';
 import { ControlIcon } from '@/components/ControlIcon';
 import type { RiverListItem } from '@eddy/types';
 import type { EddySays } from '@/lib/eddySays';
-import { writtenAge } from '@/lib/eddySays';
+import { AI_LABEL, writtenAge } from '@/lib/eddySays';
 import { conditionOpaqueBg, conditionChipBorder, conditionInk, conditionLabel } from '@/theme/conditions';
 import { useTheme } from '@/theme/ThemeProvider';
 import { PremiumReadPreview } from '@/components/PremiumReadPreview';
@@ -49,7 +49,7 @@ export function EddyReadPlaceholder() {
     <ReadBackdrop />
     <View style={styles.content} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
       <View style={styles.head}>
-        <Text style={[styles.kicker, { color: '#e2eee8' }]}>EDDY&apos;S READ</Text>
+        <Text style={[styles.kicker, { color: '#e2eee8' }]}>EDDY&apos;S READ · {AI_LABEL.toUpperCase()}</Text>
         <View style={[styles.pill, { opacity: 0 }]}><Text style={styles.pillText}>Pending</Text></View>
       </View>
       <Text style={[styles.name, { color: 'white' }]}>{' '}</Text>
@@ -111,9 +111,9 @@ export function EddyReadCard({ river, says, onPress, onUnlock, compact = false, 
     >
       <ReadBackdrop photoUrl={photoUrl ?? river.photoUrl} />
       <View style={styles.content}>
-      <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel={`Eddy's Read for ${river.name}. ${conditionLabel(code)}. ${action}`}>
+      <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel={`Eddy's Read for ${river.name}, ${AI_LABEL}. ${conditionLabel(code)}. ${action}`}>
       <View style={styles.head}>
-        <Text style={[styles.kicker, { color: '#e2eee8' }]}>EDDY&apos;S READ</Text>
+        <Text style={[styles.kicker, { color: '#e2eee8' }]}>EDDY&apos;S READ · {AI_LABEL.toUpperCase()}</Text>
         <View style={[styles.pill, { backgroundColor: conditionOpaqueBg(code), borderColor: conditionChipBorder(code) }]}>
           <Text style={[styles.pillText, { color: conditionInk(code) }]}>{conditionLabel(code)}</Text>
         </View>
