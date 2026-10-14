@@ -1,0 +1,337 @@
+.viewport {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  background: #0b172b;
+  color: #f4ead5;
+  font-family: var(--font-body), sans-serif;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+.stage {
+  position: relative;
+  width: min(100vw, 177.7778dvh);
+  aspect-ratio: 16/9;
+  overflow: hidden;
+  background: #163257;
+  isolation: isolate;
+}
+.scene {
+  background: #264979;
+  overflow: hidden;
+  font-family: var(--font-body), sans-serif;
+}
+.worldTile {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 3240px;
+  height: 1080px;
+  will-change: transform;
+  mask-image: linear-gradient(
+    to right,
+    transparent,
+    black 80px,
+    black calc(100% - 80px),
+    transparent
+  );
+}
+.panorama {
+  position: absolute;
+  inset: 0;
+  width: 3240px;
+  height: 1080px;
+  max-width: none !important;
+}
+.water {
+  position: absolute;
+  inset: 0;
+  clip-path: inset(72% 0 0);
+  opacity: 0.45;
+  pointer-events: none;
+  will-change: transform;
+}
+/* Source asset interior: x=27.4–37.5%, y=47.2–59.2%. These percentages
+   share the exact scenery transform; the timber border remains visible. */
+.sign {
+  position: absolute;
+  left: 27.6%;
+  top: 47.3%;
+  width: 9.7%;
+  height: 11.8%;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  padding: 6px 12px;
+  color: #f0e4bc;
+  text-align: center;
+  overflow: hidden;
+  text-shadow: 0 1px 1px #172f28;
+}
+.riverName {
+  font-size: 23px;
+  line-height: 1.1;
+  font-weight: 600;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
+.reading {
+  font-size: 36px;
+  line-height: 1;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  letter-spacing: -1px;
+}
+.reading small {
+  font-size: 21px;
+  font-weight: 400;
+  letter-spacing: 0;
+  margin-left: 8px;
+}
+.condition {
+  font-size: 18px;
+  line-height: 1.1;
+  font-weight: 500;
+}
+.condition[data-warning='true'] {
+  color: #ffd19b;
+}
+.age {
+  font-size: 16px;
+  line-height: 1.1;
+  color: #d5d7bb;
+}
+.emptySign {
+  font-size: 23px;
+  line-height: 1.2;
+  margin: 8px 0;
+}
+.foreground {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  width: 3495px;
+  height: 1165px;
+  max-width: none !important;
+  pointer-events: none;
+  will-change: transform;
+  filter: brightness(0.65) saturate(0.8);
+  mask-image: linear-gradient(
+    to right,
+    transparent,
+    black 90px,
+    black calc(100% - 90px),
+    transparent
+  );
+}
+.birds {
+  position: absolute;
+  top: 0;
+  left: 0;
+  display: flex;
+  gap: 15px;
+  color: #24334c;
+  font-size: 30px;
+  pointer-events: none;
+}
+.brand {
+  position: absolute;
+  top: 5%;
+  left: 4%;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  pointer-events: none;
+  z-index: 2;
+}
+.brand b {
+  font-family: 'Fredoka', var(--font-body), sans-serif;
+  font-weight: 500;
+  font-size: clamp(26px, 3.2vw, 52px);
+  line-height: 1;
+  letter-spacing: -1px;
+}
+.brand span {
+  font-size: clamp(11px, 1vw, 16px);
+  letter-spacing: 2px;
+}
+.status {
+  position: absolute;
+  right: 4%;
+  top: 5%;
+  max-width: 45%;
+  font-size: clamp(11px, 1vw, 16px);
+  line-height: 1.5;
+  text-align: right;
+  text-shadow: 0 1px 3px #10213d;
+  z-index: 2;
+}
+.status time {
+  display: block;
+  font-size: clamp(16px, 2vw, 30px);
+  font-variant-numeric: tabular-nums;
+}
+.status p {
+  margin: 4px 0;
+}
+.warning {
+  position: absolute;
+  left: 4%;
+  bottom: 5%;
+  max-width: 65%;
+  background: #2b211b;
+  color: #ffe3b6;
+  padding: 10px 16px;
+  font-size: clamp(11px, 1vw, 16px);
+  border-left: 3px solid #e8b46d;
+  z-index: 3;
+}
+.controls {
+  position: absolute;
+  right: 3%;
+  bottom: 4%;
+  display: flex;
+  gap: 8px;
+  z-index: 5;
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+.stage:hover .controls,
+.stage:focus-within .controls,
+.controls[data-paused='true'] {
+  opacity: 1;
+}
+.controls button,
+.controls a {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 44px;
+  min-height: 44px;
+  padding: 10px 14px;
+  border: 1px solid #ffffff38;
+  border-radius: 4px;
+  background: #142b39;
+  color: #f4ead5;
+  font: inherit;
+  font-size: 13px;
+  text-decoration: none;
+  cursor: pointer;
+}
+.controls button:focus-visible,
+.controls a:focus-visible {
+  outline: 2px solid #f2d9ab;
+  outline-offset: 3px;
+}
+.fallback {
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  font-size: 18px;
+  padding: 24px;
+  text-align: center;
+}
+.reader {
+  position: absolute;
+  left: 4%;
+  bottom: 12%;
+  background: #132f36;
+  color: #f4ead5;
+  padding: 18px;
+  max-height: 65%;
+  overflow: auto;
+  max-width: min(700px, 92%);
+  z-index: 6;
+  border: 1px solid #6d807a;
+}
+.reader table {
+  border-collapse: collapse;
+  font-size: 14px;
+  width: 100%;
+}
+.reader td,
+.reader th {
+  padding: 8px;
+  text-align: left;
+  border-bottom: 1px solid #6d807a;
+}
+.reader h2 {
+  font-size: 18px;
+  margin: 0 0 8px;
+  color: inherit;
+}
+.reader p {
+  color: inherit;
+}
+.portraitNote {
+  display: none;
+}
+@media (pointer: coarse) {
+  .controls {
+    opacity: 1;
+  }
+}
+@media (max-width: 600px) {
+  .brand span {
+    display: none;
+  }
+  .status {
+    max-width: 55%;
+    top: 4%;
+  }
+  .status time {
+    display: none;
+  }
+  .controls {
+    gap: 4px;
+    bottom: 3%;
+    right: 2%;
+  }
+  .controls button,
+  .controls a {
+    padding: 7px 9px;
+    font-size: 11px;
+  }
+  .warning {
+    bottom: 29%;
+    max-width: 90%;
+  }
+  .reader {
+    bottom: 26%;
+    max-height: 65%;
+    padding: 10px;
+  }
+  .reader table {
+    font-size: 11px;
+  }
+  .reader td,
+  .reader th {
+    padding: 5px;
+  }
+}
+@media (orientation: portrait) {
+  .portraitNote {
+    display: block;
+    position: absolute;
+    bottom: calc(50% - 28.125vw - 36px);
+    text-align: center;
+    font-size: 13px;
+    left: 0;
+    right: 0;
+    color: #b7c5ce;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .controls {
+    opacity: 1;
+    transition: none;
+  }
+}
