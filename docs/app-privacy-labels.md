@@ -112,6 +112,11 @@ Two facts worth having ready for review:
 - **Every photo is moderated before it is public.** Uploads land in a private
   quarantine bucket with `pending` status and are reviewed by a human before
   anyone else can see them.
+- **Submitting requires Sign in with Apple** (App Store Guideline 1.2). The
+  report is filed with the account's `user_id`, so a moderator can ban the
+  submitter from `/admin/reports` (Ban submitter). The ban also stores a SHA-256
+  hash of the Apple `sub` in `banned_submitters` and survives account deletion;
+  the privacy policy discloses that. Website submissions remain anonymous.
 
 ## User Content → Other User Content
 
@@ -250,7 +255,10 @@ is introduced by these features.
 > **User-generated content is moderated before publication.** Community river
 > photos are uploaded to a private bucket with `pending` status and are reviewed
 > by a person before they become visible to anyone else. Location metadata is
-> stripped from every upload server-side.
+> stripped from every upload server-side. Every published photo has a Report
+> control. Submitting a photo requires Sign in with Apple, and moderators can
+> ban an abusive account, which removes all of its photos and blocks further
+> submissions. Contact: the support email in Profile.
 >
 > **Safety disclaimers** appear wherever conditions or float times are shown.
 > The app refuses to estimate a float time in dangerous water rather than

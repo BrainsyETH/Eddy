@@ -19,10 +19,13 @@ import {
   Clock,
   Image as ImageIcon,
   Link as LinkIcon,
+  Ban,
 } from 'lucide-react';
 
 interface Report {
   id: string;
+  /** Set only when the report was filed with a signed-in session; only those can be banned. */
+  userId: string | null;
   riverId: string | null;
   riverName: string | null;
   hazardId: string | null;
@@ -180,6 +183,10 @@ export default function AdminReportsPage() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [bulkUpdating, setBulkUpdating] = useState(false);
   const [viewMode, setViewMode] = useState<'list' | 'grid'>('list');
+  // Ban asks twice IN the page: browser dialogs can be suppressed (see
+  // scripts/admin/no-blocking-dialogs.test.ts).
+  const [banConfirm, setBanConfirm] = useState<string | null>(null);
+  const [banning, setBanning] = useState<string | null>(null);
 
   const fetchReports = useCallback(async (p: number = page) => {
     try {
@@ -266,6 +273,30 @@ export default function AdminReportsPage() {
       setError(err instanceof Error ? err.message : 'Failed to delete');
     } finally {
       setDeleting(null);
+    }
+  };
+
+  const banSubmitter = async (report: Report) => {
+    try {
+      setBanning(report.id);
+      setError(null);
+      const res = await adminFetch(`/api/admin/reports/${report.id}/ban-submitter`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({}),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || 'Failed to ban submitter');
+      setSuccessMessage(
+        `Submitter banned${data.alreadyBanned ? ' (already banned)' : ''}; ${data.removed} report${data.removed === 1 ? '' : 's'} removed`
+      );
+      setTimeout(() => setSuccessMessage(null), 4000);
+      setBanConfirm(null);
+      await fetchReports();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to ban submitter');
+    } finally {
+      setBanning(null);
     }
   };
 
@@ -608,6 +639,38 @@ export default function AdminReportsPage() {
                               {updating === report.id ? 'Updating...' : 'Reject'}
                             </button>
                           </>
+                        )}
+                        {report.userId && (
+                          banConfirm === report.id ? (
+                            <>
+                              <span className="self-center text-xs text-neutral-400">
+                                Ban this account and remove all its reports?
+                              </span>
+                              <button
+                                onClick={() => banSubmitter(report)}
+                                disabled={banning === report.id}
+                                className="flex items-center gap-2 px-3 py-1.5 text-white bg-red-600 hover:bg-red-500 rounded-lg text-sm transition-colors disabled:opacity-50"
+                              >
+                                <Ban className="w-4 h-4" />
+                                {banning === report.id ? 'Banning...' : 'Confirm ban'}
+                              </button>
+                              <button
+                                onClick={() => setBanConfirm(null)}
+                                disabled={banning === report.id}
+                                className="px-3 py-1.5 text-neutral-400 hover:text-white rounded-lg text-sm"
+                              >
+                                Cancel
+                              </button>
+                            </>
+                          ) : (
+                            <button
+                              onClick={() => setBanConfirm(report.id)}
+                              className="flex items-center gap-2 px-3 py-1.5 text-red-400 hover:text-red-300 hover:bg-red-500/10 rounded-lg text-sm transition-colors"
+                            >
+                              <Ban className="w-4 h-4" />
+                              Ban submitter
+                            </button>
+                          )
                         )}
                         <button
                           onClick={() => deleteReport(report)}

@@ -1,5 +1,6 @@
 // src/app/api/reports/route.ts
 // POST /api/reports - Public endpoint for submitting community reports
+// Anonymous, or signed with a Bearer session so a moderator can ban the submitter
 // Supports all report types including river_visual with gauge data
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -14,6 +15,13 @@ import {
 } from '@/lib/reports/location';
 import { findFiledReport, ReportLookupError } from '@/lib/reports/idempotency';
 import { deriveRiverVisualGauge } from '@/lib/reports/gauge-derivation';
+import { requireUser } from '@/lib/supabase/request';
+import {
+  isSubmitterBanned,
+  submitterKeys,
+  SubmitterBanLookupError,
+  type SubmitterKeys,
+} from '@/lib/reports/submitter-ban';
 
 export const dynamic = 'force-dynamic';
 
@@ -168,6 +176,35 @@ export async function POST(request: NextRequest) {
 
     const supabase = createAdminClient();
 
+    // ── Who sent it ──────────────────────────────────────────────────────────
+    // The website and older app builds send no token and stay anonymous, as
+    // before. The iOS app signs photo submissions with the user's session, which
+    // is what lets a moderator ban an abusive submitter (App Store Guideline
+    // 1.2; see submitter-ban.ts). A token that IS sent must verify: silently
+    // filing an expired session as anonymous would leave a report no moderator
+    // can trace back to its account.
+    let submitter: SubmitterKeys | null = null;
+    if (request.headers.get('authorization')) {
+      const auth = await requireUser(request);
+      if (auth instanceof NextResponse) return auth;
+      if (type === 'river_visual' && auth.user.is_anonymous) {
+        return NextResponse.json(
+          { error: 'Sign in with Apple to share photos.', code: 'permanent_account_required' },
+          { status: 403 }
+        );
+      }
+      submitter = submitterKeys(auth.user);
+      const banned = await isSubmitterBanned(submitter, (filter) =>
+        supabase.from('banned_submitters').select('id').or(filter).limit(1)
+      );
+      if (banned) {
+        return NextResponse.json(
+          { error: 'This account can no longer submit reports.', code: 'submitter_banned' },
+          { status: 403 }
+        );
+      }
+    }
+
     // ── One report, once ─────────────────────────────────────────────────────
     // A device that queued a report offline (Float Mode) sends the same
     // clientReportId on every attempt. If an earlier attempt already landed and
@@ -274,6 +311,7 @@ export async function POST(request: NextRequest) {
       status: 'pending',
     };
 
+    if (submitter) baseData.user_id = submitter.userId;
     if (hazardId) baseData.hazard_id = hazardId;
     if (submitterName) baseData.submitter_name = submitterName.trim();
     if (clientReportId) baseData.client_report_id = clientReportId;
@@ -366,6 +404,13 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     );
   } catch (error) {
+    if (error instanceof SubmitterBanLookupError) {
+      console.error('[Reports] Submitter ban lookup unavailable:', error.cause);
+      return NextResponse.json(
+        { error: 'Unable to submit right now. Please try again.' },
+        { status: 503, headers: { 'Retry-After': '30' } },
+      );
+    }
     if (error instanceof ReportLookupError) {
       console.error('[Reports] Idempotency lookup unavailable:', error.cause);
       return NextResponse.json(

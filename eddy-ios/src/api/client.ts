@@ -2393,6 +2393,12 @@ export interface RiverVisualSubmission {
  */
 export async function submitRiverVisual(
   input: RiverVisualSubmission,
+  /**
+   * The signed-in (Apple) session. It ties the photo to an account so a
+   * moderator can ban an abusive submitter (App Store Guideline 1.2); the
+   * server refuses an anonymous session for photos.
+   */
+  accessToken: string,
   signal?: AbortSignal,
 ): Promise<void> {
   // The caller's signal AND a deadline, as one — the other POST in this file
@@ -2408,6 +2414,7 @@ export async function submitRiverVisual(
         Accept: 'application/json',
         'Content-Type': 'application/json',
         'User-Agent': USER_AGENT,
+        Authorization: `Bearer ${accessToken}`,
       },
       body: JSON.stringify({ ...input, type: 'river_visual' }),
     });

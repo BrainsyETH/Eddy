@@ -291,6 +291,33 @@ See ADR 0012 for scope, consent, storage and measurement semantics.
       selection. Explain a missing historical water reading without implying
       current water. Public float estimates must remain unchanged by contributions.
 
+### Photo submitter bans (Guideline 1.2) — October 14, 2026
+
+Implemented on this branch; device verification and release status unconfirmed.
+JavaScript-only on iOS (no new native module), so it can ship over the air if
+the runtime fingerprint matches the store binary.
+
+- [ ] **First, confirm #1504's report-write restrictions are live in
+      production** (`make check-db` reports no client write privilege or policy
+      on `community_reports`). A ban trusts `community_reports.user_id`; while
+      clients can still write that table, anyone can file a report under
+      another user's id and get that user banned.
+- [ ] Apply the `banned_submitters` migration and move it from pending to
+      applied in the ledger under the version production records. Run
+      `make check-db`. Deploy the web app (report route + admin ban route)
+      before publishing the iOS update; older app builds keep submitting
+      anonymously and are unaffected.
+- [ ] On a device as a guest: Add a photo shows only the Sign in with Apple
+      prompt; signing in reveals the form in place; a submitted photo lands as a
+      pending `community_reports` row WITH `user_id`.
+- [ ] In `/admin/reports`, Ban submitter on that report: its photos (pending and
+      verified) become rejected and leave the public gallery; a new submission
+      from the same account gets "This account can no longer submit reports."
+      Delete the account, sign in again with the same Apple ID, and confirm the
+      ban still applies (Apple-subject key). Remove the test ban row afterwards.
+- [ ] Update App Store Connect privacy answers and paste the revised reviewer
+      note from `docs/app-privacy-labels.md`; publish the updated privacy policy.
+
 ### In-app web browser gates — October 11, 2026
 
 Device and release status are unconfirmed. `expo-web-browser` and the local

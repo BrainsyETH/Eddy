@@ -22,17 +22,25 @@ export interface MediaRow {
 /**
  * Execute the storage side of a moderation decision for each affected report:
  * verify publishes the quarantined object into the public bucket and stamps
- * image_url; reject deletes stored copies (and clears image_url when one of
- * our public objects was removed). Failures are logged per row and never fail
- * the moderation call itself — the status change is already committed.
+ * image_url; reject deletes stored copies. Failures are logged per row and
+ * never fail the moderation call itself — the status change is already
+ * committed — but they are COUNTED in `failed`, so a caller can say so.
+ *
+ * A takedown clears image_path / image_url only for an object whose delete
+ * succeeded. Storage reports failure as a returned `{ error }`, not a throw;
+ * clearing the reference regardless used to leave a public photo reachable at
+ * its URL with nothing left in the row to retry the delete from. A rejected
+ * row that still carries a reference is therefore outstanding cleanup, and
+ * running the takedown again finishes it.
  */
 export async function applyMediaTransitions(
   supabase: SupabaseClient,
   status: 'verified' | 'rejected' | 'pending',
   rows: MediaRow[],
-): Promise<{ published: number; removed: number }> {
+): Promise<{ published: number; removed: number; failed: number }> {
   let published = 0;
   let removed = 0;
+  let failed = 0;
 
   for (const row of rows) {
     const action = planMediaTransition(status, {
@@ -52,6 +60,7 @@ export async function applyMediaTransitions(
         // can proceed; anything else leaves the row unpublished for retry.
         if (copyError && !/exists|duplicate/i.test(copyError.message)) {
           logger.error('Could not publish moderated image', copyError, { reportId: row.id });
+          failed += 1;
           continue;
         }
 
@@ -64,6 +73,7 @@ export async function applyMediaTransitions(
           .eq('id', row.id);
         if (updateError) {
           logger.error('Could not record published image URL', updateError, { reportId: row.id });
+          failed += 1;
           continue;
         }
 
@@ -72,22 +82,41 @@ export async function applyMediaTransitions(
         await supabase.storage.from(QUARANTINE_BUCKET).remove([action.quarantinePath]);
         published += 1;
       } else {
+        const cleared: { image_path?: null; image_url?: null } = {};
+        let complete = true;
         if (action.quarantinePath) {
-          await supabase.storage.from(QUARANTINE_BUCKET).remove([action.quarantinePath]);
+          const { error } = await supabase.storage.from(QUARANTINE_BUCKET).remove([action.quarantinePath]);
+          if (error) {
+            logger.error('Could not delete quarantined image', error, { reportId: row.id });
+            complete = false;
+          } else {
+            cleared.image_path = null;
+          }
         }
         if (action.publicPath) {
-          await supabase.storage.from(PUBLIC_IMAGE_BUCKET).remove([action.publicPath]);
-          await supabase
-            .from('community_reports')
-            .update({ image_url: null })
-            .eq('id', row.id);
+          const { error } = await supabase.storage.from(PUBLIC_IMAGE_BUCKET).remove([action.publicPath]);
+          if (error) {
+            logger.error('Could not delete published image', error, { reportId: row.id });
+            complete = false;
+          } else {
+            cleared.image_url = null;
+          }
         }
-        removed += 1;
+        if (Object.keys(cleared).length > 0) {
+          const { error } = await supabase.from('community_reports').update(cleared).eq('id', row.id);
+          if (error) {
+            logger.error('Could not clear deleted image references', error, { reportId: row.id });
+            complete = false;
+          }
+        }
+        if (complete) removed += 1;
+        else failed += 1;
       }
     } catch (err) {
       logger.error('Media moderation transition failed', err, { reportId: row.id, status });
+      failed += 1;
     }
   }
 
-  return { published, removed };
+  return { published, removed, failed };
 }
