@@ -22,6 +22,27 @@ The 1.2 report's gates below stay unticked until evidence closes them; a later
 version number does not close them. The 1.4, Float Mode, and history sections
 below remain the device checklist.
 
+### October 13 freshness update candidate
+
+The observation-age, Today gauge refresh, and dam-row fixes change JavaScript
+only. In the same clean dependency/configuration environment, `expo-updates
+fingerprint:generate --platform ios` produced
+`7b61aec836fa9b7dcdff6facd3b7f2a0d50d1809` both at base `5da1a76` and with
+these fixes. This establishes base-to-candidate compatibility, **not** the
+runtime of the shipped binary; no OTA was published during these checks.
+
+- [ ] Confirm the target channel's installed binary/runtime and regenerate the
+      candidate fingerprint with its actual production environment before OTA.
+- [ ] On device: cache river A, refresh B hours later, fail A's request, and
+      verify A's age continues from its observation (or its own receipt time).
+- [ ] Resume Today after several hours offline: rivers/gauges must age, dam
+      rows must say last observed/unavailable, and retries must retain readings.
+- [ ] Pull to refresh the gauge and dam scopes; verify new data and failures,
+      then check dam rows with large Dynamic Type and VoiceOver.
+
+Database permission fixes are independent of this update. Apply them through
+the migration workflow; an app/OTA release cannot close direct database access.
+
 ### October 12 submission blockers
 
 - [ ] Apply the reviewed archive migration, reconcile its recorded version and

@@ -61,10 +61,12 @@ import {
   isRiverKey,
   isStaleVersionKey,
   mergeParts,
+  mergeCondition,
   parseEnvelope,
   riverKey,
   slugFromRiverKey,
   type CacheEnvelope,
+  type CachedCondition,
 } from '@/lib/offline-cache';
 
 /**
@@ -367,10 +369,10 @@ export function writeNetwork(rivers: StatewideRiver[]): void {
  * Keyed by river id, matching what fetchCondition is called with.
  */
 export async function readConditions(): Promise<CacheEnvelope<
-  Record<string, RiverConditionDetail>
+  Record<string, CachedCondition>
 > | null> {
   try {
-    return parseEnvelope<Record<string, RiverConditionDetail>>(
+    return parseEnvelope<Record<string, CachedCondition>>(
       await AsyncStorage.getItem(CONDITIONS_KEY),
       'object',
     );
@@ -387,12 +389,13 @@ export async function readConditions(): Promise<CacheEnvelope<
  * have several conditions land at once.
  */
 export function writeCondition(riverId: string, condition: RiverConditionDetail): void {
+  const receivedAt = new Date().toISOString();
   enqueueWrite(CONDITIONS_KEY, async () => {
     const existing = await readConditions();
     await AsyncStorage.setItem(
       CONDITIONS_KEY,
       JSON.stringify(
-        envelope({ ...(existing?.payload ?? {}), [riverId]: condition }, new Date().toISOString()),
+        mergeCondition(existing, riverId, condition, receivedAt),
       ),
     );
   });

@@ -125,8 +125,8 @@ function revalidate(): Promise<DamSnapshot[]> {
  * is fresh; otherwise one shared request. Rejects like fetchDams does, and
  * for the same reason: the caller decides what an outage means on its screen.
  */
-export function getSharedDams(): Promise<DamSnapshot[]> {
-  if (isFresh() && cached) return Promise.resolve(cached.dams);
+export function getSharedDams(force = false): Promise<DamSnapshot[]> {
+  if (!force && isFresh() && cached) return Promise.resolve(cached.dams);
   return revalidate();
 }
 

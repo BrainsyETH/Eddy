@@ -105,6 +105,7 @@ import { SafetyDisclaimer } from '@/components/SafetyDisclaimer';
 import { EddyTake } from '@/components/EddyTake';
 import { damForRiver } from '@/components/dam/RiverDamPanel';
 import { getSharedDams } from '@/hooks/useDams';
+import { useObservationClock } from '@/hooks/useObservationClock';
 import { AlertOriginRow } from '@/components/AlertOriginRow';
 import { TailwaterStatusRow } from '@/components/dam/TailwaterStatusRow';
 import { RiverReaches } from '@/components/river/RiverReaches';
@@ -140,7 +141,7 @@ import { readBestIndex, readConditions } from '@/lib/riverCache';
 import { useRiverData } from '@/hooks/useRiverData';
 import { useGaugeDetail } from '@/hooks/useGaugeDetail';
 import { selectEddySays } from '@/lib/eddySays';
-import { effectiveReadingAgeHours, readingBand } from '@/lib/offline-cache';
+import { observationAgeHours, readingBand } from '@/lib/offline-cache';
 import { shareInFlight } from '@/lib/shareInFlight';
 
 /**
@@ -420,23 +421,10 @@ export default function RiverDetailScreen() {
 
   const [river, setRiver] = useState<RiverListItem | null>(null);
   const [condition, setCondition] = useState<RiverConditionDetail | null>(null);
-  /**
-   * Set only when the condition on screen came off the disk, and carrying the
-   * age it ACTUALLY has rather than the one it claims.
-   *
-   * readingAgeHours is a scalar the server computed at request time, so a
-   * cached reading replayed three days later still says "1" and the screen
-   * prints "Updated an hour ago" forever. The correction is the time elapsed
-   * since the cache entry was written.
-   *
-   * Computed here in the effect rather than at render, because it needs a clock
-   * and a component that reads one during render is not idempotent — the same
-   * reading would band differently on two renders a few hours apart with no
-   * state change to explain it.
-   */
-  const [cachedReadingAgeHours, setCachedReadingAgeHours] = useState<number | null | undefined>(
-    undefined,
-  );
+  const now = useObservationClock();
+  const [conditionReceipt, setConditionReceipt] = useState<{
+    cached: boolean; at: string | null;
+  } | null>(null);
   /** Bumped by "Try again"; re-runs the load effect without blanking the screen. */
   const [reloadNonce, setReloadNonce] = useState(0);
   /** The last slug that finished loading, so a retry is not a first load. */
@@ -742,7 +730,7 @@ export default function RiverDetailScreen() {
           (condition) => {
             if (controller.signal.aborted) return;
             setCondition(condition);
-            setCachedReadingAgeHours(undefined);
+            setConditionReceipt({ cached: false, at: new Date().toISOString() });
           },
           async (err) => {
             if (err instanceof ApiError && err.message === 'Request cancelled') return;
@@ -750,11 +738,9 @@ export default function RiverDetailScreen() {
             if (controller.signal.aborted) return;
             const kept = stored?.payload?.[match.id] ?? null;
             setCondition(kept);
-            setCachedReadingAgeHours(
-              kept
-                ? effectiveReadingAgeHours(kept.readingAgeHours, stored!.fetchedAt, Date.now())
-                : undefined,
-            );
+            // Legacy entries without an observation/entry timestamp are unknown;
+            // the shared envelope timestamp may belong to a different river.
+            setConditionReceipt(kept ? { cached: true, at: kept.cachedAt ?? null } : null);
           },
         );
         // Thin coverage by nature — verified community photos exist for three
@@ -1190,6 +1176,7 @@ export default function RiverDetailScreen() {
         : null;
 
   const scaleThresholds = pickedLink ?? condition?.thresholds ?? null;
+  const shownReadingTimestamp = pickedGauge ? pickedGauge.readingTimestamp : condition?.readingTimestamp;
   const rawReadingAgeHours = pickedGauge ? pickedGauge.readingAgeHours : condition?.readingAgeHours;
 
   /**
@@ -1201,12 +1188,16 @@ export default function RiverDetailScreen() {
    *
    *   fresh    normal colour, plus an offline glyph on the age line
    *   stale    grey, and "Last known: Good" instead of "Good - Floatable"
-   *   expired  grey, and the age is not printed at all — past two days the
-   *            number stops being information and becomes decoration
+   *   expired  grey, with an explicit out-of-date or unknown-time warning
    */
-  const cachedReading = cachedReadingAgeHours !== undefined && !pickedGauge;
-  const readingAgeHours = cachedReading ? cachedReadingAgeHours : rawReadingAgeHours;
-  const band = cachedReading ? readingBand(cachedReadingAgeHours ?? null) : 'fresh';
+  const cachedReading = conditionReceipt?.cached === true && !pickedGauge;
+  const readingAgeHours = observationAgeHours(
+    shownReadingTimestamp,
+    rawReadingAgeHours,
+    pickedGauge ? null : conditionReceipt?.at,
+    now,
+  );
+  const band = readingBand(readingAgeHours);
   const summaryLastKnown = Boolean(reading && (band !== 'fresh' || isReadingStale(readingAgeHours)));
   const shownGaugeName = pickedGauge ? pickedGauge.name : condition?.gaugeName;
 
@@ -1395,7 +1386,7 @@ export default function RiverDetailScreen() {
         <ReadingSummaryCard
           key={shownSiteId ?? slug}
           reading={reading}
-          readingTimestamp={pickedGauge?.readingTimestamp ?? condition?.readingTimestamp}
+          readingTimestamp={shownReadingTimestamp}
           verdict={code === 'dangerous' || (scaleThresholds && hasLadder(scaleThresholds))
             ? { code: reading ? code : 'unknown', lastKnown: summaryLastKnown } : undefined}
           trend={summaryLastKnown ? null : shownTrend}
@@ -1403,11 +1394,11 @@ export default function RiverDetailScreen() {
           context={percentileText}
           stationName={shownGaugeName}
           stationLabel={!pickerIdentifiesStation && shownGaugeName ? gaugePlaceLabel(shownGaugeName) : null}
-          age={band === 'expired' ? 'Cached reading is out of date' : readingAge(readingAgeHours)}
+          age={readingAgeHours === null ? 'Observation time unavailable' : band === 'expired' ? 'Reading is out of date' : readingAge(readingAgeHours)}
           ageWarning={summaryLastKnown}
           offline={cachedReading}
           details={[
-            { label: 'Observed', value: (pickedGauge?.readingTimestamp ?? condition?.readingTimestamp) ? new Date((pickedGauge?.readingTimestamp ?? condition?.readingTimestamp)!).toLocaleString() : null },
+            { label: 'Observed', value: shownReadingTimestamp ? new Date(shownReadingTimestamp).toLocaleString() : null },
             { label: 'Seasonal comparison', value: summaryPercentile == null ? null : `${percentileLabel(summaryPercentile)} for flow` },
           ]}
         >

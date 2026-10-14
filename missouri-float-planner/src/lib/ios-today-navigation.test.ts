@@ -165,6 +165,70 @@ test('gauge enrichment is shared and retries after a failed attempt', async () =
   assert.equal(requests, 2);
 });
 
+test('gauges expire after five minutes and manual refresh bypasses a fresh cache', async () => {
+  let time = 0;
+  let requests = 0;
+  const store = catalog({ now: () => time, loadGauges: async () => { requests++; return []; } });
+  await store.ensureGauges();
+  time = 299_999;
+  await store.ensureGauges();
+  assert.equal(requests, 1);
+  time = 300_000;
+  await store.ensureGauges();
+  assert.equal(requests, 2);
+  await store.ensureGauges(true);
+  assert.equal(requests, 3);
+});
+
+test('failed gauge refresh retains aged readings and retries without spending the TTL', async () => {
+  const observedAt = '2026-07-29T10:00:00Z';
+  let time = Date.parse(observedAt);
+  let requests = 0;
+  const pending = deferred<MapGauge[]>();
+  const store = catalog({
+    now: () => time,
+    loadGauges: () => {
+      requests++;
+      if (requests === 1) return Promise.resolve([{ id: 'a', readingTimestamp: observedAt, readingAgeHours: 0 } as MapGauge]);
+      return pending.promise;
+    },
+  });
+  await store.ensureGauges();
+  time += 7 * 3_600_000;
+  const first = store.ensureGauges(true);
+  assert.equal(store.ensureGauges(true), first, 'forced refreshes share the in-flight request');
+  pending.reject(new Error('offline'));
+  await first;
+  assert.equal(store.getSnapshot().gauges?.[0].readingAgeHours, 7);
+  assert.match(store.getSnapshot().gaugeError!, /last readings/);
+  await store.ensureGauges();
+  assert.equal(requests, 3);
+});
+
+test('an open Today screen ages both lists without compounding elapsed time', async () => {
+  let time = Date.parse('2026-07-29T12:00:00Z');
+  const rivers: RiverListItem[] = [{ ...river('Current'), currentCondition: {
+    code: 'flowing', label: 'Flowing', readingAgeHours: 1, trend: null,
+    thresholdUnit: 'ft', gaugeHeightFt: 3, dischargeCfs: 800,
+  } }];
+  const store = catalog({
+    now: () => time,
+    loadRivers: async () => rivers,
+    loadGauges: async () => [{ id: 'a', readingTimestamp: null, readingAgeHours: 1 } as MapGauge],
+  });
+  await store.load();
+  await store.ensureGauges();
+  time += 5 * 3_600_000;
+  store.age();
+  assert.equal(store.getSnapshot().rivers?.[0].currentCondition?.code, 'unknown');
+  assert.equal(store.getSnapshot().gauges?.[0].readingAgeHours, 6);
+  time += 3_600_000;
+  store.age();
+  assert.equal(store.getSnapshot().rivers?.[0].currentCondition?.readingAgeHours, 7);
+  assert.equal(store.getSnapshot().rivers?.[0].currentCondition?.label, 'Last known: Flowing');
+  assert.equal(store.getSnapshot().gauges?.[0].readingAgeHours, 7);
+});
+
 test('river links preserve supported filters and safely default malformed values', () => {
   for (const filter of ['all', 'floatable', 'starred', 'low', 'high', 'unknown']) {
     assert.equal(riverFilterFromParam(filter), filter);

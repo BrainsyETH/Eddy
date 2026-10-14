@@ -121,7 +121,8 @@ import { FeedbackSheet } from '@/components/FeedbackSheet';
 import { gaugeToSearchResult, useEddySearch } from '@/hooks/useEddySearch';
 import { clearFirstRunPreload } from '@/lib/firstRunPreload';
 import { useEddyUpdates } from '@/hooks/useEddyUpdates';
-import { getSharedDams } from '@/hooks/useDams';
+import { getSharedDams, useDams, useDamRequestState } from '@/hooks/useDams';
+import { generationNow, speaksForNow } from '@eddy/conditions/dam-generation';
 import { compareReadRivers } from '@/lib/readRail';
 import { useStarredRivers } from '@/hooks/useStarredRivers';
 import { useLocation, type LocationStatus } from '@/hooks/useLocation';
@@ -543,7 +544,7 @@ export function TodayScreen({ browseMode = 'today', initialRiverFilter = 'all', 
     onUnlock?: (riverName: string) => void;
   };
 }) {
-  const { rivers, gauges, error, awaitingConditions, load, ensureGauges } = useTodayCatalog();
+  const { rivers, gauges, error, gaugeError, now, awaitingConditions, load, ensureGauges } = useTodayCatalog();
   const [refreshing, setRefreshing] = useState(false);
   const [hubRefreshRevision, setHubRefreshRevision] = useState(0);
   const [scope, setScope] = useState<ScopeKey>(browseMode === 'today' ? 'all' : 'rivers');
@@ -576,47 +577,11 @@ export function TodayScreen({ browseMode = 'today', initialRiverFilter = 'all', 
     error: eddyError,
   } = useEddyUpdates();
   const [damFilter, setDamFilter] = useState<DamFilterKey>('all');
-  const [dams, setDams] = useState<DamSnapshot[]>([]);
+  const dams = useDams(scope === 'dams' || scope === 'all');
+  const damRequestState = useDamRequestState();
   const [gaugeCount, setGaugeCount] = useState<number | null>(null);
   const [riverRequestOpen, setRiverRequestOpen] = useState(false);
 
-  /**
-   * Every dam, fetched once when the scope is first opened.
-   *
-   * Filtered LOCALLY from there, like the river scope and unlike the gauge and
-   * access ones: this screen's rule is that nothing on it should wait on a
-   * round trip to narrow data it already holds. The list is ~20 items now that
-   * the Tulsa district projects are wired, and still small enough to hold; if it
-   * ever reaches the low hundreds this becomes a server-side filter instead.
-   * /api/search has no dam results to give it anyway.
-   */
-  // ── CLAIMED ON THE ANSWER, NOT ON THE ATTEMPT ────────────────────────────
-  // fetchDams throws now rather than answering [] — /api/dams reads through to
-  // CWMS and SWPA live, so the client's deadline expiring is an ordinary
-  // outcome and had been indistinguishable from "the Corps publishes no dams".
-  // A latch claimed before the request turned one such moment into an empty
-  // scope for the life of the screen; claiming it on success lets coming back
-  // to the scope try again.
-  const damsLoaded = useRef(false);
-  useEffect(() => {
-    if ((scope !== 'dams' && scope !== 'all') || damsLoaded.current) return;
-    let cancelled = false;
-    void getSharedDams()
-      .then((live) => {
-        if (cancelled) return;
-        damsLoaded.current = true;
-        setDams(live);
-      })
-      .catch(() => {
-        // Non-fatal: the scope renders empty this time and asks again on the
-        // next visit. Not logged here — the shared dams store already warns
-        // once per failed request, with which failure, however many surfaces
-        // were awaiting it.
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [scope]);
   const [filter, setFilter] = useState<FilterKey>(initialRiverFilter);
   const [gaugeFilter, setGaugeFilter] = useState<GaugeFilterKey>('all');
   const [sort, setSort] = useState<SortKey>('condition');
@@ -697,10 +662,15 @@ export function TodayScreen({ browseMode = 'today', initialRiverFilter = 'all', 
     // governs mounting, not refreshing — and it does not clear what is on
     // screen first, so pulling down with no signal costs the reader nothing.
     // See clauses 3 and 4 in src/hooks/useEddyUpdates.ts.
-    await Promise.all([load(true), refreshEddyUpdates(), readAccess?.refresh()]);
+    await Promise.allSettled([
+      load(true),
+      gauges !== null || scope === 'gauges' || scope === 'all' || browseMode === 'reads' ? ensureGauges(true) : undefined,
+      dams !== null || scope === 'dams' || scope === 'all' ? getSharedDams(true) : undefined,
+      refreshEddyUpdates(), readAccess?.refresh(),
+    ]);
     setHubRefreshRevision((revision) => revision + 1);
     setRefreshing(false);
-  }, [load, refreshEddyUpdates, readAccess]);
+  }, [load, ensureGauges, refreshEddyUpdates, readAccess, gauges, dams, scope, browseMode]);
 
   // Floatable first, then by canonical rank, then by name. A paddler opening
   // this screen wants somewhere to go, not an index — so this stays the
@@ -1012,15 +982,17 @@ export function TodayScreen({ browseMode = 'today', initialRiverFilter = 'all', 
    */
   const visibleDams = useMemo(() => {
     const q = query.trim().toLowerCase();
-    return dams.filter((dam) => {
+    return (dams ?? []).filter((dam) => {
       if (q && !`${dam.name} ${dam.lakeName ?? ''}`.toLowerCase().includes(q)) return false;
-      // `generating === true`, not truthy: null means the dam publishes no
-      // turbine flow, and an unknown must not be filtered in as a "yes".
-      if (damFilter === 'generating') return dam.generating === true;
+      // Only a fresh turbine observation may join the current-generation filter.
+      if (damFilter === 'generating') {
+        const generation = generationNow(dam, now);
+        return generation.kind === 'generating' && speaksForNow(generation.age);
+      }
       if (damFilter === 'trout') return dam.tailwaterFishery === 'trout';
       return true;
     });
-  }, [dams, query, damFilter]);
+  }, [dams, query, damFilter, now]);
 
   /**
    * A gauge result as the row it should render as.
@@ -1272,12 +1244,15 @@ export function TodayScreen({ browseMode = 'today', initialRiverFilter = 'all', 
         label,
         count:
           key === 'all'
-            ? dams.length
+            ? dams?.length ?? 0
             : key === 'generating'
-              ? dams.filter((d) => d.generating === true).length
-              : dams.filter((d) => d.tailwaterFishery === 'trout').length,
+              ? (dams ?? []).filter((d) => {
+                  const generation = generationNow(d, now);
+                  return generation.kind === 'generating' && speaksForNow(generation.age);
+                }).length
+              : (dams ?? []).filter((d) => d.tailwaterFishery === 'trout').length,
       })),
-    [dams],
+    [dams, now],
   );
 
   const pickReadFilter = (key: ReadFilter) => {
@@ -1363,8 +1338,11 @@ export function TodayScreen({ browseMode = 'today', initialRiverFilter = 'all', 
           ? damFilter !== 'all'
           : gaugeFilter !== 'all');
 
-  const statusNotice = error ? (
-    <Text style={[styles.subtitle, { color: colors.error }]}>{error}</Text>
+  const damError = (scope === 'dams' || scope === 'all') && damRequestState === 'error'
+    ? 'Couldn’t refresh dam readings. Check observation times and pull down to retry.' : null;
+  const statusError = error ?? gaugeError ?? damError;
+  const statusNotice = statusError ? (
+    <Text style={[styles.subtitle, { color: colors.error }]}>{statusError}</Text>
   ) : awaitingConditions ? (
     <View style={styles.loadingRow}>
       <ActivityIndicator size="small" color={colors.textSubtle} />
