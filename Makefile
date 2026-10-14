@@ -92,6 +92,7 @@ check-db: guard-node ## Migration + access-slug drift: repo files vs the linked 
 	@command -v npx >/dev/null || { echo "npx not found"; exit 1; }
 	cd $(WEB) && npm run db:check-migrations
 	cd $(WEB) && npm run db:check-access-slugs
+	cd $(WEB) && npm run db:check-client-access
 
 check: check-web check-mobile bundle-mobile ## Everything CI gates on
 
