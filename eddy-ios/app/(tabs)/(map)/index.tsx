@@ -2613,7 +2613,11 @@ function MapContent() {
     // lapsed "Allow Once" grant is the fix remembered from the last session.
     // Declining the dialog then still recentres the map roughly where you are,
     // instead of the button doing visibly nothing.
-    const coords = (await location.request()) ?? location.coords;
+    //
+    // `force`: an explicit Locate never reuses a held fix, which may be from
+    // before an hour's drive to the put-in. A fresh fix that misses its
+    // deadline falls back to that held position, which still beats nothing.
+    const coords = (await location.request({ force: true })) ?? location.coords;
     if (coords) {
       issueCameraCommand({
         type: 'locationRequested',
