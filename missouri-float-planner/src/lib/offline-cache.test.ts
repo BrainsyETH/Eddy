@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import type { RiverListItem } from '../../../packages/eddy-types';
+import type { RiverConditionDetail, RiverListItem } from '../../../packages/eddy-types';
 import { readFileSync } from 'node:fs';
 import {
   agedIndex,
@@ -16,6 +16,8 @@ import {
   slugFromRiverKey,
   mergeParts,
   effectiveReadingAgeHours,
+  observationAgeHours,
+  mergeCondition,
   gaugeKey,
   mayPaintCachedCondition,
   readingBand,
@@ -29,6 +31,35 @@ import {
 } from '../../../eddy-ios/src/lib/offline-cache';
 
 const NOW = '2026-07-29T12:00:00.000Z';
+
+test('refreshing river B cannot make cached river A look younger', () => {
+  const a = { readingTimestamp: '2026-07-29T10:00:00Z', readingAgeHours: 2 } as RiverConditionDetail;
+  const b = { readingTimestamp: null, readingAgeHours: 1 } as RiverConditionDetail;
+  const first = mergeCondition(null, 'a', a, NOW);
+  const later = '2026-07-29T18:00:00Z';
+  const second = mergeCondition(first, 'b', b, later);
+  assert.equal(second.payload.a.cachedAt, NOW);
+  const kept = second.payload.a;
+  assert.equal(observationAgeHours(kept.readingTimestamp, kept.readingAgeHours, kept.cachedAt, Date.parse(later)), 8);
+  assert.equal(observationAgeHours(null, kept.readingAgeHours, kept.cachedAt, Date.parse(later)), 8);
+  assert.equal(observationAgeHours(null, 1, second.payload.b.cachedAt, Date.parse(later)), 1);
+});
+
+test('observation time wins over a recently rewritten envelope; legacy undated entries stay unknown', () => {
+  const now = Date.parse(NOW);
+  assert.equal(observationAgeHours('2026-07-27T10:00:00Z', 1, NOW, now), 50);
+  assert.equal(readingBand(observationAgeHours('2026-07-27T10:00:00Z', 1, NOW, now)), 'expired');
+  assert.equal(observationAgeHours(null, 1, undefined, now), null);
+  assert.equal(observationAgeHours('invalid', 1, undefined, now), null);
+  assert.equal(observationAgeHours(null, null, NOW, now), null);
+  assert.equal(observationAgeHours(null, -1, NOW, now), null);
+  assert.equal(observationAgeHours(null, NaN, NOW, now), null);
+});
+
+test('observation aging retains the server age floor on a slow device clock', () => {
+  assert.equal(observationAgeHours(NOW, 2, NOW, Date.parse(NOW) - 3_600_000), 2);
+  assert.equal(observationAgeHours(null, 2, NOW, Date.parse(NOW) - 3_600_000), 2);
+});
 
 // ── the envelope ─────────────────────────────────────────────────
 

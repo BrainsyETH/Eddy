@@ -1,9 +1,11 @@
 import type { MapGauge, RiverListItem } from '@eddy/types';
+import { agedIndex, envelope, observationAgeHours } from './offline-cache';
 
 export interface TodayCatalogSnapshot {
   rivers: RiverListItem[] | null;
   gauges: MapGauge[] | null;
   error: string | null;
+  gaugeError: string | null;
   awaitingConditions: boolean;
 }
 
@@ -21,14 +23,34 @@ interface Dependencies {
  */
 export function createTodayCatalog(deps: Dependencies) {
   const now = deps.now ?? Date.now;
-  let snapshot: TodayCatalogSnapshot = { rivers: null, gauges: null, error: null, awaitingConditions: false };
+  let snapshot: TodayCatalogSnapshot = { rivers: null, gauges: null, error: null, gaugeError: null, awaitingConditions: false };
   let loadedAt: number | null = null;
+  let gaugesLoadedAt: number | null = null;
+  let riverBaseline: { rivers: RiverListItem[]; at: number } | null = null;
+  let gaugeBaseline: { gauges: MapGauge[]; at: number } | null = null;
   let riverRequest: Promise<void> | null = null;
   let gaugeRequest: Promise<MapGauge[]> | null = null;
   const listeners = new Set<() => void>();
   function update(next: Partial<TodayCatalogSnapshot>) {
     snapshot = { ...snapshot, ...next };
     for (const listener of listeners) listener();
+  }
+
+  // Always derive from the received snapshot, not the previous render's ages.
+  function age() {
+    const time = now();
+    const next: Partial<TodayCatalogSnapshot> = {};
+    if (riverBaseline?.rivers.some((river) => river.currentCondition)) {
+      next.rivers = agedIndex(envelope(riverBaseline.rivers, new Date(riverBaseline.at).toISOString()), time);
+    }
+    if (gaugeBaseline) {
+      const receivedAt = new Date(gaugeBaseline.at).toISOString();
+      next.gauges = gaugeBaseline.gauges.map((gauge) => ({
+        ...gauge,
+        readingAgeHours: observationAgeHours(gauge.readingTimestamp, gauge.readingAgeHours, receivedAt, time),
+      }));
+    }
+    if (Object.keys(next).length) update(next);
   }
 
   async function fetchRivers() {
@@ -40,13 +62,16 @@ export function createTodayCatalog(deps: Dependencies) {
     );
     const cached = await deps.readCache().catch(() => null);
     if (snapshot.rivers === null && cached && cached.rivers.length > 0) {
+      riverBaseline = { rivers: cached.rivers, at: now() };
       update({ rivers: cached.rivers, awaitingConditions: cached.seeded });
     }
     const result = await network;
     if (result.rivers !== null) {
       loadedAt = now();
+      riverBaseline = { rivers: result.rivers, at: loadedAt };
       update({ rivers: result.rivers, error: null, awaitingConditions: false });
     } else {
+      age();
       // Retain any live list during a failed refresh. Never roll it back to
       // the older disk copy, and never spend the freshness TTL on a failure.
       update({
@@ -69,13 +94,25 @@ export function createTodayCatalog(deps: Dependencies) {
     return riverRequest;
   }
 
-  function ensureGauges(): Promise<MapGauge[]> {
+  function ensureGauges(force = false): Promise<MapGauge[]> {
     if (gaugeRequest) return gaugeRequest;
-    if (snapshot.gauges !== null) return Promise.resolve(snapshot.gauges);
+    if (!force && snapshot.gauges !== null && gaugesLoadedAt !== null && now() - gaugesLoadedAt < 300_000) {
+      return Promise.resolve(snapshot.gauges);
+    }
     gaugeRequest = deps.loadGauges()
-      .then((gauges) => { update({ gauges }); return gauges; })
-      // Enrichment is optional; failure must remain retryable on the next visit.
-      .catch(() => [] as MapGauge[])
+      .then((gauges) => {
+        gaugesLoadedAt = now();
+        gaugeBaseline = { gauges, at: gaugesLoadedAt };
+        update({ gauges, gaugeError: null });
+        return gauges;
+      })
+      .catch(() => {
+        age();
+        update({ gaugeError: snapshot.gauges?.length
+          ? 'Couldn’t refresh gauges — showing last readings. Pull down to retry.'
+          : 'Couldn’t load gauges. Pull down to retry.' });
+        return snapshot.gauges ?? [];
+      })
       .finally(() => { gaugeRequest = null; });
     return gaugeRequest;
   }
@@ -85,5 +122,6 @@ export function createTodayCatalog(deps: Dependencies) {
     subscribe(listener: () => void) { listeners.add(listener); return () => { listeners.delete(listener); }; },
     load,
     ensureGauges,
+    age,
   };
 }
