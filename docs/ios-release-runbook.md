@@ -297,16 +297,20 @@ Implemented on this branch; device verification and release status unconfirmed.
 JavaScript-only on iOS (no new native module), so it can ship over the air if
 the runtime fingerprint matches the store binary.
 
-- [ ] **First, confirm #1504's report-write restrictions are live in
-      production** (`make check-db` reports no client write privilege or policy
-      on `community_reports`). A ban trusts `community_reports.user_id`; while
-      clients can still write that table, anyone can file a report under
-      another user's id and get that user banned.
-- [ ] Apply the `banned_submitters` migration and move it from pending to
-      applied in the ledger under the version production records. Run
-      `make check-db`. Deploy the web app (report route + admin ban route)
-      before publishing the iOS update; older app builds keep submitting
-      anonymously and are unaffected.
+- [x] **First, confirm #1504's report-write restrictions are live in
+      production.** A ban trusts `community_reports.user_id`; while clients
+      can write that table, anyone can file a report under another user's id
+      and get that user banned. *Evidence, 2026-10-14:* applied (SQL editor,
+      recorded as `20261013210729`); a read-only catalog query found no
+      `anon`/`authenticated` INSERT or UPDATE privilege on `community_reports`,
+      only its select and delete policies, and only the four allowlisted
+      client-callable definer functions.
+- [x] Apply the `banned_submitters` migration and record it in the ledger.
+      *Evidence, 2026-10-14:* recorded as `20261014185949` (file renamed);
+      RLS on, no client privileges, service role has access.
+- [ ] Run `make check-db` against the linked project. Deploy the web app
+      (report route + admin ban route) before publishing the iOS update; older
+      app builds keep submitting anonymously and are unaffected.
 - [ ] On a device as a guest: Add a photo shows only the Sign in with Apple
       prompt; signing in reveals the form in place; a submitted photo lands as a
       pending `community_reports` row WITH `user_id`.

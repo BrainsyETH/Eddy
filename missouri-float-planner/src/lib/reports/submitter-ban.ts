@@ -4,7 +4,7 @@
 // App Store Guideline 1.2 asks for a way to block abusive users. The iOS app
 // requires Sign in with Apple before a photo can be submitted, so a report
 // arrives with a verified account; this module turns that account into the
-// keys stored in public.banned_submitters (migration 20261014153334) and
+// keys stored in public.banned_submitters (migration 20261014185949) and
 // answers whether either key is banned.
 //
 // The Apple key exists because an account is cheap to replace: deleting it and
