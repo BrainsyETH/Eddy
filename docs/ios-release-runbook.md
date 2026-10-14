@@ -306,8 +306,9 @@ as the freshness and photo-ban work if the runtime fingerprint matches.
       repeat with the phone locked straight after End.
 - [ ] Float Mode with keep-awake on: the screen stays awake through several GPS
       fixes and sleeps normally after leaving the screen or ending the float.
-- [ ] Eddy's Read and Eddy's Take headings say "AI-generated"; the Take shows
-      the AI caveat under its sections; VoiceOver reads both.
+- [ ] Eddy's Take shows its source note ("Eddy writes this automatically from
+      live gauge readings and forecasts…") under its sections, unlocked only;
+      VoiceOver reads it.
 
 ### Photo submitter bans (Guideline 1.2) — October 14, 2026
 
