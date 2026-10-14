@@ -1,3 +1,4 @@
+import { openExternalLink } from '@/lib/openExternalLink';
 // eddy-ios/app/(tabs)/(today,map,floats,favorites,alerts)/profile.tsx
 // Account, subscription, and the two controls App Review specifically looks
 // for: Restore Purchases and account deletion.
@@ -436,7 +437,8 @@ function ProfileContent() {
       // Server deletion succeeded. Local cleanup has its own retry so it can
       // never be reported as an account-deletion failure or silently skipped.
       const finish = async () => {
-        const cleanup = await Promise.allSettled([clearStars(), clearSavedFloats(), forgetSession()]);
+        const cleanup = await Promise.allSettled([clearStars(), clearSavedFloats()]);
+        if (cleanup.every(entry => entry.status === 'fulfilled')) await forgetSession();
         const subscriptionNote = result?.hadActiveEntitlement
           ? ' Your Apple subscription is still active — cancel it in Settings › Apple ID › Subscriptions to stop being billed.'
           : '';
@@ -447,7 +449,7 @@ function ProfileContent() {
           return;
         }
         Alert.alert(signedIn ? 'Account deleted' : 'Data deleted',
-          (session ? 'Your account, favorites and saved floats have been removed.' : 'Your favorites and saved floats have been removed from this device.') + subscriptionNote);
+          (session ? 'Your account, favorites, saved floats and float history have been removed.' : 'Your favorites, saved floats and float history have been removed from this device.') + subscriptionNote);
       };
       await finish();
     } catch (err) {
@@ -775,19 +777,19 @@ function ProfileContent() {
             <SettingsRow
               icon="document-text-outline"
               title="Terms of Use"
-              onPress={() => void Linking.openURL(TERMS_URL)}
+              onPress={() => void openExternalLink(TERMS_URL)}
               external
             />
             <SettingsRow
               icon="image-outline"
               title="Photo credits"
-              onPress={() => void Linking.openURL('https://eddy.guide/photo-credits')}
+              onPress={() => void openExternalLink('https://eddy.guide/photo-credits')}
               external
             />
             <SettingsRow
               icon="shield-checkmark-outline"
               title="Privacy Policy"
-              onPress={() => void Linking.openURL(PRIVACY_URL)}
+              onPress={() => void openExternalLink(PRIVACY_URL)}
               external
               last={resolveEnvironment() === 'production'}
             />

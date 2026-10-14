@@ -30,6 +30,7 @@
 // import and nothing else — the same "safe to merge dark" property the server
 // half has.
 
+import { scrubFloatSearchRequest, scrubFloatSearchBreadcrumb } from '@shared/float-search-privacy';
 import * as Sentry from '@sentry/nextjs';
 import { redactText } from '@/lib/monitoring/redact';
 
@@ -60,6 +61,7 @@ if (dsn) {
     // a breadcrumb can carry a share code or a magic-link token, and a fetch
     // failure message routinely carries the whole request URL.
     beforeSend(event) {
+      if (event.request) scrubFloatSearchRequest(event.request);
       if (event.message) event.message = redactText(event.message);
 
       for (const exception of event.exception?.values ?? []) {
@@ -78,6 +80,7 @@ if (dsn) {
     },
 
     beforeBreadcrumb(breadcrumb) {
+      scrubFloatSearchBreadcrumb(breadcrumb);
       if (breadcrumb.message) breadcrumb.message = redactText(breadcrumb.message);
       if (breadcrumb.data) {
         for (const [key, value] of Object.entries(breadcrumb.data)) {

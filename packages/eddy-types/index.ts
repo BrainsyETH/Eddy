@@ -1891,6 +1891,8 @@ export interface FloatPlan {
     minutes: number;
     formatted: string;
     speedMph: number;
+    /** Absent on older servers; never fall back to whole-trip speedMph. */
+    movingSpeedMph?: number | null;
     isEstimate?: boolean;
     /** 'trip' includes typical stops; 'moving' is paddling-only. */
     basis?: 'trip' | 'moving';
@@ -2658,6 +2660,8 @@ export interface AppFeatureFlags {
   crowdSignal?: boolean;
   /** Float Mode (#1448). Off in store builds until the server turns it on. */
   floatMode?: boolean;
+  /** Find a Float discovery on iOS; absent/off until native QA is complete. */
+  floatSearch?: boolean;
   push: boolean;
   planner: boolean;
   chat: boolean;

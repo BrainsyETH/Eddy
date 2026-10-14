@@ -27,9 +27,9 @@ export function createFloatActivityLifecycle(
       if (result === 'started') announce(store.get(), { start: true });
       return result;
     },
-    end() {
+    end(contributionVersion: string | null = null, endedAt?: number) {
       // end() clears memory synchronously; its result belongs to storage only.
-      const ended = store.end();
+      const ended = store.end(contributionVersion, endedAt);
       announce(null, { force: true });
       return ended;
     },
@@ -75,7 +75,9 @@ export function floatActivitySnapshot(session: FloatSession, now: number): Float
       estimateNote: copy.note,
       estimateAsOf: view.positionAt,
       lastFixAt: view.positionAt,
-      staleAt: view.positionAt == null ? null : view.positionAt + STALE_POSITION_MS,
+      // From the last usable fix, on the river or not: off the river with GPS
+      // working is "off-route", not stale (viewSession).
+      staleAt: view.lastFixAt == null ? null : view.lastFixAt + STALE_POSITION_MS,
       paused: view.estimate.paused,
       // The widget must still check status/system staleness before showing arrival.
       arrived: view.arrived && !view.startedPastTakeOut,

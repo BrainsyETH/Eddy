@@ -6,6 +6,8 @@ import ts from 'typescript';
 import type { FloatPlan } from '@eddy/types';
 import { createPlanActions, planShareMessage } from '../../../eddy-ios/src/lib/planActions';
 import { createSavedFloatLoader, type SavedFloatLoadState } from '../../../eddy-ios/src/lib/savedFloatLoader';
+import { floatDurationLabel, savedFloatPhoto } from '../../../eddy-ios/src/lib/floatPresentation';
+import { compactFloatTime } from '../../../eddy-ios/src/lib/favoriteFloatCopy';
 
 const link = { shortCode: 'float1', url: 'https://eddy.guide/float/float1' };
 const plan = {
@@ -15,6 +17,120 @@ const plan = {
   distance: { formatted: '9.5 mi' },
   floatTime: { formatted: '3–5 hours' },
 } as FloatPlan;
+
+test('float duration labels use readable units for whole, half, and partial hours', () => {
+  for (const [minutes, expected] of [
+    [30, '30 min'],
+    [60, '1 hour'],
+    [90, '1½ hours'],
+    [75, '1 hour 15 min'],
+    [120, '2 hours'],
+    [720, '12 hours'],
+  ] as const) assert.equal(floatDurationLabel(minutes), expected);
+});
+
+test('compact float times retain both range endpoints while shortening their units', () => {
+  for (const [formatted, expected] of [
+    ['~2 hours 30 minutes - ~4 hours', '2 hr 30 min–4 hr'],
+    ['3–5 hours', '3–5 hr'],
+    ['1 hour', '1 hr'],
+    ['30 minutes', '30 min'],
+    ['  ~1 hour – ~2 hours  ', '1 hr–2 hr'],
+  ]) assert.equal(compactFloatTime(formatted), expected);
+});
+
+test('duration slider previews drags, commits changed releases, and accepts non-drag adjustments', () => {
+  // Exercise the shipped event handlers without loading native React Native.
+  // This checks JS selection behavior; native gestures/VoiceOver still need device QA.
+  type SliderEvents = {
+    value: number;
+    accessibilityValue: { now: number; text: string };
+    onSlidingStart: () => void;
+    onValueChange: (value: number) => void;
+    onSlidingComplete: (value: number) => void;
+  };
+  let slider: SliderEvents | undefined;
+  let hours = 5;
+  let hookIndex = 0;
+  const hooks: unknown[] = [];
+  const commits: number[] = [];
+  const jsx = (type: string, props: unknown) => {
+    if (type === 'Slider') slider = props as SliderEvents;
+    return null;
+  };
+  const source = readFileSync(new URL('../../../eddy-ios/src/components/FloatDurationSlider.tsx', import.meta.url), 'utf8');
+  const compiled = ts.transpileModule(source, {
+    compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.ReactJSX, esModuleInterop: true },
+  });
+  const exports: { FloatDurationSlider?: (props: { hours: number; onChange: (value: number) => void }) => unknown } = {};
+  runInNewContext(compiled.outputText, {
+    exports,
+    require: (name: string) => {
+      if (name === 'react/jsx-runtime') return { jsx, jsxs: jsx };
+      if (name === 'react') return {
+        useState: (initial: unknown) => {
+          const index = hookIndex++;
+          if (index === hooks.length) hooks.push(initial);
+          return [hooks[index], (value: unknown) => { hooks[index] = value; }];
+        },
+        useRef: (initial: unknown) => {
+          const index = hookIndex++;
+          if (index === hooks.length) hooks.push({ current: initial });
+          return hooks[index];
+        },
+      };
+      if (name === 'react-native') return { StyleSheet: { create: (value: unknown) => value }, Text: 'Text', View: 'View' };
+      if (name === '@react-native-community/slider') return { __esModule: true, default: 'Slider' };
+      if (name === '@/lib/floatPresentation') return { floatDurationLabel };
+      if (name === '@/theme/ThemeProvider') return { useTheme: () => ({ colors: {} }) };
+      if (name === '@/theme/typography') return { fonts: {}, type: {} };
+      throw new Error(`Unexpected slider dependency: ${name}`);
+    },
+  });
+  const render = () => {
+    hookIndex = 0;
+    assert.ok(exports.FloatDurationSlider);
+    exports.FloatDurationSlider({ hours, onChange: value => { commits.push(value); hours = value; } });
+    assert.ok(slider);
+    return slider;
+  };
+
+  let control = render();
+  control.onSlidingStart();
+  control.onValueChange(5.5);
+  control.onValueChange(6);
+  control = render();
+  assert.equal(control.value, 5, 'preview does not write back to the native thumb');
+  assert.equal(control.accessibilityValue.text, '6 hours');
+  assert.deepEqual(commits, [], 'preview cannot invalidate results or cancel a search');
+  control.onSlidingComplete(6);
+  assert.deepEqual(commits, [6]);
+  control = render();
+  assert.equal(control.value, 6);
+  control.onSlidingStart();
+  control.onValueChange(7);
+  control.onValueChange(6);
+  control.onSlidingComplete(6);
+  assert.deepEqual(commits, [6], 'returning to the original value preserves results');
+  control = render();
+  control.onValueChange(6.5);
+  assert.deepEqual(commits, [6, 6.5], 'accessibility changes need no touch completion event');
+  control = render();
+  assert.equal(control.accessibilityValue.now, 6.5);
+  control.onSlidingComplete(6.5);
+  assert.deepEqual(commits, [6, 6.5], 'a subsequent completion cannot repeat a committed value');
+});
+
+test('saved float thumbnails prefer the put-in and retain a known photo on a sparse refresh', () => {
+  const putIn = 'https://www.nps.gov/put-in.jpg';
+  const takeOut = 'https://www.nps.gov/take-out.jpg';
+  const photographed = { ...plan, putIn: { ...plan.putIn, imageUrls: [putIn] }, takeOut: { ...plan.takeOut, imageUrls: [takeOut] } };
+  assert.equal(savedFloatPhoto(photographed), putIn);
+  assert.equal(savedFloatPhoto({ ...photographed, putIn: plan.putIn }), takeOut);
+  assert.equal(savedFloatPhoto(plan, putIn), putIn);
+  assert.equal(savedFloatPhoto(plan), undefined, 'old saves need no photo to remain readable');
+  assert.equal(savedFloatPhoto({ ...plan, putIn: { ...plan.putIn, imageUrls: ['', 'not-a-url'] } }), undefined);
+});
 
 function deferred<T>() {
   let resolve!: (value: T) => void;

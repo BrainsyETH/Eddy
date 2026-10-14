@@ -38,10 +38,12 @@
 // listed rather than walked: a scrubber that recursed everything would also
 // rewrite the stack frames and breadcrumb structure it does not understand.
 
+import { scrubFloatSearchRequest } from '@eddy/conditions/float-search-privacy';
 import { redactContext, redactText } from './redact';
 
 /** The fields of a Sentry event that can carry text we wrote. */
 export interface ScrubbableEvent {
+  request?: { url?: string; data?: unknown; query_string?: unknown; cookies?: unknown; headers?: unknown };
   message?: unknown;
   extra?: unknown;
   logentry?: { message?: unknown } | null;
@@ -55,6 +57,7 @@ export interface ScrubbableEvent {
  * contract expects.
  */
 export function scrubEvent<T extends ScrubbableEvent>(event: T): T {
+  if (event.request) scrubFloatSearchRequest(event.request);
   if (typeof event.message === 'string') event.message = redactText(event.message);
 
   if (event.extra && typeof event.extra === 'object') {

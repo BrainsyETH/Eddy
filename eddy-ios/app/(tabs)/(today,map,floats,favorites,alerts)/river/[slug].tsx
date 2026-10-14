@@ -1,3 +1,5 @@
+import { serviceContactActions } from '@/lib/serviceContactActions';
+import { openExternalLink } from '@/lib/openExternalLink';
 // eddy-ios/app/river/[slug].tsx
 // One river: what it's doing right now, what could hurt you, and where to get on.
 //
@@ -19,7 +21,9 @@
 // entirety. It still needs an ACCOUNT, which is not a tier — a notification has
 // to have somewhere to go, and an anonymous id is replaced on reinstall.
 
+import { RiverGuideLink } from '@/components/RiverGuideCard';
 import { NativeHeaderHome } from '@/components/NativeHeaderHome';
+import { useAppConfig } from '@/hooks/useAppConfig';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -298,6 +302,7 @@ function AccessRow({ point, riverSlug }: { point: MapAccessPoint; riverSlug: str
  */
 function ServiceRow({ service }: { service: RiverService }) {
   const { colors, elevation } = useTheme();
+  const website = serviceContactActions({ website: service.website }).find(action => action.label === 'Website')?.url;
 
   return (
     <View style={[styles.serviceRow, { backgroundColor: colors.card }, elevation(1)]}>
@@ -338,9 +343,9 @@ function ServiceRow({ service }: { service: RiverService }) {
           <ControlIcon name="call-outline" size={19} color={colors.interactive} />
         </Pressable>
       ) : null}
-      {service.website ? (
+      {website ? (
         <Pressable
-          onPress={() => void Linking.openURL(service.website!)}
+          onPress={() => void openExternalLink(website)}
           hitSlop={10}
           accessibilityRole="button"
           accessibilityLabel={`Open ${service.name} website`}
@@ -353,6 +358,7 @@ function ServiceRow({ service }: { service: RiverService }) {
 }
 
 export default function RiverDetailScreen() {
+  const { features } = useAppConfig();
   // Set only when the reader arrived from somewhere that knows which water they
   // came for — today the dam screen. `section` names the reach to mark in the
   // reaches panel; `gauge` is the provider-native site id that reads it. Both
@@ -1374,6 +1380,10 @@ export default function RiverDetailScreen() {
             discovered halfway down the thing it controls. Read in order, the
             screen now says which stretch, then what it is doing, then what to
             do about it. */}
+        {features.floatSearch ? <Pressable accessibilityRole="button" onPress={() => router.push({ pathname: '/find-float', params: { river: slug } })} style={{ paddingVertical: 14, marginBottom: 12 }}>
+          <Text style={[styles.hazardBody, { color: colors.interactive }]}>Find a float on this river →</Text>
+        </Pressable> : null}
+
         <GaugePicker
           gauges={gauges}
           riverSlug={slug}
@@ -1497,6 +1507,8 @@ export default function RiverDetailScreen() {
           </View>
         ) : null}
         </View>
+
+        <RiverGuideLink riverSlug={slug} />
 
         {/* AFTER the take, not before it. These photos are banded by condition,
             so they illustrate a verdict — and putting them above the verdict

@@ -5,7 +5,7 @@
 
 import { useEffect } from 'react';
 import { useMap } from './MapContainer';
-import { ANCHORS, addLayerAt } from './layer-anchors';
+import { ANCHORS, addLayerAt, whenStyleReady } from './layer-anchors';
 
 interface DriveRouteLayerProps {
   routeGeometry: GeoJSON.LineString | null;
@@ -133,26 +133,13 @@ export default function DriveRouteLayer({
       }
     };
 
-    // Wait for map style to be loaded
-    const setupRoute = () => {
-      if (map.isStyleLoaded()) {
-        addDriveRoute();
-      } else {
-        map.once('style.load', addDriveRoute);
-      }
-    };
-
-    // Handle style changes (style change removes all custom layers)
-    const handleStyleLoad = () => {
-      addDriveRoute();
-    };
-
-    setupRoute();
-    map.on('style.load', handleStyleLoad);
+    // MapContainer remounts this layer after each style replacement. Do not
+    // wait for basemap tiles or leave an uncancelled style.load callback.
+    const cancelReady = whenStyleReady(map, addDriveRoute);
 
     // Cleanup on unmount or when routeGeometry changes
     return () => {
-      map.off('style.load', handleStyleLoad);
+      cancelReady();
       cleanup();
     };
   }, [map, routeGeometry]);

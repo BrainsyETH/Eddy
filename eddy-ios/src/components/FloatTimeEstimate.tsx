@@ -1,4 +1,7 @@
-import { StyleSheet, Text, View } from 'react-native';
+import { useState } from 'react';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { ControlIcon } from './ControlIcon';
+import { FloatInfoSheet } from './FloatInfoSheet';
 import { formatFloatTimeRange, roundToQuarterHour } from '@eddy/conditions/float-time-format';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
@@ -14,12 +17,18 @@ export function FloatTimeEstimate({
   typical?: boolean;
 }) {
   const { colors } = useTheme();
+  const [showInfo, setShowInfo] = useState(false);
   const label = typical ? 'Typical float time' : 'Estimated float time';
   const low = timeRange ? roundToQuarterHour(timeRange.min) : null;
   const high = timeRange ? roundToQuarterHour(timeRange.max) : null;
   return (
     <View style={styles.estimate}>
-      <Text style={[styles.label, { color: colors.textMuted }]}>{label}</Text>
+      <View style={styles.labelRow}>
+        <Text style={[styles.label, { color: colors.textMuted }]}>{label}</Text>
+        <Pressable onPress={() => setShowInfo(true)} accessibilityRole="button" accessibilityLabel="How float times are estimated" style={styles.info}>
+          <ControlIcon name="information-circle-outline" size={19} color={colors.interactive} />
+        </Pressable>
+      </View>
       <View
         style={styles.range}
         accessible
@@ -44,6 +53,7 @@ export function FloatTimeEstimate({
       <Text style={[styles.note, { color: colors.textMuted }]}>
         {typical ? 'Not adjusted to current water.' : 'Allow extra time for long stops or fishing.'}
       </Text>
+      {showInfo ? <FloatInfoSheet topic="time" onClose={() => setShowInfo(false)} /> : null}
     </View>
   );
 }
@@ -63,7 +73,9 @@ function Duration({ minutes }: { minutes: number }) {
 
 const styles = StyleSheet.create({
   estimate: { marginTop: 16, gap: 6 },
-  label: { ...t.sm, fontFamily: fonts.medium },
+  labelRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  info: { minWidth: 44, minHeight: 44, alignItems: 'center', justifyContent: 'center' },
+  label: { ...t.sm, fontFamily: fonts.medium, flexShrink: 1 },
   range: { flexDirection: 'row', alignItems: 'baseline', flexWrap: 'wrap', columnGap: 10, rowGap: 2 },
   rangeEnd: { flexDirection: 'row', alignItems: 'baseline', gap: 10, flexShrink: 1 },
   value: { ...t['3xl'], fontFamily: fonts.semibold, fontVariant: ['tabular-nums'], flexShrink: 1 },

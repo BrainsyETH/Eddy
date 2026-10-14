@@ -1,5 +1,6 @@
+import { openExternalLink } from '@/lib/openExternalLink';
 import { useCallback, useEffect, useState, type ReactNode } from 'react';
-import { Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { EddyScene } from '@/components/EddyScene';
 import { preloadTodayData } from '@/lib/firstRunPreload';
@@ -150,11 +151,11 @@ export function OnboardingGate({ children }: { children: ReactNode }) {
         <SafetyDisclaimer />
         <Text style={[styles.copy, { color: colors.textMuted }]}>By continuing, you agree to Eddy&apos;s Terms of Use and acknowledge the Privacy Policy.</Text>
         <View style={styles.links}>
-          <Pressable accessibilityRole="link" onPress={() => void Linking.openURL(TERMS_URL)} hitSlop={8}>
+          <Pressable accessibilityRole="link" onPress={() => void openExternalLink(TERMS_URL)} hitSlop={8}>
             <Text style={[styles.link, { color: colors.interactive }]}>Terms of Use</Text>
           </Pressable>
           <Text style={{ color: colors.textSubtle }}>·</Text>
-          <Pressable accessibilityRole="link" onPress={() => void Linking.openURL(PRIVACY_URL)} hitSlop={8}>
+          <Pressable accessibilityRole="link" onPress={() => void openExternalLink(PRIVACY_URL)} hitSlop={8}>
             <Text style={[styles.link, { color: colors.interactive }]}>Privacy Policy</Text>
           </Pressable>
         </View>

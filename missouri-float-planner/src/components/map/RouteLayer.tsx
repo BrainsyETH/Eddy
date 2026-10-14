@@ -12,7 +12,7 @@
 
 import { useEffect, useState } from 'react';
 import { useMap } from './MapContainer';
-import { ANCHORS, addLayerAt, whenStyleReady } from './layer-anchors';
+import { ANCHORS, addLayerAt, isStyleReady, whenStyleReady } from './layer-anchors';
 import { LINE_WIDTH as ROUTE_WIDTH, CASING_WIDTH, CASING_COLOR } from './line-style';
 import type { GeoJSON } from 'geojson';
 import type * as maplibregl from 'maplibre-gl';
@@ -37,7 +37,7 @@ export default function RouteLayer({
     // Style mid-transition: retry once it settles. Never gate on
     // map.loaded() — false while tiles stream, and 'load' fires only once
     // per map lifetime, so the old gate could silently drop the route.
-    if (!map.isStyleLoaded()) {
+    if (!isStyleReady(map)) {
       return whenStyleReady(map, () => setStyleReadyTick((t) => t + 1));
     }
 

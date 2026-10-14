@@ -12,7 +12,7 @@ import {
 import { getFlowProvider } from '@/lib/flow-providers';
 import { classifyQualifiers } from '@/lib/usgs/gauges';
 import { conditionAvailability } from '@shared/condition-availability';
-import { AgentError, BASE_URL, freshness, memoizeAsync } from './contracts';
+import { AgentError, RiverNotFoundError, BASE_URL, freshness, memoizeAsync } from './contracts';
 
 export type Db = SupabaseClient<Database>;
 export type River = Pick<
@@ -22,6 +22,7 @@ export type River = Pick<
   | 'slug'
   | 'state'
   | 'region'
+  | 'river_type'
   | 'length_miles'
   | 'description'
   | 'difficulty_rating'
@@ -121,7 +122,7 @@ export function createDataContext(db: Db, now = Date.now()) {
         await db
           .from('rivers')
           .select(
-            'id, name, slug, state, region, length_miles, description, difficulty_rating, float_summary, float_tip, timezone, park_code, alert_search_terms, weather_city, weather_lat, weather_lon',
+            'id, name, slug, state, region, river_type, length_miles, description, difficulty_rating, float_summary, float_tip, timezone, park_code, alert_search_terms, weather_city, weather_lat, weather_lon',
           )
           .eq('active', true)
           .order('name'),
@@ -202,7 +203,7 @@ export function createDataContext(db: Db, now = Date.now()) {
       db
         .from('rivers')
         .select(
-          'id, name, slug, state, region, length_miles, description, difficulty_rating, float_summary, float_tip, timezone, park_code, alert_search_terms, weather_city, weather_lat, weather_lon',
+          'id, name, slug, state, region, river_type, length_miles, description, difficulty_rating, float_summary, float_tip, timezone, park_code, alert_search_terms, weather_city, weather_lat, weather_lon',
         )
         .eq('active', true);
     const uuid =
@@ -223,10 +224,7 @@ export function createDataContext(db: Db, now = Date.now()) {
         .replace(/[\\%_]/g, '\\$&');
       found = checked(await query().ilike('name', name).maybeSingle(), 'river');
     }
-    if (!found)
-      throw new AgentError(
-        'River not found in curated coverage. Use list_rivers for supported slugs.',
-      );
+    if (!found) throw new RiverNotFoundError();
     return found;
   });
   async function point(r: River, ref: string, endpoint = false) {

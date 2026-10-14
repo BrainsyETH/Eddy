@@ -1,3 +1,4 @@
+import { openExternalLink } from '@/lib/openExternalLink';
 import { PlanDownstreamDams } from '@/components/PlanDownstreamDams';
 import { unknownConditionLabel } from '@eddy/conditions/condition-availability';
 // eddy-ios/src/components/PlanResult.tsx
@@ -219,6 +220,8 @@ export function PlanResult({ plan, verification, actions, accessPoints, header, 
           </>
         )}
         </CurrentPlanValue>
+
+        {plan.vessel?.name ? <Text style={[styles.headlineNote, { color: colors.textSubtle }]}>Vessel: {plan.vessel.name}</Text> : null}
 
         {plan.river.floatTip ? <Text style={[styles.headlineNote, { color: colors.textSubtle }]}>{plan.river.floatTip}</Text> : null}
       </View>
@@ -468,7 +471,7 @@ function GaugeSourceLink({ plan }: { plan: FloatPlan }) {
 
   return (
     <Pressable
-      onPress={() => void Linking.openURL(url)}
+      onPress={() => void openExternalLink(url)}
       style={({ pressed }) => [
         styles.sourceRow,
         { borderTopColor: colors.border, opacity: pressed ? 0.6 : 1 },

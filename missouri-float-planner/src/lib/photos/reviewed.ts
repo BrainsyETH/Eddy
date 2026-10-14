@@ -22,6 +22,23 @@ export interface PhotoRow {
   details?: unknown;
 }
 
+/** Read-time additions ship with the app; they never write back to the database.
+ * Reuse the backfill's exact identity, ownership and preserve-existing rules.
+ * Unknown/malformed provider records stay untouched rather than breaking a read.
+ */
+export function withReviewedPlacePhoto<T extends Omit<PhotoRow, 'updated_at'> & { updated_at?: string | null }>(
+  table: PhotoTable, row: T,
+): T {
+  const entry = reviewedPhotos.find(photo => photo.table === table && photo.id === row.id && photo.name === row.name);
+  if (!entry) return row;
+  try {
+    const patch = reviewedPhotoPatch(entry, { ...row, updated_at: row.updated_at ?? null });
+    return patch ? { ...row, ...patch } : row;
+  } catch {
+    return row;
+  }
+}
+
 /** Exact identities only; an existing photo is never replaced by a backfill. */
 export function reviewedPhotoPatch(entry: ReviewedPhoto, row: PhotoRow): Record<string, unknown> | null {
   if (row.id !== entry.id || row.name !== entry.name) throw new Error(`Photo identity changed: ${entry.name}`);

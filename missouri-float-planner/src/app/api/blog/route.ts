@@ -1,6 +1,7 @@
 // src/app/api/blog/route.ts
 // GET /api/blog - List published blog posts for public consumption
 
+import { guideCover, publicGuideImage } from '@/lib/photos/guides';
 import { NextResponse } from 'next/server';
 import { cdnCacheHeaders } from '@/lib/api-utils';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -15,7 +16,7 @@ async function _GET() {
     // Get only published posts where published_at is in the past
     const { data: posts, error } = await supabase
       .from('blog_posts')
-      .select('id, slug, title, description, category, featured_image_url, read_time_minutes, published_at')
+      .select('id, slug, title, description, category, featured_image_url, read_time_minutes, published_at, river_slug')
       .eq('status', 'published')
       .lte('published_at', new Date().toISOString())
       .order('published_at', { ascending: false });
@@ -29,15 +30,25 @@ async function _GET() {
     }
 
     // Format response for public consumption
-    const formatted = (posts || []).map((post) => ({
-      slug: post.slug,
-      title: post.title,
-      description: post.description,
-      category: post.category,
-      featuredImageUrl: post.featured_image_url,
-      readTimeMinutes: post.read_time_minutes,
-      publishedAt: post.published_at,
-    }));
+    const formatted = (posts || []).map((post) => {
+      const cover = guideCover(post);
+      return {
+        slug: post.slug,
+        title: post.title,
+        description: post.description,
+        category: post.category,
+        riverSlug: post.river_slug,
+        featuredImageUrl: publicGuideImage(cover.src),
+        featuredImageAlt: cover.alt ?? post.title,
+        imageCredit: cover.photo ? {
+          author: cover.photo.author, sourceUrl: cover.photo.sourceUrl,
+          license: cover.photo.license, licenseUrl: cover.photo.licenseUrl,
+          caption: cover.photo.caption, changes: cover.photo.changes,
+        } : null,
+        readTimeMinutes: post.read_time_minutes,
+        publishedAt: post.published_at,
+      };
+    });
 
     return NextResponse.json({ posts: formatted }, { headers: cdnCacheHeaders(300, 3600) });
   } catch (error) {

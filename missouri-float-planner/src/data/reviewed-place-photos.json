@@ -58,5 +58,20 @@
       "license": "Public domain",
       "licenseUrl": "https://www.nps.gov/aboutus/disclaimer.htm"
     }
+  },
+  {
+    "table": "points_of_interest",
+    "id": "2409c784-6d78-456f-93b2-e37850abaf06",
+    "name": "Jam Up Cave",
+    "image": {
+      "url": "https://www.nps.gov/ozar/learn/nature/images/jam_up_cave.jpg",
+      "title": "Jam Up Cave",
+      "altText": "Rock walls and opening of Jam Up Cave on the Jacks Fork",
+      "caption": "Jam Up Cave on the Jacks Fork between Blue Spring and Rymers. Location photograph; not current conditions.",
+      "credit": "National Park Service",
+      "sourceUrl": "https://www.nps.gov/ozar/learn/nature/jam-up-cave.htm",
+      "license": "Public domain",
+      "licenseUrl": "https://www.nps.gov/aboutus/disclaimer.htm"
+    }
   }
 ]

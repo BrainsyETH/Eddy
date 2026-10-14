@@ -14,7 +14,9 @@ import { onForeground } from '@/lib/foreground';
 import { setFloatReminders } from '@/lib/floatSessionStore';
 import { indexRoute, type FloatSession } from '@/lib/floatSession';
 import {
+  HAZARD_LEAD_MILES,
   STOP_LEAD_MILES,
+  isRemindedHazard,
   TAKE_OUT_LEAD_MILES,
   TAKE_OUT_REMINDER_ID,
   reminderStops,
@@ -37,7 +39,11 @@ export function FloatReminders({ session }: { session: FloatSession }) {
   }, [session]);
   const stateOf = (id: string, waiting: string) => (fired.has(id) ? 'Sent.' : pending.has(id) ? 'Sending…' : waiting);
   const access = useNotificationAccess();
-  const anyOn = settings.takeOut || settings.stops.length > 0;
+  const hazardsOn = settings.hazards !== false;
+  const seriousHazards = (session.route.hazards ?? []).filter(
+    (hazard) => isRemindedHazard(hazard) && hazard.riverMile <= session.takeOut.riverMile,
+  ).length;
+  const anyOn = settings.takeOut || settings.stops.length > 0 || (hazardsOn && seriousHazards > 0);
 
   const toggleStop = (id: string, on: boolean) =>
     setFloatReminders((current) => ({
@@ -67,6 +73,15 @@ export function FloatReminders({ session }: { session: FloatSession }) {
         onChange={(on) => setFloatReminders((current) => ({ ...current, takeOut: on }))}
       />
 
+      {seriousHazards > 0 ? (
+        <ReminderRow
+          title="Before serious hazards"
+          note={`Low-water dams, required portages and other serious hazards. About ${HAZARD_LEAD_MILES} mi ahead.`}
+          value={hazardsOn}
+          onChange={(on) => setFloatReminders((current) => ({ ...current, hazards: on }))}
+        />
+      ) : null}
+
       {stops.length > 0 ? (
         <>
           <Text style={[styles.subheading, { color: colors.textMuted }]}>Stops along the way</Text>
@@ -83,7 +98,8 @@ export function FloatReminders({ session }: { session: FloatSession }) {
       ) : null}
 
       <Text style={[styles.note, { color: colors.textMuted }]}>
-        Work without cell service. Only from a confirmed position on the river, and once each.
+        Work without cell service. Only from a confirmed position on the river, and once each. Eddy also tells you
+        when you reach the take-out, and ends a float left running long after.
       </Text>
     </View>
   );

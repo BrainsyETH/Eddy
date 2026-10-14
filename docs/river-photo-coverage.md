@@ -10,3 +10,38 @@ The 24 active rivers were checked against their published Eddy river pages on 20
 James River is used under CC BY-SA 3.0 (https://creativecommons.org/licenses/by-sa/3.0/). The source photo is unchanged; the card crops its display and overlays text. Credit and source/license links are exposed on the cards. Public-domain status for the other three is documented on each linked file page.
 
 The registry uses hosted image URLs. Network failures can still prevent a photo loading; every active river has a source, but images are editorial scenery rather than live-condition evidence. Original image downloads were blocked in the development environment; visual inspection of all new photo crops on device remains required.
+
+## Original river guide seed review — October 2026
+
+This table records the original seed payload. The read-time guide-photo registry
+now supplies 12 credited local covers on the blog and guide cards, preserving
+editor overrides. It also replaces the historical St. Francis dam hero. See
+[the October 11 audit](photo-coverage-2026-10-11.md) for the current behavior and
+remaining gaps; the source seed payload and route-photo opt-out are unchanged.
+
+The October 11 guide batch does not assume that an image already used elsewhere
+in Eddy can be reused on every new surface. Credits below are stored with each
+article's exact hero URL in `guide_data.hero.photo_credit`; changing that URL
+without updating its credit suppresses the old attribution. These are scenery,
+not photographs of current conditions or necessarily of a featured route.
+
+| River | Article hero | Rights evidence |
+| --- | --- | --- |
+| Big River | Eddy canoe artwork | Cedar Hill Dam has documented public-domain rights, but sits well below the featured routes. Excluded from the article and its cards because it misrepresents this guide’s setting. |
+| Bryant Creek | Existing creek photo | Missouri State Parks; public domain, per the September 16 file-specific review above; fresh page retrieval was unavailable |
+| James | Existing James River photo | Cold417; CC BY-SA 3.0, per the September 16 file-specific review above; fresh page retrieval was unavailable |
+| Spring River MO | Existing La Russell photo | Traveler7; public-domain release on [file page](https://commons.wikimedia.org/wiki/File:Spring_River,_La_Russell_Mo.JPG), rechecked October 11 |
+| Buffalo | Misty Bluff photo | Thomas & Dianne Jones; [CC BY 2.0 file page](https://commons.wikimedia.org/wiki/File:Misty_Bluff_along_the_Buffalo_River.jpg), checked October 11 |
+| Caddo | Norman river photo | Brandonrush; [CC0 1.0 file page](https://commons.wikimedia.org/wiki/File:Norman,_AR_002.jpg), checked October 11 |
+| St. Francis | Existing river photo | Formattc; [CC BY-SA 3.0 file page](https://commons.wikimedia.org/wiki/File:Saint_Francis_River,_USA_04-09.jpg), checked October 11 |
+| Mulberry | Forest Service photo above Yale | Tim Palmer / USDA Forest Service; [Flickr photo page](https://www.flickr.com/photo.gne?id=25631401007) identifies the photograph and Public Domain Mark, checked October 11 |
+| Big Piney, Black, Bourbeuse, Crooked Creek, Gasconade, Kings, North Fork, Spring River AR, War Eagle | Eddy canoe artwork | Reuse permission for the catalog image was not established. State-agency/tourism hosting is not a license; the North Fork and War Eagle file pages could not be verified. Those images are not included in the new guides. |
+| Elk | Eddy canoe artwork | No reviewed river scenery selected |
+
+Article captions link the author/source and license and disclose display
+cropping. Buffalo, James, and St. Francis use Eddy artwork for the uncaptioned
+blog-index and iOS cards, avoiding a separate uncited CC BY/SA use. Public-domain
+photos can be used on those cards. All 18 social-share images use Eddy artwork.
+Route cards in this batch opt out of the automatic access-photo fallback;
+separately reviewed scene photos can be added later. This review does not grant
+new rights to unrelated uses of the older river-photo catalog.

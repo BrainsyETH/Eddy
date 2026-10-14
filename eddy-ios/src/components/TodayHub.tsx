@@ -673,6 +673,20 @@ export function TodayHub({
       <TodayCamping revision={refreshRevision} />
 
       <View style={styles.section}>
+        <SectionHead title="River guides" action="See all" onAction={() => router.push('/river-guides')} />
+        <Pressable onPress={() => router.push('/river-guides')} accessibilityRole="button"
+          accessibilityLabel="Browse free river guides"
+          style={({ pressed }) => [styles.emptyCard, { backgroundColor: colors.card, borderColor: colors.border, opacity: pressed ? 0.75 : 1 }]}>
+          <ControlIcon name="book-outline" size={26} color={colors.interactive} />
+          <View style={styles.flex}>
+            <Text style={[styles.emptyTitle, { color: colors.text }]}>Find your next stretch of river</Text>
+            <Text style={[styles.emptyBody, { color: colors.textMuted }]}>Float sections, local stops, and tips for the trip.</Text>
+          </View>
+          <ControlIcon name="chevron-forward" size={18} color={colors.interactive} />
+        </Pressable>
+      </View>
+
+      <View style={styles.section}>
         <TodayRiverConditions
           rivers={conditionPreviews}
           total={rivers.length}

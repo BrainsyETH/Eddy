@@ -8,12 +8,15 @@
 // with no signal this normally answers from disk. Only when the cache lacks a
 // part does it ask the network, and a failed request is reported as exactly
 // that, never as a route.
+//
+// Known hazards ride along when the phone has them (the launch bundle seeds
+// them with the put-ins). They are never fetched to start a float and never
+// block one: a float with no hazard data simply shows none ahead.
 
 import { ApiError, fetchRiverAccessPoints, fetchRiverDetail } from '@/api/client';
 import { readRiver } from '@/lib/riverCache';
-import { routeFromRiver, type FloatRoute, type RouteProblem } from '@/lib/floatSession';
+import { indexRoute, routeFromRiver, withHazards, type FloatRoute, type RouteProblem } from '@/lib/floatSession';
 import type { RouteIndex } from '@eddy/geo';
-import { indexRoute } from '@/lib/floatSession';
 import { readTripPackage } from './tripDownloads';
 
 export type LoadedRoute =
@@ -21,14 +24,15 @@ export type LoadedRoute =
   | { ok: false; reason: RouteProblem | 'offline' };
 
 export async function loadFloatRoute(slug: string, signal?: AbortSignal, tripKey?: string | null): Promise<LoadedRoute> {
+  const cached = await readRiver(slug);
   if (tripKey) {
     const pkg = await readTripPackage(tripKey);
     if (pkg && pkg.route.riverSlug === slug) {
       const built = indexRoute(pkg.route);
-      if (built.ok) return { ok: true, route: pkg.route, index: built.index };
+      // A package saved before hazards were carried takes them from the cache.
+      if (built.ok) return { ok: true, route: withHazards(pkg.route, built.index, cached?.payload.hazards), index: built.index };
     }
   }
-  const cached = await readRiver(slug);
   let river = cached?.payload.river;
   let accessPoints = cached?.payload.accessPoints;
   let fetchedAt = cached?.fetchedAt ?? null;
@@ -48,7 +52,7 @@ export async function loadFloatRoute(slug: string, signal?: AbortSignal, tripKey
     }
   }
 
-  return routeFromRiver(river, accessPoints, fetchedAt);
+  return routeFromRiver(river, accessPoints, fetchedAt, cached?.payload.hazards);
 }
 
 /** What to tell someone whose float cannot start, in their terms. */

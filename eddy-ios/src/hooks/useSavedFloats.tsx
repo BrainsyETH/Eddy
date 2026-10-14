@@ -1,51 +1,11 @@
-// eddy-ios/src/hooks/useSavedFloats.tsx
-// Floats you have kept, so you can open them again.
-//
-// ── Kept is not the same as shared ──────────────────────────────────────────
-// This list used to be written by the Share button, and by nothing else. Two
-// things were wrong with that, and they are the same thing from two sides:
-// sharing a float with the person driving is not a statement that you want to
-// keep it, and wanting to keep one does not mean you have anybody to send it
-// to. So a plan you built for yourself could not be saved at all, and a plan
-// you sent to a group chat was filed under Favorites whether you meant it or
-// not.
-//
-// Keeping is now its own explicit action — the star on an open plan — and Share
-// does not write here. What is stored is unchanged; only who decides.
-//
-// ── Why local, and why only a stub ──────────────────────────────────────────
-// A saved plan already lives server-side — /api/plan/save writes the row and
-// hands back a short code. What the server does NOT have is any notion of
-// "mine": the plans table is keyed by share code, not by account, and the app
-// has an anonymous identity for most of its users. So the list of codes YOU
-// created is a local fact, and this is where it lives.
-//
-// The list and saved logistics work offline. Live readings and time estimates
-// are never stored here. Older stubs gain logistics the next time they open
-// successfully online; timestamped saved warnings remain clearly historical.
-
-import {
-  createContext,
-  useCallback,
-  useContext,
-  useEffect,
-  useMemo,
-  useState,
-  useRef,
-  type ReactNode,
-} from 'react';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+// Private saved-plan collection; shared plan URLs remain independent.
+import { createContext, useCallback, useContext, useMemo, type ReactNode } from 'react';
+import { Alert } from 'react-native';
 import type { FloatPlan } from '@eddy/types';
 import { savedFloatLogistics, type SavedFloatLogistics } from '@/lib/savedFloatLogistics';
-import { createStorageQueue } from '@/lib/storageQueue';
-
-const STORAGE_KEY = 'eddy.savedFloats.v1';
-
-/**
- * Newest first, capped. A shared-link history is a convenience, not an archive,
- * and an unbounded list would eventually be a slow read on every app start.
- */
-const MAX_ENTRIES = 50;
+import { savedFloatPhoto } from '@/lib/floatPresentation';
+import { floatArchive } from '@/lib/floatArchive';
+import { useFloatArchive } from './useFloatArchive';
 
 export interface SavedFloat {
   shortCode: string;
@@ -67,6 +27,8 @@ export interface SavedFloat {
   /** Rendered straight from the plan, so the list matches what was saved. */
   distanceLabel: string;
   savedAt: string;
+  /** Optional so existing saves stay readable. A cached endpoint photo only. */
+  photoUrl?: string;
   logistics?: SavedFloatLogistics;
 }
 
@@ -113,92 +75,93 @@ function matchesPlan(entry: SavedFloat, plan: FloatPlan): boolean {
 }
 
 export function SavedFloatsProvider({ children }: { children: ReactNode }) {
-  const [floats, setFloats] = useState<SavedFloat[]>([]);
-  const [ready, setReady] = useState(false);
-  const floatsRef = useRef<SavedFloat[]>([]);
-  const writes = useRef(createStorageQueue());
-  const epoch = useRef(0);
-  const [revision, setRevision] = useState(0);
-
-  useEffect(() => {
-    let cancelled = false;
-    const loadedEpoch = epoch.current;
-    (async () => {
-      try {
-        const raw = await AsyncStorage.getItem(STORAGE_KEY);
-        const parsed = raw ? (JSON.parse(raw) as SavedFloat[]) : [];
-        if (!cancelled && epoch.current === loadedEpoch && Array.isArray(parsed)) {
-          floatsRef.current = parsed;
-          setFloats(parsed);
-        }
-      } catch {
-        // A corrupt store is an empty store. Losing a list of share codes is
-        // not worth a crash on launch, and re-sharing regenerates them.
-      } finally {
-        if (!cancelled) setReady(true);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  const persist = useCallback((next: SavedFloat[]) => {
-    floatsRef.current = next;
-    setFloats(next);
-    void writes.current.run(() => AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(next))).catch(() => {});
-  }, []);
-
-  const remember = useCallback((plan: FloatPlan, saved: { shortCode: string; url: string }) => {
-    // An earlier save request may finish after deletion. Its callback belongs
-    // to the old revision and must not put that trip back on this device.
-    if (epoch.current !== revision) return;
-    const previous = floatsRef.current.find((f) => matchesPlan(f, plan));
-    const entry: SavedFloat = {
-      ...saved, riverName: plan.river.name, riverSlug: plan.river.slug,
-      putInName: plan.putIn.name, takeOutName: plan.takeOut.name,
-      putInId: plan.putIn.id, takeOutId: plan.takeOut.id,
-      distanceLabel: plan.distance.formatted, savedAt: new Date().toISOString(),
-      logistics: savedFloatLogistics(plan, undefined, previous?.logistics),
-    };
-    persist([entry, ...floatsRef.current.filter((f) => f.shortCode !== entry.shortCode && !matchesPlan(f, plan))].slice(0, MAX_ENTRIES));
-  }, [persist, revision]);
-
-  const forget = useCallback((shortCode: string) => {
-    persist(floatsRef.current.filter((f) => f.shortCode !== shortCode));
-  }, [persist]);
-
-  const isSaved = useCallback((plan: FloatPlan) => floats.some((f) => matchesPlan(f, plan)), [floats]);
-  const forgetPlan = useCallback((plan: FloatPlan) => {
-    persist(floatsRef.current.filter((f) => !matchesPlan(f, plan)));
-  }, [persist]);
-
-  const updateLogistics = useCallback((shortCode: string, plan: FloatPlan) => {
-    if (epoch.current !== revision || !floatsRef.current.some((f) => f.shortCode === shortCode)) return;
-    persist(floatsRef.current.map((f) => f.shortCode === shortCode ? {
-      ...f, logistics: savedFloatLogistics(plan, undefined, f.logistics),
-      riverName: plan.river.name, riverSlug: plan.river.slug,
-      putInName: plan.putIn.name, takeOutName: plan.takeOut.name,
-      putInId: plan.putIn.id, takeOutId: plan.takeOut.id, distanceLabel: plan.distance.formatted,
-    } : f));
-  }, [persist, revision]);
-
-  const clearForAccountDeletion = useCallback(async () => {
-    epoch.current += 1;
-    setRevision(epoch.current);
-    floatsRef.current = [];
-    setFloats([]);
-    await writes.current.run(() => AsyncStorage.removeItem(STORAGE_KEY));
-  }, []);
-
-  const value = useMemo<SavedFloatsValue>(
-    () => ({ floats, ready, remember, forget, isSaved, forgetPlan, updateLogistics, clearForAccountDeletion }),
-    [floats, ready, remember, forget, isSaved, forgetPlan, updateLogistics, clearForAccountDeletion],
+  const archive = useFloatArchive();
+  const scope = archive.scopeToken;
+  const floats = useMemo(
+    () =>
+      archive.rows
+        .filter((r) => r.kind === 'saved' && !r.deleted && r.payload)
+        .map((r) => ({ ...r.payload, ...(r.logistics ? { logistics: r.logistics } : {}) }) as SavedFloat)
+        .sort((a, b) => b.savedAt.localeCompare(a.savedAt)),
+    [archive.rows],
   );
-
+  const attempt = useCallback((operation: Promise<unknown>) => {
+    void operation.catch(() =>
+      Alert.alert('Could not save changes', 'Please try again. Your previous saved data is still on this phone.'),
+    );
+  }, []);
+  const forget = useCallback(
+    (code: string) => {
+      for (const row of archive.rows)
+        if (row.kind === 'saved' && !row.deleted && (row.payload as SavedFloat).shortCode === code)
+          attempt(floatArchive.remove(row.id, scope));
+    },
+    [archive.rows, scope, attempt],
+  );
+  const remember = useCallback(
+    (plan: FloatPlan, saved: { shortCode: string; url: string }) => {
+      if (!archive.ready) return;
+      const previous = floats.find((f) => matchesPlan(f, plan));
+      const entry: SavedFloat = {
+        ...saved,
+        riverName: plan.river.name,
+        riverSlug: plan.river.slug,
+        putInName: plan.putIn.name,
+        takeOutName: plan.takeOut.name,
+        putInId: plan.putIn.id,
+        takeOutId: plan.takeOut.id,
+        distanceLabel: plan.distance.formatted,
+        savedAt: new Date().toISOString(),
+        photoUrl: savedFloatPhoto(plan, previous?.photoUrl),
+      };
+      for (const old of floats) if (matchesPlan(old, plan) && old.shortCode !== saved.shortCode) forget(old.shortCode);
+      attempt(floatArchive.putSaved(entry, scope, savedFloatLogistics(plan, undefined, previous?.logistics)));
+    },
+    [archive.ready, floats, scope, forget, attempt],
+  );
+  const isSaved = useCallback((plan: FloatPlan) => floats.some((f) => matchesPlan(f, plan)), [floats]);
+  const forgetPlan = useCallback(
+    (plan: FloatPlan) => {
+      floats.filter((f) => matchesPlan(f, plan)).forEach((f) => forget(f.shortCode));
+    },
+    [floats, forget],
+  );
+  const updateLogistics = useCallback(
+    (code: string, plan: FloatPlan) => {
+      const row = floatArchive
+        .snapshot()
+        .rows.find((r) => r.kind === 'saved' && !r.deleted && (r.payload as SavedFloat).shortCode === code);
+      if (!row || !archive.ready) return;
+      const entry = row.payload as SavedFloat;
+      const logistics = row.logistics;
+      attempt(
+        floatArchive.putSaved(
+          {
+            ...entry,
+            photoUrl: savedFloatPhoto(plan, entry.photoUrl),
+            putInId: plan.putIn.id,
+            takeOutId: plan.takeOut.id,
+          },
+          scope,
+          savedFloatLogistics(plan, undefined, logistics),
+        ),
+      );
+    },
+    [archive.ready, scope, attempt],
+  );
+  const value = useMemo<SavedFloatsValue>(
+    () => ({
+      floats,
+      ready: archive.ready,
+      remember,
+      forget,
+      isSaved,
+      forgetPlan,
+      updateLogistics,
+      clearForAccountDeletion: archive.clear,
+    }),
+    [floats, archive.ready, archive.clear, remember, forget, isSaved, forgetPlan, updateLogistics],
+  );
   return <SavedFloatsContext.Provider value={value}>{children}</SavedFloatsContext.Provider>;
 }
-
-export function useSavedFloats(): SavedFloatsValue {
-  return useContext(SavedFloatsContext);
-}
+export const useSavedFloats = () => useContext(SavedFloatsContext);

@@ -1504,6 +1504,7 @@ function MapContent() {
     openPlan?: string;
     planPutIn?: string;
     planTakeOut?: string;
+    planVesselTypeId?: string;
     /** The tab that opened the planner; closing it goes back there. */
     planReturnTo?: string;
     /** One-time id of this request; see src/lib/planRequest.ts. */
@@ -1604,6 +1605,9 @@ function MapContent() {
     setPlanOpen(false);
     const back = planReturnTo.current;
     planReturnTo.current = null;
+    if (back === 'find-float' && reason !== 'started') {
+      router.navigate('/find-float');
+    }
     if (back === 'floats' && reason !== 'started') router.navigate('/float-home');
   }, [router]);
 
@@ -1624,10 +1628,10 @@ function MapContent() {
       planReturnTo.current = focusParams.planReturnTo ?? null;
       // eslint-disable-next-line react-hooks/set-state-in-effect -- explicit navigation from Saved floats opens the planner.
       setPlanOpen(true);
-      router.setParams({ openPlan: undefined, planPutIn: undefined, planTakeOut: undefined, planReturnTo: undefined, planRequest: undefined });
+      router.setParams({ openPlan: undefined, planPutIn: undefined, planTakeOut: undefined, planVesselTypeId: undefined, planReturnTo: undefined, planRequest: undefined });
       return;
     }
-    const token = `${focusRiver}:${focusParams.planPutIn ?? ''}:${focusParams.planTakeOut ?? ''}`;
+    const token = `${focusRiver}:${focusParams.planPutIn ?? ''}:${focusParams.planTakeOut ?? ''}:${focusParams.planVesselTypeId ?? ''}`;
     if (planIntentConsumed.current === token) return;
 
     if (selectedSlug !== focusRiver) {
@@ -1643,7 +1647,7 @@ function MapContent() {
       // A cached editorial pick can outlive an access-point edit. Preserve the
       // handoff by opening the river's planner even if one old ID no longer
       // resolves; the user can then choose the current endpoints explicitly.
-      if (putIn && takeOut) planner.planFloat(putIn, takeOut);
+      if (putIn && takeOut) planner.planFloat(putIn, takeOut, focusParams.planVesselTypeId);
     }
 
     planIntentConsumed.current = token;
@@ -1654,7 +1658,7 @@ function MapContent() {
       focusRiver: undefined,
       openPlan: undefined,
       planPutIn: undefined,
-      planTakeOut: undefined,
+      planTakeOut: undefined, planVesselTypeId: undefined,
       planReturnTo: undefined,
       planRequest: undefined,
     });
@@ -1662,6 +1666,7 @@ function MapContent() {
     focusParams.openPlan,
     focusParams.planPutIn,
     focusParams.planTakeOut,
+    focusParams.planVesselTypeId,
     focusParams.planReturnTo,
     focusParams.planRequest,
     focusRiver,

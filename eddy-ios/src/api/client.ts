@@ -1,4 +1,5 @@
 import type { CampingOverview } from '@eddy/types';
+import type { RiverGuideSummary } from '@/lib/riverGuides';
 // eddy-ios/src/api/client.ts
 // Thin client over the existing Next.js REST API, which the app consumes as a
 // headless backend. No auth yet — every endpoint used by the shell is public.
@@ -572,6 +573,12 @@ export async function fetchRivers(signal?: AbortSignal): Promise<RiverListItem[]
   // point of keeping it. Reading is the screen's job.
   writeIndex(rivers);
   return rivers;
+}
+
+/** The published blog index; the API excludes drafts and scheduled posts. */
+export async function fetchBlogPosts(signal?: AbortSignal): Promise<RiverGuideSummary[]> {
+  const data = await get<{ posts: RiverGuideSummary[] }>('/api/blog', signal);
+  return data.posts ?? [];
 }
 
 /**
@@ -1200,12 +1207,10 @@ export async function fetchRiverServices(
  * reading and Mapbox for the shuttle drive — so it runs once on an explicit
  * tap, never speculatively as the user moves between access points.
  *
- * NO vesselTypeId. The app stopped asking which boat you are in — the endpoint
- * defaults to a canoe, and the plan it returns names the vessel it used, which
- * is all the answer needs to say. See useFloatPlan for why that step is gone.
+ * Find a Float can supply a boat; ordinary planning still defaults to canoe.
  */
 export async function fetchFloatPlan(
-  params: { riverId: string; startId: string; endId: string },
+  params: { riverId: string; startId: string; endId: string; vesselTypeId?: string },
   signal?: AbortSignal,
 ): Promise<FloatPlan> {
   const query = new URLSearchParams({
@@ -1213,6 +1218,7 @@ export async function fetchFloatPlan(
     startId: params.startId,
     endId: params.endId,
   });
+  if (params.vesselTypeId) query.set('vesselTypeId', params.vesselTypeId);
   const data = await get<PlanResponse>(`/api/plan?${query.toString()}`, signal);
   return data.plan;
 }
@@ -2475,4 +2481,66 @@ export function fetchCampsitePhotos(facilityId: string, signal?: AbortSignal, si
 
 export function fetchCampingOverview(signal?: AbortSignal, nights: 21 | 90 = 90): Promise<CampingOverview> {
   return get<CampingOverview>(`/api/camping/availability?nights=${nights}`,signal);
+}
+
+/** Search bodies are private: no URL parameters, logs, analytics, or disk cache. */
+async function floatSearchPost<T>(path: string, body: unknown, signal?: AbortSignal): Promise<T> {
+  const deadline = withDeadline(signal, 25_000);
+  try {
+    const response = await fetch(`${BASE_URL}${path}`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json', 'User-Agent': USER_AGENT },
+      body: JSON.stringify(body), signal: deadline.signal,
+    });
+    const data = await response.json();
+    if (!response.ok) throw new ApiError(data.error || 'Search is unavailable. Please try again.', response.status);
+    return data;
+  } catch (error) {
+    if (error instanceof ApiError) throw error;
+    throw new ApiError(signal?.aborted ? 'Request cancelled' : 'Search could not finish. Check your connection and try again.');
+  } finally { deadline.done(); }
+}
+export function fetchFloatSearch(input: import('@eddy/conditions/float-search').FloatSearchInput, signal?: AbortSignal) {
+  return floatSearchPost<import('@eddy/conditions/float-search').FloatSearchResponse>('/api/float-search', input, signal);
+}
+export function fetchFloatSearchPlaces(query: string, signal?: AbortSignal) {
+  return floatSearchPost<{ places: import('@eddy/conditions/float-search').FloatSearchPlace[] }>('/api/float-search/places', { query }, signal);
+}
+
+/** Preserve auth failures; missing deployments and server failures need a different remedy. */
+async function archiveRequest<T>(path: string, token: string, init?: { method?: string; body?: unknown }): Promise<T | null> {
+  try {
+    return await authed<T>(path, token, init);
+  } catch (error) {
+    if (error instanceof ApiError && (error.status === 404 || (error.status ?? 0) >= 500))
+      throw new Error('Float backup is temporarily unavailable. Your floats are saved on this phone. Try again later.');
+    throw error;
+  }
+}
+
+/** Private trip backup; no request cache and no raw tracking positions. */
+export async function readFloatArchive(token: string) {
+  const rows: import('@eddy/conditions/float-archive').ArchiveRow[] = [];
+  let cursor: string | null = null;
+  let preference: import('@eddy/conditions/float-archive').ContributionPreference = { enabled:false, version:null };
+  do {
+    const page: { rows:import('@eddy/conditions/float-archive').ArchiveRow[]; nextCursor:string | null; preference:import('@eddy/conditions/float-archive').ContributionPreference } | null = await archiveRequest(
+      `/api/me/float-archive${cursor ? `?cursor=${encodeURIComponent(cursor)}` : ''}`, token);
+    if (!page) throw new Error('Sign in again to load float backup.');
+    rows.push(...page.rows); preference = page.preference; cursor = page.nextCursor;
+  } while (cursor);
+  return { rows, preference };
+}
+export async function writeFloatArchive(token: string, rows: import('@eddy/conditions/float-archive').ArchiveRow[]) {
+  const result = await archiveRequest<{ results: import('@eddy/conditions/float-archive').ArchiveWriteResult[] }>('/api/me/float-archive',token,{ method:'POST', body:{ rows: rows.map(row => {
+    if (row.kind !== 'completed' || !row.payload) return row;
+    const { water: _water, ...payload } = row.payload as import('@eddy/conditions/float-archive').CompletedFloat;
+    return { ...row, payload };
+  }) } });
+  if (!result) throw new Error('Sign in again to back up floats.');
+  return result.results;
+}
+export async function setFloatContribution(token: string, enabled: boolean) {
+  const result = await archiveRequest<import('@eddy/conditions/float-archive').ContributionPreference>('/api/me/float-archive',token,{ method:'PATCH', body:{ enabled } });
+  if (!result) throw new Error('Sign in again to change sharing.');
+  return result;
 }

@@ -2,12 +2,15 @@
 import assert from 'node:assert/strict';
 import test, { after } from 'node:test';
 import { readFileSync } from 'node:fs';
+import ts from 'typescript';
+import { z } from 'zod';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
 import { createAgentExecutor } from './executor';
 import { createAgentServer } from './mcp-server';
 import { AGENT_TOOLS } from './catalog';
-import { AGENT_VERSION, freshness, tripDate } from './contracts';
+import { AGENT_VERSION, RiverNotFoundError, freshness, tripDate } from './contracts';
+import { approximateLocation } from '@shared/float-search';
 import {
   readMcpBody,
   MAX_BODY_BYTES,
@@ -15,7 +18,11 @@ import {
   validOrigin,
 } from './http';
 import { memoizeReads } from './read-cache';
-import type { Db } from './data';
+import { createDataContext, type Db } from './data';
+import { loadCandidateDuration } from './candidate-duration';
+import { loadScreening, screenCandidates } from './search';
+import { estimateRoute } from '@/lib/calculations/route-estimate';
+import { readSnapshotStatistics, leapDayOfYearForDate } from '@/lib/usgs/percentile-snapshot';
 import type { SourceProviders } from './sources';
 
 const uuid = (n: number) =>
@@ -54,6 +61,7 @@ function fixture(
     cfs?: boolean;
     noStageThresholds?: boolean;
     tailwater?: boolean;
+    finalTailwater?: boolean;
     points?: number;
     snapshots?: boolean;
     searchBudgetMs?: number;
@@ -161,6 +169,8 @@ function fixture(
       speed_normal: slug === 'tube' ? 1 : 2.5,
       speed_high_water: 3.5,
     })),
+    float_segments: [],
+    community_reports: [],
     river_characteristics: [],
     river_sections: [],
     usgs_daily_percentiles: [],
@@ -172,7 +182,13 @@ function fixture(
       single = false;
     let signal: AbortSignal | undefined;
     const q: any = {
-      select: () => q,
+      select: (columns: string) => {
+        // The final estimator may learn newer metadata than screening had.
+        if (name === 'rivers' && options.finalTailwater && columns === 'id, name, slug, river_type, float_tip') {
+          rows = rows.map(r => ({ ...r, river_type: 'dam_tailwater' }));
+        }
+        return q;
+      },
       abortSignal: (value: AbortSignal) => {
         signal = value;
         return q;
@@ -196,6 +212,7 @@ function fixture(
         return q;
       },
       order: () => q,
+      range: (start: number, end: number) => { rows = rows.slice(start, end + 1); return q; },
       limit: (n: number) => {
         rows = rows.slice(0, n);
         return q;
@@ -271,7 +288,20 @@ function fixture(
             reading_timestamp: reading(selected).reading_timestamp,
           },
         ];
-      } else if (name === 'get_segment_float_time') rows = [];
+      } else if (name === 'get_segment_float_time') {
+        // Independent stand-in for migration 00014's SQL, not publishedTiming().
+        const direct = tables.float_segments.find(r => r.put_in_id === args.p_put_in_id && r.take_out_id === args.p_take_out_id);
+        const row = direct ?? tables.float_segments.find(r => r.take_out_id === args.p_put_in_id && r.put_in_id === args.p_take_out_id);
+        const key = ['raft', 'tube'].includes(args.p_vessel_type) ? args.p_vessel_type : 'canoe';
+        const unavailable = !direct && key === 'tube';
+        const min = row?.[`${key}_time_min`], max = row?.[`${key}_time_max`];
+        const factor = direct ? 1 : 1.5;
+        rows = !row ? [] : [{
+          time_min_minutes: unavailable || min == null ? null : Math.round(min * factor),
+          time_max_minutes: unavailable || max == null ? null : Math.round(max * factor),
+          time_avg_minutes: unavailable || min == null || max == null ? null : Math.round(Math.trunc((min + max) / 2) * factor),
+        }];
+      }
       else if (name === 'get_latest_curated_readings')
         rows = tables.gauge_readings.filter((r) => args.p_station_ids.includes(r.gauge_station_id));
       else throw new Error(`Unexpected RPC ${name}`);
@@ -1106,4 +1136,239 @@ test('MCP plans separate downstream dams and retain unknown portage flags', asyn
   const failed = await fixture({ fail: 'river_hazards' }).execute('plan_float', trip);
   assert.equal(failed.status, 'lookup_failed');
   assert.equal('hazards' in failed.data, false);
+});
+
+import { findNearbyFloats, diverseFloats } from './nearby-search';
+const nearbyInput = { near: { lat: 37, lng: -91 }, targetHours: 5, radiusMiles: 100, vesselType: 'canoe' as const, publicOnly: true };
+
+// Exercise the real HTTP handler and search together. Only network boundaries
+// (Supabase creation, rate limiting and external sources) use offline fixtures.
+function floatSearchPost(f: ReturnType<typeof fixture>) {
+  const source = readFileSync(new URL('../../app/api/float-search/route.ts', import.meta.url), 'utf8');
+  const compiled = ts.transpileModule(source, {
+    compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
+  });
+  const dependencies: Record<string, unknown> = {
+    zod: { z },
+    '@/lib/supabase/server': { createClient: async () => f.db },
+    '@/lib/rate-limit': { getClientIp: () => '127.0.0.1' },
+    '@/lib/agent-tools/limits': { createFloatSearchLimiter: () => ({ general: async () => null, tool: async () => null }) },
+    '@/lib/agent-tools/http': { readMcpBody, validOrigin },
+    '@/lib/agent-tools/nearby-search': {
+      findNearbyFloats: (db: Db, input: Parameters<typeof findNearbyFloats>[1], options: Parameters<typeof findNearbyFloats>[2]) =>
+        findNearbyFloats(db, input, { ...options, sources: f.sources, now: NOW }),
+    },
+    '@shared/float-search': { approximateLocation },
+    '@/lib/agent-tools/contracts': { RiverNotFoundError },
+  };
+  const exports = {} as { POST: (request: Request) => Promise<Response> };
+  new Function('require', 'exports', compiled.outputText)((id: string) => {
+    assert.ok(id in dependencies, `Unexpected route dependency: ${id}`);
+    return dependencies[id];
+  }, exports);
+  return (body: unknown) => exports.POST(new Request('https://eddy.guide/api/float-search', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
+  }));
+}
+
+test('float-search HTTP returns a non-retryable 404 for missing and inactive rivers', async () => {
+  for (const river of ['unknown-river', uuid(999), 'current', uuid(1), 'Current River']) {
+    const f = fixture();
+    f.tables.rivers[0].active = false;
+    const response = await floatSearchPost(f)({ ...nearbyInput, river });
+    assert.equal(response.status, 404, river);
+    assert.equal(response.headers.get('cache-control'), 'private, no-store');
+    assert.deepEqual(await response.json(), { error: 'This river is not available for float search. Choose another river.' });
+    assert.equal(f.calls.includes('get_float_segment'), false, 'invalid rivers never start route checks');
+  }
+});
+
+test('float-search HTTP keeps lookup outages retryable and successful empty searches valid', async () => {
+  const outage = await floatSearchPost(fixture({ fail: 'rivers' }))({ ...nearbyInput, river: 'current' });
+  assert.equal(outage.status, 503);
+  assert.deepEqual(await outage.json(), { error: 'The search could not finish. Please try again.' });
+  const f = fixture();
+  f.tables.access_points.forEach(p => { p.is_public = false; });
+  const empty = await floatSearchPost(f)({ ...nearbyInput, river: 'current' });
+  assert.equal(empty.status, 200);
+  assert.equal((await empty.json()).evaluated, 0);
+  const invalid = await floatSearchPost(f)({ ...nearbyInput, river: '' });
+  assert.equal(invalid.status, 400);
+});
+
+test('nearby search shares six route estimates across rivers, respects radius and separates alternatives', async () => {
+  const f = fixture({ points: 8 });
+  const original = [...f.tables.access_points];
+  const river = f.tables.rivers[0];
+  for (let r = 2; r <= 4; r++) {
+    f.tables.rivers.push({ ...river, id: uuid(r), slug: `river-${r}`, name: `River ${r}` });
+    f.tables.river_gauges.push({ ...f.tables.river_gauges[0], river_id: uuid(r) });
+    f.tables.access_points.push(...original.map((p, i) => ({ ...p, id: uuid(r * 1000 + i), river_id: uuid(r), location_orig: { type: 'Point', coordinates: [r === 4 ? -100 : -91.1, 37] } })));
+  }
+  const result = await findNearbyFloats(f.db, nearbyInput, { sources: f.sources, now: NOW });
+  assert.equal(result.failed, 0);
+  assert.equal(result.partial, false);
+  assert.equal(f.calls.filter(c => c === 'get_float_segment').length, 6);
+  assert.equal(result.evaluated, 6);
+  assert.ok(new Set(result.matches.map(m => m.riverId)).size >= 2);
+  assert.ok(result.matches.every(m => m.timeRange.min <= 300 && m.timeRange.max >= 300 && m.nearbyMiles! <= 100));
+  assert.ok(result.alternatives.every(m => m.relation !== 'match'));
+  assert.ok([...result.matches, ...result.alternatives].every(m => m.riverId !== uuid(4)));
+  assert.ok(result.matches.every(m => m.url.includes('vessel=') && m.putIn.isPublic && m.takeOut.isPublic));
+});
+test('single river needs no location and alternatives retain a shorter/longer label', async () => {
+  const f = fixture({ points: 4 });
+  const result = await findNearbyFloats(f.db, { ...nearbyInput, near: undefined, river: 'current', targetHours: 12 }, { sources: f.sources, now: NOW });
+  assert.equal(result.failed, 0);
+  assert.equal(result.matches.length, 0);
+  assert.ok(result.alternatives.length > 0);
+  assert.ok(result.alternatives.every(m => m.relation === 'shorter' && m.nearbyMiles === null));
+});
+test('public endpoints and closure checks survive multi-river search', async () => {
+  const privateFixture = fixture();
+  privateFixture.tables.access_points.forEach(p => { p.is_public = false; });
+  const privateResult = await findNearbyFloats(privateFixture.db, nearbyInput, { sources: privateFixture.sources, now: NOW });
+  assert.deepEqual(privateResult.matches, []);
+  assert.equal(privateResult.evaluated, 0);
+  const f = fixture({ closure: true, points: 6 });
+  const closed = await findNearbyFloats(f.db, nearbyInput, { sources: f.sources, now: NOW });
+  assert.equal(closed.failed, 0);
+  assert.ok(closed.evaluated > 0);
+  assert.deepEqual([...closed.matches, ...closed.alternatives], []);
+});
+test('nearby deadline before any assessment is a failed search, not an empty result', async () => {
+  const f = fixture({ stallTable: 'float_segments' });
+  await assert.rejects(findNearbyFloats(f.db, nearbyInput, { sources: f.sources, now: NOW, budgetMs: 40 }), /could not finish/);
+  assert.ok(f.calls.includes('cancelled'));
+});
+test('variety cap backfills and is disabled for a selected river', () => {
+  const rows = ['a','a','a','b','b','c'].map((riverId, id) => ({ riverId, id }));
+  assert.deepEqual(diverseFloats(rows, 5).map(r => r.id), [0,1,3,4,5]);
+  assert.equal(diverseFloats(rows.slice(0,3), 5).length, 3);
+  assert.deepEqual(diverseFloats(rows, 6).map(r => r.id), [0,1,2,3,4,5], 'backfilling must preserve the original condition/duration ranking');
+  assert.deepEqual(diverseFloats(rows, 5, true).map(r => r.id), [0,1,2,3,4]);
+});
+
+test('MCP timing and screening failures degrade to bounded authoritative checks', async () => {
+  for (const fail of ['float_segments', 'river_characteristics', 'river_sections', 'usgs_daily_percentiles']) {
+    const f = fixture({ fail, points: 6 });
+    const result = await f.execute('find_floats', { river: 'current', targetHours: 5 });
+    assert.equal(result.status, 'partial', fail);
+    assert.ok((result.data.recommendations as any[]).length > 0, fail);
+    assert.equal((result.data.screening as any).status, 'partial', fail);
+    assert.ok(Number(result.data.evaluated) <= 6, fail);
+  }
+});
+
+test('MCP excludes a final result with no time before sorting or mapping', async () => {
+  const result = await fixture({ finalTailwater: true }).execute('find_floats', { river: 'current' });
+  assert.notEqual(result.status, 'lookup_failed');
+  assert.deepEqual(result.data.recommendations, []);
+  assert.ok(Number(result.data.unavailableTimeCandidates) > 0, JSON.stringify(result));
+  assert.match(String(result.data.reason), /no reliable duration/);
+});
+
+test('regulated rivers explain the empty duration search even if screening fails', async () => {
+  for (const fail of [undefined, 'river_sections', 'float_segments']) {
+    const f = fixture({ tailwater: true, fail });
+    const result = await f.execute('find_floats', { river: 'current' });
+    assert.notEqual(result.status, 'lookup_failed');
+    assert.deepEqual(result.data.recommendations, []);
+    assert.match(String(result.data.reason), /dam releases/);
+    assert.equal(f.calls.filter(c => c === 'get_float_segment').length, 0);
+  }
+  const f = fixture({ tailwater: true });
+  const result = await findNearbyFloats(f.db, { ...nearbyInput, river: 'current' }, { sources: f.sources, now: NOW });
+  assert.equal(result.partial, false);
+  assert.match(result.unavailableReason!, /dam releases/);
+});
+
+test('a selected river overrides radius but retains geographic distance', async () => {
+  const f = fixture();
+  const input = { ...nearbyInput, near: { lat: 38.6, lng: -90.2 }, radiusMiles: 10 };
+  const nearby = await findNearbyFloats(f.db, input, { sources: f.sources, now: NOW });
+  assert.equal(nearby.evaluated, 0);
+  const selected = await findNearbyFloats(f.db, { ...input, river: 'current' }, { sources: f.sources, now: NOW });
+  const options = [...selected.matches, ...selected.alternatives];
+  assert.ok(options.length > 0);
+  assert.ok(options.every(p => p.nearbyMiles! > input.radiusMiles));
+});
+
+test('nearby failures throw only when no route assessment completed', async () => {
+  for (const fail of ['rivers', 'float_segments', 'get_float_segment']) {
+    const f = fixture({ fail });
+    await assert.rejects(findNearbyFloats(f.db, nearbyInput, { sources: f.sources, now: NOW }), /could not finish/, fail);
+  }
+  const f = fixture({ points: 16, stallAfter: 1 });
+  const partial = await findNearbyFloats(f.db, nearbyInput, { sources: f.sources, now: NOW, budgetMs: 150 });
+  assert.equal(partial.partial, true);
+  assert.equal(partial.evaluated, 1);
+  assert.equal(partial.matches.length + partial.alternatives.length, 1);
+  const empty = fixture();
+  empty.tables.access_points.forEach(p => { p.is_public = false; });
+  const result = await findNearbyFloats(empty.db, nearbyInput, { sources: empty.sources, now: NOW });
+  assert.equal(result.partial, false);
+  assert.equal(result.evaluated, 0);
+});
+
+test('Cedar Grove timing loads from segment rows through both search and the estimator', async () => {
+  for (const vessel of ['canoe', 'kayak', 'raft', 'tube']) {
+    for (const reverse of [false, true]) {
+      const f = fixture({ points: 5 });
+      f.tables.river_gauges.forEach(g => { g.level_optimal_min = 4; });
+      const [a, b] = f.tables.access_points;
+      [0, 7.6, 10, 12.5, 14].forEach((mile, i) => { f.tables.access_points[i].river_mile_downstream = mile; });
+      a.name = 'Cedar Grove'; b.name = 'Akers';
+      f.tables.float_segments.push({
+        id: uuid(500), river_id: uuid(1), put_in_id: reverse ? b.id : a.id, take_out_id: reverse ? a.id : b.id,
+        canoe_time_min: 180, canoe_time_max: 300, raft_time_min: 240, raft_time_max: 360, tube_time_min: 360, tube_time_max: 480,
+      });
+      const ctx = createDataContext(f.db, NOW), river = await ctx.river('current');
+      const screen = await loadScreening(ctx, river);
+      const { durationFor } = await loadCandidateDuration(ctx, river, screen, vessel);
+      const preliminary = durationFor(a, b);
+      const final = await estimateRoute(f.db, { riverId: river.id, startId: a.id, endId: b.id, vesselTypeId: f.tables.vessel_types.find(v => v.slug === vessel)!.id }, {
+        fetchGaugeReadings: async () => { throw new Error('Unexpected live reading'); },
+        fetchDailyStatistics: site => readSnapshotStatistics(f.db, site, new Date(NOW)),
+      });
+      assert.deepEqual(preliminary?.timeRange, final.floatTime?.timeRange, `${vessel} reverse=${reverse}`);
+      assert.equal(preliminary?.minutes, final.floatTime?.minutes);
+      assert.equal(preliminary?.isEstimate, reverse && vessel === 'tube');
+      assert.equal(durationFor(b, a), null, 'search never offers an upstream pair');
+      if (!reverse && ['canoe', 'kayak'].includes(vessel)) {
+        assert.deepEqual(preliminary?.timeRange, { min: 180, max: 300 });
+        const screened = screenCandidates(f.tables.access_points, 5, 2.5, true, screen, durationFor);
+        assert.ok(screened.candidates.some(c => c.putIn.id === a.id && c.takeOut.id === b.id));
+      }
+      assert.ok(f.calls.includes('float_segments') && f.calls.includes('get_segment_float_time'));
+    }
+  }
+});
+
+test('duration loading and final estimation agree on the selected gauge and reference, including missing references', async () => {
+  for (const references of [true, false]) {
+    const f = fixture({ points: 5, downstream: 3.5 });
+    f.tables.river_gauges.forEach(g => { g.level_optimal_min = 4; });
+    if (references) for (const [site_no, p50] of [['07000100', 100], ['07000101', 800]]) {
+      f.tables.usgs_daily_percentiles.push({ site_no, parameter_code: '00060', day_of_year: leapDayOfYearForDate(new Date(NOW)), p50 });
+    }
+    const ctx = createDataContext(f.db, NOW), river = await ctx.river('current');
+    const { durationFor, partial } = await loadCandidateDuration(ctx, river, await loadScreening(ctx, river), 'kayak');
+    assert.equal(partial, false);
+    const times: number[] = [];
+    for (const start of [0, 2]) {
+      const [a, b] = f.tables.access_points.slice(start, start + 2);
+      const sites: string[] = [];
+      const final = await estimateRoute(f.db, { riverId: river.id, startId: a.id, endId: b.id, vesselTypeId: uuid(201) }, {
+        fetchGaugeReadings: async () => { throw new Error('Unexpected live reading'); },
+        fetchDailyStatistics: site => { sites.push(site); return readSnapshotStatistics(f.db, site, new Date(NOW)); },
+      });
+      const preliminary = durationFor(a, b);
+      assert.deepEqual(sites, [start === 0 ? '07000100' : '07000101']);
+      assert.deepEqual(preliminary?.timeRange, final.floatTime?.timeRange);
+      assert.equal(preliminary?.minutes, final.floatTime?.minutes);
+      times.push(preliminary!.minutes);
+    }
+    assert.equal(times[0] === times[1], !references, 'different gauge medians must change modeled time');
+  }
 });

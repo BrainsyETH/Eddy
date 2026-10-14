@@ -9,8 +9,9 @@
 // worthless. dam-metric-history made the same case for observations and stored
 // those. This is the third exception, and it is a different one again.
 //
-// Nothing here is kept for its history. The table holds exactly one row per
-// dam, overwritten every hour, and a row is worth reading for as long as the
+// Nothing here is kept for its history (the forecasts inside are copied to
+// dam_forecast_history for scoring; see ADR 0013). The table holds exactly one
+// row per dam, overwritten every hour, and a row is worth reading for as long as the
 // snapshot inside it would have been worth assembling. What it buys is that
 // the assembly does not happen while somebody is waiting:
 //

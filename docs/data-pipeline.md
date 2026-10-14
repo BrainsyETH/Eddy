@@ -44,11 +44,14 @@ happens *after* the pin check passes. Three values:
 
 ## Reviewed photo additions
 
-`scripts/backfill-reviewed-photos.ts` previews four exact-identity photo additions;
+`scripts/backfill-reviewed-photos.ts` previews five exact-identity photo additions;
 `--apply` uses the shared project guard, preserves existing photos and unrelated
 service details, checks concurrent updates, and reads every changed row back.
-Deploy the photo-credits page and image optimizer support first. No schema
-migration is required. See `missouri-float-planner/docs/photo-coverage-2026-10-04.md`.
+The reviewed catalog also supplies read-time fallbacks on public place surfaces,
+so these photos do not require a database write to appear. The optional backfill
+persists the same selections. Deploy the photo-credits page and image optimizer
+support first. No schema migration is required. See
+`docs/photo-coverage-2026-10-11.md` for the current coverage and remaining gaps. See `missouri-float-planner/docs/photo-coverage-2026-10-04.md`.
 
 ## Reviewed spring repairs
 
@@ -102,6 +105,7 @@ when running the write phases.
 
 | Script | Run | Writes (Supabase) | Guard |
 | --- | --- | --- | --- |
+| `seed-river-guides.ts` | direct | `blog_posts` insert for missing rivers; preserves existing posts and validates route endpoints/miles | dry-default; `--apply` inserts drafts, `--apply --publish` inserts published posts; honors `EXPECTED_SUPABASE_REF`. See [guide runbook](../missouri-float-planner/docs/river-guide-style.md#repository-authored-guides-and-publishing) |
 | `import-usgs-gauges.ts` | direct | `gauge_stations` upsert (national OGC import) | dry-default, `--apply`; honors `EXPECTED_SUPABASE_REF` |
 | `import-nwps-gauges.ts` | direct | `gauge_stations` update (NWS flood/action stages) | dry-default, `--apply`; honors `EXPECTED_SUPABASE_REF` |
 | `import-nhd-rivers-from-tnm.ts` | `npm run db:import-rivers-tnm` | `rivers` geometry insert/update (or SQL to `--out`) | dry-default, `--apply`; honors `EXPECTED_SUPABASE_REF` (migrated off the legacy allowlist 2026-08-25) |

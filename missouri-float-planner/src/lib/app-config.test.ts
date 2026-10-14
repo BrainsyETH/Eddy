@@ -2,6 +2,9 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { compareVersions, isUpgradeRequired } from '../../../packages/eddy-types/index';
 import { floatModeEnabled } from '../../../eddy-ios/src/lib/floatModeFeature';
+import { floatSearchEnabled } from '../../../eddy-ios/src/lib/floatSearchFeature';
+import { pickEnvironment } from '../../../eddy-ios/src/lib/app-environment';
+import { floatSearchLaunch } from './float-search-launch';
 
 // The version gate is the one lever that can lock a user out of the app
 // entirely, so its edge cases matter more than its happy path.
@@ -84,4 +87,40 @@ test('Float Mode is on for internal builds and off in store builds until the ser
   assert.equal(floatModeEnabled({ floatMode: 'true' }, 'production'), false, 'only a real true turns it on');
   assert.equal(floatModeEnabled({ floatMode: true }, 'production'), true);
   assert.equal(floatModeEnabled(null, 'unknown'), false);
+});
+
+test('Find a Float discovery defaults off and web can launch independently of iOS', () => {
+  assert.deepEqual(floatSearchLaunch({}), { web: false, ios: false });
+  assert.deepEqual(floatSearchLaunch({ FLOAT_SEARCH_ENABLED: 'true' }), { web: true, ios: false });
+  assert.deepEqual(floatSearchLaunch({ FLOAT_SEARCH_IOS_ENABLED: 'true' }), { web: false, ios: true });
+  assert.deepEqual(floatSearchLaunch({ FLOAT_SEARCH_ENABLED: 'true', FLOAT_SEARCH_IOS_ENABLED: 'true' }), { web: true, ios: true });
+  for (const value of ['false', '1', 'TRUE', '']) {
+    assert.deepEqual(floatSearchLaunch({ FLOAT_SEARCH_ENABLED: value, FLOAT_SEARCH_IOS_ENABLED: value }), { web: false, ios: false });
+  }
+});
+
+test('Find a Float stays visible in simulator development and EAS preview builds with discovery off or config unavailable', () => {
+  const environments = [
+    pickEnvironment({ isDev: true }),
+    pickEnvironment({ updatesChannel: 'preview', isDev: false }),
+  ];
+  for (const environment of environments) {
+    for (const features of [undefined, null, {}, { floatSearch: false }, { floatSearch: true }]) {
+      assert.equal(floatSearchEnabled(features, environment), true);
+    }
+  }
+});
+
+test('Find a Float production and unidentified builds still require an explicit boolean server flag', () => {
+  const environments = [
+    pickEnvironment({ updatesChannel: 'production', isDev: false }),
+    pickEnvironment({ isDev: false }),
+    'unrecognized-channel',
+  ];
+  for (const environment of environments) {
+    for (const features of [undefined, null, {}, { floatMode: true }, { floatSearch: false }, { floatSearch: 'true' }, { floatSearch: 1 }]) {
+      assert.equal(floatSearchEnabled(features, environment), false);
+    }
+    assert.equal(floatSearchEnabled({ floatSearch: true }, environment), true);
+  }
 });

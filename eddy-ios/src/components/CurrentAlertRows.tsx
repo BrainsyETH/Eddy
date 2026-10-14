@@ -1,4 +1,5 @@
-import { Linking, Pressable, StyleSheet, Text, View } from 'react-native';
+import { openExternalLink } from '@/lib/openExternalLink';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { ControlIcon } from '@/components/ControlIcon';
 import { useRouter } from 'expo-router';
 import type { HighWaterEntry, RiverAlert } from '@eddy/types';
@@ -55,7 +56,7 @@ export function PublicNoticeRow({ alert, showBody = false }: { alert: RiverAlert
   const severity = { warning: 'Warning', watch: 'Caution', notice: 'Notice' }[alert.severity];
   return (
     <Pressable
-      onPress={alert.url ? () => void Linking.openURL(alert.url as string) : undefined}
+      onPress={alert.url ? () => void openExternalLink(alert.url as string) : undefined}
       disabled={!alert.url}
       style={({ pressed }) => [styles.row, { backgroundColor: colors.card, opacity: pressed && alert.url ? 0.7 : 1 }, elevation(1)]}
       accessible

@@ -9,6 +9,7 @@ import AnalyticsListener from "@/components/AnalyticsListener";
 import { SOCIAL_SAME_AS } from "@/constants/social";
 import { appBannerMetadata } from '@/lib/app-discovery';
 import { jsonLdString } from '@/lib/json-ld';
+import { floatSearchLaunch } from '@/lib/float-search-launch';
 
 import "./globals.css";
 
@@ -141,7 +142,7 @@ export default function RootLayout({
             Skip to main content
           </a>
           <OfflineBanner />
-          <SiteHeader />
+          <SiteHeader floatSearchEnabled={floatSearchLaunch().web} />
           <main id="main-content">{children}</main>
         </Providers>
       </body>

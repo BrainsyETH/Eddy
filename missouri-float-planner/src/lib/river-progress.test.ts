@@ -574,3 +574,35 @@ test('your pace takes over from the planner over the first half hour of moving',
 test('nothing remaining reads as zero minutes', () => {
   assert.deepEqual(estimateRemaining(0, 2.5, null), { minutes: 0, basis: 'planner', paused: false });
 });
+
+test('a river mile maps back to its place on the line, and a stretch can be cut from it', async () => {
+  const { buildRouteIndex, lineMetersAtMile, riverMileAt, sliceLine } = await import('@eddy/geo');
+  const cos = Math.cos((37 * Math.PI) / 180);
+  const at = (x: number): [number, number] => [-91.4 + x / (cos * 111_320), 37];
+  const line = Array.from({ length: 21 }, (_, i) => at(i * 500));
+  // Miles run 10 → 18 with a bend-heavy second half (more miles per metre).
+  const built = buildRouteIndex(line, [
+    { lngLat: at(0), riverMile: 10 },
+    { lngLat: at(5_000), riverMile: 13 },
+    { lngLat: at(10_000), riverMile: 18 },
+  ]);
+  assert.ok(built.ok);
+  for (const meters of [0, 1_234, 5_000, 7_777, 10_000]) {
+    assert.ok(Math.abs(lineMetersAtMile(built.index, riverMileAt(built.index, meters)) - meters) < 1e-6);
+  }
+  const stretch = sliceLine(built.index, 7_250, 1_250);
+  assert.ok(Math.abs(stretch[0][0] - at(1_250)[0]) < 1e-9);
+  assert.ok(Math.abs(stretch[stretch.length - 1][0] - at(7_250)[0]) < 1e-9);
+  // The vertices strictly between the cut points: 1500, 2000, ... 7000.
+  assert.equal(stretch.length, 2 + 12);
+});
+
+test('sunset lands where the almanac puts it', async () => {
+  const { sunsetAt } = await import('@eddy/geo');
+  const minutes = (ms: number | null, iso: string) => Math.abs((ms ?? 0) - Date.parse(iso)) / 60_000;
+  // Salem, Missouri: about 8:28 pm CDT on July 4, 4:52 pm CST on December 21.
+  assert.ok(minutes(sunsetAt(37.6, -91.5, Date.parse('2026-07-04T18:00:00Z')), '2026-07-05T01:29:00Z') < 5);
+  assert.ok(minutes(sunsetAt(37.6, -91.5, Date.parse('2026-12-21T18:00:00Z')), '2026-12-21T22:53:00Z') < 5);
+  // No sunset in a polar summer.
+  assert.equal(sunsetAt(80, 0, Date.parse('2026-06-21T12:00:00Z')), null);
+});

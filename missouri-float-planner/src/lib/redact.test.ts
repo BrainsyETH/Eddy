@@ -23,6 +23,7 @@ const CORPUS = [
   'contact evan@eddy.guide about this',
   'Authorization: Bearer sk_live_abcdef0123456789.token~value',
   'session id 0123456789abcdef0123456789abcdef0123456789',
+  'account 12345678-1234-4321-ABCD-123456789ABC',
   'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NSJ9.dBjftJeZ4CVPmB92K27uhbUJU1p1r_wW1gFWFOEjXk',
   'api_key: pk_test_notreal',
   'password="hunter2"',
@@ -63,10 +64,16 @@ test('an email in a thrown message is redacted', () => {
   assert.equal(appRedact('no account for evan@eddy.guide'), 'no account for [redacted-email]');
 });
 
+test('a dashed account UUID in a diagnostic message cannot be joined back to its account', () => {
+  const input = 'account 12345678-1234-4321-ABCD-123456789ABC could not sync';
+  assert.equal(appRedact(input), 'account [redacted-id] could not sync');
+  assert.equal(webRedact(input), 'account [redacted-id] could not sync');
+});
+
 test('a coordinate pair never survives redaction', () => {
   // The privacy policy states that coordinates are stripped before anything
-  // leaves the device. Location is computed on-device and never sent, so the
-  // only way one reaches a reporter is inside a message — which is this.
+  // leaves in diagnostic messages. Explicit weather/report/backup requests
+  // are separate data flows, not exemptions from diagnostic redaction.
   const out = appRedact('locate failed near 37.15412, -91.56231');
   assert.match(out, /\[redacted-coords\]/);
   assert.ok(!out.includes('37.15412'), 'the raw latitude survived redaction');

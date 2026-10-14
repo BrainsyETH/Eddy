@@ -1,3 +1,4 @@
+import { withReviewedPlacePhoto } from '../photos/reviewed';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { parseNpsImages, parseJsonish } from '../services/npsCampground';
 import { bookingUrlFor } from './booking';
@@ -121,7 +122,7 @@ export function buildCampingOverview(
             p.status ?? '',
           ),
       )
-      .map((p) => [p.id, p]),
+      .map((p) => [p.id, withReviewedPlacePhoto('nearby_services', p)]),
   );
   const nps = new Map(input.nps.map((p) => [p.id, p]));
   const access = new Map(input.access.map((p) => [p.id, p]));

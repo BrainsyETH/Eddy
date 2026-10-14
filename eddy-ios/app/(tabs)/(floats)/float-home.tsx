@@ -16,7 +16,17 @@
 // curated picks in the same daily rotation Today used, swiped one at a time.
 
 import { useCallback, useEffect, useState } from 'react';
-import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, View, type LayoutChangeEvent, type NativeScrollEvent, type NativeSyntheticEvent } from 'react-native';
+import {
+  Pressable,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+  type LayoutChangeEvent,
+  type NativeScrollEvent,
+  type NativeSyntheticEvent,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import type { FavoriteFloatSummary } from '@eddy/types';
@@ -28,6 +38,7 @@ import { LazyTabScreen } from '@/components/LazyTabScreen';
 import { SavedFloatRow } from '@/components/SavedFloatRow';
 import { SectionHead } from '@/components/SectionHead';
 import { useSavedFloats } from '@/hooks/useSavedFloats';
+import { useCachedRiverPhotos } from '@/hooks/useCachedRiverPhotos';
 import { useAppConfig } from '@/hooks/useAppConfig';
 import { useFloatSession } from '@/hooks/useFloatSession';
 import { useOfflineBadges } from '@/float/useOfflineBadges';
@@ -45,7 +56,11 @@ const FEATURED_COUNT = 3;
 const FEATURED_GAP = 12;
 
 export default function FloatHomeScreen() {
-  return <LazyTabScreen><FloatHomeContent /></LazyTabScreen>;
+  return (
+    <LazyTabScreen>
+      <FloatHomeContent />
+    </LazyTabScreen>
+  );
 }
 
 function FloatHomeContent() {
@@ -55,7 +70,11 @@ function FloatHomeContent() {
   const { features } = useAppConfig();
   const activeFloat = useFloatSession();
   const savedPreview = saved.slice(0, SAVED_PREVIEW_COUNT);
-  const offline = useOfflineBadges(savedPreview.map((item) => item.shortCode), features.floatMode);
+  const photos = useCachedRiverPhotos();
+  const offline = useOfflineBadges(
+    savedPreview.map((item) => item.shortCode),
+    features.floatMode,
+  );
   const [curated, setCurated] = useState<FavoriteFloatSummary[] | null>(null);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -91,76 +110,176 @@ function FloatHomeContent() {
 
   const featured = curated ? dailyFavoriteFloats(curated).slice(0, FEATURED_COUNT) : [];
 
-  const openPlanner = useCallback((params: Record<string, string> = {}) => {
-    // The planner lives on the Map tab; closing it comes back here.
-    router.push({ pathname: '/', params: { ...params, openPlan: '1', planRequest: newPlanRequest(), planReturnTo: 'floats' } });
-  }, [router]);
+  const openPlanner = useCallback(
+    (params: Record<string, string> = {}) => {
+      // The planner lives on the Map tab; closing it comes back here.
+      router.push({
+        pathname: '/',
+        params: { ...params, openPlan: '1', planRequest: newPlanRequest(), planReturnTo: 'floats' },
+      });
+    },
+    [router],
+  );
 
   return (
     <SafeAreaView style={[styles.screen, { backgroundColor: colors.bg }]} edges={['top']}>
       <ScrollView
         contentInsetAdjustmentBehavior="automatic"
         contentContainerStyle={styles.content}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor={colors.interactive} />}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor={colors.interactive} />
+        }
       >
         <View style={[styles.gutter, styles.welcome]}>
-          <EddyScene name="routePlanning" size={72} />
+          <EddyScene name="routePlanning" size={60} />
           <View style={styles.welcomeText}>
             <Text style={[styles.title, { color: colors.text }]}>Float with Eddy</Text>
-            <Text style={[styles.subtitle, { color: colors.textMuted }]}>
-              Plan a trip, keep the ones you like, and find your next stretch.
-            </Text>
           </View>
         </View>
 
+        <Pressable accessibilityRole="button" onPress={() => router.push('/float-history')} style={[styles.gutter,{ paddingVertical:14 }]}>
+          <Text style={[textStyles.cardTitle,{ color:colors.interactive }]}>Float history &amp; backup</Text>
+          <Text style={[t.sm,{ color:colors.textMuted }]}>Your recaps, saved routes and sharing preferences</Text>
+        </Pressable>
         {features.floatMode && activeFloat ? (
           <View style={[styles.gutter, styles.resumeWrap]}>
             <Pressable
               onPress={() => router.push('/float-mode')}
-              style={({ pressed }) => [styles.resume, { backgroundColor: colors.card, opacity: pressed ? 0.7 : 1 }, elevation(1)]}
+              style={({ pressed }) => [
+                styles.resume,
+                { backgroundColor: colors.accentFill, opacity: pressed ? 0.7 : 1 },
+                elevation(1),
+              ]}
               accessibilityRole="button"
               accessibilityLabel={`Resume float on the ${activeFloat.route.riverName} to ${activeFloat.takeOut.name}`}
             >
-              <ControlIcon name="navigate-outline" size={20} color={colors.interactive} />
+              <ControlIcon name="navigate-outline" size={20} color={colors.onAccent} />
               <View style={styles.welcomeText}>
-                <Text style={[styles.resumeTitle, { color: colors.text }]}>Resume Float</Text>
-                <Text style={[styles.subtitle, { color: colors.textMuted }]} numberOfLines={1}>
+                <Text style={[styles.resumeTitle, { color: colors.onAccent }]}>Resume Float</Text>
+                <Text style={[styles.subtitle, { color: colors.onAccent }]} numberOfLines={1}>
                   {activeFloat.route.riverName} · to {activeFloat.takeOut.name}
                 </Text>
               </View>
-              <ControlIcon name="chevron-forward" size={16} color={colors.textSubtle} />
+              <ControlIcon name="chevron-forward" size={16} color={colors.onAccent} />
             </Pressable>
           </View>
         ) : null}
 
         <View style={[styles.gutter, styles.actions]}>
-          <Pressable
-            onPress={() => openPlanner()}
-            style={({ pressed }) => [
-              styles.planButton,
-              { backgroundColor: pressed ? colors.accentFillPressed : colors.accentFill },
-            ]}
-            accessibilityRole="button"
-          >
-            <ControlIcon name="map-outline" size={18} color={colors.onAccent} />
-            <Text style={[styles.planButtonText, { color: colors.onAccent }]}>Plan a Float</Text>
-          </Pressable>
-          {features.floatMode && !activeFloat ? (
+          {features.floatSearch ? (
             <Pressable
-              onPress={() => router.push('/float-start')}
-              style={({ pressed }) => [styles.startButton, { borderColor: colors.border, opacity: pressed ? 0.6 : 1 }]}
+              onPress={() => router.push('/find-float')}
               accessibilityRole="button"
+              style={({ pressed }) => [
+                styles.findCard,
+                {
+                  backgroundColor: activeFloat && features.floatMode ? colors.card : colors.accentFill,
+                  opacity: pressed ? 0.8 : 1,
+                },
+              ]}
             >
-              <ControlIcon name="navigate-outline" size={18} color={colors.interactive} />
-              <Text style={[styles.startText, { color: colors.interactive }]}>Start Float</Text>
+              <ControlIcon
+                name="search-outline"
+                size={24}
+                color={activeFloat && features.floatMode ? colors.interactive : colors.onAccent}
+              />
+              <View style={styles.welcomeText}>
+                <Text
+                  style={[
+                    styles.findTitle,
+                    { color: activeFloat && features.floatMode ? colors.text : colors.onAccent },
+                  ]}
+                >
+                  Find a Float
+                </Text>
+                <Text
+                  style={[
+                    styles.subtitle,
+                    { color: activeFloat && features.floatMode ? colors.textMuted : colors.onAccent },
+                  ]}
+                >
+                  Find a float that fits your day.
+                </Text>
+              </View>
+              <ControlIcon
+                name="chevron-forward"
+                size={17}
+                color={activeFloat && features.floatMode ? colors.interactive : colors.onAccent}
+              />
             </Pressable>
           ) : null}
+          <View style={styles.actionRow}>
+            <Pressable
+              onPress={() => openPlanner()}
+              accessibilityRole="button"
+              style={({ pressed }) => [
+                styles.actionTile,
+                {
+                  backgroundColor:
+                    !features.floatSearch && !(features.floatMode && activeFloat)
+                      ? colors.accentFill
+                      : colors.card,
+                  opacity: pressed ? 0.7 : 1,
+                },
+              ]}
+            >
+              <ControlIcon
+                name="map-outline"
+                size={22}
+                color={
+                  !features.floatSearch && !(features.floatMode && activeFloat)
+                    ? colors.onAccent
+                    : colors.interactive
+                }
+              />
+              <Text
+                style={[
+                  styles.actionTitle,
+                  {
+                    color:
+                      !features.floatSearch && !(features.floatMode && activeFloat)
+                        ? colors.onAccent
+                        : colors.text,
+                  },
+                ]}
+              >
+                Plan a Float
+              </Text>
+              <Text
+                style={[
+                  t.xs,
+                  {
+                    color:
+                      !features.floatSearch && !(features.floatMode && activeFloat)
+                        ? colors.onAccent
+                        : colors.textMuted,
+                  },
+                ]}
+              >
+                Choose your route
+              </Text>
+            </Pressable>
+            {features.floatMode && !activeFloat ? (
+              <Pressable
+                onPress={() => router.push('/float-start')}
+                accessibilityRole="button"
+                style={({ pressed }) => [
+                  styles.actionTile,
+                  { backgroundColor: colors.card, opacity: pressed ? 0.7 : 1 },
+                ]}
+              >
+                <ControlIcon name="navigate-outline" size={22} color={colors.interactive} />
+                <Text style={[styles.actionTitle, { color: colors.text }]}>Start Float</Text>
+                <Text style={[t.xs, { color: colors.textMuted }]}>Track your trip</Text>
+              </Pressable>
+            ) : null}
+          </View>
         </View>
 
         <View style={styles.section}>
           <View style={styles.gutter}>
             <SectionHead
-              title="Saved floats"
+              title="Saved Floats"
               action={saved.length > 0 ? 'See all' : undefined}
               onAction={() => router.push('/floats')}
             />
@@ -169,6 +288,7 @@ function FloatHomeContent() {
             <SavedFloatRow
               key={item.shortCode}
               float={item}
+              riverPhotoUrl={photos.get(item.riverSlug)}
               offline={offline.get(item.shortCode)}
               onOpen={() => router.push(`/float/${item.shortCode}`)}
               onForget={() => forget(item.shortCode)}
@@ -178,7 +298,7 @@ function FloatHomeContent() {
           {ready && saved.length === 0 ? (
             <View style={[styles.gutter, styles.emptyRow]}>
               <Text style={[styles.emptyText, { color: colors.textMuted }]}>
-                Floats you save show up here. Plan one above, or start from one of Eddy’s featured floats below.
+                Keep a route you like, and it will be here for your next trip.
               </Text>
             </View>
           ) : null}
@@ -187,15 +307,22 @@ function FloatHomeContent() {
         {featured.length > 0 ? (
           <View style={styles.section}>
             <View style={styles.gutter}>
-              <SectionHead title="Featured Floats" action="See all" onAction={() => router.push('/favorite-floats')} />
+              <SectionHead
+                title="Featured Floats"
+                action="See all"
+                onAction={() => router.push('/favorite-floats')}
+              />
             </View>
             <FeaturedCarousel
               items={featured}
-              onPlan={(item) => openPlanner({
-                focusRiver: item.riverSlug,
-                planPutIn: item.putInId,
-                planTakeOut: item.takeOutId,
-              })}
+              photos={photos}
+              onPlan={(item) =>
+                openPlanner({
+                  focusRiver: item.riverSlug,
+                  planPutIn: item.putInId,
+                  planTakeOut: item.takeOutId,
+                })
+              }
             />
           </View>
         ) : null}
@@ -211,9 +338,11 @@ function FloatHomeContent() {
  */
 function FeaturedCarousel({
   items,
+  photos,
   onPlan,
 }: {
   items: FavoriteFloatSummary[];
+  photos: ReadonlyMap<string, string>;
   onPlan: (item: FavoriteFloatSummary) => void;
 }) {
   const { colors } = useTheme();
@@ -246,7 +375,11 @@ function FeaturedCarousel({
         >
           {items.map((item) => (
             <View key={item.id} style={{ width: cardWidth }}>
-              <FeaturedFloatCard item={item} onPlan={() => onPlan(item)} />
+              <FeaturedFloatCard
+                item={item}
+                riverPhotoUrl={photos.get(item.riverSlug)}
+                onPlan={() => onPlan(item)}
+              />
             </View>
           ))}
         </ScrollView>
@@ -273,11 +406,19 @@ const styles = StyleSheet.create({
   welcomeText: { flex: 1, minWidth: 0 },
   title: { ...textStyles.pageTitle },
   subtitle: { ...t.sm, fontFamily: fonts.body, marginTop: 4 },
-  planButton: { minHeight: 48, borderRadius: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 },
-  planButtonText: { ...t.base, fontFamily: fonts.semibold },
-  actions: { gap: 10 },
-  startButton: { minHeight: 48, borderRadius: 12, borderWidth: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 },
-  startText: { ...t.base, fontFamily: fonts.semibold },
+  actions: { gap: 12 },
+  findCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
+    padding: 18,
+    borderRadius: 18,
+    minHeight: 82,
+  },
+  findTitle: { ...t.lg, fontFamily: fonts.heading },
+  actionRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
+  actionTile: { flex: 1, minWidth: 140, padding: 16, borderRadius: 16, gap: 5 },
+  actionTitle: { ...t.base, fontFamily: fonts.semibold, marginTop: 4 },
   resumeWrap: { marginBottom: 12 },
   resume: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14, borderRadius: 14 },
   resumeTitle: { ...t.base, fontFamily: fonts.semibold },

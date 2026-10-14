@@ -130,7 +130,7 @@ test('a float whose stored copy could not be removed stays ended, and removal is
   disk.failRemoves = true;
   assert.equal(await store.end(), false, 'the failure is reported, not hidden');
   assert.equal(store.get(), null, 'tracking stops regardless');
-  assert.equal(disk.data.get(ENDED_KEY), 's1', 'marked as ended');
+  assert.equal(JSON.parse(disk.data.get(ENDED_KEY)!).session.id, 's1', 'journaled as ended');
   disk.failRemoves = false;
   assert.equal(await store.retryPendingEnd(), true);
   assert.equal(disk.data.has(STORAGE_KEY), false);
@@ -156,4 +156,15 @@ test('an ended float does not come back after a relaunch, even if removal never 
   // A retry left over from the ended float must not delete the new one.
   await store.retryPendingEnd();
   assert.equal((JSON.parse(disk.data.get(STORAGE_KEY)!) as FloatSession).id, 's2');
+});
+
+test('an automatic end records the moment the float finished, not when it was noticed', async () => {
+  const ended: number[] = [];
+  const store = createFloatSessionStore(fakeDisk(), quiet, async () => [], async (_session, endedAt) => {
+    ended.push(endedAt);
+  });
+  assert.equal(await store.begin(newSession('auto')), 'started');
+  assert.equal(await store.end(null, T0 + 3_600_000), true);
+  assert.deepEqual(ended, [T0 + 3_600_000]);
+  assert.equal(store.get(), null);
 });

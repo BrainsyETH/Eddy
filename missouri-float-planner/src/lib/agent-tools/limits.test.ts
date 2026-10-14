@@ -1,10 +1,32 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { createMcpLimiter, mcpLimits, mcpNetworkBucket } from './limits';
+import { createMcpLimiter, createFloatSearchLimiter, mcpLimits, mcpNetworkBucket } from './limits';
 import { admitMcpWork, ADMISSION_SCRIPT, type WorkBucket } from './admission';
 
 const heavy = { method: 'tools/call', params: { name: 'find_floats' } };
 const detail = { method: 'tools/call', params: { name: 'plan_float' } };
+
+test('UI and MCP search quotas are independent but share one aggregate work ceiling', async () => {
+  const prefix = Math.random().toString();
+  const bucketsSeen: WorkBucket[][] = [];
+  const options = {
+    env: { MCP_HEAVY_GLOBAL_PER_MINUTE: '4', FLOAT_SEARCH_GLOBAL_PER_MINUTE: '1' },
+    admit: (buckets: WorkBucket[]) => {
+      bucketsSeen.push(buckets);
+      return admitMcpWork(buckets.map(b => ({ ...b, key: prefix + b.key })), { NODE_ENV: 'test' });
+    },
+    log: () => {},
+  };
+  const ui = createFloatSearchLimiter('same-ip', options), mcp = createMcpLimiter('same-ip', options);
+  assert.equal(await ui.tool(heavy), null);
+  assert.equal((await ui.tool(heavy))?.status, 429);
+  assert.equal(await mcp.tool(heavy), null, 'UI exhaustion leaves MCP search quota available');
+  assert.equal(await mcp.tool(heavy), null);
+  assert.equal(await mcp.tool(detail), null);
+  assert.equal((await mcp.tool(detail))?.status, 429, 'combined work still stops at four');
+  assert.notEqual(bucketsSeen[0][0].key, bucketsSeen[2][0].key, 'per-IP work quotas are separate');
+  assert.equal(bucketsSeen[0][2].key, bucketsSeen[2][2].key, 'aggregate work bucket is shared');
+});
 
 test('shared-IP limits retain separate bounded search and detail allocations', () => {
   assert.deepEqual(mcpLimits({}), {

@@ -6,6 +6,8 @@ export function notificationDestination(input: unknown) {
   const data = input as Record<string, unknown>;
   // An on-water reminder (floatReminders.ts) opens the float it is about.
   if (typeof data.floatReminder === 'string') return { pathname: '/float-mode' as const };
+  // A float Eddy ended on its own (floatEnding.ts) opens its recap.
+  if (typeof data.floatEnded === 'string') return { pathname: '/float-recap' as const, params: { id: data.floatEnded } };
   const siteId = typeof data.gaugeSiteId === 'string' ? data.gaugeSiteId : null;
   const slug = typeof data.riverSlug === 'string' ? data.riverSlug : null;
   const alertId = typeof data.alertId === 'string' ? data.alertId : null;

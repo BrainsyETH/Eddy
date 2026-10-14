@@ -19,6 +19,7 @@ interface NavItem {
 }
 
 const NAV_ITEMS: NavItem[] = [
+  { href: '/find-float', label: 'Find a Float', matches: (p) => p === '/find-float' },
   {
     href: '/plan',
     label: 'Plan a Float',
@@ -61,9 +62,10 @@ const NAV_ITEMS: NavItem[] = [
   },
 ];
 
-export default function SiteHeader() {
+export default function SiteHeader({ floatSearchEnabled = false }: { floatSearchEnabled?: boolean }) {
   const pathname = usePathname();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const navItems = NAV_ITEMS.filter((item) => item.href !== '/find-float' || floatSearchEnabled);
 
   // Close mobile menu on route change
   useEffect(() => {
@@ -106,7 +108,7 @@ export default function SiteHeader() {
 
           {/* Desktop nav */}
           <nav className="hidden lg:flex items-center gap-1 ml-8">
-            {NAV_ITEMS.map((item) => {
+            {navItems.map((item) => {
               const active = item.matches(pathname);
               const NavLink = item.href === '/app' ? AppLink : Link;
               return (
@@ -148,7 +150,7 @@ export default function SiteHeader() {
       {mobileMenuOpen && (
         <div id="mobile-menu" className="lg:hidden border-t border-white/10" style={{ backgroundColor: '#0F2D35' }}>
           <div className="px-4 py-3 space-y-1">
-            {NAV_ITEMS.map((item) => {
+            {navItems.map((item) => {
               const active = item.matches(pathname);
               const NavLink = item.href === '/app' ? AppLink : Link;
               return (

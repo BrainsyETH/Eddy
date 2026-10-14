@@ -236,6 +236,7 @@ const dataSchemas: Record<string, z.ZodTypeAny> = {
           status: statusSchema,
           data: searchPlan,
           reasons: z.array(z.string()),
+          durationMatch: z.enum(['match', 'shorter', 'longer']).optional(),
         }),
       ),
       evaluated: z.number().optional(),

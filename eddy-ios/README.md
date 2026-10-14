@@ -301,6 +301,51 @@ just draws it. The source art in `remotion/public/eddy` is video resolution
 (~700 KB each); `assets/otter/` holds 300px copies, which took the set from
 4.58 MB to 193 KB.
 
+### Floats discovery controls
+
+The Floats hub leads with Find a Float, followed by Plan a Float and Start
+Float. An active trip gets the leading Resume action. Vessel choices use four
+labelled SVG glyphs (canoe, kayak, raft, tube), semantic theme colors, and a
+checkmark as well as color for selection. Large text reflows the choices.
+Utility actions keep native SF Symbols through `ControlIcon`.
+
+Find a Float separates Nearby and By river, with native page sheets for town
+and river selection, a native radius menu, and a half-hour-step system slider.
+The slider uses `@react-native-community/slider`; this requires a new native
+binary, not an OTA on the previous runtime. The search footer uses the screen's
+native bottom safe area so tab-bar clearance is not a guessed pixel height.
+The slider previews time locally during a touch drag and commits on release;
+returning to the original time keeps the results. Non-drag accessibility
+adjustments commit immediately. The finder starts with its search controls,
+and result cards show one duration range with a visible conditions-basis
+caption. Location/town errors stay in their selection sheet and clear on
+dismissal; float-search errors remain on the main screen.
+Estimate info is available in the finder, result cards, and planner. It explains
+published timings and modeled times without claiming that every estimate is
+calculated directly from CFS. More filters currently contains the existing
+public-access option; camping, amenities, and river-distance filters are not
+part of this UI change.
+
+Saved cards show a cached endpoint thumbnail, then a river photo from the
+existing index cache, then the Eddy canoe. Featured cards also reuse cached
+river photos when their editorial photo is absent. One cache read per screen
+avoids per-card API requests; a missing or failed cache leaves the fallback.
+New saves retain the photo URL; older saves gain one on their next successful
+online open. A refresh without imagery retains the prior photo. Images use
+`ScenicImage` at thumbnail size and never block opening a saved route. Removing
+a save is in the native options menu with confirmation. Time estimates and
+conditions remain absent from saved cards.
+
+Device QA for this layout remains required: light/dark, maximum Dynamic Type,
+VoiceOver slider adjustments, keyboard and sheet dismissal, footer clearance
+above native tabs, return from the planner with scroll restored, photo failure
+offline, rapid repeat route taps, and cancel/confirm removal.
+During slider QA, drag away and back without losing results, then change the
+time and confirm results clear only on release. Verify VoiceOver changes the
+actual search time, including after a touch drag. Recheck the native footer
+insets on Expo upgrades: its `react-native-screens/experimental` safe-area
+component follows the native-tabs integration documented by Expo.
+
 ## Condition colours and labels
 
 Import them from `@eddy/conditions` via `src/theme/conditions.ts`. Never
@@ -813,7 +858,15 @@ Two notes:
 
 ## Icons and splash
 
-Generated from the Eddy favicon artwork, not hand-exported:
+The Floats tab uses the smiling Eddy-in-a-canoe alpha template from
+`design/eddy-canoe-tab/`. iOS tints it through the native tab bar; the non-iOS
+tab uses the same asset and its supplied tint. The smile is a transparent
+cutout, so it remains distinct in dark mode. The compact artwork fits a square
+28-point native icon; both navigators preserve its proportions. Regenerate the 1x/2x/3x exports
+with `node eddy-ios/scripts/build-tab-icons.cjs` from the root after installing
+web dependencies. See the source directory's README for appearance checks.
+
+The app icon and splash are generated from the Eddy favicon artwork:
 
 ```bash
 python3 eddy-ios/scripts/build-icons.py    # needs Pillow
@@ -889,6 +942,59 @@ A splash that lifts after ~8 seconds means the backstop did its job and the
 report is already filed. A splash that never lifts at all means JS never
 started — look at step 2, not step 3.
 
+## River guides
+
+Today includes a free **River guides** entry leading to `/river-guides`, a
+searchable native list of published `River Guides` articles from `/api/blog`.
+Each river detail page also shows its matching published guide, if one exists.
+The full article opens on `eddy.guide` in the in-app browser, retaining the shared web
+layout, live conditions and planner links. This is evergreen content, separate
+from Eddy’s Reads. Loading happens when the catalog or river detail opens, not
+at app startup; failures offer retry in the catalog and hide the optional
+river-detail link. The catalog has no entitlement requirement; its links use the
+shared browser behavior below.
+
+Content and import instructions live in the
+[river-guide runbook](../missouri-float-planner/docs/river-guide-style.md#repository-authored-guides-and-publishing).
+Device verification and release status for this entry are unconfirmed.
+
+## Opening web links
+
+Web pages (guides, booking and outfitter sites, gauge/alert sources, policies
+and photo credits) use `src/lib/openExternalLink.ts`. On iOS,
+`expo-web-browser` presents a Safari sheet with **Done** and the standard
+browser controls, including opening in the full browser. Closing it returns to
+the same Eddy screen or sheet. Controls use Eddy's interactive color, resolved
+from the system appearance at each opening; Safari owns the toolbar background.
+Android uses a browser Custom Tab.
+
+On iOS, HTTPS Recreation.gov campground and campsite links first attempt an
+app-only universal-link handoff through the local `eddy-links` module. This
+preserves the provider app and its signed-in session when iOS can open that
+specific URL there. An absent app, unsupported link, disabled association or
+missing module falls back to the in-app browser. `canOpenURL(https:)` cannot
+answer that question: the native bridge uses `universalLinksOnly`, which does
+not open Safari when the app handoff is unavailable. Other pages and providers
+keep the browser behavior. Android does not use this iOS-only handoff.
+
+Web URLs are serialized from the parsed URL before opening either browser.
+Service website buttons use `serviceContactActions` to add a missing HTTPS
+scheme and hide invalid website values, consistently with the map sheets.
+
+Keep internal destinations on Expo Router. Directions (including HTTPS maps
+fallbacks), App Store subscriptions/offer redemption, phone and email actions
+keep their system-app handoffs. Mixed contact rows can use the helper: non-web
+schemes still go to the system.
+
+One shared guard covers the app handoff and prevents concurrent browser presentations. Browser failures
+fall back to the system browser; if both fail, the helper shows a retry alert.
+Pass an error callback to retain an existing inline booking error instead.
+The native browser module loads only on tap, so a missing module cannot block
+app startup. The browser dependency and `eddy-links` require a **new native build**, never an
+OTA-only release. Safari-sheet cookies are separate from Safari's, so a
+booking site may ask the user to sign in again. Eddy sign-in does not use this
+helper. Device verification is tracked in the iOS release runbook.
+
 ## Current state
 
 | Tab | Status |
@@ -921,9 +1027,21 @@ blur:
   time left; `src/lib/floatSession.ts`, `src/float/FloatTracker.tsx`), tracking
   while the phone is locked (background location in `app.json`), trip downloads
   for offline maps (ADR 0011), and a Lock Screen / Dynamic Island Live Activity
-  (`docs/float-live-activity-plan.md`). This is progress along a known route,
-  not a recorded GPS track; float positions stay on the phone, as the
-  location permission strings in `app.json` promise.
+  (`docs/float-live-activity-plan.md`). The map frames the chosen stretch
+  with the access points and known hazards along it; the screen shows the next
+  hazard, an arrival time and a sunset warning. Serious hazards, the approaching
+  take-out and arrival are notified. A float left running ends itself an hour
+  after arrival or 45 minutes after leaving the river (`src/lib/floatEnding.ts`),
+  never for stopping or losing signal, and only on fresh evidence of being
+  away. With Always, significant location changes and a wake geofence
+  (`src/float/backgroundTracking.ts`) are meant to relaunch a closed Eddy to
+  resume; that is device-unconfirmed, so the screen asks people to leave Eddy
+  open in the background rather than promising it. A take-out off the mapped
+  river is never recorded as reached: reaching the river's closest point is
+  kept separate (`riverEndAt`). This is progress along a known route,
+  not a recorded GPS track; raw float positions stay on the phone. Signed-in
+  recap summaries are backed up separately (ADR 0012). Hazard reports explicitly
+  send the location the user submits.
 - *Visible:* always in development and preview builds; in store builds only
   when the server's `floatMode` flag is on (`src/lib/floatModeFeature.ts`).
   Whether that flag is on in production is a live setting — check
@@ -938,6 +1056,43 @@ blur:
 **The only entitlement gate is Eddy's written read.** Conditions, gauge
 readings, hazards and the float plan are free, online or off — see `PaywallSheet`
 for why safety data can never sit behind a wall.
+
+### Starting a float
+
+`float-start.tsx` checks location permission without prompting on entry. With
+permission, it locates automatically; otherwise one short card offers the
+system prompt or Settings. Manual river selection remains available, but
+starting tracking still requires precise foreground location and enabled
+Location Services. A GPS timeout does not block manual setup. Returning from
+Settings rechecks permission without discarding the trip.
+
+Quick starts confirm a suggested river, pick a take-out, then review one
+summary card. Before Eddy finds the paddler on the river, take-outs are listed
+by river mile with a "Find me" action; afterwards, by distance ahead. Choosing
+a custom take-out point is not supported: the end must be a known access point,
+because progress is measured between calibrated access points. Suggestions use straight-line distance to access points, never
+claim that the nearest river is the correct one, and keep the full list behind
+search. Only a fix under two minutes old, with accuracy within 100 m and within
+150 m of the chosen river line, narrows take-outs downstream or supplies
+preview miles. This is a preview, not a committed tracker position. Quick
+starts learn time left after tracking begins; saved trips can show the supplied
+planner's moving-time estimate, with stops explicitly excluded.
+
+The steps are in `app/(tabs)/(floats)/float-start.tsx`; their pieces (river
+picker, location card, background sheet, `useStart`) are in `src/float/start/`.
+At Start, a quick start gets a fresh fix if the preview has aged out, so a
+take-out behind the paddler is still caught. Each choice pushes a native stack page at the same `/float-start` URL. Back and
+swipe return to the previous choice; successful start removes only this setup's
+pages. Saved trips open the summary directly, show distance to the put-in when
+available, and can download their known route without location. Quick downloads
+need a usable on-river fix. Both retain the offline card's full readiness states.
+
+The background-location explanation is a native sheet shown at Start, once per
+installation, unless Always is already granted. It offers foreground-only
+tracking too. It never promises a specific iOS prompt: Allow Once can silently
+decline a background request. Float Mode then shows the short locked-phone
+tracking notice. No session is created until the permission flow finishes.
+Device verification of these screens and permission transitions is unconfirmed.
 
 Remote config and the forced-upgrade gate are wired (`/api/app-config`), and both
 fail open: an unreachable config means no upgrade requirement and all features
@@ -965,6 +1120,21 @@ Three things about it are load-bearing rather than stylistic:
 - **Apple returns the user's real name exactly once**, on the first
   authorisation for that Apple ID, and never again — not on reinstall. It is
   persisted immediately in `signInWithApple` for that reason.
+
+### Float history and backup
+
+Floats → Float history & backup contains end-of-float recaps and the account
+backup status. History works on the device as a guest. Apple sign-in backs up
+completed summaries and the user's private saved-route collection through
+`/api/me/float-archive`; opening a previously shared plan URL remains separate.
+Signing out hides that account's local history. Signing into another account
+never imports the previous signed-in account's history. Guest history is adopted
+once on sign-in, including an upgrade to an existing Apple identity.
+
+The default-off “Help improve float estimates” setting permits internal review
+of newly completed floats. Backup works independently. See ADR 0012 for
+measurement gaps, immutable completed summaries, deletion markers, revocation
+and the end journal. Device and release checks live in the release runbook.
 
 ### The purchase flow
 
@@ -1119,6 +1289,19 @@ page/map pin. Selection stores the reading's timestamp and observed/forecast
 identity; resizing cannot move it to a different reading. In the expanded view,
 the readout has reserved space outside the plot and persists after scrubbing.
 
+Pinch zoom changes the time range and retains the full-window value scale by
+default. Once zoomed, the expanded chart offers **Fit visible values**: the
+vertical axis follows the visible observations, forecast and enabled comparison
+layers, with nearby threshold context and the usual minimum span. The fit
+includes line intersections at the viewport edges but never treats those as
+readings or bridges telemetry gaps. A window without visible data retains the
+original scale. **Restore value scale** keeps the time zoom while restoring the
+full-window vertical scale; **Reset zoom**, pinching all the way out, or changing
+the station, measurement or history range clears the fit. The compact chart
+always retains its full-window value scale. Closing and reopening the expanded
+chart retains the fitting choice for the same zoomed range. Fitting and the
+Compare panel's full threshold scale are mutually exclusive choices.
+
 The app config permits native rotation. The local `eddy-orientation` Expo
 module supplies a portrait-only root view controller through a React delegate
 handler, before React mounts. This also covers onboarding/legal, the first-run
@@ -1153,6 +1336,15 @@ Before distribution, verify on an iPhone:
   cached line, source scroll position, selected pin and sheet tab/detent.
 - Scrub an observed and a forecast reading, lift your finger, and rotate left,
   right and back. Keep the same timestamp, value and source. Try 30d and 1y.
+- On a 1y chart with a large peak, pinch into a quiet week, then tap Fit visible
+  values. Confirm the vertical range tightens and follows further time zooming
+  and panning. Enable Typical range, Historical median and Last year; all visible
+  layers must fit. Check negative stage, flat flow and an outage window. Restore
+  value scale must keep the selected dates; Reset zoom must restore both axes.
+  Check the fit action in both orientations, light/dark and large text. Close and
+  reopen: the compact chart keeps its original vertical scale, while the expanded
+  view retains fitting. Change measurement/range and confirm the fit is cleared;
+  selecting Full Eddy scale/Full stage references must also clear it.
 - Close while in landscape, including with VoiceOver escape. The source returns
   to portrait. Rotate on each tab root (Today, Map, Favorites and Settings),
   switch tabs while sideways, and test Map with a sheet open, the planner and

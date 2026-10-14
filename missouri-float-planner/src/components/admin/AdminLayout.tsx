@@ -42,6 +42,7 @@ const NAV_ITEMS = [
   { href: '/admin/visuals', label: 'Visual guides', icon: BookOpen },
   { href: '/admin/trust', label: 'Trust', icon: ShieldCheck, badgeKey: 'openCriticalFindings' as const },
   { href: '/admin/blog', label: 'Blog Posts', icon: FileText },
+  { href: '/admin/float-contributions', label: 'Float contributions', icon: History },
   { href: '/admin/gauges', label: 'Gauge Thresholds', icon: Activity },
   { href: '/admin/feedback', label: 'Feedback', icon: Flag, badgeKey: 'pendingFeedback' as const },
   { href: '/admin/access-points', label: 'Access Points', icon: Navigation, badgeKey: 'unapprovedAccessPoints' as const },

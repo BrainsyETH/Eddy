@@ -15,12 +15,16 @@ export const DETAIL_TITLES: Record<string, string> = {
   storage: 'Storage',
   'river-conditions': 'River Conditions',
   'eddy-reads': 'Eddy’s Reads',
+  'river-guides': 'River guides',
   // Settings is no longer a tab: Today and Favorites push it from their
   // account button, so it is a shared detail like the rest.
   profile: 'Settings',
   // Float Mode lives in the Floats tab; see COLD_TAB_OWNERS.
   'float-start': 'Start a float',
+  'find-float': 'Find a Float',
   'float-mode': 'Float Mode',
+  'float-history': 'Float history',
+  'float-recap': 'Float recap',
 };
 
 // Cold links have no originating tab. Match the destination's place in the app.
@@ -29,7 +33,10 @@ const COLD_TAB_OWNERS: Partial<Record<string, keyof typeof TAB_ROOTS>> = {
   'float/[shortCode]': 'floats',
   'favorite-floats': 'floats',
   'float-start': 'floats',
+  'find-float': 'floats',
   'float-mode': 'floats',
+  'float-history': 'floats',
+  'float-recap': 'floats',
 };
 
 /** Plain launches and known shared details need a tab owner on a cold link. */

@@ -8,18 +8,42 @@
   and 1.2 was in progress. Whether 1.2 (or anything after it) reached the
   store is not recorded here. Read it from App Store Connect, then replace this
   line with the version and the date you checked.
-- **Status confirmed:** release-in-progress line 2026-10-11, from `app.json`
-  only; no store, TestFlight or device state was checked.
+- **Status confirmed:** 2026-10-12 from `app.json`, PR #1488 CI, and read-only
+  public production/API and database checks. App Store Connect, EAS build history,
+  TestFlight and physical-device state remain unconfirmed.
 
 `missouri-float-planner/src/lib/ios-release-runbook.test.ts` fails when the
 `app.json` version above stops matching the real one, so a version bump has
 to touch this section. It cannot check the store line; that one is on you.
 
-There is no `docs/release-readiness-1.4.md` yet. The 1.2 report,
-**`docs/release-readiness-1.2.md`**, is still the most recent delta report and
-the best list of what was *not* verified; its gates below stay unticked until
-someone confirms them, not until a later version ships. The 1.4.0 and Float
-Mode sections below are this release's own gates.
+See **[`release-readiness-1.4.md`](release-readiness-1.4.md)** for the current
+submission verdict and release order. The shipped-build baseline is unconfirmed.
+The 1.2 report's gates below stay unticked until evidence closes them; a later
+version number does not close them. The 1.4, Float Mode, and history sections
+below remain the device checklist.
+
+### October 12 submission blockers
+
+- [ ] Apply the reviewed archive migration, reconcile its recorded version and
+      deploy the API/policy before distributing the new build. Read-only check:
+      both archive tables are absent and `/api/me/float-archive` returns 404.
+- [ ] Enable Float Mode for the release **after device acceptance** and verify
+      it in the production-profile binary. Public config currently returns
+      `floatMode: false`; preview visibility does not prove reviewer visibility.
+- [ ] Publish the matching policy and complete App Store Connect privacy answers.
+      The live policy still says October 6. The prepared answers now include
+      linked diagnostic installation IDs; verify coarse-location linkage and
+      SDK payloads before publishing them.
+- [ ] Confirm the live store version/build and its EAS `gitCommitHash` and
+      `runtimeVersion`; choose the next valid marketing/build version accordingly.
+      `app.json` 1.4.0 alone does not establish that 1.4.0 can be submitted.
+- [ ] Resolve the Jacks Fork Trust Ledger critical before submission. A fresh
+      read on October 12 confirms it remains open; last seen 01:00 UTC. This is
+      an existing river-data release gate, separate from the new history work.
+
+Read-only checks also found `minSupportedVersion: "0.0.0"` and an HTTP 200 JSON
+association file for `D4U38CY2HK.eddy.guide.app`. Installation-time link behavior
+still needs a device check. No production settings were changed.
 
 The checkboxes below are the evidence checklist, and they are deliberately not
 inferred from the fact that the previous release shipped: enrolment, signing
@@ -44,7 +68,9 @@ checklist.
       native changes and could otherwise put 1.2 JavaScript into a 1.1 binary
       through EAS Update. The October 4 follow-up adds `expo-network`, changing
       the fingerprint runtime: its native module requires a rebuilt client.
-      An OTA update cannot add it to an already installed build.
+      The October 11 Floats refresh also adds `@react-native-community/slider`.
+      Both require a new binary; an OTA update cannot add their native modules
+      to an already installed build.
 - [ ] **Trust Ledger critical — Jacks Fork, still open, no longer snoozed.**
       07065200 (near Mountain View) has `level_low = level_optimal_min = 100`
       cfs, untouched since 2026-07-21. The September 1 recalibration fixed
@@ -151,7 +177,8 @@ are pending checks, not evidence of a device pass.
       during a river float. It asks for location “Always” only when a float
       starts, so tracking continues with the phone locked in a dry bag; the
       blue location indicator shows while it runs, and tracking stops when the
-      float ends. Float positions stay on the device and are never sent.
+      float ends. Raw float positions stay on the device. Signed-in recap summaries
+      are backed up, and explicit hazard reports transmit their captured location.
 - [ ] **Permission states on a device:** Always, While Using (tracking pauses
       when locked, and the screen says so), Allow Once, Precise Location off
       (Float Mode says it cannot place you), denied. No prompt loops.
@@ -169,6 +196,28 @@ are pending checks, not evidence of a device pass.
       Float Mode says reminders can't appear. Pure rules:
       `src/lib/float-reminders.test.ts` in the web suite.
 
+- [ ] **Arrival, hazards and ending (#1448 follow-up)** on a physical iPhone,
+      phone locked, no cell service: "<take-out> take-out is approaching" about
+      half a mile out; "You've reached <take-out>" on arrival, once; a serious
+      known hazard (danger, warning, or a required portage) announced a quarter
+      mile out, with the Next hazard card on screen; the recap says the take-out
+      was reached and ends at arrival even when Finish is tapped later or away
+      from the river. Leave a float running: it ends itself an hour after
+      arrival, or after driving well away from the river ("Still floating?" at
+      ten minutes, ended at 45), with a "Float ended" notice that opens the
+      recap. A long lunch on the bank must NOT end it, nor a GPS gap followed
+      by returning to the river. An off-map take-out (Buffalo City) must not
+      be recorded as reached. The arrival time and
+      sunset warning read right late in the day. Pure rules:
+      `float-reminders.test.ts`, `float-session.test.ts`.
+- [ ] **Closing Eddy mid-float** with Always granted: swipe Eddy away, keep
+      floating, and confirm tracking resumes without reopening it (significant
+      location change and the wake geofence relaunch it; expect a delay in
+      dead zones). Record how long the gap was with and without cell coverage.
+      Swiping away with While Using must leave the float intact on reopen.
+      Until this passes, Float Mode tells people to leave Eddy open in the
+      background; only change that copy with this evidence recorded.
+
 For the Lock Screen/Dynamic Island follow-up, use
 [`float-live-activity-plan.md`](float-live-activity-plan.md). Native implementation
 and device gates remain separate from the preparation fixes.
@@ -181,6 +230,78 @@ and device gates remain separate from the preparation fixes.
       one pending row in `community_reports`; a report far from the river →
       "Not accepted" with the server's reason. Pure rules:
       `src/lib/hazard-report-queue.test.ts`.
+
+### Float history and backup release gates — October 12, 2026
+
+Implementation in this branch; device verification and release status unconfirmed.
+See ADR 0012 for scope, consent, storage and measurement semantics.
+
+- [ ] Apply the reviewed `float_archive` migration to the intended environment;
+      verify the recorded version and move it from pending to applied in the
+      production ledger when appropriate. Run `make check-db` after applying.
+      Deploy the additive web API before distributing the new iOS binary.
+- [ ] Update and verify App Store Connect privacy answers and reviewer notes
+      from `docs/app-privacy-labels.md`. Publish the matching privacy policy.
+      The `app.json` permission-text change requires a **new binary**, not OTA.
+- [ ] On TestFlight, complete several real floats with a known moving interval,
+      a long stop, a GPS gap, locked-screen tracking, and an interrupted/restarted
+      app. Compare elapsed, moving, stopped and unobserved time to a written log.
+      Test an early end and a float longer than seven hours. Record evidence
+      before accepting these measurements for internal analysis.
+- [ ] Test guest recap → Apple sign-in → backup → reinstall/second device →
+      restore, including an existing Apple account with a different user ID.
+      Recover old saved routes as well as completed summaries. Verify offline
+      history and the explicit pending/error backup states.
+- [ ] Exercise corrupt current and legacy local history: a recovery copy remains,
+      Float Mode can start, and cloud history restores. Check temporary read/write
+      failures retry without resetting valid data. Refuse one trip in a backup
+      larger than 20 rows: later trips and restores continue, the refused trip
+      stays visible, and manual retry works. Verify a missing endpoint shows
+      temporary unavailability and network retries back off. During the real-float
+      stop test, confirm stationary GPS drift does not accumulate tracked miles.
+- [ ] Delete a trip offline, reconnect, then open an older second device. It
+      stays deleted. Delete the account with an active float and pending backup;
+      no local history, raw session or queued write restores the deleted data.
+- [ ] Confirm the sharing setting starts off; old trips are not enrolled when
+      enabled. Finish a new trip while on, review it in `/admin/float-contributions`,
+      disable sharing, and verify it disappears from future admin queries.
+      Repeat a withdrawal offline and confirm retry after reconnection.
+- [ ] Verify light/dark mode, large text and VoiceOver on history/recap/boat
+      selection. Explain a missing historical water reading without implying
+      current water. Public float estimates must remain unchanged by contributions.
+
+### In-app web browser gates — October 11, 2026
+
+Device and release status are unconfirmed. `expo-web-browser` and the local
+`eddy-links` bridge add native modules: rebuild the development/preview/production client before testing or
+shipping; do not ship this change as an OTA-only update.
+
+- [ ] Open a River Guide, a gauge source, an alert source, an outfitter site
+      and a policy page. Confirm a Safari sheet with **Done**, a visible domain
+      and the standard option to open in the full browser. Check Eddy's control
+      tint in light/dark mode, including closing, changing appearance and reopening.
+- [ ] Open Recreation.gov from the camping list, campground detail modal,
+      campsite card and map sheet **with its app installed and already signed
+      in**, then **without it installed**. When iOS recognizes the specific
+      booking URL, confirm it opens the provider app and keeps its session;
+      otherwise confirm an in-app Safari sheet opens without a separate Safari
+      launch. Include a link the provider app does not support and a disabled
+      universal-link association. Confirm the URL/site/query is preserved;
+      test login and the booking flow without submitting a reservation. Browser Done
+      and swipe-to-dismiss return to the same selected campground, dates and
+      scroll position; returning from Recreation.gov preserves that context too.
+      Rapid repeated taps initiate only one handoff/browser presentation.
+- [ ] On both river and access-point detail screens, a service website stored
+      as `www.example.com` opens successfully. Invalid/empty websites have no
+      website button; the phone action remains available independently.
+- [ ] Verify directions (Apple Maps and an installed alternative), saved-float
+      shuttle directions, telephone/email links, subscription management and
+      offer redemption still open their appropriate system apps. Existing
+      native river/gauge/access/float navigation still opens the app screen.
+- [ ] With no connection, the browser can still be dismissed and Eddy remains
+      usable. Exercise a failed browser handoff: system-browser fallback works;
+      if that also fails, a retry alert or the existing inline booking error
+      appears and a later tap can retry.
 
 ### 1.1 delta gates found in the August 11 repository audit
 
@@ -745,9 +866,10 @@ xcodebuild -workspace *.xcworkspace -scheme Eddy -configuration Debug \
   CODE_SIGNING_ALLOWED=NO build
 ```
 
-**Expect the first one to fail.** No native archive has ever been produced from
-this repo, so prebuild, autolinking, the Mapbox pod and the Sentry config plugin
-all run for the first time. That is a normal cost, not a symptom.
+**Verify the native archive for this release.** The repository does not establish
+which of the newly added modules/extensions were in the last shipped binary.
+A JavaScript export does not prove Swift compilation, signing, extension version
+matching, Mapbox pod integration or App Store validation.
 
 ### If the app launches to a splash screen that never lifts
 
@@ -817,8 +939,8 @@ testing and the first submission, not installation.
 - [ ] App Privacy nutrition labels, age rating. **The answers are written down**
       — see `docs/app-privacy-labels.md`, which records each category, whether it
       is linked to identity, and the code that makes the answer true. Transcribe
-      it rather than re-deriving it; a label that disagrees with observed traffic
-      is grounds for rejection either way it disagrees.
+      the verified answers after closing its open SDK/coarse-location checks;
+      do not paste unresolved categories as if they were verified.
 - [ ] Screenshots (6.9" and 6.5").
 - [ ] **Reviewer notes** — a paste-ready block lives at the bottom of
       `docs/app-privacy-labels.md`. It covers the things that otherwise read as
@@ -830,10 +952,13 @@ testing and the first submission, not installation.
 
 ### Privacy manifest
 
-Do not add speculative declarations. Expo and the native dependencies ship
-their own `PrivacyInfo.xcprivacy`, though Apple does not always merge manifests
-from static pods correctly. Inspect the built archive, and treat an
-**ITMS-91053** email as the signal — it is a delay, not a rejection.
+Inspect the final Xcode archive's privacy report, bundled SDK manifests/signatures
+and required-reason API declarations before submitting. Expo/dependency manifests
+are inputs, not proof that the final app and Live Activity extension are valid.
+Use only declarations that match actual API use. Resolve missing-manifest,
+signature and required-reason warnings (including ITMS-91053) before submission;
+do not wait for App Review to find them. See Apple's
+[third-party SDK requirements](https://developer.apple.com/support/third-party-SDK-requirements/).
 
 ---
 

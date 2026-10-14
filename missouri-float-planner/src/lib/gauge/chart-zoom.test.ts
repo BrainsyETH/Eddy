@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { pinchChartWindow, chartZoomKey, visibleChartTimes } from '../../../../eddy-ios/src/lib/gaugeChartZoom';
+import { pinchChartWindow, chartZoomKey, visibleChartTimes, visibleChartGeometry } from '../../../../eddy-ios/src/lib/gaugeChartZoom';
 
-import { stepScrubTime } from '../../../shared/chart-model';
+import { chartDomain, splitAtGaps, stepScrubTime } from '../../../shared/chart-model';
 
 const full = { start: 0, end: 1000 };
 test('pinch preserves the time beneath the focal point', () => {
@@ -43,4 +43,70 @@ test('VoiceOver stepping stays within zoom, including both endpoints and forecas
   assert.equal(stepScrubTime(times, 300, 1), 400);
   assert.equal(stepScrubTime(times, 300, -1), 200);
   assert.deepEqual(visibleChartTimes([100, 500], { start: 200, end: 400 }), []);
+});
+
+test('fitting a quiet week excludes an offscreen flood while retaining nearby thresholds', () => {
+  const points = [{ t: 0, v: 20000 }, { t: 100, v: 310 }, { t: 200, v: 330 }, { t: 300, v: 320 }];
+  const options = { minimumSpan: 80, minimumSpanFraction: 0.18 };
+  const original = chartDomain(points, 'cfs', [350, 2000], 0.28, options)!;
+  const geometry = visibleChartGeometry([points], { start: 100, end: 300 });
+  const fitted = chartDomain(geometry, 'cfs', [350, 2000], 0.28, options)!;
+  assert.ok(original.max > 20000);
+  assert.ok(fitted.min < 310 && fitted.max > 350);
+  assert.ok(fitted.max < 500);
+  assert.ok(fitted.max - fitted.min >= 80);
+  assert.deepEqual([fitted.t0, fitted.t1], [100, 300]);
+});
+
+test('fitting includes visible forecast and comparison layers without joining different series', () => {
+  const observed = [{ t: 100, v: 300 }, { t: 200, v: 310 }];
+  const forecast = [{ t: 250, v: 450 }, { t: 300, v: 500 }];
+  const priorYear = [{ t: 100, v: 650 }, { t: 300, v: 700 }];
+  const low = [{ t: 100, v: 200 }, { t: 300, v: 220 }];
+  const high = [{ t: 100, v: 800 }, { t: 300, v: 850 }];
+  const median = [{ t: 100, v: 400 }, { t: 300, v: 425 }];
+  const window = { start: 100, end: 300 };
+  const fitted = chartDomain(visibleChartGeometry([observed, forecast, priorYear, low, high, median], window), 'cfs')!;
+  assert.ok(fitted.min < 200 && fitted.max > 850);
+  const withoutComparisons = chartDomain(visibleChartGeometry([observed, forecast], window), 'cfs')!;
+  assert.ok(withoutComparisons.max < 650);
+  assert.deepEqual(visibleChartGeometry([observed, forecast], { start: 210, end: 240 }), []);
+});
+
+test('fitting uses the visible line at both edges even when no sample falls inside the window', () => {
+  const points = [{ t: 0, v: 100 }, { t: 100, v: 1100 }];
+  assert.deepEqual(visibleChartGeometry([points], { start: 40, end: 60 }), [
+    { t: 40, v: 500 }, { t: 60, v: 700 },
+  ]);
+  assert.deepEqual(points, [{ t: 0, v: 100 }, { t: 100, v: 1100 }], 'fitting never mutates readings');
+});
+
+test('fitting respects telemetry gaps and preserves isolated readings', () => {
+  const points = [
+    { t: 0, v: 100 }, { t: 10, v: 110 }, { t: 20, v: 120 },
+    { t: 200, v: 400, breakBefore: true },
+  ];
+  const segments = splitAtGaps(points);
+  assert.deepEqual(visibleChartGeometry(segments, { start: 30, end: 180 }), []);
+  assert.deepEqual(visibleChartGeometry(segments, { start: 190, end: 210 }), [{ t: 200, v: 400 }]);
+});
+
+test('fitted scales retain headroom for flat values, the cfs floor, and negative stage readings', () => {
+  const window = { start: 0, end: 100 };
+  const lowFlow = visibleChartGeometry([[{ t: 0, v: 1 }, { t: 100, v: 1 }]], window);
+  const flowDomain = chartDomain(lowFlow, 'cfs', [], 0.28, { minimumSpan: 80, minimumSpanFraction: 0.18 })!;
+  assert.equal(flowDomain.min, 0);
+  assert.ok(flowDomain.max >= 80);
+  const negativeStage = visibleChartGeometry([[{ t: 0, v: -0.5 }, { t: 100, v: -0.5 }]], window);
+  const stageDomain = chartDomain(negativeStage, 'ft', [], 0.28, { minimumSpan: 0.3, minimumSpanFraction: 0.08 })!;
+  assert.ok(stageDomain.min < -0.5 && stageDomain.max > -0.5);
+  assert.ok(stageDomain.max - stageDomain.min >= 0.3);
+});
+
+test('empty or invalid fitting geometry returns no domain so the renderer can retain its original scale', () => {
+  const points = [{ t: 10, v: 100 }, { t: 20, v: 200 }];
+  for (const window of [{ start: 30, end: 40 }, { start: 10, end: 10 }, { start: NaN, end: 20 }]) {
+    assert.equal(chartDomain(visibleChartGeometry([points], window), 'cfs'), null);
+  }
+  assert.deepEqual(visibleChartGeometry([[{ t: 0, v: NaN }, { t: Infinity, v: 100 }]], full), []);
 });

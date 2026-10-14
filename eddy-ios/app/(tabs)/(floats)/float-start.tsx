@@ -1,441 +1,341 @@
-// eddy-ios/app/(tabs)/(floats)/float-start.tsx
-// Starting a float: from a saved float, or a quick start from where you are.
+// Setup pages share one URL, with native pushes for river → take-out → summary.
+// A nearby access point suggests a river; the paddler always confirms it.
+// Preview location never seeds tracking. beginFloat still owns session creation.
 //
-//   saved  /float-start?riverSlug=…&putInId=…&takeOutId=…[&shortCode][&plannerMph]
-//   quick  /float-start
-//
-// Neither needs an account, a server plan, a share code or a map download.
-// The river line and access points come from the phone when it has them (the
-// launch bundle seeds every river), and the network only fills a gap.
-//
-// Quick start never picks the river for you. Nearby rivers are suggestions;
-// near a confluence the nearest access point can belong to the wrong one.
-// Location is asked for here, with the reason on screen, and never before.
-
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { useLocalSearchParams, useRouter } from 'expo-router';
-import * as Location from 'expo-location';
-import { locateOnRoute, type LngLat } from '@eddy/geo';
-import type { RiverListItem } from '@eddy/types';
+// The pieces live in src/float/start/: the river picker, the location card,
+// the background-location sheet, the start logic (useStart) and the shared UI.
+// This file is the route and the two steps that need the loaded river.
+import { useMemo, useState } from 'react';
+import { ActivityIndicator, Text, View } from 'react-native';
+import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
+import { useRoute as useNavigationRoute } from 'expo-router/react-navigation';
+import { milesBetween } from '@eddy/geo';
 import { useFloatSession } from '@/hooks/useFloatSession';
-import { loadFloatRoute, routeProblemCopy, type LoadedRoute } from '@/float/loadFloatRoute';
-import { formatBeyond, suggestRivers, startSession, takeOutChoices, type TakeOutChoice } from '@/lib/floatSession';
-import { beginFloat } from '@/lib/floatSessionStore';
+import { useFloatStartLocation } from '@/hooks/useFloatStartLocation';
+import { routeProblemCopy, type LoadedRoute } from '@/float/loadFloatRoute';
+import { BackgroundStep } from '@/float/start/BackgroundStep';
+import { LocationGate } from '@/float/start/LocationGate';
+import { RiverPicker } from '@/float/start/RiverPicker';
+import { BoatChoice, Card, PrimaryButton, RiverName, Row, Shell, SummaryLine, TextButton, styles } from '@/float/start/ui';
+import { newSessionId, useRiverRoute, useStart, type Params, type StartLocation } from '@/float/start/useStart';
 import { TripDownloadCard } from '@/float/TripDownloadCard';
-import { readBestIndex } from '@/lib/riverCache';
-import { radii } from '@/theme/layout';
+import { arrivalCopy, arrivalOutlook, formatBeyond, formatDuration, startSession, takeOutChoices } from '@/lib/floatSession';
+import { startRiverPosition } from '@/lib/floatStart';
 import { useTheme } from '@/theme/ThemeProvider';
-import { fonts, textStyles, type as t } from '@/theme/typography';
 
-/** Farther than this from the river line, a location does not narrow the take-outs. */
-const ON_RIVER_METERS = 2_000;
-
-type Params = { riverSlug?: string; putInId?: string; takeOutId?: string; shortCode?: string; plannerMph?: string };
-
-function newSessionId(): string {
-  return `float-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
-}
+const clockTime = (ms: number) => new Date(ms).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
 
 export default function FloatStartScreen() {
   const params = useLocalSearchParams<Params>();
   const active = useFloatSession();
   const router = useRouter();
   const { colors } = useTheme();
-
-  if (active) {
+  if (active)
     return (
       <Shell>
         <Text style={[styles.title, { color: colors.text }]}>A float is in progress</Text>
         <Text style={[styles.body, { color: colors.textMuted }]}>
-          {active.route.riverName} to {active.takeOut.name}. Resume it, or end it from Float Mode before starting another.
+          {active.route.riverName} to {active.takeOut.name}.
         </Text>
         <PrimaryButton label="Resume float" onPress={() => router.replace('/float-mode')} />
       </Shell>
     );
-  }
-
-  const saved = params.riverSlug && params.putInId && params.takeOutId;
-  return saved ? (
-    <SavedStart
-      riverSlug={params.riverSlug!}
-      putInId={params.putInId!}
-      takeOutId={params.takeOutId!}
-      shortCode={params.shortCode ?? null}
-      plannerMph={params.plannerMph ? Number(params.plannerMph) : null}
-    />
-  ) : (
-    <QuickStart />
-  );
+  return <StartFlow params={params} />;
 }
 
-function SavedStart(props: { riverSlug: string; putInId: string; takeOutId: string; shortCode: string | null; plannerMph: number | null }) {
+function StartFlow({ params }: { params: Params }) {
   const { colors } = useTheme();
-  const loaded = useRoute(props.riverSlug, props.shortCode);
-  const start = useStart();
+  const router = useRouter();
+  const route = useNavigationRoute();
+  const location = useFloatStartLocation();
+  const [sessionId] = useState(() => params.sessionId ?? newSessionId());
+  const [boatType, setBoatType] = useState<string | null>(params.boatType ?? null);
+  const startKey = params.startKey ?? route.key;
+  const loaded = useRiverRoute(params.riverSlug, params.shortCode ?? params.sessionId);
+  const nextParams = {
+    ...params,
+    sessionId,
+    startKey,
+    boatType: boatType ?? undefined,
+    // A different boat than the plan's makes its moving speed the wrong one.
+    plannerMph: boatType === (params.boatType ?? null) ? params.plannerMph : undefined,
+  };
+  const start = useStart(nextParams, loaded, location);
+  const saved = Boolean(params.putInId && params.takeOutId);
+  const summary = saved || params.step === 'summary' || params.step === 'background';
 
-  if (!loaded) return <Loading />;
-  if (!loaded.ok) return <Problem text={routeProblemCopy(loaded.reason)} />;
-  const putIn = loaded.route.anchors.find((a) => a.id === props.putInId);
-  const takeOut = loaded.route.anchors.find((a) => a.id === props.takeOutId);
+  const screen = (
+    <Stack.Screen
+      options={{
+        title: 'Start a float',
+        headerBackButtonMenuEnabled: false,
+        gestureEnabled: !start.busy,
+        ...(params.step === 'background'
+          ? {
+              presentation: 'formSheet',
+              sheetAllowedDetents: [0.5, 1],
+              sheetGrabberVisible: true,
+              headerShown: false,
+            }
+          : {}),
+      }}
+    />
+  );
 
-  return (
-    <Shell>
-      <Text style={[styles.eyebrow, { color: colors.accent }]}>{loaded.route.riverName.toUpperCase()}</Text>
-      <Text style={[styles.title, { color: colors.text }]}>
-        {putIn?.name ?? 'Put-in'} → {takeOut?.name ?? 'Take-out'}
-      </Text>
-      {props.shortCode ? (
-        <TripDownloadCard tripKey={props.shortCode} route={loaded.route} fromId={props.putInId} toId={props.takeOutId} />
-      ) : null}
-      <LocationReason />
-      <PrimaryButton
-        label="Start float"
-        busy={start.busy}
-        onPress={() =>
-          void start.run(() =>
-            startSession({
-              id: newSessionId(),
-              kind: 'saved',
-              shortCode: props.shortCode,
-              route: loaded.route,
-              index: loaded.index,
-              putInId: props.putInId,
-              takeOutId: props.takeOutId,
-              plannerMph: props.plannerMph,
-              now: Date.now(),
-            }),
-          )
+  let body: React.ReactNode;
+  if (!params.riverSlug) {
+    body = (
+      <RiverPicker
+        location={location}
+        onChoose={(riverSlug) => {
+          router.push({ pathname: '/float-start', params: { riverSlug, startKey, step: 'takeout' } });
+        }}
+      />
+    );
+  } else if (!loaded) {
+    body = (
+      <Shell>
+        <ActivityIndicator color={colors.interactive} accessibilityLabel="Loading the river" />
+      </Shell>
+    );
+  } else if (!loaded.ok) {
+    body = (
+      <Shell>
+        <Text style={[styles.body, { color: colors.text }]}>{routeProblemCopy(loaded.reason)}</Text>
+      </Shell>
+    );
+  } else if (params.step === 'background') {
+    body = <BackgroundStep location={location} start={start} />;
+  } else if (!summary) {
+    body = (
+      <TakeOutStep
+        loaded={loaded}
+        location={location}
+        onChoose={(takeOutId) =>
+          router.push({
+            pathname: '/float-start',
+            params: { riverSlug: params.riverSlug!, takeOutId, sessionId: newSessionId(), startKey, step: 'summary' },
+          })
         }
       />
-      {start.error ? <Text style={[styles.body, { color: colors.error }]}>{start.error}</Text> : null}
-    </Shell>
+    );
+  } else {
+    body = (
+      <SummaryStep
+        params={params}
+        nextParams={nextParams}
+        saved={saved}
+        sessionId={sessionId}
+        loaded={loaded}
+        location={location}
+        start={start}
+        boatType={boatType}
+        onBoatType={setBoatType}
+      />
+    );
+  }
+
+  return (
+    <>
+      {screen}
+      {body}
+    </>
   );
 }
 
-function QuickStart() {
-  const { colors, elevation } = useTheme();
-  const [rivers, setRivers] = useState<RiverListItem[] | null>(null);
-  const [here, setHere] = useState<{ lat: number; lng: number } | null>(null);
-  const [locating, setLocating] = useState(false);
-  const [riverSlug, setRiverSlug] = useState<string | null>(null);
-  /**
-   * The take-out picked, waiting on Start float. Its session id is made here
-   * and reused at start, so an optional download made now (keyed by it)
-   * belongs to the float that follows.
-   */
-  const [picked, setPicked] = useState<{ choice: TakeOutChoice; sessionId: string } | null>(null);
-  const loaded = useRoute(riverSlug);
-  const start = useStart();
+function useLocated(loaded: Extract<LoadedRoute, { ok: true }>, location: StartLocation) {
+  return useMemo(
+    () => startRiverPosition(loaded.index, location.fix, location.checkedAt),
+    [loaded, location.fix, location.checkedAt],
+  );
+}
 
-  useEffect(() => {
-    void readBestIndex().then((index) => setRivers(index?.payload ?? []));
-  }, []);
-
-  const locate = useCallback(async () => {
-    setLocating(true);
-    try {
-      const permission = await Location.requestForegroundPermissionsAsync();
-      if (permission.status !== 'granted') return;
-      const position = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
-      setHere({ lat: position.coords.latitude, lng: position.coords.longitude });
-    } catch {
-      // No position is fine: the full river list is right below.
-    } finally {
-      setLocating(false);
-    }
-  }, []);
-
-  const suggestions = useMemo(() => (rivers && here ? suggestRivers(rivers, here) : []), [rivers, here]);
-  // One array per position: the download card plans from it, and a new array
-  // every render would re-plan and re-read the offline store every render.
-  const herePoint = useMemo<LngLat | null>(() => (here ? [here.lng, here.lat] : null), [here]);
-
-  // Where you are on the chosen river, to offer only take-outs below you.
-  const located = useMemo(() => {
-    if (!loaded?.ok || !here) return null;
-    const hit = locateOnRoute(loaded.index, [here.lng, here.lat] as LngLat);
-    return hit && hit.offsetMeters <= ON_RIVER_METERS ? hit : null;
-  }, [loaded, here]);
+function TakeOutStep({
+  loaded,
+  location,
+  onChoose,
+}: {
+  loaded: Extract<LoadedRoute, { ok: true }>;
+  location: StartLocation;
+  onChoose: (takeOutId: string) => void;
+}) {
+  const { colors } = useTheme();
+  const located = useLocated(loaded, location);
   const choices = useMemo(
-    () => (loaded?.ok ? takeOutChoices(loaded.route, loaded.index, located?.riverMile ?? null) : []),
+    () => takeOutChoices(loaded.route, loaded.index, located?.riverMile ?? null),
     [loaded, located],
   );
-
-  if (!riverSlug) {
-    return (
-      <Shell>
-        <Text style={[styles.title, { color: colors.text }]}>Which river are you on?</Text>
-        <Pressable
-          onPress={() => void locate()}
-          style={({ pressed }) => [styles.secondary, { borderColor: colors.border, opacity: pressed ? 0.6 : 1 }]}
-          accessibilityRole="button"
-        >
-          {locating ? <ActivityIndicator color={colors.interactive} /> : (
-            <Text style={[styles.secondaryText, { color: colors.interactive }]}>Suggest rivers near me</Text>
-          )}
-        </Pressable>
-        {suggestions.length > 0 ? (
-          <View style={styles.group}>
-            <Text style={[styles.label, { color: colors.textMuted }]}>Nearby (straight-line distance)</Text>
-            {suggestions.map((s) => (
-              <Row key={s.slug} title={s.name} detail={`${s.miles.toFixed(1)} mi`} onPress={() => setRiverSlug(s.slug)} />
-            ))}
+  return (
+    <Shell>
+      <RiverName name={loaded.route.riverName} />
+      <Text accessibilityRole="header" style={[styles.title, { color: colors.text }]}>
+        Where are you taking out?
+      </Text>
+      {!located ? (
+        location.busy ? (
+          <View style={styles.inline}>
+            <ActivityIndicator color={colors.interactive} />
+            <Text style={[styles.body, { color: colors.textMuted }]}>Finding you on the river…</Text>
           </View>
-        ) : null}
-        <View style={styles.group}>
-          <Text style={[styles.label, { color: colors.textMuted }]}>All rivers</Text>
-          {rivers == null ? <ActivityIndicator color={colors.interactive} /> : rivers.length === 0 ? (
+        ) : (
+          <>
             <Text style={[styles.body, { color: colors.textMuted }]}>
-              Eddy hasn’t saved the river list on this phone yet. Open Eddy once with a signal.
+              Eddy hasn’t found you on this river yet, so every take-out is listed by river mile, upstream first.
+              Progress appears once Eddy finds you.
             </Text>
-          ) : (
-            [...rivers]
-              .sort((a, b) => a.name.localeCompare(b.name))
-              .map((river) => <Row key={river.slug} title={river.name} onPress={() => setRiverSlug(river.slug)} />)
-          )}
-        </View>
-      </Shell>
-    );
-  }
+            {location.state === 'ready' ? (
+              <TextButton label="Find me to show distances" onPress={() => void location.act()} />
+            ) : null}
+          </>
+        )
+      ) : null}
+      <Card padded={false}>
+        {choices.map((choice) => (
+          <Row
+            key={choice.id}
+            title={choice.name}
+            detail={located ? `${(choice.mile - located.riverMile).toFixed(1)} mi` : `Mile ${choice.mile.toFixed(1)}`}
+            onPress={() => onChoose(choice.id)}
+          />
+        ))}
+        {choices.length === 0 ? (
+          <Text style={[styles.body, styles.empty, { color: colors.textMuted }]}>
+            No take-outs ahead on this river. Go back to choose another river.
+          </Text>
+        ) : null}
+      </Card>
+    </Shell>
+  );
+}
 
-  if (!loaded) return <Loading />;
-  if (!loaded.ok) return <Problem text={routeProblemCopy(loaded.reason)} onBack={() => setRiverSlug(null)} />;
-
-  const milesTo = (choice: TakeOutChoice) => (located ? choice.mile - located.riverMile : null);
-
-  if (picked) {
-    const { choice, sessionId } = picked;
-    const miles = milesTo(choice);
+function SummaryStep({
+  params,
+  nextParams,
+  saved,
+  sessionId,
+  loaded,
+  location,
+  start,
+  boatType,
+  onBoatType,
+}: {
+  params: Params;
+  nextParams: Params;
+  saved: boolean;
+  sessionId: string;
+  loaded: Extract<LoadedRoute, { ok: true }>;
+  location: StartLocation;
+  start: ReturnType<typeof useStart>;
+  boatType: string | null;
+  onBoatType: (value: string | null) => void;
+}) {
+  const { colors } = useTheme();
+  const located = useLocated(loaded, location);
+  const putIn = loaded.route.anchors.find((anchor) => anchor.id === params.putInId);
+  const takeOut = takeOutChoices(loaded.route, loaded.index, null).find((choice) => choice.id === params.takeOutId);
+  // Use the same calibrated endpoint miles as the session, including off-line accesses.
+  const preview = startSession({
+    id: sessionId,
+    kind: saved ? 'saved' : 'quick',
+    route: loaded.route,
+    index: loaded.index,
+    putInId: params.putInId,
+    takeOutId: params.takeOutId ?? '',
+    now: 0,
+  });
+  if (!preview.ok || !takeOut)
     return (
       <Shell>
-        <Text style={[styles.eyebrow, { color: colors.accent }]}>{loaded.route.riverName.toUpperCase()}</Text>
-        <Text style={[styles.title, { color: colors.text }]}>To {choice.name}</Text>
-        {miles != null ? (
-          <Text style={[styles.body, { color: colors.text }]}>About {miles.toFixed(1)} mi down the river from you.</Text>
-        ) : null}
-        {choice.offLineMeters != null ? (
-          <Text style={[styles.body, { color: colors.textMuted }]}>
-            {choice.name} sits about {formatBeyond(choice.offLineMeters)} off the mapped river. Float Mode tracks you to the river’s closest point and tells you when you’re there.
-          </Text>
-        ) : null}
-        {located && herePoint ? (
-          <TripDownloadCard
-            tripKey={sessionId}
-            route={loaded.route}
-            fromId=""
-            fromLngLat={herePoint}
-            toId={choice.id}
-          />
-        ) : (
-          <Text style={[styles.body, { color: colors.textMuted }]}>
-            An offline map download needs Eddy to find you on this river first. Float Mode tracks without one.
-          </Text>
-        )}
-        <LocationReason />
-        <PrimaryButton
-          label="Start float"
-          busy={start.busy}
-          onPress={() =>
-            void start.run(() =>
-              startSession({ id: sessionId, kind: 'quick', route: loaded.route, index: loaded.index, takeOutId: choice.id, now: Date.now() }),
-            )
-          }
-        />
-        {start.error ? <Text style={[styles.body, { color: colors.error }]}>{start.error}</Text> : null}
-        <Pressable onPress={() => setPicked(null)} accessibilityRole="button" style={styles.link}>
-          <Text style={[styles.secondaryText, { color: colors.interactive }]}>Choose a different take-out</Text>
-        </Pressable>
+        <Text style={[styles.body, { color: colors.text }]}>
+          {routeProblemCopy(preview.ok ? 'no-take-out' : preview.reason)}
+        </Text>
       </Shell>
     );
-  }
+  const startMile = preview.session.putIn?.riverMile ?? located?.riverMile;
+  const miles = startMile != null ? preview.session.takeOut.riverMile - startMile : null;
+  const upstream = !saved && miles != null && miles <= 0;
+  const plannerMph = Number(nextParams.plannerMph);
+  const minutes =
+    saved && miles != null && miles > 0 && Number.isFinite(plannerMph) && plannerMph > 0
+      ? Math.max(5, Math.round(((miles / plannerMph) * 60) / 5) * 5)
+      : null;
+  const outlook = arrivalOutlook(minutes, location.checkedAt, takeOut.lngLat);
+  const arrival = outlook ? arrivalCopy(outlook, clockTime) : null;
+  const putInMiles =
+    putIn && location.fix
+      ? milesBetween(
+          { lat: location.fix.point[1], lng: location.fix.point[0] },
+          { lat: putIn.lngLat[1], lng: putIn.lngLat[0] },
+        )
+      : null;
 
   return (
     <Shell>
-      <Text style={[styles.eyebrow, { color: colors.accent }]}>{loaded.route.riverName.toUpperCase()}</Text>
-      <Text style={[styles.title, { color: colors.text }]}>Where are you taking out?</Text>
-      {here && !located ? (
+      <Card>
+        <RiverName name={loaded.route.riverName} large />
+        <View style={[styles.divider, { backgroundColor: colors.border }]} />
+        <SummaryLine label="From" value={putIn?.name ?? 'Your location'} />
+        <SummaryLine label="To" value={takeOut.name} />
+        {miles != null && miles > 0 ? (
+          <Text style={[styles.distance, { color: colors.text }]}>
+            {miles.toFixed(1)} mi{minutes != null ? ` · about ${formatDuration(minutes)}` : ''}
+          </Text>
+        ) : null}
+        {minutes != null ? (
+          <Text style={[styles.caption, { color: colors.textMuted }]}>Estimated moving time · stops not included</Text>
+        ) : null}
+        {arrival ? (
+          <Text style={[styles.body, { color: colors.textMuted }]}>If you start now: {arrival.line}</Text>
+        ) : null}
+        {arrival?.warning ? (
+          <Text style={[styles.body, styles.label, { color: colors.error }]}>{arrival.warning}</Text>
+        ) : null}
+        {putInMiles != null ? (
+          <Text style={[styles.body, { color: colors.textMuted }]}>
+            About {putInMiles.toFixed(1)} mi from the put-in · straight-line distance
+          </Text>
+        ) : null}
+        {!saved && !located ? (
+          <Text style={[styles.body, { color: colors.textMuted }]}>Progress appears once Eddy finds you on the river.</Text>
+        ) : null}
+      </Card>
+      {takeOut.offLineMeters != null ? (
         <Text style={[styles.body, { color: colors.textMuted }]}>
-          You don’t look close to this river, so every take-out is listed. Progress starts once Eddy finds you on it.
+          {takeOut.name} is about {formatBeyond(takeOut.offLineMeters)} off the mapped river. Distances run to the
+          closest point on the river.
         </Text>
       ) : null}
-      <LocationReason />
-      <View style={[styles.list, { backgroundColor: colors.card }, elevation(1)]}>
-        {choices.length === 0 ? (
-          <Text style={[styles.body, { color: colors.textMuted, padding: 14 }]}>No take-outs below you on this river.</Text>
-        ) : (
-          choices.map((choice) => {
-            const miles = milesTo(choice);
-            const detail = [miles != null ? `${miles.toFixed(1)} mi` : null, choice.offLineMeters != null ? 'off river' : null]
-              .filter(Boolean)
-              .join(' · ');
-            return (
-              <Row
-                key={choice.id}
-                title={choice.name}
-                detail={detail || undefined}
-                onPress={() => setPicked({ choice, sessionId: newSessionId() })}
-              />
-            );
-          })
-        )}
-      </View>
-      {start.error ? <Text style={[styles.body, { color: colors.error }]}>{start.error}</Text> : null}
-      <Pressable onPress={() => { setPicked(null); setRiverSlug(null); }} accessibilityRole="button" style={styles.link}>
-        <Text style={[styles.secondaryText, { color: colors.interactive }]}>Choose a different river</Text>
-      </Pressable>
-    </Shell>
-  );
-}
-
-/** Load a river's route once per slug; a saved trip's own package first. */
-function useRoute(slug: string | null, tripKey?: string | null): LoadedRoute | null {
-  const [state, setState] = useState<{ slug: string; result: LoadedRoute } | null>(null);
-  useEffect(() => {
-    if (!slug) return;
-    const controller = new AbortController();
-    loadFloatRoute(slug, controller.signal, tripKey)
-      .then((result) => setState({ slug, result }))
-      .catch(() => {});
-    return () => controller.abort();
-  }, [slug, tripKey]);
-  return slug && state?.slug === slug ? state.result : null;
-}
-
-/** Ask for location if needed, begin the float, and open Float Mode. */
-function useStart() {
-  const router = useRouter();
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const run = useCallback(
-    async (make: () => ReturnType<typeof startSession>) => {
-      if (busy) return;
-      setBusy(true);
-      setError(null);
-      try {
-        const made = make();
-        if (!made.ok) {
-          setError(routeProblemCopy(made.reason));
-          return;
-        }
-        const permission = await Location.requestForegroundPermissionsAsync();
-        if (permission.status !== 'granted') {
-          setError('Float Mode needs your location to show how far you have left. Turn it on for Eddy in Settings.');
-          if (!permission.canAskAgain) void Linking.openSettings();
-          return;
-        }
-        // Locked-screen tracking needs "Always". Asked once, here, where the
-        // reason is on screen; declining still starts the float, and Float
-        // Mode says tracking pauses while locked.
-        const background = await Location.getBackgroundPermissionsAsync();
-        if (background.status !== 'granted' && background.canAskAgain) {
-          await Location.requestBackgroundPermissionsAsync();
-        }
-        // A float is not active until it is on disk. 'already-active' (a
-        // second tap, or one started elsewhere) opens the float in progress.
-        const result = await beginFloat(made.session);
-        if (result === 'storage-failed') {
-          setError('Eddy couldn’t save this float on your phone, so it could be lost if Eddy closes. Free up some storage and try again.');
-          return;
-        }
-        router.replace('/float-mode');
-      } finally {
-        setBusy(false);
-      }
-    },
-    [busy, router],
-  );
-  return { run, busy, error };
-}
-
-function LocationReason() {
-  const { colors } = useTheme();
-  return (
-    <Text style={[styles.body, { color: colors.textMuted }]}>
-      Float Mode uses your location to show miles and time left, and it stays on your phone. To keep tracking with
-      your phone locked in a dry bag, allow location Always when asked.
-    </Text>
-  );
-}
-
-function Shell({ children }: { children: React.ReactNode }) {
-  const { colors } = useTheme();
-  return (
-    <SafeAreaView style={[styles.screen, { backgroundColor: colors.bg }]} edges={['left', 'right']}>
-      <ScrollView contentInsetAdjustmentBehavior="automatic" contentContainerStyle={styles.content}>
-        {children}
-      </ScrollView>
-    </SafeAreaView>
-  );
-}
-
-function Loading() {
-  const { colors } = useTheme();
-  return (
-    <Shell>
-      <ActivityIndicator color={colors.interactive} accessibilityLabel="Loading the river" />
-    </Shell>
-  );
-}
-
-function Problem({ text, onBack }: { text: string; onBack?: () => void }) {
-  const { colors } = useTheme();
-  return (
-    <Shell>
-      <Text style={[styles.body, { color: colors.text }]}>{text}</Text>
-      {onBack ? (
-        <Pressable onPress={onBack} accessibilityRole="button" style={styles.link}>
-          <Text style={[styles.secondaryText, { color: colors.interactive }]}>Choose a different river</Text>
-        </Pressable>
+      {saved || (located && location.fix && !upstream) ? (
+        <TripDownloadCard
+          compact
+          tripKey={params.shortCode ?? sessionId}
+          route={loaded.route}
+          fromId={params.putInId ?? ''}
+          fromLngLat={!saved && location.fix ? location.fix.point : undefined}
+          toId={takeOut.id}
+        />
+      ) : null}
+      <BoatChoice value={boatType} onChange={onBoatType} />
+      <Text style={[styles.caption, { color: colors.textMuted }]}>
+        Raw float positions stay on this phone. Ending saves a recap; signed-in recaps are backed up to your account.
+      </Text>
+      {location.state !== 'ready' ? (
+        <LocationGate location={location} summary />
+      ) : (
+        <>
+          {upstream ? (
+            <Text style={[styles.body, { color: colors.error }]}>
+              This take-out is behind you. Go back to choose one downstream.
+            </Text>
+          ) : null}
+          <PrimaryButton label="Start float" busy={start.busy} disabled={upstream} onPress={() => void start.run('start')} />
+        </>
+      )}
+      {start.error ? (
+        <Text accessibilityRole="alert" style={[styles.body, { color: colors.error }]}>
+          {start.error}
+        </Text>
       ) : null}
     </Shell>
   );
 }
-
-function PrimaryButton({ label, onPress, busy = false }: { label: string; onPress: () => void; busy?: boolean }) {
-  const { colors } = useTheme();
-  return (
-    <Pressable
-      onPress={onPress}
-      disabled={busy}
-      style={({ pressed }) => [styles.primary, { backgroundColor: pressed ? colors.accentFillPressed : colors.accentFill }]}
-      accessibilityRole="button"
-    >
-      {busy ? <ActivityIndicator color={colors.onAccent} /> : <Text style={[styles.primaryText, { color: colors.onAccent }]}>{label}</Text>}
-    </Pressable>
-  );
-}
-
-function Row({ title, detail, onPress }: { title: string; detail?: string; onPress: () => void }) {
-  const { colors } = useTheme();
-  return (
-    <Pressable
-      onPress={onPress}
-      style={({ pressed }) => [styles.row, { borderBottomColor: colors.border, opacity: pressed ? 0.6 : 1 }]}
-      accessibilityRole="button"
-    >
-      <Text style={[styles.rowTitle, { color: colors.text }]} numberOfLines={1}>{title}</Text>
-      {detail ? <Text style={[styles.rowDetail, { color: colors.textSubtle }]}>{detail}</Text> : null}
-    </Pressable>
-  );
-}
-
-const styles = StyleSheet.create({
-  screen: { flex: 1 },
-  content: { padding: 16, gap: 14, paddingBottom: 32 },
-  eyebrow: { ...t.xs, fontFamily: fonts.heading, letterSpacing: 0.8 },
-  title: { ...textStyles.sectionTitle },
-  body: { ...t.sm, fontFamily: fonts.body },
-  label: { ...t.xs, fontFamily: fonts.semibold, marginBottom: 4 },
-  group: { gap: 2 },
-  list: { borderRadius: radii.card, overflow: 'hidden' },
-  row: { minHeight: 48, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 14, borderBottomWidth: StyleSheet.hairlineWidth },
-  rowTitle: { ...t.base, fontFamily: fonts.semibold, flex: 1 },
-  rowDetail: { ...t.sm, fontFamily: fonts.body, marginLeft: 8 },
-  primary: { minHeight: 48, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
-  primaryText: { ...t.base, fontFamily: fonts.semibold },
-  secondary: { minHeight: 44, borderRadius: 12, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
-  secondaryText: { ...t.base, fontFamily: fonts.semibold },
-  link: { minHeight: 44, justifyContent: 'center' },
-});

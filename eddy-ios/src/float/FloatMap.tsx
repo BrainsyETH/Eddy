@@ -10,6 +10,13 @@
 // owns the only one) and would show raw fixes the tracker has not confirmed.
 // The dot is the last committed position, the same one the numbers use.
 //
+// ── The chosen stretch, not the whole river ─────────────────────────────────
+// The river line is the whole river (it calibrates the miles), but the float
+// is one stretch of it. That stretch is drawn strong and framed at start; the
+// rest of the river stays faint for context. Access points along the way and
+// known hazards on the stretch are drawn on it, hazards in their severity's
+// condition colour like everywhere else in the app.
+//
 // ── When the background map cannot load ─────────────────────────────────────
 // No downloaded map, no signal, nothing cached: the SAME map switches to a
 // built-in neutral style that needs no network, and the river, both ends, the
@@ -25,6 +32,9 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, StyleSheet, Text, View, type LayoutChangeEvent } from 'react-native';
 import Svg, { Circle, Path } from 'react-native-svg';
 import { boundsForLine, type LngLat } from '@eddy/geo';
+import { hazardConditionCode } from '@eddy/hazards';
+import type { HazardSeverity } from '@eddy/types';
+import { conditionColor } from '@/theme/conditions';
 import { loadMapbox, STYLE_URL } from '@/map/runtime';
 import { networkHintsOffline } from '@/lib/networkHint';
 import { ControlIcon } from '@/components/ControlIcon';
@@ -32,7 +42,14 @@ import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
 
 export interface FloatMapProps {
+  /** The whole river line, drawn faint for context. */
   line: LngLat[];
+  /** The stretch being floated; framed and drawn strong. Null draws the whole line strong. */
+  section: LngLat[] | null;
+  /** Access points along the stretch, between its ends. */
+  stops: LngLat[];
+  /** Known hazards on the stretch. */
+  hazards: { lngLat: LngLat; severity: HazardSeverity }[];
   start: LngLat | null;
   takeOut: LngLat;
   position: LngLat | null;
@@ -57,6 +74,9 @@ export function FloatMap(props: FloatMapProps) {
 function MapboxFloatMap({
   Mapbox,
   line,
+  section,
+  stops,
+  hazards,
   start,
   takeOut,
   position,
@@ -85,7 +105,8 @@ function MapboxFloatMap({
     return () => clearInterval(timer);
   }, [neutral]);
 
-  const bounds = useMemo(() => boundsForLine(line), [line]);
+  // Framed on the stretch, so the float starts looking at the float.
+  const bounds = useMemo(() => boundsForLine(section ?? line), [section, line]);
   const [defaultSettings] = useState(() =>
     position
       ? { centerCoordinate: position, zoomLevel: FOLLOW_ZOOM }
@@ -95,7 +116,7 @@ function MapboxFloatMap({
   );
 
   // Follow the confirmed position while following is on. The first position
-  // also zooms in to tracking level (a float starts fitted to the whole river,
+  // also zooms in to tracking level (a float starts fitted to its stretch,
   // before GPS); after that only the centre moves, so a zoom the paddler chose
   // is kept, Recenter included.
   const lng = position?.[0];
@@ -114,6 +135,28 @@ function MapboxFloatMap({
   const routeShape = useMemo(
     () => ({ type: 'Feature' as const, properties: {}, geometry: { type: 'LineString' as const, coordinates: line } }),
     [line],
+  );
+  const sectionShape = useMemo(
+    () => ({ type: 'Feature' as const, properties: {}, geometry: { type: 'LineString' as const, coordinates: section ?? line } }),
+    [section, line],
+  );
+  const markersShape = useMemo(
+    () => ({
+      type: 'FeatureCollection' as const,
+      features: [
+        ...stops.map((lngLat) => ({
+          type: 'Feature' as const,
+          properties: { kind: 'stop', color: colors.card },
+          geometry: { type: 'Point' as const, coordinates: lngLat },
+        })),
+        ...hazards.map(({ lngLat, severity }) => ({
+          type: 'Feature' as const,
+          properties: { kind: 'hazard', color: conditionColor(hazardConditionCode(severity)) },
+          geometry: { type: 'Point' as const, coordinates: lngLat },
+        })),
+      ],
+    }),
+    [stops, hazards, colors.card],
   );
   const endsShape = useMemo(
     () => ({
@@ -144,7 +187,26 @@ function MapboxFloatMap({
         <Mapbox.ShapeSource id="float-route" shape={routeShape}>
           <Mapbox.LineLayer
             id="float-route-line"
-            style={{ lineColor: colors.interactive, lineWidth: 5, lineCap: 'round', lineJoin: 'round' }}
+            style={{ lineColor: colors.interactive, lineOpacity: section ? 0.3 : 1, lineWidth: section ? 3 : 5, lineCap: 'round', lineJoin: 'round' }}
+          />
+        </Mapbox.ShapeSource>
+        {section ? (
+          <Mapbox.ShapeSource id="float-section" shape={sectionShape}>
+            <Mapbox.LineLayer
+              id="float-section-line"
+              style={{ lineColor: colors.interactive, lineWidth: 5, lineCap: 'round', lineJoin: 'round' }}
+            />
+          </Mapbox.ShapeSource>
+        ) : null}
+        <Mapbox.ShapeSource id="float-markers" shape={markersShape}>
+          <Mapbox.CircleLayer
+            id="float-markers-dot"
+            style={{
+              circleRadius: ['match', ['get', 'kind'], 'hazard', 6, 4],
+              circleColor: ['get', 'color'],
+              circleStrokeColor: ['match', ['get', 'kind'], 'hazard', '#ffffff', colors.interactive],
+              circleStrokeWidth: 2,
+            }}
           />
         </Mapbox.ShapeSource>
         <Mapbox.ShapeSource id="float-ends" shape={endsShape}>
@@ -202,7 +264,7 @@ function RecenterButton({ onPress }: { onPress: () => void }) {
 }
 
 /** The river drawn plainly, for builds with no Mapbox at all (no token, Expo Go). */
-function RiverOnlyMap({ line, start, takeOut, position, positionDimmed }: FloatMapProps) {
+function RiverOnlyMap({ line, section, stops, hazards, start, takeOut, position, positionDimmed }: FloatMapProps) {
   const { colors } = useTheme();
   const [size, setSize] = useState<{ width: number; height: number } | null>(null);
   const onLayout = (event: LayoutChangeEvent) => {
@@ -210,13 +272,39 @@ function RiverOnlyMap({ line, start, takeOut, position, positionDimmed }: FloatM
     setSize({ width, height });
   };
 
-  const drawing = useMemo(() => (size ? fit(line, size.width, size.height, 24) : null), [line, size]);
+  // Fitted to the stretch; the rest of the river runs off the edges, faint.
+  const drawing = useMemo(() => (size ? fit(section ?? line, size.width, size.height, 24) : null), [section, line, size]);
+  const sectionPath = useMemo(() => (drawing && section ? drawing.pathOf(section) : null), [drawing, section]);
 
   return (
-    <View style={[styles.fill, { backgroundColor: colors.selectionBg }]} onLayout={onLayout}>
+    <View style={[styles.fill, styles.clip, { backgroundColor: colors.selectionBg }]} onLayout={onLayout}>
       {drawing && size ? (
         <Svg width={size.width} height={size.height}>
-          <Path d={drawing.path} stroke={colors.interactive} strokeWidth={5} strokeLinecap="round" strokeLinejoin="round" fill="none" />
+          <Path
+            d={sectionPath ? drawing.pathOf(line) : drawing.path}
+            stroke={colors.interactive}
+            strokeOpacity={sectionPath ? 0.3 : 1}
+            strokeWidth={sectionPath ? 3 : 5}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            fill="none"
+          />
+          {sectionPath ? (
+            <Path d={sectionPath} stroke={colors.interactive} strokeWidth={5} strokeLinecap="round" strokeLinejoin="round" fill="none" />
+          ) : null}
+          {stops.map((stop, i) => (
+            <Circle key={`stop-${i}`} {...drawing.point(stop)} r={4} fill={colors.card} stroke={colors.interactive} strokeWidth={2} />
+          ))}
+          {hazards.map((hazard, i) => (
+            <Circle
+              key={`hazard-${i}`}
+              {...drawing.point(hazard.lngLat)}
+              r={6}
+              fill={conditionColor(hazardConditionCode(hazard.severity))}
+              stroke="#ffffff"
+              strokeWidth={2}
+            />
+          ))}
           {start ? <Circle {...drawing.point(start)} r={7} fill={colors.interactive} stroke="#ffffff" strokeWidth={2} /> : null}
           <Circle {...drawing.point(takeOut)} r={7} fill={colors.accent} stroke="#ffffff" strokeWidth={2} />
           {position ? (
@@ -247,19 +335,23 @@ function fit(line: LngLat[], width: number, height: number, padding: number) {
   const offsetX = (width - (maxX - minX) * scale) / 2;
   const offsetY = (height - (maxY - minY) * scale) / 2;
   const point = ([lng, lat]: LngLat) => ({ cx: offsetX + (lng * k - minX) * scale, cy: offsetY + (maxY - lat) * scale });
-  const step = Math.max(1, Math.floor(line.length / 400));
-  const path = line
-    .filter((_, i) => i % step === 0 || i === line.length - 1)
-    .map((p, i) => {
-      const { cx, cy } = point(p);
-      return `${i === 0 ? 'M' : 'L'}${cx.toFixed(1)} ${cy.toFixed(1)}`;
-    })
-    .join(' ');
-  return { path, point };
+  /** Any line in the same frame; parts outside the box are clipped by the view. */
+  const pathOf = (points: LngLat[]) => {
+    const step = Math.max(1, Math.floor(points.length / 400));
+    return points
+      .filter((_, i) => i % step === 0 || i === points.length - 1)
+      .map((p, i) => {
+        const { cx, cy } = point(p);
+        return `${i === 0 ? 'M' : 'L'}${cx.toFixed(1)} ${cy.toFixed(1)}`;
+      })
+      .join(' ');
+  };
+  return { path: pathOf(line), pathOf, point };
 }
 
 const styles = StyleSheet.create({
   fill: { flex: 1 },
+  clip: { overflow: 'hidden' },
   recenter: {
     position: 'absolute',
     right: 12,

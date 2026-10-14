@@ -81,7 +81,8 @@ export function reportFactsPrompt(f: ReportFacts): string {
     `Supported location: ${f.supportedSection ?? f.gaugeName}.`,
     ...(f.requestedSection && !f.supportedSection ? [`The requested section (${f.requestedSection}) has no resolved gauge of its own. This is a fallback station observation, NOT a condition assessment of that section.`] : []),
     'Do not infer current scraping, floatability, depth, or boat suitability at other places from this station. General local knowledge is background, not a current reading for those places.',
-    'Say where this reading is taken once in the summary and once in the full text, using the town or landmark from the gauge name (for example "near Van Buren"), not the full station name. Put it wherever it reads naturally; do not open every block with "At Town,". Do not turn a station assessment into a claim about the entire river.',
+    'Say where this reading is taken once in the summary and once in the full text, using the town or landmark from the gauge name, not the full station name. Weave the location into the condition claim it qualifies; naming the place does not require putting it first. Do not turn a station assessment into a claim about the entire river.',
+    'Lead with the most useful supported takeaway for the floater. Choose the opening from the supplied conditions, measured change, or practical advice, rather than using a location label as a default lead-in. Active flood alerts and Dangerous advice still come first.',
     'Keep condition and optimal-range claims about this station only. Do not compare raw gauge heights across stations; each uses its own datum. Do not infer a relative trend from two snapshots.',
   ].join('\n');
 }

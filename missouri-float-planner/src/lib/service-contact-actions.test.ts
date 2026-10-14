@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { serviceContactActions } from '../../../eddy-ios/src/lib/serviceContactActions';
+import { createExternalLinkOpener } from '../../../eddy-ios/src/lib/externalLinkOpener';
 
 test('phone, website and booking remain independently available', () => {
   assert.deepEqual(serviceContactActions({
@@ -30,4 +31,19 @@ test('website-only and booking-only contacts work without a phone', () => {
 test('absent or invalid contact details produce no dead controls', () => {
   assert.deepEqual(serviceContactActions({}), []);
   assert.deepEqual(serviceContactActions({ phone: ' ', website: 'javascript:alert(1)', reservationUrl: 'https://' }), []);
+});
+
+test('scheme-less service websites produce working normalized browser destinations', async () => {
+  const opened: string[] = [];
+  const open = createExternalLinkOpener({
+    openBrowser: async (url) => { opened.push(url); },
+    openSystem: async () => { assert.fail('Website should use the in-app browser'); },
+    onError: () => { assert.fail('Valid service website should open'); },
+  });
+  for (const website of ['www.example.com', ' example.com/book a float?date=2026-10-12 ']) {
+    const action = serviceContactActions({ website }).find(item => item.label === 'Website');
+    assert.ok(action);
+    await open(action.url);
+  }
+  assert.deepEqual(opened, ['https://www.example.com/', 'https://example.com/book%20a%20float?date=2026-10-12']);
 });

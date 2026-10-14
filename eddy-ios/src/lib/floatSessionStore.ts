@@ -18,9 +18,12 @@
 // Its own key, outside the cache prefix: clearing cached river data must not
 // end a float in progress. Writes are throttled (a fix can arrive every
 // second) and flushed when the app goes to the background, where iOS may end
-// it without warning. Precise positions stay on the phone, like everything
-// else location-related in Eddy.
+// it without warning. Raw float positions stay on the phone; completed
+// summaries use the separate account archive. Hazard reports are a separate,
+// explicit location submission.
 
+import { floatArchive } from './floatArchive';
+import { recapFloat } from './floatRecap';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Notifications from 'expo-notifications';
 import type { PositionFix } from '@eddy/geo';
@@ -30,6 +33,7 @@ import { reminderCopy, type DueReminder, type FloatReminderSettings } from './fl
 import { warn } from './monitoring';
 import { syncFloatActivity } from '../float/liveActivity';
 import { createFloatActivityLifecycle } from './floatActivity';
+import { autoEndAt, autoEndCopy } from './floatEnding';
 
 /**
  * A reminder is a local notification: scheduled on the phone, so it needs no
@@ -58,7 +62,8 @@ async function deliverReminders(due: DueReminder[]): Promise<string[]> {
   return delivered;
 }
 
-const store = createFloatSessionStore(AsyncStorage, (message, detail) => warn('float', message, detail), deliverReminders);
+const store = createFloatSessionStore(AsyncStorage, (message, detail) => warn('float', message, detail), deliverReminders,
+  (session, endedAt, contributionVersion) => floatArchive.addCompleted(recapFloat(session, endedAt), session.archiveScope, contributionVersion));
 const activityLifecycle = createFloatActivityLifecycle(store, syncFloatActivity);
 
 /** Read the stored float once per process. Then read it with getFloatSession(). */
@@ -77,13 +82,42 @@ export function subscribeFloatSession(listener: () => void): () => void {
 
 /** Start a float. Not active until it is safely on disk. */
 export function beginFloat(next: FloatSession): Promise<BeginResult> {
-  return activityLifecycle.begin(next);
+  if (!floatArchive.snapshot().ready) return Promise.resolve('storage-failed');
+  return activityLifecycle.begin({ ...next, archiveScope: floatArchive.scope() });
 }
 
-/** Feed GPS fixes, in time order, from the screen or a background task. */
-export function recordFixes(fixes: readonly PositionFix[], now = Date.now()): void {
+/**
+ * Feed GPS fixes, in time order, from the screen or a background task.
+ * Returns the automatic end this delivery may trigger (floatEnding.ts),
+ * resolving true only if it did end the float, so a background task can wait
+ * for it before iOS suspends Eddy and stop tracking only when it ended.
+ */
+export function recordFixes(fixes: readonly PositionFix[], now = Date.now()): Promise<boolean> | null {
   store.record(fixes, now);
-  void syncFloatActivity(store.get());
+  const session = store.get();
+  if (session && autoEndAt(session, now) != null) return autoEnd(session.id);
+  void syncFloatActivity(session);
+  return null;
+}
+
+/** End a float nobody ended, say so, and keep its recap at the real finish. */
+async function autoEnd(sessionId: string): Promise<boolean> {
+  // Let a pending arrival or away prompt land first, so the end notice follows it.
+  await store.remindersSettled();
+  // Decide again on the session as it is now: fixes that arrived while the
+  // prompt was being handed over may have put the paddler back on the river.
+  const session = store.get();
+  const endedAt = session?.id === sessionId ? autoEndAt(session, Date.now()) : null;
+  if (!session || endedAt == null) return false;
+  await activityLifecycle.end(floatArchive.contributionVersion(session.archiveScope), endedAt);
+  const permission = await Notifications.getPermissionsAsync().catch(() => null);
+  if (permission?.granted) {
+    await Notifications.scheduleNotificationAsync({
+      content: { ...autoEndCopy(session), sound: true, data: { floatEnded: session.id } },
+      trigger: null,
+    }).catch((error) => warn('float', 'could not show the float-ended notice', error));
+  }
+  return true;
 }
 
 /** Write any pending change now; call when the app is leaving the foreground. */
@@ -96,17 +130,23 @@ export function flushFloatSessionIfStale(minIntervalMs: number): Promise<void> {
   return store.flushIfStale(minIntervalMs);
 }
 
-/** End the float and forget it. Tracking stops because nothing is active. */
+/** End the float and save its recap. Tracking stops because nothing is active. */
 export function endFloat(): Promise<boolean> {
-  return activityLifecycle.end();
+  return activityLifecycle.end(floatArchive.contributionVersion(store.get()?.archiveScope));
 }
 
 /** Change the active float's reminders. */
-export function setFloatReminders(update: (current: FloatReminderSettings) => Pick<FloatReminderSettings, 'takeOut' | 'stops'>): void {
+export function setFloatReminders(update: (current: FloatReminderSettings) => Pick<FloatReminderSettings, 'takeOut' | 'stops' | 'hazards'>): void {
   store.setReminders(update);
 }
 
 /** Wait for reminder handovers in progress; the background task awaits this. */
 export function floatRemindersSettled(): Promise<void> {
   return store.remindersSettled();
+}
+
+/** Account deletion also clears positions and any pending end journal. */
+export async function discardFloat(): Promise<void> {
+  await store.discard();
+  void syncFloatActivity(null);
 }

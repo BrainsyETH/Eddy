@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import SiteFooter from '@/components/ui/SiteFooter';
+import { guidePhotos } from '@/lib/photos/guides';
 import { reviewedPhotos } from '@/lib/photos/reviewed';
 
 export const metadata: Metadata = {
@@ -17,6 +18,18 @@ export default function PhotoCreditsPage() {
         <h1 className="text-4xl font-bold text-neutral-900 mt-6 mb-4">Photo credits</h1>
         <p className="text-neutral-700 mb-8">Place photographs show scenery, not current water or campground conditions. Images may be resized and cropped for display. Government photography does not imply endorsement.</p>
         <div className="space-y-6">
+          {guidePhotos.map(photo => (
+            <section key={photo.riverSlug} id={`guide-${photo.riverSlug}`} className="bg-white border border-neutral-200 rounded-lg p-5">
+              <h2 className="text-xl font-semibold text-neutral-900">{photo.caption}</h2>
+              <p className="text-neutral-700 mt-2">{photo.author} · {photo.license}</p>
+              <p className="text-sm text-neutral-600 mt-2">{photo.changes} Adapted copies retain the source photograph’s license.</p>
+              <div className="flex flex-wrap gap-5 mt-3 text-primary-700 underline">
+                <a href={photo.sourceUrl}>Original photograph and rights record</a>
+                <a href={photo.licenseUrl}>License and usage terms</a>
+                <a href={photo.imageUrl}>Eddy’s image copy</a>
+              </div>
+            </section>
+          ))}
           {reviewedPhotos.map(({ id, name, image }) => (
             <section key={id} id={id} className="bg-white border border-neutral-200 rounded-lg p-5">
               <h2 className="text-xl font-semibold text-neutral-900">{name}</h2>
