@@ -156,6 +156,13 @@ npm run dev
 
 Open [http://localhost:3000](http://localhost:3000) to view the app.
 
+## Admin visual guides
+
+Sign in at `/admin` and choose **Visual guides** to explore the nine interactive
+explainers. The documents require a valid admin session even when opened by
+direct URL. See [the guide catalog](../docs/visuals/README.md) for source files,
+editing instructions, and access-control details.
+
 ## Data Pipeline Scripts
 
 Located in `/scripts`:
