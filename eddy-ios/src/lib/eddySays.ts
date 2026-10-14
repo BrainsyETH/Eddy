@@ -70,19 +70,6 @@ export function selectEddySays(source: EddySaysSource | null | undefined): EddyS
 }
 
 /**
- * The footnote under Eddy's Take (audit M5).
- *
- * "Eddy's Take" is a persona's name, and nothing else on the card says the
- * paragraph is written by software rather than a person who looked at the
- * river. This says so in plain terms — "written automatically from" names
- * what it is and what it is built on — without a heading badge, which read
- * as a warning label on the product's best feature.
- */
-export const TAKE_SOURCE_NOTE =
-  'Eddy writes this automatically from live gauge readings and forecasts. Conditions change: ' +
-  'check the current reading, any dam releases, and access before you go.';
-
-/**
  * "this morning" / "3 hours ago" — deliberately vague at the coarse end.
  *
  * The precision people need from this is "not just now", and a paragraph is not

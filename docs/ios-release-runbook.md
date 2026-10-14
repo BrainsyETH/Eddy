@@ -291,7 +291,7 @@ See ADR 0012 for scope, consent, storage and measurement semantics.
       selection. Explain a missing historical water reading without implying
       current water. Public float estimates must remain unchanged by contributions.
 
-### Location lifecycle and AI labels — October 14, 2026
+### Location lifecycle and keep-awake — October 14, 2026
 
 Implemented on this branch; device verification and release status unconfirmed.
 JavaScript-only (no native change), so it can ride the same over-the-air update
@@ -306,9 +306,6 @@ as the freshness and photo-ban work if the runtime fingerprint matches.
       repeat with the phone locked straight after End.
 - [ ] Float Mode with keep-awake on: the screen stays awake through several GPS
       fixes and sleeps normally after leaving the screen or ending the float.
-- [ ] Eddy's Take shows its source note ("Eddy writes this automatically from
-      live gauge readings and forecasts…") under its sections, unlocked only;
-      VoiceOver reads it.
 
 ### Photo submitter bans (Guideline 1.2) — October 14, 2026
 

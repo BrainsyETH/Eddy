@@ -106,7 +106,6 @@ import { Otter } from '@/components/Otter';
 import { PREMIUM_LOCK_TITLE } from '@/lib/premiumCopy';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
-import { TAKE_SOURCE_NOTE } from '@/lib/eddySays';
 
 /**
  * How hard to frost the paid text.
@@ -471,9 +470,7 @@ export function EddyTake({
       {/* ── Eddy's take ─────────────────────────────────────── */}
       {sections ? (
         <View style={[styles.card, { backgroundColor: colors.card }, elevation(1)]}>
-          <Text style={[styles.takeHeading, { color: colors.textMuted }]} accessibilityRole="header">
-            EDDY&apos;S TAKE
-          </Text>
+          <Text style={[styles.takeHeading, { color: colors.textMuted }]}>EDDY&apos;S TAKE</Text>
 
           {/* THE WHOLE CARD IS THE GATE — see the header for what stays free
               and why that is enough to make this defensible.
@@ -606,10 +603,6 @@ export function EddyTake({
                 </View>
               </View>
 
-              {!locked ? (
-                <Text style={[styles.sourceNote, { color: colors.textSubtle }]}>{TAKE_SOURCE_NOTE}</Text>
-              ) : null}
-
               {/* ── The offer, under the thing being offered ────────────
                   Last rather than first. Read top to bottom the card now says
                   "here are the three things, here is what they are, here is how
@@ -694,7 +687,6 @@ const styles = StyleSheet.create({
   forecastValue: { ...t.xs, fontFamily: fonts.monoMedium },
   forecastCode: { ...t.xs, fontFamily: fonts.semibold, marginTop: 1 },
   takeHeading: { ...t.xs, fontFamily: fonts.heading, letterSpacing: 0.8, marginBottom: 12 },
-  sourceNote: { ...t.xs, fontFamily: fonts.body, marginTop: 12 },
   // Nudged up so the mark sits on the label's cap height rather than its box —
   // the artwork carries its own margin, which a 13pt glyph does not.
   bottomLineOtter: { marginLeft: -2 },
