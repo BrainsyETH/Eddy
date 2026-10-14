@@ -16,7 +16,7 @@ test('Next upgrades require reviewing the copied default crawler list', () => {
     'Next changed: compare its default HTML-limited crawler list with next.config.mjs, then update this version guard.');
 });
 
-test('emitted CSP permits GA4 collection on ordinary pages and embeds', async () => {
+test('emitted CSP permits public analytics and isolates admin diagrams', async () => {
   const imported = await import(pathToFileURL(resolve('next.config.mjs')).href);
   const config = typeof imported.default === 'function' ? await imported.default('phase-production-build', { defaultConfig: {} }) : imported.default;
   // A banner emitted after </head> is too late for native Safari UI.
@@ -26,14 +26,26 @@ test('emitted CSP permits GA4 collection on ordinary pages and embeds', async ()
   assert.ok(!config.htmlLimitedBots.test('Mozilla/5.0 (X11; Linux x86_64) Chrome/130.0 Safari/537.36'));
   const rules = await config.headers();
   let policies = 0;
+  let guidePolicies = 0;
   for (const rule of rules) {
     for (const header of rule.headers) {
       if (header.key.toLowerCase() !== 'content-security-policy') continue;
-      policies++;
       const directives = new Map<string, string[]>(header.value.split(';').map((part: string) => {
         const [key, ...sources] = part.trim().split(/\s+/);
         return [key, sources];
       }));
+      if (rule.source === '/admin/visuals/:filename') {
+        guidePolicies++;
+        assert.equal(rule, rules.at(-1), 'the guide policy must override the general app policy');
+        assert.deepEqual(directives.get('default-src'), ["'none'"]);
+        assert.deepEqual(directives.get('connect-src'), ["'none'"]);
+        assert.deepEqual(directives.get('font-src'), ['data:']);
+        assert.deepEqual(directives.get('img-src'), ['data:']);
+        assert.deepEqual(directives.get('script-src'), ["'unsafe-inline'"]);
+        assert.deepEqual(directives.get('frame-ancestors'), ["'none'"]);
+        continue;
+      }
+      policies++;
       for (const host of ['https://*.google-analytics.com', 'https://*.analytics.google.com', 'https://*.googletagmanager.com', 'https://*.google.com']) {
         assert.ok(directives.get('connect-src')?.includes(host), `${rule.source} blocks ${host}`);
       }
@@ -45,6 +57,7 @@ test('emitted CSP permits GA4 collection on ordinary pages and embeds', async ()
     }
   }
   assert.equal(policies, 2);
+  assert.equal(guidePolicies, 1);
 });
 
 test('river directory has real content and canonical links before JavaScript', () => {

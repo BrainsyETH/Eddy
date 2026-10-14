@@ -11,6 +11,8 @@ const nextConfig = {
   // Image routes serve deterministic artwork without fetching live providers.
   outputFileTracingIncludes: {
     '/*': ['./public/share/*.png', './public/share/*.jpg'],
+    // Private HTML is served only by the authenticated diagram route.
+    '/admin/visuals/*': ['./content/admin-visuals/*.html'],
   },
   // Safari's native app banner reads <head>, not streamed metadata appended
   // to <body>. Keep the crawler defaults above while also blocking
@@ -198,6 +200,28 @@ const nextConfig = {
           {
             key: 'Content-Security-Policy',
             value: [...cspBase, "frame-ancestors 'none'"].join('; '),
+          },
+        ],
+      },
+      // Last match wins. These authenticated, self-contained documents embed
+      // fonts as data URLs; the normal app policy would block those fonts.
+      // Keep this policy here: config headers override Route Handler headers.
+      {
+        source: '/admin/visuals/:filename',
+        headers: [
+          {
+            key: 'Content-Security-Policy',
+            value: [
+              "default-src 'none'",
+              "script-src 'unsafe-inline'",
+              "style-src 'unsafe-inline'",
+              'img-src data:',
+              'font-src data:',
+              "connect-src 'none'",
+              "base-uri 'none'",
+              "form-action 'none'",
+              "frame-ancestors 'none'",
+            ].join('; '),
           },
         ],
       },
