@@ -53,7 +53,30 @@ final class FloatRecorder {
   /// (the journal still has every fix).
   var emit: ((String, [String: Any]) -> Void)?
 
+  /// Held only while the temporary precise-location prompt is showing.
+  private var accuracyManager: CLLocationManager?
+
   private init() {}
+
+  /// Ask, inside Eddy, for precise location for this use: Apple's temporary
+  /// full-accuracy prompt, with the FloatTracking purpose text. Resolves
+  /// whether precise location is on afterwards. Start asks this way first and
+  /// sends people to Settings only if it was declined.
+  func requestPreciseLocation(done: @escaping (Bool) -> Void) {
+    let manager = CLLocationManager()
+    if manager.accuracyAuthorization == .fullAccuracy {
+      done(true)
+      return
+    }
+    accuracyManager = manager
+    manager.requestTemporaryFullAccuracyAuthorization(withPurposeKey: Self.accuracyPurposeKey) { _ in
+      Task { @MainActor in
+        let full = manager.accuracyAuthorization == .fullAccuracy
+        FloatRecorder.shared.accuracyManager = nil
+        done(full)
+      }
+    }
+  }
 
   var persistedSessionId: String? {
     UserDefaults.standard.string(forKey: Self.activeKey)

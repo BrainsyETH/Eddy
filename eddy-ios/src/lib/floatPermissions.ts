@@ -23,3 +23,12 @@ export function startLocationState(
   if (permission.status !== 'granted') return permission.canAskAgain ? 'request' : 'settings';
   return permission.ios?.accuracy === 'reduced' ? 'precise' : 'ready';
 }
+
+/**
+ * How Start gets precise location when it is off: Apple's in-app prompt
+ * first, so the paddler can allow it without leaving Eddy; Settings only once
+ * that was declined on this visit, or in a build that cannot show it.
+ */
+export function preciseLocationAction(declinedThisVisit: boolean, canAskInApp: boolean): 'ask' | 'settings' {
+  return canAskInApp && !declinedThisVisit ? 'ask' : 'settings';
+}

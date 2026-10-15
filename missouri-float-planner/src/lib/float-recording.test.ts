@@ -283,7 +283,10 @@ test('ending while the journal is still being replayed keeps every recorded fix 
 
   // The paddler taps Finish while that replay is still reading.
   const id = store.get()!.id;
-  const finishing = sync.finish(id).then(() => store.end(null, T0 + 3_600_000));
+  const finishing = sync.finish(id).then((drained) => {
+    assert.equal(drained, true);
+    return store.end(null, T0 + 3_600_000);
+  });
   hold.resolve();
   await Promise.all([replaying, finishing]);
 
@@ -330,4 +333,21 @@ test('a recorder left running with no float is stopped; one whose float could no
   const before = bridge.calls.length;
   await unreadable.ensureRecording();
   assert.equal(bridge.calls.length, before);
+});
+
+test('a journal that cannot be read at Finish leaves the float active and recording, not saved short', async () => {
+  const journal = fakeJournal();
+  for (let i = 0; i < 10; i += 1) journal.append(paddle(i));
+  const recaps: FloatSession[] = [];
+  const { store, bridge, sync, trackers } = await syncedStore(journal, recaps);
+  const id = store.get()!.id;
+  bridge.read = async () => {
+    throw new Error('EIO');
+  };
+  assert.equal(await sync.finish(id), false, 'Finish is told the track is incomplete');
+  // endFloat stops here: nothing is archived and the session stays.
+  assert.equal(store.get()?.id, id);
+  assert.deepEqual(recaps, []);
+  assert.deepEqual(bridge.calls, [`stop:${id}`, `start:${id}`], 'recording starts again so nothing is missed meanwhile');
+  assert.equal(trackers[trackers.length - 1].status, 'recording');
 });

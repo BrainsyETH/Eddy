@@ -33,6 +33,12 @@ public final class EddyFloatRecorderModule: Module {
       }
     }
 
+    AsyncFunction("requestPreciseLocation") { (promise: Promise) in
+      Task { @MainActor in
+        FloatRecorder.shared.requestPreciseLocation { promise.resolve($0) }
+      }
+    }
+
     AsyncFunction("status") { (promise: Promise) in
       Task { @MainActor in
         promise.resolve(FloatRecorder.shared.status)

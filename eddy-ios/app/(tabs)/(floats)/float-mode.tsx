@@ -59,6 +59,8 @@ export default function FloatModeScreen() {
   const tracking = useTrackingLine();
   const [keepAwake] = useKeepAwakePreference();
   const [reporting, setReporting] = useState(false);
+  // Finish is applying the last of the recorded track before saving.
+  const [finishing, setFinishing] = useState(false);
   const focused = useIsFocused();
 
   // Only while this screen is showing and a float is active (#1448): leaving
@@ -162,9 +164,20 @@ export default function FloatModeScreen() {
           style: done ? 'default' : 'destructive',
           onPress: () => {
             endingHere.current = true;
-            void endFloat().then((cleared) => {
+            setFinishing(true);
+            void endFloat().then((result) => {
+              setFinishing(false);
+              if (result === 'not-ended') {
+                // Not saved from a partial track: the float carries on.
+                endingHere.current = false;
+                Alert.alert(
+                  'Couldn’t save your float',
+                  'Eddy couldn’t read all of your recorded track, so nothing was saved and your float is still going. Try again in a moment.',
+                );
+                return;
+              }
               // Tracking has stopped either way; say so if storage lagged.
-              if (!cleared) {
+              if (result === 'ended-unsaved') {
                 Alert.alert(
                   'Float ended',
                   'Tracking has stopped. Eddy couldn’t finish saving your recap yet and will retry. Keep the app open and check your history.',
@@ -301,6 +314,8 @@ export default function FloatModeScreen() {
           <ActionButton icon="warning-outline" label="Hazard" onPress={() => setReporting(true)} accessibilityLabel="Report a hazard here" />
           <Pressable
             onPress={confirmEnd}
+            disabled={finishing}
+            accessibilityState={{ disabled: finishing, busy: finishing }}
             style={({ pressed }) => [
               styles.action,
               styles.endAction,
@@ -310,7 +325,7 @@ export default function FloatModeScreen() {
             ]}
             accessibilityRole="button"
           >
-            <Text style={[styles.actionText, { color: done ? colors.onAccent : colors.error }]}>{done ? 'Finish float' : 'End float'}</Text>
+            <Text style={[styles.actionText, { color: done ? colors.onAccent : colors.error }]}>{finishing ? 'Saving…' : done ? 'Finish float' : 'End float'}</Text>
           </Pressable>
         </View>
       </View>

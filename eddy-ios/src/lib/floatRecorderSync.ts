@@ -107,6 +107,44 @@ export function createFloatRecorderSync(deps: RecorderSyncDeps) {
     }
   };
 
+  /**
+   * Make the recorder match the session: recording the active float (from
+   * the foreground), or stopped when there is none. A stored float that
+   * could not be read is neither, so the recorder is left as it is.
+   */
+  async function ensureRecording(): Promise<void> {
+    if (!recorder) {
+      publish();
+      return;
+    }
+    try {
+      // "No float" is only an answer once the stored float has been read.
+      await deps.ensureLoaded();
+      const session = deps.getSession();
+      if (!session) {
+        if (deps.loadFailed()) return;
+        const report = await recorder.status();
+        if (report.state !== 'idle' && !deps.getSession()) onStatus(await recorder.stop(null));
+        else onStatus(report);
+        return;
+      }
+      if (!deps.isForeground()) {
+        onStatus(await recorder.status());
+        return;
+      }
+      publish();
+      const report = await recorder.start(session.id);
+      // The float may have ended while the start was in flight; End stopped it.
+      if (deps.getSession()?.id === session.id) onStatus(report);
+    } catch (error) {
+      deps.warn('could not start recording', error);
+      // A failure for THIS float, even when nothing was reported before it,
+      // so the screen offers Retry instead of "Starting…" forever.
+      const id = deps.getSession()?.id;
+      if (id) onStatus(failedReport(id, lastReport));
+    }
+  }
+
   return {
     onStatus,
 
@@ -132,43 +170,7 @@ export function createFloatRecorderSync(deps: RecorderSyncDeps) {
       publish();
     },
 
-    /**
-     * Make the recorder match the session: recording the active float (from
-     * the foreground), or stopped when there is none. A stored float that
-     * could not be read is neither, so the recorder is left as it is.
-     */
-    async ensureRecording(): Promise<void> {
-      if (!recorder) {
-        publish();
-        return;
-      }
-      try {
-        // "No float" is only an answer once the stored float has been read.
-        await deps.ensureLoaded();
-        const session = deps.getSession();
-        if (!session) {
-          if (deps.loadFailed()) return;
-          const report = await recorder.status();
-          if (report.state !== 'idle' && !deps.getSession()) onStatus(await recorder.stop(null));
-          else onStatus(report);
-          return;
-        }
-        if (!deps.isForeground()) {
-          onStatus(await recorder.status());
-          return;
-        }
-        publish();
-        const report = await recorder.start(session.id);
-        // The float may have ended while the start was in flight; End stopped it.
-        if (deps.getSession()?.id === session.id) onStatus(report);
-      } catch (error) {
-        deps.warn('could not start recording', error);
-        // A failure for THIS float, even when nothing was reported before it,
-        // so the screen offers Retry instead of "Starting…" forever.
-        const id = deps.getSession()?.id;
-        if (id) onStatus(failedReport(id, lastReport));
-      }
-    },
+    ensureRecording,
 
     /**
      * Before a float is finalised: stop recording, then apply everything the
@@ -177,19 +179,30 @@ export function createFloatRecorderSync(deps: RecorderSyncDeps) {
      * first means nothing is appended after the drain reads the end. Queued
      * behind any batch already being applied.
      *
+     * Resolves false when the journal could not be read to its end: the float
+     * must not be finalised from an incomplete checkpoint. Recording is then
+     * started again, the float stays active, and Finish can be retried.
+     *
      * An automatic end (floatEnding.ts) happens inside a batch being applied
      * and does not come here: it ends at the arrival or departure that batch
      * showed, and fixes after either are outside the float's accounting.
      */
-    async finish(sessionId: string): Promise<void> {
-      if (!recorder) return;
+    async finish(sessionId: string): Promise<boolean> {
+      if (!recorder) return true;
       try {
         onStatus(await recorder.stop(sessionId));
       } catch (error) {
         // Still drain: whatever was written is in the journal either way.
         deps.warn('could not stop recording before ending', error);
       }
-      await ingest(readThrough).catch((error) => deps.warn('could not read the float journal before ending', error));
+      try {
+        await ingest(readThrough);
+        return true;
+      } catch (error) {
+        deps.warn('could not read the float journal before ending', error);
+        await ensureRecording();
+        return false;
+      }
     },
   };
 }

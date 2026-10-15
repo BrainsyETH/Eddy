@@ -29,6 +29,8 @@ interface NativeFloatRecorder {
   start(sessionId: string): Promise<RecorderStatus>;
   stop(sessionId: string | null): Promise<RecorderStatus>;
   status(): Promise<RecorderStatus>;
+  /** Apple's in-app temporary precise-location prompt; resolves whether precise location is now on. */
+  requestPreciseLocation(): Promise<boolean>;
   read(sessionId: string, from: number, maxBytes: number): Promise<JournalPage>;
   deleteJournal(sessionId: string): Promise<void>;
   deleteAllJournals(): Promise<void>;

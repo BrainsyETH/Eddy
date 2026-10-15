@@ -7,7 +7,7 @@
 
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { startLocationState } from '../../../eddy-ios/src/lib/floatPermissions';
+import { preciseLocationAction, startLocationState } from '../../../eddy-ios/src/lib/floatPermissions';
 import { IDLE_TRACKER, type TrackerState } from '../../../eddy-ios/src/lib/floatRecording';
 import { createTrackerStatusStore, trackingLine } from '../../../eddy-ios/src/lib/floatTrackerStatus';
 
@@ -72,4 +72,10 @@ test('start setup distinguishes first prompt, Settings, precision, and disabled 
   assert.equal(startLocationState({ status: 'granted', ios: { accuracy: 'full' } }, true), 'ready');
   assert.equal(startLocationState({ status: 'granted' }, false), 'services');
   assert.equal(startLocationState({ status: 'denied', canAskAgain: false }, false), 'services');
+});
+
+test('Precise Location off is asked for in Eddy first; Settings only once that is declined or unavailable', () => {
+  assert.equal(preciseLocationAction(false, true), 'ask');
+  assert.equal(preciseLocationAction(true, true), 'settings');
+  assert.equal(preciseLocationAction(false, false), 'settings', 'a build without the native prompt');
 });

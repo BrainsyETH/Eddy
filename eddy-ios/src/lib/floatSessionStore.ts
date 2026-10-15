@@ -149,24 +149,39 @@ export function flushFloatSession(): Promise<void> {
 
 /**
  * Registered by the recorder wiring (src/float/recorder.ts): stops recording
- * and applies the journal through its end. A callback rather than an import,
- * because that wiring imports this module.
+ * and applies the journal through its end, resolving false if it could not.
+ * A callback rather than an import, because that wiring imports this module.
  */
-let finishRecording: (sessionId: string) => Promise<void> = async (sessionId) => stopRecording(sessionId);
+let finishRecording: (sessionId: string) => Promise<boolean> = async (sessionId) => {
+  stopRecording(sessionId);
+  return true;
+};
 
-export function setFinishRecording(finish: (sessionId: string) => Promise<void>): void {
+export function setFinishRecording(finish: (sessionId: string) => Promise<boolean>): void {
   finishRecording = finish;
 }
 
 /**
+ * How ending went:
+ *   ended         the recap is saved and the float is over
+ *   ended-unsaved the float is over, but storage lagged; removal is retried
+ *   not-ended     the recorded track could not all be read, so the float was
+ *                 NOT finalised from an incomplete checkpoint; it is still
+ *                 active and recording, and Finish can be tried again
+ */
+export type EndResult = 'ended' | 'ended-unsaved' | 'not-ended';
+
+/**
  * End the float and save its recap. Recording stops first and every recorded
  * fix is applied before the recap is taken, so a float ended while its
- * journal was still being replayed is not saved short.
+ * journal was still being replayed is not saved short, and a float whose
+ * journal cannot be read is not saved at all.
  */
-export async function endFloat(): Promise<boolean> {
+export async function endFloat(): Promise<EndResult> {
   const session = store.get();
-  if (session) await finishRecording(session.id);
-  return activityLifecycle.end(floatArchive.contributionVersion(store.get()?.archiveScope));
+  if (session && !(await finishRecording(session.id))) return 'not-ended';
+  const cleared = await activityLifecycle.end(floatArchive.contributionVersion(store.get()?.archiveScope));
+  return cleared ? 'ended' : 'ended-unsaved';
 }
 
 /**

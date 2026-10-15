@@ -35,7 +35,13 @@ A float's GPS track is recorded by native code, not by JavaScript:
   stop, then applies the journal through its final offset on the same queue
   as live batches, and only then takes the recap (`floatRecorderSync.ts:
   finish`). A float finished while its journal was still being replayed is
-  not saved short.
+  not saved short. If the journal cannot be read to its end, nothing is
+  saved: the float stays active, recording restarts, and Float Mode says
+  saving failed so Finish can be tried again.
+- **Precise location is asked for in Eddy.** With Precise Location off,
+  Start shows Apple's temporary full-accuracy prompt (purpose key
+  `FloatTracking`) and starts once it is allowed; Settings is offered only
+  after it is declined (`floatPermissions.ts: preciseLocationAction`).
 - **Status is reported.** Float Mode's tracking line comes from Core
   Location's own diagnostics on updates and on the service session (Location
   Services off, denied, Precise Location off, not in use), not from a

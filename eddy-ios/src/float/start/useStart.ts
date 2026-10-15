@@ -61,9 +61,15 @@ export function useStart(params: Params, loaded: LoadedRoute | null, location: S
         return;
       }
       // Permissions may have changed in Settings; never start from a stale grant.
-      const permission = await Location.getForegroundPermissionsAsync();
+      let permission = await Location.getForegroundPermissionsAsync();
       const services = await Location.hasServicesEnabledAsync();
       if (!focused.current) return;
+      // Precise Location off: Apple's prompt, here in Eddy, then start. Only
+      // once that is declined does the card offer Settings instead.
+      if (startLocationState(permission, services) === 'precise' && location.precise === 'ask') {
+        if (!(await location.askPrecise()) || !focused.current) return;
+        permission = await Location.getForegroundPermissionsAsync();
+      }
       if (startLocationState(permission, services) !== 'ready') {
         await location.refresh();
         return;

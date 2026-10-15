@@ -260,8 +260,10 @@ are pending checks, not evidence of a device pass.
       are backed up, and explicit hazard reports transmit their captured location.
 - [ ] **Permission states on a device:** While Using (tracks with the phone
       locked; no Always prompt ever appears), Allow Once, Precise Location off
-      (the temporary precise-location prompt appears; declining it makes Float
-      Mode say it cannot place you), Location Services off, denied, and
+      (tapping Start float or "Allow precise location" shows Apple's
+      precise-location prompt inside Eddy and the float starts once it is
+      allowed; declining it switches the card to Open Settings), Location
+      Services off, denied, and
       permission withdrawn in Settings mid-float. Each shows the line its
       Core Location diagnostic calls for. No prompt loops.
 - [ ] **Release acceptance matrix in #1448** passed on physical iPhones,
@@ -305,10 +307,15 @@ are pending checks, not evidence of a device pass.
       (stop the process) with the phone locked; reopen and confirm no
       distance is lost. Delete that float's recap and confirm Storage no
       longer counts its GPS track; delete the account and confirm Storage
-      shows no tracks.
+      shows no tracks. Make the journal unreadable mid-float (or simulate a
+      read failure in a debug build) and tap Finish: "Couldn't save your
+      float" appears, nothing is added to history, and the float keeps
+      recording.
 
 - [ ] **Starting a float and the on-water layout** on a physical iPhone,
-      including the smallest supported screen. The start summary shows the
+      including the smallest supported screen at the largest text size, with
+      several warnings showing at once (a tracking line, a sunset warning and
+      the next hazard). The start summary shows the
       route preview with both ends (also with no signal). In Float Mode,
       Options, Hazard and End/Finish are all visible without scrolling, and
       Options opens reminders, the Lock Screen card and keep-awake as a sheet.
