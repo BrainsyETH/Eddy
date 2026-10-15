@@ -18,8 +18,7 @@ import type { DamSnapshot } from '@eddy/types';
 import {
   centralDayKey,
   relativeAge,
-  idleWindowSentence,
-  SCHEDULE_CHANGE_NOTE,
+  scheduledHoursSummary,
 } from '@eddy/conditions/dam-schedule-copy';
 import { DayBars } from '@/components/dam/DayBars';
 import { generationNow, generationStatusLabel, speaksForNow } from '@eddy/conditions/dam-generation';
@@ -102,7 +101,6 @@ function DamRowComponent({
             {[
               dam.lakeName,
               dam.state,
-              dam.tailwaterFishery === 'trout' ? 'trout tailwater' : null,
             ]
               .filter(Boolean)
               .join(' · ')}
@@ -160,28 +158,14 @@ function DamRowComponent({
         ) : null}
       </View>
 
-      {/* Today's shape, and the sentence that says what it means.
-          The bars are the same component the dam screen draws, so a pattern
-          learned there is readable here. The idle-window sentence carries it for
-          VoiceOver, which the bar row is deliberately hidden from — and it is
-          the more useful of the two anyway: "No generation scheduled:
-          midnight – 6 AM" is
-          the answer, the bars are the picture of it. */}
+      {/* A short schedule summary accompanies the bars; exact time windows
+          remain on the dam detail screen. */}
       {today ? (
         <View style={styles.schedule}>
           <DayBars reference={dam.generationReference} day={today} compact />
-          <Text style={[styles.idle, { color: colors.textMuted }]} numberOfLines={1}>
-            {idleWindowSentence(today.idle)}
-          </Text>
-          {/* Every other surface that renders a schedule carries this: both
-              GenerationSchedule components and both RiverDamPanels. Favorites is
-              the only place a schedule appears, and WATER_REGIMES_STRATEGY.md
-              requires SWPA's disclaimer to travel with it EVERYWHERE — so a
-              compact row is not an exemption. Two lines rather than one so the
-              note cannot truncate: a half-rendered safety caveat is worse than
-              an honest one that wraps. */}
-          <Text style={[styles.scheduleNote, { color: colors.textSubtle }]} numberOfLines={2}>
-            {SCHEDULE_CHANGE_NOTE}
+          <Text style={[styles.idle, { color: colors.textMuted }]}>
+            {scheduledHoursSummary(today.hours)}
+            <Text style={{ color: colors.textSubtle }}> · Subject to change</Text>
           </Text>
         </View>
       ) : null}
@@ -205,7 +189,6 @@ const styles = StyleSheet.create({
   topRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   schedule: { marginTop: 8 },
   idle: { ...t.xs, marginTop: 4 },
-  scheduleNote: { ...t.xs, marginTop: 2 },
   main: { flex: 1, gap: 2 },
   name: { ...t.base, fontFamily: fonts.semibold },
   meta: { ...t.xs },

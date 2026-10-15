@@ -980,17 +980,46 @@ A splash that lifts after ~8 seconds means the backstop did its job and the
 report is already filed. A splash that never lifts at all means JS never
 started — look at step 2, not step 3.
 
+## River detail
+
+The river header shows its name, region and length, followed by the gauge
+picker and conditions. General `floatTip` prose is omitted from this screen's
+header so long tips cannot push readings down the page. Tips remain available
+in float plans, and the river's Hazards section keeps its existing details.
+
+## Favorites
+
+River cards show a reading pill for every linked gauge, ordered upstream to
+downstream using the existing gauge catalog. Each row opens its station when
+it has a site ID. Pills prefer CFS and fall back to feet when discharge is
+unavailable; if both are missing they say “Reading unavailable”. Each pill uses
+that gauge's condition for this river, calculated in its configured rating unit.
+Old, suspect, unknown-time and unrated readings use a neutral pill; short age
+and qualifier notes remain visible. The river header omits the condition label,
+and cards omit Eddy's Read excerpt. Favorites does not fetch Reads. Until the
+gauge catalog arrives, cards retain the river headline and scale as a fallback.
+Dam rows show lake/state metadata and a short schedule summary with “Subject
+to change” inline; the detail screen carries the full schedule context.
+
 ## River guides
 
-Today includes a free **River guides** entry leading to `/river-guides`, a
-searchable native list of published `River Guides` articles from `/api/blog`.
+The bottom of Today features one free **River guide** each local calendar day,
+with its photo and excerpt. The card opens that article; **See all** opens
+`/river-guides`, a searchable native list of published `River Guides` articles
+from `/api/blog`.
+The feature cycles through the published catalog in slug order, staying stable
+throughout the day while that catalog is unchanged. It advances on the next
+visible minute after midnight or when the screen regains focus/foreground, and
+pull-to-refresh reloads the catalog.
 Each river detail page also shows its matching published guide, if one exists.
 The full article opens on `eddy.guide` in the in-app browser, retaining the shared web
 layout, live conditions and planner links. This is evergreen content, separate
-from Eddy’s Reads. Loading happens when the catalog or river detail opens, not
-at app startup; failures offer retry in the catalog and hide the optional
-river-detail link. The catalog has no entitlement requirement; its links use the
-shared browser behavior below.
+from Eddy’s Reads. Loading happens when Today, the catalog, or river detail
+mounts, without blocking app startup; failures offer retry on Today and in the
+catalog, and hide the optional river-detail link. The catalog has no entitlement
+requirement; its links use the shared browser behavior below.
+Guide photo credits live on `eddy.guide/photo-credits`, reachable from the
+account screen; the cards do not repeat them below each image.
 
 Content and import instructions live in the
 [river-guide runbook](../missouri-float-planner/docs/river-guide-style.md#repository-authored-guides-and-publishing).

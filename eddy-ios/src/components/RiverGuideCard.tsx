@@ -7,19 +7,23 @@ import { ControlIcon } from './ControlIcon';
 import { riverGuideUrl, type RiverGuideSummary } from '@/lib/riverGuides';
 import { useRiverGuides } from '@/hooks/useRiverGuides';
 
-export function RiverGuideCard({ guide, compact = false }: { guide: RiverGuideSummary; compact?: boolean }) {
+export function RiverGuideCard({ guide, compact = false, featured = false }: {
+  guide: RiverGuideSummary;
+  compact?: boolean;
+  featured?: boolean;
+}) {
   const { colors } = useTheme();
   const open = () => openExternalLink(riverGuideUrl(guide.slug), () => {
     Alert.alert('Couldn’t open the guide', 'Please try again in a moment.');
   });
   return (
-    <View style={styles.container}>
+    <View style={!featured && styles.container}>
       <Pressable onPress={() => void open()} accessibilityRole="link"
         accessibilityLabel={`${guide.title}. Read the full guide on eddy.guide.`}
         style={({ pressed }) => [styles.card, { backgroundColor: colors.card, borderColor: colors.border, opacity: pressed ? 0.75 : 1 }]}>
         {!compact && guide.featuredImageUrl ? <ScenicImage source={{ uri: guide.featuredImageUrl }} imageWidth={750} style={styles.photo} accessibilityLabel={guide.featuredImageAlt ?? guide.title} accessibilityIgnoresInvertColors /> : null}
         <View style={styles.copy}>
-          <Text style={[styles.eyebrow, { color: colors.interactive }]}>RIVER GUIDE{guide.readTimeMinutes ? ` · ${guide.readTimeMinutes} MIN READ` : ''}</Text>
+          <Text style={[styles.eyebrow, { color: colors.interactive }]}>{featured ? 'TODAY’S RIVER GUIDE' : 'RIVER GUIDE'}{guide.readTimeMinutes ? ` · ${guide.readTimeMinutes} MIN READ` : ''}</Text>
           <Text style={[styles.title, { color: colors.text }]}>{guide.title}</Text>
           {!compact && guide.description ? <Text style={[styles.body, { color: colors.textMuted }]} numberOfLines={3}>{guide.description}</Text> : null}
           <View style={styles.action}>
@@ -28,16 +32,6 @@ export function RiverGuideCard({ guide, compact = false }: { guide: RiverGuideSu
           </View>
         </View>
       </Pressable>
-      {!compact && guide.featuredImageUrl && guide.imageCredit ? (
-        <View style={styles.credit}>
-          <Text style={[styles.creditText, { color: colors.textMuted }]}>{guide.imageCredit.caption}</Text>
-          <Text style={[styles.creditText, { color: colors.textMuted }]}>
-            Photo: <Text accessibilityRole="link" style={{ color: colors.interactive, textDecorationLine: 'underline' }} onPress={() => void openExternalLink(guide.imageCredit!.sourceUrl)}>{guide.imageCredit.author}</Text>
-            {' · '}<Text accessibilityRole="link" style={{ color: colors.interactive, textDecorationLine: 'underline' }} onPress={() => void openExternalLink(guide.imageCredit!.licenseUrl)}>{guide.imageCredit.license}</Text>
-          </Text>
-          <Text style={[styles.creditText, { color: colors.textMuted }]}>{guide.imageCredit.changes}</Text>
-        </View>
-      ) : null}
     </View>
   );
 }
@@ -52,8 +46,6 @@ export function RiverGuideLink({ riverSlug }: { riverSlug: string }) {
 const styles = StyleSheet.create({
   container: { marginBottom: 16 },
   card: { borderWidth: 1, borderRadius: 18, overflow: 'hidden' },
-  credit: { paddingHorizontal: 12, paddingTop: 8, gap: 2 },
-  creditText: { ...t.xs, fontFamily: fonts.body },
   photo: { width: '100%', aspectRatio: 2 },
   copy: { padding: 16, gap: 8 },
   eyebrow: { ...t.xs, fontFamily: fonts.semibold, letterSpacing: 0.8 },

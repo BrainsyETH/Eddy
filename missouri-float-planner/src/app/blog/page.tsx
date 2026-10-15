@@ -2,7 +2,6 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { optimizeBlogImage } from '@/lib/blog-image';
 import { guideCover, isGuidePlaceholder } from '@/lib/photos/guides';
-import GuidePhotoCredit from '@/components/blog/GuidePhotoCredit';
 import type { Metadata } from 'next';
 import { ArrowRight, BookOpen } from 'lucide-react';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -178,7 +177,6 @@ export default async function BlogPage() {
                         </span>
                       </div>
                     </Link>
-                    {cover.photo && <div className="px-4 pb-4 sm:px-6 sm:pb-6 border-t border-neutral-100"><GuidePhotoCredit photo={cover.photo} caption /></div>}
                   </article>
                 );
               })}

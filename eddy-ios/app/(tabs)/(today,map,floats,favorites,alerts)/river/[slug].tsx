@@ -1359,8 +1359,6 @@ export default function RiverDetailScreen() {
           {river.lengthMiles ? ` · ${Math.round(river.lengthMiles)} river miles` : ''}
         </Text>
 
-        {river.floatTip ? <Text style={[styles.hazardBody, { color: colors.textMuted, marginBottom: 16 }]}>{river.floatTip}</Text> : null}
-
         {/* ── Which gauge everything below is about ─────────────
             ABOVE THE CARD, not buried inside it. It used to sit under the
             reading scale, on the reasoning that the primary gauge's number is

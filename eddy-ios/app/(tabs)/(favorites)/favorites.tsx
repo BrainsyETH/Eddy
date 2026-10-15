@@ -1,46 +1,7 @@
-// eddy-ios/app/(tabs)/favorites.tsx
-// Starred rivers, from the local-first store. Works with no account and no
-// network — see src/hooks/useStarredRivers.tsx for why that matters.
-//
-// The store is the source of truth for WHICH rivers appear. It cannot be the
-// source of truth for their condition: it only holds an id, a name and a slug,
-// which is why this screen used to print the raw slug as a subtitle. The one
-// list of rivers a user explicitly curated was the only list in the app with no
-// condition on it at all.
-//
-// So conditions are an ENRICHMENT, not a dependency. /api/rivers is fetched
-// opportunistically and matched by id; if it fails — offline at a put-in, which
-// is the case this screen exists for — the rows still render from the store with
-// an honest "conditions unavailable" note instead of vanishing.
-//
-// ── A favourite gets the card, not the row ──────────────────────────────────
-// Starred rivers render as FavoriteRiverCard rather than the compact RiverRow
-// the Search tab uses, and the difference is the band track under each reading.
-// This screen holds three or four rivers somebody chose on purpose and comes
-// back to in order to check on them; answering that with "944 cfs · Good" made
-// them do the interpreting. The header of that component has the longer argument.
-//
-// ── This screen makes TWO requests, and that is the point ───────────────────
-// It used to make N+2: /api/rivers, /api/gauges, and then one
-// /api/rivers/[slug]/outlook per starred river to put Eddy's bottom line on
-// each card. Six-at-a-time batching, an epoch counter and an answered-slug ref
-// existed solely to keep that fan-out from opening twenty sockets on one bar of
-// LTE — which is the connection this screen is designed around.
-//
-// The track replaced the prose, and every input it needs was already in the
-// /api/gauges response: each gauge carries the threshold ladder per river it
-// grades. So the fan-out and all of its machinery are gone.
-//
-// ── The prose is back, and the count of requests did not change ─────────────
-// One LINE of it, from /api/eddy-updates — a single batched call carrying an
-// entry for every river, which the Today tab already makes and which is now
-// shared through useEddyUpdates. What was expensive was asking per river, not
-// asking at all, so nothing about the paragraph above is undone by this.
-//
-// It is the free summary, never the gated report: the card takes an EddySays,
-// whose type has no field the paid quote could arrive in. The long version is
-// still on the river screen, one tap away, where there is room for it — and
-// after this it is one tap away for everybody rather than for subscribers.
+// Favorites are local-first: stored names remain usable when conditions
+// cannot load. River cards use the existing /api/gauges catalog for compact
+// reading pills at every linked station, without per-river request fan-out.
+// Until that catalog arrives, /api/rivers supplies the headline fallback.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { FlatList, Pressable, RefreshControl, StyleSheet, Text, View } from 'react-native';
@@ -62,12 +23,11 @@ import { DamRow } from '@/components/dam/DamRow';
 import { SwipeRow } from '@/components/SwipeRow';
 import { rememberGauge, seedFromMapGauge, seedFromStar } from '@/lib/gaugeSeed';
 import { useStarredRivers } from '@/hooks/useStarredRivers';
-import { useEddyUpdates } from '@/hooks/useEddyUpdates';
-import { selectEddySays } from '@/lib/eddySays';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { agedIndex, envelope, effectiveReadingAgeHours, type CacheEnvelope } from '@/lib/offline-cache';
 import { onForeground } from '@/lib/foreground';
 import { createLatestRequest } from '@/lib/latestRequest';
+import { favoriteGaugeReadings } from '@/lib/favoriteGaugeReadings';
 
 /**
  * The ladder a river's own reading is graded on, out of the gauge list.
@@ -216,18 +176,11 @@ function FavoritesContent() {
     };
   }, [load]);
 
-  // Shared with every other surface; this screen initiates like the others and
-  // pays nothing extra when the Today tab has already filled the cache.
-  const { updates: eddyUpdates, refresh: refreshEddyUpdates } = useEddyUpdates();
-
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
-    // The prose one always reaches the server, and never clears what is on
-    // screen on its way — a failed pull on a dead connection leaves the lines
-    // exactly as they were. See clauses 3 and 4 in useEddyUpdates.ts.
-    await Promise.all([load(), refreshEddyUpdates()]);
+    await load();
     setRefreshing(false);
-  }, [load, refreshEddyUpdates]);
+  }, [load]);
 
   const byId = useMemo(
     () => new Map((rivers ?? []).map((river) => [river.id, river])),
@@ -238,21 +191,6 @@ function FavoritesContent() {
     [gauges],
   );
   const damById = useMemo(() => new Map(dams.map((dam) => [dam.id, dam])), [dams]);
-
-  // "3 rivers · 1 gauge", and never a kind with a zero — a mixed list should
-  // describe what is in it, not enumerate what is not.
-  const favoritesSummary = useMemo(() => {
-    const riverCount = starred.filter((s) => s.kind === 'river').length;
-    const gaugeCount = starred.filter((s) => s.kind === 'gauge').length;
-    const damCount = starred.filter((s) => s.kind === 'dam').length;
-    return [
-      riverCount > 0 ? `${riverCount} river${riverCount === 1 ? '' : 's'}` : null,
-      gaugeCount > 0 ? `${gaugeCount} gauge${gaugeCount === 1 ? '' : 's'}` : null,
-      damCount > 0 ? `${damCount} dam${damCount === 1 ? '' : 's'}` : null,
-    ]
-      .filter(Boolean)
-      .join(' · ');
-  }, [starred]);
 
   /**
    * The chips, and only the kinds actually held.
@@ -300,12 +238,6 @@ function FavoritesContent() {
               <Text style={[styles.title, { color: colors.text }]}>Favorites</Text>
               <AccountIconButton />
             </View>
-            <Text style={[styles.subtitle, { color: colors.textMuted }]}>
-              {starred.length === 0
-                ? 'Favorites are saved on this device'
-                : favoritesSummary}
-            </Text>
-
             {refreshFailed || riversFromCache ? (
               <View style={styles.offlineRow}>
                 <ControlIcon name="cloud-offline-outline" size={14} color={colors.textMuted} />
@@ -476,10 +408,15 @@ function FavoritesContent() {
       return (
         <FavoriteRiverCard
           river={river}
+          gaugeReadings={favoriteGaugeReadings(gauges ?? [], river.slug)}
+          onOpenGauge={(gauge) => {
+            if (!gauge.usgsSiteId) return;
+            rememberGauge(seedFromMapGauge(gauge));
+            router.push(`/gauge/${encodeURIComponent(gauge.usgsSiteId)}`);
+          }}
           thresholds={rated?.link ?? null}
           // WHICH STATION THE NUMBER CAME FROM. See the card.
           gaugeName={rated?.gauge.name ?? null}
-          says={selectEddySays(eddyUpdates?.[item.slug])}
           onPress={() => router.push(`/river/${item.slug}`)}
           onToggleStar={() => toggleStar(item)}
         />
@@ -518,7 +455,6 @@ const styles = StyleSheet.create({
   header: { paddingHorizontal: 20, paddingTop: 12, paddingBottom: 16 },
   title: { ...textStyles.pageTitle },
   titleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  subtitle: { ...t.sm, fontFamily: fonts.body, marginTop: 4 },
   // The glyph and its sentence on one line, in the caption size: a marker,
   // not a banner. `flex: 1` on the text so a wrap happens under itself rather
   // than pushing the icon to a second line.

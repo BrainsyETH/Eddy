@@ -17,7 +17,9 @@
 // mid-float switches streams without a second one ever running.
 //
 // Ending the float stops both. Nothing else does: switching tabs or leaving the
-// Float Mode screen leaves tracking exactly as it was.
+// Float Mode screen leaves tracking exactly as it was. Ending DURING a start is
+// covered too: background starts and stops run in call order, and a queued
+// start re-checks that the float is still wanted before it begins.
 
 import { useEffect, useRef } from 'react';
 import { AppState } from 'react-native';
@@ -50,12 +52,18 @@ export function FloatTracker() {
       if (busy.current) return;
       busy.current = true;
       try {
-        if (await startBackgroundTracking()) {
+        // `() => !cancelled`: a float ended while this start waited its turn
+        // is not started at all. Starts and stops are queued in call order
+        // (backgroundTracking.ts), so End's stop also runs after any start
+        // already under way — GPS cannot outlive the float.
+        if (await startBackgroundTracking(() => !cancelled)) {
+          if (cancelled) return;
           // The task is the stream now; drop any foreground watch.
           watch.current?.remove();
           watch.current = null;
           return;
         }
+        if (cancelled) return;
         // "Always" was withdrawn mid-float (or never given): the task cannot
         // deliver while locked any more, so it must not keep running beside
         // the foreground watch as a second stream.
