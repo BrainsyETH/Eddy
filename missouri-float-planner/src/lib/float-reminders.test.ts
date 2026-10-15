@@ -319,7 +319,7 @@ test('reaching the take-out offers Finish once, and nothing along the river afte
   assert.ok(session.arrivedAt != null);
   const due = dueReminders(session, index, t - 10_000);
   assert.deepEqual(due.map((r) => r.id), [ARRIVED_PROMPT_ID]);
-  assert.equal(reminderCopy(due[0]).title, 'You’ve reached pulltite');
+  assert.equal(reminderCopy(due[0]).title, 'Arriving at pulltite');
   session = settleDelivery(markPending(session, [ARRIVED_PROMPT_ID]), [ARRIVED_PROMPT_ID], [ARRIVED_PROMPT_ID]);
   ({ session, t } = paddle(session, index, 6_000, 6_100, t, 0.5));
   assert.deepEqual(dueReminders(session, index, t - 10_000), []);

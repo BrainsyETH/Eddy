@@ -1038,7 +1038,12 @@ blur:
   (`docs/float-live-activity-plan.md`). The map frames the chosen stretch
   with the access points and known hazards along it; the screen shows the next
   hazard, an arrival time and a sunset warning. Serious hazards, the approaching
-  take-out and arrival are notified. A float left running ends itself an hour
+  take-out and arrival are notified. The arrival notification says "Arriving
+  at <take-out>" at the existing 0.1-river-mile threshold, which also accepts
+  positions past the take-out. Both ordinary and off-map arrival notifications
+  ask the paddler to finish once off the water; neither confirms a landing.
+  Off-map copy explains the remaining offset from the river's closest mapped
+  point. A float left running ends itself an hour
   after arrival or 45 minutes after leaving the river (`src/lib/floatEnding.ts`),
   never for stopping or losing signal, and only on fresh evidence of being
   away. With Always, significant location changes and a wake geofence

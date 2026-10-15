@@ -219,7 +219,12 @@ are pending checks, not evidence of a device pass.
 
 - [ ] **Arrival, hazards and ending (#1448 follow-up)** on a physical iPhone,
       phone locked, no cell service: "<take-out> take-out is approaching" about
-      half a mile out; "You've reached <take-out>" on arrival, once; a serious
+      half a mile out; "Arriving at <take-out>" within 0.1 river mile remaining
+      (including a first confirmed fix past the take-out), once, with "Finish
+      your float in Eddy once you’re off the water to stop tracking and save
+      your recap." Check neighboring landings at Turner Mill and
+      Onondaga/Ozark Outdoors: the notice names the chosen take-out and does
+      not claim the paddler has landed. A serious
       known hazard (danger, warning, or a required portage) announced a quarter
       mile out, with the Next hazard card on screen; the recap says the take-out
       was reached and ends at arrival even when Finish is tapped later or away
@@ -228,7 +233,12 @@ are pending checks, not evidence of a device pass.
       ten minutes, ended at 45), with a "Float ended" notice that opens the
       recap. A long lunch on the bank must NOT end it, nor a GPS gap followed
       by returning to the river. An off-map take-out (Buffalo City) must not
-      be recorded as reached. The arrival time and
+      be recorded as reached. Its "You’re near <take-out>" notice explains the
+      offset beyond the river's closest point on Eddy's map and also says to
+      finish once off the water, without claiming the closest point has already
+      been reached. The existing off-map 60-minute auto-end behavior remains
+      a separate follow-up; this wording does not extend the mapped route.
+      The arrival time and
       sunset warning read right late in the day. Pure rules:
       `float-reminders.test.ts`, `float-session.test.ts`.
 - [ ] **Closing Eddy mid-float** with Always granted: swipe Eddy away, keep
