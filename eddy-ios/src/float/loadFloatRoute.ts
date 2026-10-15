@@ -21,7 +21,7 @@ import type { MapAccessPoint } from '@eddy/types';
 import { readTripPackage } from './tripDownloads';
 
 export type LoadedRoute =
-  | { ok: true; route: FloatRoute; index: RouteIndex; accessPoints?: readonly MapAccessPoint[] }
+  | { ok: true; riverId?: string; route: FloatRoute; index: RouteIndex; accessPoints?: readonly MapAccessPoint[] }
   | { ok: false; reason: RouteProblem | 'offline' };
 
 export async function loadFloatRoute(slug: string, signal?: AbortSignal, tripKey?: string | null): Promise<LoadedRoute> {
@@ -33,6 +33,7 @@ export async function loadFloatRoute(slug: string, signal?: AbortSignal, tripKey
       // A package saved before hazards were carried takes them from the cache.
       if (built.ok) return {
         ok: true,
+        riverId: cached?.payload.river?.id,
         route: withHazards(pkg.route, built.index, cached?.payload.hazards),
         index: built.index,
         accessPoints: cached?.payload.accessPoints,
@@ -60,7 +61,7 @@ export async function loadFloatRoute(slug: string, signal?: AbortSignal, tripKey
 
   const loaded = routeFromRiver(river, accessPoints, fetchedAt, cached?.payload.hazards);
   // Picker photos stay separate from the route saved with every GPS update.
-  return loaded.ok ? { ...loaded, accessPoints } : loaded;
+  return loaded.ok ? { ...loaded, riverId: river.id, accessPoints } : loaded;
 }
 
 /** What to tell someone whose float cannot start, in their terms. */

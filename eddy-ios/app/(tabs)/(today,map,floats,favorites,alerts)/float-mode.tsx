@@ -200,7 +200,7 @@ export default function FloatModeScreen() {
         onPress: () => {
           endingHere.current = true;
           void cancelUnstartedFloat().then((cancelled) => {
-            if (cancelled) router.replace(session.kind === 'quick' ? '/float-start' : '/float-home');
+            if (cancelled) router.replace({ pathname: '/float-start', params: { boatType: session.boatType ?? undefined } });
             else endingHere.current = false;
           });
         },

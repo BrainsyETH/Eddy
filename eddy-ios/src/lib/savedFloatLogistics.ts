@@ -3,6 +3,8 @@ import type { FloatPlan, Hazard, MapAccessPoint } from '@eddy/types';
 /** Deliberately excludes live readings, float-time estimates and shuttle times. */
 export interface SavedFloatLogistics {
   savedAt: string;
+  /** Logistics, not a cached estimate; older saves can omit it. */
+  boatType?: string;
   putIn: Pick<MapAccessPoint, 'id' | 'name' | 'riverMile' | 'coordinates' | 'isPublic' | 'feeRequired' | 'description'>;
   takeOut: SavedFloatLogistics['putIn'];
   hazards: Hazard[];
@@ -24,6 +26,7 @@ export function savedFloatLogistics(plan: FloatPlan, now = new Date().toISOStrin
   const hazardsUnavailable = plan.hazardsUnavailable === true;
   return {
     savedAt: now,
+    boatType: plan.vessel?.slug,
     putIn: point(plan.putIn), takeOut: point(plan.takeOut),
     hazards: (hazardsUnavailable ? retained?.hazards ?? [] : plan.hazards).map((hazard) => ({ ...hazard })),
     damsBelowTakeOut: (hazardsUnavailable ? retained?.damsBelowTakeOut ?? [] : plan.damsBelowTakeOut ?? []).map(dam => ({ ...dam })),

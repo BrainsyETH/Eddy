@@ -69,7 +69,7 @@ export interface FloatMapProps {
   /** Known hazards on the stretch. */
   hazards: RouteHazard[];
   start: (FloatMapEnd & { riverMile: number | null }) | null;
-  takeOut: FloatMapEnd & { riverMile: number };
+  takeOut: (FloatMapEnd & { riverMile: number }) | null;
   position: LngLat | null;
   /** The position is not live: draw it, but faded. */
   positionDimmed: boolean;
@@ -155,7 +155,7 @@ function MapboxFloatMap({
               paddingRight: FRAME_PADDING,
             },
           }
-        : { centerCoordinate: takeOut.lngLat, zoomLevel: 12 },
+        : { centerCoordinate: takeOut?.lngLat ?? line[0], zoomLevel: 12 },
   );
 
   // Follow the confirmed position while following is on. The first position
@@ -228,11 +228,11 @@ function MapboxFloatMap({
               },
             ]
           : []),
-        {
+        ...(takeOut ? [{
           type: 'Feature' as const,
           properties: { end: 'take-out', label: `Take-out · ${takeOut.name}`, title: takeOut.name, sub: 'Take-out', mile: takeOut.riverMile },
           geometry: { type: 'Point' as const, coordinates: takeOut.lngLat },
-        },
+        }] : []),
       ],
     }),
     [start, takeOut],
@@ -443,8 +443,10 @@ function RiverOnlyMap({ line, section, stops, hazards, start, takeOut, position,
             />
           ))}
           {start ? <Circle {...drawing.point(start.lngLat)} r={7} fill={colors.interactive} stroke="#ffffff" strokeWidth={2} /> : null}
-          <Circle {...drawing.point(takeOut.lngLat)} r={10} fill={colors.accent} stroke="#ffffff" strokeWidth={3} />
-          <Circle {...drawing.point(takeOut.lngLat)} r={3.5} fill="#ffffff" />
+          {takeOut ? <>
+            <Circle {...drawing.point(takeOut.lngLat)} r={10} fill={colors.accent} stroke="#ffffff" strokeWidth={3} />
+            <Circle {...drawing.point(takeOut.lngLat)} r={3.5} fill="#ffffff" />
+          </> : null}
           {position && !preview ? (
             <Circle {...drawing.point(position)} r={9} fill="#1E6FD9" opacity={positionDimmed ? 0.4 : 1} stroke="#ffffff" strokeWidth={3} />
           ) : null}

@@ -1178,42 +1178,60 @@ for why safety data can never sit behind a wall.
 
 ### Starting a float
 
-`float-start.tsx` checks location permission without prompting on entry. With
-permission, it locates automatically; otherwise one short card offers the
-system prompt or Settings. Manual river selection remains available, but
-starting tracking still requires precise foreground location and enabled
-Location Services. A GPS timeout does not block manual setup. Returning from
-Settings rechecks permission without discarding the trip.
+Every entry opens **Ready to float** in its originating tab. A plan fills in
+river, named put-in, take-out and boat; the Floats button starts with an empty
+river and take-out. River, From and Take-out are editable fields. Pickers are
+sheets over the same draft, and cancelling one leaves the draft intact. From
+can be **From my location** or a named access in either path. Boat is editable
+inline: the plan wins, otherwise the last Find a Route/readiness choice wins,
+with kayak as the default. It is never a separate required step.
 
-Quick starts confirm a suggested river, pick a take-out, then review one
-summary card. Take-out choices show the access-point photo already available in
-the river data, with a place icon if the photo is missing or fails to load.
-Before Eddy finds the paddler on the river, take-outs are listed
-by river mile with a "Find me" action; afterwards, by distance ahead. Choosing
-a custom take-out point is not supported: the end must be a known access point,
-because progress is measured between calibrated access points. Suggestions use straight-line distance to access points, never
-claim that the nearest river is the correct one, and keep the full list behind
-search. Only a fix under two minutes old, with accuracy within 100 m and within
-150 m of the chosen river line, narrows take-outs downstream or supplies
-preview miles. This is a preview, not a committed tracker position. Quick
-starts learn time left after tracking begins; saved trips can show the supplied
-planner's moving-time estimate, with stops explicitly excluded.
+Planning and saved-detail buttons say **Float this route**. Only readiness's
+**Start tracking** commits a new session. Every entry resumes an existing float
+directly, without another confirmation screen. Setup is replaced on success;
+native Back returns to the actual origin and recording continues. Cold links
+are owned by Floats. Float Mode, options and recap share the same tab history.
+Standalone planners are removed when handing off, so Back cannot reopen an
+empty, dismissed planner. Persisted session `saved`/`quick` kinds remain for
+recovery and distance semantics, not as separate setup experiences.
 
-The steps are in `app/(tabs)/(floats)/float-start.tsx`; their pieces (river
-picker, location card, background sheet, `useStart`) are in `src/float/start/`.
-At Start, a quick start gets a fresh fix if the preview has aged out, so a
-take-out behind the paddler is still caught. Each choice pushes a native stack page at the same `/float-start` URL. Back and
-swipe return to the previous choice; successful start removes only this setup's
-pages. Saved trips open the summary directly, show distance to the put-in when
-available, and can download their known route without location. Quick downloads
-need a usable on-river fix. Both retain the offline card's full readiness states.
+Readiness checks foreground location without prompting; with permission it
+obtains a preview fix. Its one permission card offers the system prompt,
+Precise Location, or Settings as appropriate. Browsing never automatically asks.
+The GPS line distinguishes permission, finding a fix, GPS ready, and a fix that
+isn't on the chosen river. Only fixes under two minutes old, within 100 m
+accuracy and within 150 m of the chosen river supply a current starting mile.
+No preview fix seeds recording or adds travelled miles. A named put-in anchors
+route progress; recorded mileage always comes from recorded fixes. Permission
+and Location Services are required; a GPS timeout does not prevent starting.
+Locked-phone recording uses the native background activity session with When
+In Use permission (ADR 0014); there is no Always/background permission sheet.
 
-The background-location explanation is a native sheet shown at Start, once per
-installation, unless Always is already granted. It offers foreground-only
-tracking too. It never promises a specific iOS prompt: Allow Once can silently
-decline a background request. Float Mode then shows the short locked-phone
-tracking notice. No session is created until the permission flow finishes.
-Device verification of these screens and permission transitions is unconfirmed.
+Both start choices use `/api/route-estimate` and the selected boat's moving
+speed, with **Moving time · stops not included**. A location start sends its
+river mile (not GPS coordinates) inside two validated access points; the server
+uses that mile for gauge selection and remaining distance, and does not reuse
+a published time for the whole stretch. Named starts use the same model as the
+planner. Unknown, withheld, stale, offline or failed estimates say **Eddy will
+learn your pace** and never block tracking. Estimates are short-lived and
+cancelled on edits; results from another draft cannot appear on the current one.
+An older server that doesn't acknowledge the partial starting mile is ignored.
+
+The map, distance, estimate and offline section derive from the same draft.
+Changing the river clears both ends; moving the start beyond the selected
+take-out clears that take-out. Pickers share the planner's photo cards and label
+river miles separately from miles from the put-in or current location. The
+Offline map section is always present, with a reason when the stretch isn't
+known. Only the original, unchanged stretch reuses its saved plan's download
+and share code. Edited stretches and changed GPS origins get separate local
+packages; an old download cannot be labelled ready for a new stretch.
+
+`app/(tabs)/(today,map,floats,favorites,alerts)/float-start.tsx` owns the draft;
+`src/float/start/` owns river selection, permissions, estimates and committing.
+Device verification of presentation, Back/swipe and permission transitions is
+unconfirmed. Native QA must include all five tab origins, saved and unsaved
+starts, both From choices, edits during an estimate/download, offline starts,
+large text, GPS timeout, and permission changes in Settings.
 
 Remote config and the forced-upgrade gate are wired (`/api/app-config`), and both
 fail open: an unreachable config means no upgrade requirement and all features

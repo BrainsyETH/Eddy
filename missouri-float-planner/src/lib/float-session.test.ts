@@ -31,7 +31,7 @@ import {
   type FloatSession,
 } from '../../../eddy-ios/src/lib/floatSession';
 import type { LngLat, PositionFix, RouteIndex } from '@eddy/geo';
-import { START_FIX_MAX_AGE_MS, usableStartFix, startRiverPosition } from '../../../eddy-ios/src/lib/floatStart';
+import { START_FIX_MAX_AGE_MS, usableStartFix, startRiverPosition, sameFloatStretch, floatSetupKey, currentMovingSpeed } from '../../../eddy-ios/src/lib/floatStart';
 
 const MILE = 1609.344;
 const LAT0 = 37.0;
@@ -663,4 +663,30 @@ test('arrival counts from now only while live; stale holds it at the last known 
   assert.equal(a.anchor.asOf, a.view.positionAt);
   assert.match(arrivalCopy(a.outlook, fmt, a.anchor.asOf).line, /as of \d\d:\d\d, your last known spot/);
   assert.doesNotMatch(arrivalCopy(arrivalOutlook(30, liveAt, takeOut)!, fmt).line, /as of/);
+});
+
+
+test('editing a start or take-out detaches saved route identity and offline geometry', () => {
+  const planned = { riverSlug: 'current', putInId: 'akers', takeOutId: 'pulltite', boatType: 'canoe' };
+  assert.equal(sameFloatStretch(planned, { ...planned, boatType: 'kayak' }), true);
+  for (const edited of [{ ...planned, putInId: undefined }, { ...planned, putInId: 'cedar' },
+    { ...planned, takeOutId: 'two-rivers' }, { ...planned, riverSlug: 'jacks-fork' }]) {
+    assert.equal(sameFloatStretch(planned, edited), false);
+    assert.notEqual(floatSetupKey(planned), floatSetupKey(edited));
+  }
+  const here = { ...planned, putInId: undefined };
+  assert.notEqual(floatSetupKey(here, [-91, 37]), floatSetupKey(here, [-91, 37.01]));
+  assert.notEqual(floatSetupKey(here, [-91, 37]), floatSetupKey(here, null));
+});
+
+test('readiness never shows a withheld, typical, expired, or invalid moving speed', () => {
+  const result = { estimateBasis: 'today', estimatedAt: new Date(T0).toISOString(), floatTime: { movingSpeedMph: 2.5 } };
+  assert.equal(currentMovingSpeed(result, T0), 2.5);
+  assert.equal(currentMovingSpeed(result, T0 + 300_000), null);
+  assert.equal(currentMovingSpeed(result, T0 - 1), null);
+  assert.equal(currentMovingSpeed({ ...result, estimateBasis: 'typical' }, T0), null);
+  assert.equal(currentMovingSpeed({ ...result, floatTime: null }, T0), null);
+  for (const speed of [0, -1, Infinity, NaN]) {
+    assert.equal(currentMovingSpeed({ ...result, floatTime: { movingSpeedMph: speed } }, T0), null);
+  }
 });

@@ -19,8 +19,8 @@ export const DETAIL_TITLES: Record<string, string> = {
   // Settings is no longer a tab: Today and Favorites push it from their
   // account button, so it is a shared detail like the rest.
   profile: 'Settings',
-  // Float Mode lives in the Floats tab; see COLD_TAB_OWNERS.
-  'float-start': 'Start a float',
+  // Warm starts stay in their originating tab; cold links belong to Floats.
+  'float-start': 'Ready to float',
   'find-float': 'Find a Route',
   'float-mode': 'Float Mode',
   'float-options': 'Float options',

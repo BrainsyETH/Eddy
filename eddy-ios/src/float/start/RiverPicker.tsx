@@ -8,14 +8,12 @@ import { ControlIcon } from '@/components/ControlIcon';
 import { suggestRivers } from '@/lib/floatSession';
 import { readBestIndex } from '@/lib/riverCache';
 import { useTheme } from '@/theme/ThemeProvider';
-import { LocationGate } from './LocationGate';
 import type { StartLocation } from './useStart';
 import { Card, PrimaryButton, RiverName, Row, Shell, TextButton, styles } from './ui';
 
 export function RiverPicker({ location, onChoose }: { location: StartLocation; onChoose: (slug: string) => void }) {
   const { colors } = useTheme();
   const [rivers, setRivers] = useState<RiverListItem[] | null>(null);
-  const [manual, setManual] = useState(false);
   const [searching, setSearching] = useState(false);
   const [query, setQuery] = useState('');
   useEffect(() => {
@@ -40,7 +38,6 @@ export function RiverPicker({ location, onChoose }: { location: StartLocation; o
         : [],
     [rivers, location.fix],
   );
-  const showList = manual || location.state === 'ready' || Boolean(location.error);
   const first = suggestions[0];
   const filtered = useMemo(
     () =>
@@ -49,14 +46,6 @@ export function RiverPicker({ location, onChoose }: { location: StartLocation; o
         .sort((a, b) => a.name.localeCompare(b.name)),
     [rivers, query],
   );
-
-  if (!showList)
-    return (
-      <Shell>
-        <LocationGate location={location} />
-        <TextButton label="Choose a river instead" onPress={() => setManual(true)} />
-      </Shell>
-    );
 
   return (
     <Shell>
@@ -70,9 +59,9 @@ export function RiverPicker({ location, onChoose }: { location: StartLocation; o
         <Text style={[styles.body, { color: colors.textMuted }]}>{location.error}</Text>
       ) : null}
       <Text accessibilityRole="header" style={[styles.title, { color: colors.text }]}>
-        {first && !manual && !searching ? 'Is this your river?' : 'Which river are you on?'}
+        {first && !searching ? 'Is this your river?' : 'Which river are you on?'}
       </Text>
-      {first && !manual && !searching ? (
+      {first && !searching ? (
         <>
           <Card>
             <RiverName name={first.name} large />
@@ -116,7 +105,7 @@ export function RiverPicker({ location, onChoose }: { location: StartLocation; o
           style={[styles.searchInput, { color: colors.text }]}
         />
       </View>
-      {searching || manual || !first ? (
+      {searching || !first ? (
         rivers == null ? (
           <ActivityIndicator color={colors.interactive} />
         ) : (
@@ -134,11 +123,10 @@ export function RiverPicker({ location, onChoose }: { location: StartLocation; o
           </Card>
         )
       ) : null}
-      {!location.busy ? (
+      {!location.busy && location.state === 'ready' ? (
         <TextButton
-          label={location.state === 'ready' ? 'Find me again' : 'Use my location'}
+          label="Find me again"
           onPress={() => {
-            setManual(false);
             void location.act();
           }}
         />

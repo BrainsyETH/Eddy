@@ -31,7 +31,7 @@ export function newSessionId() {
   return `float-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
-export function useStart(params: Params, loaded: LoadedRoute | null, location: StartLocation) {
+export function useStart(params: Params & { previewStartMile?: number }, loaded: LoadedRoute | null, location: StartLocation) {
   const archive = useFloatArchive();
   const router = useRouter();
   const navigation = useNavigation();
@@ -92,7 +92,7 @@ export function useStart(params: Params, loaded: LoadedRoute | null, location: S
           (choice) => choice.id === params.takeOutId,
         )
       ) {
-        setError('This take-out is behind you. Go back to choose one downstream.');
+        setError('This take-out is behind you. Choose one downstream.');
         return;
       }
       const speed = Number(params.plannerMph);
@@ -104,7 +104,9 @@ export function useStart(params: Params, loaded: LoadedRoute | null, location: S
         index: loaded.index,
         putInId: params.putInId,
         takeOutId: params.takeOutId ?? '',
-        plannerMph: saved && Number.isFinite(speed) && speed > 0 ? speed : null,
+        plannerMph: Number.isFinite(speed) && speed > 0 &&
+          (saved || (hit && params.previewStartMile != null && Math.abs(hit.riverMile - params.previewStartMile) < 0.1))
+          ? speed : null,
         boatType: params.boatType ?? null,
         now: Date.now(),
       });
@@ -142,18 +144,18 @@ export function useStart(params: Params, loaded: LoadedRoute | null, location: S
 }
 
 export function useRiverRoute(slug?: string, tripKey?: string): LoadedRoute | null {
-  const [state, setState] = useState<{ slug: string; result: LoadedRoute } | null>(null);
+  const [state, setState] = useState<{ slug: string; tripKey?: string; result: LoadedRoute } | null>(null);
   useEffect(() => {
     if (!slug) return;
     const controller = new AbortController();
     void loadFloatRoute(slug, controller.signal, tripKey)
       .then((result) => {
-        if (!controller.signal.aborted) setState({ slug, result });
+        if (!controller.signal.aborted) setState({ slug, tripKey, result });
       })
       .catch(() => {
-        if (!controller.signal.aborted) setState({ slug, result: { ok: false, reason: 'no-river-data' } });
+        if (!controller.signal.aborted) setState({ slug, tripKey, result: { ok: false, reason: 'no-river-data' } });
       });
     return () => controller.abort();
   }, [slug, tripKey]);
-  return state && state.slug === slug ? state.result : null;
+  return state && state.slug === slug && state.tripKey === tripKey ? state.result : null;
 }

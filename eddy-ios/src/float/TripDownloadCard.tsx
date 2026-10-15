@@ -188,7 +188,14 @@ export function TripDownloadCard({
     ]);
   }, [protectedByActiveFloat, tripKey, refresh]);
 
-  if (!available || fallbackChunks.length === 0) return null;
+  if (!available || fallbackChunks.length === 0) return compact ? (
+    <View style={[styles.card, { backgroundColor: colors.card }, elevation(1)]}>
+      <Text style={[styles.title, { color: colors.text }]}>Offline map · Optional</Text>
+      <Text style={[styles.note, { color: colors.textMuted }]}>{!available
+        ? 'Offline downloads aren’t available in this version of Eddy.'
+        : 'Available once Eddy knows the full stretch.'}</Text>
+    </View>
+  ) : null;
   const compactOffer = compact && state?.kind === 'none' && !downloading;
 
   return (

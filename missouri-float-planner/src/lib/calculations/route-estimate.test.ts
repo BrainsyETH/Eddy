@@ -179,3 +179,36 @@ test('route status distinguishes missing observations on rated and unrated gauge
     assert.equal(result.estimateBasis, 'typical');
   }
 });
+
+
+test('location starts use their own distance and gauge mile, without a full-stretch published time', async () => {
+  const f = routeFixture({ miles: 8, published: { min: 180, max: 300 }, condition: 'good' });
+  const partial = await f.estimate('today', 3);
+  assert.equal(partial.distanceMiles, 5);
+  assert.ok(partial.floatTime?.movingSpeedMph);
+  assert.equal(partial.floatTime?.isEstimate, true);
+  assert.ok(!f.calls.includes('get_segment_float_time'));
+  const gauge = f.rpcCalls.find(call => call.name === 'get_river_condition_segment');
+  assert.equal(gauge?.args.p_put_in_mile, 3);
+  assert.equal(gauge?.args.p_put_in_point, null);
+  const whole = await routeFixture({ miles: 8, condition: 'good' }).estimate();
+  assert.equal(partial.floatTime?.movingSpeedMph, whole.floatTime?.movingSpeedMph);
+});
+
+test('location starts reject invalid or out-of-stretch miles before asking for water', async () => {
+  for (const mile of [-1, 8, 9, NaN, Infinity]) {
+    const f = routeFixture();
+    await assert.rejects(f.estimate('today', mile), error => error instanceof RouteEstimateError && error.status === 400);
+    assert.ok(!f.calls.includes('get_river_condition_segment'));
+  }
+  assert.equal((await routeFixture().estimate('today', 0)).distanceMiles, 8);
+});
+
+test('location estimates retain flood, tailwater, and endpoint guards', async () => {
+  for (const options of [{ condition: 'dangerous' as const }, { riverType: 'dam_tailwater' }]) {
+    const result = await routeFixture(options).estimate('today', 3);
+    assert.equal(result.floatTime, null);
+    assert.ok(result.withholdReason);
+  }
+  await assert.rejects(routeFixture({ wrongRiver: true }).estimate('today', 3), /not on this river/);
+});

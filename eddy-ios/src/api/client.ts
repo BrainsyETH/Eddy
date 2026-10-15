@@ -1234,6 +1234,32 @@ export async function fetchFloatPlan(
   return data.plan;
 }
 
+/** The shared moving model, without a shuttle or a saved plan. */
+export async function fetchFloatStartEstimate(params: {
+  riverId: string; startId: string; endId: string; boatType: string; startRiverMile?: number;
+}, signal?: AbortSignal): Promise<{
+  startRiverMile?: number | null;
+  distanceMiles: number;
+  floatTime: { movingSpeedMph?: number | null } | null;
+  estimateBasis: 'today' | 'typical';
+  estimatedAt: string;
+}> {
+  const { vesselTypes } = await get<{ vesselTypes: { id: string; slug: string }[] }>('/api/vessel-types', signal);
+  const vessel = vesselTypes.find(v => v.slug === params.boatType);
+  if (!vessel) throw new Error('Boat unavailable');
+  const query = new URLSearchParams({ riverId: params.riverId, startId: params.startId,
+    endId: params.endId, vesselTypeId: vessel.id });
+  if (params.startRiverMile != null) query.set('startRiverMile', String(params.startRiverMile));
+  const result = await get<{
+    startRiverMile?: number | null; distanceMiles: number;
+    floatTime: { movingSpeedMph?: number | null } | null;
+    estimateBasis: 'today' | 'typical'; estimatedAt: string;
+  }>(`/api/route-estimate?${query}`, signal);
+  // Older servers ignore unknown params. Never use their upstream estimate for a GPS start.
+  if (params.startRiverMile != null && result.startRiverMile !== params.startRiverMile) throw new Error('Location estimate unavailable');
+  return result;
+}
+
 /**
  * A previously saved plan, by its share code.
  *

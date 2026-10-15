@@ -107,8 +107,8 @@ async function readVessel(supabase: SupabaseClient<Database>, vesselTypeId?: str
  * Does not calculate shuttles, write caches or save plans.
  */
 export async function estimateRoute(supabase: SupabaseClient<Database>, {
-  riverId, startId, endId, vesselTypeId, mode = 'today',
-}: { riverId: string; startId: string; endId: string; vesselTypeId?: string | null; mode?: 'today' | 'typical' }, providers = { fetchGaugeReadings, fetchDailyStatistics }, context = createRouteEstimateContext(supabase)) {
+  riverId, startId, endId, vesselTypeId, startRiverMile, mode = 'today',
+}: { riverId: string; startId: string; endId: string; vesselTypeId?: string | null; startRiverMile?: number; mode?: 'today' | 'typical' }, providers = { fetchGaugeReadings, fetchDailyStatistics }, context = createRouteEstimateContext(supabase)) {
     // Get access points. The resolver is the only thing that decides whether a
     // float may be built from these two ids: it requires both to be approved,
     // both to be float endpoints (so a park with no ramp is refused rather than
@@ -135,16 +135,28 @@ export async function estimateRoute(supabase: SupabaseClient<Database>, {
     // Geometry may be cached by public callers; endpoint eligibility and all
     // flow/safety checks still execute for every estimate.
     const segmentData = await context.segment(startId, endId);
-    const distanceMiles = segmentData.distance_miles != null ? parseFloat(String(segmentData.distance_miles)) : NaN;
-    const putInMile = segmentData.start_river_mile != null ? parseFloat(String(segmentData.start_river_mile)) : NaN;
+    let distanceMiles = segmentData.distance_miles != null ? parseFloat(String(segmentData.distance_miles)) : NaN;
+    let putInMile = segmentData.start_river_mile != null ? parseFloat(String(segmentData.start_river_mile)) : NaN;
 
     if (isNaN(distanceMiles) || distanceMiles <= 0) {
       throw new RouteEstimateError('Could not calculate distance between access points', 500);
     }
 
+    // A location start is bounded by two validated access points. Use its own
+    // mile for gauge selection and remaining distance, never the upstream launch.
+    if (startRiverMile !== undefined) {
+      const endMile = Number(segmentData.end_river_mile);
+      if (!Number.isFinite(startRiverMile) || !Number.isFinite(putInMile) || !Number.isFinite(endMile) ||
+          startRiverMile < putInMile || startRiverMile >= endMile) {
+        throw new RouteEstimateError('Starting position is outside this float stretch', 400);
+      }
+      distanceMiles = endMile - startRiverMile;
+      putInMile = startRiverMile;
+    }
+
     // Get put-in coordinates for segment-aware gauge selection (fallback)
     // Use location_orig first — location_snap is snapped to simplified seed geometry
-    const putInCoords = (putIn.location_orig as { coordinates?: number[] } | null)?.coordinates
+    const putInCoords = startRiverMile !== undefined ? undefined : (putIn.location_orig as { coordinates?: number[] } | null)?.coordinates
       || (putIn.location_snap as { coordinates?: number[] } | null)?.coordinates;
 
     // Typical estimates are explicitly independent of today's water.
@@ -319,7 +331,7 @@ export async function estimateRoute(supabase: SupabaseClient<Database>, {
     // escalate the condition. A too-low in-span gauge gets a scraping warning.
 
     try {
-      const spanMinMile = Math.min(parseFloat(String(segmentData.start_river_mile)), parseFloat(String(segmentData.end_river_mile)));
+      const spanMinMile = putInMile;
       const spanMaxMile = Math.max(parseFloat(String(segmentData.start_river_mile)), parseFloat(String(segmentData.end_river_mile)));
 
       const { data: riverGaugeRows, error: spanGaugeError } = await supabase
@@ -424,7 +436,7 @@ export async function estimateRoute(supabase: SupabaseClient<Database>, {
 
     // Try to get known float time from float_segments table first
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: segmentTime } = await (supabase.rpc as any)('get_segment_float_time', {
+    const { data: segmentTime } = startRiverMile !== undefined ? { data: null } : await (supabase.rpc as any)('get_segment_float_time', {
       p_put_in_id: startId,
       p_take_out_id: endId,
       p_vessel_type: vesselType.slug,

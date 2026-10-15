@@ -1,5 +1,44 @@
 // Preview rules only. A preview fix never seeds the session's tracker or pace.
 import { locateOnRoute, type LngLat, type RouteIndex } from '@eddy/geo';
+import type { FloatRoute } from './floatSession';
+
+export interface FloatSetup {
+  riverSlug?: string;
+  putInId?: string;
+  takeOutId?: string;
+  boatType?: string;
+}
+
+/** Only an unchanged route may reuse a saved plan's package or share code. */
+export function sameFloatStretch(a: FloatSetup, b: FloatSetup): boolean {
+  return Boolean(a.riverSlug && a.putInId && a.takeOutId &&
+    a.riverSlug === b.riverSlug && a.putInId === b.putInId && a.takeOutId === b.takeOutId);
+}
+
+/** Includes the GPS origin. A revised stretch cannot inherit old tiles or estimates. */
+export function floatSetupKey(setup: FloatSetup, origin?: LngLat | null): string {
+  return [setup.riverSlug ?? '', setup.putInId ?? (origin ? origin.join(',') : 'location'), setup.takeOutId ?? ''].join('|');
+}
+
+/** Use an eligible upstream anchor to bound the server's partial-stretch estimate. */
+export function estimateStartId(route: FloatRoute, putInId: string | undefined, startMile: number | null): string | null {
+  if (putInId) return putInId;
+  if (startMile == null || !Number.isFinite(startMile)) return null;
+  return [...route.anchors].filter(a => a.endpoint && a.riverMile <= startMile)
+    .sort((a, b) => b.riverMile - a.riverMile)[0]?.id ?? null;
+}
+
+/** Never reuse a typical, withheld, expired, or future-dated result as current water. */
+export function currentMovingSpeed(result: {
+  estimateBasis: string;
+  estimatedAt: string;
+  floatTime: { movingSpeedMph?: number | null } | null;
+} | null, now: number): number | null {
+  if (!result || result.estimateBasis !== 'today') return null;
+  const age = now - Date.parse(result.estimatedAt);
+  const speed = result.floatTime?.movingSpeedMph;
+  return age >= 0 && age < 5 * 60_000 && speed != null && Number.isFinite(speed) && speed > 0 ? speed : null;
+}
 
 export interface StartFix {
   point: LngLat;
