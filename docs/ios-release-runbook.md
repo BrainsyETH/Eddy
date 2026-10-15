@@ -233,11 +233,11 @@ are pending checks, not evidence of a device pass.
       ten minutes, ended at 45), with a "Float ended" notice that opens the
       recap. A long lunch on the bank must NOT end it, nor a GPS gap followed
       by returning to the river. An off-map take-out (Buffalo City) must not
-      be recorded as reached. Its "You’re near <take-out>" notice explains the
-      offset beyond the river's closest point on Eddy's map and also says to
-      finish once off the water, without claiming the closest point has already
-      been reached. The existing off-map 60-minute auto-end behavior remains
-      a separate follow-up; this wording does not extend the mapped route.
+      be recorded as reached. Its "Take-out reminder: <take-out>" notice names
+      the chosen landing, with "Once you’re off the water, finish your float
+      in Eddy to save your recap." Verify that the off-water instruction is
+      visible in the collapsed Lock Screen notification and that the notice
+      gives no remaining distance or claim of proximity or arrival.
       The arrival time and
       sunset warning read right late in the day. Pure rules:
       `float-reminders.test.ts`, `float-session.test.ts`.

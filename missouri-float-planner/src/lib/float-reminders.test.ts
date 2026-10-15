@@ -319,10 +319,26 @@ test('reaching the take-out offers Finish once, and nothing along the river afte
   assert.ok(session.arrivedAt != null);
   const due = dueReminders(session, index, t - 10_000);
   assert.deepEqual(due.map((r) => r.id), [ARRIVED_PROMPT_ID]);
-  assert.equal(reminderCopy(due[0]).title, 'Arriving at pulltite');
+  const copy = reminderCopy(due[0]);
+  assert.equal(copy.title, 'Arriving at pulltite');
+  assert.equal(copy.body, 'Finish your float in Eddy once you’re off the water to stop tracking and save your recap.');
   session = settleDelivery(markPending(session, [ARRIVED_PROMPT_ID]), [ARRIVED_PROMPT_ID], [ARRIVED_PROMPT_ID]);
   ({ session, t } = paddle(session, index, 6_000, 6_100, t, 0.5));
   assert.deepEqual(dueReminders(session, index, t - 10_000), []);
+});
+
+test('off-map arrival names the take-out and asks to finish only off the water', () => {
+  const copy = reminderCopy({
+    id: ARRIVED_PROMPT_ID,
+    kind: 'arrived',
+    name: 'Buffalo City',
+    milesAway: 0,
+    beyondMeters: 1_200,
+  });
+  assert.deepEqual(copy, {
+    title: 'Take-out reminder: Buffalo City',
+    body: 'Once you’re off the water, finish your float in Eddy to save your recap.',
+  });
 });
 
 test('a float left running ends itself after arriving or leaving the river, never for stopping', () => {

@@ -213,11 +213,11 @@ export function reminderCopy(reminder: DueReminder): { title: string; body: stri
     }
     case 'arrived':
       // The arrival threshold can fire before the landing (or after passing
-      // it). An off-map endpoint is still farther on: finish only off the water.
+      // it). An off-map offset is not a remaining paddling distance.
       return beyond != null
         ? {
-            title: `You’re near ${reminder.name}`,
-            body: `The take-out is about ${beyond} beyond the river’s closest point on Eddy’s map. Finish your float in Eddy once you’re off the water to stop tracking and save your recap.`,
+            title: `Take-out reminder: ${reminder.name}`,
+            body: 'Once you’re off the water, finish your float in Eddy to save your recap.',
           }
         : { title: `Arriving at ${reminder.name}`, body: 'Finish your float in Eddy once you’re off the water to stop tracking and save your recap.' };
     case 'away':
