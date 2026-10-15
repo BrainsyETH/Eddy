@@ -10,6 +10,9 @@ Your Missouri float trip assistant. Plan trips on Ozarks rivers with real-time w
 - **Shuttle Planning**: Drive-back time and distance
 - **Shareable Plans**: Generate URLs to share your float plan
 
+River pages place “Find a float on this river” near the bottom, after the river
+guide and before the feedback link, when float search is enabled for the web.
+
 ## Supported Rivers
 
 The launch set was eight Missouri rivers (Meramec, Current, Eleven Point,
