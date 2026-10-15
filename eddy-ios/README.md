@@ -950,11 +950,22 @@ A splash that lifts after ~8 seconds means the backstop did its job and the
 report is already filed. A splash that never lifts at all means JS never
 started — look at step 2, not step 3.
 
+## Favorites
+
+River cards show compact CFS rows for every linked gauge, ordered upstream to
+downstream using the existing gauge catalog. Each row opens its station when
+it has a site ID. Missing discharge says “CFS unavailable”; it never substitutes
+stage in feet. Old or suspect readings carry a short note. Until the gauge
+catalog arrives, cards retain the river headline and scale as a fallback.
+Dam rows show lake/state metadata and a short schedule summary with “Subject
+to change”; the detail screen carries the full schedule context.
+
 ## River guides
 
-Today features one free **River guide** each local calendar day, with its photo
-and excerpt. The card opens that article; **See all** opens `/river-guides`, a
-searchable native list of published `River Guides` articles from `/api/blog`.
+The bottom of Today features one free **River guide** each local calendar day,
+with its photo and excerpt. The card opens that article; **See all** opens
+`/river-guides`, a searchable native list of published `River Guides` articles
+from `/api/blog`.
 The feature cycles through the published catalog in slug order, staying stable
 throughout the day while that catalog is unchanged. It advances on the next
 visible minute after midnight or when the screen regains focus/foreground, and
@@ -966,6 +977,8 @@ from Eddy’s Reads. Loading happens when Today, the catalog, or river detail
 mounts, without blocking app startup; failures offer retry on Today and in the
 catalog, and hide the optional river-detail link. The catalog has no entitlement
 requirement; its links use the shared browser behavior below.
+Guide photo credits live on `eddy.guide/photo-credits`, reachable from the
+account screen; the cards do not repeat them below each image.
 
 Content and import instructions live in the
 [river-guide runbook](../missouri-float-planner/docs/river-guide-style.md#repository-authored-guides-and-publishing).

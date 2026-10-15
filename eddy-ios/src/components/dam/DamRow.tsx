@@ -19,7 +19,6 @@ import {
   centralDayKey,
   relativeAge,
   scheduledHoursSummary,
-  SCHEDULE_CHANGE_NOTE,
 } from '@eddy/conditions/dam-schedule-copy';
 import { DayBars } from '@/components/dam/DayBars';
 import { generationNow, generationStatusLabel, speaksForNow } from '@eddy/conditions/dam-generation';
@@ -102,7 +101,6 @@ function DamRowComponent({
             {[
               dam.lakeName,
               dam.state,
-              dam.tailwaterFishery === 'trout' ? 'trout tailwater' : null,
             ]
               .filter(Boolean)
               .join(' · ')}
@@ -168,15 +166,8 @@ function DamRowComponent({
           <Text style={[styles.idle, { color: colors.textMuted }]} numberOfLines={1}>
             {scheduledHoursSummary(today.hours)}
           </Text>
-          {/* Every other surface that renders a schedule carries this: both
-              GenerationSchedule components and both RiverDamPanels. Favorites is
-              the only place a schedule appears, and WATER_REGIMES_STRATEGY.md
-              requires SWPA's disclaimer to travel with it EVERYWHERE — so a
-              compact row is not an exemption. Two lines rather than one so the
-              note cannot truncate: a half-rendered safety caveat is worse than
-              an honest one that wraps. */}
-          <Text style={[styles.scheduleNote, { color: colors.textSubtle }]} numberOfLines={2}>
-            {SCHEDULE_CHANGE_NOTE}
+          <Text style={[styles.scheduleNote, { color: colors.textSubtle }]}>
+            Subject to change
           </Text>
         </View>
       ) : null}

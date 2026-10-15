@@ -1,46 +1,8 @@
-// eddy-ios/app/(tabs)/favorites.tsx
-// Starred rivers, from the local-first store. Works with no account and no
-// network — see src/hooks/useStarredRivers.tsx for why that matters.
-//
-// The store is the source of truth for WHICH rivers appear. It cannot be the
-// source of truth for their condition: it only holds an id, a name and a slug,
-// which is why this screen used to print the raw slug as a subtitle. The one
-// list of rivers a user explicitly curated was the only list in the app with no
-// condition on it at all.
-//
-// So conditions are an ENRICHMENT, not a dependency. /api/rivers is fetched
-// opportunistically and matched by id; if it fails — offline at a put-in, which
-// is the case this screen exists for — the rows still render from the store with
-// an honest "conditions unavailable" note instead of vanishing.
-//
-// ── A favourite gets the card, not the row ──────────────────────────────────
-// Starred rivers render as FavoriteRiverCard rather than the compact RiverRow
-// the Search tab uses, and the difference is the band track under each reading.
-// This screen holds three or four rivers somebody chose on purpose and comes
-// back to in order to check on them; answering that with "944 cfs · Good" made
-// them do the interpreting. The header of that component has the longer argument.
-//
-// ── This screen makes TWO requests, and that is the point ───────────────────
-// It used to make N+2: /api/rivers, /api/gauges, and then one
-// /api/rivers/[slug]/outlook per starred river to put Eddy's bottom line on
-// each card. Six-at-a-time batching, an epoch counter and an answered-slug ref
-// existed solely to keep that fan-out from opening twenty sockets on one bar of
-// LTE — which is the connection this screen is designed around.
-//
-// The track replaced the prose, and every input it needs was already in the
-// /api/gauges response: each gauge carries the threshold ladder per river it
-// grades. So the fan-out and all of its machinery are gone.
-//
-// ── The prose is back, and the count of requests did not change ─────────────
-// One LINE of it, from /api/eddy-updates — a single batched call carrying an
-// entry for every river, which the Today tab already makes and which is now
-// shared through useEddyUpdates. What was expensive was asking per river, not
-// asking at all, so nothing about the paragraph above is undone by this.
-//
-// It is the free summary, never the gated report: the card takes an EddySays,
-// whose type has no field the paid quote could arrive in. The long version is
-// still on the river screen, one tap away, where there is room for it — and
-// after this it is one tap away for everybody rather than for subscribers.
+// Favorites are local-first: stored names remain usable when conditions
+// cannot load. River cards use the existing /api/gauges catalog for compact
+// discharge rows at every linked station, without per-river request fan-out.
+// Until that catalog arrives, /api/rivers supplies the headline fallback.
+// Eddy’s free excerpt comes from the shared, batched useEddyUpdates read.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { FlatList, Pressable, RefreshControl, StyleSheet, Text, View } from 'react-native';
@@ -68,6 +30,7 @@ import { useRouter, useFocusEffect } from 'expo-router';
 import { agedIndex, envelope, effectiveReadingAgeHours, type CacheEnvelope } from '@/lib/offline-cache';
 import { onForeground } from '@/lib/foreground';
 import { createLatestRequest } from '@/lib/latestRequest';
+import { favoriteGaugeReadings } from '@/lib/favoriteGaugeReadings';
 
 /**
  * The ladder a river's own reading is graded on, out of the gauge list.
@@ -455,6 +418,12 @@ function FavoritesContent() {
       return (
         <FavoriteRiverCard
           river={river}
+          gaugeReadings={favoriteGaugeReadings(gauges ?? [], river.slug)}
+          onOpenGauge={(gauge) => {
+            if (!gauge.usgsSiteId) return;
+            rememberGauge(seedFromMapGauge(gauge));
+            router.push(`/gauge/${encodeURIComponent(gauge.usgsSiteId)}`);
+          }}
           thresholds={rated?.link ?? null}
           // WHICH STATION THE NUMBER CAME FROM. See the card.
           gaugeName={rated?.gauge.name ?? null}

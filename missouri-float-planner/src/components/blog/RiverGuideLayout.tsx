@@ -10,7 +10,7 @@ import type { RiverGuidePost, FloatSection, GuideSegment } from '@/types/blog';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { riverPath } from '@/lib/navigation/river-path';
 import { npsHeroImage } from '@/lib/services/npsCampground';
-import { optimizeBlogImage, guidePhotoCredit } from '@/lib/blog-image';
+import { optimizeBlogImage } from '@/lib/blog-image';
 import SectionTitle from './SectionTitle';
 import FloatSectionCard from './FloatSectionCard';
 import EddySaysCallout from './EddySaysCallout';
@@ -204,7 +204,6 @@ export default async function RiverGuideLayout({ post }: Props) {
   const g = post.guide_data;
   const slug = post.river_slug ?? post.slug;
   const riverName = g.hero.title_top;
-  const photoCredit = guidePhotoCredit(g.hero);
   const toc = buildToc(post);
   const grouped = groupSectionsBySegment(g.sections, g.segments);
   const aps = await resolveAccessPoints(slug, g.sections);
@@ -359,14 +358,6 @@ export default async function RiverGuideLayout({ post }: Props) {
               sizes="(max-width: 1023px) 100vw, 580px"
               style={{ objectFit: g.hero.photo_url ? 'cover' : 'contain' }}
             />
-            {photoCredit ? <div
-              style={{ position: 'absolute', bottom: 8, right: 8, left: 8, fontSize: 12,
-                padding: '4px 8px', background: 'var(--color-neutral-50)', color: 'var(--color-neutral-900)', borderRadius: 4 }}>
-              {g.hero.photo_caption && <div style={{ marginBottom: 4 }}>{g.hero.photo_caption}</div>}
-              Photo: <a href={photoCredit.source_url} style={{ textDecoration: 'underline' }}>{photoCredit.author}</a>
-              {' · '}<a href={photoCredit.license_url} style={{ textDecoration: 'underline' }}>{photoCredit.license}</a>
-              {photoCredit.changes ? ` · ${photoCredit.changes}` : ''}
-            </div> : null}
           </div>
         </div>
 
