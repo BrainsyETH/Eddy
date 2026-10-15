@@ -316,7 +316,10 @@ Rivers are ordered by favorites, condition, then name. These planners never
 change the kept-alive Map tab's selection, pins, camera, or existing plan.
 Closing cancels any calculation immediately. Native sheet dismissal finishes
 before Back returns to the caller, which stays visible behind the sheet, with
-no second stack animation; starting
+no second stack animation. The tab navigator sets the planner's transparent
+presentation and hidden header before mounting it; the screen must not change
+these options after opening, because native modals remount when header visibility
+changes, discarding the plan and restarting its data loads. Starting
 replaces the standalone planner with float setup. Planning directly on Map still retains its route when
 the sheet closes. Navigation entry actions ignore repeated presses until focus
 returns. The native route checks exercise the handoff, endpoint-detail Back,

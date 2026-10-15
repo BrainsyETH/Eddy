@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { View } from 'react-native';
-import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { PlanSheet } from '@/components/PlanSheet';
 import { useFloatPlan } from '@/hooks/useFloatPlan';
 import { usePlannerData } from '@/hooks/usePlannerData';
@@ -49,15 +49,6 @@ export default function PlanRouteScreen() {
   }, [router]);
   return (
     <View style={{ flex: 1 }}>
-      <Stack.Screen
-        options={{
-          headerShown: false,
-          gestureEnabled: false,
-          animation: 'none',
-          presentation: 'transparentModal',
-          contentStyle: { backgroundColor: 'transparent' },
-        }}
-      />
       <PlanSheet
         visible={visible}
         onClose={close}
