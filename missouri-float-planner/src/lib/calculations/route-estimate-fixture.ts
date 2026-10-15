@@ -17,6 +17,7 @@ export function routeFixture(options: {
   spanReading?: { height: number; qualifiers?: string[]; timestamp?: string; floodStage?: number };
 } = {}) {
   const calls: string[] = [];
+  const rpcCalls: { name: string; args: Record<string, unknown> }[] = [];
   const slug = options.vessel ?? 'canoe';
   const speeds = { canoe: [2, 2.5, 3.5], raft: [1.5, 2, 2.5], tube: [1, 1.5, 2] }[slug];
   const endpoints = ['put-in', 'take-out'].map((id, i) => ({ id, name: id,
@@ -58,6 +59,7 @@ export function routeFixture(options: {
     },
     async rpc(name: string, args: Record<string, unknown>) {
       calls.push(name);
+      rpcCalls.push({ name, args });
       if (name === 'get_float_segment') return { data: [{ distance_miles: String(options.miles ?? 8), start_river_mile: '0', end_river_mile: String(options.miles ?? 8) }] };
       if (name === 'get_river_condition_segment') return { data: [{ condition_code: options.condition ?? 'flowing', gauge_height_ft: options.missingReading ? null : 3, discharge_cfs: options.discharge ?? null, gauge_usgs_id: 'fixture-gauge' }] };
       if (name === 'get_segment_float_time') {
@@ -81,7 +83,7 @@ export function routeFixture(options: {
     },
   };
   const context = createRouteEstimateContext(client, options.segmentReader);
-  return { calls, client, estimate: (mode: 'today' | 'typical' = 'today') => estimateRoute(client, {
-    riverId: 'river', startId: 'put-in', endId: 'take-out', mode, vesselTypeId: options.vessel,
+  return { calls, rpcCalls, client, estimate: (mode: 'today' | 'typical' = 'today', startRiverMile?: number) => estimateRoute(client, {
+    riverId: 'river', startId: 'put-in', endId: 'take-out', mode, startRiverMile, vesselTypeId: options.vessel,
   }, providers, context) };
 }

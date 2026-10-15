@@ -61,7 +61,7 @@ export default function StorageScreen() {
   // Trip maps are deliberate downloads, not cache: each is listed and removed
   // on its own, and the one the active float uses is protected.
   const confirmRemoveTrip = useCallback((tripKey: string, label: string) => {
-    if (activeFloat?.shortCode === tripKey || activeFloat?.id === tripKey) {
+    if (activeFloat?.downloadKey === tripKey || activeFloat?.shortCode === tripKey || activeFloat?.id === tripKey) {
       Alert.alert('In use', 'The float in progress uses this map. End the float first.');
       return;
     }

@@ -1,4 +1,4 @@
-// eddy-ios/app/(tabs)/(floats)/float-options.tsx
+// eddy-ios/app/(recording)/float-options.tsx
 // Float options: the settings a float needs now and then, kept off the Float
 // Mode panel so End stays in reach. A sheet over Float Mode: tracking detail,
 // the Lock Screen card, reminders, hazard reports sent from this river, and
@@ -6,7 +6,7 @@
 
 import { useEffect } from 'react';
 import { Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
-import { Stack, useRouter } from 'expo-router';
+import { useRouter } from 'expo-router';
 import { FloatActivityControl } from '@/float/FloatActivityControl';
 import { FloatHazardReports } from '@/float/FloatHazardReports';
 import { FloatReminders } from '@/float/FloatReminders';
@@ -31,15 +31,6 @@ export default function FloatOptionsScreen() {
 
   return (
     <>
-      <Stack.Screen
-        options={{
-          title: 'Float options',
-          presentation: 'formSheet',
-          sheetAllowedDetents: [0.6, 1],
-          sheetGrabberVisible: true,
-          headerShown: false,
-        }}
-      />
       <ScrollView contentContainerStyle={styles.content} style={{ backgroundColor: colors.bg }}>
         <View style={styles.header}>
           <Text style={[styles.title, { color: colors.text }]} accessibilityRole="header">

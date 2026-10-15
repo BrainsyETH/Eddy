@@ -1,6 +1,7 @@
 import ActivityKit
 import ExpoModulesCore
 import UIKit
+import WidgetKit
 
 private struct Snapshot: Decodable {
   var sessionId: String
@@ -14,6 +15,15 @@ public final class EddyLiveActivityModule: Module {
   public func definition() -> ModuleDefinition {
     Name("EddyLiveActivity")
     Events("onActivityState")
+    AsyncFunction("readWidgetConfiguration") { () -> String? in
+      ConditionsWidgetStore.configurationJSON()
+    }
+    AsyncFunction("setWidgetConfiguration") { (json: String) in
+      if try ConditionsWidgetStore.setConfiguration(json) {
+        WidgetCenter.shared.reloadTimelines(ofKind: ConditionsWidgetStore.riverKind)
+        WidgetCenter.shared.reloadTimelines(ofKind: ConditionsWidgetStore.favoritesKind)
+      }
+    }
     OnDestroy {
       self.observation?.cancel()
     }

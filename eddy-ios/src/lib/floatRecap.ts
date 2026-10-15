@@ -1,5 +1,6 @@
 import { EMPTY_FLOAT_TOTALS, finishFloatTotals } from '@eddy/geo';
 import type { CompletedFloat } from '@eddy/conditions/float-archive';
+import { recordedOrigin } from './floatOrigin';
 import type { FloatSession } from './floatSession';
 
 /**
@@ -15,13 +16,15 @@ export function recapFloat(session: FloatSession, now: number): CompletedFloat {
   const endedAt = Math.max(session.startedAt, finished, session.totals?.last?.timestamp ?? 0);
   const elapsedMs = endedAt - session.startedAt;
   const totals = session.totals ?? EMPTY_FLOAT_TOTALS;
+  const origin = recordedOrigin(session);
   return {
     version: 1,
     id: session.id,
     riverSlug: session.route.riverSlug,
     riverName: session.route.riverName,
-    putInId: session.putIn?.id ?? null,
-    putInName: session.putIn?.name ?? null,
+    putInId: origin.id,
+    putInName: origin.name,
+    ...(origin.note ? { startNote: origin.note } : {}),
     takeOutId: session.takeOut.id,
     takeOutName: session.takeOut.name,
     boatType: session.boatType ?? null,

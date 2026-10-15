@@ -1,5 +1,46 @@
 // Preview rules only. A preview fix never seeds the session's tracker or pace.
 import { locateOnRoute, type LngLat, type RouteIndex } from '@eddy/geo';
+import { nearLaunch } from './floatOrigin';
+import type { FloatRoute } from './floatSession';
+
+export interface FloatSetup {
+  riverSlug?: string;
+  putInId?: string;
+  takeOutId?: string;
+  boatType?: string;
+}
+
+/** Only an unchanged route may reuse a saved plan's package or share code. */
+export function sameFloatStretch(a: FloatSetup, b: FloatSetup): boolean {
+  return Boolean(a.riverSlug && a.putInId && a.takeOutId &&
+    a.riverSlug === b.riverSlug && a.putInId === b.putInId && a.takeOutId === b.takeOutId);
+}
+
+/** Includes the GPS origin. A revised stretch cannot inherit old tiles or estimates. */
+export function floatSetupKey(setup: FloatSetup, origin?: LngLat | null): string {
+  return [setup.riverSlug ?? '', setup.putInId ?? (origin ? origin.join(',') : 'location'), setup.takeOutId ?? ''].join('|');
+}
+
+/** Use an eligible upstream anchor to bound the server's partial-stretch estimate. */
+export function estimateStartId(route: FloatRoute, putInId: string | undefined, startMile: number | null): string | null {
+  if (putInId) return putInId;
+  if (startMile == null || !Number.isFinite(startMile)) return null;
+  const ends = route.anchors.filter(a => a.endpoint).sort((a, b) => a.riverMile - b.riverMile);
+  const upstream = ends.filter(a => a.riverMile <= startMile).at(-1);
+  return upstream?.id ?? (ends[0] && ends[0].riverMile - startMile <= 0.1 ? ends[0].id : null);
+}
+
+/** Never reuse a typical, withheld, expired, or future-dated result as current water. */
+export function currentMovingSpeed(result: {
+  estimateBasis: string;
+  estimatedAt: string;
+  floatTime: { movingSpeedMph?: number | null } | null;
+} | null, now: number): number | null {
+  if (!result || result.estimateBasis !== 'today') return null;
+  const age = now - Date.parse(result.estimatedAt);
+  const speed = result.floatTime?.movingSpeedMph;
+  return age >= 0 && age < 5 * 60_000 && speed != null && Number.isFinite(speed) && speed > 0 ? speed : null;
+}
 
 export interface StartFix {
   point: LngLat;
@@ -33,16 +74,19 @@ export function startRiverPosition(index: RouteIndex, fix: StartFix | null, now:
   return hit && hit.offsetMeters <= 150 ? hit : null;
 }
 
-/** Discard this setup's native pages, preserving the screen that launched it. */
-export function completedFloatRoutes<T extends { key?: string; name: string }>(
-  routes: readonly T[],
-  startKey: string,
-) {
-  const entry = routes.findIndex((route) => route.key === startKey);
-  let cut = entry;
-  if (cut < 0) {
-    cut = routes.length;
-    while (cut > 0 && routes[cut - 1].name === 'float-start') cut--;
-  }
-  return [...routes.slice(0, cut), { name: 'float-mode' }];
+/** "Near" requires both a good fix and proximity to the access itself. */
+export function putInLocation(index: RouteIndex, fix: StartFix | null, now: number,
+  putIn: { name: string; lngLat: LngLat; mile: number }) {
+  if (!usableStartFix(fix, now)) return null;
+  const hit = startRiverPosition(index, fix, now);
+  if (nearLaunch(fix.point, fix.accuracy, putIn.lngLat)) return {
+    label: `Near ${putIn.name}`, canSwitch: false,
+    ...(!hit ? { note: 'This launch is outside Eddy’s mapped river. Distance tracking begins when GPS finds you on the mapped river.' } : {}),
+  };
+  if (!hit) return null;
+  const delta = hit.riverMile - putIn.mile;
+  return { label: Math.abs(delta) < 0.1
+    ? `GPS puts you by ${putIn.name} · check your launch`
+    : `${Math.abs(delta).toFixed(1)} mi ${delta > 0 ? 'below' : 'above'} ${putIn.name}`,
+    canSwitch: true };
 }

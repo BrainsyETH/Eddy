@@ -24,6 +24,7 @@ import { leapDayOfYearForDate } from '@/lib/usgs/percentile-snapshot';
 import { toNum } from '@/lib/utils/num';
 import { withX402Route } from '@/lib/x402-config';
 import { sampleChartReadings } from '@shared/chart-model';
+import { widgetHistorySeries } from '@shared/condition-widget';
 import type {
   GaugeForecastReading,
   GaugeHistoryReading,
@@ -485,6 +486,7 @@ async function _GET(
       sampled: readings.length < rawReadings.length,
       resolution: servedResolution,
       statistic: servedStatistic,
+      ...(searchParams.get('widget') === '1' ? { widgetSeries: widgetHistorySeries(rawReadings, servedStatistic) } : {}),
       requestedWindow,
       coverageWindow,
       coverageComplete,

@@ -6,6 +6,8 @@ export interface CompletedFloat {
   riverName: string;
   putInId: string | null;
   putInName: string | null;
+  /** Description of the recorded start, separate from the confirmed launch access. */
+  startNote?: string;
   takeOutId: string;
   takeOutName: string;
   boatType: string | null;

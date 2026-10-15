@@ -1,0 +1,907 @@
+{
+  "generatedAt": 1767268800000,
+  "choices": [
+    {
+      "id": "07067000|current",
+      "siteId": "07067000",
+      "gaugeId": "",
+      "riverId": null,
+      "riverSlug": "current",
+      "riverName": "Current River",
+      "stationName": "Van Buren, MO",
+      "primaryForRiver": true,
+      "defaultForGauge": true
+    },
+    {
+      "id": "07066000|jacks-fork",
+      "siteId": "07066000",
+      "gaugeId": "",
+      "riverId": null,
+      "riverSlug": "jacks-fork",
+      "riverName": "Jacks Fork",
+      "stationName": "Eminence, MO",
+      "primaryForRiver": true,
+      "defaultForGauge": true
+    },
+    {
+      "id": "07071500|eleven-point",
+      "siteId": "07071500",
+      "gaugeId": "",
+      "riverId": null,
+      "riverSlug": "eleven-point",
+      "riverName": "Eleven Point",
+      "stationName": "Bardley, MO",
+      "primaryForRiver": true,
+      "defaultForGauge": true
+    }
+  ],
+  "stations": {
+    "07067000": {
+      "snapshot": {
+        "version": 1,
+        "siteId": "07067000",
+        "observedAt": 1767268200000,
+        "validUntil": 1767289800000,
+        "heightFt": 3.2,
+        "dischargeCfs": 860,
+        "suspect": false,
+        "floodAlerts": {
+          "validUntil": 1767269700000,
+          "undatedWarningUntil": 1767355200000,
+          "warnings": []
+        },
+        "conditions": [
+          {
+            "riverSlug": "current",
+            "unit": "cfs",
+            "code": "flowing",
+            "label": "Flowing",
+            "solid": "#10b981",
+            "ink": "#065F46",
+            "chipBorder": "#6EE7B7"
+          }
+        ]
+      },
+      "history": {
+        "cfs": {
+          "points": [
+            {
+              "t": 1767185400000,
+              "v": 798.191383079063,
+              "breakBefore": true
+            },
+            {
+              "t": 1767189000000,
+              "v": 806.6220647721184,
+              "breakBefore": false
+            },
+            {
+              "t": 1767192600000,
+              "v": 811.9624247990608,
+              "breakBefore": false
+            },
+            {
+              "t": 1767196200000,
+              "v": 813.6394614023852,
+              "breakBefore": false
+            },
+            {
+              "t": 1767199800000,
+              "v": 811.9770821615593,
+              "breakBefore": false
+            },
+            {
+              "t": 1767203400000,
+              "v": 808.116800120898,
+              "breakBefore": false
+            },
+            {
+              "t": 1767207000000,
+              "v": 803.7382515846557,
+              "breakBefore": false
+            },
+            {
+              "t": 1767210600000,
+              "v": 800.6479625703811,
+              "breakBefore": false
+            },
+            {
+              "t": 1767214200000,
+              "v": 800.3370482350235,
+              "breakBefore": false
+            },
+            {
+              "t": 1767217800000,
+              "v": 803.616135880053,
+              "breakBefore": false
+            },
+            {
+              "t": 1767221400000,
+              "v": 810.4168951164442,
+              "breakBefore": false
+            },
+            {
+              "t": 1767225000000,
+              "v": 819.8087675270161,
+              "breakBefore": false
+            },
+            {
+              "t": 1767228600000,
+              "v": 830.2267998213173,
+              "breakBefore": false
+            },
+            {
+              "t": 1767232200000,
+              "v": 839.8547989807819,
+              "breakBefore": false
+            },
+            {
+              "t": 1767235800000,
+              "v": 847.0699996516211,
+              "breakBefore": false
+            },
+            {
+              "t": 1767239400000,
+              "v": 850.8403736993507,
+              "breakBefore": false
+            },
+            {
+              "t": 1767243000000,
+              "v": 850.9773066893523,
+              "breakBefore": false
+            },
+            {
+              "t": 1767246600000,
+              "v": 848.1817772786263,
+              "breakBefore": false
+            },
+            {
+              "t": 1767250200000,
+              "v": 843.8727331930728,
+              "breakBefore": false
+            },
+            {
+              "t": 1767253800000,
+              "v": 839.8396833366595,
+              "breakBefore": false
+            },
+            {
+              "t": 1767257400000,
+              "v": 837.8045636004249,
+              "breakBefore": false
+            },
+            {
+              "t": 1767261000000,
+              "v": 839.0001469017394,
+              "breakBefore": false
+            },
+            {
+              "t": 1767264600000,
+              "v": 843.8682173796735,
+              "breakBefore": false
+            },
+            {
+              "t": 1767268200000,
+              "v": 851.9514062299935,
+              "breakBefore": false
+            }
+          ],
+          "from": 1767182400000,
+          "to": 1767268800000,
+          "observedAt": 1767268200000,
+          "trend": "Holding steady",
+          "direction": "steady",
+          "trendValidUntil": 1767279000000
+        },
+        "ft": {
+          "points": [
+            {
+              "t": 1767185400000,
+              "v": 3.094588510772084,
+              "breakBefore": true
+            },
+            {
+              "t": 1767189000000,
+              "v": 3.106829419696158,
+              "breakBefore": false
+            },
+            {
+              "t": 1767192600000,
+              "v": 3.1149498997320815,
+              "breakBefore": false
+            },
+            {
+              "t": 1767196200000,
+              "v": 3.1181859485365138,
+              "breakBefore": false
+            },
+            {
+              "t": 1767199800000,
+              "v": 3.116969442882079,
+              "breakBefore": false
+            },
+            {
+              "t": 1767203400000,
+              "v": 3.1128224001611975,
+              "breakBefore": false
+            },
+            {
+              "t": 1767207000000,
+              "v": 3.107984335446208,
+              "breakBefore": false
+            },
+            {
+              "t": 1767210600000,
+              "v": 3.1048639500938418,
+              "breakBefore": false
+            },
+            {
+              "t": 1767214200000,
+              "v": 3.105449397646698,
+              "breakBefore": false
+            },
+            {
+              "t": 1767217800000,
+              "v": 3.1108215145067377,
+              "breakBefore": false
+            },
+            {
+              "t": 1767221400000,
+              "v": 3.1208891934885923,
+              "breakBefore": false
+            },
+            {
+              "t": 1767225000000,
+              "v": 3.1344116900360217,
+              "breakBefore": false
+            },
+            {
+              "t": 1767228600000,
+              "v": 3.149302399761756,
+              "breakBefore": false
+            },
+            {
+              "t": 1767232200000,
+              "v": 3.163139731974376,
+              "breakBefore": false
+            },
+            {
+              "t": 1767235800000,
+              "v": 3.173759999535495,
+              "breakBefore": false
+            },
+            {
+              "t": 1767239400000,
+              "v": 3.179787164932468,
+              "breakBefore": false
+            },
+            {
+              "t": 1767243000000,
+              "v": 3.18096974225247,
+              "breakBefore": false
+            },
+            {
+              "t": 1767246600000,
+              "v": 3.1782423697048356,
+              "breakBefore": false
+            },
+            {
+              "t": 1767250200000,
+              "v": 3.173496977590764,
+              "breakBefore": false
+            },
+            {
+              "t": 1767253800000,
+              "v": 3.169119577782213,
+              "breakBefore": false
+            },
+            {
+              "t": 1767257400000,
+              "v": 3.1674060848005667,
+              "breakBefore": false
+            },
+            {
+              "t": 1767261000000,
+              "v": 3.1700001958689863,
+              "breakBefore": false
+            },
+            {
+              "t": 1767264600000,
+              "v": 3.1774909565062317,
+              "breakBefore": false
+            },
+            {
+              "t": 1767268200000,
+              "v": 3.1892685416399913,
+              "breakBefore": false
+            }
+          ],
+          "from": 1767182400000,
+          "to": 1767268800000,
+          "observedAt": 1767268200000,
+          "trend": "Holding steady",
+          "direction": "steady",
+          "trendValidUntil": 1767279000000
+        }
+      }
+    },
+    "07066000": {
+      "snapshot": {
+        "version": 1,
+        "siteId": "07066000",
+        "observedAt": 1767268200000,
+        "validUntil": 1767289800000,
+        "heightFt": 3.2,
+        "dischargeCfs": 320,
+        "suspect": false,
+        "floodAlerts": {
+          "validUntil": 1767269700000,
+          "undatedWarningUntil": 1767355200000,
+          "warnings": []
+        },
+        "conditions": [
+          {
+            "riverSlug": "jacks-fork",
+            "unit": "cfs",
+            "code": "flowing",
+            "label": "Flowing",
+            "solid": "#10b981",
+            "ink": "#065F46",
+            "chipBorder": "#6EE7B7"
+          }
+        ]
+      },
+      "history": {
+        "cfs": {
+          "points": [
+            {
+              "t": 1767185400000,
+              "v": 258.19138307906303,
+              "breakBefore": true
+            },
+            {
+              "t": 1767189000000,
+              "v": 266.62206477211845,
+              "breakBefore": false
+            },
+            {
+              "t": 1767192600000,
+              "v": 271.96242479906084,
+              "breakBefore": false
+            },
+            {
+              "t": 1767196200000,
+              "v": 273.6394614023852,
+              "breakBefore": false
+            },
+            {
+              "t": 1767199800000,
+              "v": 271.97708216155934,
+              "breakBefore": false
+            },
+            {
+              "t": 1767203400000,
+              "v": 268.116800120898,
+              "breakBefore": false
+            },
+            {
+              "t": 1767207000000,
+              "v": 263.7382515846557,
+              "breakBefore": false
+            },
+            {
+              "t": 1767210600000,
+              "v": 260.6479625703811,
+              "breakBefore": false
+            },
+            {
+              "t": 1767214200000,
+              "v": 260.33704823502353,
+              "breakBefore": false
+            },
+            {
+              "t": 1767217800000,
+              "v": 263.6161358800529,
+              "breakBefore": false
+            },
+            {
+              "t": 1767221400000,
+              "v": 270.4168951164441,
+              "breakBefore": false
+            },
+            {
+              "t": 1767225000000,
+              "v": 279.80876752701613,
+              "breakBefore": false
+            },
+            {
+              "t": 1767228600000,
+              "v": 290.22679982131723,
+              "breakBefore": false
+            },
+            {
+              "t": 1767232200000,
+              "v": 299.8547989807818,
+              "breakBefore": false
+            },
+            {
+              "t": 1767235800000,
+              "v": 307.06999965162106,
+              "breakBefore": false
+            },
+            {
+              "t": 1767239400000,
+              "v": 310.8403736993507,
+              "breakBefore": false
+            },
+            {
+              "t": 1767243000000,
+              "v": 310.97730668935236,
+              "breakBefore": false
+            },
+            {
+              "t": 1767246600000,
+              "v": 308.1817772786263,
+              "breakBefore": false
+            },
+            {
+              "t": 1767250200000,
+              "v": 303.87273319307286,
+              "breakBefore": false
+            },
+            {
+              "t": 1767253800000,
+              "v": 299.83968333665945,
+              "breakBefore": false
+            },
+            {
+              "t": 1767257400000,
+              "v": 297.80456360042496,
+              "breakBefore": false
+            },
+            {
+              "t": 1767261000000,
+              "v": 299.00014690173947,
+              "breakBefore": false
+            },
+            {
+              "t": 1767264600000,
+              "v": 303.8682173796736,
+              "breakBefore": false
+            },
+            {
+              "t": 1767268200000,
+              "v": 311.9514062299935,
+              "breakBefore": false
+            }
+          ],
+          "from": 1767182400000,
+          "to": 1767268800000,
+          "observedAt": 1767268200000,
+          "trend": "Holding steady",
+          "direction": "steady",
+          "trendValidUntil": 1767279000000
+        },
+        "ft": {
+          "points": [
+            {
+              "t": 1767185400000,
+              "v": 3.094588510772084,
+              "breakBefore": true
+            },
+            {
+              "t": 1767189000000,
+              "v": 3.106829419696158,
+              "breakBefore": false
+            },
+            {
+              "t": 1767192600000,
+              "v": 3.1149498997320815,
+              "breakBefore": false
+            },
+            {
+              "t": 1767196200000,
+              "v": 3.1181859485365138,
+              "breakBefore": false
+            },
+            {
+              "t": 1767199800000,
+              "v": 3.116969442882079,
+              "breakBefore": false
+            },
+            {
+              "t": 1767203400000,
+              "v": 3.1128224001611975,
+              "breakBefore": false
+            },
+            {
+              "t": 1767207000000,
+              "v": 3.107984335446208,
+              "breakBefore": false
+            },
+            {
+              "t": 1767210600000,
+              "v": 3.1048639500938418,
+              "breakBefore": false
+            },
+            {
+              "t": 1767214200000,
+              "v": 3.105449397646698,
+              "breakBefore": false
+            },
+            {
+              "t": 1767217800000,
+              "v": 3.1108215145067377,
+              "breakBefore": false
+            },
+            {
+              "t": 1767221400000,
+              "v": 3.1208891934885923,
+              "breakBefore": false
+            },
+            {
+              "t": 1767225000000,
+              "v": 3.1344116900360217,
+              "breakBefore": false
+            },
+            {
+              "t": 1767228600000,
+              "v": 3.149302399761756,
+              "breakBefore": false
+            },
+            {
+              "t": 1767232200000,
+              "v": 3.163139731974376,
+              "breakBefore": false
+            },
+            {
+              "t": 1767235800000,
+              "v": 3.173759999535495,
+              "breakBefore": false
+            },
+            {
+              "t": 1767239400000,
+              "v": 3.179787164932468,
+              "breakBefore": false
+            },
+            {
+              "t": 1767243000000,
+              "v": 3.18096974225247,
+              "breakBefore": false
+            },
+            {
+              "t": 1767246600000,
+              "v": 3.1782423697048356,
+              "breakBefore": false
+            },
+            {
+              "t": 1767250200000,
+              "v": 3.173496977590764,
+              "breakBefore": false
+            },
+            {
+              "t": 1767253800000,
+              "v": 3.169119577782213,
+              "breakBefore": false
+            },
+            {
+              "t": 1767257400000,
+              "v": 3.1674060848005667,
+              "breakBefore": false
+            },
+            {
+              "t": 1767261000000,
+              "v": 3.1700001958689863,
+              "breakBefore": false
+            },
+            {
+              "t": 1767264600000,
+              "v": 3.1774909565062317,
+              "breakBefore": false
+            },
+            {
+              "t": 1767268200000,
+              "v": 3.1892685416399913,
+              "breakBefore": false
+            }
+          ],
+          "from": 1767182400000,
+          "to": 1767268800000,
+          "observedAt": 1767268200000,
+          "trend": "Holding steady",
+          "direction": "steady",
+          "trendValidUntil": 1767279000000
+        }
+      }
+    },
+    "07071500": {
+      "snapshot": {
+        "version": 1,
+        "siteId": "07071500",
+        "observedAt": 1767268200000,
+        "validUntil": 1767289800000,
+        "heightFt": 3.2,
+        "dischargeCfs": 540,
+        "suspect": false,
+        "floodAlerts": {
+          "validUntil": 1767269700000,
+          "undatedWarningUntil": 1767355200000,
+          "warnings": []
+        },
+        "conditions": [
+          {
+            "riverSlug": "eleven-point",
+            "unit": "cfs",
+            "code": "flowing",
+            "label": "Flowing",
+            "solid": "#10b981",
+            "ink": "#065F46",
+            "chipBorder": "#6EE7B7"
+          }
+        ]
+      },
+      "history": {
+        "cfs": {
+          "points": [
+            {
+              "t": 1767185400000,
+              "v": 478.19138307906303,
+              "breakBefore": true
+            },
+            {
+              "t": 1767189000000,
+              "v": 486.62206477211845,
+              "breakBefore": false
+            },
+            {
+              "t": 1767192600000,
+              "v": 491.96242479906084,
+              "breakBefore": false
+            },
+            {
+              "t": 1767196200000,
+              "v": 493.6394614023852,
+              "breakBefore": false
+            },
+            {
+              "t": 1767199800000,
+              "v": 491.97708216155934,
+              "breakBefore": false
+            },
+            {
+              "t": 1767203400000,
+              "v": 488.116800120898,
+              "breakBefore": false
+            },
+            {
+              "t": 1767207000000,
+              "v": 483.7382515846557,
+              "breakBefore": false
+            },
+            {
+              "t": 1767210600000,
+              "v": 480.6479625703811,
+              "breakBefore": false
+            },
+            {
+              "t": 1767214200000,
+              "v": 480.33704823502353,
+              "breakBefore": false
+            },
+            {
+              "t": 1767217800000,
+              "v": 483.6161358800529,
+              "breakBefore": false
+            },
+            {
+              "t": 1767221400000,
+              "v": 490.4168951164441,
+              "breakBefore": false
+            },
+            {
+              "t": 1767225000000,
+              "v": 499.80876752701613,
+              "breakBefore": false
+            },
+            {
+              "t": 1767228600000,
+              "v": 510.22679982131723,
+              "breakBefore": false
+            },
+            {
+              "t": 1767232200000,
+              "v": 519.8547989807819,
+              "breakBefore": false
+            },
+            {
+              "t": 1767235800000,
+              "v": 527.0699996516211,
+              "breakBefore": false
+            },
+            {
+              "t": 1767239400000,
+              "v": 530.8403736993507,
+              "breakBefore": false
+            },
+            {
+              "t": 1767243000000,
+              "v": 530.9773066893523,
+              "breakBefore": false
+            },
+            {
+              "t": 1767246600000,
+              "v": 528.1817772786263,
+              "breakBefore": false
+            },
+            {
+              "t": 1767250200000,
+              "v": 523.8727331930728,
+              "breakBefore": false
+            },
+            {
+              "t": 1767253800000,
+              "v": 519.8396833366595,
+              "breakBefore": false
+            },
+            {
+              "t": 1767257400000,
+              "v": 517.8045636004249,
+              "breakBefore": false
+            },
+            {
+              "t": 1767261000000,
+              "v": 519.0001469017394,
+              "breakBefore": false
+            },
+            {
+              "t": 1767264600000,
+              "v": 523.8682173796735,
+              "breakBefore": false
+            },
+            {
+              "t": 1767268200000,
+              "v": 531.9514062299935,
+              "breakBefore": false
+            }
+          ],
+          "from": 1767182400000,
+          "to": 1767268800000,
+          "observedAt": 1767268200000,
+          "trend": "Holding steady",
+          "direction": "steady",
+          "trendValidUntil": 1767279000000
+        },
+        "ft": {
+          "points": [
+            {
+              "t": 1767185400000,
+              "v": 3.094588510772084,
+              "breakBefore": true
+            },
+            {
+              "t": 1767189000000,
+              "v": 3.106829419696158,
+              "breakBefore": false
+            },
+            {
+              "t": 1767192600000,
+              "v": 3.1149498997320815,
+              "breakBefore": false
+            },
+            {
+              "t": 1767196200000,
+              "v": 3.1181859485365138,
+              "breakBefore": false
+            },
+            {
+              "t": 1767199800000,
+              "v": 3.116969442882079,
+              "breakBefore": false
+            },
+            {
+              "t": 1767203400000,
+              "v": 3.1128224001611975,
+              "breakBefore": false
+            },
+            {
+              "t": 1767207000000,
+              "v": 3.107984335446208,
+              "breakBefore": false
+            },
+            {
+              "t": 1767210600000,
+              "v": 3.1048639500938418,
+              "breakBefore": false
+            },
+            {
+              "t": 1767214200000,
+              "v": 3.105449397646698,
+              "breakBefore": false
+            },
+            {
+              "t": 1767217800000,
+              "v": 3.1108215145067377,
+              "breakBefore": false
+            },
+            {
+              "t": 1767221400000,
+              "v": 3.1208891934885923,
+              "breakBefore": false
+            },
+            {
+              "t": 1767225000000,
+              "v": 3.1344116900360217,
+              "breakBefore": false
+            },
+            {
+              "t": 1767228600000,
+              "v": 3.149302399761756,
+              "breakBefore": false
+            },
+            {
+              "t": 1767232200000,
+              "v": 3.163139731974376,
+              "breakBefore": false
+            },
+            {
+              "t": 1767235800000,
+              "v": 3.173759999535495,
+              "breakBefore": false
+            },
+            {
+              "t": 1767239400000,
+              "v": 3.179787164932468,
+              "breakBefore": false
+            },
+            {
+              "t": 1767243000000,
+              "v": 3.18096974225247,
+              "breakBefore": false
+            },
+            {
+              "t": 1767246600000,
+              "v": 3.1782423697048356,
+              "breakBefore": false
+            },
+            {
+              "t": 1767250200000,
+              "v": 3.173496977590764,
+              "breakBefore": false
+            },
+            {
+              "t": 1767253800000,
+              "v": 3.169119577782213,
+              "breakBefore": false
+            },
+            {
+              "t": 1767257400000,
+              "v": 3.1674060848005667,
+              "breakBefore": false
+            },
+            {
+              "t": 1767261000000,
+              "v": 3.1700001958689863,
+              "breakBefore": false
+            },
+            {
+              "t": 1767264600000,
+              "v": 3.1774909565062317,
+              "breakBefore": false
+            },
+            {
+              "t": 1767268200000,
+              "v": 3.1892685416399913,
+              "breakBefore": false
+            }
+          ],
+          "from": 1767182400000,
+          "to": 1767268800000,
+          "observedAt": 1767268200000,
+          "trend": "Holding steady",
+          "direction": "steady",
+          "trendValidUntil": 1767279000000
+        }
+      }
+    }
+  }
+}

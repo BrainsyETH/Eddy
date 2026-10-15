@@ -32,9 +32,10 @@ for (const [group, initial] of Object.entries(roots)) {
   assert.ok(stack, `Missing ${group} stack`);
   assert.equal(stack.initialRouteName, initial, `${group} must open its own root`);
   const routes = stack.children.map(route => route.route);
-  for (const detail of ['river/[slug]', 'gauge/[siteId]', 'dam/[damId]', 'river-conditions', 'camping', 'weather', 'eddy-reads', 'river-guides']) {
+  for (const detail of ['river/[slug]', 'gauge/[siteId]', 'dam/[damId]', 'river-conditions', 'camping', 'weather', 'eddy-reads', 'river-guides', 'float-history-recap']) {
     assert.ok(routes.includes(detail), `${detail} must push inside ${group}`);
   }
+  for (const detail of ['float-mode', 'float-options', 'float-recap']) assert.ok(!routes.includes(detail), `${detail} must have only one root presentation`);
   for (const other of Object.values(roots).filter(name => name !== initial)) {
     assert.ok(!routes.includes(other), `${other} would open in the wrong tab`);
   }
@@ -66,13 +67,37 @@ const wrappedTree = { children: [{ ...tree, route: INTERNAL_SLOT_NAME }] };
 const config = { screens: { [INTERNAL_SLOT_NAME]: { path: '', ...getReactNavigationConfig(tree, true) } } };
 const mounted = new Map();
 let state;
+// Read identity configuration from the shipped layout instead of inventing it
+// in the harness: removing a singular prop must make the duplicate test fail.
+function screenIdentity(file, name) {
+  const source = ts.createSourceFile(file, fs.readFileSync(path.join(root, file), 'utf8'), ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+  let identity;
+  function visit(node) {
+    if ((ts.isJsxSelfClosingElement(node) || ts.isJsxOpeningElement(node)) && node.tagName.getText(source) === 'Stack.Screen') {
+      const attrs = node.attributes.properties;
+      const named = attrs.find(a => a.name?.text === 'name');
+      const singular = attrs.find(a => a.name?.text === 'dangerouslySingular');
+      if (named?.initializer?.text === name && singular?.initializer?.expression) {
+        const callback = require('../src/lib/floatNavigation.ts')[singular.initializer.expression.getText(source)];
+        identity = ({ params }) => callback(name, params);
+      }
+    }
+    ts.forEachChild(node, visit);
+  }
+  visit(source);
+  return identity;
+}
 function mount(node, partial) {
   const router = node.route === '(tabs)'
     ? NativeBottomTabsRouter({ initialRouteName: node.initialRouteName })
     : StackRouter({ initialRouteName: node.initialRouteName });
   const options = { routeNames: node.children.map(child => child.route), routeParamList: {}, routeGetIdList: {} };
+  if (node.children.some(child => child.route === '(recording)')) options.routeGetIdList['(recording)'] = screenIdentity('_layout.tsx', '(recording)');
+  if (node.route === '(recording)') for (const child of node.children) {
+    options.routeGetIdList[child.route] = screenIdentity('(recording)/_layout.tsx', child.route);
+  }
   const result = partial ? router.getRehydratedState(partial, options) : router.getInitialState(options);
-  mounted.set(result.key, { router, options });
+  mounted.set(result.key, { router, options, node });
   return { ...result, routes: result.routes.map(route => {
     const child = node.children.find(child => child.route === route.name);
     return child.children.length ? { ...route, state: mount(child, route.state) } : route;
@@ -95,10 +120,20 @@ provide('expo-router/build/global-state/store', { store });
 const { getNavigateAction } = require('expo-router/build/global-state/getNavigationAction');
 function apply(action, current = state) {
   if (current.key === action.target) {
-    const { router, options } = mounted.get(current.key);
+    const { router, options, node } = mounted.get(current.key);
     const next = router.getStateForAction(current, action, options);
     assert.ok(next, `Unhandled ${action.type} on ${current.type}`);
-    return next;
+    // A real nested navigator mounts from the screen/params payload the first
+    // time a root presentation is opened; model that lifecycle, using Expo's
+    // real StackRouter for its history as well.
+    return { ...next, routes: next.routes.map(route => {
+      const child = node.children.find(child => child.route === route.name);
+      if (!child.children.length || route.state) return route;
+      const params = route.params;
+      return { ...route, state: mount(child, params?.screen ? {
+        routes: [{ name: params.screen, params: params.params }], index: 0,
+      } : undefined) };
+    }) };
   }
   return { ...current, routes: current.routes.map(route => route.state ? { ...route, state: apply(action, route.state) } : route) };
 }
@@ -277,6 +312,7 @@ for (const [href, group, screen] of [
   ['/floats', 'floats', 'floats'],
   ['/favorite-floats', 'floats', 'favorite-floats'],
   ['/find-float?river=current', 'floats', 'find-float'],
+  ['/float-history-recap?id=older', 'floats', 'float-history-recap'],
   ['https://eddy.guide/plan/TESTPLAN', 'floats', 'float/[shortCode]'],
 ]) {
   launch(redirectSystemPath({ path: href, initial: true }));
@@ -288,7 +324,7 @@ for (const [href, group, screen] of [
 // Settings is not a tab: the account button pushes it inside Today or
 // Favorites, and Back returns to that tab's root.
 for (const group of ['today', 'favorites']) {
-  launch(`/(tabs)/(${group})/${roots[group]}`);
+  launch(`/(tabs)/(${group})/${group === 'map' ? '' : roots[group]}`);
   const action = push('/profile');
   assert.equal(activeTab(), `(${group})`, `Settings escaped ${group}`);
   assert.equal(action.type, 'PUSH');
@@ -308,33 +344,75 @@ for (const href of ['/alerts/quiet-hours', '/alerts/rule-1?source=gauge']) {
 }
 console.log('Quiet hours and edit sheets preserve warm origins and resolve cold URLs.');
 
-// Setup pages must be real native stack entries: Back/swipe preserves choices,
-// and completing either path must not strand setup pages behind Float Mode.
-const { completedFloatRoutes } = require('../src/lib/floatStart.ts');
-for (const saved of [false, true]) {
-  launch('/(tabs)/(floats)/float-home');
-  if (saved) push('/float/TESTPLAN');
-  const origin = activeStack().routes.at(-1);
-  push(saved ? '/float-start?riverSlug=current&putInId=akers&takeOutId=waymeyer&shortCode=TESTPLAN' : '/float-start');
-  const entryKey = activeStack().routes.at(-1).key;
-  if (!saved) {
-    push({ pathname: '/float-start', params: { step: 'takeout', riverSlug: 'current', startKey: entryKey } });
-    assert.equal(activeStack().routes.length, 3, 'Take-out must push, not replace river selection');
-    const takeoutPage = activeStack().routes.at(-1);
-    push({ pathname: '/float-start', params: { step: 'summary', riverSlug: 'current', takeOutId: 'waymeyer', startKey: entryKey } });
-    back();
-    assert.deepEqual(activeStack().routes.at(-1), takeoutPage, 'Back lost the selected river');
-    push({ pathname: '/float-start', params: { step: 'summary', riverSlug: 'current', takeOutId: 'two-rivers', startKey: entryKey } });
+// Readiness belongs to its origin. Recording/options/recap have exactly one
+// root presentation, with stable IDs even under repeated or cross-tab Resume.
+const { completedFloatRoutes } = require('../src/lib/floatNavigation.ts');
+const recording = () => appState().routes.find(route => route.name === '(recording)');
+for (const group of Object.keys(roots)) {
+  for (const saved of [false, true]) {
+    launch(`/(tabs)/(${group})/${group === 'map' ? '' : roots[group]}`);
+    if (saved) push('/float/TESTPLAN');
+    const origin = activeStack().routes.at(-1);
+    push(saved ? '/float-start?riverSlug=current&putInId=akers&takeOutId=waymeyer&shortCode=TESTPLAN' : '/float-start');
+    const stack = activeStack();
+    const routes = completedFloatRoutes(stack.routes, stack.routes.at(-1).key);
+    state = apply({ type: 'RESET', target: stack.key, payload: { ...stack, routes, index: routes.length - 1 } });
+    push('/float-mode');
+    assert.equal(recording().state.routes.at(-1).name, 'float-mode');
+    assert.deepEqual(activeStack().routes.at(-1), origin);
+    const recordingKey = recording().key;
+    const modeKey = recording().state.routes.at(-1).key;
+    push('/float-mode'); push('/float-mode');
+    assert.equal(recording().key, recordingKey);
+    assert.equal(recording().state.routes.length, 1);
+    assert.equal(recording().state.routes.at(-1).key, modeKey);
+    push('/float-options'); back(recording().state.key);
+    assert.equal(recording().state.routes.at(-1).name, 'float-mode');
+    back(appState().key);
+    assert.deepEqual(activeStack().routes.at(-1), origin, 'Closing lost its origin');
+    const other = group === 'map' ? 'floats' : 'map';
+    selectTab(other);
+    const otherOrigin = activeStack().routes.at(-1);
+    push('/float-mode');
+    assert.equal(appState().routes.filter(route => route.name === '(recording)').length, 1);
+    state = apply(getNavigateAction(resolveHref('/float-recap?id=finished'), {}, 'REPLACE'));
+    assert.deepEqual(recording().state.routes.map(route => route.name), ['float-recap']);
+    back(appState().key);
+    assert.deepEqual(activeStack().routes.at(-1), otherOrigin, 'Recap close lost Resume origin');
   }
-  const stack = activeStack();
-  const routes = completedFloatRoutes(stack.routes, entryKey);
-  state = apply({ type: 'RESET', target: stack.key, payload: { ...stack, routes, index: routes.length - 1 } });
-  assert.equal(activeStack().routes.at(-1).name, 'float-mode');
-  assert.ok(!activeStack().routes.some(route => route.name === 'float-start'));
-  back();
-  assert.deepEqual(activeStack().routes.at(-1), origin, 'Completing setup lost its origin screen');
 }
-console.log('Quick/saved float setup, native Back, and completed-session history verified.');
+assert.deepEqual(completedFloatRoutes([{ name: 'float-home' }, { name: 'float-start' }, { name: 'float-start' }], 'missing'),
+  [{ name: 'float-home' }], 'Older multi-page setup histories must still be discarded');
+for (const href of ['/float-mode', '/float-recap?id=finished', '/float-options']) {
+  launch(redirectSystemPath({ path: href, initial: true }));
+  assert.equal(appState().routes.at(-1).name, '(recording)');
+  assert.ok(appState().routes.some(route => route.name === '(tabs)'), 'Cold recording must have a tab anchor');
+  assert.equal(recording().state.routes.at(-1).params.coldRecording, '1');
+  back(appState().key);
+  state = apply(getNavigateAction(resolveHref('/(tabs)/(floats)/float-home'), {}, 'NAVIGATE'));
+  assert.equal(activeTab(), '(floats)', 'Cold close must have a useful Floats fallback');
+}
+console.log('One recording presentation, repeated/cross-tab Resume, options, recap, and originating Close verified.');
+
+for (const group of Object.keys(roots)) {
+  launch(`/(tabs)/(${group})/${group === 'map' ? '' : roots[group]}`);
+  push('/floats?view=history');
+  const history = activeStack();
+  push('/float-history-recap?id=last-month');
+  assert.equal(activeTab(), `(${group})`);
+  assert.equal(activeStack().routes.at(-1).name, 'float-history-recap');
+  assert.equal(activeStack().routes.at(-1).params.id, 'last-month');
+  assert.equal(recording(), undefined, 'History must not mount a recording presentation');
+  const recap = activeStack();
+  push('/float-mode');
+  assert.equal(appState().routes.filter(route => route.name === '(recording)').length, 1);
+  back(appState().key);
+  assert.deepEqual(activeStack(), recap, 'Closing a resumed recording preserves the historical recap');
+  back();
+  assert.deepEqual(activeStack(), history, 'Back from a historical recap restores the exact History list');
+}
+console.log('Historical recaps stay in each tab, preserve History on Back, and coexist with one recording presentation.');
+
 
 // Floats planners live in their originating stack. The kept-alive Map route
 // never receives their selected river/endpoints or their dismissal state.
@@ -385,28 +463,20 @@ back();
 assert.equal(activeStack().routes.at(-1).params.view, 'history');
 console.log('Fresh route planners, exact finder handoffs, originating Back, preserved Map state, and collection settings verified.');
 
-for (const origin of ['floats', 'favorites', 'today']) {
-  launch(redirectSystemPath({ path: '/', initial: true }));
-  selectTab(origin);
+for (const origin of Object.keys(roots)) {
+  launch(`/(tabs)/(${origin})/${origin === 'map' ? '' : roots[origin]}`);
   push('/floats');
   const collectionKey = activeStack().routes.at(-1).key;
-  push(floatPlanDestination());
-  const source = activeStack();
-  const start = { pathname: '/float-start', params: { riverSlug: 'current', putInId: 'a', takeOutId: 'b' } };
-  if (source.routeNames.includes('float-start')) state = apply(getNavigateAction(resolveHref(start), {}, 'REPLACE'));
-  else {
-    state = apply({ type: 'POP', payload: { count: 1 }, target: source.key });
-    const action = push(start);
-    // The mounted navigator consumes these nested screen params. This harness
-    // runs reducers only, so verify that handoff rather than faking a mount.
-    assert.equal(action.payload.params.screen, 'float-start');
-    assert.equal(action.payload.params.params.takeOutId, 'b');
+  for (const pathname of ['/float-start', '/float-mode']) {
+    push(floatPlanDestination());
+    if (pathname === '/float-mode') { back(); push(pathname); }
+    else state = apply(getNavigateAction(resolveHref({ pathname, params: { riverSlug: 'current', putInId: 'a', takeOutId: 'b' } }), {}, 'REPLACE'));
+    assert.equal(activeTab(), `(${origin})`);
+    if (pathname === '/float-mode') {
+      assert.equal(recording().state.routes.at(-1).name, 'float-mode');
+      back(appState().key);
+    } else { assert.equal(activeStack().routes.at(-1).name, 'float-start'); back(); }
+    assert.equal(activeStack().routes.at(-1).key, collectionKey, 'A closed planner must not remain behind readiness or resume');
   }
-  assert.equal(activeTab(), '(floats)');
-  if (origin === 'floats') {
-    assert.equal(activeStack().routes.at(-1).name, 'float-start');
-    back();
-  } else selectTab(origin);
-  assert.equal(activeStack().routes.at(-1).key, collectionKey, 'Start must not leave a closed planner in another tab');
 }
-console.log('Starting from a standalone planner removes it in Floats and across other tab origins.');
+console.log('Starting and resuming from standalone planners preserve all tab origins.');

@@ -20,12 +20,10 @@
 // opens a saved float: a shared plan that read differently from the plan that
 // produced it would be a plan nobody trusts.
 
-import { radii } from '@/theme/layout';
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from 'react';
-import { useIsFocused, useNavigation, useRouter } from 'expo-router';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore, type ReactNode } from 'react';
+import { useIsFocused, useRouter } from 'expo-router';
 import {
   ActivityIndicator,
-  FlatList,
   Modal,
   Platform,
   Pressable,
@@ -39,25 +37,25 @@ import {
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { ControlIcon } from '@/components/ControlIcon';
 import type { FloatPlan, MapAccessPoint, RiverListItem } from '@eddy/types';
-import { accessTypeLabel } from '@eddy/types';
 import { saveFloatPlan } from '@/api/client';
 import { selectionFeedback, successFeedback } from '@/lib/haptics';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
 import { EddyScene } from '@/components/EddyScene';
 import { EddySymbol, type EddySymbolName } from '@/components/EddySymbol';
-import { PlanAccessPhoto } from '@/components/PlanAccessPhoto';
+import { PlanAccessPicker } from '@/components/PlanAccessPicker';
 import { Otter } from '@/components/Otter';
 import { PlanResult } from '@/components/PlanResult';
 import type { FloatPlanState } from '@/hooks/useFloatPlan';
 import { useSavedFloats } from '@/hooks/useSavedFloats';
-import { milesBetween, type Coords } from '@/hooks/useLocation';
+import type { Coords } from '@/hooks/useLocation';
 import { damControlledLabel } from '@/lib/readingCopy';
 import { conditionColor } from '@/theme/conditions';
 import { createPlanActions } from '@/lib/planActions';
 import { createPlanDetailNavigation } from '@/lib/planDetailNavigation';
 import type { PlanDetailDestination } from '@/lib/planDestinations';
 import { usePlanSupport } from '@/hooks/usePlanSupport';
+import { useFloatSession } from '@/hooks/useFloatSession';
 import { useAppConfig } from '@/hooks/useAppConfig';
 
 interface Props {
@@ -119,7 +117,7 @@ export function PlanSheet({
   const { step, putIn, takeOut, plan, calculating, error } = state;
   const resultReady = Boolean(river && !riverLoading && step === 'result' && !calculating && !error && plan && plan.river.id === river.id);
   const router = useRouter();
-  const navigation = useNavigation();
+  const activeFloat = useFloatSession();
   const focused = useIsFocused();
   const closeRequested = useRef(false);
   const [detailNavigation] = useState(createPlanDetailNavigation);
@@ -140,20 +138,16 @@ export function PlanSheet({
     const destination = detailNavigation.dismissed();
     if (!destination) return;
     if (!visible || !resultReady || !focused) { detailNavigation.reset(); return; }
-    if (destination.pathname === '/float-start' && replaceOnStart) {
-      const source = navigation.getState();
-      if (!source || source.routeNames.includes('float-start')) router.replace(destination);
-      else {
-        // Float setup belongs to Floats. Replacing across tabs only switches
-        // tabs, so first remove this planner from the originating stack.
-        navigation.dispatch({ type: 'POP', payload: { count: 1 }, target: source.key });
-        router.push(destination);
-      }
-    } else router.push(destination);
+    const openingFloat = destination.pathname === '/float-start' || destination.pathname === '/float-mode';
+    if (destination.pathname === '/float-mode' && replaceOnStart) {
+      router.back();
+      router.push(destination);
+    } else if (openingFloat && replaceOnStart) router.replace(destination);
+    else router.push(destination);
     // A started float is where the paddler is going, not a detail to come
     // back from: the planner does not reopen over the map afterwards.
-    if (destination.pathname === '/float-start') onClose('started');
-  }, [detailNavigation, router, visible, resultReady, focused, onClose, replaceOnStart, navigation]);
+    if (openingFloat) onClose('started');
+  }, [detailNavigation, router, visible, resultReady, focused, onClose, replaceOnStart]);
   // iOS waits for the native dismissal callback. Other platforms remove the
   // modal when visible becomes false and do not emit that callback.
   useEffect(() => {
@@ -191,17 +185,13 @@ export function PlanSheet({
     else if (result === 'removed') selectionFeedback();
   }, [actions, plan, visible, resultReady, savedFloatsReady, isSaved, forgetPlan, remember]);
 
-  // Start Float from the answer itself, the same as from a saved float. The
-  // planner's MOVING speed goes along (the headline time includes stops), and
-  // the saved float's code when this stretch is kept, so the float links back
-  // to it and can use its offline download.
+  // Every route opens readiness in this tab, or resumes the active recorder.
   const canStart = features.floatMode && resultReady && plan != null;
   const onStart = useCallback(() => {
     if (!plan || !visible || !resultReady || !focused) return;
     const kept = floats.find((f) => f.riverSlug === plan.river.slug && f.putInId === plan.putIn.id && f.takeOutId === plan.takeOut.id);
-    const speed = plan.estimateBasis === 'typical' ? null : plan.floatTime?.movingSpeedMph;
     actions.cancelShare();
-    detailNavigation.open({
+    detailNavigation.open(activeFloat ? { pathname: '/float-mode' } : {
       pathname: '/float-start',
       params: {
         riverSlug: plan.river.slug,
@@ -209,10 +199,9 @@ export function PlanSheet({
         putInId: plan.putIn.id,
         takeOutId: plan.takeOut.id,
         ...(kept ? { shortCode: kept.shortCode } : {}),
-        ...(speed ? { plannerMph: String(speed) } : {}),
       },
     });
-  }, [actions, detailNavigation, floats, plan, visible, resultReady, focused]);
+  }, [actions, detailNavigation, floats, plan, visible, resultReady, focused, activeFloat]);
 
   const heading = (
     <View style={styles.headText}>
@@ -282,7 +271,7 @@ export function PlanSheet({
             </Pressable>
           </ScrollView>
         ) : step === 'put-in' ? (
-          <AccessPointList
+          <PlanAccessPicker
             header={contentHeader}
             points={state.putInOptions}
             emptyMessage="This river has no mapped access points yet."
@@ -291,7 +280,7 @@ export function PlanSheet({
             userCoords={userCoords}
           />
         ) : step === 'take-out' ? (
-          <AccessPointList
+          <PlanAccessPicker
             header={contentHeader}
             points={state.takeOutOptions}
             fromPoint={putIn}
@@ -365,10 +354,10 @@ export function PlanSheet({
                 onPress={onStart}
                 style={({ pressed }) => [styles.primaryButton, styles.startButton, { backgroundColor: pressed ? colors.accentFillPressed : colors.accentFill }]}
                 accessibilityRole="button"
-                accessibilityHint="Opens Float Mode for this put-in and take-out"
+                accessibilityHint={activeFloat ? 'Returns to your float in progress' : 'Review this route before starting tracking'}
               >
                 <ControlIcon name="navigate-outline" size={17} color={colors.onAccent} />
-                <Text style={[styles.primaryButtonText, { color: colors.onAccent }]}>Start float</Text>
+                <Text style={[styles.primaryButtonText, { color: colors.onAccent }]}>{activeFloat ? 'Resume float' : 'Float this route'}</Text>
               </Pressable>
             ) : null}
             <View style={[styles.actionRow, stacked && styles.actionRowStacked]}>
@@ -618,209 +607,6 @@ function RiverList({
   );
 }
 
-function AccessPointList({
-  header,
-  points,
-  onSelect,
-  selectedId,
-  emptyMessage,
-  fromPoint,
-  userCoords,
-}: {
-  header?: ReactNode;
-  points: MapAccessPoint[];
-  onSelect: (point: MapAccessPoint) => void;
-  selectedId: string | null;
-  emptyMessage: string;
-  /** Set on the take-out step so each row can show the float length it makes. */
-  fromPoint?: MapAccessPoint | null;
-  /** Set on the PUT-IN step only, enabling a nearest-first ordering. */
-  userCoords?: Coords | null;
-}) {
-  const { colors, elevation } = useTheme();
-  // Headwaters-first by default. That is the order a river runs in, and it is
-  // the order someone who knows the river thinks in — so nearest-first is an
-  // option rather than the default, even when we know where they are.
-  const [nearestFirst, setNearestFirst] = useState(false);
-
-  const downstreamOrder = !(nearestFirst && userCoords);
-  const fromMile = fromPoint?.riverMile;
-
-  const distances = useMemo(() => {
-    if (!userCoords) return null;
-    const map = new Map<string, number>();
-    for (const point of points) {
-      map.set(point.id, milesBetween(userCoords, point.coordinates));
-    }
-    return map;
-  }, [points, userCoords]);
-
-  const ordered = useMemo(() => {
-    if (!nearestFirst || !distances) return points;
-    return [...points].sort(
-      (a, b) => (distances.get(a.id) ?? Infinity) - (distances.get(b.id) ?? Infinity),
-    );
-  }, [points, nearestFirst, distances]);
-
-  if (points.length === 0) {
-    return (
-      <ScrollView style={styles.flex} contentInsetAdjustmentBehavior="never" contentContainerStyle={styles.statusContent}>
-        {header}
-        <View style={styles.centered}>
-          {/* Both messages this renders are about picking a point — no mapped
-              access points, or nothing downstream of the put-in — so it shows
-              Eddy over a map, not a mood for a river nobody has read.
-              The error branch above keeps the canonical `flag` otter. */}
-          <EddyScene name="routePlanning" size={100} />
-          <Text style={[styles.emptyText, { color: colors.textMuted }]}>{emptyMessage}</Text>
-        </View>
-      </ScrollView>
-    );
-  }
-
-  return (
-    <FlatList
-      style={styles.flex}
-      contentInsetAdjustmentBehavior="never"
-      data={ordered}
-      keyExtractor={(point) => point.id}
-      contentContainerStyle={styles.accessList}
-      initialNumToRender={4}
-      maxToRenderPerBatch={4}
-      windowSize={5}
-      extraData={selectedId}
-      ListHeaderComponent={
-        <View>
-          {header}
-          {distances ? (
-            <Pressable
-              onPress={() => setNearestFirst((prev) => !prev)}
-              style={({ pressed }) => [
-                styles.sortRow,
-                { borderColor: colors.border, opacity: pressed ? 0.6 : 1 },
-              ]}
-              accessibilityRole="button"
-              accessibilityState={{ selected: nearestFirst }}
-            >
-              <ControlIcon
-                name={nearestFirst ? 'navigate' : 'navigate-outline'}
-                size={14}
-                color={nearestFirst ? colors.interactive : colors.textMuted}
-              />
-              <Text
-                style={[styles.sortText, { color: nearestFirst ? colors.text : colors.textMuted }]}
-              >
-                {nearestFirst ? 'Nearest to you' : 'Downstream order'}
-              </Text>
-            </Pressable>
-          ) : null}
-          <View style={styles.timelineIntro}>
-            <Text style={[styles.optionName, { color: colors.text }]}>
-              {downstreamOrder ? '↓ Upstream to downstream' : 'Nearest to you'}
-            </Text>
-            <Text style={[styles.optionMeta, { color: colors.textMuted }]}>
-              {downstreamOrder
-                ? 'Follow the river miles. Distances are along the river; spacing is not to scale.'
-                : 'Sorted by straight-line distance from you, not river order.'}
-            </Text>
-          </View>
-          {downstreamOrder && fromPoint ? (
-            <View style={styles.timelineRow}>
-              <View style={styles.timelineRail} accessible={false} importantForAccessibility="no-hide-descendants">
-                <View style={[styles.timelineLine, { backgroundColor: colors.border }]} />
-                <View style={[styles.timelineDot, { backgroundColor: colors.interactive, borderColor: colors.bg }]} />
-              </View>
-              <View style={styles.timelineContent}>
-                <Text style={[styles.mileLabel, { color: colors.interactive }]}>YOUR PUT-IN · MILE {fromPoint.riverMile.toFixed(1)}</Text>
-                <Text style={[styles.optionName, { color: colors.text }]}>{fromPoint.name}</Text>
-              </View>
-            </View>
-          ) : null}
-        </View>
-      }
-      renderItem={({ item: point, index }) => {
-        const selected = point.id === selectedId;
-        const miles = fromMile != null ? point.riverMile - fromMile : null;
-        const away = distances?.get(point.id) ?? null;
-        const previous = index > 0 ? ordered[index - 1] : fromPoint;
-        const gap = previous ? point.riverMile - previous.riverMile : null;
-        const segmentLabel = gap == null ? null : gap === 0
-          ? 'Same river mile as previous access'
-          : `${gap < 0.1 ? '<0.1' : gap.toFixed(1)} mi downstream ${index === 0 ? 'from your put-in' : 'from previous access'}`;
-        return (
-          <View style={!downstreamOrder ? styles.nearestItem : undefined}>
-            {downstreamOrder && segmentLabel ? (
-              <View style={styles.timelineRow}>
-                <View style={styles.timelineRail} accessible={false} importantForAccessibility="no-hide-descendants">
-                  <View style={[styles.timelineLine, styles.segmentLine, { backgroundColor: colors.border }]} />
-                </View>
-                <Text style={[styles.segmentLabel, { color: colors.textMuted }]}>{segmentLabel}</Text>
-              </View>
-            ) : null}
-            <View style={styles.timelineRow}>
-              {downstreamOrder ? (
-                <View style={styles.timelineRail} accessible={false} importantForAccessibility="no-hide-descendants">
-                  {index < ordered.length - 1 ? <View style={[styles.timelineLine, { backgroundColor: colors.border }]} /> : null}
-                  <View style={[styles.timelineDot, { backgroundColor: selected ? colors.interactive : colors.bg, borderColor: colors.interactive }]} />
-                </View>
-              ) : null}
-              <View style={styles.timelineContent}>
-                {downstreamOrder ? (
-                  <Text style={[styles.mileLabel, { color: colors.interactive }]}>MILE {point.riverMile.toFixed(1)}{miles != null ? ` · ${miles < 0.1 ? '<0.1' : miles.toFixed(1)} mi from put-in` : ''}</Text>
-                ) : null}
-                <Pressable
-                  key={point.id}
-                  onPress={() => onSelect(point)}
-                  style={({ pressed }) => [
-                    styles.accessCard,
-                    elevation(1),
-                    {
-                      backgroundColor: selected ? colors.cardRaised : colors.card,
-                      borderColor: selected ? colors.interactive : colors.border,
-                      opacity: pressed ? 0.65 : 1,
-                    },
-                  ]}
-                  accessibilityRole="button"
-                  accessibilityLabel={`${point.name}, river mile ${point.riverMile.toFixed(1)}${miles != null ? `, ${miles < 0.1 ? 'less than 0.1' : miles.toFixed(1)} miles downstream from your put-in` : ''}, ${point.isPublic ? 'public access' : 'private access, check permission'}, ${accessTypeLabel(point.type)}${away != null ? `, ${away.toFixed(1)} miles away` : ''}`}
-                  accessibilityState={{ selected }}
-                >
-                  <PlanAccessPhoto point={point} style={styles.accessPhoto} compactFallback />
-                  <View style={styles.accessDetails}>
-                    <View style={styles.optionBody}>
-                      <Text style={[styles.optionName, { color: colors.text }]}>
-                        {point.name}
-                      </Text>
-                      <Text style={[styles.accessStatus, { color: colors.text }]}>
-                        {point.isPublic ? 'Public access' : 'Private access · Check permission'}
-                      </Text>
-                      <Text style={[styles.optionMeta, { color: colors.textMuted }]}>
-                        {[
-                          accessTypeLabel(point.type),
-                          !downstreamOrder ? `Mile ${point.riverMile.toFixed(1)}` : null,
-                          // The number that actually decides a take-out. Reading it off
-                          // two river miles in your head is exactly the arithmetic an
-                          // app should be doing for you.
-                          !downstreamOrder && miles != null ? `${miles.toFixed(1)} mi float` : null,
-                          // Straight-line, and labelled "away" rather than "drive" for
-                          // exactly that reason — an Ozark put-in eight miles off can be
-                          // forty minutes of gravel road.
-                          away != null ? `${away < 10 ? away.toFixed(1) : away.toFixed(0)} mi away` : null,
-                        ]
-                          .filter(Boolean)
-                          .join(' · ')}
-                      </Text>
-                    </View>
-                    {selected ? <ControlIcon name="checkmark-circle" size={22} color={colors.interactive} /> : null}
-                  </View>
-                </Pressable>
-              </View>
-            </View>
-          </View>
-        );
-      }}
-    />
-  );
-}
 
 const styles = StyleSheet.create({
   sheet: { flex: 1 },
@@ -873,45 +659,16 @@ const styles = StyleSheet.create({
   crumbText: { flex: 1, minWidth: 0, gap: 3 },
   crumbLabel: { ...t.sm, fontFamily: fonts.semibold },
   crumbValue: { ...t.sm, fontFamily: fonts.body },
-  accessStatus: { ...t.sm, fontFamily: fonts.semibold, marginTop: 4 },
   list: { padding: 16, gap: 8 },
   option: { flexDirection: 'row', alignItems: 'center', gap: 11, padding: 13, borderRadius: 12 },
-  accessList: { padding: 16 },
-  timelineIntro: { gap: 4, marginBottom: 16 },
-  timelineRow: { flexDirection: 'row', alignItems: 'stretch' },
-  timelineRail: { width: 24, alignItems: 'center', marginRight: 8 },
-  timelineLine: { position: 'absolute', width: 2, top: 8, bottom: 0 },
-  segmentLine: { top: 0 },
-  timelineDot: { width: 14, height: 14, borderRadius: 7, borderWidth: 2, marginTop: 3 },
-  timelineContent: { flex: 1, minWidth: 0 },
-  mileLabel: { ...t.sm, fontFamily: fonts.mono, marginBottom: 8 },
-  segmentLabel: { flex: 1, ...t.sm, fontFamily: fonts.body, paddingVertical: 14 },
-  nearestItem: { marginBottom: 12 },
-  accessCard: { borderRadius: radii.card, borderWidth: 1 },
-  accessPhoto: { width: '100%', aspectRatio: 16 / 9, borderTopLeftRadius: radii.card - 1, borderTopRightRadius: radii.card - 1 },
-  accessDetails: { flexDirection: 'row', alignItems: 'center', gap: 10, padding: 14 },
   optionBody: { flex: 1, minWidth: 0 },
   optionName: { ...t.sm, fontFamily: fonts.semibold },
   optionMeta: { ...t.sm, fontFamily: fonts.body, marginTop: 2 },
   pickerIntro: { ...t.sm, fontFamily: fonts.body, marginBottom: 4 },
   riverMetaRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   conditionDot: { width: 8, height: 8, borderRadius: 4 },
-  sortRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    alignSelf: 'flex-start',
-    gap: 6,
-    paddingHorizontal: 12,
-    paddingVertical: 7,
-    borderRadius: 999,
-    borderWidth: 1,
-    marginBottom: 4,
-    minHeight: 44,
-  },
-  sortText: { ...t.sm, fontFamily: fonts.semibold },
   centered: { flexGrow: 1, flexShrink: 0, alignItems: 'center', justifyContent: 'center', padding: 32, gap: 12 },
   calculating: { ...t.sm, fontFamily: fonts.body, textAlign: 'center' },
-  emptyText: { ...t.sm, fontFamily: fonts.body, textAlign: 'center' },
   errorText: { ...t.base, fontFamily: fonts.semibold, textAlign: 'center' },
   link: { ...t.base, fontFamily: fonts.semibold },
   actionFooter: { flexShrink: 0, paddingHorizontal: 16, paddingVertical: 12, borderTopWidth: StyleSheet.hairlineWidth, gap: 8 },

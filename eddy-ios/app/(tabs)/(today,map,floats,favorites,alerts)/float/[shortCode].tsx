@@ -21,6 +21,8 @@ import { SavedFloatDetails } from '@/components/SavedFloatDetails';
 import { createSavedFloatLoader, emptySavedFloatState } from '@/lib/savedFloatLoader';
 import { onForeground } from '@/lib/foreground';
 import { networkHintsOffline } from '@/lib/networkHint';
+import { useFloatSession } from '@/hooks/useFloatSession';
+import { useNavigationAction } from '@/hooks/useNavigationAction';
 import { useAppConfig } from '@/hooks/useAppConfig';
 import { SavedTripDownload } from '@/float/SavedTripDownload';
 
@@ -35,6 +37,8 @@ export default function SavedFloatScreen() {
 
   const stub = floats.find((f) => f.shortCode === shortCode) ?? null;
   const router = useRouter();
+  const activeFloat = useFloatSession();
+  const navigate = useNavigationAction();
   const { features } = useAppConfig();
 
   const loader = useMemo(() => createSavedFloatLoader({
@@ -84,28 +88,25 @@ export default function SavedFloatScreen() {
     remember(plan, { shortCode, url: stub?.url ?? `https://eddy.guide/plan/${shortCode}` });
   }, [plan, shortCode, saved, stub, remember, forgetPlan]);
 
-  // Start Float works offline from the saved stub's ids; the live plan adds
-  // its MOVING speed (not its headline time, which includes stops) when
-  // today's conditions have just been read.
+  // Offline logistics prefill the same editable readiness screen.
   const riverSlug = plan?.river.slug ?? stub?.riverSlug;
   const putInId = plan?.putIn.id ?? stub?.putInId;
   const takeOutId = plan?.takeOut.id ?? stub?.takeOutId;
-  const plannerMph = plan && !error && plan.estimateBasis !== 'typical' ? plan.floatTime?.movingSpeedMph : undefined;
+  const boatType = plan?.vessel.slug ?? stub?.logistics?.boatType;
   const canStart = features.floatMode && riverSlug && putInId && takeOutId;
   const onStart = useCallback(() => {
     if (!riverSlug || !putInId || !takeOutId) return;
-    router.push({
+    navigate(() => router.push(activeFloat ? '/float-mode' : {
       pathname: '/float-start',
       params: {
         riverSlug,
         putInId,
         takeOutId,
-        ...(plan?.vessel.slug ? { boatType:plan.vessel.slug } : {}),
+        ...(boatType ? { boatType } : {}),
         ...(shortCode ? { shortCode } : {}),
-        ...(plannerMph ? { plannerMph: String(plannerMph) } : {}),
       },
-    });
-  }, [router, riverSlug, putInId, takeOutId, shortCode, plannerMph, plan]);
+    }));
+  }, [router, navigate, activeFloat, riverSlug, putInId, takeOutId, shortCode, boatType]);
 
   // The heading belongs to the same scroll view as the current/offline body.
   // A fixed sibling would hide behind the transparent navigation bar.
@@ -125,7 +126,7 @@ export default function SavedFloatScreen() {
           style={({ pressed }) => [styles.startButton, { backgroundColor: pressed ? colors.accentFillPressed : colors.accentFill }]}
           accessibilityRole="button"
         >
-          <Text style={[styles.startText, { color: colors.onAccent }]}>Start float</Text>
+          <Text style={[styles.startText, { color: colors.onAccent }]}>{activeFloat ? 'Resume float' : 'Float this route'}</Text>
         </Pressable>
       ) : null}
       {canStart && shortCode ? (
