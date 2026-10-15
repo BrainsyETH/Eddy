@@ -3,9 +3,50 @@ import assert from 'node:assert/strict';
 import { gaugeMenuSubtitle, gaugeMenuOptions, riverOverviewCondition } from '../../../eddy-ios/src/lib/gaugeMenu';
 import { gaugesForRiver, gaugeConditionCode } from '../../../eddy-ios/src/lib/gaugeCondition';
 import { favoriteGaugeReadings } from '../../../eddy-ios/src/lib/favoriteGaugeReadings';
+import { favoriteGaugeContext } from '../../../eddy-ios/src/lib/favoriteGaugeContext';
 import type { MapGauge } from '@eddy/types';
 const now = Date.parse('2026-10-08T02:00:00Z');
 const option = { id: 'pruitt', name: 'Pruitt', reading: '312 cfs', code: 'good' as const, timestamp: '2026-10-08T01:00:00Z' };
+
+test('favorite gauge scale uses its rated unit and the seasonal line describes discharge', () => {
+  const station: MapGauge = { ...gauge('Pruitt', 29.9), readingTimestamp: option.timestamp,
+    seasonalContext: { unit: 'cfs', parameterCode: '00060', percentile: 11, band: 'lower', yearsOfRecord: 40, asOf: option.timestamp } };
+  const context = favoriteGaugeContext(station, now);
+  assert.equal(context.scale?.value, 300);
+  assert.equal(context.scale?.unit, 'cfs');
+  assert.equal(context.scale?.muted, false);
+  assert.equal(context.season, 'Lower than usual for early October');
+  station.thresholds![0].thresholdUnit = 'ft';
+  assert.equal(favoriteGaugeContext(station, now).scale?.value, 3);
+  assert.equal(favoriteGaugeContext(station, now).season, 'Flow: 300 cfs, lower than usual for early October');
+  assert.equal(favoriteGaugeContext({ ...station, gaugeHeightFt: null }, now).scale, null);
+  assert.equal(favoriteGaugeContext({ ...station, gaugeHeightFt: 0 }, now).scale?.value, 0);
+  assert.equal(favoriteGaugeContext({ ...station, gaugeHeightFt: NaN }, now).scale, null);
+  assert.equal(favoriteGaugeContext({ ...station, thresholds: null }, now).scale, null);
+  assert.deepEqual(favoriteGaugeContext(null, now), { scale: null, season: null });
+});
+
+test('favorite gauge context hides old comparisons and never marks untrusted readings as current', () => {
+  const station: MapGauge = { ...gauge('Pruitt', 29.9), readingTimestamp: option.timestamp,
+    seasonalContext: { unit: 'cfs', parameterCode: '00060', percentile: 80, band: 'higher', yearsOfRecord: 40, asOf: option.timestamp } };
+  for (const patch of [{ readingSuspect: true }, { readingTimestamp: null }, { readingTimestamp: '2026-10-07T18:00:00Z' }]) {
+    const context = favoriteGaugeContext({ ...station, ...patch }, now);
+    assert.equal(context.scale?.value, null);
+    assert.equal(context.scale?.muted, true);
+    assert.equal(context.season, null);
+  }
+  for (const patch of [{ seasonalContext: null }, { seasonalContext: { ...station.seasonalContext!, asOf: 'invalid' } },
+    { seasonalContext: { ...station.seasonalContext!, asOf: '2026-10-06T18:00:00Z' } },
+    { seasonalContext: { ...station.seasonalContext!, unit: 'ft' as const } }, { dischargeCfs: null }, { provider: 'usace' }]) {
+    assert.equal(favoriteGaugeContext({ ...station, ...patch }, now).season, null);
+  }
+  const midnight = Date.parse('2026-11-01T05:05:00Z');
+  const october = { ...station, readingTimestamp: '2026-11-01T04:55:00Z',
+    seasonalContext: { ...station.seasonalContext!, asOf: '2026-11-01T04:55:00Z' } };
+  assert.equal(favoriteGaugeContext(october, midnight).season, null);
+  assert.equal(favoriteGaugeContext({ ...october, seasonalContext: { ...october.seasonalContext, asOf: '2026-11-01T05:01:00Z' } }, midnight).season,
+    'Higher than usual for early November');
+});
 test('menu distinguishes current, stale, suspect, missing and future observations', () => {
   assert.match(gaugeMenuSubtitle(option, now), /312 cfs.*Good/i);
   assert.match(gaugeMenuSubtitle({ ...option, timestamp: '2026-10-07T18:00:00Z' }, now), /Reporting delayed/);

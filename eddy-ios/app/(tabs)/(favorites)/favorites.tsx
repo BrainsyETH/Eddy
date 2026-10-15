@@ -372,6 +372,8 @@ function FavoritesContent() {
           name={item.name}
           riverName={riverName}
           gauge={gauge}
+          showContext
+          now={now}
           // Everything in this list is starred; the row is what unstars it.
           starred
           // THE GAUGE, not its river. This used to require `item.slug`

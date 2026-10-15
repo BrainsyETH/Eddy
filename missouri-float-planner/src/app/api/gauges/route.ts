@@ -8,6 +8,8 @@ import { loadCurrentReadings } from '@/lib/gauges/latest-readings';
 import { classifyQualifiers, fetchGaugeReadings } from '@/lib/usgs/gauges';
 import { rateLimit, getClientIp } from '@/lib/rate-limit';
 import { withX402Route } from '@/lib/x402-config';
+import type { GaugeDetail } from '@/app/api/gauges/[siteId]/route';
+import { gaugeSeasonalContext, loadGaugeSeasonalStats } from '@/lib/gauges/seasonal-context';
 
 export const dynamic = 'force-dynamic';
 
@@ -145,6 +147,8 @@ export interface GaugeStation {
   readingSuspect: boolean;
   /** Human-readable qualifier note ("Ice at the gauge. This reading may be off."), or null when clean. */
   qualifierNote: string | null;
+  /** Optional on older responses; discharge comparison against the daily record. */
+  seasonalContext?: GaugeDetail['seasonalContext'];
   // Threshold descriptions (from gauge_stations table)
   thresholdDescriptions: ThresholdDescriptions | null;
   // Thresholds (from primary river association if exists)
@@ -328,9 +332,11 @@ async function _GET(request: NextRequest) {
     // endpoint as the one read path still picking a single tier, which is how
     // a station could read 87 cfs on a search row and 80 on this response in
     // the same minute. Both problems had the same one-line cause.
-    const [currentReadings, riverGauges] = await Promise.all([
+    const seasonalAsOf = new Date();
+    const [currentReadings, riverGauges, seasonalStats] = await Promise.all([
       loadCurrentReadings(supabase, gaugeIds),
       fetchRiverGauges(supabase, gaugeIds),
+      loadGaugeSeasonalStats(supabase, stations, seasonalAsOf),
     ]);
 
     const latestReadings = new Map<string, {
@@ -532,6 +538,12 @@ async function _GET(request: NextRequest) {
         readingAgeHours,
         readingSuspect: qual.suspect,
         qualifierNote: qual.suspect ? qual.note : null,
+        seasonalContext: gaugeSeasonalContext({
+          provider: station.provider,
+          dischargeCfs: reading?.dischargeCfs ?? null,
+          readingTimestamp: reading?.readingTimestamp ?? null,
+          readingSuspect: qual.suspect,
+        }, seasonalStats.get(station.usgs_site_id), seasonalAsOf),
         thresholdDescriptions: mapThresholdDescriptionKeys(station.threshold_descriptions),
         thresholds,
       };

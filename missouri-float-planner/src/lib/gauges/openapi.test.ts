@@ -33,3 +33,15 @@ test('OpenAPI exposes range and viewport parameters and actual reading field nam
   assert.equal(gaugeSchemas.GaugeReading.required.includes('timestamp'),true);
   assert.equal('latestReading' in gaugeSchemas.GaugeStation.properties,false);
 });
+
+test('catalog seasonal context accepts absent, null and complete discharge comparisons', () => {
+  const body = JSON.parse(fs.readFileSync(path.join(process.cwd(), 'src/lib/gauges/fixtures/list.json'), 'utf8'));
+  for (const seasonalContext of [undefined, null, { unit: 'cfs', parameterCode: '00060', percentile: 11,
+    band: 'lower', yearsOfRecord: 40, asOf: '2026-10-15T02:00:00Z' }]) {
+    if (seasonalContext === undefined) delete body.gauges[0].seasonalContext;
+    else body.gauges[0].seasonalContext = seasonalContext;
+    assert.equal(valid(gaugeSchemas.GaugesResponse, body), true);
+  }
+  body.gauges[0].seasonalContext.percentile = 'not a number';
+  assert.equal(valid(gaugeSchemas.GaugesResponse, body), false);
+});

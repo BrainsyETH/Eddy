@@ -40,6 +40,8 @@ import { fonts, type as t } from '@/theme/typography';
 import { gaugeConditionCode, gaugeReadingText } from '@/lib/gaugeCondition';
 import { readingAge } from '@/lib/readingCopy';
 import { KindMark } from '@/components/KindMark';
+import { ReadingScale } from '@/components/ReadingScale';
+import { favoriteGaugeContext } from '@/lib/favoriteGaugeContext';
 
 interface Props {
   /** Name from the local store, so the row renders before /api/gauges lands. */
@@ -59,9 +61,12 @@ interface Props {
   starred: boolean;
   onPress: (() => void) | null;
   onToggleStar: () => void;
+  /** Expanded context belongs on Favorites, not compact search rows. */
+  showContext?: boolean;
+  now?: number;
 }
 
-function GaugeRowComponent({ name, riverName, gauge, starred, onPress, onToggleStar }: Props) {
+function GaugeRowComponent({ name, riverName, gauge, starred, onPress, onToggleStar, showContext = false, now }: Props) {
   const { colors, elevation, isDark } = useTheme();
 
   const code = gauge && !isReadingStale(gauge.readingAgeHours) ? gaugeConditionCode(gauge) : 'unknown';
@@ -69,6 +74,7 @@ function GaugeRowComponent({ name, riverName, gauge, starred, onPress, onToggleS
   const age = gauge ? readingAge(gauge.readingAgeHours) : null;
 
   const meta = [riverName, age].filter(Boolean).join(' · ');
+  const context = showContext ? favoriteGaugeContext(gauge, now) : null;
 
   return (
     <View style={[styles.row, { backgroundColor: colors.card }, elevation(1)]}>
@@ -87,6 +93,7 @@ function GaugeRowComponent({ name, riverName, gauge, starred, onPress, onToggleS
           reading ?? 'no reading',
           riverName ? `on the ${riverName}` : null,
           age,
+          context?.season,
         ]
           .filter(Boolean)
           .join(', ')}
@@ -117,6 +124,10 @@ function GaugeRowComponent({ name, riverName, gauge, starred, onPress, onToggleS
           <Text style={[styles.meta, { color: colors.textSubtle }]} numberOfLines={1}>
             {meta}
           </Text>
+        ) : null}
+        {context?.scale ? <ReadingScale {...context.scale} summary /> : null}
+        {context?.season ? (
+          <Text style={[styles.season, { color: colors.textMuted }]}>{context.season}</Text>
         ) : null}
       </Pressable>
 
@@ -157,5 +168,6 @@ const styles = StyleSheet.create({
   conditionWord: { ...t.xs, fontFamily: fonts.semibold },
   reading: { ...t.lg, fontFamily: fonts.mono, marginTop: 3 },
   meta: { ...t.xs, fontFamily: fonts.body, marginTop: 2 },
+  season: { ...t.sm, fontFamily: fonts.body, marginTop: 8 },
   starColumn: { width: 46, alignItems: 'center', justifyContent: 'center' },
 });

@@ -981,6 +981,8 @@ export interface MapGauge {
   /** USGS qualifier codes flag this reading as ice-affected, estimated, or bad. */
   readingSuspect: boolean;
   qualifierNote: string | null;
+  /** Daily discharge comparison; absent on older catalog responses. */
+  seasonalContext?: GaugeDetail['seasonalContext'];
   /**
    * Which rivers grade against this gauge, and the ladder each grades with.
    *
