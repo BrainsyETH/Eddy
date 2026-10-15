@@ -164,10 +164,12 @@ These are pending device and release checks, not evidence of a device pass.
       horizontal swipes versus vertical scrolling, page dots, light/dark,
       maximum Dynamic Type, and rapid taps on different actions as well as the
       same action; only one destination/session should open.
-- [ ] **Find a Route:** search a river and a town in the same picker; change
-      between them and Use my location. No location prompt until that action;
-      denied/unavailable location still permits town/river search. Type quickly
-      and dismiss during town lookup; stale responses must not replace results.
+- [ ] **Find a Route:** open from a river page in each tab; Back/swipe returns
+      to that same river without changing tabs. Open a suggested plan, close to
+      the same finder, then Back to the river. Search a river and a town in the
+      same picker; change between them and Use my location. No location prompt
+      until that action; denied/unavailable location still permits town/river search.
+      Type quickly and dismiss during town lookup; stale responses must not replace results.
       New users start with Kayak, and a selected vessel survives reopening and
       plan retry. Check public-access toggle copy, time-slider VoiceOver, keyboard
       dismissal, footer clearance and returning to the same search results.

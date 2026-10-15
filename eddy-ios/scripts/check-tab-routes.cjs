@@ -152,6 +152,17 @@ for (const [group, initial] of Object.entries(roots)) {
   }
   push('/river/current?gauge=07067000');
   const river = activeStack();
+  const findRoute = push({ pathname: '/find-float', params: { river: 'current' } });
+  assert.equal(findRoute.target, stackKey, 'Find a Route must stay in the river’s tab');
+  assert.equal(activeTab(), owner, 'Finding a route must not switch away from the river’s tab');
+  assert.equal(activeStack().routes.at(-1).name, 'find-float');
+  assert.equal(activeStack().routes.at(-1).params.river, 'current');
+  const finder = activeStack();
+  push('/plan-route?openPlan=1&focusRiver=current&planPutIn=akers&planTakeOut=waymeyer');
+  back();
+  assert.deepEqual(activeStack(), finder, 'Closing a suggested plan must return to the same finder');
+  back();
+  assert.deepEqual(activeStack(), river, 'Back from Find a Route must restore the exact river page');
   push('/river/current/access/van-buren');
   assert.equal(activeStack().routes.at(-1).name, 'river/[slug]/access/[accessSlug]');
   back();
@@ -216,6 +227,7 @@ for (const [href, group, screen] of [
   ['/profile', 'today', 'profile'],
   ['/floats', 'floats', 'floats'],
   ['/favorite-floats', 'floats', 'favorite-floats'],
+  ['/find-float?river=current', 'floats', 'find-float'],
   ['https://eddy.guide/plan/TESTPLAN', 'floats', 'float/[shortCode]'],
 ]) {
   launch(redirectSystemPath({ path: href, initial: true }));

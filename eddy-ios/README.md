@@ -315,11 +315,13 @@ the sheet closes. Navigation entry actions ignore repeated presses until focus
 returns. The native route checks exercise the handoff, endpoint-detail Back,
 new-plan isolation, and preserved Map stack.
 
-Find a Route uses one Where? picker for rivers and towns, with Use my location
-on the main form. River choices work without a location permission; only an
-explicit location tap asks. Selecting a river clears the previous nearby point,
-and selecting a location clears the river. Town search is debounced and cancels
-stale responses; it keeps Mapbox attribution. A selected location reveals a
+Find a Route is a shared detail in every tab: opening it from a river page
+preserves that page and its tab, so Back returns to the same river. Cold finder
+links still belong to Floats. It uses one Where? picker for rivers and towns,
+with Use my location on the main form. River choices work without a location
+permission; only an explicit location tap asks. Selecting a river clears the
+previous nearby point, and selecting a location clears the river. Town search
+is debounced and cancels stale responses; it keeps Mapbox attribution. A selected location reveals a
 native radius menu, measured to the put-in rather than as driving distance.
 
 Kayak is the initial vessel, then an explicit choice is remembered. Labelled
