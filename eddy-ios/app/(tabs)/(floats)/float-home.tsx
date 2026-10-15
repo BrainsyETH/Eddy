@@ -34,6 +34,7 @@ import { ApiError, fetchFavoriteFloats } from '@/api/client';
 import { ControlIcon } from '@/components/ControlIcon';
 import { EddyScene } from '@/components/EddyScene';
 import { FeaturedFloatCard } from '@/components/FeaturedFloatCard';
+import { FloatActionIcon } from '@/components/FloatActionIcon';
 import { LazyTabScreen } from '@/components/LazyTabScreen';
 import { SavedFloatRow } from '@/components/SavedFloatRow';
 import { SectionHead } from '@/components/SectionHead';
@@ -143,7 +144,11 @@ function FloatHomeContent() {
                 { backgroundColor: colors.accentFill, opacity: pressed ? 0.8 : 1 },
               ]}
             >
-              <ControlIcon name="navigate-outline" size={24} color={colors.onAccent} />
+              {activeFloat ? (
+                <ControlIcon name="navigate-outline" size={24} color={colors.onAccent} />
+              ) : (
+                <FloatActionIcon name="startFloat" color={colors.onAccent} />
+              )}
               <View style={styles.welcomeText}>
                 <Text style={[styles.findTitle, { color: colors.onAccent }]}>
                   {activeFloat ? 'Resume Float' : 'Start a Float'}
@@ -166,7 +171,7 @@ function FloatHomeContent() {
                 { backgroundColor: features.floatMode ? colors.card : colors.accentFill, opacity: pressed ? 0.7 : 1 },
               ]}
             >
-              <ControlIcon name="map-outline" size={22} color={features.floatMode ? colors.interactive : colors.onAccent} />
+              <FloatActionIcon name="buildRoute" color={features.floatMode ? colors.interactive : colors.onAccent} />
               <Text style={[styles.actionTitle, { color: features.floatMode ? colors.text : colors.onAccent }]}>Build a Route</Text>
               <Text style={[t.sm, { color: features.floatMode ? colors.textMuted : colors.onAccent }]}>Choose your put-in and take-out</Text>
             </Pressable>
@@ -179,7 +184,7 @@ function FloatHomeContent() {
                   { backgroundColor: colors.card, opacity: pressed ? 0.7 : 1 },
                 ]}
               >
-                <ControlIcon name="search-outline" size={22} color={colors.interactive} />
+                <FloatActionIcon name="findRoute" color={colors.interactive} />
                 <Text style={[styles.actionTitle, { color: colors.text }]}>Find a Route</Text>
                 <Text style={[t.sm, { color: colors.textMuted }]}>
                   Get suggestions for your time and location

@@ -919,6 +919,15 @@ cutout, so it remains distinct in dark mode. The compact artwork fits a square
 with `node eddy-ios/scripts/build-tab-icons.cjs` from the root after installing
 web dependencies. See the source directory's README for appearance checks.
 
+The Floats hub's `FloatActionIcon` uses the approved Eddy-with-paddle (Start a
+Float), Eddy-with-map (Build a Route), and plain magnifying-glass (Find a Route)
+artwork from `design/float-action-icons/`. These are transparent templates at
+40 points with 1x/2x/3x exports, tinted at render time: `onAccent` on filled
+buttons and `interactive` on cards, including light, dark, and increased-contrast
+themes. Keep facial and map details transparent and preserve the aspect ratio.
+Resume Float retains its navigation control. Regenerate with
+`node eddy-ios/scripts/build-float-action-icons.cjs` after installing web dependencies.
+
 The app icon and splash are generated from the Eddy favicon artwork:
 
 ```bash
