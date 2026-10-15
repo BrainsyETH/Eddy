@@ -7,7 +7,7 @@ export type FloatActivityOptions = { start?: boolean; force?: boolean };
 
 /** The session owns its lifecycle; presentation never joins its promises. */
 export function createFloatActivityLifecycle(
-  store: Pick<FloatSessionStore, 'ensureLoaded' | 'get' | 'begin' | 'end'>,
+  store: Pick<FloatSessionStore, 'ensureLoaded' | 'loadFailed' | 'get' | 'begin' | 'end'>,
   sync: (session: FloatSession | null, options: FloatActivityOptions) => Promise<void>,
 ) {
   let loaded: Promise<void> | null = null;
@@ -16,7 +16,11 @@ export function createFloatActivityLifecycle(
     catch { /* A presentation failure cannot interrupt tracking or persistence. */ }
   };
   const ensureLoaded = () => {
-    loaded ??= store.ensureLoaded().then(() => { announce(store.get(), { force: true }); });
+    loaded ??= store.ensureLoaded().then(() => {
+      // A failed read is retried by the next caller, not remembered as done.
+      if (store.loadFailed()) loaded = null;
+      else announce(store.get(), { force: true });
+    });
     return loaded;
   };
   return {

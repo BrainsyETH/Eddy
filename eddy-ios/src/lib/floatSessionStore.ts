@@ -71,6 +71,15 @@ export function ensureFloatSessionLoaded(): Promise<void> {
   return activityLifecycle.ensureLoaded();
 }
 
+/**
+ * The stored float could not be read. getFloatSession() is null, but that is
+ * not "no float": nothing may stop tracking or start a new float on it.
+ * The next ensureFloatSessionLoaded() reads again.
+ */
+export function floatSessionLoadFailed(): boolean {
+  return store.loadFailed();
+}
+
 /** The current session: always this, never a value remembered from a load. */
 export function getFloatSession(): FloatSession | null {
   return store.get();

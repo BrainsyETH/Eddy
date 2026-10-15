@@ -10,7 +10,7 @@ import { ActivityIndicator, Text, View } from 'react-native';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useRoute as useNavigationRoute } from 'expo-router/react-navigation';
 import { milesBetween } from '@eddy/geo';
-import { useFloatSession } from '@/hooks/useFloatSession';
+import { useFloatSession, useFloatSessionUnreadable } from '@/hooks/useFloatSession';
 import { useFloatStartLocation } from '@/hooks/useFloatStartLocation';
 import { routeProblemCopy, type LoadedRoute } from '@/float/loadFloatRoute';
 import { BackgroundStep } from '@/float/start/BackgroundStep';
@@ -28,8 +28,22 @@ const clockTime = (ms: number) => new Date(ms).toLocaleTimeString([], { hour: 'n
 export default function FloatStartScreen() {
   const params = useLocalSearchParams<Params>();
   const active = useFloatSession();
+  const stored = useFloatSessionUnreadable();
   const router = useRouter();
   const { colors } = useTheme();
+  // A float may be in progress that could not be read; starting another
+  // would overwrite it. Reads again on Try again and on each foreground.
+  if (!active && stored.unreadable)
+    return (
+      <Shell>
+        <Text style={[styles.title, { color: colors.text }]}>Eddy couldn’t check for a float in progress</Text>
+        <Text style={[styles.body, { color: colors.textMuted }]}>
+          Your saved float couldn’t be read just now. Eddy won’t start a new one until it can check, so an earlier
+          float isn’t replaced.
+        </Text>
+        <PrimaryButton label="Try again" onPress={stored.retry} />
+      </Shell>
+    );
   if (active)
     return (
       <Shell>

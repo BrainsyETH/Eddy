@@ -168,3 +168,66 @@ test('an automatic end records the moment the float finished, not when it was no
   assert.deepEqual(ended, [T0 + 3_600_000]);
   assert.equal(store.get(), null);
 });
+
+function flakyReads(disk: ReturnType<typeof fakeDisk>, failures: number) {
+  const getItem = disk.getItem;
+  let left = failures;
+  disk.getItem = async (key) => {
+    if (left > 0) {
+      left -= 1;
+      throw new Error('storage busy');
+    }
+    return getItem(key);
+  };
+}
+
+test('a failed read is not "no float": starts are refused and the next load reads again', async () => {
+  const disk = fakeDisk();
+  await createFloatSessionStore(disk, quiet).begin(newSession('saved'));
+  flakyReads(disk, 1);
+  const relaunched = createFloatSessionStore(disk, quiet);
+  await relaunched.ensureLoaded();
+  assert.equal(relaunched.get(), null);
+  assert.equal(relaunched.loadFailed(), true, 'the failure is visible, not mistaken for an empty disk');
+  // The start itself reads again, and now finds the saved float.
+  assert.equal(await relaunched.begin(newSession('replacement')), 'already-active');
+  assert.equal(relaunched.loadFailed(), false);
+  assert.equal(relaunched.get()?.id, 'saved');
+  assert.equal((JSON.parse(disk.data.get(STORAGE_KEY)!) as FloatSession).id, 'saved', 'the saved float was not overwritten');
+});
+
+test('a start is refused while the stored float still cannot be read', async () => {
+  const disk = fakeDisk();
+  await createFloatSessionStore(disk, quiet).begin(newSession('saved'));
+  flakyReads(disk, 2);
+  const relaunched = createFloatSessionStore(disk, quiet);
+  await relaunched.ensureLoaded();
+  assert.equal(await relaunched.begin(newSession('replacement')), 'unreadable');
+  assert.equal((JSON.parse(disk.data.get(STORAGE_KEY)!) as FloatSession).id, 'saved');
+  await relaunched.ensureLoaded();
+  assert.equal(relaunched.get()?.id, 'saved', 'a later read restores it');
+  assert.equal(relaunched.loadFailed(), false);
+});
+
+test('subscribers hear when a failed read is recovered', async () => {
+  const disk = fakeDisk();
+  await createFloatSessionStore(disk, quiet).begin(newSession('saved'));
+  flakyReads(disk, 1);
+  const relaunched = createFloatSessionStore(disk, quiet);
+  const seen: boolean[] = [];
+  relaunched.subscribe(() => seen.push(relaunched.loadFailed()));
+  await relaunched.ensureLoaded();
+  await relaunched.ensureLoaded();
+  assert.deepEqual(seen, [true, false], 'failed, then recovered with the float in one notification');
+});
+
+test('a corrupt ended-float journal does not block every later start', async () => {
+  const disk = fakeDisk();
+  await createFloatSessionStore(disk, quiet).begin(newSession('old'));
+  disk.data.set(ENDED_KEY, '{not json');
+  const relaunched = createFloatSessionStore(disk, quiet);
+  await relaunched.ensureLoaded();
+  assert.equal(relaunched.loadFailed(), false);
+  assert.equal(relaunched.get(), null, 'the ended float is not resumed');
+  assert.equal(await relaunched.begin(newSession('new')), 'started');
+});

@@ -48,7 +48,14 @@
 
 import * as Location from 'expo-location';
 import * as TaskManager from 'expo-task-manager';
-import { ensureFloatSessionLoaded, floatRemindersSettled, flushFloatSessionIfStale, getFloatSession, recordFixes } from '@/lib/floatSessionStore';
+import {
+  ensureFloatSessionLoaded,
+  floatRemindersSettled,
+  floatSessionLoadFailed,
+  flushFloatSessionIfStale,
+  getFloatSession,
+  recordFixes,
+} from '@/lib/floatSessionStore';
 import { warn } from '@/lib/monitoring';
 import { createSerialQueue } from '@/lib/serialQueue';
 import { flushHazardReports } from './hazardReports';
@@ -79,7 +86,10 @@ TaskManager.defineTask<{ locations: Location.LocationObject[] }>(FLOAT_LOCATION_
   // a float started after launch is not in what the launch-time load found.
   await ensureFloatSessionLoaded();
   if (!getFloatSession()) {
-    await stopBackgroundTracking();
+    // A float that could not be read is still a float: keep the stream
+    // running so the next delivery can read it again. Only a confirmed
+    // "no float" stops tracking.
+    if (!floatSessionLoadFailed()) await stopBackgroundTracking();
     return;
   }
   const fixes = (data?.locations ?? []).map((location) => ({
@@ -117,7 +127,7 @@ TaskManager.defineTask(FLOAT_WAKE_TASK, async ({ error }) => {
   }
   await ensureFloatSessionLoaded();
   if (!getFloatSession()) {
-    await stopBackgroundTracking();
+    if (!floatSessionLoadFailed()) await stopBackgroundTracking();
     return;
   }
   await startBackgroundTracking(() => getFloatSession() != null);

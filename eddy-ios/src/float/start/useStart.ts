@@ -140,6 +140,10 @@ export function useStart(params: Params, loaded: LoadedRoute | null, location: S
         setError('Eddy couldn’t save this float. Free up some storage and try again.');
         return;
       }
+      if (result === 'unreadable') {
+        setError('Eddy couldn’t check for a float already in progress. Please try again.');
+        return;
+      }
       const state = navigation.getState();
       if (!state) {
         router.replace('/float-mode');

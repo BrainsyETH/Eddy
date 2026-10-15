@@ -334,3 +334,23 @@ test('handover timeout releases the caller while keeping a pending End serialize
   assert.equal(calls[1], null, 'queued progress is superseded by End');
   assert.deepEqual(states, ['active', 'idle']);
 });
+
+test('a failed launch read is retried by the next caller, not remembered as loaded', async () => {
+  const { session } = prepared();
+  const { data, disk } = memoryDisk();
+  data.set(STORAGE_KEY, JSON.stringify(session));
+  const getItem = disk.getItem;
+  let fail = true;
+  disk.getItem = async (key) => {
+    if (fail) throw new Error('storage busy');
+    return getItem(key);
+  };
+  const store = createFloatSessionStore(disk, () => {});
+  const life = createFloatActivityLifecycle(store, async () => {});
+  await life.ensureLoaded();
+  assert.equal(store.get(), null);
+  assert.equal(store.loadFailed(), true);
+  fail = false;
+  await life.ensureLoaded();
+  assert.equal(store.get()?.id, session.id);
+});

@@ -16,7 +16,8 @@
 // Re-checked whenever Eddy returns to the foreground, so changing the setting
 // mid-float switches streams without a second one ever running.
 //
-// Ending the float stops both. Nothing else does: switching tabs or leaving the
+// Ending the float stops both. Nothing else does (a stored float that could
+// not be read is not an ended one, so it stops nothing either): switching tabs or leaving the
 // Float Mode screen leaves tracking exactly as it was. Ending DURING a start is
 // covered too: background starts and stops run in call order, and a queued
 // start re-checks that the float is still wanted before it begins.
@@ -24,7 +25,7 @@
 import { useEffect, useRef } from 'react';
 import { AppState } from 'react-native';
 import * as Location from 'expo-location';
-import { useFloatSession } from '@/hooks/useFloatSession';
+import { useFloatSession, useFloatSessionUnreadable } from '@/hooks/useFloatSession';
 import { flushFloatSession, getFloatSession, recordFixes } from '@/lib/floatSessionStore';
 import { onForeground } from '@/lib/foreground';
 import { warn } from '@/lib/monitoring';
@@ -34,6 +35,9 @@ import { syncFloatActivity } from './liveActivity';
 export function FloatTracker() {
   const session = useFloatSession();
   const active = session != null;
+  // Null because the stored float could not be read is not "ended": leave any
+  // background stream running until a read says which it is.
+  const { unreadable } = useFloatSessionUnreadable();
   const watch = useRef<Location.LocationSubscription | null>(null);
   // Serialises (re)starts, so a foreground event mid-start cannot open a
   // second stream.
@@ -41,6 +45,7 @@ export function FloatTracker() {
 
   useEffect(() => {
     if (!active) {
+      if (unreadable) return;
       void stopBackgroundTracking();
       watch.current?.remove();
       watch.current = null;
@@ -117,7 +122,7 @@ export function FloatTracker() {
       watch.current = null;
       void flushFloatSession();
     };
-  }, [active]);
+  }, [active, unreadable]);
 
   return null;
 }
