@@ -950,6 +950,13 @@ A splash that lifts after ~8 seconds means the backstop did its job and the
 report is already filed. A splash that never lifts at all means JS never
 started — look at step 2, not step 3.
 
+## River detail
+
+The river header shows its name, region and length, followed by the gauge
+picker and conditions. General `floatTip` prose is omitted from this screen's
+header so long tips cannot push readings down the page. Tips remain available
+in float plans, and the river's Hazards section keeps its existing details.
+
 ## Favorites
 
 River cards show compact CFS rows for every linked gauge, ordered upstream to
