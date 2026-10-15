@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
 import { Player, type PlayerRef } from '@remotion/player';
@@ -17,19 +17,27 @@ import {
   toWindowSign,
 } from '@/lib/display/river-window';
 import RiverWindowScene from './RiverWindowScene';
+import MillWindowScene from './MillWindowScene';
+import { MILL_PASS_FRAMES, MILL_RIVERS, millDuration, selectMillScenes } from '@/lib/display/mill-scenes';
 import styles from './river-window.module.css';
 
 export default function RiverWindow() {
   const params = useSearchParams();
   const rawRivers = params.get('rivers');
+  const millMode = params.get('theme') !== 'river';
   const requested = useMemo(() => parseRiverSelection(rawRivers), [rawRivers]);
+  const mills = useMemo(() => selectMillScenes(requested), [requested]);
+  const duration = millMode ? millDuration(mills.length) : WINDOW_FRAMES;
+  const stride = millMode ? MILL_PASS_FRAMES : SCENE_STRIDE;
   const player = useRef<PlayerRef>(null);
   const stage = useRef<HTMLDivElement>(null);
   const [paused, setPaused] = useState(true);
   const [showReadings, setShowReadings] = useState(false);
+  const [showMills, setShowMills] = useState(false);
   const [now, setNow] = useState(() => Date.now());
   const [fullscreenError, setFullscreenError] = useState(false);
   const [assetError, setAssetError] = useState(false);
+  const onAssetError = useCallback(() => setAssetError(true), []);
 
   const query = useQuery({
     queryKey: ['river-window-snapshot'],
@@ -50,13 +58,14 @@ export default function RiverWindow() {
   const signs = useMemo(
     () =>
       query.data
-        ? selectWindowRivers(query.data.rivers, requested).map((r) =>
+        ? selectWindowRivers(query.data.rivers, requested.length ? requested : millMode ? MILL_RIVERS : []).map((r) =>
             toWindowSign(r, query.data.fetchedAt, now)
           )
         : [],
-    [query.data, requested, now]
+    [query.data, requested, now, millMode]
   );
   const sceneProps = useMemo(() => ({ signs, loading: query.isPending }), [signs, query.isPending]);
+  const millProps = useMemo(() => ({ ...sceneProps, mills, onAssetError }), [sceneProps, mills, onAssetError]);
 
   useEffect(() => {
     const interval = window.setInterval(() => setNow(Date.now()), 30_000);
@@ -82,13 +91,13 @@ export default function RiverWindow() {
 
   useEffect(() => {
     const sync = () => {
-      if (paused || showReadings || document.hidden) player.current?.pause();
+      if (paused || showReadings || showMills || document.hidden) player.current?.pause();
       else player.current?.play();
     };
     sync();
     document.addEventListener('visibilitychange', sync);
     return () => document.removeEventListener('visibilitychange', sync);
-  }, [paused, showReadings]);
+  }, [paused, showReadings, showMills]);
 
   const warning = signs.filter((s) => s.code === 'dangerous' || s.code === 'high');
   const connection = query.isError
@@ -115,7 +124,30 @@ export default function RiverWindow() {
 
   return (
     <div className={styles.viewport}>
-      <div ref={stage} className={styles.stage} aria-label="Eddy River Window">
+      <div ref={stage} className={styles.stage} data-theme={millMode ? 'mills' : 'river'} aria-label="Eddy River Window">
+        {millMode ? (
+        <Player
+          ref={player}
+          component={MillWindowScene}
+          inputProps={millProps}
+          compositionWidth={WINDOW_WIDTH}
+          compositionHeight={WINDOW_HEIGHT}
+          durationInFrames={duration}
+          fps={WINDOW_FPS}
+          loop
+          style={{ width: '100%', height: '100%' }}
+          controls={false}
+          clickToPlay={false}
+          doubleClickToFullscreen={false}
+          spaceKeyToPlayOrPause={false}
+          numberOfSharedAudioTags={0}
+          errorFallback={() => (
+            <div className={styles.fallback}>
+              The river scene could not load. Open Readings to see the river report.
+            </div>
+          )}
+        />
+        ) : (
         <Player
           ref={player}
           component={RiverWindowScene}
@@ -137,9 +169,10 @@ export default function RiverWindow() {
             </div>
           )}
         />
+        )}
         <header className={styles.brand}>
           <b>eddy</b>
-          <span>{(params.get('name') || 'RIVER WINDOW').slice(0, 50)}</span>
+          <span>{(params.get('name') || (millMode ? 'MISSOURI MILLS' : 'RIVER WINDOW')).slice(0, 50)}</span>
         </header>
         <div className={styles.status} role="status">
           <time dateTime={new Date(now).toISOString()}>
@@ -154,6 +187,16 @@ export default function RiverWindow() {
             {warning.map((s) => `${s.name}: ${s.condition}`).join(' · ')} · Check the river report
             before launching.
           </div>
+        ) : null}
+        {showMills ? (
+          <section className={`${styles.reader} ${styles.millPicker}`} aria-label="Choose a mill">
+            <h2>Missouri mills</h2>
+            {mills.length ? mills.map((mill, index) => (
+              <button key={mill.id} onClick={() => { player.current?.seekTo(index * MILL_PASS_FRAMES); setShowMills(false); }}>
+                <strong>{mill.name}</strong><span>{mill.location}</span>
+              </button>
+            )) : <p>No mill scenes match these rivers.</p>}
+          </section>
         ) : null}
         {showReadings ? (
           <section className={styles.reader} aria-label="Current river readings">
@@ -184,12 +227,12 @@ export default function RiverWindow() {
             ) : (
               <p>{connection ?? 'No readings available.'}</p>
             )}
-            <p>Scenery is illustrative. River ratings and units come from Eddy’s river report.</p>
+            <p>Illustrated places, not current water levels. Readings describe the named river, not the millpond or spring. River ratings and units come from Eddy’s river report.</p>
           </section>
         ) : null}
         <nav
           className={styles.controls}
-          data-paused={paused || showReadings}
+          data-paused={paused || showReadings || showMills}
           aria-label="Display controls"
         >
           <button onClick={() => setPaused((p) => !p)} aria-pressed={paused}>
@@ -199,18 +242,19 @@ export default function RiverWindow() {
             onClick={() => {
               const frame = player.current?.getCurrentFrame() ?? 0;
               player.current?.seekTo(
-                (Math.floor(frame / SCENE_STRIDE) * SCENE_STRIDE + SCENE_STRIDE) % WINDOW_FRAMES
+                (Math.floor(frame / stride) * stride + stride) % duration
               );
             }}
           >
-            Next river
+            {millMode ? 'Next mill' : 'Next river'}
           </button>
-          <button onClick={() => setShowReadings((p) => !p)} aria-expanded={showReadings}>
+          {millMode ? <button onClick={() => { setShowMills((p) => !p); setShowReadings(false); }} aria-expanded={showMills}>{showMills ? 'Close mills' : 'Mills'}</button> : null}
+          <button onClick={() => { setShowReadings((p) => !p); setShowMills(false); }} aria-expanded={showReadings}>
             {showReadings ? 'Close readings' : 'Readings'}
           </button>
           <button onClick={fullscreen}>Full screen</button>
         </nav>
-        <AssetHealth onError={() => setAssetError(true)} />
+        {!millMode ? <AssetHealth onError={onAssetError} /> : null}
       </div>
       <p className={styles.portraitNote}>Turn your screen sideways for the river window.</p>
     </div>

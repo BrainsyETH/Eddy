@@ -335,3 +335,32 @@
     transition: none;
   }
 }
+
+/* Mill collection: all coordinates are in the 1920 × 1080 composition. */
+.millScene { background: #1d3027; overflow: hidden; }
+.millPanel { position: absolute; width: 1920px; height: 1080px; top: 0; left: 0; will-change: transform; }
+.millArt { position: absolute; inset: 0; width: 1920px; height: 1080px; max-width: none !important; }
+.millWater { position: absolute; inset: 0; opacity: .3; pointer-events: none; }
+.millTransition { position: absolute; top: -6px; left: 0; width: 240px; height: 1092px; max-width: none !important; pointer-events: none; }
+.millSign { position: absolute; display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 3px; padding: 4px 5px; box-sizing: border-box; color: #f6e9c8; text-align: center; text-shadow: 0 1px 2px #101b16; overflow: hidden; font-family: var(--font-body), sans-serif; }
+.millName { font-size: 1.5em; font-weight: 650; line-height: 1.08; }
+.millLocation { font-size: .875em; line-height: 1.12; color: #dfd4b9; }
+.millRiver { font-size: .9375em; line-height: 1.12; margin-top: 5px; }
+.millReading { font-size: 2em; font-weight: 600; line-height: 1; font-variant-numeric: tabular-nums; }
+.millReading small { font-size: 1.125em; margin-left: 6px; font-weight: 400; }
+.millCondition { font-size: 1.0625em; line-height: 1.1; }
+.millCondition[data-warning='true'] { color: #ffd19b; }
+.millAge { font-size: .8125em; line-height: 1.1; color: #dfd4b9; }
+.stage[data-theme='mills'] .brand,
+.stage[data-theme='mills'] .status { text-shadow: 0 2px 5px #0b201d, 0 0 18px #0b201d; }
+.brand, .status, .warning { animation: ambientDrift 600s ease-in-out infinite alternate; }
+@keyframes ambientDrift { from { translate: -7px -5px; } to { translate: 7px 5px; } }
+.millPicker { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; width: min(620px, 92%); }
+.millPicker h2 { grid-column: 1 / -1; }
+.millPicker button { padding: 12px; border: 1px solid #718277; border-radius: 3px; background: #203e3d; color: #f4ead5; text-align: left; cursor: pointer; }
+.millPicker button:hover { background: #30534b; }
+.millPicker button:focus-visible { outline: 2px solid #f2d9ab; outline-offset: 2px; }
+.millPicker strong, .millPicker span { display: block; }
+.millPicker span { margin-top: 4px; font-size: 12px; }
+@media (prefers-reduced-motion: reduce) { .brand, .status, .warning { animation: none; } }
+@media (max-width: 600px) { .millPicker { grid-template-columns: 1fr; } .millPicker button { padding: 8px; } }
