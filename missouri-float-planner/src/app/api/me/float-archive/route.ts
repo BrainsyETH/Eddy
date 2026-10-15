@@ -17,6 +17,9 @@ export async function GET(request: NextRequest) {
   try {
     const auth = await authorize(request);
     if (auth instanceof NextResponse) return auth;
+    // Authenticated capability check avoids downloading history before a note-bearing upload.
+    if (request.nextUrl.searchParams.get('capabilities') === '1')
+      return jsonPrivate({ capabilities: { startNote: true } });
     const cursor = request.nextUrl.searchParams.get('cursor');
     let query = auth.supabase
       .from('float_archive')

@@ -23,6 +23,7 @@ export const DETAIL_TITLES: Record<string, string> = {
   'float-start': 'Ready to float',
   'find-float': 'Find a Route',
   'float-history': 'Float history',
+  'float-history-recap': 'Float recap',
   'float-backup': 'Backup & sharing',
   'plan-route': 'Build a Route',
 };
@@ -35,6 +36,7 @@ const COLD_TAB_OWNERS: Partial<Record<string, keyof typeof TAB_ROOTS>> = {
   'float-start': 'floats',
   'find-float': 'floats',
   'float-history': 'floats',
+  'float-history-recap': 'floats',
   'float-backup': 'floats',
   'plan-route': 'floats',
 };

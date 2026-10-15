@@ -24,7 +24,7 @@
 // Either way there must be a take-out. Without one there are no miles left,
 // no percentage and no time left, which is the whole feature.
 
-import { startPointDistance } from './floatOrigin';
+import { nearLaunch } from './floatOrigin';
 import type { Hazard, HazardSeverity, MapAccessPoint, RiverDetail } from '@eddy/types';
 import {
   INITIAL_TRACK,
@@ -152,6 +152,10 @@ export interface FloatSession {
   startMile: number | null;
   /** Null until confirmed. Absent on older sessions: never infer a GPS point. */
   recordedStart?: { riverMile: number; lngLat: LngLat; at: number; atPutIn: boolean } | null;
+  /** Accurate post-Start fixes at the actual access; never inferred from its river mile. */
+  observedLaunch?: { id: string; at: number };
+  /** Short-lived support while confirming a launch, before the first river match. */
+  launchCandidate?: { firstAt: number; lastAt: number; support: number } | null;
   track: TrackState;
   samples: PaceSample[];
   /** Durable accounting; absent on sessions started by an older build. */
@@ -159,7 +163,7 @@ export interface FloatSession {
   archiveScope?: string;
   boatType?: string | null;
   /** The most recent tracker verdict, for the status line. */
-  last: { result: TrackResult; at: number } | null;
+  last: { result: TrackResult; at: number; nearPutIn?: boolean } | null;
   /** The last confirmed position, on the line, for the map dot. */
   position: { lngLat: LngLat; at: number } | null;
   /**
@@ -390,12 +394,33 @@ export function startSession(input: {
 
 /** Feed one GPS fix. Returns the same object when nothing changed. */
 export function applyFix(session: FloatSession, index: RouteIndex, fix: PositionFix, now: number): FloatSession {
-  if (fix.timestamp < session.startedAt) return session;
+  if (!Number.isFinite(fix.timestamp) || fix.timestamp < session.startedAt || fix.timestamp > now) return session;
   const step = trackFix(index, session.track, fix, now);
   if (step.result.kind === 'rejected') return session;
-  const next: FloatSession = { ...session, track: step.state, last: { result: step.result, at: fix.timestamp } };
+  const putIn = session.route.anchors.find(a => a.id === session.putIn?.id);
+  const atLaunch = Boolean(putIn && nearLaunch(fix.lngLat, fix.accuracyMeters, putIn.lngLat));
+  const next: FloatSession = { ...session, track: step.state,
+    last: { result: step.result, at: fix.timestamp, nearPutIn: atLaunch } };
+  // Three accurate fixes, with no gap over thirty seconds, like river acquisition.
+  // A lone outlier, preview GPS, or passing the snapped river point is not a launch.
+  // Older checkpoints without recordedStart retain their original semantics.
+  if (session.recordedStart === null && !session.observedLaunch) {
+    const previous = session.launchCandidate;
+    const agrees = previous && fix.timestamp - previous.lastAt <= 30_000;
+    next.launchCandidate = atLaunch ? {
+      firstAt: agrees ? previous.firstAt : fix.timestamp,
+      lastAt: fix.timestamp,
+      support: agrees ? previous.support + 1 : 1,
+    } : null;
+    if (putIn && next.launchCandidate && next.launchCandidate.support >= 3) {
+      next.observedLaunch = { id: putIn.id, at: next.launchCandidate.firstAt };
+      next.launchCandidate = null;
+    }
+  }
   // Away only while every usable fix says so; anything nearer starts over.
-  const farAway = step.result.kind === 'off-route' && step.result.offsetMeters > AWAY_FROM_RIVER_M;
+  // Waiting at an actual off-map launch is not evidence of having left the river.
+  const farAway = step.result.kind === 'off-route' && step.result.offsetMeters > AWAY_FROM_RIVER_M &&
+    !(session.recordedStart === null && atLaunch);
   next.awaySince = farAway ? (session.awaySince ?? fix.timestamp) : null;
   if (step.result.kind === 'matched') {
     next.awaitingFix = false;
@@ -414,13 +439,15 @@ export function applyFix(session: FloatSession, index: RouteIndex, fix: Position
     // confirmed fix, even when the paddler chose a named put-in.
     if (next.startMile == null) next.startMile = step.result.riverMile;
     if (session.recordedStart === null) {
-      const putIn = session.route.anchors.find(a => a.id === session.putIn?.id);
       next.recordedStart = {
         riverMile: step.result.riverMile, lngLat: next.position.lngLat, at: fix.timestamp,
-        atPutIn: Boolean(putIn && session.putIn && fix.accuracyMeters != null && fix.accuracyMeters <= 25 &&
-          step.result.offsetMeters <= 50 && Math.abs(step.result.riverMile - session.putIn.riverMile) < 0.1 &&
-          startPointDistance(fix.lngLat, putIn.lngLat) <= 75),
+        // Keep the existing on-river launch check once the tracker confirms it.
+        // Its first acquisition fixes may have been less precise than this one.
+        atPutIn: Boolean((next.observedLaunch && next.observedLaunch.id === session.putIn?.id) ||
+          (atLaunch && session.putIn && step.result.offsetMeters <= 50 &&
+            Math.abs(step.result.riverMile - session.putIn.riverMile) < 0.1)),
       };
+      next.launchCandidate = null;
     }
     if (
       next.startMile < session.takeOut.riverMile &&

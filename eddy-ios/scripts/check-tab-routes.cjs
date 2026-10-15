@@ -32,7 +32,7 @@ for (const [group, initial] of Object.entries(roots)) {
   assert.ok(stack, `Missing ${group} stack`);
   assert.equal(stack.initialRouteName, initial, `${group} must open its own root`);
   const routes = stack.children.map(route => route.route);
-  for (const detail of ['river/[slug]', 'gauge/[siteId]', 'dam/[damId]', 'river-conditions', 'camping', 'weather', 'eddy-reads', 'river-guides']) {
+  for (const detail of ['river/[slug]', 'gauge/[siteId]', 'dam/[damId]', 'river-conditions', 'camping', 'weather', 'eddy-reads', 'river-guides', 'float-history-recap']) {
     assert.ok(routes.includes(detail), `${detail} must push inside ${group}`);
   }
   for (const detail of ['float-mode', 'float-options', 'float-recap']) assert.ok(!routes.includes(detail), `${detail} must have only one root presentation`);
@@ -312,6 +312,7 @@ for (const [href, group, screen] of [
   ['/floats', 'floats', 'floats'],
   ['/favorite-floats', 'floats', 'favorite-floats'],
   ['/find-float?river=current', 'floats', 'find-float'],
+  ['/float-history-recap?id=older', 'floats', 'float-history-recap'],
   ['https://eddy.guide/plan/TESTPLAN', 'floats', 'float/[shortCode]'],
 ]) {
   launch(redirectSystemPath({ path: href, initial: true }));
@@ -392,6 +393,26 @@ for (const href of ['/float-mode', '/float-recap?id=finished', '/float-options']
   assert.equal(activeTab(), '(floats)', 'Cold close must have a useful Floats fallback');
 }
 console.log('One recording presentation, repeated/cross-tab Resume, options, recap, and originating Close verified.');
+
+for (const group of Object.keys(roots)) {
+  launch(`/(tabs)/(${group})/${group === 'map' ? '' : roots[group]}`);
+  push('/floats?view=history');
+  const history = activeStack();
+  push('/float-history-recap?id=last-month');
+  assert.equal(activeTab(), `(${group})`);
+  assert.equal(activeStack().routes.at(-1).name, 'float-history-recap');
+  assert.equal(activeStack().routes.at(-1).params.id, 'last-month');
+  assert.equal(recording(), undefined, 'History must not mount a recording presentation');
+  const recap = activeStack();
+  push('/float-mode');
+  assert.equal(appState().routes.filter(route => route.name === '(recording)').length, 1);
+  back(appState().key);
+  assert.deepEqual(activeStack(), recap, 'Closing a resumed recording preserves the historical recap');
+  back();
+  assert.deepEqual(activeStack(), history, 'Back from a historical recap restores the exact History list');
+}
+console.log('Historical recaps stay in each tab, preserve History on Back, and coexist with one recording presentation.');
+
 
 // Floats planners live in their originating stack. The kept-alive Map route
 // never receives their selected river/endpoints or their dismissal state.

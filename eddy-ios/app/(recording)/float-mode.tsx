@@ -155,7 +155,8 @@ export default function FloatModeScreen() {
   const live = view.status === 'live';
   // At the take-out, or as close as the mapped river goes to one off it.
   const done = view.arrived || view.atRiverEnd;
-  const wrongRiver = offerRiverChange(view);
+  const waitingAtLaunch = !view.confirmed && view.status === 'off-route' && session.last?.nearPutIn;
+  const wrongRiver = offerRiverChange(view) && !waitingAtLaunch;
 
   const confirmEnd = () => {
     Alert.alert(
@@ -240,7 +241,7 @@ export default function FloatModeScreen() {
           accessibilityLiveRegion="polite"
           numberOfLines={3}
         >
-          {statusCopy(view, clock)}
+          {waitingAtLaunch ? `Near ${session.putIn?.name} · waiting for the mapped river` : statusCopy(view, clock)}
         </Text>
 
         {recordedOrigin(session).note ? <Text style={[styles.note, { color: colors.textMuted }]}>

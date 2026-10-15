@@ -1,3 +1,4 @@
+import { uploadFloatArchive } from '@/lib/floatArchiveUpload';
 import { vesselTypeLoader } from '@/lib/vesselTypes';
 import type { CampingStayResult } from '@eddy/conditions/camping-stay';
 import type { CampingOverview } from '@eddy/types';
@@ -2583,13 +2584,19 @@ export async function readFloatArchive(token: string) {
   return { rows, preference };
 }
 export async function writeFloatArchive(token: string, rows: import('@eddy/conditions/float-archive').ArchiveRow[]) {
-  const result = await archiveRequest<{ results: import('@eddy/conditions/float-archive').ArchiveWriteResult[] }>('/api/me/float-archive',token,{ method:'POST', body:{ rows: rows.map(row => {
-    if (row.kind !== 'completed' || !row.payload) return row;
-    const { water: _water, ...payload } = row.payload as import('@eddy/conditions/float-archive').CompletedFloat;
-    return { ...row, payload };
-  }) } });
-  if (!result) throw new Error('Sign in again to back up floats.');
-  return result.results;
+  return uploadFloatArchive(rows, {
+    capabilities: async () => {
+      const result = await archiveRequest<{ capabilities?: { startNote?: boolean } }>('/api/me/float-archive?capabilities=1', token);
+      if (!result) throw new Error('Sign in again to back up floats.');
+      return result.capabilities ?? null;
+    },
+    write: async batch => {
+      const result = await archiveRequest<{ results: import('@eddy/conditions/float-archive').ArchiveWriteResult[] }>(
+        '/api/me/float-archive', token, { method: 'POST', body: { rows: batch } });
+      if (!result) throw new Error('Sign in again to back up floats.');
+      return result.results;
+    },
+  });
 }
 export async function setFloatContribution(token: string, enabled: boolean) {
   const result = await archiveRequest<import('@eddy/conditions/float-archive').ContributionPreference>('/api/me/float-archive',token,{ method:'PATCH', body:{ enabled } });

@@ -1,6 +1,6 @@
 // Preview rules only. A preview fix never seeds the session's tracker or pace.
 import { locateOnRoute, type LngLat, type RouteIndex } from '@eddy/geo';
-import { startPointDistance } from './floatOrigin';
+import { nearLaunch } from './floatOrigin';
 import type { FloatRoute } from './floatSession';
 
 export interface FloatSetup {
@@ -77,13 +77,16 @@ export function startRiverPosition(index: RouteIndex, fix: StartFix | null, now:
 /** "Near" requires both a good fix and proximity to the access itself. */
 export function putInLocation(index: RouteIndex, fix: StartFix | null, now: number,
   putIn: { name: string; lngLat: LngLat; mile: number }) {
+  if (!usableStartFix(fix, now)) return null;
   const hit = startRiverPosition(index, fix, now);
-  if (!hit || !fix) return null;
+  if (nearLaunch(fix.point, fix.accuracy, putIn.lngLat)) return {
+    label: `Near ${putIn.name}`, canSwitch: false,
+    ...(!hit ? { note: 'This launch is outside Eddy’s mapped river. Distance tracking begins when GPS finds you on the mapped river.' } : {}),
+  };
+  if (!hit) return null;
   const delta = hit.riverMile - putIn.mile;
-  const near = fix.accuracy != null && fix.accuracy <= 25 && hit.offsetMeters <= 50 &&
-    Math.abs(delta) < 0.1 && startPointDistance(fix.point, putIn.lngLat) <= 75;
-  return { label: near ? `Near ${putIn.name}` : Math.abs(delta) < 0.1
+  return { label: Math.abs(delta) < 0.1
     ? `GPS puts you by ${putIn.name} · check your launch`
     : `${Math.abs(delta).toFixed(1)} mi ${delta > 0 ? 'below' : 'above'} ${putIn.name}`,
-    canSwitch: !near };
+    canSwitch: true };
 }

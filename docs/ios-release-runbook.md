@@ -272,16 +272,35 @@ are pending checks, not evidence of a device pass.
       the origin must not move. Starting beyond the take-out must not claim
       arrival. Repeat upstream of the planned launch.
 - [ ] **Named put-in GPS guidance:** verify near, above and below states; try
-      a roadside fix at the same river mile, poor accuracy, an off-line access
-      point and a fix away from the river. None should falsely say **Near**.
+      a roadside fix at the same river mile, poor accuracy and a fix away
+      from the river. None should falsely say **Near**.
       Switching to **Start from here** must update map, distance, estimate and
       download together, and clear a take-out that is now upstream.
+- [ ] **Off-map launch (Buffalo City):** at the actual access, Ready says
+      **Near Buffalo City** and explains the mapped-river limit. Start and wait
+      for accurate fixes, then kill/reopen before reaching the mapped river.
+      Once GPS confirms the river, progress begins at 0%; the recap retains
+      Buffalo City, with a separate note about where distance tracking began.
+      No distance is invented for the gap. Repeat while passing only its
+      closest mapped river point: the recap must not claim Buffalo City as
+      the launch. Waiting at the actual launch must not trigger away ending.
 - [ ] **One recording presentation:** start from each tab; close, switch tabs,
       and Resume. Repeat Resume taps and a reminder deep link. Confirm one
       Float Mode/map, recording continues when closed, keep-awake releases,
       options return correctly, and manual/automatic ending shows one recap.
       Closing returns to the page underneath; a cold recording link returns to
       Floats. A standalone planner must not leave a blank page behind.
+- [ ] **Historical recaps:** open last month's float from History, including
+      while a different float is active. Keep the tab bar and ordinary Back;
+      return to the same History list. Resume the active float from another
+      tab, close it, and verify one recording view with no old recap replacing
+      the active session. Just-finished recaps still use recording's Close.
+- [ ] **Start-note backup rollout:** deploy the API accepting optional
+      `startNote` and its authenticated capability response before this binary.
+      Against an older API, verify a new mid-route recap stays locally saved
+      and backup pending (no permanent refusal or lost note). Upgrade the API,
+      sync, and restore on a clean installation: launch fields remain null and
+      the descriptive note survives. Old recaps retain their original names.
 - [ ] **Unfinished offline setup:** download a location-start route, leave
       Ready, clear ordinary saved river data, quit Eddy, enable airplane mode,
       and reopen Start a Float. Confirm the downloaded river, take-out and boat

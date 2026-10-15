@@ -24,6 +24,7 @@ export function recapFloat(session: FloatSession, now: number): CompletedFloat {
     riverName: session.route.riverName,
     putInId: origin.id,
     putInName: origin.name,
+    ...(origin.note ? { startNote: origin.note } : {}),
     takeOutId: session.takeOut.id,
     takeOutName: session.takeOut.name,
     boatType: session.boatType ?? null,

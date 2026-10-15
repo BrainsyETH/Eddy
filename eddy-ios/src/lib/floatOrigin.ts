@@ -8,6 +8,12 @@ export function startPointDistance(a: LngLat, b: LngLat): number {
   return Math.hypot((a[0] - b[0]) * Math.cos(lat), a[1] - b[1]) * radians * 6_371_000;
 }
 
+/** Access proximity is independent of the mapped river, which may stop short. */
+export function nearLaunch(point: LngLat, accuracy: number | null, launch: LngLat): boolean {
+  return accuracy != null && Number.isFinite(accuracy) && accuracy >= 0 && accuracy <= 25 &&
+    startPointDistance(point, launch) <= 75;
+}
+
 export function relativeStart(mile: number, putInMile: number, name: string): string {
   const delta = mile - putInMile;
   return Math.abs(delta) < 0.1 ? `On-river start near ${name}`
@@ -17,10 +23,15 @@ export function relativeStart(mile: number, putInMile: number, name: string): st
 /** A planned access point is not evidence of a recorded launch there. */
 export function recordedOrigin(session: FloatSession): { id: string | null; name: string | null; note: string | null } {
   const origin = session.recordedStart;
-  if (origin?.atPutIn && session.putIn) return { id: session.putIn.id, name: session.putIn.name, note: null };
+  if (session.putIn && (origin?.atPutIn || session.observedLaunch?.id === session.putIn.id)) {
+    return { id: session.putIn.id, name: session.putIn.name,
+      note: session.putIn.offLineMeters == null ? null : origin
+        ? 'Distance tracking began on Eddy’s mapped river.'
+        : 'No distance recorded on Eddy’s mapped river.' };
+  }
   // Legacy accounting retains a first mile, but no reliable launch coordinates.
   const mile = origin?.riverMile ?? session.totals?.firstMile;
   if (mile == null) return { id: null, name: null, note: null };
   const name = session.putIn ? relativeStart(mile, session.putIn.riverMile, session.putIn.name) : 'On-river start';
-  return { id: null, name, note: name.startsWith('On-river') ? name : `Recording started ${name}` };
+  return { id: null, name: null, note: name.startsWith('On-river') ? name : `Recording started ${name}` };
 }

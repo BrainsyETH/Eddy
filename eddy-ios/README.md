@@ -1190,8 +1190,10 @@ with kayak as the default. It is never a separate required step.
 Planning and saved-detail buttons say **Float this route**. Only readiness's
 **Start tracking** commits a new session. Every entry resumes an existing float
 directly, without another confirmation screen. Setup is removed on success.
-Float Mode, options and recap live in one root full-screen presentation above
-all tabs. Constant navigation identities prevent duplicate recording views.
+Float Mode, options and the just-finished recap live in one root full-screen
+presentation above all tabs. Historical recaps use the same content in a normal
+tab detail (`float-history-recap`), with Back restoring the History list.
+Constant navigation identities prevent duplicate recording views.
 Closing returns to the actual origin and recording continues; a cold recording
 link closes to Floats.
 Standalone planners are removed when handing off, so Back cannot reopen an
@@ -1205,14 +1207,25 @@ The GPS line distinguishes permission, finding a fix, GPS ready, and a fix that
 isn't on the chosen river. Only fixes under two minutes old, within 100 m
 accuracy and within 150 m of the chosen river supply a current starting mile.
 For a named put-in it also shows above/below distance and **Start from here**.
-**Near** requires a fix accurate to 25 m, within 50 m of the river and 75 m of
-the access itself; a similar river mile alone does not confirm launch proximity.
+**Near** requires a fix accurate to 25 m and within 75 m of the actual access,
+independent of river matching. At an off-map launch, readiness explains that
+distance tracking waits for the mapped river. The launch radius never grows
+with `offLineMeters`, and the snapped river point is not launch evidence.
 No preview fix seeds recording or adds travelled miles. The named put-in stays
 as the plan; every new recording measures progress from its first confirmed
 on-river fix. That origin is persisted once and is used for the map marker and
-recap. A different launch reads **Recording started 3.2 mi below Akers**, without
-claiming Akers as the actual access. Older sessions retain their progress
-checkpoint; a recorded coordinate is never invented for them. Permission
+recap. A precise confirmed river fix at the actual access retains its launch
+name. For an off-map launch, three accurate post-Start fixes at the access,
+with no gap over 30 seconds, independently confirm the name before the first
+river match. This evidence survives relaunch. Waiting at an off-map launch
+does not start the away/auto-end timer, and missing off-map distance is never
+invented. A different launch reads **Recording started 3.2 mi below Akers**, without
+claiming Akers as the actual access. Recaps keep that description in optional
+`startNote`; `putInId`/`putInName` identify only a confirmed launch or are null.
+The archive API must accept the field before the app ships. A capability check
+keeps note-bearing uploads pending against older servers, preserving the whole
+summary on-device for retry. Existing completed recaps are unchanged.
+Older sessions retain their progress checkpoint; a recorded coordinate is never invented for them. Permission
 and Location Services are required; a GPS timeout does not prevent starting.
 Locked-phone recording uses the native background activity session with When
 In Use permission (ADR 0014); there is no Always/background permission sheet.

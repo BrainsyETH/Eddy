@@ -181,7 +181,8 @@ test('a planned float started partway down measures progress from recording, not
   assert.ok(session.recordedStart && Math.abs(session.recordedStart.riverMile - (20 + 5020 / MILE)) < 0.01);
   const recap = recapFloat(session, T0 + 20_000);
   assert.equal(recap.putInId, null);
-  assert.equal(recap.putInName, '3.1 mi below akers');
+  assert.equal(recap.putInName, null);
+  assert.equal(recap.startNote, 'Recording started 3.1 mi below akers');
   assert.equal(recap.firstMile, session.startMile);
   const resumed = restoreSession(JSON.stringify(session));
   assert.ok(resumed);
@@ -189,7 +190,7 @@ test('a planned float started partway down measures progress from recording, not
   const later = float(resumed, index, 5_030, T0 + 30_000, 30, 1);
   assert.deepEqual(later.recordedStart, session.recordedStart, 'Resume cannot move the recorded origin');
   assert.ok(viewSession(later, T0 + 60_000).fraction! > 0);
-  assert.equal(recapFloat(later, T0 + 60_000).putInName, recap.putInName);
+  assert.equal(recapFloat(later, T0 + 60_000).startNote, recap.startNote);
 });
 
 test('time left starts from the planner, and pace takes over as you move', () => {
@@ -808,5 +809,113 @@ test('reversed geometry keeps downstream-increasing miles and records the actual
   const started = float(made.session, reversed.index, 5000, T0, 20, 1);
   assert.equal(viewSession(started, T0 + 20_000).fraction, 0);
   assert.ok(started.startMile! > made.session.putIn!.riverMile);
-  assert.match(recapFloat(started, T0 + 20_000).putInName!, /below akers/);
+  assert.match(recapFloat(started, T0 + 20_000).startNote!, /below akers/);
+});
+
+function offMapLaunch() {
+  const location = at(6000, 1200);
+  const result = routeFromRiver(RIVER, [ACCESS[0],
+    point('buffalo-city', 6000, 20 + 6000 / MILE, { name: 'Buffalo City', coordinates: { lng: location[0], lat: location[1] } }),
+    ACCESS[3]], null);
+  assert.ok(result.ok);
+  const made = startSession({ id: 'off-map-launch', kind: 'saved', route: result.route, index: result.index,
+    putInId: 'buffalo-city', takeOutId: 'round-spring', now: T0 });
+  assert.ok(made.ok);
+  return { ...result, session: made.session, location };
+}
+
+test('an actual off-map launch is recognized without starting progress until the river is confirmed', () => {
+  const { session, index, location } = offMapLaunch();
+  assert.ok(session.putIn!.offLineMeters! > 1000);
+  const preview = { point: location, accuracy: 10, timestamp: T0 };
+  const guidance = putInLocation(index, preview, T0, { name: 'Buffalo City', lngLat: location, mile: session.putIn!.riverMile });
+  assert.equal(guidance?.label, 'Near Buffalo City');
+  assert.equal(guidance?.canSwitch, false);
+  assert.match(guidance?.note ?? '', /outside Eddy’s mapped river/);
+  assert.equal(session.observedLaunch, undefined, 'Preview is never recorded launch evidence');
+  let launched = session;
+  for (let t = 0; t <= 20_000; t += 10_000) {
+    launched = applyFix(launched, index, { lngLat: location, accuracyMeters: 10, timestamp: T0 + t }, T0 + t);
+  }
+  assert.equal(launched.observedLaunch?.id, 'buffalo-city');
+  assert.equal(launched.recordedStart, null);
+  assert.equal(launched.startMile, null);
+  assert.equal(viewSession(launched, T0 + 20_000).fraction, null);
+  assert.equal(launched.awaySince, null, 'Waiting at the launch must not start automatic-away ending');
+  assert.equal(recapFloat(launched, T0 + 20_000).putInName, 'Buffalo City');
+  const restored = restoreSession(JSON.stringify(launched));
+  assert.ok(restored);
+  assert.deepEqual(restored.observedLaunch, launched.observedLaunch);
+  const onRiver = float(restored, index, 6000, T0 + 600_000, 20, 0);
+  assert.equal(viewSession(onRiver, T0 + 620_000).fraction, 0);
+  assert.ok(onRiver.recordedStart?.atPutIn);
+  const recap = recapFloat(onRiver, T0 + 620_000);
+  assert.equal(recap.putInId, 'buffalo-city');
+  assert.equal(recap.putInName, 'Buffalo City');
+  assert.equal(recap.startNote, 'Distance tracking began on Eddy’s mapped river.');
+  assert.equal(recap.firstMile, onRiver.startMile);
+  assert.equal(recap.distanceMiles, 0, 'The missing off-map distance must not be invented');
+});
+
+test('passing the river point nearest an off-map access does not claim that launch', () => {
+  const { session, index, location } = offMapLaunch();
+  const guidance = putInLocation(index, { point: at(6000), accuracy: 10, timestamp: T0 }, T0,
+    { name: 'Buffalo City', lngLat: location, mile: session.putIn!.riverMile });
+  assert.match(guidance!.label, /check your launch/);
+  assert.equal(guidance!.canSwitch, true);
+  const passing = float(session, index, 6000, T0, 20, 0);
+  const recap = recapFloat(passing, T0 + 20_000);
+  assert.equal(recap.putInId, null);
+  assert.equal(recap.putInName, null);
+  assert.equal(recap.startNote, 'On-river start near Buffalo City');
+  assert.equal(passing.recordedStart?.atPutIn, false);
+});
+
+test('launch evidence needs repeated accurate post-Start fixes and closes at the first river origin', () => {
+  const { session, index, location } = offMapLaunch();
+  const launchFix = { lngLat: location, accuracyMeters: 10, timestamp: T0 };
+  for (const invalid of [{ ...launchFix, timestamp: T0 - 1 }, { ...launchFix, timestamp: T0 + 1 },
+    { ...launchFix, accuracyMeters: 80 }]) {
+    assert.equal(applyFix(session, index, invalid, T0).observedLaunch, undefined);
+  }
+  const one = applyFix(session, index, launchFix, T0);
+  assert.equal(one.observedLaunch, undefined);
+  const interrupted = restoreSession(JSON.stringify(one));
+  assert.ok(interrupted);
+  const afterGap = applyFix(interrupted, index, { ...launchFix, timestamp: T0 + 60_000 }, T0 + 60_000);
+  assert.equal(afterGap.observedLaunch, undefined, 'Old support cannot turn one fresh fix into a launch');
+  const onRiver = float(afterGap, index, 6000, T0 + 120_000, 20, 0);
+  let later = onRiver;
+  for (let t = 600_000; t <= 620_000; t += 10_000) {
+    later = applyFix(later, index, { ...launchFix, timestamp: T0 + t }, T0 + t);
+  }
+  assert.equal(later.observedLaunch, undefined, 'Visiting the planned access later cannot rename the launch');
+  assert.equal(recapFloat(later, T0 + 620_000).putInId, null);
+});
+
+
+test('normal one-second GPS updates confirm the named launch before freezing the recorded origin', () => {
+  const { route, index } = prepared();
+  const made = startSession({ id: 'foreground', kind: 'saved', route, index,
+    putInId: 'akers', takeOutId: 'round-spring', now: T0 });
+  assert.ok(made.ok);
+  let session = made.session;
+  for (let t = 0; t <= 2000; t += 1000) session = applyFix(session, index, fix(0, T0 + t), T0 + t);
+  assert.ok(session.recordedStart?.atPutIn);
+  assert.equal(recapFloat(session, T0 + 2000).putInName, 'akers');
+});
+
+
+test('a named on-river launch remains recognizable when accuracy improves during acquisition', () => {
+  const { route, index } = prepared();
+  const made = startSession({ id: 'improving-gps', kind: 'saved', route, index,
+    putInId: 'akers', takeOutId: 'round-spring', now: T0 });
+  assert.ok(made.ok);
+  let session = made.session;
+  for (let t = 0; t <= 2000; t += 1000) {
+    session = applyFix(session, index, { ...fix(0, T0 + t), accuracyMeters: t === 2000 ? 10 : 50 }, T0 + t);
+  }
+  assert.equal(session.observedLaunch, undefined, 'There were not three precise access fixes');
+  assert.ok(session.recordedStart?.atPutIn, 'The confirmed river position is now precise and at the actual access');
+  assert.equal(recapFloat(session, T0 + 2000).putInId, 'akers');
 });

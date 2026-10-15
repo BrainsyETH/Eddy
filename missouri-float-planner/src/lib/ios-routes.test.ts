@@ -267,5 +267,8 @@ test('explicit tab destinations resolve only inside a real route group', () => {
   assert.equal(resolves('/(recording)/float-mode', routes), true);
   assert.equal(resolves('/(tabs)/(map)/float-home', routes), false);
   assert.equal(resolves('/(tabs)/(floats)/float-mode', routes), false);
+  for (const tab of ['today', 'map', 'floats', 'favorites', 'alerts'])
+    assert.equal(resolves(`/(tabs)/(${tab})/float-history-recap`, routes), true);
+  assert.equal(resolves('/(recording)/float-history-recap', routes), false);
   assert.equal(resolves('/(missing)/float-home', routes), false);
 });

@@ -1,3 +1,4 @@
+import { uploadFloatArchive } from '../../../eddy-ios/src/lib/floatArchiveUpload';
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { readFileSync, readdirSync } from 'node:fs';
@@ -426,6 +427,9 @@ test('summary validation rejects raw GPS, unknown fields, inconsistent times and
     { ...summary(), positions: [[1, 2]] },
     { ...summary(), movingMs: 99999999 },
     { ...summary(), id: 'different' },
+    { ...summary(), startNote: ['raw', 'data'] },
+    { ...summary(), startNote: '' },
+    { ...summary(), startNote: 'x'.repeat(241) },
   ])
     assert.equal(archiveBatch.safeParse({ rows: [{ ...row, payload }] }).success, false);
 });
@@ -558,11 +562,14 @@ test('server returns per-row refusals, enriches only new owned trips, and leaves
   } as unknown as SupabaseClient;
   const water = async (_db: SupabaseClient, trip: CompletedFloat) => { enriched.push(trip.id); return null; };
   const row = (id: string): ArchiveRow => ({ id, kind: 'completed', payload: summary(id), deleted: false, contributionVersion: null });
-  const input = [row('existing'), { ...row('bad-clock'), payload: { ...summary('bad-clock'), startedAt: Date.now() + 172800000 } }, row('new')];
+  const input = [row('existing'), { ...row('bad-clock'), payload: { ...summary('bad-clock'), startedAt: Date.now() + 172800000 } },
+    { ...row('new'), payload: { ...summary('new'), putInId: null, putInName: null, startNote: 'Recording started 3.2 mi below Akers' } }];
   const results = await writeArchiveBatch(db, 'owner', input, water);
   assert.deepEqual(results.map((r) => r.status), ['accepted', 'rejected', 'accepted']);
   assert.deepEqual(persisted.map((r) => r.id), ['existing', 'new']);
   assert.deepEqual(enriched, ['new']);
+  assert.equal((persisted[1].payload as CompletedFloat).startNote, 'Recording started 3.2 mi below Akers');
+  assert.equal((persisted[1].payload as CompletedFloat).putInId, null);
   assert.deepEqual(filters, [['user_id', 'owner']], 'existing IDs must be scoped to authenticated owner');
   lookupFailure = true;
   await assert.rejects(writeArchiveBatch(db, 'owner', input, water), /check existing/);
@@ -667,4 +674,59 @@ test('SQL isolates accounts, serializes opt-out, preserves tombstones and cascad
   } finally {
     await db.close();
   }
+});
+
+
+test('start notes survive disk, backup and reinstall; an older server leaves them pending without dropping data', async () => {
+  const storage = disk();
+  const local = createFloatArchive(storage);
+  await local.select('A');
+  const trip = { ...summary(), putInId: null, putInName: null, startNote: 'Recording started 3.2 mi below Akers' };
+  await local.addCompleted(trip, 'A');
+  const remote = server();
+  let supportsNotes = false;
+  let writes = 0;
+  const api: ArchiveTransport = { ...remote.api, write: rows => uploadFloatArchive(rows, {
+    capabilities: async () => supportsNotes ? { startNote: true } : null,
+    write: async batch => {
+      writes += 1;
+      assert.equal(archiveBatch.safeParse({ rows: batch }).success, true);
+      return remote.api.write(batch);
+    },
+  }) };
+  await local.sync('A', api);
+  assert.equal(writes, 0, 'Do not send unsupported fields or a summary stripped of its note');
+  assert.equal(local.snapshot().rows[0].dirty, true);
+  assert.equal(local.snapshot().rows[0].backupError, undefined, 'Not a permanent row rejection');
+  assert.match(local.snapshot().error!, /saved on this phone/);
+  const restarted = createFloatArchive(storage);
+  await restarted.select('A');
+  assert.deepEqual(restarted.snapshot().rows[0].payload, trip);
+  supportsNotes = true;
+  await restarted.sync('A', api, true);
+  assert.equal(restarted.snapshot().rows[0].dirty, false);
+  assert.deepEqual(remote.rows.get('trip')!.payload, trip);
+  const reinstalled = createFloatArchive(disk());
+  await reinstalled.select('A');
+  await reinstalled.sync('A', api);
+  assert.deepEqual(reinstalled.snapshot().rows[0].payload, trip);
+});
+
+test('old recaps and deletions keep their upload contract without a capability request', async () => {
+  const old = summary();
+  const rows: ArchiveRow[] = [
+    { id: old.id, kind: 'completed', payload: old, deleted: false, contributionVersion: null },
+    { id: 'deleted', kind: 'completed', payload: null, deleted: true, contributionVersion: null },
+  ];
+  let sent: ArchiveRow[] = [];
+  await uploadFloatArchive(rows, {
+    capabilities: async () => { throw new Error('Old records must not need a capability check'); },
+    write: async batch => { sent = batch; return batch.map(() => ({ status: 'accepted' })); },
+  });
+  assert.deepEqual(sent, rows);
+  const stored = createFloatArchive(disk());
+  await stored.select('A');
+  await stored.sync('A', { read: async () => ({ rows: sent, preference: { enabled: false, version: null } }),
+    write: async () => [], consent: async () => ({ enabled: false, version: null }) });
+  assert.deepEqual(stored.snapshot().rows.find(row => row.id === old.id)!.payload, old);
 });

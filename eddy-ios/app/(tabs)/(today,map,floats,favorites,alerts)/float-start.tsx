@@ -151,7 +151,7 @@ function ReadyToFloat({ initial, restoredPackage }: { initial: Params; restoredP
   const putInStatus = loaded?.ok && putIn ? putInLocation(loaded.index, location.fix, location.checkedAt, putIn) : null;
   const gpsLabel = location.state !== 'ready' ? 'Location permission needed'
     : location.busy ? 'Finding GPS…' : !gpsReady ? 'Waiting for GPS'
-    : route && !located ? 'GPS ready · not on this river yet' : putInStatus?.label ?? 'GPS ready';
+    : putInStatus?.label ?? (route && !located ? 'GPS ready · not on this river yet' : 'GPS ready');
   const downloadReason = !route ? 'Choose a river to prepare an offline map.'
     : !takeOut ? 'Choose a take-out to prepare an offline map.'
     : upstream ? 'Choose a take-out downstream of your start.'
@@ -214,6 +214,7 @@ function ReadyToFloat({ initial, restoredPackage }: { initial: Params; restoredP
           : <Card><Text style={[styles.label, { color: colors.text }]}>Offline map · Optional</Text>
             <Text style={[styles.body, { color: colors.textMuted }]}>{downloadReason}</Text></Card>}
         <Text accessibilityLiveRegion="polite" style={[styles.label, { color: colors.text }]}>{gpsLabel}</Text>
+        {gpsReady && putInStatus?.note ? <Text style={[styles.body, { color: colors.textMuted }]}>{putInStatus.note}</Text> : null}
         {gpsReady && putInStatus?.canSwitch ? <>
           <Text style={[styles.body, { color: colors.textMuted }]}>Tracking will begin where GPS finds you. The route preview still starts at {putIn?.name}.</Text>
           <TextButton label="Start from here" onPress={() => selectFrom()} />

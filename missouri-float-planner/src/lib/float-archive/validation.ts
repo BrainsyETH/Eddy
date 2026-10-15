@@ -22,6 +22,7 @@ const completed = z
     riverName: name,
     putInId: nullableId,
     putInName: name.nullable(),
+    startNote: z.string().min(1).max(240).optional(),
     takeOutId: id,
     takeOutName: name,
     boatType: z.enum(['canoe', 'kayak', 'raft', 'tube', 'sup']).nullable(),
