@@ -145,8 +145,11 @@ river guides remain separate from the time-sensitive Eddy’s Reads feed.
   to the claims; a gauge page supports gauge identity, not a difficulty rating.
 - Store photo attribution in `hero.photo_credit`, bound to its exact `image_url`,
   with author, source, license link, and display alterations. Use owned artwork
-  where reuse rights cannot be established. For this batch, attribution-required
-  scenery stays in the article with its caption; uncaptioned index/app cards and
-  social previews use owned artwork. Public-domain scenery may appear on cards.
+  where reuse rights cannot be established. Guide photo captions, creators,
+  source links, licenses, and display alterations are collected on
+  `/photo-credits`, linked from the website footer and the app's account screen.
+  Register each guide photo in `src/lib/photos/guides.ts` so its credit appears
+  on that page.
+  Guide cards and article hero images do not repeat that credit block.
   The batch sets `use_access_photos: false` so unresolved access photos cannot
   silently re-enter through the route-card fallback.

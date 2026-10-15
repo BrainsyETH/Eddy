@@ -8,7 +8,6 @@
 // working.
 
 import { guideCover } from '@/lib/photos/guides';
-import GuidePhotoCredit from '@/components/blog/GuidePhotoCredit';
 import { appBannerMetadata } from '@/lib/app-discovery';
 import type { Metadata } from 'next';
 import { notFound, permanentRedirect } from 'next/navigation';
@@ -579,7 +578,6 @@ export default async function RiverGuidePage({ params }: Props) {
                   </span>
                 </div>
               </Link>
-              <GuidePhotoCredit photo={guideImage?.photo} caption />
             </section>
           )}
           {/* The condition above is a claim about water, and the only people who

@@ -674,10 +674,6 @@ export function TodayHub({
       <TodayCamping revision={refreshRevision} />
 
       <View style={styles.section}>
-        <TodayRiverGuide refreshRevision={refreshRevision} />
-      </View>
-
-      <View style={styles.section}>
         <TodayRiverConditions
           rivers={conditionPreviews}
           total={rivers.length}
@@ -686,6 +682,10 @@ export function TodayHub({
           onBrowse={onBrowseRivers}
           onOpenRiver={(slug) => router.push(`/river/${slug}`)}
         />
+      </View>
+
+      <View style={styles.section}>
+        <TodayRiverGuide refreshRevision={refreshRevision} />
       </View>
 
       <PaywallSheet

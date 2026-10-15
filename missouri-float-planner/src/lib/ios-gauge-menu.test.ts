@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { gaugeMenuSubtitle, gaugeMenuOptions, riverOverviewCondition } from '../../../eddy-ios/src/lib/gaugeMenu';
 import { gaugesForRiver, gaugeConditionCode } from '../../../eddy-ios/src/lib/gaugeCondition';
+import { favoriteGaugeReadings } from '../../../eddy-ios/src/lib/favoriteGaugeReadings';
 import type { MapGauge } from '@eddy/types';
 const now = Date.parse('2026-10-08T02:00:00Z');
 const option = { id: 'pruitt', name: 'Pruitt', reading: '312 cfs', code: 'good' as const, timestamp: '2026-10-08T01:00:00Z' };
@@ -48,4 +49,38 @@ test('suspect selections are ungraded; provider-native IDs work and missing IDs 
   const [unavailable] = gaugeMenuOptions([{ ...station, usgsSiteId: null }], 'buffalo');
   assert.equal(unavailable.disabled, true);
   assert.equal(gaugeMenuSubtitle(unavailable, now), 'Station link unavailable');
+});
+
+test('favorite river readings include every linked station upstream first, with no other river mixed in', () => {
+  const input = [gauge('St. Joe', 72.6, true), gauge('Pruitt', 29.9), gauge('Ponca', 6), gauge('Other', 0, false, 'current')];
+  const readings = favoriteGaugeReadings(input, 'buffalo');
+  assert.deepEqual(readings.map(row => row.gauge.id), ['Ponca', 'Pruitt', 'St. Joe']);
+  assert.equal(readings[0].place, 'Ponca, AR');
+  assert.deepEqual(input.map(row => row.id), ['St. Joe', 'Pruitt', 'Ponca', 'Other']);
+  assert.deepEqual(favoriteGaugeReadings(input, 'unlinked'), []);
+  assert.deepEqual(favoriteGaugeReadings([], 'buffalo'), []);
+});
+
+test('favorite CFS is discharge even for feet-rated gauges; zero is valid and missing flow never becomes stage', () => {
+  const station = gauge('Ponca', 6);
+  station.thresholds![0].thresholdUnit = 'ft';
+  station.readingAgeHours = 0.25;
+  assert.equal(favoriteGaugeReadings([station], 'buffalo')[0].reading, '300 cfs');
+  assert.equal(favoriteGaugeReadings([{ ...station, dischargeCfs: 0 }], 'buffalo')[0].reading, '0 cfs');
+  for (const dischargeCfs of [null, NaN, Infinity]) {
+    const [row] = favoriteGaugeReadings([{ ...station, dischargeCfs }], 'buffalo');
+    assert.equal(row.reading, 'CFS unavailable');
+    assert.equal(row.hasFlow, false);
+    assert.equal(row.notice, '');
+  }
+});
+
+test('favorite readings keep old, suspect, and unknown-time observations visibly qualified', () => {
+  const station = { ...gauge('Ponca', 6), readingAgeHours: 0.25 };
+  assert.equal(favoriteGaugeReadings([station], 'buffalo')[0].notice, '');
+  assert.match(favoriteGaugeReadings([station], 'buffalo')[0].accessibilityLabel, /Updated in the last hour/);
+  const [old] = favoriteGaugeReadings([{ ...station, readingAgeHours: 9, readingSuspect: true, qualifierNote: 'Ice affected' }], 'buffalo');
+  assert.match(old.notice, /Check reading.*Updated 9 hours ago/);
+  assert.match(old.accessibilityLabel, /Ice affected/);
+  assert.match(favoriteGaugeReadings([{ ...station, readingAgeHours: null }], 'buffalo')[0].notice, /Reading time unavailable/);
 });
