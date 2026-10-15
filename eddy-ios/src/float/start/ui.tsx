@@ -121,7 +121,12 @@ export function TextButton({
   );
 }
 
-export function Row({ title, detail, onPress }: { title: string; detail?: string; onPress: () => void }) {
+export function Row({ title, detail, leading, onPress }: {
+  title: string;
+  detail?: string;
+  leading?: React.ReactNode;
+  onPress: () => void;
+}) {
   const { colors } = useTheme();
   return (
     <Pressable
@@ -129,6 +134,7 @@ export function Row({ title, detail, onPress }: { title: string; detail?: string
       accessibilityRole="button"
       style={({ pressed }) => [styles.row, { borderBottomColor: colors.border, opacity: pressed ? 0.6 : 1 }]}
     >
+      {leading}
       <View style={styles.rowText}>
         <Text style={[styles.rowTitle, { color: colors.text }]}>{title}</Text>
         {detail ? <Text style={[styles.body, { color: colors.textMuted }]}>{detail}</Text> : null}

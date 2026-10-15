@@ -26,6 +26,7 @@ import {
 } from './sources';
 import { abortable, searchBudget } from './budget';
 import { RiverNotFoundError } from './contracts';
+import { assignRoutePhotos, loadRoutePhotos } from './route-photos';
 
 /** Prefer variety, then backfill: a river cap must never hide the only matches. */
 export function diverseFloats<T extends { riverId: string }>(
@@ -69,6 +70,7 @@ export async function findNearbyFloats(
   const planning = createPlanning(ctx, sources, undefined, budget.signal);
   const near = input.near ? approximateLocation(input.near) : undefined;
   const output: FloatSearchOption[] = [];
+  let routePhotos: Awaited<ReturnType<typeof loadRoutePhotos>> = new Map();
   let failed = 0,
     evaluated = 0,
     partial = false;
@@ -280,40 +282,13 @@ export async function findNearbyFloats(
         description: candidate.putIn.description || river.float_tip || null,
       });
     });
-    // Optional, verified photos at these exact launches, batched once. A missing
-    // photo never removes an otherwise valid recommendation.
-    if (output.length && !budget.signal.aborted) {
-      try {
-        const photos =
-          checked(
-            await ctx.db
-              .from('community_reports')
-              .select('access_point_id, image_url, captured_at')
-              .in(
-                'access_point_id',
-                output.map((o) => o.putIn.id),
-              )
-              .eq('type', 'river_visual')
-              .eq('status', 'verified')
-              .not('image_url', 'is', null)
-              .order('created_at', { ascending: false })
-              .limit(100),
-            'launch photos',
-          ) ?? [];
-        for (const option of output) {
-          const photo = photos.find(
-            (p) => p.access_point_id === option.putIn.id,
-          );
-          if (photo?.image_url && /^https:\/\//.test(photo.image_url))
-            option.photo = {
-              url: photo.image_url,
-              caption: `${option.putIn.name}${photo.captured_at ? ` · Photo ${new Date(photo.captured_at).toLocaleDateString('en-US', { timeZone: 'UTC', month: 'short', day: 'numeric', year: 'numeric' })}` : ' · Community photo'}`,
-            };
-        }
-      } catch {
-        /* Photos do not affect trip estimates. */
-      }
-    }
+    const endpointIds = new Set(output.flatMap(option => [option.putIn.id, option.takeOut.id]));
+    routePhotos = await loadRoutePhotos(
+      ctx.db,
+      candidates.flatMap(({ candidate }) => [candidate.putIn, candidate.takeOut])
+        .filter(point => endpointIds.has(point.id)),
+      budget.signal,
+    );
   } catch (error) {
     if (error instanceof RiverNotFoundError) throw error;
     partial = true;
@@ -325,17 +300,12 @@ export async function findNearbyFloats(
     throw new Error('The search could not finish. Please try again.');
   }
   output.sort((a, b) => compareFloatChoices(a, b, input.targetHours * 60));
+  const matches = diverseFloats(output.filter(p => p.relation === 'match'), 5, Boolean(input.river));
+  const alternatives = diverseFloats(output.filter(p => p.relation !== 'match'), 3, Boolean(input.river));
+  assignRoutePhotos([...matches, ...alternatives], routePhotos);
   return {
-    matches: diverseFloats(
-      output.filter((p) => p.relation === 'match'),
-      5,
-      Boolean(input.river),
-    ),
-    alternatives: diverseFloats(
-      output.filter((p) => p.relation !== 'match'),
-      3,
-      Boolean(input.river),
-    ),
+    matches,
+    alternatives,
     partial: partial || budget.signal.aborted,
     failed,
     evaluated,
