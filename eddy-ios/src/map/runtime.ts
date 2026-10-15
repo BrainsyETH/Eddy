@@ -18,10 +18,14 @@ import { warn } from '@/lib/monitoring';
  * The public access token, inlined by Metro at bundle time.
  *
  * EXPO_PUBLIC_ is not a mistake: a Mapbox `pk.` token is public by design and
- * ships inside every app binary regardless. Protect it with URL/scope
- * restrictions in the Mapbox dashboard, not by hiding it. The SECRET `sk.`
- * download token that older guides require is no longer needed — @rnmapbox's
- * own config plugin marks RNMapboxMapsDownloadToken deprecated.
+ * ships inside every app binary regardless. Protect it with SCOPES, not URL
+ * restrictions and not by hiding it: Mapbox's native SDKs send no referrer, so
+ * a URL-restricted token is rejected by them outright. Use a separate public
+ * token for this app, with only the public scopes the map and offline packs
+ * need, and keep the website's URL-restricted token separate so either can be
+ * rotated alone. The SECRET `sk.` download token that older guides require is
+ * no longer needed — @rnmapbox's own config plugin marks
+ * RNMapboxMapsDownloadToken deprecated.
  */
 export const MAPBOX_TOKEN = process.env.EXPO_PUBLIC_MAPBOX_TOKEN ?? '';
 
@@ -55,10 +59,11 @@ export function mapUnavailableReason(): MapUnavailableReason | null {
   return null;
 }
 
-// `any` on purpose. The module is only ever reached through a runtime `require`,
-// so importing its types here would defeat the point of the lazy load. The
-// typed surface is the components in RiverMap.tsx and the calls in
-// packSweep.ts, which is where a wrong shape would actually show up.
+// `any` for now. A type-only import (`typeof import('@rnmapbox/maps').default`)
+// would not defeat the lazy load — types are erased — but switching to it
+// surfaces ~30 mismatches in RiverMap, FloatMap and the offline-pack calls,
+// which deserve their own change. The typed surface meanwhile is the
+// components in RiverMap.tsx and the calls in packSweep.ts.
 type MapboxModule = any;
 
 let cached: MapboxModule | null = null;

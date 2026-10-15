@@ -50,6 +50,7 @@ import * as Location from 'expo-location';
 import * as TaskManager from 'expo-task-manager';
 import { ensureFloatSessionLoaded, floatRemindersSettled, flushFloatSessionIfStale, getFloatSession, recordFixes } from '@/lib/floatSessionStore';
 import { warn } from '@/lib/monitoring';
+import { createSerialQueue } from '@/lib/serialQueue';
 import { flushHazardReports } from './hazardReports';
 import { floatActivitySettled } from './liveActivity';
 
@@ -119,7 +120,7 @@ TaskManager.defineTask(FLOAT_WAKE_TASK, async ({ error }) => {
     await stopBackgroundTracking();
     return;
   }
-  await startBackgroundTracking();
+  await startBackgroundTracking(() => getFloatSession() != null);
 });
 
 /** Re-centre the wake fence on the paddler once they have moved away from it. */
@@ -148,12 +149,31 @@ function metersBetween(a: { latitude: number; longitude: number }, b: { latitude
   return Math.hypot(x, y);
 }
 
-/** Start locked-screen tracking if "Always" is granted. False when it is not. */
-export async function startBackgroundTracking(): Promise<boolean> {
+/**
+ * Starts and stops run one at a time, in call order. Each is several native
+ * awaits; unordered, a stop issued while a start was pending ran first, found
+ * nothing to stop, and the start then left GPS running after End.
+ */
+const runInOrder = createSerialQueue();
+
+/**
+ * Start locked-screen tracking if "Always" is granted. False when it is not.
+ *
+ * `stillWanted` is re-checked once this start's turn in the queue comes, right
+ * before the native start: a float ended while the start waited is not
+ * restarted.
+ */
+export function startBackgroundTracking(stillWanted: () => boolean = () => true): Promise<boolean> {
+  return runInOrder(() => startNow(stillWanted));
+}
+
+async function startNow(stillWanted: () => boolean): Promise<boolean> {
   try {
+    if (!stillWanted()) return false;
     const permission = await Location.getBackgroundPermissionsAsync();
     if (permission.status !== 'granted') return false;
     if (await Location.hasStartedLocationUpdatesAsync(FLOAT_LOCATION_TASK)) return true;
+    if (!stillWanted()) return false;
     await Location.startLocationUpdatesAsync(FLOAT_LOCATION_TASK, {
       accuracy: Location.Accuracy.High,
       distanceInterval: 0,
@@ -168,7 +188,11 @@ export async function startBackgroundTracking(): Promise<boolean> {
   }
 }
 
-export async function stopBackgroundTracking(): Promise<void> {
+export function stopBackgroundTracking(): Promise<void> {
+  return runInOrder(stopNow);
+}
+
+async function stopNow(): Promise<void> {
   try {
     if (await Location.hasStartedLocationUpdatesAsync(FLOAT_LOCATION_TASK)) {
       await Location.stopLocationUpdatesAsync(FLOAT_LOCATION_TASK);

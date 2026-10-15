@@ -56,12 +56,15 @@ export default function FloatModeScreen() {
   const focused = useIsFocused();
 
   // Only while this screen is showing and a float is active (#1448): leaving
-  // the screen or ending the float releases it.
+  // the screen or ending the float releases it. Keyed on whether a float is
+  // active, not the session object, which changes with every GPS fix and used
+  // to release and re-acquire the wake lock each time.
+  const floatActive = session != null;
   useEffect(() => {
-    if (!keepAwake || !focused || !session) return;
+    if (!keepAwake || !focused || !floatActive) return;
     void activateKeepAwakeAsync(KEEP_AWAKE_TAG);
     return () => void deactivateKeepAwake(KEEP_AWAKE_TAG);
-  }, [keepAwake, focused, session]);
+  }, [keepAwake, focused, floatActive]);
 
   useEffect(() => {
     const timer = setInterval(() => setNow(Date.now()), TICK_MS);
