@@ -25,6 +25,17 @@ export function selectRiverGuides(posts: RiverGuideSummary[], search = ''): Rive
     .sort((a, b) => a.title.localeCompare(b.title));
 }
 
+/** One published guide per local calendar day, independent of API ordering. */
+export function selectFeaturedRiverGuide(posts: RiverGuideSummary[], now: number): RiverGuideSummary | null {
+  const guides = posts.filter(post => post.category === 'River Guides')
+    .sort((a, b) => a.slug < b.slug ? -1 : a.slug > b.slug ? 1 : 0);
+  if (!guides.length) return null;
+  const date = new Date(now);
+  // Count calendar dates, not elapsed local hours: DST days have 23 or 25 hours.
+  const day = Math.floor(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()) / 86_400_000);
+  return guides[((day % guides.length) + guides.length) % guides.length];
+}
+
 export function riverGuideUrl(slug: string): string {
   return `https://eddy.guide/blog/${encodeURIComponent(slug)}`;
 }

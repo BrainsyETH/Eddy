@@ -239,21 +239,6 @@ function FavoritesContent() {
   );
   const damById = useMemo(() => new Map(dams.map((dam) => [dam.id, dam])), [dams]);
 
-  // "3 rivers · 1 gauge", and never a kind with a zero — a mixed list should
-  // describe what is in it, not enumerate what is not.
-  const favoritesSummary = useMemo(() => {
-    const riverCount = starred.filter((s) => s.kind === 'river').length;
-    const gaugeCount = starred.filter((s) => s.kind === 'gauge').length;
-    const damCount = starred.filter((s) => s.kind === 'dam').length;
-    return [
-      riverCount > 0 ? `${riverCount} river${riverCount === 1 ? '' : 's'}` : null,
-      gaugeCount > 0 ? `${gaugeCount} gauge${gaugeCount === 1 ? '' : 's'}` : null,
-      damCount > 0 ? `${damCount} dam${damCount === 1 ? '' : 's'}` : null,
-    ]
-      .filter(Boolean)
-      .join(' · ');
-  }, [starred]);
-
   /**
    * The chips, and only the kinds actually held.
    *
@@ -300,12 +285,6 @@ function FavoritesContent() {
               <Text style={[styles.title, { color: colors.text }]}>Favorites</Text>
               <AccountIconButton />
             </View>
-            <Text style={[styles.subtitle, { color: colors.textMuted }]}>
-              {starred.length === 0
-                ? 'Favorites are saved on this device'
-                : favoritesSummary}
-            </Text>
-
             {refreshFailed || riversFromCache ? (
               <View style={styles.offlineRow}>
                 <ControlIcon name="cloud-offline-outline" size={14} color={colors.textMuted} />
@@ -518,7 +497,6 @@ const styles = StyleSheet.create({
   header: { paddingHorizontal: 20, paddingTop: 12, paddingBottom: 16 },
   title: { ...textStyles.pageTitle },
   titleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  subtitle: { ...t.sm, fontFamily: fonts.body, marginTop: 4 },
   // The glyph and its sentence on one line, in the caption size: a marker,
   // not a banner. `flex: 1` on the text so a wrap happens under itself rather
   // than pushing the icon to a second line.
