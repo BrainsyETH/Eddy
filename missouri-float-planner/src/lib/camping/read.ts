@@ -6,9 +6,11 @@
 // If the cache is empty, stale, or the facility is unlinked, the answer is
 // `null` and the card renders no availability line at all.
 
+import { MAX_AGE_MS } from './freshness';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { resolveHorizon, resolveWeekend } from './window';
-import { summarizeWindow, type AvailabilityStatus, type DailyAggregate } from './types';
+import type { AvailabilityStatus, DailyAggregate } from './types';
+import { loadStaySummaries } from './stay-summary';
 import type { CampingSource, FacilityKind } from './types';
 
 /**
@@ -21,7 +23,7 @@ import type { CampingSource, FacilityKind } from './types';
  * cron's time budget and leave the tail of the queue for the next slot. Two
  * days of slack would have turned that into a campground going silent.
  */
-export const MAX_AGE_MS = 72 * 60 * 60 * 1000;
+export { MAX_AGE_MS } from './freshness';
 
 /**
  * How much of the horizon is worth DRAWING as a strip.
@@ -70,7 +72,7 @@ export interface CampsiteAvailability {
   sitesOpen: number;
   sitesReservable: number;
   status: AvailabilityStatus;
-  /** First-come sites on every night of `window` (the fewest); null when any is unknown. */
+  /** The same first-come sites on every night of `window`; null when unknown. */
   sitesWalkUp: number | null;
   kind: FacilityKind;
   source: CampingSource;
@@ -185,9 +187,8 @@ function walkUpFor(
  * Every enabled facility's availability for the coming weekend, indexed both
  * ways so a caller can look up by whichever id it happens to hold.
  *
- * One query for the whole page. The table is a few dozen rows per night, so
- * filtering in memory costs less than a per-facility round trip and keeps this
- * off the critical path of a river page.
+ * Aggregate strips plus a paged, batched site-night read for the weekend.
+ * All cards share that read rather than issuing per-facility queries.
  */
 export async function loadAvailability(
   supabase: SupabaseClient,
@@ -231,7 +232,8 @@ export async function loadAvailability(
   for (const row of (data ?? []) as unknown as JoinedRow[]) {
     const facility = row.campsite_facilities;
     if (!facility) continue;
-    if (Date.parse(row.fetched_at) < freshEnough) continue;
+    const timestamp = Date.parse(row.fetched_at);
+    if (!Number.isFinite(timestamp) || timestamp <= freshEnough || timestamp > now.getTime()) continue;
 
     const entry = nightsByFacility.get(facility.id) ?? {
       rows: [],
@@ -256,22 +258,25 @@ export async function loadAvailability(
     byNearbyServiceId: new Map(),
   };
 
+  let stays: Awaited<ReturnType<typeof loadStaySummaries>>;
+  try {
+    stays = await loadStaySummaries(supabase, ((data ?? []) as unknown as JoinedRow[])
+      .filter((r) => r.campsite_facilities && window.nights.includes(r.date))
+      .map((r) => ({ facilityId: r.campsite_facilities!.id, date: r.date, fetchedAt: r.fetched_at })), window, now);
+  } catch (err) {
+    console.error('[camping] stay read failed:', err instanceof Error ? err.message : err);
+    return EMPTY_INDEX;
+  }
+
   const wantedWeekend = new Set(window.nights);
 
   for (const { rows, meta, fetchedAt } of nightsByFacility.values()) {
     rows.sort((a, b) => a.date.localeCompare(b.date));
 
-    // ── The sentence describes the WEEKEND, never the fortnight ─────────────
-    // summarizeWindow takes the MINIMUM of sitesOpen across the nights it is
-    // given, because "8 sites open Fri–Sun" has to mean eight you can book for
-    // both nights. Handed fourteen nights that rule is catastrophic rather than
-    // conservative: one busy Saturday drags the minimum to zero and the card
-    // reads "Fully booked" for a campground with forty sites free on twelve of
-    // the fourteen. The horizon feeds the strip; only the weekend is folded.
     const weekend = rows.filter((night) => wantedWeekend.has(night.date));
     if (weekend.length !== window.nights.length) continue;
-
-    const summary = summarizeWindow(weekend);
+    // A weekend is the intersection of site IDs, not the fewest daily openings.
+    const summary = stays.get(meta.id)?.summary;
     if (!summary) continue;
 
     // Nothing reservable and not closed means the feed had no bookable
@@ -283,11 +288,7 @@ export async function loadAvailability(
       sitesOpen: summary.sitesOpen,
       sitesReservable: summary.sitesReservable,
       status: summary.status,
-      // The fewest across the stay, like sitesOpen; one unknown night makes
-      // the whole stay unknown rather than quietly zero.
-      sitesWalkUp: weekend.some((night) => night.sitesWalkUp === null)
-        ? null
-        : Math.min(...weekend.map((night) => night.sitesWalkUp as number)),
+      sitesWalkUp: summary.sitesWalkUp,
       kind: meta.kind as FacilityKind,
       source: meta.source as CampingSource,
       fetchedAt,

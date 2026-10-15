@@ -4,8 +4,8 @@
 // Same rule as read.ts: Supabase only, never an upstream booking system.
 
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { resolveHorizon, resolvePlanningMonth } from './window';
-import { MAX_AGE_MS } from './read';
+import { resolveHorizon, resolvePlanningMonth, type CampingWindow } from './window';
+import { MAX_AGE_MS } from './freshness';
 import type { UnitStatus } from './types';
 
 /**
@@ -113,6 +113,12 @@ export async function loadFacilitySites(
   const window = month ? resolvePlanningMonth(month, now) : resolveHorizon(now);
   if (!window) return null;
 
+  return loadFacilitySitesForWindow(supabase, facilityId, window, now);
+}
+
+export async function loadFacilitySitesForWindow(
+  supabase: SupabaseClient, facilityId: string, window: CampingWindow, now = new Date(),
+): Promise<CampsiteSitesResult | null> {
   const { data: facility, error: facilityError } = await supabase
     .from('campsite_facilities')
     .select('id, display_name, kind, source, enabled')
@@ -120,7 +126,8 @@ export async function loadFacilitySites(
     .eq('enabled', true)
     .maybeSingle();
 
-  if (facilityError || !facility) return null;
+  if (facilityError) throw new Error(`campsite_facilities: ${facilityError.message}`);
+  if (!facility) return null;
 
   const { data: siteRows, error: sitesError } = await supabase
     .from('campsite_sites')

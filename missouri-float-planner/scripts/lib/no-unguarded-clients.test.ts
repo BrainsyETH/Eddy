@@ -38,7 +38,6 @@ const LEGACY_DIRECT_CLIENTS = new Set([
   'scripts/fetch-drainage-areas.ts',
   'scripts/fetch-nws-flood-stages.ts',
   'scripts/fix-gauge-associations.ts',
-  'scripts/ingestion/camping-availability-dryrun.ts',
   'scripts/ingestion/geocode-services-dryrun.ts',
   'scripts/run-migrations.ts',
   'scripts/run-seeds.ts',

@@ -29,7 +29,23 @@ const FACILITY = {
  * aggregate read, and the walk-up view beside it. `walkUp` as a string is
  * that view failing — the state before the migration is applied.
  */
-function supabaseReturning(rows: unknown[], walkUp: unknown[] | string = []) {
+function supabaseReturning(rows: { date: string; sites_open: number; sites_reservable: number; status: string; fetched_at: string; campsite_facilities: { id: string } }[], walkUp: ReturnType<typeof walkUpRow>[] | string = [], explicitSites?: unknown[]) {
+  const walkRows = typeof walkUp === 'string' ? [] : walkUp;
+  const maxWalk = Math.max(0, ...walkRows.map((r) => r.walk_up_sites ?? 0));
+  const siteRows = explicitSites ?? rows.flatMap((row) => {
+    const count = row.sites_reservable || (row.status === 'closed' ? 1 : 0);
+    const w = walkRows.find((r) => r.date === row.date)?.walk_up_sites ?? maxWalk;
+    return Array.from({ length: count + maxWalk }, (_, i) => ({
+      site_id: `${row.campsite_facilities.id}-${i}`, date: row.date, fetched_at: row.fetched_at,
+      status: i >= count ? (i - count < w ? 'walk_up' : 'closed')
+        : row.status === 'closed' ? 'closed' : row.status === 'not_yet_released' ? 'not_yet_released' : i < row.sites_open ? 'open' : 'reserved',
+      campsite_sites: { facility_id: row.campsite_facilities.id },
+    }));
+  });
+  const siteBuilder = {
+    select: () => siteBuilder, in: () => siteBuilder, order: () => siteBuilder,
+    range: (from: number, to: number) => Promise.resolve({ data: siteRows.slice(from, to + 1), error: null }),
+  };
   const builder = {
     select: () => builder,
     in: () => builder,
@@ -41,7 +57,7 @@ function supabaseReturning(rows: unknown[], walkUp: unknown[] | string = []) {
       : { data: walkUp, error: null };
   return {
     from: (table: string) =>
-      table === 'campsite_walk_up_counts'
+      table === 'campsite_site_availability' ? siteBuilder : table === 'campsite_walk_up_counts'
         ? { select: () => ({ in: () => Promise.resolve(walkUpResult) }) }
         : builder,
   } as never;
@@ -71,11 +87,7 @@ function night(
 /* ── The fortnight is never folded like a stay ────────────────────────────── */
 
 test('a busy Saturday does not report the fortnight as fully booked', async () => {
-  // THE regression this whole file exists for. summarizeWindow takes the
-  // MINIMUM of sitesOpen across the nights it is given, which is right for
-  // "8 sites open Fri–Sun" and catastrophic across fourteen: one sold-out night
-  // would print "Fully booked" for a campground with forty free sites on twelve
-  // of them. Only the weekend is folded.
+  // Only occupied weekend nights constrain the same-site intersection.
   const rows = HORIZON.map((date) =>
     night(date, WEEKEND.includes(date) ? 8 : date === HORIZON[10] ? 0 : 40),
   );
@@ -374,6 +386,12 @@ test('the per-site read pages past the silent row cap', async () => {
   );
   assert.equal(result!.sites.length, SITES);
 
+  // The new detail endpoint reads the requested stay, not an entire month.
+  const { loadCampingStay } = await import('./stay-read');
+  const stay = await loadCampingStay(client, 'f1', '2026-08-07', '2026-08-09', new Date('2026-08-06T17:00:00Z'));
+  assert.equal(stay?.availableSites.length, SITES);
+  assert.deepEqual(stay?.sites[0].nights.map((n) => n.date), ['2026-08-07', '2026-08-08']);
+
   // A month request must keep its exact date alignment and expire only old cells.
   all[0].fetched_at = '2026-08-01T09:00:00Z';
   const month = await loadFacilitySites(client, 'f1', new Date('2026-08-06T17:00:00Z'), '2026-08');
@@ -419,7 +437,7 @@ test('standalone services receive inventory without access-point or NPS identiti
 // campsite_walk_up_counts counts walk-up rows of the aggregate's own
 // observation. Null is unknown, and must never be folded into zero.
 
-test('walk-up counts ride each night, and the weekend takes the fewest', async () => {
+test('walk-up counts ride each night, and the weekend intersects site IDs', async () => {
   const rows = HORIZON.map((date) => night(date, 0, 20, 'full'));
   const walkUp = HORIZON.map((date) => walkUpRow(date, date === WEEKEND[1] ? 38 : 40));
   const availability = (await loadAvailability(supabaseReturning(rows, walkUp), NOW)).byNpsCampgroundId.get('cg-1')!;
@@ -435,13 +453,13 @@ test('a missing view row is unknown, never zero', async () => {
 
   const friday = availability.nights.find((n) => n.date === WEEKEND[0])!;
   assert.equal(friday.sitesWalkUp, null);
-  assert.equal(availability.sitesWalkUp, null, 'one unknown night makes the stay unknown');
+  assert.equal(availability.sitesWalkUp, 40, 'the summary uses individual site observations, independently of the strip view');
   // A view row saying "no walk-up rows matched" is also unknown.
   const nullRow = await loadAvailability(
     supabaseReturning(rows, HORIZON.map((date) => walkUpRow(date, null))),
     NOW,
   );
-  assert.equal(nullRow.byNpsCampgroundId.get('cg-1')!.sitesWalkUp, null);
+  assert.equal(nullRow.byNpsCampgroundId.get('cg-1')!.sitesWalkUp, 0, 'the site snapshot contains only reservable sites');
 });
 
 test('a walk-up count from a different observation is not used', async () => {
@@ -460,5 +478,26 @@ test('a failing walk-up view never costs the card its number', async () => {
     await loadAvailability(supabaseReturning(rows, 'relation "campsite_walk_up_counts" does not exist'), NOW)
   ).byNpsCampgroundId.get('cg-1')!;
   assert.equal(availability.sitesOpen, 8);
-  assert.equal(availability.sitesWalkUp, null);
+  assert.equal(availability.sitesWalkUp, 0);
+});
+
+
+test('card summary intersects identities even when both nightly totals are positive', async () => {
+  const rows = WEEKEND.map((date) => night(date, 1, 2));
+  const sites = ['a', 'b'].flatMap((site, i) => WEEKEND.map((date, n) => ({
+    site_id: site, date, fetched_at: rows[0].fetched_at, status: i === n ? 'open' : 'reserved',
+    campsite_sites: { facility_id: FACILITY.id },
+  })));
+  const card = (await loadAvailability(supabaseReturning(rows, [], sites), NOW)).byNpsCampgroundId.get('cg-1');
+  assert.equal(card?.sitesOpen, 0);
+  assert.equal(card?.status, 'full');
+});
+
+test('card cannot use an old site row alongside a newer aggregate observation', async () => {
+  const rows = WEEKEND.map((date) => night(date, 1, 1));
+  const sites = WEEKEND.map((date, i) => ({ site_id: 'a', date,
+    fetched_at: i ? '2026-08-05T09:00:00Z' : rows[0].fetched_at, status: 'open',
+    campsite_sites: { facility_id: FACILITY.id },
+  }));
+  assert.equal((await loadAvailability(supabaseReturning(rows, [], sites), NOW)).byNpsCampgroundId.size, 0);
 });

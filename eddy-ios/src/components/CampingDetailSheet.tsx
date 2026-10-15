@@ -20,8 +20,8 @@ import {
   safeExternalUrl,
 } from '@/lib/campingHeatmap';
 import {
-  campsiteStays,
   campsiteStayFilterCounts,
+  currentCampingStay,
   filterCampsiteStays,
   nextCampingDate,
   type CampingStay,
@@ -61,17 +61,12 @@ export function CampingDetailSheet({
   const [showUnknown, setShowUnknown] = useState(false);
   const [filters, setFilters] = useState<SiteFilter[]>([]);
   const {
-    responses,
+    result,
     loading,
     failed: loadFailed,
     refresh,
   } = useCampsiteStay(row.facilityId, stay);
-  const allEntries = campsiteStays(
-    responses,
-    stay,
-    overview.maxObservationAgeSeconds,
-    now,
-  );
+  const allEntries = currentCampingStay(result, overview.maxObservationAgeSeconds, now);
   const counts = campsiteStayFilterCounts(allEntries);
   // A selected kind stays selected, and visible at zero, across date changes:
   // it is the reader's requirement, not a suggestion. See siteFilterChips.
@@ -95,10 +90,7 @@ export function CampingDetailSheet({
   ];
   const booking = safeExternalUrl(row.booking?.url);
   const website = safeExternalUrl(row.website);
-  const timestamps = responses
-    .map((r) => r.fetchedAt)
-    .filter((d): d is string => !!d)
-    .sort();
+  const timestamps = result?.fetchedAt ? [result.fetchedAt] : [];
   function open(url: string) {
     setFailed(false);
     void openExternalLink(url, () => setFailed(true));

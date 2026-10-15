@@ -1,7 +1,7 @@
 import { withReviewedPlacePhoto } from '../photos/reviewed';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { parseNpsImages, parseJsonish } from '../services/npsCampground';
-import { bookingUrlFor } from './booking';
+import { facilityBookingUrl } from './booking';
 import { MAX_AGE_MS } from './read';
 import { HORIZON_NIGHTS, resolveHorizon, resolveWeekend } from './window';
 import type {
@@ -310,14 +310,7 @@ export function buildCampingOverview(
               Number.isFinite(Date.parse(t)) && Date.parse(t) <= now.getTime(),
           )
           .sort((a, b) => Date.parse(b) - Date.parse(a))[0] ?? null;
-      // A loop's stored NPS URL may refer to an obsolete district. Use the curated provider ID.
-      const loopUrl =
-        f.source === 'recreation_gov' &&
-        f.source_loop &&
-        /^\d+$/.test(f.source_facility_id)
-          ? `https://www.recreation.gov/camping/campgrounds/${f.source_facility_id}`
-          : null;
-      const url = bookingUrlFor(f.source, loopUrl ?? p.reservationUrl);
+      const url = facilityBookingUrl(f, p.reservationUrl);
       return {
         ...p,
         id: f.id,

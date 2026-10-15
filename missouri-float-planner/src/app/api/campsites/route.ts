@@ -18,6 +18,7 @@ import { createClient } from '@/lib/supabase/server';
 import { rateLimit, getClientIp } from '@/lib/rate-limit';
 import { resolvePlanningMonth } from '@/lib/camping/window';
 import { loadFacilitySites } from '@/lib/camping/sites';
+import { loadCampingStay, validPlanningStay } from '@/lib/camping/stay-read';
 
 export const dynamic = 'force-dynamic';
 
@@ -44,8 +45,16 @@ export async function GET(request: NextRequest) {
     if (month !== undefined && !resolvePlanningMonth(month, now)) {
       return NextResponse.json({ error: 'month must overlap the next 90 nights (YYYY-MM)' }, { status: 400 });
     }
+    const arrival = request.nextUrl.searchParams.get('arrival');
+    const departure = request.nextUrl.searchParams.get('departure');
+    const hasStay = arrival !== null || departure !== null;
+    if (hasStay && (!arrival || !departure || month !== undefined || !validPlanningStay({ arrival, departure }, now))) {
+      return NextResponse.json({ error: 'Provide arrival and departure within the next 90 nights, without month' }, { status: 400 });
+    }
     const supabase = await createClient();
-    const result = await loadFacilitySites(supabase, facilityId, now, month);
+    const result = hasStay
+      ? await loadCampingStay(supabase, facilityId, arrival!, departure!, now)
+      : await loadFacilitySites(supabase, facilityId, now, month);
 
     // A facility Eddy does not track, or one whose sites have not been synced
     // yet, is a different question rather than a fault.

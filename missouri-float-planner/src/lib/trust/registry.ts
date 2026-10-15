@@ -21,6 +21,8 @@ import { ledgerHeartbeatCheck } from './checks/ledger-heartbeat';
 import { knownRegressionsCheck } from './checks/known-regressions';
 import { damFreshnessCheck } from './checks/dam-freshness';
 
+import { campingInventoryCheck } from './checks/camping-inventory';
+
 export const TRUST_CHECKS: readonly TrustCheck[] = [
   validateRiverDataCheck,
   riverGeometryCheck,
@@ -34,6 +36,7 @@ export const TRUST_CHECKS: readonly TrustCheck[] = [
   ledgerHeartbeatCheck,
   knownRegressionsCheck,
   damFreshnessCheck,
+  campingInventoryCheck,
 ];
 
 export function getCheck(id: string): TrustCheck | undefined {
