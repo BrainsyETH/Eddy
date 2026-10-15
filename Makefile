@@ -12,7 +12,7 @@ NODE_MAJOR := $(shell sed 's/[^0-9].*//' .nvmrc 2>/dev/null)
 
 .PHONY: help guard-node setup-web setup-mobile check-web check-mobile check-db \
         bundle-mobile check dev preflight-eas build-ios testflight check-eas-env \
-        env-pull run-ios archive-ios
+        env-pull run-ios archive-ios deps-mobile
 
 help: ## List targets (default)
 	@awk 'BEGIN {FS = ":.*## "} /^[a-z-]+:.*## / {printf "  make %-15s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
@@ -112,7 +112,7 @@ dev: guard-node ## Run the app locally (then press s for Expo Go, then i)
 # the EAS worker the build dies with `missing required module 'SwiftShims'` and
 # a path from someone's laptop. Deleting it before every cloud build is not
 # something to remember — it is a prerequisite, so it lives here.
-preflight-eas: guard-node
+preflight-eas: deps-mobile
 	@echo "==> Removing generated native projects (they must never enter the EAS archive)"
 	rm -rf $(MOBILE)/ios $(MOBILE)/android
 	@python3 -m pip install --quiet pathspec \
@@ -144,10 +144,18 @@ env-pull: guard-node ## Pull EAS env vars into eddy-ios/.env for a local build
 # one does not: Metro inlines them from the process, so without .env the app
 # builds clean and launches with no map, no auth and no purchases — a failure
 # that looks like a bug in the app rather than a missing file. Hence env-pull.
-run-ios: guard-node ## Local SIMULATOR build (no signing, no EAS build credit)
+# Every native build reads app.json's config plugins from node_modules, so a
+# branch that adds a plugin package (expo-build-properties, say) fails with
+# "Failed to resolve plugin" on a tree installed before it. bootstrap.sh
+# installs only when package.json, the lockfile or Node changed since its last
+# run, and is a hash check otherwise, so every build target depends on it.
+deps-mobile: guard-node
+	./bootstrap.sh mobile
+
+run-ios: deps-mobile ## Local SIMULATOR build (no signing, no EAS build credit)
 	cd $(MOBILE) && npx expo run:ios
 
-archive-ios: guard-node ## Prebuild + pods, then open Xcode to archive and submit
+archive-ios: deps-mobile ## Prebuild + pods, then open Xcode to archive and submit
 	cd $(MOBILE) && npx expo prebuild --clean --platform ios
 	cd $(MOBILE)/ios && pod install
 	@echo ""

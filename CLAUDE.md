@@ -72,7 +72,7 @@ scripts and mirror CI exactly:
   functions require an explicit allowlist review; report writes remain server-only.
 - `make check` — all of the above
 - `make dev` — run the app locally on a simulator
-- `make build-ios` / `make testflight` — EAS builds. The native-artifact cleanup and the `.easignore` check are **prerequisites**, not remembered steps
+- `make build-ios` / `make testflight` — EAS builds. The native-artifact cleanup and the `.easignore` check are **prerequisites**, not remembered steps; so is `deps-mobile` (`./bootstrap.sh mobile`, a no-op unless dependencies changed), which `run-ios` and `archive-ios` also depend on
 - `make check-eas-env` — compare EAS variable *names* across `preview` and `production`
 
 Or run the underlying `npm` scripts from inside `missouri-float-planner/` or
