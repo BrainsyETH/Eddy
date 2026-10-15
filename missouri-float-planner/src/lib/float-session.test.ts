@@ -1,3 +1,6 @@
+import { recapFloat } from '../../../eddy-ios/src/lib/floatRecap';
+import { matchesSetupDownload, restoreSetupDownload } from '../../../eddy-ios/src/lib/floatSetupDownload';
+import { TRIP_PACKAGE_VERSION, type TripPackage } from '../../../eddy-ios/src/lib/tripDownload';
 // missouri-float-planner/src/lib/float-session.test.ts
 //
 // Covers eddy-ios/src/lib/floatSession.ts, the pure model of one float on the
@@ -31,7 +34,7 @@ import {
   type FloatSession,
 } from '../../../eddy-ios/src/lib/floatSession';
 import type { LngLat, PositionFix, RouteIndex } from '@eddy/geo';
-import { START_FIX_MAX_AGE_MS, usableStartFix, startRiverPosition, sameFloatStretch, floatSetupKey, currentMovingSpeed } from '../../../eddy-ios/src/lib/floatStart';
+import { START_FIX_MAX_AGE_MS, usableStartFix, startRiverPosition, sameFloatStretch, floatSetupKey, currentMovingSpeed, putInLocation, estimateStartId } from '../../../eddy-ios/src/lib/floatStart';
 
 const MILE = 1609.344;
 const LAT0 = 37.0;
@@ -164,14 +167,29 @@ test('a quick start waits for a confirmed position, then measures from it', () =
   assert.ok(session.startMile != null && Math.abs(session.startMile - (20 + 2_020 * MILES_PER_M)) < 0.01);
 });
 
-test('a saved float started partway down already reads as partly done', () => {
+test('a planned float started partway down measures progress from recording, not its planned put-in', () => {
   const { route, index } = prepared();
   const started = startSession({ id: 's2', kind: 'saved', route, index, putInId: 'akers', takeOutId: 'round-spring', now: T0 });
   assert.ok(started.ok);
-  const session = float(started.session, index, 5_000, T0, 30, 1);
-  const view = viewSession(session, T0 + 30_000);
+  assert.equal(started.session.startMile, null);
+  assert.equal(recapFloat(started.session, T0).putInName, null, 'No fix must not invent a launch');
+  const session = float(started.session, index, 5_000, T0, 20, 1);
+  const view = viewSession(session, T0 + 20_000);
   assert.equal(view.status, 'live');
-  assert.ok(Math.abs(view.fraction! - 0.5) < 0.01);
+  assert.equal(view.fraction, 0);
+  assert.equal(session.putIn?.id, 'akers', 'The plan remains available for comparison');
+  assert.ok(session.recordedStart && Math.abs(session.recordedStart.riverMile - (20 + 5020 / MILE)) < 0.01);
+  const recap = recapFloat(session, T0 + 20_000);
+  assert.equal(recap.putInId, null);
+  assert.equal(recap.putInName, '3.1 mi below akers');
+  assert.equal(recap.firstMile, session.startMile);
+  const resumed = restoreSession(JSON.stringify(session));
+  assert.ok(resumed);
+  assert.deepEqual(resumed.recordedStart, session.recordedStart);
+  const later = float(resumed, index, 5_030, T0 + 30_000, 30, 1);
+  assert.deepEqual(later.recordedStart, session.recordedStart, 'Resume cannot move the recorded origin');
+  assert.ok(viewSession(later, T0 + 60_000).fraction! > 0);
+  assert.equal(recapFloat(later, T0 + 60_000).putInName, recap.putInName);
 });
 
 test('time left starts from the planner, and pace takes over as you move', () => {
@@ -321,7 +339,8 @@ test('every endpoint is usable; one calibration left out is measured where it si
   assert.ok(Math.abs(asTakeOut.session.takeOut.riverMile - (20 + 5_000 * MILES_PER_M)) < 0.01);
   const asPutIn = startSession({ id: 'b2', kind: 'saved', route: result.route, index: result.index, putInId: 'bad', takeOutId: 'round-spring', now: T0 });
   assert.ok(asPutIn.ok);
-  assert.ok(Math.abs((asPutIn.session.startMile ?? 0) - (20 + 5_000 * MILES_PER_M)) < 0.01);
+  assert.equal(asPutIn.session.startMile, null);
+  assert.ok(Math.abs(asPutIn.session.putIn!.riverMile - (20 + 5_000 * MILES_PER_M)) < 0.01);
   // An end that calibrates keeps its own published mile exactly.
   assert.equal(asPutIn.session.takeOut.riverMile, 20 + 10_000 * MILES_PER_M);
 });
@@ -689,4 +708,105 @@ test('readiness never shows a withheld, typical, expired, or invalid moving spee
   for (const speed of [0, -1, Infinity, NaN]) {
     assert.equal(currentMovingSpeed({ ...result, floatTime: { movingSpeedMph: speed } }, T0), null);
   }
+});
+
+
+test('recording at the planned launch retains its name, but an unverified nearby road does not', () => {
+  const { route, index } = prepared();
+  const started = startSession({ id: 'named', kind: 'saved', route, index, putInId: 'akers', takeOutId: 'round-spring', now: T0 });
+  assert.ok(started.ok);
+  const near = float(started.session, index, 0, T0, 20, 0);
+  assert.equal(recapFloat(near, T0 + 20_000).putInId, 'akers');
+  let road = started.session;
+  for (let t = 0; t <= 20_000; t += 10_000) road = applyFix(road, index, { ...fix(0, T0 + t), lngLat: at(0, 100) }, T0 + t);
+  assert.equal(recapFloat(road, T0 + 20_000).putInId, null);
+});
+
+test('old saved sessions keep their progress origin without fabricating a recorded GPS point', () => {
+  const { route, index } = prepared();
+  const made = startSession({ id: 'old', kind: 'saved', route, index, putInId: 'akers', takeOutId: 'round-spring', now: T0 });
+  assert.ok(made.ok);
+  const legacy = { ...made.session, startMile: 20 };
+  delete legacy.recordedStart;
+  const restored = restoreSession(JSON.stringify(legacy));
+  assert.ok(restored);
+  const later = float(restored, index, 5000, T0, 20, 0);
+  assert.equal(later.startMile, 20);
+  assert.equal(later.recordedStart, undefined);
+  assert.equal(recapFloat(later, T0 + 20_000).putInId, null);
+});
+
+test('a named plan begun beyond its take-out does not claim arrival', () => {
+  const { route, index } = prepared();
+  const made = startSession({ id: 'past', kind: 'saved', route, index, putInId: 'akers', takeOutId: 'pulltite', now: T0 });
+  assert.ok(made.ok);
+  const session = float(made.session, index, 7000, T0, 20, 0);
+  assert.equal(viewSession(session, T0 + 20_000).startedPastTakeOut, true);
+  assert.equal(viewSession(session, T0 + 20_000).fraction, null);
+  assert.equal(recapFloat(session, T0 + 20_000).reachedTakeOut, false);
+});
+
+test('readiness distinguishes proximity, above/below, accuracy, and being off the chosen river', () => {
+  const { route, index } = prepared();
+  const putIn = { name: 'Pulltite', mile: 20 + 6000 / MILE, lngLat: at(6000) };
+  const fix = { point: at(6000, 5), accuracy: 10, timestamp: T0 };
+  assert.deepEqual(putInLocation(index, fix, T0, putIn), { label: 'Near Pulltite', canSwitch: false });
+  assert.equal(putInLocation(index, { ...fix, point: at(3000) }, T0, putIn)?.label, '1.9 mi above Pulltite');
+  assert.equal(putInLocation(index, { ...fix, point: at(9000) }, T0, putIn)?.label, '1.9 mi below Pulltite');
+  for (const inaccurate of [{ ...fix, accuracy: 80 }, { ...fix, point: at(6000, 100) }]) {
+    assert.equal(putInLocation(index, inaccurate, T0, putIn)?.canSwitch, true);
+    assert.match(putInLocation(index, inaccurate, T0, putIn)!.label, /check your launch/);
+  }
+  assert.equal(putInLocation(index, { ...fix, point: at(6000, 500) }, T0, putIn), null);
+  assert.equal(putInLocation(index, fix, T0 + START_FIX_MAX_AGE_MS, putIn), null);
+  assert.equal(estimateStartId(route, undefined, 19.95), 'akers', 'Small calibration drift still requests an estimate');
+  assert.equal(estimateStartId(route, undefined, 19.5), null);
+});
+
+test('downloaded setup reuse requires the same route and launch, including after restoring its package', () => {
+  const { route } = prepared();
+  const pkg: TripPackage = { version: TRIP_PACKAGE_VERSION, tripKey: 'downloaded-start', route,
+    fromId: '', fromLngLat: at(3000), toId: 'round-spring', styleURL: 'fixture', chunkNames: [], savedAt: '2026-07-04' };
+  const restored: TripPackage = JSON.parse(JSON.stringify(pkg));
+  const draft = { riverSlug: 'current', takeOutId: 'round-spring' };
+  assert.equal(matchesSetupDownload(restored, draft, at(3010)), true);
+  assert.equal(matchesSetupDownload(restored, draft, at(3100)), false);
+  assert.equal(matchesSetupDownload(restored, draft, null), false, 'Saved GPS is never treated as a fresh fix');
+  assert.equal(matchesSetupDownload(restored, { ...draft, takeOutId: 'pulltite' }, at(3000)), false);
+  assert.equal(matchesSetupDownload(restored, { ...draft, putInId: 'akers' }, at(3000)), false);
+  assert.equal(matchesSetupDownload(restored, { ...draft, riverSlug: 'meramec' }, at(3000)), false);
+});
+
+
+test('unfinished setup restores from its own package without a river cache or preview GPS', async () => {
+  const { route, index } = prepared();
+  const pkg: TripPackage = { version: TRIP_PACKAGE_VERSION, tripKey: 'offline-draft', route,
+    fromId: '', fromLngLat: at(3000), toId: 'round-spring', styleURL: 'fixture', chunkNames: [], savedAt: '2026-07-04' };
+  const raw = JSON.stringify({ tripKey: pkg.tripKey, boatType: 'canoe' });
+  const restored = await restoreSetupDownload(raw, async key => key === pkg.tripKey ? pkg : null);
+  assert.ok(restored);
+  assert.equal(restored.boatType, 'canoe');
+  const first = startSession({ id: 'new-recording', kind: 'quick', route: restored.pkg.route, index,
+    takeOutId: restored.pkg.toId, downloadKey: restored.pkg.tripKey, now: T0 });
+  assert.ok(first.ok);
+  assert.equal(first.session.startMile, null);
+  assert.equal(first.session.position, null);
+  assert.equal(first.session.recordedStart, null);
+  assert.equal(first.session.downloadKey, 'offline-draft');
+  assert.notEqual(first.session.id, first.session.downloadKey);
+  assert.equal(await restoreSetupDownload(raw, async () => null), null, 'Deleted downloads cannot restore');
+  assert.equal(await restoreSetupDownload(raw, async () => { throw new Error('unreadable'); }), null);
+  assert.equal(await restoreSetupDownload('{invalid', async () => pkg), null);
+});
+
+test('reversed geometry keeps downstream-increasing miles and records the actual origin', () => {
+  const reversed = routeFromRiver({ ...RIVER, geometry: { ...RIVER.geometry, coordinates: [...RIVER.geometry.coordinates].reverse() } }, ACCESS, null);
+  assert.ok(reversed.ok);
+  const made = startSession({ id: 'reversed-line', kind: 'saved', route: reversed.route, index: reversed.index,
+    putInId: 'akers', takeOutId: 'round-spring', now: T0 });
+  assert.ok(made.ok);
+  const started = float(made.session, reversed.index, 5000, T0, 20, 1);
+  assert.equal(viewSession(started, T0 + 20_000).fraction, 0);
+  assert.ok(started.startMile! > made.session.putIn!.riverMile);
+  assert.match(recapFloat(started, T0 + 20_000).putInName!, /below akers/);
 });

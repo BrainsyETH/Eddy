@@ -1,4 +1,4 @@
-// eddy-ios/app/(tabs)/(floats)/float-mode.tsx
+// eddy-ios/app/(recording)/float-mode.tsx
 // Float Mode: "how much farther?" while you are on the water.
 //
 // Everything on this screen is derived from the active session in
@@ -21,7 +21,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useIsFocused, useRouter } from 'expo-router';
+import { useIsFocused, useNavigation, useRouter } from 'expo-router';
 import { activateKeepAwakeAsync, deactivateKeepAwake } from 'expo-keep-awake';
 import { ControlIcon } from '@/components/ControlIcon';
 import { FloatMap } from '@/float/FloatMap';
@@ -42,6 +42,7 @@ import {
   statusCopy,
   viewSession,
 } from '@/lib/floatSession';
+import { recordedOrigin } from '@/lib/floatOrigin';
 import { hazardTypeLabel } from '@eddy/hazards';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, textStyles, type as t } from '@/theme/typography';
@@ -54,6 +55,7 @@ const clockTime = (ms: number) => new Date(ms).toLocaleTimeString([], { hour: 'n
 export default function FloatModeScreen() {
   const session = useFloatSession();
   const router = useRouter();
+  const root = useNavigation('/');
   const { colors, elevation } = useTheme();
   const [now, setNow] = useState(() => Date.now());
   const tracking = useTrackingLine();
@@ -86,19 +88,18 @@ export default function FloatModeScreen() {
   const view = useMemo(() => (session ? viewSession(session, clock) : null), [session, clock]);
 
   const route = session?.route;
-  const putIn = session?.putIn ?? null;
+  const recordedStart = session?.recordedStart;
   const takeOut = session?.takeOut ?? null;
   const ends = useMemo(() => {
     if (!route || !takeOut) return null;
     const anchor = (id: string | undefined) => route.anchors.find((a) => a.id === id)?.lngLat ?? null;
-    const startAt = anchor(putIn?.id);
     const takeOutAt = anchor(takeOut.id);
     if (!takeOutAt) return null;
     return {
-      start: putIn && startAt ? { name: putIn.name, lngLat: startAt, riverMile: putIn.riverMile } : null,
+      start: recordedStart ? { name: 'Recording started here', lngLat: recordedStart.lngLat, riverMile: recordedStart.riverMile } : null,
       takeOut: { name: takeOut.name, lngLat: takeOutAt, riverMile: takeOut.riverMile },
     };
-  }, [route, putIn, takeOut]);
+  }, [route, recordedStart, takeOut]);
 
   // The same calibrated line the numbers use; rebuilt only if the route changes.
   const index = useMemo(() => {
@@ -134,7 +135,10 @@ export default function FloatModeScreen() {
     return (
       <SafeAreaView style={[styles.screen, styles.centered, { backgroundColor: colors.bg }]} edges={['left', 'right']}>
         <Text style={[styles.emptyTitle, { color: colors.text }]}>No float in progress</Text>
-        <Pressable onPress={() => router.replace('/float-home')} style={[styles.secondary, { borderColor: colors.border }]} accessibilityRole="button">
+        <Pressable onPress={() => {
+          if (root.canGoBack()) root.goBack();
+          router.navigate('/(tabs)/(floats)/float-home');
+        }} style={[styles.secondary, { borderColor: colors.border }]} accessibilityRole="button">
           <Text style={[styles.secondaryText, { color: colors.interactive }]}>Back to Floats</Text>
         </Pressable>
       </SafeAreaView>
@@ -200,7 +204,10 @@ export default function FloatModeScreen() {
         onPress: () => {
           endingHere.current = true;
           void cancelUnstartedFloat().then((cancelled) => {
-            if (cancelled) router.replace({ pathname: '/float-start', params: { boatType: session.boatType ?? undefined } });
+            if (cancelled) {
+              if (root.canGoBack()) root.goBack();
+              router.push({ pathname: '/float-start', params: { boatType: session.boatType ?? undefined } });
+            }
             else endingHere.current = false;
           });
         },
@@ -236,6 +243,9 @@ export default function FloatModeScreen() {
           {statusCopy(view, clock)}
         </Text>
 
+        {recordedOrigin(session).note ? <Text style={[styles.note, { color: colors.textMuted }]}>
+          {recordedOrigin(session).note}
+        </Text> : null}
         {view.startedPastTakeOut ? (
           <Text style={[styles.note, { color: colors.textMuted }]}>
             You started below {view.takeOutName}, so there’s no distance left to show. End this float and pick a take-out downstream.

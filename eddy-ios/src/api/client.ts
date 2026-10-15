@@ -1,3 +1,4 @@
+import { vesselTypeLoader } from '@/lib/vesselTypes';
 import type { CampingStayResult } from '@eddy/conditions/camping-stay';
 import type { CampingOverview } from '@eddy/types';
 import type { RiverGuideSummary } from '@/lib/riverGuides';
@@ -1234,6 +1235,10 @@ export async function fetchFloatPlan(
   return data.plan;
 }
 
+// Not owned by any estimate's AbortSignal: editing a draft must not cancel
+// the shared boat lookup for its replacement request.
+const loadStartVessels = vesselTypeLoader(() => get('/api/vessel-types'));
+
 /** The shared moving model, without a shuttle or a saved plan. */
 export async function fetchFloatStartEstimate(params: {
   riverId: string; startId: string; endId: string; boatType: string; startRiverMile?: number;
@@ -1244,7 +1249,9 @@ export async function fetchFloatStartEstimate(params: {
   estimateBasis: 'today' | 'typical';
   estimatedAt: string;
 }> {
-  const { vesselTypes } = await get<{ vesselTypes: { id: string; slug: string }[] }>('/api/vessel-types', signal);
+  if (signal?.aborted) throw new ApiError('Request cancelled');
+  const vesselTypes = await loadStartVessels();
+  if (signal?.aborted) throw new ApiError('Request cancelled');
   const vessel = vesselTypes.find(v => v.slug === params.boatType);
   if (!vessel) throw new Error('Boat unavailable');
   const query = new URLSearchParams({ riverId: params.riverId, startId: params.startId,
@@ -1255,7 +1262,8 @@ export async function fetchFloatStartEstimate(params: {
     floatTime: { movingSpeedMph?: number | null } | null;
     estimateBasis: 'today' | 'typical'; estimatedAt: string;
   }>(`/api/route-estimate?${query}`, signal);
-  // Older servers ignore unknown params. Never use their upstream estimate for a GPS start.
+  // Echo acknowledges the requested mile, even when the server clamps small
+  // lower-bound drift. Older servers ignore unknown params: never use their full stretch.
   if (params.startRiverMile != null && result.startRiverMile !== params.startRiverMile) throw new Error('Location estimate unavailable');
   return result;
 }

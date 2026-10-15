@@ -139,7 +139,10 @@ export function PlanSheet({
     if (!destination) return;
     if (!visible || !resultReady || !focused) { detailNavigation.reset(); return; }
     const openingFloat = destination.pathname === '/float-start' || destination.pathname === '/float-mode';
-    if (openingFloat && replaceOnStart) router.replace(destination);
+    if (destination.pathname === '/float-mode' && replaceOnStart) {
+      router.back();
+      router.push(destination);
+    } else if (openingFloat && replaceOnStart) router.replace(destination);
     else router.push(destination);
     // A started float is where the paddler is going, not a detail to come
     // back from: the planner does not reopen over the map afterwards.

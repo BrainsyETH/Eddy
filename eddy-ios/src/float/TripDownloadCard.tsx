@@ -23,6 +23,7 @@ import {
   planTripChunks,
   stylePackComplete,
   tripReadiness,
+  type TripPackage,
   type TripChunk,
   type TripReadiness,
 } from '@/lib/tripDownload';
@@ -63,6 +64,7 @@ export function TripDownloadCard({
   toId,
   protectedByActiveFloat = false,
   compact = false,
+  onPackageSaved,
 }: {
   tripKey: string;
   /** The route to package if none is saved yet. A saved package's own route wins. */
@@ -75,6 +77,8 @@ export function TripDownloadCard({
   protectedByActiveFloat?: boolean;
   /** Setup already explains the trip; keep the optional download brief. */
   compact?: boolean;
+  /** Remember unfinished setup only after the package is durable. */
+  onPackageSaved?: (pkg: TripPackage) => Promise<void>;
 }) {
   const { colors, elevation } = useTheme();
   const available = getOfflineManager() != null;
@@ -157,6 +161,12 @@ export function TripDownloadCard({
         return;
       }
     }
+    try {
+      await onPackageSaved?.(pkg);
+    } catch {
+      setError('Your route was saved, but Eddy couldn’t remember this setup. Try again.');
+      return;
+    }
     const chunks = chunksFor(pkg.route, tripKey, pkg.fromId, pkg.toId, pkg.fromLngLat);
     tilesDoneAt.current = null;
     setDownloading(true);
@@ -171,7 +181,7 @@ export function TripDownloadCard({
       setDownloading(false);
     }
     void refresh();
-  }, [tripKey, route, fromId, fromLngLat, toId, fallbackChunks, refresh]);
+  }, [tripKey, route, fromId, fromLngLat, toId, fallbackChunks, refresh, onPackageSaved]);
 
   const remove = useCallback(() => {
     if (protectedByActiveFloat) {

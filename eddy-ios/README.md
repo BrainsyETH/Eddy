@@ -1180,7 +1180,8 @@ for why safety data can never sit behind a wall.
 
 Every entry opens **Ready to float** in its originating tab. A plan fills in
 river, named put-in, take-out and boat; the Floats button starts with an empty
-river and take-out. River, From and Take-out are editable fields. Pickers are
+river and take-out unless an unfinished downloaded setup is recovered. River,
+From and Take-out are editable fields. Pickers are
 sheets over the same draft, and cancelling one leaves the draft intact. From
 can be **From my location** or a named access in either path. Boat is editable
 inline: the plan wins, otherwise the last Find a Route/readiness choice wins,
@@ -1188,12 +1189,14 @@ with kayak as the default. It is never a separate required step.
 
 Planning and saved-detail buttons say **Float this route**. Only readiness's
 **Start tracking** commits a new session. Every entry resumes an existing float
-directly, without another confirmation screen. Setup is replaced on success;
-native Back returns to the actual origin and recording continues. Cold links
-are owned by Floats. Float Mode, options and recap share the same tab history.
+directly, without another confirmation screen. Setup is removed on success.
+Float Mode, options and recap live in one root full-screen presentation above
+all tabs. Constant navigation identities prevent duplicate recording views.
+Closing returns to the actual origin and recording continues; a cold recording
+link closes to Floats.
 Standalone planners are removed when handing off, so Back cannot reopen an
 empty, dismissed planner. Persisted session `saved`/`quick` kinds remain for
-recovery and distance semantics, not as separate setup experiences.
+recovery compatibility, not as separate setup experiences.
 
 Readiness checks foreground location without prompting; with permission it
 obtains a preview fix. Its one permission card offers the system prompt,
@@ -1201,8 +1204,15 @@ Precise Location, or Settings as appropriate. Browsing never automatically asks.
 The GPS line distinguishes permission, finding a fix, GPS ready, and a fix that
 isn't on the chosen river. Only fixes under two minutes old, within 100 m
 accuracy and within 150 m of the chosen river supply a current starting mile.
-No preview fix seeds recording or adds travelled miles. A named put-in anchors
-route progress; recorded mileage always comes from recorded fixes. Permission
+For a named put-in it also shows above/below distance and **Start from here**.
+**Near** requires a fix accurate to 25 m, within 50 m of the river and 75 m of
+the access itself; a similar river mile alone does not confirm launch proximity.
+No preview fix seeds recording or adds travelled miles. The named put-in stays
+as the plan; every new recording measures progress from its first confirmed
+on-river fix. That origin is persisted once and is used for the map marker and
+recap. A different launch reads **Recording started 3.2 mi below Akers**, without
+claiming Akers as the actual access. Older sessions retain their progress
+checkpoint; a recorded coordinate is never invented for them. Permission
 and Location Services are required; a GPS timeout does not prevent starting.
 Locked-phone recording uses the native background activity session with When
 In Use permission (ADR 0014); there is no Always/background permission sheet.
@@ -1216,6 +1226,12 @@ planner. Unknown, withheld, stale, offline or failed estimates say **Eddy will
 learn your pace** and never block tracking. Estimates are short-lived and
 cancelled on edits; results from another draft cannot appear on the current one.
 An older server that doesn't acknowledge the partial starting mile is ignored.
+The server tolerates up to 0.1 river mile of lower-bound calibration drift,
+clamps it to the upstream bound, and echoes the requested mile as acknowledgement.
+Past-take-out and reversed partial requests remain invalid. Named reverse
+requests retain min/max hazard coverage. Published miles increase downstream;
+reversed geometry vertices do not reverse that convention. Boat metadata is
+fetched once per session, coalesced across edits and retryable after failure.
 
 The map, distance, estimate and offline section derive from the same draft.
 Changing the river clears both ends; moving the start beyond the selected
@@ -1224,7 +1240,14 @@ river miles separately from miles from the put-in or current location. The
 Offline map section is always present, with a reason when the stretch isn't
 known. Only the original, unchanged stretch reuses its saved plan's download
 and share code. Edited stretches and changed GPS origins get separate local
-packages; an old download cannot be labelled ready for a new stretch.
+packages; an old download cannot be labelled ready for a new stretch (up to
+75 m of GPS drift at the same launch may reuse its padded tiles). Downloading
+also saves a reference to the unfinished setup outside the river cache. A fresh
+Start a Float recovers that package, route and boat; deleting the package
+invalidates recovery. A saved location only defines tile coverage, never GPS
+readiness or recorded origin. Each recording has a new id independent of the
+package, which Storage protects while in use. Starting clears the pending setup.
+Persisting dated estimates with downloads remains a separate change.
 
 `app/(tabs)/(today,map,floats,favorites,alerts)/float-start.tsx` owns the draft;
 `src/float/start/` owns river selection, permissions, estimates and committing.

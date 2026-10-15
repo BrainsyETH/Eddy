@@ -1,8 +1,8 @@
 // All entry points fill one editable draft. Preview GPS never seeds the recorder.
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
-import { Redirect, Stack, useLocalSearchParams } from 'expo-router';
-import { useRoute as useNavigationRoute } from 'expo-router/react-navigation';
+import { Stack, useFocusEffect, useLocalSearchParams, useNavigation, useRouter } from 'expo-router';
+import { CommonActions, useRoute as useNavigationRoute } from 'expo-router/react-navigation';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { FLOAT_BOATS, FLOAT_BOAT_STORAGE_KEY, type FloatBoat } from '@eddy/conditions/float-search';
@@ -21,8 +21,12 @@ import { PlanAccessPhoto } from '@/components/PlanAccessPhoto';
 import { VesselPicker } from '@/components/VesselPicker';
 import { EddyScene } from '@/components/EddyScene';
 import { arrivalCopy, arrivalOutlook, formatDuration, mapFeatures, startSession, takeOutChoices } from '@/lib/floatSession';
-import { estimateStartId, floatSetupKey, sameFloatStretch, startRiverPosition, usableStartFix } from '@/lib/floatStart';
+import { putInLocation, estimateStartId, floatSetupKey, sameFloatStretch, startRiverPosition, usableStartFix } from '@/lib/floatStart';
 import { useTheme } from '@/theme/ThemeProvider';
+import { completedFloatRoutes } from '@/lib/floatNavigation';
+import { matchesSetupDownload } from '@/lib/floatSetupDownload';
+import { readPendingFloatSetup, savePendingFloatSetup } from '@/float/pendingFloatSetup';
+import type { TripPackage } from '@/lib/tripDownload';
 
 const clockTime = (ms: number) => new Date(ms).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
 const isBoat = (value?: string | null): value is FloatBoat => FLOAT_BOATS.includes(value as FloatBoat);
@@ -32,7 +36,13 @@ export default function FloatStartScreen() {
   const active = useFloatSession();
   const stored = useFloatSessionUnreadable();
   const { colors } = useTheme();
-  if (active) return <Redirect href="/float-mode" />;
+  const [restored, setRestored] = useState<Awaited<ReturnType<typeof readPendingFloatSetup>> | undefined>();
+  useEffect(() => {
+    let current = true;
+    void readPendingFloatSetup().then(value => { if (current) setRestored(value); });
+    return () => { current = false; };
+  }, []);
+  if (active) return <ResumeActiveFloat />;
   if (stored.unreadable) return (
     <Shell>
       <Text style={[styles.title, { color: colors.text }]}>Eddy couldn’t check for a float in progress</Text>
@@ -42,12 +52,33 @@ export default function FloatStartScreen() {
       <PrimaryButton label="Try again" onPress={stored.retry} />
     </Shell>
   );
-  return <ReadyToFloat initial={params} />;
+  if (!params.riverSlug && restored === undefined) return <Shell><ActivityIndicator /></Shell>;
+  const pending = !params.riverSlug ? restored : null;
+  const initial = pending ? { riverSlug: pending.pkg.route.riverSlug, putInId: pending.pkg.fromId || undefined,
+    takeOutId: pending.pkg.toId, boatType: pending.boatType } : params;
+  return <ReadyToFloat initial={initial} restoredPackage={pending?.pkg} />;
 }
 
-function ReadyToFloat({ initial }: { initial: Params }) {
+function ResumeActiveFloat() {
+  const navigation = useNavigation();
+  const route = useNavigationRoute();
+  const router = useRouter();
+  const opened = useRef(false);
+  useFocusEffect(useCallback(() => {
+    if (opened.current) return;
+    opened.current = true;
+    const state = navigation.getState();
+    const routes = state ? completedFloatRoutes(state.routes, route.key) : [];
+    if (state && routes.length) navigation.dispatch({
+      ...CommonActions.reset({ ...state, routes, index: routes.length - 1 }), target: state.key,
+    });
+    router.push('/float-mode');
+  }, [navigation, route.key, router]));
+  return null;
+}
+
+function ReadyToFloat({ initial, restoredPackage }: { initial: Params; restoredPackage?: TripPackage }) {
   const { colors } = useTheme();
-  const navigationRoute = useNavigationRoute();
   const location = useFloatStartLocation();
   const [id] = useState(newSessionId);
   const [draft, setDraft] = useState(() => ({ riverSlug: initial.riverSlug, putInId: initial.putInId, takeOutId: initial.takeOutId }));
@@ -63,7 +94,11 @@ function ReadyToFloat({ initial }: { initial: Params }) {
   }, []);
   const unchanged = sameFloatStretch(initial, draft);
   const shortCode = unchanged ? initial.shortCode : undefined;
-  const loaded = useRiverRoute(draft.riverSlug, shortCode);
+  const [savedPackage, setSavedPackage] = useState(restoredPackage);
+  // A package also carries the full river line. It remains a valid data source
+  // on that river after edits, but its tiles are reused only for its own stretch.
+  const sourceKey = restoredPackage && restoredPackage.route.riverSlug === draft.riverSlug ? restoredPackage.tripKey : undefined;
+  const loaded = useRiverRoute(draft.riverSlug, shortCode ?? sourceKey);
   const route = loaded?.ok ? loaded.route : null;
   const located = useMemo(() => loaded?.ok
     ? startRiverPosition(loaded.index, location.fix, location.checkedAt) : null, [loaded, location.fix, location.checkedAt]);
@@ -76,12 +111,14 @@ function ReadyToFloat({ initial }: { initial: Params }) {
   // Local package IDs contain no GPS coordinates. A change gets its own package;
   // returning to an earlier draft reuses that draft's download.
   const [packages] = useState(() => new Map<string, string>());
+  const reusablePackage = savedPackage && matchesSetupDownload(savedPackage, draft, fromPoint) ? savedPackage : null;
   const downloadKey = useMemo(() => {
     if (shortCode) return shortCode;
+    if (reusablePackage) return reusablePackage.tripKey;
     let key = packages.get(stretchKey);
     if (!key) { key = `${id}-${packages.size}`; packages.set(stretchKey, key); }
     return key;
-  }, [id, packages, stretchKey, shortCode]);
+  }, [id, packages, stretchKey, shortCode, reusablePackage]);
   const miles = takeOut && startMile != null ? takeOut.mile - startMile : null;
   const upstream = miles != null && miles <= 0;
   const startId = route ? estimateStartId(route, draft.putInId, startMile) : null;
@@ -95,7 +132,7 @@ function ReadyToFloat({ initial }: { initial: Params }) {
   const outlook = takeOut ? arrivalOutlook(minutes, location.checkedAt, takeOut.lngLat) : null;
   const arrival = outlook ? arrivalCopy(outlook, clockTime) : null;
   const start = useStart({ ...draft, boatType: boat, shortCode,
-    sessionId: shortCode ? id : downloadKey, startKey: navigationRoute.key,
+    sessionId: id, downloadKey,
     plannerMph: estimate.speed?.toString(), previewStartMile: startMile ?? undefined,
   }, loaded, location);
   const preview = loaded?.ok && takeOut ? startSession({ id, kind: draft.putInId ? 'saved' : 'quick',
@@ -111,9 +148,10 @@ function ReadyToFloat({ initial }: { initial: Params }) {
   const putInPoint = points.find(point => point.id === draft.putInId);
   const takeOutPoint = points.find(point => point.id === draft.takeOutId);
   const gpsReady = location.state === 'ready' && usableStartFix(location.fix, location.checkedAt);
+  const putInStatus = loaded?.ok && putIn ? putInLocation(loaded.index, location.fix, location.checkedAt, putIn) : null;
   const gpsLabel = location.state !== 'ready' ? 'Location permission needed'
     : location.busy ? 'Finding GPS…' : !gpsReady ? 'Waiting for GPS'
-    : route && !located ? 'GPS ready · not on this river yet' : 'GPS ready';
+    : route && !located ? 'GPS ready · not on this river yet' : putInStatus?.label ?? 'GPS ready';
   const downloadReason = !route ? 'Choose a river to prepare an offline map.'
     : !takeOut ? 'Choose a take-out to prepare an offline map.'
     : upstream ? 'Choose a take-out downstream of your start.'
@@ -129,6 +167,7 @@ function ReadyToFloat({ initial }: { initial: Params }) {
     <>
       <Stack.Screen options={{ title: 'Ready to float', headerBackButtonMenuEnabled: false, gestureEnabled: !start.busy }} />
       <Shell>
+        {restoredPackage ? <Text style={[styles.caption, { color: colors.textMuted }]}>Your downloaded setup · edit any field below</Text> : null}
         <View style={[local.map, { borderColor: colors.border, backgroundColor: colors.card }]}>
           {route ? <FloatMap key={stretchKey} preview line={route.line} section={features?.section ?? null}
             stops={features?.stops ?? []} hazards={features?.hazards ?? []}
@@ -170,10 +209,15 @@ function ReadyToFloat({ initial }: { initial: Params }) {
           The take-out pin doesn’t quite line up with Eddy’s river map. Distances end at the nearest point on the river.
         </Text> : null}
         {!downloadReason && route && takeOut && fromPoint ? <TripDownloadCard key={downloadKey} compact tripKey={downloadKey}
-          route={route} fromId={draft.putInId ?? ''} fromLngLat={draft.putInId ? undefined : fromPoint} toId={takeOut.id} />
+          route={route} fromId={draft.putInId ?? ''} fromLngLat={draft.putInId ? undefined : fromPoint} toId={takeOut.id}
+          onPackageSaved={async pkg => { await savePendingFloatSetup(pkg, boat); setSavedPackage(pkg); }} />
           : <Card><Text style={[styles.label, { color: colors.text }]}>Offline map · Optional</Text>
             <Text style={[styles.body, { color: colors.textMuted }]}>{downloadReason}</Text></Card>}
         <Text accessibilityLiveRegion="polite" style={[styles.label, { color: colors.text }]}>{gpsLabel}</Text>
+        {gpsReady && putInStatus?.canSwitch ? <>
+          <Text style={[styles.body, { color: colors.textMuted }]}>Tracking will begin where GPS finds you. The route preview still starts at {putIn?.name}.</Text>
+          <TextButton label="Start from here" onPress={() => selectFrom()} />
+        </> : null}
         {location.state !== 'ready' ? <LocationGate location={location} /> : !gpsReady && !location.busy ? <>
           <Text style={[styles.body, { color: colors.textMuted }]}>You can start now. Recording begins when GPS finds you.</Text>
           <TextButton label="Try GPS again" onPress={() => void location.act()} />

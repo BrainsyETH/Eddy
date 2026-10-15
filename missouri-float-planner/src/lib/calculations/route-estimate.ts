@@ -142,16 +142,21 @@ export async function estimateRoute(supabase: SupabaseClient<Database>, {
       throw new RouteEstimateError('Could not calculate distance between access points', 500);
     }
 
+    // Published river miles increase downstream (independently of geometry
+    // vertex order). Named endpoint requests also support the reverse span;
+    // partial/GPS starts require downstream endpoints.
+    // 0.1 mi accommodates small client/server calibration drift above the bound.
+    const START_MILE_TOLERANCE = 0.1;
     // A location start is bounded by two validated access points. Use its own
     // mile for gauge selection and remaining distance, never the upstream launch.
     if (startRiverMile !== undefined) {
-      const endMile = Number(segmentData.end_river_mile);
+      const endMile = segmentData.end_river_mile != null ? Number(segmentData.end_river_mile) : NaN;
       if (!Number.isFinite(startRiverMile) || !Number.isFinite(putInMile) || !Number.isFinite(endMile) ||
-          startRiverMile < putInMile || startRiverMile >= endMile) {
+          endMile <= putInMile || startRiverMile < putInMile - START_MILE_TOLERANCE || startRiverMile >= endMile) {
         throw new RouteEstimateError('Starting position is outside this float stretch', 400);
       }
-      distanceMiles = endMile - startRiverMile;
-      putInMile = startRiverMile;
+      putInMile = Math.max(putInMile, startRiverMile);
+      distanceMiles = endMile - putInMile;
     }
 
     // Get put-in coordinates for segment-aware gauge selection (fallback)
@@ -331,7 +336,8 @@ export async function estimateRoute(supabase: SupabaseClient<Database>, {
     // escalate the condition. A too-low in-span gauge gets a scraping warning.
 
     try {
-      const spanMinMile = putInMile;
+      const spanMinMile = startRiverMile !== undefined ? putInMile
+        : Math.min(Number(segmentData.start_river_mile), Number(segmentData.end_river_mile));
       const spanMaxMile = Math.max(parseFloat(String(segmentData.start_river_mile)), parseFloat(String(segmentData.end_river_mile)));
 
       const { data: riverGaugeRows, error: spanGaugeError } = await supabase

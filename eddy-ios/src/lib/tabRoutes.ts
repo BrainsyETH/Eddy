@@ -22,12 +22,9 @@ export const DETAIL_TITLES: Record<string, string> = {
   // Warm starts stay in their originating tab; cold links belong to Floats.
   'float-start': 'Ready to float',
   'find-float': 'Find a Route',
-  'float-mode': 'Float Mode',
-  'float-options': 'Float options',
   'float-history': 'Float history',
   'float-backup': 'Backup & sharing',
   'plan-route': 'Build a Route',
-  'float-recap': 'Float recap',
 };
 
 // Cold links have no originating tab. Match the destination's place in the app.
@@ -37,17 +34,19 @@ const COLD_TAB_OWNERS: Partial<Record<string, keyof typeof TAB_ROOTS>> = {
   'favorite-floats': 'floats',
   'float-start': 'floats',
   'find-float': 'floats',
-  'float-mode': 'floats',
-  'float-options': 'floats',
   'float-history': 'floats',
   'float-backup': 'floats',
   'plan-route': 'floats',
-  'float-recap': 'floats',
 };
 
 /** Plain launches and known shared details need a tab owner on a cold link. */
 export function coldDetailPath(path: string): string {
   const pathname = path.split(/[?#]/)[0];
+  if (['/float-mode', '/float-options', '/float-recap'].includes(pathname.replace(/\/$/, ''))) {
+    const url = new URL(path, 'https://eddy.guide');
+    url.searchParams.set('coldRecording', '1');
+    return `${url.pathname}${url.search}${url.hash}`;
+  }
   // The public / route belongs to Map for existing internal links. On a plain
   // launch it otherwise wins over the tabs' initialRouteName and opens Map.
   if (pathname === '' || pathname === '/') {

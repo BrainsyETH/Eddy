@@ -182,3 +182,26 @@ test('saved downstream dams survive a failed refresh without becoming in-route h
   assert.deepEqual(savedFloatLogistics(different, undefined, saved).damsBelowTakeOut, []);
   assert.deepEqual(savedFloatLogistics({ ...plan, damsBelowTakeOut: [] }, undefined, saved).damsBelowTakeOut, []);
 });
+
+
+test('boat metadata coalesces requests, survives cancelled consumers, and retries failed loads', async () => {
+  const { vesselTypeLoader } = await import('../../../eddy-ios/src/lib/vesselTypes');
+  let calls = 0;
+  let resolve!: (value: { vesselTypes: { id: string; slug: string }[] }) => void;
+  const load = vesselTypeLoader(() => { calls++; return new Promise(done => { resolve = done; }); });
+  const first = load();
+  const nextDraft = load();
+  assert.equal(calls, 1);
+  assert.equal(first, nextDraft);
+  resolve({ vesselTypes: [{ id: 'boat-id', slug: 'kayak' }] });
+  assert.deepEqual(await nextDraft, [{ id: 'boat-id', slug: 'kayak' }]);
+  assert.equal(load(), first);
+  let attempts = 0;
+  const retry = vesselTypeLoader(async () => {
+    if (++attempts === 1) throw new Error('offline');
+    return { vesselTypes: [{ id: 'boat-id', slug: 'kayak' }] };
+  });
+  await assert.rejects(retry(), /offline/);
+  assert.equal((await retry())[0].slug, 'kayak');
+  assert.equal(attempts, 2);
+});

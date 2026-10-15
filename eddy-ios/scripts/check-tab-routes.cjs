@@ -35,6 +35,7 @@ for (const [group, initial] of Object.entries(roots)) {
   for (const detail of ['river/[slug]', 'gauge/[siteId]', 'dam/[damId]', 'river-conditions', 'camping', 'weather', 'eddy-reads', 'river-guides']) {
     assert.ok(routes.includes(detail), `${detail} must push inside ${group}`);
   }
+  for (const detail of ['float-mode', 'float-options', 'float-recap']) assert.ok(!routes.includes(detail), `${detail} must have only one root presentation`);
   for (const other of Object.values(roots).filter(name => name !== initial)) {
     assert.ok(!routes.includes(other), `${other} would open in the wrong tab`);
   }
@@ -66,13 +67,37 @@ const wrappedTree = { children: [{ ...tree, route: INTERNAL_SLOT_NAME }] };
 const config = { screens: { [INTERNAL_SLOT_NAME]: { path: '', ...getReactNavigationConfig(tree, true) } } };
 const mounted = new Map();
 let state;
+// Read identity configuration from the shipped layout instead of inventing it
+// in the harness: removing a singular prop must make the duplicate test fail.
+function screenIdentity(file, name) {
+  const source = ts.createSourceFile(file, fs.readFileSync(path.join(root, file), 'utf8'), ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+  let identity;
+  function visit(node) {
+    if ((ts.isJsxSelfClosingElement(node) || ts.isJsxOpeningElement(node)) && node.tagName.getText(source) === 'Stack.Screen') {
+      const attrs = node.attributes.properties;
+      const named = attrs.find(a => a.name?.text === 'name');
+      const singular = attrs.find(a => a.name?.text === 'dangerouslySingular');
+      if (named?.initializer?.text === name && singular?.initializer?.expression) {
+        const callback = require('../src/lib/floatNavigation.ts')[singular.initializer.expression.getText(source)];
+        identity = ({ params }) => callback(name, params);
+      }
+    }
+    ts.forEachChild(node, visit);
+  }
+  visit(source);
+  return identity;
+}
 function mount(node, partial) {
   const router = node.route === '(tabs)'
     ? NativeBottomTabsRouter({ initialRouteName: node.initialRouteName })
     : StackRouter({ initialRouteName: node.initialRouteName });
   const options = { routeNames: node.children.map(child => child.route), routeParamList: {}, routeGetIdList: {} };
+  if (node.children.some(child => child.route === '(recording)')) options.routeGetIdList['(recording)'] = screenIdentity('_layout.tsx', '(recording)');
+  if (node.route === '(recording)') for (const child of node.children) {
+    options.routeGetIdList[child.route] = screenIdentity('(recording)/_layout.tsx', child.route);
+  }
   const result = partial ? router.getRehydratedState(partial, options) : router.getInitialState(options);
-  mounted.set(result.key, { router, options });
+  mounted.set(result.key, { router, options, node });
   return { ...result, routes: result.routes.map(route => {
     const child = node.children.find(child => child.route === route.name);
     return child.children.length ? { ...route, state: mount(child, route.state) } : route;
@@ -95,10 +120,20 @@ provide('expo-router/build/global-state/store', { store });
 const { getNavigateAction } = require('expo-router/build/global-state/getNavigationAction');
 function apply(action, current = state) {
   if (current.key === action.target) {
-    const { router, options } = mounted.get(current.key);
+    const { router, options, node } = mounted.get(current.key);
     const next = router.getStateForAction(current, action, options);
     assert.ok(next, `Unhandled ${action.type} on ${current.type}`);
-    return next;
+    // A real nested navigator mounts from the screen/params payload the first
+    // time a root presentation is opened; model that lifecycle, using Expo's
+    // real StackRouter for its history as well.
+    return { ...next, routes: next.routes.map(route => {
+      const child = node.children.find(child => child.route === route.name);
+      if (!child.children.length || route.state) return route;
+      const params = route.params;
+      return { ...route, state: mount(child, params?.screen ? {
+        routes: [{ name: params.screen, params: params.params }], index: 0,
+      } : undefined) };
+    }) };
   }
   return { ...current, routes: current.routes.map(route => route.state ? { ...route, state: apply(action, route.state) } : route) };
 }
@@ -308,32 +343,55 @@ for (const href of ['/alerts/quiet-hours', '/alerts/rule-1?source=gauge']) {
 }
 console.log('Quiet hours and edit sheets preserve warm origins and resolve cold URLs.');
 
-// Every entrance stays in its native tab. Setup is one screen; completing it
-// removes readiness, while an existing float resumes without another setup.
-const { completedFloatRoutes } = require('../src/lib/floatStart.ts');
+// Readiness belongs to its origin. Recording/options/recap have exactly one
+// root presentation, with stable IDs even under repeated or cross-tab Resume.
+const { completedFloatRoutes } = require('../src/lib/floatNavigation.ts');
+const recording = () => appState().routes.find(route => route.name === '(recording)');
 for (const group of Object.keys(roots)) {
   for (const saved of [false, true]) {
     launch(`/(tabs)/(${group})/${group === 'map' ? '' : roots[group]}`);
     if (saved) push('/float/TESTPLAN');
     const origin = activeStack().routes.at(-1);
     push(saved ? '/float-start?riverSlug=current&putInId=akers&takeOutId=waymeyer&shortCode=TESTPLAN' : '/float-start');
-    assert.equal(activeTab(), `(${group})`);
     const stack = activeStack();
     const routes = completedFloatRoutes(stack.routes, stack.routes.at(-1).key);
     state = apply({ type: 'RESET', target: stack.key, payload: { ...stack, routes, index: routes.length - 1 } });
-    assert.equal(activeStack().routes.at(-1).name, 'float-mode');
-    assert.ok(!activeStack().routes.some(route => route.name === 'float-start'));
-    push('/float-options'); back();
-    assert.equal(activeStack().routes.at(-1).name, 'float-mode');
-    back();
-    assert.deepEqual(activeStack().routes.at(-1), origin, 'Starting lost its origin');
-    push('/float-mode'); back();
-    assert.deepEqual(activeStack().routes.at(-1), origin, 'Resume lost its origin');
+    push('/float-mode');
+    assert.equal(recording().state.routes.at(-1).name, 'float-mode');
+    assert.deepEqual(activeStack().routes.at(-1), origin);
+    const recordingKey = recording().key;
+    const modeKey = recording().state.routes.at(-1).key;
+    push('/float-mode'); push('/float-mode');
+    assert.equal(recording().key, recordingKey);
+    assert.equal(recording().state.routes.length, 1);
+    assert.equal(recording().state.routes.at(-1).key, modeKey);
+    push('/float-options'); back(recording().state.key);
+    assert.equal(recording().state.routes.at(-1).name, 'float-mode');
+    back(appState().key);
+    assert.deepEqual(activeStack().routes.at(-1), origin, 'Closing lost its origin');
+    const other = group === 'map' ? 'floats' : 'map';
+    selectTab(other);
+    const otherOrigin = activeStack().routes.at(-1);
+    push('/float-mode');
+    assert.equal(appState().routes.filter(route => route.name === '(recording)').length, 1);
+    state = apply(getNavigateAction(resolveHref('/float-recap?id=finished'), {}, 'REPLACE'));
+    assert.deepEqual(recording().state.routes.map(route => route.name), ['float-recap']);
+    back(appState().key);
+    assert.deepEqual(activeStack().routes.at(-1), otherOrigin, 'Recap close lost Resume origin');
   }
 }
 assert.deepEqual(completedFloatRoutes([{ name: 'float-home' }, { name: 'float-start' }, { name: 'float-start' }], 'missing'),
-  [{ name: 'float-home' }, { name: 'float-mode' }], 'Older multi-page setup histories must still be discarded');
-console.log('Unified readiness, resume, options, and Back verified in every tab.');
+  [{ name: 'float-home' }], 'Older multi-page setup histories must still be discarded');
+for (const href of ['/float-mode', '/float-recap?id=finished', '/float-options']) {
+  launch(redirectSystemPath({ path: href, initial: true }));
+  assert.equal(appState().routes.at(-1).name, '(recording)');
+  assert.ok(appState().routes.some(route => route.name === '(tabs)'), 'Cold recording must have a tab anchor');
+  assert.equal(recording().state.routes.at(-1).params.coldRecording, '1');
+  back(appState().key);
+  state = apply(getNavigateAction(resolveHref('/(tabs)/(floats)/float-home'), {}, 'NAVIGATE'));
+  assert.equal(activeTab(), '(floats)', 'Cold close must have a useful Floats fallback');
+}
+console.log('One recording presentation, repeated/cross-tab Resume, options, recap, and originating Close verified.');
 
 // Floats planners live in their originating stack. The kept-alive Map route
 // never receives their selected river/endpoints or their dismissal state.
@@ -390,10 +448,13 @@ for (const origin of Object.keys(roots)) {
   const collectionKey = activeStack().routes.at(-1).key;
   for (const pathname of ['/float-start', '/float-mode']) {
     push(floatPlanDestination());
-    state = apply(getNavigateAction(resolveHref({ pathname, params: { riverSlug: 'current', putInId: 'a', takeOutId: 'b' } }), {}, 'REPLACE'));
+    if (pathname === '/float-mode') { back(); push(pathname); }
+    else state = apply(getNavigateAction(resolveHref({ pathname, params: { riverSlug: 'current', putInId: 'a', takeOutId: 'b' } }), {}, 'REPLACE'));
     assert.equal(activeTab(), `(${origin})`);
-    assert.equal(activeStack().routes.at(-1).name, pathname.slice(1));
-    back();
+    if (pathname === '/float-mode') {
+      assert.equal(recording().state.routes.at(-1).name, 'float-mode');
+      back(appState().key);
+    } else { assert.equal(activeStack().routes.at(-1).name, 'float-start'); back(); }
     assert.equal(activeStack().routes.at(-1).key, collectionKey, 'A closed planner must not remain behind readiness or resume');
   }
 }

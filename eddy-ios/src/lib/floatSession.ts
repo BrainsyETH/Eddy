@@ -17,17 +17,14 @@
 // live progress: the first fix after it goes through reacquisition like any
 // other gap, because nobody knows what happened while the app was gone.
 //
-// ── Two ways to start ───────────────────────────────────────────────────────
-//
-//   saved   from a saved float: progress runs put-in to take-out, so starting
-//           partway down reads as already partly done.
-//   quick   from wherever you are: the start is the first confirmed position,
-//           recorded once and kept, so the percentage means the same thing
-//           after a relaunch.
+// A named put-in describes the plan, not the recorded launch. Both saved and
+// quick starts measure progress from the first confirmed on-river fix, saved
+// once for the map and recap. Older sessions retain their checkpoint semantics.
 //
 // Either way there must be a take-out. Without one there are no miles left,
 // no percentage and no time left, which is the whole feature.
 
+import { startPointDistance } from './floatOrigin';
 import type { Hazard, HazardSeverity, MapAccessPoint, RiverDetail } from '@eddy/types';
 import {
   INITIAL_TRACK,
@@ -140,6 +137,8 @@ export interface FloatSession {
   kind: 'saved' | 'quick';
   /** The saved float this started from, to link back to it. */
   shortCode: string | null;
+  /** Offline package identity is separate from this recording’s unique id. */
+  downloadKey?: string;
   route: FloatRoute;
   putIn: FloatEnd | null;
   takeOut: FloatEnd;
@@ -147,10 +146,12 @@ export interface FloatSession {
   plannerMph: number | null;
   startedAt: number;
   /**
-   * Where progress is measured from. The put-in for a saved float; for a quick
-   * start, the first confirmed position, null until there is one.
+   * First confirmed recording mile, null until GPS confirms it. Older sessions
+   * retain their existing progress origin when restored.
    */
   startMile: number | null;
+  /** Null until confirmed. Absent on older sessions: never infer a GPS point. */
+  recordedStart?: { riverMile: number; lngLat: LngLat; at: number; atPutIn: boolean } | null;
   track: TrackState;
   samples: PaceSample[];
   /** Durable accounting; absent on sessions started by an older build. */
@@ -344,6 +345,7 @@ export function startSession(input: {
   id: string;
   kind: 'saved' | 'quick';
   shortCode?: string | null;
+  downloadKey?: string;
   route: FloatRoute;
   /** The calibrated index of `route`; the ends are measured on it. */
   index: RouteIndex;
@@ -368,12 +370,14 @@ export function startSession(input: {
       id: input.id,
       kind: input.kind,
       shortCode: input.shortCode ?? null,
+      downloadKey: input.downloadKey,
       route: input.route,
       putIn: putInEnd,
       takeOut: takeOutEnd,
       plannerMph: input.plannerMph != null && input.plannerMph > 0 ? input.plannerMph : null,
       startedAt: input.now,
-      startMile: putInEnd ? putInEnd.riverMile : null,
+      startMile: null,
+      recordedStart: null,
       track: INITIAL_TRACK,
       samples: [],
       totals: { ...EMPTY_FLOAT_TOTALS },
@@ -406,12 +410,20 @@ export function applyFix(session: FloatSession, index: RouteIndex, fix: Position
       // forgetting to tap Finish, is not part of the float.
       if (session.arrivedAt == null) next.totals = accumulateFloat(session.totals ?? EMPTY_FLOAT_TOTALS, sample);
     }
-    // A quick start begins where the paddler is first confirmed to be. If that
-    // is already past the chosen take-out, the session reports it rather than
-    // inventing a start.
+    // The plan is only a preview. Every new recording starts at its first
+    // confirmed fix, even when the paddler chose a named put-in.
     if (next.startMile == null) next.startMile = step.result.riverMile;
+    if (session.recordedStart === null) {
+      const putIn = session.route.anchors.find(a => a.id === session.putIn?.id);
+      next.recordedStart = {
+        riverMile: step.result.riverMile, lngLat: next.position.lngLat, at: fix.timestamp,
+        atPutIn: Boolean(putIn && session.putIn && fix.accuracyMeters != null && fix.accuracyMeters <= 25 &&
+          step.result.offsetMeters <= 50 && Math.abs(step.result.riverMile - session.putIn.riverMile) < 0.1 &&
+          startPointDistance(fix.lngLat, putIn.lngLat) <= 75),
+      };
+    }
     if (
-      !(session.kind === 'quick' && next.startMile >= session.takeOut.riverMile) &&
+      next.startMile < session.takeOut.riverMile &&
       stretchProgress(next.startMile, session.takeOut.riverMile, step.result.riverMile).remainingMiles <= ARRIVAL_MILES
     ) {
       // Off the mapped river, the line's end is not the take-out.
@@ -532,13 +544,13 @@ export function viewSession(session: FloatSession, now: number): FloatView {
       pastEnd: false,
       startedPastTakeOut: false,
       estimate: estimate(null),
-      // A saved float knows where it starts before GPS does.
-      nextHazard: hazardAhead(session, session.startMile),
+      // Until GPS confirms the origin, hazards use the planned stretch.
+      nextHazard: hazardAhead(session, session.startMile ?? session.putIn?.riverMile ?? null),
     };
   }
 
   const progress = stretchProgress(session.startMile, session.takeOut.riverMile, latest.riverMile);
-  const startedPastTakeOut = session.kind === 'quick' && session.startMile >= session.takeOut.riverMile;
+  const startedPastTakeOut = session.startMile >= session.takeOut.riverMile;
   const lastKind = lastResult?.kind;
   const status: FloatStatus = session.awaitingFix
     ? 'resuming'

@@ -3,14 +3,14 @@
 // No session exists until the permission flow finishes and the float is on disk.
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { useFocusEffect, useNavigation, useRouter } from 'expo-router';
-import { CommonActions } from 'expo-router/react-navigation';
+import { useFocusEffect } from 'expo-router';
 import * as Location from 'expo-location';
 import { useFloatArchive } from '@/hooks/useFloatArchive';
 import { currentStartFix, useFloatStartLocation } from '@/hooks/useFloatStartLocation';
 import { loadFloatRoute, routeProblemCopy, type LoadedRoute } from '@/float/loadFloatRoute';
 import { startSession, takeOutChoices } from '@/lib/floatSession';
-import { completedFloatRoutes, startRiverPosition, usableStartFix } from '@/lib/floatStart';
+import { startRiverPosition, usableStartFix } from '@/lib/floatStart';
+import { clearPendingFloatSetup } from '@/float/pendingFloatSetup';
 import { startLocationState } from '@/lib/floatPermissions';
 import { beginFloat } from '@/lib/floatSessionStore';
 
@@ -22,8 +22,8 @@ export type Params = {
   plannerMph?: string;
   boatType?: string;
   step?: 'takeout' | 'summary';
-  startKey?: string;
   sessionId?: string;
+  downloadKey?: string;
 };
 export type StartLocation = ReturnType<typeof useFloatStartLocation>;
 
@@ -33,8 +33,6 @@ export function newSessionId() {
 
 export function useStart(params: Params & { previewStartMile?: number }, loaded: LoadedRoute | null, location: StartLocation) {
   const archive = useFloatArchive();
-  const router = useRouter();
-  const navigation = useNavigation();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const running = useRef(false);
@@ -80,12 +78,12 @@ export function useStart(params: Params & { previewStartMile?: number }, loaded:
       // timeout does not block the start: the session reports a start past
       // the take-out itself.
       let fix = location.fix;
-      if (!saved && !usableStartFix(fix, Date.now())) {
+      if (!usableStartFix(fix, Date.now())) {
         await location.refresh();
         if (!focused.current) return;
         fix = currentStartFix();
       }
-      const hit = !saved ? startRiverPosition(loaded.index, fix, Date.now()) : null;
+      const hit = startRiverPosition(loaded.index, fix, Date.now());
       if (
         hit &&
         !takeOutChoices(loaded.route, loaded.index, hit.riverMile).some(
@@ -100,6 +98,7 @@ export function useStart(params: Params & { previewStartMile?: number }, loaded:
         id: params.sessionId!,
         kind: saved ? 'saved' : 'quick',
         shortCode: params.shortCode,
+        downloadKey: params.downloadKey,
         route: loaded.route,
         index: loaded.index,
         putInId: params.putInId,
@@ -123,16 +122,9 @@ export function useStart(params: Params & { previewStartMile?: number }, loaded:
         setError('Eddy couldn’t check for a float already in progress. Please try again.');
         return;
       }
-      const state = navigation.getState();
-      if (!state) {
-        router.replace('/float-mode');
-        return;
-      }
-      const routes = completedFloatRoutes(state.routes, params.startKey ?? '');
-      navigation.dispatch({
-        ...CommonActions.reset({ ...state, routes, index: routes.length - 1 }),
-        target: state.key,
-      });
+      // The active-session subscriber removes setup and presents the root
+      // recording view, including if a concurrent start won the race.
+      await clearPendingFloatSetup();
     } catch {
       if (focused.current) setError('Eddy couldn’t start this float. Please try again.');
     } finally {

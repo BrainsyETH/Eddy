@@ -212,3 +212,27 @@ test('location estimates retain flood, tailwater, and endpoint guards', async ()
   }
   await assert.rejects(routeFixture({ wrongRiver: true }).estimate('today', 3), /not on this river/);
 });
+
+
+test('reverse named requests still inspect flood gauges across the entire span', async () => {
+  const reverse = await routeFixture({ condition: 'good', spanReading: { height: 6 },
+    segmentReader: async () => ({ distance_miles: 8, start_river_mile: 8, end_river_mile: 0,
+      start_name: 'Take out', end_name: 'Put in', segment_geom: null }) }).estimate();
+  assert.equal(reverse.conditionCode, 'dangerous');
+  assert.equal(reverse.floatTime, null);
+  assert.equal(reverse.contributingGauges[0].usgsSiteId, 'span-gauge');
+});
+
+test('partial starts tolerate small lower-bound calibration drift, but not reversed or past-end starts', async () => {
+  const drift = routeFixture({ condition: 'good', spanReading: { height: 6 } });
+  const estimate = await drift.estimate('today', -0.05);
+  assert.equal(estimate.distanceMiles, 8);
+  assert.equal(drift.rpcCalls.find(call => call.name === 'get_river_condition_segment')?.args.p_put_in_mile, 0);
+  assert.equal(estimate.conditionCode, 'dangerous');
+  await assert.rejects(routeFixture().estimate('today', -0.11), /outside this float stretch/);
+  await assert.rejects(routeFixture().estimate('today', 8.01), /outside this float stretch/);
+  await assert.rejects(routeFixture({ segmentReader: async () => ({
+    distance_miles: 8, start_river_mile: 8, end_river_mile: 0,
+      start_name: 'Take out', end_name: 'Put in', segment_geom: null,
+  }) }).estimate('today', 4), /outside this float stretch/);
+});

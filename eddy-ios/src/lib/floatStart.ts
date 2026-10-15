@@ -1,5 +1,6 @@
 // Preview rules only. A preview fix never seeds the session's tracker or pace.
 import { locateOnRoute, type LngLat, type RouteIndex } from '@eddy/geo';
+import { startPointDistance } from './floatOrigin';
 import type { FloatRoute } from './floatSession';
 
 export interface FloatSetup {
@@ -24,8 +25,9 @@ export function floatSetupKey(setup: FloatSetup, origin?: LngLat | null): string
 export function estimateStartId(route: FloatRoute, putInId: string | undefined, startMile: number | null): string | null {
   if (putInId) return putInId;
   if (startMile == null || !Number.isFinite(startMile)) return null;
-  return [...route.anchors].filter(a => a.endpoint && a.riverMile <= startMile)
-    .sort((a, b) => b.riverMile - a.riverMile)[0]?.id ?? null;
+  const ends = route.anchors.filter(a => a.endpoint).sort((a, b) => a.riverMile - b.riverMile);
+  const upstream = ends.filter(a => a.riverMile <= startMile).at(-1);
+  return upstream?.id ?? (ends[0] && ends[0].riverMile - startMile <= 0.1 ? ends[0].id : null);
 }
 
 /** Never reuse a typical, withheld, expired, or future-dated result as current water. */
@@ -72,16 +74,16 @@ export function startRiverPosition(index: RouteIndex, fix: StartFix | null, now:
   return hit && hit.offsetMeters <= 150 ? hit : null;
 }
 
-/** Discard this setup's native pages, preserving the screen that launched it. */
-export function completedFloatRoutes<T extends { key?: string; name: string }>(
-  routes: readonly T[],
-  startKey: string,
-) {
-  const entry = routes.findIndex((route) => route.key === startKey);
-  let cut = entry;
-  if (cut < 0) {
-    cut = routes.length;
-    while (cut > 0 && routes[cut - 1].name === 'float-start') cut--;
-  }
-  return [...routes.slice(0, cut), { name: 'float-mode' }];
+/** "Near" requires both a good fix and proximity to the access itself. */
+export function putInLocation(index: RouteIndex, fix: StartFix | null, now: number,
+  putIn: { name: string; lngLat: LngLat; mile: number }) {
+  const hit = startRiverPosition(index, fix, now);
+  if (!hit || !fix) return null;
+  const delta = hit.riverMile - putIn.mile;
+  const near = fix.accuracy != null && fix.accuracy <= 25 && hit.offsetMeters <= 50 &&
+    Math.abs(delta) < 0.1 && startPointDistance(fix.point, putIn.lngLat) <= 75;
+  return { label: near ? `Near ${putIn.name}` : Math.abs(delta) < 0.1
+    ? `GPS puts you by ${putIn.name} · check your launch`
+    : `${Math.abs(delta).toFixed(1)} mi ${delta > 0 ? 'below' : 'above'} ${putIn.name}`,
+    canSwitch: !near };
 }

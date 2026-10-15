@@ -1,6 +1,6 @@
 import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useLocalSearchParams, useNavigation, useRouter } from 'expo-router';
 import type { CompletedFloat } from '@eddy/conditions/float-archive';
 import { useFloatArchive } from '@/hooks/useFloatArchive';
 import { floatArchive } from '@/lib/floatArchive';
@@ -13,6 +13,11 @@ export default function FloatRecapScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const archive = useFloatArchive();
   const router = useRouter();
+  const root = useNavigation('/');
+  const showHistory = () => {
+    if (root.canGoBack()) root.goBack();
+    router.navigate('/(tabs)/(floats)/float-history');
+  };
   const { colors } = useTheme();
   const row = archive.rows.find((r) => r.id === id && r.kind === 'completed' && !r.deleted);
   const trip = row?.payload as CompletedFloat | undefined;
@@ -39,7 +44,7 @@ export default function FloatRecapScreen() {
                 Alert.alert('Could not delete', 'Please try again.');
                 return;
               }
-              router.replace('/float-history');
+              showHistory();
               if (track === 'queued') {
                 Alert.alert(
                   'Recap deleted',
@@ -123,7 +128,7 @@ export default function FloatRecapScreen() {
             If saving was interrupted, Eddy will retry. Check your history again in a moment.
           </Text>
         )}
-        <Pressable accessibilityRole="button" onPress={() => router.replace('/float-history')} style={styles.button}>
+        <Pressable accessibilityRole="button" onPress={showHistory} style={styles.button}>
           <Text style={[t.base, { color: colors.interactive }]}>View history and backup</Text>
         </Pressable>
       </ScrollView>
