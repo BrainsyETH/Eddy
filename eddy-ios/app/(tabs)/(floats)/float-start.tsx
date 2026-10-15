@@ -16,7 +16,7 @@ import { useFloatStartLocation } from '@/hooks/useFloatStartLocation';
 import { routeProblemCopy, type LoadedRoute } from '@/float/loadFloatRoute';
 import { LocationGate } from '@/float/start/LocationGate';
 import { RiverPicker } from '@/float/start/RiverPicker';
-import { BoatChoice, Card, PrimaryButton, RiverName, Row, Shell, SummaryLine, TextButton, styles } from '@/float/start/ui';
+import { Card, PrimaryButton, RiverName, Row, Shell, SummaryLine, TextButton, styles } from '@/float/start/ui';
 import { newSessionId, useRiverRoute, useStart, type Params, type StartLocation } from '@/float/start/useStart';
 import { FloatMap } from '@/float/FloatMap';
 import { TripDownloadCard } from '@/float/TripDownloadCard';
@@ -72,17 +72,12 @@ function StartFlow({ params }: { params: Params }) {
   const route = useNavigationRoute();
   const location = useFloatStartLocation();
   const [sessionId] = useState(() => params.sessionId ?? newSessionId());
-  const [boatType, setBoatType] = useState<string | null>(params.boatType ?? null);
   const startKey = params.startKey ?? route.key;
   const loaded = useRiverRoute(params.riverSlug, params.shortCode ?? params.sessionId);
-  const nextParams = {
-    ...params,
-    sessionId,
-    startKey,
-    boatType: boatType ?? undefined,
-    // A different boat than the plan's makes its moving speed the wrong one.
-    plannerMph: boatType === (params.boatType ?? null) ? params.plannerMph : undefined,
-  };
+  // No boat question here: a saved float keeps its plan's boat and moving
+  // speed, and a quick start has neither (see useFloatPlan.ts on why the boat
+  // step was dropped from planning too).
+  const nextParams = { ...params, sessionId, startKey };
   const start = useStart(nextParams, loaded, location);
   const saved = Boolean(params.putInId && params.takeOutId);
   const summary = saved || params.step === 'summary';
@@ -142,8 +137,6 @@ function StartFlow({ params }: { params: Params }) {
         loaded={loaded}
         location={location}
         start={start}
-        boatType={boatType}
-        onBoatType={setBoatType}
       />
     );
   }
@@ -229,8 +222,6 @@ function SummaryStep({
   loaded,
   location,
   start,
-  boatType,
-  onBoatType,
 }: {
   params: Params;
   nextParams: Params;
@@ -239,8 +230,6 @@ function SummaryStep({
   loaded: Extract<LoadedRoute, { ok: true }>;
   location: StartLocation;
   start: ReturnType<typeof useStart>;
-  boatType: string | null;
-  onBoatType: (value: string | null) => void;
 }) {
   const { colors } = useTheme();
   const located = useLocated(loaded, location);
@@ -353,7 +342,6 @@ function SummaryStep({
           toId={takeOut.id}
         />
       ) : null}
-      <BoatChoice value={boatType} onChange={onBoatType} />
       <Text style={[styles.caption, { color: colors.textMuted }]}>
         Raw float positions stay on this phone. Ending saves a recap; signed-in recaps are backed up to your account.
       </Text>
