@@ -10,8 +10,8 @@ export const DETAIL_TITLES: Record<string, string> = {
   'river/[slug]/access/[accessSlug]': 'Access point',
   'dam/[damId]': 'Dam',
   'float/[shortCode]': 'Float',
-  floats: 'Saved floats',
-  'favorite-floats': 'Favorite floats',
+  floats: 'Saved Floats & History',
+  'favorite-floats': 'Featured Floats',
   storage: 'Storage',
   'river-conditions': 'River Conditions',
   'eddy-reads': 'Eddy’s Reads',
@@ -21,9 +21,11 @@ export const DETAIL_TITLES: Record<string, string> = {
   profile: 'Settings',
   // Float Mode lives in the Floats tab; see COLD_TAB_OWNERS.
   'float-start': 'Start a float',
-  'find-float': 'Find a Float',
+  'find-float': 'Find a Route',
   'float-mode': 'Float Mode',
   'float-history': 'Float history',
+  'float-backup': 'Backup & sharing',
+  'plan-route': 'Build a Route',
   'float-recap': 'Float recap',
 };
 
@@ -36,6 +38,8 @@ const COLD_TAB_OWNERS: Partial<Record<string, keyof typeof TAB_ROOTS>> = {
   'find-float': 'floats',
   'float-mode': 'floats',
   'float-history': 'floats',
+  'float-backup': 'floats',
+  'plan-route': 'floats',
   'float-recap': 'floats',
 };
 

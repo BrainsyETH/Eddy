@@ -21,8 +21,8 @@
 // produced it would be a plan nobody trusts.
 
 import { radii } from '@/theme/layout';
-import { useCallback, useEffect, useLayoutEffect, useMemo, useState, useSyncExternalStore, type ReactNode } from 'react';
-import { useIsFocused, useRouter } from 'expo-router';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from 'react';
+import { useIsFocused, useNavigation, useRouter } from 'expo-router';
 import {
   ActivityIndicator,
   FlatList,
@@ -64,6 +64,9 @@ interface Props {
   visible: boolean;
   /** 'started' when the sheet closed because a float started from it. */
   onClose: (reason?: 'started') => void;
+  /** Standalone planners pop only after the native sheet finishes dismissing. */
+  onClosed?: () => void;
+  replaceOnStart?: boolean;
   rivers: RiverListItem[];
   riversLoading: boolean;
   riversError: string | null;
@@ -87,6 +90,8 @@ interface Props {
 export function PlanSheet({
   visible,
   onClose,
+  onClosed,
+  replaceOnStart = false,
   rivers,
   riversLoading,
   riversError,
@@ -110,7 +115,9 @@ export function PlanSheet({
   const { step, putIn, takeOut, plan, calculating, error } = state;
   const resultReady = Boolean(river && !riverLoading && step === 'result' && !calculating && !error && plan && plan.river.id === river.id);
   const router = useRouter();
+  const navigation = useNavigation();
   const focused = useIsFocused();
+  const closeRequested = useRef(false);
   const [detailNavigation] = useState(createPlanDetailNavigation);
   const suspended = useSyncExternalStore(detailNavigation.subscribe, detailNavigation.getSnapshot, detailNavigation.getSnapshot);
   // A dismissed native Modal unmounts its children. Keep logistics and the
@@ -129,16 +136,28 @@ export function PlanSheet({
     const destination = detailNavigation.dismissed();
     if (!destination) return;
     if (!visible || !resultReady || !focused) { detailNavigation.reset(); return; }
-    router.push(destination);
+    if (destination.pathname === '/float-start' && replaceOnStart) {
+      const source = navigation.getState();
+      if (!source || source.routeNames.includes('float-start')) router.replace(destination);
+      else {
+        // Float setup belongs to Floats. Replacing across tabs only switches
+        // tabs, so first remove this planner from the originating stack.
+        navigation.dispatch({ type: 'POP', payload: { count: 1 }, target: source.key });
+        router.push(destination);
+      }
+    } else router.push(destination);
     // A started float is where the paddler is going, not a detail to come
     // back from: the planner does not reopen over the map afterwards.
     if (destination.pathname === '/float-start') onClose('started');
-  }, [detailNavigation, router, visible, resultReady, focused, onClose]);
+  }, [detailNavigation, router, visible, resultReady, focused, onClose, replaceOnStart, navigation]);
   // iOS waits for the native dismissal callback. Other platforms remove the
   // modal when visible becomes false and do not emit that callback.
   useEffect(() => {
     if (Platform.OS !== 'ios' && suspended) presentDetail();
   }, [suspended, presentDetail]);
+  useEffect(() => {
+    if (Platform.OS !== 'ios' && !visible) onClosed?.();
+  }, [visible, onClosed]);
   const saved = plan ? isSaved(plan) : false;
   const actionState = plan ? actions.stateFor(plan) : null;
   const saving = actionState?.saving ?? false;
@@ -149,6 +168,7 @@ export function PlanSheet({
   // for their original plan; their busy/error state never moves to a new one.
   useLayoutEffect(() => () => actions.cancelShare(), [actions, visible, plan, resultReady]);
   const close = useCallback(() => {
+    closeRequested.current = true;
     actions.cancelShare();
     detailNavigation.reset();
     onClose();
@@ -192,7 +212,7 @@ export function PlanSheet({
 
   const heading = (
     <View style={styles.headText}>
-      <Text accessibilityRole="header" style={[styles.title, { color: colors.text }]}>Plan a float</Text>
+      <Text accessibilityRole="header" style={[styles.title, { color: colors.text }]}>{resultReady ? 'Your float plan' : 'Build a Route'}</Text>
       <Text style={[styles.subtitle, { color: colors.textMuted }]}>{river?.name ?? 'Choose a river'}</Text>
     </View>
   );
@@ -210,7 +230,13 @@ export function PlanSheet({
       animationType="slide"
       presentationStyle="pageSheet"
       onRequestClose={close}
-      onDismiss={presentDetail}
+      allowSwipeDismissal
+      onDismiss={() => {
+        if (closeRequested.current) {
+          closeRequested.current = false;
+          onClosed?.();
+        } else presentDetail();
+      }}
     >
       <SafeAreaProvider>
       <SafeAreaView edges={resultReady ? ['top', 'left', 'right'] : ['top', 'left', 'right', 'bottom']} style={[styles.sheet, { backgroundColor: colors.bg }]} onAccessibilityEscape={close}>
@@ -281,7 +307,7 @@ export function PlanSheet({
               </Text>
               {putIn && takeOut ? (
                 <Pressable
-                  onPress={() => state.planFloat(putIn, takeOut)}
+                  onPress={state.retry}
                   style={[styles.primaryButton, styles.retryButton, { backgroundColor: colors.accentFill }]}
                   accessibilityRole="button"
                 >

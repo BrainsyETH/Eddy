@@ -59,6 +59,7 @@ export interface FloatPlanState {
   planFloat: (putIn: MapAccessPoint, takeOut: MapAccessPoint, vesselTypeId?: string) => void;
   goToStep: (step: PlanStep) => void;
   reset: () => void;
+  retry: () => void;
 }
 
 export function useFloatPlan(riverId: string | null, accessPoints: MapAccessPoint[]): FloatPlanState {
@@ -232,6 +233,10 @@ export function useFloatPlan(riverId: string | null, accessPoints: MapAccessPoin
     [calculate],
   );
 
+  const retry = useCallback(() => {
+    if (putIn && takeOut) void calculate(putIn, takeOut);
+  }, [calculate, putIn, takeOut]);
+
   const reset = useCallback(() => {
     invalidate();
     vesselTypeId.current = undefined;
@@ -261,5 +266,6 @@ export function useFloatPlan(riverId: string | null, accessPoints: MapAccessPoin
     planFloat,
     goToStep,
     reset,
+    retry,
   };
 }

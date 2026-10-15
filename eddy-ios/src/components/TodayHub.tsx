@@ -66,7 +66,8 @@ import {
 } from '@/theme/conditions';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
-import { newPlanRequest } from '@/lib/planRequest';
+import { floatPlanDestination } from '@/lib/planRequest';
+import { useNavigationAction } from '@/hooks/useNavigationAction';
 
 interface Props {
   rivers: RiverListItem[];
@@ -326,6 +327,7 @@ export function TodayHub({
   onBrowseRivers,
 }: Props) {
   const router = useRouter();
+  const navigate = useNavigationAction();
   const { colors } = useTheme();
   const { starred } = useStarredRivers();
   const { session, ready: sessionReady } = useSession();
@@ -464,11 +466,12 @@ export function TodayHub({
   }, [incumbentState, recommendation]);
 
   const openPlan = useCallback((riverSlug: string, putInId?: string, takeOutId?: string) => {
-    router.push({
-      pathname: '/',
-      params: { focusRiver: riverSlug, openPlan: '1', planRequest: newPlanRequest(), planPutIn: putInId, planTakeOut: takeOutId },
-    });
-  }, [router]);
+    navigate(() => router.push(floatPlanDestination({
+      focusRiver: riverSlug,
+      ...(putInId ? { planPutIn: putInId } : {}),
+      ...(takeOutId ? { planTakeOut: takeOutId } : {}),
+    })));
+  }, [navigate, router]);
 
   const detailFailure = safetyFailure.notices;
   const photos = useMemo(() => {

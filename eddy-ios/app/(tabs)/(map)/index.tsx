@@ -381,6 +381,10 @@ export default function MapScreen() {
   return <LazyTabScreen><MapContent /></LazyTabScreen>;
 }
 
+export function PlannerMapScreen() {
+  return <MapContent standalonePlanner />;
+}
+
 /**
  * What a river sheet's Conditions tab needs to draw one station's band track:
  * the ladder this river grades it on, and the reading in that ladder's unit.
@@ -424,7 +428,7 @@ function bandTrack(
   };
 }
 
-function MapContent() {
+function MapContent({ standalonePlanner = false }: { standalonePlanner?: boolean }) {
   const [isFocused, setIsFocused] = useState(false);
   useFocusEffect(
     useCallback(() => {
@@ -635,11 +639,11 @@ function MapContent() {
   const onViewportChange = useCallback(
     (next: { bounds: Viewport['bounds']; zoom: number; center?: [number, number] }) => {
       setViewport({ bounds: next.bounds, zoom: next.zoom });
-      if (next.center && lastMoveWasGesture.current) {
+      if (!standalonePlanner && next.center && lastMoveWasGesture.current) {
         void writeMapCamera({ lng: next.center[0], lat: next.center[1], zoom: next.zoom });
       }
     },
-    [],
+    [standalonePlanner],
   );
   const [selectedPin, setSelectedPin] = useState<MapPin | null>(null);
   /**
@@ -698,7 +702,7 @@ function MapContent() {
    * spare a pin across some later, unrelated navigation.
    */
   const pinSurvivesSelection = useRef<string | null>(null);
-  const [planOpen, setPlanOpen] = useState(false);
+  const [planOpen, setPlanOpen] = useState(standalonePlanner);
 
   const network = useStatewideNetwork();
   // Every river's put-ins and hazards, off the launch bundle already on disk.
@@ -1593,23 +1597,32 @@ function MapContent() {
   const planner = useFloatPlan(selected?.id ?? null, plannerAccessPoints);
 
   /**
-   * Where to go when the planner closes. "Plan a Float" on the Floats tab
-   * borrows this tab's planner; closing it should land back on Floats, not
-   * strand the reader on a map they never chose. Starting a float from the
-   * planner goes to Float Mode instead, and leaving this tab by any other
-   * route ends the borrow.
+   * Standalone route planners return through their originating stack after
+   * native dismissal. The return parameter remains supported for legacy
+   * callers of the Map URL; new Floats actions do not mutate this tab.
    */
   const planReturnTo = useRef<string | null>(null);
+  const closingStandalone = useRef(false);
+  const leaveStandalonePlanner = useCallback(() => {
+    if (!closingStandalone.current) return;
+    closingStandalone.current = false;
+    if (router.canGoBack()) router.back();
+    else router.replace('/float-home');
+  }, [router]);
   useFocusEffect(useCallback(() => () => { planReturnTo.current = null; }, []));
   const closePlanner = useCallback((reason?: 'started') => {
     setPlanOpen(false);
+    if (standalonePlanner) {
+      closingStandalone.current = reason !== 'started';
+      return;
+    }
     const back = planReturnTo.current;
     planReturnTo.current = null;
     if (back === 'find-float' && reason !== 'started') {
       router.navigate('/find-float');
     }
     if (back === 'floats' && reason !== 'started') router.navigate('/float-home');
-  }, [router]);
+  }, [router, standalonePlanner]);
 
   /**
    * Planner handoff from Today. The route carries database IDs, not names or
@@ -1617,6 +1630,7 @@ function MapContent() {
    * has landed before calculating the exact editorial stretch.
    */
   useEffect(() => {
+    if (closingStandalone.current) return;
     if (focusParams.openPlan !== '1') {
       planIntentConsumed.current = null;
       return;
@@ -3376,6 +3390,8 @@ function MapContent() {
       <PlanSheet
         visible={planOpen}
         onClose={closePlanner}
+        onClosed={standalonePlanner ? leaveStandalonePlanner : undefined}
+        replaceOnStart={standalonePlanner}
         rivers={plannerRivers}
         riversLoading={riversLoading}
         riversError={riversError}
