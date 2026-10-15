@@ -40,6 +40,7 @@ import { syncFloatActivity } from '../float/liveActivity';
 import { createFloatActivityLifecycle } from './floatActivity';
 import { autoEndAt, autoEndCopy } from './floatEnding';
 import { floatRecorder } from '../../modules/eddy-float-recorder';
+import { deleteAllFloatTracks, deleteFloatTrack } from '../float/floatTracks';
 
 /** Recording stops with the float, whichever way it ended. */
 function stopRecording(sessionId: string | null): void {
@@ -146,9 +147,25 @@ export function flushFloatSession(): Promise<void> {
   return store.flush();
 }
 
-/** End the float and save its recap. Tracking stops because nothing is active. */
-export function endFloat(): Promise<boolean> {
-  stopRecording(store.get()?.id ?? null);
+/**
+ * Registered by the recorder wiring (src/float/recorder.ts): stops recording
+ * and applies the journal through its end. A callback rather than an import,
+ * because that wiring imports this module.
+ */
+let finishRecording: (sessionId: string) => Promise<void> = async (sessionId) => stopRecording(sessionId);
+
+export function setFinishRecording(finish: (sessionId: string) => Promise<void>): void {
+  finishRecording = finish;
+}
+
+/**
+ * End the float and save its recap. Recording stops first and every recorded
+ * fix is applied before the recap is taken, so a float ended while its
+ * journal was still being replayed is not saved short.
+ */
+export async function endFloat(): Promise<boolean> {
+  const session = store.get();
+  if (session) await finishRecording(session.id);
   return activityLifecycle.end(floatArchive.contributionVersion(store.get()?.archiveScope));
 }
 
@@ -162,7 +179,7 @@ export function cancelUnstartedFloat(): Promise<boolean> {
   if (!session || session.samples.length > 0) return Promise.resolve(false);
   stopRecording(session.id);
   // Nothing was measured, so its journal holds nothing worth keeping.
-  void floatRecorder?.deleteJournal(session.id).catch(() => {});
+  void deleteFloatTrack(session.id).catch((error) => warn('float', 'could not queue the track deletion', error));
   return activityLifecycle.end(null, undefined, false);
 }
 
@@ -174,7 +191,7 @@ export function setFloatReminders(update: (current: FloatReminderSettings) => Pi
 /** Account deletion also clears positions, every raw journal, and any pending end journal. */
 export async function discardFloat(): Promise<void> {
   stopRecording(null);
-  await floatRecorder?.deleteAllJournals();
+  await deleteAllFloatTracks();
   await store.discard();
   void syncFloatActivity(null);
 }

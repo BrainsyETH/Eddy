@@ -28,12 +28,25 @@ export default function FloatRecapScreen() {
           style: 'destructive',
           onPress: () => {
             if (!archive.owner) return;
-            void floatArchive
-              .remove(id, archive.scopeToken)
-              // The raw track belongs to the recap: it goes with it.
-              .then(() => deleteFloatTrack(id))
-              .then(() => router.replace('/float-history'))
-              .catch(() => Alert.alert('Could not delete', 'Please try again.'));
+            // The track first: its deletion is recorded before the recap, the
+            // only place to ask again, disappears (floatTrackDeletion.ts).
+            void (async () => {
+              let track: Awaited<ReturnType<typeof deleteFloatTrack>>;
+              try {
+                track = await deleteFloatTrack(id);
+                await floatArchive.remove(id, archive.scopeToken);
+              } catch {
+                Alert.alert('Could not delete', 'Please try again.');
+                return;
+              }
+              router.replace('/float-history');
+              if (track === 'queued') {
+                Alert.alert(
+                  'Recap deleted',
+                  'Its GPS track couldn’t be removed from this phone yet. Eddy will keep trying each time it opens.',
+                );
+              }
+            })();
           },
         },
       ],

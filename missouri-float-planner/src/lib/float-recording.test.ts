@@ -19,7 +19,10 @@ import {
   trackerState,
   type RecordedFix,
   type RecorderStatus,
+  type TrackerState,
 } from '../../../eddy-ios/src/lib/floatRecording';
+import { createFloatRecorderSync, failedReport, type RecorderBridge } from '../../../eddy-ios/src/lib/floatRecorderSync';
+import { trackingLine } from '../../../eddy-ios/src/lib/floatTrackerStatus';
 
 const MILE = 1609.344;
 const COS = Math.cos((37 * Math.PI) / 180);
@@ -193,4 +196,138 @@ test('a float interrupted anywhere ends exactly where an uninterrupted one does'
     assert.deepEqual(a.totals, b.totals, `totals after a kill at ${killAt}`);
     assert.equal(a.journalTo, b.journalTo, 'the torn line is not counted');
   }
+});
+
+// ── The recorder sync, against the real store and a mocked native bridge ────
+
+function deferred<T = void>() {
+  let resolve!: (value: T) => void;
+  const promise = new Promise<T>((r) => { resolve = r; });
+  return { promise, resolve };
+}
+
+/** A native bridge over a fake journal, reading `perPage` lines at a time. */
+function mockBridge(journal: ReturnType<typeof fakeJournal>, perPage = 5) {
+  const calls: string[] = [];
+  let gate: Promise<void> | null = null;
+  const bridge: RecorderBridge & { calls: string[]; holdReads(p: Promise<void>): void; startError: Error | null; state: RecorderStatus['state'] } = {
+    calls,
+    startError: null,
+    state: 'idle',
+    holdReads(p) { gate = p; },
+    async start(sessionId) {
+      calls.push(`start:${sessionId}`);
+      if (bridge.startError) throw bridge.startError;
+      bridge.state = 'recording';
+      return { state: 'recording', sessionId, update: {}, session: {} };
+    },
+    async stop(sessionId) {
+      calls.push(`stop:${sessionId}`);
+      bridge.state = 'idle';
+      return { state: 'idle', update: {}, session: {} };
+    },
+    async status() {
+      return { state: bridge.state, update: {}, session: {} };
+    },
+    async read(_sessionId, from) {
+      if (gate) await gate;
+      const all = journal.read(from);
+      const fixes = all.fixes.slice(0, perPage);
+      const next = from + fixes.reduce((n, fix) => n + Buffer.byteLength(`${JSON.stringify(fix)}\n`), 0);
+      return { fixes, next, end: all.next };
+    },
+  };
+  return bridge;
+}
+
+async function syncedStore(journal: ReturnType<typeof fakeJournal>, recaps: FloatSession[] = []) {
+  const { disk } = memoryDisk();
+  const store = createFloatSessionStore(disk, () => {}, async () => [], async (session) => { recaps.push(session); });
+  await store.begin(newSession());
+  const bridge = mockBridge(journal);
+  const trackers: TrackerState[] = [];
+  const sync = createFloatRecorderSync({
+    recorder: bridge,
+    getSession: () => store.get(),
+    ensureLoaded: () => store.ensureLoaded(),
+    loadFailed: () => store.loadFailed(),
+    record: (fixes, now, journalTo) => {
+      store.record(fixes, now, journalTo);
+      return null;
+    },
+    isForeground: () => true,
+    setTracker: (state) => trackers.push(state),
+    warn: () => {},
+  });
+  return { store, bridge, sync, trackers };
+}
+
+test('ending while the journal is still being replayed keeps every recorded fix in the recap', async () => {
+  // Uninterrupted reference.
+  const steady = createFloatSessionStore(memoryDisk().disk, () => {});
+  await steady.begin(newSession());
+  const reference = fakeJournal();
+  for (let i = 0; i < 40; i += 1) {
+    const batch = reference.append(paddle(i));
+    steady.record(batch.fixes.map(toPositionFix), paddle(i).t, batch.to);
+  }
+
+  // Reopened after a relaunch: 40 fixes in the journal, none applied yet.
+  const journal = fakeJournal();
+  for (let i = 0; i < 40; i += 1) journal.append(paddle(i));
+  const recaps: FloatSession[] = [];
+  const { store, bridge, sync } = await syncedStore(journal, recaps);
+  const hold = deferred();
+  bridge.holdReads(hold.promise);
+  const replaying = sync.catchUp();
+
+  // The paddler taps Finish while that replay is still reading.
+  const id = store.get()!.id;
+  const finishing = sync.finish(id).then(() => store.end(null, T0 + 3_600_000));
+  hold.resolve();
+  await Promise.all([replaying, finishing]);
+
+  assert.equal(bridge.calls[0], `stop:${id}`, 'recording stops before the drain, so nothing is appended after it');
+  assert.equal(recaps.length, 1);
+  assert.equal(recaps[0].journalTo, journal.read(0).next, 'the recap covers the journal through its last offset');
+  assert.deepEqual(recaps[0].samples, steady.get()!.samples);
+  assert.deepEqual(recaps[0].totals, steady.get()!.totals);
+});
+
+test('a first start that fails is a failure for this float, with Retry, not "Starting…" forever', async () => {
+  const { store, bridge, sync, trackers } = await syncedStore(fakeJournal());
+  bridge.startError = new Error('kCLErrorDenied');
+  await sync.ensureRecording();
+  const failed = trackers[trackers.length - 1];
+  assert.equal(failed.status, 'failed');
+  assert.equal(trackingLine(failed)!.action, 'retry');
+  assert.deepEqual(failedReport(store.get()!.id, null), { state: 'failed', sessionId: store.get()!.id, update: {}, session: {} });
+
+  // Retry succeeds.
+  bridge.startError = null;
+  await sync.ensureRecording();
+  assert.equal(trackers[trackers.length - 1].status, 'recording');
+});
+
+test('a recorder left running with no float is stopped; one whose float could not be read is left alone', async () => {
+  const journal = fakeJournal();
+  const { store, bridge, sync } = await syncedStore(journal);
+  bridge.state = 'recording';
+  await store.end(null, T0 + 1_000);
+  await sync.ensureRecording();
+  assert.ok(bridge.calls.includes('stop:null'));
+
+  const unreadable = createFloatRecorderSync({
+    recorder: mockBridge(journal),
+    getSession: () => null,
+    ensureLoaded: async () => {},
+    loadFailed: () => true,
+    record: () => null,
+    isForeground: () => true,
+    setTracker: () => {},
+    warn: () => {},
+  });
+  const before = bridge.calls.length;
+  await unreadable.ensureRecording();
+  assert.equal(bridge.calls.length, before);
 });

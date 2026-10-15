@@ -31,13 +31,26 @@ A float's GPS track is recorded by native code, not by JavaScript:
   uninterrupted one would (`float-recording.test.ts`). `restoreSession` keeps
   the tracker's state for the same reason; a real GPS gap is a gap in fix
   times, which `trackFix` already handles.
+- **Ending drains the journal first.** Finish stops recording, waits for the
+  stop, then applies the journal through its final offset on the same queue
+  as live batches, and only then takes the recap (`floatRecorderSync.ts:
+  finish`). A float finished while its journal was still being replayed is
+  not saved short.
 - **Status is reported.** Float Mode's tracking line comes from Core
   Location's own diagnostics on updates and on the service session (Location
   Services off, denied, Precise Location off, not in use), not from a
   permission read (`floatRecording.ts: trackerState`).
 - **Raw tracks are kept on the phone** after a float ends, so anything derived
   from them can be recomputed. Each is deleted with its recap; all are deleted
-  with the account. They are never uploaded.
+  with the account. They are never uploaded. Deletion is durable
+  (`floatTrackDeletion.ts`): the intent is saved before the recap goes, a
+  failed delete is reported and retried at every launch and foreground, and
+  if the intent cannot be saved nothing is deleted.
+- **Native sources are tracked by rule.** `eddy-ios/.gitignore` ignores
+  `ios/`, so each local module needs explicit exceptions there and in
+  `.easignore`. `scripts/check-easignore.py` fails when a module that
+  declares Apple code has no tracked podspec and Swift, or when a native
+  source on disk is untracked or not uploaded.
 - **Minimum iOS 18.0**, the release that added `CLServiceSession` and the
   diagnostics. One recording path, no fallback.
 
