@@ -1,3 +1,4 @@
+import { openStartPicker, chooseStartRiver, chooseStartAccess } from '../../../eddy-ios/src/lib/floatStartSelection';
 import { recapFloat } from '../../../eddy-ios/src/lib/floatRecap';
 import { matchesSetupDownload, restoreSetupDownload } from '../../../eddy-ios/src/lib/floatSetupDownload';
 import { TRIP_PACKAGE_VERSION, type TripPackage } from '../../../eddy-ios/src/lib/tripDownload';
@@ -918,4 +919,40 @@ test('a named on-river launch remains recognizable when accuracy improves during
   assert.equal(session.observedLaunch, undefined, 'There were not three precise access fixes');
   assert.ok(session.recordedStart?.atPutIn, 'The confirmed river position is now precise and at the actual access');
   assert.equal(recapFloat(session, T0 + 2000).putInId, 'akers');
+});
+
+
+test('Take-out opens rivers directly when needed and continues to access selection in the same picker', () => {
+  const ready = { boatType: 'kayak' };
+  const opened = openStartPicker('to', ready);
+  assert.equal(opened.page, 'rivers');
+  const withRiver = chooseStartRiver(opened, 'current');
+  assert.equal(withRiver.page, 'access');
+  assert.equal(withRiver.field, 'to');
+  assert.deepEqual(ready, { boatType: 'kayak' }, 'A river chosen inside the picker is not yet committed to Ready');
+  assert.deepEqual(chooseStartAccess(withRiver, 'pulltite', null, null),
+    { riverSlug: 'current', putInId: undefined, takeOutId: 'pulltite', boatType: 'kayak' });
+});
+
+test('editing a known take-out goes directly to accesses and changing river clears only the picker draft', () => {
+  const ready = { riverSlug: 'current', putInId: 'akers', takeOutId: 'pulltite' };
+  const opened = openStartPicker('to', ready);
+  assert.equal(opened.page, 'access');
+  assert.deepEqual(chooseStartRiver(opened, 'current').draft, ready, 'Same river preserves the selected endpoints');
+  const changed = chooseStartRiver(opened, 'jacks-fork');
+  assert.equal(changed.page, 'access');
+  assert.equal(changed.field, 'to');
+  assert.equal(changed.draft.putInId, undefined);
+  assert.equal(changed.draft.takeOutId, undefined);
+  assert.deepEqual(ready, { riverSlug: 'current', putInId: 'akers', takeOutId: 'pulltite' }, 'Closing the sheet preserves the plan and download identity');
+  assert.equal(chooseStartAccess(changed, 'alley', null, null).takeOutId, 'alley');
+});
+
+test('changing a starting point preserves a downstream take-out and clears one behind the new start', () => {
+  const picker = openStartPicker('from', { riverSlug: 'current', putInId: 'akers', takeOutId: 'pulltite' });
+  assert.equal(picker.page, 'access');
+  assert.deepEqual(chooseStartAccess(picker, undefined, 10, 20),
+    { riverSlug: 'current', putInId: undefined, takeOutId: 'pulltite' });
+  assert.equal(chooseStartAccess(picker, 'round-spring', 30, 20).takeOutId, undefined);
+  assert.equal(chooseStartAccess(picker, undefined, null, 20).takeOutId, 'pulltite', 'Unknown GPS must not guess at an upstream take-out');
 });

@@ -60,7 +60,8 @@ export function PlanAccessPicker({
 
   if (points.length === 0) {
     return (
-      <ScrollView style={styles.flex} contentInsetAdjustmentBehavior="never" contentContainerStyle={styles.statusContent}>
+      <ScrollView style={styles.flex} contentInsetAdjustmentBehavior="never" contentContainerStyle={styles.statusContent}
+        keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag">
         {header}
         <View style={styles.centered}>
           {/* Both messages this renders are about picking a point — no mapped
@@ -77,6 +78,8 @@ export function PlanAccessPicker({
   return (
     <FlatList
       style={styles.flex}
+      keyboardShouldPersistTaps="handled"
+      keyboardDismissMode="on-drag"
       contentInsetAdjustmentBehavior="never"
       data={ordered}
       keyExtractor={(point) => point.id}

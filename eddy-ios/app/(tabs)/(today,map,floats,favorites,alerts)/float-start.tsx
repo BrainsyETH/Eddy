@@ -1,25 +1,23 @@
 // All entry points fill one editable draft. Preview GPS never seeds the recorder.
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 import { Stack, useFocusEffect, useLocalSearchParams, useNavigation, useRouter } from 'expo-router';
 import { CommonActions, useRoute as useNavigationRoute } from 'expo-router/react-navigation';
-import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { FLOAT_BOATS, FLOAT_BOAT_STORAGE_KEY, type FloatBoat } from '@eddy/conditions/float-search';
 import { useFloatSession, useFloatSessionUnreadable } from '@/hooks/useFloatSession';
 import { useFloatStartLocation } from '@/hooks/useFloatStartLocation';
 import { routeProblemCopy } from '@/float/loadFloatRoute';
 import { LocationGate } from '@/float/start/LocationGate';
-import { RiverPicker } from '@/float/start/RiverPicker';
-import { Card, PrimaryButton, Row, Shell, TextButton, styles } from '@/float/start/ui';
+import { RoutePicker } from '@/float/start/RoutePicker';
+import { ControlIcon } from '@/components/ControlIcon';
+import { Card, PrimaryButton, RouteField, Shell, TextButton, styles } from '@/float/start/ui';
 import { newSessionId, useRiverRoute, useStart, type Params } from '@/float/start/useStart';
 import { useStartEstimate } from '@/float/start/useEstimate';
 import { FloatMap } from '@/float/FloatMap';
 import { TripDownloadCard } from '@/float/TripDownloadCard';
-import { PlanAccessPicker } from '@/components/PlanAccessPicker';
 import { PlanAccessPhoto } from '@/components/PlanAccessPhoto';
 import { VesselPicker } from '@/components/VesselPicker';
-import { EddyScene } from '@/components/EddyScene';
 import { arrivalCopy, arrivalOutlook, formatDuration, mapFeatures, startSession, takeOutChoices } from '@/lib/floatSession';
 import { putInLocation, estimateStartId, floatSetupKey, sameFloatStretch, startRiverPosition, usableStartFix } from '@/lib/floatStart';
 import { useTheme } from '@/theme/ThemeProvider';
@@ -98,7 +96,8 @@ function ReadyToFloat({ initial, restoredPackage }: { initial: Params; restoredP
   // A package also carries the full river line. It remains a valid data source
   // on that river after edits, but its tiles are reused only for its own stretch.
   const sourceKey = restoredPackage && restoredPackage.route.riverSlug === draft.riverSlug ? restoredPackage.tripKey : undefined;
-  const loaded = useRiverRoute(draft.riverSlug, shortCode ?? sourceKey);
+  const [routeReload, setRouteReload] = useState(0);
+  const loaded = useRiverRoute(draft.riverSlug, shortCode ?? sourceKey, routeReload);
   const route = loaded?.ok ? loaded.route : null;
   const located = useMemo(() => loaded?.ok
     ? startRiverPosition(loaded.index, location.fix, location.checkedAt) : null, [loaded, location.fix, location.checkedAt]);
@@ -149,8 +148,11 @@ function ReadyToFloat({ initial, restoredPackage }: { initial: Params; restoredP
   const takeOutPoint = points.find(point => point.id === draft.takeOutId);
   const gpsReady = location.state === 'ready' && usableStartFix(location.fix, location.checkedAt);
   const putInStatus = loaded?.ok && putIn ? putInLocation(loaded.index, location.fix, location.checkedAt, putIn) : null;
-  const gpsLabel = location.state !== 'ready' ? 'Location permission needed'
-    : location.busy ? 'Finding GPS…' : !gpsReady ? 'Waiting for GPS'
+  const gpsLabel = location.state === 'checking' ? 'Finding your location…'
+    : location.state === 'precise' ? 'Precise location needed'
+    : location.state === 'services' ? 'Location Services are off'
+    : location.state !== 'ready' ? 'Location needed to track'
+    : !gpsReady ? (location.busy ? 'Finding your location…' : 'Waiting for GPS…')
     : putInStatus?.label ?? (route && !located ? 'GPS ready · not on this river yet' : 'GPS ready');
   const downloadReason = !route ? 'Choose a river to prepare an offline map.'
     : !takeOut ? 'Choose a take-out to prepare an offline map.'
@@ -165,28 +167,48 @@ function ReadyToFloat({ initial, restoredPackage }: { initial: Params; restoredP
   };
   return (
     <>
-      <Stack.Screen options={{ title: 'Ready to float', headerBackButtonMenuEnabled: false, gestureEnabled: !start.busy }} />
-      <Shell>
+      <Stack.Screen options={{ title: 'Ready to float', headerBackButtonMenuEnabled: false, gestureEnabled: !start.busy,
+        headerTransparent: false, headerBlurEffect: 'none', headerStyle: { backgroundColor: colors.bg },
+        headerTintColor: colors.text, headerShadowVisible: true }} />
+      <Shell footer={<>
+        <PrimaryButton label="Start tracking" busy={start.busy} disabled={!valid || location.state !== 'ready'} onPress={() => void start.run()} />
+        {start.error ? <Text accessibilityRole="alert" style={[styles.body, { color: colors.error }]}>{start.error}</Text> : null}
+        <Text style={[styles.caption, local.backup, { color: colors.textMuted }]}>Sign in to back up your float summary</Text>
+      </>}>
         {restoredPackage ? <Text style={[styles.caption, { color: colors.textMuted }]}>Your downloaded setup · edit any field below</Text> : null}
-        <View style={[local.map, { borderColor: colors.border, backgroundColor: colors.card }]}>
-          {route ? <FloatMap key={stretchKey} preview line={route.line} section={features?.section ?? null}
+        <View style={[local.fields, { backgroundColor: colors.card }]}>
+          <RouteField label="River" value={route?.riverName ?? (draft.riverSlug && !loaded ? 'Loading river…' : 'Choose a river')}
+            leading={<ControlIcon name="search-outline" size={23} color={colors.interactive} />}
+            disabled={start.busy} onPress={() => openPicker('river')} />
+          <View style={[local.separator, { backgroundColor: colors.border }]} />
+          <RouteField label="From" value={putIn?.name ?? (draft.putInId ? 'Choose a put-in' : 'Current location')}
+            hint={gpsLabel} busy={!draft.putInId && location.busy && !gpsReady}
+            leading={putInPoint ? <PlanAccessPhoto point={putInPoint} style={local.photo} />
+              : <ControlIcon name="locate" size={23} color={colors.interactive} />}
+            disabled={start.busy} onPress={() => openPicker('from')} />
+          <View style={[local.separator, { backgroundColor: colors.border }]} />
+          <RouteField label="Take-out" value={takeOut?.name ?? 'Choose a take-out'}
+            leading={takeOutPoint ? <PlanAccessPhoto point={takeOutPoint} style={local.photo} />
+              : <ControlIcon name="map-outline" size={23} color={colors.interactive} />}
+            disabled={start.busy} onPress={() => openPicker('to')} />
+        </View>
+        {gpsReady && putInStatus?.note ? <Text style={[styles.body, { color: colors.textMuted }]}>{putInStatus.note}</Text> : null}
+        {gpsReady && putInStatus?.canSwitch ? <>
+          <Text style={[styles.body, { color: colors.textMuted }]}>Tracking will begin where GPS finds you. The route preview still starts at {putIn?.name}.</Text>
+          <TextButton label="Start from here" onPress={() => selectFrom()} />
+        </> : null}
+        {location.state !== 'ready' && location.state !== 'checking' ? <LocationGate location={location} /> : null}
+        {location.state === 'ready' && location.error && !location.busy ? <View>
+          <Text style={[styles.body, { color: colors.textMuted }]}>{location.error} You can still start; tracking begins when GPS finds you.</Text>
+          <TextButton label="Try GPS again" onPress={() => void location.act()} />
+        </View> : null}
+        {route ? <View style={[local.map, { borderColor: colors.border, backgroundColor: colors.card }]}>
+          <FloatMap key={stretchKey} preview line={route.line} section={features?.section ?? null}
             stops={features?.stops ?? []} hazards={features?.hazards ?? []}
             start={fromPoint ? { name: putIn?.name ?? 'Your location', lngLat: fromPoint, riverMile: startMile } : null}
             takeOut={takeOut ? { name: takeOut.name, lngLat: takeOut.lngLat, riverMile: takeOut.mile } : null}
-            position={null} positionDimmed={false} /> : <View style={local.placeholder}>
-              {draft.riverSlug && !loaded ? <ActivityIndicator color={colors.interactive} /> : <EddyScene name="routePlanning" size={100} />}
-              <Text style={[styles.body, { color: colors.textMuted }]}>Choose your river to see the map</Text>
-            </View>}
-        </View>
-        <View pointerEvents={start.busy ? 'none' : 'auto'}>
-          <Card padded={false}>
-            <Row title="River" detail={route?.riverName ?? (draft.riverSlug && !loaded ? 'Loading river…' : 'Choose a river')} onPress={() => openPicker('river')} />
-            <Row title="From" detail={putIn?.name ?? (draft.putInId ? 'Choose a put-in' : 'From my location')}
-              leading={putInPoint ? <PlanAccessPhoto point={putInPoint} style={local.photo} /> : undefined} onPress={() => openPicker('from')} />
-            <Row title="Take-out" detail={takeOut?.name ?? 'Choose a take-out'}
-              leading={takeOutPoint ? <PlanAccessPhoto point={takeOutPoint} style={local.photo} /> : undefined} onPress={() => openPicker('to')} />
-          </Card>
-        </View>
+            position={null} positionDimmed={false} />
+        </View> : null}
         {loaded && !loaded.ok ? <Text style={[styles.body, { color: colors.error }]}>{routeProblemCopy(loaded.reason)}</Text> : null}
         <View style={styles.group} pointerEvents={start.busy ? 'none' : 'auto'}>
           <Text style={[styles.label, { color: colors.text }]}>Boat</Text>
@@ -213,64 +235,21 @@ function ReadyToFloat({ initial, restoredPackage }: { initial: Params; restoredP
           onPackageSaved={async pkg => { await savePendingFloatSetup(pkg, boat); setSavedPackage(pkg); }} />
           : <Card><Text style={[styles.label, { color: colors.text }]}>Offline map · Optional</Text>
             <Text style={[styles.body, { color: colors.textMuted }]}>{downloadReason}</Text></Card>}
-        <Text accessibilityLiveRegion="polite" style={[styles.label, { color: colors.text }]}>{gpsLabel}</Text>
-        {gpsReady && putInStatus?.note ? <Text style={[styles.body, { color: colors.textMuted }]}>{putInStatus.note}</Text> : null}
-        {gpsReady && putInStatus?.canSwitch ? <>
-          <Text style={[styles.body, { color: colors.textMuted }]}>Tracking will begin where GPS finds you. The route preview still starts at {putIn?.name}.</Text>
-          <TextButton label="Start from here" onPress={() => selectFrom()} />
-        </> : null}
-        {location.state !== 'ready' ? <LocationGate location={location} /> : !gpsReady && !location.busy ? <>
-          <Text style={[styles.body, { color: colors.textMuted }]}>You can start now. Recording begins when GPS finds you.</Text>
-          <TextButton label="Try GPS again" onPress={() => void location.act()} />
-        </> : null}
-        <PrimaryButton label="Start tracking" busy={start.busy} disabled={!valid || location.state !== 'ready'} onPress={() => void start.run()} />
-        {start.error ? <Text accessibilityRole="alert" style={[styles.body, { color: colors.error }]}>{start.error}</Text> : null}
-        <Text style={[styles.caption, { color: colors.textMuted }]}>Sign in to back up your float summary</Text>
       </Shell>
-      <Modal visible={picker != null} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setPicker(null)}>
-        <SafeAreaProvider><SafeAreaView style={[styles.screen, { backgroundColor: colors.bg }]} edges={['top', 'left', 'right', 'bottom']}>
-          <View style={local.pickerHeader}>
-            <Text accessibilityRole="header" style={[styles.cardTitle, styles.flex, { color: colors.text }]}>
-              {picker === 'river' ? 'Choose a river' : picker === 'from' ? 'Where are you starting?' : 'Where are you taking out?'}
-            </Text>
-            <Pressable onPress={() => setPicker(null)} accessibilityRole="button" style={local.done}>
-              <Text style={[styles.label, { color: colors.interactive }]}>Done</Text>
-            </Pressable>
-          </View>
-          {picker === 'river' ? <RiverPicker location={location} onChoose={riverSlug => {
-            if (riverSlug !== draft.riverSlug) setDraft({ riverSlug, putInId: undefined, takeOutId: undefined });
-            setPicker(null);
-          }} /> : !route ? <Shell><Text style={[styles.body, { color: colors.textMuted }]}>Choose a river first.</Text>
-            <TextButton label="Choose a river" onPress={() => setPicker('river')} /></Shell> :
-            points.length === 0 ? <Shell>
-              {picker === 'from' ? <Row title="From my location" onPress={() => selectFrom()} /> : null}
-              {choices.filter(p => picker === 'from' || startMile == null || p.mile > startMile).map(point =>
-                <Row key={point.id} title={point.name}
-                  detail={`Mile ${point.mile.toFixed(1)}${picker === 'to' && startMile != null ? ` · ${(point.mile - startMile).toFixed(1)} mi from ${draft.putInId ? 'put-in' : 'your location'}` : ''}`}
-                  onPress={() => {
-                    if (picker === 'from') selectFrom(point.id);
-                    else { setDraft(current => ({ ...current, takeOutId: point.id })); setPicker(null); }
-                  }} />)}
-            </Shell> : <PlanAccessPicker selectedId={(picker === 'from' ? draft.putInId : draft.takeOutId) ?? null}
-              points={picker === 'from' ? points : points.filter(p => startMile == null || p.riverMile > startMile)}
-              fromPoint={picker === 'to' ? putInPoint : null} fromMile={picker === 'to' ? startMile : null}
-              header={picker === 'from' ? <Row title="From my location" detail="Start where GPS finds me" onPress={() => selectFrom()} /> :
-                startMile == null ? <Text style={[styles.body, { color: colors.textMuted }]}>Distances show river miles until Eddy knows your start.</Text> : undefined}
-              emptyMessage="No available access points here. Choose another river or starting point."
-              onSelect={point => {
-                if (picker === 'from') selectFrom(point.id);
-                else { setDraft(current => ({ ...current, takeOutId: point.id })); setPicker(null); }
-              }} />}
-        </SafeAreaView></SafeAreaProvider>
-      </Modal>
+      {picker ? <RoutePicker field={picker} draft={draft} loaded={loaded} location={location}
+        onRetryCurrent={() => setRouteReload(value => value + 1)}
+        onClose={() => setPicker(null)} onSelect={next => {
+          setDraft({ riverSlug: next.riverSlug, putInId: next.putInId, takeOutId: next.takeOutId });
+          setPicker(null);
+        }} /> : null}
     </>
   );
 }
 
 const local = StyleSheet.create({
-  map: { height: 200, borderRadius: 12, overflow: 'hidden', borderWidth: StyleSheet.hairlineWidth },
-  placeholder: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 8, padding: 16 },
-  photo: { width: 64, height: 56, borderRadius: 8 },
-  pickerHeader: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 20 },
-  done: { minHeight: 44, minWidth: 44, alignItems: 'center', justifyContent: 'center' },
+  fields: { borderRadius: 18, overflow: 'hidden' },
+  separator: { height: StyleSheet.hairlineWidth, marginLeft: 66, marginRight: 16 },
+  map: { height: 200, borderRadius: 16, overflow: 'hidden', borderWidth: StyleSheet.hairlineWidth },
+  photo: { width: 40, height: 40, borderRadius: 8 },
+  backup: { textAlign: 'center' },
 });
