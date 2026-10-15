@@ -21,6 +21,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { BudgetExceededError, DeadlineExceededError, createLimiter, type Limiter } from './limiter';
 import { localDate, PLANNING_NIGHTS, resolveHorizon, type CampingWindow } from './window';
 import type { CampingSource, FacilityLink, FetchResult } from './types';
+import { stayGridNights } from './stay-grid';
 import * as recgov from './recgov';
 import type { MonthCache } from './recgov';
 import * as usedirect from './usedirect';
@@ -241,6 +242,7 @@ export async function syncSource(
       continue;
     }
 
+    result.nights = stayGridNights(result, now);
     if (result.nights.length > 0) {
       const fetchedAt = new Date().toISOString();
       const { error: writeError } = await supabase.from('campsite_availability').upsert(

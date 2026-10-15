@@ -210,3 +210,11 @@ export async function loadBookingLink(
 
   return { url, source };
 }
+
+/** Same effective reservation destination for the overview and trust checks. */
+export function facilityBookingUrl(facility: { source: string; source_loop: string | null; source_facility_id: string }, reservationUrl: string | null): string | null {
+  const loopUrl = facility.source === 'recreation_gov' && facility.source_loop && /^\d+$/.test(facility.source_facility_id)
+    ? `https://www.recreation.gov/camping/campgrounds/${facility.source_facility_id}` : null;
+  if (facility.source !== 'recreation_gov' && facility.source !== 'mo_state_parks') return null;
+  return bookingUrlFor(facility.source, loopUrl ?? reservationUrl);
+}

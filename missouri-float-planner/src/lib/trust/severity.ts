@@ -145,6 +145,8 @@ export const FLOAT_ENDPOINT_RULES = [
  */
 export const DAM_FRESHNESS_RULES = ['dam_history_stale', 'dam_history_frozen'] as const;
 
+export const CAMPING_INVENTORY_RULES = ['camping_missing_reservation_url', 'camping_synced_without_observations', 'camping_calendar_gaps'] as const;
+
 export const ALL_TRUST_RULES = [
   ...VALIDATE_RIVER_DATA_RULES,
   ...RIVER_GEOMETRY_RULES,
@@ -154,6 +156,7 @@ export const ALL_TRUST_RULES = [
   ...SERVICE_GEO_RULES,
   ...FLOAT_ENDPOINT_RULES,
   ...DAM_FRESHNESS_RULES,
+  ...CAMPING_INVENTORY_RULES,
   ...SCHEMA_INVARIANT_RULES,
   ...LEDGER_RULES,
 ] as const;
@@ -319,6 +322,9 @@ const SEVERITY_BY_RULE: Readonly<Record<string, TrustSeverity>> = {
   // Medium, because the recorder repairs itself by re-reading 48 hours on the
   // next pass, so most of these close without anyone acting.
   dam_history_stale: 'medium',
+  camping_missing_reservation_url: 'medium',
+  camping_synced_without_observations: 'medium',
+  camping_calendar_gaps: 'medium',
 
   // ── low: real, visible to nobody in danger ───────────────────────────
   // Geometry has raised a question about an editorial fact, and the answer may

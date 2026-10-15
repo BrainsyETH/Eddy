@@ -452,8 +452,21 @@ test('VoiceOver summarizes weekend observations and only claims observed next op
   assert.match(stale, /not checked/); assert.doesNotMatch(stale, /Next observed opening/);
 });
 
-import { campingPickerDates, campsiteStays, stayNights, nextCampingDate } from '../../../eddy-ios/src/lib/campingStay';
+import { campingPickerDates, stayNights, nextCampingDate } from '../../../eddy-ios/src/lib/campingStay';
 import type { CampsiteSitesResponse } from '../../../packages/eddy-types';
+import { searchCampingStay } from './camping/stay';
+/** Combine month fixtures into the single snapshot the server reads for a stay. */
+function campsiteStays(responses: CampsiteSitesResponse[], stay: { arrival: string; departure: string }, _maxAge: number, now: number) {
+  const dates = [...new Set(responses.flatMap((r) => r.window.nights))].sort();
+  const sites = new Map<string, CampsiteSitesResponse['sites'][number]>();
+  for (const response of responses) for (const site of response.sites) {
+    const entry = sites.get(site.id) ?? { ...site, nights: '-'.repeat(dates.length) };
+    const codes = [...entry.nights];
+    response.window.nights.forEach((date, i) => { codes[dates.indexOf(date)] = site.nights[i]; });
+    sites.set(site.id, { ...entry, nights: codes.join('') });
+  }
+  return searchCampingStay({ ...responses[0], window: { ...responses[0].window, nights: dates }, sites: [...sites.values()] }, stay.arrival, stay.departure, new Date(now)).sites;
+}
 function siteMonth(dates: string[], codes: string, fetchedAt = '2026-09-28T10:00:00Z', id = 'site-a'): CampsiteSitesResponse {
   return { facility: { id: 'park', displayName: 'Park', kind: 'campground', source: 'recgov' }, window: { startDate: dates[0], endDate: dates[dates.length - 1], label: '', nights: dates }, fetchedAt, sites: [{ id, name: 'A', loop: null, siteType: null, maxOccupancy: null, bookingUrl: null, nights: codes }] };
 }

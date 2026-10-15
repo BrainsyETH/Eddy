@@ -12,7 +12,7 @@
 
 Availability history is pruned seven days behind the current date. An empty retained history cannot prove never observed. The response therefore uses `fresh`, `stale`, and `unknown`, with “No recent observations” rather than “Never checked.” `last_synced_at` is not used as an observation timestamp.
 
-Fresh means at least one current-horizon valid observation; every cell separately checks `checkedAt` against `maxObservationAgeSeconds` (72 hours). The feature never promises one site for an entire stay. The heatmap uses absolute count buckets (1–2, 3–9, 10+) and an explicit “No reservable sites” detail status for checked nights with zero reservable inventory. These observations retain their timestamps and freshness without implying first-come availability. Existing map strips retain their original colors, proportional fills, and status semantics. Owner design decision (September 28, 2026): both camping surfaces use green for openings and red outlines for booked-out nights. The heatmap uses three solid theme-aware green shades for count buckets, not opacity; the map strip retains proportional fills.
+Fresh means at least one current-horizon valid observation; every cell separately checks `checkedAt` against `maxObservationAgeSeconds` (72 hours). Each grid cell describes one night; whole-stay results require the same site to be observed open on every occupied night. The heatmap uses absolute count buckets (1–2, 3–9, 10+) and an explicit “No reservable sites” detail status for checked nights with zero reservable inventory. These observations retain their timestamps and freshness without implying first-come availability. Existing map strips retain their original colors, proportional fills, and status semantics. Owner design decision (September 28, 2026): both camping surfaces use green for openings and red outlines for booked-out nights. The heatmap uses three solid theme-aware green shades for count buckets, not opacity; the map strip retains proportional fills.
 
 There is no general NPS-only detail route or service callout deep-link route. Their campground detail sheet provides the calendar, sites, website, and booking destination. Verified access-point destinations open the existing map using its supported focus parameters; this does not force a particular map-sheet tab.
 
@@ -78,10 +78,11 @@ site, and show their available type/loop/occupancy data.
 
 `/api/campsites?facility=<id>&month=YYYY-MM` reads only that month's cached data,
 clipped to the next ninety nights. The month is validated before querying. Omitting
-it preserves the existing fourteen-night response. The app caches up to eight
+it preserves the existing fourteen-night response. Map callers cache up to eight
 facility/month responses for five minutes and discards late responses on selection
 changes. Expired site observations become unknown without hiding fresh dates in the
-same month. All database reads remain paginated and all provider reads remain cron-only.
+same month. Site-night reads remain paginated and all provider reads remain cron-only.
+Campground details use the stay endpoint described below.
 
 Recreation.gov fetches each touched calendar month with the existing shared permit
 cache. A missing later month does not erase earlier observations. Missouri discovers
@@ -182,7 +183,11 @@ stay control, rather than occupying the top of every campground. Exact-site
 photos use the existing provider media path in a larger landscape treatment;
 missing images leave a text card, without substituting a park photo for a site.
 
-Every occupied month is fetched from the cached sites API. Departure is excluded.
+The detail sheet requests `/api/campsites?facility=<id>&arrival=YYYY-MM-DD&departure=YYYY-MM-DD`.
+The server reads only the occupied nights, including across month boundaries;
+departure is excluded. `loadCampingStay` returns the sites that are open throughout
+the stay, classifications for the other sites, and a summary. The app caches up to
+twelve facility/stay answers for five minutes; retry bypasses that cache.
 Only the same site observed open on **every** occupied night gets “Available for
 your stay”. Missing, expired, future-dated or absent-month observations never
 qualify. Sites observed first-come on every occupied night stay visible in a
@@ -205,9 +210,41 @@ In campground details, stays over 14 nights show one
 “Check campground stay limits” note; 14 is a disclosure threshold, not a verified
 universal booking limit. Individual night strips retain horizontal scrolling.
 
-Freshness follow-up: add per-night check timestamps to the site-list contract and
-judge only occupied dates. Until then the response's oldest monthly timestamp is
-used conservatively, so one expired observation can make that month unknown.
+The site reader validates each occupied site-night against the aggregate's exact
+observation timestamp and the 72-hour age limit. The result carries the oldest
+accepted timestamp for that requested stay; the app expires the cached answer
+conservatively. Unrelated dates elsewhere in a month no longer age out the stay.
+
+### Shared stay calculation and recurring checks
+
+`src/lib/camping/stay.ts` owns the site-ID intersection. Card weekend summaries
+use a paged, batched read of individual site-nights. During sync, the same matcher
+projects one-night stays into `campsite_availability`, which serves the grid and
+compact strips without loading all individual sites on each overview request.
+The detail endpoint uses that matcher directly. A missing required night remains
+unknown; it cannot become an opening or a confident whole-stay summary. Provider
+facility-level closures without unit rows remain explicit grid closures.
+
+The existing month/default sites responses remain unchanged for installed clients.
+Deploy the web/API change before distributing the updated mobile client. Existing
+grid rows are refreshed by normal scheduled syncs; no backfill or schema change
+is part of this change. Device verification and release remain unconfirmed.
+
+The daily `camping_inventory` trust check emits three stable rules:
+
+- `camping_missing_reservation_url`: an enabled tracked campground lacks the usable
+  reservation destination rendered by the overview, including loop-ID overrides.
+- `camping_synced_without_observations`: a previously attempted enabled facility
+  has zero observations ever; a never-attempted facility is not flagged.
+- `camping_calendar_gaps`: dates are absent inside the newest snapshot's observed
+  range. Explicit closed/unreleased rows count as observations; unobserved leading
+  and trailing dates are not assumed to be in season. Retained older observations
+  cannot conceal holes in a newer response.
+
+All are medium-severity investigation findings with remediation guidance. Failed
+reads throw and deadline-limited reads return `partial`, protecting findings from
+false resolution. The checks detect source/coverage defects without repairing or
+inventing production data.
 
 ### Comparison scrolling and date headings
 

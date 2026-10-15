@@ -1,68 +1,54 @@
 import { useEffect, useState } from 'react';
-import type { CampsiteSitesResponse } from '@eddy/types';
-import { fetchCampsiteSites } from '@/api/client';
-import { stayNights, type CampingStay } from '@/lib/campingStay';
+import type {
+  CampingStayResult,
+  CampingStay,
+} from '@eddy/conditions/camping-stay';
+import { fetchCampingStay } from '@/api/client';
 
-const cache = new Map<
-  string,
-  { at: number; data: CampsiteSitesResponse | null }
->();
-/** Fetch every occupied month; never hold a previous stay's answer under a new stay. */
+const cache = new Map<string, { at: number; data: CampingStayResult | null }>();
+/** Never hold a previous date range's answer under a new stay. */
 export function useCampsiteStay(facilityId: string, stay: CampingStay) {
-  const months = [...new Set(stayNights(stay).map((d) => d.slice(0, 7)))].join(
-    ',',
-  );
-  const key = `${facilityId}:${months}`;
+  const { arrival, departure } = stay;
+  const key = `${facilityId}:${arrival}:${departure}`;
   const [retry, setRetry] = useState(0);
   const [held, setHeld] = useState<{
     key: string;
-    responses: CampsiteSitesResponse[];
+    result: CampingStayResult | null;
     failed: boolean;
   } | null>(null);
   useEffect(() => {
     const controller = new AbortController();
-    void Promise.all(
-      months
-        .split(',')
-        .filter(Boolean)
-        .map(async (month) => {
-          const cacheKey = `${facilityId}:${month}`;
-          const hit = cache.get(cacheKey);
-          if (hit && Date.now() - hit.at < 300000) return hit.data;
-          const data = await fetchCampsiteSites(
+    async function load() {
+      const hit = cache.get(key);
+      const cached = hit && Date.now() - hit.at < 300000;
+      const data = cached
+        ? hit.data
+        : await fetchCampingStay(
             facilityId,
+            arrival,
+            departure,
             controller.signal,
-            month,
           );
-          if (!controller.signal.aborted) {
-            cache.set(cacheKey, { at: Date.now(), data });
-            if (cache.size > 12) cache.delete(cache.keys().next().value!);
-          }
-          return data;
-        }),
-    )
-      .then((responses) => {
-        if (!controller.signal.aborted)
-          setHeld({
-            key,
-            responses: responses.filter(
-              (r): r is CampsiteSitesResponse => r !== null,
-            ),
-            failed: false,
-          });
-      })
-      .catch(() => {
-        if (!controller.signal.aborted)
-          setHeld({ key, responses: [], failed: true });
-      });
+      if (controller.signal.aborted) return;
+      if (!cached) {
+        cache.set(key, { at: Date.now(), data });
+        if (cache.size > 12) cache.delete(cache.keys().next().value!);
+      }
+      setHeld({ key, result: data, failed: false });
+    }
+    void load().catch(() => {
+      if (!controller.signal.aborted)
+        setHeld({ key, result: null, failed: true });
+    });
     return () => controller.abort();
-  }, [facilityId, months, key, retry]);
+  }, [facilityId, arrival, departure, key, retry]);
   const current = held?.key === key ? held : null;
   return {
-    responses: current?.responses ?? [],
+    result: current?.result ?? null,
     loading: !current,
     failed: current?.failed ?? false,
     refresh: () => {
+      cache.delete(key);
       setHeld(null);
       setRetry((n) => n + 1);
     },

@@ -12,10 +12,12 @@
 // Supabase env the app uses. Behind a proxy that Node's fetch ignores, prefix
 // with NODE_USE_ENV_PROXY=1.
 
-import { createClient } from '@supabase/supabase-js';
+import { getScriptClient } from '../lib/db';
+import { searchCampingStay } from '../../src/lib/camping/stay';
+import { SITE_NIGHT_CODE } from '../../src/lib/camping/sites';
 import { createLimiter } from '../../src/lib/camping/limiter';
 import { resolveHorizon, resolveWeekend } from '../../src/lib/camping/window';
-import { summarizeWindow, type CampingSource, type FacilityLink } from '../../src/lib/camping/types';
+import { type CampingSource, type FacilityLink } from '../../src/lib/camping/types';
 import * as recgov from '../../src/lib/camping/recgov';
 import type { MonthCache } from '../../src/lib/camping/recgov';
 import * as usedirect from '../../src/lib/camping/usedirect';
@@ -33,11 +35,7 @@ const CONFIG = {
 } as const;
 
 async function main() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY ?? process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-  if (!url || !key) throw new Error('Set NEXT_PUBLIC_SUPABASE_URL and a Supabase key.');
-
-  const supabase = createClient(url, key);
+  const supabase = getScriptClient({ script: 'camping-availability-dryrun', write: false });
   // What the cron stores. The weekend below is only what a CARD says about it,
   // and printing both is the point: a horizon folded like a weekend is the
   // mistake this script exists to make visible.
@@ -89,11 +87,17 @@ async function main() {
         const result = await config.fetch(facility, window, limiter, cache);
         const { nights, sites, siteNights } = result;
 
-        // Folded over the WEEKEND, never the horizon — the same slice the read
-        // path takes. summarizeWindow minimises across the nights it is given,
-        // so handing it fourteen reports one busy Saturday as "fully booked".
-        const inWeekend = new Set(weekend.nights);
-        const summary = summarizeWindow(nights.filter((n) => inWeekend.has(n.date)));
+        // The same site-ID intersection as the card, grid and detail endpoint.
+        const observed = new Map(siteNights.map((n) => [`${n.sourceSiteId}|${n.date}`, SITE_NIGHT_CODE[n.status]]));
+        const summary = searchCampingStay({
+          facility: { id: facility.id, displayName: facility.displayName, source, kind: facility.kind },
+          window: weekend, fetchedAt: new Date().toISOString(),
+          sites: sites.map((site) => ({
+            id: site.sourceSiteId, name: site.name, loop: site.loop, siteType: site.siteType,
+            maxOccupancy: site.maxOccupancy, bookingUrl: null,
+            nights: weekend.nights.map((date) => observed.get(`${site.sourceSiteId}|${date}`) ?? '-').join(''),
+          })).filter((site) => /[^-]/.test(site.nights)),
+        }, weekend.startDate, weekend.endDate).summary;
 
         // A compact fortnight, so the strip's shape is visible in a terminal.
         const strip = nights

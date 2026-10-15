@@ -1,3 +1,4 @@
+import type { CampingStayResult } from '@eddy/conditions/camping-stay';
 import type { CampingOverview } from '@eddy/types';
 import type { RiverGuideSummary } from '@/lib/riverGuides';
 // eddy-ios/src/api/client.ts
@@ -664,6 +665,16 @@ export async function fetchCampsiteSites(
     // dead network indistinguishable from an untracked campground, and the hook
     // read that null as a successful empty answer — so a reader with no signal
     // sat on "Loading sites…" forever, with nothing left to resolve it.
+    if (err instanceof ApiError && err.status === 404) return null;
+    throw err;
+  }
+}
+
+/** A server-computed same-site stay; older month-based callers remain supported. */
+export async function fetchCampingStay(facilityId: string, arrival: string, departure: string, signal?: AbortSignal): Promise<CampingStayResult | null> {
+  try {
+    return await get<CampingStayResult>(`/api/campsites?facility=${encodeURIComponent(facilityId)}&arrival=${encodeURIComponent(arrival)}&departure=${encodeURIComponent(departure)}`, signal);
+  } catch (err) {
     if (err instanceof ApiError && err.status === 404) return null;
     throw err;
   }

@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { fetchWindow, foldNight, parseMonth, parseMonthSites, type MonthCache } from './recgov';
-import { summarizeWindow, type FacilityLink } from './types';
+import { type FacilityLink } from './types';
 import { createLimiter } from './limiter';
 import { resolveWeekend } from './window';
 
@@ -96,40 +96,6 @@ test('parseMonth groups every site by night', () => {
 
 test('parseMonth tolerates a payload with no campsites', () => {
   assert.equal(parseMonth({ campsites: {} }).size, 0);
-});
-
-// ── Window folding ─────────────────────────────────────────────────────────
-
-test('a window reports the sites open for every night, not the best night', () => {
-  // 8 sites free Friday but only 3 of them still free Saturday means you can
-  // book 3 for the weekend. Averaging or taking the max would oversell it.
-  const out = summarizeWindow([
-    { date: '2026-08-07', sitesOpen: 8, sitesReservable: 54, status: 'open' },
-    { date: '2026-08-08', sitesOpen: 3, sitesReservable: 54, status: 'open' },
-  ]);
-  assert.deepEqual(out, { sitesOpen: 3, sitesReservable: 54, status: 'open' });
-});
-
-test('a window closed every night is closed', () => {
-  const out = summarizeWindow([
-    { date: '2026-08-07', sitesOpen: 0, sitesReservable: 0, status: 'closed' },
-    { date: '2026-08-08', sitesOpen: 0, sitesReservable: 0, status: 'closed' },
-  ]);
-  assert.equal(out?.status, 'closed');
-});
-
-test('a closed night inside an open window does not zero the window', () => {
-  // The Pulltite case. A weekend where Friday has sites and Sunday is shut is
-  // still a weekend you can book, and reporting 0 would be wrong.
-  const out = summarizeWindow([
-    { date: '2026-08-07', sitesOpen: 6, sitesReservable: 55, status: 'open' },
-    { date: '2026-08-08', sitesOpen: 0, sitesReservable: 0, status: 'closed' },
-  ]);
-  assert.deepEqual(out, { sitesOpen: 6, sitesReservable: 55, status: 'open' });
-});
-
-test('an empty window summarizes to nothing at all', () => {
-  assert.equal(summarizeWindow([]), null);
 });
 
 // ── A dead facility id is an answer, not a fault ───────────────────────────

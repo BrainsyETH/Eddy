@@ -46,6 +46,21 @@ export interface Remediation {
 }
 
 const REMEDIATION_BY_RULE: Readonly<Record<string, Remediation>> = {
+  camping_missing_reservation_url: {
+    kind: 'investigate', action: 'Verify and add the official campground reservation URL.',
+    where: 'nearby_services.reservation_url or nps_campgrounds.reservation_url',
+    method: 'Use the campground provider page; the effective URL must pass facilityBookingUrl. Recreation.gov loop destinations come from the curated provider ID.',
+  },
+  camping_synced_without_observations: {
+    kind: 'investigate', action: 'Inspect the provider ID, loop filter and sync response.',
+    where: 'src/lib/camping/sync.ts and provider adapters',
+    method: 'A last_synced_at stamp records an attempt, not inventory. Verify the provider payload and repair parsing or configuration; do not invent zero-count observations.',
+  },
+  camping_calendar_gaps: {
+    kind: 'investigate', action: 'Inspect missing dates and the provider range limits.',
+    where: 'src/lib/camping/recgov.ts or usedirect.ts',
+    method: 'Compare the latest snapshot against the missingDates evidence. Page provider calendars as required; preserve explicit closures and unreleased nights. Do not fill absent observations with booked or closed statuses.',
+  },
   // ── condition ladder — never mechanical ──────────────────────────────
   threshold_order: {
     kind: 'judgment',
