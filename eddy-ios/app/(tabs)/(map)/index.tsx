@@ -639,11 +639,11 @@ function MapContent({ standalonePlanner = false }: { standalonePlanner?: boolean
   const onViewportChange = useCallback(
     (next: { bounds: Viewport['bounds']; zoom: number; center?: [number, number] }) => {
       setViewport({ bounds: next.bounds, zoom: next.zoom });
-      if (next.center && lastMoveWasGesture.current) {
+      if (!standalonePlanner && next.center && lastMoveWasGesture.current) {
         void writeMapCamera({ lng: next.center[0], lat: next.center[1], zoom: next.zoom });
       }
     },
-    [],
+    [standalonePlanner],
   );
   const [selectedPin, setSelectedPin] = useState<MapPin | null>(null);
   /**

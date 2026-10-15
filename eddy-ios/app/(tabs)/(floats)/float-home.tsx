@@ -163,12 +163,12 @@ function FloatHomeContent() {
               accessibilityRole="button"
               style={({ pressed }) => [
                 styles.actionTile,
-                { backgroundColor: colors.card, opacity: pressed ? 0.7 : 1 },
+                { backgroundColor: features.floatMode ? colors.card : colors.accentFill, opacity: pressed ? 0.7 : 1 },
               ]}
             >
-              <ControlIcon name="map-outline" size={22} color={colors.interactive} />
-              <Text style={[styles.actionTitle, { color: colors.text }]}>Build a Route</Text>
-              <Text style={[t.sm, { color: colors.textMuted }]}>Choose your put-in and take-out</Text>
+              <ControlIcon name="map-outline" size={22} color={features.floatMode ? colors.interactive : colors.onAccent} />
+              <Text style={[styles.actionTitle, { color: features.floatMode ? colors.text : colors.onAccent }]}>Build a Route</Text>
+              <Text style={[t.sm, { color: features.floatMode ? colors.textMuted : colors.onAccent }]}>Choose your put-in and take-out</Text>
             </Pressable>
             {features.floatSearch ? (
               <Pressable

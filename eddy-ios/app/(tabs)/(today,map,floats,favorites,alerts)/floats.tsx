@@ -15,7 +15,7 @@ import { useNavigationAction } from '@/hooks/useNavigationAction';
 import { useOfflineBadges } from '@/float/useOfflineBadges';
 import { useAppConfig } from '@/hooks/useAppConfig';
 import { floatPlanDestination } from '@/lib/planRequest';
-import { visibleFloats } from '@/lib/floatCollection';
+import { floatCollectionStatus, visibleFloats } from '@/lib/floatCollection';
 import { formatDuration } from '@/lib/floatSession';
 import { useTheme } from '@/theme/ThemeProvider';
 import { textStyles, type as t } from '@/theme/typography';
@@ -23,7 +23,7 @@ import { textStyles, type as t } from '@/theme/typography';
 type Item = { kind: 'saved'; value: SavedFloat } | { kind: 'history'; value: CompletedFloat };
 
 export default function SavedFloatsScreen() {
-  const { floats, ready, forget } = useSavedFloats();
+  const { floats, forget } = useSavedFloats();
   const archive = useFloatArchive();
   const photos = useCachedRiverPhotos();
   const { features } = useAppConfig();
@@ -34,6 +34,15 @@ export default function SavedFloatsScreen() {
   const view = params.view === 'history' ? 'history' : 'saved';
   const [river, setRiver] = useState('');
   const [sort, setSort] = useState<'default' | 'river'>('default');
+  const [refreshing, setRefreshing] = useState(false);
+  const refresh = async () => {
+    setRefreshing(true);
+    try {
+      await archive.refresh();
+    } finally {
+      setRefreshing(false);
+    }
+  };
   const trips = archive.rows
     .filter((row) => row.kind === 'completed' && !row.deleted && row.payload)
     .map((row) => row.payload as CompletedFloat)
@@ -48,18 +57,11 @@ export default function SavedFloatsScreen() {
   const items: Item[] =
     view === 'saved'
       ? visibleSaved.map((value) => ({ kind: 'saved', value }))
-      : visibleFloats(trips, selectedRiver, sort).map((value) => ({ kind: 'history', value }));
-  const backup = !archive.ready
-    ? 'Loading your collection…'
-    : archive.owner === 'guest'
-      ? 'Saved on this phone'
-      : archive.error || archive.rows.some((row) => row.backupError)
-        ? 'Backup needs attention'
-        : archive.syncing
-          ? 'Backing up…'
-          : archive.rows.some((row) => row.dirty)
-            ? 'Waiting to back up'
-            : 'Backed up to your account';
+      : visibleFloats(trips, selectedRiver, sort).map((value) => ({
+          kind: 'history',
+          value,
+        }));
+  const collection = floatCollectionStatus(archive);
   return (
     <SafeAreaView style={[styles.screen, { backgroundColor: colors.bg }]} edges={['left', 'right']}>
       <NativeHeaderHome />
@@ -71,8 +73,8 @@ export default function SavedFloatsScreen() {
         keyExtractor={(item) => (item.kind === 'saved' ? item.value.shortCode : item.value.id)}
         refreshControl={
           <RefreshControl
-            refreshing={archive.syncing}
-            onRefresh={() => void archive.refresh()}
+            refreshing={refreshing || archive.syncing}
+            onRefresh={() => void refresh()}
             tintColor={colors.interactive}
           />
         }
@@ -85,7 +87,12 @@ export default function SavedFloatsScreen() {
                   accessibilityRole="tab"
                   accessibilityState={{ selected: view === tab }}
                   onPress={() => router.setParams({ view: tab })}
-                  style={[styles.tab, { backgroundColor: view === tab ? colors.card : colors.cardRaised }]}
+                  style={[
+                    styles.tab,
+                    {
+                      backgroundColor: view === tab ? colors.card : colors.cardRaised,
+                    },
+                  ]}
                 >
                   <Text style={[t.base, { color: view === tab ? colors.text : colors.textMuted }]}>
                     {tab === 'saved' ? 'Saved' : 'History'}
@@ -101,7 +108,7 @@ export default function SavedFloatsScreen() {
               <ControlIcon name="cloud-outline" size={20} color={colors.interactive} />
               <View style={styles.grow}>
                 <Text style={[t.base, { color: colors.text }]}>Backup &amp; sharing</Text>
-                <Text style={[t.sm, { color: colors.textMuted }]}>{backup}</Text>
+                <Text style={[t.sm, { color: colors.textMuted }]}>{collection.backup}</Text>
               </View>
               <ControlIcon name="chevron-forward" size={16} color={colors.interactive} />
             </Pressable>
@@ -124,12 +131,38 @@ export default function SavedFloatsScreen() {
         }
         ListEmptyComponent={
           <View style={styles.empty}>
-            {!ready ? (
-              <Text style={[t.base, { color: colors.textMuted }]}>
-                {archive.error
-                  ? 'Your collection could not be opened. Pull down to retry.'
-                  : 'Loading your floats…'}
-              </Text>
+            {collection.load !== 'ready' ? (
+              <>
+                <Text
+                  accessibilityRole={collection.load === 'error' ? 'alert' : undefined}
+                  style={[t.base, { color: colors.textMuted }]}
+                >
+                  {collection.load === 'error'
+                    ? view === 'history'
+                      ? 'Your history could not be opened.'
+                      : 'Your saved routes could not be opened.'
+                    : view === 'history'
+                      ? 'Loading your history…'
+                      : 'Loading your saved routes…'}
+                </Text>
+                {collection.load === 'error' ? (
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityState={{ disabled: refreshing }}
+                    disabled={refreshing}
+                    onPress={() => void refresh()}
+                    style={styles.button}
+                  >
+                    <Text style={[t.base, { color: colors.interactive }]}>
+                      {refreshing
+                        ? 'Retrying…'
+                        : view === 'history'
+                          ? 'Retry loading history'
+                          : 'Retry loading saved routes'}
+                    </Text>
+                  </Pressable>
+                ) : null}
+              </>
             ) : (
               <>
                 <EddyScene name="routePlanning" size={100} />
@@ -176,7 +209,12 @@ export default function SavedFloatsScreen() {
             <Pressable
               accessibilityRole="button"
               onPress={() =>
-                navigate(() => router.push({ pathname: '/float-recap', params: { id: item.value.id } }))
+                navigate(() =>
+                  router.push({
+                    pathname: '/float-recap',
+                    params: { id: item.value.id },
+                  }),
+                )
               }
               style={({ pressed }) => [
                 styles.trip,
@@ -216,7 +254,12 @@ const styles = StyleSheet.create({
     padding: 8,
     borderRadius: 10,
   },
-  backup: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 16 },
+  backup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingVertical: 16,
+  },
   grow: { flex: 1, minWidth: 0, gap: 4 },
   empty: { padding: 24, gap: 12, alignItems: 'center' },
   center: { textAlign: 'center' },

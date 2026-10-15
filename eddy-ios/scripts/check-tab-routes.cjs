@@ -295,6 +295,18 @@ console.log('Quick/saved float setup, native Back, sheet dismissal, and complete
 // never receives their selected river/endpoints or their dismissal state.
 const { floatPlanDestination } = require('../src/lib/planRequest.ts');
 launch(redirectSystemPath({ path: '/', initial: true }));
+const todayBeforePlan = activeStack();
+const mapBeforeTodayPlan = tabsState().routes.find(route => route.name === '(map)').state;
+const todayPlan = push(floatPlanDestination({ focusRiver: 'current' }));
+assert.equal(todayPlan.target, todayBeforePlan.key, 'Today recommendations must open a planner inside Today');
+assert.equal(activeTab(), '(today)');
+assert.equal(activeStack().routes.at(-1).name, 'plan-route');
+assert.equal(activeStack().routes.at(-1).params.focusRiver, 'current');
+assert.equal(activeStack().routes.at(-1).params.planPutIn, undefined);
+back();
+assert.deepEqual(activeStack(), todayBeforePlan, 'Closing Today’s planner must restore Today');
+assert.deepEqual(tabsState().routes.find(route => route.name === '(map)').state, mapBeforeTodayPlan, 'Today planning must preserve Map');
+launch(redirectSystemPath({ path: '/', initial: true }));
 selectTab('map');
 const originalMap = activeStack();
 selectTab('floats');

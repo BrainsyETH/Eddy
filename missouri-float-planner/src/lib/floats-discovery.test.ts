@@ -2,12 +2,21 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { floatPlanDestination } from '../../../eddy-ios/src/lib/planRequest';
 import { createNavigationGate } from '../../../eddy-ios/src/lib/navigationGate';
-import { floatRiverChoices, visibleFloats } from '../../../eddy-ios/src/lib/floatCollection';
+import {
+  floatCollectionStatus,
+  floatRiverChoices,
+  visibleFloats,
+} from '../../../eddy-ios/src/lib/floatCollection';
 import { selectSearchLocation, selectSearchRiver } from '../../../eddy-ios/src/lib/floatSearchSelection';
 import type { FloatSearchInput } from '../../shared/float-search';
 
 test('a fresh build cannot inherit a featured route, and finder keeps its exact vessel and endpoints', () => {
-  const pick = { focusRiver: 'current', planPutIn: 'a', planTakeOut: 'b', planVesselTypeId: 'kayak-id' };
+  const pick = {
+    focusRiver: 'current',
+    planPutIn: 'a',
+    planTakeOut: 'b',
+    planVesselTypeId: 'kayak-id',
+  };
   const featured = floatPlanDestination(pick);
   const fresh = floatPlanDestination();
   assert.equal(featured.pathname, '/plan-route');
@@ -45,7 +54,10 @@ test('switching between a town, river, and current location removes the old geog
   const river = { ...input, ...selectSearchRiver('current') };
   assert.equal(river.river, 'current');
   assert.equal(river.near, undefined);
-  const nearby = { ...river, ...selectSearchLocation({ lat: 37.2, lng: -91.3 }) };
+  const nearby = {
+    ...river,
+    ...selectSearchLocation({ lat: 37.2, lng: -91.3 }),
+  };
   assert.equal(nearby.river, undefined);
   assert.deepEqual(nearby.near, { lat: 37.2, lng: -91.3 });
   assert.equal(nearby.vesselType, 'kayak');
@@ -72,4 +84,64 @@ test('river filters and alphabetical sorting preserve recent or editorial order 
   );
   assert.deepEqual(visibleFloats(rows, '', 'default'), rows);
   assert.equal(rows[0].id, 'new-jacks');
+});
+
+test('an unreadable local collection exposes an error instead of indefinite loading or an empty collection', () => {
+  const archive = {
+    ready: false,
+    error: null,
+    owner: null,
+    syncing: false,
+    rows: [],
+  };
+  assert.deepEqual(floatCollectionStatus(archive), {
+    load: 'loading',
+    backup: 'Loading your collection…',
+  });
+  assert.deepEqual(floatCollectionStatus({ ...archive, error: 'Disk read failed' }), {
+    load: 'error',
+    backup: 'Your collection could not be opened',
+  });
+  assert.deepEqual(floatCollectionStatus({ ...archive, ready: true, owner: 'guest' }), {
+    load: 'ready',
+    backup: 'Saved on this phone',
+  });
+});
+
+test('backup failures preserve a ready local collection and distinguish pending, syncing, and backed-up states', () => {
+  const archive = {
+    ready: true,
+    error: null,
+    owner: 'account',
+    syncing: false,
+    rows: [{ dirty: true }],
+  };
+  assert.deepEqual(floatCollectionStatus({ ...archive, error: 'Offline' }), {
+    load: 'ready',
+    backup: 'Backup needs attention',
+  });
+  assert.equal(floatCollectionStatus(archive).backup, 'Waiting to back up');
+  assert.equal(floatCollectionStatus({ ...archive, syncing: true }).backup, 'Backing up…');
+  assert.equal(
+    floatCollectionStatus({
+      ...archive,
+      rows: [{ dirty: true, backupError: 'Rejected' }],
+    }).backup,
+    'Backup needs attention',
+  );
+  assert.deepEqual(floatCollectionStatus({ ...archive, rows: [{ dirty: false }] }), {
+    load: 'ready',
+    backup: 'Backed up to your account',
+  });
+  assert.deepEqual(
+    floatCollectionStatus({
+      ...archive,
+      owner: 'guest',
+      error: 'Local write failed',
+    }),
+    {
+      load: 'ready',
+      backup: 'Your floats need attention',
+    },
+  );
 });

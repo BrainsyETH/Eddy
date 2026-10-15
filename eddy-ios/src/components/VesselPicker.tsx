@@ -1,17 +1,20 @@
 import { Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
-import { type FloatBoat } from '@eddy/conditions/float-search';
+import { FLOAT_BOATS, type FloatBoat } from '@eddy/conditions/float-search';
 import { VesselIcon } from './VesselIcon';
 import { ControlIcon } from './ControlIcon';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
 
-const VESSELS: FloatBoat[] = ['tube', 'raft', 'kayak', 'canoe'];
 const PACE: Record<FloatBoat, { label: string; level: number }> = {
   tube: { label: 'Drifting', level: 1 },
   raft: { label: 'Relaxed', level: 2 },
   kayak: { label: 'Paddling', level: 3 },
   canoe: { label: 'Paddling', level: 3 },
 };
+// Keep the shared inventory, ordered by pace with the default Kayak first in its tier.
+const VESSELS = [...FLOAT_BOATS].sort(
+  (a, b) => PACE[a].level - PACE[b].level || Number(b === 'kayak') - Number(a === 'kayak'),
+);
 
 export function VesselPicker({
   value,
@@ -54,7 +57,9 @@ export function VesselPicker({
                     key={level}
                     style={[
                       styles.paceMark,
-                      { backgroundColor: level <= PACE[vessel].level ? ink : colors.border },
+                      {
+                        backgroundColor: level <= PACE[vessel].level ? ink : colors.border,
+                      },
                     ]}
                   />
                 ))}
@@ -80,7 +85,12 @@ const styles = StyleSheet.create({
   group: { gap: 10 },
   pace: { flexDirection: 'row', gap: 3 },
   paceMark: { width: 12, height: 4, borderRadius: 2 },
-  options: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', rowGap: 8 },
+  options: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    rowGap: 8,
+  },
   option: {
     alignItems: 'center',
     justifyContent: 'center',

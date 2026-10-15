@@ -305,12 +305,15 @@ just draws it. The source art in `remotion/public/eddy` is video resolution
 
 The Floats hub leads with Start a Float, or Resume Float while tracking.
 Build a Route (choose endpoints) and Find a Route (suggestions for a time and
-location) share a secondary row. Both use the same planner and result actions.
-New planners are pushed to `/plan-route` in the originating tab's stack, with
-the shared map and PlanSheet in a fresh screen instance. They never change the
-kept-alive Map tab's selection, pins, camera, or existing plan. Native dismissal
-finishes before Back returns to the caller; starting replaces that standalone
-planner with float setup. Planning directly on Map still retains its route when
+location) share a secondary row. Build a Route takes the accent styling when
+Float Mode is disabled. Both use the same planner and result actions.
+Today recommendations and Floats push new planners to `/plan-route` in the
+originating tab's stack, with the shared map and PlanSheet in a fresh screen
+instance. They never change the kept-alive Map tab's selection, pins, camera,
+or existing plan. Standalone
+planner gestures do not write Map's saved camera for the next launch. Native
+dismissal finishes before Back returns to the caller; starting replaces that
+standalone planner with float setup. Planning directly on Map still retains its route when
 the sheet closes. Navigation entry actions ignore repeated presses until focus
 returns. The native route checks exercise the handoff, endpoint-detail Back,
 new-plan isolation, and preserved Map stack.
@@ -324,9 +327,11 @@ previous nearby point, and selecting a location clears the river. Town search
 is debounced and cancels stale responses; it keeps Mapbox attribution. A selected location reveals a
 native radius menu, measured to the put-in rather than as driving distance.
 
-Kayak is the initial vessel, then an explicit choice is remembered. Labelled
-vessel glyphs carry neutral pace indicators (drifting, relaxed, paddling); canoe
-and kayak share the paddling tier, not a claim that one is universally faster.
+Kayak is the initial vessel, then an explicit choice is remembered. The picker
+uses the shared `FLOAT_BOATS` inventory, ordered by pace with Kayak first in
+the paddling tier. Labelled vessel glyphs carry neutral pace indicators
+(drifting, relaxed, paddling); canoe and kayak share the paddling tier, not a
+claim that one is universally faster.
 Large text reflows the choices. Public access only is visible on the form and
 on by default; switching it off can include private or unconfirmed endpoints.
 Estimate info explains published and modeled times without claiming every
@@ -343,6 +348,9 @@ main screen. The new navigation and layout introduce no native dependencies.
 Saved Floats & History opens one collection with Saved and History segments,
 an All Rivers filter, and recent or River A–Z ordering. Backup & sharing is a
 labelled row inside the collection, with the account controls on its own page.
+Both segments use the archive's local loading state. A failed load shows an
+error and Retry; backup failures keep loaded routes and trips visible and show
+that backup needs attention.
 The old `/float-history` URL opens the History segment. Featured Floats uses the
 same photo/fallback card on the carousel and full list, and the full list has
 river filtering and featured or alphabetical ordering.
