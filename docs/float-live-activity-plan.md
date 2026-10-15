@@ -121,9 +121,9 @@ Update only for a meaningful displayed change: roughly 0.1 mile, tracker status,
 rounded ETA, pause/resume or earlier-pace state, arrival, or a 60-second heartbeat
 when the app has execution time. Compare against the last successfully delivered
 snapshot. Serialize/coalesce updates; an older async update cannot overwrite a
-newer one or revive an ended session. After fixes are recorded and persisted,
-the background task allows one second for the activity handover before optional
-report delivery. Show on Lock Screen uses the same bound, so its button cannot
+newer one or revive an ended session. Fixes reach JS from the native
+recorder (ADR 0014) while Eddy runs with the phone locked, and each recorded
+batch syncs the activity. Show on Lock Screen bounds its wait, so its button cannot
 stay busy indefinitely. Timeout releases the caller without changing availability;
 the native result determines success or failure, even if it arrives later. It
 never cancels/unlocks the serialized native queue or starts a concurrent operation.

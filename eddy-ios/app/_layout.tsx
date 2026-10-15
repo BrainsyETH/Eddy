@@ -52,10 +52,8 @@ import { report, warn } from '@/lib/monitoring';
 import { sweepStaleVersions } from '@/lib/riverCache';
 import { sweepOfflinePacks } from '@/map/packSweep';
 import { seedOfflineBundle } from '@/api/client';
-// Also defines Float Mode's background location task, which must exist before
-// iOS relaunches Eddy in the background to deliver locations; see
-// src/float/backgroundTracking.ts.
 import { FloatTracker } from '@/float/FloatTracker';
+import { attachFloatRecorder } from '@/float/recorder';
 
 /**
  * How long the splash may wait on the brand typeface before giving up.
@@ -82,6 +80,17 @@ void sweepOfflinePacks();
 // screen is waiting for it. The launch it pays off on is the one at the put-in
 // with no bars, where it has already finished.
 void seedOfflineBundle();
+
+// Apply what the native float recorder records (ADR 0014). At module scope,
+// not in a component: when iOS relaunches Eddy in the background mid-float the
+// recorder has already resumed natively, and this replays its journal into the
+// session whether or not a screen ever mounts. Native work at module scope, so
+// guarded (see README "Launch path").
+try {
+  attachFloatRecorder();
+} catch (error) {
+  warn('float', 'could not attach the float recorder', error);
+}
 
 /**
  * The last net. Expo Router renders this instead of the tree when a render

@@ -138,39 +138,6 @@ export function Row({ title, detail, onPress }: { title: string; detail?: string
   );
 }
 
-const BOATS: [id: string, label: string][] = [
-  ['canoe', 'Canoe'],
-  ['kayak', 'Kayak'],
-  ['raft', 'Raft'],
-  ['tube', 'Tube'],
-  ['sup', 'Paddleboard'],
-];
-
-export function BoatChoice({ value, onChange }: { value: string | null; onChange: (value: string | null) => void }) {
-  const { colors } = useTheme();
-  return (
-    <View style={styles.group}>
-      <Text style={[styles.body, { color: colors.text }]}>Boat type (optional)</Text>
-      <View style={styles.chips}>
-        {BOATS.map(([id, label]) => {
-          const selected = value === id;
-          return (
-            <Pressable
-              key={id}
-              accessibilityRole="button"
-              accessibilityState={{ selected }}
-              onPress={() => onChange(selected ? null : id)}
-              style={[styles.chip, { borderColor: selected ? colors.interactive : colors.border }]}
-            >
-              <Text style={[styles.body, { color: selected ? colors.interactive : colors.text }]}>{label}</Text>
-            </Pressable>
-          );
-        })}
-      </View>
-    </View>
-  );
-}
-
 export const styles = StyleSheet.create({
   screen: { flex: 1 },
   content: { padding: 20, gap: 20, paddingBottom: 32 },
@@ -180,8 +147,6 @@ export const styles = StyleSheet.create({
   caption: { ...textStyles.caption },
   label: { ...t.sm, fontFamily: fonts.semibold },
   group: { gap: 10 },
-  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  chip: { padding: 12, borderWidth: 1, borderRadius: 12 },
   card: { borderRadius: radii.feature },
   cardPadding: { padding: 20, gap: 16 },
   inline: { flexDirection: 'row', alignItems: 'center', gap: 10 },

@@ -82,7 +82,7 @@ function configureProject(project, root, config) {
       MARKETING_VERSION: config.version,
       CURRENT_PROJECT_VERSION: config.ios.buildNumber ?? hostSettings.CURRENT_PROJECT_VERSION ?? '1',
       SWIFT_VERSION: '5.0',
-      IPHONEOS_DEPLOYMENT_TARGET: '16.4',
+      IPHONEOS_DEPLOYMENT_TARGET: '18.0',
       TARGETED_DEVICE_FAMILY: '1',
       APPLICATION_EXTENSION_API_ONLY: 'YES',
       SKIP_INSTALL: 'YES',

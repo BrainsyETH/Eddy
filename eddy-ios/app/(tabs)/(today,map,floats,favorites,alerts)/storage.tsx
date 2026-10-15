@@ -38,6 +38,7 @@ import { cacheFootprint, clearCache, type CacheFootprint } from '@/lib/riverCach
 import { listTripDownloads, removeTripDownload, type StoredTrip } from '@/float/tripDownloads';
 import { useSavedFloats } from '@/hooks/useSavedFloats';
 import { useFloatSession } from '@/hooks/useFloatSession';
+import { floatTracksSize } from '@/float/floatTracks';
 
 export default function StorageScreen() {
   const { colors, elevation } = useTheme();
@@ -48,11 +49,13 @@ export default function StorageScreen() {
   // off disk, which is fine for a screen someone chose to look at and wrong on
   // a path any render can reach.
   const [trips, setTrips] = useState<StoredTrip[]>([]);
+  const [trackBytes, setTrackBytes] = useState(0);
   const { floats } = useSavedFloats();
   const activeFloat = useFloatSession();
   const measure = useCallback(() => {
     void cacheFootprint().then(setCache);
     void listTripDownloads().then(setTrips);
+    void floatTracksSize().then(setTrackBytes);
   }, []);
 
   // Trip maps are deliberate downloads, not cache: each is listed and removed
@@ -174,6 +177,17 @@ export default function StorageScreen() {
                 </View>
               );
             })}
+          </View>
+        ) : null}
+
+        {trackBytes > 0 ? (
+          <View style={[styles.card, styles.tripCard, { backgroundColor: colors.card }, elevation(1)]}>
+            <Text style={[styles.rowTitle, { color: colors.text }]}>Float GPS tracks</Text>
+            <Text style={[styles.note, { color: colors.textMuted }]}>
+              Every position recorded on your floats, kept only on this phone and never backed up. Deleting a
+              float from your history deletes its track.
+            </Text>
+            <Text style={[styles.totalNote, { color: colors.textSubtle }]}>{formatBytes(trackBytes)}</Text>
           </View>
         ) : null}
 

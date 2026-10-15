@@ -3,23 +3,32 @@
 // Preview location never seeds tracking. beginFloat still owns session creation.
 //
 // The pieces live in src/float/start/: the river picker, the location card,
-// the background-location sheet, the start logic (useStart) and the shared UI.
+// the start logic (useStart) and the shared UI. Only When In Use is asked
+// for; locked-phone recording needs nothing more (ADR 0014).
 // This file is the route and the two steps that need the loaded river.
 import { useMemo, useState } from 'react';
-import { ActivityIndicator, Text, View } from 'react-native';
+import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useRoute as useNavigationRoute } from 'expo-router/react-navigation';
 import { milesBetween } from '@eddy/geo';
-import { useFloatSession } from '@/hooks/useFloatSession';
+import { useFloatSession, useFloatSessionUnreadable } from '@/hooks/useFloatSession';
 import { useFloatStartLocation } from '@/hooks/useFloatStartLocation';
 import { routeProblemCopy, type LoadedRoute } from '@/float/loadFloatRoute';
-import { BackgroundStep } from '@/float/start/BackgroundStep';
 import { LocationGate } from '@/float/start/LocationGate';
 import { RiverPicker } from '@/float/start/RiverPicker';
-import { BoatChoice, Card, PrimaryButton, RiverName, Row, Shell, SummaryLine, TextButton, styles } from '@/float/start/ui';
+import { Card, PrimaryButton, RiverName, Row, Shell, SummaryLine, TextButton, styles } from '@/float/start/ui';
 import { newSessionId, useRiverRoute, useStart, type Params, type StartLocation } from '@/float/start/useStart';
+import { FloatMap } from '@/float/FloatMap';
 import { TripDownloadCard } from '@/float/TripDownloadCard';
-import { arrivalCopy, arrivalOutlook, formatBeyond, formatDuration, startSession, takeOutChoices } from '@/lib/floatSession';
+import {
+  arrivalCopy,
+  arrivalOutlook,
+  formatBeyond,
+  formatDuration,
+  mapFeatures,
+  startSession,
+  takeOutChoices,
+} from '@/lib/floatSession';
 import { startRiverPosition } from '@/lib/floatStart';
 import { useTheme } from '@/theme/ThemeProvider';
 
@@ -28,8 +37,22 @@ const clockTime = (ms: number) => new Date(ms).toLocaleTimeString([], { hour: 'n
 export default function FloatStartScreen() {
   const params = useLocalSearchParams<Params>();
   const active = useFloatSession();
+  const stored = useFloatSessionUnreadable();
   const router = useRouter();
   const { colors } = useTheme();
+  // A float may be in progress that could not be read; starting another
+  // would overwrite it. Reads again on Try again and on each foreground.
+  if (!active && stored.unreadable)
+    return (
+      <Shell>
+        <Text style={[styles.title, { color: colors.text }]}>Eddy couldn’t check for a float in progress</Text>
+        <Text style={[styles.body, { color: colors.textMuted }]}>
+          Your saved float couldn’t be read just now. Eddy won’t start a new one until it can check, so an earlier
+          float isn’t replaced.
+        </Text>
+        <PrimaryButton label="Try again" onPress={stored.retry} />
+      </Shell>
+    );
   if (active)
     return (
       <Shell>
@@ -49,20 +72,15 @@ function StartFlow({ params }: { params: Params }) {
   const route = useNavigationRoute();
   const location = useFloatStartLocation();
   const [sessionId] = useState(() => params.sessionId ?? newSessionId());
-  const [boatType, setBoatType] = useState<string | null>(params.boatType ?? null);
   const startKey = params.startKey ?? route.key;
   const loaded = useRiverRoute(params.riverSlug, params.shortCode ?? params.sessionId);
-  const nextParams = {
-    ...params,
-    sessionId,
-    startKey,
-    boatType: boatType ?? undefined,
-    // A different boat than the plan's makes its moving speed the wrong one.
-    plannerMph: boatType === (params.boatType ?? null) ? params.plannerMph : undefined,
-  };
+  // No boat question here: a saved float keeps its plan's boat and moving
+  // speed, and a quick start has neither (see useFloatPlan.ts on why the boat
+  // step was dropped from planning too).
+  const nextParams = { ...params, sessionId, startKey };
   const start = useStart(nextParams, loaded, location);
   const saved = Boolean(params.putInId && params.takeOutId);
-  const summary = saved || params.step === 'summary' || params.step === 'background';
+  const summary = saved || params.step === 'summary';
 
   const screen = (
     <Stack.Screen
@@ -70,14 +88,6 @@ function StartFlow({ params }: { params: Params }) {
         title: 'Start a float',
         headerBackButtonMenuEnabled: false,
         gestureEnabled: !start.busy,
-        ...(params.step === 'background'
-          ? {
-              presentation: 'formSheet',
-              sheetAllowedDetents: [0.5, 1],
-              sheetGrabberVisible: true,
-              headerShown: false,
-            }
-          : {}),
       }}
     />
   );
@@ -104,8 +114,6 @@ function StartFlow({ params }: { params: Params }) {
         <Text style={[styles.body, { color: colors.text }]}>{routeProblemCopy(loaded.reason)}</Text>
       </Shell>
     );
-  } else if (params.step === 'background') {
-    body = <BackgroundStep location={location} start={start} />;
   } else if (!summary) {
     body = (
       <TakeOutStep
@@ -129,8 +137,6 @@ function StartFlow({ params }: { params: Params }) {
         loaded={loaded}
         location={location}
         start={start}
-        boatType={boatType}
-        onBoatType={setBoatType}
       />
     );
   }
@@ -216,8 +222,6 @@ function SummaryStep({
   loaded,
   location,
   start,
-  boatType,
-  onBoatType,
 }: {
   params: Params;
   nextParams: Params;
@@ -226,8 +230,6 @@ function SummaryStep({
   loaded: Extract<LoadedRoute, { ok: true }>;
   location: StartLocation;
   start: ReturnType<typeof useStart>;
-  boatType: string | null;
-  onBoatType: (value: string | null) => void;
 }) {
   const { colors } = useTheme();
   const located = useLocated(loaded, location);
@@ -269,8 +271,33 @@ function SummaryStep({
         )
       : null;
 
+  // The stretch as Float Mode will show it: from the put-in, or from where
+  // Eddy found you for a quick start (the whole river until it has).
+  const previewSession = { ...preview.session, startMile: startMile ?? null };
+  const features = mapFeatures(previewSession, loaded.index);
+  const putInPoint = putIn?.lngLat ?? (!saved && located && location.fix ? location.fix.point : null);
+
   return (
     <Shell>
+      <View
+        style={[previewStyles.map, { borderColor: colors.border }]}
+        accessible
+        accessibilityLabel={`Map of the route from ${putIn?.name ?? 'your location'} to ${takeOut.name}`}
+      >
+        <FloatMap
+          // The preview frames once; re-frame when the stretch becomes known.
+          key={features.section ? 'stretch' : 'river'}
+          preview
+          line={loaded.route.line}
+          section={features.section}
+          stops={features.stops}
+          hazards={features.hazards}
+          start={putInPoint ? { name: putIn?.name ?? 'You', lngLat: putInPoint, riverMile: startMile ?? null } : null}
+          takeOut={{ name: takeOut.name, lngLat: takeOut.lngLat, riverMile: preview.session.takeOut.riverMile }}
+          position={null}
+          positionDimmed={false}
+        />
+      </View>
       <Card>
         <RiverName name={loaded.route.riverName} large />
         <View style={[styles.divider, { backgroundColor: colors.border }]} />
@@ -315,7 +342,6 @@ function SummaryStep({
           toId={takeOut.id}
         />
       ) : null}
-      <BoatChoice value={boatType} onChange={onBoatType} />
       <Text style={[styles.caption, { color: colors.textMuted }]}>
         Raw float positions stay on this phone. Ending saves a recap; signed-in recaps are backed up to your account.
       </Text>
@@ -328,7 +354,7 @@ function SummaryStep({
               This take-out is behind you. Go back to choose one downstream.
             </Text>
           ) : null}
-          <PrimaryButton label="Start float" busy={start.busy} disabled={upstream} onPress={() => void start.run('start')} />
+          <PrimaryButton label="Start float" busy={start.busy} disabled={upstream} onPress={() => void start.run()} />
         </>
       )}
       {start.error ? (
@@ -339,3 +365,7 @@ function SummaryStep({
     </Shell>
   );
 }
+
+const previewStyles = StyleSheet.create({
+  map: { height: 200, borderRadius: 12, overflow: 'hidden', borderWidth: StyleSheet.hairlineWidth },
+});

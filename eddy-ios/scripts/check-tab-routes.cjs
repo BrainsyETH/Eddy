@@ -124,6 +124,55 @@ const { redirectSystemPath } = require('../app/+native-intent.tsx');
 const { notificationDestination } = require('../src/lib/notificationDestination.ts');
 const { weatherDestination } = require('../src/lib/weatherDestination.ts');
 const { planAccessDestination, planCampingDestination } = require('../src/lib/planDestinations.ts');
+
+// Router history alone cannot catch a native modal remount. Evaluate the real
+// navigator's initial options, before any screen can call navigation.setOptions.
+// Only the native platform and theme hooks are substituted; React's elements
+// and TabStack's screenOptions callback are real.
+const { Module } = require('node:module');
+const stackFilename = path.join(__dirname, '../src/components/TabStack.tsx');
+const stackModule = new Module(stackFilename, module);
+stackModule.filename = stackFilename;
+stackModule.paths = module.paths;
+let platform;
+let background;
+stackModule.require = (id) => {
+  if (id === 'expo-router') return { Stack: 'Stack' };
+  if (id === 'react-native') return { Platform: platform };
+  if (id === '@/theme/ThemeProvider') return { useTheme: () => ({ colors: { bg: background } }) };
+  if (id === '@/lib/tabRoutes') return require('../src/lib/tabRoutes.ts');
+  return require(id);
+};
+// Keep the imported Platform object stable while exercising its different values.
+platform = { OS: 'ios', Version: 26 };
+stackModule._compile(ts.transpileModule(fs.readFileSync(stackFilename, 'utf8'), {
+  compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.ReactJSX },
+}).outputText, stackFilename);
+for (const OS of ['ios', 'android']) {
+  platform.OS = OS;
+  for (const Version of [18, 26]) {
+    platform.Version = Version;
+    for (background of ['#ffffff', '#121212']) {
+      for (const [group, root] of Object.entries(roots)) {
+        const stack = stackModule.exports.TabStack({ root, title: group });
+        const options = stack.props.screenOptions({ route: { name: 'plan-route' } });
+        assert.equal(options.headerShown, false, 'Planner header must already be hidden before mounting');
+        assert.equal(options.presentation, 'transparentModal', 'Planner must mount in its final presentation');
+        assert.equal(options.animation, 'none', 'Only PlanSheet should animate');
+        assert.equal(options.gestureEnabled, false, 'PlanSheet owns dismissal');
+        assert.equal(options.contentStyle.backgroundColor, 'transparent', 'The originating screen stays visible');
+        const detail = stack.props.screenOptions({ route: { name: 'river/[slug]' } });
+        assert.equal(detail.headerShown, true, 'Ordinary details retain their Back header');
+        assert.equal(detail.presentation, undefined, 'Ordinary details retain native pushes');
+        assert.equal(detail.contentStyle.backgroundColor, background);
+      }
+    }
+  }
+}
+const plannerScreen = fs.readFileSync(path.join(root, '(tabs)/(today,map,floats,favorites,alerts)/plan-route.tsx'), 'utf8');
+assert.doesNotMatch(plannerScreen, /\b(?:headerShown|presentation)\s*:/, 'Planner must not change its native header or presentation after mounting');
+console.log('Planner presentation is stable before mounting in every tab and theme.');
+
 for (const href of ['/', 'eddy:///', 'https://eddy.guide/']) {
   launch(redirectSystemPath({ path: href, initial: true }));
   assert.equal(activeTab(), '(today)', 'Plain launches must start on Today');
@@ -277,10 +326,6 @@ for (const saved of [false, true]) {
     assert.deepEqual(activeStack().routes.at(-1), takeoutPage, 'Back lost the selected river');
     push({ pathname: '/float-start', params: { step: 'summary', riverSlug: 'current', takeOutId: 'two-rivers', startKey: entryKey } });
   }
-  const summary = activeStack().routes.at(-1);
-  push({ pathname: '/float-start', params: { ...summary.params, step: 'background', startKey: entryKey } });
-  back();
-  assert.deepEqual(activeStack().routes.at(-1), summary, 'Dismissing the permission sheet lost the summary');
   const stack = activeStack();
   const routes = completedFloatRoutes(stack.routes, entryKey);
   state = apply({ type: 'RESET', target: stack.key, payload: { ...stack, routes, index: routes.length - 1 } });
@@ -289,7 +334,7 @@ for (const saved of [false, true]) {
   back();
   assert.deepEqual(activeStack().routes.at(-1), origin, 'Completing setup lost its origin screen');
 }
-console.log('Quick/saved float setup, native Back, sheet dismissal, and completed-session history verified.');
+console.log('Quick/saved float setup, native Back, and completed-session history verified.');
 
 // Floats planners live in their originating stack. The kept-alive Map route
 // never receives their selected river/endpoints or their dismissal state.

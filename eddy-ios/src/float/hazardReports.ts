@@ -3,9 +3,10 @@
 // the phone's storage and the reports API, plus when to try sending.
 //
 // Sending is tried when a report is added, when Eddy comes to the foreground,
-// on a timer while anything is waiting, and from the locked-screen location
-// task, so a report written with no signal goes out once the phone in the dry
-// bag finds some. All of those funnel into one flush, which sends one at a
+// and on a timer while anything is waiting. During a float the recorder's
+// background session keeps Eddy running with the phone locked (ADR 0014), so
+// the timer keeps firing and a report written with no signal goes out once
+// the phone in the dry bag finds some. All of those funnel into one flush, which sends one at a
 // time and only what is due.
 
 import { useSyncExternalStore } from 'react';

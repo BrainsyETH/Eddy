@@ -316,7 +316,10 @@ Rivers are ordered by favorites, condition, then name. These planners never
 change the kept-alive Map tab's selection, pins, camera, or existing plan.
 Closing cancels any calculation immediately. Native sheet dismissal finishes
 before Back returns to the caller, which stays visible behind the sheet, with
-no second stack animation; starting
+no second stack animation. The tab navigator sets the planner's transparent
+presentation and hidden header before mounting it; the screen must not change
+these options after opening, because native modals remount when header visibility
+changes, discarding the plan and restarting its data loads. Starting
 replaces the standalone planner with float setup. Planning directly on Map still retains its route when
 the sheet closes. Navigation entry actions ignore repeated presses until focus
 returns. The native route checks exercise the handoff, endpoint-detail Back,
@@ -1128,8 +1131,12 @@ unconfirmed.** Three states, kept apart on purpose because they are easy to
 blur:
 
 - *Implemented in code:* on-water progress from GPS (miles left, percentage,
-  time left; `src/lib/floatSession.ts`, `src/float/FloatTracker.tsx`), tracking
-  while the phone is locked (background location in `app.json`), trip downloads
+  time left; `src/lib/floatSession.ts`), recorded natively
+  (`modules/eddy-float-recorder`, ADR 0014): a Core Location service session
+  and background activity session record with the phone locked on When In Use
+  permission, append every fix to an on-phone journal, and resume themselves
+  when iOS relaunches Eddy; `src/float/recorder.ts` replays the journal into
+  the session. Minimum iOS 18. Trip downloads
   for offline maps (ADR 0011), and a Lock Screen / Dynamic Island Live Activity
   (`docs/float-live-activity-plan.md`). The map frames the chosen stretch
   with the access points and known hazards along it; the screen shows the next
@@ -1137,13 +1144,13 @@ blur:
   take-out and arrival are notified. A float left running ends itself an hour
   after arrival or 45 minutes after leaving the river (`src/lib/floatEnding.ts`),
   never for stopping or losing signal, and only on fresh evidence of being
-  away. With Always, significant location changes and a wake geofence
-  (`src/float/backgroundTracking.ts`) are meant to relaunch a closed Eddy to
-  resume; that is device-unconfirmed, so the screen asks people to leave Eddy
-  open in the background rather than promising it. A take-out off the mapped
+  away. Resuming after iOS ends Eddy is device-unconfirmed, so the screen
+  still asks people to leave Eddy open in the background rather than
+  promising it (runbook gate "Closing Eddy mid-float"). A take-out off the mapped
   river is never recorded as reached: reaching the river's closest point is
-  kept separate (`riverEndAt`). This is progress along a known route,
-  not a recorded GPS track; raw float positions stay on the phone. Signed-in
+  kept separate (`riverEndAt`). Progress is along a known route, derived from
+  the raw track, which stays on the phone (excluded from backups) and is
+  deleted with its recap or the account. Signed-in
   recap summaries are backed up separately (ADR 0012). Hazard reports explicitly
   send the location the user submits.
 - *Visible:* always in development and preview builds; in store builds only

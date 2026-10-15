@@ -166,6 +166,14 @@ export interface FloatSession {
    * nothing is live until fresh fixes confirm a position again.
    */
   awaitingFix?: boolean;
+  /**
+   * The byte offset in this float's native journal that the session has
+   * applied up to (floatRecording.ts). Saved with the progress derived from
+   * those fixes, so a relaunch replays exactly what came after. Absent on
+   * floats started before recording was native: they replay from 0, and
+   * fixes older than what the session already holds are ignored by applyFix.
+   */
+  journalTo?: number;
   /** On-water reminders; see floatReminders.ts. Absent means the defaults. */
   reminders?: FloatReminderSettings;
   /**
@@ -429,7 +437,19 @@ export type FloatStatus =
   | 'stale';
 
 export interface FloatView {
+  /**
+   * Before the first confirmed position: 'acquiring' while GPS has nothing
+   * usable or is still confirming, 'off-route' when GPS works and says the
+   * paddler is away from this river, 'stale' when it went quiet.
+   */
   status: FloatStatus;
+  /**
+   * A position on the river has been confirmed this float. False means
+   * progress has not started: the statuses above say why.
+   */
+  confirmed: boolean;
+  /** How far the latest fix is from the river line, while off-route. */
+  awayMeters: number | null;
   riverName: string;
   takeOutName: string;
   /** Null until a position is confirmed. */
@@ -486,10 +506,25 @@ export function viewSession(session: FloatSession, now: number): FloatView {
       ? { minutes: null, basis: 'learning', paused: false }
       : estimateRemaining(miles, session.plannerMph, movingPace(session.samples, 1));
 
+  const lastResult = session.last?.result ?? null;
+  const awayMeters = lastResult?.kind === 'off-route' ? lastResult.offsetMeters : null;
+
   if (!latest || session.startMile == null) {
+    // GPS can be working before anything is confirmed: say what it says,
+    // rather than "finding your spot" forever while it says "not here".
+    const status: FloatStatus =
+      lastFixAt == null
+        ? 'acquiring'
+        : now - lastFixAt > STALE_POSITION_MS
+          ? 'stale'
+          : lastResult?.kind === 'off-route'
+            ? 'off-route'
+            : 'acquiring';
     return {
       ...base,
-      status: 'acquiring',
+      status,
+      confirmed: false,
+      awayMeters: status === 'off-route' ? awayMeters : null,
       milesLeft: null,
       fraction: null,
       arrived: false,
@@ -504,7 +539,7 @@ export function viewSession(session: FloatSession, now: number): FloatView {
 
   const progress = stretchProgress(session.startMile, session.takeOut.riverMile, latest.riverMile);
   const startedPastTakeOut = session.kind === 'quick' && session.startMile >= session.takeOut.riverMile;
-  const lastKind = session.last?.result.kind;
+  const lastKind = lastResult?.kind;
   const status: FloatStatus = session.awaitingFix
     ? 'resuming'
     : now - (lastFixAt ?? latest.timestamp) > STALE_POSITION_MS
@@ -518,6 +553,8 @@ export function viewSession(session: FloatSession, now: number): FloatView {
   return {
     ...base,
     status,
+    confirmed: true,
+    awayMeters: status === 'off-route' ? awayMeters : null,
     milesLeft: Math.max(0, progress.remainingMiles),
     fraction: startedPastTakeOut ? null : progress.fraction,
     arrived: progress.arrived && beyond == null,
@@ -533,8 +570,9 @@ export function viewSession(session: FloatSession, now: number): FloatView {
 export interface FloatMapFeatures {
   /** Null until a quick start knows where it began; the map then shows the whole river. */
   section: LngLat[] | null;
-  stops: LngLat[];
-  hazards: { lngLat: LngLat; severity: HazardSeverity }[];
+  /** Access points between the ends, named so the map can label them. */
+  stops: { id: string; name: string; lngLat: LngLat; riverMile: number }[];
+  hazards: RouteHazard[];
 }
 
 export function mapFeatures(session: FloatSession, index: RouteIndex): FloatMapFeatures {
@@ -547,13 +585,26 @@ export function mapFeatures(session: FloatSession, index: RouteIndex): FloatMapF
     stops:
       from == null
         ? []
-        : session.route.anchors
-            .filter((anchor) => !ends.has(anchor.id) && between(placeEnd(index, anchor).riverMile))
-            .map((anchor) => anchor.lngLat),
-    hazards: (session.route.hazards ?? [])
-      .filter((hazard) => (from == null ? hazard.riverMile <= to : hazard.riverMile >= from && hazard.riverMile <= to))
-      .map((hazard) => ({ lngLat: hazard.lngLat, severity: hazard.severity })),
+        : session.route.anchors.flatMap((anchor) => {
+            if (ends.has(anchor.id)) return [];
+            const riverMile = placeEnd(index, anchor).riverMile;
+            return between(riverMile) ? [{ id: anchor.id, name: anchor.name, lngLat: anchor.lngLat, riverMile }] : [];
+          }),
+    hazards: (session.route.hazards ?? []).filter((hazard) =>
+      from == null ? hazard.riverMile <= to : hazard.riverMile >= from && hazard.riverMile <= to,
+    ),
   };
+}
+
+/**
+ * What a tapped map marker says: its name, and where it is relative to the
+ * paddler (the last confirmed mile), or its river mile before there is one.
+ */
+export function markerDistance(markerMile: number, currentMile: number | null): string {
+  if (currentMile == null) return `Mile ${markerMile.toFixed(1)}`;
+  const ahead = markerMile - currentMile;
+  if (Math.abs(ahead) < 0.1) return 'Here';
+  return ahead > 0 ? `${ahead.toFixed(1)} mi ahead` : `${(-ahead).toFixed(1)} mi behind`;
 }
 
 /** Arriving this close to sunset or later is worth a word. */
@@ -580,9 +631,30 @@ export function arrivalOutlook(minutes: number | null, now: number, at: LngLat):
   return { arriveAt, sunset, light };
 }
 
+/**
+ * The moment an arrival estimate counts from. Live, that is now: the paddler
+ * is where the estimate says, and a pause holds the minutes while the clock
+ * moves. Otherwise it is the last confirmed position. Adding the old minutes
+ * to the current clock made a stale estimate look freshly calculated and
+ * drift later each tick. `asOf` is set when the estimate is not current.
+ */
+export function arrivalAnchor(view: FloatView, now: number): { from: number; asOf: number | null } | null {
+  if (view.status === 'live') return { from: now, asOf: null };
+  if (view.positionAt == null) return null;
+  return { from: view.positionAt, asOf: view.positionAt };
+}
+
 /** The arrival line and any daylight warning, with the clock formatted by the caller. */
-export function arrivalCopy(outlook: ArrivalOutlook, formatTime: (ms: number) => string): { line: string; warning: string | null } {
-  const line = `Arrive around ${formatTime(outlook.arriveAt)}`;
+export function arrivalCopy(
+  outlook: ArrivalOutlook,
+  formatTime: (ms: number) => string,
+  /** The estimate is from the last known position, not a current one. */
+  asOf: number | null = null,
+): { line: string; warning: string | null } {
+  const line =
+    asOf == null
+      ? `Arrive around ${formatTime(outlook.arriveAt)}`
+      : `Arrive around ${formatTime(outlook.arriveAt)} · as of ${formatTime(asOf)}, your last known spot`;
   const sunset = outlook.sunset == null ? '' : formatTime(outlook.sunset);
   switch (outlook.light) {
     case 'after':
@@ -602,14 +674,16 @@ export function restoreSession(raw: string | null): FloatSession | null {
   try {
     const parsed = JSON.parse(raw) as Partial<FloatSession>;
     if (parsed?.version !== SESSION_VERSION || !parsed.id || !parsed.route || !parsed.takeOut || !parsed.track) return null;
-    // Nobody knows what happened while the app was gone. Keep the progress,
-    // but forget the confirmed position so the tracker reacquires with its
-    // usual confirmation, and the first fix after it counts as a break in
-    // pace rather than as movement. Nothing reads as live until then.
+    // Restored exactly. The session is a checkpoint of the native journal
+    // (floatRecording.ts), and the fixes after it are replayed from there, so
+    // the tracker continues as if Eddy had never stopped. A real gap in GPS
+    // (Eddy not running, a dead zone) is a gap in fix times, which trackFix
+    // already treats as one: after REACQUIRE_AFTER_MS it confirms a position
+    // afresh and the first fix after it is a break in pace, not movement.
+    // `awaitingFix` only says so on screen until the next confirmed fix.
     return {
       ...parsed,
       position: parsed.position ?? null,
-      track: { ...parsed.track, committed: null, candidate: null },
       awaitingFix: true,
       // A handover interrupted by the app ending may or may not have shown;
       // it becomes eligible again rather than silently lost (floatReminders.ts).
@@ -699,13 +773,16 @@ export function formatBeyond(meters: number): string {
 export function statusCopy(view: FloatView, now: number): string {
   switch (view.status) {
     case 'acquiring':
-      return 'Finding your spot on the river…';
+      return view.lastFixAt == null ? 'Waiting for GPS…' : 'Finding your spot on the river…';
     case 'resuming':
       return 'Finding your spot again. Showing where you were.';
     case 'uncertain':
       return 'Checking your position. Showing your last confirmed spot.';
-    case 'off-route':
-      return 'You look away from the river. Showing your last spot on it.';
+    case 'off-route': {
+      if (view.confirmed) return 'You look away from the river. Showing your last spot on it.';
+      const away = view.awayMeters == null ? '' : ` (about ${formatBeyond(view.awayMeters)} away)`;
+      return `You’re not on the ${view.riverName} yet${away}. Progress starts once you’re on it.`;
+    }
     case 'stale': {
       const minutes = view.lastFixAt == null ? null : Math.round((now - view.lastFixAt) / 60_000);
       return minutes == null ? 'Waiting for GPS.' : `Waiting for GPS. Last position ${minutes} min ago.`;
@@ -716,4 +793,12 @@ export function statusCopy(view: FloatView, now: number): string {
       }
       return view.arrived ? 'You’re at the take-out.' : 'Live';
   }
+}
+
+/**
+ * Offer "wrong river?" once GPS has put a float that never reached its river
+ * well away from it. Nothing has been measured, so cancelling loses nothing.
+ */
+export function offerRiverChange(view: FloatView): boolean {
+  return !view.confirmed && view.status === 'off-route' && (view.awayMeters ?? 0) > AWAY_FROM_RIVER_M;
 }

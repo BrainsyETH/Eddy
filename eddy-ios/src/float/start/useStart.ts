@@ -3,10 +3,8 @@
 // No session exists until the permission flow finishes and the float is on disk.
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Linking } from 'react-native';
 import { useFocusEffect, useNavigation, useRouter } from 'expo-router';
 import { CommonActions } from 'expo-router/react-navigation';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Location from 'expo-location';
 import { useFloatArchive } from '@/hooks/useFloatArchive';
 import { currentStartFix, useFloatStartLocation } from '@/hooks/useFloatStartLocation';
@@ -23,12 +21,11 @@ export type Params = {
   shortCode?: string;
   plannerMph?: string;
   boatType?: string;
-  step?: 'takeout' | 'summary' | 'background';
+  step?: 'takeout' | 'summary';
   startKey?: string;
   sessionId?: string;
 };
 export type StartLocation = ReturnType<typeof useFloatStartLocation>;
-const BACKGROUND_EXPLAINED_KEY = 'eddy:float-background-explained:v1';
 
 export function newSessionId() {
   return `float-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
@@ -50,7 +47,10 @@ export function useStart(params: Params, loaded: LoadedRoute | null, location: S
       };
     }, []),
   );
-  const run = async (intent: 'start' | 'background' | 'foreground') => {
+  // Only When In Use is asked for. Recording with the phone locked comes from
+  // the background activity session the native recorder holds (ADR 0014),
+  // not from "Always", so there is no second permission step.
+  const run = async () => {
     if (running.current || !loaded?.ok) return;
     running.current = true;
     setBusy(true);
@@ -60,40 +60,17 @@ export function useStart(params: Params, loaded: LoadedRoute | null, location: S
         setError('Your float history could not be opened. Please try again.');
         return;
       }
-      const foreground = await Location.getForegroundPermissionsAsync();
+      // Permissions may have changed in Settings; never start from a stale grant.
+      let permission = await Location.getForegroundPermissionsAsync();
       const services = await Location.hasServicesEnabledAsync();
       if (!focused.current) return;
-      if (startLocationState(foreground, services) !== 'ready') {
-        await location.refresh();
-        return;
+      // Precise Location off: Apple's prompt, here in Eddy, then start. Only
+      // once that is declined does the card offer Settings instead.
+      if (startLocationState(permission, services) === 'precise' && location.precise === 'ask') {
+        if (!(await location.askPrecise()) || !focused.current) return;
+        permission = await Location.getForegroundPermissionsAsync();
       }
-      const background = await Location.getBackgroundPermissionsAsync();
-      if (intent === 'start' && background.status !== 'granted') {
-        const explained = await AsyncStorage.getItem(BACKGROUND_EXPLAINED_KEY).catch(() => null);
-        if (!focused.current) return;
-        if (!explained) {
-          router.push({ pathname: '/float-start', params: { ...params, step: 'background' } });
-          return;
-        }
-      }
-      if (intent !== 'start') {
-        await AsyncStorage.setItem(BACKGROUND_EXPLAINED_KEY, '1').catch(() => {});
-        if (!focused.current) return;
-        if (intent === 'background' && background.status !== 'granted') {
-          if (!background.canAskAgain) {
-            await Linking.openSettings();
-            return;
-          }
-          // Allow Once can silently decline this. Foreground tracking still starts.
-          await Location.requestBackgroundPermissionsAsync();
-        }
-      }
-      if (!focused.current) return;
-      // Permissions may have changed in the system prompt; never start from a stale grant.
-      const finalPermission = await Location.getForegroundPermissionsAsync();
-      const finalServices = await Location.hasServicesEnabledAsync();
-      if (!focused.current) return;
-      if (startLocationState(finalPermission, finalServices) !== 'ready') {
+      if (startLocationState(permission, services) !== 'ready') {
         await location.refresh();
         return;
       }
@@ -138,6 +115,10 @@ export function useStart(params: Params, loaded: LoadedRoute | null, location: S
       const result = await beginFloat(made.session);
       if (result === 'storage-failed') {
         setError('Eddy couldn’t save this float. Free up some storage and try again.');
+        return;
+      }
+      if (result === 'unreadable') {
+        setError('Eddy couldn’t check for a float already in progress. Please try again.');
         return;
       }
       const state = navigation.getState();

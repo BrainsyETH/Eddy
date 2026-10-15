@@ -1,64 +1,14 @@
 // eddy-ios/src/lib/floatPermissions.ts
-// What the location permission allows a float to do, and what to say about it.
+// Whether the location permission lets a float start, and what to ask for.
 //
-// Pure, so the web suite tests it. Every state gets an honest sentence: no
-// prompt loops, and no promise of locked-screen tracking that the permission
-// does not allow.
-
-export type TrackingMode =
-  /** "Always": tracks with the screen locked. */
-  | 'locked'
-  /** "While Using" or "Allow Once": tracks only while Eddy is on screen. */
-  | 'screen-on'
-  /** Precise Location off: positions are too coarse to place you on a river. */
-  | 'approximate'
-  /** Denied, or never answered. */
-  | 'none'
-  /** Not read yet. */
-  | 'unknown';
+// Pure, so the web suite tests it. This decides whether a float can START;
+// what Float Mode says once one is running comes from the native recorder's
+// own diagnostics (floatTrackerStatus.ts). No prompt loops.
 
 export interface ForegroundPermission {
   status: string;
   canAskAgain?: boolean;
   ios?: { accuracy?: 'full' | 'reduced' } | null;
-}
-
-export function trackingMode(
-  foreground: ForegroundPermission | null,
-  background: { status: string } | null,
-): TrackingMode {
-  if (!foreground) return 'unknown';
-  if (foreground.status !== 'granted') return 'none';
-  if (foreground.ios?.accuracy === 'reduced') return 'approximate';
-  return background?.status === 'granted' ? 'locked' : 'screen-on';
-}
-
-export interface TrackingNotice {
-  text: string;
-  /** 'request' only while iOS will still show its prompt; otherwise Settings. */
-  action: 'request' | 'settings';
-}
-
-export function trackingNotice(mode: TrackingMode, canAskAgain = false): TrackingNotice | null {
-  switch (mode) {
-    case 'locked':
-    case 'unknown':
-      return null;
-    case 'screen-on':
-      return {
-        text: 'Tracking pauses while your phone is locked.',
-        action: 'settings',
-      };
-    case 'approximate':
-      return {
-        text: 'Turn on Precise Location to track your float.',
-        action: 'settings',
-      };
-    case 'none':
-      return canAskAgain
-        ? { text: 'Eddy uses your location to track your float.', action: 'request' }
-        : { text: 'Turn on location to track your float.', action: 'settings' };
-  }
 }
 
 export type StartLocationState = 'checking' | 'request' | 'settings' | 'precise' | 'services' | 'ready';
@@ -72,4 +22,13 @@ export function startLocationState(
   if (!servicesEnabled) return 'services';
   if (permission.status !== 'granted') return permission.canAskAgain ? 'request' : 'settings';
   return permission.ios?.accuracy === 'reduced' ? 'precise' : 'ready';
+}
+
+/**
+ * How Start gets precise location when it is off: Apple's in-app prompt
+ * first, so the paddler can allow it without leaving Eddy; Settings only once
+ * that was declined on this visit, or in a build that cannot show it.
+ */
+export function preciseLocationAction(declinedThisVisit: boolean, canAskInApp: boolean): 'ask' | 'settings' {
+  return canAskInApp && !declinedThisVisit ? 'ask' : 'settings';
 }
