@@ -65,8 +65,8 @@ export default function FloatRecapScreen() {
               {trip.putInName ?? 'On-river start'} → {trip.takeOutName}
             </Text>
             <Text style={[t.sm, { color: colors.textMuted }]}>
-              {trip.reachedTakeOut ? 'Reached the take-out' : 'Tracking ended; arrival was not confirmed'} ·{' '}
-              {trip.boatType ?? 'Boat type not recorded'}
+              {trip.reachedTakeOut ? 'Reached the take-out' : 'Tracking ended; arrival was not confirmed'}
+              {trip.boatType ? ` · ${trip.boatType}` : null}
             </Text>
             <View style={[styles.card, { borderColor: colors.border }]}>
               {[
