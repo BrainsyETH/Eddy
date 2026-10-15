@@ -231,3 +231,24 @@ test('a corrupt ended-float journal does not block every later start', async () 
   assert.equal(relaunched.get(), null, 'the ended float is not resumed');
   assert.equal(await relaunched.begin(newSession('new')), 'started');
 });
+
+test('a float cancelled before it measured anything saves no recap and does not come back', async () => {
+  const disk = fakeDisk();
+  const recaps: string[] = [];
+  const store = createFloatSessionStore(disk, quiet, async () => [], async (session) => {
+    recaps.push(session.id);
+  });
+  await store.begin(newSession('wrong-river'));
+  disk.failRemoves = true;
+  assert.equal(await store.end(null, T0, false), false);
+  assert.equal(store.get(), null);
+  assert.equal(disk.data.get(ENDED_KEY), 'wrong-river', 'journalled by id, with no recap to replay');
+  const relaunched = createFloatSessionStore(disk, quiet, async () => [], async (session) => {
+    recaps.push(session.id);
+  });
+  disk.failRemoves = false;
+  await relaunched.ensureLoaded();
+  assert.equal(relaunched.get(), null, 'the cancelled float is not resumed');
+  assert.equal(disk.data.has(STORAGE_KEY), false);
+  assert.deepEqual(recaps, []);
+});

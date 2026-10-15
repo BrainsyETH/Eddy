@@ -429,7 +429,19 @@ export type FloatStatus =
   | 'stale';
 
 export interface FloatView {
+  /**
+   * Before the first confirmed position: 'acquiring' while GPS has nothing
+   * usable or is still confirming, 'off-route' when GPS works and says the
+   * paddler is away from this river, 'stale' when it went quiet.
+   */
   status: FloatStatus;
+  /**
+   * A position on the river has been confirmed this float. False means
+   * progress has not started: the statuses above say why.
+   */
+  confirmed: boolean;
+  /** How far the latest fix is from the river line, while off-route. */
+  awayMeters: number | null;
   riverName: string;
   takeOutName: string;
   /** Null until a position is confirmed. */
@@ -486,10 +498,25 @@ export function viewSession(session: FloatSession, now: number): FloatView {
       ? { minutes: null, basis: 'learning', paused: false }
       : estimateRemaining(miles, session.plannerMph, movingPace(session.samples, 1));
 
+  const lastResult = session.last?.result ?? null;
+  const awayMeters = lastResult?.kind === 'off-route' ? lastResult.offsetMeters : null;
+
   if (!latest || session.startMile == null) {
+    // GPS can be working before anything is confirmed: say what it says,
+    // rather than "finding your spot" forever while it says "not here".
+    const status: FloatStatus =
+      lastFixAt == null
+        ? 'acquiring'
+        : now - lastFixAt > STALE_POSITION_MS
+          ? 'stale'
+          : lastResult?.kind === 'off-route'
+            ? 'off-route'
+            : 'acquiring';
     return {
       ...base,
-      status: 'acquiring',
+      status,
+      confirmed: false,
+      awayMeters: status === 'off-route' ? awayMeters : null,
       milesLeft: null,
       fraction: null,
       arrived: false,
@@ -504,7 +531,7 @@ export function viewSession(session: FloatSession, now: number): FloatView {
 
   const progress = stretchProgress(session.startMile, session.takeOut.riverMile, latest.riverMile);
   const startedPastTakeOut = session.kind === 'quick' && session.startMile >= session.takeOut.riverMile;
-  const lastKind = session.last?.result.kind;
+  const lastKind = lastResult?.kind;
   const status: FloatStatus = session.awaitingFix
     ? 'resuming'
     : now - (lastFixAt ?? latest.timestamp) > STALE_POSITION_MS
@@ -518,6 +545,8 @@ export function viewSession(session: FloatSession, now: number): FloatView {
   return {
     ...base,
     status,
+    confirmed: true,
+    awayMeters: status === 'off-route' ? awayMeters : null,
     milesLeft: Math.max(0, progress.remainingMiles),
     fraction: startedPastTakeOut ? null : progress.fraction,
     arrived: progress.arrived && beyond == null,
@@ -580,9 +609,30 @@ export function arrivalOutlook(minutes: number | null, now: number, at: LngLat):
   return { arriveAt, sunset, light };
 }
 
+/**
+ * The moment an arrival estimate counts from. Live, that is now: the paddler
+ * is where the estimate says, and a pause holds the minutes while the clock
+ * moves. Otherwise it is the last confirmed position. Adding the old minutes
+ * to the current clock made a stale estimate look freshly calculated and
+ * drift later each tick. `asOf` is set when the estimate is not current.
+ */
+export function arrivalAnchor(view: FloatView, now: number): { from: number; asOf: number | null } | null {
+  if (view.status === 'live') return { from: now, asOf: null };
+  if (view.positionAt == null) return null;
+  return { from: view.positionAt, asOf: view.positionAt };
+}
+
 /** The arrival line and any daylight warning, with the clock formatted by the caller. */
-export function arrivalCopy(outlook: ArrivalOutlook, formatTime: (ms: number) => string): { line: string; warning: string | null } {
-  const line = `Arrive around ${formatTime(outlook.arriveAt)}`;
+export function arrivalCopy(
+  outlook: ArrivalOutlook,
+  formatTime: (ms: number) => string,
+  /** The estimate is from the last known position, not a current one. */
+  asOf: number | null = null,
+): { line: string; warning: string | null } {
+  const line =
+    asOf == null
+      ? `Arrive around ${formatTime(outlook.arriveAt)}`
+      : `Arrive around ${formatTime(outlook.arriveAt)} · as of ${formatTime(asOf)}, your last known spot`;
   const sunset = outlook.sunset == null ? '' : formatTime(outlook.sunset);
   switch (outlook.light) {
     case 'after':
@@ -699,13 +749,16 @@ export function formatBeyond(meters: number): string {
 export function statusCopy(view: FloatView, now: number): string {
   switch (view.status) {
     case 'acquiring':
-      return 'Finding your spot on the river…';
+      return view.lastFixAt == null ? 'Waiting for GPS…' : 'Finding your spot on the river…';
     case 'resuming':
       return 'Finding your spot again. Showing where you were.';
     case 'uncertain':
       return 'Checking your position. Showing your last confirmed spot.';
-    case 'off-route':
-      return 'You look away from the river. Showing your last spot on it.';
+    case 'off-route': {
+      if (view.confirmed) return 'You look away from the river. Showing your last spot on it.';
+      const away = view.awayMeters == null ? '' : ` (about ${formatBeyond(view.awayMeters)} away)`;
+      return `You’re not on the ${view.riverName} yet${away}. Progress starts once you’re on it.`;
+    }
     case 'stale': {
       const minutes = view.lastFixAt == null ? null : Math.round((now - view.lastFixAt) / 60_000);
       return minutes == null ? 'Waiting for GPS.' : `Waiting for GPS. Last position ${minutes} min ago.`;
@@ -716,4 +769,12 @@ export function statusCopy(view: FloatView, now: number): string {
       }
       return view.arrived ? 'You’re at the take-out.' : 'Live';
   }
+}
+
+/**
+ * Offer "wrong river?" once GPS has put a float that never reached its river
+ * well away from it. Nothing has been measured, so cancelling loses nothing.
+ */
+export function offerRiverChange(view: FloatView): boolean {
+  return !view.confirmed && view.status === 'off-route' && (view.awayMeters ?? 0) > AWAY_FROM_RIVER_M;
 }

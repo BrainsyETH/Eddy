@@ -144,6 +144,17 @@ export function endFloat(): Promise<boolean> {
   return activityLifecycle.end(floatArchive.contributionVersion(store.get()?.archiveScope));
 }
 
+/**
+ * End a float that never reached its river, without a recap: nothing was
+ * measured, so history gets no empty entry. Refused (false) once a position
+ * on the river has been confirmed; use endFloat then.
+ */
+export function cancelUnstartedFloat(): Promise<boolean> {
+  const session = store.get();
+  if (!session || session.samples.length > 0) return Promise.resolve(false);
+  return activityLifecycle.end(null, undefined, false);
+}
+
 /** Change the active float's reminders. */
 export function setFloatReminders(update: (current: FloatReminderSettings) => Pick<FloatReminderSettings, 'takeOut' | 'stops' | 'hazards'>): void {
   store.setReminders(update);

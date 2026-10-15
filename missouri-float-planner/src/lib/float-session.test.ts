@@ -12,8 +12,10 @@ import type { MapAccessPoint } from '@eddy/types';
 import {
   MAX_SAMPLES,
   applyFix,
+  arrivalAnchor,
   arrivalCopy,
   arrivalOutlook,
+  offerRiverChange,
   mapFeatures,
   withHazards,
   formatDuration,
@@ -289,7 +291,7 @@ test('the status line says when a position is not live', () => {
   const { route, index } = prepared();
   const started = startSession({ id: 's10', kind: 'saved', route, index, putInId: 'akers', takeOutId: 'round-spring', now: T0 });
   assert.ok(started.ok);
-  assert.match(statusCopy(viewSession(started.session, T0), T0), /Finding/);
+  assert.match(statusCopy(viewSession(started.session, T0), T0), /Waiting for GPS/);
   const session = float(started.session, index, 1_000, T0, 30, 1);
   assert.equal(statusCopy(viewSession(session, T0 + 30_000), T0 + 30_000), 'Live');
   const later = T0 + 30_000 + 7 * 60_000;
@@ -561,4 +563,91 @@ test('an off-map take-out is not recorded as reached, however the float ends', a
   const copy = autoEndCopy(there);
   assert.doesNotMatch(`${copy.title} ${copy.body}`, /finished|ended your float at/i);
   assert.match(copy.body, /closest point to beyond/);
+});
+
+// ── Before the first confirmed position, and arrival once it goes stale ─────
+
+test('a quick start away from the river says so, instead of "finding your spot" forever', () => {
+  const { route, index } = prepared();
+  const started = startSession({ id: 'away1', kind: 'quick', route, index, takeOutId: 'round-spring', now: T0 });
+  assert.ok(started.ok);
+  let session = started.session;
+  assert.match(statusCopy(viewSession(session, T0), T0), /Waiting for GPS/);
+  // A parking lot 400 m from the river: GPS works, it just isn't the river.
+  let t = T0;
+  for (let s = 0; s < 6; s += 1) {
+    t += 10_000;
+    session = applyFix(session, index, { lngLat: at(2_000, 400), accuracyMeters: 10, timestamp: t }, t);
+  }
+  const near = viewSession(session, t);
+  assert.equal(near.status, 'off-route');
+  assert.equal(near.confirmed, false);
+  assert.equal(near.milesLeft, null);
+  assert.match(statusCopy(near, t), /not on the Current River yet \(about 400 m away\)/);
+  assert.equal(offerRiverChange(near), false, 'a nearby bank is not the wrong river');
+  // Then on the river: confirmed, and measured from there.
+  for (let s = 0; s < 3; s += 1) {
+    t += 10_000;
+    session = applyFix(session, index, fix(2_000 + s * 10, t), t);
+  }
+  const on = viewSession(session, t);
+  assert.equal(on.status, 'live');
+  assert.equal(on.confirmed, true);
+});
+
+test('far from the chosen river before any position, Eddy offers to change it', () => {
+  const { route, index } = prepared();
+  const started = startSession({ id: 'away2', kind: 'quick', route, index, takeOutId: 'round-spring', now: T0 });
+  assert.ok(started.ok);
+  let session = started.session;
+  let t = T0;
+  for (let s = 0; s < 6; s += 1) {
+    t += 10_000;
+    session = applyFix(session, index, { lngLat: at(2_000, 5_000), accuracyMeters: 10, timestamp: t }, t);
+  }
+  const view = viewSession(session, t);
+  assert.equal(view.status, 'off-route');
+  assert.equal(offerRiverChange(view), true);
+  // Once GPS goes quiet it says so, rather than still claiming where you are.
+  const later = t + 5 * 60_000;
+  assert.equal(viewSession(session, later).status, 'stale');
+  assert.equal(offerRiverChange(viewSession(session, later)), false);
+});
+
+test('fixes still being confirmed read as finding your spot, not waiting for GPS', () => {
+  const { route, index } = prepared();
+  const started = startSession({ id: 'conf', kind: 'quick', route, index, takeOutId: 'round-spring', now: T0 });
+  assert.ok(started.ok);
+  const session = applyFix(started.session, index, fix(2_000, T0), T0);
+  const view = viewSession(session, T0);
+  assert.equal(view.status, 'acquiring');
+  assert.match(statusCopy(view, T0), /Finding your spot/);
+});
+
+test('arrival counts from now only while live; stale holds it at the last known spot', () => {
+  const { route, index } = prepared();
+  const started = startSession({ id: 'eta', kind: 'saved', route, index, putInId: 'akers', takeOutId: 'round-spring', now: T0 });
+  assert.ok(started.ok);
+  const session = float(started.session, index, 1_000, T0, 600, 1);
+  const liveAt = T0 + 600_000;
+  const live = viewSession(session, liveAt);
+  assert.equal(live.status, 'live');
+  assert.deepEqual(arrivalAnchor(live, liveAt), { from: liveAt, asOf: null });
+
+  const takeOut = at(10_000);
+  const fmt = (ms: number) => new Date(ms).toISOString().slice(11, 16);
+  const arrivalAt = (now: number) => {
+    const view = viewSession(session, now);
+    const anchor = arrivalAnchor(view, now)!;
+    return { view, anchor, outlook: arrivalOutlook(view.estimate.minutes, anchor.from, takeOut)! };
+  };
+  // The bug: each tick after GPS stopped added the same minutes to a later
+  // clock, so "Arrive around" kept moving and looked current.
+  const a = arrivalAt(liveAt + 5 * 60_000);
+  const b = arrivalAt(liveAt + 20 * 60_000);
+  assert.equal(a.view.status, 'stale');
+  assert.equal(a.outlook.arriveAt, b.outlook.arriveAt, 'the estimate holds while nothing new is known');
+  assert.equal(a.anchor.asOf, a.view.positionAt);
+  assert.match(arrivalCopy(a.outlook, fmt, a.anchor.asOf).line, /as of \d\d:\d\d, your last known spot/);
+  assert.doesNotMatch(arrivalCopy(arrivalOutlook(30, liveAt, takeOut)!, fmt).line, /as of/);
 });

@@ -337,12 +337,14 @@ export function createFloatSessionStore(
      * `endedAt` is when the float finished, for an automatic end that noticed
      * late (floatEnding.ts); the recap may still clamp it (floatRecap.ts).
      */
-    end(contributionVersion: string | null = null, endedAt = Date.now()): Promise<boolean> {
+    end(contributionVersion: string | null = null, endedAt = Date.now(), recap = true): Promise<boolean> {
       if (ending) return ending;
       if (!session && !pendingRecap && !pendingEndId) return Promise.resolve(true);
       clearTimer();
       if (session) {
-        pendingRecap = { session, endedAt, contributionVersion };
+        // Without a recap (a float cancelled before it measured anything)
+        // the bare id is journalled instead, so it still cannot resume.
+        pendingRecap = recap ? { session, endedAt, contributionVersion } : null;
         pendingEndId = session.id;
       }
       publish(null, null);
@@ -384,6 +386,9 @@ export function createFloatSessionStore(
           // the same immutable recap id, never resumes tracking or duplicates it.
           await storage.setItem(ENDED_KEY, JSON.stringify(pendingRecap));
           await onEnd(pendingRecap.session, pendingRecap.endedAt, pendingRecap.contributionVersion ?? null);
+        } else if (endedId != null) {
+          // No recap to save: the id alone keeps a relaunch from resuming it.
+          await storage.setItem(ENDED_KEY, endedId);
         }
         // Remove only the float that was ended: a newer one may have been
         // started into the same key since.

@@ -25,6 +25,7 @@ import { useFloatSession } from '@/hooks/useFloatSession';
 import { onForeground } from '@/lib/foreground';
 import { endFloat } from '@/lib/floatSessionStore';
 import {
+  arrivalAnchor,
   arrivalCopy,
   arrivalOutlook,
   formatBeyond,
@@ -126,8 +127,9 @@ export default function FloatModeScreen() {
 
   const position: LngLat | null = session.position?.lngLat ?? null;
   const time = remainingCopy(view.estimate, view.takeOutBeyondMeters != null);
-  const outlook = arrivalOutlook(view.estimate.minutes, clock, ends.takeOut);
-  const arrival = outlook ? arrivalCopy(outlook, clockTime) : null;
+  const anchor = arrivalAnchor(view, clock);
+  const outlook = anchor ? arrivalOutlook(view.estimate.minutes, anchor.from, ends.takeOut) : null;
+  const arrival = outlook ? arrivalCopy(outlook, clockTime, anchor?.asOf ?? null) : null;
   const hazard = view.nextHazard;
   const live = view.status === 'live';
   // At the take-out, or as close as the mapped river goes to one off it.
