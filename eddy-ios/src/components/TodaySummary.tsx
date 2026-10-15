@@ -177,8 +177,8 @@ export function TodaySummary({
 
       {open && !prose ? (
         <View style={{ gap: 8 }}>
-          <Text style={[styles.prose, { color: colors.textMuted }]}>{loading ? 'Loading Ozarks update…' : error ? 'Couldn’t load the Ozarks update.' : 'No current Ozarks update is available.'}</Text>
-          {!loading && onRetry ? <Pressable onPress={onRetry} accessibilityRole="button" style={{ minHeight: 44, justifyContent: 'center', paddingLeft: 60 }}><Text style={{ color: colors.interactive }}>Retry update</Text></Pressable> : null}
+          <Text style={[styles.prose, { color: colors.textMuted }]}>{loading ? 'Loading Ozarks update…' : error ? 'Couldn’t load the Ozarks update.' : 'Summary unavailable while conditions are changing.'}</Text>
+          {!loading && error && onRetry ? <Pressable onPress={onRetry} accessibilityRole="button" style={{ minHeight: 44, justifyContent: 'center', paddingLeft: 60 }}><Text style={{ color: colors.interactive }}>Retry update</Text></Pressable> : null}
         </View>
       ) : null}
       {open && prose ? (
