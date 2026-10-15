@@ -277,10 +277,6 @@ for (const saved of [false, true]) {
     assert.deepEqual(activeStack().routes.at(-1), takeoutPage, 'Back lost the selected river');
     push({ pathname: '/float-start', params: { step: 'summary', riverSlug: 'current', takeOutId: 'two-rivers', startKey: entryKey } });
   }
-  const summary = activeStack().routes.at(-1);
-  push({ pathname: '/float-start', params: { ...summary.params, step: 'background', startKey: entryKey } });
-  back();
-  assert.deepEqual(activeStack().routes.at(-1), summary, 'Dismissing the permission sheet lost the summary');
   const stack = activeStack();
   const routes = completedFloatRoutes(stack.routes, entryKey);
   state = apply({ type: 'RESET', target: stack.key, payload: { ...stack, routes, index: routes.length - 1 } });
@@ -289,7 +285,7 @@ for (const saved of [false, true]) {
   back();
   assert.deepEqual(activeStack().routes.at(-1), origin, 'Completing setup lost its origin screen');
 }
-console.log('Quick/saved float setup, native Back, sheet dismissal, and completed-session history verified.');
+console.log('Quick/saved float setup, native Back, and completed-session history verified.');
 
 // Floats planners live in their originating stack. The kept-alive Map route
 // never receives their selected river/endpoints or their dismissal state.

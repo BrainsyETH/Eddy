@@ -12,7 +12,7 @@
 //
 //   The session is read from the store, never from the result of the first
 //   load. A load that found nothing at launch must not hide a float started
-//   since; the background task asks for the CURRENT session every time.
+//   since; the recorder wiring asks for the CURRENT session every time.
 //
 //   One start at a time: a start reserves itself before it awaits the disk,
 //   so two quick taps cannot both pass the "nothing active" check.
@@ -25,7 +25,7 @@
 //   "No float" and "could not read the float" are different answers. A read
 //   that failed is retried on the next ensureLoaded; until one succeeds,
 //   begin refuses (a new float would overwrite the one it could not see) and
-//   loadFailed() lets the background task keep tracking instead of stopping.
+//   loadFailed() lets the recorder wiring keep recording instead of stopping.
 //
 //   An ended float stays ended. Tracking stops at once; if the stored copy
 //   cannot be removed, removal is retried, and an "ended" marker under its own
@@ -84,7 +84,6 @@ export function createFloatSessionStore(
   /** The last load could not read storage; the next ensureLoaded tries again. */
   let loadFailed = false;
   let dirty = false;
-  let lastWriteAt = 0;
   let writeTimer: ReturnType<typeof setTimeout> | null = null;
   /** A start in flight, holding the slot until it lands or fails. */
   let starting = false;
@@ -114,7 +113,6 @@ export function createFloatSessionStore(
 
   /** Throws on failure; callers decide what a failed write means. */
   const writeNow = async () => {
-    lastWriteAt = Date.now();
     if (session) await storage.setItem(STORAGE_KEY, JSON.stringify(session));
     // Only the end transaction removes the session key.
     dirty = false;
@@ -277,7 +275,6 @@ export function createFloatSessionStore(
         }
         // The new float now occupies the key an unfinished end was clearing.
         pendingEndId = null;
-        lastWriteAt = Date.now();
         dirty = false;
         publish(next, built.index);
         return 'started';
@@ -286,11 +283,21 @@ export function createFloatSessionStore(
       }
     },
 
-    /** Feed GPS fixes, in time order, from the screen or a background task. */
-    record(fixes: readonly PositionFix[], now = Date.now()): void {
-      if (!session || !index || fixes.length === 0) return;
+    /**
+     * Feed GPS fixes, in time order. `journalTo` is the journal offset these
+     * fixes end at (floatRecording.ts); it is saved with what they changed,
+     * even when no fix changed anything, so they are never applied twice.
+     *
+     * Journal fixes are judged as of their own time: each was live when the
+     * recorder wrote it, and one replayed after a relaunch is a real past
+     * position, not a stale reading of where the paddler is now. Reminders
+     * below still use the real clock, so a replayed position never prompts.
+     */
+    record(fixes: readonly PositionFix[], now = Date.now(), journalTo?: number): void {
+      if (!session || !index) return;
       let next = session;
-      for (const fix of fixes) next = applyFix(next, index, fix, now);
+      for (const fix of fixes) next = applyFix(next, index, fix, journalTo != null ? fix.timestamp : now);
+      if (journalTo != null && journalTo !== next.journalTo) next = { ...next, journalTo };
       if (next === session) return;
       const due = dueReminders(next, index, now).filter((reminder) => (retryAt.get(reminder.id) ?? 0) <= now);
       if (due.length > 0) next = markPending(next, due.map((reminder) => reminder.id));
@@ -324,11 +331,6 @@ export function createFloatSessionStore(
     async flush(): Promise<void> {
       clearTimer();
       if (dirty) await writeQuietly();
-    },
-
-    /** For the background task, where the throttle timer may never fire. */
-    async flushIfStale(minIntervalMs: number): Promise<void> {
-      if (dirty && Date.now() - lastWriteAt >= minIntervalMs) await this.flush();
     },
 
     /**

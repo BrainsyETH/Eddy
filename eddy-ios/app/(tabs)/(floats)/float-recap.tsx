@@ -4,6 +4,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import type { CompletedFloat } from '@eddy/conditions/float-archive';
 import { useFloatArchive } from '@/hooks/useFloatArchive';
 import { floatArchive } from '@/lib/floatArchive';
+import { deleteFloatTrack } from '@/float/floatTracks';
 import { formatDuration } from '@/lib/floatSession';
 import { useTheme } from '@/theme/ThemeProvider';
 import { textStyles, type as t } from '@/theme/typography';
@@ -19,7 +20,7 @@ export default function FloatRecapScreen() {
   const remove = () =>
     Alert.alert(
       'Delete this float?',
-      'This removes the recap from your history and account backup when connected. It also removes it from future estimate analysis.',
+      'This removes the recap from your history and account backup when connected, and its GPS track from this phone. It also removes it from future estimate analysis.',
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -29,6 +30,8 @@ export default function FloatRecapScreen() {
             if (!archive.owner) return;
             void floatArchive
               .remove(id, archive.scopeToken)
+              // The raw track belongs to the recap: it goes with it.
+              .then(() => deleteFloatTrack(id))
               .then(() => router.replace('/float-history'))
               .catch(() => Alert.alert('Could not delete', 'Please try again.'));
           },

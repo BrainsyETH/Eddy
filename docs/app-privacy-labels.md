@@ -173,14 +173,18 @@ it is not a separate purpose option in Apple's questionnaire.
 opted-in completed-float summaries. No tracking.**
 
 - Nearby sorting and Float Mode use GPS on the device. Float Mode requests
-  foreground permission when started and offers Always permission for tracking
-  while locked. `app.json` enables background location. Ending stops tracking.
-  With Always, significant-location-change and region monitoring (a geofence
-  around the latest fix, on the device only) are used to try to relaunch Eddy
-  to resume a float after it is closed (device-unconfirmed). A float left running ends itself an hour after reaching
-  the take-out or 45 minutes after leaving the river.
-- Raw Float Mode positions, pace samples, tracker state and the river-line copy
-  stay on the phone and are removed when ending is durably saved. The account
+  When In Use permission only; Eddy never requests Always. While a float is
+  running, a Core Location background activity session keeps recording with
+  the phone locked and shows the blue location indicator (ADR 0014).
+  `app.json` enables the location background mode for that session. Ending
+  stops recording. If iOS ends Eddy mid-float, iOS relaunches it to resume the
+  session (device-unconfirmed). A float left running ends itself an hour after
+  reaching the take-out or 45 minutes after leaving the river.
+- Raw Float Mode positions stay on the phone: each float's GPS track is kept
+  in a local file, excluded from iCloud and device backups, never uploaded,
+  and deleted with that float's recap or with the account (ADR 0014). Pace
+  samples, tracker state and the river-line copy are removed when ending is
+  durably saved. The account
   backup contains a summary, including route endpoints and first/last river mile
   with exact times. A route and mile can locate someone precisely even without
   uploading latitude/longitude. Treat these summaries as linked location data.
@@ -221,10 +225,11 @@ is introduced by these features.
 > is available on the paywall and in Profile.
 >
 > **Location is requested in context, never on launch.** Float Mode uses
-> location to show progress to a chosen take-out. Always permission lets it
-> continue while the phone is locked in a dry bag; ending a float stops tracking,
-> and a float left running ends itself after the take-out is reached or the
-> paddler leaves the river.
+> location to show progress to a chosen take-out. It asks for When In Use
+> permission only; a float continues while the phone is locked in a dry bag
+> through a background activity session, shown by the blue location
+> indicator. Ending a float stops tracking, and a float left running ends
+> itself after the take-out is reached or the paddler leaves the river.
 > Raw float positions stay on the phone. Signed-in users back up trip summaries,
 > including route and times, and can optionally contribute them to improve
 > estimates. Hazard reports send the location and time of the submitted hazard;
@@ -232,8 +237,8 @@ is introduced by these features.
 >
 > **To review Float Mode:** open Floats › Start Float, select a supported river
 > from the full list (nearby suggestions are optional), choose a take-out, and
-> start. Precise foreground location is required for tracking. The Always-location
-> explanation offers foreground-only tracking as an alternative. Away from a
+> start. Precise location is required for tracking; no other permission is
+> requested. Away from a
 > supported river, progress/pace can remain unavailable; that is expected.
 > Ending the float still creates a recap and stops tracking. An attached field
 > recording demonstrates on-river progress and locked-phone tracking; it is not
@@ -289,7 +294,8 @@ Any of these changes the answers above:
   collection, purposes and Apple’s tracking definition for the actual flow.
 - Sending a coordinate to any server, for any reason.
 - Calling `Sentry.setUser`, or enabling `sendDefaultPii` / tracing.
-- Requesting Always location or adding a background mode.
+- Requesting Always location, adding another background mode, or sending a
+  float's raw GPS track off the phone.
 - Re-enabling Mapbox telemetry, or adding a maps SDK that collects by default.
 - Collecting health, financial, browsing, or contacts data — none is collected
   today.

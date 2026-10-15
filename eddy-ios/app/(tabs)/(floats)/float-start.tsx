@@ -3,7 +3,8 @@
 // Preview location never seeds tracking. beginFloat still owns session creation.
 //
 // The pieces live in src/float/start/: the river picker, the location card,
-// the background-location sheet, the start logic (useStart) and the shared UI.
+// the start logic (useStart) and the shared UI. Only When In Use is asked
+// for; locked-phone recording needs nothing more (ADR 0014).
 // This file is the route and the two steps that need the loaded river.
 import { useMemo, useState } from 'react';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
@@ -13,7 +14,6 @@ import { milesBetween } from '@eddy/geo';
 import { useFloatSession, useFloatSessionUnreadable } from '@/hooks/useFloatSession';
 import { useFloatStartLocation } from '@/hooks/useFloatStartLocation';
 import { routeProblemCopy, type LoadedRoute } from '@/float/loadFloatRoute';
-import { BackgroundStep } from '@/float/start/BackgroundStep';
 import { LocationGate } from '@/float/start/LocationGate';
 import { RiverPicker } from '@/float/start/RiverPicker';
 import { BoatChoice, Card, PrimaryButton, RiverName, Row, Shell, SummaryLine, TextButton, styles } from '@/float/start/ui';
@@ -85,7 +85,7 @@ function StartFlow({ params }: { params: Params }) {
   };
   const start = useStart(nextParams, loaded, location);
   const saved = Boolean(params.putInId && params.takeOutId);
-  const summary = saved || params.step === 'summary' || params.step === 'background';
+  const summary = saved || params.step === 'summary';
 
   const screen = (
     <Stack.Screen
@@ -93,14 +93,6 @@ function StartFlow({ params }: { params: Params }) {
         title: 'Start a float',
         headerBackButtonMenuEnabled: false,
         gestureEnabled: !start.busy,
-        ...(params.step === 'background'
-          ? {
-              presentation: 'formSheet',
-              sheetAllowedDetents: [0.5, 1],
-              sheetGrabberVisible: true,
-              headerShown: false,
-            }
-          : {}),
       }}
     />
   );
@@ -127,8 +119,6 @@ function StartFlow({ params }: { params: Params }) {
         <Text style={[styles.body, { color: colors.text }]}>{routeProblemCopy(loaded.reason)}</Text>
       </Shell>
     );
-  } else if (params.step === 'background') {
-    body = <BackgroundStep location={location} start={start} />;
   } else if (!summary) {
     body = (
       <TakeOutStep
@@ -376,7 +366,7 @@ function SummaryStep({
               This take-out is behind you. Go back to choose one downstream.
             </Text>
           ) : null}
-          <PrimaryButton label="Start float" busy={start.busy} disabled={upstream} onPress={() => void start.run('start')} />
+          <PrimaryButton label="Start float" busy={start.busy} disabled={upstream} onPress={() => void start.run()} />
         </>
       )}
       {start.error ? (

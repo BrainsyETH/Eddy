@@ -166,6 +166,14 @@ export interface FloatSession {
    * nothing is live until fresh fixes confirm a position again.
    */
   awaitingFix?: boolean;
+  /**
+   * The byte offset in this float's native journal that the session has
+   * applied up to (floatRecording.ts). Saved with the progress derived from
+   * those fixes, so a relaunch replays exactly what came after. Absent on
+   * floats started before recording was native: they replay from 0, and
+   * fixes older than what the session already holds are ignored by applyFix.
+   */
+  journalTo?: number;
   /** On-water reminders; see floatReminders.ts. Absent means the defaults. */
   reminders?: FloatReminderSettings;
   /**
@@ -666,14 +674,16 @@ export function restoreSession(raw: string | null): FloatSession | null {
   try {
     const parsed = JSON.parse(raw) as Partial<FloatSession>;
     if (parsed?.version !== SESSION_VERSION || !parsed.id || !parsed.route || !parsed.takeOut || !parsed.track) return null;
-    // Nobody knows what happened while the app was gone. Keep the progress,
-    // but forget the confirmed position so the tracker reacquires with its
-    // usual confirmation, and the first fix after it counts as a break in
-    // pace rather than as movement. Nothing reads as live until then.
+    // Restored exactly. The session is a checkpoint of the native journal
+    // (floatRecording.ts), and the fixes after it are replayed from there, so
+    // the tracker continues as if Eddy had never stopped. A real gap in GPS
+    // (Eddy not running, a dead zone) is a gap in fix times, which trackFix
+    // already treats as one: after REACQUIRE_AFTER_MS it confirms a position
+    // afresh and the first fix after it is a break in pace, not movement.
+    // `awaitingFix` only says so on screen until the next confirmed fix.
     return {
       ...parsed,
       position: parsed.position ?? null,
-      track: { ...parsed.track, committed: null, candidate: null },
       awaitingFix: true,
       // A handover interrupted by the app ending may or may not have shown;
       // it becomes eligible again rather than silently lost (floatReminders.ts).

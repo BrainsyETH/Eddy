@@ -1,66 +1,58 @@
 // missouri-float-planner/src/lib/float-permissions.test.ts
 //
-// Covers eddy-ios/src/lib/floatPermissions.ts and floatTrackerStatus.ts: what
-// each location permission state lets a float do, what the stream is actually
-// doing, and that the screen never promises more than either.
+// Covers eddy-ios/src/lib/floatPermissions.ts (whether a float can start)
+// and floatTrackerStatus.ts (what Float Mode says about tracking, from the
+// native recorder's own diagnostics), and that the screen never promises more
+// than the recorder reports.
 
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { startLocationState, trackingMode } from '../../../eddy-ios/src/lib/floatPermissions';
-import { createTrackerStatusStore, trackingLine, type TrackerState } from '../../../eddy-ios/src/lib/floatTrackerStatus';
+import { startLocationState } from '../../../eddy-ios/src/lib/floatPermissions';
+import { IDLE_TRACKER, type TrackerState } from '../../../eddy-ios/src/lib/floatRecording';
+import { createTrackerStatusStore, trackingLine } from '../../../eddy-ios/src/lib/floatTrackerStatus';
 
-const running = (status: TrackerState['status'], backgroundFailed = false): TrackerState => ({ status, backgroundFailed });
-
-test('each permission state maps to what tracking can actually do', () => {
-  const precise = { status: 'granted', ios: { accuracy: 'full' as const } };
-  assert.equal(trackingMode(null, null), 'unknown');
-  assert.equal(trackingMode({ status: 'denied' }, null), 'none');
-  assert.equal(trackingMode({ status: 'undetermined' }, null), 'none');
-  assert.equal(trackingMode(precise, { status: 'granted' }), 'locked');
-  // While Using, and Allow Once (a session grant), cannot track while locked.
-  assert.equal(trackingMode(precise, { status: 'denied' }), 'screen-on');
-  assert.equal(trackingMode(precise, null), 'screen-on');
-  // Approximate location cannot place anyone on a river, Always or not.
-  assert.equal(trackingMode({ status: 'granted', ios: { accuracy: 'reduced' } }, { status: 'granted' }), 'approximate');
+const tracker = (status: TrackerState['status'], extra: Partial<TrackerState> = {}): TrackerState => ({
+  ...IDLE_TRACKER,
+  status,
+  ...extra,
 });
 
-test('locked-phone tracking is promised only while the background stream runs', () => {
-  assert.match(trackingLine('locked', running('background'))!.text, /carries on with your phone locked/);
-  assert.equal(trackingLine('locked', running('background'))!.action, 'info');
-  // The bug: "Always" granted, the background start failed, tracking fell
-  // back to the foreground, and the screen still said it carried on locked.
-  const fellBack = trackingLine('locked', running('foreground', true))!;
-  assert.doesNotMatch(fellBack.text, /carries on/);
-  assert.match(fellBack.text, /pauses while your phone is locked/);
-  assert.equal(fellBack.action, 'retry');
-  for (const status of ['starting', 'foreground', 'failed', 'blocked', 'idle'] as const) {
-    assert.doesNotMatch(trackingLine('locked', running(status))?.text ?? '', /carries on/, status);
+test('locked-phone tracking is promised only while the recorder reports recording with nothing blocking it', () => {
+  const ok = trackingLine(tracker('recording'))!;
+  assert.match(ok.text, /carries on with your phone locked/);
+  assert.equal(ok.action, 'info');
+  for (const status of ['starting', 'failed', 'unavailable'] as const) {
+    assert.doesNotMatch(trackingLine(tracker(status))?.text ?? '', /carries on/, status);
+  }
+  for (const blocked of [{ servicesOff: true }, { denied: true }, { preciseOff: true }, { notInUse: true }]) {
+    assert.doesNotMatch(trackingLine(tracker('recording', blocked))!.text, /carries on/, JSON.stringify(blocked));
   }
 });
 
-test('While Using says tracking pauses when locked, and points to Settings', () => {
-  const line = trackingLine('screen-on', running('foreground'))!;
-  assert.match(line.text, /pauses while your phone is locked/);
-  assert.equal(line.action, 'settings');
+test('the most fundamental block is the one shown, with the action that fixes it', () => {
+  const everything = tracker('recording', { servicesOff: true, denied: true, preciseOff: true, notInUse: true });
+  assert.match(trackingLine(everything)!.text, /Location Services are off/);
+  assert.equal(trackingLine(everything)!.action, 'settings');
+  assert.equal(trackingLine(tracker('recording', { denied: true }), true)!.action, 'request');
+  assert.equal(trackingLine(tracker('recording', { denied: true }), false)!.action, 'settings');
+  assert.match(trackingLine(tracker('recording', { preciseOff: true }))!.text, /Precise Location is off/);
+  assert.equal(trackingLine(tracker('recording', { notInUse: true }))!.action, 'retry');
 });
 
-test('a failed start offers a retry; a permission problem wins over the stream', () => {
-  assert.equal(trackingLine('locked', running('failed'))!.action, 'retry');
-  assert.equal(trackingLine('screen-on', running('failed'))!.action, 'retry');
-  assert.equal(trackingLine('approximate', running('foreground'))!.action, 'settings');
-  assert.equal(trackingLine('none', running('blocked'), true)!.action, 'request');
-  assert.equal(trackingLine('none', running('blocked'), false)!.action, 'settings');
-  assert.equal(trackingLine('locked', running('idle')), null);
-  assert.equal(trackingLine('unknown', running('idle')), null);
+test('a failed recorder offers a retry; no float says nothing; a build without the recorder says so', () => {
+  assert.equal(trackingLine(tracker('failed'))!.action, 'retry');
+  assert.equal(trackingLine(IDLE_TRACKER), null);
+  assert.match(trackingLine(tracker('unavailable'))!.text, /isn’t available in this build/);
+  assert.equal(trackingLine(tracker('starting'))!.action, 'info');
 });
 
-test('the tracker status store notifies on change only, and Retry reaches the registered tracker', () => {
+test('the tracker status store notifies on change only, and Retry reaches the registered handler', () => {
   const store = createTrackerStatusStore();
   let heard = 0;
   store.subscribe(() => (heard += 1));
-  store.set(running('starting'));
-  store.set(running('starting'));
-  store.set(running('foreground', true));
+  store.set(tracker('starting'));
+  store.set(tracker('starting'));
+  store.set(tracker('recording', { preciseOff: true }));
   assert.equal(heard, 2);
   let retried = 0;
   store.retry();

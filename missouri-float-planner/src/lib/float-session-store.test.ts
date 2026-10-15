@@ -55,7 +55,7 @@ function fakeDisk() {
 
 const quiet = () => {};
 
-test('a float started after an empty launch is visible to every reader, the background task included', async () => {
+test('a float started after an empty launch is visible to every reader, the recorder wiring included', async () => {
   // The bug: the launch-time load found nothing, and a reader that used that
   // load's result concluded there was no float and stopped tracking.
   const store = createFloatSessionStore(fakeDisk(), quiet);

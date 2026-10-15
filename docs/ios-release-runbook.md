@@ -232,9 +232,19 @@ remain a non-blocking follow-up.
 Float Mode (Phases 2–4 of #1448) adds native code and a background mode. These
 are pending checks, not evidence of a device pass.
 
-- [ ] **Ship a new binary.** `expo-task-manager` and `expo-keep-awake` are now
-      direct dependencies and `isIosBackgroundLocationEnabled` is `true`, so
-      the runtime fingerprint changes. Over-the-air updates cannot deliver this.
+- [ ] **Ship a new binary.** Native float recording (ADR 0014) adds the
+      `eddy-float-recorder` module and its app-delegate subscriber, raises the
+      minimum iOS to 18.0 (`expo-build-properties`, and the widget extension in
+      `plugins/withFloatActivity.js`), adds
+      `NSLocationTemporaryUsageDescriptionDictionary`, and removes
+      `expo-task-manager`; `expo-keep-awake` is a direct dependency and
+      `isIosBackgroundLocationEnabled` is `true`. The runtime fingerprint
+      changes; over-the-air updates cannot deliver this. Phones below iOS 18
+      stay on the previous store build.
+- [ ] **First native compile of `modules/eddy-float-recorder`.** It was
+      written against Apple's iOS 18 Core Location reference without a local
+      Xcode build. Build a development client, fix anything the compiler
+      reports, and record the Xcode version used.
 - [ ] **Do not submit a binary that declares background location the reviewer
       cannot see used.** Store builds show Float Mode only when the server
       flag is on (`FLOAT_MODE_ENABLED=true` on Vercel; see
@@ -243,14 +253,17 @@ are pending checks, not evidence of a device pass.
       Float Mode regardless.
 - [ ] **Reviewer notes** (append to the block in `docs/app-privacy-labels.md`):
       Float Mode (Floats tab → Start Float) tracks progress to a take-out
-      during a river float. It asks for location “Always” only when a float
-      starts, so tracking continues with the phone locked in a dry bag; the
-      blue location indicator shows while it runs, and tracking stops when the
-      float ends. Raw float positions stay on the device. Signed-in recap summaries
+      during a river float. It asks for When In Use location only; a Core
+      Location background activity session keeps tracking with the phone
+      locked in a dry bag, the blue location indicator shows while it runs,
+      and tracking stops when the float ends. Raw float positions stay on the device. Signed-in recap summaries
       are backed up, and explicit hazard reports transmit their captured location.
-- [ ] **Permission states on a device:** Always, While Using (tracking pauses
-      when locked, and the screen says so), Allow Once, Precise Location off
-      (Float Mode says it cannot place you), denied. No prompt loops.
+- [ ] **Permission states on a device:** While Using (tracks with the phone
+      locked; no Always prompt ever appears), Allow Once, Precise Location off
+      (the temporary precise-location prompt appears; declining it makes Float
+      Mode say it cannot place you), Location Services off, denied, and
+      permission withdrawn in Settings mid-float. Each shows the line its
+      Core Location diagnostic calls for. No prompt loops.
 - [ ] **Release acceptance matrix in #1448** passed on physical iPhones,
       including an older one: download at home → no service at the river →
       start → lock for an hour → reopen with credible position, miles and time
@@ -279,13 +292,20 @@ are pending checks, not evidence of a device pass.
       be recorded as reached. The arrival time and
       sunset warning read right late in the day. Pure rules:
       `float-reminders.test.ts`, `float-session.test.ts`.
-- [ ] **Closing Eddy mid-float** with Always granted: swipe Eddy away, keep
-      floating, and confirm tracking resumes without reopening it (significant
-      location change and the wake geofence relaunch it; expect a delay in
-      dead zones). Record how long the gap was with and without cell coverage.
-      Swiping away with While Using must leave the float intact on reopen.
-      Until this passes, Float Mode tells people to leave Eddy open in the
-      background; only change that copy with this evidence recorded.
+- [ ] **Closing Eddy mid-float:** swipe Eddy away, keep floating, and
+      confirm recording resumes without reopening it: iOS relaunches Eddy for
+      the background activity session and the app-delegate subscriber resumes
+      it (ADR 0014). Open Eddy afterwards: the path while it was closed is in
+      the recap, replayed from the journal. Record how long the gap was, with
+      and without cell coverage, and repeat after a reboot mid-float. Until
+      this passes, Float Mode tells people to leave Eddy open in the
+      background; only change that copy (`floatTrackerStatus.ts`) with this
+      evidence recorded.
+- [ ] **Journal durability:** mid-float, force a termination from Xcode
+      (stop the process) with the phone locked; reopen and confirm no
+      distance is lost. Delete that float's recap and confirm Storage no
+      longer counts its GPS track; delete the account and confirm Storage
+      shows no tracks.
 
 - [ ] **Starting a float and the on-water layout** on a physical iPhone,
       including the smallest supported screen. The start summary shows the
@@ -296,9 +316,8 @@ are pending checks, not evidence of a device pass.
       hazard and end markers are labelled and open a card when tapped. A quick
       start in a parking lot reads "not on the <river> yet (about N m away)",
       not "Finding your spot". A float started more than 1 km from its river
-      offers "choose another river", and that adds no recap to history. With
-      Always granted the tracking line says locked-phone tracking is on, and
-      with While Using it says tracking pauses. In airplane mode mid-float,
+      offers "choose another river", and that adds no recap to history. While
+      recording, the tracking line says locked-phone tracking is on. In airplane mode mid-float,
       the arrival line holds still and reads "as of <time>". Pure rules:
       `float-session.test.ts`, `float-session-store.test.ts`,
       `float-permissions.test.ts`.
@@ -365,7 +384,7 @@ as the freshness and photo-ban work if the runtime fingerprint matches.
       a location change), tap Locate. The map centres on the new position, not
       the earlier one. With GPS unavailable (airplane mode, indoors), the
       spinner ends within about 15 seconds.
-- [ ] End during start: start a float with "Always" granted and tap End
+- [ ] End during start: start a float and tap End
       immediately. The blue location indicator disappears and stays gone;
       repeat with the phone locked straight after End.
 - [ ] Float Mode with keep-awake on: the screen stays awake through several GPS

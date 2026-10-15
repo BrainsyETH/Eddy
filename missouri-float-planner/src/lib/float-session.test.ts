@@ -372,27 +372,33 @@ test('reaching the river’s closest point to an off-river take-out is not arriv
   assert.equal(arrived.atRiverEnd, false);
 });
 
-test('after a relaunch nothing reads as live until fresh fixes confirm a position', () => {
+test('a relaunch restores the session exactly; only a real gap in fixes makes the tracker reacquire', () => {
   const { route, index } = prepared();
   const started = startSession({ id: 'r1', kind: 'saved', route, index, putInId: 'akers', takeOutId: 'round-spring', now: T0 });
   assert.ok(started.ok);
   const before = float(started.session, index, 1_000, T0, 60, 1);
   assert.equal(viewSession(before, T0 + 60_000).status, 'live');
 
-  // Relaunched 30 s later: the stored verdict said Live, which is no longer known.
+  // Relaunched: progress and the tracker's state are kept, and the screen
+  // says it is finding the spot again until the next confirmed fix.
   const restored = restoreSession(JSON.stringify(before))!;
+  assert.deepEqual(restored.track, before.track);
   const view = viewSession(restored, T0 + 90_000);
   assert.equal(view.status, 'resuming');
   assert.ok(view.milesLeft != null, 'progress is kept, shown as where you were');
   assert.match(statusCopy(view, T0 + 90_000), /again/);
 
-  // One fix is not enough; the usual confirmation applies.
-  let session = applyFix(restored, index, fix(1_100, T0 + 100_000), T0 + 100_000);
-  assert.equal(viewSession(session, T0 + 100_000).status, 'resuming');
-  session = applyFix(session, index, fix(1_110, T0 + 110_000), T0 + 110_000);
-  session = applyFix(session, index, fix(1_120, T0 + 120_000), T0 + 120_000);
-  assert.equal(viewSession(session, T0 + 120_000).status, 'live');
-  // The gap is a break in pace evidence, not movement.
+  // The next fix 40 s on is ordinary movement: the journal had no gap.
+  const next = applyFix(restored, index, fix(1_100, T0 + 100_000), T0 + 100_000);
+  assert.equal(viewSession(next, T0 + 100_000).status, 'live');
+
+  // Ten minutes with no fixes (Eddy was not running) is a real gap: the
+  // tracker confirms afresh, and the gap is a break in pace, not movement.
+  let session = applyFix(restored, index, fix(1_600, T0 + 660_000), T0 + 660_000);
+  assert.equal(viewSession(session, T0 + 660_000).status, 'resuming');
+  session = applyFix(session, index, fix(1_610, T0 + 670_000), T0 + 670_000);
+  session = applyFix(session, index, fix(1_620, T0 + 680_000), T0 + 680_000);
+  assert.equal(viewSession(session, T0 + 680_000).status, 'live');
   const last = session.samples[session.samples.length - 1];
   assert.equal(last.continuous, false);
 });
