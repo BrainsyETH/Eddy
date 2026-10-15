@@ -1,6 +1,7 @@
 # River Window
 
-`/embed/display` is a landscape, ambient river display. It is an independent
+`/embed/display` defaults to the [Missouri mills collection](missouri-mills.md).
+The original landscape below remains available at `?theme=river`. It is an independent
 replacement for the display proposed in PR #1506; it does not include that
 PR's admin visual-guide gallery.
 
@@ -9,7 +10,7 @@ PR's admin visual-guide gallery.
 The capture above is the actual route in Chromium with test readings, not
 a separate design mockup. Runtime readings come from `/api/rivers`.
 
-Open `/embed/display?rivers=current,jacks-fork,eleven-point` on a landscape
+Open `/embed/display?theme=river&rivers=current,jacks-fork,eleven-point` on a landscape
 screen. Optional parameters: `name` (up to 50 characters) and `motion=off`.
 The default rivers are Current, Jacks Fork and Eleven Point. Explicit unknown
 slugs show an empty state; they never silently select a different river.

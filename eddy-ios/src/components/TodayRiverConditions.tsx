@@ -28,7 +28,6 @@ export function TodayRiverConditions({ rivers, total, counts, photos, onBrowse, 
     { key: 'floatable', label: 'Floatable', code: 'good', icon: 'water-outline' },
     { key: 'low', label: 'Low', code: 'low', icon: 'arrow-down-outline' },
     { key: 'high', label: 'High', code: 'high', icon: 'arrow-up-outline' },
-    { key: 'unknown', label: 'No fresh reading', code: 'unknown', icon: 'time-outline' },
   ] as const;
 
   return (
@@ -84,13 +83,13 @@ function CompactRiverRow({ river, photoUrl, stacked, onPress }: {
   const [failedPhoto, setFailedPhoto] = useState<string | null>(null);
   const code = river.currentCondition?.code ?? 'unknown';
   const reading = river.currentCondition ? primaryReading(river.currentCondition) : null;
-  const measurement = reading ? formatReading(reading.value, reading.unit) : 'No fresh reading';
+  const measurement = reading ? formatReading(reading.value, reading.unit) : null;
   return (
     <Pressable
       onPress={onPress}
       style={({ pressed }) => [styles.river, { borderTopColor: colors.border, opacity: pressed ? 0.65 : 1 }]}
       accessibilityRole="button"
-      accessibilityLabel={`${river.name}, ${conditionLabel(code)}, ${measurement}`}
+      accessibilityLabel={[river.name, conditionLabel(code), measurement].filter(Boolean).join(', ')}
     >
       <View style={[styles.thumbnail, { backgroundColor: colors.selectionBg }]}
         accessible={false} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
@@ -104,7 +103,7 @@ function CompactRiverRow({ river, photoUrl, stacked, onPress }: {
       <View style={[styles.riverBody, stacked && styles.riverBodyStacked]}>
         <View style={[styles.riverCopy, stacked && styles.riverCopyStacked]}>
           <Text style={[styles.riverName, { color: colors.text }]}>{river.name}</Text>
-          <Text style={[styles.riverMeta, { color: colors.textMuted }]}>{measurement}</Text>
+          {measurement ? <Text style={[styles.riverMeta, { color: colors.textMuted }]}>{measurement}</Text> : null}
         </View>
         <View style={[styles.status, stacked && styles.statusStacked]}>
           <View style={[styles.statusDot, { backgroundColor: conditionColor(code) }]} />

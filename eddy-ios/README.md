@@ -952,15 +952,20 @@ started — look at step 2, not step 3.
 
 ## River guides
 
-Today includes a free **River guides** entry leading to `/river-guides`, a
+Today features one free **River guide** each local calendar day, with its photo
+and excerpt. The card opens that article; **See all** opens `/river-guides`, a
 searchable native list of published `River Guides` articles from `/api/blog`.
+The feature cycles through the published catalog in slug order, staying stable
+throughout the day while that catalog is unchanged. It advances on the next
+visible minute after midnight or when the screen regains focus/foreground, and
+pull-to-refresh reloads the catalog.
 Each river detail page also shows its matching published guide, if one exists.
 The full article opens on `eddy.guide` in the in-app browser, retaining the shared web
 layout, live conditions and planner links. This is evergreen content, separate
-from Eddy’s Reads. Loading happens when the catalog or river detail opens, not
-at app startup; failures offer retry in the catalog and hide the optional
-river-detail link. The catalog has no entitlement requirement; its links use the
-shared browser behavior below.
+from Eddy’s Reads. Loading happens when Today, the catalog, or river detail
+mounts, without blocking app startup; failures offer retry on Today and in the
+catalog, and hide the optional river-detail link. The catalog has no entitlement
+requirement; its links use the shared browser behavior below.
 
 Content and import instructions live in the
 [river-guide runbook](../missouri-float-planner/docs/river-guide-style.md#repository-authored-guides-and-publishing).

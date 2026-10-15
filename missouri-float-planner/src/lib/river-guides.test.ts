@@ -3,7 +3,7 @@ import test from 'node:test';
 import { riverGuideSeeds } from '../../scripts/content/river-guides';
 import { guideInsertRow, planRiverGuideSeeds, type RiverGuideSeed } from '../../scripts/lib/river-guide-seeds';
 import { favoriteFloatMeta } from '../../../eddy-ios/src/lib/favoriteFloatCopy';
-import { selectRiverGuides, riverGuideUrl } from '../../../eddy-ios/src/lib/riverGuides';
+import { selectRiverGuides, selectFeaturedRiverGuide, riverGuideUrl, type RiverGuideSummary } from '../../../eddy-ios/src/lib/riverGuides';
 import { optimizeBlogImage, guidePhotoCredit } from './blog-image';
 
 const sample = riverGuideSeeds.find(seed => seed.river_slug === 'black')!;
@@ -69,6 +69,43 @@ test('guide browser filters and sorts river articles, and treats search as liter
   assert.equal(selectRiverGuides(articles)[0].riverSlug, 'big-piney');
   assert.equal(selectRiverGuides(articles, 'Spring River (Missouri)')[0].riverSlug, 'spring-river-mo');
   assert.equal(riverGuideUrl('a/b?c'), 'https://eddy.guide/blog/a%2Fb%3Fc');
+});
+
+const featureGuides: RiverGuideSummary[] = ['current', 'eleven-point', 'jacks-fork'].map(slug => ({
+  slug, title: slug, category: 'River Guides', description: null,
+  featuredImageUrl: null, readTimeMinutes: null,
+}));
+
+test('daily feature stays stable through refresh ordering and changes at local midnight', () => {
+  const morning = new Date(2026, 9, 14, 0, 0).getTime();
+  const evening = new Date(2026, 9, 14, 23, 59, 59).getTime();
+  const tomorrow = new Date(2026, 9, 15, 0, 0).getTime();
+  const originalOrder = featureGuides.map(guide => guide.slug);
+  const first = selectFeaturedRiverGuide(featureGuides, morning);
+  assert.ok(first);
+  assert.equal(selectFeaturedRiverGuide([...featureGuides].reverse(), evening)?.slug, first.slug);
+  assert.notEqual(selectFeaturedRiverGuide(featureGuides, tomorrow)?.slug, first.slug);
+  assert.deepEqual(featureGuides.map(guide => guide.slug), originalOrder);
+});
+
+test('daily feature cycles every guide once across DST and year boundaries', () => {
+  // Construct LOCAL calendar days; also run under America/Chicago to exercise
+  // 23- and 25-hour days rather than assuming every day is 86,400,000 ms long.
+  for (const [year, month, day] of [[2026, 2, 7], [2026, 9, 31], [2026, 11, 31]]) {
+    const picks = Array.from({ length: 4 }, (_, offset) =>
+      selectFeaturedRiverGuide(featureGuides, new Date(year, month, day + offset, 12).getTime())?.slug);
+    assert.equal(new Set(picks.slice(0, 3)).size, 3);
+    assert.equal(picks[0], picks[3]);
+  }
+});
+
+test('daily feature handles empty or single-guide catalogs and excludes other articles', () => {
+  const now = new Date(2026, 9, 14).getTime();
+  const generalArticle = { ...featureGuides[0], slug: 'general', category: 'News' };
+  assert.equal(selectFeaturedRiverGuide([], now), null);
+  assert.equal(selectFeaturedRiverGuide([generalArticle], now), null);
+  assert.equal(selectFeaturedRiverGuide([generalArticle, featureGuides[0]], now), featureGuides[0]);
+  assert.equal(selectFeaturedRiverGuide([featureGuides[0]], new Date(2026, 9, 15).getTime()), featureGuides[0]);
 });
 
 test('agency scenery outside the optimizer allowlist renders directly; approved sources stay optimized', () => {

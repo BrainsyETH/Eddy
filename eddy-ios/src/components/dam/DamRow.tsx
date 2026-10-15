@@ -18,7 +18,7 @@ import type { DamSnapshot } from '@eddy/types';
 import {
   centralDayKey,
   relativeAge,
-  idleWindowSentence,
+  scheduledHoursSummary,
   SCHEDULE_CHANGE_NOTE,
 } from '@eddy/conditions/dam-schedule-copy';
 import { DayBars } from '@/components/dam/DayBars';
@@ -160,18 +160,13 @@ function DamRowComponent({
         ) : null}
       </View>
 
-      {/* Today's shape, and the sentence that says what it means.
-          The bars are the same component the dam screen draws, so a pattern
-          learned there is readable here. The idle-window sentence carries it for
-          VoiceOver, which the bar row is deliberately hidden from — and it is
-          the more useful of the two anyway: "No generation scheduled:
-          midnight – 6 AM" is
-          the answer, the bars are the picture of it. */}
+      {/* A short schedule summary accompanies the bars; exact time windows
+          remain on the dam detail screen. */}
       {today ? (
         <View style={styles.schedule}>
           <DayBars reference={dam.generationReference} day={today} compact />
           <Text style={[styles.idle, { color: colors.textMuted }]} numberOfLines={1}>
-            {idleWindowSentence(today.idle)}
+            {scheduledHoursSummary(today.hours)}
           </Text>
           {/* Every other surface that renders a schedule carries this: both
               GenerationSchedule components and both RiverDamPanels. Favorites is
