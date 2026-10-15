@@ -107,7 +107,8 @@
       "https://gisec2.agfc.com/arcgis/rest/services/GIS/AGFC_DATA/MapServer/1",
       "https://www.agfc.com/wp-content/uploads/2023/05/bull_shoals_lake_tailwater.pdf",
       "https://ozarkchronicles.com/resources/ozarkwaters/arkansas-trout-waters/white-river-bull-shoals-dam"
-    ]
+    ],
+    "is_float_endpoint": false
   },
   {
     "name": "Wildcat Shoals Access",
@@ -163,7 +164,8 @@
       "https://gisec2.agfc.com/arcgis/rest/services/GIS/AGFC_DATA/MapServer/1",
       "https://www.agfc.com/wp-content/uploads/2023/05/bull_shoals_lake_tailwater.pdf",
       "https://ozarkchronicles.com/resources/ozarkwaters/arkansas-trout-waters/white-river-bull-shoals-dam"
-    ]
+    ],
+    "is_float_endpoint": false
   },
   {
     "name": "Rim Shoals Access",

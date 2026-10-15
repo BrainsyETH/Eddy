@@ -21,6 +21,15 @@ separate gate from the dam-layer features already shipped below. Scheduled
 release windows do not establish safe wading or departure times. White and
 Taneycomo follow after the pilot; they remain inactive pending their own reviews.
 
+## October 15 evidence review
+
+The [three-river review](../scripts/ingestion/reviews/TAILWATER_REVIEW_2026-10-15.md)
+records exact candidate endpoints, official access evidence, prepared corrections
+and outstanding launch gates. Sequence remains **Norfork, White, Taneycomo**.
+A river becoming active exposes its catalog endpoints; a proposed short corridor
+does not authorize all access pairs on a longer river. Limit publication scope or
+complete the wider review before activation.
+
 ## Where this stands
 
 `WATER_REGIMES_STRATEGY.md` sequenced five steps. Steps 1 and 2 are done — the
@@ -234,7 +243,7 @@ by accident.
 | 1 | Lag calibration script + measurement writeup | — | Do this first; it decides whether 2 is possible at all. |
 | 2 | Bucket the CDA fetch window so the cache hits | — | Independent, small, gets more valuable with every metric added. |
 | 3 | `regime` on the reach + regulated rendering | — | Unblocks 4 and the alert kinds. |
-| 4 | Taneycomo as the first regulated reach | 3 | One reach end to end before the other two. |
+| 4 | Norfork pilot, then White and Taneycomo | 3 | Use the October acceptance review and verified boat endpoints. |
 | 5 | Wade/drift windows | 1, 4 | Only if the lag met its floor. Liability call before ship. |
 | 6 | Schedule-change alerts on starred dams | — | Independent of everything above; the cheapest retention win here. |
 

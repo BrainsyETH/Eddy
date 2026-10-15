@@ -8,14 +8,15 @@
     "is_public": true,
     "ownership": "MDC",
     "managing_agency": "MDC",
-    "official_site_url": "https://mdc.mo.gov/discover-nature/places/shepherd-hills-fish-hatchery",
+    "official_site_url": "https://mdc.mo.gov/discover-nature/places/shepherd-hills-conservation-education-center",
     "facilities": "Bank and wade fishing along the trophy-area tailwater immediately below Table Rock Dam; parking along Hatchery Road, picnic areas, conservation center",
     "confidence": "medium",
     "source_urls": [
       "https://gisblue.mdc.mo.gov/arcgis/rest/services/Discover_Nature/Area_Feature_Layers/FeatureServer/9",
       "https://mdc.mo.gov/discover-nature/places/shepherd-hills-fish-hatchery",
       "https://mdc.mo.gov/sites/default/files/2024-04/5601map_0.pdf"
-    ]
+    ],
+    "is_float_endpoint": false
   },
   {
     "name": "Shepherd of the Hills Hatchery Boat Ramp",
@@ -26,7 +27,7 @@
     "is_public": true,
     "ownership": "MDC",
     "managing_agency": "MDC",
-    "official_site_url": "https://mdc.mo.gov/discover-nature/places/shepherd-hills-fish-hatchery",
+    "official_site_url": "https://mdc.mo.gov/discover-nature/places/shepherd-hills-conservation-education-center",
     "facilities": "One-lane concrete ramp, the uppermost launch on Taneycomo; parking ~20 rigs, restrooms, picnic areas",
     "confidence": "high",
     "source_urls": [

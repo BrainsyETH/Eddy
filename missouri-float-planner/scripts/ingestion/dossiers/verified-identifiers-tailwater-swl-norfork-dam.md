@@ -1,5 +1,10 @@
 # Verified Identifiers — Norfork Dam tailwater (North Fork River, AR) · swl-norfork-dam
 
+**2026-10-15 correction:** the whole-tailwater catch-and-release statement below
+is historical and no longer current. See the [2026 AGFC regulations update](https://www.agfc.com/news/arkansas-2026-27-fishing-regulations-changes-in-effect-new-guidebook-released/)
+and [current launch review](../reviews/TAILWATER_REVIEW_2026-10-15.md). The proposed
+boat takeout is Norfork #1 on the White, downstream of the confluence.
+
 Primary-source transcription from the CWMS Data API (office **SWL**) and USGS
 NWIS, probed live **2026-08-24**. Companion to
 `verified-identifiers-tailwater-swl-bull-shoals-dam.md`.

@@ -1,0 +1,642 @@
+{
+  "reviewedAt": "2026-10-15",
+  "sources": {
+    "AGFC": "https://gisec2.agfc.com/arcgis/rest/services/GIS/AGFC_DATA/MapServer/1",
+    "MDC": "https://gisblue.mdc.mo.gov/arcgis/rest/services/Aquatic/MO_Fishing_Interactive_Map/MapServer/0"
+  },
+  "access": [
+    {
+      "river": "norfork-tailwater",
+      "id": "45894ef8-8dc6-459b-8277-193463ce2fd1",
+      "name": "Dry Run Creek Access (Norfork National Fish Hatchery)",
+      "mile": "0.25",
+      "snapDistanceMeters": "222.02",
+      "storedFloatEndpoint": false,
+      "matchedOfficialFeatures": []
+    },
+    {
+      "river": "norfork-tailwater",
+      "id": "31d79668-3294-45f9-92f8-ece72809d0ef",
+      "name": "Dam-Quarry Boat Ramp",
+      "mile": "0.44",
+      "snapDistanceMeters": "13.16",
+      "storedFloatEndpoint": true,
+      "matchedOfficialFeatures": [
+        {
+          "agency": "AGFC",
+          "objectId": 1586,
+          "name": "Dam Quarry Boat Ramp",
+          "type": "Boating Access",
+          "owner": "USACOE",
+          "longitude": -92.24415387751091,
+          "latitude": 36.24608555909325
+        }
+      ]
+    },
+    {
+      "river": "norfork-tailwater",
+      "id": "80db3a77-db31-4b8a-9010-248534a1f4cc",
+      "name": "Dam-Quarry Campground",
+      "mile": "0.49",
+      "snapDistanceMeters": "100.87",
+      "storedFloatEndpoint": false,
+      "matchedOfficialFeatures": []
+    },
+    {
+      "river": "norfork-tailwater",
+      "id": "1daa6131-dd01-4dec-bb66-f64a82936ac1",
+      "name": "Bill Ackerman River Ridge Access",
+      "mile": "3.61",
+      "snapDistanceMeters": "114.52",
+      "storedFloatEndpoint": true,
+      "matchedOfficialFeatures": [
+        {
+          "agency": "AGFC",
+          "objectId": 2831,
+          "name": "Bill Ackerman River Ridge Access Parking Area",
+          "type": "Parking Area",
+          "owner": "AGFC",
+          "longitude": -92.27673881503205,
+          "latitude": 36.224472183154276
+        }
+      ]
+    },
+    {
+      "river": "norfork-tailwater",
+      "id": "00434692-242e-4d35-bfc7-d0d40c5e160e",
+      "name": "Norfork Access",
+      "mile": "4.87",
+      "snapDistanceMeters": "158.05",
+      "storedFloatEndpoint": true,
+      "matchedOfficialFeatures": [
+        {
+          "agency": "AGFC",
+          "objectId": 98,
+          "name": "Norfork #1 Boat Ramp",
+          "type": "Boating Access",
+          "owner": "AGFC",
+          "longitude": -92.28968249713714,
+          "latitude": 36.20942108166369
+        }
+      ]
+    },
+    {
+      "river": "taneycomo",
+      "id": "8d46b4d6-a718-4555-99ea-ff2db9f013a8",
+      "name": "Shepherd of the Hills Hatchery Bank Access",
+      "mile": "0.39",
+      "snapDistanceMeters": "197.37",
+      "storedFloatEndpoint": true,
+      "matchedOfficialFeatures": []
+    },
+    {
+      "river": "taneycomo",
+      "id": "6fa46369-646b-4cc0-bc66-719a0851cf34",
+      "name": "Shepherd of the Hills Hatchery Boat Ramp",
+      "mile": "1.04",
+      "snapDistanceMeters": "45.85",
+      "storedFloatEndpoint": true,
+      "matchedOfficialFeatures": [
+        {
+          "agency": "MDC",
+          "objectId": 28,
+          "areaId": 5601,
+          "name": "Shepherd of the Hills Fish Hatchery",
+          "type": "Boat ramp",
+          "longitude": -93.29384455475822,
+          "latitude": 36.597302372181225
+        }
+      ]
+    },
+    {
+      "river": "taneycomo",
+      "id": "d318b329-0715-498b-9f38-4218656ecc77",
+      "name": "Cooper Creek Access",
+      "mile": "5.99",
+      "snapDistanceMeters": "2.96",
+      "storedFloatEndpoint": true,
+      "matchedOfficialFeatures": [
+        {
+          "agency": "MDC",
+          "objectId": 26,
+          "areaId": 9901,
+          "name": "Cooper Creek Access",
+          "type": "Boat ramp",
+          "longitude": -93.244693906047,
+          "latitude": 36.62044755057144
+        }
+      ]
+    },
+    {
+      "river": "taneycomo",
+      "id": "d240a07b-3aa3-424e-a5fa-f0841d38b306",
+      "name": "Branson City Ramp (Branson Lakeside RV Park)",
+      "mile": "8.74",
+      "snapDistanceMeters": "47.03",
+      "storedFloatEndpoint": true,
+      "matchedOfficialFeatures": []
+    },
+    {
+      "river": "taneycomo",
+      "id": "2c030369-c607-4f71-a9c3-546b23d747d0",
+      "name": "North Beach Park",
+      "mile": "10.02",
+      "snapDistanceMeters": "100.13",
+      "storedFloatEndpoint": false,
+      "matchedOfficialFeatures": []
+    },
+    {
+      "river": "taneycomo",
+      "id": "ae9f03b6-e2af-42fd-bcaf-08cd410a6a16",
+      "name": "Rockaway Beach Access",
+      "mile": "15.54",
+      "snapDistanceMeters": "214.07",
+      "storedFloatEndpoint": true,
+      "matchedOfficialFeatures": [
+        {
+          "agency": "MDC",
+          "objectId": 518,
+          "areaId": 9913,
+          "name": "Rockaway Beach Access",
+          "type": "Boat ramp",
+          "longitude": -93.15938531000226,
+          "latitude": 36.698834518584796
+        }
+      ]
+    },
+    {
+      "river": "taneycomo",
+      "id": "b965b0a3-868c-4408-ac68-432772db14de",
+      "name": "Empire Park Ramp (Forsyth)",
+      "mile": "22.50",
+      "snapDistanceMeters": "217.19",
+      "storedFloatEndpoint": true,
+      "matchedOfficialFeatures": []
+    },
+    {
+      "river": "white",
+      "id": "0e240aa2-ed5c-400c-987d-e5e84d289e5e",
+      "name": "Jim Griffin Access",
+      "mile": "0.54",
+      "snapDistanceMeters": "40.92",
+      "storedFloatEndpoint": true,
+      "matchedOfficialFeatures": [
+        {
+          "agency": "AGFC",
+          "objectId": 322,
+          "name": "Jim Griffin Boat Ramp",
+          "type": "Boating Access",
+          "owner": "AGFC",
+          "longitude": -92.5829408266095,
+          "latitude": 36.36256495723243
+        }
+      ]
+    },
+    {
+      "river": "white",
+      "id": "65078ca0-704f-4128-b0ec-ca2b42a31cc9",
+      "name": "Forrest and Nina Wood Rivercliff Access",
+      "mile": "0.76",
+      "snapDistanceMeters": "82.20",
+      "storedFloatEndpoint": true,
+      "matchedOfficialFeatures": [
+        {
+          "agency": "AGFC",
+          "objectId": 2121,
+          "name": "Forrest & Nina Wood Rivercliff Boat Ramp",
+          "type": "Boating Access",
+          "owner": "AGFC",
+          "longitude": -92.58668114231278,
+          "latitude": 36.36235009043784
+        }
+      ]
+    },
+    {
+      "river": "white",
+      "id": "aeac4958-b052-4df3-9ba1-ebef160140b9",
+      "name": "Bull Shoals-White River State Park Ramp",
+      "mile": "1.50",
+      "snapDistanceMeters": "33.69",
+      "storedFloatEndpoint": true,
+      "matchedOfficialFeatures": [
+        {
+          "agency": "AGFC",
+          "objectId": 1627,
+          "name": "Bull Shoals Boat Ramp",
+          "type": "Boating Access",
+          "owner": "ASP",
+          "longitude": -92.59460717886307,
+          "latitude": 36.354658942778606
+        }
+      ]
+    },
+    {
+      "river": "white",
+      "id": "04bd028e-bd22-451b-8b86-a618dfc0fb83",
+      "name": "Gaston's Access",
+      "mile": "4.39",
+      "snapDistanceMeters": "57.63",
+      "storedFloatEndpoint": true,
+      "matchedOfficialFeatures": [
+        {
+          "agency": "AGFC",
+          "objectId": 216,
+          "name": "Gaston's Resort Boat Ramp",
+          "type": "Boating Access",
+          "owner": "AGFC",
+          "longitude": -92.55436317064901,
+          "latitude": 36.34838194394406
+        }
+      ]
+    },
+    {
+      "river": "white",
+      "id": "938a458b-3b64-437d-90b5-d435e325c4a7",
+      "name": "White Hole Access",
+      "mile": "7.28",
+      "snapDistanceMeters": "31.30",
+      "storedFloatEndpoint": true,
+      "matchedOfficialFeatures": [
+        {
+          "agency": "AGFC",
+          "objectId": 810,
+          "name": "White Hole Boat Ramp",
+          "type": "Boating Access",
+          "owner": "AGFC",
+          "longitude": -92.5346713980645,
+          "latitude": 36.32983975201031
+        }
+      ]
+    },
+    {
+      "river": "white",
+      "id": "5caefde8-f9fa-4da5-9c4f-385583621cf7",
+      "name": "Bronie Yurkonis Walk-In Access (The Narrows)",
+      "mile": "9.43",
+      "snapDistanceMeters": "81.07",
+      "storedFloatEndpoint": true,
+      "matchedOfficialFeatures": [
+        {
+          "agency": "AGFC",
+          "objectId": 944,
+          "name": "Bronie Yurkonis Walk-in Access",
+          "type": "Walk-in Access",
+          "owner": "County",
+          "longitude": -92.56444610109365,
+          "latitude": 36.32925974004004
+        }
+      ]
+    },
+    {
+      "river": "white",
+      "id": "032f9325-e17e-4510-a2a9-084621973f5b",
+      "name": "Wildcat Shoals Access",
+      "mile": "11.01",
+      "snapDistanceMeters": "69.59",
+      "storedFloatEndpoint": true,
+      "matchedOfficialFeatures": [
+        {
+          "agency": "AGFC",
+          "objectId": 1494,
+          "name": "Wildcat Shoals Boat Ramp",
+          "type": "Boating Access",
+          "owner": "AGFC",
+          "longitude": -92.57447459992959,
+          "latitude": 36.30807762426973
+        }
+      ]
+    },
+    {
+      "river": "white",
+      "id": "7433821d-623c-45d1-84f0-707d1f53bac5",
+      "name": "Cotter Access (Big Spring Park)",
+      "mile": "17.12",
+      "snapDistanceMeters": "28.46",
+      "storedFloatEndpoint": true,
+      "matchedOfficialFeatures": [
+        {
+          "agency": "AGFC",
+          "objectId": 1883,
+          "name": "Cotter Boat Ramp",
+          "type": "Boating Access",
+          "owner": "AGFC",
+          "longitude": -92.54409190072444,
+          "latitude": 36.2663604296706
+        }
+      ]
+    },
+    {
+      "river": "white",
+      "id": "8172624e-45b8-4546-98ff-301c89b9b320",
+      "name": "Roundhouse Shoals Walk-In Access",
+      "mile": "17.90",
+      "snapDistanceMeters": "123.06",
+      "storedFloatEndpoint": true,
+      "matchedOfficialFeatures": [
+        {
+          "agency": "AGFC",
+          "objectId": 16810,
+          "name": "Cotter Walk-In Access",
+          "type": "Walk-in Access",
+          "owner": "AGFC",
+          "longitude": -92.53445714996778,
+          "latitude": 36.26469877133908
+        },
+        {
+          "agency": "AGFC",
+          "objectId": 16811,
+          "name": "Cotter Walk-In Access Parking Area",
+          "type": "Parking Area",
+          "owner": "AGFC",
+          "longitude": -92.53448540343099,
+          "latitude": 36.26468713056063
+        }
+      ]
+    },
+    {
+      "river": "white",
+      "id": "a2757a09-8faa-4cb4-b035-3e030d3b0156",
+      "name": "Rim Shoals Access",
+      "mile": "21.85",
+      "snapDistanceMeters": "118.96",
+      "storedFloatEndpoint": true,
+      "matchedOfficialFeatures": [
+        {
+          "agency": "AGFC",
+          "objectId": 1159,
+          "name": "Rim Shoals Boat Ramp",
+          "type": "Boating Access",
+          "owner": "AGFC",
+          "longitude": -92.47456228315957,
+          "latitude": 36.258018029700246
+        }
+      ]
+    },
+    {
+      "river": "white",
+      "id": "cb511837-22d7-436c-a5c7-739d07c1fb5c",
+      "name": "Ranchette Access",
+      "mile": "26.88",
+      "snapDistanceMeters": "54.88",
+      "storedFloatEndpoint": true,
+      "matchedOfficialFeatures": [
+        {
+          "agency": "AGFC",
+          "objectId": 2090,
+          "name": "Ranchette Boat Ramp #2",
+          "type": "Boating Access",
+          "owner": "AGFC",
+          "longitude": -92.47807713942632,
+          "latitude": 36.20380860221343
+        }
+      ]
+    },
+    {
+      "river": "white",
+      "id": "fc5a46ba-94b1-4575-bdce-17f32cfdcbad",
+      "name": "Buffalo City Access",
+      "mile": "30.65",
+      "snapDistanceMeters": "50.21",
+      "storedFloatEndpoint": true,
+      "matchedOfficialFeatures": [
+        {
+          "agency": "AGFC",
+          "objectId": 1026,
+          "name": "Buffalo City Boat Ramp #2",
+          "type": "Boating Access",
+          "owner": "AGFC",
+          "longitude": -92.44027957512488,
+          "latitude": 36.164582030159664
+        }
+      ]
+    },
+    {
+      "river": "white",
+      "id": "7f732412-d0ef-40e3-a42a-5d668304639f",
+      "name": "Cartney Access",
+      "mile": "35.06",
+      "snapDistanceMeters": "86.71",
+      "storedFloatEndpoint": true,
+      "matchedOfficialFeatures": [
+        {
+          "agency": "AGFC",
+          "objectId": 209,
+          "name": "Cartney Boat Ramp",
+          "type": "Boating Access",
+          "owner": "AGFC",
+          "longitude": -92.38073397951608,
+          "latitude": 36.19202485299914
+        }
+      ]
+    },
+    {
+      "river": "white",
+      "id": "53274499-3f0a-4a71-837d-194d85483f97",
+      "name": "Shipp's Ferry Access",
+      "mile": "37.02",
+      "snapDistanceMeters": "88.02",
+      "storedFloatEndpoint": true,
+      "matchedOfficialFeatures": [
+        {
+          "agency": "AGFC",
+          "objectId": 433,
+          "name": "Shipp's Ferry Boat Ramp",
+          "type": "Boating Access",
+          "owner": "AGFC",
+          "longitude": -92.35695768606975,
+          "latitude": 36.21324962355681
+        }
+      ]
+    },
+    {
+      "river": "white",
+      "id": "468ec156-0c49-4b02-99a2-c9365729af6e",
+      "name": "Norfork Access",
+      "mile": "43.12",
+      "snapDistanceMeters": "66.00",
+      "storedFloatEndpoint": true,
+      "matchedOfficialFeatures": [
+        {
+          "agency": "AGFC",
+          "objectId": 98,
+          "name": "Norfork #1 Boat Ramp",
+          "type": "Boating Access",
+          "owner": "AGFC",
+          "longitude": -92.28968249713714,
+          "latitude": 36.20942108166369
+        }
+      ]
+    },
+    {
+      "river": "white",
+      "id": "8e2daec9-1879-4bc9-a6f2-bfb311316161",
+      "name": "Red's Landing Access",
+      "mile": "50.84",
+      "snapDistanceMeters": "73.69",
+      "storedFloatEndpoint": true,
+      "matchedOfficialFeatures": [
+        {
+          "agency": "AGFC",
+          "objectId": 1086,
+          "name": "Red's Landing Boat Ramp",
+          "type": "Boating Access",
+          "owner": "AGFC",
+          "longitude": -92.25510123411007,
+          "latitude": 36.160702360106626
+        }
+      ]
+    },
+    {
+      "river": "white",
+      "id": "4e43ed07-b5ac-462f-90d8-98ebf6e1c3c9",
+      "name": "Sneed Creek Access",
+      "mile": "52.50",
+      "snapDistanceMeters": "56.65",
+      "storedFloatEndpoint": true,
+      "matchedOfficialFeatures": [
+        {
+          "agency": "AGFC",
+          "objectId": 1794,
+          "name": "Sneed Creek Boat Ramp",
+          "type": "Boating Access",
+          "owner": "AGFC",
+          "longitude": -92.2310121784793,
+          "latitude": 36.15757942405423
+        }
+      ]
+    },
+    {
+      "river": "white",
+      "id": "9c297aae-cc0e-439c-81b5-55a81192f2d2",
+      "name": "Chesmond Ferry Access",
+      "mile": "57.43",
+      "snapDistanceMeters": "63.90",
+      "storedFloatEndpoint": true,
+      "matchedOfficialFeatures": [
+        {
+          "agency": "AGFC",
+          "objectId": 711,
+          "name": "Chesmond Ferry Boat Ramp",
+          "type": "Boating Access",
+          "owner": "AGFC",
+          "longitude": -92.18995343488375,
+          "latitude": 36.10745081771412
+        }
+      ]
+    },
+    {
+      "river": "white",
+      "id": "08182690-80b3-41f9-83e8-2eed56c8821f",
+      "name": "Calico Rock City Park Access",
+      "mile": "60.73",
+      "snapDistanceMeters": "92.40",
+      "storedFloatEndpoint": true,
+      "matchedOfficialFeatures": [
+        {
+          "agency": "AGFC",
+          "objectId": 1093,
+          "name": "Calico Rock Boat Ramp",
+          "type": "Boating Access",
+          "owner": "AGFC",
+          "longitude": -92.14335413328918,
+          "latitude": 36.11613052974888
+        }
+      ]
+    },
+    {
+      "river": "white",
+      "id": "3fa1c59d-854d-4d9d-af61-52a1a5ca74d0",
+      "name": "Boswell Shoals Access",
+      "mile": "68.48",
+      "snapDistanceMeters": "67.21",
+      "storedFloatEndpoint": true,
+      "matchedOfficialFeatures": [
+        {
+          "agency": "AGFC",
+          "objectId": 2008,
+          "name": "Boswell Shoals Boating Access",
+          "type": "Boating Access",
+          "owner": "USFS",
+          "longitude": -92.05886306418437,
+          "latitude": 36.03595989829864
+        }
+      ]
+    },
+    {
+      "river": "white",
+      "id": "78c3f527-927a-4557-ae4f-fd213664b325",
+      "name": "Mount Olive Access",
+      "mile": "73.04",
+      "snapDistanceMeters": "73.48",
+      "storedFloatEndpoint": true,
+      "matchedOfficialFeatures": [
+        {
+          "agency": "AGFC",
+          "objectId": 89,
+          "name": "Mount Olive Boat Ramp",
+          "type": "Boating Access",
+          "owner": "AGFC",
+          "longitude": -92.09233112668046,
+          "latitude": 35.99681894270111
+        }
+      ]
+    },
+    {
+      "river": "white",
+      "id": "408d7163-72df-48ce-b81b-c2e6ba644255",
+      "name": "Sylamore Ferry Access",
+      "mile": "77.58",
+      "snapDistanceMeters": "106.04",
+      "storedFloatEndpoint": true,
+      "matchedOfficialFeatures": [
+        {
+          "agency": "AGFC",
+          "objectId": 2142,
+          "name": "Sylamore Ferry Boat Ramp #2",
+          "type": "Boating Access",
+          "owner": "AGFC",
+          "longitude": -92.11444797771019,
+          "latitude": 35.941251185263816
+        }
+      ]
+    },
+    {
+      "river": "white",
+      "id": "d4f8b6df-78ac-4b16-b70c-bf0f1217cfc1",
+      "name": "Round Bottom Access",
+      "mile": "82.16",
+      "snapDistanceMeters": "89.80",
+      "storedFloatEndpoint": true,
+      "matchedOfficialFeatures": [
+        {
+          "agency": "AGFC",
+          "objectId": 1137,
+          "name": "Round Bottom Boat Ramp",
+          "type": "Boating Access",
+          "owner": "AGFC",
+          "longitude": -92.04932276385081,
+          "latitude": 35.94092868507832
+        }
+      ]
+    },
+    {
+      "river": "white",
+      "id": "122d937b-3e16-4c71-8a31-5dbc66fd7574",
+      "name": "Guion Access",
+      "mile": "90.46",
+      "snapDistanceMeters": "110.28",
+      "storedFloatEndpoint": true,
+      "matchedOfficialFeatures": [
+        {
+          "agency": "AGFC",
+          "objectId": 1841,
+          "name": "Guion Boat Ramp-Stone County",
+          "type": "Boating Access",
+          "owner": "AGFC",
+          "longitude": -91.94942431104234,
+          "latitude": 35.92447151053002
+        }
+      ]
+    }
+  ]
+}

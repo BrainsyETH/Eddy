@@ -27,7 +27,7 @@
     "is_public": true,
     "ownership": "COE",
     "managing_agency": "COE",
-    "official_site_url": "https://www.recreation.gov/camping/campsites/70628",
+    "official_site_url": "https://www.recreation.gov/camping/campgrounds/232565",
     "facilities": "68 reservable riverfront sites with electric/water, dump station, restrooms; direct bank access to the tailwater; fee site on recreation.gov",
     "confidence": "high",
     "source_urls": [
@@ -65,26 +65,27 @@
     "is_public": true,
     "ownership": "AGFC",
     "managing_agency": null,
-    "official_site_url": "https://www.agfc.com/en/zone-map/fishing-map/694/",
+    "official_site_url": "https://www.agfc.com/wp-content/uploads/2023/05/tp_norforktailwater2010.pdf",
     "facilities": "Walk-in fishing access off River Ridge Road; ADA T-shaped fishing pier, paved parking, year-round restroom; the only public access between the dam area and the confluence. No boat ramp",
     "confidence": "high",
     "source_urls": [
       "https://gisec2.agfc.com/arcgis/rest/services/GIS/AGFC_DATA/MapServer/1",
       "https://www.agfc.com/wp-content/uploads/2023/05/tp_norforktailwater2010.pdf",
       "https://www.openstreetmap.org/way/12710917"
-    ]
+    ],
+    "is_float_endpoint": false
   },
   {
     "name": "Norfork Access",
     "kind": "boat_ramp",
-    "expected_mile": 4.8,
+    "expected_mile": 5.01,
     "lat": 36.209414,
     "lon": -92.289676,
     "is_public": true,
     "ownership": "AGFC",
     "managing_agency": null,
-    "official_site_url": "https://www.agfc.com/en/zone-map/fishing-map/694/",
-    "facilities": "Two concrete ramps, paved parking, ADA boater transfer lift; the standard tailwater take-out, at the North Fork-White confluence in the town of Norfork",
+    "official_site_url": "https://www.agfc.com/wp-content/uploads/2023/05/bull_shoals_lake_tailwater_continued.pdf",
+    "facilities": "AGFC Norfork #1 concrete boat ramp on the east bank of the White River, downstream of the North Fork confluence. The ramp across the White is a separate facility; use the selected bank for shuttle directions.",
     "confidence": "high",
     "source_urls": [
       "https://gisec2.agfc.com/arcgis/rest/services/GIS/AGFC_DATA/MapServer/1",
