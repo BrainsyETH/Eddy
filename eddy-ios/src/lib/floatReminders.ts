@@ -212,12 +212,14 @@ export function reminderCopy(reminder: DueReminder): { title: string; body: stri
       return { title: `${label} ahead: ${reminder.name}`, body: `${distance}, along the river.${portage}` };
     }
     case 'arrived':
+      // The arrival threshold can fire before the landing (or after passing
+      // it). An off-map offset is not a remaining paddling distance.
       return beyond != null
         ? {
-            title: `You’re near ${reminder.name}`,
-            body: `This is the river’s closest point; the take-out is about ${beyond} beyond it. Finish your float in Eddy to stop tracking and save your recap.`,
+            title: `Take-out reminder: ${reminder.name}`,
+            body: 'Once you’re off the water, finish your float in Eddy to save your recap.',
           }
-        : { title: `You’ve reached ${reminder.name}`, body: 'Finish your float in Eddy to stop tracking and save your recap.' };
+        : { title: `Arriving at ${reminder.name}`, body: 'Finish your float in Eddy once you’re off the water to stop tracking and save your recap.' };
     case 'away':
       return {
         title: 'Still floating?',

@@ -6,6 +6,7 @@ import {
   periodEndingMs,
   pickSeries,
   rankSeries,
+  resolveSeries,
   type CatalogEntry,
 } from './resolve';
 
@@ -43,7 +44,7 @@ test('a dead forecast series never outranks a live one', () => {
     entry('Wappapello Lk.Flow-Out.Inst.1Hour.0.CWMS-Forecast-16dQPF', '2019-03-02T00:00:00Z'),
     entry('Wappapello Lk.Flow-Out.Inst.1Hour.0.CWMS-Forecast-NoQPF', daysAhead(11)),
   ];
-  const hit = pickSeries(entries, 'releaseForecast', 'Wappapello Lk', { now: NOW });
+  const hit = pickSeries(entries, 'releaseForecast', 'Wappapello Lk');
   assert.ok(hit);
   assert.match(hit.tsId, /NoQPF$/);
 });
@@ -55,7 +56,7 @@ test('a forecast whose catalog timestamp is in the past is still a candidate', (
   // and releaseForecast resolved nowhere. Whether a forecast forecasts is now
   // answered by hasFuturePoint against real data, below.
   const entries = [entry('X.Flow-Out.Inst.1Hour.0.CWMS-Forecast-QPF', hoursAgo(2))];
-  assert.ok(pickSeries(entries, 'releaseForecast', 'X', { now: NOW }));
+  assert.ok(pickSeries(entries, 'releaseForecast', 'X'));
 });
 
 test('hasFuturePoint is what separates a live forecast from a retired one', () => {
@@ -82,7 +83,7 @@ test('a frozen catalog does not stop a live series resolving', () => {
   const entries = [
     entry('Bull_Shoals_Dam.Flow-Res Out.Ave.1Hour.1Hour.Regi-Comp', hoursAgo(145)),
   ];
-  const hit = pickSeries(entries, 'release', 'Bull_Shoals_Dam', { now: NOW });
+  const hit = pickSeries(entries, 'release', 'Bull_Shoals_Dam');
   assert.ok(hit, 'six-day-old catalog metadata must not disqualify an hourly series');
   assert.match(hit.tsId, /Regi-Comp$/);
 });
@@ -97,32 +98,25 @@ test('a monthly aggregate can never represent a current release', () => {
     entry('Bull_Shoals_Dam.Flow-Res Out.Total.~1Month.1Month.CCP-Comp', hoursAgo(30)),
   ];
   assert.equal(
-    pickSeries(entries, 'release', 'Bull_Shoals_Dam', { now: NOW }),
+    pickSeries(entries, 'release', 'Bull_Shoals_Dam'),
     null,
     'a monthly mean is not an answer to "what is it releasing", even alone'
   );
 });
 
-test('stale observed series are rejected however well they are named', () => {
-  // Still true, and still the reason the catalog timestamp is read at all:
-  // Bull Shoals lists a CCP-Comp release series that stopped in Feb 2020 right
-  // beside the live Regi-Comp one. The liveness floor is what buries it.
+test('abandoned observed series are rejected relative to live neighbours', () => {
   const entries = [
-    entry('Clearwater_Dam.Flow-Res Out.Ave.1Hour.1Hour.Regi-Comp', '2019-01-01T00:00:00Z'),
-  ];
-  assert.equal(pickSeries(entries, 'release', 'Clearwater_Dam', { now: NOW }), null);
-
-  const corpse = [
     entry('Bull_Shoals_Dam.Flow-Res Out.Ave.1Hour.1Hour.CCP-Comp', '2020-02-03T06:00:00Z'),
+    entry('Bull_Shoals_Dam.Flow-Res Out.Ave.1Hour.1Hour.Regi-Comp', hoursAgo(1)),
   ];
-  assert.equal(pickSeries(corpse, 'release', 'Bull_Shoals_Dam', { now: NOW }), null);
+  assert.deepEqual(rankSeries(entries, 'release', 'Bull_Shoals_Dam').map((s) => s.tsId), [entries[1].name]);
 });
 
 test('an observed metric never resolves to a forecast series', () => {
   const entries = [
     entry('Clearwater_Dam.Flow-Res Out.Ave.~1Day.1Day.Forecast', daysAhead(3)),
   ];
-  assert.equal(pickSeries(entries, 'release', 'Clearwater_Dam', { now: NOW }), null);
+  assert.equal(pickSeries(entries, 'release', 'Clearwater_Dam'), null);
 });
 
 test('prefers the reviewed variant over the raw one', () => {
@@ -130,7 +124,7 @@ test('prefers the reviewed variant over the raw one', () => {
     entry('Beaver_Dam-Tailwater.Temp-Water.Inst.1Hour.0.Decodes-raw', hoursAgo(1)),
     entry('Beaver_Dam-Tailwater.Temp-Water.Inst.1Hour.0.Decodes-rev', hoursAgo(2)),
   ];
-  const hit = pickSeries(entries, 'tailwaterTempF', 'Beaver_Dam', { now: NOW });
+  const hit = pickSeries(entries, 'tailwaterTempF', 'Beaver_Dam');
   assert.ok(hit);
   // Raw is an hour fresher and still loses: it is not quality-controlled.
   assert.match(hit.tsId, /Decodes-rev$/);
@@ -138,10 +132,10 @@ test('prefers the reviewed variant over the raw one', () => {
 
 test('pool elevation accepts -Headwater (SWL) and the bare location (MVS)', () => {
   const swl = [entry('Table_Rock_Dam-Headwater.Elev.Inst.1Hour.0.Decodes-rev', hoursAgo(1))];
-  assert.ok(pickSeries(swl, 'poolElevation', 'Table_Rock_Dam', { now: NOW }));
+  assert.ok(pickSeries(swl, 'poolElevation', 'Table_Rock_Dam'));
 
   const mvs = [entry('Mark Twain Lk-Salt.Elev.Inst.30Minutes.0.lrgsShef-rev', hoursAgo(1))];
-  assert.ok(pickSeries(mvs, 'poolElevation', 'Mark Twain Lk-Salt', { now: NOW }));
+  assert.ok(pickSeries(mvs, 'poolElevation', 'Mark Twain Lk-Salt'));
 });
 
 test('tailwater elevation accepts Elev-Tailwater but never the bare pool', () => {
@@ -150,18 +144,18 @@ test('tailwater elevation accepts Elev-Tailwater but never the bare pool', () =>
   // subLocation list would also admit `TENK.Elev` — the pool. Measured
   // 2026-08-02: pool 632.94 ft, tailwater 482.86 ft.
   const swt = [entry('TENK.Elev-Tailwater.Inst.1Hour.0.Ccp-Rev', hoursAgo(1))];
-  const hit = pickSeries(swt, 'tailwaterElevation', 'TENK', { now: NOW });
+  const hit = pickSeries(swt, 'tailwaterElevation', 'TENK');
   assert.ok(hit);
   assert.match(hit.tsId, /Elev-Tailwater/);
 
   const pool = [entry('TENK.Elev.Inst.1Hour.0.Ccp-Rev', hoursAgo(1))];
   assert.equal(
-    pickSeries(pool, 'tailwaterElevation', 'TENK', { now: NOW }),
+    pickSeries(pool, 'tailwaterElevation', 'TENK'),
     null,
     'bare Elev is the pool and must never be served as tailwater elevation'
   );
   // The same entry IS the right answer for pool elevation.
-  assert.ok(pickSeries(pool, 'poolElevation', 'TENK', { now: NOW }));
+  assert.ok(pickSeries(pool, 'poolElevation', 'TENK'));
 });
 
 test('district spellings of turbine flow and flood pool both resolve', () => {
@@ -171,15 +165,15 @@ test('district spellings of turbine flow and flood pool both resolve', () => {
     entry('TENK.Flow-Power.Ave.1Hour.1Hour.Rev-Regi-Flowgroup', hoursAgo(1)),
     entry('TENK.%-Flood Pool Full.Inst.1Hour.0.Ccp-Rev', hoursAgo(1)),
   ];
-  assert.match(pickSeries(swt, 'generationFlow', 'TENK', { now: NOW })!.tsId, /Flow-Power/);
-  assert.match(pickSeries(swt, 'pctFloodPool', 'TENK', { now: NOW })!.tsId, /Flood Pool Full/);
+  assert.match(pickSeries(swt, 'generationFlow', 'TENK')!.tsId, /Flow-Power/);
+  assert.match(pickSeries(swt, 'pctFloodPool', 'TENK')!.tsId, /Flood Pool Full/);
 
   const swl = [
     entry('Table_Rock_Dam.Flow-Plant.Ave.1Hour.1Hour.CCP-Comp', hoursAgo(1)),
     entry('Table_Rock_Dam-Headwater.%-Flood Pool.Inst.1Hour.0.CCP-Comp', hoursAgo(1)),
   ];
-  assert.match(pickSeries(swl, 'generationFlow', 'Table_Rock_Dam', { now: NOW })!.tsId, /Flow-Plant/);
-  assert.ok(pickSeries(swl, 'pctFloodPool', 'Table_Rock_Dam', { now: NOW }));
+  assert.match(pickSeries(swl, 'generationFlow', 'Table_Rock_Dam')!.tsId, /Flow-Plant/);
+  assert.ok(pickSeries(swl, 'pctFloodPool', 'Table_Rock_Dam'));
 });
 
 test('LRN vocabulary resolves across a project’s split station namespaces', () => {
@@ -197,13 +191,13 @@ test('LRN vocabulary resolves across a project’s split station namespaces', ()
     entry('Wolf Creek Dam-Turbines.Flow.Ave.1Hour.1Hour.celrn-cwms-forecast', daysAhead(9)),
   ];
 
-  assert.match(pickSeries(entries, 'release', locations, { now: NOW })!.tsId, /^RWNK2.*\.Flow\./);
-  assert.match(pickSeries(entries, 'generationFlow', locations, { now: NOW })!.tsId, /Flow-Turbine/);
-  assert.match(pickSeries(entries, 'tailwaterElevation', locations, { now: NOW })!.tsId, /Elev-Tail/);
-  assert.match(pickSeries(entries, 'poolElevation', locations, { now: NOW })!.tsId, /Elev-Pool/);
-  assert.match(pickSeries(entries, 'inflow', locations, { now: NOW })!.tsId, /Flow-In/);
+  assert.match(pickSeries(entries, 'release', locations)!.tsId, /^RWNK2.*\.Flow\./);
+  assert.match(pickSeries(entries, 'generationFlow', locations)!.tsId, /Flow-Turbine/);
+  assert.match(pickSeries(entries, 'tailwaterElevation', locations)!.tsId, /Elev-Tail/);
+  assert.match(pickSeries(entries, 'poolElevation', locations)!.tsId, /Elev-Pool/);
+  assert.match(pickSeries(entries, 'inflow', locations)!.tsId, /Flow-In/);
   assert.match(
-    pickSeries(entries, 'generationForecast', locations, { now: NOW })!.tsId,
+    pickSeries(entries, 'generationForecast', locations)!.tsId,
     /-Turbines\.Flow\..*forecast$/
   );
 });
@@ -219,14 +213,14 @@ test('bare Flow is the last resort, and never reaches past the listed locations'
     entry('Table_Rock_Dam.Flow.Ave.1Hour.1Hour.Regi-Comp', hoursAgo(1)),
   ];
   assert.match(
-    pickSeries(both, 'release', 'Table_Rock_Dam', { now: NOW })!.tsId,
+    pickSeries(both, 'release', 'Table_Rock_Dam')!.tsId,
     /Flow-Res Out/,
     'the specific spelling must outrank bare Flow'
   );
 
   const elsewhere = [entry('BYGT1-WolfR-ByrdstownTN.Flow.Inst.30Minutes.0.dcp-rev', hoursAgo(1))];
   assert.equal(
-    pickSeries(elsewhere, 'release', ['RWNK2-WOLF_CREEK', 'WLCK2-WOLF_CREEK'], { now: NOW }),
+    pickSeries(elsewhere, 'release', ['RWNK2-WOLF_CREEK', 'WLCK2-WOLF_CREEK']),
     null,
     'a station not in the list is not this dam’s water'
   );
@@ -242,11 +236,11 @@ test('the generation forecast never resolves to an observation, nor the reverse'
   ];
   const locations = ['RWNK2-WOLF_CREEK', 'Wolf Creek Dam'];
   assert.match(
-    pickSeries(entries, 'generationForecast', locations, { now: NOW })!.tsId,
+    pickSeries(entries, 'generationForecast', locations)!.tsId,
     /forecast$/
   );
   assert.match(
-    pickSeries(entries, 'generationFlow', locations, { now: NOW })!.tsId,
+    pickSeries(entries, 'generationFlow', locations)!.tsId,
     /man-rev$/
   );
 });
@@ -258,7 +252,7 @@ test('rankSeries offers fallbacks in order so a dead favourite can be skipped', 
     entry('TENK.Flow-Res Out.Ave.1Hour.1Hour.Rev-Regi-Flowgroup', hoursAgo(1)),
     entry('TENK.Flow-Res Out.Ave.~1Day.1Day.Rev-Regi-Flowgroup', hoursAgo(1)),
   ];
-  const ranked = rankSeries(entries, 'release', 'TENK', { now: NOW });
+  const ranked = rankSeries(entries, 'release', 'TENK');
   assert.equal(ranked.length, 2);
   assert.match(ranked[0].tsId, /1Hour/, 'hourly outranks daily');
   assert.match(ranked[1].tsId, /~1Day/);
@@ -269,25 +263,25 @@ test('a tailwater metric never resolves to a headwater series', () => {
   // tailwater temperature would tell a trout angler the water is 20 degrees
   // warmer than it is.
   const entries = [entry('Norfork_Dam-Headwater.Temp-Water.Inst.1Hour.0.Decodes-rev', hoursAgo(1))];
-  assert.equal(pickSeries(entries, 'tailwaterTempF', 'Norfork_Dam', { now: NOW }), null);
+  assert.equal(pickSeries(entries, 'tailwaterTempF', 'Norfork_Dam'), null);
 });
 
 test('another project sharing a name prefix cannot be matched', () => {
   // `like` is a prefix regex, so a catalog page for "Beaver_Dam" also returns
   // "Beaver_Dam_Powerhouse". Scoring must anchor on the exact location.
   const entries = [entry('Beaver_Dam_Powerhouse.Flow-Res Out.Ave.1Hour.1Hour.Regi-Comp', hoursAgo(1))];
-  assert.equal(pickSeries(entries, 'release', 'Beaver_Dam', { now: NOW }), null);
+  assert.equal(pickSeries(entries, 'release', 'Beaver_Dam'), null);
 });
 
 test('returns null rather than guessing when nothing fits', () => {
-  assert.equal(pickSeries([], 'release', 'Whatever', { now: NOW }), null);
+  assert.equal(pickSeries([], 'release', 'Whatever'), null);
   const junk = [entry('Whatever.Precip-Cum.Inst.1Hour.0.Decodes-rev', hoursAgo(1))];
-  assert.equal(pickSeries(junk, 'release', 'Whatever', { now: NOW }), null);
+  assert.equal(pickSeries(junk, 'release', 'Whatever'), null);
 });
 
 test('reports which series won and why', () => {
   const entries = [entry('Clearwater_Dam.Flow-Res Out.Ave.1Hour.1Hour.Regi-Comp', hoursAgo(2))];
-  const hit = pickSeries(entries, 'release', 'Clearwater_Dam', { now: NOW });
+  const hit = pickSeries(entries, 'release', 'Clearwater_Dam');
   assert.ok(hit);
   assert.equal(hit.unit, 'cfs');
   assert.equal(hit.reason, 'Flow-Res Out/1Hour/Regi-Comp');
@@ -331,4 +325,57 @@ test('the two Tenkiller siblings are told apart', () => {
   assert.equal(parseTsId(ave)?.duration, '1Hour');
   assert.equal(parseTsId(inst)?.duration, '0');
   assert.notEqual(periodEndingMs(ave), periodEndingMs(inst));
+});
+
+
+test('a catalog frozen for years ranks the same as a fully live catalog', () => {
+  const live = [
+    entry('X.Flow-Res Out.Ave.1Hour.1Hour.Decodes-rev', hoursAgo(2)),
+    entry('X.Flow-Res Out.Ave.1Hour.1Hour.Decodes-raw', hoursAgo(1)),
+  ];
+  const frozen = live.map((e) => ({ ...e, latestTime: new Date(Date.parse(e.latestTime!) - 730 * 86_400_000).toISOString() }));
+  const ranked = rankSeries(live, 'release', 'X');
+  assert.equal(ranked.length, 2);
+  assert.equal(ranked[0].tsId, live[0].name);
+  assert.deepEqual(rankSeries(frozen, 'release', 'X'), ranked);
+});
+
+test('ineligible entries and other locations cannot advance a candidate clock', () => {
+  const frozen = entry('X.Flow-Res Out.Ave.1Hour.1Hour.rev', '2020-01-01T00:00:00Z');
+  const unrelated = [
+    entry('X.Flow-Res Out.Ave.1Hour.1Hour.Forecast', daysAhead(10)),
+    entry('X.Flow-Res Out.Ave.~1Month.1Month.rev', daysAhead(30)),
+    entry('X.Flow-Plant.Ave.1Hour.1Hour.rev', hoursAgo(1)),
+    entry('X2.Flow-Res Out.Ave.1Hour.1Hour.rev', hoursAgo(1)),
+  ];
+  assert.deepEqual(rankSeries([frozen, ...unrelated], 'release', 'X').map((s) => s.tsId), [frozen.name]);
+  assert.equal(rankSeries([frozen, unrelated[3]], 'release', ['X', 'X2']).length, 2);
+});
+
+test('relative lag keeps its boundary and rejects missing or invalid timestamps', () => {
+  const entries = [
+    entry('X.Flow-Res Out.Ave.1Hour.1Hour.new', hoursAgo(1)),
+    entry('X.Flow-Res Out.Ave.1Hour.1Hour.boundary', hoursAgo(1 + 30 * 24)),
+    entry('X.Flow-Res Out.Ave.1Hour.1Hour.old', hoursAgo(2 + 30 * 24)),
+    entry('X.Flow-Res Out.Ave.1Hour.1Hour.missing', null),
+    entry('X.Flow-Res Out.Ave.1Hour.1Hour.invalid', 'invalid'),
+  ];
+  assert.deepEqual(new Set(rankSeries(entries, 'release', 'X').map((s) => s.tsId)), new Set(entries.slice(0, 2).map((e) => e.name)));
+});
+
+test('a frozen catalog resolves only when a real data probe succeeds', async (t) => {
+  const names = ['X.Flow-Res Out.Ave.1Hour.1Hour.rev', 'X.Flow-Res Out.Ave.1Hour.1Hour.raw'];
+  t.mock.method(globalThis, 'fetch', async () => Response.json({
+    entries: names.map((name) => ({ name, extents: [{ 'latest-time': '2020-01-01T00:00:00Z' }] })),
+  }));
+  const probed: string[] = [];
+  const point = { timestamp: NOW, value: 0 };
+  const resolved = await resolveSeries('SWT', 'X', ['release'], { probe: async (_office, source) => {
+    probed.push(source.tsId);
+    return source.tsId === names[1] ? point : null;
+  } });
+  assert.deepEqual(probed, names);
+  assert.equal(resolved.release?.tsId, names[1]);
+  assert.deepEqual(resolved.release?.probed, point);
+  assert.deepEqual(await resolveSeries('SWT', 'X', ['release'], { probe: async () => null }), {});
 });

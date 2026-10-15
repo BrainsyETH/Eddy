@@ -15,7 +15,8 @@
 // generationFlow and no tailwater temperature; MVS publishes no % flood pool;
 // Stockton and Truman publish NOTHING to CWMS at all and exist here only as
 // SWPA schedule entries. Code must read an absent metric as "this dam does not
-// have one" — never as an outage, and never render it as 0 or an em-dash.
+// have one" unless an expected capability is declared below. Never render
+// an absent metric as 0 or an em-dash.
 //
 // SCALING: enumerating ids by hand is right for ten dams and wrong for a
 // hundred, so src/lib/usace/resolve.ts discovers them from the CWMS catalog
@@ -41,6 +42,7 @@
 // query parameter, so a typo is a silent 404 rather than a type error, and this
 // union is the only thing that catches it.
 import type { DamTailwater } from '@shared/dam-types';
+import type { DamHistoryMetric } from '@/lib/data/dam-history';
 
 export type UsaceOffice = 'SWL' | 'MVS' | 'SWT' | 'LRN';
 
@@ -110,6 +112,12 @@ export interface UsaceDam {
    * other, and the single-location field remains the common case.
    */
   cdaLocations?: string[];
+  /**
+   * Verified hourly capabilities discovered through the resolver. Explicit
+   * hourly series are inferred separately. This expected set must not shrink
+   * when a catalog or fetch fails. Confirm real hourly data before adding one.
+   */
+  resolvedHistoryMetrics?: readonly DamHistoryMetric[];
   /** SWPA column code, when the dam has turbines on the federal grid. */
   swpaCode?: string;
   /**
@@ -564,6 +572,8 @@ export const USACE_DAMS: Record<string, UsaceDam> = {
     // inferred: SWT publishes no water temperature at all.
     tailwaterFishery: 'trout' as const,
     generationOnCfs: 100,
+    // Hourly generation + release verified from CWMS on 2026-10-15.
+    resolvedHistoryMetrics: ['generationFlow', 'release'],
     series: {},
   },
   'swt-fort-gibson-dam': {
@@ -578,6 +588,8 @@ export const USACE_DAMS: Record<string, UsaceDam> = {
     swpaCode: 'FGD',
     tailwaterFishery: 'warmwater' as const,
     generationOnCfs: 200,
+    // Hourly generation + release verified from CWMS on 2026-10-15.
+    resolvedHistoryMetrics: ['generationFlow', 'release'],
     series: {},
   },
   'swt-broken-bow-dam': {
@@ -595,6 +607,8 @@ export const USACE_DAMS: Record<string, UsaceDam> = {
     // an Oklahoma river.
     tailwaterFishery: 'trout' as const,
     generationOnCfs: 150,
+    // Hourly generation + release verified from CWMS on 2026-10-15.
+    resolvedHistoryMetrics: ['generationFlow', 'release'],
     series: {},
   },
   'swt-eufaula-dam': {
@@ -609,6 +623,8 @@ export const USACE_DAMS: Record<string, UsaceDam> = {
     swpaCode: 'EUF',
     tailwaterFishery: 'warmwater' as const,
     generationOnCfs: 300,
+    // Hourly generation + release verified from CWMS on 2026-10-15.
+    resolvedHistoryMetrics: ['generationFlow', 'release'],
     series: {},
   },
   'swt-keystone-dam': {
@@ -623,6 +639,8 @@ export const USACE_DAMS: Record<string, UsaceDam> = {
     swpaCode: 'KEY',
     tailwaterFishery: 'warmwater' as const,
     generationOnCfs: 250,
+    // Hourly generation + release verified from CWMS on 2026-10-15.
+    resolvedHistoryMetrics: ['generationFlow', 'release'],
     series: {},
   },
   'swt-denison-dam': {
@@ -640,6 +658,8 @@ export const USACE_DAMS: Record<string, UsaceDam> = {
     swpaCode: 'DEN',
     tailwaterFishery: 'warmwater' as const,
     generationOnCfs: 200,
+    // Hourly generation + release verified from CWMS on 2026-10-15.
+    resolvedHistoryMetrics: ['generationFlow', 'release'],
     series: {},
   },
 
@@ -660,6 +680,8 @@ export const USACE_DAMS: Record<string, UsaceDam> = {
     tailwaterFishery: 'warmwater' as const,
     generationOnCfs: 900,
     suppressMetrics: ['pctFloodPool'],
+    // Hourly generation + release verified from CWMS on 2026-10-15.
+    resolvedHistoryMetrics: ['generationFlow', 'release'],
     series: {},
   },
   'swt-webbers-falls-dam': {
@@ -675,6 +697,8 @@ export const USACE_DAMS: Record<string, UsaceDam> = {
     tailwaterFishery: 'warmwater' as const,
     generationOnCfs: 700,
     suppressMetrics: ['pctFloodPool'],
+    // Hourly generation + release verified from CWMS on 2026-10-15.
+    resolvedHistoryMetrics: ['generationFlow', 'release'],
     series: {},
   },
   // Ozark and Dardanelle are LITTLE ROCK projects, not Tulsa ones, and Little
@@ -699,6 +723,8 @@ export const USACE_DAMS: Record<string, UsaceDam> = {
     swpaCode: 'OZK',
     tailwaterFishery: 'warmwater' as const,
     generationOnCfs: 1_500,
+    // Hourly generation + release verified from CWMS on 2026-10-15.
+    resolvedHistoryMetrics: ['generationFlow', 'release'],
     series: {},
   },
   'swl-dardanelle-dam': {
@@ -713,6 +739,8 @@ export const USACE_DAMS: Record<string, UsaceDam> = {
     swpaCode: 'DAD',
     tailwaterFishery: 'warmwater' as const,
     generationOnCfs: 1_000,
+    // Hourly generation + release verified from CWMS on 2026-10-15.
+    resolvedHistoryMetrics: ['generationFlow', 'release'],
     series: {},
   },
 
@@ -1053,6 +1081,17 @@ export function declaresHourlyHistory(dam: UsaceDam): boolean {
   return (['release', 'generationFlow'] as const).some((metric) => {
     const series = dam.series[metric];
     return Boolean(series && !series.dailyMean);
+  });
+}
+
+/** Expected history coverage, independent of what this run manages to resolve. */
+export function expectedHistoryMetrics(dam: UsaceDam): DamHistoryMetric[] {
+  if (!recordsHistory(dam)) return [];
+  return (['generationFlow', 'release'] as const).filter((metric) => {
+    const declared = dam.series[metric];
+    return declared
+      ? !declared.dailyMean && !declared.forecast
+      : Boolean(dam.resolvedHistoryMetrics?.includes(metric));
   });
 }
 
