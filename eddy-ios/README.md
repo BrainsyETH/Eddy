@@ -1190,7 +1190,15 @@ Every entry opens **Ready to float** in its originating tab. A plan fills in
 river, named put-in, take-out and boat; the Floats button starts with an empty
 river and take-out unless an unfinished downloaded setup is recovered. River,
 From and Take-out are editable fields. Pickers are
-sheets over the same draft, and cancelling one leaves the draft intact. From
+searchable sheets over the same draft, and cancelling one leaves the draft intact.
+River/From/Take-out use compact inset-group fields above the map, with location
+status in From and Start tracking fixed below the scrolling content. River
+selection shows search and nearby/all river rows immediately; tapping a row is
+the selection, with no separate confirmation card. If Take-out or From still
+needs a river, its sheet opens the river list directly and continues to access
+points after selection. Changing rivers inside an access sheet is provisional
+until the endpoint is chosen; closing discards those edits. Access search keeps
+the existing photos and river-distance labels. From
 can be **From my location** or a named access in either path. Boat is editable
 inline: the plan wins, otherwise the last Find a Route/readiness choice wins,
 with kayak as the default. It is never a separate required step.
@@ -1209,7 +1217,12 @@ empty, dismissed planner. Persisted session `saved`/`quick` kinds remain for
 recovery compatibility, not as separate setup experiences.
 
 Readiness checks foreground location without prompting; with permission it
-obtains a preview fix. Its one permission card offers the system prompt,
+obtains a preview fix automatically. A recent, sufficiently accurate OS-cached
+fix can answer immediately; otherwise it requests fresh GPS. While Ready stays
+open, expired or failed fixes refresh automatically with a 30-second minimum
+retry interval, only in the foreground. Permission checks never prompt, and
+initial checking does not flash an Enable location card. Its one permission
+card offers the system prompt,
 Precise Location, or Settings as appropriate. Browsing never automatically asks.
 The GPS line distinguishes permission, finding a fix, GPS ready, and a fix that
 isn't on the chosen river. Only fixes under two minutes old, within 100 m

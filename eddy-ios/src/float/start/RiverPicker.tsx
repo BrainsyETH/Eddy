@@ -1,136 +1,118 @@
-// eddy-ios/src/float/start/RiverPicker.tsx
-// Which river: a nearby suggestion to confirm, or the full list behind search.
-
-import { useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Text, TextInput, View } from 'react-native';
+// Search and nearby rivers share one list. A row tap is the selection.
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { ActivityIndicator, Keyboard, Pressable, SectionList, StyleSheet, Text, TextInput, View } from 'react-native';
 import type { RiverListItem } from '@eddy/types';
+import { fetchRivers } from '@/api/client';
 import { ControlIcon } from '@/components/ControlIcon';
 import { suggestRivers } from '@/lib/floatSession';
+import { usableStartFix } from '@/lib/floatStart';
 import { readBestIndex } from '@/lib/riverCache';
 import { useTheme } from '@/theme/ThemeProvider';
+import { fonts, type as t } from '@/theme/typography';
 import type { StartLocation } from './useStart';
-import { Card, PrimaryButton, RiverName, Row, Shell, TextButton, styles } from './ui';
 
-export function RiverPicker({ location, onChoose }: { location: StartLocation; onChoose: (slug: string) => void }) {
+export function RiverPicker({ location, selectedSlug, header, onChoose }: {
+  location: StartLocation; selectedSlug?: string; header?: ReactNode; onChoose: (river: RiverListItem) => void;
+}) {
   const { colors } = useTheme();
   const [rivers, setRivers] = useState<RiverListItem[] | null>(null);
-  const [searching, setSearching] = useState(false);
   const [query, setQuery] = useState('');
+  const [reload, setReload] = useState(0);
+  const [error, setError] = useState(false);
   useEffect(() => {
-    let current = true;
-    void readBestIndex()
-      .then((index) => {
-        if (current) setRivers(index?.payload ?? []);
-      })
-      .catch(() => {
-        if (current) setRivers([]);
-      });
-    return () => {
-      current = false;
-    };
-  }, []);
-  const suggestions = useMemo(
-    () =>
-      rivers && location.fix
-        ? suggestRivers(rivers, { lat: location.fix.point[1], lng: location.fix.point[0] }).filter(
-            (river) => river.miles <= 25,
-          )
-        : [],
-    [rivers, location.fix],
-  );
-  const first = suggestions[0];
-  const filtered = useMemo(
-    () =>
-      [...(rivers ?? [])]
-        .filter((river) => river.name.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase()))
-        .sort((a, b) => a.name.localeCompare(b.name)),
-    [rivers, query],
-  );
-
-  return (
-    <Shell>
-      {location.busy ? (
-        <View style={styles.inline}>
-          <ActivityIndicator color={colors.interactive} />
-          <Text style={[styles.body, { color: colors.textMuted }]}>Finding your location…</Text>
-        </View>
-      ) : null}
-      {location.error ? (
-        <Text style={[styles.body, { color: colors.textMuted }]}>{location.error}</Text>
-      ) : null}
-      <Text accessibilityRole="header" style={[styles.title, { color: colors.text }]}>
-        {first && !searching ? 'Is this your river?' : 'Which river are you on?'}
-      </Text>
-      {first && !searching ? (
-        <>
-          <Card>
-            <RiverName name={first.name} large />
-            <Text style={[styles.body, { color: colors.textMuted }]}>
-              {first.miles.toFixed(1)} mi to the nearest access
-            </Text>
-            <PrimaryButton label="Use this river" onPress={() => onChoose(first.slug)} />
-          </Card>
-          {suggestions.length > 1 ? (
-            <View style={styles.group}>
-              <Text style={[styles.label, { color: colors.textMuted }]}>Other rivers nearby</Text>
-              <Card padded={false}>
-                {suggestions.slice(1).map((river) => (
-                  <Row
-                    key={river.slug}
-                    title={river.name}
-                    detail={`${river.miles.toFixed(1)} mi`}
-                    onPress={() => onChoose(river.slug)}
-                  />
-                ))}
-              </Card>
-            </View>
-          ) : null}
-          <Text style={[styles.caption, { color: colors.textMuted }]}>
-            Straight-line distance to each river’s nearest access.
-          </Text>
-        </>
-      ) : null}
-      <View style={[styles.search, { backgroundColor: colors.card, borderColor: colors.border }]}>
+    const controller = new AbortController();
+    void (async () => {
+      const index = await readBestIndex();
+      if (controller.signal.aborted) return;
+      setRivers(index?.payload ?? []);
+      setError(false);
+      try {
+        const live = await fetchRivers(controller.signal);
+        if (!controller.signal.aborted) setRivers(live);
+      } catch {
+        if (!controller.signal.aborted) setError(true);
+      }
+    })();
+    return () => controller.abort();
+  }, [reload]);
+  const nearby = useMemo(() => rivers && usableStartFix(location.fix, location.checkedAt)
+    ? suggestRivers(rivers, { lat: location.fix.point[1], lng: location.fix.point[0] }).filter(river => river.miles <= 25)
+    : [], [rivers, location.fix, location.checkedAt]);
+  const sections = useMemo(() => {
+    const all = [...(rivers ?? [])].sort((a, b) => a.name.localeCompare(b.name));
+    const needle = query.trim().toLocaleLowerCase();
+    if (needle) return [{ title: 'Results', data: all.filter(river => river.name.toLocaleLowerCase().includes(needle)) }];
+    const close = nearby.flatMap(item => all.find(river => river.slug === item.slug) ?? []);
+    return [
+      ...(close.length ? [{ title: 'Nearby rivers', data: close }] : []),
+      { title: close.length ? 'Other rivers' : 'All rivers', data: all.filter(river => !close.some(item => item.slug === river.slug)) },
+    ];
+  }, [rivers, nearby, query]);
+  const count = sections.reduce((sum, section) => sum + section.data.length, 0);
+  return <View style={local.fill}>
+    <View style={local.searchContainer}>
+      <View style={[local.search, { backgroundColor: colors.cardRaised }]}>
         <ControlIcon name="search-outline" size={20} color={colors.textMuted} />
-        <TextInput
-          accessibilityLabel="Search all rivers"
-          placeholder="Search all rivers"
-          placeholderTextColor={colors.textMuted}
-          value={query}
-          onChangeText={setQuery}
-          onFocus={() => setSearching(true)}
-          autoCorrect={false}
-          clearButtonMode="while-editing"
-          returnKeyType="search"
-          style={[styles.searchInput, { color: colors.text }]}
-        />
+        <TextInput accessibilityLabel="Search rivers" placeholder="Search rivers" placeholderTextColor={colors.textMuted}
+          value={query} onChangeText={setQuery} autoCorrect={false} autoCapitalize="none" maxLength={120}
+          clearButtonMode="while-editing" returnKeyType="search" style={[local.input, { color: colors.text }]} />
       </View>
-      {searching || !first ? (
-        rivers == null ? (
+    </View>
+    <SectionList sections={sections} keyExtractor={river => river.slug} stickySectionHeadersEnabled={false}
+      keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag" contentContainerStyle={local.list}
+      ListHeaderComponent={<View>
+        {header}
+        {location.busy && !location.fix ? <View style={local.status}>
           <ActivityIndicator color={colors.interactive} />
-        ) : (
-          <Card padded={false}>
-            {filtered.map((river) => (
-              <Row key={river.slug} title={river.name} onPress={() => onChoose(river.slug)} />
-            ))}
-            {filtered.length === 0 ? (
-              <Text style={[styles.body, styles.empty, { color: colors.textMuted }]}>
-                {rivers.length
-                  ? 'No rivers match your search.'
-                  : 'Open Eddy with a signal to load the river list.'}
-              </Text>
-            ) : null}
-          </Card>
-        )
-      ) : null}
-      {!location.busy && location.state === 'ready' ? (
-        <TextButton
-          label="Find me again"
-          onPress={() => {
-            void location.act();
-          }}
-        />
-      ) : null}
-    </Shell>
-  );
+          <Text style={[t.sm, { color: colors.textMuted }]}>Finding nearby rivers…</Text>
+        </View> : null}
+        {rivers == null ? <ActivityIndicator accessibilityLabel="Loading rivers" color={colors.interactive} /> : null}
+        {rivers != null && count === 0 ? <Text style={[local.empty, t.base, { color: colors.textMuted }]}>
+          {rivers.length ? 'No rivers match your search.' : 'Connect to load the river list.'}
+        </Text> : null}
+      </View>}
+      renderSectionHeader={({ section }) => section.data.length ? <Text accessibilityRole="header"
+        style={[local.section, { color: colors.textMuted }]}>{section.title}</Text> : null}
+      renderItem={({ item, index, section }) => {
+        const distance = nearby.find(river => river.slug === item.slug)?.miles;
+        const selected = selectedSlug === item.slug;
+        return <Pressable onPress={() => { Keyboard.dismiss(); onChoose(item); }} accessibilityRole="button"
+          accessibilityState={{ selected }} style={({ pressed }) => [local.row,
+            index === 0 && local.firstRow, index === section.data.length - 1 && local.lastRow,
+            { backgroundColor: pressed || selected ? colors.selectionBg : colors.card, borderBottomColor: colors.border }]}>
+          <ControlIcon name="map-outline" size={22} color={colors.interactive} />
+          <View style={local.copy}>
+            <Text style={[local.name, { color: colors.text }]}>{item.name}</Text>
+            {distance != null ? <Text style={[t.sm, { color: colors.textMuted }]}>
+              {distance < 0.1 ? 'Less than 0.1' : distance.toFixed(1)} mi to nearest access
+            </Text> : null}
+          </View>
+          {selected ? <ControlIcon name="checkmark" size={20} color={colors.interactive} /> : null}
+        </Pressable>;
+      }}
+      ListFooterComponent={error ? <View style={local.retry}>
+        <Text style={[t.sm, { color: colors.textMuted }]}>{rivers?.length ? 'Showing rivers saved on this phone.' : 'Couldn’t load rivers.'}</Text>
+        <Pressable onPress={() => setReload(value => value + 1)} accessibilityRole="button" style={local.retryButton}>
+          <Text style={[t.base, { color: colors.interactive }]}>Retry</Text>
+        </Pressable>
+      </View> : null} />
+  </View>;
 }
+
+const local = StyleSheet.create({
+  fill: { flex: 1 },
+  searchContainer: { paddingHorizontal: 16, paddingBottom: 8 },
+  search: { minHeight: 44, borderRadius: 12, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, gap: 8 },
+  input: { ...t.base, flex: 1, paddingVertical: 10 },
+  list: { padding: 16, paddingTop: 0, paddingBottom: 32 },
+  section: { ...t.sm, fontFamily: fonts.semibold, paddingTop: 20, paddingBottom: 8 },
+  row: { minHeight: 56, flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14, borderBottomWidth: StyleSheet.hairlineWidth },
+  firstRow: { borderTopLeftRadius: 12, borderTopRightRadius: 12 },
+  lastRow: { borderBottomLeftRadius: 12, borderBottomRightRadius: 12, borderBottomWidth: 0 },
+  copy: { flex: 1, gap: 3 },
+  name: { ...t.base, fontFamily: fonts.medium },
+  status: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 12 },
+  empty: { paddingVertical: 24 },
+  retry: { paddingTop: 20 },
+  retryButton: { minHeight: 44, justifyContent: 'center' },
+});

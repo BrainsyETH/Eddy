@@ -1,3 +1,5 @@
+import { readStartPreview, shouldRefreshStartFix } from '../../../eddy-ios/src/lib/floatStartLocation';
+import { START_FIX_MAX_AGE_MS, type StartFix } from '../../../eddy-ios/src/lib/floatStart';
 // missouri-float-planner/src/lib/location-lifecycle.test.ts
 //
 // Covers eddy-ios/src/lib/locationFreshness.ts (when a held fix may answer a
@@ -121,4 +123,56 @@ test('a failed operation does not block the ones behind it', async () => {
   const next = queue(async () => 'ran');
   await assert.rejects(failed, /native error/);
   assert.equal(await next, 'ran');
+});
+
+
+const startFix = (timestamp = NOW): StartFix => ({ point: [-91, 37], accuracy: 10, timestamp });
+
+test('Ready automatically uses a recent OS location once permission is granted', async () => {
+  let currentCalls = 0;
+  const cached = startFix(NOW - 1000);
+  assert.equal(await readStartPreview({ state: 'ready', previous: null, force: false, now: () => NOW,
+    lastKnown: async () => cached, current: async () => { currentCalls++; return startFix(); } }), cached);
+  assert.equal(currentCalls, 0, 'A valid cached GPS fix avoids an unnecessary wait');
+});
+
+test('Ready never reads location before permission and services are ready', async () => {
+  for (const state of ['checking', 'request', 'settings', 'services', 'precise'] as const) {
+    const unexpected = async () => { throw new Error('Location must not be requested'); };
+    assert.equal(await readStartPreview({ state, previous: startFix(), force: false, now: () => NOW,
+      lastKnown: unexpected, current: unexpected }), null);
+  }
+});
+
+test('stale or imprecise OS locations trigger a fresh preview automatically; cache failure also recovers', async () => {
+  const fresh = startFix();
+  const invalid = [null, startFix(NOW - START_FIX_MAX_AGE_MS), startFix(NOW + 1), { ...startFix(), accuracy: 500 }];
+  for (const cached of invalid) {
+    let currentCalls = 0;
+    assert.equal(await readStartPreview({ state: 'ready', previous: startFix(NOW - START_FIX_MAX_AGE_MS),
+      force: false, now: () => NOW, lastKnown: async () => cached,
+      current: async () => { currentCalls++; return fresh; } }), fresh);
+    assert.equal(currentCalls, 1);
+  }
+  assert.equal(await readStartPreview({ state: 'ready', previous: null, force: false, now: () => NOW,
+    lastKnown: async () => { throw new Error('OS cache unavailable'); }, current: async () => fresh }), fresh);
+});
+
+test('an explicit GPS retry fetches a new fix and never accepts a stale answer', async () => {
+  const fresh = startFix();
+  const inputs = { state: 'ready' as const, previous: startFix(NOW - 1000), force: true, now: () => NOW,
+    lastKnown: async () => { throw new Error('Explicit retry bypasses cache'); }, current: async () => fresh };
+  assert.equal(await readStartPreview(inputs), fresh);
+  await assert.rejects(readStartPreview({ ...inputs, current: async () => startFix(NOW - START_FIX_MAX_AGE_MS) }), /not precise/);
+});
+
+test('Ready refreshes expired GPS without another tap and bounds retry frequency after a failure', () => {
+  const old = startFix(NOW - START_FIX_MAX_AGE_MS);
+  assert.equal(shouldRefreshStartFix('ready', false, old, NOW, NOW - 60_000), true);
+  assert.equal(shouldRefreshStartFix('ready', false, null, NOW, NOW - 30_000), true);
+  assert.equal(shouldRefreshStartFix('ready', false, null, NOW, NOW - 10_000), false);
+  assert.equal(shouldRefreshStartFix('ready', false, startFix(), NOW, NOW - 60_000), false);
+  assert.equal(shouldRefreshStartFix('ready', true, old, NOW, NOW - 60_000), false);
+  for (const state of ['checking', 'request', 'settings', 'services', 'precise'] as const)
+    assert.equal(shouldRefreshStartFix(state, false, old, NOW, NOW - 60_000), false);
 });

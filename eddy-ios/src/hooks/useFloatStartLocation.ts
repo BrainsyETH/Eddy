@@ -2,9 +2,10 @@ import { useCallback, useRef, useState } from 'react';
 import { AppState, Linking } from 'react-native';
 import { useFocusEffect } from 'expo-router';
 import * as Location from 'expo-location';
-import { preciseLocationAction, startLocationState, type ForegroundPermission } from '@/lib/floatPermissions';
+import { preciseLocationAction, startLocationState, type ForegroundPermission, type StartLocationState } from '@/lib/floatPermissions';
 import { canAskPreciseInApp, requestPreciseLocation } from '@/float/preciseLocation';
 import { START_FIX_MAX_AGE_MS, usableStartFix, type StartFix } from '@/lib/floatStart';
+import { readStartPreview, shouldRefreshStartFix } from '@/lib/floatStartLocation';
 
 // Only a short-lived preview, shared across setup pages. Never persisted or sent
 // through navigation URLs; actual tracking still starts only after beginFloat.
@@ -25,6 +26,9 @@ export function useFloatStartLocation() {
   const generation = useRef(0);
   const focused = useRef(false);
   const requesting = useRef(false);
+  const refreshing = useRef(false);
+  const lastAttemptAt = useRef(0);
+  const permissionState = useRef<StartLocationState>('checking');
   // Declined the in-app precise-location prompt on this visit: Settings next.
   const [preciseDeclined, setPreciseDeclined] = useState(false);
 
@@ -32,6 +36,8 @@ export function useFloatStartLocation() {
     const ticket = ++generation.current;
     const current = () => focused.current && generation.current === ticket;
     if (!current()) return false;
+    refreshing.current = true;
+    lastAttemptAt.current = Date.now();
     setBusy(true);
     setError(null);
     let timeout: ReturnType<typeof setTimeout> | undefined;
@@ -46,29 +52,32 @@ export function useFloatStartLocation() {
       setCheckedAt(Date.now());
       setPermission(next);
       setServicesEnabled(enabled);
-      if (startLocationState(next, enabled) !== 'ready') {
+      permissionState.current = startLocationState(next, enabled);
+      if (permissionState.current !== 'ready') {
         previewFix = null;
         setFix(null);
         return false;
       }
-      if (!forceFix && usableStartFix(previewFix, Date.now())) {
-        setFix(previewFix);
-        return true;
-      }
-      setFix(null);
-      previewFix = null;
-      const position = await Promise.race([
-        Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High }),
+      const previous = previewFix;
+      if (!usableStartFix(previous, Date.now())) { setFix(null); previewFix = null; }
+      const fromPosition = (position: Location.LocationObject): StartFix => ({
+        point: [position.coords.longitude, position.coords.latitude],
+        accuracy: position.coords.accuracy,
+        timestamp: position.timestamp,
+      });
+      const nextFix = await Promise.race([
+        readStartPreview({ state: permissionState.current, previous, force: forceFix, now: Date.now,
+          lastKnown: async () => {
+            const cached = await Location.getLastKnownPositionAsync({ maxAge: START_FIX_MAX_AGE_MS, requiredAccuracy: 100 });
+            return cached ? fromPosition(cached) : null;
+          },
+          current: async () => fromPosition(await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High })),
+        }),
         new Promise<never>((_, reject) => {
           timeout = setTimeout(() => reject(new Error('Location timed out')), 10_000);
         }),
       ]);
       if (!current()) return false;
-      const nextFix: StartFix = {
-        point: [position.coords.longitude, position.coords.latitude],
-        accuracy: position.coords.accuracy,
-        timestamp: position.timestamp,
-      };
       if (!usableStartFix(nextFix, Date.now())) throw new Error('Location is not precise yet');
       previewFix = nextFix;
       setCheckedAt(Date.now());
@@ -78,7 +87,10 @@ export function useFloatStartLocation() {
       if (current()) setError('Eddy couldn’t find your location. Try again.');
       return false;
     } finally {
-      requesting.current = false;
+      if (generation.current === ticket) {
+        requesting.current = false;
+        refreshing.current = false;
+      }
       if (timeout) clearTimeout(timeout);
       if (current()) setBusy(false);
     }
@@ -92,12 +104,15 @@ export function useFloatStartLocation() {
       const subscription = AppState.addEventListener('change', (state) => {
         if (state === 'active' && !requesting.current) void refresh();
       });
-      // Expire preview distances while the screen is left open, too.
+      // Already-granted GPS stays automatic while Ready is visible. No prompt
+      // is requested, and nothing runs while the app is in the background.
       const expiry = setInterval(
         () => {
           const now = Date.now();
           setCheckedAt(now);
           setFix((value) => (usableStartFix(value, now) ? value : null));
+          if (AppState.currentState === 'active' && shouldRefreshStartFix(permissionState.current,
+            refreshing.current, previewFix, now, lastAttemptAt.current)) void refresh();
         },
         Math.min(START_FIX_MAX_AGE_MS, 10_000),
       );

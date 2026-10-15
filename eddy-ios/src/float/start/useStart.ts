@@ -135,19 +135,19 @@ export function useStart(params: Params & { previewStartMile?: number }, loaded:
   return { run, busy, error };
 }
 
-export function useRiverRoute(slug?: string, tripKey?: string): LoadedRoute | null {
-  const [state, setState] = useState<{ slug: string; tripKey?: string; result: LoadedRoute } | null>(null);
+export function useRiverRoute(slug?: string, tripKey?: string, reload = 0): LoadedRoute | null {
+  const [state, setState] = useState<{ slug: string; tripKey?: string; reload: number; result: LoadedRoute } | null>(null);
   useEffect(() => {
     if (!slug) return;
     const controller = new AbortController();
     void loadFloatRoute(slug, controller.signal, tripKey)
       .then((result) => {
-        if (!controller.signal.aborted) setState({ slug, tripKey, result });
+        if (!controller.signal.aborted) setState({ slug, tripKey, reload, result });
       })
       .catch(() => {
-        if (!controller.signal.aborted) setState({ slug, tripKey, result: { ok: false, reason: 'no-river-data' } });
+        if (!controller.signal.aborted) setState({ slug, tripKey, reload, result: { ok: false, reason: 'no-river-data' } });
       });
     return () => controller.abort();
-  }, [slug, tripKey]);
-  return state && state.slug === slug && state.tripKey === tripKey ? state.result : null;
+  }, [slug, tripKey, reload]);
+  return state && state.slug === slug && state.tripKey === tripKey && state.reload === reload ? state.result : null;
 }

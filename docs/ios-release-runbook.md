@@ -264,6 +264,16 @@ are pending checks, not evidence of a device pass.
       offline section and permission card. Edit while an estimate/download is
       running; an old result must not appear for the edited stretch. Check large
       text, GPS timeout and permission changes in Settings.
+- [ ] **Ready selection and automatic location:** with location already allowed,
+      open Start a Float and see Current location populate without another tap
+      or permission-card flash. Leave Ready open for over two minutes and verify
+      GPS refreshes; repeat after a timeout and after returning from Settings.
+      With no river selected, tap Take-out: see river search immediately, choose
+      a river, then its take-out in the same sheet. With a river selected, open
+      take-outs directly. Change river inside that sheet and close: the previous
+      route and download remain. Search with the keyboard open and select in
+      one tap. Check light/dark, large text, VoiceOver, Reduce Motion and that
+      Start tracking remains reachable above the bottom safe area.
 - [ ] **Recording away from the planned launch:** select Akers, then begin
       recording several miles downstream. Before Start, see the distance below
       Akers and a one-tap **Start from here**. With or without switching, the
