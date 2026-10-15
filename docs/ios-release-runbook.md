@@ -1108,6 +1108,41 @@ testing and the first submission, not installation.
       account deletion is in Profile; and community photos are moderated before
       publication.
 
+### Home Screen widget release gates
+
+River level (small) and Your rivers (medium) share the Live Activity extension.
+See [condition-widgets.md](condition-widgets.md) for the contract. These gates
+require a new binary; do not deliver the native changes as an OTA update.
+
+- [ ] Deploy the additive gauge `widget` and history `widgetSeries` API fields
+      before distributing the binary. Confirm an older app still reads both APIs.
+- [ ] Run `expo prebuild --platform ios --no-install` and
+      `node scripts/check-float-activity.cjs` from `eddy-ios`, then compile/archive
+      both targets in Xcode or EAS. Inspect the archive for all three widget
+      bundle members, both otter assets, and the extension privacy manifest.
+- [ ] Register/provision `group.eddy.guide.app.widgets` for BOTH
+      `eddy.guide.app` and `eddy.guide.app.FloatActivity`. Verify the installed
+      build reads the same shared defaults from the app and extension. Inspect
+      the signed entitlements, not only the generated project.
+- [ ] On a physical iPhone, add/edit River level, add Your rivers, and verify
+      light, dark, tinted Home Screen, smallest supported screen, large text,
+      and VoiceOver. Names, units, status and observation age must remain legible.
+- [ ] Verify no-star/first-launch states; multiple independently configured
+      small widgets; river/gauge stars, unstar while refreshing, account deletion,
+      and offline relaunch. Favorites must reflect the app and never resurrect
+      removed items. National gauges must remain unrated.
+- [ ] Verify each row/card deep link with Eddy cold, warm, and already on a
+      different tab. For Huzzah/Courtois, verify the widget uses its selected
+      river's ladder while opening the correct shared physical gauge.
+- [ ] Verify cached/offline, failed and 404 requests, missing CFS/stage, zero,
+      future/invalid observation times, suspect readings, and six-hour expiry.
+      Color expires without a network refresh; each row retains its own age.
+      Trends expire at three hours, never bridge gaps, and exclude daily data.
+- [ ] Confirm the existing Float Mode Live Activity still starts, updates,
+      expires, deep-links and ends on Lock Screen and Dynamic Island.
+
+Record the build/device and evidence before marking these verified or released.
+
 ### Privacy manifest
 
 Inspect the final Xcode archive's privacy report, bundled SDK manifests/signatures

@@ -8,6 +8,13 @@ ios/
 android/
 
 # Handwritten local module source; keep its generated files excluded.
+!/modules/eddy-live-activity/ios/
+/modules/eddy-live-activity/ios/*
+!/modules/eddy-live-activity/ios/EddyLiveActivity.podspec
+!/modules/eddy-live-activity/ios/EddyLiveActivityModule.swift
+!/modules/eddy-live-activity/ios/FloatActivityAttributes.swift
+!/modules/eddy-live-activity/ios/ConditionWidgetData.swift
+
 !/modules/eddy-map-sheet/ios/
 /modules/eddy-map-sheet/ios/*
 !/modules/eddy-map-sheet/ios/EddyMapSheet.podspec

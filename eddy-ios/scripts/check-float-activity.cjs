@@ -19,18 +19,37 @@ assert.equal(host.dependencies.filter(({ value }) => objects.PBXTargetDependency
 const embedded = host.buildPhases.flatMap(({ value }) => objects.PBXCopyFilesBuildPhase?.[value]?.files ?? []);
 assert.equal(embedded.filter(({ value }) => objects.PBXBuildFile[value].fileRef === target.productReference).length, 1, 'host embeds the appex once');
 const files = (kind) => target.buildPhases.flatMap(({ value }) => objects[kind]?.[value]?.files ?? []).map(({ value }) => objects.PBXFileReference[objects.PBXBuildFile[value].fileRef].path.replaceAll('"', ''));
-assert.deepEqual(files('PBXSourcesBuildPhase').sort(), ['EddyFloatActivity.swift', 'FloatActivityAttributes.swift']);
-assert.deepEqual(files('PBXResourcesBuildPhase'), ['Assets.xcassets']);
+assert.deepEqual(files('PBXSourcesBuildPhase').sort(), ['ConditionWidgetData.swift', 'EddyConditionsWidgets.swift', 'EddyFloatActivity.swift', 'FloatActivityAttributes.swift']);
+assert.deepEqual(files('PBXResourcesBuildPhase').sort(), ['Assets.xcassets', 'PrivacyInfo.xcprivacy']);
 const hostInfo = plist.parse(fs.readFileSync(path.join(root, 'ios/Eddy/Info.plist'), 'utf8'));
 assert.equal(hostInfo.NSSupportsLiveActivities, true);
+const group = `group.${config.ios.bundleIdentifier}.widgets`;
+assert.equal(hostInfo.EddyWidgetAppGroup, group);
+const extensionInfo = plist.parse(fs.readFileSync(path.join(root, 'ios/EddyFloatActivity/EddyFloatActivity-Info.plist'), 'utf8'));
+assert.equal(extensionInfo.EddyWidgetAppGroup, group);
+assert.equal(extensionInfo.EddyWidgetAPIBaseURL, config.extra.apiBaseUrl);
+const entitlements = { 'com.apple.security.application-groups': [group] };
+const hostEntitlements = plist.parse(fs.readFileSync(path.join(root, 'ios/Eddy/Eddy.entitlements'), 'utf8'));
+assert.deepEqual(hostEntitlements['com.apple.security.application-groups'], [group]);
+assert.deepEqual({ ...plist.parse(fs.readFileSync(path.join(root, 'ios/EddyFloatActivity/EddyFloatActivity.entitlements'), 'utf8')) }, entitlements);
+assert.ok(fs.existsSync(path.join(root, 'ios/EddyFloatActivity/Assets.xcassets/GaugeOtter.imageset/otter.png')));
+const widgetPrivacy = plist.parse(fs.readFileSync(path.join(root, 'ios/EddyFloatActivity/PrivacyInfo.xcprivacy'), 'utf8'));
+assert.deepEqual(widgetPrivacy.NSPrivacyAccessedAPITypes.map((type) => ({ ...type })), [{ NSPrivacyAccessedAPIType: 'NSPrivacyAccessedAPICategoryUserDefaults', NSPrivacyAccessedAPITypeReasons: ['1C8F.1'] }]);
+const hostPrivacy = plist.parse(fs.readFileSync(path.join(root, 'ios/Eddy/PrivacyInfo.xcprivacy'), 'utf8'));
+assert.ok(hostPrivacy.NSPrivacyAccessedAPITypes.find((type) => type.NSPrivacyAccessedAPIType === 'NSPrivacyAccessedAPICategoryUserDefaults').NSPrivacyAccessedAPITypeReasons.includes('1C8F.1'));
 for (const { value } of objects.XCConfigurationList[target.buildConfigurationList].buildConfigurations) {
   const settings = objects.XCBuildConfiguration[value].buildSettings;
   assert.equal(String(settings.MARKETING_VERSION), hostInfo.CFBundleShortVersionString);
   assert.equal(String(settings.CURRENT_PROJECT_VERSION), hostInfo.CFBundleVersion);
   assert.equal(settings.PRODUCT_BUNDLE_IDENTIFIER.replaceAll('"', ''), `${config.ios.bundleIdentifier}.FloatActivity`);
   assert.equal(settings.APPLICATION_EXTENSION_API_ONLY, 'YES');
+  assert.equal(settings.CODE_SIGN_ENTITLEMENTS.replaceAll('"', ''), 'EddyFloatActivity/EddyFloatActivity.entitlements');
 }
 assert.equal(fs.readFileSync(path.join(root, 'ios/EddyFloatActivity/FloatActivityAttributes.swift'), 'utf8'), fs.readFileSync(path.join(root, 'modules/eddy-live-activity/ios/FloatActivityAttributes.swift'), 'utf8'));
+for (const [source, generated] of [
+  ['ios/ConditionWidgetData.swift', 'ConditionWidgetData.swift'],
+  ['widget/EddyConditionsWidgets.swift', 'EddyConditionsWidgets.swift'],
+]) assert.equal(fs.readFileSync(path.join(root, 'ios/EddyFloatActivity', generated), 'utf8'), fs.readFileSync(path.join(root, 'modules/eddy-live-activity', source), 'utf8'));
 const before = project.writeSync();
 configureProject(project, root, config);
 const once = project.writeSync();
@@ -41,6 +60,6 @@ assert.equal(entries(objects.PBXNativeTarget).length, 2);
 assert.equal((before.match(/isa = PBXBuildFile;/g) ?? []).length, (once.match(/isa = PBXBuildFile;/g) ?? []).length);
 const withPlugin = require('../plugins/withFloatActivity')(structuredClone(config));
 const extensions = withPlugin.extra.eas.build.experimental.ios.appExtensions;
-assert.deepEqual(extensions, [{ targetName: 'EddyFloatActivity', bundleIdentifier: `${config.ios.bundleIdentifier}.FloatActivity`, entitlements: {} }]);
+assert.deepEqual(extensions, [{ targetName: 'EddyFloatActivity', bundleIdentifier: `${config.ios.bundleIdentifier}.FloatActivity`, entitlements }]);
 assert.deepEqual(require('../plugins/withFloatActivity')(withPlugin).extra.eas.build.experimental.ios.appExtensions, extensions);
 console.log('Live Activity target, embedding, sources, resources, versions, EAS credentials and repeated plugin application verified.');

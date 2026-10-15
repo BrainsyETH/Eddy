@@ -53,6 +53,7 @@ import { sweepStaleVersions } from '@/lib/riverCache';
 import { sweepOfflinePacks } from '@/map/packSweep';
 import { seedOfflineBundle } from '@/api/client';
 import { FloatTracker } from '@/float/FloatTracker';
+import { ConditionsWidgetSync } from '@/components/ConditionsWidgetSync';
 import { attachFloatRecorder } from '@/float/recorder';
 
 /**
@@ -274,6 +275,7 @@ export default function RootLayout() {
                           {/* Renders nothing; feeds GPS to an active float
                               whichever screen is showing. */}
                           <FloatTracker />
+                          <ConditionsWidgetSync />
                           <ThemedShell />
                         </PushProvider>
                       </AlertRulesProvider>

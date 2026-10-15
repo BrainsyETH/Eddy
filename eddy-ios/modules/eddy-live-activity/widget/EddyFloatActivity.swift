@@ -7,7 +7,11 @@ private let floatURL = URL(string: "eddy://float-mode")!
 
 @main
 struct EddyFloatActivityBundle: WidgetBundle {
-  var body: some Widget { EddyFloatActivity() }
+  var body: some Widget {
+    EddyFloatActivity()
+    EddyRiverLevelWidget()
+    EddyFavoritesWidget()
+  }
 }
 
 struct EddyFloatActivity: Widget {
