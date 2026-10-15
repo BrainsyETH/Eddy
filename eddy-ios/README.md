@@ -959,13 +959,17 @@ in float plans, and the river's Hazards section keeps its existing details.
 
 ## Favorites
 
-River cards show compact CFS rows for every linked gauge, ordered upstream to
+River cards show a reading pill for every linked gauge, ordered upstream to
 downstream using the existing gauge catalog. Each row opens its station when
-it has a site ID. Missing discharge says “CFS unavailable”; it never substitutes
-stage in feet. Old or suspect readings carry a short note. Until the gauge
-catalog arrives, cards retain the river headline and scale as a fallback.
+it has a site ID. Pills prefer CFS and fall back to feet when discharge is
+unavailable; if both are missing they say “Reading unavailable”. Each pill uses
+that gauge's condition for this river, calculated in its configured rating unit.
+Old, suspect, unknown-time and unrated readings use a neutral pill; short age
+and qualifier notes remain visible. The river header omits the condition label,
+and cards omit Eddy's Read excerpt. Favorites does not fetch Reads. Until the
+gauge catalog arrives, cards retain the river headline and scale as a fallback.
 Dam rows show lake/state metadata and a short schedule summary with “Subject
-to change”; the detail screen carries the full schedule context.
+to change” inline; the detail screen carries the full schedule context.
 
 ## River guides
 

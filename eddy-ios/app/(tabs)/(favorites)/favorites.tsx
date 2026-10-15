@@ -1,8 +1,7 @@
 // Favorites are local-first: stored names remain usable when conditions
 // cannot load. River cards use the existing /api/gauges catalog for compact
-// discharge rows at every linked station, without per-river request fan-out.
+// reading pills at every linked station, without per-river request fan-out.
 // Until that catalog arrives, /api/rivers supplies the headline fallback.
-// Eddy’s free excerpt comes from the shared, batched useEddyUpdates read.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { FlatList, Pressable, RefreshControl, StyleSheet, Text, View } from 'react-native';
@@ -24,8 +23,6 @@ import { DamRow } from '@/components/dam/DamRow';
 import { SwipeRow } from '@/components/SwipeRow';
 import { rememberGauge, seedFromMapGauge, seedFromStar } from '@/lib/gaugeSeed';
 import { useStarredRivers } from '@/hooks/useStarredRivers';
-import { useEddyUpdates } from '@/hooks/useEddyUpdates';
-import { selectEddySays } from '@/lib/eddySays';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { agedIndex, envelope, effectiveReadingAgeHours, type CacheEnvelope } from '@/lib/offline-cache';
 import { onForeground } from '@/lib/foreground';
@@ -179,18 +176,11 @@ function FavoritesContent() {
     };
   }, [load]);
 
-  // Shared with every other surface; this screen initiates like the others and
-  // pays nothing extra when the Today tab has already filled the cache.
-  const { updates: eddyUpdates, refresh: refreshEddyUpdates } = useEddyUpdates();
-
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
-    // The prose one always reaches the server, and never clears what is on
-    // screen on its way — a failed pull on a dead connection leaves the lines
-    // exactly as they were. See clauses 3 and 4 in useEddyUpdates.ts.
-    await Promise.all([load(), refreshEddyUpdates()]);
+    await load();
     setRefreshing(false);
-  }, [load, refreshEddyUpdates]);
+  }, [load]);
 
   const byId = useMemo(
     () => new Map((rivers ?? []).map((river) => [river.id, river])),
@@ -427,7 +417,6 @@ function FavoritesContent() {
           thresholds={rated?.link ?? null}
           // WHICH STATION THE NUMBER CAME FROM. See the card.
           gaugeName={rated?.gauge.name ?? null}
-          says={selectEddySays(eddyUpdates?.[item.slug])}
           onPress={() => router.push(`/river/${item.slug}`)}
           onToggleStar={() => toggleStar(item)}
         />
