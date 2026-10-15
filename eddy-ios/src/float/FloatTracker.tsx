@@ -13,6 +13,9 @@
 //                      locks; Float Mode says so (floatPermissions.ts). Any
 //                      background task left from an earlier "Always" grant is
 //                      stopped first.
+// What actually started is published to floatTrackerStatus.ts, so Float Mode
+// reports the stream, not the permission: "Always" granted with a failed
+// background start is foreground-only tracking, and says so.
 // Re-checked whenever Eddy returns to the foreground, so changing the setting
 // mid-float switches streams without a second one ever running.
 //
@@ -27,6 +30,7 @@ import { AppState } from 'react-native';
 import * as Location from 'expo-location';
 import { useFloatSession, useFloatSessionUnreadable } from '@/hooks/useFloatSession';
 import { flushFloatSession, getFloatSession, recordFixes } from '@/lib/floatSessionStore';
+import { trackerStatus } from '@/lib/floatTrackerStatus';
 import { onForeground } from '@/lib/foreground';
 import { warn } from '@/lib/monitoring';
 import { startBackgroundTracking, stopBackgroundTracking } from './backgroundTracking';
@@ -56,26 +60,41 @@ export function FloatTracker() {
     const ensure = async () => {
       if (busy.current) return;
       busy.current = true;
+      // A running stream stays as it is; anything else shows "starting".
+      const before = trackerStatus.get().status;
+      if (before !== 'background' && before !== 'foreground') {
+        trackerStatus.set({ status: 'starting', backgroundFailed: false });
+      }
       try {
         // `() => !cancelled`: a float ended while this start waited its turn
         // is not started at all. Starts and stops are queued in call order
         // (backgroundTracking.ts), so End's stop also runs after any start
         // already under way — GPS cannot outlive the float.
-        if (await startBackgroundTracking(() => !cancelled)) {
-          if (cancelled) return;
+        const background = await startBackgroundTracking(() => !cancelled);
+        if (cancelled || background === 'not-wanted') return;
+        if (background === 'running') {
           // The task is the stream now; drop any foreground watch.
           watch.current?.remove();
           watch.current = null;
+          trackerStatus.set({ status: 'background', backgroundFailed: false });
           return;
         }
-        if (cancelled) return;
-        // "Always" was withdrawn mid-float (or never given): the task cannot
-        // deliver while locked any more, so it must not keep running beside
-        // the foreground watch as a second stream.
+        // "Always" was withdrawn mid-float (or never given), or the native
+        // start failed: the task cannot deliver while locked, so it must not
+        // keep running beside the foreground watch as a second stream.
+        const backgroundFailed = background === 'failed';
         await stopBackgroundTracking();
-        if (watch.current) return;
+        if (watch.current) {
+          trackerStatus.set({ status: 'foreground', backgroundFailed });
+          return;
+        }
         const permission = await Location.getForegroundPermissionsAsync();
-        if (cancelled || permission.status !== 'granted') return;
+        if (cancelled) return;
+        if (permission.status !== 'granted') {
+          // Nothing is tracking. Float Mode's permission line says why.
+          trackerStatus.set({ status: 'blocked', backgroundFailed });
+          return;
+        }
         const next = await Location.watchPositionAsync(
           { accuracy: Location.Accuracy.High, distanceInterval: 0 },
           (location) => {
@@ -87,17 +106,28 @@ export function FloatTracker() {
               },
             ]);
           },
+          (reason) => {
+            // The watch stays subscribed; iOS reports transient errors here
+            // too. Say so only if nothing has arrived for a while, which the
+            // stale position status already does, so only log.
+            warn('float', 'foreground location error', reason);
+          },
         );
         if (cancelled) next.remove();
-        else watch.current = next;
+        else {
+          watch.current = next;
+          trackerStatus.set({ status: 'foreground', backgroundFailed });
+        }
       } catch (error) {
         warn('float', 'could not start location updates', error);
+        if (!cancelled && !watch.current) trackerStatus.set({ status: 'failed', backgroundFailed: false });
       } finally {
         busy.current = false;
       }
     };
 
     void ensure();
+    trackerStatus.onRetry(() => void ensure());
     const offForeground = onForeground(() => {
       void ensure();
       void syncFloatActivity(getFloatSession(), { force: true });
@@ -113,6 +143,8 @@ export function FloatTracker() {
 
     return () => {
       cancelled = true;
+      trackerStatus.onRetry(null);
+      trackerStatus.set({ status: 'idle', backgroundFailed: false });
       offForeground();
       clearInterval(heartbeat);
       appState.remove();

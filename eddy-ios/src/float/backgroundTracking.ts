@@ -167,23 +167,31 @@ function metersBetween(a: { latitude: number; longitude: number }, b: { latitude
 const runInOrder = createSerialQueue();
 
 /**
- * Start locked-screen tracking if "Always" is granted. False when it is not.
+ * Start locked-screen tracking if "Always" is granted.
+ *
+ *   'running'      the background stream is running (or already was)
+ *   'not-allowed'  "Always" is not granted: use a foreground watch
+ *   'not-wanted'   the float ended while this start waited its turn
+ *   'failed'       allowed, but the native start threw: tracking falls back
+ *                  to the foreground, and Float Mode must not say otherwise
  *
  * `stillWanted` is re-checked once this start's turn in the queue comes, right
  * before the native start: a float ended while the start waited is not
  * restarted.
  */
-export function startBackgroundTracking(stillWanted: () => boolean = () => true): Promise<boolean> {
+export type BackgroundStart = 'running' | 'not-allowed' | 'not-wanted' | 'failed';
+
+export function startBackgroundTracking(stillWanted: () => boolean = () => true): Promise<BackgroundStart> {
   return runInOrder(() => startNow(stillWanted));
 }
 
-async function startNow(stillWanted: () => boolean): Promise<boolean> {
+async function startNow(stillWanted: () => boolean): Promise<BackgroundStart> {
   try {
-    if (!stillWanted()) return false;
+    if (!stillWanted()) return 'not-wanted';
     const permission = await Location.getBackgroundPermissionsAsync();
-    if (permission.status !== 'granted') return false;
-    if (await Location.hasStartedLocationUpdatesAsync(FLOAT_LOCATION_TASK)) return true;
-    if (!stillWanted()) return false;
+    if (permission.status !== 'granted') return 'not-allowed';
+    if (await Location.hasStartedLocationUpdatesAsync(FLOAT_LOCATION_TASK)) return 'running';
+    if (!stillWanted()) return 'not-wanted';
     await Location.startLocationUpdatesAsync(FLOAT_LOCATION_TASK, {
       accuracy: Location.Accuracy.High,
       distanceInterval: 0,
@@ -191,10 +199,10 @@ async function startNow(stillWanted: () => boolean): Promise<boolean> {
       pausesUpdatesAutomatically: false,
       showsBackgroundLocationIndicator: true,
     });
-    return true;
+    return 'running';
   } catch (error) {
     warn('float', 'could not start background location', error);
-    return false;
+    return 'failed';
   }
 }
 

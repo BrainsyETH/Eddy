@@ -10,7 +10,7 @@
 // only; miles, progress and time left come from data copied onto the phone
 // when the float started.
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { Alert, Linking, Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useIsFocused, useRouter } from 'expo-router';
@@ -35,7 +35,8 @@ import {
   viewSession,
 } from '@/lib/floatSession';
 import { hazardTypeLabel } from '@eddy/hazards';
-import { trackingMode, trackingNotice, type TrackingMode } from '@/lib/floatPermissions';
+import { trackingMode, type TrackingMode } from '@/lib/floatPermissions';
+import { trackerStatus, trackingLine } from '@/lib/floatTrackerStatus';
 import { radii } from '@/theme/layout';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, textStyles, type as t } from '@/theme/typography';
@@ -52,6 +53,7 @@ export default function FloatModeScreen() {
   const { colors, elevation } = useTheme();
   const [now, setNow] = useState(() => Date.now());
   const permission = useTrackingMode();
+  const tracker = useSyncExternalStore(trackerStatus.subscribe, trackerStatus.get, trackerStatus.get);
   const [keepAwake, setKeepAwake] = useKeepAwakePreference();
   const focused = useIsFocused();
 
@@ -181,23 +183,24 @@ export default function FloatModeScreen() {
           {statusCopy(view, clock)}
         </Text>
 
-        {permission.mode === 'locked' ? (
-          <Text style={[styles.note, { color: colors.textMuted }]}>
-            Tracking carries on with your phone locked. Leave Eddy open in the background rather than closing it: if
-            you close it, tracking may pause until you open Eddy again.
-          </Text>
-        ) : null}
-
         {(() => {
-          const notice = trackingNotice(permission.mode, permission.canAskAgain);
-          if (!notice) return null;
+          const line = trackingLine(permission.mode, tracker, permission.canAskAgain);
+          if (!line) return null;
+          if (line.action === 'info') {
+            return <Text style={[styles.note, { color: colors.textMuted }]}>{line.text}</Text>;
+          }
           return (
             <PermissionNotice
-              label={notice.text}
+              label={line.text}
               onPress={() =>
-                notice.action === 'request'
-                  ? void Location.requestForegroundPermissionsAsync().then(permission.refresh)
-                  : void Linking.openSettings()
+                line.action === 'request'
+                  ? void Location.requestForegroundPermissionsAsync().then(() => {
+                      permission.refresh();
+                      trackerStatus.retry();
+                    })
+                  : line.action === 'retry'
+                    ? trackerStatus.retry()
+                    : void Linking.openSettings()
               }
             />
           );

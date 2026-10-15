@@ -1,9 +1,10 @@
 // eddy-ios/src/lib/floatPermissions.ts
 // What the location permission allows a float to do, and what to say about it.
 //
-// Pure, so the web suite tests it. Every state gets an honest sentence: no
-// prompt loops, and no promise of locked-screen tracking that the permission
-// does not allow.
+// Pure, so the web suite tests it. What Float Mode says about tracking is
+// trackingLine in floatTrackerStatus.ts, which also weighs what the stream is
+// actually doing: no prompt loops, and no promise of locked-screen tracking
+// that the permission, or the stream, does not provide.
 
 export type TrackingMode =
   /** "Always": tracks with the screen locked. */
@@ -31,34 +32,6 @@ export function trackingMode(
   if (foreground.status !== 'granted') return 'none';
   if (foreground.ios?.accuracy === 'reduced') return 'approximate';
   return background?.status === 'granted' ? 'locked' : 'screen-on';
-}
-
-export interface TrackingNotice {
-  text: string;
-  /** 'request' only while iOS will still show its prompt; otherwise Settings. */
-  action: 'request' | 'settings';
-}
-
-export function trackingNotice(mode: TrackingMode, canAskAgain = false): TrackingNotice | null {
-  switch (mode) {
-    case 'locked':
-    case 'unknown':
-      return null;
-    case 'screen-on':
-      return {
-        text: 'Tracking pauses while your phone is locked.',
-        action: 'settings',
-      };
-    case 'approximate':
-      return {
-        text: 'Turn on Precise Location to track your float.',
-        action: 'settings',
-      };
-    case 'none':
-      return canAskAgain
-        ? { text: 'Eddy uses your location to track your float.', action: 'request' }
-        : { text: 'Turn on location to track your float.', action: 'settings' };
-  }
 }
 
 export type StartLocationState = 'checking' | 'request' | 'settings' | 'precise' | 'services' | 'ready';
