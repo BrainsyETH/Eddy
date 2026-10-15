@@ -20,10 +20,10 @@ import { Card, PrimaryButton, RiverName, Row, Shell, SummaryLine, TextButton, st
 import { newSessionId, useRiverRoute, useStart, type Params, type StartLocation } from '@/float/start/useStart';
 import { FloatMap } from '@/float/FloatMap';
 import { TripDownloadCard } from '@/float/TripDownloadCard';
+import { PlanAccessPhoto } from '@/components/PlanAccessPhoto';
 import {
   arrivalCopy,
   arrivalOutlook,
-  formatBeyond,
   formatDuration,
   mapFeatures,
   startSession,
@@ -171,6 +171,10 @@ function TakeOutStep({
     () => takeOutChoices(loaded.route, loaded.index, located?.riverMile ?? null),
     [loaded, located],
   );
+  const accessById = useMemo(
+    () => new Map(loaded.accessPoints?.map((point) => [point.id, point])),
+    [loaded.accessPoints],
+  );
   return (
     <Shell>
       <RiverName name={loaded.route.riverName} />
@@ -196,14 +200,18 @@ function TakeOutStep({
         )
       ) : null}
       <Card padded={false}>
-        {choices.map((choice) => (
-          <Row
-            key={choice.id}
-            title={choice.name}
-            detail={located ? `${(choice.mile - located.riverMile).toFixed(1)} mi` : `Mile ${choice.mile.toFixed(1)}`}
-            onPress={() => onChoose(choice.id)}
-          />
-        ))}
+        {choices.map((choice) => {
+          const point = accessById.get(choice.id);
+          return (
+            <Row
+              key={choice.id}
+              title={choice.name}
+              detail={located ? `${(choice.mile - located.riverMile).toFixed(1)} mi` : `Mile ${choice.mile.toFixed(1)}`}
+              leading={point ? <PlanAccessPhoto point={point} style={previewStyles.takeOutPhoto} /> : undefined}
+              onPress={() => onChoose(choice.id)}
+            />
+          );
+        })}
         {choices.length === 0 ? (
           <Text style={[styles.body, styles.empty, { color: colors.textMuted }]}>
             No take-outs ahead on this river. Go back to choose another river.
@@ -328,8 +336,7 @@ function SummaryStep({
       </Card>
       {takeOut.offLineMeters != null ? (
         <Text style={[styles.body, { color: colors.textMuted }]}>
-          {takeOut.name} is about {formatBeyond(takeOut.offLineMeters)} off the mapped river. Distances run to the
-          closest point on the river.
+          The take-out pin doesn’t quite line up with Eddy’s river map. Distances end at the nearest point on the river.
         </Text>
       ) : null}
       {saved || (located && location.fix && !upstream) ? (
@@ -343,7 +350,7 @@ function SummaryStep({
         />
       ) : null}
       <Text style={[styles.caption, { color: colors.textMuted }]}>
-        Raw float positions stay on this phone. Ending saves a recap; signed-in recaps are backed up to your account.
+        Sign in to back up your float summary
       </Text>
       {location.state !== 'ready' ? (
         <LocationGate location={location} summary />
@@ -368,4 +375,5 @@ function SummaryStep({
 
 const previewStyles = StyleSheet.create({
   map: { height: 200, borderRadius: 12, overflow: 'hidden', borderWidth: StyleSheet.hairlineWidth },
+  takeOutPhoto: { width: 80, height: 64, borderRadius: 10 },
 });

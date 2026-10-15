@@ -333,8 +333,11 @@ permission; only an explicit location tap asks. Selecting a river clears the
 previous nearby point, and selecting a location clears the river. Town search
 is debounced and cancels stale responses; it keeps Mapbox attribution. A selected location reveals a
 native radius menu, measured to the put-in rather than as driving distance.
-Results lead with a route photo, falling back to the already-loaded river
-photo and then an Eddy illustration. Duration, river miles, condition, and
+Results use photos from each float’s put-in or take-out, preferring a photo
+not already shown in another result when one is available. Access-point galleries,
+reviewed place photos, linked campgrounds, and verified community reports supply
+these images, with the already-loaded river photo and then an Eddy illustration
+as fallbacks. Duration, river miles, condition, and
 access status are visible without expanding details. Cautions stay visible;
 descriptions, estimate provenance, and endpoint access details use a disclosure.
 Search details hold the proximity explanation and freshness context, while
@@ -1178,7 +1181,9 @@ Location Services. A GPS timeout does not block manual setup. Returning from
 Settings rechecks permission without discarding the trip.
 
 Quick starts confirm a suggested river, pick a take-out, then review one
-summary card. Before Eddy finds the paddler on the river, take-outs are listed
+summary card. Take-out choices show the access-point photo already available in
+the river data, with a place icon if the photo is missing or fails to load.
+Before Eddy finds the paddler on the river, take-outs are listed
 by river mile with a "Find me" action; afterwards, by distance ahead. Choosing
 a custom take-out point is not supported: the end must be a known access point,
 because progress is measured between calibrated access points. Suggestions use straight-line distance to access points, never

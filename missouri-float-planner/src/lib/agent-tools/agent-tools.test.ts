@@ -18,7 +18,9 @@ import {
   validOrigin,
 } from './http';
 import { memoizeReads } from './read-cache';
-import { createDataContext, type Db } from './data';
+import { ACCESS_SELECT, createDataContext, type Db } from './data';
+import { assignRoutePhotos, loadRoutePhotos } from './route-photos';
+import { reviewedPhotos } from '@/lib/photos/reviewed';
 import { loadCandidateDuration } from './candidate-duration';
 import { loadScreening, screenCandidates } from './search';
 import { estimateRoute } from '@/lib/calculations/route-estimate';
@@ -1223,6 +1225,68 @@ test('single river needs no location and alternatives retain a shorter/longer la
   assert.equal(result.matches.length, 0);
   assert.ok(result.alternatives.length > 0);
   assert.ok(result.alternatives.every(m => m.relation === 'shorter' && m.nearbyMiles === null));
+});
+test('route results vary photos using their own endpoints, even when the first gallery image repeats', async () => {
+  const f = fixture({ points: 8 });
+  for (const point of f.tables.access_points) {
+    point.image_urls = ['https://photos.example/shared.jpg', `https://photos.example/${point.id}.jpg`];
+  }
+  assert.ok(ACCESS_SELECT.split(', ').includes('image_urls'), 'real reads must include the photo field');
+  const result = await findNearbyFloats(f.db, { ...nearbyInput, river: 'current' }, { sources: f.sources, now: NOW });
+  const rows = [...result.matches, ...result.alternatives];
+  assert.ok(rows.length > 1);
+  assert.equal(new Set(rows.map(row => row.photo?.url)).size, rows.length);
+  for (const row of rows) {
+    const endpoints = f.tables.access_points.filter(point => [row.putIn.id, row.takeOut.id].includes(point.id));
+    assert.ok(endpoints.some(point => point.image_urls.includes(row.photo?.url) && point.name === row.photo?.caption));
+  }
+  assert.equal(result.failed, 0);
+  assert.equal(result.partial, false);
+  assert.equal(f.calls.filter(call => call === 'community_reports').length, 1);
+});
+test('route photos include reviewed places, linked campgrounds and verified reports at either endpoint', async () => {
+  const f = fixture();
+  const [putIn, takeOut] = f.tables.access_points;
+  putIn.image_urls = ['http://photos.example/insecure.jpg'];
+  takeOut.nps_campground_id = uuid(500);
+  f.tables.nps_campgrounds = [{ id: uuid(500), images: [{ url: 'https://photos.example/campground.jpg' }] }];
+  f.tables.community_reports = [
+    { access_point_id: takeOut.id, type: 'river_visual', status: 'verified', image_url: 'https://photos.example/verified.jpg', captured_at: '2026-10-01' },
+    { access_point_id: putIn.id, type: 'river_visual', status: 'pending', image_url: 'https://photos.example/pending.jpg' },
+    { access_point_id: uuid(999), type: 'river_visual', status: 'verified', image_url: 'https://photos.example/unrelated.jpg' },
+  ];
+  const reviewed = reviewedPhotos.find(photo => photo.table === 'access_points')!;
+  const curated = { ...f.tables.access_points[2], id: reviewed.id, name: reviewed.name, image_urls: [] };
+  const photos = await loadRoutePhotos(f.db, [putIn, takeOut, curated], new AbortController().signal);
+  assert.deepEqual(photos.get(putIn.id), []);
+  assert.deepEqual(photos.get(takeOut.id), [
+    { url: 'https://photos.example/campground.jpg', caption: takeOut.name },
+    { url: 'https://photos.example/verified.jpg', caption: `${takeOut.name} · Photo Oct 1, 2026` },
+  ]);
+  assert.equal(photos.get(curated.id)?.[0].url, reviewed.image.url);
+  assert.equal(f.calls.filter(call => call === 'nps_campgrounds').length, 1);
+  const result = await findNearbyFloats(f.db, nearbyInput, { sources: f.sources, now: NOW });
+  const rows = [...result.matches, ...result.alternatives];
+  assert.ok(rows.length);
+  const row = rows[0];
+  assignRoutePhotos([row], new Map([[row.takeOut.id, photos.get(takeOut.id)!]]));
+  assert.equal(row.photo?.url, 'https://photos.example/campground.jpg', 'a take-out photo works without a put-in photo');
+});
+test('unavailable community photos preserve place photos and valid route results', async () => {
+  const f = fixture({ points: 6, fail: 'community_reports' });
+  f.tables.access_points.forEach(point => { point.image_urls = [`https://photos.example/${point.id}.jpg`]; });
+  const result = await findNearbyFloats(f.db, nearbyInput, { sources: f.sources, now: NOW });
+  const rows = [...result.matches, ...result.alternatives];
+  assert.ok(rows.length > 0);
+  assert.ok(rows.every(row => row.photo));
+  assert.equal(result.failed, 0);
+  assert.equal(result.partial, false);
+  const aborted = new AbortController();
+  aborted.abort();
+  const callsBefore = f.calls.length;
+  const cached = await loadRoutePhotos(f.db, f.tables.access_points, aborted.signal);
+  assert.ok(cached.get(f.tables.access_points[0].id)?.length);
+  assert.equal(f.calls.length, callsBefore, 'an exhausted search budget still keeps already-loaded photos');
 });
 test('public endpoints and closure checks survive multi-river search', async () => {
   const privateFixture = fixture();

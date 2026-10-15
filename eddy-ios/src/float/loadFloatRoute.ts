@@ -17,10 +17,11 @@ import { ApiError, fetchRiverAccessPoints, fetchRiverDetail } from '@/api/client
 import { readRiver } from '@/lib/riverCache';
 import { indexRoute, routeFromRiver, withHazards, type FloatRoute, type RouteProblem } from '@/lib/floatSession';
 import type { RouteIndex } from '@eddy/geo';
+import type { MapAccessPoint } from '@eddy/types';
 import { readTripPackage } from './tripDownloads';
 
 export type LoadedRoute =
-  | { ok: true; route: FloatRoute; index: RouteIndex }
+  | { ok: true; route: FloatRoute; index: RouteIndex; accessPoints?: readonly MapAccessPoint[] }
   | { ok: false; reason: RouteProblem | 'offline' };
 
 export async function loadFloatRoute(slug: string, signal?: AbortSignal, tripKey?: string | null): Promise<LoadedRoute> {
@@ -30,7 +31,12 @@ export async function loadFloatRoute(slug: string, signal?: AbortSignal, tripKey
     if (pkg && pkg.route.riverSlug === slug) {
       const built = indexRoute(pkg.route);
       // A package saved before hazards were carried takes them from the cache.
-      if (built.ok) return { ok: true, route: withHazards(pkg.route, built.index, cached?.payload.hazards), index: built.index };
+      if (built.ok) return {
+        ok: true,
+        route: withHazards(pkg.route, built.index, cached?.payload.hazards),
+        index: built.index,
+        accessPoints: cached?.payload.accessPoints,
+      };
     }
   }
   let river = cached?.payload.river;
@@ -52,7 +58,9 @@ export async function loadFloatRoute(slug: string, signal?: AbortSignal, tripKey
     }
   }
 
-  return routeFromRiver(river, accessPoints, fetchedAt, cached?.payload.hazards);
+  const loaded = routeFromRiver(river, accessPoints, fetchedAt, cached?.payload.hazards);
+  // Picker photos stay separate from the route saved with every GPS update.
+  return loaded.ok ? { ...loaded, accessPoints } : loaded;
 }
 
 /** What to tell someone whose float cannot start, in their terms. */
