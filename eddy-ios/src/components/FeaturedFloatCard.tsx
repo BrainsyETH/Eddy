@@ -16,10 +16,12 @@ export function FeaturedFloatCard({
   item,
   onPlan,
   riverPhotoUrl,
+  detailed = false,
 }: {
   item: FavoriteFloatSummary;
   onPlan: () => void;
   riverPhotoUrl?: string;
+  detailed?: boolean;
 }) {
   const { colors, elevation } = useTheme();
   const [failedUris, setFailedUris] = useState<string[]>([]);
@@ -63,6 +65,7 @@ export function FeaturedFloatCard({
               : 'Open plan for float time'}
           {item.difficulty ? ` · Class ${item.difficulty}` : ''}
         </Text>
+        {detailed && item.bestFor ? <Text style={[styles.floatNote, { color: colors.textMuted }]}>Best for {item.bestFor}</Text> : null}
         <Pressable
           onPress={onPlan}
           style={({ pressed }) => [

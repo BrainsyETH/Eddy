@@ -3,6 +3,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   AppState,
+  Keyboard,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -49,13 +50,14 @@ import { fetchFloatSearch, fetchFloatSearchPlaces, fetchRivers } from '@/api/cli
 import { useLocation } from '@/hooks/useLocation';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
-import { newPlanRequest } from '@/lib/planRequest';
+import { floatPlanDestination } from '@/lib/planRequest';
+import { useNavigationAction } from '@/hooks/useNavigationAction';
+import { readBestIndex } from '@/lib/riverCache';
+import { selectSearchRiver, selectSearchLocation } from '@/lib/floatSearchSelection';
 
 type State = {
-  mode: 'nearby' | 'river';
   input: FloatSearchInput;
   location: string;
-  town: string;
   result: FloatSearchResponse | null;
 };
 // Only the boat preference is persisted. Search location and results stay in this session.
@@ -70,6 +72,7 @@ export default function FindFloatScreen() {
     river?: string;
   }>();
   const router = useRouter();
+  const navigate = useNavigationAction();
   const { colors, isDark } = useTheme();
   const reducedMotion = useReducedMotion();
   const location = useLocation();
@@ -81,30 +84,33 @@ export default function FindFloatScreen() {
             previous.state.result && floatSearchIsFresh(previous.state.result) ? previous.state.result : null,
         }
       : {
-          mode: initialRiver ? 'river' : 'nearby',
           input: {
             river: initialRiver || undefined,
             targetHours: 5,
             radiusMiles: 100,
-            vesselType: 'canoe',
+            vesselType: 'kayak',
             publicOnly: true,
           },
           location: '',
-          town: '',
           result: null,
         },
   );
   const [rivers, setRivers] = useState<RiverListItem[]>([]);
-  const [riverPicker, setRiverPicker] = useState(false);
-  const [locationPicker, setLocationPicker] = useState(false);
-  const [moreFilters, setMoreFilters] = useState(false);
+  const [wherePicker, setWherePicker] = useState(false);
   const [info, setInfo] = useState<FloatInfoTopic | null>(null);
   const revealResults = useRef(false);
-  const [riverQuery, setRiverQuery] = useState('');
-  const [places, setPlaces] = useState<FloatSearchPlace[] | null>(null);
-  const [busy, setBusy] = useState<'town' | 'search' | 'location' | null>(null);
+  const [query, setQuery] = useState('');
+  const [placeSearch, setPlaceSearch] = useState<{
+    query: string;
+    places: FloatSearchPlace[];
+    error?: string;
+  } | null>(null);
+  const [busy, setBusy] = useState<'search' | 'location' | null>(null);
+  const [riversError, setRiversError] = useState('');
+  const [riverReload, setRiverReload] = useState(0);
+  const boatChosen = useRef(false);
   const [error, setError] = useState('');
-  const [pickerError, setPickerError] = useState('');
+  const [locationError, setLocationError] = useState('');
   const [expired, setExpired] = useState(() =>
     Boolean(
       previous &&
@@ -127,13 +133,25 @@ export default function FindFloatScreen() {
   const scroller = useRef<ScrollView>(null);
   useEffect(() => {
     const controller = new AbortController();
+    let fresh = false;
+    void readBestIndex().then((cached) => {
+      if (!controller.signal.aborted && !fresh && cached) setRivers(cached.payload);
+    });
     void fetchRivers(controller.signal)
-      .then(setRivers)
-      .catch(() => {});
+      .then((rows) => {
+        if (!controller.signal.aborted) {
+          fresh = true;
+          setRivers(rows);
+          setRiversError('');
+        }
+      })
+      .catch(() => {
+        if (!controller.signal.aborted) setRiversError('Couldn’t refresh the river list.');
+      });
     if (!previous || (initialRiver && previous.river !== initialRiver))
       void AsyncStorage.getItem(FLOAT_BOAT_STORAGE_KEY)
         .then((boat) => {
-          if (!controller.signal.aborted && FLOAT_BOATS.includes(boat as FloatBoat))
+          if (!controller.signal.aborted && !boatChosen.current && FLOAT_BOATS.includes(boat as FloatBoat))
             setState((s) => ({
               ...s,
               input: { ...s.input, vesselType: boat as FloatBoat },
@@ -146,7 +164,31 @@ export default function FindFloatScreen() {
       request.current?.abort();
       attempts.current++;
     };
-  }, [initialRiver]);
+  }, [initialRiver, riverReload]);
+  const townQuery = query.trim();
+  const currentPlaces = placeSearch?.query === townQuery ? placeSearch : null;
+  useEffect(() => {
+    if (!wherePicker || townQuery.length < 2) return;
+    const controller = new AbortController();
+    const timer = setTimeout(() => {
+      void fetchFloatSearchPlaces(townQuery, controller.signal)
+        .then((data) => {
+          if (!controller.signal.aborted) setPlaceSearch({ query: townQuery, places: data.places });
+        })
+        .catch(() => {
+          if (!controller.signal.aborted)
+            setPlaceSearch({
+              query: townQuery,
+              places: [],
+              error: 'Town search is unavailable. Try again or choose a river.',
+            });
+        });
+    }, 350);
+    return () => {
+      clearTimeout(timer);
+      controller.abort();
+    };
+  }, [townQuery, wherePicker]);
   useFocusEffect(
     useCallback(() => {
       const result = state.result;
@@ -175,51 +217,47 @@ export default function FindFloatScreen() {
     locationAttempt.current++;
     setBusy(null);
     setError('');
-    setPickerError('');
+    setLocationError('');
     setExpired(false);
     setState((s) => ({ ...s, input: { ...s.input, ...patch }, result: null }));
-    if (patch.vesselType) void AsyncStorage.setItem(FLOAT_BOAT_STORAGE_KEY, patch.vesselType).catch(() => {});
+    if (patch.vesselType) {
+      boatChosen.current = true;
+      void AsyncStorage.setItem(FLOAT_BOAT_STORAGE_KEY, patch.vesselType).catch(() => {});
+    }
   };
-  async function run(kind: 'town' | 'search') {
-    if (kind === 'search') setExpired(false);
-    request.current?.abort();
+  async function run() {
+    if (request.current && !request.current.signal.aborted) return;
+    boatChosen.current = true; // Search commits the vessel currently shown, even if storage is slow.
+    setExpired(false);
     locationAttempt.current++;
     const controller = new AbortController();
     request.current = controller;
-    setBusy(kind);
-    if (kind === 'search') setError('');
-    else setPickerError('');
-    if (kind === 'search') {
-      revealResults.current = true;
-      setState((s) => ({ ...s, result: null }));
-    } else setPlaces(null);
+    setBusy('search');
+    setError('');
+    revealResults.current = true;
+    setState((s) => ({ ...s, result: null }));
     try {
-      if (kind === 'town') {
-        const data = await fetchFloatSearchPlaces(state.town, controller.signal);
-        if (!controller.signal.aborted) setPlaces(data.places);
-      } else {
-        const input = {
-          ...state.input,
-          near: state.input.near ? approximateLocation(state.input.near) : undefined,
-        };
-        const result = await fetchFloatSearch(input, controller.signal);
-        if (!controller.signal.aborted) setState((s) => ({ ...s, result }));
-      }
+      const input = {
+        ...state.input,
+        near: state.input.near ? approximateLocation(state.input.near) : undefined,
+      };
+      const result = await fetchFloatSearch(input, controller.signal);
+      if (!controller.signal.aborted) setState((s) => ({ ...s, result }));
     } catch (e) {
-      if (!controller.signal.aborted) {
-        const message = e instanceof Error ? e.message : 'Search could not finish. Please try again.';
-        if (kind === 'search') setError(message);
-        else setPickerError(message);
-      }
+      if (!controller.signal.aborted)
+        setError(e instanceof Error ? e.message : 'Search could not finish. Please try again.');
     } finally {
-      if (!controller.signal.aborted) setBusy(null);
+      if (request.current === controller) {
+        request.current = null;
+        if (!controller.signal.aborted) setBusy(null);
+      }
     }
   }
   async function locate() {
     request.current?.abort();
     const attempt = ++locationAttempt.current;
     setBusy('location');
-    setPickerError('');
+    setLocationError('');
     const point = await location.request();
     if (attempt !== locationAttempt.current) return;
     if (point) {
@@ -228,28 +266,26 @@ export default function FindFloatScreen() {
       setState((s) => ({
         ...s,
         location: 'Your approximate location',
-        input: { ...s.input, near: approximateLocation(point) },
+        input: { ...s.input, ...selectSearchLocation(approximateLocation(point)) },
         result: null,
       }));
-      setPlaces(null);
-      setLocationPicker(false);
-    } else setPickerError('Location is unavailable. Choose a town or a river.');
+      Keyboard.dismiss();
+      setWherePicker(false);
+    } else setLocationError('Location is unavailable. Search for a river or town instead.');
     setBusy(null);
   }
   function plan(option: FloatSearchOption) {
     rememberSearch(state, scroll.current, initialRiver);
-    router.push({
-      pathname: '/',
-      params: {
-        focusRiver: option.riverSlug,
-        openPlan: '1',
-        planPutIn: option.putIn.id,
-        planTakeOut: option.takeOut.id,
-        planVesselTypeId: option.vesselTypeId,
-        planRequest: newPlanRequest(),
-        planReturnTo: 'find-float',
-      },
-    });
+    navigate(() =>
+      router.push(
+        floatPlanDestination({
+          focusRiver: option.riverSlug,
+          planPutIn: option.putIn.id,
+          planTakeOut: option.takeOut.id,
+          planVesselTypeId: option.vesselTypeId,
+        }),
+      ),
+    );
   }
 
   const label = (text: string) => <Text style={[styles.label, { color: colors.text }]}>{text}</Text>;
@@ -325,19 +361,13 @@ export default function FindFloatScreen() {
     );
   }
   const closePicker = () => {
-    request.current?.abort();
+    Keyboard.dismiss();
     locationAttempt.current++;
-    setBusy(null);
-    setPickerError('');
-    setLocationPicker(false);
-    setRiverPicker(false);
+    if (busy === 'location') setBusy(null);
+    setWherePicker(false);
   };
-  const changeMode = (mode: State['mode']) => {
-    if (mode === state.mode) return;
-    update({ river: undefined });
-    setState((s) => ({ ...s, mode }));
-  };
-  const canSearch = busy === null && (state.mode === 'river' ? !!input.river : !!input.near);
+  const canSearch = busy === null && Boolean(input.river || input.near);
+  const matchingRivers = rivers.filter((r) => r.name.toLowerCase().includes(townQuery.toLowerCase()));
   return (
     <View style={[styles.screen, { backgroundColor: colors.bg }]}>
       <ScrollView
@@ -356,54 +386,47 @@ export default function FindFloatScreen() {
           }
         }}
       >
-        <View style={[styles.modes, { backgroundColor: colors.cardRaised }]} accessibilityRole="tablist">
-          {(['nearby', 'river'] as const).map((mode) => (
-            <Pressable
-              key={mode}
-              onPress={() => changeMode(mode)}
-              accessibilityRole="tab"
-              accessibilityState={{ selected: mode === state.mode }}
-              style={[
-                styles.mode,
-                { backgroundColor: state.mode === mode ? colors.card : colors.cardRaised },
-              ]}
-            >
-              <Text
-                style={[styles.buttonText, { color: state.mode === mode ? colors.text : colors.textMuted }]}
-              >
-                {mode === 'nearby' ? 'Nearby' : 'By river'}
-              </Text>
-            </Pressable>
-          ))}
-        </View>
         <View style={[styles.formGroup, { backgroundColor: colors.card }]}>
           <Pressable
             onPress={() => {
-              setPickerError('');
-              if (state.mode === 'river') setRiverPicker(true);
-              else setLocationPicker(true);
+              setQuery('');
+              setWherePicker(true);
             }}
             disabled={busy !== null}
             accessibilityRole="button"
             accessibilityState={{ disabled: busy !== null }}
             style={styles.fieldRow}
           >
-            <ControlIcon
-              name={state.mode === 'river' ? 'map-outline' : 'locate-outline'}
-              size={20}
-              color={colors.interactive}
-            />
+            <ControlIcon name="search-outline" size={20} color={colors.interactive} />
             <View style={styles.fieldCopy}>
-              {body(state.mode === 'river' ? 'River' : 'Starting location')}
+              {body('Where?')}
               {label(
-                state.mode === 'river'
-                  ? (rivers.find((r) => r.slug === input.river)?.name ?? input.river ?? 'Choose a river')
-                  : state.location || 'Choose a location',
+                input.river
+                  ? (rivers.find((r) => r.slug === input.river)?.name ?? input.river)
+                  : state.location || 'Search for a river or town',
               )}
             </View>
             <ControlIcon name="chevron-forward" size={16} color={colors.textSubtle} />
           </Pressable>
-          {state.mode === 'nearby' ? (
+          <View style={[styles.divider, { backgroundColor: colors.border }]} />
+          <Pressable
+            accessibilityRole="button"
+            disabled={busy !== null}
+            accessibilityState={{ disabled: busy !== null }}
+            onPress={() => void locate()}
+            style={styles.fieldRow}
+          >
+            <ControlIcon name="locate-outline" size={20} color={colors.interactive} />
+            <Text style={[t.base, { color: colors.interactive }]}>
+              {busy === 'location' ? 'Finding your location…' : 'Use my location'}
+            </Text>
+          </Pressable>
+          {locationError ? (
+            <Text accessibilityRole="alert" style={[styles.groupPadding, t.sm, { color: colors.text }]}>
+              {locationError}
+            </Text>
+          ) : null}
+          {input.near && !input.river ? (
             <>
               <View style={[styles.divider, { backgroundColor: colors.border }]} />
               <MenuView
@@ -451,34 +474,24 @@ export default function FindFloatScreen() {
           />
         </View>
         <View style={[styles.formGroup, styles.groupPadding, { backgroundColor: colors.card }]}>
-          {label('Vessel')}
+          {label('Vessel & pace')}
           <VesselPicker value={input.vesselType} onChange={(vesselType) => update({ vesselType })} />
         </View>
-        <View style={[styles.formGroup, { backgroundColor: colors.card }]}>
-          <Pressable
-            onPress={() => setMoreFilters((value) => !value)}
-            accessibilityRole="button"
-            accessibilityState={{ expanded: moreFilters }}
-            style={styles.fieldRow}
-          >
-            <Text style={[styles.label, { color: colors.text, flex: 1 }]}>More filters</Text>
-            {input.publicOnly ? body('1 active') : null}
-            <ControlIcon
-              name={moreFilters ? 'chevron-up' : 'chevron-down'}
-              size={16}
-              color={colors.textMuted}
-            />
-          </Pressable>
-          {moreFilters ? (
-            <View style={styles.fieldRow}>
-              <Text style={[t.sm, { color: colors.text, flex: 1 }]}>Public put-ins &amp; take-outs</Text>
-              <Switch
-                accessibilityLabel="Public put-ins and take-outs only"
-                value={input.publicOnly}
-                onValueChange={(publicOnly) => update({ publicOnly })}
-              />
+        <View style={[styles.formGroup, styles.groupPadding, { backgroundColor: colors.card }]}>
+          <View style={styles.between}>
+            <View style={styles.fieldCopy}>
+              {label('Public access only')}
+              {body('Show routes with public put-ins and take-outs.')}
             </View>
-          ) : null}
+            <Switch
+              accessibilityLabel="Public access only"
+              value={input.publicOnly}
+              onValueChange={(publicOnly) => update({ publicOnly })}
+            />
+          </View>
+          {!input.publicOnly
+            ? body('Results may include private or unconfirmed access. Check access details before going.')
+            : null}
         </View>
         {busy && <ActivityIndicator color={colors.interactive} />}
         {error ? (
@@ -529,18 +542,18 @@ export default function FindFloatScreen() {
       >
         <View style={styles.footer}>
           <SearchButton
-            label={busy === 'search' ? 'Checking floats…' : result ? 'Search again' : 'Find floats'}
+            label={busy === 'search' ? 'Finding routes…' : result ? 'Search again' : 'Find routes'}
             primary
             disabled={!canSearch}
             onPress={() => {
-              void run('search');
+              void run();
             }}
           />
         </View>
       </ScreenSafeAreaView>
       {info ? <FloatInfoSheet topic={info} onClose={() => setInfo(null)} /> : null}
       <Modal
-        visible={locationPicker || riverPicker}
+        visible={wherePicker}
         presentationStyle="pageSheet"
         animationType={reducedMotion ? 'none' : 'slide'}
         allowSwipeDismissal
@@ -554,7 +567,7 @@ export default function FindFloatScreen() {
           >
             <View style={styles.modalHeader}>
               <Text accessibilityRole="header" style={[styles.heading, { color: colors.text, flex: 1 }]}>
-                {riverPicker ? 'Choose a river' : 'Starting location'}
+                Where?
               </Text>
               <SearchButton label="Done" onPress={closePicker} />
             </View>
@@ -562,90 +575,75 @@ export default function FindFloatScreen() {
               style={styles.screen}
               behavior={Platform.OS === 'ios' ? 'padding' : undefined}
             >
-              <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.content}>
-                {riverPicker ? (
+              <ScrollView
+                keyboardShouldPersistTaps="handled"
+                keyboardDismissMode="on-drag"
+                contentContainerStyle={styles.content}
+              >
+                <TextInput
+                  accessibilityLabel="Search for a river or town"
+                  placeholder="River or town and state"
+                  placeholderTextColor={colors.textSubtle}
+                  value={query}
+                  maxLength={120}
+                  style={inputStyle}
+                  autoCorrect={false}
+                  autoFocus
+                  returnKeyType="search"
+                  onChangeText={setQuery}
+                />
+                <Text accessibilityRole="header" style={[styles.label, { color: colors.text }]}>
+                  Rivers
+                </Text>
+                {matchingRivers.map((river) => (
+                  <SearchButton
+                    key={river.id}
+                    label={river.name}
+                    selected={input.river === river.slug}
+                    onPress={() => {
+                      update(selectSearchRiver(river.slug));
+                      setState((s) => ({ ...s, location: '' }));
+                      closePicker();
+                    }}
+                  />
+                ))}
+                {!matchingRivers.length
+                  ? body(
+                      rivers.length
+                        ? 'No matching rivers. Try a town below.'
+                        : 'No river list available yet.',
+                    )
+                  : null}
+                {riversError ? (
                   <>
-                    <TextInput
-                      accessibilityLabel="Filter rivers"
-                      placeholder="River name"
-                      placeholderTextColor={colors.textSubtle}
-                      value={riverQuery}
-                      onChangeText={setRiverQuery}
-                      style={inputStyle}
-                      autoCorrect={false}
-                    />
-                    {rivers
-                      .filter((r) => r.name.toLowerCase().includes(riverQuery.toLowerCase()))
-                      .map((r) => (
-                        <SearchButton
-                          key={r.id}
-                          label={r.name}
-                          selected={input.river === r.slug}
-                          onPress={() => {
-                            update({ river: r.slug });
-                            setRiverPicker(false);
-                          }}
-                        />
-                      ))}
-                    {rivers.length === 0
-                      ? body('The river list is unavailable. Try location or town search.')
-                      : null}
-                    {rivers.length > 0 &&
-                    !rivers.some((r) => r.name.toLowerCase().includes(riverQuery.toLowerCase()))
-                      ? body('No rivers found. Try another name.')
-                      : null}
+                    <Text style={[t.sm, { color: colors.textMuted }]}>{riversError}</Text>
+                    <SearchButton label="Retry river list" onPress={() => setRiverReload((n) => n + 1)} />
                   </>
-                ) : (
+                ) : null}
+                {townQuery.length >= 2 ? (
                   <>
-                    <SearchButton
-                      label={busy === 'location' ? 'Finding your location…' : 'Use my location'}
-                      disabled={busy !== null}
-                      onPress={() => {
-                        void locate();
-                      }}
-                    />
-                    <TextInput
-                      accessibilityLabel="Town and state"
-                      placeholder="Town and state"
-                      placeholderTextColor={colors.textSubtle}
-                      value={state.town}
-                      maxLength={120}
-                      style={inputStyle}
-                      returnKeyType="search"
-                      autoCorrect={false}
-                      onChangeText={(town) => {
-                        request.current?.abort();
-                        locationAttempt.current++;
-                        setBusy(null);
-                        setPickerError('');
-                        setPlaces(null);
-                        setState((s) => ({ ...s, town }));
-                      }}
-                      onSubmitEditing={() => {
-                        if (state.town.trim().length >= 2) void run('town');
-                      }}
-                    />
-                    <SearchButton
-                      label={busy === 'town' ? 'Searching…' : 'Search towns'}
-                      disabled={busy !== null || state.town.trim().length < 2}
-                      onPress={() => {
-                        void run('town');
-                      }}
-                    />
-                    {places?.length === 0 ? body('No towns found. Add a state and try again.') : null}
-                    {places?.map((place) => (
+                    <Text accessibilityRole="header" style={[styles.label, { color: colors.text }]}>
+                      Towns &amp; places
+                    </Text>
+                    {!currentPlaces ? (
+                      <ActivityIndicator accessibilityLabel="Searching towns" color={colors.interactive} />
+                    ) : currentPlaces.error ? (
+                      body(currentPlaces.error)
+                    ) : !currentPlaces.places.length ? (
+                      body('No towns found. Add a state or try another name.')
+                    ) : null}
+                    {currentPlaces?.places.map((place) => (
                       <SearchButton
                         key={place.id}
                         label={place.name}
                         onPress={() => {
-                          update({ near: place.near });
-                          setState((s) => ({ ...s, location: place.name, town: place.name }));
-                          setPlaces(null);
-                          setLocationPicker(false);
+                          update(selectSearchLocation(place.near));
+                          setState((s) => ({ ...s, location: place.name }));
+                          closePicker();
                         }}
                       />
                     ))}
-                    {places ? (
+                    {currentPlaces ? (
                       <Text
                         onPress={() => void openExternalLink('https://www.mapbox.com/about/maps/')}
                         accessibilityRole="link"
@@ -654,23 +652,10 @@ export default function FindFloatScreen() {
                         Town search © Mapbox
                       </Text>
                     ) : null}
-                    {input.near ? (
-                      <SearchButton
-                        label="Clear location"
-                        onPress={() => {
-                          update({ near: undefined });
-                          setState((s) => ({ ...s, location: '', town: '' }));
-                          setLocationPicker(false);
-                        }}
-                      />
-                    ) : null}
                   </>
+                ) : (
+                  body('Type at least two letters to search towns.')
                 )}
-                {pickerError ? (
-                  <Text accessibilityRole="alert" style={[t.sm, { color: colors.error }]}>
-                    {pickerError}
-                  </Text>
-                ) : null}
               </ScrollView>
             </KeyboardAvoidingView>
           </SafeAreaView>
@@ -743,15 +728,6 @@ const styles = StyleSheet.create({
   group: { gap: 12 },
   formGroup: { borderRadius: 18, overflow: 'hidden' },
   groupPadding: { padding: 14, gap: 8 },
-  modes: { flexDirection: 'row', padding: 3, borderRadius: 13 },
-  mode: {
-    flex: 1,
-    minHeight: 44,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: 10,
-    padding: 8,
-  },
   fieldRow: {
     flexDirection: 'row',
     alignItems: 'center',
