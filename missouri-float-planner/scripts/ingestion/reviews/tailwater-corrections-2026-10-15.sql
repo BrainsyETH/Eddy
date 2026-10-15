@@ -68,17 +68,20 @@ BEGIN
   END IF;
   IF NOT EXISTS (SELECT 1 FROM access_points WHERE id='00434692-242e-4d35-bfc7-d0d40c5e160e' AND river_mile_downstream=5.01 AND snap_distance_m BETWEEN 60 AND 72) THEN RAISE EXCEPTION 'Takeout correction failed'; END IF;
 END $geometry$;
-INSERT INTO river_characteristics (river_id,is_spring_fed,primary_hazards,low_water_meaning,rising_water_hazards,river_note) SELECT id,false,ARRAY['dam_release','cold_water'],
+-- river_note is short guidance: condition cards append it to the reading text
+-- (buildStaticEddyText) and the Eddy prompt reads it, so it must not repeat
+-- the description. 'fluctuating_flow' matches the tailwater vocabulary in 00205.
+INSERT INTO river_characteristics (river_id,is_spring_fed,primary_hazards,low_water_meaning,rising_water_hazards,river_note) SELECT id,false,ARRAY['cold_water','fluctuating_flow'],
 'Low observed release at the dam does not establish wading safety or a downstream water level.',
 'Changing releases can raise water levels and strengthen current. Follow posted dam restrictions and warning signals.',
-'The cold-water North Fork River below Norfork Dam joins the White River at Norfork, Arkansas. The proposed boat corridor runs from Dam-Quarry Boat Ramp to Norfork Access on the White River just below the confluence. Releases can change conditions along this reach; observed dam readings and generation schedules do not establish a safe wading or departure window. Check the current Arkansas Game and Fish Commission trout regulations for the section you fish.' FROM rivers WHERE slug='norfork-tailwater' ON CONFLICT (river_id) DO NOTHING;
-INSERT INTO river_characteristics (river_id,is_spring_fed,primary_hazards,low_water_meaning,rising_water_hazards,river_note) SELECT id,false,ARRAY['dam_release','cold_water'],
+'Norfork Dam releases can change conditions along this reach; dam readings and generation schedules do not establish a safe wading or departure window.' FROM rivers WHERE slug='norfork-tailwater' ON CONFLICT (river_id) DO NOTHING;
+INSERT INTO river_characteristics (river_id,is_spring_fed,primary_hazards,low_water_meaning,rising_water_hazards,river_note) SELECT id,false,ARRAY['cold_water','fluctuating_flow'],
 'Low observed release at the dam does not establish wading safety or a downstream water level.',
 'Changing releases can raise water levels and strengthen current. Follow posted dam restrictions and warning signals.',
-'The White River below Bull Shoals Dam is a regulated trout fishery extending downstream through Cotter and Norfork to the Highway 58 bridge at Guion. Bull Shoals releases affect the upper reach; tributaries and Norfork Dam releases also influence water farther downstream. A reading at Bull Shoals does not describe every access point. Check current observations, posted restrictions and Arkansas Game and Fish Commission regulations for your section.' FROM rivers WHERE slug='white' ON CONFLICT (river_id) DO NOTHING;
-INSERT INTO river_characteristics (river_id,is_spring_fed,primary_hazards,low_water_meaning,rising_water_hazards,river_note) SELECT id,false,ARRAY['dam_release','cold_water'],
+'Bull Shoals releases drive the upper reach; tributaries and Norfork Dam releases also affect water farther downstream, so a Bull Shoals reading does not describe every access point.' FROM rivers WHERE slug='white' ON CONFLICT (river_id) DO NOTHING;
+INSERT INTO river_characteristics (river_id,is_spring_fed,primary_hazards,low_water_meaning,rising_water_hazards,river_note) SELECT id,false,ARRAY['cold_water','fluctuating_flow'],
 'Low observed release at the dam does not establish wading safety or a downstream water level.',
 'Changing releases can raise water levels and strengthen current. Follow posted dam restrictions and warning signals.',
-'Lake Taneycomo occupies the White River between Table Rock Dam and Powersite Dam. Cold-water releases from Table Rock support its trout fishery and can change the current and water level, especially in the upper reach. The proposed first boat corridor is Shepherd of the Hills Hatchery Boat Ramp to Cooper Creek Access. Dam observations and generation schedules do not establish a safe wading window; check posted restrictions and current Missouri Department of Conservation regulations.' FROM rivers WHERE slug='taneycomo' ON CONFLICT (river_id) DO NOTHING;
+'Table Rock releases change the current and water level, especially in the upper reach; dam readings and generation schedules do not establish a safe wading window.' FROM rivers WHERE slug='taneycomo' ON CONFLICT (river_id) DO NOTHING;
 SELECT r.slug,r.active,r.length_miles,count(a.id) FILTER (WHERE a.is_float_endpoint) AS float_endpoints FROM rivers r LEFT JOIN access_points a ON a.river_id=r.id WHERE r.slug IN ('norfork-tailwater','white','taneycomo') GROUP BY r.id ORDER BY r.slug;
 ROLLBACK;

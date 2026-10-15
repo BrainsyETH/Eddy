@@ -92,7 +92,10 @@ redirect still leads to an October **2025** emergency order; it is not the lates
 Prepared descriptions remove fixed-flow wading assurances, a permanent 185-cfs
 promise and unqualified claims about hourly/eight-foot changes. Structured
 characteristics describe cold water, changing releases and the distinction
-between an observation at a dam and downstream conditions. No recreational
+between an observation at a dam and downstream conditions, using the existing
+`cold_water` and `fluctuating_flow` hazard keys. Each `river_note` is one
+sentence drawn from the reviewed description, because condition cards append it
+to the reading text and Eddy's prompt reads it. No recreational
 threshold, travel-time curve, safe departure window or wading classification is
 introduced. Fixed-hazard coverage and posted dam approach limits remain pending;
 zero hazard rows never means hazard-free.
