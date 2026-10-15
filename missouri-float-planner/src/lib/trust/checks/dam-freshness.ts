@@ -44,6 +44,7 @@
 // answer different questions on purpose: the test asks "can the recorder see
 // this dam", this asks "did the recorder actually get anything".
 
+import { USACE_DAMS, expectedHistoryMetrics } from '@/lib/flow-providers/usace-registry';
 import type { RawFinding, TrustCheck, TrustCheckContext, TrustCheckResult } from '../types';
 
 /**
@@ -189,12 +190,17 @@ export const damFreshnessCheck: TrustCheck = {
     const series: DamMetricAge[] = [];
     for (const row of rows) {
       const damId = typeof row.dam_id === 'string' ? row.dam_id : null;
-      if (!damId) continue;
+      if (!damId || typeof row.metric !== 'string' || !row.metric ||
+          typeof row.latest_observed_hour !== 'string') {
+        throw new Error('trust_dam_history_freshness() returned an invalid series');
+      }
       const stamp = new Date(row.latest_observed_hour);
-      if (Number.isNaN(stamp.getTime())) continue;
+      if (Number.isNaN(stamp.getTime()) || stamp.getTime() > ctx.now.getTime()) {
+        throw new Error(`trust_dam_history_freshness() returned an invalid timestamp for ${damId}`);
+      }
       series.push({
         damId,
-        metric: typeof row.metric === 'string' ? row.metric : 'unknown',
+        metric: row.metric,
         latest: stamp,
       });
     }
@@ -205,6 +211,20 @@ export const damFreshnessCheck: TrustCheck = {
     // empty or the read is broken, and reconcile.ts refuses to resolve anything
     // on an empty scope — which is what stops a broken query from closing every
     // dam finding as fixed.
-    return { scopeCount: ages.length, findings: deriveDamFreshnessFindings(ages, ctx.now) };
+    const findings = deriveDamFreshnessFindings(ages, ctx.now);
+    // The grouped RPC includes every historically recorded metric. Only dams
+    // actually observed here earn resolution evidence, taking their STALEST
+    // series. Missing dams cannot be closed, even during a fleet recovery.
+    const verifiedResolutions = ages.flatMap((age) => {
+      const dam = USACE_DAMS[age.damId];
+      const required = dam ? expectedHistoryMetrics(dam) : [];
+      // One fresh metric is not evidence that both expected streams recovered.
+      // Unknown historical dams retain the RPC's observed scope.
+      if (!required.every((metric) => series.some((s) => s.damId === age.damId && s.metric === metric))) return [];
+      return ['dam_history_stale', 'dam_history_frozen']
+        .filter((ruleKey) => !findings.some((f) => f.entityKey === age.damId && f.ruleKey === ruleKey))
+        .map((ruleKey) => ({ entityType: 'dam' as const, entityKey: age.damId, ruleKey }));
+    });
+    return { scopeCount: ages.length, findings, verifiedResolutions };
   },
 };

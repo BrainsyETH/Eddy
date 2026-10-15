@@ -98,6 +98,13 @@ export interface TrustCheckResult {
   scopeCount: number;
   findings: RawFinding[];
   /**
+   * Positive, per-rule evidence that these findings no longer apply. When
+   * supplied, ONLY these identities may resolve; absence is not recovery.
+   * This permits a recovered fleet to close together without weakening the
+   * mass-resolution guard for checks that only report problems.
+   */
+  verifiedResolutions?: Pick<RawFinding, 'entityType' | 'entityKey' | 'ruleKey'>[];
+  /**
    * The check ran out of time and reported on only part of its scope.
    *
    * Load-bearing for the same reason scopeCount is. A truncated pass emits

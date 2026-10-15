@@ -54,6 +54,8 @@ export interface ReconcileInput {
   snoozedFingerprints?: readonly string[];
   /** What this run emitted. */
   emittedFingerprints: readonly string[];
+  /** If supplied, resolution requires positive evidence for each identity. */
+  verifiedResolvedFingerprints?: readonly string[];
   /** Below this many resolutions, never suspect a mass resolve. Default 5. */
   massResolveMinAbsolute?: number;
   /** Fraction of the open set above which a resolve is suspect. Default 0.5. */
@@ -118,7 +120,12 @@ export function planReconcile(input: ReconcileInput): ReconcilePlan {
   // Snoozed findings are excluded here as well as from `open`: a snooze is an
   // operator saying "I know, stop telling me", and having the next run quietly
   // close it would lose the fact that it was never actually fixed.
-  const resolve = input.openFingerprints.filter((fp) => !emitted.has(fp));
+  const verified = input.verifiedResolvedFingerprints === undefined
+    ? undefined
+    : new Set(input.verifiedResolvedFingerprints);
+  const resolve = input.openFingerprints.filter(
+    (fp) => !emitted.has(fp) && (verified === undefined || verified.has(fp)),
+  );
 
   const minAbsolute = input.massResolveMinAbsolute ?? DEFAULT_MASS_RESOLVE_MIN_ABSOLUTE;
   const fraction = input.massResolveFraction ?? DEFAULT_MASS_RESOLVE_FRACTION;
@@ -128,6 +135,7 @@ export function planReconcile(input: ReconcileInput): ReconcilePlan {
   // ordinary afternoon. Together they describe the thing worth stopping for:
   // most of what was open went quiet at once.
   const suspicious =
+    verified === undefined &&
     resolve.length > minAbsolute && resolve.length > input.openFingerprints.length * fraction;
 
   if (suspicious) {
