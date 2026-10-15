@@ -35,9 +35,11 @@
 // It stayed invisible because hardcoded ids win for every shipped dam.
 //
 // So freshness now comes from READING A VALUE (see probeSeries) and the
-// catalog timestamp is demoted to a liveness FLOOR that only buries corpses —
-// series a district abandoned years ago and left listed. Interval is an
-// ALLOWLIST rather than a ranking, so no aggregate can represent "right now"
+// catalog timestamp only rejects series far behind eligible peers at the same
+// location. The 30-day wall-clock floor failed again on 2026-10-14 when the
+// September catalog freeze outlasted it. Relative lag survives a freeze of any
+// length; a wholly abandoned catalog still has to pass the actual data probe.
+// Interval is an ALLOWLIST, so no aggregate can represent "right now"
 // however fresh its metadata claims to be.
 
 import {
@@ -56,14 +58,12 @@ const REQUEST_TIMEOUT_MS = 10_000;
 const REVALIDATE_SECONDS = 86_400;
 
 /**
- * Liveness floor, NOT a freshness measure — see the header.
- *
- * Deliberately generous: it has to survive a catalog whose metadata is frozen
- * for an unknown stretch, while still rejecting what it exists to reject —
- * `Bull_Shoals_Dam.Flow-Res Out.Ave.1Hour.1Hour.CCP-Comp` last carried data in
+ * Maximum lag behind the newest eligible peer, never behind the wall clock.
+ * This still rejects abandoned series such as
+ * `Bull_Shoals_Dam.Flow-Res Out.Ave.1Hour.1Hour.CCP-Comp`, which last carried data in
  * February 2020 and is still listed beside the live `Regi-Comp` series.
  */
-const CATALOG_MAX_AGE_DAYS = 30;
+const CATALOG_MAX_LAG_DAYS = 30;
 
 /**
  * Candidates probed per metric before giving up. Bounds the added fan-out: the
@@ -334,10 +334,8 @@ export interface ResolvedSeries {
 function score(
   entry: CatalogEntry,
   spec: MetricSpec,
-  locations: string[],
-  now: number,
-  maxAgeDays: number
-): { points: number; reason: string } | null {
+  locations: string[]
+): { points: number; reason: string; latest: number; location: string } | null {
   const parsed = parseTsId(entry.name);
   if (!parsed) return null;
 
@@ -364,13 +362,11 @@ function score(
   const intervalIndex = spec.intervals.indexOf(parsed.interval);
   if (intervalIndex === -1) return null;
 
-  // Liveness floor only. A series the catalog has never seen a value for, or
-  // one abandoned years ago, is not a candidate; anything more recent goes to
-  // the probe, because the catalog's own clock cannot be trusted (see header).
+  // Unknown timestamps cannot establish relative liveness. Valid timestamps
+  // are compared with eligible peers in rankSeries, not with today.
   if (!entry.latestTime) return null;
   const latest = new Date(entry.latestTime).getTime();
   if (!Number.isFinite(latest)) return null;
-  if ((now - latest) / 86_400_000 > maxAgeDays) return null;
 
   let points = 0;
   points += (spec.pairs.length - pairIndex) * 100;
@@ -380,6 +376,8 @@ function score(
 
   return {
     points,
+    latest,
+    location: parsed.location,
     reason: `${parsed.parameter}/${parsed.interval}/${parsed.version}`,
   };
 }
@@ -395,21 +393,31 @@ export function rankSeries(
   entries: CatalogEntry[],
   metric: UsaceMetric,
   location: string | string[],
-  options?: { now?: number; maxAgeDays?: number }
+  options?: { maxLagDays?: number }
 ): ResolvedSeries[] {
   const spec = SPECS[metric];
   if (!spec) return [];
 
   const locations = Array.isArray(location) ? location : [location];
-  const now = options?.now ?? Date.now();
-  const maxAgeDays = options?.maxAgeDays ?? CATALOG_MAX_AGE_DAYS;
-
-  return entries
+  const maxLagDays = options?.maxLagDays ?? CATALOG_MAX_LAG_DAYS;
+  const candidates = entries
     .map((entry) => {
-      const s = score(entry, spec, locations, now, maxAgeDays);
-      return s ? { entry, ...s } : null;
+      const result = score(entry, spec, locations);
+      return result ? { entry, ...result } : null;
     })
-    .filter((c): c is { entry: CatalogEntry; points: number; reason: string } => c !== null)
+    .filter((candidate) => candidate !== null);
+
+  // Only comparable candidates can anchor a location's clock. A forecast,
+  // monthly aggregate, different metric or shared-name prefix must not age out
+  // its hourly observations. Split LRN namespaces keep independent clocks.
+  const newest = new Map<string, number>();
+  for (const candidate of candidates) {
+    newest.set(candidate.location, Math.max(newest.get(candidate.location) ?? -Infinity, candidate.latest));
+  }
+  return candidates
+    .filter((candidate) =>
+      (newest.get(candidate.location)! - candidate.latest) / 86_400_000 <= maxLagDays
+    )
     .sort((a, b) => b.points - a.points || a.entry.name.localeCompare(b.entry.name))
     .map((c) => ({ tsId: c.entry.name, unit: spec.unit, reason: c.reason }));
 }
@@ -419,7 +427,7 @@ export function pickSeries(
   entries: CatalogEntry[],
   metric: UsaceMetric,
   location: string | string[],
-  options?: { now?: number; maxAgeDays?: number }
+  options?: { maxLagDays?: number }
 ): ResolvedSeries | null {
   return rankSeries(entries, metric, location, options)[0] ?? null;
 }
@@ -532,7 +540,7 @@ export async function resolveSeries(
   office: string,
   location: string | string[],
   metrics: UsaceMetric[],
-  options?: { probe?: SeriesProbe; now?: number }
+  options?: { probe?: SeriesProbe }
 ): Promise<Partial<Record<UsaceMetric, ResolvedSeries>>> {
   // One catalog fetch per location, concatenated. A location whose fetch
   // fails contributes nothing rather than failing the set — the same
@@ -550,9 +558,7 @@ export async function resolveSeries(
     metrics.map(async (metric) => {
       const spec = SPECS[metric];
       if (!spec) return;
-      const candidates = rankSeries(entries, metric, locations, {
-        now: options?.now,
-      }).slice(0, MAX_PROBES_PER_METRIC);
+      const candidates = rankSeries(entries, metric, locations).slice(0, MAX_PROBES_PER_METRIC);
 
       for (const candidate of candidates) {
         const point = await probe(office, {

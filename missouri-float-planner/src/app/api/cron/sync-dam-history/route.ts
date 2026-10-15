@@ -30,11 +30,11 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { tryCronLock, releaseCronLock } from '@/lib/social/cron-lock';
 import { logger } from '@/lib/logger';
 import { fetchTimeseries } from '@/lib/usace/cda';
-import { periodEndingMs } from '@/lib/usace/resolve';
-import { USACE_DAMS, recordsHistory, type UsaceDam } from '@/lib/flow-providers/usace-registry';
+import { USACE_DAMS, recordsHistory } from '@/lib/flow-providers/usace-registry';
 import { seriesFor } from '@/lib/data/dams';
-import { bucketHourly, SYNC_LOOKBACK_HOURS, type DamHistoryMetric } from '@/lib/data/dam-history';
+import { SYNC_LOOKBACK_HOURS } from '@/lib/data/dam-history';
 import { pruneHistory, writeHours } from '@/lib/data/dam-history-store';
+import { syncDamHistory, summarizeHistorySync } from '@/lib/data/dam-history-sync';
 
 export const dynamic = 'force-dynamic';
 // Twenty dams × two series, each one CDA window. Measured well under a minute,
@@ -43,9 +43,6 @@ export const dynamic = 'force-dynamic';
 export const maxDuration = 300;
 
 const JOB = 'sync_dam_history';
-
-/** The two series the pattern strip draws. Nothing else is stored. */
-const HISTORY_METRICS: DamHistoryMetric[] = ['generationFlow', 'release'];
 
 /**
  * The most any one pass will ask CWMS for.
@@ -84,63 +81,6 @@ async function mapWithConcurrency<T, R>(
   return out;
 }
 
-/** One dam's two series, read and written. Never throws — a bad dam is not a bad run. */
-async function syncDam(
-  supabase: ReturnType<typeof createAdminClient>,
-  dam: UsaceDam,
-  lookbackHours: number,
-  now: number
-): Promise<{ written: number; metrics: number }> {
-  let written = 0;
-  let metrics = 0;
-
-  try {
-    const sources = await seriesFor(dam, HISTORY_METRICS);
-
-    for (const metric of HISTORY_METRICS) {
-      const source = sources[metric];
-      if (!source) continue;
-
-      // A daily mean is not an hourly observation and must never become one:
-      // averaging a day into 24 identical bars would draw a flat week at every
-      // St. Louis dam and call it a generation pattern.
-      if (source.dailyMean) continue;
-
-      const end = new Date(now);
-      const begin = new Date(now - lookbackHours * 3_600_000);
-      // skipCache: this is the writer of record. Serving it a fetch-cached
-      // window would store the same hours over and over and never advance.
-      const series = await fetchTimeseries(dam.office ?? '', source.tsId, source.unit, begin, end, {
-        skipCache: true,
-      });
-      if (!series || series.points.length === 0) continue;
-
-      metrics += 1;
-      // The hour we are STANDING IN is still filling — its mean would be built
-      // from whatever fraction of samples has arrived, then frozen by the
-      // upsert only to be corrected on the next pass anyway. Drop it and let
-      // the next run write it whole.
-      //
-      // This is a comparison against the bucket's own beginning, which is why
-      // the period-ending shift has to happen first: before it, the hour that
-      // had just CLOSED was stamped `currentHour` and got dropped here too, so
-      // the freshest bar always lagged an extra pass on top of being misplaced.
-      const currentHour = Math.floor(now / 3_600_000) * 3_600_000;
-      const buckets = bucketHourly(series.points, periodEndingMs(source.tsId)).filter(
-        (b) => Date.parse(b.observedHour) < currentHour
-      );
-      written += await writeHours(supabase, dam.id, metric, buckets);
-    }
-  } catch (err) {
-    logger.warn('sync-dam-history: dam failed', {
-      damId: dam.id,
-      error: err instanceof Error ? err.message : String(err),
-    });
-  }
-
-  return { written, metrics };
-}
-
 async function runSync(request: NextRequest) {
   const authHeader = request.headers.get('authorization');
   const cronSecret = process.env.CRON_SECRET;
@@ -162,12 +102,11 @@ async function runSync(request: NextRequest) {
 
   const locked = await tryCronLock(supabase, JOB, 280);
   if (!locked) {
-    return NextResponse.json({ skipped: 'another run holds the lock' });
+    return NextResponse.json({ monitoring_status: 'skipped', skipped: 'another run holds the lock' });
   }
 
   const startedAt = Date.now();
-  let written = 0;
-  let metricsSeen = 0;
+  let summary: ReturnType<typeof summarizeHistorySync>;
 
   try {
     // Only projects that can report turbine flow at all. A flood-control dam
@@ -183,12 +122,14 @@ async function runSync(request: NextRequest) {
     const dams = Object.values(USACE_DAMS).filter(recordsHistory);
 
     const results = await mapWithConcurrency(dams, DAM_CONCURRENCY, (dam) =>
-      syncDam(supabase, dam, lookbackHours, startedAt)
+      syncDamHistory(dam, lookbackHours, startedAt, {
+        resolve: seriesFor,
+        fetch: fetchTimeseries,
+        write: (damId, metric, buckets) => writeHours(supabase, damId, metric, buckets),
+      })
     );
-    for (const r of results) {
-      written += r.written;
-      metricsSeen += r.metrics;
-    }
+    summary = summarizeHistorySync(results.flat());
+    if (!summary.ok) logger.warn('sync-dam-history: degraded coverage', summary);
 
     await pruneHistory(supabase, startedAt);
   } finally {
@@ -196,11 +137,9 @@ async function runSync(request: NextRequest) {
   }
 
   return NextResponse.json({
-    ok: true,
+    ...summary,
     durationMs: Date.now() - startedAt,
     lookbackHours,
-    metricsSeen,
-    written,
   });
 }
 
