@@ -13,3 +13,11 @@ export function newPlanRequest(): string {
   counter += 1;
   return `${Date.now().toString(36)}-${counter}`;
 }
+
+/** A fresh planner in the caller's stack; the Map tab keeps its own state. */
+export function floatPlanDestination(params: Record<string, string> = {}) {
+  return {
+    pathname: '/plan-route' as const,
+    params: { ...params, openPlan: '1', planRequest: newPlanRequest() },
+  };
+}

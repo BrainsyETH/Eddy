@@ -278,3 +278,66 @@ for (const saved of [false, true]) {
   assert.deepEqual(activeStack().routes.at(-1), origin, 'Completing setup lost its origin screen');
 }
 console.log('Quick/saved float setup, native Back, sheet dismissal, and completed-session history verified.');
+
+// Floats planners live in their originating stack. The kept-alive Map route
+// never receives their selected river/endpoints or their dismissal state.
+const { floatPlanDestination } = require('../src/lib/planRequest.ts');
+launch(redirectSystemPath({ path: '/', initial: true }));
+selectTab('map');
+const originalMap = activeStack();
+selectTab('floats');
+for (const origin of ['float-home', 'favorite-floats', 'floats', 'find-float']) {
+  if (origin !== 'float-home') push(`/${origin}`);
+  const originKey = activeStack().routes.at(-1).key;
+  const route = floatPlanDestination({ focusRiver: 'current', planPutIn: 'a', planTakeOut: 'b', planVesselTypeId: 'kayak-id' });
+  push(route);
+  assert.equal(activeTab(), '(floats)');
+  assert.equal(activeStack().routes.at(-1).name, 'plan-route');
+  assert.equal(activeStack().routes.at(-1).params.planVesselTypeId, 'kayak-id');
+  // Endpoint detail and Back must return to this same planner.
+  const plannerKey = activeStack().routes.at(-1).key;
+  push('/river/current/access/akers');
+  back();
+  assert.equal(activeStack().routes.at(-1).key, plannerKey);
+  back();
+  assert.equal(activeStack().routes.at(-1).key, originKey);
+  push(floatPlanDestination());
+  assert.equal(activeStack().routes.at(-1).params.planPutIn, undefined);
+  assert.notEqual(activeStack().routes.at(-1).key, plannerKey);
+  back();
+  if (origin !== 'float-home') back();
+}
+selectTab('map');
+assert.deepEqual(activeStack(), originalMap, 'Floats planning must not mutate Map history or parameters');
+selectTab('floats');
+push('/floats?view=history');
+push('/float-backup');
+back();
+assert.equal(activeStack().routes.at(-1).params.view, 'history');
+console.log('Fresh route planners, exact finder handoffs, originating Back, preserved Map state, and collection settings verified.');
+
+for (const origin of ['floats', 'favorites', 'today']) {
+  launch(redirectSystemPath({ path: '/', initial: true }));
+  selectTab(origin);
+  push('/floats');
+  const collectionKey = activeStack().routes.at(-1).key;
+  push(floatPlanDestination());
+  const source = activeStack();
+  const start = { pathname: '/float-start', params: { riverSlug: 'current', putInId: 'a', takeOutId: 'b' } };
+  if (source.routeNames.includes('float-start')) state = apply(getNavigateAction(resolveHref(start), {}, 'REPLACE'));
+  else {
+    state = apply({ type: 'POP', payload: { count: 1 }, target: source.key });
+    const action = push(start);
+    // The mounted navigator consumes these nested screen params. This harness
+    // runs reducers only, so verify that handoff rather than faking a mount.
+    assert.equal(action.payload.params.screen, 'float-start');
+    assert.equal(action.payload.params.params.takeOutId, 'b');
+  }
+  assert.equal(activeTab(), '(floats)');
+  if (origin === 'floats') {
+    assert.equal(activeStack().routes.at(-1).name, 'float-start');
+    back();
+  } else selectTab(origin);
+  assert.equal(activeStack().routes.at(-1).key, collectionKey, 'Start must not leave a closed planner in another tab');
+}
+console.log('Starting from a standalone planner removes it in Floats and across other tab origins.');

@@ -150,6 +150,27 @@ These are pending device and release checks, not evidence of a device pass.
       List mode, initial loading and unavailable states keep native swipe-back.
       Starting a vertical drag on dates should cancel the delayed highlight.
       Check camping-panel padding on both map sheets and access pages.
+- [ ] **Floats hub and collection:** Start/Resume is primary; Build a Route and
+      Find a Route share a row. Open a featured route, save it, close, then Build
+      a Route: it starts empty. Repeat through Featured Floats → See all and
+      through finder results. Close returns to the originating list and preserves
+      its filter/scroll. Visit Map afterward: its previous selection, pin, camera,
+      and plan are unchanged, including when Map had no selection. Open endpoint
+      details and Back to the same plan; Start enters setup without reopening
+      the planner later. Try dismissing while a route is still loading.
+- [ ] **Floats browsing:** verify zero/many saves, three-card previews, Saved /
+      History, river filtering and sorting, and Backup & sharing (guest and signed
+      in). Featured images use the same fallback in See all. Test failed photos,
+      horizontal swipes versus vertical scrolling, page dots, light/dark,
+      maximum Dynamic Type, and rapid taps on different actions as well as the
+      same action; only one destination/session should open.
+- [ ] **Find a Route:** search a river and a town in the same picker; change
+      between them and Use my location. No location prompt until that action;
+      denied/unavailable location still permits town/river search. Type quickly
+      and dismiss during town lookup; stale responses must not replace results.
+      New users start with Kayak, and a selected vessel survives reopening and
+      plan retry. Check public-access toggle copy, time-slider VoiceOver, keyboard
+      dismissal, footer clearance and returning to the same search results.
 - [ ] **Saved Floats:** a fast online open has no saved-details flash; airplane
       mode shows saved logistics as soon as connectivity reports offline; a
       stalled connection exposes them after the 1.2-second grace period while

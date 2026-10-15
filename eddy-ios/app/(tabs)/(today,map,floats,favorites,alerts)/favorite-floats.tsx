@@ -1,21 +1,27 @@
-import { ScenicImage } from '@/components/ScenicImage';
 import { NativeHeaderHome } from '@/components/NativeHeaderHome';
 import { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { ControlIcon } from '@/components/ControlIcon';
+import { FeaturedFloatCard } from '@/components/FeaturedFloatCard';
+import { FloatCollectionControls } from '@/components/FloatCollectionControls';
+import { useCachedRiverPhotos } from '@/hooks/useCachedRiverPhotos';
+import { useNavigationAction } from '@/hooks/useNavigationAction';
+import { visibleFloats } from '@/lib/floatCollection';
 import { useRouter } from 'expo-router';
 import type { FavoriteFloatSummary } from '@eddy/types';
 import { ApiError, fetchFavoriteFloats } from '@/api/client';
 import { readFavoriteFloats, writeFavoriteFloats } from '@/lib/favoriteFloatCache';
-import { favoriteFloatMeta } from '@/lib/favoriteFloatCopy';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
-import { newPlanRequest } from '@/lib/planRequest';
+import { floatPlanDestination } from '@/lib/planRequest';
 
 export default function FavoriteFloatsScreen() {
   const router = useRouter();
-  const { colors, elevation } = useTheme();
+  const { colors } = useTheme();
+  const photos = useCachedRiverPhotos();
+  const navigate = useNavigationAction();
+  const [river, setRiver] = useState('');
+  const [sort, setSort] = useState<'default' | 'river'>('default');
   const [floats, setFloats] = useState<FavoriteFloatSummary[] | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -32,7 +38,11 @@ export default function FavoriteFloatsScreen() {
     } catch (err) {
       if (err instanceof ApiError && err.message === 'Request cancelled') return;
       setFloats((current) => current ?? []);
-      setError(cached ? 'Offline — showing Eddy’s saved guide picks.' : 'Couldn’t load Eddy’s guide picks. Pull down to retry.');
+      setError(
+        cached
+          ? 'Offline — showing Eddy’s saved guide picks.'
+          : 'Couldn’t load Eddy’s guide picks. Pull down to retry.',
+      );
     }
   }, []);
 
@@ -49,18 +59,22 @@ export default function FavoriteFloatsScreen() {
     setRefreshing(false);
   }, [load]);
 
-  const plan = useCallback((item: FavoriteFloatSummary) => {
-    router.push({
-      pathname: '/',
-      params: {
-        focusRiver: item.riverSlug,
-        openPlan: '1',
-        planRequest: newPlanRequest(),
-        planPutIn: item.putInId,
-        planTakeOut: item.takeOutId,
-      },
-    });
-  }, [router]);
+  const selectedRiver = floats?.some((item) => item.riverSlug === river) ? river : '';
+  const displayed = visibleFloats(floats ?? [], selectedRiver, sort);
+  const plan = useCallback(
+    (item: FavoriteFloatSummary) => {
+      navigate(() =>
+        router.push(
+          floatPlanDestination({
+            focusRiver: item.riverSlug,
+            planPutIn: item.putInId,
+            planTakeOut: item.takeOutId,
+          }),
+        ),
+      );
+    },
+    [navigate, router],
+  );
 
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: colors.bg }]} edges={['left', 'right']}>
@@ -68,43 +82,53 @@ export default function FavoriteFloatsScreen() {
       <ScrollView
         contentInsetAdjustmentBehavior="automatic"
         contentContainerStyle={styles.content}
-        refreshControl={floats ? <RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor={colors.interactive} /> : undefined}
+        refreshControl={
+          floats ? (
+            <RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor={colors.interactive} />
+          ) : undefined
+        }
       >
         <View>
-          <Text style={[styles.title, { color: colors.text }]}>Eddy’s Favorite Floats</Text>
-          <Text style={[styles.subtitle, { color: colors.textMuted }]}>Hand-picked stretches from the river guides</Text>
+          <Text style={[styles.title, { color: colors.text }]}>Featured Floats</Text>
+          <Text style={[styles.subtitle, { color: colors.textMuted }]}>
+            Hand-picked stretches from the river guides
+          </Text>
         </View>
         {!floats ? (
-          <View style={styles.center}><ActivityIndicator color={colors.interactive} accessibilityLabel="Loading guide picks" /></View>
+          <View style={styles.center}>
+            <ActivityIndicator color={colors.interactive} accessibilityLabel="Loading guide picks" />
+          </View>
         ) : (
           <>
             {error ? <Text style={[styles.error, { color: colors.error }]}>{error}</Text> : null}
             {floats.length === 0 ? (
               <View style={[styles.empty, { backgroundColor: colors.card, borderColor: colors.border }]}>
                 <Text style={[styles.cardTitle, { color: colors.text }]}>No guide picks available</Text>
-                <Text style={[styles.bodyText, { color: colors.textMuted }]}>Pull down when you’re back online.</Text>
+                <Text style={[styles.bodyText, { color: colors.textMuted }]}>
+                  Pull down when you’re back online.
+                </Text>
               </View>
-            ) : floats.map((item) => (
-              <View key={item.id} style={[styles.card, { backgroundColor: colors.card }, elevation(1)]}>
-                {item.photoUrl ? <ScenicImage source={{ uri: item.photoUrl }} style={styles.photo} /> : null}
-                <View style={styles.body}>
-                  <Text style={[styles.river, { color: colors.accent }]}>{item.riverName.toUpperCase()}</Text>
-                  <Text style={[styles.cardTitle, { color: colors.text }]}>{item.putInName} to {item.takeOutName}</Text>
-                  <Text style={[styles.meta, { color: colors.textMuted }]}>{favoriteFloatMeta(item)}</Text>
-                  <Text style={[styles.tagline, { color: colors.text }]}>{item.tagline}</Text>
-                  {item.bestFor ? <Text style={[styles.bodyText, { color: colors.textMuted }]}>Best for {item.bestFor}</Text> : null}
-                  <Pressable
-                    onPress={() => plan(item)}
-                    style={({ pressed }) => [styles.button, { backgroundColor: pressed ? colors.accentFillPressed : colors.accentFill }]}
-                    accessibilityRole="button"
-                    accessibilityLabel={`Plan ${item.putInName} to ${item.takeOutName}`}
-                  >
-                    <ControlIcon name="map-outline" size={18} color={colors.onAccent} />
-                    <Text style={[styles.buttonText, { color: colors.onAccent }]}>Plan this float</Text>
-                  </Pressable>
-                </View>
-              </View>
-            ))}
+            ) : (
+              <>
+                <FloatCollectionControls
+                  items={floats}
+                  river={selectedRiver}
+                  onRiver={setRiver}
+                  sort={sort}
+                  onSort={setSort}
+                  defaultOrder="Featured order"
+                />
+                {displayed.map((item) => (
+                  <FeaturedFloatCard
+                    key={item.id}
+                    item={item}
+                    riverPhotoUrl={photos.get(item.riverSlug)}
+                    onPlan={() => plan(item)}
+                    detailed
+                  />
+                ))}
+              </>
+            )}
           </>
         )}
       </ScrollView>
@@ -119,15 +143,7 @@ const styles = StyleSheet.create({
   center: { flexGrow: 1, paddingVertical: 32, alignItems: 'center', justifyContent: 'center' },
   content: { flexGrow: 1, paddingHorizontal: 16, paddingTop: 12, paddingBottom: 40, gap: 16 },
   error: { ...t.sm, fontFamily: fonts.body },
-  card: { borderRadius: 16, overflow: 'hidden' },
-  photo: { width: '100%', height: 170 },
-  body: { padding: 16 },
-  river: { ...t.xs, fontFamily: fonts.heading, letterSpacing: 0.8 },
   cardTitle: { ...t.xl, fontFamily: fonts.heading, marginTop: 3 },
-  meta: { ...t.sm, fontFamily: fonts.mono, marginTop: 7 },
-  tagline: { ...t.base, fontFamily: fonts.medium, marginTop: 11 },
   bodyText: { ...t.sm, fontFamily: fonts.body, marginTop: 4 },
-  button: { minHeight: 48, borderRadius: 12, marginTop: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 },
-  buttonText: { ...t.base, fontFamily: fonts.semibold },
   empty: { borderWidth: 1, borderRadius: 16, padding: 20 },
 });

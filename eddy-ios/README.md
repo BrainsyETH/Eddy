@@ -303,28 +303,47 @@ just draws it. The source art in `remotion/public/eddy` is video resolution
 
 ### Floats discovery controls
 
-The Floats hub leads with Find a Float, followed by Plan a Float and Start
-Float. An active trip gets the leading Resume action. Vessel choices use four
-labelled SVG glyphs (canoe, kayak, raft, tube), semantic theme colors, and a
-checkmark as well as color for selection. Large text reflows the choices.
-Utility actions keep native SF Symbols through `ControlIcon`.
+The Floats hub leads with Start a Float, or Resume Float while tracking.
+Build a Route (choose endpoints) and Find a Route (suggestions for a time and
+location) share a secondary row. Both use the same planner and result actions.
+New planners are pushed to `/plan-route` in the originating tab's stack, with
+the shared map and PlanSheet in a fresh screen instance. They never change the
+kept-alive Map tab's selection, pins, camera, or existing plan. Native dismissal
+finishes before Back returns to the caller; starting replaces that standalone
+planner with float setup. Planning directly on Map still retains its route when
+the sheet closes. Navigation entry actions ignore repeated presses until focus
+returns. The native route checks exercise the handoff, endpoint-detail Back,
+new-plan isolation, and preserved Map stack.
 
-Find a Float separates Nearby and By river, with native page sheets for town
-and river selection, a native radius menu, and a half-hour-step system slider.
-The slider uses `@react-native-community/slider`; this requires a new native
-binary, not an OTA on the previous runtime. The search footer uses the screen's
-native bottom safe area so tab-bar clearance is not a guessed pixel height.
-The slider previews time locally during a touch drag and commits on release;
-returning to the original time keeps the results. Non-drag accessibility
-adjustments commit immediately. The finder starts with its search controls,
-and result cards show one duration range with a visible conditions-basis
-caption. Location/town errors stay in their selection sheet and clear on
-dismissal; float-search errors remain on the main screen.
-Estimate info is available in the finder, result cards, and planner. It explains
-published timings and modeled times without claiming that every estimate is
-calculated directly from CFS. More filters currently contains the existing
-public-access option; camping, amenities, and river-distance filters are not
-part of this UI change.
+Find a Route uses one Where? picker for rivers and towns, with Use my location
+on the main form. River choices work without a location permission; only an
+explicit location tap asks. Selecting a river clears the previous nearby point,
+and selecting a location clears the river. Town search is debounced and cancels
+stale responses; it keeps Mapbox attribution. A selected location reveals a
+native radius menu, measured to the put-in rather than as driving distance.
+
+Kayak is the initial vessel, then an explicit choice is remembered. Labelled
+vessel glyphs carry neutral pace indicators (drifting, relaxed, paddling); canoe
+and kayak share the paddling tier, not a claim that one is universally faster.
+Large text reflows the choices. Public access only is visible on the form and
+on by default; switching it off can include private or unconfirmed endpoints.
+Estimate info explains published and modeled times without claiming every
+estimate comes directly from CFS. A retry retains the finder’s chosen vessel.
+
+The time control remains a half-hour-step system slider using the existing
+`@react-native-community/slider` dependency. It previews a touch drag locally
+and commits on release; returning to the original value preserves results.
+VoiceOver adjustments commit immediately. The footer uses the screen's native
+bottom safe area for tab-bar clearance. Location errors stay by the location
+action; town-search errors stay in the picker; route-search errors stay on the
+main screen. The new navigation and layout introduce no native dependencies.
+
+Saved Floats & History opens one collection with Saved and History segments,
+an All Rivers filter, and recent or River A–Z ordering. Backup & sharing is a
+labelled row inside the collection, with the account controls on its own page.
+The old `/float-history` URL opens the History segment. Featured Floats uses the
+same photo/fallback card on the carousel and full list, and the full list has
+river filtering and featured or alphabetical ordering.
 
 Saved cards show a cached endpoint thumbnail, then a river photo from the
 existing index cache, then the Eddy canoe. Featured cards also reuse cached
@@ -654,8 +673,9 @@ another's name.
 
 `useFloatPlan` holds put-in → take-out → answer, and the map draws the route and
 endpoints from it. Closing `PlanSheet` therefore does not discard the plan:
-people plan a float and then dismiss the sheet to look at the water between the
-two ends.
+people plan a float directly on Map and then dismiss the sheet to look at the
+water between the two ends. Floats entry points use a fresh `/plan-route` screen
+with the same components, so closing those leaves the Map tab unchanged.
 
 **Two questions, not four.** There used to be a boat picker between the take-out
 and the answer, and a nights-on-the-river control under it. Both are gone. The
@@ -714,8 +734,8 @@ camping panel, multiple along-the-way cards, rapid repeat taps, Back, and changi
 the stretch, from both a new plan and a saved float.
 
 **Saved floats** are local (`useSavedFloats`) because the server has no notion of
-"mine": `float_plans` is keyed by share code, and most users are anonymous. The saved collection stays on this device; signing in syncs favorites, not
-saved floats. Saved trips retain endpoint coordinates, access details, distance,
+"mine": `float_plans` is keyed by share code, and most users are anonymous. The collection works locally; signed-in users also back up their private saved
+routes through the float archive (see Float history and backup below). Saved trips retain endpoint coordinates, access details, distance,
 and dated cautions for offline use. Live conditions and time estimates are not
 stored in that record. Opening a trip online recalculates the plan and updates
 its saved details; older stubs gain details on their next successful open.
@@ -1131,8 +1151,8 @@ Three things about it are load-bearing rather than stylistic:
 
 ### Float history and backup
 
-Floats → Float history & backup contains end-of-float recaps and the account
-backup status. History works on the device as a guest. Apple sign-in backs up
+Floats → Saved Floats & History contains saved routes and end-of-float recaps.
+Its Backup & sharing row opens account backup and sharing controls. History works on the device as a guest. Apple sign-in backs up
 completed summaries and the user's private saved-route collection through
 `/api/me/float-archive`; opening a previously shared plan URL remains separate.
 Signing out hides that account's local history. Signing into another account
