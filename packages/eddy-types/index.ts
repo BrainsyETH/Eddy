@@ -1003,6 +1003,8 @@ export interface MapGauge {
         isPrimary: boolean;
         /** Upstream-to-downstream ordering; absent on older cached responses. */
         riverMile?: number | null;
+        /** Resolves a physical gauge's primary when several rivers borrow it. */
+        distanceFromSectionMiles?: number | null;
         thresholdUnit: 'ft' | 'cfs';
         levelTooLow: number | null;
         levelLow: number | null;

@@ -950,6 +950,14 @@ The rule that bites: **the App Store icon must have no alpha channel.** Apple
 rejects it at upload rather than at review, so `icon.png` is flattened while the
 splash and tinted assets keep their alpha (the OS composites those itself).
 
+## Home Screen widgets
+
+Home Screen River level and Your rivers widgets share the Float Activity native
+target. Their data contract, offline behavior, configuration and build gates
+are documented in [`docs/condition-widgets.md`](../docs/condition-widgets.md).
+Native widget changes require a new binary. Device verification and release
+status are unconfirmed until the release runbook records them.
+
 ## Launch path — read before adding anything at module scope
 
 `src/lib/bootstrap.ts` is the first module the app evaluates. It holds the

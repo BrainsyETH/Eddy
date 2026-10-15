@@ -58,6 +58,7 @@ import type { HistoryCapabilities } from '@/lib/flow-providers/types';
 import { toNum } from '@/lib/utils/num';
 import { withX402Route } from '@/lib/x402-config';
 import { orderRiverLinks } from '@shared/primary-river-link';
+import { widgetGaugeSnapshot, type WidgetGaugeSnapshot } from '@shared/condition-widget';
 import { fetchNWSAlertsAtPoint } from '@/lib/nws/alerts';
 
 export const dynamic = 'force-dynamic';
@@ -237,6 +238,7 @@ export interface GaugeDetail {
 
 export interface GaugeDetailResponse {
   gauge: GaugeDetail;
+  widget: WidgetGaugeSnapshot;
 }
 
 interface SearchGaugeRow {
@@ -611,7 +613,7 @@ async function _GET(
     // Short CDN window: this is a live reading, and the stale path above means
     // a cached response can outlive the refresh it just paid for.
     return NextResponse.json<GaugeDetailResponse>(
-      { gauge },
+      { gauge, widget: widgetGaugeSnapshot(gauge) },
       { headers: cdnCacheHeaders(120, 600) }
     );
   } catch (err) {
