@@ -347,14 +347,6 @@ export default async function RiverGuidePage({ params }: Props) {
                     Plan a Float on the {river.name}
                     <ArrowRight className="w-5 h-5" />
                   </Link>
-                  {floatSearchLaunch().web && river.active && (
-                    <Link
-                      href={`/find-float?river=${encodeURIComponent(slug)}`}
-                      className="inline-flex items-center px-5 py-3 rounded-xl font-semibold text-white border border-white/25 hover:bg-white/10 transition-colors no-underline"
-                    >
-                      Find a float on this river
-                    </Link>
-                  )}
                   {guidePost && (
                     <Link
                       href={`/blog/${guidePost.slug}`}
@@ -580,6 +572,17 @@ export default async function RiverGuidePage({ params }: Props) {
               </Link>
             </section>
           )}
+          {floatSearchLaunch().web && river.active && (
+            <div className="mt-10">
+              <Link
+                href={`/find-float?river=${encodeURIComponent(slug)}`}
+                className="inline-flex items-center px-5 py-3 rounded-xl font-semibold text-primary-700 border border-primary-200 hover:bg-primary-50 transition-colors no-underline"
+              >
+                Find a float on this river
+              </Link>
+            </div>
+          )}
+
           {/* The condition above is a claim about water, and the only people who
               can check it are on the river. Defaults to the recalibration type
               because that is what gets disputed on a river page — not a typo. */}

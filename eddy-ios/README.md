@@ -986,6 +986,8 @@ The river header shows its name, region and length, followed by the gauge
 picker and conditions. General `floatTip` prose is omitted from this screen's
 header so long tips cannot push readings down the page. Tips remain available
 in float plans, and the river's Hazards section keeps its existing details.
+“Find a float on this river” sits near the bottom, after the Outfitters section
+and before the safety disclaimer.
 
 Gauge detail omits the routine provisional-data footnote. Source-flagged suspect
 readings still show their specific qualifier note.
