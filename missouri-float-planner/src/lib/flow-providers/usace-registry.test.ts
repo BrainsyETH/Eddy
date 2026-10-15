@@ -5,6 +5,7 @@ import {
   USACE_DAMS,
   USACE_RELEASE_SITE_IDS,
   declaresHourlyHistory,
+  expectedHistoryMetrics,
   getUsaceDam,
   getUsaceSeries,
   hasPowerhouse,
@@ -538,5 +539,22 @@ test('schedule-only dams stay out of the recorder', () => {
     const dam = getUsaceDam(id);
     assert.ok(dam, `${id} missing from the registry`);
     assert.equal(recordsHistory(dam!), false, `${id} has nothing for the recorder to read`);
+  }
+});
+
+
+test('expected hourly coverage includes all 36 verified streams independently of resolution', () => {
+  const dams = Object.values(USACE_DAMS);
+  const expected = dams.filter((dam) => expectedHistoryMetrics(dam).length > 0);
+  assert.equal(expected.length, 18);
+  assert.equal(expected.reduce((count, dam) => count + expectedHistoryMetrics(dam).length, 0), 36);
+  for (const dam of dams.filter((dam) => dam.resolvedHistoryMetrics)) {
+    assert.equal(recordsHistory(dam), true, `${dam.id} must reach the recorder`);
+    assert.deepEqual(expectedHistoryMetrics(dam), ['generationFlow', 'release']);
+    assert.deepEqual(dam.series, {}, `${dam.id} relies on resolution`);
+  }
+  assert.equal(dams.filter((dam) => dam.resolvedHistoryMetrics).length, 10);
+  for (const id of ['mvs-mark-twain', 'mvs-wappapello', 'nwk-stockton-dam', 'nwk-truman-dam', 'ameren-bagnell-dam', 'swl-clearwater-dam']) {
+    assert.deepEqual(expectedHistoryMetrics(USACE_DAMS[id]), [], id);
   }
 });

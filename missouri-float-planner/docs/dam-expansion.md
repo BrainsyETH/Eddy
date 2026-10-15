@@ -182,3 +182,29 @@ They are all **inactive**, because no agency publishes a rating mapping release
 to wade or float safety, and `validate_river_data()` will not let an active
 river's primary gauge have no ladder. Coverage below the dams is no longer the
 constraint. **A citable condition rating is.**
+
+
+## Resolver and hourly-history health
+
+Catalog `latest-time` is compared with the newest otherwise eligible candidate
+for the same metric and exact CWMS location, with a 30-day relative lag limit.
+It is never compared with today's date: a catalog can freeze for months while
+its timeseries endpoint stays live. Forecasts, aggregate intervals and unrelated
+locations cannot advance that comparison clock. Actual data probes remain the
+liveness gate, including when every candidate's metadata is old.
+
+Hourly history monitoring has a stable expected set. Explicit non-daily,
+non-forecast release/generation series count automatically on history-eligible
+dams. For resolver-backed dams, declare `resolvedHistoryMetrics` only after
+verifying the hourly source. Missing resolution must not shrink this set.
+Daily-only Mark Twain, schedule-only projects, and projects without a powerhouse
+are not expected hourly reporters.
+
+`sync-dam-history` reports `monitoring_status: partial` when some expected streams
+fail and `error` when none are healthy. Its response includes expected/healthy
+counts and individual stream issues. Health requires a completed hourly bucket
+no more than six hours old and successful persistence of every fetched bucket.
+Old-data upserts can repair history but cannot count as recovery; zero flow is
+valid data. Normal runs re-read 48 hours, and an authorized recovery can request
+`?backfillHours=72` (up to 90 days). Verify both stream coverage and continuity
+of the recovered window after backfilling.
