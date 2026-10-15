@@ -163,11 +163,9 @@ function DamRowComponent({
       {today ? (
         <View style={styles.schedule}>
           <DayBars reference={dam.generationReference} day={today} compact />
-          <Text style={[styles.idle, { color: colors.textMuted }]} numberOfLines={1}>
+          <Text style={[styles.idle, { color: colors.textMuted }]}>
             {scheduledHoursSummary(today.hours)}
-          </Text>
-          <Text style={[styles.scheduleNote, { color: colors.textSubtle }]}>
-            Subject to change
+            <Text style={{ color: colors.textSubtle }}> · Subject to change</Text>
           </Text>
         </View>
       ) : null}
@@ -191,7 +189,6 @@ const styles = StyleSheet.create({
   topRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   schedule: { marginTop: 8 },
   idle: { ...t.xs, marginTop: 4 },
-  scheduleNote: { ...t.xs, marginTop: 2 },
   main: { flex: 1, gap: 2 },
   name: { ...t.base, fontFamily: fonts.semibold },
   meta: { ...t.xs },

@@ -1,7 +1,5 @@
-// A favorite river shows its verdict and compact discharge rows for every
-// linked station. The existing river headline and scale remain a fallback when
-// the gauge catalog has not arrived. Gauge rows use neutral ink: CFS is useful
-// context even when this river’s condition is rated in feet.
+// A favorite river leads with its name and each linked station's reading pill.
+// The river headline and scale remain a fallback until the gauge catalog arrives.
 
 import { radii } from '@/theme/layout';
 import { memo } from 'react';
@@ -9,10 +7,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { ControlIcon } from '@/components/ControlIcon';
 import type { MapGauge, RiverListItem } from '@eddy/types';
 import {
-  conditionBg,
-  conditionChipBorder,
   conditionColor,
-  conditionInk,
   conditionLongLabel,
   conditionText,
 } from '@/theme/conditions';
@@ -24,7 +19,6 @@ import { ReadingScale } from '@/components/ReadingScale';
 import { FavoriteRiverGauges } from '@/components/FavoriteRiverGauges';
 import type { FavoriteGaugeReading } from '@/lib/favoriteGaugeReadings';
 import { damControlledLabel, formatReading, primaryReading, readingAge } from '@/lib/readingCopy';
-import type { EddySays } from '@/lib/eddySays';
 import { TREND_ICON } from '@/components/TrendPill';
 
 /**
@@ -49,22 +43,6 @@ interface Props {
   thresholds: GaugeThresholds | null;
   /** The station behind the fallback headline, when its identity is known. */
   gaugeName?: string | null;
-  /**
-   * Eddy's FREE line about this river, or null when there is none.
-   *
-   * ── The prose is back, and it costs ONE request now ──────────────────────
-   *
-   * This screen used to fan out /api/rivers/[slug]/outlook per starred river to
-   * put Eddy's bottom line on each card, with batching and an epoch counter to
-   * stop twenty sockets opening on one bar of LTE. That is why the prose was
-   * removed. /api/eddy-updates is a SINGLE call carrying an entry for every
-   * river, already made for the Today tab and shared through useEddyUpdates —
-   * so the reason no longer applies.
-   *
-   * It is an EddySays, not an update: the type has no field the paid quote
-   * could arrive in. See src/lib/eddySays.ts.
-   */
-  says?: EddySays | null;
   onPress: () => void;
   onToggleStar: () => void;
 }
@@ -75,7 +53,6 @@ function FavoriteRiverCardComponent({
   onOpenGauge,
   thresholds,
   gaugeName = null,
-  says = null,
   onPress,
   onToggleStar,
 }: Props) {
@@ -104,7 +81,7 @@ function FavoriteRiverCardComponent({
             accessibilityRole="button"
             accessibilityLabel={[
               river.name,
-              damControlledLabel(river.riverType, code) ?? condition?.label ?? conditionLongLabel(code),
+              !gaugeReadings.length ? damControlledLabel(river.riverType, code) ?? condition?.label ?? conditionLongLabel(code) : null,
               !gaugeReadings.length ? reading ? formatReading(reading.value, reading.unit) : 'no gauge reading' : null,
               !gaugeReadings.length ? trend?.label : null,
               !gaugeReadings.length && gaugeName && reading ? `via ${gaugeName}` : null,
@@ -121,16 +98,6 @@ function FavoriteRiverCardComponent({
               <KindMark kind="river" color={colors.textMuted} />
               <Text style={[styles.name, { color: colors.text }]} numberOfLines={1}>
                 {river.name}
-              </Text>
-            </View>
-            <View
-              style={[
-                styles.chip,
-                { backgroundColor: conditionBg(code), borderColor: conditionChipBorder(code) },
-              ]}
-            >
-              <Text style={[styles.chipText, { color: conditionInk(code) }]}>
-                {damControlledLabel(river.riverType, code) ?? condition?.label ?? conditionLongLabel(code)}
               </Text>
             </View>
           </Pressable>
@@ -176,7 +143,7 @@ function FavoriteRiverCardComponent({
                     <>
                       {/* Muted ink, never green-for-rising: on a river approaching
                           flood, "rising fast" is the opposite of good news. The
-                          chip above carries the verdict. */}
+                          reading colour carries the verdict. */}
                       <ControlIcon
                         name={TREND_ICON[trend.direction]}
                         size={12}
@@ -214,13 +181,6 @@ function FavoriteRiverCardComponent({
             ) : null}
           </>
         )}
-
-        {/* The full Read is on the river screen; keep the card’s excerpt short. */}
-        {says ? (
-          <Text style={[styles.says, { color: colors.textMuted }]} numberOfLines={2}>
-            {says.text}
-          </Text>
-        ) : null}
       </View>
     </View>
   );
@@ -238,20 +198,11 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   stripe: { width: 4 },
-  says: { ...t.sm, fontFamily: fonts.body, lineHeight: 19, marginTop: 10, paddingRight: 9 },
   body: { flex: 1, minWidth: 0, paddingVertical: 12, paddingLeft: 13, paddingRight: 4 },
   head: { flexDirection: 'row', alignItems: 'flex-start' },
-  headMain: { flex: 1, minWidth: 0, gap: 6 },
+  headMain: { flex: 1, minWidth: 0, minHeight: 44, justifyContent: 'center' },
   nameRow: { flexDirection: 'row', alignItems: 'center', gap: 7 },
   name: { ...t.base, fontFamily: fonts.semibold, flexShrink: 1 },
-  chip: {
-    alignSelf: 'flex-start',
-    paddingHorizontal: 9,
-    paddingVertical: 4,
-    borderRadius: 999,
-    borderWidth: 1,
-  },
-  chipText: { ...t.xs, fontFamily: fonts.semibold },
   // 52pt wide and full height on the star, comfortably past the 44pt minimum
   // without borrowing space from its neighbour via hitSlop.
   starColumn: { width: 52, alignItems: 'center', justifyContent: 'center', alignSelf: 'stretch' },
