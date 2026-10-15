@@ -159,24 +159,29 @@ These are pending device and release checks, not evidence of a device pass.
       details and Back to the same plan; Start enters setup without reopening
       the planner later. Try dismissing while a route is still loading.
       Repeat from Today's recommendations: close returns to Today. With Float
-      Mode off, Build a Route is the highlighted action. Pan Map, then pan a
-      standalone planner elsewhere; cold-launch Map and confirm its saved camera
-      still comes from Map.
-- [ ] **Planner map memory:** on the oldest supported test iPhone, open and
+      Mode off, Build a Route is the highlighted action. Pan Map, open and close
+      standalone planners from several tabs, then cold-launch Map and confirm
+      its saved camera is unchanged. Check cached river/access pickers offline,
+      and retry after an uncached access-point request fails.
+- [ ] **Planner dismissal and memory:** on the oldest supported test iPhone, open and
       close planners repeatedly from different tabs, including opening endpoint
       details and switching tabs with a planner retained in the stack. Inspect
-      memory and live Mapbox instances; dismissed planners must be released,
-      repeated cycles must not accumulate maps, and returning to Map stays responsive.
+      memory and live Mapbox instances: standalone planners must not create an
+      additional native map, and repeated cycles must not accumulate screens.
+      Measure close-to-Floats latency before/after; expect only the native sheet
+      dismissal, with no second stack animation or visible blank-screen pause.
+      Returning to Map stays responsive.
 - [ ] **Floats browsing:** verify zero/many saves, three-card previews, Saved /
-      History, river filtering and sorting, and Backup & sharing (guest and signed
-      in). Featured images use the same fallback in See all. Test failed photos,
+      History, river filtering and sorting, and the top-right Backup control
+      (guest and signed in). Both segments open the same Backup & sharing settings;
+      no routine status row repeats in the list. Featured images use the same fallback in See all. Test failed photos,
       horizontal swipes versus vertical scrolling, page dots, light/dark,
       maximum Dynamic Type, and rapid taps on different actions as well as the
       same action; only one destination/session should open.
       Simulate a failed local archive load: both Saved and History show the
-      load error and a working Retry button; the backup row must not stay on
+      load error and a working Retry button; the backup notice must not stay on
       Loading. A failed account sync keeps locally loaded trips visible and
-      identifies the backup problem.
+      identifies the backup problem inline.
 - [ ] **Find a Route:** open from a river page in each tab; Back/swipe returns
       to that same river without changing tabs. Open a suggested plan, close to
       the same finder, then Back to the river. Search a river and a town in the
@@ -186,6 +191,13 @@ These are pending device and release checks, not evidence of a device pass.
       New users start with Kayak, and a selected vessel survives reopening and
       plan retry. Check public-access toggle copy, time-slider VoiceOver, keyboard
       dismissal, footer clearance and returning to the same search results.
+      Scroll results in light/dark mode: the native title and Back control stay
+      readable. Cards show a photo (route, river, then illustration fallback),
+      duration, river miles, condition, and access status at a glance. Check
+      typical estimates, private/unconfirmed access, visible cautions, and
+      expanded route/search details. Test failed photos, maximum Dynamic Type,
+      and VoiceOver on the time-info and disclosure controls. Vessel pace labels
+      remain visible without an explanatory paragraph below the picker.
 - [ ] **Saved Floats:** a fast online open has no saved-details flash; airplane
       mode shows saved logistics as soon as connectivity reports offline; a
       stalled connection exposes them after the 1.2-second grace period while

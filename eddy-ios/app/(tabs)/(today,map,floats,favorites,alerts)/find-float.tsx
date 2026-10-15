@@ -15,14 +15,14 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
+import { Stack, useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { FloatDurationSlider } from '@/components/FloatDurationSlider';
 import { MenuView } from '@react-native-menu/menu';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { SafeAreaView as ScreenSafeAreaView } from 'react-native-screens/experimental';
 import { ControlIcon } from '@/components/ControlIcon';
 import { VesselPicker } from '@/components/VesselPicker';
-import { ScenicImage } from '@/components/ScenicImage';
+import { FloatSearchCard } from '@/components/FloatSearchCard';
 import { FloatInfoSheet, type FloatInfoTopic } from '@/components/FloatInfoSheet';
 import { floatDurationLabel } from '@/lib/floatPresentation';
 import { useReducedMotion } from '@/hooks/useReducedMotion';
@@ -32,8 +32,6 @@ import {
   approximateLocation,
   FLOAT_BOATS,
   FLOAT_BOAT_STORAGE_KEY,
-  floatRangeLabel,
-  publicAccessLabel,
   floatSearchIsFresh,
   floatSearchEmptyMessage,
   FLOAT_SEARCH_MAX_AGE_MS,
@@ -98,6 +96,7 @@ export default function FindFloatScreen() {
   const [rivers, setRivers] = useState<RiverListItem[]>([]);
   const [wherePicker, setWherePicker] = useState(false);
   const [info, setInfo] = useState<FloatInfoTopic | null>(null);
+  const [showResultDetails, setShowResultDetails] = useState(false);
   const revealResults = useRef(false);
   const [query, setQuery] = useState('');
   const [placeSearch, setPlaceSearch] = useState<{
@@ -299,65 +298,15 @@ export default function FindFloatScreen() {
     },
   ];
   const { input, result } = state;
-  function card(o: FloatSearchOption) {
+  function card(option: FloatSearchOption) {
     return (
-      <View key={o.id} style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
-        {o.photo && (
-          <View style={styles.group}>
-            <ScenicImage
-              source={{ uri: o.photo.url }}
-              accessibilityLabel={o.photo.caption}
-              style={{ height: 160, width: '100%', borderRadius: 12 }}
-            />
-            {body(o.photo.caption)}
-          </View>
-        )}
-        <Text style={[styles.label, { color: colors.interactive }]}>{o.riverName}</Text>
-        <Text style={[styles.heading, { color: colors.text }]}>
-          {o.putIn.name} → {o.takeOut.name}
-        </Text>
-        <Pressable
-          onPress={() => setInfo('time')}
-          accessibilityRole="button"
-          accessibilityLabel={`${floatRangeLabel(o.timeRange)}. How float times are estimated`}
-          style={styles.estimateLink}
-        >
-          <Text style={[styles.label, { color: colors.text, flexShrink: 1 }]}>
-            {floatRangeLabel(o.timeRange)}
-            {o.relation === 'match' ? '' : ` · ${o.relation} option`}
-          </Text>
-          <ControlIcon name="information-circle-outline" size={18} color={colors.interactive} />
-        </Pressable>
-        {body(`${o.distanceMiles.toFixed(1)} river miles`)}
-        {body(
-          o.estimateBasis === 'current_conditions'
-            ? 'Based on current conditions'
-            : 'Based on typical conditions',
-        )}
-        {o.observedAt && o.estimateBasis === 'current_conditions'
-          ? body(
-              `Reading ${new Date(o.observedAt).toLocaleString([], { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}`,
-            )
-          : null}
-        <Text style={[styles.label, { color: colors.text }]}>
-          {o.conditionLabel}
-          {o.conditional ? ' · Check cautions' : ''}
-        </Text>
-        {body(
-          `Put-in: ${publicAccessLabel(o.putIn.isPublic)}\nTake-out: ${publicAccessLabel(o.takeOut.isPublic)}`,
-        )}
-        {o.description ? (
-          <Text numberOfLines={3} style={[t.sm, { color: colors.textMuted }]}>
-            {o.description}
-          </Text>
-        ) : null}
-        {o.cautions.map((c, i) => (
-          <Text key={i} style={[t.sm, { color: colors.text }]}>
-            {c}
-          </Text>
-        ))}
-        {<SearchButton label={'Plan this float'} onPress={() => plan(o)} primary={true} />}
-      </View>
+      <FloatSearchCard
+        key={option.id}
+        option={option}
+        riverPhotoUrl={rivers.find((river) => river.slug === option.riverSlug)?.photoUrl ?? undefined}
+        onPlan={() => plan(option)}
+        onTimeInfo={() => setInfo('time')}
+      />
     );
   }
   const closePicker = () => {
@@ -370,6 +319,15 @@ export default function FindFloatScreen() {
   const matchingRivers = rivers.filter((r) => r.name.toLowerCase().includes(townQuery.toLowerCase()));
   return (
     <View style={[styles.screen, { backgroundColor: colors.bg }]}>
+      <Stack.Screen
+        options={{
+          headerTransparent: false,
+          headerBlurEffect: 'none',
+          headerStyle: { backgroundColor: colors.bg },
+          headerTintColor: colors.text,
+          headerShadowVisible: true,
+        }}
+      />
       <ScrollView
         ref={scroller}
         contentInsetAdjustmentBehavior="automatic"
@@ -514,14 +472,35 @@ export default function FindFloatScreen() {
             <Text style={[styles.heading, { color: colors.text }]}>
               Floats for about {floatDurationLabel(input.targetHours * 60)}
             </Text>
-            {body(
-              `Checked ${new Date(result.estimatedAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}. Conditions can change.`,
-            )}
-            {floatSearchUsedProximity(result) && body(FLOAT_SEARCH_PROXIMITY_NOTE)}
-            {result.partial &&
-              body(
-                `${result.failed ? 'Some river data was unavailable. ' : ''}This is a partial search. Try again or choose a river for a closer look.`,
+            <View style={styles.between}>
+              {body(
+                `Checked ${new Date(result.estimatedAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}`,
               )}
+              <Pressable
+                accessibilityRole="button"
+                accessibilityState={{ expanded: showResultDetails }}
+                onPress={() => setShowResultDetails((value) => !value)}
+                style={styles.searchDetails}
+              >
+                <Text style={[t.sm, { color: colors.interactive }]}>Search details</Text>
+                <ControlIcon
+                  name={showResultDetails ? 'chevron-up' : 'chevron-down'}
+                  size={14}
+                  color={colors.interactive}
+                />
+              </Pressable>
+            </View>
+            {result.partial
+              ? body(result.failed ? 'Some rivers couldn’t be checked.' : 'Showing a selection of routes.')
+              : null}
+            {showResultDetails ? (
+              <View style={styles.group}>
+                {body('Conditions can change. Opening a plan checks the route again.')}
+                {floatSearchUsedProximity(result) && body(FLOAT_SEARCH_PROXIMITY_NOTE)}
+                {result.partial &&
+                  body('This search is partial. Choose a river or search again to see more options.')}
+              </View>
+            ) : null}
             {result.matches.length === 0 && body(floatSearchEmptyMessage(result))}
             {result.matches.map(card)}
             {result.alternatives.length > 0 && (
@@ -721,6 +700,7 @@ function InfoButton({ topic, onPress }: { topic: FloatInfoTopic; onPress: () => 
 }
 
 const styles = StyleSheet.create({
+  searchDetails: { flexDirection: 'row', alignItems: 'center', gap: 6, minHeight: 44 },
   screen: { flex: 1 },
   content: { padding: 16, paddingBottom: 24, gap: 12 },
   heading: { ...t.xl, fontFamily: fonts.heading },
@@ -742,8 +722,6 @@ const styles = StyleSheet.create({
   noteRow: { flexDirection: 'row', alignItems: 'center', paddingLeft: 16, paddingRight: 6 },
   between: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap' },
   info: { minWidth: 44, minHeight: 44, alignItems: 'center', justifyContent: 'center' },
-  estimateLink: { flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 44 },
-  card: { borderWidth: 1, borderRadius: 18, padding: 16, gap: 8 },
   button: {
     borderWidth: 1,
     borderRadius: 12,

@@ -256,7 +256,7 @@ test('result cards never show a straight-line distance; the ordering note appear
   const option = { nearbyMiles: null } as { nearbyMiles: number | null };
   assert.equal(floatSearchUsedProximity({ matches: [option as never], alternatives: [] }), false);
   assert.equal(floatSearchUsedProximity({ matches: [], alternatives: [{ nearbyMiles: 12 } as never] }), true);
-  for (const file of ['src/app/find-float/FindFloatClient.tsx', '../eddy-ios/app/(tabs)/(today,map,floats,favorites,alerts)/find-float.tsx']) {
+  for (const file of ['src/app/find-float/FindFloatClient.tsx', '../eddy-ios/app/(tabs)/(today,map,floats,favorites,alerts)/find-float.tsx', '../eddy-ios/src/components/FloatSearchCard.tsx']) {
     assert.doesNotMatch(readFileSync(file, 'utf8'), /nearbyMiles\}?\s*mi\b|mi away/, `${file} renders a put-in distance`);
   }
 });

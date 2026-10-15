@@ -381,10 +381,6 @@ export default function MapScreen() {
   return <LazyTabScreen><MapContent /></LazyTabScreen>;
 }
 
-export function PlannerMapScreen() {
-  return <MapContent standalonePlanner />;
-}
-
 /**
  * What a river sheet's Conditions tab needs to draw one station's band track:
  * the ladder this river grades it on, and the reading in that ladder's unit.
@@ -428,7 +424,7 @@ function bandTrack(
   };
 }
 
-function MapContent({ standalonePlanner = false }: { standalonePlanner?: boolean }) {
+function MapContent() {
   const [isFocused, setIsFocused] = useState(false);
   useFocusEffect(
     useCallback(() => {
@@ -639,11 +635,11 @@ function MapContent({ standalonePlanner = false }: { standalonePlanner?: boolean
   const onViewportChange = useCallback(
     (next: { bounds: Viewport['bounds']; zoom: number; center?: [number, number] }) => {
       setViewport({ bounds: next.bounds, zoom: next.zoom });
-      if (!standalonePlanner && next.center && lastMoveWasGesture.current) {
+      if (next.center && lastMoveWasGesture.current) {
         void writeMapCamera({ lng: next.center[0], lat: next.center[1], zoom: next.zoom });
       }
     },
-    [standalonePlanner],
+    [],
   );
   const [selectedPin, setSelectedPin] = useState<MapPin | null>(null);
   /**
@@ -702,7 +698,7 @@ function MapContent({ standalonePlanner = false }: { standalonePlanner?: boolean
    * spare a pin across some later, unrelated navigation.
    */
   const pinSurvivesSelection = useRef<string | null>(null);
-  const [planOpen, setPlanOpen] = useState(standalonePlanner);
+  const [planOpen, setPlanOpen] = useState(false);
 
   const network = useStatewideNetwork();
   // Every river's put-ins and hazards, off the launch bundle already on disk.
@@ -1597,40 +1593,27 @@ function MapContent({ standalonePlanner = false }: { standalonePlanner?: boolean
   const planner = useFloatPlan(selected?.id ?? null, plannerAccessPoints);
 
   /**
-   * Standalone route planners return through their originating stack after
-   * native dismissal. The return parameter remains supported for legacy
-   * callers of the Map URL; new Floats actions do not mutate this tab.
+   * Legacy callers of the Map URL can request a return destination. Today
+   * and Floats now use their own lightweight planner route.
    */
   const planReturnTo = useRef<string | null>(null);
-  const closingStandalone = useRef(false);
-  const leaveStandalonePlanner = useCallback(() => {
-    if (!closingStandalone.current) return;
-    closingStandalone.current = false;
-    if (router.canGoBack()) router.back();
-    else router.replace('/float-home');
-  }, [router]);
   useFocusEffect(useCallback(() => () => { planReturnTo.current = null; }, []));
   const closePlanner = useCallback((reason?: 'started') => {
     setPlanOpen(false);
-    if (standalonePlanner) {
-      closingStandalone.current = reason !== 'started';
-      return;
-    }
     const back = planReturnTo.current;
     planReturnTo.current = null;
     if (back === 'find-float' && reason !== 'started') {
       router.navigate('/find-float');
     }
     if (back === 'floats' && reason !== 'started') router.navigate('/float-home');
-  }, [router, standalonePlanner]);
+  }, [router]);
 
   /**
-   * Planner handoff from Today. The route carries database IDs, not names or
+   * Legacy Map planner handoff. The route carries database IDs, not names or
    * slugs that can drift, and waits until the selected river's own access list
    * has landed before calculating the exact editorial stretch.
    */
   useEffect(() => {
-    if (closingStandalone.current) return;
     if (focusParams.openPlan !== '1') {
       planIntentConsumed.current = null;
       return;
@@ -3390,8 +3373,6 @@ function MapContent({ standalonePlanner = false }: { standalonePlanner?: boolean
       <PlanSheet
         visible={planOpen}
         onClose={closePlanner}
-        onClosed={standalonePlanner ? leaveStandalonePlanner : undefined}
-        replaceOnStart={standalonePlanner}
         rivers={plannerRivers}
         riversLoading={riversLoading}
         riversError={riversError}

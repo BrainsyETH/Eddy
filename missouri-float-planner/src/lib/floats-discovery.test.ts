@@ -9,6 +9,7 @@ import {
 } from '../../../eddy-ios/src/lib/floatCollection';
 import { selectSearchLocation, selectSearchRiver } from '../../../eddy-ios/src/lib/floatSearchSelection';
 import type { FloatSearchInput } from '../../shared/float-search';
+import { loadPlannerResource } from '../../../eddy-ios/src/lib/plannerResource';
 
 test('a fresh build cannot inherit a featured route, and finder keeps its exact vessel and endpoints', () => {
   const pick = {
@@ -144,4 +145,65 @@ test('backup failures preserve a ready local collection and distinguish pending,
       backup: 'Your floats need attention',
     },
   );
+});
+
+function deferred<T>() {
+  let resolve!: (value: T) => void;
+  const promise = new Promise<T>((done) => { resolve = done; });
+  return { promise, resolve };
+}
+const flush = () => new Promise<void>((done) => setImmediate(done));
+
+test('standalone picker shows cached endpoints before the network and then refreshes them', async () => {
+  const fresh = deferred<string[]>();
+  const seen: (string[] | null)[] = [];
+  const request = loadPlannerResource({
+    readCached: async () => ['cached'], fetchFresh: () => fresh.promise,
+    signal: new AbortController().signal, publish: (value) => { seen.push(value); }, errorMessage: 'Unavailable',
+  });
+  await flush();
+  assert.deepEqual(seen, [['cached']]);
+  fresh.resolve(['fresh']);
+  await request;
+  assert.deepEqual(seen, [['cached'], ['fresh']]);
+});
+
+test('a slow cache cannot overwrite fresh planner data', async () => {
+  const cached = deferred<string[]>();
+  const seen: (string[] | null)[] = [];
+  await loadPlannerResource({
+    readCached: () => cached.promise, fetchFresh: async () => ['fresh'],
+    signal: new AbortController().signal, publish: (value) => { seen.push(value); }, errorMessage: 'Unavailable',
+  });
+  cached.resolve(['old']);
+  await flush();
+  assert.deepEqual(seen, [['fresh']]);
+});
+
+test('closing or switching rivers cancels both late cache and network updates', async () => {
+  const controller = new AbortController();
+  const cached = deferred<string[]>();
+  const fresh = deferred<string[]>();
+  const seen: (string[] | null)[] = [];
+  const request = loadPlannerResource({
+    readCached: () => cached.promise, fetchFresh: () => fresh.promise,
+    signal: controller.signal, publish: (value) => { seen.push(value); }, errorMessage: 'Unavailable',
+  });
+  controller.abort();
+  cached.resolve(['old river']);
+  fresh.resolve(['old river']);
+  await request;
+  await flush();
+  assert.deepEqual(seen, []);
+});
+
+test('offline planners keep cached endpoints, including a valid empty list, and expose retryable missing data', async () => {
+  for (const cached of [['cached'], [], null]) {
+    const seen: { value: string[] | null; error: string | null }[] = [];
+    await loadPlannerResource<string[]>({
+      readCached: async () => cached, fetchFresh: async () => { throw new Error('Offline'); },
+      signal: new AbortController().signal, publish: (value, error) => { seen.push({ value, error }); }, errorMessage: 'Unavailable',
+    });
+    assert.deepEqual(seen, [{ value: cached, error: cached === null ? 'Unavailable' : null }]);
+  }
 });

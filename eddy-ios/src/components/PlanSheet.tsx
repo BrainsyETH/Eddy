@@ -76,6 +76,8 @@ interface Props {
   onSelectRiver: (river: RiverListItem) => void;
   onClearRiver: () => void;
   riverLoading: boolean;
+  accessError?: string | null;
+  onRetryAccess?: () => void;
   state: FloatPlanState;
   accessPoints: MapAccessPoint[];
   /**
@@ -101,6 +103,8 @@ export function PlanSheet({
   onSelectRiver,
   onClearRiver,
   riverLoading,
+  accessError,
+  onRetryAccess,
   state,
   accessPoints,
   userCoords,
@@ -268,6 +272,14 @@ export function PlanSheet({
               <ActivityIndicator color={colors.interactive} />
               <Text style={[styles.calculating, { color: colors.textMuted }]}>Loading put-ins…</Text>
             </View>
+          </ScrollView>
+        ) : accessError ? (
+          <ScrollView style={styles.flex} contentContainerStyle={styles.statusContent}>
+            {contentHeader}
+            <Text accessibilityRole="alert" style={[styles.errorText, { color: colors.text }]}>{accessError}</Text>
+            <Pressable onPress={onRetryAccess} style={styles.secondaryButton} accessibilityRole="button">
+              <Text style={[styles.link, { color: colors.interactive }]}>Try again</Text>
+            </Pressable>
           </ScrollView>
         ) : step === 'put-in' ? (
           <AccessPointList
