@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { fetchBlogPosts } from '@/api/client';
 import { selectRiverGuides, type RiverGuideSummary } from '@/lib/riverGuides';
 
-export function useRiverGuides() {
+export function useRiverGuides(refreshRevision = 0) {
   const [guides, setGuides] = useState<RiverGuideSummary[] | null>(null);
   const [error, setError] = useState(false);
   const [revision, setRevision] = useState(0);
@@ -22,6 +22,6 @@ export function useRiverGuides() {
       if (!controller.signal.aborted) setLoading(false);
     });
     return () => controller.abort();
-  }, [revision]);
+  }, [revision, refreshRevision]);
   return { guides, error, loading, refresh };
 }

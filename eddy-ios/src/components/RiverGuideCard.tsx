@@ -7,19 +7,23 @@ import { ControlIcon } from './ControlIcon';
 import { riverGuideUrl, type RiverGuideSummary } from '@/lib/riverGuides';
 import { useRiverGuides } from '@/hooks/useRiverGuides';
 
-export function RiverGuideCard({ guide, compact = false }: { guide: RiverGuideSummary; compact?: boolean }) {
+export function RiverGuideCard({ guide, compact = false, featured = false }: {
+  guide: RiverGuideSummary;
+  compact?: boolean;
+  featured?: boolean;
+}) {
   const { colors } = useTheme();
   const open = () => openExternalLink(riverGuideUrl(guide.slug), () => {
     Alert.alert('Couldn’t open the guide', 'Please try again in a moment.');
   });
   return (
-    <View style={styles.container}>
+    <View style={!featured && styles.container}>
       <Pressable onPress={() => void open()} accessibilityRole="link"
         accessibilityLabel={`${guide.title}. Read the full guide on eddy.guide.`}
         style={({ pressed }) => [styles.card, { backgroundColor: colors.card, borderColor: colors.border, opacity: pressed ? 0.75 : 1 }]}>
         {!compact && guide.featuredImageUrl ? <ScenicImage source={{ uri: guide.featuredImageUrl }} imageWidth={750} style={styles.photo} accessibilityLabel={guide.featuredImageAlt ?? guide.title} accessibilityIgnoresInvertColors /> : null}
         <View style={styles.copy}>
-          <Text style={[styles.eyebrow, { color: colors.interactive }]}>RIVER GUIDE{guide.readTimeMinutes ? ` · ${guide.readTimeMinutes} MIN READ` : ''}</Text>
+          <Text style={[styles.eyebrow, { color: colors.interactive }]}>{featured ? 'TODAY’S RIVER GUIDE' : 'RIVER GUIDE'}{guide.readTimeMinutes ? ` · ${guide.readTimeMinutes} MIN READ` : ''}</Text>
           <Text style={[styles.title, { color: colors.text }]}>{guide.title}</Text>
           {!compact && guide.description ? <Text style={[styles.body, { color: colors.textMuted }]} numberOfLines={3}>{guide.description}</Text> : null}
           <View style={styles.action}>
