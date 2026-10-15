@@ -54,7 +54,7 @@ function walk(dir: string): string[] {
  *   index          maps to its directory, so app/(tabs)/index.tsx is `/`
  *   [slug]         kept verbatim; matched structurally against template pushes
  */
-function declaredRoutes(): string[] {
+function declaredRoutes(qualified = false): string[] {
   return walk(APP)
     .filter((file) => /\.tsx?$/.test(file))
     .map((file) => relative(APP, file).replace(/\.tsx?$/, ''))
@@ -62,12 +62,18 @@ function declaredRoutes(): string[] {
       const segments = route.split('/');
       return !segments.some((s) => s === '_layout' || s.startsWith('+'));
     })
-    .map((route) => {
-      const segments = route
-        .split('/')
-        .filter((s) => !/^\(.*\)$/.test(s)); // groups vanish from the URL
-      if (segments[segments.length - 1] === 'index') segments.pop();
-      return `/${segments.join('/')}`.replace(/\/$/, '') || '/';
+    .flatMap((route) => {
+      let paths: string[][] = [[]];
+      for (const segment of route.split('/')) {
+        const group = /^\((.*)\)$/.exec(segment);
+        if (group && !qualified) continue;
+        const choices = group ? group[1].split(',').map(name => `(${name})`) : [segment];
+        paths = paths.flatMap(parts => choices.map(choice => [...parts, choice]));
+      }
+      return paths.map(segments => {
+        if (segments.at(-1) === 'index') segments.pop();
+        return `/${segments.join('/')}`.replace(/\/$/, '') || '/';
+      });
     });
 }
 
@@ -153,7 +159,7 @@ test('every route the app pushes actually exists', () => {
   // THE POINT OF THIS FILE. A push to a screen that was renamed, moved or never
   // added is invisible to CI — typed routes cannot fire there — and reaches a
   // user as a dead tap.
-  const routes = declaredRoutes();
+  const routes = [...declaredRoutes(), ...declaredRoutes(true)];
   const pushes = pushedRoutes();
 
   assert.ok(pushes.length > 5, `only found ${pushes.length} pushes — did the scan break?`);
@@ -251,4 +257,18 @@ test('notification destinations keep the exact subject and alert context', () =>
   assert.equal(notificationDestination({}), null);
   assert.equal(notificationDestination(null), null);
   assert.equal(notificationDestination({ gaugeSiteId: 123, riverSlug: false }), null);
+});
+
+
+test('explicit tab destinations resolve only inside a real route group', () => {
+  const routes = declaredRoutes(true);
+  assert.equal(resolves('/(tabs)/(floats)/float-home', routes), true);
+  assert.equal(resolves('/(tabs)/(floats)/float-history', routes), true);
+  assert.equal(resolves('/(recording)/float-mode', routes), true);
+  assert.equal(resolves('/(tabs)/(map)/float-home', routes), false);
+  assert.equal(resolves('/(tabs)/(floats)/float-mode', routes), false);
+  for (const tab of ['today', 'map', 'floats', 'favorites', 'alerts'])
+    assert.equal(resolves(`/(tabs)/(${tab})/float-history-recap`, routes), true);
+  assert.equal(resolves('/(recording)/float-history-recap', routes), false);
+  assert.equal(resolves('/(missing)/float-home', routes), false);
 });

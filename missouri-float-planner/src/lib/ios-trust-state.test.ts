@@ -99,9 +99,10 @@ test('offline logistics keep access and dated cautions without caching live verd
     description: 'Ask the operator before launching.' } as MapAccessPoint;
   const plan = { putIn: point, takeOut: { ...point, id: 'pulltite' },
     warnings: ['Akers does not have direct road access', 'Water conditions are dangerous - do not float', 'Gauge reading may be inaccurate'], hazards: [],
-    condition: { code: 'good' }, floatTime: { minutes: 240 }, driveBack: { minutes: 30 },
+    vessel: { slug: 'raft' }, condition: { code: 'good' }, floatTime: { minutes: 240 }, driveBack: { minutes: 30 },
   } as unknown as FloatPlan;
   const saved = savedFloatLogistics(plan, '2026-09-15T08:00:00Z');
+  assert.equal(saved.boatType, 'raft');
   assert.equal(saved.putIn.isPublic, false);
   assert.equal(saved.putIn.feeRequired, true);
   assert.deepEqual(saved.putIn.coordinates, point.coordinates);
@@ -180,4 +181,27 @@ test('saved downstream dams survive a failed refresh without becoming in-route h
   const different = { ...partial, takeOut: { ...partial.takeOut, id: 'elsewhere' } };
   assert.deepEqual(savedFloatLogistics(different, undefined, saved).damsBelowTakeOut, []);
   assert.deepEqual(savedFloatLogistics({ ...plan, damsBelowTakeOut: [] }, undefined, saved).damsBelowTakeOut, []);
+});
+
+
+test('boat metadata coalesces requests, survives cancelled consumers, and retries failed loads', async () => {
+  const { vesselTypeLoader } = await import('../../../eddy-ios/src/lib/vesselTypes');
+  let calls = 0;
+  let resolve!: (value: { vesselTypes: { id: string; slug: string }[] }) => void;
+  const load = vesselTypeLoader(() => { calls++; return new Promise(done => { resolve = done; }); });
+  const first = load();
+  const nextDraft = load();
+  assert.equal(calls, 1);
+  assert.equal(first, nextDraft);
+  resolve({ vesselTypes: [{ id: 'boat-id', slug: 'kayak' }] });
+  assert.deepEqual(await nextDraft, [{ id: 'boat-id', slug: 'kayak' }]);
+  assert.equal(load(), first);
+  let attempts = 0;
+  const retry = vesselTypeLoader(async () => {
+    if (++attempts === 1) throw new Error('offline');
+    return { vesselTypes: [{ id: 'boat-id', slug: 'kayak' }] };
+  });
+  await assert.rejects(retry(), /offline/);
+  assert.equal((await retry())[0].slug, 'kayak');
+  assert.equal(attempts, 2);
 });

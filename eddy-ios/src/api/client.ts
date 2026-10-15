@@ -1,3 +1,5 @@
+import { uploadFloatArchive } from '@/lib/floatArchiveUpload';
+import { vesselTypeLoader } from '@/lib/vesselTypes';
 import type { CampingStayResult } from '@eddy/conditions/camping-stay';
 import type { CampingOverview } from '@eddy/types';
 import type { RiverGuideSummary } from '@/lib/riverGuides';
@@ -1232,6 +1234,39 @@ export async function fetchFloatPlan(
   if (params.vesselTypeId) query.set('vesselTypeId', params.vesselTypeId);
   const data = await get<PlanResponse>(`/api/plan?${query.toString()}`, signal);
   return data.plan;
+}
+
+// Not owned by any estimate's AbortSignal: editing a draft must not cancel
+// the shared boat lookup for its replacement request.
+const loadStartVessels = vesselTypeLoader(() => get('/api/vessel-types'));
+
+/** The shared moving model, without a shuttle or a saved plan. */
+export async function fetchFloatStartEstimate(params: {
+  riverId: string; startId: string; endId: string; boatType: string; startRiverMile?: number;
+}, signal?: AbortSignal): Promise<{
+  startRiverMile?: number | null;
+  distanceMiles: number;
+  floatTime: { movingSpeedMph?: number | null } | null;
+  estimateBasis: 'today' | 'typical';
+  estimatedAt: string;
+}> {
+  if (signal?.aborted) throw new ApiError('Request cancelled');
+  const vesselTypes = await loadStartVessels();
+  if (signal?.aborted) throw new ApiError('Request cancelled');
+  const vessel = vesselTypes.find(v => v.slug === params.boatType);
+  if (!vessel) throw new Error('Boat unavailable');
+  const query = new URLSearchParams({ riverId: params.riverId, startId: params.startId,
+    endId: params.endId, vesselTypeId: vessel.id });
+  if (params.startRiverMile != null) query.set('startRiverMile', String(params.startRiverMile));
+  const result = await get<{
+    startRiverMile?: number | null; distanceMiles: number;
+    floatTime: { movingSpeedMph?: number | null } | null;
+    estimateBasis: 'today' | 'typical'; estimatedAt: string;
+  }>(`/api/route-estimate?${query}`, signal);
+  // Echo acknowledges the requested mile, even when the server clamps small
+  // lower-bound drift. Older servers ignore unknown params: never use their full stretch.
+  if (params.startRiverMile != null && result.startRiverMile !== params.startRiverMile) throw new Error('Location estimate unavailable');
+  return result;
 }
 
 /**
@@ -2549,13 +2584,19 @@ export async function readFloatArchive(token: string) {
   return { rows, preference };
 }
 export async function writeFloatArchive(token: string, rows: import('@eddy/conditions/float-archive').ArchiveRow[]) {
-  const result = await archiveRequest<{ results: import('@eddy/conditions/float-archive').ArchiveWriteResult[] }>('/api/me/float-archive',token,{ method:'POST', body:{ rows: rows.map(row => {
-    if (row.kind !== 'completed' || !row.payload) return row;
-    const { water: _water, ...payload } = row.payload as import('@eddy/conditions/float-archive').CompletedFloat;
-    return { ...row, payload };
-  }) } });
-  if (!result) throw new Error('Sign in again to back up floats.');
-  return result.results;
+  return uploadFloatArchive(rows, {
+    capabilities: async () => {
+      const result = await archiveRequest<{ capabilities?: { startNote?: boolean } }>('/api/me/float-archive?capabilities=1', token);
+      if (!result) throw new Error('Sign in again to back up floats.');
+      return result.capabilities ?? null;
+    },
+    write: async batch => {
+      const result = await archiveRequest<{ results: import('@eddy/conditions/float-archive').ArchiveWriteResult[] }>(
+        '/api/me/float-archive', token, { method: 'POST', body: { rows: batch } });
+      if (!result) throw new Error('Sign in again to back up floats.');
+      return result.results;
+    },
+  });
 }
 export async function setFloatContribution(token: string, enabled: boolean) {
   const result = await archiveRequest<import('@eddy/conditions/float-archive').ContributionPreference>('/api/me/float-archive',token,{ method:'PATCH', body:{ enabled } });

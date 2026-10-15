@@ -219,7 +219,7 @@ export default function SavedFloatsScreen() {
               onPress={() =>
                 navigate(() =>
                   router.push({
-                    pathname: '/float-recap',
+                    pathname: '/float-history-recap',
                     params: { id: item.value.id },
                   }),
                 )
@@ -235,6 +235,7 @@ export default function SavedFloatsScreen() {
                 <Text style={[textStyles.cardTitle, { color: colors.text }]}>
                   {item.value.putInName ?? 'On-river start'} → {item.value.takeOutName}
                 </Text>
+                {item.value.startNote ? <Text numberOfLines={2} style={[t.sm, { color: colors.textMuted }]}>{item.value.startNote}</Text> : null}
                 <Text style={[t.sm, { color: colors.textMuted }]}>
                   {new Date(item.value.startedAt).toLocaleDateString()} ·{' '}
                   {formatDuration(Math.round(item.value.elapsedMs / 60000))} ·{' '}

@@ -258,6 +258,57 @@ are pending checks, not evidence of a device pass.
       locked in a dry bag, the blue location indicator shows while it runs,
       and tracking stops when the float ends. Raw float positions stay on the device. Signed-in recap summaries
       are backed up, and explicit hazard reports transmit their captured location.
+- [ ] **Unified Ready to float:** from Today, Map, Floats, Favorites and Alerts,
+      open a plan and a fresh Start a Float. Confirm the same editable River,
+      From, Take-out and Boat, photo rows, labelled distances, moving-time copy,
+      offline section and permission card. Edit while an estimate/download is
+      running; an old result must not appear for the edited stretch. Check large
+      text, GPS timeout and permission changes in Settings.
+- [ ] **Recording away from the planned launch:** select Akers, then begin
+      recording several miles downstream. Before Start, see the distance below
+      Akers and a one-tap **Start from here**. With or without switching, the
+      first confirmed recording position starts at 0%; the map marker, Float
+      Mode note and recap describe the recorded start. Kill/reopen mid-float;
+      the origin must not move. Starting beyond the take-out must not claim
+      arrival. Repeat upstream of the planned launch.
+- [ ] **Named put-in GPS guidance:** verify near, above and below states; try
+      a roadside fix at the same river mile, poor accuracy and a fix away
+      from the river. None should falsely say **Near**.
+      Switching to **Start from here** must update map, distance, estimate and
+      download together, and clear a take-out that is now upstream.
+- [ ] **Off-map launch (Buffalo City):** at the actual access, Ready says
+      **Near Buffalo City** and explains the mapped-river limit. Start and wait
+      for accurate fixes, then kill/reopen before reaching the mapped river.
+      Once GPS confirms the river, progress begins at 0%; the recap retains
+      Buffalo City, with a separate note about where distance tracking began.
+      No distance is invented for the gap. Repeat while passing only its
+      closest mapped river point: the recap must not claim Buffalo City as
+      the launch. Waiting at the actual launch must not trigger away ending.
+- [ ] **One recording presentation:** start from each tab; close, switch tabs,
+      and Resume. Repeat Resume taps and a reminder deep link. Confirm one
+      Float Mode/map, recording continues when closed, keep-awake releases,
+      options return correctly, and manual/automatic ending shows one recap.
+      Closing returns to the page underneath; a cold recording link returns to
+      Floats. A standalone planner must not leave a blank page behind.
+- [ ] **Historical recaps:** open last month's float from History, including
+      while a different float is active. Keep the tab bar and ordinary Back;
+      return to the same History list. Resume the active float from another
+      tab, close it, and verify one recording view with no old recap replacing
+      the active session. Just-finished recaps still use recording's Close.
+- [ ] **Start-note backup rollout:** deploy the API accepting optional
+      `startNote` and its authenticated capability response before this binary.
+      Against an older API, verify a new mid-route recap stays locally saved
+      and backup pending (no permanent refusal or lost note). Upgrade the API,
+      sync, and restore on a clean installation: launch fields remain null and
+      the descriptive note survives. Old recaps retain their original names.
+- [ ] **Unfinished offline setup:** download a location-start route, leave
+      Ready, clear ordinary saved river data, quit Eddy, enable airplane mode,
+      and reopen Start a Float. Confirm the downloaded river, take-out and boat
+      recover. With fresh GPS at that launch, its own download is recognized;
+      without GPS, show the reason and never use the saved position as a fix.
+      Edit the start/take-out and verify the old tiles are not labelled ready
+      for the new stretch. Start, close Float Mode and verify Storage cannot
+      delete its package. Finish; another start must have a new recording id.
 - [ ] **Permission states on a device:** While Using (tracks with the phone
       locked; no Always prompt ever appears), Allow Once, Precise Location off
       (tapping Start float or "Allow precise location" shows Apple's

@@ -55,6 +55,9 @@ import { seedOfflineBundle } from '@/api/client';
 import { FloatTracker } from '@/float/FloatTracker';
 import { ConditionsWidgetSync } from '@/components/ConditionsWidgetSync';
 import { attachFloatRecorder } from '@/float/recorder';
+import { recordingPresentationId } from '@/lib/floatNavigation';
+
+export const unstable_settings = { anchor: '(tabs)' };
 
 /**
  * How long the splash may wait on the brand typeface before giving up.
@@ -331,7 +334,10 @@ function ThemedShell() {
               contentStyle: { backgroundColor: colors.bg },
               ...((route.name === 'alerts/(create)' || route.name === 'alerts/(manage)') ? { presentation: 'modal' as const } : {}),
             };
-          }} />
+          }}>
+            <Stack.Screen name="(recording)" dangerouslySingular={recordingPresentationId}
+              options={{ presentation: 'fullScreenModal', gestureEnabled: false }} />
+          </Stack>
         </NavigationThemeProvider>
       </OnboardingGate>
     </GestureHandlerRootView>

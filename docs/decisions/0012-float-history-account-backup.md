@@ -51,6 +51,12 @@ Server rows in `float_archive` belong to a permanent authenticated user. The API
 verifies the user; RLS limits reads to that permanent owner. Mutations use
 service-only functions after strict allowlist validation. No raw positions,
 route geometry or pace samples cross this API. Completed summaries are immutable.
+New summaries keep `putInId`/`putInName` for a confirmed launch access or null.
+Optional `startNote` (1–240 characters) describes the recorded origin separately;
+no raw positions are added. Older completed records are not rewritten. Legacy
+active sessions keep their progress checkpoint but do not gain a launch claim
+from a planned access alone. History opens a normal tab detail using the same
+recap content as the root presentation shown immediately after tracking.
 Saved-route metadata can refresh; arrival-order updates apply to that metadata.
 Deleting replaces a row with an empty tombstone; an old device cannot resurrect
 it. Saving a route again creates a new record. Account deletion cascades both
@@ -64,7 +70,12 @@ without clearing edits made during the request. Network, authentication, storage
 and server failures remain retryable with 1–15 minute exponential backoff while
 the app is open; manual sync can retry immediately. Deploy this response contract
 before the new binary. An unrecognized response stays pending rather than falsely
-claiming a successful backup.
+claiming a successful backup. Before sending a `startNote`, the app checks the
+authenticated `GET ?capabilities=1` response for support. An older API leaves the
+whole upload pending for retry; the note is never stripped to obtain an immutable
+backup acknowledgement. Deploy the accepting validator and capability response
+together before the binary. The field lives in the existing JSON payload, so it
+needs no database migration.
 
 A server lookup adds the nearest non-suspect observation within 30 minutes of
 start from the nearest curated upstream gauge. Missing or failing history stays

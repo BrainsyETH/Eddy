@@ -64,6 +64,7 @@ function readableRow(v: unknown): v is LocalArchiveRow {
   const p = v.payload;
   return object(p) && ['id', 'riverSlug', 'riverName', 'takeOutId', 'takeOutName'].every((key) => typeof p[key] === 'string') &&
     ['putInId', 'putInName', 'boatType'].every((key) => nullableString(p[key])) &&
+    (p.startNote === undefined || (typeof p.startNote === 'string' && p.startNote.length > 0 && p.startNote.length <= 240)) &&
     ['startedAt', 'endedAt', 'elapsedMs', 'movingMs', 'stoppedMs', 'unknownMs', 'distanceMiles'].every((key) => number(p[key])) &&
     ['movingMph', 'plannerMph', 'firstMile', 'lastMile'].every((key) => p[key] === null || number(p[key])) &&
     readableWater(p.water);

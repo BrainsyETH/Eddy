@@ -7,7 +7,7 @@ import { useTheme } from '@/theme/ThemeProvider';
 import type { StartLocation } from './useStart';
 import { Card, PrimaryButton, styles } from './ui';
 
-export function LocationGate({ location, summary = false }: { location: StartLocation; summary?: boolean }) {
+export function LocationGate({ location }: { location: StartLocation }) {
   const { colors } = useTheme();
   const copy = {
     checking: ['Checking location', ''],
@@ -41,9 +41,7 @@ export function LocationGate({ location, summary = false }: { location: StartLoc
             ? 'Open Settings'
             : location.state === 'precise'
               ? 'Allow precise location'
-              : summary
-                ? 'Enable location'
-                : 'Find me on the river'
+              : 'Enable location'
         }
         busy={location.busy}
         onPress={() => void location.act()}
