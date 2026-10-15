@@ -720,10 +720,8 @@ export default function GaugeDetailScreen() {
             {rated && peakLine ? <Text style={[styles.caveat, { color: colors.textMuted }]}>{peakLine}</Text> : null}
             {crestLine ? <Text style={[styles.caveat, { color: colors.text }]}>{crestLine}</Text> : null}
             {coldLine ? <Text style={[styles.caveat, { color: colors.text }]}>{coldLine}</Text> : null}
-            {/* Preserve Eddy-rated cards. Unrated cards omit routine provisional
-                notes but still show suspect-reading warnings. */}
-            {(rated || gauge.readingSuspect) && gauge.qualifierNote ? (
-              <Text style={[styles.caveat, { color: gauge.readingSuspect ? colors.error : colors.textMuted }]}>
+            {gauge.readingSuspect && gauge.qualifierNote ? (
+              <Text style={[styles.caveat, { color: colors.error }]}>
                 {gauge.qualifierNote}
               </Text>
             ) : null}

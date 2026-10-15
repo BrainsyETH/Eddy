@@ -987,6 +987,9 @@ picker and conditions. General `floatTip` prose is omitted from this screen's
 header so long tips cannot push readings down the page. Tips remain available
 in float plans, and the river's Hazards section keeps its existing details.
 
+Gauge detail omits the routine provisional-data footnote. Source-flagged suspect
+readings still show their specific qualifier note.
+
 ## Favorites
 
 River cards show a reading pill for every linked gauge, ordered upstream to
@@ -1000,6 +1003,14 @@ and cards omit Eddy's Read excerpt. Favorites does not fetch Reads. Until the
 gauge catalog arrives, cards retain the river headline and scale as a fallback.
 Dam rows show lake/state metadata and a short schedule summary with “Subject
 to change” inline; the detail screen carries the full schedule context.
+
+Individual gauge Favorites also show the condition scale in the station's rated
+unit and a seasonal flow comparison, such as “Lower than usual for mid October”.
+The month follows the Ozarks calendar. `/api/gauges` supplies the eligible daily
+discharge comparison from a batched snapshot lookup, without per-card requests.
+Missing ladders or readings omit the scale; stale/suspect readings mute it and
+hide its marker. Seasonal copy is omitted for missing statistics, untrusted
+readings or a comparison from another calendar day. Search rows stay compact.
 
 ## River guides
 

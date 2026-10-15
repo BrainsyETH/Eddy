@@ -17,8 +17,9 @@ const freshness = { type: 'string', enum: ['live', 'delayed', 'historical', 'una
 const temperature = nullable(object({ valueF: number, observedAt: time, source: { const: 'usgs' }, measuredAtSiteId: string, measuredAtName: string }, ['valueF', 'observedAt', 'source']));
 const oxygen = nullable(object({ valueMgL: number, observedAt: time, source: { const: 'usgs' }, measuredAtSiteId: string, measuredAtName: string }, ['valueMgL', 'observedAt', 'source']));
 const threshold = object({ riverId: string, riverName: string, riverSlug: nullableString, riverState: nullableString, isPrimary: boolean, riverMile: { ...nullableNumber, description: 'Station position on this river (miles downstream); orders gauges upstream to downstream. Returned by /api/gauges.' }, distanceFromSectionMiles: nullableNumber, thresholdUnit: { enum: ['ft', 'cfs'] }, ...Object.fromEntries(['levelTooLow','levelLow','levelOptimalMin','levelOptimalMax','levelHigh','levelDangerous','floodStageFt'].map(k => [k, nullableNumber])) }, ['riverId','riverName','riverSlug','isPrimary','thresholdUnit','levelTooLow','levelLow','levelOptimalMin','levelOptimalMax','levelHigh','levelDangerous','floodStageFt']);
+const seasonalContext = nullable(object({ unit: { enum: ['ft','cfs'] }, parameterCode: string, percentile: number, band: { enum: ['much_lower','lower','normal','higher','much_higher'] }, yearsOfRecord: nullableNumber, asOf: time }));
 export const gaugeSchemas = {
-  GaugeStation: object({ id: string, usgsSiteId: nullableString, name: string, provider: string, coordinates, active: boolean, ...reading, qualifierNote: nullableString, thresholdDescriptions: nullable({ type: 'object' }), thresholds: nullable(array(threshold)) }, ['id','usgsSiteId','name','coordinates','active',...Object.keys(reading),'qualifierNote','thresholdDescriptions','thresholds']),
+  GaugeStation: object({ id: string, usgsSiteId: nullableString, name: string, provider: string, coordinates, active: boolean, ...reading, qualifierNote: nullableString, seasonalContext, thresholdDescriptions: nullable({ type: 'object' }), thresholds: nullable(array(threshold)) }, ['id','usgsSiteId','name','coordinates','active',...Object.keys(reading),'qualifierNote','thresholdDescriptions','thresholds']),
   GaugeReading: object({ timestamp: time, gaugeHeightFt: nullableNumber, dischargeCfs: nullableNumber, qualifiers: array(string), gapBefore: array({ enum: ['ft','cfs'] }) }, ['timestamp','gaugeHeightFt','dischargeCfs']),
   MapGaugeLite: object({ id: string, siteId: string, name: string, coordinates, ...reading, curated: boolean, flowPercentile: nullableNumber, freshness }),
   MapGaugesResponse: object({ gauges: array(ref('MapGaugeLite')), total: { type: 'integer', minimum: 0 }, capped: boolean }),
@@ -28,7 +29,7 @@ export const gaugeSchemas = {
     floodStages: nullable(object({ actionFt: nullableNumber, floodFt: nullableNumber, moderateFt: nullableNumber, majorFt: nullableNumber, lid: nullableString, source: string }, ['actionFt','floodFt','moderateFt','majorFt'])),
     waterTemperature: { ...temperature, description: 'Measurement no more than 24 hours old, otherwise null.' }, dissolvedOxygen: { ...oxygen, description: 'Measurement no more than 24 hours old, otherwise null.' },
     historicalWaterQuality: object({ waterTemperature: temperature, dissolvedOxygen: oxygen }),
-    seasonalContext: nullable(object({ unit: { enum: ['ft','cfs'] }, parameterCode: string, percentile: number, band: { enum: ['much_lower','lower','normal','higher','much_higher'] }, yearsOfRecord: nullableNumber, asOf: time })),
+    seasonalContext,
     seasonalContextUnavailableReason: nullableString,
     historyCapabilities: object({ maxInstantDays: number, supportsDaily: boolean, supportsCustomRange: boolean }),
     publicUrl: nullableString, stationNote: nullableString,
