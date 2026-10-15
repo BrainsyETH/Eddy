@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { FlatList, Pressable, RefreshControl, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import type { CompletedFloat } from '@eddy/conditions/float-archive';
 import { NativeHeaderHome } from '@/components/NativeHeaderHome';
 import { ControlIcon } from '@/components/ControlIcon';
@@ -65,6 +65,15 @@ export default function SavedFloatsScreen() {
   return (
     <SafeAreaView style={[styles.screen, { backgroundColor: colors.bg }]} edges={['left', 'right']}>
       <NativeHeaderHome />
+      <Stack.Toolbar placement="right">
+        <Stack.Toolbar.Button
+          icon="cloud"
+          accessibilityLabel={`Backup and sharing. ${collection.backup}`}
+          onPress={() => navigate(() => router.push('/float-backup'))}
+        >
+          Backup
+        </Stack.Toolbar.Button>
+      </Stack.Toolbar>
       <FlatList<Item>
         key={view}
         contentInsetAdjustmentBehavior="automatic"
@@ -100,18 +109,17 @@ export default function SavedFloatsScreen() {
                 </Pressable>
               ))}
             </View>
-            <Pressable
-              accessibilityRole="button"
-              onPress={() => navigate(() => router.push('/float-backup'))}
-              style={styles.backup}
-            >
-              <ControlIcon name="cloud-outline" size={20} color={colors.interactive} />
-              <View style={styles.grow}>
-                <Text style={[t.base, { color: colors.text }]}>Backup &amp; sharing</Text>
-                <Text style={[t.sm, { color: colors.textMuted }]}>{collection.backup}</Text>
-              </View>
-              <ControlIcon name="chevron-forward" size={16} color={colors.interactive} />
-            </Pressable>
+            {archive.error || archive.rows.some((row) => row.backupError) ? (
+              <Pressable
+                accessibilityRole="button"
+                onPress={() => navigate(() => router.push('/float-backup'))}
+                style={styles.backup}
+              >
+                <ControlIcon name="alert-circle-outline" size={20} color={colors.interactive} />
+                <Text style={[t.sm, styles.grow, { color: colors.text }]}>{collection.backup}</Text>
+                <ControlIcon name="chevron-forward" size={16} color={colors.interactive} />
+              </Pressable>
+            ) : null}
             {archive.recovered ? (
               <Text style={[t.sm, { color: colors.textMuted }]}>
                 Some local history could not be opened. A recovery copy is kept on this phone. Open Backup

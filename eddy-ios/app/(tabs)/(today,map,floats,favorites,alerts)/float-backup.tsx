@@ -36,7 +36,10 @@ export default function FloatBackupScreen() {
           />
         }
       >
-        <Text style={[textStyles.pageTitle, { color: colors.text }]}>Backup &amp; sharing</Text>
+        <Text style={[t.base, { color: colors.textMuted }]}>
+          Back up saved routes and completed trips to your account. You can separately choose whether Eddy
+          uses trip summaries to improve float-time estimates.
+        </Text>
         {archive.recovered ? (
           <Text accessibilityRole="alert" style={[t.base, { color: colors.textMuted }]}>
             Some local history could not be opened. A recovery copy is kept on this phone. Sign in to reload
@@ -48,17 +51,21 @@ export default function FloatBackupScreen() {
             {guest ? 'Keep your floats safe' : 'Account backup'}
           </Text>
           <Text style={[t.base, { color: colors.textMuted }]}>
-            {guest
-              ? 'Your completed floats and saved routes stay on this phone. Sign in with Apple to back them up and recover them on another device.'
-              : archive.syncing
-                ? 'Backing up and checking for floats…'
+            {!archive.ready
+              ? archive.error
+                ? 'Your collection could not be opened. Try loading it again.'
+                : 'Loading your collection…'
+              : guest
+                ? 'Your completed floats and saved routes stay on this phone. Sign in with Apple to back them up and recover them on another device.'
                 : archive.error
                   ? 'Backup needs attention. Your local floats are still here.'
                   : refused.length
                     ? `${refused.length} ${refused.length === 1 ? 'float could' : 'floats could'} not be backed up. Your local copies are still here.`
-                    : pending
-                      ? 'Saved on this phone. Waiting to back up.'
-                      : 'Your completed floats and saved routes are backed up.'}
+                    : archive.syncing
+                      ? 'Backing up and checking for floats…'
+                      : pending
+                        ? 'Saved on this phone. Waiting to back up.'
+                        : 'Your completed floats and saved routes are backed up.'}
           </Text>
           {guest ? (
             <AppleSignInButton onSignedIn={() => void archive.refresh()} />
@@ -72,7 +79,7 @@ export default function FloatBackupScreen() {
             </Pressable>
           )}
           {archive.error ? <Text style={[t.sm, { color: colors.error }]}>{archive.error}</Text> : null}
-          {!archive.ready ? (
+          {!archive.ready && archive.error ? (
             <Pressable
               accessibilityRole="button"
               onPress={() => void archive.refresh()}

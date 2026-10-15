@@ -308,12 +308,16 @@ Build a Route (choose endpoints) and Find a Route (suggestions for a time and
 location) share a secondary row. Build a Route takes the accent styling when
 Float Mode is disabled. Both use the same planner and result actions.
 Today recommendations and Floats push new planners to `/plan-route` in the
-originating tab's stack, with the shared map and PlanSheet in a fresh screen
-instance. They never change the kept-alive Map tab's selection, pins, camera,
-or existing plan. Standalone
-planner gestures do not write Map's saved camera for the next launch. Native
-dismissal finishes before Back returns to the caller; starting replaces that
-standalone planner with float setup. Planning directly on Map still retains its route when
+originating tab's stack. This lightweight screen loads the river index and
+access points into the shared PlanSheet; it never mounts a Mapbox map, map
+layers, or statewide geometry. Cached picker data appears while fresh data
+loads, missing data has a retry action, and leaving cancels outstanding loads.
+Rivers are ordered by favorites, condition, then name. These planners never
+change the kept-alive Map tab's selection, pins, camera, or existing plan.
+Closing cancels any calculation immediately. Native sheet dismissal finishes
+before Back returns to the caller, which stays visible behind the sheet, with
+no second stack animation; starting
+replaces the standalone planner with float setup. Planning directly on Map still retains its route when
 the sheet closes. Navigation entry actions ignore repeated presses until focus
 returns. The native route checks exercise the handoff, endpoint-detail Back,
 new-plan isolation, and preserved Map stack.
@@ -326,6 +330,13 @@ permission; only an explicit location tap asks. Selecting a river clears the
 previous nearby point, and selecting a location clears the river. Town search
 is debounced and cancels stale responses; it keeps Mapbox attribution. A selected location reveals a
 native radius menu, measured to the put-in rather than as driving distance.
+Results lead with a route photo, falling back to the already-loaded river
+photo and then an Eddy illustration. Duration, river miles, condition, and
+access status are visible without expanding details. Cautions stay visible;
+descriptions, estimate provenance, and endpoint access details use a disclosure.
+Search details hold the proximity explanation and freshness context, while
+partial-search status remains visible. The native finder header is opaque so
+content scrolling underneath cannot obscure its title or Back control.
 
 Kayak is the initial vessel, then an explicit choice is remembered. The picker
 uses the shared `FLOAT_BOATS` inventory, ordered by pace with Kayak first in
@@ -346,8 +357,11 @@ action; town-search errors stay in the picker; route-search errors stay on the
 main screen. The new navigation and layout introduce no native dependencies.
 
 Saved Floats & History opens one collection with Saved and History segments,
-an All Rivers filter, and recent or River A–Z ordering. Backup & sharing is a
-labelled row inside the collection, with the account controls on its own page.
+an All Rivers filter, and recent or River A–Z ordering. A labelled Backup control
+in the top-right toolbar opens the same settings from either segment. Backup
+applies to saved routes and completed trips; sharing trip summaries is a
+separate, optional choice. Routine backup status and account controls live on
+that settings page; collection errors remain visible inline.
 Both segments use the archive's local loading state. A failed load shows an
 error and Retry; backup failures keep loaded routes and trips visible and show
 that backup needs attention.
@@ -685,7 +699,8 @@ another's name.
 endpoints from it. Closing `PlanSheet` therefore does not discard the plan:
 people plan a float directly on Map and then dismiss the sheet to look at the
 water between the two ends. Floats entry points use a fresh `/plan-route` screen
-with the same components, so closing those leaves the Map tab unchanged.
+with the same PlanSheet and planning hook, without mounting a map. Closing
+those cancels their calculation and leaves the Map tab unchanged.
 
 **Two questions, not four.** There used to be a boat picker between the take-out
 and the answer, and a nights-on-the-river control under it. Both are gone. The
@@ -1204,7 +1219,8 @@ Three things about it are load-bearing rather than stylistic:
 ### Float history and backup
 
 Floats → Saved Floats & History contains saved routes and end-of-float recaps.
-Its Backup & sharing row opens account backup and sharing controls. History works on the device as a guest. Apple sign-in backs up
+Its top-right Backup control opens account backup and optional summary-sharing
+settings for both segments. History works on the device as a guest. Apple sign-in backs up
 completed summaries and the user's private saved-route collection through
 `/api/me/float-archive`; opening a previously shared plan URL remains separate.
 Signing out hides that account's local history. Signing into another account

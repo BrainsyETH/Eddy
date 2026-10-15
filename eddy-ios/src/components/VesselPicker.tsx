@@ -74,10 +74,6 @@ export function VesselPicker({
           );
         })}
       </View>
-      <Text style={[t.sm, { color: colors.textMuted }]}>
-        Tube and raft trips usually take longer. Canoe and kayak estimates can be similar; current and stops
-        also affect your time.
-      </Text>
     </View>
   );
 }
