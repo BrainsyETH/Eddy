@@ -82,7 +82,79 @@ export interface DamHistoryAge {
   /**
    * The STALEST series this dam records, not the newest.
    *
-   * A dam records `…926 tokens truncated…s is measured
+   * A dam records `release` and `generationFlow` independently and they can
+   * fail independently — a renamed turbine series freezes generationFlow while
+   * release keeps arriving. Judging the dam by max() across its metrics would
+   * hide that behind the healthy half, which is the same shape of mistake as
+   * reading an absent dam as a healthy one.
+   */
+  latest: Date;
+  /** Which series is the stalest, so the finding can name it. */
+  metric?: string;
+}
+
+const MS_PER_HOUR = 3_600_000;
+
+/**
+ * Pure. Collapse per-metric rows to one age per dam, taking the stalest.
+ */
+export function stalestPerDam(rows: DamMetricAge[]): DamHistoryAge[] {
+  const worst = new Map<string, DamHistoryAge>();
+  for (const row of rows) {
+    const current = worst.get(row.damId);
+    if (!current || row.latest.getTime() < current.latest.getTime()) {
+      worst.set(row.damId, { damId: row.damId, latest: row.latest, metric: row.metric });
+    }
+  }
+  return Array.from(worst.values());
+}
+
+/** Pure. Reports dams whose recorded history has stopped advancing. */
+export function deriveDamFreshnessFindings(ages: DamHistoryAge[], now: Date): RawFinding[] {
+  const findings: RawFinding[] = [];
+
+  for (const age of ages) {
+    const hours = (now.getTime() - age.latest.getTime()) / MS_PER_HOUR;
+    if (hours < STALE_HOURS) continue;
+
+    const frozen = hours >= FROZEN_HOURS;
+    const rounded = Math.round(hours);
+
+    findings.push({
+      entityType: 'dam',
+      entityKey: age.damId,
+      // Two rules rather than one with a severity that moves, because the
+      // fingerprint hashes the rule key: a single rule escalating from medium
+      // to high would rewrite the same finding's severity in place and lose
+      // "this has been frozen since Saturday". Two keys means the frozen
+      // finding is its own row with its own first_seen_at.
+      ruleKey: frozen ? 'dam_history_frozen' : 'dam_history_stale',
+      title: `${age.damId}: no generation history for ${rounded} hours`,
+      detail: frozen
+        ? `The newest row in dam_metric_readings for this dam is ${rounded} hours old. The recorder re-reads a 48-hour window every pass, so a failed run repairs itself and nothing transient lasts this long — this is the recorder not reaching the dam at all. Check that it still passes recordsHistory() in the registry, and that its series ids still resolve against CWMS. Backfill as soon as the cause is found: CWMS serves a rolling window and these hours cannot be recovered once they leave it.`
+        : `The newest row in dam_metric_readings for this dam is ${rounded} hours old; the recording fleet normally sits between 2 and 4. One skipped cron run looks like this and repairs itself on the next pass. If it reaches ${FROZEN_HOURS} hours it will be refiled as frozen.`,
+      evidence: {
+        damId: age.damId,
+        // Which series stopped. On a whole-dam freeze both are equally stale
+        // and this names either; on a single renamed series it names the one
+        // that matters, which is the case a per-dam max() would have hidden.
+        stalestMetric: age.metric ?? null,
+        latestObservedHour: age.latest.toISOString(),
+        hoursStale: rounded,
+        staleThresholdHours: STALE_HOURS,
+        frozenThresholdHours: FROZEN_HOURS,
+      },
+    });
+  }
+
+  // Deterministic, so a run's output does not churn on row order.
+  return findings.sort((a, b) => a.entityKey.localeCompare(b.entityKey));
+}
+
+export const damFreshnessCheck: TrustCheck = {
+  id: 'dam_freshness',
+  title: 'Dam generation history is still being recorded',
+  // Hourly, unlike most detection checks. The window this protects is measured
   // in days and the cost of a late catch is permanent, so the check runs at the
   // cadence of the thing it watches rather than the cadence of a review.
   cadence: 'hourly',
