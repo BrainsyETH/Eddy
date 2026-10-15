@@ -1144,7 +1144,12 @@ blur:
   (`docs/float-live-activity-plan.md`). The map frames the chosen stretch
   with the access points and known hazards along it; the screen shows the next
   hazard, an arrival time and a sunset warning. Serious hazards, the approaching
-  take-out and arrival are notified. A float left running ends itself an hour
+  take-out and arrival are notified. The arrival notice uses a 0.1-river-mile
+  threshold, which also accepts positions past the take-out. Both ordinary
+  and off-map arrival notices ask the paddler to finish once off the water;
+  neither confirms a landing. The off-map arrival notice names the chosen
+  take-out without claiming proximity or a remaining paddling distance.
+  A float left running ends itself an hour
   after arrival or 45 minutes after leaving the river (`src/lib/floatEnding.ts`),
   never for stopping or losing signal, and only on fresh evidence of being
   away. Resuming after iOS ends Eddy is device-unconfirmed, so the screen
