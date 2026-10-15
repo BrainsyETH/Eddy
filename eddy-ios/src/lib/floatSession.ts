@@ -562,8 +562,9 @@ export function viewSession(session: FloatSession, now: number): FloatView {
 export interface FloatMapFeatures {
   /** Null until a quick start knows where it began; the map then shows the whole river. */
   section: LngLat[] | null;
-  stops: LngLat[];
-  hazards: { lngLat: LngLat; severity: HazardSeverity }[];
+  /** Access points between the ends, named so the map can label them. */
+  stops: { id: string; name: string; lngLat: LngLat; riverMile: number }[];
+  hazards: RouteHazard[];
 }
 
 export function mapFeatures(session: FloatSession, index: RouteIndex): FloatMapFeatures {
@@ -576,13 +577,26 @@ export function mapFeatures(session: FloatSession, index: RouteIndex): FloatMapF
     stops:
       from == null
         ? []
-        : session.route.anchors
-            .filter((anchor) => !ends.has(anchor.id) && between(placeEnd(index, anchor).riverMile))
-            .map((anchor) => anchor.lngLat),
-    hazards: (session.route.hazards ?? [])
-      .filter((hazard) => (from == null ? hazard.riverMile <= to : hazard.riverMile >= from && hazard.riverMile <= to))
-      .map((hazard) => ({ lngLat: hazard.lngLat, severity: hazard.severity })),
+        : session.route.anchors.flatMap((anchor) => {
+            if (ends.has(anchor.id)) return [];
+            const riverMile = placeEnd(index, anchor).riverMile;
+            return between(riverMile) ? [{ id: anchor.id, name: anchor.name, lngLat: anchor.lngLat, riverMile }] : [];
+          }),
+    hazards: (session.route.hazards ?? []).filter((hazard) =>
+      from == null ? hazard.riverMile <= to : hazard.riverMile >= from && hazard.riverMile <= to,
+    ),
   };
+}
+
+/**
+ * What a tapped map marker says: its name, and where it is relative to the
+ * paddler (the last confirmed mile), or its river mile before there is one.
+ */
+export function markerDistance(markerMile: number, currentMile: number | null): string {
+  if (currentMile == null) return `Mile ${markerMile.toFixed(1)}`;
+  const ahead = markerMile - currentMile;
+  if (Math.abs(ahead) < 0.1) return 'Here';
+  return ahead > 0 ? `${ahead.toFixed(1)} mi ahead` : `${(-ahead).toFixed(1)} mi behind`;
 }
 
 /** Arriving this close to sunset or later is worth a word. */

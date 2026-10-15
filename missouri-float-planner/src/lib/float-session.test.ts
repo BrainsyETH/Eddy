@@ -17,6 +17,7 @@ import {
   arrivalOutlook,
   offerRiverChange,
   mapFeatures,
+  markerDistance,
   withHazards,
   formatDuration,
   remainingCopy,
@@ -517,8 +518,14 @@ test('the map frames the chosen stretch, with the access points along it', () =>
   const last = features.section![features.section!.length - 1];
   assert.ok(Math.abs(first[0] - at(0)[0]) < 1e-6);
   assert.ok(Math.abs(last[0] - at(6_000)[0]) < 1e-6);
-  // Cave (not an endpoint, but an access point) sits between them.
+  // Cave (not an endpoint, but an access point) sits between them, named so
+  // the map can label it.
   assert.equal(features.stops.length, 1);
+  assert.equal(features.stops[0].name, 'cave');
+  assert.equal(markerDistance(features.stops[0].riverMile, 20.5), `${(features.stops[0].riverMile - 20.5).toFixed(1)} mi ahead`);
+  assert.equal(markerDistance(21, 22), '1.0 mi behind');
+  assert.equal(markerDistance(21, 21.05), 'Here');
+  assert.equal(markerDistance(21.25, null), 'Mile 21.3');
 
   // A quick start shows the whole river until it knows where it began.
   const quick = startSession({ id: 'm2', kind: 'quick', route, index: idx, takeOutId: 'pulltite', now: T0 });

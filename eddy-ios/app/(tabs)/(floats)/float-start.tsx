@@ -6,7 +6,7 @@
 // the background-location sheet, the start logic (useStart) and the shared UI.
 // This file is the route and the two steps that need the loaded river.
 import { useMemo, useState } from 'react';
-import { ActivityIndicator, Text, View } from 'react-native';
+import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useRoute as useNavigationRoute } from 'expo-router/react-navigation';
 import { milesBetween } from '@eddy/geo';
@@ -18,8 +18,17 @@ import { LocationGate } from '@/float/start/LocationGate';
 import { RiverPicker } from '@/float/start/RiverPicker';
 import { BoatChoice, Card, PrimaryButton, RiverName, Row, Shell, SummaryLine, TextButton, styles } from '@/float/start/ui';
 import { newSessionId, useRiverRoute, useStart, type Params, type StartLocation } from '@/float/start/useStart';
+import { FloatMap } from '@/float/FloatMap';
 import { TripDownloadCard } from '@/float/TripDownloadCard';
-import { arrivalCopy, arrivalOutlook, formatBeyond, formatDuration, startSession, takeOutChoices } from '@/lib/floatSession';
+import {
+  arrivalCopy,
+  arrivalOutlook,
+  formatBeyond,
+  formatDuration,
+  mapFeatures,
+  startSession,
+  takeOutChoices,
+} from '@/lib/floatSession';
 import { startRiverPosition } from '@/lib/floatStart';
 import { useTheme } from '@/theme/ThemeProvider';
 
@@ -283,8 +292,33 @@ function SummaryStep({
         )
       : null;
 
+  // The stretch as Float Mode will show it: from the put-in, or from where
+  // Eddy found you for a quick start (the whole river until it has).
+  const previewSession = { ...preview.session, startMile: startMile ?? null };
+  const features = mapFeatures(previewSession, loaded.index);
+  const putInPoint = putIn?.lngLat ?? (!saved && located && location.fix ? location.fix.point : null);
+
   return (
     <Shell>
+      <View
+        style={[previewStyles.map, { borderColor: colors.border }]}
+        accessible
+        accessibilityLabel={`Map of the route from ${putIn?.name ?? 'your location'} to ${takeOut.name}`}
+      >
+        <FloatMap
+          // The preview frames once; re-frame when the stretch becomes known.
+          key={features.section ? 'stretch' : 'river'}
+          preview
+          line={loaded.route.line}
+          section={features.section}
+          stops={features.stops}
+          hazards={features.hazards}
+          start={putInPoint ? { name: putIn?.name ?? 'You', lngLat: putInPoint, riverMile: startMile ?? null } : null}
+          takeOut={{ name: takeOut.name, lngLat: takeOut.lngLat, riverMile: preview.session.takeOut.riverMile }}
+          position={null}
+          positionDimmed={false}
+        />
+      </View>
       <Card>
         <RiverName name={loaded.route.riverName} large />
         <View style={[styles.divider, { backgroundColor: colors.border }]} />
@@ -353,3 +387,7 @@ function SummaryStep({
     </Shell>
   );
 }
+
+const previewStyles = StyleSheet.create({
+  map: { height: 200, borderRadius: 12, overflow: 'hidden', borderWidth: StyleSheet.hairlineWidth },
+});

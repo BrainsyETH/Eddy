@@ -62,7 +62,10 @@ export function createTrackerStatusStore() {
 export const trackerStatus = createTrackerStatusStore();
 
 export interface TrackingLine {
+  /** Short enough for the Float Mode panel. */
   text: string;
+  /** More, for Float options. */
+  detail?: string;
   /** 'info' is a plain note; the others are tappable. */
   action: 'info' | 'request' | 'settings' | 'retry';
 }
@@ -91,7 +94,8 @@ export function trackingLine(mode: TrackingMode, tracker: TrackerState, canAskAg
       return { text: 'Eddy couldn’t start location tracking. Tap to try again.', action: 'retry' };
     case 'background':
       return {
-        text: 'Tracking carries on with your phone locked. Leave Eddy open in the background rather than closing it: if you close it, tracking may pause until you open Eddy again.',
+        text: 'Tracking carries on with your phone locked.',
+        detail: 'Leave Eddy open in the background rather than closing it: if you close it, tracking may pause until you open Eddy again.',
         action: 'info',
       };
     case 'foreground':

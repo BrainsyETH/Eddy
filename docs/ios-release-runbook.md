@@ -287,6 +287,22 @@ are pending checks, not evidence of a device pass.
       Until this passes, Float Mode tells people to leave Eddy open in the
       background; only change that copy with this evidence recorded.
 
+- [ ] **Starting a float and the on-water layout** on a physical iPhone,
+      including the smallest supported screen. The start summary shows the
+      route preview with both ends (also with no signal). In Float Mode,
+      Options, Hazard and End/Finish are all visible without scrolling, and
+      Options opens reminders, the Lock Screen card and keep-awake as a sheet.
+      Show route frames the stretch, and Recenter then zooms back in. Access,
+      hazard and end markers are labelled and open a card when tapped. A quick
+      start in a parking lot reads "not on the <river> yet (about N m away)",
+      not "Finding your spot". A float started more than 1 km from its river
+      offers "choose another river", and that adds no recap to history. With
+      Always granted the tracking line says locked-phone tracking is on, and
+      with While Using it says tracking pauses. In airplane mode mid-float,
+      the arrival line holds still and reads "as of <time>". Pure rules:
+      `float-session.test.ts`, `float-session-store.test.ts`,
+      `float-permissions.test.ts`.
+
 For the Lock Screen/Dynamic Island follow-up, use
 [`float-live-activity-plan.md`](float-live-activity-plan.md). Native implementation
 and device gates remain separate from the preparation fixes.
