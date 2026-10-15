@@ -1,4 +1,4 @@
-import { openStartPicker, chooseStartRiver, chooseStartAccess } from '../../../eddy-ios/src/lib/floatStartSelection';
+import { openStartPicker, chooseStartRiver, chooseStartAccess, continueToTakeOut } from '../../../eddy-ios/src/lib/floatStartSelection';
 import { recapFloat } from '../../../eddy-ios/src/lib/floatRecap';
 import { matchesSetupDownload, restoreSetupDownload } from '../../../eddy-ios/src/lib/floatSetupDownload';
 import { TRIP_PACKAGE_VERSION, type TripPackage } from '../../../eddy-ios/src/lib/tripDownload';
@@ -946,6 +946,19 @@ test('editing a known take-out goes directly to accesses and changing river clea
   assert.equal(changed.draft.takeOutId, undefined);
   assert.deepEqual(ready, { riverSlug: 'current', putInId: 'akers', takeOutId: 'pulltite' }, 'Closing the sheet preserves the plan and download identity');
   assert.equal(chooseStartAccess(changed, 'alley', null, null).takeOutId, 'alley');
+});
+
+test('a river or put-in choice without a take-out continues to take-outs; a complete stretch closes the sheet', () => {
+  const river = openStartPicker('river', {});
+  const chosen = chooseStartRiver(river, 'current').draft;
+  assert.deepEqual(continueToTakeOut(river, chosen), { field: 'to', draft: chosen, page: 'access' });
+  assert.equal(continueToTakeOut(river, { riverSlug: 'current', takeOutId: 'pulltite' }), null);
+  const from = openStartPicker('from', { riverSlug: 'current', takeOutId: 'pulltite' });
+  assert.equal(continueToTakeOut(from, chooseStartAccess(from, 'akers', 10, 20)), null, 'A downstream take-out survives');
+  assert.equal(continueToTakeOut(from, chooseStartAccess(from, 'round-spring', 30, 20))?.field, 'to',
+    'A take-out cleared behind the new start is asked for again');
+  const to = openStartPicker('to', { riverSlug: 'current' });
+  assert.equal(continueToTakeOut(to, { riverSlug: 'current' }), null, 'The take-out sheet never reopens itself');
 });
 
 test('changing a starting point preserves a downstream take-out and clears one behind the new start', () => {

@@ -10,8 +10,8 @@ import { useFloatStartLocation } from '@/hooks/useFloatStartLocation';
 import { routeProblemCopy } from '@/float/loadFloatRoute';
 import { LocationGate } from '@/float/start/LocationGate';
 import { RoutePicker } from '@/float/start/RoutePicker';
-import { ControlIcon } from '@/components/ControlIcon';
-import { Card, PrimaryButton, RouteField, Shell, TextButton, styles } from '@/float/start/ui';
+import { RouteCard } from '@/float/start/RouteCard';
+import { Card, PrimaryButton, Shell, TextButton, styles } from '@/float/start/ui';
 import { newSessionId, useRiverRoute, useStart, type Params } from '@/float/start/useStart';
 import { useStartEstimate } from '@/float/start/useEstimate';
 import { FloatMap } from '@/float/FloatMap';
@@ -176,22 +176,15 @@ function ReadyToFloat({ initial, restoredPackage }: { initial: Params; restoredP
         <Text style={[styles.caption, local.backup, { color: colors.textMuted }]}>Sign in to back up your float summary</Text>
       </>}>
         {restoredPackage ? <Text style={[styles.caption, { color: colors.textMuted }]}>Your downloaded setup · edit any field below</Text> : null}
-        <View style={[local.fields, { backgroundColor: colors.card }]}>
-          <RouteField label="River" value={route?.riverName ?? (draft.riverSlug && !loaded ? 'Loading river…' : 'Choose a river')}
-            leading={<ControlIcon name="search-outline" size={23} color={colors.interactive} />}
-            disabled={start.busy} onPress={() => openPicker('river')} />
-          <View style={[local.separator, { backgroundColor: colors.border }]} />
-          <RouteField label="From" value={putIn?.name ?? (draft.putInId ? 'Choose a put-in' : 'Current location')}
-            hint={gpsLabel} busy={!draft.putInId && location.busy && !gpsReady}
-            leading={putInPoint ? <PlanAccessPhoto point={putInPoint} style={local.photo} />
-              : <ControlIcon name="locate" size={23} color={colors.interactive} />}
-            disabled={start.busy} onPress={() => openPicker('from')} />
-          <View style={[local.separator, { backgroundColor: colors.border }]} />
-          <RouteField label="Take-out" value={takeOut?.name ?? 'Choose a take-out'}
-            leading={takeOutPoint ? <PlanAccessPhoto point={takeOutPoint} style={local.photo} />
-              : <ControlIcon name="map-outline" size={23} color={colors.interactive} />}
-            disabled={start.busy} onPress={() => openPicker('to')} />
-        </View>
+        <RouteCard river={draft.riverSlug ? route?.riverName ?? (loaded ? null : 'loading') : null}
+          disabled={start.busy} onRiver={() => openPicker('river')} onFrom={() => openPicker('from')} onTo={() => openPicker('to')}
+          from={{ value: putIn?.name ?? (draft.putInId ? null : 'My location'),
+            detail: startMile != null ? `Mile ${startMile.toFixed(1)}` : undefined,
+            status: { label: gpsLabel, ready: gpsReady, busy: !draft.putInId && location.busy && !gpsReady },
+            photo: putInPoint ? <PlanAccessPhoto point={putInPoint} style={local.photo} /> : undefined }}
+          to={{ value: takeOut?.name ?? null, detail: takeOut ? `Mile ${takeOut.mile.toFixed(1)}` : undefined,
+            photo: takeOutPoint ? <PlanAccessPhoto point={takeOutPoint} style={local.photo} /> : undefined }}
+          leg={miles != null && miles > 0 ? `${miles.toFixed(1)} mi${minutes != null ? ` · about ${formatDuration(minutes)}` : ''}` : null} />
         {gpsReady && putInStatus?.note ? <Text style={[styles.body, { color: colors.textMuted }]}>{putInStatus.note}</Text> : null}
         {gpsReady && putInStatus?.canSwitch ? <>
           <Text style={[styles.body, { color: colors.textMuted }]}>Tracking will begin where GPS finds you. The route preview still starts at {putIn?.name}.</Text>
@@ -218,9 +211,6 @@ function ReadyToFloat({ initial, restoredPackage }: { initial: Params; restoredP
           }} />
         </View>
         <View style={styles.group}>
-          {miles != null && miles > 0 ? <Text style={[styles.distance, { color: colors.text }]}>
-            {miles.toFixed(1)} mi{minutes != null ? ` · about ${formatDuration(minutes)}` : ''}
-          </Text> : null}
           <Text style={[styles.body, { color: colors.textMuted }]}>{minutes != null
             ? 'Moving time · stops not included' : estimate.loading ? 'Checking moving time…' : 'Eddy will learn your pace'}</Text>
           {arrival ? <Text style={[styles.body, { color: colors.textMuted }]}>If you start now: {arrival.line}</Text> : null}
@@ -247,9 +237,7 @@ function ReadyToFloat({ initial, restoredPackage }: { initial: Params; restoredP
 }
 
 const local = StyleSheet.create({
-  fields: { borderRadius: 18, overflow: 'hidden' },
-  separator: { height: StyleSheet.hairlineWidth, marginLeft: 66, marginRight: 16 },
   map: { height: 200, borderRadius: 16, overflow: 'hidden', borderWidth: StyleSheet.hairlineWidth },
-  photo: { width: 40, height: 40, borderRadius: 8 },
+  photo: { width: 44, height: 44, borderRadius: 10, alignSelf: 'center' },
   backup: { textAlign: 'center' },
 });

@@ -6,7 +6,7 @@ import { PlanAccessPicker } from '@/components/PlanAccessPicker';
 import { useReducedMotion } from '@/hooks/useReducedMotion';
 import { startRiverPosition, type FloatSetup } from '@/lib/floatStart';
 import { takeOutChoices } from '@/lib/floatSession';
-import { chooseStartAccess, chooseStartRiver, openStartPicker, type StartField } from '@/lib/floatStartSelection';
+import { chooseStartAccess, chooseStartRiver, continueToTakeOut, openStartPicker, type StartField } from '@/lib/floatStartSelection';
 import { useTheme } from '@/theme/ThemeProvider';
 import { fonts, type as t } from '@/theme/typography';
 import { routeProblemCopy, type LoadedRoute } from '../loadFloatRoute';
@@ -14,14 +14,18 @@ import { RiverPicker } from './RiverPicker';
 import { useRiverRoute, type StartLocation } from './useStart';
 import { Row, Shell, TextButton, styles } from './ui';
 
-/** A single sheet continues River → Access, committing only a finished choice. */
-export function RoutePicker({ field, draft, loaded: currentRoute, location, onSelect, onClose, onRetryCurrent }: {
+/**
+ * A single sheet continues River → Access, and on to Take-out while the stretch
+ * still lacks one, committing only a finished choice.
+ */
+export function RoutePicker({ field: openedField, draft, loaded: currentRoute, location, onSelect, onClose, onRetryCurrent }: {
   field: StartField; draft: FloatSetup; loaded: LoadedRoute | null; location: StartLocation;
   onSelect: (draft: FloatSetup) => void; onClose: () => void; onRetryCurrent: () => void;
 }) {
   const { colors } = useTheme();
   const reducedMotion = useReducedMotion();
-  const [picker, setPicker] = useState(() => openStartPicker(field, draft));
+  const [picker, setPicker] = useState(() => openStartPicker(openedField, draft));
+  const field = picker.field;
   const [query, setQuery] = useState('');
   const [reload, setReload] = useState(0);
   const sameRiver = picker.draft.riverSlug === draft.riverSlug;
@@ -42,7 +46,11 @@ export function RoutePicker({ field, draft, loaded: currentRoute, location, onSe
     point.name.toLocaleLowerCase().includes(needle));
   const visiblePoints = points.filter(point => visibleChoices.some(choice => choice.id === point.id));
   const close = () => { Keyboard.dismiss(); onClose(); };
-  const finish = (next: FloatSetup) => { Keyboard.dismiss(); onSelect(next); };
+  const finish = (next: FloatSetup) => {
+    const onward = continueToTakeOut(picker, next);
+    if (onward) { setPicker(onward); setQuery(''); return; }
+    Keyboard.dismiss(); onSelect(next);
+  };
   const chooseAccess = (id?: string) => {
     const mile = id ? choices.find(point => point.id === id)?.mile ?? null : located?.riverMile ?? null;
     finish(chooseStartAccess(picker, id, mile, takeOutMile));
