@@ -745,3 +745,15 @@ I/O glue over pure policy modules.
 The old step 5 — deliberately break a check and confirm it resolves nothing — is
 now `src/lib/trust/ledger-wiring.test.ts` and runs in CI. It was the step that
 mattered most and the one least likely to be repeated by hand.
+
+
+## Verified dam recovery
+
+The dam-history check supplies explicit resolution identities after reading the
+stalest stored metric for each dam. Every expected hourly capability must be
+present before a known dam can supply recovery evidence. Malformed or future
+timestamps fail the run; absent dams and incomplete metric sets cannot resolve.
+This lets a measured fleet recovery clear together without disabling the bulk
+resolution guard for other checks. Error, empty-scope, partial-run and snooze
+protections still apply. Reconciliation anomalies use their own clear path and
+are excluded from the data-finding count so the guard cannot lock itself open.

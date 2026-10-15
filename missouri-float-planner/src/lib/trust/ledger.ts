@@ -15,7 +15,7 @@ import {
   type SuppressedReason,
 } from './reconcile';
 import { severityForRule } from './severity';
-import type { RawFinding, TrustCheck } from './types';
+import type { RawFinding, TrustCheck, TrustCheckResult } from './types';
 
 export interface ExistingFindingRow {
   id: string;
@@ -146,6 +146,7 @@ export async function runTrustCheck(
   let emitted: RawFinding[] = [];
   let scopeCount = 0;
   let partial = false;
+  let verifiedResolutions: TrustCheckResult['verifiedResolutions'];
   let checkStatus: 'ok' | 'error' = 'ok';
   let errorDetail: string | undefined;
 
@@ -158,6 +159,7 @@ export async function runTrustCheck(
     emitted = result.findings;
     scopeCount = result.scopeCount;
     partial = result.partial === true;
+    verifiedResolutions = result.verifiedResolutions;
   } catch (error) {
     checkStatus = 'error';
     errorDetail = error instanceof Error ? error.message : String(error);
@@ -190,7 +192,14 @@ export async function runTrustCheck(
   }
 
   const byFingerprint = new Map(existing.map((row) => [row.fingerprint, row]));
-  const { openFingerprints, snoozedFingerprints } = classifyExisting(existing, options.now);
+  // Reconciliation anomalies have their own raise/clear path in the RPC.
+  // Counting them as data findings can make the mass-resolve refusal self-lock.
+  const anomalyFingerprint = fingerprint(check.id, {
+    entityType: 'global', entityKey: check.id, ruleKey: 'reconcile_anomaly',
+  });
+  const { openFingerprints, snoozedFingerprints } = classifyExisting(
+    existing.filter((row) => row.fingerprint !== anomalyFingerprint), options.now,
+  );
 
   // ── A COLLAPSED FINDING IS A LOST ONE ──────────────────────────────────
   //
@@ -226,6 +235,7 @@ export async function runTrustCheck(
     openFingerprints,
     snoozedFingerprints,
     emittedFingerprints: [...emittedByFingerprint.keys()],
+    verifiedResolvedFingerprints: verifiedResolutions?.map((identity) => fingerprint(check.id, identity)),
   });
 
   const nowIso = options.now.toISOString();
