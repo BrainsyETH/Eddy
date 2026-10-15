@@ -78,7 +78,7 @@ test('a GPS error inside the deadline is still an error', async () => {
 });
 
 test('End during a pending start leaves tracking stopped', async () => {
-  // Simulates backgroundTracking.ts: a start with several native awaits, and a
+  // The ordering serialQueue guarantees: a start with several native awaits, and a
   // stop issued (by ending the float) before that start has finished.
   const queue = createSerialQueue();
   let running = false;

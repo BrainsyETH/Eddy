@@ -27,7 +27,10 @@
           "gaiagps",
           "comgooglemaps",
           "waze"
-        ]
+        ],
+        "NSLocationTemporaryUsageDescriptionDictionary": {
+          "FloatTracking": "Eddy needs your precise location to place you on the river and measure your progress to the take-out."
+        }
       },
       "runtimeVersion": {
         "policy": "fingerprint"
@@ -57,7 +60,7 @@
       [
         "expo-location",
         {
-          "locationWhenInUsePermission": "Eddy uses your location to find nearby rivers and put-ins, show local weather, and track your progress during a float. Approximate coordinates are sent to Eddy for the weather forecast; raw float positions stay on your phone. Signed-in trip summaries are backed up; hazard reports send the location you submit.",
+          "locationWhenInUsePermission": "Eddy uses your location to find nearby rivers and put-ins, show local weather, and track your progress during a float, including while your phone is locked until you end it. Approximate coordinates are sent to Eddy for the weather forecast; raw float positions stay on your phone. Signed-in trip summaries are backed up; hazard reports send the location you submit.",
           "locationAlwaysAndWhenInUsePermission": "During a float, Eddy keeps tracking your progress to the take-out while your phone is locked, and stops when you end the float. Raw float positions stay on your phone. Signed-in trip summaries are backed up.",
           "isIosBackgroundLocationEnabled": true
         }
@@ -73,7 +76,15 @@
       "expo-image",
       "@react-native-community/datetimepicker",
       "./plugins/withFloatActivity",
-      "expo-web-browser"
+      "expo-web-browser",
+      [
+        "expo-build-properties",
+        {
+          "ios": {
+            "deploymentTarget": "18.0"
+          }
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true

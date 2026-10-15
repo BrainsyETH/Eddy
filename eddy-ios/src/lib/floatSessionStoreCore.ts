@@ -12,7 +12,7 @@
 //
 //   The session is read from the store, never from the result of the first
 //   load. A load that found nothing at launch must not hide a float started
-//   since; the background task asks for the CURRENT session every time.
+//   since; the recorder wiring asks for the CURRENT session every time.
 //
 //   One start at a time: a start reserves itself before it awaits the disk,
 //   so two quick taps cannot both pass the "nothing active" check.
@@ -21,6 +21,11 @@
 //   pending and that is written to disk (awaited) before it is handed over;
 //   a failed handover makes it eligible again; only a success records it as
 //   sent. See floatReminders.ts for why a relaunch clears pending.
+//
+//   "No float" and "could not read the float" are different answers. A read
+//   that failed is retried on the next ensureLoaded; until one succeeds,
+//   begin refuses (a new float would overwrite the one it could not see) and
+//   loadFailed() lets the recorder wiring keep recording instead of stopping.
 //
 //   An ended float stays ended. Tracking stops at once; if the stored copy
 //   cannot be removed, removal is retried, and an "ended" marker under its own
@@ -44,7 +49,7 @@ export interface SessionStorage {
   removeItem(key: string): Promise<void>;
 }
 
-export type BeginResult = 'started' | 'already-active' | 'storage-failed';
+export type BeginResult = 'started' | 'already-active' | 'storage-failed' | 'unreadable';
 
 export const STORAGE_KEY = 'eddy.floatSession.v1';
 /** The id of a float that was ended but whose stored copy may remain. */
@@ -76,8 +81,9 @@ export function createFloatSessionStore(
   let session: FloatSession | null = null;
   let index: RouteIndex | null = null;
   let loading: Promise<void> | null = null;
+  /** The last load could not read storage; the next ensureLoaded tries again. */
+  let loadFailed = false;
   let dirty = false;
-  let lastWriteAt = 0;
   let writeTimer: ReturnType<typeof setTimeout> | null = null;
   /** A start in flight, holding the slot until it lands or fails. */
   let starting = false;
@@ -107,7 +113,6 @@ export function createFloatSessionStore(
 
   /** Throws on failure; callers decide what a failed write means. */
   const writeNow = async () => {
-    lastWriteAt = Date.now();
     if (session) await storage.setItem(STORAGE_KEY, JSON.stringify(session));
     // Only the end transaction removes the session key.
     dirty = false;
@@ -171,37 +176,74 @@ export function createFloatSessionStore(
   };
 
   return {
-    /** Read the stored float, once per process. Then use get(). */
+    /**
+     * Read the stored float, once per process. Then use get(). A read that
+     * failed is not remembered as "no float": the next call reads again.
+     */
     ensureLoaded(): Promise<void> {
       loading ??= (async () => {
         try {
-          const marker = await storage.getItem(ENDED_KEY);
-          if (marker?.startsWith('{')) {
-            pendingRecap = JSON.parse(marker);
-            pendingEndId = pendingRecap?.session.id ?? null;
-            if (!(await this.retryPendingEnd())) return;
+          await this.loadOnce();
+          if (loadFailed) {
+            loadFailed = false;
+            notify();
           }
-          const restored = restoreSession(await storage.getItem(STORAGE_KEY));
-          if (!restored || session) return;
-          if (marker === restored.id) {
-            await storage.removeItem(STORAGE_KEY);
-            await storage.removeItem(ENDED_KEY);
-            return;
-          }
-          const built = indexRoute(restored.route);
-          if (!built.ok) {
-            // Calibration rules changed, or the data is corrupt: it cannot
-            // show honest progress, so it is not resumed.
-            warn('stored float session no longer indexes; discarded');
-            await storage.removeItem(STORAGE_KEY);
-            return;
-          }
-          publish(restored, built.index);
         } catch (error) {
           warn('could not read the float session', error);
+          loading = null;
+          if (!loadFailed) {
+            loadFailed = true;
+            notify();
+          }
         }
       })();
       return loading;
+    },
+
+    /** One read of the stored float. Throws if storage could not be read. */
+    async loadOnce(): Promise<void> {
+      const marker = await storage.getItem(ENDED_KEY);
+      if (marker?.startsWith('{')) {
+        try {
+          pendingRecap = JSON.parse(marker);
+        } catch {
+          // A float was ended but its journal is unreadable. It stays ended
+          // (its recap is lost); clearing both keys keeps the corrupt journal
+          // from failing every later launch and start.
+          warn('ended-float journal is corrupt; discarded');
+          await storage.removeItem(STORAGE_KEY);
+          await storage.removeItem(ENDED_KEY);
+          return;
+        }
+        pendingEndId = pendingRecap?.session.id ?? null;
+        if (!(await this.retryPendingEnd())) return;
+      }
+      const restored = restoreSession(await storage.getItem(STORAGE_KEY));
+      if (!restored || session) return;
+      if (marker === restored.id) {
+        await storage.removeItem(STORAGE_KEY);
+        await storage.removeItem(ENDED_KEY);
+        return;
+      }
+      const built = indexRoute(restored.route);
+      if (!built.ok) {
+        // Calibration rules changed, or the data is corrupt: it cannot
+        // show honest progress, so it is not resumed.
+        warn('stored float session no longer indexes; discarded');
+        await storage.removeItem(STORAGE_KEY);
+        return;
+      }
+      // Cleared first, so subscribers never see the float and the failure together.
+      loadFailed = false;
+      publish(restored, built.index);
+    },
+
+    /**
+     * The stored float could not be read. A float may exist that get() does
+     * not show, so nothing may treat null as "no float" until a retry succeeds.
+     */
+    loadFailed(): boolean {
+      return loadFailed;
     },
 
     get(): FloatSession | null {
@@ -216,6 +258,8 @@ export function createFloatSessionStore(
     /** Start a float: written to disk first, published only once it is there. */
     async begin(next: FloatSession): Promise<BeginResult> {
       await this.ensureLoaded();
+      // A float may be stored that could not be read; starting would overwrite it.
+      if (loadFailed) return 'unreadable';
       // Checked and reserved with no await in between.
       if (session || starting) return 'already-active';
       starting = true;
@@ -231,7 +275,6 @@ export function createFloatSessionStore(
         }
         // The new float now occupies the key an unfinished end was clearing.
         pendingEndId = null;
-        lastWriteAt = Date.now();
         dirty = false;
         publish(next, built.index);
         return 'started';
@@ -240,11 +283,21 @@ export function createFloatSessionStore(
       }
     },
 
-    /** Feed GPS fixes, in time order, from the screen or a background task. */
-    record(fixes: readonly PositionFix[], now = Date.now()): void {
-      if (!session || !index || fixes.length === 0) return;
+    /**
+     * Feed GPS fixes, in time order. `journalTo` is the journal offset these
+     * fixes end at (floatRecording.ts); it is saved with what they changed,
+     * even when no fix changed anything, so they are never applied twice.
+     *
+     * Journal fixes are judged as of their own time: each was live when the
+     * recorder wrote it, and one replayed after a relaunch is a real past
+     * position, not a stale reading of where the paddler is now. Reminders
+     * below still use the real clock, so a replayed position never prompts.
+     */
+    record(fixes: readonly PositionFix[], now = Date.now(), journalTo?: number): void {
+      if (!session || !index) return;
       let next = session;
-      for (const fix of fixes) next = applyFix(next, index, fix, now);
+      for (const fix of fixes) next = applyFix(next, index, fix, journalTo != null ? fix.timestamp : now);
+      if (journalTo != null && journalTo !== next.journalTo) next = { ...next, journalTo };
       if (next === session) return;
       const due = dueReminders(next, index, now).filter((reminder) => (retryAt.get(reminder.id) ?? 0) <= now);
       if (due.length > 0) next = markPending(next, due.map((reminder) => reminder.id));
@@ -280,23 +333,20 @@ export function createFloatSessionStore(
       if (dirty) await writeQuietly();
     },
 
-    /** For the background task, where the throttle timer may never fire. */
-    async flushIfStale(minIntervalMs: number): Promise<void> {
-      if (dirty && Date.now() - lastWriteAt >= minIntervalMs) await this.flush();
-    },
-
     /**
      * End the float. Tracking stops at once. Resolves false if the stored copy
      * could not be removed yet; removal is then retried until it succeeds.
      * `endedAt` is when the float finished, for an automatic end that noticed
      * late (floatEnding.ts); the recap may still clamp it (floatRecap.ts).
      */
-    end(contributionVersion: string | null = null, endedAt = Date.now()): Promise<boolean> {
+    end(contributionVersion: string | null = null, endedAt = Date.now(), recap = true): Promise<boolean> {
       if (ending) return ending;
       if (!session && !pendingRecap && !pendingEndId) return Promise.resolve(true);
       clearTimer();
       if (session) {
-        pendingRecap = { session, endedAt, contributionVersion };
+        // Without a recap (a float cancelled before it measured anything)
+        // the bare id is journalled instead, so it still cannot resume.
+        pendingRecap = recap ? { session, endedAt, contributionVersion } : null;
         pendingEndId = session.id;
       }
       publish(null, null);
@@ -338,6 +388,9 @@ export function createFloatSessionStore(
           // the same immutable recap id, never resumes tracking or duplicates it.
           await storage.setItem(ENDED_KEY, JSON.stringify(pendingRecap));
           await onEnd(pendingRecap.session, pendingRecap.endedAt, pendingRecap.contributionVersion ?? null);
+        } else if (endedId != null) {
+          // No recap to save: the id alone keeps a relaunch from resuming it.
+          await storage.setItem(ENDED_KEY, endedId);
         }
         // Remove only the float that was ended: a newer one may have been
         // started into the same key since.

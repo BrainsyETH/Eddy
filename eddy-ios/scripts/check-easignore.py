@@ -163,6 +163,49 @@ def ignored(path: str, patterns: list[str]) -> bool:
     return result
 
 
+NATIVE_SUFFIXES = (".swift", ".podspec", ".m", ".mm", ".h")
+
+
+def local_module_failures(tracked: list[str], uploaded: list[str]) -> list[str]:
+    """Every local Expo module's native source must be tracked AND uploaded.
+
+    eddy-ios/.gitignore ignores ios/ (generated projects), so a new module's
+    Swift is silently left out of `git add` unless the module gets explicit
+    exceptions there — and .easignore needs its own. Hand-listing files in
+    REQUIRED missed exactly that once: the files existed locally, so nothing
+    complained, and the commit had no native code. Derive the rule instead:
+
+      * a module whose expo-module.config.json declares Apple code must have a
+        tracked, uploaded podspec and at least one tracked, uploaded .swift;
+      * every native source file present on disk under a module's ios/ must be
+        tracked (catches a file the .gitignore hides) and uploaded.
+    """
+    import json
+
+    failures = []
+    tracked_set, uploaded_set = set(tracked), set(uploaded)
+    for config in sorted((ROOT / "eddy-ios" / "modules").glob("*/expo-module.config.json")):
+        module = config.parent.relative_to(ROOT).as_posix()
+        declared = json.loads(config.read_text())
+        apple = declared.get("apple") or declared.get("ios") or {}
+        names_native = any(apple.get(key) for key in ("modules", "appDelegateSubscribers", "reactDelegateHandlers"))
+        in_module = [p for p in tracked if p.startswith(f"{module}/ios/")]
+        if names_native:
+            for suffix in (".podspec", ".swift"):
+                if not any(p.endswith(suffix) for p in in_module):
+                    failures.append(f"NOT TRACKED (build would have no native code): {module}/ios/*{suffix}")
+        ios_dir = config.parent / "ios"
+        on_disk = sorted(f for f in ios_dir.glob("*") if f.is_file() and f.suffix in NATIVE_SUFFIXES) if ios_dir.is_dir() else []
+        for file in on_disk:
+            path = file.relative_to(ROOT).as_posix()
+            if path not in tracked_set:
+                failures.append(f"NOT TRACKED (add a .gitignore exception and commit it): {path}")
+        for path in in_module:
+            if path.endswith(NATIVE_SUFFIXES) and path not in uploaded_set:
+                failures.append(f"MISSING from archive (add an .easignore exception): {path}")
+    return failures
+
+
 def main() -> None:
     patterns = load_patterns()
     tracked = subprocess.run(
@@ -186,6 +229,8 @@ def main() -> None:
     for path in uploaded:
         if path.endswith(FORBIDDEN_SUFFIXES) or any(p in path for p in FORBIDDEN_PARTS):
             failures.append(f"UNEXPECTED in archive: {path}")
+
+    failures.extend(local_module_failures(tracked, uploaded))
 
     # The rule, not the filesystem — see MUST_BE_IGNORED.
     for path in MUST_BE_IGNORED:

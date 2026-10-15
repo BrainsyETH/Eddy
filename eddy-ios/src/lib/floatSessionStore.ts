@@ -2,10 +2,11 @@
 // The one active float, held outside React.
 //
 // ── Why a module and not a context ──────────────────────────────────────────
-// Locked-screen tracking (#1448 Phase 4) delivers fixes to a background task
-// that runs with no screen mounted. That task and the Float Mode screen must
-// feed and read the SAME session, so it lives here, in plain module state, and
-// React subscribes to it (useFloatSession). Nothing about a float depends on a
+// Fixes arrive from the native recorder (src/float/recorder.ts, ADR 0014)
+// whether or not any screen is mounted, including with the phone locked. The
+// recorder wiring and the Float Mode screen must feed and read the SAME
+// session, so it lives here, in plain module state, and React subscribes to it
+// (useFloatSession). Nothing about a float depends on a
 // component staying mounted: switching tabs or opening another screen leaves
 // it exactly as it was.
 //
@@ -16,11 +17,15 @@
 //
 // ── Storage ─────────────────────────────────────────────────────────────────
 // Its own key, outside the cache prefix: clearing cached river data must not
-// end a float in progress. Writes are throttled (a fix can arrive every
-// second) and flushed when the app goes to the background, where iOS may end
-// it without warning. Raw float positions stay on the phone; completed
-// summaries use the separate account archive. Hazard reports are a separate,
-// explicit location submission.
+// end a float in progress. The session is a checkpoint derived from the
+// native journal, saved with the journal offset it covers (floatRecording.ts),
+// so writes can be throttled (a fix can arrive every second): anything after
+// the last write is replayed from the journal. Raw float positions stay on
+// the phone, in that journal; completed summaries use the separate account
+// archive. Hazard reports are a separate, explicit location submission.
+//
+// Ending a float, by any path, stops the native recorder here, so recording
+// can never outlive the float.
 
 import { floatArchive } from './floatArchive';
 import { recapFloat } from './floatRecap';
@@ -34,6 +39,13 @@ import { warn } from './monitoring';
 import { syncFloatActivity } from '../float/liveActivity';
 import { createFloatActivityLifecycle } from './floatActivity';
 import { autoEndAt, autoEndCopy } from './floatEnding';
+import { floatRecorder } from '../../modules/eddy-float-recorder';
+import { deleteAllFloatTracks, deleteFloatTrack } from '../float/floatTracks';
+
+/** Recording stops with the float, whichever way it ended. */
+function stopRecording(sessionId: string | null): void {
+  void floatRecorder?.stop(sessionId).catch((error) => warn('float', 'could not stop recording', error));
+}
 
 /**
  * A reminder is a local notification: scheduled on the phone, so it needs no
@@ -71,6 +83,15 @@ export function ensureFloatSessionLoaded(): Promise<void> {
   return activityLifecycle.ensureLoaded();
 }
 
+/**
+ * The stored float could not be read. getFloatSession() is null, but that is
+ * not "no float": nothing may stop tracking or start a new float on it.
+ * The next ensureFloatSessionLoaded() reads again.
+ */
+export function floatSessionLoadFailed(): boolean {
+  return store.loadFailed();
+}
+
 /** The current session: always this, never a value remembered from a load. */
 export function getFloatSession(): FloatSession | null {
   return store.get();
@@ -87,13 +108,13 @@ export function beginFloat(next: FloatSession): Promise<BeginResult> {
 }
 
 /**
- * Feed GPS fixes, in time order, from the screen or a background task.
- * Returns the automatic end this delivery may trigger (floatEnding.ts),
- * resolving true only if it did end the float, so a background task can wait
- * for it before iOS suspends Eddy and stop tracking only when it ended.
+ * Feed GPS fixes, in time order, from the recorder. `journalTo` is the
+ * journal offset they end at (floatRecording.ts). Returns the automatic end
+ * this delivery may trigger (floatEnding.ts), resolving true only if it did
+ * end the float.
  */
-export function recordFixes(fixes: readonly PositionFix[], now = Date.now()): Promise<boolean> | null {
-  store.record(fixes, now);
+export function recordFixes(fixes: readonly PositionFix[], now = Date.now(), journalTo?: number): Promise<boolean> | null {
+  store.record(fixes, now, journalTo);
   const session = store.get();
   if (session && autoEndAt(session, now) != null) return autoEnd(session.id);
   void syncFloatActivity(session);
@@ -109,6 +130,7 @@ async function autoEnd(sessionId: string): Promise<boolean> {
   const session = store.get();
   const endedAt = session?.id === sessionId ? autoEndAt(session, Date.now()) : null;
   if (!session || endedAt == null) return false;
+  stopRecording(session.id);
   await activityLifecycle.end(floatArchive.contributionVersion(session.archiveScope), endedAt);
   const permission = await Notifications.getPermissionsAsync().catch(() => null);
   if (permission?.granted) {
@@ -125,14 +147,55 @@ export function flushFloatSession(): Promise<void> {
   return store.flush();
 }
 
-/** Write pending changes if the last write is older than `minIntervalMs`. */
-export function flushFloatSessionIfStale(minIntervalMs: number): Promise<void> {
-  return store.flushIfStale(minIntervalMs);
+/**
+ * Registered by the recorder wiring (src/float/recorder.ts): stops recording
+ * and applies the journal through its end, resolving false if it could not.
+ * A callback rather than an import, because that wiring imports this module.
+ */
+let finishRecording: (sessionId: string) => Promise<boolean> = async (sessionId) => {
+  stopRecording(sessionId);
+  return true;
+};
+
+export function setFinishRecording(finish: (sessionId: string) => Promise<boolean>): void {
+  finishRecording = finish;
 }
 
-/** End the float and save its recap. Tracking stops because nothing is active. */
-export function endFloat(): Promise<boolean> {
-  return activityLifecycle.end(floatArchive.contributionVersion(store.get()?.archiveScope));
+/**
+ * How ending went:
+ *   ended         the recap is saved and the float is over
+ *   ended-unsaved the float is over, but storage lagged; removal is retried
+ *   not-ended     the recorded track could not all be read, so the float was
+ *                 NOT finalised from an incomplete checkpoint; it is still
+ *                 active and recording, and Finish can be tried again
+ */
+export type EndResult = 'ended' | 'ended-unsaved' | 'not-ended';
+
+/**
+ * End the float and save its recap. Recording stops first and every recorded
+ * fix is applied before the recap is taken, so a float ended while its
+ * journal was still being replayed is not saved short, and a float whose
+ * journal cannot be read is not saved at all.
+ */
+export async function endFloat(): Promise<EndResult> {
+  const session = store.get();
+  if (session && !(await finishRecording(session.id))) return 'not-ended';
+  const cleared = await activityLifecycle.end(floatArchive.contributionVersion(store.get()?.archiveScope));
+  return cleared ? 'ended' : 'ended-unsaved';
+}
+
+/**
+ * End a float that never reached its river, without a recap: nothing was
+ * measured, so history gets no empty entry. Refused (false) once a position
+ * on the river has been confirmed; use endFloat then.
+ */
+export function cancelUnstartedFloat(): Promise<boolean> {
+  const session = store.get();
+  if (!session || session.samples.length > 0) return Promise.resolve(false);
+  stopRecording(session.id);
+  // Nothing was measured, so its journal holds nothing worth keeping.
+  void deleteFloatTrack(session.id).catch((error) => warn('float', 'could not queue the track deletion', error));
+  return activityLifecycle.end(null, undefined, false);
 }
 
 /** Change the active float's reminders. */
@@ -140,13 +203,10 @@ export function setFloatReminders(update: (current: FloatReminderSettings) => Pi
   store.setReminders(update);
 }
 
-/** Wait for reminder handovers in progress; the background task awaits this. */
-export function floatRemindersSettled(): Promise<void> {
-  return store.remindersSettled();
-}
-
-/** Account deletion also clears positions and any pending end journal. */
+/** Account deletion also clears positions, every raw journal, and any pending end journal. */
 export async function discardFloat(): Promise<void> {
+  stopRecording(null);
+  await deleteAllFloatTracks();
   await store.discard();
   void syncFloatActivity(null);
 }

@@ -2,7 +2,8 @@ import { useCallback, useRef, useState } from 'react';
 import { AppState, Linking } from 'react-native';
 import { useFocusEffect } from 'expo-router';
 import * as Location from 'expo-location';
-import { startLocationState, type ForegroundPermission } from '@/lib/floatPermissions';
+import { preciseLocationAction, startLocationState, type ForegroundPermission } from '@/lib/floatPermissions';
+import { canAskPreciseInApp, requestPreciseLocation } from '@/float/preciseLocation';
 import { START_FIX_MAX_AGE_MS, usableStartFix, type StartFix } from '@/lib/floatStart';
 
 // Only a short-lived preview, shared across setup pages. Never persisted or sent
@@ -24,6 +25,8 @@ export function useFloatStartLocation() {
   const generation = useRef(0);
   const focused = useRef(false);
   const requesting = useRef(false);
+  // Declined the in-app precise-location prompt on this visit: Settings next.
+  const [preciseDeclined, setPreciseDeclined] = useState(false);
 
   const refresh = useCallback(async (request = false, forceFix = false) => {
     const ticket = ++generation.current;
@@ -108,7 +111,30 @@ export function useFloatStartLocation() {
   );
 
   const state = startLocationState(permission, servicesEnabled);
+  const precise = preciseLocationAction(preciseDeclined, canAskPreciseInApp);
+
+  /** Apple's in-app precise-location prompt. Resolves whether it was allowed. */
+  const askPrecise = useCallback(async () => {
+    requesting.current = true;
+    let allowed = false;
+    try {
+      allowed = await requestPreciseLocation();
+    } finally {
+      requesting.current = false;
+    }
+    if (!allowed) {
+      setPreciseDeclined(true);
+      return false;
+    }
+    await refresh(false, true);
+    return true;
+  }, [refresh]);
+
   const act = useCallback(async () => {
+    if (state === 'precise' && precise === 'ask') {
+      await askPrecise();
+      return;
+    }
     if (state === 'settings' || state === 'precise' || state === 'services') {
       try {
         await Linking.openSettings();
@@ -118,7 +144,7 @@ export function useFloatStartLocation() {
     } else {
       await refresh(state === 'request', true);
     }
-  }, [state, refresh]);
+  }, [state, precise, askPrecise, refresh]);
 
-  return { state, fix, checkedAt, busy, error, act, refresh };
+  return { state, precise, fix, checkedAt, busy, error, act, askPrecise, refresh };
 }
