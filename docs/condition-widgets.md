@@ -28,8 +28,11 @@ rendering to preserve their detail on a tinted Home Screen.
 
 Placeholders and gallery snapshots show three illustrative rivers, with
 readings, a Flowing label and history; installed empty widgets still explain
-how to choose/star a station. `ConditionsPreview.json` is generated through the
-shared condition/history code and rebased in memory for previews only. It is
+how to choose/star a station. Each preview reading replaces its observation age
+with "Sample data", including in VoiceOver; real river names in examples must
+not make illustrative readings look current. This preview flag lives only on
+the entry and is never persisted with station data. `ConditionsPreview.json` is
+generated through the shared condition/history code and rebased in memory for previews only. It is
 never stored as a real reading or used by a live timeline. Regenerate it from
 `missouri-float-planner` with
 `node --import tsx scripts/generate-widget-preview.ts`; the registered web test
@@ -59,8 +62,14 @@ checks that the packaged example matches the canonical presentation.
   the point lookup can already be cached for five minutes. Cached warnings past
   that lifetime say "Check flood alerts" without warning color until refreshed
   or expired. Unknown/failed lookups retain a previously known warning with its
-  original dates; a successful empty lookup clears it. Missing/invalid NWS
-  expiration never produces an indefinitely current warning. Widgets cannot
+  original dates; a successful empty lookup clears it. For missing/invalid NWS
+  expiration, the server supplies a separate 24-hour reminder deadline from the
+  successful alert snapshot. After that, the widget shows neutral "Alerts
+  unavailable" without the triangle, retaining the reading without implying
+  that the warning was cleared. Failed refreshes never restart either clock.
+  Old payloads without this deadline use their existing 15-minute boundary for
+  the unavailable state. This cutoff is also a local timeline transition.
+  Explicit NWS expirations keep their own deadlines. Widgets cannot
   promise immediate warning delivery, cancellation or an all-clear.
 - `GET /api/gauges/:siteId/history?days=1&widget=1` adds `widgetSeries` only for
   instantaneous observations. The 24-hour sparkline preserves gaps and extrema;

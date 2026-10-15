@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { readFileSync } from 'node:fs';
-import { widgetGaugeSnapshot, widgetHistorySeries, WIDGET_ALERT_LIFETIME_MS } from '../../shared/condition-widget';
+import { widgetGaugeSnapshot, widgetHistorySeries, WIDGET_ALERT_LIFETIME_MS, WIDGET_UNDATED_WARNING_LIFETIME_MS } from '../../shared/condition-widget';
 import { conditionWidgetPreview } from '../../shared/condition-widget-preview';
 import { CONDITION_SYSTEM } from '../../shared/condition-system';
 import { STALE_READING_MS } from '../../shared/reading-staleness';
@@ -73,6 +73,7 @@ test('NWS warnings are independent of level grades, observation age and rating a
     const result = widgetGaugeSnapshot({ ...gauge, ...changed, floodAlerts: [{ event: 'Flash Flood Warning', expires }] }, NOW);
     assert.deepEqual(result.floodAlerts, {
       validUntil: NOW + WIDGET_ALERT_LIFETIME_MS,
+      undatedWarningUntil: NOW + WIDGET_UNDATED_WARNING_LIFETIME_MS,
       warnings: [{ label: 'Flash Flood Warning', expiresAt: NOW + 3_600_000,
         ink: CONDITION_SYSTEM.dangerous.ink, chipBorder: CONDITION_SYSTEM.dangerous.chipBorder }],
     });
@@ -97,6 +98,9 @@ test('widget alerts preserve unavailable vs clear, ignore expired alerts/watches
     ['Flash Flood Warning', null], ['River Flood Warning', null],
   ]);
   assert.equal(alerts.validUntil, NOW + WIDGET_ALERT_LIFETIME_MS);
+  assert.equal(alerts.undatedWarningUntil, NOW + 24 * 3_600_000);
+  // This is a presentation deadline, not an invented NWS expiration.
+  assert.ok(alerts.warnings.every(alert => alert.expiresAt === null));
 });
 
 test('packaged gallery examples match the canonical presentation and contain useful readings/history', () => {

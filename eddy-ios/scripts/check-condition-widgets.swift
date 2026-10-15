@@ -28,7 +28,20 @@ import Foundation
     precondition(alerts.warning(at: now.addingTimeInterval(1800)) == nil)
     var undated = alerts
     undated.warnings[0].expiresAt = nil
+    undated.undatedWarningUntil = ms + 86_400_000
     precondition(!undated.isCurrent(at: now.addingTimeInterval(900)))
+    precondition(undated.warning(at: now.addingTimeInterval(86_399)) != nil)
+    precondition(!undated.hasUnavailableUndatedWarning(at: now.addingTimeInterval(86_399)))
+    precondition(undated.warning(at: now.addingTimeInterval(86_400)) == nil)
+    precondition(undated.hasUnavailableUndatedWarning(at: now.addingTimeInterval(86_400)))
+    precondition(undated.transitionDates.contains(ms + 86_400_000))
+    // An explicit later NWS expiry must still win over an old undated warning.
+    var mixed = undated
+    var dated = warning
+    dated.expiresAt = ms + 172_800_000
+    mixed.warnings.append(dated)
+    precondition(mixed.warning(at: now.addingTimeInterval(86_400))?.expiresAt == dated.expiresAt)
+    precondition(mixed.transitionDates.contains(ms + 172_800_000))
     snapshot.floodAlerts = alerts
     var next = snapshot
     next.floodAlerts = nil
@@ -37,6 +50,24 @@ import Foundation
     precondition(offline.observedAt == next.observedAt)
     next.floodAlerts = WidgetFloodAlerts(validUntil: ms + 900_000, warnings: [])
     precondition(next.preservingUnavailableAlerts(from: snapshot).floodAlerts!.warnings.isEmpty)
+    snapshot.floodAlerts = undated
+    next.floodAlerts = nil
+    next.observedAt = ms + 90_000_000 // new gauge reading, NWS lookup failed
+    let failed = next.preservingUnavailableAlerts(from: snapshot)
+    let failedAgain = next.preservingUnavailableAlerts(from: failed)
+    precondition(failedAgain.floodAlerts?.undatedWarningUntil == undated.undatedWarningUntil)
+    precondition(failedAgain.floodAlerts?.warning(at: now.addingTimeInterval(90_000)) == nil)
+    precondition(failedAgain.floodAlerts!.hasUnavailableUndatedWarning(at: now.addingTimeInterval(90_000)))
+    next.floodAlerts = WidgetFloodAlerts(validUntil: ms + 91_000_000, warnings: [])
+    let cleared = next.preservingUnavailableAlerts(from: failedAgain)
+    precondition(!cleared.floodAlerts!.hasUnavailableUndatedWarning(at: now.addingTimeInterval(90_000)))
+
+    // Old alert payloads also retire undated reminders without inventing an age.
+    var oldAlertsJSON = try JSONSerialization.jsonObject(with: JSONEncoder().encode(undated)) as! [String: Any]
+    oldAlertsJSON.removeValue(forKey: "undatedWarningUntil")
+    let oldAlerts = try JSONDecoder().decode(WidgetFloodAlerts.self, from: JSONSerialization.data(withJSONObject: oldAlertsJSON))
+    precondition(oldAlerts.warning(at: now.addingTimeInterval(900)) == nil)
+    precondition(oldAlerts.hasUnavailableUndatedWarning(at: now.addingTimeInterval(900)))
 
     // Old cached/API snapshots decode without the additive alert field.
     var oldJSON = try JSONSerialization.jsonObject(with: JSONEncoder().encode(snapshot)) as! [String: Any]

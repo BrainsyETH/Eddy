@@ -42,11 +42,22 @@ struct WidgetFloodAlerts: Codable {
   }
   var validUntil: Double
   var warnings: [Warning]
+  var undatedWarningUntil: Double?
+  // Older snapshots have no 24-hour deadline. Use their existing freshness
+  // boundary rather than inventing a new deadline when the cache is read.
+  private var undatedDeadline: Double { undatedWarningUntil ?? validUntil }
   func warning(at date: Date) -> Warning? {
     let now = date.timeIntervalSince1970 * 1000
-    return warnings.first { $0.expiresAt == nil || $0.expiresAt! > now }
+    return warnings.first { ($0.expiresAt ?? undatedDeadline) > now }
   }
   func isCurrent(at date: Date) -> Bool { validUntil > date.timeIntervalSince1970 * 1000 }
+  func hasUnavailableUndatedWarning(at date: Date) -> Bool {
+    warnings.contains(where: { $0.expiresAt == nil }) && undatedDeadline <= date.timeIntervalSince1970 * 1000
+  }
+  var transitionDates: [Double] {
+    [validUntil] + warnings.compactMap(\.expiresAt)
+      + (warnings.contains(where: { $0.expiresAt == nil }) ? [undatedDeadline] : [])
+  }
 }
 
 struct WidgetGaugeSnapshot: Codable {

@@ -24,12 +24,16 @@ const finite = (value: number | null) => value !== null && Number.isFinite(value
 // Presentation lifetime, not an assertion that NWS was fetched at `now`:
 // the existing point lookup can itself be cached for five minutes.
 export const WIDGET_ALERT_LIFETIME_MS = 15 * 60_000;
+export const WIDGET_UNDATED_WARNING_LIFETIME_MS = 24 * 3_600_000;
 
 function widgetFloodAlerts(alerts: WidgetGaugeInput['floodAlerts'], now: number) {
   if (alerts == null) return null; // unavailable is different from a successful empty lookup
   const { ink, chipBorder } = CONDITION_SYSTEM.dangerous;
   return {
     validUntil: now + WIDGET_ALERT_LIFETIME_MS,
+    // Carry the original deadline through offline refreshes. This retires the
+    // warning reminder, not the fact that alert availability is still unknown.
+    undatedWarningUntil: now + WIDGET_UNDATED_WARNING_LIFETIME_MS,
     warnings: floodAlertsToShow(alerts.filter(isFloodWarning), now, alerts.length).map(alert => ({
       label: alert.event,
       expiresAt: alert.expires && Number.isFinite(Date.parse(alert.expires)) ? Date.parse(alert.expires) : null,

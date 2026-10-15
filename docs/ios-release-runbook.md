@@ -1132,7 +1132,9 @@ require a new binary; do not deliver the native changes as an OTA update.
       Check the larger-text row reduction/link, long ages, and warning labels;
       optional details must yield before essential text shrinks or clips.
       Confirm the gallery has sample readings/history before starring anything,
-      while an installed empty widget still shows the setup prompt.
+      with "Sample data" replacing every reading age visually and in VoiceOver;
+      an installed empty widget still shows the setup prompt, and an installed
+      configured widget shows the real observation age.
 - [ ] Verify no-star/first-launch states; multiple independently configured
       small widgets; river/gauge stars, unstar while refreshing, account deletion,
       and offline relaunch. Favorites must reflect the app and never resurrect
@@ -1151,6 +1153,9 @@ require a new binary; do not deliver the native changes as an OTA update.
       warnings, a successful empty lookup, unavailable NWS, and offline refresh:
       known warnings keep their original expiry; after their 15-minute display
       lifetime the card says "Check flood alerts" until refreshed or expired.
+      Undated warnings switch to neutral "Alerts unavailable" without a triangle
+      at the server's 24-hour reminder deadline. Repeated failures must not renew
+      that deadline; a successful empty lookup must clear the unavailable state.
       Watches/advisories must not acquire warning weight. Verify these local
       transitions with networking disabled and that tapping opens the gauge.
 - [ ] Confirm the existing Float Mode Live Activity still starts, updates,

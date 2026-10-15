@@ -53,16 +53,18 @@ struct ConditionsEntry: TimelineEntry {
   var date: Date
   var choices: [WidgetGaugeChoice]
   var stations: [String: WidgetStationData]
+  // Entry-only presentation context; never serialized with cached readings.
+  var isPreview = false
 
   static func preview() -> Self {
     let date = Date()
     guard let url = Bundle.main.url(forResource: "ConditionsPreview", withExtension: "json"),
       let data = try? Data(contentsOf: url),
       let example = try? JSONDecoder().decode(ConditionsWidgetPreview.self, from: data) else {
-      return Self(date: date, choices: [], stations: [:])
+      return Self(date: date, choices: [], stations: [:], isPreview: true)
     }
     let preview = example.rebased(to: date)
-    return Self(date: date, choices: preview.choices, stations: preview.stations)
+    return Self(date: date, choices: preview.choices, stations: preview.stations, isPreview: true)
   }
   static func cached(_ choices: [WidgetGaugeChoice]) -> Self {
     var stations: [String: WidgetStationData] = [:]
@@ -82,9 +84,8 @@ struct ConditionsEntry: TimelineEntry {
   var timeline: Timeline<Self> {
     let now = date.timeIntervalSince1970 * 1000
     let expirations = stations.values.flatMap { data in
-      [data.snapshot?.validUntil, data.history?.cfs.trendValidUntil, data.history?.ft.trendValidUntil,
-        data.snapshot?.floodAlerts?.validUntil].compactMap { $0 }
-        + (data.snapshot?.floodAlerts?.warnings.compactMap(\.expiresAt) ?? [])
+      [data.snapshot?.validUntil, data.history?.cfs.trendValidUntil, data.history?.ft.trendValidUntil].compactMap { $0 }
+        + (data.snapshot?.floodAlerts?.transitionDates ?? [])
     }
     // Local transitions remove stale colors/trends even if the next network
     // refresh fails. Fifteen minutes is a request; iOS controls the budget.
@@ -176,6 +177,7 @@ private struct GaugeDisplay {
     snapshot?.floodAlerts?.isCurrent(at: date) == true ? warning : nil
   }
   var hasAlert: Bool { warning != nil }
+  var alertsUnavailable: Bool { snapshot?.floodAlerts?.hasUnavailableUndatedWarning(at: date) == true }
   // The large number uses the ladder's unit; missing stage must not look like
   // discharge graded against a feet threshold. Unrated stations prefer cfs.
   var unit: String { condition?.unit ?? (snapshot?.dischargeCfs != nil ? "cfs" : "ft") }
@@ -189,6 +191,7 @@ private struct GaugeDisplay {
   var status: String {
     if let confirmedWarning { return confirmedWarning.label }
     if hasAlert { return "Check flood alerts" }
+    if alertsUnavailable { return "Alerts unavailable" }
     guard let snapshot else { return "No reading" }
     if snapshot.suspect { return "Flagged reading" }
     if snapshot.validUntil == nil { return "Check in Eddy" }
@@ -213,7 +216,7 @@ private struct GaugeDisplay {
   }
   func statusColor(dark: Bool) -> Color {
     if let confirmedWarning { return Color(hex: dark ? confirmedWarning.chipBorder : confirmedWarning.ink) }
-    return hasAlert ? .secondary : color(dark: dark)
+    return hasAlert || alertsUnavailable ? .secondary : color(dark: dark)
   }
   private func format(_ value: Double, unit: String) -> String {
     value.formatted(.number.precision(.fractionLength(unit == "ft" ? 1 : 0)))
@@ -228,7 +231,7 @@ private struct RiverLevelCard: View {
     if let choice = entry.choices.first {
       let display = GaugeDisplay(choice: choice, data: entry.stations[choice.siteId], date: entry.date)
       GeometryReader { geometry in
-        let compact = typeSize > .large || geometry.size.height < 132 || display.hasAlert
+        let compact = typeSize > .large || geometry.size.height < 132 || display.hasAlert || display.alertsUnavailable
         VStack(alignment: .leading, spacing: 3) {
           HStack(alignment: .top, spacing: 2) {
             VStack(alignment: .leading, spacing: 1) {
@@ -261,7 +264,7 @@ private struct RiverLevelCard: View {
               }
             }
           }
-          ObservationTime(snapshot: display.snapshot)
+          ObservationTime(snapshot: display.snapshot, isPreview: entry.isPreview)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
       }
@@ -297,7 +300,7 @@ private struct FavoritesCard: View {
           ForEach(visible) { choice in
             let display = GaugeDisplay(choice: choice, data: entry.stations[choice.siteId], date: entry.date)
             Link(destination: choice.url) {
-              FavoriteRow(display: display, expanded: expanded)
+              FavoriteRow(display: display, expanded: expanded, isPreview: entry.isPreview)
             }.buttonStyle(.plain)
           }
           Spacer(minLength: 0)
@@ -316,6 +319,7 @@ private struct FavoritesCard: View {
 private struct FavoriteRow: View {
   let display: GaugeDisplay
   let expanded: Bool
+  let isPreview: Bool
   @Environment(\.colorScheme) private var scheme
   var body: some View {
     VStack(alignment: .leading, spacing: 1) {
@@ -340,7 +344,7 @@ private struct FavoriteRow: View {
         Spacer(minLength: 0)
         StatusText(display: display).foregroundStyle(display.statusColor(dark: scheme == .dark))
           .fixedSize(horizontal: true, vertical: false).layoutPriority(1)
-        ObservationTime(snapshot: display.snapshot).layoutPriority(2)
+        ObservationTime(snapshot: display.snapshot, isPreview: isPreview).layoutPriority(2)
       }.font(.caption2)
     }.accessibilityElement(children: .combine)
   }
@@ -373,9 +377,12 @@ private struct StatusPill: View {
 }
 private struct ObservationTime: View {
   let snapshot: WidgetGaugeSnapshot?
+  var isPreview = false
   var body: some View {
     Group {
-      if let observed = snapshot?.observedDate {
+      if isPreview {
+        Text("Sample data")
+      } else if let observed = snapshot?.observedDate {
         ViewThatFits(in: .horizontal) {
           HStack(spacing: 2) {
             Text(observed, style: .relative).monospacedDigit()
