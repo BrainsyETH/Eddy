@@ -1,0 +1,105 @@
+{
+  "_status": "REVIEWED 2026-10-15: evidence worksheet; NOT SIGNED OFF for activation. Corrections prepared; production transaction blocked by connector requestState errors. Device acceptance and endpoint photos unconfirmed.",
+  "name": "White River",
+  "slug": "white",
+  "state": "AR",
+  "country": "US",
+  "timezone": "America/Chicago",
+  "region": "Ozarks",
+  "nhdFeatureId": null,
+  "riverType": "dam_tailwater",
+  "description": "The White River below Bull Shoals Dam is a regulated trout fishery extending downstream through Cotter and Norfork to the Highway 58 bridge at Guion. Bull Shoals releases affect the upper reach; tributaries and Norfork Dam releases also influence water farther downstream. A reading at Bull Shoals does not describe every access point. Check current observations, posted restrictions and Arkansas Game and Fish Commission regulations for your section.",
+  "managingAuthority": "USACE Little Rock District; Arkansas Game and Fish Commission",
+  "regulations": [],
+  "permits": [],
+  "accessLaw": {
+    "value": "VERIFY",
+    "source": "",
+    "confidence": "low"
+  },
+  "seasonalClosures": [],
+  "gauges": [],
+  "sections": [],
+  "accessPoints": [],
+  "alertSearchTerms": [],
+  "research": {
+    "date": "2026-10-15",
+    "sourcesConsulted": [
+      "https://www.agfc.com/wp-content/uploads/2023/05/bull_shoals_lake_tailwater.pdf",
+      "https://www.agfc.com/wp-content/uploads/2023/05/bull_shoals_lake_tailwater_continued.pdf",
+      "../reviews/TAILWATER_REVIEW_2026-10-15.md",
+      "../reviews/tailwater-access-evidence-2026-10-15.json"
+    ],
+    "openQuestions": [
+      "Proposed first corridor: Bull Shoals-White River State Park Ramp to White Hole Access (stored miles 1.50-7.28). This does not approve every access pair on the 90.46-mile catalog reach.",
+      "AGFC confirms both ramp coordinates. Full downstream review, endpoint publication scope and fixed-hazard review remain incomplete.",
+      "Obtain identifiable endpoint photos and verify current posted access/dam restrictions.",
+      "Complete fixed-hazard review and web/iOS/MCP acceptance, including missing/stale observations, schedule disagreement and unexpected release.",
+      "Preserve no float-time estimate and no wading/safe-departure inference. Generic activation RPC still refuses dam_tailwater."
+    ],
+    "toVerify": [
+      "Proposed first corridor: Bull Shoals-White River State Park Ramp to White Hole Access (stored miles 1.50-7.28). This does not approve every access pair on the 90.46-mile catalog reach.",
+      "AGFC confirms both ramp coordinates. Full downstream review, endpoint publication scope and fixed-hazard review remain incomplete.",
+      "Obtain identifiable endpoint photos and verify current posted access/dam restrictions.",
+      "Complete fixed-hazard review and web/iOS/MCP acceptance, including missing/stale observations, schedule disagreement and unexpected release.",
+      "Preserve no float-time estimate and no wading/safe-departure inference. Generic activation RPC still refuses dam_tailwater."
+    ]
+  },
+  "readiness": {
+    "corridor": {
+      "status": "pending",
+      "evidence": [
+        "../reviews/TAILWATER_REVIEW_2026-10-15.md"
+      ],
+      "reviewedBy": "Codex evidence review",
+      "reviewedAt": "2026-10-15T22:35:00Z",
+      "notes": "Proposed first corridor: Bull Shoals-White River State Park Ramp to White Hole Access (stored miles 1.50-7.28). This does not approve every access pair on the 90.46-mile catalog reach."
+    },
+    "legalAccess": {
+      "status": "pending",
+      "evidence": [
+        "../reviews/TAILWATER_REVIEW_2026-10-15.md"
+      ],
+      "reviewedBy": "Codex evidence review",
+      "reviewedAt": "2026-10-15T22:35:00Z",
+      "notes": "Agency ramp evidence recorded; current posted restrictions, endpoint photos and offered route scope still require acceptance."
+    },
+    "gauge": {
+      "status": "pending",
+      "evidence": [
+        "../reviews/TAILWATER_REVIEW_2026-10-15.md"
+      ],
+      "reviewedBy": "Codex evidence review",
+      "reviewedAt": "2026-10-15T22:35:00Z",
+      "notes": "Primary USACE provider mapping and fresh release/stage observed in production snapshot at 22:35 UTC, observation time 22:00 UTC. This is a dam observation, not a validated downstream travel-time model."
+    },
+    "conditions": {
+      "status": "pending",
+      "evidence": [
+        "../reviews/TAILWATER_REVIEW_2026-10-15.md"
+      ],
+      "reviewedBy": "Codex evidence review",
+      "reviewedAt": "2026-10-15T22:35:00Z",
+      "notes": "Existing shared model and MCP tests withhold float time and safe-wading claims. Device presentation, disagreement and unexpected-release walkthrough still unconfirmed.",
+      "ratingMode": "unrated"
+    },
+    "hazards": {
+      "status": "pending",
+      "evidence": [
+        "../reviews/TAILWATER_REVIEW_2026-10-15.md"
+      ],
+      "reviewedBy": "Codex evidence review",
+      "reviewedAt": "2026-10-15T22:35:00Z",
+      "notes": "Structured characteristics prepared. No claim of no fixed hazards; posted dam approach limits and route hazard coverage remain pending."
+    },
+    "routing": {
+      "status": "pending",
+      "evidence": [
+        "../reviews/TAILWATER_REVIEW_2026-10-15.md"
+      ],
+      "reviewedBy": "Codex evidence review",
+      "reviewedAt": "2026-10-15T22:35:00Z",
+      "notes": "AGFC confirms both ramp coordinates. Full downstream review, endpoint publication scope and fixed-hazard review remain incomplete."
+    }
+  }
+}

@@ -1,5 +1,5 @@
 {
-  "_status": "STUB 2026-10-03: research worksheet, not signed off or ingestable. Existing inventory observations are not launch approval.",
+  "_status": "REVIEWED 2026-10-15: evidence worksheet; NOT SIGNED OFF for activation. Corrections prepared; production transaction blocked by connector requestState errors. Device acceptance and endpoint photos unconfirmed.",
   "name": "Norfork Tailwater",
   "slug": "norfork-tailwater",
   "state": "AR",
@@ -8,8 +8,8 @@
   "region": "Ozarks",
   "nhdFeatureId": null,
   "riverType": "dam_tailwater",
-  "description": "Candidate pending corridor review.",
-  "managingAuthority": "VERIFY",
+  "description": "The cold-water North Fork River below Norfork Dam joins the White River at Norfork, Arkansas. The proposed boat corridor runs from Dam-Quarry Boat Ramp to Norfork Access on the White River just below the confluence. Releases can change conditions along this reach; observed dam readings and generation schedules do not establish a safe wading or departure window. Check the current Arkansas Game and Fish Commission trout regulations for the section you fish.",
+  "managingAuthority": "USACE Little Rock District; Arkansas Game and Fish Commission",
   "regulations": [],
   "permits": [],
   "accessLaw": {
@@ -23,65 +23,83 @@
   "accessPoints": [],
   "alertSearchTerms": [],
   "research": {
-    "date": "2026-10-03",
+    "date": "2026-10-15",
     "sourcesConsulted": [
-      "../RIVER_READINESS_REVIEW_2026-10-03.md"
+      "https://www.agfc.com/wp-content/uploads/2023/05/tp_norforktailwater2010.pdf",
+      "https://www.recreation.gov/camping/campgrounds/232565",
+      "../reviews/TAILWATER_REVIEW_2026-10-15.md",
+      "../reviews/tailwater-access-evidence-2026-10-15.json"
     ],
     "openQuestions": [
-      "Pilot corridor: Dam-Quarry Boat Ramp to Norfork Access, with Bill Ackerman River Ridge Access as an intermediate candidate. Validate the confluence endpoint geometry.",
-      "Five approved accesses, three float endpoints; all five lack photos. Dry Run Creek and Dam-Quarry Campground are not boat endpoints.",
-      "Review observed release timestamps separately from SWPA scheduled generation; no inferred safe/wading windows or ordinary float-time estimate.",
-      "Complete mapped hazard and river_characteristics review, current access restrictions, and web/iOS/MCP acceptance before enabling."
+      "Dam-Quarry Boat Ramp to Norfork #1 east-bank ramp on the White River. Bill Ackerman is excluded until boat carry-out permission and practical landing are verified.",
+      "Verified connected White continuation is prepared, not applied: 0.135474 mi beyond the confluence, new stored extent 5.01 mi. Proposed route distance 4.57 mi; retain geometry/manual-mile distinction.",
+      "Obtain identifiable endpoint photos and verify current posted access/dam restrictions.",
+      "Complete fixed-hazard review and web/iOS/MCP acceptance, including missing/stale observations, schedule disagreement and unexpected release.",
+      "Preserve no float-time estimate and no wading/safe-departure inference. Generic activation RPC still refuses dam_tailwater."
     ],
     "toVerify": [
-      "Pilot corridor: Dam-Quarry Boat Ramp to Norfork Access, with Bill Ackerman River Ridge Access as an intermediate candidate. Validate the confluence endpoint geometry.",
-      "Five approved accesses, three float endpoints; all five lack photos. Dry Run Creek and Dam-Quarry Campground are not boat endpoints.",
-      "Review observed release timestamps separately from SWPA scheduled generation; no inferred safe/wading windows or ordinary float-time estimate.",
-      "Complete mapped hazard and river_characteristics review, current access restrictions, and web/iOS/MCP acceptance before enabling."
+      "Dam-Quarry Boat Ramp to Norfork #1 east-bank ramp on the White River. Bill Ackerman is excluded until boat carry-out permission and practical landing are verified.",
+      "Verified connected White continuation is prepared, not applied: 0.135474 mi beyond the confluence, new stored extent 5.01 mi. Proposed route distance 4.57 mi; retain geometry/manual-mile distinction.",
+      "Obtain identifiable endpoint photos and verify current posted access/dam restrictions.",
+      "Complete fixed-hazard review and web/iOS/MCP acceptance, including missing/stale observations, schedule disagreement and unexpected release.",
+      "Preserve no float-time estimate and no wading/safe-departure inference. Generic activation RPC still refuses dam_tailwater."
     ]
   },
   "readiness": {
     "corridor": {
       "status": "pending",
-      "evidence": [],
-      "reviewedBy": null,
-      "reviewedAt": null,
-      "notes": "Name the supported put-in/take-out corridor and exclusions."
+      "evidence": [
+        "../reviews/TAILWATER_REVIEW_2026-10-15.md"
+      ],
+      "reviewedBy": "Codex evidence review",
+      "reviewedAt": "2026-10-15T22:35:00Z",
+      "notes": "Dam-Quarry Boat Ramp to Norfork #1 east-bank ramp on the White River. Bill Ackerman is excluded until boat carry-out permission and practical landing are verified."
     },
     "legalAccess": {
       "status": "pending",
-      "evidence": [],
-      "reviewedBy": null,
-      "reviewedAt": null,
-      "notes": "Verify legal launch/landing and current restrictions for each offered access pair."
+      "evidence": [
+        "../reviews/TAILWATER_REVIEW_2026-10-15.md"
+      ],
+      "reviewedBy": "Codex evidence review",
+      "reviewedAt": "2026-10-15T22:35:00Z",
+      "notes": "Agency ramp evidence recorded; current posted restrictions, endpoint photos and offered route scope still require acceptance."
     },
     "gauge": {
       "status": "pending",
-      "evidence": [],
-      "reviewedBy": null,
-      "reviewedAt": null,
-      "notes": "Verify the provider data and corridor-specific interpretation before activation."
+      "evidence": [
+        "../reviews/TAILWATER_REVIEW_2026-10-15.md"
+      ],
+      "reviewedBy": "Codex evidence review",
+      "reviewedAt": "2026-10-15T22:35:00Z",
+      "notes": "Primary USACE provider mapping and fresh release/stage observed in production snapshot at 22:35 UTC, observation time 22:00 UTC. This is a dam observation, not a validated downstream travel-time model."
     },
     "conditions": {
       "status": "pending",
-      "evidence": [],
-      "reviewedBy": null,
-      "reviewedAt": null,
-      "notes": "Verify the provider data and corridor-specific interpretation before activation."
+      "evidence": [
+        "../reviews/TAILWATER_REVIEW_2026-10-15.md"
+      ],
+      "reviewedBy": "Codex evidence review",
+      "reviewedAt": "2026-10-15T22:35:00Z",
+      "notes": "Existing shared model and MCP tests withhold float time and safe-wading claims. Device presentation, disagreement and unexpected-release walkthrough still unconfirmed.",
+      "ratingMode": "unrated"
     },
     "hazards": {
       "status": "pending",
-      "evidence": [],
-      "reviewedBy": null,
-      "reviewedAt": null,
-      "notes": "Review mapped hazards, prose and access notes. Record known fixed hazards or an evidenced no-fixed-hazards finding; never claim hazard-free."
+      "evidence": [
+        "../reviews/TAILWATER_REVIEW_2026-10-15.md"
+      ],
+      "reviewedBy": "Codex evidence review",
+      "reviewedAt": "2026-10-15T22:35:00Z",
+      "notes": "Structured characteristics prepared. No claim of no fixed hazards; posted dam approach limits and route hazard coverage remain pending."
     },
     "routing": {
       "status": "pending",
-      "evidence": [],
-      "reviewedBy": null,
-      "reviewedAt": null,
-      "notes": "Validate connected downstream geometry, access snaps and trip distances for the corridor."
+      "evidence": [
+        "../reviews/TAILWATER_REVIEW_2026-10-15.md"
+      ],
+      "reviewedBy": "Codex evidence review",
+      "reviewedAt": "2026-10-15T22:35:00Z",
+      "notes": "Verified connected White continuation is prepared, not applied: 0.135474 mi beyond the confluence, new stored extent 5.01 mi. Proposed route distance 4.57 mi; retain geometry/manual-mile distinction."
     }
   }
 }

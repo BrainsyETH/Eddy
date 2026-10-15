@@ -47,6 +47,7 @@ import {
 } from '@turf/turf';
 import type { Feature, LineString } from 'geojson';
 import { SIMPLIFY_TOLERANCE_DEG, dissolveLongest, loadFlowlines } from '../lib/nhd';
+import { appendReviewedContinuation } from '../lib/tailwater-continuation';
 
 /** A named endpoint, with where its coordinates came from. */
 interface Anchor {
@@ -78,6 +79,8 @@ interface TailwaterSpec {
   hucs: string[];
   from: Anchor;
   to: Anchor;
+  /** A reviewed channel beyond the named stem, such as a confluence takeout. */
+  downstreamContinuation?: { coordinates: number[][]; source: string };
   /** Sanity bound: fail loudly if the slice is not roughly this long. */
   expectMiles: [number, number];
   meta: TailwaterMeta;
@@ -109,14 +112,7 @@ const TAILWATERS: TailwaterSpec[] = [
     expectMiles: [65, 95],
     meta: {
       name: 'White River',
-      description:
-        'The White River below Bull Shoals Dam — Arkansas’s flagship trout ' +
-        'tailwater, cold year-round and running at whatever the Corps releases. ' +
-        'Ninety miles of shoals and long pools from the dam past Cotter, Buffalo ' +
-        'City and Norfork down to the Highway 58 bridge at Guion, where the Game ' +
-        'and Fish Commission’s trout water ends. Eight generators can take the ' +
-        'river from a wadeable 800 cfs to over 20,000 cfs in an hour, under a ' +
-        'clear sky and with no rain anywhere in the basin.',
+      description: "The White River below Bull Shoals Dam is a regulated trout fishery extending downstream through Cotter and Norfork to the Highway 58 bridge at Guion. Bull Shoals releases affect the upper reach; tributaries and Norfork Dam releases also influence water farther downstream. A reading at Bull Shoals does not describe every access point. Check current observations, posted restrictions and Arkansas Game and Fish Commission regulations for your section.",
       difficultyRating: 'Class I',
       region: 'Ozarks',
       state: 'AR',
@@ -154,16 +150,15 @@ const TAILWATERS: TailwaterSpec[] = [
         'fishery from Norfork Dam to the White River confluence.',
     },
     expectMiles: [3.5, 6.5],
+    downstreamContinuation: {
+      // Existing White NHD line, clipped to AGFC facility 98 (Norfork #1).
+      // Keep the bend; drawing a direct line to the bank would leave the channel.
+      coordinates: [[-92.289813, 36.210834], [-92.290645, 36.210395], [-92.290387783, 36.209253598]],
+      source: '2026-10-15 review: White River NHD continuation to AGFC Norfork #1 boat ramp; reviews/TAILWATER_REVIEW_2026-10-15.md',
+    },
     meta: {
       name: 'Norfork Tailwater',
-      description:
-        'Not quite five miles of the North Fork River between Norfork Dam and ' +
-        'the White River — small, cold and catch-and-release from end to end. ' +
-        'A siphon holds a steady 185 cfs whenever the two generators are idle, ' +
-        'which is what makes it wadeable; when a unit comes on, the river ' +
-        'roughly quadruples. Named for the tailwater rather than the river ' +
-        'because Eddy already carries the North Fork River above Norfork Lake, ' +
-        'in Missouri, and they are not the same water.',
+      description: "The cold-water North Fork River below Norfork Dam joins the White River at Norfork, Arkansas. The proposed boat corridor runs from Dam-Quarry Boat Ramp to Norfork Access on the White River just below the confluence. Releases can change conditions along this reach; observed dam readings and generation schedules do not establish a safe wading or departure window. Check the current Arkansas Game and Fish Commission trout regulations for the section you fish.",
       difficultyRating: 'Class I',
       region: 'Ozarks',
       state: 'AR',
@@ -202,14 +197,7 @@ const TAILWATERS: TailwaterSpec[] = [
     expectMiles: [17, 28],
     meta: {
       name: 'Lake Taneycomo',
-      description:
-        'Twenty-three miles of the White River between Table Rock Dam and ' +
-        'Powersite Dam at Forsyth — a lake by name and by law, a cold ' +
-        'tailwater in practice. The top few miles below the dam fish and wade ' +
-        'like a river at 53 °F in August; the bottom half is flatwater backed ' +
-        'up behind Powersite. Four generators drive the whole thing, and the ' +
-        'tailwater below the dam swings eight feet between idle and full ' +
-        'generation — the largest, fastest move Eddy measures anywhere.',
+      description: "Lake Taneycomo occupies the White River between Table Rock Dam and Powersite Dam. Cold-water releases from Table Rock support its trout fishery and can change the current and water level, especially in the upper reach. The proposed first boat corridor is Shepherd of the Hills Hatchery Boat Ramp to Cooper Creek Access. Dam observations and generation schedules do not establish a safe wading window; check posted restrictions and current Missouri Department of Conservation regulations.",
       difficultyRating: 'Class I',
       region: 'Ozarks',
       state: 'MO',
@@ -292,16 +280,23 @@ async function main() {
     const offToMi = toSnap.properties.dist ?? 0;
 
     const sliced = lineSlice(fromPt, toPt, full) as Feature<LineString>;
-    const slicedMiles = turfLength(sliced, { units: 'miles' });
+    let slicedMiles = turfLength(sliced, { units: 'miles' });
 
     const simplified = simplify(sliced, {
       tolerance: SIMPLIFY_TOLERANCE_DEG,
       highQuality: true,
     }) as Feature<LineString>;
-    const coords = simplified.geometry.coordinates.map((c) => [
+    let coords = simplified.geometry.coordinates.map((c) => [
       Number(c[0].toFixed(6)),
       Number(c[1].toFixed(6)),
     ]);
+    if (spec.downstreamContinuation) {
+      const extended = appendReviewedContinuation(coords, spec.downstreamContinuation.coordinates);
+      coords = extended.coordinates;
+      slicedMiles += extended.addedMiles;
+      simplified.geometry.coordinates = coords;
+      log(`    continuation   ${spec.downstreamContinuation.source}`);
+    }
 
     log('');
     log(`  ${spec.slug}`);
@@ -348,6 +343,7 @@ async function main() {
       `-- ${spec.from.label} → ${spec.to.label}, ${lengthMiles} mi, ${coords.length} vertices`,
       `--   from: ${spec.from.source}`,
       `--   to:   ${spec.to.source}`,
+      ...(spec.downstreamContinuation ? [`--   continuation: ${spec.downstreamContinuation.source}`] : []),
       `--`,
       `-- active = false. No agency publishes a rating mapping release to`,
       `-- wade/float safety on this river, so river_gauges.level_* stay NULL,`,
