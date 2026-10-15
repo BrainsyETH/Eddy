@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { widgetGaugeSnapshot, widgetHistorySeries } from '../../shared/condition-widget';
+import { readFileSync } from 'node:fs';
+import { widgetGaugeSnapshot, widgetHistorySeries, WIDGET_ALERT_LIFETIME_MS } from '../../shared/condition-widget';
+import { conditionWidgetPreview } from '../../shared/condition-widget-preview';
 import { CONDITION_SYSTEM } from '../../shared/condition-system';
 import { STALE_READING_MS } from '../../shared/reading-staleness';
 import type { ChartReadingLike } from '../../shared/chart-model';
@@ -62,6 +64,52 @@ test('a shared physical gauge carries separate river verdicts', () => {
   const other = { ...ladder, riverSlug: 'courtois', levelLow: 300, levelOptimalMin: 500, levelOptimalMax: 800 };
   const result = widgetGaugeSnapshot({ ...gauge, thresholds: [ladder, other] }, NOW);
   assert.deepEqual(result.conditions.map(({ riverSlug, code }) => [riverSlug, code]), [['huzzah', 'flowing'], ['courtois', 'low']]);
+});
+
+test('NWS warnings are independent of level grades, observation age and rating availability', () => {
+  const expires = new Date(NOW + 3_600_000).toISOString();
+  for (const changed of [{}, { readingSuspect: true }, { thresholds: null },
+    { readingTimestamp: new Date(NOW - STALE_READING_MS - 1).toISOString() }]) {
+    const result = widgetGaugeSnapshot({ ...gauge, ...changed, floodAlerts: [{ event: 'Flash Flood Warning', expires }] }, NOW);
+    assert.deepEqual(result.floodAlerts, {
+      validUntil: NOW + WIDGET_ALERT_LIFETIME_MS,
+      warnings: [{ label: 'Flash Flood Warning', expiresAt: NOW + 3_600_000,
+        ink: CONDITION_SYSTEM.dangerous.ink, chipBorder: CONDITION_SYSTEM.dangerous.chipBorder }],
+    });
+  }
+  // A warning does not rewrite the gauge's ladder verdict or reading date.
+  const result = widgetGaugeSnapshot({ ...gauge, floodAlerts: [{ event: 'Flood Warning', expires }] }, NOW);
+  assert.equal(result.conditions[0].code, 'flowing');
+  assert.equal(result.observedAt, NOW - 600_000);
+});
+
+test('widget alerts preserve unavailable vs clear, ignore expired alerts/watches, and bound undated warnings', () => {
+  assert.equal(widgetGaugeSnapshot(gauge, NOW).floodAlerts, null);
+  assert.equal(widgetGaugeSnapshot({ ...gauge, floodAlerts: null }, NOW).floodAlerts, null);
+  assert.deepEqual(widgetGaugeSnapshot({ ...gauge, floodAlerts: [] }, NOW).floodAlerts?.warnings, []);
+  const alerts = widgetGaugeSnapshot({ ...gauge, floodAlerts: [
+    { event: 'Flood Warning', expires: new Date(NOW).toISOString() },
+    { event: 'Flood Watch', expires: null }, { event: 'Flood Advisory', expires: null },
+    { event: 'Flash Flood Warning', expires: null },
+    { event: 'River Flood Warning', expires: 'invalid' },
+  ] }, NOW).floodAlerts!;
+  assert.deepEqual(alerts.warnings.map(item => [item.label, item.expiresAt]), [
+    ['Flash Flood Warning', null], ['River Flood Warning', null],
+  ]);
+  assert.equal(alerts.validUntil, NOW + WIDGET_ALERT_LIFETIME_MS);
+});
+
+test('packaged gallery examples match the canonical presentation and contain useful readings/history', () => {
+  const packaged = JSON.parse(readFileSync(new URL('../../../eddy-ios/modules/eddy-live-activity/widget/ConditionsPreview.json', import.meta.url), 'utf8'));
+  const expected = conditionWidgetPreview();
+  assert.deepEqual(packaged, expected, 'regenerate with node --import tsx scripts/generate-widget-preview.ts');
+  assert.equal(packaged.choices.length, 3);
+  for (const station of Object.values(expected.stations)) {
+    assert.equal(station.snapshot.conditions[0].label, 'Flowing');
+    assert.equal(station.snapshot.conditions[0].ink, CONDITION_SYSTEM.flowing.ink);
+    assert.ok(station.snapshot.dischargeCfs! > 0);
+    assert.ok(station.history!.cfs.points.length > 1);
+  }
 });
 
 test('sparklines keep the fixed 24h axis and canonical six-hour trend, never daily means', () => {

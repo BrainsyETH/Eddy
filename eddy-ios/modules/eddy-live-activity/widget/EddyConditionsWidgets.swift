@@ -15,7 +15,10 @@ struct RiverGaugeQuery: EntityStringQuery {
   func entities(for identifiers: [String]) async throws -> [RiverGaugeEntity] {
     let catalog = ConditionsWidgetStore.configuration().catalog
     return identifiers.compactMap { id in
-      if let choice = catalog.first(where: { $0.id == id }) { return RiverGaugeEntity(choice: choice) }
+      if let choice = catalog.first(where: { $0.id == id }) ?? ConditionsWidgetStore.rememberedChoice(id) {
+        ConditionsWidgetStore.remember(choice)
+        return RiverGaugeEntity(choice: choice)
+      }
       // A national gauge can be unstarred after a small widget selected it.
       // Resolve its stable ID instead of silently switching to another river.
       let parts = id.split(separator: "|", maxSplits: 1, omittingEmptySubsequences: false)
@@ -51,6 +54,16 @@ struct ConditionsEntry: TimelineEntry {
   var choices: [WidgetGaugeChoice]
   var stations: [String: WidgetStationData]
 
+  static func preview() -> Self {
+    let date = Date()
+    guard let url = Bundle.main.url(forResource: "ConditionsPreview", withExtension: "json"),
+      let data = try? Data(contentsOf: url),
+      let example = try? JSONDecoder().decode(ConditionsWidgetPreview.self, from: data) else {
+      return Self(date: date, choices: [], stations: [:])
+    }
+    let preview = example.rebased(to: date)
+    return Self(date: date, choices: preview.choices, stations: preview.stations)
+  }
   static func cached(_ choices: [WidgetGaugeChoice]) -> Self {
     var stations: [String: WidgetStationData] = [:]
     for choice in choices { stations[choice.siteId] = ConditionsWidgetStore.cached(choice.siteId) }
@@ -69,7 +82,9 @@ struct ConditionsEntry: TimelineEntry {
   var timeline: Timeline<Self> {
     let now = date.timeIntervalSince1970 * 1000
     let expirations = stations.values.flatMap { data in
-      [data.snapshot?.validUntil, data.history?.cfs.trendValidUntil, data.history?.ft.trendValidUntil].compactMap { $0 }
+      [data.snapshot?.validUntil, data.history?.cfs.trendValidUntil, data.history?.ft.trendValidUntil,
+        data.snapshot?.floodAlerts?.validUntil].compactMap { $0 }
+        + (data.snapshot?.floodAlerts?.warnings.compactMap(\.expiresAt) ?? [])
     }
     // Local transitions remove stale colors/trends even if the next network
     // refresh fails. Fifteen minutes is a request; iOS controls the budget.
@@ -82,21 +97,24 @@ struct ConditionsEntry: TimelineEntry {
 
 struct RiverLevelProvider: AppIntentTimelineProvider {
   private func choices(_ intent: RiverGaugeIntent) -> [WidgetGaugeChoice] {
-    if let selected = intent.gauge?.choice { return [selected] }
+    if let selected = intent.gauge?.choice {
+      ConditionsWidgetStore.remember(selected)
+      return [selected]
+    }
     return Array(ConditionsWidgetStore.configuration().favorites.prefix(1))
   }
-  func placeholder(in context: Context) -> ConditionsEntry { .cached([]) }
+  func placeholder(in context: Context) -> ConditionsEntry { .preview() }
   func snapshot(for configuration: RiverGaugeIntent, in context: Context) async -> ConditionsEntry {
-    .cached(choices(configuration))
+    context.isPreview ? .preview() : .cached(choices(configuration))
   }
   func timeline(for configuration: RiverGaugeIntent, in context: Context) async -> Timeline<ConditionsEntry> {
     await ConditionsEntry.load(choices(configuration)).timeline
   }
 }
 struct FavoritesProvider: TimelineProvider {
-  func placeholder(in context: Context) -> ConditionsEntry { .cached([]) }
+  func placeholder(in context: Context) -> ConditionsEntry { .preview() }
   func getSnapshot(in context: Context, completion: @escaping (ConditionsEntry) -> Void) {
-    completion(.cached(Array(ConditionsWidgetStore.configuration().favorites.prefix(3))))
+    completion(context.isPreview ? .preview() : .cached(Array(ConditionsWidgetStore.configuration().favorites.prefix(3))))
   }
   func getTimeline(in context: Context, completion: @escaping (Timeline<ConditionsEntry>) -> Void) {
     Task {
@@ -114,6 +132,7 @@ struct EddyRiverLevelWidget: Widget {
   var body: some WidgetConfiguration {
     AppIntentConfiguration(kind: ConditionsWidgetStore.riverKind, intent: RiverGaugeIntent.self, provider: RiverLevelProvider()) { entry in
       RiverLevelCard(entry: entry)
+        .dynamicTypeSize(...DynamicTypeSize.xxLarge)
         .containerBackground(for: .widget) { WidgetCanvas() }
     }
     .configurationDisplayName("River level")
@@ -125,6 +144,7 @@ struct EddyFavoritesWidget: Widget {
   var body: some WidgetConfiguration {
     StaticConfiguration(kind: ConditionsWidgetStore.favoritesKind, provider: FavoritesProvider()) { entry in
       FavoritesCard(entry: entry)
+        .dynamicTypeSize(...DynamicTypeSize.xxLarge)
         .containerBackground(for: .widget) { WidgetCanvas() }
     }
     .configurationDisplayName("Your rivers")
@@ -151,6 +171,11 @@ private struct GaugeDisplay {
   var current: Bool { snapshot?.isCurrent(at: date) == true }
   var condition: WidgetCondition? { snapshot?.conditions.first { $0.riverSlug == choice.riverSlug } }
   var rated: Bool { current && condition != nil && condition?.code != "unknown" }
+  var warning: WidgetFloodAlerts.Warning? { snapshot?.floodAlerts?.warning(at: date) }
+  var confirmedWarning: WidgetFloodAlerts.Warning? {
+    snapshot?.floodAlerts?.isCurrent(at: date) == true ? warning : nil
+  }
+  var hasAlert: Bool { warning != nil }
   // The large number uses the ladder's unit; missing stage must not look like
   // discharge graded against a feet threshold. Unrated stations prefer cfs.
   var unit: String { condition?.unit ?? (snapshot?.dischargeCfs != nil ? "cfs" : "ft") }
@@ -162,6 +187,8 @@ private struct GaugeDisplay {
     return value.map { "\(format($0, unit: otherUnit)) \(otherUnit)" }
   }
   var status: String {
+    if let confirmedWarning { return confirmedWarning.label }
+    if hasAlert { return "Check flood alerts" }
     guard let snapshot else { return "No reading" }
     if snapshot.suspect { return "Flagged reading" }
     if snapshot.validUntil == nil { return "Check in Eddy" }
@@ -184,6 +211,10 @@ private struct GaugeDisplay {
     guard rated, let condition else { return .secondary }
     return Color(hex: dark ? condition.chipBorder : condition.ink)
   }
+  func statusColor(dark: Bool) -> Color {
+    if let confirmedWarning { return Color(hex: dark ? confirmedWarning.chipBorder : confirmedWarning.ink) }
+    return hasAlert ? .secondary : color(dark: dark)
+  }
   private func format(_ value: Double, unit: String) -> String {
     value.formatted(.number.precision(.fractionLength(unit == "ft" ? 1 : 0)))
   }
@@ -192,41 +223,47 @@ private struct GaugeDisplay {
 private struct RiverLevelCard: View {
   let entry: ConditionsEntry
   @Environment(\.colorScheme) private var scheme
+  @Environment(\.dynamicTypeSize) private var typeSize
   var body: some View {
     if let choice = entry.choices.first {
       let display = GaugeDisplay(choice: choice, data: entry.stations[choice.siteId], date: entry.date)
-      VStack(alignment: .leading, spacing: 3) {
-        HStack(alignment: .top, spacing: 2) {
-          VStack(alignment: .leading, spacing: 1) {
-            Text(choice.riverName).font(.system(size: 13, weight: .semibold, design: .rounded)).lineLimit(1).minimumScaleFactor(0.8)
-            Text(choice.stationName).font(.system(size: 10)).foregroundStyle(.secondary).lineLimit(1)
+      GeometryReader { geometry in
+        let compact = typeSize > .large || geometry.size.height < 132 || display.hasAlert
+        VStack(alignment: .leading, spacing: 3) {
+          HStack(alignment: .top, spacing: 2) {
+            VStack(alignment: .leading, spacing: 1) {
+              Text(choice.riverName).font(.system(.footnote, design: .rounded).weight(.semibold)).lineLimit(1)
+              Text(choice.stationName).font(.caption2).foregroundStyle(.secondary).lineLimit(1)
+            }
+            Spacer(minLength: 0)
+            if !compact { GaugeOtter().frame(width: 28, height: 28) }
+          }
+          HStack(alignment: .firstTextBaseline, spacing: 4) {
+            Text(display.reading).font(.system(compact ? .title2 : .title, design: .rounded).weight(.semibold))
+              .monospacedDigit().minimumScaleFactor(0.8)
+              .foregroundStyle(display.current ? Color.primary : Color.secondary)
+            Text(display.unit).font(.caption).foregroundStyle(.secondary)
+          }.lineLimit(1)
+          HStack(spacing: 3) {
+            StatusPill(display: display).layoutPriority(1)
+            if !compact, let secondary = display.secondary {
+              Spacer(minLength: 0)
+              Text(secondary).font(.caption2).monospacedDigit().foregroundStyle(.secondary).lineLimit(1)
+            }
           }
           Spacer(minLength: 0)
-          Image("GaugeOtter").resizable().scaledToFit().frame(width: 28, height: 28).accessibilityHidden(true)
-        }
-        HStack(alignment: .firstTextBaseline, spacing: 4) {
-          Text(display.reading).font(.system(size: 28, weight: .semibold, design: .rounded)).monospacedDigit().minimumScaleFactor(0.65)
-          Text(display.unit).font(.caption).foregroundStyle(.secondary)
-        }.lineLimit(1)
-        HStack(spacing: 4) {
-          StatusPill(display: display)
-          Spacer(minLength: 0)
-          if let secondary = display.secondary {
-            Text(secondary).font(.system(size: 10)).monospacedDigit().foregroundStyle(.secondary).lineLimit(1).minimumScaleFactor(0.7)
+          if !compact, display.current, let series = display.series, series.points.count > 1 {
+            HStack(spacing: 4) {
+              WidgetSparkline(series: series).stroke(display.color(dark: scheme == .dark), style: StrokeStyle(lineWidth: 2, lineCap: .round, lineJoin: .round))
+                .frame(height: 15).accessibilityLabel("Observed gauge history, last 24 hours")
+              if let trend = display.trend {
+                Text(trend).font(.caption2).foregroundStyle(.secondary).lineLimit(1)
+              }
+            }
           }
+          ObservationTime(snapshot: display.snapshot)
         }
-        Spacer(minLength: 0)
-        if display.current, let series = display.series, series.points.count > 1 {
-          WidgetSparkline(series: series).stroke(display.color(dark: scheme == .dark), style: StrokeStyle(lineWidth: 2, lineCap: .round, lineJoin: .round))
-            .frame(height: 15).accessibilityLabel("Observed gauge history, last 24 hours")
-        }
-        HStack(spacing: 3) {
-          if let trend = display.trend {
-            Text(trend).font(.system(size: 9)).foregroundStyle(.secondary).lineLimit(1).minimumScaleFactor(0.8)
-          }
-          Spacer(minLength: 0)
-          ObservationTime(snapshot: display.snapshot, compact: true)
-        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
       }
       .widgetURL(choice.url)
       .accessibilityElement(children: .combine)
@@ -239,69 +276,119 @@ private struct RiverLevelCard: View {
 
 private struct FavoritesCard: View {
   let entry: ConditionsEntry
-  @Environment(\.colorScheme) private var scheme
+  @Environment(\.dynamicTypeSize) private var typeSize
   var body: some View {
-    VStack(alignment: .leading, spacing: 6) {
-      HStack {
-        Text("Your rivers").font(.system(.subheadline, design: .rounded).weight(.semibold))
-        Spacer()
-        Text("EDDY").font(.system(size: 9, weight: .bold, design: .rounded)).tracking(1.5).foregroundStyle(.secondary)
-        Image("GaugeOtter").resizable().scaledToFit().frame(width: 23, height: 23).accessibilityHidden(true)
-      }
-      if entry.choices.isEmpty {
-        WidgetEmptyState(title: "Keep your rivers close", detail: "Star rivers or gauges in Eddy to see their readings here.")
-      } else {
-        ForEach(entry.choices) { choice in
-          let display = GaugeDisplay(choice: choice, data: entry.stations[choice.siteId], date: entry.date)
-          Link(destination: choice.url) {
-            HStack(spacing: 8) {
-              VStack(alignment: .leading, spacing: 1) {
-                Text(choice.riverName).font(.system(size: 12, weight: .semibold, design: .rounded)).lineLimit(1)
-                Text(choice.stationName).font(.system(size: 9)).foregroundStyle(.secondary).lineLimit(1)
-              }.frame(maxWidth: .infinity, alignment: .leading)
-              if display.current, let series = display.series, series.points.count > 1 {
-                WidgetSparkline(series: series).stroke(display.color(dark: scheme == .dark), style: StrokeStyle(lineWidth: 1.5, lineCap: .round, lineJoin: .round))
-                  .frame(width: 42, height: 18).accessibilityHidden(true)
-              }
-              VStack(alignment: .trailing, spacing: 1) {
-                Text("\(display.reading) \(display.unit)").font(.system(size: 12, weight: .semibold, design: .rounded)).monospacedDigit().lineLimit(1)
-                HStack(spacing: 3) {
-                  Text(display.status).font(.system(size: 9)).foregroundStyle(display.color(dark: scheme == .dark)).lineLimit(1)
-                  ObservationTime(snapshot: display.snapshot, compact: true)
-                }
-              }
-            }
-            .accessibilityElement(children: .combine)
-          }.buttonStyle(.plain)
+    GeometryReader { geometry in
+      // Fixed-size widgets cannot grow vertically. At larger text sizes show
+      // fewer, roomier rows and an explicit link to the remaining favorites.
+      let expanded = typeSize > .large
+      let limit = typeSize >= .xxLarge ? 1 : (expanded ? (geometry.size.height >= 138 ? 2 : 1) : 3)
+      let visible = Array(entry.choices.prefix(limit))
+      VStack(alignment: .leading, spacing: expanded ? 4 : 5) {
+        HStack {
+          Text("Your rivers").font(.system(.subheadline, design: .rounded).weight(.semibold))
+          Spacer()
+          Text("EDDY").font(.system(.caption2, design: .rounded).weight(.bold)).tracking(1.5).foregroundStyle(.secondary)
+          GaugeOtter().frame(width: 23, height: 23)
         }
-        Spacer(minLength: 0)
+        if entry.choices.isEmpty {
+          WidgetEmptyState(title: "Keep your rivers close", detail: "Star rivers or gauges in Eddy to see their readings here.")
+        } else {
+          ForEach(visible) { choice in
+            let display = GaugeDisplay(choice: choice, data: entry.stations[choice.siteId], date: entry.date)
+            Link(destination: choice.url) {
+              FavoriteRow(display: display, expanded: expanded)
+            }.buttonStyle(.plain)
+          }
+          Spacer(minLength: 0)
+          if entry.choices.count > visible.count {
+            Link("\(entry.choices.count - visible.count) more in Eddy", destination: URL(string: "eddy://favorites")!)
+              .font(.caption2).foregroundStyle(.secondary)
+          }
+        }
       }
+      .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
     }
     .widgetURL(URL(string: "eddy://favorites"))
   }
 }
 
+private struct FavoriteRow: View {
+  let display: GaugeDisplay
+  let expanded: Bool
+  @Environment(\.colorScheme) private var scheme
+  var body: some View {
+    VStack(alignment: .leading, spacing: 1) {
+      HStack(spacing: 6) {
+        Text(display.choice.riverName).font(.system(.caption, design: .rounded).weight(.semibold)).lineLimit(1)
+        Spacer(minLength: 0)
+        if !expanded, display.current, let series = display.series, series.points.count > 1 {
+          WidgetSparkline(series: series).stroke(display.color(dark: scheme == .dark), style: StrokeStyle(lineWidth: 1.5, lineCap: .round, lineJoin: .round))
+            .frame(width: 32, height: 12).accessibilityHidden(true)
+        }
+        Text("\(display.reading) \(display.unit)").font(.system(.caption, design: .rounded).weight(.semibold))
+          .monospacedDigit().lineLimit(1).fixedSize(horizontal: true, vertical: false)
+          .foregroundStyle(display.current ? Color.primary : Color.secondary)
+      }
+      if expanded {
+        Text(display.choice.stationName).font(.caption2).foregroundStyle(.secondary).lineLimit(1)
+      }
+      HStack(spacing: 4) {
+        if !expanded {
+          Text(display.choice.stationName).foregroundStyle(.secondary).lineLimit(1)
+        }
+        Spacer(minLength: 0)
+        StatusText(display: display).foregroundStyle(display.statusColor(dark: scheme == .dark))
+          .fixedSize(horizontal: true, vertical: false).layoutPriority(1)
+        ObservationTime(snapshot: display.snapshot).layoutPriority(2)
+      }.font(.caption2)
+    }.accessibilityElement(children: .combine)
+  }
+}
+private struct GaugeOtter: View {
+  var body: some View {
+    Image("GaugeOtter").resizable().widgetAccentedRenderingMode(.desaturated)
+      .scaledToFit().accessibilityHidden(true)
+  }
+}
+private struct StatusText: View {
+  let display: GaugeDisplay
+  var body: some View {
+    HStack(spacing: 3) {
+      if display.hasAlert { Image(systemName: "exclamationmark.triangle.fill").accessibilityHidden(true) }
+      Text(display.status)
+    }
+  }
+}
 private struct StatusPill: View {
   let display: GaugeDisplay
   @Environment(\.colorScheme) private var scheme
   var body: some View {
-    Text(display.status).font(.system(size: 10, weight: .semibold)).lineLimit(1).minimumScaleFactor(0.8)
-      .foregroundStyle(display.color(dark: scheme == .dark))
-      .padding(.horizontal, 6).padding(.vertical, 3)
-      .background(display.color(dark: scheme == .dark).opacity(0.12), in: Capsule())
+    StatusText(display: display).font(.caption2.weight(.semibold)).lineLimit(2)
+      .fixedSize(horizontal: false, vertical: true)
+      .foregroundStyle(display.statusColor(dark: scheme == .dark))
+      .padding(.horizontal, 6).padding(.vertical, 2)
+      .background(display.statusColor(dark: scheme == .dark).opacity(0.12), in: RoundedRectangle(cornerRadius: 8))
   }
 }
 private struct ObservationTime: View {
   let snapshot: WidgetGaugeSnapshot?
-  var compact = false
   var body: some View {
-    HStack(spacing: 2) {
+    Group {
       if let observed = snapshot?.observedDate {
-        if !compact { Image(systemName: "clock") }
-        Text(observed, style: .relative).monospacedDigit()
-        Text("ago")
-      } else { Text("Time unavailable") }
-    }.font(.system(size: compact ? 8 : 10)).foregroundStyle(.secondary).lineLimit(1).minimumScaleFactor(0.8)
+        ViewThatFits(in: .horizontal) {
+          HStack(spacing: 2) {
+            Text(observed, style: .relative).monospacedDigit()
+            Text("ago")
+          }.fixedSize(horizontal: true, vertical: false)
+          // Very old readings may have long relative strings. Keep a dated
+          // observation instead of shrinking or clipping the age beside status.
+          Text(observed, format: .dateTime.month(.abbreviated).day().year())
+            .fixedSize(horizontal: true, vertical: false)
+        }
+        .accessibilityLabel("Observed \(observed.formatted(date: .complete, time: .shortened))\(snapshot?.suspect == true ? ", flagged reading" : "")")
+      } else { Text("No time").accessibilityLabel("Observation time unavailable") }
+    }.font(.caption2).foregroundStyle(.secondary).lineLimit(1)
   }
 }
 private struct WidgetEmptyState: View {

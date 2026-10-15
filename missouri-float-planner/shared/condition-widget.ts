@@ -9,6 +9,7 @@ import { recentTrend, TREND_MAX_LATEST_AGE_HOURS } from './gauge-recent';
 import { hasSuspectQualifier } from './reading-trust';
 import { samplePreservingExtrema, splitAtGaps, type ChartReadingLike } from './chart-model';
 import type { ReadingUnit } from './reading-unit';
+import { floodAlertsToShow, isFloodWarning, type FloodAlertLike } from './flood-alert-copy';
 
 interface WidgetGaugeInput {
   siteId: string;
@@ -17,8 +18,25 @@ interface WidgetGaugeInput {
   readingTimestamp: string | null;
   readingSuspect: boolean;
   thresholds: (ConditionThresholds & { riverSlug: string | null })[] | null;
+  floodAlerts?: readonly FloodAlertLike[] | null;
 }
 const finite = (value: number | null) => value !== null && Number.isFinite(value) ? value : null;
+// Presentation lifetime, not an assertion that NWS was fetched at `now`:
+// the existing point lookup can itself be cached for five minutes.
+export const WIDGET_ALERT_LIFETIME_MS = 15 * 60_000;
+
+function widgetFloodAlerts(alerts: WidgetGaugeInput['floodAlerts'], now: number) {
+  if (alerts == null) return null; // unavailable is different from a successful empty lookup
+  const { ink, chipBorder } = CONDITION_SYSTEM.dangerous;
+  return {
+    validUntil: now + WIDGET_ALERT_LIFETIME_MS,
+    warnings: floodAlertsToShow(alerts.filter(isFloodWarning), now, alerts.length).map(alert => ({
+      label: alert.event,
+      expiresAt: alert.expires && Number.isFinite(Date.parse(alert.expires)) ? Date.parse(alert.expires) : null,
+      ink, chipBorder,
+    })),
+  };
+}
 
 export function widgetGaugeSnapshot(gauge: WidgetGaugeInput, now = Date.now()) {
   const age = observationAgeHours(gauge.readingTimestamp, now);
@@ -34,6 +52,7 @@ export function widgetGaugeSnapshot(gauge: WidgetGaugeInput, now = Date.now()) {
     heightFt,
     dischargeCfs,
     suspect: gauge.readingSuspect,
+    floodAlerts: widgetFloodAlerts(gauge.floodAlerts, now),
     conditions: (gauge.thresholds ?? []).map(threshold => {
       const code = trusted ? classifyReading(heightFt, threshold, dischargeCfs, { strictUnit: true }) : 'unknown';
       const { label, solid, ink, chipBorder } = CONDITION_SYSTEM[code];

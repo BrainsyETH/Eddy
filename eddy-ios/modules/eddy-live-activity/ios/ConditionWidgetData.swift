@@ -33,6 +33,22 @@ struct WidgetCondition: Codable {
   var chipBorder: String
 }
 
+struct WidgetFloodAlerts: Codable {
+  struct Warning: Codable {
+    var label: String
+    var expiresAt: Double?
+    var ink: String
+    var chipBorder: String
+  }
+  var validUntil: Double
+  var warnings: [Warning]
+  func warning(at date: Date) -> Warning? {
+    let now = date.timeIntervalSince1970 * 1000
+    return warnings.first { $0.expiresAt == nil || $0.expiresAt! > now }
+  }
+  func isCurrent(at date: Date) -> Bool { validUntil > date.timeIntervalSince1970 * 1000 }
+}
+
 struct WidgetGaugeSnapshot: Codable {
   var version: Int
   var siteId: String
@@ -42,12 +58,20 @@ struct WidgetGaugeSnapshot: Codable {
   var dischargeCfs: Double?
   var suspect: Bool
   var conditions: [WidgetCondition]
+  var floodAlerts: WidgetFloodAlerts?
 
   var observedDate: Date? { observedAt.map { Date(timeIntervalSince1970: $0 / 1000) } }
   func isCurrent(at date: Date) -> Bool {
     guard let observedAt, let validUntil else { return false }
     let now = date.timeIntervalSince1970 * 1000
     return version == 1 && !suspect && observedAt <= now + 300_000 && validUntil > now
+  }
+  func preservingUnavailableAlerts(from previous: Self?) -> Self {
+    var result = self
+    // A failed/older API lookup cannot erase a known warning or renew it.
+    // A successful empty lookup can clear it. Keep its original expiration.
+    if result.floodAlerts == nil { result.floodAlerts = previous?.floodAlerts }
+    return result
   }
 }
 
@@ -69,6 +93,57 @@ struct WidgetHistory: Codable {
 struct WidgetStationData: Codable {
   var snapshot: WidgetGaugeSnapshot?
   var history: WidgetHistory?
+}
+
+struct ConditionsWidgetPreview: Decodable {
+  var generatedAt: Double
+  var choices: [WidgetGaugeChoice]
+  var stations: [String: WidgetStationData]
+
+  func rebased(to date: Date) -> Self {
+    var preview = self
+    let offset = date.timeIntervalSince1970 * 1000 - generatedAt
+    func series(_ source: WidgetSeries) -> WidgetSeries {
+      var result = source
+      result.from += offset
+      result.to += offset
+      result.points = source.points.map { .init(t: $0.t + offset, v: $0.v, breakBefore: $0.breakBefore) }
+      result.observedAt = source.observedAt.map { $0 + offset }
+      result.trendValidUntil = source.trendValidUntil.map { $0 + offset }
+      return result
+    }
+    preview.generatedAt += offset
+    preview.stations = stations.mapValues { source in
+      var result = source
+      result.snapshot?.observedAt = source.snapshot?.observedAt.map { $0 + offset }
+      result.snapshot?.validUntil = source.snapshot?.validUntil.map { $0 + offset }
+      // Examples have no alerts; this data never enters the shared cache.
+      result.snapshot?.floodAlerts = nil
+      if let history = source.history { result.history = .init(cfs: series(history.cfs), ft: series(history.ft)) }
+      return result
+    }
+    return preview
+  }
+}
+
+// Separate from the favorites list: remembering a configured widget's public
+// names must never put an unstarred station back into Your rivers or the picker.
+struct WidgetChoiceMemory {
+  var defaults: UserDefaults
+  func remember(_ choice: WidgetGaugeChoice) {
+    if let data = try? JSONEncoder().encode(choice) {
+      defaults.set(data, forKey: "eddy.conditions.choice.v1.\(choice.id)")
+    }
+  }
+  func choice(_ id: String) -> WidgetGaugeChoice? {
+    guard let data = defaults.data(forKey: "eddy.conditions.choice.v1.\(id)"),
+      let choice = try? JSONDecoder().decode(WidgetGaugeChoice.self, from: data), choice.id == id else { return nil }
+    return choice
+  }
+  func preserveRemoved(from previous: ConditionsWidgetConfiguration, in replacement: ConditionsWidgetConfiguration) {
+    let ids = Set(replacement.catalog.map(\.id))
+    for choice in previous.catalog where !ids.contains(choice.id) { remember(choice) }
+  }
 }
 
 // Only public station metadata/readings and local favorites cross this group.
@@ -99,10 +174,22 @@ enum ConditionsWidgetStore {
     let data = Data(json.utf8)
     guard data.count < 500_000, let defaults else { return false }
     let value = try JSONDecoder().decode(ConditionsWidgetConfiguration.self, from: data)
+    let previous = configuration()
     guard value.version == 1, value.favorites.count <= 3, value.catalog.count <= 1000,
-      value != configuration() else { return false }
+      value != previous else { return false }
+    // Removing a star must remove the favorite, but a separately configured
+    // small widget still owns its station choice. Preserve public names before
+    // replacing the catalog, including a removal before its first timeline.
+    WidgetChoiceMemory(defaults: defaults).preserveRemoved(from: previous, in: value)
     defaults.set(try JSONEncoder().encode(value), forKey: configurationKey)
     return true
+  }
+  static func remember(_ choice: WidgetGaugeChoice) {
+    if let defaults { WidgetChoiceMemory(defaults: defaults).remember(choice) }
+  }
+  static func rememberedChoice(_ id: String) -> WidgetGaugeChoice? {
+    guard let defaults else { return nil }
+    return WidgetChoiceMemory(defaults: defaults).choice(id)
   }
   private static func cacheKey(_ siteId: String) -> String {
     "eddy.conditions.reading.v1.\(apiBase?.absoluteString ?? "").\(siteId)"
@@ -171,7 +258,7 @@ enum ConditionsWidgetLoader {
     do {
       let envelope = try await detail
       guard envelope.gauge.siteId == siteId else { return value }
-      value.snapshot = envelope.snapshot
+      value.snapshot = envelope.snapshot.preservingUnavailableAlerts(from: value.snapshot)
     } catch WidgetRequestError.removed {
       value = WidgetStationData(snapshot: nil, history: nil)
       ConditionsWidgetStore.save(value, siteId: siteId)

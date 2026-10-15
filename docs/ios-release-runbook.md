@@ -1119,7 +1119,9 @@ require a new binary; do not deliver the native changes as an OTA update.
 - [ ] Run `expo prebuild --platform ios --no-install` and
       `node scripts/check-float-activity.cjs` from `eddy-ios`, then compile/archive
       both targets in Xcode or EAS. Inspect the archive for all three widget
-      bundle members, both otter assets, and the extension privacy manifest.
+      bundle members, both otter assets, `ConditionsPreview.json`, and the
+      extension privacy manifest. Run the Mac Foundation contract checks in
+      [condition-widgets.md](condition-widgets.md#build-and-acceptance).
 - [ ] Register/provision `group.eddy.guide.app.widgets` for BOTH
       `eddy.guide.app` and `eddy.guide.app.FloatActivity`. Verify the installed
       build reads the same shared defaults from the app and extension. Inspect
@@ -1127,10 +1129,16 @@ require a new binary; do not deliver the native changes as an OTA update.
 - [ ] On a physical iPhone, add/edit River level, add Your rivers, and verify
       light, dark, tinted Home Screen, smallest supported screen, large text,
       and VoiceOver. Names, units, status and observation age must remain legible.
+      Check the larger-text row reduction/link, long ages, and warning labels;
+      optional details must yield before essential text shrinks or clips.
+      Confirm the gallery has sample readings/history before starring anything,
+      while an installed empty widget still shows the setup prompt.
 - [ ] Verify no-star/first-launch states; multiple independently configured
       small widgets; river/gauge stars, unstar while refreshing, account deletion,
       and offline relaunch. Favorites must reflect the app and never resurrect
       removed items. National gauges must remain unrated.
+      Unstar a national gauge selected in a small widget, including before its
+      first refresh; its saved station name must survive app/widget relaunch.
 - [ ] Verify each row/card deep link with Eddy cold, warm, and already on a
       different tab. For Huzzah/Courtois, verify the widget uses its selected
       river's ladder while opening the correct shared physical gauge.
@@ -1138,6 +1146,13 @@ require a new binary; do not deliver the native changes as an OTA update.
       future/invalid observation times, suspect readings, and six-hour expiry.
       Color expires without a network refresh; each row retains its own age.
       Trends expire at three hours, never bridge gaps, and exclude daily data.
+- [ ] Verify an active NWS flood warning overrides a Flowing label and still
+      appears for stale/flagged/unrated readings. Test expired/missing-expiry
+      warnings, a successful empty lookup, unavailable NWS, and offline refresh:
+      known warnings keep their original expiry; after their 15-minute display
+      lifetime the card says "Check flood alerts" until refreshed or expired.
+      Watches/advisories must not acquire warning weight. Verify these local
+      transitions with networking disabled and that tapping opens the gauge.
 - [ ] Confirm the existing Float Mode Live Activity still starts, updates,
       expires, deep-links and ends on Lock Screen and Dynamic Island.
 

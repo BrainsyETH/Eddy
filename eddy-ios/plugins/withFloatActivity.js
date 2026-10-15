@@ -17,6 +17,7 @@ function configureProject(project, root, config) {
     ['widget/EddyFloatActivity.swift', 'EddyFloatActivity.swift'],
     ['ios/ConditionWidgetData.swift', 'ConditionWidgetData.swift'],
     ['widget/EddyConditionsWidgets.swift', 'EddyConditionsWidgets.swift'],
+    ['widget/ConditionsPreview.json', 'ConditionsPreview.json'],
   ]) fs.copyFileSync(path.join(source, from), path.join(destination, to));
   fs.writeFileSync(path.join(destination, `${TARGET}-Info.plist`), `<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -86,12 +87,14 @@ function configureProject(project, root, config) {
   // xcode's addSourceFile checks existing references, so repeated runs are safe.
   const groupId = project.findPBXGroupKey({ name: TARGET });
   for (const file of SOURCES) project.addSourceFile(file, { target: target.uuid }, groupId);
-  const privacyFile = project.addFile('PrivacyInfo.xcprivacy', groupId);
-  if (privacyFile) {
-    privacyFile.uuid = project.generateUuid();
-    privacyFile.target = target.uuid;
-    project.addToPbxBuildFileSection(privacyFile);
-    project.addToPbxResourcesBuildPhase(privacyFile);
+  for (const name of ['PrivacyInfo.xcprivacy', 'ConditionsPreview.json']) {
+    const resource = project.addFile(name, groupId);
+    if (resource) {
+      resource.uuid = project.generateUuid();
+      resource.target = target.uuid;
+      project.addToPbxBuildFileSection(resource);
+      project.addToPbxResourcesBuildPhase(resource);
+    }
   }
 
   const lists = project.pbxXCConfigurationList();
