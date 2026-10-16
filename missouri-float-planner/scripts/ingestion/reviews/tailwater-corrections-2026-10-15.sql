@@ -2,6 +2,12 @@
 -- DML only. Preview this exact transaction first. Replace final ROLLBACK with
 -- COMMIT only for the authorized apply. No activation or thresholds are changed.
 -- Evidence and outstanding acceptance gates: TAILWATER_REVIEW_2026-10-15.md.
+--
+-- APPLIED 2026-10-16 01:45:58 UTC (SQL editor, COMMIT). Post-write checks
+-- passed: Norfork 5.01 mi, valid/simple line; Norfork Access at mile 5.01,
+-- 66.44 m snap; float endpoints Norfork 2, White 22, Taneycomo 5; three
+-- river_characteristics rows. Rivers remain inactive. Re-running is safe: the
+-- guards accept the corrected copy and geometry, and the inserts skip.
 BEGIN;
 SET LOCAL lock_timeout = '5s';
 DO $review$

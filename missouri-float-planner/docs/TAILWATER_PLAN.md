@@ -24,7 +24,7 @@ Taneycomo follow after the pilot; they remain inactive pending their own reviews
 ## October 15 evidence review
 
 The [three-river review](../scripts/ingestion/reviews/TAILWATER_REVIEW_2026-10-15.md)
-records exact candidate endpoints, official access evidence, prepared corrections
+records exact candidate endpoints, official access evidence, data corrections (applied 2026-10-16)
 and outstanding launch gates. Sequence remains **Norfork, White, Taneycomo**.
 A river becoming active exposes its catalog endpoints; a proposed short corridor
 does not authorize all access pairs on a longer river. Limit publication scope or
