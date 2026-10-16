@@ -25,26 +25,6 @@ export function Shell({ children, footer }: { children: React.ReactNode; footer?
   );
 }
 
-/** Compact inset-group fields, with the selected value carrying the emphasis. */
-export function RouteField({ label, value, hint, leading, busy = false, disabled = false, onPress }: {
-  label: string; value: string; hint?: string; leading: React.ReactNode;
-  busy?: boolean; disabled?: boolean; onPress: () => void;
-}) {
-  const { colors } = useTheme();
-  return <Pressable onPress={onPress} disabled={disabled} accessibilityRole="button"
-    accessibilityLabel={`${label}, ${value}${hint ? `, ${hint}` : ''}`}
-    accessibilityState={{ disabled, busy }}
-    style={({ pressed }) => [styles.field, { opacity: pressed || disabled ? 0.6 : 1 }]}>
-    <View style={styles.fieldIcon}>{busy ? <ActivityIndicator color={colors.interactive} /> : leading}</View>
-    <View style={styles.rowText}>
-      <Text style={[styles.body, { color: colors.textMuted }]}>{label}</Text>
-      <Text style={[styles.rowTitle, { color: colors.text }]}>{value}</Text>
-      {hint ? <Text accessibilityLiveRegion="polite" style={[styles.body, { color: colors.textMuted }]}>{hint}</Text> : null}
-    </View>
-    <ControlIcon name="chevron-forward" size={15} color={colors.textSubtle} />
-  </Pressable>;
-}
-
 export function Card({ children, padded = true }: { children: React.ReactNode; padded?: boolean }) {
   const { colors, elevation } = useTheme();
   return (
@@ -169,8 +149,6 @@ export const styles = StyleSheet.create({
   screen: { flex: 1 },
   content: { padding: 16, gap: 16, paddingBottom: 24 },
   footer: { paddingHorizontal: 16, paddingTop: 12, paddingBottom: 8, gap: 8, borderTopWidth: StyleSheet.hairlineWidth },
-  field: { minHeight: 64, flexDirection: 'row', alignItems: 'center', padding: 14, gap: 12 },
-  fieldIcon: { width: 40, minHeight: 40, alignItems: 'center', justifyContent: 'center' },
   title: { ...textStyles.pageTitle },
   cardTitle: { ...t['2xl'], fontFamily: fonts.heading },
   body: { ...t.sm },
@@ -185,7 +163,6 @@ export const styles = StyleSheet.create({
   summaryLine: { flexDirection: 'row', gap: 12, flexWrap: 'wrap' },
   summaryLabel: { ...t.base, minWidth: 44 },
   summaryValue: { ...t.base, fontFamily: fonts.semibold, flex: 1, minWidth: 120 },
-  distance: { ...t.lg, fontFamily: fonts.semibold, marginTop: 4 },
   row: {
     minHeight: 56,
     flexDirection: 'row',

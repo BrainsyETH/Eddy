@@ -19,6 +19,11 @@ export function chooseStartRiver(picker: StartPicker, riverSlug: string): StartP
   return { ...picker, draft, page: picker.field === 'river' ? 'rivers' : 'access' };
 }
 
+/** A finished River or Put-in choice that still lacks a take-out continues to it in the same sheet. */
+export function continueToTakeOut(picker: StartPicker, draft: FloatSetup): StartPicker | null {
+  return picker.field !== 'to' && draft.riverSlug && !draft.takeOutId ? { field: 'to', draft, page: 'access' } : null;
+}
+
 export function chooseStartAccess(picker: StartPicker, id: string | undefined, startMile: number | null,
   takeOutMile: number | null): FloatSetup {
   if (picker.field === 'to') return { ...picker.draft, takeOutId: id };
