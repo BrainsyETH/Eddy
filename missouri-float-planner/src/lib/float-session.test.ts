@@ -1,4 +1,4 @@
-import { openStartPicker, chooseStartRiver, chooseStartAccess, continueToTakeOut } from '../../../eddy-ios/src/lib/floatStartSelection';
+import { openStartPicker, chooseStartRiver, chooseStartAccess, continueToTakeOut, gpsRiver, gpsRiverCandidates, nextTakeOuts } from '../../../eddy-ios/src/lib/floatStartSelection';
 import { recapFloat } from '../../../eddy-ios/src/lib/floatRecap';
 import { matchesSetupDownload, restoreSetupDownload } from '../../../eddy-ios/src/lib/floatSetupDownload';
 import { TRIP_PACKAGE_VERSION, type TripPackage } from '../../../eddy-ios/src/lib/tripDownload';
@@ -948,17 +948,34 @@ test('editing a known take-out goes directly to accesses and changing river clea
   assert.equal(chooseStartAccess(changed, 'alley', null, null).takeOutId, 'alley');
 });
 
-test('a river or put-in choice without a take-out continues to take-outs; a complete stretch closes the sheet', () => {
+test('a river choice without a take-out continues to take-outs; a put-in choice closes the sheet', () => {
   const river = openStartPicker('river', {});
   const chosen = chooseStartRiver(river, 'current').draft;
   assert.deepEqual(continueToTakeOut(river, chosen), { field: 'to', draft: chosen, page: 'access' });
   assert.equal(continueToTakeOut(river, { riverSlug: 'current', takeOutId: 'pulltite' }), null);
   const from = openStartPicker('from', { riverSlug: 'current', takeOutId: 'pulltite' });
-  assert.equal(continueToTakeOut(from, chooseStartAccess(from, 'akers', 10, 20)), null, 'A downstream take-out survives');
-  assert.equal(continueToTakeOut(from, chooseStartAccess(from, 'round-spring', 30, 20))?.field, 'to',
-    'A take-out cleared behind the new start is asked for again');
+  assert.equal(continueToTakeOut(from, chooseStartAccess(from, 'round-spring', 30, 20)), null,
+    'Ready lists the next take-outs inline after a put-in');
   const to = openStartPicker('to', { riverSlug: 'current' });
   assert.equal(continueToTakeOut(to, { riverSlug: 'current' }), null, 'The take-out sheet never reopens itself');
+});
+
+test('GPS river detection loads only nearby rivers and prefers the closest line at a confluence', () => {
+  assert.deepEqual(gpsRiverCandidates([
+    { slug: 'far', miles: 12 }, { slug: 'jacks-fork', miles: 1.2 }, { slug: 'current', miles: 0.4 },
+    { slug: 'eleven-point', miles: 2.9 }, { slug: 'black', miles: 2.95 },
+  ]), ['current', 'jacks-fork', 'eleven-point'], 'Nearest first, within reach, at most three');
+  assert.deepEqual(gpsRiverCandidates([{ slug: 'far', miles: 3.1 }]), []);
+  assert.equal(gpsRiver([{ slug: 'current', offsetMeters: 90 }, { slug: 'jacks-fork', offsetMeters: 20 }]), 'jacks-fork');
+  assert.equal(gpsRiver([]), null, 'Not on a mapped river: the river stays a choice');
+});
+
+test('next take-outs are the nearest downstream of a known start, with a count for See All', () => {
+  const choices = [{ id: 'e', mile: 40 }, { id: 'a', mile: 5 }, { id: 'b', mile: 12 }, { id: 'c', mile: 18 }, { id: 'd', mile: 25 }];
+  assert.deepEqual(nextTakeOuts(choices, 10), { next: [choices[2], choices[3], choices[4]], more: 1 });
+  assert.deepEqual(nextTakeOuts(choices, 12).next.map(point => point.id), ['c', 'd', 'e'], 'The put-in itself is not a take-out');
+  assert.deepEqual(nextTakeOuts(choices, 30), { next: [choices[0]], more: 0 });
+  assert.deepEqual(nextTakeOuts(choices, null), { next: [], more: 0 }, 'No start: nothing is "next"');
 });
 
 test('changing a starting point preserves a downstream take-out and clears one behind the new start', () => {

@@ -2,7 +2,9 @@
 // Ready to float's route selector: the river heads the card, and the put-in and
 // take-out read as one connected stretch with the leg between them. Until a
 // river is chosen the card is a single prompt, because neither endpoint can be
-// chosen without one.
+// chosen without one. With a known start and no take-out, the next take-outs
+// are listed inline with a See All row (iOS's inset-list pattern), so the
+// usual choice is one tap and never a sheet.
 
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 import { ControlIcon } from '@/components/ControlIcon';
@@ -18,9 +20,15 @@ export interface RouteStop {
   status?: { label: string; ready: boolean; busy: boolean };
 }
 
-export function RouteCard({ river, from, to, leg, disabled, onRiver, onFrom, onTo }: {
+export interface TakeOutSuggestion { id: string; name: string; detail: string; photo?: React.ReactNode }
+
+export function RouteCard({ river, riverNote, from, to, suggestions, leg, disabled, onRiver, onFrom, onTo }: {
   /** null before a river is chosen; 'loading' while the chosen river loads. */
   river: string | 'loading' | null;
+  /** Under the river name, or the prompt's subtitle while there is no river. */
+  riverNote?: { label: string; busy?: boolean };
+  /** Shown in place of the take-out row while none is chosen. */
+  suggestions?: { items: TakeOutSuggestion[]; more: number; onPick: (id: string) => void; onSeeAll: () => void };
   from: RouteStop;
   to: RouteStop;
   leg: string | null;
@@ -39,7 +47,10 @@ export function RouteCard({ river, from, to, leg, disabled, onRiver, onFrom, onT
       </View>
       <View style={local.grow}>
         <Text style={[local.promptTitle, { color: colors.text }]}>Where are you floating?</Text>
-        <Text style={[t.sm, { color: colors.textMuted }]}>Choose a river, then your put-in and take-out.</Text>
+        {riverNote ? <View style={local.badge}>
+          {riverNote.busy ? <ActivityIndicator size="small" color={colors.textMuted} style={local.spinner} /> : null}
+          <Text style={[t.sm, { color: colors.textMuted }]}>{riverNote.label}</Text>
+        </View> : <Text style={[t.sm, { color: colors.textMuted }]}>Choose a river, then your take-out.</Text>}
       </View>
     </Pressable>
   );
@@ -51,7 +62,10 @@ export function RouteCard({ river, from, to, leg, disabled, onRiver, onFrom, onT
         <ControlIcon name="water-outline" size={22} color={colors.interactive} />
         {river === 'loading'
           ? <Text style={[local.riverName, { color: colors.textMuted }]}>Loading river…</Text>
-          : <Text style={[local.riverName, { color: colors.text }]} numberOfLines={1}>{river}</Text>}
+          : <View style={local.grow}>
+            <Text style={[local.riverName, { color: colors.text }]} numberOfLines={1}>{river}</Text>
+            {riverNote ? <Text style={[t.sm, { color: colors.textMuted }]}>{riverNote.label}</Text> : null}
+          </View>}
         <Text style={[t.sm, local.change, { color: colors.interactive }]}>Change</Text>
       </Pressable>
       <View style={[local.divider, { backgroundColor: colors.border }]} />
@@ -61,10 +75,53 @@ export function RouteCard({ river, from, to, leg, disabled, onRiver, onFrom, onT
           <View style={local.rail}><View style={[local.line, { backgroundColor: colors.border }]} /></View>
           {leg ? <Text style={[t.sm, local.legText, { color: colors.textMuted }]}>{leg}</Text> : null}
         </View>
-        <Stop kind="end" label="Take-out" stop={to} disabled={disabled} onPress={onTo} />
+        {suggestions && !to.value && suggestions.items.length
+          ? <Suggestions {...suggestions} disabled={disabled} />
+          : <Stop kind="end" label="Take-out" stop={to} disabled={disabled} onPress={onTo} />}
       </View>
     </View>
   );
+}
+
+function Suggestions({ items, more, onPick, onSeeAll, disabled }: {
+  items: TakeOutSuggestion[]; more: number; onPick: (id: string) => void; onSeeAll: () => void; disabled: boolean;
+}) {
+  const { colors } = useTheme();
+  const divider = <View style={[local.divider, local.rowDivider, { backgroundColor: colors.border }]} />;
+  return <>
+    <View style={local.stop}>
+      <View style={local.rail}>
+        <View style={[local.line, { backgroundColor: colors.border }]} />
+        <ControlIcon name="location" size={20} color={colors.interactive} />
+        <View style={local.grow} />
+      </View>
+      <View style={[local.grow, local.stopText]}>
+        <Text style={[t.xs, local.stopLabel, { color: colors.textMuted }]}>TAKE-OUT</Text>
+        <Text accessibilityRole="header" style={[local.stopValue, { color: colors.text }]}>Where will you get out?</Text>
+      </View>
+    </View>
+    {items.map(item => <View key={item.id}>
+      {divider}
+      <Pressable onPress={() => onPick(item.id)} disabled={disabled} accessibilityRole="button"
+        accessibilityLabel={`Take out at ${item.name}, ${item.detail}`}
+        style={({ pressed }) => [local.choice, { opacity: pressed || disabled ? 0.6 : 1 }]}>
+        <View style={[local.grow, local.choiceText]}>
+          <Text style={[t.base, { color: colors.text }]} numberOfLines={2}>{item.name}</Text>
+          <Text style={[t.sm, { color: colors.textMuted }]}>{item.detail}</Text>
+        </View>
+        {item.photo}
+      </Pressable>
+    </View>)}
+    {more ? <>
+      {divider}
+      <Pressable onPress={onSeeAll} disabled={disabled} accessibilityRole="button"
+        accessibilityLabel={`See all ${items.length + more} take-outs`}
+        style={({ pressed }) => [local.choice, { opacity: pressed || disabled ? 0.6 : 1 }]}>
+        <Text style={[t.base, local.grow, { color: colors.interactive }]}>See All ({items.length + more})</Text>
+        <ControlIcon name="chevron-forward" size={15} color={colors.textSubtle} />
+      </Pressable>
+    </> : null}
+  </>;
 }
 
 function Stop({ kind, label, stop, disabled, onPress }: {
@@ -113,6 +170,10 @@ const local = StyleSheet.create({
   riverName: { ...t.xl, fontFamily: fonts.heading, flex: 1 },
   change: { fontFamily: fonts.semibold },
   divider: { height: StyleSheet.hairlineWidth, marginHorizontal: 16 },
+  // Choices hang under the take-out pin, inset to the text column.
+  rowDivider: { marginLeft: 34, marginRight: 0 },
+  choice: { flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 52, paddingLeft: 34, paddingVertical: 8 },
+  choiceText: { gap: 1 },
   stops: { paddingHorizontal: 16, paddingVertical: 4 },
   stop: { flexDirection: 'row', alignItems: 'stretch', gap: 12, minHeight: 60 },
   // Rows abut with no vertical padding in the rail, so the line runs unbroken
