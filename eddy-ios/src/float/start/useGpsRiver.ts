@@ -9,41 +9,45 @@ import { fetchRivers } from '@/api/client';
 import { suggestRivers } from '@/lib/floatSession';
 import { startRiverPosition, usableStartFix } from '@/lib/floatStart';
 import { gpsRiver, gpsRiverCandidates } from '@/lib/floatStartSelection';
+import { createGpsRiverLookup } from '@/lib/gpsRiverLookup';
 import { readBestIndex } from '@/lib/riverCache';
 import { loadFloatRoute } from '../loadFloatRoute';
 import type { StartLocation } from './useStart';
 
-/** One lookup per screen, from the first usable fix; onFound hears a river the fix sits on. */
+/** Retry on a new fix, or at most every 30 seconds while automatic detection has a fresh fix. */
 export function useGpsRiver(enabled: boolean, location: StartLocation, onFound: (slug: string) => void) {
   const fix = usableStartFix(location.fix, location.checkedAt) ? location.fix : null;
   const fixRef = useRef(fix);
   const foundRef = useRef(onFound);
   useEffect(() => { fixRef.current = fix; foundRef.current = onFound; });
-  const [result, setResult] = useState<{ slug: string | null } | null>(null);
-  const hasFix = fix != null;
+  const [settledKey, setSettledKey] = useState<string | null>(null);
+  const [lookup] = useState(() => createGpsRiverLookup(async (start, signal) => {
+    let rivers = (await readBestIndex())?.payload ?? [];
+    if (!rivers.length) rivers = await fetchRivers(signal).catch(() => []);
+    if (signal.aborted) return null;
+    const here = { lat: start.point[1], lng: start.point[0] };
+    const hits: { slug: string; offsetMeters: number }[] = [];
+    for (const slug of gpsRiverCandidates(suggestRivers(rivers, here, 10))) {
+      const loaded = await loadFloatRoute(slug, signal).catch(() => null);
+      if (signal.aborted) return null;
+      const hit = loaded?.ok ? startRiverPosition(loaded.index, start, Date.now()) : null;
+      if (hit) hits.push({ slug, offsetMeters: hit.offsetMeters });
+    }
+    return gpsRiver(hits);
+  }));
+  const key = fix ? `${fix.timestamp}:${fix.accuracy}:${fix.point.join(',')}:${Math.floor(location.checkedAt / 30_000)}` : null;
   useEffect(() => {
     const start = fixRef.current;
-    if (!enabled || !start || result) return;
-    const controller = new AbortController();
-    void (async () => {
-      let rivers = (await readBestIndex())?.payload ?? [];
-      if (!rivers.length) rivers = await fetchRivers(controller.signal).catch(() => []);
-      if (controller.signal.aborted) return;
-      const here = { lat: start.point[1], lng: start.point[0] };
-      const hits: { slug: string; offsetMeters: number }[] = [];
-      for (const slug of gpsRiverCandidates(suggestRivers(rivers, here, 10))) {
-        const loaded = await loadFloatRoute(slug, controller.signal).catch(() => null);
-        if (controller.signal.aborted) return;
-        const hit = loaded?.ok ? startRiverPosition(loaded.index, start, Date.now()) : null;
-        if (hit) hits.push({ slug, offsetMeters: hit.offsetMeters });
-      }
-      const slug = gpsRiver(hits);
-      setResult({ slug });
+    if (!enabled || !start || !key) return;
+    let current = true;
+    void lookup.run(start).catch(() => null).then(slug => {
+      if (!current) return;
+      setSettledKey(key);
       if (slug) foundRef.current(slug);
-    })();
-    return () => controller.abort();
-  }, [enabled, hasFix, result]);
+    });
+    return () => { current = false; lookup.cancel(); };
+  }, [enabled, key, lookup]);
   return {
-    searching: enabled && !result && (hasFix || location.state === 'checking' || location.busy),
+    searching: enabled && ((key != null && settledKey !== key) || location.state === 'checking' || location.busy),
   };
 }

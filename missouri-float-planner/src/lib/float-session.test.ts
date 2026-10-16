@@ -1,5 +1,6 @@
 import { floatDisplayPosition, fixAgeLabel, floatRouteBounds, floatOverviewBounds, recapBackupStatus, activityLabel } from '../../../eddy-ios/src/lib/floatDisplay';
-import { openStartPicker, chooseStartRiver, chooseStartAccess, continueToTakeOut, gpsRiver, gpsRiverCandidates, nextTakeOuts } from '../../../eddy-ios/src/lib/floatStartSelection';
+import { openStartPicker, chooseStartRiver, chooseStartAccess, continueToTakeOut, gpsRiver, gpsRiverCandidates, nextTakeOuts, startPlannerParams } from '../../../eddy-ios/src/lib/floatStartSelection';
+import { createGpsRiverLookup } from '../../../eddy-ios/src/lib/gpsRiverLookup';
 import { recapFloat } from '../../../eddy-ios/src/lib/floatRecap';
 import { matchesSetupDownload, restoreSetupDownload } from '../../../eddy-ios/src/lib/floatSetupDownload';
 import { TRIP_PACKAGE_VERSION, type TripPackage } from '../../../eddy-ios/src/lib/tripDownload';
@@ -1046,4 +1047,58 @@ test('recap backup reflects this row and actual sync state, independently of a s
   assert.equal(recapBackupStatus('account', { dirty: true }, false, null).label, 'Saved on this phone · Waiting to sync');
   assert.equal(recapBackupStatus('account', { dirty: true }, false, 'Offline').retry, true);
   assert.equal(recapBackupStatus('account', { dirty: false, backupError: 'Rejected' }, true, null).retry, true);
+});
+
+test('Ready hands named selections and vessel to planning, including an unfinished route', () => {
+  assert.deepEqual(startPlannerParams({ riverSlug: 'current', putInId: 'akers', takeOutId: 'pulltite' }, 'kayak'), {
+    focusRiver: 'current', planPutIn: 'akers', planTakeOut: 'pulltite', planBoatType: 'kayak',
+  });
+  assert.deepEqual(startPlannerParams({ riverSlug: 'current', takeOutId: 'pulltite' }, 'tube'), {
+    focusRiver: 'current', planPutIn: undefined, planTakeOut: 'pulltite', planBoatType: 'tube',
+  });
+});
+
+test('river detection retries a newer fix without overlapping or accepting a cancelled answer', async () => {
+  const fix = { point: at(0), accuracy: 80, timestamp: T0 };
+  const calls: number[] = [];
+  let finishFirst!: (value: string) => void;
+  let firstSignal!: AbortSignal;
+  const lookup = createGpsRiverLookup(async (reading, signal) => {
+    calls.push(reading.timestamp);
+    if (calls.length === 1) {
+      firstSignal = signal;
+      return new Promise<string>(resolve => { finishFirst = resolve; });
+    }
+    return 'current';
+  });
+  const first = lookup.run(fix);
+  await Promise.resolve();
+  const skipped = lookup.run({ ...fix, timestamp: T0 + 1 });
+  const latest = lookup.run({ ...fix, accuracy: 10, timestamp: T0 + 2 });
+  assert.equal(firstSignal.aborted, true);
+  assert.deepEqual(calls, [T0], 'The latest request waits for the old cache/native read to settle');
+  finishFirst('wrong-river');
+  assert.equal(await first, null);
+  assert.equal(await skipped, null);
+  assert.equal(await latest, 'current');
+  assert.deepEqual(calls, [T0, T0 + 2]);
+});
+
+test('manual river selection cancels late detection; a failed lookup does not prevent a retry', async () => {
+  const fix = { point: at(0), accuracy: 10, timestamp: T0 };
+  let finish!: (value: string) => void;
+  let attempt = 0;
+  const lookup = createGpsRiverLookup(async () => {
+    attempt++;
+    if (attempt === 1) throw new Error('offline');
+    if (attempt === 2) return new Promise<string>(resolve => { finish = resolve; });
+    return 'current';
+  });
+  await assert.rejects(lookup.run(fix), /offline/);
+  const pending = lookup.run(fix);
+  await Promise.resolve();
+  lookup.cancel();
+  finish('detected-after-selection');
+  assert.equal(await pending, null);
+  assert.equal(await lookup.run(fix), 'current', 'A cancelled picker can enable detection again');
 });

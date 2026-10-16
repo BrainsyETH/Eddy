@@ -9,6 +9,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { STYLE_URL, getOfflineManager } from '@/map/runtime';
 import { warn } from '@/lib/monitoring';
+import { redactText } from '@/lib/redact';
 import { readStylePackStatus } from '../../modules/eddy-style-pack';
 import {
   MAX_ZOOM,
@@ -113,22 +114,36 @@ export async function startTripDownload(chunks: readonly TripChunk[], onError: (
   const manager = getOfflineManager();
   if (!manager) throw new Error('Maps are unavailable in this build.');
   const existing = new Map((await packs()).map((pack) => [pack.name, pack]));
-  for (const chunk of chunks) {
+  for (const [index, chunk] of chunks.entries()) {
     const pack = existing.get(chunk.name);
-    if (pack) {
-      // A pack found after a relaunch has no listener in this process;
-      // attach one first, or its errors would go unheard.
-      await manager.subscribe(chunk.name, () => {}, (_pack: unknown, error: { message?: string }) =>
-        onError(error?.message ?? 'Download stopped.'),
+    const operation = pack ? 'resume' : 'create';
+    const failure = (error: unknown) => {
+      const message = error instanceof Error ? error.message
+        : error && typeof error === 'object' && 'message' in error ? String(error.message) : 'Download stopped.';
+      // Preserve the native wording and operation, but never route geometry or
+      // request credentials. Sentry adds the installed app's release/build.
+      warn('float', 'offline map download failed', {
+        operation, chunk: index + 1, chunks: chunks.length, detail: redactText(message),
+      });
+      return 'The map download stopped.';
+    };
+    const onNativeError = (_pack: unknown, error: unknown) => onError(failure(error));
+    try {
+      if (pack) {
+        // A pack found after a relaunch has no listener in this process;
+        // attach one first, or its errors would go unheard.
+        await manager.subscribe(chunk.name, () => {}, onNativeError);
+        await pack.resume();
+        continue;
+      }
+      await manager.createPack(
+        { name: chunk.name, styleURL: STYLE_URL, bounds: chunk.bounds, minZoom: MIN_ZOOM, maxZoom: MAX_ZOOM },
+        () => {},
+        onNativeError,
       );
-      await pack.resume();
-      continue;
+    } catch (error) {
+      throw new Error(failure(error));
     }
-    await manager.createPack(
-      { name: chunk.name, styleURL: STYLE_URL, bounds: chunk.bounds, minZoom: MIN_ZOOM, maxZoom: MAX_ZOOM },
-      () => {},
-      (_pack: unknown, error: { message?: string }) => onError(error?.message ?? 'Download stopped.'),
-    );
   }
 }
 

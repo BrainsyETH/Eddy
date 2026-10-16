@@ -145,7 +145,7 @@ test('the route package lives outside the cache that "clear saved river data" re
 test('a saved float row never claims more than its trip card', () => {
   assert.equal(offlineBadge({ kind: 'ready', bytes: 1 }, true), 'Ready offline');
   // Tiles complete but the style pack unconfirmed is saved, not ready.
-  assert.equal(offlineBadge({ kind: 'tiles-saved', bytes: 1 }, true), 'Map saved');
+  assert.equal(offlineBadge({ kind: 'tiles-saved', bytes: 1 }, true), 'Download incomplete');
   assert.equal(offlineBadge({ kind: 'partial', fraction: 0.4, bytes: 1 }, true), 'Map partly saved');
   assert.equal(offlineBadge({ kind: 'outdated', bytes: 1 }, true), 'Map needs update');
   // The route package alone: the float starts offline, with no map.

@@ -58,8 +58,8 @@ there is none.
    when required is above zero and completed reaches it. @rnmapbox/maps
    10.3.5 cannot answer this from JavaScript (see "Constraints" below), and
    the absence of an error is not evidence, so with no module (an older
-   binary, Expo Go), no pack or any error the trip shows "Trip and map tiles
-   saved", never Ready offline. Re-checked each time the trip opens, never
+   binary, Expo Go), no pack or any error the trip shows "Download
+   incomplete", never Ready offline. Re-checked each time the trip opens, never
    stored. An ambient-cache hit never counts. The code is `tripReadiness` and
    `stylePackComplete` in `eddy-ios/src/lib/tripDownload.ts`, with tests.
 
@@ -103,7 +103,20 @@ there is none.
 - **`createPack` throws if the name exists in this process.** Updates use new
   names (decision 5), which also avoids that.
 
-## Prove on a device before building the full download UI
+## Download controls and diagnostics
+
+Ready to float offers **Build a Route**, preserving named selections and vessel,
+or a compact ready status for a verified matching download. Download/resume/remove
+controls live in the planner result (after saving the route) and saved-route
+details. “Finishing download” or “Download incomplete” replaces the old tile-only
+“saved” claim; the readiness checks above remain strict. A synchronous guard blocks
+repeat start taps while saving the route package. Native failures record the
+create/resume operation, chunk number/count and redacted native wording through
+existing monitoring, which supplies release/build context. They never include
+route geometry or the route package. SDK resource-byte totals are not unique disk
+usage because regions can share tiles; they do not justify changing coverage.
+
+## Prove on a device before release
 
 1. One representative trip: download → the card reaches Ready offline (the
    style-pack module compiled and answered) → airplane mode → cold launch →
